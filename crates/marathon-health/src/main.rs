@@ -6,8 +6,13 @@
 //! fails after the timeout so `systemd-bless-boot` never marks the entry
 //! good. It then reboots if that can lead anywhere: into the same entry
 //! while it has tries left, or into the previous good one.
+//!
+//! On a Raspberry Pi A/B image (`--mode tryboot`) the same frame commits a
+//! trial boot in the firmware's `autoboot.txt`; `--mode boot` and `--mode
+//! arm` set up those trials (see `tryboot`).
 
 mod bootcount;
+mod tryboot;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -43,15 +48,25 @@ fn wait_for_shell(runtime_root: &Path, timeout: Duration, poll: Duration) -> boo
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    Bless,
+    Tryboot,
+    Boot,
+    Arm,
+}
+
 struct Args {
     timeout: Duration,
     runtime_root: PathBuf,
+    mode: Mode,
 }
 
 fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut parsed = Args {
         timeout: Duration::from_secs(300),
         runtime_root: PathBuf::from("/run/user"),
+        mode: Mode::Bless,
     };
     while let Some(arg) = args.next() {
         let value = args.next().ok_or_else(|| format!("{arg} needs a value"))?;
@@ -63,6 +78,15 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
                 parsed.timeout = Duration::from_secs(secs);
             }
             "--runtime-root" => parsed.runtime_root = PathBuf::from(value),
+            "--mode" => {
+                parsed.mode = match value.as_str() {
+                    "bless" => Mode::Bless,
+                    "tryboot" => Mode::Tryboot,
+                    "boot" => Mode::Boot,
+                    "arm" => Mode::Arm,
+                    _ => return Err(format!("unknown --mode {value}")),
+                }
+            }
             _ => return Err(format!("unknown argument {arg}")),
         }
     }
@@ -77,6 +101,55 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    match args.mode {
+        Mode::Bless => bless(&args),
+        Mode::Tryboot => commit_trial(&args),
+        Mode::Boot => {
+            tryboot::on_boot();
+            ExitCode::SUCCESS
+        }
+        Mode::Arm => {
+            tryboot::on_shutdown();
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+/// A Pi trial boot: commit it once the shell draws, else reboot, which the
+/// firmware sends to the committed slot.
+fn commit_trial(args: &Args) -> ExitCode {
+    if !tryboot::is_trial_boot() {
+        log("not a trial boot");
+        return ExitCode::SUCCESS;
+    }
+    if !wait_for_shell(&args.runtime_root, args.timeout, POLL) {
+        log(&format!(
+            "no shell frame within {}s; going back to the committed slot",
+            args.timeout.as_secs()
+        ));
+        tryboot::reboot();
+        return ExitCode::FAILURE;
+    }
+    match tryboot::commit() {
+        Ok(Some(a)) => {
+            log(&format!(
+                "shell presented its first frame; partition {} committed",
+                a.all
+            ));
+            ExitCode::SUCCESS
+        }
+        Ok(None) => {
+            log("shell presented its first frame; already committed");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            log(&format!("could not commit the trial boot: {e}"));
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn bless(args: &Args) -> ExitCode {
     if wait_for_shell(&args.runtime_root, args.timeout, POLL) {
         log("shell presented its first frame; boot is good");
         ExitCode::SUCCESS
@@ -176,6 +249,16 @@ mod tests {
         let defaults = args(&[]).unwrap();
         assert_eq!(defaults.timeout, Duration::from_secs(300));
         assert_eq!(defaults.runtime_root, PathBuf::from("/run/user"));
+        assert_eq!(defaults.mode, Mode::Bless);
+    }
+
+    #[test]
+    fn parses_modes() {
+        assert_eq!(args(&["--mode", "tryboot"]).unwrap().mode, Mode::Tryboot);
+        assert_eq!(args(&["--mode", "boot"]).unwrap().mode, Mode::Boot);
+        assert_eq!(args(&["--mode", "arm"]).unwrap().mode, Mode::Arm);
+        assert_eq!(args(&["--mode", "bless"]).unwrap().mode, Mode::Bless);
+        assert!(args(&["--mode", "later"]).is_err());
     }
 
     #[test]

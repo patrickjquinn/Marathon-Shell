@@ -336,6 +336,12 @@ package() {
 	mkdir -p "$pkgdir/usr/lib/systemd/system/boot-complete.target.requires"
 	ln -sf ../marathon-boot-health.service \
 		"$pkgdir/usr/lib/systemd/system/boot-complete.target.requires/marathon-boot-health.service"
+	# Raspberry Pi A/B images: the firmware's tryboot instead; both units
+	# are conditioned off everywhere else.
+	for _svc in marathon-tryboot marathon-tryboot-health; do
+		ln -sf "../$_svc.service" \
+			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$_svc.service"
+	done
 
 	# rtprio limit so app render threads can elevate to SCHED_RR without
 	# requiring per-binary setcap. Also factory-symlinked into /etc.

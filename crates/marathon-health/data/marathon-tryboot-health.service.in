@@ -1,0 +1,15 @@
+[Unit]
+Description=Commit a trial Marathon OS slot once Marathon Shell draws its first frame
+Documentation=https://www.raspberrypi.com/documentation/computers/config_txt.html#autoboot-txt
+ConditionPathExists=/proc/device-tree/chosen/bootloader/tryboot
+ConditionPathExists=/usr/lib/sysupdate.d/marathon-20-pi-boot.transfer
+After=marathon-tryboot.service
+
+[Service]
+# exec, not oneshot: a five-minute wait must not hold multi-user.target.
+Type=exec
+Environment=MARATHON_HEALTH_TIMEOUT_SECS=300
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-health --mode tryboot --timeout ${MARATHON_HEALTH_TIMEOUT_SECS}
+
+[Install]
+WantedBy=multi-user.target

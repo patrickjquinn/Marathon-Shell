@@ -96,10 +96,11 @@ add_custom_target(marathon_health_cargo ALL
     USES_TERMINAL
     VERBATIM)
 install(PROGRAMS "${MARATHON_HEALTH_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
-configure_file(marathon-health/data/marathon-boot-health.service.in
-    marathon-boot-health.service @ONLY)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-boot-health.service"
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
+foreach(_unit marathon-boot-health marathon-tryboot marathon-tryboot-health)
+    configure_file(marathon-health/data/${_unit}.service.in ${_unit}.service @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_unit}.service"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
+endforeach()
 
 # Declared background work (docs/BACKGROUND_WORK.md): one binary, run as the
 # user generator, as tasks' ExecCondition=, and before suspend as root.

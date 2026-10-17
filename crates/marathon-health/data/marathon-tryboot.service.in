@@ -1,0 +1,19 @@
+[Unit]
+Description=Try a newly installed Marathon OS slot through the Pi firmware's tryboot
+Documentation=https://www.raspberrypi.com/documentation/computers/config_txt.html#autoboot-txt
+# Raspberry Pi A/B images only: the Pi firmware's tryboot picks the slot.
+ConditionPathExists=/proc/device-tree/chosen/bootloader/tryboot
+ConditionPathExists=/usr/lib/sysupdate.d/marathon-20-pi-boot.transfer
+After=local-fs.target
+Before=greetd.service systemd-sysupdated.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# A version installed before a power-off or power loss is tried at boot;
+# one installed this boot is armed at shutdown for the reboot.
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-health --mode boot
+ExecStop=@CMAKE_INSTALL_FULL_BINDIR@/marathon-health --mode arm
+
+[Install]
+WantedBy=multi-user.target
