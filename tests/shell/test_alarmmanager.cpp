@@ -5,7 +5,9 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSoundEffect>
 #include "alarmmanagercpp.h"
+#include "mediarole.h"
 #include "settingsmanager.h"
 
 class TestAlarmManager : public QObject {
@@ -32,6 +34,24 @@ class TestAlarmManager : public QObject {
 
     void init() {
         m_settings->set("alarms/data", "[]");
+    }
+
+    // An alarm rings at the alarm volume on the alarm role, which the
+    // media volume does not scale.
+    void ringsAtTheAlarmVolumeOnItsRole() {
+        const bool roles = qEnvironmentVariableIsSet("MARATHON_MEDIA_ROLES");
+        if (roles)
+            QTRY_COMPARE_WITH_TIMEOUT(MediaRole::output("alarm").id(), MediaRole::sinkName("alarm"),
+                                      10000);
+        m_settings->setAlarmVolume(0.15);
+        m_settings->setAlarmSound("/nonexistent/alarm.ogg");
+        AlarmManagerCpp alarms(m_settings, nullptr, nullptr, nullptr);
+        alarms.triggerAlarmNow("Test");
+        QSoundEffect *sound = alarms.findChild<QSoundEffect *>();
+        QVERIFY(qFuzzyCompare(sound->volume(), 0.15f));
+        if (roles)
+            QCOMPARE(sound->audioDevice().id(), MediaRole::sinkName("alarm"));
+        alarms.stopAll();
     }
 
     void oneShotRingsOnceAtItsInstantAndIsHidden() {

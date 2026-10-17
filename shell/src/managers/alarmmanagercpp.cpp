@@ -3,6 +3,7 @@
 #include "powermanagercpp.h"
 #include "audiomanagercpp.h"
 #include "hapticmanager.h"
+#include "mediarole.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QCryptographicHash>
@@ -428,7 +429,8 @@ void AlarmManagerCpp::triggerAlarm(const Alarm &alarm) {
             soundPath = "file://" + soundPath;
 
         m_soundEffect->setSource(QUrl(soundPath));
-        m_soundEffect->setVolume(1.0);
+        m_soundEffect->setAudioDevice(MediaRole::output("alarm"));
+        m_soundEffect->setVolume(m_settings ? static_cast<float>(m_settings->alarmVolume()) : 1.0f);
         m_soundEffect->play();
     }
 
