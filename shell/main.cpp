@@ -1372,8 +1372,20 @@ int main(int argc, char *argv[]) {
     }
     for (QObject *root : engine.rootObjects()) {
         if (auto *win = qobject_cast<QQuickWindow *>(root)) {
-            QObject::connect(win, &QQuickWindow::frameSwapped, win,
-                             [] { startupMark("first frame"); }, Qt::SingleShotConnection);
+            QObject::connect(
+                win, &QQuickWindow::frameSwapped, win,
+                [] {
+                    startupMark("first frame");
+                    // marathon-boot-health.service waits for this to bless the boot.
+                    const QString runtimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR");
+                    if (!runtimeDir.isEmpty()) {
+                        QFile ready(runtimeDir + QStringLiteral("/marathon-shell-ready"));
+                        if (!ready.open(QIODevice::WriteOnly))
+                            qWarning() << "[MarathonShell] cannot mark first frame:"
+                                       << ready.errorString();
+                    }
+                },
+                Qt::SingleShotConnection);
             break;
         }
     }
