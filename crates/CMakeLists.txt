@@ -147,6 +147,9 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-audiod.service"
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.Audio.service"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+# WirePlumber's in-call routing reads the speakerphone setting audiod writes.
+install(DIRECTORY marathon-audiod/data/wireplumber/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/wireplumber)
 
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates

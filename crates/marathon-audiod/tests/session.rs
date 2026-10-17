@@ -116,6 +116,20 @@ impl Session {
             confd.join("90-marathon-test.conf"),
         )
         .unwrap();
+        // Marathon's shipped call policy, as installed.
+        let shipped = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/wireplumber");
+        fs::copy(
+            shipped.join("wireplumber.conf.d/60-marathon-call.conf"),
+            confd.join("60-marathon-call.conf"),
+        )
+        .unwrap();
+        let scripts = dir.join("data/wireplumber/scripts/marathon");
+        fs::create_dir_all(&scripts).unwrap();
+        fs::copy(
+            shipped.join("scripts/marathon/call-routing.lua"),
+            scripts.join("call-routing.lua"),
+        )
+        .unwrap();
 
         let mut bus_daemon = Command::new("dbus-daemon")
             .arg(format!("--config-file={}", data.join("bus.conf").display()))
@@ -142,6 +156,7 @@ impl Session {
             ("DBUS_SESSION_BUS_ADDRESS".into(), address.clone()),
             // WirePlumber's ModemManager watch finds no modem here.
             ("DBUS_SYSTEM_BUS_ADDRESS".into(), address.clone()),
+            ("WIREPLUMBER_DEBUG".into(), "3".into()),
         ];
         let bus = zbus::blocking::connection::Builder::address(address.as_str())
             .unwrap()
@@ -279,6 +294,11 @@ fn controls_a_private_pipewire_session() {
     eventually("Speakerphone to follow", || {
         property::<bool>(&audio, "Speakerphone")
     });
+    assert!(session
+        .output("wpctl", &["settings", "marathon.call.speakerphone"])
+        .is_some_and(|out| out.contains("Value: true")));
+    let wp_log = fs::read_to_string(session.dir.join("logs/wireplumber.log")).unwrap();
+    assert!(wp_log.contains("enabling plugin 'script:marathon/call-routing.lua'"));
 
     // Per-app volume.
     let wav = session.dir.join("silence.wav");
