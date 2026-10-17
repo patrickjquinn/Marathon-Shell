@@ -13,14 +13,13 @@ options="!check !archcheck"
 # stack (eg25-manager) and the stock boot.scr; the pipeline's U-Boot boot
 # path (pipeline patch 0022) lays out the disk. The kernel and U-Boot are
 # Marathon's forks of the pmaports ones (watchdog, lockup detection,
-# pstore; TF-A >= 2.14.3), as is pinephone-callaudiod (first call-mode
-# switch failed); all built by scripts/build-image.sh.
+# pstore; TF-A >= 2.14.3), built by scripts/build-image.sh. Call audio is
+# WirePlumber's: the "Voice Call" UCM verb during a ModemManager call.
 depends="
 	device-pine64-pinephone
 	device-pine64-pinephone-audio
 	linux-postmarketos-allwinner-marathon
 	u-boot-pinephone-marathon
-	pinephone-callaudiod-marathon
 	marathon-shell
 	marathon-base-config
 	marathon-plymouth-theme
@@ -60,6 +59,6 @@ package() {
 sha512sums="
 cb4ae7fb9259b803c1adb79e378397649ca2cd35c0b1e6c33d0f30fa20ae45a018e5209840eed57dfc6d3fb21a07a503b5a5776c358ee5347b80bf9a3e36677a  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
-14ac8d731728fe58d4e373033965e4a6555493d934eeb8850d59f15f96113310bb066becf9306f68de2a0e35757eb25a86b2619039cf8194ea171e8c073c79be  device-profile.conf
+f86220c61323460d4fc507fe2d1b3bef3f3bdc2a804c693bc5122e2e9fbcaa090151771d06e4aba21c3c4a0c7f7f046635d7609c4b13a7e7db64d88328eb077b  device-profile.conf
 e52c281fb3e043502fa0d6ced696dd78b95a74ccce1947d8d90d9bf6ad93d34f17113bb7dfabca8549b3b4504b10ec81cc0bb38b03fc3d4800ee8f9431839935  marathon-boot.cmd
 "

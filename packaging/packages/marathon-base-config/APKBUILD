@@ -39,17 +39,11 @@ depends="
 	font-noto
 	ttf-dejavu
         greetd
-	callaudiod
 	gpg
 "
 # gpg: systemd-pull runs it to check an OTA feed's SHA256SUMS.gpg against
 # /usr/lib/systemd/import-pubring.pgp; without it every update is refused.
-# callaudiod handles modem-to-codec voice routing on phones.
-# Marathon-Image/packages/callaudiod vendors mobian 0.1.10 because
-# Alpine doesn't ship it. Without this dep no voice audio reaches
-# the other end on Librem 5 (only HiFi UCM verb is shipped for the
-# wm8962 codec). callaudiod's baked-in L5 mixer route does what the
-# missing verb would do. Comments must live outside the depends="..."
+# Comments must live outside the depends="..."
 # string -- abuild splits the whole quoted block on whitespace and
 # turns `# callaudiod handles modem-to-codec` into separate fake
 # package names (`#`, `handles`, `modem-to-codec`), which then make
