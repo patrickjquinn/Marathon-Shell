@@ -3,7 +3,7 @@
 //! and carries out the writes the graph plans.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::rc::{Rc, Weak};
 
@@ -13,7 +13,7 @@ use pw::metadata::{Metadata as PwMetadata, MetadataListener};
 use pw::node::{Node as PwNode, NodeListener};
 use pw::spa;
 use pw::types::ObjectType;
-use spa::param::ParamType;
+use spa::param::{ParamInfoFlags, ParamType};
 use spa::pod::serialize::PodSerializer;
 use spa::pod::{deserialize::PodDeserializer, Object, Pod, Property, Value, ValueArray};
 use spa::sys as spa_sys;
@@ -38,14 +38,29 @@ fn wanted(media_class: &str) -> bool {
             .any(|d| d.media_classes().contains(&media_class))
 }
 
+/// A device's routes as an enumeration lists them, complete once the sync
+/// sent after it is done; `again` if they changed meanwhile.
+struct RouteEnum {
+    sync: AsyncSeq,
+    routes: BTreeMap<i32, (RouteId, Mix)>,
+    again: bool,
+}
+
 struct State {
     graph: Graph,
+    core: pw::core::CoreRc,
     nodes: HashMap<u32, (PwNode, NodeListener)>,
     devices: HashMap<u32, (Device, DeviceListener)>,
     metadata: HashMap<u32, (Metadata, PwMetadata, MetadataListener)>,
-    /// The sequence of the latest Route enumeration per device.
-    route_seq: HashMap<u32, i32>,
+    /// The Route param flags each device last announced; their serial bit
+    /// flips whenever its routes change.
+    route_flags: HashMap<u32, ParamInfoFlags>,
+    route_enums: HashMap<u32, RouteEnum>,
     pending: Vec<(AsyncSeq, async_channel::Sender<()>)>,
+    /// The second initial round trip; `known` once it is done.
+    settled: Option<AsyncSeq>,
+    known: bool,
+    ready: Option<Box<dyn FnOnce()>>,
     published: Option<Snapshot>,
     publish: Box<dyn Fn(Snapshot)>,
 }
@@ -158,13 +173,15 @@ pub fn run(
     let context = pw::context::ContextRc::new(&main_loop, None)?;
     let core = context.connect_rc(None)?;
     let registry = core.get_registry_rc()?;
-    let state = Rc::new(RefCell::new(State::new(Box::new(publish))));
+    let state = Rc::new(RefCell::new(State::new(
+        core.clone(),
+        Box::new(publish),
+        Box::new(ready),
+    )));
 
     // Two round trips: the first lists the globals, the second their info
-    // and params.
+    // and params; then the routes those announce.
     let initial = core.sync(0)?;
-    let ready = RefCell::new(Some(ready));
-    let settled = RefCell::new(None);
     let _core_listener = core
         .add_listener_local()
         .done({
@@ -178,12 +195,7 @@ pub fn run(
                     return;
                 }
                 if seq == initial {
-                    *settled.borrow_mut() = core.sync(0).ok();
-                } else if settled.borrow().as_ref() == Some(&seq) {
-                    state.borrow_mut().changed();
-                    if let Some(ready) = ready.borrow_mut().take() {
-                        ready();
-                    }
+                    state.borrow_mut().settled = core.sync(0).ok();
                 } else {
                     state.borrow_mut().finish(seq);
                 }
@@ -225,10 +237,9 @@ pub fn run(
 
     let _requests = requests.attach(main_loop.loop_(), {
         let state = Rc::downgrade(&state);
-        let core = core.downgrade();
         move |request: Request| {
-            if let (Some(state), Some(core)) = (state.upgrade(), core.upgrade()) {
-                state.borrow_mut().apply(&core, request);
+            if let Some(state) = state.upgrade() {
+                state.borrow_mut().apply(request);
             }
         }
     });
@@ -283,16 +294,36 @@ fn bind(
             let Ok(device) = registry.bind::<Device, _>(global) else {
                 return;
             };
+            // A client-exported device (all of WirePlumber's) sends
+            // subscribers no param changes: re-enumerate, as pipewire-pulse does.
             let listener = device
                 .add_listener_local()
-                .param(move |seq, kind, index, _next, pod| {
+                .info({
+                    let state = Weak::clone(&weak);
+                    move |info| {
+                        if !info
+                            .change_mask()
+                            .contains(pw::device::DeviceChangeMask::PARAMS)
+                        {
+                            return;
+                        }
+                        let flags = info
+                            .params()
+                            .iter()
+                            .find(|p| p.id() == ParamType::Route)
+                            .map(spa::param::ParamInfo::flags);
+                        if let (Some(state), Some(flags)) = (state.upgrade(), flags) {
+                            state.borrow_mut().routes_changed(id, flags);
+                        }
+                    }
+                })
+                .param(move |_seq, kind, _index, _next, pod| {
                     if let (Some(state), Some(pod), ParamType::Route) = (weak.upgrade(), pod, kind)
                     {
-                        state.borrow_mut().route(id, seq, index, pod);
+                        state.borrow_mut().route(id, pod);
                     }
                 })
                 .register();
-            device.subscribe_params(&[ParamType::Route]);
             state.borrow_mut().devices.insert(id, (device, listener));
         }
         ObjectType::Metadata => {
@@ -323,14 +354,23 @@ fn bind(
 }
 
 impl State {
-    fn new(publish: Box<dyn Fn(Snapshot)>) -> Self {
+    fn new(
+        core: pw::core::CoreRc,
+        publish: Box<dyn Fn(Snapshot)>,
+        ready: Box<dyn FnOnce()>,
+    ) -> Self {
         Self {
             graph: Graph::default(),
+            core,
             nodes: HashMap::new(),
             devices: HashMap::new(),
             metadata: HashMap::new(),
-            route_seq: HashMap::new(),
+            route_flags: HashMap::new(),
+            route_enums: HashMap::new(),
             pending: Vec::new(),
+            settled: None,
+            known: false,
+            ready: Some(ready),
             published: None,
             publish,
         }
@@ -344,12 +384,12 @@ impl State {
         }
     }
 
-    fn apply(&mut self, core: &pw::core::CoreRc, request: Request) {
+    fn apply(&mut self, request: Request) {
         let written = self
             .graph
             .plan(&request.op)
             .is_some_and(|w| self.execute(&w));
-        match core.sync(0) {
+        match self.core.sync(0) {
             Ok(seq) if written => self.pending.push((seq, request.done)),
             _ => {
                 request.done.try_send(()).ok();
@@ -364,20 +404,68 @@ impl State {
             }
             *s != seq
         });
-    }
-
-    /// Each enumeration lists every active route, from the first: a new one
-    /// replaces the last.
-    fn route(&mut self, device: u32, seq: i32, index: u32, pod: &Pod) {
-        let fresh = self.route_seq.insert(device, seq) != Some(seq) || index == 0;
-        let routes = &mut self.graph.devices.entry(device).or_default().routes;
-        if fresh {
-            routes.clear();
+        let complete: Vec<u32> = self
+            .route_enums
+            .iter()
+            .filter(|(_, e)| e.sync == seq)
+            .map(|(device, _)| *device)
+            .collect();
+        for device in complete {
+            if let Some(e) = self.route_enums.remove(&device) {
+                self.graph.devices.entry(device).or_default().routes = e.routes;
+                if e.again {
+                    self.enumerate_routes(device);
+                }
+            }
         }
-        if let Some((route, mix)) = route_of(pod) {
-            routes.insert(route.device, (route, mix));
+        if self.settled == Some(seq) {
+            self.known = true;
         }
         self.changed();
+        // The name is taken once the graph and its routes are known, so the
+        // first GetAll after activation sees the real levels.
+        if self.known && self.route_enums.is_empty() {
+            if let Some(ready) = self.ready.take() {
+                ready();
+            }
+        }
+    }
+
+    fn routes_changed(&mut self, device: u32, flags: ParamInfoFlags) {
+        if self.route_flags.insert(device, flags) == Some(flags)
+            || !flags.contains(ParamInfoFlags::READ)
+        {
+            return;
+        }
+        match self.route_enums.get_mut(&device) {
+            Some(e) => e.again = true,
+            None => self.enumerate_routes(device),
+        }
+    }
+
+    /// Replies carry the protocol's sequence, which pipewire-rs does not
+    /// return, so one enumeration runs at a time per device.
+    fn enumerate_routes(&mut self, device: u32) {
+        let Some((proxy, _)) = self.devices.get(&device) else {
+            return;
+        };
+        proxy.enum_params(0, Some(ParamType::Route), 0, u32::MAX);
+        if let Ok(sync) = self.core.sync(0) {
+            self.route_enums.insert(
+                device,
+                RouteEnum {
+                    sync,
+                    routes: BTreeMap::new(),
+                    again: false,
+                },
+            );
+        }
+    }
+
+    fn route(&mut self, device: u32, pod: &Pod) {
+        if let (Some(e), Some((route, mix))) = (self.route_enums.get_mut(&device), route_of(pod)) {
+            e.routes.insert(route.device, (route, mix));
+        }
     }
 
     fn metadata_property(&mut self, which: Metadata, key: Option<&str>, value: Option<&str>) {
@@ -393,7 +481,8 @@ impl State {
     fn remove(&mut self, id: u32) {
         self.nodes.remove(&id);
         self.devices.remove(&id);
-        self.route_seq.remove(&id);
+        self.route_flags.remove(&id);
+        self.route_enums.remove(&id);
         self.graph.nodes.remove(&id);
         self.graph.devices.remove(&id);
         if let Some((Metadata::Default, _, _)) = self.metadata.remove(&id) {

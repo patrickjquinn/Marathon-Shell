@@ -24,6 +24,8 @@ use std::time::{Duration, Instant};
 
 use zbus::blocking::{Connection, Proxy};
 
+mod fake_device;
+
 const TIMEOUT: Duration = Duration::from_secs(15);
 
 fn on_path(program: &str) -> bool {
@@ -95,7 +97,7 @@ impl Session {
             .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
     }
 
-    fn start() -> Option<Session> {
+    fn start(name: &str) -> Option<Session> {
         let programs = ["pipewire", "wireplumber", "dbus-daemon", "wpctl", "pw-cat"];
         if let Some(missing) = programs.iter().find(|p| !on_path(p)) {
             eprintln!("skipped: {missing} is not installed");
@@ -103,7 +105,7 @@ impl Session {
         }
         let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/session");
         // Short: the PipeWire socket path must fit in sun_path.
-        let dir = std::env::temp_dir().join(format!("audiod-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("audiod-{}-{name}", std::process::id()));
         fs::remove_dir_all(&dir).ok();
         for sub in ["run", "config/wireplumber", "state", "home", "data", "logs"] {
             fs::create_dir_all(dir.join(sub)).unwrap();
@@ -238,7 +240,7 @@ fn silence(seconds: u32) -> Vec<u8> {
 
 #[test]
 fn controls_a_private_pipewire_session() {
-    let Some(session) = Session::start() else {
+    let Some(session) = Session::start("graph") else {
         return;
     };
     let audio = session.audio();
@@ -317,4 +319,58 @@ fn controls_a_private_pipewire_session() {
         s.iter()
             .any(|(i, _, v, _)| *i == id && (v - 0.5).abs() < 1e-3)
     });
+}
+
+fn close_to(value: f64, level: f64) -> bool {
+    (value - level).abs() < 1e-3
+}
+
+// A Bluetooth or ALSA card keeps its node's level on the active device
+// route, which appears only once WirePlumber has chosen the card's profile.
+#[test]
+fn controls_a_device_route_sink() {
+    let Some(session) = Session::start("route") else {
+        return;
+    };
+    let card = fake_device::start(&session.dir.join("run/pipewire-0"), 0.125);
+    let audio = session.audio();
+    audio
+        .call_method("SetDefaultSink", &(fake_device::NODE_NAME))
+        .unwrap();
+    eventually("the card's node to be the default", || {
+        property::<String>(&audio, "DefaultSink") == fake_device::NODE_NAME
+    });
+    assert!(close_to(property(&audio, "Volume"), 1.0));
+
+    // The node's own level is 1.0; the route's, once active, 0.5.
+    assert!(session
+        .output("wpctl", &["set-profile", &card.to_string(), "1"])
+        .is_some());
+    eventually("wpctl to read the route", || {
+        session.wpctl_volume("@DEFAULT_AUDIO_SINK@") == "Volume: 0.50"
+    });
+    eventually("Volume to follow the new route", || {
+        close_to(property(&audio, "Volume"), 0.5)
+    });
+
+    assert!(session
+        .output("wpctl", &["set-volume", "@DEFAULT_AUDIO_SINK@", "0.3"])
+        .is_some());
+    eventually("Volume to follow the route", || {
+        close_to(property(&audio, "Volume"), 0.3)
+    });
+
+    audio.call_method("SetVolume", &(0.6f64)).unwrap();
+    eventually("the route's volume to be set", || {
+        session.wpctl_volume("@DEFAULT_AUDIO_SINK@") == "Volume: 0.60"
+    });
+    eventually("Volume to follow", || {
+        close_to(property(&audio, "Volume"), 0.6)
+    });
+
+    audio.call_method("SetMuted", &(true)).unwrap();
+    eventually("the route to be muted", || {
+        session.wpctl_volume("@DEFAULT_AUDIO_SINK@") == "Volume: 0.60 [MUTED]"
+    });
+    eventually("Muted to follow", || property::<bool>(&audio, "Muted"));
 }
