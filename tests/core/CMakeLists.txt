@@ -300,14 +300,16 @@ add_test(NAME Core_PowerClient COMMAND test_core_powerclient)
 add_executable(test_core_locationclient
     test_locationclient.cpp
     ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../marathon-core/src/marathonmanifest.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
 )
 set_target_properties(test_core_locationclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_locationclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_link_libraries(test_core_locationclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
 target_include_directories(test_core_locationclient PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src
 )
 add_test(NAME Core_LocationClient COMMAND test_core_locationclient)
