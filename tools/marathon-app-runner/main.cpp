@@ -6,6 +6,7 @@
 #include <QQmlEngine>
 #include <QQmlComponent>
 #include <QQmlContext>
+#include <QQmlListReference>
 #include <QCommandLineParser>
 #include <QCommandLineOption>
 #include <QFileInfo>
@@ -776,7 +777,9 @@ int main(int argc, char *argv[]) {
         // Load the QML modules every app uses, in the engine the adopted
         // app will run in: musl resolves all of a plugin's relocations at
         // dlopen, and compiled types stay in the engine's type loader.
-        // Types are only compiled (inside Component), not created.
+        // Each type is also created once and destroyed: an app's first
+        // instance of a type pays for its property caches, bindings,
+        // singletons (Theme), fonts and the image plugins.
         startKeelHost();
         pooledView = std::make_unique<QQuickView>();
         addSharedImportPaths(pooledView->engine());
@@ -793,7 +796,8 @@ int main(int argc, char *argv[]) {
                               "import QtQuick.Effects\n";
             if (silica)
                 warm += "import Sailfish.Silica 1.0 as Silica\n"
-                        "import Marathon.Silica 1.0 as MS\n";
+                        "import Marathon.Silica 1.0 as MS\n"
+                        "import Nemo.Configuration 1.0 as NC\n";
             warm += "QtObject {\n";
             if (silica)
                 warm += "    property list<Component> silica: [\n"
@@ -807,7 +811,13 @@ int main(int argc, char *argv[]) {
                         "        Component { MS.TextSwitch {} }, Component { MS.Slider {} },\n"
                         "        Component { MS.SectionHeader {} }, Component { Silica.ViewPlaceholder {} },\n"
                         "        Component { Silica.VerticalScrollDecorator {} }, Component { MS.Dialog {} },\n"
-                        "        Component { MS.TabView {} }, Component { MS.ComboBox {} }\n"
+                        "        Component { MS.TabView {} }, Component { MS.ComboBox {} },\n"
+                        "        Component { MS.IconButton {} }, Component { MS.BackgroundItem {} },\n"
+                        "        Component { MS.SearchField {} }, Component { MS.ValueButton {} },\n"
+                        "        Component { MS.DialogHeader {} }, Component { MS.RemorsePopup {} },\n"
+                        "        Component { Silica.DetailItem {} }, Component { Silica.Icon {} },\n"
+                        "        Component { Silica.InfoLabel {} }, Component { Silica.BusyIndicator {} },\n"
+                        "        Component { NC.ConfigurationValue {} }\n"
                         "    ]\n";
             warm += "}\n";
             QQmlComponent warmComponent(pooledView->engine());
@@ -815,8 +825,12 @@ int main(int argc, char *argv[]) {
             if (warmComponent.isError())
                 qWarning() << "[marathon-app-runner] pool: QML warm-up failed:"
                            << warmComponent.errorString();
-            else
-                delete warmComponent.create();
+            else {
+                std::unique_ptr<QObject> warmed(warmComponent.create());
+                const QQmlListReference  types(warmed.get(), "silica");
+                for (qsizetype i = 0; i < types.count(); ++i)
+                    delete qobject_cast<QQmlComponent *>(types.at(i))->create();
+            }
         }
 
         // Keep the warmed pages resident while the pool idles. Reclaim to
