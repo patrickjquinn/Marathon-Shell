@@ -258,7 +258,8 @@ ApplicationWindow {
 ```
 
 Each app has a `manifest.json` (id, name, version, icon, entryPoint,
-permissions; schema in [docs/APP_MANIFEST_SCHEMA.md](docs/APP_MANIFEST_SCHEMA.md)).
+permissions; JSON Schema in `schemas/`, explained in
+[docs/APP_MANIFEST_SCHEMA.md](docs/APP_MANIFEST_SCHEMA.md)).
 Permissions are granted per app by the shell (`org.marathonos.Shell.Permissions1`)
 and can be reviewed in Settings; see [docs/PERMISSION_GUIDE.md](docs/PERMISSION_GUIDE.md).
 
@@ -270,6 +271,7 @@ marathon-dev package apps/myapp --key ~/.minisign/minisign.key
                                            # build and sign a .marathon package
 marathon-dev sign myapp.marathon [key]     # sign an existing package
 marathon-dev verify myapp.marathon         # check its signature
+marathon-dev lint apps/myapp               # check the manifest contract
 marathon-dev install myapp.marathon        # install locally
 ```
 

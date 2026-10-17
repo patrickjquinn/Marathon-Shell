@@ -208,7 +208,7 @@
       "required": ["appData", "cache"],
       "properties": {
         "appData": {
-          "description": "$XDG_DATA_HOME and $XDG_CONFIG_HOME /marathon-apps/<id>.",
+          "description": "$XDG_DATA_HOME/marathon-apps/<id>, $XDG_CONFIG_HOME/marathon-apps/<id>, dconf /apps/<id>/ and the <id>/ keys in shell settings.",
           "enum": ["remove", "keep"]
         },
         "cache": {

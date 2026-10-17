@@ -11,6 +11,12 @@ Marathon uses a runtime permission system to protect user privacy and security.
 
 ## Available Permissions
 
+The names and the wording users see are defined in
+[`schemas/marathon-permissions-v1.json`](../schemas/marathon-permissions-v1.json),
+which also marks each permission sensitive (the manifest must give a reason
+in `permissionReasons`) or restricted (Marathon's own apps only). See
+[APP_MANIFEST_SCHEMA.md](APP_MANIFEST_SCHEMA.md).
+
 ### network
 **Access the internet and make network connections**
 
@@ -143,7 +149,7 @@ Only for:
 - Launcher apps
 - Settings apps
 
-This permission is only granted to apps signed by Marathon OS.
+`marathon-dev lint` rejects it in a third-party manifest.
 
 ## Implementation Guide
 
@@ -156,7 +162,10 @@ This permission is only granted to apps signed by Marathon OS.
   "permissions": [
     "network",
     "location"
-  ]
+  ],
+  "permissionReasons": {
+    "location": "Shows the weather where you are"
+  }
 }
 ```
 
