@@ -7,10 +7,11 @@
                        [--upload RSYNC-DEST]
 
 The feed is laid out as the image's sysupdate.d transfers expect: one
-directory per image id holding the zstd-compressed /usr and verity partition
-images and the UKI of each kept version, a SHA256SUMS manifest, its detached
-signature SHA256SUMS.gpg, and an AppStream catalog with each release's
-download size and notes. See docs/OTA.md.
+directory per image id holding each kept version's payload, a SHA256SUMS
+manifest, its detached signature SHA256SUMS.gpg, and an AppStream catalog
+with each release's download size and notes. The payload is the UKI and the
+zstd-compressed /usr and verity partitions, or on the Raspberry Pi the
+compressed boot and root slot partitions. See docs/OTA.md.
 """
 
 import argparse
@@ -42,8 +43,22 @@ def gpg(gnupghome, *args, **kwargs):
 
 
 def find_artifacts(image_dir, image_id, version):
-    """The UKI and the /usr and verity partition images mkosi split out."""
+    """The partition images mkosi split out, plus the UKI where one boots.
+
+    The Pi firmware boots a whole boot partition, so a Pi image is its boot
+    and root slots; every other A/B image is a UKI, /usr and its verity."""
     stem = f"{image_id}_{version}"
+    slots = {}
+    slot = re.compile(re.escape(stem) + r"\.(boot|root)\.[0-9a-f]{32}\.raw$")
+    for f in image_dir.iterdir():
+        m = slot.match(f.name)
+        if m:
+            slots[m.group(1)] = f
+    if slots:
+        for kind in ("root", "boot"):
+            if kind not in slots:
+                fail(f"no {kind} slot image for {stem} in {image_dir}")
+        return [slots["root"], slots["boot"]]
     uki = image_dir / f"{stem}.efi"
     if not uki.is_file():
         fail(f"no UKI {uki}")
@@ -62,7 +77,7 @@ def find_artifacts(image_dir, image_id, version):
 
 def versions_in(feed_dir, image_id):
     found = set()
-    pattern = re.compile(re.escape(image_id) + r"_([^._+]+)\.efi$")
+    pattern = re.compile(re.escape(image_id) + r"_([^._+]+)\.(?:efi|boot\.[0-9a-f]{32}\.raw\.zst)$")
     for f in feed_dir.iterdir():
         m = pattern.match(f.name)
         if m:

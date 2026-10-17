@@ -3,6 +3,7 @@
 import functools
 import hashlib
 import http.server
+import json
 import os
 import shutil
 import subprocess
@@ -15,8 +16,12 @@ from pathlib import Path
 
 TOOL = Path(__file__).resolve().parent / "marathon-ota"
 TRANSFERS = Path(__file__).resolve().parents[2] / "packaging" / "ota" / "sysupdate.d"
+PI_TRANSFERS = Path(__file__).resolve().parents[2] / "packaging" / "ota" / "pi" / "sysupdate.d"
 SYSUPDATE = Path("/usr/lib/systemd/systemd-sysupdate")
 IMAGE_ID = "qemu-aarch64_marathon_edge"
+PI_IMAGE_ID = "raspberry-pi5_marathon_edge"
+BOOT_TYPE = "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
+ROOT_TYPE = "B921B045-1DF0-41C3-AF44-4C6F280D3FAE"
 UUID_A = "0123456789abcdef0123456789abcdef"
 UUID_B = "fedcba9876543210fedcba9876543210"
 
@@ -51,9 +56,11 @@ class FeedCase(unittest.TestCase):
         return subprocess.run([sys.executable, str(TOOL), *map(str, args)],
                               capture_output=True, text=True, check=check)
 
+    image_id = IMAGE_ID
+
     def setUp(self):
         self.case = Path(tempfile.mkdtemp(dir=self.tmp))
-        self.image_dir = self.case / IMAGE_ID
+        self.image_dir = self.case / self.image_id
         self.image_dir.mkdir()
         self.feed = self.case / "feed"
 
@@ -70,9 +77,17 @@ class FeedCase(unittest.TestCase):
         return self.run_tool("publish", "--image-dir", self.image_dir, "--version", version,
                              "--feed", self.feed, "--gnupghome", self.gnupg, *extra, check=check)
 
+    def build_pi(self, version, uuid=UUID_A, payload=b"slot"):
+        stem = f"{self.image_id}_{version}"
+        (self.image_dir / f"{stem}.boot.{uuid}.raw").write_bytes(b"boot" + payload * 1024)
+        (self.image_dir / f"{stem}.root.{uuid}.raw").write_bytes(b"root" + payload * 2048)
+        # mkosi still writes a UKI and the whole disk; neither is an update.
+        (self.image_dir / f"{stem}.efi").write_bytes(b"MZ")
+        (self.image_dir / f"{stem}.raw").write_bytes(b"disk")
+
     @property
     def out(self):
-        return self.feed / IMAGE_ID
+        return self.feed / self.image_id
 
 
 
@@ -167,6 +182,38 @@ class PublishTest(FeedCase):
         self.assertFalse((self.out / "SHA256SUMS").exists())
 
 
+class PiPublishTest(FeedCase):
+    image_id = PI_IMAGE_ID
+
+    def test_feed_holds_the_boot_and_root_slots(self):
+        self.build_pi("26101701")
+        self.publish("26101701")
+        stem = f"{PI_IMAGE_ID}_26101701"
+        self.assertEqual(sorted(p.name for p in self.out.iterdir()), sorted([
+            "SHA256SUMS", "SHA256SUMS.gpg", "marathon-os.metainfo.xml",
+            f"{stem}.boot.{UUID_A}.raw.zst",
+            f"{stem}.root.{UUID_A}.raw.zst",
+        ]))
+
+    def test_keeps_the_newest_versions_and_refuses_going_backwards(self):
+        for i, version in enumerate(["26101701", "26101801", "26101901"]):
+            self.build_pi(version, f"{i:032x}")
+            self.publish(version)
+        names = {p.name for p in self.out.iterdir()}
+        self.assertFalse(any("26101701" in n for n in names), names)
+        self.assertTrue(any("26101801.boot." in n for n in names), names)
+        self.build_pi("26101801", UUID_B)
+        older = self.publish("26101801", check=False)
+        self.assertIn("already in the feed", older.stderr)
+
+    def test_refuses_a_boot_slot_without_its_root(self):
+        self.build_pi("26101701")
+        (self.image_dir / f"{PI_IMAGE_ID}_26101701.root.{UUID_A}.raw").unlink()
+        result = self.publish("26101701", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no root slot image", result.stderr)
+
+
 @unittest.skipUnless(SYSUPDATE.exists(), "needs systemd-sysupdate")
 class SysupdateTest(FeedCase):
     """The image's own transfer definitions, run by systemd-sysupdate."""
@@ -225,6 +272,87 @@ class SysupdateTest(FeedCase):
         self.assertNotEqual(check.returncode, 0)
         self.assertIn("Signature verification failed", check.stderr)
         self.assertEqual(len(list((root / "boot/EFI/Linux").iterdir())), 1)
+
+
+@unittest.skipUnless(SYSUPDATE.exists() and shutil.which("sfdisk"), "needs systemd-sysupdate and sfdisk")
+class PiSysupdateTest(SysupdateTest):
+    """The Pi transfers writing slot partitions of a GPT disk image."""
+
+    image_id = PI_IMAGE_ID
+    test_installs_the_new_uki_with_boot_counting = None
+    test_refuses_a_feed_signed_by_an_untrusted_key = None
+
+    def device(self, url, running="26101701", first="26101701"):
+        root = self.case / "root"
+        (root / "usr/lib/sysupdate.d").mkdir(parents=True)
+        (root / "etc").mkdir()
+        (root / "usr/lib/os-release").write_text(
+            "ID=postmarketos\nIMAGE_ID=raspberry-pi5\nVARIANT_ID=marathon\nVERSION_ID=edge\n"
+            f"IMAGE_VERSION={running}\n")
+        disk = root / "disk.raw"
+        with open(disk, "wb") as f:
+            f.truncate(32 << 20)
+        # mkosi.repart.ab-pi in miniature.
+        layout = (
+            "label: gpt\n"
+            'start=2048, size=2048, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="marathon_autoboot"\n'
+            f'size=2048, type={BOOT_TYPE}, name="marathon_{first}_boot"\n'
+            f'size=2048, type={BOOT_TYPE}, name="_empty"\n'
+            f'size=4096, type={ROOT_TYPE}, name="marathon_{first}_root"\n'
+            f'size=4096, type={ROOT_TYPE}, name="_empty"\n'
+            'size=2048, type=4D21B016-B534-45C2-A9FB-5C16E091FD2D, name="marathon_data"\n')
+        subprocess.run(["sfdisk", "-q", str(disk)], input=layout, text=True, check=True)
+        for t in PI_TRANSFERS.glob("*.transfer.in"):
+            text = t.read_text().replace("@MARATHON_OTA_URL@", url).replace("Path=auto", "Path=/disk.raw")
+            (root / "usr/lib/sysupdate.d" / t.name.removesuffix(".in")).write_text(text)
+        return root
+
+    def table(self, root):
+        dump = json.loads(subprocess.run(["sfdisk", "--json", str(root / "disk.raw")],
+                                         capture_output=True, text=True, check=True).stdout)
+        return [(p["name"], p["type"], p["start"]) for p in dump["partitiontable"]["partitions"]]
+
+    def slot(self, root, start, size):
+        with open(root / "disk.raw", "rb") as f:
+            f.seek(start * 512)
+            return f.read(size)
+
+    def test_writes_the_free_slot_pair_and_labels_it(self):
+        self.build_pi("26101801")
+        self.publish("26101801")
+        root = self.device(self.serve())
+        check = self.sysupdate(root, "--verify=no", "check-new")
+        self.assertEqual(check.stdout.strip(), "26101801", check.stderr)
+        update = self.sysupdate(root, "--verify=no", "update")
+        self.assertEqual(update.returncode, 0, update.stderr)
+        table = self.table(root)
+        self.assertEqual([name for name, _, _ in table], [
+            "marathon_autoboot", "marathon_26101701_boot", "marathon_26101801_boot",
+            "marathon_26101701_root", "marathon_26101801_root", "marathon_data"])
+        self.assertEqual([t for _, t, _ in table][1:5], [BOOT_TYPE, BOOT_TYPE, ROOT_TYPE, ROOT_TYPE])
+        stem = f"{PI_IMAGE_ID}_26101801"
+        boot = (self.image_dir / f"{stem}.boot.{UUID_A}.raw").read_bytes()
+        rootfs = (self.image_dir / f"{stem}.root.{UUID_A}.raw").read_bytes()
+        self.assertEqual(self.slot(root, table[2][2], len(boot)), boot)
+        self.assertEqual(self.slot(root, table[4][2], len(rootfs)), rootfs)
+
+    def test_never_overwrites_the_running_slot(self):
+        self.build_pi("26101801")
+        self.publish("26101801")
+        url = self.serve()
+        root = self.device(url, running="26101801")
+        # Booted 26101801 from the second pair; 26101701 is the other one.
+        subprocess.run(["sfdisk", "-q", "--part-label", str(root / "disk.raw"), "3", "marathon_26101801_boot"],
+                       check=True)
+        subprocess.run(["sfdisk", "-q", "--part-label", str(root / "disk.raw"), "5", "marathon_26101801_root"],
+                       check=True)
+        self.build_pi("26101901", UUID_B, b"new")
+        self.publish("26101901")
+        update = self.sysupdate(root, "--verify=no", "update")
+        self.assertEqual(update.returncode, 0, update.stderr)
+        names = [name for name, _, _ in self.table(root)]
+        self.assertEqual(names[1:5], ["marathon_26101901_boot", "marathon_26101801_boot",
+                                      "marathon_26101901_root", "marathon_26101801_root"])
 
 
 if __name__ == "__main__":
