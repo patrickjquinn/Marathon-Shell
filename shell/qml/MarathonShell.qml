@@ -2548,6 +2548,7 @@ Item {
             easing.type: Easing.OutCubic
         }
         onFinished: {
+            AppLifecycleManager.minimizeForegroundApp();
             UIStore.closeApp();
             navBar.backTracker.value = 0;
             appWindow.opacity = 1;
