@@ -16,11 +16,15 @@
     "sms",
     "notifications",
     "contacts",
-    "location"
+    "location",
+    "alarms",
+    "sensors"
   ],
   "permissionReasons": {
     "system": "Exercises the system services in the service test suite",
     "storage": "Exercises the media library in the service test suite",
+    "alarms": "Exercises alarms and wake-ups in the service test suite",
+    "sensors": "Exercises the sensors in the service test suite",
     "telephony": "Exercises calls in the service test suite",
     "sms": "Exercises SMS in the service test suite",
     "contacts": "Exercises the contacts service in the service test suite",
