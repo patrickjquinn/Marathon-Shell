@@ -265,22 +265,6 @@ target_link_libraries(test_shell_backgroundwake Qt6::Test Qt6::Core Qt6::DBus Qt
 target_include_directories(test_shell_backgroundwake PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_BackgroundWake COMMAND test_shell_backgroundwake)
 
-# Waking for a call, message or alarm leaves Doze
-add_executable(test_shell_powerpolicywake
-    test_powerpolicywake.cpp
-    ../../shell/src/controllers/powerpolicycontroller.cpp
-    ../../shell/src/managers/powermanagercpp.cpp
-    ../../shell/src/managers/waketimers.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
-target_link_libraries(test_shell_powerpolicywake Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_shell_powerpolicywake PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-)
-add_test(NAME Shell_PowerPolicyWake COMMAND test_shell_powerpolicywake)
-
 # Wake-up timers are transient systemd user units, against a fake manager
 add_executable(test_shell_waketimers
     test_waketimers.cpp
@@ -558,6 +542,7 @@ add_executable(test_shell_screenstate
     test_screenstate.cpp
     ../../shell/src/managers/displaymanagercpp.cpp
     ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
     ../../shell/src/managers/sensormanagercpp.cpp
     ../../shell/src/managers/settingsmanager.cpp
@@ -596,6 +581,7 @@ add_executable(test_shell_powermanager
     test_powermanager.cpp
     ../../shell/src/managers/displaymanagercpp.cpp
     ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
     ../../shell/src/managers/sensormanagercpp.cpp
     ../../shell/src/managers/deviceprofile.cpp
@@ -626,6 +612,7 @@ add_executable(test_shell_brightness
     test_brightness.cpp
     ../../shell/src/managers/displaymanagercpp.cpp
     ../../shell/src/managers/powermanagercpp.cpp
+    ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
     ../../shell/src/managers/sensormanagercpp.cpp
     ../../shell/src/managers/deviceprofile.cpp

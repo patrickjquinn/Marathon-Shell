@@ -140,6 +140,30 @@ class TestScreenState : public QObject {
         QVERIFY(!m_handler->screenOff());
     }
 
+    // wake(reason) is how a call, a message or an alarm turns the screen on.
+    void wakingFromDozeLeavesDoze() {
+        QVERIFY(m_power->enterDoze(QStringLiteral("power key")));
+        QSignalSpy exited(m_power.get(), &PowerPolicyController::dozeExited);
+        QSignalSpy waking(m_power.get(), &PowerPolicyController::systemWaking);
+
+        QCOMPARE(m_power->wake(QStringLiteral("alarm")), QStringLiteral("alarm"));
+        QVERIFY(!m_power->dozing());
+        QCOMPARE(exited.count(), 1);
+        QCOMPARE(waking.last().at(0).toString(), QStringLiteral("alarm"));
+
+        QSignalSpy entered(m_power.get(), &PowerPolicyController::dozeEntered);
+        m_power->enterDoze(QStringLiteral("power key"));
+        QCOMPARE(entered.count(), 1);
+    }
+
+    void wakingAnAwakeDeviceDoesNotTouchDoze() {
+        QSignalSpy exited(m_power.get(), &PowerPolicyController::dozeExited);
+        QSignalSpy waking(m_power.get(), &PowerPolicyController::systemWaking);
+        m_power->wake(QStringLiteral("call"));
+        QCOMPARE(exited.count(), 0);
+        QCOMPARE(waking.count(), 1);
+    }
+
     void anyScreenOffIsDoze() {
         QSignalSpy entered(m_power.get(), &PowerPolicyController::dozeEntered);
         m_policy->turnScreenOff(QStringLiteral("idle timer"));

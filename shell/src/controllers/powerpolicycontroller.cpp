@@ -182,11 +182,7 @@ void PowerPolicyController::performCriticalPowerAction() {
 }
 
 QString PowerPolicyController::wake(const QString &reason) {
-    // Turning only the panel on would leave Doze set, and the next power
-    // press would find nothing to put to sleep.
-    if (m_dozing)
-        exitDoze();
-    else if (m_displayManager)
+    if (m_displayManager)
         m_displayManager->setScreenState(true);
 
     emit systemWaking(reason);
