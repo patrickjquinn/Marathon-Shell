@@ -1,4 +1,4 @@
-# OEM test app run — HackberryPi CM5, shell r455–r463, 2026-10-17
+# OEM test app run — HackberryPi CM5, shell r455–r464, 2026-10-17
 
 Every function in apps/test driven on the device with screenshots and the journal. Status as of the end of the run; fixes land under the R-items in docs/roadmap/TRACKER.md.
 
@@ -40,8 +40,8 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F35 | Alarms | Alarm audio plays at alarmVolume (0.9) of the output volume, so with media volume at 0 an alarm rings silently; alarms need their own volume (WirePlumber role) as on Android | open |
 | F36 | Terminal | Extra-keys row: "\\" and "`" render small and raised next to "\|" and "~" | open (polish) |
 | F37 | Permissions | First-launch prompt: Alarms and Sensors show a generic shield icon; the footer line sits under the gesture bar | open (polish) |
-| F38 | Audio | Volume OSD raised on its own after a shell restart (audiod's first report / BT sink) | fixed dd519284 — OSD only for a level change of a known sink; device check in r464 |
-| F39 | Permissions | After Allow on the first-launch prompt, Alarms page still showed 0 alarms (one set): Alarm/Location/Sensor clients never re-read on grant | fixed c6f0952e; device check in r464 |
+| F38 | Audio | Volume OSD raised on its own after a shell restart (audiod's first report / BT sink) | verified fixed r464 (dd519284) — no OSD after restart or unlock; an external change (wpctl 5%) still shows it |
+| F39 | Permissions | After Allow on the first-launch prompt, Alarms page still showed 0 alarms (one set): Alarm/Location/Sensor clients never re-read on grant | verified fixed r464 (c6f0952e) — after Allow the page shows the one enabled alarm |
 
 ## Worked as intended
 
