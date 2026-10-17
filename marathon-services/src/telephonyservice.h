@@ -42,6 +42,9 @@ class TelephonyService : public QObject {
     void callFailed(const QString &reason);
     void modemChanged(bool hasModem);
     void activeNumberChanged(const QString &number);
+    // type: "incoming", "outgoing", "missed" or "rejected" (declined here).
+    void callEnded(const QString &number, const QString &type, qint64 startedMs,
+                   int durationSeconds);
 
   private slots:
     void onModemManagerPropertiesChanged(const QString &interface, const QVariantMap &changed,
@@ -57,6 +60,7 @@ class TelephonyService : public QObject {
     void    setupCallMonitoring(const QString &callPath);
     void    monitorIncomingCalls();
     QString callStateFromModemManager(uint mmState);
+    void    logCallState(const QString &state);
     QString extractNumberFromPath(const QString &path);
 
     // Per-call sleep block inhibitor -- held while a call is in progress so
@@ -75,6 +79,15 @@ class TelephonyService : public QObject {
     QString                 m_activeCallPath;
     QTimer                 *m_reconnectTimer;
     QDBusUnixFileDescriptor m_callInhibitFd;
+
+    struct LoggedCall {
+        QString number;
+        QString direction;
+        qint64  startedMs  = 0;
+        qint64  answeredMs = 0;
+        bool    rejected   = false;
+    };
+    LoggedCall m_loggedCall;
 };
 
 #endif

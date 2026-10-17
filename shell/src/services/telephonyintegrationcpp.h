@@ -23,8 +23,6 @@ class TelephonyIntegrationCpp : public QObject {
         QString lastCallState READ lastCallState WRITE setLastCallState NOTIFY lastCallStateChanged)
     Q_PROPERTY(QString lastCallerNumber READ lastCallerNumber WRITE setLastCallerNumber NOTIFY
                    lastCallerNumberChanged)
-    Q_PROPERTY(bool callWasAnswered READ callWasAnswered WRITE setCallWasAnswered NOTIFY
-                   callWasAnsweredChanged)
     Q_PROPERTY(QObject *incomingCallOverlay READ incomingCallOverlay WRITE setIncomingCallOverlay
                    NOTIFY incomingCallOverlayChanged)
     Q_PROPERTY(bool hasActiveCall READ hasActiveCall NOTIFY hasActiveCallChanged)
@@ -46,12 +44,7 @@ class TelephonyIntegrationCpp : public QObject {
     QString lastCallerNumber() const {
         return m_lastCallerNumber;
     }
-    void setLastCallerNumber(const QString &number);
-
-    bool callWasAnswered() const {
-        return m_callWasAnswered;
-    }
-    void     setCallWasAnswered(bool answered);
+    void     setLastCallerNumber(const QString &number);
 
     QObject *incomingCallOverlay() const {
         return m_incomingCallOverlay;
@@ -65,7 +58,6 @@ class TelephonyIntegrationCpp : public QObject {
   signals:
     void lastCallStateChanged();
     void lastCallerNumberChanged();
-    void callWasAnsweredChanged();
     void incomingCallOverlayChanged();
     void hasActiveCallChanged();
     void incomingCallRequested(const QString &number);
@@ -79,6 +71,7 @@ class TelephonyIntegrationCpp : public QObject {
   private slots:
     void handleIncomingCall(const QString &number);
     void handleCallStateChanged(const QString &state);
+    void handleCallEnded(const QString &number, const QString &type);
     void handleMessageReceived(const QString &sender, const QString &text, qint64 timestamp);
     void handleProximityChanged();
 
@@ -103,7 +96,6 @@ class TelephonyIntegrationCpp : public QObject {
 
     QString                  m_lastCallState = "idle";
     QString                  m_lastCallerNumber;
-    bool                     m_callWasAnswered     = false;
     QObject                 *m_incomingCallOverlay = nullptr;
     bool                     m_hasActiveCall       = false;
     QString                  m_pendingIncomingNumber;

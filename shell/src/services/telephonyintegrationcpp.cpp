@@ -37,6 +37,8 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
                 &TelephonyIntegrationCpp::handleIncomingCall);
         connect(m_telephonyService, &TelephonyService::callStateChanged, this,
                 &TelephonyIntegrationCpp::handleCallStateChanged);
+        connect(m_telephonyService, &TelephonyService::callEnded, this,
+                &TelephonyIntegrationCpp::handleCallEnded);
     }
 
     if (m_smsService) {
@@ -64,13 +66,6 @@ void TelephonyIntegrationCpp::setLastCallerNumber(const QString &number) {
     emit lastCallerNumberChanged();
 }
 
-void TelephonyIntegrationCpp::setCallWasAnswered(bool answered) {
-    if (m_callWasAnswered == answered)
-        return;
-    m_callWasAnswered = answered;
-    emit callWasAnsweredChanged();
-}
-
 void TelephonyIntegrationCpp::setIncomingCallOverlay(QObject *overlay) {
     if (m_incomingCallOverlay == overlay)
         return;
@@ -85,7 +80,6 @@ void TelephonyIntegrationCpp::setIncomingCallOverlay(QObject *overlay) {
 
 void TelephonyIntegrationCpp::handleIncomingCall(const QString &number) {
     setLastCallerNumber(number);
-    setCallWasAnswered(false);
 
     if (m_powerPolicy)
         m_powerPolicy->wake("call");
@@ -109,11 +103,6 @@ void TelephonyIntegrationCpp::handleIncomingCall(const QString &number) {
 void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
     updateHasActiveCall(state);
 
-    if (m_lastCallState == "incoming" && (state == "idle" || state == "terminated")) {
-        if (!m_callWasAnswered)
-            createMissedCallNotification(m_lastCallerNumber);
-    }
-
     if (state == "active" || state == "idle" || state == "terminated") {
         if (m_audioPolicy)
             m_audioPolicy->stopRingtone();
@@ -135,6 +124,11 @@ void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
     }
 
     setLastCallState(state);
+}
+
+void TelephonyIntegrationCpp::handleCallEnded(const QString &number, const QString &type) {
+    if (type == QLatin1String("missed"))
+        createMissedCallNotification(number);
 }
 
 void TelephonyIntegrationCpp::replyToMessageNotification(uint id, const QString &text) {

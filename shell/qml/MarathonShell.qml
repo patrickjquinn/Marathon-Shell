@@ -2623,14 +2623,6 @@ Item {
     }
 
     Connections {
-        function onAnswered() {
-            TelephonyIntegration.callWasAnswered = true;
-        }
-
-        function onDeclined() {
-            TelephonyIntegration.callWasAnswered = false;
-        }
-
         function onInCallChanged() {
             if (!shell.incomingCallOverlay.inCall && !shell.incomingCallOverlay.isRinging)
                 shell.unloadCallOverlay();

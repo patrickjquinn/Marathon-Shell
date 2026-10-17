@@ -1303,48 +1303,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    static qint64  callStartTime = 0;
-    static QString lastCalledNumber;
-    static bool    wasIncoming = false;
-
-    QObject::connect(telephonyService, &TelephonyService::incomingCall, [](const QString &number) {
-        callStartTime    = QDateTime::currentMSecsSinceEpoch();
-        lastCalledNumber = number;
-        wasIncoming      = true;
-    });
-
-    QObject::connect(telephonyService, &TelephonyService::callStateChanged, callHistoryManager,
-                     [callHistoryManager, telephonyService](const QString &state) {
-                         if (state == "active" && callStartTime == 0) {
-
-                             callStartTime    = QDateTime::currentMSecsSinceEpoch();
-                             lastCalledNumber = telephonyService->activeNumber();
-                             wasIncoming      = false;
-                         } else if (state == "idle" || state == "terminated") {
-
-                             if (callStartTime > 0 && !lastCalledNumber.isEmpty()) {
-                                 qint64  endTime  = QDateTime::currentMSecsSinceEpoch();
-                                 int     duration = (endTime - callStartTime) / 1000;
-
-                                 QString callType;
-                                 if (wasIncoming) {
-
-                                     callType = (duration > 0) ? "incoming" : "missed";
-                                 } else {
-                                     callType = "outgoing";
-                                 }
-
-                                 callHistoryManager->addCall(lastCalledNumber, callType,
-                                                             callStartTime, duration);
-                                 qInfo() << "[MarathonShell] Call logged:" << callType
-                                         << lastCalledNumber << duration << "s";
-
-                                 callStartTime = 0;
-                                 lastCalledNumber.clear();
-                                 wasIncoming = false;
-                             }
-                         }
-                     });
+    QObject::connect(telephonyService, &TelephonyService::callEnded, callHistoryManager,
+                     &CallHistoryManager::addCall);
     qInfo() << "[MarathonShell] Call history wired to telephony";
 
     appModel->loadFromRegistry(appRegistry);

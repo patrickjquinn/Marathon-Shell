@@ -361,6 +361,12 @@ if(TARGET MarathonServices)
     target_include_directories(test_core_smsservice PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
     add_test(NAME Core_SmsService COMMAND test_core_smsservice)
 
+    # Calls: how each one ends up in the call log
+    add_executable(test_core_telephonyservice test_telephonyservice.cpp)
+    target_link_libraries(test_core_telephonyservice Qt6::Test Qt6::Core Qt6::DBus MarathonServices)
+    target_include_directories(test_core_telephonyservice PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
+    add_test(NAME Core_TelephonyService COMMAND test_core_telephonyservice)
+
     # DAV account secrets: keyring migration, retry and removal
     add_executable(test_core_davsecrets test_davsecrets.cpp)
     target_link_libraries(test_core_davsecrets Qt6::Test Qt6::Core Qt6::DBus Qt6::Network MarathonServices)

@@ -15,8 +15,6 @@ Item {
     // Answered while locked: the call stays here and the session stays locked.
     readonly property bool inCall: answeredHere && SessionStore.isLocked && TelephonyService.callState !== "idle" && TelephonyService.callState !== "terminated"
 
-    signal answered
-    signal declined
     signal unlockRequested
 
     function show(number, name) {
@@ -160,7 +158,6 @@ Item {
                 onActivated: {
                     Logger.info("IncomingCallOverlay", "Call declined");
                     HapticManager.medium();
-                    callOverlay.declined();
                     callOverlay.hide();
                     // Last: the call state change can unload this overlay.
                     TelephonyService.hangup();
@@ -176,7 +173,6 @@ Item {
                     Logger.info("IncomingCallOverlay", "Call answered");
                     HapticManager.heavy();
                     callOverlay.answeredHere = true;
-                    callOverlay.answered();
                     callOverlay.hide();
                     UIStore.openApp("phone", "Phone", "");
                     // Last: the call state change can unload this overlay.

@@ -6,7 +6,10 @@
 #include <QDBusPendingCall>
 #include <QDBusPendingCallWatcher>
 #include <QDBusReply>
+#include <QDateTime>
 #include <QDebug>
+
+#include <utility>
 
 TelephonyService::TelephonyService(QObject *parent)
     : QObject(parent)
@@ -16,6 +19,11 @@ TelephonyService::TelephonyService(QObject *parent)
     , m_hasModem(false)
     , m_reconnectTimer(new QTimer(this)) {
     qDebug() << "[TelephonyService] Initializing";
+
+    connect(this, &TelephonyService::incomingCall, this, [this](const QString &number) {
+        m_loggedCall = {number, QStringLiteral("incoming"), QDateTime::currentMSecsSinceEpoch()};
+    });
+    connect(this, &TelephonyService::callStateChanged, this, &TelephonyService::logCallState);
 
     connectToModemManager();
 
@@ -207,6 +215,10 @@ void TelephonyService::hangup() {
         qWarning() << "[TelephonyService] No active call to hang up";
         return;
     }
+
+    // Before the D-Bus call: the modem's own "terminated" can arrive while it blocks.
+    if (m_callState == QLatin1String("incoming"))
+        m_loggedCall.rejected = true;
 
     if (m_activeCallPath.contains("simulate")) {
         m_callState = "idle";
@@ -557,6 +569,27 @@ void TelephonyService::releaseCallInhibit() {
         m_callInhibitFd = QDBusUnixFileDescriptor();
         qInfo() << "[TelephonyService] Released call sleep-block inhibit";
     }
+}
+
+void TelephonyService::logCallState(const QString &state) {
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (state == QLatin1String("active")) {
+        if (m_loggedCall.direction.isEmpty())
+            m_loggedCall = {m_activeNumber, QStringLiteral("outgoing"), now};
+        if (m_loggedCall.answeredMs == 0)
+            m_loggedCall.answeredMs = now;
+        return;
+    }
+    if ((state != QLatin1String("idle") && state != QLatin1String("terminated")) ||
+        m_loggedCall.direction.isEmpty())
+        return;
+
+    const LoggedCall call = std::exchange(m_loggedCall, {});
+    QString          type = call.direction;
+    if (call.answeredMs == 0 && type == QLatin1String("incoming"))
+        type = call.rejected ? QStringLiteral("rejected") : QStringLiteral("missed");
+    const int duration = call.answeredMs > 0 ? int((now - call.answeredMs) / 1000) : 0;
+    emit      callEnded(call.number, type, call.startedMs, duration);
 }
 
 QString TelephonyService::callStateFromModemManager(uint mmState) {
