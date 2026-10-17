@@ -287,6 +287,27 @@ class TestInstallerSecurity : public QObject {
         QVERIFY(QDir(MarathonAppPaths::systemApps() + "/bundled").removeRecursively());
     }
 
+    // marathon-dev installs from its own process; the shell's registry was
+    // scanned before.
+    void uninstall_findsAppsInstalledElsewhere() {
+        MarathonAppRegistry  shellRegistry;
+        MarathonAppScanner   shellScanner(&shellRegistry);
+        MarathonAppInstaller shell(&shellRegistry, &shellScanner);
+        shellScanner.scanApplications();
+
+        MarathonAppRegistry  devRegistry;
+        MarathonAppScanner   devScanner(&devRegistry);
+        MarathonAppInstaller dev(&devRegistry, &devScanner);
+        QVERIFY(dev.installFromPackage(
+            makePackage("elsewhere", "com.elsewhere.app", &TestKeys::alice)));
+        QVERIFY(!shellRegistry.hasApp("com.elsewhere.app"));
+
+        QVERIFY(shell.canUninstall("com.elsewhere.app"));
+        QVERIFY(shell.uninstallApp("com.elsewhere.app"));
+        QVERIFY(!QDir(MarathonAppPaths::installDir("com.elsewhere.app")).exists());
+        QVERIFY(!shell.canUninstall("com.never.installed"));
+    }
+
     void install_needsAReceipt() {
         QVERIFY(writeFile(MarathonAppPaths::filesDir("com.copied.app") + "/manifest.json",
                           manifest("com.copied.app")));

@@ -424,6 +424,9 @@ bool MarathonAppInstaller::installFromPackage(const QString     &packagePath,
 }
 
 bool MarathonAppInstaller::canUninstall(const QString &appId) {
+    // marathon-dev installs from its own process.
+    if (!m_registry->hasApp(appId) && QFile::exists(MarathonAppPaths::receiptPath(appId)))
+        m_scanner->scanApplications();
     const MarathonAppRegistry::AppInfo *info = m_registry->getAppInfo(appId);
     return info && !info->isProtected && info->absolutePath == MarathonAppPaths::filesDir(appId);
 }
@@ -435,12 +438,10 @@ bool MarathonAppInstaller::canUninstall(const QString &appId) {
 bool MarathonAppInstaller::uninstallApp(const QString &appId) {
     qDebug() << "[MarathonAppInstaller] Uninstalling app:" << appId;
 
-    if (!m_registry->hasApp(appId)) {
-        emit uninstallFailed(appId, "App not found");
-        return false;
-    }
     if (!canUninstall(appId)) {
-        const QString error = "Cannot uninstall a protected or system app";
+        const QString error = m_registry->hasApp(appId) ?
+            QStringLiteral("Cannot uninstall a protected or system app") :
+            QStringLiteral("App not found");
         qWarning() << "[MarathonAppInstaller]" << error << ":" << appId;
         emit uninstallFailed(appId, error);
         return false;
