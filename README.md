@@ -37,7 +37,7 @@ pipeline under `packaging/`.
 | App runner | `tools/marathon-app-runner/` | `marathon-app-runner` and `marathon-keel-host` run each app in its own process and bubblewrap sandbox, with `Marathon.Platform` exposing the shell's services. |
 | App platform | `marathon-core/`, `tools/marathon-dev/` | `.marathon` packages: packaging, minisign signing, verification, install, discovery. |
 | Data services | `marathon-services/` | Telephony, SMS/MMS, contacts, call history, CalDAV/CardDAV sync, media library, mail (QMF). |
-| Rust services | `crates/`, `tools/marathon-mail-oauth/` | `marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`, `marathon-mail-oauth`. |
+| Rust services | `crates/`, `tools/marathon-mail-oauth/` | `marathon-audiod`, `marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`, `marathon-mail-oauth`. |
 | Image pipeline | `packaging/`, `scripts/build-image.sh` | Alpine/postmarketOS aports and the duranium/mkosi pipeline that builds device images. |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for more.
@@ -94,6 +94,10 @@ Flatpaks from Flathub through `marathon-store-handler`.
 - Location: the shell is GeoClue's agent
   (`shell/src/managers/geoclueagent.*`). The shell, the weather service and
   the portal locate freely; any other app needs the location permission.
+- Audio: `marathon-audiod` (Rust) serves `org.marathonos.Audio` on the
+  session bus, a PipeWire client for volume, mute, default devices and
+  per-app streams. Routing, call audio included, is WirePlumber's policy
+  (`crates/marathon-audiod/data/wireplumber/`).
 - Weather: `marathon-weatherd` (Rust) serves `org.marathonos.Weather` on the
   session bus, with forecasts from MET Norway, place names from OpenStreetMap
   Nominatim and the position from GeoClue.
@@ -178,8 +182,9 @@ The shell also runs nested on a Linux desktop for development.
   optional.
 - Keel: the `keel-silica` package, or a Shipwright build named by
   `KEEL_QML` (for example `KEEL_QML=$HOME/Developer/Shipwright/build/keel/qml`).
-- linux-pam, hunspell, PulseAudio/PipeWire, wayland, libdrm, libinput,
-  eudev, D-Bus; QMF (`qmf-dev`) for Mail, optional.
+- linux-pam, hunspell, PipeWire (and libclang for its Rust bindings),
+  wayland, libdrm, libinput, eudev, D-Bus; QMF (`qmf-dev`) for Mail,
+  optional.
 
 The canonical list is the `makedepends` of
 [packaging/packages/marathon-shell/APKBUILD](packaging/packages/marathon-shell/APKBUILD).
@@ -303,7 +308,7 @@ Marathon-Shell/
 ├── marathon-silica/    Marathon.Silica, on top of Keel's Sailfish.Silica
 ├── marathon-core/      .marathon package, signing, install, discovery
 ├── marathon-services/  telephony, SMS/MMS, contacts, DAV, media, mail
-├── crates/             Rust: weatherd, store handler, core-native
+├── crates/             Rust: audiod, weatherd, store handler, core-native
 ├── apps/               bundled apps (+ template/)
 ├── tools/              app runner + Keel host, sandbox, marathon-dev,
 │                       mail-oauth, sailfish-qml, sailfish-install

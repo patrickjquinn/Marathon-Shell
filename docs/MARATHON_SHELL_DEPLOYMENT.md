@@ -10,7 +10,7 @@ The Marathon Shell has full hardware integration for:
 -  **Power Management** (UPower, systemd-logind, battery, charging, AC detection)
 -  **Network Management** (NetworkManager for WiFi, Ethernet, with hardware detection)
 -  **Cellular/Modem** (ModemManager integration for signal, operator, network type)
--  **Audio Control** (PulseAudio/PipeWire integration via pactl)
+-  **Audio Control** (PipeWire via marathon-audiod; routing by WirePlumber)
 -  **Display Control** (Backlight via systemd-logind and /sys/class/backlight)
 -  **Bluetooth** (BlueZ D-Bus integration)
 -  **Sensors** (IIO sensor support for proximity, ambient light)
@@ -38,7 +38,6 @@ mesa-gles
 pipewire
 pipewire-pulse
 wireplumber
-pulseaudio-utils      # For pactl volume control
 greetd                # Session manager
 dbus
 networkmanager        # WiFi/Ethernet management
@@ -384,7 +383,7 @@ greetd/login manager
     Reads hardware via:
     - /sys/class/backlight (Brightness)
     - /sys/class/iio (Sensors)
-    - pactl (PulseAudio volume)
+    - marathon-audiod (PipeWire volume)
     ↓
 Marathon Shell Wayland Compositor Running
     - Status bar reflects real hardware

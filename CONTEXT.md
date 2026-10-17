@@ -80,7 +80,7 @@ overlay in `packaging/packages/device-*-marathon` ships the
   oom_score_adj ladder. See `docs/NATIVE_APP_LIFECYCLE.md`.
 - Mail: QMF 4.0.4 + `MailService` + the `marathonoauth`/`marathonclassic`
   credential plugins + the `marathon-mail-oauth` Rust helper.
-- Rust services live in `crates/` (`marathon-weatherd`,
+- Rust services live in `crates/` (`marathon-audiod`, `marathon-weatherd`,
   `marathon-store-handler`, `marathon-core-native`).
 
 ---
@@ -274,7 +274,7 @@ module; when in doubt, ship the apk.
 | `apps/` | Bundled QML apps. |
 | `marathon-silica/` | `Marathon.Silica`: Keel's Silica plus accessibility, keyboard operation and missing components. |
 | `marathon-core/`, `marathon-services/` | Shared libraries and services. |
-| `crates/` | Rust workspace (`marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`). |
+| `crates/` | Rust workspace (`marathon-audiod`, `marathon-background`, `marathon-core-native`, `marathon-health`, `marathon-store-handler`, `marathon-weatherd`). |
 | `tools/` | `marathon-app-runner`, `marathon-webview-runner`, `marathon-mail-oauth`, ... |
 | `scripts/` | Build wrappers, `marathon` CLI, `device-snap.sh`, `hot-deploy.sh`, `flash/`, `qemu/`. |
 | `packaging/` | aports, pipeline patches, configs. See `packaging/README.md`. |

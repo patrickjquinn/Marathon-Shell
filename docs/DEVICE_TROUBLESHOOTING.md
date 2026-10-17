@@ -283,7 +283,7 @@ speaker-test -t sine -f 1000 -c 2
    pw-cli list-objects | grep -A10 "node.name"
    
    # Set default sink
-   pactl set-default-sink <sink-name>
+   wpctl set-default <node-id>
    ```
 
 3. **Buffer underruns (crackling):**
