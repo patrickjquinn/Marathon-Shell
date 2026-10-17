@@ -41,7 +41,7 @@ pipeline keys on and `DEVICE_ID` in its profile. The overlay is
 `working`, `bring-up`, `dormant`), build target, wrapper and flash scripts,
 mkosi bootloader, boot method and loader offset, kernel (and any binary apks
 pinned by SHA-512), display (resolution, DPI, panel depth, quirks), input,
-modem/GPS/sensors, firmware packages, the runner pool, and the `[profile]`
+modem/GPS/sensors, firmware packages, and the `[profile]`
 keys its `device-profile.conf` ships. Comments in the TOML carry the reasons.
 
 A SoC file lists the GPU, each GPU stack a board may run (driver, the highest
@@ -122,6 +122,7 @@ location (for host testing).
 | `WIFI_POWERSAVE` | `MARATHON_WIFI_POWERSAVE` | `1` | Doze turns on Wi-Fi power save (`iw ... power_save on`); `0` leaves it off |
 | `SCREEN_TIMEOUT_MS` | `MARATHON_SCREEN_TIMEOUT_MS` | `300000` | Default idle screen-off timeout until the user picks one; `0` = never (devices whose power key is out of reach, like the HackberryPi) |
 | `WAKE_ON_KEY` | `MARATHON_WAKE_ON_KEY` | `0` | `1` = any key on a physical keyboard wakes a blanked screen (not delivered to apps, doesn't unlock); for keyboard handhelds whose power key is hard to reach |
+| `RUNNER_POOL` | `MARATHON_RUNNER_POOL` | `1` | Warm spare app runners (~150–220 MB RSS each). `1` keeps one, in the sandbox (with or without the media folders) most recent launches needed; `2` keeps one of each, so every Marathon app but the WebEngine ones starts warm; `0` none |
 | `PANEL_DEPTH` | `MARATHON_PANEL_DEPTH` | `8` | Bits per colour channel the panel shows; below 8 the shell dithers the whole frame (the HackberryPi's RP1 DPI is wired BGR666 and doesn't dither) |
 | `FORCE_DPI` | `MARATHON_FORCE_DPI` | unset | Read by marathon-shell-session; pins the shell's DPI and so its scale factor (= DPI/160) |
 

@@ -48,6 +48,3 @@ sensors = []
 quirks = [
   "50-gpu-acceleration.conf sets QT_QUICK_BACKEND=software and GALLIUM_DRIVER=llvmpipe: the GPU path was never brought up",
 ]
-
-[runtime]
-runner_pool = 1

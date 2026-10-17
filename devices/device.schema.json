@@ -4,7 +4,7 @@
   "title": "Marathon device manifest (devices/<vendor>/<codename>/device.toml)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "vendor", "codename", "id", "name", "soc", "status", "build", "boot", "display", "input", "hardware", "runtime"],
+  "required": ["schema", "vendor", "codename", "id", "name", "soc", "status", "build", "boot", "display", "input", "hardware"],
   "properties": {
     "schema": {"const": 1},
     "vendor": {"$ref": "#/$defs/slug"},
@@ -134,17 +134,6 @@
         "dependentRequired": {"sha512": ["file"]}
       }
     },
-    "runtime": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["runner_pool"],
-      "properties": {
-        "runner_pool": {
-          "description": "Warm spare app runners. The shell keeps one; MARATHON_RUNNER_POOL=0 turns the pool off.",
-          "type": "integer", "minimum": 0, "maximum": 1
-        }
-      }
-    },
     "profile": {"$ref": "#/$defs/profile"}
   },
   "$defs": {
@@ -175,6 +164,7 @@
         "wifi_powersave": {"type": "boolean"},
         "screen_timeout_ms": {"description": "Default idle screen-off; 0 = never.", "type": "integer", "minimum": 0},
         "wake_on_key": {"type": "boolean"},
+        "runner_pool": {"description": "Warm spare app runners: 1 in the sandbox recent launches needed, 2 one with the media folders and one without, 0 none.", "type": "integer", "minimum": 0, "maximum": 2},
         "panel_depth": {"description": "Bits per channel; below 8 the shell dithers the frame.", "type": "integer", "minimum": 4, "maximum": 10},
         "force_dpi": {"description": "Read by marathon-shell-session: pins the shell's DPI and so its scale.", "type": "number", "exclusiveMinimum": 0}
       }

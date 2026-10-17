@@ -66,8 +66,9 @@ web links when installed) and the Pilot assistant. The Store installs
 Flatpaks from Flathub through `marathon-store-handler`.
 
 **App lifecycle**
-- A warm runner pool keeps one pre-initialised `marathon-app-runner`
-  spare, so a launch adopts it instead of starting cold.
+- A warm runner pool keeps pre-initialised `marathon-app-runner`
+  spares, with and without the user directories, so a launch adopts one
+  instead of starting cold (`RUNNER_POOL` in the device profile).
 - Background apps are frozen with the cgroup v2 freezer and thawed when
   brought back; memory pressure (PSI) drives OOM priority and
   kill-oldest-frozen.

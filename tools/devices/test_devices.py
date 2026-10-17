@@ -92,7 +92,7 @@ class Check(unittest.TestCase):
         self.assertError("delete the checked-in copy")
 
     def test_profile_the_overlay_does_not_ship(self):
-        self.edit("devices/oneplus/enchilada/device.toml", "[runtime]", "[profile]\ncpu_governor = \"ondemand\"\n\n[runtime]")
+        self.edit("devices/oneplus/enchilada/device.toml", "[hardware]", "[profile]\ncpu_governor = \"ondemand\"\n\n[hardware]")
         self.assertError("does not ship device-profile.conf but the manifest has a [profile]")
 
     def test_kernel_version_drift(self):

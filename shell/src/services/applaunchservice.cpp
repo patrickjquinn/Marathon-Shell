@@ -277,6 +277,28 @@ QString joinForSplitCommand(const QStringList &args) {
                                               "--enable-viewport "
                                               "--main-frame-resizes-are-orientation-changes";
 
+    // The media folders an app with the "storage" permission sees.
+    QStringList storageBinds(const QString &homeDir) {
+        QStringList args;
+        for (const auto loc : {QStandardPaths::PicturesLocation, QStandardPaths::MusicLocation,
+                               QStandardPaths::MoviesLocation, QStandardPaths::DocumentsLocation,
+                               QStandardPaths::DownloadLocation}) {
+            const QString dir = QStandardPaths::writableLocation(loc);
+            if (dir.isEmpty() || dir == homeDir)
+                continue;
+            QDir().mkpath(dir);
+            args << QStringLiteral("--bind") << dir << dir;
+        }
+        const QString dcim = homeDir + QStringLiteral("/DCIM");
+        args << QStringLiteral("--bind-try") << dcim << dcim;
+        // MediaLibraryManager::getThumbnailsDir(), which runs in this process.
+        const QString thumbs = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+            QStringLiteral("/marathon/thumbnails");
+        QDir().mkpath(thumbs);
+        args << QStringLiteral("--ro-bind") << thumbs << thumbs;
+        return args;
+    }
+
     const char *deviceChromiumFlags() {
         const bool gpu = DeviceProfile::instance().gpuStack() == QLatin1String("mesa-v3d");
         return gpu ? kGpuChromiumFlags : kDefaultChromiumFlags;
@@ -285,10 +307,11 @@ QString joinForSplitCommand(const QStringList &args) {
 
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
     : QObject(parent)
+    , m_spareCount(DeviceProfile::instance().runnerPool())
     , m_appModel(appModel)
     , m_taskModel(taskModel) {
     // First spare spawns after shell boot settles; adopts refill on demand.
-    QTimer::singleShot(8000, this, &AppLaunchService::spawnSpareRunner);
+    QTimer::singleShot(8000, this, &AppLaunchService::refillSpares);
 }
 
 void AppLaunchService::setCompositor(QObject *obj) {
@@ -981,19 +1004,19 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 
     // Warm pool: hand a pre-initialised runner this app instead of paying
     // exec + dynamic linking + Qt init on the critical path (~1s of the
-    // ~2s tap-to-frame measured 2026-07-02). WebEngine and storage apps keep
-    // the cold path — their env and sandbox shape are per-app. The spare can
-    // write every app's data directory, so it only takes Marathon's own apps.
-    if (!userInstalled && !usesWebEngine && !permissions.contains("storage") && m_spareAdoptable &&
-        m_spareProcess &&
-        m_spareProcess->state() == QProcess::Running) {
+    // ~2s tap-to-frame measured 2026-07-02). WebEngine apps keep the cold
+    // path — their env is per-app. The spare can write every app's data
+    // directory, so it only takes Marathon's own apps.
+    if (!userInstalled && !usesWebEngine) {
+        const SpareShape shape = permissions.contains("storage") ? StorageSpare : PlainSpare;
+        noteLaunchShape(shape);
         PendingLaunch pooled;
         pooled.appId   = appId;
         pooled.name    = name;
         pooled.icon    = icon;
         pooled.type    = type.isEmpty() ? QStringLiteral("marathon") : type;
         pooled.command = QStringLiteral("pool-adopt ") + appId;
-        if (adoptSpareRunner(pooled)) {
+        if (adoptSpareRunner(shape, pooled, env)) {
             QTimer::singleShot(10000, this, [this, appId]() { m_launchingApps.remove(appId); });
             emit appLaunchProgress(appId, 100);
             emit appLaunchCompleted(appId, name);
@@ -1159,25 +1182,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 
         bwrapArgs << installBinds(appId, permissions);
 
-        if (permissions.contains("storage")) {
-            for (const auto loc :
-                 {QStandardPaths::PicturesLocation, QStandardPaths::MusicLocation,
-                  QStandardPaths::MoviesLocation, QStandardPaths::DocumentsLocation,
-                  QStandardPaths::DownloadLocation}) {
-                const QString dir = QStandardPaths::writableLocation(loc);
-                if (dir.isEmpty() || dir == homeDir)
-                    continue;
-                QDir().mkpath(dir);
-                bwrapArgs << QStringLiteral("--bind") << dir << dir;
-            }
-            const QString dcim = homeDir + QStringLiteral("/DCIM");
-            bwrapArgs << QStringLiteral("--bind-try") << dcim << dcim;
-            // MediaLibraryManager::getThumbnailsDir(), which runs in this process.
-            const QString thumbs = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
-                QStringLiteral("/marathon/thumbnails");
-            QDir().mkpath(thumbs);
-            bwrapArgs << QStringLiteral("--ro-bind") << thumbs << thumbs;
-        }
+        if (permissions.contains("storage"))
+            bwrapArgs << storageBinds(homeDir);
 
         // Pass HOME as a tmpfs-mounted directory; apps can write to their
         // per-app data/cache paths only.
@@ -1380,8 +1386,10 @@ QString AppLaunchService::runnerExecutablePath() const {
 // launchMarathonApp minus everything app-specific. The per-app data dirs
 // are replaced by their parents (the app id is unknown at spawn) and the
 // network namespace is shared — both a deliberate loosening, scoped to
-// pool-adopted first-party apps. WebEngine apps never adopt.
-QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket) const {
+// pool-adopted first-party apps. WebEngine apps never adopt. Only a
+// StorageSpare sees the media folders.
+QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket,
+                                               SpareShape     shape) const {
     const QString xdgRuntimeDir = envValue("XDG_RUNTIME_DIR", QStringLiteral("/run/user/1000"));
     const QString homeDir       = envValue("HOME", QStringLiteral("/home/user"));
     const QString xdgDataHome =
@@ -1440,6 +1448,8 @@ QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket) con
          << QStringLiteral("--ro-bind-try") << xdgConfigHome + QStringLiteral("/dconf")
          << xdgConfigHome + QStringLiteral("/dconf");
     args << waylandSocketArgs(waylandSocket, xdgRuntimeDir);
+    if (shape == StorageSpare)
+        args << storageBinds(homeDir);
 
     args << QStringLiteral("--setenv") << QStringLiteral("HOME") << homeDir
          << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
@@ -1502,27 +1512,74 @@ QStringList AppLaunchService::spareSandboxArgs(const QString &waylandSocket) con
 static constexpr qint64 kSpareHealthyMs = 30000;
 // Delay before replacing an adopted spare (see adoptSpareRunner).
 static constexpr int kSpareRefillDelayMs = 8000;
+// Launches a lone spare's shape is chosen from.
+static constexpr qsizetype kRecentShapes = 5;
 
-void AppLaunchService::spawnSpareRunner() {
-    if (m_spareProcess)
+// With two spares, one of each shape. With one, the shape most of the last
+// few launches needed, ties going to the latest; before any launch, storage,
+// which most of Marathon's apps have.
+QList<AppLaunchService::SpareShape> AppLaunchService::wantedSpareShapes() const {
+    if (m_spareCount <= 0)
+        return {};
+    if (m_spareCount >= 2)
+        return {StorageSpare, PlainSpare};
+    if (m_recentShapes.isEmpty())
+        return {StorageSpare};
+    const qsizetype storage = m_recentShapes.count(StorageSpare);
+    const qsizetype plain   = m_recentShapes.size() - storage;
+    if (storage == plain)
+        return {m_recentShapes.last()};
+    return {storage > plain ? StorageSpare : PlainSpare};
+}
+
+void AppLaunchService::noteLaunchShape(SpareShape shape) {
+    m_recentShapes.append(shape);
+    if (m_recentShapes.size() > kRecentShapes)
+        m_recentShapes.removeFirst();
+    // A spare of a shape no longer wanted leaves; its exit schedules the
+    // refill. EOF on stdin is the runner's drain request.
+    const QList<SpareShape> wanted = wantedSpareShapes();
+    for (int s = 0; s < SpareShapes; ++s) {
+        Spare &spare = m_spares[s];
+        if (!spare.process || wanted.contains(SpareShape(s)))
+            continue;
+        qInfo() << "[AppLaunchService] Retiring spare runner pid" << spare.pid;
+        spare.process->setProperty("marathonRetired", true);
+        spare.process->closeWriteChannel();
+        spare = {};
+    }
+}
+
+void AppLaunchService::refillSpares() {
+    if (QDateTime::currentMSecsSinceEpoch() < m_spareRetryAfterMs)
         return;
-    // Default-ON. The v1 pool (measured 2026-07-02) LOST to cold launch
-    // because the idle spare's warmed pages were evicted to zram and
-    // adoption faulted them back. Fixed by mlockall residency in the
-    // runner (--pool): validated 2026-07-06 on L5 etnaviv, pooled
-    // adopt->first-frame ~0.9-1.1s vs 11-13s fresh-boot cold, one warmed
-    // spare held resident with no churn. MARATHON_RUNNER_POOL=0 is the
-    // kill-switch if a device needs the memory back.
-    if (qEnvironmentVariableIsSet("MARATHON_RUNNER_POOL") &&
-        qEnvironmentVariableIntValue("MARATHON_RUNNER_POOL") == 0)
+    const QList<SpareShape> wanted = wantedSpareShapes();
+    for (qsizetype i = 0; i < wanted.size(); ++i) {
+        if (m_spares[wanted[i]].process)
+            continue;
+        // One at a time: a spare spends seconds of CPU warming up.
+        if (spawnSpareRunner(wanted[i]) && i + 1 < wanted.size())
+            QTimer::singleShot(kSpareRefillDelayMs, this, &AppLaunchService::refillSpares);
         return;
+    }
+}
+
+bool AppLaunchService::spawnSpareRunner(SpareShape shape) {
+    // The v1 pool (measured 2026-07-02) LOST to cold launch because the idle
+    // spare's warmed pages were evicted to zram and adoption faulted them
+    // back. Fixed by mlockall residency in the runner (--pool): validated
+    // 2026-07-06 on L5 etnaviv, pooled adopt->first-frame ~0.9-1.1s vs
+    // 11-13s fresh-boot cold. RUNNER_POOL=0 in the device profile (or
+    // MARATHON_RUNNER_POOL=0) gives a device the memory back.
+    if (m_spares[shape].process)
+        return false;
     if (m_spareFailures >= 3) {
         qWarning() << "[AppLaunchService] Runner pool disabled after repeated spare failures";
-        return;
+        return false;
     }
     const QString bwrapPath = QStandardPaths::findExecutable("bwrap");
     if (bwrapPath.isEmpty() || qEnvironmentVariableIsSet("MARATHON_DISABLE_SANDBOX"))
-        return; // pool covers the sandboxed production path only
+        return false; // pool covers the sandboxed production path only
 
     const QString homeDir = envValue("HOME", QStringLiteral("/home/user"));
     QDir().mkpath(
@@ -1535,7 +1592,7 @@ void AppLaunchService::spawnSpareRunner() {
     const QString instance      = newSandboxInstance();
     const QString waylandSocket = openSandboxSocket(QString(), instance);
     if (waylandSocket.isEmpty())
-        return;
+        return false;
 
     auto *proc = new QProcess(this);
     proc->setProperty("marathonSandboxInstance", instance);
@@ -1556,20 +1613,23 @@ void AppLaunchService::spawnSpareRunner() {
                                   << line;
         }
     });
-    connect(proc, &QProcess::started, this, [this, proc]() {
+    connect(proc, &QProcess::started, this, [this, proc, shape]() {
         const qint64 pid = proc->processId();
         proc->setProperty("marathonPoolPid", pid);
-        if (proc == m_spareProcess) {
-            m_sparePid       = pid;
-            m_spareAdoptable = true;
+        Spare &spare = m_spares[shape];
+        if (proc == spare.process) {
+            spare.pid       = pid;
+            spare.adoptable = true;
             proc->setProperty("marathonSpareStartMs", QDateTime::currentMSecsSinceEpoch());
-            qInfo() << "[AppLaunchService] Spare runner ready, pid" << pid;
+            qInfo() << "[AppLaunchService] Spare runner ready, pid" << pid
+                    << (shape == StorageSpare ? "(storage)" : "(plain)");
         }
     });
     connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
-            [this, proc](int exitCode, QProcess::ExitStatus) {
-                const qint64 pid = proc->property("marathonPoolPid").toLongLong();
-                if (proc == m_spareProcess) {
+            [this, proc, shape](int exitCode, QProcess::ExitStatus) {
+                const qint64 pid   = proc->property("marathonPoolPid").toLongLong();
+                Spare       &spare = m_spares[shape];
+                if (proc == spare.process) {
                     // Only a spare that never got healthy counts against the
                     // retry budget. One that ran for a while and then died was
                     // working -- something outside took it: PSI/oomd reaping the
@@ -1587,9 +1647,7 @@ void AppLaunchService::spawnSpareRunner() {
                                << "after" << livedMs << "ms"
                                << (wasHealthy ? "(healthy - not counted)" : "(early - counted)")
                                << "healthyDeaths" << m_spareHealthyDeaths;
-                    m_spareProcess   = nullptr;
-                    m_sparePid       = -1;
-                    m_spareAdoptable = false;
+                    spare = {};
                     closeSandboxSocket(proc->property("marathonSandboxInstance").toString());
                     // A healthy death does not count against the budget, but it
                     // does not zero it either. Resetting would (a) let an
@@ -1606,21 +1664,30 @@ void AppLaunchService::spawnSpareRunner() {
                     } else {
                         ++m_spareHealthyDeaths;
                         delayMs = qMin(5000 << qMin(m_spareHealthyDeaths - 1, 5), 300000);
+                        m_spareRetryAfterMs = QDateTime::currentMSecsSinceEpoch() + delayMs;
                     }
-                    QTimer::singleShot(delayMs, this, &AppLaunchService::spawnSpareRunner);
+                    QTimer::singleShot(delayMs, this, &AppLaunchService::refillSpares);
+                } else if (proc->property("marathonRetired").toBool()) {
+                    closeSandboxSocket(proc->property("marathonSandboxInstance").toString());
+                    QTimer::singleShot(kSpareRefillDelayMs, this, &AppLaunchService::refillSpares);
                 } else if (pid > 0) {
                     onCompositorAppClosed(pid);
                 }
                 proc->deleteLater();
             });
 
-    QStringList args = spareSandboxArgs(waylandSocket);
+    QStringList args = spareSandboxArgs(waylandSocket, shape);
     args << runnerExecutablePath() << QStringLiteral("--pool");
-    m_spareProcess = proc;
+    m_spares[shape].process = proc;
     proc->start(bwrapPath, args);
+    return true;
 }
 
-bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
+bool AppLaunchService::adoptSpareRunner(SpareShape shape, const PendingLaunch &p,
+                                        const QVariantMap &env) {
+    Spare &spare = m_spares[shape];
+    if (!spare.adoptable || spare.process->state() != QProcess::Running)
+        return false;
     QJsonObject envObj;
     {
         QSettings shellSettings(QSettings::IniFormat, QSettings::UserScope,
@@ -1629,6 +1696,11 @@ bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
             QStringLiteral("MARATHON_USER_SCALE"),
             QString::number(
                 shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble(), 'f', 3));
+    }
+    // The grants the app's own helpers check, such as marathon-mail-oauth.
+    for (auto it = env.cbegin(); it != env.cend(); ++it) {
+        if (it.key().startsWith(QLatin1String("MARATHON_PERM_")))
+            envObj.insert(it.key(), it.value().toString());
     }
     QJsonObject msg;
     msg.insert(QStringLiteral("appId"), p.appId);
@@ -1639,35 +1711,33 @@ bool AppLaunchService::adoptSpareRunner(const PendingLaunch &p) {
     // cgroup and applies the foreground uclamp boost, so the adopt work runs
     // at interactive CPU frequency instead of ramping up from idle.
     PendingLaunch tracked   = p;
-    tracked.pid             = m_sparePid;
-    tracked.sandboxInstance = m_spareProcess->property("marathonSandboxInstance").toString();
+    tracked.pid             = spare.pid;
+    tracked.sandboxInstance = spare.process->property("marathonSandboxInstance").toString();
     QMetaObject::invokeMethod(m_compositor.data(), "assignSandboxApp", Qt::DirectConnection,
                               Q_ARG(QString, tracked.sandboxInstance), Q_ARG(QString, p.appId));
-    m_activeByPid.insert(m_sparePid, tracked);
-    registerPidForAppId(m_sparePid, p.appId);
+    m_activeByPid.insert(spare.pid, tracked);
+    registerPidForAppId(spare.pid, p.appId);
 
     const QByteArray line = QJsonDocument(msg).toJson(QJsonDocument::Compact) + '\n';
-    if (m_spareProcess->write(line) != line.size()) {
+    if (spare.process->write(line) != line.size()) {
         qWarning() << "[AppLaunchService] Pool adopt write failed for" << p.appId;
         m_activeByPid.remove(tracked.pid);
         return false;
     }
-    m_spareProcess->setProperty("marathonAppId", p.appId);
+    spare.process->setProperty("marathonAppId", p.appId);
     m_pendingRoute.clear();
     m_pendingRouteParamsJson.clear();
     qInfo() << "[AppLaunchService] Pool-adopted runner pid" << tracked.pid << "for" << p.appId;
 
     // Ownership stays with `this`; the finished handler set up at spawn
     // recognises the adopted process by pointer inequality with the spare.
-    m_spareProcess   = nullptr;
-    m_sparePid       = -1;
-    m_spareAdoptable = false;
+    spare = {};
     // Refill once the adopted app has finished starting. A replacement
     // spare spends several seconds of CPU loading Qt, Mesa (with LLVM) and
     // the warm-up QML; spawned 1.5 s after adoption it competed with the
     // app's own startup on the PinePhone's four A53 cores. An app launched
     // within this window starts cold.
-    QTimer::singleShot(kSpareRefillDelayMs, this, &AppLaunchService::spawnSpareRunner);
+    QTimer::singleShot(kSpareRefillDelayMs, this, &AppLaunchService::refillSpares);
     return true;
 }
 

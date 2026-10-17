@@ -111,6 +111,11 @@ class DeviceProfile : public QObject {
     bool wakeOnKey() const {
         return m_wakeOnKey;
     }
+    // Warm spare app runners: 0 none, 1 one in the sandbox recent launches
+    // needed, 2 one with the media folders and one without.
+    int runnerPool() const {
+        return m_runnerPool;
+    }
 
   private:
     explicit DeviceProfile(QObject *parent = nullptr);
@@ -143,4 +148,5 @@ class DeviceProfile : public QObject {
     int   m_screenTimeoutMs = 300000;
     int   m_panelDepth      = 8;
     bool  m_wakeOnKey       = false;
+    int   m_runnerPool      = 1;
 };

@@ -78,9 +78,6 @@ package = "librem5-vivante-blobs"
 version = "6.4.11"
 file = "imx-gpu-viv-6.4.11.p1.0-aarch64.bin"
 
-[runtime]
-runner_pool = 1
-
 # Flip gpu_stack, gles_level and gpu_msaa here when the Vivante blob is
 # validated.
 [profile]

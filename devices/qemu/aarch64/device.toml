@@ -35,6 +35,3 @@ modem = "none"
 gps = "none"
 wifi = "none (virtio-net)"
 sensors = []
-
-[runtime]
-runner_pool = 1

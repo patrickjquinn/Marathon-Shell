@@ -126,14 +126,30 @@ class AppLaunchService : public QObject {
     QString m_pendingRoute;
     QString m_pendingRouteParamsJson;
 
-    // Warm runner pool: one spare marathon-app-runner kept pre-initialised
+    // Warm runner pool: spare marathon-app-runners kept pre-initialised
     // (libs loaded, Qt + Wayland connect done) inside a neutral sandbox,
-    // waiting on stdin for its app id. Adoption skips the exec+ld+Qt-init
-    // bucket that dominates cold-launch time.
-    void        spawnSpareRunner();
-    bool        adoptSpareRunner(const PendingLaunch &p);
-    QString     runnerExecutablePath() const;
-    QStringList spareSandboxArgs(const QString &waylandSocket) const;
+    // waiting on stdin for their app id. Adoption skips the exec+ld+Qt-init
+    // bucket that dominates cold-launch time. A spare's sandbox either has
+    // the media folders or not, and it only becomes an app that needs the
+    // same: one with the "storage" permission or one without.
+    enum SpareShape {
+        PlainSpare,
+        StorageSpare,
+        SpareShapes
+    };
+    struct Spare {
+        QProcess *process   = nullptr;
+        qint64    pid       = -1;
+        bool      adoptable = false;
+    };
+    void              refillSpares();
+    bool              spawnSpareRunner(SpareShape shape);
+    bool              adoptSpareRunner(SpareShape shape, const PendingLaunch &p,
+                                       const QVariantMap &env);
+    void              noteLaunchShape(SpareShape shape);
+    QList<SpareShape> wantedSpareShapes() const;
+    QString           runnerExecutablePath() const;
+    QStringList       spareSandboxArgs(const QString &waylandSocket, SpareShape shape) const;
     QString     openSandboxSocket(const QString &appId, const QString &instanceId) const;
     void        closeSandboxSocket(const QString &instanceId) const;
 
@@ -146,11 +162,15 @@ class AppLaunchService : public QObject {
     static QStringList installBinds(const QString &appId, const QStringList &permissions);
 
   private:
-    QProcess   *m_spareProcess   = nullptr;
-    qint64      m_sparePid       = -1;
-    bool        m_spareAdoptable = false;
-    int         m_spareFailures  = 0;
-    int         m_spareHealthyDeaths = 0;
+    friend class TestRunnerPool;
+
+    Spare             m_spares[SpareShapes];
+    int               m_spareCount;
+    // Shapes the last few pool-eligible launches needed, oldest first.
+    QList<SpareShape> m_recentShapes;
+    int               m_spareFailures      = 0;
+    int               m_spareHealthyDeaths = 0;
+    qint64            m_spareRetryAfterMs  = 0;
 
     static bool invokeVoid(QObject *obj, const char *method, const QVariantList &args);
     static bool invokeBool(QObject *obj, const char *method, const QVariantList &args,

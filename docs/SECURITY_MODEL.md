@@ -76,7 +76,9 @@ Gaps:
   other services do not know which app is calling.
 - The pool runner is spawned before its app is known, so it binds the
   parent `marathon-apps` data and cache directories and shares the network.
-  WebEngine and `storage` apps never use the pool.
+  A spare has the user directories or not, and becomes only an app with
+  the `storage` permission or only one without. User-installed and
+  WebEngine apps never use the pool.
 
 ## Layer 2: security-context-v1 Wayland sockets
 

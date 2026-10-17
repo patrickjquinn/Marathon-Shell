@@ -51,9 +51,6 @@ battery = "MAX17048 fuel gauge"
 sensors = []
 quirks = ["the speakers are a Bluetooth module, paired on first boot by marathon-hackberry-speaker"]
 
-[runtime]
-runner_pool = 1
-
 [profile]
 # The true pitch, for the wl_output size Wayland clients such as Pacific
 # scale by (the DT reports a 144 mm width).

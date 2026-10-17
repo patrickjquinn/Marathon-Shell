@@ -178,6 +178,12 @@ void DeviceProfile::load() {
         m_wifiPowerSave = toBool(s, m_wifiPowerSave);
     if (conf.value("MARATHON_WAKE_ON_KEY", QStringLiteral("WAKE_ON_KEY"), s))
         m_wakeOnKey = toBool(s, m_wakeOnKey);
+    if (conf.value("MARATHON_RUNNER_POOL", QStringLiteral("RUNNER_POOL"), s)) {
+        bool      ok = false;
+        const int n  = s.toInt(&ok);
+        if (ok && n >= 0 && n <= 2)
+            m_runnerPool = n;
+    }
 
     qInfo().noquote() << "[DeviceProfile] id=" << m_deviceId << "gpu=" << m_gpuStack
                       << QStringLiteral("gles=%1.%2").arg(m_glesMajor).arg(m_glesMinor)

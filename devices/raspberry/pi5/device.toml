@@ -59,9 +59,6 @@ sensors = []
 [[firmware]]
 package = "raspberrypi-bootloader"
 
-[runtime]
-runner_pool = 1
-
 [profile]
 # brcmfmac power save drops the Wi-Fi link.
 wifi_powersave = false
