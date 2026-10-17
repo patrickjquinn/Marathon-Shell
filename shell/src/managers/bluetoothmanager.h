@@ -70,7 +70,14 @@ class BluetoothDevice : public QObject {
     void rssiChanged();
     void iconChanged();
 
+  private slots:
+    void onPropertiesChanged(const QString &interface, const QVariantMap &changed,
+                             const QStringList &invalidated);
+
   private:
+    void applyProperties();
+
+    QVariantMap m_props;
     QString m_path;
     QString m_address;
     QString m_name;

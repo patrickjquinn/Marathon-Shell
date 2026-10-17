@@ -44,6 +44,9 @@ static int unblockRfkillByType(const QString &type) {
 BluetoothDevice::BluetoothDevice(const QString &path, QObject *parent)
     : QObject(parent)
     , m_path(path) {
+    QDBusConnection::systemBus().connect(
+        "org.bluez", m_path, "org.freedesktop.DBus.Properties", "PropertiesChanged", this,
+        SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
     updateProperties();
 }
 
@@ -58,7 +61,23 @@ void BluetoothDevice::updateProperties() {
         return;
     }
 
-    QVariantMap props = reply.value();
+    m_props = reply.value();
+    applyProperties();
+}
+
+void BluetoothDevice::onPropertiesChanged(const QString &interface, const QVariantMap &changed,
+                                          const QStringList &invalidated) {
+    if (interface != QLatin1String("org.bluez.Device1"))
+        return;
+    for (auto it = changed.cbegin(); it != changed.cend(); ++it)
+        m_props.insert(it.key(), it.value());
+    for (const QString &key : invalidated)
+        m_props.remove(key);
+    applyProperties();
+}
+
+void BluetoothDevice::applyProperties() {
+    const QVariantMap &props = m_props;
 
     QString     newAddress = props.value("Address").toString();
     if (newAddress != m_address) {
@@ -559,6 +578,21 @@ void BluetoothManager::addDevice(const QString &path) {
 
     BluetoothDevice *device = new BluetoothDevice(path, this);
     m_devices.append(device);
+    // A device connecting after it was listed changes what apps and the
+    // status bar show.
+    const auto changed = [this, device]() {
+        emit devicesChanged();
+        if (device->paired())
+            emit pairedDevicesChanged();
+    };
+    connect(device, &BluetoothDevice::connectedChanged, this, changed);
+    connect(device, &BluetoothDevice::nameChanged, this, changed);
+    connect(device, &BluetoothDevice::aliasChanged, this, changed);
+    connect(device, &BluetoothDevice::trustedChanged, this, changed);
+    connect(device, &BluetoothDevice::pairedChanged, this, [this]() {
+        emit devicesChanged();
+        emit pairedDevicesChanged();
+    });
 
     emit devicesChanged();
 

@@ -86,6 +86,19 @@ if(DBUS_RUN_SESSION)
     target_link_libraries(test_shell_mpris2controller Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
     target_include_directories(test_shell_mpris2controller PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
     add_test(NAME Shell_MPRIS2Controller COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_mpris2controller>)
+
+    # BluetoothManager against a fake bluetoothd on a private bus
+    add_executable(test_shell_bluetoothmanager
+        test_bluetoothmanager.cpp
+        ../../shell/src/managers/bluetoothmanager.cpp
+        ../../shell/src/components/bluetoothagent.cpp
+    )
+    target_link_libraries(test_shell_bluetoothmanager Qt6::Test Qt6::Core Qt6::DBus)
+    target_include_directories(test_shell_bluetoothmanager PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src/managers
+        ${CMAKE_SOURCE_DIR}/shell/src/components
+    )
+    add_test(NAME Shell_BluetoothManager COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_bluetoothmanager>)
 endif()
 
 # AppModel tests (data model with validation)
