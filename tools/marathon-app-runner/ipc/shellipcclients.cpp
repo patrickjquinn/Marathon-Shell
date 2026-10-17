@@ -3315,6 +3315,54 @@ void DavClient::syncNow() {
     m_iface.call("SyncNow");
 }
 
+// === AppInstallerClient =====================================================
+
+AppInstallerClient::AppInstallerClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+              "org.marathonos.Shell.AppStore1", QDBusConnection::sessionBus(), this) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "UninstallComplete",
+                                          this, SLOT(onUninstallComplete(QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "UninstallFailed", this,
+                                          SLOT(onUninstallFailed(QString, QString)));
+}
+
+bool AppInstallerClient::canUninstall(const QString &appId) {
+    if (const auto known = m_removable.constFind(appId); known != m_removable.cend())
+        return *known;
+    QDBusReply<bool> r = m_iface.call("CanUninstall", appId);
+    if (!r.isValid())
+        return false;
+    m_removable.insert(appId, r.value());
+    return r.value();
+}
+
+// The shell's signal comes before its reply; a refused call has only the
+// error reply.
+void AppInstallerClient::uninstallApp(const QString &appId) {
+    m_pending.insert(appId);
+    auto *w = new QDBusPendingCallWatcher(m_iface.asyncCall("Uninstall", appId), this);
+    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w, appId]() {
+        w->deleteLater();
+        if (w->isError() && m_pending.remove(appId))
+            emit uninstallFailed(appId, w->error().message());
+    });
+}
+
+void AppInstallerClient::onUninstallComplete(const QString &appId) {
+    m_removable.remove(appId);
+    emit appRemoved(appId);
+    if (m_pending.remove(appId))
+        emit uninstallComplete(appId);
+}
+
+void AppInstallerClient::onUninstallFailed(const QString &appId, const QString &error) {
+    if (m_pending.remove(appId))
+        emit uninstallFailed(appId, error);
+}
+
 // === AppStoreClient =========================================================
 
 AppStoreClient::AppStoreClient(QObject *parent)

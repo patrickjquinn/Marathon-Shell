@@ -6,6 +6,8 @@
 #include <QDBusVariant>
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QHash>
+#include <QSet>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -1529,6 +1531,34 @@ class DavClient : public QObject {
     QDBusInterface m_iface;
     QVariantList   m_accounts;
     QVariantMap    m_state;
+};
+
+// Uninstalls through the shell's AppStore1: user installs are bound read-only
+// into the sandbox. uninstallComplete and uninstallFailed answer this
+// client's own requests; appRemoved reports every uninstall the shell makes.
+class AppInstallerClient : public QObject {
+    Q_OBJECT
+
+  public:
+    explicit AppInstallerClient(QObject *parent = nullptr);
+
+    Q_INVOKABLE bool canUninstall(const QString &appId);
+    Q_INVOKABLE void uninstallApp(const QString &appId);
+
+  signals:
+    void uninstallComplete(const QString &appId);
+    void uninstallFailed(const QString &appId, const QString &error);
+    void appRemoved(const QString &appId);
+
+  private slots:
+    void onUninstallComplete(const QString &appId);
+    void onUninstallFailed(const QString &appId, const QString &error);
+
+  private:
+    QDBusInterface m_iface;
+    QSet<QString>  m_pending;
+    // A list delegate asks on every creation; the shell rate-limits callers.
+    QHash<QString, bool> m_removable;
 };
 
 // AppStoreClient — wraps org.marathonos.Shell.AppStore1 so the Store app

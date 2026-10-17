@@ -296,6 +296,29 @@ target_include_directories(test_core_grantrefresh PRIVATE
 )
 add_test(NAME Core_GrantRefresh COMMAND test_core_grantrefresh)
 
+# Settings uninstalls through the shell, over the shell's real installer
+add_executable(test_core_appinstallerclient
+    test_appinstallerclient.cpp
+    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../marathon-core/src/marathonmanifest.cpp
+    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+    ../../marathon-core/src/marathonappinstaller.cpp
+    ../../marathon-core/src/marathonapppackager.cpp
+    ../../marathon-core/src/marathonappverifier.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
+    ../../marathon-core/src/marathonappscanner.cpp
+)
+set_target_properties(test_core_appinstallerclient PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_appinstallerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
+target_include_directories(test_core_appinstallerclient PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+    ${CMAKE_SOURCE_DIR}/shell/src
+)
+add_test(NAME Core_AppInstallerClient COMMAND test_core_appinstallerclient)
+
 # The runner's Power client reports whether the shell woke the screen
 add_executable(test_core_powerclient
     test_powerclient.cpp

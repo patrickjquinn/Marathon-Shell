@@ -151,8 +151,6 @@ static void applyMainPriorityForActive(bool active) {
 }
 #endif
 
-#include "marathonappinstaller.h"
-
 #include "ipc/shellipcclients.h"
 #include "pagetouch.h"
 #include "keelhost.h"
@@ -1053,8 +1051,6 @@ int main(int argc, char *argv[]) {
 
     auto *ctx = view.rootContext();
     ctx->setContextProperty("MarathonAppRegistry", &registry);
-    ctx->setContextProperty("MarathonAppInstaller",
-                            new MarathonAppInstaller(&registry, &scanner, ctx));
 
     // Mirror the shell's MARATHON_DEBUG flag into the runner so Logger.info()
     // and the test-app auto-run path actually emit. Without this, every
@@ -1283,6 +1279,12 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("DavSyncEngine", new DavClient(&app));
     if (hasPerm("system"))
         ctx->setContextProperty("AppStoreService", new AppStoreClient(&app));
+    if (hasPerm("system")) {
+        auto *installer = new AppInstallerClient(&app);
+        QObject::connect(installer, &AppInstallerClient::appRemoved, &registry,
+                         &MarathonAppRegistry::unregisterApp);
+        ctx->setContextProperty("MarathonAppInstaller", installer);
+    }
 
     auto *systemStatusStore = new SystemStatusStoreClient(
         qobject_cast<PowerClient *>(ctx->contextProperty("PowerManagerService").value<QObject *>()),
