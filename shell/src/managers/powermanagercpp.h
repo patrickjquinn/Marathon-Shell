@@ -24,6 +24,10 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     // wins so shell-side C++ consumers share the same instance pointer.
     static PowerManagerCpp *create(QQmlEngine *, QJSEngine *);
 
+    // Whether a resume at nowSecs is the wake-up marathon-background armed
+    // (its time is in markerPath), not one the person caused.
+    static bool isBackgroundWake(const QString &markerPath, qint64 nowSecs);
+
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
 
     Q_PROPERTY(uint warningLevel READ warningLevel NOTIFY warningLevelChanged)
@@ -125,7 +129,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     void autoSuspendEnabledChanged();
     void criticalBattery();
     void powerError(const QString &message);
-    void resumedFromSuspend();
+    void resumedFromSuspend(bool backgroundWake);
     void idleStateChanged(bool idle);
     void activeWakelocksChanged();
 

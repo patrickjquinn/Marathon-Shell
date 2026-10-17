@@ -231,6 +231,15 @@ target_include_directories(test_shell_alarmmanager PRIVATE ${CMAKE_SOURCE_DIR}/s
 add_test(NAME Shell_AlarmManager COMMAND test_shell_alarmmanager)
 set_tests_properties(Shell_AlarmManager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# A resume at the time marathon-background armed is a background wake
+add_executable(test_shell_backgroundwake
+    test_backgroundwake.cpp
+    ../../shell/src/managers/powermanagercpp.cpp
+)
+target_link_libraries(test_shell_backgroundwake Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_shell_backgroundwake PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Shell_BackgroundWake COMMAND test_shell_backgroundwake)
+
 # SecurityManager: quick PIN failures count towards the lockout
 find_package(Qt6 REQUIRED COMPONENTS Concurrent)
 add_executable(test_shell_securitymanager

@@ -214,13 +214,25 @@ void PowerManagerCpp::updateAggregateState() {
              << "% Charging:" << m_isCharging << "PluggedIn:" << m_isPluggedIn;
 }
 
+bool PowerManagerCpp::isBackgroundWake(const QString &markerPath, qint64 nowSecs) {
+    QFile marker(markerPath);
+    if (!marker.open(QIODevice::ReadOnly))
+        return false;
+    bool         ok    = false;
+    const qint64 armed = marker.readAll().trimmed().toLongLong(&ok);
+    return ok && nowSecs >= armed - 10 && nowSecs <= armed + 60;
+}
+
 void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
     if (beforeSleep) {
         qInfo() << "[PowerManagerCpp] System preparing for sleep";
         releaseInhibitor();
     } else {
-        qInfo() << "[PowerManagerCpp] System resumed from sleep";
-        emit resumedFromSuspend();
+        const bool background = isBackgroundWake(QStringLiteral("/run/marathon-background/wake"),
+                                                 QDateTime::currentSecsSinceEpoch());
+        qInfo() << "[PowerManagerCpp] System resumed from sleep"
+                << (background ? "for background work" : "");
+        emit resumedFromSuspend(background);
 
         for (auto it = m_activeWakelocks.begin(); it != m_activeWakelocks.end(); ++it) {
             if (it.value()) {

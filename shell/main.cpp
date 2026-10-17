@@ -924,17 +924,25 @@ int main(int argc, char *argv[]) {
     // (re-writes bl_power AND brightness) and always emits
     // screenOnChanged so dimState.restore + idleScreenTimer.restart
     // run on the resume edge — not deferred to a second power press.
-    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, displayPolicyController,
-                     &DisplayPolicyController::forceScreenOn);
-
+    //
     // If anything triggered S3 while Marathon-Doze was active (manual
     // `systemctl suspend`, critical-battery handler, scheduled wake),
     // bring us cleanly out of Doze on resume — otherwise m_dozing
     // stays stuck TRUE and the next power-key press would call
     // exitDoze on an already-unblanked screen. exitDoze is idempotent
     // so this is a no-op when we weren't dozing.
+    //
+    // A wake-up armed for background work lands in Doze instead: the
+    // tasks run with the screen off, as they would have in Doze.
     QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, powerPolicyController,
-                     &PowerPolicyController::exitDoze);
+                     [displayPolicyController, powerPolicyController](bool backgroundWake) {
+                         if (backgroundWake) {
+                             powerPolicyController->enterDoze(QStringLiteral("background-wake"));
+                             return;
+                         }
+                         displayPolicyController->forceScreenOn();
+                         powerPolicyController->exitDoze();
+                     });
 
     // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
     // the power button. PowerKeyListener reads /dev/input/event* directly,
