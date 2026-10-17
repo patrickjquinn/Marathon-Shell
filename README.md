@@ -84,7 +84,8 @@ Flatpaks from Flathub through `marathon-store-handler`.
   `wp_fractional_scale_v1` and `wl_output.scale`. See
   [docs/NATIVE_APP_SCALE.md](docs/NATIVE_APP_SCALE.md).
 - QML-only Sailfish OS apps run on Keel through `sailfish-qml`;
-  `marathon-sailfish-install` installs their RPMs.
+  `marathon-sailfish-install` installs their RPMs. This is tested on a host
+  only, not yet on a device.
 
 **System services**
 - Network (NetworkManager), power and battery (UPower), Bluetooth (BlueZ),
