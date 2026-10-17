@@ -11,6 +11,7 @@ QtObject {
     property real brightness: 0.5
     property bool autoBrightnessEnabled: false
     property bool lightSensorAvailable: true
+    property bool torchAvailable: false
 
     function setScreenState(on) { log("setScreenState", on); }
 }

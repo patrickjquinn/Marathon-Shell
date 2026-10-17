@@ -11,8 +11,7 @@ Page {
     property var app
     readonly property var sensors: typeof Sensors !== "undefined" ? Sensors : null
     readonly property var location: typeof Location !== "undefined" ? Location : null
-    // Shell-only; absent in the app runner.
-    readonly property var flashlight: typeof FlashlightManagerCpp !== "undefined" ? FlashlightManagerCpp : null
+    readonly property var display: typeof Display !== "undefined" ? Display : null
 
     function yesNo(yes) {
         return yes ? qsTr("Yes") : qsTr("No");
@@ -108,15 +107,12 @@ Page {
                 text: qsTr("Flashlight")
             }
             DetailItem {
-                label: qsTr("Status")
-                value: page.flashlight && page.flashlight.enabled ? qsTr("On") : qsTr("Off")
+                objectName: "torchAvailable"
+                label: qsTr("Available")
+                value: page.display && page.display.torchAvailable ? qsTr("Yes") : qsTr("Not available")
             }
-            Actions {
-                TestItem {
-                    objectName: "flashlight"
-                    text: qsTr("Toggle")
-                    onClicked: page.app.run("Toggle flashlight", () => page.flashlight.toggle())
-                }
+            HintLabel {
+                text: qsTr("Apps can see whether there is a torch; it is switched from quick settings")
             }
         }
 

@@ -183,7 +183,10 @@ TestCase {
         compare(calls(Location, "start").length, 1);
         compare(calls(Location, "stop").length, 1);
         compare([app.passedTests, app.triggeredTests], [0, 2]);
-        tap(page, "flashlight");
-        compare(app.failedTests, 1);
+        compare(findChild(page, "torchAvailable").value, "Not available");
+        Display.torchAvailable = true;
+        compare(findChild(page, "torchAvailable").value, "Yes");
+        Display.torchAvailable = false;
+        compare(app.failedTests, 0);
     }
 }
