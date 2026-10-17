@@ -138,6 +138,39 @@ Downloads start only if NetworkManager's `Metered` is not yes/guess-yes and,
 when UPower reports a battery, the battery is at 30 % or more or charging. A
 blocked install says why: connect to Wi-Fi, or charge.
 
+**Automatic updates** (Settings switch, on by default, as on iOS and Android):
+a check that finds an update downloads it as soon as those gates allow; a
+download the person cancelled is not restarted by itself. An installed
+update then restarts between 02:00 and 05:00 local time, only on charge (or
+with no battery) and with the screen off and no call or alarm. "Restart
+tonight" (Settings, or Tonight on the notification) asks for the same with
+automatic updates off. The shell re-evaluates when the screen, a call or
+alarm, the charger, Wi-Fi or a resume changes, and arms a
+`marathon-wake-update-restart` wake timer for the window, as alarms do.
+
+**Notifications** come from the shell's own notification server as "Software
+update" (Settings' update icon), each replacing the previous one, and a tap
+opens Settings → Software updates:
+
+| When | Notification | Buttons |
+|---|---|---|
+| an update is found and not downloading by itself | Update available, Marathon `<v>` | Download, Later |
+| an update is installed | Restart to finish updating | Restart now, Tonight |
+| the update failed its health check | Marathon `<v>` didn't start: went back to `<running>` | |
+| the first boot into a new version | Updated to Marathon `<v>` | (tap: what's new) |
+
+Each fires once per version (`notice/<kind>` in the shell's settings group
+`updates`). A new version is told from `lastSeenVersion`. Settings shows
+"What's new" from the running version's AppStream release notes.
+
+**Boot splash**: `marathon-update-splash` (in marathon-plymouth-theme) shows
+"Finishing update…" on the Plymouth splash while the booting `IMAGE_VERSION`
+differs from the last one whose shell came up, which it records in
+`/var/lib/marathon-update-splash/started-version` once
+`/run/user/*/marathon-shell-ready` appears. That covers the first boot after
+an update and every retry of a trial boot; a rollback or a fresh flash shows
+the plain splash. It never fails a boot.
+
 The update channel picker is gone. Channels were GitHub pre-releases, and
 images are built for one release (`edge`), which sysupdate matches as `%w`.
 Staged rollout is not implemented. Promoting a build from a test feed to the
@@ -215,6 +248,9 @@ are written. Each published version is about 2 GB.
 7. **Update.** Download and install → progress → "ready to install" →
    Restart now. `bootctl list` shows `<N+1>` booted and blessed. `IMAGE_VERSION`
    in `/etc/os-release` is `<N+1>`, and Settings shows Up to date after a check.
+   The splash says "Finishing update…" on that boot, the Hub then has
+   "Updated to Marathon `<N+1>`" (and no "Restart to finish updating" left
+   over), and a second reboot shows the plain splash.
    Negative check: re-sign `SHA256SUMS` with another key and Check now gives an
    error naming the signature.
 8. **Forced failure → rollback.** Build N+2 with a shell that never starts and a
