@@ -1,11 +1,27 @@
 #include <QTest>
 #include <QSignalSpy>
 #include "../../shell/src/models/appmodel.h"
+#include "marathonappregistry.h"
 
 class TestAppModel : public QObject {
     Q_OBJECT
 
   private slots:
+
+    // An uninstalled app leaves the home grid without a shell restart.
+    void followsAppsLeavingTheRegistry() {
+        MarathonAppRegistry registry;
+        registry.registerApp("com.example.crafted", "Crafted", "/apps/c/icon.svg", 0, "/apps/c",
+                             "", "1", false, {});
+        AppModel model;
+        model.loadFromRegistry(&registry);
+        model.loadFromRegistry(&registry);
+        QVERIFY(model.getApp("com.example.crafted"));
+
+        registry.unregisterApp("com.example.crafted");
+        QVERIFY(!model.getApp("com.example.crafted"));
+        QCOMPARE(model.count(), 0);
+    }
 
     // === CONTRACT: Empty model ===
 

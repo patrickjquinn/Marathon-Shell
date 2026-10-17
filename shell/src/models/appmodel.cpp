@@ -193,6 +193,8 @@ void AppModel::loadFromRegistry(QObject *registryObj) {
     }
 
     qDebug() << "[AppModel] Loading apps from registry...";
+    connect(registry, &MarathonAppRegistry::appUnregistered, this, &AppModel::removeApp,
+            Qt::UniqueConnection);
 
     QStringList appIds = registry->getAllAppIds();
     appIds.sort();
