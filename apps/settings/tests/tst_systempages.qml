@@ -325,6 +325,47 @@ TestCase {
         verify(child(s.page, "hintLabel").visible);
     }
 
+    function test_updateAutomatic() {
+        const s = open("updates");
+        const toggle = child(s.page, "autoUpdateSwitch");
+        verify(toggle.visible);
+        verify(toggle.checked);
+        toggle.clicked(null);
+        verify(!Updates.autoUpdate);
+        verify(!toggle.checked);
+        toggle.clicked(null);
+        verify(Updates.autoUpdate);
+        Updates.state = "unsupported";
+        verify(!toggle.visible);
+    }
+
+    function test_updateTonight() {
+        Updates.state = "readyToReboot";
+        Updates.autoUpdate = false;
+        const s = open("updates");
+        const tonight = child(s.page, "tonightButton");
+        verify(tonight.visible);
+        tonight.clicked(null);
+        compare(Updates.calls, [["tonight"]]);
+        Updates.restartScheduled = true;
+        verify(!tonight.visible);
+        compare(child(s.page, "hintLabel").text, "It restarts tonight between 2 and 5 AM, on charge and not in use. If it doesn't start properly, your phone goes back to the version it has now.");
+        verify(child(s.page, "rebootButton").visible);
+    }
+
+    function test_updateWhatsNew() {
+        Updates.state = "upToDate";
+        Updates.currentReleaseNotes = "";
+        const s = open("updates");
+        const notes = child(s.page, "currentNotesLabel");
+        verify(!notes.visible);
+        verify(!child(s.page, "notesLabel").visible);
+        Updates.currentReleaseNotes = "Faster Wi-Fi";
+        verify(notes.visible);
+        compare(notes.text, "Faster Wi-Fi");
+        verify(child(s.page, "currentNotesHeader").visible);
+    }
+
     function test_aboutAndRename() {
         const s = open("about");
         compare(child(s.page, "nameButton").value, "Librem 5");

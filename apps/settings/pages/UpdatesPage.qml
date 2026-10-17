@@ -44,7 +44,7 @@ Page {
                 return qsTr("Charge to at least 30%, or plug in, to download this update.");
             return "";
         case "readyToReboot":
-            return qsTr("Restart to finish. If it doesn't start properly, your phone goes back to the version it has now.");
+            return Updates.restartScheduled ? qsTr("It restarts tonight between 2 and 5 AM, on charge and not in use. If it doesn't start properly, your phone goes back to the version it has now.") : qsTr("Restart to finish. If it doesn't start properly, your phone goes back to the version it has now.");
         case "rolledBack":
             return qsTr("Your phone went back to %1. A fixed update will be offered when it's published.").arg(Updates.osVersion);
         case "error":
@@ -103,7 +103,7 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 bottomPadding: Theme.paddingLarge
-                visible: page.updateState === "available" && Updates.releaseNotes !== ""
+                visible: (page.updateState === "available" || page.updateState === "downloading" || page.updateState === "readyToReboot") && Updates.releaseNotes !== ""
                 text: Updates.releaseNotes
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
@@ -143,12 +143,33 @@ Page {
                 text: qsTr("Cancel")
                 onClicked: Updates.cancel()
             }
-            Button {
-                objectName: "rebootButton"
-                anchors.horizontalCenter: parent.horizontalCenter
+            Column {
+                width: parent.width
+                spacing: Theme.paddingMedium
                 visible: page.updateState === "readyToReboot"
-                text: qsTr("Restart now")
-                onClicked: Updates.reboot()
+
+                Button {
+                    objectName: "rebootButton"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: qsTr("Restart now")
+                    onClicked: Updates.reboot()
+                }
+                Button {
+                    objectName: "tonightButton"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: !Updates.restartScheduled
+                    text: qsTr("Restart tonight")
+                    onClicked: Updates.scheduleRestart()
+                }
+            }
+            TextSwitch {
+                objectName: "autoUpdateSwitch"
+                visible: page.updateState !== "unsupported"
+                text: qsTr("Automatic updates")
+                description: qsTr("Downloads updates on Wi-Fi and installs them overnight while charging")
+                automaticCheck: false
+                checked: Updates.autoUpdate
+                onClicked: Updates.autoUpdate = !checked
             }
             DetailItem {
                 objectName: "osVersion"
@@ -165,6 +186,21 @@ Page {
                 visible: Updates.lastCheckedMs > 0
                 label: qsTr("Last checked")
                 value: visible ? new Date(Updates.lastCheckedMs).toLocaleString(Qt.locale(), Locale.ShortFormat) : ""
+            }
+            SectionHeader {
+                objectName: "currentNotesHeader"
+                visible: Updates.currentReleaseNotes !== ""
+                text: qsTr("What's new")
+            }
+            Label {
+                objectName: "currentNotesLabel"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: Updates.currentReleaseNotes !== ""
+                text: Updates.currentReleaseNotes
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.highlightColor
             }
             Label {
                 x: Theme.horizontalPageMargin

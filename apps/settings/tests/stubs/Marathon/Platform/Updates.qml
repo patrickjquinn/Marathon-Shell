@@ -14,6 +14,9 @@ QtObject {
     readonly property bool updateAvailable: state === "available"
     property string lastError: ""
     property real lastCheckedMs: 1760000000000
+    property bool autoUpdate: true
+    property bool restartScheduled: false
+    property string currentReleaseNotes: ""
     property var calls: []
 
     function reset() {
@@ -26,6 +29,9 @@ QtObject {
         rolledBackVersion = "";
         lastError = "";
         lastCheckedMs = 1760000000000;
+        autoUpdate = true;
+        restartScheduled = false;
+        currentReleaseNotes = "";
         calls = [];
     }
     function checkNow() {
@@ -39,5 +45,8 @@ QtObject {
     }
     function reboot() {
         calls = calls.concat([["reboot"]]);
+    }
+    function scheduleRestart() {
+        calls = calls.concat([["tonight"]]);
     }
 }
