@@ -98,7 +98,23 @@ impl Session {
     }
 
     fn start(name: &str) -> Option<Session> {
-        let programs = ["pipewire", "wireplumber", "dbus-daemon", "wpctl", "pw-cat"];
+        Self::start_with(name, false)
+    }
+
+    /// With Marathon's media roles installed as well.
+    fn start_with_roles(name: &str) -> Option<Session> {
+        Self::start_with(name, true)
+    }
+
+    fn start_with(name: &str, roles: bool) -> Option<Session> {
+        let programs = [
+            "pipewire",
+            "wireplumber",
+            "dbus-daemon",
+            "wpctl",
+            "pw-cat",
+            "pw-dump",
+        ];
         if let Some(missing) = programs.iter().find(|p| !on_path(p)) {
             eprintln!("skipped: {missing} is not installed");
             return None;
@@ -132,6 +148,18 @@ impl Session {
             scripts.join("call-routing.lua"),
         )
         .unwrap();
+        if roles {
+            fs::copy(
+                shipped.join("wireplumber.conf.d/61-marathon-media-roles.conf"),
+                confd.join("61-marathon-media-roles.conf"),
+            )
+            .unwrap();
+            fs::copy(
+                shipped.join("scripts/marathon/role-default-target.lua"),
+                scripts.join("role-default-target.lua"),
+            )
+            .unwrap();
+        }
 
         let mut bus_daemon = Command::new("dbus-daemon")
             .arg(format!("--config-file={}", data.join("bus.conf").display()))
@@ -207,6 +235,43 @@ impl Session {
             .unwrap_or_default()
             .trim()
             .to_owned()
+    }
+
+    fn dump(&self) -> Vec<serde_json::Value> {
+        self.output("pw-dump", &[])
+            .and_then(|out| serde_json::from_str(&out).ok())
+            .unwrap_or_default()
+    }
+
+    fn node_id(&self, name: &str) -> Option<u64> {
+        self.dump()
+            .iter()
+            .find(|o| o["info"]["props"]["node.name"] == name)
+            .and_then(|o| o["id"].as_u64())
+    }
+
+    /// The level wpctl shows for the node named `name`.
+    fn volume_of(&self, name: &str) -> String {
+        self.node_id(name)
+            .map(|id| self.wpctl_volume(&id.to_string()))
+            .unwrap_or_default()
+    }
+
+    /// The nodes the node named `name` plays into.
+    fn linked_to(&self, name: &str) -> Vec<String> {
+        let dump = self.dump();
+        let name_of = |id: &serde_json::Value| {
+            dump.iter()
+                .find(|o| o["id"] == *id)
+                .and_then(|o| o["info"]["props"]["node.name"].as_str())
+                .unwrap_or_default()
+                .to_owned()
+        };
+        dump.iter()
+            .filter(|o| o["type"] == "PipeWire:Interface:Link")
+            .filter(|o| name_of(&o["info"]["output-node-id"]) == name)
+            .map(|o| name_of(&o["info"]["input-node-id"]))
+            .collect()
     }
 }
 
@@ -373,4 +438,81 @@ fn controls_a_device_route_sink() {
         session.wpctl_volume("@DEFAULT_AUDIO_SINK@") == "Volume: 0.60 [MUTED]"
     });
     eventually("Muted to follow", || property::<bool>(&audio, "Muted"));
+}
+
+const MEDIA: &str = "input.loopback.sink.role.multimedia";
+const ALARM: &str = "input.loopback.sink.role.alarm";
+
+// Marathon's media roles: the media volume is the Multimedia role's and
+// the device stays at full level, so an alarm is not scaled by it.
+#[test]
+fn media_volume_leaves_alarms_alone() {
+    let Some(session) = Session::start_with_roles("roles") else {
+        return;
+    };
+    let audio = session.audio();
+    eventually("the role loopbacks", || {
+        session.volume_of(MEDIA) == "Volume: 1.00"
+    });
+    assert_eq!(property::<String>(&audio, "DefaultSink"), "test-sink-a");
+    let sinks: Vec<(String, String)> = property(&audio, "Sinks");
+    assert!(sinks.iter().all(|(name, _)| name.starts_with("test-")));
+
+    // A level the device was given moves into the media volume.
+    assert!(session
+        .output("wpctl", &["set-volume", "@DEFAULT_AUDIO_SINK@", "0.3"])
+        .is_some());
+    eventually("the device back at full level", || {
+        session.wpctl_volume("@DEFAULT_AUDIO_SINK@") == "Volume: 1.00"
+    });
+    eventually("the media volume to take it", || {
+        session.volume_of(MEDIA) == "Volume: 0.30"
+    });
+    eventually("Volume to follow", || {
+        close_to(property(&audio, "Volume"), 0.3)
+    });
+
+    // The shell's volume and mute are the media role's.
+    audio.call_method("SetVolume", &(0.0f64)).unwrap();
+    audio.call_method("SetMuted", &(true)).unwrap();
+    eventually("media at 0, muted", || {
+        session.volume_of(MEDIA) == "Volume: 0.00 [MUTED]"
+    });
+    assert_eq!(session.wpctl_volume("@DEFAULT_AUDIO_SINK@"), "Volume: 1.00");
+    assert_eq!(session.volume_of(ALARM), "Volume: 1.00");
+
+    // Qt names its device's node as the target, the default one included,
+    // and does not reconnect; that still goes through the stream's role.
+    let wav = session.dir.join("silence.wav");
+    fs::write(&wav, silence(60)).unwrap();
+    let wav = wav.display().to_string();
+    let sink = session.node_id("test-sink-a").unwrap();
+    let qt = format!(
+        r#"{{ "node.name": "qt-like", "node.target": "{sink}", "node.dont-reconnect": true }}"#
+    );
+    session.spawn(
+        "pw-cat",
+        &["--playback", "--media-role", "Music", "-P", &qt, &wav],
+    );
+    eventually("the default-aimed stream on the media role", || {
+        session.linked_to("qt-like").contains(&MEDIA.to_owned())
+    });
+    let other = r#"{ "node.name": "picked", "node.dont-reconnect": true }"#;
+    session.spawn(
+        "pw-cat",
+        &["--playback", "--target", "test-sink-b", "-P", other, &wav],
+    );
+    eventually("a stream aimed elsewhere to stay there", || {
+        session
+            .linked_to("picked")
+            .contains(&"test-sink-b".to_owned())
+    });
+    let alarm = r#"{ "node.name": "alarm-like" }"#;
+    session.spawn(
+        "pw-cat",
+        &["--playback", "--target", ALARM, "-P", alarm, &wav],
+    );
+    eventually("the alarm on its own role", || {
+        session.linked_to("alarm-like").contains(&ALARM.to_owned())
+    });
 }

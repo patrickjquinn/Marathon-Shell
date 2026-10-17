@@ -97,7 +97,10 @@ Flatpaks from Flathub through `marathon-store-handler`.
 - Audio: `marathon-audiod` (Rust) serves `org.marathonos.Audio` on the
   session bus, a PipeWire client for volume, mute, default devices and
   per-app streams. Routing, call audio included, is WirePlumber's policy
-  (`crates/marathon-audiod/data/wireplumber/`).
+  (`crates/marathon-audiod/data/wireplumber/`). Each media role (media,
+  notifications, alarms, ringtones, calls, alerts) plays through its own
+  WirePlumber loopback with its own level; the media volume is the
+  Multimedia role's, and the device stays at full level.
 - Weather: `marathon-weatherd` (Rust) serves `org.marathonos.Weather` on the
   session bus, with forecasts from MET Norway, place names from OpenStreetMap
   Nominatim and the position from GeoClue.
