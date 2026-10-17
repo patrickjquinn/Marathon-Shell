@@ -1,0 +1,40 @@
+# The developer simulator. No overlay aport and no device-profile.conf:
+# the shell runs on its built-in defaults, and marathon-shell-session
+# picks the virtio-gpu settings itself.
+schema = 1
+vendor = "qemu"
+codename = "aarch64"
+id = "qemu-aarch64"
+name = "QEMU aarch64 (developer simulator)"
+soc = "qemu-virt"
+status = "working"
+
+[build]
+target = "qemu-aarch64"
+wrapper = "scripts/build-qemu-image.sh"
+bootloader = "systemd-boot"
+
+[boot]
+method = "uefi"
+partition_table = "gpt"
+
+[display]
+interface = "virtio"
+# MARATHON_QEMU_WIDTH / MARATHON_QEMU_HEIGHT change it.
+width = 720
+height = 1440
+# Set by marathon-shell-session for virtio-gpu: 720 px / 390 design px.
+scale_dpi = 296
+
+[input]
+touch = "virtio-tablet"
+keyboard = "virtio keyboard (the host's)"
+
+[hardware]
+modem = "none"
+gps = "none"
+wifi = "none (virtio-net)"
+sensors = []
+
+[runtime]
+runner_pool = 1

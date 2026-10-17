@@ -1,0 +1,53 @@
+# Dormant: kept so it can be revived, not built or tested since the
+# 2026-09 monorepo merge. Its overlay ships no device-profile.conf.
+schema = 1
+vendor = "oneplus"
+codename = "enchilada"
+id = "oneplus-enchilada"
+name = "OnePlus 6"
+manufacturer = "OnePlus"
+soc = "sdm845"
+status = "dormant"
+package = "device-oneplus-enchilada-marathon"
+
+[build]
+target = "oneplus-enchilada"
+wrapper = "scripts/build-oneplus6-image.sh"
+flash = "scripts/flash/flash-oneplus6.sh"
+bootloader = "systemd-boot"
+
+# The Android boot partition holds a U-Boot boot image; U-Boot maps the
+# GPT image in userdata with blkmap and starts systemd-boot from its ESP.
+[boot]
+method = "android-u-boot"
+partition_table = "gpt"
+
+[kernel]
+package = "linux-marathon"
+version = "6.14_rc5"
+
+[display]
+panel = "Samsung AMOLED"
+interface = "dsi"
+width = 1080
+height = 2280
+diagonal_in = 6.28
+depth_bits = 8
+
+[input]
+touch = "Synaptics RMI4"
+keyboard = "none"
+
+[hardware]
+ram_mb = 6144
+modem = "Qualcomm SDM845 integrated"
+gps = "SoC GNSS"
+wifi = "Qualcomm WCN3990"
+bluetooth = "Qualcomm WCN3990"
+sensors = []
+quirks = [
+  "50-gpu-acceleration.conf sets QT_QUICK_BACKEND=software and GALLIUM_DRIVER=llvmpipe: the GPU path was never brought up",
+]
+
+[runtime]
+runner_pool = 1

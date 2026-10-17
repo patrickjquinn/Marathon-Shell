@@ -1,0 +1,67 @@
+# The generic Pi 5 / CM5 base; enclosures such as the HackberryPi layer
+# their own overlay on top. Bare-board (HDMI) images are not validated:
+# this layer is exercised through the HackberryPi.
+schema = 1
+vendor = "raspberry"
+codename = "pi5"
+id = "raspberry-pi5"
+name = "Raspberry Pi 5 / Compute Module 5"
+manufacturer = "Raspberry Pi"
+soc = "bcm2712"
+status = "bring-up"
+package = "device-raspberry-pi5-marathon"
+
+# No wrapper of its own: scripts/build-image.sh raspberry-pi5. The
+# HackberryPi flash script writes this target's image.
+[build]
+target = "raspberry-pi5"
+flash = "scripts/flash/flash-hackberry-cm5.sh"
+bootloader = "uki"
+
+# The EEPROM reads config.txt, kernel_2712.img and initramfs_2712 from a
+# FAT32 partition (MBR type 0x0c); the root grows to fill the card on
+# first boot.
+[boot]
+method = "pi-firmware"
+partition_table = "mbr"
+loader = "raspberrypi-bootloader"
+
+# Edge's 6.18 NULL-derefs in initrd udev on a Pi 5; the image pins 6.12.85
+# from Alpine v3.23.
+[kernel]
+package = "linux-rpi"
+version = "6.12.85-r0"
+
+[[kernel.pins]]
+file = "linux-rpi-6.12.85-r0.apk"
+url = "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/linux-rpi-6.12.85-r0.apk"
+sha512 = "d23e41d56271d9e2c4e21d6d0a48b454841912fc74f9c220cb7fd4551f92629582df7b6b9ab7be481e55f0902670e5278ddb8a9bc9c34aa24d2c67c9232eebfc"
+
+[[kernel.pins]]
+file = "linux-rpi-dev-6.12.85-r0.apk"
+url = "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/linux-rpi-dev-6.12.85-r0.apk"
+sha512 = "20edc51dde64da87915c2bda49735e79033877166b3f1d210c21f3851fcffad4fcf94b392c47d778575820790410503ca9791897e4e0a8e3134ac61c94c37f50"
+
+[display]
+interface = "hdmi"
+
+[input]
+touch = "none"
+keyboard = "USB"
+
+[hardware]
+modem = "none"
+gps = "none"
+wifi = "Infineon CYW43455 (brcmfmac)"
+bluetooth = "Infineon CYW43455"
+sensors = []
+
+[[firmware]]
+package = "raspberrypi-bootloader"
+
+[runtime]
+runner_pool = 1
+
+[profile]
+# brcmfmac power save drops the Wi-Fi link.
+wifi_powersave = false

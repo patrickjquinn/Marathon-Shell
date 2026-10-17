@@ -1,0 +1,68 @@
+schema = 1
+vendor = "hackberrypi"
+codename = "cm5"
+id = "hackberrypi-cm5"
+name = "HackberryPi CM5"
+manufacturer = "ZitaoTech"
+soc = "bcm2712"
+status = "primary"
+package = "device-hackberrypi-cm5-marathon"
+# Takes over the Pi 5 base's device-profile.conf; its kernel and pins are
+# raspberry/pi5's.
+layers_on = "raspberry/pi5"
+
+[build]
+target = "raspberry-pi5"
+wrapper = "scripts/build-hackberry-cm5-image.sh"
+flash = "scripts/flash/flash-hackberry-cm5.sh"
+bootloader = "uki"
+
+[boot]
+method = "pi-firmware"
+partition_table = "mbr"
+loader = "raspberrypi-bootloader"
+
+[display]
+panel = "Pimoroni HyperPixel 4.0 Square"
+interface = "dpi"
+width = 720
+height = 720
+diagonal_in = 4.0
+depth_bits = 6
+scale_dpi = 254
+quirks = [
+  "wired BGR666 (CPADHI) and RP1 DPI doesn't dither: the shell does (panel_depth = 6)",
+  "the DT reports the width as 144 mm, twice the panel's: panel_dpi and force_dpi carry the true 254",
+  "doesn't recover once its pixel stream stops: doze blanks the backlight only",
+  "PWM backlight with 10 levels; level 1 (duty 8/255) is the dimmest that lights",
+]
+
+[input]
+touch = "EDT FT5x06 (edt-ft5x06)"
+keyboard = "BlackBerry-style keyboard, RP2040 USB HID"
+quirks = ["the power key is out of reach: no idle blanking, and any key wakes the screen"]
+
+[hardware]
+modem = "none"
+gps = "none"
+wifi = "Infineon CYW43455 (brcmfmac)"
+bluetooth = "Infineon CYW43455"
+battery = "MAX17048 fuel gauge"
+sensors = []
+quirks = ["the speakers are a Bluetooth module, paired on first boot by marathon-hackberry-speaker"]
+
+[runtime]
+runner_pool = 1
+
+[profile]
+panel_dpi = 254
+doze_dpms = false
+# brcmfmac power save drops the Wi-Fi link.
+wifi_powersave = false
+screen_timeout_ms = 0
+wake_on_key = true
+panel_depth = 6
+# The panel's true pitch gives the ~1.6x scale its square layouts are
+# written for.
+force_dpi = 254
+brightness_floor = 0.1

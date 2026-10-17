@@ -1,0 +1,90 @@
+schema = 1
+vendor = "purism"
+codename = "librem5"
+id = "purism-librem5"
+name = "Purism Librem 5"
+manufacturer = "Purism"
+soc = "imx8mq"
+status = "primary"
+package = "device-purism-librem5-marathon"
+
+[build]
+target = "purism-librem5"
+wrapper = "scripts/build-librem5-image.sh"
+flash = "scripts/flash/flash-librem5.sh"
+bootloader = "uki"
+
+# The boot ROM loads phone-boot.img from byte 33 KiB; its U-Boot runs
+# boot.scr from the ext4 partition 1 at sector 4096.
+[boot]
+method = "u-boot-script"
+partition_table = "gpt"
+loader = "u-boot-librem5"
+loader_blob = "usr/share/u-boot/librem5/phone-boot.img"
+loader_offset_kib = 33
+script = "marathon-boot.cmd"
+
+# RS9116 kCFI fix; also builds the galcore module for vivante-blob.
+[kernel]
+package = "linux-purism-librem5-marathon"
+version = "6.6.139"
+
+[display]
+panel = "Mantix MLAF057WE51-X"
+interface = "dsi"
+width = 720
+height = 1440
+diagonal_in = 5.7
+depth_bits = 8
+# greetd's MARATHON_FORCE_DPI: the nwl-dsi bridge reports a physical
+# size that gives the wrong scale.
+scale_dpi = 287
+quirks = [
+  "LCDIF scans out XRGB8888: no alpha in the CRTC framebuffer",
+  "eglfs picks the panel by its by-path card symlink: etnaviv is a late module, so card indexes move",
+]
+
+[input]
+touch = "EDT FT5506"
+keyboard = "none"
+
+[hardware]
+ram_mb = 3072
+modem = "BroadMobi BM818 (ModemManager broadmobi plugin)"
+gps = "modem, through ModemManager location (marathon-modem-location); the DT also has a UART GNSS receiver"
+wifi = "Redpine RS9116 (SDIO)"
+bluetooth = "Redpine RS9116"
+sensors = ["ST LSM9DS1 accelerometer/gyroscope (st_lsm6dsx, blacklisted)", "ST LSM9DS1 magnetometer", "Vishay VCNL4040 proximity/ambient light"]
+quirks = [
+  "st_lsm6dsx hangs readers in D-state: blacklisted on the cmdline and iio-sensor-proxy masked",
+  "RS9116 SDIO probe can time out at boot: marathon-wifi-recovery rebinds it",
+  "no `quiet` on the cmdline: it races the RS9116 power-on",
+  "hardware kill switches for modem, Wi-Fi/BT and camera/mic",
+]
+
+[[firmware]]
+package = "device-purism-librem5-nonfree-firmware"
+
+[[firmware]]
+package = "firmware-siliconlabs-rs9116"
+
+[[firmware]]
+package = "linux-firmware-imx"
+
+# Opt-in GPU userspace (GPU_STACK=vivante-blob). The aport records no
+# sha512 for the NXP installer yet, so it is not pinned here.
+[[firmware]]
+package = "librem5-vivante-blobs"
+version = "6.4.11"
+file = "imx-gpu-viv-6.4.11.p1.0-aarch64.bin"
+
+[runtime]
+runner_pool = 1
+
+# Flip gpu_stack, gles_level and gpu_msaa here when the Vivante blob is
+# validated.
+[profile]
+panel_dither = false
+cpu_governor = "ondemand"
+brightness_floor = 0.28
+call_audio = "ucm-profiles"

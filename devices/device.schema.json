@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/patrickjquinn/Marathon-Shell/devices/device.schema.json",
+  "title": "Marathon device manifest (devices/<vendor>/<codename>/device.toml)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "vendor", "codename", "id", "name", "soc", "status", "build", "boot", "display", "input", "hardware", "runtime"],
+  "properties": {
+    "schema": {"const": 1},
+    "vendor": {"$ref": "#/$defs/slug"},
+    "codename": {"$ref": "#/$defs/slug"},
+    "id": {
+      "description": "<vendor>-<codename>: the postmarketOS device name and DEVICE_ID in device-profile.conf.",
+      "$ref": "#/$defs/slug"
+    },
+    "name": {"type": "string", "minLength": 1},
+    "manufacturer": {"type": "string", "minLength": 1},
+    "soc": {"description": "Stem of a socs/<soc>.toml.", "$ref": "#/$defs/slug"},
+    "status": {"enum": ["primary", "working", "bring-up", "dormant"]},
+    "package": {
+      "description": "The device overlay aport, packaging/packages/device-<id>-marathon. Absent: the image needs none.",
+      "type": "string",
+      "pattern": "^device-[a-z0-9-]+-marathon$"
+    },
+    "layers_on": {
+      "description": "<vendor>/<codename> of the device whose overlay this one is installed on top of.",
+      "type": "string",
+      "pattern": "^[a-z0-9-]+/[a-z0-9-]+$"
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "bootloader"],
+      "properties": {
+        "target": {"description": "First argument to scripts/build-image.sh.", "$ref": "#/$defs/slug"},
+        "wrapper": {"$ref": "#/$defs/repo_path"},
+        "flash": {"$ref": "#/$defs/repo_path"},
+        "bootloader": {"description": "mkosi Bootloader= the pipeline sets for the target.", "enum": ["uki", "systemd-boot", "none"]}
+      }
+    },
+    "boot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "partition_table"],
+      "properties": {
+        "method": {"enum": ["u-boot-script", "pi-firmware", "uefi", "android-u-boot"]},
+        "partition_table": {"enum": ["gpt", "mbr"]},
+        "loader": {"description": "Package that ships the first-stage loader.", "type": "string", "minLength": 1},
+        "loader_blob": {"description": "Loader image inside the rootfs that the build writes raw to the disk.", "type": "string", "minLength": 1},
+        "loader_offset_kib": {"type": "integer", "minimum": 1},
+        "script": {"description": "U-Boot script source in the overlay aport, compiled to /boot/boot.scr.", "type": "string", "minLength": 1}
+      },
+      "dependentRequired": {"loader_blob": ["loader_offset_kib"], "loader_offset_kib": ["loader_blob"]}
+    },
+    "kernel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package"],
+      "properties": {
+        "package": {"type": "string", "minLength": 1},
+        "version": {"description": "pkgver (pkgver-rN for a pinned binary); checked against the APKBUILD when the aport is in-tree.", "type": "string", "minLength": 1},
+        "pins": {
+          "description": "Binary apks scripts/build-image.sh downloads for this target; it refuses any whose SHA-512 differs.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "url", "sha512"],
+            "properties": {
+              "file": {"type": "string", "pattern": "^[A-Za-z0-9_.+-]+\\.apk$"},
+              "url": {"type": "string", "pattern": "^https://"},
+              "sha512": {"type": "string", "pattern": "^[0-9a-f]{128}$"}
+            }
+          }
+        }
+      }
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface"],
+      "properties": {
+        "panel": {"type": "string", "minLength": 1},
+        "interface": {"enum": ["dsi", "dpi", "hdmi", "virtio"]},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "diagonal_in": {"type": "number", "exclusiveMinimum": 0},
+        "depth_bits": {"description": "Bits per colour channel the panel shows.", "type": "integer", "minimum": 4, "maximum": 10},
+        "scale_dpi": {
+          "description": "The DPI the shell's scale is pinned to (scale = DPI/160): profile.force_dpi or MARATHON_FORCE_DPI in the overlay's greetd config.",
+          "type": "number", "exclusiveMinimum": 0
+        },
+        "quirks": {"$ref": "#/$defs/strings"}
+      },
+      "dependentRequired": {"width": ["height"], "height": ["width"]}
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["touch", "keyboard"],
+      "properties": {
+        "touch": {"description": "Touch controller, or \"none\".", "type": "string", "minLength": 1},
+        "keyboard": {"description": "Physical keyboard, or \"none\".", "type": "string", "minLength": 1},
+        "quirks": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modem", "gps", "wifi", "sensors"],
+      "properties": {
+        "ram_mb": {"type": "integer", "minimum": 256},
+        "modem": {"description": "Cellular modem, or \"none\".", "type": "string", "minLength": 1},
+        "gps": {"description": "GNSS source, or \"none\".", "type": "string", "minLength": 1},
+        "wifi": {"type": "string", "minLength": 1},
+        "bluetooth": {"type": "string", "minLength": 1},
+        "battery": {"type": "string", "minLength": 1},
+        "sensors": {"$ref": "#/$defs/strings"},
+        "quirks": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "firmware": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["package"],
+        "properties": {
+          "package": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "minLength": 1},
+          "file": {"description": "Upstream file the aport fetches.", "type": "string", "minLength": 1},
+          "sha512": {"description": "Pin for file; must equal the aport's sha512sums entry.", "type": "string", "pattern": "^[0-9a-f]{128}$"}
+        },
+        "dependentRequired": {"sha512": ["file"]}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runner_pool"],
+      "properties": {
+        "runner_pool": {
+          "description": "Warm spare app runners. The shell keeps one; MARATHON_RUNNER_POOL=0 turns the pool off.",
+          "type": "integer", "minimum": 0, "maximum": 1
+        }
+      }
+    },
+    "profile": {"$ref": "#/$defs/profile"}
+  },
+  "$defs": {
+    "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+    "repo_path": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"},
+    "strings": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "gpu_stack": {"enum": ["mesa-etnaviv", "vivante-blob", "mesa-lima", "mesa-v3d", "mesa-virgl", "mesa-freedreno", "llvmpipe"]},
+    "gles": {"type": "string", "pattern": "^[1-9]\\.[0-9]$"},
+    "profile": {
+      "description": "/etc/marathon/device-profile.conf: each key is the conf key in lower case (DEVICE_ID comes from id). Keys left out keep the shell's built-in default. Key order here is the generated file's order.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gpu_stack": {"$ref": "#/$defs/gpu_stack"},
+        "gles_level": {"description": "ES version of the default surface.", "$ref": "#/$defs/gles"},
+        "surface_alpha": {"description": "The CRTC framebuffer has alpha (ARGB).", "type": "boolean"},
+        "gpu_msaa": {"description": "Max hardware FBO samples; 0 = none.", "type": "integer", "minimum": 0, "maximum": 16},
+        "gpu_rgba16f": {"type": "boolean"},
+        "panel_dither": {"description": "Dither noise over the wallpaper.", "type": "boolean"},
+        "render_node": {"type": "string", "pattern": "^/dev/dri/renderD[0-9]+$"},
+        "cpu_governor": {"enum": ["ondemand", "schedutil", "conservative", "powersave", "performance"]},
+        "brightness_floor": {"description": "Lowest backlight fraction that still lights the panel.", "type": "number", "minimum": 0, "maximum": 1},
+        "call_audio": {"enum": ["callaudiod", "ucm-profiles"]},
+        "runner_width": {"type": "integer", "minimum": 1},
+        "runner_height": {"type": "integer", "minimum": 1},
+        "panel_dpi": {"description": "True panel DPI for the wl_output physical size.", "type": "number", "exclusiveMinimum": 0},
+        "native_scale": {"type": "number", "exclusiveMinimum": 0},
+        "doze_dpms": {"description": "Doze powers the CRTC down; false = backlight only.", "type": "boolean"},
+        "wifi_powersave": {"type": "boolean"},
+        "screen_timeout_ms": {"description": "Default idle screen-off; 0 = never.", "type": "integer", "minimum": 0},
+        "wake_on_key": {"type": "boolean"},
+        "panel_depth": {"description": "Bits per channel; below 8 the shell dithers the frame.", "type": "integer", "minimum": 4, "maximum": 10},
+        "force_dpi": {"description": "Read by marathon-shell-session: pins the shell's DPI and so its scale.", "type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

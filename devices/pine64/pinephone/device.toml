@@ -1,0 +1,74 @@
+schema = 1
+vendor = "pine64"
+codename = "pinephone"
+id = "pine64-pinephone"
+name = "PINE64 PinePhone"
+manufacturer = "PINE64"
+soc = "sun50i-a64"
+status = "working"
+package = "device-pine64-pinephone-marathon"
+
+[build]
+target = "pine64-pinephone"
+wrapper = "scripts/build-pinephone-image.sh"
+flash = "scripts/flash/flash-pinephone.sh"
+bootloader = "uki"
+
+# The A64 boot ROM reads the SPL at byte 8 KiB, inside where a GPT's
+# partition entries sit, so the disk is a pure MBR (pipeline patch 0022).
+# It tries the microSD before the eMMC.
+[boot]
+method = "u-boot-script"
+partition_table = "mbr"
+loader = "u-boot-pinephone-marathon"
+loader_blob = "usr/share/u-boot/pine64-pinephone/u-boot-sunxi-with-spl-528.bin"
+loader_offset_kib = 8
+script = "marathon-boot.cmd"
+
+# A64 watchdog, lockup detection, pstore.
+[kernel]
+package = "linux-postmarketos-allwinner-marathon"
+version = "6.18.3_git20260105"
+
+[display]
+panel = "Xingbangda XBD599 (Sitronix ST7703)"
+interface = "dsi"
+width = 720
+height = 1440
+diagonal_in = 5.95
+depth_bits = 8
+# greetd's MARATHON_FORCE_DPI: without it apps fall back to ~96 DPI.
+scale_dpi = 270
+
+[input]
+touch = "Goodix GT917S"
+keyboard = "none"
+
+[hardware]
+ram_mb = 2048
+modem = "Quectel EG25-G (eg25-manager)"
+gps = "modem (EG25-G GNSS)"
+wifi = "Realtek RTL8723CS (SDIO)"
+bluetooth = "Realtek RTL8723CS"
+sensors = ["InvenSense MPU-6050 accelerometer/gyroscope", "magnetometer (LIS3MDL or AF8133J by board revision)", "SensorTek STK3335 proximity/ambient light"]
+quirks = [
+  "3 GB boards exist; 2 GB is the floor",
+  "Crust deep sleep can miss the power key (pmaports#4397): mem_sleep_default=s2idle",
+  "boot.scr reserves 1 MiB at 0x5ff00000 for ramoops; the mainline DT has none",
+]
+
+# TF-A 2.14.0 with the PSCI power-down fix, Crust as the SCP firmware.
+[[firmware]]
+package = "u-boot-pinephone-marathon"
+version = "2023.01"
+
+[[firmware]]
+package = "crust-pinephone"
+
+[runtime]
+runner_pool = 1
+
+[profile]
+panel_dither = false
+cpu_governor = "ondemand"
+call_audio = "callaudiod"

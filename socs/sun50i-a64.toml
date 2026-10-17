@@ -1,0 +1,25 @@
+# Allwinner A64 (PinePhone).
+schema = 1
+id = "sun50i-a64"
+name = "Allwinner A64"
+arch = "aarch64"
+cpu = "4x Cortex-A53 @ 1.152 GHz"
+display_controller = "Display Engine 2.0 (sun4i-drm) + MIPI DSI"
+
+[gpu]
+name = "ARM Mali-400 MP2"
+render_node = "/dev/dri/renderD128"
+
+[gpu.stacks.mesa-lima]
+driver = "lima"
+gles_max = "2.0"
+# lima has no multisample renderbuffers.
+msaa = false
+
+[profile]
+gpu_stack = "mesa-lima"
+gles_level = "2.0"
+surface_alpha = false
+gpu_msaa = 0
+gpu_rgba16f = false
+render_node = "/dev/dri/renderD128"

@@ -1,0 +1,24 @@
+# Broadcom BCM2712 (Raspberry Pi 5, Compute Module 5).
+schema = 1
+id = "bcm2712"
+name = "Broadcom BCM2712"
+arch = "aarch64"
+cpu = "4x Cortex-A76 @ 2.4 GHz"
+# HDMI from the SoC; DPI panels go through the RP1 south bridge, which
+# has no hardware dither.
+display_controller = "vc4-kms (HDMI) + RP1 DPI"
+
+[gpu]
+name = "VideoCore VII"
+render_node = "/dev/dri/renderD128"
+
+[gpu.stacks.mesa-v3d]
+driver = "v3d"
+gles_max = "3.1"
+msaa = true
+
+# Only what the Pi profiles have always shipped; everything else stays on
+# the shell's built-in defaults.
+[profile]
+gpu_stack = "mesa-v3d"
+gpu_msaa = 4

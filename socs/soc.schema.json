@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/patrickjquinn/Marathon-Shell/socs/soc.schema.json",
+  "title": "Marathon SoC facts (socs/<soc>.toml), shared by every device on the SoC",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "name", "arch", "cpu", "gpu"],
+  "properties": {
+    "schema": {"const": 1},
+    "id": {"description": "Must equal the file stem.", "$ref": "../devices/device.schema.json#/$defs/slug"},
+    "name": {"type": "string", "minLength": 1},
+    "arch": {"enum": ["aarch64"]},
+    "cpu": {"type": "string", "minLength": 1},
+    "display_controller": {"type": "string", "minLength": 1},
+    "gpu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "stacks"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "render_node": {"type": "string", "pattern": "^/dev/dri/renderD[0-9]+$"},
+        "stacks": {
+          "description": "GPU stacks a device on this SoC may name in profile.gpu_stack.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {"$ref": "../devices/device.schema.json#/$defs/gpu_stack"},
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["driver", "gles_max", "msaa"],
+            "properties": {
+              "driver": {"type": "string", "minLength": 1},
+              "gles_max": {"description": "Highest ES version the shell may ask for.", "$ref": "../devices/device.schema.json#/$defs/gles"},
+              "msaa": {"description": "Hardware MSAA renders at a usable frame rate; false forbids profile.gpu_msaa > 0.", "type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "profile": {
+      "description": "device-profile.conf defaults for every device on this SoC; a device's own profile keys win.",
+      "$ref": "../devices/device.schema.json#/$defs/profile"
+    }
+  }
+}

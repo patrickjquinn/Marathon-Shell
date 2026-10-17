@@ -1,0 +1,23 @@
+# QEMU "virt" machine, the developer simulator.
+schema = 1
+id = "qemu-virt"
+name = "QEMU virt"
+arch = "aarch64"
+cpu = "host CPU under KVM, else emulated"
+display_controller = "virtio-gpu"
+
+[gpu]
+name = "virtio-gpu-gl"
+render_node = "/dev/dri/renderD128"
+
+# virgl's ES version follows the host's GL; 2.0 is the floor the shell
+# relies on everywhere.
+[gpu.stacks.mesa-virgl]
+driver = "virtio_gpu (virgl)"
+gles_max = "2.0"
+msaa = false
+
+[gpu.stacks.llvmpipe]
+driver = "llvmpipe"
+gles_max = "2.0"
+msaa = false

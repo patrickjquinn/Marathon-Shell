@@ -1,0 +1,17 @@
+# Qualcomm Snapdragon 845 (OnePlus 6), dormant with its only device.
+schema = 1
+id = "sdm845"
+name = "Qualcomm Snapdragon 845"
+arch = "aarch64"
+cpu = "4x Kryo 385 Gold @ 2.8 GHz + 4x Kryo 385 Silver @ 1.77 GHz"
+display_controller = "MDSS DPU + MIPI DSI"
+
+[gpu]
+name = "Adreno 630"
+render_node = "/dev/dri/renderD128"
+
+# Never measured on Marathon: MSAA stays off until it is.
+[gpu.stacks.mesa-freedreno]
+driver = "msm (freedreno)"
+gles_max = "3.2"
+msaa = false

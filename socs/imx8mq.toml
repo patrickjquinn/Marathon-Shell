@@ -1,0 +1,36 @@
+# NXP i.MX 8M Quad (Librem 5).
+schema = 1
+id = "imx8mq"
+name = "NXP i.MX 8M Quad"
+arch = "aarch64"
+cpu = "4x Cortex-A53 @ 1.5 GHz + Cortex-M4"
+# LCDIF (mxsfb) drives the DSI panel and DCSS the HDMI port; both are
+# built in, so the panel comes up whichever GPU driver binds.
+display_controller = "LCDIF (mxsfb) + DCSS, XRGB8888 scanout"
+
+[gpu]
+name = "Vivante GC7000Lite"
+# etnaviv is the only render-capable DRM driver, so it is always the
+# first render node even though its card index moves.
+render_node = "/dev/dri/renderD128"
+
+[gpu.stacks.mesa-etnaviv]
+driver = "etnaviv"
+gles_max = "2.0"
+# GL_MAX_SAMPLES <= 1; layer.samples: 4 drops the shell to ~2 fps.
+msaa = false
+
+# Opt-in: galcore + NXP userspace (librem5-vivante-blobs), picked at boot
+# by marathon-gpu-select with an etnaviv fallback. Not validated yet.
+[gpu.stacks.vivante-blob]
+driver = "galcore"
+gles_max = "3.1"
+msaa = false
+
+[profile]
+gpu_stack = "mesa-etnaviv"
+gles_level = "2.0"
+surface_alpha = false
+gpu_msaa = 0
+gpu_rgba16f = false
+render_node = "/dev/dri/renderD128"
