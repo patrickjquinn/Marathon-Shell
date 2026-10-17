@@ -44,11 +44,13 @@ TestCase {
     function init() {
         NavigationRouter.deepLinks = [];
         NotificationService.clicked = [];
+        NotificationService.triggered = [];
         underneath.taps = 0;
     }
 
     function cleanup() {
         notificationToast.dismissToast();
+        tryVerify(() => !notificationToast.currentToast);
         errorToast.hide();
         connectionToast.hide();
         wait(50);
@@ -121,6 +123,79 @@ TestCase {
         show("", "");
         compare(bannerIcon().glyph, "bell");
         verify(!bannerIcon().hasImage);
+    }
+
+    // The banner's button, once its row is laid out.
+    function bannerButton(key) {
+        const row = findChild(notificationToast, "bannerActions");
+        waitForPolish(row.parent);
+        waitForPolish(row);
+        return findChild(row, "notificationAction-" + key);
+    }
+
+    // Up to three buttons; "default" is the body tap, not a button.
+    function test_actionButtons() {
+        notificationToast.showToast(message([{
+                "key": "default",
+                "label": "Open"
+            }, {
+                "key": "reply",
+                "label": "Reply"
+            }, {
+                "key": "dismiss",
+                "label": "Dismiss"
+            }, {
+                "key": "snooze",
+                "label": "Snooze"
+            }, {
+                "key": "later",
+                "label": "Later"
+            }]));
+        const row = findChild(notificationToast, "bannerActions");
+        compare(row.buttons.map(b => b.key), ["reply", "dismiss", "snooze"]);
+        verify(row.visible);
+        mouseClick(bannerButton("snooze"));
+        compare(NotificationService.triggered, ["7:snooze"]);
+        compare(NotificationService.clicked, []);
+        verify(!notificationToast.shown);
+    }
+
+    function test_replyLeadsTheButtonsAndOpensTheField() {
+        notificationToast.showToast(message([{
+                "key": "inline-reply",
+                "label": "Reply"
+            }, {
+                "key": "mark-read",
+                "label": "Mark read"
+            }]));
+        const row = findChild(notificationToast, "bannerActions");
+        compare(row.buttons.map(b => b.key), ["inline-reply", "mark-read"]);
+        mouseClick(bannerButton("inline-reply"));
+        verify(notificationToast.showInlineReply);
+        verify(!row.visible);
+        compare(NotificationService.triggered, []);
+    }
+
+    // With action-icons the key names the icon; a name with no icon keeps
+    // its label.
+    function test_actionIconsOnlyWhenHinted() {
+        const n = message([{
+                "key": "phone",
+                "label": "Call back"
+            }, {
+                "key": "frobnicate",
+                "label": "Frobnicate"
+            }]);
+        notificationToast.showToast(n);
+        const row = findChild(notificationToast, "bannerActions");
+        verify(!findChild(row, "notificationAction-phone").iconOnly);
+        notificationToast.dismissToast();
+        const hinted = message(n.actions);
+        hinted.actionIcons = true;
+        notificationToast.showToast(hinted);
+        tryVerify(() => notificationToast.currentToast === hinted);
+        tryVerify(() => findChild(row, "notificationAction-phone").iconOnly);
+        verify(!findChild(row, "notificationAction-frobnicate").iconOnly);
     }
 
     function test_swipeUpDismissesWithoutOpening() {

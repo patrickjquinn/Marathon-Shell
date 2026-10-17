@@ -13,6 +13,8 @@ Item {
     property string avatarIcon: ""
     // The notification's own picture, shown in place of the monogram.
     property string image: ""
+    property var actions: []
+    property bool actionIcons: false
     property string name: ""
     property string time: ""
     property string account: ""
@@ -22,6 +24,7 @@ Item {
     readonly property real fullHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
 
     signal activated
+    signal actionInvoked(string key)
     signal dismissed
 
     function reset() {
@@ -179,12 +182,23 @@ Item {
                 truncationMode: Silica.TruncationMode.Fade
                 visible: text.length > 0
             }
+
+            NotificationActions {
+                objectName: "hubRowActions"
+                x: -Silica.Theme.paddingLarge
+                availableWidth: parent.width + Silica.Theme.paddingLarge
+                actions: row.actions
+                useIcons: row.actionIcons
+                onInvoked: key => row.actionInvoked(key)
+            }
         }
     }
 
+    // Beneath the content, so the action buttons take their own taps.
     MouseArea {
         id: area
 
+        z: -1
         property real pressX: 0
         property real pressY: 0
         property bool swiping: false

@@ -221,6 +221,8 @@ Rectangle {
             avatarText: hub.monogramFor(title, appKey)
             avatarIcon: appKey === "phone" ? "phone" : ""
             image: icon
+            actions: model.actions || []
+            actionIcons: !!model.actionIcons
             name: title
             time: hub.relativeTime(timestamp)
             account: hub.accountFor(appId)
@@ -228,6 +230,7 @@ Rectangle {
 
             onActivated: hub.openNotification(model.id, appId)
             onDismissed: NotificationService.dismissNotification(model.id)
+            onActionInvoked: key => NotificationService.triggerAction(model.id, key)
         }
     }
 

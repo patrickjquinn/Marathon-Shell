@@ -33,6 +33,17 @@ Item {
         autoHideTimer.restart();
     }
 
+    function openReply() {
+        showInlineReply = true;
+        autoHideTimer.stop();
+        replyField.forceActiveFocus();
+    }
+
+    function invokeAction(key) {
+        NotificationService.triggerAction(currentToast.id, key);
+        dismissToast();
+    }
+
     function sendReply() {
         if (!currentToast || replyField.text.trim().length === 0)
             return;
@@ -63,29 +74,28 @@ Item {
         // title and body are scaled type tokens while these heights were
         // physical px, so at 1.5x the two lines overflowed the card and
         // painted over the status bar and the surface underneath.
-        height: toastContainer.showInlineReply
-                ? mainContent.height + replyRow.height + Silica.Theme.paddingSmall + Silica.Theme.paddingMedium * 2
-                : mainContent.height + Silica.Theme.paddingLarge
+        height: body.implicitHeight + Silica.Theme.paddingMedium * 2
         radius: Silica.Theme.paddingMedium
         color: Silica.Theme.rgba("black", 0.85)
         border.width: 1
         border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         visible: false
 
-        Item {
-            anchors.fill: parent
+        Column {
+            id: body
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Silica.Theme.paddingMedium
+            spacing: Silica.Theme.paddingSmall
 
             Row {
                 id: mainContent
 
-                width: parent.width - Silica.Theme.paddingMedium * 2 - (replyAction.visible ? replyAction.width : 0)
+                width: parent.width
                 // Whichever is taller: the icon tile or the two text lines.
                 height: Math.max(iconTile.height, textColumn.implicitHeight)
-                anchors.left: parent.left
-                anchors.leftMargin: Silica.Theme.paddingMedium
-                anchors.verticalCenter: toastContainer.showInlineReply ? undefined : parent.verticalCenter
-                anchors.top: toastContainer.showInlineReply ? parent.top : undefined
-                anchors.topMargin: toastContainer.showInlineReply ? Silica.Theme.paddingMedium : 0
                 spacing: Silica.Theme.paddingMedium
 
                 NotificationIcon {
@@ -123,37 +133,22 @@ Item {
                 }
             }
 
-            Silica.BackgroundItem {
-                id: replyAction
-
-                anchors.right: parent.right
-                anchors.verticalCenter: mainContent.verticalCenter
-                width: replyLabel.implicitWidth + Silica.Theme.paddingLarge * 2
-                height: Silica.Theme.itemSizeExtraSmall
-                visible: toastContainer.canReply && !toastContainer.showInlineReply
-                onClicked: {
-                    toastContainer.showInlineReply = true;
-                    autoHideTimer.stop();
-                    replyField.forceActiveFocus();
-                }
-
-                Silica.Label {
-                    id: replyLabel
-
-                    anchors.centerIn: parent
-                    text: qsTr("Reply")
-                    color: replyAction.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                    font.pixelSize: Silica.Theme.fontSizeSmall
-                }
+            NotificationActions {
+                objectName: "bannerActions"
+                // Button text lines up under the title.
+                x: iconTile.width + mainContent.spacing - Silica.Theme.paddingLarge
+                availableWidth: parent.width - x
+                actions: (toastContainer.currentToast && toastContainer.currentToast.actions) || []
+                useIcons: !!(toastContainer.currentToast && toastContainer.currentToast.actionIcons)
+                reply: toastContainer.canReply
+                visible: buttons.length > 0 && !toastContainer.showInlineReply
+                onInvoked: key => key === "inline-reply" ? toastContainer.openReply() : toastContainer.invokeAction(key)
             }
 
             Row {
                 id: replyRow
 
-                width: parent.width - Silica.Theme.paddingMedium * 2
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: mainContent.bottom
-                anchors.topMargin: Silica.Theme.paddingSmall
+                width: parent.width
                 spacing: Silica.Theme.paddingSmall
                 visible: toastContainer.showInlineReply
 

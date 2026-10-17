@@ -33,6 +33,7 @@ TestCase {
         NotificationService.clicked = [];
         NotificationService.dismissed = [];
         NotificationService.dismissedAll = false;
+        NotificationService.triggered = [];
         AppStore.names = {};
         NavigationRouter.deepLinks = [];
         closedSpy.clear();
@@ -120,6 +121,27 @@ TestCase {
         tryVerify(() => row(1));
         tryVerify(() => findChild(row(0), "hubRowImage").hasImage);
         verify(!findChild(row(1), "hubRowImage").hasImage);
+    }
+
+    // ListModel can't hold the actions list, so the row gets it directly.
+    function test_rowActionButtons() {
+        addNotification(5, "messages");
+        tryVerify(() => row(0));
+        row(0).actions = [{
+                "key": "default",
+                "label": "Open"
+            }, {
+                "key": "snooze",
+                "label": "Snooze"
+            }];
+        const actions = findChild(row(0), "hubRowActions");
+        compare(actions.buttons.map(b => b.key), ["snooze"]);
+        waitForPolish(actions);
+        mouseClick(findChild(actions, "notificationAction-snooze"));
+        compare(NotificationService.triggered, ["5:snooze"]);
+        compare(NotificationService.clicked, []);
+        mouseClick(row(0), row(0).width / 2, 10);
+        compare(NotificationService.clicked, [5]);
     }
 
     function test_clearAll() {
