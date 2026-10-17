@@ -267,7 +267,13 @@ impl Daemon {
             .location()
             .is_none_or(|(loc, _)| self.needs_fetch(&loc));
         if automatic && (relocate || expired) {
-            publish(conn, &self.published, None, Some("updating"));
+            // Without a place yet, the choice stays on offer while GeoClue tries.
+            let state = if self.location().is_some() {
+                "updating"
+            } else {
+                "no-location"
+            };
+            publish(conn, &self.published, None, Some(state));
             self.update_fix();
         }
         let state = match self.location() {
