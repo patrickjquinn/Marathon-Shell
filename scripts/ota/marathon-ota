@@ -16,6 +16,7 @@ compressed boot and root slot partitions. See docs/OTA.md.
 
 import argparse
 import hashlib
+import itertools
 import os
 import re
 import shutil
@@ -115,15 +116,37 @@ def sha256(path):
     return h.hexdigest()
 
 
+def description_markup(notes):
+    """AppStream description markup: "- " and "* " lines start list items,
+    blank lines end paragraphs, and other lines continue the current one."""
+    blocks = []
+    open_block = False
+    for line in (raw.strip() for raw in notes.splitlines()):
+        if not line:
+            open_block = False
+        elif line[:2] in ("- ", "* "):
+            blocks.append(("li", [line[2:].strip()]))
+            open_block = True
+        elif open_block:
+            blocks[-1][1].append(line)
+        else:
+            blocks.append(("p", [line]))
+            open_block = True
+    markup = ""
+    for tag, group in itertools.groupby(blocks, key=lambda b: b[0]):
+        items = "".join(f"<{tag}>{escape(' '.join(words))}</{tag}>" for _, words in group)
+        markup += f"<ul>{items}</ul>" if tag == "li" else items
+    return markup
+
+
 def write_catalog(feed_dir, image_id, versions):
     releases = []
     for v in sorted(versions, key=version_key, reverse=True):
         payload = [f for f in files_of(feed_dir, image_id, v) if not f.name.endswith(".notes")]
         size = sum(f.stat().st_size for f in payload)
         notes_file = feed_dir / f"{image_id}_{v}.notes"
-        lines = notes_file.read_text().splitlines() if notes_file.exists() else []
-        paragraphs = "".join(f"<p>{escape(line.strip())}</p>" for line in lines if line.strip())
-        description = f"\n        <description>{paragraphs}</description>" if paragraphs else ""
+        markup = description_markup(notes_file.read_text()) if notes_file.exists() else ""
+        description = f"\n        <description>{markup}</description>" if markup else ""
         releases.append(
             f"      <release version={quoteattr(v)}>{description}\n"
             f"        <artifacts>\n"
@@ -219,7 +242,7 @@ def main():
     p.add_argument("--feed", required=True, help="local feed root (one directory per image id)")
     p.add_argument("--gnupghome", help="GnuPG home holding the signing key")
     p.add_argument("--key", help="signing key id (default: the home's default key)")
-    p.add_argument("--notes", help="release notes, one paragraph per line")
+    p.add_argument("--notes", help="release notes: paragraphs split by blank lines, \"- \" list items")
     p.add_argument("--keep", type=int, default=2, help="versions to keep in the feed (default 2)")
     p.add_argument("--upload", help="rsync destination of the feed root, e.g. user@thrivelobal.com:updates")
     p.set_defaults(run=publish)

@@ -151,6 +151,19 @@ class PublishTest(FeedCase):
                          sum(p.stat().st_size for p in payload))
         self.assertIsNone(releases["26101701"].find("description"))
 
+    def test_notes_list_items_become_an_appstream_list(self):
+        self.build("26101801")
+        notes = self.case / "notes.txt"
+        notes.write_text("What's new:\n- Updates arrive\n  in the background\n* Faster <boot>\n\n"
+                         "Thanks for\ntesting.\n")
+        self.publish("26101801", "--notes", notes)
+        root = ET.parse(self.out / "marathon-os.metainfo.xml").getroot()
+        description = root.find("component/releases/release/description")
+        self.assertEqual([(e.tag, e.text) for e in description],
+                         [("p", "What's new:"), ("ul", None), ("p", "Thanks for testing.")])
+        self.assertEqual([li.text for li in description.find("ul")],
+                         ["Updates arrive in the background", "Faster <boot>"])
+
     def test_keeps_the_newest_versions(self):
         for i, version in enumerate(["26101701", "26101801", "26101901"]):
             self.build(version, f"{i:032x}")
