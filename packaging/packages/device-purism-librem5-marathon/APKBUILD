@@ -195,6 +195,13 @@ package() {
 	install -Dm644 "$srcdir/90-marathon-modem-wakeup.rules" \
 		"$pkgdir/usr/lib/udev/rules.d/90-marathon-modem-wakeup.rules"
 
+	# The BM818 has no eg25-manager-style manager, and is reported to come
+	# back from suspend unseen by ModemManager until it is restarted:
+	# enable marathon-base-config's resume check, which does that.
+	install -d "$pkgdir/usr/lib/systemd/system/sleep.target.wants"
+	ln -sf ../marathon-modem-sleep.service \
+		"$pkgdir/usr/lib/systemd/system/sleep.target.wants/marathon-modem-sleep.service"
+
 	# Auto-enable the service at first boot. The systemd preset gets
 	# applied by marathon-base-config's preset file or directly via
 	# this symlink.
