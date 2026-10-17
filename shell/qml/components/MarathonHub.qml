@@ -221,6 +221,7 @@ Rectangle {
             avatarText: hub.monogramFor(title, appKey)
             avatarIcon: appKey === "phone" ? "phone" : ""
             image: icon
+            glyphReplacesMonogram: appKey !== "messages"
             actions: model.actions || []
             actionIcons: !!model.actionIcons
             name: title

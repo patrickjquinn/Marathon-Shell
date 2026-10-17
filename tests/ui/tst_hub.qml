@@ -123,6 +123,18 @@ TestCase {
         verify(!findChild(row(1), "hubRowImage").hasImage);
     }
 
+    // A system notice names no sender, so its glyph stands in, as on the
+    // lock screen; a message keeps its sender's monogram.
+    function test_systemNotificationShowsItsGlyph() {
+        NotificationModel.append({ id: 3, appId: "Software update", title: "Restart to finish updating", body: "", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false });
+        addNotification(4, "messages", "message-circle");
+        tryVerify(() => row(1));
+        verify(findChild(row(0), "hubRowImage").visible);
+        verify(!findChild(row(0), "hubRowMonogram").visible);
+        verify(!findChild(row(1), "hubRowImage").visible);
+        verify(findChild(row(1), "hubRowMonogram").visible);
+    }
+
     // ListModel can't hold the actions list, so the row gets it directly.
     function test_rowActionButtons() {
         addNotification(5, "messages");

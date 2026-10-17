@@ -11,8 +11,10 @@ Item {
     property bool unread: false
     property string avatarText: ""
     property string avatarIcon: ""
-    // The notification's own picture, shown in place of the monogram.
+    // The notification's own picture or glyph, shown in place of the monogram.
     property string image: ""
+    // A message's glyph names only the app; its sender's monogram says more.
+    property bool glyphReplacesMonogram: true
     property var actions: []
     property bool actionIcons: false
     property string name: ""
@@ -106,27 +108,30 @@ Item {
             border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
             Text {
+                objectName: "hubRowMonogram"
                 anchors.centerIn: parent
                 text: row.avatarText
                 color: Silica.Theme.highlightColor
                 font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeSmall
-                visible: row.avatarText.length > 0 && !picture.hasImage
+                visible: row.avatarText.length > 0 && !picture.visible
             }
             GlyphIcon {
                 anchors.centerIn: parent
                 name: row.avatarIcon
                 size: Silica.Theme.iconSizeExtraSmall
                 color: Silica.Theme.highlightColor
-                visible: row.avatarText.length === 0 && row.avatarIcon.length > 0 && !picture.hasImage
+                visible: row.avatarText.length === 0 && row.avatarIcon.length > 0 && !picture.visible
             }
             NotificationIcon {
                 id: picture
+                readonly property bool drawsGlyph: isGlyph && row.glyphReplacesMonogram
                 objectName: "hubRowImage"
-                anchors.centerIn: parent
                 source: row.image
-                size: Silica.Theme.iconSizeSmall
-                visible: hasImage
+                size: drawsGlyph ? Silica.Theme.iconSizeExtraSmall : Silica.Theme.iconSizeSmall
+                color: Silica.Theme.highlightColor
+                visible: hasImage || drawsGlyph
+                anchors.centerIn: parent
             }
         }
 
