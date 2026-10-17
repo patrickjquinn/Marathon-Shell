@@ -230,8 +230,9 @@ export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
 OTA_TRANSFERS="$DURANIUM_DIR/mkosi.extra/usr/lib/sysupdate.d"
 OTA_KEYRING="$DURANIUM_DIR/mkosi.extra/usr/lib/systemd/import-pubring.pgp"
 # Raspberry Pi A/B (mkosi.repart.ab-pi): autoboot.txt for partition 1, the
-# initramfs hooks that mount the shared data partition, and a watchdog.
-PI_AB_EXTRA="usr/share/marathon/ab usr/share/mkinitfs usr/lib/systemd/system.conf.d"
+# initramfs hooks that mount the shared data partition, a watchdog, and no
+# first-boot systemd-repart (its repart.d describes the QEMU /usr slots).
+PI_AB_EXTRA="usr/share/marathon/ab usr/share/mkinitfs usr/lib/systemd/system.conf.d usr/lib/systemd/system/systemd-repart.service.d"
 rm -rf "$OTA_TRANSFERS" "$OTA_KEYRING"
 for d in $PI_AB_EXTRA; do rm -rf "${DURANIUM_DIR:?}/mkosi.extra/$d"; done
 OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/sysupdate.d"
@@ -260,6 +261,7 @@ if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
             install -Dm755 -t "$EXTRA/usr/share/mkinitfs/hooks-cleanup" "$PI_SRC"/mkinitfs/hooks-cleanup/*.sh
             install -Dm644 -t "$EXTRA/usr/share/mkinitfs/modules" "$PI_SRC"/mkinitfs/modules/*.modules
             install -Dm644 -t "$EXTRA/usr/lib/systemd/system.conf.d" "$PI_SRC/50-marathon-watchdog.conf"
+            install -Dm644 -t "$EXTRA/usr/lib/systemd/system/systemd-repart.service.d" "$PI_SRC"/systemd-repart.service.d/*.conf
             ;;
     esac
     echo "==> A/B layout: updates from $OTA_URL, signed by $(basename "$OTA_PUBKEY")"
