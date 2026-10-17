@@ -764,7 +764,7 @@ Item {
         // blank the screen immediately.
         readonly property int effectiveInterval: SettingsManagerCpp ? SettingsManagerCpp.screenTimeout : defaultIntervalMs
 
-        readonly property bool armed: effectiveInterval > 0 && DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked
+        readonly property bool armed: effectiveInterval > 0 && DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked && !AlarmManagerCpp.hasActiveAlarm
 
         // restart() on activity would start a timer whose `running` binding
         // says no ("Never", locked, screen off) and break that binding for
@@ -2325,6 +2325,7 @@ Item {
                 "label": label
             };
             Logger.info("Shell", "Alarm triggered: " + (label ? label : "(unknown)"));
+            dimState.restore();
             alarmOverlay.show(alarm);
             HapticManager.heavy();
         }

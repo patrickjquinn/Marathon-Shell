@@ -4,6 +4,7 @@ QtObject {
     property int appGridColumns: 0
     property string timeZone: "Europe/Dublin"
     property bool automaticTimeZone: true
+    property int screenTimeout: 0
     property bool showNotificationBadges: true
     property bool keyboardAutoCapitalize: true
     property bool keyboardAutoCorrection: true

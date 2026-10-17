@@ -138,7 +138,7 @@ Item {
         // "Never" (SettingsManager.screenTimeout == 0) gates the timer off
         // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
         // interval fires every tick and blanks the lock screen immediately.
-        readonly property bool armed: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
+        readonly property bool armed: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && !AlarmManagerCpp.hasActiveAlarm && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
 
         function rearm() {
             if (armed)

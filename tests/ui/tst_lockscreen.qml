@@ -79,6 +79,17 @@ TestCase {
         verify(SessionStore.showLockScreen);
     }
 
+    function test_aRingingAlarmHoldsTheIdleBlank() {
+        DisplayPolicyControllerCpp.offReasons = [];
+        AlarmManagerCpp.hasActiveAlarm = true;
+        SettingsManagerCpp.screenTimeout = 200;
+        wait(500);
+        compare(DisplayPolicyControllerCpp.offReasons.length, 0);
+        AlarmManagerCpp.hasActiveAlarm = false;
+        tryVerify(() => DisplayPolicyControllerCpp.offReasons.length === 1, 1000);
+        SettingsManagerCpp.screenTimeout = 0;
+    }
+
     function test_tapStillReachesWhatIsBelow() {
         pad.enabled = true;
         pad.z = -1;
