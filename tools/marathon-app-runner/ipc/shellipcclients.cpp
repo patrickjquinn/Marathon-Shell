@@ -2933,7 +2933,13 @@ SensorClient::SensorClient(QObject *parent)
                                           "org.marathonos.Shell.Sensor1", "AmbientLightChanged",
                                           this, SIGNAL(ambientLightChanged()));
 
+    connectPermissionGranted(this);
     refresh();
+}
+
+void SensorClient::onPermissionGranted(const QString &, const QString &permission) {
+    if (permission == QLatin1String("sensors"))
+        refresh();
 }
 
 void SensorClient::refresh() {
@@ -2970,7 +2976,13 @@ LocationClient::LocationClient(QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Location",
                                           "org.marathonos.Shell.Location1", "activeChanged", this,
                                           SLOT(setActive(bool)));
+    connectPermissionGranted(this);
     refresh();
+}
+
+void LocationClient::onPermissionGranted(const QString &, const QString &permission) {
+    if (permission == QLatin1String("location"))
+        refresh();
 }
 
 void LocationClient::refresh() {
@@ -3057,7 +3069,13 @@ AlarmClient::AlarmClient(QObject *parent)
                                           "org.marathonos.Shell.Alarm1", "AlarmSnoozed", this,
                                           SIGNAL(alarmSnoozed(QString, int)));
 
+    connectPermissionGranted(this);
     refresh();
+}
+
+void AlarmClient::onPermissionGranted(const QString &, const QString &permission) {
+    if (permission == QLatin1String("alarms"))
+        refresh();
 }
 
 void AlarmClient::refresh() {

@@ -1247,6 +1247,9 @@ class SensorClient : public QObject {
     void proximityChanged();
     void ambientLightChanged();
 
+  private slots:
+    void onPermissionGranted(const QString &appId, const QString &permission);
+
   private:
     void           refresh();
     QDBusInterface m_iface;
@@ -1309,6 +1312,7 @@ class LocationClient : public QObject {
   private slots:
     void updateLocation(const QVariantMap &loc);
     void setActive(bool active);
+    void onPermissionGranted(const QString &appId, const QString &permission);
 
   private:
     void           refresh();
@@ -1359,6 +1363,7 @@ class AlarmClient : public QObject {
 
   private slots:
     void onAlarmsChanged();
+    void onPermissionGranted(const QString &appId, const QString &permission);
     void onActiveAlarmsChanged();
 
   private:
