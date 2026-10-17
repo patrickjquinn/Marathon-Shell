@@ -25,6 +25,12 @@ Item {
             showNextToast();
     }
 
+    // A notification closed before its banner showed loses the banner.
+    function forget(id) {
+        toastQueue = toastQueue.filter(n => n.id !== id);
+        if (currentToast && currentToast.id === id)
+            dismissToast();
+    }
 
     function showNextToast() {
         if (toastQueue.length === 0) {
@@ -57,6 +63,8 @@ Item {
     }
 
     function dismissToast() {
+        if (!currentToast)
+            return;
         autoHideTimer.stop();
         showInlineReply = false;
         replyField.text = "";
@@ -67,6 +75,13 @@ Item {
 
     anchors.fill: parent
     z: 3000
+
+    Connections {
+        target: NotificationService
+        function onNotificationDismissed(id) {
+            toastContainer.forget(id);
+        }
+    }
 
     Rectangle {
         id: toast

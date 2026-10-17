@@ -9,6 +9,7 @@ QtObject {
     property var dismissed: []
     property bool dismissedAll: false
     function clickNotification(id) { clicked = clicked.concat([id]); }
+    signal notificationDismissed(int id)
     property var triggered: []
     function triggerAction(id, key) { triggered = triggered.concat([id + ":" + key]); }
     function dismissNotification(id) { dismissed = dismissed.concat([id]); }

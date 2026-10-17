@@ -159,6 +159,17 @@ TestCase {
         compare(nextBanner(), null);
     }
 
+    function test_closedNotificationLosesItsBanner() {
+        notificationToast.showToast(titled(1, "Simple", 1));
+        notificationToast.showToast(titled(2, "Closed", 1));
+        notificationToast.showToast(titled(3, "Kept", 1));
+        NotificationService.notificationDismissed(2);
+        compare(nextBanner(), "Kept");
+        NotificationService.notificationDismissed(3);
+        verify(!notificationToast.shown);
+        tryVerify(() => !notificationToast.currentToast);
+    }
+
     // The banner's button, once its row is laid out.
     function bannerButton(key) {
         const row = findChild(notificationToast, "bannerActions");
