@@ -2969,7 +2969,7 @@ LocationClient::LocationClient(QObject *parent)
                                           SLOT(updateLocation(QVariantMap)));
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Location",
                                           "org.marathonos.Shell.Location1", "activeChanged", this,
-                                          SIGNAL(activeChanged()));
+                                          SLOT(setActive(bool)));
     refresh();
 }
 
@@ -2990,10 +2990,7 @@ void LocationClient::refresh() {
         m_available = avail;
         emit availableChanged();
     }
-    if (active != m_active) {
-        m_active = active;
-        emit activeChanged();
-    }
+    setActive(active);
     const auto locArgs = m_iface.call("GetLocation").arguments();
     if (!locArgs.isEmpty()) {
         // a{sv} arrives as a QDBusArgument blob inside the QVariant;
@@ -3016,6 +3013,13 @@ void LocationClient::updateLocation(const QVariantMap &loc) {
     m_heading   = loc.value("heading").toDouble();
     m_timestamp = loc.value("timestamp").toLongLong();
     emit locationChanged();
+}
+
+void LocationClient::setActive(bool active) {
+    if (active == m_active)
+        return;
+    m_active = active;
+    emit activeChanged();
 }
 
 void LocationClient::start() {

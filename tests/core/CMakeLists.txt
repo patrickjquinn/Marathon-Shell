@@ -296,6 +296,22 @@ target_include_directories(test_core_powerclient PRIVATE
 )
 add_test(NAME Core_PowerClient COMMAND test_core_powerclient)
 
+# The runner's Location client follows the shared session's state
+add_executable(test_core_locationclient
+    test_locationclient.cpp
+    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
+    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+)
+set_target_properties(test_core_locationclient PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_locationclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
+target_include_directories(test_core_locationclient PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
+    ${CMAKE_SOURCE_DIR}/shell/src
+)
+add_test(NAME Core_LocationClient COMMAND test_core_locationclient)
+
 # D-Bus reply containers normalize without demarshalling the wrong type
 add_executable(test_core_dbusnormalize
     test_dbusnormalize.cpp

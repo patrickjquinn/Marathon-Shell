@@ -1308,6 +1308,7 @@ class LocationClient : public QObject {
 
   private slots:
     void updateLocation(const QVariantMap &loc);
+    void setActive(bool active);
 
   private:
     void           refresh();
