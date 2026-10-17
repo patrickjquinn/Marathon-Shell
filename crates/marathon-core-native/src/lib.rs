@@ -1,6 +1,7 @@
 //! Rust half of libMarathonCore, called from marathon-core/src through cxx.
 
 pub mod archive;
+pub mod permissions;
 pub mod signature;
 
 use std::path::Path;
@@ -23,6 +24,14 @@ mod ffi {
         detail: String,
     }
 
+    struct PermissionDisclosure {
+        /// False when the permission has no wording: refuse the package.
+        known: bool,
+        label: String,
+        detail: String,
+        sensitive: bool,
+    }
+
     extern "Rust" {
         /// Empty on success, else why the archive couldn't be written.
         fn create_package_archive(source_dir: &str, archive: &str) -> String;
@@ -33,6 +42,9 @@ mod ffi {
         fn verify_package_signature(archive: &str, trusted_key_dirs: &[String]) -> PackageVerdict;
         /// Writes `<archive>.minisig`. Empty on success, else why not.
         fn sign_package(archive: &str, secret_key: &str) -> String;
+
+        /// The install screen's words for one manifest permission.
+        fn describe_permission(id: &str) -> PermissionDisclosure;
     }
 }
 
@@ -77,4 +89,21 @@ fn sign_package(archive: &str, secret_key: &str) -> String {
     signature::sign(Path::new(archive), Path::new(secret_key))
         .err()
         .unwrap_or_default()
+}
+
+fn describe_permission(id: &str) -> ffi::PermissionDisclosure {
+    permissions::describe(id).map_or(
+        ffi::PermissionDisclosure {
+            known: false,
+            label: String::new(),
+            detail: String::new(),
+            sensitive: false,
+        },
+        |d| ffi::PermissionDisclosure {
+            known: true,
+            label: d.label.to_string(),
+            detail: d.detail.to_string(),
+            sensitive: d.sensitive,
+        },
+    )
 }

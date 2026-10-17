@@ -700,6 +700,7 @@ dependencies = [
  "cxx",
  "cxx-build",
  "minisign",
+ "serde_json",
  "tempfile",
  "walkdir",
  "zip",
