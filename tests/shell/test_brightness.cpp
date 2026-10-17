@@ -1,13 +1,42 @@
 #include <QtTest>
 #include <QCoreApplication>
+#include <QDBusConnection>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QThread>
 
 #include "managers/displaymanagercpp.h"
+#include "managers/sensormanagercpp.h"
+
+namespace {
+
+    QByteArray g_bus;
+
+    // iio-sensor-proxy on a device with sensors but no light sensor.
+    class FakeSensorProxy : public QObject {
+        Q_OBJECT
+        Q_CLASSINFO("D-Bus Interface", "net.hadess.SensorProxy")
+        Q_PROPERTY(bool HasAmbientLight READ hasAmbientLight)
+        Q_PROPERTY(bool HasAccelerometer READ hasAccelerometer)
+
+      public:
+        bool hasAmbientLight() const {
+            return false;
+        }
+        bool hasAccelerometer() const {
+            return true;
+        }
+
+      public slots:
+        void ClaimLight() {}
+        void ReleaseLight() {}
+    };
+
+} // namespace
 
 // Brightness on a 10-level PWM backlight (the HackberryPi's) with a 10%
-// visible floor.
+// visible floor, and auto-brightness only where there is a light sensor.
 class TestBrightness : public QObject {
     Q_OBJECT
 
@@ -45,6 +74,9 @@ class TestBrightness : public QObject {
   private slots:
     void initTestCase() {
         QVERIFY(QDir(m_sysfs.path()).mkpath(QStringLiteral("backlight/panel")));
+        QVERIFY(QDir(m_sysfs.path()).mkpath(QStringLiteral("iio-none")));
+        QVERIFY(QDir(m_sysfs.path()).mkpath(QStringLiteral("iio-light/iio:device0")));
+        write(m_sysfs.filePath(QStringLiteral("iio-light/iio:device0/in_illuminance_raw")), "40\n");
         write(file(QStringLiteral("max_brightness")), "10\n");
         write(file(QStringLiteral("bl_power")), "0\n");
     }
@@ -108,6 +140,47 @@ class TestBrightness : public QObject {
         QCOMPARE(display.brightness(), 1.0);
         QCOMPARE(display.getBrightness(), 1.0);
     }
+
+    void noLightSensorMeansNoAutoBrightness() {
+        SensorManagerCpp sensors(nullptr, m_sysfs.filePath(QStringLiteral("iio-none")));
+        QVERIFY(!sensors.lightAvailable());
+        DisplayManagerCpp display(nullptr, nullptr, nullptr, backlightDir());
+        display.setSensorManager(&sensors);
+        display.setAutoBrightness(true);
+        QVERIFY(!display.lightSensorAvailable());
+        QVERIFY(!display.autoBrightnessEnabled());
+    }
+
+    void aLightSensorMakesAutoBrightnessAvailable() {
+        SensorManagerCpp sensors(nullptr, m_sysfs.filePath(QStringLiteral("iio-light")));
+        QVERIFY(sensors.lightAvailable());
+        DisplayManagerCpp display(nullptr, nullptr, nullptr, backlightDir());
+        display.setSensorManager(&sensors);
+        display.setAutoBrightness(true);
+        QVERIFY(display.autoBrightnessEnabled());
+        display.setAutoBrightness(false);
+    }
+
+    void aSensorProxyWithoutALightSensorIsNoLightSensor() {
+        QThread         thread;
+        FakeSensorProxy proxy;
+        proxy.moveToThread(&thread);
+        thread.start();
+        QDBusConnection services =
+            QDBusConnection::connectToBus(QString::fromUtf8(g_bus), QStringLiteral("services"));
+        QVERIFY(services.registerObject(QStringLiteral("/net/hadess/SensorProxy"), &proxy,
+                                        QDBusConnection::ExportAllProperties |
+                                            QDBusConnection::ExportAllSlots));
+        QVERIFY(services.registerService(QStringLiteral("net.hadess.SensorProxy")));
+
+        SensorManagerCpp sensors(nullptr, m_sysfs.filePath(QStringLiteral("iio-none")));
+        QVERIFY(!sensors.lightAvailable());
+
+        services.unregisterService(QStringLiteral("net.hadess.SensorProxy"));
+        services.unregisterObject(QStringLiteral("/net/hadess/SensorProxy"));
+        thread.quit();
+        thread.wait();
+    }
 };
 
 int main(int argc, char **argv) {
@@ -117,8 +190,9 @@ int main(int argc, char **argv) {
                QStringLiteral("--print-address")});
     if (!bus.waitForReadyRead(5000))
         qFatal("no dbus-daemon");
-    const QByteArray address = bus.readLine().trimmed();
-    // GSD and logind: not the host's.
+    g_bus                    = bus.readLine().trimmed();
+    const QByteArray address = g_bus;
+    // GSD, logind and iio-sensor-proxy: none of the host's.
     qputenv("DBUS_SESSION_BUS_ADDRESS", address);
     qputenv("DBUS_SYSTEM_BUS_ADDRESS", address);
     qputenv("MARATHON_BRIGHTNESS_FLOOR", "0.1");

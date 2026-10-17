@@ -17,7 +17,8 @@ class SensorManagerCpp : public QObject {
     Q_PROPERTY(int ambientLight READ ambientLight NOTIFY ambientLightChanged)
 
   public:
-    explicit SensorManagerCpp(QObject *parent = nullptr);
+    explicit SensorManagerCpp(QObject       *parent = nullptr,
+                              const QString &iioDir = QStringLiteral("/sys/bus/iio/devices"));
 
     bool available() const {
         return m_available;
@@ -79,6 +80,7 @@ class SensorManagerCpp : public QObject {
     // reports no readings). We read the vcnl4000 iio device straight from
     // sysfs on a poll timer — confirmed to always work on-device.
     bool    detectIioSensors();
+    QString m_iioDir;
     bool    m_useIio = false;
     QString m_iioLightPath; // .../in_illuminance_raw
     double  m_iioLuxScale = 1.0;

@@ -1,4 +1,8 @@
 #include "sensormanagercpp.h"
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusReply>
+#include <QDBusVariant>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -10,7 +14,7 @@
 // sysfs paths, the lux scale, and the near threshold. Returns true if a
 // usable ambient-light channel was found.
 bool SensorManagerCpp::detectIioSensors() {
-    QDir       base(QStringLiteral("/sys/bus/iio/devices"));
+    QDir       base(m_iioDir);
     const auto entries = base.entryList(QStringList() << "iio:device*", QDir::Dirs);
     for (const QString &e : entries) {
         const QString dir  = base.absoluteFilePath(e);
@@ -43,12 +47,23 @@ bool SensorManagerCpp::detectIioSensors() {
     return false;
 }
 
-SensorManagerCpp::SensorManagerCpp(QObject *parent)
+static bool sensorProxyHasAmbientLight() {
+    QDBusMessage get = QDBusMessage::createMethodCall(
+        QStringLiteral("net.hadess.SensorProxy"), QStringLiteral("/net/hadess/SensorProxy"),
+        QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("Get"));
+    get.setArguments({QStringLiteral("net.hadess.SensorProxy"), QStringLiteral("HasAmbientLight")});
+    const QDBusReply<QDBusVariant> reply =
+        QDBusConnection::systemBus().call(get, QDBus::Block, 2000);
+    return reply.isValid() && reply.value().variant().toBool();
+}
+
+SensorManagerCpp::SensorManagerCpp(QObject *parent, const QString &iioDir)
     : QObject(parent)
     , m_available(false)
     , m_proximityAvailable(false)
     , m_proximityNear(false)
-    , m_ambientLight(500) {
+    , m_ambientLight(500)
+    , m_iioDir(iioDir) {
 
     m_proximity = new QProximitySensor(this);
     m_light     = new QLightSensor(this);
@@ -70,7 +85,9 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent)
 
     qInfo() << "[SensorManagerCpp] No iio sensors — using QtSensors backend";
     m_proximityBackend = m_proximity->connectToBackend();
-    m_lightBackend     = m_light->connectToBackend();
+    // QtSensors' iio-sensor-proxy backend connects whether or not there is a
+    // light sensor; only the proxy knows.
+    m_lightBackend = sensorProxyHasAmbientLight() && m_light->connectToBackend();
 
     m_available = m_proximityBackend || m_lightBackend;
 

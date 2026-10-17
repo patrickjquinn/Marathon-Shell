@@ -621,7 +621,7 @@ target_include_directories(test_shell_powermanager PRIVATE
 )
 add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)
 
-# Brightness lands on hardware levels
+# Brightness lands on hardware levels; auto-brightness only with a light sensor
 add_executable(test_shell_brightness
     test_brightness.cpp
     ../../shell/src/managers/displaymanagercpp.cpp

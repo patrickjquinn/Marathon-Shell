@@ -49,8 +49,9 @@ class DisplayManagerCpp : public QObject {
     bool             available() const {
         return m_available;
     }
+    // Off, and not settable, without a light sensor.
     bool autoBrightnessEnabled() const {
-        return m_autoBrightnessEnabled;
+        return m_autoBrightnessEnabled && lightSensorAvailable();
     }
     bool rotationLocked() const {
         return m_rotationLocked;

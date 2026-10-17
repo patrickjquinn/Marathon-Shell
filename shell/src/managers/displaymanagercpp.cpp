@@ -304,6 +304,10 @@ void DisplayManagerCpp::setSensorManager(SensorManagerCpp *sensorManager) {
 }
 
 void DisplayManagerCpp::setAutoBrightness(bool enabled) {
+    if (enabled && !lightSensorAvailable()) {
+        qInfo() << "[DisplayManagerCpp] No light sensor: auto-brightness stays off";
+        return;
+    }
     if (m_autoBrightnessEnabled == enabled) {
         return;
     }
