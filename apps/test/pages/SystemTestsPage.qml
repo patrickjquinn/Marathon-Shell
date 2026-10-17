@@ -115,7 +115,7 @@ Page {
                 DetailItem {
                     objectName: "autoBrightness"
                     label: qsTr("Auto-brightness")
-                    value: page.onOff(page.display && page.display.autoBrightnessEnabled)
+                    value: page.display && !page.display.lightSensorAvailable ? qsTr("No light sensor") : page.onOff(page.display && page.display.autoBrightnessEnabled)
                 }
             }
             Actions {
@@ -135,6 +135,7 @@ Page {
                 }
                 TestItem {
                     objectName: "toggleAuto"
+                    visible: page.display !== null && page.display.lightSensorAvailable
                     text: qsTr("Toggle auto")
                     onClicked: page.app.run("Toggle auto-brightness", () => {
                         page.display.autoBrightnessEnabled = !page.display.autoBrightnessEnabled;

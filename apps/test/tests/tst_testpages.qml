@@ -157,6 +157,10 @@ TestCase {
         verify(Display.autoBrightnessEnabled);
         compare(findChild(page, "autoBrightness").value, "On");
         tap(page, "toggleAuto");
+        Display.lightSensorAvailable = false;
+        compare(findChild(page, "autoBrightness").value, "No light sensor");
+        verify(!findChild(page, "toggleAuto").visible);
+        Display.lightSensorAvailable = true;
         tap(page, "blank");
         tap(page, "wake");
         compare(calls(Display, "setScreenState"), [[false], [true]]);
