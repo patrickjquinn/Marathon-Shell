@@ -44,10 +44,12 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F39 | Permissions | After Allow on the first-launch prompt, Alarms page still showed 0 alarms (one set): Alarm/Location/Sensor clients never re-read on grant | verified fixed r464 (c6f0952e) — after Allow the page shows the one enabled alarm |
 | F40 | Boot | Firmware sometimes stops at its "loading … loading … starting" handoff and needs a power cycle; seen repeatedly, before and after A/B | open |
 | F41 | Boot | One boot (after an A/B fallback) stalled 90 s in plymouth-start `show-splash` and never brought the network up | open (intermittent) |
-| F42 | Updates | Hub shows the "Software update" notification with "RU" initials instead of its update glyph (lock screen shows the glyph) | open (polish) |
-| F43 | OOBE | Network page does not mark the network the device is already connected to | open (polish) |
-| F44 | Updates | Release notes show "- " list markers as plain text | open (polish) |
+| F42 | Updates | Hub shows the "Software update" notification with "RU" initials instead of its update glyph (lock screen shows the glyph) | fixed (R43, 1388f2a2): the Hub row shows the glyph; device check in the next OTA |
+| F43 | OOBE | Network page does not mark the network the device is already connected to | fixed (R43, 3afa0837): uses the live Wi-Fi state, connected network first; device check on next first boot |
+| F44 | Updates | Release notes show "- " list markers as plain text | fixed (R43, 2d348d9d): marathon-ota writes AppStream lists; device check in the next OTA |
 | F45 | Apps | Uninstall from Settings failed ("Failed to remove app files") since installs are read-only in sandboxes; Uninstall offered for built-in Test Suite | verified fixed on 26101707 (R41): "Crafted uninstalled", install/data/cache removed, ~/Documents kept, grants forgotten; built-in apps open no Uninstall menu |
+| F46 | Bluetooth | After restoring the speaker module's pairing from a backup, bluetoothd looped on "repeated attempts" and cancelled every new pairing until it was restarted; after a restart the module paired and connected | open (worked around; restore pairings with bluetoothd stopped) |
+| F47 | Tests | Shell_TextInputReplace segfaulted ~1 in 3: Qt 6.11 QTBUG-144115 (buffer release after compositor tear-down, fixed in 6.12) hit by the test's teardown order; the shell is not exposed | fixed (R42, test teardown waits for clients to leave) |
 
 ## Worked as intended
 
