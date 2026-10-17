@@ -198,18 +198,20 @@ if [ -d "$DEVICE_OVERLAY_APORT" ]; then
         "$DEVICE_OVERLAY_APORT/APKBUILD"
 fi
 
-# Pi 5 / CM5 images pin linux-rpi 6.12.85-r0 (mkosi-configure.py: edge's
-# 6.18.35 NULL-derefs during initrd udev on a Pi 5). Edge has moved on, so
-# the pinned apks come from the stable branch that still carries them.
-case "$MARATHON_TARGET_DEVICE" in
-raspberry-pi*|rpi*)
-    for p in linux-rpi-6.12.85-r0.apk linux-rpi-dev-6.12.85-r0.apk; do
-        [ -s "$MKOSI_PKG_DIR/$p" ] && continue
-        echo "==> fetching pinned $p from Alpine v3.23"
-        curl -fsSL -o "$MKOSI_PKG_DIR/$p" "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/$p"
-    done
-    ;;
-esac
+# Binary apks the target's device manifest pins (kernel.pins), such as the
+# Pi 5's linux-rpi 6.12.85-r0 (mkosi-configure.py: edge's 6.18.35
+# NULL-derefs during initrd udev on a Pi 5) from the stable branch that
+# still carries it. Fetched once, checked against the pin every build.
+python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" pins "$MARATHON_TARGET_DEVICE" |
+while read -r file url sha512; do
+    if [ ! -s "$MKOSI_PKG_DIR/$file" ]; then
+        echo "==> fetching pinned $file"
+        curl -fsSL -o "$MKOSI_PKG_DIR/$file.part" "$url"
+        mv "$MKOSI_PKG_DIR/$file.part" "$MKOSI_PKG_DIR/$file"
+    fi
+    echo "$sha512  $MKOSI_PKG_DIR/$file" | sha512sum -c --quiet - \
+        || { echo "$MKOSI_PKG_DIR/$file does not match its pin in devices/" >&2; exit 1; }
+done
 
 echo "==> stage 4: bake image for device=$MARATHON_TARGET_DEVICE"
 cd "$DURANIUM_DIR"
