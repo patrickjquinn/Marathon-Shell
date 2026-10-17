@@ -165,6 +165,7 @@ Item {
         anchors.right: parent.right
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: Constants.navBarHeight
         clip: true
         contentHeight: content.y + content.height + Silica.Theme.paddingLarge
 

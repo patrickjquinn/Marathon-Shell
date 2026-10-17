@@ -36,4 +36,11 @@ TestCase {
         for (const p of PermissionManager.currentPermissions)
             verify(dialog.permissionIconName(p) !== "shield", p);
     }
+
+    // The last line scrolls into view above the gesture bar, not under it.
+    function test_contentEndsAboveTheGestureBar() {
+        const flickable = findChild(dialog, "permissionFlickable");
+        const bottom = flickable.mapToItem(dialog, 0, flickable.height).y;
+        verify(bottom <= dialog.height - Constants.navBarHeight, bottom);
+    }
 }
