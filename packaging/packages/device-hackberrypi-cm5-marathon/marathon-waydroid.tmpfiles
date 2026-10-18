@@ -1,0 +1,2 @@
+d /var/lib/waydroid 0755 root root -
+C /var/lib/waydroid/waydroid.cfg - - - - /usr/share/marathon/waydroid.cfg

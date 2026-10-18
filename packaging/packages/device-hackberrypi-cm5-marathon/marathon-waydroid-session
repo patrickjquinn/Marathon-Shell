@@ -1,0 +1,23 @@
+#!/bin/sh
+# Runs this user's Waydroid session and gives Android the host's time zone.
+set -u
+
+waydroid session start &
+session=$!
+
+booted=
+for _ in $(seq 180); do
+	kill -0 "$session" 2>/dev/null || exit 1
+	if [ "$(waydroid prop get sys.boot_completed 2>/dev/null)" = 1 ]; then
+		booted=1
+		break
+	fi
+	sleep 1
+done
+
+tz=$(timedatectl show -p Timezone --value 2>/dev/null)
+if [ -n "$booted" ] && [ -n "$tz" ]; then
+	waydroid prop set persist.sys.timezone "$tz"
+fi
+
+wait "$session"
