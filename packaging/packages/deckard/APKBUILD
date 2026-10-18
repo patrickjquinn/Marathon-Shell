@@ -8,13 +8,14 @@
 pkgname=deckard
 pkgver=0.1.0
 pkgrel=0
-_commit=393571b7ba67da5afedb889a45e3394cd2bd1395
+_commit=7c6a69215613613948f72e6f8aad72997133b9a9
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND GPL-3.0-only"
 depends="waydroid python3"
 makedepends="cmake samurai qt6-qtbase-dev"
+checkdepends="dbus"
 source="deckard-$_commit.tar.gz::https://github.com/patrickjquinn/Marathon-Deckard/archive/$_commit.tar.gz"
 builddir="$srcdir/Marathon-Deckard-$_commit"
 
