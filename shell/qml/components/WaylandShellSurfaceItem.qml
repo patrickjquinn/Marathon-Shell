@@ -31,14 +31,45 @@ ShellSurfaceItem {
     readonly property size configureSize: parent ? Qt.size(Math.round(parent.width / clientScale), Math.round(parent.height / clientScale)) : Qt.size(0, 0)
 
     function scheduleSizeUpdate() {
-        if (sizeUpdateScheduled)
-            return;
-
         sizeUpdateScheduled = true;
-        Qt.callLater(function () {
-            sizeUpdateScheduled = false;
-            sendSizeToApp();
-        });
+        later.start();
+    }
+
+    // The next turn of the event loop, through a timer that goes with the
+    // item: a Qt.callLater could run after the item was destroyed.
+    property bool _primaryScheduled: false
+    property bool _focusScheduled: false
+    property bool _nudgePreviewScheduled: false
+    function _later(what) {
+        if (what === "primary")
+            _primaryScheduled = true;
+        else if (what === "focus")
+            _focusScheduled = true;
+        else
+            _nudgePreviewScheduled = true;
+        later.start();
+    }
+    Timer {
+        id: later
+        interval: 0
+        onTriggered: {
+            if (surfaceItem.sizeUpdateScheduled) {
+                surfaceItem.sizeUpdateScheduled = false;
+                surfaceItem.sendSizeToApp();
+            }
+            if (surfaceItem._primaryScheduled) {
+                surfaceItem._primaryScheduled = false;
+                surfaceItem._assertPrimary();
+            }
+            if (surfaceItem._focusScheduled) {
+                surfaceItem._focusScheduled = false;
+                surfaceItem.takeFocusForKeyboard();
+            }
+            if (surfaceItem._nudgePreviewScheduled) {
+                surfaceItem._nudgePreviewScheduled = false;
+                surfaceItem._nudgePreview();
+            }
+        }
     }
 
     function _xdgSurfaceFromObj(obj) {
@@ -103,12 +134,12 @@ ShellSurfaceItem {
         var xdgSurface = toplevel.xdgSurface;
         if (!xdgSurface) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: toplevel.xdgSurface not ready yet");
-            Qt.callLater(scheduleSizeUpdate);
+            scheduleSizeUpdate();
             return;
         }
         if (!xdgSurface.surface) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: xdgSurface.surface not ready yet");
-            Qt.callLater(scheduleSizeUpdate);
+            scheduleSizeUpdate();
             return;
         }
         var newSize = configureSize;
@@ -128,7 +159,7 @@ ShellSurfaceItem {
         // and the keyboard toggling that caused bounced focus between apps
         // hundreds of times a second.
         if (firstConfigure)
-            Qt.callLater(takeFocusForKeyboard);
+            _later("focus");
     }
 
     // Only a window on screen takes the keyboard, and only once its client has
@@ -189,7 +220,7 @@ ShellSurfaceItem {
         if (shellSurface) {
             if (autoResize)
                 scheduleSizeUpdate();
-            Qt.callLater(_assertPrimary);
+            _later("primary");
         }
     }
     onConfigureSizeChanged: {
@@ -219,15 +250,15 @@ ShellSurfaceItem {
     }
     onIsMinimizedChanged: {
         if (!isMinimized) {
-            Qt.callLater(_assertPrimary);
-            Qt.callLater(takeFocusForKeyboard);
+            _later("primary");
+            _later("focus");
         }
     }
     // A restored or switched-to app is shown, not resized, so its surface
     // takes keyboard focus here (focus follows QML focus from then on).
     onVisibleChanged: {
         if (visible)
-            Qt.callLater(takeFocusForKeyboard);
+            _later("focus");
     }
     // A restored / just-thawed idle client won't commit a fresh buffer until a
     // frame callback fires. The single nudge in _assertPrimary can race ahead
@@ -244,8 +275,8 @@ ShellSurfaceItem {
         onTriggered: surfaceItem._nudge()
     }
     // Deferred one tick: preview items get isMinimized set just after creation.
-    onSurfaceIdChanged: Qt.callLater(_nudgePreview)
-    Component.onCompleted: Qt.callLater(_nudgePreview)
+    onSurfaceIdChanged: _later("nudgePreview")
+    Component.onCompleted: _later("nudgePreview")
     Component.onDestruction: {
         // isPreview, not isMinimized: a backgrounded app is minimized but is
         // still the registered view, and preview views never register.
