@@ -2,11 +2,13 @@
 #include <QJSEngine>
 #include <QQmlEngine>
 #include "securitylogger.h"
+#include "dataencryption.h"
 #include <QDebug>
 #include <QDBusReply>
 #include <QDBusConnectionInterface>
 #include <QProcess>
 #include <QFile>
+#include <QFileInfo>
 #include <QTextStream>
 #include <QCryptographicHash>
 #include <QStandardPaths>
@@ -18,6 +20,10 @@
 #include <sys/types.h>
 #include <algorithm>
 #include <utility>   // std::as_const
+
+namespace {
+    constexpr QLatin1StringView kDataKeyHelper("/usr/libexec/marathon-data-key");
+}
 
 SecurityManager *SecurityManager::create(QQmlEngine *engine, QJSEngine *) {
     auto *m = new SecurityManager(engine);
@@ -43,7 +49,8 @@ SecurityManager::SecurityManager(QObject *parent)
 
     initFingerprintDevice();
 
-    m_hasQuickPIN = !retrieveQuickPIN().isEmpty();
+    m_hasQuickPIN    = !retrieveQuickPIN().isEmpty();
+    m_dataEncryption = dataEncryptionState(QDir::homePath());
 
     m_lockoutTimer->setInterval(1000);
     connect(m_lockoutTimer, &QTimer::timeout, this, &SecurityManager::checkLockoutTimer);
@@ -393,13 +400,20 @@ void SecurityManager::setQuickPIN(const QString &pin, const QString &systemPassw
         return;
     }
 
-    if (storeQuickPIN(pin)) {
-        m_hasQuickPIN = true;
-        emit quickPINChanged();
-        qDebug() << "[SecurityManager] Quick PIN set successfully";
-    } else {
-        emit authenticationFailed("Failed to store Quick PIN");
-    }
+    // The startup PIN changes first, so a failure leaves both on the old PIN.
+    runDataKeyHelper(QStringLiteral("set"), pin, [this, pin](bool ok) {
+        if (!ok) {
+            emit authenticationFailed("Couldn't change the PIN that unlocks your data at startup");
+            return;
+        }
+        if (storeQuickPIN(pin)) {
+            m_hasQuickPIN = true;
+            emit quickPINChanged();
+            qDebug() << "[SecurityManager] Quick PIN set successfully";
+        } else {
+            emit authenticationFailed("Failed to store Quick PIN");
+        }
+    });
 }
 
 bool SecurityManager::setQuickPINFirstRun(const QString &pin) {
@@ -420,6 +434,9 @@ bool SecurityManager::setQuickPINFirstRun(const QString &pin) {
     m_hasQuickPIN = true;
     emit quickPINChanged();
     qInfo() << "[SecurityManager] Quick PIN set during first-run setup";
+    // If this fails the data still opens at startup without a PIN, and
+    // Settings says so.
+    runDataKeyHelper(QStringLiteral("set"), pin, [](bool) {});
     return true;
 }
 
@@ -431,10 +448,64 @@ void SecurityManager::removeQuickPIN(const QString &systemPassword) {
         return;
     }
 
-    clearQuickPIN();
-    m_hasQuickPIN = false;
-    emit quickPINChanged();
-    qDebug() << "[SecurityManager] Quick PIN removed successfully";
+    runDataKeyHelper(QStringLiteral("clear"), QString(), [this](bool ok) {
+        if (!ok) {
+            emit authenticationFailed(
+                "Couldn't turn off the PIN that unlocks your data at startup");
+            return;
+        }
+        clearQuickPIN();
+        m_hasQuickPIN = false;
+        emit quickPINChanged();
+        qDebug() << "[SecurityManager] Quick PIN removed successfully";
+    });
+}
+
+// marathon-data-key keeps the data partition's startup PIN in step with the
+// quick PIN (docs/ENCRYPTION.md); done(false) means nothing changed.
+void SecurityManager::runDataKeyHelper(const QString &command, const QString &secret,
+                                       const std::function<void(bool)> &done) {
+    QString     program = qEnvironmentVariable("MARATHON_DATA_KEY_HELPER");
+    QStringList args{command};
+    if (program.isEmpty()) {
+        // No helper (a desktop session): no data partition to keep in step.
+        if (!QFileInfo::exists(kDataKeyHelper)) {
+            done(true);
+            return;
+        }
+        program = QStringLiteral("pkexec");
+        args.prepend(kDataKeyHelper);
+    }
+    auto *helper = new QProcess(this);
+    connect(helper, &QProcess::finished, this,
+            [this, helper, done](int code, QProcess::ExitStatus status) {
+                // 3: the data partition is not encrypted; the quick PIN stands alone.
+                const bool ok = status == QProcess::NormalExit && (code == 0 || code == 3);
+                if (!ok)
+                    qWarning() << "[SecurityManager] marathon-data-key failed:" << code
+                               << helper->readAllStandardError().trimmed();
+                helper->deleteLater();
+                refreshDataEncryption();
+                done(ok);
+            });
+    connect(helper, &QProcess::errorOccurred, this, [helper, done](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart)
+            return;
+        qWarning() << "[SecurityManager] cannot run marathon-data-key:" << helper->errorString();
+        helper->deleteLater();
+        done(false);
+    });
+    helper->start(program, args);
+    helper->write(secret.toUtf8());
+    helper->closeWriteChannel();
+}
+
+void SecurityManager::refreshDataEncryption() {
+    const QString state = dataEncryptionState(QDir::homePath());
+    if (state != m_dataEncryption) {
+        m_dataEncryption = state;
+        emit dataEncryptionChanged();
+    }
 }
 
 QString SecurityManager::confirmOwner(const QString &secret) {

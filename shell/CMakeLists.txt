@@ -197,6 +197,8 @@ set(SOURCES
     src/controllers/audiopolicycontroller.cpp
     src/managers/securitymanager.h
     src/managers/securitymanager.cpp
+    src/managers/dataencryption.h
+    src/managers/dataencryption.cpp
     src/managers/screenmetrics.h
     src/managers/screenmetrics.cpp
 )

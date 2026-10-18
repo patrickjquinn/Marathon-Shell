@@ -12,6 +12,7 @@
 #include <QRandomGenerator>
 #include <security/pam_appl.h>
 #include <qqml.h>
+#include <functional>
 
 class SecurityManager : public QObject {
     Q_OBJECT
@@ -31,6 +32,8 @@ class SecurityManager : public QObject {
     Q_PROPERTY(bool isLockedOut READ isLockedOut NOTIFY lockoutStateChanged)
     Q_PROPERTY(int lockoutSecondsRemaining READ lockoutSecondsRemaining NOTIFY lockoutStateChanged)
     Q_PROPERTY(int failedAttempts READ failedAttempts NOTIFY failedAttemptsChanged)
+    // "none", "off", "open" or "pin": dataEncryptionState().
+    Q_PROPERTY(QString dataEncryption READ dataEncryption NOTIFY dataEncryptionChanged)
 
   public:
     explicit SecurityManager(QObject *parent = nullptr);
@@ -66,6 +69,9 @@ class SecurityManager : public QObject {
     int failedAttempts() const {
         return m_failedAttempts;
     }
+    QString dataEncryption() const {
+        return m_dataEncryption;
+    }
 
     void             setAuthMode(AuthMode mode);
 
@@ -100,6 +106,7 @@ class SecurityManager : public QObject {
     void fingerprintAvailableChanged();
     void lockoutStateChanged();
     void failedAttemptsChanged();
+    void dataEncryptionChanged();
     void biometricPrompt(const QString &message);
 
   private slots:
@@ -126,6 +133,10 @@ class SecurityManager : public QObject {
     void                  stopFingerprintAuth();
     void                  checkFingerprintEnrollment();
 
+    void                  runDataKeyHelper(const QString &command, const QString &secret,
+                                           const std::function<void(bool)> &done);
+    void                  refreshDataEncryption();
+
     void                  updateLockoutStatus();
     void                  recordFailedAttempt();
     void                  resetFailedAttempts();
@@ -137,6 +148,7 @@ class SecurityManager : public QObject {
     bool                  m_isLockedOut;
     int                   m_failedAttempts;
     QDateTime             m_lockoutUntil;
+    QString               m_dataEncryption;
     QTimer               *m_lockoutTimer;
 
     QDBusInterface       *m_fprintdManager;

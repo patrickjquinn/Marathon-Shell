@@ -339,6 +339,7 @@ find_package(Qt6 REQUIRED COMPONENTS Concurrent)
 add_executable(test_shell_securitymanager
     test_securitymanager.cpp
     ../../shell/src/managers/securitymanager.cpp
+    ../../shell/src/managers/dataencryption.cpp
 )
 target_link_libraries(test_shell_securitymanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Concurrent ${PAM_LIBRARY})
 target_include_directories(test_shell_securitymanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src/components ${CMAKE_SOURCE_DIR}/shell/src)
@@ -357,6 +358,15 @@ target_include_directories(test_shell_factoryreset PRIVATE ${CMAKE_SOURCE_DIR}/s
     ${CMAKE_SOURCE_DIR}/shell/src/services ${CMAKE_SOURCE_DIR}/shell/src/components
     ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_FactoryReset COMMAND test_shell_factoryreset)
+
+# The data partition's encryption state, from mountinfo, sysfs and the helper's note
+add_executable(test_shell_dataencryption
+    test_dataencryption.cpp
+    ../../shell/src/managers/dataencryption.cpp
+)
+target_link_libraries(test_shell_dataencryption Qt6::Test Qt6::Core)
+target_include_directories(test_shell_dataencryption PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
+add_test(NAME Shell_DataEncryption COMMAND test_shell_dataencryption)
 
 # A background launch starts the app without bringing it to the front
 add_executable(test_shell_backgroundlaunch
