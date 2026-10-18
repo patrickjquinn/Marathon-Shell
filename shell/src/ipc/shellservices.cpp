@@ -1297,6 +1297,7 @@ ModemObject::ModemObject(ModemManagerCpp *modem, MarathonPermissionManager *perm
                         &ModemManagerCpp::dataEnabledChanged,
                         &ModemManagerCpp::dataRoamingAllowedChanged,
                         &ModemManagerCpp::modesChanged})
+        // clazy:exclude=connect-non-signal (clazy can't resolve a pmf held in a variable)
         QObject::connect(m_modem, signal, this, push);
 }
 
