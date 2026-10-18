@@ -530,6 +530,23 @@ class TestUpdateService : public QObject {
         QCOMPARE(reboots.count(), restarts ? 1 : 0);
     }
 
+    void aStartupPinKeepsItFromRestartingByItself() {
+        UpdateService *s = readyToRestart();
+        QSignalSpy     reboots(s, &UpdateService::rebootRequested);
+        s->setStartupPin(true);
+        QVERIFY(!s->restartScheduled());
+        QVERIFY(!s->nextRestartWindow().isValid());
+        now        = at(18, 3);
+        conditions = {2, true, 80, 1, true};
+        s->reconsider();
+        QCOMPARE(reboots.count(), 0);
+        s->scheduleRestart();
+        QVERIFY(!s->restartScheduled());
+
+        s->setStartupPin(false);
+        QCOMPARE(reboots.count(), 1);
+    }
+
     void tonightSchedulesTheRestartWithoutAutomaticUpdates() {
         UpdateService *s = available();
         s->install();

@@ -44,6 +44,8 @@ Page {
                 return qsTr("Charge to at least 30%, or plug in, to download this update.");
             return "";
         case "readyToReboot":
+            if (Security.dataEncryption === "pin")
+                return qsTr("Restart to finish. Your phone asks for its PIN when it starts, so it won't restart by itself overnight. If it doesn't start properly, it goes back to the version it has now.");
             return Updates.restartScheduled ? qsTr("It restarts tonight between 2 and 5 AM, on charge and not in use. If it doesn't start properly, your phone goes back to the version it has now.") : qsTr("Restart to finish. If it doesn't start properly, your phone goes back to the version it has now.");
         case "rolledBack":
             return qsTr("Your phone went back to %1. A fixed update will be offered when it's published.").arg(Updates.osVersion);
@@ -157,7 +159,7 @@ Page {
                 Button {
                     objectName: "tonightButton"
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible: !Updates.restartScheduled
+                    visible: !Updates.restartScheduled && Security.dataEncryption !== "pin"
                     text: qsTr("Restart tonight")
                     onClicked: Updates.scheduleRestart()
                 }

@@ -1250,6 +1250,12 @@ int main(int argc, char *argv[]) {
         &app);
     QObject::connect(updateService, &UpdateService::rebootRequested, powerManager,
                      &PowerManagerCpp::restart);
+    const auto startupPin = [updateService, securityManager]() {
+        updateService->setStartupPin(securityManager->dataEncryption() == u"pin");
+    };
+    startupPin();
+    QObject::connect(securityManager, &SecurityManager::dataEncryptionChanged, updateService,
+                     startupPin);
     QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged,
                      updateService, &UpdateService::reconsider);
     QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveAlarmChanged,

@@ -155,7 +155,13 @@ class UpdateService : public QObject {
         return m_autoUpdate;
     }
     void setAutoUpdate(bool on);
+    // False while the phone asks for a PIN at startup: a restart nobody
+    // watches would wait at the prompt, alarms and calls with it.
     bool restartScheduled() const;
+    bool startupPin() const {
+        return m_startupPin;
+    }
+    void setStartupPin(bool on);
     // When the next overnight restart window opens; invalid if none is due.
     QDateTime nextRestartWindow() const {
         return m_nextRestartWindow;
@@ -219,6 +225,7 @@ class UpdateService : public QObject {
     QString                           m_lastError;
     qint64                            m_lastCheckedMs = 0;
     bool                              m_autoUpdate    = true;
+    bool                              m_startupPin    = false;
     QString                           m_tonightVersion;
     QString                           m_cancelledVersion;
     QDateTime                         m_nextRestartWindow;

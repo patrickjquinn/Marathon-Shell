@@ -171,6 +171,16 @@ class TestUpdateNotifier : public QObject {
         QVERIFY(updates->restartScheduled());
     }
 
+    void aStartupPinLeavesOutTonight() {
+        makeAvailable();
+        updates->setStartupPin(true);
+        updates->install();
+        emit backend->installed(QStringLiteral("26101801"));
+        QCOMPARE(keys(shown().value(0)), (QStringList{"default", "restart"}));
+        QCOMPARE(shown().value(0).value("body").toString(),
+                 QStringLiteral("Marathon 26101801 is ready."));
+    }
+
     void restartNowRestarts() {
         makeAvailable();
         updates->install();

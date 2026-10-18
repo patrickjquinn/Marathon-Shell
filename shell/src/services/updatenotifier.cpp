@@ -40,8 +40,9 @@ void UpdateNotifier::post(UpdateService::Notice kind, const QString &version) {
             body    = m_updates->restartScheduled() ?
                 tr("Marathon %1 installs tonight while charging.").arg(version) :
                 tr("Marathon %1 is ready.").arg(version);
-            actions << QStringLiteral("restart") << tr("Restart now") << QStringLiteral("tonight")
-                    << tr("Tonight");
+            actions << QStringLiteral("restart") << tr("Restart now");
+            if (!m_updates->startupPin())
+                actions << QStringLiteral("tonight") << tr("Tonight");
             break;
         case UpdateService::Notice::RolledBack:
             summary = tr("Marathon %1 didn't start").arg(version);

@@ -190,6 +190,15 @@ TestCase {
         verify(pushed(s.app, s.page).dataLocked);
     }
 
+    function test_noOvernightRestartWithAStartupPin() {
+        Updates.state = "readyToReboot";
+        Updates.restartScheduled = false;
+        Security.dataEncryption = "pin";
+        const s = open("updates");
+        verify(!child(s.page, "tonightButton").visible);
+        verify(child(s.page, "rebootButton").visible);
+    }
+
     function test_accounts() {
         const s = open("accounts");
         const list = child(s.page, "accountList");

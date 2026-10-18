@@ -267,8 +267,16 @@ bool UpdateService::autoInstall() {
 }
 
 bool UpdateService::restartScheduled() const {
-    return m_state == State::ReadyToReboot &&
+    return m_state == State::ReadyToReboot && !m_startupPin &&
         (m_autoUpdate || m_tonightVersion == m_availableVersion);
+}
+
+void UpdateService::setStartupPin(bool on) {
+    if (on == m_startupPin)
+        return;
+    m_startupPin = on;
+    emit stateChanged();
+    armRestart();
 }
 
 void UpdateService::scheduleRestart() {
