@@ -63,6 +63,32 @@ MApp {
             light: AmbienceService.light
         }
 
+        // The window went: show the app's other window, or the one that
+        // replaces it (Waydroid re-creates a task's window as Android redraws
+        // it, and the card waits for it, AppLaunchService), else close.
+        Timer {
+            id: followTask
+
+            property int tries: 0
+
+            interval: 100
+            repeat: true
+            onTriggered: {
+                const task = TaskModel.getTaskByAppId(nativeAppWindow.nativeAppId);
+                if (task && task.surfaceId > 0 && task.surfaceId !== nativeAppWindow.surfaceId) {
+                    stop();
+                    Logger.info("NativeAppWindow", "Surface destroyed - showing surfaceId " + task.surfaceId);
+                    nativeAppWindow.waylandSurface = task.waylandSurface;
+                    nativeAppWindow.surfaceId = task.surfaceId;
+                    nativeAppWindow.surfaceSwitched();
+                } else if (!task || ++tries > 12) {
+                    stop();
+                    Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
+                    nativeAppWindow.requestClose(true);
+                }
+            }
+        }
+
         ShellComponents.WaylandShellSurfaceItem {
             id: surfaceItem
 
@@ -75,19 +101,8 @@ MApp {
                 if (nativeAppWindow.isMinimized) {
                     Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");
                 } else {
-                    Qt.callLater(function () {
-                        // Another window of the app is left: the card shows that one.
-                        var task = TaskModel.getTaskByAppId(nativeAppWindow.nativeAppId);
-                        if (task && task.surfaceId > 0 && task.surfaceId !== nativeAppWindow.surfaceId) {
-                            Logger.info("NativeAppWindow", "Surface destroyed - showing surfaceId " + task.surfaceId);
-                            nativeAppWindow.waylandSurface = task.waylandSurface;
-                            nativeAppWindow.surfaceId = task.surfaceId;
-                            nativeAppWindow.surfaceSwitched();
-                            return;
-                        }
-                        Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
-                        nativeAppWindow.requestClose(true);
-                    });
+                    followTask.tries = 0;
+                    followTask.start();
                 }
             }
             Component.onCompleted: {

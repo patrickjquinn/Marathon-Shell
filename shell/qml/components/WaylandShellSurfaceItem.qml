@@ -223,6 +223,10 @@ ShellSurfaceItem {
             if (autoResize)
                 scheduleSizeUpdate();
             _later("primary");
+            // A window switched to another surface keeps the keyboard on it:
+            // Waydroid moves Android's resumed task to the window with focus.
+            if (hasSentInitialSize)
+                _later("focus");
         }
     }
     onConfigureSizeChanged: {
@@ -244,10 +248,19 @@ ShellSurfaceItem {
             _nudge();
         }
     }
+    // The surface id this view is registered under; a switch to another
+    // surface takes the old registration away, or a card shows this view
+    // for the surface it no longer shows.
+    property int registeredSurfaceId: -1
     function _nudgePreview() {
-        if (isMinimized)
+        if (isMinimized) {
             _nudge();
-        else if (surfaceId !== -1)
+            return;
+        }
+        if (registeredSurfaceId !== -1 && registeredSurfaceId !== surfaceId && SurfaceRegistry.getSurfaceItem(registeredSurfaceId) === this)
+            SurfaceRegistry.unregisterSurface(registeredSurfaceId);
+        registeredSurfaceId = surfaceId;
+        if (surfaceId !== -1)
             SurfaceRegistry.registerSurface(surfaceId, this);
     }
     onIsMinimizedChanged: {
@@ -282,8 +295,8 @@ ShellSurfaceItem {
     Component.onDestruction: {
         // isPreview, not isMinimized: a backgrounded app is minimized but is
         // still the registered view, and preview views never register.
-        if (surfaceId !== -1 && !isPreview)
-            SurfaceRegistry.unregisterSurface(surfaceId);
+        if (registeredSurfaceId !== -1 && !isPreview && SurfaceRegistry.getSurfaceItem(registeredSurfaceId) === this)
+            SurfaceRegistry.unregisterSurface(registeredSurfaceId);
     }
 
     // Until the client's first buffer lands, show the app background rather than nothing.
