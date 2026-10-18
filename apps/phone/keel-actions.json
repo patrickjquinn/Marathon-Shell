@@ -1,0 +1,225 @@
+{
+  "appId": "org.marathonos.phone",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.phone/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "call.dial",
+        "org.shipwright.keel/confirm": true,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Call a phone number from the Phone app: the call starts at once and the call screen comes to the front.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "description": "Phone number to call",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "number"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.phone/call.dial",
+      "title": "Call"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "calls.recent",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the most recent calls in the Phone app's call log, newest first, optionally only one type (incoming, outgoing, missed or rejected). Each call has the number, the contact's name if known, the type, when it happened and how long it lasted in seconds.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "incoming",
+              "outgoing",
+              "missed",
+              "rejected"
+            ],
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "org.marathonos.phone/calls.recent",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "duration": {
+                  "maximum": 2147483647,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "name": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "number": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "time": {
+                  "format": "date-time",
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                "type": {
+                  "maxLength": 16,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "number",
+                "name",
+                "type",
+                "time",
+                "duration"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Recent calls"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "contacts.find",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Find people in the Phone app's contacts whose name or number contains the query. Returns up to `limit` contacts, each with name, phone number and email address.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.phone/contacts.find",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "email": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "phone": {
+                  "maxLength": 64,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "phone",
+                "email"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Find contacts"
+    }
+  ],
+  "version": 1
+}

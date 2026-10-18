@@ -146,6 +146,10 @@ ApplicationWindow {
 
     initialPage: emergencyOnly ? emergencyPage : mainPage
 
+    PhoneActions {
+        phone: root
+    }
+
     Timer {
         id: endedTimer
 
