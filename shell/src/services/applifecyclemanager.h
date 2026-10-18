@@ -79,8 +79,6 @@ class AppLifecycleManager : public QObject {
     // it to 0 so background apps freeze immediately when the screen
     // goes off, then restores the saved value on Doze exit).
     Q_INVOKABLE void setIdleFreezeDebounceMs(int ms);
-    // The phone dozes: Android is frozen even in front.
-    void             setDozing(bool dozing);
     Q_INVOKABLE int  idleFreezeDebounceMs() const {
         return m_idleFreezeDebounceMs;
     }
@@ -132,10 +130,6 @@ class AppLifecycleManager : public QObject {
     void                              freezeApp(const QString &appId);
     void                              setAppFrozen(const QString &appId, bool frozen);
     void                              writeOomScoreAdj(const QString &appId, LifecycleState state);
-    // Android's apps share Waydroid's container, frozen as one.
-    bool                              androidMayFreeze() const;
-    void                              updateAndroidFreeze();
-    void                              setAndroidFrozen(bool frozen);
     static int                        oomScoreForState(LifecycleState state);
 
     QPointer<TaskModel>               m_taskModel;
@@ -152,14 +146,4 @@ class AppLifecycleManager : public QObject {
     QStringList                       m_pendingForegroundApps;
     int                               m_idleFreezeDebounceMs = 10000;
     bool                              m_stopping             = false;
-    bool                              m_dozing               = false;
-    // An Android app has been in front since the session started.
-    bool                              m_androidUsed          = false;
-    bool                              m_androidFrozen        = false;
-    int                               m_androidMinFreezeDelayMs = 10000;
-    QTimer                            m_androidFreezeTimer;
-    // An Android launch is on its way to its window.
-    QTimer                            m_androidLaunchTimer;
-
-    friend class TestAndroidFreeze;
 };

@@ -22,10 +22,9 @@ class FakeContainer : public QObject {
     }
 };
 
-// Android has no process of its own per app, so its apps never freeze one by
-// one; the container freezes once an Android app has been in front and none
-// is any more, or the phone dozes after one has. Not while Android starts or
-// a launch is on its way.
+// Android freezes its own cached apps and dozes with the phone; a frozen
+// container delivers no notifications, alarms or audio. The shell leaves it
+// running whatever is in front, in Doze too.
 class TestAndroidFreeze : public QObject {
     Q_OBJECT
 
@@ -34,7 +33,6 @@ class TestAndroidFreeze : public QObject {
     AppLifecycleManager *lifecycle = nullptr;
     FakeContainer        container;
     QObject              windowA;
-    QObject              windowB;
     QObject              surface;
 
     void show(const QString &appId, QObject *window, int surfaceId) {
@@ -43,12 +41,6 @@ class TestAndroidFreeze : public QObject {
         window->setProperty("isNative", true);
         lifecycle->registerApp(appId, window);
         lifecycle->bringToForeground(appId);
-    }
-
-    void usedThenLeft() {
-        show("waydroid.a", &windowA, 11);
-        QVERIFY(lifecycle->minimizeForegroundApp());
-        QTRY_COMPARE(container.calls, QStringList{"Freeze"});
     }
 
   private slots:
@@ -64,109 +56,32 @@ class TestAndroidFreeze : public QObject {
         tasks     = new TaskModel(this);
         launcher  = new AppLaunchService(nullptr, tasks, this);
         lifecycle = new AppLifecycleManager(tasks, launcher, this);
-        lifecycle->setIdleFreezeDebounceMs(20);
-        lifecycle->m_androidMinFreezeDelayMs = 20;
+        lifecycle->setIdleFreezeDebounceMs(0);
     }
 
     void cleanup() {
         delete lifecycle;
         delete launcher;
         delete tasks;
-        QDBusConnection::disconnectFromBus(QStringLiteral("session"));
     }
 
-    // Booting, Waydroid maps and drops windows and its CLI thaws the
-    // container; freezing then stalled Android's boot.
-    void androidStartingIsLeftAlone() {
-        tasks->launchTask("waydroid.a", "A", "a", "native", 11, &surface);
-        tasks->launchTask("waydroid.b", "B", "b", "native", 12, &surface);
-        lifecycle->setDozing(true);
-        QTest::qWait(80);
-        QVERIFY(container.calls.isEmpty());
-        lifecycle->setDozing(false);
-    }
-
-    void freezesAfterAnAndroidAppLeavesTheFront() {
+    void androidRunsWhenItsAppLeavesTheFront() {
         show("waydroid.a", &windowA, 11);
-        QTest::qWait(60);
-        QVERIFY(container.calls.isEmpty());
         QVERIFY(lifecycle->minimizeForegroundApp());
-        QTRY_COMPARE(container.calls, QStringList{"Freeze"});
-    }
-
-    void thawsBeforeAnAndroidAppComesBack() {
-        usedThenLeft();
-        lifecycle->bringToForeground("waydroid.a");
-        QTRY_COMPARE(container.calls, (QStringList{"Freeze", "Unfreeze"}));
-    }
-
-    void anotherAndroidAppInFrontKeepsItRunning() {
-        show("waydroid.a", &windowA, 11);
-        show("waydroid.b", &windowB, 12);
-        QTest::qWait(60);
+        // Past the 10 s the shell used to wait before freezing it.
+        QTest::qWait(10500);
         QVERIFY(container.calls.isEmpty());
+        QCOMPARE(lifecycle->lifecycleState("waydroid.a"),
+                 int(AppLifecycleManager::BackgroundIdle));
     }
 
-    // Windows coming and going do not move it either way.
-    void windowsAloneDoNotFreezeOrThawIt() {
-        usedThenLeft();
-        tasks->launchTask("waydroid.c", "C", "c", "native", 13, &surface);
-        tasks->closeTask(tasks->getTaskByAppId("waydroid.c")->id());
-        QTest::qWait(80);
-        QCOMPARE(container.calls, QStringList{"Freeze"});
-    }
-
-    void dozeFreezesItAtOnceEvenInFront() {
+    // Doze sets the idle debounce to 0.
+    void androidRunsInDoze() {
         show("waydroid.a", &windowA, 11);
-        lifecycle->m_androidMinFreezeDelayMs = 60000;
-        lifecycle->setDozing(true);
-        QTRY_COMPARE(container.calls, QStringList{"Freeze"});
-        lifecycle->setDozing(false);
-        QTRY_COMPARE(container.calls, (QStringList{"Freeze", "Unfreeze"}));
-    }
-
-    void playingAudioKeepsItRunning() {
-        show("waydroid.a", &windowA, 11);
-        lifecycle->addCapability("waydroid.a", QStringLiteral("audio-playback"));
         QVERIFY(lifecycle->minimizeForegroundApp());
-        QTest::qWait(60);
-        QVERIFY(container.calls.isEmpty());
-    }
-
-    // An Android launch thaws it, so `waydroid app launch` finds it running,
-    // and nothing freezes it until the launch's window has come.
-    void aPendingLaunchKeepsItRunning() {
-        usedThenLeft();
         lifecycle->wakeApp("waydroid.b");
-        QTRY_COMPARE(container.calls, (QStringList{"Freeze", "Unfreeze"}));
-        lifecycle->setDozing(true);
         QTest::qWait(80);
-        QCOMPARE(container.calls, (QStringList{"Freeze", "Unfreeze"}));
-        lifecycle->setDozing(false);
-        show("waydroid.b", &windowB, 12);
-        QVERIFY(lifecycle->minimizeForegroundApp());
-        QTRY_COMPARE(container.calls, (QStringList{"Freeze", "Unfreeze", "Freeze"}));
-    }
-
-    // A new session is a new boot: it waits for an Android app in front again.
-    void aNewSessionStartsOver() {
-        usedThenLeft();
-        QVERIFY(QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("session"))
-                    .registerService(QStringLiteral("id.waydro.Session")));
-        QTest::qWait(50);
-        lifecycle->setDozing(true);
-        QTest::qWait(80);
-        QCOMPARE(container.calls, QStringList{"Freeze"});
-        lifecycle->setDozing(false);
-    }
-
-    void withoutAndroidNothingIsCalled() {
-        show("plain", &windowA, 11);
-        QVERIFY(lifecycle->minimizeForegroundApp());
-        lifecycle->setDozing(true);
-        QTest::qWait(60);
         QVERIFY(container.calls.isEmpty());
-        lifecycle->setDozing(false);
     }
 };
 

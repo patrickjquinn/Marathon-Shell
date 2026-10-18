@@ -508,7 +508,7 @@ if(DBUS_RUN_SESSION)
         COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_keelactionsfreeze>)
 endif()
 
-# Android's apps share Waydroid's container, frozen through its service
+# The shell leaves Waydroid's container running; Android freezes its own apps
 if(DBUS_RUN_SESSION)
     add_executable(test_shell_androidfreeze
         test_androidfreeze.cpp

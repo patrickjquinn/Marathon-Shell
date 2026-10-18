@@ -10,7 +10,6 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
-#include <QDBusServiceWatcher>
 #include <QFile>
 #include <QLoggingCategory>
 #include <QMetaObject>
@@ -24,39 +23,12 @@
 
 Q_LOGGING_CATEGORY(lcLifecycle, "marathon.lifecycle")
 
-namespace {
-    // Waydroid's app_id for an Android app is waydroid.<package>.
-    bool isAndroidApp(const QString &appId) {
-        return appId.startsWith(QLatin1String("waydroid."));
-    }
-} // namespace
-
 AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
                                          QObject *parent)
     : QObject(parent)
     , m_taskModel(taskModel)
     , m_appLaunchService(appLaunchService)
     , m_cgroup(new CgroupManager(this)) {
-    m_androidFreezeTimer.setSingleShot(true);
-    connect(&m_androidFreezeTimer, &QTimer::timeout, this, [this]() {
-        if (androidMayFreeze())
-            setAndroidFrozen(true);
-    });
-    m_androidLaunchTimer.setSingleShot(true);
-    m_androidLaunchTimer.setInterval(60000);
-    connect(&m_androidLaunchTimer, &QTimer::timeout, this,
-            &AppLifecycleManager::updateAndroidFreeze);
-    // A Waydroid session starting or stopping is a new Android: unfrozen,
-    // and left alone until one of its apps has been in front.
-    auto *session = new QDBusServiceWatcher(
-        QStringLiteral("id.waydro.Session"), QDBusConnection::sessionBus(),
-        QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration,
-        this);
-    connect(session, &QDBusServiceWatcher::serviceOwnerChanged, this, [this]() {
-        m_androidUsed   = false;
-        m_androidFrozen = false;
-        m_androidFreezeTimer.stop();
-    });
     // A previous shell session's app cgroups (and any frozen orphan pids
     // inside them) outlive greetd restarts — reap them before the first
     // launch of this session can inherit a stale freeze=1.
@@ -189,8 +161,6 @@ void AppLifecycleManager::unregisterApp(const QString &appId) {
     m_pendingForegroundApps.removeAll(appId);
     if (m_foregroundAppId == appId)
         m_foregroundAppId.clear();
-    if (isAndroidApp(appId))
-        updateAndroidFreeze();
 
     emit appUnregistered(appId);
 }
@@ -257,11 +227,6 @@ void AppLifecycleManager::restoreApp(const QString &appId) {
 }
 
 void AppLifecycleManager::wakeApp(const QString &appId) {
-    // An Android launch: running, until its window has come.
-    if (isAndroidApp(appId)) {
-        m_androidLaunchTimer.start();
-        updateAndroidFreeze();
-    }
     const int st = lifecycleState(appId);
     if (st != Frozen && st != BackgroundIdle)
         return;
@@ -453,62 +418,6 @@ void AppLifecycleManager::setIdleFreezeDebounceMs(int ms) {
     m_idleFreezeDebounceMs = qMax(0, ms);
 }
 
-void AppLifecycleManager::setDozing(bool dozing) {
-    m_dozing = dozing;
-    updateAndroidFreeze();
-}
-
-// Frozen once an Android app has been in front and none is any more (or holds
-// a capability), or the phone dozes after one has been; never while a launch
-// is on its way. Android starting maps and drops windows and Waydroid's own
-// CLI thaws it, so nothing but an app leaving the front or Doze arms it.
-bool AppLifecycleManager::androidMayFreeze() const {
-    if (!m_androidUsed || m_androidLaunchTimer.isActive())
-        return false;
-    for (auto it = m_appStates.cbegin(); it != m_appStates.cend(); ++it) {
-        if (isAndroidApp(it.key()) && !m_dozing &&
-            (it->state == Foreground || it->state == BackgroundActive))
-            return false;
-    }
-    return true;
-}
-
-void AppLifecycleManager::updateAndroidFreeze() {
-    for (auto it = m_appStates.cbegin(); it != m_appStates.cend(); ++it) {
-        if (isAndroidApp(it.key()) && it->state == Foreground) {
-            m_androidUsed = true;
-            m_androidLaunchTimer.stop();
-        }
-    }
-    if (!androidMayFreeze()) {
-        m_androidFreezeTimer.stop();
-        setAndroidFrozen(false);
-    } else if (!m_androidFrozen && !m_androidFreezeTimer.isActive()) {
-        m_androidFreezeTimer.start(
-            m_dozing ? 0 : qMax(m_idleFreezeDebounceMs, m_androidMinFreezeDelayMs));
-    }
-}
-
-// lxc-freeze through Waydroid's container service, which any user may call.
-void AppLifecycleManager::setAndroidFrozen(bool frozen) {
-    if (frozen == m_androidFrozen)
-        return;
-    m_androidFrozen       = frozen;
-    const QString method = frozen ? QStringLiteral("Freeze") : QStringLiteral("Unfreeze");
-    QDBusMessage  msg    = QDBusMessage::createMethodCall(
-        QStringLiteral("id.waydro.Container"), QStringLiteral("/ContainerManager"),
-        QStringLiteral("id.waydro.ContainerManager"), method);
-    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(msg), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this,
-            [method](QDBusPendingCallWatcher *w) {
-                if (w->isError())
-                    qCWarning(lcLifecycle) << "Android" << method << "failed:" << w->error().message();
-                else
-                    qCInfo(lcLifecycle) << "Android" << method;
-                w->deleteLater();
-            });
-}
-
 void AppLifecycleManager::onForegroundExit(const QString &appId) {
     if (appId.isEmpty())
         return;
@@ -646,8 +555,6 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
     if (m_appLaunchService && (old == Foreground) != (newState == Foreground))
         m_appLaunchService->setAppActive(appId, newState == Foreground);
 
-    if (isAndroidApp(appId))
-        updateAndroidFreeze();
     emit stateChanged(appId, static_cast<int>(old), static_cast<int>(newState));
 }
 
@@ -734,8 +641,6 @@ void AppLifecycleManager::stopAllApps(int graceMs) {
         return;
     m_stopping = true;
     m_cgroup->thawAll();
-    m_androidFreezeTimer.stop();
-    setAndroidFrozen(false);
     for (auto it = m_appScopes.cbegin(); it != m_appScopes.cend(); ++it) {
         if (lifecycleState(it.key()) == Frozen)
             setAppFrozen(it.key(), false);
