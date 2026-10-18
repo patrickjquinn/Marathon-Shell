@@ -117,6 +117,8 @@ set(SOURCES
     src/services/updateservice.cpp
     src/services/updatenotifier.h
     src/services/updatenotifier.cpp
+    src/services/factoryreset.h
+    src/services/factoryreset.cpp
     src/services/sysupdatebackend.h
     src/services/sysupdatebackend.cpp
     src/services/motiondaemon.h

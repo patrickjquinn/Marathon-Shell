@@ -437,6 +437,28 @@ void SecurityManager::removeQuickPIN(const QString &systemPassword) {
     qDebug() << "[SecurityManager] Quick PIN removed successfully";
 }
 
+QString SecurityManager::confirmOwner(const QString &secret) {
+    const auto lockedOut = [this] {
+        return QStringLiteral("Too many failed attempts. Try again in %1 seconds.")
+            .arg(lockoutSecondsRemaining());
+    };
+    if (m_isLockedOut)
+        return lockedOut();
+    const QString username = getCurrentUsername();
+    const bool    pin      = m_hasQuickPIN;
+    if (pin ? verifyQuickPIN(secret) : authenticateViaPAM(secret)) {
+        resetFailedAttempts();
+        SecurityLogger::logAuthSuccess(username, pin ? "quick_pin" : "password");
+        return {};
+    }
+    recordFailedAttempt();
+    SecurityLogger::logAuthFailure(username, pin ? "Invalid PIN" : "Invalid password",
+                                   pin ? "QuickPIN" : "PAM");
+    if (m_isLockedOut)
+        return lockedOut();
+    return pin ? QStringLiteral("Incorrect PIN") : QStringLiteral("Incorrect password");
+}
+
 void SecurityManager::initFingerprintDevice() {
     qDebug() << "[SecurityManager] Initializing fprintd device";
 

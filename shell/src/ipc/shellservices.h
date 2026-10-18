@@ -29,6 +29,7 @@ class SettingsManager;
 class AmbienceService;
 class WallpaperStore;
 class SecurityManager;
+class FactoryReset;
 class BluetoothManager;
 class DisplayManagerCpp;
 class FlashlightManagerCpp;
@@ -314,12 +315,16 @@ class SecurityObject : public IpcPermissionedService {
     void        ResetLockout();
     bool        IsBiometricEnrolled(int type);
     QString     CurrentUsername();
+    // Erases the device at the next boot if `secret` is the owner's quick
+    // PIN, or system password without one; EraseFailed says why not.
+    void EraseAllContent(const QString &secret);
 
   signals:
     void StateChanged(const QVariantMap &state);
     void AuthenticationFailed(const QString &reason);
     void AuthenticationSuccess();
     void QuickPINChanged();
+    void EraseFailed(const QString &reason);
 
   private:
     bool requireSystem() {
@@ -327,7 +332,8 @@ class SecurityObject : public IpcPermissionedService {
     }
     QVariantMap      buildState() const;
 
-    SecurityManager *m_security = nullptr;
+    SecurityManager *m_security     = nullptr;
+    FactoryReset    *m_factoryReset = nullptr;
 };
 
 class BluetoothObject : public IpcPermissionedService {

@@ -32,6 +32,7 @@
 #include "telephonyservice.h"
 #include "medialibrarymanager.h"
 #include "../services/updateservice.h"
+#include "../services/factoryreset.h"
 #include "../services/marathonappstoreservice.h"
 #include "marathonappinstaller.h"
 #include "../services/applifecyclemanager.h"
@@ -579,11 +580,13 @@ void SettingsObject::SetSystemTime(qlonglong msecsSinceEpoch) {
 SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionManager *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
-    , m_security(security) {
+    , m_security(security)
+    , m_factoryReset(new FactoryReset(security, QString::fromLatin1(FactoryReset::SOCKET), this)) {
     Q_ASSERT(m_security);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
 
+    QObject::connect(m_factoryReset, &FactoryReset::failed, this, &SecurityObject::EraseFailed);
     QObject::connect(m_security, &SecurityManager::authModeChanged, this,
                      [this]() { emit StateChanged(buildState()); });
     QObject::connect(m_security, &SecurityManager::quickPINChanged, this, [this]() {
@@ -615,6 +618,7 @@ QVariantMap SecurityObject::buildState() const {
         {"isLockedOut", m_security->isLockedOut()},
         {"lockoutSecondsRemaining", m_security->lockoutSecondsRemaining()},
         {"failedAttempts", m_security->failedAttempts()},
+        {"canEraseAllContent", m_factoryReset->supported()},
     };
 }
 
@@ -684,6 +688,12 @@ QString SecurityObject::CurrentUsername() {
     if (!requireSystem())
         return {};
     return m_security->getCurrentUsername();
+}
+
+void SecurityObject::EraseAllContent(const QString &secret) {
+    if (!requireSystem())
+        return;
+    m_factoryReset->erase(secret);
 }
 
 BluetoothObject::BluetoothObject(BluetoothManager *bt, MarathonPermissionManager *permissions,

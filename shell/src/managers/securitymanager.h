@@ -82,6 +82,10 @@ class SecurityManager : public QObject {
     Q_INVOKABLE bool    setQuickPINFirstRun(const QString &pin);
     Q_INVOKABLE void    removeQuickPIN(const QString &systemPassword);
 
+    // The quick PIN, or the system password when there is none; a failure
+    // counts towards the lockout. Returns "" or why it was refused.
+    QString             confirmOwner(const QString &secret);
+
     Q_INVOKABLE bool    isBiometricEnrolled(SecurityManager::BiometricType type) const;
 
     Q_INVOKABLE void    resetLockout();
