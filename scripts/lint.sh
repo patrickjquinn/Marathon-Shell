@@ -33,37 +33,40 @@ if [ -z "$QMLLINT" ]; then
 else
     echo "[lint] qmllint via $QMLLINT"
 
-    # qmllint needs to find our QML modules (MarathonOS.Shell, MarathonApp.*).
-    # The cmake build emits the qmldir trees under build/.
+    # Every module the QML imports, or each unresolved import turns into
+    # unqualified/missing-property noise: the shell's and each app's build
+    # (apps build into build-apps/apps/<app>/), Marathon.Silica from source,
+    # Keel's modules from KEEL_QML on a development host, and qmltypes the
+    # build writes for the modules only registered at runtime.
     QMLDIR_ROOTS=()
-    [ -d "$BUILD_DIR/shell/qml"   ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR/shell/qml")
-    # Apps do NOT build into $BUILD_DIR -- they build into build-apps/, and
-    # each app is its own import root (build-apps/apps/<app>/MarathonApp/<X>).
-    # The old single "-I $BUILD_DIR/apps" pointed at a directory that has
-    # never existed, so qmllint could not resolve one app-internal type: every
-    # page an app referenced by name (ScalePage, WallpaperPage, AddCityDialog,
-    # SoundPickerPage...) was reported "not resolved", and every alias into
-    # them "cannot resolve". 21 warnings that were lint blindness rather than
-    # defects -- and worse, whatever real problems sit behind those types were
-    # invisible.
+    if cmake --build "$BUILD_DIR" --target qmllint-types >/dev/null; then
+        QMLDIR_ROOTS+=("-I" "$BUILD_DIR/qmllint-types")
+    else
+        echo "[lint] could not build $BUILD_DIR's qmllint-types" >&2
+        errors=1
+    fi
+    [ -d "$BUILD_DIR/shell/qml" ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR/shell/qml")
+    [ -d "$BUILD_DIR/MarathonOS/Services" ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR")
+    QMLDIR_ROOTS+=("-I" "marathon-silica")
+    [ -n "${KEEL_QML:-}" ] && QMLDIR_ROOTS+=("-I" "$KEEL_QML")
     APPS_BUILD_DIR="${APPS_BUILD_DIR:-build-apps}"
     for _approot in "$APPS_BUILD_DIR"/apps/*/; do
         [ -d "$_approot" ] && QMLDIR_ROOTS+=("-I" "$_approot")
     done
 
+    # Test QML is left out: it resolves against each suite's own stubs.
     QML_FILES=()
     while IFS= read -r -d '' f; do QML_FILES+=("$f"); done < <(
-        find shell/qml apps -name '*.qml' -not -path '*/build*/*' -print0 2>/dev/null)
+        find shell/qml apps -name '*.qml' -not -path '*/build*/*' -not -path '*/tests/*' -print0 2>/dev/null)
     if [ "${#QML_FILES[@]}" -gt 0 ]; then
         # Per-category levels live in .qmllint.ini at the repo root, which
         # qmllint discovers by walking up from each file. Do NOT pass
         # --compiler / --unqualified / --unused-imports here: an explicit
         # flag overrides the config file, which is how the [compiler] notes
         # used to drown out the handful of real findings.
-        "$QMLLINT" \
+        if ! "$QMLLINT" \
             "${QMLDIR_ROOTS[@]}" \
-            "${QML_FILES[@]}"
-        if [ $? -ne 0 ]; then
+            "${QML_FILES[@]}"; then
             errors=1
         fi
     fi
