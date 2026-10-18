@@ -91,7 +91,8 @@ namespace {
                     auto                 *self = static_cast<Client *>(data);
                     std::vector<uint32_t> list;
                     const auto           *begin = static_cast<const uint32_t *>(states->data);
-                    list.assign(begin, begin + states->size / sizeof(uint32_t));
+                    const size_t          count = states->size / sizeof(uint32_t);
+                    list.assign(begin, begin + count);
                     std::scoped_lock guard(self->lock);
                     self->configures.push_back({width, height, list});
                 },

@@ -2229,15 +2229,14 @@ void AppLaunchService::onWindowDestroyed(int surfaceId) {
         if (!windows.removeIf([surfaceId](const Window &w) { return w.surfaceId == surfaceId; }))
             continue;
         windows.removeIf([](const Window &w) { return !w.surface; });
-        const QString appId = it.key();
-        Task         *task  = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
+        const QString &appId = it.key();
+        Task          *task  = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
         if (!windows.isEmpty()) {
             if (task && task->surfaceId() == surfaceId)
                 m_taskModel->updateTaskNativeInfo(appId, windows.last().surfaceId,
                                                   windows.last().surface);
             return;
         }
-        m_windows.erase(it);
         if (task && task->surfaceId() == surfaceId && terminationPidForAppId(appId) <= 0) {
             qInfo() << "[AppLaunchService] Last window of" << appId << "gone - closing its task";
             m_taskModel->closeTask(task->id());
@@ -2245,6 +2244,7 @@ void AppLaunchService::onWindowDestroyed(int surfaceId) {
                 QMetaObject::invokeMethod(m_appLifecycleManager, "unregisterApp",
                                           Qt::DirectConnection, Q_ARG(QString, appId));
         }
+        m_windows.erase(it);
         return;
     }
 }
