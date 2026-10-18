@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 38 patches. **There is no 0011**: it vendored a loose
+There are 40 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -53,5 +53,7 @@ There are 38 patches. **There is no 0011**: it vendored a loose
 | 0038 | fix(finalize): A/B Pi slots name their own root and boot partition | Each boot slot's `cmdline.txt` names its root and boot partition by GPT label; `panic=10`, no `pmos.force-partition-resize`. |
 | 0039 | fix(build): A/B builds reach mkosi's configure script | `build-image.py` passes `MARATHON_IMAGE_LAYOUT` with `--environment` (PassEnvironment never saw it, so A/B builds got the single-root layout) and refuses an A/B Pi image without an autoboot partition. |
 | 0040 | fix(pi): show the Marathon splash despite the UART console | Adds `plymouth.ignore-serial-consoles` to both Pi cmdline copies: with `console=ttyAMA10` Plymouth forced its text-only details splash on every display. |
+| 0041 | fix(pi): turn PSI on, Android's lmkd needs it | Adds `psi=1` to both Pi cmdline copies: linux-rpi defaults PSI off, so `/proc/pressure` was missing, Waydroid's lmkd exited and Android's init aborted; the shell's PSI policy had nothing to read. |
+| 0042 | feat(hackberrypi): ship stock Waydroid | The HackberryPi image installs `waydroid` and `waydroid-systemd` (Deckard M0, docs/testing/DECKARD_M0_HACKBERRYPI.md). |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.

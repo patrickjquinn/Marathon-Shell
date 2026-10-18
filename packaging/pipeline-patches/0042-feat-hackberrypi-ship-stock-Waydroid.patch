@@ -1,0 +1,38 @@
+From 7429b6987896ee537f76e99160dce5ffc5be5a68 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 18 Oct 2026 19:41:31 +0100
+Subject: [PATCH 42/42] feat(hackberrypi): ship stock Waydroid
+
+Deckard M0 runs Android apps under Marathon's compositor through stock
+Waydroid on the HackberryPi. The image gets waydroid and waydroid-systemd
+(lxc, gbinder-python, dnsmasq and iptables come in as dependencies).
+
+Nothing else is needed at the image level. waydroid-container.service is
+D-Bus activated by "waydroid session start", and Waydroid mounts
+binderfs and allocates its binder nodes itself. The Android system and
+vendor images (about 2.4 GB) are downloaded by "waydroid init" on the
+device, not baked in. The iptables modules Android's netd needs come
+from device-hackberrypi-cm5-marathon.
+
+Findings and the commands used: docs/testing/DECKARD_M0_HACKBERRYPI.md
+in Marathon-Shell.
+---
+ scripts/mkosi-configure.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index ee6b7a0..46b8d80 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -162,6 +162,8 @@ def main() -> int:
+             )
+             if has_hbp:
+                 extra_overlays.append(hbp)
++                # Deckard M0: stock Waydroid (docs/testing/DECKARD_M0_HACKBERRYPI.md).
++                extra_overlays.extend(["waydroid", "waydroid-systemd"])
+         config["Packages"] = list(dict.fromkeys(existing + dynamic + extra_overlays))
+     elif image == "default-initrd":
+         # pmaports emits InitrdPackages to distinguish base-image pkgs from
+-- 
+2.55.0
+
