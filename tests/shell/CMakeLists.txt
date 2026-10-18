@@ -726,6 +726,28 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
         ${WAYLAND_CLIENT_INCLUDE_DIRS})
     add_test(NAME Shell_XdgActivation COMMAND test_shell_xdgactivation)
     set_tests_properties(Shell_XdgActivation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # marathon-surface-v1: bind policy, window flags, insets, back events
+    set(_marathon_surface_protocol)
+    marathon_test_protocol(${CMAKE_SOURCE_DIR}/shell/protocols/marathon-surface-v1.xml
+        marathon-surface-v1 _marathon_surface_protocol)
+    marathon_test_protocol(${CMAKE_SOURCE_DIR}/shell/protocols/xdg-shell.xml
+        xdg-shell _marathon_surface_protocol)
+    add_executable(test_shell_marathonsurface
+        test_marathonsurface.cpp
+        ../../shell/src/wayland/marathonsurfacev1.cpp
+        ../../shell/src/wayland/securitycontextv1.cpp
+        ${_marathon_surface_protocol}
+        ${_security_gen}/security-context-v1-server.h
+        ${_security_gen}/security-context-v1.c
+    )
+    target_link_libraries(test_shell_marathonsurface
+        Qt6::Test Qt6::Gui Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_marathonsurface PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src/wayland ${CMAKE_CURRENT_BINARY_DIR}/protocols
+        ${_security_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    add_test(NAME Shell_MarathonSurface COMMAND test_shell_marathonsurface)
+    set_tests_properties(Shell_MarathonSurface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 # The keyboard's replacements reach a text-input-v3 client as byte deletions

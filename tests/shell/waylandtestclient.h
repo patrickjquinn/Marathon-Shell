@@ -19,7 +19,7 @@ inline bool roundtrip(wl_display *display) {
     wl_callback_add_listener(callback, &listener, &done);
     QElapsedTimer timer;
     timer.start();
-    while (!done && timer.elapsed() < 5000) {
+    while (!done && !wl_display_get_error(display) && timer.elapsed() < 5000) {
         wl_display_flush(display);
         QCoreApplication::processEvents();
         while (wl_display_prepare_read(display) != 0)

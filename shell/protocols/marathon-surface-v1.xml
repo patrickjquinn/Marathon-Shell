@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="marathon_surface_v1">
+  <copyright>
+    Copyright 2026 Patrick Quinn
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  </copyright>
+
+  <description summary="Marathon shell integration for toplevel windows">
+    Lets a client whose windows are Marathon apps (Waydroid's hwcomposer,
+    native apps) take part in the shell's window model: learn which part of
+    its window the shell covers, receive the system back gesture as it
+    happens, and mark windows secure, not focusable or not touchable.
+
+    The shell may hide the global from clients it does not trust, such as
+    sandboxed clients from engines other than Marathon's app runner.
+
+    Warning! This protocol is Marathon's own and still unstable. Backwards
+    incompatible changes are made by renaming the interfaces with a new
+    version suffix, compatible ones by bumping the interface versions.
+  </description>
+
+  <interface name="marathon_surface_manager_v1" version="1">
+    <description summary="creates Marathon window state for toplevels">
+      A global that adds Marathon window state to xdg_toplevel objects.
+    </description>
+
+    <enum name="error">
+      <entry name="already_exists" value="0"
+             summary="the xdg_toplevel already has a marathon_surface_v1"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Objects created through the manager are not affected.
+      </description>
+    </request>
+
+    <request name="get_surface">
+      <description summary="create Marathon window state for a toplevel">
+        Creates a marathon_surface_v1 for the toplevel. Create it before the
+        toplevel's initial commit: the shell decides how to map the window
+        (activated or not) on that commit, and sends the initial insets with
+        the first configure sequence. Created later, the flags still apply
+        from then on, and the current insets are sent in a new configure
+        sequence.
+
+        task_id is the Android task the window belongs to, 0 for a native
+        window. Marathon v1 records it for the shell's task code; it does
+        not yet group windows by it.
+      </description>
+      <arg name="id" type="new_id" interface="marathon_surface_v1"/>
+      <arg name="toplevel" type="object" interface="xdg_toplevel"/>
+      <arg name="task_id" type="uint" summary="task the window belongs to, or 0"/>
+    </request>
+  </interface>
+
+  <interface name="marathon_surface_v1" version="1">
+    <description summary="Marathon window state of one toplevel">
+      Marathon window state of one xdg_toplevel.
+
+      The insets and ime_inset events are part of the xdg_surface configure
+      sequence, as xdg_toplevel.configure is: they are sent before the
+      xdg_surface.configure event that completes the sequence, and the
+      client applies them together with the size when it acks that
+      configure. They are sent when their value changes, and once when the
+      object is created; an unchanged value is not sent again.
+
+      If the xdg_toplevel is destroyed first, this object becomes inert: its
+      requests are ignored and no events are sent. Destroy it then.
+    </description>
+
+    <enum name="error">
+      <entry name="invalid_flags" value="0" summary="unknown bits in window_flags"/>
+      <entry name="invalid_mode" value="1" summary="unknown system_bars mode"/>
+      <entry name="invalid_rects" value="2"
+             summary="rects is not whole rectangles, or one has a negative size"/>
+    </enum>
+
+    <enum name="window_flags" bitfield="true">
+      <description summary="window behaviour flags">
+        The default, 0, is an ordinary window.
+      </description>
+      <entry name="not_focusable" value="1"
+             summary="the window never takes keyboard focus nor is activated"/>
+      <entry name="not_touchable" value="2"
+             summary="touch and pointer input pass through the window"/>
+      <entry name="secure" value="4"
+             summary="the window's content is kept out of thumbnails and screenshots"/>
+    </enum>
+
+    <enum name="system_bars">
+      <entry name="shown" value="0" summary="the status area is shown"/>
+      <entry name="hidden" value="1"
+             summary="the status area is hidden while the window is in front"/>
+    </enum>
+
+    <enum name="back_edge">
+      <description summary="direction of a back gesture">
+        The edge the gesture moves away from: left moves rightwards, as a
+        swipe in from the left edge does, right moves leftwards.
+      </description>
+      <entry name="none" value="0" summary="the gesture has no direction"/>
+      <entry name="left" value="1" summary="the gesture moves rightwards"/>
+      <entry name="right" value="2" summary="the gesture moves leftwards"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="drop the Marathon window state">
+        The window reverts to the defaults: flags 0, no gesture exclusion,
+        system bars shown. Back reaches it the shell's other way again (a
+        key or the toolkit's own handling).
+      </description>
+    </request>
+
+    <request name="set_window_flags">
+      <description summary="set the window's behaviour flags">
+        Replaces the window's flags. Takes effect immediately; it is window
+        management state, not content, so it is not double-buffered.
+      </description>
+      <arg name="flags" type="uint" enum="window_flags"/>
+    </request>
+
+    <request name="set_gesture_exclusion">
+      <description summary="regions where the shell leaves gestures to the window">
+        Rectangles, in surface-local coordinates, in which the shell does
+        not start its own edge gestures. rects is an array of int32
+        quadruples (x, y, width, height); an empty array clears the
+        exclusion. Rectangles rather than a wl_region, because a server
+        cannot read a client's wl_region through the toolkit it is built
+        on, and Android hands the hwcomposer rectangles.
+
+        Double-buffered: applied on the next wl_surface.commit.
+
+        Marathon v1 stores the exclusion and shows it to the shell's
+        gesture code; no shell gesture consults it yet.
+      </description>
+      <arg name="rects" type="array"/>
+    </request>
+
+    <request name="set_system_bars">
+      <description summary="ask for the status area shown or hidden">
+        Marathon v1 records the mode but does not act on it: the status
+        area stays shown and the insets stay what they are. A client must
+        lay out from the insets event, never from the mode it asked for.
+      </description>
+      <arg name="mode" type="uint" enum="system_bars"/>
+    </request>
+
+    <event name="insets">
+      <description summary="parts of the window the shell covers">
+        Distances, in surface-local coordinates, from each edge of the
+        window inwards that shell chrome (the status area, the gesture
+        pill) covers. Marathon lays windows out between its status area and
+        pill, so these are 0 unless a window extends under them.
+      </description>
+      <arg name="top" type="int"/>
+      <arg name="bottom" type="int"/>
+      <arg name="left" type="int"/>
+      <arg name="right" type="int"/>
+    </event>
+
+    <event name="ime_inset">
+      <description summary="part of the window the on-screen keyboard covers">
+        Distance, in surface-local coordinates, from the bottom edge of the
+        window inwards that the on-screen keyboard covers; 0 while it is
+        hidden.
+      </description>
+      <arg name="bottom" type="int"/>
+    </event>
+
+    <event name="back_started">
+      <description summary="a back gesture began">
+        The user started a back gesture over this window. x and y are the
+        touch point in surface-local coordinates and may lie outside the
+        surface: the gesture pill is below the window. Followed by any
+        number of back_progress events, then back_committed or
+        back_cancelled.
+      </description>
+      <arg name="edge" type="uint" enum="back_edge"/>
+      <arg name="x" type="fixed"/>
+      <arg name="y" type="fixed"/>
+    </event>
+
+    <event name="back_progress">
+      <description summary="a back gesture moved">
+        progress runs from 0 (where the gesture began) to 1 (as far as it
+        goes); x and y as in back_started.
+      </description>
+      <arg name="progress" type="fixed"/>
+      <arg name="x" type="fixed"/>
+      <arg name="y" type="fixed"/>
+    </event>
+
+    <event name="back_committed">
+      <description summary="go back">
+        The user went back. Ends a gesture that back_started began, or
+        arrives alone for a back with no gesture (a key). The window does
+        not receive a back key for it.
+      </description>
+    </event>
+
+    <event name="back_cancelled">
+      <description summary="the back gesture was abandoned">
+        The gesture that back_started began ended without going back.
+      </description>
+    </event>
+  </interface>
+</protocol>

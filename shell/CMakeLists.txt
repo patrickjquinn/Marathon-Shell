@@ -228,6 +228,8 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/nativeclientscale.cpp
         src/wayland/xdgactivationv1.h
         src/wayland/xdgactivationv1.cpp
+        src/wayland/marathonsurfacev1.h
+        src/wayland/marathonsurfacev1.cpp
     )
 
     find_program(WAYLAND_SCANNER wayland-scanner)
@@ -258,7 +260,10 @@ if(TARGET Qt6::WaylandCompositor)
         marathon_scan_protocol(wayland-drm            wayland-drm)
         marathon_scan_protocol(fractional-scale-v1    fractional-scale-v1)
         marathon_scan_protocol(xdg-activation-v1      xdg-activation-v1)
-        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1, fifo-v1, commit-timing-v1, linux-dmabuf-v1, wl_drm, fractional-scale-v1, xdg-activation-v1")
+        # Qt does not export the C xdg_toplevel_interface marathon-surface-v1 references.
+        marathon_scan_protocol(xdg-shell              xdg-shell)
+        marathon_scan_protocol(marathon-surface-v1    marathon-surface-v1)
+        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1, fifo-v1, commit-timing-v1, linux-dmabuf-v1, wl_drm, fractional-scale-v1, xdg-activation-v1, marathon-surface-v1")
     else()
         message(WARNING "wayland-scanner not found - custom protocols disabled")
     endif()
