@@ -321,6 +321,13 @@ Rectangle {
             }
         }
 
+        // In the pager the page bar sits over the bottom; the last row can
+        // scroll clear of it.
+        footer: Item {
+            width: list.width
+            height: hub.isInPeekMode ? Silica.Theme.paddingLarge : Silica.Theme.itemSizeMedium
+        }
+
         delegate: MHubRow {
             required property var model
             required property int index
@@ -378,6 +385,23 @@ Rectangle {
             }
         }
         visible: !list.atYBeginning
+    }
+
+    Rectangle {
+        anchors.bottom: parent.bottom
+        width: parent.width
+        height: Silica.Theme.itemSizeMedium + Silica.Theme.paddingLarge
+        gradient: Gradient {
+            GradientStop {
+                position: 0.0
+                color: "transparent"
+            }
+            GradientStop {
+                position: 0.5
+                color: Silica.Theme.rgba("black", 0.85)
+            }
+        }
+        visible: !hub.isInPeekMode && !list.atYEnd
     }
 
     WeatherSheet {
