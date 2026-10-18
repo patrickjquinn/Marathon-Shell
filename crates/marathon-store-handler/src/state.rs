@@ -67,6 +67,21 @@ impl StateDir {
         serde_json::from_str(&text).ok()
     }
 
+    /// The app's name as installed.json last listed it.
+    pub fn installed_name(&self, app_id: &str) -> Option<String> {
+        let text = fs::read_to_string(self.0.join("installed.json")).ok()?;
+        let listing: Value = serde_json::from_str(&text).ok()?;
+        listing
+            .get("installed")?
+            .as_array()?
+            .iter()
+            .find(|app| app.get("app_id").and_then(Value::as_str) == Some(app_id))?
+            .get("name")?
+            .as_str()
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+    }
+
     pub fn progress_state(&self, app_id: &str) -> Option<String> {
         self.read_progress(app_id)?
             .get("state")?
@@ -102,6 +117,22 @@ mod tests {
         assert!(record["ts"].as_u64().unwrap() > 0);
         assert_eq!(state.progress_state("org.x.Y").as_deref(), Some("failed"));
         assert_eq!(state.progress_state("org.missing.App"), None);
+    }
+
+    #[test]
+    fn names_an_installed_app() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = StateDir::open(tmp.path()).unwrap();
+        assert_eq!(state.installed_name("org.x.Y"), None);
+        state
+            .write_json(
+                "installed.json",
+                &json!({"installed": [{"app_id": "org.x.Y", "name": "Why"}, {"app_id": "org.a.B", "name": ""}]}),
+            )
+            .unwrap();
+        assert_eq!(state.installed_name("org.x.Y").as_deref(), Some("Why"));
+        assert_eq!(state.installed_name("org.a.B"), None);
+        assert_eq!(state.installed_name("org.c.D"), None);
     }
 
     #[test]

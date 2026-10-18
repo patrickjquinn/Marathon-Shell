@@ -44,6 +44,8 @@ impl Verb {
 pub struct Request {
     pub verb: Verb,
     pub arg: String,
+    /// The app's name for the Hub, from `?name=`; may be empty.
+    pub name: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -78,6 +80,12 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
         .and_then(|rest| rest.split_once('/'))
         .filter(|(verb, _)| !verb.is_empty())
         .ok_or(Rejection::BadUrl)?;
+    let (arg, query) = arg.split_once('?').unwrap_or((arg, ""));
+    let name = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("name="))
+        .map(|name| crate::progress::sanitize(&decode(name)))
+        .unwrap_or_default();
     let verb = match verb {
         "install" => Verb::Install,
         "update" => Verb::Update,
@@ -99,7 +107,29 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
     Ok(Request {
         verb,
         arg: arg.to_owned(),
+        name,
     })
+}
+
+/// `encodeURIComponent` undone; a malformed escape stays as it is.
+fn decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let escaped = (bytes[i] == b'%')
+            .then(|| text.get(i + 1..i + 3))
+            .flatten()
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
+        if let Some(byte) = escaped {
+            out.push(byte);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 #[cfg(test)]
@@ -163,6 +193,25 @@ mod tests {
             let err = parse(&format!("marathon-store://install/{arg}")).unwrap_err();
             assert_eq!(err.exit_code(), 3, "{arg}");
         }
+    }
+
+    #[test]
+    fn takes_the_apps_name_from_the_query() {
+        let r =
+            parse("marathon-store://install/org.gnome.Maps?name=GNOME%20Maps%20%E2%9C%93").unwrap();
+        assert_eq!(r.arg, "org.gnome.Maps");
+        assert_eq!(r.name, "GNOME Maps ✓");
+        assert_eq!(
+            parse("marathon-store://install/org.a.B?name=%0Aa%zz%4")
+                .unwrap()
+                .name,
+            " a%zz%4"
+        );
+        assert_eq!(parse("marathon-store://update/org.a.B").unwrap().name, "");
+        assert!(matches!(
+            parse("marathon-store://install/org.a;b?name=x"),
+            Err(Rejection::BadRef(_))
+        ));
     }
 
     #[test]

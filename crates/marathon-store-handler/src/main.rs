@@ -4,6 +4,7 @@
 //! Only `flathub` is used, refs must look like Flathub app ids, flatpak runs
 //! with a fixed argv, and per-app state files are written atomically.
 
+mod notice;
 mod ops;
 mod progress;
 mod request;
@@ -89,7 +90,13 @@ fn run(request: &Request) -> std::io::Result<()> {
     let state = || StateDir::open(&runtime_dir());
     match request.verb {
         Verb::Install | Verb::Update | Verb::Uninstall => {
-            ops::run_op(&state()?, FLATPAK, request.verb, &request.arg)
+            let state = state()?;
+            let name = Some(request.name.clone())
+                .filter(|name| !name.is_empty())
+                .or_else(|| state.installed_name(&request.arg))
+                .unwrap_or_else(|| request.arg.clone());
+            let notice = notice::Notice::for_job(request.verb, &name);
+            ops::run_op(&state, FLATPAK, request.verb, &request.arg, notice)
         }
         Verb::UpdateAll => ops::update_all(&state()?, FLATPAK, &std::env::current_exe()?),
         Verb::Cancel => ops::cancel(&state()?, FLATPAK, &request.arg),

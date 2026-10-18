@@ -3,11 +3,12 @@
 
 use std::fs::File;
 use std::io::{self, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 
+use crate::notice::Notice;
 use crate::progress;
 use crate::request::{Verb, REF_RE};
 use crate::state::{now, Progress, StateDir};
@@ -88,9 +89,15 @@ fn run_on_pty(
 }
 
 /// install / update / uninstall one app, reporting progress through its
-/// state file. Every outcome, including flatpak failing to start, ends in a
-/// final record, so the Store never waits on "pending".
-pub fn run_op(state: &StateDir, flatpak: &str, verb: Verb, app_id: &str) -> io::Result<()> {
+/// state file and `notice`. Every outcome, including flatpak failing to
+/// start, ends in a final record, so the Store never waits on "pending".
+pub fn run_op(
+    state: &StateDir,
+    flatpak: &str,
+    verb: Verb,
+    app_id: &str,
+    mut notice: Notice,
+) -> io::Result<()> {
     let op = verb.as_str();
     let (args, busy, done): (Vec<&str>, _, _) = match verb {
         Verb::Install => (
@@ -114,6 +121,7 @@ pub fn run_op(state: &StateDir, flatpak: &str, verb: Verb, app_id: &str) -> io::
     };
 
     state.write_progress(&record("pending", -1))?;
+    notice.progress(-1);
     let mut log = if verb == Verb::Install {
         ensure_remote(flatpak)
     } else {
@@ -125,8 +133,14 @@ pub fn run_op(state: &StateDir, flatpak: &str, verb: Verb, app_id: &str) -> io::
             // A lost redraw only delays the bar; the final record below
             // still reports the outcome, or fails loudly.
             let _redraw = state.write_progress(&record(busy, pct));
+            notice.progress(pct);
         }
     });
+    if matches!(result, Ok((true, _))) {
+        notice.finish(app_id, &icon_for(&icons_dir(), app_id));
+    } else {
+        notice.close();
+    }
     match result {
         Ok((true, _)) => state.write_progress(&record(done, 100))?,
         Ok((false, out)) => {
@@ -219,6 +233,11 @@ pub fn cancel(state: &StateDir, flatpak: &str, app_id: &str) -> io::Result<()> {
     refresh(state, flatpak)
 }
 
+fn icons_dir() -> PathBuf {
+    let home = std::env::var_os("HOME").unwrap_or_default();
+    Path::new(&home).join(".local/share/flatpak/exports/share/icons/hicolor")
+}
+
 fn icon_for(icons: &Path, app_id: &str) -> String {
     [
         format!("128x128/apps/{app_id}.png"),
@@ -266,8 +285,7 @@ pub fn updates(listing: &str) -> Value {
 /// installed.json, then updates.json: remote-ls can hang on a flaky
 /// network, so it gets 20 seconds.
 pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
-    let home = std::env::var_os("HOME").unwrap_or_default();
-    let icons = Path::new(&home).join(".local/share/flatpak/exports/share/icons/hicolor");
+    let icons = icons_dir();
     let listing = stdout_of(Command::new(flatpak).args([
         "--user",
         "list",
@@ -318,7 +336,7 @@ mod tests {
         assert!(!String::from_utf8_lossy(&log).contains("NOT-A-TTY"));
         assert_eq!(&seen[..2], [Some(25), Some(100)]);
 
-        run_op(&state, &flatpak, Verb::Update, "org.x.Y").unwrap();
+        run_op(&state, &flatpak, Verb::Update, "org.x.Y", Notice::none()).unwrap();
         let record = state.read_progress("org.x.Y").unwrap();
         assert_eq!(record["state"], "done");
         assert_eq!(record["percent"], 100);
@@ -331,7 +349,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let state = StateDir::open(&tmp.path().join("run")).unwrap();
         let flatpak = fake_flatpak(tmp.path(), "error: No remote refs found\\n", 1);
-        run_op(&state, &flatpak, Verb::Uninstall, "org.x.Y").unwrap();
+        run_op(&state, &flatpak, Verb::Uninstall, "org.x.Y", Notice::none()).unwrap();
         let record = state.read_progress("org.x.Y").unwrap();
         assert_eq!(record["state"], "failed");
         assert_eq!(record["verb"], "uninstall");
@@ -343,7 +361,14 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let state = StateDir::open(&tmp.path().join("run")).unwrap();
         let missing = tmp.path().join("no-flatpak");
-        run_op(&state, missing.to_str().unwrap(), Verb::Install, "org.x.Y").unwrap();
+        run_op(
+            &state,
+            missing.to_str().unwrap(),
+            Verb::Install,
+            "org.x.Y",
+            Notice::none(),
+        )
+        .unwrap();
         assert_eq!(state.progress_state("org.x.Y").as_deref(), Some("failed"));
     }
 
