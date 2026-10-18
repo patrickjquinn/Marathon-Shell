@@ -2,12 +2,14 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import MarathonApp.Camera 1.0
+import Nemo.Configuration 1.0
 
 DockedPanel {
     id: panel
 
-    property QtObject camera
-    property QtObject gridStore
+    property CameraController camera
+    property ConfigurationValue gridStore
     readonly property var timers: [0, 3, 10]
 
     function resolutionIndex() {

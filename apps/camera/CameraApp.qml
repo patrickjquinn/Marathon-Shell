@@ -16,7 +16,7 @@ ApplicationWindow {
     // Camera start-up blocks the GUI thread, so it waits until the page is on screen.
     property bool firstFrameShown: false
     readonly property bool latestIsVideo: /\.mp4$/i.test(camera.latestCapture)
-    property QtObject gridStore: ConfigurationValue {
+    property ConfigurationValue gridStore: ConfigurationValue {
         key: "/apps/camera/grid"
         defaultValue: true
     }
@@ -68,7 +68,7 @@ ApplicationWindow {
     }
 
     function handleBack() {
-        const page = pageStack.currentPage;
+        const page = pageStack.currentPage as CameraPage;
         if (page && page.settingsOpen) {
             page.closeSettings();
             return true;

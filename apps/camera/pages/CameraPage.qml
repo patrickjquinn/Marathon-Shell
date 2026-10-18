@@ -11,7 +11,7 @@ Page {
     id: page
 
     property var app
-    readonly property QtObject camera: app.camera
+    readonly property CameraController camera: app.camera
     readonly property bool video: app.mode === "video"
     readonly property bool settingsOpen: settings.open
     readonly property bool controlsShown: camera.ready && !app.cameraFailed
