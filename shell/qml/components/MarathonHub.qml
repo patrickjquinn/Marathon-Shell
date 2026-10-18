@@ -157,11 +157,12 @@ Rectangle {
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
 
-        // At the top, a new row slides in under the date instead of
-        // pushing it out of view.
+        // At the top it stays at the top: a new row, or the filter chips
+        // appearing once a second app posts, grow the list above its first
+        // row and would push the date out of view.
         property bool atTop: true
         onMovementEnded: atTop = atYBeginning
-        onCountChanged: if (atTop)
+        onOriginYChanged: if (atTop)
             Qt.callLater(() => list.contentY = list.originY)
 
         add: Transition {
