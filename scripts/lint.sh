@@ -80,16 +80,34 @@ if [ ! -f "$COMPDB" ]; then
     exit 1
 fi
 
+# The apps are their own CMake project; lint them from its database too.
+APPS_BUILD_DIR="${APPS_BUILD_DIR:-build-apps}"
+APPS_COMPDB="$APPS_BUILD_DIR/compile_commands.json"
+DATABASES=("$COMPDB")
+if [ -f "$APPS_COMPDB" ]; then
+    DATABASES+=("$APPS_COMPDB")
+else
+    echo "[lint] $APPS_COMPDB not found -- apps' C++ not checked" >&2
+fi
+
+# One entry per file: the shell's sources are compiled again into every test.
+LINT_DB="$(mktemp -d)"
+trap 'rm -rf "$LINT_DB"' EXIT
+jq -s 'add | unique_by(.file)' "${DATABASES[@]}" >"$LINT_DB/compile_commands.json"
+
+OWN_DIRS='shell|marathon-core|marathon-services|apps|tools|tests'
+
 # Only lint our own source. Skip generated, build, third-party, asyncfuture.
 filter_sources() {
-    jq -r '.[].file' "$COMPDB" |
-        grep -E "/(shell|marathon-core|tools/marathon-app-runner)/" |
+    jq -r '.[].file' "$LINT_DB/compile_commands.json" |
+        grep -E "^$PROJECT_ROOT/($OWN_DIRS)/" |
         grep -vE "/(build|third-party|\.qt|\.rcc|autogen|qmltyperegistrations|_qmlcache)" |
         grep -E '\.(cpp|cc)$'
 }
 
 mapfile -t SOURCES < <(filter_sources)
 echo "[lint] ${#SOURCES[@]} C++ sources to check"
+JOBS="${LINT_JOBS:-$(nproc)}"
 
 CLAZY="$(command -v clazy-standalone || true)"
 if [ -n "$CLAZY" ]; then
@@ -97,11 +115,11 @@ if [ -n "$CLAZY" ]; then
     # --header-filter keeps the report to our own headers. Without it clazy
     # lints Qt's installed headers too -- QtWebEngineQuickDepends alone
     # accounted for 12 no-module-include findings in /usr/include/qt6 that
-    # nobody here can fix.
-    "$CLAZY" -p "$BUILD_DIR" \
-        --header-filter="$PWD/(shell|apps|marathon-core|marathon-services)/" \
+    # nobody here can fix. -Werror: clazy exits 0 on warnings.
+    printf '%s\0' "${SOURCES[@]}" | xargs -0 -n 1 -P "$JOBS" "$CLAZY" -p "$LINT_DB" \
+        --header-filter="^$PROJECT_ROOT/($OWN_DIRS)/" \
         -checks=level0,level1,no-overloaded-signal,no-non-pod-global-static \
-        "${SOURCES[@]}" 2>&1 || errors=1
+        --extra-arg=-Werror 2>&1 || errors=1
 else
     echo "[lint] clazy-standalone not installed -- skipping (install: apt install clazy)" >&2
 fi
@@ -121,18 +139,16 @@ if [ -n "$CLANG_TIDY" ]; then
 '-bugprone-narrowing-conversions,-performance-no-int-to-ptr,'\
 '-clang-analyzer-cplusplus.NewDeleteLeaks'
     # Restrict header-warning scope to OUR headers; otherwise every Qt
-    # internal nit floods the output. Negative-lookahead drops /build/ so the
-    # qtwaylandscanner-generated *-server.h headers (under build/shell/) and
-    # MOC autogen (under build/<target>_autogen/) don't get linted -- those
-    # are codegen, not source.
-    HEADER_FILTER='^(?!.*/(build|_autogen)/).*/(shell|marathon-core|tools/marathon-app-runner)/.*$'
+    # internal nit floods the output. Anchored at the source tree, so the
+    # qtwaylandscanner headers and MOC autogen under the build dirs stay out.
+    HEADER_FILTER="^$PROJECT_ROOT/($OWN_DIRS)/"
     # --warnings-as-errors is what makes clang-tidy actually exit non-zero on
     # warning hits; without it the binary returns 0 even with thousands of
     # diagnostics. Same check list as enabled so we don't accidentally elevate
     # something disabled above.
-    "$CLANG_TIDY" -p "$BUILD_DIR" --quiet --checks="$CHECKS" \
-        --warnings-as-errors="$CHECKS" \
-        --header-filter="$HEADER_FILTER" "${SOURCES[@]}" 2>&1 ||
+    printf '%s\0' "${SOURCES[@]}" | xargs -0 -n 1 -P "$JOBS" "$CLANG_TIDY" -p "$LINT_DB" \
+        --quiet --checks="$CHECKS" --warnings-as-errors="$CHECKS" \
+        --header-filter="$HEADER_FILTER" 2>&1 ||
         errors=1
 else
     echo "[lint] clang-tidy not installed -- skipping" >&2
