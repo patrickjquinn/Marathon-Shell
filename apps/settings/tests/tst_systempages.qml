@@ -484,6 +484,20 @@ TestCase {
         verify(!field.errorHighlight);
     }
 
+    // The shell refuses at once, while the dialog is still closing.
+    function test_eraseRefusedAtOnceAsksAgain() {
+        Security.canEraseAllContent = true;
+        Security.hasQuickPIN = true;
+        const s = open("erase");
+        child(s.page, "eraseButton").clicked(null);
+        const dialog = pushed(s.app, s.page);
+        dialog.secret = "0000";
+        dialog.accept();
+        Security.eraseFailed("Incorrect PIN");
+        const retry = pushed(s.app, s.page);
+        compare(child(retry, "secretField").description, "Incorrect PIN");
+    }
+
     function test_eraseWithoutAPinTakesThePassword() {
         Security.canEraseAllContent = true;
         const s = open("erase");
