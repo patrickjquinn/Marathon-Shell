@@ -1497,25 +1497,37 @@ int main(int argc, char *argv[]) {
         appScanner->scanApplications();
 #endif
 
-            // "Hide desktop apps" applies as soon as it is switched.
-            QObject::connect(
-                settingsManager, &SettingsManager::filterMobileFriendlyAppsChanged, &app,
-                [appModel, settingsManager, searchPaths]() {
-                    DesktopFileParser  parser;
-                    const QVariantList apps = parser.scanApplications(
-                        searchPaths, settingsManager->filterMobileFriendlyApps());
-                    QSet<QString> seen;
-                    for (const QVariant &v : apps)
-                        seen.insert(v.toMap().value(QStringLiteral("id")).toString());
-                    for (const QString &type : {QStringLiteral("native"), QStringLiteral("flatpak")}) {
-                        const QStringList existing = appModel->appIdsByType(type);
-                        for (const QString &id : existing) {
-                            if (!seen.contains(id))
-                                appModel->removeApp(id);
-                        }
+            const auto rescanDesktopApps = [appModel, settingsManager, searchPaths]() {
+                DesktopFileParser  parser;
+                const QVariantList apps = parser.scanApplications(
+                    searchPaths, settingsManager->filterMobileFriendlyApps());
+                QSet<QString> seen;
+                for (const QVariant &v : apps)
+                    seen.insert(v.toMap().value(QStringLiteral("id")).toString());
+                for (const QString &type : {QStringLiteral("native"), QStringLiteral("flatpak")}) {
+                    const QStringList existing = appModel->appIdsByType(type);
+                    for (const QString &id : existing) {
+                        if (!seen.contains(id))
+                            appModel->removeApp(id);
                     }
-                    appModel->addApps(apps);
-                });
+                }
+                appModel->addApps(apps);
+            };
+            // "Hide desktop apps" applies as soon as it is switched.
+            QObject::connect(settingsManager, &SettingsManager::filterMobileFriendlyAppsChanged,
+                             &app, rescanDesktopApps);
+
+            // Waydroid writes and removes its apps' entries here while it runs.
+            const QString userApps =
+                QDir::homePath() + QStringLiteral("/.local/share/applications");
+            QDir().mkpath(userApps);
+            auto *userAppsWatcher  = new QFileSystemWatcher({userApps}, &app);
+            auto *userAppsDebounce = new QTimer(&app);
+            userAppsDebounce->setSingleShot(true);
+            userAppsDebounce->setInterval(500);
+            QObject::connect(userAppsWatcher, &QFileSystemWatcher::directoryChanged,
+                             userAppsDebounce, qOverload<>(&QTimer::start));
+            QObject::connect(userAppsDebounce, &QTimer::timeout, &app, rescanDesktopApps);
 
             // The user directory only appears with the first flatpak install,
             // which is exactly the change this watch exists to catch, so
