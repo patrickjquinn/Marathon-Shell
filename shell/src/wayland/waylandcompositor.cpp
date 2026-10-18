@@ -1264,6 +1264,9 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
     // client decides "window inexposed" and stops painting. By sending the
     // output size up-front, the client always gets a first configure within
     // milliseconds of mapping and can proceed to attach + commit its buffer.
+    // The shell files the window first: it is activated only if it will be
+    // shown, so its one sized configure is final.
+    emit surfaceCreated(surface, surfaceId, xdgSurface);
     {
         MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface);
         if (marathon)
@@ -1271,15 +1274,14 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
         const QSize initialSize = appConfigureSize(surface);
         if (initialSize.width() > 0 && initialSize.height() > 0) {
             QList<QWaylandXdgToplevel::State> states{QWaylandXdgToplevel::MaximizedState};
-            if (!marathon || marathon->focusable())
+            if ((!marathon || marathon->focusable()) &&
+                !surface->property("mappedInBackground").toBool())
                 states << QWaylandXdgToplevel::ActivatedState;
-            toplevel->sendConfigure(initialSize, states);
-            qInfo() << "[WaylandCompositor] Sent initial configure" << initialSize << "for surfaceId"
-                    << surfaceId;
+            ToplevelConfigure::send(toplevel, initialSize, states);
+            qInfo() << "[WaylandCompositor] Sent initial configure" << initialSize << states
+                    << "for surfaceId" << surfaceId;
         }
     }
-
-    emit surfaceCreated(surface, surfaceId, xdgSurface);
     surface->setProperty("toplevelMapped", true);
     const QVariant pendingActivation = surface->property("pendingActivationPid");
     if (pendingActivation.isValid())

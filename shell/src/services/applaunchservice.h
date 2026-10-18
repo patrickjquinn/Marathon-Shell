@@ -183,7 +183,8 @@ class AppLaunchService : public QObject {
 
     void        onCompositorAppLaunched(const QString &command, qint64 pid);
     void        onCompositorAppClosed(qint64 pid);
-    void        mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
+    // Files a new toplevel as a task; true if it is shown.
+    bool        mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
                           const QString &sandboxAppId, int surfaceId, QObject *qmlSurfaceObj);
 #if defined(HAVE_WAYLAND)
     void onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,

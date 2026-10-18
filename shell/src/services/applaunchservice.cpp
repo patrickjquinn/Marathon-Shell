@@ -33,8 +33,6 @@
 #include <QDBusPendingReply>
 #include <QUuid>
 
-#include <optional>
-
 #if defined(HAVE_WAYLAND)
 #include "wayland/waylandcompositor.h"
 #include <QtWaylandCompositor/QWaylandClient>
@@ -2019,11 +2017,16 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
     if (!sandboxAppId.isEmpty())
         xdgAppId = sandboxAppId;
 
-    mapWindow(pid, xdgAppId, title, sandboxAppId, surfaceId, qmlSurfaceObj);
+    const bool shown = mapWindow(pid, xdgAppId, title, sandboxAppId, surfaceId, qmlSurfaceObj);
+    // Read by the compositor: the window's first configure, and whether it
+    // may be configured only to change something.
+    surface->setProperty("mappedInBackground", !shown);
+    const Task *task = m_taskModel ? m_taskModel->getTaskBySurfaceId(surfaceId) : nullptr;
+    surface->setProperty("foreignClient", task && terminationPidForAppId(task->appId()) <= 0);
 }
 #endif
 
-void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
+bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
                                  const QString &sandboxAppId, int surfaceId,
                                  QObject *qmlSurfaceObj) {
     const auto showLaunch = [this, surfaceId, qmlSurfaceObj](const PendingLaunch &p) {
@@ -2034,10 +2037,13 @@ void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
             else
                 m_taskModel->launchTask(p.appId, p.name, p.icon, type, surfaceId, qmlSurfaceObj);
         }
-        if (!m_backgroundLaunches.remove(p.appId) && m_appWindow)
+        if (m_backgroundLaunches.remove(p.appId))
+            return false;
+        if (m_appWindow)
             invokeVoid(m_appWindow, "show",
                        {p.appId, p.name, p.icon, type, QVariant::fromValue(qmlSurfaceObj),
                         surfaceId});
+        return true;
     };
 
     if (pid > 0) {
@@ -2050,8 +2056,7 @@ void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
             // match below does; a background launch stays in the background.
             if (m_backgroundLaunches.contains(p.appId) || p.type == QLatin1String("native"))
                 registerPidForAppId(pid, p.appId);
-            showLaunch(p);
-            return;
+            return showLaunch(p);
         }
     }
 
@@ -2071,39 +2076,35 @@ void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
                     << p.appId;
 
             registerPidForAppId(pid, p.appId);
-            showLaunch(p);
-            return;
+            return showLaunch(p);
         }
     }
 #endif
 
     // Launched by another process (`waydroid app launch`), which is not the app.
-    std::optional<PendingLaunch> launch;
+    PendingLaunch launch;
     for (auto it = m_activeByPid.begin(); !xdgAppId.isEmpty() && it != m_activeByPid.end();) {
         if (it->appId != xdgAppId) {
             ++it;
             continue;
         }
-        qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to the launch of"
-                << xdgAppId << "by PID" << it.key() << "- window from PID" << pid;
         launch = it.value();
         m_pidToAppId.remove(it.key());
         if (m_appIdToPid.value(xdgAppId) == it.key())
             m_appIdToPid.remove(xdgAppId);
         it = m_activeByPid.erase(it);
     }
-    if (launch) {
-        showLaunch(*launch);
-        return;
+    if (!launch.appId.isEmpty()) {
+        qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to the launch of"
+                << xdgAppId << "by PID" << launch.pid << "- window from PID" << pid;
+        return showLaunch(launch);
     }
 
-    if (!xdgAppId.isEmpty() && m_taskModel) {
-        if (Task *existing = m_taskModel->getTaskByAppId(xdgAppId)) {
-            qInfo() << "[AppLaunchService] Secondary surface for existing appId" << xdgAppId
-                    << "surfaceId" << surfaceId;
-            m_taskModel->updateTaskNativeInfo(xdgAppId, surfaceId, qmlSurfaceObj);
-            return;
-        }
+    if (!xdgAppId.isEmpty() && m_taskModel && m_taskModel->getTaskByAppId(xdgAppId)) {
+        qInfo() << "[AppLaunchService] Secondary surface for existing appId" << xdgAppId
+                << "surfaceId" << surfaceId;
+        m_taskModel->updateTaskNativeInfo(xdgAppId, surfaceId, qmlSurfaceObj);
+        return false;
     }
 
     QString effectiveAppId = xdgAppId;
@@ -2132,10 +2133,13 @@ void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
         }
     }
 
-    if (m_appWindow)
-        invokeVoid(m_appWindow, "show",
-                   {effectiveAppId, appName, appIcon, QStringLiteral("native"),
-                    QVariant::fromValue(qmlSurfaceObj), surfaceId});
+    // Nobody launched it: it takes the screen only from another app.
+    if (!m_appWindow || !m_uiStore || !m_uiStore->property("appWindowOpen").toBool())
+        return false;
+    invokeVoid(m_appWindow, "show",
+               {effectiveAppId, appName, appIcon, QStringLiteral("native"),
+                QVariant::fromValue(qmlSurfaceObj), surfaceId});
+    return true;
 }
 
 #if defined(HAVE_WAYLAND)

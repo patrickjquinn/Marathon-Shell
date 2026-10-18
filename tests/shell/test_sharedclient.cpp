@@ -1,3 +1,4 @@
+#include <QSignalSpy>
 #include <QTest>
 
 #include "applaunchservice.h"
@@ -24,6 +25,9 @@ class FakeShell : public QObject {
             shown << id.toString();
     }
     Q_INVOKABLE void openApp(const QVariant &, const QVariant &, const QVariant &) {}
+    // UIStore's: an app is on screen.
+    Q_PROPERTY(bool appWindowOpen MEMBER appWindowOpen)
+    bool appWindowOpen = false;
 };
 
 class TestSharedClient : public QObject {
@@ -55,9 +59,9 @@ class TestSharedClient : public QObject {
         QVERIFY(launcher->launchApp(app(pkg)));
         launcher->onCompositorAppLaunched(exec(pkg), launcherPid);
     }
-    void map(const QString &pkg, int surfaceId, QObject *surface) {
-        launcher->mapWindow(kClient, id(pkg), pkg + " (Android title)", QString(), surfaceId,
-                            surface);
+    bool map(const QString &pkg, int surfaceId, QObject *surface) {
+        return launcher->mapWindow(kClient, id(pkg), pkg + " (Android title)", QString(),
+                                   surfaceId, surface);
     }
     // MarathonAppWindow registers each shown native window like this.
     void show(const QString &pkg, int surfaceId, QObject *window) {
@@ -161,6 +165,25 @@ class TestSharedClient : public QObject {
         QVERIFY(!tasks->getTaskByAppId(id("a")));
         QVERIFY(tasks->getTaskByAppId(id("b")));
         QCOMPARE(lifecycle->lifecycleState(id("b")), int(AppLifecycleManager::Foreground));
+    }
+
+    // Android started it (another app's link, `waydroid app launch` from a
+    // terminal): it is a card, not the screen, while Home is shown.
+    void anUnlaunchedWindowStaysBehindHome() {
+        QVERIFY(!map("c", 31, &surfaceA));
+        QVERIFY(tasks->getTaskByAppId(id("c")));
+        QVERIFY(shell->shown.isEmpty());
+    }
+
+    void anUnlaunchedWindowOverAnOpenAppIsShown() {
+        shell->appWindowOpen = true;
+        QVERIFY(map("c", 31, &surfaceA));
+        QCOMPARE(shell->shown, QStringList{id("c")});
+    }
+
+    void aShownLaunchIsShown() {
+        launch("a", kLaunchA);
+        QVERIFY(map("a", 11, &surfaceA));
     }
 
     // Freezing has nothing of the app's own to stop; a no-op Frozen app
