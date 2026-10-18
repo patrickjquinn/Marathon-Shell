@@ -39,6 +39,7 @@ namespace {
         QByteArray   m_reply;
     };
 
+    // NOLINTNEXTLINE(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString PIN = QStringLiteral("135724");
 
 } // namespace

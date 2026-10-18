@@ -32,8 +32,9 @@ namespace {
     QString deviceOf(const QString &path, const QString &mountInfo) {
         QString          device;
         qsizetype        best = -1;
-        const QByteArray info = readFile(mountInfo);
-        for (const QByteArray &line : info.split('\n')) {
+        const QByteArray        info  = readFile(mountInfo);
+        const QList<QByteArray> lines = info.split('\n');
+        for (const QByteArray &line : lines) {
             const QStringList fields = QString::fromUtf8(line).split(u' ');
             if (fields.size() < 5)
                 continue;
