@@ -2012,6 +2012,27 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
     if (!sandboxAppId.isEmpty())
         xdgAppId = sandboxAppId;
 
+    mapWindow(pid, xdgAppId, title, sandboxAppId, surfaceId, qmlSurfaceObj);
+}
+#endif
+
+void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
+                                 const QString &sandboxAppId, int surfaceId,
+                                 QObject *qmlSurfaceObj) {
+    const auto showLaunch = [this, surfaceId, qmlSurfaceObj](const PendingLaunch &p) {
+        const QString type = p.type.isEmpty() ? QStringLiteral("native") : p.type;
+        if (m_taskModel) {
+            if (m_taskModel->getTaskByAppId(p.appId))
+                m_taskModel->updateTaskNativeInfo(p.appId, surfaceId, qmlSurfaceObj);
+            else
+                m_taskModel->launchTask(p.appId, p.name, p.icon, type, surfaceId, qmlSurfaceObj);
+        }
+        if (!m_backgroundLaunches.remove(p.appId) && m_appWindow)
+            invokeVoid(m_appWindow, "show",
+                       {p.appId, p.name, p.icon, type, QVariant::fromValue(qmlSurfaceObj),
+                        surfaceId});
+    };
+
     if (pid > 0) {
         auto it = m_activeByPid.find(pid);
         if (it != m_activeByPid.end()) {
@@ -2022,22 +2043,7 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
             // match below does; a background launch stays in the background.
             if (m_backgroundLaunches.contains(p.appId) || p.type == QLatin1String("native"))
                 registerPidForAppId(pid, p.appId);
-
-            if (m_taskModel) {
-                if (Task *existing = m_taskModel->getTaskByAppId(p.appId)) {
-                    m_taskModel->updateTaskNativeInfo(p.appId, surfaceId, qmlSurfaceObj);
-                } else {
-                    m_taskModel->launchTask(p.appId, p.name, p.icon,
-                                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
-                                            surfaceId, qmlSurfaceObj);
-                }
-            }
-
-            if (!m_backgroundLaunches.remove(p.appId) && m_appWindow)
-                invokeVoid(m_appWindow, "show",
-                           {p.appId, p.name, p.icon,
-                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
-                            QVariant::fromValue(qmlSurfaceObj), surfaceId});
+            showLaunch(p);
             return;
         }
     }
@@ -2058,22 +2064,7 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
                     << p.appId;
 
             registerPidForAppId(pid, p.appId);
-
-            if (m_taskModel) {
-                if (Task *existing = m_taskModel->getTaskByAppId(p.appId)) {
-                    m_taskModel->updateTaskNativeInfo(p.appId, surfaceId, qmlSurfaceObj);
-                } else {
-                    m_taskModel->launchTask(p.appId, p.name, p.icon,
-                                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
-                                            surfaceId, qmlSurfaceObj);
-                }
-            }
-
-            if (!m_backgroundLaunches.remove(p.appId) && m_appWindow)
-                invokeVoid(m_appWindow, "show",
-                           {p.appId, p.name, p.icon,
-                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
-                            QVariant::fromValue(qmlSurfaceObj), surfaceId});
+            showLaunch(p);
             return;
         }
     }
@@ -2120,6 +2111,7 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
                     QVariant::fromValue(qmlSurfaceObj), surfaceId});
 }
 
+#if defined(HAVE_WAYLAND)
 QString AppLaunchService::sandboxAppIdFor(QWaylandSurface *surface) const {
     auto *wc = qobject_cast<WaylandCompositor *>(m_compositor.data());
     return wc && surface->client() ? wc->sandboxAppId(surface->client()->client()) : QString();
