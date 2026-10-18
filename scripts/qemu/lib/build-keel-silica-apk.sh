@@ -69,8 +69,8 @@ if [ -n "$LOCAL_COMMIT" ]; then
     mkdir -p /var/cache/distfiles
     cp /work/distfiles/*.tar.gz /var/cache/distfiles/
     sed -i "s/^_commit=.*/_commit=$LOCAL_COMMIT/" APKBUILD
-    abuild -F checksum
 fi
+abuild -F checksum
 abuild -d -F
 
 cp "/root/packages/aports/aarch64/${TARGET}" "/out/${TARGET}"
