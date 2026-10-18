@@ -8,7 +8,7 @@
 // docs/NATIVE_APP_LIFECYCLE.md for where each toolkit handles back.
 namespace NativeBack {
 
-    enum Toolkit {
+    enum Toolkit : quint8 {
         Unknown,
         Gtk3,
         Gtk4,

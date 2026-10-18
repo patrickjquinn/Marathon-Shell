@@ -16,7 +16,7 @@ class DavSecretStore : public QObject {
     Q_OBJECT
 
   public:
-    enum class Result {
+    enum class Result : quint8 {
         Ok,
         NotFound,
         Unavailable

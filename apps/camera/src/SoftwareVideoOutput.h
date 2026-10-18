@@ -16,7 +16,7 @@ class SoftwareVideoOutput : public QQuickItem {
     Q_PROPERTY(int fillMode READ fillMode WRITE setFillMode NOTIFY fillModeChanged)
 
   public:
-    enum FillMode {
+    enum FillMode : quint8 {
         Stretch            = 0,
         PreserveAspectFit  = 1,
         PreserveAspectCrop = 2

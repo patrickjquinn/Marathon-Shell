@@ -135,7 +135,7 @@ class AppLaunchService : public QObject {
     // bucket that dominates cold-launch time. A spare's sandbox either has
     // the media folders or not, and it only becomes an app that needs the
     // same: one with the "storage" permission or one without.
-    enum SpareShape {
+    enum SpareShape : quint8 {
         PlainSpare,
         StorageSpare,
         SpareShapes

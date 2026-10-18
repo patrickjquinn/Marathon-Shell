@@ -100,7 +100,7 @@ class DavSyncEngine : public QObject {
                       int contactsRemoved);
 
   private:
-    enum class SecretOp {
+    enum class SecretOp : quint8 {
         Store,
         Load,
         Remove

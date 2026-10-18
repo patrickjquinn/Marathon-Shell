@@ -6,7 +6,7 @@
 // shell-resolved app id of the D-Bus sender, never an argument.
 namespace PermissionAuth {
 
-    enum class Op {
+    enum class Op : quint8 {
         Read,
         Request,
         Grant,

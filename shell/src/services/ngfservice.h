@@ -14,7 +14,7 @@ class NgfService : public QObject {
     Q_CLASSINFO("D-Bus Interface", "com.nokia.NonGraphicFeedback1")
 
   public:
-    enum State : quint32 { Failed = 0, Completed = 1, Playing = 2, Paused = 3 };
+    enum State : quint8 { Failed = 0, Completed = 1, Playing = 2, Paused = 3 };
 
     using Vibrate = std::function<void(const QList<int> &pattern)>;
     using StopVibration = std::function<void()>;

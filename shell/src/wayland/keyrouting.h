@@ -4,7 +4,7 @@
 
 namespace KeyRouting {
 
-enum Action { None, Back, Home };
+enum Action : quint8 { None, Back, Home };
 
 // The system action a hardware key triggers before the focused app sees it.
 // Keel apps get Escape: their menus, dialogs and remorse timers use it, and

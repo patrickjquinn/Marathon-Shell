@@ -69,7 +69,7 @@ class TerminalEngine : public QObject {
     QString          m_title;
     TerminalScreen  *m_screen;
 
-    enum State {
+    enum State : quint8 {
         Normal,
         Escape,
         CSI,
