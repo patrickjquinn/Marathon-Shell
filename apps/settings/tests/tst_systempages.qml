@@ -401,4 +401,57 @@ TestCase {
         child(s.page, "privacyItem").clicked(null);
         compare(pushed(s.app, s.page).sections.length, 3);
     }
+
+    function test_eraseUnsupported() {
+        const s = open("erase");
+        verify(child(s.page, "unsupportedLabel").visible);
+        verify(!child(s.page, "eraseButton").visible);
+        verify(child(s.page, "versionNote").text.indexOf("Marathon OS stays at version 26101701.") === 0);
+    }
+
+    function test_eraseAsksForThePin() {
+        Security.canEraseAllContent = true;
+        Security.hasQuickPIN = true;
+        const s = open("erase");
+        verify(!child(s.page, "unsupportedLabel").visible);
+        child(s.page, "eraseButton").clicked(null);
+        const dialog = pushed(s.app, s.page);
+        const field = child(dialog, "secretField");
+        compare(field.label, "PIN");
+        verify(!dialog.canAccept);
+        dialog.secret = "1234";
+        verify(dialog.canAccept);
+        dialog.accept();
+        back(s);
+        compare(Security.calls, [["erase", "1234"]]);
+        verify(child(s.page, "erasingRow").visible);
+        verify(!child(s.page, "eraseButton").visible);
+    }
+
+    function test_eraseRefusedAsksAgain() {
+        Security.canEraseAllContent = true;
+        Security.hasQuickPIN = true;
+        const s = open("erase");
+        child(s.page, "eraseButton").clicked(null);
+        const dialog = pushed(s.app, s.page);
+        dialog.secret = "0000";
+        dialog.accept();
+        back(s);
+        Security.eraseFailed("Incorrect PIN");
+        verify(!s.page.erasing);
+        const retry = pushed(s.app, s.page);
+        compare(retry.secret, "");
+        const field = child(retry, "secretField");
+        verify(field.errorHighlight);
+        compare(field.description, "Incorrect PIN");
+        retry.secret = "1";
+        verify(!field.errorHighlight);
+    }
+
+    function test_eraseWithoutAPinTakesThePassword() {
+        Security.canEraseAllContent = true;
+        const s = open("erase");
+        child(s.page, "eraseButton").clicked(null);
+        compare(child(pushed(s.app, s.page), "secretField").label, "System password");
+    }
 }

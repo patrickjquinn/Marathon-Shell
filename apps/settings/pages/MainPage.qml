@@ -16,9 +16,10 @@ Page {
     // Only present once the app runner shares the shell's wallpaper list.
     readonly property var wallpapers: typeof Wallpapers !== "undefined" ? Wallpapers : null
 
-    // No mobile network entry on devices without a modem.
+    // No mobile network entry on devices without a modem, and no erasing
+    // where the image can't erase itself.
     function present(entries) {
-        return entries.filter(e => e.page !== "cellular" || Modem.available);
+        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent));
     }
 
     function summary(name) {

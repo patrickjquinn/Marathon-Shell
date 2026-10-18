@@ -33,6 +33,7 @@ TestCase {
         Audio.reset();
         Navigation.reset();
         Wallpapers.reset();
+        Security.reset();
     }
 
     function makeApp() {
@@ -93,6 +94,14 @@ TestCase {
         compare(findChild(app.pageStack.currentPage, "airplaneSwitch").description, "Turns off Wi-Fi and Bluetooth");
     }
 
+    function test_eraseOnlyWhereTheImageCanErase() {
+        const app = makeApp();
+        entry(app, "about");
+        compare(findChild(app.pageStack.currentPage, "entry-erase"), null);
+        Security.canEraseAllContent = true;
+        entry(app, "erase");
+    }
+
     function test_quickSwitches() {
         const app = makeApp();
         const airplane = findChild(app.pageStack.currentPage, "airplaneSwitch");
@@ -147,6 +156,7 @@ TestCase {
 
     // Every category on the main page opens its own page.
     function test_everyEntryOpensItsPage() {
+        Security.canEraseAllContent = true;
         const app = makeApp();
         const main = app.pageStack.currentPage;
         Logic.sections.forEach(section => section.entries.filter(e => e.page).forEach(e => {

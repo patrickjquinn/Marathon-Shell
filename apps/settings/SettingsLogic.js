@@ -27,7 +27,8 @@ const pages = {
     accounts: "AccountsPage.qml",
     quicksettings: "QuickSettingsPage.qml",
     hiddenapps: "HiddenAppsPage.qml",
-    appsort: "AppLayoutPage.qml"
+    appsort: "AppLayoutPage.qml",
+    erase: "ErasePage.qml"
 };
 
 function pageFile(route) {
@@ -84,7 +85,8 @@ const sections = [
         entries: [
             { page: "updates", title: qsTr("Software updates"), icon: "image://theme/icon-m-update", keywords: "upgrade version release channel" },
             { page: "about", title: qsTr("About device"), icon: "image://theme/icon-m-about", keywords: "device name version model kernel build licenses legal terms privacy" },
-            { app: "terminal", title: qsTr("Terminal"), icon: "image://theme/icon-m-terminal", keywords: "shell command console" }
+            { app: "terminal", title: qsTr("Terminal"), icon: "image://theme/icon-m-terminal", keywords: "shell command console" },
+            { page: "erase", title: qsTr("Erase all content"), icon: "image://theme/icon-m-delete", keywords: "factory reset wipe delete everything restore sell" }
         ]
     }
 ];
