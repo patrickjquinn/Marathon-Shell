@@ -18,7 +18,7 @@ const MOUNT_DIR: &str = "/run/marathon-health/autoboot";
 const OS_RELEASE: &str = "/usr/lib/os-release";
 const BOOT_ID: &str = "/proc/sys/kernel/random/boot_id";
 /// "Erase all content" is pending: the initramfs of this slot erases the
-/// data partition at the next boot (docs/FACTORY_RESET.md).
+/// data partition at the next boot (`docs/FACTORY_RESET.md`).
 const FACTORY_RESET: &str = "/.marathon-factory-reset";
 
 /// Microsoft basic data: the FAT boot slots.

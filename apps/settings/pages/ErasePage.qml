@@ -50,7 +50,7 @@ Page {
     onStatusChanged: reopen()
 
     Connections {
-        target: page.pageStack
+        target: pageStack
 
         function onBusyChanged() {
             page.reopen();

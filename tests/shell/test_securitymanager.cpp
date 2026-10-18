@@ -35,7 +35,10 @@ class TestSecurityManager : public QObject {
 
   private slots:
     void initTestCase() {
-        QStandardPaths::setTestModeEnabled(true);
+        // Its own config, not Qt's shared test-mode one: other tests that
+        // set a PIN run in parallel.
+        qputenv("XDG_CONFIG_HOME", m_dir.filePath("config").toLocal8Bit());
+        qputenv("XDG_DATA_HOME", m_dir.filePath("data").toLocal8Bit());
         QFile::remove(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
                       "/marathon/quickpin.conf");
     }
