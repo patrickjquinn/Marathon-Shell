@@ -64,7 +64,7 @@ void TestWordEngine::testRequestPredictions() {
     QString         prefix      = arguments.at(0).toString();
     QStringList     predictions = arguments.at(1).toStringList();
     QCOMPARE(prefix, QString("hel"));
-    QVERIFY(predictions.size() > 0);
+    QVERIFY(!predictions.isEmpty());
     QVERIFY(predictions.size() <= 3);
 }
 

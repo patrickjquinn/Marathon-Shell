@@ -15,7 +15,7 @@ class FakeAmbience : public QObject {
     QVariantMap map;
 
   public slots:
-    QVariantMap GetAmbience() {
+    QVariantMap GetAmbience() const {
         return map;
     }
 

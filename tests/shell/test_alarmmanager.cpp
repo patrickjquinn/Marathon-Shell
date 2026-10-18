@@ -127,7 +127,7 @@ class TestAlarmManager : public QObject {
         QCOMPARE(again["label"].toString(), QString("Wake"));
         QVERIFY(again["oneShot"].toBool());
         const qint64 at = again["at"].toInteger();
-        QVERIFY(at >= before + 10 * 60000 && at <= before + 10 * 60000 + 1000);
+        QVERIFY(at >= before + 10 * 60000LL && at <= before + 10 * 60000LL + 1000);
         alarms.stopAll();
     }
 

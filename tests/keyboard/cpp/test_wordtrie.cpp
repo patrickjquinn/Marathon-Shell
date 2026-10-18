@@ -123,7 +123,7 @@ void TestWordTrie::testUnicode() {
     trie.insert("北京");
     QCOMPARE(trie.size(), 3);
     QStringList results = trie.getCompletions("caf", 10);
-    QVERIFY(results.size() > 0);
+    QVERIFY(!results.isEmpty());
 }
 
 void TestWordTrie::testDuplicates() {

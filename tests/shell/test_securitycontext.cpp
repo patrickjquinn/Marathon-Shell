@@ -87,11 +87,14 @@ namespace {
 
         int registerSocket(wl_display *display) {
             const int   listenFd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+            if (listenFd < 0)
+                return -1;
             sockaddr_un address{};
             address.sun_family = AF_UNIX;
             std::strncpy(address.sun_path, engineSocket.c_str(), sizeof(address.sun_path) - 1);
-            bind(listenFd, reinterpret_cast<sockaddr *>(&address), sizeof(address));
-            listen(listenFd, 8);
+            if (bind(listenFd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) != 0 ||
+                listen(listenFd, 8) != 0)
+                return -1;
             int closeFds[2];
             if (pipe2(closeFds, O_CLOEXEC) != 0)
                 return -1;

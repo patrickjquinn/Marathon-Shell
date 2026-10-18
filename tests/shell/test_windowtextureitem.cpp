@@ -141,10 +141,8 @@ class TestWindowTextureItem : public QObject {
         view.resize(100, 100);
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
-        QImage img;
-        QTRY_VERIFY_WITH_TIMEOUT((img = view.grabWindow(), img.pixelColor(50, 50).red() > 200),
-
-                                 3000);
+        QTRY_VERIFY_WITH_TIMEOUT(view.grabWindow().pixelColor(50, 50).red() > 200, 3000);
+        const QImage img = view.grabWindow();
         QCOMPARE(img.pixelColor(1, 1).red(), 0);
         QCOMPARE(img.pixelColor(98, 98).red(), 0);
         QVERIFY(img.pixelColor(10, 50).red() > 200);
