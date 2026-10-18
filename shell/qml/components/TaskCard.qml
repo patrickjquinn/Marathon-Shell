@@ -545,6 +545,24 @@ Item {
                                 // textures current. The registered surface is the
                                 // fallback while the card has no view of its own,
                                 // and only while the page is on screen.
+                                // A window that draws in subsurfaces (Waydroid: a black
+                                // 1x1 toplevel, Android's layers in subsurfaces) has
+                                // nothing in its own texture; the card takes its tree.
+                                ShaderEffectSource {
+                                    id: surfaceTree
+
+                                    readonly property Item surfaceItem: taskCard.nativeSurfaceActive ? taskCard.nativeSurfaceItem : taskCard.taskSwitcherVisible && taskCard.useRegisteredSurface ? taskCard.registeredSurfaceItem : null
+                                    readonly property bool drawsInSubsurfaces: surfaceItem !== null && surfaceItem.children.some(child => child.surface !== undefined && child.surface !== null) // qmllint disable missing-property
+
+                                    width: surfaceItem ? surfaceItem.width : 0
+                                    height: surfaceItem ? surfaceItem.height : 0
+                                    sourceItem: drawsInSubsurfaces ? surfaceItem : null
+                                    live: taskCard.taskSwitcherVisible
+                                    recursive: true
+                                    hideSource: false
+                                    opacity: 0
+                                }
+
                                 WindowTextureItem {
                                     id: liveTexture
 
@@ -555,7 +573,7 @@ Item {
                                     readonly property real cardAspect: liveSnapshot.parentAspect
 
                                     anchors.fill: parent
-                                    source: taskCard.nativeSurfaceActive ? taskCard.nativeSurfaceItem : taskCard.taskSwitcherVisible && taskCard.useRegisteredSurface ? taskCard.registeredSurfaceItem : previewContainer.liveApp !== null ? liveSnapshot : null
+                                    source: surfaceTree.drawsInSubsurfaces ? surfaceTree : taskCard.nativeSurfaceActive ? taskCard.nativeSurfaceItem : taskCard.taskSwitcherVisible && taskCard.useRegisteredSurface ? taskCard.registeredSurfaceItem : previewContainer.liveApp !== null ? liveSnapshot : null
                                     radius: glass.radius
                                     sourceRect: cardAspect >= appAspect ? Qt.rect((1 - appAspect / cardAspect) / 2, 0, appAspect / cardAspect, 1) : Qt.rect(0, 0, 1, cardAspect / appAspect)
                                 }
