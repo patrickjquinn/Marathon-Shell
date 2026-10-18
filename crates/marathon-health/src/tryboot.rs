@@ -17,6 +17,9 @@ pub const REBOOT_PARAM: &str = "/run/systemd/reboot-param";
 const MOUNT_DIR: &str = "/run/marathon-health/autoboot";
 const OS_RELEASE: &str = "/usr/lib/os-release";
 const BOOT_ID: &str = "/proc/sys/kernel/random/boot_id";
+/// "Erase all content" is pending: the initramfs of this slot erases the
+/// data partition at the next boot (docs/FACTORY_RESET.md).
+const FACTORY_RESET: &str = "/.marathon-factory-reset";
 
 /// Microsoft basic data: the FAT boot slots.
 pub const BOOT_TYPE: &str = "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7";
@@ -427,6 +430,10 @@ fn fix_hidden_sectors(boot: &Partition) -> io::Result<()> {
 pub fn arm() -> io::Result<Option<String>> {
     if read_be_u32(DT_TRYBOOT) == Some(1) {
         // A trial is running: it commits itself or falls back.
+        return Ok(None);
+    }
+    if Path::new(FACTORY_RESET).exists() {
+        // Only this slot's initramfs knows to erase; the trial waits.
         return Ok(None);
     }
     let parts = partitions()?;
