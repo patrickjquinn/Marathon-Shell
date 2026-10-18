@@ -35,6 +35,7 @@ MApp {
     revealReady: surfaceItemRef && surfaceItemRef.hasSentInitialSize && surfaceItemRef.hasFirstFrame
 
     signal requestClose(bool skipNative)
+    signal surfaceSwitched
 
     appId: nativeAppId
     appName: nativeTitle || "Native App"
@@ -74,8 +75,17 @@ MApp {
                 if (nativeAppWindow.isMinimized) {
                     Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");
                 } else {
-                    Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
                     Qt.callLater(function () {
+                        // Another window of the app is left: the card shows that one.
+                        var task = TaskModel.getTaskByAppId(nativeAppWindow.nativeAppId);
+                        if (task && task.surfaceId > 0 && task.surfaceId !== nativeAppWindow.surfaceId) {
+                            Logger.info("NativeAppWindow", "Surface destroyed - showing surfaceId " + task.surfaceId);
+                            nativeAppWindow.waylandSurface = task.waylandSurface;
+                            nativeAppWindow.surfaceId = task.surfaceId;
+                            nativeAppWindow.surfaceSwitched();
+                            return;
+                        }
+                        Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
                         nativeAppWindow.requestClose(true);
                     });
                 }

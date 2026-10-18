@@ -340,6 +340,10 @@ void AppLaunchService::setCompositor(QObject *obj) {
                 [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
                     onCompositorSurfaceCreated(surface, surfaceId, xdgSurface);
                 });
+            QObject::connect(wc, &WaylandCompositor::surfaceDestroyed, this,
+                             [this](QWaylandSurface *, int surfaceId) {
+                                 onWindowDestroyed(surfaceId);
+                             });
             QObject::connect(wc, &WaylandCompositor::surfaceActivated, this,
                              [this](QWaylandSurface *, int surfaceId,
                                     QWaylandXdgSurface *xdgSurface, qint64 launchPid) {
@@ -2037,6 +2041,7 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
             else
                 m_taskModel->launchTask(p.appId, p.name, p.icon, type, surfaceId, qmlSurfaceObj);
         }
+        fileWindow(p.appId, surfaceId, qmlSurfaceObj);
         if (m_backgroundLaunches.remove(p.appId))
             return false;
         if (m_appWindow)
@@ -2104,6 +2109,7 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
         qInfo() << "[AppLaunchService] Secondary surface for existing appId" << xdgAppId
                 << "surfaceId" << surfaceId;
         m_taskModel->updateTaskNativeInfo(xdgAppId, surfaceId, qmlSurfaceObj);
+        fileWindow(xdgAppId, surfaceId, qmlSurfaceObj);
         return false;
     }
 
@@ -2132,6 +2138,7 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
                                     qmlSurfaceObj);
         }
     }
+    fileWindow(effectiveAppId, surfaceId, qmlSurfaceObj);
 
     // Nobody launched it: it takes the screen only from another app.
     if (!m_appWindow || !m_uiStore || !m_uiStore->property("appWindowOpen").toBool())
@@ -2140,6 +2147,40 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
                {effectiveAppId, appName, appIcon, QStringLiteral("native"),
                 QVariant::fromValue(qmlSurfaceObj), surfaceId});
     return true;
+}
+
+void AppLaunchService::fileWindow(const QString &appId, int surfaceId, QObject *surface) {
+    for (QList<Window> &windows : m_windows)
+        windows.removeIf([surfaceId](const Window &w) { return w.surfaceId == surfaceId; });
+    m_windows[appId].append({surfaceId, surface});
+}
+
+// The app's card shows its newest window left; with none left, an app with
+// no process of its own is gone (an app with one shows its own close).
+void AppLaunchService::onWindowDestroyed(int surfaceId) {
+    for (auto it = m_windows.begin(); it != m_windows.end(); ++it) {
+        QList<Window> &windows = it.value();
+        if (!windows.removeIf([surfaceId](const Window &w) { return w.surfaceId == surfaceId; }))
+            continue;
+        windows.removeIf([](const Window &w) { return !w.surface; });
+        const QString appId = it.key();
+        Task         *task  = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
+        if (!windows.isEmpty()) {
+            if (task && task->surfaceId() == surfaceId)
+                m_taskModel->updateTaskNativeInfo(appId, windows.last().surfaceId,
+                                                  windows.last().surface);
+            return;
+        }
+        m_windows.erase(it);
+        if (task && task->surfaceId() == surfaceId && terminationPidForAppId(appId) <= 0) {
+            qInfo() << "[AppLaunchService] Last window of" << appId << "gone - closing its task";
+            m_taskModel->closeTask(task->id());
+            if (m_appLifecycleManager)
+                QMetaObject::invokeMethod(m_appLifecycleManager, "unregisterApp",
+                                          Qt::DirectConnection, Q_ARG(QString, appId));
+        }
+        return;
+    }
 }
 
 #if defined(HAVE_WAYLAND)
@@ -2171,6 +2212,7 @@ void AppLaunchService::onCompositorSurfaceActivated(int surfaceId, QWaylandXdgSu
         else
             m_taskModel->launchTask(launch->appId, launch->name, launch->icon, type, surfaceId,
                                     surfaceObj);
+        fileWindow(launch->appId, surfaceId, surfaceObj);
         if (!m_backgroundLaunches.remove(launch->appId) && m_appWindow)
             invokeVoid(m_appWindow, "show",
                        {launch->appId, launch->name, launch->icon, type,

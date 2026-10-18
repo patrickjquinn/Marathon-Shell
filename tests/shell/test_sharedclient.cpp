@@ -186,6 +186,38 @@ class TestSharedClient : public QObject {
         QVERIFY(map("a", 11, &surfaceA));
     }
 
+    // Two Android tasks of one package share an app_id.
+    void theCardStaysWhileAWindowOfItsAppDoes() {
+        QVERIFY(!map("b", 21, &surfaceA));
+        QVERIFY(!map("b", 22, &surfaceB));
+        QCOMPARE(tasks->taskCount(), 1);
+        QCOMPARE(tasks->getTaskByAppId(id("b"))->surfaceId(), 22);
+
+        launcher->onWindowDestroyed(22);
+        QVERIFY(tasks->getTaskByAppId(id("b")));
+        QCOMPARE(tasks->getTaskByAppId(id("b"))->surfaceId(), 21);
+        QCOMPARE(tasks->getTaskByAppId(id("b"))->waylandSurface(), &surfaceA);
+
+        launcher->onWindowDestroyed(21);
+        QVERIFY(!tasks->getTaskByAppId(id("b")));
+    }
+
+    void anOlderWindowGoingLeavesTheCardAlone() {
+        QVERIFY(!map("b", 21, &surfaceA));
+        QVERIFY(!map("b", 22, &surfaceB));
+        launcher->onWindowDestroyed(21);
+        QCOMPARE(tasks->getTaskByAppId(id("b"))->surfaceId(), 22);
+    }
+
+    // Its process may map another; the app window decides (NativeAppWindow).
+    void anAppWithItsOwnProcessKeepsItsCard() {
+        tasks->launchTask("plain", "Plain", "plain", "native", 20, &surfaceB);
+        launcher->registerPidForAppId(4194330, "plain");
+        launcher->mapWindow(4194330, "plain", "Plain", QString(), 20, &surfaceB);
+        launcher->onWindowDestroyed(20);
+        QVERIFY(tasks->getTaskByAppId("plain"));
+    }
+
     // Freezing has nothing of the app's own to stop; a no-op Frozen app
     // would also be the one killOldestFrozenApp picks, and kill nothing.
     void anAppWithoutItsOwnProcessIsNotFrozen() {

@@ -186,6 +186,8 @@ class AppLaunchService : public QObject {
     // Files a new toplevel as a task; true if it is shown.
     bool        mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
                           const QString &sandboxAppId, int surfaceId, QObject *qmlSurfaceObj);
+    void        onWindowDestroyed(int surfaceId);
+    void        fileWindow(const QString &appId, int surfaceId, QObject *surface);
 #if defined(HAVE_WAYLAND)
     void onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,
                                     QWaylandXdgSurface *xdgSurface);
@@ -210,6 +212,12 @@ class AppLaunchService : public QObject {
     QHash<QString, PendingLaunch> m_pendingByCommand;
 
     QHash<qint64, PendingLaunch>  m_activeByPid;
+    // Every mapped toplevel of an app, oldest first.
+    struct Window {
+        int               surfaceId = -1;
+        QPointer<QObject> surface;
+    };
+    QHash<QString, QList<Window>> m_windows;
 
   public:
     Q_INVOKABLE QString appIdForPid(qint64 pid) const;

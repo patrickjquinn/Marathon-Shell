@@ -58,6 +58,12 @@ Rectangle {
                         appWindow.closeApp(skipNative === true, capturedId);
                     });
                 }
+                nativeInstance.surfaceSwitched.connect(function () {
+                    if (appWindow.appId === id) {
+                        appWindow.waylandSurface = nativeInstance.waylandSurface;
+                        appWindow.surfaceId = nativeInstance.surfaceId;
+                    }
+                });
                 Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
                 AppLifecycleManager.registerApp(id, nativeInstance);
                 AppLifecycleManager.bringToForeground(id);
