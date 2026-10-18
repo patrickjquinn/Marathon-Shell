@@ -295,6 +295,7 @@ add_executable(test_shell_updatenotifier
     ../../shell/src/dbus/freedesktopnotifications.cpp
     ../../shell/src/dbus/notificationdatabase.cpp
     ../../shell/src/models/notificationmodel.cpp
+    ../../shell/src/models/appmodel.cpp
     ../../shell/src/services/notificationtarget.cpp
     ../../marathon-core/src/marathonappregistry.cpp
 )
