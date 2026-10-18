@@ -25,6 +25,7 @@ set(SOURCES
     ipc/shellipcclients.cpp
     ipc/dbusnormalize.cpp
     calendarmanagercpp.cpp
+    worldclockhelper.h
     ../../marathon-services/src/musiclibrarymanager.cpp
 )
 
