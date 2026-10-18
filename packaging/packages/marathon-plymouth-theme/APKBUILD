@@ -1,7 +1,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-plymouth-theme
 pkgver=1.0.0
-pkgrel=8
+pkgrel=9
 pkgdesc="Marathon OS boot splash for plymouth"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
