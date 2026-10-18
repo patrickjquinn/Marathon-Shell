@@ -108,10 +108,60 @@ fun quit_callback() {
 }
 Plymouth.SetQuitFunction(quit_callback);
 
-// ── Password prompt (unused on Marathon — boot is non-interactive) ────
-// Defined as no-ops so plymouth doesn't fall back to its default theme
-// when the kernel boot needs to prompt (e.g. fsck repair).
-fun display_password_callback(prompt, bullets) { }
-fun display_normal_callback() { }
+// ── PIN prompt for the encrypted data partition (docs/ENCRYPTION.md) ──
+// The prompt replaces the wordmark and progress bar; one teal dot per
+// character typed.
+MAX_DOTS = 24;
+dot_image = Image("pin-dot.png");
+DOT_PITCH = dot_image.GetWidth() * 2;
+prompt.sprite = Sprite();
+prompt.sprite.SetZ(10);
+prompt.sprite.SetOpacity(0);
+i = 0;
+while (i < MAX_DOTS) {
+    dots[i] = Sprite(dot_image);
+    dots[i].SetZ(10);
+    dots[i].SetOpacity(0);
+    i = i + 1;
+}
+
+fun set_boot_chrome_opacity(opacity) {
+    wordmark.sprite.SetOpacity(opacity);
+    progress_track.sprite.SetOpacity(opacity);
+    progress_fill.sprite.SetOpacity(opacity);
+}
+
+fun display_password_callback(text, bullets) {
+    set_boot_chrome_opacity(0);
+    message.sprite.SetOpacity(0);
+    prompt.image = Image.Text(text, 1.0, 1.0, 1.0, 1.0, "Sans 14");
+    prompt.sprite.SetImage(prompt.image);
+    prompt.sprite.SetX(screen_width / 2 - prompt.image.GetWidth() / 2);
+    prompt.sprite.SetY(screen_height / 2 + logo_h / 2 - 24);
+    prompt.sprite.SetOpacity(1);
+    shown = Math.Min(bullets, MAX_DOTS);
+    row_x = Math.Int(screen_width / 2 - (shown * DOT_PITCH - dot_image.GetWidth()) / 2);
+    row_y = screen_height / 2 + logo_h / 2 - 24 + prompt.image.GetHeight() + 24;
+    i = 0;
+    while (i < MAX_DOTS) {
+        dots[i].SetX(row_x + i * DOT_PITCH);
+        dots[i].SetY(row_y);
+        if (i < shown)
+            dots[i].SetOpacity(1);
+        else
+            dots[i].SetOpacity(0);
+        i = i + 1;
+    }
+}
 Plymouth.SetDisplayPasswordFunction(display_password_callback);
+
+fun display_normal_callback() {
+    prompt.sprite.SetOpacity(0);
+    i = 0;
+    while (i < MAX_DOTS) {
+        dots[i].SetOpacity(0);
+        i = i + 1;
+    }
+    set_boot_chrome_opacity(1);
+}
 Plymouth.SetDisplayNormalFunction(display_normal_callback);

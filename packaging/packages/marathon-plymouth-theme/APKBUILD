@@ -20,6 +20,7 @@ source="
 	marathon-logo.png
 	progress-track.png
 	progress-fill.png
+	pin-dot.png
 	marathon-update-splash
 	marathon-update-splash.service
 	marathon-update-splash-started.path
@@ -38,6 +39,8 @@ package() {
 		"$pkgdir/usr/share/plymouth/themes/marathon/progress-track.png"
 	install -Dm644 "$srcdir/progress-fill.png" \
 		"$pkgdir/usr/share/plymouth/themes/marathon/progress-fill.png"
+	install -Dm644 "$srcdir/pin-dot.png" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/pin-dot.png"
 
 	# "Finishing update…" on the splash until a new OS version's shell has
 	# come up once (docs/OTA.md).
