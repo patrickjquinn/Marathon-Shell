@@ -12,7 +12,7 @@ ApplicationWindow {
 
     property var sessions: []
     // Until Terminal has been in front, its first session is untouched.
-    property bool seen: Qt.application.state === Qt.ApplicationActive
+    property bool seen: Application.state === Qt.ApplicationActive
     property int currentIndex: 0
     readonly property var currentSession: sessions[currentIndex] || null
 
@@ -33,7 +33,7 @@ ApplicationWindow {
     }
 
     function newSession() {
-        const session = engineComponent.createObject(app);
+        const session = engineComponent.createObject(app) as TerminalEngine;
         sessions = sessions.concat([session]);
         currentIndex = sessions.length - 1;
         session.start();
@@ -66,7 +66,7 @@ ApplicationWindow {
     Connections {
         target: Qt.application
         function onStateChanged() {
-            if (Qt.application.state === Qt.ApplicationActive)
+            if (Application.state === Qt.ApplicationActive)
                 app.seen = true;
         }
     }

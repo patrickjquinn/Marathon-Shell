@@ -157,7 +157,7 @@ Item {
                 }
                 root.clearSelection();
                 root.forceFocus();
-                Qt.inputMethod.show();
+                (Qt.inputMethod as InputMethod).show();
             }
             onPressAndHold: mouse => {
                 selecting = true;
