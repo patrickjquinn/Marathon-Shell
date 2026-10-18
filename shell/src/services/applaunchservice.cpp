@@ -2217,14 +2217,9 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
         }
     }
     fileWindow(effectiveAppId, surfaceId, qmlSurfaceObj);
-
-    // Nobody launched it: it takes the screen only from another app.
-    if (!m_appWindow || !m_uiStore || !m_uiStore->property("appWindowOpen").toBool())
-        return false;
-    invokeVoid(m_appWindow, "show",
-               {effectiveAppId, appName, appIcon, QStringLiteral("native"),
-                QVariant::fromValue(qmlSurfaceObj), surfaceId});
-    return true;
+    // Nobody launched it: a card. Waydroid re-creates a task's window as
+    // Android redraws it, and that must not take the front.
+    return false;
 }
 
 void AppLaunchService::fileWindow(const QString &appId, int surfaceId, QObject *surface) {
@@ -2234,7 +2229,9 @@ void AppLaunchService::fileWindow(const QString &appId, int surfaceId, QObject *
 }
 
 // The app's card shows its newest window left; with none left, an app with
-// no process of its own is gone (an app with one shows its own close).
+// no process of its own is gone after a grace, as Waydroid re-creates a
+// task's window as Android redraws it (an app with a process shows its own
+// close).
 void AppLaunchService::onWindowDestroyed(int surfaceId) {
     for (auto it = m_windows.begin(); it != m_windows.end(); ++it) {
         QList<Window> &windows = it.value();
@@ -2250,11 +2247,17 @@ void AppLaunchService::onWindowDestroyed(int surfaceId) {
             return;
         }
         if (task && task->surfaceId() == surfaceId && terminationPidForAppId(appId) <= 0) {
-            qInfo() << "[AppLaunchService] Last window of" << appId << "gone - closing its task";
-            m_taskModel->closeTask(task->id());
-            if (m_appLifecycleManager)
-                QMetaObject::invokeMethod(m_appLifecycleManager, "unregisterApp",
-                                          Qt::DirectConnection, Q_ARG(QString, appId));
+            // A new window within the grace takes the card over (mapWindow).
+            QTimer::singleShot(m_windowGraceMs, this, [this, appId = QString(appId), surfaceId]() {
+                Task *gone = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
+                if (!gone || gone->surfaceId() != surfaceId || m_windows.contains(appId))
+                    return;
+                qInfo() << "[AppLaunchService] Last window of" << appId << "gone - closing its task";
+                m_taskModel->closeTask(gone->id());
+                if (m_appLifecycleManager)
+                    QMetaObject::invokeMethod(m_appLifecycleManager, "unregisterApp",
+                                              Qt::DirectConnection, Q_ARG(QString, appId));
+            });
         }
         m_windows.erase(it);
         return;

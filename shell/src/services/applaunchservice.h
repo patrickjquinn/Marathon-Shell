@@ -219,6 +219,9 @@ class AppLaunchService : public QObject {
     // still come within the grace.
     QHash<QString, PendingLaunch> m_exitedLaunches;
     int                           m_exitedLaunchGraceMs = 30000;
+    // How long an app with no process of its own keeps its card after its
+    // last window, for a replacement.
+    int                           m_windowGraceMs = 1000;
     // Every mapped toplevel of an app, oldest first.
     struct Window {
         int               surfaceId = -1;

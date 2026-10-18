@@ -179,10 +179,12 @@ class TestSharedClient : public QObject {
         QVERIFY(shell->shown.isEmpty());
     }
 
-    void anUnlaunchedWindowOverAnOpenAppIsShown() {
+    // Not over another app either: Waydroid re-creates a task's window
+    // whenever Android redraws it, and that must not take the front.
+    void anUnlaunchedWindowNeverTakesTheFront() {
         shell->appWindowOpen = true;
-        QVERIFY(map("c", 31, &surfaceA));
-        QCOMPARE(shell->shown, QStringList{id("c")});
+        QVERIFY(!map("c", 31, &surfaceA));
+        QVERIFY(shell->shown.isEmpty());
     }
 
     void aShownLaunchIsShown() {
@@ -245,8 +247,25 @@ class TestSharedClient : public QObject {
         QCOMPARE(tasks->getTaskByAppId(id("b"))->surfaceId(), 21);
         QCOMPARE(tasks->getTaskByAppId(id("b"))->waylandSurface(), &surfaceA);
 
+        launcher->m_windowGraceMs = 10;
         launcher->onWindowDestroyed(21);
-        QVERIFY(!tasks->getTaskByAppId(id("b")));
+        QVERIFY(tasks->getTaskByAppId(id("b")));
+        QTRY_VERIFY(!tasks->getTaskByAppId(id("b")));
+    }
+
+    // Waydroid re-creates a window: the card keeps its place and takes the
+    // new window, and nothing comes to the front.
+    void aRecreatedWindowKeepsItsCard() {
+        launch("a", kLaunchA);
+        QVERIFY(map("a", 11, &surfaceA));
+        QCOMPARE(shell->shown, QStringList{id("a")});
+        launcher->onWindowDestroyed(11);
+        QVERIFY(!map("a", 12, &surfaceB));
+        QCOMPARE(tasks->getTaskByAppId(id("a"))->surfaceId(), 12);
+        QCOMPARE(tasks->getTaskByAppId(id("a"))->title(), QStringLiteral("A"));
+        QCOMPARE(shell->shown, QStringList{id("a")});
+        QTest::qWait(50);
+        QVERIFY(tasks->getTaskByAppId(id("a")));
     }
 
     void anOlderWindowGoingLeavesTheCardAlone() {
