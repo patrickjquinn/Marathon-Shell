@@ -245,6 +245,10 @@ before and after PID 1 starts persist across slots. Anything else written to
 `build-image.sh` installs them, and the transfers in
 `packaging/ota/pi/sysupdate.d/`, for Pi A/B builds.
 
+Settings → Erase all content empties `marathon_data` from the initramfs, in
+`hooks-cleanup/40-marathon-factory-reset.sh` before this hook, and leaves
+the slots and `autoboot.txt` alone ([FACTORY_RESET.md](FACTORY_RESET.md)).
+
 ### Update, trial and commit
 
 1. sysupdate writes the root slot, then the boot slot, into the pair that
