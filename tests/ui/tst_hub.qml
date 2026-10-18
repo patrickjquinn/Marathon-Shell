@@ -220,11 +220,13 @@ TestCase {
                 "key": "snooze",
                 "label": "Snooze"
             }];
-        addNotification(1, "messages");
+        // Yesterday's row: the new ones open a "Today" section above it.
+        NotificationModel.append({ id: 1, appId: "messages", title: "Ada", body: "Hi", icon: "", timestamp: Date.now() - 86400000, isRead: false, ongoing: false, progress: -1, day: isoDay(1) });
+        hub.refreshSources();
         tryVerify(() => row(0));
         row(0).actions = snooze;
         wait(400);
-        for (let id = 2; id <= 3; id++) {
+        for (let id = 2; id <= 6; id++) {
             NotificationModel.insert(0, { id: id, appId: id === 2 ? "mail" : "messages", title: "Bob" + id, body: "Yo", icon: "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
             hub.refreshSources();
             // The real model has the actions when the row is made.
