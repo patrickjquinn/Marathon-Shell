@@ -1558,7 +1558,7 @@ Item {
                 x: -cardBorder.x
                 y: Constants.safeAreaTop - cardBorder.y
                 width: appWindowContainer.width
-                height: appWindowContainer.height - Constants.safeAreaTop - Constants.safeAreaBottom - virtualKeyboard.reservedHeight
+                height: appWindowContainer.height - Constants.safeAreaTop - Constants.safeAreaBottom - shell.appKeyboardInset
                 visible: true
                 onMinimized: {
                     Logger.info("AppWindow", "Minimized: " + appWindow.appName);
@@ -2471,6 +2471,58 @@ Item {
         enabled: shell.compositor !== null
     }
 
+    // Windows of an input method service's apps (Deckard's Android apps) keep
+    // their size: their IME gives the app the covered height instead.
+    readonly property bool appKeyboardInsetByClient: RemoteTextInput.appIdPrefix !== "" && appWindow.appId.startsWith(RemoteTextInput.appIdPrefix)
+    readonly property real appKeyboardInset: appKeyboardInsetByClient ? 0 : virtualKeyboard.reservedHeight
+
+    function reportKeyboardCover() {
+        if (!appKeyboardInsetByClient)
+            return;
+        var covered = virtualKeyboard.reservedHeight > 0 ? appWindow.height - virtualKeyboard.mapToItem(appWindow, 0, 0).y : 0;
+        RemoteTextInput.setPanel(appWindow.appId, Math.round(covered), Math.round(appWindow.height));
+    }
+
+    onAppKeyboardInsetByClientChanged: reportKeyboardCover()
+
+    Connections {
+        function onReservedHeightChanged() {
+            shell.reportKeyboardCover();
+        }
+
+        target: virtualKeyboard
+    }
+
+    Connections {
+        function onHeightChanged() {
+            shell.reportKeyboardCover();
+        }
+
+        function onAppIdChanged() {
+            shell.reportKeyboardCover();
+        }
+
+        target: appWindow
+    }
+
+    Connections {
+        function onHintsChanged() {
+            if (virtualKeyboard.active)
+                virtualKeyboard.refreshFieldHints();
+        }
+
+        function onPanelRequested(show) {
+            if (show && Platform.hasHardwareKeyboard)
+                return;
+            if (show && !virtualKeyboard.active)
+                virtualKeyboard.active = true;
+            else if (!show && virtualKeyboard.active)
+                virtualKeyboard.active = false;
+        }
+
+        target: RemoteTextInput
+    }
+
     MouseArea {
         id: keyboardDismissArea
 
@@ -2535,7 +2587,7 @@ Item {
     Binding {
         target: shell.compositor
         property: "appViewportSize"
-        value: Qt.size(Math.round(appWindow.width), Math.round(appWindow.height + virtualKeyboard.reservedHeight))
+        value: Qt.size(Math.round(appWindow.width), Math.round(appWindow.height + shell.appKeyboardInset))
         when: shell.compositor !== null && appWindow.width > 0
     }
 
