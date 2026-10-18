@@ -1,6 +1,5 @@
 import QtQuick
 import Sailfish.Silica 1.0
-import Marathon.Silica 1.0
 
 // Five stars filled to `value` (0-5), painted so a fractional value fills the
 // last star partway.

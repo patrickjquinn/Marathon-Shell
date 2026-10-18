@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
@@ -44,7 +46,7 @@ ApplicationWindow {
                 root.activate();
                 if (root.pageStack.depth > 1)
                     root.pageStack.pop(null, PageStackAction.Immediate);
-                root.pageStack.currentPage.showSearch();
+                (root.pageStack.currentPage as MainPage).showSearch();
             }
         }
     }

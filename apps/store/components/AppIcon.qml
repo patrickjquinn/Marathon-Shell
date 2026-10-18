@@ -1,6 +1,5 @@
 import QtQuick
 import Sailfish.Silica 1.0
-import Marathon.Silica 1.0
 
 // A Flathub icon. The package glyph shows until the image is Ready, so a
 // slow or failed fetch reads as a placeholder rather than an empty box.

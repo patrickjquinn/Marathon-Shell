@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
@@ -11,8 +13,13 @@ Page {
     // From the cover: Discover, with the search field focused.
     function showSearch() {
         tabs.moveTo(0, PagedView.Immediate);
-        if (tabs.currentItem && tabs.currentItem.item)
-            tabs.currentItem.item.focusSearch();
+        focusSearchIn(tabs.currentItem);
+    }
+
+    // Untyped: a tab is Keel's private AnimatedLoader.
+    function focusSearchIn(tab) {
+        if (tab && tab.item)
+            tab.item.focusSearch();
     }
 
     TabView {
