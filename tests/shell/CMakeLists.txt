@@ -226,6 +226,12 @@ target_link_libraries(test_shell_sailfishlaunch Qt6::Test Qt6::Core)
 target_include_directories(test_shell_sailfishlaunch PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_SailfishLaunch COMMAND test_shell_sailfishlaunch)
 
+add_executable(test_shell_desktopfileparser test_desktopfileparser.cpp
+    ../../shell/src/components/desktopfileparser.cpp)
+target_link_libraries(test_shell_desktopfileparser Qt6::Test Qt6::Core)
+target_include_directories(test_shell_desktopfileparser PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/components)
+add_test(NAME Shell_DesktopFileParser COMMAND test_shell_desktopfileparser)
+
 add_executable(test_shell_processtree test_processtree.cpp)
 target_link_libraries(test_shell_processtree Qt6::Test Qt6::Core)
 target_include_directories(test_shell_processtree PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
