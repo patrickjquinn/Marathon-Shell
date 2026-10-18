@@ -25,6 +25,8 @@ singleton PermissionManager 1.0 PermissionManager.qml
 GlyphIcon 1.0 GlyphIcon.qml
 MCircularIconButton 1.0 ../../../../../shell/qml/ui/MCircularIconButton.qml
 MHubRow 1.0 ../../../../../shell/qml/ui/MHubRow.qml
+MGlassBackdrop 1.0 ../../../../../shell/qml/ui/MGlassBackdrop.qml
+MGlassPlatter 1.0 ../../../../../shell/qml/ui/MGlassPlatter.qml
 NotificationIcon 1.0 ../../../../../shell/qml/ui/NotificationIcon.qml
 NotificationActions 1.0 ../../../../../shell/qml/ui/NotificationActions.qml
 singleton Router 1.0 Router.qml
