@@ -102,9 +102,6 @@ Rectangle {
         function onAppsChanged() {
             Qt.callLater(hub.refreshSources);
         }
-        function onDataChanged() {
-            Qt.callLater(hub.refreshSources);
-        }
     }
 
     SortFilterProxyModel {
