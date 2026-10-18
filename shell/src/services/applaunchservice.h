@@ -80,6 +80,8 @@ class AppLaunchService : public QObject {
     // and calls UIStore. Kept as a signal (not a direct UIStore call) so the
     // shade's own !isLocked gate lives in one place, in QML.
     void requestQuickSettings(int mode) { emit quickSettingsRequested(mode); }
+    // The home screen, or the switcher; MarathonShell.qml goes there.
+    void requestHome(bool switcher) { emit homeRequested(switcher); }
 
   signals:
     void compositorChanged();
@@ -100,6 +102,7 @@ class AppLaunchService : public QObject {
 
     // Quick Settings shade requested over IPC. mode: 0 hide, 1 show, 2 toggle.
     void quickSettingsRequested(int mode);
+    void homeRequested(bool switcher);
     // A window the app shows above the app on screen (KeelDialog).
     void dialogSurfaceCreated(const QString &appId, QObject *xdgSurface, int surfaceId);
 

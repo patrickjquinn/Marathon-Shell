@@ -27,6 +27,8 @@ set(SOURCES
     src/ipc/permissionauth.h
     src/ipc/shellservices.h
     src/ipc/shellservices.cpp
+    src/ipc/shellkeelactions.h
+    src/ipc/shellkeelactions.cpp
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc/dbusnormalize.cpp
     src/models/taskmodel.h
     src/models/taskmodel.cpp
@@ -469,6 +471,11 @@ qt_add_resources(marathon-shell "shell_shaders"
         shaders/windowcorner.vert.qsb
         shaders/windowcorner.frag.qsb
 )
+qt_add_resources(marathon-shell "shell_keel_actions"
+    PREFIX "/keel"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/dbus"
+    FILES dbus/keel-actions.json
+)
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/wallpapers"
@@ -776,6 +783,8 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon-ngf.conf
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/system.d)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/marathon.portal
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xdg-desktop-portal/portals)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbus/keel-actions.json
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/keel/actions RENAME org.marathonos.shell.json)
 # Default-ambience GTK 3 themes and KDE colour scheme (ToolkitTheme); the
 # shell rewrites the GTK files per user as the ambience changes.
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/toolkit-themes/themes/

@@ -1001,6 +1001,14 @@ Item {
                 UIStore.openQuickSettings();
         }
 
+        function onHomeRequested(switcher) {
+            shell.handleHomeKey();
+            if (!switcher) {
+                pageView.currentIndex = 2;
+                Router.goToAppPage(0);
+            }
+        }
+
         target: AppLaunchService
     }
 

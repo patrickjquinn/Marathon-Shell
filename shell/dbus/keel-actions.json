@@ -1,0 +1,325 @@
+{
+  "appId": "org.marathonos.shell",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.close",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Close an open app and remove it from the app switcher; anything the app has not saved may be lost. Fails while the phone is locked.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The app's id, from apps.running",
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/app.close",
+      "title": "Close app"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.launch",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Open an installed app and bring it to the front, optionally at a route the app understands (such as a page path). Fails while the phone is locked.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The app's id, from apps.list",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "route": {
+            "description": "Where in the app to open",
+            "maxLength": 1024,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/app.launch",
+      "title": "Open app"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "apps.list",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the apps installed on the phone, each with its id (what app.launch takes) and its name.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/apps.list",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 256,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "type": "object"
+            },
+            "maxItems": 500,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "List apps"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "apps.running",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the apps that are open, in the order the app switcher shows them (most recently opened first), each with its id and its name.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/apps.running",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 256,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "List open apps"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "quicksettings.hide",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Put Quick Settings away if it is showing. Fails while the phone is locked.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/quicksettings.hide",
+      "title": "Hide Quick Settings"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "quicksettings.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Pull down Quick Settings, the panel of system toggles such as Wi-Fi, Bluetooth and brightness. Fails while the phone is locked.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/quicksettings.show",
+      "title": "Show Quick Settings"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "shell.home",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Go to the home screen (the app grid). The app in front stays open in the background. Fails while the phone is locked.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/shell.home",
+      "title": "Go home"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "shell.state",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Whether the phone is locked, whether the screen is on, which app is in front (empty on the home screen and the app switcher) and whether Quick Settings is showing.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/shell.state",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "foregroundApp": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "quickSettingsOpen": {
+            "type": "boolean"
+          },
+          "screenOn": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locked",
+          "screenOn",
+          "foregroundApp",
+          "quickSettingsOpen"
+        ],
+        "type": "object"
+      },
+      "title": "Shell state"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "shell.switcher",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Show the app switcher with the open apps. The app in front stays open in the background. Fails while the phone is locked.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.shell/shell.switcher",
+      "title": "Show app switcher"
+    }
+  ],
+  "version": 1
+}

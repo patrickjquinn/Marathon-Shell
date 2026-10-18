@@ -136,6 +136,7 @@
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
 #include "src/ipc/shellipcserver.h"
+#include "src/ipc/shellkeelactions.h"
 #include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
@@ -1363,6 +1364,11 @@ int main(int argc, char *argv[]) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";
         }
+        auto *keelActions =
+            new ShellKeelActions(appModel, taskModel, appLaunchService, appLifecycleManager,
+                                 uiStore, sessionStore, displayPolicyController, &app);
+        if (!keelActions->registerOnSessionBus())
+            qWarning() << "[MarathonShell] Keel Actions not served (org.marathonos.shell)";
     }
 
     QObject::connect(telephonyService, &TelephonyService::callEnded, callHistoryManager,
