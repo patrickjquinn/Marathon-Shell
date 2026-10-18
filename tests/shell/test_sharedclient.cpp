@@ -1,0 +1,168 @@
+#include <QTest>
+
+#include "applaunchservice.h"
+#include "applifecyclemanager.h"
+#include "taskmodel.h"
+
+// Waydroid: one client maps a toplevel per Android app, and each app is
+// launched by a separate, short-lived `waydroid app launch` process.
+class FakeCompositor : public QObject {
+    Q_OBJECT
+  public:
+    QList<int>       closed;
+    Q_INVOKABLE void launchApp(const QString &) {}
+    Q_INVOKABLE void closeWindow(int surfaceId) { closed << surfaceId; }
+};
+
+class FakeShell : public QObject {
+    Q_OBJECT
+  public:
+    QStringList      shown;
+    Q_INVOKABLE void show(const QVariant &id, const QVariant &, const QVariant &, const QVariant &,
+                          const QVariant &, const QVariant &surfaceId) {
+        if (surfaceId.toInt() >= 0)
+            shown << id.toString();
+    }
+    Q_INVOKABLE void openApp(const QVariant &, const QVariant &, const QVariant &) {}
+};
+
+class TestSharedClient : public QObject {
+    Q_OBJECT
+
+    // Above pid_max, so no such process exists to be signalled.
+    static constexpr qint64 kClient  = 4194320;
+    static constexpr qint64 kLaunchA = 4194321;
+    static constexpr qint64 kLaunchB = 4194322;
+
+    TaskModel           *tasks     = nullptr;
+    AppLaunchService    *launcher  = nullptr;
+    AppLifecycleManager *lifecycle = nullptr;
+    FakeCompositor      *comp      = nullptr;
+    FakeShell           *shell     = nullptr;
+    QObject              surfaceA;
+    QObject              surfaceB;
+    QObject              windowA;
+    QObject              windowB;
+
+    static QString id(const QString &pkg) { return QStringLiteral("waydroid.") + pkg; }
+    static QString exec(const QString &pkg) { return QStringLiteral("waydroid app launch ") + pkg; }
+    static QVariantMap app(const QString &pkg) {
+        return {{"id", id(pkg)}, {"name", pkg.toUpper()}, {"icon", pkg + ".png"},
+                {"type", "native"}, {"exec", exec(pkg)}};
+    }
+
+    void launch(const QString &pkg, qint64 launcherPid) {
+        QVERIFY(launcher->launchApp(app(pkg)));
+        launcher->onCompositorAppLaunched(exec(pkg), launcherPid);
+    }
+    void map(const QString &pkg, int surfaceId, QObject *surface) {
+        launcher->mapWindow(kClient, id(pkg), pkg + " (Android title)", QString(), surfaceId,
+                            surface);
+    }
+    // MarathonAppWindow registers each shown native window like this.
+    void show(const QString &pkg, int surfaceId, QObject *window) {
+        window->setProperty("surfaceId", surfaceId);
+        window->setProperty("isNative", true);
+        lifecycle->registerApp(id(pkg), window);
+        lifecycle->bringToForeground(id(pkg));
+    }
+
+  private slots:
+    void init() {
+        tasks     = new TaskModel(this);
+        launcher  = new AppLaunchService(nullptr, tasks, this);
+        lifecycle = new AppLifecycleManager(tasks, launcher, this);
+        comp      = new FakeCompositor;
+        shell     = new FakeShell;
+        launcher->setCompositor(comp);
+        launcher->setAppWindow(shell);
+        launcher->setUiStore(shell);
+        launcher->setAppLifecycleManager(lifecycle);
+    }
+
+    void cleanup() {
+        delete lifecycle;
+        delete launcher;
+        delete tasks;
+        delete comp;
+        delete shell;
+    }
+
+    void eachToplevelIsItsLaunchsTask() {
+        launch("a", kLaunchA);
+        launch("b", kLaunchB);
+        map("a", 11, &surfaceA);
+        map("b", 12, &surfaceB);
+
+        QCOMPARE(tasks->taskCount(), 2);
+        QCOMPARE(tasks->getTaskByAppId(id("a"))->surfaceId(), 11);
+        QCOMPARE(tasks->getTaskByAppId(id("b"))->surfaceId(), 12);
+        QCOMPARE(tasks->getTaskByAppId(id("a"))->title(), QStringLiteral("A"));
+        QCOMPARE(tasks->getTaskByAppId(id("b"))->title(), QStringLiteral("B"));
+        QCOMPARE(shell->shown, (QStringList{id("a"), id("b")}));
+    }
+
+    void neitherProcessIsTheApps() {
+        launch("a", kLaunchA);
+        launch("b", kLaunchB);
+        map("a", 11, &surfaceA);
+        map("b", 12, &surfaceB);
+
+        for (const QString &pkg : {QStringLiteral("a"), QStringLiteral("b")}) {
+            QCOMPARE(launcher->pidForAppId(id(pkg)), -1);
+            QCOMPARE(launcher->terminationPidForAppId(id(pkg)), -1);
+        }
+        QVERIFY(launcher->appIdForPid(kClient).isEmpty());
+        QVERIFY(launcher->appIdForPid(kLaunchA).isEmpty());
+        QVERIFY(launcher->appIdForPid(kLaunchB).isEmpty());
+    }
+
+    void theLauncherExitingLeavesTheWindow() {
+        launch("a", kLaunchA);
+        map("a", 11, &surfaceA);
+        show("a", 11, &windowA);
+        launcher->onCompositorAppClosed(kLaunchA);
+
+        QVERIFY(tasks->getTaskByAppId(id("a")));
+        QCOMPARE(lifecycle->lifecycleState(id("a")), int(AppLifecycleManager::Foreground));
+    }
+
+    void aSecondTapsLauncherToo() {
+        launch("a", kLaunchA);
+        launch("a", kLaunchB);
+        map("a", 11, &surfaceA);
+        launcher->onCompositorAppClosed(kLaunchB);
+        launcher->onCompositorAppClosed(kLaunchA);
+
+        QVERIFY(tasks->getTaskByAppId(id("a")));
+    }
+
+    void aBackgroundLaunchStaysBehind() {
+        QVERIFY(launcher->startAppInBackground(app("a")));
+        launcher->onCompositorAppLaunched(exec("a"), kLaunchA);
+        map("a", 11, &surfaceA);
+
+        QVERIFY(tasks->getTaskByAppId(id("a")));
+        QVERIFY(shell->shown.isEmpty());
+        QVERIFY(!launcher->isBackgroundLaunch(id("a")));
+    }
+
+    void closingOneClosesOnlyItsWindow() {
+        launch("a", kLaunchA);
+        launch("b", kLaunchB);
+        map("a", 11, &surfaceA);
+        map("b", 12, &surfaceB);
+        show("a", 11, &windowA);
+        show("b", 12, &windowB);
+
+        lifecycle->closeApp(id("a"));
+
+        QCOMPARE(comp->closed, QList<int>{11});
+        QVERIFY(!tasks->getTaskByAppId(id("a")));
+        QVERIFY(tasks->getTaskByAppId(id("b")));
+        QCOMPARE(lifecycle->lifecycleState(id("b")), int(AppLifecycleManager::Foreground));
+    }
+};
+
+QTEST_GUILESS_MAIN(TestSharedClient)
+#include "test_sharedclient.moc"

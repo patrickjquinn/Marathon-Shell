@@ -391,6 +391,28 @@ target_include_directories(test_shell_backgroundlaunch PRIVATE
 )
 add_test(NAME Shell_BackgroundLaunch COMMAND test_shell_backgroundlaunch)
 
+# One client's toplevels are separate apps, launched by another process
+add_executable(test_shell_sharedclient
+    test_sharedclient.cpp
+    ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/services/applifecyclemanager.cpp
+    ../../shell/src/services/cgroupmanager.cpp
+    ../../shell/src/services/processstopper.cpp
+    ../../shell/src/models/taskmodel.cpp
+    ../../shell/src/models/appmodel.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+    ../../shell/src/managers/screenmetrics.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
+)
+target_link_libraries(test_shell_sharedclient Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
+target_include_directories(test_shell_sharedclient PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell
+    ${CMAKE_SOURCE_DIR}/shell/src/services
+    ${CMAKE_SOURCE_DIR}/shell/src/models
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+)
+add_test(NAME Shell_SharedClient COMMAND test_shell_sharedclient)
+
 # The bwrap sandbox a Marathon app is launched in
 add_executable(test_shell_sandboxlaunch
     test_sandboxlaunch.cpp

@@ -33,6 +33,8 @@
 #include <QDBusPendingReply>
 #include <QUuid>
 
+#include <optional>
+
 #if defined(HAVE_WAYLAND)
 #include "wayland/waylandcompositor.h"
 #include <QtWaylandCompositor/QWaylandClient>
@@ -2069,6 +2071,26 @@ void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
         }
     }
 #endif
+
+    // Launched by another process (`waydroid app launch`), which is not the app.
+    std::optional<PendingLaunch> launch;
+    for (auto it = m_activeByPid.begin(); !xdgAppId.isEmpty() && it != m_activeByPid.end();) {
+        if (it->appId != xdgAppId) {
+            ++it;
+            continue;
+        }
+        qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to the launch of"
+                << xdgAppId << "by PID" << it.key() << "- window from PID" << pid;
+        launch = it.value();
+        m_pidToAppId.remove(it.key());
+        if (m_appIdToPid.value(xdgAppId) == it.key())
+            m_appIdToPid.remove(xdgAppId);
+        it = m_activeByPid.erase(it);
+    }
+    if (launch) {
+        showLaunch(*launch);
+        return;
+    }
 
     if (!xdgAppId.isEmpty() && m_taskModel) {
         if (Task *existing = m_taskModel->getTaskByAppId(xdgAppId)) {
