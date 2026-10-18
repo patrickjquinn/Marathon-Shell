@@ -23,7 +23,7 @@ class TestPortalSettings : public QObject {
     void accentIsTheHighlight() {
         const auto   a = PortalSettings::appearance(ambience("lightondark", "#ff8000"));
         const QColor c = a.value("accent-color").value<QColor>();
-        QCOMPARE(c, QColor("#ff8000"));
+        QCOMPARE(c, QColor(0xff8000));
     }
     void noAmbienceHasNoPreference() {
         const auto a = PortalSettings::appearance({});

@@ -80,15 +80,15 @@ class TestToolkitTheme : public QObject {
     void adwaitaAccentsMapToThemselves_data() {
         QTest::addColumn<QColor>("color");
         QTest::addColumn<QString>("name");
-        QTest::newRow("blue") << QColor("#3584e4") << "blue";
-        QTest::newRow("teal") << QColor("#2190a4") << "teal";
-        QTest::newRow("green") << QColor("#3a944a") << "green";
-        QTest::newRow("yellow") << QColor("#c88800") << "yellow";
-        QTest::newRow("orange") << QColor("#ed5b00") << "orange";
-        QTest::newRow("red") << QColor("#e62d42") << "red";
-        QTest::newRow("pink") << QColor("#d56199") << "pink";
-        QTest::newRow("purple") << QColor("#9141ac") << "purple";
-        QTest::newRow("slate") << QColor("#6f8396") << "slate";
+        QTest::newRow("blue") << QColor(0x3584e4) << "blue";
+        QTest::newRow("teal") << QColor(0x2190a4) << "teal";
+        QTest::newRow("green") << QColor(0x3a944a) << "green";
+        QTest::newRow("yellow") << QColor(0xc88800) << "yellow";
+        QTest::newRow("orange") << QColor(0xed5b00) << "orange";
+        QTest::newRow("red") << QColor(0xe62d42) << "red";
+        QTest::newRow("pink") << QColor(0xd56199) << "pink";
+        QTest::newRow("purple") << QColor(0x9141ac) << "purple";
+        QTest::newRow("slate") << QColor(0x6f8396) << "slate";
         QTest::newRow("marathon teal") << kDefaultHighlight << "teal";
     }
     void adwaitaAccentsMapToThemselves() {
@@ -104,7 +104,7 @@ class TestToolkitTheme : public QObject {
                                    "ForegroundInactive", "ForegroundActive",    "ForegroundLink",
                                    "ForegroundVisited",  "ForegroundNegative",  "ForegroundNeutral",
                                    "ForegroundPositive", "DecorationFocus",     "DecorationHover"};
-        const QRegularExpression rgb(QStringLiteral("^\\d{1,3},\\d{1,3},\\d{1,3}$"));
+        static const QRegularExpression rgb(QStringLiteral("^\\d{1,3},\\d{1,3},\\d{1,3}$"));
         for (const char *set :
              {"Window", "View", "Button", "Selection", "Tooltip", "Complementary", "Header"}) {
             const auto group = groups.value(QStringLiteral("Colors:") + QLatin1String(set));
