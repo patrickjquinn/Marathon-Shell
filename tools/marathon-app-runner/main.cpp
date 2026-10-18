@@ -1413,10 +1413,12 @@ int main(int argc, char *argv[]) {
                     wrapper += QString("import %1\n").arg(qmldir.moduleUri);
                 wrapper += QString("%1 { }\n").arg(componentName);
 
+                // A local URL loads synchronously: a Keel Actions call queued for
+                // the app's bus name arrives only once its window is shown.
                 component = new QQmlComponent(engine, &view);
                 component->setData(
                     wrapper.toUtf8(),
-                    QUrl(QStringLiteral("marathon-app:///%1/Wrapper.qml").arg(appId)));
+                    QUrl::fromLocalFile(QDir(appAbsPath).filePath(QStringLiteral("Wrapper.qml"))));
             }
 
             auto createAndAttach = [component, &view, ctx, appId, &lifecycleObj, &startupTimer,

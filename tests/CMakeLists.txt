@@ -52,6 +52,11 @@ if(_SILICA_QMLDIR)
         set_tests_properties(Keyboard_TextInput PROPERTIES ENVIRONMENT
             "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;MARATHON_TEST_QML_IMPORTS=${CMAKE_SOURCE_DIR}/tests/ui/stubs:${CMAKE_SOURCE_DIR}/marathon-silica:${_SILICA_QMLDIR}")
     endif()
+    if(TARGET test_shell_keelshow AND TARGET marathon-app-runner)
+        add_test(NAME Shell_KeelShow COMMAND test_shell_keelshow)
+        set_tests_properties(Shell_KeelShow PROPERTIES ENVIRONMENT
+            "KEEL_QML=${_SILICA_QMLDIR};MARATHON_APP_RUNNER=$<TARGET_FILE:marathon-app-runner>")
+    endif()
     if(TARGET marathon-shell)
         add_test(NAME Shell_Loads COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/loads.sh $<TARGET_FILE:marathon-shell> "${_SILICA_QMLDIR}:${CMAKE_SOURCE_DIR}/marathon-silica")
     endif()

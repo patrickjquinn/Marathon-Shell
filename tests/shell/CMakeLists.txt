@@ -483,6 +483,13 @@ if(BUSCTL AND DBUS_DAEMON)
     add_test(NAME Shell_KeelActivation COMMAND test_shell_keelactivation)
 endif()
 
+# app.show for an app that is not running, through the real runner (registered
+# in tests/CMakeLists.txt, which finds Keel's Silica)
+if(DBUS_DAEMON)
+    add_executable(test_shell_keelshow test_keelshow.cpp)
+    target_link_libraries(test_shell_keelshow Qt6::Test Qt6::Core Qt6::DBus)
+endif()
+
 # The shell's own Keel Actions on a private bus: dispatch, arguments, who may call
 if(DBUS_RUN_SESSION AND BUSCTL)
     find_package(Qt6 REQUIRED COMPONENTS Sensors)
