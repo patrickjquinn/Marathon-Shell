@@ -132,6 +132,7 @@
 #include "src/services/emojipredictor.h"
 #include "src/services/phrasepredictor.h"
 #include "src/services/inputcontext.h"
+#include "src/services/remotetextinput.h"
 #include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
@@ -145,6 +146,7 @@
 #include "src/diag/fpsmonitor.h"
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
+#include <QWaylandQuickShellSurfaceItem>
 #endif
 
 template <typename T, typename... Args>
@@ -736,6 +738,20 @@ int main(int argc, char *argv[]) {
 
     createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
     qInfo() << "Input Method Engine initialized";
+
+    auto *remoteTextInput = createObject<RemoteTextInput>(
+        ctx, "RemoteTextInput",
+        [](QObject *object) -> QString {
+#ifdef HAVE_WAYLAND
+            auto *item = qobject_cast<QWaylandQuickShellSurfaceItem *>(object);
+            auto *xdg  = item ? qobject_cast<QWaylandXdgSurface *>(item->shellSurface()) : nullptr;
+            if (xdg && xdg->toplevel())
+                return xdg->toplevel()->appId();
+#endif
+            Q_UNUSED(object);
+            return {};
+        },
+        &app);
 
     auto *appModel  = createObject<AppModel>(ctx, "AppModel", &app);
     auto *taskModel = new TaskModel(&app);
@@ -1371,6 +1387,11 @@ int main(int argc, char *argv[]) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";
         }
+        if (!QDBusConnection::sessionBus().registerObject(
+                QStringLiteral("/org/marathonos/Shell/TextInput"),
+                new RemoteTextInputService(remoteTextInput, &app),
+                QDBusConnection::ExportAllSlots))
+            qWarning() << "[MarathonShell] TextInput1 not served";
         auto *keelActions =
             new ShellKeelActions(appModel, taskModel, appLaunchService, appLifecycleManager,
                                  uiStore, sessionStore, displayPolicyController, &app);

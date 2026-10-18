@@ -189,6 +189,8 @@ set(SOURCES
     src/services/autocorrect.cpp
     src/services/inputcontext.h
     src/services/inputcontext.cpp
+    src/services/remotetextinput.h
+    src/services/remotetextinput.cpp
     src/managers/flashlightmanagercpp.h
     src/managers/flashlightmanagercpp.cpp
     src/controllers/audioroutingmanager.h

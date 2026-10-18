@@ -830,6 +830,19 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AN
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
 
+# Marathon's keyboard types into an input method service's editors (Deckard's
+# Android apps): queries, commits and keys for the window it reported
+add_executable(test_shell_remotetextinput
+    test_remotetextinput.cpp
+    ../../shell/src/services/remotetextinput.cpp
+    ../../shell/src/services/inputcontext.cpp
+)
+target_link_libraries(test_shell_remotetextinput Qt6::Test Qt6::Quick Qt6::DBus)
+target_include_directories(test_shell_remotetextinput PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Shell_RemoteTextInput COMMAND test_shell_remotetextinput)
+set_tests_properties(Shell_RemoteTextInput PROPERTIES ENVIRONMENT
+    "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+
 # One screen state: Display1, the power key and Doze agree on it, and touch
 # works again after a blank and wake
 find_package(Qt6 REQUIRED COMPONENTS Quick Sensors)

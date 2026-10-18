@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QInputDevice>
 #include <QInputMethod>
 #include <QInputMethodEvent>
 #include <QInputMethodQueryEvent>
@@ -29,8 +30,13 @@ namespace {
         QObject *focus = QGuiApplication::focusObject();
         if (!focus)
             return;
-        QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, scanCode, keysym, 0);
-        QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, scanCode, keysym, 0);
+        // Named so an input method service's window can take it as a keyboard key.
+        static const QInputDevice keyboard(QStringLiteral("marathon-osk"), 0,
+                                           QInputDevice::DeviceType::Keyboard);
+        QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, scanCode, keysym, 0, {}, false, 1,
+                        &keyboard);
+        QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, scanCode, keysym, 0, {}, false,
+                          1, &keyboard);
         QGuiApplication::sendEvent(focus, &press);
         QGuiApplication::sendEvent(focus, &release);
     }
