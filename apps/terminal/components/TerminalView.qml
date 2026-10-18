@@ -157,7 +157,7 @@ Item {
                 }
                 root.clearSelection();
                 root.forceFocus();
-                (Qt.inputMethod as InputMethod).show();
+                Qt.inputMethod.show(); // qmllint disable missing-property
             }
             onPressAndHold: mouse => {
                 selecting = true;
