@@ -93,7 +93,8 @@ Item {
             width: root.width
             height: root.height
             browser: root.browser
-            webLayer: root
+            // To qmllint, this file's root and its WebLayer type are two types.
+            webLayer: root // qmllint disable incompatible-type
         }
     }
 }
