@@ -923,6 +923,9 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 
 void WaylandCompositor::activateSurface(int surfaceId) {
     QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
+    const MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface);
+    if (marathon && !marathon->focusable())
+        return;
     if (surface && defaultSeat()) {
         defaultSeat()->setKeyboardFocus(surface);
         if (wlVerbose())
@@ -1211,12 +1214,14 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
     // output size up-front, the client always gets a first configure within
     // milliseconds of mapping and can proceed to attach + commit its buffer.
     {
-        if (MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface))
+        MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface);
+        if (marathon)
             marathon->sendInsets(QMargins(), 0);
         const QSize initialSize = appConfigureSize(surface);
         if (initialSize.width() > 0 && initialSize.height() > 0) {
-            QList<QWaylandXdgToplevel::State> states;
-            states << QWaylandXdgToplevel::ActivatedState << QWaylandXdgToplevel::MaximizedState;
+            QList<QWaylandXdgToplevel::State> states{QWaylandXdgToplevel::MaximizedState};
+            if (!marathon || marathon->focusable())
+                states << QWaylandXdgToplevel::ActivatedState;
             toplevel->sendConfigure(initialSize, states);
             qInfo() << "[WaylandCompositor] Sent initial configure" << initialSize << "for surfaceId"
                     << surfaceId;

@@ -17,6 +17,9 @@ ShellSurfaceItem {
     property bool isPreview: false
     // Typed QObject in C++; the members used here are WaylandCompositor's.
     readonly property var launchCompositor: AppLaunchService.compositor
+    // The client's marathon_surface_v1 state, if it has one.
+    readonly property var marathonSurface: launchCompositor ? launchCompositor.marathonSurfaces[surfaceId] : undefined
+    readonly property bool focusable: !marathonSurface || marathonSurface.focusable
     readonly property bool hasFirstFrame: {
         var s = _surfaceFromObj(surfaceObj);
         return s ? s.hasContent : false;
@@ -132,7 +135,7 @@ ShellSurfaceItem {
     }
 
     function takeFocusForKeyboard() {
-        if (!isPreview && !isMinimized && hasSentInitialSize && visible)
+        if (focusable && !isPreview && !isMinimized && hasSentInitialSize && visible)
             forceActiveFocus();
     }
 
@@ -163,7 +166,8 @@ ShellSurfaceItem {
         return null;
     }
     touchEventsEnabled: true
-    focusOnClick: true
+    inputEventsEnabled: !marathonSurface || marathonSurface.touchable
+    focusOnClick: focusable
     output: surfaceItem.launchCompositor ? surfaceItem.launchCompositor.output : null
     onShellSurfaceChanged: {
         if (shellSurface) {
