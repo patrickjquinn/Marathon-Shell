@@ -1,6 +1,7 @@
 #include <QAudioOutput>
 #include <QFile>
 #include <QMediaPlayer>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTest>
 
@@ -53,6 +54,17 @@ class TestAudioPolicy : public QObject {
             policy.playNotificationSound();
             QVERIFY2(policy.findChildren<QMediaPlayer *>().isEmpty(), profile);
         }
+    }
+
+    // Audio1.StateChanged follows Do Not Disturb, which the policy reports.
+    void doNotDisturbIsReported() {
+        AudioPolicyController policy(nullptr, m_settings, nullptr);
+        QSignalSpy            changed(&policy, &AudioPolicyController::doNotDisturbChanged);
+        m_settings->setDndEnabled(true);
+        QCOMPARE(changed.count(), 1);
+        QVERIFY(policy.isDoNotDisturb());
+        m_settings->setDndEnabled(false);
+        QCOMPARE(changed.count(), 2);
     }
 
     // freedesktop's suppress-sound hint: no sound, the vibration rules as ever.

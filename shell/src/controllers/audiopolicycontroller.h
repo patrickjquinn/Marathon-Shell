@@ -48,6 +48,7 @@ class AudioPolicyController : public QObject {
 
   signals:
     void audioProfileChanged();
+    void doNotDisturbChanged();
 
   private:
     void applyProfileSideEffects(const QString &profile);

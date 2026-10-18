@@ -259,6 +259,28 @@ SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionMana
                      });
     QObject::connect(m_settings, &SettingsManager::dateTimeChangeFailed, this,
                      &SettingsObject::DateTimeChangeFailed);
+    // What a sound source (Deckard's Android) follows to stay quiet.
+    QObject::connect(m_settings, &SettingsManager::dndEnabledChanged, this,
+                     [this, emitProp]() { emitProp("dndEnabled", m_settings->dndEnabled()); });
+    QObject::connect(m_settings, &SettingsManager::audioProfileChanged, this,
+                     [this, emitProp]() { emitProp("audioProfile", m_settings->audioProfile()); });
+    QObject::connect(m_settings, &SettingsManager::vibrationEnabledChanged, this, [this, emitProp]() {
+        emitProp("vibrationEnabled", m_settings->vibrationEnabled());
+    });
+    QObject::connect(m_settings, &SettingsManager::mediaVolumeChanged, this,
+                     [this, emitProp]() { emitProp("mediaVolume", m_settings->mediaVolume()); });
+    QObject::connect(m_settings, &SettingsManager::ringtoneVolumeChanged, this, [this, emitProp]() {
+        emitProp("ringtoneVolume", m_settings->ringtoneVolume());
+    });
+    QObject::connect(m_settings, &SettingsManager::alarmVolumeChanged, this,
+                     [this, emitProp]() { emitProp("alarmVolume", m_settings->alarmVolume()); });
+    QObject::connect(m_settings, &SettingsManager::notificationVolumeChanged, this,
+                     [this, emitProp]() {
+                         emitProp("notificationVolume", m_settings->notificationVolume());
+                     });
+    QObject::connect(m_settings, &SettingsManager::systemVolumeChanged, this, [this, emitProp]() {
+        emitProp("systemVolume", m_settings->systemVolume());
+    });
     QObject::connect(m_settings, &SettingsManager::dateFormatChanged, this,
                      [this, emitProp]() { emitProp("dateFormat", m_settings->dateFormat()); });
     QObject::connect(m_settings, &SettingsManager::screenTimeoutChanged, this, [this, emitProp]() {
@@ -1058,8 +1080,10 @@ AudioObject::AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
     QObject::connect(m_audio, &AudioManagerCpp::volumeChanged, this, push);
     QObject::connect(m_audio, &AudioManagerCpp::mutedChanged, this, push);
     QObject::connect(m_audio, &AudioManagerCpp::streamsChanged, this, push);
-    if (m_policy)
+    if (m_policy) {
         QObject::connect(m_policy, &AudioPolicyController::audioProfileChanged, this, push);
+        QObject::connect(m_policy, &AudioPolicyController::doNotDisturbChanged, this, push);
+    }
 }
 
 QVariantMap AudioObject::buildState() const {

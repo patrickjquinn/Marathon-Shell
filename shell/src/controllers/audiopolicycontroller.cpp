@@ -52,6 +52,8 @@ AudioPolicyController::AudioPolicyController(AudioManagerCpp *audioManager,
     if (m_settings) {
         connect(m_settings, &SettingsManager::audioProfileChanged, this,
                 &AudioPolicyController::audioProfileChanged);
+        connect(m_settings, &SettingsManager::dndEnabledChanged, this,
+                &AudioPolicyController::doNotDisturbChanged);
         const QString profile           = m_settings->audioProfile();
         const QString desktop           = qEnvironmentVariable("XDG_CURRENT_DESKTOP");
         const QString session           = qEnvironmentVariable("XDG_SESSION_DESKTOP");
