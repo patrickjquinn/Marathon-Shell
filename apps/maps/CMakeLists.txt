@@ -32,6 +32,8 @@ add_marathon_app(${APP_NAME}
     SOURCES ${SOURCES}
 )
 
+install_keel_actions(${APP_NAME} keel-actions.json)
+
 # Link Positioning for GPS/location fallback (QtLocation Map is replaced
 # by a WebEngineView + MapLibre GL JS render, but PositionSource is still
 # the no-Geoclue fallback path).

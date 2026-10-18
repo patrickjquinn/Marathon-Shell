@@ -1,0 +1,215 @@
+{
+  "appId": "org.marathonos.maps",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.maps/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "directions.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Plan a route in Marathon Maps from the person's location to the latitude and longitude, by car, on foot or by bicycle, and bring Maps to the front showing it; the person starts turn-by-turn navigation from there. Without a location fix Maps asks the person to tap a starting point.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "lat": {
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number"
+          },
+          "mode": {
+            "default": "auto",
+            "description": "auto drives, pedestrian walks, bicycle cycles",
+            "enum": [
+              "auto",
+              "pedestrian",
+              "bicycle"
+            ],
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "name": {
+            "description": "What the destination is called",
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.maps/directions.show",
+      "title": "Show directions"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "map.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Show a place to the person in Marathon Maps: brings Maps to the front with the map centred on the latitude and longitude and a pin there, named `name` (for example a place from places.search). The place is added to Maps' recent places.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "lat": {
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number"
+          },
+          "name": {
+            "description": "What the place is called",
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.maps/map.show",
+      "title": "Show on map"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "places.search",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search OpenStreetMap (Nominatim), as Marathon Maps' search does, for places, addresses and businesses matching the query, favouring places near the person when Maps knows where they are. Returns up to `limit` places, each with its name, full address, latitude, longitude and kind.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 5,
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.maps/places.search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "address": {
+                  "maxLength": 1024,
+                  "type": "string"
+                },
+                "lat": {
+                  "maximum": 90,
+                  "minimum": -90,
+                  "type": "number"
+                },
+                "lon": {
+                  "maximum": 180,
+                  "minimum": -180,
+                  "type": "number"
+                },
+                "name": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "type": {
+                  "maxLength": 64,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "address",
+                "lat",
+                "lon",
+                "type"
+              ],
+              "type": "object"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Search places"
+    }
+  ],
+  "version": 1
+}

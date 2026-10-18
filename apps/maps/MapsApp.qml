@@ -412,6 +412,10 @@ ApplicationWindow {
         target: root.location
     }
 
+    MapsActions {
+        app: root
+    }
+
     Timer {
         id: searchTimeout
 
