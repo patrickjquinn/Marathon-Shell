@@ -51,7 +51,8 @@ class AudioPolicyController : public QObject {
 
   private:
     void applyProfileSideEffects(const QString &profile);
-    void wirePlayerVolumes();
+    void   wirePlayerVolumes();
+    double notificationLevel() const;
 
     void ensurePlayer(QMediaPlayer *&player, QAudioOutput *&output, double initialVolume,
                       bool loopForever);

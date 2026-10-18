@@ -4,6 +4,7 @@
 #include <QStandardPaths>
 #include <QTest>
 
+#include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "mediarole.h"
 #include "settingsmanager.h"
@@ -50,6 +51,27 @@ class TestAudioPolicy : public QObject {
             policy.playNotificationSound();
             QVERIFY2(policy.findChildren<QMediaPlayer *>().isEmpty(), profile);
         }
+    }
+
+    // The volume slider scales notification sounds; their own setting sets
+    // their level under it.
+    void notificationsFollowTheVolume() {
+        AudioManagerCpp audio;
+        audio.setVolume(0.5);
+        m_settings->setNotificationVolume(0.8);
+        m_settings->setNotificationSound("/nonexistent/notification.ogg");
+        AudioPolicyController policy(&audio, m_settings, nullptr);
+        policy.playNotificationSound();
+        const QList<QAudioOutput *> outputs = policy.findChildren<QAudioOutput *>();
+        QCOMPARE(outputs.size(), 1);
+        QAudioOutput *output = outputs.first();
+        QVERIFY(qAbs(output->volume() - 0.4f) < 0.01f);
+        audio.setVolume(0.25);
+        QVERIFY(qAbs(output->volume() - 0.2f) < 0.01f);
+        m_settings->setNotificationVolume(0.4);
+        QVERIFY(qAbs(output->volume() - 0.1f) < 0.01f);
+        audio.setMuted(true);
+        QCOMPARE(output->volume(), 0.0f);
     }
 
     // Alarms and ringtones play on their own role, not scaled by media's.

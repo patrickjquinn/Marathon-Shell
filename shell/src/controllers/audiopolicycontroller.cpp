@@ -200,8 +200,7 @@ void AudioPolicyController::playNotificationSound() {
         return;
     }
 
-    ensurePlayer(m_notificationPlayer, m_notificationOutput, m_settings->notificationVolume(),
-                 false);
+    ensurePlayer(m_notificationPlayer, m_notificationOutput, notificationLevel(), false);
     m_notificationOutput->setDevice(MediaRole::output("notification"));
     startPlayback(m_notificationPlayer, toUrl(m_settings->notificationSound()), false);
 }
@@ -244,14 +243,25 @@ void AudioPolicyController::wirePlayerVolumes() {
             m_ringtoneOutput->setVolume(qBound(0.0, m_settings->ringtoneVolume(), 1.0));
         }
     });
-    connect(m_settings, &SettingsManager::notificationVolumeChanged, this, [this]() {
-        if (m_notificationOutput && m_settings) {
-            m_notificationOutput->setVolume(qBound(0.0, m_settings->notificationVolume(), 1.0));
-        }
-    });
+    const auto updateNotification = [this]() {
+        if (m_notificationOutput)
+            m_notificationOutput->setVolume(notificationLevel());
+    };
+    connect(m_settings, &SettingsManager::notificationVolumeChanged, this, updateNotification);
+    if (m_audioManager) {
+        connect(m_audioManager, &AudioManagerCpp::volumeChanged, this, updateNotification);
+        connect(m_audioManager, &AudioManagerCpp::mutedChanged, this, updateNotification);
+    }
     connect(m_settings, &SettingsManager::alarmVolumeChanged, this, [this]() {
         if (m_alarmOutput && m_settings) {
             m_alarmOutput->setVolume(qBound(0.0, m_settings->alarmVolume(), 1.0));
         }
     });
+}
+
+double AudioPolicyController::notificationLevel() const {
+    double level = m_settings ? qBound(0.0, m_settings->notificationVolume(), 1.0) : 1.0;
+    if (m_audioManager)
+        level *= m_audioManager->muted() ? 0.0 : m_audioManager->volume();
+    return level;
 }
