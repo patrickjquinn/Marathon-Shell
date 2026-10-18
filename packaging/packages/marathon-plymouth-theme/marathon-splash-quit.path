@@ -1,0 +1,8 @@
+[Unit]
+Description=End the boot splash at Marathon Shell's first frame
+
+[Path]
+PathExistsGlob=/run/user/*/marathon-shell-ready
+
+[Install]
+WantedBy=multi-user.target
