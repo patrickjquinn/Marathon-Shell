@@ -1152,11 +1152,7 @@ int main(int argc, char *argv[]) {
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
         }
-        QObject::connect(notificationService, &NotificationServiceCpp::notificationClicked,
-                         freedesktopNotif, [freedesktopNotif](int id) {
-                             freedesktopNotif->activate(id, QStringLiteral("default"));
-                         });
-        QObject::connect(notificationService, &NotificationServiceCpp::notificationActionTriggered,
+        QObject::connect(notificationService, &NotificationServiceCpp::notificationActivated,
                          freedesktopNotif, &FreedesktopNotifications::activate);
 
         auto *unifiedPush = new UnifiedPushDistributor(notificationService, settingsManager, &app);

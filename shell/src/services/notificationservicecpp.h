@@ -73,6 +73,10 @@ class NotificationServiceCpp : public QObject {
 
     void notificationReceived(const QVariantMap &notification);
     void notificationDismissed(int id);
+    // A tap ("default") or a button, before notificationClicked or
+    // notificationActionTriggered, so the sender hears of it before the
+    // shell's handling closes the notification.
+    void notificationActivated(int id, const QString &action);
     void notificationClicked(int id);
     void notificationActionTriggered(int id, const QString &action);
 

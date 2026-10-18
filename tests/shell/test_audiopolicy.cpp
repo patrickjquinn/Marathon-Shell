@@ -69,6 +69,24 @@ class TestAudioPolicy : public QObject {
         QCOMPARE(policy.findChildren<QMediaPlayer *>().size(), 1);
     }
 
+    // The sender hears of a tap or button before the shell closes the row:
+    // whatever is connected first, the activation is emitted first.
+    void activationComesBeforeTheShellActs() {
+        NotificationModel      model;
+        NotificationServiceCpp service(&model, m_settings, nullptr, nullptr);
+        QStringList            order;
+        connect(&service, &NotificationServiceCpp::notificationClicked, this,
+                [&order](int) { order << "clicked"; });
+        connect(&service, &NotificationServiceCpp::notificationActionTriggered, this,
+                [&order](int, const QString &) { order << "triggered"; });
+        connect(&service, &NotificationServiceCpp::notificationActivated, this,
+                [&order](int, const QString &action) { order << "activated " + action; });
+        service.clickNotification(3);
+        service.triggerAction(3, "snooze");
+        QCOMPARE(order, (QStringList{"activated default", "clicked", "activated snooze",
+                                     "triggered"}));
+    }
+
     // The volume slider scales notification sounds; their own setting sets
     // their level under it.
     void notificationsFollowTheVolume() {

@@ -125,11 +125,13 @@ void NotificationServiceCpp::clearAll() {
 
 void NotificationServiceCpp::clickNotification(int id) {
     markAsRead(id);
+    emit notificationActivated(id, QStringLiteral("default"));
     emit notificationClicked(id);
 }
 
 void NotificationServiceCpp::triggerAction(int id, const QString &action) {
     markAsRead(id);
+    emit notificationActivated(id, action);
     emit notificationActionTriggered(id, action);
 }
 
