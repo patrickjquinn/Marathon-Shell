@@ -113,6 +113,9 @@ ApplicationWindow {
     }
 
     appId: "calendar"
+
+    CalendarActions {}
+
     cover: Component {
         CalendarCover {
             events: root.events
