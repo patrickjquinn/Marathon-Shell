@@ -1974,7 +1974,7 @@ bool AppLaunchService::isKeelHostApp(const QString &appId) const {
     return hostPidForAppId(appId) > 0;
 }
 
-void AppLaunchService::setAppActive(const QString &appId, bool active) {
+void AppLaunchService::setAppActive(const QString &appId, bool active) const {
     if (isKeelHostApp(appId))
         callRunnerLifecycle(appId, "SetActive", {active});
 }

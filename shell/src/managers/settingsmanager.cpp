@@ -1127,7 +1127,7 @@ static bool storable(const QVariant &v) {
 }
 
 QVariant SettingsManager::get(const QString &key, const QVariant &defaultValue) {
-    const QVariant v = m_settings.value(key, defaultValue);
+    QVariant v = m_settings.value(key, defaultValue);
     if (storable(v))
         return v;
     m_settings.remove(key);
