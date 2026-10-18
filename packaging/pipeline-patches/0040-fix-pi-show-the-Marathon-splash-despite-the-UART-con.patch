@@ -1,0 +1,49 @@
+From d3f3e3c05321bd25cf3145de7d28d3daf885b0f2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 18 Oct 2026 10:12:11 +0100
+Subject: [PATCH] fix(pi): show the Marathon splash despite the UART console
+
+Plymouth forces its text-only details splash on every display when a
+serial console is on the kernel command line (console=ttyAMA10), so the
+Marathon theme never drew on the Pi 5 or the HackberryPi panel.
+plymouth.ignore-serial-consoles keeps the UART console and lets the
+theme render; checked on the HackberryPi with plymouthd
+--kernel-command-line.
+---
+ mkosi.finalize | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index fc7cfbf..227dabb 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -664,6 +664,8 @@ CONFIG
+                 #   console=tty3       — kernel msgs go to tty3, NOT tty1
+                 #                        (plymouth owns tty1 / the panel fb)
+                 #   console=ttyAMA10   — UART debug still works
++                #   plymouth.ignore-serial-consoles — else that UART makes
++                #                        plymouth force its text splash
+                 # dwc_otg.lpm_enable=0 keeps the HackberryPi USB keyboard
+                 # responsive. systemd.gpt_auto=no — Pi MBR is not GPT.
+                 # cgroup_enable=memory — bcm2712-rpi.dtsi bakes
+@@ -673,7 +675,7 @@ CONFIG
+                 #   the DTB-set disable; it landed in 6.12.3+ so 6.12.85
+                 #   has it. Without this, Phase B lifecycle policy is a
+                 #   no-op on Pi 5 / CM5.
+-                echo "splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no pmos.force-partition-resize" \
++                echo "splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 plymouth.ignore-serial-consoles systemd.gpt_auto=no pmos.force-partition-resize" \
+                     > "$BUILDROOT/boot/cmdline.txt"
+                 rm -f "$BUILDROOT/boot/cmdline.txt.raw"
+                 echo "info: Pi-firmware UKI has no .cmdline section, wrote default /boot/cmdline.txt"
+@@ -952,7 +954,7 @@ EOF
+             # USB OTG LPM (HackberryPi keyboard requirement). console=tty1
+             # routes the framebuffer console to the HyperPixel panel.
+             cat > "$BUILDROOT/boot/cmdline.txt" <<'EOF'
+-splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no pmos.force-partition-resize
++splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 plymouth.ignore-serial-consoles systemd.gpt_auto=no pmos.force-partition-resize
+ EOF
+             echo "info: wrote /boot/cmdline.txt"
+             fi  # end "Pi-only: HyperPixel DTB merge + config.txt + cmdline.txt"
+-- 
+2.55.0
+
