@@ -10,7 +10,7 @@ SessionStore *SessionStore::create(QQmlEngine *engine, QJSEngine *) {
 #include <QByteArray>
 #include <QDateTime>
 
-#include <time.h>
+#include <ctime>
 
 static qint64 bootClockMs() {
 #ifdef CLOCK_BOOTTIME

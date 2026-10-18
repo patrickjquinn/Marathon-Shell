@@ -5,7 +5,6 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusReply>
 #include <QDBusMetaType>
-#include <QDBusPendingCallWatcher>
 #include <QDebug>
 
 QDBusArgument &operator<<(QDBusArgument &argument, const GeoClueTimestamp &ts) {
@@ -25,6 +24,7 @@ const QDBusArgument &operator>>(const QDBusArgument &argument, GeoClueTimestamp 
     return argument; // NOLINT(bugprone-return-const-ref-from-parameter)
 }
 
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization) QStringLiteral never allocates
 static const QString kGeoclue = QStringLiteral("org.freedesktop.GeoClue2");
 
 // Every GeoClue call is async: the service is bus-activated and, with no
