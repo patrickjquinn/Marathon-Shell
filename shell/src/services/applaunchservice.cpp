@@ -4,6 +4,7 @@
 #include "appmodel.h"
 #include "processtree.h"
 #include "sailfishlaunch.h"
+#include "src/components/desktopfileparser.h"
 #include "taskmodel.h"
 #include "src/managers/deviceprofile.h"
 #include "src/managers/screenmetrics.h"
@@ -454,11 +455,7 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
 
     if (app.typeId() == QMetaType::QString) {
         const QString appId = app.toString();
-        if (!m_appModel) {
-            qWarning() << "[AppLaunchService] AppModel not available";
-            return {};
-        }
-        if (App *a = m_appModel->getApp(appId)) {
+        if (App *a = m_appModel ? m_appModel->getApp(appId) : nullptr) {
             return {
                 {"id", a->id()},     {"name", a->name()}, {"icon", a->icon()},
                 {"type", a->type()}, {"exec", a->exec()}, {"permissions", a->permissions()},
@@ -476,6 +473,13 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
                 };
             }
         }
+
+        // An entry kept off the grid (Waydroid's NoDisplay stock Android
+        // apps) still launches by its id.
+        const QString entry = QStandardPaths::locate(QStandardPaths::ApplicationsLocation,
+                                                     appId + QStringLiteral(".desktop"));
+        if (!entry.isEmpty())
+            return DesktopFileParser().parseDesktopFile(entry, true);
 
         return {};
     }

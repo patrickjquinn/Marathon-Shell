@@ -62,7 +62,7 @@ QVariantList DesktopFileParser::scanApplications(const QStringList &searchPaths,
     return apps;
 }
 
-QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
+QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath, bool includeHidden) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "[DesktopFileParser] Cannot open file:" << filePath;
@@ -162,8 +162,8 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
         }
     }
 
-    if (!app.contains("name") || !app.contains("exec") || app["noDisplay"].toBool() ||
-        app["hidden"].toBool()) {
+    if (!app.contains("name") || !app.contains("exec") ||
+        (!includeHidden && (app["noDisplay"].toBool() || app["hidden"].toBool()))) {
         return QVariantMap();
     }
 

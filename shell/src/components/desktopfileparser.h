@@ -16,7 +16,9 @@ class DesktopFileParser : public QObject {
     Q_INVOKABLE QVariantList scanApplications(const QStringList &searchPaths);
     Q_INVOKABLE QVariantList scanApplications(const QStringList &searchPaths,
                                               bool               filterMobileFriendly);
-    Q_INVOKABLE QVariantMap  parseDesktopFile(const QString &filePath);
+    // includeHidden: also an entry that asks not to be shown (NoDisplay,
+    // Hidden), which can still be launched by its id.
+    Q_INVOKABLE QVariantMap  parseDesktopFile(const QString &filePath, bool includeHidden = false);
     Q_INVOKABLE QString      resolveIconPath(const QString &iconName);
 
   private:

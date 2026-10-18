@@ -386,6 +386,7 @@ add_test(NAME Shell_DataEncryption COMMAND test_shell_dataencryption)
 add_executable(test_shell_backgroundlaunch
     test_backgroundlaunch.cpp
     ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
@@ -408,6 +409,7 @@ add_test(NAME Shell_BackgroundLaunch COMMAND test_shell_backgroundlaunch)
 add_executable(test_shell_sharedclient
     test_sharedclient.cpp
     ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
@@ -424,12 +426,18 @@ target_include_directories(test_shell_sharedclient PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/models
     ${CMAKE_SOURCE_DIR}/marathon-core/src
 )
-add_test(NAME Shell_SharedClient COMMAND test_shell_sharedclient)
+# A private bus: an Android launch asks the session's systemd for Waydroid.
+if(DBUS_RUN_SESSION)
+    add_test(NAME Shell_SharedClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_sharedclient>)
+else()
+    add_test(NAME Shell_SharedClient COMMAND test_shell_sharedclient)
+endif()
 
 # The bwrap sandbox a Marathon app is launched in
 add_executable(test_shell_sandboxlaunch
     test_sandboxlaunch.cpp
     ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
@@ -453,6 +461,7 @@ set_tests_properties(Shell_SandboxLaunch PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM
 add_executable(test_shell_runnerpool
     test_runnerpool.cpp
     ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
@@ -477,6 +486,8 @@ if(DBUS_RUN_SESSION)
     add_executable(test_shell_keelactionsfreeze
         test_keelactionsfreeze.cpp
         ../../shell/src/services/applaunchservice.cpp
+        ../../shell/src/components/desktopfileparser.cpp
+    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
@@ -502,6 +513,8 @@ if(DBUS_RUN_SESSION)
     add_executable(test_shell_androidfreeze
         test_androidfreeze.cpp
         ../../shell/src/services/applaunchservice.cpp
+        ../../shell/src/components/desktopfileparser.cpp
+    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
@@ -532,6 +545,8 @@ if(DBUS_RUN_SESSION)
     add_executable(test_shell_nativelifecycle
         test_nativelifecycle.cpp
         ../../shell/src/services/applaunchservice.cpp
+        ../../shell/src/components/desktopfileparser.cpp
+    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
@@ -593,6 +608,8 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
         ../../shell/src/services/applaunchservice.cpp
+        ../../shell/src/components/desktopfileparser.cpp
+    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
@@ -869,6 +886,7 @@ add_executable(test_shell_screenstate
     ../../shell/src/services/waketouchfilter.cpp
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
@@ -903,6 +921,7 @@ add_executable(test_shell_powermanager
     ../../shell/src/controllers/powerpolicycontroller.cpp
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/applaunchservice.cpp
+    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp

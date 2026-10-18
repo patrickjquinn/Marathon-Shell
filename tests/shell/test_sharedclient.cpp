@@ -1,4 +1,7 @@
 #include <QSignalSpy>
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 #include <QTest>
 
 #include "applaunchservice.h"
@@ -11,7 +14,8 @@ class FakeCompositor : public QObject {
     Q_OBJECT
   public:
     QList<int>       closed;
-    Q_INVOKABLE void launchApp(const QString &) {}
+    QStringList      spawned;
+    Q_INVOKABLE void launchApp(const QString &command) { spawned << command; }
     Q_INVOKABLE void closeWindow(int surfaceId) { closed << surfaceId; }
 };
 
@@ -250,6 +254,25 @@ class TestSharedClient : public QObject {
         launcher->mapWindow(4194330, "plain", "Plain", QString(), 20, &surfaceB);
         launcher->onWindowDestroyed(20);
         QVERIFY(tasks->getTaskByAppId("plain"));
+    }
+
+    // Waydroid hides Android's own apps (NoDisplay) from the grid; they
+    // still launch by id (Navigation1.LaunchApp, a notification).
+    void aHiddenDesktopEntryLaunchesById() {
+        QTemporaryDir   data;
+        const QByteArray old = qgetenv("XDG_DATA_HOME");
+        qputenv("XDG_DATA_HOME", data.path().toUtf8());
+        QVERIFY(QDir().mkpath(data.filePath("applications")));
+        QFile entry(data.filePath("applications/waydroid.com.android.deskclock.desktop"));
+        QVERIFY(entry.open(QIODevice::WriteOnly));
+        entry.write("[Desktop Entry]\nType=Application\nName=Clock\n"
+                    "Exec=waydroid app launch com.android.deskclock\nNoDisplay=true\n");
+        entry.close();
+
+        QVERIFY(launcher->launchApp(QVariant(id("com.android.deskclock"))));
+        QTRY_COMPARE(comp->spawned, QStringList{exec("com.android.deskclock")});
+        QVERIFY(!launcher->launchApp(QVariant(id("org.example.missing"))));
+        qputenv("XDG_DATA_HOME", old);
     }
 
     // Freezing has nothing of the app's own to stop; a no-op Frozen app
