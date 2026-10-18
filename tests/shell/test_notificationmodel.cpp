@@ -1,6 +1,8 @@
 #include <QTest>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include "../../shell/src/models/notificationmodel.h"
+#include "../../shell/src/dbus/notificationdatabase.h"
 
 class TestNotificationModel : public QObject {
     Q_OBJECT
@@ -135,6 +137,95 @@ class TestNotificationModel : public QObject {
 
         QCOMPARE(model.count(), 0);
         QCOMPARE(model.unreadCount(), 0);
+    }
+
+    // === CONTRACT: the "value" hint makes a row ongoing, with its progress ===
+
+    void valueHintMakesItOngoing() {
+        NotificationModel model;
+        model.addNotificationWithId(1, "a", "Plain", "B", "i");
+        model.addNotificationWithId(2, "a", "Known", "B", "i", {}, {}, {{"value", 42}});
+        model.addNotificationWithId(3, "a", "Unknown", "B", "i", {}, {}, {{"value", -1}});
+        const auto at = [&](int id, int role) {
+            for (int row = 0; row < model.rowCount(); ++row) {
+                const QModelIndex idx = model.index(row);
+                if (model.data(idx, NotificationModel::IdRole).toInt() == id)
+                    return model.data(idx, role);
+            }
+            return QVariant();
+        };
+        QCOMPARE(at(1, NotificationModel::OngoingRole).toBool(), false);
+        QCOMPARE(at(2, NotificationModel::OngoingRole).toBool(), true);
+        QCOMPARE(at(2, NotificationModel::ProgressRole).toReal(), 0.42);
+        QCOMPARE(at(3, NotificationModel::OngoingRole).toBool(), true);
+        QCOMPARE(at(3, NotificationModel::ProgressRole).toReal(), -1.0);
+        QCOMPARE(model.roleId("progress"), int(NotificationModel::ProgressRole));
+    }
+
+    // === CONTRACT: an update rewrites the row where it is, quietly ===
+
+    void updateKeepsThePlaceTimeAndReadState() {
+        NotificationModel model;
+        model.addNotificationWithId(1, "a", "Downloading", "0%", "i", {}, {}, {{"value", 0}});
+        model.addNotificationWithId(2, "b", "Newer", "B", "i");
+        model.markAsRead(1);
+        const qint64 time = model.getNotification(1)->timestamp();
+        QSignalSpy   added(&model, &NotificationModel::notificationAdded);
+        QSignalSpy   changed(&model, &NotificationModel::dataChanged);
+
+        QVERIFY(model.updateNotification(1, "Downloading", "50%", "i", {}, {{"value", 50}}));
+
+        QCOMPARE(model.count(), 2);
+        QCOMPARE(model.data(model.index(1), NotificationModel::IdRole).toInt(), 1);
+        QCOMPARE(model.data(model.index(1), NotificationModel::BodyRole).toString(),
+                 QString("50%"));
+        QCOMPARE(model.data(model.index(1), NotificationModel::ProgressRole).toReal(), 0.5);
+        QCOMPARE(model.getNotification(1)->timestamp(), time);
+        QVERIFY(model.getNotification(1)->isRead());
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(added.count(), 0);
+        QVERIFY(!model.updateNotification(99, "T", "B", "i", {}, {}));
+    }
+
+    // === CONTRACT: clearing the Hub leaves what is still running ===
+
+    void dismissAllKeepsOngoing() {
+        NotificationModel model;
+        model.addNotificationWithId(1, "a", "Done", "B", "i");
+        model.addNotificationWithId(2, "a", "Running", "B", "i", {}, {}, {{"value", 10}});
+        QSignalSpy dismissed(&model, &NotificationModel::notificationDismissed);
+
+        model.dismissAllNotifications();
+
+        QCOMPARE(model.count(), 1);
+        QVERIFY(model.getNotification(2));
+        QVERIFY(!model.getNotification(1));
+        QCOMPARE(dismissed.count(), 1);
+        QCOMPARE(dismissed.first().first().toInt(), 1);
+    }
+
+    // === CONTRACT: progress from the last session is gone on reload ===
+
+    void reloadDropsProgress() {
+        QStandardPaths::setTestModeEnabled(true);
+        NotificationDatabase db;
+        QVERIFY(db.initialize());
+        db.clearAll();
+        NotificationDatabase::NotificationRecord r{};
+        r.appId          = "a";
+        r.title          = "Done";
+        r.timestamp      = QDateTime::currentDateTime();
+        const uint done  = db.saveNotification(r);
+        r.title          = "Running";
+        r.metadata       = {{"value", 30}};
+        const uint stale = db.saveNotification(r);
+
+        NotificationModel model;
+        model.loadFromDatabase(&db);
+
+        QVERIFY(model.getNotification(int(done)));
+        QVERIFY(!model.getNotification(int(stale)));
+        QCOMPARE(db.getNotifications().size(), 1);
     }
 
     // === CONTRACT: dismissAll on empty is a no-op (no crash) ===

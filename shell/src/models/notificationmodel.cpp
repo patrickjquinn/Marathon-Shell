@@ -36,6 +36,8 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const {
         case IsReadRole: return notification->isRead();
         case ActionsRole: return notification->actions();
         case ActionIconsRole: return notification->actionIcons();
+        case OngoingRole: return notification->ongoing();
+        case ProgressRole: return notification->progress();
         default: return QVariant();
     }
 }
@@ -51,6 +53,8 @@ QHash<int, QByteArray> NotificationModel::roleNames() const {
     roles[IsReadRole]      = "isRead";
     roles[ActionsRole]     = "actions";
     roles[ActionIconsRole] = "actionIcons";
+    roles[OngoingRole]     = "ongoing";
+    roles[ProgressRole]    = "progress";
     return roles;
 }
 
@@ -125,6 +129,26 @@ void NotificationModel::trimToCap() {
     }
 }
 
+bool NotificationModel::updateNotification(int id, const QString &title, const QString &body,
+                                           const QString &icon, const QVariantList &actions,
+                                           const QVariantMap &hints) {
+    Notification *old = m_notificationIndex.value(id, nullptr);
+    if (!old)
+        return false;
+    auto *notification = new Notification(id, old->appId(), title, body, icon, this);
+    notification->setActions(actions);
+    notification->setReplyPlaceholder(old->replyPlaceholder());
+    notification->setHints(hints);
+    notification->setTimestamp(old->timestamp());
+    notification->setIsRead(old->isRead());
+    const int row           = int(m_notifications.indexOf(old));
+    m_notifications[row]    = notification;
+    m_notificationIndex[id] = notification;
+    delete old;
+    emit dataChanged(index(row), index(row));
+    return true;
+}
+
 void NotificationModel::dismissNotification(int id) {
     Notification *notification = m_notificationIndex.value(id, nullptr);
     if (!notification) {
@@ -172,11 +196,19 @@ void NotificationModel::dismissAllNotifications() {
     if (m_notifications.isEmpty())
         return;
 
-    const QList<int> ids = m_notificationIndex.keys();
+    QList<int>              ids;
+    QVector<Notification *> kept;
     beginResetModel();
-    qDeleteAll(m_notifications);
-    m_notifications.clear();
-    m_notificationIndex.clear();
+    for (Notification *notification : std::as_const(m_notifications)) {
+        if (notification->ongoing()) {
+            kept.append(notification);
+            continue;
+        }
+        ids.append(notification->id());
+        m_notificationIndex.remove(notification->id());
+        delete notification;
+    }
+    m_notifications = kept;
     endResetModel();
 
     updateUnreadCount();
@@ -226,6 +258,11 @@ void NotificationModel::loadFromDatabase(NotificationDatabase *database) {
     m_notificationIndex.clear();
 
     for (const auto &record : std::as_const(records)) {
+        // Progress belongs to a sender of the last session.
+        if (record.metadata.contains(QStringLiteral("value"))) {
+            database->dismiss(record.id);
+            continue;
+        }
         Notification *notification = new Notification(record.id, record.appId, record.title,
                                                       record.body, record.iconPath, this);
         notification->setIsRead(record.read);

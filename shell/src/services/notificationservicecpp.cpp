@@ -93,8 +93,6 @@ void NotificationServiceCpp::dismissAllNotifications() {
         return;
 
     m_model->dismissAllNotifications();
-    m_notifications.clear();
-    m_notificationMeta.clear();
     emit notificationsChanged();
     emit unreadCountChanged();
 }
@@ -198,6 +196,9 @@ void NotificationServiceCpp::onNotificationAdded(int id) {
     QVariantMap map = buildNotificationMapFromModel(notif);
     m_notifications.append(map);
     emit notificationsChanged();
+    // Progress is for the Hub; it doesn't call for attention.
+    if (notif->ongoing())
+        return;
     emit notificationReceived(map);
     playFeedbackIfNeeded();
 }

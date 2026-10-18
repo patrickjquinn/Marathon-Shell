@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QDBusContext>
 #include <QDBusConnection>
+#include <QHash>
 #include <QStringList>
 #include <QVariantMap>
 #include "notificationdatabase.h"
@@ -12,6 +13,7 @@
 class MarathonAppRegistry;
 class NotificationModel;
 class PowerManagerCpp;
+class QDBusServiceWatcher;
 
 class FreedesktopNotifications : public QObject, protected QDBusContext {
     Q_OBJECT
@@ -58,6 +60,13 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
     NotificationModel    *m_model;
     PowerManagerCpp      *m_powerManager;
     QPointer<MarathonAppRegistry> m_registry;
+
+    // The bus name that posted each ongoing notification.
+    QHash<uint, QString>  m_senders;
+    QDBusServiceWatcher  *m_senderWatcher = nullptr;
+
+    void                  trackSender(uint id);
+    void                  onSenderGone(const QString &sender);
 
     QString               extractAppName(const QString &provided, const QVariantMap &hints);
 

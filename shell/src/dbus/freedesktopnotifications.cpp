@@ -9,6 +9,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusError>
+#include <QDBusServiceWatcher>
 #include <QDBusMessage>
 #include <QDBusReply>
 #include <QDateTime>
@@ -146,6 +147,30 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
                                       const QString &app_icon, const QString &summary,
                                       const QString &body, const QStringList &actions,
                                       const QVariantMap &hints, int expire_timeout) {
+    QVariantList actionList;
+    for (int i = 0; i < actions.size(); i += 2) {
+        if (i + 1 < actions.size()) {
+            QVariantMap action;
+            action["key"]   = actions[i];
+            action["label"] = actions[i + 1];
+            actionList.append(action);
+        }
+    }
+
+    const bool ongoing = hints.contains(QStringLiteral("value"));
+
+    // Progress moves the row it replaces without a new banner or sound.
+    if (ongoing && replaces_id > 0 && m_model) {
+        const Notification *shown = m_model->getNotification(int(replaces_id));
+        if (shown && shown->ongoing()) {
+            QVariantMap metadata = hints;
+            m_model->updateNotification(int(replaces_id), summary, body,
+                                        notificationIcon(app_icon, metadata), actionList, metadata);
+            trackSender(replaces_id);
+            return replaces_id;
+        }
+    }
+
     QString appId = extractAppName(app_name, hints);
 
     qInfo() << "[FreedesktopNotifications] Notify from:" << appId << "title:" << summary;
@@ -190,19 +215,12 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
         });
     }
 
-    QVariantList actionList;
-    for (int i = 0; i < actions.size(); i += 2) {
-        if (i + 1 < actions.size()) {
-            QVariantMap action;
-            action["key"]   = actions[i];
-            action["label"] = actions[i + 1];
-            actionList.append(action);
-        }
-    }
     record.actions = actionList;
     const QString replyPlaceholder = hints.value("x-kde-reply-placeholder-text").toString();
 
     uint id = m_database->saveNotification(record);
+    if (ongoing && id > 0)
+        trackSender(id);
 
     if (m_model) {
         if (id > 0) {
@@ -226,6 +244,36 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
     }
 
     return id;
+}
+
+// An ongoing row lasts only as long as its sender: one that quits or
+// crashes mid-job can no longer finish or close it.
+void FreedesktopNotifications::trackSender(uint id) {
+    if (!calledFromDBus())
+        return;
+    const QString sender = message().service();
+    if (!m_senderWatcher) {
+        m_senderWatcher = new QDBusServiceWatcher(
+            QString(), connection(), QDBusServiceWatcher::WatchForUnregistration, this);
+        connect(m_senderWatcher, &QDBusServiceWatcher::serviceUnregistered, this,
+                &FreedesktopNotifications::onSenderGone);
+    }
+    m_senderWatcher->addWatchedService(sender);
+    m_senders.insert(id, sender);
+}
+
+void FreedesktopNotifications::onSenderGone(const QString &sender) {
+    m_senderWatcher->removeWatchedService(sender);
+    for (auto it = m_senders.begin(); it != m_senders.end();) {
+        if (it.value() != sender) {
+            ++it;
+            continue;
+        }
+        const Notification *shown = m_model ? m_model->getNotification(int(it.key())) : nullptr;
+        if (shown && shown->ongoing())
+            CloseNotification(it.key());
+        it = m_senders.erase(it);
+    }
 }
 
 void FreedesktopNotifications::CloseNotification(uint id) {

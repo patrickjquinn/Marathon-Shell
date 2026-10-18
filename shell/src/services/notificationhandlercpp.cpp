@@ -24,7 +24,7 @@ void NotificationHandlerCpp::handleNotificationClick(int id) {
         return;
 
     navigateToNotificationTarget(notification);
-    if (m_notifications)
+    if (m_notifications && !notification.value("ongoing").toBool())
         m_notifications->dismissNotification(id);
 }
 

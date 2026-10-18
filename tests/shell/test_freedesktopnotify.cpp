@@ -337,6 +337,71 @@ class TestFreedesktopNotify : public QObject {
 
         QCOMPARE(closed.count(), 0);
     }
+
+    // The "value" hint, 0-100: an ongoing row whose updates keep its id.
+    void progressUpdatesTheRowInPlace() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QSignalSpy               added(&model, &NotificationModel::notificationAdded);
+
+        const uint id = fdn.Notify("dl", 0, "", "Downloading", "0%", {}, {{"value", 0}}, -1);
+        QCOMPARE(fdn.Notify("dl", id, "", "Downloading", "60%", {}, {{"value", 60}}, -1), id);
+
+        QCOMPARE(added.count(), 1);
+        QCOMPARE(model.count(), 1);
+        const QVariantMap n = model.getNotification(int(id))->toMap();
+        QCOMPARE(n.value("body").toString(), QString("60%"));
+        QCOMPARE(n.value("ongoing").toBool(), true);
+        QCOMPARE(n.value("progress").toReal(), 0.6);
+
+        // Finishing is a new notification, with its banner.
+        const uint done = fdn.Notify("dl", id, "", "Downloaded", "", {}, {}, -1);
+        QVERIFY(done != id);
+        QCOMPARE(added.count(), 2);
+        QCOMPARE(model.count(), 1);
+        QVERIFY(!model.getNotification(int(done))->ongoing());
+    }
+
+    // A sender that leaves the bus can't finish its job: its progress goes.
+    void progressLeavesWithItsSender() {
+        if (!QDBusConnection::sessionBus().isConnected())
+            QSKIP("needs a session bus");
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QDBusConnection          server =
+            QDBusConnection::connectToBus(QDBusConnection::SessionBus, "progress-server");
+        QVERIFY(server.registerObject("/org/freedesktop/Notifications", &fdn,
+                                      QDBusConnection::ExportAllSlots));
+        QSignalSpy added(&model, &NotificationModel::notificationAdded);
+        {
+            // The last copy of a connection has to go before it can close.
+            QDBusConnection client =
+                QDBusConnection::connectToBus(QDBusConnection::SessionBus, "progress-client");
+            const auto notify = [&](const QString &title, const QVariantMap &hints) {
+                QDBusMessage call = QDBusMessage::createMethodCall(
+                    server.baseService(), "/org/freedesktop/Notifications",
+                    "org.freedesktop.Notifications", "Notify");
+                call << QString("dl") << 0u << QString() << title << QString() << QStringList()
+                     << hints << -1;
+                client.asyncCall(call);
+            };
+            notify("Running", {{"value", 10}});
+            notify("Finished", {});
+            QTRY_COMPARE(added.count(), 2);
+        }
+        const int running = added.at(0).first().toInt();
+        const int done    = added.at(1).first().toInt();
+
+        QDBusConnection::disconnectFromBus("progress-client");
+
+        QTRY_VERIFY(!model.getNotification(running));
+        QVERIFY(model.getNotification(done));
+        QDBusConnection::disconnectFromBus("progress-server");
+    }
 };
 
 QTEST_GUILESS_MAIN(TestFreedesktopNotify)

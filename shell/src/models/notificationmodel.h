@@ -70,11 +70,22 @@ class Notification : public QObject {
     bool actionIcons() const {
         return m_actionIcons;
     }
-    // The freedesktop hints the banner and the Hub show.
+    // An ongoing notification shows progress: 0..1, or -1 while unknown.
+    bool ongoing() const {
+        return m_ongoing;
+    }
+    qreal progress() const {
+        return m_progress;
+    }
+    // The freedesktop hints the banner and the Hub show. The de facto
+    // "value" hint (0-100, negative for unknown) makes it ongoing.
     void setHints(const QVariantMap &hints) {
-        m_category    = hints.value("category").toString();
-        m_actionIcons = hints.value("action-icons").toBool();
-        m_urgency     = hints.value("urgency", 1).toInt();
+        m_category      = hints.value("category").toString();
+        m_actionIcons   = hints.value("action-icons").toBool();
+        m_urgency       = hints.value("urgency", 1).toInt();
+        m_ongoing       = hints.contains("value");
+        const int value = hints.value("value", -1).toInt();
+        m_progress      = value < 0 ? -1 : qMin(value, 100) / 100.0;
     }
 
     QVariantMap toMap() const {
@@ -89,7 +100,9 @@ class Notification : public QObject {
                 {"replyPlaceholder", m_replyPlaceholder},
                 {"category", m_category},
                 {"actionIcons", m_actionIcons},
-                {"urgency", m_urgency}};
+                {"urgency", m_urgency},
+                {"ongoing", m_ongoing},
+                {"progress", m_progress}};
     }
 
     void setIsRead(bool read) {
@@ -115,6 +128,8 @@ class Notification : public QObject {
     QString      m_category;
     bool         m_actionIcons = false;
     int          m_urgency     = 1;
+    bool         m_ongoing     = false;
+    qreal        m_progress    = -1;
 };
 
 class NotificationModel : public QAbstractListModel {
@@ -134,7 +149,9 @@ class NotificationModel : public QAbstractListModel {
         TimestampRole,
         IsReadRole,
         ActionsRole,
-        ActionIconsRole
+        ActionIconsRole,
+        OngoingRole,
+        ProgressRole
     };
     Q_ENUM(NotificationRoles)
 
@@ -165,8 +182,13 @@ class NotificationModel : public QAbstractListModel {
                               const QString &body, const QString &icon,
                               const QVariantList &actions     = {},
                               const QString &replyPlaceholder = {}, const QVariantMap &hints = {});
+    // Rewrites a row in place, keeping its place, time and read state.
+    // Returns false when there is no such row.
+    bool updateNotification(int id, const QString &title, const QString &body, const QString &icon,
+                            const QVariantList &actions, const QVariantMap &hints);
     Q_INVOKABLE void          dismissNotification(int id);
     Q_INVOKABLE void          markAsRead(int id);
+    // Clears everything but the ongoing rows.
     Q_INVOKABLE void          dismissAllNotifications();
     Q_INVOKABLE Notification *getNotification(int id);
     Q_INVOKABLE int           roleId(const QString &name) const;
