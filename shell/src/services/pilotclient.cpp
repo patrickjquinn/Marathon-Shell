@@ -8,8 +8,10 @@
 
 namespace {
 
+// NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
 const QString kPath  = QStringLiteral("/org/shipwright/Pilot");
 const QString kIface = QStringLiteral("org.shipwright.Pilot1");
+// NOLINTEND(bugprone-throwing-static-initialization)
 
 QDBusMessage busCall(const QString &method) {
     return QDBusMessage::createMethodCall(

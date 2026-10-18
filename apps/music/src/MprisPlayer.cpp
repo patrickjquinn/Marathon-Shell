@@ -6,9 +6,11 @@
 #include <QDebug>
 
 namespace {
+    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kService = QStringLiteral("org.mpris.MediaPlayer2.music");
     const QString kPath    = QStringLiteral("/org/mpris/MediaPlayer2");
     const QString kPlayerInterface = QStringLiteral("org.mpris.MediaPlayer2.Player");
+    // NOLINTEND(bugprone-throwing-static-initialization)
 }
 
 MprisPlayer::MprisPlayer(QObject *parent)

@@ -8,6 +8,7 @@
 
 namespace {
 
+    // NOLINTNEXTLINE(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString  kService       = QStringLiteral("org.freedesktop.GeoClue2");
     constexpr uint kAccuracyExact = 8;
 

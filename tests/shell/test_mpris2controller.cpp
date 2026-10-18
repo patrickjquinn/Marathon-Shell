@@ -10,8 +10,10 @@
 #include "mpris2controller.h"
 
 namespace {
+    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kPath   = QStringLiteral("/org/mpris/MediaPlayer2");
     const QString kPlayer = QStringLiteral("org.mpris.MediaPlayer2.Player");
+    // NOLINTEND(bugprone-throwing-static-initialization)
 }
 
 class RootAdaptor : public QDBusAbstractAdaptor {
@@ -70,7 +72,7 @@ class FakePlayer : public QObject {
             bus.registerService(service);
     }
 
-    void changed(const QVariantMap &props) {
+    void changed(const QVariantMap &props) const {
         QDBusMessage s =
             QDBusMessage::createSignal(kPath, "org.freedesktop.DBus.Properties", "PropertiesChanged");
         s << kPlayer << props << QStringList();

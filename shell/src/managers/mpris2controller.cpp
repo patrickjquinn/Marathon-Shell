@@ -8,6 +8,7 @@
 #include <utility>   // std::as_const
 
 namespace {
+    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kPrefix     = QStringLiteral("org.mpris.MediaPlayer2.");
     const QString kPath       = QStringLiteral("/org/mpris/MediaPlayer2");
     const QString kRoot       = QStringLiteral("org.mpris.MediaPlayer2");
@@ -15,6 +16,7 @@ namespace {
     const QString kProperties = QStringLiteral("org.freedesktop.DBus.Properties");
     const QString kBus        = QStringLiteral("org.freedesktop.DBus");
     const QString kBusPath    = QStringLiteral("/org/freedesktop/DBus");
+    // NOLINTEND(bugprone-throwing-static-initialization)
 
     QVariant unwrap(const QVariant &v) {
         if (v.userType() == qMetaTypeId<QDBusVariant>())

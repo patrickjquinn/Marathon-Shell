@@ -15,6 +15,7 @@
 
 namespace {
 
+    // NOLINTNEXTLINE(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kRoot = QStringLiteral(MARATHON_SOURCE_DIR);
 
     QString       read(const QString &relative) {
@@ -68,62 +69,71 @@ namespace {
     };
 
     // Where the shell acts on each key. A key with no entry fails the test.
-    const QHash<QString, Consumer> kConsumers = {
-        {"alarmSound", {"shell/src/managers/alarmmanagercpp.cpp", "alarmSound"}},
-        {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
-        {"autoLockTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLockTimeout"}},
-        {"vibrationEnabled", {"shell/qml/components/VirtualKeyboard.qml", "SettingsManagerCpp.vibrationEnabled"}},
-        // The setter applies it through timedated.
-        {"automaticTime", {"shell/src/managers/settingsmanager.cpp", "SetNTP"}},
-        {"automaticTimeZone",
-         {"shell/src/services/automatictimezone.cpp", "m_settings->automaticTimeZone()"}},
-        {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->deviceName())"}},
-        {"appNotificationSettings",
-         {"shell/src/services/notificationservicecpp.cpp", "isNotificationsEnabledForApp"}},
-        {"dndEnabled", {"shell/src/controllers/audiopolicycontroller.cpp", "dndEnabled"}},
-        {"enabledQuickSettingsTiles",
-         {"shell/qml/components/MarathonQuickSettings.qml", "enabledQuickSettingsTiles"}},
-        {"filterMobileFriendlyApps", {"shell/main.cpp", "filterMobileFriendlyApps"}},
-        {"hiddenApps", {"shell/qml/models/FilteredAppModel.qml", "hiddenApps"}},
-        {"keyboardAutoCapitalize",
-         {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardAutoCapitalize"}},
-        {"keyboardAutoCorrection",
-         {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardAutoCorrection"}},
-        {"keyboardHapticStrength",
-         {"shell/qml/components/VirtualKeyboard.qml", "keyboardHapticStrength"}},
-        {"keyboardLanguage", {"shell/src/services/languagemanager.cpp", "keyboardLanguage"}},
-        {"keyboardPredictiveText",
-         {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardPredictiveText"}},
-        {"notificationSound",
-         {"shell/src/controllers/audiopolicycontroller.cpp", "notificationSound"}},
-        {"reduceMotion", {"shell/qml/theme/MMotion.qml", "reduceMotion"}},
-        {"ringtone", {"shell/src/controllers/audiopolicycontroller.cpp", "ringtone"}},
-        {"screenTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.screenTimeout"}},
-        {"searchNativeApps",
-         {"shell/src/services/unifiedsearchservicecpp.cpp", "searchNativeApps"}},
-        {"showNotificationBadges",
-         {"shell/qml/components/MarathonAppGrid.qml", "showNotificationBadges"}},
-        {"showNotificationsOnLockScreen",
-         {"shell/qml/components/MarathonLockScreen.qml", "showNotificationsOnLockScreen"}},
-        {"timeFormat", {"shell/src/services/systemstatusstore.cpp", "timeFormat"}},
-        // The setter applies it through timedated.
-        {"timeZone", {"shell/src/managers/settingsmanager.cpp", "SetTimezone"}},
-        {"userScaleFactor", {"shell/qml/core/Constants.qml", "userScaleFactor"}},
-    };
+    const QHash<QString, Consumer> &consumers() {
+        static const QHash<QString, Consumer> table = {
+            {"alarmSound", {"shell/src/managers/alarmmanagercpp.cpp", "alarmSound"}},
+            {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
+            {"autoLockTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLockTimeout"}},
+            {"vibrationEnabled", {"shell/qml/components/VirtualKeyboard.qml", "SettingsManagerCpp.vibrationEnabled"}},
+            // The setter applies it through timedated.
+            {"automaticTime", {"shell/src/managers/settingsmanager.cpp", "SetNTP"}},
+            {"automaticTimeZone",
+             {"shell/src/services/automatictimezone.cpp", "m_settings->automaticTimeZone()"}},
+            {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->deviceName())"}},
+            {"appNotificationSettings",
+             {"shell/src/services/notificationservicecpp.cpp", "isNotificationsEnabledForApp"}},
+            {"dndEnabled", {"shell/src/controllers/audiopolicycontroller.cpp", "dndEnabled"}},
+            {"enabledQuickSettingsTiles",
+             {"shell/qml/components/MarathonQuickSettings.qml", "enabledQuickSettingsTiles"}},
+            {"filterMobileFriendlyApps", {"shell/main.cpp", "filterMobileFriendlyApps"}},
+            {"hiddenApps", {"shell/qml/models/FilteredAppModel.qml", "hiddenApps"}},
+            {"keyboardAutoCapitalize",
+             {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardAutoCapitalize"}},
+            {"keyboardAutoCorrection",
+             {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardAutoCorrection"}},
+            {"keyboardHapticStrength",
+             {"shell/qml/components/VirtualKeyboard.qml", "keyboardHapticStrength"}},
+            {"keyboardLanguage", {"shell/src/services/languagemanager.cpp", "keyboardLanguage"}},
+            {"keyboardPredictiveText",
+             {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardPredictiveText"}},
+            {"notificationSound",
+             {"shell/src/controllers/audiopolicycontroller.cpp", "notificationSound"}},
+            {"reduceMotion", {"shell/qml/theme/MMotion.qml", "reduceMotion"}},
+            {"ringtone", {"shell/src/controllers/audiopolicycontroller.cpp", "ringtone"}},
+            {"screenTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.screenTimeout"}},
+            {"searchNativeApps",
+             {"shell/src/services/unifiedsearchservicecpp.cpp", "searchNativeApps"}},
+            {"showNotificationBadges",
+             {"shell/qml/components/MarathonAppGrid.qml", "showNotificationBadges"}},
+            {"showNotificationsOnLockScreen",
+             {"shell/qml/components/MarathonLockScreen.qml", "showNotificationsOnLockScreen"}},
+            {"timeFormat", {"shell/src/services/systemstatusstore.cpp", "timeFormat"}},
+            // The setter applies it through timedated.
+            {"timeZone", {"shell/src/managers/settingsmanager.cpp", "SetTimezone"}},
+            {"userScaleFactor", {"shell/qml/core/Constants.qml", "userScaleFactor"}},
+        };
+        return table;
+    }
 
-    const QHash<QString, Consumer> kClientWriteConsumers = {
-        {"Display.brightness",
-         {"shell/src/managers/displaymanagercpp.cpp",
-          "void DisplayManagerCpp::setBrightnessFromUser"}},
-        {"Display.autoBrightnessEnabled",
-         {"shell/src/managers/displaymanagercpp.cpp", "&DisplayManagerCpp::onAmbientLightChanged"}},
-        {"Display.rotationLocked",
-         {"shell/src/managers/displaymanagercpp.cpp", "m_rotationManager"}},
-        {"Bluetooth.enabled", {"shell/src/managers/bluetoothmanager.cpp", "\"Powered\""}},
-    };
+    const QHash<QString, Consumer> &clientWriteConsumers() {
+        static const QHash<QString, Consumer> table = {
+            {"Display.brightness",
+             {"shell/src/managers/displaymanagercpp.cpp",
+              "void DisplayManagerCpp::setBrightnessFromUser"}},
+            {"Display.autoBrightnessEnabled",
+             {"shell/src/managers/displaymanagercpp.cpp", "&DisplayManagerCpp::onAmbientLightChanged"}},
+            {"Display.rotationLocked",
+             {"shell/src/managers/displaymanagercpp.cpp", "m_rotationManager"}},
+            {"Bluetooth.enabled", {"shell/src/managers/bluetoothmanager.cpp", "\"Powered\""}},
+        };
+        return table;
+    }
 
     // Written but not yet acted on; each is an open audit finding.
-    const QHash<QString, QString> kKnownGaps = {};
+    const QHash<QString, QString> &knownGaps() {
+        static const QHash<QString, QString> table;
+        return table;
+    }
 
     bool hasWritableProperty(const QMetaObject &meta, const QString &name) {
         const int i = meta.indexOfProperty(name.toUtf8().constData());
@@ -131,17 +141,20 @@ namespace {
     }
 
     // Marathon.Platform names the Settings app uses and the runner clients behind them.
-    const QHash<QString, const QMetaObject *> kPlatformClients = {
-        {"Settings", &SettingsClient::staticMetaObject},
-        {"Display", &DisplayClient::staticMetaObject},
-        {"Bluetooth", &BluetoothClient::staticMetaObject},
-        {"Network", &NetworkClient::staticMetaObject},
-        {"Power", &PowerClient::staticMetaObject},
-        {"Audio", &AudioClient::staticMetaObject},
-        {"Security", &SecurityClient::staticMetaObject},
-        {"Modem", &ModemClient::staticMetaObject},
-        {"Permissions", &PermissionClient::staticMetaObject},
-    };
+    const QHash<QString, const QMetaObject *> &platformClients() {
+        static const QHash<QString, const QMetaObject *> table = {
+            {"Settings", &SettingsClient::staticMetaObject},
+            {"Display", &DisplayClient::staticMetaObject},
+            {"Bluetooth", &BluetoothClient::staticMetaObject},
+            {"Network", &NetworkClient::staticMetaObject},
+            {"Power", &PowerClient::staticMetaObject},
+            {"Audio", &AudioClient::staticMetaObject},
+            {"Security", &SecurityClient::staticMetaObject},
+            {"Modem", &ModemClient::staticMetaObject},
+            {"Permissions", &PermissionClient::staticMetaObject},
+        };
+        return table;
+    }
 
 } // namespace
 
@@ -170,10 +183,10 @@ class TestSettingsContract : public QObject {
         QVERIFY2(service.contains(QStringLiteral("{\"%1\", m_settings->").arg(key)),
                  "not in the Settings GetState snapshot");
 
-        if (kKnownGaps.contains(key))
-            QSKIP(qPrintable(QStringLiteral("no shell consumer yet (%1)").arg(kKnownGaps[key])));
-        QVERIFY2(kConsumers.contains(key), "no shell consumer listed in kConsumers");
-        const Consumer c = kConsumers.value(key);
+        if (knownGaps().contains(key))
+            QSKIP(qPrintable(QStringLiteral("no shell consumer yet (%1)").arg(knownGaps()[key])));
+        QVERIFY2(consumers().contains(key), "no shell consumer listed in consumers()");
+        const Consumer c = consumers().value(key);
         QVERIFY2(read(QString::fromLatin1(c.file)).contains(QString::fromLatin1(c.token)),
                  qPrintable(QStringLiteral("%1 no longer reads it").arg(c.file)));
     }
@@ -185,7 +198,7 @@ class TestSettingsContract : public QObject {
             for (int i = meta->propertyOffset(); i < meta->propertyCount(); ++i) {
                 const QString name = QString::fromLatin1(meta->property(i).name());
                 if (name.startsWith(QLatin1String("keyboard")))
-                    QVERIFY2(kConsumers.contains(name),
+                    QVERIFY2(consumers().contains(name),
                              qPrintable(name + QStringLiteral(": no shell consumer")));
             }
         }
@@ -199,10 +212,10 @@ class TestSettingsContract : public QObject {
                 matches(qml, QStringLiteral(R"re(\b%1\.(\w+)\s*=[^=])re").arg(name));
             for (const QString &key : keys) {
                 const QString full = name + QLatin1Char('.') + key;
-                QVERIFY2(hasWritableProperty(*kPlatformClients.value(name), key), qPrintable(full));
-                QVERIFY2(kClientWriteConsumers.contains(full),
+                QVERIFY2(hasWritableProperty(*platformClients().value(name), key), qPrintable(full));
+                QVERIFY2(clientWriteConsumers().contains(full),
                          qPrintable(full + QStringLiteral(": no shell consumer listed")));
-                const Consumer c = kClientWriteConsumers.value(full);
+                const Consumer c = clientWriteConsumers().value(full);
                 QVERIFY2(read(QString::fromLatin1(c.file)).contains(QString::fromLatin1(c.token)),
                          qPrintable(full));
             }
@@ -230,14 +243,14 @@ class TestSettingsContract : public QObject {
 
     void platformMembersExist_data() {
         QTest::addColumn<QString>("name");
-        for (auto it = kPlatformClients.cbegin(); it != kPlatformClients.cend(); ++it)
+        for (auto it = platformClients().cbegin(); it != platformClients().cend(); ++it)
             QTest::newRow(qPrintable(it.key())) << it.key();
     }
 
     // The tests' hand-written stubs can't catch a page using a member the real client lacks.
     void platformMembersExist() {
         QFETCH(QString, name);
-        const QMetaObject  *meta = kPlatformClients.value(name);
+        const QMetaObject  *meta = platformClients().value(name);
         const QSet<QString> used =
             matches(settingsAppQml(), QStringLiteral(R"re(\b%1\.(\w+))re").arg(name));
         QVERIFY(!used.isEmpty());

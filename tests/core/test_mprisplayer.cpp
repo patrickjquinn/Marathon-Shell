@@ -8,8 +8,10 @@
 #include "MprisPlayer.h"
 
 namespace {
+    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kService = QStringLiteral("org.mpris.MediaPlayer2.music");
     const QString kPath    = QStringLiteral("/org/mpris/MediaPlayer2");
+    // NOLINTEND(bugprone-throwing-static-initialization)
 }
 
 class PropertiesWatcher : public QObject {
