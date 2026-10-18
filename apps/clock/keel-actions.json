@@ -1,0 +1,246 @@
+{
+  "appId": "org.marathonos.clock",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "alarms.create",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Set an alarm in Marathon Clock at a local time, 24-hour HH:MM. It repeats on the given weekdays (0 is Sunday, 6 Saturday) or, without any, rings once at the next such time. Returns the new alarm's id.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "repeat": {
+            "description": "Weekdays it repeats on",
+            "items": {
+              "maximum": 6,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "type": "array"
+          },
+          "time": {
+            "description": "Time, HH:MM",
+            "maxLength": 5,
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "time"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.clock/alarms.create",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "title": "Create alarm"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "alarms.list",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "The alarms in Marathon Clock, each with its id, time (local, 24-hour HH:MM), label, the weekdays it repeats on (0 is Sunday, 6 Saturday; none means it rings once) and whether it is on.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.clock/alarms.list",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "label": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "repeat": {
+                  "items": {
+                    "maximum": 6,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "maxItems": 7,
+                  "type": "array"
+                },
+                "time": {
+                  "maxLength": 5,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "time",
+                "label",
+                "repeat",
+                "enabled"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "List alarms"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "alarms.switch",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Turn one of Marathon Clock's alarms on or off, by the id alarms.list gives. An alarm that is off keeps its time and does not ring.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.clock/alarms.switch",
+      "title": "Turn alarm on or off"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.clock/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "timer.start",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Start Marathon Clock's countdown timer for a number of seconds (up to 23:59:59); it rings when it ends, even if Clock is closed. There is one timer: this fails while it is running. Returns when it ends.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "seconds": {
+            "maximum": 86399,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seconds"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.clock/timer.start",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "endsAt": {
+            "format": "date-time",
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "endsAt"
+        ],
+        "type": "object"
+      },
+      "title": "Start timer"
+    }
+  ],
+  "version": 1
+}

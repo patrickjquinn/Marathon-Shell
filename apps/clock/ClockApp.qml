@@ -103,14 +103,15 @@ ApplicationWindow {
             Notices.show(Logic.alarmIn(when, now));
     }
 
+    // The alarm's id; "" if it couldn't be saved.
     function saveAlarm(id, hour, minute, label, repeat) {
         const time = Logic.timeString(hour, minute);
-        const ok = id === ""
-                ? _check(Alarms.createAlarm(time, label || qsTr("Alarm"), repeat, { vibrate: true, snoozeEnabled: true, snoozeDuration: 10 }) !== "")
-                : _check(Alarms.updateAlarm(id, { time: time, label: label || qsTr("Alarm"), enabled: true, repeat: repeat }));
-        if (ok)
+        const saved = id === ""
+                ? Alarms.createAlarm(time, label || qsTr("Alarm"), repeat, { vibrate: true, snoozeEnabled: true, snoozeDuration: 10 })
+                : Alarms.updateAlarm(id, { time: time, label: label || qsTr("Alarm"), enabled: true, repeat: repeat }) ? id : "";
+        if (_check(saved !== ""))
             _announce(time, repeat);
-        return ok;
+        return saved;
     }
 
     function toggleAlarm(id) {
@@ -160,6 +161,11 @@ ApplicationWindow {
     }
 
     appId: "clock"
+
+    ClockActions {
+        app: root
+    }
+
     cover: Component {
         ClockCover {
             alarms: root.alarms
