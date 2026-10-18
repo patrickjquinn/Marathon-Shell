@@ -22,13 +22,13 @@ QtObject {
     }
 
     function update() {
-        elapsed = running ? before + now() - startedAt : before;
+        elapsed = running ? before + now.call() - startedAt : before;
     }
 
     function start() {
         if (running)
             return;
-        startedAt = now();
+        startedAt = now.call();
         update();
         edited();
     }
@@ -36,7 +36,7 @@ QtObject {
     function stop() {
         if (!running)
             return;
-        before += now() - startedAt;
+        before += now.call() - startedAt;
         startedAt = -1;
         update();
         edited();

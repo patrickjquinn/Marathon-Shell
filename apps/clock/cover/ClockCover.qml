@@ -2,13 +2,14 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../ClockLogic.js" as Logic
+import "../models"
 
 CoverBackground {
     id: root
 
     property var alarms: []
-    required property QtObject stopwatch
-    required property QtObject countdown
+    required property Stopwatch stopwatch
+    required property CountdownTimer countdown
     property date now: new Date()
     readonly property var next: Logic.nextAlarm(alarms, now)
     readonly property string mode: countdown.running ? "timer"

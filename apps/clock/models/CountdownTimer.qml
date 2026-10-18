@@ -22,7 +22,7 @@ QtObject {
     function update() {
         if (!running)
             return;
-        remaining = Math.max(0, Math.ceil((endsAt - now()) / 1000));
+        remaining = Math.max(0, Math.ceil((endsAt - now.call()) / 1000));
         if (remaining === 0) {
             endsAt = -1;
             edited();
@@ -41,7 +41,7 @@ QtObject {
     function start() {
         if (running || remaining <= 0)
             return;
-        endsAt = now() + remaining * 1000;
+        endsAt = now.call() + remaining * 1000;
         edited();
     }
 
@@ -67,7 +67,7 @@ QtObject {
         total = s.total || 0;
         remaining = s.remaining || 0;
         const end = typeof s.endsAt === "number" ? s.endsAt : -1;
-        if (end >= 0 && end <= now()) {
+        if (end >= 0 && end <= now.call()) {
             remaining = 0;
             edited();
             return end;

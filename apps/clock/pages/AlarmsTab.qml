@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
@@ -16,7 +18,7 @@ TabItem {
         interval: 60000 - root.now.getSeconds() * 1000 - root.now.getMilliseconds()
         repeat: true
         triggeredOnStart: true
-        running: root.isCurrentItem && Qt.application.state === Qt.ApplicationActive
+        running: root.isCurrentItem && Application.state === Qt.ApplicationActive
         onTriggered: root.now = new Date()
     }
 

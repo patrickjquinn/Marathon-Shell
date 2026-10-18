@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
@@ -13,7 +15,7 @@ ApplicationWindow {
     readonly property var alarms: Alarms.alarms
     property var cities: Logic.parseCities(Settings.get("clock/worldCities", ""), Logic.defaultCities)
     property Stopwatch stopwatch: Stopwatch {
-        ticking: Qt.application.state === Qt.ApplicationActive
+        ticking: Application.state === Qt.ApplicationActive
         onEdited: Settings.set("clock/stopwatch", JSON.stringify(snapshot()))
     }
     property CountdownTimer countdown: CountdownTimer {
