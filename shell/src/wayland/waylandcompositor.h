@@ -32,6 +32,7 @@ class LinuxDmabufManagerV1;
 class WlDrmManager;
 class NativeClientScale;
 class XdgActivationV1;
+class MarathonSurfaceManagerV1;
 struct wl_client;
 
 class MarathonAppRegistry;
@@ -55,6 +56,8 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_PROPERTY(QSize coverSize READ coverSize WRITE setCoverSize NOTIFY coverSizeChanged)
     // Scale native (non-Marathon) clients draw at; see nativeclientscale.h.
     Q_PROPERTY(qreal nativeScale READ nativeScale NOTIFY nativeScaleChanged)
+    // marathon_surface_v1 state by surface id (as a string key).
+    Q_PROPERTY(QVariantMap marathonSurfaces READ marathonSurfaces NOTIFY marathonSurfacesChanged)
 
   public:
     explicit WaylandCompositor(QQuickWindow *window);
@@ -80,6 +83,7 @@ class WaylandCompositor : public QWaylandCompositor {
     }
     void setCoverSize(const QSize &size);
     qreal                nativeScale() const;
+    QVariantMap          marathonSurfaces() const;
     void                 setNativeScale(qreal scale);
 
     Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
@@ -127,6 +131,7 @@ class WaylandCompositor : public QWaylandCompositor {
     void appViewportSizeChanged();
     void coverSizeChanged();
     void nativeScaleChanged();
+    void marathonSurfacesChanged();
     void surfacesChanged();
     void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     // A Keel app's dialog window (KeelDialog), not one of its tasks.
@@ -211,6 +216,7 @@ class WaylandCompositor : public QWaylandCompositor {
     WlDrmManager                           *m_wlDrmManager             = nullptr;
     NativeClientScale                      *m_nativeClientScale        = nullptr;
     XdgActivationV1                        *m_xdgActivation            = nullptr;
+    MarathonSurfaceManagerV1               *m_marathonSurfaceManager   = nullptr;
     QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
     QWaylandQuickOutput                    *m_output                   = nullptr;
     QQuickWindow                           *m_window                   = nullptr;

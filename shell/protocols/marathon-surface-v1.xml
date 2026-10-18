@@ -174,7 +174,8 @@
       <description summary="part of the window the on-screen keyboard covers">
         Distance, in surface-local coordinates, from the bottom edge of the
         window inwards that the on-screen keyboard covers; 0 while it is
-        hidden.
+        hidden. Marathon resizes windows clear of its keyboard, so this is 0
+        unless a window extends under it.
       </description>
       <arg name="bottom" type="int"/>
     </event>

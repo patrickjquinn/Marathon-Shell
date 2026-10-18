@@ -10,6 +10,7 @@
 #include "src/wayland/nativeclientscale.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/xdgactivationv1.h"
+#include "src/wayland/marathonsurfacev1.h"
 #include "src/components/windowtextureitem.h"
 #include "src/managers/deviceprofile.h"
 #include "src/services/processtree.h"
@@ -132,6 +133,20 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     watchTextInputBinds();
 
     m_securityContextManager = new SecurityContextManagerV1(this);
+
+    // Nothing the shell draws covers a window: it is laid out between the
+    // status area and the pill, and resized for the keyboard.
+    m_marathonSurfaceManager = new MarathonSurfaceManagerV1(this, m_securityContextManager);
+    connect(m_marathonSurfaceManager, &MarathonSurfaceManagerV1::surfaceAdded, this,
+            [this](MarathonSurfaceV1 *marathon) {
+                QWaylandSurface *surface = marathon->surface();
+                if (surface->property("toplevelMapped").toBool() &&
+                    marathon->sendInsets(QMargins(), 0))
+                    nudgeSurface(surface->property("surfaceId").toInt());
+                emit marathonSurfacesChanged();
+            });
+    connect(m_marathonSurfaceManager, &MarathonSurfaceManagerV1::surfaceRemoved, this,
+            &WaylandCompositor::marathonSurfacesChanged);
 
     // wp_fifo_v1 — queued-presentation barriers. Surfaces with
     // set_barrier / wait_barrier get FIFO ordering enforced at the
@@ -362,7 +377,8 @@ WaylandCompositor::~WaylandCompositor() {
 bool WaylandCompositor::filterGlobal(const wl_client *client, const wl_global *global, void *data) {
     auto *self = static_cast<WaylandCompositor *>(data);
     return self->m_securityContextManager->allowsGlobal(client, global) &&
-        self->m_nativeClientScale->allowsGlobal(client, global);
+        self->m_nativeClientScale->allowsGlobal(client, global) &&
+        self->m_marathonSurfaceManager->allowsGlobal(client, global);
 }
 
 QString WaylandCompositor::openSandboxSocket(const QString &appId, const QString &instanceId) {
@@ -954,6 +970,15 @@ QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
         (m_output && m_output->window()) ? m_output->window()->size() : QSize(), scale);
 }
 
+QVariantMap WaylandCompositor::marathonSurfaces() const {
+    QVariantMap                      map;
+    const QList<MarathonSurfaceV1 *> all = m_marathonSurfaceManager->surfaces();
+    for (MarathonSurfaceV1 *marathon : all)
+        map.insert(marathon->surface()->property("surfaceId").toString(),
+                   QVariant::fromValue<QObject *>(marathon));
+    return map;
+}
+
 qreal WaylandCompositor::nativeScale() const {
     return m_nativeClientScale->scale();
 }
@@ -1186,6 +1211,8 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
     // output size up-front, the client always gets a first configure within
     // milliseconds of mapping and can proceed to attach + commit its buffer.
     {
+        if (MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface))
+            marathon->sendInsets(QMargins(), 0);
         const QSize initialSize = appConfigureSize(surface);
         if (initialSize.width() > 0 && initialSize.height() > 0) {
             QList<QWaylandXdgToplevel::State> states;
