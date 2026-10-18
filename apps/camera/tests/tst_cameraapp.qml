@@ -3,6 +3,7 @@ import QtTest
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import Keel.Actions 1.0
 import ".."
 
 TestCase {
@@ -136,6 +137,16 @@ TestCase {
         mouseClick(child(app, "thumbnail"));
         tryVerify(function () { return app.pageStack.depth === 2 && !app.pageStack.busy; });
         return app.pageStack.currentPage;
+    }
+
+    function test_openActionReturnsToTheViewfinder() {
+        const app = makeApp();
+        openReview(app, Qt.resolvedUrl("data/photo.png").toString());
+        const call = KeelActions.invoke("camera.open", { mode: "video" });
+        verify(call.succeeded, call.errorMessage);
+        compare(call.result.mode, "video");
+        tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
+        verify(app.camera.active);
     }
 
     function test_thumbnailWithoutCaptureOpensGallery() {

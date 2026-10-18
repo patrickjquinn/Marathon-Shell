@@ -113,6 +113,10 @@ ApplicationWindow {
         }
     }
 
+    CameraActions {
+        app: app
+    }
+
     cover: Component {
         CameraCover {
             photo: app.camera.latestPreview
