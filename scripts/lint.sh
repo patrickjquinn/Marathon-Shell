@@ -63,8 +63,9 @@ else
         # qmllint discovers by walking up from each file. Do NOT pass
         # --compiler / --unqualified / --unused-imports here: an explicit
         # flag overrides the config file, which is how the [compiler] notes
-        # used to drown out the handful of real findings.
-        if ! "$QMLLINT" \
+        # used to drown out the handful of real findings. --max-warnings 0
+        # fails the run on any warning, not only on errors.
+        if ! "$QMLLINT" --max-warnings 0 \
             "${QMLDIR_ROOTS[@]}" \
             "${QML_FILES[@]}"; then
             errors=1
