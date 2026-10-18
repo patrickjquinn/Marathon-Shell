@@ -39,13 +39,15 @@ void main()
     }
     vec3 color = mix(texture(backdrop, uv).rgb, tint.rgb, tint.a);
 
-    // Raised rim: a hairline lit from above, brightest along the top edge
-    // and fading down the sides, over a soft inner glow.
+    // The system's depth recipe as one pass: an outer hairline that crushes
+    // toward black and an inner one that catches the light, a touch
+    // brighter along the top.
     float inside = -d;
-    float hairline = 1.0 - smoothstep(0.0, 1.25, inside);
-    float glow = 1.0 - smoothstep(0.0, 7.0, inside);
-    float light = mix(0.35, 1.0, pow(1.0 - qt_TexCoord0.y, 2.0));
-    color += vec3(1.0) * rim * (hairline * light * 0.55 + glow * 0.05);
+    float outer = 1.0 - smoothstep(0.0, 1.0, inside);
+    float inner = smoothstep(0.5, 1.25, inside) * (1.0 - smoothstep(1.25, 2.25, inside));
+    float top = mix(0.7, 1.3, 1.0 - qt_TexCoord0.y);
+    color = mix(color, vec3(0.0), outer * 0.45 * rim);
+    color += vec3(1.0) * inner * 0.12 * top * rim;
 
     fragColor = vec4(color, 1.0) * (coverage * qt_Opacity);
 }

@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Window
 import Sailfish.Silica 1.0 as Silica
 
-// A rounded, frosted glass card with a raised, top-lit rim: the notification
-// platter. One shader pass, no per-card blur. `backdrop` is either an
+// Marathon glass: the ambience, frosted and tinted, behind a surface with
+// the system's two-hairline edge (dark outside, lit inside). One shader
+// pass, no per-card blur. `backdrop` is either an
 // MGlassBackdrop's texture (screenSpace, the default) or a blur of just the
 // area behind this card (screenSpace: false).
 ShaderEffect {
@@ -13,8 +14,8 @@ ShaderEffect {
     property bool pressed: false
     property bool screenSpaceLookup: true
 
-    property real radius: Silica.Theme.paddingLarge + Silica.Theme.paddingSmall
-    property color tint: pressed ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0.13, 0.14, 0.16, 0.30)
+    property real radius: Silica.Theme.paddingSmall
+    property color tint: pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, 0.45) : Silica.Theme.rgba(Silica.Theme.highlightDimmerColor, 0.55)
     property real rim: 1.0
 
     readonly property size size: Qt.size(width, height)
