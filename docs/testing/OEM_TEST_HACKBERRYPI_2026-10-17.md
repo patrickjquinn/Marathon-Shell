@@ -50,6 +50,9 @@ Every function in apps/test driven on the device with screenshots and the journa
 | F45 | Apps | Uninstall from Settings failed ("Failed to remove app files") since installs are read-only in sandboxes; Uninstall offered for built-in Test Suite | verified fixed on 26101707 (R41): "Crafted uninstalled", install/data/cache removed, ~/Documents kept, grants forgotten; built-in apps open no Uninstall menu |
 | F46 | Bluetooth | After restoring the speaker module's pairing from a backup, bluetoothd looped on "repeated attempts" and cancelled every new pairing until it was restarted; after a restart the module paired and connected | open (worked around; restore pairings with bluetoothd stopped) |
 | F47 | Tests | Shell_TextInputReplace segfaulted ~1 in 3: Qt 6.11 QTBUG-144115 (buffer release after compositor tear-down, fixed in 6.12) hit by the test's teardown order; the shell is not exposed | fixed (R42, test teardown waits for clients to leave) |
+| F48 | Launch | Apps took 0.81 s (pooled Calculator) to 1.11 s (Notes) from launch to settled content: 11 of 17 built-in apps have "storage" and never used the warm spare, and the spare left each app to create its first instance of every Silica type | verified fixed on r473 (R44): one warm spare per sandbox shape; Calculator 0.46 s, Notes 0.39 s, Settings 0.52 s, Clock 0.49 s, Gallery 0.41 s, Calendar 0.46 s, resume 0.36 s; no black frames; Calculator's sandbox has no media folders; each idle spare 159 MB RSS / 78 MB PSS |
+| F49 | Settings | Settings showed "Bluetooth: On" with the speaker connected: the shell never followed a device's own property changes | verified fixed on r473 (R44): shows the speaker's name |
+| F50 | Browser | Page content drew black (toolbar fine) under QtWebEngine's own GL pick on V3D | verified fixed on r474: ANGLE over GLES; DuckDuckGo renders, Maps keeps its GPU basemap |
 
 ## Worked as intended
 
