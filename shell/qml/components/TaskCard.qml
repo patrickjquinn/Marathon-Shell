@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0
-import Marathon.Silica 1.0
 
 Item {
     id: taskCard
@@ -266,7 +265,7 @@ Item {
                 var p = cardPoint(mouse);
                 var dx = p.x - pressX;
                 var dy = p.y - pressY;
-                if (!swiping && Math.abs(dy) > Qt.styleHints.startDragDistance && Math.abs(dy) > Math.abs(dx)) {
+                if (!swiping && Math.abs(dy) > Application.styleHints.startDragDistance && Math.abs(dy) > Math.abs(dx)) {
                     // Held only once it is a close: sideways is the pager's.
                     if (dy < 0 && taskCard.swipeClaimsDrag) {
                         swiping = true;

@@ -155,7 +155,7 @@ Item {
                             return;
                         if (!dragging) {
                             const dx = Math.abs(mouseX - pressX);
-                            if (dx < Qt.styleHints.startDragDistance || dx <= Math.abs(mouseY - pressY))
+                            if (dx < Application.styleHints.startDragDistance || dx <= Math.abs(mouseY - pressY))
                                 return;
                             dragging = true;
                         }

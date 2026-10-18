@@ -280,7 +280,7 @@ Item {
         onPositionChanged: mouse => {
             const dx = mouse.x - pressX;
             // Claim the drag before the pager's own threshold so it can't steal it.
-            if (!swiping && dx > Qt.styleHints.startDragDistance / 2 && dx > 2 * Math.abs(mouse.y - pressY)) {
+            if (!swiping && dx > Application.styleHints.startDragDistance / 2 && dx > 2 * Math.abs(mouse.y - pressY)) {
                 swiping = true;
                 preventStealing = true;
             }

@@ -32,15 +32,17 @@ Item {
 
     function cancel() {
         cancelled();
-        if (onCancel)
-            onCancel();
+        const callback = onCancel;
+        if (callback)
+            callback();
         hide();
     }
 
     function accept() {
         confirmed();
-        if (onConfirm)
-            onConfirm();
+        const callback = onConfirm;
+        if (callback)
+            callback();
         hide();
     }
 

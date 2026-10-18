@@ -1578,7 +1578,7 @@ Item {
                 function part(item) {
                     if (!item || item.width <= 0 || item.height <= 0)
                         return Qt.rect(0, 0, cardBorder.width, cardBorder.height);
-                    appWindow.x, appWindow.y; // mapToItem tracks no geometry
+                    void (appWindow.x + appWindow.y); // mapToItem tracks no geometry
                     var r = item.mapToItem(cardBorder, 0, 0, item.width, item.height);
                     var x = Math.max(0, r.x), y = Math.max(0, r.y);
                     return Qt.rect(x, y, Math.max(0, Math.min(cardBorder.width, r.x + r.width) - x), Math.max(0, Math.min(cardBorder.height, r.y + r.height) - y));
@@ -2407,7 +2407,7 @@ Item {
                 if (!Platform.hasHardwareKeyboard)
                     virtualKeyboard.active = true;
                 else if (!virtualKeyboard.active)
-                    Qt.inputMethod.hide();
+                    (Qt.inputMethod as InputMethod).hide();
             }
 
             function onInputItemUnfocused() {

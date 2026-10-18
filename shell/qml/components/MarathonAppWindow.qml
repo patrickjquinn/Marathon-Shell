@@ -162,11 +162,7 @@ Rectangle {
                 Logger.info("AppWindow", "Reusing existing app instance: " + id);
                 // An instance closed from the switcher while minimized is kept
                 // with its dead surface; a relaunch must not show that.
-                if (existingNativeInstance.surfaceId !== sid) {
-                    Logger.warn("AppWindow", "Rebinding " + id + " from surfaceId " + existingNativeInstance.surfaceId + " to " + sid);
-                    existingNativeInstance.waylandSurface = surface;
-                    existingNativeInstance.surfaceId = sid;
-                }
+                _rebindSurface(existingNativeInstance, id, surface, sid);
                 existingNativeInstance.visible = true;
                 // Going home minimized it, which locks its buffer; left set,
                 // the restored window showed no new frames.
@@ -285,6 +281,14 @@ Rectangle {
     function _unminimize(instance) {
         if (instance.isMinimized !== undefined)
             instance.isMinimized = false;
+    }
+
+    function _rebindSurface(instance, id, surface, sid) {
+        if (instance.surfaceId !== sid) {
+            Logger.warn("AppWindow", "Rebinding " + id + " from surfaceId " + instance.surfaceId + " to " + sid);
+            instance.waylandSurface = surface;
+            instance.surfaceId = sid;
+        }
     }
 
     function reattachInstance(instance, id, name, icon, type) {

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
