@@ -81,7 +81,7 @@ layout is [below](#layout-mkosirepartab-pi-pipeline-patches-0037-and-0038)):
 | `/usr` A, erofs lz4, label `duranium_<v>_usr` | mkosi | 5 GiB |
 | `/usr` A verity, label `duranium_<v>_vty` | mkosi | 400 MiB |
 | `/usr` B and its verity, label `_empty` | systemd-repart, first boot | 5 GiB + 400 MiB |
-| root, ext4 on LUKS (empty passphrase, auto-unlocked), label `pmOS_root` | systemd-repart, first boot | rest of the disk |
+| root, ext4 on LUKS2, label `pmOS_root`: opens by itself until a quick PIN is set, then asks for it ([ENCRYPTION.md](ENCRYPTION.md)) | systemd-repart, first boot | rest of the disk |
 
 The root partition definitions come from postmarketos-duranium's
 `/usr/lib/repart.d`. Each UKI carries its own `usrhash=`, so it mounts the
@@ -218,7 +218,7 @@ do the same swap.
 | 3 | `_empty`, then the other boot slot | basic data | 512 MiB | |
 | 4 | `marathon_<v>_root` | root (arm64) | 6 GiB | the slot's full ext4 root, `/etc` included |
 | 5 | `_empty`, then the other root slot | root (arm64) | 6 GiB | |
-| 6 | `marathon_data` | var | 1 GiB, grown to the end of the card on first boot | `/var`, `/home` (as `/var/home`), the `/etc` overlay's upper layer |
+| 6 | `marathon_data` | var | 1 GiB, grown to the end of the card on first boot | `/var`, `/home` (as `/var/home`), the `/etc` overlay's upper layer; LUKS2 from first boot on ([ENCRYPTION.md](ENCRYPTION.md)) |
 
 The second slot pair is created empty in the image. `autoboot.txt` starts as
 
@@ -236,8 +236,9 @@ label, `pmos_root=/dev/disk/by-partlabel/marathon_<v>_root` and
 sysupdate put it. It adds `panic=10` and drops `pmos.force-partition-resize`.
 
 The mkinitfs hook `hooks-cleanup/50-marathon-ab.sh` runs after the slot's root
-is mounted. On first boot it grows `marathon_data` to the end of the card and
-seeds it from the slot's `/var` and `/home`. Every boot it mounts it on
+is mounted. On first boot it grows `marathon_data` to the end of the card,
+encrypts it while it is still empty, and seeds it from the slot's `/var` and
+`/home`. Every boot it unlocks it, asking for the PIN if one is set, mounts it on
 `/var`, binds `/var/home` on `/home`, and mounts `/etc` as an overlay whose
 upper layer is `/var/lib/marathon-ab/etc/upper`, so `/etc` changes made
 before and after PID 1 starts persist across slots. Anything else written to

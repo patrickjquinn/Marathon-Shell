@@ -90,7 +90,7 @@ When the mkosi pipeline lands:
 | OTA framework | Closed (A/B + verified + auto-rollback) |
 | Verified Boot | Closed (dm-verity + UKI signing) |
 | App distribution + signing (partial) | Closed for Flatpak apps |
-| Data-at-rest encryption | Closed (LUKS2 root) |
+| Data-at-rest encryption | LUKS2 data unlocked by the quick PIN on A/B images; offline PIN guessing remains ([ENCRYPTION.md](ENCRYPTION.md)) |
 | Atomic upgrades | Closed |
 
 Telephony depth, DRM video, NFC HCE, hardware-backed keystore,
