@@ -70,6 +70,8 @@ Rectangle {
 
     onVisibleChanged: {
         if (visible) {
+            // Rows that arrived while it was closed pushed the date away.
+            list.contentY = list.originY;
             refreshAgenda();
             WeatherClient.refresh();
         } else {
@@ -323,7 +325,10 @@ Rectangle {
             // People get their monogram; anything else its app, as BB10
             // marked each row with its service.
             readonly property bool fromPerson: ["messages", "phone", "call", "email", "mail"].indexOf(appKey) >= 0
-            readonly property string appIcon: fromPerson ? "" : AppStore.getAppIcon(appKey)
+            readonly property string appIcon: {
+                void AppStore.apps; // read again once the registry has loaded
+                return fromPerson ? "" : AppStore.getAppIcon(appKey);
+            }
 
             unread: !isRead
             avatarText: appIcon ? "" : hub.monogramFor(title, appKey)
@@ -351,8 +356,8 @@ Rectangle {
         height: Constants.statusBarHeight + Silica.Theme.paddingLarge
         gradient: Gradient {
             GradientStop {
-                position: 0.55
-                color: Silica.Theme.rgba("black", 0.55)
+                position: 0.6
+                color: Silica.Theme.rgba("black", 0.85)
             }
             GradientStop {
                 position: 1.0

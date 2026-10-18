@@ -110,7 +110,9 @@ Item {
             // Read rows step back, as BB10's monochrome icons did.
             opacity: row.unread || row.ongoing ? 1 : 0.55
             color: "transparent"
-            border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
+            // An app icon or a picture stands on its own; the ring frames a
+            // monogram or a glyph.
+            border.width: picture.hasImage ? 0 : Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
             border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
             Text {
@@ -134,7 +136,7 @@ Item {
                 readonly property bool drawsGlyph: isGlyph && row.glyphReplacesMonogram
                 objectName: "hubRowImage"
                 source: row.image
-                size: drawsGlyph ? Silica.Theme.iconSizeExtraSmall : Silica.Theme.iconSizeSmall
+                size: drawsGlyph ? Silica.Theme.iconSizeExtraSmall : avatar.width
                 color: Silica.Theme.highlightColor
                 visible: hasImage || drawsGlyph
                 anchors.centerIn: parent
