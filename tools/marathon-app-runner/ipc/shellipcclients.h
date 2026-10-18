@@ -555,6 +555,7 @@ class SecurityClient : public QObject {
     Q_PROPERTY(int lockoutSecondsRemaining READ lockoutSecondsRemaining NOTIFY stateChanged)
     Q_PROPERTY(int failedAttempts READ failedAttempts NOTIFY stateChanged)
     Q_PROPERTY(bool canEraseAllContent READ canEraseAllContent NOTIFY stateChanged)
+    Q_PROPERTY(QString dataEncryption READ dataEncryption NOTIFY stateChanged)
 
   public:
     explicit SecurityClient(const QString &appId, QObject *parent = nullptr);
@@ -566,6 +567,7 @@ class SecurityClient : public QObject {
     int                 lockoutSecondsRemaining() const;
     int                 failedAttempts() const;
     bool                canEraseAllContent() const;
+    QString             dataEncryption() const;
 
     Q_INVOKABLE void    setQuickPIN(const QString &pin, const QString &systemPassword);
     Q_INVOKABLE void    removeQuickPIN(const QString &systemPassword);

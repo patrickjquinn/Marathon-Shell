@@ -6,6 +6,8 @@ Dialog {
     id: dialog
 
     property alias password: passwordField.text
+    // The PIN locks the data partition at startup.
+    property bool dataLocked: false
 
     canAccept: password.trim().length > 0
 
@@ -23,7 +25,7 @@ Dialog {
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryHighlightColor
-            text: qsTr("You'll unlock with your system password. Enter it to confirm.")
+            text: dialog.dataLocked ? qsTr("You'll unlock with your system password, and your phone will start without asking for a PIN, so anyone who has it can read your data. Enter your password to confirm.") : qsTr("You'll unlock with your system password. Enter it to confirm.")
         }
         PasswordField {
             id: passwordField

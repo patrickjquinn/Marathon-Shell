@@ -1373,6 +1373,10 @@ bool SecurityClient::canEraseAllContent() const {
     return v("canEraseAllContent", false).toBool();
 }
 
+QString SecurityClient::dataEncryption() const {
+    return v("dataEncryption", QStringLiteral("none")).toString();
+}
+
 void SecurityClient::setQuickPIN(const QString &pin, const QString &systemPassword) {
     if (!ensureSystemPermission())
         return;

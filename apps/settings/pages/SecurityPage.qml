@@ -28,6 +28,7 @@ Page {
     function openPinDialog(pin, error) {
         const dialog = pageStack.push(Qt.resolvedUrl("QuickPinDialog.qml"), {
             changing: Security.hasQuickPIN,
+            startupPin: Security.dataEncryption === "open" || Security.dataEncryption === "pin",
             pin: pin || "",
             confirmation: pin || "",
             error: error || ""
@@ -36,7 +37,9 @@ Page {
     }
 
     function openRemoveDialog() {
-        const dialog = pageStack.push(Qt.resolvedUrl("RemovePinDialog.qml"));
+        const dialog = pageStack.push(Qt.resolvedUrl("RemovePinDialog.qml"), {
+            dataLocked: Security.dataEncryption === "pin"
+        });
         dialog.accepted.connect(() => page.removePin(dialog.password));
     }
 
@@ -179,6 +182,25 @@ Page {
             }
 
             SectionHeader {
+                text: qsTr("Data encryption")
+            }
+            DetailItem {
+                objectName: "dataEncryption"
+                label: qsTr("Your data")
+                value: Logic.dataEncryptionValue(Security.dataEncryption)
+            }
+            Label {
+                objectName: "dataEncryptionNote"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                bottomPadding: Theme.paddingMedium
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: Logic.dataEncryptionNote(Security.dataEncryption)
+            }
+
+            SectionHeader {
                 text: qsTr("How it works")
             }
             Label {
@@ -187,7 +209,7 @@ Page {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("Your device password always unlocks the device. The quick PIN is an optional shortcut, stored encrypted. Wrong attempts are logged, and after 5 you have to wait before trying again, longer each time.")
+                text: qsTr("Your device password always unlocks the lock screen. The quick PIN is an optional shortcut, stored encrypted. Wrong attempts are logged, and after 5 you have to wait before trying again, longer each time.")
             }
         }
 

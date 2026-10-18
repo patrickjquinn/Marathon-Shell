@@ -599,6 +599,8 @@ SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionMana
                      [this]() { emit StateChanged(buildState()); });
     QObject::connect(m_security, &SecurityManager::failedAttemptsChanged, this,
                      [this]() { emit StateChanged(buildState()); });
+    QObject::connect(m_security, &SecurityManager::dataEncryptionChanged, this,
+                     [this]() { emit StateChanged(buildState()); });
     QObject::connect(m_security, &SecurityManager::authenticationFailed, this,
                      [this](const QString &reason) {
                          emit AuthenticationFailed(reason);
@@ -619,6 +621,7 @@ QVariantMap SecurityObject::buildState() const {
         {"lockoutSecondsRemaining", m_security->lockoutSecondsRemaining()},
         {"failedAttempts", m_security->failedAttempts()},
         {"canEraseAllContent", m_factoryReset->supported()},
+        {"dataEncryption", m_security->dataEncryption()},
     };
 }
 

@@ -7,6 +7,8 @@ Dialog {
     id: dialog
 
     property bool changing: false
+    // The data partition is encrypted, so this PIN is asked for at startup.
+    property bool startupPin: false
     property alias pin: pinField.text
     property alias confirmation: confirmField.text
     property alias password: passwordField.text
@@ -35,7 +37,7 @@ Dialog {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("The quick PIN is a shortcut. Your system password always works too.")
+                text: dialog.startupPin ? qsTr("Your phone asks for this PIN when it starts. After that your system password works too.") : qsTr("The quick PIN is a shortcut. Your system password always works too.")
             }
             PasswordField {
                 id: pinField

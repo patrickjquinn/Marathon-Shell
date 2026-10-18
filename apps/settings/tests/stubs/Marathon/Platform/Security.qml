@@ -9,6 +9,7 @@ QtObject {
     property int lockoutSecondsRemaining: 0
     property int failedAttempts: 0
     property bool canEraseAllContent: false
+    property string dataEncryption: "none"
     property var calls: []
 
     signal quickPINChanged
@@ -22,6 +23,7 @@ QtObject {
         isLockedOut = false;
         failedAttempts = 0;
         canEraseAllContent = false;
+        dataEncryption = "none";
         calls = [];
     }
     function setQuickPIN(pin, password) {

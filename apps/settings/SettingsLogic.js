@@ -68,7 +68,7 @@ const sections = [
     {
         title: qsTr("Security and accounts"),
         entries: [
-            { page: "security", title: qsTr("Security"), icon: "image://theme/icon-m-device-lock", keywords: "pin password lock fingerprint biometric" },
+            { page: "security", title: qsTr("Security"), icon: "image://theme/icon-m-device-lock", keywords: "pin password lock fingerprint biometric encryption" },
             { page: "accounts", title: qsTr("Accounts"), icon: "image://theme/icon-m-people", keywords: "carddav caldav sync nextcloud contacts calendar" }
         ]
     },
@@ -289,4 +289,19 @@ function networkModeTitle(mask) {
     if (names.length === 1)
         return qsTr("%1 only").arg(names[0]);
     return qsTr("%1 and %2").arg(names.slice(0, -1).join(", ")).arg(names[names.length - 1]);
+}
+
+// Security.dataEncryption: "pin", "open", "off" or "none" (docs/ENCRYPTION.md).
+function dataEncryptionValue(state) {
+    return state === "pin" ? qsTr("Locked by PIN") : state === "open" ? qsTr("Encrypted, not locked") : qsTr("Not encrypted");
+}
+
+function dataEncryptionNote(state) {
+    if (state === "pin")
+        return qsTr("Your phone asks for the quick PIN when it starts, before anything on it can be read. A PIN only slows down someone who copies the storage: with a fast computer a 6-digit PIN can be guessed within hours to days.");
+    if (state === "open")
+        return qsTr("Your data is encrypted, but your phone opens it at startup without asking. Set a quick PIN to lock it.");
+    if (state === "off")
+        return qsTr("This phone was set up before Marathon encrypted its data. Erase all content to start again with encryption.");
+    return qsTr("Marathon doesn't encrypt data on this phone yet.");
 }

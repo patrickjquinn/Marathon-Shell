@@ -163,6 +163,33 @@ TestCase {
         verify(!child(s.page, "removePinItem").visible);
     }
 
+    function test_dataEncryption() {
+        const s = open("security");
+        compare(child(s.page, "dataEncryption").value, "Not encrypted");
+        verify(child(s.page, "dataEncryptionNote").text.indexOf("Erase all content") < 0);
+        Security.dataEncryption = "off";
+        compare(child(s.page, "dataEncryption").value, "Not encrypted");
+        verify(child(s.page, "dataEncryptionNote").text.indexOf("Erase all content") >= 0);
+        child(s.page, "pinItem").clicked(null);
+        verify(!pushed(s.app, s.page).startupPin);
+        s.app.pageStack.pop(s.page, PageStackAction.Immediate);
+        back(s);
+
+        Security.dataEncryption = "open";
+        compare(child(s.page, "dataEncryption").value, "Encrypted, not locked");
+        child(s.page, "pinItem").clicked(null);
+        verify(pushed(s.app, s.page).startupPin);
+        s.app.pageStack.pop(s.page, PageStackAction.Immediate);
+        back(s);
+
+        Security.dataEncryption = "pin";
+        Security.hasQuickPIN = true;
+        compare(child(s.page, "dataEncryption").value, "Locked by PIN");
+        verify(child(s.page, "dataEncryptionNote").text.indexOf("hours to days") >= 0);
+        child(s.page, "removePinItem").clicked(null);
+        verify(pushed(s.app, s.page).dataLocked);
+    }
+
     function test_accounts() {
         const s = open("accounts");
         const list = child(s.page, "accountList");
