@@ -151,7 +151,8 @@ class NotificationModel : public QAbstractListModel {
         ActionsRole,
         ActionIconsRole,
         OngoingRole,
-        ProgressRole
+        ProgressRole,
+        DayRole
     };
     Q_ENUM(NotificationRoles)
 

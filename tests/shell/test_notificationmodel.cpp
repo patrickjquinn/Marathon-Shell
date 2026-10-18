@@ -1,4 +1,5 @@
 #include <QTest>
+#include <QDate>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include "../../shell/src/models/notificationmodel.h"
@@ -160,6 +161,16 @@ class TestNotificationModel : public QObject {
         QCOMPARE(at(3, NotificationModel::OngoingRole).toBool(), true);
         QCOMPARE(at(3, NotificationModel::ProgressRole).toReal(), -1.0);
         QCOMPARE(model.roleId("progress"), int(NotificationModel::ProgressRole));
+    }
+
+    // === CONTRACT: "day" is the local date a row arrived, for grouping ===
+
+    void dayIsTheLocalDate() {
+        NotificationModel model;
+        model.addNotification("a", "T", "B", "i");
+        const QString day = model.data(model.index(0), NotificationModel::DayRole).toString();
+        QCOMPARE(day, QDate::currentDate().toString(Qt::ISODate));
+        QCOMPARE(model.roleId("day"), int(NotificationModel::DayRole));
     }
 
     // === CONTRACT: an update rewrites the row where it is, quietly ===

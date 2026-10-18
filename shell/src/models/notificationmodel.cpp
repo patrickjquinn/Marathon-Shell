@@ -1,5 +1,6 @@
 #include "notificationmodel.h"
 #include "dbus/notificationdatabase.h"
+#include <QDateTime>
 #include <QDebug>
 #include <utility>   // std::as_const
 
@@ -38,6 +39,8 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const {
         case ActionIconsRole: return notification->actionIcons();
         case OngoingRole: return notification->ongoing();
         case ProgressRole: return notification->progress();
+        case DayRole:
+            return QDateTime::fromMSecsSinceEpoch(notification->timestamp()).date().toString(Qt::ISODate);
         default: return QVariant();
     }
 }
@@ -55,6 +58,7 @@ QHash<int, QByteArray> NotificationModel::roleNames() const {
     roles[ActionIconsRole] = "actionIcons";
     roles[OngoingRole]     = "ongoing";
     roles[ProgressRole]    = "progress";
+    roles[DayRole]         = "day";
     return roles;
 }
 
