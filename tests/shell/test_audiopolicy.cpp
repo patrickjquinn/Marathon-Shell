@@ -7,6 +7,8 @@
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "mediarole.h"
+#include "notificationmodel.h"
+#include "notificationservicecpp.h"
 #include "settingsmanager.h"
 
 class TestAudioPolicy : public QObject {
@@ -51,6 +53,20 @@ class TestAudioPolicy : public QObject {
             policy.playNotificationSound();
             QVERIFY2(policy.findChildren<QMediaPlayer *>().isEmpty(), profile);
         }
+    }
+
+    // freedesktop's suppress-sound hint: no sound, the vibration rules as ever.
+    void suppressSoundSilencesANotification() {
+        m_settings->setNotificationSound("/nonexistent/notification.ogg");
+        NotificationModel      model;
+        AudioPolicyController  policy(nullptr, m_settings, nullptr);
+        NotificationServiceCpp service(&model, m_settings, &policy, nullptr);
+        service.setSoundEnabled(true);
+        model.addNotification("org.x.Y", "Quiet", "", "", {}, {},
+                              {{"suppress-sound", true}});
+        QVERIFY(policy.findChildren<QMediaPlayer *>().isEmpty());
+        model.addNotification("org.x.Y", "Loud", "", "");
+        QCOMPARE(policy.findChildren<QMediaPlayer *>().size(), 1);
     }
 
     // The volume slider scales notification sounds; their own setting sets

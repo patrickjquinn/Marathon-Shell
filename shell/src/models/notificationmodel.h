@@ -77,6 +77,9 @@ class Notification : public QObject {
     qreal progress() const {
         return m_progress;
     }
+    bool suppressSound() const {
+        return m_suppressSound;
+    }
     // The freedesktop hints the banner and the Hub show. The de facto
     // "value" hint (0-100, negative for unknown) makes it ongoing.
     void setHints(const QVariantMap &hints) {
@@ -84,6 +87,7 @@ class Notification : public QObject {
         m_actionIcons   = hints.value("action-icons").toBool();
         m_urgency       = hints.value("urgency", 1).toInt();
         m_ongoing       = hints.contains("value");
+        m_suppressSound = hints.value("suppress-sound").toBool();
         const int value = hints.value("value", -1).toInt();
         m_progress      = value < 0 ? -1 : qMin(value, 100) / 100.0;
     }
@@ -130,6 +134,7 @@ class Notification : public QObject {
     int          m_urgency     = 1;
     bool         m_ongoing     = false;
     qreal        m_progress    = -1;
+    bool         m_suppressSound = false;
 };
 
 class NotificationModel : public QAbstractListModel {

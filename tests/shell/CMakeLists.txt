@@ -63,12 +63,17 @@ add_executable(test_shell_audiopolicy
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/hapticmanager.cpp
+    ../../shell/src/models/notificationmodel.cpp
+    ../../shell/src/dbus/notificationdatabase.cpp
+    ../../shell/src/services/notificationservicecpp.cpp
 )
-target_link_libraries(test_shell_audiopolicy Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
+target_link_libraries(test_shell_audiopolicy Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia Qt6::Sql)
 target_include_directories(test_shell_audiopolicy PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
     ${CMAKE_SOURCE_DIR}/shell/src/managers
     ${CMAKE_SOURCE_DIR}/shell/src/controllers
+    ${CMAKE_SOURCE_DIR}/shell/src/models
+    ${CMAKE_SOURCE_DIR}/shell/src/services
 )
 target_compile_definitions(test_shell_audiopolicy PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME Shell_AudioPolicy COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with-media-roles.sh

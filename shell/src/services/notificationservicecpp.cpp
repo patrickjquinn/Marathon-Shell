@@ -200,7 +200,7 @@ void NotificationServiceCpp::onNotificationAdded(int id) {
     if (notif->ongoing())
         return;
     emit notificationReceived(map);
-    playFeedbackIfNeeded();
+    playFeedbackIfNeeded(!notif->suppressSound());
 }
 
 void NotificationServiceCpp::onNotificationDismissed(int id) {
@@ -236,11 +236,11 @@ NotificationServiceCpp::buildNotificationMapFromModel(Notification *notification
     return map;
 }
 
-void NotificationServiceCpp::playFeedbackIfNeeded() {
+void NotificationServiceCpp::playFeedbackIfNeeded(bool sound) {
     if (isDndEnabled())
         return;
 
-    if (m_soundEnabled && m_audioPolicy)
+    if (sound && m_soundEnabled && m_audioPolicy)
         m_audioPolicy->playNotificationSound();
 
     if (m_vibrationEnabled && m_haptics)

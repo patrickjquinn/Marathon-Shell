@@ -84,7 +84,8 @@ class NotificationServiceCpp : public QObject {
 
   private:
     QVariantMap        buildNotificationMapFromModel(class Notification *notification) const;
-    void               playFeedbackIfNeeded();
+    // sound false: the sender asked for none (freedesktop suppress-sound).
+    void               playFeedbackIfNeeded(bool sound);
     void               removeNotificationById(int id);
 
     NotificationModel *m_model    = nullptr;
