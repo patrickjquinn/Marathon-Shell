@@ -69,7 +69,7 @@ TestCase {
     function test_install() {
         const call = KeelActions.invoke("apps.install", { id: "org.example.Chat" });
         verify(call.succeeded, call.errorMessage);
-        verify(app.store.opened.indexOf("marathon-store://install/org.example.Chat") >= 0);
+        verify(app.store.opened.some(u => u.indexOf("marathon-store://install/org.example.Chat?name=") === 0));
         tryCompare(app.pageStack, "depth", 2);
         compare(app.pageStack.currentPage.appId, "org.example.Chat");
         compare(KeelActions.invoke("apps.install", { id: "org.example.Chat" }).errorMessage, "already being installed");

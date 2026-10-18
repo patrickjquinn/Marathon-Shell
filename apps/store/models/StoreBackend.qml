@@ -826,7 +826,9 @@ QtObject {
         jobs = next;
         _setVerb(appId, verb);
         jobPollTimer.running = true;
-        root.openExternally("marathon-store://" + verb + "/" + appId);
+        // The name is for the job's row in the Hub.
+        const name = verb === "uninstall" ? "" : "?name=" + encodeURIComponent(nameOf(appId));
+        root.openExternally("marathon-store://" + verb + "/" + appId + name);
     }
 
     function installApp(appId) {

@@ -204,7 +204,7 @@ TestCase {
         const action = findChild(page, "detailAction");
         compare(action.action, "get");
         findChild(action, "getButton").clicked(null);
-        compare(app.store.opened[app.store.opened.length - 1], "marathon-store://install/org.gnome.Maps");
+        compare(app.store.opened[app.store.opened.length - 1], "marathon-store://install/org.gnome.Maps?name=Maps");
         verify(action.busy);
         verify(findChild(action, "installProgress").visible);
         verify(findChild(action, "cancelButton").visible);

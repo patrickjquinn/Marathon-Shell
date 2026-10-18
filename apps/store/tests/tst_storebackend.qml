@@ -85,8 +85,13 @@ TestCase {
 
     function test_installStartsJob() {
         const b = makeBackend();
+        b.appstreamCache = {
+            "org.gnome.Maps": {
+                "name": "GNOME Maps"
+            }
+        };
         b.installApp("org.gnome.Maps");
-        compare(b.opened, ["marathon-store://install/org.gnome.Maps"]);
+        compare(b.opened, ["marathon-store://install/org.gnome.Maps?name=GNOME%20Maps"]);
         compare(b.jobFor("org.gnome.Maps").state, "pending");
         compare(b.activeJobId, "org.gnome.Maps");
         b.uninstallApp("org.gnome.Maps");
