@@ -9,7 +9,7 @@ import "cover"
 ApplicationWindow {
     id: app
 
-    property QtObject store: ConfigurationValue {
+    property var store: ConfigurationValue {
         key: "/apps/template/items"
         defaultValue: "[]"
     }

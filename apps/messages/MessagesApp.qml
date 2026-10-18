@@ -13,7 +13,7 @@ ApplicationWindow {
     id: root
 
     // Pins, archive and drafts are client-side; Sms has no store for them.
-    property QtObject store: ConfigurationValue {
+    property var store: ConfigurationValue {
         key: "/apps/messages/state"
         defaultValue: "{}"
     }
