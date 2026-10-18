@@ -131,6 +131,10 @@ ApplicationWindow {
     Component.onDestruction: if (draftTimer.running)
         save()
 
+    MessagesActions {
+        app: root
+    }
+
     Timer {
         id: draftTimer
         interval: 1000

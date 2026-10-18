@@ -1,0 +1,246 @@
+{
+  "appId": "org.marathonos.messages",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.messages/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "conversations.search",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000,
+        "org.shipwright.keel/untrusted": true
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Search the text message conversations in Marathon Messages by the contact's name or number or the last message; an empty query lists them all. Returns up to `limit` conversations, pinned first, then the most recent, each with the contact's name and number, the last message, when it arrived and how many messages are unread. Archived conversations are left out.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.messages/conversations.search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "lastMessage": {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "number": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "time": {
+                  "format": "date-time",
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                "unread": {
+                  "maximum": 2147483647,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "name",
+                "number",
+                "lastMessage",
+                "time",
+                "unread"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Search conversations"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "messages.read",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000,
+        "org.shipwright.keel/untrusted": true
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read the latest text messages exchanged with a phone number in Marathon Messages, oldest first. Each message has its text, whether the person sent it, and when. The conversation is not marked as read.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "number": {
+            "description": "The other person's phone number",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "number"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.messages/messages.read",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "outgoing": {
+                  "type": "boolean"
+                },
+                "text": {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                "time": {
+                  "format": "date-time",
+                  "maxLength": 32,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "outgoing",
+                "time"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Read conversation"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "messages.send",
+        "org.shipwright.keel/confirm": true,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Send a text message (SMS) from Marathon Messages to a phone number. Answers once the network has taken the message, with when it was sent.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "The message",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "to": {
+            "description": "Phone number to send to",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "text"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.messages/messages.send",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "sent": {
+            "format": "date-time",
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "sent"
+        ],
+        "type": "object"
+      },
+      "title": "Send text message"
+    }
+  ],
+  "version": 1
+}
