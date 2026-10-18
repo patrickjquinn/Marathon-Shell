@@ -173,6 +173,22 @@ class TestNotificationModel : public QObject {
         QCOMPARE(model.roleId("day"), int(NotificationModel::DayRole));
     }
 
+    // === CONTRACT: sources() lists each app once, newest first, with its unread ===
+
+    void sourcesCountUnreadPerApp() {
+        NotificationModel model;
+        const int first = model.addNotification("mail", "A", "B", "i");
+        model.addNotification("messages", "B", "B", "i");
+        model.addNotification("mail", "C", "B", "i");
+        model.markAsRead(first);
+        const QVariantList sources = model.sources();
+        QCOMPARE(sources.size(), 2);
+        QCOMPARE(sources.at(0).toMap().value("appId").toString(), QStringLiteral("mail"));
+        QCOMPARE(sources.at(0).toMap().value("unread").toInt(), 1);
+        QCOMPARE(sources.at(1).toMap().value("appId").toString(), QStringLiteral("messages"));
+        QCOMPARE(sources.at(1).toMap().value("unread").toInt(), 1);
+    }
+
     // === CONTRACT: an update rewrites the row where it is, quietly ===
 
     void updateKeepsThePlaceTimeAndReadState() {

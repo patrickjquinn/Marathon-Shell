@@ -21,26 +21,13 @@ Rectangle {
     property var sources: []
 
     function refreshSources() {
-        const unread = {};
-        const order = [];
-        const roleApp = NotificationModel.roleId("appId");
-        const roleRead = NotificationModel.roleId("isRead");
-        for (let i = 0; i < NotificationModel.rowCount(); i++) {
-            const idx = NotificationModel.index(i, 0);
-            const app = String(NotificationModel.data(idx, roleApp) || "");
-            if (!(app in unread)) {
-                unread[app] = 0;
-                order.push(app);
-            }
-            if (!NotificationModel.data(idx, roleRead))
-                unread[app]++;
-        }
-        sources = order.map(app => ({
-                    "app": app,
-                    "label": app ? accountFor(app) : qsTr("System"),
-                    "unread": unread[app]
+        const apps = NotificationModel.sources();
+        sources = apps.map(s => ({
+                    "app": s.appId,
+                    "label": s.appId ? accountFor(s.appId) : qsTr("System"),
+                    "unread": s.unread
                 }));
-        if (filterApp !== "" && !(filterApp in unread))
+        if (filterApp !== "" && !apps.some(s => s.appId === filterApp))
             filterApp = "";
     }
 
@@ -333,11 +320,15 @@ Rectangle {
             // sender -- "Messages", "Thunderbird". Fold it once here so
             // every helper below compares against the same key.
             readonly property string appKey: String(appId || "").toLowerCase()
+            // People get their monogram; anything else its app, as BB10
+            // marked each row with its service.
+            readonly property bool fromPerson: ["messages", "phone", "call", "email", "mail"].indexOf(appKey) >= 0
+            readonly property string appIcon: fromPerson ? "" : AppStore.getAppIcon(appKey)
 
             unread: !isRead
-            avatarText: hub.monogramFor(title, appKey)
+            avatarText: appIcon ? "" : hub.monogramFor(title, appKey)
             avatarIcon: appKey === "phone" ? "phone" : ""
-            image: icon
+            image: icon || appIcon
             glyphReplacesMonogram: appKey !== "messages"
             actions: model.actions || []
             actionIcons: !!model.actionIcons
@@ -352,6 +343,23 @@ Rectangle {
             onDismissed: NotificationService.dismissNotification(model.id)
             onActionInvoked: key => NotificationService.triggerAction(model.id, key)
         }
+    }
+
+    // What scrolls up fades out under the status bar.
+    Rectangle {
+        width: parent.width
+        height: Constants.statusBarHeight + Silica.Theme.paddingLarge
+        gradient: Gradient {
+            GradientStop {
+                position: 0.55
+                color: Silica.Theme.rgba("black", 0.55)
+            }
+            GradientStop {
+                position: 1.0
+                color: "transparent"
+            }
+        }
+        visible: !list.atYBeginning
     }
 
     WeatherSheet {

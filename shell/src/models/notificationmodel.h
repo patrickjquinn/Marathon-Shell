@@ -193,6 +193,8 @@ class NotificationModel : public QAbstractListModel {
     Q_INVOKABLE void          dismissAllNotifications();
     Q_INVOKABLE Notification *getNotification(int id);
     Q_INVOKABLE int           roleId(const QString &name) const;
+    // Each app once, newest first: { appId, unread }.
+    Q_INVOKABLE QVariantList  sources() const;
 
     void                      loadFromDatabase(class NotificationDatabase *database);
 

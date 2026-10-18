@@ -45,6 +45,23 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const {
     }
 }
 
+QVariantList NotificationModel::sources() const {
+    QStringList     order;
+    QHash<QString, int> unread;
+    for (const Notification *n : m_notifications) {
+        if (!unread.contains(n->appId())) {
+            order.append(n->appId());
+            unread.insert(n->appId(), 0);
+        }
+        if (!n->isRead())
+            ++unread[n->appId()];
+    }
+    QVariantList result;
+    for (const QString &app : std::as_const(order))
+        result.append(QVariantMap{{QStringLiteral("appId"), app}, {QStringLiteral("unread"), unread.value(app)}});
+    return result;
+}
+
 QHash<int, QByteArray> NotificationModel::roleNames() const {
     QHash<int, QByteArray> roles;
     roles[IdRole]          = "id";

@@ -38,12 +38,63 @@ TestCase {
         NavigationRouter.deepLinks = [];
         closedSpy.clear();
         hub.isInPeekMode = false;
+        hub.filterApp = "";
     }
 
     // Every role the delegate reads, since a ListView sees only the roles
     // its first row had.
     function addNotification(id, appId, icon) {
-        NotificationModel.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1 });
+        NotificationModel.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
+        hub.refreshSources();
+    }
+
+    function isoDay(daysAgo) {
+        const d = new Date();
+        d.setDate(d.getDate() - daysAgo);
+        return Qt.formatDate(d, "yyyy-MM-dd");
+    }
+
+    function test_dayLabels() {
+        compare(hub.dayLabel(isoDay(0)), "Today");
+        compare(hub.dayLabel(isoDay(1)), "Yesterday");
+        const three = new Date();
+        three.setDate(three.getDate() - 3);
+        compare(hub.dayLabel(isoDay(3)), Qt.locale().dayName(three.getDay(), Locale.LongFormat));
+        const ten = new Date();
+        ten.setDate(ten.getDate() - 10);
+        compare(hub.dayLabel(isoDay(10)), Qt.formatDate(ten, "d MMMM"));
+    }
+
+    function test_filtersOnlyWithMoreThanOneApp() {
+        const filters = findChild(hub, "hubFilters");
+        addNotification(1, "mail");
+        addNotification(2, "mail");
+        verify(!filters.visible);
+        addNotification(3, "messages");
+        verify(filters.visible);
+        compare(hub.sources.map(s => s.app), ["mail", "messages"]);
+        compare(hub.sources[0].unread, 2);
+    }
+
+    function test_filterNarrowsToOneApp() {
+        addNotification(1, "mail");
+        addNotification(2, "messages");
+        addNotification(3, "mail");
+        const list = findChild(hub, "hubList");
+        compare(list.count, 3);
+        hub.filterApp = "mail";
+        tryCompare(list, "count", 2);
+        hub.filterApp = "";
+        tryCompare(list, "count", 3);
+    }
+
+    function test_filterClearsWhenItsAppIsGone() {
+        addNotification(1, "mail");
+        addNotification(2, "messages");
+        hub.filterApp = "messages";
+        NotificationModel.remove(1);
+        hub.refreshSources();
+        compare(hub.filterApp, "");
     }
 
     readonly property string redPixels: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4z8DwHxkzkC4AADxAH+HggXe0AAAAAElFTkSuQmCC"
