@@ -960,10 +960,12 @@ PowerObject::PowerObject(PowerManagerCpp *power, PowerPolicyController *policy,
     QObject::connect(m_power, &PowerManagerCpp::isPowerSaveModeChanged, this, push);
     QObject::connect(m_power, &PowerManagerCpp::estimatedBatteryTimeChanged, this, push);
     QObject::connect(m_power, &PowerManagerCpp::powerProfileChanged, this, push);
+    QObject::connect(m_policy, &PowerPolicyController::dozingChanged, this, push);
 }
 
 QVariantMap PowerObject::buildState() const {
     return {
+        {"dozing", m_policy->dozing()},
         {"batteryLevel", m_power->batteryLevel()},
         {"isCharging", m_power->isCharging()},
         {"isPluggedIn", m_power->isPluggedIn()},

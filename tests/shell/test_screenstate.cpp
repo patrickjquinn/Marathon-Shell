@@ -82,6 +82,15 @@ class TestScreenState : public QObject {
         m_display.reset();
     }
 
+    // Power1.StateChanged carries "dozing" on this signal.
+    void dozingIsSignalled() {
+        QSignalSpy changed(m_power.get(), &PowerPolicyController::dozingChanged);
+        dbusSetScreenState(false);
+        QCOMPARE(changed.count(), 1);
+        dbusSetScreenState(true);
+        QCOMPARE(changed.count(), 2);
+    }
+
     void dbusBlankThenWakeLeavesTheShellAwake() {
         dbusSetScreenState(false);
         QCOMPARE(blPower(), QByteArray("4"));
