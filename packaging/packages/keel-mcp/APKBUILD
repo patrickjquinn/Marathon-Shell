@@ -1,7 +1,9 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 # keel-mcp (Shipwright keel/actions/mcp): the MCP server for the Keel Actions
 # of the apps on the device. pilotd starts /usr/bin/keel-mcp --stdio when it
-# is installed. Built from a Shipwright commit like shoal-pilotd;
+# is installed; keel-mcp.service, started with the graphical session, serves
+# other clients on $XDG_RUNTIME_DIR/keel-mcp.sock. Built from a Shipwright
+# commit like shoal-pilotd;
 # scripts/qemu/lib/build-keel-mcp-apk.sh stages a local checkout.
 pkgname=keel-mcp
 pkgver=0.1.0
@@ -13,7 +15,9 @@ arch="aarch64 x86_64"
 license="MIT"
 depends="dbus"
 makedepends="cargo"
-source="keel-mcp-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz"
+source="keel-mcp-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
+	keel-mcp.service
+	"
 builddir="$srcdir/shipwright-open-$_commit"
 # The tests need a session bus and the Keel Actions test app; they run in
 # Shipwright's CI.
@@ -27,9 +31,14 @@ build() {
 package() {
 	install -Dm755 target/release/keel-mcp "$pkgdir"/usr/bin/keel-mcp
 	install -d "$pkgdir"/usr/share/keel/actions
+	install -Dm644 "$srcdir"/keel-mcp.service "$pkgdir"/usr/lib/systemd/user/keel-mcp.service
+	install -d "$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants
+	ln -s ../keel-mcp.service \
+		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/keel-mcp.service
 	install -Dm644 LICENSES/MIT.txt "$pkgdir"/usr/share/licenses/$pkgname/MIT.txt
 }
 
 sha512sums="
 SKIP  keel-mcp-$_commit.tar.gz
+26718145cb02363285694de4222d77f23fd4e19564b4e901339461cf18a3b34b448623b6f6f886c2c13bb7feae124a10bb3aebd2cb975ff6c5e931665bfefaff  keel-mcp.service
 "

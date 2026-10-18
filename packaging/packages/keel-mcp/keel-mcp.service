@@ -1,0 +1,11 @@
+[Unit]
+Description=MCP server for the Keel Actions of Marathon apps
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/keel-mcp --socket
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target
