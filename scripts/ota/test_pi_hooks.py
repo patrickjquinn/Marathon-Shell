@@ -24,7 +24,8 @@ e2fsck*) exit "${STUB_E2FSCK_RC:-0}" ;;
 "cryptsetup isLuks "*) [ -n "$STUB_LUKS" ] ;;
 "cryptsetup -q --force-password luksFormat "*) exit "${STUB_FORMAT_RC:-0}" ;;
 "cryptsetup open "*) IFS= read -r pass; [ "$pass" = "$STUB_PIN" ] ;;
-"plymouth --ping") [ -z "$STUB_NO_PLYMOUTH" ] ;;
+"plymouth --ping") [ -z "$STUB_NO_PLYMOUTH" ] && [ ! -e "$STUB_PLYMOUTH_QUIT" ] ;;
+"plymouth quit") touch "$STUB_PLYMOUTH_QUIT" ;;
 "plymouth ask-for-password "*)
     for arg; do case $arg in --command=*) cmd=${arg#--command=} ;; esac; done
     answer=$(head -n1 "$STUB_ANSWERS"); sed -i 1d "$STUB_ANSWERS"
@@ -72,7 +73,7 @@ class HookCase(unittest.TestCase):
         self.env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}",
                         MARATHON_AB_TEST_ROOT=str(self.root), STUB_LOG=str(self.log),
                         STUB_ANSWERS=str(self.answers), STUB_LUKS="", STUB_PIN="",
-                        STUB_NO_PLYMOUTH="")
+                        STUB_NO_PLYMOUTH="", STUB_PLYMOUTH_QUIT=str(self.root / "plymouth-quit"))
 
     def stub(self, name):
         stub = self.bin_dir / name
@@ -192,6 +193,13 @@ class EncryptedDataTest(HookCase):
     def setUp(self):
         super().setUp()
         self.seeded()
+        self.keyboard(True)
+
+    def keyboard(self, letters):
+        # KEY_A (30) and KEY_Z (44), or only KEY_POWER (116, in the next word).
+        caps = self.root / "sys/class/input/input0/capabilities"
+        caps.mkdir(parents=True, exist_ok=True)
+        (caps / "key").write_text("100040000000 0\n" if not letters else "0 100040000000\n")
         self.open = (f"cryptsetup open --perf-no_read_workqueue --perf-no_write_workqueue "
                      f"{self.dev} marathon_data")
 
@@ -232,6 +240,17 @@ class EncryptedDataTest(HookCase):
         rc, calls = self.run_hook(DATA_HOOK, STUB_LUKS="1")
         self.assertEqual(rc, 0, calls)
         self.assertFalse(self.note().exists())
+
+    def test_without_a_keyboard_unl0kr_asks_over_the_splash(self):
+        self.keyboard(False)
+        self.stub("unl0kr")
+        self.answers.write_text("123456\n")
+        rc, calls = self.run_hook(DATA_HOOK, STUB_LUKS="1", STUB_PIN="123456")
+        self.assertEqual(rc, 0, calls)
+        self.assertIn("plymouth quit", calls)
+        self.assertIn("unl0kr ", calls)
+        self.assertEqual(self.asks(calls), [])
+        self.assertIn(f"mount -t ext4 -o rw,noatime {self.mapper} {self.data}", calls)
 
     def test_unl0kr_asks_when_plymouth_is_not_running(self):
         self.stub("unl0kr")

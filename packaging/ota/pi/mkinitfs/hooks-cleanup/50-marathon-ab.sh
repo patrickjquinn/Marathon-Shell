@@ -19,11 +19,26 @@ fail() {
 	exit 1
 }
 
+# Something with letter keys (KEY_A and KEY_Z), not just power or volume.
+has_keyboard() {
+	for caps in "$root"/sys/class/input/input*/capabilities/key; do
+		[ -r "$caps" ] || continue
+		read -r bits < "$caps"
+		low=${bits##* }
+		[ $((0x$low >> 30 & 1)) = 1 ] && [ $((0x$low >> 44 & 1)) = 1 ] && return 0
+	done
+	return 1
+}
+
 # An encrypted data partition opens with the empty passphrase until the
-# person sets a PIN, then with the PIN (docs/ENCRYPTION.md).
+# person sets a PIN, then with the PIN (docs/ENCRYPTION.md). Plymouth draws
+# the prompt but takes no touch; without a keyboard, unl0kr's on-screen one.
 unlock() {
 	echo | $open 2> /dev/null && return 0
 	prompt="Enter PIN"
+	if ! has_keyboard && command -v unl0kr > /dev/null; then
+		plymouth quit 2> /dev/null
+	fi
 	while :; do
 		if plymouth --ping 2> /dev/null; then
 			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && pin_typed=1 && return 0
