@@ -1,0 +1,157 @@
+{
+  "appId": "org.marathonos.gallery",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.gallery/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "photos.find",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Find photos in Marathon Gallery whose file name, album or date (as \"12 March 2026\") contains the query; an empty query lists the most recent. Returns up to `limit` photos, newest first, each with its id, file name, album, when it was taken and its size in pixels.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.gallery/photos.find",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "album": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "height": {
+                  "maximum": 2147483647,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "maximum": 2147483647,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "name": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "taken": {
+                  "format": "date-time",
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                "width": {
+                  "maximum": 2147483647,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "album",
+                "taken",
+                "width",
+                "height"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Find photos"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "photos.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Open a photo full screen in Marathon Gallery for the person, by its id from photos.find, and bring Gallery to the front. Swiping moves through the other photos, newest first.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "A photo id from photos.find",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.gallery/photos.show",
+      "title": "Show photo"
+    }
+  ],
+  "version": 1
+}

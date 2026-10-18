@@ -43,6 +43,10 @@ ApplicationWindow {
         Qt.callLater(refresh);
     }
 
+    GalleryActions {
+        store: root
+    }
+
     Connections {
         target: MediaLibrary
         function onScanComplete() { root.refresh(); }

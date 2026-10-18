@@ -3,6 +3,7 @@ import QtTest
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import Keel.Actions 1.0
 import ".."
 
 TestCase {
@@ -133,6 +134,16 @@ TestCase {
         compare(viewer.currentIndex, 1);
         compare(viewer.photo.id, 2);
         compare(app.viewerPhoto.id, 2);
+    }
+
+    function test_showActionOpensViewer() {
+        const app = makeApp(threePhotos());
+        tryCompare(app.pageStack, "busy", false);
+        const call = KeelActions.invoke("photos.show", { id: 3 });
+        verify(call.succeeded, call.errorMessage);
+        tryCompare(app.pageStack, "busy", false);
+        compare(app.pageStack.depth, 2);
+        compare(app.viewerPhoto.id, 3);
     }
 
     function test_closingViewerClearsCoverPhoto() {
