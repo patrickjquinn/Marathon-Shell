@@ -149,6 +149,10 @@ ApplicationWindow {
         model: app.hasAccount ? app.mail.messages : null
         onModelChanged: Qt.callLater(app.updateLatest)
     }
+    MailActions {
+        app: app
+        messages: latest.items
+    }
     Connections {
         target: app.hasAccount ? app.mail.messages : null
         ignoreUnknownSignals: true

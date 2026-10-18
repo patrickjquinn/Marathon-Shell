@@ -1,0 +1,233 @@
+{
+  "appId": "org.marathonos.email",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.email/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "mail.compose",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only opens a draft; nothing leaves the phone until the person sends it",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Open a new email in Marathon Mail with the recipients, subject and text filled in, for the person to check and send.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 100000,
+            "type": "string"
+          },
+          "cc": {
+            "description": "Addresses to copy, separated by commas",
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "to": {
+            "description": "Recipients' addresses, separated by commas",
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "org.marathonos.email/mail.compose",
+      "title": "Write email"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "mail.read",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000,
+        "org.shipwright.keel/untrusted": true
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read one email in Marathon Mail by the id mail.search returned: sender, recipients, subject, date and text (the first 20000 characters). The message is not marked as read.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 32,
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.email/mail.read",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 20000,
+            "type": "string"
+          },
+          "date": {
+            "format": "date-time",
+            "maxLength": 32,
+            "type": "string"
+          },
+          "from": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "to": {
+            "items": {
+              "maxLength": 512,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "subject",
+          "body"
+        ],
+        "type": "object"
+      },
+      "title": "Read email"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "mail.search",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000,
+        "org.shipwright.keel/untrusted": true
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Search the open folder of Marathon Mail (the inbox unless the person opened another) for text in the sender, subject or preview; an empty query lists every message. Returns up to `limit` messages, newest first, each with its id, sender, subject, preview, when it arrived as shown in the app, and whether it is unread.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.email/mail.search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                "id": {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                "preview": {
+                  "maxLength": 1000,
+                  "type": "string"
+                },
+                "received": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "subject": {
+                  "maxLength": 1000,
+                  "type": "string"
+                },
+                "unread": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "from",
+                "subject",
+                "preview",
+                "received",
+                "unread"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Search mail"
+    }
+  ],
+  "version": 1
+}
