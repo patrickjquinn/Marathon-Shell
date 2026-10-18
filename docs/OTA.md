@@ -363,6 +363,8 @@ Run on 2026-10-17 (images 26101702 → 26101705 → 26101706), all steps passed:
 | 4. N+1 (26101705) | automatic check found it, downloaded in the background with progress and notes, "Restart to finish updating" notification; Restart now → one reboot (31 s) to tryboot 1, partition 3; "partition 3 committed"; `[all]` 3 / `[tryboot]` 2; Bluetooth pairing, files, settings and Wi-Fi kept; "Updated to Marathon 26101705" on the lock screen |
 | 5. Bad N+2 (26101706, no shell) | two trials on partition 2, each falling back after 60 s, the second armed by the early-boot catch-all; then "26101706 failed its trial boots; staying on 26101705"; `[all]` still 3; lock screen and Settings say it didn't start and went back |
 | Later: 26101709 → 26101801 (2026-10-18) | Check now → download and install in under 5 min with bulleted notes → Restart now → one reboot, no firmware stall; "partition 2 committed" 9 s after boot; `/etc` upper layer kept, the image's new `device-profile.conf` took effect |
+| 26101802 (bad splash hand-off) | greetd hung in VT_WAITACTIVE, no shell frame; two trials fell back, "26101802 failed its trial boots; staying on 26101801" — a real-world fallback |
+| 26101803 → 26101804 (2026-10-18) | the download showed in the Hub as "Downloading update · NN%" with a bar, then "Restart to finish updating" with Restart now / Tonight; Restart now from the Hub → one reboot, "partition 2 committed" |
 
 Found and fixed on the way: A/B builds never reached mkosi's configure
 script (patch 0039); systemd 262's sysupdate1 has `Acquire` + `Install`, not
