@@ -116,7 +116,7 @@ Item {
         blur: 1.0
         blurMax: 32
         saturation: 0.3
-        brightness: -0.08
+        brightness: -0.02
         visible: false
     }
 

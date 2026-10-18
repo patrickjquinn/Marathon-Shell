@@ -14,7 +14,7 @@ ShaderEffect {
     property bool screenSpaceLookup: true
 
     property real radius: Silica.Theme.paddingLarge + Silica.Theme.paddingSmall
-    property color tint: pressed ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0.10, 0.11, 0.12, 0.38)
+    property color tint: pressed ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0.13, 0.14, 0.16, 0.30)
     property real rim: 1.0
 
     readonly property size size: Qt.size(width, height)

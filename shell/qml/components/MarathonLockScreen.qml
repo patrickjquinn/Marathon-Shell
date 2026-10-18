@@ -33,6 +33,8 @@ Item {
     // Max notification cards shown directly; remainder collapse
     // into the 'N more notifications' row.
     readonly property int maxNotificationsShown: 2
+    // Fewer when the cards would run into the unlock controls.
+    property int shownLimit: maxNotificationsShown
 
     signal unlockRequested
     signal cameraLaunched
@@ -71,7 +73,9 @@ Item {
     // NotificationModel — keeps only the first `maxNotificationsShown`
     // unread items so the lock surface stays calm. The remainder are
     // surfaced via the 'N more' card, which opens the Hub.
-    function refreshNotifications() {
+    function refreshNotifications(keepLimit) {
+        if (!keepLimit)
+            shownLimit = maxNotificationsShown;
         unreadModel.clear();
         // Honour the "Show on Lock Screen" privacy setting. Previously this
         // toggle wrote SettingsManagerCpp.showNotificationsOnLockScreen but
@@ -86,7 +90,7 @@ Item {
             const idx = NotificationModel.index(i, 0);
             if (NotificationModel.data(idx, roleIsRead))
                 continue;
-            if (unread < maxNotificationsShown) {
+            if (unread < shownLimit) {
                 unreadModel.append({
                     "notifId": NotificationModel.data(idx, roleIdValue) || 0,
                     "appId": NotificationModel.data(idx, roleAppId) || "other",
@@ -98,7 +102,15 @@ Item {
             }
             unread++;
         }
-        moreCount = Math.max(0, unread - maxNotificationsShown);
+        moreCount = Math.max(0, unread - shownLimit);
+    }
+
+    function fitNotifications() {
+        const limit = lockScreenBottomBar.mapToItem(notificationStack.parent, 0, 0).y - Silica.Theme.paddingLarge;
+        if (notificationStack.y + notificationStack.height > limit && shownLimit > 1) {
+            shownLimit--;
+            refreshNotifications(true);
+        }
     }
 
     property int moreCount: 0
@@ -619,6 +631,7 @@ Item {
             spacing: Silica.Theme.paddingMedium
             visible: unreadModel.count > 0 || lockScreen.moreCount > 0
             z: 10
+            onHeightChanged: Qt.callLater(lockScreen.fitNotifications)
 
             Repeater {
                 model: unreadModel
