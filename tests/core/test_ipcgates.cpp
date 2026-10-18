@@ -17,15 +17,16 @@ namespace {
 
     // The slot names a class declares under "public slots:".
     QStringList slotsOf(const QString &header, const QString &cls) {
+        static const QRegularExpression nextSection(QStringLiteral("\n  [a-z]+:"));
+        static const QRegularExpression declaration(
+            QStringLiteral(R"((\w+)\s*\([^;]*\)\s*(const\s*)?;)"));
         const qsizetype start   = header.indexOf(QStringLiteral("class %1 ").arg(cls));
         const qsizetype section = header.indexOf(QStringLiteral("public slots:"), start);
-        const qsizetype end =
-            header.indexOf(QRegularExpression(QStringLiteral("\n  [a-z]+:")), section + 1);
+        const qsizetype end     = header.indexOf(nextSection, section + 1);
         if (start < 0 || section < 0 || end < 0)
             return {};
         QStringList names;
-        auto        it = QRegularExpression(QStringLiteral(R"((\w+)\s*\([^;]*\)\s*(const\s*)?;)"))
-                             .globalMatch(header.mid(section, end - section));
+        auto        it = declaration.globalMatch(header.mid(section, end - section));
         while (it.hasNext())
             names << it.next().captured(1);
         return names;
@@ -34,7 +35,8 @@ namespace {
     QString bodyOf(const QString &source, const QString &cls, const QString &method) {
         const QRegularExpression def(
             QStringLiteral(R"(\b%1::%2\([^)]*\)[^{;]*\{)").arg(cls, method));
-        const QRegularExpressionMatch m = def.match(source);
+        const QRegularExpressionMatch m =
+            def.match(source); // clazy:exclude=use-static-qregularexpression (runtime pattern)
         if (!m.hasMatch())
             return {};
         int       depth = 1;
@@ -89,7 +91,7 @@ class TestIpcGates : public QObject {
         QVERIFY2(
             header.contains(QStringLiteral("class %1 : public IpcPermissionedService").arg(cls)),
             qPrintable(cls));
-        const QRegularExpression gate(QStringLiteral(
+        static const QRegularExpression gate(QStringLiteral(
             R"(\brequire\w*\(|authorizePermissionCall\(|hasAnyPermission\(|checkCaller\w*\()"));
         for (const QString &method : methods) {
             const QString name = cls + QStringLiteral("::") + method;

@@ -119,11 +119,10 @@ void ContactsManager::deleteContact(int id) {
 
 QVariantList ContactsManager::searchContacts(const QString &query) {
     QVariantList results;
-    QString      lowerQuery = query.toLower();
 
     for (const Contact &contact : std::as_const(m_contacts)) {
-        if (contact.name.toLower().contains(lowerQuery) || contact.phone.contains(query) ||
-            contact.email.toLower().contains(lowerQuery)) {
+        if (contact.name.contains(query, Qt::CaseInsensitive) || contact.phone.contains(query) ||
+            contact.email.contains(query, Qt::CaseInsensitive)) {
 
             QVariantMap map;
             map["id"]           = contact.id;
@@ -159,12 +158,13 @@ QVariantMap ContactsManager::getContactByNumber(const QString &phoneNumber) {
         return QVariantMap();
     }
 
-    QString cleanNumber = phoneNumber;
-    cleanNumber.remove(QRegularExpression("[^0-9+]"));
+    static const QRegularExpression nonDialable("[^0-9+]");
+    QString                         cleanNumber = phoneNumber;
+    cleanNumber.remove(nonDialable);
 
     for (const Contact &contact : std::as_const(m_contacts)) {
         QString cleanContactNumber = contact.phone;
-        cleanContactNumber.remove(QRegularExpression("[^0-9+]"));
+        cleanContactNumber.remove(nonDialable);
 
         if (cleanContactNumber == cleanNumber ||
             cleanContactNumber.endsWith(cleanNumber.right(10)) ||
@@ -204,7 +204,7 @@ void ContactsManager::loadFromVCards() {
 
         Contact                 contact;
 
-        QRegularExpression      idRegex("_(\\d+)\\.vcf$");
+        static const QRegularExpression idRegex("_(\\d+)\\.vcf$");
         QRegularExpressionMatch match = idRegex.match(fileName);
         if (match.hasMatch()) {
             contact.id = match.captured(1).toInt();
@@ -215,25 +215,25 @@ void ContactsManager::loadFromVCards() {
             contact.id = m_nextId++;
         }
 
-        QRegularExpression fnRegex("FN:(.*?)\\r?\\n");
+        static const QRegularExpression fnRegex("FN:(.*?)\\r?\\n");
         match = fnRegex.match(content);
         if (match.hasMatch()) {
             contact.name = match.captured(1).trimmed();
         }
 
-        QRegularExpression telRegex("TEL[^:]*:(.*?)\\r?\\n");
+        static const QRegularExpression telRegex("TEL[^:]*:(.*?)\\r?\\n");
         match = telRegex.match(content);
         if (match.hasMatch()) {
             contact.phone = match.captured(1).trimmed();
         }
 
-        QRegularExpression emailRegex("EMAIL[^:]*:(.*?)\\r?\\n");
+        static const QRegularExpression emailRegex("EMAIL[^:]*:(.*?)\\r?\\n");
         match = emailRegex.match(content);
         if (match.hasMatch()) {
             contact.email = match.captured(1).trimmed();
         }
 
-        QRegularExpression orgRegex("ORG:(.*?)\\r?\\n");
+        static const QRegularExpression orgRegex("ORG:(.*?)\\r?\\n");
         match = orgRegex.match(content);
         if (match.hasMatch()) {
             contact.organization = match.captured(1).trimmed();
@@ -304,23 +304,27 @@ void ContactsManager::importVCard(const QString &path) {
     QString                 email;
     QString                 organization;
 
-    QRegularExpressionMatch match;
-    match = QRegularExpression("FN:(.*?)\\r?\\n").match(content);
+    static const QRegularExpression fnRegex("FN:(.*?)\\r?\\n");
+    static const QRegularExpression telRegex("TEL[^:]*:(.*?)\\r?\\n");
+    static const QRegularExpression emailRegex("EMAIL[^:]*:(.*?)\\r?\\n");
+    static const QRegularExpression orgRegex("ORG:(.*?)\\r?\\n");
+    QRegularExpressionMatch         match;
+    match = fnRegex.match(content);
     if (match.hasMatch()) {
         name = match.captured(1).trimmed();
     }
 
-    match = QRegularExpression("TEL[^:]*:(.*?)\\r?\\n").match(content);
+    match = telRegex.match(content);
     if (match.hasMatch()) {
         phone = match.captured(1).trimmed();
     }
 
-    match = QRegularExpression("EMAIL[^:]*:(.*?)\\r?\\n").match(content);
+    match = emailRegex.match(content);
     if (match.hasMatch()) {
         email = match.captured(1).trimmed();
     }
 
-    match = QRegularExpression("ORG:(.*?)\\r?\\n").match(content);
+    match = orgRegex.match(content);
     if (match.hasMatch()) {
         organization = match.captured(1).trimmed();
     }
@@ -386,9 +390,10 @@ void ContactsManager::exportVCard(int contactId, const QString &path) {
 }
 
 QString ContactsManager::sanitizeFileName(const QString &name) {
-    QString sanitized = name;
+    static const QRegularExpression unsafe("[/\\\\:*?\"<>|]");
+    QString                         sanitized = name;
 
-    sanitized.replace(QRegularExpression("[/\\\\:*?\"<>|]"), "_");
+    sanitized.replace(unsafe, "_");
     sanitized.replace(" ", "_");
     return sanitized;
 }

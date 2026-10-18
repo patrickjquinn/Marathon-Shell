@@ -52,9 +52,9 @@ namespace {
     QSet<QString> writtenSettingsKeys() {
         QSet<QString> keys = matches(settingsAppQml(), R"re(\bSettings\.(\w+)\s*=[^=])re");
         // SoundPickerPage writes Settings[key] from its soundType -> key map.
-        const QString picker = read("apps/settings/pages/SoundPickerPage.qml");
-        const QString keyLine =
-            QRegularExpression(R"re(property string key:([^\n]*))re").match(picker).captured(1);
+        static const QRegularExpression keyProperty(R"re(property string key:([^\n]*))re");
+        const QString picker  = read("apps/settings/pages/SoundPickerPage.qml");
+        const QString keyLine = keyProperty.match(picker).captured(1);
         keys += matches(keyLine, R"re(\w+:\s*"(\w+)")re");
         keys += matches(read("apps/settings/src/KeyboardSettingsStore.cpp"),
                         R"re(writeSettingValue\("(\w+)")re");

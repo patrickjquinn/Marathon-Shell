@@ -308,8 +308,9 @@ void SMSService::markAsRead(const QString &conversationId) {
 
 QString SMSService::generateConversationId(const QString &number) {
 
-    QString normalized = number;
-    normalized.remove(QRegularExpression("[^0-9+]"));
+    static const QRegularExpression nonDialable("[^0-9+]");
+    QString                         normalized = number;
+    normalized.remove(nonDialable);
     return normalized;
 }
 
