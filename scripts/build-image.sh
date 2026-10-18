@@ -185,6 +185,9 @@ PILOT_SRC="${PILOT_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pilot" ] && echo
 build_if_missing "shoal-pilot"               'shoal-pilot-[0-9]*.apk'         "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilot/APKBUILD"
 KEEL_MCP_SRC="${KEEL_MCP_SRC-$([ -d "$HOME/Developer/Shipwright/keel/actions/mcp" ] && echo "$HOME/Developer/Shipwright")}" \
 build_if_missing "keel-mcp"                  'keel-mcp-*.apk'                 "$LIB/build-keel-mcp-apk.sh"                  "$APORTS_DIR/keel-mcp/APKBUILD"
+# Deckard from a local Marathon-Deckard checkout when there is one.
+DECKARD_SRC="${DECKARD_SRC-$([ -d "$HOME/Developer/Marathon-Deckard/host/deckardd" ] && echo "$HOME/Developer/Marathon-Deckard")}" \
+build_if_missing "deckard"                   'deckard-*.apk'                  "$LIB/build-deckard-apk.sh"                   "$APORTS_DIR/deckard/APKBUILD"
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
 
