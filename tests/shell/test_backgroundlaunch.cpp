@@ -95,6 +95,20 @@ class TestBackgroundLaunch : public QObject {
         QVERIFY(!launcher->isBackgroundLaunch("pilot"));
     }
 
+    // The window matched the sandbox's inner runner, so the app's pid was
+    // that child's; when the sandbox exits the app must be gone, or the next
+    // background start answers true and starts nothing.
+    void sandboxExitForgetsItsChild() {
+        QVERIFY(launcher->startAppInBackground(app("pilot")));
+        launcher->onCompositorAppLaunched("pilot-bin", 4194310);
+        launcher->registerPidForAppId(4194311, "pilot");
+        launcher->onCompositorAppClosed(4194310);
+        QCOMPARE(launcher->pidForAppId("pilot"), -1);
+        QVERIFY(launcher->appIdForPid(4194311).isEmpty());
+        QVERIFY(launcher->startAppInBackground(app("pilot")));
+        QCOMPARE(comp->spawned.size(), 2);
+    }
+
     // A user-installed app sees its code read-only, never through the
     // writable data directory; a system app that lists apps sees them all.
     void installedCodeIsBoundReadOnly() {

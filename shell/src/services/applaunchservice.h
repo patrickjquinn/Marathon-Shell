@@ -166,6 +166,7 @@ class AppLaunchService : public QObject {
 
   private:
     friend class TestRunnerPool;
+    friend class TestBackgroundLaunch;
 
     Spare             m_spares[SpareShapes];
     int               m_spareCount;

@@ -1834,9 +1834,13 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
     m_backgroundLaunches.remove(p.appId);
     closeSandboxSocket(p.sandboxInstance);
     m_pidToAppId.remove(pid);
-    if (m_appIdToPid.value(p.appId) == pid) {
+    // The app's pid may be the sandbox's inner runner (matched by its
+    // window), which died with the sandbox.
+    const qint64 appPid = m_appIdToPid.value(p.appId, -1);
+    if (appPid == pid || (appPid > 0 && !QFileInfo::exists(QStringLiteral("/proc/%1").arg(appPid)))) {
         m_appIdToPid.remove(p.appId);
-        emit pidUnregistered(pid, p.appId);
+        m_pidToAppId.remove(appPid);
+        emit pidUnregistered(appPid, p.appId);
     }
 
     if (m_taskModel) {
