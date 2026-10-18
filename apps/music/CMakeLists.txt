@@ -17,3 +17,5 @@ add_marathon_app(${APP_NAME}
 
 find_package(Qt6 REQUIRED COMPONENTS DBus Gui)
 target_link_libraries(${APP_NAME} PRIVATE Qt6::DBus Qt6::Gui)
+
+install_keel_actions(${APP_NAME} keel-actions.json)

@@ -1,0 +1,242 @@
+{
+  "appId": "org.marathonos.music",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.music/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "library.search",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Search the Marathon Music library for songs whose title, artist or album contains the query; an empty query lists every song. Returns up to `limit` songs in title order, each with its id, title, artist, album and length in seconds.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 20,
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.music/library.search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "album": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "artist": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "duration": {
+                  "maximum": 2147483647,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "maximum": 2147483647,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "title": {
+                  "maxLength": 200,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "artist",
+                "album",
+                "duration"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Search music"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "playback.control",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Pause or resume Marathon Music, or skip to the next or previous song in its queue. Fails with NotAvailable when no song is loaded. Returns whether music is playing and the current song's title.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "enum": [
+              "pause",
+              "resume",
+              "next",
+              "previous"
+            ],
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.music/playback.control",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "playing": {
+            "type": "boolean"
+          },
+          "title": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "playing",
+          "title"
+        ],
+        "type": "object"
+      },
+      "title": "Control playback"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "playback.play",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Play music from the Marathon Music library: the song `trackId` (an id from library.search) followed by the rest of the library, or every song whose title, artist or album contains `query`. Give one of the two. Returns the song now playing.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "description": "Text in a song's title, artist or album",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "trackId": {
+            "description": "A song id from library.search",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "name": "org.marathonos.music/playback.play",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "album": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "artist": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "duration": {
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "album",
+          "duration"
+        ],
+        "type": "object"
+      },
+      "title": "Play music"
+    }
+  ],
+  "version": 1
+}

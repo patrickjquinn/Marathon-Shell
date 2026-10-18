@@ -160,6 +160,10 @@ ApplicationWindow {
         music: app
     }
 
+    MusicActions {
+        music: app
+    }
+
     // Delayed: bound directly, the window's resize loops back into visibleSize.
     Binding {
         target: app
