@@ -5,6 +5,7 @@ import Sailfish.Silica 1.0 as Silica
 // Hub row: unread dot, a glass-ring monogram or icon, then sender and
 // time, account and a one-line snippet, laid out as Sailfish's events.
 // Swiping it to the right dismisses it; leftward stays with the pager.
+// An ongoing row shows its progress and can't be swiped away.
 Item {
     id: row
 
@@ -21,6 +22,9 @@ Item {
     property string time: ""
     property string account: ""
     property string snippet: ""
+    property bool ongoing: false
+    // 0..1, or negative while unknown.
+    property real progress: -1
     readonly property bool down: area.pressed && area.containsMouse && !area.swiping
     property real collapse: 1
     readonly property real fullHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
@@ -179,6 +183,54 @@ Item {
                 visible: text.length > 0
             }
 
+            Item {
+                objectName: "hubRowProgress"
+                width: parent.width
+                height: track.height + Silica.Theme.paddingSmall * 2
+                visible: row.ongoing
+
+                Rectangle {
+                    id: track
+
+                    width: parent.width
+                    height: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
+                    radius: height / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: avatar.border.color
+                    clip: true
+
+                    Rectangle {
+                        id: fill
+
+                        readonly property bool known: row.progress >= 0
+
+                        objectName: "hubRowProgressFill"
+                        width: known ? track.width * row.progress : track.width / 4
+                        height: parent.height
+                        radius: parent.radius
+                        color: Silica.Theme.highlightColor
+
+                        Behavior on width {
+                            enabled: fill.known
+                            NumberAnimation {
+                                duration: MMotion.moderate
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+
+                        NumberAnimation on x {
+                            running: MMotion.gate(!fill.known && row.ongoing && row.visible)
+                            from: -fill.width
+                            to: track.width
+                            duration: 1200
+                            loops: Animation.Infinite
+                            onRunningChanged: if (!running)
+                                fill.x = 0
+                        }
+                    }
+                }
+            }
+
             Silica.Label {
                 width: parent.width
                 text: row.account
@@ -224,7 +276,7 @@ Item {
                 swiping = true;
                 preventStealing = true;
             }
-            if (swiping)
+            if (swiping && !row.ongoing)
                 content.x = Math.max(0, dx);
         }
         onReleased: {

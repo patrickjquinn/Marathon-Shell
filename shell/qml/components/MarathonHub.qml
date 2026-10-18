@@ -228,6 +228,8 @@ Rectangle {
             time: hub.relativeTime(timestamp)
             account: hub.accountFor(appId)
             snippet: body
+            ongoing: !!model.ongoing
+            progress: model.ongoing ? model.progress : -1
 
             onActivated: hub.openNotification(model.id, appId)
             onDismissed: NotificationService.dismissNotification(model.id)

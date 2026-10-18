@@ -40,8 +40,10 @@ TestCase {
         hub.isInPeekMode = false;
     }
 
+    // Every role the delegate reads, since a ListView sees only the roles
+    // its first row had.
     function addNotification(id, appId, icon) {
-        NotificationModel.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false });
+        NotificationModel.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1 });
     }
 
     readonly property string redPixels: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4z8DwHxkzkC4AADxAH+HggXe0AAAAAElFTkSuQmCC"
@@ -154,6 +156,42 @@ TestCase {
         compare(NotificationService.clicked, []);
         mouseClick(row(0), row(0).width / 2, 10);
         compare(NotificationService.clicked, [5]);
+    }
+
+    function addProgress(id, progress) {
+        NotificationModel.append({ id: id, appId: "Software update", title: "Downloading Marathon OS 26101801", body: "42%", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false, ongoing: true, progress: progress });
+    }
+
+    // An ongoing row draws its progress, stays put under a swipe and
+    // still opens on a tap.
+    function test_ongoingRowShowsProgress() {
+        addProgress(9, 0.42);
+        tryVerify(() => row(0));
+        verify(row(0).ongoing);
+        const bar = findChild(row(0), "hubRowProgress");
+        verify(bar.visible);
+        const fill = findChild(row(0), "hubRowProgressFill");
+        tryVerify(() => Math.abs(fill.width - fill.parent.width * 0.42) < 1);
+
+        swipe(row(0), 0.6);
+        wait(50);
+        compare(NotificationService.dismissed, []);
+        mouseClick(row(0));
+        compare(NotificationService.clicked, [9]);
+    }
+
+    function test_unknownProgressFillsAQuarter() {
+        addProgress(10, -1);
+        tryVerify(() => row(0));
+        const fill = findChild(row(0), "hubRowProgressFill");
+        compare(fill.width, fill.parent.width / 4);
+    }
+
+    function test_plainRowHasNoProgress() {
+        addNotification(11, "messages");
+        tryVerify(() => row(0));
+        verify(!row(0).ongoing);
+        verify(!findChild(row(0), "hubRowProgress").visible);
     }
 
     function test_clearAll() {
