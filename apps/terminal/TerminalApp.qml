@@ -11,6 +11,8 @@ ApplicationWindow {
     id: app
 
     property var sessions: []
+    // Until Terminal has been in front, its first session is untouched.
+    property bool seen: Qt.application.state === Qt.ApplicationActive
     property int currentIndex: 0
     readonly property var currentSession: sessions[currentIndex] || null
 
@@ -60,6 +62,14 @@ ApplicationWindow {
 
     appId: "terminal"
     Component.onCompleted: newSession()
+
+    Connections {
+        target: Qt.application
+        function onStateChanged() {
+            if (Qt.application.state === Qt.ApplicationActive)
+                app.seen = true;
+        }
+    }
 
     TerminalActions {
         app: app

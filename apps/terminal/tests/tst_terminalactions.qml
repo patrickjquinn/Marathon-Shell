@@ -16,6 +16,7 @@ TestCase {
     }
 
     function test_openStartsANewSession() {
+        app.seen = true;
         const before = app.sessions.length;
         const call = KeelActions.invoke("terminal.open", {});
         verify(call.succeeded, call.errorMessage);
@@ -23,6 +24,14 @@ TestCase {
         compare(app.currentIndex, before);
         compare(app.currentSession.starts, 1);
         compare(app.currentSession.sent, []);
+    }
+
+    function test_openUsesTheUntouchedFirstSession() {
+        app.seen = false;
+        const before = app.sessions.length;
+        verify(KeelActions.invoke("terminal.open", {}).succeeded);
+        compare(app.sessions.length, before);
+        app.seen = true;
     }
 
     function test_openTakesNoArguments() {

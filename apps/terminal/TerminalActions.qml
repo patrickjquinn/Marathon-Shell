@@ -9,7 +9,7 @@ import Keel.Actions 1.0
 Item {
     id: root
 
-    // The app: newSession() and activate().
+    // The app: seen, newSession() and activate().
     property var app
 
     KeelAction {
@@ -18,7 +18,8 @@ Item {
         description: "Bring Marathon Terminal to the front in a new shell session, for the person to type in. It runs no command."
         idempotent: false
         onInvoked: (args, call) => {
-            root.app.newSession();
+            if (root.app.seen)
+                root.app.newSession();
             root.app.activate();
         }
     }
