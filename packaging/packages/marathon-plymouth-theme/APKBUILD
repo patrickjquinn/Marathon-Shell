@@ -24,10 +24,6 @@ source="
 	marathon-update-splash.service
 	marathon-update-splash-started.path
 	marathon-update-splash-started.service
-	marathon-splash-greetd.conf
-	marathon-splash-quit.service
-	marathon-splash-quit.path
-	marathon-splash-quit.timer
 	"
 
 package() {
@@ -58,19 +54,6 @@ package() {
 		"$pkgdir/usr/lib/systemd/system/sysinit.target.wants/marathon-update-splash.service"
 	ln -sf ../marathon-update-splash-started.path \
 		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-update-splash-started.path"
-
-	# The splash stays up until the shell's first frame, 60 s at most.
-	install -Dm644 "$srcdir/marathon-splash-greetd.conf" \
-		"$pkgdir/usr/lib/systemd/system/greetd.service.d/10-marathon-splash.conf"
-	for _unit in marathon-splash-quit.service marathon-splash-quit.path \
-		marathon-splash-quit.timer; do
-		install -Dm644 "$srcdir/$_unit" "$pkgdir/usr/lib/systemd/system/$_unit"
-	done
-	mkdir -p "$pkgdir/usr/lib/systemd/system/timers.target.wants"
-	ln -sf ../marathon-splash-quit.path \
-		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/marathon-splash-quit.path"
-	ln -sf ../marathon-splash-quit.timer \
-		"$pkgdir/usr/lib/systemd/system/timers.target.wants/marathon-splash-quit.timer"
 
 	# Override /usr/share/plymouth/plymouthd.defaults with our theme
 	# selection. This file is Plymouth's last-resort default lookup
@@ -131,8 +114,4 @@ c78ba5dabf8b5daf2399bdb3f7de48ace351e2263ce1477253c41051c4d377beacf680f5f2fb4d29
 9f55b4072e460fa1dbaf3bd4df55a95fbe3232566736199ba93dbf88e47dffe303674b33f0c0541407b64d7ee2aa7c70357e52308753f9057103f2d82019e1fe  marathon-update-splash.service
 272a003d01f4081e0760f4ca24b544272281f6268affdfca2180fa4b5a071a68639ace169d1471368f40a484d0547b9adab49df36971095913e4670acd5ff746  marathon-update-splash-started.path
 42a3e92d22a69bfe1b7d99b1413fcf472ff53d038a9ecb1c16060d3b74cb30c967e56c05ac114b6e884c79c64139bc47e8f22a644facf7d741425e21870ce8da  marathon-update-splash-started.service
-a22151a1890a60036996f6a4a5a69245bcb707911c6d5d81f23a4b62adf74b52ba151a11967d5dcb542e4ed100d85188af50ef473cf803be5f247128e4d041bf  marathon-splash-greetd.conf
-a6bef6174982d43c64c50db45fabf91e8aaef4784d124c89b87e1c9702cd1bd55f499b3ec7a1be94d966108d69d78ea1ef6fd427e8ffd6803f0ac6952265a08e  marathon-splash-quit.service
-540269a2496687496890723d67e6774929f05d5efc996e8af8838d4f0733e13b0b4452035b3442bf4063a3136a6fb96bf70232f9f6d877bf5a9aee1eaab01aa8  marathon-splash-quit.path
-367d0245804abb0ace8de4d853d3627bc47db490e2a93f489edffc50383e64e1abef47937a46bb37f59141d3b02599ea745c416af64a4eae1fd4b5adefeef377  marathon-splash-quit.timer
 "

@@ -1,9 +1,0 @@
-[Unit]
-Description=End the boot splash if Marathon Shell never draws
-
-[Timer]
-OnBootSec=60
-AccuracySec=1s
-
-[Install]
-WantedBy=timers.target
