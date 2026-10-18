@@ -38,6 +38,10 @@ ApplicationWindow {
         _restored = true;
     }
 
+    CalculatorActions {
+        calc: app.calc
+    }
+
     cover: Component {
         CalculatorCover {
             calc: app.calc

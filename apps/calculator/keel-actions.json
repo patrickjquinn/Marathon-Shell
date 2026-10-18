@@ -1,0 +1,136 @@
+{
+  "appId": "org.marathonos.calculator",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.calculator/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "calc.evaluate",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Work out a calculation on Marathon Calculator's keypad and return the result. The expression is what would be typed: numbers, + - * / mod %, and √ (or sqrt), x², sin, cos, tan (in degrees), log, ln and ! after the number they apply to; π (or pi) and e are constants. Like the keypad, operators apply in the order typed, without precedence: 2 + 3 * 4 is 20.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "For example 12.5 * 4 - 3",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.calculator/calc.evaluate",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "The result as the app shows it",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "text"
+        ],
+        "type": "object"
+      },
+      "title": "Calculate"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "calc.history",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "wrapped",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "The calculations on Marathon Calculator's tape, oldest first (at most 8), each with its expression as the app shows it and its result.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.calculator/calc.history",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "expression": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "expression",
+                "value"
+              ],
+              "type": "object"
+            },
+            "maxItems": 8,
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "title": "Calculation history"
+    }
+  ],
+  "version": 1
+}
