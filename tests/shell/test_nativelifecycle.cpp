@@ -1,6 +1,8 @@
 #include <QTest>
 #include <QSignalSpy>
 #include <QDBusConnection>
+#include <QDBusObjectPath>
+#include <QTimer>
 
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
@@ -21,6 +23,17 @@ class FakeSystemd : public QObject {
     }
     void ThawUnit(const QString &unit) {
         calls << "Thaw " + unit;
+    }
+    // Waydroid's session unit owns id.waydro.Session once it runs.
+    QDBusObjectPath StartUnit(const QString &unit, const QString &mode) {
+        calls << "Start " + unit + " " + mode;
+        if (unit == QLatin1String("marathon-waydroid.service"))
+            QTimer::singleShot(100, this, []() {
+                QDBusConnection::connectToBus(QDBusConnection::SessionBus,
+                                              QStringLiteral("waydroid"))
+                    .registerService(QStringLiteral("id.waydro.Session"));
+            });
+        return QDBusObjectPath(QStringLiteral("/org/freedesktop/systemd1/job/1"));
     }
 };
 
@@ -249,6 +262,46 @@ class TestNativeLifecycle : public QObject {
         QVERIFY(launcher->launchApp(QVariantMap{
             {"id", radio}, {"name", "Radio"}, {"type", "flatpak"}, {"exec", "FLATPAK:radio"}}));
         QTRY_COMPARE(comp.spawned, QStringList{"FLATPAK:radio"});
+        launcher->setCompositor(nullptr);
+    }
+
+    // `waydroid app launch` with no session would become the session, and
+    // stopping it would stop Android: the session unit runs it instead.
+    void anAndroidLaunchWaitsForTheSessionUnit() {
+        FakeCompositor comp;
+        FakeShell      shell;
+        launcher->setCompositor(&comp);
+        launcher->setAppWindow(&shell);
+        QVERIFY(launcher->launchApp(QVariantMap{{"id", "waydroid.org.fdroid.fdroid"},
+                                                {"name", "F-Droid"},
+                                                {"type", "native"},
+                                                {"exec", "waydroid app launch org.fdroid.fdroid"}}));
+        QTRY_COMPARE(systemd->calls, QStringList{"Start marathon-waydroid.service replace"});
+        QVERIFY(comp.spawned.isEmpty());
+        QTRY_COMPARE(comp.spawned, QStringList{"waydroid app launch org.fdroid.fdroid"});
+
+        // The session is up: the next launch runs at once.
+        QVERIFY(launcher->launchApp(QVariantMap{{"id", "waydroid.org.lineageos.jelly"},
+                                                {"name", "Browser"},
+                                                {"type", "native"},
+                                                {"exec", "waydroid app launch org.lineageos.jelly"}}));
+        QCOMPARE(comp.spawned.size(), 2);
+        QCOMPARE(systemd->calls.size(), 1);
+        QDBusConnection::disconnectFromBus(QStringLiteral("waydroid"));
+        launcher->setCompositor(nullptr);
+    }
+
+    void withoutTheUnitTheLauncherRuns() {
+        QDBusConnection::disconnectFromBus(QStringLiteral("systemd"));
+        FakeCompositor comp;
+        FakeShell      shell;
+        launcher->setCompositor(&comp);
+        launcher->setAppWindow(&shell);
+        QVERIFY(launcher->launchApp(QVariantMap{{"id", "waydroid.org.fdroid.fdroid"},
+                                                {"name", "F-Droid"},
+                                                {"type", "native"},
+                                                {"exec", "waydroid app launch org.fdroid.fdroid"}}));
+        QTRY_COMPARE(comp.spawned, QStringList{"waydroid app launch org.fdroid.fdroid"});
         launcher->setCompositor(nullptr);
     }
 

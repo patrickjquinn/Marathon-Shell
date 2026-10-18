@@ -31,6 +31,8 @@
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDBusConnectionInterface>
+#include <QDBusServiceWatcher>
 #include <QUuid>
 
 #if defined(HAVE_WAYLAND)
@@ -679,15 +681,61 @@ bool AppLaunchService::launchNativeApp(const QVariantMap &app, QObject *composit
         p.command = exec;
         m_pendingByCommand.insert(exec, p);
 
-        const bool ok = QMetaObject::invokeMethod(compositorRef, "launchApp", Qt::DirectConnection,
-                                                  Q_ARG(QString, exec));
-        if (!ok)
-            qWarning() << "[AppLaunchService] Failed to invoke launchApp(QString) on compositor";
+        QPointer<QObject> comp(compositorRef);
+        const auto        spawn = [comp, exec]() {
+            if (!comp || !QMetaObject::invokeMethod(comp, "launchApp", Qt::DirectConnection,
+                                                    Q_ARG(QString, exec)))
+                qWarning() << "[AppLaunchService] Failed to invoke launchApp(QString) on compositor";
+        };
+        if (exec.startsWith(QLatin1String("waydroid app "))) {
+            if (m_appLifecycleManager)
+                QMetaObject::invokeMethod(m_appLifecycleManager, "wakeApp", Qt::DirectConnection,
+                                          Q_ARG(QString, appId));
+            startAndroidSession(spawn);
+        } else {
+            spawn();
+        }
     }
 
     m_launchingApps.remove(appId);
     emit appLaunchCompleted(appId, name);
     return true;
+}
+
+// `waydroid app launch` with no session running becomes the session, and
+// Android stops with it; the session unit runs it instead. Without the unit,
+// or if no session comes in a minute, the launcher runs regardless.
+void AppLaunchService::startAndroidSession(const std::function<void()> &then) {
+    QDBusConnection bus     = QDBusConnection::sessionBus();
+    const QString   session = QStringLiteral("id.waydro.Session");
+    if (!bus.isConnected() || bus.interface()->isServiceRegistered(session)) {
+        then();
+        return;
+    }
+    auto *wait    = new QObject(this);
+    auto  done    = [wait, then]() {
+        if (wait->property("done").toBool())
+            return;
+        wait->setProperty("done", true);
+        wait->deleteLater();
+        then();
+    };
+    auto *watcher = new QDBusServiceWatcher(session, bus, QDBusServiceWatcher::WatchForRegistration,
+                                            wait);
+    connect(watcher, &QDBusServiceWatcher::serviceRegistered, wait, done);
+    QTimer::singleShot(60000, wait, done);
+    QDBusMessage start = QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.systemd1"), QStringLiteral("/org/freedesktop/systemd1"),
+        QStringLiteral("org.freedesktop.systemd1.Manager"), QStringLiteral("StartUnit"));
+    start << QStringLiteral("marathon-waydroid.service") << QStringLiteral("replace");
+    auto *call = new QDBusPendingCallWatcher(bus.asyncCall(start), wait);
+    connect(call, &QDBusPendingCallWatcher::finished, wait, [done](QDBusPendingCallWatcher *w) {
+        if (w->isError()) {
+            qInfo() << "[AppLaunchService] Android session unit not started:"
+                    << w->error().message();
+            done();
+        }
+    });
 }
 
 // org.freedesktop.Application on the desktop id: a DBusActivatable app owns

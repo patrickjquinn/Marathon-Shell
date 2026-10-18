@@ -120,6 +120,7 @@ class AppLaunchService : public QObject {
     QVariantMap resolveAppObject(const QVariant &app) const;
     bool launchNativeApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
     void  activateRunningApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
+    void  startAndroidSession(const std::function<void()> &then);
     QSize initialAppSize() const;
     bool launchMarathonApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
 
