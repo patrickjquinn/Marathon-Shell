@@ -1,2 +1,3 @@
 # The BlackBerry keyboard's dwc2 host IRQ fires ~2000/s; keep it off CPU0.
-ACTION=="bind", SUBSYSTEM=="platform", DRIVER=="dwc2", RUN+="/usr/libexec/marathon-irq-dwc2"
+# dwc2 binds in the initramfs, so after switch_root only the coldplug "add" comes.
+ACTION=="add|bind", SUBSYSTEM=="platform", DRIVER=="dwc2", RUN+="/usr/libexec/marathon-irq-dwc2"

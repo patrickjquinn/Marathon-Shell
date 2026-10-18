@@ -61,7 +61,8 @@ package() {
 		"$pkgdir/usr/libexec/marathon-irq-dwc2"
 
 	# Panel, DPI and backlight drivers in the initramfs, so its splash
-	# has a framebuffer instead of timing out waiting for /dev/fb0.
+	# has a framebuffer instead of timing out waiting for /dev/fb0, and
+	# the keyboard's USB host (dwc2), so the PIN can be typed there.
 	install -Dm644 "$srcdir/hackberrypi.modules" \
 		"$pkgdir/usr/share/mkinitfs/modules/10-hackberrypi.modules"
 
@@ -88,10 +89,10 @@ package() {
 sha512sums="
 df166ee5ca9159698a20858407a44206f70a70e8e97476e60b9879a6b1880cd95efccd0b6e8a4a64e08dfa089ae44f87e156030ea28988615c19cda84892ed10  hackberrypi.dts
 a457f7f97758b002ffb81cfc33774d6843f18ab6e7c2ccbed85bfecde799a7e5d2144527f66ac576ade34b1cd1ba4fc26ce7d7d760dbde93e13022113c6a59d6  usercfg-hackberrypi.txt
-9ec953eac0cfb62aebb4ed7403a3bb084a6ce89ddd356887fde58f5a12d9b75dd77d33e3154c7a0fde4b04a0eaf4fdab58ba75ac79366c29d001e158e593511f  90-marathon-irq-dwc2.rules
+37db89a8cbd348cd32eb5bbce831edb1f7bc6bc56a17be4ec2a05a5bdef6e16c31871983606e51d1abfbdbd1353daad5c24db353fa04b33c3a03b918b74d7b1d  90-marathon-irq-dwc2.rules
 89c51433ed181fd0bc2bbd482ded56151371a297420b714ea373f2ae8b4f93eb74234c87c47d79831d672b316e8b96a6d24d42d50aef6e01ce6e19313d669623  marathon-irq-dwc2
 c01c58dc77b79d63ed7994bd8c78bea44bf7060c49da91b2faef0fa46bcae989ea9c0b5f06c4ddee701c46f955a5fc406564ec917b09b54b1670c856c57386b2  marathon-cm5-fuelgauge.conf
-442ba19c4a34433cbcedbe95dd44df295f4644480dc3cd41fea61ff695f3773c5fe7c692bf584ecd82a92fbb056debed61c92641355dc0a6fb146e342f4c2fa5  hackberrypi.modules
+5d1df39b4c12e370e1d1c4069820a476d3a760a8186f36fcc409db086ae57e98a4623de646723ac1b4b689df7965597a5613f5dcf84058e213b67e858ae1791d  hackberrypi.modules
 88850bcb6f5e57e275658a5f55307e149ba4501e98b1376162fe39d2813148014de4a2361b7bda03d6612f6fc912c0131c475333766000cd63d9f6241139eea7  device-profile.conf
 132e51e1f66ee58c22c43b4b06556ab1850ea494692a9929d4167ff0f554fc510d863f2d68c0ecde2050e0cbd42a4c174ad93e038e91d1b39dcadd5b5986b5c2  marathon-hackberry-speaker
 b51b79433444f8b1e95a5237bc007d87856548a4510515520b87fbd0e51d98e2fca94e5655073b791360457d25ae5660e29d682bd52ad6e8ff986543a4d64c66  marathon-hackberry-speaker.service
