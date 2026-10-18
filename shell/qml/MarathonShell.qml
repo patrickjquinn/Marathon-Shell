@@ -2034,6 +2034,8 @@ Item {
     NotificationToast {
         id: notificationToast
 
+        backdropSource: UIStore.appWindowOpen ? appWindowContainer : null
+
         Connections {
             function onNotificationReceived(notification) {
                 // Do Not Disturb suppresses the auto-popup banner (audio +

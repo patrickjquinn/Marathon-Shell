@@ -249,6 +249,12 @@ Item {
             asynchronous: true
         }
 
+        MGlassBackdrop {
+            id: glassBackdrop
+
+            anchors.fill: parent
+        }
+
         AppBackdropBlur {
             anchors.fill: parent
             source: lockScreen.appBackdrop
@@ -610,14 +616,14 @@ Item {
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.top: lockScreenMediaPlayer.visible ? lockScreenMediaPlayer.bottom : (activityBar.visible ? activityBar.bottom : clockColumn.bottom)
             anchors.topMargin: Silica.Theme.paddingLarge * 2
-            spacing: Silica.Theme.paddingSmall
+            spacing: Silica.Theme.paddingMedium
             visible: unreadModel.count > 0 || lockScreen.moreCount > 0
             z: 10
 
             Repeater {
                 model: unreadModel
 
-                delegate: Rectangle {
+                delegate: Item {
                     id: notifCard
 
                     required property int index
@@ -629,20 +635,22 @@ Item {
                     required property var timestamp
 
                     width: notificationStack.width
-                    height: cardContent.implicitHeight + Silica.Theme.paddingMedium * 2
-                    radius: Silica.Theme.paddingMedium
-                    color: notifArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba("black", 0.85)
-                    border.width: 1
-                    border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+                    height: cardContent.implicitHeight + Silica.Theme.paddingLarge * 2
+
+                    MGlassPlatter {
+                        anchors.fill: parent
+                        backdrop: glassBackdrop.texture
+                        pressed: notifArea.pressed
+                    }
 
                     Row {
                         id: cardContent
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.leftMargin: Silica.Theme.paddingMedium
-                        anchors.rightMargin: Silica.Theme.paddingMedium
+                        anchors.leftMargin: Silica.Theme.paddingLarge
+                        anchors.rightMargin: Silica.Theme.paddingLarge
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: Silica.Theme.paddingMedium
+                        spacing: Silica.Theme.paddingLarge
 
                         GlyphIcon {
                             id: notifIcon
@@ -664,10 +672,11 @@ Item {
                                     id: nameText
                                     anchors.left: parent.left
                                     anchors.right: timeText.left
-                                    anchors.rightMargin: Silica.Theme.paddingSmall
+                                    anchors.rightMargin: Silica.Theme.paddingMedium
                                     text: notifCard.title
                                     color: Silica.Theme.primaryColor
                                     font.pixelSize: Silica.Theme.fontSizeSmall
+                                    font.weight: Font.DemiBold
                                     truncationMode: Silica.TruncationMode.Fade
                                 }
                                 Silica.Label {
@@ -707,14 +716,16 @@ Item {
                 }
             }
 
-            Rectangle {
+            Item {
                 width: notificationStack.width
                 height: Silica.Theme.itemSizeSmall
-                radius: Silica.Theme.paddingMedium
-                color: moreArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba("black", 0.85)
-                border.width: 1
-                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                 visible: lockScreen.moreCount > 0
+
+                MGlassPlatter {
+                    anchors.fill: parent
+                    backdrop: glassBackdrop.texture
+                    pressed: moreArea.pressed
+                }
                 Accessible.role: Accessible.Button
                 Accessible.name: moreLabel.text
                 Accessible.onPressAction: lockScreen.hubRequested()
@@ -722,10 +733,10 @@ Item {
                 Row {
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.leftMargin: Silica.Theme.paddingMedium
-                    anchors.rightMargin: Silica.Theme.paddingMedium
+                    anchors.leftMargin: Silica.Theme.paddingLarge
+                    anchors.rightMargin: Silica.Theme.paddingLarge
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Silica.Theme.paddingMedium
+                    spacing: Silica.Theme.paddingLarge
 
                     GlyphIcon {
                         id: moreIcon

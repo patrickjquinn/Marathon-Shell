@@ -9,3 +9,4 @@ here=$(cd "$(dirname "$0")" && pwd)
 qsb=${QSB:-qsb}
 "$qsb" -b --glsl "100 es,120,150" -o "$here/windowcorner.vert.qsb" "$here/windowcorner.vert"
 "$qsb" --glsl "100 es,120,150" -o "$here/windowcorner.frag.qsb" "$here/windowcorner.frag"
+"$qsb" --glsl "100 es,120,150" -o "$here/glassplatter.frag.qsb" "$here/glassplatter.frag"

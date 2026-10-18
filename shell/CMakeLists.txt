@@ -336,6 +336,8 @@ set(QML_FILES
     qml/ui/MCircularIconButton.qml
     qml/ui/MEntrance.qml
     qml/ui/MGlass.qml
+    qml/ui/MGlassBackdrop.qml
+    qml/ui/MGlassPlatter.qml
     qml/ui/MHaptics.qml
     qml/ui/MHubRow.qml
     qml/ui/MMarathonMark.qml
@@ -470,6 +472,7 @@ qt_add_resources(marathon-shell "shell_shaders"
     FILES
         shaders/windowcorner.vert.qsb
         shaders/windowcorner.frag.qsb
+        shaders/glassplatter.frag.qsb
 )
 qt_add_resources(marathon-shell "shell_keel_actions"
     PREFIX "/keel"

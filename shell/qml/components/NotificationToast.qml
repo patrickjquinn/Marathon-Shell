@@ -1,5 +1,6 @@
 import MarathonOS.Shell 1.0
 import QtQuick
+import QtQuick.Effects
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
@@ -14,6 +15,8 @@ Item {
     // Position follows state, so a late height change can't strand it.
     property bool shown: false
     property real dragOffset: 0
+    // The open app, blurred behind the banner; the wallpaper otherwise.
+    property Item backdropSource: null
 
     // In arrival order; a critical one goes ahead of all but earlier
     // critical ones.
@@ -83,7 +86,51 @@ Item {
         }
     }
 
-    Rectangle {
+    MGlassBackdrop {
+        id: wallpaperGlass
+
+        anchors.fill: parent
+        visible: toast.visible && !toastContainer.backdropSource
+    }
+
+    ShaderEffectSource {
+        id: appCapture
+
+        width: toast.width
+        height: toast.height
+        sourceItem: toast.visible ? toastContainer.backdropSource : null
+        sourceRect: Qt.rect(toast.x, toast.y, toast.width, toast.height)
+        textureSize: Qt.size(Math.max(1, Math.round(toast.width / 2)), Math.max(1, Math.round(toast.height / 2)))
+        live: toast.visible
+        visible: false
+    }
+
+    MultiEffect {
+        id: appBlur
+
+        width: toast.width
+        height: toast.height
+        source: appCapture
+        autoPaddingEnabled: false
+        blurEnabled: !MMotion.reduceBlur
+        blur: 1.0
+        blurMax: 32
+        saturation: 0.3
+        brightness: -0.08
+        visible: false
+    }
+
+    ShaderEffectSource {
+        id: appGlass
+
+        width: toast.width
+        height: toast.height
+        sourceItem: toastContainer.backdropSource && toast.visible ? appBlur : null
+        hideSource: true
+        visible: false
+    }
+
+    Item {
         id: toast
 
         anchors.left: parent.left
@@ -94,12 +141,14 @@ Item {
         // title and body are scaled type tokens while these heights were
         // physical px, so at 1.5x the two lines overflowed the card and
         // painted over the status bar and the surface underneath.
-        height: body.implicitHeight + Silica.Theme.paddingMedium * 2
-        radius: Silica.Theme.paddingMedium
-        color: Silica.Theme.rgba("black", 0.85)
-        border.width: 1
-        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        height: body.implicitHeight + Silica.Theme.paddingLarge * 2
         visible: false
+
+        MGlassPlatter {
+            anchors.fill: parent
+            backdrop: toastContainer.backdropSource ? appGlass : wallpaperGlass.texture
+            screenSpaceLookup: !toastContainer.backdropSource
+        }
 
         Column {
             id: body
@@ -107,7 +156,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Silica.Theme.paddingMedium
+            anchors.margins: Silica.Theme.paddingLarge
             spacing: Silica.Theme.paddingSmall
 
             Row {
@@ -116,7 +165,7 @@ Item {
                 width: parent.width
                 // Whichever is taller: the icon tile or the two text lines.
                 height: Math.max(iconTile.height, textColumn.implicitHeight)
-                spacing: Silica.Theme.paddingMedium
+                spacing: Silica.Theme.paddingLarge
 
                 NotificationIcon {
                     id: iconTile
@@ -130,13 +179,14 @@ Item {
 
                 Column {
                     id: textColumn
-                    width: parent.width - iconTile.width - Silica.Theme.paddingMedium
+                    width: parent.width - iconTile.width - Silica.Theme.paddingLarge
                     anchors.verticalCenter: parent.verticalCenter
 
                     Silica.Label {
                         text: (toastContainer.currentToast && toastContainer.currentToast.title) ? toastContainer.currentToast.title : ""
                         color: Silica.Theme.primaryColor
                         font.pixelSize: Silica.Theme.fontSizeSmall
+                        font.weight: Font.DemiBold
                         truncationMode: Silica.TruncationMode.Fade
                         width: parent.width
                     }
