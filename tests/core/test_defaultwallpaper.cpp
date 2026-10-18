@@ -41,7 +41,8 @@ class TestDefaultWallpaper : public QObject {
         SettingsManager m;
         WallpaperStore  store(&m);
         QString name;
-        for (const QVariant &w : store.wallpapers()) {
+        const QVariantList wallpapers = store.wallpapers();
+        for (const QVariant &w : wallpapers) {
             if (w.toMap().value("path").toString().endsWith("aurora-myvatn.jpg"))
                 name = w.toMap().value("name").toString();
         }

@@ -121,7 +121,7 @@ QVariantList ContactsManager::searchContacts(const QString &query) {
     QVariantList results;
     QString      lowerQuery = query.toLower();
 
-    for (const Contact &contact : m_contacts) {
+    for (const Contact &contact : std::as_const(m_contacts)) {
         if (contact.name.toLower().contains(lowerQuery) || contact.phone.contains(query) ||
             contact.email.toLower().contains(lowerQuery)) {
 
@@ -139,7 +139,7 @@ QVariantList ContactsManager::searchContacts(const QString &query) {
 }
 
 QVariantMap ContactsManager::getContact(int id) {
-    for (const Contact &contact : m_contacts) {
+    for (const Contact &contact : std::as_const(m_contacts)) {
         if (contact.id == id) {
             QVariantMap map;
             map["id"]           = contact.id;
@@ -162,7 +162,7 @@ QVariantMap ContactsManager::getContactByNumber(const QString &phoneNumber) {
     QString cleanNumber = phoneNumber;
     cleanNumber.remove(QRegularExpression("[^0-9+]"));
 
-    for (const Contact &contact : m_contacts) {
+    for (const Contact &contact : std::as_const(m_contacts)) {
         QString cleanContactNumber = contact.phone;
         cleanContactNumber.remove(QRegularExpression("[^0-9+]"));
 
@@ -190,7 +190,7 @@ void ContactsManager::loadFromVCards() {
     QDir        dir(m_contactsDir);
     QStringList vcfFiles = dir.entryList(QStringList() << "*.vcf", QDir::Files);
 
-    for (const QString &fileName : vcfFiles) {
+    for (const QString &fileName : std::as_const(vcfFiles)) {
         QString filePath = m_contactsDir + "/" + fileName;
         QFile   file(filePath);
 

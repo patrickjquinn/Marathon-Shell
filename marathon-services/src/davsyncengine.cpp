@@ -138,7 +138,7 @@ namespace {
         QStringList lines = text.split('\n');
         QStringList out;
         out.reserve(lines.size());
-        for (QString l : lines) {
+        for (QString l : std::as_const(lines)) {
             if (l.endsWith('\r'))
                 l.chop(1);
             if (!out.isEmpty() && (l.startsWith(' ') || l.startsWith('\t')))
@@ -159,7 +159,7 @@ namespace {
             if (key != QStringLiteral("TYPE"))
                 continue;
             QStringList values = p.mid(eq + 1).split(',');
-            for (QString v : values) {
+            for (QString v : std::as_const(values)) {
                 v = v.trimmed().toLower();
                 if (v == "cell" || v == "mobile" || v == "work" || v == "home" || v == "fax")
                     return v;
@@ -206,7 +206,8 @@ namespace {
         const QString      unfolded = unfoldVCard(raw); // same folding rule
         VEventEntry        cur;
         bool               inEvent = false;
-        for (const QString &line : unfolded.split('\n')) {
+        const QStringList lines = unfolded.split('\n');
+        for (const QString &line : lines) {
             const QString t = line.trimmed();
             if (t == QStringLiteral("BEGIN:VEVENT")) {
                 cur     = VEventEntry{};
@@ -250,7 +251,8 @@ namespace {
     VCardContact parseVCard(const QString &raw) {
         VCardContact  c;
         const QString unfolded = unfoldVCard(raw);
-        for (const QString &line : unfolded.split('\n')) {
+        const QStringList lines = unfolded.split('\n');
+        for (const QString &line : lines) {
             const int colon = line.indexOf(':');
             if (colon < 0)
                 continue;
@@ -657,7 +659,8 @@ void DavSyncEngine::runDiscoveryStep3(DavAccount &acct) {
             const QByteArray body = reply->readAll();
             reply->deleteLater();
             QStringList colls;
-            for (const auto &r : parseMultistatus(body))
+            const QList<DavResponse> responses = parseMultistatus(body);
+            for (const auto &r : responses)
                 if (r.resourceType.contains("addressbook"))
                     colls.append(resolveRelative(a.homeUrlContacts, r.href));
             a.collectionsContacts = colls;
@@ -674,7 +677,8 @@ void DavSyncEngine::runDiscoveryStep3(DavAccount &acct) {
             const QByteArray body = reply->readAll();
             reply->deleteLater();
             QStringList colls;
-            for (const auto &r : parseMultistatus(body))
+            const QList<DavResponse> responses = parseMultistatus(body);
+            for (const auto &r : responses)
                 if (r.resourceType.contains("calendar"))
                     colls.append(resolveRelative(a.homeUrlCalendar, r.href));
             a.collectionsCalendar = colls;
@@ -691,7 +695,7 @@ void DavSyncEngine::syncNow() {
         return;
     m_syncing = true;
     emit syncingChanged();
-    for (const DavAccount &a : m_accounts) {
+    for (const DavAccount &a : std::as_const(m_accounts)) {
         if (!a.enabled || awaitingSecret(a.id))
             continue;
         for (const QString &c : a.collectionsContacts)

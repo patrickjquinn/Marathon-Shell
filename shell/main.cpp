@@ -1162,7 +1162,8 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell] Permission Manager initialized";
 
     // Before the first scan, which no longer looks in the old location.
-    for (const QString &appId : appInstaller->migrateLegacyInstalls())
+    const QStringList migrated = appInstaller->migrateLegacyInstalls();
+    for (const QString &appId : migrated)
         permissionManager->forgetApp(appId);
 
     QObject::connect(appInstaller, &MarathonAppInstaller::uninstallComplete, permissionManager,
@@ -1422,7 +1423,8 @@ int main(int argc, char *argv[]) {
         qCritical() << "No root QML objects";
         return -1;
     }
-    for (QObject *root : engine.rootObjects()) {
+    const QList<QObject *> roots = engine.rootObjects();
+    for (QObject *root : roots) {
         if (auto *win = qobject_cast<QQuickWindow *>(root)) {
             QObject::connect(
                 win, &QQuickWindow::frameSwapped, win,

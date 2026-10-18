@@ -761,7 +761,8 @@ void NetworkManagerCpp::connectToHiddenNetwork(const QString &ssid, const QStrin
         return;
     }
     m_connectCancelled = false;
-    for (const QString &path : m_savedNetworks.value(ssid))
+    const QStringList paths = m_savedNetworks.value(ssid);
+    for (const QString &path : paths)
         QDBusConnection::systemBus().asyncCall(QDBusMessage::createMethodCall(
             "org.freedesktop.NetworkManager", path,
             "org.freedesktop.NetworkManager.Settings.Connection", "Delete"));
@@ -776,7 +777,8 @@ void NetworkManagerCpp::connectToHiddenNetwork(const QString &ssid, const QStrin
 }
 
 void NetworkManagerCpp::forgetNetwork(const QString &ssid) {
-    for (const QString &path : m_savedNetworks.value(ssid)) {
+    const QStringList paths = m_savedNetworks.value(ssid);
+    for (const QString &path : paths) {
         auto *watcher = new QDBusPendingCallWatcher(
             QDBusConnection::systemBus().asyncCall(QDBusMessage::createMethodCall(
                 "org.freedesktop.NetworkManager", path,

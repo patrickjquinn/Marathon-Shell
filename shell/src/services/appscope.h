@@ -25,7 +25,8 @@ namespace AppScope {
 
     // The unified-hierarchy path in a /proc/<pid>/cgroup file.
     inline QString cgroupFromProcFile(const QByteArray &contents) {
-        for (const QByteArray &line : contents.split('\n')) {
+        const QList<QByteArray> lines = contents.split('\n');
+        for (const QByteArray &line : lines) {
             if (line.startsWith("0::"))
                 return QString::fromUtf8(line.mid(3)).trimmed();
         }

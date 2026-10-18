@@ -43,7 +43,8 @@ TimeZoneList::TimeZoneList(QObject *parent)
     const QDateTime          now = QDateTime::currentDateTimeUtc();
     QList<QVariantMap>       zones;
     const QSet<QString>      canonical = canonicalZones();
-    for (const QByteArray &rawId : QTimeZone::availableTimeZoneIds()) {
+    const QList<QByteArray> rawIds = QTimeZone::availableTimeZoneIds();
+    for (const QByteArray &rawId : rawIds) {
         const QString id     = QString::fromUtf8(rawId);
         const QString region = id.section('/', 0, 0);
         if (!regions.contains(region) || !id.contains('/') ||

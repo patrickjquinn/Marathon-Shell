@@ -176,7 +176,7 @@ void TerminalEngine::handleCSI(const QString &seq) {
         if (m_params.isEmpty()) {
             m_screen->resetStyle();
         } else {
-            for (int param : m_params) {
+            for (int param : std::as_const(m_params)) {
                 if (param == 0)
                     m_screen->resetStyle();
                 else if (param == 1)

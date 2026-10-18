@@ -22,7 +22,8 @@ WallpaperClient::WallpaperClient(QObject *settings, const QDBusConnection &bus, 
         const QDBusPendingReply<QVariantList> reply = *w;
         if (reply.isValid()) {
             m_wallpapers.clear();
-            for (const QVariant &v : reply.value())
+            const QVariantList wallpapers = reply.value();
+            for (const QVariant &v : wallpapers)
                 m_wallpapers << qdbus_cast<QVariantMap>(v);
             emit wallpapersChanged();
         }

@@ -21,7 +21,8 @@ namespace ServiceCaller {
     // The unit of a /proc/<pid>/cgroup (cgroup v2), if a user service.
     inline QString unitOf(const QByteArray &cgroup) {
         static const QRegularExpression unit(QStringLiteral("^[A-Za-z0-9@._-]+\\.service$"));
-        for (const QByteArray &line : cgroup.split('\n')) {
+        const QList<QByteArray> lines = cgroup.split('\n');
+        for (const QByteArray &line : lines) {
             if (!line.startsWith("0::/"))
                 continue;
             const QString last = QString::fromUtf8(line.mid(3)).section(QLatin1Char('/'), -1);

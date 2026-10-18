@@ -76,7 +76,8 @@ class TestUpdateNotifier : public QObject {
 
     static QStringList keys(const QVariantMap &n) {
         QStringList out;
-        for (const QVariant &a : n.value("actions").toList())
+        const QVariantList actions = n.value("actions").toList();
+        for (const QVariant &a : actions)
             out << a.toMap().value("key").toString();
         return out;
     }

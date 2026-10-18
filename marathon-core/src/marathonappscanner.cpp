@@ -57,7 +57,8 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::userApp(const QString &appId) {
     if (info.id != appId)
         return {};
     info.permissions.clear();
-    for (const auto &value : receipt.value("permissions").toArray())
+    const QJsonArray granted = receipt.value("permissions").toArray();
+    for (const auto &value : granted)
         info.permissions.append(value.toString());
     info.isSystem    = MarathonAppVerifier::isSystemSigner(receipt.value("signer").toString());
     info.isProtected = info.isProtected && info.isSystem;

@@ -167,7 +167,8 @@ class TestKeyboardTextInput : public QObject {
             "MarathonOS.Shell", 1, 0, "DomainSuggestions",
             [](QQmlEngine *, QJSEngine *) { return new DomainSuggestions; });
         m_engine = new QQmlEngine(this);
-        for (const QString &path : qEnvironmentVariable("MARATHON_TEST_QML_IMPORTS").split(u':'))
+        const QStringList imports = qEnvironmentVariable("MARATHON_TEST_QML_IMPORTS").split(u':');
+        for (const QString &path : imports)
             m_engine->addImportPath(path);
         m_engine->rootContext()->setContextProperty("InputMethodEngine", &m_hints);
         QQmlComponent component(m_engine,
@@ -177,7 +178,9 @@ class TestKeyboardTextInput : public QObject {
         qobject_cast<QQuickItem *>(m_keyboard)->setParentItem(m_window->contentItem());
 
         // As WaylandCompositor::handleTextInputUpdate and MarathonShell.qml do.
-        for (QWaylandCompositorExtension *ext : m_compositor->defaultSeat()->extensions()) {
+        const QList<QWaylandCompositorExtension *> extensions =
+            m_compositor->defaultSeat()->extensions();
+        for (QWaylandCompositorExtension *ext : extensions) {
             if (QByteArray(ext->metaObject()->className()) == "QWaylandTextInput")
                 connect(ext, SIGNAL(updateInputMethod(Qt::InputMethodQueries)), this,
                         SLOT(textInputUpdated(Qt::InputMethodQueries)));

@@ -97,7 +97,8 @@ bool PermissionClient::setPermission(const QString &appId, const QString &permis
 
 QVariantMap PermissionClient::describe(const QString &permission) const {
     const QString name = MarathonManifest::canonicalPermission(permission);
-    for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
+    const QList<MarathonManifest::Permission> vocabulary = MarathonManifest::permissions();
+    for (const MarathonManifest::Permission &p : vocabulary) {
         if (p.name == name)
             return {
                 {"label", p.label}, {"description", p.description}, {"restricted", p.restricted}};

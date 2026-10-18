@@ -46,7 +46,8 @@ class TestToolkitTheme : public QObject {
     }
     void textIsReadableOnEveryBackground() {
         QFETCH(bool, dark);
-        for (const QColor &h : highlights()) {
+        const QList<QColor> colors = highlights();
+        for (const QColor &h : colors) {
             const ToolkitPalette p  = ToolkitTheme::palette(h, dark);
             const QString        at = h.name();
             for (const QColor &bg : {p.window, p.view, p.header, p.button, p.tooltip}) {

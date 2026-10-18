@@ -47,7 +47,7 @@ void MediaScanWorker::process() {
     int              totalFiles  = 0;
     int              currentFile = 0;
 
-    for (const QString &path : m_paths) {
+    for (const QString &path : std::as_const(m_paths)) {
         QDirIterator countIt(path, QDir::Files | QDir::NoDotAndDotDot,
                              QDirIterator::Subdirectories);
         while (countIt.hasNext()) {
@@ -58,7 +58,7 @@ void MediaScanWorker::process() {
 
     qDebug() << "[MediaScanWorker] Found" << totalFiles << "total files to scan";
 
-    for (const QString &path : m_paths) {
+    for (const QString &path : std::as_const(m_paths)) {
         QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
 
         while (it.hasNext()) {

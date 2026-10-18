@@ -95,7 +95,8 @@ class TestFreedesktopNotify : public QObject {
     }
 
     static bool stored(NotificationDatabase &db, uint id) {
-        for (const auto &r : db.getNotifications())
+        const QList<NotificationDatabase::NotificationRecord> records = db.getNotifications();
+        for (const auto &r : records)
             if (r.id == id)
                 return true;
         return false;

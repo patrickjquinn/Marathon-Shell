@@ -92,7 +92,7 @@ void CallHistoryManager::clearHistory() {
 }
 
 QVariantMap CallHistoryManager::getCallById(int id) {
-    for (const CallRecord &record : m_history) {
+    for (const CallRecord &record : std::as_const(m_history)) {
         if (record.id == id) {
             QVariantMap map;
             map["id"]          = record.id;
@@ -109,7 +109,7 @@ QVariantMap CallHistoryManager::getCallById(int id) {
 
 QVariantList CallHistoryManager::getCallsByNumber(const QString &number) {
     QVariantList list;
-    for (const CallRecord &record : m_history) {
+    for (const CallRecord &record : std::as_const(m_history)) {
         if (record.number == number) {
             QVariantMap map;
             map["id"]          = record.id;

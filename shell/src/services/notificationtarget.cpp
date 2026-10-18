@@ -81,7 +81,8 @@ QString NotificationTarget::appForPid(uint pid) {
     if (pid == 0 || !file.open(QIODevice::ReadOnly))
         return {};
     // cgroup v2's unified hierarchy is the "0::" line.
-    for (const QByteArray &line : file.readAll().split('\n')) {
+    const QList<QByteArray> lines = file.readAll().split('\n');
+    for (const QByteArray &line : lines) {
         if (line.startsWith("0::"))
             return appFromCgroup(QString::fromUtf8(line));
     }

@@ -197,7 +197,7 @@ class TestPermissionManager : public QObject {
         mgr.setPermissions("com.batch", perms, true);
 
         QCOMPARE(grantedSpy.count(), 3);
-        for (const QString &p : perms) {
+        for (const QString &p : std::as_const(perms)) {
             QVERIFY(mgr.hasPermission("com.batch", p));
         }
     }
@@ -222,7 +222,8 @@ class TestPermissionManager : public QObject {
     void permissionsComeFromTheVocabulary() {
         MarathonPermissionManager mgr;
         QStringList               names;
-        for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
+        const QList<MarathonManifest::Permission> vocabulary = MarathonManifest::permissions();
+        for (const MarathonManifest::Permission &p : vocabulary) {
             names << p.name;
             QCOMPARE(mgr.getPermissionLabel(p.name), p.label);
             QCOMPARE(mgr.getPermissionDescription(p.name), p.description);
@@ -240,7 +241,8 @@ class TestPermissionManager : public QObject {
     void everyPermissionHasDescription() {
         MarathonPermissionManager mgr;
 
-        for (const QString &p : mgr.getAvailablePermissions()) {
+        const QStringList available = mgr.getAvailablePermissions();
+        for (const QString &p : available) {
             QString desc = mgr.getPermissionDescription(p);
             QVERIFY2(!desc.isEmpty() && desc != "Unknown permission",
                      qPrintable("No description for: " + p));

@@ -515,7 +515,7 @@ void SMSService::checkForNewMessages() {
                 qInfo() << "[SMSService] checkForNewMessages found" << smsList.size()
                         << "messages on" << path;
 
-            for (const QDBusObjectPath &smsPath : smsList) {
+            for (const QDBusObjectPath &smsPath : std::as_const(smsList)) {
                 processIncomingSMS(path, smsPath.path());
             }
         }

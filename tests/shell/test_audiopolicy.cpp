@@ -64,7 +64,8 @@ class TestAudioPolicy : public QObject {
         policy.playAlarmSound();
         policy.playRingtone();
         QList<QByteArray> devices;
-        for (const QAudioOutput *output : policy.findChildren<QAudioOutput *>())
+        const QList<QAudioOutput *> outputs = policy.findChildren<QAudioOutput *>();
+        for (const QAudioOutput *output : outputs)
             devices << output->device().id();
         policy.stopAlarmSound();
         policy.stopRingtone();

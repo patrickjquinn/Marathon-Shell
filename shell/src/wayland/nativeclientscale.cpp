@@ -83,7 +83,8 @@ qreal NativeClientScale::fromDpi(qreal dpi, qreal userScale, qreal base) {
 
 bool NativeClientScale::startedByShell(const QByteArray &environment, qint64 shellPid) {
     const QByteArray entry = "MARATHON_SHELL_PID=" + QByteArray::number(shellPid);
-    for (const QByteArray &variable : environment.split('\0')) {
+    const QList<QByteArray> variables = environment.split('\0');
+    for (const QByteArray &variable : variables) {
         if (variable == entry)
             return true;
     }

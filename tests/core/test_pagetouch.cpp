@@ -30,7 +30,8 @@ class TestPageTouch : public QObject {
         QVERIFY(p != MAP_FAILED);
         const auto a     = reinterpret_cast<quintptr>(p);
         bool       found = false;
-        for (const PageRange &r : ownResidentRanges())
+        const QList<PageRange> ranges = ownResidentRanges();
+        for (const PageRange &r : ranges)
             found = found || (r.first <= a && a < r.second);
         QVERIFY(found);
         ::munmap(p, page);

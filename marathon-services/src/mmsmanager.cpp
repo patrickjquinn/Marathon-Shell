@@ -187,7 +187,7 @@ bool MmsManager::sendMms(const QStringList &recipients, const QString &text,
     using AttTuple = std::tuple<QString, QString, QString>;
     QList<AttTuple> tuples;
     tuples.reserve(staged.size());
-    for (const auto &a : staged)
+    for (const auto &a : std::as_const(staged))
         tuples.emplace_back(a.contentId, a.contentType, a.filePath);
 
     // Build message manually so we can construct a(sss) precisely.

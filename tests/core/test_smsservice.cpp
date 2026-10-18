@@ -38,7 +38,8 @@ class TestSmsService : public QObject {
         const QString conv = sms.generateConversationId("+447700900123");
         const int     id   = sms.getMessages(conv).first().toMap().value("id").toInt();
         QVERIFY(sms.deleteMessage(id));
-        for (const QVariant &c : sms.conversations())
+        const QVariantList conversations = sms.conversations();
+        for (const QVariant &c : conversations)
             QVERIFY(c.toMap().value("id").toString() != conv);
     }
 

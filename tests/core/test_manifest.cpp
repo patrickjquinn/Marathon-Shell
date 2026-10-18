@@ -40,7 +40,8 @@ class TestManifest : public QObject {
 
     void vocabularyCarriesWording() {
         bool sawSystem = false;
-        for (const MarathonManifest::Permission &p : MarathonManifest::permissions()) {
+        const QList<MarathonManifest::Permission> vocabulary = MarathonManifest::permissions();
+        for (const MarathonManifest::Permission &p : vocabulary) {
             QVERIFY(!p.label.isEmpty());
             QVERIFY(!p.description.isEmpty());
             if (p.name == QLatin1String("system"))

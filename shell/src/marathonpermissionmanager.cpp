@@ -22,7 +22,8 @@ MarathonPermissionManager *MarathonPermissionManager::create(QQmlEngine *engine,
 MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
     : QObject(parent)
     , m_promptActive(false) {
-    for (const MarathonManifest::Permission &p : MarathonManifest::permissions())
+    const QList<MarathonManifest::Permission> vocabulary = MarathonManifest::permissions();
+    for (const MarathonManifest::Permission &p : vocabulary)
         m_vocabulary.insert(p.name, p);
 
     loadPermissions();
@@ -449,9 +450,9 @@ void MarathonPermissionManager::revokePermission(const QString &appId, const QSt
 
 QStringList MarathonPermissionManager::getAppPermissions(const QString &appId) {
     QStringList granted;
-    for (const QString &permission : m_vocabulary.keys()) {
-        if (hasPermission(appId, permission))
-            granted.append(permission);
+    for (auto it = m_vocabulary.keyBegin(); it != m_vocabulary.keyEnd(); ++it) {
+        if (hasPermission(appId, *it))
+            granted.append(*it);
     }
     return granted;
 }
