@@ -1990,10 +1990,10 @@ void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
         emit nativeBackUnhandled(surfaceId);
         return;
     }
-    watchNativeBack(surface, surfaceId);
 
     // The client handles back itself, popups and dialogs included.
     if (MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface)) {
+        watchNativeBack(surface, surfaceId);
         marathon->sendBackCommitted();
         return;
     }
@@ -2014,10 +2014,12 @@ void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
             dialog = xdg->toplevel();
     }
     if (popup) {
+        watchNativeBack(surface, surfaceId);
         popup->sendPopupDone();
         return;
     }
     if (dialog) {
+        watchNativeBack(surface, surfaceId);
         dialog->sendClose();
         return;
     }
@@ -2029,8 +2031,12 @@ void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
                                                        NativeBack::Unknown);
         surface->setProperty("nativeToolkit", toolkit);
     }
+    QPointer<QWaylandSurface> target(surface);
     sendKeyTo(surface, NativeBack::backKey(NativeBack::Toolkit(toolkit.toInt()), keelHosted),
-              Qt::NoModifier);
+              Qt::NoModifier, [this, target, surfaceId]() {
+                  if (target)
+                      watchNativeBack(target, surfaceId);
+              });
 }
 
 void WaylandCompositor::sendBackProgress(int surfaceId, qreal progress,
@@ -2083,6 +2089,26 @@ void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId)
             changed();
     });
     connect(surface, &QWaylandSurface::surfaceDestroyed, watch, changed);
+    // Its subsurfaces draw for it too: Waydroid's toplevel is an empty 1x1
+    // with Android's layers in subsurfaces.
+    if (const QWaylandView *view = surface->primaryView()) {
+        QList<QQuickItem *> items{qobject_cast<QQuickItem *>(view->renderObject())};
+        while (!items.isEmpty()) {
+            QQuickItem *item = items.takeLast();
+            if (!item)
+                continue;
+            items.append(item->childItems());
+            auto *sub = qobject_cast<QWaylandQuickItem *>(item);
+            if (!sub || !sub->surface() || sub->surface() == surface)
+                continue;
+            QWaylandSurface *subsurface = sub->surface();
+            connect(subsurface, &QWaylandSurface::damaged, watch,
+                    [subsurface, changed](const QRegion &damage) {
+                        if (NativeBack::visibleChange(damage, subsurface->destinationSize()))
+                            changed();
+                    });
+        }
+    }
     if (auto *toplevel = surface->property("xdgToplevel").value<QWaylandXdgToplevel *>())
         connect(toplevel, &QWaylandXdgToplevel::titleChanged, watch, changed);
     QWaylandClient *client = surface->client();
@@ -2104,16 +2130,40 @@ void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId)
     });
 }
 
-// The key reaches the app even when another client holds keyboard focus.
+// The key reaches the app's window even when another holds keyboard focus.
+// Another window of the same client (Waydroid's Android tasks) takes it only
+// once it has acted on the enter: at its next commit, or after 300 ms.
 void WaylandCompositor::sendKeyTo(QWaylandSurface *surface, int key,
-                                  Qt::KeyboardModifiers modifiers) {
-    if (QWaylandSeat *seat = defaultSeat()) {
-        const QWaylandSurface *focus = seat->keyboardFocus();
-        if (!focus || focus->client() != surface->client())
-            seat->setKeyboardFocus(surface);
+                                  Qt::KeyboardModifiers modifiers,
+                                  const std::function<void()> &sent) {
+    const auto send = [this, key, modifiers, sent]() {
+        injectKey(key, int(modifiers), true);
+        injectKey(key, int(modifiers), false);
+        if (sent)
+            sent();
+    };
+    QWaylandSeat          *seat  = defaultSeat();
+    const QWaylandSurface *focus = seat ? seat->keyboardFocus() : nullptr;
+    if (!seat || focus == surface) {
+        send();
+        return;
     }
-    injectKey(key, int(modifiers), true);
-    injectKey(key, int(modifiers), false);
+    seat->setKeyboardFocus(surface);
+    if (!focus || focus->client() != surface->client()) {
+        send();
+        return;
+    }
+    auto *wait = new QObject(this);
+    auto  once = [wait, send, seat, target = QPointer<QWaylandSurface>(surface)]() {
+        if (wait->property("done").toBool())
+            return;
+        wait->setProperty("done", true);
+        wait->deleteLater();
+        if (target && seat->keyboardFocus() == target)
+            send();
+    };
+    connect(surface, &QWaylandSurface::redraw, wait, once);
+    QTimer::singleShot(300, wait, once);
 }
 
 bool WaylandCompositor::checkIdleInhibitors() {

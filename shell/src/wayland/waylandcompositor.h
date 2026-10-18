@@ -23,6 +23,8 @@
 #include <QSet>
 #include <QTimer>
 
+#include <functional>
+
 #include "src/wayland/hiddenframethrottle.h"
 
 class SecurityContextManagerV1;
@@ -175,7 +177,9 @@ class WaylandCompositor : public QWaylandCompositor {
   private:
     QString focusedToolkit() const;
     void    watchNativeBack(QWaylandSurface *surface, int surfaceId);
-    void    sendKeyTo(QWaylandSurface *surface, int key, Qt::KeyboardModifiers modifiers);
+    // sent runs once the key has gone out, which can be after the call returns.
+    void    sendKeyTo(QWaylandSurface *surface, int key, Qt::KeyboardModifiers modifiers,
+                      const std::function<void()> &sent = {});
     void    mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    configureCover(QWaylandXdgToplevel *toplevel) const;
