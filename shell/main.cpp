@@ -147,6 +147,8 @@
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
 #include <QWaylandQuickShellSurfaceItem>
+#include <QWaylandSeat>
+#include <QWaylandView>
 #endif
 
 template <typename T, typename... Args>
@@ -739,14 +741,33 @@ int main(int argc, char *argv[]) {
     createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
     qInfo() << "Input Method Engine initialized";
 
+    // The keyboard types into the focused item, or into the window with the
+    // seat's keyboard focus when that item is no text field of the shell's:
+    // a Waydroid window can hold the keyboard without Qt focus.
     auto *remoteTextInput = createObject<RemoteTextInput>(
         ctx, "RemoteTextInput",
-        [](QObject *object) -> QString {
+        [compositorManager](QObject *object) -> QString {
 #ifdef HAVE_WAYLAND
-            auto *item = qobject_cast<QWaylandQuickShellSurfaceItem *>(object);
-            auto *xdg  = item ? qobject_cast<QWaylandXdgSurface *>(item->shellSurface()) : nullptr;
-            if (xdg && xdg->toplevel())
-                return xdg->toplevel()->appId();
+            const auto appIdOf = [](QObject *o) -> QString {
+                auto *item = qobject_cast<QWaylandQuickShellSurfaceItem *>(o);
+                auto *xdg =
+                    item ? qobject_cast<QWaylandXdgSurface *>(item->shellSurface()) : nullptr;
+                return xdg && xdg->toplevel() ? xdg->toplevel()->appId() : QString();
+            };
+            if (QString id = appIdOf(object); !id.isEmpty())
+                return id;
+            auto *item = qobject_cast<QQuickItem *>(object);
+            if (item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod))
+                return {};
+            WaylandCompositor          *compositor = compositorManager->compositor();
+            QWaylandSurface            *focus      = compositor && compositor->defaultSeat() ?
+                compositor->defaultSeat()->keyboardFocus() :
+                nullptr;
+            const QList<QWaylandView *> views = focus ? focus->views() : QList<QWaylandView *>();
+            for (QWaylandView *view : views) {
+                if (QString id = appIdOf(view->renderObject()); !id.isEmpty())
+                    return id;
+            }
 #endif
             Q_UNUSED(object);
             return {};
@@ -1155,6 +1176,8 @@ int main(int argc, char *argv[]) {
         }
         QObject::connect(notificationService, &NotificationServiceCpp::notificationActivated,
                          freedesktopNotif, &FreedesktopNotifications::activate);
+        QObject::connect(freedesktopNotif, &FreedesktopNotifications::bannerRequested,
+                         notificationService, &NotificationServiceCpp::notificationReceived);
 
         auto *unifiedPush = new UnifiedPushDistributor(notificationService, settingsManager, &app);
         if (unifiedPush->registerService()) {
