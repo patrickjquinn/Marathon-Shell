@@ -830,7 +830,7 @@ void NetworkManagerCpp::activate(const QDBusMessage &msg, const QString &ssid) {
                 // Accepted only: authentication and DHCP haven't run. queryConnectionState
                 // reports success at ACTIVATED; onPendingActivationStateChanged a failure.
                 const QString activePath =
-                    reply.arguments().last().value<QDBusObjectPath>().path();
+                    reply.arguments().constLast().value<QDBusObjectPath>().path();
                 m_pendingConnectPath = activePath;
                 if (m_connectCancelled) {
                     cancelPendingConnection();
@@ -1075,7 +1075,7 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
     lookup << kHotspotUuid;
     auto *lookupWatcher = new QDBusPendingCallWatcher(bus.asyncCall(lookup), this);
     connect(lookupWatcher, &QDBusPendingCallWatcher::finished, this,
-            [=, this](QDBusPendingCallWatcher *w) {
+            [=](QDBusPendingCallWatcher *w) {
                 w->deleteLater();
                 QDBusPendingReply<QDBusObjectPath> saved = *w;
                 if (saved.isError()) {
@@ -1098,7 +1098,7 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
                 update << QVariant::fromValue(connectionSettings);
                 auto *updateWatcher = new QDBusPendingCallWatcher(bus.asyncCall(update), this);
                 connect(updateWatcher, &QDBusPendingCallWatcher::finished, this,
-                        [=, this](QDBusPendingCallWatcher *uw) {
+                        [=](QDBusPendingCallWatcher *uw) {
                             uw->deleteLater();
                             if (uw->isError()) {
                                 onActivating(uw->error(), QString());
