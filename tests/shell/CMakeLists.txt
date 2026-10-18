@@ -695,6 +695,34 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
     add_test(NAME Shell_SecurityContext COMMAND test_shell_securitycontext)
     set_tests_properties(Shell_SecurityContext PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+    # A toplevel is sent a configure only when its size or states change
+    pkg_get_variable(_protocols_dir wayland-protocols pkgdatadir)
+    set(_xdg_shell_xml ${_protocols_dir}/stable/xdg-shell/xdg-shell.xml)
+    find_package(Qt6 COMPONENTS WaylandCompositorPrivate QUIET)
+    if(EXISTS ${_xdg_shell_xml} AND TARGET Qt6::WaylandCompositorPrivate)
+        set(_xdg_shell_gen ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell)
+        file(MAKE_DIRECTORY ${_xdg_shell_gen})
+        add_custom_command(
+            OUTPUT ${_xdg_shell_gen}/xdg-shell-client.h ${_xdg_shell_gen}/xdg-shell.c
+            COMMAND ${WAYLAND_SCANNER} client-header ${_xdg_shell_xml} ${_xdg_shell_gen}/xdg-shell-client.h
+            COMMAND ${WAYLAND_SCANNER} private-code ${_xdg_shell_xml} ${_xdg_shell_gen}/xdg-shell.c
+            DEPENDS ${_xdg_shell_xml})
+        add_executable(test_shell_toplevelconfigure
+            test_toplevelconfigure.cpp
+            ../../shell/src/wayland/toplevelconfigure.cpp
+            ${_xdg_shell_gen}/xdg-shell-client.h
+            ${_xdg_shell_gen}/xdg-shell.c
+        )
+        target_compile_definitions(test_shell_toplevelconfigure PRIVATE HAVE_WAYLAND_PRIVATE)
+        target_link_libraries(test_shell_toplevelconfigure
+            Qt6::Test Qt6::Gui Qt6::WaylandCompositor Qt6::WaylandCompositorPrivate
+            ${WAYLAND_CLIENT_LIBRARIES})
+        target_include_directories(test_shell_toplevelconfigure PRIVATE
+            ${CMAKE_SOURCE_DIR}/shell/src/wayland ${_xdg_shell_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
+        add_test(NAME Shell_ToplevelConfigure COMMAND test_shell_toplevelconfigure)
+        set_tests_properties(Shell_ToplevelConfigure PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endif()
+
     # Server and client headers plus marshalling code for a protocol XML,
     # appended to the list named by OUT.
     function(marathon_test_protocol XML STEM OUT)

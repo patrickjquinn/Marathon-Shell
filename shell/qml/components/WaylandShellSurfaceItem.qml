@@ -120,23 +120,39 @@ ShellSurfaceItem {
         lastSentSize = newSize;
         hasSentInitialSize = true;
         Logger.info("WaylandShellSurfaceItem", "Configuring app size: " + newSize.width + "x" + newSize.height);
-        var states = [];
-        states.push(1);
-        toplevel.sendConfigure(newSize, states);
+        if (surfaceItem.launchCompositor)
+            surfaceItem.launchCompositor.resizeToplevel(toplevel, newSize);
         // Focus a surface when it first maps; after that, keyboard focus
         // follows QML focus. Re-taking it on every resize let a background
         // surface steal focus whenever the keyboard resized the app area,
         // and the keyboard toggling that caused bounced focus between apps
         // hundreds of times a second.
-        if (firstConfigure && surfaceItem.launchCompositor) {
-            surfaceItem.launchCompositor.activateSurface(surfaceId);
+        if (firstConfigure)
             Qt.callLater(takeFocusForKeyboard);
-        }
     }
 
+    // Only a window on screen takes the keyboard, and only once its client has
+    // taken the last configure.
+    property bool focusWanted: false
     function takeFocusForKeyboard() {
-        if (focusable && !isPreview && !isMinimized && hasSentInitialSize && visible)
-            forceActiveFocus();
+        if (!focusable || isPreview || isMinimized || !hasSentInitialSize || !visible) {
+            focusWanted = false;
+            return;
+        }
+        if (launchCompositor && !launchCompositor.configureSettled(surfaceId)) {
+            focusWanted = true;
+            return;
+        }
+        focusWanted = false;
+        forceActiveFocus();
+        if (launchCompositor)
+            launchCompositor.activateSurface(surfaceId);
+    }
+    Connections {
+        target: surfaceItem.focusWanted ? surfaceItem.surface : null
+        function onRedraw() {
+            surfaceItem.takeFocusForKeyboard();
+        }
     }
 
     width: clientScale === 1 ? (parent ? parent.width : 0) : implicitWidth

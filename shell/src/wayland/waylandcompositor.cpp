@@ -11,6 +11,7 @@
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/xdgactivationv1.h"
 #include "src/wayland/marathonsurfacev1.h"
+#include "src/wayland/toplevelconfigure.h"
 #include "marathon-surface-v1-server.h"
 #include "src/components/windowtextureitem.h"
 #include "src/managers/deviceprofile.h"
@@ -99,6 +100,35 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     create();
 
     m_xdgShell               = new QWaylandXdgShell(this);
+#ifdef HAVE_WAYLAND_PRIVATE
+    // Qt's xdg-shell activates the toplevel with keyboard focus (and resends
+    // on every focus loss). A client the shell did not launch keeps the state
+    // of its first configure: Waydroid re-plugs Android's display on every
+    // configure, and one racing a keyboard enter deadlocks Android. Qt's slot
+    // is private, so its connections from the seat are dropped once it has
+    // made them (the shell initializes on Polish).
+    QMetaObject::invokeMethod(
+        this,
+        [this]() {
+            if (!disconnect(defaultSeat(),
+                            SIGNAL(keyboardFocusChanged(QWaylandSurface *, QWaylandSurface *)),
+                            m_xdgShell, nullptr))
+                qWarning() << "[WaylandCompositor] xdg-shell focus handling not replaced";
+            connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
+                    [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
+                        for (QWaylandSurface *surface : {newFocus, oldFocus}) {
+                            if (!surface || surface->property("foreignClient").toBool())
+                                continue;
+                            const QWaylandXdgSurface *xdg =
+                                m_xdgSurfaceMap.value(surface->property("surfaceId").toInt());
+                            if (xdg && xdg->toplevel())
+                                ToplevelConfigure::setActivated(xdg->toplevel(),
+                                                                surface == newFocus);
+                        }
+                    });
+        },
+        Qt::QueuedConnection);
+#endif
     const bool enableWlShell = envBool("MARATHON_WL_ENABLE_WL_SHELL", false);
     if (enableWlShell) {
         m_wlShell = new QWaylandWlShell(this);
@@ -1019,20 +1049,33 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
     // idle client needs a reason to redraw before a fresh view can take a
     // buffer. A same-state configure forces ack + commit, like restore does.
     surface->sendFrameCallbacks();
+    // A client the shell did not launch is configured only on a change.
+    if (surface->property("foreignClient").toBool())
+        return;
     QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
-    if (xdg && xdg->toplevel()) {
-        QWaylandXdgToplevel *top  = xdg->toplevel();
-        const QSize          size = surface->destinationSize();
-        if (!size.isEmpty()) {
-            // Mirror the toplevel's true state: dropping activated here
-            // told every nudged app it was deactivated, demoting its RT
-            // render priority and throttling it (felt like lost HW accel).
-            QList<int> states{1};
-            if (top->activated())
-                states << 4;
-            top->sendConfigure(size, states);
-        }
+    if (!xdg || !xdg->toplevel() || ToplevelConfigure::repeat(xdg->toplevel()))
+        return;
+    QWaylandXdgToplevel *top  = xdg->toplevel();
+    const QSize          size = surface->destinationSize();
+    if (!size.isEmpty()) {
+        // Mirror the toplevel's true state: dropping activated here
+        // told every nudged app it was deactivated, demoting its RT
+        // render priority and throttling it (felt like lost HW accel).
+        QList<int> states{1};
+        if (top->activated())
+            states << 4;
+        top->sendConfigure(size, states);
     }
+}
+
+void WaylandCompositor::resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size) {
+    if (toplevel)
+        ToplevelConfigure::resize(toplevel, size);
+}
+
+bool WaylandCompositor::configureSettled(int surfaceId) const {
+    QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
+    return !xdg || !xdg->toplevel() || ToplevelConfigure::settled(xdg->toplevel());
 }
 
 // QWaylandInputMethodControl can't drive the keyboard: it subscribes only to

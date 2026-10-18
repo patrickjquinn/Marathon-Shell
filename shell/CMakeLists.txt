@@ -230,6 +230,8 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/xdgactivationv1.cpp
         src/wayland/marathonsurfacev1.h
         src/wayland/marathonsurfacev1.cpp
+        src/wayland/toplevelconfigure.h
+        src/wayland/toplevelconfigure.cpp
     )
 
     find_program(WAYLAND_SCANNER wayland-scanner)

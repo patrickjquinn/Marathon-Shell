@@ -90,6 +90,10 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     closeWindow(int surfaceId);
     Q_INVOKABLE void     activateSurface(int surfaceId);
     Q_INVOKABLE void     nudgeSurface(int surfaceId);
+    // A new size for the toplevel, its states kept; nothing is sent if unchanged.
+    Q_INVOKABLE void     resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size);
+    // The client has acked every configure its toplevel was sent.
+    Q_INVOKABLE bool     configureSettled(int surfaceId) const;
     Q_INVOKABLE bool     usesNativeScale(QWaylandSurface *surface) const;
     // The shell took a gesture from item mid-touch: its client gets wl_touch.cancel.
     Q_INVOKABLE void     cancelTouch(QQuickItem *item);
