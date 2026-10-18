@@ -25,3 +25,5 @@ add_marathon_app(${APP_NAME}
     QML_FILES ${QML_FILES}
     SOURCES ${SOURCES}
 )
+
+install_keel_actions(${APP_NAME} keel-actions.json)

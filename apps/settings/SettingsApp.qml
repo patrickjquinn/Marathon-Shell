@@ -59,6 +59,10 @@ ApplicationWindow {
         }
     }
 
+    SettingsActions {
+        app: app
+    }
+
     cover: Component {
         SettingsCover {
             onWifiToggled: app.toggleWifi()

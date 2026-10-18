@@ -1,0 +1,179 @@
+{
+  "appId": "org.marathonos.settings",
+  "entities": [],
+  "prompts": [],
+  "tools": [
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "app.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the app and one of its pages",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Bring the app to the front for the person, starting it if it is not running, and open one of its pages.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "description": "The page to open: about (About device: Device name, model, software version and legal notices.); accounts (Accounts: The accounts that sync contacts and calendars.); ambience (Ambience: Wallpaper and theme.); appmanager (Installed apps: Each installed app's details.); battery (Battery: Charge, power saving and the power profile.); bluetooth (Bluetooth: Pairing and connecting devices.); datetime (Date and time: Time zone and the 12- or 24-hour clock.); display (Display: Brightness, screen timeout, text size and rotation.); keyboard (Keyboard: Languages, autocorrect and predictions.); notifications (Notifications: On the lock screen and for each app.); security (Security: The device lock and its quick PIN.); sound (Sounds: Volume, ringtone, alarm and notification sounds.); storage (Storage: How much is used and how much is free.); updates (Software updates: Checking for and installing system updates.); wifi (Wi-Fi: Networks nearby, joining one and the saved ones.).",
+            "enum": [
+              "about",
+              "accounts",
+              "ambience",
+              "appmanager",
+              "battery",
+              "bluetooth",
+              "datetime",
+              "display",
+              "keyboard",
+              "notifications",
+              "security",
+              "sound",
+              "storage",
+              "updates",
+              "wifi"
+            ],
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "org.marathonos.settings/app.show",
+      "title": "Show"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "bluetooth.switch",
+        "org.shipwright.keel/confirm": true,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Turn the phone's Bluetooth on or off. Off, connected headphones, speakers and other devices disconnect.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.settings/bluetooth.switch",
+      "title": "Turn Bluetooth on or off"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "settings.status",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "What the phone's Settings show at a glance: whether Wi-Fi is on and the network it is joined to, airplane mode, whether Bluetooth is on and the device connected, and the battery's charge (0 to 100, absent without a battery) and whether it is charging.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "org.marathonos.settings/settings.status",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "airplaneMode": {
+            "type": "boolean"
+          },
+          "batteryLevel": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "bluetoothDevice": {
+            "description": "Empty when none is connected",
+            "maxLength": 248,
+            "type": "string"
+          },
+          "bluetoothEnabled": {
+            "type": "boolean"
+          },
+          "charging": {
+            "type": "boolean"
+          },
+          "wifiEnabled": {
+            "type": "boolean"
+          },
+          "wifiNetwork": {
+            "description": "Empty when not connected",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "wifiEnabled",
+          "wifiNetwork",
+          "airplaneMode",
+          "bluetoothEnabled",
+          "bluetoothDevice",
+          "charging"
+        ],
+        "type": "object"
+      },
+      "title": "Phone status"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "wifi.switch",
+        "org.shipwright.keel/confirm": true,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Turn the phone's Wi-Fi on or off. Off, the phone leaves its network and has no Wi-Fi connection until it is turned back on.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.settings/wifi.switch",
+      "title": "Turn Wi-Fi on or off"
+    }
+  ],
+  "version": 1
+}
