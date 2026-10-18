@@ -222,6 +222,7 @@ void PowerPolicyController::onScreenOnChanged(bool on) {
         if (m_lifecycle) {
             m_savedFreezeDebounceMs = m_lifecycle->idleFreezeDebounceMs();
             m_lifecycle->setIdleFreezeDebounceMs(0);
+            m_lifecycle->setDozing(true);
         }
 
         // Wifi PSM: chip-level low-power idle while the association stays up,
@@ -239,6 +240,8 @@ void PowerPolicyController::onScreenOnChanged(bool on) {
     }
 
     qInfo() << "[PowerPolicyController] Exiting Doze";
+    if (m_lifecycle)
+        m_lifecycle->setDozing(false);
     if (m_lifecycle && m_savedFreezeDebounceMs >= 0) {
         m_lifecycle->setIdleFreezeDebounceMs(m_savedFreezeDebounceMs);
         m_savedFreezeDebounceMs = -1;
