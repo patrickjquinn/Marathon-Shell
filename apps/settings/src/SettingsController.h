@@ -123,7 +123,6 @@ class SettingsController : public QObject {
 
   private slots:
     void                resolveDependencies();
-    QAbstractItemModel *appModel() const;
     void                handleAppSourceChanged();
     void                handleNotificationSettingsChanged();
     void                updateSystemInfo();
@@ -141,6 +140,8 @@ class SettingsController : public QObject {
     void setBluetoothDialogError(const QString &message);
 
   private:
+    QAbstractItemModel *appModel() const;
+
     QPointer<QObject>      m_settingsManager;
     QPointer<QObject>      m_appSource;
     QHash<int, QByteArray> m_roleNames;
