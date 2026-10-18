@@ -342,6 +342,11 @@ void AppLaunchService::setCompositor(QObject *obj) {
                 [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
                     onCompositorSurfaceCreated(surface, surfaceId, xdgSurface);
                 });
+            QObject::connect(wc, &WaylandCompositor::surfaceActivated, this,
+                             [this](QWaylandSurface *, int surfaceId,
+                                    QWaylandXdgSurface *xdgSurface, qint64 launchPid) {
+                                 onCompositorSurfaceActivated(surfaceId, xdgSurface, launchPid);
+                             });
             QObject::connect(
                 wc, &WaylandCompositor::dialogCreated, this,
                 [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
@@ -2137,6 +2142,44 @@ void AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
 QString AppLaunchService::sandboxAppIdFor(QWaylandSurface *surface) const {
     auto *wc = qobject_cast<WaylandCompositor *>(m_compositor.data());
     return wc && surface->client() ? wc->sandboxAppId(surface->client()->client()) : QString();
+}
+
+// Activated with its launch's token, a window is that launch's window, even
+// if it was filed as another task when it mapped. Any other honoured
+// activation brings the window's task to the front.
+void AppLaunchService::onCompositorSurfaceActivated(int surfaceId, QWaylandXdgSurface *xdgSurface,
+                                                    qint64 launchPid) {
+    if (!m_taskModel)
+        return;
+    QObject   *surfaceObj = xdgSurface;
+    Task      *task       = m_taskModel->getTaskBySurfaceId(surfaceId);
+    const auto launch     = m_activeByPid.constFind(launchPid);
+    if (launch != m_activeByPid.cend()) {
+        if (task && task->appId() == launch->appId)
+            return;
+        qInfo() << "[AppLaunchService] surfaceId" << surfaceId << "activated with the token of"
+                << launch->appId;
+        if (task)
+            m_taskModel->closeTask(task->id());
+        const QString type = launch->type.isEmpty() ? QStringLiteral("native") : launch->type;
+        if (m_taskModel->getTaskByAppId(launch->appId))
+            m_taskModel->updateTaskNativeInfo(launch->appId, surfaceId, surfaceObj);
+        else
+            m_taskModel->launchTask(launch->appId, launch->name, launch->icon, type, surfaceId,
+                                    surfaceObj);
+        if (!m_backgroundLaunches.remove(launch->appId) && m_appWindow)
+            invokeVoid(m_appWindow, "show",
+                       {launch->appId, launch->name, launch->icon, type,
+                        QVariant::fromValue(surfaceObj), surfaceId});
+        return;
+    }
+    if (!task)
+        return;
+    if (m_uiStore)
+        invokeVoid(m_uiStore, "openApp", {task->appId(), task->title(), task->icon()});
+    invokeVoid(m_appWindow, "show",
+               {task->appId(), task->title(), task->icon(), task->appType(),
+                QVariant::fromValue(surfaceObj), surfaceId});
 }
 #endif
 
