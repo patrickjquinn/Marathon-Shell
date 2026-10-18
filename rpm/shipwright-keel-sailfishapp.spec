@@ -8,7 +8,7 @@
 
 Name:       shipwright-keel-sailfishapp
 Version:    0.1.0
-Release:    15
+Release:    16
 Summary:    SailfishApp library for Qt6 apps (Keel)
 # keel-wl-shell's protocol code is generated from Qt's BSD-3-Clause
 # surface-extension.xml (keel/shell/PROVENANCE.md).
@@ -104,6 +104,8 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %{_libdir}/cmake/KeelSailfishApp
 
 %changelog
+* Sun Oct 18 2026 Shipwright - 0.1.0-16
+- Keel apps hand memory they no longer need back to the phone after starting up (about 1.5 MB per app on an Xperia 10 II).
 * Tue Oct 13 2026 Shipwright - 0.1.0-15
 - Apps no longer crash as they close. When an app's event loop ends, its windows give back their graphics surfaces at once; before, a surface could be freed after the phone's graphics libraries had already shut down (Pilot crashed this way every time it was closed).
 

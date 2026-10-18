@@ -148,7 +148,7 @@ target_include_directories(keelplugin PRIVATE "${KEEL_RUST_INCLUDE}" plugin/cpp)
 target_link_libraries(keelplugin PRIVATE
     "${KEEL_RUST_INITIALIZERS}"
     "${KEEL_RUST_STATICLIB}"
-    Qt6::Core Qt6::Gui Qt6::Qml Qt6::DBus
+    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus
     Threads::Threads ${CMAKE_DL_LIBS} m)
 # Keep the Rust runtime's symbols private to the plugin, so that an app that
 # links its own Rust code does not clash with ours.

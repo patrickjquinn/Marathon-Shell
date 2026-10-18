@@ -28,6 +28,8 @@
 #include <QTranslator>
 #include <QWindow>
 
+#include <malloc.h>
+
 #include <atomic>
 #include <cstdio>
 #include <ctime>
@@ -216,11 +218,17 @@ void traceFirstFrame()
 /// turns it off.
 void warmUpAppQml(QQuickView *view)
 {
-    if (qEnvironmentVariableIsSet("KEEL_QML_WARMUP") && qEnvironmentVariableIntValue("KEEL_QML_WARMUP") == 0)
+    // Start-up's temporary allocations (QML compilation, image decoding)
+    // are freed by now; give the pages back (keellauncher.cpp sets the
+    // allocator's limits).
+    const auto trimMemory = []() { malloc_trim(0); };
+    if (qEnvironmentVariableIsSet("KEEL_QML_WARMUP") && qEnvironmentVariableIntValue("KEEL_QML_WARMUP") == 0) {
+        QTimer::singleShot(1500, view, trimMemory);
         return;
+    }
     // A timer, not the view's first frame: an app may show its own window
     // (Keel's ApplicationWindow) instead of drawing into this view.
-    QTimer::singleShot(1500, view, [view]() {
+    QTimer::singleShot(1500, view, [view, trimMemory]() {
         auto files = std::make_shared<QStringList>();
         // The directory the app's main QML was loaded from: the view's
         // source, or the QML context of a window the app made itself
@@ -236,8 +244,10 @@ void warmUpAppQml(QQuickView *view)
                 }
             }
         }
-        if (mainFile.isEmpty())
+        if (mainFile.isEmpty()) {
+            trimMemory();
             return;
+        }
         const QDir root = QFileInfo(mainFile).dir();
         QDirIterator it(root.path(), {QStringLiteral("*.qml")},
                         QDir::Files, QDirIterator::Subdirectories);
@@ -247,9 +257,11 @@ void warmUpAppQml(QQuickView *view)
                 files->append(f);
         }
         auto next = std::make_shared<std::function<void()>>();
-        *next = [view, files, next]() {
-            if (files->isEmpty())
+        *next = [view, files, next, trimMemory]() {
+            if (files->isEmpty()) {
+                trimMemory();
                 return;
+            }
             auto *component = new QQmlComponent(view->engine(), QUrl::fromLocalFile(files->takeFirst()),
                                                 QQmlComponent::Asynchronous, view);
             const auto done = [view, component, next]() {

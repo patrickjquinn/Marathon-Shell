@@ -17,7 +17,7 @@
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    34
+Release:    35
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -163,6 +163,9 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Sun Oct 18 2026 Shipwright - 0.1.0-35
+- Keel apps use a little less memory once they have started.
+- For testing on slower phones: KEEL_FAST_CORES=1 keeps the threads that draw each frame on the phone's fastest cores (off by default).
 * Fri Oct 16 2026 Shipwright - 0.1.0-34
 - Closing an app no longer sometimes restarts the home screen and closes every other app with it. A fault in the home screen (Lipstick) could crash it while a window was going away; Keel apps now take their windows off the screen cleanly before closing them.
 * Fri Oct 16 2026 Shipwright - 0.1.0-33

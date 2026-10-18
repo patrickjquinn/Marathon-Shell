@@ -21,6 +21,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <malloc.h>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -136,6 +137,16 @@ WindowMode prepareEnvironment()
             && ::access("/etc/sailfish-release", F_OK) == 0;
     if (!requested && !detected)
         return WindowMode::Desktop;
+
+    // On the phone, glibc's defaults keep what an app freed: an arena per
+    // thread (a Keel app has about twenty) and a heap top that is only
+    // trimmed past a threshold that grows with every large free. Fixed,
+    // small limits hand it back (with trimMemory() after start-up): about
+    // 1.5 MB less per app on an Xperia 10 II, as GLIBC_TUNABLES would,
+    // which is read before any code of ours runs.
+    mallopt(M_ARENA_MAX, 2);
+    mallopt(M_TRIM_THRESHOLD, 128 * 1024);
+    mallopt(M_MMAP_THRESHOLD, 128 * 1024);
 
     // The Sailfish session sets QT_QPA_PLATFORM=wayland for its Qt 5 apps;
     // Keel wants Qt 6's EGL client explicitly. A value set on purpose for

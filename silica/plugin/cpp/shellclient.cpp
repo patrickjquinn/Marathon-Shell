@@ -7,10 +7,13 @@
 #include "dconfambience.h"
 
 #include <QDBusPendingCallWatcher>
+#include <QDir>
+#include <QFile>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QSocketNotifier>
 #include <QTimer>
+#include <QQuickWindow>
 #include <QWindow>
 
 #if defined(KEEL_HAVE_QPA)
@@ -19,6 +22,7 @@
 #endif
 
 #include <csignal>
+#include <memory>
 #if defined(KEEL_HAVE_QPA) && defined(KEEL_HAVE_WAYLAND)
 #include <cerrno>
 #include <poll.h>
@@ -27,6 +31,7 @@
 #include <QThread>
 #endif
 #include <sys/socket.h>
+#include <sched.h>
 #include <unistd.h>
 
 #include <QDBusArgument>
@@ -339,6 +344,87 @@ static uint windowLinkId(QWindow *window)
     return id.toUInt();
 }
 
+namespace {
+
+// The CPUs of the fastest cluster (highest cpuinfo_max_freq), or nothing
+// where every CPU is alike or the kernel does not say.
+const QList<int> &fastCpus()
+{
+    static const QList<int> cpus = []() {
+        QList<int> best;
+        qint64 bestFreq = 0;
+        int policies = 0;
+        bool alike = true;
+        const QDir dir(QStringLiteral("/sys/devices/system/cpu/cpufreq"));
+        for (const QString &policy : dir.entryList({QStringLiteral("policy*")}, QDir::Dirs)) {
+            QFile freqFile(dir.filePath(policy + QStringLiteral("/cpuinfo_max_freq")));
+            QFile cpusFile(dir.filePath(policy + QStringLiteral("/related_cpus")));
+            if (!freqFile.open(QIODevice::ReadOnly) || !cpusFile.open(QIODevice::ReadOnly))
+                continue;
+            const qint64 freq = freqFile.readAll().trimmed().toLongLong();
+            QList<int> list;
+            for (const QByteArray &cpu : cpusFile.readAll().trimmed().split(' '))
+                if (!cpu.isEmpty())
+                    list.append(cpu.toInt());
+            if (policies++ > 0 && freq != bestFreq)
+                alike = false;
+            if (freq > bestFreq) {
+                bestFreq = freq;
+                best = list;
+            }
+        }
+        return (policies > 1 && !alike) ? best : QList<int>();
+    }();
+    return cpus;
+}
+
+// Keeps the threads a frame passes through on the fast cluster: the scene
+// graph's render threads and Qt Wayland's event threads (Lipstick's frame
+// callback wakes one, which wakes the render thread, which swaps). Opt-in,
+// KEEL_FAST_CORES=1. On an Xperia 10 II (Snapdragon 665, schedutil) that
+// was charging from flat, when Lipstick ran at about 30 fps, it took the
+// share of flick frames longer than two vsyncs from 72% to 53% (Qt 5
+// Silica 60%) and p99 from 116 to 59 ms. On the same phone charged, at 60
+// fps, and with the clocks capped, it made p99 worse (46 against 34 ms):
+// the threads then compete with Lipstick's for the fast cores. Measured on
+// 2026-10-18 with a 400-row Silica list and scripted flicks.
+void pinFrameThreads()
+{
+    static const bool enabled = qEnvironmentVariable("KEEL_FAST_CORES") == QStringLiteral("1");
+    const QList<int> &cpus = fastCpus();
+    if (!enabled || cpus.isEmpty())
+        return;
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    for (int cpu : cpus)
+        CPU_SET(cpu, &set);
+    const QDir tasks(QStringLiteral("/proc/self/task"));
+    for (const QString &tid : tasks.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        QFile comm(tasks.filePath(tid + QStringLiteral("/comm")));
+        if (!comm.open(QIODevice::ReadOnly))
+            continue;
+        const QByteArray name = comm.readAll().trimmed();
+        if (name == "QSGRenderThread" || name.startsWith("WaylandEventThr"))
+            sched_setaffinity(tid.toInt(), sizeof(set), &set);
+    }
+}
+
+// Once per window, at its first frame (its render thread exists by then).
+void pinFrameThreadsOnFirstFrame(QWindow *window)
+{
+    auto *quick = qobject_cast<QQuickWindow *>(window);
+    if (!quick || quick->property("_keelFramePinned").toBool())
+        return;
+    quick->setProperty("_keelFramePinned", true);
+    auto connection = std::make_shared<QMetaObject::Connection>();
+    *connection = QObject::connect(quick, &QQuickWindow::frameSwapped, quick, [connection]() {
+        QObject::disconnect(*connection);
+        pinFrameThreads();
+    }, Qt::DirectConnection);
+}
+
+} // namespace
+
 void ShellClient::prepareCoverWindow(QObject *object)
 {
     auto *window = qobject_cast<QWindow *>(object);
@@ -346,6 +432,7 @@ void ShellClient::prepareCoverWindow(QObject *object)
         return;
     m_coverWindow = window;
     window->setProperty("keelCover", true);
+    pinFrameThreadsOnFirstFrame(window);
     // The platform window must exist for the property; Qt's Wayland client
     // keeps it and sends it when the shell surface is created on show(),
     // before the first commit. Lipstick reads CATEGORY when the window is
@@ -472,6 +559,7 @@ void ShellClient::setLipstickProperty(QObject *object, const QString &name, cons
 // nothing behind the translucent window and the home screen shows through.
 void ShellClient::tagAppWindow(QWindow *window)
 {
+    pinFrameThreadsOnFirstFrame(window);
     if (!m_appWindows.contains(window))
         m_appWindows.append(window);
     connect(window, &QWindow::visibleChanged, this, &ShellClient::onWindowVisibleChanged, Qt::UniqueConnection);
