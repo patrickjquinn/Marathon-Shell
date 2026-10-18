@@ -8,7 +8,7 @@
 pkgname=deckard
 pkgver=0.1.0
 pkgrel=0
-_commit=1dd8d11600632bd9d6e443b6f86c9cf8bb5ebaad
+_commit=393571b7ba67da5afedb889a45e3394cd2bd1395
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
