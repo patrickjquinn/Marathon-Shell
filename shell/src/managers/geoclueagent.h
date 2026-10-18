@@ -1,6 +1,8 @@
 #ifndef GEOCLUEAGENT_H
 #define GEOCLUEAGENT_H
 
+// clazy:excludeall=qproperty-without-notify (D-Bus properties; QtDBus has no NOTIFY)
+
 #include <QDBusConnection>
 #include <QObject>
 #include <functional>

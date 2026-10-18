@@ -1,3 +1,5 @@
+// clazy:excludeall=const-signal-or-slot (D-Bus fakes: a getter is a slot to be exported)
+
 #include <QTest>
 #include <QDBusConnection>
 #include <QElapsedTimer>

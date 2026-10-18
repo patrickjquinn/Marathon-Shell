@@ -1,3 +1,5 @@
+// clazy:excludeall=qproperty-without-notify (D-Bus properties; QtDBus has no NOTIFY)
+
 #include <QTest>
 #include <QSignalSpy>
 #include <QDBusConnection>

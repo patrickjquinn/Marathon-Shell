@@ -1,5 +1,7 @@
 #pragma once
 
+// clazy:excludeall=qproperty-without-notify (D-Bus properties; QtDBus has no NOTIFY)
+
 #include <QDBusConnection>
 #include <QHash>
 #include <QList>
