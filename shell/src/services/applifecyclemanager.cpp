@@ -520,6 +520,10 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
             startIdleFreezeDebounce(appId, true);
             return;
         }
+        if (m_appLaunchService && m_appLaunchService->terminationPidForAppId(appId) <= 0) {
+            qCInfo(lcLifecycle) << appId << "not frozen: no process of its own";
+            return;
+        }
     }
     it->state          = newState;
     it->stateEnteredMs = QDateTime::currentMSecsSinceEpoch();

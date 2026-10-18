@@ -162,6 +162,27 @@ class TestSharedClient : public QObject {
         QVERIFY(tasks->getTaskByAppId(id("b")));
         QCOMPARE(lifecycle->lifecycleState(id("b")), int(AppLifecycleManager::Foreground));
     }
+
+    // Freezing has nothing of the app's own to stop; a no-op Frozen app
+    // would also be the one killOldestFrozenApp picks, and kill nothing.
+    void anAppWithoutItsOwnProcessIsNotFrozen() {
+        lifecycle->setIdleFreezeDebounceMs(0);
+        launch("a", kLaunchA);
+        map("a", 11, &surfaceA);
+        show("a", 11, &windowA);
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        QCOMPARE(lifecycle->lifecycleState(id("a")), int(AppLifecycleManager::BackgroundIdle));
+
+        QTest::qWait(5);
+        constexpr qint64 kPlain = 4194330;
+        tasks->launchTask("plain", "Plain", "plain", "native", 20, &surfaceB);
+        launcher->registerPidForAppId(kPlain, "plain");
+        QVERIFY(lifecycle->minimizeForegroundApp());
+        QCOMPARE(lifecycle->lifecycleState("plain"), int(AppLifecycleManager::Frozen));
+
+        QCOMPARE(lifecycle->killOldestFrozenApp(), int(kPlain));
+        QCOMPARE(lifecycle->lifecycleState(id("a")), int(AppLifecycleManager::BackgroundIdle));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestSharedClient)
