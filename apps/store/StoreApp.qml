@@ -32,6 +32,11 @@ ApplicationWindow {
 
     appId: "store"
     Component.onCompleted: store.loadCatalog()
+
+    StoreActions {
+        app: root
+    }
+
     cover: Component {
         StoreCover {
             store: root.store
