@@ -188,6 +188,7 @@ class AppLaunchService : public QObject {
                           const QString &sandboxAppId, int surfaceId, QObject *qmlSurfaceObj);
     void        onWindowDestroyed(int surfaceId);
     void        fileWindow(const QString &appId, int surfaceId, QObject *surface);
+    void        finishAppExit(const QString &appId);
 #if defined(HAVE_WAYLAND)
     void onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,
                                     QWaylandXdgSurface *xdgSurface);
@@ -212,6 +213,11 @@ class AppLaunchService : public QObject {
     QHash<QString, PendingLaunch> m_pendingByCommand;
 
     QHash<qint64, PendingLaunch>  m_activeByPid;
+    // Launches whose process exited before a window came, by app id: a
+    // launcher (`waydroid app launch`) is not the app, so the window may
+    // still come within the grace.
+    QHash<QString, PendingLaunch> m_exitedLaunches;
+    int                           m_exitedLaunchGraceMs = 30000;
     // Every mapped toplevel of an app, oldest first.
     struct Window {
         int               surfaceId = -1;

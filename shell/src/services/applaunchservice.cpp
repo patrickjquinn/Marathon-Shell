@@ -1840,7 +1840,6 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
         return;
     }
     const PendingLaunch p = m_activeByPid.take(pid);
-    m_backgroundLaunches.remove(p.appId);
     closeSandboxSocket(p.sandboxInstance);
     m_pidToAppId.remove(pid);
     // The app's pid may be the sandbox's inner runner (matched by its
@@ -1852,19 +1851,38 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
         emit pidUnregistered(appPid, p.appId);
     }
 
+    // Exited before any window: a launcher, unless no window comes.
+    if (!m_windows.contains(p.appId) && !(m_taskModel && m_taskModel->getTaskByAppId(p.appId))) {
+        qInfo() << "[AppLaunchService]" << p.appId << "launch PID" << pid
+                << "exited before its window - waiting for one";
+        m_exitedLaunches.insert(p.appId, p);
+        QTimer::singleShot(m_exitedLaunchGraceMs, this, [this, appId = p.appId, pid]() {
+            const auto it = m_exitedLaunches.constFind(appId);
+            if (it == m_exitedLaunches.cend() || it->pid != pid)
+                return;
+            m_exitedLaunches.erase(it);
+            finishAppExit(appId);
+        });
+        return;
+    }
+    finishAppExit(p.appId);
+}
+
+void AppLaunchService::finishAppExit(const QString &appId) {
+    m_backgroundLaunches.remove(appId);
     if (m_taskModel) {
-        if (Task *t = m_taskModel->getTaskByAppId(p.appId)) {
+        if (Task *t = m_taskModel->getTaskByAppId(appId)) {
             m_taskModel->closeTask(t->id());
-            qInfo() << "[AppLaunchService] Closed task for app" << p.appId << "on PID exit";
+            qInfo() << "[AppLaunchService] Closed task for app" << appId << "on PID exit";
         }
     }
 
     if (m_appLifecycleManager) {
         QMetaObject::invokeMethod(m_appLifecycleManager, "unregisterApp", Qt::DirectConnection,
-                                  Q_ARG(QString, p.appId));
+                                  Q_ARG(QString, appId));
     }
 
-    emit appExited(p.appId);
+    emit appExited(appId);
 }
 
 QString AppLaunchService::appIdForPid(qint64 pid) const {
@@ -2087,7 +2105,7 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
 #endif
 
     // Launched by another process (`waydroid app launch`), which is not the app.
-    PendingLaunch launch;
+    PendingLaunch launch = m_exitedLaunches.take(xdgAppId);
     for (auto it = m_activeByPid.begin(); !xdgAppId.isEmpty() && it != m_activeByPid.end();) {
         if (it->appId != xdgAppId) {
             ++it;

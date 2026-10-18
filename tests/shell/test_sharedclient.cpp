@@ -186,6 +186,40 @@ class TestSharedClient : public QObject {
         QVERIFY(map("a", 11, &surfaceA));
     }
 
+    // `waydroid app launch` hands the launch to Android and exits; the
+    // window comes after.
+    void aLauncherExitingFirstIsNotTheAppsExit() {
+        QSignalSpy exited(launcher, &AppLaunchService::appExited);
+        launch("a", kLaunchA);
+        launcher->onCompositorAppClosed(kLaunchA);
+        QCOMPARE(exited.count(), 0);
+        QVERIFY(map("a", 11, &surfaceA));
+        QCOMPARE(tasks->getTaskByAppId(id("a"))->title(), QStringLiteral("A"));
+    }
+
+    void aBackgroundLaunchStaysBehindAfterItsLauncherExits() {
+        QVERIFY(launcher->startAppInBackground(app("a")));
+        launcher->onCompositorAppLaunched(exec("a"), kLaunchA);
+        launcher->onCompositorAppClosed(kLaunchA);
+        QVERIFY(!map("a", 11, &surfaceA));
+        QVERIFY(shell->shown.isEmpty());
+        QVERIFY(!launcher->isBackgroundLaunch(id("a")));
+    }
+
+    // No window came: the launch failed after all.
+    void aLaunchWithNoWindowIsForgotten() {
+        launcher->m_exitedLaunchGraceMs = 10;
+        QSignalSpy exited(launcher, &AppLaunchService::appExited);
+        QVERIFY(launcher->startAppInBackground(app("a")));
+        launcher->onCompositorAppLaunched(exec("a"), kLaunchA);
+        launcher->onCompositorAppClosed(kLaunchA);
+        QTRY_COMPARE(exited.count(), 1);
+        QVERIFY(!launcher->isBackgroundLaunch(id("a")));
+        shell->appWindowOpen = false;
+        QVERIFY(!map("a", 11, &surfaceA));
+        QCOMPARE(tasks->getTaskByAppId(id("a"))->title(), QStringLiteral("a (Android title)"));
+    }
+
     // Two Android tasks of one package share an app_id.
     void theCardStaysWhileAWindowOfItsAppDoes() {
         QVERIFY(!map("b", 21, &surfaceA));
