@@ -10,7 +10,7 @@ Item {
     id: root
 
     required property var browser
-    required property Item webLayer
+    required property WebLayer webLayer
     required property int index
     required property int tabId
     required property string url

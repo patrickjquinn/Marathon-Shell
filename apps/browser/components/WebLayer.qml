@@ -15,7 +15,7 @@ Item {
     signal scrolled(real y)
 
     function currentView() {
-        const tab = repeater.itemAt(browser.currentTabIndex);
+        const tab = repeater.itemAt(browser.currentTabIndex) as BrowserTab;
         return tab ? tab.view : null;
     }
 
@@ -44,7 +44,7 @@ Item {
     }
 
     function discard(index) {
-        const tab = repeater.itemAt(index);
+        const tab = repeater.itemAt(index) as BrowserTab;
         if (!tab)
             return;
         tab.view.lifecycleState = WebEngineView.LifecycleState.Discarded;
@@ -52,7 +52,7 @@ Item {
     }
 
     function capture() {
-        const tab = repeater.itemAt(browser.currentTabIndex);
+        const tab = repeater.itemAt(browser.currentTabIndex) as BrowserTab;
         if (tab)
             tab.capture();
     }

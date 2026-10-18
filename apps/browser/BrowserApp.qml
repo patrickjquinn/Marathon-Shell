@@ -11,35 +11,35 @@ import "cover"
 ApplicationWindow {
     id: app
 
-    property QtObject bookmarkStore: ConfigurationValue {
+    property var bookmarkStore: ConfigurationValue {
         key: "/apps/browser/bookmarks"
         defaultValue: "[]"
     }
-    property QtObject historyStore: ConfigurationValue {
+    property var historyStore: ConfigurationValue {
         key: "/apps/browser/history"
         defaultValue: "[]"
     }
-    property QtObject tabStore: ConfigurationValue {
+    property var tabStore: ConfigurationValue {
         key: "/apps/browser/tabs"
         defaultValue: "[]"
     }
-    property QtObject engineStore: ConfigurationValue {
+    property var engineStore: ConfigurationValue {
         key: "/apps/browser/searchEngine"
         defaultValue: "DuckDuckGo"
     }
-    property QtObject engineUrlStore: ConfigurationValue {
+    property var engineUrlStore: ConfigurationValue {
         key: "/apps/browser/searchEngineUrl"
         defaultValue: "https://duckduckgo.com/?q="
     }
-    property QtObject homepageStore: ConfigurationValue {
+    property var homepageStore: ConfigurationValue {
         key: "/apps/browser/homepage"
         defaultValue: "https://duckduckgo.com"
     }
-    property QtObject maxTabsStore: ConfigurationValue {
+    property var maxTabsStore: ConfigurationValue {
         key: "/apps/browser/maxTabs"
         defaultValue: 12
     }
-    property QtObject imported: ConfigurationValue {
+    property var imported: ConfigurationValue {
         key: "/apps/browser/legacyImported"
         defaultValue: false
     }
@@ -49,7 +49,7 @@ ApplicationWindow {
 
     // Tests swap in a stub; WebEngine needs a GPU context.
     property url webLayerSource: Qt.resolvedUrl("components/WebLayer.qml")
-    property Item webLayer: null
+    property var webLayer: null
 
     readonly property alias tabs: tabsModel
     property int currentTabIndex: 0
@@ -274,7 +274,7 @@ ApplicationWindow {
             pageStack.pop();
             return true;
         }
-        const page = pageStack.currentPage;
+        const page = pageStack.currentPage as MainPage;
         if (page && page.closeOverlays && page.closeOverlays())
             return true;
         if (currentTab && currentTab.canGoBack) {
