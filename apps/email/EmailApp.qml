@@ -13,11 +13,11 @@ ApplicationWindow {
     id: app
 
     property var mail: MailService
-    property QtObject draftStore: ConfigurationValue {
+    property var draftStore: ConfigurationValue {
         key: "/apps/email/drafts"
         defaultValue: "{}"
     }
-    property QtObject legacyDraft: ConfigurationValue {
+    property var legacyDraft: ConfigurationValue {
         key: "/apps/email/composeDraft"
         defaultValue: ""
     }
@@ -108,7 +108,7 @@ ApplicationWindow {
 
     appId: "email"
     onApplicationActiveChanged: {
-        const page = pageStack.currentPage;
+        const page = pageStack.currentPage as MailComposePage;
         if (!applicationActive && page && page.edited)
             page.persistDraft();
     }

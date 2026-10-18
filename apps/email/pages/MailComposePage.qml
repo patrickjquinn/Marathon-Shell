@@ -8,7 +8,7 @@ Dialog {
     id: dialog
 
     property var mail
-    property QtObject draftStore
+    property var draftStore
     property string draftKey
     property string defaultTo: ""
     property string defaultCc: ""
