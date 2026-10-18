@@ -269,9 +269,10 @@ QString joinForSplitCommand(const QStringList &args) {
         "--enable-viewport "
         "--main-frame-resizes-are-orientation-changes";
 
-    // Stacks whose GL Chromium can drive: no GL override, so QtWebEngine
-    // picks its own implementation and WebGL runs on the GPU.
-    constexpr const char *kGpuChromiumFlags = "--ignore-gpu-blocklist "
+    // Stacks whose GL Chromium can drive, so WebGL runs on the GPU. ANGLE
+    // over GLES: QtWebEngine's own pick draws page content black on V3D.
+    constexpr const char *kGpuChromiumFlags = "--use-gl=angle --use-angle=gles "
+                                              "--ignore-gpu-blocklist "
                                               "--disable-dev-shm-usage "
                                               "--num-raster-threads=2 "
                                               "--enable-viewport "
