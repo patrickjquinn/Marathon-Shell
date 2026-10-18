@@ -1,0 +1,118 @@
+#!/bin/sh
+# Keeps the encrypted data partition's LUKS2 keyslots in step with the
+# quick PIN (docs/ENCRYPTION.md). Run as root, through pkexec.
+#
+#   status  prints plain (not encrypted), open (no PIN at startup) or pin
+#   set     the line on stdin becomes the startup PIN
+#   clear   the partition opens at startup without a PIN
+#
+# A random device key stored on the partition itself, so readable only while
+# it is unlocked, authorises every change. The new slot is added and checked
+# before the old ones go, so a slot the person can open at boot always stays.
+#
+# Exit status: 0 done, 2 usage, 3 not encrypted, 4 nothing to authorise the
+# change with, 1 any other failure (the old slots are then still there).
+set -u
+
+dir=${MARATHON_DATA_KEY_DIR:-/var/lib/marathon-data-key}
+key=$dir/device.key
+fast="--pbkdf pbkdf2 --pbkdf-force-iterations 1000"
+# About 1.5 s to open on the phone that enrolled it; 512 MiB stays well
+# clear of the 2 GB phones' memory.
+slow="--pbkdf argon2id --pbkdf-memory 524288 --pbkdf-parallel 4 --iter-time 1500"
+
+die() {
+	echo "marathon-data-key: $2" >&2
+	exit "$1"
+}
+
+# The LUKS device under the file system that holds $dir.
+data_device() {
+	if [ -n "${MARATHON_DATA_KEY_DEV:-}" ]; then
+		echo "$MARATHON_DATA_KEY_DEV"
+		return
+	fi
+	src=$(findmnt -n -o SOURCE --target "${dir%/*}") || return
+	case $src in
+	/dev/mapper/*) cryptsetup status "${src#/dev/mapper/}" | sed -n 's/^ *device: *//p' ;;
+	esac
+}
+
+slots() {
+	cryptsetup luksDump "$dev" | sed -n 's/^  \([0-9][0-9]*\): luks2$/\1/p'
+}
+
+free_slot() {
+	used=" $(slots | tr '\n' ' ')"
+	n=0
+	while [ $n -lt 32 ]; do
+		case $used in *" $n "*) ;; *) echo $n && return ;; esac
+		n=$((n + 1))
+	done
+	return 1
+}
+
+# opens SLOT [ARGS]: the key given by ARGS (or the stdin line) opens SLOT.
+opens() {
+	slot=$1
+	shift
+	cryptsetup open --test-passphrase --key-slot "$slot" "$@" "$dev" 2> /dev/null
+}
+
+# Sets $keyslot to the device key's slot, adding the key with the empty
+# passphrase of a partition that has no PIN yet.
+device_key() {
+	for keyslot in $(slots); do
+		[ -s "$key" ] && opens "$keyslot" --key-file "$key" && return 0
+	done
+	keyslot=$(free_slot) || return 1
+	mkdir -p "$dir" && chmod 755 "$dir" || return 1
+	(umask 077 && head -c 64 /dev/urandom > "$key.new") || return 1
+	# shellcheck disable=SC2086
+	echo | cryptsetup luksAddKey -q --force-password $fast --new-key-slot "$keyslot" \
+		--new-keyfile "$key.new" "$dev" || return 1
+	mv -f "$key.new" "$key"
+}
+
+# replace SECRET STATE PBKDF: SECRET becomes the only passphrase.
+replace() {
+	device_key || die 4 "no device key, and the empty passphrase does not open $dev"
+	new=$(free_slot) || die 1 "no free keyslot on $dev"
+	# shellcheck disable=SC2086
+	printf '%s\n' "$1" | cryptsetup luksAddKey -q --force-password $3 --key-slot "$keyslot" \
+		--key-file "$key" --new-key-slot "$new" "$dev" || die 1 "cannot add a keyslot to $dev"
+	printf '%s\n' "$1" | opens "$new" || die 1 "the new keyslot does not open $dev"
+	for s in $(slots); do
+		[ "$s" = "$keyslot" ] || [ "$s" = "$new" ] ||
+			cryptsetup luksKillSlot -q --key-file "$key" "$dev" "$s" || die 1 "cannot remove keyslot $s"
+	done
+	printf '%s\n' "$2" > "$dir/state.new" && chmod 644 "$dir/state.new" && mv -f "$dir/state.new" "$dir/state"
+}
+
+dev=$(data_device)
+if [ -z "$dev" ] || ! cryptsetup isLuks "$dev" 2> /dev/null; then
+	[ "${1:-}" = status ] && echo plain && exit 0
+	die 3 "the data partition is not encrypted"
+fi
+
+exec 9> "${MARATHON_DATA_KEY_LOCK:-/run/marathon-data-key.lock}" || die 1 "cannot open the lock"
+flock 9 || die 1 "cannot take the lock"
+case ${1:-} in
+status)
+	for s in $(slots); do
+		echo | opens "$s" && echo open && exit 0
+	done
+	echo pin
+	;;
+set)
+	IFS= read -r secret || [ -n "$secret" ] || die 2 "no PIN on stdin"
+	[ -n "$secret" ] || die 2 "empty PIN"
+	replace "$secret" pin "$slow"
+	;;
+clear)
+	replace "" open "$fast"
+	;;
+*)
+	die 2 "usage: marathon-data-key status|set|clear"
+	;;
+esac

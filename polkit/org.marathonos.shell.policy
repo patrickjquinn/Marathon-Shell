@@ -40,6 +40,20 @@
     </defaults>
   </action>
 
+  <!-- The shell keeps the data partition's startup PIN in step with the
+       quick PIN (docs/ENCRYPTION.md). Every change needs the device key
+       stored on the unlocked partition, which only root can read. -->
+  <action id="org.marathonos.shell.data-key">
+    <description>Change the PIN that unlocks your data at startup</description>
+    <message>Authentication is required to change the startup PIN</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-data-key</annotate>
+  </action>
+
   <!-- Allow bluetooth management -->
   <action id="org.marathonos.shell.bluetooth-control">
     <description>Control Bluetooth</description>

@@ -53,6 +53,9 @@ depends="
 	dbus
 	gnome-keyring
 	polkit
+	cryptsetup
+	findmnt
+	flock
 	greetd
 	libcap
 	bubblewrap

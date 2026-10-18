@@ -31,6 +31,9 @@ add_test(NAME Script_ModemSleep COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/t
 # The splash's "Finishing update…" after an OS update (marathon-plymouth-theme)
 add_test(NAME Script_UpdateSplash COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-update-splash.sh ${CMAKE_SOURCE_DIR}/packaging/packages/marathon-plymouth-theme/marathon-update-splash)
 
+# The startup PIN's keyslot helper against a LUKS2 image (skips without cryptsetup)
+add_test(NAME Script_DataKey COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-data-key.sh ${CMAKE_SOURCE_DIR}/tools/marathon-data-key/marathon-data-key)
+
 # QML suites that need Keel's Silica: set KEEL_QML to a Keel build's qml dir,
 # or install keel-silica.
 set(KEEL_QML "$ENV{KEEL_QML}" CACHE PATH "Keel build qml directory for the Silica QML tests")
