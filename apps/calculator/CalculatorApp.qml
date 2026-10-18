@@ -11,11 +11,11 @@ ApplicationWindow {
     id: app
     appId: "calculator"
 
-    property QtObject modeStore: ConfigurationValue {
+    property var modeStore: ConfigurationValue {
         key: "/apps/calculator/scientific"
         defaultValue: true
     }
-    property QtObject historyStore: ConfigurationValue {
+    property var historyStore: ConfigurationValue {
         key: "/apps/calculator/history"
         defaultValue: "[]"
     }
