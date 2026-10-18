@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=49
+pkgrel=50
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -247,6 +247,16 @@ EOF
 ConditionKernelVersion=>=6.16
 EOF
 	done
+
+	# Cores of big processes (a WebProcess, Android's system_server) are
+	# gigabytes; writing them to SD/eMMC stalls every app for minutes.
+	install -d "$pkgdir/usr/lib/systemd/coredump.conf.d"
+	cat > "$pkgdir/usr/lib/systemd/coredump.conf.d/50-marathon.conf" <<'EOF'
+[Coredump]
+ProcessSizeMax=512M
+ExternalSizeMax=512M
+MaxUse=1G
+EOF
 
 	# avahi-daemon drop-in: start after NetworkManager so /etc/resolv.conf
 	# (which NM writes) exists when avahi opens it. Without this we log
