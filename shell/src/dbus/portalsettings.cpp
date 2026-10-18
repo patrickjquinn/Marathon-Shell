@@ -32,7 +32,7 @@ namespace {
         arg.beginStructure();
         arg >> c.r >> c.g >> c.b;
         arg.endStructure();
-        return arg;
+        return arg; // NOLINT(bugprone-return-const-ref-from-parameter) QDBusArgument >> signature
     }
 
     // QFont::toString's form, which kdeglobals stores and KFontSettingsData parses.
