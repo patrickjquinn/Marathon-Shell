@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
@@ -86,6 +88,11 @@ Page {
         delegate: ThumbnailImage {
             id: thumb
 
+            // GridItem reads model.index.
+            required property var model
+            required property var modelData
+            required property int index
+
             size: grid.cellWidth
             // Keel's ThumbnailImage fixes its height, which leaves no room for the menu.
             height: implicitHeight
@@ -104,7 +111,7 @@ Page {
                     text: qsTr("Delete")
                     onClicked: {
                         const store = root.store;
-                        const id = modelData.id;
+                        const id = thumb.modelData.id;
                         thumb.remorseDelete(function () { store.deletePhoto(id); });
                     }
                 }
@@ -118,7 +125,7 @@ Page {
                     bottom: parent.bottom
                     margins: Theme.paddingSmall
                 }
-                visible: Model.isVideo(modelData) && !!modelData.thumbnailPath
+                visible: Model.isVideo(thumb.modelData) && !!thumb.modelData.thumbnailPath
                 source: "image://theme/icon-s-video"
                 color: Theme.lightPrimaryColor
             }
