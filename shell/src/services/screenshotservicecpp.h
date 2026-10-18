@@ -12,6 +12,8 @@ class ScreenshotServiceCpp : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString screenshotsPath READ screenshotsPath NOTIFY screenshotsPathChanged)
     Q_PROPERTY(QObject *shellWindow READ shellWindow WRITE setShellWindow NOTIFY shellWindowChanged)
+    // Asked showsSecureContent() before every capture.
+    Q_PROPERTY(QObject *compositor MEMBER m_compositor NOTIFY compositorChanged)
 
   public:
     explicit ScreenshotServiceCpp(AudioPolicyController *audioPolicy, HapticManager *haptics,
@@ -38,6 +40,7 @@ class ScreenshotServiceCpp : public QObject {
   signals:
     void screenshotsPathChanged();
     void shellWindowChanged();
+    void compositorChanged();
     void screenshotCaptured(const QString &filePath, const QString &thumbnailPath);
     void screenshotFailed(const QString &error);
 
@@ -46,11 +49,13 @@ class ScreenshotServiceCpp : public QObject {
     QString                 buildScreenshotPath() const;
     void                    handleSavedScreenshot(const QString &filePath);
     void                    notifyFailure(const QString &message);
+    bool                    secureContentShown() const;
 
     AudioPolicyController  *m_audioPolicy         = nullptr;
     HapticManager          *m_haptics             = nullptr;
     NotificationServiceCpp *m_notificationService = nullptr;
     QObject                *m_shellWindow         = nullptr;
+    QObject                *m_compositor          = nullptr;
     QString                 m_screenshotsPath;
 };
 

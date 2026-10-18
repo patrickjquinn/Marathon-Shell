@@ -42,6 +42,9 @@ Item {
     readonly property bool docking: WindowOrigins.dockingAppId !== "" && WindowOrigins.dockingAppId === taskCard.appId
     // Showing the last captured cover: the card is on its way out.
     property bool frozen: false
+    // A marathon_surface_v1 secure window: its content stays off the card.
+    readonly property var marathonSurface: compositor && compositor.marathonSurfaces ? compositor.marathonSurfaces[surfaceId] : undefined
+    readonly property bool secure: marathonSurface ? marathonSurface.secure : false
 
     signal closed
     signal taskClosed(string appId)
@@ -343,7 +346,7 @@ Item {
 
                     anchors.fill: parent
                     visible: !coverView.available
-                    active: true
+                    active: !taskCard.secure
                     asynchronous: true
 
                     sourceComponent: Item {
@@ -590,6 +593,13 @@ Item {
                             }
                         }
                     }
+                }
+
+                MAppIcon {
+                    anchors.centerIn: parent
+                    size: Theme.iconSizeLarge
+                    source: taskCard.icon || "layout-grid"
+                    visible: taskCard.secure
                 }
             }
         }

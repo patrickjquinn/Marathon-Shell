@@ -185,6 +185,7 @@ Item {
         // capture, which falls through to the Item.grabToImage() async
         // path inside captureScreen().
         ScreenshotService.shellWindow = shellWindow;
+        ScreenshotService.compositor = compositor;
         SessionStore.reset();
         showPinScreen = false;
         pinScreen.reset();

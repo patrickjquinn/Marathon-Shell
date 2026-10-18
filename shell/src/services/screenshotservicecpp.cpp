@@ -42,6 +42,11 @@ void ScreenshotServiceCpp::captureScreen(QObject *windowItem) {
         return;
     }
 
+    if (secureContentShown()) {
+        notifyFailure("The app on screen doesn't allow screenshots");
+        return;
+    }
+
     const QString fullPath = buildScreenshotPath();
 
     if (auto *window = qobject_cast<QQuickWindow *>(target)) {
@@ -81,7 +86,7 @@ void ScreenshotServiceCpp::captureScreen(QObject *windowItem) {
 }
 
 bool ScreenshotServiceCpp::saveScreenshotTo(const QString &absolutePath) {
-    if (absolutePath.isEmpty() || !m_shellWindow)
+    if (absolutePath.isEmpty() || !m_shellWindow || secureContentShown())
         return false;
     auto *window = qobject_cast<QQuickWindow *>(m_shellWindow);
     if (!window)
@@ -129,6 +134,14 @@ void ScreenshotServiceCpp::handleSavedScreenshot(const QString &filePath) {
         m_notificationService->sendNotification("system", "Screenshot captured",
                                                 QFileInfo(filePath).fileName(), options);
     }
+}
+
+bool ScreenshotServiceCpp::secureContentShown() const {
+    bool shown = false;
+    if (m_compositor)
+        QMetaObject::invokeMethod(m_compositor, "showsSecureContent", Qt::DirectConnection,
+                                  qReturnArg(shown));
+    return shown;
 }
 
 void ScreenshotServiceCpp::notifyFailure(const QString &message) {

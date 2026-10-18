@@ -834,6 +834,13 @@ namespace {
 
 } // namespace
 
+bool WaylandCompositor::showsSecureContent() const {
+    const QList<MarathonSurfaceV1 *> all = m_marathonSurfaceManager->surfaces();
+    return std::any_of(all.cbegin(), all.cend(), [](const MarathonSurfaceV1 *marathon) {
+        return marathon->secure() && surfaceShown(marathon->surface());
+    });
+}
+
 // Runs on the render thread in beforeSynchronizing (GUI thread blocked), or
 // on the GUI thread from the idle timer: never both at once.
 void WaylandCompositor::sendPacedFrameCallbacks(bool idleTick) {

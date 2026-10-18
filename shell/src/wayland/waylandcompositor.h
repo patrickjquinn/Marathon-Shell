@@ -103,6 +103,8 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     sendNativeBack(int surfaceId, bool keelHosted);
     Q_INVOKABLE void     sendNativeForward(int surfaceId, bool keelHosted);
     Q_INVOKABLE bool     checkIdleInhibitors();
+    // A marathon_surface_v1 secure window is on screen.
+    Q_INVOKABLE bool     showsSecureContent() const;
 
     // A sandbox the shell starts connects on a socket of its own, whose
     // clients carry the app's security context. Returns the path, or empty.
