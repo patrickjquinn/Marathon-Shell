@@ -23,3 +23,5 @@ if(HAVE_WEBENGINE)
     target_link_libraries(${APP_NAME} PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(${APP_NAME} PRIVATE HAVE_WEBENGINE)
 endif()
+
+install_keel_actions(${APP_NAME} keel-actions.json)

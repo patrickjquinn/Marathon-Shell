@@ -312,6 +312,10 @@ ApplicationWindow {
         id: tabsModel
     }
 
+    BrowserActions {
+        browser: app
+    }
+
     Connections {
         target: Navigation
         function onDeepLinkRequested(appId, route, params) {
