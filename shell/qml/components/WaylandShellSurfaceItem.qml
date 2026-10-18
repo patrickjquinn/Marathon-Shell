@@ -163,27 +163,29 @@ ShellSurfaceItem {
     }
 
     // Only a window on screen takes the keyboard, and only once its client has
-    // taken the last configure.
-    property bool focusWanted: false
+    // acked the last configure. Nothing signals an ack, and Waydroid's toplevel
+    // may not commit again, so the ack is looked for each frame, for a second.
     function takeFocusForKeyboard() {
-        if (!focusable || isPreview || isMinimized || !hasSentInitialSize || !visible) {
-            focusWanted = false;
+        focusRetry.stop();
+        if (!focusable || isPreview || isMinimized || !hasSentInitialSize || !visible)
+            return;
+        if (launchCompositor && !launchCompositor.configureSettled(surfaceId) && focusRetry.tries < 60) {
+            focusRetry.tries++;
+            focusRetry.start();
             return;
         }
-        if (launchCompositor && !launchCompositor.configureSettled(surfaceId)) {
-            focusWanted = true;
-            return;
-        }
-        focusWanted = false;
+        focusRetry.tries = 0;
         forceActiveFocus();
         if (launchCompositor)
             launchCompositor.activateSurface(surfaceId);
     }
-    Connections {
-        target: surfaceItem.focusWanted ? surfaceItem.surface : null
-        function onRedraw() {
-            surfaceItem.takeFocusForKeyboard();
-        }
+    Timer {
+        id: focusRetry
+
+        property int tries: 0
+
+        interval: 16
+        onTriggered: surfaceItem.takeFocusForKeyboard()
     }
 
     width: clientScale === 1 ? (parent ? parent.width : 0) : implicitWidth
