@@ -224,6 +224,15 @@ class TestSharedClient : public QObject {
         QCOMPARE(tasks->getTaskByAppId(id("a"))->title(), QStringLiteral("a (Android title)"));
     }
 
+    // The window can map before the shell has seen its launcher start.
+    void aWindowBeforeItsLauncherStartedIsItsLaunchs() {
+        QVERIFY(launcher->launchApp(app("a")));
+        QVERIFY(map("a", 11, &surfaceA));
+        QCOMPARE(tasks->getTaskByAppId(id("a"))->title(), QStringLiteral("A"));
+        launcher->onCompositorAppLaunched(exec("a"), kLaunchA);
+        QCOMPARE(launcher->pidForAppId(id("a")), -1);
+    }
+
     // Two Android tasks of one package share an app_id.
     void theCardStaysWhileAWindowOfItsAppDoes() {
         QVERIFY(!map("b", 21, &surfaceA));

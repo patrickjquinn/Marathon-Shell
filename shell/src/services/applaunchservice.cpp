@@ -2158,6 +2158,14 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
 
     // Launched by another process (`waydroid app launch`), which is not the app.
     PendingLaunch launch = m_exitedLaunches.take(xdgAppId);
+    for (auto it = m_pendingByCommand.begin(); !xdgAppId.isEmpty() && it != m_pendingByCommand.end();) {
+        if (it->appId != xdgAppId) {
+            ++it;
+            continue;
+        }
+        launch = it.value();
+        it     = m_pendingByCommand.erase(it);
+    }
     for (auto it = m_activeByPid.begin(); !xdgAppId.isEmpty() && it != m_activeByPid.end();) {
         if (it->appId != xdgAppId) {
             ++it;
