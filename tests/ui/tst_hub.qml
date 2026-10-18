@@ -212,6 +212,36 @@ TestCase {
         compare(NotificationService.clicked, [5]);
     }
 
+    // A row that arrives with buttons while the Hub is open pushes the rows
+    // below it clear of them, also when its app brings the filter chips.
+    function test_aNewRowMakesRoomForItsButtons() {
+        const list = findChild(hub, "hubList");
+        const snooze = [{
+                "key": "snooze",
+                "label": "Snooze"
+            }];
+        addNotification(1, "messages");
+        tryVerify(() => row(0));
+        row(0).actions = snooze;
+        wait(400);
+        for (let id = 2; id <= 3; id++) {
+            NotificationModel.insert(0, { id: id, appId: id === 2 ? "mail" : "messages", title: "Bob" + id, body: "Yo", icon: "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
+            hub.refreshSources();
+            // The real model has the actions when the row is made.
+            list.forceLayout();
+            list.itemAtIndex(0).actions = snooze;
+            wait(50);
+        }
+        wait(MMotion.moderate + 300);
+        // As drawn: no forceLayout, which would hide a stale layout.
+        for (let i = 0; i + 1 < list.count; i++) {
+            const above = list.itemAtIndex(i);
+            const below = list.itemAtIndex(i + 1);
+            verify(above.height > Silica.Theme.itemSizeLarge, i + ": " + above.height);
+            verify(below.y >= above.y + above.height - 0.5, i + ": " + below.y + " < " + (above.y + above.height));
+        }
+    }
+
     // An inline-reply sender's row offers Reply, as its banner does.
     function test_rowRepliesInline() {
         addNotification(12, "messages");
