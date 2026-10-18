@@ -23,3 +23,5 @@ add_marathon_app(${APP_NAME}
     SOURCES ${SOURCES}
 )
 list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
+
+install_keel_actions(${APP_NAME} keel-actions.json)

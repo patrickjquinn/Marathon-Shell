@@ -61,6 +61,10 @@ ApplicationWindow {
     appId: "terminal"
     Component.onCompleted: newSession()
 
+    TerminalActions {
+        app: app
+    }
+
     Component {
         id: engineComponent
 
