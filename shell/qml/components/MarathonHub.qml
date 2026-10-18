@@ -2,17 +2,62 @@ pragma ComponentBehavior: Bound
 
 import MarathonOS.Shell 1.0
 import QtQuick
+import QtQml.Models
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 import "../core/Agenda.js" as Agenda
 
 // The Hub, as Sailfish's Events view: today's date and calendar agenda,
-// then the notifications, on the lightly frosted ambience.
+// then the notifications by day, on the lightly frosted ambience. Like
+// BB10's Hub it narrows to one source, here with a row of filter chips.
 Rectangle {
     id: hub
 
     property bool isInPeekMode: false
     property var agenda: []
+    // An app id narrows the list to that app; "" shows everything.
+    property string filterApp: ""
+    // The apps with notifications, newest first: { app, label, unread }.
+    property var sources: []
+
+    function refreshSources() {
+        const unread = {};
+        const order = [];
+        const roleApp = NotificationModel.roleId("appId");
+        const roleRead = NotificationModel.roleId("isRead");
+        for (let i = 0; i < NotificationModel.rowCount(); i++) {
+            const idx = NotificationModel.index(i, 0);
+            const app = String(NotificationModel.data(idx, roleApp) || "");
+            if (!(app in unread)) {
+                unread[app] = 0;
+                order.push(app);
+            }
+            if (!NotificationModel.data(idx, roleRead))
+                unread[app]++;
+        }
+        sources = order.map(app => ({
+                    "app": app,
+                    "label": app ? accountFor(app) : qsTr("System"),
+                    "unread": unread[app]
+                }));
+        if (filterApp !== "" && !(filterApp in unread))
+            filterApp = "";
+    }
+
+    // "Today", "Yesterday", a weekday within the week, then the date.
+    function dayLabel(day) {
+        const date = new Date(day + "T00:00:00");
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const days = Math.round((today - date) / 86400000);
+        if (days <= 0)
+            return qsTr("Today");
+        if (days === 1)
+            return qsTr("Yesterday");
+        if (days < 7)
+            return Qt.locale().dayName(date.getDay(), Locale.LongFormat);
+        return Qt.formatDate(date, "d MMMM");
+    }
     readonly property bool overlayOpen: weatherSheet.open
 
     // Back: true when it closed the weather.
@@ -47,6 +92,34 @@ Rectangle {
     Component.onCompleted: {
         refreshAgenda();
         WeatherClient.refresh();
+        refreshSources();
+    }
+
+    Connections {
+        target: NotificationModel
+        function onRowsInserted() {
+            Qt.callLater(hub.refreshSources);
+        }
+        function onRowsRemoved() {
+            Qt.callLater(hub.refreshSources);
+        }
+        function onModelReset() {
+            Qt.callLater(hub.refreshSources);
+        }
+        function onDataChanged() {
+            Qt.callLater(hub.refreshSources);
+        }
+    }
+
+    SortFilterProxyModel {
+        id: shownNotifications
+
+        model: NotificationModel
+        filters: ValueFilter {
+            roleName: "appId"
+            value: hub.filterApp
+            enabled: hub.filterApp !== ""
+        }
     }
 
     // NotificationHandler opens the sender's app, if one is installed.
@@ -80,7 +153,7 @@ Rectangle {
         objectName: "hubList"
         anchors.fill: parent
         clip: true
-        model: NotificationModel
+        model: shownNotifications
         spacing: 0
         // cacheBuffer must be non-negative — the height transition
         // through 0 during peek expand briefly produces an
@@ -112,6 +185,13 @@ Rectangle {
                 duration: MMotion.moderate
                 easing.type: Easing.OutCubic
             }
+        }
+
+        section.property: "day"
+        section.delegate: Silica.SectionHeader {
+            required property string section
+
+            text: hub.dayLabel(section)
         }
 
         Silica.PullDownMenu {
@@ -186,6 +266,43 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         text: entry.modelData.title
                         truncationMode: Silica.TruncationMode.Fade
+                    }
+                }
+            }
+
+            // BB10's account list as Sailfish chips: one per app, with what is
+            // unread. Only when there is more than one app to choose from.
+            Flickable {
+                objectName: "hubFilters"
+                width: parent.width + Silica.Theme.horizontalPageMargin
+                height: Silica.Theme.itemSizeExtraSmall
+                contentWidth: chips.width
+                flickableDirection: Flickable.HorizontalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
+                visible: hub.sources.length > 1
+
+                Row {
+                    id: chips
+
+                    Silica.FilterChip {
+                        text: qsTr("All")
+                        checked: hub.filterApp === ""
+                        automaticCheck: false
+                        onClicked: hub.filterApp = ""
+                    }
+
+                    Repeater {
+                        model: hub.sources
+
+                        Silica.FilterChip {
+                            required property var modelData
+
+                            text: modelData.unread > 0 ? modelData.label + " " + modelData.unread : modelData.label
+                            checked: hub.filterApp === modelData.app
+                            automaticCheck: false
+                            onClicked: hub.filterApp = checked ? "" : modelData.app
+                        }
                     }
                 }
             }

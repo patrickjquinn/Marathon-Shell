@@ -27,7 +27,7 @@ Item {
     property real progress: -1
     readonly property bool down: area.pressed && area.containsMouse && !area.swiping
     property real collapse: 1
-    readonly property real fullHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingMedium * 2)
+    readonly property real fullHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingLarge * 2)
 
     signal activated
     signal actionInvoked(string key)
@@ -88,13 +88,13 @@ Item {
             color: row.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
         }
 
-        Rectangle {
-            width: Silica.Theme.paddingSmall
+        // Sailfish's lit glass mark for what is new.
+        Silica.GlassItem {
+            objectName: "hubRowUnread"
+            width: Silica.Theme.itemSizeExtraSmall * 0.6
             height: width
-            radius: width / 2
-            anchors.left: parent.left
-            anchors.leftMargin: Silica.Theme.paddingSmall
-            anchors.verticalCenter: parent.verticalCenter
+            x: (Silica.Theme.horizontalPageMargin - width) / 2
+            anchors.verticalCenter: avatar.verticalCenter
             color: Silica.Theme.highlightColor
             visible: row.unread
         }
@@ -107,6 +107,8 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: Silica.Theme.horizontalPageMargin
             anchors.verticalCenter: parent.verticalCenter
+            // Read rows step back, as BB10's monochrome icons did.
+            opacity: row.unread || row.ongoing ? 1 : 0.55
             color: "transparent"
             border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
             border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
@@ -142,10 +144,11 @@ Item {
         Column {
             id: textColumn
             anchors.left: avatar.right
-            anchors.leftMargin: Silica.Theme.paddingMedium
+            anchors.leftMargin: Silica.Theme.paddingLarge
             anchors.right: parent.right
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.verticalCenter: parent.verticalCenter
+            spacing: Math.round(Silica.Theme.paddingSmall / 2)
 
             Item {
                 width: parent.width
@@ -155,10 +158,11 @@ Item {
                     id: nameText
                     anchors.left: parent.left
                     anchors.right: timeText.left
-                    anchors.rightMargin: Silica.Theme.paddingSmall
+                    anchors.rightMargin: Silica.Theme.paddingMedium
                     text: row.name
                     color: row.down ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                     font.pixelSize: Silica.Theme.fontSizeSmall
+                    font.weight: row.unread ? Font.DemiBold : Font.Normal
                     truncationMode: Silica.TruncationMode.Fade
                 }
                 Silica.Label {
@@ -179,7 +183,9 @@ Item {
                 text: row.snippet
                 color: row.down ? Silica.Theme.highlightColor : (row.unread ? Silica.Theme.primaryColor : Silica.Theme.secondaryColor)
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                truncationMode: Silica.TruncationMode.Fade
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
                 visible: text.length > 0
             }
 
