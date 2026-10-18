@@ -1,0 +1,15 @@
+[Unit]
+Description=Erase all content requests from Marathon Shell
+Documentation=https://github.com/patrickjquinn/Marathon-Shell/blob/main/docs/FACTORY_RESET.md
+
+[Socket]
+# Under /run, which no app sandbox binds: only the shell, or the owner on a
+# shell, can ask. The shell checks the PIN first.
+ListenStream=/run/marathon/factory-reset.sock
+SocketMode=0660
+SocketGroup=wheel
+Accept=yes
+MaxConnections=1
+
+[Install]
+WantedBy=sockets.target

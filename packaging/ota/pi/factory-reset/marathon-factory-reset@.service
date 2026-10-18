@@ -1,0 +1,12 @@
+[Unit]
+Description=Erase all content at the next boot
+Documentation=https://github.com/patrickjquinn/Marathon-Shell/blob/main/docs/FACTORY_RESET.md
+CollectMode=inactive-or-failed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon-factory-reset
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+SuccessAction=reboot

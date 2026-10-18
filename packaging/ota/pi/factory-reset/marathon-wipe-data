@@ -1,0 +1,34 @@
+#!/bin/sh
+# marathon-wipe-data [--key-file FILE] DEVICE
+#
+# Leaves DEVICE, the marathon_data partition, empty: a LUKS container first
+# loses every keyslot (crypto-erase). With --key-file it comes back as a new
+# LUKS2 container whose only keyslot is FILE, otherwise as plain ext4.
+# Never run it on a mounted or open device. docs/FACTORY_RESET.md
+set -eu
+
+key=
+if [ "${1:-}" = --key-file ]; then
+	key=${2:?--key-file needs a file}
+	shift 2
+fi
+dev=${1:?usage: marathon-wipe-data [--key-file FILE] DEVICE}
+[ $# -eq 1 ] || { echo "usage: marathon-wipe-data [--key-file FILE] DEVICE" >&2; exit 2; }
+command -v cryptsetup > /dev/null || { echo "marathon-wipe-data: no cryptsetup" >&2; exit 1; }
+
+if cryptsetup isLuks "$dev"; then
+	cryptsetup luksErase -q "$dev"
+fi
+# The LUKS headers, and any other signature, so nothing probes the old layout.
+dd if=/dev/zero of="$dev" bs=1M count=16 conv=notrunc,fsync 2> /dev/null
+
+fs=$dev
+if [ -n "$key" ]; then
+	cryptsetup luksFormat -q --type luks2 --key-file "$key" "$dev"
+	cryptsetup open --key-file "$key" "$dev" marathon-wipe-data
+	fs=/dev/mapper/marathon-wipe-data
+fi
+mke2fs -q -F -t ext4 -L marathon_data "$fs"
+if [ -n "$key" ]; then
+	cryptsetup close marathon-wipe-data
+fi

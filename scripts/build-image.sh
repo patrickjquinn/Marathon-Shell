@@ -230,9 +230,11 @@ export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
 OTA_TRANSFERS="$DURANIUM_DIR/mkosi.extra/usr/lib/sysupdate.d"
 OTA_KEYRING="$DURANIUM_DIR/mkosi.extra/usr/lib/systemd/import-pubring.pgp"
 # Raspberry Pi A/B (mkosi.repart.ab-pi): autoboot.txt for partition 1, the
-# initramfs hooks that mount the shared data partition, a watchdog, and no
-# first-boot systemd-repart (its repart.d describes the QEMU /usr slots).
-PI_AB_EXTRA="usr/share/marathon/ab usr/share/mkinitfs usr/lib/systemd/system.conf.d usr/lib/systemd/system/systemd-repart.service.d"
+# initramfs hooks that mount the shared data partition, a watchdog, no
+# first-boot systemd-repart (its repart.d describes the QEMU /usr slots), and
+# "Erase all content" (docs/FACTORY_RESET.md).
+FACTORY_RESET_UNITS="usr/lib/systemd/system/marathon-factory-reset.socket usr/lib/systemd/system/marathon-factory-reset@.service usr/lib/systemd/system/sockets.target.wants/marathon-factory-reset.socket"
+PI_AB_EXTRA="usr/share/marathon/ab usr/share/mkinitfs usr/lib/systemd/system.conf.d usr/lib/systemd/system/systemd-repart.service.d usr/libexec/marathon-factory-reset usr/libexec/marathon-wipe-data $FACTORY_RESET_UNITS"
 rm -rf "$OTA_TRANSFERS" "$OTA_KEYRING"
 for d in $PI_AB_EXTRA; do rm -rf "${DURANIUM_DIR:?}/mkosi.extra/$d"; done
 OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/sysupdate.d"
@@ -260,6 +262,13 @@ if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
             install -Dm755 -t "$EXTRA/usr/share/mkinitfs/hooks" "$PI_SRC"/mkinitfs/hooks/*.sh
             install -Dm755 -t "$EXTRA/usr/share/mkinitfs/hooks-cleanup" "$PI_SRC"/mkinitfs/hooks-cleanup/*.sh
             install -Dm644 -t "$EXTRA/usr/share/mkinitfs/modules" "$PI_SRC"/mkinitfs/modules/*.modules
+            install -Dm644 -t "$EXTRA/usr/share/mkinitfs/files" "$PI_SRC"/mkinitfs/files/*.files
+            install -Dm755 -t "$EXTRA/usr/libexec" "$PI_SRC/factory-reset/marathon-factory-reset" \
+                "$PI_SRC/factory-reset/marathon-wipe-data"
+            install -Dm644 -t "$EXTRA/usr/lib/systemd/system" "$PI_SRC/factory-reset/marathon-factory-reset.socket" \
+                "$PI_SRC/factory-reset/marathon-factory-reset@.service"
+            mkdir -p "$EXTRA/usr/lib/systemd/system/sockets.target.wants"
+            ln -sf ../marathon-factory-reset.socket "$EXTRA/usr/lib/systemd/system/sockets.target.wants/"
             install -Dm644 -t "$EXTRA/usr/lib/systemd/system.conf.d" "$PI_SRC/50-marathon-watchdog.conf"
             install -Dm644 -t "$EXTRA/usr/lib/systemd/system/systemd-repart.service.d" "$PI_SRC"/systemd-repart.service.d/*.conf
             ;;

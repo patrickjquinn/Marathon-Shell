@@ -1,0 +1,22 @@
+#!/bin/sh
+# Run as root, on a connection to /run/marathon/factory-reset.sock, by
+# Marathon Shell once the owner's PIN has checked out (docs/FACTORY_RESET.md).
+# Reads "erase", leaves the marker the initramfs erases the data partition
+# for, and answers "ok"; the unit then restarts the device. Anything else on
+# stdout is why not.
+root=${MARATHON_AB_TEST_ROOT:-}
+
+read -r request || request=
+if [ "$request" != erase ]; then
+	echo "unknown request"
+	exit 1
+fi
+if [ ! -e "$root/dev/disk/by-partlabel/marathon_data" ]; then
+	echo "this device has no data partition to erase"
+	exit 1
+fi
+if ! { : > "$root/.marathon-factory-reset" && sync; }; then
+	echo "couldn't record the request"
+	exit 1
+fi
+echo ok
