@@ -1,8 +1,8 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 pkgname=keel-silica
 pkgver=0.1.0
-pkgrel=10
-_commit=5c0911292f2d062dace3ea7c51785a17a8c9a39d
+pkgrel=11
+_commit=e37941bc53886ab9d584582003574b5293a5184e
 _qtver=6.11.1
 pkgdesc="Keel: Sailfish Silica QML components for Qt 6"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -22,7 +22,9 @@ makedepends="
 	qt6-qtdeclarative-dev
 	qt6-qtdeclarative-private-dev
 	"
-source="$pkgname-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz"
+source="$pkgname-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
+	0001-sailfishapp-glibc-only-allocator-tuning.patch
+	"
 # Keel's tests need a session bus and qmltestrunner; they run in Shipwright's CI.
 options="net !check"
 builddir="$srcdir/shipwright-open-$_commit/keel"
@@ -67,4 +69,5 @@ package() {
 
 sha512sums="
 SKIP  keel-silica-$_commit.tar.gz
+6619cb0806da04de1b13c644e191b19286672267d7a19f87f3ccc5d7fe5a6173e5b65ca9540dacfb7fc631b760009d62ec2519d7ef8a3bdac25429995ab4229d  0001-sailfishapp-glibc-only-allocator-tuning.patch
 "

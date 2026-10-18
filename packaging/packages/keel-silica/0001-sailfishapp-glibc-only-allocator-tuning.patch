@@ -1,0 +1,46 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 18 Oct 2026 20:30:00 +0100
+Subject: [PATCH] sailfishapp: tune the allocator on glibc only
+
+Keel 0.1.0-35 calls mallopt(M_ARENA_MAX, M_TRIM_THRESHOLD,
+M_MMAP_THRESHOLD) at launch and malloc_trim(0) after start-up. Both are
+glibc extensions; musl has neither, so the build fails on Alpine.
+musl's mallocng already returns freed pages to the kernel eagerly and
+has no per-thread arenas, so there is nothing to tune: guard the calls
+with __GLIBC__.
+---
+ sailfishapp/src/keellauncher.cpp | 2 ++
+ sailfishapp/src/sailfishapp.cpp  | 6 +++++-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/sailfishapp/src/keellauncher.cpp b/sailfishapp/src/keellauncher.cpp
+--- a/sailfishapp/src/keellauncher.cpp
++++ b/sailfishapp/src/keellauncher.cpp
+@@ -144,9 +144,11 @@
+     // small limits hand it back (with trimMemory() after start-up): about
+     // 1.5 MB less per app on an Xperia 10 II, as GLIBC_TUNABLES would,
+     // which is read before any code of ours runs.
++#ifdef __GLIBC__
+     mallopt(M_ARENA_MAX, 2);
+     mallopt(M_TRIM_THRESHOLD, 128 * 1024);
+     mallopt(M_MMAP_THRESHOLD, 128 * 1024);
++#endif
+ 
+     // The Sailfish session sets QT_QPA_PLATFORM=wayland for its Qt 5 apps;
+     // Keel wants Qt 6's EGL client explicitly. A value set on purpose for
+diff --git a/sailfishapp/src/sailfishapp.cpp b/sailfishapp/src/sailfishapp.cpp
+--- a/sailfishapp/src/sailfishapp.cpp
++++ b/sailfishapp/src/sailfishapp.cpp
+@@ -221,7 +221,11 @@
+     // Start-up's temporary allocations (QML compilation, image decoding)
+     // are freed by now; give the pages back (keellauncher.cpp sets the
+     // allocator's limits).
+-    const auto trimMemory = []() { malloc_trim(0); };
++    const auto trimMemory = []() {
++#ifdef __GLIBC__
++        malloc_trim(0);
++#endif
++    };
+     if (qEnvironmentVariableIsSet("KEEL_QML_WARMUP") && qEnvironmentVariableIntValue("KEEL_QML_WARMUP") == 0) {
+         QTimer::singleShot(1500, view, trimMemory);
+         return;
