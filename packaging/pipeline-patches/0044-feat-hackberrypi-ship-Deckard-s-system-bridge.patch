@@ -1,0 +1,34 @@
+From 37cdff4e60d435d83c5deb79b2d61c8446841b6e Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 18 Oct 2026 21:58:41 +0100
+Subject: [PATCH] feat(hackberrypi): ship Deckard's system bridge
+
+The HackberryPi image gets the deckard package next to Waydroid:
+deckardd (Android notifications in the Hub, media sessions as MPRIS
+players, Android kept as quiet as Marathon's audio profile) and the
+Android-side files it copies into Waydroid's overlay before the
+container starts, among them the DeckardBridge privileged app.
+
+The package is built from Marathon-Deckard by
+scripts/qemu/lib/build-deckard-apk.sh in Marathon-Shell. Findings:
+docs/bridge.md in Marathon-Deckard.
+---
+ scripts/mkosi-configure.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index 46b8d80..dc790d7 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -164,6 +164,8 @@ def main() -> int:
+                 extra_overlays.append(hbp)
+                 # Deckard M0: stock Waydroid (docs/testing/DECKARD_M0_HACKBERRYPI.md).
+                 extra_overlays.extend(["waydroid", "waydroid-systemd"])
++                # Deckard: Android notifications, media and audio in Marathon.
++                extra_overlays.append("deckard")
+         config["Packages"] = list(dict.fromkeys(existing + dynamic + extra_overlays))
+     elif image == "default-initrd":
+         # pmaports emits InitrdPackages to distinguish base-image pkgs from
+-- 
+2.55.0
+
