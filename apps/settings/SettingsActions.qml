@@ -14,21 +14,21 @@ Item {
 
     // The app: openPage(), toggleWifi() and toggleBluetooth().
     property var app
-    // Asked for while Settings is not active; opened once it is.
+    // Asked for before Settings' first page is on the stack; opened once it is.
     property string pendingPage
 
     function open(page) {
-        if (app.applicationActive)
+        if (app.pageStack.depth > 0)
             app.openPage(page, PageStackAction.Immediate, true);
         else
             pendingPage = page;
     }
 
     Connections {
-        target: root.app
+        target: root.app.pageStack
 
-        function onApplicationActiveChanged() {
-            if (!root.app.applicationActive || root.pendingPage === "")
+        function onDepthChanged() {
+            if (root.app.pageStack.depth === 0 || root.pendingPage === "")
                 return;
             const page = root.pendingPage;
             root.pendingPage = "";

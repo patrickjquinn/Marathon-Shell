@@ -5,8 +5,9 @@ import Marathon.Silica 1.0
 import Keel.Actions 1.0
 import ".."
 
-// app.show for Settings in the background: a page pushed then sat under the
-// first page once the app was raised.
+// app.show for a Settings that is still starting: a page pushed before the
+// first one sat under it. It waits for the first page, and no longer for
+// the app to be active, which an app started in the background never was.
 TestCase {
     id: testCase
 
@@ -16,7 +17,9 @@ TestCase {
     QtObject {
         id: app
 
-        property bool applicationActive: false
+        property QtObject pageStack: QtObject {
+            property int depth: 0
+        }
         property var opened: []
 
         function openPage(name, operation, replace) {
@@ -35,17 +38,16 @@ TestCase {
         verify(call.succeeded, call.errorMessage);
     }
 
-    function test_pageWaitsUntilActive() {
+    function test_pageWaitsForTheFirstPage() {
         show("wifi");
         show("battery");
         compare(app.opened, []);
-        app.applicationActive = true;
+        app.pageStack.depth = 1;
         compare(app.opened, [["battery", PageStackAction.Immediate, true]]);
         show("updates");
         compare(app.opened.length, 2);
         compare(app.opened[1][0], "updates");
-        app.applicationActive = false;
-        app.applicationActive = true;
+        app.pageStack.depth = 2;
         compare(app.opened.length, 2);
     }
 }
