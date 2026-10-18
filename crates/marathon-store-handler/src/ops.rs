@@ -27,7 +27,14 @@ fn is_app_ref(app_id: &str) -> bool {
 fn stdout_of(cmd: &mut Command) -> String {
     cmd.stderr(Stdio::null())
         .output()
-        .map(|out| strip_ansi_escapes::strip_str(String::from_utf8_lossy(&out.stdout)))
+        // Field by field: stripping also drops the tabs between columns.
+        .map(|out| {
+            String::from_utf8_lossy(&out.stdout)
+                .split('\t')
+                .map(strip_ansi_escapes::strip_str)
+                .collect::<Vec<_>>()
+                .join("\t")
+        })
         .unwrap_or_default()
 }
 
@@ -438,6 +445,18 @@ mod tests {
         assert_eq!(updates("\u{1b}[?25h")["updates"], json!([]));
         let value = installed("\u{1b}[?25h\norg.x.Y\t1.0\tY\n", Path::new("/nonexistent"));
         assert_eq!(value["installed"].as_array().unwrap().len(), 1);
+    }
+
+    /// `flatpak list --columns` separates its columns with tabs.
+    #[test]
+    fn keeps_the_columns_of_a_listing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let output = "\u{1b}[?25horg.gnome.Maps\t45\tMaps\n";
+        let listing = stdout_of(Command::new(fake_flatpak(tmp.path(), output, 0)).arg("list"));
+        let value = installed(&listing, tmp.path());
+        assert_eq!(value["installed"][0]["app_id"], "org.gnome.Maps");
+        assert_eq!(value["installed"][0]["version"], "45");
+        assert_eq!(value["installed"][0]["name"], "Maps");
     }
 
     /// The escape can arrive glued to the first row; that row is still an app.
