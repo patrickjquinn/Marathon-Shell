@@ -317,17 +317,26 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
 mod tests {
     use super::*;
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
 
     /// A stand-in flatpak: prints `output` (with \r redraws) and exits `code`.
+    /// Made by another process: one this multi-threaded test writes can be
+    /// held open by a child another test is forking, and running it then
+    /// fails with ETXTBSY.
     fn fake_flatpak(dir: &Path, output: &str, code: i32) -> String {
-        let path = dir.join("flatpak");
+        let script = dir.join("flatpak.sh");
         fs::write(
-            &path,
+            &script,
             format!("#!/bin/sh\nprintf '{output}'\n[ -t 1 ] || echo NOT-A-TTY\nexit {code}\n"),
         )
         .unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        let path = dir.join("flatpak");
+        assert!(Command::new("install")
+            .arg("-m755")
+            .arg(&script)
+            .arg(&path)
+            .status()
+            .unwrap()
+            .success());
         path.to_str().unwrap().to_owned()
     }
 
