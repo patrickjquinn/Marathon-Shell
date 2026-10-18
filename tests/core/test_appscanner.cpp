@@ -86,7 +86,6 @@ class TestAppScanner : public QObject {
         MarathonAppScanner  scanner(&registry);
 
         // parseManifest returns AppInfo with empty id, validateManifest rejects it
-        QString manifestPath = appDir + "/manifest.json";
         // We can't call private methods directly, but we can verify the
         // contract through scanApplications behavior
     }

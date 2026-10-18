@@ -176,10 +176,6 @@ bool MmsManager::sendMms(const QStringList &recipients, const QString &text,
     argAtts.beginArray(qMetaTypeId<QString>());
     argAtts.endArray();
 
-    // For SMIL we pass an empty string variant -- mmsd auto-generates with
-    // AutoCreateSMIL=true (default in mmsd-tng).
-    QVariant emptySmil = QVariant::fromValue(QString());
-
     // The a(sss) marshalling needs to be done via QDBusArgument. Build a
     // QList of (id, type, path) and let Qt convert with a registered type.
     // The simplest reliable approach is to use the QDBusMessage low-level
@@ -195,6 +191,8 @@ bool MmsManager::sendMms(const QStringList &recipients, const QString &text,
         QDBusMessage::createMethodCall(kBus, m_servicePath, "org.ofono.mms.Service", "SendMessage");
     QVariantList args;
     args << QVariant::fromValue(recipients);
+    // For SMIL we pass an empty string variant -- mmsd auto-generates with
+    // AutoCreateSMIL=true (default in mmsd-tng).
     args << QVariant::fromValue(QDBusVariant(QString()));
     QDBusArgument tupleArg;
     tupleArg.beginArray(qMetaTypeId<QString>());
