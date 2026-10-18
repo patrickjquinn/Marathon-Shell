@@ -35,6 +35,10 @@ Rectangle {
     signal swipeLeft
     signal swipeRight
     signal swipeBack
+    // The back drag moved (progress 0..1, finger in scene coordinates), and
+    // a horizontal drag ended, after any swipeBack it sent.
+    signal backDragged(real progress, point position)
+    signal backGestureEnded
     signal shortSwipeUp
     signal longSwipeUp
     signal minimizeApp(real velocityY)
@@ -222,6 +226,8 @@ Rectangle {
             minimizeDrag.settleTo(0);
             if (!keepBack)
                 backDrag.settleTo(0);
+            if (isHorizontalGesture)
+                navBar.backGestureEnded();
             if (pullingQuickSettings) {
                 pullingQuickSettings = false;
                 UIStore.quickSettingsDragging = false;
@@ -331,6 +337,8 @@ Rectangle {
                 }
             } else if (navBar.isAppOpen) {
                 backDrag.move(Math.max(0, backBase - diffX));
+                if (backDrag.value > 0)
+                    navBar.backDragged(backDrag.progress, navBar.mapToItem(null, mouse.x, mouse.y));
             }
         }
         onReleased: mouse => {

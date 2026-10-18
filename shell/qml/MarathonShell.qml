@@ -1208,6 +1208,14 @@ Item {
                 pageView.nudgeAtBoundary(-1);
             }
         }
+        onBackDragged: (progress, position) => {
+            if (shell.compositor)
+                shell.compositor.sendBackProgress(appWindow.surfaceId, progress, position);
+        }
+        onBackGestureEnded: {
+            if (shell.compositor)
+                shell.compositor.endBackGesture(appWindow.surfaceId);
+        }
         onSwipeBack: {
             Logger.info("NavBar", "Back gesture detected");
             if (PermissionManager.promptActive) {

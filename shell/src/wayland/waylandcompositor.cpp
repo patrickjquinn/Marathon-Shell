@@ -11,6 +11,7 @@
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/xdgactivationv1.h"
 #include "src/wayland/marathonsurfacev1.h"
+#include "marathon-surface-v1-server.h"
 #include "src/components/windowtextureitem.h"
 #include "src/managers/deviceprofile.h"
 #include "src/services/processtree.h"
@@ -1936,6 +1937,12 @@ void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
     }
     watchNativeBack(surface, surfaceId);
 
+    // The client handles back itself, popups and dialogs included.
+    if (MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface)) {
+        marathon->sendBackCommitted();
+        return;
+    }
+
     // Transient UI goes first, through the protocol rather than a key the
     // focused widget might take: the app's newest popup, else its newest
     // child window.
@@ -1969,6 +1976,27 @@ void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
     }
     sendKeyTo(surface, NativeBack::backKey(NativeBack::Toolkit(toolkit.toInt()), keelHosted),
               Qt::NoModifier);
+}
+
+void WaylandCompositor::sendBackProgress(int surfaceId, qreal progress,
+                                         const QPointF &scenePosition) {
+    QWaylandSurface   *surface  = m_surfaceMap.value(surfaceId);
+    MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface);
+    if (!marathon)
+        return;
+    QPointF position;
+    if (const QWaylandView *view = surface->primaryView()) {
+        if (const auto *item = qobject_cast<const QWaylandQuickItem *>(view->renderObject()))
+            position = item->mapToSurface(item->mapFromScene(scenePosition));
+    }
+    // The pill swipe moves leftwards, as a swipe in from the right edge does.
+    marathon->sendBackProgress(MARATHON_SURFACE_V1_BACK_EDGE_RIGHT, progress, position);
+}
+
+void WaylandCompositor::endBackGesture(int surfaceId) {
+    if (MarathonSurfaceV1 *marathon =
+            m_marathonSurfaceManager->forSurface(m_surfaceMap.value(surfaceId)))
+        marathon->cancelBack();
 }
 
 void WaylandCompositor::sendNativeForward(int surfaceId, bool keelHosted) {
