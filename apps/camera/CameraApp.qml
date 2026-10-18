@@ -16,7 +16,7 @@ ApplicationWindow {
     // Camera start-up blocks the GUI thread, so it waits until the page is on screen.
     property bool firstFrameShown: false
     readonly property bool latestIsVideo: /\.mp4$/i.test(camera.latestCapture)
-    property ConfigurationValue gridStore: ConfigurationValue {
+    property var gridStore: ConfigurationValue {
         key: "/apps/camera/grid"
         defaultValue: true
     }
