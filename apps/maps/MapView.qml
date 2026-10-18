@@ -2,7 +2,6 @@ import QtQuick
 import QtWebChannel
 import QtWebEngine
 import Sailfish.Silica 1.0
-import Marathon.Silica 1.0
 import MarathonApp.Maps
 
 // MapLibre GL JS in a WebEngineView (web/maps.html). QML drives it through

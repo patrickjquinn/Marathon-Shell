@@ -23,10 +23,6 @@ Page {
         searchTimer.stop();
         app.search("");
     }
-    onStatusChanged: {
-        if (status === PageStatus.Active && view.headerItem)
-            view.headerItem.field.forceActiveFocus();
-    }
 
     Timer {
         id: searchTimer
@@ -45,9 +41,15 @@ Page {
         model: showingRecent ? root.app.recentPlaces : root.app.searchResults
 
         header: Column {
-            property alias field: searchField
-
             width: view.width
+
+            Connections {
+                target: root
+                function onStatusChanged() {
+                    if (root.status === PageStatus.Active)
+                        searchField.forceActiveFocus();
+                }
+            }
 
             PageHeader {
                 title: qsTr("Search")
