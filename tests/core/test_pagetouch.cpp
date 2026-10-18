@@ -1,4 +1,4 @@
-#include <QtTest>
+#include <QTest>
 
 #include <sys/mman.h>
 #include <unistd.h>

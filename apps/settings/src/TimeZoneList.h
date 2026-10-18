@@ -2,7 +2,7 @@
 
 #include <QObject>
 #include <QVariantList>
-#include <QtQmlIntegration>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class TimeZoneList : public QObject {
     Q_OBJECT

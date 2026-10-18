@@ -10,7 +10,7 @@ class QJSEngine;
 #include <QString>
 #include <QVariant>
 #include <QVariantList>
-#include <QtQmlIntegration>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class SettingsController : public QObject {
     Q_OBJECT

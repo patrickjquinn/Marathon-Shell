@@ -5,7 +5,7 @@
 #include <QProcess>
 #include <QString>
 #include <QStringList>
-#include <QtQmlIntegration>
+#include <QtQmlIntegration/qqmlintegration.h>
 #include "TerminalScreen.h"
 
 class QSocketNotifier;

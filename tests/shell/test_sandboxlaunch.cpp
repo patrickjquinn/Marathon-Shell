@@ -1,4 +1,7 @@
-#include <QtTest>
+#include <QTest>
+#include <QFile>
+#include <QProcess>
+#include <QTemporaryDir>
 
 #include "applaunchservice.h"
 #include "taskmodel.h"

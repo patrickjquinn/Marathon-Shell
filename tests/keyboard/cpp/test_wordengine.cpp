@@ -1,6 +1,6 @@
 #include "qml/keyboard/Data/WordEngine.h"
 #include <QSignalSpy>
-#include <QtTest/QtTest>
+#include <QTest>
 
 class TestWordEngine : public QObject {
     Q_OBJECT

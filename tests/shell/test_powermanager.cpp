@@ -1,4 +1,5 @@
-#include <QtTest>
+#include <QTest>
+#include <QSignalSpy>
 #include <QDBusConnection>
 #include <QDBusUnixFileDescriptor>
 #include <QMutex>

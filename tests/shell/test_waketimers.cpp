@@ -4,7 +4,7 @@
 #include <QDBusObjectPath>
 #include <QProcess>
 #include <QSet>
-#include <QtTest>
+#include <QTest>
 
 #include "waketimers.h"
 

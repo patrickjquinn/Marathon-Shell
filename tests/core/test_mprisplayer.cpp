@@ -1,4 +1,4 @@
-#include <QtTest>
+#include <QTest>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>

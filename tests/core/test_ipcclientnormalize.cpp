@@ -2,7 +2,7 @@
 #include <QDBusVariant>
 #include <QProcess>
 #include <QThread>
-#include <QtTest>
+#include <QTest>
 
 #include "ipc/shellipcclients.h"
 

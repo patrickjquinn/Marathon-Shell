@@ -1,6 +1,6 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
-#include <QtTest>
+#include <QTest>
 
 #include "hostedapp.h"
 #include "keelhost.h"

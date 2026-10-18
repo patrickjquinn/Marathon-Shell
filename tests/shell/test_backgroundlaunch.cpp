@@ -1,4 +1,4 @@
-#include <QtTest>
+#include <QTest>
 
 #include "applaunchservice.h"
 #include "marathonapppaths.h"

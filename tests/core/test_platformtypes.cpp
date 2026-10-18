@@ -1,4 +1,4 @@
-#include <QtTest>
+#include <QTest>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>

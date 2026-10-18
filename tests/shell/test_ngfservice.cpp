@@ -1,5 +1,5 @@
 #include <QSignalSpy>
-#include <QtTest>
+#include <QTest>
 
 #include "ngfservice.h"
 

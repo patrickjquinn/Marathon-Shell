@@ -1,7 +1,7 @@
 #include <QDBusConnection>
 #include <QProcess>
 #include <QSignalSpy>
-#include <QtTest>
+#include <QTest>
 
 #include "wallpaperclient.h"
 

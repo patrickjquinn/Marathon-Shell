@@ -1,5 +1,5 @@
 #include <QFile>
-#include <QtTest>
+#include <QTest>
 
 #include "statusbariconservicecpp.h"
 

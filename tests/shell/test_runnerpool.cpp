@@ -1,4 +1,10 @@
-#include <QtTest>
+#include <QTest>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QTemporaryDir>
 
 #include "applaunchservice.h"
 #include "taskmodel.h"

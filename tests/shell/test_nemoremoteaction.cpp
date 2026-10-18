@@ -1,6 +1,6 @@
 #include <QBuffer>
 #include <QDataStream>
-#include <QtTest>
+#include <QTest>
 
 #include "nemoremoteaction.h"
 

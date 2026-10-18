@@ -1,10 +1,11 @@
-#include <QtTest>
+#include <QTest>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <QTimer>
 
 // What a Keel app serves, once it is up.
 class FakeActions : public QObject {

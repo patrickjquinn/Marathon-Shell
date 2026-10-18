@@ -11,7 +11,7 @@
 #include <QUrl>
 #include <QVariantList>
 #include <QTimer>
-#include <QtQmlIntegration>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class CameraController : public QObject {
     Q_OBJECT

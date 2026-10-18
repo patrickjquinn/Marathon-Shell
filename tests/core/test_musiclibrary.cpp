@@ -1,5 +1,6 @@
-#include <QtTest>
+#include <QTest>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 
 #include "musiclibrarymanager.h"

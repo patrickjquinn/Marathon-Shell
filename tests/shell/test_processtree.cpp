@@ -1,6 +1,6 @@
 #include <QCoreApplication>
 #include <QProcess>
-#include <QtTest>
+#include <QTest>
 
 #include <csignal>
 

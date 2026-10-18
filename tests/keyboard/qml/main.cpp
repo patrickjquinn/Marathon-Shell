@@ -1,7 +1,7 @@
 #include <QInputMethodEvent>
 #include <QQmlEngine>
 #include <QQuickItem>
-#include <QtQuickTest>
+#include <QtQuickTest/quicktest.h>
 
 #include <algorithm>
 

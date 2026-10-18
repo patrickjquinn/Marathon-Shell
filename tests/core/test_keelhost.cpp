@@ -1,4 +1,4 @@
-#include <QtTest>
+#include <QTest>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCall>

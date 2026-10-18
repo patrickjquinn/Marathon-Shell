@@ -1,6 +1,6 @@
 #include <QElapsedTimer>
 #include <QTemporaryFile>
-#include <QtTest>
+#include <QTest>
 
 #include <fcntl.h>
 #include <unistd.h>

@@ -4,7 +4,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QThread>
-#include <QtTest>
+#include <QTest>
 
 #include "ipc/shellipcclients.h"
 #include "marathonappinstaller.h"

@@ -6,7 +6,7 @@
 #include <QSGSimpleTextureNode>
 #include <QVideoFrame>
 #include <QVideoSink>
-#include <QtQmlIntegration>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class SoftwareVideoOutput : public QQuickItem {
     Q_OBJECT

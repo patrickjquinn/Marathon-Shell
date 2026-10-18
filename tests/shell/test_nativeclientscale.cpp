@@ -1,4 +1,4 @@
-#include <QtTest>
+#include <QTest>
 #include <QGuiApplication>
 #include <QProcess>
 #include <QTemporaryDir>

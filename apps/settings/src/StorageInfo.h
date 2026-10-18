@@ -2,7 +2,7 @@
 
 #include <QObject>
 #include <QStorageInfo>
-#include <QtQmlIntegration>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class StorageInfo : public QObject {
     Q_OBJECT

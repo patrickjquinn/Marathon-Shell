@@ -1,7 +1,7 @@
 #include <QElapsedTimer>
 #include <QProcess>
 #include <QSignalSpy>
-#include <QtTest>
+#include <QTest>
 
 #include <csignal>
 

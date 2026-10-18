@@ -1,4 +1,4 @@
-#include <QtTest>
+#include <QTest>
 
 #include "marathonappregistry.h"
 #include "notificationtarget.h"

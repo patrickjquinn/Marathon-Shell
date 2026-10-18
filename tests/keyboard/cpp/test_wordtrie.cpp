@@ -1,5 +1,5 @@
 #include "qml/keyboard/Data/WordTrie.h"
-#include <QtTest/QtTest>
+#include <QTest>
 
 class TestWordTrie : public QObject {
     Q_OBJECT

@@ -17,7 +17,7 @@
 #include <QWaylandTextInputManager>
 #include <QWaylandTextInputManagerV3>
 #include <QWaylandXdgShell>
-#include <QtTest>
+#include <QTest>
 
 #include <cstdio>
 #include <cstring>
