@@ -554,6 +554,7 @@ class SecurityClient : public QObject {
     Q_PROPERTY(bool isLockedOut READ isLockedOut NOTIFY stateChanged)
     Q_PROPERTY(int lockoutSecondsRemaining READ lockoutSecondsRemaining NOTIFY stateChanged)
     Q_PROPERTY(int failedAttempts READ failedAttempts NOTIFY stateChanged)
+    Q_PROPERTY(bool canEraseAllContent READ canEraseAllContent NOTIFY stateChanged)
 
   public:
     explicit SecurityClient(const QString &appId, QObject *parent = nullptr);
@@ -564,6 +565,7 @@ class SecurityClient : public QObject {
     bool                isLockedOut() const;
     int                 lockoutSecondsRemaining() const;
     int                 failedAttempts() const;
+    bool                canEraseAllContent() const;
 
     Q_INVOKABLE void    setQuickPIN(const QString &pin, const QString &systemPassword);
     Q_INVOKABLE void    removeQuickPIN(const QString &systemPassword);
@@ -574,12 +576,15 @@ class SecurityClient : public QObject {
     Q_INVOKABLE void    resetLockout();
     Q_INVOKABLE bool    isBiometricEnrolled(int type);
     Q_INVOKABLE QString currentUsername();
+    // The device restarts and erases itself, or eraseFailed() says why not.
+    Q_INVOKABLE void    eraseAllContent(const QString &secret);
 
   signals:
     void stateChanged();
     void authenticationFailed(const QString &reason);
     void authenticationSuccess();
     void quickPINChanged();
+    void eraseFailed(const QString &reason);
 
   private slots:
     void onStateChanged(const QVariantMap &state);

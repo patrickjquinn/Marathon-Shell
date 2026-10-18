@@ -1275,6 +1275,9 @@ SecurityClient::SecurityClient(const QString &appId, QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Security",
                                           "org.marathonos.Shell.Security1", "QuickPINChanged", this,
                                           SIGNAL(quickPINChanged()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Security",
+                                          "org.marathonos.Shell.Security1", "EraseFailed", this,
+                                          SIGNAL(eraseFailed(QString)));
 
     refresh();
 }
@@ -1366,6 +1369,9 @@ int SecurityClient::lockoutSecondsRemaining() const {
 int SecurityClient::failedAttempts() const {
     return v("failedAttempts", 0).toInt();
 }
+bool SecurityClient::canEraseAllContent() const {
+    return v("canEraseAllContent", false).toBool();
+}
 
 void SecurityClient::setQuickPIN(const QString &pin, const QString &systemPassword) {
     if (!ensureSystemPermission())
@@ -1401,6 +1407,24 @@ void SecurityClient::cancelAuthentication() {
     if (!ensureSystemPermission())
         return;
     m_iface.call("CancelAuthentication");
+}
+
+void SecurityClient::eraseAllContent(const QString &secret) {
+    if (!ensureSystemPermission()) {
+        emit eraseFailed(QStringLiteral("Settings isn't allowed to erase this device"));
+        return;
+    }
+    // A wrong system password can keep the shell in PAM for longer than m_iface's timeout.
+    QDBusMessage call = QDBusMessage::createMethodCall(m_iface.service(), m_iface.path(),
+                                                       m_iface.interface(), "EraseAllContent");
+    call << secret;
+    auto *w = new QDBusPendingCallWatcher(m_iface.connection().asyncCall(call, 30000), this);
+    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w] {
+        const QDBusPendingReply<> r = *w;
+        w->deleteLater();
+        if (r.isError())
+            emit eraseFailed(r.error().message());
+    });
 }
 
 void SecurityClient::resetLockout() {
