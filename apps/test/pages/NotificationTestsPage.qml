@@ -25,7 +25,8 @@ Page {
             expireTimeout: o.persistent ? 0 : 5000,
             remoteActions: (o.actions || []).map(a => ({ name: a, displayName: a }))
         });
-        n.publish();
+        // Tests swap in a stub component, so n is not always a Notification.
+        n.publish(); // qmllint disable missing-property
         page.app.notifications = page.app.notifications.concat([n]);
     }
 

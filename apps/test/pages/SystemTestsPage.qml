@@ -189,7 +189,8 @@ Page {
                 TestItem {
                     objectName: "screenshot"
                     text: qsTr("Take screenshot")
-                    onClicked: page.app.run("Screenshot", () => ScreenshotService.takeScreenshot())
+                    // Shell-only, so in an app this reports failed (tst_testpages).
+                    onClicked: page.app.run("Screenshot", () => ScreenshotService.takeScreenshot()) // qmllint disable unqualified
                 }
             }
         }
