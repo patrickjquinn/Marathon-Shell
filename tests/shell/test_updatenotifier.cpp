@@ -121,7 +121,8 @@ class TestUpdateNotifier : public QObject {
         server->activate(n[0].value("id").toUInt(), QStringLiteral("download"));
         QCOMPARE(backend->calls, QStringList{"install"});
         QCOMPARE(updates->stateName(), QStringLiteral("downloading"));
-        QVERIFY(shown().isEmpty());
+        QCOMPARE(shown().size(), 1);
+        QCOMPARE(shown()[0].value("title").toString(), QStringLiteral("Downloading update"));
     }
 
     void aBlockedDownloadOpensSettings() {
@@ -183,10 +184,71 @@ class TestUpdateNotifier : public QObject {
         QSettings().setValue(QStringLiteral("updates/autoUpdate"), true);
         conditions = {2, true, 80, 1};
         makeAvailable();
-        QVERIFY(shown().isEmpty());
+        QCOMPARE(shown().size(), 1);
+        QVERIFY(shown()[0].value("ongoing").toBool());
         emit backend->installed(QStringLiteral("26101801"));
         QCOMPARE(shown().value(0).value("body").toString(),
                  QStringLiteral("Marathon 26101801 installs tonight while charging."));
+    }
+
+    // One ongoing row follows the download, then the install, in place.
+    void theDownloadShowsItsProgress() {
+        makeAvailable();
+        updates->install();
+        QList<QVariantMap> n = shown();
+        QCOMPARE(n.size(), 1);
+        const uint id = n[0].value("id").toUInt();
+        QCOMPARE(n[0].value("body").toString(), QStringLiteral("Marathon OS 26101801 · 0%"));
+        QVERIFY(n[0].value("ongoing").toBool());
+        QCOMPARE(n[0].value("progress").toReal(), 0.0);
+        QCOMPARE(keys(n[0]), QStringList{"default"});
+
+        QSignalSpy changed(model.get(), &NotificationModel::dataChanged);
+        emit       backend->progress(42);
+        // Other news about the update leaves the row alone.
+        updates->setAutoUpdate(true);
+        QCOMPARE(changed.count(), 1);
+        n = shown();
+        QCOMPARE(n.size(), 1);
+        QCOMPARE(n[0].value("id").toUInt(), id);
+        QCOMPARE(n[0].value("body").toString(), QStringLiteral("Marathon OS 26101801 · 42%"));
+        QCOMPARE(n[0].value("progress").toReal(), 0.42);
+
+        emit backend->installing();
+        n = shown();
+        QCOMPARE(n[0].value("id").toUInt(), id);
+        QCOMPARE(n[0].value("title").toString(), QStringLiteral("Installing update"));
+        QCOMPARE(n[0].value("progress").toReal(), 0.0);
+
+        QSignalSpy links(router.get(), &NavigationRouterCpp::deepLinkRequested);
+        server->activate(id, QStringLiteral("default"));
+        QCOMPARE(links.count(), 1);
+        QCOMPARE(links[0][1].toString(), QStringLiteral("updates"));
+    }
+
+    void theRestartNoticeTakesTheProgressRowsPlace() {
+        makeAvailable();
+        updates->install();
+        emit backend->progress(99);
+        emit backend->installed(QStringLiteral("26101801"));
+        const QList<QVariantMap> n = shown();
+        QCOMPARE(n.size(), 1);
+        QCOMPARE(n[0].value("title").toString(), QStringLiteral("Restart to finish updating"));
+        QVERIFY(!n[0].value("ongoing").toBool());
+    }
+
+    void aFailedOrCancelledDownloadLeavesNoRow() {
+        makeAvailable();
+        updates->install();
+        emit backend->failed(QStringLiteral("no network"));
+        QVERIFY(shown().isEmpty());
+
+        updates->checkNow();
+        emit backend->checked(QStringLiteral("26101801"));
+        updates->install();
+        QCOMPARE(shown().size(), 1);
+        updates->cancel();
+        QVERIFY(shown().isEmpty());
     }
 
     void theNextBootReplacesTheRestartNotice() {

@@ -171,6 +171,7 @@ void SysupdateBackend::onJobRemoved(qulonglong id, const QDBusObjectPath &path, 
     m_jobId = 0;
     if (status == 0 && !m_acquired) {
         m_acquired = true;
+        emit installing();
         // An empty version stays under polkit's update action; a named
         // one is update-to-version, which asks for a password.
         startJob(QStringLiteral("Install"), QString());

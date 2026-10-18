@@ -40,6 +40,7 @@ UpdateService::UpdateService(UpdateBackend *backend, std::function<UpdateConditi
     connect(m_backend, &UpdateBackend::checked, this, &UpdateService::onChecked);
     connect(m_backend, &UpdateBackend::releaseInfo, this, &UpdateService::onReleaseInfo);
     connect(m_backend, &UpdateBackend::progress, this, &UpdateService::onProgress);
+    connect(m_backend, &UpdateBackend::installing, this, &UpdateService::onInstalling);
     connect(m_backend, &UpdateBackend::installed, this, &UpdateService::onInstalled);
     connect(m_backend, &UpdateBackend::failed, this, &UpdateService::onFailed);
 
@@ -188,7 +189,8 @@ void UpdateService::install() {
         return;
     }
     m_lastError.clear();
-    m_progress = 0;
+    m_progress   = 0;
+    m_installing = false;
     setState(State::Downloading);
     m_backend->install();
 }
@@ -206,6 +208,14 @@ void UpdateService::onProgress(int percent) {
     if (m_state != State::Downloading || percent == m_progress)
         return;
     m_progress = percent;
+    emit stateChanged();
+}
+
+void UpdateService::onInstalling() {
+    if (m_state != State::Downloading)
+        return;
+    m_installing = true;
+    m_progress   = 0;
     emit stateChanged();
 }
 

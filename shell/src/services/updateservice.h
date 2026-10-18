@@ -24,7 +24,8 @@ class UpdateBackend : public QObject {
     virtual void checkNew() = 0;
     // releaseInfo(): download size (-1 unknown) and notes for a version.
     virtual void fetchReleaseInfo(const QString &version) = 0;
-    // progress() while downloading, then installed() or failed().
+    // progress() while downloading, installing() once the download is in,
+    // progress() again, then installed() or failed().
     virtual void install() = 0;
     virtual void cancel()  = 0;
 
@@ -33,6 +34,7 @@ class UpdateBackend : public QObject {
     void checked(const QString &version);
     void releaseInfo(const QString &version, qint64 downloadSize, const QString &notes);
     void progress(int percent);
+    void installing();
     void installed(const QString &version);
     void failed(const QString &error);
 };
@@ -133,6 +135,10 @@ class UpdateService : public QObject {
     int progress() const {
         return m_progress;
     }
+    // While Downloading: the download is in and progress() is the install's.
+    bool installing() const {
+        return m_installing;
+    }
     QString blockedReason() const {
         return m_blockedReason;
     }
@@ -188,6 +194,7 @@ class UpdateService : public QObject {
     void           onChecked(const QString &version);
     void           onReleaseInfo(const QString &version, qint64 downloadSize, const QString &notes);
     void           onProgress(int percent);
+    void           onInstalling();
     void           onInstalled(const QString &version);
     void           onFailed(const QString &error);
 
@@ -205,7 +212,8 @@ class UpdateService : public QObject {
     qint64                            m_downloadSize = -1;
     QString                           m_releaseNotes;
     QString                           m_currentReleaseNotes;
-    int                               m_progress = 0;
+    int                               m_progress   = 0;
+    bool                              m_installing = false;
     QString                           m_blockedReason;
     QString                           m_rolledBackVersion;
     QString                           m_lastError;

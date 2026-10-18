@@ -19,6 +19,7 @@ UpdateNotifier::UpdateNotifier(UpdateService *updates, FreedesktopNotifications 
     , m_router(router)
     , m_id(QSettings().value(QLatin1String(kIdKey)).toUInt()) {
     connect(m_updates, &UpdateService::notice, this, &UpdateNotifier::post);
+    connect(m_updates, &UpdateService::stateChanged, this, &UpdateNotifier::showProgress);
     connect(m_notifications, &FreedesktopNotifications::ActionInvoked, this,
             &UpdateNotifier::onAction);
 }
@@ -52,8 +53,36 @@ void UpdateNotifier::post(UpdateService::Notice kind, const QString &version) {
             body    = tr("Tap to see what's new.");
             break;
     }
-    m_id = m_notifications->Notify(QLatin1String(kAppName), m_id, QLatin1String(kIcon), summary,
-                                   body, actions, {}, -1);
+    notify(summary, body, actions, {});
+}
+
+// Only a new percent or phase reaches the Hub. A finished download's row
+// goes first, so the restart notice that follows is a fresh one.
+void UpdateNotifier::showProgress() {
+    if (m_updates->state() != UpdateService::State::Downloading) {
+        if (m_shownPercent >= 0)
+            m_notifications->CloseNotification(m_id);
+        m_shownPercent = -1;
+        return;
+    }
+    const int  percent    = m_updates->progress();
+    const bool installing = m_updates->installing();
+    if (percent == m_shownPercent && installing == m_shownInstalling)
+        return;
+    m_shownPercent    = percent;
+    m_shownInstalling = installing;
+    notify(installing ? tr("Installing update") : tr("Downloading update"),
+           tr("Marathon OS %1 · %2%").arg(m_updates->availableVersion(), QString::number(percent)),
+           {QStringLiteral("default"), tr("Open")}, {{QStringLiteral("value"), percent}});
+}
+
+void UpdateNotifier::notify(const QString &summary, const QString &body, const QStringList &actions,
+                            const QVariantMap &hints) {
+    const uint id = m_notifications->Notify(QLatin1String(kAppName), m_id, QLatin1String(kIcon),
+                                            summary, body, actions, hints, -1);
+    if (id == m_id)
+        return;
+    m_id = id;
     QSettings().setValue(QLatin1String(kIdKey), m_id);
 }
 
