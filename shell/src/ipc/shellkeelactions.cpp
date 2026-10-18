@@ -36,7 +36,7 @@ namespace {
                     QString::number(maxLength) + QStringLiteral(" characters");
         }
         const QJsonArray required = schema.value(QLatin1String("required")).toArray();
-        for (const QJsonValue &name : required) {
+        for (const auto &name : required) {
             if (!args.contains(name.toString()))
                 return QStringLiteral("missing argument ") + name.toString();
         }
@@ -61,7 +61,7 @@ ShellKeelActions::ShellKeelActions(AppModel *apps, TaskModel *tasks,
     m_manifest = file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
     const QJsonArray tools =
         QJsonDocument::fromJson(m_manifest).object().value(QLatin1String("tools")).toArray();
-    for (const QJsonValue &tool : tools)
+    for (const auto &tool : tools)
         m_tools.insert(
             tool[QLatin1String("_meta")][QLatin1String("org.shipwright.keel/action")].toString(),
             tool.toObject());

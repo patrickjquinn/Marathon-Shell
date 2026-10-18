@@ -17,7 +17,7 @@ namespace AppScope {
         if (cgroup.isEmpty() || cgroup == shellCgroup ||
             shellCgroup.startsWith(cgroup + QLatin1Char('/')))
             return {};
-        const QString unit = cgroup.section(QLatin1Char('/'), -1);
+        QString unit = cgroup.section(QLatin1Char('/'), -1);
         if (!unit.startsWith(QLatin1String("app-")) || !unit.endsWith(QLatin1String(".scope")))
             return {};
         return unit;

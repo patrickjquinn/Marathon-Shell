@@ -15,8 +15,10 @@
 // The caller id is "service:<unit>", never a Marathon app id.
 namespace ServiceCaller {
 
+    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
     inline const QString kDir    = QStringLiteral("/usr/share/marathon-shell/services");
     inline const QString kPrefix = QStringLiteral("service:");
+    // NOLINTEND(bugprone-throwing-static-initialization)
 
     // The unit of a /proc/<pid>/cgroup (cgroup v2), if a user service.
     inline QString unitOf(const QByteArray &cgroup) {
