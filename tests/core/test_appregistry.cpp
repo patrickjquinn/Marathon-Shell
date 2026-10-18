@@ -80,7 +80,7 @@ class TestAppRegistry : public QObject {
 
         QCOMPARE(registry.count(), 1);
         QCOMPARE(registeredSpy.count(), 1);
-        QCOMPARE(registry.getApp("com.dup")["name"].toString(), QString("First"));
+        QCOMPARE(registry.getApp("com.dup").value("name").toString(), QString("First"));
     }
 
     // === CONTRACT: registerApp (Q_INVOKABLE) must behave identically to registerAppInfo ===
@@ -95,8 +95,8 @@ class TestAppRegistry : public QObject {
                              "2.0.0", false, {"camera"});
 
         QVERIFY(registry.hasApp("com.inv"));
-        QCOMPARE(registry.getApp("com.inv")["version"].toString(), QString("2.0.0"));
-        QCOMPARE(registry.getApp("com.inv")["permissions"].toStringList(), QStringList({"camera"}));
+        QCOMPARE(registry.getApp("com.inv").value("version").toString(), QString("2.0.0"));
+        QCOMPARE(registry.getApp("com.inv").value("permissions").toStringList(), QStringList({"camera"}));
     }
 
     // === CONTRACT: an uninstalled or updated app can leave the registry ===

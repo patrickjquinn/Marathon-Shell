@@ -32,7 +32,7 @@ class TestAppVerifier : public QObject {
         qputenv("XDG_CONFIG_HOME", (m_root.path() + "/config").toUtf8());
         qunsetenv("MARATHON_ALLOW_UNSIGNED");
         m_trustedKeysDir = m_root.path() + "/config/marathon/trusted-keys";
-        QCOMPARE(MarathonAppVerifier::trustedKeyDirs().last(), m_trustedKeysDir);
+        QCOMPARE(MarathonAppVerifier::trustedKeyDirs().constLast(), m_trustedKeysDir);
         QVERIFY(QDir().mkpath(m_trustedKeysDir));
         QVERIFY(TestKeys::write(m_trustedKeysDir + "/alice.pub", TestKeys::alice.pub));
         QVERIFY(TestKeys::write(m_trustedKeysDir + "/bob.pub", TestKeys::bob.pub));

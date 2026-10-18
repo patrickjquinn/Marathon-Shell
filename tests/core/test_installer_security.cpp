@@ -99,7 +99,7 @@ class TestInstallerSecurity : public QObject {
         qputenv("MARATHON_APPS_DIR", (m_home.path() + "/system-apps").toUtf8());
         qputenv("MARATHON_SYSTEM_KEYS_DIR", (m_home.path() + "/system-keys").toUtf8());
         QStandardPaths::setTestModeEnabled(true);
-        const QString keys = MarathonAppVerifier::trustedKeyDirs().last();
+        const QString keys = MarathonAppVerifier::trustedKeyDirs().constLast();
         QVERIFY(QDir().mkpath(keys));
         QVERIFY(writeFile(keys + "/alice.pub", TestKeys::alice.pub));
         QVERIFY(writeFile(MarathonAppVerifier::systemKeyDir() + "/bob.pub", TestKeys::bob.pub));

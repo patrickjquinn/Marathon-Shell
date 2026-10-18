@@ -28,7 +28,7 @@ class TestSmsService : public QObject {
         const QVariantList left = sms.getMessages(conv);
         QCOMPARE(left.size(), 1);
         QCOMPARE(left.first().toMap().value("text").toString(), QString("second"));
-        QCOMPARE(sms.conversations().first().toMap().value("lastMessage").toString(),
+        QCOMPARE(sms.conversations().constFirst().toMap().value("lastMessage").toString(),
                  QString("second"));
     }
 
@@ -36,7 +36,7 @@ class TestSmsService : public QObject {
         SMSService sms;
         sms.simulateIncomingSMS("+447700900123", "only");
         const QString conv = sms.generateConversationId("+447700900123");
-        const int     id   = sms.getMessages(conv).first().toMap().value("id").toInt();
+        const int     id   = sms.getMessages(conv).constFirst().toMap().value("id").toInt();
         QVERIFY(sms.deleteMessage(id));
         const QVariantList conversations = sms.conversations();
         for (const QVariant &c : conversations)

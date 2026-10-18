@@ -118,7 +118,7 @@ class TestIpcClientNormalize : public QObject {
         PermissionClient  client;
         const QVariantMap phone = client.describe("phone");
         QCOMPARE(phone.value("label").toString(), QStringLiteral("Phone"));
-        QCOMPARE(phone.value("description").toString(), client.describe("telephony")["description"]);
+        QCOMPARE(phone.value("description").toString(), client.describe("telephony").value("description"));
         QVERIFY(!client.describe("secret-service").value("description").toString().isEmpty());
         QCOMPARE(client.describe("root").value("label").toString(), QStringLiteral("root"));
         QVERIFY(client.describe("system").value("restricted").toBool());
@@ -128,26 +128,26 @@ class TestIpcClientNormalize : public QObject {
     void contactFieldsReachQml() {
         ContactsClient client;
         QCOMPARE(client.count(), 1);
-        const QVariantMap c = client.contacts().first().toMap();
+        const QVariantMap c = client.contacts().constFirst().toMap();
         QCOMPARE(c.value("name").toString(), QString("Test Person"));
         QCOMPARE(c.value("id").toInt(), 7);
-        QCOMPARE(c.value("phones").toList().first().toMap().value("number").toString(), QString("555"));
-        QCOMPARE(client.searchContacts("t").first().toMap().value("name").toString(), QString("Test Person"));
+        QCOMPARE(c.value("phones").toList().constFirst().toMap().value("number").toString(), QString("555"));
+        QCOMPARE(client.searchContacts("t").constFirst().toMap().value("name").toString(), QString("Test Person"));
         QCOMPARE(client.getContact(7).value("phones").toList().size(), 1);
     }
 
     void alarmFieldsReachQml() {
         AlarmClient client;
-        const QVariantMap a = client.alarms().first().toMap();
+        const QVariantMap a = client.alarms().constFirst().toMap();
         QCOMPARE(a.value("time").toString(), QString("09:07"));
         QCOMPARE(a.value("label").toString(), QString("Wake"));
         QCOMPARE(a.value("repeat").toList().size(), 2);
-        QCOMPARE(client.activeAlarms().first().toMap().value("id").toString(), QString("a1"));
+        QCOMPARE(client.activeAlarms().constFirst().toMap().value("id").toString(), QString("a1"));
     }
 
     void callHistoryFieldsReachQml() {
         CallHistoryClient client;
-        QCOMPARE(client.history().first().toMap().value("number").toString(), QString("555"));
+        QCOMPARE(client.history().constFirst().toMap().value("number").toString(), QString("555"));
     }
 
     void settingsGetReturnsPlainLists() {

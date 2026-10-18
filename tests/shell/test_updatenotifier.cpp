@@ -123,14 +123,14 @@ class TestUpdateNotifier : public QObject {
         QCOMPARE(backend->calls, QStringList{"install"});
         QCOMPARE(updates->stateName(), QStringLiteral("downloading"));
         QCOMPARE(shown().size(), 1);
-        QCOMPARE(shown()[0].value("title").toString(), QStringLiteral("Downloading update"));
+        QCOMPARE(shown().at(0).value("title").toString(), QStringLiteral("Downloading update"));
     }
 
     void aBlockedDownloadOpensSettings() {
         makeAvailable();
         conditions.metered = 1;
         QSignalSpy links(router.get(), &NavigationRouterCpp::deepLinkRequested);
-        server->activate(shown()[0].value("id").toUInt(), QStringLiteral("download"));
+        server->activate(shown().at(0).value("id").toUInt(), QStringLiteral("download"));
         QCOMPARE(links.count(), 1);
         QCOMPARE(links[0][0].toString(), QStringLiteral("settings"));
         QCOMPARE(links[0][1].toString(), QStringLiteral("updates"));
@@ -138,7 +138,7 @@ class TestUpdateNotifier : public QObject {
 
     void laterOnlyDismisses() {
         makeAvailable();
-        server->activate(shown()[0].value("id").toUInt(), QStringLiteral("later"));
+        server->activate(shown().at(0).value("id").toUInt(), QStringLiteral("later"));
         QVERIFY(shown().isEmpty());
         QCOMPARE(updates->stateName(), QStringLiteral("available"));
     }
@@ -146,7 +146,7 @@ class TestUpdateNotifier : public QObject {
     void aTapOpensSoftwareUpdates() {
         makeAvailable();
         QSignalSpy links(router.get(), &NavigationRouterCpp::deepLinkRequested);
-        server->activate(shown()[0].value("id").toUInt(), QStringLiteral("default"));
+        server->activate(shown().at(0).value("id").toUInt(), QStringLiteral("default"));
         QCOMPARE(links.count(), 1);
         QCOMPARE(links[0][1].toString(), QStringLiteral("updates"));
     }
@@ -187,7 +187,7 @@ class TestUpdateNotifier : public QObject {
         updates->install();
         emit       backend->installed(QStringLiteral("26101801"));
         QSignalSpy reboots(updates.get(), &UpdateService::rebootRequested);
-        server->activate(shown()[0].value("id").toUInt(), QStringLiteral("restart"));
+        server->activate(shown().at(0).value("id").toUInt(), QStringLiteral("restart"));
         QCOMPARE(reboots.count(), 1);
     }
 
@@ -196,7 +196,7 @@ class TestUpdateNotifier : public QObject {
         conditions = {2, true, 80, 1};
         makeAvailable();
         QCOMPARE(shown().size(), 1);
-        QVERIFY(shown()[0].value("ongoing").toBool());
+        QVERIFY(shown().at(0).value("ongoing").toBool());
         emit backend->installed(QStringLiteral("26101801"));
         QCOMPARE(shown().value(0).value("body").toString(),
                  QStringLiteral("Marathon 26101801 installs tonight while charging."));

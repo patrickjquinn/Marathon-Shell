@@ -40,7 +40,7 @@ class TestDbusNormalize : public QObject {
         QSignalSpy              done(&watcher, &QDBusPendingCallWatcher::finished);
         if (!done.wait(5000) || watcher.isError() || watcher.reply().arguments().isEmpty())
             return {};
-        return watcher.reply().arguments().first();
+        return watcher.reply().arguments().constFirst();
     }
 
   private slots:

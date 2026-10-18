@@ -64,7 +64,7 @@ class TestWallpaperClient : public QObject {
         FakeSettings    settings;
         WallpaperClient wallpapers(&settings, client);
         QTRY_COMPARE(wallpapers.wallpapers().size(), 1);
-        QCOMPARE(wallpapers.wallpapers().first().toMap().value("name").toString(), QString("Dawn"));
+        QCOMPARE(wallpapers.wallpapers().constFirst().toMap().value("name").toString(), QString("Dawn"));
     }
 
     void currentAndSetFollowTheSettings() {

@@ -99,8 +99,8 @@ class TestWeatherClient : public QObject {
         QVERIFY(client.forecast().isEmpty());
         client.refresh();
         QTRY_COMPARE(fake.refreshes, 1);
-        QCOMPARE(client.forecast()["location"].toMap()["name"].toString(), QString("Tampere"));
-        QCOMPARE(client.forecast()["current"].toMap()["temperature"].toDouble(), 2.1);
+        QCOMPARE(client.forecast().value("location").toMap().value("name").toString(), QString("Tampere"));
+        QCOMPARE(client.forecast().value("current").toMap().value("temperature").toDouble(), 2.1);
         QCOMPARE(client.state(), QString("idle"));
     }
 
@@ -125,7 +125,7 @@ class TestWeatherClient : public QObject {
         QTRY_COMPARE(stateSpy.count(), 1);
         QCOMPARE(client.state(), QString("updating"));
         QCOMPARE(forecastSpy.count(), 1);
-        QCOMPARE(client.forecast()["location"].toMap()["name"].toString(), QString("Dublin"));
+        QCOMPARE(client.forecast().value("location").toMap().value("name").toString(), QString("Dublin"));
 
         // The same JSON again is not a change.
         QVERIFY(service.send(changed));
@@ -145,7 +145,7 @@ class TestWeatherClient : public QObject {
         QTRY_COMPARE(spy.count(), 1);
         const QVariantList places = spy.at(0).at(0).toList();
         QCOMPARE(places.size(), 1);
-        QCOMPARE(places[0].toMap()["name"].toString(), QString("Tampere"));
+        QCOMPARE(places[0].toMap().value("name").toString(), QString("Tampere"));
         QVERIFY(spy.at(0).at(1).toString().isEmpty());
     }
 
