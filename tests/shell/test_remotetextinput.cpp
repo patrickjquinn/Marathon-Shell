@@ -10,6 +10,7 @@
 #include "services/remotetextinput.h"
 
 namespace {
+    // NOLINTNEXTLINE(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kApp = QStringLiteral("waydroid.org.example");
 
     // Stands in for an app's surface item: it counts the keys it is given.

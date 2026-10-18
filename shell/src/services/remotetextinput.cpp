@@ -16,7 +16,7 @@
 
 namespace {
     // zwp_text_input_v3
-    enum Purpose : uint {
+    enum Purpose : quint8 {
         Alpha    = 1,
         Digits   = 2,
         Number   = 3,
@@ -29,7 +29,7 @@ namespace {
         Time     = 11,
         DateTime = 12,
     };
-    enum Hint : uint {
+    enum Hint : quint16 {
         Completion         = 0x1,
         AutoCapitalization = 0x4,
         Lowercase          = 0x8,
@@ -56,8 +56,10 @@ namespace {
         }
     }
 
+    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kPath      = QStringLiteral("/org/marathonos/Shell/TextInput");
     const QString kInterface = QStringLiteral("org.marathonos.Shell.TextInput1");
+    // NOLINTEND(bugprone-throwing-static-initialization)
 } // namespace
 
 RemoteTextInput::RemoteTextInput(AppIdOf appIdOf, QObject *parent)
@@ -213,7 +215,7 @@ void RemoteTextInput::edit(const QString &text, int before, int after) {
 // Replacements reach the service as counts around the cursor; any other
 // range would need a selection protocol nobody sends.
 void RemoteTextInput::commit(const QInputMethodEvent &event) {
-    const QString text   = event.commitString();
+    const QString &text   = event.commitString();
     int           before = 0;
     int           after  = 0;
     const int     start  = event.replacementStart();

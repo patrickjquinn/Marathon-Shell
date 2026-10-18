@@ -20,6 +20,7 @@ class RemoteTextInput : public QObject {
     // The app id of the window a focus object shows, or empty.
     using AppIdOf = std::function<QString(QObject *)>;
     // Keys sent from a QInputDevice of this name come from the on-screen keyboard.
+    // NOLINTNEXTLINE(bugprone-throwing-static-initialization) QStringLiteral never allocates
     static inline const QString kKeyboardDevice = QStringLiteral("marathon-osk");
 
     explicit RemoteTextInput(AppIdOf appIdOf, QObject *parent = nullptr);
