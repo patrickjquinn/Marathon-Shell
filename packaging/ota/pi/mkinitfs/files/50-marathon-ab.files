@@ -1,0 +1,3 @@
+/sbin/cryptsetup
+/sbin/mke2fs
+/etc/mke2fs.conf!optional

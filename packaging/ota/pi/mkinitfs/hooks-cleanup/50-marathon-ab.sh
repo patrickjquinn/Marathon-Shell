@@ -37,6 +37,23 @@ unlock() {
 	done
 }
 
+# A new install's data partition is an empty ext4 file system.
+fresh() {
+	mkdir -p "$mnt"
+	mount -t ext4 -o ro "$part" "$mnt" 2> /dev/null || return 1
+	entries=$(find "$mnt" -mindepth 1 -maxdepth 1 ! -name lost+found)
+	umount "$mnt" || return 1
+	[ -z "$entries" ]
+}
+
+# On the device, so each one gets its own volume key.
+encrypt() {
+	log "encrypting $part"
+	echo | cryptsetup -q --force-password luksFormat --type luks2 \
+		--pbkdf pbkdf2 --pbkdf-force-iterations 1000 "$part" &&
+		echo | $open && mke2fs -q -F -t ext4 "$root/dev/mapper/marathon_data"
+}
+
 # udev has settled by now (init_2nd.sh setup_udev).
 link=$root/dev/disk/by-partlabel/marathon_data
 [ -e "$link" ] || exit 0
@@ -60,6 +77,14 @@ data=$part
 if cryptsetup isLuks "$part" 2> /dev/null; then
 	unlock || fail "no way to ask for the PIN of $part"
 	data=$root/dev/mapper/marathon_data
+elif fresh; then
+	if encrypt; then
+		data=$root/dev/mapper/marathon_data
+	else
+		log "cannot encrypt $part; leaving it unencrypted"
+		cryptsetup close marathon_data 2> /dev/null
+		mke2fs -q -F -t ext4 "$part" || fail "cannot format $part"
+	fi
 fi
 
 if [ -n "$grown" ]; then

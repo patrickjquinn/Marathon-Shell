@@ -22,6 +22,7 @@ case "$(basename "$0") $*" in
 "mount -t ext4"*) exit "${STUB_MOUNT_RC:-0}" ;;
 e2fsck*) exit "${STUB_E2FSCK_RC:-0}" ;;
 "cryptsetup isLuks "*) [ -n "$STUB_LUKS" ] ;;
+"cryptsetup -q --force-password luksFormat "*) exit "${STUB_FORMAT_RC:-0}" ;;
 "cryptsetup open "*) IFS= read -r pass; [ "$pass" = "$STUB_PIN" ] ;;
 "plymouth --ping") [ -z "$STUB_NO_PLYMOUTH" ] ;;
 "plymouth ask-for-password "*)
@@ -41,8 +42,8 @@ class HookCase(unittest.TestCase):
         bin_dir = self.root / "stub-bin"
         bin_dir.mkdir()
         self.bin_dir = bin_dir
-        for name in ("parted", "e2fsck", "resize2fs", "mount", "modprobe", "reboot",
-                     "cryptsetup", "plymouth"):
+        for name in ("parted", "e2fsck", "resize2fs", "mount", "umount", "modprobe", "reboot",
+                     "cryptsetup", "plymouth", "mke2fs"):
             self.stub(name)
         self.log = self.root / "calls"
         self.log.touch()
@@ -90,6 +91,14 @@ class HookCase(unittest.TestCase):
     def data(self):
         return self.root / "marathon-data"
 
+    def seeded(self):
+        self.data.mkdir()
+        (self.data / ".marathon-seeded").touch()
+
+    @property
+    def mapper(self):
+        return f"{self.root}/dev/mapper/marathon_data"
+
 
 class DataHookTest(HookCase):
     def test_does_nothing_without_a_data_partition(self):
@@ -98,13 +107,16 @@ class DataHookTest(HookCase):
         self.assertEqual(rc, 0)
         self.assertEqual(calls, [])
 
-    def test_first_boot_grows_seeds_and_mounts(self):
+    def test_first_boot_encrypts_grows_seeds_and_mounts(self):
         rc, calls = self.run_hook(DATA_HOOK, STUB_FREE="1")
         self.assertEqual(rc, 0, calls)
         sysroot = self.root / "sysroot"
         self.assertIn("parted -f -s /dev/mmcblk0 resizepart 6 100%", calls)
-        self.assertIn(f"e2fsck -f -p {self.dev}", calls)
-        self.assertIn(f"resize2fs {self.dev}", calls)
+        self.assertIn("cryptsetup -q --force-password luksFormat --type luks2 --pbkdf pbkdf2 "
+                      f"--pbkdf-force-iterations 1000 {self.dev}", calls)
+        self.assertIn(f"mke2fs -q -F -t ext4 {self.mapper}", calls)
+        self.assertIn(f"e2fsck -f -p {self.mapper}", calls)
+        self.assertIn(f"resize2fs {self.mapper}", calls)
         self.assertEqual((self.data / "lib/app/state").read_text(), "slot var")
         self.assertEqual((self.data / "home/user/notes").read_text(), "slot home")
         self.assertTrue((self.data / ".marathon-seeded").exists())
@@ -113,7 +125,8 @@ class DataHookTest(HookCase):
         mounts = [c for c in calls if c.startswith("mount")]
         etc = f"{sysroot}/var/lib/marathon-ab/etc"
         self.assertEqual(mounts, [
-            f"mount -t ext4 -o rw,noatime {self.dev} {self.data}",
+            f"mount -t ext4 -o ro {self.dev} {self.data}",
+            f"mount -t ext4 -o rw,noatime {self.mapper} {self.data}",
             f"mount --move {self.data} {sysroot}/var",
             f"mount --bind {sysroot}/var/home {sysroot}/home",
             f"mount -t overlay overlay -o lowerdir={sysroot}/etc,upperdir={etc}/upper,workdir={etc}/work "
@@ -121,12 +134,31 @@ class DataHookTest(HookCase):
         ])
         self.assertIn("modprobe overlay", calls)
 
+    def test_only_lost_and_found_is_still_fresh(self):
+        (self.data / "lost+found").mkdir(parents=True)
+        rc, calls = self.run_hook(DATA_HOOK, STUB_FREE="1")
+        self.assertEqual(rc, 0, calls)
+        self.assertTrue(any("luksFormat" in c for c in calls), calls)
+
+    def test_data_already_there_stays_unencrypted(self):
+        (self.data / "home/user").mkdir(parents=True)
+        rc, calls = self.run_hook(DATA_HOOK, STUB_FREE="1")
+        self.assertEqual(rc, 0, calls)
+        self.assertFalse(any("luksFormat" in c or c.startswith("mke2fs") for c in calls), calls)
+        self.assertIn(f"mount -t ext4 -o rw,noatime {self.dev} {self.data}", calls)
+
+    def test_a_failed_encryption_leaves_it_unencrypted(self):
+        rc, calls = self.run_hook(DATA_HOOK, STUB_FREE="1", STUB_FORMAT_RC="1")
+        self.assertEqual(rc, 0, calls)
+        self.assertIn(f"mke2fs -q -F -t ext4 {self.dev}", calls)
+        self.assertIn(f"mount -t ext4 -o rw,noatime {self.dev} {self.data}", calls)
+
     def test_later_boots_neither_grow_nor_reseed(self):
-        self.data.mkdir()
-        (self.data / ".marathon-seeded").touch()
+        self.seeded()
         rc, calls = self.run_hook(DATA_HOOK)
         self.assertEqual(rc, 0, calls)
         self.assertFalse(any("resizepart" in c or c.startswith("resize2fs") for c in calls), calls)
+        self.assertFalse(any("luksFormat" in c for c in calls), calls)
         self.assertIn(f"e2fsck -p {self.dev}", calls)
         self.assertFalse((self.data / "lib/app").exists())
         self.assertTrue(any(c.startswith("mount -t overlay") for c in calls))
@@ -144,11 +176,12 @@ class DataHookTest(HookCase):
         self.assertNotIn("reboot -f", calls)
 
     def test_file_system_errors_fail_a_trial_boot(self):
+        self.seeded()
         self.trial(True)
         rc, calls = self.run_hook(DATA_HOOK, STUB_E2FSCK_RC="4")
         self.assertEqual(rc, 1)
         self.assertEqual(calls[-1], "reboot -f")
-        self.assertFalse(any(c.startswith("mount") for c in calls), calls)
+        self.assertFalse(any(c.startswith("mount -t ext4 -o rw") for c in calls), calls)
 
     def test_repaired_errors_are_fine(self):
         rc, _ = self.run_hook(DATA_HOOK, STUB_E2FSCK_RC="1")
@@ -158,11 +191,9 @@ class DataHookTest(HookCase):
 class EncryptedDataTest(HookCase):
     def setUp(self):
         super().setUp()
-        self.data.mkdir()
-        (self.data / ".marathon-seeded").touch()
+        self.seeded()
         self.open = (f"cryptsetup open --perf-no_read_workqueue --perf-no_write_workqueue "
                      f"{self.dev} marathon_data")
-        self.mapper = f"{self.root}/dev/mapper/marathon_data"
 
     def asks(self, calls):
         return [c for c in calls if c.startswith("plymouth ask-for-password")]
