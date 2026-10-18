@@ -171,6 +171,8 @@ Item {
     }
     Component.onCompleted: {
         shell.forceActiveFocus();
+        if (SecurityManagerCpp.bootUnlocked && SessionStore.isLocked)
+            SessionStore.unlock();
         MHaptics.backend = HapticManager;
         compositor = shellInitialization.initialize(shell, shellWindow);
         AppLaunchService.compositor = compositor;
@@ -1985,6 +1987,11 @@ Item {
         target: SecurityManagerCpp
         function onAuthenticationSuccess() {
             if (SessionStore.isLocked && !shell.showPinScreen)
+                SessionStore.unlock();
+        }
+        // The PIN was just typed at startup; don't ask for it twice.
+        function onBootUnlockedChanged() {
+            if (SecurityManagerCpp.bootUnlocked && SessionStore.isLocked)
                 SessionStore.unlock();
         }
     }

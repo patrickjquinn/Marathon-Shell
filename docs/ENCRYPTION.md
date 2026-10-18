@@ -58,6 +58,19 @@ passphrase and then asks through `unl0kr-agent` (duranium masks Plymouth's
 agent in favour of it). systemd-cryptsetup gives up after three wrong PINs and
 the boot drops to the emergency target; restart to try again.
 
+### One PIN per boot
+
+The PIN typed at startup isn't asked for again on the lock screen. After
+a PIN unlock the initramfs writes this boot's id
+(`/proc/sys/kernel/random/boot_id`) to
+`/var/lib/marathon-data-key/boot-unlocked` on the encrypted partition (root
+only, 0600). The shell runs `marathon-data-key consume-boot-unlock` once at
+startup. The helper deletes the note and succeeds only if it names the
+current boot, and the shell then starts unlocked. A shell restarted later
+in the same boot finds no note and locks as usual. The note only exists
+after the right PIN, and it's useless on any other boot. Every later lock
+(screen off, timeout, power key) asks for the PIN as usual.
+
 ## Setting, changing and removing the PIN
 
 The shell's `SecurityManager` runs

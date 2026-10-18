@@ -34,6 +34,9 @@ class SecurityManager : public QObject {
     Q_PROPERTY(int failedAttempts READ failedAttempts NOTIFY failedAttemptsChanged)
     // "none", "off", "open" or "pin": dataEncryptionState().
     Q_PROPERTY(QString dataEncryption READ dataEncryption NOTIFY dataEncryptionChanged)
+    // The PIN was typed at startup to unlock the data; the lock screen
+    // needn't ask for it again this boot.
+    Q_PROPERTY(bool bootUnlocked READ bootUnlocked NOTIFY bootUnlockedChanged)
 
   public:
     explicit SecurityManager(QObject *parent = nullptr);
@@ -72,6 +75,9 @@ class SecurityManager : public QObject {
     QString dataEncryption() const {
         return m_dataEncryption;
     }
+    bool bootUnlocked() const {
+        return m_bootUnlocked;
+    }
 
     void             setAuthMode(AuthMode mode);
 
@@ -107,6 +113,7 @@ class SecurityManager : public QObject {
     void lockoutStateChanged();
     void failedAttemptsChanged();
     void dataEncryptionChanged();
+    void bootUnlockedChanged();
     void biometricPrompt(const QString &message);
 
   private slots:
@@ -136,6 +143,7 @@ class SecurityManager : public QObject {
     void                  runDataKeyHelper(const QString &command, const QString &secret,
                                            const std::function<void(bool)> &done);
     void                  refreshDataEncryption();
+    void                  consumeBootUnlock();
 
     void                  updateLockoutStatus();
     void                  recordFailedAttempt();
@@ -149,6 +157,7 @@ class SecurityManager : public QObject {
     int                   m_failedAttempts;
     QDateTime             m_lockoutUntil;
     QString               m_dataEncryption;
+    bool                  m_bootUnlocked = false;
     QTimer               *m_lockoutTimer;
 
     QDBusInterface       *m_fprintdManager;

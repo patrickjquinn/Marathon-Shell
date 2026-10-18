@@ -51,6 +51,8 @@ SecurityManager::SecurityManager(QObject *parent)
 
     m_hasQuickPIN    = !retrieveQuickPIN().isEmpty();
     m_dataEncryption = dataEncryptionState(QDir::homePath());
+    if (m_dataEncryption == QLatin1String("pin"))
+        consumeBootUnlock();
 
     m_lockoutTimer->setInterval(1000);
     connect(m_lockoutTimer, &QTimer::timeout, this, &SecurityManager::checkLockoutTimer);
@@ -498,6 +500,32 @@ void SecurityManager::runDataKeyHelper(const QString &command, const QString &se
     helper->start(program, args);
     helper->write(secret.toUtf8());
     helper->closeWriteChannel();
+}
+
+// Once per boot: the initramfs leaves a note when the PIN was typed there.
+void SecurityManager::consumeBootUnlock() {
+    QString     program = qEnvironmentVariable("MARATHON_DATA_KEY_HELPER");
+    QStringList args{QStringLiteral("consume-boot-unlock")};
+    if (program.isEmpty()) {
+        if (!QFileInfo::exists(kDataKeyHelper))
+            return;
+        program = QStringLiteral("pkexec");
+        args.prepend(kDataKeyHelper);
+    }
+    auto *helper = new QProcess(this);
+    connect(helper, &QProcess::finished, this,
+            [this, helper](int code, QProcess::ExitStatus status) {
+                helper->deleteLater();
+                if (status != QProcess::NormalExit || code != 0)
+                    return;
+                m_bootUnlocked = true;
+                emit bootUnlockedChanged();
+            });
+    connect(helper, &QProcess::errorOccurred, helper, [helper](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart)
+            helper->deleteLater();
+    });
+    helper->start(program, args);
 }
 
 void SecurityManager::refreshDataEncryption() {

@@ -216,6 +216,23 @@ class EncryptedDataTest(HookCase):
         ])
         self.assertIn(f"mount -t ext4 -o rw,noatime {self.mapper} {self.data}", calls)
 
+    def note(self):
+        return self.data / "lib/marathon-data-key/boot-unlocked"
+
+    def test_a_typed_pin_leaves_a_note_for_this_boot(self):
+        (self.root / "proc/sys/kernel/random").mkdir(parents=True)
+        (self.root / "proc/sys/kernel/random/boot_id").write_text("boot-1\n")
+        self.answers.write_text("123456\n")
+        rc, calls = self.run_hook(DATA_HOOK, STUB_LUKS="1", STUB_PIN="123456")
+        self.assertEqual(rc, 0, calls)
+        self.assertEqual(self.note().read_text(), "boot-1\n")
+        self.assertEqual(self.note().stat().st_mode & 0o777, 0o600)
+
+    def test_without_a_pin_there_is_no_note(self):
+        rc, calls = self.run_hook(DATA_HOOK, STUB_LUKS="1")
+        self.assertEqual(rc, 0, calls)
+        self.assertFalse(self.note().exists())
+
     def test_unl0kr_asks_when_plymouth_is_not_running(self):
         self.stub("unl0kr")
         self.answers.write_text("123456\n")

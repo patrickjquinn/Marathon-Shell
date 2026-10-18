@@ -5,6 +5,9 @@
 #   status  prints plain (not encrypted), open (no PIN at startup) or pin
 #   set     the line on stdin becomes the startup PIN
 #   clear   the partition opens at startup without a PIN
+#   consume-boot-unlock
+#           succeeds once per boot if the PIN was typed at startup, so the
+#           shell can skip asking for it again
 #
 # A random device key stored on the partition itself, so readable only while
 # it is unlocked, authorises every change. The new slot is added and checked
@@ -16,6 +19,8 @@ set -u
 
 dir=${MARATHON_DATA_KEY_DIR:-/var/lib/marathon-data-key}
 key=$dir/device.key
+boot_unlocked=$dir/boot-unlocked
+boot_id=${MARATHON_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
 fast="--pbkdf pbkdf2 --pbkdf-force-iterations 1000"
 # About 1.5 s to open on the phone that enrolled it; 512 MiB stays well
 # clear of the 2 GB phones' memory.
@@ -89,6 +94,16 @@ replace() {
 	printf '%s\n' "$2" > "$dir/state.new" && chmod 644 "$dir/state.new" && mv -f "$dir/state.new" "$dir/state"
 }
 
+# Written by the initramfs after a PIN unlock (50-marathon-ab.sh); gone
+# after the first ask, so a restarted shell asks for the PIN again.
+if [ "${1:-}" = consume-boot-unlock ]; then
+	[ -f "$boot_unlocked" ] || exit 5
+	written=$(cat "$boot_unlocked")
+	rm -f "$boot_unlocked"
+	[ "$written" = "$(cat "$boot_id")" ] || exit 5
+	exit 0
+fi
+
 dev=$(data_device)
 if [ -z "$dev" ] || ! cryptsetup isLuks "$dev" 2> /dev/null; then
 	[ "${1:-}" = status ] && echo plain && exit 0
@@ -113,6 +128,6 @@ clear)
 	replace "" open "$fast"
 	;;
 *)
-	die 2 "usage: marathon-data-key status|set|clear"
+	die 2 "usage: marathon-data-key status|set|clear|consume-boot-unlock"
 	;;
 esac

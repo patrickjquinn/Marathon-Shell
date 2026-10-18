@@ -110,4 +110,21 @@ run set 555555
 [ "$rc" = 4 ] || fail "set without the device key exited $rc"
 opens 444444 || fail "set without the device key lost the PIN"
 
+# consume-boot-unlock: once, and only for the boot that wrote it.
+MARATHON_BOOT_ID_FILE=$W/boot_id
+export MARATHON_BOOT_ID_FILE
+echo boot-a > "$W/boot_id"
+note=$MARATHON_DATA_KEY_DIR/boot-unlocked
+run consume-boot-unlock
+[ "$rc" = 5 ] || fail "consume without a note exited $rc"
+echo boot-a > "$note"
+run consume-boot-unlock
+[ "$rc" = 0 ] || fail "consume of this boot's note exited $rc"
+run consume-boot-unlock
+[ "$rc" = 5 ] || fail "a second consume exited $rc"
+echo boot-z > "$note"
+run consume-boot-unlock
+[ "$rc" = 5 ] || fail "consume of another boot's note exited $rc"
+[ ! -e "$note" ] || fail "another boot's note was left behind"
+
 echo "PASS: marathon-data-key"

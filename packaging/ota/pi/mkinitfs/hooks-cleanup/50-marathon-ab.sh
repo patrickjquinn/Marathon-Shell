@@ -26,9 +26,9 @@ unlock() {
 	prompt="Enter PIN"
 	while :; do
 		if plymouth --ping 2> /dev/null; then
-			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && return 0
+			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && pin_typed=1 && return 0
 		elif command -v unl0kr > /dev/null; then
-			unl0kr | $open && return 0
+			unl0kr | $open && pin_typed=1 && return 0
 		else
 			return 1
 		fi
@@ -104,6 +104,12 @@ if [ ! -e "$mnt/.marathon-seeded" ]; then
 		cp -a "$sysroot/home/." "$mnt/home/" && touch "$mnt/.marathon-seeded"; }; then
 		fail "cannot seed $data"
 	fi
+fi
+# The PIN was typed here: the shell starts unlocked this once
+# (marathon-data-key consume-boot-unlock).
+if [ -n "${pin_typed:-}" ]; then
+	(umask 077 && mkdir -p "$mnt/lib/marathon-data-key" &&
+		cat "$root/proc/sys/kernel/random/boot_id" > "$mnt/lib/marathon-data-key/boot-unlocked")
 fi
 mkdir -p "$mnt/lib/marathon-ab/etc/upper" "$mnt/lib/marathon-ab/etc/work"
 mount --move "$mnt" "$sysroot/var" || fail "cannot move $data to /var"
