@@ -2,6 +2,7 @@
 #include <QSignalSpy>
 #include "../../shell/src/models/appmodel.h"
 #include "marathonappregistry.h"
+#include "../../shell/src/services/appstore.h"
 
 class TestAppModel : public QObject {
     Q_OBJECT
@@ -276,6 +277,26 @@ class TestAppModel : public QObject {
         QVERIFY(roles.contains(AppModel::IconRole));
         QVERIFY(roles.contains(AppModel::TypeRole));
         QVERIFY(roles.contains(AppModel::ExecRole));
+    }
+
+    // The Hub names a notification's app through AppStore; an Android app
+    // (waydroid.*) or a flatpak is in AppModel, not the Marathon registry.
+    void appStoreKnowsDesktopApps() {
+        MarathonAppRegistry registry;
+        registry.registerApp("notes", "Notes", "notes.svg", 0, "", "", "1", true, {});
+        AppModel model;
+        model.addApps({QVariantMap{{"id", "waydroid.org.fdroid.fdroid"},
+                                   {"name", "F-Droid"},
+                                   {"icon", "/icons/f-droid.png"},
+                                   {"type", "native"},
+                                   {"exec", "waydroid app launch org.fdroid.fdroid"}}});
+        AppStore store(&registry);
+        store.setAppModel(&model);
+        QCOMPARE(store.getAppName("notes"), QString("Notes"));
+        QCOMPARE(store.getAppName("waydroid.org.fdroid.fdroid"), QString("F-Droid"));
+        QCOMPARE(store.getAppIcon("waydroid.org.fdroid.fdroid"), QString("/icons/f-droid.png"));
+        QCOMPARE(store.getAppName("waydroid.com.android.deskclock"),
+                 QString("waydroid.com.android.deskclock"));
     }
 };
 

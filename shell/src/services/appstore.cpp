@@ -1,4 +1,5 @@
 #include "appstore.h"
+#include "appmodel.h"
 #include "marathonappregistry.h"
 
 AppStore::AppStore(MarathonAppRegistry *appRegistry, QObject *parent)
@@ -15,11 +16,19 @@ AppStore::AppStore(MarathonAppRegistry *appRegistry, QObject *parent)
     refreshApps();
 }
 
+void AppStore::setAppModel(AppModel *apps) {
+    m_appModel = apps;
+    // Names read through apps (the Hub's) look again as desktop apps load.
+    connect(apps, &AppModel::countChanged, this, &AppStore::appsChanged);
+}
+
 QVariantMap AppStore::getApp(const QString &appId) const {
-    if (!m_appRegistry) {
-        return {};
+    QVariantMap app = m_appRegistry ? m_appRegistry->getApp(appId) : QVariantMap();
+    if (app.isEmpty() && m_appModel) {
+        if (const App *a = m_appModel->getApp(appId))
+            app = {{"id", a->id()}, {"name", a->name()}, {"icon", a->icon()}};
     }
-    return m_appRegistry->getApp(appId);
+    return app;
 }
 
 QString AppStore::getAppName(const QString &appId) const {

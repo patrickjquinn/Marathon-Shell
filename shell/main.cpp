@@ -775,6 +775,7 @@ int main(int argc, char *argv[]) {
         &app);
 
     auto *appModel  = createObject<AppModel>(ctx, "AppModel", &app);
+    appStore->setAppModel(appModel);
     auto *taskModel = new TaskModel(&app);
     qmlRegisterSingletonInstance<TaskModel>("MarathonOS.Shell", 1, 0, "TaskModel", taskModel);
     auto *notificationModel = new NotificationModel(&app);

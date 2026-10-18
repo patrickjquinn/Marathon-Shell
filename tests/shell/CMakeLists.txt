@@ -110,9 +110,10 @@ endif()
 add_executable(test_shell_appmodel
     test_appmodel.cpp
     ../../shell/src/models/appmodel.cpp
+    ../../shell/src/services/appstore.cpp
     ../../marathon-core/src/marathonappregistry.cpp
 )
-target_link_libraries(test_shell_appmodel Qt6::Test Qt6::Core)
+target_link_libraries(test_shell_appmodel Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_appmodel PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/models
     ${CMAKE_SOURCE_DIR}/marathon-core/src

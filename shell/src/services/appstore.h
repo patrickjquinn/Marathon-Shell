@@ -1,10 +1,12 @@
 #pragma once
 
 #include <QObject>
+#include <QPointer>
 #include <QVariantList>
 #include <QString>
 #include <qqml.h>
 
+class AppModel;
 class MarathonAppRegistry;
 
 class AppStore : public QObject {
@@ -16,6 +18,8 @@ class AppStore : public QObject {
 
   public:
     explicit AppStore(MarathonAppRegistry *appRegistry, QObject *parent = nullptr);
+    // Desktop apps (flatpaks, Android apps) are looked up there after the registry.
+    void setAppModel(AppModel *apps);
 
     QVariantList apps() const {
         return m_apps;
@@ -33,5 +37,6 @@ class AppStore : public QObject {
     void                 refreshApps();
 
     MarathonAppRegistry *m_appRegistry;
+    QPointer<AppModel>   m_appModel;
     QVariantList         m_apps;
 };
