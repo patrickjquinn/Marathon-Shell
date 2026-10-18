@@ -135,6 +135,20 @@ class TestTaskModel : public QObject {
         QCOMPARE(model.taskCount(), 1);
     }
 
+    // === CONTRACT: Tasks launched in the same millisecond close apart ===
+
+    void sameMillisecondTasksCloseApart() {
+        TaskModel  model;
+        QSignalSpy launchSpy(&model, &TaskModel::taskLaunched);
+        model.launchTask("com.a", "A", "i", "native", 11);
+        model.launchTask("com.b", "B", "i", "native", 12);
+
+        QVERIFY(launchSpy.at(0).first() != launchSpy.at(1).first());
+        model.closeTask(launchSpy.at(0).first().toString());
+        QVERIFY(!model.getTaskByAppId("com.a"));
+        QVERIFY(model.getTaskByAppId("com.b"));
+    }
+
     // === CONTRACT: clear removes all tasks ===
 
     void clearAll() {

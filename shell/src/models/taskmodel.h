@@ -160,6 +160,7 @@ class TaskModel : public QAbstractListModel {
     QVector<Task *>        m_tasks;
     QHash<QString, Task *> m_taskIndex;
     QHash<QString, Task *> m_appIndex;
+    quint64                m_lastTaskId = 0;
 };
 
 #endif

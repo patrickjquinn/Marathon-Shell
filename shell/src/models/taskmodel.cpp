@@ -62,7 +62,7 @@ void TaskModel::launchTask(const QString &appId, const QString &appName, const Q
         return;
     }
 
-    QString taskId = "task_" + QString::number(QDateTime::currentMSecsSinceEpoch());
+    const QString taskId = QStringLiteral("task_") + QString::number(++m_lastTaskId);
 
     beginInsertRows(QModelIndex(), 0, 0);
     Task *task =
