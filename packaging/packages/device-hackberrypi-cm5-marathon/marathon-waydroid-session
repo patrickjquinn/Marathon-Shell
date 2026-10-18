@@ -1,8 +1,9 @@
 #!/bin/sh
 # Runs this user's Waydroid session and gives Android the host's time zone.
+# MARATHON_WAYDROID names another waydroid launcher (Deckard's).
 set -u
 
-waydroid session start &
+"${MARATHON_WAYDROID:-waydroid}" session start &
 session=$!
 
 booted=
