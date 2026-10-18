@@ -216,10 +216,6 @@ Rectangle {
             topPadding: Constants.statusBarHeight + Silica.Theme.paddingLarge
             spacing: Silica.Theme.paddingMedium
             bottomPadding: Silica.Theme.paddingLarge
-            // The weather and agenda arrive after the first layout; a header
-            // that grows must not push the date above the screen.
-            onHeightChanged: if (list.atTop)
-                Qt.callLater(() => list.contentY = list.originY)
 
             Silica.Label {
                 width: parent.width

@@ -42,14 +42,26 @@ TestCase {
         WeatherClient.forecast = {};
         WeatherClient.state = "";
         WeatherClient.calls = [];
+        card().gaveUp = false;
         NotificationModel.clear();
         sheet().open = false;
         sheet().choosing = false;
         card().expanded = false;
     }
 
-    function test_hiddenWithoutTheService() {
-        verify(!card().visible);
+    // A skeleton holds the place until the service answers; without one it
+    // goes after a few seconds.
+    function test_skeletonThenHiddenWithoutTheService() {
+        verify(card().visible);
+        verify(card().loading);
+        tryVerify(() => !card().visible, 7000);
+    }
+
+    function test_skeletonGivesWayToTheWeather() {
+        verify(card().loading);
+        WeatherClient.forecast = WeatherClient.sample();
+        verify(!card().loading);
+        verify(card().visible);
     }
 
     function test_asksForTheWeather() {
