@@ -1,0 +1,47 @@
+From 6026b7e5ec7c8e1d63a3e4da1d64977d0b95a989 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 18 Oct 2026 20:28:25 +0100
+Subject: [PATCH] fix(hackberrypi): Waydroid keeps its network and hides its
+ full-UI launcher
+
+Waydroid's LXC config mounts cgroup read-only, so Android's init can't
+create a process group for each app ("createProcessGroup ... Read-only
+file system" for every service). When system_server dies, Android then
+can't kill the old app processes. The stale NetworkStack keeps running
+and the new one never provisions eth0, which leaves no default route.
+On the HackberryPi, killing system_server lost the route every time
+with cgroup:ro. With cgroup:rw, Android builds uid_*/pid_* groups under
+lxc.payload.waydroid, the stale processes go away, and the route comes
+back. Four session restarts in a row all had a route.
+
+Waydroid.desktop only opens Waydroid's full UI, which closes every
+per-app window in multi-window mode, so it gets NoDisplay=true. The
+Android apps have their own entries.
+---
+ mkosi.images/base/mkosi.postinst | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 36b16a4..896ae3e 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -592,3 +592,16 @@ EOF
+ 
+ ln -sf ../marathon-flathub-setup.service \
+     "$BUILDROOT/usr/lib/systemd/system/multi-user.target.wants/marathon-flathub-setup.service"
++
++# Waydroid (HackberryPi image, Deckard M0).
++WAYDROID_LXC="$BUILDROOT/usr/lib/waydroid/data/configs/config_base"
++if [ -f "$WAYDROID_LXC" ]; then
++    # Android kills apps by process group; read-only cgroups leave them running.
++    sed -i 's/^lxc.mount.auto = cgroup:ro /lxc.mount.auto = cgroup:rw /' "$WAYDROID_LXC"
++    grep -q '^lxc.mount.auto = cgroup:rw ' "$WAYDROID_LXC"
++fi
++WAYDROID_DESKTOP="$BUILDROOT/usr/share/applications/Waydroid.desktop"
++if [ -f "$WAYDROID_DESKTOP" ]; then
++    # Full UI closes every per-app window; Android apps have their own entries.
++    sed -i '/^\[Desktop Entry\]$/a NoDisplay=true' "$WAYDROID_DESKTOP"
++fi
+-- 
+2.55.0
+
