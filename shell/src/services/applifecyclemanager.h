@@ -133,7 +133,7 @@ class AppLifecycleManager : public QObject {
     void                              setAppFrozen(const QString &appId, bool frozen);
     void                              writeOomScoreAdj(const QString &appId, LifecycleState state);
     // Android's apps share Waydroid's container, frozen as one.
-    bool                              androidIdle();
+    bool                              androidMayFreeze() const;
     void                              updateAndroidFreeze();
     void                              setAndroidFrozen(bool frozen);
     static int                        oomScoreForState(LifecycleState state);
@@ -153,7 +153,13 @@ class AppLifecycleManager : public QObject {
     int                               m_idleFreezeDebounceMs = 10000;
     bool                              m_stopping             = false;
     bool                              m_dozing               = false;
-    bool                              m_androidSeen          = false;
+    // An Android app has been in front since the session started.
+    bool                              m_androidUsed          = false;
     bool                              m_androidFrozen        = false;
+    int                               m_androidMinFreezeDelayMs = 10000;
     QTimer                            m_androidFreezeTimer;
+    // An Android launch is on its way to its window.
+    QTimer                            m_androidLaunchTimer;
+
+    friend class TestAndroidFreeze;
 };
