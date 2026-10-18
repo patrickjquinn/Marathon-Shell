@@ -70,8 +70,8 @@ Rectangle {
 
     onVisibleChanged: {
         if (visible) {
-            // Rows that arrived while it was closed pushed the date away.
             list.contentY = list.originY;
+            list.atTop = true;
             refreshAgenda();
             WeatherClient.refresh();
         } else {
@@ -93,6 +93,13 @@ Rectangle {
             Qt.callLater(hub.refreshSources);
         }
         function onModelReset() {
+            Qt.callLater(hub.refreshSources);
+        }
+    }
+
+    Connections {
+        target: AppStore
+        function onAppsChanged() {
             Qt.callLater(hub.refreshSources);
         }
         function onDataChanged() {
@@ -149,6 +156,13 @@ Rectangle {
         // intermediate that Qt complains about. Clamp to 0.
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
+
+        // At the top, a new row slides in under the date instead of
+        // pushing it out of view.
+        property bool atTop: true
+        onMovementEnded: atTop = atYBeginning
+        onCountChanged: if (atTop)
+            Qt.callLater(() => list.contentY = list.originY)
 
         add: Transition {
             NumberAnimation {
@@ -325,10 +339,8 @@ Rectangle {
             // People get their monogram; anything else its app, as BB10
             // marked each row with its service.
             readonly property bool fromPerson: ["messages", "phone", "call", "email", "mail"].indexOf(appKey) >= 0
-            readonly property string appIcon: {
-                void AppStore.apps; // read again once the registry has loaded
-                return fromPerson ? "" : AppStore.getAppIcon(appKey);
-            }
+            // AppStore.apps: look again once the registry has loaded.
+            readonly property string appIcon: fromPerson || AppStore.apps.length === 0 ? "" : AppStore.getAppIcon(appKey)
 
             unread: !isRead
             avatarText: appIcon ? "" : hub.monogramFor(title, appKey)
@@ -399,6 +411,9 @@ Rectangle {
     // app_name, with a leading lower-case letter capitalised.
     function accountFor(rawAppId) {
         const raw = String(rawAppId || "");
+        // Read again once the registry has loaded.
+        if (AppStore.apps.length === 0)
+            return raw.charAt(0).toUpperCase() + raw.slice(1);
         const name = AppStore.getAppName(raw);
         if (name !== raw)
             return name;

@@ -141,11 +141,11 @@ TestCase {
     }
 
     function test_accountIsTheSendersAppName() {
-        AppStore.names = { "messages": "Messages" };
-        addNotification(1, "messages");
+        AppStore.names = { "email": "Mail" };
+        addNotification(1, "email");
         addNotification(2, "signal");
         tryVerify(() => row(1));
-        compare(row(0).account, "Messages");
+        compare(row(0).account, "Mail");
         compare(row(1).account, "Signal");
     }
 
