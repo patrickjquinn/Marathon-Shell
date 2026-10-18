@@ -854,6 +854,14 @@ QObject *WaylandCompositor::getSurfaceById(int surfaceId) {
 
 namespace {
 
+    // Waydroid sizes its windows itself (persist.waydroid.width/height) and
+    // re-plugs Android's display on every sized configure; a 0x0 one it
+    // takes as "the compositor defers", so its windows only get those.
+    bool sizesItself(const QWaylandXdgToplevel *toplevel) {
+        const QString appId = toplevel->appId();
+        return appId == QLatin1String("Waydroid") || appId.startsWith(QLatin1String("waydroid."));
+    }
+
     // On screen: one of its views is shown, or drawn by a shown WindowTextureItem.
     bool surfaceShown(const QWaylandSurface *surface) {
         const QList<QWaylandView *> views = surface->views();
@@ -1053,7 +1061,8 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
     if (surface->property("foreignClient").toBool())
         return;
     QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
-    if (!xdg || !xdg->toplevel() || ToplevelConfigure::repeat(xdg->toplevel()))
+    if (!xdg || !xdg->toplevel() || sizesItself(xdg->toplevel()) ||
+        ToplevelConfigure::repeat(xdg->toplevel()))
         return;
     QWaylandXdgToplevel *top  = xdg->toplevel();
     const QSize          size = surface->destinationSize();
@@ -1070,7 +1079,7 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
 
 void WaylandCompositor::resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size) {
     if (toplevel)
-        ToplevelConfigure::resize(toplevel, size);
+        ToplevelConfigure::resize(toplevel, sizesItself(toplevel) ? QSize(0, 0) : size);
 }
 
 bool WaylandCompositor::configureSettled(int surfaceId) const {
@@ -1271,8 +1280,9 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
         MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface);
         if (marathon)
             marathon->sendInsets(QMargins(), 0);
-        const QSize initialSize = appConfigureSize(surface);
-        if (initialSize.width() > 0 && initialSize.height() > 0) {
+        const bool  ownSize     = sizesItself(toplevel);
+        const QSize initialSize = ownSize ? QSize(0, 0) : appConfigureSize(surface);
+        if (ownSize || (initialSize.width() > 0 && initialSize.height() > 0)) {
             QList<QWaylandXdgToplevel::State> states{QWaylandXdgToplevel::MaximizedState};
             if ((!marathon || marathon->focusable()) &&
                 !surface->property("mappedInBackground").toBool())
