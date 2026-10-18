@@ -1,6 +1,5 @@
 import QtQuick
 import Sailfish.Silica 1.0
-import Marathon.Silica 1.0
 
 // Now playing: the artwork, the track and how far through it is.
 CoverBackground {

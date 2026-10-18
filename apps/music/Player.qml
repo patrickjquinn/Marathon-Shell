@@ -6,7 +6,7 @@ import "Queue.js" as Queue
 QtObject {
     id: player
 
-    property QtObject media: MediaPlayer {
+    property var media: MediaPlayer {
         audioOutput: AudioOutput {}
     }
     property var queue: []

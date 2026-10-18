@@ -3,7 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
-import MarathonOS.Shell
+// The runner registers MusicLibraryManager in MarathonOS.Shell at runtime.
+import MarathonOS.Shell // qmllint disable unused-imports
 import Marathon.Platform 1.0
 import MarathonApp.Music 1.0 as Native
 import Nemo.Configuration 1.0
@@ -16,14 +17,14 @@ ApplicationWindow {
     id: app
 
     // MusicLibraryManager is registered only for apps granted storage.
-    property QtObject library: typeof MusicLibraryManager !== "undefined" ? MusicLibraryManager : null
+    property var library: typeof MusicLibraryManager !== "undefined" ? MusicLibraryManager : null
     property var tracks: []
     property bool loaded: library === null
     readonly property bool scanning: library !== null && library.isScanning
     readonly property int artistCount: Library.artists(tracks).length
     readonly property int albumCount: Library.albums(tracks).length
 
-    property QtObject playlistStore: ConfigurationValue {
+    property var playlistStore: ConfigurationValue {
         key: "/apps/music/playlists"
         defaultValue: "[]"
     }
@@ -32,7 +33,7 @@ ApplicationWindow {
         playlistStore.value = JSON.stringify(next);
     }
 
-    property QtObject sessionStore: ConfigurationValue {
+    property var sessionStore: ConfigurationValue {
         key: "/apps/music/session"
         defaultValue: ""
     }
@@ -134,7 +135,7 @@ ApplicationWindow {
     Connections {
         target: Qt.application
         function onStateChanged() {
-            if (Qt.application.state !== Qt.ApplicationActive)
+            if (Application.state !== Qt.ApplicationActive)
                 app.saveSession();
         }
     }
