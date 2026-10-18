@@ -1,4 +1,5 @@
 #include "freedesktopnotifications.h"
+#include "appmodel.h"
 #include "nemoremoteaction.h"
 #include "marathonappregistry.h"
 #include "notificationmodel.h"
@@ -121,6 +122,10 @@ bool FreedesktopNotifications::registerService() {
 
 void FreedesktopNotifications::setAppRegistry(MarathonAppRegistry *registry) {
     m_registry = registry;
+}
+
+void FreedesktopNotifications::setAppModel(AppModel *apps) {
+    m_apps = apps;
 }
 
 void FreedesktopNotifications::activate(uint id, const QString &action) {
@@ -325,16 +330,18 @@ QString FreedesktopNotifications::extractAppName(const QString     &provided,
     if (!installed.isEmpty())
         return installed;
 
-    if (hints.contains("desktop-entry")) {
-        QString desktopEntry = hints.value("desktop-entry").toString();
-        if (!desktopEntry.isEmpty()) {
-            return desktopEntry;
-        }
-    }
+    QString desktopEntry = hints.value(QStringLiteral("desktop-entry")).toString();
+    if (desktopEntry.endsWith(QLatin1String(".desktop")))
+        desktopEntry.chop(int(qstrlen(".desktop")));
+    if (!desktopEntry.isEmpty() && m_apps && m_apps->getApp(desktopEntry))
+        return desktopEntry;
 
-    if (!provided.isEmpty()) {
+    // An entry no app lists ("waydroid.com.android.deskclock") says less
+    // than the name the sender gave.
+    if (!provided.isEmpty())
         return provided;
-    }
+    if (!desktopEntry.isEmpty())
+        return desktopEntry;
 
     if (calledFromDBus()) {
         return message().service();

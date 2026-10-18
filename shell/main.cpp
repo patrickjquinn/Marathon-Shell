@@ -1149,6 +1149,7 @@ int main(int argc, char *argv[]) {
         freedesktopNotif = createObject<FreedesktopNotifications>(
             ctx, "FreedesktopNotifications", notifDb, notificationModel, powerManager, &app);
         freedesktopNotif->setAppRegistry(appRegistry);
+        freedesktopNotif->setAppModel(appModel);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
         }

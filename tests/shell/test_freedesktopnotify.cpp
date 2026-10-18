@@ -4,6 +4,7 @@
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include "freedesktopnotifications.h"
+#include "appmodel.h"
 #include "marathonappregistry.h"
 #include "notificationdatabase.h"
 #include "notificationmodel.h"
@@ -76,6 +77,37 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(appOf(0).toString(), QString("messages"));
         QCOMPARE(appOf(1).toString(), QString("org.gnome.Maps"));
         QCOMPARE(appOf(2).toString(), QString("Thunderbird"));
+    }
+
+    // Waydroid sends desktop-entry waydroid.<package> and the Android app's
+    // label as app_name; Android's own apps have no shown desktop entry.
+    void androidNotificationsNameTheirApp() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        AppModel                 apps;
+        apps.addApps({QVariantMap{{"id", "waydroid.org.fdroid.fdroid"},
+                                  {"name", "F-Droid"},
+                                  {"icon", "f-droid.png"},
+                                  {"type", "native"},
+                                  {"exec", "waydroid app launch org.fdroid.fdroid"}}});
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        fdn.setAppModel(&apps);
+        QSignalSpy added(&model, &NotificationModel::notificationAdded);
+        const auto appOf = [&](int i) {
+            return model.getNotification(added.at(i).first().toInt())->toMap().value("appId");
+        };
+        fdn.Notify("F-Droid", 0, "", "Updates", "", {},
+                   {{"desktop-entry", QStringLiteral("waydroid.org.fdroid.fdroid")}}, -1);
+        fdn.Notify("Clock", 0, "", "Alarm", "", {},
+                   {{"desktop-entry", QStringLiteral("waydroid.com.android.deskclock")}}, -1);
+        fdn.Notify("", 0, "", "Alarm", "", {},
+                   {{"desktop-entry", QStringLiteral("waydroid.com.android.deskclock")}}, -1);
+
+        QCOMPARE(added.count(), 3);
+        QCOMPARE(appOf(0).toString(), QString("waydroid.org.fdroid.fdroid"));
+        QCOMPARE(appOf(1).toString(), QString("Clock"));
+        QCOMPARE(appOf(2).toString(), QString("waydroid.com.android.deskclock"));
     }
 
     void replyEmitsNotificationReplied() {

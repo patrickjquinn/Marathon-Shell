@@ -268,6 +268,7 @@ add_executable(test_shell_freedesktopnotify
     ../../shell/src/dbus/notificationdatabase.cpp
     ../../shell/src/models/notificationmodel.cpp
     ../../shell/src/services/notificationtarget.cpp
+    ../../shell/src/models/appmodel.cpp
     ../../marathon-core/src/marathonappregistry.cpp
 )
 target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
