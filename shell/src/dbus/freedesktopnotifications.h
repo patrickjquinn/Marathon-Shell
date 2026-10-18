@@ -55,6 +55,11 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
 
     void NotificationReplied(uint id, const QString &text);
 
+    // A transient notification, shown as a banner but not kept.
+    void bannerRequested(const QVariantMap &notification);
+    // An app's toast (x-marathon-toast), shown at the bottom.
+    void toastRequested(const QVariantMap &notification);
+
   public slots:
     void InvokeReply(uint id, const QString &text);
 
@@ -64,6 +69,8 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
     PowerManagerCpp      *m_powerManager;
     QPointer<MarathonAppRegistry> m_registry;
     QPointer<AppModel>            m_apps;
+    // Transient notifications have ids no database row will reach.
+    uint                          m_nextTransientId = 1u << 31;
 
     // The bus name that posted each ongoing notification.
     QHash<uint, QString>  m_senders;

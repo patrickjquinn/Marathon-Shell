@@ -308,6 +308,7 @@ set(QML_FILES
     qml/components/AppContextMenu.qml
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
+    qml/components/AppToast.qml
     qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
     qml/components/MarathonCellBroadcastOverlay.qml

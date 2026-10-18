@@ -110,6 +110,45 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(appOf(2).toString(), QString("waydroid.com.android.deskclock"));
     }
 
+    static bool stored(NotificationDatabase &db, uint id) {
+        const QList<NotificationDatabase::NotificationRecord> records = db.getNotifications();
+        for (const auto &r : records)
+            if (r.id == id)
+                return true;
+        return false;
+    }
+
+    // Transient (spec): shown, then gone; no Hub row, no record, no sound.
+    // Deckard's Android toasts add x-marathon-toast for the bottom toast.
+    void transientIsBannerOnly() {
+        NotificationDatabase db;
+        db.initialize();
+        NotificationModel        model;
+        FreedesktopNotifications fdn(&db, &model, nullptr);
+        QSignalSpy               added(&model, &NotificationModel::notificationAdded);
+        QSignalSpy               banners(&fdn, &FreedesktopNotifications::bannerRequested);
+        QSignalSpy               toasts(&fdn, &FreedesktopNotifications::toastRequested);
+        QSignalSpy               closed(&fdn, &FreedesktopNotifications::NotificationClosed);
+
+        const uint banner = fdn.Notify("chat", 0, "", "Ada", "Hi", {}, {{"transient", true}}, 50);
+        const uint toast  = fdn.Notify("Clock", 0, "alarm", "Alarm set for 7:00", "", {},
+                                       {{"transient", true}, {"x-marathon-toast", true}}, 50);
+
+        QVERIFY(banner > 0);
+        QVERIFY(toast > 0 && toast != banner);
+        QCOMPARE(added.count(), 0);
+        QVERIFY(!stored(db, banner));
+        QVERIFY(!stored(db, toast));
+        QCOMPARE(banners.count(), 1);
+        QCOMPARE(banners.first().first().toMap().value("id").toUInt(), banner);
+        QCOMPARE(banners.first().first().toMap().value("title").toString(), QString("Ada"));
+        QCOMPARE(toasts.count(), 1);
+        QCOMPARE(toasts.first().first().toMap().value("title").toString(),
+                 QString("Alarm set for 7:00"));
+        QTRY_COMPARE(closed.count(), 2);
+        QCOMPARE(closed.at(0).at(1).toUInt(), 1u);
+    }
+
     void replyEmitsNotificationReplied() {
         NotificationDatabase db;
         db.initialize();
@@ -124,14 +163,6 @@ class TestFreedesktopNotify : public QObject {
         QCOMPARE(replied.first().at(0).toUInt(), 7u);
         QCOMPARE(replied.first().at(1).toString(), QString("On my way"));
         QCOMPARE(invoked.count(), 0);
-    }
-
-    static bool stored(NotificationDatabase &db, uint id) {
-        const QList<NotificationDatabase::NotificationRecord> records = db.getNotifications();
-        for (const auto &r : records)
-            if (r.id == id)
-                return true;
-        return false;
     }
 
     void userDismissIsPersistedAndSignalled() {

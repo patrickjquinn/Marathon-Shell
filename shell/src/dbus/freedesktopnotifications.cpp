@@ -180,6 +180,28 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
 
     qInfo() << "[FreedesktopNotifications] Notify from:" << appId << "title:" << summary;
 
+    // Transient (the spec's hint): shown, then gone, with no record, Hub row
+    // or sound. x-marathon-toast (Deckard's Android toasts) is a bottom toast.
+    const bool toast = hints.value(QStringLiteral("x-marathon-toast")).toBool();
+    if (toast || hints.value(QStringLiteral("transient")).toBool()) {
+        QVariantMap metadata = hints;
+        const uint  id       = m_nextTransientId++;
+        const QVariantMap shown{{"id", id},
+                                {"appId", appId},
+                                {"title", summary},
+                                {"body", body},
+                                {"icon", notificationIcon(app_icon, metadata)},
+                                {"actions", actionList},
+                                {"actionIcons", hints.value(QStringLiteral("action-icons")).toBool()}};
+        if (toast)
+            emit toastRequested(shown);
+        else
+            emit bannerRequested(shown);
+        QTimer::singleShot(expire_timeout > 0 ? expire_timeout : 5000, this,
+                           [this, id]() { emit NotificationClosed(id, 1); });
+        return id;
+    }
+
     if (replaces_id > 0) {
         m_database->dismiss(replaces_id);
         if (m_model) {

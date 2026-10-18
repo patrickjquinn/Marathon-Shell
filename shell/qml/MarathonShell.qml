@@ -2179,6 +2179,18 @@ Item {
         id: errorToast
     }
 
+    AppToast {
+        id: appToast
+    }
+
+    Connections {
+        function onToastRequested(notification) {
+            appToast.show(notification);
+        }
+
+        target: FreedesktopNotifications
+    }
+
     Comp.PermissionDialog {
         id: permissionDialog
 

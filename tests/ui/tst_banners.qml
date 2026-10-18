@@ -37,6 +37,10 @@ TestCase {
         ConnectionToast {
             id: connectionToast
         }
+
+        AppToast {
+            id: appToast
+        }
     }
 
     readonly property real bannerY: Constants.statusBarHeight + 20
@@ -53,6 +57,7 @@ TestCase {
         tryVerify(() => !notificationToast.currentToast);
         errorToast.hide();
         connectionToast.hide();
+        appToast.hide();
         wait(50);
     }
 
@@ -283,6 +288,51 @@ TestCase {
         swipeUp(40, bannerY);
         verify(!errorToast.shown);
         compare(underneath.taps, 0);
+    }
+
+    function androidToast(text) {
+        return {
+            "id": 2147483649,
+            "appId": "waydroid.org.example",
+            "title": text,
+            "body": "",
+            "icon": "bell"
+        };
+    }
+
+    // An app's toast sits at the bottom, lets taps through, and goes by
+    // itself or with a swipe down.
+    function test_appToastAtTheBottom() {
+        appToast.show(androidToast("Copied to clipboard"));
+        wait(50);
+        verify(appToast.shown);
+        const toast = findChild(appToast, "appToast");
+        verify(toast.y > win.height / 2);
+        compare(findChild(appToast, "appToastText").text, "Copied to clipboard");
+        mouseClick(win.contentItem, win.width / 2, win.height / 3);
+        compare(underneath.taps, 1);
+        tryVerify(() => !appToast.shown, 5000);
+    }
+
+    function test_appToastSwipesDown() {
+        appToast.show(androidToast("Saved"));
+        wait(50);
+        const toast = findChild(appToast, "appToast");
+        const x = win.width / 2;
+        const y = toast.y + toast.height / 2;
+        mousePress(win.contentItem, x, y);
+        for (let i = 1; i <= 8; i++)
+            mouseMove(win.contentItem, x, y + i * 15);
+        mouseRelease(win.contentItem, x, y + 120);
+        verify(!appToast.shown);
+        compare(NotificationService.clicked, []);
+    }
+
+    // A second toast replaces the first rather than queueing behind it.
+    function test_appToastReplacesTheLast() {
+        appToast.show(androidToast("One"));
+        appToast.show(androidToast("Two"));
+        compare(findChild(appToast, "appToastText").text, "Two");
     }
 
     function test_connectionToastSwipesUp() {
