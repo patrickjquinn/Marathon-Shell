@@ -211,8 +211,8 @@ class EncryptedDataTest(HookCase):
         rc, calls = self.run_hook(DATA_HOOK, STUB_LUKS="1", STUB_PIN="123456")
         self.assertEqual(rc, 0, calls)
         self.assertEqual(self.asks(calls), [
-            f"plymouth ask-for-password --prompt=Enter PIN --command={self.open}",
-            f"plymouth ask-for-password --prompt=Wrong PIN. Try again --command={self.open}",
+            f"plymouth ask-for-password --prompt=Enter PIN --number-of-tries=1 --command={self.open}",
+            f"plymouth ask-for-password --prompt=Wrong PIN. Try again --number-of-tries=1 --command={self.open}",
         ])
         self.assertIn(f"mount -t ext4 -o rw,noatime {self.mapper} {self.data}", calls)
 

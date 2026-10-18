@@ -26,7 +26,7 @@ unlock() {
 	prompt="Enter PIN"
 	while :; do
 		if plymouth --ping 2> /dev/null; then
-			plymouth ask-for-password --prompt="$prompt" --command="$open" && return 0
+			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && return 0
 		elif command -v unl0kr > /dev/null; then
 			unl0kr | $open && return 0
 		else
