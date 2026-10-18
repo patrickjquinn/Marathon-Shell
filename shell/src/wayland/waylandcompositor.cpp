@@ -9,6 +9,7 @@
 #include "src/wayland/wldrm.h"
 #include "src/wayland/nativeclientscale.h"
 #include "src/wayland/securitycontextv1.h"
+#include "src/wayland/xdgactivationv1.h"
 #include "src/components/windowtextureitem.h"
 #include "src/managers/deviceprofile.h"
 #include "src/services/processtree.h"
@@ -162,6 +163,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // names /dev/dri/renderD128 + advertises PRIME so Mesa renders on etnaviv
     // while buffers still import through Qt's v3 dmabuf. See wldrm.h.
     m_wlDrmManager = new WlDrmManager(this);
+
+    m_xdgActivation = new XdgActivationV1(this);
+    connect(m_xdgActivation, &XdgActivationV1::activated, this,
+            &WaylandCompositor::handleActivation);
 
     m_nativeClientScale = new NativeClientScale(this);
     connect(m_nativeClientScale, &NativeClientScale::scaleChanged, this,
@@ -444,6 +449,9 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     for (auto it = extraEnv.constBegin(); it != extraEnv.constEnd(); ++it) {
         env.insert(it.key(), it.value().toString());
     }
+    const QString activationToken = m_xdgActivation->issueToken(process);
+    env.insert("XDG_ACTIVATION_TOKEN", activationToken);
+    env.insert("DESKTOP_STARTUP_ID", activationToken);
     QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
 
     if (runtimeDir.isEmpty()) {
@@ -1189,6 +1197,10 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
     }
 
     emit surfaceCreated(surface, surfaceId, xdgSurface);
+    surface->setProperty("toplevelMapped", true);
+    const QVariant pendingActivation = surface->property("pendingActivationPid");
+    if (pendingActivation.isValid())
+        emit surfaceActivated(surface, surfaceId, xdgSurface, pendingActivation.toLongLong());
 
     // The shell-surface item answers these with the output size in its own
     // units; a native-scale client is put back at its app-area size.
@@ -1288,6 +1300,18 @@ void WaylandCompositor::adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSur
         });
     });
     file();
+}
+
+// An activation that arrives before the toplevel maps is held until it does.
+void WaylandCompositor::handleActivation(QWaylandSurface *surface, QObject *launch) {
+    const auto  *process   = qobject_cast<const QProcess *>(launch);
+    const qint64 launchPid = process && process->processId() > 0 ? process->processId() : -1;
+    if (!surface->property("toplevelMapped").toBool()) {
+        surface->setProperty("pendingActivationPid", launchPid);
+        return;
+    }
+    emit surfaceActivated(surface, surface->property("surfaceId").toInt(),
+                          surface->property("xdgSurface").value<QWaylandXdgSurface *>(), launchPid);
 }
 
 QWaylandSurface *WaylandCompositor::coverSurface(const QString &appId) const {
@@ -2014,6 +2038,9 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
             type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             emit userActivity();
         }
+        if (type == QEvent::TouchBegin || type == QEvent::MouseButtonPress ||
+            type == QEvent::KeyPress)
+            m_xdgActivation->noteUserInput();
 
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto *keyEvent = static_cast<QKeyEvent *>(event);

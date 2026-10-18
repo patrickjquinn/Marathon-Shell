@@ -31,6 +31,7 @@ class CommitTimingManagerV1;
 class LinuxDmabufManagerV1;
 class WlDrmManager;
 class NativeClientScale;
+class XdgActivationV1;
 struct wl_client;
 
 class MarathonAppRegistry;
@@ -140,6 +141,10 @@ class WaylandCompositor : public QWaylandCompositor {
     void nativeTextInputPanelRequested(bool show);
     void textInputHintsChanged();
     void hasIdleInhibitingSurfaceChanged();
+    // An honoured xdg-activation request for a mapped toplevel. launchPid is
+    // the process the shell launched with the token, or -1.
+    void surfaceActivated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface,
+                          qint64 launchPid);
 
   protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -159,6 +164,7 @@ class WaylandCompositor : public QWaylandCompositor {
     void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    configureCover(QWaylandXdgToplevel *toplevel) const;
     void    mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void    handleActivation(QWaylandSurface *surface, QObject *launch);
 
   private slots:
     void handleSurfaceCreated(QWaylandSurface *surface);
@@ -204,6 +210,7 @@ class WaylandCompositor : public QWaylandCompositor {
     LinuxDmabufManagerV1                   *m_linuxDmabufManager       = nullptr;
     WlDrmManager                           *m_wlDrmManager             = nullptr;
     NativeClientScale                      *m_nativeClientScale        = nullptr;
+    XdgActivationV1                        *m_xdgActivation            = nullptr;
     QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
     QWaylandQuickOutput                    *m_output                   = nullptr;
     QQuickWindow                           *m_window                   = nullptr;

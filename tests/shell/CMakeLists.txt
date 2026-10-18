@@ -694,6 +694,38 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
         ${CMAKE_SOURCE_DIR}/shell/src/wayland ${_security_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
     add_test(NAME Shell_SecurityContext COMMAND test_shell_securitycontext)
     set_tests_properties(Shell_SecurityContext PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # Server and client headers plus marshalling code for a protocol XML,
+    # appended to the list named by OUT.
+    function(marathon_test_protocol XML STEM OUT)
+        set(_gen ${CMAKE_CURRENT_BINARY_DIR}/protocols)
+        file(MAKE_DIRECTORY ${_gen})
+        add_custom_command(
+            OUTPUT ${_gen}/${STEM}-server.h ${_gen}/${STEM}-client.h ${_gen}/${STEM}.c
+            COMMAND ${WAYLAND_SCANNER} server-header ${XML} ${_gen}/${STEM}-server.h
+            COMMAND ${WAYLAND_SCANNER} client-header ${XML} ${_gen}/${STEM}-client.h
+            COMMAND ${WAYLAND_SCANNER} private-code ${XML} ${_gen}/${STEM}.c
+            DEPENDS ${XML})
+        set(${OUT} ${${OUT}} ${_gen}/${STEM}-server.h ${_gen}/${STEM}-client.h ${_gen}/${STEM}.c
+            PARENT_SCOPE)
+    endfunction()
+
+    # xdg-activation-v1: launch tokens, and the focus rule for client tokens
+    set(_activation_protocol)
+    marathon_test_protocol(${CMAKE_SOURCE_DIR}/shell/protocols/xdg-activation-v1.xml
+        xdg-activation-v1 _activation_protocol)
+    add_executable(test_shell_xdgactivation
+        test_xdgactivation.cpp
+        ../../shell/src/wayland/xdgactivationv1.cpp
+        ${_activation_protocol}
+    )
+    target_link_libraries(test_shell_xdgactivation
+        Qt6::Test Qt6::Gui Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_xdgactivation PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src/wayland ${CMAKE_CURRENT_BINARY_DIR}/protocols
+        ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    add_test(NAME Shell_XdgActivation COMMAND test_shell_xdgactivation)
+    set_tests_properties(Shell_XdgActivation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 # The keyboard's replacements reach a text-input-v3 client as byte deletions
