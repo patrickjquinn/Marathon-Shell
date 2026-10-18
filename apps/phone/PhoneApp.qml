@@ -60,7 +60,7 @@ ApplicationWindow {
         if (number.length === 0)
             return;
         dialedNumber = number;
-        const page = pageStack.currentPage;
+        const page = pageStack.currentPage as MainPage;
         if (page && page.tabs)
             page.tabs.moveTo(0);
     }

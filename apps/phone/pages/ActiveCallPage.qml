@@ -35,7 +35,7 @@ Page {
         interval: 1000
         repeat: true
         triggeredOnStart: true
-        running: root.status === PageStatus.Active && root.connected && Qt.application.state === Qt.ApplicationActive
+        running: root.status === PageStatus.Active && root.connected && Application.state === Qt.ApplicationActive
         onTriggered: root.now = Date.now()
     }
 
