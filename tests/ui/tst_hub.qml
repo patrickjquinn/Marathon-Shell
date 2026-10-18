@@ -2,9 +2,12 @@ import QtQuick
 import QtQuick.Window
 import QtTest
 import MarathonOS.Shell
+import Sailfish.Silica 1.0 as Silica
 import "../../shell/qml/components"
 
 TestCase {
+    id: tc
+
     name: "Hub"
     when: windowShown
 
@@ -207,6 +210,43 @@ TestCase {
         compare(NotificationService.clicked, []);
         mouseClick(row(0), row(0).width / 2, 10);
         compare(NotificationService.clicked, [5]);
+    }
+
+    // An inline-reply sender's row offers Reply, as its banner does.
+    function test_rowRepliesInline() {
+        addNotification(12, "messages");
+        tryVerify(() => row(0));
+        row(0).actions = [{
+                "key": "inline-reply",
+                "label": "Reply"
+            }, {
+                "key": "mark-read",
+                "label": "Mark read"
+            }];
+        const actions = findChild(row(0), "hubRowActions");
+        compare(actions.buttons.map(b => b.key), ["inline-reply", "mark-read"]);
+        const replied = createTemporaryObject(spyComponent, tc, { target: row(0), signalName: "replied" });
+        waitForPolish(actions);
+        mouseClick(findChild(actions, "notificationAction-inline-reply"));
+        const field = findChild(row(0), "hubRowReplyField");
+        tryVerify(() => field.visible);
+        verify(!actions.visible);
+        field.text = "On my way";
+        const send = findChild(row(0), "hubRowReplySend");
+        tryVerify(() => send.enabled && send.width > 0 && send.height > 0);
+        waitForPolish(send.parent);
+        mouseClick(send);
+        compare(replied.count, 1);
+        compare(replied.signalArguments[0][0], "On my way");
+        verify(!field.visible);
+        compare(NotificationService.triggered, []);
+        compare(NotificationService.clicked, []);
+    }
+
+    Component {
+        id: spyComponent
+
+        SignalSpy {}
     }
 
     function addProgress(id, progress) {

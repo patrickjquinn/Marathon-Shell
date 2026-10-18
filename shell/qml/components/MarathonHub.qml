@@ -367,6 +367,7 @@ Rectangle {
             onActivated: hub.openNotification(model.id, appId)
             onDismissed: NotificationService.dismissNotification(model.id)
             onActionInvoked: key => NotificationService.triggerAction(model.id, key)
+            onReplied: text => FreedesktopNotifications.InvokeReply(model.id, text)
         }
     }
 

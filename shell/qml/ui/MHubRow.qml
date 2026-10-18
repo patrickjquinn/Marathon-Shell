@@ -18,6 +18,9 @@ Item {
     property bool glyphReplacesMonogram: true
     property var actions: []
     property bool actionIcons: false
+    // Only a sender that advertised inline-reply can receive the text.
+    readonly property bool canReply: Array.isArray(actions) && actions.some(a => a && (a.key === "inline-reply" || a.id === "inline-reply"))
+    property bool replying: false
     property string name: ""
     property string time: ""
     property string account: ""
@@ -31,6 +34,7 @@ Item {
 
     signal activated
     signal actionInvoked(string key)
+    signal replied(string text)
     signal dismissed
 
     function reset() {
@@ -38,6 +42,17 @@ Item {
         snapBack.stop();
         content.x = 0;
         collapse = 1;
+        replying = false;
+        replyField.text = "";
+    }
+
+    function sendReply() {
+        const text = replyField.text.trim();
+        if (text.length === 0)
+            return;
+        replying = false;
+        replyField.text = "";
+        replied(text);
     }
 
     implicitHeight: fullHeight * collapse
@@ -254,7 +269,48 @@ Item {
                 availableWidth: parent.width + Silica.Theme.paddingLarge
                 actions: row.actions
                 useIcons: row.actionIcons
-                onInvoked: key => row.actionInvoked(key)
+                reply: row.canReply
+                visible: buttons.length > 0 && !row.replying
+                onInvoked: key => {
+                    if (key !== "inline-reply") {
+                        row.actionInvoked(key);
+                        return;
+                    }
+                    row.replying = true;
+                    replyField.forceActiveFocus();
+                }
+            }
+
+            Row {
+                width: parent.width
+                spacing: Silica.Theme.paddingSmall
+                visible: row.replying
+
+                Silica.TextField {
+                    id: replyField
+
+                    objectName: "hubRowReplyField"
+                    width: parent.width - sendButton.width - parent.spacing
+                    placeholderText: qsTr("Reply")
+                    labelVisible: false
+                    textLeftMargin: 0
+                    Keys.onReturnPressed: row.sendReply()
+                    Keys.onEscapePressed: {
+                        row.replying = false;
+                        text = "";
+                    }
+                }
+
+                Silica.Button {
+                    id: sendButton
+
+                    objectName: "hubRowReplySend"
+                    anchors.verticalCenter: replyField.verticalCenter
+                    text: qsTr("Send")
+                    preferredWidth: Silica.Theme.buttonWidthExtraSmall
+                    enabled: replyField.text.trim().length > 0
+                    onClicked: row.sendReply()
+                }
             }
         }
     }
