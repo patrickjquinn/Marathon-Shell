@@ -32,10 +32,10 @@ data_device() {
 		echo "$MARATHON_DATA_KEY_DEV"
 		return
 	fi
-	src=$(findmnt -n -o SOURCE --target "${dir%/*}") || return
-	case $src in
-	/dev/mapper/*) cryptsetup status "${src#/dev/mapper/}" | sed -n 's/^ *device: *//p' ;;
-	esac
+	# By device number: systemd may have mounted it by a by-uuid path.
+	majmin=$(findmnt -n -o MAJ:MIN --target "${dir%/*}" | tr -d ' ') || return
+	name=$(cat "/sys/dev/block/$majmin/dm/name" 2> /dev/null) || return
+	cryptsetup status "$name" | sed -n 's/^ *device: *//p'
 }
 
 slots() {
