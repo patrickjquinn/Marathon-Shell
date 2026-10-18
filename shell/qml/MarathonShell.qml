@@ -2188,7 +2188,8 @@ Item {
             appToast.show(notification);
         }
 
-        target: FreedesktopNotifications
+        // Only with a session bus (main.cpp).
+        target: typeof FreedesktopNotifications !== "undefined" ? FreedesktopNotifications : null
     }
 
     Comp.PermissionDialog {
