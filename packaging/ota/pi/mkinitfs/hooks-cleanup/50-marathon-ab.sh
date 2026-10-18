@@ -19,20 +19,50 @@ fail() {
 	exit 1
 }
 
+# An encrypted data partition opens with the empty passphrase until the
+# person sets a PIN, then with the PIN (docs/ENCRYPTION.md).
+unlock() {
+	echo | $open 2> /dev/null && return 0
+	prompt="Enter PIN"
+	while :; do
+		if plymouth --ping 2> /dev/null; then
+			plymouth ask-for-password --prompt="$prompt" --command="$open" && return 0
+		elif command -v unl0kr > /dev/null; then
+			unl0kr | $open && return 0
+		else
+			return 1
+		fi
+		prompt="Wrong PIN. Try again"
+		sleep 1
+	done
+}
+
 # udev has settled by now (init_2nd.sh setup_udev).
 link=$root/dev/disk/by-partlabel/marathon_data
 [ -e "$link" ] || exit 0
-data=$(readlink -f "$link")
-name=$(basename "$data")
+part=$(readlink -f "$link")
+name=$(basename "$part")
 disk=/dev/$(basename "$(dirname "$(readlink -f "$root/sys/class/block/$name")")")
 partn=$(cat "$root/sys/class/block/$name/partition")
+open="cryptsetup open --perf-no_read_workqueue --perf-no_write_workqueue $part marathon_data"
 
 # First boot: the image ends early on the card. Move the backup GPT to the
 # end and grow data into the rest.
+grown=
 parted -f -s "$disk" print > /dev/null 2>&1
 if parted -s "$disk" print free | tail -n2 | head -n1 | grep -qi "free space"; then
-	log "growing $data to the end of $disk"
-	parted -f -s "$disk" resizepart "$partn" 100% || fail "cannot grow $data"
+	log "growing $part to the end of $disk"
+	parted -f -s "$disk" resizepart "$partn" 100% || fail "cannot grow $part"
+	grown=1
+fi
+
+data=$part
+if cryptsetup isLuks "$part" 2> /dev/null; then
+	unlock || fail "no way to ask for the PIN of $part"
+	data=$root/dev/mapper/marathon_data
+fi
+
+if [ -n "$grown" ]; then
 	e2fsck -f -p "$data"
 	[ $? -lt 4 ] || fail "$data has errors"
 	resize2fs "$data" || fail "cannot resize $data"
