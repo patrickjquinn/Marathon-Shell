@@ -312,8 +312,8 @@ are written. Each published version is about 2 GB.
 2. **Key.** `scripts/ota/marathon-ota keygen --gnupghome ~/.marathon-secrets/ota/gnupg --export packaging/ota/marathon-ota.asc`
 3. **Image N.** `MARATHON_IMAGE_LAYOUT=ab MARATHON_OTA_URL=http://10.0.2.2:8080 scripts/build-qemu-image.sh --bump`
    (10.0.2.2 is the host as QEMU's user network sees it). Copy it out as the
-   device disk: `mkdir -p ~/ota-test && cp --sparse=always $D/mkosi.output/qemu-aarch64_marathon_edge/qemu-aarch64_marathon_edge_<N>.raw ~/ota-test/device.raw`
-4. **First boot.** `MARATHON_QEMU_IMAGE=~/ota-test/device.raw scripts/qemu/lib/boot-image.sh`
+   device disk: `mkdir -p ~/ota-qemu-test && cp --sparse=always $D/mkosi.output/qemu-aarch64_marathon_edge/qemu-aarch64_marathon_edge_<N>.raw ~/ota-qemu-test/device.raw`
+4. **First boot.** `MARATHON_QEMU_IMAGE=~/ota-qemu-test/device.raw scripts/qemu/lib/boot-image.sh`
    (UEFI, because the image has a `/usr` partition; VNC on :5905, SSH on
    :2233, root password `marathon`). Check:
    - `lsblk -o NAME,PARTLABEL,SIZE` shows `duranium_<N>_usr`, `duranium_<N>_vty`, two `_empty` partitions, and `pmOS_root` (LUKS)
@@ -323,8 +323,8 @@ are written. Each published version is about 2 GB.
 5. **Image N+1 and publish.** `MARATHON_IMAGE_LAYOUT=ab MARATHON_OTA_URL=http://10.0.2.2:8080 scripts/build-qemu-image.sh --bump`, then
    ```sh
    scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/qemu-aarch64_marathon_edge \
-       --version <N+1> --feed ~/ota-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg --notes notes.txt
-   python3 -m http.server 8080 --bind 127.0.0.1 --directory ~/ota-test/feed
+       --version <N+1> --feed ~/ota-qemu-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg --notes notes.txt
+   python3 -m http.server 8080 --bind 127.0.0.1 --directory ~/ota-qemu-test/feed
    ```
 6. **Gating.** In the guest, `nmcli connection modify "Wired connection 1" connection.metered yes`.
    Settings → pull down → Check now → "Marathon OS <N+1> is available" with its
@@ -348,7 +348,7 @@ are written. Each published version is about 2 GB.
    printf '[Service]\nEnvironment=MARATHON_HEALTH_TIMEOUT_SECS=60\n' > $D/mkosi.extra/usr/lib/systemd/system/marathon-boot-health.service.d/ota-test.conf
    MARATHON_IMAGE_LAYOUT=ab MARATHON_OTA_URL=http://10.0.2.2:8080 scripts/build-qemu-image.sh --bump
    rm -r $D/mkosi.extra/usr/lib/systemd/system/greetd.service.d $D/mkosi.extra/usr/lib/systemd/system/marathon-boot-health.service.d
-   scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/qemu-aarch64_marathon_edge --version <N+2> --feed ~/ota-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg
+   scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/qemu-aarch64_marathon_edge --version <N+2> --feed ~/ota-qemu-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg
    ```
    On the guest (still on N+1), install `<N+2>` from Settings and restart. Expect
    three boots of `<N+2>`, each about 60 s after boot with no shell, then a
@@ -356,7 +356,7 @@ are written. Each published version is about 2 GB.
    within 60s"). The fourth boot is `<N+1>`. Settings then shows "Marathon OS
    <N+2> didn't start" and "Your phone went back to <N+1>", and `bootctl list`
    shows the `<N+2>` entry with 0 tries left.
-9. Clean up: `rm -rf ~/ota-test`, and delete the extra builds from `$D/mkosi.output`.
+9. Clean up: `rm -rf ~/ota-qemu-test`, and delete the extra builds from `$D/mkosi.output`.
 
 ## HackberryPi validation
 
@@ -414,7 +414,7 @@ The host serves the feed at 192.168.68.78; the device is
    restart. Expect a trial on partition 2 with no shell, "no shell frame
    within 60s", a reboot to N+1 on partition 3, a second trial, then N+1
    staying up; Settings shows N+2 didn't start; `[all]` is still 3.
-6. Clean up: `rm -rf ~/ota-test`, close the port.
+6. Close the port. Keep `~/ota-test`: images built with this `MARATHON_OTA_URL` go on checking its feed.
 
 If the card does not boot at step 3, re-flash the backup. A torn
 `autoboot.txt` (power lost during a commit) is fixed by mounting partition 1
