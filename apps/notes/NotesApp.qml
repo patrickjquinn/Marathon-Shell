@@ -11,11 +11,11 @@ import "cover"
 ApplicationWindow {
     id: app
 
-    property QtObject store: ConfigurationValue {
+    property var store: ConfigurationValue {
         key: "/apps/notes/data"
         defaultValue: "[]"
     }
-    property QtObject imported: ConfigurationValue {
+    property var imported: ConfigurationValue {
         key: "/apps/notes/legacyImported"
         defaultValue: false
     }
@@ -46,7 +46,7 @@ ApplicationWindow {
 
     appId: "notes"
     onApplicationActiveChanged: {
-        const page = pageStack.currentPage;
+        const page = pageStack.currentPage as NoteEditorPage;
         if (!applicationActive && page && page.commit)
             page.commit();
     }

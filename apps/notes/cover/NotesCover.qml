@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
-import Marathon.Silica 1.0
 import "../NotesStore.js" as Store
 
 // The latest note, as written: its first line, then as much of the rest as fits.

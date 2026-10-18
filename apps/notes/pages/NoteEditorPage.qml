@@ -33,7 +33,7 @@ Page {
         remorse.execute(qsTr("Deleted"), function () {
             page.discarded = true;
             page.store.save(Store.remove(page.store.notes, page.noteId));
-            page.pageContainer.pop();
+            (page.pageContainer as PageStack).pop();
         });
     }
 
