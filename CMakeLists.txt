@@ -214,6 +214,9 @@ else()
     endif()
 endif()
 
+# qmltypes for modules that only exist at runtime, for qmllint (scripts/lint.sh)
+add_custom_target(qmllint-types)
+
 # Vendored third-party libraries (Oxford step counter, maplibre, etc.)
 add_subdirectory(thirdparty)
 

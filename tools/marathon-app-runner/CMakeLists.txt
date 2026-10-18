@@ -74,6 +74,29 @@ install(TARGETS marathon-app-runner
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# Marathon.Platform described for qmllint; only its qmltypes is ever built.
+qt6_add_library(marathon-platform-types STATIC)
+set_target_properties(marathon-platform-types PROPERTIES EXCLUDE_FROM_ALL TRUE)
+qt6_add_qml_module(marathon-platform-types
+    URI Marathon.Platform
+    VERSION 1.0
+    NO_PLUGIN
+    SOURCES
+        platformqmltypes.h
+        ipc/shellipcclients.h
+        calendarmanagercpp.h
+        wallpaperclient.h
+        worldclockhelper.h
+        ../../marathon-core/src/marathonappregistry.h
+    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qmllint-types/Marathon/Platform
+)
+target_include_directories(marathon-platform-types PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-core/src
+)
+target_link_libraries(marathon-platform-types PRIVATE Qt6::Qml Qt6::DBus)
+add_dependencies(qmllint-types marathon-platform-types_qmltyperegistration)
+
 # Native Keel apps (Sailfish apps rebuilt on Keel's sailfishapp) under a Keel host
 qt6_add_executable(marathon-keel-host keelhostmain.cpp keelhost.cpp hostedapp.cpp hostlifecycle.cpp ambienceclient.cpp sailjail.cpp)
 target_link_libraries(marathon-keel-host PRIVATE Qt6::Core Qt6::DBus)

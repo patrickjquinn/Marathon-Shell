@@ -124,6 +124,19 @@ if(MARATHON_HAS_QMF)
         add_subdirectory(plugins/credentials/marathonoauth)
         add_subdirectory(plugins/credentials/marathonclassic)
     endif()
+else()
+    # MailService described for qmllint without QMF; only its qmltypes is built.
+    qt6_add_library(MarathonMailServiceTypes STATIC)
+    set_target_properties(MarathonMailServiceTypes PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    qt6_add_qml_module(MarathonMailServiceTypes
+        URI MarathonOS.Services
+        VERSION 1.0
+        NO_PLUGIN
+        SOURCES src/mailservice.h
+        OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qmllint-types/MarathonOS/Services
+    )
+    target_link_libraries(MarathonMailServiceTypes PRIVATE Qt6::Qml)
+    add_dependencies(qmllint-types MarathonMailServiceTypes_qmltyperegistration)
 endif()
 
 
