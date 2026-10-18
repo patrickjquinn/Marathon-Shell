@@ -351,6 +351,7 @@ add_executable(test_shell_factoryreset
     test_factoryreset.cpp
     ../../shell/src/services/factoryreset.cpp
     ../../shell/src/managers/securitymanager.cpp
+    ../../shell/src/managers/dataencryption.cpp
 )
 target_link_libraries(test_shell_factoryreset Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Network
     Qt6::Concurrent ${PAM_LIBRARY})
