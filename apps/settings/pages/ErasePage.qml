@@ -14,6 +14,9 @@ Page {
         Security.eraseAllContent(secret);
     }
 
+    // A refusal waits here until the closing dialog is gone.
+    property string refusal: ""
+
     // After a refusal the dialog comes back saying why.
     function openDialog(error) {
         const dialog = pageStack.push(Qt.resolvedUrl("EraseDialog.qml"), {
@@ -29,7 +32,28 @@ Page {
             if (!page.erasing)
                 return;
             page.erasing = false;
-            page.openDialog(reason);
+            page.refusal = reason;
+            page.reopen();
+        }
+    }
+
+    // The shell can refuse while the accepted dialog is still closing; a
+    // push then would be lost.
+    function reopen() {
+        if (refusal === "" || pageStack.busy || status !== PageStatus.Active)
+            return;
+        const reason = refusal;
+        refusal = "";
+        openDialog(reason);
+    }
+
+    onStatusChanged: reopen()
+
+    Connections {
+        target: page.pageStack
+
+        function onBusyChanged() {
+            page.reopen();
         }
     }
 

@@ -1099,7 +1099,7 @@ Item {
                     // Compact pages show the error here instead of in their own row.
                     readonly property bool showsError: passcodePage.isCompact && oobeRoot.passcodeError.length > 0
 
-                    text: showsError ? oobeRoot.passcodeError : passcodePage.stage === "enter" ? "Used to unlock your device after sleep." : "Re-enter the same passcode."
+                    text: showsError ? oobeRoot.passcodeError : passcodePage.stage === "enter" ? "Unlocks your phone and keeps its data private." : "Re-enter the same passcode."
                     color: showsError ? Silica.Theme.errorColor : Silica.Theme.secondaryHighlightColor
                     font.pixelSize: passcodePage.subtitleSize
                     horizontalAlignment: Text.AlignHCenter
