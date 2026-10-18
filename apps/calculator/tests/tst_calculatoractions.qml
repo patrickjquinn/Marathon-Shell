@@ -27,7 +27,7 @@ TestCase {
             { tag: "add", expression: "12 + 3", value: 15, text: "15" },
             { tag: "ascii", expression: "7/2", value: 3.5, text: "3.5" },
             { tag: "keypad signs", expression: "6 × 7 − 2", value: 40, text: "40" },
-            { tag: "left to right", expression: "2 + 3 * 4", value: 20, text: "20" },
+            { tag: "precedence", expression: "2 + 3 * 4", value: 14, text: "14" },
             { tag: "negative", expression: "-5 + 3", value: -2, text: "-2" },
             { tag: "function after number", expression: "9 sqrt + 1", value: 4, text: "4" },
             { tag: "degrees", expression: "30 sin", value: 0.5, text: "0.5" },

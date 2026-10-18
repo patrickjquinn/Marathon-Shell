@@ -8,6 +8,9 @@ QtObject {
     property string lastResult: ""
     property real currentValue: 0
     property string currentOperator: ""
+    // A + or − waiting for the × ÷ mod after it to finish first.
+    property real pendingValue: 0
+    property string pendingOperator: ""
     property bool newNumber: true
     property string errorText: ""
     property var history: []
@@ -17,10 +20,11 @@ QtObject {
 
     readonly property bool canUndo: undoStack.length > 0
     readonly property bool isClear: display === "0" && newNumber && lastExpression === "" && errorText === ""
-                                    && currentOperator === "" && history.length === 0
+                                    && currentOperator === "" && pendingOperator === "" && history.length === 0
     readonly property string displayText: errorText !== "" ? errorText
                                           : newNumber ? fmt(parseFloat(display)) : fmtEntry(display)
-    readonly property string expressionText: currentOperator !== "" ? fmt(currentValue) + " " + currentOperator
+    readonly property string pendingText: pendingOperator !== "" ? fmt(pendingValue) + " " + pendingOperator + " " : ""
+    readonly property string expressionText: currentOperator !== "" ? pendingText + fmt(currentValue) + " " + currentOperator
                                              : lastExpression
 
     readonly property var keys: ["C", "⌫", "%", "÷", "×", "−", "+", "+/−", ".", "=",
@@ -126,6 +130,8 @@ QtObject {
             "lastResult": lastResult,
             "currentValue": currentValue,
             "currentOperator": currentOperator,
+            "pendingValue": pendingValue,
+            "pendingOperator": pendingOperator,
             "newNumber": newNumber,
             "errorText": errorText,
             "history": history,
@@ -147,6 +153,8 @@ QtObject {
         lastResult = s.lastResult;
         currentValue = s.currentValue;
         currentOperator = s.currentOperator;
+        pendingValue = s.pendingValue;
+        pendingOperator = s.pendingOperator;
         newNumber = s.newNumber;
         errorText = s.errorText;
         history = s.history;
@@ -157,6 +165,7 @@ QtObject {
         lastExpression = expr;
         newNumber = true;
         currentOperator = "";
+        pendingOperator = "";
         if (divideByZero || !isFinite(r)) {
             errorText = divideByZero ? qsTr("Can't divide by 0") : qsTr("Error");
             lastResult = "";
@@ -195,9 +204,31 @@ QtObject {
             display = "-" + display;
     }
 
+    function binds(op) {
+        return op === "×" || op === "÷" || op === "mod";
+    }
+
     function setOperator(op) {
-        if (currentOperator !== "" && !newNumber)
-            calculate();
+        if (currentOperator !== "" && !newNumber) {
+            if (binds(op) && !binds(currentOperator)) {
+                pendingValue = currentValue;
+                pendingOperator = currentOperator;
+            } else if (binds(op) && pendingOperator !== "") {
+                const keep = { "value": pendingValue, "op": pendingOperator };
+                pendingOperator = "";
+                calculate(true);
+                if (errorText !== "")
+                    return;
+                pendingValue = keep.value;
+                pendingOperator = keep.op;
+                currentValue = parseFloat(display);
+                currentOperator = op;
+                newNumber = true;
+                return;
+            } else {
+                calculate();
+            }
+        }
         if (errorText !== "")
             return;
         currentValue = parseFloat(display);
@@ -205,10 +236,31 @@ QtObject {
         newNumber = true;
     }
 
-    function calculate() {
+    function apply(a, op, b) {
+        switch (op) {
+        case "+":   return a + b;
+        case "−":   return a - b;
+        case "×":   return a * b;
+        case "÷":   return a / b;
+        case "mod": return a % b;
+        }
+        return b;
+    }
+
+    // `inner` works out only the × ÷ mod step, leaving the pending + or − alone.
+    function calculate(inner) {
         if (currentOperator === "")
             return;
         const value = parseFloat(display);
+        const divideByZero = value === 0 && (currentOperator === "÷" || currentOperator === "mod");
+        if (pendingOperator !== "" && !inner) {
+            const r = apply(pendingValue, pendingOperator, apply(currentValue, currentOperator, value));
+            const full = fmt(pendingValue) + " " + pendingOperator + " " + fmt(currentValue) + " "
+                + currentOperator + " " + fmt(value);
+            setResult(full, r, divideByZero);
+            record(r);
+            return;
+        }
         let result = currentValue;
         switch (currentOperator) {
         case "+":
@@ -228,7 +280,12 @@ QtObject {
             break;
         }
         const expr = fmt(currentValue) + " " + currentOperator + " " + fmt(value);
-        setResult(expr, result, value === 0 && (currentOperator === "÷" || currentOperator === "mod"));
+        setResult(expr, result, divideByZero);
+        if (!inner)
+            record(result);
+    }
+
+    function record(result) {
         if (errorText !== "")
             return;
         const next = history.slice();
@@ -250,6 +307,7 @@ QtObject {
         history = [];
         currentValue = 0;
         currentOperator = "";
+        pendingOperator = "";
         newNumber = true;
     }
 
@@ -287,9 +345,12 @@ QtObject {
         default: return;
         }
         const pending = currentOperator;
+        const outer = pendingOperator;
         setResult(expr, r, false);
-        if (errorText === "")
+        if (errorText === "") {
             currentOperator = pending;
+            pendingOperator = outer;
+        }
     }
 
     function insertConstant(v) {

@@ -36,7 +36,12 @@ TestCase {
             { tag: "times", seq: ["6", "×", "7", "="], out: "42" },
             { tag: "divide", seq: ["7", "÷", "2", "="], out: "3.5" },
             { tag: "mod", seq: ["7", "mod", "3", "="], out: "1" },
-            { tag: "chain", seq: ["2", "+", "3", "×", "4", "="], out: "20" },
+            { tag: "precedence", seq: ["2", "+", "3", "×", "4", "="], out: "14" },
+            { tag: "times then plus", seq: ["2", "×", "3", "+", "4", "="], out: "10" },
+            { tag: "two products", seq: ["2", "+", "3", "×", "4", "×", "5", "="], out: "62" },
+            { tag: "product then minus", seq: ["2", "+", "3", "×", "4", "−", "1", "="], out: "13" },
+            { tag: "minus then divide", seq: ["1", "0", "−", "6", "÷", "3", "="], out: "8" },
+            { tag: "sqrt inside a product", seq: ["2", "+", "3", "×", "1", "6", "√", "="], out: "14" },
             { tag: "percent", seq: ["5", "0", "%"], out: "0.5" },
             { tag: "add percent", seq: ["5", "0", "+", "1", "0", "%", "="], out: "55" },
             { tag: "subtract percent", seq: ["8", "0", "−", "2", "5", "%", "="], out: "60" },
@@ -54,6 +59,22 @@ TestCase {
         const c = make();
         keys(c, data.seq);
         compare(c.displayText, data.out);
+    }
+
+    function test_precedenceShowsTheWholeExpression() {
+        const c = make();
+        keys(c, ["2", "+", "3", "×"]);
+        compare(c.expressionText, "2 + 3 ×");
+        keys(c, ["4", "="]);
+        compare(c.lastExpression, "2 + 3 × 4");
+        compare(c.history[c.history.length - 1].value, 14);
+    }
+
+    function test_undoRestoresThePendingSum() {
+        const c = make();
+        keys(c, ["2", "+", "3", "×"]);
+        c.undo();
+        compare(c.expressionText, "2 +");
     }
 
     function test_thousandsSeparators() {

@@ -35,7 +35,7 @@ Item {
     KeelAction {
         name: "calc.evaluate"
         title: qsTr("Calculate")
-        description: "Work out a calculation on Marathon Calculator's keypad and return the result. The expression is what would be typed: numbers, + - * / mod %, and √ (or sqrt), x², sin, cos, tan (in degrees), log, ln and ! after the number they apply to; π (or pi) and e are constants. Like the keypad, operators apply in the order typed, without precedence: 2 + 3 * 4 is 20."
+        description: "Work out a calculation on Marathon Calculator's keypad and return the result. The expression is what would be typed: numbers, + - * / mod %, and √ (or sqrt), x², sin, cos, tan (in degrees), log, ln and ! after the number they apply to; π (or pi) and e are constants. * / and mod come before + and -: 2 + 3 * 4 is 14."
         readOnly: true
         idempotent: true
         parameters: [
