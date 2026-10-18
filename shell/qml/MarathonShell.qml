@@ -2414,7 +2414,7 @@ Item {
                 if (!Platform.hasHardwareKeyboard)
                     virtualKeyboard.active = true;
                 else if (!virtualKeyboard.active)
-                    (Qt.inputMethod as InputMethod).hide();
+                    Qt.inputMethod.hide(); // qmllint disable missing-property
             }
 
             function onInputItemUnfocused() {

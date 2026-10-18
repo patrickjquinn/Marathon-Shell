@@ -36,11 +36,12 @@ Item {
         if (active && marathonKeyboardLoader.item)
             (marathonKeyboardLoader.item as MarathonKeyboard).show();
         // Apps read the panel's visibility from the input context.
-        const inputMethod = Qt.inputMethod as InputMethod;
-        if (active && !inputMethod.visible)
-            inputMethod.show();
-        else if (!active && inputMethod.visible)
-            inputMethod.hide();
+        // qmllint disable missing-property
+        if (active && !Qt.inputMethod.visible)
+            Qt.inputMethod.show();
+        else if (!active && Qt.inputMethod.visible)
+            Qt.inputMethod.hide();
+        // qmllint enable missing-property
     }
 
     function refreshFieldHints() {
