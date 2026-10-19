@@ -89,22 +89,28 @@ ApplicationWindow {
     }
 
     // From the share sheet: a new message, the shared text as its draft.
+    // Pictures come attached, to go as MMS.
     function receiveShare(resources) {
         const text = resources.filter(r => r.data).map(r => r.name && r.name !== r.data ? r.name + "\n" + r.data : r.data).join("\n\n");
-        if (text === "")
+        const pictures = resources.filter(r => r.filePath).map(r => ({
+                    contentType: Logic.contentTypeOf(r.name),
+                    filePath: r.filePath,
+                    name: r.name
+                }));
+        if (text === "" && pictures.length === 0)
             return;
         activate();
         const list = pageStack.find(p => !pageStack.previousPage(p));
         if (pageStack.currentPage !== list)
             pageStack.pop(list, PageStackAction.Immediate);
-        pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root, sharedText: text });
+        pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root, sharedText: text, sharedAttachments: pictures });
     }
 
     // Replaces the recipient picker with the thread, existing or new.
-    function startConversation(number, name, text) {
+    function startConversation(number, name, text, attachments) {
         if (text)
             setDraft(conversationFor(number, name).id, text);
-        pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, name) });
+        pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, name), attachments: attachments || [] });
     }
 
     // "conversation" or "compose", with a number and/or a body to start from.
@@ -164,6 +170,12 @@ ApplicationWindow {
     ShareProvider {
         method: "text"
         capabilities: ["text/plain", "text/x-url"]
+        onTriggered: resources => root.receiveShare(resources)
+    }
+
+    ShareProvider {
+        method: "image"
+        capabilities: ["image/*"]
         onTriggered: resources => root.receiveShare(resources)
     }
 

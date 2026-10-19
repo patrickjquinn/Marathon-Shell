@@ -18,7 +18,8 @@
   "categories": ["Communication"],
   "handlesUriSchemes": ["sms", "mms"],
   "shareMethods": [
-    { "name": "text", "title": "Message", "mimeTypes": ["text/plain", "text/x-url"] }
+    { "name": "text", "title": "Message", "mimeTypes": ["text/plain", "text/x-url"] },
+    { "name": "image", "title": "Message", "mimeTypes": ["image/*"] }
   ],
   "defaultFor": ["messaging"],
   "searchKeywords": ["messages", "sms", "text", "chat", "messaging"],

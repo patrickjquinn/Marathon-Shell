@@ -170,3 +170,10 @@ function smsParts(units, single, part) {
     const parts = units <= single ? 1 : Math.ceil(units / part);
     return { used: units, limit: parts === 1 ? single : parts * part, parts: parts };
 }
+
+// A shared file's type by its extension; MMS needs one per part.
+function contentTypeOf(name) {
+    const ext = String(name || "").split(".").pop().toLowerCase();
+    const types = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", heic: "image/heic", bmp: "image/bmp" };
+    return types[ext] || "application/octet-stream";
+}

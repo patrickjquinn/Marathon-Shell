@@ -105,4 +105,21 @@ TestCase {
         compare(String(picture.source), "file:///cache/mms/4/b.png");
         compare(Sms.opened, [4]);
     }
+
+    // From the share sheet: a picture starts a message with it attached.
+    function test_aSharedPictureStartsAnMms() {
+        Sms.reset([], {});
+        Telephony.hasModem = true;
+        Contacts.contacts = [{ name: "Bob Smith", phone: "+15559876543" }];
+        const app = createTemporaryObject(appComponent, test, { store: storeStub.createObject(test) });
+        tryVerify(() => app.pageStack.currentPage && !app.pageStack.busy);
+        app.receiveShare([{ name: "beach.JPG", data: "", filePath: "/c/sailfish-share_1/beach.JPG" }]);
+        tryVerify(() => app.pageStack.currentPage.hasOwnProperty("matches") && !app.pageStack.busy);
+        mouseClick(findChild(app.pageStack.currentPage, "contact-+15559876543"));
+        tryVerify(() => app.pageStack.currentPage.hasOwnProperty("conversation") && !app.pageStack.busy);
+        const page = app.pageStack.currentPage;
+        compare(page.attachments.length, 1);
+        compare(page.attachments[0].filePath, "/c/sailfish-share_1/beach.JPG");
+        compare(page.attachments[0].contentType, "image/jpeg");
+    }
 }
