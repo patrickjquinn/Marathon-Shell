@@ -67,6 +67,38 @@ TestCase {
         return app.pageStack.currentPage;
     }
 
+    // A pull-down from the page's top opens its pulley menu.
+    function pulleyIn(item) {
+        if (!item)
+            return null;
+        if (item._isPullDownMenu === true && item.visible)
+            return item;
+        const children = item.children || [];
+        for (let i = 0; i < children.length; ++i) {
+            const found = pulleyIn(children[i]);
+            if (found)
+                return found;
+        }
+        return null;
+    }
+
+    function pullDown(item) {
+        const menu = pulleyIn(item);
+        verify(menu, "a pull-down menu");
+        const x = item.width / 2;
+        mousePress(item, x, 300);
+        for (let y = 320; y <= 780; y += 40)
+            mouseMove(item, x, y, 16);
+        verify(menu.active, "pulley open");
+        mouseRelease(item, x, 780);
+        return menu;
+    }
+
+    function test_inboxPulleyOpens() {
+        const app = makeApp();
+        pullDown(inbox(app));
+    }
+
     function test_serviceUnavailable() {
         MailService.accounts = null;
         const app = makeApp();
