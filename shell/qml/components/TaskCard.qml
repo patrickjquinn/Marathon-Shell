@@ -565,7 +565,6 @@ Item {
                                     height: surfaceItem ? surfaceItem.height : 0
                                     sourceItem: drawsInSubsurfaces ? surfaceItem : null
                                     live: taskCard.taskSwitcherVisible
-                                    recursive: true
                                     hideSource: false
                                     opacity: 0
                                 }
