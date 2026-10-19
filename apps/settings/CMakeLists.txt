@@ -9,6 +9,8 @@ file(GLOB_RECURSE QML_FILES CONFIGURE_DEPENDS
 list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 
 set(SOURCES
+    src/AndroidApps.cpp
+    src/AndroidApps.h
     src/StorageInfo.cpp
     src/StorageInfo.h
     src/TimeZoneList.cpp
@@ -25,5 +27,8 @@ add_marathon_app(${APP_NAME}
     QML_FILES ${QML_FILES}
     SOURCES ${SOURCES}
 )
+
+find_package(Qt6 REQUIRED COMPONENTS DBus)
+target_link_libraries(${APP_NAME} PRIVATE Qt6::DBus)
 
 install_keel_actions(${APP_NAME} keel-actions.json)
