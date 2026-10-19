@@ -13,6 +13,8 @@ Item {
     property bool shown: false
     property real dragOffset: 0
     readonly property var targets: request ? request.targets || [] : []
+    // Marathon glass needs a GPU renderer; the software one draws no shaders.
+    readonly property bool glass: GraphicsInfo.api !== GraphicsInfo.Software
 
     signal chosen(string targetId)
     signal dismissed
@@ -35,6 +37,13 @@ Item {
     anchors.fill: parent
     z: 2900
     visible: shown || panel.y < height
+
+    MGlassBackdrop {
+        id: glassBackdrop
+
+        anchors.fill: parent
+        visible: shareSheet.visible && shareSheet.glass
+    }
 
     Rectangle {
         objectName: "shareScrim"
@@ -64,11 +73,19 @@ Item {
         y: (shareSheet.shown ? parent.height - height : parent.height) + shareSheet.dragOffset
         clip: true
 
-        // The ambience, as behind a Keel app's pages, under a hairline.
+        MGlassPlatter {
+            anchors.fill: parent
+            visible: shareSheet.glass
+            backdrop: glassBackdrop.texture
+            radius: 0
+        }
+
+        // Without glass, the ambience, as behind a Keel app's pages.
         KeelAmbienceBackground {
             width: shareSheet.width
             height: shareSheet.height
             y: -panel.y
+            visible: !shareSheet.glass
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
         }

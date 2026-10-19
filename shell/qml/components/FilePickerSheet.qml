@@ -30,6 +30,8 @@ Item {
     }
     readonly property bool canAccept: folderPick || (saving ? name.trim() !== "" : selection.length > 0)
     readonly property real gutter: Silica.Theme.paddingSmall
+    // Marathon glass needs a GPU renderer; the software one draws no shaders.
+    readonly property bool glass: GraphicsInfo.api !== GraphicsInfo.Software
     readonly property var placeGlyphs: ({
             "Home": "house",
             "Documents": "file-text",
@@ -132,11 +134,25 @@ Item {
         search: searchField.text
     }
 
-    // The ambience, as behind a Keel app's pages.
-    KeelAmbienceBackground {
+    MGlassBackdrop {
+        id: glassBackdrop
+
+        anchors.fill: parent
+        visible: picker.shown && picker.glass
+    }
+
+    MGlassPlatter {
         objectName: "filePickerPanel"
         anchors.fill: parent
-        visible: picker.shown
+        visible: picker.glass
+        backdrop: glassBackdrop.texture
+        radius: 0
+    }
+
+    // Without glass, the ambience, as behind a Keel app's pages.
+    KeelAmbienceBackground {
+        anchors.fill: parent
+        visible: picker.shown && !picker.glass
         wallpaper: AmbienceService.wallpaperUrl
         light: AmbienceService.light
     }
