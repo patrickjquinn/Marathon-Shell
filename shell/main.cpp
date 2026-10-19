@@ -1314,10 +1314,10 @@ int main(int argc, char *argv[]) {
         appRegistry, &app);
     // Its window, or the one its notification's default action opens (an
     // Android app's contentIntent), comes to the front.
-    notificationHandler->setShowApp([appLaunchService](const QString &appId) {
+    notificationHandler->setShowApp([appLaunchService](const QString &appId, bool opensItself) {
         if (!appLaunchService->canLaunch(appId))
             return false;
-        if (!appLaunchService->expectWindow(appId))
+        if (!appLaunchService->expectWindow(appId) && !opensItself)
             appLaunchService->launchApp(QVariant(appId));
         return true;
     });

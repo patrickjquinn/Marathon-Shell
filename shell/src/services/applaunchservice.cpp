@@ -2211,7 +2211,8 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
 
 bool AppLaunchService::expectWindow(const QString &appId) {
     m_expectedWindows.insert(appId, QDeadlineTimer(m_expectWindowMs));
-    if (!m_taskModel || !m_taskModel->getTaskByAppId(appId))
+    const Task *task = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
+    if (!task || task->surfaceId() < 0 || !task->waylandSurface())
         return false;
     launchApp(QVariant(appId));
     return true;

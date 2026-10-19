@@ -232,8 +232,19 @@ class TestSharedClient : public QObject {
     void anExpectedAppWithAWindowComesForwardAtOnce() {
         QVERIFY(!map("c", 31, &surfaceA));
         QVERIFY(shell->shown.isEmpty());
-        launcher->expectWindow(id("c"));
+        QVERIFY(launcher->expectWindow(id("c")));
         QCOMPARE(shell->shown, QStringList{id("c")});
+    }
+
+    // A card whose window Android took away: the expected window opens it,
+    // not a second start of the app's launcher activity.
+    void anExpectedAppWithoutAWindowIsNotStarted() {
+        auto *surface = new QObject;
+        QVERIFY(!map("c", 31, surface));
+        delete surface;
+        QVERIFY(!launcher->expectWindow(id("c")));
+        QVERIFY(shell->opened.isEmpty());
+        QVERIFY(comp->spawned.isEmpty());
     }
 
     void anExpectationLapses() {

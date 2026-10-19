@@ -6,6 +6,7 @@
 #include "notificationtarget.h"
 #include "telephonyservice.h"
 
+#include <algorithm>
 #include <QDebug>
 
 NotificationHandlerCpp::NotificationHandlerCpp(NotificationServiceCpp *notifications,
@@ -96,6 +97,10 @@ void NotificationHandlerCpp::navigateToNotificationTarget(const QVariantMap &not
         return;
     }
     // An Android app, or a desktop app, the registry does not hold.
-    if (!m_showApp || !m_showApp(appId))
+    const auto actions     = notification.value("actions").toList();
+    const bool opensItself = std::any_of(actions.cbegin(), actions.cend(), [](const QVariant &a) {
+        return a.toMap().value("key").toString() == QLatin1String("default");
+    });
+    if (!m_showApp || !m_showApp(appId, opensItself))
         qWarning() << "[NotificationHandler] No app to show for notification from" << appId;
 }

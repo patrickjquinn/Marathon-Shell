@@ -21,8 +21,8 @@ class NotificationHandlerCpp : public QObject {
                                     MarathonAppRegistry *registry, QObject *parent = nullptr);
 
     // Shows an app the registry cannot open (an Android app, a desktop app):
-    // true if it could.
-    void             setShowApp(std::function<bool(const QString &)> showApp) {
+    // true if it could. opensItself: the tap ran the app's default action.
+    void             setShowApp(std::function<bool(const QString &, bool)> showApp) {
         m_showApp = std::move(showApp);
     }
 
@@ -37,7 +37,7 @@ class NotificationHandlerCpp : public QObject {
     QPointer<NavigationRouterCpp>    m_router;
     QPointer<TelephonyService>       m_telephony;
     QPointer<MarathonAppRegistry>    m_registry;
-    std::function<bool(const QString &)> m_showApp;
+    std::function<bool(const QString &, bool)> m_showApp;
 };
 
 #endif

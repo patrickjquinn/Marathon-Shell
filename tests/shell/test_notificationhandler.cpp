@@ -24,14 +24,38 @@ class TestNotificationHandler : public QObject {
         MarathonAppRegistry    registry;
         NotificationHandlerCpp handler(&service, nullptr, nullptr, &registry);
         QStringList            shown;
-        handler.setShowApp([&shown](const QString &appId) {
+        QList<bool>            opensItself;
+        handler.setShowApp([&](const QString &appId, bool opens) {
             shown << appId;
+            opensItself << opens;
             return true;
         });
         const int id = service.sendNotification(QStringLiteral("waydroid.org.example.chat"),
                                                 QStringLiteral("Ann"), QStringLiteral("Hi"));
         handler.handleNotificationClick(id);
         QCOMPARE(shown, QStringList{QStringLiteral("waydroid.org.example.chat")});
+        QCOMPARE(opensItself, QList<bool>{false});
+    }
+
+    // A tap runs the app's own default action (Android's contentIntent),
+    // which opens the screen the notification is about.
+    void anAppWithADefaultActionOpensItself() {
+        NotificationModel      model;
+        NotificationServiceCpp service(&model, nullptr, nullptr, nullptr);
+        MarathonAppRegistry    registry;
+        NotificationHandlerCpp handler(&service, nullptr, nullptr, &registry);
+        QList<bool>            opensItself;
+        handler.setShowApp([&](const QString &, bool opens) {
+            opensItself << opens;
+            return true;
+        });
+        const QVariantList actions{
+            QVariantMap{{"key", QStringLiteral("default")}, {"label", QStringLiteral("Open")}}};
+        const int id = service.sendNotification(QStringLiteral("waydroid.org.example.chat"),
+                                                QStringLiteral("Ann"), QStringLiteral("Hi"),
+                                                {{"actions", actions}});
+        handler.handleNotificationClick(id);
+        QCOMPARE(opensItself, QList<bool>{true});
     }
 };
 
