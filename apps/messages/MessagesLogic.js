@@ -114,6 +114,16 @@ function routeNumber(paramsJson) {
     }
 }
 
+// The text a link asks to start with (sms:?body=…), "" if none.
+function routeBody(paramsJson) {
+    try {
+        const p = JSON.parse(paramsJson || "{}");
+        return p && p.body ? String(p.body).substring(0, 10000) : "";
+    } catch (e) {
+        return "";
+    }
+}
+
 function unreadTotal(conversations) {
     return conversations.reduce((n, c) => n + (c.unreadCount || 0), 0);
 }

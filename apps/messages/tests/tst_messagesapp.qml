@@ -170,6 +170,43 @@ TestCase {
         compare(waitForPage(app, "conversation").conversation.id, "a");
     }
 
+    // sms:<number>?body=… from another app: the thread, the body as its draft.
+    function test_routeWithBodyStartsADraft() {
+        Sms.reset(sample(), {});
+        const store = storeStub.createObject(test, { value: "{}" });
+        const app = createTemporaryObject(appComponent, test, { store: store, route: "conversation", routeParams: JSON.stringify({ number: "5551234567", body: "See you at 8" }) });
+        const conv = waitForPage(app, "conversation");
+        compare(conv.conversation.id, "a");
+        compare(findChild(conv, "messageField").text, "See you at 8");
+        compare(app.drafts.a, "See you at 8");
+    }
+
+    // sms:?body=… names no one: a new message with the body, the recipient to pick.
+    function test_composeRouteWithoutANumber() {
+        Sms.reset(sample(), {});
+        const store = storeStub.createObject(test, { value: "{}" });
+        const app = createTemporaryObject(appComponent, test, { store: store, route: "compose", routeParams: JSON.stringify({ body: "Look at this" }) });
+        const compose = waitForPage(app, "sharedText");
+        compare(compose.sharedText, "Look at this");
+        compare(app.pageStack.depth, 2);
+    }
+
+    function test_composeRouteWithANumber() {
+        Sms.reset(sample(), {});
+        const store = storeStub.createObject(test, { value: "{}" });
+        const app = createTemporaryObject(appComponent, test, { store: store, route: "compose", routeParams: JSON.stringify({ number: "+447700900123", body: "Hi" }) });
+        compare(waitForPage(app, "conversation").conversation.id, "b");
+        compare(app.drafts.b, "Hi");
+    }
+
+    function test_composeRouteWithNothing() {
+        Sms.reset(sample(), {});
+        const store = storeStub.createObject(test, { value: "{}" });
+        const app = createTemporaryObject(appComponent, test, { store: store, route: "compose", routeParams: "{}" });
+        tryVerify(() => app.pageStack.currentPage && !app.pageStack.busy);
+        compare(app.pageStack.depth, 1);
+    }
+
     function test_noModemBlocksSendButKeepsTyping() {
         const app = makeApp();
         Telephony.hasModem = false;

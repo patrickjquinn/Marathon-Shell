@@ -107,15 +107,26 @@ ApplicationWindow {
         pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, name) });
     }
 
+    // "conversation" or "compose", with a number and/or a body to start from.
     function openRoute(name, paramsJson, operation) {
-        const number = name === "conversation" ? Logic.routeNumber(paramsJson) : "";
-        if (number === "")
+        if (name !== "conversation" && name !== "compose")
             return;
-        const contact = (Contacts.contacts || []).find(c => Logic.sameNumber(c.phone, number));
+        const number = Logic.routeNumber(paramsJson);
+        const body = Logic.routeBody(paramsJson);
+        if (number === "" && (name !== "compose" || body === ""))
+            return;
         const list = pageStack.find(p => !pageStack.previousPage(p));
         if (pageStack.currentPage !== list)
             pageStack.pop(list, PageStackAction.Immediate);
-        pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, contact ? contact.name : "") }, operation);
+        if (number === "") {
+            pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root, sharedText: body }, operation);
+            return;
+        }
+        const contact = (Contacts.contacts || []).find(c => Logic.sameNumber(c.phone, number));
+        const conversation = conversationFor(number, contact ? contact.name : "");
+        if (body !== "")
+            setDraft(conversation.id, body);
+        pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversation }, operation);
     }
 
     appId: "messages"

@@ -59,6 +59,13 @@ TestCase {
         compare(Logic.unreadTotal([]), 0);
     }
 
+    function test_routeBody() {
+        compare(Logic.routeBody('{"body":"See you at 8"}'), "See you at 8");
+        compare(Logic.routeBody('{"number":"1"}'), "");
+        compare(Logic.routeBody("{bad"), "");
+        compare(Logic.routeBody(JSON.stringify({ body: "x".repeat(20000) })).length, 10000);
+    }
+
     function test_routeNumber() {
         compare(Logic.routeNumber('{"number":" +15551234567 "}'), "+15551234567");
         compare(Logic.routeNumber("{}"), "");
