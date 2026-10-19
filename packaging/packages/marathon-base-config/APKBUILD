@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=51
+pkgrel=52
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -37,6 +37,7 @@ depends="
 	nano
 	tmux
 	font-noto
+	font-noto-emoji
 	ttf-dejavu
         greetd
 	gpg
@@ -46,6 +47,8 @@ depends="
 # D-Bus API, with tuned owning the CPU governor through the profiles below.
 # power-profiles-daemon itself has no driver for these SoCs' cpufreq
 # (placeholder only), so its power-saver would change nothing.
+# font-noto-emoji: colour emoji for Marathon (fontconfig's "emoji") and, as
+# the same NotoColorEmoji.ttf, for Android apps (deckard-fonts-sync).
 # gpg: systemd-pull runs it to check an OTA feed's SHA256SUMS.gpg against
 # /usr/lib/systemd/import-pubring.pgp; without it every update is refused.
 # Comments must live outside the depends="..."
