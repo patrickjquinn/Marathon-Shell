@@ -14,6 +14,9 @@
   "protected": true,
   "categories": ["Productivity"],
   "handlesUriSchemes": [],
+  "shareMethods": [
+    { "name": "text", "title": "New note", "mimeTypes": ["text/plain", "text/x-url"] }
+  ],
   "defaultFor": [],
   "searchKeywords": [
     "notes",

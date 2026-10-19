@@ -110,4 +110,13 @@ TestCase {
         compare(t.legacy.reads, 0);
         compare(t.app.notes.length, 0);
     }
+
+    function test_aShareBecomesANoteAndOpens() {
+        const t = makeApp("[]", "[]", true, true);
+        t.app.receiveShare([{ name: "Marathon", data: "https://marathonos.org" }]);
+        compare(t.app.notes.length, 1);
+        compare(t.app.notes[0].title, "Marathon");
+        tryCompare(t.app.pageStack, "depth", 2);
+        compare(t.app.pageStack.currentPage.noteId, t.app.notes[0].id);
+    }
 }

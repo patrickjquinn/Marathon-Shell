@@ -9,6 +9,13 @@ TestCase {
         return Object.assign({ id: id, title: "N" + id, content: "", timestamp: id }, extra || {});
     }
 
+    function test_sharedTextKeepsALinksTitle() {
+        compare(Store.sharedText([{ name: "", data: "Buy milk" }]), "Buy milk");
+        compare(Store.sharedText([{ name: "Marathon", data: "https://marathonos.org" }]), "Marathon\nhttps://marathonos.org");
+        compare(Store.sharedText([{ name: "x", data: "x" }, { name: "", data: "y" }]), "x\n\ny");
+        compare(Store.sharedText([{ name: "photo.png", data: "", filePath: "/tmp/photo.png" }]), "");
+    }
+
     function test_parseBad() {
         compare(Store.parse(""), []);
         compare(Store.parse(undefined), []);

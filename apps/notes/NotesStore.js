@@ -143,3 +143,12 @@ function merge(current, legacy) {
     }
     return out;
 }
+
+// A share's text (Sailfish.Share resources): a link keeps its title above it.
+function sharedText(resources) {
+    return (resources || []).map(r => {
+        const data = String(r.data || "");
+        const name = String(r.name || "");
+        return data === "" ? "" : name !== "" && name !== data ? name + "\n" + data : data;
+    }).filter(t => t !== "").join("\n\n");
+}

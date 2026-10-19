@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import Nemo.Configuration 1.0
+import Sailfish.Share 1.0
 import "NotesStore.js" as Store
 import "pages"
 import "cover"
@@ -40,6 +41,17 @@ ApplicationWindow {
         imported.value = true;
     }
 
+    // From the share sheet: a new note, opened.
+    function receiveShare(resources) {
+        const text = Store.sharedText(resources);
+        if (text === "")
+            return;
+        const next = Store.create(notes, text, Date.now());
+        save(next);
+        activate();
+        pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), { store: app, noteId: next[0].id });
+    }
+
     function newNote() {
         pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), { store: app, noteId: -1 });
     }
@@ -58,6 +70,12 @@ ApplicationWindow {
 
     NotesActions {
         store: app
+    }
+
+    ShareProvider {
+        method: "text"
+        capabilities: ["text/plain", "text/x-url"]
+        onTriggered: resources => app.receiveShare(resources)
     }
 
     cover: Component {
