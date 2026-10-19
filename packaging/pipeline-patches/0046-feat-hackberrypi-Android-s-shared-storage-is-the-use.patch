@@ -1,0 +1,37 @@
+From 3fb2607e60e56f5469b906577bafb8a3cc71ccd8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 19 Oct 2026 07:32:07 +0100
+Subject: [PATCH] feat(hackberrypi): Android's shared storage is the user's
+ folders
+
+Waydroid's LXC config gets Deckard's mount hook, deckard-shared-folders,
+when the deckard package is installed. In the container's mount namespace
+it binds the user's Documents, Downloads, Pictures, Music and Videos (the
+XDG user dirs) and ~/DCIM over Android's /data/media/0/Documents,
+Download, Pictures, Music, Movies and DCIM, so a photo an Android app saves
+is in Marathon's Pictures and the other way round. Android/data and
+Android/obb stay inside Android.
+
+Design and checks: docs/bridge.md in Marathon-Deckard.
+---
+ mkosi.images/base/mkosi.postinst | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 3770ba5..a063254 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -604,6 +604,10 @@ if [ -f "$WAYDROID_LXC" ] && [ -x "$BUILDROOT/usr/libexec/deckard-container-limi
+     # Deckard: Android gets a memory budget sized for the device.
+     echo 'lxc.hook.start-host = /usr/libexec/deckard-container-limits' >> "$WAYDROID_LXC"
+ fi
++if [ -f "$WAYDROID_LXC" ] && [ -x "$BUILDROOT/usr/libexec/deckard-shared-folders" ]; then
++    # Deckard: Android's shared storage folders are the user's own folders.
++    echo 'lxc.hook.mount = /usr/libexec/deckard-shared-folders' >> "$WAYDROID_LXC"
++fi
+ WAYDROID_DESKTOP="$BUILDROOT/usr/share/applications/Waydroid.desktop"
+ if [ -f "$WAYDROID_DESKTOP" ]; then
+     # Full UI closes every per-app window; Android apps have their own entries.
+-- 
+2.55.0
+
