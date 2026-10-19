@@ -15,8 +15,8 @@ class QWindow;
 // frame, which gets one at its time minus 5 ms, interpolated between the
 // reports around it (or up to 8 ms past the last). Presses, releases and
 // cancels pass at once. Wayland clients get these moves through the shell.
-// Only for the shell's own items: a touch that starts on a Wayland client's
-// surface passes untouched, since resampling an app's input slowed it.
+// Only for the shell's own items: a touch whose press a Wayland client's
+// surface took passes untouched, since resampling an app's input slowed it.
 // The move is handed over while the frame polishes: the changes it makes
 // join that frame's sync, where any earlier they would ask for a frame of
 // their own, an empty one that halves the rate. Needs Qt Quick's touch
@@ -48,15 +48,14 @@ class TouchResampler : public QObject {
         bool   hasOlder = false;
     };
 
-    bool   landsOnClient(QQuickItem *item, QPointF scenePos) const;
     void   record(const QTouchEvent &event);
     void   sendResampled(qint64 at);
     qint64 now() const;
 
     QPointer<QWindow>       m_window;
     QQuickItem             *m_polisher  = nullptr;
-    QQuickItem             *m_content   = nullptr;
     bool                    m_passthrough = false;
+    bool                    m_decided     = false;
     QHash<int, Track>       m_tracks;
     const QPointingDevice  *m_device    = nullptr;
     Qt::KeyboardModifiers   m_modifiers = Qt::NoModifier;

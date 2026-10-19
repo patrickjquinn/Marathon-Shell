@@ -29,7 +29,6 @@ TouchResampler::TouchResampler(QWindow *window, QQuickItem *content)
     : QObject(window)
     , m_window(window) {
     m_clock.start();
-    m_content = content;
     if (content)
         m_polisher = new Polisher(content, this);
     window->installEventFilter(this);
@@ -115,26 +114,20 @@ void TouchResampler::sendResampled(qint64 at) {
     m_sending = false;
 }
 
-bool TouchResampler::landsOnClient(QQuickItem *item, QPointF scenePos) const {
-    if (!item->isVisible())
-        return false;
-    if (item->inherits("QWaylandQuickItem") && item->property("inputEventsEnabled").toBool() &&
-        item->contains(item->mapFromScene(scenePos)))
-        return true;
-    const QList<QQuickItem *> children = item->childItems();
-    return std::any_of(children.cbegin(), children.cend(),
-                       [this, scenePos](QQuickItem *child) { return landsOnClient(child, scenePos); });
-}
-
 bool TouchResampler::eventFilter(QObject *watched, QEvent *event) {
     if (watched != m_window || m_sending)
         return false;
-    if (event->type() == QEvent::TouchBegin) {
-        const auto *touch = static_cast<QTouchEvent *>(event);
-        m_passthrough     = m_content && !touch->points().isEmpty() &&
-            landsOnClient(m_content, touch->points().first().scenePosition());
+    // A client's surface took the press: its touch passes as it comes.
+    if (event->type() == QEvent::TouchBegin)
+        m_decided = false;
+    if (event->type() == QEvent::TouchUpdate && !m_decided) {
+        auto *touch   = static_cast<QTouchEvent *>(event);
+        const QObject *grabber =
+            touch->points().isEmpty() ? nullptr : touch->exclusiveGrabber(touch->points().first());
+        m_passthrough = grabber && grabber->inherits("QWaylandQuickItem");
+        m_decided     = true;
     }
-    if (m_passthrough)
+    if (m_passthrough && event->type() != QEvent::TouchBegin)
         return false;
     switch (event->type()) {
         case QEvent::TouchUpdate: {
