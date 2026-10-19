@@ -118,8 +118,13 @@ bool TouchResampler::eventFilter(QObject *watched, QEvent *event) {
     if (watched != m_window || m_sending)
         return false;
     // A client's surface took the press: its touch passes as it comes.
-    if (event->type() == QEvent::TouchBegin)
+    // A new sequence: no finger is down, so nothing earlier can be held,
+    // whether or not this filter saw how it ended.
+    if (event->type() == QEvent::TouchBegin) {
         m_decided = false;
+        m_pending = false;
+        m_tracks.clear();
+    }
     if (event->type() == QEvent::TouchUpdate && !m_decided) {
         auto *touch   = static_cast<QTouchEvent *>(event);
         const QObject *grabber =
@@ -127,8 +132,11 @@ bool TouchResampler::eventFilter(QObject *watched, QEvent *event) {
         m_passthrough = grabber && grabber->inherits("QWaylandQuickItem");
         m_decided     = true;
     }
-    if (m_passthrough && event->type() != QEvent::TouchBegin)
+    if (m_passthrough && event->type() != QEvent::TouchBegin) {
+        if (event->type() == QEvent::TouchEnd || event->type() == QEvent::TouchCancel)
+            m_tracks.clear();
         return false;
+    }
     switch (event->type()) {
         case QEvent::TouchUpdate: {
             auto      *touch   = static_cast<QTouchEvent *>(event);

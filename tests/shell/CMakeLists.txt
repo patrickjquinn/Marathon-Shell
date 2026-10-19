@@ -757,7 +757,7 @@ set_tests_properties(Shell_WindowTextureStress PROPERTIES ENVIRONMENT
 add_executable(test_shell_touchresampler test_touchresampler.cpp
     ../../shell/src/services/touchresampler.cpp)
 set_target_properties(test_shell_touchresampler PROPERTIES AUTOMOC ON)
-target_link_libraries(test_shell_touchresampler Qt6::Test Qt6::Gui Qt6::GuiPrivate Qt6::Quick)
+target_link_libraries(test_shell_touchresampler Qt6::Test Qt6::Gui Qt6::GuiPrivate Qt6::Quick Qt6::Qml)
 target_include_directories(test_shell_touchresampler PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_TouchResampler COMMAND test_shell_touchresampler)
 

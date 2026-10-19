@@ -1528,9 +1528,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Off until a slow drag on the home pager survives it (it stalled there).
+    // MARATHON_TOUCH_RESAMPLE=0 turns it off.
     if (evdevTouch && !DeviceProfile::instance().touchFilter() &&
-        qEnvironmentVariableIntValue("MARATHON_TOUCH_RESAMPLE") == 1) {
+        qEnvironmentVariable("MARATHON_TOUCH_RESAMPLE") != QLatin1String("0")) {
         const auto rootObjects = engine.rootObjects();
         for (QObject *root : rootObjects) {
             if (auto *win = qobject_cast<QQuickWindow *>(root))
