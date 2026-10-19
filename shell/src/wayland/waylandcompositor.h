@@ -62,6 +62,13 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_PROPERTY(QVariantMap marathonSurfaces READ marathonSurfaces NOTIFY marathonSurfacesChanged)
 
   public:
+    // CLOCK_MONOTONIC, and the CRTC's last vblank on it (-1: none known).
+    static qint64 monotonicUs();
+    qint64        lastVblankUs();
+    // When this interval's frame latches: the last vblank, plus the phase
+    // when frames wait for it (-1: none known).
+    qint64        frameLatchUs();
+
     explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
 
@@ -280,11 +287,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // makes the next composite instead of the one after.
     int                                     m_framePhaseMs = 0;
     bool                                    m_passUpdate   = false;
-    qint64                                  m_lastShownCommitUs = 0;
     QTimer                                  m_gateTimer;
     QTimer                                  m_callbackTimer;
-    static qint64                           monotonicUs();
-    qint64                                  lastVblankUs();
     qint64                                  nextVblankUs();
     bool                                    m_hiddenThrottle = true;
     HiddenFrameThrottle                     m_frameThrottle;

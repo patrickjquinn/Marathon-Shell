@@ -979,11 +979,8 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
             &WaylandCompositor::checkIdleInhibitors);
 
     // Client commit meter (harmless when the 1Hz stats timer isn't running).
-    connect(surface, &QWaylandSurface::redraw, this, [this, surface]() {
-        m_clientCommitCount.fetchAndAddRelaxed(1);
-        if (surfaceShown(surface))
-            m_lastShownCommitUs = monotonicUs();
-    });
+    connect(surface, &QWaylandSurface::redraw, this,
+            [this]() { m_clientCommitCount.fetchAndAddRelaxed(1); });
 
     if (m_presentFreeRun) {
         // Each client commit (redraw) refreshes the free-run credits and
@@ -2280,6 +2277,13 @@ qint64 WaylandCompositor::lastVblankUs() {
     return qint64(vbl.reply.tval_sec) * 1000000 + vbl.reply.tval_usec;
 }
 
+qint64 WaylandCompositor::frameLatchUs() {
+    const qint64 last = lastVblankUs();
+    if (last < 0)
+        return -1;
+    return last + qint64(m_framePhaseMs) * 1000;
+}
+
 qint64 WaylandCompositor::nextVblankUs() {
     const qint64 last = lastVblankUs();
     if (last < 0)
@@ -2300,11 +2304,8 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         }
         if (m_gateTimer.isActive())
             return true;
-        // Only while a shown client draws: the shell's own frames gain
-        // nothing from waiting and need the whole interval to render.
         const qint64 now    = monotonicUs();
-        const bool   client = now - m_lastShownCommitUs < 100000;
-        const qint64 last   = client ? lastVblankUs() : -1;
+        const qint64 last   = lastVblankUs();
         const qint64 at     = last + qint64(m_framePhaseMs) * 1000;
         if (last >= 0 && now < at - 500) {
             m_gateTimer.start(int((at - now) / 1000));
