@@ -7,6 +7,7 @@
 #include <QDBusConnection>
 #include <QDBusError>
 #include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 #include <QDateTime>
 #include <QFile>
 #include <QDBusServiceWatcher>
@@ -169,12 +170,29 @@ void PowerManagerCpp::updateAggregateState() {
         return;
     }
 
-    int          newLevel     = qRound(m_displayDeviceInterface->property("Percentage").toDouble());
-    uint         state        = m_displayDeviceInterface->property("State").toUInt();
-    const uint   warningLevel = m_displayDeviceInterface->property("WarningLevel").toUInt();
-    const qint64 timeToEmptySeconds =
-        m_displayDeviceInterface->property("TimeToEmpty").toLongLong();
-    const qint64 timeToFullSeconds = m_displayDeviceInterface->property("TimeToFull").toLongLong();
+    // One asynchronous GetAll per change: each property() read was a
+    // blocking round trip on the GUI thread.
+    QDBusMessage get = QDBusMessage::createMethodCall(
+        "org.freedesktop.UPower", "/org/freedesktop/UPower/devices/DisplayDevice",
+        "org.freedesktop.DBus.Properties", "GetAll");
+    get << QStringLiteral("org.freedesktop.UPower.Device");
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(get), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<QVariantMap> reply = *w;
+        if (reply.isError())
+            qWarning() << "[PowerManagerCpp] DisplayDevice read failed:" << reply.error().message();
+        else
+            applyAggregateState(reply.value());
+    });
+}
+
+void PowerManagerCpp::applyAggregateState(const QVariantMap &props) {
+    int          newLevel           = qRound(props.value("Percentage").toDouble());
+    uint         state              = props.value("State").toUInt();
+    const uint   warningLevel       = props.value("WarningLevel").toUInt();
+    const qint64 timeToEmptySeconds = props.value("TimeToEmpty").toLongLong();
+    const qint64 timeToFullSeconds  = props.value("TimeToFull").toLongLong();
 
     const bool   newCharging  = (state == 1 || state == 5);
     const bool   newPluggedIn = (state == 1 || state == 4 || state == 5);

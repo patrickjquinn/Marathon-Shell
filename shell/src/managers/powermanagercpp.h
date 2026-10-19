@@ -142,6 +142,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
 
   private slots:
     void updateAggregateState();
+    void applyAggregateState(const QVariantMap &props);
     void onPrepareForSleep(bool beforeSleep);
     void checkIdleState();
     void onPowerProfilesChanged(const QString &interface, const QVariantMap &changed,
