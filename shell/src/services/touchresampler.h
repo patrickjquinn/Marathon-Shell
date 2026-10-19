@@ -6,6 +6,8 @@
 #include <QObject>
 #include <QPointer>
 
+#include <functional>
+
 class QPointingDevice;
 class QQuickItem;
 class QTouchEvent;
@@ -33,6 +35,11 @@ class TouchResampler : public QObject {
     // True while the frame shown is still behind the latest report.
     bool flush();
 
+    // The display's last vblank, CLOCK_MONOTONIC microseconds, or -1: frames
+    // then sample the finger for the vblank that will show them, however
+    // early or late in the interval they polish.
+    void setVblankClock(std::function<qint64()> lastVblankUs);
+
     static constexpr qint64 kMinLatencyMs = 5;
     static constexpr qint64 kMaxLatencyMs = 40;
 
@@ -51,6 +58,7 @@ class TouchResampler : public QObject {
     struct Track {
         QList<Report> reports;
         QPointF       sent;
+        QPointF       press;
         bool          hasSent = false;
     };
 
@@ -73,6 +81,8 @@ class TouchResampler : public QObject {
     qint64                  m_sentAt    = -1;
     qreal                   m_spacing   = 0;
     qreal                   m_frameAt   = -1;
+    qreal                   m_slopAt    = -1;
+    std::function<qint64()> m_lastVblankUs;
     qint64                  m_flushedAt = 0;
     bool                    m_sending   = false;
     QElapsedTimer           m_clock;

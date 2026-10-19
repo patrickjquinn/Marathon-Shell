@@ -207,9 +207,9 @@ class TestTouchResampler : public QObject {
         resampler.flush();
         QCOMPARE(w.types.size(), 2);
         QCOMPARE(w.types.last(), QEvent::TouchUpdate);
-        // The frame comes as the last report does: half a report's spacing
-        // plus 2 ms back.
-        QCOMPARE(w.positions.last().y(), 113.0);
+        // The finger just passed the drag distance: the drag starts where
+        // the raw touch would start it.
+        QCOMPARE(w.positions.last().y(), 120.0);
 
         send(w, QEvent::TouchUpdate, QEventPoint::State::Updated, 130, t0 + 30);
         send(w, QEvent::TouchEnd, QEventPoint::State::Released, 130, t0 + 31);

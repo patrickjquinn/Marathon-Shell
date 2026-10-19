@@ -1,6 +1,8 @@
 #include "touchresampler.h"
 
 #include <QCoreApplication>
+#include <QGuiApplication>
+#include <QStyleHints>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
@@ -9,6 +11,7 @@
 #include <QtGui/private/qeventpoint_p.h>
 
 #include <algorithm>
+#include <ctime>
 #include <utility>
 
 namespace {
@@ -47,17 +50,37 @@ TouchResampler::TouchResampler(QWindow *window, QQuickItem *content)
     window->installEventFilter(this);
 }
 
+void TouchResampler::setVblankClock(std::function<qint64()> lastVblankUs) {
+    m_lastVblankUs = std::move(lastVblankUs);
+}
+
 bool TouchResampler::flush() {
     if (!m_pending)
         return false;
-    // Polish runs early or late in a frame by turns: frame after frame the
-    // sample moves on by one frame, drawn a fifth of the way to the clock.
-    const qreal clock = qreal(now() - latency());
     const qreal frame = 1000.0 / (m_window && m_window->screen() && m_window->screen()->refreshRate() > 0
                                       ? m_window->screen()->refreshRate()
                                       : 60.0);
     const qint64 elapsed = m_clock.elapsed();
-    if (m_frameAt >= 0 && elapsed - m_flushedAt < 2 * frame) {
+    const qint64 vblank  = m_lastVblankUs ? m_lastVblankUs() : -1;
+    timespec     ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    const qint64 mono    = qint64(ts.tv_sec) * 1000000 + ts.tv_nsec / 1000;
+    const bool   latched = vblank > 0 && qAbs(mono - vblank) < 2 * frame * 1000;
+    // The moment this interval's frame latches, on the reports' clock.
+    const qreal base = qreal(now()) - (latched ? qreal(mono - vblank) / 1000 : 0);
+    // Moves show as they come until the finger passes the drag distance, so
+    // a drag starts when the raw touch would start it; then the latency
+    // grows at a third of the clock, never holding a frame still.
+    if (m_slopAt < 0) {
+        const int slop = QGuiApplication::styleHints()->startDragDistance();
+        for (const Track &track : std::as_const(m_tracks))
+            if ((track.reports.last().point.scenePosition() - track.press).manhattanLength() >= slop)
+                m_slopAt = base;
+    }
+    const qreal clock = base - (m_slopAt < 0 ? 0 : std::min(qreal(latency()), (base - m_slopAt) / 3));
+    if (latched) {
+        m_frameAt = std::max(m_frameAt, clock);
+    } else if (m_frameAt >= 0 && elapsed - m_flushedAt < 2 * frame) {
         const qreal next = m_frameAt + frame;
         m_frameAt        = std::max(m_frameAt, next + (clock - next) / 5);
     } else {
@@ -74,7 +97,7 @@ bool TouchResampler::flush() {
 }
 
 qint64 TouchResampler::horizon(const Track &track) const {
-    return track.reports.size() < 3 ? 0 : qint64(m_spacing / 2);
+    return track.reports.size() < 3 || m_slopAt < 0 ? 0 : qint64(m_spacing / 2);
 }
 
 qint64 TouchResampler::latency() const {
@@ -121,9 +144,12 @@ void TouchResampler::record(const QTouchEvent &event) {
             m_tracks.remove(p.id());
             continue;
         }
-        QList<Report> &reports = m_tracks[p.id()].reports;
-        if (p.state() == QEventPoint::State::Pressed)
+        Track         &track   = m_tracks[p.id()];
+        QList<Report> &reports = track.reports;
+        if (p.state() == QEventPoint::State::Pressed) {
             reports.clear();
+            track.press = p.scenePosition();
+        }
         else if (!reports.isEmpty() && p.scenePosition() == reports.last().point.scenePosition())
             continue;
         if (!reports.isEmpty()) {
@@ -205,6 +231,7 @@ bool TouchResampler::eventFilter(QObject *watched, QEvent *event) {
         m_pending = false;
         m_sentAt  = -1;
         m_frameAt = -1;
+        m_slopAt  = -1;
         m_tracks.clear();
     }
     if (event->type() == QEvent::TouchUpdate && !m_decided) {

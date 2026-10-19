@@ -1533,8 +1533,17 @@ int main(int argc, char *argv[]) {
         qEnvironmentVariable("MARATHON_TOUCH_RESAMPLE") != QLatin1String("0")) {
         const auto rootObjects = engine.rootObjects();
         for (QObject *root : rootObjects) {
-            if (auto *win = qobject_cast<QQuickWindow *>(root))
-                new TouchResampler(win, win->contentItem());
+            if (auto *win = qobject_cast<QQuickWindow *>(root)) {
+                auto *resampler = new TouchResampler(win, win->contentItem());
+#ifdef HAVE_WAYLAND
+                resampler->setVblankClock([compositorManager]() -> qint64 {
+                    WaylandCompositor *compositor = compositorManager->compositor();
+                    return compositor ? compositor->frameLatchUs() : -1;
+                });
+#else
+                Q_UNUSED(resampler);
+#endif
+            }
         }
     }
 
