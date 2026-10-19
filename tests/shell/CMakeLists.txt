@@ -875,6 +875,14 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
     add_test(NAME Shell_XdgActivation COMMAND test_shell_xdgactivation)
     set_tests_properties(Shell_XdgActivation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+    add_executable(test_shell_foreignfocus test_foreignfocus.cpp)
+    target_link_libraries(test_shell_foreignfocus
+        Qt6::Test Qt6::Gui Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(test_shell_foreignfocus PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src/wayland ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    add_test(NAME Shell_ForeignFocus COMMAND test_shell_foreignfocus)
+    set_tests_properties(Shell_ForeignFocus PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # marathon-surface-v1: bind policy, window flags, insets, back events
     set(_marathon_surface_protocol)
     marathon_test_protocol(${CMAKE_SOURCE_DIR}/shell/protocols/marathon-surface-v1.xml

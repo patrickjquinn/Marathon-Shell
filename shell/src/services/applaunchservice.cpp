@@ -38,6 +38,7 @@
 
 #if defined(HAVE_WAYLAND)
 #include "wayland/waylandcompositor.h"
+#include "wayland/foreignfocus.h"
 #include <QtWaylandCompositor/QWaylandClient>
 #include <QtWaylandCompositor/QWaylandSurface>
 #include <QtWaylandCompositor/QWaylandXdgSurface>
@@ -2206,6 +2207,9 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
     surface->setProperty("mappedInBackground", !shown);
     const Task *task = m_taskModel ? m_taskModel->getTaskBySurfaceId(surfaceId) : nullptr;
     surface->setProperty("foreignClient", task && terminationPidForAppId(task->appId()) <= 0);
+    if (!shown && wc && ForeignFocus::keepFront(wc->defaultSeat(), surface))
+        qInfo() << "[AppLaunchService]" << xdgAppId
+                << "mapped behind the window in front; entered that window again";
 }
 #endif
 
