@@ -10,7 +10,17 @@
 FactoryReset::FactoryReset(SecurityManager *security, QString socketPath, QObject *parent)
     : QObject(parent)
     , m_security(security)
-    , m_socketPath(std::move(socketPath)) {}
+    , m_socketPath(std::move(socketPath)) {
+    connect(m_security, &SecurityManager::ownerConfirmed, this, [this](const QString &refusal) {
+        if (m_pending == 0)
+            return;
+        --m_pending;
+        if (refusal.isEmpty())
+            requestErase();
+        else
+            emit failed(refusal);
+    });
+}
 
 bool FactoryReset::supported() const {
     return QFileInfo::exists(m_socketPath);
@@ -21,11 +31,11 @@ void FactoryReset::erase(const QString &secret) {
         emit failed(QStringLiteral("This device can't erase itself"));
         return;
     }
-    if (const QString refusal = m_security->confirmOwner(secret); !refusal.isEmpty()) {
-        emit failed(refusal);
-        return;
-    }
+    ++m_pending;
+    m_security->confirmOwner(secret);
+}
 
+void FactoryReset::requestErase() {
     auto *socket = new QLocalSocket(this);
     // The service answers "ok", or why not, and closes; the device restarts after an ok.
     auto finish = [this, socket] {

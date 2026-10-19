@@ -65,7 +65,7 @@ add_dependencies(marathon_shell_native marathon_shell_native_cargo)
 target_include_directories(marathon_shell_native INTERFACE "${_shell_native_export}/include")
 target_link_libraries(marathon_shell_native INTERFACE
     "${_shell_native_export}/initializers.o" "${MARATHON_SHELL_NATIVE_LIB}"
-    Qt6::Core Qt6::Qml Threads::Threads ${CMAKE_DL_LIBS} m)
+    Qt6::Core Qt6::Qml pam Threads::Threads ${CMAKE_DL_LIBS} m)
 
 # marathon-store:// URL handler (xdg-open target and the store refresh timer).
 include(GNUInstallDirs)

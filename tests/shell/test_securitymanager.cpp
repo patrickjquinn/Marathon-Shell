@@ -69,11 +69,26 @@ class TestSecurityManager : public QObject {
         SecurityManager security;
         QSignalSpy      failed(&security, &SecurityManager::authenticationFailed);
         security.setQuickPIN("111111", "not the password");
-        QCOMPARE(failed.count(), 1);
+        QTRY_COMPARE(failed.count(), 1);
         security.removeQuickPIN("not the password");
-        QCOMPARE(failed.count(), 2);
+        QTRY_COMPARE(failed.count(), 2);
         QTest::qWait(200);
         QVERIFY(!QFile::exists(log));
+    }
+
+    void theRightPinUnlocksAndClearsTheCount() {
+        qunsetenv("MARATHON_DATA_KEY_HELPER");
+        SecurityManager security;
+        QVERIFY(security.setQuickPINFirstRun("975310"));
+        QSignalSpy failed(&security, &SecurityManager::authenticationFailed);
+        QSignalSpy unlocked(&security, &SecurityManager::authenticationSuccess);
+        security.authenticateQuickPIN("000000");
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(security.failedAttempts(), 1);
+        security.authenticateQuickPIN("975310");
+        QTRY_COMPARE(unlocked.count(), 1);
+        QCOMPARE(security.failedAttempts(), 0);
+        removePin();
     }
 
     void wrongQuickPinsLockOut() {

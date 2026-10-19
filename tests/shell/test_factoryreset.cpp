@@ -98,7 +98,7 @@ class TestFactoryReset : public QObject {
         FactoryReset reset(&security, socketPath());
         QSignalSpy   failed(&reset, &FactoryReset::failed);
         reset.erase(QStringLiteral("000000"));
-        QCOMPARE(failed.count(), 1);
+        QTRY_COMPARE(failed.count(), 1);
         QCOMPARE(failed.at(0).at(0).toString(), QStringLiteral("Incorrect PIN"));
         QCOMPARE(security.failedAttempts(), 1);
         QTest::qWait(100);
@@ -113,9 +113,9 @@ class TestFactoryReset : public QObject {
         QSignalSpy   failed(&reset, &FactoryReset::failed);
         for (int i = 0; i < 5; ++i)
             reset.erase(QStringLiteral("000000"));
-        QVERIFY(security.isLockedOut());
+        QTRY_VERIFY(security.isLockedOut());
         reset.erase(PIN);
-        QCOMPARE(failed.count(), 6);
+        QTRY_COMPARE(failed.count(), 6);
         QVERIFY(failed.last().at(0).toString().startsWith(QStringLiteral("Too many failed attempts")));
         QTest::qWait(100);
         QVERIFY(service.requests.isEmpty());
@@ -128,7 +128,7 @@ class TestFactoryReset : public QObject {
         FactoryReset reset(&security, socketPath());
         QSignalSpy   failed(&reset, &FactoryReset::failed);
         reset.erase(QStringLiteral("not the password"));
-        QCOMPARE(failed.count(), 1);
+        QTRY_COMPARE(failed.count(), 1);
         QCOMPARE(failed.at(0).at(0).toString(), QStringLiteral("Incorrect password"));
         QVERIFY(service.requests.isEmpty());
     }

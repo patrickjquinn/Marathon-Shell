@@ -702,7 +702,7 @@ void SecurityObject::AuthenticateQuickPIN(const QString &pin) {
 void SecurityObject::AuthenticateBiometric(int type) {
     if (!requireSystem())
         return;
-    m_security->authenticateBiometric(static_cast<SecurityManager::BiometricType>(type));
+    m_security->authenticateBiometric(type);
 }
 
 void SecurityObject::CancelAuthentication() {
@@ -720,7 +720,7 @@ void SecurityObject::ResetLockout() {
 bool SecurityObject::IsBiometricEnrolled(int type) {
     if (!requireSystem())
         return false;
-    return m_security->isBiometricEnrolled(static_cast<SecurityManager::BiometricType>(type));
+    return m_security->isBiometricEnrolled(type);
 }
 
 QString SecurityObject::CurrentUsername() {

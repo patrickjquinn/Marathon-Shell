@@ -201,10 +201,6 @@ set(SOURCES
     src/controllers/audioroutingmanager.cpp
     src/controllers/audiopolicycontroller.h
     src/controllers/audiopolicycontroller.cpp
-    src/managers/securitymanager.h
-    src/managers/securitymanager.cpp
-    src/managers/dataencryption.h
-    src/managers/dataencryption.cpp
     src/managers/screenmetrics.h
     src/managers/screenmetrics.cpp
 )
@@ -609,9 +605,7 @@ qt6_add_qml_module(marathon-shell
         src/managers/displaymanagercpp.h
         src/managers/audiomanagercpp.cpp
         src/managers/audiomanagercpp.h
-        src/managers/securitymanager.cpp
-        src/managers/securitymanager.h
-        src/services/applaunchservice.cpp
+                src/services/applaunchservice.cpp
         src/services/applaunchservice.h
         src/services/applifecyclemanager.cpp
         src/services/applifecyclemanager.h

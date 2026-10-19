@@ -1,5 +1,13 @@
 use cxx_qt_build::CxxQtBuilder;
 
 fn main() {
-    CxxQtBuilder::new().file("src/identity.rs").file("src/network.rs").file("src/power.rs").build();
+    let builder = CxxQtBuilder::new()
+        .file("src/identity.rs")
+        .file("src/network.rs")
+        .file("src/power.rs")
+        .file("src/security.rs");
+    // SAFETY: an include path for the shell's own headers (securityaudit.h);
+    // it changes no generated code.
+    let builder = unsafe { builder.cc_builder(|cc| { cc.include("../../shell/src"); }) };
+    builder.build();
 }

@@ -25,6 +25,10 @@ class FactoryReset : public QObject {
     void failed(const QString &reason);
 
   private:
+    void             requestErase();
+
     SecurityManager *m_security;
     QString          m_socketPath;
+    // Owner checks asked for and not answered yet; they answer in order.
+    int              m_pending = 0;
 };

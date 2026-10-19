@@ -869,7 +869,8 @@ int main(int argc, char *argv[]) {
                      &PowerManagerCpp::setAlarmWake);
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager = new AudioRoutingManager(audioManager, &app);
-    auto *securityManager = new SecurityManager(&app);
+    auto *securityManager = new SecurityManager();
+    securityManager->setParent(&app);
     qmlRegisterSingletonInstance<SecurityManager>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
                                                   securityManager);
 

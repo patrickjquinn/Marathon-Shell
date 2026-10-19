@@ -8,4 +8,5 @@ mod io;
 mod log;
 pub mod network;
 pub mod power;
+pub mod security;
 mod wake_timer;
