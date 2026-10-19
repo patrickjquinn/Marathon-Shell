@@ -253,6 +253,20 @@ class TestSharedClient : public QObject {
         QTRY_VERIFY(!tasks->getTaskByAppId(id("b")));
     }
 
+    // Closed from its card: the window goes after the card, and the app goes
+    // with it (its view in the shell is freed on appUnregistered).
+    void aWindowClosedFromItsCardTakesTheApp() {
+        launcher->m_windowGraceMs = 10;
+        launch("a", kLaunchA);
+        QVERIFY(map("a", 11, &surfaceA));
+        show("a", 11, &windowA);
+        QSignalSpy gone(lifecycle, &AppLifecycleManager::appUnregistered);
+        tasks->closeTask(tasks->getTaskByAppId(id("a"))->id());
+        launcher->onWindowDestroyed(11);
+        QTRY_COMPARE(gone.count(), 1);
+        QCOMPARE(lifecycle->lifecycleState(id("a")), int(AppLifecycleManager::Unregistered));
+    }
+
     // Waydroid re-creates a window: the card keeps its place and takes the
     // new window, and nothing comes to the front.
     void aRecreatedWindowKeepsItsCard() {

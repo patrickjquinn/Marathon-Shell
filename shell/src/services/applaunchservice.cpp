@@ -2246,14 +2246,15 @@ void AppLaunchService::onWindowDestroyed(int surfaceId) {
                                                   windows.last().surface);
             return;
         }
-        if (task && task->surfaceId() == surfaceId && terminationPidForAppId(appId) <= 0) {
+        if ((!task || task->surfaceId() == surfaceId) && terminationPidForAppId(appId) <= 0) {
             // A new window within the grace takes the card over (mapWindow).
             QTimer::singleShot(m_windowGraceMs, this, [this, appId = QString(appId), surfaceId]() {
-                Task *gone = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
-                if (!gone || gone->surfaceId() != surfaceId || m_windows.contains(appId))
+                Task *task = m_taskModel ? m_taskModel->getTaskByAppId(appId) : nullptr;
+                if (m_windows.contains(appId) || (task && task->surfaceId() != surfaceId))
                     return;
-                qInfo() << "[AppLaunchService] Last window of" << appId << "gone - closing its task";
-                m_taskModel->closeTask(gone->id());
+                qInfo() << "[AppLaunchService] Last window of" << appId << "gone - closing it";
+                if (task)
+                    m_taskModel->closeTask(task->id());
                 if (m_appLifecycleManager)
                     QMetaObject::invokeMethod(m_appLifecycleManager, "unregisterApp",
                                               Qt::DirectConnection, Q_ARG(QString, appId));

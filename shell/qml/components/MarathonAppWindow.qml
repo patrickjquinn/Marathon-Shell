@@ -64,6 +64,17 @@ Rectangle {
                         appWindow.surfaceId = nativeInstance.surfaceId;
                     }
                 });
+                // Made here with no parent, so nothing else frees it: gone with
+                // the app, or each closed app kept its view and last frame.
+                const freeWithApp = function (goneId) {
+                    if (goneId !== id)
+                        return;
+                    AppLifecycleManager.appUnregistered.disconnect(freeWithApp);
+                    if (appWindow.appContainer && appWindow.appContainer["appInstance"] === nativeInstance)
+                        appWindow.appContainer["appInstance"] = null;
+                    nativeInstance.destroy();
+                };
+                AppLifecycleManager.appUnregistered.connect(freeWithApp);
                 Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
                 AppLifecycleManager.registerApp(id, nativeInstance);
                 AppLifecycleManager.bringToForeground(id);
