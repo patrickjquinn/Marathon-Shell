@@ -159,6 +159,8 @@ set(SOURCES
     src/services/systemcontrolstore.cpp
     src/services/uistore.h
     src/services/uistore.cpp
+    src/services/foregroundapp.h
+    src/services/foregroundapp.cpp
     src/services/appstore.h
     src/services/appstore.cpp
     src/services/wallpaperstore.h

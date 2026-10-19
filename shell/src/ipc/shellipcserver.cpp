@@ -109,6 +109,8 @@ bool ShellIpcServer::registerOnSessionBus() {
         new AudioObject(m_audioManager, m_audioPolicy, m_permissions, m_appLaunchService, this);
     auto *networkObj = new NetworkObject(m_networkManager, m_permissions, m_appLaunchService, this);
     auto *navObj     = new NavigationObject(m_appLaunchService, this);
+    if (m_foregroundApp)
+        navObj->setForegroundApp(m_foregroundApp);
     auto *hapticObj  = new HapticObject(m_hapticManager, m_appLaunchService, this);
     auto *sensorObj  = new SensorObject(m_sensorManager, m_permissions, m_appLaunchService, this);
     auto *locObj   = new LocationObject(m_locationManager, m_permissions, m_appLaunchService, this);

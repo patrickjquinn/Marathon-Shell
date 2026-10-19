@@ -34,6 +34,7 @@ class MarathonAppRegistry;
 
 class AmbienceService;
 class WallpaperStore;
+class ForegroundApp;
 class ModemManagerCpp;
 class FlashlightManagerCpp;
 
@@ -74,6 +75,9 @@ class ShellIpcServer : public QObject {
     void setAppInstaller(MarathonAppInstaller *installer) {
         m_appInstaller = installer;
     }
+    void setForegroundApp(ForegroundApp *foreground) {
+        m_foregroundApp = foreground;
+    }
     bool registerOnSessionBus();
 
   private:
@@ -105,6 +109,7 @@ class ShellIpcServer : public QObject {
     DavSyncEngine             *m_davSyncEngine       = nullptr;
     MarathonAppStoreService   *m_appStoreService     = nullptr;
     MarathonAppInstaller      *m_appInstaller        = nullptr;
+    ForegroundApp             *m_foregroundApp       = nullptr;
     AppLaunchService          *m_appLaunchService    = nullptr;
     AppLifecycleManager       *m_lifecycleManager    = nullptr;
     MarathonAppRegistry       *m_appRegistry         = nullptr;

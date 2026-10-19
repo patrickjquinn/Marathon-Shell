@@ -122,6 +122,7 @@
 #include "src/services/systemstatusstore.h"
 #include "src/services/systemcontrolstore.h"
 #include "src/services/uistore.h"
+#include "src/services/foregroundapp.h"
 #include "src/services/appstore.h"
 #include "src/services/wallpaperstore.h"
 #include "src/services/router.h"
@@ -1377,6 +1378,8 @@ int main(int argc, char *argv[]) {
         ipc->setFlashlightManager(flashlightManager);
         ipc->setPowerPolicy(powerPolicyController);
         ipc->setAppInstaller(appInstaller);
+        auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
+        ipc->setForegroundApp(foregroundApp);
         auto *portalSettings = new PortalSettings(&app);
         // Files first: GTK 3 reloads its theme when the portal flips
         // Marathon to Marathon-dark, and must find the new colours.

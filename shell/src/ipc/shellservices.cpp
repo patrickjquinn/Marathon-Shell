@@ -3,6 +3,7 @@
 #include "servicecaller.h"
 
 #include "applaunchservice.h"
+#include "foregroundapp.h"
 #include "marathonpermissionmanager.h"
 #include "settingsmanager.h"
 #include "ambienceservice.h"
@@ -1969,6 +1970,15 @@ bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &r
 }
 
 // Services only (pilotd): an app could otherwise list what else is running.
+void NavigationObject::setForegroundApp(ForegroundApp *foreground) {
+    m_foreground = foreground;
+    connect(foreground, &ForegroundApp::changed, this, &NavigationObject::ForegroundAppChanged);
+}
+
+QString NavigationObject::GetForegroundApp() {
+    return m_foreground ? m_foreground->appId() : QString();
+}
+
 QString NavigationObject::AppIdForPid(uint pid) {
     if (!callerAppIdOrEmpty().startsWith(ServiceCaller::kPrefix)) {
         sendErrorReply(QDBusError::AccessDenied, "Only a session service may ask");

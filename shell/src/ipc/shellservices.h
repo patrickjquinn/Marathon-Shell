@@ -38,6 +38,7 @@ class ModemManagerCpp;
 class PowerManagerCpp;
 class PowerPolicyController;
 class WakeTimers;
+class ForegroundApp;
 class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
@@ -567,6 +568,7 @@ class NavigationObject : public QObject, protected QDBusContext {
 
   public:
     NavigationObject(AppLaunchService *launchService, QObject *parent = nullptr);
+    void setForegroundApp(ForegroundApp *foreground);
 
   public slots:
     bool LaunchApp(const QString &appId);
@@ -576,6 +578,8 @@ class NavigationObject : public QObject, protected QDBusContext {
     bool LaunchAppWithRoute(const QString &appId, const QString &route, const QString &paramsJson);
     // The app a process belongs to, "" if none (Pilot's on-screen context).
     QString AppIdForPid(uint pid);
+    // The app in front, "" on the home screen, the switcher or the lock screen.
+    QString GetForegroundApp();
 
     // Quick Settings shade control (marathon CLI `qs` verb). Lets a dev host
     // pull the shade over D-Bus, since top-edge touch injection never reaches
@@ -589,10 +593,12 @@ class NavigationObject : public QObject, protected QDBusContext {
     void AppLaunched(const QString &appId);
     void NavigationFailed(const QString &uri, const QString &error);
     void DeepLinkRequested(const QString &appId, const QString &route, const QString &paramsJson);
+    void ForegroundAppChanged(const QString &appId);
 
   private:
     QString           callerAppIdOrEmpty() const;
     AppLaunchService *m_launchService = nullptr;
+    ForegroundApp    *m_foreground    = nullptr;
 };
 
 class HapticObject : public QObject, protected QDBusContext {

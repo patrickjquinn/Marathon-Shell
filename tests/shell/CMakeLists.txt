@@ -25,6 +25,17 @@ target_link_libraries(test_shell_sessionstore Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_sessionstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_SessionStore COMMAND test_shell_sessionstore)
 
+# ForegroundApp: the app in front, "" at home, in the switcher or locked
+add_executable(test_shell_foregroundapp
+    test_foregroundapp.cpp
+    ../../shell/src/services/foregroundapp.cpp
+    ../../shell/src/services/sessionstore.cpp
+    ../../shell/src/services/uistore.cpp
+)
+target_link_libraries(test_shell_foregroundapp Qt6::Test Qt6::Core Qt6::Qml)
+target_include_directories(test_shell_foregroundapp PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_ForegroundApp COMMAND test_shell_foregroundapp)
+
 # SinkVolume: volume and mute follow the current default sink
 add_executable(test_shell_sinkvolume
     test_sinkvolume.cpp
