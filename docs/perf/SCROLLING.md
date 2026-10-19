@@ -63,11 +63,43 @@ jumps per swipe, and 3 GUI bursts of 8.5-10.2 ms (task-card setup).
    database fsyncs (`71c8fe60`), cpufreq boost writes (`8c86e422`), desktop
    entry rescans (`cdbb31cb`), UPower (`d6476660`), GeoClue (this commit).
 
+## After (shell r479 from this branch, same bench)
+
+Move-to-motion: `--pre-ms 200 --dist 300 --fling-ms 600` (500 px/s after a
+200 ms rest); the delay runs from the first move to the first scanout frame
+that moved, so it includes the 10 px drag threshold.
+
+| | Before | After | Android Files (after) |
+|---|---|---|---|
+| Home pager drag cadence | 30 fps, steps 20/40/60/80 px | 60 fps, even 35 px | |
+| Pager repeated frames per swipe | 3-4 | 1-2 (at the release snap) | |
+| Pager move-to-motion | 70-114 ms | 87-137 ms | |
+| Frames page idle | 60 fps, 2 GPU jobs a frame | 0 fps | |
+| Shell GUI bursts in pager swipes | 3 x 8.5-10.2 ms | none over 3.4 ms | |
+| Settings drag step change (lower = smoother) | 3.3-5.7 px | 0.8-2.3 px | 2.8-3.2 px (was 5.4-6.2) |
+| Settings move-to-motion | 146-190 ms | 140-206 ms | 143-191 ms |
+| Settings fling from 1600 px/s | 1.07 s, long crawl | 0.32 s | 0.73 s |
+| Press during a fling | stops | stops | stops |
+| Row pressed by a scroll | after 48 ms of rest | not before 100 ms (Android's tap timeout) | |
+
+Touch is read by Qt's evdevtouch in filtered mode without Qt Quick's touch
+compression (`7bacc1fa`). The filter's `prediction` is left off: Qt seeds a
+new touch's velocity from the previous one with the same id, so a predicted
+press could land far from the finger (the pill's swipe up went to the app).
+
 ## Next steps
 
-- Re-measure with the bench after deploy: pager cadence, idle Frames page,
-  fling velocity and drag steps with evdevtouch; then fill in the "after"
-  column here.
+- Touch-to-motion in apps is still 140-200 ms, the same as Android on this
+  device: the shell sync wait, one frame in the client, one in the shell and
+  the flip. Candidates: deliver touch to clients from the evdev thread,
+  resample at frame time like Android's InputConsumer, frame callbacks
+  timed to the next latch.
+- A fling leaves at about 0.7x the finger's speed (29 px a frame dragging,
+  19 after release) in Marathon apps; Android overshoots to about 1.2x.
+  Find where Qt's release velocity drops (wl_touch timestamps, Flickable's
+  three-sample average).
+- The pager's snap after release starts faster than the finger (35 px to
+  90 px a frame): `highlightMoveDuration: 180` ignores the release velocity.
 - Remaining blocking calls from the audit: ModemManager state queries (about
   15 Gets per signal change, Librem 5), iio light polling, faillock QProcess
   on a wrong PIN, wake-path `msleep(30)` and logind Inhibit, per-call
