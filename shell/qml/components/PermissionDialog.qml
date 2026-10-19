@@ -35,6 +35,18 @@ Item {
     // Declared but restricted to protected system apps: listed, never offered.
     property var refusedPermissions: (PermissionManager && PermissionManager.currentRefused) ? PermissionManager.currentRefused : []
     readonly property bool asking: allPermissions.length > 0
+    // Android apps' prompts (deckardd): kind, once, accuracy, preciseDefault.
+    property var options: (PermissionManager && PermissionManager.currentOptions) ? PermissionManager.currentOptions : ({})
+    readonly property string kind: options.kind || ""
+
+    onOptionsChanged: {
+        onceSwitch.checked = false;
+        preciseSwitch.checked = !!options.preciseDefault;
+    }
+
+    function answer(granted) {
+        PermissionManager.respondWith(granted, granted && onceSwitch.visible && onceSwitch.checked, granted && preciseSwitch.visible && preciseSwitch.checked);
+    }
 
     function permissionTitle(p) {
         return p ? PermissionManager.getPermissionLabel(p) : "";
@@ -79,6 +91,12 @@ Item {
 
     function descriptionText() {
         const parts = [];
+        if (kind === "background")
+            return allPermissions[0] === "location" ? qsTr("%1 wants to use your location all the time, even when you aren't using it.").arg(appName) : qsTr("%1 wants access to %2 all the time, even when you aren't using it.").arg(appName).arg(phrase(allPermissions));
+        if (kind === "precise")
+            return qsTr("%1 wants your precise location.").arg(appName);
+        if (options.accuracy === "approximate")
+            return qsTr("%1 is requesting access to your approximate location.").arg(appName);
         if (asking)
             parts.push(qsTr("%1 is requesting access to %2.").arg(appName).arg(phrase(allPermissions)));
         if (refusedPermissions.length > 0)
@@ -120,11 +138,11 @@ Item {
             visible: permissionDialog.asking
             Accessible.role: Accessible.Button
             Accessible.name: qsTr("Deny")
-            Accessible.onPressAction: PermissionManager.respond(false)
+            Accessible.onPressAction: permissionDialog.answer(false)
             anchors.left: parent.left
             width: parent.width / 2
             height: parent.height
-            onClicked: PermissionManager.respond(false)
+            onClicked: permissionDialog.answer(false)
 
             Silica.Label {
                 anchors.left: parent.left
@@ -139,11 +157,11 @@ Item {
             objectName: "allowButton"
             Accessible.role: Accessible.Button
             Accessible.name: allowLabel.text
-            Accessible.onPressAction: PermissionManager.respond(permissionDialog.asking)
+            Accessible.onPressAction: permissionDialog.answer(permissionDialog.asking)
             anchors.right: parent.right
             width: parent.width / 2
             height: parent.height
-            onClicked: PermissionManager.respond(permissionDialog.asking)
+            onClicked: permissionDialog.answer(permissionDialog.asking)
 
             Silica.Label {
                 id: allowLabel
@@ -214,6 +232,26 @@ Item {
                 model: permissionDialog.allPermissions
 
                 delegate: PermissionRow {}
+            }
+
+            // Android's "only this time" and precise location: choices,
+            // so the prompt keeps its two actions.
+            Silica.TextSwitch {
+                id: onceSwitch
+
+                objectName: "onceSwitch"
+                visible: !!permissionDialog.options.once
+                text: qsTr("Only this time")
+                description: qsTr("%1 asks again next time it needs it").arg(permissionDialog.appName)
+            }
+
+            Silica.TextSwitch {
+                id: preciseSwitch
+
+                objectName: "preciseSwitch"
+                visible: permissionDialog.options.accuracy === "choice"
+                text: qsTr("Precise location")
+                description: qsTr("When off, %1 learns only roughly where you are").arg(permissionDialog.appName)
             }
 
             Silica.SectionHeader {
