@@ -598,6 +598,8 @@ qt6_add_qml_module(marathon-shell
         src/marathonpermissionmanager.h
         src/models/notificationmodel.cpp
         src/models/notificationmodel.h
+        src/models/filechoosermodel.cpp
+        src/models/filechoosermodel.h
         src/models/taskmodel.cpp
         src/models/taskmodel.h
         src/managers/networkmanagercpp.cpp

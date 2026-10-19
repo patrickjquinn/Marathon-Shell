@@ -223,6 +223,13 @@ target_link_libraries(test_shell_portalsettings Qt6::Test Qt6::Core Qt6::Gui Qt6
 target_include_directories(test_shell_portalsettings PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
 add_test(NAME Shell_PortalSettings COMMAND test_shell_portalsettings)
 
+# The file chooser's list: folders, filters, search, recent
+add_executable(test_shell_filechoosermodel test_filechoosermodel.cpp
+    ../../shell/src/models/filechoosermodel.cpp)
+target_link_libraries(test_shell_filechoosermodel Qt6::Test Qt6::Core Qt6::Qml)
+target_include_directories(test_shell_filechoosermodel PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/models)
+add_test(NAME Shell_FileChooserModel COMMAND test_shell_filechoosermodel)
+
 # GTK / libadwaita / KDE colours derived from the ambience
 add_executable(test_shell_toolkittheme test_toolkittheme.cpp ../../shell/src/services/toolkittheme.cpp)
 target_link_libraries(test_shell_toolkittheme Qt6::Test Qt6::Core Qt6::Gui)
