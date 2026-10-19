@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import MarathonApp.Settings
+import "../SettingsLogic.js" as Logic
 
 Page {
     id: page
@@ -104,7 +105,7 @@ Page {
                     icon: modelData.icon || ""
                     subtitle: [modelData.version ? qsTr("Version %1").arg(modelData.version) : "", qsTr("Android app")].filter(t => t !== "").join(" · ")
                     Accessible.name: modelData.name + ", " + qsTr("Android app")
-                    canUninstall: true
+                    canUninstall: Logic.androidRemovable(modelData.pkg)
                     onUninstallRequested: page.uninstallAndroid(modelData.pkg, modelData.name)
                     onClicked: page.showApp(modelData.id)
                 }

@@ -2,6 +2,7 @@
 
 #include <QDBusConnection>
 #include <QHash>
+#include <QSet>
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
@@ -85,5 +86,6 @@ class AndroidApps : public QObject {
     QVariantMap             m_runtime;
     QVariantList            m_apps;
     QHash<QString, QString> m_icons;
-    QHash<QString, QString> m_jobs; // uninstall job → package
+    QHash<QString, QString> m_jobs;         // uninstall job → package
+    QSet<QString>           m_uninstalling; // asked, not yet answered
 };

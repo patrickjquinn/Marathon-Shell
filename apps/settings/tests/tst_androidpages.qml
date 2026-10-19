@@ -218,6 +218,23 @@ TestCase {
         compare(String(bad.app.pageStack.currentPage).indexOf("AndroidAccessListPage"), 0);
     }
 
+    // Android won't remove Deckard's own packages: Settings doesn't offer it.
+    function test_deckardPackagesStay() {
+        AndroidApps.apps = AndroidApps.apps.concat([{ pkg: "org.marathonos.deckard.notifytest", id: "waydroid.org.marathonos.deckard.notifytest", name: "Notify Test", version: "0.1.0", icon: "" }]);
+        AndroidApps.details["org.marathonos.deckard.notifytest"] = Object.assign({}, AndroidApps.details["org.fdroid.fdroid"], { pkg: "org.marathonos.deckard.notifytest", label: "Notify Test" });
+        const s = open("appmanager");
+        verify(child(s.page, "app-waydroid.org.marathonos.deckard.notifytest").menu === null);
+        verify(child(s.page, "app-waydroid.org.fdroid.fdroid").menu !== null);
+        const list = open("androidapps");
+        verify(child(list.page, "app-waydroid.org.marathonos.deckard.notifytest").menu === null);
+        const info = open("appmanager/waydroid.org.marathonos.deckard.notifytest");
+        tryVerify(() => String(info.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !info.app.pageStack.busy);
+        verify(!info.app.pageStack.currentPage.canUninstall);
+        const other = open("appmanager/waydroid.org.fdroid.fdroid");
+        tryVerify(() => String(other.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !other.app.pageStack.busy);
+        verify(other.app.pageStack.currentPage.canUninstall);
+    }
+
     // A Marathon app's page has none of it.
     function test_marathonAppInfo() {
         const s = open("appmanager/notes");

@@ -258,12 +258,16 @@ void AndroidApps::clearData(const QString &pkg) {
 }
 
 void AndroidApps::uninstall(const QString &pkg) {
+    m_uninstalling.insert(pkg);
     call(kPackages, QStringLiteral("UninstallPackage"), {pkg}, [this, pkg](const QDBusMessage &r) {
         const QString job = ok(r) ? first(r).toString() : QString();
-        if (job.isEmpty())
-            Q_EMIT failed(pkg, QStringLiteral("uninstall"), r.errorMessage());
-        else
+        if (!job.isEmpty() && m_uninstalling.contains(pkg)) {
             m_jobs.insert(job, pkg);
+            return;
+        }
+        if (job.isEmpty() && m_uninstalling.remove(pkg))
+            Q_EMIT failed(pkg, QStringLiteral("uninstall"),
+                          r.errorMessage().isEmpty() ? tr("Android refused") : r.errorMessage());
     });
 }
 
@@ -306,14 +310,18 @@ void AndroidApps::onPackageChanged(const QString &pkg, const QString &change) {
         Q_EMIT appChanged(pkg);
 }
 
-void AndroidApps::onFinished(const QString &job, bool succeeded, const QString &, const QString &message) {
-    const QString pkg = m_jobs.take(job);
-    if (pkg.isEmpty())
+// Finished can come before the reply that names the job, so the package
+// matches too.
+void AndroidApps::onFinished(const QString &job, bool succeeded, const QString &finishedPkg, const QString &message) {
+    QString pkg = m_jobs.take(job);
+    if (pkg.isEmpty() && m_uninstalling.contains(finishedPkg))
+        pkg = finishedPkg;
+    if (pkg.isEmpty() || !m_uninstalling.remove(pkg))
         return;
     if (succeeded)
         Q_EMIT done(pkg, QStringLiteral("uninstall"));
     else
-        Q_EMIT failed(pkg, QStringLiteral("uninstall"), message);
+        Q_EMIT failed(pkg, QStringLiteral("uninstall"), message.isEmpty() ? tr("Android refused") : message);
     refresh();
 }
 

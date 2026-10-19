@@ -428,3 +428,8 @@ function apnError(text) {
         return qsTr("Enter your carrier's MMS APN");
     return "";
 }
+
+// Android refuses to remove its own Deckard packages.
+function androidRemovable(pkg) {
+    return String(pkg || "").indexOf("org.marathonos.deckard.") !== 0;
+}

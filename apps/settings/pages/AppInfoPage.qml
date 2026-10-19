@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import MarathonApp.Settings
+import "../SettingsLogic.js" as Logic
 
 Page {
     id: page
@@ -17,6 +18,8 @@ Page {
     readonly property bool android: appId.startsWith("waydroid.")
     readonly property string pkg: android ? appId.substring(9) : ""
     property var androidApp: ({})
+    // Android refuses to remove Deckard's own packages.
+    readonly property bool canUninstall: android && Logic.androidRemovable(pkg)
 
     Component.onCompleted: {
         if (android)
@@ -83,6 +86,7 @@ Page {
 
             MenuItem {
                 objectName: "uninstallItem"
+                visible: page.canUninstall
                 text: qsTr("Uninstall")
                 onClicked: remorse.execute(qsTr("Uninstalling %1").arg(page.androidApp.label || page.pkg), () => AndroidApps.uninstall(page.pkg))
             }

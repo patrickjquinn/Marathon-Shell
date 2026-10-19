@@ -3,6 +3,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonApp.Settings
+import "../SettingsLogic.js" as Logic
 
 Page {
     id: page
@@ -51,7 +52,7 @@ Page {
             name: modelData.name
             icon: modelData.icon || ""
             subtitle: modelData.version ? qsTr("Version %1").arg(modelData.version) : ""
-            canUninstall: true
+            canUninstall: Logic.androidRemovable(modelData.pkg)
             onUninstallRequested: page.uninstall(modelData.pkg, modelData.name)
             onClicked: pageStack.push(Qt.resolvedUrl("AppInfoPage.qml"), { appId: modelData.id })
         }
