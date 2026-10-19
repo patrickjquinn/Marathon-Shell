@@ -7,18 +7,20 @@ Runs on the device as root, stdlib only.
       Passive: reads the node beside the shell (no EVIOCGRAB), writing each
       input_event as it arrives: "sec usec type code value", after a header
       with the device's name and ABS ranges.
-  touch_trace.py replay IN.trace [--speed 1.0]
+  touch_trace.py replay IN.trace [--speed 1.0] [--times OUT.json]
       A uinput device with the recorded ranges and properties sends the same
       events at the recorded spacing (scaled by 1/speed).
 """
 import array
 import fcntl
+import json
 import os
 import struct
 import sys
 import time
 
 EV_SYN, EV_KEY, EV_ABS = 0, 1, 3
+BTN_TOUCH = 0x14a
 EVENT = struct.Struct("<qqHHi")
 ABSINFO = struct.Struct("<6i")
 
@@ -85,7 +87,7 @@ UI_SET_EVBIT, UI_SET_KEYBIT, UI_SET_ABSBIT, UI_SET_PROPBIT = 0x40045564, 0x40045
 UI_DEV_CREATE, UI_DEV_DESTROY = 0x5501, 0x5502
 
 
-def replay(trace, speed):
+def replay(trace, speed, times=None):
     absinfo, keys, props, events = {}, [], [], []
     for line in open(trace):
         p = line.split()
@@ -118,17 +120,30 @@ def replay(trace, speed):
         if events:
             t0 = events[0][0] + events[0][1] / 1e6
             start = time.monotonic()
+            moves, syns = [], -1
             for sec, usec, t, c, v in events:
                 due = start + (sec + usec / 1e6 - t0) / speed
                 d = due - time.monotonic()
                 if d > 0:
                     time.sleep(d)
                 os.write(fd, EVENT.pack(0, 0, t, c, v))
+                if t == EV_KEY and c == BTN_TOUCH and v == 1:
+                    syns = 0
+                elif t == EV_KEY and c == BTN_TOUCH and v == 0 and moves:
+                    moves[-1]["up_rt"] = time.time()
+                elif t == 0 and syns >= 0:
+                    syns += 1
+                    if syns == 2:
+                        moves.append({"move_rt": time.time()})
+                        syns = -1
         time.sleep(0.3)
     finally:
         fcntl.ioctl(fd, UI_DEV_DESTROY)
         os.close(fd)
     print("replayed %d events" % len(events))
+    if times:
+        with open(times, "w") as f:
+            json.dump({"round_times": moves}, f)
 
 
 def main():
@@ -136,7 +151,8 @@ def main():
         record(sys.argv[2], sys.argv[3], float(sys.argv[4]))
     elif len(sys.argv) >= 3 and sys.argv[1] == "replay":
         speed = float(sys.argv[sys.argv.index("--speed") + 1]) if "--speed" in sys.argv else 1.0
-        replay(sys.argv[2], speed)
+        times = sys.argv[sys.argv.index("--times") + 1] if "--times" in sys.argv else None
+        replay(sys.argv[2], speed, times)
     else:
         sys.exit(__doc__)
 
