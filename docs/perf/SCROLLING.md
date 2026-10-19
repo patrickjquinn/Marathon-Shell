@@ -146,7 +146,7 @@ frame (apps at 30 fps).
   (learnt across touches), interpolating, or predicting up to half a
   spacing at the slower of the last two reports' speeds (none across a
   turn). The content never steps back the way the finger goes, nor at the
-  lift. Still opt-in (`MARATHON_TOUCH_RESAMPLE=1`).
+  lift. On by default; `MARATHON_TOUCH_RESAMPLE=0` turns it off.
 
 | Real-finger replay, 3 runs each | Raw (default) | Resampled |
 |---|---|---|
