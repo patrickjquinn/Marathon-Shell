@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 import "../core/LauncherGrid.js" as LauncherGrid
 
 Item {
@@ -295,5 +296,9 @@ Item {
                 when: pageLoader.index >= 2
             }
         }
+    }
+
+    Silica.FlingStopper {
+        view: pageView
     }
 }

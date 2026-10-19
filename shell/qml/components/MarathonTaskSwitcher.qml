@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
+import Marathon.Silica 1.0 as Silica
 
 Item {
     id: taskSwitcher
@@ -303,6 +304,10 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
+    }
+
+    Silica.FlingStopper {
+        view: taskGrid
     }
 
     TaskPageIndicator {

@@ -398,6 +398,10 @@ Item {
                 }
             }
         }
+
+        Silica.FlingStopper {
+            view: resultsList
+        }
     }
 
     Behavior on opacity {
