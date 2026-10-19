@@ -1,6 +1,7 @@
 import QtQuick
 import Sailfish.Silica as S
 import "Fling.js" as Fling
+import "Velocity.js" as Velocity
 import "ViewKeys.js" as ViewKeys
 
 S.SilicaFlickable {
@@ -8,6 +9,18 @@ S.SilicaFlickable {
 
     flickDeceleration: Fling.deceleration * S.Theme.pixelRatio
     maximumFlickVelocity: Fling.maxVelocity * S.Theme.pixelRatio
+
+    // Fling at the speed the content was moving, not Qt's lagging estimate.
+    property var _motion: []
+    onDraggingChanged: if (dragging) _motion = []
+    onContentXChanged: if (dragging) Velocity.add(_motion, contentX, contentY)
+    onContentYChanged: if (dragging) Velocity.add(_motion, contentX, contentY)
+    onFlickStarted: {
+        const vx = Velocity.rate(_motion, 1);
+        const vy = Velocity.rate(_motion, 2);
+        if (vx !== 0 || vy !== 0)
+            flick(-vx, -vy);
+    }
 
     // A flickable holding controls is not a tab stop itself: Tab goes to the
     // controls, and keys they leave unused scroll it.

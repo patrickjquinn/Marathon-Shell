@@ -157,4 +157,21 @@ TestCase {
         const row = v.itemAt(270, 600 + v.contentY);
         verify(row._showPress);
     }
+
+    function test_aFlingLeavesAtTheFingersSpeed_data() {
+        return views_data();
+    }
+
+    // 20 px every 16 ms is 1250 px/s.
+    function test_aFlingLeavesAtTheFingersSpeed(data) {
+        const v = createTemporaryObject(data.view, testCase);
+        let speed = 0;
+        v.flickStarted.connect(() => Qt.callLater(() => speed = Math.abs(v.verticalVelocity)));
+        mousePress(v, 270, 900);
+        for (let y = 880; y >= 600; y -= 20)
+            mouseMove(v, 270, y, 16);
+        mouseRelease(v, 270, 600, Qt.LeftButton, Qt.NoModifier, 1);
+        tryVerify(() => speed > 0);
+        verify(speed > 1250 * 0.85 && speed < 1250 * 1.25, "left at " + speed + " px/s");
+    }
 }
