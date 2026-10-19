@@ -98,6 +98,15 @@ class FakeBluez : public QObject {
             bus.registerService("org.bluez");
     }
 
+    // A device discovery finds: BlueZ announces it with its properties.
+    void deviceFound(const QString &path, const QVariantMap &props) const {
+        QDBusMessage s = QDBusMessage::createSignal("/", "org.freedesktop.DBus.ObjectManager",
+                                                    "InterfacesAdded");
+        s << QVariant::fromValue(QDBusObjectPath(path))
+          << QVariant::fromValue(InterfaceMap{{"org.bluez.Device1", props}});
+        bus.send(s);
+    }
+
     void deviceChanged(const QVariantMap &changed) const {
         QDBusMessage s = QDBusMessage::createSignal(kDevice, "org.freedesktop.DBus.Properties",
                                                     "PropertiesChanged");
@@ -152,6 +161,20 @@ class TestBluetoothManager : public QObject {
         bluez.deviceChanged({{"Paired", true}});
         QTRY_VERIFY(!pairedChanged.isEmpty());
         QVERIFY(pairedDevice(bt));
+    }
+
+    // Listed from the announcement alone; nothing polls BlueZ for it.
+    void listsADeviceFoundByDiscovery() {
+        FakeBluez bluez;
+        QVERIFY(bluez.publish());
+        BluetoothManager bt;
+        QTRY_COMPARE(bt.devices().size(), 1);
+        bluez.deviceFound(QStringLiteral("/org/bluez/hci0/dev_11_22_33_44_55_66"),
+                          {{"Address", QStringLiteral("11:22:33:44:55:66")},
+                           {"Name", QStringLiteral("Headphones")},
+                           {"Paired", false}});
+        QTRY_COMPARE(bt.devices().size(), 2);
+        QCOMPARE(bt.devices().last()->property("name").toString(), QStringLiteral("Headphones"));
     }
 };
 

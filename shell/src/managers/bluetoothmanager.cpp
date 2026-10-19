@@ -1,8 +1,8 @@
 #include "bluetoothmanager.h"
 #include "bluetoothagent.h"
 #include <QDBusMessage>
-#include <QDBusReply>
 #include <QDBusMetaType>
+#include <QDBusPendingReply>
 #include <QDBusPendingCallWatcher>
 #include <QDebug>
 #include <QDir>
@@ -41,28 +41,35 @@ static int unblockRfkillByType(const QString &type) {
     return touched;
 }
 
-BluetoothDevice::BluetoothDevice(const QString &path, QObject *parent)
+BluetoothDevice::BluetoothDevice(const QString &path, const QVariantMap &props, QObject *parent)
     : QObject(parent)
-    , m_path(path) {
+    , m_path(path)
+    , m_props(props) {
     QDBusConnection::systemBus().connect(
         "org.bluez", m_path, "org.freedesktop.DBus.Properties", "PropertiesChanged", this,
         SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
-    updateProperties();
+    if (m_props.isEmpty())
+        updateProperties();
+    else
+        applyProperties();
 }
 
 void BluetoothDevice::updateProperties() {
-    QDBusInterface          device("org.bluez", m_path, "org.freedesktop.DBus.Properties",
-                                   QDBusConnection::systemBus());
-
-    QDBusReply<QVariantMap> reply = device.call("GetAll", "org.bluez.Device1");
-    if (!reply.isValid()) {
-        qWarning() << "[BluetoothDevice] Failed to get properties for" << m_path << ":"
-                   << reply.error().message();
-        return;
-    }
-
-    m_props = reply.value();
-    applyProperties();
+    QDBusMessage get = QDBusMessage::createMethodCall("org.bluez", m_path,
+                                                      "org.freedesktop.DBus.Properties", "GetAll");
+    get << QStringLiteral("org.bluez.Device1");
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(get), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<QVariantMap> reply = *w;
+        if (reply.isError()) {
+            qWarning() << "[BluetoothDevice] Failed to get properties for" << m_path << ":"
+                       << reply.error().message();
+            return;
+        }
+        m_props = reply.value();
+        applyProperties();
+    });
 }
 
 void BluetoothDevice::onPropertiesChanged(const QString &interface, const QVariantMap &changed,
@@ -237,7 +244,7 @@ void BluetoothManager::initializeAdapter() {
                     QString path = it.key().path();
 
                     if (path.startsWith(m_adapterPath)) {
-                        addDevice(path);
+                        addDevice(path, it.value().value("org.bluez.Device1"));
                         deviceCount++;
                     } else {
                         qDebug() << "[BluetoothManager] Device skipped (path mismatch):" << path
@@ -282,11 +289,6 @@ void BluetoothManager::initializeAdapter() {
             m_scanTimer->setInterval(30000);
             m_scanTimer->setSingleShot(true);
             connect(m_scanTimer, &QTimer::timeout, this, &BluetoothManager::stopScan);
-
-            m_deviceRefreshTimer = new QTimer(this);
-            m_deviceRefreshTimer->setInterval(2000);
-            connect(m_deviceRefreshTimer, &QTimer::timeout, this,
-                    &BluetoothManager::refreshDevices);
         });
 }
 
@@ -294,17 +296,23 @@ void BluetoothManager::updateAdapterProperties() {
     if (!m_adapter)
         return;
 
-    QDBusInterface props("org.bluez", m_adapterPath, "org.freedesktop.DBus.Properties", m_bus);
-    QDBusReply<QVariantMap> reply = props.call("GetAll", "org.bluez.Adapter1");
+    QDBusMessage get = QDBusMessage::createMethodCall("org.bluez", m_adapterPath,
+                                                      "org.freedesktop.DBus.Properties", "GetAll");
+    get << QStringLiteral("org.bluez.Adapter1");
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(get), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<QVariantMap> reply = *w;
+        if (reply.isError()) {
+            qWarning() << "[BluetoothManager] Failed to get adapter properties:"
+                       << reply.error().message();
+            return;
+        }
+        applyAdapterProperties(reply.value());
+    });
+}
 
-    if (!reply.isValid()) {
-        qWarning() << "[BluetoothManager] Failed to get adapter properties:"
-                   << reply.error().message();
-        return;
-    }
-
-    QVariantMap properties = reply.value();
-
+void BluetoothManager::applyAdapterProperties(const QVariantMap &properties) {
     bool        newPowered = properties.value("Powered").toBool();
     qDebug() << "[BluetoothManager] Property update - Powered:" << (newPowered ? "YES" : "NO");
     if (newPowered != m_enabled) {
@@ -334,40 +342,11 @@ void BluetoothManager::updateAdapterProperties() {
              << "scanning=" << m_scanning;
 }
 
-void BluetoothManager::refreshDevices() {
-    QDBusInterface manager("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", m_bus);
-
-    QDBusReply<ManagedObjectMap> reply = manager.call("GetManagedObjects");
-
-    if (!reply.isValid()) {
-        return;
-    }
-
-    for (QObject *obj : std::as_const(m_devices)) {
-        if (auto *dev = qobject_cast<BluetoothDevice *>(obj)) {
-            dev->updateProperties();
-        }
-    }
-
-    const ManagedObjectMap objects = reply.value();
-    for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        const QString path = it.key().path();
-
-        if (!m_adapterPath.isEmpty() && !path.startsWith(m_adapterPath))
-            continue;
-        if (it.value().contains("org.bluez.Device1")) {
-            if (!findDeviceByPath(path))
-                addDevice(path);
-        }
-    }
-}
-
 void BluetoothManager::setEnabled(bool enabled) {
     if (!m_adapter || m_enabled == enabled)
         return;
 
-    QDBusInterface props("org.bluez", m_adapterPath, "org.freedesktop.DBus.Properties", m_bus);
-    props.call("Set", "org.bluez.Adapter1", "Powered", QVariant::fromValue(QDBusVariant(enabled)));
+    setAdapterProperty(QStringLiteral("Powered"), enabled);
 
     qDebug() << "[BluetoothManager] Setting powered to" << enabled;
 
@@ -382,9 +361,7 @@ void BluetoothManager::setDiscoverable(bool discoverable) {
     if (!m_adapter || m_discoverable == discoverable)
         return;
 
-    QDBusInterface props("org.bluez", m_adapterPath, "org.freedesktop.DBus.Properties", m_bus);
-    props.call("Set", "org.bluez.Adapter1", "Discoverable",
-               QVariant::fromValue(QDBusVariant(discoverable)));
+    setAdapterProperty(QStringLiteral("Discoverable"), discoverable);
 
     qDebug() << "[BluetoothManager] Setting discoverable to" << discoverable;
 }
@@ -392,8 +369,25 @@ void BluetoothManager::setDiscoverable(bool discoverable) {
 void BluetoothManager::setAdapterAlias(const QString &alias) {
     if (!m_adapter || alias.isEmpty() || alias == m_adapterName)
         return;
-    QDBusInterface props("org.bluez", m_adapterPath, "org.freedesktop.DBus.Properties", m_bus);
-    props.asyncCall("Set", "org.bluez.Adapter1", "Alias", QVariant::fromValue(QDBusVariant(alias)));
+    setAdapterProperty(QStringLiteral("Alias"), alias);
+}
+
+void BluetoothManager::setAdapterProperty(const QString &name, const QVariant &value) {
+    QDBusMessage set = QDBusMessage::createMethodCall("org.bluez", m_adapterPath,
+                                                      "org.freedesktop.DBus.Properties", "Set");
+    set << QStringLiteral("org.bluez.Adapter1") << name << QVariant::fromValue(QDBusVariant(value));
+    callAsync(set);
+}
+
+void BluetoothManager::callAsync(const QDBusMessage &message) {
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [member = message.member()](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                if (w->isError())
+                    qWarning() << "[BluetoothManager]" << member << "failed:" << w->error().name()
+                               << w->error().message();
+            });
 }
 
 void BluetoothManager::startScan() {
@@ -401,15 +395,12 @@ void BluetoothManager::startScan() {
         return;
 
     qDebug() << "[BluetoothManager] Starting scan...";
-    m_adapter->call("StartDiscovery");
+    callAsync(QDBusMessage::createMethodCall("org.bluez", m_adapterPath, "org.bluez.Adapter1",
+                                             "StartDiscovery"));
 
     if (m_scanTimer) {
         m_scanTimer->start();
     }
-
-    refreshDevices();
-    if (m_deviceRefreshTimer)
-        m_deviceRefreshTimer->start();
 }
 
 void BluetoothManager::stopScan() {
@@ -417,16 +408,12 @@ void BluetoothManager::stopScan() {
         return;
 
     qDebug() << "[BluetoothManager] Stopping scan...";
-    const QDBusMessage reply = m_adapter->call("StopDiscovery");
-    if (reply.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[BluetoothManager] StopDiscovery failed:" << reply.errorName()
-                   << reply.errorMessage();
+    callAsync(QDBusMessage::createMethodCall("org.bluez", m_adapterPath, "org.bluez.Adapter1",
+                                             "StopDiscovery"));
 
     if (m_scanTimer) {
         m_scanTimer->stop();
     }
-    if (m_deviceRefreshTimer)
-        m_deviceRefreshTimer->stop();
 }
 
 void BluetoothManager::pairDevice(const QString &address, const QString &pin) {
@@ -451,8 +438,8 @@ void BluetoothManager::cancelPairing(const QString &address) {
     if (!device)
         return;
 
-    QDBusInterface deviceIface("org.bluez", device->path(), "org.bluez.Device1", m_bus);
-    deviceIface.call("CancelPairing");
+    callAsync(QDBusMessage::createMethodCall("org.bluez", device->path(), "org.bluez.Device1",
+                                             "CancelPairing"));
 }
 
 void BluetoothManager::unpairDevice(const QString &address) {
@@ -484,11 +471,10 @@ void BluetoothManager::removeDevice(const QString &address) {
     if (!device || !m_adapter)
         return;
 
-    QDBusReply<void> reply =
-        m_adapter->call("RemoveDevice", QVariant::fromValue(QDBusObjectPath(device->path())));
-    if (!reply.isValid()) {
-        qWarning() << "[BluetoothManager] Failed to remove device:" << reply.error().message();
-    }
+    QDBusMessage remove = QDBusMessage::createMethodCall("org.bluez", m_adapterPath,
+                                                         "org.bluez.Adapter1", "RemoveDevice");
+    remove << QVariant::fromValue(QDBusObjectPath(device->path()));
+    callAsync(remove);
 }
 
 QList<QObject *> BluetoothManager::pairedDevices() const {
@@ -508,7 +494,7 @@ void BluetoothManager::onDeviceAdded(const QDBusObjectPath &objectPath,
 
     if (interfaces.contains("org.bluez.Device1")) {
         qDebug() << "[BluetoothManager] Device added signal:" << path;
-        addDevice(path);
+        addDevice(path, interfaces.value("org.bluez.Device1"));
     }
 }
 
@@ -571,12 +557,12 @@ BluetoothDevice *BluetoothManager::findDeviceByAddress(const QString &address) {
     return nullptr;
 }
 
-void BluetoothManager::addDevice(const QString &path) {
+void BluetoothManager::addDevice(const QString &path, const QVariantMap &props) {
     if (findDeviceByPath(path)) {
         return;
     }
 
-    BluetoothDevice *device = new BluetoothDevice(path, this);
+    BluetoothDevice *device = new BluetoothDevice(path, props, this);
     m_devices.append(device);
     // A device connecting after it was listed changes what apps and the
     // status bar show.

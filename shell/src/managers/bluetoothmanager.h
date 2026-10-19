@@ -2,6 +2,7 @@
 
 #include <QDBusConnection>
 #include <QDBusInterface>
+#include <QDBusMessage>
 #include <QDBusObjectPath>
 #include <QDBusPendingCallWatcher>
 #include <QMap>
@@ -29,7 +30,7 @@ class BluetoothDevice : public QObject {
     Q_PROPERTY(QString icon READ icon NOTIFY iconChanged)
 
   public:
-    explicit BluetoothDevice(const QString &path, QObject *parent = nullptr);
+    BluetoothDevice(const QString &path, const QVariantMap &props, QObject *parent = nullptr);
 
     QString address() const {
         return m_address;
@@ -160,15 +161,17 @@ class BluetoothManager : public QObject {
     void onPropertiesChanged(const QString &interface, const QVariantMap &changed,
                              const QStringList &invalidated);
     void updateAdapterProperties();
-    void refreshDevices();
 
     BluetoothDevice *findDeviceByPath(const QString &path);
     BluetoothDevice *findDeviceByAddress(const QString &address);
-    void             addDevice(const QString &path);
+    void             addDevice(const QString &path, const QVariantMap &props);
     void             removeDeviceByPath(const QString &path);
 
   private:
     void             initializeAdapter();
+    void             applyAdapterProperties(const QVariantMap &properties);
+    void             setAdapterProperty(const QString &name, const QVariant &value);
+    void             callAsync(const QDBusMessage &message);
 
     QDBusConnection  m_bus;
     QDBusInterface  *m_adapter = nullptr;
@@ -179,7 +182,6 @@ class BluetoothManager : public QObject {
     bool             m_discoverable = false;
     bool             m_available    = false;
     QList<QObject *> m_devices;
-    QTimer          *m_scanTimer          = nullptr;
-    QTimer          *m_deviceRefreshTimer = nullptr;
-    BluetoothAgent  *m_agent              = nullptr;
+    QTimer          *m_scanTimer = nullptr;
+    BluetoothAgent  *m_agent     = nullptr;
 };
