@@ -8,7 +8,7 @@
 pkgname=deckard
 pkgver=0.1.0
 pkgrel=0
-_commit=9a07c496da102f59fa355b1179d8cf8c7f372c5b
+_commit=05919013784ae5765e3217cfeeec8530784b6d3a
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -17,9 +17,16 @@ depends="waydroid python3 iproute2-ss util-linux-misc qt6-qtbase qt6-qtbase-x11 
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so deckardd's libraries are listed above instead.
 options="!tracedeps"
-makedepends="cmake samurai qt6-qtbase-dev"
+makedepends="cmake samurai qt6-qtbase-dev unzip"
 checkdepends="dbus python3"
-source="deckard-$_commit.tar.gz::https://github.com/patrickjquinn/Marathon-Deckard/archive/$_commit.tar.gz"
+# microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
+_microg=v0.3.17.252432
+_gms=com.google.android.gms-252432034.apk
+_vending=com.android.vending-84022634.apk
+source="deckard-$_commit.tar.gz::https://github.com/patrickjquinn/Marathon-Deckard/archive/$_commit.tar.gz
+	$_gms::https://github.com/microg/GmsCore/releases/download/$_microg/$_gms
+	$_vending::https://github.com/microg/GmsCore/releases/download/$_microg/$_vending
+	"
 builddir="$srcdir/Marathon-Deckard-$_commit"
 
 build() {
@@ -63,6 +70,14 @@ package() {
 
 	install -d "$pkgdir"/usr/share/deckard
 	cp -r image/overlay "$pkgdir"/usr/share/deckard/overlay
+	if [ -x image/microg/install.sh ]; then
+		case "$CARCH" in
+		aarch64) _abi=arm64-v8a ;;
+		x86_64) _abi=x86_64 ;;
+		esac
+		image/microg/install.sh "$srcdir/$_gms" "$srcdir/$_vending" \
+			"$pkgdir"/usr/share/deckard/overlay $_abi
+	fi
 	chmod -R u=rwX,go=rX "$pkgdir"/usr/share/deckard/overlay
 	[ ! -f image/whiteouts ] ||
 		install -Dm644 image/whiteouts "$pkgdir"/usr/share/deckard/whiteouts
@@ -75,4 +90,6 @@ package() {
 
 sha512sums="
 SKIP  deckard-$_commit.tar.gz
+0b2f77e87aea3f97e0958f8d02b2d0859ad413347181eee3e45949cf1fb23b8eadc3654472ef802030a15707b85245b22af6d74ebb85667a960d707fea223e27  com.google.android.gms-252432034.apk
+8a0297a6e2ee648f456480309c41b84ead67ffb2a28ac907e764077012d28f5826a7994f9a39e4202b1b7382030bd7cd45d6368930faa84773f0b4695f9c7af6  com.android.vending-84022634.apk
 "
