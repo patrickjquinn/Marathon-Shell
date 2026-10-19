@@ -44,7 +44,7 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: MMotion.durationFor(MMotion.moderate)
+                duration: MMotion.durationFor("sheet")
             }
         }
 
@@ -55,23 +55,36 @@ Item {
         }
     }
 
-    Rectangle {
+    Item {
         id: panel
 
         objectName: "sharePanel"
         width: parent.width
         height: content.implicitHeight + Constants.navBarHeight + Silica.Theme.paddingLarge
         y: (shareSheet.shown ? parent.height - height : parent.height) + shareSheet.dragOffset
-        radius: Silica.Theme.paddingLarge
-        color: MColors.surface
+        clip: true
+
+        // The ambience, as behind a Keel app's pages, under a hairline.
+        KeelAmbienceBackground {
+            width: shareSheet.width
+            height: shareSheet.height
+            y: -panel.y
+            wallpaper: AmbienceService.wallpaperUrl
+            light: AmbienceService.light
+        }
+
+        Rectangle {
+            width: parent.width
+            height: 1
+            color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.3)
+        }
 
         Behavior on y {
             enabled: !dragArea.drag.active
 
             NumberAnimation {
-                duration: MMotion.durationFor(MMotion.moderate)
-                easing.type: Easing.Bezier
-                easing.bezierCurve: MMotion.easingDecelerateCurve
+                duration: MMotion.durationFor("sheet")
+                easing.type: MMotion.easingFor("sheet")
             }
         }
 
@@ -103,8 +116,10 @@ Item {
                 width: parent.width
                 text: shareSheet.request && shareSheet.request.title ? shareSheet.request.title : qsTr("Share")
                 color: Silica.Theme.highlightColor
-                font.pixelSize: Silica.Theme.fontSizeLarge
-                truncationMode: Silica.TruncationMode.Fade
+                font.pixelSize: Silica.Theme.fontSizeExtraLarge
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
             }
 
             Row {
@@ -203,7 +218,7 @@ Item {
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: width / 2
+                                    radius: width / 4
                                     color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
                                     visible: !!target.modelData.glyph
 
