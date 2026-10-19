@@ -2,6 +2,7 @@
 #include "dbusnormalize.h"
 #include "marathonmanifest.h"
 #include "managers/soundname.h"
+#include "mmspartarg.h"
 
 #include <ctime>
 
@@ -16,6 +17,14 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
+#include <vector>
+#include <unistd.h>
+#include <QStandardPaths>
+#include <QFileInfo>
+#include <QFile>
+#include <QDir>
+#include <QDBusUnixFileDescriptor>
+#include <QDBusMetaType>
 #include <algorithm>
 #include <cmath>
 #include <utility>   // std::as_const
@@ -445,8 +454,84 @@ SmsClient::SmsClient(const QString &appId, QObject *parent)
     QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
                                           "org.marathonos.Shell.Sms1", "ConversationsChanged", this,
                                           SLOT(refresh()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
+                                          "org.marathonos.Shell.Sms1", "MessageStatusChanged", this,
+                                          SIGNAL(messageStatusChanged(int, QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
+                                          "org.marathonos.Shell.Sms1", "MmsAvailableChanged", this,
+                                          SLOT(setMmsAvailable(bool)));
+    qDBusRegisterMetaType<MmsPartArg>();
+    qDBusRegisterMetaType<QList<MmsPartArg>>();
     connectPermissionGranted(this);
     refresh();
+}
+
+void SmsClient::setMmsAvailable(bool available) {
+    if (available == m_mmsAvailable)
+        return;
+    m_mmsAvailable = available;
+    emit mmsAvailableChanged();
+}
+
+int SmsClient::sendMms(const QStringList &recipients, const QString &text,
+                       const QVariantList &attachments) {
+    if (!ensurePermission())
+        return -1;
+    QList<MmsPartArg>     parts;
+    std::vector<QFile *>  open;
+    const auto            closeAll = [&open]() {
+        for (QFile *f : open)
+            delete f;
+    };
+    for (const QVariant &value : attachments) {
+        const QVariantMap attachment = value.toMap();
+        const QString     path       = attachment.value(QStringLiteral("filePath")).toString();
+        auto             *file       = new QFile(path);
+        open.push_back(file);
+        if (!file->open(QIODevice::ReadOnly)) {
+            qWarning() << "[SmsClient] cannot open attachment" << path;
+            closeAll();
+            return -1;
+        }
+        const QString name = attachment.value(QStringLiteral("name")).toString();
+        parts << MmsPartArg{attachment.value(QStringLiteral("contentType")).toString(),
+                            name.isEmpty() ? QFileInfo(path).fileName() : name,
+                            QDBusUnixFileDescriptor(file->handle())};
+    }
+    QDBusReply<int> reply = m_iface.call(QStringLiteral("SendMms"), recipients, text,
+                                         QVariant::fromValue(parts));
+    closeAll();
+    if (!reply.isValid()) {
+        qWarning() << "[SmsClient] SendMms failed:" << reply.error().message();
+        return -1;
+    }
+    return reply.value();
+}
+
+QString SmsClient::openAttachment(int id, const QString &name) {
+    if (!ensurePermission())
+        return {};
+    QString file = QFileInfo(name).fileName();
+    if (file.isEmpty() || file == QLatin1String("..") || file == QLatin1String("."))
+        file = QStringLiteral("attachment");
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+        QStringLiteral("/mms/%1").arg(id);
+    QString path = dir + QLatin1Char('/') + file;
+    if (QFileInfo::exists(path))
+        return path;
+    QDBusReply<QDBusUnixFileDescriptor> reply = m_iface.call(QStringLiteral("OpenAttachment"), id);
+    QFile                               source;
+    if (!reply.isValid() || !reply.value().isValid() ||
+        !source.open(::dup(reply.value().fileDescriptor()), QIODevice::ReadOnly,
+                     QFileDevice::AutoCloseHandle) ||
+        !QDir().mkpath(dir))
+        return {};
+    QFile target(path);
+    if (!target.open(QIODevice::WriteOnly) || target.write(source.readAll()) < 0) {
+        target.remove();
+        return {};
+    }
+    return path;
 }
 
 void SmsClient::onPermissionGranted(const QString &appId, const QString &permission) {
@@ -2474,6 +2559,8 @@ void SmsClient::setConversations(const QVariantList &v) {
 void SmsClient::refresh() {
     if (!ensurePermission())
         return;
+    if (QDBusReply<bool> mms = m_iface.call(QStringLiteral("IsMmsAvailable")); mms.isValid())
+        setMmsAvailable(mms.value());
     QDBusReply<QVariantList> r = m_iface.call("GetConversations");
     if (!r.isValid()) {
         qWarning() << "[SmsClient] GetConversations failed:" << r.error().type()

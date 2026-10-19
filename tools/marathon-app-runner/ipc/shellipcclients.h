@@ -163,6 +163,7 @@ class TelephonyClient : public QObject {
 class SmsClient : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList conversations READ conversations NOTIFY conversationsChanged)
+    Q_PROPERTY(bool mmsAvailable READ mmsAvailable NOTIFY mmsAvailableChanged)
 
   public:
   public:
@@ -182,7 +183,19 @@ class SmsClient : public QObject {
 
     Q_INVOKABLE void         simulateIncomingSMS(const QString &sender, const QString &message);
 
+    bool                     mmsAvailable() const {
+        return m_mmsAvailable;
+    }
+    // attachments: [{contentType, filePath, name}], files the app can open.
+    // The stored message's id, or -1.
+    Q_INVOKABLE int          sendMms(const QStringList &recipients, const QString &text,
+                                     const QVariantList &attachments);
+    // A copy of the attachment in the app's cache, "" if it could not be read.
+    Q_INVOKABLE QString      openAttachment(int id, const QString &name);
+
   signals:
+    void mmsAvailableChanged();
+    void messageStatusChanged(int id, const QString &status);
     void messageReceived(const QString &sender, const QString &text, qint64 timestamp);
     void messageSent(const QString &recipient, qint64 timestamp);
     void sendFailed(const QString &recipient, const QString &reason);
@@ -190,6 +203,7 @@ class SmsClient : public QObject {
 
   private slots:
     void onPermissionGranted(const QString &appId, const QString &permission);
+    void setMmsAvailable(bool available);
 
   private:
     bool           ensurePermission();
@@ -198,6 +212,7 @@ class SmsClient : public QObject {
     QDBusInterface m_iface;
     QDBusInterface m_permIface;
     QVariantList   m_conversations;
+    bool           m_mmsAvailable = false;
     bool           m_permissionRequested = false;
 };
 
