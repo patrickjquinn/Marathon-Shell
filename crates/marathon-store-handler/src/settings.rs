@@ -133,6 +133,13 @@ mod tests {
     }
 
     #[test]
+    fn defaults() {
+        let s = Settings::default();
+        assert!(s.flathub && s.fdroid && s.anti_features && s.auto_update);
+        assert!(!s.update_on_metered);
+    }
+
+    #[test]
     fn defaults_fill_missing_keys() {
         let s: Settings = serde_json::from_str(r#"{"fdroid": false, "extra": 1}"#).unwrap();
         assert_eq!(

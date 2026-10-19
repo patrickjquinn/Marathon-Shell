@@ -262,6 +262,23 @@ TestCase {
         verify(!metered.enabled);
     }
 
+    // Before the handler has written its copy, the page shows the
+    // handler's defaults.
+    function test_storeSettingsDefaults() {
+        const s = open("store");
+        s.page.openExternally = url => {};
+        s.page.stateDir = "/nonexistent/marathon-store-state";
+        s.page.load();
+        wait(200);
+        verify(child(s.page, "flathubSwitch").checked);
+        verify(child(s.page, "fdroidSwitch").checked);
+        const anti = child(s.page, "antiFeaturesSwitch");
+        verify(anti.checked);
+        verify(anti.enabled);
+        verify(child(s.page, "autoUpdateSwitch").checked);
+        verify(!child(s.page, "meteredSwitch").checked);
+    }
+
     function test_appGridSwitchIsTheStores() {
         const s = open("appsort");
         compare(child(s.page, "filterSwitch").description, "Leaves out apps not made for phones, here and in the App Store");
