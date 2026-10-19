@@ -184,6 +184,10 @@ void DeviceProfile::load() {
         if (ok && n >= 0 && n <= 2)
             m_runnerPool = n;
     }
+    if (conf.value("MARATHON_TOUCH_FILTER", QStringLiteral("TOUCH_FILTER"), s))
+        m_touchFilter = toBool(s, m_touchFilter);
+    if (conf.value("MARATHON_TOUCH_PARAMS", QStringLiteral("TOUCH_PARAMS"), s))
+        m_touchParams = s;
 
     qInfo().noquote() << "[DeviceProfile] id=" << m_deviceId << "gpu=" << m_gpuStack
                       << QStringLiteral("gles=%1.%2").arg(m_glesMajor).arg(m_glesMinor)

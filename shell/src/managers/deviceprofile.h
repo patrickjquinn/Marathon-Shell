@@ -116,6 +116,15 @@ class DeviceProfile : public QObject {
     int runnerPool() const {
         return m_runnerPool;
     }
+    // Touch read by Qt's evdevtouch and handed to the scene once per frame,
+    // filtered; false = evdevtouch unfiltered, each report as it comes.
+    bool touchFilter() const {
+        return m_touchFilter;
+    }
+    // Extra evdevtouch parameters for the panel, e.g. "rotate=90:invertx".
+    const QString &touchParams() const {
+        return m_touchParams;
+    }
 
   private:
     explicit DeviceProfile(QObject *parent = nullptr);
@@ -149,4 +158,6 @@ class DeviceProfile : public QObject {
     int   m_panelDepth      = 8;
     bool  m_wakeOnKey       = false;
     int   m_runnerPool      = 1;
+    bool    m_touchFilter     = true;
+    QString m_touchParams;
 };

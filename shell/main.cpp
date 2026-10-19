@@ -375,10 +375,27 @@ int main(int argc, char *argv[]) {
             qWarning() << "[MarathonShell] waited" << waited << "ms for DRM master on" << cards;
     }
 
+    // Touch comes from Qt's evdevtouch, read on its own thread with the
+    // device's parameters; 71-marathon-touch.rules hides touchscreens from
+    // libinput, which eglfs reads on the GUI thread.
+    const bool evdevTouch = qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs")) &&
+        !qEnvironmentVariableIsSet("QT_QPA_GENERIC_PLUGINS");
+    if (evdevTouch) {
+        const DeviceProfile &dp = DeviceProfile::instance();
+        QStringList          spec{QStringLiteral("evdevtouch")};
+        if (dp.touchFilter())
+            spec << QStringLiteral("filtered");
+        if (!dp.touchParams().isEmpty())
+            spec << dp.touchParams();
+        qputenv("QT_QPA_GENERIC_PLUGINS", spec.join(QLatin1Char(':')).toLocal8Bit());
+    }
+
     qputenv("QT_IM_MODULES", "marathon");
     QGuiApplication app(argc, argv);
     startupMark("application");
     qunsetenv("QT_IM_MODULES");
+    if (evdevTouch)
+        qunsetenv("QT_QPA_GENERIC_PLUGINS");
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
     // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1, so the target HW

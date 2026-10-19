@@ -309,7 +309,7 @@ install(DIRECTORY shell/resources/sounds/
 )
 
 # Install udev rules
-install(FILES udev/70-marathon-shell.rules udev/90-backlight.rules
+install(FILES udev/70-marathon-shell.rules udev/71-marathon-touch.rules udev/90-backlight.rules
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/udev/rules.d
 )
 

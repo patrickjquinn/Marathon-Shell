@@ -1,0 +1,3 @@
+# The shell reads touchscreens itself (Qt evdevtouch, filtered); libinput
+# keeps keyboards and pointers.
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{LIBINPUT_IGNORE_DEVICE}="1"
