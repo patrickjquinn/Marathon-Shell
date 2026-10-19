@@ -174,4 +174,65 @@ TestCase {
         tryVerify(() => speed > 0);
         verify(speed > 1250 * 0.85 && speed < 1250 * 1.25, "left at " + speed + " px/s");
     }
+
+    // A press that stops a moving view only stops it, even as the fling ends.
+    function test_aPressThatStopsAFlingDoesNotClick() {
+        const v = createTemporaryObject(pressList, testCase);
+        v.flick(0, -600);
+        tryVerify(() => v.moving);
+        wait(150);
+        verify(v.moving);
+        touchEvent(v).press(0, v, 270, 480).commit();
+        wait(50);
+        touchEvent(v).release(0, v, 270, 480).commit();
+        verify(!v.rowClicked);
+        wait(Fling.tapTimeout * 2);
+        verify(!v.rowHighlighted);
+        tryVerify(() => !v.moving);
+        touchEvent(v).press(0, v, 270, 480).commit();
+        touchEvent(v).release(0, v, 270, 480).commit();
+        verify(v.rowClicked);
+    }
+
+    // Nor while it springs back from past its end.
+    function test_aPressDuringTheReboundDoesNotClick() {
+        const v = createTemporaryObject(pressList, testCase, {boundsBehavior: Flickable.DragAndOvershootBounds});
+        v.flick(0, 4000);
+        tryVerify(() => v.verticalOvershoot < 0);
+        tryVerify(() => v.verticalOvershoot > -2 && v.moving, 3000, "rebounding");
+        touchEvent(v).press(0, v, 270, 480).commit();
+        wait(50);
+        touchEvent(v).release(0, v, 270, 480).commit();
+        verify(!v.rowClicked);
+    }
+
+    // And as the fling dies away below Qt's own threshold.
+    function test_aPressAtTheEndOfAFlingDoesNotClick() {
+        const v = createTemporaryObject(pressList, testCase);
+        v.flick(0, -1500);
+        tryVerify(() => v.moving && Math.abs(v.verticalVelocity) < 80, 3000);
+        touchEvent(v).press(0, v, 270, 480).commit();
+        wait(50);
+        touchEvent(v).release(0, v, 270, 480).commit();
+        verify(!v.rowClicked);
+    }
+
+    // A press that lands as the fling ends was aimed at moving content: the
+    // finger came down a frame or two before the view saw it.
+    function test_aPressAsTheFlingEndsDoesNotClick() {
+        const v = createTemporaryObject(pressList, testCase);
+        let ended = false;
+        v.movementEnded.connect(() => {
+            ended = true;
+            touchEvent(v).press(0, v, 270, 480).commit();
+            touchEvent(v).release(0, v, 270, 480).commit();
+        });
+        v.flick(0, -1500);
+        tryVerify(() => ended, 5000);
+        verify(!v.rowClicked);
+        wait(Fling.flingTapGuard * 3);
+        touchEvent(v).press(0, v, 270, 480).commit();
+        touchEvent(v).release(0, v, 270, 480).commit();
+        verify(v.rowClicked);
+    }
 }

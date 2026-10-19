@@ -15,6 +15,10 @@ S.SilicaFlickable {
     onDraggingChanged: if (dragging) _motion = []
     onContentXChanged: if (dragging) Velocity.add(_motion, contentX, contentY)
     onContentYChanged: if (dragging) Velocity.add(_motion, contentX, contentY)
+    FlingStopper {
+        view: root
+    }
+
     onFlickStarted: {
         const vx = Velocity.rate(_motion, 1);
         const vy = Velocity.rate(_motion, 2);

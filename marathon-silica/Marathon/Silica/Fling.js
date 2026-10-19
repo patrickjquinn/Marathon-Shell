@@ -7,3 +7,5 @@ const deceleration = 3500;
 const maxVelocity = 16000;
 // Android's tap timeout: a press shows only once it hasn't become a scroll.
 const tapTimeout = 100;
+// A press this soon after a fling ends only stops it (FlingStopper).
+const flingTapGuard = 50;
