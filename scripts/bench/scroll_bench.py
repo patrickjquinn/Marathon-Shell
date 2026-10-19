@@ -271,6 +271,7 @@ def main():
     ap.add_argument("--hold-ms", type=int, default=0)
     ap.add_argument("--pre-ms", type=int, default=0, help="hold still after touch-down before moving")
     ap.add_argument("--horizontal", action="store_true")
+    ap.add_argument("--same-way", action="store_true", help="every round the same way (a train of flings)")
     ap.add_argument("--width", type=int, default=720)
     ap.add_argument("--height", type=int, default=720)
     ap.add_argument("--hz", type=float, default=60.0)
@@ -287,7 +288,7 @@ def main():
     step = a.step_ms / 1000.0
     try:
         for i in range(a.rounds):
-            sign = -1 if i % 2 == 0 else 1
+            sign = -1 if i % 2 == 0 or a.same_way else 1
             start = a.x if a.horizontal else a.y0
             if sign > 0:
                 start -= a.dist
