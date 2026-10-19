@@ -4,6 +4,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import Sailfish.Pickers 1.0
 import "../MessagesLogic.js" as Logic
 import "../components"
 
@@ -16,9 +17,11 @@ Page {
     readonly property string recipientNumber: conversation.contactNumber
     property string contactName: conversation.contactName || ""
     readonly property bool hasModem: Telephony.hasModem
-    readonly property bool canSend: hasModem && pendingText === "" && input.text.trim() !== ""
+    readonly property bool canSend: hasModem && pendingText === "" && (input.text.trim() !== "" || attachments.length > 0)
     property string pendingText: ""
     property string sendError: ""
+    // Pictures to send with the text, as MMS: [{contentType, filePath, name}].
+    property var attachments: []
 
     function load() {
         messages = Logic.messageRows(Sms.getMessages(conversation.id));
@@ -28,10 +31,46 @@ Page {
     function send() {
         if (!canSend)
             return;
+        if (attachments.length > 0) {
+            sendError = "";
+            Sms.sendMms([recipientNumber], input.text.trim(), attachments);
+            attachments = [];
+            input.text = "";
+            load();
+            return;
+        }
         pendingText = input.text.trim();
         sendError = "";
         sendTimeout.restart();
         Sms.sendMessage(recipientNumber, pendingText);
+    }
+
+    // A message that failed goes again, with its pictures read back from
+    // where Messages stored them, and the failed one goes.
+    function retry(message) {
+        const parts = (message.attachments || []).map(a => ({
+                    contentType: a.contentType,
+                    filePath: Sms.openAttachment(a.id, a.name),
+                    name: a.name
+                }));
+        if (parts.some(p => p.filePath === "")) {
+            sendError = qsTr("The picture couldn't be read again.");
+            return;
+        }
+        if (parts.length > 0)
+            Sms.sendMms([recipientNumber], message.text, parts);
+        else
+            Sms.sendMessage(recipientNumber, message.text);
+        Sms.deleteMessage(message.id);
+        load();
+    }
+
+    function attach() {
+        if (!Sms.mmsAvailable) {
+            sendError = qsTr("Pictures go as MMS, which isn't available on this phone.");
+            return;
+        }
+        pageStack.push(pickerComponent);
     }
 
     function failureText(reason) {
@@ -76,6 +115,10 @@ Page {
             sendTimeout.stop();
             root.pendingText = "";
             root.sendError = root.failureText(reason);
+        }
+
+        function onMessageStatusChanged(id, status) {
+            root.load();
         }
 
         function onMessageReceived(sender, text, timestamp) {
@@ -135,6 +178,8 @@ Page {
                 Sms.deleteMessage(modelData.id);
                 root.load();
             }
+            onRetryRequested: root.retry(modelData)
+            onPictureOpened: path => pageStack.push(pictureComponent, { source: "file://" + path })
         }
 
         VerticalScrollDecorator {}
@@ -170,9 +215,65 @@ Page {
             color: root.sendError !== "" ? Theme.errorColor : Theme.secondaryHighlightColor
         }
 
+        Flow {
+            objectName: "composerAttachments"
+            x: Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            spacing: Theme.paddingSmall
+            visible: root.attachments.length > 0
+
+            Repeater {
+                model: root.attachments
+
+                delegate: Item {
+                    id: attached
+
+                    required property var modelData
+                    required property int index
+
+                    objectName: "composerAttachment-" + modelData.name
+                    width: Theme.itemSizeLarge
+                    height: width
+
+                    Image {
+                        anchors.fill: parent
+                        fillMode: Image.PreserveAspectCrop
+                        sourceSize.width: width
+                        sourceSize.height: height
+                        asynchronous: true
+                        source: "file://" + attached.modelData.filePath
+                    }
+
+                    IconButton {
+                        objectName: "removeAttachment"
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        icon.source: "image://theme/icon-m-clear"
+                        Accessible.name: qsTr("Remove %1").arg(attached.modelData.name)
+                        onClicked: root.attachments = root.attachments.filter((a, i) => i !== attached.index)
+                    }
+                }
+            }
+        }
+
         Item {
             width: parent.width
             height: Math.max(input.height, sendButton.height)
+
+            IconButton {
+                id: attachButton
+
+                objectName: "attachButton"
+                anchors {
+                    left: parent.left
+                    leftMargin: Theme.horizontalPageMargin - Theme.paddingMedium
+                    bottom: parent.bottom
+                    bottomMargin: Theme.paddingLarge
+                }
+                icon.source: "image://theme/icon-m-attach"
+                Accessible.name: qsTr("Attach a picture")
+                onClicked: root.attach()
+            }
 
             TextArea {
                 id: input
@@ -181,13 +282,13 @@ Page {
 
                 objectName: "messageField"
                 anchors {
-                    left: parent.left
+                    left: attachButton.right
                     right: sendButton.left
                     verticalCenter: parent.verticalCenter
                 }
                 height: Math.min(implicitHeight, root.height / 3)
                 placeholderText: qsTr("Type message")
-                label: text === "" ? qsTr("SMS") : sms.parts > 1 ? qsTr("SMS (%1) · %2/%3").arg(sms.parts).arg(sms.used).arg(sms.limit) : qsTr("SMS · %1/%2").arg(sms.used).arg(sms.limit)
+                label: root.attachments.length > 0 ? qsTr("MMS") : text === "" ? qsTr("SMS") : sms.parts > 1 ? qsTr("SMS (%1) · %2/%3").arg(sms.parts).arg(sms.used).arg(sms.limit) : qsTr("SMS · %1/%2").arg(sms.used).arg(sms.limit)
                 EnterKey.enabled: root.canSend
                 EnterKey.iconSource: "image://theme/icon-m-send"
                 EnterKey.onClicked: root.send()
@@ -208,6 +309,40 @@ Page {
                 Accessible.name: root.sendError !== "" ? qsTr("Retry") : qsTr("Send")
                 Accessible.description: root.hasModem ? "" : qsTr("No SIM — messages can't be sent")
                 onClicked: root.send()
+            }
+        }
+    }
+
+    Component {
+        id: pickerComponent
+
+        ImagePickerPage {
+            onSelectedContentPropertiesChanged: {
+                const picked = selectedContentProperties;
+                root.attachments = root.attachments.concat([{
+                        contentType: picked.mimeType,
+                        filePath: picked.filePath,
+                        name: picked.fileName
+                    }]);
+            }
+        }
+    }
+
+    Component {
+        id: pictureComponent
+
+        Page {
+            property alias source: picture.source
+
+            allowedOrientations: Orientation.All
+
+            Image {
+                id: picture
+
+                objectName: "pictureViewer"
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
             }
         }
     }
