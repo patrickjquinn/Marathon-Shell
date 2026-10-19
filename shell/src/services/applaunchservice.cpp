@@ -281,20 +281,18 @@ QString joinForSplitCommand(const QStringList &args) {
                                               "--enable-viewport "
                                               "--main-frame-resizes-are-orientation-changes";
 
-    // The media folders an app with the "storage" permission sees.
     QStringList storageBinds(const QString &homeDir) {
         QStringList args;
-        for (const auto loc : {QStandardPaths::PicturesLocation, QStandardPaths::MusicLocation,
-                               QStandardPaths::MoviesLocation, QStandardPaths::DocumentsLocation,
-                               QStandardPaths::DownloadLocation}) {
-            const QString dir = QStandardPaths::writableLocation(loc);
-            if (dir.isEmpty() || dir == homeDir)
+        const QString dcim = homeDir + QStringLiteral("/DCIM");
+        const QStringList folders = AppLaunchService::sharedFolders();
+        for (const QString &dir : folders) {
+            if (dir == dcim) {
+                args << QStringLiteral("--bind-try") << dir << dir;
                 continue;
+            }
             QDir().mkpath(dir);
             args << QStringLiteral("--bind") << dir << dir;
         }
-        const QString dcim = homeDir + QStringLiteral("/DCIM");
-        args << QStringLiteral("--bind-try") << dcim << dcim;
         // MediaLibraryManager::getThumbnailsDir(), which runs in this process.
         const QString thumbs = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
             QStringLiteral("/marathon/thumbnails");
@@ -421,6 +419,20 @@ void AppLaunchService::closeNativeApp(int surfaceId) {
 
 bool AppLaunchService::canLaunch(const QString &appId) const {
     return !resolveAppObject(appId).isEmpty();
+}
+
+QStringList AppLaunchService::sharedFolders() {
+    const QString home = QDir::homePath();
+    QStringList   dirs;
+    for (const auto loc : {QStandardPaths::PicturesLocation, QStandardPaths::MusicLocation,
+                           QStandardPaths::MoviesLocation, QStandardPaths::DocumentsLocation,
+                           QStandardPaths::DownloadLocation}) {
+        const QString dir = QStandardPaths::writableLocation(loc);
+        if (!dir.isEmpty() && dir != home)
+            dirs << dir;
+    }
+    dirs << home + QStringLiteral("/DCIM");
+    return dirs;
 }
 
 QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {

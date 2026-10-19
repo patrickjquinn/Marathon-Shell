@@ -165,6 +165,8 @@ class AppLaunchService : public QObject {
     // apart from its writable data; a system app that lists other apps
     // sees every install.
     static QStringList installBinds(const QString &appId, const QStringList &permissions);
+    // The media folders an app with the "storage" permission sees.
+    static QStringList sharedFolders();
 
   private:
     friend class TestRunnerPool;
