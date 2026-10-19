@@ -140,6 +140,8 @@ bool TouchResampler::eventFilter(QObject *watched, QEvent *event) {
                 m_pending = true;
                 if (m_polisher)
                     m_polisher->polish();
+                // Accepted, or QGuiApplication makes a mouse move of it.
+                touch->accept();
                 return true;
             }
             break;
