@@ -111,6 +111,7 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *navObj     = new NavigationObject(m_appLaunchService, this);
     if (m_foregroundApp)
         navObj->setForegroundApp(m_foregroundApp);
+    navObj->setSessionStore(m_sessionStore);
     auto *hapticObj  = new HapticObject(m_hapticManager, m_appLaunchService, this);
     auto *sensorObj  = new SensorObject(m_sensorManager, m_permissions, m_appLaunchService, this);
     auto *locObj   = new LocationObject(m_locationManager, m_permissions, m_appLaunchService, this);

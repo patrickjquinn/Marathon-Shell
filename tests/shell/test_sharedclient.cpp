@@ -201,6 +201,44 @@ class TestSharedClient : public QObject {
         QCOMPARE(shell->shown, (QStringList{id("c"), id("c")}));
     }
 
+    // Deckard asks (ExpectAppWindow) when Android starts an app's activity
+    // itself, as on a notification's tap: its next window takes the front.
+    void anExpectedWindowTakesTheFront() {
+        shell->appWindowOpen = true;
+        launcher->expectWindow(id("c"));
+        QVERIFY(map("c", 31, &surfaceA));
+        QCOMPARE(shell->shown, QStringList{id("c")});
+        QCOMPARE(shell->opened, QStringList{id("c")});
+    }
+
+    void anExpectedAppWithAWindowComesForwardAtOnce() {
+        QVERIFY(!map("c", 31, &surfaceA));
+        QVERIFY(shell->shown.isEmpty());
+        launcher->expectWindow(id("c"));
+        QCOMPARE(shell->shown, QStringList{id("c")});
+    }
+
+    void anExpectationLapses() {
+        shell->appWindowOpen = true;
+        launcher->m_expectWindowMs = 30;
+        launcher->expectWindow(id("c"));
+        QTest::qWait(60);
+        QVERIFY(!map("c", 31, &surfaceA));
+        QVERIFY(shell->shown.isEmpty());
+    }
+
+    void anAppIsSecureUntilItGoes() {
+        QSignalSpy changed(launcher, &AppLaunchService::secureAppsChanged);
+        launcher->setAppSecure(id("c"), true);
+        QCOMPARE(launcher->secureApps(), QStringList{id("c")});
+        QCOMPARE(changed.count(), 1);
+        map("c", 31, &surfaceA);
+        QCOMPARE(changed.count(), 1);
+        tasks->closeTask(tasks->getTaskByAppId(id("c"))->id());
+        QVERIFY(launcher->secureApps().isEmpty());
+        QCOMPARE(changed.count(), 2);
+    }
+
     void aShownLaunchIsShown() {
         launch("a", kLaunchA);
         QVERIFY(map("a", 11, &surfaceA));

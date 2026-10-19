@@ -39,6 +39,7 @@ class PowerManagerCpp;
 class PowerPolicyController;
 class WakeTimers;
 class ForegroundApp;
+class SessionStore;
 class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
@@ -569,6 +570,9 @@ class NavigationObject : public QObject, protected QDBusContext {
   public:
     NavigationObject(AppLaunchService *launchService, QObject *parent = nullptr);
     void setForegroundApp(ForegroundApp *foreground);
+    void setSessionStore(SessionStore *session) {
+        m_session = session;
+    }
 
   public slots:
     bool LaunchApp(const QString &appId);
@@ -580,6 +584,12 @@ class NavigationObject : public QObject, protected QDBusContext {
     QString AppIdForPid(uint pid);
     // The app in front, "" on the home screen, the switcher or the lock screen.
     QString GetForegroundApp();
+    // Session services (Deckard) only. The app's window comes in front now,
+    // or the next one it maps within 10 s; false while locked.
+    bool    ExpectAppWindow(const QString &appId);
+    // Session services only: the app's windows stay off cards and screenshots
+    // until its card goes.
+    void    SetAppWindowSecure(const QString &appId, bool secure);
 
     // Quick Settings shade control (marathon CLI `qs` verb). Lets a dev host
     // pull the shade over D-Bus, since top-edge touch injection never reaches
@@ -599,6 +609,8 @@ class NavigationObject : public QObject, protected QDBusContext {
     QString           callerAppIdOrEmpty() const;
     AppLaunchService *m_launchService = nullptr;
     ForegroundApp    *m_foreground    = nullptr;
+    SessionStore     *m_session       = nullptr;
+    bool              requireService();
 };
 
 class HapticObject : public QObject, protected QDBusContext {

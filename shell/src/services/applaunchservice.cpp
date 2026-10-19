@@ -312,6 +312,20 @@ AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QOb
     , m_spareCount(DeviceProfile::instance().runnerPool())
     , m_appModel(appModel)
     , m_taskModel(taskModel) {
+    if (m_taskModel) {
+        connect(m_taskModel, &TaskModel::taskLaunched, this, [this]() {
+            for (auto it = m_secureApps.begin(); it != m_secureApps.end(); ++it)
+                it.value() = it.value() || m_taskModel->getTaskByAppId(it.key());
+        });
+        connect(m_taskModel, &TaskModel::taskClosed, this, [this]() {
+            const qsizetype before = m_secureApps.size();
+            m_secureApps.removeIf([this](const QHash<QString, bool>::iterator it) {
+                return it.value() && !m_taskModel->getTaskByAppId(it.key());
+            });
+            if (m_secureApps.size() != before)
+                emit secureAppsChanged();
+        });
+    }
     // First spare spawns after shell boot settles; adopts refill on demand.
     QTimer::singleShot(8000, this, &AppLaunchService::refillSpares);
 }
@@ -328,6 +342,9 @@ void AppLaunchService::setCompositor(QObject *obj) {
     if (m_compositor) {
 #if defined(HAVE_WAYLAND)
         if (auto *wc = qobject_cast<WaylandCompositor *>(m_compositor.data())) {
+            wc->setSecureApps(secureApps());
+            QObject::connect(this, &AppLaunchService::secureAppsChanged, wc,
+                             [this, wc]() { wc->setSecureApps(secureApps()); });
             QObject::connect(wc, &WaylandCompositor::appLaunched, this,
                              [this](const QString &command, qint64 pid) {
                                  onCompositorAppLaunched(command, pid);
@@ -2125,9 +2142,31 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
 }
 #endif
 
+void AppLaunchService::expectWindow(const QString &appId) {
+    m_expectedWindows.insert(appId, QDeadlineTimer(m_expectWindowMs));
+    if (m_taskModel && m_taskModel->getTaskByAppId(appId))
+        launchApp(QVariant(appId));
+}
+
+void AppLaunchService::setAppSecure(const QString &appId, bool secure) {
+    if (secure == m_secureApps.contains(appId))
+        return;
+    if (secure)
+        m_secureApps.insert(appId, m_taskModel && m_taskModel->getTaskByAppId(appId));
+    else
+        m_secureApps.remove(appId);
+    emit secureAppsChanged();
+}
+
 bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
                                  const QString &sandboxAppId, int surfaceId,
                                  QObject *qmlSurfaceObj, bool frontInput) {
+    if (const auto expected = m_expectedWindows.constFind(xdgAppId);
+        expected != m_expectedWindows.cend()) {
+        frontInput = frontInput || !expected->hasExpired();
+        if (expected->hasExpired())
+            m_expectedWindows.erase(expected);
+    }
     // Android's own rule for starting an activity in front: in answer to the
     // user's input on the app in front.
     const auto takeFront = [this, surfaceId, qmlSurfaceObj](const QString &appId,

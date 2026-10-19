@@ -882,9 +882,19 @@ namespace {
 
 bool WaylandCompositor::showsSecureContent() const {
     const QList<MarathonSurfaceV1 *> all = m_marathonSurfaceManager->surfaces();
-    return std::any_of(all.cbegin(), all.cend(), [](const MarathonSurfaceV1 *marathon) {
-        return marathon->secure() && surfaceShown(marathon->surface());
+    if (std::any_of(all.cbegin(), all.cend(), [](const MarathonSurfaceV1 *marathon) {
+            return marathon->secure() && surfaceShown(marathon->surface());
+        }))
+        return true;
+    const QList<QWaylandSurface *> surfaces = QWaylandCompositor::surfaces();
+    return std::any_of(surfaces.cbegin(), surfaces.cend(), [this](const QWaylandSurface *surface) {
+        const auto *toplevel = surface->property("xdgToplevel").value<QWaylandXdgToplevel *>();
+        return toplevel && m_secureApps.contains(toplevel->appId()) && surfaceShown(surface);
     });
+}
+
+void WaylandCompositor::setSecureApps(const QStringList &appIds) {
+    m_secureApps = appIds;
 }
 
 // Runs on the render thread in beforeSynchronizing (GUI thread blocked), or

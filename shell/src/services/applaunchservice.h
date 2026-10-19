@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDeadlineTimer>
 #include <QObject>
 #include <QSet>
 #include <QVariantMap>
@@ -26,6 +27,8 @@ class AppLaunchService : public QObject {
     Q_PROPERTY(QObject *compositor READ compositor WRITE setCompositor NOTIFY compositorChanged)
     Q_PROPERTY(QObject *appWindow READ appWindow WRITE setAppWindow NOTIFY appWindowChanged)
     Q_PROPERTY(QObject *uiStore READ uiStore WRITE setUiStore NOTIFY uiStoreChanged)
+    // Apps whose windows stay off cards and screenshots.
+    Q_PROPERTY(QStringList secureApps READ secureApps NOTIFY secureAppsChanged)
     Q_PROPERTY(QObject *appLifecycleManager READ appLifecycleManager WRITE setAppLifecycleManager
                    NOTIFY appLifecycleManagerChanged)
 
@@ -84,11 +87,22 @@ class AppLaunchService : public QObject {
     // The home screen, or the switcher; MarathonShell.qml goes there.
     void requestHome(bool switcher) { emit homeRequested(switcher); }
 
+    // An app's window is coming that the user asked for outside the shell
+    // (Deckard: an Android notification's tap): its window in front now, or
+    // the next one it maps within a few seconds.
+    void        expectWindow(const QString &appId);
+    // Its windows stay off cards and screenshots until its card goes.
+    void        setAppSecure(const QString &appId, bool secure);
+    QStringList secureApps() const {
+        return m_secureApps.keys();
+    }
+
   signals:
     void compositorChanged();
     void appWindowChanged();
     void uiStoreChanged();
     void appLifecycleManagerChanged();
+    void secureAppsChanged();
 
     void appLaunchStarted(const QString &appId, const QString &appName);
     void appLaunchCompleted(const QString &appId, const QString &appName);
@@ -234,6 +248,10 @@ class AppLaunchService : public QObject {
         QPointer<QObject> surface;
     };
     QHash<QString, QList<Window>> m_windows;
+    QHash<QString, QDeadlineTimer> m_expectedWindows;
+    int                            m_expectWindowMs = 10000;
+    // Secure apps, and whether each has had a card.
+    QHash<QString, bool>           m_secureApps;
 
   public:
     Q_INVOKABLE QString appIdForPid(qint64 pid) const;

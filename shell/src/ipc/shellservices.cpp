@@ -4,6 +4,7 @@
 
 #include "applaunchservice.h"
 #include "foregroundapp.h"
+#include "sessionstore.h"
 #include "marathonpermissionmanager.h"
 #include "settingsmanager.h"
 #include "ambienceservice.h"
@@ -1977,6 +1978,27 @@ void NavigationObject::setForegroundApp(ForegroundApp *foreground) {
 
 QString NavigationObject::GetForegroundApp() {
     return m_foreground ? m_foreground->appId() : QString();
+}
+
+bool NavigationObject::requireService() {
+    if (callerAppIdOrEmpty().startsWith(ServiceCaller::kPrefix))
+        return true;
+    sendErrorReply(QDBusError::AccessDenied, "Only a session service may ask");
+    return false;
+}
+
+bool NavigationObject::ExpectAppWindow(const QString &appId) {
+    if (!requireService())
+        return false;
+    if (appId.isEmpty() || (m_session && m_session->isLocked()))
+        return false;
+    m_launchService->expectWindow(appId);
+    return true;
+}
+
+void NavigationObject::SetAppWindowSecure(const QString &appId, bool secure) {
+    if (requireService() && !appId.isEmpty())
+        m_launchService->setAppSecure(appId, secure);
 }
 
 QString NavigationObject::AppIdForPid(uint pid) {

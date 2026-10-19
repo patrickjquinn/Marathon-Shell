@@ -121,6 +121,8 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE bool     checkIdleInhibitors();
     // A marathon_surface_v1 secure window is on screen.
     Q_INVOKABLE bool     showsSecureContent() const;
+    // Apps whose every window is secure (Navigation1.SetAppWindowSecure).
+    void                 setSecureApps(const QStringList &appIds);
 
     // A sandbox the shell starts connects on a socket of its own, whose
     // clients carry the app's security context. Returns the path, or empty.
@@ -278,6 +280,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QElapsedTimer                           m_frameClock;
     QElapsedTimer                           m_lastUserInput;
     QElapsedTimer                           m_keyboardFocusSince;
+    QStringList                             m_secureApps;
     QTimer                                  m_hiddenFrameTimer;
     QSet<QWaylandSurface *>                 m_enteredSurfaces;
 

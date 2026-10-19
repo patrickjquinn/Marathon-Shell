@@ -1380,6 +1380,7 @@ int main(int argc, char *argv[]) {
         ipc->setAppInstaller(appInstaller);
         auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
         ipc->setForegroundApp(foregroundApp);
+        ipc->setSessionStore(sessionStore);
 #ifdef HAVE_WAYLAND
         QObject::connect(foregroundApp, &ForegroundApp::changed, &app,
                          [compositorManager](const QString &appId) {

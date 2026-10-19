@@ -42,9 +42,9 @@ Item {
     readonly property bool docking: WindowOrigins.dockingAppId !== "" && WindowOrigins.dockingAppId === taskCard.appId
     // Showing the last captured cover: the card is on its way out.
     property bool frozen: false
-    // A marathon_surface_v1 secure window: its content stays off the card.
+    // A marathon_surface_v1 secure window, or a secure app's: its content stays off the card.
     readonly property var marathonSurface: compositor && compositor.marathonSurfaces ? compositor.marathonSurfaces[surfaceId] : undefined
-    readonly property bool secure: marathonSurface ? marathonSurface.secure : false
+    readonly property bool secure: (marathonSurface ? marathonSurface.secure : false) || (AppLaunchService.secureApps || []).indexOf(taskCard.appId) >= 0
 
     signal closed
     signal taskClosed(string appId)
