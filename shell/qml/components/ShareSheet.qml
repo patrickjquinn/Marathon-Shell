@@ -110,7 +110,7 @@ Item {
             Row {
                 width: parent.width
                 spacing: Silica.Theme.paddingMedium
-                visible: preview.visible || previewText.text !== ""
+                visible: (shareSheet.request && !!shareSheet.request.image) || previewText.text !== ""
 
                 Image {
                     id: preview

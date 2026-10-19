@@ -67,6 +67,12 @@ TestCase {
         verify(!sheet.shown);
     }
 
+    function test_aPictureIsPreviewed() {
+        sheet.open({ title: "", image: "file:///nonexistent/beach.png", count: 1, targets: [] });
+        wait(50);
+        verify(findChild(sheet, "sharePreviewImage").visible);
+    }
+
     function test_targetsFitFourAcross() {
         const many = [];
         for (let i = 0; i < 6; ++i)
