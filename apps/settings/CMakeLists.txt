@@ -11,6 +11,8 @@ list(FILTER QML_FILES EXCLUDE REGEX "/tests/")
 set(SOURCES
     src/AndroidApps.cpp
     src/AndroidApps.h
+    src/MmsSettings.cpp
+    src/MmsSettings.h
     src/StorageInfo.cpp
     src/StorageInfo.h
     src/TimeZoneList.cpp
