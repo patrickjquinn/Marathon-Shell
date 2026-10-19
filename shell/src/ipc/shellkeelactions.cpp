@@ -147,7 +147,7 @@ QString ShellKeelActions::run(const QString &action, const QJsonObject &args) {
                         {QStringLiteral("quickSettingsOpen"), m_uiStore->quickSettingsOpen()}});
     }
     if (action == QLatin1String("app.launch")) {
-        if (!m_apps->getApp(id))
+        if (!m_launchService->canLaunch(id))
             return fail(QStringLiteral("InvalidArguments"), QStringLiteral("no app ") + id);
         const QString route = args.value(QLatin1String("route")).toString();
         const bool ok = route.isEmpty() ? m_launchService->launchApp(id) :

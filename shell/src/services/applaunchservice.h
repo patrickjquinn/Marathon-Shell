@@ -65,6 +65,7 @@ class AppLaunchService : public QObject {
     // task, the app in front stays. A running app is left where it is,
     // thawed if it was frozen.
     Q_INVOKABLE bool startAppInBackground(const QVariant &app);
+    bool             canLaunch(const QString &appId) const;
     bool             isBackgroundLaunch(const QString &appId) const {
         return m_backgroundLaunches.contains(appId);
     }

@@ -419,6 +419,10 @@ void AppLaunchService::closeNativeApp(int surfaceId) {
         qWarning() << "[AppLaunchService] Failed to invoke closeWindow(int) on compositor";
 }
 
+bool AppLaunchService::canLaunch(const QString &appId) const {
+    return !resolveAppObject(appId).isEmpty();
+}
+
 QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
     if (app.typeId() == QMetaType::QVariantMap) {
         QVariantMap   out   = app.toMap();

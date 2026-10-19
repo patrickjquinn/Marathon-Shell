@@ -3,10 +3,13 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
+#include <QDir>
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QTemporaryDir>
 
 #include "appmodel.h"
 #include "applaunchservice.h"
@@ -113,6 +116,23 @@ class TestShellKeelActions : public QObject {
             invoke(QStringLiteral("app.launch"), QStringLiteral(R"({"id":"notes"})"));
         QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
         QCOMPARE(compositor.spawned, QStringList{"notes-bin"});
+    }
+
+    void aHiddenAppLaunches() const {
+        QTemporaryDir    data;
+        const QByteArray old = qgetenv("XDG_DATA_HOME");
+        qputenv("XDG_DATA_HOME", data.path().toUtf8());
+        QVERIFY(QDir().mkpath(data.filePath("applications")));
+        QFile entry(data.filePath("applications/hidden.desktop"));
+        QVERIFY(entry.open(QIODevice::WriteOnly));
+        entry.write("[Desktop Entry]\nType=Application\nName=Hidden\nExec=hidden-bin\nNoDisplay=true\n");
+        entry.close();
+
+        const QDBusMessage reply =
+            invoke(QStringLiteral("app.launch"), QStringLiteral(R"({"id":"hidden"})"));
+        qputenv("XDG_DATA_HOME", old);
+        QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
+        QVERIFY(compositor.spawned.contains(QStringLiteral("hidden-bin")));
     }
 
     void argumentsAreChecked_data() {
