@@ -488,7 +488,6 @@ if(DBUS_RUN_SESSION)
         test_keelactionsfreeze.cpp
         ../../shell/src/services/applaunchservice.cpp
         ../../shell/src/components/desktopfileparser.cpp
-    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
@@ -515,7 +514,6 @@ if(DBUS_RUN_SESSION)
         test_androidfreeze.cpp
         ../../shell/src/services/applaunchservice.cpp
         ../../shell/src/components/desktopfileparser.cpp
-    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
@@ -547,7 +545,6 @@ if(DBUS_RUN_SESSION)
         test_nativelifecycle.cpp
         ../../shell/src/services/applaunchservice.cpp
         ../../shell/src/components/desktopfileparser.cpp
-    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
@@ -610,7 +607,6 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/managers/screenmetrics.cpp
         ../../shell/src/services/applaunchservice.cpp
         ../../shell/src/components/desktopfileparser.cpp
-    ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
