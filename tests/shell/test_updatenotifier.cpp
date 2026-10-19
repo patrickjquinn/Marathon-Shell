@@ -11,13 +11,6 @@
 #include <QStandardPaths>
 #include <QTest>
 
-bool PowerManagerCpp::acquireWakelock(const QString &) {
-    return true;
-}
-bool PowerManagerCpp::releaseWakelock(const QString &) {
-    return true;
-}
-
 class FakeBackend : public UpdateBackend {
     Q_OBJECT
 

@@ -1,5 +1,7 @@
 #include <QTest>
 #include <QDBusArgument>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
 #include <QImage>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -9,13 +11,6 @@
 #include "notificationdatabase.h"
 #include "notificationmodel.h"
 #include "powermanagercpp.h"
-
-bool PowerManagerCpp::acquireWakelock(const QString &) {
-    return true;
-}
-bool PowerManagerCpp::releaseWakelock(const QString &) {
-    return true;
-}
 
 class TestFreedesktopNotify : public QObject {
     Q_OBJECT

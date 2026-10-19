@@ -3,6 +3,7 @@
 #include <QTest>
 #include <QSignalSpy>
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDBusUnixFileDescriptor>
 #include <QMutex>
 #include <QProcess>
@@ -136,14 +137,14 @@ class TestPowerManager : public QObject {
 
     void aWakelockLeavesTheLifelongInhibitorHeld() {
         PowerManagerCpp power;
-        QVERIFY(holds(QStringLiteral("Handle wake events")));
+        QTRY_VERIFY(holds(QStringLiteral("Handle wake events")));
 
         QVERIFY(power.acquireWakelock(QStringLiteral("call")));
-        QVERIFY(holds(QStringLiteral("Wakelock: call")));
+        QTRY_VERIFY(holds(QStringLiteral("Wakelock: call")));
         QVERIFY(holds(QStringLiteral("Handle wake events")));
 
         QVERIFY(power.releaseWakelock(QStringLiteral("call")));
-        QVERIFY(!holds(QStringLiteral("Wakelock: call")));
+        QTRY_VERIFY(!holds(QStringLiteral("Wakelock: call")));
         QVERIFY(holds(QStringLiteral("Handle wake events")));
     }
 
@@ -151,10 +152,20 @@ class TestPowerManager : public QObject {
         PowerManagerCpp power;
         QVERIFY(power.acquireWakelock(QStringLiteral("a")));
         QVERIFY(power.acquireWakelock(QStringLiteral("b")));
+        QTRY_VERIFY(holds(QStringLiteral("Wakelock: b")));
         QVERIFY(power.releaseWakelock(QStringLiteral("a")));
-        QVERIFY(!holds(QStringLiteral("Wakelock: a")));
+        QTRY_VERIFY(!holds(QStringLiteral("Wakelock: a")));
         QVERIFY(holds(QStringLiteral("Wakelock: b")));
         QCOMPARE(power.activeWakelocks(), QStringList{QStringLiteral("b")});
+    }
+
+    void destroyingTheServiceReleasesItsLocks() {
+        {
+            PowerManagerCpp power;
+            QVERIFY(power.acquireWakelock(QStringLiteral("gone")));
+            QTRY_VERIFY(holds(QStringLiteral("Wakelock: gone")));
+        }
+        QTRY_VERIFY(!holds(QStringLiteral("Wakelock: gone")));
     }
 
     void aWakeForACallOrMessageTakesNoWakelock() {

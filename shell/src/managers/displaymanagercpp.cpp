@@ -15,6 +15,7 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
+#include <QDBusVariant>
 #include <QTimer>
 #include <QThread>
 #include <QFileSystemWatcher>

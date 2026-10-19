@@ -199,7 +199,6 @@ Item {
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
-            compositor.userActivity.connect(PowerManagerService.updateActivity);
             // Also reset the idle-screen-off timer when the compositor
             // sees ANY input — without this the timer only resets on
             // events that bubble up to the shell's own cursorTracker

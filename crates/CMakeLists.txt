@@ -21,8 +21,12 @@ set(_cargo_flags --locked)
 if(MARATHON_CARGO_OFFLINE)
     list(APPEND _cargo_flags --offline)
 endif()
+# CXX-Qt's build script finds Qt through the same qmake as CMake.
+get_target_property(_qmake Qt6::qmake IMPORTED_LOCATION)
+set(_cxxqt_export "${CMAKE_CURRENT_BINARY_DIR}/cxxqt-export")
 set(_cargo_env ${CMAKE_COMMAND} -E env
-    "CARGO_TARGET_DIR=${MARATHON_CARGO_TARGET_DIR}" "CARGO_INCREMENTAL=0")
+    "CARGO_TARGET_DIR=${MARATHON_CARGO_TARGET_DIR}" "CARGO_INCREMENTAL=0"
+    "QMAKE=${_qmake}" "CXX_QT_EXPORT_DIR=${_cxxqt_export}")
 
 # libMarathonCore's Rust half. Link it with --exclude-libs so its copy of the
 # Rust runtime stays private to the consuming .so.
@@ -41,6 +45,27 @@ add_dependencies(marathon_core_native marathon_core_native_cargo)
 target_include_directories(marathon_core_native INTERFACE "${MARATHON_CARGO_TARGET_DIR}/cxxbridge")
 target_link_libraries(marathon_core_native INTERFACE
     "${MARATHON_CORE_NATIVE_LIB}" Threads::Threads ${CMAKE_DL_LIBS} m)
+
+# The shell's Rust half (CXX-Qt QObjects), linked into marathon-shell-bin.
+set(_shell_native_export "${_cxxqt_export}/crates/marathon-shell-native")
+set(MARATHON_SHELL_NATIVE_LIB
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/libmarathon_shell_native.a")
+add_custom_target(marathon_shell_native_cargo ALL
+    COMMAND ${_cargo_env} "CXX_QT_EXPORT_CRATE_marathon-shell-native=1"
+            "${MARATHON_CARGO}" build -p marathon-shell-native
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_SHELL_NATIVE_LIB}" "${_shell_native_export}/initializers.o"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-shell-native (Rust, CXX-Qt)"
+    USES_TERMINAL
+    VERBATIM)
+file(MAKE_DIRECTORY "${_shell_native_export}/include")
+add_library(marathon_shell_native INTERFACE)
+add_dependencies(marathon_shell_native marathon_shell_native_cargo)
+target_include_directories(marathon_shell_native INTERFACE "${_shell_native_export}/include")
+target_link_libraries(marathon_shell_native INTERFACE
+    "${_shell_native_export}/initializers.o" "${MARATHON_SHELL_NATIVE_LIB}"
+    Qt6::Core Qt6::Qml Threads::Threads ${CMAKE_DL_LIBS} m)
 
 # marathon-store:// URL handler (xdg-open target and the store refresh timer).
 include(GNUInstallDirs)

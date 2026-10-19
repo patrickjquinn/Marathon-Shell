@@ -330,6 +330,7 @@ add_executable(test_shell_freedesktopnotify
     ../../marathon-core/src/marathonappregistry.cpp
 )
 target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
+target_link_libraries(test_shell_freedesktopnotify marathon_shell_native)
 target_include_directories(test_shell_freedesktopnotify PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src/services
@@ -358,6 +359,7 @@ add_executable(test_shell_updatenotifier
     ../../marathon-core/src/marathonappregistry.cpp
 )
 target_link_libraries(test_shell_updatenotifier Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
+target_link_libraries(test_shell_updatenotifier marathon_shell_native)
 target_include_directories(test_shell_updatenotifier PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src/services
@@ -375,26 +377,16 @@ add_executable(test_shell_alarmmanager
     ../../shell/src/managers/alarmmanagercpp.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/managers/powermanagercpp.cpp
     ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/hapticmanager.cpp
 )
 target_link_libraries(test_shell_alarmmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
+target_link_libraries(test_shell_alarmmanager marathon_shell_native)
 target_include_directories(test_shell_alarmmanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_AlarmManager COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with-media-roles.sh
     $<TARGET_FILE:test_shell_alarmmanager>)
 set_tests_properties(Shell_AlarmManager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# A resume at the time marathon-background armed is a background wake,
-# unless an alarm is due
-add_executable(test_shell_backgroundwake
-    test_backgroundwake.cpp
-    ../../shell/src/managers/powermanagercpp.cpp
-    ../../shell/src/managers/waketimers.cpp
-)
-target_link_libraries(test_shell_backgroundwake Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_shell_backgroundwake PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Shell_BackgroundWake COMMAND test_shell_backgroundwake)
 
 # Wake-up timers are transient systemd user units, against a fake manager
 add_executable(test_shell_waketimers
@@ -555,6 +547,7 @@ if(DBUS_RUN_SESSION)
         ../../marathon-core/src/marathonappregistry.cpp
     )
     target_link_libraries(test_shell_keelactionsfreeze Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
+target_link_libraries(test_shell_keelactionsfreeze marathon_shell_native)
     target_include_directories(test_shell_keelactionsfreeze PRIVATE
         ${CMAKE_SOURCE_DIR}/shell
         ${CMAKE_SOURCE_DIR}/shell/src/services
@@ -655,8 +648,7 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/services/sessionstore.cpp
         ../../shell/src/controllers/displaypolicycontroller.cpp
         ../../shell/src/managers/displaymanagercpp.cpp
-        ../../shell/src/managers/powermanagercpp.cpp
-        ../../shell/src/managers/waketimers.cpp
+            ../../shell/src/managers/waketimers.cpp
         ../../shell/src/managers/rotationmanager.cpp
         ../../shell/src/managers/sensormanagercpp.cpp
         ../../shell/src/managers/settingsmanager.cpp
@@ -987,7 +979,6 @@ find_package(Qt6 REQUIRED COMPONENTS Quick Sensors)
 add_executable(test_shell_screenstate
     test_screenstate.cpp
     ../../shell/src/managers/displaymanagercpp.cpp
-    ../../shell/src/managers/powermanagercpp.cpp
     ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
     ../../shell/src/managers/sensormanagercpp.cpp
@@ -1010,6 +1001,7 @@ add_executable(test_shell_screenstate
 )
 target_link_libraries(test_shell_screenstate Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
     Qt6::Quick Qt6::Sensors)
+target_link_libraries(test_shell_screenstate marathon_shell_native)
 target_include_directories(test_shell_screenstate PRIVATE
     ${CMAKE_SOURCE_DIR}/shell
     ${CMAKE_SOURCE_DIR}/shell/src
@@ -1027,7 +1019,6 @@ set_tests_properties(Shell_ScreenState PROPERTIES ENVIRONMENT
 add_executable(test_shell_powermanager
     test_powermanager.cpp
     ../../shell/src/managers/displaymanagercpp.cpp
-    ../../shell/src/managers/powermanagercpp.cpp
     ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
     ../../shell/src/managers/sensormanagercpp.cpp
@@ -1045,6 +1036,7 @@ add_executable(test_shell_powermanager
 )
 target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
     Qt6::Sensors)
+target_link_libraries(test_shell_powermanager marathon_shell_native)
 target_include_directories(test_shell_powermanager PRIVATE
     ${CMAKE_SOURCE_DIR}/shell
     ${CMAKE_SOURCE_DIR}/shell/src
@@ -1059,7 +1051,6 @@ add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)
 add_executable(test_shell_brightness
     test_brightness.cpp
     ../../shell/src/managers/displaymanagercpp.cpp
-    ../../shell/src/managers/powermanagercpp.cpp
     ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
     ../../shell/src/managers/sensormanagercpp.cpp
@@ -1067,6 +1058,7 @@ add_executable(test_shell_brightness
 )
 target_link_libraries(test_shell_brightness Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
     Qt6::Sensors)
+target_link_libraries(test_shell_brightness marathon_shell_native)
 target_include_directories(test_shell_brightness PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
     ${CMAKE_SOURCE_DIR}/shell/src/managers

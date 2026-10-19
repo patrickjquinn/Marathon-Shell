@@ -56,8 +56,6 @@ set(SOURCES
     qml/keyboard/Data/WordTrie.cpp
     src/managers/networkmanagercpp.h
     src/managers/networkmanagercpp.cpp
-    src/managers/powermanagercpp.h
-    src/managers/powermanagercpp.cpp
     src/managers/waketimers.h
     src/managers/waketimers.cpp
     src/controllers/powerpolicycontroller.h
@@ -611,9 +609,7 @@ qt6_add_qml_module(marathon-shell
         src/models/taskmodel.h
         src/managers/networkmanagercpp.cpp
         src/managers/networkmanagercpp.h
-        src/managers/powermanagercpp.cpp
-        src/managers/powermanagercpp.h
-        src/managers/displaymanagercpp.cpp
+            src/managers/displaymanagercpp.cpp
         src/managers/displaymanagercpp.h
         src/managers/audiomanagercpp.cpp
         src/managers/audiomanagercpp.h
@@ -726,6 +722,7 @@ endif()
 
 # Link QtDBus and QtSql for telephony and media services
 target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
+target_link_libraries(marathon-shell PRIVATE marathon_shell_native)
 
 # NOTE: Qt WebEngine intentionally NOT linked into the shell.
 # Maps / Browser / Email each import QtWebEngine in their own QML; they

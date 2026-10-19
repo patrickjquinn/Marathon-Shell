@@ -798,7 +798,8 @@ int main(int argc, char *argv[]) {
     auto *networkManager = new NetworkManagerCpp(&app);
     qmlRegisterSingletonInstance<NetworkManagerCpp>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
                                                     networkManager);
-    auto *powerManager = new PowerManagerCpp(&app);
+    auto *powerManager = new PowerManagerCpp();
+    powerManager->setParent(&app);
     qmlRegisterSingletonInstance<PowerManagerCpp>("MarathonOS.Shell", 1, 0, "PowerManagerService",
                                                   powerManager);
     auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
