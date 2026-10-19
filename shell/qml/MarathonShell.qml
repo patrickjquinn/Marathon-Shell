@@ -609,6 +609,14 @@ Item {
         State {
             name: "app"
 
+            // Back from home, the switcher or the lock screen: the window in
+            // front takes the keyboard again.
+            StateChangeScript {
+                script: {
+                    appWindow.focusApp();
+                }
+            }
+
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false
@@ -2551,6 +2559,20 @@ Item {
         target: RemoteTextInput
         property: "frontAppId"
         value: UIStore.appWindowOpen ? appWindow.appId : ""
+    }
+
+    // Focus that falls back to the shell root while an app is in front (an
+    // overlay closing, the window it focused going) goes to the app, or keys
+    // reach type-to-search and the keyboard addresses the shell.
+    Connections {
+        function onActiveFocusItemChanged() {
+            if (shell.Window.activeFocusItem === shell && shell.state === "app" && !UIStore.searchOpen && !UIStore.quickSettingsOpen) {
+                Logger.info("Shell", "Focus fell to the shell with " + appWindow.appId + " in front; giving it back");
+                Qt.callLater(appWindow.focusApp);
+            }
+        }
+
+        target: shell.Window.window
     }
 
     Connections {
