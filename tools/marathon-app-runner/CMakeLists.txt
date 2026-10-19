@@ -17,6 +17,7 @@ find_package(Qt6 REQUIRED COMPONENTS
 
 set(SOURCES
     main.cpp
+    ../../shell/src/services/touchresampler.cpp
     pagetouch.cpp
     keelhost.cpp
     ambienceclient.cpp
@@ -50,6 +51,7 @@ target_include_directories(marathon-app-runner PRIVATE
 target_link_libraries(marathon-app-runner PRIVATE
     Qt6::Core
     Qt6::Gui
+    Qt6::GuiPrivate
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2

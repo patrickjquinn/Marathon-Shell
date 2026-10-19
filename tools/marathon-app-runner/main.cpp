@@ -2,6 +2,7 @@
 #include <QQuickView>
 #include <memory>
 #include <QQuickWindow>
+#include "services/touchresampler.h"
 #include <QSGRendererInterface>
 #include <QQmlEngine>
 #include <QQmlComponent>
@@ -966,6 +967,13 @@ int main(int argc, char *argv[]) {
 
     if (qEnvironmentVariableIntValue("MARATHON_FRAME_TIMING") != 0)
         marathon::diag::installFrameTimingTracker(&view, QStringLiteral("app:%1").arg(appId));
+
+    // The panel reports slower than the display (43 Hz on the HackberryPi):
+    // the app samples the finger at its own frame time, as Android apps do,
+    // so a drag moves every frame. The shell forwards the touch raw.
+    // MARATHON_APP_TOUCH_RESAMPLE=0 turns it off.
+    if (qEnvironmentVariable("MARATHON_APP_TOUCH_RESAMPLE") != QLatin1String("0"))
+        new TouchResampler(&view, view.contentItem());
 
     const int w = qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") > 0 ?
         qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") :
