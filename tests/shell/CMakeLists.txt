@@ -753,6 +753,14 @@ add_test(NAME Shell_WindowTextureStress COMMAND test_shell_windowtexturestress)
 set_tests_properties(Shell_WindowTextureStress PROPERTIES ENVIRONMENT
     "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QSG_RHI_BACKEND=null;QSG_RENDER_LOOP=basic")
 
+# Touch moves resampled to one a frame
+add_executable(test_shell_touchresampler test_touchresampler.cpp
+    ../../shell/src/services/touchresampler.cpp)
+set_target_properties(test_shell_touchresampler PROPERTIES AUTOMOC ON)
+target_link_libraries(test_shell_touchresampler Qt6::Test Qt6::Gui Qt6::GuiPrivate Qt6::Quick)
+target_include_directories(test_shell_touchresampler PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Shell_TouchResampler COMMAND test_shell_touchresampler)
+
 # Frame callbacks of hidden surfaces: about once a second
 add_executable(test_shell_hiddenframethrottle test_hiddenframethrottle.cpp)
 target_link_libraries(test_shell_hiddenframethrottle Qt6::Test Qt6::Core)

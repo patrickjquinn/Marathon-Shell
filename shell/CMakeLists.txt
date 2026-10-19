@@ -125,6 +125,8 @@ set(SOURCES
     src/services/motiondaemon.cpp
     src/services/inputboost.h
     src/services/inputboost.cpp
+    src/services/touchresampler.h
+    src/services/touchresampler.cpp
     src/services/wakeonkeyfilter.h
     src/services/wakeonkeyfilter.cpp
     src/services/waketouchfilter.h

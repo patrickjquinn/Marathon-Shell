@@ -70,6 +70,7 @@
 #include "src/services/pilotclient.h"
 #include "src/services/weatherclient.h"
 #include "src/services/inputboost.h"
+#include "src/services/touchresampler.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
@@ -1524,6 +1525,14 @@ int main(int argc, char *argv[]) {
                 },
                 Qt::SingleShotConnection);
             break;
+        }
+    }
+
+    if (evdevTouch && !DeviceProfile::instance().touchFilter()) {
+        const auto rootObjects = engine.rootObjects();
+        for (QObject *root : rootObjects) {
+            if (auto *win = qobject_cast<QQuickWindow *>(root))
+                new TouchResampler(win, win->contentItem());
         }
     }
 
