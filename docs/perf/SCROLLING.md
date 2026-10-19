@@ -87,10 +87,31 @@ compression (`7bacc1fa`). The filter's `prediction` is left off: Qt seeds a
 new touch's velocity from the previous one with the same id, so a predicted
 press could land far from the finger (the pill's swipe up went to the app).
 
+## Fling strength and scroll-start delay (second round)
+
+Kmsgrab frame times now come from `-use_wallclock_as_timestamps`; the
+delay grows over a run's four rounds on both systems, so medians are given.
+
+| | Before this round | After | Android Files (same run) |
+|---|---|---|---|
+| Settings move-to-motion | 140-206 ms | 91-157 ms (median ~132) | 117-147 ms (median ~128) |
+| Fling release / finger (1600 px/s) | 0.7x | 0.9x | ~1.0x (27 px a frame) |
+| Fling glide | 0.32 s | ~0.6 s | ~0.6 s |
+| Press during a fling | stops | stops | stops |
+
+Changes: raw evdevtouch reports applied as they come, without Qt Quick's
+touch compression (the Kalman filter mode is `TOUCH_FILTER=1`);
+Marathon.Silica flings at the least-squares speed of the content's last
+100 ms (Android's VelocityTracker) and decelerates at 3500 x ratio; the
+pager's snap duration comes from the release speed. Tried and dropped: an
+Android-style resampler at frame time (it halved app frame rates by
+scheduling an extra empty sync) and flushing the filtered point into the
+frame (apps at 30 fps).
+
 ## Next steps
 
-- Touch-to-motion in apps is still 140-200 ms, the same as Android on this
-  device: the shell sync wait, one frame in the client, one in the shell and
+- Touch-to-motion in apps is ~130 ms, on a par with Android on this device
+  but not clearly below it: the shell sync wait, one frame in the client, one in the shell and
   the flip. Candidates: deliver touch to clients from the evdev thread,
   resample at frame time like Android's InputConsumer, frame callbacks
   timed to the next latch.
