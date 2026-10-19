@@ -54,25 +54,29 @@ void SMSService::setMmsManager(MmsManager *mmsManager) {
     m_mmsManager = mmsManager;
     if (!m_mmsManager)
         return;
-    // Surface incoming MMS through the same `messageReceived` signal apps
-    // already listen to; the conversation thread merges SMS + MMS.
-    connect(
-        m_mmsManager, &MmsManager::messageReceived, this,
-        [this](const QString &sender, const QString &text, qint64 timestamp, const QVariantList &) {
-            Message msg;
-            msg.conversationId = generateConversationId(sender);
-            msg.sender         = sender;
-            msg.recipient      = QStringLiteral("me");
-            msg.text           = text;
-            msg.timestamp      = timestamp;
-            msg.isRead         = false;
-            msg.isOutgoing     = false;
-            storeMessage(msg);
-            loadConversations();
-            emit messageReceived(sender, text, timestamp);
-        });
-    connect(m_mmsManager, &MmsManager::sendFailed, this,
-            [this](const QString &reason) { emit sendFailed(QString(), reason); });
+    // An MMS joins the sender's thread, with its pictures in the store.
+    connect(m_mmsManager, &MmsManager::received, this,
+            [this](const QString &path, const QString &sender, const QStringList &,
+                   const QString &text, qint64 timestamp, const QVariantList &attachments) {
+                Message msg;
+                msg.conversationId = generateConversationId(sender);
+                msg.sender         = sender;
+                msg.recipient      = QStringLiteral("me");
+                msg.text           = text;
+                msg.timestamp      = timestamp;
+                msg.isRead         = false;
+                msg.isOutgoing     = false;
+                msg.mmsPath        = path;
+                const int id       = storeMessage(msg);
+                for (const QVariant &value : attachments) {
+                    const QVariantMap attachment = value.toMap();
+                    addAttachment(id, attachment.value(QStringLiteral("contentType")).toString(),
+                                  attachment.value(QStringLiteral("name")).toString(),
+                                  attachment.value(QStringLiteral("data")).toByteArray());
+                }
+                loadConversations();
+                emit messageReceived(sender, text, timestamp);
+            });
 }
 
 QVariantList SMSService::conversations() const {
@@ -88,40 +92,6 @@ QVariantList SMSService::conversations() const {
         result.append(map);
     }
     return result;
-}
-
-void SMSService::sendMultiRecipient(const QStringList &recipients, const QString &text,
-                                    const QVariantList &attachments) {
-    // Routing: single recipient + no attachments + plain text fitting SMS budget
-    // -> normal SMS via ModemManager.Messaging. Otherwise -> MMS via mmsd-tng.
-    // (Mirrors Chatty's routing in chatty-mm-chat.c.)
-    const bool needsMms = recipients.size() > 1 || !attachments.isEmpty() || text.size() > 1530;
-    if (!needsMms && !recipients.isEmpty()) {
-        sendMessage(recipients.first(), text);
-        return;
-    }
-    if (!m_mmsManager || !m_mmsManager->available()) {
-        qWarning() << "[SMSService] MMS required but mmsd-tng unavailable; "
-                      "falling back to per-recipient SMS";
-        for (const QString &r : recipients)
-            sendMessage(r, text);
-        return;
-    }
-    if (!m_mmsManager->sendMms(recipients, text, attachments)) {
-        // sendMms emits sendFailed itself; nothing else to do.
-        return;
-    }
-    Message msg;
-    msg.conversationId = generateConversationId(recipients.join(","));
-    msg.sender         = QStringLiteral("me");
-    msg.recipient      = recipients.join(",");
-    msg.text           = text;
-    msg.timestamp      = QDateTime::currentMSecsSinceEpoch();
-    msg.isRead         = true;
-    msg.isOutgoing     = true;
-    storeMessage(msg);
-    loadConversations();
-    emit messageSent(recipients.join(","), msg.timestamp);
 }
 
 void SMSService::sendMessage(const QString &recipient, const QString &text) {
@@ -411,26 +381,24 @@ int SMSService::addAttachment(int messageId, const QString &contentType, const Q
     QFile source;
     if (fd < 0 || !source.open(::dup(fd), QIODevice::ReadOnly, QFileDevice::AutoCloseHandle))
         return -1;
+    return addAttachment(messageId, contentType, name, source.readAll());
+}
+
+int SMSService::addAttachment(int messageId, const QString &contentType, const QString &name,
+                              const QByteArray &data) {
     QString file = QFileInfo(name).fileName();
     if (file.isEmpty() || file == QLatin1String(".") || file == QLatin1String(".."))
         file = QStringLiteral("attachment");
     const QString dir = attachmentDir(messageId);
-    if (!QDir().mkpath(dir))
+    if (messageId < 0 || !QDir().mkpath(dir))
         return -1;
     QString path = dir + QLatin1Char('/') + file;
     for (int n = 2; QFile::exists(path); ++n)
         path = dir + QStringLiteral("/%1-%2").arg(n).arg(file);
     QFile target(path);
-    if (!target.open(QIODevice::WriteOnly))
+    if (!target.open(QIODevice::WriteOnly) || target.write(data) != data.size()) {
+        target.remove();
         return -1;
-    qint64 size = 0;
-    while (!source.atEnd()) {
-        const QByteArray chunk = source.read(qint64{64} * 1024);
-        if (chunk.isEmpty() || target.write(chunk) != chunk.size()) {
-            target.remove();
-            return -1;
-        }
-        size += chunk.size();
     }
     target.close();
 
@@ -440,7 +408,7 @@ int SMSService::addAttachment(int messageId, const QString &contentType, const Q
     query.addBindValue(messageId);
     query.addBindValue(contentType);
     query.addBindValue(file);
-    query.addBindValue(size);
+    query.addBindValue(qint64(data.size()));
     query.addBindValue(path);
     if (!query.exec()) {
         QFile::remove(path);

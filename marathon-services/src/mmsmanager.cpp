@@ -1,280 +1,255 @@
 #include "mmsmanager.h"
 
-#include <QDBusConnection>
-#include <QDBusReply>
 #include <QDBusArgument>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMetaType>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
+#include <QDBusServiceWatcher>
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
-#include <QFileInfo>
 #include <QStandardPaths>
-#include <QUuid>
+#include <QTemporaryFile>
 
 namespace {
-    // (object_path, properties) pair returned by Manager.GetServices()
-    using OAPair = QPair<QDBusObjectPath, QVariantMap>;
-    using OAList = QList<OAPair>;
+    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
+    const QString kBus     = QStringLiteral("org.ofono.mms");
+    const QString kManager = QStringLiteral("/org/ofono/mms");
+    const QString kService = QStringLiteral("org.ofono.mms.Service");
+    const QString kMessage = QStringLiteral("org.ofono.mms.Message");
+    // NOLINTEND(bugprone-throwing-static-initialization)
+
+    // A stored part: (id, content type, file, offset, length).
+    struct StoredPart {
+        QString id;
+        QString contentType;
+        QString file;
+        quint64 offset = 0;
+        quint64 length = 0;
+    };
+    // A part to send: (id, content type, file).
+    struct SendPart {
+        QString id;
+        QString contentType;
+        QString file;
+    };
+    using ServiceEntry = QPair<QDBusObjectPath, QVariantMap>;
+    using ServiceList  = QList<ServiceEntry>;
 } // namespace
 
-Q_DECLARE_METATYPE(OAPair)
-Q_DECLARE_METATYPE(OAList)
+Q_DECLARE_METATYPE(StoredPart)
+Q_DECLARE_METATYPE(SendPart)
+Q_DECLARE_METATYPE(ServiceEntry)
+Q_DECLARE_METATYPE(ServiceList)
 
-static constexpr QLatin1StringView kBus{"org.ofono.mms"};
-static constexpr QLatin1StringView kManager{"/org/ofono/mms"};
+namespace {
+    QDBusArgument &operator<<(QDBusArgument &arg, const StoredPart &part) {
+        arg.beginStructure();
+        arg << part.id << part.contentType << part.file << part.offset << part.length;
+        arg.endStructure();
+        return arg;
+    }
+    const QDBusArgument &operator>>(const QDBusArgument &arg, StoredPart &part) {
+        arg.beginStructure();
+        arg >> part.id >> part.contentType >> part.file >> part.offset >> part.length;
+        arg.endStructure();
+        return arg; // NOLINT(bugprone-return-const-ref-from-parameter) QDBusArgument >> signature
+    }
+    QDBusArgument &operator<<(QDBusArgument &arg, const SendPart &part) {
+        arg.beginStructure();
+        arg << part.id << part.contentType << part.file;
+        arg.endStructure();
+        return arg;
+    }
+    const QDBusArgument &operator>>(const QDBusArgument &arg, SendPart &part) {
+        arg.beginStructure();
+        arg >> part.id >> part.contentType >> part.file;
+        arg.endStructure();
+        return arg; // NOLINT(bugprone-return-const-ref-from-parameter) QDBusArgument >> signature
+    }
+
+    QList<StoredPart> storedParts(const QVariant &value) {
+        if (value.canConvert<QDBusArgument>())
+            return qdbus_cast<QList<StoredPart>>(value.value<QDBusArgument>());
+        return value.value<QList<StoredPart>>();
+    }
+
+    QString outbox() {
+        return QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
+            QStringLiteral("/marathon/mms-out");
+    }
+} // namespace
 
 MmsManager::MmsManager(QObject *parent)
-    : QObject(parent)
-    , m_manager(nullptr)
-    , m_service(nullptr)
-    , m_available(false) {
-    qDBusRegisterMetaType<OAPair>();
-    qDBusRegisterMetaType<OAList>();
+    : QObject(parent) {
+    qDBusRegisterMetaType<StoredPart>();
+    qDBusRegisterMetaType<QList<StoredPart>>();
+    qDBusRegisterMetaType<SendPart>();
+    qDBusRegisterMetaType<QList<SendPart>>();
+    qDBusRegisterMetaType<ServiceEntry>();
+    qDBusRegisterMetaType<ServiceList>();
 
-    m_manager = new QDBusInterface(kBus, kManager, "org.ofono.mms.Manager",
-                                   QDBusConnection::sessionBus(), this);
-
-    if (!m_manager->isValid()) {
-        // mmsd-tng is bus-activated, so first method call triggers spawn.
-        // If the daemon isn't installed (e.g. desktop dev box), this stays
-        // invalid and `available` reports false. Don't crash; just degrade.
-        qDebug() << "[MmsManager] org.ofono.mms not reachable --"
-                 << "MMS will be unavailable until mmsd-tng is installed";
-        return;
-    }
-
-    discoverService();
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    m_watcher = new QDBusServiceWatcher(kBus, bus,
+                                        QDBusServiceWatcher::WatchForRegistration |
+                                            QDBusServiceWatcher::WatchForUnregistration,
+                                        this);
+    connect(m_watcher, &QDBusServiceWatcher::serviceRegistered, this, &MmsManager::discover);
+    connect(m_watcher, &QDBusServiceWatcher::serviceUnregistered, this, &MmsManager::forget);
+    bus.connect(kBus, QString(), kMessage, QStringLiteral("PropertyChanged"), this,
+                SLOT(onMessagePropertyChanged(QString, QDBusVariant, QDBusMessage)));
+    // Activates mmsd-tng where it is installed.
+    discover();
 }
 
-void MmsManager::discoverService() {
-    if (!m_manager || !m_manager->isValid())
+void MmsManager::discover() {
+    QDBusConnection bus  = QDBusConnection::sessionBus();
+    auto           *call = new QDBusPendingCallWatcher(
+        bus.asyncCall(QDBusMessage::createMethodCall(kBus, kManager, QStringLiteral("org.ofono.mms.Manager"),
+                                                     QStringLiteral("GetServices"))),
+        this);
+    connect(call, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        const QDBusPendingReply<ServiceList> reply    = *w;
+        const ServiceList                    services = reply.isError() ? ServiceList() : reply.value();
+        if (services.isEmpty()) {
+            qDebug() << "[MmsManager] no mmsd-tng service" << reply.error().message();
+            return;
+        }
+        const QString path = services.constFirst().first.path();
+        if (path == m_servicePath)
+            return;
+        forget();
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        bus.connect(kBus, path, kService, QStringLiteral("MessageAdded"), this,
+                    SLOT(onMessageAdded(QDBusObjectPath, QVariantMap)));
+        bus.connect(kBus, path, kService, QStringLiteral("MessageSendError"), this,
+                    SLOT(onMessageSendError(QVariantMap)));
+        m_servicePath = path;
+        auto *props   = new QDBusPendingCallWatcher(
+            bus.asyncCall(QDBusMessage::createMethodCall(kBus, path, kService,
+                                                         QStringLiteral("GetProperties"))),
+            this);
+        connect(props, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *p) {
+            p->deleteLater();
+            const QDBusPendingReply<QVariantMap> values = *p;
+            if (values.isError())
+                return;
+            m_maxAttachmentSize = values.value().value(QStringLiteral("TotalMaxAttachmentSize")).toLongLong();
+            m_maxAttachments    = values.value().value(QStringLiteral("MaxAttachments")).toInt();
+        });
+        qInfo() << "[MmsManager] mmsd-tng service" << path;
+        emit availableChanged();
+    });
+}
+
+void MmsManager::forget() {
+    if (m_servicePath.isEmpty())
         return;
-
-    QDBusReply<OAList> reply = m_manager->call("GetServices");
-    if (!reply.isValid()) {
-        qDebug() << "[MmsManager] GetServices failed:" << reply.error().message();
-        return;
-    }
-
-    const OAList services = reply.value();
-    if (services.isEmpty()) {
-        qDebug() << "[MmsManager] mmsd reports no services (modem missing?)";
-        return;
-    }
-
-    m_servicePath = services.first().first.path();
-
-    delete m_service;
-    m_service = new QDBusInterface(kBus, m_servicePath, "org.ofono.mms.Service",
-                                   QDBusConnection::sessionBus(), this);
-    if (!m_service->isValid()) {
-        qWarning() << "[MmsManager] service interface invalid:" << m_service->lastError().message();
-        return;
-    }
-
-    // Subscribe to incoming events on this service path.
-    QDBusConnection::sessionBus().connect(kBus, m_servicePath, "org.ofono.mms.Service",
-                                          "MessageAdded", this,
-                                          SLOT(onMessageAdded(QDBusObjectPath, QVariantMap)));
-    QDBusConnection::sessionBus().connect(kBus, m_servicePath, "org.ofono.mms.Service",
-                                          "MessageRemoved", this,
-                                          SLOT(onMessageRemoved(QDBusObjectPath)));
-    QDBusConnection::sessionBus().connect(kBus, m_servicePath, "org.ofono.mms.Service",
-                                          "MessageSendError", this,
-                                          SLOT(onMessageSendError(QVariantMap)));
-    QDBusConnection::sessionBus().connect(kBus, m_servicePath, "org.ofono.mms.Service",
-                                          "MessageReceiveError", this,
-                                          SLOT(onMessageReceiveError(QVariantMap)));
-
-    m_available = true;
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    bus.disconnect(kBus, m_servicePath, kService, QStringLiteral("MessageAdded"), this,
+                   SLOT(onMessageAdded(QDBusObjectPath, QVariantMap)));
+    bus.disconnect(kBus, m_servicePath, kService, QStringLiteral("MessageSendError"), this,
+                   SLOT(onMessageSendError(QVariantMap)));
+    m_servicePath.clear();
     emit availableChanged();
-    emit servicePathChanged();
-    qInfo() << "[MmsManager] connected to mmsd-tng service:" << m_servicePath;
 }
 
-bool MmsManager::stageAttachmentsToTmp(const QVariantList &incoming, QList<MmsAttachment> &out,
-                                       QStringList &stagedPaths) {
-    const QString stageRoot =
-        QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/marathon/mms-out";
-    QDir().mkpath(stageRoot);
-
-    int idx = 0;
-    for (const QVariant &v : incoming) {
-        const QVariantMap att         = v.toMap();
-        const QString     contentType = att.value("contentType").toString();
-        const QString     sourcePath  = att.value("filePath").toString();
-        if (contentType.isEmpty() || sourcePath.isEmpty()) {
-            qWarning() << "[MmsManager] attachment missing contentType/filePath; skipping";
-            continue;
-        }
-        if (!QFile::exists(sourcePath)) {
-            qWarning() << "[MmsManager] attachment file missing:" << sourcePath;
-            return false;
-        }
-        const QString stagedName = QString("att-%1-%2.bin")
-                                       .arg(QUuid::createUuid().toString(QUuid::WithoutBraces))
-                                       .arg(idx);
-        const QString staged = stageRoot + "/" + stagedName;
-        if (!QFile::copy(sourcePath, staged)) {
-            qWarning() << "[MmsManager] failed to stage attachment:" << sourcePath << "->"
-                       << staged;
-            return false;
-        }
-        MmsAttachment a;
-        a.contentId   = QString("cid-%1").arg(idx);
-        a.contentType = contentType;
-        a.filePath    = staged;
-        out.append(a);
-        stagedPaths.append(staged);
-        ++idx;
-    }
-    return true;
-}
-
-bool MmsManager::sendMms(const QStringList &recipients, const QString &text,
-                         const QVariantList &attachments) {
-    if (!m_available || !m_service || !m_service->isValid()) {
-        qWarning() << "[MmsManager] not available; cannot send MMS";
-        emit sendFailed("MMS daemon unavailable");
-        return false;
+void MmsManager::send(int token, const QStringList &recipients, const QString &text,
+                      const QList<Part> &parts) {
+    if (m_servicePath.isEmpty()) {
+        emit failed(token, tr("MMS isn't available"));
+        return;
     }
     if (recipients.isEmpty()) {
-        emit sendFailed("No recipients");
-        return false;
+        emit failed(token, tr("No recipient"));
+        return;
     }
-
-    QList<MmsAttachment> staged;
-    QStringList          stagedPaths;
-    QVariantList         allAttachments = attachments;
+    QList<SendPart> sendParts;
+    auto           *body = new QTemporaryFile(outbox() + QStringLiteral("/text-XXXXXX.txt"), this);
     if (!text.isEmpty()) {
-        // Inline the text body as a text/plain part. mmsd will weave it
-        // into the SMIL automatically when AutoCreateSMIL=true (default).
-        const QString textPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
-            "/marathon/mms-out/" +
-            QString("text-%1.txt").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
-        QDir().mkpath(QFileInfo(textPath).absolutePath());
-        QFile f(textPath);
-        if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            emit sendFailed("Failed to stage MMS text body");
-            return false;
+        QDir().mkpath(outbox());
+        if (!body->open() || body->write(text.toUtf8()) < 0 || !body->flush()) {
+            delete body;
+            emit failed(token, tr("The message could not be prepared"));
+            return;
         }
-        f.write(text.toUtf8());
-        f.close();
-        QVariantMap textAtt;
-        textAtt["contentType"] = "text/plain;charset=utf-8";
-        textAtt["filePath"]    = textPath;
-        allAttachments.prepend(textAtt);
+        sendParts << SendPart{QStringLiteral("text.txt"), QStringLiteral("text/plain;charset=utf-8"),
+                              body->fileName()};
     }
-    if (!stageAttachmentsToTmp(allAttachments, staged, stagedPaths)) {
-        emit sendFailed("Failed to stage MMS attachments");
-        return false;
-    }
+    for (const Part &part : parts)
+        sendParts << SendPart{part.name, part.contentType, part.filePath};
 
-    // Build the a(sss) attachment array. QtDBus needs an ArgumentList variant.
-    QDBusArgument argAtts;
-    argAtts.beginArray(qMetaTypeId<QString>());
-    argAtts.endArray();
-
-    // The a(sss) marshalling needs to be done via QDBusArgument. Build a
-    // QList of (id, type, path) and let Qt convert with a registered type.
-    // The simplest reliable approach is to use the QDBusMessage low-level
-    // path -- register a tuple type and pass via QVariant::fromValue.
-    using AttTuple = std::tuple<QString, QString, QString>;
-    QList<AttTuple> tuples;
-    tuples.reserve(staged.size());
-    for (const auto &a : std::as_const(staged))
-        tuples.emplace_back(a.contentId, a.contentType, a.filePath);
-
-    // Build message manually so we can construct a(sss) precisely.
-    QDBusMessage msg =
-        QDBusMessage::createMethodCall(kBus, m_servicePath, "org.ofono.mms.Service", "SendMessage");
-    QVariantList args;
-    args << QVariant::fromValue(recipients);
-    // For SMIL we pass an empty string variant -- mmsd auto-generates with
-    // AutoCreateSMIL=true (default in mmsd-tng).
-    args << QVariant::fromValue(QDBusVariant(QString()));
-    QDBusArgument tupleArg;
-    tupleArg.beginArray(qMetaTypeId<QString>());
-    // Manually marshal via low-level: D-Bus signature a(sss)
-    tupleArg.endArray();
-    // Let Qt's auto-marshalling handle it via a registered struct.
-    args << QVariant::fromValue(tuples);
-    msg.setArguments(args);
-
-    QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
-    if (reply.type() == QDBusMessage::ErrorMessage) {
-        qWarning() << "[MmsManager] SendMessage failed:" << reply.errorMessage();
-        emit sendFailed(reply.errorMessage());
-        return false;
-    }
-    qInfo() << "[MmsManager] MMS submitted to" << recipients.size() << "recipients";
-    return true;
+    QDBusMessage call = QDBusMessage::createMethodCall(kBus, m_servicePath, kService,
+                                                       QStringLiteral("SendMessage"));
+    // An empty SMIL: mmsd-tng writes one (AutoCreateSMIL).
+    call << recipients << QVariant::fromValue(QDBusVariant(QString())) << QVariant::fromValue(sendParts);
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, token, body](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                body->deleteLater();
+                const QDBusPendingReply<QDBusObjectPath> reply = *w;
+                if (reply.isError())
+                    emit failed(token, reply.error().message());
+                else
+                    emit queued(token, reply.value().path());
+            });
 }
 
 void MmsManager::onMessageAdded(const QDBusObjectPath &path, const QVariantMap &props) {
-    const QString status = props.value("Status").toString();
-    if (status == QLatin1String("draft") || status == QLatin1String("sending")) {
-        return; // outgoing draft -- nothing to surface
-    }
-    if (status == QLatin1String("sent")) {
-        emit messageSent(path.path());
+    const QString status = props.value(QStringLiteral("Status")).toString();
+    if (status == QLatin1String("sent") || status == QLatin1String("sending_failed")) {
+        emit statusChanged(path.path(), status == QLatin1String("sent") ? QStringLiteral("sent")
+                                                                        : QStringLiteral("failed"));
         return;
     }
+    if (status != QLatin1String("received") && status != QLatin1String("read"))
+        return;
 
-    // Received -- assemble and emit.
-    const QString      sender    = props.value("Sender").toString();
-    const QString      date      = props.value("Date").toString();
-    const qint64       timestamp = QDateTime::fromString(date, Qt::ISODate).toMSecsSinceEpoch();
-
-    QString            text;
-    QVariantList       atts;
-    const QVariantList rawAtts = props.value("Attachments").toList();
-    for (const QVariant &v : rawAtts) {
-        const QVariantList parts = v.toList();
-        if (parts.size() < 5)
+    QString      text;
+    QVariantList attachments;
+    const QList<StoredPart> parts = storedParts(props.value(QStringLiteral("Attachments")));
+    for (const StoredPart &part : parts) {
+        QFile file(part.file);
+        if (!file.open(QIODevice::ReadOnly) || !file.seek(qint64(part.offset)))
             continue;
-        const QString id          = parts[0].toString();
-        const QString contentType = parts[1].toString();
-        const QString filePath    = parts[2].toString();
-        const qint64  offset      = parts[3].toLongLong();
-        const qint64  length      = parts[4].toLongLong();
-
-        if (contentType.startsWith(QLatin1String("text/"))) {
-            QFile f(filePath);
-            if (f.open(QIODevice::ReadOnly)) {
-                f.seek(offset);
-                text += QString::fromUtf8(f.read(length));
-                f.close();
-            }
-        } else {
-            QVariantMap a;
-            a["contentId"]   = id;
-            a["contentType"] = contentType;
-            a["filePath"]    = filePath;
-            a["offset"]      = offset;
-            a["length"]      = length;
-            atts.append(a);
+        const QByteArray data = file.read(qint64(part.length));
+        if (part.contentType.startsWith(QLatin1String("application/smil")))
+            continue;
+        if (part.contentType.startsWith(QLatin1String("text/plain"))) {
+            text += (text.isEmpty() ? QString() : QStringLiteral("\n")) + QString::fromUtf8(data);
+            continue;
         }
+        attachments << QVariantMap{{QStringLiteral("name"), part.id},
+                                   {QStringLiteral("contentType"), part.contentType},
+                                   {QStringLiteral("data"), data}};
     }
-
-    qInfo() << "[MmsManager] MessageAdded received from" << sender << "with" << atts.size()
-            << "non-text attachments";
-    emit messageReceived(sender, text, timestamp, atts);
-}
-
-void MmsManager::onMessageRemoved(const QDBusObjectPath &path) {
-    qDebug() << "[MmsManager] MessageRemoved:" << path.path();
+    const QString date = props.value(QStringLiteral("Date")).toString();
+    QDateTime     when = QDateTime::fromString(date, Qt::ISODate);
+    if (!when.isValid())
+        when = QDateTime::currentDateTime();
+    emit received(path.path(), props.value(QStringLiteral("Sender")).toString(),
+                  props.value(QStringLiteral("Recipients")).toStringList(), text,
+                  when.toMSecsSinceEpoch(), attachments);
 }
 
 void MmsManager::onMessageSendError(const QVariantMap &errorInfo) {
-    const uint    type = errorInfo.value("ErrorType").toUInt();
-    const QString host = errorInfo.value("Host").toString();
-    const QString msg  = QString("Send error type=%1 host=%2").arg(type).arg(host);
-    qWarning() << "[MmsManager]" << msg;
-    emit sendFailed(msg);
+    const QString path = errorInfo.value(QStringLiteral("MessagePath")).toString();
+    if (!path.isEmpty())
+        emit statusChanged(path, QStringLiteral("failed"));
 }
 
-void MmsManager::onMessageReceiveError(const QVariantMap &errorInfo) {
-    qWarning() << "[MmsManager] receive error:" << errorInfo;
+void MmsManager::onMessagePropertyChanged(const QString &name, const QDBusVariant &value,
+                                          const QDBusMessage &message) {
+    if (name != QLatin1String("Status"))
+        return;
+    const QString status = value.variant().toString();
+    if (status == QLatin1String("sent"))
+        emit statusChanged(message.path(), QStringLiteral("sent"));
+    else if (status == QLatin1String("sending_failed"))
+        emit statusChanged(message.path(), QStringLiteral("failed"));
 }

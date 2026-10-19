@@ -1,77 +1,77 @@
 #ifndef MMSMANAGER_H
 #define MMSMANAGER_H
 
+#include <QDBusMessage>
+#include <QDBusObjectPath>
+#include <QDBusVariant>
+#include <QList>
 #include <QObject>
 #include <QString>
 #include <QStringList>
-#include <QDBusInterface>
-#include <QDBusObjectPath>
-#include <QVariantMap>
 #include <QVariantList>
+#include <QVariantMap>
 
-// Thin client over mmsd-tng (org.ofono.mms) -- the de-facto MMS daemon on
-// Linux mobile, used by Plasma Mobile (Spacebar) and Phosh (Chatty).
-//
-// The daemon is D-Bus session-bus-activated; calling any method spins it up.
-// We never start/stop it ourselves.
-//
-// Method semantics mirror the Service API documented in mmsd-tng's
-// doc/service-api.txt. The daemon defines:
-//   Manager.GetServices()                  -> a(oa{sv})
-//   Service.SendMessage(as, v, a(sss))     -> o
-//   Service.MessageAdded / MessageRemoved
-//   Message.Status property + PropertyChanged
+class QDBusServiceWatcher;
+
+// The shell's client of mmsd-tng (org.ofono.mms, session bus,
+// doc/service-api.txt and doc/message-api.txt in mmsd-tng). Every call is
+// asynchronous: mmsd-tng is bus-activated, and nothing here may block the
+// shell's thread on it.
 class MmsManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
-    Q_PROPERTY(QString servicePath READ servicePath NOTIFY servicePathChanged)
 
   public:
-    struct MmsAttachment {
-        QString contentId;   // arbitrary token like "cid-1"
-        QString contentType; // e.g. "image/jpeg"
-        QString filePath;    // absolute path mmsd will read
+    // A part to send. filePath is a file the shell owns; mmsd-tng reads it
+    // when the message is queued.
+    struct Part {
+        QString contentType;
+        QString name;
+        QString filePath;
     };
 
     explicit MmsManager(QObject *parent = nullptr);
 
     bool available() const {
-        return m_available;
+        return !m_servicePath.isEmpty();
     }
-    QString servicePath() const {
-        return m_servicePath;
+    // The carrier's limits, as mmsd-tng reports them (0: not reported).
+    qint64 maxAttachmentSize() const {
+        return m_maxAttachmentSize;
+    }
+    int maxAttachments() const {
+        return m_maxAttachments;
     }
 
-    // Send an MMS. Recipients are E.164. text is the body (may be empty if
-    // attachments-only). attachments may be empty for a text-only group MMS.
-    // Returns true if the request was accepted by mmsd; final delivery is
-    // signalled via MessageStatusChanged.
-    Q_INVOKABLE bool sendMms(const QStringList &recipients, const QString &text,
-                             const QVariantList &attachments = {});
+    // Queues a message with mmsd-tng: queued(token, path) or
+    // failed(token, reason) follows.
+    void send(int token, const QStringList &recipients, const QString &text,
+              const QList<Part> &parts);
 
   signals:
     void availableChanged();
-    void servicePathChanged();
-    void messageReceived(const QString &sender, const QString &text, qint64 timestamp,
-                         const QVariantList &attachments);
-    void messageSent(const QString &messagePath);
-    void sendFailed(const QString &reason);
+    // attachments: [{name, contentType, data}], the text parts joined in text.
+    void received(const QString &path, const QString &sender, const QStringList &recipients,
+                  const QString &text, qint64 timestamp, const QVariantList &attachments);
+    void queued(int token, const QString &path);
+    void failed(int token, const QString &reason);
+    // A queued message became "sent" or "failed".
+    void statusChanged(const QString &path, const QString &status);
 
   private slots:
     void onMessageAdded(const QDBusObjectPath &path, const QVariantMap &props);
-    void onMessageRemoved(const QDBusObjectPath &path);
     void onMessageSendError(const QVariantMap &errorInfo);
-    void onMessageReceiveError(const QVariantMap &errorInfo);
+    void onMessagePropertyChanged(const QString &name, const QDBusVariant &value,
+                                  const QDBusMessage &message);
 
   private:
-    void            discoverService();
-    bool            stageAttachmentsToTmp(const QVariantList &incoming, QList<MmsAttachment> &out,
-                                          QStringList &stagedPaths);
+    void discover();
+    void forget();
 
-    QDBusInterface *m_manager; // /org/ofono/mms
-    QString         m_servicePath;
-    QDBusInterface *m_service; // resolved from GetServices()[0]
-    bool            m_available;
+    QDBusServiceWatcher *m_watcher = nullptr;
+    QString              m_servicePath;
+    qint64               m_maxAttachmentSize = 0;
+    int                  m_maxAttachments    = 0;
 };
 
 #endif

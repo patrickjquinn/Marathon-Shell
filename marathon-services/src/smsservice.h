@@ -48,10 +48,6 @@ class SMSService : public QObject {
     QVariantList     conversations() const;
 
     Q_INVOKABLE void sendMessage(const QString &recipient, const QString &text);
-    // Multi-recipient or attachments -- auto-routes to MMS via mmsd-tng.
-    // recipients are E.164. attachments is a list of {contentType, filePath} maps.
-    Q_INVOKABLE void         sendMultiRecipient(const QStringList &recipients, const QString &text,
-                                                const QVariantList &attachments = {});
     Q_INVOKABLE QVariantList getMessages(const QString &conversationId);
     Q_INVOKABLE void         deleteConversation(const QString &conversationId);
     Q_INVOKABLE bool         deleteMessage(int id);
@@ -64,6 +60,8 @@ class SMSService : public QObject {
     // or -1. name is reduced to a file name.
     int                      addAttachment(int messageId, const QString &contentType,
                                            const QString &name, int fd);
+    int                      addAttachment(int messageId, const QString &contentType,
+                                           const QString &name, const QByteArray &data);
     // The stored file of an attachment, "" if there is none.
     QString                  attachmentPath(int attachmentId) const;
 
