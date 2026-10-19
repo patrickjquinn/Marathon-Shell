@@ -1,7 +1,7 @@
 # Scrolling and frame pacing
 
-Measured 2026-10-19 on the HackberryPi CM5 (V3D, 720x720 at 60 Hz, 100 Hz
-EDT touch). The benchmark is Android (Waydroid, LineageOS 20) on the same
+Measured 2026-10-19 on the HackberryPi CM5 (V3D, 720x720 at 60 Hz, EDT
+touch at about 43 Hz; the first rounds' uinput bench sent 100 Hz). The benchmark is Android (Waydroid, LineageOS 20) on the same
 device, measured the same way.
 
 ## Method
@@ -165,19 +165,52 @@ frame (apps at 30 fps).
   same-way 3000 px/s flicks 150 ms apart: the second glides at about 80 px
   a frame against 45 before (1.8x); the first is unchanged.
 
+## Project Butter's steps (fifth round)
+
+Android 4.1's Project Butter tackled the same lag with vsync-paced frames,
+triple buffering, touch prediction and an input CPU boost. Marathon's
+versions:
+
+| Butter | Marathon | Commits | Off switch |
+|---|---|---|---|
+| Vsync pacing | The compositor latches 8 ms after each vblank and sends frame callbacks at the vblank, so a client draws with the newest touch and makes the same flip; the shell's own frames latch at that phase too | 81b75d68, b756094a | `MARATHON_FRAME_PHASE_MS=0` |
+| Touch prediction | The shell samples touch at each frame's latch, raw until the drag distance; apps resample theirs at their own frame time in `marathon-app-runner` | c01e70a6, 8a4fa977 | `MARATHON_TOUCH_RESAMPLE=0`, `MARATHON_APP_TOUCH_RESAMPLE=0` |
+| Input boost | A 1.5 s CPU floor on input, written off the GUI thread; it rests at `cpuinfo_min_freq`, also after a shell killed mid-boost | 535f4528, 1cfa3271 | |
+| Triple buffering | Not needed: apps hold 60 fps here | | |
+
+A drag keeps the finger's point under it from its second move
+(`synchronousDrag`, f4f46305; pulley menus fixed in b9055dea). The home
+pager does the same (4d30fd29) and snaps from the release velocity with
+`flickDeceleration: 12000`, in about a quarter second (c05885c3).
+Resampling apps' touch in the compositor was tried and made it worse.
+
+Strip captures now pass `-fps_mode passthrough` to ffmpeg (33029a76).
+Without it, duplicated frames skewed the timing, and earlier
+move-to-motion numbers, the fourth round's included, read 25-40 ms long.
+The meter is now tracking lag: how far behind the finger the content is
+once it has moved 50, 100 and 150 px, from a 43 Hz uinput replay.
+
+| Shell 4d1798ae | First motion | Lag at 50 / 100 / 150 px | |
+|---|---|---|---|
+| Home pager | 67 ms | 51 / 70 / 84 ms | even 10 px steps |
+| Settings (Marathon) | 70 ms | 44 / 70 / 85 ms | 0-1% vblanks without motion |
+| Material Files (Android) | 69 ms | 77 / 93 / 112 ms | |
+
+A fling leaves at about 0.9x the finger's speed and glides about 0.6 s; a
+same-way fling carries the caught speed.
+
 ## Next steps
 
-- Touch-to-motion in apps is ~130 ms, on a par with Android on this device
-  but not clearly below it: the shell sync wait, one frame in the client, one in the shell and
-  the flip. Candidates: deliver touch to clients from the evdev thread,
-  resample at frame time like Android's InputConsumer, frame callbacks
-  timed to the next latch.
-- A fling leaves at about 0.7x the finger's speed (29 px a frame dragging,
-  19 after release) in Marathon apps; Android overshoots to about 1.2x.
-  Find where Qt's release velocity drops (wl_touch timestamps, Flickable's
-  three-sample average).
-- The pager's snap after release starts faster than the finger (35 px to
-  90 px a frame): `highlightMoveDuration: 180` ignores the release velocity.
+- Qt's Wayland client renders, then waits for the frame callback, then
+  swaps (`QWaylandGLContext::swapBuffers`), so an app shows touch a frame
+  old; Android samples at frame start and queues at once. Measure
+  `QSG_RENDER_LOOP=basic` for apps, or wait before polish instead.
+- Cap touch prediction at 8 ms, as Android's InputConsumer does (half a
+  43 Hz gap is about 11 ms).
+- Latch from measured render time, as KWin does, not a fixed 8 ms.
+- Flickable takes a device's own velocity when it advertises
+  `QInputDevice::Capability::Velocity`; check resampled events don't.
+- Render-thread Animators for fixed transitions (app open, pager settle).
 - Remaining blocking calls from the audit: ModemManager state queries (about
   15 Gets per signal change, Librem 5), iio light polling, faillock QProcess
   on a wrong PIN, wake-path `msleep(30)` and logind Inhibit, per-call
