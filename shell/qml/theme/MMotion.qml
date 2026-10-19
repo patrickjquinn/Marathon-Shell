@@ -124,8 +124,9 @@ QtObject {
     readonly property int flickDecelerationFast: 8000
     readonly property int touchFlickDeceleration: 25000
     readonly property int touchFlickVelocity: 8000
-    // Jolla's 7500 px/s per pixel ratio; Keel's Theme matches it only at 1.5.
-    readonly property real flickVelocity: 7500 * Silica.Theme.pixelRatio
+    // Marathon.Silica's Fling.js: Android's fling feel.
+    readonly property real flickVelocity: 16000 * Silica.Theme.pixelRatio
+    readonly property real flickDeceleration: 6300 * Silica.Theme.pixelRatio
 
     // Settings → Accessibility → Reduce motion. Components go through dur().
     property bool reduceMotion: typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true)
