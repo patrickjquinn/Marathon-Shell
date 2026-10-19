@@ -195,7 +195,9 @@ Item {
         cacheBuffer: width * 3
         pixelAligned: true
         reuseItems: true
-        synchronousDrag: false
+        // Past the drag distance the page keeps the finger's point under it,
+        // from the drag's second move (the first starts the drag from rest).
+        synchronousDrag: dragging
         // 1 Hub + 1 Frames + N app-grid pages. Show at least the home
         // page (index 2) even before the app model has loaded.
         model: sharedAppModel.count > 0 ? 2 + pageCount : 3
