@@ -1,4 +1,5 @@
 #include "remotetextinput.h"
+#include "../ipc/callerpid.h"
 
 #include "../ipc/servicecaller.h"
 
@@ -333,8 +334,8 @@ bool RemoteTextInputService::fromOwner() {
 }
 
 void RemoteTextInputService::Register(const QString &appIdPrefix) {
-    const auto pid    = connection().interface()->servicePid(message().service());
-    const auto caller = pid.isValid() ? ServiceCaller::resolve(qint64(pid.value())) : QString();
+    const qint64 pid    = callerPid(connection(), message().service());
+    const auto   caller = pid >= 0 ? ServiceCaller::resolve(pid) : QString();
     if (!ServiceCaller::allowed(caller, {QStringLiteral("text-input")})) {
         sendErrorReply(QDBusError::AccessDenied, QStringLiteral("Needs the text-input permission"));
         return;

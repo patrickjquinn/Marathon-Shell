@@ -1,4 +1,5 @@
 #include "shareservice.h"
+#include "../ipc/callerpid.h"
 
 #include "dbusnormalize.h"
 #include "marathonappregistry.h"
@@ -103,7 +104,7 @@ void ShareService::share(const QVariantMap &configuration) {
     qint64  pid  = -1;
     QString from;
     if (calledFromDBus()) {
-        pid  = connection().interface()->servicePid(message().service()).value();
+        pid  = callerPid(connection(), message().service());
         from = m_appForPid ? m_appForPid(pid) : QString();
     }
     // A session service (deckardd) may name the app that shares; an app may

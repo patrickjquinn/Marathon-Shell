@@ -61,6 +61,7 @@
 #include "src/managers/networkmanagercpp.h"
 #include "src/managers/waketimers.h"
 #include "src/managers/powermanagercpp.h"
+#include "marathon-shell-native/src/identity.cxxqt.h"
 #include "src/controllers/powerpolicycontroller.h"
 #include "src/managers/deviceprofile.h"
 #include "src/managers/drmmasterwait.h"
@@ -799,6 +800,8 @@ int main(int argc, char *argv[]) {
     networkManager->setParent(&app);
     qmlRegisterSingletonInstance<NetworkManagerCpp>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
                                                     networkManager);
+    // IPC callers' PIDs, learnt on the I/O thread before they call.
+    marathon::identity::watch_session_bus();
     auto *powerManager = new PowerManagerCpp();
     powerManager->setParent(&app);
     qmlRegisterSingletonInstance<PowerManagerCpp>("MarathonOS.Shell", 1, 0, "PowerManagerService",

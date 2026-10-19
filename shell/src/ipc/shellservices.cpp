@@ -1,4 +1,5 @@
 #include "shellservices.h"
+#include "callerpid.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <QDBusMetaType>
@@ -113,11 +114,10 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
     if (!ctx.calledFromDBus() || !als)
         return {};
 
-    const QString sender   = ctx.message().service();
-    auto          pidReply = ctx.connection().interface()->servicePid(sender);
-    if (!pidReply.isValid())
+    const qint64 pid = callerPid(ctx.connection(), ctx.message().service());
+    if (pid < 0)
         return unresolved();
-    return appIdForCallerPid(static_cast<qint64>(pidReply.value()), als);
+    return appIdForCallerPid(pid, als);
 }
 
 QString appIdForCallerPid(qint64 pid, AppLaunchService *als) {

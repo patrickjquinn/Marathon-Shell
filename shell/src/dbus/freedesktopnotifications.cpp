@@ -1,4 +1,5 @@
 #include "freedesktopnotifications.h"
+#include "../ipc/callerpid.h"
 #include "appmodel.h"
 #include "nemoremoteaction.h"
 #include "marathonappregistry.h"
@@ -343,9 +344,8 @@ QString FreedesktopNotifications::extractAppName(const QString     &provided,
     // the sender's own app scope say which installed app it really is.
     QString senderApp;
     if (calledFromDBus() && connection().interface()) {
-        const QDBusReply<uint> pid = connection().interface()->servicePid(message().service());
-        if (pid.isValid())
-            senderApp = NotificationTarget::appForPid(pid.value());
+        if (const qint64 pid = callerPid(connection(), message().service()); pid >= 0)
+            senderApp = NotificationTarget::appForPid(pid);
     }
     QString installed = NotificationTarget::resolve(
         {hints.value(QStringLiteral("desktop-entry")).toString(), senderApp, provided}, m_registry);

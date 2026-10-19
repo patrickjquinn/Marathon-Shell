@@ -3,6 +3,7 @@
 
 #![allow(clippy::unnecessary_box_returns, reason = "cxx-qt's generated constructors return a Box")]
 
+mod identity;
 mod io;
 mod log;
 pub mod network;

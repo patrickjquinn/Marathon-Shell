@@ -1,4 +1,5 @@
 #include "backgroundtaskobserver.h"
+#include "../ipc/callerpid.h"
 
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
@@ -6,8 +7,6 @@
 #include "telephonyservice.h"
 
 #include <QDBusConnection>
-#include <QDBusInterface>
-#include <QDBusReply>
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcBgObs, "marathon.lifecycle.observer")
@@ -121,15 +120,9 @@ QString BackgroundTaskObserver::resolveAppIdForBusName(const QString &busName) c
     auto bus = QDBusConnection::sessionBus();
     if (!bus.isConnected())
         return {};
-    QDBusInterface   dbus("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
-                          bus);
-    QDBusReply<uint> reply = dbus.call("GetConnectionUnixProcessID", busName);
-    if (!reply.isValid()) {
-        qCDebug(lcBgObs) << "GetConnectionUnixProcessID failed for" << busName << ":"
-                         << reply.error().message();
+    const qint64 pid = callerPid(bus, busName);
+    if (pid < 0)
         return {};
-    }
-    const qint64  pid   = static_cast<qint64>(reply.value());
     const QString appId = m_launch->appIdForPid(pid);
     qCDebug(lcBgObs) << "bus" << busName << "→ pid" << pid << "→ appId" << appId;
     return appId;

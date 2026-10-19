@@ -1,4 +1,5 @@
 #include "shellkeelactions.h"
+#include "callerpid.h"
 
 #include "appmodel.h"
 #include "applaunchservice.h"
@@ -76,10 +77,9 @@ bool ShellKeelActions::registerOnSessionBus() {
 
 // An app the shell runs, or any process it started.
 bool ShellKeelActions::fromApp() const {
-    const QDBusReply<uint> pid = connection().interface()->servicePid(message().service());
-    if (!pid.isValid())
+    const qint64 caller = callerPid(connection(), message().service());
+    if (caller < 0)
         return true;
-    const qint64 caller = pid.value();
     const qint64 shell  = QCoreApplication::applicationPid();
     return !m_launchService->appIdForPid(caller).isEmpty() ||
         (caller != shell && isDescendantPid(caller, shell));
