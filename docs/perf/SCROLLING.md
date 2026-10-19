@@ -132,6 +132,39 @@ frame (apps at 30 fps).
   moves about 25% less than its neighbours, as Qt's flick timeline starts at
   the release, mid-frame.
 
+## A real finger, and Pacific's flings (fourth round)
+
+- The HackberryPi's panel reports every 21-23 ms (about 43 Hz), one slot,
+  a new tracking id per touch, BTN_TOUCH and no pressure. The uinput bench
+  sent 100 Hz. `scripts/bench/touch_trace.py` records a panel passively
+  (no grab) and replays it through uinput at the recorded spacing; `--times`
+  logs each gesture's first move and lift for the scanout meter.
+- Replaying a real finger's trace (9 gestures on home) through the old
+  resampler did not stall, but every other frame of a drag had no new
+  move: 5 ms latency and 8 ms prediction do not span a 23 ms gap.
+- `TouchResampler` now samples half the panel's spacing plus 2 ms back
+  (learnt across touches), interpolating, or predicting up to half a
+  spacing at the slower of the last two reports' speeds (none across a
+  turn). The content never steps back the way the finger goes, nor at the
+  lift. Still opt-in (`MARATHON_TOUCH_RESAMPLE=1`).
+
+| Real-finger replay, 3 runs each | Raw (default) | Resampled |
+|---|---|---|
+| Move to first motion, median | 159-184 ms | 158-159 ms |
+| Repeated frames while dragging | 12-19 | 0-1 |
+| Backward steps | 4 | 3 |
+
+  Interpolating a full spacing back was as even but 30-45 ms later;
+  predicting from 5 ms, or damping the prediction, stepped unevenly; the
+  raw touch until the drag distance, then a growing latency, started later.
+- Marathon.Silica takes Pacific's fling rules: release speed over the last
+  50 ms, no fling after a 40 ms rest before the lift, and a fling caught
+  and flung again the same way adds the caught speed (at least 350 CSS
+  px/s, the new one at least half of it, caught no more than 100 ms
+  before; carried flings may reach 18000 CSS px/s). Settings, three
+  same-way 3000 px/s flicks 150 ms apart: the second glides at about 80 px
+  a frame against 45 before (1.8x); the first is unchanged.
+
 ## Next steps
 
 - Touch-to-motion in apps is ~130 ms, on a par with Android on this device
