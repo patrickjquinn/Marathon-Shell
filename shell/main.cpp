@@ -1204,14 +1204,16 @@ int main(int argc, char *argv[]) {
                                                   QStringLiteral("/apps/%1/").arg(appId)});
                      });
 
-    // The shell, weatherd and the portal (which asks the user itself) locate
-    // freely; anything else needs the location permission.
+    // The shell, weatherd, the portal (which asks the user itself) and
+    // deckardd (Android asks for each Android app) locate freely; anything
+    // else needs the location permission.
     new GeoClueAgent(
         QDBusConnection::systemBus(),
         [permissionManager](const QString &desktopId) {
             static const QStringList kSystem = {QStringLiteral("org.marathon.Shell"),
                                                 QStringLiteral("marathon-weather"),
-                                                QStringLiteral("xdg-desktop-portal")};
+                                                QStringLiteral("xdg-desktop-portal"),
+                                                QStringLiteral("org.marathonos.Deckard")};
             if (kSystem.contains(desktopId) ||
                 permissionManager->hasPermission(desktopId, QStringLiteral("location")))
                 return true;
