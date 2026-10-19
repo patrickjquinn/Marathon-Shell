@@ -1,3 +1,5 @@
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTest>
 #include <QDate>
 #include <QSignalSpy>
@@ -253,6 +255,19 @@ class TestNotificationModel : public QObject {
         QVERIFY(model.getNotification(int(done)));
         QVERIFY(!model.getNotification(int(stale)));
         QCOMPARE(db.getNotifications().size(), 1);
+    }
+
+    // === CONTRACT: a notification's insert doesn't fsync on the GUI thread ===
+
+    void databaseCommitsWithoutSyncing() {
+        QStandardPaths::setTestModeEnabled(true);
+        NotificationDatabase db;
+        QVERIFY(db.initialize());
+        QSqlQuery pragma(QSqlDatabase::database(QStringLiteral("notifications")));
+        QVERIFY(pragma.exec(QStringLiteral("PRAGMA journal_mode")) && pragma.next());
+        QCOMPARE(pragma.value(0).toString(), QStringLiteral("wal"));
+        QVERIFY(pragma.exec(QStringLiteral("PRAGMA synchronous")) && pragma.next());
+        QCOMPARE(pragma.value(0).toInt(), 1);
     }
 
     // === CONTRACT: dismissAll on empty is a no-op (no crash) ===

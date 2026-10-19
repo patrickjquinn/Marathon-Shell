@@ -31,6 +31,12 @@ bool NotificationDatabase::initialize() {
         return false;
     }
 
+    // Written on the GUI thread per notification and per dismiss: WAL with
+    // NORMAL sync commits without an fsync (the log is synced at checkpoints).
+    QSqlQuery pragma(m_db);
+    pragma.exec(QStringLiteral("PRAGMA journal_mode=WAL"));
+    pragma.exec(QStringLiteral("PRAGMA synchronous=NORMAL"));
+
     if (!createTables()) {
         qWarning() << "[NotificationDB] Failed to create tables";
         return false;
@@ -73,6 +79,7 @@ bool NotificationDatabase::createTables() {
 }
 
 uint NotificationDatabase::saveNotification(const NotificationRecord &notif) {
+    m_db.transaction();
     QSqlQuery query(m_db);
     query.prepare(R"(
         INSERT INTO notifications (app_id, title, body, icon, timestamp, read, dismissed, category, priority, actions, metadata)
@@ -97,11 +104,13 @@ uint NotificationDatabase::saveNotification(const NotificationRecord &notif) {
 
     if (!query.exec()) {
         qWarning() << "[NotificationDB] Insert error:" << query.lastError().text();
+        m_db.rollback();
         return 0;
     }
 
     const uint id = query.lastInsertId().toUInt();
     pruneToCap();
+    m_db.commit();
     return id;
 }
 
