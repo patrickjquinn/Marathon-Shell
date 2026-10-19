@@ -102,4 +102,23 @@ Item {
             root.app.activate();
         }
     }
+
+    KeelAction {
+        name: "apps.openFile"
+        title: qsTr("Install an app file")
+        description: "Show the App Store's install page for an Android app file (.apk) on this phone: its name, version, what it can do and any warnings. Nothing is installed until the person taps Install on that page."
+        notDestructiveBecause: "it only shows the install page; the person installs from there"
+        parameters: [
+            KeelParam { name: "path"; type: "string"; required: true; minLength: 2; maxLength: 4096; description: "Absolute path of the .apk file" }
+        ]
+        onInvoked: (args, call) => {
+            const path = String(args.path);
+            if (path.charAt(0) !== "/" || path.indexOf("/../") >= 0 || !/\.apk$/i.test(path)) {
+                call.fail("InvalidArguments", "not an absolute .apk path");
+                return;
+            }
+            root.app.store.openApkConfirmation(path);
+            root.app.activate();
+        }
+    }
 }

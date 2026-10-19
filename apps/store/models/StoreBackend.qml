@@ -177,7 +177,7 @@ QtObject {
     function safeImageUrl(u) {
         if (typeof u !== "string")
             return "";
-        if (u.indexOf("https://dl.flathub.org/") === 0 || u.indexOf("https://flathub.org/") === 0)
+        if (u.indexOf("https://dl.flathub.org/") === 0 || u.indexOf("https://flathub.org/") === 0 || u.indexOf("https://f-droid.org/repo/") === 0)
             return u;
         return "";
     }
@@ -189,6 +189,10 @@ QtObject {
         const _ = root._iconTick;
         if (app && app.icon)
             return safeImageUrl(app.icon);
+        if (isAndroid(idOf(app))) {
+            const listed = androidApp(idOf(app));
+            return listed ? safeImageUrl(listed.icon) : "";
+        }
         const full = appstreamCache[idOf(app)];
         return full ? safeImageUrl(full.icon || "") : "";
     }
@@ -197,7 +201,7 @@ QtObject {
 
     function ensureIcon(app) {
         const id = idOf(app);
-        if (!id || (app && app.icon) || appstreamCache[id])
+        if (!id || isAndroid(id) || (app && app.icon) || appstreamCache[id])
             return;
         loadAppstream(id, function () {
             root._iconTick += 1;
@@ -292,7 +296,7 @@ QtObject {
         lastError = "";
         if (catalogAppCount === 0)
             restoreCatalog();
-        startupTimer.queue = [() => loadAppOfTheDay(), () => loadCollection("verified"), () => loadCollection("trending"), () => loadCollection("popular"), () => loadCollection("mobile"), () => loadCollection("recently-added"), () => refreshState()];
+        startupTimer.queue = [() => loadAndroidCatalog(true), () => loadAppOfTheDay(), () => loadCollection("verified"), () => loadCollection("trending"), () => loadCollection("popular"), () => loadCollection("mobile"), () => loadCollection("recently-added"), () => refreshState()];
         startupTimer.running = true;
     }
 
@@ -451,8 +455,10 @@ QtObject {
             ],
             "hits_per_page": 40
         };
+        const android = searchAndroid(query, 20);
         fetchJson(flathubApi + "/search", body, function (data, err) {
-            cb(err ? [] : (data.hits || []), err);
+            const hits = err ? [] : (data.hits || []);
+            cb(hits.concat(android), err && android.length === 0 ? err : "");
         });
     }
 
@@ -523,7 +529,7 @@ QtObject {
     }
 
     function ensureRating(appId) {
-        if (!appId || _ratings[appId] !== undefined)
+        if (!appId || isAndroid(appId) || _ratings[appId] !== undefined)
             return;
         const next = Object.assign({}, _ratings);
         next[appId] = null;
@@ -809,6 +815,8 @@ QtObject {
     function isValidRef(appId) {
         if (typeof appId !== "string" || appId.indexOf("..") >= 0)
             return false;
+        if (isAndroid(appId))
+            return /^android:[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(appId);
         return /^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$/.test(appId);
     }
 
@@ -886,7 +894,9 @@ QtObject {
     }
 
     function openApp(appId) {
-        if (isValidRef(appId))
+        if (isAndroid(appId) && isValidRef(appId))
+            root.openExternally("marathon-store://open/waydroid." + appId.substring(8));
+        else if (isValidRef(appId))
             root.openExternally("marathon-store://open/" + appId);
     }
 
@@ -990,12 +1000,22 @@ QtObject {
     // ── Navigation ────────────────────────────────────────────
 
     function nameOf(appId) {
+        const listed = isAndroid(appId) ? androidApp(appId) : null;
+        if (listed)
+            return listed.name;
         const full = appstreamCache[appId];
         const entry = installedEntry(appId);
         return (full && full.name) || (entry && entry.name) || appId;
     }
 
     function openDetail(app) {
+        if (isAndroid(idOf(app))) {
+            pushRequested(Qt.resolvedUrl("../pages/AndroidAppPage.qml"), {
+                "store": root,
+                "app": androidApp(idOf(app)) || app
+            });
+            return;
+        }
         pushRequested(Qt.resolvedUrl("../pages/AppDetailPage.qml"), {
             "store": root,
             "appId": idOf(app),
@@ -1025,6 +1045,214 @@ QtObject {
             "screenshots": shots,
             "startIndex": index
         });
+    }
+
+    // ── Android apps: F-Droid's catalogue, installed through Deckard ──
+    //
+    // The handler verifies F-Droid's signed index, keeps a compact catalogue
+    // and copies it to stateDir/fdroid.json; installs and removals go
+    // through deckardd, so Android's own installer never shows.
+
+    property var androidApps: []
+    property var _androidById: ({})
+    property real androidSyncedAt: 0
+    // An .apk's confirmation: the handler's apk-inspect.json for the file.
+    property var apkInfo: null
+
+    function isAndroid(appId) {
+        return typeof appId === "string" && appId.indexOf("android:") === 0;
+    }
+
+    function androidApp(appId) {
+        return _androidById[appId] || null;
+    }
+
+    // Loads the copy in stateDir; asks for a sync when it is missing or a
+    // day old (the handler skips it on a metered network or a low battery).
+    function loadAndroidCatalog(syncIfStale) {
+        readLocalJson(stateDir + "/fdroid.json", function (data) {
+            if (data && data.apps) {
+                const byId = {};
+                data.apps.forEach(a => byId[a.app_id] = a);
+                root._androidById = byId;
+                root.androidApps = data.apps;
+                root.androidSyncedAt = data.ts || 0;
+            }
+            if (syncIfStale && Date.now() / 1000 - root.androidSyncedAt > 86400) {
+                root.openExternally("marathon-store://fdroid-sync/all");
+                androidSyncPoll.tries = 0;
+                androidSyncPoll.running = true;
+            }
+        });
+    }
+
+    function searchAndroid(query, limit) {
+        const q = String(query || "").toLowerCase();
+        if (q.length === 0)
+            return [];
+        const out = [];
+        for (let i = 0; i < androidApps.length && out.length < limit; i++) {
+            const a = androidApps[i];
+            if (a.name.toLowerCase().indexOf(q) >= 0 || a.summary.toLowerCase().indexOf(q) >= 0 || a.pkg.toLowerCase() === q)
+                out.push(a);
+        }
+        return out;
+    }
+
+    // Recently updated Android apps, for Discover.
+    function recentAndroid(count) {
+        return androidApps.slice().sort((a, b) => b.lastUpdated - a.lastUpdated).slice(0, count);
+    }
+
+    readonly property var antiFeatureText: ({
+            "Ads": qsTr("Shows advertising"),
+            "Tracking": qsTr("Tracks or reports your activity"),
+            "NonFreeNet": qsTr("Relies on a service that isn't free software"),
+            "NonFreeAdd": qsTr("Promotes add-ons that aren't free software"),
+            "NonFreeDep": qsTr("Needs software that isn't free, which may include Google services"),
+            "NonFreeAssets": qsTr("Contains media that isn't free"),
+            "NoSourceSince": qsTr("Its source code is no longer available"),
+            "KnownVuln": qsTr("Has a known security problem"),
+            "TetheredNet": qsTr("Only works with its developer's own server"),
+            "DisabledAlgorithm": qsTr("Signed with a weak algorithm")
+        })
+
+    // Android permissions in plain words; trivial ones (network state,
+    // vibration) are left out.
+    readonly property var permissionText: ({
+            "android.permission.INTERNET": qsTr("Use the internet"),
+            "android.permission.ACCESS_FINE_LOCATION": qsTr("Know your precise location"),
+            "android.permission.ACCESS_COARSE_LOCATION": qsTr("Know your approximate location"),
+            "android.permission.ACCESS_BACKGROUND_LOCATION": qsTr("Know your location while you're not using it"),
+            "android.permission.CAMERA": qsTr("Use the camera"),
+            "android.permission.RECORD_AUDIO": qsTr("Use the microphone"),
+            "android.permission.READ_CONTACTS": qsTr("Read your contacts"),
+            "android.permission.WRITE_CONTACTS": qsTr("Change your contacts"),
+            "android.permission.READ_CALENDAR": qsTr("Read your calendar"),
+            "android.permission.WRITE_CALENDAR": qsTr("Change your calendar"),
+            "android.permission.READ_SMS": qsTr("Read your text messages"),
+            "android.permission.SEND_SMS": qsTr("Send text messages"),
+            "android.permission.RECEIVE_SMS": qsTr("Receive text messages"),
+            "android.permission.CALL_PHONE": qsTr("Make phone calls"),
+            "android.permission.READ_PHONE_STATE": qsTr("See your phone's status and identity"),
+            "android.permission.READ_CALL_LOG": qsTr("Read your call history"),
+            "android.permission.READ_EXTERNAL_STORAGE": qsTr("Read files on this phone"),
+            "android.permission.WRITE_EXTERNAL_STORAGE": qsTr("Change files on this phone"),
+            "android.permission.MANAGE_EXTERNAL_STORAGE": qsTr("Read and change all files on this phone"),
+            "android.permission.READ_MEDIA_IMAGES": qsTr("Read your photos"),
+            "android.permission.READ_MEDIA_VIDEO": qsTr("Read your videos"),
+            "android.permission.READ_MEDIA_AUDIO": qsTr("Read your music and audio"),
+            "android.permission.POST_NOTIFICATIONS": qsTr("Show notifications"),
+            "android.permission.BLUETOOTH_CONNECT": qsTr("Connect to Bluetooth devices"),
+            "android.permission.BLUETOOTH_SCAN": qsTr("Find Bluetooth devices nearby"),
+            "android.permission.NEARBY_WIFI_DEVICES": qsTr("Find Wi-Fi devices nearby"),
+            "android.permission.BODY_SENSORS": qsTr("Read body sensors"),
+            "android.permission.ACTIVITY_RECOGNITION": qsTr("Recognise your physical activity"),
+            "android.permission.SYSTEM_ALERT_WINDOW": qsTr("Draw over other apps"),
+            "android.permission.REQUEST_INSTALL_PACKAGES": qsTr("Install other apps"),
+            "android.permission.RECEIVE_BOOT_COMPLETED": qsTr("Start when the phone starts"),
+            "android.permission.FOREGROUND_SERVICE": qsTr("Keep running in the background"),
+            "android.permission.WAKE_LOCK": qsTr("Keep the phone awake"),
+            "android.permission.USE_BIOMETRIC": qsTr("Use biometric sign-in"),
+            "android.permission.CHANGE_WIFI_STATE": qsTr("Change Wi-Fi settings"),
+            "android.permission.WRITE_SETTINGS": qsTr("Change system settings")
+        })
+
+    function describeAndroidPermissions(names) {
+        const out = [];
+        (names || []).forEach(function (name) {
+            const text = permissionText[name];
+            if (text && out.indexOf(text) < 0)
+                out.push(text);
+        });
+        return out;
+    }
+
+    // F-Droid's categories onto the Store's.
+    function androidCategoryIds(app) {
+        const ids = [];
+        (app.categories || []).forEach(function (c) {
+            const l = c.toLowerCase();
+            const id = /game|dice/.test(l) ? "game" : /music|audio|video|podcast|radio|player|sound|camera|recorder/.test(l) ? "audiovideo" : /develop|code|forge|terminal/.test(l) ? "development" : /educat|learn|language|science|math/.test(l) ? "education" : /draw|graphic|photo|gallery|image|paint/.test(l) ? "graphics" : /browser|email|messag|chat|social|network|connect|download|vpn|dns|firewall|feed|news|forum/.test(l) ? "network" : /office|note|document|ebook|reader|calendar|task|finance|writ/.test(l) ? "office" : /system|app manager|file|battery|keyboard|launcher|security|backup|store/.test(l) ? "system" : "utility";
+            if (ids.indexOf(id) < 0)
+                ids.push(id);
+        });
+        return ids;
+    }
+
+    function androidInCategory(id) {
+        return androidApps.filter(a => androidCategoryIds(a).indexOf(id) >= 0);
+    }
+
+    function inspectApk(path) {
+        apkInfo = null;
+        root.openExternally("marathon-store://apk-inspect/" + encodeURIComponent(path));
+        apkPoll.path = path;
+        apkPoll.since = Math.floor(Date.now() / 1000) - 1;
+        apkPoll.tries = 0;
+        apkPoll.running = true;
+    }
+
+    function installApk(path, pkg, name) {
+        const appId = "android:" + pkg;
+        if (!isValidRef(appId))
+            return;
+        const next = Object.assign({}, jobs);
+        next[appId] = {
+            "appId": appId,
+            "state": "pending",
+            "percent": -1,
+            "error": "",
+            "ts": Math.floor(Date.now() / 1000)
+        };
+        jobs = next;
+        _setVerb(appId, "install");
+        jobPollTimer.running = true;
+        root.openExternally("marathon-store://apk-install/" + encodeURIComponent(path) + "?pkg=" + pkg + "&name=" + encodeURIComponent(name || pkg));
+    }
+
+    function openApkConfirmation(path) {
+        pushRequested(Qt.resolvedUrl("../pages/AndroidAppPage.qml"), {
+            "store": root,
+            "apkPath": path
+        });
+        inspectApk(path);
+    }
+
+    property Timer _androidSyncPoll: Timer {
+        id: androidSyncPoll
+        property int tries: 0
+        interval: 5000
+        repeat: true
+        onTriggered: {
+            const before = root.androidSyncedAt;
+            root.loadAndroidCatalog(false);
+            if (++tries > 36 || root.androidSyncedAt > before)
+                running = false;
+        }
+    }
+
+    property Timer _apkPoll: Timer {
+        id: apkPoll
+        property string path: ""
+        property real since: 0
+        property int tries: 0
+        interval: 400
+        repeat: true
+        onTriggered: {
+            root.readLocalJson(root.stateDir + "/apk-inspect.json", function (data) {
+                if (data && data.path === apkPoll.path && data.ts >= apkPoll.since) {
+                    root.apkInfo = data;
+                    apkPoll.running = false;
+                } else if (++apkPoll.tries > 75) {
+                    root.apkInfo = {
+                        "ok": false,
+                        "message": root.helperSilentError
+                    };
+                    apkPoll.running = false;
+                }
+            });
+        }
     }
 
     property Settings _cache: Settings {

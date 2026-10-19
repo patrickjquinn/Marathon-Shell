@@ -22,11 +22,18 @@ Page {
     function load() {
         root.loading = true;
         root.error = "";
+        if (source === "android/recent") {
+            root.apps = store.recentAndroid(300);
+            root.loading = false;
+            return;
+        }
+        // A category lists the Android apps in it after Flathub's.
+        const category = source.indexOf("collection/category/") === 0 ? source.substring(20) : "";
         store.loadList(source, function (list, err, savedAt) {
             root.loading = false;
             root.error = err || "";
             root.savedAt = savedAt;
-            root.apps = list;
+            root.apps = category !== "" ? list.concat(store.androidInCategory(category)) : list;
         });
     }
 

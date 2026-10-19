@@ -349,6 +349,24 @@ TabItem {
                     visible: root.store.newApps.length > 0
                     onClicked: root.store.openCollection("recently-added", qsTr("New on Flathub"))
                 }
+
+                SectionHeader {
+                    text: qsTr("Android apps")
+                    visible: root.store.androidApps.length > 0
+                }
+                Repeater {
+                    model: root.store.recentAndroid(5)
+                    delegate: AppRow {
+                        required property var modelData
+                        width: column.width
+                        store: root.store
+                        app: modelData
+                    }
+                }
+                ShowAllItem {
+                    visible: root.store.androidApps.length > 0
+                    onClicked: root.store.openList(qsTr("Android apps"), "android/recent")
+                }
             }
         }
 

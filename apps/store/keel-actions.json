@@ -61,6 +61,40 @@
     },
     {
       "_meta": {
+        "org.shipwright.keel/action": "apps.openFile",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/notDestructiveBecause": "it only shows the install page; the person installs from there",
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Show the App Store's install page for an Android app file (.apk) on this phone: its name, version, what it can do and any warnings. Nothing is installed until the person taps Install on that page.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Absolute path of the .apk file",
+            "maxLength": 4096,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.store/apps.openFile",
+      "title": "Install an app file"
+    },
+    {
+      "_meta": {
         "org.shipwright.keel/action": "apps.search",
         "org.shipwright.keel/confirm": false,
         "org.shipwright.keel/result": "wrapped",

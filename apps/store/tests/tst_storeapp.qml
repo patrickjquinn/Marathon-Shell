@@ -307,4 +307,35 @@ TestCase {
         verify(app.handleBack());
         tryCompare(app.pageStack, "depth", 1, 3000);
     }
+
+    function test_androidAppPage() {
+        const app = makeApp();
+        app.store.loadAndroidCatalog(false);
+        tryVerify(() => app.store.androidApps.length === 2);
+        app.store.openDetail({ "app_id": "android:org.example.clock" });
+        const page = pushed(app, 2);
+        compare(page.name, "Tick");
+        compare(page.antiFeatures, ["Tracking"]);
+        compare(page.permissions, ["Use the internet", "Use the camera"]);
+        verify(findChild(page, "androidAction").visible);
+    }
+
+    function test_apkConfirmation() {
+        const app = makeApp();
+        app.store.openApkConfirmation("/tmp/x.apk");
+        const page = pushed(app, 2);
+        verify(page.inspecting);
+        compare(app.store.opened[app.store.opened.length - 1], "marathon-store://apk-inspect/%2Ftmp%2Fx.apk");
+        app.store.apkInfo = { "path": "/tmp/x.apk", "ok": true, "pkg": "org.example.notes", "name": "Notes", "versionName": "1.2",
+            "installedVersionCode": 3, "installedVersionName": "1.1", "permissions": ["android.permission.RECORD_AUDIO"], "icon": "" };
+        verify(page.isUpdate);
+        compare(page.permissions, ["Use the microphone"]);
+        const install = findChild(page, "apkInstall");
+        verify(install.visible);
+        compare(install.text, "Update");
+        install.clicked(null);
+        compare(app.store.opened[app.store.opened.length - 1], "marathon-store://apk-install/%2Ftmp%2Fx.apk?pkg=org.example.notes&name=Notes");
+        app.store.apkInfo = { "path": "/tmp/x.apk", "ok": false, "message": "not an Android app" };
+        verify(findChild(page, "apkError").visible);
+    }
 }

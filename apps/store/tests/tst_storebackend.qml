@@ -244,4 +244,36 @@ TestCase {
         compare(b.catalogAppCount, 0);
         verify(b.lastError !== "");
     }
+
+    function loadAndroid(b) {
+        b.loadAndroidCatalog(false);
+        tryVerify(() => b.androidApps.length === 2);
+    }
+
+    function test_androidCatalogue() {
+        const b = makeBackend();
+        loadAndroid(b);
+        verify(b.isValidRef("android:org.example.clock"));
+        verify(!b.isValidRef("android:../etc"));
+        compare(b.nameOf("android:org.example.clock"), "Tick");
+        compare(b.recentAndroid(5).map(a => a.pkg), ["org.example.game", "org.example.clock"]);
+        compare(b.searchAndroid("clock", 10).map(a => a.pkg), ["org.example.clock"]);
+        compare(b.searchAndroid("roll", 10).map(a => a.pkg), ["org.example.game"]);
+        compare(b.androidInCategory("game").map(a => a.pkg), ["org.example.game"]);
+        compare(b.iconFor(b.androidApp("android:org.example.clock")), "https://f-droid.org/repo/org.example.clock/en-US/icon.png");
+        compare(b.iconFor(b.androidApp("android:org.example.game")), "");
+        compare(b.describeAndroidPermissions(b.androidApp("android:org.example.clock").version.permissions), ["Use the internet", "Use the camera"]);
+    }
+
+    function test_androidInstallGoesToTheHandler() {
+        const b = makeBackend();
+        loadAndroid(b);
+        b.installApp("android:org.example.clock");
+        compare(b.opened[b.opened.length - 1], "marathon-store://install/android:org.example.clock?name=Tick");
+        b.openApp("android:org.example.clock");
+        compare(b.opened[b.opened.length - 1], "marathon-store://open/waydroid.org.example.clock");
+        b.installApk("/home/user/Downloads/a b.apk", "org.example.clock", "Tick");
+        compare(b.opened[b.opened.length - 1], "marathon-store://apk-install/%2Fhome%2Fuser%2FDownloads%2Fa%20b.apk?pkg=org.example.clock&name=Tick");
+        compare(b.jobFor("android:org.example.clock").state, "pending");
+    }
 }
