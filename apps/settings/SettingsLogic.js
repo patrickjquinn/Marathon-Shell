@@ -326,8 +326,9 @@ function androidState(state) {
     return qsTr("Stopped");
 }
 
+// Powers of 1000 with kB, MB and GB, as Android and the Store count.
 function dataSize(bytes) {
-    return Qt.locale().formattedDataSize(Math.max(0, bytes || 0), 1, 2);
+    return Qt.locale().formattedDataSize(Math.max(0, bytes || 0), 1, 3);
 }
 
 function duration(seconds) {

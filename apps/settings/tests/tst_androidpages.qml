@@ -86,7 +86,7 @@ TestCase {
         const s = open("android");
         compare(child(s.page, "stateItem").value, "Running");
         compare(child(s.page, "versionItem").value, "13");
-        compare(child(s.page, "memoryItem").value, "700.0 MB");
+        compare(child(s.page, "memoryItem").value, "734.0 MB");
         compare(child(s.page, "uptimeItem").value, "2 hours");
         verify(!child(s.page, "stoppedNote").visible);
         const login = child(s.page, "startAtLoginSwitch");
@@ -245,5 +245,6 @@ TestCase {
         compare(Logic.androidState(undefined), "Stopped");
         compare(Logic.androidPermission("nope").label, "nope");
         compare(Logic.androidAccess.length, 12);
+        compare(Logic.dataSize(912842752), "912.8 MB");
     }
 }
