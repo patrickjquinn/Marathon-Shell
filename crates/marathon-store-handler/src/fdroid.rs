@@ -296,7 +296,7 @@ pub fn parse_index<R: Read>(reader: R) -> io::Result<(Vec<Value>, String, u64)> 
     Ok((rows, jar::hex(&tee.hasher.finalize()), tee.bytes))
 }
 
-fn cache_dir() -> PathBuf {
+pub(crate) fn cache_dir() -> PathBuf {
     let base = std::env::var_os("XDG_CACHE_HOME").map_or_else(
         || Path::new(&std::env::var_os("HOME").unwrap_or_default()).join(".cache"),
         PathBuf::from,
@@ -304,7 +304,7 @@ fn cache_dir() -> PathBuf {
     base.join("marathon-store")
 }
 
-fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(dir)?;
     let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
@@ -336,15 +336,22 @@ fn system_property(dest: &str, path: &str, iface: &str, name: &str) -> Option<Ow
 
 /// A metered network (`NetworkManager`'s Metered yes or guessed yes) or a
 /// battery under 20 % and discharging (`UPower`): no 16 MB index download.
-fn should_wait() -> bool {
-    let metered = system_property(
+pub(crate) fn should_wait() -> bool {
+    metered() || low_battery()
+}
+
+pub(crate) fn metered() -> bool {
+    system_property(
         "org.freedesktop.NetworkManager",
         "/org/freedesktop/NetworkManager",
         "org.freedesktop.NetworkManager",
         "Metered",
     )
     .and_then(|v| u32::try_from(v).ok())
-    .is_some_and(|m| m == 1 || m == 3);
+    .is_some_and(|m| m == 1 || m == 3)
+}
+
+pub(crate) fn low_battery() -> bool {
     let device = "/org/freedesktop/UPower/devices/DisplayDevice";
     let iface = "org.freedesktop.UPower.Device";
     let discharging = system_property("org.freedesktop.UPower", device, iface, "State")
@@ -353,7 +360,7 @@ fn should_wait() -> bool {
     let low = system_property("org.freedesktop.UPower", device, iface, "Percentage")
         .and_then(|v| f64::try_from(v).ok())
         .is_some_and(|p| p < 20.0);
-    metered || (discharging && low)
+    discharging && low
 }
 
 /// `fdroid-sync`: refresh the catalogue when F-Droid's index changed, then

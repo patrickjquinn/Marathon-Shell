@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<components version="0.8" origin="flathub">
+  <component type="desktop-application">
+    <id>app.drey.Dialect</id>
+    <name>Dialect</name>
+    <summary>Translate between languages</summary>
+    <requires>
+      <display_length>360</display_length>
+    </requires>
+    <recommends>
+      <control>keyboard</control>
+      <control>pointing</control>
+      <control>touch</control>
+    </recommends>
+    <custom>
+      <value key="GnomeSoftware::key-colors">[(108, 236, 156), (0, 0, 0)]</value>
+      <value key="Purism::form_factor">mobile</value>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1675790988</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">drey.app</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/af726cb4-b673-4908-b454-748d1a164e81/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>app.drey.EarTag</id>
+    <name>Ear Tag</name>
+    <summary>Edit audio file tags</summary>
+    <requires>
+      <display_length>360</display_length>
+    </requires>
+    <supports>
+      <control>pointing</control>
+      <control>keyboard</control>
+      <control>touch</control>
+    </supports>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1678053943</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">drey.app</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/92b753a9-e35b-4664-82f3-68d32ef4394e/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>app.freelens.Freelens</id>
+    <name>Freelens</name>
+    <summary>Free IDE for Kubernetes</summary>
+    <requires>
+      <display_length>768</display_length>
+    </requires>
+    <recommends>
+      <control>pointing</control>
+      <control>keyboard</control>
+      <control>touch</control>
+    </recommends>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1738103924</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">freelens.app</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/601e3496-c423-4f5a-baa7-aab5da558e15/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>app.legcord.Legcord</id>
+    <name>Legcord</name>
+    <summary>Legcord is a custom client designed to enhance your Discord experience while keeping everything lightweight.</summary>
+    <project_group>Legcord</project_group>
+    <requires>
+      <control>pointing</control>
+      <control>keyboard</control>
+      <display_length>420</display_length>
+      <internet>always</internet>
+    </requires>
+    <recommends>
+      <control>voice</control>
+      <display_length>760</display_length>
+      <display_length compare="le">1200</display_length>
+    </recommends>
+    <custom>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/b0596d91-4f73-4239-ad61-222982eb5ba4/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>codes.loers.Karlender</id>
+    <name>Events</name>
+    <summary>Manage your schedule</summary>
+    <requires>
+      <display_length compare="gt">360</display_length>
+    </requires>
+    <recommends>
+      <control>pointing</control>
+      <control>keyboard</control>
+      <control>touch</control>
+    </recommends>
+    <custom>
+      <value key="flathub::build::build_log_url">https://flathub-vorarbeiter.apps.openshift.gnome.org/api/pipelines/3f2abb07-088f-494c-b8b6-a5ec9e575271/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>com.raggesilver.BlackBox</id>
+    <name>Black Box</name>
+    <summary>A beautiful GTK 4 terminal</summary>
+    <recommends>
+      <control>pointing</control>
+      <control>keyboard</control>
+      <display_length>360</display_length>
+    </recommends>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1675817056</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">raggesilver.com</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/955ce8ac-4036-4413-8708-65022e82059f/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>de.schmidhuberj.DieBahn</id>
+    <name>Railway</name>
+    <summary>Find all your travel information</summary>
+    <requires>
+      <display_length>300</display_length>
+      <display_length side="longest">360</display_length>
+    </requires>
+    <recommends>
+      <control>pointing</control>
+      <control>touch</control>
+      <internet>always</internet>
+    </recommends>
+    <supports>
+      <control>keyboard</control>
+    </supports>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1691601972</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">schmidhuberj.de</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/495ee902-8e8d-4423-a263-098dad152cce/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>dev.tchx84.Portfolio</id>
+    <name>Portfolio</name>
+    <summary>Manage files on the go</summary>
+    <requires>
+      <control>touch</control>
+      <display_length>360</display_length>
+    </requires>
+    <custom>
+      <value key="Purism::form_factor">mobile</value>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1678808153</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">tchx84.dev</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/d9b33c15-9d76-4fd6-89ae-762ea185f79c/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>im.dino.Dino</id>
+    <name>Dino</name>
+    <summary>Modern XMPP chat client</summary>
+    <recommends>
+      <internet>always</internet>
+    </recommends>
+    <supports>
+      <control>pointing</control>
+      <control>keyboard</control>
+      <control>touch</control>
+      <display_length>360</display_length>
+    </supports>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1682031342</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">dino.im</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://flathub-vorarbeiter.apps.openshift.gnome.org/api/pipelines/f42e3767-b75b-4859-b7ca-9309b397a059/log_url</value>
+    </custom>
+  </component>
+  <component type="desktop-application">
+    <id>org.gimp.GIMP</id>
+    <name>GNU Image Manipulation Program</name>
+    <summary>High-end image creation and manipulation</summary>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::timestamp">1682352604</value>
+      <value key="flathub::verification::method">website</value>
+      <value key="flathub::verification::website">gimp.org</value>
+      <value key="flathub::verification::login_is_organization">false</value>
+      <value key="flathub::build::build_log_url">https://builds.flathub.org/api/pipelines/7235ae9f-945b-4e73-a0df-1f75a0d61655/log_url</value>
+    </custom>
+    <metadata>
+      <value key="X-Flatpak-Tags">GTK+3,stable</value>
+    </metadata>
+  </component>
+</components>

@@ -324,7 +324,9 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
     if let Some(apps) = pending["updates"].as_array_mut() {
         apps.extend(android_updates);
     }
-    state.write_json("updates.json", &pending)
+    state.write_json("updates.json", &pending)?;
+    crate::phone::refresh_catalogue(flatpak);
+    crate::phone::publish(state)
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ mod fdroid;
 mod jar;
 mod notice;
 mod ops;
+mod phone;
 mod progress;
 mod request;
 mod state;
