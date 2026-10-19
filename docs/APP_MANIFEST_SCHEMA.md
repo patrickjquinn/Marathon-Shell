@@ -100,6 +100,7 @@ Required: `manifestVersion`, `id`, `name`, `version`, `entryPoint`, `icon`,
 | `categories` | array | `Communication`, `Productivity`, `Entertainment`, `Utility`, `System`. |
 | `handlesUriSchemes` | array | URI schemes the app opens (`tel`, `mailto`, ...). |
 | `defaultFor` | array | Default-app roles: `browser`, `dialer`, `messaging`, `email`, `camera`, `gallery`, `music`, `video`, `files`. |
+| `shareMethods` | array | What the app receives from the share sheet (below). |
 | `searchKeywords` | array | Extra search terms for the app. |
 | `deepLinks` | object | Route → `{ title, description, keywords }`, indexed by search (below). |
 | `backgroundCapabilities` | array | Categories the app may hold `AppLifecycle1.BeginBackgroundTask` for: `active-call`, `active-navigation`, `audio-playback`, `countdown-timer`, `download`, `location-tracking`, `periodic-sync`, `recording`. |
@@ -151,6 +152,29 @@ config directories, the dconf keys and the shell settings keys go unless
 Android); media folder files stay. `secrets` is not acted on yet: apps
 reach the Secret Service directly and its items carry no app id, so the
 uninstaller cannot tell an app's passwords from anyone else's.
+
+## Share methods
+
+`shareMethods` puts the app in the share sheet for the types it lists. Each
+method is a `Sailfish.Share` `ShareProvider` with the same `name` as its
+`method`, which the app serves at `/share/<name>` on its
+`org.marathonos.<id>` D-Bus name.
+
+```json
+"shareMethods": [
+  { "name": "text", "title": "New note", "mimeTypes": ["text/plain", "text/x-url"] }
+]
+```
+
+- `name`: lowercase letters, digits and `_` (a D-Bus path element).
+- `title`: what the sheet shows under the app's icon.
+- `mimeTypes`: the types offered, exact or `image/*`.
+
+When the user picks the app, the shell brings it to the front, starting it
+if needed, and calls `org.sailfishos.share.share(a{sv})` on that object.
+Text arrives as `{name, data}` maps; files arrive as `{name,
+fileDescriptor}`, which `ShareProvider` copies into the app's cache, so the
+app needs no `storage` permission to receive one.
 
 ## Deep links
 
