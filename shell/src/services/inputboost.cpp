@@ -48,13 +48,21 @@ InputBoost::InputBoost(QObject *parent)
     m_release.setSingleShot(true);
     m_release.setInterval(kHoldMs);
     connect(&m_release, &QTimer::timeout, this, [this] { write(false); });
+
+    m_writer.setObjectName(QStringLiteral("InputBoost"));
+    m_writerContext->moveToThread(&m_writer);
+    connect(&m_writer, &QThread::finished, m_writerContext, &QObject::deleteLater);
+    m_writer.start();
 }
 
 InputBoost::~InputBoost() {
-    if (m_boosted)
-        write(false);
-    for (const Policy &p : std::as_const(m_policies))
+    m_writer.quit();
+    m_writer.wait();
+    for (const Policy &p : std::as_const(m_policies)) {
+        if (m_boosted)
+            ::pwrite(p.fd, p.restingFreq.constData(), p.restingFreq.size(), 0);
         ::close(p.fd);
+    }
 }
 
 void InputBoost::boost() {
@@ -84,9 +92,11 @@ bool InputBoost::eventFilter(QObject *watched, QEvent *event) {
 
 void InputBoost::write(bool boosted) {
     m_boosted = boosted;
-    for (const Policy &p : std::as_const(m_policies)) {
-        const QByteArray &value = boosted ? p.boostFreq : p.restingFreq;
-        if (::pwrite(p.fd, value.constData(), value.size(), 0) < 0)
-            qWarning() << "[InputBoost] scaling_min_freq write failed:" << strerror(errno);
-    }
+    QMetaObject::invokeMethod(m_writerContext, [policies = m_policies, boosted]() {
+        for (const Policy &p : policies) {
+            const QByteArray &value = boosted ? p.boostFreq : p.restingFreq;
+            if (::pwrite(p.fd, value.constData(), value.size(), 0) < 0)
+                qWarning() << "[InputBoost] scaling_min_freq write failed:" << strerror(errno);
+        }
+    });
 }

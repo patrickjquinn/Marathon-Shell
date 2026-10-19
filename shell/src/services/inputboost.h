@@ -3,6 +3,7 @@
 
 #include <QList>
 #include <QObject>
+#include <QThread>
 #include <QTimer>
 
 /*
@@ -20,6 +21,10 @@
  * panel). Lowering up_threshold fixed gestures but held the top clock for
  * half of idle time. Boosting on input gives the performance-governor
  * result during interaction and stock ondemand power the rest of the time.
+ *
+ * The writes run on a thread of their own: a cpufreq write waits for the
+ * clock change (a firmware call on the Pi), and the first one lands on a
+ * gesture's first touch.
  *
  * Needs write access to scaling_min_freq, granted to the input group by
  * marathon-base-config's 60-marathon-cpufreq.rules. Without it the boost
@@ -50,6 +55,8 @@ class InputBoost : public QObject {
     QList<Policy> m_policies;
     QTimer        m_release;
     bool          m_boosted = false;
+    QThread       m_writer;
+    QObject      *m_writerContext = new QObject;
 };
 
 #endif // INPUTBOOST_H
