@@ -321,10 +321,40 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         // the frame callback here (frame START, before our own present) hands
         // the client the full frame interval to render its next buffer
         // concurrently, instead of only after our frame completes.
-        connect(
-            m_window, &QQuickWindow::beforeSynchronizing, this,
-            [this]() { sendPacedFrameCallbacks(false); }, Qt::DirectConnection);
-        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame callbacks)";
+        bool phaseSet  = false;
+        m_framePhaseMs = qEnvironmentVariableIntValue("MARATHON_FRAME_PHASE_MS", &phaseSet);
+        if (!phaseSet)
+            m_framePhaseMs = 8;
+        if (m_framePhaseMs > 0) {
+            // Frames latch late in the vblank interval and clients hear at the
+            // vblank, so a client's frame lands in the next composite.
+            m_gateTimer.setSingleShot(true);
+            m_gateTimer.setTimerType(Qt::PreciseTimer);
+            connect(&m_gateTimer, &QTimer::timeout, this, [this]() {
+                m_passUpdate = true;
+                QCoreApplication::postEvent(m_window, new QEvent(QEvent::UpdateRequest));
+            });
+            m_callbackTimer.setSingleShot(true);
+            m_callbackTimer.setTimerType(Qt::PreciseTimer);
+            connect(&m_callbackTimer, &QTimer::timeout, this, [this]() { sendPacedFrameCallbacks(false); });
+            connect(
+                m_window, &QQuickWindow::beforeSynchronizing, this,
+                [this]() {
+                    QMetaObject::invokeMethod(
+                        this,
+                        [this]() {
+                            const qint64 next = nextVblankUs();
+                            m_callbackTimer.start(next < 0 ? 0 : int(qMax<qint64>(0, next - monotonicUs()) / 1000));
+                        },
+                        Qt::QueuedConnection);
+                },
+                Qt::DirectConnection);
+        } else {
+            connect(
+                m_window, &QQuickWindow::beforeSynchronizing, this,
+                [this]() { sendPacedFrameCallbacks(false); }, Qt::DirectConnection);
+        }
+        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame callbacks), phase" << m_framePhaseMs;
     }
 
     // Opt-in (MARATHON_PRESENT_FREERUN): unthrottled where swap doesn't block
@@ -949,8 +979,11 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
             &WaylandCompositor::checkIdleInhibitors);
 
     // Client commit meter (harmless when the 1Hz stats timer isn't running).
-    connect(surface, &QWaylandSurface::redraw, this,
-            [this]() { m_clientCommitCount.fetchAndAddRelaxed(1); });
+    connect(surface, &QWaylandSurface::redraw, this, [this, surface]() {
+        m_clientCommitCount.fetchAndAddRelaxed(1);
+        if (surfaceShown(surface))
+            m_lastShownCommitUs = monotonicUs();
+    });
 
     if (m_presentFreeRun) {
         // Each client commit (redraw) refreshes the free-run credits and
@@ -2229,7 +2262,55 @@ QString WaylandCompositor::focusedToolkit() const {
     return appId.isEmpty() ? QString() : m_appRegistry->getApp(appId).value("toolkit").toString();
 }
 
+qint64 WaylandCompositor::monotonicUs() {
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return qint64(ts.tv_sec) * 1000000 + ts.tv_nsec / 1000;
+}
+
+// The time of the CRTC's last vblank, or -1 (no fd, or the display is off).
+qint64 WaylandCompositor::lastVblankUs() {
+    if (!initAtomicDisplay())
+        return -1;
+    drmVBlank vbl{};
+    vbl.request.type     = drmVBlankSeqType(DRM_VBLANK_RELATIVE);
+    vbl.request.sequence = 0;
+    if (drmWaitVBlank(m_driFd, &vbl) != 0)
+        return -1;
+    return qint64(vbl.reply.tval_sec) * 1000000 + vbl.reply.tval_usec;
+}
+
+qint64 WaylandCompositor::nextVblankUs() {
+    const qint64 last = lastVblankUs();
+    if (last < 0)
+        return -1;
+    const qreal  hz     = m_window && m_window->screen() ? m_window->screen()->refreshRate() : 60.0;
+    const qint64 period = qint64(1000000.0 / (hz > 0 ? hz : 60.0));
+    qint64       next   = last + period;
+    while (next < monotonicUs())
+        next += period;
+    return next;
+}
+
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
+    if (watched == m_window && m_framePhaseMs > 0 && event->type() == QEvent::UpdateRequest) {
+        if (m_passUpdate) {
+            m_passUpdate = false;
+            return false;
+        }
+        if (m_gateTimer.isActive())
+            return true;
+        // Only while a shown client draws: the shell's own frames gain
+        // nothing from waiting and need the whole interval to render.
+        const qint64 now    = monotonicUs();
+        const bool   client = now - m_lastShownCommitUs < 100000;
+        const qint64 last   = client ? lastVblankUs() : -1;
+        const qint64 at     = last + qint64(m_framePhaseMs) * 1000;
+        if (last >= 0 && now < at - 500) {
+            m_gateTimer.start(int((at - now) / 1000));
+            return true;
+        }
+    }
     if (watched == m_window) {
         const auto type = event->type();
         // Emit userActivity() on any human-input signal — not just the

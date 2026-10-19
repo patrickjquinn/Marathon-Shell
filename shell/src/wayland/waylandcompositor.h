@@ -275,6 +275,17 @@ class WaylandCompositor : public QWaylandCompositor {
     // hidden ones (MARATHON_HIDDEN_THROTTLE, default on) about once a
     // second, from the timer when the compositor itself is idle.
     void                                    sendPacedFrameCallbacks(bool idleTick);
+    // Frames latch MARATHON_FRAME_PHASE_MS (8; 0 for at once) after the
+    // vblank and frame callbacks go out at the vblank, so a client's frame
+    // makes the next composite instead of the one after.
+    int                                     m_framePhaseMs = 0;
+    bool                                    m_passUpdate   = false;
+    qint64                                  m_lastShownCommitUs = 0;
+    QTimer                                  m_gateTimer;
+    QTimer                                  m_callbackTimer;
+    static qint64                           monotonicUs();
+    qint64                                  lastVblankUs();
+    qint64                                  nextVblankUs();
     bool                                    m_hiddenThrottle = true;
     HiddenFrameThrottle                     m_frameThrottle;
     QElapsedTimer                           m_frameClock;
