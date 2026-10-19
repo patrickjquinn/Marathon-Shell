@@ -16,6 +16,9 @@
   "protected": true,
   "categories": ["Communication"],
   "handlesUriSchemes": ["sms", "mms"],
+  "shareMethods": [
+    { "name": "text", "title": "Message", "mimeTypes": ["text/plain", "text/x-url"] }
+  ],
   "defaultFor": ["messaging"],
   "searchKeywords": ["messages", "sms", "text", "chat", "messaging"],
   "deepLinks": {},

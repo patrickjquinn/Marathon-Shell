@@ -264,6 +264,16 @@ TestCase {
         compare(conv.messages[0].text, "Lunch?");
     }
 
+    function test_aShareStartsAMessage() {
+        const app = makeApp();
+        app.receiveShare([{ name: "Marathon", data: "https://marathonos.org" }]);
+        const picker = waitForPage(app, "matches");
+        mouseClick(findChild(picker, "contact-+15559876543"));
+        const conv = waitForPage(app, "conversation");
+        compare(conv.conversation.id, "conv_+15559876543");
+        compare(app.drafts["conv_+15559876543"], "Marathon\nhttps://marathonos.org");
+    }
+
     function test_newMessageWithContact() {
         const app = makeApp();
         app.newMessage();

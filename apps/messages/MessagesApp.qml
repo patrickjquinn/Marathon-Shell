@@ -5,6 +5,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import Nemo.Configuration 1.0
+import Sailfish.Share 1.0
 import "MessagesLogic.js" as Logic
 import "pages"
 import "cover"
@@ -87,8 +88,22 @@ ApplicationWindow {
         };
     }
 
+    // From the share sheet: a new message, the shared text as its draft.
+    function receiveShare(resources) {
+        const text = resources.filter(r => r.data).map(r => r.name && r.name !== r.data ? r.name + "\n" + r.data : r.data).join("\n\n");
+        if (text === "")
+            return;
+        activate();
+        const list = pageStack.find(p => !pageStack.previousPage(p));
+        if (pageStack.currentPage !== list)
+            pageStack.pop(list, PageStackAction.Immediate);
+        pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root, sharedText: text });
+    }
+
     // Replaces the recipient picker with the thread, existing or new.
-    function startConversation(number, name) {
+    function startConversation(number, name, text) {
+        if (text)
+            setDraft(conversationFor(number, name).id, text);
         pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, name) });
     }
 
@@ -133,6 +148,12 @@ ApplicationWindow {
 
     MessagesActions {
         app: root
+    }
+
+    ShareProvider {
+        method: "text"
+        capabilities: ["text/plain", "text/x-url"]
+        onTriggered: resources => root.receiveShare(resources)
     }
 
     Timer {

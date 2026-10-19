@@ -11,6 +11,8 @@ Page {
 
     property var app
     property string typed: ""
+    // Shared text, the new thread's draft.
+    property string sharedText: ""
     property bool submitted: false
     readonly property bool hasLetters: /[A-Za-z]/.test(typed)
     readonly property bool isNumber: !hasLetters && Logic.isPhoneNumber(typed)
@@ -18,7 +20,7 @@ Page {
 
     function startWithTyped() {
         if (isNumber)
-            app.startConversation(Logic.normaliseNumber(typed), "");
+            app.startConversation(Logic.normaliseNumber(typed), "", sharedText);
         else
             submitted = true;
     }
@@ -103,7 +105,7 @@ Page {
             objectName: "contact-" + modelData.phone
             contentHeight: Theme.itemSizeMedium
             Accessible.name: modelData.name + ", " + Logic.formatNumber(modelData.phone)
-            onClicked: root.app.startConversation(modelData.phone, modelData.name)
+            onClicked: root.app.startConversation(modelData.phone, modelData.name, root.sharedText)
 
             Column {
                 x: Theme.horizontalPageMargin
