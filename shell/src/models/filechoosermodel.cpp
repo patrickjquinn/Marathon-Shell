@@ -41,13 +41,15 @@ QVariant FileChooserModel::data(const QModelIndex &index, int role) const {
     case SizeRole: return entry.size;
     case ModifiedRole: return entry.modified;
     case IsImageRole: return entry.isImage;
+    case UrlRole: return QUrl::fromLocalFile(entry.path);
     default: return {};
     }
 }
 
 QHash<int, QByteArray> FileChooserModel::roleNames() const {
     return {{NameRole, "name"},   {PathRole, "path"},         {IsDirRole, "isDir"},
-            {SizeRole, "size"},   {ModifiedRole, "modified"}, {IsImageRole, "isImage"}};
+            {SizeRole, "size"},   {ModifiedRole, "modified"}, {IsImageRole, "isImage"},
+            {UrlRole, "url"}};
 }
 
 void FileChooserModel::setFolder(const QString &folder) {

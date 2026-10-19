@@ -72,3 +72,4 @@ PhoneLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/PhoneLayout.qml
 EmojiLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/EmojiLayout.qml
 TerminalLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/TerminalLayout.qml
 MTabBar 1.0 ../../../../../shell/qml/ui/MTabBar.qml
+FileChooserModel 1.0 FileChooserModel.qml

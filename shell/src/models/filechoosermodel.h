@@ -22,7 +22,7 @@ class FileChooserModel : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
   public:
-    enum Role : quint16 { NameRole = Qt::UserRole + 1, PathRole, IsDirRole, SizeRole, ModifiedRole, IsImageRole };
+    enum Role : quint16 { NameRole = Qt::UserRole + 1, PathRole, IsDirRole, SizeRole, ModifiedRole, IsImageRole, UrlRole };
 
     static constexpr int kMaxSearchResults = 500;
     static constexpr int kMaxRecent        = 100;

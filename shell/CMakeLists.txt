@@ -316,6 +316,7 @@ set(QML_FILES
     qml/components/ConnectionToast.qml
     qml/components/AppToast.qml
     qml/components/ShareSheet.qml
+    qml/components/FilePickerSheet.qml
     qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
     qml/components/MarathonCellBroadcastOverlay.qml
