@@ -174,9 +174,20 @@ Item {
         currentIndex: 2
         // Rubber-band at the first/last page instead of a hard stop.
         boundsBehavior: Flickable.DragAndOvershootBounds
-        // 250 ms felt sluggish on small screens; 180 ms matches the
-        // OutCubic snap pattern the rest of the shell uses.
+        // 180 ms for a page change asked for; a swipe's snap takes its time
+        // from the release speed, as Android's ViewPager does. The move eases
+        // in and out, peaking near twice its mean speed, so twice the
+        // remaining distance over the finger's speed peaks at that speed.
         highlightMoveDuration: 180
+        onDraggingChanged: {
+            const v = Math.abs(horizontalVelocity);
+            if (dragging || v === 0)
+                return;
+            const page = (contentX - originX) / width;
+            const target = horizontalVelocity > 0 ? Math.ceil(page) : Math.floor(page);
+            highlightMoveDuration = Math.max(120, Math.min(400, 2000 * Math.abs(page - target) * width / v));
+        }
+        onMovementEnded: highlightMoveDuration = 180
         preferredHighlightBegin: 0
         preferredHighlightEnd: width
         cacheBuffer: width * 3
