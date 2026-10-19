@@ -8,12 +8,15 @@
 pkgname=deckard
 pkgver=0.1.0
 pkgrel=0
-_commit=c607f9c4c82d972a8f70a16e2e49fa504931d5b0
+_commit=10505f718bcb38918045d4b53339348b4d9fe988
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND GPL-3.0-only"
-depends="waydroid python3 iproute2-ss util-linux-misc"
+depends="waydroid python3 iproute2-ss util-linux-misc qt6-qtbase qt6-qtbase-x11 libstdc++ libgcc"
+# The overlay carries Android ELF files (the patched composer HAL) that link
+# Android's libc++, so deckardd's libraries are listed above instead.
+options="!tracedeps"
 makedepends="cmake samurai qt6-qtbase-dev"
 checkdepends="dbus"
 source="deckard-$_commit.tar.gz::https://github.com/patrickjquinn/Marathon-Deckard/archive/$_commit.tar.gz"
