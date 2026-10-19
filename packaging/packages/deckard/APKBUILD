@@ -58,6 +58,8 @@ package() {
 	chmod -R u=rwX,go=rX "$pkgdir"/usr/share/deckard/overlay
 	[ ! -f image/whiteouts ] ||
 		install -Dm644 image/whiteouts "$pkgdir"/usr/share/deckard/whiteouts
+	[ ! -f image/waydroid.prop ] ||
+		install -Dm644 image/waydroid.prop "$pkgdir"/usr/share/deckard/waydroid.prop
 
 	install -Dm644 host/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/Apache-2.0
 	install -Dm644 image/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/GPL-3.0
