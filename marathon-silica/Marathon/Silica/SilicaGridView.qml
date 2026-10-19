@@ -17,6 +17,10 @@ S.SilicaGridView {
         view: root
     }
 
+    // Past the drag distance the content keeps the finger's point under it,
+    // not the distance behind; Silica predates the property, so by name.
+    Binding { target: root; property: "synchronousDrag"; value: true }
+
     // Silica declares these views against QtQuick 2.0, which predates
     // these properties, so they can only be set by name.
     Binding { target: root; property: "activeFocusOnTab"; value: true }

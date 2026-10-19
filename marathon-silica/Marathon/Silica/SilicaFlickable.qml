@@ -17,6 +17,10 @@ S.SilicaFlickable {
         view: root
     }
 
+    // Past the drag distance the content keeps the finger's point under it,
+    // not the distance behind; Silica predates the property, so by name.
+    Binding { target: root; property: "synchronousDrag"; value: true }
+
     // A flickable holding controls is not a tab stop itself: Tab goes to the
     // controls, and keys they leave unused scroll it.
     property bool _hasTabStops
