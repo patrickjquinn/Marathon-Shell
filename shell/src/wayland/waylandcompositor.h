@@ -91,6 +91,9 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
     Q_INVOKABLE void     closeWindow(int surfaceId);
     Q_INVOKABLE void     activateSurface(int surfaceId);
+    // Takes the keyboard from a window the shell did not launch (Waydroid's),
+    // so keys reach the shell.
+    void                 releaseForeignKeyboard();
     Q_INVOKABLE void     nudgeSurface(int surfaceId);
     // A new size for the toplevel, its states kept; nothing is sent if unchanged.
     Q_INVOKABLE void     resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size);

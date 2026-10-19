@@ -1380,6 +1380,14 @@ int main(int argc, char *argv[]) {
         ipc->setAppInstaller(appInstaller);
         auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
         ipc->setForegroundApp(foregroundApp);
+#ifdef HAVE_WAYLAND
+        QObject::connect(foregroundApp, &ForegroundApp::changed, &app,
+                         [compositorManager](const QString &appId) {
+                             WaylandCompositor *compositor = compositorManager->compositor();
+                             if (appId.isEmpty() && compositor)
+                                 compositor->releaseForeignKeyboard();
+                         });
+#endif
         auto *portalSettings = new PortalSettings(&app);
         // Files first: GTK 3 reloads its theme when the portal flips
         // Marathon to Marathon-dark, and must find the new colours.

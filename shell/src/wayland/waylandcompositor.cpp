@@ -994,6 +994,12 @@ void WaylandCompositor::activateSurface(int surfaceId) {
     }
 }
 
+void WaylandCompositor::releaseForeignKeyboard() {
+    QWaylandSurface *focus = defaultSeat() ? defaultSeat()->keyboardFocus() : nullptr;
+    if (focus && focus->property("foreignClient").toBool())
+        defaultSeat()->setKeyboardFocus(nullptr);
+}
+
 // A minimized surface's views stop delivering wl_surface.frame callbacks,
 // so a throttled client never commits again — and a restored view with no
 // current buffer paints nothing, which never resumes the callbacks either.
