@@ -272,4 +272,40 @@ TestCase {
         touchEvent(v).release(0, v, 135, 480).commit();
         verify(v.cellClicked);
     }
+
+    // Pacific's carry: a fling caught and flung again the same way adds the
+    // speed it was caught at.
+    function test_aRepeatedFlingSpeedsUp() {
+        const v = createTemporaryObject(list, testCase, {model: 2000});
+        // How fast the content goes over the 50 ms after the lift.
+        function swipe() {
+            touchEvent(v).press(0, v, 270, 900).commit();
+            for (let y = 880; y >= 600; y -= 20) {
+                wait(16);
+                touchEvent(v).move(0, v, 270, y).commit();
+            }
+            touchEvent(v).release(0, v, 270, 600).commit();
+            const y0 = v.contentY;
+            wait(50);
+            return (v.contentY - y0) / 0.05;
+        }
+        const first = swipe();
+        wait(50);
+        const second = swipe();
+        verify(second > first * 1.5, "second fling " + second + " after " + first);
+    }
+
+    // A finger that stops before it lifts doesn't fling.
+    function test_aPauseBeforeTheLiftDoesNotFling() {
+        const v = createTemporaryObject(list, testCase);
+        touchEvent(v).press(0, v, 270, 900).commit();
+        for (let y = 880; y >= 600; y -= 20) {
+            wait(16);
+            touchEvent(v).move(0, v, 270, y).commit();
+        }
+        wait(80);
+        touchEvent(v).release(0, v, 270, 600).commit();
+        wait(50);
+        verify(!v.flicking);
+    }
 }
