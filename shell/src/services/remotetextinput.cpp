@@ -11,6 +11,7 @@
 #include <QInputMethodEvent>
 #include <QInputMethodQueryEvent>
 #include <QKeyEvent>
+#include <QQuickItem>
 
 #include <algorithm>
 
@@ -118,8 +119,25 @@ bool RemoteTextInput::handles(const QString &appId) const {
     return owns(appId);
 }
 
+// The editor's window, or, while Qt's focus is on no window and no text field
+// of the shell's, the app in front.
 bool RemoteTextInput::targets(QObject *object) const {
-    return object && !m_editor.appId.isEmpty() && m_appIdOf && m_appIdOf(object) == m_editor.appId;
+    if (!object || m_editor.appId.isEmpty())
+        return false;
+    const QString appId = m_appIdOf ? m_appIdOf(object) : QString();
+    if (!appId.isEmpty())
+        return appId == m_editor.appId;
+    auto *item = qobject_cast<QQuickItem *>(object);
+    if (item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod))
+        return false;
+    return m_frontAppId == m_editor.appId;
+}
+
+void RemoteTextInput::setFrontAppId(const QString &appId) {
+    if (m_frontAppId == appId)
+        return;
+    m_frontAppId = appId;
+    emit frontAppIdChanged();
 }
 
 void RemoteTextInput::setService(const QString &appIdPrefix) {
@@ -216,10 +234,10 @@ void RemoteTextInput::edit(const QString &text, int before, int after) {
 // range would need a selection protocol nobody sends.
 void RemoteTextInput::commit(const QInputMethodEvent &event) {
     const QString &text   = event.commitString();
-    int           before = 0;
-    int           after  = 0;
-    const int     start  = event.replacementStart();
-    const int     length = event.replacementLength();
+    int            before = 0;
+    int            after  = 0;
+    const int      start  = event.replacementStart();
+    const int      length = event.replacementLength();
     if (length > 0 && start <= 0 && start + length >= 0) {
         before = -start;
         after  = start + length;

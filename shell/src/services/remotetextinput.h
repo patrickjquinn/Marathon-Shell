@@ -15,6 +15,8 @@ class QInputMethodEvent;
 class RemoteTextInput : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString appIdPrefix READ appIdPrefix NOTIFY appIdPrefixChanged)
+    // The app shown in the app window, or empty.
+    Q_PROPERTY(QString frontAppId READ frontAppId WRITE setFrontAppId NOTIFY frontAppIdChanged)
 
   public:
     // The app id of the window a focus object shows, or empty.
@@ -29,6 +31,10 @@ class RemoteTextInput : public QObject {
     QString appIdPrefix() const {
         return m_prefix;
     }
+    QString frontAppId() const {
+        return m_frontAppId;
+    }
+    void setFrontAppId(const QString &appId);
     // The app's windows get the keyboard's height from their input method,
     // so the shell must not shrink them too.
     Q_INVOKABLE bool handles(const QString &appId) const;
@@ -47,6 +53,7 @@ class RemoteTextInput : public QObject {
 
   signals:
     void appIdPrefixChanged();
+    void frontAppIdChanged();
     void panelRequested(bool show);
     void hintsChanged();
     void commitString(const QString &appId, const QString &text, int before, int after);
@@ -75,6 +82,7 @@ class RemoteTextInput : public QObject {
     QString m_prefix;
     Editor  m_editor;
     QString m_panelAppId;
+    QString m_frontAppId;
     int     m_covered = -1;
     int     m_height  = -1;
 };

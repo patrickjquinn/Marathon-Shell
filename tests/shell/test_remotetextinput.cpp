@@ -166,6 +166,38 @@ class TestRemoteTextInput : public QObject {
         QCOMPARE(m_surface->keys, 1);
     }
 
+    // Shell focus bugs must not cost typing: with Qt's focus on a non-field
+    // item that is no app window, the app in front gets the text.
+    void frontAppTakesTextWhenFocusIsElsewhere() {
+        QQuickItem other(m_window->contentItem());
+        other.forceActiveFocus();
+        QTRY_COMPARE(QGuiApplication::focusObject(), &other);
+        m_input->setEditor(kApp, 5, 0);
+        QSignalSpy   commits(m_input, &RemoteTextInput::commitString);
+        InputContext context;
+        context.insertText(QStringLiteral("a"));
+        QCOMPARE(commits.count(), 0);
+        m_input->setFrontAppId(kApp);
+        context.insertText(QStringLiteral("b"));
+        QCOMPARE(commits.count(), 1);
+        context.detectInputMode();
+        QCOMPARE(context.inputMode(), QStringLiteral("url"));
+        QVERIFY(m_input->requestPanel(kApp, true));
+    }
+
+    void shellFieldKeepsTextFromTheFrontApp() {
+        QQuickItem field(m_window->contentItem());
+        field.setFlag(QQuickItem::ItemAcceptsInputMethod);
+        field.forceActiveFocus();
+        QTRY_COMPARE(QGuiApplication::focusObject(), &field);
+        m_input->setEditor(kApp, 0, 0);
+        m_input->setFrontAppId(kApp);
+        QSignalSpy   commits(m_input, &RemoteTextInput::commitString);
+        InputContext context;
+        context.insertText(QStringLiteral("a"));
+        QCOMPARE(commits.count(), 0);
+    }
+
     void panelFollowsTheFocusedApp() {
         m_input->setEditor(kApp, 0, 0);
         QSignalSpy panel(m_input, &RemoteTextInput::panelRequested);

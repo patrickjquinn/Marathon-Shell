@@ -2547,6 +2547,12 @@ Item {
 
     onAppKeyboardInsetByClientChanged: reportKeyboardCover()
 
+    Binding {
+        target: RemoteTextInput
+        property: "frontAppId"
+        value: UIStore.appWindowOpen ? appWindow.appId : ""
+    }
+
     Connections {
         function onReservedHeightChanged() {
             shell.reportKeyboardCover();
