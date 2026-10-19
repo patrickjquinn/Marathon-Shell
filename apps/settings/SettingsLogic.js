@@ -31,7 +31,8 @@ const pages = {
     erase: "ErasePage.qml",
     android: "AndroidPage.qml",
     androidapps: "AndroidAppsPage.qml",
-    androidaccess: "AndroidAccessListPage.qml"
+    androidaccess: "AndroidAccessListPage.qml",
+    mms: "MmsPage.qml"
 };
 
 function pageFile(route) {
@@ -376,4 +377,51 @@ const androidAccess = [
 
 function androidAccessKind(kind) {
     return androidAccess.find(a => a.kind === kind) || { kind: kind, title: kind, description: "" };
+}
+
+// MMS carrier settings (mmsd-tng). Its placeholders for "not set".
+function mmsValue(value) {
+    const v = String(value || "");
+    return v === "http://mms.invalid" || v === "apn.invalid" || v === "NULL" ? "" : v;
+}
+
+const hostPattern = /^([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$/;
+
+function validPort(text) {
+    return /^[0-9]{1,5}$/.test(text) && Number(text) >= 1 && Number(text) <= 65535;
+}
+
+// "" when the MMSC is a usable http or https address.
+function mmscError(text) {
+    const t = String(text || "").trim();
+    if (t === "")
+        return qsTr("Enter the MMSC address");
+    const m = /^https?:\/\/([^/:?#]+)(:([0-9]+))?([/?#].*)?$/.exec(t);
+    if (!m || /\s/.test(t) || !hostPattern.test(m[1]) || (m[3] !== undefined && !validPort(m[3])))
+        return qsTr("Enter an address starting with http:// or https://");
+    if (mmsValue(t) === "")
+        return qsTr("Enter your carrier's MMSC address");
+    return "";
+}
+
+// "" when empty or a host with an optional port.
+function mmsProxyError(text) {
+    const t = String(text || "").trim();
+    if (t === "")
+        return "";
+    const m = /^([^:]+)(:([0-9]+))?$/.exec(t);
+    if (!m || !hostPattern.test(m[1]) || (m[3] !== undefined && !validPort(m[3])))
+        return qsTr("Enter a host name or address, with a port if needed, like 10.0.0.1:8080");
+    return "";
+}
+
+function apnError(text) {
+    const t = String(text || "").trim();
+    if (t === "")
+        return qsTr("Enter the MMS APN");
+    if (t.length > 100 || !/^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(t))
+        return qsTr("Use letters, digits, dots and hyphens only");
+    if (mmsValue(t) === "")
+        return qsTr("Enter your carrier's MMS APN");
+    return "";
 }

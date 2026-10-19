@@ -3,6 +3,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import MarathonApp.Settings
 import "../SettingsLogic.js" as Logic
 
 Page {
@@ -58,6 +59,36 @@ Page {
                             text: Logic.networkModeTitle(modelData)
                             onClicked: Modem.setAllowedModes(modelData)
                         }
+                    }
+                }
+            }
+            ListItem {
+                id: mmsEntry
+
+                readonly property string subtitle: !MmsSettings.available ? qsTr("Not available") : Logic.mmsValue(MmsSettings.apn) !== "" ? Logic.mmsValue(MmsSettings.apn) : qsTr("Not set")
+
+                objectName: "mmsEntry"
+                visible: page.ready
+                contentHeight: Theme.itemSizeMedium
+                Accessible.name: qsTr("MMS") + ", " + subtitle
+                onClicked: pageStack.push(Qt.resolvedUrl("MmsPage.qml"))
+
+                Column {
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Label {
+                        width: parent.width
+                        text: qsTr("MMS")
+                        color: mmsEntry.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    }
+                    Label {
+                        width: parent.width
+                        text: mmsEntry.subtitle
+                        truncationMode: TruncationMode.Fade
+                        font.pixelSize: Theme.fontSizeExtraSmall
+                        color: mmsEntry.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
                     }
                 }
             }
