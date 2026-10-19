@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 43 patches. **There is no 0011**: it vendored a loose
+There are 44 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -57,5 +57,6 @@ There are 43 patches. **There is no 0011**: it vendored a loose
 | 0042 | feat(hackberrypi): ship stock Waydroid | The HackberryPi image installs `waydroid` and `waydroid-systemd` (Deckard M0, docs/testing/DECKARD_M0_HACKBERRYPI.md). |
 | 0043 | fix(hackberrypi): Waydroid keeps its network and hides its full-UI launcher | Waydroid's LXC config gets `cgroup:rw`: with read-only cgroups Android couldn't kill old app processes after a framework restart, so the stale NetworkStack left it with no route. `Waydroid.desktop` gets `NoDisplay=true`, since full UI closes every per-app window. |
 | 0044 | feat(hackberrypi): ship Deckard's system bridge | The HackberryPi image installs `deckard` next to Waydroid: deckardd (Android notifications in the Hub, media sessions as MPRIS players, Android kept as quiet as Marathon's audio profile) and the Android-side overlay files, built from Marathon-Deckard by `scripts/qemu/lib/build-deckard-apk.sh`. |
+| 0045 | feat(hackberrypi): Android gets a memory budget | Waydroid's LXC config gets Deckard's `deckard-container-limits` start-host hook: the container's `memory.high` at 30 % of RAM and `memory.max` at 40 %, so Android is reclaimed first and an Android out-of-memory stays inside the container. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.

@@ -1,0 +1,37 @@
+From c08f4ea434ec545f1bbb19705eb8b02c45be0f06 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 19 Oct 2026 02:16:05 +0100
+Subject: [PATCH] feat(hackberrypi): Android gets a memory budget
+
+Waydroid's LXC config gets Deckard's start-host hook,
+deckard-container-limits, when the deckard package is installed. It sets
+the container's memory.high to 30 % of RAM (at least 1.5 GB) and
+memory.max to 40 % (at least 512 MB above high): under memory.high the
+kernel reclaims from Android first and Android's lmkd, which watches
+memory pressure, kills cached Android apps; memory.max keeps an Android
+out-of-memory inside the container, away from Marathon's shell and
+foreground app. On the 16 GB HackberryPi that is 4.9 GB and 6.4 GB.
+
+Measurements: docs/bridge.md in Marathon-Deckard.
+---
+ mkosi.images/base/mkosi.postinst | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 896ae3e..3770ba5 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -600,6 +600,10 @@ if [ -f "$WAYDROID_LXC" ]; then
+     sed -i 's/^lxc.mount.auto = cgroup:ro /lxc.mount.auto = cgroup:rw /' "$WAYDROID_LXC"
+     grep -q '^lxc.mount.auto = cgroup:rw ' "$WAYDROID_LXC"
+ fi
++if [ -f "$WAYDROID_LXC" ] && [ -x "$BUILDROOT/usr/libexec/deckard-container-limits" ]; then
++    # Deckard: Android gets a memory budget sized for the device.
++    echo 'lxc.hook.start-host = /usr/libexec/deckard-container-limits' >> "$WAYDROID_LXC"
++fi
+ WAYDROID_DESKTOP="$BUILDROOT/usr/share/applications/Waydroid.desktop"
+ if [ -f "$WAYDROID_DESKTOP" ]; then
+     # Full UI closes every per-app window; Android apps have their own entries.
+-- 
+2.55.0
+
