@@ -1528,9 +1528,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // MARATHON_TOUCH_RESAMPLE=0 turns it off.
+    // Opt-in (MARATHON_TOUCH_RESAMPLE=1) until it holds up under a finger.
     if (evdevTouch && !DeviceProfile::instance().touchFilter() &&
-        qEnvironmentVariable("MARATHON_TOUCH_RESAMPLE") != QLatin1String("0")) {
+        qEnvironmentVariableIntValue("MARATHON_TOUCH_RESAMPLE") == 1) {
         const auto rootObjects = engine.rootObjects();
         for (QObject *root : rootObjects) {
             if (auto *win = qobject_cast<QQuickWindow *>(root))
