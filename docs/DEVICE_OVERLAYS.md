@@ -124,8 +124,8 @@ location (for host testing).
 | `WAKE_ON_KEY` | `MARATHON_WAKE_ON_KEY` | `0` | `1` = any key on a physical keyboard wakes a blanked screen (not delivered to apps, doesn't unlock); for keyboard handhelds whose power key is hard to reach |
 | `RUNNER_POOL` | `MARATHON_RUNNER_POOL` | `1` | Warm spare app runners (~150–220 MB RSS each). `1` keeps one, in the sandbox (with or without the media folders) most recent launches needed; `2` keeps one of each, so every Marathon app but the WebEngine ones starts warm; `0` none |
 | `PANEL_DEPTH` | `MARATHON_PANEL_DEPTH` | `8` | Bits per colour channel the panel shows; below 8 the shell dithers the whole frame (the HackberryPi's RP1 DPI is wired BGR666 and doesn't dither) |
-| `TOUCH_FILTER` | `MARATHON_TOUCH_FILTER` | `1` | The shell reads touchscreens with Qt's evdevtouch on its own thread (libinput ignores them, `71-marathon-touch.rules`). `1` hands the scene one filtered point per frame; `0` passes each report as it comes |
-| `TOUCH_PARAMS` | `MARATHON_TOUCH_PARAMS` | empty | Extra evdevtouch parameters for a panel whose touch axes don't match the display, colon-separated: `rotate=90\|180\|270`, `invertx`, `inverty` |
+| `TOUCH_FILTER` | `MARATHON_TOUCH_FILTER` | `1` | The shell reads touchscreens with Qt's evdevtouch on its own thread (libinput ignores them, `71-marathon-touch.rules`). `1` hands the scene one filtered point per frame, without Qt Quick's touch compression; `0` passes each report as it comes |
+| `TOUCH_PARAMS` | `MARATHON_TOUCH_PARAMS` | empty | Extra evdevtouch parameters for a panel whose touch axes don't match the display, colon-separated: `rotate=90\|180\|270`, `invertx`, `inverty`, `prediction=<ms>` |
 | `FORCE_DPI` | `MARATHON_FORCE_DPI` | unset | Read by marathon-shell-session; pins the shell's DPI and so its scale factor (= DPI/160) |
 
 A manifest's `[profile]` writes each key in lower case with TOML types

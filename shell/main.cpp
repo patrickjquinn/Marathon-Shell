@@ -387,8 +387,12 @@ int main(int argc, char *argv[]) {
     if (evdevTouch) {
         const DeviceProfile &dp = DeviceProfile::instance();
         QStringList          spec{QStringLiteral("evdevtouch")};
-        if (dp.touchFilter())
+        // One point a frame needs no compression, which held each one for
+        // another frame.
+        if (dp.touchFilter()) {
             spec << QStringLiteral("filtered");
+            qputenv("QML_NO_TOUCH_COMPRESSION", "1");
+        }
         if (!dp.touchParams().isEmpty())
             spec << dp.touchParams();
         qputenv("QT_QPA_GENERIC_PLUGINS", spec.join(QLatin1Char(':')).toLocal8Bit());
