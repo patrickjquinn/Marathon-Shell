@@ -240,6 +240,8 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/marathonsurfacev1.cpp
         src/wayland/toplevelconfigure.h
         src/wayland/toplevelconfigure.cpp
+        src/wayland/remotetextinputtarget.h
+        src/wayland/remotetextinputtarget.cpp
     )
 
     find_program(WAYLAND_SCANNER wayland-scanner)
