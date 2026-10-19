@@ -11,6 +11,7 @@ mod ops;
 mod phone;
 mod progress;
 mod request;
+mod settings;
 mod state;
 
 use std::os::unix::process::CommandExt;
@@ -119,6 +120,15 @@ fn run(request: &Request) -> std::io::Result<()> {
         Verb::UpdateAll => ops::update_all(&state()?, FLATPAK, &std::env::current_exe()?),
         Verb::Cancel => ops::cancel(&state()?, FLATPAK, &request.arg),
         Verb::RefreshState => ops::refresh(&state()?, FLATPAK),
+        Verb::Settings => {
+            let state = state()?;
+            if request.changes.is_empty() {
+                settings::publish(&state, settings::load())
+            } else {
+                settings::set(&state, &request.changes)
+            }
+        }
+        Verb::AutoUpdate => ops::auto_update(&state()?, FLATPAK, &std::env::current_exe()?),
         // Launch through the shell like a home-screen tap, so the app gets
         // the compositor's socket and a place in the task switcher.
         Verb::Open => call_shell(

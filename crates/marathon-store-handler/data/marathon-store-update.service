@@ -1,0 +1,11 @@
+[Unit]
+Description=Update apps when the Store's settings allow it
+PartOf=graphical-session.target
+After=graphical-session.target
+
+# The handler checks the settings, the network and the battery itself.
+[Service]
+Type=oneshot
+Slice=background.slice
+Environment=MARATHON_STORE_UNIT=1
+ExecStart=/usr/bin/marathon-store-handler marathon-store://auto-update/x

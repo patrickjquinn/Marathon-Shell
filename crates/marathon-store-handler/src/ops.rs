@@ -325,8 +325,24 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
         apps.extend(android_updates);
     }
     state.write_json("updates.json", &pending)?;
+    crate::settings::publish(state, crate::settings::load())?;
     crate::phone::refresh_catalogue(flatpak);
     crate::phone::publish(state)
+}
+
+/// `auto-update`, from the daily timer: every update, when the person left
+/// automatic updates on, the battery is not low and the network is not
+/// metered (or they allowed metered networks).
+pub fn auto_update(state: &StateDir, flatpak: &str, handler: &Path) -> io::Result<()> {
+    let settings = crate::settings::load();
+    if !settings.auto_update
+        || crate::fdroid::low_battery()
+        || (!settings.update_on_metered && crate::fdroid::metered())
+    {
+        return Ok(());
+    }
+    update_all(state, flatpak, handler)?;
+    refresh(state, flatpak)
 }
 
 #[cfg(test)]

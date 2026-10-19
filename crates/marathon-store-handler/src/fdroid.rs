@@ -367,6 +367,9 @@ pub(crate) fn low_battery() -> bool {
 /// hand the Store its copy. Waits for a better moment on a metered network
 /// or a low battery, unless there is no catalogue yet.
 pub fn sync(state: &StateDir) -> io::Result<()> {
+    if !crate::settings::load().fdroid {
+        return Ok(());
+    }
     let cached = cache_dir().join("fdroid.json");
     if cached.is_file() && should_wait() {
         fs::copy(&cached, state.dir().join("fdroid.json"))?;

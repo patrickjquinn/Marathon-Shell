@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily automatic app updates
+PartOf=graphical-session.target
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=graphical-session.target

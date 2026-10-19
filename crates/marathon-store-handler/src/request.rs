@@ -22,6 +22,8 @@ pub enum Verb {
     FdroidSync,
     ApkInspect,
     ApkInstall,
+    Settings,
+    AutoUpdate,
 }
 
 impl Verb {
@@ -37,6 +39,8 @@ impl Verb {
             Verb::FdroidSync => "fdroid-sync",
             Verb::ApkInspect => "apk-inspect",
             Verb::ApkInstall => "apk-install",
+            Verb::Settings => "settings",
+            Verb::AutoUpdate => "auto-update",
         }
     }
 
@@ -57,6 +61,8 @@ pub struct Request {
     pub name: String,
     /// apk-inspect and apk-install: the APK's absolute path.
     pub path: String,
+    /// settings/set: the settings to change.
+    pub changes: Vec<(String, bool)>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -108,6 +114,8 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
         "fdroid-sync" => Verb::FdroidSync,
         "apk-inspect" => Verb::ApkInspect,
         "apk-install" => Verb::ApkInstall,
+        "settings" => Verb::Settings,
+        "auto-update" => Verb::AutoUpdate,
         other => return Err(Rejection::UnknownVerb(other.to_owned())),
     };
     // apk-inspect/<encoded path>, apk-install/<encoded path>?pkg=<package>
@@ -139,11 +147,28 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
             arg,
             name,
             path,
+            changes: Vec::new(),
+        });
+    }
+    // settings/get, settings/set?flathub=0&autoUpdate=1
+    if verb == Verb::Settings {
+        let changes = match arg {
+            "get" => Vec::new(),
+            "set" => crate::settings::parse_changes(query)
+                .ok_or_else(|| Rejection::BadRef(query.to_owned()))?,
+            other => return Err(Rejection::BadRef(other.to_owned())),
+        };
+        return Ok(Request {
+            verb,
+            arg: arg.to_owned(),
+            name,
+            path: String::new(),
+            changes,
         });
     }
     if !matches!(
         verb,
-        Verb::RefreshState | Verb::UpdateAll | Verb::FdroidSync
+        Verb::RefreshState | Verb::UpdateAll | Verb::FdroidSync | Verb::AutoUpdate
     ) {
         if arg.contains("..") {
             return Err(Rejection::Traversal(arg.to_owned()));
@@ -157,6 +182,7 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
         arg: arg.to_owned(),
         name,
         path: String::new(),
+        changes: Vec::new(),
     })
 }
 
@@ -185,6 +211,27 @@ fn decode(text: &str) -> String {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_requests() {
+        let r = parse("marathon-store://settings/get").unwrap();
+        assert_eq!((r.verb, r.changes.len()), (Verb::Settings, 0));
+        let r = parse("marathon-store://settings/set?fdroid=0&updateOnMetered=1").unwrap();
+        assert_eq!(
+            r.changes,
+            [
+                ("fdroid".to_owned(), false),
+                ("updateOnMetered".to_owned(), true)
+            ]
+        );
+        assert!(parse("marathon-store://settings/set?rm=1").is_err());
+        assert!(parse("marathon-store://settings/set").is_err());
+        assert!(parse("marathon-store://settings/drop").is_err());
+        assert_eq!(
+            parse("marathon-store://auto-update/x").unwrap().verb,
+            Verb::AutoUpdate
+        );
+    }
 
     #[test]
     fn accepts_each_verb() {

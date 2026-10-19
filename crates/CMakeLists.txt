@@ -55,6 +55,12 @@ add_custom_target(marathon_store_handler_cargo ALL
     USES_TERMINAL
     VERBATIM)
 install(PROGRAMS "${MARATHON_STORE_HANDLER_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES marathon-store-handler/data/marathon-store-update.timer
+    marathon-store-handler/data/marathon-store-update.service
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
+install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants\")
+    file(MAKE_DIRECTORY \"\${_wants}\")
+    file(CREATE_LINK ../marathon-store-update.timer \"\${_wants}/marathon-store-update.timer\" SYMBOLIC)")
 
 # Weather service: org.marathonos.Weather on the session bus, bus-activated
 # into a systemd user unit.
