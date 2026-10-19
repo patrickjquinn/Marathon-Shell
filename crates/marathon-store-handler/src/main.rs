@@ -4,6 +4,8 @@
 //! Only `flathub` is used, refs must look like Flathub app ids, flatpak runs
 //! with a fixed argv, and per-app state files are written atomically.
 
+mod fdroid;
+mod jar;
 mod notice;
 mod ops;
 mod progress;
@@ -17,7 +19,7 @@ use std::process::{Command, ExitCode};
 use request::{Request, Verb};
 use state::StateDir;
 
-const FLATPAK: &str = "flatpak";
+pub(crate) const FLATPAK: &str = "flatpak";
 
 #[allow(
     clippy::print_stderr,
@@ -96,7 +98,22 @@ fn run(request: &Request) -> std::io::Result<()> {
                 .or_else(|| state.installed_name(&request.arg))
                 .unwrap_or_else(|| request.arg.clone());
             let notice = notice::Notice::for_job(request.verb, &name);
+            if fdroid::package_of(&request.arg).is_some() {
+                return match request.verb {
+                    Verb::Uninstall => fdroid::uninstall(&state, &request.arg),
+                    verb => fdroid::install(&state, &request.arg, verb.as_str(), notice),
+                };
+            }
             ops::run_op(&state, FLATPAK, request.verb, &request.arg, notice)
+        }
+        Verb::FdroidSync => fdroid::sync(&state()?),
+        Verb::ApkInspect => fdroid::inspect(&state()?, &request.path),
+        Verb::ApkInstall => {
+            let name = Some(request.name.clone())
+                .filter(|name| !name.is_empty())
+                .unwrap_or_else(|| request.arg.clone());
+            let notice = notice::Notice::for_job(Verb::Install, &name);
+            fdroid::install_file(&state()?, &request.arg, &request.path, notice)
         }
         Verb::UpdateAll => ops::update_all(&state()?, FLATPAK, &std::env::current_exe()?),
         Verb::Cancel => ops::cancel(&state()?, FLATPAK, &request.arg),

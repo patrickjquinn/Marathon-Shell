@@ -1044,12 +1044,18 @@ dependencies = [
 name = "marathon-store-handler"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "nix",
  "regex",
+ "ring",
+ "serde",
  "serde_json",
+ "sha2",
  "strip-ansi-escapes",
  "tempfile",
+ "ureq",
  "zbus",
+ "zip",
 ]
 
 [[package]]

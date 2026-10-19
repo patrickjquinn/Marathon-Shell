@@ -19,6 +19,9 @@ pub enum Verb {
     Open,
     RefreshState,
     UpdateAll,
+    FdroidSync,
+    ApkInspect,
+    ApkInstall,
 }
 
 impl Verb {
@@ -31,12 +34,18 @@ impl Verb {
             Verb::Open => "open",
             Verb::RefreshState => "refresh-state",
             Verb::UpdateAll => "update-all",
+            Verb::FdroidSync => "fdroid-sync",
+            Verb::ApkInspect => "apk-inspect",
+            Verb::ApkInstall => "apk-install",
         }
     }
 
     /// Install, update and uninstall each run in their own named unit.
     pub fn is_job(self) -> bool {
-        matches!(self, Verb::Install | Verb::Update | Verb::Uninstall)
+        matches!(
+            self,
+            Verb::Install | Verb::Update | Verb::Uninstall | Verb::ApkInstall
+        )
     }
 }
 
@@ -46,6 +55,8 @@ pub struct Request {
     pub arg: String,
     /// The app's name for the Hub, from `?name=`; may be empty.
     pub name: String,
+    /// apk-inspect and apk-install: the APK's absolute path.
+    pub path: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -94,13 +105,50 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
         "open" => Verb::Open,
         "refresh-state" => Verb::RefreshState,
         "update-all" => Verb::UpdateAll,
+        "fdroid-sync" => Verb::FdroidSync,
+        "apk-inspect" => Verb::ApkInspect,
+        "apk-install" => Verb::ApkInstall,
         other => return Err(Rejection::UnknownVerb(other.to_owned())),
     };
-    if !matches!(verb, Verb::RefreshState | Verb::UpdateAll) {
+    // apk-inspect/<encoded path>, apk-install/<encoded path>?pkg=<package>
+    if matches!(verb, Verb::ApkInspect | Verb::ApkInstall) {
+        let path = decode(arg);
+        if !path.starts_with('/')
+            || path.contains("/../")
+            || !std::path::Path::new(&path)
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("apk"))
+            || path.contains('\0')
+        {
+            return Err(Rejection::Traversal(path));
+        }
+        let pkg = query
+            .split('&')
+            .find_map(|pair| pair.strip_prefix("pkg="))
+            .unwrap_or_default();
+        let arg = if verb == Verb::ApkInstall {
+            if crate::fdroid::package_of(&format!("android:{pkg}")).is_none() {
+                return Err(Rejection::BadRef(pkg.to_owned()));
+            }
+            format!("android:{pkg}")
+        } else {
+            String::new()
+        };
+        return Ok(Request {
+            verb,
+            arg,
+            name,
+            path,
+        });
+    }
+    if !matches!(
+        verb,
+        Verb::RefreshState | Verb::UpdateAll | Verb::FdroidSync
+    ) {
         if arg.contains("..") {
             return Err(Rejection::Traversal(arg.to_owned()));
         }
-        if !REF_RE.is_match(arg) {
+        if !REF_RE.is_match(arg) && crate::fdroid::package_of(arg).is_none() {
             return Err(Rejection::BadRef(arg.to_owned()));
         }
     }
@@ -108,6 +156,7 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
         verb,
         arg: arg.to_owned(),
         name,
+        path: String::new(),
     })
 }
 
@@ -217,5 +266,27 @@ mod tests {
     #[test]
     fn listing_verbs_take_any_argument() {
         assert!(parse("marathon-store://refresh-state/../x").is_ok());
+    }
+
+    #[test]
+    fn android_refs_and_apk_paths() {
+        let r = parse("marathon-store://install/android:org.example.app").unwrap();
+        assert_eq!(r.arg, "android:org.example.app");
+        assert!(parse("marathon-store://install/android:../x").is_err());
+        let r =
+            parse("marathon-store://apk-inspect/%2Fhome%2Fuser%2FDownloads%2Fa%20b.apk").unwrap();
+        assert_eq!(r.verb, Verb::ApkInspect);
+        assert_eq!(r.path, "/home/user/Downloads/a b.apk");
+        let r = parse("marathon-store://apk-install/%2Ftmp%2Fa.apk?pkg=org.example.app&name=App")
+            .unwrap();
+        assert_eq!(
+            (r.arg.as_str(), r.name.as_str()),
+            ("android:org.example.app", "App")
+        );
+        assert!(parse("marathon-store://apk-install/%2Ftmp%2Fa.apk").is_err());
+        assert!(parse("marathon-store://apk-inspect/relative.apk").is_err());
+        assert!(parse("marathon-store://apk-inspect/%2Ftmp%2F..%2Fetc%2Fx.apk").is_err());
+        assert!(parse("marathon-store://apk-inspect/%2Ftmp%2Fnotes.txt").is_err());
+        assert!(parse("marathon-store://fdroid-sync/").is_ok());
     }
 }

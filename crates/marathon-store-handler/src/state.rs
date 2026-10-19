@@ -37,6 +37,10 @@ impl StateDir {
         &self.0
     }
 
+    pub fn dir(&self) -> &Path {
+        &self.0
+    }
+
     fn progress_path(&self, app_id: &str) -> PathBuf {
         self.0.join(format!("install-progress-{app_id}.json"))
     }

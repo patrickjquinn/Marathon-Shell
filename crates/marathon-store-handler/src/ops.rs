@@ -177,9 +177,15 @@ pub fn update_all(state: &StateDir, flatpak: &str, handler: &Path) -> io::Result
         "--updates",
         "--columns=application",
     ]));
+    let android: Vec<String> = crate::fdroid::lists()
+        .1
+        .iter()
+        .filter_map(|u| u["app_id"].as_str().map(str::to_owned))
+        .collect();
     let apps: Vec<&str> = listing
         .split_whitespace()
         .filter(|app| is_app_ref(app) && REF_RE.is_match(app))
+        .chain(android.iter().map(String::as_str))
         .collect();
     for app in &apps {
         state.write_progress(&Progress {
@@ -299,7 +305,12 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
         "--app",
         "--columns=application,version,name",
     ]));
-    state.write_json("installed.json", &installed(&listing, &icons))?;
+    let (android_installed, android_updates) = crate::fdroid::lists();
+    let mut listed = installed(&listing, &icons);
+    if let Some(apps) = listed["installed"].as_array_mut() {
+        apps.extend(android_installed);
+    }
+    state.write_json("installed.json", &listed)?;
 
     let listing = stdout_of(Command::new("timeout").args([
         "20",
@@ -309,7 +320,11 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
         "--updates",
         "--columns=application",
     ]));
-    state.write_json("updates.json", &updates(&listing))
+    let mut pending = updates(&listing);
+    if let Some(apps) = pending["updates"].as_array_mut() {
+        apps.extend(android_updates);
+    }
+    state.write_json("updates.json", &pending)
 }
 
 #[cfg(test)]
