@@ -38,6 +38,26 @@ TestCase {
     }
 
     Component {
+        id: pressList
+
+        SilicaListView {
+            property bool rowHighlighted: false
+            property bool rowClicked: false
+            readonly property Item row: itemAtIndex(7)
+
+            width: 540
+            height: 960
+            model: 120
+            delegate: ListItem {
+                width: 540
+                contentHeight: 80
+                onHighlightedChanged: if (highlighted) ListView.view.rowHighlighted = true
+                onClicked: ListView.view.rowClicked = true
+            }
+        }
+    }
+
+    Component {
         id: grid
 
         SilicaGridView {
@@ -107,5 +127,34 @@ TestCase {
         tryVerify(() => !v.moving, 10000);
         verify(v.atYBeginning);
         compare(v.contentY, v.originY);
+    }
+
+    function test_scrollingNeverHighlightsARow() {
+        const v = createTemporaryObject(pressList, testCase);
+        // A finger rests a moment before it starts to move.
+        mousePress(v, 270, 600);
+        wait(60);
+        for (let y = 590; y >= 400; y -= 10)
+            mouseMove(v, 270, y, 8);
+        mouseRelease(v, 270, 400);
+        tryVerify(() => !v.moving);
+        verify(!v.rowHighlighted);
+    }
+
+    function test_aHeldPressHighlights() {
+        const v = createTemporaryObject(pressList, testCase);
+        mousePress(v, 270, 600);
+        wait(Fling.tapTimeout / 2);
+        verify(!v.rowHighlighted);
+        tryVerify(() => v.rowHighlighted, Fling.tapTimeout * 3);
+        mouseRelease(v, 270, 600);
+    }
+
+    function test_aQuickTapClicksAndFlashes() {
+        const v = createTemporaryObject(pressList, testCase);
+        mouseClick(v, 270, 600);
+        verify(v.rowClicked);
+        const row = v.itemAt(270, 600 + v.contentY);
+        verify(row._showPress);
     }
 }

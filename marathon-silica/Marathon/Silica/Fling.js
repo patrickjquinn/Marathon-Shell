@@ -5,3 +5,5 @@
 // Android's 8000 dp/s cap.
 const deceleration = 6300;
 const maxVelocity = 16000;
+// Android's tap timeout: a press shows only once it hasn't become a scroll.
+const tapTimeout = 100;
