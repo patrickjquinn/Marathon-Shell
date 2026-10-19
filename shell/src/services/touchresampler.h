@@ -11,10 +11,12 @@ class QQuickItem;
 class QTouchEvent;
 class QWindow;
 
-// Android's touch resampling for the shell window: moves wait for the next
-// frame, which gets one at its time minus 5 ms, interpolated between the
-// reports around it (or up to 8 ms past the last). Presses, releases and
-// cancels pass at once. Wayland clients get these moves through the shell.
+// Touch resampling for the shell window: each frame gets the finger where it
+// was half a report's spacing plus 2 ms earlier (5 to 40 ms), interpolated
+// between the reports around that time, or past the last by up to half a
+// spacing at the slower of the last two reports' speeds (none across a turn,
+// never back the way the finger goes), so a panel slower than the display
+// still moves every frame. Presses, releases and cancels pass at once. Wayland clients get these moves through the shell.
 // Only for the shell's own items: a touch whose press a Wayland client's
 // surface took passes untouched, since resampling an app's input slowed it.
 // The move is handed over while the frame polishes: the changes it makes
@@ -26,10 +28,11 @@ class TouchResampler : public QObject {
     // Polishes through an item in content; without one, call flush() a frame.
     TouchResampler(QWindow *window, QQuickItem *content);
 
-    void flush();
+    // True while the frame shown is still behind the latest report.
+    bool flush();
 
-    static constexpr qint64 kLatencyMs       = 5;
-    static constexpr qint64 kMaxPredictionMs = 8;
+    static constexpr qint64 kMinLatencyMs = 5;
+    static constexpr qint64 kMaxLatencyMs = 40;
 
     // The resampled position at time t from the reports a (older) and b.
     static QPointF resample(QPointF a, qint64 ta, QPointF b, qint64 tb, qint64 t);
@@ -42,14 +45,17 @@ class TouchResampler : public QObject {
         QEventPoint point;
         qint64      time = 0;
     };
+    static constexpr qsizetype kReports = 4;
     struct Track {
-        Report older;
-        Report latest;
-        bool   hasOlder = false;
+        QList<Report> reports;
+        QPointF       sent;
+        bool          hasSent = false;
     };
 
     void   record(const QTouchEvent &event);
     void   sendResampled(qint64 at);
+    qint64 latency() const;
+    static qint64 horizon(const Track &track);
     qint64 now() const;
 
     QPointer<QWindow>       m_window;
@@ -60,6 +66,7 @@ class TouchResampler : public QObject {
     const QPointingDevice  *m_device    = nullptr;
     Qt::KeyboardModifiers   m_modifiers = Qt::NoModifier;
     bool                    m_pending   = false;
+    qint64                  m_sentAt    = -1;
     bool                    m_sending   = false;
     QElapsedTimer           m_clock;
     qint64                  m_offset    = 0;

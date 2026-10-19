@@ -1,4 +1,5 @@
 #include <memory>
+#include <QElapsedTimer>
 #include <QPointingDevice>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -64,7 +65,7 @@ namespace {
     };
 } // namespace
 
-// A 100 Hz panel's moves reach the scene one a frame, at frame time minus 5 ms.
+// A panel's moves reach the scene once a frame, a report's spacing behind.
 class TestTouchResampler : public QObject {
     Q_OBJECT
 
@@ -87,9 +88,73 @@ class TestTouchResampler : public QObject {
 
     void interpolatesBetweenReports() {
         QCOMPARE(TouchResampler::resample({0, 0}, 0, {0, 10}, 10, 5), QPointF(0, 5));
-        QCOMPARE(TouchResampler::resample({0, 0}, 0, {0, 10}, 10, 14), QPointF(0, 14));
-        // At most 8 ms past the last report.
-        QCOMPARE(TouchResampler::resample({0, 0}, 0, {0, 10}, 10, 40), QPointF(0, 18));
+        // Never past the last report.
+        QCOMPARE(TouchResampler::resample({0, 0}, 0, {0, 10}, 10, 40), QPointF(0, 10));
+    }
+
+    // The HackberryPi's panel reports every 23 ms: every 60 Hz frame still
+    // moves, and never ahead of where the finger is.
+    void aSlowPanelMovesEveryFrame() {
+        Recorder       w;
+        TouchResampler resampler(&w, nullptr);
+        QElapsedTimer  clock;
+        clock.start();
+        const ulong t0 = 1000;
+        send(w, QEvent::TouchBegin, QEventPoint::State::Pressed, 0, t0);
+        qint64 nextReport = 23, nextFrame = 17;
+        qreal  latest = 0;
+        int    frames = 0, still = 0;
+        while (clock.elapsed() < 400) {
+            QTest::qWait(1);
+            const qint64 t = clock.elapsed();
+            if (t >= nextReport) {
+                latest = t;
+                send(w, QEvent::TouchUpdate, QEventPoint::State::Updated, latest, t0 + t);
+                nextReport += 23;
+            }
+            if (t >= nextFrame) {
+                const qsizetype before = w.positions.size();
+                resampler.flush();
+                nextFrame += 17;
+                if (t < 60)
+                    continue;
+                ++frames;
+                if (w.positions.size() == before || w.positions.last().y() <= w.positions.at(before - 1).y())
+                    ++still;
+                else
+                    QVERIFY2(w.positions.last().y() <= clock.elapsed(), "ahead of the finger");
+            }
+        }
+        QVERIFY2(still <= frames / 10, qPrintable(QStringLiteral("%1 of %2 frames still").arg(still).arg(frames)));
+    }
+
+    // A finger that stops goes at most half a report's spacing on, and
+    // the content never steps back while it rests.
+    void aStoppingFingerBarelyOvershoots() {
+        Recorder       w;
+        TouchResampler resampler(&w, nullptr);
+        QElapsedTimer  clock;
+        clock.start();
+        const ulong t0 = 1000;
+        send(w, QEvent::TouchBegin, QEventPoint::State::Pressed, 0, t0);
+        qint64 nextReport = 23;
+        qreal  last = 0, shown = 0;
+        while (clock.elapsed() < 300) {
+            QTest::qWait(1);
+            const qint64 t = clock.elapsed();
+            if (t >= nextReport && t < 150) {
+                last = t;
+                send(w, QEvent::TouchUpdate, QEventPoint::State::Updated, last, t0 + t);
+                nextReport += 23;
+            }
+            if (t % 17 == 0) {
+                resampler.flush();
+                const qreal y = w.positions.last().y();
+                QVERIFY2(y >= shown, "stepped back");
+                shown = y;
+            }
+        }
+        QVERIFY2(shown <= last + 12, qPrintable(QStringLiteral("%1 past %2").arg(shown).arg(last)));
     }
 
     void movesWaitForTheFrameAndPressesDont() {
@@ -105,8 +170,9 @@ class TestTouchResampler : public QObject {
         resampler.flush();
         QCOMPARE(w.types.size(), 2);
         QCOMPARE(w.types.last(), QEvent::TouchUpdate);
-        // The frame comes as the last report does: 5 ms back is between the two.
-        QCOMPARE(w.positions.last().y(), 115.0);
+        // The frame comes as the last report does: half a report's spacing
+        // plus 2 ms back.
+        QCOMPARE(w.positions.last().y(), 113.0);
 
         send(w, QEvent::TouchUpdate, QEventPoint::State::Updated, 130, t0 + 30);
         send(w, QEvent::TouchEnd, QEventPoint::State::Released, 130, t0 + 31);
