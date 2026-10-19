@@ -126,7 +126,7 @@ QtObject {
     readonly property int touchFlickVelocity: 8000
     // Marathon.Silica's Fling.js: Android's fling feel.
     readonly property real flickVelocity: 16000 * Silica.Theme.pixelRatio
-    readonly property real flickDeceleration: 6300 * Silica.Theme.pixelRatio
+    readonly property real flickDeceleration: 3500 * Silica.Theme.pixelRatio
     // Android's tap timeout: a press shows once it hasn't become a scroll.
     readonly property int tapTimeout: 100
 
