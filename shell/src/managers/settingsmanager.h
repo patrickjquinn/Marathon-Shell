@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QTimer>
 #include <QVariant>
 #include <QStringList>
 #include <qqml.h>
@@ -397,9 +398,11 @@ class SettingsManager : public QObject {
     void                watchTimedate();
     void                load();
     void                save();
+    void                flush();
     void                onSettingsFileChanged(const QString &path);
 
     QSettings           m_settings;
+    QTimer              m_flushTimer;
     QFileSystemWatcher *m_watcher     = nullptr;
     bool                m_inSelfWrite = false;
 

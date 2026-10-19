@@ -14,7 +14,6 @@
 #include <QFileSystemWatcher>
 #include <QJSEngine>
 #include <QQmlEngine>
-#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QTimeZone>
@@ -74,6 +73,9 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_keyboardHapticStrength("medium")
     , m_keyboardLanguage("en_US")
     , m_unifiedPushFallbackEnabled(false) {
+    m_flushTimer.setSingleShot(true);
+    m_flushTimer.setInterval(500);
+    connect(&m_flushTimer, &QTimer::timeout, this, &SettingsManager::flush);
     load();
     watchTimedate();
 
@@ -371,18 +373,19 @@ void SettingsManager::load() {
     qDebug() << "[SettingsManager] Loaded: appSortOrder =" << m_appSortOrder;
 }
 
-void SettingsManager::save() {
+void SettingsManager::flush() {
     // Mark this write as self-originated so the QFileSystemWatcher callback
     // doesn't echo the value back through load() and re-emit *Changed signals
-    // we already emitted from the setter.
-    m_inSelfWrite   = true;
-    auto resetGuard = qScopeGuard([this]() {
-        // Re-arm after a short delay so the watcher's notification (which
-        // fires asynchronously after sync()) is filtered by the guard.
-        QTimer::singleShot(200, this, [this]() { m_inSelfWrite = false; });
-    });
-    Q_UNUSED(resetGuard)
+    // we already emitted from the setter. Re-armed after a short delay so
+    // the watcher's notification, which fires after sync(), is filtered.
+    m_inSelfWrite = true;
+    m_settings.sync();
+    QTimer::singleShot(200, this, [this]() { m_inSelfWrite = false; });
+}
 
+// The file is rewritten (and fsynced) once a burst of changes settles: a
+// volume or brightness drag calls this per step on the GUI thread.
+void SettingsManager::save() {
     m_settings.setValue("ui/userScaleFactor", m_userScaleFactor);
     m_settings.setValue("ui/wallpaperPath", m_wallpaperPath);
 
@@ -445,8 +448,7 @@ void SettingsManager::save() {
 
     m_settings.setValue("notifications/unifiedPushFallback", m_unifiedPushFallbackEnabled);
 
-    m_settings.sync();
-    qDebug() << "[SettingsManager] Saved settings";
+    m_flushTimer.start();
 }
 
 void SettingsManager::setUnifiedPushFallbackEnabled(bool enabled) {

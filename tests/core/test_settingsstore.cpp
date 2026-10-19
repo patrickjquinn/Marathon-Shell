@@ -1,4 +1,5 @@
 #include <QDBusArgument>
+#include <QFile>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTest>
@@ -51,6 +52,20 @@ class TestSettingsStore : public QObject {
         QVERIFY(!m.get("com.gone/token").isValid());
         QVERIFY(!m.get("com.gone/sub/key").isValid());
         QCOMPARE(m.get("com.kept/token").toString(), QString("y"));
+    }
+
+    // A drag sets the volume per step; the file catches up once it settles.
+    void settingsReachTheFileAfterABurst() {
+        SettingsManager m;
+        for (int v = 1; v <= 40; ++v)
+            m.setSystemVolume(v / 100.0);
+        const QString path   = m_dir.filePath("marathon-os/Marathon Shell.conf");
+        const auto    onDisk = [&path]() {
+            QFile file(path);
+            return file.open(QIODevice::ReadOnly) && file.readAll().contains("systemVolume=0.4");
+        };
+        QVERIFY(!onDisk());
+        QTRY_VERIFY(onDisk());
     }
 };
 
