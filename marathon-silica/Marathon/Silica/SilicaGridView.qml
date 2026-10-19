@@ -1,9 +1,13 @@
 import QtQuick
 import Sailfish.Silica as S
+import "Fling.js" as Fling
 import "ViewKeys.js" as ViewKeys
 
 S.SilicaGridView {
     id: root
+
+    flickDeceleration: Fling.deceleration * S.Theme.pixelRatio
+    maximumFlickVelocity: Fling.maxVelocity * S.Theme.pixelRatio
 
     // Silica declares these views against QtQuick 2.0, which predates
     // these properties, so they can only be set by name.

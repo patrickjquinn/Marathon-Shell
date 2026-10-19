@@ -1,9 +1,13 @@
 import QtQuick
 import Sailfish.Silica as S
+import "Fling.js" as Fling
 import "ViewKeys.js" as ViewKeys
 
 S.SilicaFlickable {
     id: root
+
+    flickDeceleration: Fling.deceleration * S.Theme.pixelRatio
+    maximumFlickVelocity: Fling.maxVelocity * S.Theme.pixelRatio
 
     // A flickable holding controls is not a tab stop itself: Tab goes to the
     // controls, and keys they leave unused scroll it.
