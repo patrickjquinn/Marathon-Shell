@@ -28,7 +28,10 @@ class FakeShell : public QObject {
         if (surfaceId.toInt() >= 0)
             shown << id.toString();
     }
-    Q_INVOKABLE void openApp(const QVariant &, const QVariant &, const QVariant &) {}
+    QStringList      opened;
+    Q_INVOKABLE void openApp(const QVariant &id, const QVariant &, const QVariant &) {
+        opened << id.toString();
+    }
     // UIStore's: an app is on screen.
     Q_PROPERTY(bool appWindowOpen MEMBER appWindowOpen)
     bool appWindowOpen = false;
@@ -185,6 +188,17 @@ class TestSharedClient : public QObject {
         shell->appWindowOpen = true;
         QVERIFY(!map("c", 31, &surfaceA));
         QVERIFY(shell->shown.isEmpty());
+    }
+
+    // Android starting another app's activity on a tap in the app in front
+    // (a link, a share target): it comes forward, and UIStore knows.
+    void aWindowOpenedFromTheFrontAppComesForward() {
+        QVERIFY(launcher->mapWindow(kClient, id("c"), "C", QString(), 31, &surfaceA, true));
+        QCOMPARE(shell->shown, QStringList{id("c")});
+        QCOMPARE(shell->opened, QStringList{id("c")});
+        launcher->onWindowDestroyed(31);
+        QVERIFY(launcher->mapWindow(kClient, id("c"), "C", QString(), 32, &surfaceB, true));
+        QCOMPARE(shell->shown, (QStringList{id("c"), id("c")}));
     }
 
     void aShownLaunchIsShown() {

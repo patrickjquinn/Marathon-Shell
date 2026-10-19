@@ -2091,7 +2091,16 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
     if (!sandboxAppId.isEmpty())
         xdgAppId = sandboxAppId;
 
-    const bool shown = mapWindow(pid, xdgAppId, title, sandboxAppId, surfaceId, qmlSurfaceObj);
+    auto *wc         = qobject_cast<WaylandCompositor *>(m_compositor.data());
+    bool  frontInput = false;
+    if (wc && wc->recentUserInput(2000) && m_uiStore && m_taskModel &&
+        m_uiStore->property("appWindowOpen").toBool()) {
+        const Task *front = m_taskModel->getTaskByAppId(m_uiStore->property("currentAppId").toString());
+        const auto *xdg   = front ? qobject_cast<QWaylandXdgSurface *>(front->waylandSurface()) : nullptr;
+        frontInput = xdg && xdg->surface() && xdg->surface()->client() == surface->client();
+    }
+    const bool shown =
+        mapWindow(pid, xdgAppId, title, sandboxAppId, surfaceId, qmlSurfaceObj, frontInput);
     // Read by the compositor: the window's first configure, and whether it
     // may be configured only to change something.
     surface->setProperty("mappedInBackground", !shown);
@@ -2102,7 +2111,20 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
 
 bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
                                  const QString &sandboxAppId, int surfaceId,
-                                 QObject *qmlSurfaceObj) {
+                                 QObject *qmlSurfaceObj, bool frontInput) {
+    // Android's own rule for starting an activity in front: in answer to the
+    // user's input on the app in front.
+    const auto takeFront = [this, surfaceId, qmlSurfaceObj](const QString &appId,
+                                                             const QString &name,
+                                                             const QString &icon) {
+        if (m_uiStore)
+            invokeVoid(m_uiStore, "openApp", {appId, name, icon});
+        if (m_appWindow)
+            invokeVoid(m_appWindow, "show",
+                       {appId, name, icon, QStringLiteral("native"),
+                        QVariant::fromValue(qmlSurfaceObj), surfaceId});
+        return true;
+    };
     const auto showLaunch = [this, surfaceId, qmlSurfaceObj](const PendingLaunch &p) {
         const QString type = p.type.isEmpty() ? QStringLiteral("native") : p.type;
         if (m_taskModel) {
@@ -2188,7 +2210,8 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
                 << "surfaceId" << surfaceId;
         m_taskModel->updateTaskNativeInfo(xdgAppId, surfaceId, qmlSurfaceObj);
         fileWindow(xdgAppId, surfaceId, qmlSurfaceObj);
-        return false;
+        const Task *task = m_taskModel->getTaskByAppId(xdgAppId);
+        return frontInput && takeFront(xdgAppId, task->title(), task->icon());
     }
 
     QString effectiveAppId = xdgAppId;
@@ -2219,7 +2242,7 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
     fileWindow(effectiveAppId, surfaceId, qmlSurfaceObj);
     // Nobody launched it: a card. Waydroid re-creates a task's window as
     // Android redraws it, and that must not take the front.
-    return false;
+    return frontInput && takeFront(effectiveAppId, appName, appIcon);
 }
 
 void AppLaunchService::fileWindow(const QString &appId, int surfaceId, QObject *surface) {

@@ -96,6 +96,8 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size);
     // The client has acked every configure its toplevel was sent.
     Q_INVOKABLE bool     configureSettled(int surfaceId) const;
+    // The user touched or typed in the last ms milliseconds.
+    bool                 recentUserInput(int ms) const;
     Q_INVOKABLE bool     usesNativeScale(QWaylandSurface *surface) const;
     // The shell took a gesture from item mid-touch: its client gets wl_touch.cancel.
     Q_INVOKABLE void     cancelTouch(QQuickItem *item);
@@ -271,6 +273,7 @@ class WaylandCompositor : public QWaylandCompositor {
     bool                                    m_hiddenThrottle = true;
     HiddenFrameThrottle                     m_frameThrottle;
     QElapsedTimer                           m_frameClock;
+    QElapsedTimer                           m_lastUserInput;
     QTimer                                  m_hiddenFrameTimer;
     QSet<QWaylandSurface *>                 m_enteredSurfaces;
 

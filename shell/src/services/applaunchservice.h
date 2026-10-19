@@ -185,8 +185,11 @@ class AppLaunchService : public QObject {
     void        onCompositorAppLaunched(const QString &command, qint64 pid);
     void        onCompositorAppClosed(qint64 pid);
     // Files a new toplevel as a task; true if it is shown.
+    // frontInput: the window's client also draws the window in front, which
+    // the user touched just now (Android opening another app on a tap).
     bool        mapWindow(qint64 pid, const QString &xdgAppId, const QString &title,
-                          const QString &sandboxAppId, int surfaceId, QObject *qmlSurfaceObj);
+                          const QString &sandboxAppId, int surfaceId, QObject *qmlSurfaceObj,
+                          bool frontInput = false);
     void        onWindowDestroyed(int surfaceId);
     void        fileWindow(const QString &appId, int surfaceId, QObject *surface);
     void        finishAppExit(const QString &appId);

@@ -1082,6 +1082,10 @@ void WaylandCompositor::resizeToplevel(QWaylandXdgToplevel *toplevel, const QSiz
         ToplevelConfigure::resize(toplevel, sizesItself(toplevel) ? QSize(0, 0) : size);
 }
 
+bool WaylandCompositor::recentUserInput(int ms) const {
+    return m_lastUserInput.isValid() && m_lastUserInput.elapsed() < ms;
+}
+
 bool WaylandCompositor::configureSettled(int surfaceId) const {
     QWaylandXdgSurface *xdg = m_xdgSurfaceMap.value(surfaceId);
     return !xdg || !xdg->toplevel() || ToplevelConfigure::settled(xdg->toplevel());
@@ -2211,8 +2215,10 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
             emit userActivity();
         }
         if (type == QEvent::TouchBegin || type == QEvent::MouseButtonPress ||
-            type == QEvent::KeyPress)
+            type == QEvent::KeyPress) {
             m_xdgActivation->noteUserInput();
+            m_lastUserInput.start();
+        }
 
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto *keyEvent = static_cast<QKeyEvent *>(event);
