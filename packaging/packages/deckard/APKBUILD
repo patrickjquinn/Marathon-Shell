@@ -8,12 +8,12 @@
 pkgname=deckard
 pkgver=0.1.0
 pkgrel=0
-_commit=51994e22a2b44055ddb71a2e1622075a00c33070
+_commit=546da159d918112c3d4ea442490fd7638293ac12
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND GPL-3.0-only"
-depends="waydroid python3"
+depends="waydroid python3 iproute2-ss util-linux-misc"
 makedepends="cmake samurai qt6-qtbase-dev"
 checkdepends="dbus"
 source="deckard-$_commit.tar.gz::https://github.com/patrickjquinn/Marathon-Deckard/archive/$_commit.tar.gz"
@@ -44,6 +44,8 @@ package() {
 		"$pkgdir"/usr/share/applications/org.marathonos.deckard.apk.desktop
 	install -Dm755 $p/deckard-fonts-sync "$pkgdir"/usr/libexec/deckard-fonts-sync
 	install -Dm755 $p/deckard-reset "$pkgdir"/usr/libexec/deckard-reset
+	[ ! -f $p/deckard-boot-evidence ] ||
+		install -Dm755 $p/deckard-boot-evidence "$pkgdir"/usr/libexec/deckard-boot-evidence
 	install -Dm644 $p/org.marathonos.deckard.policy \
 		"$pkgdir"/usr/share/polkit-1/actions/org.marathonos.deckard.policy
 	install -Dm644 image/vendor_deckard/fonts/fonts.xml \
