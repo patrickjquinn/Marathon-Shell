@@ -311,6 +311,7 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
         apps.extend(android_installed);
     }
     state.write_json("installed.json", &listed)?;
+    crate::fdroid::device_profile(state);
 
     let listing = stdout_of(Command::new("timeout").args([
         "20",

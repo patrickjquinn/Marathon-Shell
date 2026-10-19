@@ -92,6 +92,7 @@ struct Manifest {
     uses_sdk: Option<UsesSdk>,
     nativecode: Option<Vec<String>>,
     uses_permission: Option<Vec<Permission>>,
+    features: Option<Vec<Value>>,
 }
 
 #[derive(Deserialize)]
@@ -186,6 +187,18 @@ fn entry(pkg: &str, p: &Package) -> Option<Value> {
                 .collect()
         })
         .unwrap_or_default();
+    let features: Vec<&str> = v
+        .manifest
+        .features
+        .as_ref()
+        .map(|list| {
+            list.iter()
+                .filter_map(|f| f.get("name").and_then(Value::as_str).or_else(|| f.as_str()))
+                .filter(|f| PACKAGE_RE.is_match(f))
+                .take(64)
+                .collect()
+        })
+        .unwrap_or_default();
     let name = localized(m.name.as_ref());
     Some(json!({
         "app_id": format!("android:{pkg}"),
@@ -209,6 +222,7 @@ fn entry(pkg: &str, p: &Package) -> Option<Value> {
             "sha256": sha256,
             "size": v.file.size.unwrap_or(0),
             "permissions": permissions,
+            "features": features,
         },
     }))
 }
@@ -716,6 +730,11 @@ pub fn inspect(state: &StateDir, path: &str) -> io::Result<()> {
         .get("permissions")
         .and_then(|v| Vec::<String>::try_from(v.clone()).ok())
         .unwrap_or_default();
+    let list = |k: &str| {
+        info.get(k)
+            .and_then(|v| Vec::<String>::try_from(v.clone()).ok())
+            .unwrap_or_default()
+    };
     let icon: Vec<u8> = info
         .get("icon")
         .and_then(|v| Vec::<u8>::try_from(v.clone()).ok())
@@ -728,7 +747,12 @@ pub fn inspect(state: &StateDir, path: &str) -> io::Result<()> {
         "name": get_str("label"),
         "versionName": get_str("versionName"),
         "versionCode": get_i64("versionCode"),
-        "targetSdk": get_i64("targetSdk"),
+        "minSdk": info.get("minSdk").and_then(|v| i32::try_from(v.clone()).ok()),
+        "targetSdk": info.get("targetSdk").and_then(|v| i32::try_from(v.clone()).ok()),
+        "features": list("features"),
+        "libraries": list("libraries"),
+        "abis": list("abis"),
+        "gms": info.get("gms").and_then(|v| bool::try_from(v.clone()).ok()).unwrap_or(false),
         "installedVersionName": get_str("installedVersionName"),
         "installedVersionCode": get_i64("installedVersionCode"),
         "permissions": permissions,
@@ -737,7 +761,38 @@ pub fn inspect(state: &StateDir, path: &str) -> io::Result<()> {
         },
         "ts": now(),
     });
+    device_profile(state);
     state.write_json("apk-inspect.json", &record)
+}
+
+/// This phone's Android, which the Store compares an app's needs with:
+/// android-device.json. Left as it was when Android isn't running.
+pub fn device_profile(state: &StateDir) {
+    let Ok(info) = bus()
+        .and_then(|conn| packages_call(&conn, "DeviceProfile", &()))
+        .and_then(|reply| {
+            reply
+                .body()
+                .deserialize::<HashMap<String, OwnedValue>>()
+                .map_err(io::Error::other)
+        })
+    else {
+        return;
+    };
+    let list = |k: &str| {
+        info.get(k)
+            .and_then(|v| Vec::<String>::try_from(v.clone()).ok())
+            .unwrap_or_default()
+    };
+    let record = json!({
+        "features": list("features"),
+        "libraries": list("libraries"),
+        "abis": list("abis"),
+        "sdk": info.get("sdk").and_then(|v| i32::try_from(v.clone()).ok()).unwrap_or(0),
+        "gms": info.get("gms").and_then(|v| bool::try_from(v.clone()).ok()).unwrap_or(false),
+        "ts": now(),
+    });
+    let _written = state.write_json("android-device.json", &record);
 }
 
 /// Installed Android apps the user added, and the ones F-Droid has newer.
@@ -823,7 +878,8 @@ mod tests {
                   "manifest": {"versionName": "2.0", "versionCode": 2, "usesSdk": {"minSdkVersion": 21, "targetSdkVersion": 33},
                                "nativecode": ["armeabi-v7a", "arm64-v8a"],
                                "usesPermission": [{"name": "android.permission.INTERNET"},
-                                                  {"name": "android.permission.READ_EXTERNAL_STORAGE", "maxSdkVersion": 28}]},
+                                                  {"name": "android.permission.READ_EXTERNAL_STORAGE", "maxSdkVersion": 28}],
+                               "features": [{"name": "android.hardware.telephony"}, {"name": "bad feature"}]},
                   "antiFeatures": {"Tracking": {"en-US": "uses analytics"}}},
             "c": {"file": {"name": "/org.example.good_1.apk", "sha256": "3333333333333333333333333333333333333333333333333333333333333333", "size": 30},
                   "manifest": {"versionName": "1.0", "versionCode": 1}}
@@ -861,6 +917,10 @@ mod tests {
             json!(["android.permission.INTERNET"])
         );
         assert_eq!(app["antiFeatures"], json!(["Tracking"]));
+        assert_eq!(
+            app["version"]["features"],
+            json!(["android.hardware.telephony"])
+        );
         assert_eq!(app["lastUpdated"], 1_700_000_000);
     }
 

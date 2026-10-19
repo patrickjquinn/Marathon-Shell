@@ -27,6 +27,15 @@ Page {
     readonly property var permissionNames: fromFile ? (fileOk ? info.permissions : []) : (app ? app.version.permissions : [])
     readonly property var permissions: store.describeAndroidPermissions(permissionNames)
     readonly property var antiFeatures: !fromFile && app ? app.antiFeatures : []
+    // What this phone may not give it (StoreBackend.compatibility()).
+    readonly property var issues: fromFile ? (fileOk ? store.compatibility({
+                "features": info.features || [],
+                "libraries": info.libraries || [],
+                "gms": info.gms === true,
+                "abis": info.abis || [],
+                "minSdk": info.minSdk || 0
+            }) : []) : (app ? store.compatibility(store.catalogueNeeds(app)) : [])
+    readonly property bool blocked: issues.some(i => i.severity === "block")
     readonly property bool installed: appId !== "" && store.isInstalled(appId)
     readonly property var job: appId !== "" ? store.jobFor(appId) : null
     readonly property bool busy: job !== null && store.jobRunning(job)
@@ -150,7 +159,7 @@ Page {
                 objectName: "androidAction"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: !root.fromFile && root.appId !== ""
+                visible: !root.fromFile && root.appId !== "" && (!root.blocked || root.installed)
                 store: root.store
                 appId: root.appId
                 large: true
@@ -161,7 +170,8 @@ Page {
                 anchors.horizontalCenter: parent.horizontalCenter
                 preferredWidth: Theme.buttonWidthMedium
                 visible: root.fileOk && !root.started
-                text: root.isUpdate ? qsTr("Update") : qsTr("Install")
+                enabled: !root.blocked
+                text: root.blocked ? qsTr("Can't install") : root.isUpdate ? qsTr("Update") : qsTr("Install")
                 onClicked: {
                     root.started = true;
                     root.store.installApk(root.apkPath, root.pkg, root.name);
@@ -186,6 +196,41 @@ Page {
                 wrapMode: Text.Wrap
                 maximumLineCount: 3
                 elide: Text.ElideRight
+            }
+
+            // ── Will it run here, up front ────────────────
+            Repeater {
+                objectName: "compatibility"
+                model: root.issues
+                delegate: Item {
+                    id: issue
+
+                    required property var modelData
+
+                    x: Theme.horizontalPageMargin
+                    width: root.width - 2 * Theme.horizontalPageMargin
+                    height: Math.max(issueIcon.height, issueText.height)
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: issueText.text
+
+                    Icon {
+                        id: issueIcon
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: issue.modelData.severity === "block" ? "image://theme/icon-m-dismiss" : "image://theme/icon-m-warning"
+                        color: issue.modelData.severity === "block" ? Theme.errorColor : Theme.highlightColor
+                    }
+                    Label {
+                        id: issueText
+                        anchors.left: issueIcon.right
+                        anchors.leftMargin: Theme.paddingMedium
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: issue.modelData.text
+                        color: issue.modelData.severity === "block" ? Theme.errorColor : Theme.highlightColor
+                        font.pixelSize: Theme.fontSizeSmall
+                        wrapMode: Text.Wrap
+                    }
+                }
             }
 
             // ── Anti-features, up front ───────────────────

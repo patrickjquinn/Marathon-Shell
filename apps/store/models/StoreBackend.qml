@@ -43,6 +43,9 @@ QtObject {
             "updateOnMetered": false
         })
     property var phoneApps: ({})
+    // This phone's Android (the handler's android-device.json): features,
+    // libraries, abis, sdk, gms; null until Android has answered once.
+    property var androidDevice: null
     property var pendingUpdates: []
     // appId → the handler's last progress record: {state, percent, error}.
     property var jobs: ({})
@@ -224,6 +227,10 @@ QtObject {
     function loadStoreSettings() {
         readLocalJson(stateDir + "/settings.json", function (data) {
             root.storeSettings = Object.assign({}, root.defaultSettings, data || {});
+        });
+        readLocalJson(stateDir + "/android-device.json", function (data) {
+            if (data && data.abis)
+                root.androidDevice = data;
         });
         readLocalJson(stateDir + "/phone-apps.json", function (data) {
             const set = {};
@@ -1248,6 +1255,78 @@ QtObject {
             "android.permission.CHANGE_WIFI_STATE": qsTr("Change Wi-Fi settings"),
             "android.permission.WRITE_SETTINGS": qsTr("Change system settings")
         })
+
+    // What an Android app needs that this phone may not give it, worst first:
+    // [{severity: "block" | "warn", text}]. Only what can't run blocks.
+    // need: {features, libraries, gms, abis, minSdk, antiFeatures}.
+    function compatibility(need) {
+        const device = androidDevice;
+        const abis = device ? device.abis : ["arm64-v8a"];
+        const sdk = device && device.sdk > 0 ? device.sdk : 33;
+        const blocks = [], warns = [];
+        const needAbis = need.abis || [];
+        if (needAbis.length > 0 && !needAbis.some(a => abis.indexOf(a) >= 0))
+            blocks.push(qsTr("Has no code for this phone's processor (only %1)").arg(needAbis.join(", ")));
+        if ((need.minSdk || 0) > sdk) {
+            const release = ({ "34": "14", "35": "15", "36": "16", "37": "17" })[String(need.minSdk)];
+            blocks.push(release ? qsTr("Needs Android %1 or newer").arg(release) : qsTr("Needs a newer Android"));
+        }
+        if (device) {
+            (need.libraries || []).filter(l => device.libraries.indexOf(l) < 0).forEach(l => {
+                blocks.push(l === "com.google.android.maps" ? qsTr("Needs Google Maps, which this phone doesn't have") : qsTr("Needs the %1 library, which this phone doesn't have").arg(l));
+            });
+            if (need.gms && !device.gms)
+                warns.push(qsTr("Needs Google Play services, so it may not work"));
+            const said = {};
+            (need.features || []).filter(f => device.features.indexOf(f) < 0).forEach(f => {
+                const text = featureText(f);
+                if (!said[text]) {
+                    said[text] = true;
+                    warns.push(text);
+                }
+            });
+        }
+        if ((need.antiFeatures || []).indexOf("NonFreeDep") >= 0 && !(need.gms && device && !device.gms))
+            warns.push(qsTr("Needs another app that isn't free, often Google Play services, so it may not work"));
+        return blocks.map(t => ({ "severity": "block", "text": t })).concat(warns.map(t => ({ "severity": "warn", "text": t })));
+    }
+
+    function featureText(f) {
+        const starts = p => f.indexOf(p) === 0;
+        if (starts("android.hardware.telephony"))
+            return qsTr("Needs a phone radio");
+        if (starts("android.hardware.camera"))
+            return qsTr("Needs a camera");
+        if (starts("android.hardware.bluetooth"))
+            return qsTr("Needs Bluetooth");
+        if (starts("android.hardware.nfc"))
+            return qsTr("Needs NFC");
+        if (starts("android.hardware.location.gps"))
+            return qsTr("Needs GPS");
+        if (starts("android.hardware.location"))
+            return qsTr("Needs location");
+        if (starts("android.hardware.usb"))
+            return qsTr("Needs USB accessories");
+        if (starts("android.hardware.sensor"))
+            return qsTr("Needs a sensor this phone doesn't have");
+        if (starts("android.software.leanback") || starts("android.hardware.type.television"))
+            return qsTr("Made for TVs");
+        if (starts("android.hardware.type.watch"))
+            return qsTr("Made for watches");
+        if (starts("android.hardware.type.automotive"))
+            return qsTr("Made for cars");
+        return qsTr("Needs %1, which this phone doesn't have").arg(f);
+    }
+
+    // An F-Droid entry's needs, in compatibility()'s terms. The catalogue
+    // keeps only versions with code for this phone and its Android.
+    function catalogueNeeds(app) {
+        return {
+            "features": (app.version && app.version.features) || [],
+            "minSdk": app.version ? app.version.minSdk : 0,
+            "antiFeatures": app.antiFeatures || []
+        };
+    }
 
     function describeAndroidPermissions(names) {
         const out = [];

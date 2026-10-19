@@ -288,6 +288,33 @@ TestCase {
         tryVerify(() => b.phoneApps["org.example.Indexed"] === true);
     }
 
+    function test_compatibility() {
+        const b = makeBackend();
+        // Before Android answered: only what the .apk alone shows.
+        compare(b.compatibility({ "abis": ["armeabi-v7a", "x86"], "minSdk": 21, "features": ["android.hardware.nfc"] }),
+                [{ "severity": "block", "text": "Has no code for this phone's processor (only armeabi-v7a, x86)" }]);
+        compare(b.compatibility({ "abis": ["arm64-v8a"], "minSdk": 34 }), [{ "severity": "block", "text": "Needs Android 14 or newer" }]);
+        b.androidDevice = { "features": ["android.hardware.camera", "android.hardware.wifi"], "libraries": ["org.apache.http.legacy"], "abis": ["arm64-v8a"], "sdk": 33, "gms": false };
+        const issues = b.compatibility({
+            "features": ["android.hardware.telephony", "android.hardware.telephony.gsm", "android.hardware.camera", "android.hardware.nfc", "com.example.thing"],
+            "libraries": ["com.google.android.maps", "org.apache.http.legacy"],
+            "gms": true,
+            "abis": [],
+            "minSdk": 26
+        });
+        compare(issues.map(i => i.severity + ": " + i.text), [
+            "block: Needs Google Maps, which this phone doesn't have",
+            "warn: Needs Google Play services, so it may not work",
+            "warn: Needs a phone radio",
+            "warn: Needs NFC",
+            "warn: Needs com.example.thing, which this phone doesn't have"
+        ]);
+        compare(b.compatibility({ "features": [], "antiFeatures": ["NonFreeDep"] }).map(i => i.severity), ["warn"]);
+        compare(b.compatibility({ "features": ["android.hardware.camera"], "abis": ["arm64-v8a", "armeabi-v7a"] }), []);
+        compare(b.catalogueNeeds({ "antiFeatures": ["Ads"], "version": { "minSdk": 21, "features": ["android.hardware.nfc"] } }),
+                { "features": ["android.hardware.nfc"], "minSdk": 21, "antiFeatures": ["Ads"] });
+    }
+
     function test_slimKeepsListFields() {
         const b = makeBackend();
         compare(b.slim({ "app_id": "a.b.C", "name": "C", "description": "long", "screenshots": [], "isMobileFriendly": true }), { "app_id": "a.b.C", "name": "C", "isMobileFriendly": true });

@@ -402,6 +402,27 @@ TestCase {
         compare(app.noticeFor("android:org.example.notes", "install", { "state": "done" }), "Notes installed");
     }
 
+    // An .apk without code for this phone can't be installed, and says so.
+    function test_apkThatCantRun() {
+        const app = makeApp();
+        app.store.androidDevice = { "features": [], "libraries": [], "abis": ["arm64-v8a"], "sdk": 33, "gms": false };
+        app.store.openApkConfirmation("/tmp/x.apk");
+        const page = pushed(app, 2);
+        app.store.apkInfo = { "path": "/tmp/x.apk", "ok": true, "pkg": "org.example.old", "name": "Old", "versionName": "1",
+            "permissions": [], "icon": "", "abis": ["armeabi-v7a"], "minSdk": 19, "features": ["android.hardware.telephony"], "gms": true };
+        compare(page.issues.map(i => i.severity), ["block", "warn", "warn"]);
+        verify(page.blocked);
+        compare(findChild(page, "compatibility").count, 3);
+        const install = findChild(page, "apkInstall");
+        verify(!install.enabled);
+        compare(install.text, "Can't install");
+        app.store.apkInfo = { "path": "/tmp/x.apk", "ok": true, "pkg": "org.example.old", "name": "Old", "versionName": "1",
+            "permissions": [], "icon": "", "abis": ["arm64-v8a"], "minSdk": 19, "features": [], "gms": false };
+        verify(!page.blocked);
+        verify(install.enabled);
+        compare(install.text, "Install");
+    }
+
     function test_androidAppWithoutLauncherHasNoOpen() {
         const app = makeApp();
         app.store.loadAndroidCatalog(false);
