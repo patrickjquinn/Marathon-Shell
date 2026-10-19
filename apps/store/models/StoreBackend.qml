@@ -883,12 +883,13 @@ QtObject {
     }
 
     // An Android app without a launcher activity (a keyboard, a plugin) has
-    // nothing to open.
+    // nothing to open. One installed a moment ago and not listed yet gets
+    // Open until the list says otherwise.
     function canOpen(appId) {
         if (!isAndroid(appId))
             return true;
         const entry = installedEntry(appId);
-        return entry !== null && entry.launchable;
+        return entry === null || entry.launchable !== false;
     }
 
     function hasUpdate(appId) {

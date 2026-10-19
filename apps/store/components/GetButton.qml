@@ -59,7 +59,7 @@ Item {
                 "open": qsTr("Open"),
                 "update": qsTr("Update"),
                 "retry": qsTr("Retry")
-            })[root.action]
+            })[root.action] || ""
         onClicked: root.trigger()
     }
 

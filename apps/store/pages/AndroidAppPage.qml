@@ -168,6 +168,7 @@ Page {
                 }
             }
             GetButton {
+                objectName: "apkAction"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 visible: root.fileOk && root.started

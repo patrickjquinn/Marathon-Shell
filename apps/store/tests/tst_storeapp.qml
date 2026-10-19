@@ -383,6 +383,24 @@ TestCase {
         verify(findChild(page, "androidAction").visible);
     }
 
+    // An .apk installed a moment ago, before the handler lists it: Open.
+    function test_apkInstallEndsWithOpen() {
+        const app = makeApp();
+        app.store.openApkConfirmation("/tmp/x.apk");
+        const page = pushed(app, 2);
+        app.store.apkInfo = { "path": "/tmp/x.apk", "ok": true, "pkg": "org.example.notes", "name": "Notes", "versionName": "1.2", "permissions": [], "icon": "" };
+        findChild(page, "apkInstall").clicked(null);
+        const jobs = Object.assign({}, app.store.jobs);
+        jobs["android:org.example.notes"] = { "state": "done", "percent": 100, "ts": 1 };
+        app.store.jobs = jobs;
+        const action = findChild(page, "apkAction");
+        verify(action.visible);
+        compare(action.action, "open");
+        const button = findChild(action, "getButton");
+        verify(button.visible);
+        compare(button.text, "Open");
+    }
+
     function test_androidAppWithoutLauncherHasNoOpen() {
         const app = makeApp();
         app.store.loadAndroidCatalog(false);
