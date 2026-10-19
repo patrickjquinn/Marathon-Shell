@@ -73,6 +73,11 @@ Rectangle {
                     if (appWindow.appContainer && appWindow.appContainer["appInstance"] === nativeInstance)
                         appWindow.appContainer["appInstance"] = null;
                     nativeInstance.destroy();
+                    // Its last window went while on screen: the window goes too.
+                    Qt.callLater(function () {
+                        if (UIStore.appWindowOpen && UIStore.currentAppId === id && !appWindow.isClosing)
+                            appWindow.closeApp(true, id);
+                    });
                 };
                 AppLifecycleManager.appUnregistered.connect(freeWithApp);
                 Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
