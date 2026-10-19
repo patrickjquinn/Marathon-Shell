@@ -72,6 +72,8 @@ class TouchResampler : public QObject {
     bool                    m_pending   = false;
     qint64                  m_sentAt    = -1;
     qreal                   m_spacing   = 0;
+    qreal                   m_frameAt   = -1;
+    qint64                  m_flushedAt = 0;
     bool                    m_sending   = false;
     QElapsedTimer           m_clock;
     qint64                  m_offset    = 0;

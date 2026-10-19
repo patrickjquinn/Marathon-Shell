@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScreen>
 #include <QTouchEvent>
 #include <QWindow>
 #include <QtGui/private/qeventpoint_p.h>
@@ -49,7 +50,21 @@ TouchResampler::TouchResampler(QWindow *window, QQuickItem *content)
 bool TouchResampler::flush() {
     if (!m_pending)
         return false;
-    const qint64 at = std::max(now() - latency(), m_sentAt);
+    // Polish runs early or late in a frame by turns: frame after frame the
+    // sample moves on by one frame, drawn a fifth of the way to the clock.
+    const qreal clock = qreal(now() - latency());
+    const qreal frame = 1000.0 / (m_window && m_window->screen() && m_window->screen()->refreshRate() > 0
+                                      ? m_window->screen()->refreshRate()
+                                      : 60.0);
+    const qint64 elapsed = m_clock.elapsed();
+    if (m_frameAt >= 0 && elapsed - m_flushedAt < 2 * frame) {
+        const qreal next = m_frameAt + frame;
+        m_frameAt        = std::max(m_frameAt, next + (clock - next) / 5);
+    } else {
+        m_frameAt = clock;
+    }
+    m_flushedAt     = elapsed;
+    const qint64 at = std::max(qint64(m_frameAt), m_sentAt);
     m_sentAt        = at;
     m_pending       = false;
     for (const Track &track : std::as_const(m_tracks))
@@ -189,6 +204,7 @@ bool TouchResampler::eventFilter(QObject *watched, QEvent *event) {
         m_decided = false;
         m_pending = false;
         m_sentAt  = -1;
+        m_frameAt = -1;
         m_tracks.clear();
     }
     if (event->type() == QEvent::TouchUpdate && !m_decided) {

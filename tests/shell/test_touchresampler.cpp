@@ -128,6 +128,39 @@ class TestTouchResampler : public QObject {
         QVERIFY2(still <= frames / 10, qPrintable(QStringLiteral("%1 of %2 frames still").arg(still).arg(frames)));
     }
 
+    // Frames polish early and late by turns; the content still moves evenly,
+    // a frame's worth each, not by the polish clock.
+    void anUnevenPolishStillStepsEvenly() {
+        Recorder       w;
+        TouchResampler resampler(&w, nullptr);
+        QElapsedTimer  clock;
+        clock.start();
+        const ulong t0 = 1000;
+        send(w, QEvent::TouchBegin, QEventPoint::State::Pressed, 0, t0);
+        qint64 nextReport = 10, nextFrame = 17;
+        bool   early = true;
+        QList<qreal> steps;
+        while (clock.elapsed() < 500) {
+            QTest::qWait(1);
+            const qint64 t = clock.elapsed();
+            if (t >= nextReport) {
+                send(w, QEvent::TouchUpdate, QEventPoint::State::Updated, t, t0 + t);
+                nextReport += 10;
+            }
+            if (t >= nextFrame) {
+                const qsizetype before = w.positions.size();
+                resampler.flush();
+                nextFrame += early ? 7 : 27;
+                early = !early;
+                if (t > 100 && before > 0 && w.positions.size() > before)
+                    steps.append(w.positions.last().y() - w.positions.at(before - 1).y());
+            }
+        }
+        QVERIFY(steps.size() > 10);
+        for (qreal step : std::as_const(steps))
+            QVERIFY2(step > 10 && step < 24, qPrintable(QStringLiteral("a %1 px step").arg(step)));
+    }
+
     // A finger that stops goes at most half a report's spacing on, and
     // the content never steps back while it rests or as it lifts.
     void aStoppingFingerBarelyOvershoots() {
