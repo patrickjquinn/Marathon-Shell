@@ -100,6 +100,10 @@ QVariantList AndroidApps::apps() const {
     return m_apps;
 }
 
+QVariantMap AndroidApps::googleServices() const {
+    return m_google;
+}
+
 void AndroidApps::setAvailable(bool available) {
     if (available == m_available)
         return;
@@ -303,6 +307,25 @@ void AndroidApps::loadSpecialAccess(const QString &kind) {
 
 void AndroidApps::setSpecialAccess(const QString &kind, const QString &pkg, bool granted) {
     act(QStringLiteral("setSpecialAccess"), pkg, QStringLiteral("SetSpecialAccess"), {kind, pkg, granted});
+}
+
+void AndroidApps::loadGoogleServices() {
+    call(kDeckard, QStringLiteral("GetGoogleServices"), {}, [this](const QDBusMessage &r) {
+        m_google = ok(r) ? first(r).toMap() : QVariantMap();
+        Q_EMIT googleServicesChanged();
+    });
+}
+
+void AndroidApps::setGoogleServices(const QString &key, bool enabled) {
+    call(kDeckard, QStringLiteral("SetGoogleServices"), {key, enabled}, [this](const QDBusMessage &r) {
+        if (!ok(r))
+            Q_EMIT failed(QString(), QStringLiteral("setGoogleServices"), r.errorMessage());
+        loadGoogleServices();
+    });
+}
+
+void AndroidApps::openGoogleServices(const QString &page) {
+    act(QStringLiteral("openGoogleServices"), QString(), QStringLiteral("OpenGoogleServices"), {page});
 }
 
 void AndroidApps::onRuntimeChanged(const QVariantMap &runtime) {

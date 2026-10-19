@@ -11,6 +11,8 @@ Page {
     readonly property var runtime: AndroidApps.runtime || ({})
     readonly property string runState: runtime.state || "stopped"
     readonly property bool stopped: runState === "stopped"
+    readonly property var google: AndroidApps.googleServices || ({})
+    readonly property var googleAccounts: google.accounts || []
 
     function openReset() {
         const dialog = pageStack.push(Qt.resolvedUrl("AndroidResetDialog.qml"));
@@ -51,7 +53,21 @@ Page {
     }
 
     objectName: "androidPage"
-    Component.onCompleted: AndroidApps.refresh()
+    Component.onCompleted: {
+        AndroidApps.refresh();
+        AndroidApps.loadGoogleServices();
+    }
+    onRunStateChanged: if (runState === "running") AndroidApps.loadGoogleServices()
+
+    // microG's sign-in is an Android window; the account shows on return.
+    Connections {
+        target: Qt.application
+
+        function onStateChanged() {
+            if (Qt.application.state === Qt.ApplicationActive && page.runState === "running")
+                AndroidApps.loadGoogleServices();
+        }
+    }
 
     // Memory and uptime move while the page is open.
     Timer {
@@ -169,6 +185,43 @@ Page {
                 title: qsTr("Special access")
                 subtitle: qsTr("All files, installing apps, alarms and more")
                 onClicked: pageStack.push(Qt.resolvedUrl("AndroidAccessListPage.qml"))
+            }
+
+            SectionHeader {
+                visible: !page.stopped && !!page.google.installed
+                text: qsTr("Google services (microG)")
+            }
+            TextSwitch {
+                objectName: "googleSwitch"
+                visible: !page.stopped && !!page.google.installed
+                text: qsTr("Google services")
+                description: qsTr("For Android apps that need Google Play services: sign-in, push messages and location. microG stands in for Google's own.")
+                automaticCheck: false
+                checked: !!page.google.enabled
+                onClicked: AndroidApps.setGoogleServices("enabled", !checked)
+            }
+            TextSwitch {
+                objectName: "googlePushSwitch"
+                visible: !page.stopped && !!page.google.enabled
+                text: qsTr("Push messages")
+                description: qsTr("Apps get messages from their servers while closed, over one connection to Google")
+                automaticCheck: false
+                checked: !!page.google.push
+                onClicked: AndroidApps.setGoogleServices("push", !checked)
+            }
+            EntryItem {
+                objectName: "googleAccountEntry"
+                visible: !page.stopped && !!page.google.enabled
+                title: page.googleAccounts.length > 0 ? page.googleAccounts.join(", ") : qsTr("Sign in to Google")
+                subtitle: page.googleAccounts.length > 0 ? qsTr("Google account. Tap to add another") : qsTr("Only for apps that need a Google account")
+                onClicked: AndroidApps.openGoogleServices("account")
+            }
+            EntryItem {
+                objectName: "googleCheckEntry"
+                visible: !page.stopped && !!page.google.enabled
+                title: qsTr("Check Google services")
+                subtitle: qsTr("microG's self-check, when an app says Play services are missing")
+                onClicked: AndroidApps.openGoogleServices("selfcheck")
             }
 
             SectionHeader {

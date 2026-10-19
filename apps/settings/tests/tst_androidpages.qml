@@ -113,6 +113,36 @@ TestCase {
         compare(called("start").length, 1);
     }
 
+    // microG: on or off, push, the account and its self-check.
+    function test_googleServices() {
+        const s = open("android");
+        verify(called("loadGoogleServices").length > 0);
+        const sw = child(s.page, "googleSwitch");
+        verify(sw.visible && sw.checked);
+        tap(sw);
+        compare(called("setGoogleServices"), [["setGoogleServices", "enabled", false]]);
+        const push = child(s.page, "googlePushSwitch");
+        verify(push.checked);
+        tap(push);
+        compare(called("setGoogleServices")[1], ["setGoogleServices", "push", false]);
+        const account = child(s.page, "googleAccountEntry");
+        compare(account.title, "Sign in to Google");
+        tap(account);
+        compare(called("openGoogleServices"), [["openGoogleServices", "account"]]);
+        AndroidApps.googleServices = { installed: true, enabled: true, push: false, accounts: ["someone@gmail.com"] };
+        compare(account.title, "someone@gmail.com");
+        verify(!push.checked);
+        tap(child(s.page, "googleCheckEntry"));
+        compare(called("openGoogleServices")[1], ["openGoogleServices", "selfcheck"]);
+
+        AndroidApps.googleServices = { installed: true, enabled: false, push: false, accounts: [] };
+        verify(sw.visible && !sw.checked);
+        verify(!push.visible);
+        verify(!account.visible);
+        AndroidApps.googleServices = {};
+        verify(!sw.visible);
+    }
+
     // Stopping and resetting go through the remorse timer.
     function test_stopAndReset() {
         const s = open("android");

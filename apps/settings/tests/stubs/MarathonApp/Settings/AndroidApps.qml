@@ -10,6 +10,7 @@ QtObject {
     property var details: ({})
     property var access: ({})
     property var permissionApps: ({})
+    property var googleServices: ({})
 
     signal appLoaded(string pkg, var app)
     signal appChanged(string pkg)
@@ -32,6 +33,7 @@ QtObject {
             }
         };
         access = { install_apps: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: true }] };
+        googleServices = { installed: true, enabled: true, push: true, accounts: [] };
         permissionApps = { camera: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: false, fixed: false }] };
     }
     function record(name, args) {
@@ -66,4 +68,7 @@ QtObject {
         specialAccessLoaded(kind, access[kind] || []);
     }
     function setSpecialAccess(kind, pkg, granted) { record("setSpecialAccess", [kind, pkg, granted]); }
+    function loadGoogleServices() { record("loadGoogleServices", []); }
+    function setGoogleServices(key, enabled) { record("setGoogleServices", [key, enabled]); }
+    function openGoogleServices(page) { record("openGoogleServices", [page]); }
 }

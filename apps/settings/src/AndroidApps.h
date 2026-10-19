@@ -24,6 +24,8 @@ class AndroidApps : public QObject {
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(QVariantMap runtime READ runtime NOTIFY runtimeChanged)
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
+    // microG: {installed, enabled, push, accounts}; empty until loaded.
+    Q_PROPERTY(QVariantMap googleServices READ googleServices NOTIFY googleServicesChanged)
 
   public:
     static AndroidApps *create(QQmlEngine *engine, QJSEngine *);
@@ -32,6 +34,7 @@ class AndroidApps : public QObject {
     bool         available() const;
     QVariantMap  runtime() const;
     QVariantList apps() const;
+    QVariantMap  googleServices() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void refreshRuntime();
@@ -56,10 +59,17 @@ class AndroidApps : public QObject {
     Q_INVOKABLE void loadSpecialAccess(const QString &kind);
     Q_INVOKABLE void setSpecialAccess(const QString &kind, const QString &pkg, bool granted);
 
+    Q_INVOKABLE void loadGoogleServices();
+    // key: "enabled" or "push".
+    Q_INVOKABLE void setGoogleServices(const QString &key, bool enabled);
+    // page: "account" (sign in) or "selfcheck".
+    Q_INVOKABLE void openGoogleServices(const QString &page);
+
   Q_SIGNALS:
     void availableChanged();
     void runtimeChanged();
     void appsChanged();
+    void googleServicesChanged();
     void appLoaded(const QString &pkg, const QVariantMap &app);
     void appChanged(const QString &pkg);
     void appRemoved(const QString &pkg);
@@ -88,6 +98,7 @@ class AndroidApps : public QObject {
     bool                    m_available = false;
     QVariantMap             m_runtime;
     QVariantList            m_apps;
+    QVariantMap             m_google;
     QHash<QString, QString> m_icons;
     QHash<QString, QString> m_jobs;         // uninstall job → package
     QSet<QString>           m_uninstalling; // asked, not yet answered
