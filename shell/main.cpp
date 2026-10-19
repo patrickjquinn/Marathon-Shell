@@ -1309,8 +1309,18 @@ int main(int argc, char *argv[]) {
         new UpdateNotifier(updateService, freedesktopNotif, navigationRouter, &app);
     auto *davCalendarStore = new DavCalendarStore(&app);
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
-    createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
-                                         navigationRouter, telephonyService, appRegistry, &app);
+    auto *notificationHandler = createObject<NotificationHandlerCpp>(
+        ctx, "NotificationHandler", notificationService, navigationRouter, telephonyService,
+        appRegistry, &app);
+    // Its window, or the one its notification's default action opens (an
+    // Android app's contentIntent), comes to the front.
+    notificationHandler->setShowApp([appLaunchService](const QString &appId) {
+        if (!appLaunchService->canLaunch(appId))
+            return false;
+        if (!appLaunchService->expectWindow(appId))
+            appLaunchService->launchApp(QVariant(appId));
+        return true;
+    });
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
         displayPolicyController, displayManager, audioPolicyController, hapticManager,

@@ -91,6 +91,37 @@ add_test(NAME Shell_AudioPolicy COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with-
     $<TARGET_FILE:test_shell_audiopolicy>)
 set_tests_properties(Shell_AudioPolicy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Tapping a notification shows its app, the registry's or not
+add_executable(test_shell_notificationhandler
+    test_notificationhandler.cpp
+    ../../shell/src/services/notificationhandlercpp.cpp
+    ../../shell/src/services/navigationroutercpp.cpp
+    ../../shell/src/services/notificationtarget.cpp
+    ../../shell/src/controllers/audiopolicycontroller.cpp
+    ../../shell/src/managers/audiomanagercpp.cpp
+    ../../shell/src/managers/audiodclient.cpp
+    ../../shell/src/managers/sinkvolume.cpp
+    ../../shell/src/managers/settingsmanager.cpp
+    ../../shell/src/managers/deviceprofile.cpp
+    ../../shell/src/managers/hapticmanager.cpp
+    ../../shell/src/models/notificationmodel.cpp
+    ../../shell/src/dbus/notificationdatabase.cpp
+    ../../shell/src/services/notificationservicecpp.cpp
+    ../../marathon-core/src/marathonappregistry.cpp
+)
+target_link_libraries(test_shell_notificationhandler Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml
+    Qt6::Multimedia Qt6::Sql MarathonServices)
+target_include_directories(test_shell_notificationhandler PRIVATE
+    ${CMAKE_SOURCE_DIR}/shell/src
+    ${CMAKE_SOURCE_DIR}/shell/src/managers
+    ${CMAKE_SOURCE_DIR}/shell/src/controllers
+    ${CMAKE_SOURCE_DIR}/shell/src/models
+    ${CMAKE_SOURCE_DIR}/shell/src/services
+    ${CMAKE_SOURCE_DIR}/marathon-core/src
+    ${CMAKE_SOURCE_DIR}/marathon-services/src
+)
+add_test(NAME Shell_NotificationHandler COMMAND test_shell_notificationhandler)
+
 # MPRIS2Controller against fake players on a private session bus
 find_program(DBUS_RUN_SESSION dbus-run-session)
 if(DBUS_RUN_SESSION)

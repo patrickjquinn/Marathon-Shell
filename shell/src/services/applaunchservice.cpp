@@ -2197,10 +2197,12 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
 }
 #endif
 
-void AppLaunchService::expectWindow(const QString &appId) {
+bool AppLaunchService::expectWindow(const QString &appId) {
     m_expectedWindows.insert(appId, QDeadlineTimer(m_expectWindowMs));
-    if (m_taskModel && m_taskModel->getTaskByAppId(appId))
-        launchApp(QVariant(appId));
+    if (!m_taskModel || !m_taskModel->getTaskByAppId(appId))
+        return false;
+    launchApp(QVariant(appId));
+    return true;
 }
 
 void AppLaunchService::setAppSecure(const QString &appId, bool secure) {

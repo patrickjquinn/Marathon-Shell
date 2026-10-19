@@ -69,17 +69,14 @@ QVariantMap NotificationHandlerCpp::findNotification(int id) const {
 }
 
 void NotificationHandlerCpp::navigateToNotificationTarget(const QVariantMap &notification) {
-    if (!m_router)
-        return;
-
     const QString appId  = notification.value("appId").toString();
     const QString idText = notification.value("id").toString();
-    if (appId == "phone") {
+    if (m_router && appId == "phone") {
         m_router->navigateToDeepLink(appId, "history", {});
         return;
     }
 
-    if (appId == "messages") {
+    if (m_router && appId == "messages") {
         if (idText.startsWith("sms_")) {
             const QStringList parts = idText.split("_");
             if (parts.size() >= 2) {
@@ -94,9 +91,11 @@ void NotificationHandlerCpp::navigateToNotificationTarget(const QVariantMap &not
 
     // Rows stored before the server resolved apps still carry app_name.
     const QString installed = NotificationTarget::resolve({appId}, m_registry);
-    if (installed.isEmpty()) {
-        qWarning() << "[NotificationHandler] No installed app for notification from" << appId;
+    if (!installed.isEmpty() && m_router) {
+        m_router->navigateToDeepLink(installed, "", {});
         return;
     }
-    m_router->navigateToDeepLink(installed, "", {});
+    // An Android app, or a desktop app, the registry does not hold.
+    if (!m_showApp || !m_showApp(appId))
+        qWarning() << "[NotificationHandler] No app to show for notification from" << appId;
 }

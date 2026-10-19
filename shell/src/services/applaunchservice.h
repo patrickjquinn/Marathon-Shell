@@ -92,7 +92,8 @@ class AppLaunchService : public QObject {
     // An app's window is coming that the user asked for outside the shell
     // (Deckard: an Android notification's tap): its window in front now, or
     // the next one it maps within a few seconds.
-    void        expectWindow(const QString &appId);
+    // true when it had a window to bring forward.
+    bool        expectWindow(const QString &appId);
     // Its windows stay off cards and screenshots until its card goes.
     void        setAppSecure(const QString &appId, bool secure);
     QStringList secureApps() const {
