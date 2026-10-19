@@ -222,10 +222,10 @@ Item {
 
             MarathonTaskSwitcher {
                 opacity: 1
-                // Index 1 is this page; see the page index map below. `moving`
-                // keeps it true through a drag, which crosses currentIndex only
-                // at the snap threshold.
-                pageActive: pageView.currentIndex === 1 || pageView.moving
+                // Index 1 is this page; see the page index map below. A drag
+                // crosses currentIndex only at the snap threshold, so while the
+                // pages move it is active whenever any of it is on screen.
+                pageActive: pageView.currentIndex === 1 || (pageView.moving && parent !== null && Math.abs(parent.x - pageView.contentX) < pageView.width)
                 compositor: pageViewContainer.compositor
                 onSearchPullProgressChanged: {
                     pageViewContainer.searchPullProgress = searchPullProgress;
