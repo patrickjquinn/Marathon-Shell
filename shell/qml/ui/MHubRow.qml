@@ -37,7 +37,14 @@ FocusScope {
     property bool ongoing: false
     // 0..1, or negative while unknown.
     property real progress: -1
-    readonly property bool down: area.pressed && area.containsMouse && !area.swiping
+    readonly property bool down: area.pressed && area.containsMouse && !area.swiping && !tapTimeout.running
+
+    Timer {
+        id: tapTimeout
+
+        interval: MMotion.tapTimeout
+        running: area.pressed
+    }
     property real collapse: 1
     readonly property real fullHeight: Math.max(Silica.Theme.itemSizeLarge, textColumn.implicitHeight + Silica.Theme.paddingLarge * 2)
 

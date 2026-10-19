@@ -116,8 +116,8 @@ Item {
             id: contentColumn
 
             anchors.centerIn: parent
-            anchors.verticalCenterOffset: iconMouseArea.pressed ? -2 : 0
-            scale: iconMouseArea.pressed ? 0.95 : 1
+            anchors.verticalCenterOffset: iconMouseArea.pressShown ? -2 : 0
+            scale: iconMouseArea.pressShown ? 0.95 : 1
 
             Behavior on scale {
                 enabled: Constants.enableAnimations
@@ -153,7 +153,7 @@ Item {
                     source: iconCell.appData ? iconCell.appData.icon : ""
                     size: parent.width
                     anchors.centerIn: parent
-                    opacity: iconMouseArea.pressed ? Silica.Theme.opacityHigh : 1
+                    opacity: iconMouseArea.pressShown ? Silica.Theme.opacityHigh : 1
                 }
             }
 
@@ -175,6 +175,15 @@ Item {
 
         MouseArea {
             id: iconMouseArea
+
+            readonly property bool pressShown: pressed && !tapTimeout.running
+
+            Timer {
+                id: tapTimeout
+
+                interval: MMotion.tapTimeout
+                running: iconMouseArea.pressed
+            }
 
             property real pressX: 0
             property real pressY: 0

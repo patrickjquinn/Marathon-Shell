@@ -127,6 +127,8 @@ QtObject {
     // Marathon.Silica's Fling.js: Android's fling feel.
     readonly property real flickVelocity: 16000 * Silica.Theme.pixelRatio
     readonly property real flickDeceleration: 6300 * Silica.Theme.pixelRatio
+    // Android's tap timeout: a press shows once it hasn't become a scroll.
+    readonly property int tapTimeout: 100
 
     // Settings → Accessibility → Reduce motion. Components go through dur().
     property bool reduceMotion: typeof SettingsManagerCpp !== "undefined" ? SettingsManagerCpp.reduceMotion === true : (typeof MarathonA11ySettings !== "undefined" && MarathonA11ySettings.reduceMotion === true)
