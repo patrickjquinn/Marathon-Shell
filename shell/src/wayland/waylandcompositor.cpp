@@ -129,6 +129,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         },
         Qt::QueuedConnection);
 #endif
+    QMetaObject::invokeMethod(
+        this,
+        [this]() {
+            connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
+                    [this]() { m_keyboardFocusSince.start(); });
+        },
+        Qt::QueuedConnection);
     const bool enableWlShell = envBool("MARATHON_WL_ENABLE_WL_SHELL", false);
     if (enableWlShell) {
         m_wlShell = new QWaylandWlShell(this);
@@ -973,6 +980,12 @@ void WaylandCompositor::activateSurface(int surfaceId) {
     if (marathon && !marathon->focusable())
         return;
     if (surface && defaultSeat()) {
+        // Android moves its focus only on wl_keyboard.enter: a raise re-enters
+        // a window that kept the keyboard, once.
+        const bool held = defaultSeat()->keyboardFocus() == surface;
+        if (held && surface->property("foreignClient").toBool() &&
+            m_keyboardFocusSince.isValid() && m_keyboardFocusSince.elapsed() > 1000)
+            defaultSeat()->setKeyboardFocus(nullptr);
         defaultSeat()->setKeyboardFocus(surface);
         if (wlVerbose())
             qDebug() << "[WaylandCompositor] Activated surface (set keyboard focus):" << surfaceId;
