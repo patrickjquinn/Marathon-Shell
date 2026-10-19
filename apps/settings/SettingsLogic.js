@@ -33,7 +33,8 @@ const pages = {
     android: "AndroidPage.qml",
     androidapps: "AndroidAppsPage.qml",
     androidaccess: "AndroidAccessListPage.qml",
-    mms: "MmsPage.qml"
+    mms: "MmsPage.qml",
+    permissions: "PermissionsPage.qml"
 };
 
 function pageFile(route) {
@@ -74,6 +75,7 @@ const sections = [
         title: qsTr("Security and accounts"),
         entries: [
             { page: "security", title: qsTr("Security"), icon: "image://theme/icon-m-device-lock", keywords: "pin password lock fingerprint biometric encryption" },
+            { page: "permissions", title: qsTr("App permissions"), icon: "image://theme/icon-m-privacy", keywords: "privacy camera microphone location contacts calendar files notifications android apps allow deny revoke" },
             { page: "accounts", title: qsTr("Accounts"), icon: "image://theme/icon-m-people", keywords: "carddav caldav sync nextcloud contacts calendar" }
         ]
     },
@@ -341,6 +343,11 @@ function duration(seconds) {
         return qsTr("%n hours", "", Math.floor(s / 3600));
     return qsTr("%n days", "", Math.floor(s / 86400));
 }
+
+// The permissions App permissions lists, in order: Marathon's vocabulary
+// (Permissions.describe) without its restricted ones, Android apps' first
+// (deckardd's PermissionMap uses the same names).
+const permissionNames = ["location", "camera", "microphone", "contacts", "calendar", "storage", "notifications", "telephony", "sms", "bluetooth", "sensors", "network", "alarms", "secret-service"];
 
 const androidAccess = [
     { kind: "all_files", title: qsTr("All files"), description: qsTr("Read and change all your files") },
