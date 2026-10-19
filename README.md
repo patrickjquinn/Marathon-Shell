@@ -15,8 +15,9 @@ touch-first Linux phone OS built on postmarketOS. One Qt 6 process is both
 the Wayland compositor and the shell UI. Marathon's own apps are written
 against Keel (Sailfish Silica for Qt 6); native GTK, libadwaita and KDE apps,
 usually Flatpaks, run beside them and follow the same theme, scale and
-gestures. The repository also holds the Rust services and the image
-pipeline under `packaging/`.
+gestures. Android apps run through Deckard as Marathon apps, with microG in
+place of Google Play services. The repository also holds the Rust services
+and the image pipeline under `packaging/`.
 
 ## Gallery
 
@@ -26,7 +27,8 @@ pipeline under `packaging/`.
 | <img src="screenshots/screen2.png" width="400" alt="Task Switcher"> | <img src="screenshots/screen3.png" width="400" alt="Notification Hub"> |
 | <img src="screenshots/screen4.png" width="400" alt="Quick Settings"> | <img src="screenshots/screen5.png" width="400" alt="Lock Screen"> |
 | <img src="screenshots/screen6.png" width="400" alt="Browser"> | <img src="screenshots/screen7.png" width="400" alt="Weather"> |
-| <img src="screenshots/screen8.png" width="400" alt="Native app (Shortwave)"> | |
+| <img src="screenshots/screen8.png" width="400" alt="Native app (Shortwave)"> | <img src="screenshots/screen9.png" width="400" alt="Android app (Material Files)"> |
+| <img src="screenshots/screen10.png" width="400" alt="Android apps settings"> | |
 
 ## Architecture
 
@@ -37,6 +39,7 @@ pipeline under `packaging/`.
 | App runner | `tools/marathon-app-runner/` | `marathon-app-runner` and `marathon-keel-host` run each app in its own process and bubblewrap sandbox, with `Marathon.Platform` exposing the shell's services. |
 | App platform | `marathon-core/`, `tools/marathon-dev/` | `.marathon` packages: packaging, minisign signing, verification, install, discovery. |
 | Data services | `marathon-services/` | Telephony, SMS/MMS, contacts, call history, CalDAV/CardDAV sync, media library, mail (QMF). |
+| Android apps | [Marathon-Deckard](https://github.com/patrickjquinn/Marathon-Deckard), `packaging/packages/deckard` | Deckard: Waydroid (LineageOS 20, Android 13) with `deckardd` on the host and Marathon's own system apps inside Android. The aport pins a Marathon-Deckard commit. |
 | Rust services | `crates/`, `tools/marathon-mail-oauth/` | `marathon-audiod`, `marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`, `marathon-mail-oauth`. |
 | Image pipeline | `packaging/`, `scripts/build-image.sh` | Alpine/postmarketOS aports and the duranium/mkosi pipeline that builds device images. |
 
@@ -55,6 +58,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for more.
   shell, Keel apps and native apps.
 - Built-in keyboard (not Qt VirtualKeyboard) with Hunspell prediction,
   autocorrect and layouts per input type. Marathon.Silica adds keyboard operation for hardware keyboards.
+- Touch and frame timing after Android's Project Butter: the compositor
+  latches each frame 8 ms after the vblank and calls clients back at it,
+  the shell and apps resample touch at frame time, input raises a CPU
+  floor for 1.5 s, and flings follow Pacific's physics (release speed over
+  the last 50 ms, carried flings). See
+  [docs/perf/SCROLLING.md](docs/perf/SCROLLING.md).
 - Per-device profiles (DPI, panel, quirks) from
   `/etc/marathon/device-profile.conf`; see
   [docs/DEVICE_OVERLAYS.md](docs/DEVICE_OVERLAYS.md).
@@ -88,6 +97,23 @@ Flatpaks from Flathub through `marathon-store-handler`.
   `marathon-sailfish-install` installs their RPMs. This is tested on a host
   only, not yet on a device.
 
+**Android apps** (Deckard)
+- Each Android task is its own Marathon window and switcher card, with no
+  Android chrome; back, the keyboard, the ambience colours and media
+  controls are Marathon's.
+- Notifications arrive in the Hub, with inline reply. Permission prompts
+  are drawn by Marathon; each Android app's permissions, notifications and
+  special access are in Settings > Android apps.
+- microG (GmsCore and its Play Store stub) gives apps Google push (FCM)
+  without a Google account, and location comes from Marathon's GeoClue.
+  It costs about 120 MB of memory and no boot time; it can be turned off
+  in Settings, and the Store warns about apps that need it.
+- The Store says before install whether an Android app will run here (for
+  example, "Needs a phone radio"). Gallery shows the photos Android apps
+  save to the shared folders.
+- See [docs/ANDROID_APPS.md](docs/ANDROID_APPS.md) and the
+  [Marathon-Deckard docs](https://github.com/patrickjquinn/Marathon-Deckard/tree/main/docs).
+
 **System services**
 - Network (NetworkManager), power and battery (UPower), Bluetooth (BlueZ),
   modem, calls and SMS (ModemManager, mmsd-tng), audio (PipeWire), sensors
@@ -118,7 +144,7 @@ Flatpaks from Flathub through `marathon-store-handler`.
 |---|---|---|
 | Purism Librem 5 | `scripts/build-librem5-image.sh` | Primary phone. U-Boot boot script path; flash with `scripts/flash/flash-librem5.sh`. |
 | PINE64 PinePhone | `scripts/build-image.sh pine64-pinephone` | Boots through U-Boot on the Librem 5's path, with an MBR image and U-Boot at 8 KiB; write the `.raw` to an SD card. |
-| HackberryPi CM5 | `scripts/build-hackberry-cm5-image.sh` | Raspberry Pi CM5 with a 720x720 panel and a physical keyboard. Layers `device-hackberrypi-cm5-marathon` on the Pi 5 base. Flash with `scripts/flash/flash-hackberry-cm5.sh`. |
+| HackberryPi CM5 | `scripts/build-hackberry-cm5-image.sh` | Raspberry Pi CM5 with a 720x720 panel and a physical keyboard. The test device for Android apps and the scrolling work. Layers `device-hackberrypi-cm5-marathon` on the Pi 5 base. Flash with `scripts/flash/flash-hackberry-cm5.sh`. |
 | Raspberry Pi 5 / CM5 | `scripts/build-image.sh raspberry-pi5` | Base port without the HackberryPi enclosure. |
 | QEMU aarch64 | `scripts/build-qemu-image.sh` | Developer simulator with GL (virgl). |
 | OnePlus 6 (enchilada) | `scripts/build-oneplus6-image.sh` | Dormant: the overlay is kept but not maintained or tested. |
@@ -330,6 +356,7 @@ Marathon-Shell/
 - [Architecture](docs/ARCHITECTURE.md), [UI design system](docs/UI_DESIGN_SYSTEM.md), [Coding rules](docs/CODING_RULES.md)
 - [App development](docs/APP_DEVELOPMENT.md), [Keel app migration](docs/superpowers/KEEL_APP_MIGRATION.md), [Permissions](docs/PERMISSION_GUIDE.md)
 - [Native app theming](docs/NATIVE_APP_THEMING.md), [scale](docs/NATIVE_APP_SCALE.md), [lifecycle](docs/NATIVE_APP_LIFECYCLE.md)
+- [Android apps](docs/ANDROID_APPS.md), [Scrolling and frame pacing](docs/perf/SCROLLING.md)
 - [Developer CLI](docs/DEV_CLI.md), [Testing on device](docs/TESTING_ON_DEVICE.md), [RT scheduling](docs/RT_SCHEDULING.md)
 
 ## Contributing
