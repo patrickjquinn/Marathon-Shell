@@ -14,12 +14,15 @@
 #include <QStandardPaths>
 #include <QTemporaryFile>
 
+#include <memory>
+
 namespace {
     // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
     const QString kBus     = QStringLiteral("org.ofono.mms");
     const QString kManager = QStringLiteral("/org/ofono/mms");
     const QString kService = QStringLiteral("org.ofono.mms.Service");
     const QString kMessage = QStringLiteral("org.ofono.mms.Message");
+    const QString kModemManager = QStringLiteral("org.ofono.mms.ModemManager");
     // NOLINTEND(bugprone-throwing-static-initialization)
 
     // A stored part: (id, content type, file, offset, length).
@@ -101,6 +104,10 @@ MmsManager::MmsManager(QObject *parent)
     connect(m_watcher, &QDBusServiceWatcher::serviceUnregistered, this, &MmsManager::forget);
     bus.connect(kBus, QString(), kMessage, QStringLiteral("PropertyChanged"), this,
                 SLOT(onMessagePropertyChanged(QString, QDBusVariant, QDBusMessage)));
+    bus.connect(kBus, kManager, kModemManager, QStringLiteral("SettingsChanged"), this,
+                SLOT(onSettingsChanged(QString, QString, QString)));
+    bus.connect(kBus, kManager, kModemManager, QStringLiteral("BearerHandlerError"), this,
+                SLOT(onBearerError(QDBusMessage)));
     // Activates mmsd-tng where it is installed.
     discover();
 }
@@ -252,4 +259,99 @@ void MmsManager::onMessagePropertyChanged(const QString &name, const QDBusVarian
         emit statusChanged(message.path(), QStringLiteral("sent"));
     else if (status == QLatin1String("sending_failed"))
         emit statusChanged(message.path(), QStringLiteral("failed"));
+}
+
+void MmsManager::viewSettings(QObject *context,
+                              const std::function<void(const QVariantMap &)> &done) {
+    if (m_servicePath.isEmpty()) {
+        done({});
+        return;
+    }
+    QDBusConnection bus     = QDBusConnection::sessionBus();
+    auto           *carrier = new QDBusPendingCallWatcher(
+        bus.asyncCall(QDBusMessage::createMethodCall(kBus, kManager, kModemManager,
+                                                     QStringLiteral("ViewSettings"))),
+        context);
+    const QString service = m_servicePath;
+    connect(carrier, &QDBusPendingCallWatcher::finished, context,
+            [context, done, service](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                const QDBusPendingReply<QVariantMap> settings = *w;
+                const QVariantMap merged = settings.isError() ? QVariantMap() : settings.value();
+                auto *props = new QDBusPendingCallWatcher(
+                    QDBusConnection::sessionBus().asyncCall(QDBusMessage::createMethodCall(
+                        kBus, service, kService, QStringLiteral("GetProperties"))),
+                    context);
+                connect(props, &QDBusPendingCallWatcher::finished, context,
+                        [done, merged](QDBusPendingCallWatcher *p) {
+                            p->deleteLater();
+                            QVariantMap                          all    = merged;
+                            const QDBusPendingReply<QVariantMap> values = *p;
+                            if (!values.isError())
+                                all.insert(values.value());
+                            done(all);
+                        });
+            });
+}
+
+void MmsManager::changeSettings(const QVariantMap &values, QObject *context,
+                                const std::function<void(const QString &)> &done) {
+    static const QStringList carrierKeys{QStringLiteral("CarrierMMSC"), QStringLiteral("MMS_APN"),
+                                         QStringLiteral("CarrierMMSProxy"),
+                                         QStringLiteral("DefaultModemNumber"),
+                                         QStringLiteral("AutoProcessOnConnection")};
+    static const QStringList serviceKeys{QStringLiteral("UseDeliveryReports")};
+    if (m_servicePath.isEmpty()) {
+        done(tr("MMS isn't available"));
+        return;
+    }
+    for (auto it = values.cbegin(); it != values.cend(); ++it) {
+        if (!carrierKeys.contains(it.key()) && !serviceKeys.contains(it.key())) {
+            done(tr("%1 can't be changed").arg(it.key()));
+            return;
+        }
+    }
+    QList<QDBusMessage> calls;
+    bool                carrier = false;
+    for (auto it = values.cbegin(); it != values.cend(); ++it) {
+        const bool    isCarrier = carrierKeys.contains(it.key());
+        QDBusMessage  call      = QDBusMessage::createMethodCall(
+            kBus, isCarrier ? kManager : m_servicePath, isCarrier ? kModemManager : kService,
+            isCarrier ? QStringLiteral("ChangeSettings") : QStringLiteral("SetProperty"));
+        call << it.key() << QVariant::fromValue(QDBusVariant(it.value()));
+        calls << call;
+        carrier |= isCarrier;
+    }
+    if (carrier)
+        calls << QDBusMessage::createMethodCall(kBus, kManager, kModemManager,
+                                                QStringLiteral("ProcessMessageQueue"));
+    // One after another, stopping at the first error.
+    auto next = std::make_shared<std::function<void(int)>>();
+    *next     = [calls, context, done, next](int index) {
+        if (index >= calls.size()) {
+            done(QString());
+            return;
+        }
+        auto *watcher = new QDBusPendingCallWatcher(
+            QDBusConnection::sessionBus().asyncCall(calls.at(index)), context);
+        connect(watcher, &QDBusPendingCallWatcher::finished, context,
+                [done, next, index](QDBusPendingCallWatcher *w) {
+                    w->deleteLater();
+                    if (w->isError())
+                        done(w->error().message());
+                    else
+                        (*next)(index + 1);
+                });
+    };
+    (*next)(0);
+}
+
+void MmsManager::onSettingsChanged(const QString &apn, const QString &mmsc, const QString &proxy) {
+    emit settingsChanged({{QStringLiteral("MMS_APN"), apn},
+                          {QStringLiteral("CarrierMMSC"), mmsc},
+                          {QStringLiteral("CarrierMMSProxy"), proxy}});
+}
+
+void MmsManager::onBearerError(const QDBusMessage &message) {
+    emit bearerError(message.arguments().value(0).toUInt());
 }

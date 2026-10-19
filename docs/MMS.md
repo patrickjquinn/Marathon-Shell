@@ -44,7 +44,7 @@ one-to-one MMS works.
 | `SendMms(as recipients, s text, a(ssh) attachments) → i` | Each attachment is (content type, file name, fd). Returns the stored message id. |
 | `OpenAttachment(i id) → h` | A read-only fd of a stored attachment. |
 | `GetMessages(s conversationId)` | Each message gains `status` and `attachments` (`[{id, contentType, name, size}]`). |
-| property `b MmsAvailable` | mmsd-tng is on the bus with a service. |
+| `IsMmsAvailable() → b`, signal `MmsAvailableChanged(b)` | mmsd-tng is on the bus with a service. |
 | signal `MessageStatusChanged(i id, s status)` | A sent message became `sent` or `failed`. |
 
 ### MMS settings (for Settings › Mobile network › MMS)

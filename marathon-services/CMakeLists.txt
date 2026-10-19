@@ -37,6 +37,7 @@ qt6_add_library(MarathonServices SHARED
     src/smsservice.h
     src/smsservice.cpp
     src/mmsmanager.h
+    src/mmspartarg.h
     src/mmsmanager.cpp
     src/davsecretstore.h
     src/davsecretstore.cpp

@@ -11,6 +11,9 @@
 #include <QHash>
 #include <QObject>
 #include <QDBusContext>
+#include <QDBusUnixFileDescriptor>
+
+#include "mmspartarg.h"
 #include <QDBusVariant>
 #include <QVariantList>
 #include <QVariantMap>
@@ -208,15 +211,31 @@ class SmsObject : public IpcPermissionedService {
 
     void         SimulateIncomingSMS(const QString &sender, const QString &message);
 
+    // MMS, docs/MMS.md: each part is a content type, a name and an fd, never a path.
+    int                     SendMms(const QStringList &recipients, const QString &text,
+                                    const QList<MmsPartArg> &parts);
+    QDBusUnixFileDescriptor OpenAttachment(int id);
+    bool                    IsMmsAvailable();
+    // Settings' MMS page only.
+    QVariantMap             GetMmsSettings();
+    void                    SetMmsSettings(const QVariantMap &values);
+
   signals:
     void MessageReceived(const QString &sender, const QString &text, qint64 timestamp);
     void MessageSent(const QString &recipient, qint64 timestamp);
     void SendFailed(const QString &recipient, const QString &reason);
     void ConversationsChanged();
+    void MessageStatusChanged(int id, const QString &status);
+    void MmsAvailableChanged(bool available);
+    void MmsSettingsChanged(const QVariantMap &settings);
+    void MmsBearerError(uint code);
 
   private:
     bool requireSms() {
         return requirePermission("Sms", {"sms", "phone"});
+    }
+    bool requireMmsSettings() {
+        return requirePermission("Sms.Settings", {"system"});
     }
 
     SMSService *m_sms = nullptr;

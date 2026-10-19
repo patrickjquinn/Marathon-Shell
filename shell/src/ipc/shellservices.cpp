@@ -1,4 +1,8 @@
 #include "shellservices.h"
+#include <unistd.h>
+#include <fcntl.h>
+#include <QDBusMetaType>
+#include "mmsmanager.h"
 #include "permissionauth.h"
 #include "servicecaller.h"
 
@@ -1802,6 +1806,89 @@ SmsObject::SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
     QObject::connect(m_sms, &SMSService::sendFailed, this, &SmsObject::SendFailed);
     QObject::connect(m_sms, &SMSService::conversationsChanged, this,
                      &SmsObject::ConversationsChanged);
+    QObject::connect(m_sms, &SMSService::messageStatusChanged, this,
+                     &SmsObject::MessageStatusChanged);
+    QObject::connect(m_sms, &SMSService::mmsAvailableChanged, this,
+                     &SmsObject::MmsAvailableChanged);
+    if (MmsManager *mms = m_sms->mmsManager()) {
+        QObject::connect(mms, &MmsManager::settingsChanged, this, &SmsObject::MmsSettingsChanged);
+        QObject::connect(mms, &MmsManager::bearerError, this, &SmsObject::MmsBearerError);
+    }
+    qDBusRegisterMetaType<MmsPartArg>();
+    qDBusRegisterMetaType<QList<MmsPartArg>>();
+}
+
+int SmsObject::SendMms(const QStringList &recipients, const QString &text,
+                       const QList<MmsPartArg> &parts) {
+    if (!requireSms())
+        return -1;
+    constexpr int kMaxRecipients = 20;
+    constexpr int kMaxParts      = 25;
+    if (recipients.isEmpty() || recipients.size() > kMaxRecipients || parts.size() > kMaxParts) {
+        sendErrorReply(QDBusError::InvalidArgs, "1 to 20 recipients and at most 25 parts");
+        return -1;
+    }
+    QList<MmsPart> list;
+    for (const MmsPartArg &part : parts) {
+        if (!part.fd.isValid() || part.contentType.isEmpty()) {
+            sendErrorReply(QDBusError::InvalidArgs, "Each part needs a type and a descriptor");
+            return -1;
+        }
+        list << MmsPart{part.contentType, part.name, part.fd.fileDescriptor()};
+    }
+    return m_sms->sendMms(recipients, text, list);
+}
+
+QDBusUnixFileDescriptor SmsObject::OpenAttachment(int id) {
+    if (!requireSms())
+        return {};
+    const QString path = m_sms->attachmentPath(id);
+    const int     fd   = path.isEmpty() ? -1 : ::open(QFile::encodeName(path).constData(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        sendErrorReply(QDBusError::InvalidArgs, "No such attachment");
+        return {};
+    }
+    QDBusUnixFileDescriptor out(fd);
+    ::close(fd);
+    return out;
+}
+
+bool SmsObject::IsMmsAvailable() {
+    return requireSms() && m_sms->mmsAvailable();
+}
+
+QVariantMap SmsObject::GetMmsSettings() {
+    if (!requireMmsSettings())
+        return {};
+    MmsManager *mms = m_sms->mmsManager();
+    if (!mms)
+        return {};
+    setDelayedReply(true);
+    const QDBusMessage call = message();
+    mms->viewSettings(this, [call](const QVariantMap &settings) {
+        QDBusConnection::sessionBus().send(call.createReply(QVariant(settings)));
+    });
+    return {};
+}
+
+void SmsObject::SetMmsSettings(const QVariantMap &values) {
+    if (!requireMmsSettings())
+        return;
+    MmsManager *mms = m_sms->mmsManager();
+    if (!mms) {
+        sendErrorReply(QDBusError::NotSupported, "MMS isn't available");
+        return;
+    }
+    setDelayedReply(true);
+    const QDBusMessage call = message();
+    mms->changeSettings(values, this, [this, call, values](const QString &error) {
+        if (error.isEmpty()) {
+            QDBusConnection::sessionBus().send(call.createReply());
+            emit MmsSettingsChanged(values);
+        } else {
+            QDBusConnection::sessionBus().send(call.createErrorReply(QDBusError::InvalidArgs, error));
+        }
+    });
 }
 
 QVariantList SmsObject::GetConversations() {

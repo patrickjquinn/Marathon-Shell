@@ -16,6 +16,8 @@
 #include <unistd.h>
 
 #include "mmsmanager.h"
+#include "mmspartarg.h"
+#include <QDBusAbstractAdaptor>
 #include "smsservice.h"
 
 // mmsd-tng's attachment as it lists them: (id, content type, stored file,
@@ -66,14 +68,55 @@ using ServiceList  = QList<ServiceEntry>;
 Q_DECLARE_METATYPE(ServiceEntry)
 Q_DECLARE_METATYPE(ServiceList)
 
-class FakeManager : public QObject {
+// /org/ofono/mms: the Manager and the ModemManager plugin's settings.
+class FakeRoot : public QObject {
+    Q_OBJECT
+
+  public:
+    QVariantMap settings{{"CarrierMMSC", "http://mms.example/mms"},
+                         {"MMS_APN", "mms"},
+                         {"CarrierMMSProxy", "NULL"},
+                         {"DefaultModemNumber", "NULL"},
+                         {"AutoProcessOnConnection", true}};
+    int processed = 0;
+};
+
+class FakeManagerAdaptor : public QDBusAbstractAdaptor {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.ofono.mms.Manager")
+
+  public:
+    explicit FakeManagerAdaptor(QObject *root)
+        : QDBusAbstractAdaptor(root) {}
 
   public slots:
     ServiceList GetServices() {
         return {{QDBusObjectPath("/org/ofono/mms/modemmanager"), {}}};
     }
+};
+
+class FakeModemManagerAdaptor : public QDBusAbstractAdaptor {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.ofono.mms.ModemManager")
+
+  public:
+    explicit FakeModemManagerAdaptor(FakeRoot *root)
+        : QDBusAbstractAdaptor(root)
+        , m_root(root) {}
+
+  public slots:
+    QVariantMap ViewSettings() {
+        return m_root->settings;
+    }
+    void ChangeSettings(const QString &key, const QDBusVariant &value) {
+        m_root->settings.insert(key, value.variant());
+    }
+    void ProcessMessageQueue() {
+        ++m_root->processed;
+    }
+
+  private:
+    FakeRoot *m_root;
 };
 
 class FakeService : public QObject {
@@ -86,9 +129,15 @@ class FakeService : public QObject {
     QStringList        sentTypes;
     int                sent = 0;
 
+  public:
+    QVariantMap properties{{"TotalMaxAttachmentSize", 120000}, {"MaxAttachments", 25}, {"UseDeliveryReports", false}};
+
   public slots:
     QVariantMap GetProperties() {
-        return {{"TotalMaxAttachmentSize", 120000}, {"MaxAttachments", 25}};
+        return properties;
+    }
+    void SetProperty(const QString &name, const QDBusVariant &value) {
+        properties.insert(name, value.variant());
     }
     QDBusObjectPath SendMessage(const QStringList &to, const QDBusVariant &, const QList<FakeSent> &list) {
         recipients = to;
@@ -106,7 +155,7 @@ class TestMms : public QObject {
 
     QTemporaryDir   store;
     QDBusConnection mmsd = QDBusConnection::connectToBus(QDBusConnection::SessionBus, "mmsd");
-    FakeManager     manager;
+    FakeRoot        root;
     FakeService     service;
 
     void emitAdded(const QString &path, const QVariantMap &props) {
@@ -126,7 +175,9 @@ class TestMms : public QObject {
         qDBusRegisterMetaType<QList<FakeSent>>();
         qDBusRegisterMetaType<ServiceEntry>();
         qDBusRegisterMetaType<ServiceList>();
-        QVERIFY(mmsd.registerObject("/org/ofono/mms", &manager, QDBusConnection::ExportAllSlots));
+        new FakeManagerAdaptor(&root);
+        new FakeModemManagerAdaptor(&root);
+        QVERIFY(mmsd.registerObject("/org/ofono/mms", &root, QDBusConnection::ExportAdaptors));
         QVERIFY(mmsd.registerObject("/org/ofono/mms/modemmanager", &service,
                                     QDBusConnection::ExportAllSlots));
         QVERIFY(mmsd.registerService("org.ofono.mms"));
@@ -241,6 +292,45 @@ class TestMms : public QObject {
         QVERIFY(sent.loadFromData(service.sentParts.at(0)));
         QVERIFY(sent.width() < 1600);
         QCOMPARE(sent.width() * 3, sent.height() * 4);
+    }
+
+    // Settings' MMS page: mmsd-tng's carrier settings and its service's
+    // properties, read together, changed by kind.
+    void settingsAreReadAndChanged() {
+        MmsManager mms;
+        QTRY_VERIFY(mms.available());
+        QVariantMap read;
+        mms.viewSettings(this, [&read](const QVariantMap &values) { read = values; });
+        QTRY_VERIFY(!read.isEmpty());
+        QCOMPARE(read.value("CarrierMMSC").toString(), QString("http://mms.example/mms"));
+        QCOMPARE(read.value("TotalMaxAttachmentSize").toInt(), 120000);
+
+        QString error = "pending";
+        const int processedBefore = root.processed;
+        mms.changeSettings({{"CarrierMMSC", "http://mmsc.carrier/"}, {"UseDeliveryReports", true}}, this,
+                           [&error](const QString &e) { error = e; });
+        QTRY_COMPARE(error, QString());
+        QCOMPARE(root.settings.value("CarrierMMSC").toString(), QString("http://mmsc.carrier/"));
+        QCOMPARE(service.properties.value("UseDeliveryReports").toBool(), true);
+        QCOMPARE(root.processed, processedBefore + 1);
+
+        error = "pending";
+        mms.changeSettings({{"TotalMaxAttachmentSize", 9999999}}, this, [&error](const QString &e) { error = e; });
+        QTRY_VERIFY(error != "pending");
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(service.properties.value("TotalMaxAttachmentSize").toInt(), 120000);
+    }
+
+    // Sms1.SendMms's parts: a(ssh), the descriptor arriving as a new fd.
+    void partsCrossTheBusAsDescriptors() {
+        QFile file(store.filePath("part.bin"));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("part data");
+        file.close();
+        qDBusRegisterMetaType<MmsPartArg>();
+        qDBusRegisterMetaType<QList<MmsPartArg>>();
+        QCOMPARE(QString::fromLatin1(QDBusMetaType::typeToSignature(QMetaType::fromType<QList<MmsPartArg>>())),
+                 QString("a(ssh)"));
     }
 
     // mmsd-tng keeps a received MMS in one file; each part is a slice of it.

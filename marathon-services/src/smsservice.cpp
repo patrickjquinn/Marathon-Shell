@@ -81,6 +81,8 @@ void SMSService::setMmsManager(MmsManager *mmsManager) {
                 loadConversations();
                 emit messageReceived(sender, text, timestamp);
             });
+    connect(m_mmsManager, &MmsManager::availableChanged, this,
+            [this]() { emit mmsAvailableChanged(mmsAvailable()); });
     connect(m_mmsManager, &MmsManager::queued, this, [this](int id, const QString &path) {
         QSqlQuery query(m_database);
         query.prepare(QStringLiteral("UPDATE messages SET mmsPath = ? WHERE id = ?"));
@@ -100,6 +102,10 @@ void SMSService::setMmsManager(MmsManager *mmsManager) {
                 if (query.exec() && query.next())
                     setStatus(query.value(0).toInt(), status);
             });
+}
+
+bool SMSService::mmsAvailable() const {
+    return m_mmsManager && m_mmsManager->available();
 }
 
 void SMSService::setStatus(int id, const QString &status) {

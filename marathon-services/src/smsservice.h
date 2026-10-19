@@ -51,6 +51,10 @@ class SMSService : public QObject {
 
     void             setContactsManager(ContactsManager *contactsManager);
     void             setMmsManager(MmsManager *mmsManager);
+    MmsManager      *mmsManager() const {
+        return m_mmsManager;
+    }
+    bool             mmsAvailable() const;
 
     QVariantList     conversations() const;
 
@@ -83,6 +87,7 @@ class SMSService : public QObject {
     void messageSent(const QString &recipient, qint64 timestamp);
     void sendFailed(const QString &recipient, const QString &reason);
     void messageStatusChanged(int id, const QString &status);
+    void mmsAvailableChanged(bool available);
     void conversationsChanged();
 
   private slots:

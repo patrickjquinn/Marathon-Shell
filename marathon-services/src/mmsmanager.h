@@ -11,6 +11,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <functional>
+
 class QDBusServiceWatcher;
 
 // The shell's client of mmsd-tng (org.ofono.mms, session bus,
@@ -48,6 +50,15 @@ class MmsManager : public QObject {
     void send(int token, const QStringList &recipients, const QString &text,
               const QList<Part> &parts);
 
+    // mmsd-tng's carrier settings (ViewSettings) and its service's
+    // properties, merged; {} without mmsd-tng.
+    void viewSettings(QObject *context, const std::function<void(const QVariantMap &)> &done);
+    // Carrier keys go to ChangeSettings, then the queue is processed again;
+    // UseDeliveryReports to the service. done("") or done(error); nothing is
+    // changed when a key is unknown or read-only.
+    void changeSettings(const QVariantMap &values, QObject *context,
+                        const std::function<void(const QString &)> &done);
+
   signals:
     void availableChanged();
     // attachments: [{name, contentType, data}], the text parts joined in text.
@@ -57,12 +68,19 @@ class MmsManager : public QObject {
     void failed(int token, const QString &reason);
     // A queued message became "sent" or "failed".
     void statusChanged(const QString &path, const QString &status);
+    // mmsd-tng configured itself (SettingsChanged): MMS_APN, CarrierMMSC,
+    // CarrierMMSProxy.
+    void settingsChanged(const QVariantMap &settings);
+    // mmsd-tng could not bring up the MMS bearer (BearerHandlerError).
+    void bearerError(uint code);
 
   private slots:
     void onMessageAdded(const QDBusObjectPath &path, const QVariantMap &props);
     void onMessageSendError(const QVariantMap &errorInfo);
     void onMessagePropertyChanged(const QString &name, const QDBusVariant &value,
                                   const QDBusMessage &message);
+    void onSettingsChanged(const QString &apn, const QString &mmsc, const QString &proxy);
+    void onBearerError(const QDBusMessage &message);
 
   private:
     void discover();
