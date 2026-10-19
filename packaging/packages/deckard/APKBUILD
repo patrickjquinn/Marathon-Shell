@@ -32,6 +32,9 @@ check() {
 
 package() {
 	DESTDIR="$pkgdir" cmake --install build
+	install -d "$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants
+	ln -s ../deckardd.service \
+		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckardd.service
 	local p=host/packaging
 	install -Dm755 $p/deckard-waydroid "$pkgdir"/usr/libexec/deckard-waydroid
 	install -Dm755 $p/deckard-overlay-sync "$pkgdir"/usr/libexec/deckard-overlay-sync
