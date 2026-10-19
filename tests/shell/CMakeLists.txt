@@ -230,6 +230,14 @@ target_link_libraries(test_shell_filechoosermodel Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_filechoosermodel PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/models)
 add_test(NAME Shell_FileChooserModel COMMAND test_shell_filechoosermodel)
 
+# xdg-desktop-portal FileChooser backend: requests, replies, Close, on a private bus
+add_executable(test_shell_portalfilechooser test_portalfilechooser.cpp
+    ../../shell/src/dbus/portalfilechooser.cpp)
+target_link_libraries(test_shell_portalfilechooser Qt6::Test Qt6::Core Qt6::DBus)
+target_include_directories(test_shell_portalfilechooser PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
+add_test(NAME Shell_PortalFileChooser
+    COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_portalfilechooser>)
+
 # GTK / libadwaita / KDE colours derived from the ambience
 add_executable(test_shell_toolkittheme test_toolkittheme.cpp ../../shell/src/services/toolkittheme.cpp)
 target_link_libraries(test_shell_toolkittheme Qt6::Test Qt6::Core Qt6::Gui)

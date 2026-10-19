@@ -177,6 +177,8 @@ set(SOURCES
     src/services/toolkitthemewriter.h
     src/services/toolkitthemewriter.cpp
     src/dbus/portalsettings.cpp
+    src/dbus/portalfilechooser.h
+    src/dbus/portalfilechooser.cpp
     src/services/surfaceregistry.h
     src/services/surfaceregistry.cpp
     src/services/domainsuggestions.h
