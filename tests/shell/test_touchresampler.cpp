@@ -129,7 +129,7 @@ class TestTouchResampler : public QObject {
     }
 
     // A finger that stops goes at most half a report's spacing on, and
-    // the content never steps back while it rests.
+    // the content never steps back while it rests or as it lifts.
     void aStoppingFingerBarelyOvershoots() {
         Recorder       w;
         TouchResampler resampler(&w, nullptr);
@@ -155,6 +155,10 @@ class TestTouchResampler : public QObject {
             }
         }
         QVERIFY2(shown <= last + 12, qPrintable(QStringLiteral("%1 past %2").arg(shown).arg(last)));
+        // Lifting there doesn't pull the content back.
+        send(w, QEvent::TouchEnd, QEventPoint::State::Released, last, t0 + 300);
+        QCOMPARE(w.types.last(), QEvent::TouchEnd);
+        QCOMPARE(w.positions.last().y(), shown);
     }
 
     void movesWaitForTheFrameAndPressesDont() {

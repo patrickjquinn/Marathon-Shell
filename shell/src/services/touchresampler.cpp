@@ -58,26 +58,25 @@ bool TouchResampler::flush() {
     return m_pending;
 }
 
-qint64 TouchResampler::horizon(const Track &track) {
-    const QList<Report> &r = track.reports;
-    if (r.size() < 3)
-        return 0;
-    const qint64 gap = r.last().time - r.at(r.size() - 2).time;
-    return gap <= kMaxLatencyMs ? gap / 2 : 0;
+qint64 TouchResampler::horizon(const Track &track) const {
+    return track.reports.size() < 3 ? 0 : qint64(m_spacing / 2);
 }
 
 qint64 TouchResampler::latency() const {
-    qint64 spacing = 0;
-    for (const Track &track : m_tracks) {
-        const QList<Report> &r = track.reports;
-        for (qsizetype i = 1; i < r.size(); ++i) {
-            // Longer is the finger resting, not the panel's rate.
-            const qint64 gap = r.at(i).time - r.at(i - 1).time;
-            if (gap <= kMaxLatencyMs)
-                spacing = std::max(spacing, gap);
-        }
-    }
-    return std::clamp(spacing / 2 + 2, kMinLatencyMs, kMaxLatencyMs);
+    return std::clamp(qint64(m_spacing / 2) + 2, kMinLatencyMs, kMaxLatencyMs);
+}
+
+// Never back the way the finger goes.
+QPointF TouchResampler::notBack(const Track &track, QPointF scene) {
+    const QList<Report> &r = track.reports;
+    if (!track.hasSent || r.size() < 2)
+        return scene;
+    const QPointF dir = r.last().point.scenePosition() - r.at(r.size() - 2).point.scenePosition();
+    if (dir.x() * (scene.x() - track.sent.x()) < 0)
+        scene.setX(track.sent.x());
+    if (dir.y() * (scene.y() - track.sent.y()) < 0)
+        scene.setY(track.sent.y());
+    return scene;
 }
 
 QPointF TouchResampler::resample(QPointF a, qint64 ta, QPointF b, qint64 tb, qint64 t) {
@@ -112,12 +111,25 @@ void TouchResampler::record(const QTouchEvent &event) {
             reports.clear();
         else if (!reports.isEmpty() && p.scenePosition() == reports.last().point.scenePosition())
             continue;
+        if (!reports.isEmpty()) {
+            // The panel's rate, learnt across touches; longer is a resting finger.
+            const qint64 gap = qint64(event.timestamp()) - reports.last().time;
+            if (gap > 0 && gap <= kMaxLatencyMs)
+                m_spacing = m_spacing > 0 ? (3 * m_spacing + gap) / 4 : gap;
+        }
         if (reports.size() == kReports)
             reports.removeFirst();
         Report report{p, qint64(event.timestamp())};
         QMutableEventPoint::detach(report.point);
         reports.append(report);
     }
+}
+
+void TouchResampler::moveTo(QEventPoint &p, QPointF scene) {
+    const QPointF delta = scene - p.scenePosition();
+    QMutableEventPoint::setScenePosition(p, scene);
+    QMutableEventPoint::setPosition(p, p.position() + delta);
+    QMutableEventPoint::setGlobalPosition(p, p.globalPosition() + delta);
 }
 
 void TouchResampler::sendResampled(qint64 at) {
@@ -132,36 +144,29 @@ void TouchResampler::sendResampled(qint64 at) {
         QEventPoint          p       = latest.point;
         QMutableEventPoint::detach(p);
         QMutableEventPoint::setState(p, QEventPoint::State::Updated);
+        QPointF scene = latest.point.scenePosition();
         if (reports.size() > 1 && at >= 0) {
             qsizetype i = 1;
             while (i < reports.size() - 1 && reports.at(i).time < at)
                 ++i;
             const Report &a = reports.at(i - 1), &b = reports.at(i);
-            QPointF scene = resample(a.point.scenePosition(), a.time, b.point.scenePosition(), b.time, at);
+            scene = resample(a.point.scenePosition(), a.time, b.point.scenePosition(), b.time, at);
             const qint64 ahead = std::min(at - latest.time, horizon(track));
             if (ahead > 0) {
                 const Report &r1 = reports.at(reports.size() - 3), &r2 = reports.at(reports.size() - 2);
                 const QPointF v1 = (r2.point.scenePosition() - r1.point.scenePosition()) / qreal(std::max<qint64>(1, r2.time - r1.time));
                 const QPointF v2 = (latest.point.scenePosition() - r2.point.scenePosition()) / qreal(std::max<qint64>(1, latest.time - r2.time));
-                // The slower of the last two, and none across a turn.
+                // The slower of the last two, and none across a turn; from the
+                // press, only the latest.
                 auto slower = [](qreal a, qreal b) { return a * b > 0 ? (std::abs(a) < std::abs(b) ? a : b) : 0.0; };
-                scene += QPointF(slower(v1.x(), v2.x()), slower(v1.y(), v2.y())) * qreal(ahead);
+                const QPointF v = reports.size() == 3 ? v2 : QPointF(slower(v1.x(), v2.x()), slower(v1.y(), v2.y()));
+                scene += v * qreal(ahead);
             }
-            // Never back the way the finger goes.
-            const QPointF dir = latest.point.scenePosition() - reports.at(reports.size() - 2).point.scenePosition();
-            if (track.hasSent) {
-                if (dir.x() * (scene.x() - track.sent.x()) < 0)
-                    scene.setX(track.sent.x());
-                if (dir.y() * (scene.y() - track.sent.y()) < 0)
-                    scene.setY(track.sent.y());
-            }
-            track.sent    = scene;
-            track.hasSent = true;
-            const QPointF delta = scene - p.scenePosition();
-            QMutableEventPoint::setScenePosition(p, scene);
-            QMutableEventPoint::setPosition(p, p.position() + delta);
-            QMutableEventPoint::setGlobalPosition(p, p.globalPosition() + delta);
         }
+        scene         = notBack(track, scene);
+        track.sent    = scene;
+        track.hasSent = true;
+        moveTo(p, scene);
         stamp = std::max(stamp, latest.time);
         points.append(p);
     }
@@ -226,9 +231,19 @@ bool TouchResampler::eventFilter(QObject *watched, QEvent *event) {
         m_pending = false;
         sendResampled(-1);
     }
-    if (event->type() == QEvent::TouchCancel)
+    if (event->type() == QEvent::TouchCancel) {
         m_tracks.clear();
-    else
-        record(*static_cast<QTouchEvent *>(event));
+        return false;
+    }
+    // A lift where the content already went on past the last report lifts
+    // there, not back.
+    auto *touch = static_cast<QTouchEvent *>(event);
+    for (qsizetype i = 0; i < touch->pointCount(); ++i) {
+        QEventPoint &p = touch->point(i);
+        const auto   track = m_tracks.constFind(p.id());
+        if (p.state() == QEventPoint::State::Released && track != m_tracks.cend())
+            moveTo(p, notBack(*track, p.scenePosition()));
+    }
+    record(*touch);
     return false;
 }
