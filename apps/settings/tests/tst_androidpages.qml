@@ -188,6 +188,19 @@ TestCase {
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AppInfoPage") !== 0 && !s.app.pageStack.busy);
     }
 
+    // Removed elsewhere (or by our own uninstall): the page closes without an error.
+    function test_appRemovedClosesThePage() {
+        const s = open("appmanager/waydroid.org.fdroid.fdroid");
+        tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !s.app.pageStack.busy);
+        const info = s.app.pageStack.currentPage;
+        AndroidApps.appRemoved("org.fdroid.fdroid");
+        AndroidApps.failed("org.fdroid.fdroid", "loadApp", "not installed");
+        AndroidApps.done("org.fdroid.fdroid", "uninstall");
+        tryVerify(() => s.app.pageStack.currentPage !== info && !s.app.pageStack.busy);
+        compare(s.app.pageStack.depth, 2);
+        compare(called("loadApp").length, 1);
+    }
+
     // A Marathon app's page has none of it.
     function test_marathonAppInfo() {
         const s = open("appmanager/notes");

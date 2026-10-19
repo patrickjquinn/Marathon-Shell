@@ -12,6 +12,7 @@ QtObject {
 
     signal appLoaded(string pkg, var app)
     signal appChanged(string pkg)
+    signal appRemoved(string pkg)
     signal specialAccessLoaded(string kind, var apps)
     signal done(string pkg, string action)
     signal failed(string pkg, string action, string error)

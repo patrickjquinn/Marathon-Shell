@@ -59,6 +59,7 @@ class AndroidApps : public QObject {
     void appsChanged();
     void appLoaded(const QString &pkg, const QVariantMap &app);
     void appChanged(const QString &pkg);
+    void appRemoved(const QString &pkg);
     void specialAccessLoaded(const QString &kind, const QVariantList &apps);
     // action: the method's name ("clearData", "uninstall", ...).
     void done(const QString &pkg, const QString &action);

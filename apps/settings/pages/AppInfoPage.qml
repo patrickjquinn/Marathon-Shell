@@ -23,6 +23,16 @@ Page {
             AndroidApps.loadApp(pkg);
     }
 
+    // The app is gone (removed here or elsewhere): once, and only from the top.
+    property bool leaving: false
+    function leave() {
+        if (leaving)
+            return;
+        leaving = true;
+        if (pageStack.currentPage === page)
+            pageStack.pop();
+    }
+
     RemorsePopup {
         id: remorse
     }
@@ -38,12 +48,16 @@ Page {
             if (pkg === page.pkg)
                 AndroidApps.loadApp(pkg);
         }
+        function onAppRemoved(pkg) {
+            if (pkg === page.pkg)
+                page.leave();
+        }
         function onDone(pkg, action) {
             if (pkg !== page.pkg)
                 return;
             if (action === "uninstall") {
                 Notices.show(qsTr("%1 uninstalled").arg(page.androidApp.label || page.pkg));
-                pageStack.pop();
+                page.leave();
             } else if (action === "forceStop") {
                 Notices.show(qsTr("%1 stopped").arg(page.androidApp.label || page.pkg));
             } else if (action === "clearData" || action === "clearCache") {
@@ -51,7 +65,7 @@ Page {
             }
         }
         function onFailed(pkg, action, error) {
-            if (pkg !== page.pkg)
+            if (pkg !== page.pkg || page.leaving)
                 return;
             Notices.show(qsTr("Couldn't do that: %1").arg(error));
             if (action !== "loadApp" && action !== "uninstall")

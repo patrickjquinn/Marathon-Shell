@@ -297,9 +297,13 @@ void AndroidApps::onAppChanged(const QString &pkg) {
     Q_EMIT appChanged(pkg);
 }
 
-void AndroidApps::onPackageChanged(const QString &pkg, const QString &) {
+// A removed app has no details left to load: its page closes instead.
+void AndroidApps::onPackageChanged(const QString &pkg, const QString &change) {
     refresh();
-    Q_EMIT appChanged(pkg);
+    if (change == QLatin1String("removed"))
+        Q_EMIT appRemoved(pkg);
+    else
+        Q_EMIT appChanged(pkg);
 }
 
 void AndroidApps::onFinished(const QString &job, bool succeeded, const QString &, const QString &message) {
