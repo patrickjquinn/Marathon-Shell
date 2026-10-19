@@ -229,8 +229,21 @@ void AndroidApps::loadApp(const QString &pkg) {
         loadIcon(pkg);
 }
 
-void AndroidApps::setPermission(const QString &pkg, const QString &group, bool granted) {
-    act(QStringLiteral("setPermission"), pkg, QStringLiteral("SetPermission"), {pkg, group, granted});
+void AndroidApps::setPermission(const QString &pkg, const QString &permission, bool granted) {
+    act(QStringLiteral("setPermission"), pkg, QStringLiteral("SetPermission"), {pkg, permission, granted});
+}
+
+void AndroidApps::loadPermissionApps(const QString &permission) {
+    call(kDeckard, QStringLiteral("GetPermissionApps"), {permission}, [this, permission](const QDBusMessage &r) {
+        QVariantList apps = ok(r) ? first(r).toList() : QVariantList();
+        for (QVariant &a : apps) {
+            QVariantMap app   = a.toMap();
+            const QString pkg = app.value(QStringLiteral("pkg")).toString();
+            app.insert(QStringLiteral("icon"), m_icons.value(pkg));
+            a = app;
+        }
+        Q_EMIT permissionAppsLoaded(permission, apps);
+    });
 }
 
 void AndroidApps::setNotifications(const QString &pkg, bool enabled) {

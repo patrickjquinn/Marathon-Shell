@@ -9,11 +9,13 @@ QtObject {
     property var calls: []
     property var details: ({})
     property var access: ({})
+    property var permissionApps: ({})
 
     signal appLoaded(string pkg, var app)
     signal appChanged(string pkg)
     signal appRemoved(string pkg)
     signal specialAccessLoaded(string kind, var apps)
+    signal permissionAppsLoaded(string permission, var apps)
     signal done(string pkg, string action)
     signal failed(string pkg, string action, string error)
 
@@ -26,10 +28,11 @@ QtObject {
             "org.fdroid.fdroid": {
                 pkg: "org.fdroid.fdroid", label: "F-Droid", versionName: "1.20", appBytes: 12582912, dataBytes: 5242880, cacheBytes: 1048576,
                 notifications: true, links: false, domains: ["f-droid.org"], battery: "optimized",
-                permissions: [{ group: "nearby", granted: true, fixed: false }, { group: "camera", granted: false, fixed: true }]
+                permissions: [{ name: "bluetooth", granted: true, fixed: false }, { name: "camera", granted: false, fixed: true }]
             }
         };
         access = { install_apps: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: true }] };
+        permissionApps = { camera: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: false, fixed: false }] };
     }
     function record(name, args) {
         calls = calls.concat([[name].concat(args)]);
@@ -46,7 +49,11 @@ QtObject {
         if (details[pkg])
             appLoaded(pkg, details[pkg]);
     }
-    function setPermission(pkg, group, granted) { record("setPermission", [pkg, group, granted]); }
+    function setPermission(pkg, permission, granted) { record("setPermission", [pkg, permission, granted]); }
+    function loadPermissionApps(permission) {
+        record("loadPermissionApps", [permission]);
+        permissionAppsLoaded(permission, permissionApps[permission] || []);
+    }
     function setNotifications(pkg, enabled) { record("setNotifications", [pkg, enabled]); }
     function setOpenLinks(pkg, enabled) { record("setOpenLinks", [pkg, enabled]); }
     function setBattery(pkg, mode) { record("setBattery", [pkg, mode]); }

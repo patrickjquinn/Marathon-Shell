@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Marathon.Platform 1.0
 import MarathonApp.Settings
 import "../SettingsLogic.js" as Logic
 
@@ -49,13 +50,13 @@ Column {
         TextSwitch {
             required property var modelData
 
-            objectName: "androidPermission-" + modelData.group
-            text: Logic.androidPermission(modelData.group).label
-            description: Logic.androidPermission(modelData.group).description
+            objectName: "androidPermission-" + modelData.name
+            text: Permissions.describe(modelData.name).label
+            description: Permissions.describe(modelData.name).description
             automaticCheck: false
             checked: modelData.granted
             enabled: !modelData.fixed
-            onClicked: AndroidApps.setPermission(details.pkg, modelData.group, !checked)
+            onClicked: AndroidApps.setPermission(details.pkg, modelData.name, !checked)
         }
     }
     Label {

@@ -159,11 +159,13 @@ TestCase {
         tap(notify);
         compare(called("setNotifications"), [["setNotifications", "org.fdroid.fdroid", false]]);
 
-        const nearby = child(info, "androidPermission-nearby");
-        compare(nearby.text, "Nearby devices");
+        // Marathon's names and words for Android's permissions.
+        const nearby = child(info, "androidPermission-bluetooth");
+        compare(nearby.text, "Label bluetooth");
+        compare(nearby.description, "Description bluetooth");
         verify(nearby.checked && nearby.enabled);
         tap(nearby);
-        compare(called("setPermission"), [["setPermission", "org.fdroid.fdroid", "nearby", false]]);
+        compare(called("setPermission"), [["setPermission", "org.fdroid.fdroid", "bluetooth", false]]);
         verify(!child(info, "androidPermission-camera").enabled);
 
         const links = child(info, "linksSwitch");
@@ -312,7 +314,6 @@ TestCase {
         compare(Logic.duration(3 * 86400), "3 days");
         compare(Logic.androidState("starting"), "Starting");
         compare(Logic.androidState(undefined), "Stopped");
-        compare(Logic.androidPermission("nope").label, "nope");
         compare(Logic.androidAccess.length, 12);
         compare(Logic.dataSize(912842752), "912.8 MB");
         compare(Logic.routeArgument("androidaccess/all_files/org.example"), "all_files/org.example");

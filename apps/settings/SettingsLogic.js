@@ -342,27 +342,6 @@ function duration(seconds) {
     return qsTr("%n days", "", Math.floor(s / 86400));
 }
 
-const androidPermissions = {
-    location: { label: qsTr("Location"), description: qsTr("Where the phone is") },
-    camera: { label: qsTr("Camera"), description: qsTr("Take photos and record video") },
-    microphone: { label: qsTr("Microphone"), description: qsTr("Record audio") },
-    contacts: { label: qsTr("Contacts"), description: qsTr("Read and change your contacts") },
-    calendar: { label: qsTr("Calendar"), description: qsTr("Read and change your events") },
-    phone: { label: qsTr("Phone"), description: qsTr("Make and manage calls") },
-    call_log: { label: qsTr("Call history"), description: qsTr("Read and change your call history") },
-    sms: { label: qsTr("Text messages"), description: qsTr("Send and read SMS messages") },
-    storage: { label: qsTr("Files"), description: qsTr("Read and change your files") },
-    photos: { label: qsTr("Photos and videos"), description: qsTr("Read your photos and videos") },
-    music: { label: qsTr("Music and audio"), description: qsTr("Read your music and recordings") },
-    nearby: { label: qsTr("Nearby devices"), description: qsTr("Find and connect to Bluetooth and Wi-Fi devices") },
-    sensors: { label: qsTr("Body sensors"), description: qsTr("Heart rate and other health sensors") },
-    activity: { label: qsTr("Physical activity"), description: qsTr("Steps and how you move") }
-};
-
-function androidPermission(group) {
-    return androidPermissions[group] || { label: group, description: "" };
-}
-
 const androidAccess = [
     { kind: "all_files", title: qsTr("All files"), description: qsTr("Read and change all your files") },
     { kind: "install_apps", title: qsTr("Install other apps"), description: qsTr("Install apps, as app stores do") },

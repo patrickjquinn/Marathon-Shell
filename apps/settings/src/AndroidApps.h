@@ -42,7 +42,9 @@ class AndroidApps : public QObject {
     Q_INVOKABLE void resetAndroid();
 
     Q_INVOKABLE void loadApp(const QString &pkg);
-    Q_INVOKABLE void setPermission(const QString &pkg, const QString &group, bool granted);
+    // permission: a Marathon permission name ("camera", "storage", "notifications", …).
+    Q_INVOKABLE void setPermission(const QString &pkg, const QString &permission, bool granted);
+    Q_INVOKABLE void loadPermissionApps(const QString &permission);
     Q_INVOKABLE void setNotifications(const QString &pkg, bool enabled);
     Q_INVOKABLE void setOpenLinks(const QString &pkg, bool enabled);
     Q_INVOKABLE void setBattery(const QString &pkg, const QString &mode);
@@ -62,6 +64,7 @@ class AndroidApps : public QObject {
     void appChanged(const QString &pkg);
     void appRemoved(const QString &pkg);
     void specialAccessLoaded(const QString &kind, const QVariantList &apps);
+    void permissionAppsLoaded(const QString &permission, const QVariantList &apps);
     // action: the method's name ("clearData", "uninstall", ...).
     void done(const QString &pkg, const QString &action);
     void failed(const QString &pkg, const QString &action, const QString &error);
