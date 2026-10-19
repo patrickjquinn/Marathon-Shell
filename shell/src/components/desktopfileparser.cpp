@@ -1,4 +1,8 @@
 #include "desktopfileparser.h"
+#include <QStandardPaths>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QJsonArray>
 #include "../services/sailfishlaunch.h"
 #include <QFile>
 #include <QTextStream>
@@ -417,6 +421,28 @@ QString DesktopFileParser::cleanExecLine(const QString &exec) {
     return cleaned;
 }
 
+QString DesktopFileParser::phoneAppsPath() {
+    return QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) +
+        QStringLiteral("/marathon-store/phone-apps.json");
+}
+
+QSet<QString> DesktopFileParser::readPhoneApps(const QString &path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QSet<QString>    ids;
+    const QJsonArray apps =
+        QJsonDocument::fromJson(file.readAll()).object().value(QStringLiteral("apps")).toArray();
+    for (const auto &value : apps) {
+        QString id = value.toString();
+        if (id.endsWith(QLatin1String(".desktop")))
+            id.chop(8);
+        if (!id.isEmpty())
+            ids.insert(id);
+    }
+    return ids;
+}
+
 bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
     // Known dev/admin/diagnostic tools that ship as standard .desktop
     // entries on Alpine + postmarketOS but are NOT consumer surfaces.
@@ -443,6 +469,9 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
         QFileInfo(app.value("desktopFile").toString()).completeBaseName().toLower();
     if (kHiddenDevTools.contains(idLower))
         return false;
+
+    if (m_phoneApps.contains(QFileInfo(app.value("desktopFile").toString()).completeBaseName()))
+        return true;
 
     if (app.contains("purismFormFactor")) {
         QStringList formFactors = app["purismFormFactor"].toStringList();

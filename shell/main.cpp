@@ -1548,11 +1548,13 @@ int main(int argc, char *argv[]) {
 
             QFuture<QVariantList> future = QtConcurrent::run([searchPaths, filterMobile]() {
                 DesktopFileParser parser;
+                parser.setPhoneApps(DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
                 return parser.scanApplications(searchPaths, filterMobile);
             });
             watcher->setFuture(future);
 #else
         DesktopFileParser parser;
+        parser.setPhoneApps(DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
         const QVariantList nativeApps = parser.scanApplications(searchPaths, filterMobile);
         appModel->addApps(nativeApps);
 #endif
@@ -1568,7 +1570,8 @@ int main(int argc, char *argv[]) {
 #endif
 
             const auto rescanDesktopApps = [appModel, settingsManager, searchPaths]() {
-                DesktopFileParser  parser;
+                DesktopFileParser parser;
+                parser.setPhoneApps(DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
                 const QVariantList apps = parser.scanApplications(
                     searchPaths, settingsManager->filterMobileFriendlyApps());
                 QSet<QString> seen;
@@ -1599,6 +1602,23 @@ int main(int argc, char *argv[]) {
                              userAppsDebounce, qOverload<>(&QTimer::start));
             QObject::connect(userAppsDebounce, &QTimer::timeout, &app, rescanDesktopApps);
 
+            // The Store writes which Flathub apps fit a phone here (replaced
+            // whole, so the directory is watched).
+            const QString storeCache = QFileInfo(DesktopFileParser::phoneAppsPath()).absolutePath();
+            QDir().mkpath(storeCache);
+            auto *storeCacheWatcher = new QFileSystemWatcher({storeCache}, &app);
+            QObject::connect(storeCacheWatcher, &QFileSystemWatcher::directoryChanged,
+                             userAppsDebounce,
+                             [userAppsDebounce,
+                              seen = QFileInfo(DesktopFileParser::phoneAppsPath()).lastModified()]() mutable {
+                                 const QDateTime now =
+                                     QFileInfo(DesktopFileParser::phoneAppsPath()).lastModified();
+                                 if (now != seen) {
+                                     seen = now;
+                                     userAppsDebounce->start();
+                                 }
+                             });
+
             // The user directory only appears with the first flatpak install,
             // which is exactly the change this watch exists to catch, so
             // create it rather than skip it.
@@ -1621,7 +1641,9 @@ int main(int argc, char *argv[]) {
 
                 QObject::connect(
                     debounce, &QTimer::timeout, &app, [appModel, flatpakDirs, settingsManager]() {
-                        DesktopFileParser  parser;
+                        DesktopFileParser parser;
+                        parser.setPhoneApps(
+                            DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
                         const QVariantList apps = parser.scanApplications(
                             flatpakDirs, settingsManager->filterMobileFriendlyApps());
 

@@ -1,5 +1,6 @@
 #include <QTest>
 #include <QTemporaryDir>
+#include <QSet>
 
 #include "desktopfileparser.h"
 
@@ -50,6 +51,35 @@ class TestDesktopFileParser : public QObject {
         QCOMPARE(app.value("exec").toString(),
                  QStringLiteral("waydroid app launch org.fdroid.fdroid"));
         QCOMPARE(app.value("icon").toString(), icon);
+    }
+
+    // The Store's AppStream verdict (phone-apps.json) lets an app without a
+    // form-factor hint onto the grid; AppStream ids may carry ".desktop".
+    void anAppTheStoreCallsPhoneReadyIsShown() {
+        QTemporaryDir dir;
+        write(dir.filePath("org.gnome.Podcasts.desktop"),
+              "[Desktop Entry]\nType=Application\nName=Podcasts\nExec=gnome-podcasts\n");
+        write(dir.filePath("com.example.Old.desktop"),
+              "[Desktop Entry]\nType=Application\nName=Old\nExec=old\n");
+        write(dir.filePath("org.example.Desk.desktop"),
+              "[Desktop Entry]\nType=Application\nName=Desk\nExec=desk\n");
+        write(dir.filePath("foot.desktop"), "[Desktop Entry]\nType=Application\nName=Foot\nExec=foot\n");
+        write(dir.filePath("phone-apps.json"),
+              "{\"source\":1,\"apps\":[\"org.gnome.Podcasts\",\"com.example.Old.desktop\",\"foot\"],\"ts\":2}\n");
+
+        DesktopFileParser parser;
+        QCOMPARE(parser.scanApplications({dir.path()}, true).size(), 0);
+
+        const QSet<QString> phoneApps = DesktopFileParser::readPhoneApps(dir.filePath("phone-apps.json"));
+        QCOMPARE(phoneApps, (QSet<QString>{"org.gnome.Podcasts", "com.example.Old", "foot"}));
+        parser.setPhoneApps(phoneApps);
+        QStringList names;
+        const QVariantList apps = parser.scanApplications({dir.path()}, true);
+        for (const QVariant &app : apps)
+            names << app.toMap().value("name").toString();
+        names.sort();
+        QCOMPARE(names, (QStringList{"Old", "Podcasts"}));
+        QVERIFY(DesktopFileParser::readPhoneApps(dir.filePath("missing.json")).isEmpty());
     }
 };
 
