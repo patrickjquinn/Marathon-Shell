@@ -1,7 +1,7 @@
-From 80af8e6e1426d67f3a0ee6e651240df78ba983c6 Mon Sep 17 00:00:00 2001
+From 9d1f15549607d4481df582e6f90d88992d73d47f Mon Sep 17 00:00:00 2001
 From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 16 Oct 2026 15:31:54 +0100
-Subject: [PATCH] pilotd: on-screen context for Marathon apps
+Subject: [PATCH] pilotd: on-screen context for Marathon and Android apps
 
 ShowSheetFor maps the process of the window on top to its Keel app
 through a desktop entry with Sailjail names. A Marathon app runs as a
@@ -9,29 +9,47 @@ marathon-app-runner, which has none, and a pooled runner's command
 line does not even name its app. For such a process pilotd asks the
 shell (Navigation1.AppIdForPid, which only admitted session services
 may call) and uses org.marathonos.<id>, the name the runner serves
-Keel Actions under. Any other process is matched as before.
+Keel Actions under.
+
+An Android app's window belongs to Waydroid's process. For any other
+process pilotd asks the shell for the app in front
+(Navigation1.GetForegroundApp) and takes it when it is an Android app,
+waydroid.<package>: deckardd serves that app's Keel Actions and screen
+context under that name. Its name comes from the desktop entry Waydroid
+writes for it. Any other process is matched as before.
 ---
- shoal/pilot/pilotd/src/adapters/marathon.rs | 24 +++++++
- shoal/pilot/pilotd/src/dbus.rs              |  8 ++-
- shoal/pilot/pilotd/tests/marathon.rs        | 69 +++++++++++++++++++++
- 3 files changed, 99 insertions(+), 2 deletions(-)
+ shoal/pilot/pilotd/src/adapters/marathon.rs |  80 +++++++++++++
+ shoal/pilot/pilotd/src/dbus.rs              |   8 +-
+ shoal/pilot/pilotd/tests/marathon.rs        | 123 ++++++++++++++++++++
+ 3 files changed, 209 insertions(+), 2 deletions(-)
 
 diff --git a/shoal/pilot/pilotd/src/adapters/marathon.rs b/shoal/pilot/pilotd/src/adapters/marathon.rs
-index 7383214..66ac974 100644
+index 7383214..44633ab 100644
 --- a/shoal/pilot/pilotd/src/adapters/marathon.rs
 +++ b/shoal/pilot/pilotd/src/adapters/marathon.rs
-@@ -33,6 +33,30 @@ pub fn present(session: &zbus::Connection) -> bool {
+@@ -33,6 +33,86 @@ pub fn present(session: &zbus::Connection) -> bool {
      .unwrap_or(false)
  }
  
-+/// The Keel app (`org.marathonos.<id>`) of a Marathon app's process, a
-+/// `marathon-app-runner`. It has no desktop entry to match, and a pooled
-+/// runner's command line names no app: the shell says which it is.
++/// The Keel app of the process on top. A Marathon app runs as a
++/// `marathon-app-runner`, which has no desktop entry to match, and a pooled
++/// runner's command line names no app: the shell says which it is
++/// (`org.marathonos.<id>`). An Android app's window belongs to Waydroid's
++/// process, so for any other process the shell's foreground app is used
++/// when it is an Android app (`waydroid.<package>`, the name deckardd serves
++/// the app's Keel Actions under).
 +pub async fn app_for_pid(session: &zbus::Connection, pid: u32) -> Option<crate::onscreen::App> {
-+    let cmdline = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
-+    let argv0 = cmdline.split(|b| *b == 0).next()?;
-+    if argv0 != b"marathon-app-runner" && !argv0.ends_with(b"/marathon-app-runner") {
-+        return None;
++    let runner = std::fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|cmdline| {
++        let argv0 = cmdline.split(|b| *b == 0).next().unwrap_or_default();
++        argv0 == b"marathon-app-runner" || argv0.ends_with(b"/marathon-app-runner")
++    });
++    if !runner {
++        let data = std::env::var_os("XDG_DATA_HOME")
++            .map(std::path::PathBuf::from)
++            .or_else(|| {
++                std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share"))
++            })?;
++        return android_in_front(session, &data).await;
 +    }
 +    let id: String = call(session, "Navigation", "AppIdForPid", &(pid,))
 +        .await
@@ -46,6 +64,51 @@ index 7383214..66ac974 100644
 +        comment: crate::onscreen::app_comment(&id).unwrap_or_default(),
 +        id,
 +    })
++}
++
++/// The Android app in front (`Navigation1.GetForegroundApp`), named by the
++/// desktop entry Waydroid writes for it under `data`/applications.
++pub async fn android_in_front(
++    session: &zbus::Connection,
++    data: &std::path::Path,
++) -> Option<crate::onscreen::App> {
++    let id: String = call(session, "Navigation", "GetForegroundApp", &())
++        .await
++        .map_err(|e| log::info!("foreground app: {e}"))
++        .ok()?;
++    let package = id.strip_prefix("waydroid.")?;
++    if package.is_empty()
++        || !package
++            .bytes()
++            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'_')
++    {
++        return None;
++    }
++    let name = std::fs::read_to_string(data.join("applications").join(format!("{id}.desktop")))
++        .ok()
++        .and_then(|text| desktop_name(&text))
++        .or_else(|| crate::onscreen::app_name(&id))
++        .unwrap_or_default();
++    Some(crate::onscreen::App {
++        name,
++        comment: String::new(),
++        id,
++    })
++}
++
++/// A desktop entry's `Name`.
++fn desktop_name(text: &str) -> Option<String> {
++    let mut section = "";
++    for line in text.lines().map(str::trim) {
++        if line.starts_with('[') {
++            section = line;
++        } else if section == "[Desktop Entry]" {
++            if let Some(name) = line.strip_prefix("Name=") {
++                return Some(name.trim().to_owned()).filter(|n| !n.is_empty());
++            }
++        }
++    }
++    None
 +}
 +
  async fn call<B, R>(
@@ -72,10 +135,10 @@ index 405c24a..8dc0425 100644
              // Read what it shows now, before Pilot comes to the front.
              let pipeline = self.pipeline.clone();
 diff --git a/shoal/pilot/pilotd/tests/marathon.rs b/shoal/pilot/pilotd/tests/marathon.rs
-index e83f64c..cc01eb3 100644
+index e83f64c..60a4182 100644
 --- a/shoal/pilot/pilotd/tests/marathon.rs
 +++ b/shoal/pilot/pilotd/tests/marathon.rs
-@@ -249,3 +249,72 @@ async fn the_shells_services_back_the_adapters() {
+@@ -249,3 +249,126 @@ async fn the_shells_services_back_the_adapters() {
          ]
      );
  }
@@ -148,3 +211,60 @@ index e83f64c..cc01eb3 100644
 +    let _ = app.wait();
 +    let _ = other.wait();
 +}
++
++struct Foreground(Arc<Mutex<String>>);
++
++#[zbus::interface(name = "org.marathonos.Shell.Navigation1")]
++impl Foreground {
++    #[zbus(name = "GetForegroundApp")]
++    fn get_foreground_app(&self) -> String {
++        self.0.lock().unwrap().clone()
++    }
++}
++
++#[tokio::test]
++async fn the_shell_names_the_android_app_in_front() {
++    let data = tempfile::tempdir().unwrap();
++    std::fs::create_dir(data.path().join("applications")).unwrap();
++    std::fs::write(
++        data.path()
++            .join("applications/waydroid.org.example.chat.desktop"),
++        "[Desktop Entry]\nType=Application\nName=Chat\nExec=waydroid app launch org.example.chat\n",
++    )
++    .unwrap();
++
++    let bus = TestBus::start();
++    let client = bus.connect().await;
++    let shell = bus.connect().await;
++    let front = Arc::new(Mutex::new("waydroid.org.example.chat".to_owned()));
++    shell
++        .object_server()
++        .at(
++            "/org/marathonos/Shell/Navigation",
++            Foreground(front.clone()),
++        )
++        .await
++        .unwrap();
++    shell.request_name(marathon::SHELL).await.unwrap();
++
++    let found = marathon::android_in_front(&client, data.path())
++        .await
++        .unwrap();
++    assert_eq!(
++        (found.id.as_str(), found.name.as_str()),
++        ("waydroid.org.example.chat", "Chat")
++    );
++
++    for other in ["notes", "waydroid.", "waydroid.../x", ""] {
++        *front.lock().unwrap() = other.to_owned();
++        assert!(
++            marathon::android_in_front(&client, data.path())
++                .await
++                .is_none(),
++            "{other:?} is not an Android app"
++        );
++    }
++}
+-- 
+2.55.0
+
