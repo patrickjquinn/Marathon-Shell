@@ -8,6 +8,7 @@ airplane-mode airplane
 alarm alarm
 alarm-clock alarm
 ambience palette
+android android-logo
 answer phone-call
 app-grid dots-nine
 apps package
