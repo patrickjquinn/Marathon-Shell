@@ -116,8 +116,8 @@ class DeviceProfile : public QObject {
     int runnerPool() const {
         return m_runnerPool;
     }
-    // Touch read by Qt's evdevtouch and handed to the scene once per frame,
-    // filtered; false = evdevtouch unfiltered, each report as it comes.
+    // Touch smoothed by Qt's evdevtouch Kalman filter: even steps, about
+    // 60 ms more lag. Off: each report as it comes.
     bool touchFilter() const {
         return m_touchFilter;
     }
@@ -158,6 +158,6 @@ class DeviceProfile : public QObject {
     int   m_panelDepth      = 8;
     bool  m_wakeOnKey       = false;
     int   m_runnerPool      = 1;
-    bool    m_touchFilter     = true;
+    bool    m_touchFilter     = false;
     QString m_touchParams;
 };
