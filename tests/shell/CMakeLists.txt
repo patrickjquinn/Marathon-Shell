@@ -643,6 +643,23 @@ if(DBUS_RUN_SESSION AND BUSCTL)
     )
     add_test(NAME Shell_ShellKeelActions
         COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_shellkeelactions>)
+
+    # The share sheet's org.sailfishos.share, against fake receivers on a private bus
+    add_executable(test_shell_shareservice
+        test_shareservice.cpp
+        ../../shell/src/services/shareservice.cpp
+        ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
+        ../../marathon-core/src/marathonappregistry.cpp
+    )
+    target_link_libraries(test_shell_shareservice Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus)
+    target_include_directories(test_shell_shareservice PRIVATE
+        ${CMAKE_SOURCE_DIR}/shell/src/services
+        ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc
+        ${CMAKE_SOURCE_DIR}/marathon-core/src
+    )
+    add_test(NAME Shell_ShareService
+        COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_shareservice>)
+    set_tests_properties(Shell_ShareService PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 # Gesture engine: velocity window, commit decisions, settle spring

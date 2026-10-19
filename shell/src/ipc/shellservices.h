@@ -47,6 +47,10 @@ class SensorManagerCpp;
 class LocationManager;
 class AlarmManagerCpp;
 
+// The Marathon app (or "service:<unit>") a D-Bus caller's process belongs
+// to, "" if none.
+QString appIdForCallerPid(qint64 pid, AppLaunchService *als);
+
 class IpcPermissionedService : public QObject, protected QDBusContext {
     Q_OBJECT
 

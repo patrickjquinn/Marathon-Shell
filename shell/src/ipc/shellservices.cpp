@@ -110,8 +110,13 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
     auto          pidReply = ctx.connection().interface()->servicePid(sender);
     if (!pidReply.isValid())
         return unresolved();
-    const qint64 pid = static_cast<qint64>(pidReply.value());
+    return appIdForCallerPid(static_cast<qint64>(pidReply.value()), als);
+}
 
+QString appIdForCallerPid(qint64 pid, AppLaunchService *als) {
+    const auto unresolved = []() {
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+    };
     if (QString mapped = als->appIdForPid(pid); !mapped.isEmpty())
         return mapped;
     if (QString service = ServiceCaller::resolve(pid); !service.isEmpty())

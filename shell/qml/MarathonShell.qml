@@ -46,6 +46,9 @@ Item {
         } else if (confirmDialog.shown) {
             confirmDialog.cancel();
             overlayClosed = true;
+        } else if (shareSheet.shown) {
+            shareSheet.close(true);
+            overlayClosed = true;
         } else if (UIStore.searchOpen) {
             UIStore.closeSearch();
             overlayClosed = true;
@@ -2181,6 +2184,22 @@ Item {
 
     AppToast {
         id: appToast
+    }
+
+    ShareSheet {
+        id: shareSheet
+
+        onChosen: id => ShareService.choose(id)
+        onDismissed: ShareService.cancel()
+    }
+
+    Connections {
+        function onRequested(request) {
+            shareSheet.open(request);
+        }
+
+        // Only with a session bus (main.cpp).
+        target: typeof ShareService !== "undefined" ? ShareService : null
     }
 
     Connections {

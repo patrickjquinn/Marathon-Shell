@@ -123,6 +123,7 @@
 #include "src/services/systemcontrolstore.h"
 #include "src/services/uistore.h"
 #include "src/services/foregroundapp.h"
+#include "src/services/shareservice.h"
 #include "src/services/appstore.h"
 #include "src/services/wallpaperstore.h"
 #include "src/services/router.h"
@@ -138,6 +139,7 @@
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
 #include "src/ipc/shellipcserver.h"
+#include "src/ipc/shellservices.h"
 #include "src/ipc/shellkeelactions.h"
 #include <QDBusConnection>
 
@@ -1186,6 +1188,14 @@ int main(int argc, char *argv[]) {
             qInfo() << "[MarathonShell]  org.unifiedpush.Distributor.marathon registered";
         }
         new MarathonNtfyClient(unifiedPush, &app);
+
+        auto *shareService = createObject<ShareService>(
+            ctx, "ShareService", appRegistry, AppLaunchService::sharedFolders(),
+            [appLaunchService](qint64 pid) { return appIdForCallerPid(pid, appLaunchService); },
+            [appLaunchService](const QString &appId) { appLaunchService->launchApp(QVariant(appId)); },
+            &app);
+        if (shareService->registerOnSessionBus())
+            qInfo() << "[MarathonShell]  org.sailfishos.share registered";
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }

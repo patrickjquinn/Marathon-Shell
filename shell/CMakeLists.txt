@@ -161,6 +161,8 @@ set(SOURCES
     src/services/uistore.cpp
     src/services/foregroundapp.h
     src/services/foregroundapp.cpp
+    src/services/shareservice.h
+    src/services/shareservice.cpp
     src/services/appstore.h
     src/services/appstore.cpp
     src/services/wallpaperstore.h
@@ -311,6 +313,7 @@ set(QML_FILES
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
     qml/components/AppToast.qml
+    qml/components/ShareSheet.qml
     qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
     qml/components/MarathonCellBroadcastOverlay.qml
