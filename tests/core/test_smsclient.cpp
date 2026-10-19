@@ -48,7 +48,7 @@ class FakeSms : public QObject {
         }
         return 42;
     }
-    QDBusUnixFileDescriptor OpenAttachment(int) {
+    QDBusUnixFileDescriptor OpenAttachment(int) const {
         const int               fd = ::open(attachmentFile.toLocal8Bit().constData(), O_RDONLY | O_CLOEXEC);
         QDBusUnixFileDescriptor out(fd);
         ::close(fd);

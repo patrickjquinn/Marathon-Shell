@@ -133,7 +133,7 @@ class FakeService : public QObject {
     QVariantMap properties{{"TotalMaxAttachmentSize", 120000}, {"MaxAttachments", 25}, {"UseDeliveryReports", false}};
 
   public slots:
-    QVariantMap GetProperties() {
+    QVariantMap GetProperties() const {
         return properties;
     }
     void SetProperty(const QString &name, const QDBusVariant &value) {
