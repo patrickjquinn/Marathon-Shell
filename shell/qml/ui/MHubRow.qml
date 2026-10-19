@@ -18,8 +18,15 @@ Item {
     property bool glyphReplacesMonogram: true
     property var actions: []
     property bool actionIcons: false
-    // Only a sender that advertised inline-reply can receive the text.
-    readonly property bool canReply: Array.isArray(actions) && actions.some(a => a && (a.key === "inline-reply" || a.id === "inline-reply"))
+    // Only a sender that advertised inline-reply can receive the text. The
+    // model's actions are a sequence, not a JS array.
+    readonly property bool canReply: {
+        for (const a of actions || []) {
+            if (a && (a.key === "inline-reply" || a.id === "inline-reply"))
+                return true;
+        }
+        return false;
+    }
     property bool replying: false
     property string name: ""
     property string time: ""

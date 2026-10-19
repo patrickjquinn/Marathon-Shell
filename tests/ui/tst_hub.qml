@@ -244,6 +244,22 @@ TestCase {
         }
     }
 
+    // The model hands its actions as a sequence, not a JS array (an Android
+    // app's chat through deckardd showed only "Mark read").
+    function test_rowRepliesInlineFromAnySequence() {
+        addNotification(13, "messages");
+        tryVerify(() => row(0));
+        row(0).actions = new Set([{
+                "key": "mark-read",
+                "label": "Mark read"
+            }, {
+                "key": "inline-reply",
+                "label": "Reply"
+            }]);
+        verify(row(0).canReply);
+        compare(findChild(row(0), "hubRowActions").buttons.map(b => b.key), ["inline-reply", "mark-read"]);
+    }
+
     // An inline-reply sender's row offers Reply, as its banner does.
     function test_rowRepliesInline() {
         addNotification(12, "messages");

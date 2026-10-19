@@ -11,7 +11,13 @@ Item {
     property var currentToast: null
     property bool showInlineReply: false
     // Only a sender that advertised inline-reply can receive the text.
-    readonly property bool canReply: !!currentToast && Array.isArray(currentToast.actions) && currentToast.actions.some(a => a && (a.key === "inline-reply" || a.id === "inline-reply"))
+    readonly property bool canReply: {
+        for (const a of (currentToast && currentToast.actions) || []) {
+            if (a && (a.key === "inline-reply" || a.id === "inline-reply"))
+                return true;
+        }
+        return false;
+    }
     // Position follows state, so a late height change can't strand it.
     property bool shown: false
     property real dragOffset: 0
