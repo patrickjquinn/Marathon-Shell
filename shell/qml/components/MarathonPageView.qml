@@ -169,7 +169,7 @@ Item {
         // Per-icon MouseAreas already reject tap-on-release when drag > 15 px,
         // so children don't need the delay to suppress accidental taps.
         pressDelay: 0
-        flickDeceleration: 3000
+        flickDeceleration: 12000
         maximumFlickVelocity: MMotion.pagerFlickVelocity
         flickableDirection: Flickable.HorizontalFlick
         currentIndex: 2
