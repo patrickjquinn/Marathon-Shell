@@ -399,6 +399,7 @@ TestCase {
         const button = findChild(action, "getButton");
         verify(button.visible);
         compare(button.text, "Open");
+        compare(app.noticeFor("android:org.example.notes", "install", { "state": "done" }), "Notes installed");
     }
 
     function test_androidAppWithoutLauncherHasNoOpen() {

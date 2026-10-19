@@ -1094,7 +1094,7 @@ QtObject {
             return listed.name;
         const full = appstreamCache[appId];
         const entry = installedEntry(appId);
-        return (full && full.name) || (entry && entry.name) || appId;
+        return (full && full.name) || (entry && entry.name) || _apkNames[appId] || appId;
     }
 
     function openDetail(app) {
@@ -1147,6 +1147,8 @@ QtObject {
     property real androidSyncedAt: 0
     // An .apk's confirmation: the handler's apk-inspect.json for the file.
     property var apkInfo: null
+    // An .apk's label from its confirmation page, for the notices.
+    property var _apkNames: ({})
 
     function isAndroid(appId) {
         return typeof appId === "string" && appId.indexOf("android:") === 0;
@@ -1295,6 +1297,11 @@ QtObject {
             "ts": Math.floor(Date.now() / 1000)
         };
         jobs = next;
+        if (name) {
+            const names = Object.assign({}, _apkNames);
+            names[appId] = name;
+            _apkNames = names;
+        }
         _setVerb(appId, "install");
         jobPollTimer.running = true;
         root.openExternally("marathon-store://apk-install/" + encodeURIComponent(path) + "?pkg=" + pkg + "&name=" + encodeURIComponent(name || pkg));
