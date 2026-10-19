@@ -77,6 +77,7 @@ class LocationManager : public QObject {
     void            connectToGeoclue();
     void            createClient();
     void            updateLocation(const QString &locationPath);
+    void            applyLocation(const QVariantMap &props);
 
     QString         m_clientPath;
     bool            m_creatingClient = false;

@@ -3,7 +3,7 @@
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
-#include <QDBusReply>
+#include <QDBusPendingReply>
 #include <QDBusMetaType>
 #include <QDebug>
 
@@ -158,39 +158,40 @@ void LocationManager::onLocationUpdated(const QDBusObjectPath &oldLocation,
 }
 
 void LocationManager::updateLocation(const QString &locationPath) {
-    QDBusInterface location("org.freedesktop.GeoClue2", locationPath,
-                            "org.freedesktop.GeoClue2.Location", QDBusConnection::systemBus());
-
-    if (!location.isValid()) {
-        qWarning() << "[LocationManager] Location interface invalid";
-        return;
-    }
-
-    m_latitude  = location.property("Latitude").toDouble();
-    m_longitude = location.property("Longitude").toDouble();
-    m_accuracy  = location.property("Accuracy").toDouble();
-    m_altitude  = location.property("Altitude").toDouble();
-    m_speed     = location.property("Speed").toDouble();
-    m_heading   = location.property("Heading").toDouble();
-
-    QDBusInterface       props("org.freedesktop.GeoClue2", location.path(),
-                               "org.freedesktop.DBus.Properties", QDBusConnection::systemBus());
-
-    QDBusReply<QVariant> reply =
-        props.call("Get", "org.freedesktop.GeoClue2.Location", "Timestamp");
-    if (reply.isValid()) {
-        QVariant val = reply.value();
-        if (val.userType() == qMetaTypeId<QDBusArgument>()) {
-            const QDBusArgument &arg = val.value<QDBusArgument>();
-            GeoClueTimestamp     ts;
-            arg >> ts;
-            m_timestamp = (ts.seconds * 1000) + (ts.microseconds / 1000);
-        } else if (val.canConvert<GeoClueTimestamp>()) {
-            GeoClueTimestamp ts = val.value<GeoClueTimestamp>();
-            m_timestamp         = (ts.seconds * 1000) + (ts.microseconds / 1000);
+    // Asynchronous: with a GPS fix GeoClue reports about once a second, and
+    // each blocking property read stalled the GUI thread.
+    QDBusMessage get = QDBusMessage::createMethodCall(
+        "org.freedesktop.GeoClue2", locationPath, "org.freedesktop.DBus.Properties", "GetAll");
+    get << QStringLiteral("org.freedesktop.GeoClue2.Location");
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(get), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<QVariantMap> reply = *w;
+        if (reply.isError()) {
+            qWarning() << "[LocationManager] Failed to read location:" << reply.error().message();
+            return;
         }
-    } else {
-        qWarning() << "[LocationManager] Failed to read Timestamp:" << reply.error().message();
+        applyLocation(reply.value());
+    });
+}
+
+void LocationManager::applyLocation(const QVariantMap &props) {
+    m_latitude  = props.value("Latitude").toDouble();
+    m_longitude = props.value("Longitude").toDouble();
+    m_accuracy  = props.value("Accuracy").toDouble();
+    m_altitude  = props.value("Altitude").toDouble();
+    m_speed     = props.value("Speed").toDouble();
+    m_heading   = props.value("Heading").toDouble();
+
+    const QVariant val = props.value("Timestamp");
+    if (val.userType() == qMetaTypeId<QDBusArgument>()) {
+        const QDBusArgument &arg = val.value<QDBusArgument>();
+        GeoClueTimestamp     ts;
+        arg >> ts;
+        m_timestamp = (ts.seconds * 1000) + (ts.microseconds / 1000);
+    } else if (val.canConvert<GeoClueTimestamp>()) {
+        GeoClueTimestamp ts = val.value<GeoClueTimestamp>();
+        m_timestamp         = (ts.seconds * 1000) + (ts.microseconds / 1000);
     }
 
     emit locationChanged();
