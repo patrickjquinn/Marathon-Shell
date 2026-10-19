@@ -793,7 +793,7 @@ mod tests {
             s.sinks.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(),
             ["speaker"]
         );
-        assert!(s.streams.is_empty());
+        assert_eq!(s.streams, Vec::<Stream>::new());
         assert_eq!(g.plan(&Op::StreamVolume(51, 0.5)), None);
     }
 

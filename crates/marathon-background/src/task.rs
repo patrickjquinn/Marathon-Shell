@@ -263,7 +263,7 @@ mod tests {
             r#"{"id": "sync", "action": "mail.sync", "intervalMinutes": 30, "wake": true}"#,
         ))
         .unwrap();
-        assert!(tasks.is_empty());
+        assert_eq!(tasks, Vec::<Task>::new());
         assert!(refused[0].contains("at most hourly"));
     }
 

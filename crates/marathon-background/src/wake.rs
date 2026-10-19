@@ -181,7 +181,7 @@ mod tests {
             ),
             ["user", "guest"]
         );
-        assert!(parse_users("").is_empty());
+        assert_eq!(parse_users(""), Vec::<String>::new());
     }
 
     fn task(at: u64) -> Elapse {
@@ -209,8 +209,8 @@ mod tests {
             ),
             [task(1_792_236_376)]
         );
-        assert!(parse_next_elapses("[]").is_empty());
-        assert!(parse_next_elapses("garbage").is_empty());
+        assert_eq!(parse_next_elapses("[]"), Vec::<Elapse>::new());
+        assert_eq!(parse_next_elapses("garbage"), Vec::<Elapse>::new());
     }
 
     #[test]
