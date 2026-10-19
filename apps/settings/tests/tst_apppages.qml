@@ -231,6 +231,42 @@ TestCase {
         verify(!Settings.showNotificationBadges);
     }
 
+    // The handler's settings through marathon-store:// URLs; the phone
+    // switch is the grid's.
+    function test_storeSettings() {
+        const s = open("store");
+        const opened = [];
+        s.page.openExternally = url => opened.push(url);
+        s.page.stateDir = Qt.resolvedUrl("data/marathon-store-state").toString().replace("file://", "");
+        s.page.load();
+        tryVerify(() => s.page.values.antiFeatures === false);
+        const anti = child(s.page, "antiFeaturesSwitch");
+        verify(!anti.checked);
+        verify(child(s.page, "fdroidSwitch").checked);
+
+        const phone = child(s.page, "phoneSwitch");
+        verify(phone.checked);
+        phone.clicked(null);
+        verify(!Settings.filterMobileFriendlyApps);
+        compare(opened, []);
+
+        child(s.page, "fdroidSwitch").clicked(null);
+        compare(opened, ["marathon-store://settings/set?fdroid=0"]);
+        verify(!child(s.page, "fdroidSwitch").checked);
+        verify(!anti.enabled);
+
+        const metered = child(s.page, "meteredSwitch");
+        verify(metered.enabled);
+        child(s.page, "autoUpdateSwitch").clicked(null);
+        compare(opened[1], "marathon-store://settings/set?autoUpdate=0");
+        verify(!metered.enabled);
+    }
+
+    function test_appGridSwitchIsTheStores() {
+        const s = open("appsort");
+        compare(child(s.page, "filterSwitch").description, "Leaves out apps not made for phones, here and in the App Store");
+    }
+
     function test_quickSettings() {
         const s = open("quicksettings");
         compare(child(s.page, "tileList").count, Logic.tiles.length);

@@ -50,7 +50,7 @@ Page {
             TextSwitch {
                 objectName: "filterSwitch"
                 text: qsTr("Hide desktop apps")
-                description: qsTr("Leaves out apps not made for phones")
+                description: qsTr("Leaves out apps not made for phones, here and in the App Store")
                 automaticCheck: false
                 checked: Settings.filterMobileFriendlyApps
                 onClicked: Settings.filterMobileFriendlyApps = !checked
