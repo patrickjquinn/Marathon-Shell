@@ -13,6 +13,8 @@ Page {
     property var store
     property var app: null
     property string apkPath: ""
+    // This page's Install was tapped: from then on it shows that job.
+    property bool started: false
 
     readonly property bool fromFile: apkPath !== ""
     readonly property var info: fromFile ? store.apkInfo : null
@@ -158,14 +160,17 @@ Page {
                 objectName: "apkInstall"
                 anchors.horizontalCenter: parent.horizontalCenter
                 preferredWidth: Theme.buttonWidthMedium
-                visible: root.fileOk && !root.busy && !(root.job && root.job.state === "done")
+                visible: root.fileOk && !root.started
                 text: root.isUpdate ? qsTr("Update") : qsTr("Install")
-                onClicked: root.store.installApk(root.apkPath, root.pkg, root.name)
+                onClicked: {
+                    root.started = true;
+                    root.store.installApk(root.apkPath, root.pkg, root.name);
+                }
             }
             GetButton {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: root.fileOk && (root.busy || (root.job !== null && root.job.state === "done"))
+                visible: root.fileOk && root.started
                 store: root.store
                 appId: root.appId !== "" ? root.appId : "android:none.none"
                 large: true
@@ -173,7 +178,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: root.job !== null && root.job.state === "failed"
+                visible: (!root.fromFile || root.started) && root.job !== null && root.job.state === "failed"
                 text: qsTr("Couldn't install. %1").arg(root.job && root.job.error ? root.job.error : root.store.jobError(root.job))
                 color: Theme.errorColor
                 font.pixelSize: Theme.fontSizeSmall
