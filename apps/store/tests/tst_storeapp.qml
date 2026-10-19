@@ -148,6 +148,69 @@ TestCase {
         verify(findChild(tab, "heroItem").parent.visible);
     }
 
+    // Types a query and waits for its (offline) search to finish.
+    function search(tab, text) {
+        const generation = tab.generation;
+        findChild(tab, "searchField").text = text;
+        tryVerify(() => tab.generation > generation && !tab.searching, 10000);
+    }
+
+    function phoneHits() {
+        return [
+            { "app_id": "org.example.Phone", "name": "Phone app", "isMobileFriendly": true },
+            { "app_id": "org.example.Desk1", "name": "Desk one", "isMobileFriendly": false },
+            { "app_id": "org.example.Desk2", "name": "Desk two" }
+        ];
+    }
+
+    // Search hides what may not fit, says how many, and one tap shows them.
+    function test_searchShowsOnlyPhoneAppsUntilShowAll() {
+        const app = makeApp();
+        app.store.phoneOnly = true;
+        const tab = showTab(app, 0);
+        search(tab, "desk");
+        tab.results = phoneHits();
+        const rows = findChild(tab, "searchResults");
+        compare(rows.count, 1);
+        const more = findChild(tab, "moreApps");
+        verify(more.visible);
+        compare(more.count, 2);
+        verify(!findChild(tab, "discoverPlaceholder").enabled);
+        more.clicked(null);
+        compare(rows.count, 3);
+        verify(!more.visible);
+        search(tab, "desk two");
+        tab.results = phoneHits();
+        compare(rows.count, 1);
+    }
+
+    function test_onlyDesktopMatchesStillReachable() {
+        const app = makeApp();
+        app.store.phoneOnly = true;
+        const tab = showTab(app, 0);
+        search(tab, "desk");
+        tab.results = phoneHits().slice(1);
+        compare(findChild(tab, "searchResults").count, 0);
+        verify(findChild(tab, "moreApps").visible);
+        verify(!findChild(tab, "discoverPlaceholder").enabled);
+    }
+
+    function test_categoryListFollowsTheFilter() {
+        const app = makeApp();
+        app.store.phoneOnly = true;
+        app.store.openCategory("game", "Games");
+        const list = pushed(app, 2);
+        tryCompare(list, "loading", false, 10000);
+        list.apps = phoneHits();
+        const view = findChild(list, "appList");
+        compare(view.count, 1);
+        verify(!findChild(list, "listPlaceholder").enabled);
+        tryVerify(() => view.footerItem && view.footerItem.visible);
+        compare(view.footerItem.count, 2);
+        view.footerItem.clicked(null);
+        compare(view.count, 3);
+    }
+
     function test_categoriesOpenLists() {
         const app = makeApp();
         const tab = showTab(app, 1);

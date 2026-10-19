@@ -29,6 +29,20 @@ QtObject {
     property var appstreamCache: ({})
     property var summaryCache: ({})
     property var installedApps: []
+    // Only apps made for phones in lists and search, as the shell's
+    // filterMobileFriendlyApps says (StoreApp binds it); installed apps and
+    // an app's own page are always shown.
+    property bool phoneOnly: true
+    // The handler's settings.json and phone-apps.json (id → true).
+    property var storeSettings: defaultSettings
+    readonly property var defaultSettings: ({
+            "flathub": true,
+            "fdroid": true,
+            "antiFeatures": true,
+            "autoUpdate": true,
+            "updateOnMetered": false
+        })
+    property var phoneApps: ({})
     property var pendingUpdates: []
     // appId → the handler's last progress record: {state, percent, error}.
     property var jobs: ({})
@@ -119,11 +133,11 @@ QtObject {
         }
     ]
 
-    readonly property var heroApp: appOfTheDay || firstOf(["verified", "popular", "trending"])
-    readonly property var trendingApps: take(collections["trending"], [heroApp], 3)
-    readonly property var mobileApps: take(collections["mobile"], [heroApp].concat(trendingApps), 5)
-    readonly property var newApps: take(collections["recently-added"], [heroApp].concat(trendingApps, mobileApps), 5)
-    readonly property var topApps: take(collections["popular"], [], 24)
+    readonly property var heroApp: appOfTheDay && shown([appOfTheDay]).length > 0 ? appOfTheDay : firstOf(["verified", "popular", "trending"])
+    readonly property var trendingApps: take(shown(collections["trending"]), [heroApp], 3)
+    readonly property var mobileApps: take(shown(collections["mobile"]), [heroApp].concat(trendingApps), 5)
+    readonly property var newApps: take(shown(collections["recently-added"]), [heroApp].concat(trendingApps, mobileApps), 5)
+    readonly property var topApps: take(shown(collections["popular"]), [], 24)
     readonly property var updateApps: pendingUpdates.map(u => installedEntry(u.app_id) || u)
     readonly property bool showingSavedCatalog: catalogSavedAt > 0 && !catalogLoading
 
@@ -139,7 +153,7 @@ QtObject {
 
     function firstOf(names) {
         for (let i = 0; i < names.length; i++) {
-            const list = collections[names[i]];
+            const list = shown(collections[names[i]]);
             if (list && list.length > 0)
                 return list[0];
         }
@@ -157,6 +171,65 @@ QtObject {
                 out.push(list[i]);
         }
         return out;
+    }
+
+    // Flathub's own flag is the AppStream rule the handler applies to the
+    // whole catalogue (phone-apps.json), so a list works before the
+    // handler's index exists.
+    function fitsPhone(app) {
+        const id = idOf(app);
+        return isAndroid(id) || phoneApps[id] === true || (app && (app.isMobileFriendly === true || relationsFit(app)));
+    }
+
+    // The handler's rule (crates/marathon-store-handler/src/phone.rs) on an
+    // /appstream entry's requires, recommends and supports: no required
+    // length rules out a 360 px side, and one admits it, with touch.
+    function relationsFit(app) {
+        const admits = r => {
+            if (r.type !== "display_length" || r.side === "longest" || !/^[0-9]+$/.test(String(r.value)))
+                return null;
+            const px = parseInt(r.value, 10);
+            const compare = r.compare || "ge";
+            return compare === "ge" ? px <= 360 : compare === "gt" ? px < 360 : compare === "le" ? px >= 768 : compare === "lt" ? px > 768 : false;
+        };
+        let fits = false, touch = false;
+        for (const kind of ["requires", "recommends", "supports"]) {
+            for (const r of (app[kind] || [])) {
+                const a = admits(r);
+                if (a === false && kind === "requires")
+                    return false;
+                fits = fits || a === true;
+                touch = touch || (r.type === "control" && r.value === "touch");
+            }
+        }
+        return fits && touch;
+    }
+
+    // Whether the person's sources and F-Droid choice let the app be listed.
+    function offered(app) {
+        if (!isAndroid(idOf(app)))
+            return storeSettings.flathub !== false;
+        return storeSettings.fdroid !== false && (storeSettings.antiFeatures !== false || (app.antiFeatures || []).length === 0);
+    }
+
+    function shown(list, all) {
+        return (list || []).filter(a => offered(a) && (all || !phoneOnly || fitsPhone(a)));
+    }
+
+    // The offered apps the phone filter leaves out of `list`.
+    function hiddenCount(list) {
+        return phoneOnly ? shown(list, true).length - shown(list).length : 0;
+    }
+
+    function loadStoreSettings() {
+        readLocalJson(stateDir + "/settings.json", function (data) {
+            root.storeSettings = Object.assign({}, root.defaultSettings, data || {});
+        });
+        readLocalJson(stateDir + "/phone-apps.json", function (data) {
+            const set = {};
+            ((data && data.apps) || []).forEach(id => set[id] = true);
+            root.phoneApps = set;
+        });
     }
 
     function pickAarch64(hits) {
@@ -302,7 +375,7 @@ QtObject {
 
     function loadCollection(name) {
         catalogFetchesInFlight += 1;
-        fetchJson(flathubApi + "/collection/" + name + "?page=1&per_page=30&locale=en", null, function (data, err) {
+        fetchJson(flathubApi + "/collection/" + name + "?page=1&per_page=" + (phoneOnly ? 60 : 30) + "&locale=en", null, function (data, err) {
             root.catalogFetchesInFlight -= 1;
             if (err) {
                 root.lastError = name + ": " + err;
@@ -398,7 +471,7 @@ QtObject {
     // The last catalogue and lists, so a launch without a network still has
     // something to browse. Hits are cut down to the fields the lists show.
 
-    readonly property var _slimKeys: ["app_id", "id", "name", "summary", "icon", "developer_name", "main_categories", "categories", "installs_last_month", "verification_verified", "version"]
+    readonly property var _slimKeys: ["app_id", "id", "name", "summary", "icon", "developer_name", "main_categories", "categories", "installs_last_month", "verification_verified", "version", "isMobileFriendly"]
 
     function slim(app) {
         const out = {};
@@ -455,7 +528,11 @@ QtObject {
             ],
             "hits_per_page": 40
         };
-        const android = searchAndroid(query, 20);
+        const android = searchAndroid(query, 20).filter(a => offered(a));
+        if (storeSettings.flathub === false) {
+            cb(android, "");
+            return;
+        }
         fetchJson(flathubApi + "/search", body, function (data, err) {
             const hits = err ? [] : (data.hits || []);
             cb(hits.concat(android), err && android.length === 0 ? err : "");
@@ -1003,6 +1080,7 @@ QtObject {
         adoptJobs();
         loadInstalled();
         loadUpdates();
+        loadStoreSettings();
         root.openExternally("marathon-store://refresh-state/all");
         stateRefreshTimer.restart();
     }
@@ -1088,7 +1166,7 @@ QtObject {
                 root.androidApps = data.apps;
                 root.androidSyncedAt = data.ts || 0;
             }
-            if (syncIfStale && Date.now() / 1000 - root.androidSyncedAt > 86400) {
+            if (syncIfStale && root.storeSettings.fdroid !== false && Date.now() / 1000 - root.androidSyncedAt > 86400) {
                 root.openExternally("marathon-store://fdroid-sync/all");
                 androidSyncPoll.tries = 0;
                 androidSyncPoll.running = true;
@@ -1111,7 +1189,7 @@ QtObject {
 
     // Recently updated Android apps, for Discover.
     function recentAndroid(count) {
-        return androidApps.slice().sort((a, b) => b.lastUpdated - a.lastUpdated).slice(0, count);
+        return shown(androidApps).sort((a, b) => b.lastUpdated - a.lastUpdated).slice(0, count);
     }
 
     readonly property var antiFeatureText: ({
@@ -1295,6 +1373,7 @@ QtObject {
         onTriggered: {
             root.loadInstalled();
             root.loadUpdates();
+            root.loadStoreSettings();
         }
     }
 

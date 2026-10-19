@@ -15,6 +15,10 @@ Page {
     property string source
 
     property var apps: []
+    // The phone filter's leftovers, shown after "Show all".
+    property bool showAll: false
+    readonly property var shownApps: store.shown(apps, showAll)
+    readonly property int hidden: showAll ? 0 : store.hiddenCount(apps)
     property bool loading: true
     property string error: ""
     property real savedAt: 0
@@ -44,7 +48,7 @@ Page {
 
         objectName: "appList"
         anchors.fill: parent
-        model: root.apps
+        model: root.shownApps
         header: PageHeader {
             title: root.title
             description: root.savedAt > 0 ? qsTr("Offline. Saved %1").arg(root.store.timeAgo(root.savedAt)) : ""
@@ -61,7 +65,7 @@ Page {
 
         ViewPlaceholder {
             objectName: "listPlaceholder"
-            enabled: !root.loading && root.apps.length === 0
+            enabled: !root.loading && root.shownApps.length === 0 && root.hidden === 0
             text: root.error !== "" ? qsTr("Couldn't load apps") : qsTr("Nothing here for this phone yet")
             hintText: root.error !== "" ? qsTr("Check your connection, then pull down to try again") : qsTr("None of the apps in this list are built for this phone's processor.")
         }
@@ -71,6 +75,11 @@ Page {
             width: list.width
             store: root.store
             app: modelData
+        }
+        footer: MoreAppsItem {
+            width: list.width
+            count: root.loading ? 0 : root.hidden
+            onClicked: root.showAll = true
         }
 
         VerticalScrollDecorator {}

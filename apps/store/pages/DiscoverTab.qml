@@ -14,6 +14,10 @@ TabItem {
     property real topMargin
 
     property var results: []
+    // "Show all" under the results: the apps the phone filter left out too.
+    property bool showAll: false
+    readonly property var shownResults: store.shown(results, showAll)
+    readonly property int hiddenResults: showAll ? 0 : store.hiddenCount(results)
     property bool searching: false
     property string searchError: ""
     // Each keystroke restarts the debounce and bumps the generation, so a
@@ -29,6 +33,7 @@ TabItem {
 
     function runSearch() {
         const gen = ++root.generation;
+        root.showAll = false;
         if (root.query === "") {
             root.results = [];
             root.searching = false;
@@ -77,7 +82,7 @@ TabItem {
         ViewPlaceholder {
             objectName: "discoverPlaceholder"
             verticalOffset: Math.max(0, searchField.y + searchField.height + Theme.paddingLarge - (flick.height / 3 - height / 2))
-            enabled: root.query !== "" ? !root.searching && root.results.length === 0 : root.offline && root.store.updateApps.length === 0
+            enabled: root.query !== "" ? !root.searching && root.shownResults.length === 0 && root.hiddenResults === 0 : root.offline && root.store.updateApps.length === 0
             text: root.query === "" ? qsTr("Can't reach Flathub") : root.searchError !== "" ? qsTr("Search isn't available") : qsTr("No results")
             hintText: root.query === "" ? qsTr("Check your connection, then pull down to refresh") : root.searchError !== "" ? qsTr("Couldn't reach Flathub. Check your connection and try again.") : qsTr("Nothing on Flathub for this phone matches \"%1\"").arg(root.query)
         }
@@ -139,18 +144,23 @@ TabItem {
                 BusyIndicator {
                     anchors.horizontalCenter: parent.horizontalCenter
                     size: BusyIndicatorSize.Large
-                    running: root.searching && root.results.length === 0
+                    running: root.searching && root.shownResults.length === 0
                     visible: running
                 }
                 Repeater {
                     objectName: "searchResults"
-                    model: root.query !== "" ? root.results : []
+                    model: root.query !== "" ? root.shownResults : []
                     delegate: AppRow {
                         required property var modelData
                         width: column.width
                         store: root.store
                         app: modelData
                     }
+                }
+                MoreAppsItem {
+                    width: parent.width
+                    count: root.searching ? 0 : root.hiddenResults
+                    onClicked: root.showAll = true
                 }
             }
 
@@ -352,9 +362,11 @@ TabItem {
 
                 SectionHeader {
                     text: qsTr("Android apps")
-                    visible: root.store.androidApps.length > 0
+                    visible: androidRecent.count > 0
                 }
                 Repeater {
+                    id: androidRecent
+
                     model: root.store.recentAndroid(5)
                     delegate: AppRow {
                         required property var modelData
@@ -364,7 +376,7 @@ TabItem {
                     }
                 }
                 ShowAllItem {
-                    visible: root.store.androidApps.length > 0
+                    visible: androidRecent.count > 0
                     onClicked: root.store.openList(qsTr("Android apps"), "android/recent")
                 }
             }

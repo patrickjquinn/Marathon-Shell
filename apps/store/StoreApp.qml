@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import Marathon.Platform 1.0
 import "models"
 import "pages"
 import "cover"
@@ -11,6 +12,12 @@ ApplicationWindow {
     id: root
 
     property StoreBackend store: StoreBackend {}
+    // One preference with the home grid's "Hide desktop apps".
+    property Binding _phoneOnly: Binding {
+        target: root.store
+        property: "phoneOnly"
+        value: Settings.filterMobileFriendlyApps
+    }
     property Connections _storeEvents: Connections {
         target: root.store
         function onPushRequested(page, properties) {

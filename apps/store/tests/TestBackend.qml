@@ -8,6 +8,9 @@ StoreBackend {
 
     property var opened: []
 
+    // The fixtures predate the phone filter; its own tests turn it on.
+    phoneOnly: false
+
     flathubApi: "http://127.0.0.1:9/flathub"
     odrsApi: "http://127.0.0.1:9/odrs"
     stateDir: Qt.resolvedUrl("data").toString().replace("file://", "")

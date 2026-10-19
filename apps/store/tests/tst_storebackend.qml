@@ -217,9 +217,80 @@ TestCase {
         compare(got.savedAt, 1000);
     }
 
+    // Flathub's flag, the handler's index and an /appstream entry's
+    // relations each make an app a phone app; Android apps always are.
+    function test_phoneFilter() {
+        const b = makeBackend();
+        b.phoneOnly = true;
+        b.phoneApps = { "org.example.Indexed": true };
+        const list = [
+            { "app_id": "org.example.Flagged", "isMobileFriendly": true },
+            { "app_id": "org.example.Desktop", "isMobileFriendly": false },
+            { "app_id": "org.example.Indexed" },
+            { "app_id": "org.example.Unknown" },
+            { "app_id": "org.example.Relations", "requires": [{ "type": "display_length", "value": "360" }], "supports": [{ "type": "control", "value": "touch" }] },
+            { "app_id": "android:org.example.clock", "antiFeatures": [] }
+        ];
+        compare(b.shown(list).map(a => a.app_id), ["org.example.Flagged", "org.example.Indexed", "org.example.Relations", "android:org.example.clock"]);
+        compare(b.hiddenCount(list), 2);
+        compare(b.shown(list, true).length, 6);
+        b.phoneOnly = false;
+        compare(b.shown(list).length, 6);
+        compare(b.hiddenCount(list), 0);
+    }
+
+    function test_relationsAsTheHandlerReadsThem() {
+        const b = makeBackend();
+        const touch = { "type": "control", "value": "touch" };
+        verify(b.relationsFit({ "recommends": [{ "type": "display_length", "value": "300" }, touch] }));
+        verify(!b.relationsFit({ "requires": [{ "type": "display_length", "value": "768" }], "recommends": [{ "type": "display_length", "compare": "le", "value": "1200" }, touch] }));
+        verify(!b.relationsFit({ "requires": [{ "type": "display_length", "compare": "gt", "value": "360" }], "recommends": [touch] }));
+        verify(!b.relationsFit({ "recommends": [{ "type": "display_length", "value": "360" }] }));
+        verify(!b.relationsFit({ "requires": [{ "type": "display_length", "side": "longest", "value": "360" }], "recommends": [touch] }));
+        verify(!b.relationsFit({}));
+    }
+
+    function test_heroAndSectionsFollowTheFilter() {
+        const b = makeBackend();
+        b.collections = Fixtures.collections();
+        b.phoneOnly = true;
+        compare(b.trendingApps, []);
+        b.phoneApps = { "org.example.T2": true, "org.example.P1": true };
+        compare(b.trendingApps.map(a => a.app_id), ["org.example.T2"]);
+        compare(b.heroApp.app_id, "org.example.P1");
+    }
+
+    function test_sourcesAndAntiFeatures() {
+        const b = makeBackend();
+        const list = [
+            { "app_id": "org.example.Flathub", "isMobileFriendly": true },
+            { "app_id": "android:org.example.clean", "antiFeatures": [] },
+            { "app_id": "android:org.example.ads", "antiFeatures": ["Ads"] }
+        ];
+        compare(b.shown(list).length, 3);
+        b.storeSettings = Object.assign({}, b.defaultSettings, { "antiFeatures": false });
+        compare(b.shown(list).map(a => a.app_id), ["org.example.Flathub", "android:org.example.clean"]);
+        b.storeSettings = Object.assign({}, b.defaultSettings, { "fdroid": false });
+        compare(b.shown(list).map(a => a.app_id), ["org.example.Flathub"]);
+        b.storeSettings = Object.assign({}, b.defaultSettings, { "flathub": false });
+        compare(b.shown(list).map(a => a.app_id), ["android:org.example.clean", "android:org.example.ads"]);
+        let got = null;
+        b.searchApps("clock", (hits, err) => got = hits);
+        verify(got !== null);
+    }
+
+    function test_settingsAndIndexFromTheHandler() {
+        const b = makeBackend();
+        b.loadStoreSettings();
+        tryVerify(() => b.storeSettings.updateOnMetered === true);
+        compare(b.storeSettings.autoUpdate, false);
+        compare(b.storeSettings.fdroid, true);
+        tryVerify(() => b.phoneApps["org.example.Indexed"] === true);
+    }
+
     function test_slimKeepsListFields() {
         const b = makeBackend();
-        compare(b.slim({ "app_id": "a.b.C", "name": "C", "description": "long", "screenshots": [] }), { "app_id": "a.b.C", "name": "C" });
+        compare(b.slim({ "app_id": "a.b.C", "name": "C", "description": "long", "screenshots": [], "isMobileFriendly": true }), { "app_id": "a.b.C", "name": "C", "isMobileFriendly": true });
     }
 
     function test_cachedLookupsSkipTheNetwork() {
