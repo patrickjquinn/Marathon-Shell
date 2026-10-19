@@ -21,6 +21,9 @@ struct Message {
     qint64  timestamp;
     bool    isRead;
     bool    isOutgoing;
+    // sending, sent, failed or received; "" takes sent or received.
+    QString status;
+    QString mmsPath;
 };
 
 struct Conversation {
@@ -57,6 +60,13 @@ class SMSService : public QObject {
 
     Q_INVOKABLE void         simulateIncomingSMS(const QString &sender, const QString &text);
 
+    // Copies what fd reads into the attachment store; the attachment's id,
+    // or -1. name is reduced to a file name.
+    int                      addAttachment(int messageId, const QString &contentType,
+                                           const QString &name, int fd);
+    // The stored file of an attachment, "" if there is none.
+    QString                  attachmentPath(int attachmentId) const;
+
   signals:
     void messageReceived(const QString &sender, const QString &text, qint64 timestamp);
     void messageSent(const QString &recipient, qint64 timestamp);
@@ -69,7 +79,11 @@ class SMSService : public QObject {
   private:
     void                initDatabase();
     void                loadConversations();
-    void                storeMessage(const Message &msg);
+    int                 storeMessage(const Message &msg);
+    void                migrateDatabase();
+    QVariantList        attachmentsOf(int messageId) const;
+    void                removeAttachments(const QString &where, const QVariant &value);
+    static QString      attachmentDir(int messageId);
     void                connectToModemManager();
     void                processIncomingSMS(const QString &modemPath, const QString &smsPath);
     QString             resolveContactName(const QString &number) const;

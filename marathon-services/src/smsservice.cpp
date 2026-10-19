@@ -12,6 +12,9 @@
 #include <QSqlError>
 #include <QStandardPaths>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <unistd.h>
 #include <QRegularExpression>
 #include <QDateTime>
 
@@ -256,6 +259,8 @@ QVariantList SMSService::getMessages(const QString &conversationId) {
         msg["timestamp"]      = query.value("timestamp").toLongLong();
         msg["isRead"]         = query.value("isRead").toBool();
         msg["isOutgoing"]     = query.value("isOutgoing").toBool();
+        msg["status"]         = query.value("status").toString();
+        msg["attachments"]    = attachmentsOf(msg["id"].toInt());
         result.append(msg);
     }
 
@@ -263,6 +268,7 @@ QVariantList SMSService::getMessages(const QString &conversationId) {
 }
 
 void SMSService::deleteConversation(const QString &conversationId) {
+    removeAttachments(QStringLiteral("conversationId"), conversationId);
     QSqlQuery query(m_database);
     query.prepare("DELETE FROM messages WHERE conversationId = ?");
     query.addBindValue(conversationId);
@@ -277,6 +283,7 @@ void SMSService::deleteConversation(const QString &conversationId) {
 }
 
 bool SMSService::deleteMessage(int id) {
+    removeAttachments(QStringLiteral("id"), id);
     QSqlQuery query(m_database);
     query.prepare("DELETE FROM messages WHERE id = ?");
     query.addBindValue(id);
@@ -363,8 +370,126 @@ void SMSService::initDatabase() {
 
     query.exec("CREATE INDEX IF NOT EXISTS idx_conversation ON messages(conversationId)");
     query.exec("CREATE INDEX IF NOT EXISTS idx_timestamp ON messages(timestamp)");
+    migrateDatabase();
 
     qInfo() << "[SMSService] Database initialized";
+}
+
+// MMS added a status, participants and mmsd-tng's path to each message, and
+// attachments; a database from before gets them in place.
+void SMSService::migrateDatabase() {
+    QSqlQuery   query(m_database);
+    QStringList columns;
+    query.exec(QStringLiteral("PRAGMA table_info(messages)"));
+    while (query.next())
+        columns << query.value(1).toString();
+    for (const char *column : {"status", "participants", "mmsPath"}) {
+        if (!columns.contains(QLatin1String(column)))
+            query.exec(QStringLiteral("ALTER TABLE messages ADD COLUMN %1 TEXT NOT NULL DEFAULT ''")
+                           .arg(QLatin1String(column)));
+    }
+    query.exec(QStringLiteral("UPDATE messages SET status = CASE WHEN isOutgoing = 1 THEN 'sent' "
+                              "ELSE 'received' END WHERE status = ''"));
+    query.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS attachments ("
+                              "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                              "messageId INTEGER NOT NULL, "
+                              "contentType TEXT NOT NULL, "
+                              "name TEXT NOT NULL, "
+                              "size INTEGER NOT NULL, "
+                              "path TEXT NOT NULL)"));
+    query.exec(QStringLiteral(
+        "CREATE INDEX IF NOT EXISTS idx_attachment_message ON attachments(messageId)"));
+}
+
+QString SMSService::attachmentDir(int messageId) {
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) +
+        QStringLiteral("/marathon/mms/%1").arg(messageId);
+}
+
+int SMSService::addAttachment(int messageId, const QString &contentType, const QString &name,
+                              int fd) {
+    QFile source;
+    if (fd < 0 || !source.open(::dup(fd), QIODevice::ReadOnly, QFileDevice::AutoCloseHandle))
+        return -1;
+    QString file = QFileInfo(name).fileName();
+    if (file.isEmpty() || file == QLatin1String(".") || file == QLatin1String(".."))
+        file = QStringLiteral("attachment");
+    const QString dir = attachmentDir(messageId);
+    if (!QDir().mkpath(dir))
+        return -1;
+    QString path = dir + QLatin1Char('/') + file;
+    for (int n = 2; QFile::exists(path); ++n)
+        path = dir + QStringLiteral("/%1-%2").arg(n).arg(file);
+    QFile target(path);
+    if (!target.open(QIODevice::WriteOnly))
+        return -1;
+    qint64 size = 0;
+    while (!source.atEnd()) {
+        const QByteArray chunk = source.read(qint64{64} * 1024);
+        if (chunk.isEmpty() || target.write(chunk) != chunk.size()) {
+            target.remove();
+            return -1;
+        }
+        size += chunk.size();
+    }
+    target.close();
+
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral("INSERT INTO attachments (messageId, contentType, name, size, path) "
+                                 "VALUES (?, ?, ?, ?, ?)"));
+    query.addBindValue(messageId);
+    query.addBindValue(contentType);
+    query.addBindValue(file);
+    query.addBindValue(size);
+    query.addBindValue(path);
+    if (!query.exec()) {
+        QFile::remove(path);
+        return -1;
+    }
+    return query.lastInsertId().toInt();
+}
+
+QString SMSService::attachmentPath(int attachmentId) const {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral("SELECT path FROM attachments WHERE id = ?"));
+    query.addBindValue(attachmentId);
+    return query.exec() && query.next() ? query.value(0).toString() : QString();
+}
+
+QVariantList SMSService::attachmentsOf(int messageId) const {
+    QVariantList out;
+    QSqlQuery    query(m_database);
+    query.prepare(QStringLiteral(
+        "SELECT id, contentType, name, size FROM attachments WHERE messageId = ? ORDER BY id"));
+    query.addBindValue(messageId);
+    if (!query.exec())
+        return out;
+    while (query.next())
+        out << QVariantMap{{QStringLiteral("id"), query.value(0).toInt()},
+                           {QStringLiteral("contentType"), query.value(1).toString()},
+                           {QStringLiteral("name"), query.value(2).toString()},
+                           {QStringLiteral("size"), query.value(3).toLongLong()}};
+    return out;
+}
+
+// Removes the attachments of the messages `where` selects (a column of
+// messages, compared with value).
+void SMSService::removeAttachments(const QString &where, const QVariant &value) {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral("SELECT id FROM messages WHERE %1 = ?").arg(where));
+    query.addBindValue(value);
+    if (!query.exec())
+        return;
+    QList<int> ids;
+    while (query.next())
+        ids << query.value(0).toInt();
+    for (const int id : std::as_const(ids)) {
+        QDir(attachmentDir(id)).removeRecursively();
+        QSqlQuery remove(m_database);
+        remove.prepare(QStringLiteral("DELETE FROM attachments WHERE messageId = ?"));
+        remove.addBindValue(id);
+        remove.exec();
+    }
 }
 
 void SMSService::loadConversations() {
@@ -414,11 +539,11 @@ void SMSService::loadConversations() {
     emit conversationsChanged();
 }
 
-void SMSService::storeMessage(const Message &msg) {
+int SMSService::storeMessage(const Message &msg) {
     QSqlQuery query(m_database);
     query.prepare("INSERT INTO messages (conversationId, sender, recipient, text, timestamp, "
-                  "isRead, isOutgoing) "
-                  "VALUES (?, ?, ?, ?, ?, ?, ?)");
+                  "isRead, isOutgoing, status, mmsPath) "
+                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     query.addBindValue(msg.conversationId);
     query.addBindValue(msg.sender);
     query.addBindValue(msg.recipient);
@@ -426,13 +551,16 @@ void SMSService::storeMessage(const Message &msg) {
     query.addBindValue(msg.timestamp);
     query.addBindValue(msg.isRead ? 1 : 0);
     query.addBindValue(msg.isOutgoing ? 1 : 0);
+    query.addBindValue(!msg.status.isEmpty() ? msg.status :
+                       msg.isOutgoing        ? QStringLiteral("sent") :
+                                               QStringLiteral("received"));
+    query.addBindValue(msg.mmsPath.isNull() ? QString(QLatin1String("")) : msg.mmsPath);
 
     if (!query.exec()) {
         qWarning() << "[SMSService] Failed to store message:" << query.lastError().text();
-        return;
+        return -1;
     }
-
-    qDebug() << "[SMSService] Message stored in database";
+    return query.lastInsertId().toInt();
 }
 
 void SMSService::connectToModemManager() {
