@@ -28,6 +28,10 @@ TestCase {
         function activate() {
             activations++;
         }
+        property var captures: []
+        function beginCapture(call, kind) {
+            captures = captures.concat([kind]);
+        }
     }
 
     CameraActions {
@@ -41,6 +45,22 @@ TestCase {
         app.camera.cameraCount = 1;
         app.camera.isRecording = false;
         app.pageStack.depth = 1;
+        app.captures = [];
+    }
+
+    function test_capture() {
+        const call = KeelActions.invoke("camera.capture", { mode: "video" });
+        verify(!call.finished);
+        compare(app.captures, ["video"]);
+        KeelActions.invoke("camera.capture", {});
+        compare(app.captures, ["video", "photo"]);
+    }
+
+    function test_captureWithoutCamera() {
+        app.camera.cameraCount = 0;
+        const call = KeelActions.invoke("camera.capture", { mode: "photo" });
+        compare(call.errorCode, "NotAvailable");
+        compare(app.captures, []);
     }
 
     function test_openVideo() {

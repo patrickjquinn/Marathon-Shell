@@ -29,6 +29,62 @@
     },
     {
       "_meta": {
+        "org.shipwright.keel/action": "camera.capture",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "object",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 600000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Ask the person for one photo or video: brings Marathon Camera to the front on its viewfinder in that mode, waits for the person to take it, then answers with the saved file's path (under ~/Pictures/Marathon) and goes away, back to whatever was in front. Fails with Cancelled when the person leaves the camera without taking one, or another capture is asked for; with NotAvailable when the device has no camera; with Timeout after 10 minutes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "photo",
+            "enum": [
+              "photo",
+              "video"
+            ],
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "org.marathonos.camera/camera.capture",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "photo",
+              "video"
+            ],
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "path": {
+            "description": "The photo or video, an absolute path",
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "mode"
+        ],
+        "type": "object"
+      },
+      "title": "Take a photo or video to return"
+    },
+    {
+      "_meta": {
         "org.shipwright.keel/action": "camera.open",
         "org.shipwright.keel/confirm": false,
         "org.shipwright.keel/result": "object",

@@ -21,6 +21,10 @@ ApplicationWindow {
         defaultValue: true
     }
     readonly property bool showGrid: gridStore.value === true
+    // A camera.capture call waiting for the person's photo or video.
+    property var captureCall: null
+    property bool captureRecorded: false
+    readonly property bool capturing: captureCall !== null
     property CameraController camera: CameraController {
         onErrorOccurred: function (message) {
             console.warn("[Camera] Error:", message);
@@ -50,8 +54,36 @@ ApplicationWindow {
     }
 
     function setMode(next) {
-        if (!camera.isRecording)
+        if (!camera.isRecording && !capturing)
             mode = next;
+    }
+
+    // camera.capture: the viewfinder in kind's mode; the next capture answers call.
+    function beginCapture(call, kind) {
+        cancelCapture(qsTr("another capture was asked for"));
+        if (!camera.isRecording)
+            mode = kind;
+        captureCall = call;
+        captureRecorded = false;
+        if (pageStack.depth > 1)
+            pageStack.pop();
+        activate();
+    }
+
+    function cancelCapture(reason) {
+        const call = captureCall;
+        captureCall = null;
+        if (call && !call.finished)
+            call.fail("Cancelled", reason);
+    }
+
+    function returnCapture(url) {
+        const call = captureCall;
+        captureCall = null;
+        if (!call || call.finished)
+            return;
+        call.reply({ path: decodeURIComponent(String(url).replace(/^file:\/\//, "")), mode: mode });
+        minimizeRequested();
     }
 
     function retry() {
@@ -68,6 +100,8 @@ ApplicationWindow {
     }
 
     function handleBack() {
+        if (capturing && !camera.isRecording)
+            cancelCapture(qsTr("the person left the camera"));
         const page = pageStack.currentPage as CameraPage;
         if (page && page.settingsOpen) {
             page.closeSettings();
@@ -93,7 +127,28 @@ ApplicationWindow {
     }
 
     appId: "camera"
-    onApplicationActiveChanged: updateCamera()
+    onApplicationActiveChanged: {
+        if (!applicationActive && capturing && !camera.isRecording)
+            cancelCapture(qsTr("the person left the camera"));
+        updateCamera();
+    }
+
+    Connections {
+        target: app.camera
+
+        function onPhotoSaved(path) {
+            if (app.capturing && app.mode === "photo")
+                app.returnCapture(path);
+        }
+        function onRecordingChanged() {
+            if (app.capturing && app.camera.isRecording)
+                app.captureRecorded = true;
+        }
+        function onLatestCaptureChanged() {
+            if (app.capturing && app.captureRecorded && !app.camera.isRecording && /\.mp4$/i.test(app.camera.latestCapture))
+                app.returnCapture(app.camera.latestCapture);
+        }
+    }
 
     Connections {
         target: app.pageStack

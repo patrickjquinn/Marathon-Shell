@@ -30,6 +30,8 @@ QtObject {
     signal photoSaved(string path)
     signal cameraFlipStarted
     signal cameraFlipCompleted
+    // The real controller's NOTIFY for isRecording.
+    signal recordingChanged
 
     function record(name) {
         calls = calls.concat([name]);
@@ -63,10 +65,12 @@ QtObject {
     function startRecording() {
         record("startRecording");
         isRecording = true;
+        recordingChanged();
     }
     function stopRecording() {
         record("stopRecording");
         isRecording = false;
+        recordingChanged();
         latestCapture = "file:///pictures/VID_1.mp4";
         latestPreview = Qt.resolvedUrl("../../../data/photo.png");
     }

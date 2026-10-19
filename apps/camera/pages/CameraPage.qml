@@ -351,6 +351,21 @@ Page {
     }
 
     Label {
+        objectName: "captureHint"
+        anchors {
+            top: parent.top
+            topMargin: Theme.paddingLarge
+            horizontalCenter: parent.horizontalCenter
+        }
+        height: settingsButton.height
+        verticalAlignment: Text.AlignVCenter
+        visible: page.app.capturing && !page.camera.isRecording
+        text: page.app.mode === "video" ? qsTr("Record a video to send it back") : qsTr("Take a photo to send it back")
+        color: Theme.lightPrimaryColor
+        font.pixelSize: Theme.fontSizeSmall
+    }
+
+    Label {
         objectName: "zoomIndicator"
         anchors {
             bottom: modeSwitch.top
@@ -371,7 +386,7 @@ Page {
             bottomMargin: Theme.paddingLarge
             horizontalCenter: parent.horizontalCenter
         }
-        visible: page.controlsShown
+        visible: page.controlsShown && !page.app.capturing
         enabled: !page.camera.isRecording
         opacity: enabled ? 1 : Theme.opacityLow
         mode: page.app.mode

@@ -8,8 +8,31 @@ import Keel.Actions 1.0
 Item {
     id: root
 
-    // The app: camera, mode, setMode(), pageStack and activate().
+    // The app: camera, mode, setMode(), beginCapture(), pageStack and activate().
     property var app
+
+    KeelAction {
+        name: "camera.capture"
+        title: qsTr("Take a photo or video to return")
+        description: "Ask the person for one photo or video: brings Marathon Camera to the front on its viewfinder in that mode, waits for the person to take it, then answers with the saved file's path (under ~/Pictures/Marathon) and goes away, back to whatever was in front. Fails with Cancelled when the person leaves the camera without taking one, or another capture is asked for; with NotAvailable when the device has no camera; with Timeout after 10 minutes."
+        timeout: 600000
+        parameters: [
+            KeelParam { name: "mode"; type: "string"; values: ["photo", "video"]; defaultValue: "photo" }
+        ]
+        returns: KeelResult {
+            type: "object"
+            KeelParam { name: "path"; type: "string"; maxLength: 4096; required: true; description: "The photo or video, an absolute path" }
+            KeelParam { name: "mode"; type: "string"; values: ["photo", "video"]; required: true }
+        }
+        onInvoked: (args, call) => {
+            const app = root.app;
+            if (app.camera.discovered && app.camera.cameraCount === 0) {
+                call.fail("NotAvailable", "this device has no camera");
+                return;
+            }
+            app.beginCapture(call, args.mode || "photo");
+        }
+    }
 
     KeelAction {
         name: "camera.open"

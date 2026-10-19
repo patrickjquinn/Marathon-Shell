@@ -21,6 +21,11 @@ TestCase {
     }
 
     Component {
+        id: spyComponent
+        SignalSpy {}
+    }
+
+    Component {
         id: appComponent
         CameraApp { width: 720; height: 1440 }
     }
@@ -147,6 +152,57 @@ TestCase {
         compare(call.result.mode, "video");
         tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
         verify(app.camera.active);
+    }
+
+    // camera.capture: the person's next photo comes back to the caller, and the camera goes.
+    function test_captureReturnsThePhoto() {
+        const app = makeApp();
+        const minimized = createTemporaryObject(spyComponent, testCase, { target: app, signalName: "minimizeRequested" });
+        openReview(app, Qt.resolvedUrl("data/photo.png").toString());
+        const call = KeelActions.invoke("camera.capture", { mode: "photo" });
+        verify(!call.finished);
+        tryVerify(() => app.pageStack.depth === 1 && !app.pageStack.busy);
+        verify(app.capturing);
+        compare(child(app, "captureHint").text, "Take a photo to send it back");
+        verify(child(app, "captureHint").visible);
+        verify(!child(app, "modeSwitch").visible);
+        app.setMode("video");
+        compare(app.mode, "photo");
+        app.camera.photoSaved("file:///home/user/Pictures/Marathon/IMG%201.jpg");
+        verify(call.succeeded, call.errorMessage);
+        compare(call.result, { path: "/home/user/Pictures/Marathon/IMG 1.jpg", mode: "photo" });
+        verify(!app.capturing);
+        compare(minimized.count, 1);
+        verify(!child(app, "captureHint").visible);
+    }
+
+    function test_captureReturnsTheVideo() {
+        const app = makeApp();
+        const call = KeelActions.invoke("camera.capture", { mode: "video" });
+        compare(app.mode, "video");
+        compare(child(app, "captureHint").text, "Record a video to send it back");
+        app.camera.photoSaved("file:///pictures/IMG_9.jpg");
+        verify(!call.finished);
+        app.shoot();
+        verify(app.camera.isRecording);
+        app.shoot();
+        verify(call.succeeded, call.errorMessage);
+        compare(call.result, { path: "/pictures/VID_1.mp4", mode: "video" });
+    }
+
+    // Leaving the camera, or a second request, cancels the first.
+    function test_captureCancelled() {
+        const app = makeApp();
+        let call = KeelActions.invoke("camera.capture", {});
+        app.handleBack();
+        compare(call.errorCode, "Cancelled");
+        verify(!app.capturing);
+
+        call = KeelActions.invoke("camera.capture", { mode: "photo" });
+        const second = KeelActions.invoke("camera.capture", { mode: "video" });
+        compare(call.errorCode, "Cancelled");
+        verify(!second.finished);
+        compare(app.mode, "video");
     }
 
     function test_thumbnailWithoutCaptureOpensGallery() {
