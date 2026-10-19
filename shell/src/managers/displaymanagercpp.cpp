@@ -14,6 +14,7 @@
 #include <QtMath>
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
 #include <QTimer>
 #include <QThread>
 #include <QFileSystemWatcher>
@@ -229,62 +230,50 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     const int brightnessValue = backlightLevel(brightness);
     m_brightness = brightnessHwToUser(static_cast<double>(brightnessValue) / m_maxBrightness);
 
-    QString      brightnessPath = backlightFile("brightness");
-
-    QDBusMessage message = QDBusMessage::createMethodCall("org.gnome.SettingsDaemon.Power",
-                                                          "/org/gnome/SettingsDaemon/Power",
-                                                          "org.freedesktop.DBus.Properties", "Set");
-
-    QList<QVariant> args;
-    args << "org.gnome.SettingsDaemon.Power.Screen";
-    args << "Brightness";
-
-    const int gsdValue = qRound(brightnessValue * 100.0 / m_maxBrightness);
-    args << QVariant::fromValue(QDBusVariant(gsdValue));
-    message.setArguments(args);
-
-    QDBusMessage reply = QDBusConnection::sessionBus().call(message);
-    if (reply.type() != QDBusMessage::ErrorMessage) {
-        qInfo() << "[DisplayManagerCpp] Set brightness to:" << brightnessValue << "% via GSD D-Bus";
+    // The device's udev rule makes the sysfs node writable; GSD (desktop runs)
+    // and logind are the fallbacks, asked asynchronously: a slider drag calls
+    // this per step on the GUI thread.
+    QFile file(backlightFile("brightness"));
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text) &&
+        file.write(QByteArray::number(brightnessValue)) > 0) {
+        file.close();
         emit brightnessChanged();
         return;
-    } else {
-        qDebug() << "[DisplayManagerCpp] GSD D-Bus call failed:" << reply.errorMessage();
     }
+    setBrightnessOverDBus(brightnessValue);
+}
 
-    if (Platform::hasLogind()) {
-        QDBusMessage logindMsg = QDBusMessage::createMethodCall(
-            "org.freedesktop.login1", "/org/freedesktop/login1/session/auto",
-            "org.freedesktop.login1.Session", "SetBrightness");
-
-        QList<QVariant> logindArgs;
-        logindArgs << "backlight";
-        logindArgs << m_backlightDevice;
-        logindArgs << (uint)brightnessValue;
-        logindMsg.setArguments(logindArgs);
-
-        QDBusMessage logindReply = QDBusConnection::systemBus().call(logindMsg);
-        if (logindReply.type() != QDBusMessage::ErrorMessage) {
-            qInfo() << "[DisplayManagerCpp] Set brightness to:" << brightnessValue << "via logind";
-            emit brightnessChanged();
-            return;
-        } else {
-            qDebug() << "[DisplayManagerCpp] logind call failed:" << logindReply.errorMessage();
-        }
-    }
-
-    QFile file(brightnessPath);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream stream(&file);
-        stream << brightnessValue;
-        file.close();
-        qDebug() << "[DisplayManagerCpp] Set brightness to:" << brightnessValue << "("
-                 << (m_brightness * 100) << "%) via sysfs";
-        emit brightnessChanged();
-    } else {
-        qDebug() << "[DisplayManagerCpp] Failed to set brightness: permission denied (sysfs) and "
-                    "D-Bus methods failed";
-    }
+void DisplayManagerCpp::setBrightnessOverDBus(int brightnessValue) {
+    QDBusMessage gsd = QDBusMessage::createMethodCall("org.gnome.SettingsDaemon.Power",
+                                                      "/org/gnome/SettingsDaemon/Power",
+                                                      "org.freedesktop.DBus.Properties", "Set");
+    gsd << QStringLiteral("org.gnome.SettingsDaemon.Power.Screen") << QStringLiteral("Brightness")
+        << QVariant::fromValue(QDBusVariant(qRound(brightnessValue * 100.0 / m_maxBrightness)));
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(gsd), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, brightnessValue](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                if (!w->isError()) {
+                    emit brightnessChanged();
+                    return;
+                }
+                if (!Platform::hasLogind()) {
+                    qWarning() << "[DisplayManagerCpp] Failed to set brightness:" << w->error().message();
+                    return;
+                }
+                QDBusMessage logind = QDBusMessage::createMethodCall(
+                    "org.freedesktop.login1", "/org/freedesktop/login1/session/auto",
+                    "org.freedesktop.login1.Session", "SetBrightness");
+                logind << QStringLiteral("backlight") << m_backlightDevice << uint(brightnessValue);
+                auto *set = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(logind), this);
+                connect(set, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *l) {
+                    l->deleteLater();
+                    if (l->isError())
+                        qWarning() << "[DisplayManagerCpp] Failed to set brightness:" << l->error().message();
+                    else
+                        emit brightnessChanged();
+                });
+            });
 }
 
 bool DisplayManagerCpp::rotationAvailable() const {

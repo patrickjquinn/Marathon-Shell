@@ -110,6 +110,7 @@ class DisplayManagerCpp : public QObject {
     // Power-cycle the backlight LED to a lit state. Must be called AFTER
     // the compositor has re-enabled the CRTC on wake (see setScreenState).
     void forceBacklightOn();
+    void setBrightnessOverDBus(int brightnessValue);
     int  backlightLevel(double user) const;
 
     // --- Adaptive brightness engine ---------------------------------
