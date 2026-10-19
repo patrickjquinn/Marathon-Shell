@@ -354,7 +354,8 @@ Rectangle {
         }
     }
 
-    // Watchdog: if the splash sits for 20 s without a surface arriving
+    // Watchdog (the time Android takes to boot not counted): if the splash
+    // sits for 20 s without a surface arriving
     // (X11-only app on a Wayland-only stack, runner crash before
     // attaching, missing flatpak runtime, etc.), surface the error
     // state so the user isn't trapped on a forever-loading screen.
@@ -363,7 +364,7 @@ Rectangle {
 
         interval: 20000
         repeat: false
-        running: appWindow.isLoadingComponent && !appWindow.hasError
+        running: appWindow.isLoadingComponent && !appWindow.hasError && !AppLaunchService.androidStarting
         onTriggered: {
             Logger.warn("AppWindow", "Launch timeout for " + appWindow.appId + " — no surface after 20 s");
             appWindow.isLoadingComponent = false;

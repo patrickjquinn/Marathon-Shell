@@ -745,17 +745,21 @@ bool AppLaunchService::launchNativeApp(const QVariantMap &app, QObject *composit
 void AppLaunchService::startAndroidSession(const std::function<void()> &then) {
     QDBusConnection bus     = QDBusConnection::sessionBus();
     const QString   session = QStringLiteral("id.waydro.Session");
-    if (!bus.isConnected() || bus.interface()->isServiceRegistered(session)) {
+    if (!bus.isConnected()) {
         then();
         return;
     }
+    if (bus.interface()->isServiceRegistered(session)) {
+        waitForAndroidBoot(then);
+        return;
+    }
     auto *wait    = new QObject(this);
-    auto  done    = [wait, then]() {
+    auto  done    = [this, wait, then]() {
         if (wait->property("done").toBool())
             return;
         wait->setProperty("done", true);
         wait->deleteLater();
-        then();
+        waitForAndroidBoot(then);
     };
     auto *watcher = new QDBusServiceWatcher(session, bus, QDBusServiceWatcher::WatchForRegistration,
                                             wait);
@@ -773,6 +777,57 @@ void AppLaunchService::startAndroidSession(const std::function<void()> &then) {
             done();
         }
     });
+}
+
+// The session comes at container start, Android about ten seconds later, and
+// a `waydroid app launch` before that is dropped. deckardd says when Android
+// runs (Deckard1 GetRuntime / RuntimeChanged); without deckardd, or after
+// 90 s, the launch goes regardless.
+void AppLaunchService::waitForAndroidBoot(const std::function<void()> &then) {
+    QDBusConnection bus     = QDBusConnection::sessionBus();
+    const QString   service = QStringLiteral("org.marathonos.Deckard");
+    if (!bus.interface()->isServiceRegistered(service)) {
+        then();
+        return;
+    }
+    m_afterAndroidBoot << then;
+    if (m_afterAndroidBoot.size() > 1)
+        return;
+    emit androidStartingChanged();
+    const QString path  = QStringLiteral("/org/marathonos/Deckard");
+    const QString iface = QStringLiteral("org.marathonos.Deckard1");
+    bus.connect(service, path, iface, QStringLiteral("RuntimeChanged"), this,
+                SLOT(onAndroidRuntimeChanged(QVariantMap)));
+    auto *call = new QDBusPendingCallWatcher(
+        bus.asyncCall(QDBusMessage::createMethodCall(service, path, iface, QStringLiteral("GetRuntime"))),
+        this);
+    connect(call, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        const QDBusPendingReply<QVariantMap> reply = *w;
+        if (reply.isError())
+            androidBooted();
+        else
+            onAndroidRuntimeChanged(reply.value());
+    });
+    QTimer::singleShot(90000, this, &AppLaunchService::androidBooted);
+}
+
+void AppLaunchService::onAndroidRuntimeChanged(const QVariantMap &runtime) {
+    if (runtime.value(QStringLiteral("state")).toString() == QLatin1String("running"))
+        androidBooted();
+}
+
+void AppLaunchService::androidBooted() {
+    if (m_afterAndroidBoot.isEmpty())
+        return;
+    QDBusConnection::sessionBus().disconnect(
+        QStringLiteral("org.marathonos.Deckard"), QStringLiteral("/org/marathonos/Deckard"),
+        QStringLiteral("org.marathonos.Deckard1"), QStringLiteral("RuntimeChanged"), this,
+        SLOT(onAndroidRuntimeChanged(QVariantMap)));
+    const QList<std::function<void()>> waiting = std::exchange(m_afterAndroidBoot, {});
+    emit androidStartingChanged();
+    for (const auto &launch : waiting)
+        launch();
 }
 
 // org.freedesktop.Application on the desktop id: a DBusActivatable app owns

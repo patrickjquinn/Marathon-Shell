@@ -29,6 +29,8 @@ class AppLaunchService : public QObject {
     Q_PROPERTY(QObject *uiStore READ uiStore WRITE setUiStore NOTIFY uiStoreChanged)
     // Apps whose windows stay off cards and screenshots.
     Q_PROPERTY(QStringList secureApps READ secureApps NOTIFY secureAppsChanged)
+    // An Android launch is waiting for Android to boot.
+    Q_PROPERTY(bool androidStarting READ androidStarting NOTIFY androidStartingChanged)
     Q_PROPERTY(QObject *appLifecycleManager READ appLifecycleManager WRITE setAppLifecycleManager
                    NOTIFY appLifecycleManagerChanged)
 
@@ -96,6 +98,9 @@ class AppLaunchService : public QObject {
     QStringList secureApps() const {
         return m_secureApps.keys();
     }
+    bool        androidStarting() const {
+        return !m_afterAndroidBoot.isEmpty();
+    }
 
   signals:
     void compositorChanged();
@@ -103,6 +108,7 @@ class AppLaunchService : public QObject {
     void uiStoreChanged();
     void appLifecycleManagerChanged();
     void secureAppsChanged();
+    void androidStartingChanged();
 
     void appLaunchStarted(const QString &appId, const QString &appName);
     void appLaunchCompleted(const QString &appId, const QString &appName);
@@ -136,6 +142,9 @@ class AppLaunchService : public QObject {
     bool launchNativeApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
     void  activateRunningApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
     void  startAndroidSession(const std::function<void()> &then);
+    void  waitForAndroidBoot(const std::function<void()> &then);
+    void  androidBooted();
+    Q_SLOT void onAndroidRuntimeChanged(const QVariantMap &runtime);
     QSize initialAppSize() const;
     bool launchMarathonApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
 
@@ -252,6 +261,7 @@ class AppLaunchService : public QObject {
     int                            m_expectWindowMs = 10000;
     // Secure apps, and whether each has had a card.
     QHash<QString, bool>           m_secureApps;
+    QList<std::function<void()>>   m_afterAndroidBoot;
 
   public:
     Q_INVOKABLE QString appIdForPid(qint64 pid) const;

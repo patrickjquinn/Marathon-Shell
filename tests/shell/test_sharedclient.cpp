@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QDBusConnection>
 
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
@@ -35,6 +36,23 @@ class FakeShell : public QObject {
     // UIStore's: an app is on screen.
     Q_PROPERTY(bool appWindowOpen MEMBER appWindowOpen)
     bool appWindowOpen = false;
+};
+
+// deckardd's Deckard1: Android's state.
+class FakeRuntime : public QObject {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Deckard1")
+
+  public:
+    QString state = QStringLiteral("starting");
+
+  public slots:
+    QVariantMap GetRuntime() {
+        return {{"state", state}};
+    }
+
+  signals:
+    void RuntimeChanged(const QVariantMap &runtime);
 };
 
 class TestSharedClient : public QObject {
@@ -237,6 +255,34 @@ class TestSharedClient : public QObject {
         tasks->closeTask(tasks->getTaskByAppId(id("c"))->id());
         QVERIFY(launcher->secureApps().isEmpty());
         QCOMPARE(changed.count(), 2);
+    }
+
+    // Starting Android takes a while after its session appears; the launch
+    // waits for Android to have booted, or it is dropped.
+    void anAndroidLaunchWaitsForAndroidToBoot() {
+        FakeRuntime     runtime;
+        QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus,
+                                                            QStringLiteral("android"));
+        QVERIFY(bus.registerObject(QStringLiteral("/org/marathonos/Deckard"), &runtime,
+                                   QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals));
+        QVERIFY(bus.registerService(QStringLiteral("id.waydro.Session")));
+        QVERIFY(bus.registerService(QStringLiteral("org.marathonos.Deckard")));
+
+        QVERIFY(launcher->launchApp(app("a")));
+        QTRY_VERIFY(launcher->androidStarting());
+        QTest::qWait(100);
+        QVERIFY(comp->spawned.isEmpty());
+
+        runtime.state = QStringLiteral("running");
+        emit runtime.RuntimeChanged({{"state", "running"}});
+        QTRY_COMPARE(comp->spawned, QStringList{exec("a")});
+        QVERIFY(!launcher->androidStarting());
+
+        // Booted: the next launch goes at once.
+        QVERIFY(launcher->launchApp(app("b")));
+        QTRY_COMPARE(comp->spawned, (QStringList{exec("a"), exec("b")}));
+        bus.unregisterService(QStringLiteral("org.marathonos.Deckard"));
+        bus.unregisterService(QStringLiteral("id.waydro.Session"));
     }
 
     void aShownLaunchIsShown() {
