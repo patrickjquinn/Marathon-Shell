@@ -18,8 +18,10 @@ S.SilicaFlickable {
     }
 
     // Past the drag distance the content keeps the finger's point under it,
-    // not the distance behind; Silica predates the property, so by name.
-    Binding { target: root; property: "synchronousDrag"; value: true }
+    // not the distance behind, from the drag's second move: on the first the
+    // content rests where it was, so a pulley menu sees its drag begin there.
+    // Silica predates the property, so by name.
+    Binding { target: root; property: "synchronousDrag"; value: root.dragging }
 
     // A flickable holding controls is not a tab stop itself: Tab goes to the
     // controls, and keys they leave unused scroll it.

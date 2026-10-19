@@ -273,6 +273,170 @@ TestCase {
         verify(v.cellClicked);
     }
 
+    Component {
+        id: pulleyFlickable
+
+        SilicaFlickable {
+            width: 540
+            height: 960
+            contentHeight: height
+
+            PullDownMenu {
+                objectName: "pullDown"
+
+                MenuItem {
+                    text: "A"
+                }
+            }
+            PushUpMenu {
+                objectName: "pushUp"
+
+                MenuItem {
+                    text: "B"
+                }
+            }
+        }
+    }
+
+    Component {
+        id: pulleyList
+
+        SilicaListView {
+            width: 540
+            height: 960
+            model: 30
+            delegate: ListItem {
+                width: 540
+                contentHeight: 80
+            }
+
+            PullDownMenu {
+                objectName: "pullDown"
+
+                MenuItem {
+                    text: "A"
+                }
+            }
+            PushUpMenu {
+                objectName: "pushUp"
+
+                MenuItem {
+                    text: "B"
+                }
+            }
+        }
+    }
+
+    Component {
+        id: pulleyGrid
+
+        SilicaGridView {
+            width: 540
+            height: 960
+            cellWidth: 270
+            cellHeight: 80
+            model: 60
+            delegate: GridItem {
+                width: 270
+                contentHeight: 80
+            }
+
+            PullDownMenu {
+                objectName: "pullDown"
+
+                MenuItem {
+                    text: "A"
+                }
+            }
+            PushUpMenu {
+                objectName: "pushUp"
+
+                MenuItem {
+                    text: "B"
+                }
+            }
+        }
+    }
+
+    // As the photo viewer: a horizontal slideshow in a vertical page.
+    Component {
+        id: pulleyAroundSlides
+
+        SilicaFlickable {
+            width: 540
+            height: 960
+            contentHeight: height
+
+            PullDownMenu {
+                objectName: "pullDown"
+
+                MenuItem {
+                    text: "A"
+                }
+            }
+
+            SilicaListView {
+                anchors.fill: parent
+                orientation: ListView.Horizontal
+                snapMode: ListView.SnapOneItem
+                model: 3
+                delegate: Item {
+                    width: 540
+                    height: 960
+                }
+            }
+        }
+    }
+
+    // A drag keeps the finger's point under it, not the drag distance behind.
+    function test_aDragFollowsTheFinger() {
+        const v = createTemporaryObject(list, testCase);
+        mousePress(v, 270, 600);
+        for (let y = 590; y >= 400; y -= 10)
+            mouseMove(v, 270, y, 16);
+        compare(v.contentY, 200);
+        mouseRelease(v, 270, 400, Qt.LeftButton, Qt.NoModifier, 200);
+    }
+
+    // ...and pulley menus still open, at either end, in every view.
+    function test_aPulleyMenuOpens_data() {
+        return [{
+                tag: "flickable",
+                view: pulleyFlickable
+            }, {
+                tag: "list",
+                view: pulleyList
+            }, {
+                tag: "grid",
+                view: pulleyGrid
+            }, {
+                tag: "around a horizontal view",
+                view: pulleyAroundSlides
+            }];
+    }
+
+    function test_aPulleyMenuOpens(data) {
+        const v = createTemporaryObject(data.view, testCase);
+        const down = findChild(v, "pullDown");
+        mousePress(v, 270, 200);
+        for (let y = 220; y <= 600; y += 40)
+            mouseMove(v, 270, y, 16);
+        verify(down.active, "pull-down");
+        mouseRelease(v, 270, 600);
+        tryVerify(() => !v.moving, 3000);
+        const up = findChild(v, "pushUp");
+        if (!up)
+            return;
+        down.close(true);
+        v.contentY = v.contentHeight - v.height + v.originY;
+        tryVerify(() => v.atYEnd && !down.active);
+        mousePress(v, 270, 760);
+        for (let y = 740; y >= 360; y -= 40)
+            mouseMove(v, 270, y, 16);
+        verify(up.active, "push-up");
+        mouseRelease(v, 270, 360);
+    }
+
     // Pacific's carry: a fling caught and flung again the same way adds the
     // speed it was caught at.
     function test_aRepeatedFlingSpeedsUp() {

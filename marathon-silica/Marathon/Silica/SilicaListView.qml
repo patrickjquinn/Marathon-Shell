@@ -18,8 +18,10 @@ S.SilicaListView {
     }
 
     // Past the drag distance the content keeps the finger's point under it,
-    // not the distance behind; Silica predates the property, so by name.
-    Binding { target: root; property: "synchronousDrag"; value: true }
+    // not the distance behind, from the drag's second move: on the first the
+    // content rests where it was, so a pulley menu sees its drag begin there.
+    // Silica predates the property, so by name.
+    Binding { target: root; property: "synchronousDrag"; value: root.dragging }
 
     // Silica declares these views against QtQuick 2.0, which predates
     // these properties, so they can only be set by name.
