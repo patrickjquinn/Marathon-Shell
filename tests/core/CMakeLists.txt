@@ -472,7 +472,7 @@ if(TARGET MarathonServices)
     # MMS through mmsd-tng: a fake org.ofono.mms on a private bus
     if(DBUS_RUN_SESSION)
         add_executable(test_core_mms test_mms.cpp)
-        target_link_libraries(test_core_mms Qt6::Test Qt6::Core Qt6::DBus Qt6::Sql MarathonServices)
+        target_link_libraries(test_core_mms Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Sql MarathonServices)
         target_include_directories(test_core_mms PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
         add_test(NAME Core_Mms COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_mms>)
     endif()

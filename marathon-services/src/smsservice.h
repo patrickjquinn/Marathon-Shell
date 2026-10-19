@@ -26,6 +26,13 @@ struct Message {
     QString mmsPath;
 };
 
+// A part of an MMS to send, as the app handed it over.
+struct MmsPart {
+    QString contentType;
+    QString name;
+    int     fd = -1;
+};
+
 struct Conversation {
     QString id;
     QString contactNumber;
@@ -48,6 +55,12 @@ class SMSService : public QObject {
     QVariantList     conversations() const;
 
     Q_INVOKABLE void sendMessage(const QString &recipient, const QString &text);
+    // Sends through mmsd-tng (pictures, or several recipients), never as SMS
+    // instead: the stored message's id, its status following in
+    // messageStatusChanged. Pictures over the carrier's limit are scaled
+    // down.
+    int              sendMms(const QStringList &recipients, const QString &text,
+                             const QList<MmsPart> &parts);
     Q_INVOKABLE QVariantList getMessages(const QString &conversationId);
     Q_INVOKABLE void         deleteConversation(const QString &conversationId);
     Q_INVOKABLE bool         deleteMessage(int id);
@@ -69,6 +82,7 @@ class SMSService : public QObject {
     void messageReceived(const QString &sender, const QString &text, qint64 timestamp);
     void messageSent(const QString &recipient, qint64 timestamp);
     void sendFailed(const QString &recipient, const QString &reason);
+    void messageStatusChanged(int id, const QString &status);
     void conversationsChanged();
 
   private slots:
@@ -82,6 +96,8 @@ class SMSService : public QObject {
     QVariantList        attachmentsOf(int messageId) const;
     void                removeAttachments(const QString &where, const QVariant &value);
     static QString      attachmentDir(int messageId);
+    void                setStatus(int id, const QString &status);
+    bool                fitToLimit(int attachmentId, qint64 budget);
     void                connectToModemManager();
     void                processIncomingSMS(const QString &modemPath, const QString &smsPath);
     QString             resolveContactName(const QString &number) const;

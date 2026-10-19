@@ -11,7 +11,11 @@
 #include <QTimer>
 #include <QSqlError>
 #include <QStandardPaths>
+#include <QBuffer>
 #include <QDir>
+#include <QImage>
+#include <QImageReader>
+#include <cmath>
 #include <QFile>
 #include <QFileInfo>
 #include <unistd.h>
@@ -77,6 +81,143 @@ void SMSService::setMmsManager(MmsManager *mmsManager) {
                 loadConversations();
                 emit messageReceived(sender, text, timestamp);
             });
+    connect(m_mmsManager, &MmsManager::queued, this, [this](int id, const QString &path) {
+        QSqlQuery query(m_database);
+        query.prepare(QStringLiteral("UPDATE messages SET mmsPath = ? WHERE id = ?"));
+        query.addBindValue(path);
+        query.addBindValue(id);
+        query.exec();
+    });
+    connect(m_mmsManager, &MmsManager::failed, this, [this](int id, const QString &reason) {
+        setStatus(id, QStringLiteral("failed"));
+        emit sendFailed(QString(), reason);
+    });
+    connect(m_mmsManager, &MmsManager::statusChanged, this,
+            [this](const QString &path, const QString &status) {
+                QSqlQuery query(m_database);
+                query.prepare(QStringLiteral("SELECT id FROM messages WHERE mmsPath = ? AND isOutgoing = 1"));
+                query.addBindValue(path);
+                if (query.exec() && query.next())
+                    setStatus(query.value(0).toInt(), status);
+            });
+}
+
+void SMSService::setStatus(int id, const QString &status) {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral("UPDATE messages SET status = ? WHERE id = ?"));
+    query.addBindValue(status);
+    query.addBindValue(id);
+    if (query.exec() && query.numRowsAffected() > 0)
+        emit messageStatusChanged(id, status);
+}
+
+int SMSService::sendMms(const QStringList &recipients, const QString &text,
+                        const QList<MmsPart> &parts) {
+    if (recipients.isEmpty() || (text.isEmpty() && parts.isEmpty())) {
+        emit sendFailed(recipients.join(QLatin1Char(',')), tr("Nothing to send"));
+        return -1;
+    }
+    Message msg;
+    msg.conversationId = generateConversationId(recipients.join(QLatin1Char(',')));
+    msg.sender         = QStringLiteral("me");
+    msg.recipient      = recipients.join(QLatin1Char(','));
+    msg.text           = text;
+    msg.timestamp      = QDateTime::currentMSecsSinceEpoch();
+    msg.isRead         = true;
+    msg.isOutgoing     = true;
+    msg.status         = QStringLiteral("sending");
+    const int id       = storeMessage(msg);
+    if (id < 0)
+        return -1;
+
+    QList<int> stored;
+    for (const MmsPart &part : parts) {
+        const int attachment = addAttachment(id, part.contentType, part.name, part.fd);
+        if (attachment < 0) {
+            setStatus(id, QStringLiteral("failed"));
+            loadConversations();
+            emit sendFailed(msg.recipient, tr("An attachment could not be read"));
+            return id;
+        }
+        stored << attachment;
+    }
+    loadConversations();
+
+    if (!m_mmsManager || !m_mmsManager->available()) {
+        setStatus(id, QStringLiteral("failed"));
+        emit sendFailed(msg.recipient, tr("MMS isn't available"));
+        return id;
+    }
+
+    constexpr qint64 kDefaultLimit = qint64{300} * 1024;
+    const qint64     limit =
+        m_mmsManager->maxAttachmentSize() > 0 ? m_mmsManager->maxAttachmentSize() : kDefaultLimit;
+    const qint64 budget = stored.isEmpty() ? limit :
+                                             (limit - text.toUtf8().size() - 2048) / stored.size();
+    QList<MmsManager::Part> mmsParts;
+    for (const int attachment : std::as_const(stored)) {
+        if (!fitToLimit(attachment, budget)) {
+            setStatus(id, QStringLiteral("failed"));
+            emit sendFailed(msg.recipient, tr("Too big to send as MMS"));
+            return id;
+        }
+        QSqlQuery query(m_database);
+        query.prepare(QStringLiteral("SELECT contentType, name, path FROM attachments WHERE id = ?"));
+        query.addBindValue(attachment);
+        if (query.exec() && query.next())
+            mmsParts << MmsManager::Part{query.value(0).toString(), query.value(1).toString(),
+                                         query.value(2).toString()};
+    }
+    m_mmsManager->send(id, recipients, text, mmsParts);
+    return id;
+}
+
+// A picture over budget is re-encoded as a smaller JPEG; anything else
+// over budget cannot be sent.
+bool SMSService::fitToLimit(int attachmentId, qint64 budget) {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral("SELECT contentType, name, size, path FROM attachments WHERE id = ?"));
+    query.addBindValue(attachmentId);
+    if (!query.exec() || !query.next())
+        return false;
+    const QString type = query.value(0).toString();
+    const QString name = query.value(1).toString();
+    const qint64  size = query.value(2).toLongLong();
+    const QString path = query.value(3).toString();
+    if (size <= budget)
+        return true;
+    if (!type.startsWith(QLatin1String("image/")) || budget <= 0)
+        return false;
+
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    QImage image = reader.read();
+    if (image.isNull())
+        return false;
+    QByteArray jpeg;
+    for (int quality = 85; image.width() >= 160; quality = qMax(60, quality - 10)) {
+        jpeg.clear();
+        QBuffer buffer(&jpeg);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "JPEG", quality);
+        if (jpeg.size() <= budget)
+            break;
+        const double factor = qMin(0.9, std::sqrt(double(budget) / double(jpeg.size())));
+        image = image.scaled(qRound(image.width() * factor), qRound(image.height() * factor),
+                             Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+    if (jpeg.isEmpty() || jpeg.size() > budget)
+        return false;
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(jpeg) != jpeg.size())
+        return false;
+    QSqlQuery update(m_database);
+    update.prepare(QStringLiteral("UPDATE attachments SET contentType = 'image/jpeg', name = ?, size = ? "
+                                  "WHERE id = ?"));
+    update.addBindValue(QFileInfo(name).completeBaseName() + QStringLiteral(".jpg"));
+    update.addBindValue(qint64(jpeg.size()));
+    update.addBindValue(attachmentId);
+    return update.exec();
 }
 
 QVariantList SMSService::conversations() const {
@@ -114,6 +255,7 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
         msg.timestamp      = QDateTime::currentMSecsSinceEpoch();
         msg.isRead         = true;
         msg.isOutgoing     = true;
+        msg.status         = QStringLiteral("failed");
 
         storeMessage(msg);
         loadConversations();
@@ -515,7 +657,7 @@ int SMSService::storeMessage(const Message &msg) {
     query.addBindValue(msg.conversationId);
     query.addBindValue(msg.sender);
     query.addBindValue(msg.recipient);
-    query.addBindValue(msg.text);
+    query.addBindValue(msg.text.isNull() ? QString(QLatin1String("")) : msg.text);
     query.addBindValue(msg.timestamp);
     query.addBindValue(msg.isRead ? 1 : 0);
     query.addBindValue(msg.isOutgoing ? 1 : 0);
