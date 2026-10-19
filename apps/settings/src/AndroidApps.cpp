@@ -202,7 +202,17 @@ void AndroidApps::setStartAtLogin(bool enabled) {
 }
 
 void AndroidApps::resetAndroid() {
-    act(QStringLiteral("reset"), QString(), QStringLiteral("ResetAndroid"), {});
+    call(kDeckard, QStringLiteral("ResetAndroid"), {}, [this](const QDBusMessage &r) {
+        if (!ok(r)) {
+            Q_EMIT failed(QString(), QStringLiteral("reset"), r.errorMessage());
+            return;
+        }
+        // Android is stopped, so ListPackages can't say the apps are gone.
+        m_apps.clear();
+        m_icons.clear();
+        Q_EMIT appsChanged();
+        Q_EMIT done(QString(), QStringLiteral("reset"));
+    });
 }
 
 void AndroidApps::loadApp(const QString &pkg) {
