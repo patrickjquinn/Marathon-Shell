@@ -13,6 +13,7 @@
 #include <QStandardPaths>
 #include <QLoggingCategory>
 #include <QInputDevice>
+#include <qpa/qwindowsysteminterface.h>
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrentRun>
 #include <functional>
@@ -247,6 +248,20 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 
 Q_IMPORT_PLUGIN(MarathonInputContextPlugin)
 
+// Runs after the touch plugin's own UpdateRequest filter, which is installed
+// on the first touch.
+class FrameTouchFlush : public QObject {
+  public:
+    using QObject::QObject;
+
+  protected:
+    bool eventFilter(QObject *, QEvent *event) override {
+        if (event->type() == QEvent::UpdateRequest)
+            QWindowSystemInterface::flushWindowSystemEvents();
+        return false;
+    }
+};
+
 // MARATHON_STARTUP_TIMING=1: milliseconds since process start at each phase,
 // to stderr (the journal) so no logging rule or handler buffer can drop it.
 static void startupMark(const char *phase) {
@@ -387,12 +402,8 @@ int main(int argc, char *argv[]) {
     if (evdevTouch) {
         const DeviceProfile &dp = DeviceProfile::instance();
         QStringList          spec{QStringLiteral("evdevtouch")};
-        // One point a frame needs no compression, which held each one for
-        // another frame.
-        if (dp.touchFilter()) {
+        if (dp.touchFilter())
             spec << QStringLiteral("filtered");
-            qputenv("QML_NO_TOUCH_COMPRESSION", "1");
-        }
         if (!dp.touchParams().isEmpty())
             spec << dp.touchParams();
         qputenv("QT_QPA_GENERIC_PLUGINS", spec.join(QLatin1Char(':')).toLocal8Bit());
@@ -1525,6 +1536,18 @@ int main(int argc, char *argv[]) {
                 },
                 Qt::SingleShotConnection);
             break;
+        }
+    }
+
+    // Filtered evdevtouch queues each frame's point on the UpdateRequest that
+    // starts the frame; handled at once, it reaches this frame's sync and
+    // goes to clients at the same point of every frame, so their wl_touch
+    // times (QtWayland stamps them when sent) are evenly spaced.
+    if (evdevTouch && DeviceProfile::instance().touchFilter()) {
+        const auto rootObjects = engine.rootObjects();
+        for (QObject *root : rootObjects) {
+            if (auto *win = qobject_cast<QQuickWindow *>(root))
+                win->installEventFilter(new FrameTouchFlush(win));
         }
     }
 
