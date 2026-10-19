@@ -73,6 +73,17 @@ TestCase {
         verify(findChild(sheet, "sharePreviewImage").visible);
     }
 
+    function test_androidAppsArriveAfter() {
+        sheet.open({ title: "", text: "x", count: 1, targets: [{ id: "clipboard", name: "Copy", glyph: "copy" }] });
+        sheet.addTargets([{ id: "android:org.signal/.Share", name: "Signal", icon: "data:image/png;base64,iVBORw0KGgo=" }]);
+        wait(50);
+        const signal = findChild(sheet, "shareTarget-android:org.signal/.Share");
+        verify(signal && signal.visible);
+        verify(findChild(signal, "shareTargetPicture").visible);
+        mouseClick(signal);
+        compare(picked, ["android:org.signal/.Share"]);
+    }
+
     function test_targetsFitFourAcross() {
         const many = [];
         for (let i = 0; i < 6; ++i)

@@ -2224,6 +2224,10 @@ Item {
             shareSheet.open(request);
         }
 
+        function onTargetsAdded(targets) {
+            shareSheet.addTargets(targets);
+        }
+
         // Only with a session bus (main.cpp).
         target: typeof ShareService !== "undefined" ? ShareService : null
     }

@@ -25,6 +25,12 @@ Item {
         shown = true;
     }
 
+    // Android's targets, when deckardd has answered.
+    function addTargets(more) {
+        if (request)
+            request = Object.assign({}, request, { "targets": targets.concat(more) });
+    }
+
     function close(cancelled) {
         if (!shown)
             return;
@@ -230,7 +236,19 @@ Item {
                                     anchors.fill: parent
                                     size: parent.width
                                     source: target.modelData.icon || ""
-                                    visible: !target.modelData.glyph
+                                    visible: !target.modelData.glyph && !picture.visible
+                                }
+
+                                // An Android app's icon comes as a data: URI.
+                                Image {
+                                    id: picture
+
+                                    objectName: "shareTargetPicture"
+                                    anchors.fill: parent
+                                    visible: (target.modelData.icon || "").indexOf("data:") === 0
+                                    source: visible ? target.modelData.icon : ""
+                                    sourceSize.width: width
+                                    sourceSize.height: height
                                 }
 
                                 Rectangle {

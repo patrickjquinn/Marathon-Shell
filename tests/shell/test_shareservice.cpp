@@ -1,4 +1,5 @@
 #include <QDBusConnection>
+#include <QDBusMetaType>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusUnixFileDescriptor>
@@ -10,6 +11,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "dbusnormalize.h"
@@ -39,6 +41,43 @@ class FakeProvider : public QObject {
             }
         }
         received << config;
+    }
+};
+
+// deckardd's Deckard1.Share: Android's share targets, and a share to one.
+class FakeDeckard : public QObject {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Deckard1.Share")
+
+  public:
+    QStringList        askedTypes;
+    QString            sharedTo;
+    QVariantMap        shared;
+    QByteArray         sharedFile;
+
+  public slots:
+    QList<QVariantMap> ShareTargets(const QString &mimeType) {
+        askedTypes << mimeType;
+        return {{{"id", "org.signal/.Share"}, {"pkg", "org.signal"}, {"label", "Signal"},
+                 {"icon", "data:image/png;base64,AA=="}, {"multiple", true}},
+                {{"id", "org.k9/.Compose"}, {"pkg", "org.k9"}, {"label", "K-9"}, {"icon", ""},
+                 {"multiple", false}},
+                {{"id", "org.files/.Send"}, {"pkg", "org.files"}, {"label", "Files"}, {"icon", ""},
+                 {"multiple", true}}};
+    }
+    void Share(const QString &id, const QVariantMap &configuration) {
+        sharedTo = id;
+        shared   = normalizeMapDeep(configuration);
+        const QVariantList list = shared.value("resources").toList();
+        for (const QVariant &resource : list) {
+            const QVariant fd = resource.toMap().value("fileDescriptor");
+            if (fd.canConvert<QDBusUnixFileDescriptor>()) {
+                QFile file;
+                if (file.open(dup(fd.value<QDBusUnixFileDescriptor>().fileDescriptor()),
+                              QIODevice::ReadOnly, QFileDevice::AutoCloseHandle))
+                    sharedFile = file.readAll();
+            }
+        }
     }
 };
 
@@ -103,6 +142,20 @@ class TestShareService : public QObject {
             &registry, {home.filePath(QStringLiteral("Pictures"))},
             [this](qint64) { return caller; }, [this](const QString &id) { raised << id; }, this);
         QVERIFY(service->registerOnSessionBus());
+    }
+
+    static QDBusMessage shareFiles(const QVariantList &resources, const QVariantMap &extra = {}) {
+        QVariantMap config{{QStringLiteral("resources"), resources}};
+        config.insert(extra);
+        return share(config);
+    }
+
+    QVariantMap descriptorResource(const QString &name, const QString &path) {
+        const int fd = ::open(path.toLocal8Bit().constData(), O_RDONLY | O_CLOEXEC);
+        const QVariantMap out{{QStringLiteral("name"), name},
+                              {QStringLiteral("fileDescriptor"), QVariant::fromValue(QDBusUnixFileDescriptor(fd))}};
+        ::close(fd);
+        return out;
     }
 
     void typesMatch_data() {
@@ -241,6 +294,99 @@ class TestShareService : public QObject {
         caller = QStringLiteral("gallery");
         QTRY_COMPARE(requested.size(), 1);
         QCOMPARE(ids(requested.at(0).at(0).toMap()), QStringList{QStringLiteral("clipboard")});
+    }
+
+    // deckardd hands files over as descriptors; a descriptor is its own
+    // proof of access, whoever sends it.
+    void aDescriptorIsAcceptedFromAnyCaller() {
+        QSignalSpy requested(service, &ShareService::requested);
+        QSignalSpy delivered(service, &ShareService::delivered);
+        caller.clear();
+        const QDBusMessage reply = shareFiles({descriptorResource(QStringLiteral("../sea.png"), picture())});
+        caller = QStringLiteral("gallery");
+        QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
+        QTRY_COMPARE(requested.size(), 1);
+        const QVariantMap request = requested.at(0).at(0).toMap();
+        QCOMPARE(request.value(QStringLiteral("mimeType")).toString(), QStringLiteral("image/png"));
+        QVERIFY(ids(request).contains(QStringLiteral("email/attach")));
+        QVERIFY(!ids(request).contains(QStringLiteral("clipboard")));
+        QVERIFY(request.value(QStringLiteral("image")).toString().startsWith(QStringLiteral("file:///proc/self/fd/")));
+
+        FakeProvider    email;
+        QDBusConnection app = QDBusConnection::connectToBus(QDBusConnection::SessionBus,
+                                                            QStringLiteral("email-app-2"));
+        QVERIFY(app.registerService(QStringLiteral("org.marathonos.email")));
+        QVERIFY(app.registerObject(QStringLiteral("/share/attach"), &email,
+                                   QDBusConnection::ExportScriptableSlots));
+        service->choose(QStringLiteral("email/attach"));
+        QTRY_COMPARE(delivered.size(), 1);
+        QCOMPARE(email.fileContent, QByteArray("\x89PNG not really"));
+        QCOMPARE(email.received.at(0).value("resources").toList().value(0).toMap().value("name").toString(),
+                 QStringLiteral("sea.png"));
+        app.unregisterService(QStringLiteral("org.marathonos.email"));
+    }
+
+    void aDescriptorThatIsNoFileIsRefused() {
+        int fds[2];
+        QVERIFY(::pipe(fds) == 0);
+        const QVariantMap pipe{{QStringLiteral("name"), QStringLiteral("x.png")},
+                               {QStringLiteral("fileDescriptor"), QVariant::fromValue(QDBusUnixFileDescriptor(fds[0]))}};
+        ::close(fds[0]);
+        ::close(fds[1]);
+        const QDBusMessage reply = shareFiles({pipe});
+        QCOMPARE(reply.errorName(), QStringLiteral("org.freedesktop.DBus.Error.InvalidArgs"));
+    }
+
+    // The sharing app named by a session service (deckardd's waydroid.<pkg>,
+    // or a Marathon app) is no target; an app cannot name another one.
+    void aServicesSourceIsLeftOut() {
+        QSignalSpy requested(service, &ShareService::requested);
+        caller = QStringLiteral("service:deckardd.service");
+        share({{QStringLiteral("resources"), QVariantList{QVariantMap{{QStringLiteral("data"), QStringLiteral("x")}}}},
+               {QStringLiteral("source"), QStringLiteral("notes")}});
+        QTRY_COMPARE(requested.size(), 1);
+        QCOMPARE(ids(requested.at(0).at(0).toMap()), QStringList{QStringLiteral("clipboard")});
+
+        caller = QStringLiteral("gallery");
+        share({{QStringLiteral("resources"), QVariantList{QVariantMap{{QStringLiteral("data"), QStringLiteral("x")}}}},
+               {QStringLiteral("source"), QStringLiteral("notes")}});
+        QTRY_COMPARE(requested.size(), 2);
+        QVERIFY(ids(requested.at(1).at(0).toMap()).contains(QStringLiteral("notes/text")));
+    }
+
+    // Android's targets come after Marathon's, when deckardd answers.
+    void androidAppsJoinTheSheet() {
+        FakeDeckard     deckard;
+        QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus,
+                                                            QStringLiteral("deckardd"));
+        qDBusRegisterMetaType<QList<QVariantMap>>();
+        QVERIFY(bus.registerObject(QStringLiteral("/org/marathonos/Deckard"), &deckard,
+                                   QDBusConnection::ExportAllSlots));
+        QVERIFY(bus.registerService(QStringLiteral("org.marathonos.Deckard")));
+        QSignalSpy added(service, &ShareService::targetsAdded);
+        QSignalSpy delivered(service, &ShareService::delivered);
+
+        caller = QStringLiteral("service:deckardd.service");
+        shareFiles({descriptorResource(QStringLiteral("a.png"), picture()),
+                    descriptorResource(QStringLiteral("b.png"), picture())},
+                   {{QStringLiteral("mimeType"), QStringLiteral("image/png")},
+                    {QStringLiteral("source"), QStringLiteral("waydroid.org.files")}});
+        caller = QStringLiteral("gallery");
+        QTRY_COMPARE(added.size(), 1);
+        QCOMPARE(deckard.askedTypes, QStringList{QStringLiteral("image/png")});
+        const QVariantList android = added.at(0).at(0).toList();
+        QCOMPARE(android.size(), 1);
+        QCOMPARE(android.at(0).toMap().value("id").toString(), QStringLiteral("android:org.signal/.Share"));
+        QCOMPARE(android.at(0).toMap().value("name").toString(), QStringLiteral("Signal"));
+        QCOMPARE(android.at(0).toMap().value("icon").toString(), QStringLiteral("data:image/png;base64,AA=="));
+
+        service->choose(QStringLiteral("android:org.signal/.Share"));
+        QTRY_COMPARE(delivered.size(), 1);
+        QCOMPARE(deckard.sharedTo, QStringLiteral("org.signal/.Share"));
+        QCOMPARE(deckard.shared.value("resources").toList().size(), 2);
+        QCOMPARE(deckard.sharedFile, QByteArray("\x89PNG not really"));
+        QVERIFY(!raised.contains(QStringLiteral("android:org.signal/.Share")));
+        bus.unregisterService(QStringLiteral("org.marathonos.Deckard"));
     }
 
     void tooManyResourcesAreRefused() {

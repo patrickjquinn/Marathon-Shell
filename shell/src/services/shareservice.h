@@ -47,6 +47,8 @@ class ShareService : public QObject, protected QDBusContext {
   signals:
     // title, mimeType, text, image (a local URL), count, targets: [{id, name, icon, glyph}]
     void requested(const QVariantMap &request);
+    // Android's targets (deckardd), after the request: [{id, name, icon}]
+    void targetsAdded(const QVariantList &targets);
     void delivered(const QString &targetId);
     void failed(const QString &targetId, const QString &reason);
 
@@ -55,15 +57,21 @@ class ShareService : public QObject, protected QDBusContext {
         QString                 name;
         QString                 text;
         QString                 hostPath;
+        QString                 mimeType;
         QDBusUnixFileDescriptor file;
     };
     struct Target {
         QString id;
         QString appId;
+        // The Marathon app's share method, or the Android activity.
         QString method;
+        bool    android = false;
     };
 
-    QVariantList targetsFor(const QString &mimeType, const QString &from, bool textOnly);
+    QVariantList targetsFor(const QString &mimeType, const QStringList &leftOut, bool textOnly);
+    void         askAndroid(const QString &mimeType, const QString &source, int files);
+    void         shareToAndroid(const QString &targetId, const QString &activity,
+                                const QVariantMap &configuration);
     void         deliver(const QString &targetId, const QString &appId, const QString &method,
                          const QVariantMap &configuration, int tries);
 
@@ -75,4 +83,5 @@ class ShareService : public QObject, protected QDBusContext {
     QString              m_mimeType;
     QList<Item>          m_items;
     QList<Target>        m_targets;
+    int                  m_request = 0;
 };

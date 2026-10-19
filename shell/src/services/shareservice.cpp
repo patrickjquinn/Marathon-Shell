@@ -4,6 +4,8 @@
 #include "marathonappregistry.h"
 
 #include <QClipboard>
+#include <QDBusArgument>
+#include <QDBusMetaType>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
@@ -104,6 +106,10 @@ void ShareService::share(const QVariantMap &configuration) {
         pid  = connection().interface()->servicePid(message().service()).value();
         from = m_appForPid ? m_appForPid(pid) : QString();
     }
+    // A session service (deckardd) may name the app that shares; an app may
+    // not name another.
+    const bool    fromApp = !from.isEmpty() && !from.startsWith(QLatin1String("service:"));
+    const QString source  = fromApp ? QString() : config.value(QStringLiteral("source")).toString().left(256);
 
     QList<Item> items;
     for (const QVariant &resource : resources) {
@@ -121,8 +127,24 @@ void ShareService::share(const QVariantMap &configuration) {
             ::close(fd);
             item.hostPath = hostPath;
             item.name     = QFileInfo(hostPath).fileName();
+            item.mimeType = QMimeDatabase().mimeTypeForFile(hostPath).name();
+        } else if (const QVariantMap map = resource.toMap();
+                   map.value(QStringLiteral("fileDescriptor")).userType() ==
+                   qMetaTypeId<QDBusUnixFileDescriptor>()) {
+            // A descriptor is its own proof of access, whoever sends it.
+            const auto  fd = map.value(QStringLiteral("fileDescriptor")).value<QDBusUnixFileDescriptor>();
+            struct stat st{};
+            if (!fd.isValid() || ::fstat(fd.fileDescriptor(), &st) != 0 || !S_ISREG(st.st_mode)) {
+                refuse(QDBusError::InvalidArgs, QStringLiteral("Not a regular file"));
+                return;
+            }
+            item.file = fd;
+            item.name = QFileInfo(map.value(QStringLiteral("name")).toString()).fileName().left(256);
+            if (item.name.isEmpty() || item.name == QLatin1String(".."))
+                item.name = QStringLiteral("file");
+            item.mimeType =
+                QMimeDatabase().mimeTypeForFile(item.name, QMimeDatabase::MatchExtension).name();
         } else {
-            const QVariantMap map = resource.toMap();
             item.text             = map.value(map.contains(QStringLiteral("data")) ?
                                                   QStringLiteral("data") :
                                                   QStringLiteral("status"))
@@ -138,12 +160,13 @@ void ShareService::share(const QVariantMap &configuration) {
         items << item;
     }
 
-    const bool textOnly =
-        std::all_of(items.cbegin(), items.cend(), [](const Item &i) { return i.hostPath.isEmpty(); });
-    QString type = mimeType;
+    const auto isFile   = [](const Item &i) { return i.file.isValid(); };
+    const int  files    = int(std::count_if(items.cbegin(), items.cend(), isFile));
+    const bool textOnly = files == 0;
+    QString    type     = mimeType;
     if (type.isEmpty())
         type = textOnly ? QStringLiteral("text/plain") :
-                          QMimeDatabase().mimeTypeForFile(items.first().hostPath).name();
+                          std::find_if(items.cbegin(), items.cend(), isFile)->mimeType;
 
     m_title    = title;
     m_mimeType = type;
@@ -151,25 +174,71 @@ void ShareService::share(const QVariantMap &configuration) {
     QVariantMap request{{QStringLiteral("title"), title},
                         {QStringLiteral("mimeType"), type},
                         {QStringLiteral("count"), items.size()},
-                        {QStringLiteral("targets"), targetsFor(type, from, textOnly)}};
+                        {QStringLiteral("targets"), targetsFor(type, {from, source}, textOnly)}};
     for (const Item &item : std::as_const(items)) {
         if (!item.text.isEmpty() && !request.contains(QStringLiteral("text")))
             request.insert(QStringLiteral("text"), item.text.left(500));
-        if (!item.hostPath.isEmpty() && !request.contains(QStringLiteral("image")) &&
-            QMimeDatabase().mimeTypeForFile(item.hostPath).name().startsWith(
-                QLatin1String("image/")))
-            request.insert(QStringLiteral("image"), QUrl::fromLocalFile(item.hostPath).toString());
+        if (item.file.isValid() && !request.contains(QStringLiteral("image")) &&
+            item.mimeType.startsWith(QLatin1String("image/")))
+            request.insert(QStringLiteral("image"),
+                           item.hostPath.isEmpty() ?
+                               QStringLiteral("file:///proc/self/fd/%1").arg(item.file.fileDescriptor()) :
+                               QUrl::fromLocalFile(item.hostPath).toString());
     }
+    ++m_request;
     emit requested(request);
+    askAndroid(textOnly ? QStringLiteral("text/plain") : type, source, files);
 }
 
-QVariantList ShareService::targetsFor(const QString &mimeType, const QString &from, bool textOnly) {
+// deckardd lists the Android activities that take the type; they join the
+// sheet when it answers, leaving out the sharing app and, for several
+// files, those that take only one.
+void ShareService::askAndroid(const QString &mimeType, const QString &source, int files) {
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.interface()->isServiceRegistered(QStringLiteral("org.marathonos.Deckard")).value())
+        return;
+    QDBusMessage call = QDBusMessage::createMethodCall(
+        QStringLiteral("org.marathonos.Deckard"), QStringLiteral("/org/marathonos/Deckard"),
+        QStringLiteral("org.marathonos.Deckard1.Share"), QStringLiteral("ShareTargets"));
+    call << mimeType;
+    const int  request  = m_request;
+    const auto skipped  = source.startsWith(QLatin1String("waydroid.")) ? source.mid(9) : QString();
+    auto      *watcher  = new QDBusPendingCallWatcher(bus.asyncCall(call, 5000), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, request, skipped, files](QDBusPendingCallWatcher *w) {
+                w->deleteLater();
+                if (w->isError() || request != m_request)
+                    return;
+                const QVariant arg = w->reply().arguments().value(0);
+                const QList<QVariantMap> found =
+                    arg.canConvert<QDBusArgument>() ? qdbus_cast<QList<QVariantMap>>(arg.value<QDBusArgument>()) :
+                                                      QList<QVariantMap>();
+                QVariantList added;
+                for (const QVariantMap &target : found) {
+                    const QString activity = target.value(QStringLiteral("id")).toString();
+                    if (activity.isEmpty() || activity.size() > 256 ||
+                        target.value(QStringLiteral("pkg")).toString() == skipped ||
+                        (files > 1 && !target.value(QStringLiteral("multiple")).toBool()))
+                        continue;
+                    const QString id = QStringLiteral("android:") + activity;
+                    m_targets << Target{id, QString(), activity, true};
+                    added << QVariantMap{{QStringLiteral("id"), id},
+                                         {QStringLiteral("name"), target.value(QStringLiteral("label")).toString().left(64)},
+                                         {QStringLiteral("icon"), target.value(QStringLiteral("icon")).toString()}};
+                }
+                if (!added.isEmpty())
+                    emit targetsAdded(added);
+            });
+}
+
+QVariantList ShareService::targetsFor(const QString &mimeType, const QStringList &leftOut,
+                                      bool textOnly) {
     m_targets.clear();
     QVariantList out;
     const QStringList ids = m_apps ? m_apps->getAllAppIds() : QStringList();
     for (const QString &appId : ids) {
         const MarathonAppRegistry::AppInfo *info = m_apps->getAppInfo(appId);
-        if (!info || appId == from)
+        if (!info || leftOut.contains(appId))
             continue;
         QFile manifest(info->absolutePath + QStringLiteral("/manifest.json"));
         if (!manifest.open(QIODevice::ReadOnly))
@@ -223,7 +292,7 @@ void ShareService::choose(const QString &targetId) {
 
     QVariantList resources;
     for (const Item &item : std::as_const(m_items)) {
-        if (item.hostPath.isEmpty())
+        if (!item.file.isValid())
             resources << QVariantMap{{QStringLiteral("name"), item.name},
                                      {QStringLiteral("data"), item.text}};
         else
@@ -234,9 +303,31 @@ void ShareService::choose(const QString &targetId) {
     const QVariantMap configuration{{QStringLiteral("mimeType"), m_mimeType},
                                     {QStringLiteral("title"), m_title},
                                     {QStringLiteral("resources"), resources}};
+    if (target.android) {
+        shareToAndroid(target.id, target.method, configuration);
+        return;
+    }
     if (m_raise)
         m_raise(target.appId);
     deliver(target.id, target.appId, target.method, configuration, 0);
+}
+
+// deckardd brings the Android app's window forward itself (ExpectAppWindow,
+// a call back into the shell while this one waits), so nothing here blocks.
+void ShareService::shareToAndroid(const QString &targetId, const QString &activity,
+                                  const QVariantMap &configuration) {
+    QDBusMessage call = QDBusMessage::createMethodCall(
+        QStringLiteral("org.marathonos.Deckard"), QStringLiteral("/org/marathonos/Deckard"),
+        QStringLiteral("org.marathonos.Deckard1.Share"), QStringLiteral("Share"));
+    call << activity << configuration;
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(call, 20000), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, targetId](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        if (w->isError())
+            emit failed(targetId, w->error().message());
+        else
+            emit delivered(targetId);
+    });
 }
 
 void ShareService::cancel() {
