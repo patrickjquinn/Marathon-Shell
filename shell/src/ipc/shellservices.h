@@ -9,6 +9,7 @@
 // all of which are the intended design rather than a mistake.
 
 #include <QHash>
+#include <QSet>
 #include <QObject>
 #include <QDBusContext>
 #include <QDBusUnixFileDescriptor>
@@ -82,11 +83,21 @@ class PermissionsObject : public IpcPermissionedService {
     void RequestPermission(const QString &appId, const QString &permission);
     void SetPermission(const QString &appId, const QString &permission, bool granted,
                        bool remember = true);
+    // deckardd's prompt for an Android app, waydroid.<package>. Replies
+    // once answered with answer allow, once, deny or cancel and precise.
+    // Options: request, 16 hex digits; kind; once; accuracy; preciseDefault.
+    QVariantMap PromptAndroid(const QString &appId, const QString &permission,
+                              const QVariantMap &options);
+    void        CancelAndroidPrompt(const QString &request);
 
   signals:
     void PermissionGranted(const QString &appId, const QString &permission);
     void PermissionDenied(const QString &appId, const QString &permission);
     void PermissionRequested(const QString &appId, const QString &permission);
+
+  private:
+    QString       requireForeignPrompter();
+    QSet<QString> m_waiting;
 };
 
 class ContactsObject : public IpcPermissionedService {

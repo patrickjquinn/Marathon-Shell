@@ -7,6 +7,17 @@
 #include "../../shell/src/marathonpermissionmanager.h"
 #include "marathonmanifest.h"
 
+struct Answers {
+    QStringList                              answers;
+    QList<bool>                              precise;
+    MarathonPermissionManager::ForeignAnswer record() {
+        return [this](const QString &a, bool p) {
+            answers.append(a);
+            precise.append(p);
+        };
+    }
+};
+
 class TestPermissionManager : public QObject {
     Q_OBJECT
 
@@ -454,6 +465,101 @@ class TestPermissionManager : public QObject {
         QTRY_VERIFY(mgr.promptActive());
         mgr.respond(true);
         QVERIFY(mgr.hasPermission("test", "contacts"));
+    }
+
+    // === CONTRACT: foreign prompts (Android apps) answer, never store ===
+
+    void aForeignPromptShowsAtOnceAndStoresNothing() {
+        MarathonPermissionManager mgr;
+        Answers                   got;
+        mgr.askForeign("k1", "waydroid.org.example.cam", "camera",
+                       {{"kind", "foreground"}, {"once", true}}, got.record());
+
+        QVERIFY(mgr.promptActive());
+        QCOMPARE(mgr.currentAppId(), QString("waydroid.org.example.cam"));
+        QCOMPARE(mgr.currentPermissions(), QStringList({"camera"}));
+        QVERIFY(mgr.currentRefused().isEmpty());
+        QCOMPARE(mgr.currentOptions().value("kind").toString(), QString("foreground"));
+        QVERIFY(mgr.currentOptions().value("once").toBool());
+
+        mgr.respondWith(true, false, false);
+        QCOMPARE(got.answers, QStringList({"allow"}));
+        QVERIFY(!mgr.promptActive());
+        QVERIFY(mgr.currentOptions().isEmpty());
+        QCOMPARE(mgr.getPermissionStatus("waydroid.org.example.cam", "camera"),
+                 MarathonPermissionManager::NotRequested);
+        QVERIFY(!QFile::exists(permissionsFilePath()));
+    }
+
+    void onlyThisTimeOnlyWhenOffered() {
+        MarathonPermissionManager mgr;
+        Answers                   got;
+        mgr.askForeign("a", "waydroid.a", "microphone", {{"once", true}}, got.record());
+        mgr.respondWith(true, true, false);
+        mgr.askForeign("b", "waydroid.b", "contacts", {}, got.record());
+        mgr.respondWith(true, true, false);
+        mgr.askForeign("c", "waydroid.c", "camera", {{"once", true}}, got.record());
+        mgr.respondWith(false, true, false);
+        QCOMPARE(got.answers, QStringList({"once", "allow", "deny"}));
+    }
+
+    void preciseIsTheSwitchOnlyWhenThereIsAChoice() {
+        MarathonPermissionManager mgr;
+        Answers                   got;
+        mgr.askForeign("a", "waydroid.a", "location",
+                       {{"accuracy", "choice"}, {"preciseDefault", true}}, got.record());
+        mgr.respondWith(true, false, false);
+        mgr.askForeign("b", "waydroid.b", "location", {{"accuracy", "approximate"}}, got.record());
+        mgr.respondWith(true, false, true);
+        mgr.askForeign("c", "waydroid.c", "location",
+                       {{"kind", "precise"}, {"preciseDefault", true}}, got.record());
+        mgr.respond(true);
+        QCOMPARE(got.answers, QStringList({"allow", "allow", "allow"}));
+        QCOMPARE(got.precise, QList<bool>({false, false, true}));
+    }
+
+    void dismissingAForeignPromptCancelsIt() {
+        MarathonPermissionManager mgr;
+        Answers                   got;
+        mgr.askForeign("a", "waydroid.a", "camera", {}, got.record());
+        mgr.askForeign("b", "waydroid.b", "camera", {}, got.record());
+        mgr.askForeign("c", "waydroid.c", "camera", {}, got.record());
+        mgr.cancelForeign("b");
+        QCOMPARE(got.answers, QStringList({"cancel"}));
+        QCOMPARE(mgr.currentAppId(), QString("waydroid.a"));
+
+        mgr.dismissForApp("waydroid.a");
+        QCOMPARE(got.answers, QStringList({"cancel", "cancel"}));
+        QTRY_COMPARE(mgr.currentAppId(), QString("waydroid.c"));
+        mgr.dismissAll();
+        QCOMPARE(got.answers, QStringList({"cancel", "cancel", "cancel"}));
+        QVERIFY(!mgr.promptActive());
+        mgr.cancelForeign("c");
+        QCOMPARE(got.answers.size(), 3);
+    }
+
+    void foreignAndMarathonPromptsTakeTurns() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("notes", {"storage", "contacts"}));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+        Answers got;
+
+        mgr.requestPermission("notes", "storage");
+        QTRY_VERIFY(mgr.promptActive());
+        mgr.askForeign("a", "waydroid.a", "camera", {}, got.record());
+        QCOMPARE(mgr.currentAppId(), QString("notes"));
+        mgr.respond(true);
+        QVERIFY(mgr.hasPermission("notes", "storage"));
+        QTRY_COMPARE(mgr.currentAppId(), QString("waydroid.a"));
+
+        mgr.requestPermission("notes", "contacts");
+        QTest::qWait(300);
+        QCOMPARE(mgr.currentAppId(), QString("waydroid.a"));
+        mgr.respond(false);
+        QCOMPARE(got.answers, QStringList({"deny"}));
+        QTRY_COMPARE(mgr.currentAppId(), QString("notes"));
+        QCOMPARE(mgr.currentPermissions(), QStringList({"contacts"}));
     }
 
     void cleanupTestCase() {

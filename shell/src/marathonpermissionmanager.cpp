@@ -246,11 +246,8 @@ void MarathonPermissionManager::requestPermission(const QString &appId, const QS
 }
 
 void MarathonPermissionManager::processPendingRequests() {
-    if (m_pendingRequests.isEmpty())
-        return;
-
     // If a prompt is already active, do nothing (wait for it to close)
-    if (m_promptActive)
+    if (m_promptActive || showForeign() || m_pendingRequests.isEmpty())
         return;
 
     // Process requests for the FIRST app in the queue
@@ -322,9 +319,75 @@ void MarathonPermissionManager::processPendingRequests() {
     qDebug() << "[MarathonPermissionManager] Showing custom permission batch prompt";
 }
 
+void MarathonPermissionManager::askForeign(const QString &key, const QString &appId,
+                                           const QString &permission, const QVariantMap &options,
+                                           ForeignAnswer done) {
+    m_foreign.append({key, appId, permission, options, std::move(done)});
+    if (!m_promptActive)
+        processPendingRequests();
+}
+
+bool MarathonPermissionManager::showForeign() {
+    if (m_foreign.isEmpty())
+        return false;
+    const ForeignRequest &req = m_foreign.first();
+    m_promptActive            = true;
+    m_currentForeign          = req.key;
+    m_currentAppId            = req.appId;
+    m_currentPermissions      = {req.permission};
+    m_currentPermission       = req.permission;
+    m_currentRefused.clear();
+    m_currentOptions = req.options;
+    emit promptActiveChanged();
+    emit currentRequestChanged();
+    return true;
+}
+
+void MarathonPermissionManager::finishForeign(const QString &key, const QString &answer,
+                                              bool precise) {
+    const qsizetype i = std::find_if(m_foreign.cbegin(), m_foreign.cend(),
+                                     [&key](const ForeignRequest &r) { return r.key == key; }) -
+        m_foreign.cbegin();
+    if (i >= m_foreign.size())
+        return;
+    const ForeignAnswer done = m_foreign.takeAt(i).done;
+    if (m_promptActive && m_currentForeign == key) {
+        closePrompt();
+        checkQueue();
+    }
+    done(answer, precise);
+}
+
+void MarathonPermissionManager::cancelForeign(const QString &key) {
+    finishForeign(key, QStringLiteral("cancel"), false);
+}
+
+void MarathonPermissionManager::respondWith(bool granted, bool once, bool precise) {
+    if (!m_promptActive)
+        return;
+    if (m_currentForeign.isEmpty()) {
+        respond(granted);
+        return;
+    }
+    const QVariantMap &options = m_currentOptions;
+    const QString      answer  = !granted                      ? QStringLiteral("deny") :
+        once && options.value(QStringLiteral("once")).toBool() ? QStringLiteral("once") :
+                                                                 QStringLiteral("allow");
+    const bool         exact =
+        options.value(QStringLiteral("accuracy")).toString() == QLatin1String("choice") ?
+        precise :
+        options.value(QStringLiteral("preciseDefault")).toBool();
+    finishForeign(m_currentForeign, answer, granted && exact);
+}
+
 void MarathonPermissionManager::respond(bool granted) {
     if (!m_promptActive)
         return;
+    if (!m_currentForeign.isEmpty()) {
+        respondWith(granted, false,
+                    m_currentOptions.value(QStringLiteral("preciseDefault")).toBool());
+        return;
+    }
     const QString     appId   = m_currentAppId;
     const QStringList asked   = m_currentPermissions;
     const QStringList refused = m_currentRefused;
@@ -344,7 +407,7 @@ void MarathonPermissionManager::respond(bool granted) {
 }
 
 void MarathonPermissionManager::checkQueue() {
-    if (!m_pendingRequests.isEmpty() && !m_promptActive) {
+    if ((!m_pendingRequests.isEmpty() || !m_foreign.isEmpty()) && !m_promptActive) {
         // Schedule next processing
         QTimer::singleShot(50, this, &MarathonPermissionManager::processPendingRequests);
     }
@@ -374,7 +437,7 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
 
     // Answers only what they decide: a grant for another app (Settings, a
     // portal) must not close this prompt and lose its requests.
-    if (m_promptActive && appId == m_currentAppId) {
+    if (m_promptActive && m_currentForeign.isEmpty() && appId == m_currentAppId) {
         for (const QString &perm : permissions)
             m_currentPermissions.removeAll(canonical(perm));
         if (m_currentPermissions.isEmpty() && m_currentRefused.isEmpty()) {
@@ -398,6 +461,8 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
 }
 
 void MarathonPermissionManager::dismissAll() {
+    while (!m_foreign.isEmpty())
+        cancelForeign(m_foreign.first().key);
     if (!m_promptActive && m_pendingRequests.isEmpty())
         return;
 
@@ -415,6 +480,8 @@ void MarathonPermissionManager::closePrompt() {
     m_currentPermissions.clear();
     m_currentRefused.clear();
     m_currentPermission.clear();
+    m_currentOptions.clear();
+    m_currentForeign.clear();
     emit promptActiveChanged();
     emit currentRequestChanged();
 }
@@ -422,6 +489,13 @@ void MarathonPermissionManager::closePrompt() {
 void MarathonPermissionManager::dismissForApp(const QString &appId) {
     if (appId.isEmpty())
         return;
+
+    QStringList foreign;
+    for (const ForeignRequest &r : std::as_const(m_foreign))
+        if (r.appId == appId)
+            foreign.append(r.key);
+    for (const QString &key : std::as_const(foreign))
+        cancelForeign(key);
 
     const qsizetype droppedFromQueue =
         m_pendingRequests.removeIf([&appId](const PendingRequest &r) { return r.appId == appId; });

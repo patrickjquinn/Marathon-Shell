@@ -43,6 +43,7 @@
 #include "marathonappinstaller.h"
 #include "../services/applifecyclemanager.h"
 #include "marathonappregistry.h"
+#include "marathonmanifest.h"
 #include "davsyncengine.h"
 #include "dbusnormalize.h"
 
@@ -52,8 +53,10 @@
 #include <QProcess>
 #include <QDBusError>
 #include <QDBusMessage>
+#include <QDBusServiceWatcher>
 #include <QCoreApplication>
 #include <QFile>
+#include <QPointer>
 
 // Function-local rather than namespace-scope: constructed on first use
 // (thread-safe since C++11) instead of running a throwing initialiser
@@ -1579,6 +1582,70 @@ void PermissionsObject::SetPermission(const QString &appId, const QString &permi
         return;
     }
     m_permissions->setPermission(appId, permission, granted, remember);
+}
+
+// The declared session service allowed to prompt for Android apps, or "".
+QString PermissionsObject::requireForeignPrompter() {
+    const QString caller = callerAppIdOrEmpty();
+    if ((g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID)) ||
+        ServiceCaller::allowed(caller, {PermissionAuth::kForeignPrompts}))
+        return caller;
+    sendErrorReply(QDBusError::AccessDenied, "Not a permission prompter");
+    return {};
+}
+
+QVariantMap PermissionsObject::PromptAndroid(const QString &appId, const QString &permission,
+                                             const QVariantMap &options) {
+    static const QRegularExpression requestId(QStringLiteral("^[0-9a-f]{16}$"));
+    static constexpr int            kMaxWaiting = 16;
+    const QString                   caller      = requireForeignPrompter();
+    if (caller.isEmpty())
+        return {};
+    const QString request = options.value(QStringLiteral("request")).toString();
+    QVariantMap   cleaned;
+    const auto    vocabulary = MarathonManifest::permissions();
+    const bool    known      = std::any_of(vocabulary.cbegin(), vocabulary.cend(),
+                                           [&](const MarathonManifest::Permission &p) {
+                                       return p.name == permission && !p.restricted;
+                                           });
+    if (!PermissionAuth::isAndroidAppId(appId) || !known || !requestId.match(request).hasMatch() ||
+        !PermissionAuth::foreignOptions(options, &cleaned)) {
+        sendErrorReply(QDBusError::InvalidArgs, "Bad prompt");
+        return {};
+    }
+    const QString key = caller + QLatin1Char(' ') + request;
+    if (m_waiting.contains(key) || m_waiting.size() >= kMaxWaiting) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Too many prompts");
+        return {};
+    }
+    m_waiting.insert(key);
+    setDelayedReply(true);
+    const QDBusMessage call = message();
+    QDBusConnection    bus  = connection();
+    // A prompter that leaves the bus takes its prompts with it.
+    auto *gone = new QDBusServiceWatcher(call.service(), bus,
+                                         QDBusServiceWatcher::WatchForUnregistration, this);
+    connect(gone, &QDBusServiceWatcher::serviceUnregistered, this,
+            [this, key] { m_permissions->cancelForeign(key); });
+    QPointer<PermissionsObject>   self(this);
+    QPointer<QDBusServiceWatcher> watcher(gone);
+    m_permissions->askForeign(
+        key, appId, permission, cleaned,
+        [self, watcher, key, call, bus](const QString &answer, bool precise) mutable {
+            if (self)
+                self->m_waiting.remove(key);
+            if (watcher)
+                watcher->deleteLater();
+            bus.send(call.createReply(QVariant(QVariantMap{{QStringLiteral("answer"), answer},
+                                                           {QStringLiteral("precise"), precise}})));
+        });
+    return {};
+}
+
+void PermissionsObject::CancelAndroidPrompt(const QString &request) {
+    const QString caller = requireForeignPrompter();
+    if (!caller.isEmpty())
+        m_permissions->cancelForeign(caller + QLatin1Char(' ') + request);
 }
 
 ContactsObject::ContactsObject(ContactsManager *contacts, MarathonPermissionManager *permissions,

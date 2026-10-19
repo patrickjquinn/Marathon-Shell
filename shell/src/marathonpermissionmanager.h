@@ -13,6 +13,8 @@ class QJSEngine;
 #include <QVariantMap>
 #include <qqml.h>
 
+#include <functional>
+
 class MarathonPermissionManager : public QObject {
     Q_OBJECT
     QML_NAMED_ELEMENT(PermissionManager)
@@ -31,6 +33,9 @@ class MarathonPermissionManager : public QObject {
     // Restricted permissions the app declared but cannot hold, shown in the
     // prompt so the user knows they were refused.
     Q_PROPERTY(QStringList currentRefused READ currentRefused NOTIFY currentRequestChanged)
+    // Set while the prompt asks for an app whose grants another system
+    // keeps (askForeign): its kind and choices.
+    Q_PROPERTY(QVariantMap currentOptions READ currentOptions NOTIFY currentRequestChanged)
 
   public:
     enum PermissionStatus : quint8 {
@@ -56,6 +61,20 @@ class MarathonPermissionManager : public QObject {
     void requestDeclaredPermissions(const QString &appId);
     // The prompt's answer for every permission it asks about.
     Q_INVOKABLE void respond(bool granted);
+    // The answer with the prompt's choices: for a foreign prompt, "only
+    // this time" and precise location.
+    Q_INVOKABLE void respondWith(bool granted, bool once, bool precise);
+
+    // "allow", "once", "deny" or "cancel" (dismissed, unanswered).
+    using ForeignAnswer = std::function<void(const QString &answer, bool precise)>;
+    // A prompt for an app whose permissions are kept elsewhere (an Android
+    // app, for deckardd). options: kind (foreground, background, precise),
+    // once (offer "only this time"), accuracy ("choice" or "approximate"),
+    // preciseDefault. Nothing is stored; done is called once.
+    void askForeign(const QString &key, const QString &appId, const QString &permission,
+                    const QVariantMap &options, ForeignAnswer done);
+    // Answers a waiting or showing foreign prompt "cancel".
+    void cancelForeign(const QString &key);
     // For a caller refused all of `permissions`: asks the user for the first
     // the app declared but was never asked about, as iOS does on first use.
     // Returns it, or empty when there is nothing to ask.
@@ -100,6 +119,9 @@ class MarathonPermissionManager : public QObject {
     QStringList currentRefused() const {
         return m_currentRefused;
     }
+    QVariantMap currentOptions() const {
+        return m_currentOptions;
+    }
 
   signals:
     void permissionGranted(const QString &appId, const QString &permission);
@@ -132,6 +154,7 @@ class MarathonPermissionManager : public QObject {
     QString                               m_currentPermission;
     QStringList                           m_currentPermissions;
     QStringList                                 m_currentRefused;
+    QVariantMap                                 m_currentOptions;
 
     QMap<QString, MarathonManifest::Permission> m_vocabulary;
 
@@ -143,4 +166,16 @@ class MarathonPermissionManager : public QObject {
         QString permission;
     };
     QList<PendingRequest> m_pendingRequests;
+
+    struct ForeignRequest {
+        QString       key;
+        QString       appId;
+        QString       permission;
+        QVariantMap   options;
+        ForeignAnswer done;
+    };
+    QList<ForeignRequest> m_foreign;
+    QString               m_currentForeign;
+    bool                  showForeign();
+    void                  finishForeign(const QString &key, const QString &answer, bool precise);
 };

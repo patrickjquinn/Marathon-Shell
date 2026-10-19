@@ -49,6 +49,45 @@ class TestPermissionAuth : public QObject {
         QVERIFY(!allowed(QStringLiteral("settings.evil"), QStringLiteral("weather"), Op::Read));
         QVERIFY(!allowed(QStringLiteral(" settings"), QStringLiteral("weather"), Op::Grant));
     }
+
+    void androidAppIds() {
+        using PermissionAuth::isAndroidAppId;
+        QVERIFY(isAndroidAppId(QStringLiteral("waydroid.org.fossify.camera")));
+        QVERIFY(isAndroidAppId(QStringLiteral("waydroid.me.hackerchick.catima")));
+        QVERIFY(!isAndroidAppId(QStringLiteral("waydroid.")));
+        QVERIFY(!isAndroidAppId(QStringLiteral("notes")));
+        QVERIFY(!isAndroidAppId(QStringLiteral("waydroid.bad pkg")));
+        QVERIFY(!isAndroidAppId(QStringLiteral("waydroid.9lives")));
+        QVERIFY(!isAndroidAppId(QStringLiteral("waydroid.a..b")));
+        QVERIFY(!isAndroidAppId(QStringLiteral("waydroid.") + QString(256, u'a')));
+    }
+
+    void foreignPromptOptionsAreCleaned() {
+        using PermissionAuth::foreignOptions;
+        QVariantMap out;
+        QVERIFY(foreignOptions({}, &out));
+        QCOMPARE(out.value(QStringLiteral("kind")).toString(), QStringLiteral("foreground"));
+        QCOMPARE(out.value(QStringLiteral("once")).toBool(), false);
+        QCOMPARE(out.value(QStringLiteral("accuracy")).toString(), QString());
+
+        QVERIFY(foreignOptions({{QStringLiteral("kind"), QStringLiteral("background")},
+                                {QStringLiteral("once"), true},
+                                {QStringLiteral("accuracy"), QStringLiteral("choice")},
+                                {QStringLiteral("preciseDefault"), true},
+                                {QStringLiteral("request"), QStringLiteral("0123456789abcdef")},
+                                {QStringLiteral("extra"), QStringLiteral("dropped")}},
+                               &out));
+        QCOMPARE(out.value(QStringLiteral("kind")).toString(), QStringLiteral("background"));
+        QVERIFY(out.value(QStringLiteral("once")).toBool());
+        QCOMPARE(out.value(QStringLiteral("accuracy")).toString(), QStringLiteral("choice"));
+        QVERIFY(out.value(QStringLiteral("preciseDefault")).toBool());
+        QVERIFY(!out.contains(QStringLiteral("extra")));
+        QVERIFY(!out.contains(QStringLiteral("request")));
+
+        QVERIFY(!foreignOptions({{QStringLiteral("kind"), QStringLiteral("always")}}, &out));
+        QVERIFY(!foreignOptions({{QStringLiteral("accuracy"), QStringLiteral("fine")}}, &out));
+        QVERIFY(!foreignOptions({{QStringLiteral("once"), QStringLiteral("yes")}}, &out));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestPermissionAuth)

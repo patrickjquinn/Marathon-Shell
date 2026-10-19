@@ -74,7 +74,8 @@ class TestIpcGates : public QObject {
              {"ContactsObject", "CallHistoryObject", "TelephonyObject", "SmsObject",
               "MediaLibraryObject", "SecurityObject", "BluetoothObject", "DisplayObject",
               "PowerObject", "AudioObject", "NetworkObject", "ModemObject", "SensorObject",
-              "LocationObject", "AlarmObject", "UpdatesObject", "DavObject", "AppStoreObject"})
+              "LocationObject", "AlarmObject", "UpdatesObject", "DavObject", "AppStoreObject",
+              "PermissionsObject"})
             QTest::newRow(cls) << QString::fromLatin1(cls);
     }
 
