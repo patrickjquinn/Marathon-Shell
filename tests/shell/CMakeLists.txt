@@ -761,6 +761,13 @@ target_link_libraries(test_shell_touchresampler Qt6::Test Qt6::Gui Qt6::GuiPriva
 target_include_directories(test_shell_touchresampler PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_TouchResampler COMMAND test_shell_touchresampler)
 
+# The touch CPU boost's resting floor
+add_executable(test_shell_inputboost test_inputboost.cpp ../../shell/src/services/inputboost.cpp)
+set_target_properties(test_shell_inputboost PROPERTIES AUTOMOC ON)
+target_link_libraries(test_shell_inputboost Qt6::Test Qt6::Core)
+target_include_directories(test_shell_inputboost PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Shell_InputBoost COMMAND test_shell_inputboost)
+
 # Frame callbacks of hidden surfaces: about once a second
 add_executable(test_shell_hiddenframethrottle test_hiddenframethrottle.cpp)
 target_link_libraries(test_shell_hiddenframethrottle Qt6::Test Qt6::Core)

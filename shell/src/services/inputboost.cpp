@@ -32,7 +32,8 @@ InputBoost::InputBoost(QObject *parent)
     for (const QString &name : policies) {
         const QString    dir     = base.filePath(name);
         const QByteArray maxFreq = readValue(dir + QStringLiteral("/cpuinfo_max_freq"));
-        const QByteArray minFreq = readValue(dir + QStringLiteral("/scaling_min_freq"));
+        const QByteArray minFreq = restingFloor(readValue(dir + QStringLiteral("/scaling_min_freq")), maxFreq,
+                                                readValue(dir + QStringLiteral("/cpuinfo_min_freq")));
         if (maxFreq.isEmpty() || minFreq.isEmpty())
             continue;
         const QByteArray path = QFile::encodeName(dir + QStringLiteral("/scaling_min_freq"));
@@ -63,6 +64,13 @@ InputBoost::~InputBoost() {
             ::pwrite(p.fd, p.restingFreq.constData(), p.restingFreq.size(), 0);
         ::close(p.fd);
     }
+}
+
+// A shell killed while boosting leaves the boosted floor in place, and the
+// next one would take it for the resting floor and never release the clock.
+QByteArray InputBoost::restingFloor(const QByteArray &current, const QByteArray &boosted,
+                                    const QByteArray &hardwareMin) {
+    return current == boosted && !hardwareMin.isEmpty() ? hardwareMin : current;
 }
 
 void InputBoost::boost() {

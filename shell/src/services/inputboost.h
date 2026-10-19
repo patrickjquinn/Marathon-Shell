@@ -40,6 +40,9 @@ class InputBoost : public QObject {
     // Boost now and (re)start the hold timer.
     void boost();
 
+    static QByteArray restingFloor(const QByteArray &current, const QByteArray &boosted,
+                                   const QByteArray &hardwareMin);
+
   protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
