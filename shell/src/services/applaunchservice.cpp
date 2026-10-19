@@ -434,6 +434,18 @@ void AppLaunchService::closeNativeApp(int surfaceId) {
         qWarning() << "[AppLaunchService] Failed to invoke closeWindow(int) on compositor";
 }
 
+int AppLaunchService::closeAppWindows(const QString &appId) {
+    int                 closed  = 0;
+    const QList<Window> windows = m_windows.value(appId);
+    for (const Window &window : windows) {
+        if (window.surface) {
+            closeNativeApp(window.surfaceId);
+            ++closed;
+        }
+    }
+    return closed;
+}
+
 bool AppLaunchService::canLaunch(const QString &appId) const {
     return !resolveAppObject(appId).isEmpty();
 }

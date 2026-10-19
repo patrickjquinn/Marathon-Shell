@@ -285,6 +285,27 @@ class TestSharedClient : public QObject {
         bus.unregisterService(QStringLiteral("id.waydro.Session"));
     }
 
+    // A card closes every live window of its app, not the window it was
+    // made with, which Waydroid may have re-created since (verification F9:
+    // "closeWindow called for unknown surface ID").
+    void closingAnAppClosesItsLiveWindows() {
+        launch("a", kLaunchA);
+        map("a", 11, &surfaceA);
+        QVERIFY(!launcher->mapWindow(kClient, id("a"), "A", QString(), 12, &surfaceB));
+        QCOMPARE(launcher->closeAppWindows(id("a")), 2);
+        QCOMPARE(comp->closed, (QList<int>{11, 12}));
+
+        comp->closed.clear();
+        launcher->onWindowDestroyed(11);
+        launcher->closeAppWindows(id("a"));
+        QCOMPARE(comp->closed, QList<int>{12});
+
+        comp->closed.clear();
+        launcher->onWindowDestroyed(12);
+        QCOMPARE(launcher->closeAppWindows(id("a")), 0);
+        QVERIFY(comp->closed.isEmpty());
+    }
+
     void aShownLaunchIsShown() {
         launch("a", kLaunchA);
         QVERIFY(map("a", 11, &surfaceA));

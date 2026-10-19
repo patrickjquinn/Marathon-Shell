@@ -163,7 +163,8 @@ QString ShellKeelActions::run(const QString &action, const QJsonObject &args) {
         if (task->appType() == QLatin1String("native") && task->surfaceId() >= 0) {
             const QString taskId = task->id();
             m_lifecycle->prepareClose(id);
-            m_launchService->closeNativeApp(task->surfaceId());
+            if (m_launchService->closeAppWindows(id) == 0)
+                m_launchService->closeNativeApp(task->surfaceId());
             m_tasks->closeTask(taskId);
         } else {
             m_lifecycle->closeApp(id);

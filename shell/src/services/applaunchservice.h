@@ -75,6 +75,9 @@ class AppLaunchService : public QObject {
         return m_backgroundLaunches.contains(appId);
     }
     Q_INVOKABLE void closeNativeApp(int surfaceId);
+    // Closes every live window of the app (xdg_toplevel.close), whichever its
+    // card was made with; how many it closed.
+    Q_INVOKABLE int  closeAppWindows(const QString &appId);
 
     Q_INVOKABLE bool isAppLaunching(const QString &appId) const;
 

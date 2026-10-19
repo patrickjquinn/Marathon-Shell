@@ -104,7 +104,10 @@ Item {
             if (typeof taskCard.compositor !== 'undefined' && taskCard.compositor && taskCard.surfaceId >= 0) {
                 Logger.info("TaskCard", "Closing native app via compositor, surfaceId: " + taskCard.surfaceId);
                 AppLifecycleManager.prepareClose(taskCard.appId);
-                taskCard.compositor.closeWindow(taskCard.surfaceId);
+                // Its live windows: Waydroid re-creates an app's window, so the
+                // card's own surface may be gone.
+                if (AppLaunchService.closeAppWindows(taskCard.appId) === 0)
+                    taskCard.compositor.closeWindow(taskCard.surfaceId);
             }
             TaskModel.closeTask(taskCard.id);
         } else {
