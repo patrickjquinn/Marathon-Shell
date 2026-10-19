@@ -5,6 +5,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import MarathonOS.Services
 import Nemo.Configuration 1.0
+import Sailfish.Share 1.0
 import "MailLogic.js" as Logic
 import "pages"
 import "cover"
@@ -74,6 +75,15 @@ ApplicationWindow {
 
     function compose(properties) {
         return pageStack.push(Qt.resolvedUrl("pages/MailComposePage.qml"), Object.assign({ mail: mail, draftStore: draftStore, draftKey: "new-" + Date.now() }, properties || {}));
+    }
+
+    // From the share sheet: a new message with the shared files attached and
+    // any text as its body.
+    function receiveShare(resources) {
+        const files = resources.filter(r => r.filePath).map(r => r.filePath);
+        const body = resources.filter(r => !r.filePath && r.data).map(r => r.name && r.name !== r.data ? r.name + "\n" + r.data : r.data).join("\n\n");
+        activate();
+        return compose({ attachments: files, defaultBody: body });
     }
 
     function continueDraft() {
@@ -149,6 +159,12 @@ ApplicationWindow {
         model: app.hasAccount ? app.mail.messages : null
         onModelChanged: Qt.callLater(app.updateLatest)
     }
+    ShareProvider {
+        method: "mail"
+        capabilities: ["image/*", "application/pdf", "text/plain", "text/x-url"]
+        onTriggered: resources => app.receiveShare(resources)
+    }
+
     MailActions {
         app: app
         messages: latest.items

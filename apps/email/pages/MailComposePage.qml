@@ -14,6 +14,8 @@ Dialog {
     property string defaultCc: ""
     property string defaultSubject: ""
     property string defaultBody: ""
+    // Files to send: paths in the app's cache, from the share sheet.
+    property var attachments: []
 
     readonly property bool serviceReady: mail.accounts !== null && mail.currentAccountId !== ""
     readonly property var fields: ({
@@ -54,7 +56,7 @@ Dialog {
     }
     onAccepted: {
         autosave.stop();
-        if (mail.send(to.recipients.join(", "), cc.recipients.join(", "), bcc.recipients.join(", "), subjectField.text, bodyArea.text, [])) {
+        if (mail.send(to.recipients.join(", "), cc.recipients.join(", "), bcc.recipients.join(", "), subjectField.text, bodyArea.text, attachments)) {
             draftStore.value = Logic.withDraft(draftStore.value, draftKey, { to: "", cc: "", bcc: "", subject: "", body: "" }, 0);
             Notices.show(qsTr("Sending message"));
         } else {
@@ -195,6 +197,51 @@ Dialog {
                 text: dialog.defaultSubject
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: bodyArea.focus = true
+            }
+            Repeater {
+                model: dialog.attachments
+
+                delegate: ListItem {
+                    id: attachment
+
+                    required property string modelData
+                    readonly property string name: modelData.substring(modelData.lastIndexOf("/") + 1)
+
+                    objectName: "composeAttachment-" + name
+                    contentHeight: Theme.itemSizeSmall
+                    Accessible.name: name
+
+                    Icon {
+                        id: attachIcon
+
+                        x: Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "image://theme/icon-s-attach"
+                    }
+                    Label {
+                        anchors {
+                            left: attachIcon.right
+                            leftMargin: Theme.paddingMedium
+                            right: remove.left
+                            verticalCenter: parent.verticalCenter
+                        }
+                        text: attachment.name
+                        truncationMode: TruncationMode.Fade
+                    }
+                    IconButton {
+                        id: remove
+
+                        objectName: "removeAttachment"
+                        anchors {
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin - Theme.paddingMedium
+                            verticalCenter: parent.verticalCenter
+                        }
+                        icon.source: "image://theme/icon-m-clear"
+                        Accessible.name: qsTr("Remove %1").arg(attachment.name)
+                        onClicked: dialog.attachments = dialog.attachments.filter(p => p !== attachment.modelData)
+                    }
+                }
             }
             TextArea {
                 id: bodyArea

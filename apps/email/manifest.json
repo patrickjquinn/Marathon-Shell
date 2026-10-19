@@ -15,6 +15,9 @@
   "protected": false,
   "categories": ["Productivity"],
   "handlesUriSchemes": ["mailto"],
+  "shareMethods": [
+    { "name": "mail", "title": "Email", "mimeTypes": ["image/*", "application/pdf", "text/plain", "text/x-url"] }
+  ],
   "defaultFor": ["email"],
   "searchKeywords": [
     "mail",

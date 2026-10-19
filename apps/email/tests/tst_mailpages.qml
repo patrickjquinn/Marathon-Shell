@@ -235,6 +235,26 @@ TestCase {
         compare(Logic.parseDrafts(app.draftStore.value)["new-1"], undefined);
     }
 
+    function test_aShareComposesWithItsFiles() {
+        const app = makeApp();
+        app.receiveShare([{ name: "beach.png", data: "", filePath: "/c/sailfish-share_1/beach.png" }, { name: "", data: "Look", filePath: "" }]);
+        const compose = pushed(app, 2);
+        compare(findChild(compose, "bodyArea").text, "Look");
+        verify(findChild(compose, "composeAttachment-beach.png").visible);
+        findChild(compose, "toField").text = "a@b.co";
+        compose.accept();
+        pushed(app, 1);
+        compare(MailService.called("send")[0].args[5], ["/c/sailfish-share_1/beach.png"]);
+    }
+
+    function test_aSharedFileCanBeTakenOff() {
+        const app = makeApp();
+        app.receiveShare([{ name: "a.png", data: "", filePath: "/c/a.png" }, { name: "b.png", data: "", filePath: "/c/b.png" }]);
+        const compose = pushed(app, 2);
+        tap(findChild(findChild(compose, "composeAttachment-a.png"), "removeAttachment"));
+        compare(compose.attachments, ["/c/b.png"]);
+    }
+
     function test_composeSendFailureKeepsDraft() {
         MailService.fail = true;
         const app = makeApp();
