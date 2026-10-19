@@ -21,6 +21,9 @@ ApplicationWindow {
     readonly property bool mapUnavailable: mapError !== "" && Logic.mapFailureIsPermanent(mapError)
     property var _pending: []
 
+    property string route: typeof MARATHON_APP_ROUTE !== "undefined" ? MARATHON_APP_ROUTE : ""
+    property string routeParams: typeof MARATHON_APP_ROUTE_PARAMS !== "undefined" ? MARATHON_APP_ROUTE_PARAMS : ""
+
     property var searchResults: []
     property bool searching: false
     property string searchError: ""
@@ -354,6 +357,21 @@ ApplicationWindow {
         pageStack.push(Qt.resolvedUrl("pages/SearchPage.qml"), { app: root });
     }
 
+    // Search for query on a fresh search page over the map.
+    function showSearch(query, operation) {
+        const map = pageStack.find(p => !pageStack.previousPage(p));
+        if (pageStack.currentPage !== map)
+            pageStack.pop(map, PageStackAction.Immediate);
+        pageStack.push(Qt.resolvedUrl("pages/SearchPage.qml"), { app: root, query: query }, operation);
+    }
+
+    // "search" with a query (geo:0,0?q=…).
+    function openRoute(name, paramsJson, operation) {
+        const query = name === "search" ? Logic.routeQuery(paramsJson) : "";
+        if (query !== "")
+            showSearch(query, operation);
+    }
+
     appId: "maps"
     onRoutingModeChanged: {
         if (!lifecycle)
@@ -366,6 +384,7 @@ ApplicationWindow {
         }
     }
     Component.onCompleted: {
+        openRoute(route, routeParams, PageStackAction.Immediate);
         resumable = Logic.parseSavedRoute(activeRouteStore.value);
         try {
             voice = Qt.createQmlObject("import MarathonApp.Maps; VoiceClient {}", root, "VoiceClient");
@@ -414,6 +433,18 @@ ApplicationWindow {
 
     MapsActions {
         app: root
+    }
+
+    Connections {
+        target: typeof NavigationRouter !== "undefined" ? NavigationRouter : null
+        ignoreUnknownSignals: true
+
+        function onDeepLinkRequested(appId, route, params) {
+            if (appId === root.appId) {
+                root.activate();
+                root.openRoute(route, JSON.stringify(params || {}));
+            }
+        }
     }
 
     Timer {

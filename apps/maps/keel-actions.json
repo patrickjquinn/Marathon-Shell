@@ -209,6 +209,38 @@
         "type": "object"
       },
       "title": "Search places"
+    },
+    {
+      "_meta": {
+        "org.shipwright.keel/action": "search.show",
+        "org.shipwright.keel/confirm": false,
+        "org.shipwright.keel/result": "none",
+        "org.shipwright.keel/sensitive": false,
+        "org.shipwright.keel/timeoutMs": 25000
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Show the person Marathon Maps' search for a text query, such as a place name or an address: brings Maps to the front on its search page with the query filled in and the places found listed, for the person to choose from. To get the places yourself, use places.search.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "org.marathonos.maps/search.show",
+      "title": "Search in Maps"
     }
   ],
   "version": 1

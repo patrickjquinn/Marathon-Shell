@@ -15,6 +15,11 @@ Page {
     }
 
     objectName: "searchPage"
+    // A search asked for from outside runs at once.
+    Component.onCompleted: {
+        if (query.trim() !== "")
+            app.search(query.trim());
+    }
     onQueryChanged: {
         if (query.trim().length > 2) {
             searchTimer.restart();
@@ -60,6 +65,7 @@ Page {
                 objectName: "searchField"
                 width: parent.width
                 placeholderText: qsTr("Search places")
+                text: root.query
                 onTextChanged: root.query = text
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                 EnterKey.onClicked: {

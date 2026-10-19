@@ -226,3 +226,13 @@ function parseSavedRoute(json) {
         return null;
     }
 }
+
+// The text a link asks Maps to search for (geo:0,0?q=…), "" if none.
+function routeQuery(paramsJson) {
+    try {
+        const p = JSON.parse(paramsJson || "{}");
+        return p && p.query ? String(p.query).trim().substring(0, 256) : "";
+    } catch (e) {
+        return "";
+    }
+}

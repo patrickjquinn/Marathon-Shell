@@ -61,6 +61,21 @@ Item {
     }
 
     KeelAction {
+        name: "search.show"
+        title: qsTr("Search in Maps")
+        description: "Show the person Marathon Maps' search for a text query, such as a place name or an address: brings Maps to the front on its search page with the query filled in and the places found listed, for the person to choose from. To get the places yourself, use places.search."
+        idempotent: true
+        openWorld: true
+        parameters: [
+            KeelParam { name: "query"; type: "string"; required: true; minLength: 1; maxLength: 256 }
+        ]
+        onInvoked: (args, call) => {
+            root.app.showSearch(args.query.trim());
+            root.app.activate();
+        }
+    }
+
+    KeelAction {
         name: "map.show"
         title: qsTr("Show on map")
         description: "Show a place to the person in Marathon Maps: brings Maps to the front with the map centred on the latitude and longitude and a pin there, named `name` (for example a place from places.search). The place is added to Maps' recent places."

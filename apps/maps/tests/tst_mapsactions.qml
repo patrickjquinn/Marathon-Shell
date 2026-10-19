@@ -76,6 +76,47 @@ TestCase {
         compare(KeelActions.invoke("places.search", { query: "" }).errorCode, "InvalidArguments");
     }
 
+    function tower(app) {
+        let url = "";
+        app.fetch = (u, done) => {
+            url = u;
+            done(200, JSON.stringify([{ display_name: "Tower Bridge, London, UK", lat: "51.5055", lon: "-0.0754", type: "bridge" }]));
+        };
+        return () => url;
+    }
+
+    // geo:0,0?q=… from another app: Maps' search, with the results for the person.
+    function test_searchShow() {
+        const app = makeApp();
+        const url = tower(app);
+        const call = KeelActions.invoke("search.show", { query: "tower bridge" });
+        verify(call.succeeded, call.errorMessage);
+        settle(app);
+        compare(app.pageStack.currentPage.objectName, "searchPage");
+        compare(findChild(app.pageStack.currentPage, "searchField").text, "tower bridge");
+        verify(url().indexOf("q=tower") > 0);
+        compare(app.searchResults.length, 1);
+        compare(app.pageStack.depth, 2);
+
+        // Again from the search page: one search page, the new query.
+        KeelActions.invoke("search.show", { query: "tower" });
+        settle(app);
+        compare(app.pageStack.depth, 2);
+        compare(findChild(app.pageStack.currentPage, "searchField").text, "tower");
+        compare(KeelActions.invoke("search.show", { query: "" }).errorCode, "InvalidArguments");
+    }
+
+    function test_searchRoute() {
+        const app = createTemporaryObject(appComponent, tc, {
+            route: "search",
+            routeParams: JSON.stringify({ query: "tower bridge" }),
+            fetch: (u, done) => done(200, "[]")
+        });
+        tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.objectName === "searchPage");
+        settle(app);
+        compare(findChild(app.pageStack.currentPage, "searchField").text, "tower bridge");
+    }
+
     function test_show() {
         const app = makeApp();
         app.openSearch();

@@ -13,6 +13,13 @@ TestCase {
         { type: 4, beginShapeIndex: 2, instruction: "You have arrived." }
     ]
 
+    function test_routeQuery() {
+        compare(Logic.routeQuery('{"query":" Trinity College "}'), "Trinity College");
+        compare(Logic.routeQuery("{}"), "");
+        compare(Logic.routeQuery("{bad"), "");
+        compare(Logic.routeQuery(JSON.stringify({ query: "x".repeat(300) })).length, 256);
+    }
+
     function test_parseResults() {
         const r = Logic.parseResults(JSON.stringify([
             { display_name: "Tower Bridge, London, UK", lat: "51.5055", lon: "-0.0754", type: "bridge_x" },
