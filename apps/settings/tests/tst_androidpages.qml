@@ -17,6 +17,11 @@ TestCase {
     height: 1140
 
     Component {
+        id: spyComponent
+        SignalSpy {}
+    }
+
+    Component {
         id: appComponent
 
         SettingsApp {
@@ -233,6 +238,36 @@ TestCase {
         const other = open("appmanager/waydroid.org.fdroid.fdroid");
         tryVerify(() => String(other.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !other.app.pageStack.busy);
         verify(other.app.pageStack.currentPage.canUninstall);
+    }
+
+    // Opened from an Android app's request, Back from the page it landed on goes back to the app.
+    function test_backReturnsToTheLinkingApp() {
+        const app = createTemporaryObject(appComponent, testCase);
+        tryVerify(() => app.pageStack.currentPage !== null);
+        const minimized = createTemporaryObject(spyComponent, testCase, { target: app, signalName: "minimizeRequested" });
+        verify(app.openPage("androidaccess/all_files/org.fdroid.fdroid", PageStackAction.Immediate, true, true));
+        tryVerify(() => String(app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !app.pageStack.busy);
+        app.handleBack();
+        compare(minimized.count, 1);
+        compare(app.pageStack.depth, 1);
+
+        // Further in, Back first walks back to where the link landed.
+        verify(app.openPage("androidaccess", PageStackAction.Immediate, true, true));
+        tryVerify(() => String(app.pageStack.currentPage).indexOf("AndroidAccessListPage") === 0 && !app.pageStack.busy);
+        tap(child(app.pageStack.currentPage, "access-overlay"));
+        tryVerify(() => String(app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !app.pageStack.busy);
+        app.handleBack();
+        tryVerify(() => String(app.pageStack.currentPage).indexOf("AndroidAccessListPage") === 0 && !app.pageStack.busy);
+        compare(minimized.count, 1);
+        app.handleBack();
+        compare(minimized.count, 2);
+
+        // Opened from within Settings, Back pops as ever.
+        verify(app.openPage("androidaccess/all_files", PageStackAction.Immediate));
+        tryVerify(() => String(app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !app.pageStack.busy);
+        app.handleBack();
+        tryVerify(() => String(app.pageStack.currentPage).indexOf("AndroidAccessListPage") === 0 && !app.pageStack.busy);
+        compare(minimized.count, 2);
     }
 
     // A Marathon app's page has none of it.
