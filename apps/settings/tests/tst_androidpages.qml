@@ -94,13 +94,15 @@ TestCase {
         tap(login);
         compare(called("setStartAtLogin"), [["setStartAtLogin", false]]);
         verify(child(s.page, "resetEntry").enabled);
+        AndroidApps.runtime = { state: "starting" };
+        verify(!child(s.page, "resetEntry").enabled);
 
         AndroidApps.runtime = { state: "stopped", startAtLogin: false };
         compare(child(s.page, "stateItem").value, "Stopped");
         verify(!child(s.page, "memoryItem").visible);
         verify(!child(s.page, "uptimeItem").visible);
         verify(child(s.page, "stoppedNote").visible);
-        verify(!child(s.page, "resetEntry").enabled);
+        verify(child(s.page, "resetEntry").enabled);
         verify(!child(s.page, "restartItem").visible);
         child(s.page, "startStopItem").clicked();
         compare(called("start").length, 1);

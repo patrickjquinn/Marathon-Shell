@@ -21,7 +21,7 @@ Dialog {
             bottomPadding: Theme.paddingLarge
             wrapMode: Text.Wrap
             color: Theme.highlightColor
-            text: qsTr("Every Android app is removed, with everything it stores: accounts, messages, downloads and settings.")
+            text: qsTr("Android is set up again from the start. Every Android app is removed, with everything it stores: accounts, messages, downloads and settings.")
         }
         Label {
             x: Theme.horizontalPageMargin
@@ -29,7 +29,7 @@ Dialog {
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryHighlightColor
-            text: qsTr("%n Android apps are installed. This can't be undone; your Marathon apps and files stay as they are.", "", AndroidApps.apps.length)
+            text: qsTr("%n Android apps are installed. Android stops now and sets itself up the next time it starts. This can't be undone; your Marathon apps and files stay as they are.", "", AndroidApps.apps.length)
         }
     }
 }

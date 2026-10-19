@@ -70,7 +70,7 @@ Page {
 
         function onDone(pkg, action) {
             if (action === "reset")
-                Notices.show(qsTr("Android apps removed"));
+                Notices.show(qsTr("Android reset"));
         }
         function onFailed(pkg, action, error) {
             if (pkg === "")
@@ -176,9 +176,9 @@ Page {
             }
             EntryItem {
                 objectName: "resetEntry"
-                enabled: page.runState === "running"
+                enabled: page.runState === "running" || page.stopped
                 title: qsTr("Reset Android")
-                subtitle: enabled ? qsTr("Removes every Android app and its data") : qsTr("Start Android first")
+                subtitle: qsTr("Removes every Android app and all of Android's data")
                 onClicked: page.openReset()
             }
         }
