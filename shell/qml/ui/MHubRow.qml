@@ -6,7 +6,9 @@ import Sailfish.Silica 1.0 as Silica
 // time, account and a one-line snippet, laid out as Sailfish's events.
 // Swiping it to the right dismisses it; leftward stays with the pager.
 // An ongoing row shows its progress and can't be swiped away.
-Item {
+// A focus scope: the list focuses its current row, which must leave the
+// reply field its focus.
+FocusScope {
     id: row
 
     property bool unread: false

@@ -291,6 +291,37 @@ TestCase {
         compare(NotificationService.clicked, []);
     }
 
+    // The field takes the keys typed after Reply, and a tap on it is the
+    // field's, not the row's (which would open the app).
+    function test_replyFieldTakesTyping() {
+        addNotification(14, "messages");
+        tryVerify(() => row(0));
+        row(0).actions = [{
+                "key": "inline-reply",
+                "label": "Reply"
+            }];
+        hub.Window.window.requestActivate();
+        tryVerify(() => hub.Window.window.active);
+        const actions = findChild(row(0), "hubRowActions");
+        const activated = createTemporaryObject(spyComponent, tc, { target: row(0), signalName: "activated" });
+        waitForPolish(actions);
+        mouseClick(findChild(actions, "notificationAction-inline-reply"));
+        const field = findChild(row(0), "hubRowReplyField");
+        tryVerify(() => field.activeFocus);
+        keyClick("O");
+        keyClick("k");
+        compare(field.text, "Ok");
+        waitForPolish(field.parent);
+        mouseClick(field);
+        compare(activated.count, 0);
+        const fx = field.width / 2, fy = field.height / 2;
+        touchEvent(field).press(0, field, fx, fy).commit();
+        touchEvent(field).release(0, field, fx, fy).commit();
+        compare(activated.count, 0);
+        verify(field.activeFocus);
+        tryVerify(() => findChild(row(0), "hubRowReplySend").enabled);
+    }
+
     Component {
         id: spyComponent
 
