@@ -16,11 +16,14 @@ MApp {
     property bool isNative: true
     property var surfaceItemRef: null
     property Item ambienceItem: null
-    readonly property Item backdropItem: keelApp ? ambienceItem : null
+    readonly property Item backdropItem: ambienceBackdrop ? ambienceItem : null
     // The shell draws the backdrop and surface itself (rounded, while the
     // window lands on its card); the originals only keep their textures.
     property bool texturesRequested: false
     property bool drawnByTexture: false
+    // Android windows carry alpha too (a platform-themed app draws a clear
+    // window background), so they sit on the ambience as Keel apps do.
+    readonly property bool ambienceBackdrop: keelApp || nativeAppId.startsWith("waydroid.")
     readonly property bool keelApp: {
         const info = typeof MarathonAppRegistry !== "undefined" && nativeAppId !== "" ? MarathonAppRegistry.getApp(nativeAppId) : null;
         return !!info || AppLaunchService.isKeelHostApp(nativeAppId);
@@ -48,7 +51,7 @@ MApp {
         id: contentContainer
 
         anchors.fill: parent
-        color: nativeAppWindow.keelApp || nativeAppWindow.drawnByTexture ? "transparent" : MColors.background
+        color: nativeAppWindow.ambienceBackdrop || nativeAppWindow.drawnByTexture ? "transparent" : MColors.background
 
         ShellComponents.KeelAmbienceBackground {
             id: ambience
@@ -57,7 +60,7 @@ MApp {
             opacity: nativeAppWindow.drawnByTexture ? 0 : 1
             // A texture to draw even before the wallpaper has loaded.
             layer.enabled: ready || nativeAppWindow.texturesRequested
-            visible: nativeAppWindow.keelApp
+            visible: nativeAppWindow.ambienceBackdrop
             Component.onCompleted: nativeAppWindow.ambienceItem = ambience
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
