@@ -8,7 +8,7 @@
 pkgname=deckard
 pkgver=0.1.0
 pkgrel=0
-_commit=ca80770f71e95cdef76fd72238b57206a65d1863
+_commit=acf8f131c3519c623c434d4e4b9109abc6791ff3
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -35,6 +35,10 @@ package() {
 	local p=host/packaging
 	install -Dm755 $p/deckard-waydroid "$pkgdir"/usr/libexec/deckard-waydroid
 	install -Dm755 $p/deckard-overlay-sync "$pkgdir"/usr/libexec/deckard-overlay-sync
+	install -Dm755 $p/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
+	install -Dm755 $p/deckard-container-limits "$pkgdir"/usr/libexec/deckard-container-limits
+	install -Dm644 $p/org.marathonos.deckard.apk.desktop \
+		"$pkgdir"/usr/share/applications/org.marathonos.deckard.apk.desktop
 	install -Dm755 $p/deckard-fonts-sync "$pkgdir"/usr/libexec/deckard-fonts-sync
 	install -Dm644 image/vendor_deckard/fonts/fonts.xml \
 		"$pkgdir"/usr/share/deckard/fonts/fonts.xml
