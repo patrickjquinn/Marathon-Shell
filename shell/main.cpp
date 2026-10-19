@@ -77,6 +77,8 @@
 #include "src/services/toolkitthemewriter.h"
 #include "src/services/ngfservice.h"
 #include "src/dbus/portalsettings.h"
+#include "src/dbus/portalfilechooser.h"
+#include "src/models/filechoosermodel.h"
 #include "src/managers/bluetoothmanager.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
@@ -599,6 +601,7 @@ int main(int argc, char *argv[]) {
 
     qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
     qmlRegisterType<GestureTracker>("MarathonOS.Shell", 1, 0, "GestureTracker");
+    qmlRegisterType<FileChooserModel>("MarathonOS.Shell", 1, 0, "FileChooserModel");
     qmlRegisterType<WindowTextureItem>("MarathonOS.Shell", 1, 0, "WindowTextureItem");
 
     auto *sessionStore = new SessionStore(&app);
@@ -1419,13 +1422,16 @@ int main(int argc, char *argv[]) {
         applyAmbience(ambienceService->ambience());
         QObject::connect(ambienceService, &AmbienceService::ambienceChanged, portalSettings,
                          applyAmbience);
+        auto *fileChooser = createObject<FileChooserPortal>(ctx, "FileChooserPortal",
+                                                            QDBusConnection::sessionBus(), &app);
+        new FileChooserAdaptor(portalSettings, fileChooser);
         if (!QDBusConnection::sessionBus().registerObject(
                 QStringLiteral("/org/freedesktop/portal/desktop"), portalSettings,
                 QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals |
-                    QDBusConnection::ExportAllProperties) ||
+                    QDBusConnection::ExportAllProperties | QDBusConnection::ExportAdaptors) ||
             !QDBusConnection::sessionBus().registerService(
                 QStringLiteral("org.freedesktop.impl.portal.desktop.marathon")))
-            qWarning() << "[MarathonShell] Portal settings backend not registered";
+            qWarning() << "[MarathonShell] Portal backends not registered";
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";

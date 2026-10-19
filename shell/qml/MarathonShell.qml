@@ -49,6 +49,9 @@ Item {
         } else if (shareSheet.shown) {
             shareSheet.close(true);
             overlayClosed = true;
+        } else if (filePicker.shown) {
+            filePicker.cancel();
+            overlayClosed = true;
         } else if (UIStore.searchOpen) {
             UIStore.closeSearch();
             overlayClosed = true;
@@ -2191,6 +2194,26 @@ Item {
 
         onChosen: id => ShareService.choose(id)
         onDismissed: ShareService.cancel()
+    }
+
+    FilePickerSheet {
+        id: filePicker
+
+        onAccepted: (paths, filterIndex, choices) => FileChooserPortal.accept(paths, filterIndex, choices)
+        onCancelled: FileChooserPortal.cancel()
+    }
+
+    Connections {
+        function onRequested(request) {
+            filePicker.open(request);
+        }
+
+        function onClosed() {
+            filePicker.close();
+        }
+
+        // Only with a session bus (main.cpp).
+        target: typeof FileChooserPortal !== "undefined" ? FileChooserPortal : null
     }
 
     Connections {
