@@ -6,7 +6,8 @@ import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
 // The file chooser (FileChooserPortal): an app's request to open files,
-// save one, or pick a folder. Back, Cancel or a swipe down cancels.
+// save one, or pick a folder, laid out as a Marathon dialog. Back, Cancel
+// or a swipe down on the header cancels.
 Item {
     id: picker
 
@@ -28,6 +29,16 @@ Item {
         return !!filter && filter.globs.length === 0 && filter.mimes.length > 0 && filter.mimes.every(m => m.startsWith("image/"));
     }
     readonly property bool canAccept: folderPick || (saving ? name.trim() !== "" : selection.length > 0)
+    readonly property real gutter: Silica.Theme.paddingSmall
+    readonly property var placeGlyphs: ({
+            "Home": "house",
+            "Documents": "file-text",
+            "Downloads": "download-simple",
+            "Pictures": "image",
+            "Music": "music-notes",
+            "Videos": "film-strip",
+            "Camera": "camera"
+        })
 
     signal accepted(var paths, int filterIndex, var choices)
     signal cancelled
@@ -121,20 +132,25 @@ Item {
         search: searchField.text
     }
 
-    Rectangle {
+    // The ambience, as behind a Keel app's pages.
+    KeelAmbienceBackground {
         objectName: "filePickerPanel"
         anchors.fill: parent
-        color: MColors.background
-        // Taps stay in the picker.
-        MouseArea {
-            anchors.fill: parent
-        }
+        visible: picker.shown
+        wallpaper: AmbienceService.wallpaperUrl
+        light: AmbienceService.light
+    }
+
+    // Taps stay in the picker.
+    MouseArea {
+        anchors.fill: parent
     }
 
     Column {
         id: top
 
         width: parent.width
+        topPadding: Constants.statusBarHeight
 
         // A swipe down on the header cancels.
         DragHandler {
@@ -144,131 +160,147 @@ Item {
             onActiveChanged: if (!active && centroid.scenePosition.y - centroid.scenePressPosition.y > Silica.Theme.itemSizeLarge)
                 picker.cancel()
         }
-        topPadding: Constants.statusBarHeight
 
+        // Marathon's dialog header: Cancel and the accept action as text.
         Item {
             width: parent.width
-            height: Silica.Theme.itemSizeMedium
+            height: Silica.Theme.itemSizeLarge
 
-            Silica.Button {
+            Rectangle {
+                anchors.fill: parent
+                color: Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, 0.12)
+            }
+
+            Silica.BackgroundItem {
                 id: cancelButton
 
                 objectName: "filePickerCancel"
-                anchors.left: parent.left
-                anchors.leftMargin: Silica.Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-                text: qsTr("Cancel")
+                width: parent.width / 2
+                height: parent.height
                 onClicked: picker.cancel()
+
+                Silica.Label {
+                    x: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - x
+                    text: qsTr("Cancel")
+                    font.pixelSize: Silica.Theme.fontSizeLarge
+                    color: cancelButton.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    truncationMode: Silica.TruncationMode.Fade
+                }
             }
 
-            Silica.Label {
-                anchors.left: cancelButton.right
-                anchors.right: acceptButton.left
-                anchors.margins: Silica.Theme.paddingSmall
-                anchors.verticalCenter: parent.verticalCenter
-                horizontalAlignment: Text.AlignHCenter
-                text: picker.request && picker.request.title ? picker.request.title : picker.folderPick ? qsTr("Choose a folder") : picker.saving ? qsTr("Save") : qsTr("Open")
-                color: Silica.Theme.highlightColor
-                truncationMode: Silica.TruncationMode.Fade
-            }
-
-            Silica.Button {
+            Silica.BackgroundItem {
                 id: acceptButton
 
-                objectName: "filePickerAccept"
-                anchors.right: parent.right
-                anchors.rightMargin: Silica.Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-                enabled: picker.canAccept
-                text: {
+                readonly property string text: {
                     if (picker.confirmReplace)
                         return qsTr("Replace");
                     const label = picker.request && picker.request.acceptLabel ? picker.request.acceptLabel : picker.folderPick ? qsTr("Select") : picker.saving ? qsTr("Save") : qsTr("Open");
                     return picker.multiple && picker.selection.length > 0 ? label + " (" + picker.selection.length + ")" : label;
                 }
+
+                objectName: "filePickerAccept"
+                anchors.right: parent.right
+                width: parent.width / 2
+                height: parent.height
+                enabled: picker.canAccept
                 onClicked: picker.acceptCurrent()
+
+                Silica.Label {
+                    anchors.right: parent.right
+                    anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.min(implicitWidth, parent.width - Silica.Theme.horizontalPageMargin)
+                    horizontalAlignment: Text.AlignRight
+                    text: acceptButton.text
+                    font.pixelSize: Silica.Theme.fontSizeLarge
+                    color: !acceptButton.enabled ? Silica.Theme.secondaryColor : acceptButton.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    truncationMode: Silica.TruncationMode.Fade
+                }
             }
         }
 
-        Flickable {
-            width: parent.width
-            height: Silica.Theme.itemSizeExtraSmall
-            contentWidth: places.width + 2 * Silica.Theme.horizontalPageMargin
-            flickableDirection: Flickable.HorizontalFlick
+        Silica.Label {
+            objectName: "filePickerTitle"
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            topPadding: Silica.Theme.paddingMedium
+            bottomPadding: Silica.Theme.paddingMedium
+            text: picker.request && picker.request.title ? picker.request.title : picker.folderPick ? qsTr("Choose a folder") : picker.saving ? qsTr("Save") : qsTr("Open")
+            color: Silica.Theme.highlightColor
+            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+        }
+
+        // Places: Recent, Home and the media folders.
+        ListView {
+            id: placeList
+
+            readonly property var entries: {
+                const out = picker.folderPick ? [] : [{
+                        "name": qsTr("Recent"),
+                        "path": "",
+                        "glyph": "clock-counter-clockwise"
+                    }];
+                for (const place of picker.shown ? files.places() : [])
+                    out.push({
+                        "name": place.name,
+                        "path": place.path,
+                        "glyph": picker.placeGlyphs[place.name] || "folder-simple"
+                    });
+                return out;
+            }
+
+            x: Silica.Theme.horizontalPageMargin - picker.gutter
+            width: parent.width - x
+            height: Silica.Theme.itemSizeLarge
+            orientation: ListView.Horizontal
             clip: true
+            model: entries
 
-            Row {
-                id: places
+            delegate: Silica.BackgroundItem {
+                id: place
 
-                x: Silica.Theme.horizontalPageMargin
-                spacing: Silica.Theme.paddingSmall
+                required property var modelData
+                readonly property bool current: modelData.path === "" ? files.recent : !files.recent && files.folder === modelData.path
 
-                Silica.FilterChip {
-                    objectName: "filePlace-recent"
-                    text: qsTr("Recent")
-                    automaticCheck: false
-                    checked: files.recent
-                    visible: !picker.folderPick
-                    onClicked: {
-                        searchField.text = "";
+                objectName: "filePlace-" + modelData.name
+                width: Math.max(Silica.Theme.itemSizeLarge, placeLabel.implicitWidth + 2 * Silica.Theme.paddingMedium)
+                height: placeList.height
+                highlighted: down || current
+                Accessible.name: modelData.name
+                onClicked: {
+                    searchField.text = "";
+                    if (modelData.path === "") {
                         files.recent = true;
+                    } else {
+                        files.recent = false;
+                        files.folder = modelData.path;
                     }
                 }
-
-                Repeater {
-                    model: picker.shown ? files.places() : []
-
-                    delegate: Silica.FilterChip {
-                        required property var modelData
-
-                        objectName: "filePlace-" + modelData.name
-                        text: modelData.name
-                        automaticCheck: false
-                        checked: !files.recent && files.folder === modelData.path
-                        onClicked: {
-                            searchField.text = "";
-                            files.recent = false;
-                            files.folder = modelData.path;
-                        }
-                    }
-                }
-            }
-        }
-
-        Item {
-            width: parent.width
-            height: Silica.Theme.itemSizeSmall
-            visible: !files.recent
-
-            Silica.BackgroundItem {
-                id: up
-
-                objectName: "filePickerUp"
-                anchors.left: parent.left
-                anchors.leftMargin: Silica.Theme.horizontalPageMargin - Silica.Theme.paddingMedium
-                anchors.verticalCenter: parent.verticalCenter
-                width: Silica.Theme.itemSizeSmall
-                height: Silica.Theme.itemSizeSmall
-                enabled: files.folder.lastIndexOf("/") > 0
-                Accessible.name: qsTr("Up")
-                onClicked: picker.goUp()
 
                 GlyphIcon {
-                    anchors.centerIn: parent
-                    name: "arrow-up"
-                    size: Silica.Theme.iconSizeSmall
-                    color: up.enabled ? Silica.Theme.primaryColor : Silica.Theme.secondaryColor
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: placeLabel.top
+                    anchors.bottomMargin: Silica.Theme.paddingSmall
+                    name: place.modelData.glyph
+                    size: Silica.Theme.iconSizeMedium
+                    color: place.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                 }
-            }
 
-            Silica.Label {
-                objectName: "filePickerFolder"
-                anchors.left: up.right
-                anchors.right: parent.right
-                anchors.rightMargin: Silica.Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-                text: files.folder.substring(files.folder.lastIndexOf("/") + 1)
-                truncationMode: Silica.TruncationMode.Fade
+                Silica.Label {
+                    id: placeLabel
+
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: Silica.Theme.paddingSmall
+                    text: place.modelData.name
+                    font.pixelSize: Silica.Theme.fontSizeTiny
+                    color: place.highlighted ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+                }
             }
         }
 
@@ -277,12 +309,48 @@ Item {
 
             objectName: "filePickerSearch"
             width: parent.width
-            placeholderText: qsTr("Search")
+            placeholderText: qsTr("Search files")
             visible: !files.recent && !picker.folderPick
         }
 
-        Row {
+        // The folder open, with Up.
+        Silica.BackgroundItem {
+            id: up
+
+            objectName: "filePickerUp"
+            width: parent.width
+            height: Silica.Theme.itemSizeSmall
+            visible: !files.recent && searchField.text === ""
+            enabled: files.folder.lastIndexOf("/") > 0
+            Accessible.name: qsTr("Up")
+            onClicked: picker.goUp()
+
+            GlyphIcon {
+                id: upGlyph
+
+                x: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                name: "arrow-up"
+                size: Silica.Theme.iconSizeSmall
+                color: up.enabled ? (up.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor) : Silica.Theme.secondaryColor
+            }
+
+            Silica.Label {
+                objectName: "filePickerFolder"
+                anchors.left: upGlyph.right
+                anchors.leftMargin: Silica.Theme.paddingMedium
+                anchors.right: parent.right
+                anchors.rightMargin: Silica.Theme.horizontalPageMargin
+                anchors.verticalCenter: parent.verticalCenter
+                text: files.folder.substring(files.folder.lastIndexOf("/") + 1)
+                color: Silica.Theme.highlightColor
+                truncationMode: Silica.TruncationMode.Fade
+            }
+        }
+
+        Flow {
             x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
             spacing: Silica.Theme.paddingSmall
             visible: picker.filters.length > 1
 
@@ -305,18 +373,20 @@ Item {
         Repeater {
             model: picker.request ? picker.request.choices || [] : []
 
-            delegate: Row {
+            delegate: Flow {
                 id: choiceRow
 
                 required property var modelData
 
                 x: Silica.Theme.horizontalPageMargin
+                width: parent.width - 2 * x
                 spacing: Silica.Theme.paddingSmall
 
                 Silica.Label {
-                    anchors.verticalCenter: parent.verticalCenter
+                    height: Silica.Theme.itemSizeExtraSmall
+                    verticalAlignment: Text.AlignVCenter
                     text: choiceRow.modelData.label
-                    color: Silica.Theme.secondaryColor
+                    color: Silica.Theme.secondaryHighlightColor
                     font.pixelSize: Silica.Theme.fontSizeSmall
                 }
 
@@ -395,8 +465,9 @@ Item {
 
             Column {
                 anchors.left: thumb.right
-                anchors.leftMargin: Silica.Theme.paddingMedium
+                anchors.leftMargin: Silica.Theme.paddingLarge
                 anchors.right: check.left
+                anchors.rightMargin: Silica.Theme.paddingMedium
                 anchors.verticalCenter: parent.verticalCenter
 
                 Silica.Label {
@@ -410,7 +481,7 @@ Item {
                     width: parent.width
                     visible: !entry.isDir
                     text: Silica.Format.formatFileSize(entry.size)
-                    color: Silica.Theme.secondaryColor
+                    color: entry.highlighted ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
                     font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 }
             }
@@ -429,10 +500,11 @@ Item {
         }
     }
 
+    // Square tiles on one gutter: pictures cropped, folders a glyph and name.
     Component {
         id: tileDelegate
 
-        Silica.BackgroundItem {
+        Item {
             id: tile
 
             required property string name
@@ -445,50 +517,65 @@ Item {
             objectName: "fileEntry-" + name
             width: GridView.view.cellWidth
             height: GridView.view.cellHeight
-            highlighted: down || selected
+            Accessible.role: Accessible.Button
             Accessible.name: name
-            onClicked: picker.openEntry(path, isDir)
 
-            Image {
+            Silica.BackgroundItem {
+                id: tileBox
+
                 anchors.fill: parent
-                anchors.margins: 1
-                fillMode: Image.PreserveAspectCrop
-                sourceSize.width: width
-                sourceSize.height: height
-                asynchronous: true
-                source: tile.isImage ? tile.url : ""
-                opacity: tile.selected ? 0.6 : 1
-            }
+                anchors.margins: picker.gutter / 2
+                highlighted: down || tile.selected
+                onClicked: picker.openEntry(tile.path, tile.isDir)
 
-            Column {
-                anchors.centerIn: parent
-                width: parent.width - Silica.Theme.paddingSmall * 2
-                visible: !tile.isImage
+                Rectangle {
+                    anchors.fill: parent
+                    color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.06)
+                    visible: !tile.isImage
+                }
+
+                Image {
+                    anchors.fill: parent
+                    fillMode: Image.PreserveAspectCrop
+                    sourceSize.width: width
+                    sourceSize.height: height
+                    asynchronous: true
+                    source: tile.isImage ? tile.url : ""
+                    visible: tile.isImage
+                    opacity: tile.selected ? 0.6 : 1
+                }
 
                 GlyphIcon {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.centerIn: parent
+                    anchors.verticalCenterOffset: -Silica.Theme.paddingMedium
                     name: tile.isDir ? "folder" : "file"
                     size: Silica.Theme.iconSizeMedium
-                    color: Silica.Theme.primaryColor
+                    color: tileBox.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+                    visible: !tile.isImage
                 }
 
                 Silica.Label {
-                    width: parent.width
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: Silica.Theme.paddingSmall
                     horizontalAlignment: Text.AlignHCenter
                     text: tile.name
-                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                    font.pixelSize: Silica.Theme.fontSizeTiny
+                    color: tileBox.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                     truncationMode: Silica.TruncationMode.Fade
+                    visible: !tile.isImage
                 }
-            }
 
-            GlyphIcon {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: Silica.Theme.paddingSmall
-                name: "check"
-                size: Silica.Theme.iconSizeSmall
-                color: Silica.Theme.highlightColor
-                visible: tile.selected
+                GlyphIcon {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Silica.Theme.paddingSmall
+                    name: "check-circle"
+                    size: Silica.Theme.iconSizeSmall
+                    color: Silica.Theme.highlightColor
+                    visible: tile.selected
+                }
             }
         }
     }
@@ -497,6 +584,7 @@ Item {
         id: content
 
         anchors.top: top.bottom
+        anchors.topMargin: Silica.Theme.paddingSmall
         anchors.bottom: saveBar.visible ? saveBar.top : parent.bottom
         anchors.bottomMargin: saveBar.visible ? 0 : Constants.navBarHeight
         width: parent.width
@@ -523,10 +611,14 @@ Item {
         id: gridView
 
         Silica.SilicaGridView {
+            readonly property int columns: Math.max(3, Math.floor((width - 2 * leftMargin) / (Silica.Theme.itemSizeHuge * 0.75)))
+
             objectName: "filePickerGrid"
             clip: true
             model: files
-            cellWidth: width / Math.max(3, Math.floor(width / (Silica.Theme.itemSizeHuge)))
+            leftMargin: Silica.Theme.horizontalPageMargin - picker.gutter / 2
+            rightMargin: leftMargin
+            cellWidth: Math.floor((width - leftMargin - rightMargin) / columns)
             cellHeight: cellWidth
             delegate: tileDelegate
 
@@ -545,6 +637,17 @@ Item {
         width: parent.width
         visible: picker.saving
 
+        Silica.Label {
+            objectName: "filePickerReplace"
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
+            visible: picker.confirmReplace
+            text: qsTr("“%1” is already there. Replace it?").arg(picker.name)
+            color: Silica.Theme.errorColor
+            wrapMode: Text.Wrap
+            font.pixelSize: Silica.Theme.fontSizeSmall
+        }
+
         Silica.TextField {
             id: nameField
 
@@ -556,17 +659,6 @@ Item {
             onTextChanged: picker.name = text
             Silica.EnterKey.enabled: picker.canAccept
             Silica.EnterKey.onClicked: picker.acceptCurrent()
-        }
-
-        Silica.Label {
-            objectName: "filePickerReplace"
-            x: Silica.Theme.horizontalPageMargin
-            width: parent.width - 2 * Silica.Theme.horizontalPageMargin
-            visible: picker.confirmReplace
-            text: qsTr("“%1” is already there. Replace it?").arg(picker.name)
-            color: Silica.Theme.errorColor
-            wrapMode: Text.Wrap
-            font.pixelSize: Silica.Theme.fontSizeSmall
         }
     }
 }
