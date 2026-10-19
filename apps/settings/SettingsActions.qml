@@ -112,6 +112,9 @@ Item {
     KeelPage { name: "security"; title: qsTr("Security"); description: "The device lock and its quick PIN."; onShow: root.open(name) }
     KeelPage { name: "accounts"; title: qsTr("Accounts"); description: "The accounts that sync contacts and calendars."; onShow: root.open(name) }
     KeelPage { name: "appmanager"; title: qsTr("Installed apps"); description: "Each installed app's details."; onShow: root.open(name) }
+    KeelPage { name: "android"; title: qsTr("Android apps"); description: "Whether Android is running, starting it at login, and resetting it."; onShow: root.open(name) }
+    KeelPage { name: "androidapps"; title: qsTr("Android apps list"); description: "Each Android app's permissions, notifications, battery use and storage."; onShow: root.open(name) }
+    KeelPage { name: "androidaccess"; title: qsTr("Special access"); description: "What Android apps may do beyond their permissions: all files, installing apps, alarms and more."; onShow: root.open(name) }
     KeelPage { name: "updates"; title: qsTr("Software updates"); description: "Checking for and installing system updates."; onShow: root.open(name) }
     KeelPage { name: "about"; title: qsTr("About device"); description: "Device name, model, software version and legal notices."; onShow: root.open(name) }
 }

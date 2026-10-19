@@ -23,11 +23,14 @@
         "additionalProperties": false,
         "properties": {
           "page": {
-            "description": "The page to open: about (About device: Device name, model, software version and legal notices.); accounts (Accounts: The accounts that sync contacts and calendars.); ambience (Ambience: Wallpaper and theme.); appmanager (Installed apps: Each installed app's details.); battery (Battery: Charge, power saving and the power profile.); bluetooth (Bluetooth: Pairing and connecting devices.); datetime (Date and time: Time zone and the 12- or 24-hour clock.); display (Display: Brightness, screen timeout, text size and rotation.); keyboard (Keyboard: Languages, autocorrect and predictions.); notifications (Notifications: On the lock screen and for each app.); security (Security: The device lock and its quick PIN.); sound (Sounds: Volume, ringtone, alarm and notification sounds.); storage (Storage: How much is used and how much is free.); updates (Software updates: Checking for and installing system updates.); wifi (Wi-Fi: Networks nearby, joining one and the saved ones.).",
+            "description": "The page to open: about (About device: Device name, model, software version and legal notices.); accounts (Accounts: The accounts that sync contacts and calendars.); ambience (Ambience: Wallpaper and theme.); android (Android apps: Whether Android is running, starting it at login, and resetting it.); androidaccess (Special access: What Android apps may do beyond their permissions: all files, installing apps, alarms and more.); androidapps (Android apps list: Each Android app's permissions, notifications, battery use and storage.); appmanager (Installed apps: Each installed app's details.); battery (Battery: Charge, power saving and the power profile.); bluetooth (Bluetooth: Pairing and connecting devices.); datetime (Date and time: Time zone and the 12- or 24-hour clock.); display (Display: Brightness, screen timeout, text size and rotation.); keyboard (Keyboard: Languages, autocorrect and predictions.); notifications (Notifications: On the lock screen and for each app.); security (Security: The device lock and its quick PIN.); sound (Sounds: Volume, ringtone, alarm and notification sounds.); storage (Storage: How much is used and how much is free.); updates (Software updates: Checking for and installing system updates.); wifi (Wi-Fi: Networks nearby, joining one and the saved ones.).",
             "enum": [
               "about",
               "accounts",
               "ambience",
+              "android",
+              "androidaccess",
+              "androidapps",
               "appmanager",
               "battery",
               "bluetooth",

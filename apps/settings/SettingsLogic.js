@@ -28,7 +28,10 @@ const pages = {
     quicksettings: "QuickSettingsPage.qml",
     hiddenapps: "HiddenAppsPage.qml",
     appsort: "AppLayoutPage.qml",
-    erase: "ErasePage.qml"
+    erase: "ErasePage.qml",
+    android: "AndroidPage.qml",
+    androidapps: "AndroidAppsPage.qml",
+    androidaccess: "AndroidAccessListPage.qml"
 };
 
 function pageFile(route) {
@@ -76,6 +79,7 @@ const sections = [
         title: qsTr("Apps"),
         entries: [
             { page: "appmanager", title: qsTr("Installed apps"), icon: "image://theme/icon-m-apps", keywords: "apps uninstall installed remove manager" },
+            { page: "android", title: qsTr("Android apps"), icon: "image://theme/icon-m-android", keywords: "android apk play permissions special access reset" },
             { page: "hiddenapps", title: qsTr("Hidden apps"), icon: "image://theme/icon-m-hidden", keywords: "hide drawer" },
             { page: "appsort", title: qsTr("App grid"), icon: "image://theme/icon-m-app-grid", keywords: "grid columns icons layout filter desktop native search badges" }
         ]
@@ -304,4 +308,72 @@ function dataEncryptionNote(state) {
     if (state === "off")
         return qsTr("This phone was set up before Marathon encrypted its data. Erase all content to start again with encryption.");
     return qsTr("Marathon doesn't encrypt data on this phone yet.");
+}
+
+// Android apps: the runtime's state, its permission groups and special access.
+function androidState(state) {
+    switch (state) {
+    case "running":
+        return qsTr("Running");
+    case "starting":
+        return qsTr("Starting");
+    case "stopping":
+        return qsTr("Stopping");
+    }
+    return qsTr("Stopped");
+}
+
+function dataSize(bytes) {
+    return Qt.locale().formattedDataSize(Math.max(0, bytes || 0), 1, 2);
+}
+
+function duration(seconds) {
+    const s = Math.max(0, Math.floor(seconds || 0));
+    if (s < 60)
+        return qsTr("Less than a minute");
+    if (s < 3600)
+        return qsTr("%n minutes", "", Math.floor(s / 60));
+    if (s < 86400)
+        return qsTr("%n hours", "", Math.floor(s / 3600));
+    return qsTr("%n days", "", Math.floor(s / 86400));
+}
+
+const androidPermissions = {
+    location: { label: qsTr("Location"), description: qsTr("Where the phone is") },
+    camera: { label: qsTr("Camera"), description: qsTr("Take photos and record video") },
+    microphone: { label: qsTr("Microphone"), description: qsTr("Record audio") },
+    contacts: { label: qsTr("Contacts"), description: qsTr("Read and change your contacts") },
+    calendar: { label: qsTr("Calendar"), description: qsTr("Read and change your events") },
+    phone: { label: qsTr("Phone"), description: qsTr("Make and manage calls") },
+    call_log: { label: qsTr("Call history"), description: qsTr("Read and change your call history") },
+    sms: { label: qsTr("Text messages"), description: qsTr("Send and read SMS messages") },
+    storage: { label: qsTr("Files"), description: qsTr("Read and change your files") },
+    photos: { label: qsTr("Photos and videos"), description: qsTr("Read your photos and videos") },
+    music: { label: qsTr("Music and audio"), description: qsTr("Read your music and recordings") },
+    nearby: { label: qsTr("Nearby devices"), description: qsTr("Find and connect to Bluetooth and Wi-Fi devices") },
+    sensors: { label: qsTr("Body sensors"), description: qsTr("Heart rate and other health sensors") },
+    activity: { label: qsTr("Physical activity"), description: qsTr("Steps and how you move") }
+};
+
+function androidPermission(group) {
+    return androidPermissions[group] || { label: group, description: "" };
+}
+
+const androidAccess = [
+    { kind: "all_files", title: qsTr("All files"), description: qsTr("Read and change all your files") },
+    { kind: "install_apps", title: qsTr("Install other apps"), description: qsTr("Install apps, as app stores do") },
+    { kind: "alarms", title: qsTr("Alarms and reminders"), description: qsTr("Wake the phone at an exact time") },
+    { kind: "battery", title: qsTr("Unrestricted battery"), description: qsTr("Run in the background without limits") },
+    { kind: "notification_listener", title: qsTr("Notification access"), description: qsTr("Read every notification and act on it") },
+    { kind: "dnd", title: qsTr("Do not disturb access"), description: qsTr("Turn Do not disturb on and off") },
+    { kind: "usage", title: qsTr("Usage access"), description: qsTr("See which apps you use and how often") },
+    { kind: "write_settings", title: qsTr("Change system settings"), description: qsTr("Change settings like brightness") },
+    { kind: "overlay", title: qsTr("Display over other apps"), description: qsTr("Draw on top of other Android apps") },
+    { kind: "pip", title: qsTr("Picture in picture"), description: qsTr("Keep playing video in a small window") },
+    { kind: "accessibility", title: qsTr("Accessibility"), description: qsTr("See the screen and act for you") },
+    { kind: "device_admin", title: qsTr("Device admin"), description: qsTr("Lock the phone and set security rules") }
+];
+
+function androidAccessKind(kind) {
+    return androidAccess.find(a => a.kind === kind) || { kind: kind, title: kind, description: "" };
 }

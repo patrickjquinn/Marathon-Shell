@@ -16,10 +16,10 @@ Page {
     // Only present once the app runner shares the shell's wallpaper list.
     readonly property var wallpapers: typeof Wallpapers !== "undefined" ? Wallpapers : null
 
-    // No mobile network entry on devices without a modem, and no erasing
-    // where the image can't erase itself.
+    // No mobile network entry on devices without a modem, no erasing
+    // where the image can't erase itself, and no Android apps without Android.
     function present(entries) {
-        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent));
+        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent) && (e.page !== "android" || AndroidApps.available));
     }
 
     function summary(name) {
@@ -52,6 +52,8 @@ Page {
             return Settings.appGridColumns > 0 ? qsTr("%n columns", "", Settings.appGridColumns) : qsTr("Automatic");
         case "updates":
             return Updates.updateAvailable ? qsTr("Update available") : "";
+        case "android":
+            return Logic.androidState((AndroidApps.runtime || {}).state) + " · " + qsTr("%n apps", "", AndroidApps.apps.length);
         }
         return "";
     }
