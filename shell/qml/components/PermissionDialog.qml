@@ -20,7 +20,7 @@ import Marathon.Silica 1.0 as Silica
 //   • Header left-aligned, NOT centered.
 //   • Maximum 2 actions per dialog. No "Allow Once / Allow While Using / Don't Allow."
 //   • No "Marathon OS - {AppName}" header. The user already knows whose phone this is.
-//   • No close X — Deny, Allow, or back (= Deny).
+//   • No close X — Deny, Allow, or back (= Deny; for Android, cancel).
 Item {
     id: permissionDialog
 

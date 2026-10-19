@@ -380,6 +380,15 @@ void MarathonPermissionManager::respondWith(bool granted, bool once, bool precis
     finishForeign(m_currentForeign, answer, granted && exact);
 }
 
+void MarathonPermissionManager::respondToBack() {
+    if (!m_promptActive)
+        return;
+    if (!m_currentForeign.isEmpty())
+        cancelForeign(m_currentForeign);
+    else
+        respond(false);
+}
+
 void MarathonPermissionManager::respond(bool granted) {
     if (!m_promptActive)
         return;

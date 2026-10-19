@@ -94,9 +94,9 @@ Item {
             PermissionManager.dismissAll();
     }
 
-    // Back on a permission prompt is Deny.
+    // Back on a permission prompt is Deny; on Android's, Android's back.
     function denyPermissionPrompt() {
-        PermissionManager.respond(false);
+        PermissionManager.respondToBack();
     }
 
     function handleHomeKey() {

@@ -64,6 +64,9 @@ class MarathonPermissionManager : public QObject {
     // The answer with the prompt's choices: for a foreign prompt, "only
     // this time" and precise location.
     Q_INVOKABLE void respondWith(bool granted, bool once, bool precise);
+    // Back on the prompt: Deny for a Marathon app; for Android's question,
+    // Android's back (cancel, nothing changes).
+    Q_INVOKABLE void respondToBack();
 
     // "allow", "once", "deny" or "cancel" (dismissed, unanswered).
     using ForeignAnswer = std::function<void(const QString &answer, bool precise)>;

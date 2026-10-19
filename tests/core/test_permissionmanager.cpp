@@ -538,6 +538,27 @@ class TestPermissionManager : public QObject {
         QCOMPARE(got.answers.size(), 3);
     }
 
+    // Back on Android's question is Android's back: cancelled, nothing set.
+    // On a Marathon prompt it stays Deny.
+    void backCancelsAForeignPromptAndDeniesAMarathonOne() {
+        MarathonAppRegistry registry;
+        registry.registerAppInfo(app("notes", {"storage"}));
+        MarathonPermissionManager mgr;
+        mgr.setAppRegistry(&registry);
+        Answers got;
+        mgr.askForeign("a", "waydroid.a", "camera", {{"once", true}}, got.record());
+        QVERIFY(mgr.promptActive());
+        mgr.respondToBack();
+        QCOMPARE(got.answers, QStringList({"cancel"}));
+        QVERIFY(!mgr.promptActive());
+
+        mgr.requestPermission("notes", "storage");
+        QTRY_VERIFY(mgr.promptActive());
+        mgr.respondToBack();
+        QVERIFY(!mgr.hasPermission("notes", "storage"));
+        QCOMPARE(mgr.getPermissionStatus("notes", "storage"), MarathonPermissionManager::Denied);
+    }
+
     void foreignAndMarathonPromptsTakeTurns() {
         MarathonAppRegistry registry;
         registry.registerAppInfo(app("notes", {"storage", "contacts"}));
