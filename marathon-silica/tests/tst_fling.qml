@@ -58,6 +58,25 @@ TestCase {
     }
 
     Component {
+        id: pressGrid
+
+        SilicaGridView {
+            property bool cellClicked: false
+
+            width: 540
+            height: 960
+            cellWidth: 270
+            cellHeight: 300
+            model: 60
+            delegate: GridItem {
+                width: 270
+                contentHeight: 300
+                onClicked: GridView.view.cellClicked = true
+            }
+        }
+    }
+
+    Component {
         id: grid
 
         SilicaGridView {
@@ -234,5 +253,23 @@ TestCase {
         touchEvent(v).press(0, v, 270, 480).commit();
         touchEvent(v).release(0, v, 270, 480).commit();
         verify(v.rowClicked);
+    }
+
+    // The ambience picker's grid: a press as its fling ends picks nothing.
+    function test_aPressAsAGridFlingEndsPicksNothing() {
+        const v = createTemporaryObject(pressGrid, testCase);
+        let ended = false;
+        v.movementEnded.connect(() => {
+            ended = true;
+            touchEvent(v).press(0, v, 135, 480).commit();
+            touchEvent(v).release(0, v, 135, 480).commit();
+        });
+        v.flick(0, -1500);
+        tryVerify(() => ended, 5000);
+        verify(!v.cellClicked);
+        wait(Fling.flingTapGuard * 3);
+        touchEvent(v).press(0, v, 135, 480).commit();
+        touchEvent(v).release(0, v, 135, 480).commit();
+        verify(v.cellClicked);
     }
 }
