@@ -5,7 +5,11 @@ show directly (the user's view, whatever drew the frame).
 
 Capture on the device while the bench runs, e.g.
   ffmpeg -device /dev/dri/card0 -f kmsgrab -framerate 120 -i - -t 6 \
-    -vf "hwdownload,format=bgr0,crop=W:H:X:Y,format=gray" -f rawvideo strip.gray
+    -vf "hwdownload,format=bgr0,crop=W:H:X:Y,format=gray" -fps_mode passthrough -f rawvideo strip.gray
+Keep -fps_mode passthrough: without it the rawvideo muxer duplicates frames
+whenever the capture falls behind, and a --pts log (taken before the
+duplicates) then no longer lines up with the strip's frames, adding a delay
+that grows through the capture.
 
 usage: strip_motion.py strip.gray W H [--fps 120] [--horizontal] [--json]
 The strip is reduced to a 1-D profile along the scroll axis; consecutive
