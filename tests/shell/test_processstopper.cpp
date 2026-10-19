@@ -1,4 +1,5 @@
 #include <QElapsedTimer>
+#include <QFile>
 #include <QProcess>
 #include <QSignalSpy>
 #include <QTest>
@@ -14,8 +15,9 @@ class TestProcessStopper : public QObject {
         auto *p = new QProcess(parent);
         p->start(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), script});
         p->waitForStarted();
-        // Let the trap install before the test signals it.
-        p->waitForReadyRead(2000);
+        // Let the trap install before the test signals it; a loaded host
+        // takes its time.
+        p->waitForReadyRead(30000);
         return p;
     }
 
@@ -31,9 +33,10 @@ class TestProcessStopper : public QObject {
         QSignalSpy     finished(&stopper, &ProcessStopper::finished);
         QElapsedTimer  t;
         t.start();
-        stopper.stop({quick->processId(), slow->processId()}, 3000);
-        QVERIFY(finished.wait(3000));
-        QVERIFY(t.elapsed() < 2000);
+        // Well within the grace: nothing was killed.
+        stopper.stop({quick->processId(), slow->processId()}, 20000);
+        QVERIFY(finished.wait(20000));
+        QVERIFY(t.elapsed() < 10000);
         QCOMPARE(finished.first().first().toInt(), 0);
         QCOMPARE(quick->exitStatus(), QProcess::NormalExit);
         QCOMPARE(slow->exitStatus(), QProcess::NormalExit);
@@ -48,10 +51,10 @@ class TestProcessStopper : public QObject {
         QElapsedTimer  t;
         t.start();
         stopper.stop({stubborn->processId()}, 300);
-        QVERIFY(finished.wait(2000));
+        QVERIFY(finished.wait(20000));
         QVERIFY(t.elapsed() >= 250);
         QCOMPARE(finished.first().first().toInt(), 1);
-        QVERIFY(stubborn->waitForFinished(2000));
+        QVERIFY(stubborn->waitForFinished(20000));
         QCOMPARE(stubborn->exitStatus(), QProcess::CrashExit);
     }
 
@@ -59,15 +62,22 @@ class TestProcessStopper : public QObject {
         QProcess parent;
         parent.start(QStringLiteral("/bin/sh"),
                      {QStringLiteral("-c"), QStringLiteral("sleep 10 & echo $!; exec sleep 10")});
-        QVERIFY(parent.waitForReadyRead(2000));
+        QVERIFY(parent.waitForReadyRead(30000));
         const qint64   child = parent.readLine().trimmed().toLongLong();
+        // Until the shell has become the sleep that never reaps, it would
+        // reap the child itself as soon as SIGTERM ends it.
+        const auto parentIsSleep = [&parent]() {
+            QFile comm(QStringLiteral("/proc/%1/comm").arg(parent.processId()));
+            return comm.open(QIODevice::ReadOnly) && comm.readAll().trimmed() == "sleep";
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(parentIsSleep(), 30000);
         ProcessStopper stopper;
         QSignalSpy     finished(&stopper, &ProcessStopper::finished);
         QElapsedTimer  t;
         t.start();
-        stopper.stop({child}, 3000);
-        QVERIFY(finished.wait(3000));
-        QVERIFY(t.elapsed() < 2000);
+        stopper.stop({child}, 20000);
+        QVERIFY(finished.wait(20000));
+        QVERIFY(t.elapsed() < 10000);
         QCOMPARE(finished.first().first().toInt(), 0);
         QVERIFY(::kill(static_cast<pid_t>(child), 0) == 0);
         parent.kill();

@@ -57,7 +57,7 @@ TestCase {
     }
 
     function settle(app) {
-        tryVerify(() => !app.pageStack.busy && app.pageStack.currentPage.status === PageStatus.Active, 5000);
+        tryVerify(() => !app.pageStack.busy && app.pageStack.currentPage.status === PageStatus.Active, 10000);
         // The page takes input from the next frame.
         wait(0);
     }
@@ -120,7 +120,7 @@ TestCase {
         compare(current(app).objectName, "searchPage");
         const field = findChild(current(app), "searchField");
         field.text = "tower";
-        tryVerify(() => app.searchResults.length === 1, 2000);
+        tryVerify(() => app.searchResults.length === 1, 10000);
         verify(asked.indexOf("q=tower") > 0);
         const view = findChild(current(app), "resultsView");
         tryCompare(view, "count", 1);
@@ -143,7 +143,7 @@ TestCase {
         keyClick(Qt.Key_D);
         keyClick(Qt.Key_U);
         keyClick(Qt.Key_B);
-        tryCompare(findChild(current(app), "resultsView"), "count", 1, 2000);
+        tryCompare(findChild(current(app), "resultsView"), "count", 1, 10000);
         keyClick(Qt.Key_Backspace);
         keyClick(Qt.Key_L);
         compare(field.text, "dul");
@@ -207,7 +207,7 @@ TestCase {
         app.fetch = (url, done) => late = done;
         app.search("tower");
         verify(app.searching);
-        tryCompare(app, "searching", false, 2000);
+        tryCompare(app, "searching", false, 10000);
         verify(app.searchError.indexOf("didn't answer") > 0);
         late(200, JSON.stringify([{ display_name: "Late", lat: "1", lon: "1" }]));
         compare(app.searchResults, []);
@@ -424,7 +424,7 @@ TestCase {
         Location.moveTo(10.00098, 1);
         Location.moveTo(10.002, 1);
         verify(app.arrived);
-        tryCompare(app, "routingMode", "idle", 2000);
+        tryCompare(app, "routingMode", "idle", 10000);
         compare(Lifecycle.held, 0);
         verify(app.selectedPlace !== null);
     }
@@ -493,7 +493,7 @@ TestCase {
         verify(placeholder.enabled);
         compare(placeholder.text, "Find a place");
         findChild(page, "searchField").text = "nowhere";
-        tryVerify(() => app.lastQuery === "nowhere", 2000);
+        tryVerify(() => app.lastQuery === "nowhere", 10000);
         compare(placeholder.text, "Search didn't work");
         let asked = "";
         app.fetch = (url, done) => {

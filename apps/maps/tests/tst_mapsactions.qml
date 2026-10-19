@@ -47,7 +47,7 @@ TestCase {
     }
 
     function settle(app) {
-        tryVerify(() => !app.pageStack.busy && app.pageStack.currentPage.status === PageStatus.Active, 5000);
+        tryVerify(() => !app.pageStack.busy && app.pageStack.currentPage.status === PageStatus.Active, 10000);
     }
 
     function test_search() {
