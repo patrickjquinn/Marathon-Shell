@@ -9,6 +9,7 @@ QtObject {
     property bool reduceMotion: false
     readonly property int flickDecelerationFast: 8000
     readonly property int tapTimeout: 0
+    readonly property real pagerFlickVelocity: 10000
     readonly property int staggerMicro: 0
     function durationFor(role) { return 0; }
     function gate(running) { return running; }

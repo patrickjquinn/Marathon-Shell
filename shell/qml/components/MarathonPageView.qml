@@ -170,25 +170,26 @@ Item {
         // so children don't need the delay to suppress accidental taps.
         pressDelay: 0
         flickDeceleration: 3000
-        maximumFlickVelocity: 10000
+        maximumFlickVelocity: MMotion.pagerFlickVelocity
         flickableDirection: Flickable.HorizontalFlick
         currentIndex: 2
         // Rubber-band at the first/last page instead of a hard stop.
         boundsBehavior: Flickable.DragAndOvershootBounds
-        // 180 ms for a page change asked for; a swipe's snap takes its time
-        // from the release speed, as Android's ViewPager does. The move eases
-        // in and out, peaking near twice its mean speed, so twice the
-        // remaining distance over the finger's speed peaks at that speed.
         highlightMoveDuration: 180
+        // A SnapOneItem flick starts at maximumFlickVelocity and decelerates
+        // onto the next page, so at release the cap becomes the finger's
+        // speed: the snap carries on from it, as Android's ViewPager does.
+        // Qt raises a slower one to reach the page at flickDeceleration.
+        property var _motion: []
+        onContentXChanged: if (dragging) Silica.Velocity.add(_motion, contentX, contentY)
         onDraggingChanged: {
-            const v = Math.abs(horizontalVelocity);
-            if (dragging || v === 0)
-                return;
-            const page = (contentX - originX) / width;
-            const target = horizontalVelocity > 0 ? Math.ceil(page) : Math.floor(page);
-            highlightMoveDuration = Math.max(120, Math.min(400, 2000 * Math.abs(page - target) * width / v));
+            if (dragging) {
+                _motion = [];
+                maximumFlickVelocity = MMotion.pagerFlickVelocity;
+            } else {
+                maximumFlickVelocity = Math.max(400, Math.abs(Silica.Velocity.rate(_motion, 1)));
+            }
         }
-        onMovementEnded: highlightMoveDuration = 180
         preferredHighlightBegin: 0
         preferredHighlightEnd: width
         cacheBuffer: width * 3
