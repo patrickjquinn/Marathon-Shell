@@ -269,6 +269,7 @@ def main():
     ap.add_argument("--idle-ms", type=int, default=1800)
     ap.add_argument("--step-ms", type=float, default=10.0)
     ap.add_argument("--hold-ms", type=int, default=0)
+    ap.add_argument("--pre-ms", type=int, default=0, help="hold still after touch-down before moving")
     ap.add_argument("--horizontal", action="store_true")
     ap.add_argument("--width", type=int, default=720)
     ap.add_argument("--height", type=int, default=720)
@@ -296,9 +297,15 @@ def main():
                 return (start + d, a.y0) if a.horizontal else (a.x, start + d)
 
             t0 = touch.down(*at(0))
+            down_rt = time.time()
+            t0 += a.pre_ms / 1000.0
+            sleep_until(t0)
+            move_rt = None
             for k in range(1, n + 1):
                 sleep_until(t0 + k * step)
                 touch.move(*at(sign * a.dist * k / n))
+                if move_rt is None:
+                    move_rt = time.time()
             if a.hold_ms:
                 sleep_until(t0 + n * step + a.hold_ms / 1000.0)
             t_up = touch.up()
@@ -309,7 +316,8 @@ def main():
                 sleep_until(t_catch + 0.12)
                 touch.up()
             sleep_until(t_catch + a.idle_ms / 1000.0)
-            rounds.append({"down": t0, "up": t_up, "catch": t_catch, "end": time.monotonic()})
+            rounds.append({"down": t0, "up": t_up, "catch": t_catch, "end": time.monotonic(),
+                           "down_rt": down_rt, "move_rt": move_rt})
     finally:
         text = trace_stop()
         touch.close()

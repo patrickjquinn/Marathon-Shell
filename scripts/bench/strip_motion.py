@@ -56,6 +56,8 @@ def main():
     ap.add_argument("--max-shift", type=int, default=90)
     ap.add_argument("--horizontal", action="store_true")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--pts", help="ffmpeg showinfo log (-copyts): wall-clock grab time per frame")
+    ap.add_argument("--bench", help="scroll_bench JSON: report move-to-first-motion per round")
     a = ap.parse_args()
     data = open(a.file, "rb").read()
     prof = profiles(data, a.w, a.h, a.horizontal)
@@ -97,6 +99,16 @@ def main():
             "mean_abs_dshift_px": round(statistics.mean(acc), 2) if acc else 0,
             "shifts": [r["shift"] for r in sg],
         })
+    if a.pts and a.bench:
+        import re
+        pts = [float(x) for x in re.findall(r"pts_time:([0-9.]+)", open(a.pts).read())]
+        moved = {i for i, s in frames if s != 0}
+        lat = []
+        for r in json.load(open(a.bench))["round_times"]:
+            t = r["move_rt"]
+            first = next((i for i in range(len(prof)) if i < len(pts) and pts[i] >= t and i in moved), None)
+            lat.append(None if first is None else round((pts[first] - t) * 1000, 1))
+        print("move to first displayed motion (ms):", lat)
     if a.json:
         print(json.dumps({"segments": report}, indent=1))
     else:
