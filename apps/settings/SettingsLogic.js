@@ -41,9 +41,9 @@ function pageFile(route) {
     return pages[name] || "";
 }
 
-// "appmanager/notes" -> "notes".
+// "appmanager/notes" -> "notes"; "androidaccess/all_files/org.example" -> "all_files/org.example".
 function routeArgument(route) {
-    return String(route || "").replace(/^\/+/, "").split("?")[0].split("/")[1] || "";
+    return String(route || "").replace(/^\/+/, "").split("?")[0].split("/").slice(1).join("/");
 }
 
 // What the main page lists, in order, and what search looks through.

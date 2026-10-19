@@ -201,6 +201,23 @@ TestCase {
         compare(called("loadApp").length, 1);
     }
 
+    // An app's own request (Android's per-app access page) shows just its switch.
+    function test_accessForOneApp() {
+        AndroidApps.access = { all_files: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: false }, { pkg: "me.zhanghai.android.files", label: "Material Files", granted: false }] };
+        const s = open("androidaccess/all_files/me.zhanghai.android.files");
+        tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !s.app.pageStack.busy);
+        const page = s.app.pageStack.currentPage;
+        compare(page.kind, "all_files");
+        compare(child(page, "accessApps").count, 1);
+        verify(child(page, "access-me.zhanghai.android.files"));
+        const all = open("androidaccess/all_files");
+        tryVerify(() => String(all.app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !all.app.pageStack.busy);
+        compare(child(all.app.pageStack.currentPage, "accessApps").count, 2);
+        const bad = open("androidaccess/../x");
+        tryVerify(() => !bad.app.pageStack.busy);
+        compare(String(bad.app.pageStack.currentPage).indexOf("AndroidAccessListPage"), 0);
+    }
+
     // A Marathon app's page has none of it.
     function test_marathonAppInfo() {
         const s = open("appmanager/notes");
@@ -246,5 +263,7 @@ TestCase {
         compare(Logic.androidPermission("nope").label, "nope");
         compare(Logic.androidAccess.length, 12);
         compare(Logic.dataSize(912842752), "912.8 MB");
+        compare(Logic.routeArgument("androidaccess/all_files/org.example"), "all_files/org.example");
+        compare(Logic.routeArgument("appmanager/waydroid.org.example?x=1"), "waydroid.org.example");
     }
 }

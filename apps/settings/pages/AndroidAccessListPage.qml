@@ -7,19 +7,21 @@ import "../SettingsLogic.js" as Logic
 Page {
     id: page
 
-    // Set by the "androidaccess/<kind>" route: that kind's page opens over the list.
+    // Set by the "androidaccess/<kind>[/<package>]" route: that kind's page
+    // opens over the list, for that one app when an app asked.
     property string focusAppId
 
-    function show(kind) {
-        pageStack.push(Qt.resolvedUrl("AndroidAccessPage.qml"), { kind: kind });
+    function show(kind, pkg) {
+        pageStack.push(Qt.resolvedUrl("AndroidAccessPage.qml"), { kind: kind, focusPkg: pkg || "" });
     }
 
     objectName: "androidAccessListPage"
     onStatusChanged: {
         if (status === PageStatus.Active && focusAppId !== "") {
-            const kind = focusAppId;
+            const parts = focusAppId.split("/");
             focusAppId = "";
-            show(kind);
+            if (Logic.androidAccess.some(a => a.kind === parts[0]))
+                show(parts[0], parts[1]);
         }
     }
 

@@ -9,7 +9,10 @@ Page {
     id: page
 
     property string kind
+    // An app that asked for this access itself: only its switch is shown.
+    property string focusPkg
     property var apps: []
+    readonly property var shown: focusPkg !== "" && apps.some(a => a.pkg === focusPkg) ? apps.filter(a => a.pkg === focusPkg) : apps
     property bool loading: true
     readonly property var info: Logic.androidAccessKind(kind)
 
@@ -48,7 +51,7 @@ Page {
 
         objectName: "accessApps"
         anchors.fill: parent
-        model: page.apps
+        model: page.shown
         header: Column {
             width: view.width
 
