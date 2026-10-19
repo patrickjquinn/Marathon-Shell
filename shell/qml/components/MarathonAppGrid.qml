@@ -11,8 +11,10 @@ Item {
 
     property var appModel: null
     property int pageIndex: 0
-    property int columns: LauncherGrid.columns(Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns)
-    property int rows: LauncherGrid.rows(Constants.screenHeight, Silica.Theme.iconSizeLauncher)
+    // The window's size, which is the screen's on a phone; LauncherGrid's
+    // pager uses the same.
+    property int columns: LauncherGrid.columns(Window.width > 0 ? Window.width : Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns)
+    property int rows: LauncherGrid.rows(Window.height > 0 ? Window.height : Constants.screenHeight, Silica.Theme.iconSizeLauncher)
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false

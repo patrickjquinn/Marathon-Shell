@@ -154,7 +154,7 @@ Item {
         // App-grid pages start at index 2 → currentPage 0, 1, 2…
         property int currentPage: currentIndex - 2
         property bool isGestureActive: false
-        property int _itemsPerPage: LauncherGrid.columns(Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns) * LauncherGrid.rows(Constants.screenHeight, Silica.Theme.iconSizeLauncher)
+        property int _itemsPerPage: LauncherGrid.columns(Window.width > 0 ? Window.width : Constants.screenWidth, Silica.Theme.pixelRatio, SettingsManagerCpp.appGridColumns) * LauncherGrid.rows(Window.height > 0 ? Window.height : Constants.screenHeight, Silica.Theme.iconSizeLauncher)
         property int pageCount: LauncherGrid.pageCount(sharedAppModel.count, _itemsPerPage)
 
         anchors.fill: parent
