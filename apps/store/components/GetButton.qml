@@ -21,7 +21,7 @@ Item {
         if (store.hasUpdate(appId))
             return "update";
         if (store.isInstalled(appId))
-            return "open";
+            return store.canOpen(appId) ? "open" : "";
         return "get";
     }
     readonly property string progressText: {
@@ -44,7 +44,7 @@ Item {
     }
 
     implicitWidth: large ? Theme.buttonWidthMedium : Theme.buttonWidthTiny
-    implicitHeight: large && busy ? bar.height : button.height
+    implicitHeight: large && busy ? bar.height : action === "" ? 0 : button.height
 
     Button {
         id: button
@@ -53,7 +53,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         preferredWidth: root.large ? Theme.buttonWidthMedium : Theme.buttonWidthTiny
-        visible: !root.busy
+        visible: !root.busy && root.action !== ""
         text: ({
                 "get": qsTr("Get"),
                 "open": qsTr("Open"),

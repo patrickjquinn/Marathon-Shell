@@ -805,6 +805,15 @@ QtObject {
         return installedEntry(appId) !== null;
     }
 
+    // An Android app without a launcher activity (a keyboard, a plugin) has
+    // nothing to open.
+    function canOpen(appId) {
+        if (!isAndroid(appId))
+            return true;
+        const entry = installedEntry(appId);
+        return entry !== null && entry.launchable;
+    }
+
     function hasUpdate(appId) {
         const job = jobs[appId];
         if (job && job.state === "done")
@@ -958,7 +967,8 @@ QtObject {
             root.installedApps = list.map(a => ({
                         "app_id": a.app_id,
                         "name": a.name,
-                        "version": a.version
+                        "version": a.version,
+                        "launchable": a.launchable !== false
                     }));
         });
     }

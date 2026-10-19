@@ -320,6 +320,21 @@ TestCase {
         verify(findChild(page, "androidAction").visible);
     }
 
+    function test_androidAppWithoutLauncherHasNoOpen() {
+        const app = makeApp();
+        app.store.loadAndroidCatalog(false);
+        tryVerify(() => app.store.androidApps.length === 2);
+        app.store.installedApps = [{ "app_id": "android:org.example.clock", "name": "Tick", "launchable": false }];
+        app.store.openDetail({ "app_id": "android:org.example.clock" });
+        const page = pushed(app, 2);
+        const action = findChild(page, "androidAction");
+        compare(action.action, "");
+        verify(!findChild(action, "getButton").visible);
+        app.store.installedApps = [{ "app_id": "android:org.example.clock", "name": "Tick", "launchable": true }];
+        compare(action.action, "open");
+        verify(findChild(action, "getButton").visible);
+    }
+
     function test_apkConfirmation() {
         const app = makeApp();
         app.store.openApkConfirmation("/tmp/x.apk");

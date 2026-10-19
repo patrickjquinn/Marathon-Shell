@@ -776,6 +776,10 @@ pub fn lists() -> (Vec<Value>, Vec<Value>) {
             "name": get_str("label"),
             "version": get_str("versionName"),
             "icon": android_icon(&pkg),
+            "launchable": p
+                .get("launchable")
+                .and_then(|v| bool::try_from(v.clone()).ok())
+                .unwrap_or(true),
         }));
         if codes.get(pkg.as_str()).is_some_and(|&newer| newer > code) {
             updates.push(json!({ "app_id": app_id }));
