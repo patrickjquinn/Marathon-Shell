@@ -13,6 +13,10 @@
 #include <QStandardPaths>
 #include <QLoggingCategory>
 #include <QInputDevice>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrentRun>
+#include <functional>
+#include <memory>
 #include <QDBusMetaType>
 #include <QElapsedTimer>
 #include <QFileSystemWatcher>
@@ -1575,15 +1579,32 @@ int main(int argc, char *argv[]) {
         appScanner->scanApplications();
 #endif
 
-            const auto rescanDesktopApps = [appModel, settingsManager, searchPaths]() {
-                DesktopFileParser parser;
-                parser.setPhoneApps(DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
-                const QVariantList apps = parser.scanApplications(
-                    searchPaths, settingsManager->filterMobileFriendlyApps());
+            // Rescans parse every entry on the pool (Waydroid rewrites its
+            // entries while it runs) and apply the newest result here.
+            const auto scanDesktopApps =
+                [appPtr = &app](const std::shared_ptr<int> &scanGeneration, const QStringList &paths,
+                                bool filterMobile,
+                                const std::function<void(const QVariantList &)> &apply) {
+                    const int generation = ++*scanGeneration;
+                    auto     *watcher    = new QFutureWatcher<QVariantList>(appPtr);
+                    QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, appPtr,
+                                     [watcher, apply, generation, scanGeneration]() {
+                                         if (generation == *scanGeneration)
+                                             apply(watcher->result());
+                                         watcher->deleteLater();
+                                     });
+                    watcher->setFuture(QtConcurrent::run([paths, filterMobile]() {
+                        DesktopFileParser parser;
+                        parser.setPhoneApps(
+                            DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
+                        return parser.scanApplications(paths, filterMobile);
+                    }));
+                };
+            const auto replaceApps = [appModel](const QVariantList &apps, const QStringList &types) {
                 QSet<QString> seen;
                 for (const QVariant &v : apps)
                     seen.insert(v.toMap().value(QStringLiteral("id")).toString());
-                for (const QString &type : {QStringLiteral("native"), QStringLiteral("flatpak")}) {
+                for (const QString &type : types) {
                     const QStringList existing = appModel->appIdsByType(type);
                     for (const QString &id : existing) {
                         if (!seen.contains(id))
@@ -1591,6 +1612,14 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 appModel->addApps(apps);
+            };
+            const auto rescanDesktopApps = [scanDesktopApps, replaceApps, settingsManager,
+                                            searchPaths, generation = std::make_shared<int>(0)]() {
+                scanDesktopApps(generation, searchPaths, settingsManager->filterMobileFriendlyApps(),
+                                [replaceApps](const QVariantList &apps) {
+                                    replaceApps(apps, {QStringLiteral("native"),
+                                                       QStringLiteral("flatpak")});
+                                });
             };
             // "Hide desktop apps" applies as soon as it is switched.
             QObject::connect(settingsManager, &SettingsManager::filterMobileFriendlyAppsChanged,
@@ -1645,26 +1674,15 @@ int main(int argc, char *argv[]) {
                 QObject::connect(flatpakWatcher, &QFileSystemWatcher::directoryChanged, debounce,
                                  qOverload<>(&QTimer::start));
 
-                QObject::connect(
-                    debounce, &QTimer::timeout, &app, [appModel, flatpakDirs, settingsManager]() {
-                        DesktopFileParser parser;
-                        parser.setPhoneApps(
-                            DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
-                        const QVariantList apps = parser.scanApplications(
-                            flatpakDirs, settingsManager->filterMobileFriendlyApps());
-
-                        QSet<QString> seen;
-                        for (const QVariant &v : apps)
-                            seen.insert(v.toMap().value(QStringLiteral("id")).toString());
-
-                        const QStringList existing =
-                            appModel->appIdsByType(QStringLiteral("flatpak"));
-                        for (const QString &id : existing) {
-                            if (!seen.contains(id))
-                                appModel->removeApp(id);
-                        }
-                        appModel->addApps(apps);
-                    });
+                QObject::connect(debounce, &QTimer::timeout, &app,
+                                 [scanDesktopApps, replaceApps, flatpakDirs, settingsManager,
+                                  generation = std::make_shared<int>(0)]() {
+                                     scanDesktopApps(generation, flatpakDirs,
+                                                     settingsManager->filterMobileFriendlyApps(),
+                                                     [replaceApps](const QVariantList &apps) {
+                                                         replaceApps(apps, {QStringLiteral("flatpak")});
+                                                     });
+                                 });
             }
         });
 
