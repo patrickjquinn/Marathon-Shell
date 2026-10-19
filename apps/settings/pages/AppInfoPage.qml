@@ -13,10 +13,71 @@ Page {
     readonly property var notifications: (SettingsController.notificationApps || []).find(a => a.id === page.appId)
     // Restricted permissions are held only by protected system apps.
     readonly property var refused: page.app.isProtected ? [] : (page.app.permissions || []).filter(p => !!Permissions.describe(p).restricted)
+    // Android apps ("waydroid.<package>") get their details from Android.
+    readonly property bool android: appId.startsWith("waydroid.")
+    readonly property string pkg: android ? appId.substring(9) : ""
+    property var androidApp: ({})
+
+    Component.onCompleted: {
+        if (android)
+            AndroidApps.loadApp(pkg);
+    }
+
+    RemorsePopup {
+        id: remorse
+    }
+
+    Connections {
+        target: page.android ? AndroidApps : null
+
+        function onAppLoaded(pkg, app) {
+            if (pkg === page.pkg)
+                page.androidApp = app;
+        }
+        function onAppChanged(pkg) {
+            if (pkg === page.pkg)
+                AndroidApps.loadApp(pkg);
+        }
+        function onDone(pkg, action) {
+            if (pkg !== page.pkg)
+                return;
+            if (action === "uninstall") {
+                Notices.show(qsTr("%1 uninstalled").arg(page.androidApp.label || page.pkg));
+                pageStack.pop();
+            } else if (action === "forceStop") {
+                Notices.show(qsTr("%1 stopped").arg(page.androidApp.label || page.pkg));
+            } else if (action === "clearData" || action === "clearCache") {
+                AndroidApps.loadApp(pkg);
+            }
+        }
+        function onFailed(pkg, action, error) {
+            if (pkg !== page.pkg)
+                return;
+            Notices.show(qsTr("Couldn't do that: %1").arg(error));
+            if (action !== "loadApp" && action !== "uninstall")
+                AndroidApps.loadApp(pkg);
+        }
+    }
 
     SilicaFlickable {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
+
+        PullDownMenu {
+            objectName: "androidPulley"
+            visible: page.android
+
+            MenuItem {
+                objectName: "uninstallItem"
+                text: qsTr("Uninstall")
+                onClicked: remorse.execute(qsTr("Uninstalling %1").arg(page.androidApp.label || page.pkg), () => AndroidApps.uninstall(page.pkg))
+            }
+            MenuItem {
+                objectName: "forceStopItem"
+                text: qsTr("Force stop")
+                onClicked: AndroidApps.forceStop(page.pkg)
+            }
+        }
 
         Column {
             id: column
@@ -25,22 +86,30 @@ Page {
 
             PageHeader {
                 objectName: "header"
-                title: page.app.name || page.appId
+                title: page.app.name || page.androidApp.label || page.appId
+            }
+            AndroidAppDetails {
+                width: parent.width
+                visible: page.android
+                pkg: page.pkg
+                app: page.androidApp
+                remorse: remorse
             }
             DetailItem {
                 objectName: "versionItem"
-                visible: !!page.app.version
+                visible: !page.android && !!page.app.version
                 label: qsTr("Version")
                 value: page.app.version || ""
             }
             DetailItem {
                 objectName: "kindItem"
+                visible: !page.android
                 label: qsTr("Type")
                 value: page.app.isProtected ? qsTr("System app") : qsTr("Installed app")
             }
             TextSwitch {
                 objectName: "notifySwitch"
-                visible: page.notifications !== undefined
+                visible: !page.android && page.notifications !== undefined
                 text: qsTr("Notifications")
                 description: qsTr("Show this app's notifications")
                 automaticCheck: false
@@ -49,6 +118,7 @@ Page {
             }
 
             SectionHeader {
+                visible: !page.android
                 text: qsTr("Permissions")
             }
             Repeater {
@@ -129,6 +199,7 @@ Page {
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: !page.android
                 topPadding: Theme.paddingMedium
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall

@@ -3,6 +3,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import MarathonApp.Settings
 
 Page {
     id: page
@@ -31,6 +32,26 @@ Page {
         AppInstaller.uninstallApp(appId);
     }
 
+    function uninstallAndroid(pkg, name) {
+        const next = Object.assign({}, removing);
+        next["waydroid." + pkg] = name;
+        removing = next;
+        AndroidApps.uninstall(pkg);
+    }
+
+    Connections {
+        target: AndroidApps
+
+        function onDone(pkg, action) {
+            if (action === "uninstall" && page.removing["waydroid." + pkg] !== undefined)
+                Notices.show(qsTr("%1 uninstalled").arg(page.removing["waydroid." + pkg]));
+        }
+        function onFailed(pkg, action, error) {
+            if (action === "uninstall" && page.removing["waydroid." + pkg] !== undefined)
+                Notices.show(qsTr("Couldn't uninstall %1: %2").arg(page.removing["waydroid." + pkg]).arg(error));
+        }
+    }
+
     Connections {
         target: AppInstaller
 
@@ -50,79 +71,42 @@ Page {
         model: Apps
         header: PageHeader {
             title: qsTr("Installed apps")
-            description: qsTr("%n apps", "", view.count)
+            description: qsTr("%n apps", "", view.count + AndroidApps.apps.length)
         }
 
-        delegate: ListItem {
-            id: item
-
+        delegate: AppRow {
             required property var model
 
-            // The menu is gone by the time the remorse timer ends, so the callback lives here.
-            function uninstall() {
-                const id = model.id;
-                const name = model.name;
-                remorseDelete(() => page.uninstall(id, name));
-            }
-
-            objectName: "app-" + model.id
-            contentHeight: Theme.itemSizeMedium
+            appId: model.id
+            name: model.name
+            icon: model.icon || ""
+            subtitle: [model.version ? qsTr("Version %1").arg(model.version) : "", model.isProtected ? qsTr("System app") : ""].filter(t => t !== "").join(" · ")
             Accessible.name: model.name + (model.isProtected ? ", " + qsTr("system app") : "")
-            menu: AppInstaller.canUninstall(item.model.id) ? uninstallMenu : null
-            onClicked: page.showApp(item.model.id)
+            canUninstall: AppInstaller.canUninstall(model.id)
+            onUninstallRequested: page.uninstall(model.id, model.name)
+            onClicked: page.showApp(model.id)
+        }
 
-            Component {
-                id: uninstallMenu
+        // Android apps follow Marathon's, as rows of the same kind.
+        footer: Column {
+            width: parent ? parent.width : 0
 
-                ContextMenu {
-                    MenuItem {
-                        objectName: "uninstallItem"
-                        text: qsTr("Uninstall")
-                        onClicked: item.uninstall()
-                    }
-                }
-            }
+            Repeater {
+                objectName: "androidApps"
+                model: AndroidApps.apps
 
-            Image {
-                id: icon
+                AppRow {
+                    required property var modelData
 
-                x: Theme.horizontalPageMargin
-                anchors.verticalCenter: parent.verticalCenter
-                width: Theme.iconSizeMedium
-                height: Theme.iconSizeMedium
-                sourceSize: Qt.size(width, height)
-                source: item.model.icon || ""
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-            }
-            Icon {
-                anchors.centerIn: icon
-                visible: icon.status !== Image.Ready
-                source: "image://theme/icon-m-apps"
-            }
-            Column {
-                anchors {
-                    left: icon.right
-                    leftMargin: Theme.paddingLarge
-                    right: parent.right
-                    rightMargin: Theme.horizontalPageMargin
-                    verticalCenter: parent.verticalCenter
-                }
-
-                Label {
                     width: parent.width
-                    text: item.model.name
-                    truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
-                }
-                Label {
-                    objectName: "subtitle"
-                    width: parent.width
-                    visible: text !== ""
-                    text: [item.model.version ? qsTr("Version %1").arg(item.model.version) : "", item.model.isProtected ? qsTr("System app") : ""].filter(t => t !== "").join(" · ")
-                    font.pixelSize: Theme.fontSizeExtraSmall
-                    truncationMode: TruncationMode.Fade
-                    color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                    appId: modelData.id
+                    name: modelData.name
+                    icon: modelData.icon || ""
+                    subtitle: [modelData.version ? qsTr("Version %1").arg(modelData.version) : "", qsTr("Android app")].filter(t => t !== "").join(" · ")
+                    Accessible.name: modelData.name + ", " + qsTr("Android app")
+                    canUninstall: true
+                    onUninstallRequested: page.uninstallAndroid(modelData.pkg, modelData.name)
+                    onClicked: page.showApp(modelData.id)
                 }
             }
         }
