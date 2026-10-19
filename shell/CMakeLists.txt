@@ -54,8 +54,6 @@ set(SOURCES
     qml/keyboard/Data/WordEngine.cpp
     qml/keyboard/Data/WordTrie.h
     qml/keyboard/Data/WordTrie.cpp
-    src/managers/networkmanagercpp.h
-    src/managers/networkmanagercpp.cpp
     src/managers/waketimers.h
     src/managers/waketimers.cpp
     src/controllers/powerpolicycontroller.h
@@ -607,9 +605,7 @@ qt6_add_qml_module(marathon-shell
         src/models/filechoosermodel.h
         src/models/taskmodel.cpp
         src/models/taskmodel.h
-        src/managers/networkmanagercpp.cpp
-        src/managers/networkmanagercpp.h
-            src/managers/displaymanagercpp.cpp
+                    src/managers/displaymanagercpp.cpp
         src/managers/displaymanagercpp.h
         src/managers/audiomanagercpp.cpp
         src/managers/audiomanagercpp.h

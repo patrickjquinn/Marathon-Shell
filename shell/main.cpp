@@ -795,7 +795,8 @@ int main(int argc, char *argv[]) {
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
     startupMark("models");
-    auto *networkManager = new NetworkManagerCpp(&app);
+    auto *networkManager = new NetworkManagerCpp();
+    networkManager->setParent(&app);
     qmlRegisterSingletonInstance<NetworkManagerCpp>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
                                                     networkManager);
     auto *powerManager = new PowerManagerCpp();
