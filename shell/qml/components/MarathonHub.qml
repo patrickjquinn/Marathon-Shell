@@ -412,22 +412,33 @@ Rectangle {
     }
 
     // ── Helpers ─────────────────────────────────────────────
+    // Emoji, flags, variation selectors, ZWJ, symbols and punctuation give
+    // no initial. V4 has no \p{L}, and its Array.from splits surrogates.
+    function isSymbol(cp) {
+        return (cp < 0x80 && !/[A-Za-z0-9]/.test(String.fromCodePoint(cp))) || (cp >= 0x2000 && cp <= 0x2BFF) || (cp >= 0x3000 && cp <= 0x303F) || (cp >= 0xFE00 && cp <= 0xFE0F) || (cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0xE0000 && cp <= 0xE007F);
+    }
+
+    function initialsOf(word) {
+        const out = [];
+        for (let i = 0; i < word.length; ) {
+            const cp = word.codePointAt(i);
+            const ch = String.fromCodePoint(cp);
+            if (!hub.isSymbol(cp))
+                out.push(ch.toUpperCase());
+            i += ch.length;
+        }
+        return out;
+    }
+
     function monogramFor(name, appId) {
         if (appId === "phone" || appId === "call")
             return "";
-        if (!name)
-            return "·";
-        const parts = name.split(/\s+/).filter(p => p.length > 0);
+        const parts = (name || "").split(/\s+/).map(p => hub.initialsOf(p)).filter(p => p.length > 0);
         if (parts.length === 0)
             return "·";
         if (parts.length === 1)
-            return parts[0].substring(0, 2).toUpperCase();
-        // Build the uppercased per-name initials first, then concatenate
-        // — keeps each side as a typed string so qmllint can resolve
-        // toUpperCase() without falling back to QJSPrimitiveValue.
-        const first = parts[0].toUpperCase();
-        const last = parts[parts.length - 1].toUpperCase();
-        return first.charAt(0) + last.charAt(0);
+            return parts[0].slice(0, 2).join("");
+        return parts[0][0] + parts[parts.length - 1][0];
     }
 
     // The sending app's name from the registry; otherwise the sender's own

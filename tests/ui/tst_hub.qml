@@ -143,6 +143,19 @@ TestCase {
         mouseRelease(item, 2 + item.width * fraction, y);
     }
 
+    // Initials are letters: an emoji, a flag or a ZWJ sequence is skipped
+    // whole, never cut into half a surrogate pair.
+    function test_monogramSkipsEmoji() {
+        compare(hub.monogramFor("Ada Lovelace", "x"), "AL");
+        compare(hub.monogramFor("ada", "x"), "AD");
+        compare(hub.monogramFor("😀🚀🇮🇪❤️", "x"), "·");
+        compare(hub.monogramFor("🇮🇪 Seán Ó Dálaigh", "x"), "SD");
+        compare(hub.monogramFor("😀Ann", "x"), "AN");
+        compare(hub.monogramFor("Ann 🚀", "x"), "AN");
+        compare(hub.monogramFor("👨‍👩‍👧 Family", "x"), "FA");
+        compare(hub.monogramFor("❤️ Émile", "x"), "ÉM");
+    }
+
     function test_accountIsTheSendersAppName() {
         AppStore.names = { "email": "Mail" };
         addNotification(1, "email");
