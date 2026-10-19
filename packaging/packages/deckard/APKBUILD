@@ -43,6 +43,9 @@ package() {
 	install -Dm644 $p/org.marathonos.deckard.apk.desktop \
 		"$pkgdir"/usr/share/applications/org.marathonos.deckard.apk.desktop
 	install -Dm755 $p/deckard-fonts-sync "$pkgdir"/usr/libexec/deckard-fonts-sync
+	install -Dm755 $p/deckard-reset "$pkgdir"/usr/libexec/deckard-reset
+	install -Dm644 $p/org.marathonos.deckard.policy \
+		"$pkgdir"/usr/share/polkit-1/actions/org.marathonos.deckard.policy
 	install -Dm644 image/vendor_deckard/fonts/fonts.xml \
 		"$pkgdir"/usr/share/deckard/fonts/fonts.xml
 	install -Dm644 $p/waydroid-container-deckard.conf \
