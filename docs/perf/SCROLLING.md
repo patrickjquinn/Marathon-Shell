@@ -108,6 +108,30 @@ Android-style resampler at frame time (it halved app frame rates by
 scheduling an extra empty sync) and flushing the filtered point into the
 frame (apps at 30 fps).
 
+## Tap-through and the home pager (third round)
+
+- A press that stops a moving view only stops it: Marathon.Silica's views,
+  the pager, the switcher grid and search carry a `FlingStopper` while they
+  move and for 50 ms after a fling ends (the finger came down a frame or two
+  before the view saw it). 14 presses 60-350 ms into flings in Settings
+  activated nothing; a tap on the resting list opens its page.
+- The pager (2000 px/s swipe, scanout meter, 4 swipes):
+
+| | Before | After |
+|---|---|---|
+| Drag steps | 20/40 px (100 Hz panel on 60 Hz) | 32-36 px |
+| Repeated frames, drag and snap | 0-1 | 0 |
+| Snap after release | lurch to 140 px a frame | carries on at ~31 px a frame, decelerating to 0 |
+| Move-to-motion | 60-88 ms | 61-106 ms |
+| Shell GUI bursts | max 3.2 ms | max 1.8 ms |
+
+  Shell items now get one touch move a frame, sampled at frame time minus
+  5 ms (`TouchResampler`); touches a client's surface grabbed pass as they
+  come. The snap flick starts at the pages' release speed (Qt starts a
+  SnapOneItem flick at maximumFlickVelocity). Left: one frame of the snap
+  moves about 25% less than its neighbours, as Qt's flick timeline starts at
+  the release, mid-frame.
+
 ## Next steps
 
 - Touch-to-motion in apps is ~130 ms, on a par with Android on this device
