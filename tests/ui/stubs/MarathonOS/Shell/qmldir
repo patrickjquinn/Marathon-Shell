@@ -15,6 +15,7 @@ singleton PowerPolicyControllerCpp 1.0 PowerPolicyControllerCpp.qml
 singleton Logger 1.0 Logger.qml
 singleton WallpaperStore 1.0 WallpaperStore.qml
 singleton AppLifecycleManager 1.0 AppLifecycleManager.qml
+singleton SurfaceRegistry 1.0 SurfaceRegistry.qml
 singleton NotificationModel 1.0 NotificationModel.qml
 singleton NotificationService 1.0 NotificationService.qml
 singleton AppStore 1.0 AppStore.qml

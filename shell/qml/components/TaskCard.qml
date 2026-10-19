@@ -148,7 +148,11 @@ Item {
         updateRegisteredSurface();
     }
     // The app can exit before its card has animated out; the card keeps its last face.
-    GridView.onRemove: freeze()
+    // Gone with its task, it stays closed.
+    GridView.onRemove: {
+        restoreTimer.stop();
+        freeze();
+    }
     GridView.onReused: reset()
     Component.onCompleted: {
         refreshNativeSurface();
