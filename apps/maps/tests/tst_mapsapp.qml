@@ -444,6 +444,8 @@ TestCase {
         mouseClick(findChild(page, "directionsAction"));
         compare(app.router.requests.length, 1);
         app.router.routing = false;
+        // The panel lays its rows out again on the next polish.
+        waitForRendering(page);
         mouseClick(findChild(page, "clearAction"));
         compare(app.selectedPlace, null);
         verify(!findChild(page, "bottomPanel").visible);
