@@ -580,115 +580,106 @@ void NetworkManagerCpp::scanWifi() {
     }
 }
 
+// Asynchronous: the 30 s timer runs this on the GUI thread for the whole
+// session, and a blocking read per property of every access point cost a
+// burst of round trips each time.
 void NetworkManagerCpp::scanAccessPoints() {
     if (!m_hasNetworkManager || m_wifiDevicePath.isEmpty()) {
         return;
     }
 
-    qDebug() << "[NetworkManagerCpp] Scanning access points...";
-
-    QDBusInterface wifiDevice("org.freedesktop.NetworkManager", m_wifiDevicePath,
-                              "org.freedesktop.NetworkManager.Device.Wireless",
-                              QDBusConnection::systemBus());
-
-    if (!wifiDevice.isValid()) {
-        qDebug() << "[NetworkManagerCpp] WiFi device interface invalid";
-        return;
-    }
-
-    QList<QDBusObjectPath> accessPoints;
-    {
-        QDBusReply<QList<QDBusObjectPath>> r = wifiDevice.call("GetAllAccessPoints");
-        if (r.isValid()) {
-            accessPoints = r.value();
-        } else {
-            QVariant accessPointsVar = wifiDevice.property("AccessPoints");
-            accessPoints             = qdbus_cast<QList<QDBusObjectPath>>(accessPointsVar);
+    const int generation = ++m_scanGeneration;
+    auto     *watcher    = new QDBusPendingCallWatcher(
+        QDBusConnection::systemBus().asyncCall(QDBusMessage::createMethodCall(
+            "org.freedesktop.NetworkManager", m_wifiDevicePath,
+            "org.freedesktop.NetworkManager.Device.Wireless", "GetAllAccessPoints")),
+        this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, generation](
+                                                                    QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        QDBusPendingReply<QList<QDBusObjectPath>> reply = *w;
+        if (reply.isError() || generation != m_scanGeneration)
+            return;
+        const QList<QDBusObjectPath> paths = reply.value();
+        auto                         found = std::make_shared<QVariantList>();
+        if (paths.isEmpty()) {
+            publishAccessPoints(*found);
+            return;
         }
-    }
+        auto remaining = std::make_shared<int>(paths.size());
+        for (const QDBusObjectPath &path : paths) {
+            QDBusMessage get =
+                QDBusMessage::createMethodCall("org.freedesktop.NetworkManager", path.path(),
+                                               "org.freedesktop.DBus.Properties", "GetAll");
+            get << QStringLiteral("org.freedesktop.NetworkManager.AccessPoint");
+            auto *props =
+                new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(get), this);
+            connect(props, &QDBusPendingCallWatcher::finished, this,
+                    [this, generation, found, remaining, path](QDBusPendingCallWatcher *p) {
+                        p->deleteLater();
+                        if (generation != m_scanGeneration)
+                            return;
+                        QDBusPendingReply<QVariantMap> reply = *p;
+                        if (!reply.isError())
+                            addAccessPoint(*found, path.path(), reply.value());
+                        if (--*remaining == 0)
+                            publishAccessPoints(*found);
+                    });
+        }
+    });
+}
 
-    qDebug() << "[NetworkManagerCpp] Found" << accessPoints.size() << "access points";
-
-    m_availableNetworks.clear();
-
-    for (const QDBusObjectPath &apPath : std::as_const(accessPoints)) {
-        processAccessPoint(apPath.path());
-    }
-
-    std::sort(m_availableNetworks.begin(), m_availableNetworks.end(),
-              [this](const QVariant &a, const QVariant &b) {
-                  const QVariantMap am = a.toMap();
-                  const QVariantMap bm = b.toMap();
-                  const bool        ac = am.value("connected").toBool();
-                  const bool        bc = bm.value("connected").toBool();
-                  if (ac != bc)
-                      return ac;
-                  return am.value("strength").toInt() > bm.value("strength").toInt();
-              });
-
+void NetworkManagerCpp::publishAccessPoints(QVariantList networks) {
+    std::sort(networks.begin(), networks.end(), [](const QVariant &a, const QVariant &b) {
+        const QVariantMap am = a.toMap();
+        const QVariantMap bm = b.toMap();
+        const bool        ac = am.value("connected").toBool();
+        const bool        bc = bm.value("connected").toBool();
+        if (ac != bc)
+            return ac;
+        return am.value("strength").toInt() > bm.value("strength").toInt();
+    });
+    m_availableNetworks = networks;
     qDebug() << "[NetworkManagerCpp] Processed" << m_availableNetworks.size() << "networks";
     emit availableNetworksChanged();
 }
 
-void NetworkManagerCpp::processAccessPoint(const QString &apPath) {
-    QDBusInterface accessPoint("org.freedesktop.NetworkManager", apPath,
-                               "org.freedesktop.NetworkManager.AccessPoint",
-                               QDBusConnection::systemBus());
-
-    if (!accessPoint.isValid()) {
-        return;
-    }
-
-    const QVariant   ssidVar   = accessPoint.property("Ssid");
-    const QByteArray ssidBytes = dbusByteArrayFromVariant(ssidVar);
-    const QString    ssid      = QString::fromUtf8(ssidBytes);
-
+void NetworkManagerCpp::addAccessPoint(QVariantList &networks, const QString &apPath,
+                                       const QVariantMap &props) const {
+    const QString ssid = QString::fromUtf8(dbusByteArrayFromVariant(props.value("Ssid")));
     if (ssid.isEmpty()) {
         return;
     }
 
-    uint    strength = accessPoint.property("Strength").toUInt();
+    const uint strength = props.value("Strength").toUInt();
+    const uint wpaFlags = props.value("WpaFlags").toUInt();
+    const uint rsnFlags = props.value("RsnFlags").toUInt();
 
-    uint    wpaFlags = accessPoint.property("WpaFlags").toUInt();
-    uint    rsnFlags = accessPoint.property("RsnFlags").toUInt();
-
-    bool    isSecured    = (wpaFlags != 0 || rsnFlags != 0);
-    QString securityType = "Open";
-
+    QString    securityType = "Open";
     if (rsnFlags != 0) {
         securityType = "WPA2/WPA3";
     } else if (wpaFlags != 0) {
         securityType = "WPA";
     }
 
-    uint        frequency = accessPoint.property("Frequency").toUInt();
-
     QVariantMap network;
     network["ssid"]      = ssid;
     network["strength"]  = (int)strength;
-    network["secured"]   = isSecured;
+    network["secured"]   = (wpaFlags != 0 || rsnFlags != 0);
     network["security"]  = securityType;
-    network["frequency"] = (int)frequency;
+    network["frequency"] = (int)props.value("Frequency").toUInt();
     network["path"]      = apPath;
     network["connected"] = (m_wifiConnected && m_wifiSsid == ssid);
     network["known"]     = m_savedNetworks.contains(ssid);
 
-    bool found = false;
-    for (int i = 0; i < m_availableNetworks.size(); ++i) {
-        QVariantMap existing = m_availableNetworks[i].toMap();
-        if (existing["ssid"].toString() == ssid) {
-
-            if ((int)strength > existing["strength"].toInt()) {
-                m_availableNetworks[i] = network;
-            }
-            found = true;
-            break;
+    for (QVariant &existing : networks) {
+        if (existing.toMap().value("ssid").toString() == ssid) {
+            if ((int)strength > existing.toMap().value("strength").toInt())
+                existing = network;
+            return;
         }
     }
-
-    if (!found) {
-        m_availableNetworks.append(network);
-    }
+    networks.append(network);
 }
 
 void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &password) {

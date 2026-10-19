@@ -118,7 +118,6 @@ class NetworkManagerCpp : public QObject {
     void updateWifiSignalStrength();
     void updateWifiDetails();
     void scanAccessPoints();
-    void processAccessPoint(const QString &apPath);
     void onNmPropertiesChanged(const QString &interface, const QVariantMap &changed,
                                const QStringList &invalidated);
     void onApPropertiesChanged(const QString &interface, const QVariantMap &changed,
@@ -135,6 +134,9 @@ class NetworkManagerCpp : public QObject {
     void            activate(const QDBusMessage &msg, const QString &ssid);
     void            watchPendingActivation(const QString &path);
     void            markKnownNetworks();
+    void            publishAccessPoints(QVariantList networks);
+    void            addAccessPoint(QVariantList &networks, const QString &apPath,
+                                   const QVariantMap &props) const;
     void            setWifiEnabled(bool enabled);
 
     QDBusInterface *m_nmInterface;
@@ -155,6 +157,7 @@ class NetworkManagerCpp : public QObject {
     // Saved infrastructure Wi-Fi profiles by SSID.
     QHash<QString, QStringList> m_savedNetworks;
     int                         m_savedGeneration = 0;
+    int                         m_scanGeneration  = 0;
     int          m_wifiSignalStrength;
     bool         m_ethernetConnected;
     QString      m_ethernetConnectionName;
