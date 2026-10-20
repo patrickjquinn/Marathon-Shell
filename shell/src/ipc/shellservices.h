@@ -826,22 +826,17 @@ class DavObject : public IpcPermissionedService {
     DavSyncEngine *m_engine = nullptr;
 };
 
-class MarathonAppStoreService;
 class MarathonAppInstaller;
 
-// Surfaces MarathonAppStoreService over D-Bus so the Store app (running
-// in the app-runner process) can query the catalog and ask the shell
-// to download apps. Catalog reads gate on the lighter "system" perm;
-// downloads gate on "system" too because they trigger MarathonAppInstaller
-// in the shell with elevated rights.
+// The Store's and Settings' way to the shell's installer: store URLs and
+// uninstalls, which their sandboxes can't do themselves.
 class AppStoreObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.AppStore1")
 
   public:
-    AppStoreObject(MarathonAppStoreService *appStore, MarathonAppInstaller *installer,
-                   MarathonPermissionManager *permissions, AppLaunchService *launchService,
-                   QObject *parent = nullptr);
+    AppStoreObject(MarathonAppInstaller *installer, MarathonPermissionManager *permissions,
+                   AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
     QVariantMap  GetState();
@@ -877,10 +872,7 @@ class AppStoreObject : public IpcPermissionedService {
     bool requireSystem() {
         return requirePermission("AppStore", {"system"});
     }
-    QVariantMap              buildState() const;
-
-    MarathonAppStoreService *m_appStore  = nullptr;
-    MarathonAppInstaller    *m_installer = nullptr;
+    MarathonAppInstaller *m_installer = nullptr;
 };
 
 // Lets apps (via marathon-app-runner) declare active background work like

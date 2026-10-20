@@ -77,8 +77,6 @@ set(SOURCES
     src/marathonpermissionmanager.cpp
     src/components/portalmanager.h
     src/components/portalmanager.cpp
-    src/services/marathonappstoreservice.h
-    src/services/marathonappstoreservice.cpp
     src/services/factoryreset.h
     src/services/factoryreset.cpp
     src/services/motiondaemon.h

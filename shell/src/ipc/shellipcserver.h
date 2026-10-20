@@ -28,7 +28,6 @@ class LocationManager;
 class AlarmManagerCpp;
 class AudioRoutingManager;
 class DavSyncEngine;
-class MarathonAppStoreService;
 class MarathonAppInstaller;
 class AppLifecycleManager;
 class MarathonAppRegistry;
@@ -54,7 +53,7 @@ class ShellIpcServer : public QObject {
                             Security *securityManager, RotationManager *rotationManager,
                             LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                             AudioRoutingManager *audioRoutingManager, marathon::Updates *updateService,
-                            DavSyncEngine *davSyncEngine, MarathonAppStoreService *appStoreService,
+                            DavSyncEngine *davSyncEngine,
                             AppLaunchService    *appLaunchService,
                             AppLifecycleManager *lifecycleManager, MarathonAppRegistry *appRegistry,
                             QObject *parent = nullptr);
@@ -108,7 +107,6 @@ class ShellIpcServer : public QObject {
     AudioRoutingManager       *m_audioRoutingManager = nullptr;
     marathon::Updates         *m_updateService       = nullptr;
     DavSyncEngine             *m_davSyncEngine       = nullptr;
-    MarathonAppStoreService   *m_appStoreService     = nullptr;
     MarathonAppInstaller      *m_appInstaller        = nullptr;
     ForegroundApp             *m_foregroundApp       = nullptr;
     SessionStore              *m_sessionStore        = nullptr;

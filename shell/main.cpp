@@ -82,7 +82,6 @@
 #include "marathonappscanner.h"
 #include "marathonappinstaller.h"
 #include "src/marathonpermissionmanager.h"
-#include "src/services/marathonappstoreservice.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
 #include "contactsmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
@@ -1256,8 +1255,6 @@ int main(int argc, char *argv[]) {
     QObject::connect(appLaunchService, &AppLaunchService::appLaunchCompleted, permissionManager,
                      &MarathonPermissionManager::requestDeclaredPermissions);
 
-    auto *appStoreService = new MarathonAppStoreService(appInstaller, &app);
-    qInfo() << "[MarathonShell] App Store Service initialized";
 
 
     // Activity Rings backend — feeds the lock-screen Activity NowBar
@@ -1357,7 +1354,7 @@ int main(int argc, char *argv[]) {
             mediaLibraryManager, settingsManager, bluetoothManager, display, power,
             audioManager, audioPolicyController, network, hapticManager, security,
             rotationManager, locationManager, alarmManager, audioRoutingManager, updateService,
-            davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
+            davSyncEngine, appLaunchService, appLifecycleManager, appRegistry,
             &app);
         ipc->setAmbienceService(ambienceService);
         ipc->setWallpaperStore(wallpaperStore);
