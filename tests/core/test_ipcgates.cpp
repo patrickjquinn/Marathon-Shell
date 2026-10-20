@@ -59,10 +59,8 @@ class TestIpcGates : public QObject {
     // A refused call for a permission the app declared but was never asked
     // about asks the user rather than failing silently.
     void theGateAsksForUndecidedPermissions() {
-        const QString source = read(QStringLiteral("shell/src/ipc/shellservices.cpp"));
-        const QString gate   = bodyOf(source, QStringLiteral("IpcPermissionedService"),
-                                      QStringLiteral("admit"));
-        QVERIFY(gate.contains(QStringLiteral("askIfUndecided(caller, permissions)")));
+        QVERIFY(read(QStringLiteral("crates/marathon-shell-native/src/gate.rs"))
+                    .contains(QStringLiteral("permissions::ask_if_undecided(&caller, permissions)")));
         QVERIFY(read(QStringLiteral("shell/main.cpp"))
                     .contains(QStringLiteral(
                         "askIfUndecided(desktopId, {QStringLiteral(\"location\")})")));

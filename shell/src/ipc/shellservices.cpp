@@ -1,11 +1,11 @@
 #include "shellservices.h"
 #include "callerpid.h"
+#include "marathon-shell-native/src/gate.cxxqt.h"
 #include <algorithm>
 #include <unistd.h>
 #include <fcntl.h>
 #include <QDBusMetaType>
 #include "permissionauth.h"
-#include "servicecaller.h"
 
 #include "applaunchservice.h"
 #include "foregroundapp.h"
@@ -27,8 +27,6 @@
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
 #include "marathon-shell-native/src/alarms.cxxqt.h"
-#include "ratelimiter.h"
-#include "securitylogger.h"
 
 #include "audioroutingmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
@@ -75,16 +73,7 @@ static QVariant sendable(const QVariant &value) {
 // Function-local rather than namespace-scope: constructed on first use
 // (thread-safe since C++11) instead of running a throwing initialiser
 // before main().
-static RateLimiter &ipcRateLimiter() {
-    static RateLimiter limiter;
-    return limiter;
-}
-static constexpr int RATE_LIMIT_MAX_CALLS = 30;
-static constexpr int RATE_LIMIT_WINDOW_MS = 1000;
-
-// Test bypass: when MARATHON_TEST_TRUSTED=1 is set in the shell's environment,
-// external D-Bus callers are admitted as a synthetic trusted caller. Intended for
-// automation/smoke tests only; never set this in production.
+// MARATHON_TEST_TRUSTED's synthetic caller (marathon::gate).
 static const char *const MARATHON_TEST_CALLER_ID = "_marathon_test_caller";
 static bool g_testBypassEnabled = qEnvironmentVariableIntValue("MARATHON_TEST_TRUSTED") != 0;
 
@@ -92,128 +81,20 @@ static bool hasAnyPermission(marathon::Permissions *pm, const QString &appId,
                              const QStringList &perms) {
     if (g_testBypassEnabled && appId == QLatin1String(MARATHON_TEST_CALLER_ID))
         return true;
-    if (appId.startsWith(ServiceCaller::kPrefix))
-        return ServiceCaller::allowed(appId, perms);
-    if (!pm)
-        return false;
-    for (const auto &p : perms) {
-        if (pm->hasPermission(appId, p))
-            return true;
-    }
-    return false;
-}
-
-// sender: the D-Bus name to limit, this call's when empty.
-static bool checkRateLimit(const QDBusContext &ctx, const QString &method,
-                           QString sender = {}) {
-    if (!ctx.calledFromDBus())
+    if (marathon::gate::service_allows(appId, perms))
         return true;
-
-    if (sender.isEmpty())
-        sender = ctx.message().service();
-    if (!ipcRateLimiter().tryAcquire(sender, method, RATE_LIMIT_MAX_CALLS, RATE_LIMIT_WINDOW_MS)) {
-        double rate = ipcRateLimiter().getRate(sender, method);
-        SecurityLogger::logRateLimitExceeded(sender, method, static_cast<int>(rate));
-        return false;
-    }
-    return true;
+    return std::any_of(perms.cbegin(), perms.cend(),
+                       [&](const QString &p) { return pm && pm->hasPermission(appId, p); });
 }
 
-static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService *als,
-                                      const QString &sender = {}) {
-    // Resolve the caller (sender, else this call's) to a Marathon app id;
-    // return empty (= deny) when we can't. Under MARATHON_TEST_TRUSTED,
-    // every non-resolution returns the synthetic test caller instead --
-    // never overriding a real resolution.
-    const auto unresolved = []() {
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
-    };
-
-    if (!ctx.calledFromDBus() || !als)
-        return {};
-
-    const qint64 pid =
-        callerPid(ctx.connection(), sender.isEmpty() ? ctx.message().service() : sender);
-    if (pid < 0)
-        return unresolved();
-    return appIdForCallerPid(pid, als);
+static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
+    return !ctx.calledFromDBus() || marathon::gate::within_rate(ctx.message().service(), method);
 }
 
-QString appIdForCallerPid(qint64 pid, AppLaunchService *als) {
-    const auto unresolved = []() {
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
-    };
-    if (QString mapped = als->appIdForPid(pid); !mapped.isEmpty())
-        return mapped;
-    if (QString service = ServiceCaller::resolve(pid); !service.isEmpty())
-        return service;
-
-    const qint64 shellPid = static_cast<qint64>(QCoreApplication::applicationPid());
-    if (shellPid <= 0 || pid <= 0)
-        return unresolved();
-
-    // Confirm the caller is a marathon-app-runner whose ANCESTOR is this
-    // shell. The direct parent is almost never the shell — the launch
-    // chain is shell → bwrap (outer) → bwrap (inner) → marathon-app-runner,
-    // so the immediate PPID is a bwrap helper.
-    // Walk up the /proc PPID chain looking for the shell's PID; cap at
-    // 8 hops so we don't churn on a runaway ancestor list. Without this
-    // every D-Bus call from a sandboxed app fails the requireSystem /
-    // requirePermission gate because the appId resolution falls through
-    // to "unknown caller" — most visible as Settings reading brightness
-    // = 0 % even when sysfs reports 100 %, but it breaks every IPC
-    // surface (battery readback, system store, lifecycle manager).
-    auto ppidOf = [](qint64 p) -> qint64 {
-        QFile statFile(QStringLiteral("/proc/%1/stat").arg(p));
-        if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
-            return -1;
-        const QByteArray statLine = statFile.readAll();
-        const qsizetype  closeIdx = statLine.lastIndexOf(')');
-        const QByteArray afterCmd =
-            closeIdx < 0 ? QByteArray() : statLine.mid(closeIdx + 1).trimmed();
-        const QList<QByteArray> parts = afterCmd.split(' ');
-        if (parts.size() < 2)
-            return -1;
-        return parts.at(1).toLongLong();
-    };
-
-    bool   ancestorIsShell = false;
-    qint64 cursor          = ppidOf(pid);
-    for (int hop = 0; hop < 8 && cursor > 1; ++hop) {
-        // Pool-adopted runners carry no --app-id in argv; their bwrap
-        // ancestor is registered at adopt time instead.
-        if (QString mapped = als->appIdForPid(cursor); !mapped.isEmpty()) {
-            als->registerPidForAppId(pid, mapped);
-            return mapped;
-        }
-        if (cursor == shellPid) {
-            ancestorIsShell = true;
-            break;
-        }
-        cursor = ppidOf(cursor);
-    }
-    if (!ancestorIsShell)
-        return unresolved();
-
-    QFile cmdFile(QStringLiteral("/proc/%1/cmdline").arg(pid));
-    if (!cmdFile.open(QIODevice::ReadOnly))
-        return unresolved();
-    const QList<QByteArray> argv = cmdFile.readAll().split('\0');
-    if (argv.isEmpty() || !QString::fromLocal8Bit(argv.value(0)).contains("marathon-app-runner"))
-        return unresolved();
-
-    QString appId;
-    for (int i = 0; i + 1 < argv.size(); ++i) {
-        if (argv[i] == "--app-id") {
-            appId = QString::fromLocal8Bit(argv[i + 1]);
-            break;
-        }
-    }
-    if (appId.isEmpty() || !als->isMarathonAppId(appId))
-        return unresolved();
-
-    als->registerPidForAppId(pid, appId);
-    return appId;
+static QString callerOf(const QDBusContext &ctx) {
+    return ctx.calledFromDBus() ?
+        marathon::gate::caller_of_pid(callerPid(ctx.connection(), ctx.message().service())) :
+        QString();
 }
 
 IpcPermissionedService::IpcPermissionedService(marathon::Permissions *permissions,
@@ -223,7 +104,7 @@ IpcPermissionedService::IpcPermissionedService(marathon::Permissions *permission
     , m_launchService(launchService) {}
 
 QString IpcPermissionedService::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
+    return callerOf(*this);
 }
 
 bool IpcPermissionedService::requirePermission(const QString     &rateLimitKey,
@@ -233,33 +114,17 @@ bool IpcPermissionedService::requirePermission(const QString     &rateLimitKey,
 
 bool IpcPermissionedService::admit(const QString &sender, const QString &rateLimitKey,
                                    const QStringList &permissions) {
-    if (!checkRateLimit(*this, rateLimitKey, sender)) {
-        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
-        return false;
-    }
-
-    const QString caller = dbusCallerAppIdOrEmpty(*this, m_launchService, sender);
-    if (caller.isEmpty()) {
+    if (!calledFromDBus()) {
         sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
         return false;
     }
-    if (!hasAnyPermission(m_permissions, caller, permissions)) {
-        // An app that declared the permission but was never asked is asked
-        // now; this call still fails, and the app retries on PermissionGranted.
-        if (const QString asked = m_permissions->askIfUndecided(caller, permissions);
-            !asked.isEmpty()) {
-            SecurityLogger::logPermissionRequested(caller, asked);
-            sendErrorReply(QDBusError::AccessDenied,
-                           QStringLiteral("Permission requested: %1").arg(asked));
-            return false;
-        }
-        const QString primary = permissions.isEmpty() ? QString() : permissions.first();
-        SecurityLogger::logPermissionDenied(caller, primary);
-        sendErrorReply(QDBusError::AccessDenied,
-                       QStringLiteral("Missing permission: %1").arg(primary));
-        return false;
-    }
-    return true;
+    const QString who     = sender.isEmpty() ? message().service() : sender;
+    const QString refusal = marathon::gate::refusal(callerPid(connection(), who), who, rateLimitKey,
+                                                    permissions);
+    if (refusal.isEmpty())
+        return true;
+    sendErrorReply(refusal.section(QLatin1Char('\n'), 0, 0), refusal.section(QLatin1Char('\n'), 1));
+    return false;
 }
 
 SettingsObject::SettingsObject(SettingsManager *settings, marathon::Permissions *permissions,
@@ -1462,7 +1327,7 @@ void PermissionsObject::SetPermission(const QString &appId, const QString &permi
 QString PermissionsObject::requireForeignPrompter() {
     const QString caller = callerAppIdOrEmpty();
     if ((g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID)) ||
-        ServiceCaller::allowed(caller, {PermissionAuth::kForeignPrompts}))
+        marathon::gate::service_allows(caller, {PermissionAuth::kForeignPrompts}))
         return caller;
     sendErrorReply(QDBusError::AccessDenied, "Not a permission prompter");
     return {};
@@ -1507,7 +1372,7 @@ void PermissionsObject::Admit(const QString &sender, const QString &area,
                               const QStringList &permissions) {
     const QString caller = callerAppIdOrEmpty();
     if (!(g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID)) &&
-        !ServiceCaller::allowed(caller, {PermissionAuth::kAdmitters})) {
+        !marathon::gate::service_allows(caller, {PermissionAuth::kAdmitters})) {
         sendErrorReply(QDBusError::AccessDenied, "Not a session daemon");
         return;
     }
@@ -1633,7 +1498,7 @@ NavigationObject::NavigationObject(AppLaunchService *launchService, QObject *par
 }
 
 QString NavigationObject::callerAppIdOrEmpty() const {
-    return dbusCallerAppIdOrEmpty(*this, m_launchService);
+    return callerOf(*this);
 }
 
 bool NavigationObject::LaunchApp(const QString &appId) {
@@ -1755,7 +1620,7 @@ QString NavigationObject::GetForegroundApp() {
 }
 
 bool NavigationObject::requireService() {
-    if (callerAppIdOrEmpty().startsWith(ServiceCaller::kPrefix))
+    if (callerAppIdOrEmpty().startsWith(QLatin1String("service:")))
         return true;
     sendErrorReply(QDBusError::AccessDenied, "Only a session service may ask");
     return false;
@@ -1776,7 +1641,7 @@ void NavigationObject::SetAppWindowSecure(const QString &appId, bool secure) {
 }
 
 QString NavigationObject::AppIdForPid(uint pid) {
-    if (!callerAppIdOrEmpty().startsWith(ServiceCaller::kPrefix)) {
+    if (!callerAppIdOrEmpty().startsWith(QLatin1String("service:"))) {
         sendErrorReply(QDBusError::AccessDenied, "Only a session service may ask");
         return {};
     }
@@ -2086,7 +1951,7 @@ quint32 AppLifecycleObject::BeginBackgroundTask(const QString &category, const Q
         sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
         return 0;
     }
-    const QString appId = dbusCallerAppIdOrEmpty(*this, m_launchService);
+    const QString appId = callerOf(*this);
     if (appId.isEmpty()) {
         sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
         return 0;
@@ -2095,7 +1960,7 @@ quint32 AppLifecycleObject::BeginBackgroundTask(const QString &category, const Q
     // time. Apps can't widen their privileges at runtime.
     const QStringList declared = m_appRegistry->getBackgroundCapabilities(appId);
     if (!declared.contains(category)) {
-        SecurityLogger::logPermissionDenied(appId, "background:" + category);
+        marathon::gate::log_denied(appId, "background:" + category);
         sendErrorReply(QDBusError::AccessDenied,
                        QStringLiteral("Category '%1' not declared in manifest").arg(category));
         return 0;
@@ -2129,7 +1994,7 @@ bool AppLifecycleObject::EndBackgroundTask(quint32 handle) {
 QStringList AppLifecycleObject::GetMyCapabilities() {
     if (!m_lifecycle || !m_launchService)
         return {};
-    const QString appId = dbusCallerAppIdOrEmpty(*this, m_launchService);
+    const QString appId = callerOf(*this);
     if (appId.isEmpty())
         return {};
     return m_lifecycle->activeCapabilities(appId);

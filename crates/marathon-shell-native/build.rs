@@ -12,6 +12,7 @@ fn main() {
         .file("src/display.rs")
         .file("src/flashlight.rs")
         .file("src/haptics.rs")
+        .file("src/gate.rs")
         .file("src/identity.rs")
         .file("src/location.rs")
         .file("src/modem.rs")

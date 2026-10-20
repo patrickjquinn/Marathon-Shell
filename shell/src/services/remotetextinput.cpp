@@ -1,7 +1,7 @@
 #include "remotetextinput.h"
 #include "../ipc/callerpid.h"
 
-#include "../ipc/servicecaller.h"
+#include "marathon-shell-native/src/gate.cxxqt.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>
@@ -334,9 +334,9 @@ bool RemoteTextInputService::fromOwner() {
 }
 
 void RemoteTextInputService::Register(const QString &appIdPrefix) {
-    const qint64 pid    = callerPid(connection(), message().service());
-    const auto   caller = pid >= 0 ? ServiceCaller::resolve(pid) : QString();
-    if (!ServiceCaller::allowed(caller, {QStringLiteral("text-input")})) {
+    const QString caller =
+        marathon::gate::caller_of_pid(callerPid(connection(), message().service()));
+    if (!marathon::gate::service_allows(caller, {QStringLiteral("text-input")})) {
         sendErrorReply(QDBusError::AccessDenied, QStringLiteral("Needs the text-input permission"));
         return;
     }

@@ -81,6 +81,7 @@
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
 #include "marathonappinstaller.h"
+#include "marathon-shell-native/src/gate.cxxqt.h"
 #include "marathon-shell-native/src/permissions.cxxqt.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
@@ -1206,7 +1207,7 @@ int main(int argc, char *argv[]) {
 
         auto *shareService = createObject<ShareService>(
             ctx, "ShareService", appRegistry, marathon::sandbox::shared_folders(),
-            [appLaunchService](qint64 pid) { return appIdForCallerPid(pid, appLaunchService); },
+            [](qint64 pid) { return marathon::gate::caller_of_pid(pid); },
             [appLaunchService](const QString &appId) { appLaunchService->launchApp(QVariant(appId)); },
             &app);
         if (shareService->registerOnSessionBus())
@@ -1232,6 +1233,10 @@ int main(int argc, char *argv[]) {
     QObject::connect(appRegistry, &MarathonAppRegistry::appRegistered, permissionManager, learnApp);
     QObject::connect(appRegistry, &MarathonAppRegistry::appUnregistered, permissionManager,
                      &marathon::Permissions::removeApp);
+    QObject::connect(appLaunchService, &AppLaunchService::pidRegistered, permissionManager,
+                     [](qint64 pid, const QString &appId) { marathon::gate::remember(pid, appId); });
+    QObject::connect(appLaunchService, &AppLaunchService::pidUnregistered, permissionManager,
+                     [](qint64 pid, const QString &) { marathon::gate::remember(pid, QString()); });
 
     // Before the first scan, which no longer looks in the old location.
     const QStringList migrated = appInstaller->migrateLegacyInstalls();

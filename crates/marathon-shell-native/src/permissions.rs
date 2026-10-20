@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
 
 use cxx_qt::{CxxQtType, Threading};
@@ -134,6 +135,7 @@ mod qobject {
     }
 
     impl cxx_qt::Threading for Permissions {}
+    impl cxx_qt::Initialize for Permissions {}
 }
 
 use qobject::Permissions;
@@ -425,6 +427,7 @@ impl Core {
     }
 }
 
+#[derive(Default)]
 pub struct PermissionsRust {
     prompt_active: bool,
     current_app_id: QString,
@@ -432,25 +435,36 @@ pub struct PermissionsRust {
     current_permissions: QStringList,
     current_refused: QStringList,
     current_options: QMap<QMapPair_QString_QVariant>,
-    core: Core,
     // Bumped by each timer, so only the latest one processes.
     generation: u64,
 }
 
-impl Default for PermissionsRust {
-    fn default() -> Self {
-        Self {
-            prompt_active: false,
-            current_app_id: QString::default(),
-            current_permission: QString::default(),
-            current_permissions: QStringList::default(),
-            current_refused: QStringList::default(),
-            current_options: QMap::default(),
-            core: Core::load(marathon_rt::dirs::config().join("marathon/app-permissions.json")),
-            generation: 0,
-        }
-    }
+// The I/O thread's gate reads the decisions as the GUI thread's prompt
+// changes them; held only while one call runs.
+static CORE: LazyLock<Mutex<Core>> =
+    LazyLock::new(|| Mutex::new(Core::load(marathon_rt::dirs::config().join("marathon/app-permissions.json"))));
+static QT: OnceLock<cxx_qt::CxxQtThread<Permissions>> = OnceLock::new();
+
+fn core() -> MutexGuard<'static, Core> {
+    CORE.lock().unwrap_or_else(PoisonError::into_inner)
 }
+
+/// Whether the app holds `permission`, from any thread.
+pub(crate) fn has(app: &str, permission: &str) -> bool {
+    core().has(app, permission)
+}
+
+/// As `Permissions::askIfUndecided`, from any thread: the prompt shows on
+/// the GUI thread.
+pub(crate) fn ask_if_undecided(app: &str, permissions: &[String]) -> Option<String> {
+    let mut events = Vec::new();
+    let asked = core().ask_if_undecided(app, permissions, &mut events);
+    if let Some(qt) = QT.get() {
+        qt.queue(move |obj| obj.apply(events)).ok();
+    }
+    asked
+}
+
 
 fn strings(list: &QStringList) -> Vec<String> {
     QList::<QString>::from(list).iter().map(ToString::to_string).collect()
@@ -460,6 +474,13 @@ fn list(items: &[String]) -> QStringList {
     items.iter().map(QString::from).collect()
 }
 
+impl cxx_qt::Initialize for Permissions {
+    fn initialize(self: Pin<&mut Self>) {
+        QT.set(self.qt_thread()).ok();
+    }
+}
+
+#[allow(clippy::unused_self, reason = "invokables are the QObject's methods, whatever of it they read")]
 impl Permissions {
     fn apply(mut self: Pin<&mut Self>, events: Vec<Event>) {
         for event in events {
@@ -476,7 +497,7 @@ impl Permissions {
     }
 
     fn show_prompt(mut self: Pin<&mut Self>) {
-        let prompt = self.core.prompt.clone();
+        let prompt = core().prompt.clone();
         let mut options = QMap::<QMapPair_QString_QVariant>::default();
         if let Some((_, o)) = prompt.as_ref().and_then(|p| p.foreign.as_ref()) {
             options.insert(QString::from("kind"), QVariant::from(&QString::from(&o.kind)));
@@ -502,10 +523,10 @@ impl Permissions {
         let qt = self.qt_thread();
         io::spawn(async move {
             async_io::Timer::after(Duration::from_millis(ms)).await;
-            qt.queue(move |mut obj| {
+            qt.queue(move |obj| {
                 if obj.generation == generation {
                     let mut events = Vec::new();
-                    obj.as_mut().rust_mut().core.process(&mut events);
+                    core().process(&mut events);
                     obj.apply(events);
                 }
             })
@@ -513,18 +534,19 @@ impl Permissions {
         });
     }
 
-    fn with(mut self: Pin<&mut Self>, f: impl FnOnce(&mut Core, &mut Vec<Event>)) {
+    // The lock is let go before the events run, as they read the core again.
+    fn with(self: Pin<&mut Self>, f: impl FnOnce(&mut Core, &mut Vec<Event>)) {
         let mut events = Vec::new();
-        f(&mut self.as_mut().rust_mut().core, &mut events);
+        f(&mut core(), &mut events);
         self.apply(events);
     }
 
     fn has_permission(&self, app_id: &QString, permission: &QString) -> bool {
-        self.core.has(&app_id.to_string(), &permission.to_string())
+        has(&app_id.to_string(), &permission.to_string())
     }
 
     fn permission_status(&self, app_id: &QString, permission: &QString) -> i32 {
-        self.core.status(&app_id.to_string(), &permission.to_string()) as i32
+        core().status(&app_id.to_string(), &permission.to_string()) as i32
     }
 
     fn request_permission(self: Pin<&mut Self>, app_id: &QString, permission: &QString) {
@@ -628,31 +650,29 @@ impl Permissions {
         });
     }
 
-    fn set_app(mut self: Pin<&mut Self>, app_id: &QString, declared: &QStringList, system: bool) {
-        self.as_mut().rust_mut().core.apps.insert(app_id.to_string(), Facts { declared: strings(declared), protected: system });
+    fn set_app(self: Pin<&mut Self>, app_id: &QString, declared: &QStringList, system: bool) {
+        core().apps.insert(app_id.to_string(), Facts { declared: strings(declared), protected: system });
     }
 
-    fn remove_app(mut self: Pin<&mut Self>, app_id: &QString) {
-        self.as_mut().rust_mut().core.apps.remove(&app_id.to_string());
+    fn remove_app(self: Pin<&mut Self>, app_id: &QString) {
+        core().apps.remove(&app_id.to_string());
     }
 
     fn app_permissions(&self, app_id: &QString) -> QStringList {
         let app = app_id.to_string();
-        marathon_permissions::permissions().keys().filter(|p| self.core.has(&app, p)).map(QString::from).collect()
+        let core = core();
+        marathon_permissions::permissions().keys().filter(|p| core.has(&app, p)).map(QString::from).collect()
     }
 
-    #[allow(clippy::unused_self, reason = "an invokable of the QObject")]
     fn available_permissions(&self) -> QStringList {
         marathon_permissions::permissions().keys().map(QString::from).collect()
     }
 
-    #[allow(clippy::unused_self, reason = "an invokable of the QObject")]
     fn permission_label(&self, permission: &QString) -> QString {
         let p = permission.to_string();
         marathon_permissions::describe(&p).map_or_else(|| permission.clone(), |d| QString::from(&d.label))
     }
 
-    #[allow(clippy::unused_self, reason = "an invokable of the QObject")]
     fn permission_description(&self, permission: &QString) -> QString {
         QString::from(marathon_permissions::describe(&permission.to_string()).map_or("Unknown permission", |d| d.description.as_str()))
     }

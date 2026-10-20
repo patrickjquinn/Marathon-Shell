@@ -20,6 +20,7 @@ mod desktop;
 pub mod display;
 pub mod flashlight;
 pub mod haptics;
+pub mod gate;
 mod identity;
 pub mod location;
 pub mod modem;
