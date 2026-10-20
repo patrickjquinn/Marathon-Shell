@@ -70,7 +70,7 @@ pub mod qobject {
 
 use qobject::Contacts;
 
-const CONTACTS: Service = Service("Contacts");
+const CONTACTS: Service = Service::shell("Contacts");
 
 #[derive(Default)]
 pub struct ContactsRust {

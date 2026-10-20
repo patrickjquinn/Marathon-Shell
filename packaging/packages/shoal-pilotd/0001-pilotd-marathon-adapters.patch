@@ -12,7 +12,7 @@ oFono and ConnMan. Media (MPRIS), notifications (fdo) and speech are as
 on Sailfish; Sailfish's stock-app hand-offs are not available. Without
 the shell nothing changes.
 ---
- shoal/pilot/pilotd/src/adapters/marathon.rs | 643 ++++++++++++++++++++
+ shoal/pilot/pilotd/src/adapters/marathon.rs | 651 ++++++++++++++++++++
  shoal/pilot/pilotd/src/adapters/mod.rs      |   1 +
  shoal/pilot/pilotd/src/daemon.rs            |  40 ++
  shoal/pilot/pilotd/tests/marathon.rs        | 251 ++++++++
@@ -25,7 +25,7 @@ new file mode 100644
 index 0000000..7383214
 --- /dev/null
 +++ b/shoal/pilot/pilotd/src/adapters/marathon.rs
-@@ -0,0 +1,643 @@
+@@ -0,0 +1,651 @@
 +// SPDX-FileCopyrightText: 2026 Patrick Quinn
 +// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
 +
@@ -61,6 +61,14 @@ index 0000000..7383214
 +    .unwrap_or(false)
 +}
 +
++/// The daemon that serves `object` in place of the shell, else the shell.
++fn bus_for(object: &str) -> &'static str {
++    match object {
++        "Sms" | "CallHistory" => "org.marathonos.Telephony",
++        _ => SHELL,
++    }
++}
++
 +async fn call<B, R>(
 +    session: &zbus::Connection,
 +    object: &str,
@@ -73,7 +81,7 @@ index 0000000..7383214
 +{
 +    let reply = session
 +        .call_method(
-+            Some(SHELL),
++            Some(bus_for(object)),
 +            format!("{ROOT}/{object}").as_str(),
 +            Some(format!("{SHELL}.{object}1").as_str()),
 +            method,

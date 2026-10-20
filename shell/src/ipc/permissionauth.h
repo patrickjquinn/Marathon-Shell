@@ -30,6 +30,9 @@ namespace PermissionAuth {
     // The session-service permission (ServiceCaller) for prompting for apps
     // whose grants another system keeps: deckardd, for Android apps.
     inline const QString kForeignPrompts = QStringLiteral("android-permissions");
+    // The session-service permission for daemons that serve apps and ask
+    // the shell whether a caller may use them (Permissions1.Admit).
+    inline const QString kAdmitters = QStringLiteral("admit-callers");
 
     // "waydroid.<Android package>".
     inline bool isAndroidAppId(const QString &appId) {

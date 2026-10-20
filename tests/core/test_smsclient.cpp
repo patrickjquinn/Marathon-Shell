@@ -14,10 +14,31 @@
 
 #include "marathon-app-native/src/shell.cxxqt.h"
 #include "marathon-app-native/src/sms.cxxqt.h"
-#include "mmspartarg.h"
 
-// The shell's Sms1 and Permissions1, served from their own thread: the
-// client's calls block until they are answered.
+// A part of an MMS as Sms1.SendMms takes it: a(ssh).
+struct MmsPartArg {
+    QString                 contentType;
+    QString                 name;
+    QDBusUnixFileDescriptor fd;
+};
+Q_DECLARE_METATYPE(MmsPartArg)
+
+QDBusArgument &operator<<(QDBusArgument &arg, const MmsPartArg &part) {
+    arg.beginStructure();
+    arg << part.contentType << part.name << part.fd;
+    arg.endStructure();
+    return arg;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &arg, MmsPartArg &part) {
+    arg.beginStructure();
+    arg >> part.contentType >> part.name >> part.fd;
+    arg.endStructure();
+    return arg; // NOLINT(bugprone-return-const-ref-from-parameter) QDBusArgument >> signature
+}
+
+// marathon-telephonyd's Sms1 and the shell's Permissions1, served from their
+// own thread: the client's calls block until they are answered.
 class FakeSms : public QObject {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sms1")
@@ -103,6 +124,7 @@ class TestSmsClient : public QObject {
                 bus.registerObject("/org/marathonos/Shell/Permissions", permissions,
                                    QDBusConnection::ExportAllSlots);
                 bus.registerService("org.marathonos.Shell");
+                bus.registerService("org.marathonos.Telephony");
             },
             Qt::BlockingQueuedConnection);
     }

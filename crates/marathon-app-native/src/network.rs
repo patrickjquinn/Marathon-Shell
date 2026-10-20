@@ -88,7 +88,7 @@ pub mod qobject {
 
 use qobject::Network;
 
-const NETWORK: Service = Service("Network");
+const NETWORK: Service = Service::shell("Network");
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]

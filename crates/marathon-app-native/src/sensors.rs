@@ -28,7 +28,7 @@ pub mod qobject {
 
 use qobject::Sensors;
 
-const SENSOR: Service = Service("Sensor");
+const SENSOR: Service = Service::shell("Sensor");
 
 #[derive(Default)]
 pub struct SensorsRust {

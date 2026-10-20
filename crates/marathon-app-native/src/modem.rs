@@ -58,7 +58,7 @@ pub mod qobject {
 
 use qobject::Modem;
 
-const MODEM: Service = Service("Modem");
+const MODEM: Service = Service::shell("Modem");
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]

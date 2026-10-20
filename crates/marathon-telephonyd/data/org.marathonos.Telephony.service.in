@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.Telephony
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/marathon-telephonyd
+SystemdService=marathon-telephonyd.service

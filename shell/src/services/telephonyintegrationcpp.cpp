@@ -6,7 +6,7 @@
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "smsservice.h"
+#include "marathon-shell-native/src/telephonyd.cxxqt.h"
 #include "contactsmanager.h"
 
 #include <QMetaObject>
@@ -14,7 +14,7 @@
 TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
     Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
-    HapticManager *haptics, Modem *telephonyService, SMSService *smsService, QObject *parent)
+    HapticManager *haptics, Modem *telephonyService, Telephonyd *telephonyd, QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
     , m_notificationService(notificationService)
@@ -23,7 +23,7 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     , m_audioPolicy(audioPolicy)
     , m_haptics(haptics)
     , m_telephonyService(telephonyService)
-    , m_smsService(smsService) {
+    , m_telephonyd(telephonyd) {
     if (m_telephonyService) {
         connect(m_telephonyService, &Modem::incomingCall, this,
                 &TelephonyIntegrationCpp::handleIncomingCall);
@@ -33,8 +33,8 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
                 &TelephonyIntegrationCpp::handleCallEnded);
     }
 
-    if (m_smsService) {
-        connect(m_smsService, &SMSService::messageReceived, this,
+    if (m_telephonyd) {
+        connect(m_telephonyd, &Telephonyd::messageReceived, this,
                 &TelephonyIntegrationCpp::handleMessageReceived);
     }
 
@@ -114,13 +114,13 @@ void TelephonyIntegrationCpp::handleCallEnded(const QString &number, const QStri
 }
 
 void TelephonyIntegrationCpp::replyToMessageNotification(uint id, const QString &text) {
-    if (!m_notificationService || !m_smsService || text.trimmed().isEmpty())
+    if (!m_notificationService || !m_telephonyd || text.trimmed().isEmpty())
         return;
     const QVariantMap notification = m_notificationService->getNotification(int(id));
     const QString     recipient    = notification.value("replyTarget").toString();
     if (notification.value("appId").toString() != QLatin1String("messages") || recipient.isEmpty())
         return;
-    m_smsService->sendMessage(recipient, text);
+    m_telephonyd->sendMessage(recipient, text);
     m_notificationService->markAsRead(int(id));
 }
 

@@ -4,9 +4,7 @@
 
 #include "marathonpermissionmanager.h"
 
-#include "callhistorymanager.h"
 #include "contactsmanager.h"
-#include "smsservice.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "medialibrarymanager.h"
 #include "settingsmanager.h"
@@ -24,8 +22,7 @@
 #include <QDebug>
 
 ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsManager *contacts,
-                               CallHistoryManager *callHistory, Modem *telephony,
-                               SMSService *sms, MediaLibraryManager *mediaLibrary,
+                               Modem *telephony, MediaLibraryManager *mediaLibrary,
                                SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                                marathon::Display *display, Power *powerManager,
                                AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
@@ -40,9 +37,7 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
     : QObject(parent)
     , m_permissions(permissions)
     , m_contacts(contacts)
-    , m_callHistory(callHistory)
     , m_telephony(telephony)
-    , m_sms(sms)
     , m_mediaLibrary(mediaLibrary)
     , m_settingsManager(settingsManager)
     , m_bluetoothManager(bluetoothManager)
@@ -84,11 +79,8 @@ bool ShellIpcServer::registerOnSessionBus() {
 
     auto *permObj     = new PermissionsObject(m_permissions, m_appLaunchService, this);
     auto *contactsObj = new ContactsObject(m_contacts, m_permissions, m_appLaunchService, this);
-    auto *callHistoryObj =
-        new CallHistoryObject(m_callHistory, m_permissions, m_appLaunchService, this);
     auto *telephonyObj = new TelephonyObject(m_telephony, m_permissions, m_appLaunchService,
                                              m_audioRoutingManager, this);
-    auto *smsObj       = new SmsObject(m_sms, m_permissions, m_appLaunchService, this);
     auto *mediaObj =
         new MediaLibraryObject(m_mediaLibrary, m_permissions, m_appLaunchService, this);
     auto *settingsObj =
@@ -123,11 +115,7 @@ bool ShellIpcServer::registerOnSessionBus() {
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Contacts", contactsObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
-    ok &= bus.registerObject("/org/marathonos/Shell/CallHistory", callHistoryObj,
-                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Telephony", telephonyObj,
-                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
-    ok &= bus.registerObject("/org/marathonos/Shell/Sms", smsObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/MediaLibrary", mediaObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);

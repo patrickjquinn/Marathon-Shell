@@ -1,9 +1,12 @@
-//! What Marathon's Rust `QObject`s share: one I/O thread and its buses, the
-//! log, and the property setter.
+//! What Marathon's Rust `QObject`s and daemons share: one I/O thread and its
+//! buses, the log, the property setter and the shell's permission gate.
 
+pub mod daemon;
 pub mod dirs;
 pub mod io;
 pub mod log;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 /// Sets a property's field and notifies, if it changed.
 #[macro_export]

@@ -60,7 +60,7 @@ pub mod qobject {
 
 use qobject::Updates;
 
-const UPDATES: Service = Service("Updates");
+const UPDATES: Service = Service::shell("Updates");
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]

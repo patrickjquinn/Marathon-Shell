@@ -111,6 +111,7 @@ class TestIpcClientNormalize : public QObject {
         QVERIFY(shell.registerObject("/org/marathonos/Shell/Permissions", &permissions, all));
         QVERIFY(shell.registerObject("/org/marathonos/Shell/Settings", &settings, all));
         QVERIFY(shell.registerService("org.marathonos.Shell"));
+        QVERIFY(shell.registerService("org.marathonos.Telephony"));
     }
     void cleanupTestCase() {
         serviceThread.quit();

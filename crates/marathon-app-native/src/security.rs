@@ -84,7 +84,7 @@ pub mod qobject {
 
 use qobject::Security;
 
-const SECURITY: Service = Service("Security");
+const SECURITY: Service = Service::shell("Security");
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]

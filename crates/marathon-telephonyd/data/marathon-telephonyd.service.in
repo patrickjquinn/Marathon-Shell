@@ -1,0 +1,10 @@
+[Unit]
+Description=Marathon messages and call log (SMS through ModemManager, MMS through mmsd-tng)
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.marathonos.Telephony
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-telephonyd
+Restart=on-failure
+RestartSec=5

@@ -81,7 +81,7 @@ pub mod qobject {
 
 use qobject::Alarms;
 
-const ALARM: Service = Service("Alarm");
+const ALARM: Service = Service::shell("Alarm");
 
 #[derive(Default)]
 pub struct AlarmsRust {

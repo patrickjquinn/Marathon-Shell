@@ -45,7 +45,7 @@ pub mod qobject {
 
 use qobject::Haptics;
 
-const HAPTIC: Service = Service("Haptic");
+const HAPTIC: Service = Service::shell("Haptic");
 
 #[derive(Default)]
 pub struct HapticsRust {

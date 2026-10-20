@@ -78,7 +78,7 @@ pub mod qobject {
 
 use qobject::Telephony;
 
-const TELEPHONY: Service = Service("Telephony");
+const TELEPHONY: Service = Service::shell("Telephony");
 
 #[derive(Default)]
 pub struct TelephonyRust {

@@ -61,7 +61,7 @@ class TestIpcGates : public QObject {
     void theGateAsksForUndecidedPermissions() {
         const QString source = read(QStringLiteral("shell/src/ipc/shellservices.cpp"));
         const QString gate   = bodyOf(source, QStringLiteral("IpcPermissionedService"),
-                                      QStringLiteral("requirePermission"));
+                                      QStringLiteral("admit"));
         QVERIFY(gate.contains(QStringLiteral("askIfUndecided(caller, permissions)")));
         QVERIFY(read(QStringLiteral("shell/main.cpp"))
                     .contains(QStringLiteral(
@@ -71,7 +71,7 @@ class TestIpcGates : public QObject {
     void deviceAndPersonalInterfacesCheckPermissions_data() {
         QTest::addColumn<QString>("cls");
         for (const char *cls :
-             {"ContactsObject", "CallHistoryObject", "TelephonyObject", "SmsObject",
+             {"ContactsObject", "TelephonyObject",
               "MediaLibraryObject", "SecurityObject", "BluetoothObject", "DisplayObject",
               "PowerObject", "AudioObject", "NetworkObject", "ModemObject", "SensorObject",
               "LocationObject", "AlarmObject", "UpdatesObject", "DavObject", "AppStoreObject",
@@ -93,7 +93,7 @@ class TestIpcGates : public QObject {
             header.contains(QStringLiteral("class %1 : public IpcPermissionedService").arg(cls)),
             qPrintable(cls));
         static const QRegularExpression gate(QStringLiteral(
-            R"(\brequire\w*\(|authorizePermissionCall\(|hasAnyPermission\(|checkCaller\w*\()"));
+            R"(\brequire\w*\(|authorizePermissionCall\(|hasAnyPermission\(|checkCaller\w*\(|\badmit\()"));
         for (const QString &method : methods) {
             const QString name = cls + QStringLiteral("::") + method;
             if (open.contains(name))

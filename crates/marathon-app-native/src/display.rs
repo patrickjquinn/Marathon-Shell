@@ -58,7 +58,7 @@ pub mod qobject {
 
 use qobject::Display;
 
-const DISPLAY: Service = Service("Display");
+const DISPLAY: Service = Service::shell("Display");
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]

@@ -192,6 +192,32 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.marathonos.Audio.service"
 install(DIRECTORY marathon-audiod/data/wireplumber/
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wireplumber)
 
+# A session daemon that serves apps: bus-activated into its systemd user
+# unit, and admitted by the shell as a session service
+# (/usr/share/marathon-shell/services) that asks Permissions1.Admit.
+function(marathon_daemon crate bus)
+    set(_bin "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/${crate}")
+    add_custom_target(${crate}_cargo ALL
+        COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p ${crate} ${_cargo_flags} ${_cargo_profile_flag}
+        BYPRODUCTS "${_bin}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Building ${crate} (Rust)"
+        USES_TERMINAL
+        VERBATIM)
+    install(PROGRAMS "${_bin}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+    foreach(_file ${crate}.service ${bus}.service ${crate}.service.json)
+        configure_file(${crate}/data/${_file}.in ${_file} @ONLY)
+    endforeach()
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${crate}.service"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${bus}.service"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${crate}.service.json"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/services)
+endfunction()
+
+marathon_daemon(marathon-telephonyd org.marathonos.Telephony)
+
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates
         COMMAND ${_cargo_env} "${MARATHON_CARGO}" test --workspace ${_cargo_flags}

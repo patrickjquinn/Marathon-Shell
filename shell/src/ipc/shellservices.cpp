@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <QDBusMetaType>
-#include "mmsmanager.h"
 #include "permissionauth.h"
 #include "servicecaller.h"
 
@@ -31,9 +30,7 @@
 #include "ratelimiter.h"
 #include "securitylogger.h"
 
-#include "callhistorymanager.h"
 #include "contactsmanager.h"
-#include "smsservice.h"
 #include "audioroutingmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "medialibrarymanager.h"
@@ -88,11 +85,14 @@ static bool hasAnyPermission(MarathonPermissionManager *pm, const QString &appId
     return false;
 }
 
-static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
+// sender: the D-Bus name to limit, this call's when empty.
+static bool checkRateLimit(const QDBusContext &ctx, const QString &method,
+                           QString sender = {}) {
     if (!ctx.calledFromDBus())
         return true;
 
-    const QString sender = ctx.message().service();
+    if (sender.isEmpty())
+        sender = ctx.message().service();
     if (!ipcRateLimiter().tryAcquire(sender, method, RATE_LIMIT_MAX_CALLS, RATE_LIMIT_WINDOW_MS)) {
         double rate = ipcRateLimiter().getRate(sender, method);
         SecurityLogger::logRateLimitExceeded(sender, method, static_cast<int>(rate));
@@ -101,10 +101,12 @@ static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
     return true;
 }
 
-static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService *als) {
-    // Resolve the caller to a Marathon app id; return empty (= deny) when we
-    // can't. Under MARATHON_TEST_TRUSTED, every non-resolution returns the
-    // synthetic test caller instead -- never overriding a real resolution.
+static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService *als,
+                                      const QString &sender = {}) {
+    // Resolve the caller (sender, else this call's) to a Marathon app id;
+    // return empty (= deny) when we can't. Under MARATHON_TEST_TRUSTED,
+    // every non-resolution returns the synthetic test caller instead --
+    // never overriding a real resolution.
     const auto unresolved = []() {
         return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
     };
@@ -112,7 +114,8 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
     if (!ctx.calledFromDBus() || !als)
         return {};
 
-    const qint64 pid = callerPid(ctx.connection(), ctx.message().service());
+    const qint64 pid =
+        callerPid(ctx.connection(), sender.isEmpty() ? ctx.message().service() : sender);
     if (pid < 0)
         return unresolved();
     return appIdForCallerPid(pid, als);
@@ -207,12 +210,17 @@ QString IpcPermissionedService::callerAppIdOrEmpty() const {
 
 bool IpcPermissionedService::requirePermission(const QString     &rateLimitKey,
                                                const QStringList &permissions) {
-    if (!checkRateLimit(*this, rateLimitKey)) {
+    return admit({}, rateLimitKey, permissions);
+}
+
+bool IpcPermissionedService::admit(const QString &sender, const QString &rateLimitKey,
+                                   const QStringList &permissions) {
+    if (!checkRateLimit(*this, rateLimitKey, sender)) {
         sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
         return false;
     }
 
-    const QString caller = callerAppIdOrEmpty();
+    const QString caller = dbusCallerAppIdOrEmpty(*this, m_launchService, sender);
     if (caller.isEmpty()) {
         sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
         return false;
@@ -1640,6 +1648,18 @@ QVariantMap PermissionsObject::PromptAndroid(const QString &appId, const QString
     return {};
 }
 
+void PermissionsObject::Admit(const QString &sender, const QString &area,
+                              const QStringList &permissions) {
+    const QString caller = callerAppIdOrEmpty();
+    if (!(g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID)) &&
+        !ServiceCaller::allowed(caller, {PermissionAuth::kAdmitters})) {
+        sendErrorReply(QDBusError::AccessDenied, "Not a session daemon");
+        return;
+    }
+    if (callerPid(connection(), sender) != QCoreApplication::applicationPid())
+        admit(sender, area, permissions);
+}
+
 void PermissionsObject::CancelAndroidPrompt(const QString &request) {
     const QString caller = requireForeignPrompter();
     if (!caller.isEmpty())
@@ -1703,57 +1723,6 @@ void ContactsObject::DeleteContact(int id) {
     if (!requireContacts())
         return;
     m_contacts->deleteContact(id);
-}
-
-CallHistoryObject::CallHistoryObject(CallHistoryManager        *callHistory,
-                                     MarathonPermissionManager *permissions,
-                                     AppLaunchService *launchService, QObject *parent)
-    : IpcPermissionedService(permissions, launchService, parent)
-    , m_callHistory(callHistory) {
-    Q_ASSERT(m_callHistory);
-    Q_ASSERT(m_permissions);
-    Q_ASSERT(m_launchService);
-    QObject::connect(m_callHistory, &CallHistoryManager::historyChanged, this,
-                     &CallHistoryObject::HistoryChanged);
-    QObject::connect(m_callHistory, &CallHistoryManager::callAdded, this,
-                     &CallHistoryObject::CallAdded);
-}
-
-QVariantList CallHistoryObject::GetHistory() {
-    if (!requirePhone())
-        return {};
-    return m_callHistory->history();
-}
-
-QVariantMap CallHistoryObject::GetCallById(int id) {
-    if (!requirePhone())
-        return {};
-    return m_callHistory->getCallById(id);
-}
-
-QVariantList CallHistoryObject::GetCallsByNumber(const QString &number) {
-    if (!requirePhone())
-        return {};
-    return m_callHistory->getCallsByNumber(number);
-}
-
-void CallHistoryObject::AddCall(const QString &number, const QString &type, qint64 timestamp,
-                                int duration) {
-    if (!requirePhone())
-        return;
-    m_callHistory->addCall(number, type, timestamp, duration);
-}
-
-void CallHistoryObject::DeleteCall(int id) {
-    if (!requirePhone())
-        return;
-    m_callHistory->deleteCall(id);
-}
-
-void CallHistoryObject::ClearHistory() {
-    if (!requirePhone())
-        return;
-    m_callHistory->clearHistory();
 }
 
 TelephonyObject::TelephonyObject(Modem          *telephony,
@@ -1857,154 +1826,6 @@ bool TelephonyObject::IsCallMuted() const {
     if (!const_cast<TelephonyObject *>(this)->requirePhone())
         return false;
     return m_audioRouting ? m_audioRouting->isMuted() : false;
-}
-
-SmsObject::SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
-                     AppLaunchService *launchService, QObject *parent)
-    : IpcPermissionedService(permissions, launchService, parent)
-    , m_sms(sms) {
-    Q_ASSERT(m_sms);
-    Q_ASSERT(m_permissions);
-    Q_ASSERT(m_launchService);
-    QObject::connect(m_sms, &SMSService::messageReceived, this, &SmsObject::MessageReceived);
-    QObject::connect(m_sms, &SMSService::messageSent, this, &SmsObject::MessageSent);
-    QObject::connect(m_sms, &SMSService::sendFailed, this, &SmsObject::SendFailed);
-    QObject::connect(m_sms, &SMSService::conversationsChanged, this,
-                     &SmsObject::ConversationsChanged);
-    QObject::connect(m_sms, &SMSService::messageStatusChanged, this,
-                     &SmsObject::MessageStatusChanged);
-    QObject::connect(m_sms, &SMSService::mmsAvailableChanged, this,
-                     &SmsObject::MmsAvailableChanged);
-    if (MmsManager *mms = m_sms->mmsManager()) {
-        QObject::connect(mms, &MmsManager::settingsChanged, this, &SmsObject::MmsSettingsChanged);
-        QObject::connect(mms, &MmsManager::bearerError, this, &SmsObject::MmsBearerError);
-    }
-    qDBusRegisterMetaType<MmsPartArg>();
-    qDBusRegisterMetaType<QList<MmsPartArg>>();
-}
-
-int SmsObject::SendMms(const QStringList &recipients, const QString &text,
-                       const QList<MmsPartArg> &parts) {
-    if (!requireSms())
-        return -1;
-    constexpr int kMaxRecipients = 20;
-    constexpr int kMaxParts      = 25;
-    if (recipients.isEmpty() || recipients.size() > kMaxRecipients || parts.size() > kMaxParts) {
-        sendErrorReply(QDBusError::InvalidArgs, "1 to 20 recipients and at most 25 parts");
-        return -1;
-    }
-    QList<MmsPart> list;
-    for (const MmsPartArg &part : parts) {
-        if (!part.fd.isValid() || part.contentType.isEmpty()) {
-            sendErrorReply(QDBusError::InvalidArgs, "Each part needs a type and a descriptor");
-            return -1;
-        }
-        list << MmsPart{part.contentType, part.name, part.fd.fileDescriptor()};
-    }
-    return m_sms->sendMms(recipients, text, list);
-}
-
-QDBusUnixFileDescriptor SmsObject::OpenAttachment(int id) {
-    if (!requireSms())
-        return {};
-    const QString path = m_sms->attachmentPath(id);
-    const int     fd   = path.isEmpty() ? -1 : ::open(QFile::encodeName(path).constData(), O_RDONLY | O_CLOEXEC);
-    if (fd < 0) {
-        sendErrorReply(QDBusError::InvalidArgs, "No such attachment");
-        return {};
-    }
-    QDBusUnixFileDescriptor out(fd);
-    ::close(fd);
-    return out;
-}
-
-bool SmsObject::IsMmsAvailable() {
-    return requireSms() && m_sms->mmsAvailable();
-}
-
-QVariantMap SmsObject::GetMmsSettings() {
-    if (!requireMmsSettings())
-        return {};
-    MmsManager *mms = m_sms->mmsManager();
-    if (!mms)
-        return {};
-    setDelayedReply(true);
-    const QDBusMessage call = message();
-    mms->viewSettings(this, [call](const QVariantMap &settings) {
-        QDBusConnection::sessionBus().send(call.createReply(QVariant(settings)));
-    });
-    return {};
-}
-
-void SmsObject::SetMmsSettings(const QVariantMap &values) {
-    if (!requireMmsSettings())
-        return;
-    MmsManager *mms = m_sms->mmsManager();
-    if (!mms) {
-        sendErrorReply(QDBusError::NotSupported, "MMS isn't available");
-        return;
-    }
-    setDelayedReply(true);
-    const QDBusMessage call = message();
-    mms->changeSettings(values, this, [this, call, values](const QString &error) {
-        if (error.isEmpty()) {
-            QDBusConnection::sessionBus().send(call.createReply());
-            emit MmsSettingsChanged(values);
-        } else {
-            QDBusConnection::sessionBus().send(call.createErrorReply(QDBusError::InvalidArgs, error));
-        }
-    });
-}
-
-QVariantList SmsObject::GetConversations() {
-    if (!requireSms())
-        return {};
-    const QVariantList list = m_sms->conversations();
-    qDebug() << "[SmsObject] GetConversations -> caller=" << callerAppIdOrEmpty()
-             << "count=" << list.size();
-    return list;
-}
-
-QVariantList SmsObject::GetMessages(const QString &conversationId) {
-    if (!requireSms())
-        return {};
-    return m_sms->getMessages(conversationId);
-}
-
-void SmsObject::SendMessage(const QString &recipient, const QString &text) {
-    if (!requireSms())
-        return;
-    m_sms->sendMessage(recipient, text);
-}
-
-void SmsObject::DeleteConversation(const QString &conversationId) {
-    if (!requireSms())
-        return;
-    m_sms->deleteConversation(conversationId);
-}
-
-bool SmsObject::DeleteMessage(int id) {
-    if (!requireSms())
-        return false;
-    return m_sms->deleteMessage(id);
-}
-
-void SmsObject::MarkAsRead(const QString &conversationId) {
-    if (!requireSms())
-        return;
-    m_sms->markAsRead(conversationId);
-}
-
-QString SmsObject::GenerateConversationId(const QString &number) {
-    if (!requireSms())
-        return {};
-    return m_sms->generateConversationId(number);
-}
-
-void SmsObject::SimulateIncomingSMS(const QString &sender, const QString &message) {
-    if (!requireSms())
-        return;
-    m_sms->simulateIncomingSMS(sender, message);
 }
 
 NavigationObject::NavigationObject(AppLaunchService *launchService, QObject *parent)

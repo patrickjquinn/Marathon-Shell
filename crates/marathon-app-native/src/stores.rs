@@ -71,12 +71,12 @@ pub mod qobject {
 
 use qobject::{SystemControlStore, SystemStatusStore};
 
-const POWER: Service = Service("Power");
-const NETWORK: Service = Service("Network");
-const BLUETOOTH: Service = Service("Bluetooth");
-const DISPLAY: Service = Service("Display");
-const SETTINGS: Service = Service("Settings");
-const AUDIO: Service = Service("Audio");
+const POWER: Service = Service::shell("Power");
+const NETWORK: Service = Service::shell("Network");
+const BLUETOOTH: Service = Service::shell("Bluetooth");
+const DISPLAY: Service = Service::shell("Display");
+const SETTINGS: Service = Service::shell("Settings");
+const AUDIO: Service = Service::shell("Audio");
 
 #[derive(Default)]
 pub struct SystemStatusStoreRust {

@@ -39,7 +39,7 @@ pub mod qobject {
 
 use qobject::Location;
 
-const LOCATION: Service = Service("Location");
+const LOCATION: Service = Service::shell("Location");
 
 #[derive(Default)]
 pub struct LocationRust {

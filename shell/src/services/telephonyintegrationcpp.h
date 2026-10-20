@@ -14,7 +14,7 @@ namespace marathon {
 class AudioPolicyController;
 class HapticManager;
 class Modem;
-class SMSService;
+class Telephonyd;
 
 class TelephonyIntegrationCpp : public QObject {
     Q_OBJECT
@@ -30,7 +30,7 @@ class TelephonyIntegrationCpp : public QObject {
     explicit TelephonyIntegrationCpp(
         ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
         Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
-        HapticManager *haptics, Modem *telephonyService, SMSService *smsService,
+        HapticManager *haptics, Modem *telephonyService, Telephonyd *telephonyd,
         QObject *parent = nullptr);
 
     QString lastCallState() const {
@@ -85,7 +85,7 @@ class TelephonyIntegrationCpp : public QObject {
     AudioPolicyController   *m_audioPolicy         = nullptr;
     HapticManager           *m_haptics             = nullptr;
     Modem        *m_telephonyService    = nullptr;
-    SMSService              *m_smsService          = nullptr;
+    Telephonyd              *m_telephonyd          = nullptr;
 
     QString                  m_lastCallState = "idle";
     QString                  m_lastCallerNumber;

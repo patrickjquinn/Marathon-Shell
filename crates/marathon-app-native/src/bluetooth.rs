@@ -80,7 +80,7 @@ pub mod qobject {
 
 use qobject::Bluetooth;
 
-const BLUETOOTH: Service = Service("Bluetooth");
+const BLUETOOTH: Service = Service::shell("Bluetooth");
 
 #[derive(Default)]
 pub struct BluetoothRust {

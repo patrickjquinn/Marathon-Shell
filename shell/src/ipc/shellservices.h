@@ -14,7 +14,6 @@
 #include <QDBusContext>
 #include <QDBusUnixFileDescriptor>
 
-#include "mmspartarg.h"
 #include <QDBusVariant>
 #include <QVariantList>
 #include <QVariantMap>
@@ -25,9 +24,7 @@ class AppLifecycleManager;
 class MarathonAppRegistry;
 
 class ContactsManager;
-class CallHistoryManager;
 class Modem;
-class SMSService;
 class MediaLibraryManager;
 class SettingsManager;
 class AmbienceService;
@@ -66,6 +63,9 @@ class IpcPermissionedService : public QObject, protected QDBusContext {
   protected:
     QString callerAppIdOrEmpty() const;
     bool    requirePermission(const QString &rateLimitKey, const QStringList &permissions);
+    // As requirePermission, for the D-Bus name `sender` rather than this call's.
+    bool    admit(const QString &sender, const QString &rateLimitKey,
+                  const QStringList &permissions);
 
     MarathonPermissionManager *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
@@ -90,6 +90,9 @@ class PermissionsObject : public IpcPermissionedService {
     QVariantMap PromptAndroid(const QString &appId, const QString &permission,
                               const QVariantMap &options);
     void        CancelAndroidPrompt(const QString &request);
+    // A session daemon's gate for a caller of its own, marathon-rt's admit:
+    // replies as requirePermission would to that caller.
+    void        Admit(const QString &sender, const QString &area, const QStringList &permissions);
 
   signals:
     void PermissionGranted(const QString &appId, const QString &permission);
@@ -130,34 +133,6 @@ class ContactsObject : public IpcPermissionedService {
     }
 
     ContactsManager *m_contacts = nullptr;
-};
-
-class CallHistoryObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.CallHistory1")
-
-  public:
-    CallHistoryObject(CallHistoryManager *callHistory, MarathonPermissionManager *permissions,
-                      AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantList GetHistory();
-    QVariantMap  GetCallById(int id);
-    QVariantList GetCallsByNumber(const QString &number);
-    void AddCall(const QString &number, const QString &type, qint64 timestamp, int duration);
-    void DeleteCall(int id);
-    void ClearHistory();
-
-  signals:
-    void HistoryChanged();
-    void CallAdded(int id);
-
-  private:
-    bool requirePhone() {
-        return requirePermission("CallHistory", {"telephony", "phone"});
-    }
-
-    CallHistoryManager *m_callHistory = nullptr;
 };
 
 class AudioRoutingManager;
@@ -202,55 +177,6 @@ class TelephonyObject : public IpcPermissionedService {
 
     Modem    *m_telephony    = nullptr;
     AudioRoutingManager *m_audioRouting = nullptr;
-};
-
-class SmsObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sms1")
-
-  public:
-    SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
-              AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantList GetConversations();
-    QVariantList GetMessages(const QString &conversationId);
-    void         SendMessage(const QString &recipient, const QString &text);
-    void         DeleteConversation(const QString &conversationId);
-    bool         DeleteMessage(int id);
-    void         MarkAsRead(const QString &conversationId);
-    QString      GenerateConversationId(const QString &number);
-
-    void         SimulateIncomingSMS(const QString &sender, const QString &message);
-
-    // MMS, docs/MMS.md: each part is a content type, a name and an fd, never a path.
-    int                     SendMms(const QStringList &recipients, const QString &text,
-                                    const QList<MmsPartArg> &parts);
-    QDBusUnixFileDescriptor OpenAttachment(int id);
-    bool                    IsMmsAvailable();
-    // Settings' MMS page only.
-    QVariantMap             GetMmsSettings();
-    void                    SetMmsSettings(const QVariantMap &values);
-
-  signals:
-    void MessageReceived(const QString &sender, const QString &text, qint64 timestamp);
-    void MessageSent(const QString &recipient, qint64 timestamp);
-    void SendFailed(const QString &recipient, const QString &reason);
-    void ConversationsChanged();
-    void MessageStatusChanged(int id, const QString &status);
-    void MmsAvailableChanged(bool available);
-    void MmsSettingsChanged(const QVariantMap &settings);
-    void MmsBearerError(uint code);
-
-  private:
-    bool requireSms() {
-        return requirePermission("Sms", {"sms", "phone"});
-    }
-    bool requireMmsSettings() {
-        return requirePermission("Sms.Settings", {"system"});
-    }
-
-    SMSService *m_sms = nullptr;
 };
 
 class MediaLibraryObject : public IpcPermissionedService {

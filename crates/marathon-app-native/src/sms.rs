@@ -86,7 +86,7 @@ pub mod qobject {
 
 use qobject::Sms;
 
-const SMS: Service = Service("Sms");
+const SMS: Service = Service::on("org.marathonos.Telephony", "Sms");
 
 #[derive(Default)]
 pub struct SmsRust {

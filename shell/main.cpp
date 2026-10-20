@@ -85,9 +85,6 @@
 #include "marathon-shell-native/src/updates.cxxqt.h"
 #include "contactsmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "callhistorymanager.h"
-#include "smsservice.h"
-#include "mmsmanager.h"
 #include "davsyncengine.h"
 #include "davcalendarstore.h"
 #include "medialibrarymanager.h"
@@ -108,6 +105,7 @@
 #include "src/controllers/audioroutingmanager.h"
 #include "src/controllers/audiopolicycontroller.h"
 #include "marathon-shell-native/src/security.cxxqt.h"
+#include "marathon-shell-native/src/telephonyd.cxxqt.h"
 #include "src/managers/screenmetrics.h"
 #include "src/managers/platformcpp.h"
 #include "src/services/navigationroutercpp.h"
@@ -1247,10 +1245,8 @@ int main(int argc, char *argv[]) {
     createObject<marathon::ActivityService>(ctx, "ActivityService")->setParent(&app);
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
-    auto *callHistoryManager = new CallHistoryManager(&app);
-    auto *smsService         = new SMSService(&app);
-    auto *mmsManager         = new MmsManager(&app);
-    smsService->setMmsManager(mmsManager);
+    auto *telephonyd         = new Telephonyd();
+    telephonyd->setParent(&app);
     auto *updateService = new marathon::Updates();
     updateService->setParent(&app);
     QObject::connect(updateService, &marathon::Updates::rebootRequested, power, &Power::restart);
@@ -1293,13 +1289,11 @@ int main(int argc, char *argv[]) {
     });
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, power,
-        display, audioPolicyController, hapticManager, modem, smsService, &app);
+        display, audioPolicyController, hapticManager, modem, telephonyd, &app);
     if (freedesktopNotif)
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
                          telephonyIntegration, &TelephonyIntegrationCpp::replyToMessageNotification);
 
-    callHistoryManager->setContactsManager(contactsManager);
-    smsService->setContactsManager(contactsManager);
 
     // Bridges system-observed activity (audio playback, active calls) into
     // AppLifecycleManager capability claims so backgrounded apps holding a
@@ -1332,7 +1326,7 @@ int main(int argc, char *argv[]) {
 
     {
         auto *ipc = new ShellIpcServer(
-            permissionManager, contactsManager, callHistoryManager, modem, smsService,
+            permissionManager, contactsManager, modem,
             mediaLibraryManager, settingsManager, bluetoothManager, display, power,
             audioManager, audioPolicyController, network, hapticManager, security,
             rotationManager, locationManager, alarmManager, audioRoutingManager, updateService,
@@ -1400,8 +1394,7 @@ int main(int argc, char *argv[]) {
             qWarning() << "[MarathonShell] Keel Actions not served (org.marathonos.shell)";
     }
 
-    QObject::connect(modem, &Modem::callEnded, callHistoryManager,
-                     &CallHistoryManager::addCall);
+    QObject::connect(modem, &Modem::callEnded, telephonyd, &Telephonyd::logCall);
     qInfo() << "[MarathonShell] Call history wired to telephony";
 
     appModel->loadFromRegistry(appRegistry);

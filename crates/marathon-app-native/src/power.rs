@@ -61,7 +61,7 @@ pub mod qobject {
 
 use qobject::Power;
 
-const POWER: Service = Service("Power");
+const POWER: Service = Service::shell("Power");
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]

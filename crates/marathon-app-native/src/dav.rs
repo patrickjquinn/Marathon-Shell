@@ -68,7 +68,7 @@ pub mod qobject {
 
 use qobject::DavSync;
 
-const DAV: Service = Service("Dav");
+const DAV: Service = Service::shell("Dav");
 
 #[derive(Default)]
 pub struct DavSyncRust {

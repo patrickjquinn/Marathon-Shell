@@ -365,35 +365,19 @@ target_link_libraries(test_core_musicartwork Qt6::Test Qt6::Core Qt6::Gui Qt6::Q
 target_include_directories(test_core_musicartwork PRIVATE ${CMAKE_SOURCE_DIR}/apps/music/src)
 add_test(NAME Core_MusicArtwork COMMAND test_core_musicartwork)
 
-# SMS storage: deleting one message from a thread
+# The runner's Sms client: MMS parts as descriptors, attachments cached
+if(DBUS_RUN_SESSION)
+    add_executable(test_core_smsclient test_smsclient.cpp)
+    target_link_libraries(test_core_smsclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
+    add_test(NAME Core_SmsClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_smsclient>)
+endif()
+
+# Calls: how each one ends up in the call log
+add_executable(test_core_telephonyservice test_telephonyservice.cpp)
+target_link_libraries(test_core_telephonyservice Qt6::Test Qt6::Core Qt6::DBus marathon_shell_native)
+add_test(NAME Core_TelephonyService COMMAND test_core_telephonyservice)
+
 if(TARGET MarathonServices)
-    add_executable(test_core_smsservice test_smsservice.cpp)
-    target_link_libraries(test_core_smsservice Qt6::Test Qt6::Core Qt6::DBus Qt6::Sql MarathonServices)
-    target_include_directories(test_core_smsservice PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
-    add_test(NAME Core_SmsService COMMAND test_core_smsservice)
-
-    # The runner's Sms client: MMS parts as descriptors, attachments cached
-    if(DBUS_RUN_SESSION)
-        add_executable(test_core_smsclient test_smsclient.cpp)
-        target_link_libraries(test_core_smsclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
-        target_include_directories(test_core_smsclient PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
-        add_test(NAME Core_SmsClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_smsclient>)
-    endif()
-
-    # MMS through mmsd-tng: a fake org.ofono.mms on a private bus
-    if(DBUS_RUN_SESSION)
-        add_executable(test_core_mms test_mms.cpp)
-        target_link_libraries(test_core_mms Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Sql MarathonServices)
-        target_include_directories(test_core_mms PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
-        add_test(NAME Core_Mms COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_mms>)
-    endif()
-
-    # Calls: how each one ends up in the call log
-    add_executable(test_core_telephonyservice test_telephonyservice.cpp)
-    target_link_libraries(test_core_telephonyservice Qt6::Test Qt6::Core Qt6::DBus marathon_shell_native)
-    target_include_directories(test_core_telephonyservice PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
-    add_test(NAME Core_TelephonyService COMMAND test_core_telephonyservice)
-
     # DAV account secrets: keyring migration, retry and removal
     add_executable(test_core_davsecrets test_davsecrets.cpp)
     target_link_libraries(test_core_davsecrets Qt6::Test Qt6::Core Qt6::DBus Qt6::Network MarathonServices)

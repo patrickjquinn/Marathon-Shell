@@ -10,25 +10,24 @@ one-to-one MMS works.
 | Piece | Where | Does |
 |---|---|---|
 | mmsd-tng | session service `org.ofono.mms` | Fetches, stores and sends MMS over the modem's MMS bearer |
-| `MmsManager` | `marathon-services/src/mmsmanager.*` | The shell's client of mmsd-tng |
-| `SMSService` | `marathon-services/src/smsservice.*` | Messages, conversations and attachments in `messages.db`; routes a send to SMS (ModemManager) or MMS (mmsd-tng) |
-| `Sms1` | `org.marathonos.Shell.Sms1` on `/org/marathonos/Shell/Sms` | The apps' API, behind the `sms` permission |
-| `SmsClient` | `tools/marathon-app-runner/ipc/shellipcclients.*` | `Sms` in an app's QML |
+| marathon-telephonyd | `crates/marathon-telephonyd` | Messages, conversations and attachments in `messages.db`; routes a send to SMS (ModemManager) or MMS (mmsd-tng, `mms.rs`) |
+| `Sms1` | `org.marathonos.Shell.Sms1` on `/org/marathonos/Shell/Sms`, bus name `org.marathonos.Telephony` | The apps' API, behind the `sms` permission, which the shell checks (`Permissions1.Admit`) |
+| `Sms` | `crates/marathon-app-native/src/sms.rs` | `SMSService` in an app's QML |
 
 ## Rules
 
 - Attachments cross the bus as file descriptors, never paths. A sandboxed
-  app opens its own files and passes the descriptors; the shell copies them
-  into its store. A path from an app is never opened by the shell.
+  app opens its own files and passes the descriptors; the daemon copies
+  them into its store. A path from an app is never opened.
 - A message that needs MMS (an attachment, or more than one recipient) is
   never sent as SMS instead. Without mmsd-tng it is stored as failed and
   `SendFailed` says why.
-- Pictures are scaled down in the shell to fit mmsd-tng's
+- Pictures are scaled down by the daemon to fit mmsd-tng's
   `TotalMaxAttachmentSize` (300 KB when mmsd-tng reports none).
 
 ## Storage
 
-`messages.db` (SMSService), migrated in place:
+`messages.db` (marathon-telephonyd), migrated in place:
 
 - `messages`: adds `status` (`sending`, `sent`, `failed`, `received`),
   `participants` (JSON array of numbers, for group threads later) and
@@ -50,7 +49,7 @@ one-to-one MMS works.
 ### MMS settings (for Settings › Mobile network › MMS)
 
 Settings reads and changes mmsd-tng's carrier settings through Sms1, not
-mmsd-tng directly, so the `sms` gate and the shell's view of MMS stay in
+mmsd-tng directly, so the `sms` gate and the daemon's view of MMS stay in
 one place. Callable only by the Settings app (system permission).
 
 | Member | |

@@ -53,19 +53,31 @@ pub type State = HashMap<String, OwnedValue>;
 
 const SHELL: &str = "org.marathonos.Shell";
 
-/// `org.marathonos.Shell.<name>1` at `/org/marathonos/Shell/<name>`.
+/// `org.marathonos.Shell.<name>1` at `/org/marathonos/Shell/<name>`, on the
+/// shell or on the daemon that serves it now.
 #[derive(Clone, Copy)]
-pub struct Service(pub &'static str);
+pub struct Service {
+    pub name: &'static str,
+    bus: &'static str,
+}
 
-pub const PERMISSIONS: Service = Service("Permissions");
+pub const PERMISSIONS: Service = Service::shell("Permissions");
 
 impl Service {
+    pub const fn shell(name: &'static str) -> Self {
+        Self { name, bus: SHELL }
+    }
+
+    pub const fn on(bus: &'static str, name: &'static str) -> Self {
+        Self { name, bus }
+    }
+
     fn path(self) -> String {
-        format!("/org/marathonos/Shell/{}", self.0)
+        format!("/org/marathonos/Shell/{}", self.name)
     }
 
     fn interface(self) -> String {
-        format!("org.marathonos.Shell.{}1", self.0)
+        format!("org.marathonos.Shell.{}1", self.name)
     }
 
     /// The reply, whatever its body.
@@ -74,7 +86,7 @@ impl Service {
         B: Serialize + DynamicType,
     {
         let bus = io::session_bus().await?;
-        bus.call_method(Some(SHELL), self.path().as_str(), Some(self.interface().as_str()), method, body).await
+        bus.call_method(Some(self.bus), self.path().as_str(), Some(self.interface().as_str()), method, body).await
     }
 
     pub async fn ask<B, R>(self, method: &str, body: &B) -> zbus::Result<R>
@@ -93,7 +105,7 @@ impl Service {
         R: DeserializeOwned + Type,
     {
         async_io::block_on(self.ask(method, body))
-            .map_err(|e| log::warn(self.0, format_args!("{method}: {e}")))
+            .map_err(|e| log::warn(self.name, format_args!("{method}: {e}")))
             .ok()
     }
 
@@ -105,7 +117,7 @@ impl Service {
     {
         io::spawn(async move {
             if let Err(e) = self.reply(method, &body).await {
-                log::warn(self.0, format_args!("{method}: {e}"));
+                log::warn(self.name, format_args!("{method}: {e}"));
             }
         });
     }
@@ -117,7 +129,7 @@ impl Service {
     {
         let rule = MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
-            .sender(SHELL)?
+            .sender(self.bus)?
             .path(self.path())?
             .interface(self.interface())?
             .member(member)?
@@ -186,7 +198,7 @@ where
             answers("PermissionGranted", permission).await,
             answers("PermissionDenied", permission).await,
         ) else {
-            return log::warn(service.0, "no session bus");
+            return log::warn(service.name, "no session bus");
         };
         let events = changes.map(Event::State).or(grants.map(|()| Event::Granted)).or(denials.map(|()| Event::Denied));
         let mut events = std::pin::pin!(events);
@@ -216,7 +228,7 @@ async fn refresh(service: Service, permission: &'static str, asked: &mut bool, q
         match read {
             Ok(state) => return queue(Update::State(state)),
             Err(e) if is_access_denied(&e) => return,
-            Err(e) if attempt == 39 => return log::warn(service.0, format_args!("GetState: {e}")),
+            Err(e) if attempt == 39 => return log::warn(service.name, format_args!("GetState: {e}")),
             Err(_) => {
                 Timer::after(Duration::from_millis(250 << (attempt / 8).min(3))).await;
             }
@@ -243,7 +255,7 @@ where
 {
     io::spawn(async move {
         let Ok(signals) = service.signals::<A>(member).await else {
-            return log::warn(service.0, format_args!("no {member}"));
+            return log::warn(service.name, format_args!("no {member}"));
         };
         let mut signals = std::pin::pin!(signals);
         while let Some(args) = signals.next().await {

@@ -77,7 +77,7 @@ pub mod qobject {
 
 use qobject::MediaLibrary;
 
-const MEDIA: Service = Service("MediaLibrary");
+const MEDIA: Service = Service::shell("MediaLibrary");
 
 #[derive(Default)]
 pub struct MediaLibraryRust {

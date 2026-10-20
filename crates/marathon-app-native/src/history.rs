@@ -61,7 +61,7 @@ pub mod qobject {
 
 use qobject::CallHistory;
 
-const HISTORY: Service = Service("CallHistory");
+const HISTORY: Service = Service::on("org.marathonos.Telephony", "CallHistory");
 
 #[derive(Default)]
 pub struct CallHistoryRust {

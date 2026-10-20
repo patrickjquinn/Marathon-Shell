@@ -14,7 +14,7 @@ apk add --no-cache \
 	qt6-qtwebchannel-dev qt6-qtmultimedia-dev qt6-qtsensors-dev qt6-qtsvg-dev \
 	qt6-qtlocation-dev qt6-qtpositioning-dev qt6-qtspeech-dev qt6-qtwebsockets-dev \
 	hunspell-dev hunspell-en-us pulseaudio-dev pipewire-dev wayland-dev wayland-protocols \
-	mesa-dev libdrm-dev dbus dbus-dev eudev-dev libinput-dev linux-pam-dev \
+	mesa-dev libdrm-dev dbus dbus-dev eudev-dev libinput-dev linux-pam-dev sqlite-dev \
 	rpm findutils coreutils
 
 # Tests that check file permissions pass trivially as root, so build and test
