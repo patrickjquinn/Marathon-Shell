@@ -30,6 +30,7 @@ pub mod ngf;
 mod notifications;
 mod pam;
 pub mod pilot;
+pub mod permissions;
 pub mod power;
 mod sandbox;
 pub mod pressure;

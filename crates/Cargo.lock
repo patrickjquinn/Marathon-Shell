@@ -1730,6 +1730,7 @@ dependencies = [
  "freedesktop_entry_parser",
  "futures-lite",
  "libc",
+ "marathon-permissions",
  "marathon-rt",
  "quick-xml",
  "serde",

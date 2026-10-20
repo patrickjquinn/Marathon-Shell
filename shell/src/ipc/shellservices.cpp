@@ -10,7 +10,7 @@
 #include "applaunchservice.h"
 #include "foregroundapp.h"
 #include "sessionstore.h"
-#include "marathonpermissionmanager.h"
+#include "marathon-shell-native/src/permissions.cxxqt.h"
 #include "settingsmanager.h"
 #include "ambienceservice.h"
 #include "wallpaperstore.h"
@@ -88,7 +88,7 @@ static constexpr int RATE_LIMIT_WINDOW_MS = 1000;
 static const char *const MARATHON_TEST_CALLER_ID = "_marathon_test_caller";
 static bool g_testBypassEnabled = qEnvironmentVariableIntValue("MARATHON_TEST_TRUSTED") != 0;
 
-static bool hasAnyPermission(MarathonPermissionManager *pm, const QString &appId,
+static bool hasAnyPermission(marathon::Permissions *pm, const QString &appId,
                              const QStringList &perms) {
     if (g_testBypassEnabled && appId == QLatin1String(MARATHON_TEST_CALLER_ID))
         return true;
@@ -216,7 +216,7 @@ QString appIdForCallerPid(qint64 pid, AppLaunchService *als) {
     return appId;
 }
 
-IpcPermissionedService::IpcPermissionedService(MarathonPermissionManager *permissions,
+IpcPermissionedService::IpcPermissionedService(marathon::Permissions *permissions,
                                                AppLaunchService *launchService, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
@@ -262,7 +262,7 @@ bool IpcPermissionedService::admit(const QString &sender, const QString &rateLim
     return true;
 }
 
-SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionManager *permissions,
+SettingsObject::SettingsObject(SettingsManager *settings, marathon::Permissions *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_settings(settings) {
@@ -637,7 +637,7 @@ void SettingsObject::SetSystemTime(qlonglong msecsSinceEpoch) {
     m_settings->setSystemTime(msecsSinceEpoch);
 }
 
-SecurityObject::SecurityObject(Security *security, MarathonPermissionManager *permissions,
+SecurityObject::SecurityObject(Security *security, marathon::Permissions *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_security(security)
@@ -759,7 +759,7 @@ void SecurityObject::EraseAllContent(const QString &secret) {
     m_factoryReset->erase(secret);
 }
 
-BluetoothObject::BluetoothObject(Bluetooth *bt, MarathonPermissionManager *permissions,
+BluetoothObject::BluetoothObject(Bluetooth *bt, marathon::Permissions *permissions,
                                  AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_bt(bt) {
@@ -862,7 +862,7 @@ void BluetoothObject::CancelPairing(const QString &address) {
 }
 
 DisplayObject::DisplayObject(marathon::Display *display, RotationManager *rotation,
-                             Flashlight *flashlight, MarathonPermissionManager *permissions,
+                             Flashlight *flashlight, marathon::Permissions *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_display(display)
@@ -959,7 +959,7 @@ void DisplayObject::Wake() {
 }
 
 PowerObject::PowerObject(Power *power, marathon::Display *display,
-                         MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                         marathon::Permissions *permissions, AppLaunchService *launchService,
                          QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_power(power)
@@ -1068,7 +1068,7 @@ bool PowerObject::ScheduleWake(qint64 epochSecs, const QString &reason) {
 }
 
 AudioObject::AudioObject(marathon::Audio *audio, AudioPolicyController *policy,
-                         MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                         marathon::Permissions *permissions, AppLaunchService *launchService,
                          QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_audio(audio)
@@ -1207,7 +1207,7 @@ void AudioObject::VibratePattern(const QVariantList &pattern) {
         m_policy->vibratePattern(pattern);
 }
 
-NetworkObject::NetworkObject(Network *network, MarathonPermissionManager *permissions,
+NetworkObject::NetworkObject(Network *network, marathon::Permissions *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_network(network) {
@@ -1309,7 +1309,7 @@ void NetworkObject::ForgetNetwork(const QString &ssid) {
     m_network->forgetNetwork(ssid);
 }
 
-ModemObject::ModemObject(Modem *modem, MarathonPermissionManager *permissions,
+ModemObject::ModemObject(Modem *modem, marathon::Permissions *permissions,
                          AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_modem(modem) {
@@ -1400,17 +1400,24 @@ bool NetworkObject::IsHotspotActive() const {
     return m_network->isHotspotActive();
 }
 
-PermissionsObject::PermissionsObject(MarathonPermissionManager *permissions,
+PermissionsObject::PermissionsObject(marathon::Permissions *permissions,
                                      AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent) {
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
-    QObject::connect(m_permissions, &MarathonPermissionManager::permissionGranted, this,
+    QObject::connect(m_permissions, &marathon::Permissions::permissionGranted, this,
                      &PermissionsObject::PermissionGranted);
-    QObject::connect(m_permissions, &MarathonPermissionManager::permissionDenied, this,
+    QObject::connect(m_permissions, &marathon::Permissions::permissionDenied, this,
                      &PermissionsObject::PermissionDenied);
-    QObject::connect(m_permissions, &MarathonPermissionManager::permissionRequested, this,
-                     &PermissionsObject::PermissionRequested);
+    QObject::connect(m_permissions, &marathon::Permissions::foreignAnswered, this,
+                     [this](const QString &key, const QString &answer, bool precise) {
+                         const Waiting waiting = m_waiting.take(key);
+                         if (waiting.watcher)
+                             waiting.watcher->deleteLater();
+                         QDBusConnection(waiting.bus).send(waiting.call.createReply(QVariant(
+                             QVariantMap{{QStringLiteral("answer"), answer},
+                                         {QStringLiteral("precise"), precise}})));
+                     });
 }
 
 // MARATHON_TEST_TRUSTED ($MARATHON_TEST_CALLER_ID) is admitted as the synthetic
@@ -1485,27 +1492,14 @@ QVariantMap PermissionsObject::PromptAndroid(const QString &appId, const QString
         sendErrorReply(QDBusError::LimitsExceeded, "Too many prompts");
         return {};
     }
-    m_waiting.insert(key);
     setDelayedReply(true);
-    const QDBusMessage call = message();
-    QDBusConnection    bus  = connection();
     // A prompter that leaves the bus takes its prompts with it.
-    auto *gone = new QDBusServiceWatcher(call.service(), bus,
+    auto *gone = new QDBusServiceWatcher(message().service(), connection(),
                                          QDBusServiceWatcher::WatchForUnregistration, this);
     connect(gone, &QDBusServiceWatcher::serviceUnregistered, this,
             [this, key] { m_permissions->cancelForeign(key); });
-    QPointer<PermissionsObject>   self(this);
-    QPointer<QDBusServiceWatcher> watcher(gone);
-    m_permissions->askForeign(
-        key, appId, permission, cleaned,
-        [self, watcher, key, call, bus](const QString &answer, bool precise) mutable {
-            if (self)
-                self->m_waiting.remove(key);
-            if (watcher)
-                watcher->deleteLater();
-            bus.send(call.createReply(QVariant(QVariantMap{{QStringLiteral("answer"), answer},
-                                                           {QStringLiteral("precise"), precise}})));
-        });
+    m_waiting.insert(key, {message(), connection().name(), gone});
+    m_permissions->askForeign(key, appId, permission, cleaned);
     return {};
 }
 
@@ -1528,7 +1522,7 @@ void PermissionsObject::CancelAndroidPrompt(const QString &request) {
 }
 
 TelephonyObject::TelephonyObject(Modem          *telephony,
-                                 MarathonPermissionManager *permissions,
+                                 marathon::Permissions *permissions,
                                  AppLaunchService *launchService, AudioRoutingManager *audioRouting,
                                  QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
@@ -1854,7 +1848,7 @@ void HapticObject::Stop() {
         m_haptic->cancelVibration();
 }
 
-SensorObject::SensorObject(marathon::Display *sensors, MarathonPermissionManager *permissions,
+SensorObject::SensorObject(marathon::Display *sensors, marathon::Permissions *permissions,
                            AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_sensors(sensors) {
@@ -1877,7 +1871,7 @@ int SensorObject::AmbientLight() {
     return requireSensors() ? m_sensors->getAmbientLight() : 0;
 }
 
-LocationObject::LocationObject(Location *location, MarathonPermissionManager *permissions,
+LocationObject::LocationObject(Location *location, marathon::Permissions *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_location(location) {
@@ -1917,7 +1911,7 @@ QVariantMap LocationObject::GetLocation() {
     return requireLocation() ? location() : QVariantMap();
 }
 
-AlarmObject::AlarmObject(Alarms *alarms, MarathonPermissionManager *permissions,
+AlarmObject::AlarmObject(Alarms *alarms, marathon::Permissions *permissions,
                          AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_alarms(alarms) {
@@ -1979,7 +1973,7 @@ void AlarmObject::TriggerAlarmNow(const QString &label) {
 
 // === UpdatesObject =========================================================
 
-UpdatesObject::UpdatesObject(marathon::Updates *updates, MarathonPermissionManager *permissions,
+UpdatesObject::UpdatesObject(marathon::Updates *updates, marathon::Permissions *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_updates(updates) {
@@ -2035,7 +2029,7 @@ void UpdatesObject::SetAutoUpdate(bool on) {
 // downloads.
 
 AppStoreObject::AppStoreObject(MarathonAppInstaller *installer,
-                               MarathonPermissionManager *permissions,
+                               marathon::Permissions *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_installer(installer) {

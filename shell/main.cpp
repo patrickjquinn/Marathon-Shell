@@ -81,7 +81,7 @@
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
 #include "marathonappinstaller.h"
-#include "src/marathonpermissionmanager.h"
+#include "marathon-shell-native/src/permissions.cxxqt.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "src/wayland/waylandcompositormanager.h"
@@ -1218,11 +1218,20 @@ int main(int argc, char *argv[]) {
         qDebug() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
     }
 
-    auto *permissionManager = new MarathonPermissionManager(&app);
-    permissionManager->setAppRegistry(appRegistry);
-    qmlRegisterSingletonInstance<MarathonPermissionManager>("MarathonOS.Shell", 1, 0,
-                                                            "PermissionManager", permissionManager);
-    qInfo() << "[MarathonShell] Permission Manager initialized";
+    auto *permissionManager = new marathon::Permissions();
+    permissionManager->setParent(&app);
+    qmlRegisterSingletonInstance<marathon::Permissions>("MarathonOS.Shell", 1, 0,
+                                                        "PermissionManager", permissionManager);
+    // What each app declared, from its manifest or install receipt.
+    const auto learnApp = [appRegistry, permissionManager](const QString &appId) {
+        if (const MarathonAppRegistry::AppInfo *info = appRegistry->getAppInfo(appId))
+            permissionManager->setApp(appId, info->permissions, info->isProtected);
+    };
+    for (const QString &appId : appRegistry->getAllAppIds())
+        learnApp(appId);
+    QObject::connect(appRegistry, &MarathonAppRegistry::appRegistered, permissionManager, learnApp);
+    QObject::connect(appRegistry, &MarathonAppRegistry::appUnregistered, permissionManager,
+                     &marathon::Permissions::removeApp);
 
     // Before the first scan, which no longer looks in the old location.
     const QStringList migrated = appInstaller->migrateLegacyInstalls();
@@ -1230,7 +1239,7 @@ int main(int argc, char *argv[]) {
         permissionManager->forgetApp(appId);
 
     QObject::connect(appInstaller, &MarathonAppInstaller::uninstallComplete, permissionManager,
-                     &MarathonPermissionManager::forgetApp);
+                     &marathon::Permissions::forgetApp);
     QObject::connect(appInstaller, &MarathonAppInstaller::appDataRemoved, settingsManager,
                      [settingsManager](const QString &appId) {
                          settingsManager->removeAppKeys(appId);
@@ -1251,9 +1260,9 @@ int main(int argc, char *argv[]) {
         Qt::QueuedConnection);
 
     QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
-                     &MarathonPermissionManager::dismissForApp);
+                     &marathon::Permissions::dismissForApp);
     QObject::connect(appLaunchService, &AppLaunchService::appLaunchCompleted, permissionManager,
-                     &MarathonPermissionManager::requestDeclaredPermissions);
+                     &marathon::Permissions::requestDeclaredPermissions);
 
 
 

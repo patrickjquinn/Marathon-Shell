@@ -8,7 +8,10 @@
 // clazy sees "const getter marked as a slot" and reports 38 findings here,
 // all of which are the intended design rather than a mistake.
 
+#include <QDBusMessage>
+#include <QDBusServiceWatcher>
 #include <QHash>
+#include <QPointer>
 #include <QSet>
 #include <QObject>
 #include <QDBusContext>
@@ -18,7 +21,9 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-class MarathonPermissionManager;
+namespace marathon {
+    class Permissions;
+}
 class AppLaunchService;
 class AppLifecycleManager;
 class MarathonAppRegistry;
@@ -55,7 +60,7 @@ class IpcPermissionedService : public QObject, protected QDBusContext {
     Q_OBJECT
 
   public:
-    IpcPermissionedService(MarathonPermissionManager *permissions, AppLaunchService *launchService,
+    IpcPermissionedService(marathon::Permissions *permissions, AppLaunchService *launchService,
                            QObject *parent = nullptr);
 
   protected:
@@ -65,7 +70,7 @@ class IpcPermissionedService : public QObject, protected QDBusContext {
     bool    admit(const QString &sender, const QString &rateLimitKey,
                   const QStringList &permissions);
 
-    MarathonPermissionManager *m_permissions   = nullptr;
+    marathon::Permissions *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
 };
 
@@ -74,7 +79,7 @@ class PermissionsObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Permissions1")
 
   public:
-    PermissionsObject(MarathonPermissionManager *permissions, AppLaunchService *launchService,
+    PermissionsObject(marathon::Permissions *permissions, AppLaunchService *launchService,
                       QObject *parent = nullptr);
 
   public slots:
@@ -95,11 +100,15 @@ class PermissionsObject : public IpcPermissionedService {
   signals:
     void PermissionGranted(const QString &appId, const QString &permission);
     void PermissionDenied(const QString &appId, const QString &permission);
-    void PermissionRequested(const QString &appId, const QString &permission);
 
   private:
     QString       requireForeignPrompter();
-    QSet<QString> m_waiting;
+    struct Waiting {
+        QDBusMessage                  call;
+        QString                       bus;
+        QPointer<QDBusServiceWatcher> watcher;
+    };
+    QHash<QString, Waiting> m_waiting;
 };
 
 class AudioRoutingManager;
@@ -109,7 +118,7 @@ class TelephonyObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Telephony1")
 
   public:
-    TelephonyObject(Modem *telephony, MarathonPermissionManager *permissions,
+    TelephonyObject(Modem *telephony, marathon::Permissions *permissions,
                     AppLaunchService *launchService, AudioRoutingManager *audioRouting,
                     QObject *parent = nullptr);
 
@@ -151,7 +160,7 @@ class SettingsObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Settings1")
 
   public:
-    SettingsObject(SettingsManager *settings, MarathonPermissionManager *permissions,
+    SettingsObject(SettingsManager *settings, marathon::Permissions *permissions,
                    AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -192,7 +201,7 @@ class SecurityObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Security1")
 
   public:
-    SecurityObject(Security *security, MarathonPermissionManager *permissions,
+    SecurityObject(Security *security, marathon::Permissions *permissions,
                    AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -232,7 +241,7 @@ class BluetoothObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Bluetooth1")
 
   public:
-    BluetoothObject(Bluetooth *bt, MarathonPermissionManager *permissions,
+    BluetoothObject(Bluetooth *bt, marathon::Permissions *permissions,
                     AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -275,7 +284,7 @@ class DisplayObject : public IpcPermissionedService {
 
   public:
     DisplayObject(marathon::Display *display, RotationManager *rotation, Flashlight *flashlight,
-                  MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                  marathon::Permissions *permissions, AppLaunchService *launchService,
                   QObject *parent = nullptr);
 
   public slots:
@@ -312,7 +321,7 @@ class PowerObject : public IpcPermissionedService {
 
   public:
     PowerObject(Power *power, marathon::Display *display,
-                MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                marathon::Permissions *permissions, AppLaunchService *launchService,
                 QObject *parent = nullptr);
 
   public slots:
@@ -349,7 +358,7 @@ class AudioObject : public IpcPermissionedService {
 
   public:
     AudioObject(marathon::Audio *audio, AudioPolicyController *policy,
-                MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                marathon::Permissions *permissions, AppLaunchService *launchService,
                 QObject *parent = nullptr);
 
   public slots:
@@ -389,7 +398,7 @@ class NetworkObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Network1")
 
   public:
-    NetworkObject(Network *network, MarathonPermissionManager *permissions,
+    NetworkObject(Network *network, marathon::Permissions *permissions,
                   AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -431,7 +440,7 @@ class ModemObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Modem1")
 
   public:
-    ModemObject(Modem *modem, MarathonPermissionManager *permissions,
+    ModemObject(Modem *modem, marathon::Permissions *permissions,
                 AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -529,7 +538,7 @@ class SensorObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sensor1")
 
   public:
-    SensorObject(marathon::Display *sensors, MarathonPermissionManager *permissions,
+    SensorObject(marathon::Display *sensors, marathon::Permissions *permissions,
                  AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -553,7 +562,7 @@ class LocationObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Location1")
 
   public:
-    LocationObject(Location *location, MarathonPermissionManager *permissions,
+    LocationObject(Location *location, marathon::Permissions *permissions,
                    AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -580,7 +589,7 @@ class AlarmObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Alarm1")
 
   public:
-    AlarmObject(Alarms *alarms, MarathonPermissionManager *permissions,
+    AlarmObject(Alarms *alarms, marathon::Permissions *permissions,
                 AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -621,7 +630,7 @@ class UpdatesObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Updates1")
 
   public:
-    UpdatesObject(marathon::Updates *updates, MarathonPermissionManager *permissions,
+    UpdatesObject(marathon::Updates *updates, marathon::Permissions *permissions,
                   AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -654,7 +663,7 @@ class AppStoreObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.AppStore1")
 
   public:
-    AppStoreObject(MarathonAppInstaller *installer, MarathonPermissionManager *permissions,
+    AppStoreObject(MarathonAppInstaller *installer, marathon::Permissions *permissions,
                    AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:

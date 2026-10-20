@@ -59,10 +59,6 @@ set(SOURCES
     src/services/notificationtarget.cpp
     src/dbus/notificationdatabase.h
     src/dbus/notificationdatabase.cpp
-    src/marathonpermissionmanager.h
-    src/marathonpermissionmanager.cpp
-    src/components/portalmanager.h
-    src/components/portalmanager.cpp
     src/services/factoryreset.h
     src/services/factoryreset.cpp
     src/services/inputboost.h
@@ -486,9 +482,7 @@ qt6_add_qml_module(marathon-shell
         src/services/inputcontext.h
         src/managers/settingsmanager.cpp
         src/managers/settingsmanager.h
-        src/marathonpermissionmanager.cpp
-        src/marathonpermissionmanager.h
-        src/models/notificationmodel.cpp
+                src/models/notificationmodel.cpp
         src/models/notificationmodel.h
         src/models/filechoosermodel.cpp
         src/models/filechoosermodel.h

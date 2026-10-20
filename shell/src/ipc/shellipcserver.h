@@ -4,7 +4,9 @@
 
 class QDBusConnection;
 
-class MarathonPermissionManager;
+namespace marathon {
+    class Permissions;
+}
 class Modem;
 class AppLaunchService;
 class SettingsManager;
@@ -38,7 +40,7 @@ class ShellIpcServer : public QObject {
     Q_OBJECT
 
   public:
-    explicit ShellIpcServer(MarathonPermissionManager *permissions,
+    explicit ShellIpcServer(marathon::Permissions *permissions,
                             Modem *telephony,
                             SettingsManager *settingsManager, Bluetooth *bluetoothManager,
                             marathon::Display *display, Power *powerManager,
@@ -75,7 +77,7 @@ class ShellIpcServer : public QObject {
     bool registerOnSessionBus();
 
   private:
-    MarathonPermissionManager *m_permissions         = nullptr;
+    marathon::Permissions *m_permissions         = nullptr;
     Modem          *m_telephony           = nullptr;
     SettingsManager           *m_settingsManager     = nullptr;
     AmbienceService           *m_ambience            = nullptr;

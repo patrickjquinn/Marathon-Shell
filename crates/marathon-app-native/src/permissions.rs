@@ -27,9 +27,6 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "permissionDenied"]
         fn permission_denied(self: Pin<&mut Self>, app_id: &QString, permission: &QString);
-        #[qsignal]
-        #[cxx_name = "permissionRequested"]
-        fn permission_requested(self: Pin<&mut Self>, app_id: &QString, permission: &QString);
 
         #[qinvokable]
         #[cxx_name = "hasPermission"]
@@ -67,13 +64,9 @@ impl cxx_qt::Initialize for Permissions {
             let (app, permission) = qt_pair(&p);
             obj.permission_granted(&app, &permission);
         });
-        relay(qt.clone(), PERMISSIONS, "PermissionDenied", |obj, p: Pair| {
+        relay(qt, PERMISSIONS, "PermissionDenied", |obj, p: Pair| {
             let (app, permission) = qt_pair(&p);
             obj.permission_denied(&app, &permission);
-        });
-        relay(qt, PERMISSIONS, "PermissionRequested", |obj, p: Pair| {
-            let (app, permission) = qt_pair(&p);
-            obj.permission_requested(&app, &permission);
         });
     }
 }

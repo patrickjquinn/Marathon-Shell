@@ -20,6 +20,7 @@ fn main() {
         .file("src/network.rs")
         .file("src/ngf.rs")
         .file("src/pilot.rs")
+        .file("src/permissions.rs")
         .file("src/power.rs")
         .file("src/pressure.rs")
         .file("src/push.rs")

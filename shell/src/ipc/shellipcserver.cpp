@@ -2,7 +2,7 @@
 
 #include "shellservices.h"
 
-#include "marathonpermissionmanager.h"
+#include "marathon-shell-native/src/permissions.cxxqt.h"
 
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "settingsmanager.h"
@@ -19,7 +19,7 @@
 #include <QDBusError>
 #include <QDebug>
 
-ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions,
+ShellIpcServer::ShellIpcServer(marathon::Permissions *permissions,
                                Modem *telephony,
                                SettingsManager *settingsManager, Bluetooth *bluetoothManager,
                                marathon::Display *display, Power *powerManager,

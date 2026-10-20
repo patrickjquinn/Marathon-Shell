@@ -51,22 +51,6 @@ target_include_directories(test_core_manifest PRIVATE
 )
 add_test(NAME Core_Manifest COMMAND test_core_manifest)
 
-# PermissionManager tests (grant/deny/revoke logic)
-add_executable(test_core_permissionmanager
-    test_permissionmanager.cpp
-    ../../shell/src/marathonpermissionmanager.cpp
-    ../../shell/src/components/portalmanager.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_core_permissionmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
-target_include_directories(test_core_permissionmanager PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/components
-)
-add_test(NAME Core_PermissionManager COMMAND test_core_permissionmanager)
-
 # Every device and personal-data D-Bus method checks a permission
 add_executable(test_core_ipcgates test_ipcgates.cpp)
 target_link_libraries(test_core_ipcgates Qt6::Test Qt6::Core)
