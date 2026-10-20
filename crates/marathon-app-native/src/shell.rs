@@ -23,6 +23,8 @@ mod ffi {
     extern "Rust" {
         /// The app this runner hosts, which the shell's permissions name.
         fn set_app_id(id: &str);
+        /// Where the app's cached files go (`QStandardPaths::CacheLocation`).
+        fn set_cache_dir(dir: &str);
     }
 }
 
@@ -34,6 +36,16 @@ fn set_app_id(id: &str) {
 
 pub fn app_id() -> &'static str {
     APP_ID.get().map_or("", String::as_str)
+}
+
+static CACHE_DIR: OnceLock<String> = OnceLock::new();
+
+fn set_cache_dir(dir: &str) {
+    CACHE_DIR.set(dir.to_owned()).ok();
+}
+
+pub fn cache_dir() -> &'static str {
+    CACHE_DIR.get().map_or("", String::as_str)
 }
 
 /// A service's `GetState` and `StateChanged` map.

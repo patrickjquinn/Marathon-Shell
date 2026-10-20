@@ -9,6 +9,7 @@
 #include "calendarmanagercpp.h"
 #include "ipc/shellipcclients.h"
 #include "marathon-app-native/src/alarms.cxxqt.h"
+#include "marathon-app-native/src/audio.cxxqt.h"
 #include "marathon-app-native/src/contacts.cxxqt.h"
 #include "marathon-app-native/src/display.cxxqt.h"
 #include "marathon-app-native/src/location.cxxqt.h"
@@ -18,6 +19,7 @@
 #include "marathon-app-native/src/power.cxxqt.h"
 #include "marathon-app-native/src/sensors.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
+#include "marathon-app-native/src/sms.cxxqt.h"
 #include "marathon-app-native/src/telephony.cxxqt.h"
 #include "marathonappregistry.h"
 #include "wallpaperclient.h"
@@ -67,7 +69,7 @@ struct PlatformTelephony {
 
 struct PlatformSms {
     Q_GADGET
-    QML_FOREIGN(SmsClient)
+    QML_FOREIGN(marathon::platform::Sms)
     QML_NAMED_ELEMENT(Sms)
     QML_SINGLETON
 };
@@ -165,7 +167,7 @@ struct PlatformPower {
 
 struct PlatformAudio {
     Q_GADGET
-    QML_FOREIGN(AudioClient)
+    QML_FOREIGN(Audio)
     QML_NAMED_ELEMENT(Audio)
     QML_SINGLETON
 };
@@ -219,8 +221,8 @@ struct PlatformAppInstaller {
     QML_SINGLETON
 };
 
-struct PlatformRemoteAudioStreamModel {
+struct PlatformAudioStreams {
     Q_GADGET
-    QML_FOREIGN(RemoteAudioStreamModel)
+    QML_FOREIGN(AudioStreams)
     QML_ANONYMOUS
 };

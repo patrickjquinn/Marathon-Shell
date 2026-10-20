@@ -11,6 +11,7 @@
 #include <QTest>
 
 #include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/audio.cxxqt.h"
 #include "marathon-app-native/src/display.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
 #include "marathon-app-native/src/network.cxxqt.h"
@@ -152,7 +153,7 @@ namespace {
             {"Bluetooth", &BluetoothClient::staticMetaObject},
             {"Network", &marathon::platform::Network::staticMetaObject},
             {"Power", &marathon::platform::Power::staticMetaObject},
-            {"Audio", &AudioClient::staticMetaObject},
+            {"Audio", &Audio::staticMetaObject},
             {"Security", &SecurityClient::staticMetaObject},
             {"Modem", &marathon::platform::Modem::staticMetaObject},
             {"Permissions", &marathon::platform::Permissions::staticMetaObject},
@@ -230,8 +231,7 @@ class TestSettingsContract : public QObject {
     // snapshot, and the profile pushed again when it changes.
     void audioStateCarriesWhatAppsRead() {
         const QSet<QString> keys =
-            matches(read("tools/marathon-app-runner/ipc/shellipcclients.cpp"),
-                    R"re(AudioClient::\w+\(\) const \{\s*return v\("(\w+)"\))re");
+            matches(read("crates/marathon-app-native/src/audio.rs"), R"re(get\(&s, "(\w+)"\))re");
         QVERIFY(keys.contains(QStringLiteral("audioProfile")));
         const QString   service = read("shell/src/ipc/shellservices.cpp");
         const qsizetype begin   = service.indexOf(QLatin1String("AudioObject::AudioObject("));

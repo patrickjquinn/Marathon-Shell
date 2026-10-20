@@ -80,7 +80,7 @@ install(TARGETS marathon-app-runner
 # Marathon.Platform described for qmllint; only its qmltypes is ever built.
 # The Rust clients' QObjects are described from their generated headers.
 set(_app_native_headers)
-foreach(_client alarms contacts display location modem network permissions power sensors settings telephony)
+foreach(_client alarms audio contacts display location modem network permissions power sensors settings sms telephony)
     list(APPEND _app_native_headers
         "${CMAKE_BINARY_DIR}/crates/cxxqt-export/crates/marathon-app-native/include/marathon-app-native/src/${_client}.cxxqt.h")
 endforeach()

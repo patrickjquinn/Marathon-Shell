@@ -1,11 +1,11 @@
 #include "shellipcclients.h"
+#include "marathon-app-native/src/audio.cxxqt.h"
 #include "marathon-app-native/src/display.cxxqt.h"
 #include "marathon-app-native/src/network.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
 #include "marathon-app-native/src/power.cxxqt.h"
 #include "dbusnormalize.h"
 #include "marathonmanifest.h"
-#include "mmspartarg.h"
 
 #include <ctime>
 
@@ -129,135 +129,6 @@ QVariantList CallHistoryClient::getCallsByNumber(const QString &number) {
         return {};
     }
     return normalizeListDeep(r.value());
-}
-
-SmsClient::SmsClient(const QString &appId, QObject *parent)
-    : QObject(parent)
-    , m_appId(appId)
-    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Sms", "org.marathonos.Shell.Sms1",
-              QDBusConnection::sessionBus())
-    , m_permIface(makePermissionsIface(this)) {
-    if (!m_iface.isValid()) {
-        qWarning() << "[SmsClient] DBus interface invalid:" << m_iface.lastError().message();
-        return;
-    }
-    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
-                                          "org.marathonos.Shell.Sms1", "MessageReceived", this,
-                                          SIGNAL(messageReceived(QString, QString, qint64)));
-    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
-                                          "org.marathonos.Shell.Sms1", "MessageSent", this,
-                                          SIGNAL(messageSent(QString, qint64)));
-    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
-                                          "org.marathonos.Shell.Sms1", "SendFailed", this,
-                                          SIGNAL(sendFailed(QString, QString)));
-    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
-                                          "org.marathonos.Shell.Sms1", "ConversationsChanged", this,
-                                          SLOT(refresh()));
-    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
-                                          "org.marathonos.Shell.Sms1", "MessageStatusChanged", this,
-                                          SIGNAL(messageStatusChanged(int, QString)));
-    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sms",
-                                          "org.marathonos.Shell.Sms1", "MmsAvailableChanged", this,
-                                          SLOT(setMmsAvailable(bool)));
-    qDBusRegisterMetaType<MmsPartArg>();
-    qDBusRegisterMetaType<QList<MmsPartArg>>();
-    connectPermissionGranted(this);
-    refresh();
-}
-
-void SmsClient::setMmsAvailable(bool available) {
-    if (available == m_mmsAvailable)
-        return;
-    m_mmsAvailable = available;
-    emit mmsAvailableChanged();
-}
-
-int SmsClient::sendMms(const QStringList &recipients, const QString &text,
-                       const QVariantList &attachments) {
-    if (!ensurePermission())
-        return -1;
-    QList<MmsPartArg>     parts;
-    std::vector<QFile *>  open;
-    const auto            closeAll = [&open]() {
-        for (QFile *f : open)
-            delete f;
-    };
-    for (const QVariant &value : attachments) {
-        const QVariantMap attachment = value.toMap();
-        const QString     path       = attachment.value(QStringLiteral("filePath")).toString();
-        auto             *file       = new QFile(path);
-        open.push_back(file);
-        if (!file->open(QIODevice::ReadOnly)) {
-            qWarning() << "[SmsClient] cannot open attachment" << path;
-            closeAll();
-            return -1;
-        }
-        const QString name = attachment.value(QStringLiteral("name")).toString();
-        parts << MmsPartArg{attachment.value(QStringLiteral("contentType")).toString(),
-                            name.isEmpty() ? QFileInfo(path).fileName() : name,
-                            QDBusUnixFileDescriptor(file->handle())};
-    }
-    QDBusReply<int> reply = m_iface.call(QStringLiteral("SendMms"), recipients, text,
-                                         QVariant::fromValue(parts));
-    closeAll();
-    if (!reply.isValid()) {
-        qWarning() << "[SmsClient] SendMms failed:" << reply.error().message();
-        return -1;
-    }
-    return reply.value();
-}
-
-QString SmsClient::openAttachment(int id, const QString &name) {
-    if (!ensurePermission())
-        return {};
-    QString file = QFileInfo(name).fileName();
-    if (file.isEmpty() || file == QLatin1String("..") || file == QLatin1String("."))
-        file = QStringLiteral("attachment");
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
-        QStringLiteral("/mms/%1").arg(id);
-    QString path = dir + QLatin1Char('/') + file;
-    if (QFileInfo::exists(path))
-        return path;
-    QDBusReply<QDBusUnixFileDescriptor> reply = m_iface.call(QStringLiteral("OpenAttachment"), id);
-    QFile                               source;
-    if (!reply.isValid() || !reply.value().isValid() ||
-        !source.open(::dup(reply.value().fileDescriptor()), QIODevice::ReadOnly,
-                     QFileDevice::AutoCloseHandle) ||
-        !QDir().mkpath(dir))
-        return {};
-    QFile target(path);
-    if (!target.open(QIODevice::WriteOnly) || target.write(source.readAll()) < 0) {
-        target.remove();
-        return {};
-    }
-    return path;
-}
-
-void SmsClient::onPermissionGranted(const QString &appId, const QString &permission) {
-    if (appId == m_appId && (permission == "sms" || permission == "phone"))
-        refresh();
-}
-
-bool SmsClient::ensurePermission() {
-    if (m_appId.isEmpty())
-        return false;
-    QDBusReply<bool> rSms = m_permIface.call("HasPermission", m_appId, "sms");
-    if (rSms.isValid() && rSms.value()) {
-        m_permissionRequested = false;
-        return true;
-    }
-    QDBusReply<bool> rPhone = m_permIface.call("HasPermission", m_appId, "phone");
-    if (rPhone.isValid() && rPhone.value()) {
-        m_permissionRequested = false;
-        return true;
-    }
-    if (!rSms.isValid() && !rPhone.isValid())
-        return false;
-    if (!m_permissionRequested) {
-        m_permissionRequested = true;
-        m_permIface.call("RequestPermission", m_appId, "sms");
-    }
-    return false;
 }
 
 MediaLibraryClient::MediaLibraryClient(const QString &appId, QObject *parent)
@@ -821,312 +692,6 @@ void BluetoothClient::cancelPairing(const QString &address) {
 }
 
 
-RemoteAudioStreamModel::RemoteAudioStreamModel(QObject *parent)
-    : QAbstractListModel(parent) {}
-
-int RemoteAudioStreamModel::rowCount(const QModelIndex &parent) const {
-    if (parent.isValid())
-        return 0;
-    return m_streams.size();
-}
-
-QVariant RemoteAudioStreamModel::data(const QModelIndex &index, int role) const {
-    if (!index.isValid() || index.row() < 0 || index.row() >= m_streams.size())
-        return {};
-
-    const QVariantMap s = m_streams.at(index.row()).toMap();
-    switch (role) {
-        case IdRole: return s.value("streamId");
-        case NameRole: return s.value("name");
-        case AppNameRole: return s.value("appName");
-        case VolumeRole: return s.value("volume");
-        case MutedRole: return s.value("muted");
-        case MediaClassRole: return s.value("mediaClass");
-        default: return {};
-    }
-}
-
-QHash<int, QByteArray> RemoteAudioStreamModel::roleNames() const {
-    QHash<int, QByteArray> roles;
-    roles[IdRole]         = "streamId";
-    roles[NameRole]       = "name";
-    roles[AppNameRole]    = "appName";
-    roles[VolumeRole]     = "volume";
-    roles[MutedRole]      = "muted";
-    roles[MediaClassRole] = "mediaClass";
-    return roles;
-}
-
-void RemoteAudioStreamModel::setStreams(const QVariantList &streams) {
-    beginResetModel();
-    m_streams = streams;
-    endResetModel();
-}
-
-AudioClient::AudioClient(const QString &appId, QObject *parent)
-    : QObject(parent)
-    , m_appId(appId)
-    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Audio", "org.marathonos.Shell.Audio1",
-              QDBusConnection::sessionBus())
-    , m_permIface(makePermissionsIface(this))
-    , m_streamModel(new RemoteAudioStreamModel(this)) {
-    if (!m_iface.isValid())
-        qWarning() << "[AudioClient] DBus interface invalid:" << m_iface.lastError().message();
-
-    m_startTimer.start();
-
-    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Audio",
-                                          "org.marathonos.Shell.Audio1", "StateChanged", this,
-                                          SLOT(onStateChanged(QVariantMap)));
-    refresh();
-}
-
-bool AudioClient::ensureSystemPermission() {
-    if (m_appId.isEmpty())
-        return false;
-    QDBusReply<bool> r = m_permIface.call("HasPermission", m_appId, "system");
-    if (!r.isValid())
-        return false;
-    if (r.value()) {
-        m_permissionRequested = false;
-        return true;
-    }
-    if (!m_permissionRequested) {
-        m_permissionRequested = true;
-        m_permIface.call("RequestPermission", m_appId, "system");
-    }
-    QTimer::singleShot(750, this, &AudioClient::refresh);
-    return false;
-}
-
-void AudioClient::refresh() {
-    if (m_refreshInFlight)
-        return;
-    m_refreshInFlight = true;
-    m_iface.setTimeout(2000);
-
-    if (!ensureSystemPermission()) {
-        m_refreshInFlight = false;
-        return;
-    }
-
-    auto  async = m_iface.asyncCall("GetState");
-    auto *w     = new QDBusPendingCallWatcher(async, this);
-    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() {
-        m_refreshInFlight                = false;
-        QDBusPendingReply<QVariantMap> r = *w;
-        w->deleteLater();
-        if (!r.isValid()) {
-            if (!m_loggedFirstFailure && debugEnabled()) {
-                m_loggedFirstFailure = true;
-                qWarning() << "[AudioClient] Initial GetState failed:" << r.error().name()
-                           << r.error().message();
-            }
-            if (m_refreshRetryCount < 40) {
-                const int backoffMs = qMin(2000, 250 * (1 << qMin(m_refreshRetryCount / 8, 3)));
-                ++m_refreshRetryCount;
-                QTimer::singleShot(backoffMs, this, &AudioClient::refresh);
-            } else if (!isAccessDenied(r.error())) {
-                qWarning() << "[AudioClient] GetState failed:" << r.error().message();
-            }
-            return;
-        }
-
-        m_refreshRetryCount = 0;
-        if (!m_loggedFirstSync && debugEnabled()) {
-            m_loggedFirstSync = true;
-            qWarning() << "[AudioClient] First sync after" << m_startTimer.elapsed()
-                       << "ms volume=" << r.value().value("volume").toDouble()
-                       << "muted=" << r.value().value("muted").toBool();
-        }
-        onStateChanged(r.value());
-    });
-}
-
-QVariant AudioClient::v(const QString &k, const QVariant &fallback) const {
-    return m_state.contains(k) ? m_state.value(k) : fallback;
-}
-
-void AudioClient::onStateChanged(const QVariantMap &state) {
-    m_state = normalizeMapDeep(state);
-    m_streamModel->setStreams(v("streams").toList());
-    emit stateChanged();
-}
-
-bool AudioClient::available() const {
-    return v("available").toBool();
-}
-double AudioClient::volume() const {
-    return v("volume").toDouble();
-}
-bool AudioClient::muted() const {
-    return v("muted").toBool();
-}
-bool AudioClient::perAppVolumeSupported() const {
-    return v("perAppVolumeSupported").toBool();
-}
-
-QString AudioClient::audioProfile() const {
-    return v("audioProfile").toString();
-}
-
-void AudioClient::setVolume(double v) {
-    auto r = m_iface.call("SetVolume", v);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] SetVolume failed:" << r.errorMessage();
-}
-void AudioClient::setMuted(bool muted) {
-    auto r = m_iface.call("SetMuted", muted);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] SetMuted failed:" << r.errorMessage();
-}
-void AudioClient::setStreamVolume(int streamId, double volume) {
-    auto r = m_iface.call("SetStreamVolume", streamId, volume);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] SetStreamVolume failed:" << r.errorMessage();
-}
-void AudioClient::setStreamMuted(int streamId, bool muted) {
-    auto r = m_iface.call("SetStreamMuted", streamId, muted);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] SetStreamMuted failed:" << r.errorMessage();
-}
-void AudioClient::refreshStreams() {
-    auto r = m_iface.call("RefreshStreams");
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] RefreshStreams failed:" << r.errorMessage();
-}
-void AudioClient::setDoNotDisturb(bool enabled) {
-    auto r = m_iface.call("SetDoNotDisturb", enabled);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] SetDoNotDisturb failed:" << r.errorMessage();
-}
-void AudioClient::setAudioProfile(const QString &profile) {
-    auto r = m_iface.call("SetAudioProfile", profile);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] SetAudioProfile failed:" << r.errorMessage();
-}
-void AudioClient::playRingtone() {
-    auto r = m_iface.call("PlayRingtone");
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] PlayRingtone failed:" << r.errorMessage();
-}
-void AudioClient::stopRingtone() {
-    auto r = m_iface.call("StopRingtone");
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] StopRingtone failed:" << r.errorMessage();
-}
-void AudioClient::playNotificationSound() {
-    auto r = m_iface.call("PlayNotificationSound");
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] PlayNotificationSound failed:" << r.errorMessage();
-}
-void AudioClient::playAlarmSound() {
-    auto r = m_iface.call("PlayAlarmSound");
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] PlayAlarmSound failed:" << r.errorMessage();
-}
-void AudioClient::stopAlarmSound() {
-    auto r = m_iface.call("StopAlarmSound");
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] StopAlarmSound failed:" << r.errorMessage();
-}
-void AudioClient::previewSound(const QString &soundPath) {
-    auto r = m_iface.call("PreviewSound", soundPath);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] PreviewSound failed:" << r.errorMessage();
-}
-void AudioClient::vibratePattern(const QVariantList &pattern) {
-    auto r = m_iface.call("VibratePattern", pattern);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[AudioClient] VibratePattern failed:" << r.errorMessage();
-}
-
-
-void SmsClient::setConversations(const QVariantList &v) {
-    m_conversations = normalizeListDeep(v);
-    emit conversationsChanged();
-}
-
-void SmsClient::refresh() {
-    if (!ensurePermission())
-        return;
-    if (QDBusReply<bool> mms = m_iface.call(QStringLiteral("IsMmsAvailable")); mms.isValid())
-        setMmsAvailable(mms.value());
-    QDBusReply<QVariantList> r = m_iface.call("GetConversations");
-    if (!r.isValid()) {
-        qWarning() << "[SmsClient] GetConversations failed:" << r.error().type()
-                   << r.error().message();
-        return;
-    }
-    qWarning() << "[SmsClient] refresh -> conversations:" << r.value().size();
-    setConversations(r.value());
-}
-
-void SmsClient::sendMessage(const QString &recipient, const QString &text) {
-    if (!ensurePermission())
-        return;
-    auto r = m_iface.call("SendMessage", recipient, text);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[SmsClient] SendMessage failed:" << r.errorMessage();
-}
-
-QVariantList SmsClient::getMessages(const QString &conversationId) {
-    if (!ensurePermission())
-        return {};
-    QDBusReply<QVariantList> r = m_iface.call("GetMessages", conversationId);
-    if (!r.isValid()) {
-        qWarning() << "[SmsClient] GetMessages failed:" << r.error().message();
-        return {};
-    }
-    return normalizeListDeep(r.value());
-}
-
-void SmsClient::deleteConversation(const QString &conversationId) {
-    if (!ensurePermission())
-        return;
-    auto r = m_iface.call("DeleteConversation", conversationId);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[SmsClient] DeleteConversation failed:" << r.errorMessage();
-}
-
-bool SmsClient::deleteMessage(int id) {
-    if (!ensurePermission())
-        return false;
-    QDBusReply<bool> r = m_iface.call("DeleteMessage", id);
-    if (!r.isValid()) {
-        qWarning() << "[SmsClient] DeleteMessage failed:" << r.error().message();
-        return false;
-    }
-    return r.value();
-}
-
-void SmsClient::markAsRead(const QString &conversationId) {
-    if (!ensurePermission())
-        return;
-    auto r = m_iface.call("MarkAsRead", conversationId);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[SmsClient] MarkAsRead failed:" << r.errorMessage();
-}
-
-QString SmsClient::generateConversationId(const QString &number) {
-    if (!ensurePermission())
-        return {};
-    QDBusReply<QString> r = m_iface.call("GenerateConversationId", number);
-    if (!r.isValid()) {
-        qWarning() << "[SmsClient] GenerateConversationId failed:" << r.error().message();
-        return {};
-    }
-    return r.value();
-}
-
-void SmsClient::simulateIncomingSMS(const QString &sender, const QString &message) {
-    if (!ensurePermission())
-        return;
-    auto r = m_iface.call("SimulateIncomingSMS", sender, message);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[SmsClient] SimulateIncomingSMS failed:" << r.errorMessage();
-}
-
 NavigationClient::NavigationClient(QObject *parent)
     : QObject(parent)
     , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Navigation",
@@ -1217,7 +782,7 @@ SystemControlStoreClient::SystemControlStoreClient(marathon::platform::Network *
                                                    BluetoothClient *bluetoothClient,
                                                    marathon::platform::Display *displayClient,
                                                    marathon::platform::Settings *settingsClient,
-                                                   AudioClient *audioClient, QObject *parent)
+                                                   Audio *audioClient, QObject *parent)
     : QObject(parent)
     , m_networkClient(networkClient)
     , m_bluetoothClient(bluetoothClient)
@@ -1249,7 +814,7 @@ SystemControlStoreClient::SystemControlStoreClient(marathon::platform::Network *
                 [this]() { refreshSettings(); });
     }
     if (m_audioClient) {
-        connect(m_audioClient, &AudioClient::stateChanged, this, [this]() { refreshAudio(); });
+        connect(m_audioClient, &Audio::stateChanged, this, [this]() { refreshAudio(); });
     }
 }
 
@@ -1345,7 +910,7 @@ void SystemControlStoreClient::refreshAudio() {
         return;
     }
     setVolumeValue(
-        static_cast<int>(std::round(std::clamp(m_audioClient->volume(), 0.0, 1.0) * 100.0)));
+        static_cast<int>(std::round(std::clamp(m_audioClient->getVolume(), 0.0, 1.0) * 100.0)));
 }
 
 void SystemControlStoreClient::setIsWifiOn(bool enabled) {

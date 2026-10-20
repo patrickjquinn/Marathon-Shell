@@ -11,6 +11,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+class Audio;
 namespace marathon::platform {
     class Display;
     class Network;
@@ -49,62 +50,6 @@ class CallHistoryClient : public QObject {
     void           setHistory(const QVariantList &v);
     QDBusInterface m_iface;
     QVariantList   m_history;
-};
-
-class SmsClient : public QObject {
-    Q_OBJECT
-    Q_PROPERTY(QVariantList conversations READ conversations NOTIFY conversationsChanged)
-    Q_PROPERTY(bool mmsAvailable READ mmsAvailable NOTIFY mmsAvailableChanged)
-
-  public:
-  public:
-    explicit SmsClient(const QString &appId, QObject *parent = nullptr);
-
-    QVariantList conversations() const {
-        return m_conversations;
-    }
-
-    Q_INVOKABLE void         refresh();
-    Q_INVOKABLE void         sendMessage(const QString &recipient, const QString &text);
-    Q_INVOKABLE QVariantList getMessages(const QString &conversationId);
-    Q_INVOKABLE void         deleteConversation(const QString &conversationId);
-    Q_INVOKABLE bool         deleteMessage(int id);
-    Q_INVOKABLE void         markAsRead(const QString &conversationId);
-    Q_INVOKABLE QString      generateConversationId(const QString &number);
-
-    Q_INVOKABLE void         simulateIncomingSMS(const QString &sender, const QString &message);
-
-    bool                     mmsAvailable() const {
-        return m_mmsAvailable;
-    }
-    // attachments: [{contentType, filePath, name}], files the app can open.
-    // The stored message's id, or -1.
-    Q_INVOKABLE int          sendMms(const QStringList &recipients, const QString &text,
-                                     const QVariantList &attachments);
-    // A copy of the attachment in the app's cache, "" if it could not be read.
-    Q_INVOKABLE QString      openAttachment(int id, const QString &name);
-
-  signals:
-    void mmsAvailableChanged();
-    void messageStatusChanged(int id, const QString &status);
-    void messageReceived(const QString &sender, const QString &text, qint64 timestamp);
-    void messageSent(const QString &recipient, qint64 timestamp);
-    void sendFailed(const QString &recipient, const QString &reason);
-    void conversationsChanged();
-
-  private slots:
-    void onPermissionGranted(const QString &appId, const QString &permission);
-    void setMmsAvailable(bool available);
-
-  private:
-    bool           ensurePermission();
-    void           setConversations(const QVariantList &v);
-    QString        m_appId;
-    QDBusInterface m_iface;
-    QDBusInterface m_permIface;
-    QVariantList   m_conversations;
-    bool           m_mmsAvailable = false;
-    bool           m_permissionRequested = false;
 };
 
 class MediaLibraryClient : public QObject {
@@ -290,91 +235,6 @@ class BluetoothClient : public QObject {
     bool           m_permissionRequested = false;
 };
 
-class RemoteAudioStreamModel : public QAbstractListModel {
-    Q_OBJECT
-
-  public:
-    enum StreamRoles : quint16 {
-        IdRole = Qt::UserRole + 1,
-        NameRole,
-        AppNameRole,
-        VolumeRole,
-        MutedRole,
-        MediaClassRole
-    };
-
-    explicit RemoteAudioStreamModel(QObject *parent = nullptr);
-
-    int      rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-    QHash<int, QByteArray> roleNames() const override;
-
-    void                   setStreams(const QVariantList &streams);
-
-  private:
-    QVariantList m_streams;
-};
-
-class AudioClient : public QObject {
-    Q_OBJECT
-    Q_PROPERTY(bool available READ available NOTIFY stateChanged)
-    Q_PROPERTY(double volume READ volume NOTIFY stateChanged)
-    Q_PROPERTY(bool muted READ muted NOTIFY stateChanged)
-    Q_PROPERTY(bool perAppVolumeSupported READ perAppVolumeSupported NOTIFY stateChanged)
-    Q_PROPERTY(QString audioProfile READ audioProfile NOTIFY stateChanged)
-    Q_PROPERTY(RemoteAudioStreamModel *streams READ streams CONSTANT)
-
-  public:
-    explicit AudioClient(const QString &appId, QObject *parent = nullptr);
-
-    bool                    available() const;
-    double                  volume() const;
-    bool                    muted() const;
-    bool                    perAppVolumeSupported() const;
-    QString                 audioProfile() const;
-    RemoteAudioStreamModel *streams() {
-        return m_streamModel;
-    }
-
-    Q_INVOKABLE void setVolume(double v);
-    Q_INVOKABLE void setMuted(bool muted);
-    Q_INVOKABLE void setStreamVolume(int streamId, double volume);
-    Q_INVOKABLE void setStreamMuted(int streamId, bool muted);
-    Q_INVOKABLE void refreshStreams();
-    Q_INVOKABLE void setDoNotDisturb(bool enabled);
-    Q_INVOKABLE void setAudioProfile(const QString &profile);
-    Q_INVOKABLE void playRingtone();
-    Q_INVOKABLE void stopRingtone();
-    Q_INVOKABLE void playNotificationSound();
-    Q_INVOKABLE void playAlarmSound();
-    Q_INVOKABLE void stopAlarmSound();
-    Q_INVOKABLE void previewSound(const QString &soundPath);
-    Q_INVOKABLE void vibratePattern(const QVariantList &pattern);
-
-  signals:
-    void stateChanged();
-
-  private slots:
-    void onStateChanged(const QVariantMap &state);
-
-  private:
-    bool                    ensureSystemPermission();
-    void                    refresh();
-    QVariant                v(const QString &k, const QVariant &fallback = QVariant()) const;
-
-    QString                 m_appId;
-    QDBusInterface          m_iface;
-    QDBusInterface          m_permIface;
-    QVariantMap             m_state;
-    RemoteAudioStreamModel *m_streamModel       = nullptr;
-    int                     m_refreshRetryCount = 0;
-    QElapsedTimer           m_startTimer;
-    bool                    m_loggedFirstSync     = false;
-    bool                    m_loggedFirstFailure  = false;
-    bool                    m_refreshInFlight     = false;
-    bool                    m_permissionRequested = false;
-};
-
 class NavigationClient : public QObject {
     Q_OBJECT
 
@@ -454,7 +314,7 @@ class SystemControlStoreClient : public QObject {
     explicit SystemControlStoreClient(marathon::platform::Network *networkClient,
                                       BluetoothClient *bluetoothClient,
                                       marathon::platform::Display *displayClient, marathon::platform::Settings *settingsClient,
-                                      AudioClient *audioClient, QObject *parent = nullptr);
+                                      Audio *audioClient, QObject *parent = nullptr);
 
     bool isWifiOn() const {
         return m_isWifiOn;
@@ -514,7 +374,7 @@ class SystemControlStoreClient : public QObject {
     BluetoothClient *m_bluetoothClient;
     marathon::platform::Display *m_displayClient;
     marathon::platform::Settings *m_settingsClient;
-    AudioClient     *m_audioClient;
+    Audio           *m_audioClient;
     bool             m_isWifiOn         = true;
     bool             m_isBluetoothOn    = false;
     bool             m_isAirplaneModeOn = false;

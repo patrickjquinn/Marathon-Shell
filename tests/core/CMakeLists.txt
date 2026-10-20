@@ -246,12 +246,11 @@ find_package(Qt6 REQUIRED COMPONENTS DBus Qml)
 add_executable(test_core_settingscontract
     test_settingscontract.cpp
     ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
 )
-target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
+target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml MarathonCore marathon_app_native)
 target_include_directories(test_core_settingscontract PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
@@ -265,13 +264,12 @@ add_test(NAME Core_SettingsContract COMMAND test_core_settingscontract)
 add_executable(test_core_ipcclientnormalize
     test_ipcclientnormalize.cpp
     ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
 )
 set_target_properties(test_core_ipcclientnormalize PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
+target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml MarathonCore marathon_app_native)
 target_include_directories(test_core_ipcclientnormalize PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
@@ -290,18 +288,12 @@ add_test(NAME Core_GrantRefresh COMMAND test_core_grantrefresh)
 add_executable(test_core_appinstallerclient
     test_appinstallerclient.cpp
     ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
-    ../../marathon-core/src/marathonappinstaller.cpp
-    ../../marathon-core/src/marathonapppackager.cpp
-    ../../marathon-core/src/marathonappverifier.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-    ../../marathon-core/src/marathonappscanner.cpp
 )
 set_target_properties(test_core_appinstallerclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_appinstallerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
+target_link_libraries(test_core_appinstallerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml MarathonCore marathon_app_native)
 target_include_directories(test_core_appinstallerclient PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
@@ -428,21 +420,9 @@ if(TARGET MarathonServices)
 
     # The runner's Sms client: MMS parts as descriptors, attachments cached
     if(DBUS_RUN_SESSION)
-        add_executable(test_core_smsclient
-            test_smsclient.cpp
-            ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-            ../../marathon-core/src/marathonmanifest.cpp
-            ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-            ../../shell/src/managers/settingsmanager.cpp
-            ../../shell/src/managers/deviceprofile.cpp
-        )
-        target_link_libraries(test_core_smsclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
-        target_include_directories(test_core_smsclient PRIVATE
-            ${CMAKE_SOURCE_DIR}/marathon-services/src
-            ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-            ${CMAKE_SOURCE_DIR}/marathon-core/src
-            ${CMAKE_SOURCE_DIR}/shell/src
-        )
+        add_executable(test_core_smsclient test_smsclient.cpp)
+        target_link_libraries(test_core_smsclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
+        target_include_directories(test_core_smsclient PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
         add_test(NAME Core_SmsClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_smsclient>)
     endif()
 

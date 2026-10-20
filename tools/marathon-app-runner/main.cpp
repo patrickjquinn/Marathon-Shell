@@ -130,6 +130,7 @@ static void applyMainPriorityForActive(bool active) {
 
 #include "ipc/shellipcclients.h"
 #include "marathon-app-native/src/alarms.cxxqt.h"
+#include "marathon-app-native/src/audio.cxxqt.h"
 #include "marathon-app-native/src/contacts.cxxqt.h"
 #include "marathon-app-native/src/display.cxxqt.h"
 #include "marathon-app-native/src/location.cxxqt.h"
@@ -140,6 +141,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/sensors.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
 #include "marathon-app-native/src/shell.cxxqt.h"
+#include "marathon-app-native/src/sms.cxxqt.h"
 #include "marathon-app-native/src/telephony.cxxqt.h"
 #include "pagetouch.h"
 #include "keelhost.h"
@@ -1178,11 +1180,8 @@ int main(int argc, char *argv[]) {
     }
     if (hasPerm("telephony") || hasPerm("phone"))
         exposeClient<marathon::platform::Telephony>(ctx, "TelephonyService");
-    if (hasPerm("sms") || hasPerm("telephony")) {
-        auto *smsClient = new SmsClient(appId, &app);
-        ctx->setContextProperty("SMSService", smsClient);
-        qmlRegisterSingletonInstance<SmsClient>("MarathonOS.Shell", 1, 0, "SMSService", smsClient);
-    }
+    if (hasPerm("sms") || hasPerm("telephony"))
+        exposeClient<marathon::platform::Sms>(ctx, "SMSService");
 
     if (hasPerm("storage")) {
         auto *mediaLibraryClient = new MediaLibraryClient(appId, &app);
@@ -1203,6 +1202,8 @@ int main(int argc, char *argv[]) {
     // registration in the runner so the compiled-cache lookup resolves.
     // Whose permissions the Rust clients ask for.
     marathon::platform::set_app_id(appId.toStdString());
+    marathon::platform::set_cache_dir(
+        QStandardPaths::writableLocation(QStandardPaths::CacheLocation).toStdString());
     marathon::platform::Settings *settingsClient = nullptr;
     if (hasPerm("system") || hasPerm("storage"))
         settingsClient = exposeClient<marathon::platform::Settings>(ctx, "SettingsManagerCpp");
@@ -1213,7 +1214,6 @@ int main(int argc, char *argv[]) {
         exposeClient<marathon::platform::Settings>(ctx, "MarathonA11ySettings", false);
 
     BluetoothClient *bluetoothClient = nullptr;
-    AudioClient     *audioClient     = nullptr;
     SecurityClient  *securityClient  = nullptr;
     if (hasPerm("system") && settingsClient)
         ctx->setContextProperty("WallpaperStore", new WallpaperClient(settingsClient, QDBusConnection::sessionBus(), &app));
@@ -1221,15 +1221,15 @@ int main(int argc, char *argv[]) {
         bluetoothClient = new BluetoothClient(appId, &app);
         exposeClient<marathon::platform::Display>(ctx, "DisplayManagerCpp");
         exposeClient<marathon::platform::Power>(ctx, "PowerManagerService");
-        audioClient     = new AudioClient(appId, &app);
+        auto *audio   = exposeClient<Audio>(ctx, "AudioManagerCpp");
+        auto *streams = new AudioStreams();
+        streams->setParent(audio);
+        audio->setStreams(streams);
         securityClient  = new SecurityClient(appId, &app);
         ctx->setContextProperty("BluetoothManagerCpp", bluetoothClient);
-        ctx->setContextProperty("AudioManagerCpp", audioClient);
         ctx->setContextProperty("SecurityManagerCpp", securityClient);
         qmlRegisterSingletonInstance<BluetoothClient>("MarathonOS.Shell", 1, 0,
                                                       "BluetoothManagerCpp", bluetoothClient);
-        qmlRegisterSingletonInstance<AudioClient>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
-                                                  audioClient);
         qmlRegisterSingletonInstance<SecurityClient>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
                                                      securityClient);
     }
@@ -1287,7 +1287,7 @@ int main(int argc, char *argv[]) {
             ctx->contextProperty("BluetoothManagerCpp").value<QObject *>()),
         qobject_cast<marathon::platform::Display *>(ctx->contextProperty("DisplayManagerCpp").value<QObject *>()),
         settingsClient,
-        qobject_cast<AudioClient *>(ctx->contextProperty("AudioManagerCpp").value<QObject *>()),
+        qobject_cast<Audio *>(ctx->contextProperty("AudioManagerCpp").value<QObject *>()),
         &app);
     qmlRegisterSingletonInstance<SystemControlStoreClient>(
         "MarathonOS.Shell", 1, 0, "SystemControlStore", systemControlStore);

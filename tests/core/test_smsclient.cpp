@@ -12,7 +12,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/shell.cxxqt.h"
+#include "marathon-app-native/src/sms.cxxqt.h"
 #include "mmspartarg.h"
 
 // The shell's Sms1 and Permissions1, served from their own thread: the
@@ -84,6 +85,9 @@ class TestSmsClient : public QObject {
   private slots:
     void initTestCase() {
         QStandardPaths::setTestModeEnabled(true);
+        marathon::platform::set_app_id("messages");
+        marathon::platform::set_cache_dir(
+            QStandardPaths::writableLocation(QStandardPaths::CacheLocation).toStdString());
         qDBusRegisterMetaType<MmsPartArg>();
         qDBusRegisterMetaType<QList<MmsPartArg>>();
         thread.start();
@@ -110,10 +114,10 @@ class TestSmsClient : public QObject {
 
     // The app opens its own files; only descriptors reach the shell.
     void picturesGoAsDescriptors() {
-        SmsClient client(QStringLiteral("messages"));
-        QTRY_VERIFY(client.mmsAvailable());
+        marathon::platform::Sms client;
+        QTRY_VERIFY(client.getMmsAvailable());
         const QString picture = file("beach.png", "\x89PNG beach");
-        const int     id      = client.sendMms({"+15550300"}, "Look",
+        const int     id      = client.sendMms(QStringList{"+15550300"}, QStringLiteral("Look"),
                                                {QVariantMap{{"contentType", "image/png"}, {"filePath", picture}}});
         QCOMPARE(id, 42);
         QCOMPARE(sms->recipients, QStringList{"+15550300"});
@@ -124,9 +128,9 @@ class TestSmsClient : public QObject {
     }
 
     void aFileThatCannotBeOpenedSendsNothing() {
-        SmsClient client(QStringLiteral("messages"));
+        marathon::platform::Sms client;
         sms->recipients.clear();
-        QCOMPARE(client.sendMms({"+15550301"}, "x",
+        QCOMPARE(client.sendMms(QStringList{"+15550301"}, QStringLiteral("x"),
                                 {QVariantMap{{"contentType", "image/png"}, {"filePath", dir.filePath("missing.png")}}}),
                  -1);
         QVERIFY(sms->recipients.isEmpty());
@@ -135,8 +139,8 @@ class TestSmsClient : public QObject {
     // An attachment is copied into the app's cache, where Image can read it.
     void anAttachmentOpensAsACachedFile() {
         sms->attachmentFile = file("stored.jpg", "jpeg bytes");
-        SmsClient     client(QStringLiteral("messages"));
-        const QString path = client.openAttachment(7, "../photo.jpg");
+        marathon::platform::Sms client;
+        const QString path = client.openAttachment(7, QStringLiteral("../photo.jpg"));
         QVERIFY(path.startsWith(QStandardPaths::writableLocation(QStandardPaths::CacheLocation)));
         QVERIFY(path.endsWith("/photo.jpg"));
         QFile cached(path);

@@ -9,6 +9,7 @@
 extern crate marathon_rt;
 
 pub mod alarms;
+pub mod audio;
 pub mod contacts;
 pub mod display;
 pub mod location;
@@ -18,6 +19,7 @@ pub mod permissions;
 pub mod power;
 pub mod sensors;
 pub mod settings;
-pub mod telephony;
 mod shell;
+pub mod sms;
+pub mod telephony;
 mod variant;
