@@ -197,7 +197,7 @@ impl AppInstaller {
         let qt = self.qt_thread();
         io::spawn(async move {
             if let Err(e) = STORE.reply("Uninstall", &(id.clone(),)).await {
-                let error = QString::from(&e.to_string());
+                let error = QString::from(&crate::shell::message(&e));
                 qt.queue(move |mut obj| {
                     if obj.as_mut().rust_mut().pending.remove(&id) {
                         obj.uninstall_failed(&QString::from(&id), &error);

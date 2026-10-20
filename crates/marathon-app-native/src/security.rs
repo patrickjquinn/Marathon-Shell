@@ -144,7 +144,7 @@ impl Security {
         let (qt, secret) = (self.qt_thread(), secret.to_string());
         io::spawn(async move {
             if let Err(e) = SECURITY.reply("EraseAllContent", &(secret,)).await {
-                let reason = QString::from(&e.to_string());
+                let reason = QString::from(&crate::shell::message(&e));
                 qt.queue(move |obj| obj.erase_failed(&reason)).ok();
             }
         });

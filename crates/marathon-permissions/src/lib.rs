@@ -142,21 +142,27 @@ mod tests {
             format!(r"permissions\.contains\({name}\)"),
             format!(r"hasPermission\([^,()]+,\s*{name}\)"),
             format!(r#""(?:Has|Request)Permission", m_appId, {name}"#),
+            format!(r"allowed\({name},"),
+            format!(r#"answers\("\w+",\s*{name}\)"#),
         ]
         .iter()
         .map(|p| regex::Regex::new(p).unwrap())
         .collect();
         let quoted = regex::Regex::new(r#""([a-z][a-z-]*)""#).unwrap();
         let mut seen = BTreeSet::new();
-        for file in [
+        let clients = fs::read_dir(root.join("crates/marathon-app-native/src")).unwrap();
+        let files = [
             "shell/src/ipc/shellservices.h",
             "shell/src/ipc/shellservices.cpp",
             "shell/src/services/applaunchservice.cpp",
             "shell/main.cpp",
             "tools/marathon-app-runner/main.cpp",
-            "tools/marathon-app-runner/ipc/shellipcclients.cpp",
-        ] {
-            let text = fs::read_to_string(root.join(file)).unwrap();
+        ]
+        .map(|file| root.join(file))
+        .into_iter()
+        .chain(clients.map(|entry| entry.unwrap().path()));
+        for file in files {
+            let text = fs::read_to_string(file).unwrap();
             for gate in &gates {
                 for capture in gate.captures_iter(&text) {
                     let names = &capture[1];

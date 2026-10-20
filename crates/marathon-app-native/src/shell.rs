@@ -134,6 +134,14 @@ pub async fn answers(member: &'static str, permission: &'static str) -> zbus::Re
     Ok(answers.filter_map(move |(app, name)| (app == app_id() && name == permission).then_some(())))
 }
 
+/// The shell's words for a failed call, as `QDBusError::message()` gives them.
+pub fn message(e: &zbus::Error) -> String {
+    match e {
+        zbus::Error::MethodError(_, Some(text), _) => text.clone(),
+        other => other.to_string(),
+    }
+}
+
 fn is_access_denied(e: &zbus::Error) -> bool {
     matches!(e, zbus::Error::MethodError(name, _, _) if name.as_str() == "org.freedesktop.DBus.Error.AccessDenied")
 }
