@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.MediaLibrary
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/marathon-medialibd
+SystemdService=marathon-medialibd.service

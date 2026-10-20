@@ -16,6 +16,7 @@ fn main() {
         .file("src/location.rs")
         .file("src/media.rs")
         .file("src/modem.rs")
+        .file("src/music.rs")
         .file("src/navigation.rs")
         .file("src/network.rs")
         .file("src/notifications.rs")

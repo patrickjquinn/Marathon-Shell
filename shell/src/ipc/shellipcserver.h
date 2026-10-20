@@ -7,7 +7,6 @@ class QDBusConnection;
 class MarathonPermissionManager;
 class Modem;
 class AppLaunchService;
-class MediaLibraryManager;
 class SettingsManager;
 class BluetoothManager;
 namespace marathon {
@@ -40,7 +39,7 @@ class ShellIpcServer : public QObject {
 
   public:
     explicit ShellIpcServer(MarathonPermissionManager *permissions,
-                            Modem *telephony, MediaLibraryManager *mediaLibrary,
+                            Modem *telephony,
                             SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                             marathon::Display *display, Power *powerManager,
                             AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
@@ -78,7 +77,6 @@ class ShellIpcServer : public QObject {
   private:
     MarathonPermissionManager *m_permissions         = nullptr;
     Modem          *m_telephony           = nullptr;
-    MediaLibraryManager       *m_mediaLibrary        = nullptr;
     SettingsManager           *m_settingsManager     = nullptr;
     AmbienceService           *m_ambience            = nullptr;
     WallpaperStore            *m_wallpaperStore      = nullptr;

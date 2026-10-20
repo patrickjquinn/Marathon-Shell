@@ -140,6 +140,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/location.cxxqt.h"
 #include "marathon-app-native/src/media.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
+#include "marathon-app-native/src/music.cxxqt.h"
 #include "marathon-app-native/src/navigation.cxxqt.h"
 #include "marathon-app-native/src/network.cxxqt.h"
 #include "marathon-app-native/src/notifications.cxxqt.h"
@@ -160,7 +161,6 @@ static void applyMainPriorityForActive(bool active) {
 #include "platformtypes.h"
 #include "marathon-app-native/src/wallpapers.cxxqt.h"
 #include "marathon-app-native/src/calendar.cxxqt.h"
-#include "musiclibrarymanager.h"
 
 class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
     Q_OBJECT
@@ -1196,9 +1196,9 @@ int main(int argc, char *argv[]) {
 
     if (hasPerm("storage")) {
         exposeClient<marathon::platform::MediaLibrary>(ctx, "MediaLibraryManager");
-        qmlRegisterSingletonType<MusicLibraryManager>(
+        qmlRegisterSingletonType<marathon::platform::MusicLibrary>(
             "MarathonOS.Shell", 1, 0, "MusicLibraryManager",
-            [](QQmlEngine *, QJSEngine *) -> QObject * { return new MusicLibraryManager(); });
+            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::MusicLibrary(); });
     }
 
     // Qt 6.10+ qmlcache compiles singleton lookups into bytecode at app build

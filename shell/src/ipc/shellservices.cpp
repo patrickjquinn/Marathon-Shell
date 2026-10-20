@@ -32,7 +32,6 @@
 
 #include "audioroutingmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "medialibrarymanager.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
 #include "../services/factoryreset.h"
 #include "marathonappinstaller.h"
@@ -1416,125 +1415,6 @@ bool NetworkObject::IsHotspotActive() const {
     if (!const_cast<NetworkObject *>(this)->requireNetwork())
         return false;
     return m_network->isHotspotActive();
-}
-
-MediaLibraryObject::MediaLibraryObject(MediaLibraryManager       *media,
-                                       MarathonPermissionManager *permissions,
-                                       AppLaunchService *launchService, QObject *parent)
-    : IpcPermissionedService(permissions, launchService, parent)
-    , m_media(media) {
-    Q_ASSERT(m_media);
-    Q_ASSERT(m_permissions);
-    Q_ASSERT(m_launchService);
-
-    QObject::connect(m_media, &MediaLibraryManager::albumsChanged, this,
-                     &MediaLibraryObject::AlbumsChanged);
-    QObject::connect(m_media, &MediaLibraryManager::scanningChanged, this,
-                     &MediaLibraryObject::ScanningChanged);
-    QObject::connect(m_media, &MediaLibraryManager::scanComplete, this,
-                     &MediaLibraryObject::ScanComplete);
-    QObject::connect(m_media, &MediaLibraryManager::newMediaAdded, this,
-                     &MediaLibraryObject::NewMediaAdded);
-    QObject::connect(m_media, &MediaLibraryManager::libraryChanged, this,
-                     &MediaLibraryObject::LibraryChanged);
-    QObject::connect(m_media, &MediaLibraryManager::scanProgressChanged, this,
-                     &MediaLibraryObject::ScanProgressChanged);
-}
-
-QVariantList MediaLibraryObject::Albums() {
-    if (!requireStorage())
-        return {};
-    const QVariantList raw = m_media->albums();
-    QVariantList       out;
-    out.reserve(raw.size());
-    for (const QVariant &v : raw) {
-        out.push_back(QVariant::fromValue(QDBusVariant(v)));
-    }
-    return out;
-}
-
-bool MediaLibraryObject::IsScanning() const {
-    if (!const_cast<MediaLibraryObject *>(this)->requireStorage())
-        return false;
-    return m_media->isScanning();
-}
-
-int MediaLibraryObject::PhotoCount() const {
-    if (!const_cast<MediaLibraryObject *>(this)->requireStorage())
-        return 0;
-    return m_media->photoCount();
-}
-
-int MediaLibraryObject::VideoCount() const {
-    if (!const_cast<MediaLibraryObject *>(this)->requireStorage())
-        return 0;
-    return m_media->videoCount();
-}
-
-int MediaLibraryObject::ScanProgress() const {
-    if (!const_cast<MediaLibraryObject *>(this)->requireStorage())
-        return 0;
-    return m_media->scanProgress();
-}
-
-void MediaLibraryObject::ScanLibrary() {
-    if (!requireStorage())
-        return;
-    m_media->scanLibrary();
-}
-
-void MediaLibraryObject::ScanLibraryAsync() {
-    if (!requireStorage())
-        return;
-    m_media->scanLibraryAsync();
-}
-
-QVariantList MediaLibraryObject::GetPhotos(const QString &albumId) {
-    if (!requireStorage())
-        return {};
-    const QVariantList raw = m_media->getPhotos(albumId);
-    QVariantList       out;
-    out.reserve(raw.size());
-    for (const QVariant &v : raw) {
-        out.push_back(QVariant::fromValue(QDBusVariant(v)));
-    }
-    return out;
-}
-
-QVariantList MediaLibraryObject::GetAllPhotos() {
-    if (!requireStorage())
-        return {};
-    const QVariantList raw = m_media->getAllPhotos();
-    QVariantList       out;
-    out.reserve(raw.size());
-    for (const QVariant &v : raw) {
-        out.push_back(QVariant::fromValue(QDBusVariant(v)));
-    }
-    return out;
-}
-
-QVariantList MediaLibraryObject::GetVideos() {
-    if (!requireStorage())
-        return {};
-    const QVariantList raw = m_media->getVideos();
-    QVariantList       out;
-    out.reserve(raw.size());
-    for (const QVariant &v : raw) {
-        out.push_back(QVariant::fromValue(QDBusVariant(v)));
-    }
-    return out;
-}
-
-QString MediaLibraryObject::GenerateThumbnail(const QString &filePath) {
-    if (!requireStorage())
-        return {};
-    return m_media->generateThumbnail(filePath);
-}
-
-void MediaLibraryObject::DeleteMedia(int mediaId) {
-    if (!requireStorage())
-        return;
-    m_media->deleteMedia(mediaId);
 }
 
 PermissionsObject::PermissionsObject(MarathonPermissionManager *permissions,

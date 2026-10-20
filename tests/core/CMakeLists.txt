@@ -330,16 +330,6 @@ target_link_libraries(test_core_settingsstore Qt6::Test Qt6::Core Qt6::DBus Qt6:
 target_include_directories(test_core_settingsstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_SettingsStore COMMAND test_core_settingsstore)
 
-# Music library: scans and track loads run off the GUI thread
-find_package(Qt6 REQUIRED COMPONENTS Sql)
-add_executable(test_core_musiclibrary
-    test_musiclibrary.cpp
-    ../../marathon-services/src/musiclibrarymanager.cpp
-)
-target_link_libraries(test_core_musiclibrary Qt6::Test Qt6::Core Qt6::Sql)
-target_include_directories(test_core_musiclibrary PRIVATE ${CMAKE_SOURCE_DIR}/marathon-services/src)
-add_test(NAME Core_MusicLibrary COMMAND test_core_musiclibrary)
-
 # Music's MPRIS publisher, on a private session bus
 find_program(DBUS_RUN_SESSION dbus-run-session)
 if(DBUS_RUN_SESSION)

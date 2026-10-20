@@ -1,0 +1,27 @@
+[package]
+name = "marathon-medialibd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-channel = "2.5.0"
+async-io = "2.6.0"
+blocking = "1.7.0"
+dirs = "6.0.0"
+futures-lite = "2.6.1"
+image = { version = "0.25.10", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
+inotify = { version = "0.11.5", default-features = false }
+marathon-rt = { path = "../marathon-rt" }
+rusqlite = "0.40.2"
+walkdir = "2.5.0"
+zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
+
+[dev-dependencies]
+marathon-rt = { path = "../marathon-rt", features = ["testing"] }
+serde = "1.0.229"
+tempfile = "3.27.0"
+
+[lints]
+workspace = true

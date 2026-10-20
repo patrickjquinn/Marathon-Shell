@@ -22,6 +22,7 @@ pub mod lifecycle;
 pub mod location;
 pub mod media;
 pub mod modem;
+pub mod music;
 pub mod navigation;
 pub mod network;
 pub mod notifications;

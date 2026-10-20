@@ -84,8 +84,6 @@
 #include "src/marathonpermissionmanager.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "medialibrarymanager.h"
-#include "musiclibrarymanager.h"
 #include "src/wayland/waylandcompositormanager.h"
 #include "src/managers/marathoninputmethodengine.h"
 #include "src/managers/rtscheduler.h"
@@ -1319,13 +1317,10 @@ int main(int argc, char *argv[]) {
                      });
     qInfo() << "[MarathonShell] Audio routing wired to telephony";
 
-    auto *mediaLibraryManager = new MediaLibraryManager(&app);
-    createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
-
     {
         auto *ipc = new ShellIpcServer(
             permissionManager, modem,
-            mediaLibraryManager, settingsManager, bluetoothManager, display, power,
+            settingsManager, bluetoothManager, display, power,
             audioManager, audioPolicyController, network, hapticManager, security,
             rotationManager, locationManager, alarmManager, audioRoutingManager, updateService,
             appLaunchService, appLifecycleManager, appRegistry,

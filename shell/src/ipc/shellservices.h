@@ -24,7 +24,6 @@ class AppLifecycleManager;
 class MarathonAppRegistry;
 
 class Modem;
-class MediaLibraryManager;
 class SettingsManager;
 class AmbienceService;
 class WallpaperStore;
@@ -145,45 +144,6 @@ class TelephonyObject : public IpcPermissionedService {
 
     Modem    *m_telephony    = nullptr;
     AudioRoutingManager *m_audioRouting = nullptr;
-};
-
-class MediaLibraryObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.MediaLibrary1")
-
-  public:
-    MediaLibraryObject(MediaLibraryManager *media, MarathonPermissionManager *permissions,
-                       AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantList Albums();
-    bool         IsScanning() const;
-    int          PhotoCount() const;
-    int          VideoCount() const;
-    int          ScanProgress() const;
-
-    void         ScanLibrary();
-    void         ScanLibraryAsync();
-    QVariantList GetPhotos(const QString &albumId);
-    QVariantList GetAllPhotos();
-    QVariantList GetVideos();
-    QString      GenerateThumbnail(const QString &filePath);
-    void         DeleteMedia(int mediaId);
-
-  signals:
-    void AlbumsChanged();
-    void ScanningChanged(bool scanning);
-    void ScanComplete(int photoCount, int videoCount);
-    void NewMediaAdded(const QString &path);
-    void LibraryChanged();
-    void ScanProgressChanged(int progress);
-
-  private:
-    bool requireStorage() {
-        return requirePermission("MediaLibrary", {"storage"});
-    }
-
-    MediaLibraryManager *m_media = nullptr;
 };
 
 class SettingsObject : public IpcPermissionedService {

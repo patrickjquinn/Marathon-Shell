@@ -22,7 +22,6 @@ set(SOURCES
     keelhost.cpp
     platformtypes.cpp
     worldclockhelper.h
-    ../../marathon-services/src/musiclibrarymanager.cpp
 )
 
 qt6_add_executable(marathon-app-runner ${SOURCES})
@@ -40,7 +39,6 @@ target_sources(marathon-app-runner PRIVATE ${SHELL_SINGLETONS_RCC})
 target_include_directories(marathon-app-runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-core/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../shell/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-services/src
 )
 
 target_link_libraries(marathon-app-runner PRIVATE

@@ -110,7 +110,7 @@ add_executable(test_shell_notificationhandler
     ../../marathon-core/src/marathonappregistry.cpp
 )
 target_link_libraries(test_shell_notificationhandler Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml
-    Qt6::Multimedia Qt6::Sql MarathonServices)
+    Qt6::Multimedia Qt6::Sql)
 target_include_directories(test_shell_notificationhandler PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
     ${CMAKE_SOURCE_DIR}/shell/src/managers
@@ -118,7 +118,6 @@ target_include_directories(test_shell_notificationhandler PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src/models
     ${CMAKE_SOURCE_DIR}/shell/src/services
     ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
 )
 add_test(NAME Shell_NotificationHandler COMMAND test_shell_notificationhandler)
 

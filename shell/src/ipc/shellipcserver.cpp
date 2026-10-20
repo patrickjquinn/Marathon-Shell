@@ -5,7 +5,6 @@
 #include "marathonpermissionmanager.h"
 
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "medialibrarymanager.h"
 #include "settingsmanager.h"
 #include "bluetoothmanager.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
@@ -21,7 +20,7 @@
 #include <QDebug>
 
 ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions,
-                               Modem *telephony, MediaLibraryManager *mediaLibrary,
+                               Modem *telephony,
                                SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                                marathon::Display *display, Power *powerManager,
                                AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
@@ -36,7 +35,6 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions,
     : QObject(parent)
     , m_permissions(permissions)
     , m_telephony(telephony)
-    , m_mediaLibrary(mediaLibrary)
     , m_settingsManager(settingsManager)
     , m_bluetoothManager(bluetoothManager)
     , m_display(display)
@@ -77,8 +75,6 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *permObj     = new PermissionsObject(m_permissions, m_appLaunchService, this);
     auto *telephonyObj = new TelephonyObject(m_telephony, m_permissions, m_appLaunchService,
                                              m_audioRoutingManager, this);
-    auto *mediaObj =
-        new MediaLibraryObject(m_mediaLibrary, m_permissions, m_appLaunchService, this);
     auto *settingsObj =
         new SettingsObject(m_settingsManager, m_permissions, m_appLaunchService, this);
     auto *securityObj =
@@ -109,8 +105,6 @@ bool ShellIpcServer::registerOnSessionBus() {
     ok &= bus.registerObject("/org/marathonos/Shell/Permissions", permObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Telephony", telephonyObj,
-                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
-    ok &= bus.registerObject("/org/marathonos/Shell/MediaLibrary", mediaObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Settings", settingsObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);

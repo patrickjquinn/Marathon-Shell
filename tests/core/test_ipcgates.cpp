@@ -72,7 +72,7 @@ class TestIpcGates : public QObject {
         QTest::addColumn<QString>("cls");
         for (const char *cls :
              {"TelephonyObject",
-              "MediaLibraryObject", "SecurityObject", "BluetoothObject", "DisplayObject",
+              "SecurityObject", "BluetoothObject", "DisplayObject",
               "PowerObject", "AudioObject", "NetworkObject", "ModemObject", "SensorObject",
               "LocationObject", "AlarmObject", "UpdatesObject", "AppStoreObject",
               "PermissionsObject"})

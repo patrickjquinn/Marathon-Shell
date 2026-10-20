@@ -83,8 +83,6 @@ set(SOURCES
     src/services/wakeonkeyfilter.cpp
     src/services/waketouchfilter.h
     src/services/waketouchfilter.cpp
-    # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
-
     src/managers/mpris2controller.h
     src/managers/mpris2controller.cpp
     src/managers/rotationmanager.h
@@ -602,7 +600,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Network
     Qt6::Sensors
     MarathonCore
-    MarathonServices
     ${LIBDRM_LIBRARIES}
     ${PAM_LIBRARY}
     lunasvg

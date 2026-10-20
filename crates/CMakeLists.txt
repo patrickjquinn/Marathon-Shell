@@ -217,6 +217,7 @@ function(marathon_daemon crate bus)
 endfunction()
 
 marathon_daemon(marathon-davd org.marathonos.Dav)
+marathon_daemon(marathon-medialibd org.marathonos.MediaLibrary)
 marathon_daemon(marathon-telephonyd org.marathonos.Telephony)
 
 if(BUILD_TESTING)

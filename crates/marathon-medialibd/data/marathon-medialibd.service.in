@@ -1,0 +1,10 @@
+[Unit]
+Description=Marathon photo and video library
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.marathonos.MediaLibrary
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-medialibd
+Restart=on-failure
+RestartSec=5
