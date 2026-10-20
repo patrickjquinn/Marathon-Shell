@@ -37,8 +37,15 @@ pub fn read<T: FromStr>(path: impl AsRef<Path>) -> Option<T> {
 /// The next message, or `None` if `within` passes first; with no `within`,
 /// waits for it.
 pub async fn recv_within<T>(rx: &Receiver<T>, within: Option<Duration>) -> Option<Result<T, RecvError>> {
-    let Some(within) = within else { return Some(rx.recv().await) };
-    futures_lite::future::or(async { Some(rx.recv().await) }, async {
+    match within {
+        Some(within) => timeout(within, rx.recv()).await,
+        None => Some(rx.recv().await),
+    }
+}
+
+/// `task`'s output, or `None` if `within` passes first.
+pub async fn timeout<T>(within: Duration, task: impl Future<Output = T>) -> Option<T> {
+    futures_lite::future::or(async { Some(task.await) }, async {
         Timer::after(within).await;
         None
     })
