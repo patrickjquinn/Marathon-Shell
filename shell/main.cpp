@@ -55,7 +55,7 @@
 #include "src/services/notificationhandlercpp.h"
 #include "src/services/notificationservicecpp.h"
 #include "marathon-shell-native/src/push.cxxqt.h"
-#include "src/services/motiondaemon.h"
+#include "marathon-shell-native/src/motion.cxxqt.h"
 #include "marathon-shell-native/src/timezone.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
@@ -1257,12 +1257,7 @@ int main(int argc, char *argv[]) {
 
 
 
-    // Activity Rings backend — feeds the lock-screen Activity NowBar
-    // and the Active Frames Health frame off IIO accelerometer samples
-    // through the vendored Oxford C-Step-Counter. Falls back to a
-    // demo generator on hardware without an IIO accel device or when
-    // MARATHON_MOTION_DEMO=1.
-    createObject<MotionDaemon>(ctx, "ActivityService", &app);
+    createObject<marathon::ActivityService>(ctx, "ActivityService")->setParent(&app);
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
     auto *callHistoryManager = new CallHistoryManager(&app);

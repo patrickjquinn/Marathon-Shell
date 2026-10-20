@@ -503,7 +503,7 @@ Item {
         // ── Activity NowBar ─────────────────────────────────
         // Per screens-modern.jsx:LockNowBar — a second activity strip
         // beneath the time, showing Move / Stand ring progress. Bound
-        // to ActivityService (MotionDaemon → Oxford C-Step-Counter).
+        // to ActivityService (Oxford C-Step-Counter).
         // Hidden when no media card is up and no rings are closed yet,
         // so a brand-new device doesn't crowd the lock with zero-state
         // chrome.

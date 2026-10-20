@@ -79,8 +79,6 @@ set(SOURCES
     src/components/portalmanager.cpp
     src/services/factoryreset.h
     src/services/factoryreset.cpp
-    src/services/motiondaemon.h
-    src/services/motiondaemon.cpp
     src/services/inputboost.h
     src/services/inputboost.cpp
     src/services/touchresampler.h
@@ -641,10 +639,6 @@ target_link_libraries(marathon-shell PRIVATE
     lunasvg
 )
 
-# MotionDaemon needs the vendored Oxford step-counting algorithm.
-if(TARGET oxford-step-counter)
-    target_link_libraries(marathon-shell PRIVATE oxford-step-counter)
-endif()
 
 # Link additional conditional dependencies
 

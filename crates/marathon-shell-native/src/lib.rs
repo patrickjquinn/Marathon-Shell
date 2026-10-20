@@ -15,6 +15,7 @@ mod desktop;
 pub mod display;
 mod identity;
 pub mod modem;
+pub mod motion;
 pub mod network;
 mod notifications;
 mod pam;

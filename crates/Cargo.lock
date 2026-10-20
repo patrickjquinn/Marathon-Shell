@@ -1546,6 +1546,7 @@ dependencies = [
  "async-lock",
  "async-tungstenite",
  "blocking",
+ "cc",
  "cxx",
  "cxx-qt",
  "cxx-qt-build",
