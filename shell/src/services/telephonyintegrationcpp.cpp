@@ -17,7 +17,7 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
     PowerPolicyController *powerPolicy, DisplayPolicyController *displayPolicy,
     DisplayManagerCpp *displayManager, AudioPolicyController *audioPolicy, HapticManager *haptics,
-    TelephonyService *telephonyService, SMSService *smsService, SensorManagerCpp *sensorManager,
+    ModemManagerCpp *telephonyService, SMSService *smsService, SensorManagerCpp *sensorManager,
     QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
@@ -31,11 +31,11 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     , m_smsService(smsService)
     , m_sensorManager(sensorManager) {
     if (m_telephonyService) {
-        connect(m_telephonyService, &TelephonyService::incomingCall, this,
+        connect(m_telephonyService, &ModemManagerCpp::incomingCall, this,
                 &TelephonyIntegrationCpp::handleIncomingCall);
-        connect(m_telephonyService, &TelephonyService::callStateChanged, this,
+        connect(m_telephonyService, &ModemManagerCpp::callStateChanged, this,
                 &TelephonyIntegrationCpp::handleCallStateChanged);
-        connect(m_telephonyService, &TelephonyService::callEnded, this,
+        connect(m_telephonyService, &ModemManagerCpp::callEnded, this,
                 &TelephonyIntegrationCpp::handleCallEnded);
     }
 

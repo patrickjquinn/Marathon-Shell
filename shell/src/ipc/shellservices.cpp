@@ -1758,7 +1758,7 @@ void CallHistoryObject::ClearHistory() {
     m_callHistory->clearHistory();
 }
 
-TelephonyObject::TelephonyObject(TelephonyService          *telephony,
+TelephonyObject::TelephonyObject(ModemManagerCpp          *telephony,
                                  MarathonPermissionManager *permissions,
                                  AppLaunchService *launchService, AudioRoutingManager *audioRouting,
                                  QObject *parent)
@@ -1769,34 +1769,34 @@ TelephonyObject::TelephonyObject(TelephonyService          *telephony,
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
 
-    QObject::connect(m_telephony, &TelephonyService::callStateChanged, this,
+    QObject::connect(m_telephony, &ModemManagerCpp::callStateChanged, this,
                      &TelephonyObject::CallStateChanged);
-    QObject::connect(m_telephony, &TelephonyService::incomingCall, this,
+    QObject::connect(m_telephony, &ModemManagerCpp::incomingCall, this,
                      &TelephonyObject::IncomingCall);
-    QObject::connect(m_telephony, &TelephonyService::callFailed, this,
+    QObject::connect(m_telephony, &ModemManagerCpp::callFailed, this,
                      &TelephonyObject::CallFailed);
-    QObject::connect(m_telephony, &TelephonyService::modemChanged, this,
+    QObject::connect(m_telephony, &ModemManagerCpp::modemChanged, this,
                      &TelephonyObject::ModemChanged);
-    QObject::connect(m_telephony, &TelephonyService::activeNumberChanged, this,
+    QObject::connect(m_telephony, &ModemManagerCpp::activeNumberChanged, this,
                      &TelephonyObject::ActiveNumberChanged);
 }
 
 QString TelephonyObject::CallState() const {
     if (!const_cast<TelephonyObject *>(this)->requirePhone())
         return {};
-    return m_telephony->callState();
+    return m_telephony->getCallState();
 }
 
 bool TelephonyObject::HasModem() const {
     if (!const_cast<TelephonyObject *>(this)->requirePhone())
         return false;
-    return m_telephony->hasModem();
+    return m_telephony->getHasModem();
 }
 
 QString TelephonyObject::ActiveNumber() const {
     if (!const_cast<TelephonyObject *>(this)->requirePhone())
         return {};
-    return m_telephony->activeNumber();
+    return m_telephony->getActiveNumber();
 }
 
 void TelephonyObject::Dial(const QString &number) {

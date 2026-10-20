@@ -488,7 +488,7 @@ fn is_background_wake(marker: &str, alarm: i64, now: i64) -> bool {
     default_service = "org.freedesktop.login1",
     default_path = "/org/freedesktop/login1"
 )]
-trait Logind {
+pub(crate) trait Logind {
     fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zbus::Result<OwnedFd>;
     fn suspend(&self, interactive: bool) -> zbus::Result<()>;
     fn hibernate(&self, interactive: bool) -> zbus::Result<()>;

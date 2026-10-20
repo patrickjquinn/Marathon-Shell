@@ -26,7 +26,7 @@ class MarathonAppRegistry;
 
 class ContactsManager;
 class CallHistoryManager;
-class TelephonyService;
+class ModemManagerCpp;
 class SMSService;
 class MediaLibraryManager;
 class SettingsManager;
@@ -166,7 +166,7 @@ class TelephonyObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Telephony1")
 
   public:
-    TelephonyObject(TelephonyService *telephony, MarathonPermissionManager *permissions,
+    TelephonyObject(ModemManagerCpp *telephony, MarathonPermissionManager *permissions,
                     AppLaunchService *launchService, AudioRoutingManager *audioRouting,
                     QObject *parent = nullptr);
 
@@ -199,7 +199,7 @@ class TelephonyObject : public IpcPermissionedService {
         return requirePermission("Telephony", {"telephony", "phone"});
     }
 
-    TelephonyService    *m_telephony    = nullptr;
+    ModemManagerCpp    *m_telephony    = nullptr;
     AudioRoutingManager *m_audioRouting = nullptr;
 };
 

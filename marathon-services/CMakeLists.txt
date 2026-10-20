@@ -32,8 +32,6 @@ qt6_add_library(MarathonServices SHARED
     src/contactsmanager.cpp
     src/callhistorymanager.h
     src/callhistorymanager.cpp
-    src/telephonyservice.h
-    src/telephonyservice.cpp
     src/smsservice.h
     src/smsservice.cpp
     src/mmsmanager.h

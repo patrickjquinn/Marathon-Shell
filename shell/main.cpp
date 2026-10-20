@@ -1295,7 +1295,8 @@ int main(int argc, char *argv[]) {
     createObject<MotionDaemon>(ctx, "ActivityService", &app);
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
-    auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);
+    auto *telephonyService   = modemManager;
+    ctx->setContextProperty("TelephonyService", telephonyService);
     auto *callHistoryManager = new CallHistoryManager(&app);
     auto *smsService         = new SMSService(&app);
     auto *mmsManager         = new MmsManager(&app);
@@ -1392,7 +1393,7 @@ int main(int argc, char *argv[]) {
                              appLifecycleManager->killOldestFrozenApp();
                      });
 
-    QObject::connect(telephonyService, &TelephonyService::callStateChanged, audioRoutingManager,
+    QObject::connect(telephonyService, &ModemManagerCpp::callStateChanged, audioRoutingManager,
                      [audioRoutingManager](const QString &state) {
                          if (state == "active" || state == "incoming") {
                              audioRoutingManager->startCallAudio();
@@ -1476,7 +1477,7 @@ int main(int argc, char *argv[]) {
             qWarning() << "[MarathonShell] Keel Actions not served (org.marathonos.shell)";
     }
 
-    QObject::connect(telephonyService, &TelephonyService::callEnded, callHistoryManager,
+    QObject::connect(telephonyService, &ModemManagerCpp::callEnded, callHistoryManager,
                      &CallHistoryManager::addCall);
     qInfo() << "[MarathonShell] Call history wired to telephony";
 

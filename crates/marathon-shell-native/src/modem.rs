@@ -51,7 +51,53 @@ pub mod qobject {
         #[qproperty(QStringList, sim_emergency_numbers, cxx_name = "simEmergencyNumbers", READ, NOTIFY)]
         /// Cell broadcasts not yet acknowledged, newest last.
         #[qproperty(QList_QVariant, active_broadcasts, cxx_name = "activeBroadcasts", READ, NOTIFY)]
+        /// "idle", "dialing", "ringing", "incoming", "active", "held",
+        /// "waiting" or "terminated".
+        #[qproperty(QString, call_state, cxx_name = "callState", READ, NOTIFY = call_state_changed)]
+        #[qproperty(QString, active_number, cxx_name = "activeNumber", READ, NOTIFY = active_number_changed)]
+        /// The modem can make calls.
+        #[qproperty(bool, has_modem, cxx_name = "hasModem", READ, NOTIFY = modem_changed)]
         type ModemManagerCpp = super::ModemRust;
+
+        #[qsignal]
+        #[cxx_name = "callStateChanged"]
+        fn call_state_changed(self: Pin<&mut Self>, state: &QString);
+        #[qsignal]
+        #[cxx_name = "activeNumberChanged"]
+        fn active_number_changed(self: Pin<&mut Self>, number: &QString);
+        #[qsignal]
+        #[cxx_name = "modemChanged"]
+        fn modem_changed(self: Pin<&mut Self>, has_modem: bool);
+        #[qsignal]
+        #[cxx_name = "incomingCall"]
+        fn incoming_call(self: Pin<&mut Self>, number: &QString);
+        #[qsignal]
+        #[cxx_name = "callFailed"]
+        fn call_failed(self: Pin<&mut Self>, reason: &QString);
+        /// `kind`: "incoming", "outgoing", "missed" or "rejected".
+        #[qsignal]
+        #[cxx_name = "callEnded"]
+        fn call_ended(self: Pin<&mut Self>, number: &QString, kind: &QString, started_ms: i64, duration_seconds: i32);
+
+        #[qinvokable]
+        fn dial(self: Pin<&mut ModemManagerCpp>, number: &QString);
+        /// Dials after an audit line that lands whatever the modem does.
+        #[qinvokable]
+        #[cxx_name = "dialEmergency"]
+        fn dial_emergency(self: Pin<&mut ModemManagerCpp>, number: &QString);
+        #[qinvokable]
+        fn answer(self: Pin<&mut ModemManagerCpp>);
+        #[qinvokable]
+        fn hangup(self: Pin<&mut ModemManagerCpp>);
+        #[qinvokable]
+        #[cxx_name = "sendDTMF"]
+        fn send_dtmf(self: &ModemManagerCpp, digit: &QString);
+        #[qinvokable]
+        #[cxx_name = "simulateIncomingCall"]
+        fn simulate_incoming_call(self: Pin<&mut ModemManagerCpp>, number: &QString);
+        #[qinvokable]
+        #[cxx_name = "simulateCallStateChange"]
+        fn simulate_call_state_change(self: Pin<&mut ModemManagerCpp>, state: &QString);
 
         #[qsignal]
         #[cxx_name = "modesChanged"]
@@ -106,13 +152,42 @@ pub struct ModemRust {
     sim_emergency_numbers: QStringList,
     active_broadcasts: QList<QVariant>,
     broadcasts: Vec<Broadcast>,
+    call_state: QString,
+    active_number: QString,
+    has_modem: bool,
+    call: Option<String>,
+    logged: Option<LoggedCall>,
     actor: Option<Sender<Command>>,
+}
+
+/// The call being logged for the history: who, which way, when.
+struct LoggedCall {
+    number: String,
+    incoming: bool,
+    started_ms: i64,
+    answered_ms: Option<i64>,
+    rejected: bool,
+}
+
+const SIMULATED_CALL: &str = "/org/freedesktop/ModemManager1/Call/simulate";
+
+fn now_ms() -> i64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
 }
 
 enum Command {
     Enable(bool),
     Data(bool, bool),
     Modes(u32),
+    Dial(String),
+    Call(String, CallAction),
+    Inhibit(bool),
+}
+
+enum CallAction {
+    Accept,
+    Hangup,
+    Dtmf(String),
 }
 
 /// Sets a property and emits its change signal if it changed.
@@ -130,7 +205,9 @@ impl cxx_qt::Initialize for ModemManagerCpp {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(16);
         io::spawn(run(self.qt_thread(), rx));
-        self.as_mut().rust_mut().actor = Some(tx);
+        let mut rust = self.as_mut().rust_mut();
+        rust.actor = Some(tx);
+        rust.call_state = QString::from("idle");
     }
 }
 
@@ -142,6 +219,146 @@ impl ModemManagerCpp {
         if let Some(actor) = &self.actor {
             actor.try_send(command).ok();
         }
+    }
+
+    fn command(&self, command: Command) {
+        if let Some(actor) = &self.actor {
+            actor.try_send(command).ok();
+        }
+    }
+
+    fn dial(mut self: Pin<&mut Self>, number: &QString) {
+        if number.is_empty() {
+            return;
+        }
+        if !self.has_modem {
+            return self.call_failed(&QString::from("No modem available"));
+        }
+        // The call screen opens at once; ModemManager's call states follow.
+        self.as_mut().set_active_number(&number.to_string());
+        self.as_mut().set_call_state("dialing");
+        self.command(Command::Dial(number.to_string()));
+    }
+
+    fn dial_emergency(self: Pin<&mut Self>, number: &QString) {
+        log::warn("SECURITY", format_args!("Emergency dial: number={number} operator={}", self.operator_name));
+        self.dial(number);
+    }
+
+    fn answer(mut self: Pin<&mut Self>) {
+        let Some(call) = self.call.clone() else { return };
+        if call != SIMULATED_CALL {
+            self.command(Command::Call(call, CallAction::Accept));
+        }
+        self.as_mut().set_call_state("active");
+    }
+
+    fn hangup(mut self: Pin<&mut Self>) {
+        let Some(call) = self.call.clone() else { return };
+        if self.call_state.to_string() == "incoming" {
+            if let Some(logged) = &mut self.as_mut().rust_mut().logged {
+                logged.rejected = true;
+            }
+        }
+        if call != SIMULATED_CALL {
+            self.command(Command::Call(call, CallAction::Hangup));
+        }
+        self.set_call_state("idle");
+    }
+
+    fn send_dtmf(&self, digit: &QString) {
+        if let (Some(call), true) = (&self.call, self.call_state.to_string() == "active") {
+            self.command(Command::Call(call.clone(), CallAction::Dtmf(digit.to_string())));
+        }
+    }
+
+    fn simulate_incoming_call(self: Pin<&mut Self>, number: &QString) {
+        self.call_added(SIMULATED_CALL.to_owned(), true, &number.to_string());
+    }
+
+    fn simulate_call_state_change(self: Pin<&mut Self>, state: &QString) {
+        self.set_call_state(&state.to_string());
+    }
+
+    fn set_active_number(mut self: Pin<&mut Self>, number: &str) {
+        if self.active_number.to_string() != number {
+            let number = QString::from(number);
+            self.as_mut().rust_mut().active_number = number.clone();
+            self.active_number_changed(&number);
+        }
+    }
+
+    /// A call's new state: logged for the history, held against suspend
+    /// while it lasts, forgotten when it ends.
+    fn set_call_state(mut self: Pin<&mut Self>, state: &str) {
+        if self.call_state.to_string() == state {
+            return;
+        }
+        let qstate = QString::from(state);
+        self.as_mut().rust_mut().call_state = qstate.clone();
+        self.as_mut().call_state_changed(&qstate);
+        let ended = matches!(state, "idle" | "terminated");
+        if matches!(state, "active" | "dialing" | "incoming") {
+            self.command(Command::Inhibit(true));
+        } else if ended {
+            self.command(Command::Inhibit(false));
+        }
+        if state == "active" {
+            let number = self.active_number.to_string();
+            let mut rust = self.as_mut().rust_mut();
+            let logged = rust.logged.get_or_insert_with(|| LoggedCall { number, incoming: false, started_ms: now_ms(), answered_ms: None, rejected: false });
+            logged.answered_ms.get_or_insert_with(now_ms);
+        }
+        if ended {
+            self.as_mut().rust_mut().call = None;
+            self.as_mut().set_active_number("");
+            if let Some(call) = self.as_mut().rust_mut().logged.take() {
+                let kind = match (call.incoming, call.answered_ms, call.rejected) {
+                    (true, None, true) => "rejected",
+                    (true, None, false) => "missed",
+                    (true, Some(_), _) => "incoming",
+                    (false, _, _) => "outgoing",
+                };
+                let duration = call.answered_ms.map_or(0, |at| i32::try_from((now_ms() - at) / 1000).unwrap_or(0));
+                self.call_ended(&QString::from(call.number.as_str()), &QString::from(kind), call.started_ms, duration);
+            }
+        }
+    }
+
+    fn call_added(mut self: Pin<&mut Self>, path: String, incoming: bool, number: &str) {
+        if incoming {
+            self.as_mut().rust_mut().call = Some(path);
+            self.as_mut().rust_mut().logged = Some(LoggedCall { number: number.to_owned(), incoming: true, started_ms: now_ms(), answered_ms: None, rejected: false });
+            self.as_mut().set_active_number(number);
+            self.as_mut().incoming_call(&QString::from(number));
+            self.set_call_state("incoming");
+        } else if self.call.is_none() {
+            // An outgoing call is adopted here whenever CreateCall's reply is late.
+            self.as_mut().rust_mut().call = Some(path);
+            if self.active_number.is_empty() {
+                self.as_mut().set_active_number(number);
+            }
+            self.command(Command::Inhibit(true));
+        }
+    }
+
+    fn call_changed(self: Pin<&mut Self>, path: &str, state: Option<u32>) {
+        if self.call.as_deref() != Some(path) {
+            return;
+        }
+        // ModemManager's MMCallState; a deleted call (None) is over.
+        let state = match state {
+            None => "idle",
+            Some(1) => "dialing",
+            Some(2) => "ringing",
+            Some(3) => "incoming",
+            Some(4) => "active",
+            Some(5) => "held",
+            Some(6) => "waiting",
+            Some(7) => "terminated",
+            Some(_) => "unknown",
+        };
+        self.set_call_state(state);
     }
 
     fn enable(&self) {
@@ -190,6 +407,10 @@ impl ModemManagerCpp {
         set!(self, roaming, roaming_changed, view.roaming);
         set!(self, sim_present, sim_present_changed, view.sim);
         set!(self, emergency_only, emergency_only_changed, view.emergency_only);
+        if self.has_modem != view.voice {
+            self.as_mut().rust_mut().has_modem = view.voice;
+            self.as_mut().modem_changed(view.voice);
+        }
         if !view.operator.is_empty() {
             set!(self, operator_name, operator_name_changed, QString::from(view.operator.as_str()));
         }
@@ -236,6 +457,7 @@ struct View {
     registered: bool,
     roaming: bool,
     sim: bool,
+    voice: bool,
     emergency_only: bool,
     operator: String,
     network_type: &'static str,
@@ -248,6 +470,7 @@ struct View {
 #[derive(Default)]
 struct Snapshot {
     path: Option<OwnedObjectPath>,
+    voice: bool,
     sim: Option<OwnedObjectPath>,
     state: i32,
     quality: u32,
@@ -317,6 +540,7 @@ impl Snapshot {
             registered: matches!(self.registration, 1 | 5),
             roaming: self.registration == 5,
             sim: self.sim.is_some(),
+            voice: self.voice,
             emergency_only: self.emergency_only,
             operator: self.operator.clone(),
             network_type: network_type(self.access),
@@ -374,6 +598,8 @@ impl Broadcast {
 const MM: &str = "org.freedesktop.ModemManager1";
 const MODEM: &str = "org.freedesktop.ModemManager1.Modem";
 const CELL_BROADCAST: &str = "org.freedesktop.ModemManager1.Modem.CellBroadcast";
+const VOICE: &str = "org.freedesktop.ModemManager1.Modem.Voice";
+const CALL: &str = "org.freedesktop.ModemManager1.Call";
 
 #[zbus::proxy(interface = "org.freedesktop.ModemManager1.Modem", default_service = "org.freedesktop.ModemManager1")]
 trait Modem {
@@ -396,6 +622,8 @@ enum Event {
     Changed(HashMap<String, OwnedValue>),
     BroadcastAdded(OwnedObjectPath),
     BroadcastGone(OwnedObjectPath),
+    CallAdded(OwnedObjectPath),
+    CallChanged(String, Option<u32>),
 }
 
 async fn run(qt: Qt, commands: Receiver<Command>) {
@@ -416,6 +644,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     let mut shared = std::pin::pin!(shared);
     let mut state = Snapshot::default();
     let mut modem_events: Option<stream::Boxed<Event>> = None;
+    let mut call_inhibit: Option<zbus::zvariant::OwnedFd> = None;
     let mut daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
     loop {
         let event = match &mut modem_events {
@@ -424,7 +653,19 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         };
         match event {
             None | Some(Event::Closed) => return,
-            Some(Event::Command(command)) => act(&bus, &state, command).await,
+            Some(Event::Command(Command::Inhibit(hold))) => {
+                // A call blocks suspend while it lasts.
+                if !hold {
+                    call_inhibit = None;
+                } else if call_inhibit.is_none() {
+                    call_inhibit = inhibit_calls(&bus).await;
+                }
+            }
+            Some(Event::Command(command)) => {
+                if let Err(e) = act(&bus, &state, command, &qt).await {
+                    log::warn("modem", e);
+                }
+            }
             Some(Event::Objects) => daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await,
             Some(Event::Changed(changed)) => {
                 let sim = state.sim.clone();
@@ -438,6 +679,16 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             Some(Event::BroadcastAdded(path)) => load_broadcast(&bus, &qt, path).await,
             Some(Event::BroadcastGone(path)) => {
                 qt.queue(move |obj| obj.broadcast_gone(path.as_str())).ok();
+            }
+            Some(Event::CallAdded(path)) => {
+                let props = properties(&bus, &path, CALL).await;
+                // MM_CALL_DIRECTION_INCOMING is 1.
+                let incoming = props.get("Direction").and_then(|v| u32::try_from(v).ok()) == Some(1);
+                let number = props.get("Number").and_then(|v| String::try_from(v.try_clone().ok()?).ok()).unwrap_or_else(|| "Unknown".to_owned());
+                qt.queue(move |obj| obj.call_added(path.to_string(), incoming, &number)).ok();
+            }
+            Some(Event::CallChanged(path, state)) => {
+                qt.queue(move |obj| obj.call_changed(&path, state)).ok();
             }
         }
         let view = state.view(daemon);
@@ -462,7 +713,8 @@ async fn discover(bus: &zbus::Connection, manager: &ObjectManagerProxy<'_>, qt: 
     if state.path.as_ref() == Some(&path) {
         return true;
     }
-    *state = Snapshot { path: Some(path.clone()), ..Snapshot::default() };
+    let voice = interfaces.keys().any(|i| i.as_str() == VOICE);
+    *state = Snapshot { path: Some(path.clone()), voice, ..Snapshot::default() };
     for properties in interfaces.values() {
         for (name, value) in properties {
             state.set(name, value);
@@ -498,29 +750,60 @@ async fn modem_events(bus: &zbus::Connection, path: OwnedObjectPath) -> stream::
             }
         }
     }
-    let rule = MatchRule::builder()
-        .msg_type(MessageType::Signal)
-        .sender(MM)
-        .and_then(|b| b.interface(CELL_BROADCAST))
-        .and_then(|b| b.path(path))
-        .map(zbus::match_rule::Builder::build);
-    if let Ok(rule) = rule {
-        if let Ok(signals) = MessageStream::for_match_rule(rule, bus, Some(16)).await {
-            let broadcasts = signals.filter_map(|m| {
+    let rule = MatchRule::builder().msg_type(MessageType::Signal).sender(MM).and_then(|b| b.interface(CELL_BROADCAST)?.path(path.clone()));
+    if let Some(signals) = signals(bus, rule).await {
+        let broadcasts = signals.filter_map(|m| {
+            let m = m.ok()?;
+            match m.header().member()?.as_str() {
+                "Added" => {
+                    let (path, received): (OwnedObjectPath, bool) = m.body().deserialize().ok()?;
+                    received.then_some(Event::BroadcastAdded(path))
+                }
+                "Deleted" => Some(Event::BroadcastGone(m.body().deserialize().ok()?)),
+                _ => None,
+            }
+        });
+        events = events.or(broadcasts).boxed();
+    }
+    events.or(call_events(bus, path).await).boxed()
+}
+
+// Calls arriving on the modem, and every call's state as it changes.
+async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::Boxed<Event> {
+    let mut events = stream::empty().boxed();
+    let voice = MatchRule::builder().msg_type(MessageType::Signal).sender(MM).and_then(|b| b.interface(VOICE)?.path(modem));
+    if let Some(voice) = signals(bus, voice).await {
+        events = voice
+            .filter_map(|m| {
                 let m = m.ok()?;
+                let path: OwnedObjectPath = m.body().deserialize().ok()?;
                 match m.header().member()?.as_str() {
-                    "Added" => {
-                        let (path, received): (OwnedObjectPath, bool) = m.body().deserialize().ok()?;
-                        received.then_some(Event::BroadcastAdded(path))
-                    }
-                    "Deleted" => Some(Event::BroadcastGone(m.body().deserialize().ok()?)),
+                    "CallAdded" => Some(Event::CallAdded(path)),
+                    "CallDeleted" => Some(Event::CallChanged(path.to_string(), None)),
                     _ => None,
                 }
-            });
-            events = events.or(broadcasts).boxed();
-        }
+            })
+            .boxed();
+    }
+    let states = MatchRule::builder()
+        .msg_type(MessageType::Signal)
+        .sender(MM)
+        .and_then(|b| b.interface("org.freedesktop.DBus.Properties")?.path_namespace("/org/freedesktop/ModemManager1/Call"));
+    if let Some(states) = signals(bus, states).await {
+        let states = states.filter_map(|m| {
+            let m = m.ok()?;
+            let path = m.header().path()?.to_string();
+            let (interface, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) = m.body().deserialize().ok()?;
+            let state = u32::try_from(changed.get("State")?).ok()?;
+            (interface == CALL).then_some(Event::CallChanged(path, Some(state)))
+        });
+        events = events.or(states).boxed();
     }
     events
+}
+
+async fn signals(bus: &zbus::Connection, rule: zbus::Result<zbus::match_rule::Builder<'static>>) -> Option<MessageStream> {
+    MessageStream::for_match_rule(rule.ok()?.build(), bus, Some(16)).await.ok()
 }
 
 async fn properties(bus: &zbus::Connection, path: &OwnedObjectPath, interface: &'static str) -> HashMap<String, OwnedValue> {
@@ -555,37 +838,71 @@ async fn load_broadcast(bus: &zbus::Connection, qt: &Qt, path: OwnedObjectPath) 
     qt.queue(move |obj| obj.broadcast(broadcast)).ok();
 }
 
-async fn act(bus: &zbus::Connection, state: &Snapshot, command: Command) {
-    let Some(path) = state.path.clone() else { return };
-    let result = match command {
-        Command::Enable(on) => match ModemProxy::builder(bus).path(path) {
-            Ok(b) => match b.build().await {
-                Ok(modem) => modem.enable(on).await,
-                Err(e) => Err(e),
-            },
-            Err(e) => Err(e),
-        },
-        Command::Modes(allowed) => match (state.preferred(allowed), ModemProxy::builder(bus).path(path)) {
-            (Some(preferred), Ok(b)) => match b.build().await {
-                Ok(modem) => modem.set_current_modes(&(allowed, preferred)).await,
-                Err(e) => Err(e),
-            },
-            (None, _) => Ok(()),
-            (_, Err(e)) => Err(e),
+async fn act(bus: &zbus::Connection, state: &Snapshot, command: Command, qt: &Qt) -> zbus::Result<()> {
+    let Some(path) = state.path.clone() else { return Ok(()) };
+    match command {
+        Command::Enable(on) => ModemProxy::builder(bus).path(path)?.build().await?.enable(on).await,
+        Command::Modes(allowed) => match state.preferred(allowed) {
+            Some(preferred) => ModemProxy::builder(bus).path(path)?.build().await?.set_current_modes(&(allowed, preferred)).await,
+            None => Ok(()),
         },
         // Dialling a bearer takes seconds; the I/O thread waits, not the GUI.
-        Command::Data(on, roaming) => match SimpleProxy::builder(bus).path(path) {
-            Ok(b) => match b.build().await {
-                Ok(simple) if on => simple.connect(HashMap::from([("apn", Value::from("")), ("allow-roaming", Value::from(roaming))])).await.map(drop),
-                Ok(simple) => simple.disconnect(&zbus::zvariant::ObjectPath::from_static_str_unchecked("/")).await,
-                Err(e) => Err(e),
-            },
-            Err(e) => Err(e),
-        },
-    };
-    if let Err(e) = result {
-        log::warn("modem", e);
+        Command::Data(true, roaming) => {
+            let simple = SimpleProxy::builder(bus).path(path)?.build().await?;
+            simple.connect(HashMap::from([("apn", Value::from("")), ("allow-roaming", Value::from(roaming))])).await.map(drop)
+        }
+        Command::Data(false, _) => {
+            SimpleProxy::builder(bus).path(path)?.build().await?.disconnect(&zbus::zvariant::ObjectPath::from_static_str_unchecked("/")).await
+        }
+        Command::Dial(number) => {
+            let voice = VoiceProxy::builder(bus).path(path)?.build().await?;
+            let created = voice.create_call(HashMap::from([("number", Value::from(number.as_str()))])).await;
+            let call = match created {
+                Ok(call) => call,
+                Err(e) => {
+                    let reason = format!("CreateCall: {e}");
+                    qt.queue(move |obj| obj.call_failed(&QString::from(reason.as_str()))).ok();
+                    return Err(e);
+                }
+            };
+            let added = call.to_string();
+            qt.queue(move |obj| obj.call_added(added, false, &number)).ok();
+            CallProxy::builder(bus).path(call)?.build().await?.start().await
+        }
+        Command::Call(call, action) => {
+            let call = CallProxy::builder(bus).path(call)?.build().await?;
+            match action {
+                CallAction::Accept => call.accept().await,
+                CallAction::Hangup => call.hangup().await,
+                CallAction::Dtmf(digit) => call.send_dtmf(&digit).await,
+            }
+        }
+        Command::Inhibit(_) => Ok(()),
     }
+}
+
+async fn inhibit_calls(bus: &zbus::Connection) -> Option<zbus::zvariant::OwnedFd> {
+    let logind = crate::power::LogindProxy::new(bus).await.ok()?;
+    match logind.inhibit("sleep", "marathon-shell", "Active call inhibits system suspend", "block").await {
+        Ok(fd) => Some(fd),
+        Err(e) => {
+            log::warn("modem", format_args!("no call inhibitor: {e}"));
+            None
+        }
+    }
+}
+
+#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Modem.Voice", default_service = "org.freedesktop.ModemManager1")]
+trait Voice {
+    fn create_call(&self, properties: HashMap<&str, Value<'_>>) -> zbus::Result<OwnedObjectPath>;
+}
+
+#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Call", default_service = "org.freedesktop.ModemManager1")]
+trait Call {
+    fn start(&self) -> zbus::Result<()>;
+    fn accept(&self) -> zbus::Result<()>;
+    fn hangup(&self) -> zbus::Result<()>;
+    fn send_dtmf(&self, dtmf: &str) -> zbus::Result<()>;
 }
 
 #[cfg(test)]

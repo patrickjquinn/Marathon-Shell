@@ -23,7 +23,7 @@ static bool callIsActive(const QString &state) {
 
 BackgroundTaskObserver::BackgroundTaskObserver(AppLifecycleManager *lifecycle,
                                                AppLaunchService *launch, MPRIS2Controller *mpris,
-                                               TelephonyService *telephony, QObject *parent)
+                                               ModemManagerCpp *telephony, QObject *parent)
     : QObject(parent)
     , m_lifecycle(lifecycle)
     , m_launch(launch)
@@ -36,7 +36,7 @@ BackgroundTaskObserver::BackgroundTaskObserver(AppLifecycleManager *lifecycle,
                 &BackgroundTaskObserver::onMprisActivePlayerChanged);
     }
     if (m_telephony) {
-        connect(m_telephony, &TelephonyService::callStateChanged, this,
+        connect(m_telephony, &ModemManagerCpp::callStateChanged, this,
                 &BackgroundTaskObserver::onCallStateChanged);
     }
 }
@@ -96,7 +96,7 @@ void BackgroundTaskObserver::releaseAudioPlayback() {
 void BackgroundTaskObserver::onCallStateChanged(const QString &state) {
     if (!m_lifecycle)
         return;
-    // Hard-wire to "phone" — TelephonyService doesn't yet attribute calls
+    // Hard-wire to "phone" — ModemManagerCpp doesn't yet attribute calls
     // to a specific publisher. A future VoIP integration that wants to
     // hold the active-call cap will go through BeginBackgroundTask (Phase
     // B), bypassing this observer.

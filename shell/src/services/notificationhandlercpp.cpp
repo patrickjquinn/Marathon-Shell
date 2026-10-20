@@ -11,7 +11,7 @@
 
 NotificationHandlerCpp::NotificationHandlerCpp(NotificationServiceCpp *notifications,
                                                NavigationRouterCpp    *router,
-                                               TelephonyService       *telephony,
+                                               ModemManagerCpp       *telephony,
                                                MarathonAppRegistry *registry, QObject *parent)
     : QObject(parent)
     , m_notifications(notifications)

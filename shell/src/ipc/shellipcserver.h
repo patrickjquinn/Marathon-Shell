@@ -7,7 +7,7 @@ class QDBusConnection;
 class MarathonPermissionManager;
 class ContactsManager;
 class CallHistoryManager;
-class TelephonyService;
+class ModemManagerCpp;
 class SMSService;
 class AppLaunchService;
 class MediaLibraryManager;
@@ -44,7 +44,7 @@ class ShellIpcServer : public QObject {
 
   public:
     explicit ShellIpcServer(MarathonPermissionManager *permissions, ContactsManager *contacts,
-                            CallHistoryManager *callHistory, TelephonyService *telephony,
+                            CallHistoryManager *callHistory, ModemManagerCpp *telephony,
                             SMSService *sms, MediaLibraryManager *mediaLibrary,
                             SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                             DisplayManagerCpp *displayManager, PowerManagerCpp *powerManager,
@@ -88,7 +88,7 @@ class ShellIpcServer : public QObject {
     MarathonPermissionManager *m_permissions         = nullptr;
     ContactsManager           *m_contacts            = nullptr;
     CallHistoryManager        *m_callHistory         = nullptr;
-    TelephonyService          *m_telephony           = nullptr;
+    ModemManagerCpp          *m_telephony           = nullptr;
     SMSService                *m_sms                 = nullptr;
     MediaLibraryManager       *m_mediaLibrary        = nullptr;
     SettingsManager           *m_settingsManager     = nullptr;

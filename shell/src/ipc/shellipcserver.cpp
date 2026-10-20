@@ -27,7 +27,7 @@
 #include <QDebug>
 
 ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsManager *contacts,
-                               CallHistoryManager *callHistory, TelephonyService *telephony,
+                               CallHistoryManager *callHistory, ModemManagerCpp *telephony,
                                SMSService *sms, MediaLibraryManager *mediaLibrary,
                                SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                                DisplayManagerCpp *displayManager, PowerManagerCpp *powerManager,
