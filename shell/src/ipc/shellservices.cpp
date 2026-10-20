@@ -51,6 +51,27 @@
 #include <QFile>
 #include <QPointer>
 
+// cxx-qt makes a Rust i64 a QVariant of C long, which QtDBus cannot send:
+// libdbus aborts on the half-written entry. Rust values pass through this.
+static QVariant sendable(const QVariant &value) {
+    switch (value.typeId()) {
+        case QMetaType::Long: return QVariant::fromValue(qlonglong(value.value<long>()));
+        case QMetaType::QVariantList: {
+            QVariantList list = value.toList();
+            for (QVariant &v : list)
+                v = sendable(v);
+            return list;
+        }
+        case QMetaType::QVariantMap: {
+            QVariantMap map = value.toMap();
+            for (QVariant &v : map)
+                v = sendable(v);
+            return map;
+        }
+        default: return value;
+    }
+}
+
 // Function-local rather than namespace-scope: constructed on first use
 // (thread-safe since C++11) instead of running a throwing initialiser
 // before main().
@@ -767,7 +788,7 @@ BluetoothObject::BluetoothObject(Bluetooth *bt, MarathonPermissionManager *permi
 QVariantList BluetoothObject::buildDevices(bool pairedOnly) const {
     QVariantList out;
     for (const QVariant &d : pairedOnly ? m_bt->getPairedDevices() : m_bt->getDevices())
-        out.push_back(QVariant::fromValue(QDBusVariant(d)));
+        out.push_back(QVariant::fromValue(QDBusVariant(sendable(d))));
     return out;
 }
 
@@ -1073,7 +1094,7 @@ QVariantMap AudioObject::buildState() const {
         {"volume", m_audio->getVolume()},
         {"muted", m_audio->getMuted()},
         {"perAppVolumeSupported", m_audio->perAppVolumeSupported()},
-        {"streams", m_audio->getStreams()},
+        {"streams", sendable(m_audio->getStreams())},
         {"doNotDisturb", m_policy ? m_policy->isDoNotDisturb() : false},
         {"audioProfile", m_policy ? m_policy->audioProfile() : QString()},
     };
@@ -1910,11 +1931,11 @@ AlarmObject::AlarmObject(Alarms *alarms, MarathonPermissionManager *permissions,
 }
 
 QVariantList AlarmObject::GetAlarms() {
-    return requireAlarms() ? m_alarms->getAlarms() : QVariantList();
+    return requireAlarms() ? sendable(m_alarms->getAlarms()).toList() : QVariantList();
 }
 
 QVariantList AlarmObject::GetActiveAlarms() {
-    return requireAlarms() ? m_alarms->getActiveAlarms() : QVariantList();
+    return requireAlarms() ? sendable(m_alarms->getActiveAlarms()).toList() : QVariantList();
 }
 
 QString AlarmObject::CreateAlarm(const QString &time, const QString &label,
@@ -1966,18 +1987,8 @@ UpdatesObject::UpdatesObject(marathon::Updates *updates, MarathonPermissionManag
             [this]() { emit StateChanged(buildState()); });
 }
 
-// cxx-qt makes a Rust i64 a QVariant of C long, which QtDBus cannot send:
-// libdbus aborts on the half-written entry.
-static QVariantMap withLongLongs(QVariantMap map) {
-    for (QVariant &v : map) {
-        if (v.typeId() == QMetaType::Long)
-            v = QVariant::fromValue(qlonglong(v.value<long>()));
-    }
-    return map;
-}
-
 QVariantMap UpdatesObject::buildState() const {
-    QVariantMap state = withLongLongs(m_updates->state());
+    QVariantMap state = sendable(m_updates->state()).toMap();
     state.insert(QStringLiteral("currentVersion"), QCoreApplication::applicationVersion());
     return state;
 }
