@@ -14,7 +14,7 @@ The design is "Deckard – Android runtime for Marathon OS, technical design" (d
 ## Where the design assumes a different Marathon
 
 1. **Power.** Marathon doesn't use opportunistic suspend or kernel wake locks. It uses Marathon-Doze (`docs/UI_DESIGN_SYSTEM.md` §12): the display and GPU turn off, the kernel keeps running, and background apps are frozen with the cgroup freezer. So the suspend HAL should map an Android wake lock to `AppLifecycle1.BeginBackgroundTask` (stay thawed), and AlarmManager's next wake-up to `Alarm1`.
-2. **Push.** The shell already is a UnifiedPush distributor (`org.unifiedpush.Distributor2` in `shell/src/services/unifiedpushdistributor.*`, over ntfy). Android apps that support UnifiedPush can use it directly; microG FCM is needed only for the rest.
+2. **Push.** The shell already is a UnifiedPush distributor (`org.unifiedpush.Distributor2` in `crates/marathon-shell-native/src/push.rs`, over ntfy). Android apps that support UnifiedPush can use it directly; microG FCM is needed only for the rest.
 3. **One client, many apps.** The shell keys tasks, freezing and killing by PID (`applaunchservice.cpp` surface matching, `applifecyclemanager.cpp` `killOldestFrozenApp`), and sandboxed clients get one app id per client. Android apps would merge into one card, and reclaiming one would kill the container. M0 fixes this in the shell. The design's identity broker covers portals only, not this.
 4. **The Hub has no threaded view.** `x-marathon-conversation` is new Hub work, not an existing target.
 5. **xdg-activation isn't in the compositor.** M0 adds it.
