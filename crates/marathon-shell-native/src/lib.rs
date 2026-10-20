@@ -8,6 +8,7 @@ mod identity;
 pub mod iio;
 mod io;
 mod log;
+pub mod modem;
 pub mod network;
 pub mod power;
 pub mod security;

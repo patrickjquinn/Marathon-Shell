@@ -77,10 +77,6 @@ set(SOURCES
     src/managers/mediarole.h
     src/managers/audiodclient.h
     src/managers/audiodclient.cpp
-    src/managers/modemmanagercpp.h
-    src/managers/modemmanagercpp.cpp
-    src/managers/cellbroadcastmanager.h
-    src/managers/cellbroadcastmanager.cpp
     src/managers/sensormanagercpp.h
     src/managers/sensormanagercpp.cpp
     src/managers/settingsmanager.h

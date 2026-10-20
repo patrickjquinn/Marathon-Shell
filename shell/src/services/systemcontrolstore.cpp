@@ -87,12 +87,12 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_modemManager) {
-        setIsCellularOn(m_modemManager->modemEnabled());
-        setIsCellularDataOn(m_modemManager->dataEnabled());
+        setIsCellularOn(m_modemManager->getModemEnabled());
+        setIsCellularDataOn(m_modemManager->getDataEnabled());
         connect(m_modemManager, &ModemManagerCpp::modemEnabledChanged, this,
-                [this]() { setIsCellularOn(m_modemManager->modemEnabled()); });
+                [this]() { setIsCellularOn(m_modemManager->getModemEnabled()); });
         connect(m_modemManager, &ModemManagerCpp::dataEnabledChanged, this,
-                [this]() { setIsCellularDataOn(m_modemManager->dataEnabled()); });
+                [this]() { setIsCellularDataOn(m_modemManager->getDataEnabled()); });
     }
 
     if (m_settingsManager) {
@@ -208,7 +208,7 @@ void SystemControlStore::toggleCellularData() {
         return;
     }
     markPending(QStringLiteral("cellular"));
-    if (m_modemManager->dataEnabled()) {
+    if (m_modemManager->getDataEnabled()) {
         m_modemManager->disableData();
     } else {
         m_modemManager->enableData();

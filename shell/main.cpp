@@ -75,7 +75,6 @@
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
-#include "src/managers/cellbroadcastmanager.h"
 #include "src/managers/modemmanagercpp.h"
 #include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
@@ -819,11 +818,15 @@ int main(int argc, char *argv[]) {
     auto *audioManager = new AudioManagerCpp(&app);
     qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
                                                   audioManager);
-    auto *modemManager         = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
-    auto *cellBroadcastManager = new CellBroadcastManager(&app);
-    ctx->setContextProperty("CellBroadcastManagerCpp", cellBroadcastManager);
-    qmlRegisterSingletonInstance<CellBroadcastManager>(
-        "MarathonOS.Shell", 1, 0, "CellBroadcastManagerCpp", cellBroadcastManager);
+    auto *modemManager = new ModemManagerCpp();
+    modemManager->setParent(&app);
+    // One object serves the modem and its cell broadcasts.
+    ctx->setContextProperty("ModemManagerCpp", modemManager);
+    ctx->setContextProperty("CellBroadcastManagerCpp", modemManager);
+    modemManager->setDataRoamingAllowed(settingsManager->get("cellular/dataRoaming", false).toBool());
+    QObject::connect(modemManager, &ModemManagerCpp::dataRoamingAllowedChanged, settingsManager, [=] {
+        settingsManager->set("cellular/dataRoaming", modemManager->getDataRoamingAllowed());
+    });
     auto *sensorManager = new SensorManagerCpp(&app);
     qmlRegisterSingletonInstance<SensorManagerCpp>("MarathonOS.Shell", 1, 0, "SensorManagerCpp",
                                                    sensorManager);

@@ -1343,18 +1343,18 @@ ModemObject::ModemObject(ModemManagerCpp *modem, MarathonPermissionManager *perm
 
 QVariantMap ModemObject::buildState() const {
     return {
-        {"available", m_modem->modemAvailable()},
-        {"enabled", m_modem->modemEnabled()},
-        {"simPresent", m_modem->simPresent()},
-        {"registered", m_modem->registered()},
-        {"operatorName", m_modem->operatorName()},
-        {"signalStrength", m_modem->signalStrength()},
-        {"networkType", m_modem->networkType()},
-        {"roaming", m_modem->roaming()},
-        {"dataEnabled", m_modem->dataEnabled()},
-        {"dataRoamingAllowed", m_modem->dataRoamingAllowed()},
-        {"supportedModes", m_modem->supportedModes()},
-        {"allowedModes", m_modem->allowedModes()},
+        {"available", m_modem->getModemAvailable()},
+        {"enabled", m_modem->getModemEnabled()},
+        {"simPresent", m_modem->getSimPresent()},
+        {"registered", m_modem->getRegistered()},
+        {"operatorName", m_modem->getOperatorName()},
+        {"signalStrength", m_modem->getSignalStrength()},
+        {"networkType", m_modem->getNetworkType()},
+        {"roaming", m_modem->getRoaming()},
+        {"dataEnabled", m_modem->getDataEnabled()},
+        {"dataRoamingAllowed", m_modem->getDataRoamingAllowed()},
+        {"supportedModes", m_modem->getSupportedModes()},
+        {"allowedModes", m_modem->getAllowedModes()},
     };
 }
 

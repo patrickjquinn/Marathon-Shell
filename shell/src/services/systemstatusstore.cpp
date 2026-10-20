@@ -63,15 +63,15 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
     }
 
     if (m_modemManager) {
-        setCellularStrength(m_modemManager->signalStrength());
-        setCarrier(m_modemManager->operatorName());
-        setDataType(m_modemManager->networkType());
+        setCellularStrength(m_modemManager->getSignalStrength());
+        setCarrier(m_modemManager->getOperatorName());
+        setDataType(m_modemManager->getNetworkType());
         connect(m_modemManager, &ModemManagerCpp::signalStrengthChanged, this,
-                [this]() { setCellularStrength(m_modemManager->signalStrength()); });
+                [this]() { setCellularStrength(m_modemManager->getSignalStrength()); });
         connect(m_modemManager, &ModemManagerCpp::operatorNameChanged, this,
-                [this]() { setCarrier(m_modemManager->operatorName()); });
+                [this]() { setCarrier(m_modemManager->getOperatorName()); });
         connect(m_modemManager, &ModemManagerCpp::networkTypeChanged, this,
-                [this]() { setDataType(m_modemManager->networkType()); });
+                [this]() { setDataType(m_modemManager->getNetworkType()); });
     }
 
     if (m_notificationService) {
