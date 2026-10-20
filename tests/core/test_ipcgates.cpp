@@ -71,10 +71,10 @@ class TestIpcGates : public QObject {
     void deviceAndPersonalInterfacesCheckPermissions_data() {
         QTest::addColumn<QString>("cls");
         for (const char *cls :
-             {"ContactsObject", "TelephonyObject",
+             {"TelephonyObject",
               "MediaLibraryObject", "SecurityObject", "BluetoothObject", "DisplayObject",
               "PowerObject", "AudioObject", "NetworkObject", "ModemObject", "SensorObject",
-              "LocationObject", "AlarmObject", "UpdatesObject", "DavObject", "AppStoreObject",
+              "LocationObject", "AlarmObject", "UpdatesObject", "AppStoreObject",
               "PermissionsObject"})
             QTest::newRow(cls) << QString::fromLatin1(cls);
     }

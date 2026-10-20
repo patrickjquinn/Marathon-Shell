@@ -83,10 +83,7 @@
 #include "marathonappinstaller.h"
 #include "src/marathonpermissionmanager.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
-#include "contactsmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "davsyncengine.h"
-#include "davcalendarstore.h"
 #include "medialibrarymanager.h"
 #include "musiclibrarymanager.h"
 #include "src/wayland/waylandcompositormanager.h"
@@ -105,6 +102,7 @@
 #include "src/controllers/audioroutingmanager.h"
 #include "src/controllers/audiopolicycontroller.h"
 #include "marathon-shell-native/src/security.cxxqt.h"
+#include "marathon-shell-native/src/contacts.cxxqt.h"
 #include "marathon-shell-native/src/telephonyd.cxxqt.h"
 #include "src/managers/screenmetrics.h"
 #include "src/managers/platformcpp.h"
@@ -1244,7 +1242,9 @@ int main(int argc, char *argv[]) {
 
     createObject<marathon::ActivityService>(ctx, "ActivityService")->setParent(&app);
 
-    auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
+    auto *contacts           = new Contacts();
+    contacts->setParent(&app);
+    ctx->setContextProperty("ContactsManager", contacts);
     auto *telephonyd         = new Telephonyd();
     telephonyd->setParent(&app);
     auto *updateService = new marathon::Updates();
@@ -1273,8 +1273,6 @@ int main(int argc, char *argv[]) {
     // A suspended device wakes for the restart window, as for an alarm.
     QObject::connect(updateService, &marathon::Updates::restartWindowChanged, power,
                      [power](qint64 at) { power->setWakeTimer(QStringLiteral("update-restart"), at); });
-    auto *davCalendarStore = new DavCalendarStore(&app);
-    auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     auto *notificationHandler = createObject<NotificationHandlerCpp>(
         ctx, "NotificationHandler", notificationService, navigationRouter, modem,
         appRegistry, &app);
@@ -1288,7 +1286,7 @@ int main(int argc, char *argv[]) {
         return true;
     });
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
-        ctx, "TelephonyIntegration", contactsManager, notificationService, power,
+        ctx, "TelephonyIntegration", contacts, notificationService, power,
         display, audioPolicyController, hapticManager, modem, telephonyd, &app);
     if (freedesktopNotif)
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
@@ -1326,11 +1324,11 @@ int main(int argc, char *argv[]) {
 
     {
         auto *ipc = new ShellIpcServer(
-            permissionManager, contactsManager, modem,
+            permissionManager, modem,
             mediaLibraryManager, settingsManager, bluetoothManager, display, power,
             audioManager, audioPolicyController, network, hapticManager, security,
             rotationManager, locationManager, alarmManager, audioRoutingManager, updateService,
-            davSyncEngine, appLaunchService, appLifecycleManager, appRegistry,
+            appLaunchService, appLifecycleManager, appRegistry,
             &app);
         ipc->setAmbienceService(ambienceService);
         ipc->setWallpaperStore(wallpaperStore);

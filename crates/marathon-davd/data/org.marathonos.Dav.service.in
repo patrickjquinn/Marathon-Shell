@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.Dav
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/marathon-davd
+SystemdService=marathon-davd.service

@@ -5,7 +5,7 @@
 #include <QString>
 #include <QVariantMap>
 
-class ContactsManager;
+class Contacts;
 class NotificationServiceCpp;
 class Power;
 namespace marathon {
@@ -28,7 +28,7 @@ class TelephonyIntegrationCpp : public QObject {
 
   public:
     explicit TelephonyIntegrationCpp(
-        ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
+        Contacts *contacts, NotificationServiceCpp *notificationService,
         Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
         HapticManager *haptics, Modem *telephonyService, Telephonyd *telephonyd,
         QObject *parent = nullptr);
@@ -78,7 +78,7 @@ class TelephonyIntegrationCpp : public QObject {
     void                     hideIncomingOverlay();
     void                     updateHasActiveCall(const QString &state);
 
-    ContactsManager         *m_contactsManager     = nullptr;
+    Contacts                *m_contacts            = nullptr;
     NotificationServiceCpp  *m_notificationService = nullptr;
     Power                   *m_power               = nullptr;
     marathon::Display                 *m_display             = nullptr;

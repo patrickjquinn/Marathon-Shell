@@ -23,7 +23,6 @@ class AppLaunchService;
 class AppLifecycleManager;
 class MarathonAppRegistry;
 
-class ContactsManager;
 class Modem;
 class MediaLibraryManager;
 class SettingsManager;
@@ -102,37 +101,6 @@ class PermissionsObject : public IpcPermissionedService {
   private:
     QString       requireForeignPrompter();
     QSet<QString> m_waiting;
-};
-
-class ContactsObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Contacts1")
-
-  public:
-    ContactsObject(ContactsManager *contacts, MarathonPermissionManager *permissions,
-                   AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantList GetContacts();
-    QVariantMap  GetContact(int id);
-    QVariantMap  GetContactByNumber(const QString &phoneNumber);
-    QVariantList SearchContacts(const QString &query);
-    void         AddContact(const QString &name, const QString &phone, const QString &email);
-    void         UpdateContact(int id, const QVariantMap &data);
-    void         DeleteContact(int id);
-
-  signals:
-    void ContactsChanged();
-    void ContactAdded(int id);
-    void ContactUpdated(int id);
-    void ContactDeleted(int id);
-
-  private:
-    bool requireContacts() {
-        return requirePermission("Contacts", {"contacts"});
-    }
-
-    ContactsManager *m_contacts = nullptr;
 };
 
 class AudioRoutingManager;
@@ -685,7 +653,6 @@ class AlarmObject : public IpcPermissionedService {
     AlarmManagerCpp *m_alarms = nullptr;
 };
 
-class DavSyncEngine;
 
 // Surfaces Updates over D-Bus so the Settings app (running in the
 // app-runner process) can check for, install and reboot into OS updates.
@@ -716,40 +683,6 @@ class UpdatesObject : public IpcPermissionedService {
     QVariantMap        buildState() const;
 
     marathon::Updates *m_updates = nullptr;
-};
-
-// Surfaces DavSyncEngine: account add/remove/list + sync trigger. Settings
-// app needs this for the "Accounts → Add CardDAV" flow.
-class DavObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Dav1")
-
-  public:
-    DavObject(DavSyncEngine *engine, MarathonPermissionManager *permissions,
-              AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantList ListAccounts();
-    QString AddAccount(const QString &displayName, const QString &baseUrl, const QString &username,
-                       const QString &secret, const QString &authKind);
-    bool    RemoveAccount(const QString &id);
-    void    EnableAccount(const QString &id, bool enabled);
-    void    SyncNow();
-    QVariantMap GetState();
-
-  signals:
-    void AccountsChanged();
-    void SyncFinished(const QString &accountId);
-    void AccountDiscovered(const QString &accountId);
-    void AccountDiscoveryFailed(const QString &accountId, const QString &reason);
-    void StateChanged(const QVariantMap &state);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Dav", {"system"});
-    }
-
-    DavSyncEngine *m_engine = nullptr;
 };
 
 class MarathonAppInstaller;

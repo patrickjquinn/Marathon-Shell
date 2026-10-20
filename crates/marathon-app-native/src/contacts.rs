@@ -70,7 +70,7 @@ pub mod qobject {
 
 use qobject::Contacts;
 
-const CONTACTS: Service = Service::shell("Contacts");
+const CONTACTS: Service = Service::on("org.marathonos.Dav", "Contacts");
 
 #[derive(Default)]
 pub struct ContactsRust {

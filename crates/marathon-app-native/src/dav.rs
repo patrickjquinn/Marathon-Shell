@@ -68,7 +68,7 @@ pub mod qobject {
 
 use qobject::DavSync;
 
-const DAV: Service = Service::shell("Dav");
+const DAV: Service = Service::on("org.marathonos.Dav", "Dav");
 
 #[derive(Default)]
 pub struct DavSyncRust {

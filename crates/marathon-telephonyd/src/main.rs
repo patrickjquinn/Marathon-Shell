@@ -256,7 +256,7 @@ impl CallHistory {
     async fn name_for(&self, number: &str) -> String {
         let asked = self
             .bus
-            .call_method(Some("org.marathonos.Shell"), "/org/marathonos/Shell/Contacts", Some("org.marathonos.Shell.Contacts1"), "GetContactByNumber", &(number,))
+            .call_method(Some("org.marathonos.Dav"), "/org/marathonos/Shell/Contacts", Some("org.marathonos.Shell.Contacts1"), "GetContactByNumber", &(number,))
             .await;
         let contact: Option<HashMap<String, OwnedValue>> = asked.ok().and_then(|reply| reply.body().deserialize().ok());
         contact

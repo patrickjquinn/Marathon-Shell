@@ -1,0 +1,10 @@
+[Unit]
+Description=Marathon address book and CardDAV/CalDAV sync
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.marathonos.Dav
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-davd
+Restart=on-failure
+RestartSec=5

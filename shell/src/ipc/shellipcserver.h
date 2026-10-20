@@ -5,7 +5,6 @@
 class QDBusConnection;
 
 class MarathonPermissionManager;
-class ContactsManager;
 class Modem;
 class AppLaunchService;
 class MediaLibraryManager;
@@ -25,7 +24,6 @@ class RotationManager;
 class LocationManager;
 class AlarmManagerCpp;
 class AudioRoutingManager;
-class DavSyncEngine;
 class MarathonAppInstaller;
 class AppLifecycleManager;
 class MarathonAppRegistry;
@@ -41,7 +39,7 @@ class ShellIpcServer : public QObject {
     Q_OBJECT
 
   public:
-    explicit ShellIpcServer(MarathonPermissionManager *permissions, ContactsManager *contacts,
+    explicit ShellIpcServer(MarathonPermissionManager *permissions,
                             Modem *telephony, MediaLibraryManager *mediaLibrary,
                             SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                             marathon::Display *display, Power *powerManager,
@@ -50,7 +48,6 @@ class ShellIpcServer : public QObject {
                             Security *securityManager, RotationManager *rotationManager,
                             LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                             AudioRoutingManager *audioRoutingManager, marathon::Updates *updateService,
-                            DavSyncEngine *davSyncEngine,
                             AppLaunchService    *appLaunchService,
                             AppLifecycleManager *lifecycleManager, MarathonAppRegistry *appRegistry,
                             QObject *parent = nullptr);
@@ -80,7 +77,6 @@ class ShellIpcServer : public QObject {
 
   private:
     MarathonPermissionManager *m_permissions         = nullptr;
-    ContactsManager           *m_contacts            = nullptr;
     Modem          *m_telephony           = nullptr;
     MediaLibraryManager       *m_mediaLibrary        = nullptr;
     SettingsManager           *m_settingsManager     = nullptr;
@@ -101,7 +97,6 @@ class ShellIpcServer : public QObject {
     AlarmManagerCpp           *m_alarmManager        = nullptr;
     AudioRoutingManager       *m_audioRoutingManager = nullptr;
     marathon::Updates         *m_updateService       = nullptr;
-    DavSyncEngine             *m_davSyncEngine       = nullptr;
     MarathonAppInstaller      *m_appInstaller        = nullptr;
     ForegroundApp             *m_foregroundApp       = nullptr;
     SessionStore              *m_sessionStore        = nullptr;

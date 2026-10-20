@@ -12,10 +12,10 @@ oFono and ConnMan. Media (MPRIS), notifications (fdo) and speech are as
 on Sailfish; Sailfish's stock-app hand-offs are not available. Without
 the shell nothing changes.
 ---
- shoal/pilot/pilotd/src/adapters/marathon.rs | 651 ++++++++++++++++++++
+ shoal/pilot/pilotd/src/adapters/marathon.rs | 652 ++++++++++++++++++++
  shoal/pilot/pilotd/src/adapters/mod.rs      |   1 +
  shoal/pilot/pilotd/src/daemon.rs            |  40 ++
- shoal/pilot/pilotd/tests/marathon.rs        | 251 ++++++++
+ shoal/pilot/pilotd/tests/marathon.rs        | 252 ++++++++
  4 files changed, 935 insertions(+)
  create mode 100644 shoal/pilot/pilotd/src/adapters/marathon.rs
  create mode 100644 shoal/pilot/pilotd/tests/marathon.rs
@@ -25,7 +25,7 @@ new file mode 100644
 index 0000000..7383214
 --- /dev/null
 +++ b/shoal/pilot/pilotd/src/adapters/marathon.rs
-@@ -0,0 +1,651 @@
+@@ -0,0 +1,652 @@
 +// SPDX-FileCopyrightText: 2026 Patrick Quinn
 +// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
 +
@@ -65,6 +65,7 @@ index 0000000..7383214
 +fn bus_for(object: &str) -> &'static str {
 +    match object {
 +        "Sms" | "CallHistory" => "org.marathonos.Telephony",
++        "Contacts" => "org.marathonos.Dav",
 +        _ => SHELL,
 +    }
 +}
@@ -752,7 +753,7 @@ new file mode 100644
 index 0000000..e83f64c
 --- /dev/null
 +++ b/shoal/pilot/pilotd/tests/marathon.rs
-@@ -0,0 +1,251 @@
+@@ -0,0 +1,252 @@
 +// SPDX-FileCopyrightText: 2026 Patrick Quinn
 +// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
 +
@@ -943,6 +944,7 @@ index 0000000..e83f64c
 +        .await
 +        .unwrap();
 +    shell.request_name(marathon::SHELL).await.unwrap();
++    shell.request_name("org.marathonos.Dav").await.unwrap();
 +    assert!(marathon::present(&client));
 +
 +    let clock = ShellClock::new(client.clone());

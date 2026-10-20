@@ -30,7 +30,6 @@
 #include "ratelimiter.h"
 #include "securitylogger.h"
 
-#include "contactsmanager.h"
 #include "audioroutingmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "medialibrarymanager.h"
@@ -40,7 +39,6 @@
 #include "../services/applifecyclemanager.h"
 #include "marathonappregistry.h"
 #include "marathonmanifest.h"
-#include "davsyncengine.h"
 #include "dbusnormalize.h"
 
 #include <QDBusArgument>
@@ -1666,65 +1664,6 @@ void PermissionsObject::CancelAndroidPrompt(const QString &request) {
         m_permissions->cancelForeign(caller + QLatin1Char(' ') + request);
 }
 
-ContactsObject::ContactsObject(ContactsManager *contacts, MarathonPermissionManager *permissions,
-                               AppLaunchService *launchService, QObject *parent)
-    : IpcPermissionedService(permissions, launchService, parent)
-    , m_contacts(contacts) {
-    Q_ASSERT(m_contacts);
-    Q_ASSERT(m_permissions);
-    Q_ASSERT(m_launchService);
-    QObject::connect(m_contacts, &ContactsManager::contactsChanged, this,
-                     &ContactsObject::ContactsChanged);
-    QObject::connect(m_contacts, &ContactsManager::contactAdded, this,
-                     &ContactsObject::ContactAdded);
-    QObject::connect(m_contacts, &ContactsManager::contactUpdated, this,
-                     &ContactsObject::ContactUpdated);
-    QObject::connect(m_contacts, &ContactsManager::contactDeleted, this,
-                     &ContactsObject::ContactDeleted);
-}
-
-QVariantList ContactsObject::GetContacts() {
-    if (!requireContacts())
-        return {};
-    return m_contacts->contacts();
-}
-
-QVariantMap ContactsObject::GetContact(int id) {
-    if (!requireContacts())
-        return {};
-    return m_contacts->getContact(id);
-}
-
-QVariantMap ContactsObject::GetContactByNumber(const QString &phoneNumber) {
-    if (!requireContacts())
-        return {};
-    return m_contacts->getContactByNumber(phoneNumber);
-}
-
-QVariantList ContactsObject::SearchContacts(const QString &query) {
-    if (!requireContacts())
-        return {};
-    return m_contacts->searchContacts(query);
-}
-
-void ContactsObject::AddContact(const QString &name, const QString &phone, const QString &email) {
-    if (!requireContacts())
-        return;
-    m_contacts->addContact(name, phone, email);
-}
-
-void ContactsObject::UpdateContact(int id, const QVariantMap &data) {
-    if (!requireContacts())
-        return;
-    m_contacts->updateContact(id, data);
-}
-
-void ContactsObject::DeleteContact(int id) {
-    if (!requireContacts())
-        return;
-    m_contacts->deleteContact(id);
-}
-
 TelephonyObject::TelephonyObject(Modem          *telephony,
                                  MarathonPermissionManager *permissions,
                                  AppLaunchService *launchService, AudioRoutingManager *audioRouting,
@@ -2235,71 +2174,6 @@ void UpdatesObject::ScheduleRestart() {
 void UpdatesObject::SetAutoUpdate(bool on) {
     if (requireSystem())
         m_updates->setAutoUpdate(on);
-}
-
-// === DavObject =============================================================
-
-DavObject::DavObject(DavSyncEngine *engine, MarathonPermissionManager *permissions,
-                     AppLaunchService *launchService, QObject *parent)
-    : IpcPermissionedService(permissions, launchService, parent)
-    , m_engine(engine) {
-    if (m_engine) {
-        connect(m_engine, &DavSyncEngine::accountsChanged, this,
-                [this]() { emit AccountsChanged(); });
-        connect(m_engine, &DavSyncEngine::syncFinished, this,
-                [this](const QString &accountId, int, int, int) { emit SyncFinished(accountId); });
-        connect(m_engine, &DavSyncEngine::accountDiscovered, this, &DavObject::AccountDiscovered);
-        connect(m_engine, &DavSyncEngine::accountDiscoveryFailed, this,
-                &DavObject::AccountDiscoveryFailed);
-    }
-}
-
-QVariantList DavObject::ListAccounts() {
-    if (!requireSystem())
-        return {};
-    return m_engine ? m_engine->listAccounts() : QVariantList{};
-}
-
-QString DavObject::AddAccount(const QString &displayName, const QString &baseUrl,
-                              const QString &username, const QString &secret,
-                              const QString &authKind) {
-    if (!requireSystem())
-        return {};
-    return m_engine ? m_engine->addAccount(displayName, baseUrl, username, secret, authKind) :
-                      QString{};
-}
-
-bool DavObject::RemoveAccount(const QString &id) {
-    if (!requireSystem())
-        return false;
-    return m_engine ? m_engine->removeAccount(id) : false;
-}
-
-void DavObject::EnableAccount(const QString &id, bool enabled) {
-    if (!requireSystem())
-        return;
-    if (m_engine)
-        m_engine->enableAccount(id, enabled);
-}
-
-void DavObject::SyncNow() {
-    if (!requireSystem())
-        return;
-    if (m_engine)
-        m_engine->syncNow();
-}
-
-QVariantMap DavObject::GetState() {
-    if (!requireSystem())
-        return {};
-    if (!m_engine)
-        return {};
-    return {
-        {"accountCount", m_engine->accountCount()},
-        {"syncing", m_engine->syncing()},
-        {"lastError", m_engine->lastError()},
-        {"lastSyncMs", m_engine->lastSyncMs()},
-    };
 }
 
 // === AppStoreObject ========================================================

@@ -377,13 +377,6 @@ add_executable(test_core_telephonyservice test_telephonyservice.cpp)
 target_link_libraries(test_core_telephonyservice Qt6::Test Qt6::Core Qt6::DBus marathon_shell_native)
 add_test(NAME Core_TelephonyService COMMAND test_core_telephonyservice)
 
-if(TARGET MarathonServices)
-    # DAV account secrets: keyring migration, retry and removal
-    add_executable(test_core_davsecrets test_davsecrets.cpp)
-    target_link_libraries(test_core_davsecrets Qt6::Test Qt6::Core Qt6::DBus Qt6::Network MarathonServices)
-    add_test(NAME Core_DavSecrets COMMAND test_core_davsecrets)
-endif()
-
 # Sound names format locally, shared by the shell and the app runner
 add_executable(test_core_soundname test_soundname.cpp)
 set_target_properties(test_core_soundname PROPERTIES AUTOMOC ON)

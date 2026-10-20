@@ -7,16 +7,16 @@
 #include "hapticmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/telephonyd.cxxqt.h"
-#include "contactsmanager.h"
+#include "marathon-shell-native/src/contacts.cxxqt.h"
 
 #include <QMetaObject>
 
 TelephonyIntegrationCpp::TelephonyIntegrationCpp(
-    ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
+    Contacts *contacts, NotificationServiceCpp *notificationService,
     Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
     HapticManager *haptics, Modem *telephonyService, Telephonyd *telephonyd, QObject *parent)
     : QObject(parent)
-    , m_contactsManager(contactsManager)
+    , m_contacts(contacts)
     , m_notificationService(notificationService)
     , m_power(power)
     , m_display(display)
@@ -150,9 +150,9 @@ void TelephonyIntegrationCpp::handleMessageReceived(const QString &sender, const
 }
 
 QString TelephonyIntegrationCpp::resolveContactName(const QString &number) const {
-    if (!m_contactsManager)
+    if (!m_contacts)
         return number;
-    const QVariantMap contact = m_contactsManager->getContactByNumber(number);
+    const QVariantMap contact = m_contacts->getContactByNumber(number);
     const QString     name    = contact.value("name").toString();
     return name.isEmpty() ? number : name;
 }

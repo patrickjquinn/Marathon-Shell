@@ -216,6 +216,7 @@ function(marathon_daemon crate bus)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/services)
 endfunction()
 
+marathon_daemon(marathon-davd org.marathonos.Dav)
 marathon_daemon(marathon-telephonyd org.marathonos.Telephony)
 
 if(BUILD_TESTING)

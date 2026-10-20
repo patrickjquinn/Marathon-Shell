@@ -1142,6 +1142,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ical"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b7cab7543a8b7729a19e2c04309f902861293dcdae6558dfbeb634454d279f6"
+dependencies = [
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "image"
 version = "0.25.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1422,6 +1431,27 @@ dependencies = [
  "tempfile",
  "walkdir",
  "zip",
+]
+
+[[package]]
+name = "marathon-davd"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-io",
+ "base64",
+ "blocking",
+ "futures-lite",
+ "ical",
+ "marathon-rt",
+ "quick-xml",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tz-rs",
+ "ureq",
+ "zbus",
 ]
 
 [[package]]

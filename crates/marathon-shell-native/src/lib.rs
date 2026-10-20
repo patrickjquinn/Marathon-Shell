@@ -11,6 +11,7 @@ pub(crate) use marathon_rt::{io, log};
 mod audit;
 mod cgroup;
 mod clock;
+pub mod contacts;
 mod desktop;
 pub mod display;
 mod identity;

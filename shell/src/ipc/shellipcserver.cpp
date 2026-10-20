@@ -4,7 +4,6 @@
 
 #include "marathonpermissionmanager.h"
 
-#include "contactsmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "medialibrarymanager.h"
 #include "settingsmanager.h"
@@ -21,7 +20,7 @@
 #include <QDBusError>
 #include <QDebug>
 
-ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsManager *contacts,
+ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions,
                                Modem *telephony, MediaLibraryManager *mediaLibrary,
                                SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                                marathon::Display *display, Power *powerManager,
@@ -30,13 +29,12 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
                                Security *securityManager, RotationManager *rotationManager,
                                LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                                AudioRoutingManager *audioRoutingManager,
-                               marathon::Updates *updateService, DavSyncEngine *davSyncEngine,
+                               marathon::Updates *updateService,
                                AppLaunchService        *appLaunchService,
                                AppLifecycleManager     *lifecycleManager,
                                MarathonAppRegistry *appRegistry, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
-    , m_contacts(contacts)
     , m_telephony(telephony)
     , m_mediaLibrary(mediaLibrary)
     , m_settingsManager(settingsManager)
@@ -53,7 +51,6 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
     , m_alarmManager(alarmManager)
     , m_audioRoutingManager(audioRoutingManager)
     , m_updateService(updateService)
-    , m_davSyncEngine(davSyncEngine)
     , m_appLaunchService(appLaunchService)
     , m_lifecycleManager(lifecycleManager)
     , m_appRegistry(appRegistry) {}
@@ -78,7 +75,6 @@ bool ShellIpcServer::registerOnSessionBus() {
     }
 
     auto *permObj     = new PermissionsObject(m_permissions, m_appLaunchService, this);
-    auto *contactsObj = new ContactsObject(m_contacts, m_permissions, m_appLaunchService, this);
     auto *telephonyObj = new TelephonyObject(m_telephony, m_permissions, m_appLaunchService,
                                              m_audioRoutingManager, this);
     auto *mediaObj =
@@ -104,7 +100,6 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *locObj   = new LocationObject(m_locationManager, m_permissions, m_appLaunchService, this);
     auto *alarmObj = new AlarmObject(m_alarmManager, m_permissions, m_appLaunchService, this);
     auto *updatesObj = new UpdatesObject(m_updateService, m_permissions, m_appLaunchService, this);
-    auto *davObj     = new DavObject(m_davSyncEngine, m_permissions, m_appLaunchService, this);
     auto *appStoreObj =
         new AppStoreObject(m_appInstaller, m_permissions, m_appLaunchService, this);
     auto *lifecycleObj =
@@ -112,8 +107,6 @@ bool ShellIpcServer::registerOnSessionBus() {
 
     bool ok = true;
     ok &= bus.registerObject("/org/marathonos/Shell/Permissions", permObj,
-                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
-    ok &= bus.registerObject("/org/marathonos/Shell/Contacts", contactsObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Telephony", telephonyObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
@@ -144,8 +137,6 @@ bool ShellIpcServer::registerOnSessionBus() {
     ok &= bus.registerObject("/org/marathonos/Shell/Alarm", alarmObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Updates", updatesObj,
-                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
-    ok &= bus.registerObject("/org/marathonos/Shell/Dav", davObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/AppStore", appStoreObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
