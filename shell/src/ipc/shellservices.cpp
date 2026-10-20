@@ -26,7 +26,7 @@
 #include "audiopolicycontroller.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
-#include "alarmmanagercpp.h"
+#include "marathon-shell-native/src/alarms.cxxqt.h"
 #include "ratelimiter.h"
 #include "securitylogger.h"
 
@@ -1896,25 +1896,25 @@ QVariantMap LocationObject::GetLocation() {
     return requireLocation() ? location() : QVariantMap();
 }
 
-AlarmObject::AlarmObject(AlarmManagerCpp *alarms, MarathonPermissionManager *permissions,
+AlarmObject::AlarmObject(Alarms *alarms, MarathonPermissionManager *permissions,
                          AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_alarms(alarms) {
     Q_ASSERT(m_alarms);
-    connect(m_alarms, &AlarmManagerCpp::alarmsChanged, this, &AlarmObject::AlarmsChanged);
-    connect(m_alarms, &AlarmManagerCpp::activeAlarmsChanged, this,
+    connect(m_alarms, &Alarms::alarmsChanged, this, &AlarmObject::AlarmsChanged);
+    connect(m_alarms, &Alarms::activeAlarmsChanged, this,
             &AlarmObject::ActiveAlarmsChanged);
-    connect(m_alarms, &AlarmManagerCpp::alarmTriggered, this, &AlarmObject::AlarmTriggered);
-    connect(m_alarms, &AlarmManagerCpp::alarmDismissed, this, &AlarmObject::AlarmDismissed);
-    connect(m_alarms, &AlarmManagerCpp::alarmSnoozed, this, &AlarmObject::AlarmSnoozed);
+    connect(m_alarms, &Alarms::alarmTriggered, this, &AlarmObject::AlarmTriggered);
+    connect(m_alarms, &Alarms::alarmDismissed, this, &AlarmObject::AlarmDismissed);
+    connect(m_alarms, &Alarms::alarmSnoozed, this, &AlarmObject::AlarmSnoozed);
 }
 
 QVariantList AlarmObject::GetAlarms() {
-    return requireAlarms() ? m_alarms->alarms() : QVariantList();
+    return requireAlarms() ? m_alarms->getAlarms() : QVariantList();
 }
 
 QVariantList AlarmObject::GetActiveAlarms() {
-    return requireAlarms() ? m_alarms->activeAlarms() : QVariantList();
+    return requireAlarms() ? m_alarms->getActiveAlarms() : QVariantList();
 }
 
 QString AlarmObject::CreateAlarm(const QString &time, const QString &label,

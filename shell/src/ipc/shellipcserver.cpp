@@ -13,7 +13,7 @@
 #include "audiopolicycontroller.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
-#include "alarmmanagercpp.h"
+#include "marathon-shell-native/src/alarms.cxxqt.h"
 
 #include <QDBusConnection>
 #include <QDBusError>
@@ -26,7 +26,7 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions,
                                marathon::Audio *audioManager, AudioPolicyController *audioPolicy,
                                Network *networkManager, Haptics *hapticManager,
                                Security *securityManager, RotationManager *rotationManager,
-                               Location *locationManager, AlarmManagerCpp *alarmManager,
+                               Location *locationManager, Alarms *alarmManager,
                                AudioRoutingManager *audioRoutingManager,
                                marathon::Updates *updateService,
                                AppLaunchService        *appLaunchService,

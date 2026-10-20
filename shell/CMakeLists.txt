@@ -75,8 +75,6 @@ set(SOURCES
     src/services/waketouchfilter.cpp
     src/managers/rotationmanager.h
     src/managers/rotationmanager.cpp
-    src/managers/alarmmanagercpp.h
-    src/managers/alarmmanagercpp.cpp
     src/services/statusbariconservicecpp.h
     src/services/statusbariconservicecpp.cpp
     src/services/systemstatusstore.h

@@ -15,7 +15,7 @@ namespace marathon {
 class Flashlight;
 class Modem;
 class SettingsManager;
-class AlarmManagerCpp;
+class Alarms;
 class Location;
 class Haptics;
 class Power;
@@ -55,7 +55,7 @@ class SystemControlStore : public QObject {
                                 marathon::Display              *display,
                                 Flashlight *flashlightManager,
                                 Modem *modemManager, SettingsManager *settingsManager,
-                                AlarmManagerCpp *alarmManager, Location *locationManager,
+                                Alarms *alarmManager, Location *locationManager,
                                 Haptics *hapticManager, Power *powerManager,
                                 marathon::Audio       *audioManager,
                                 AudioPolicyController *audioPolicyController,
@@ -191,7 +191,7 @@ class SystemControlStore : public QObject {
     Flashlight            *m_flashlightManager;
     Modem       *m_modemManager;
     SettingsManager       *m_settingsManager;
-    AlarmManagerCpp       *m_alarmManager;
+    Alarms                *m_alarmManager;
     Location              *m_locationManager;
     Haptics               *m_hapticManager;
     Power       *m_powerManager;

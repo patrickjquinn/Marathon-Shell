@@ -1,6 +1,6 @@
 #include "systemcontrolstore.h"
 #include "src/controllers/audiopolicycontroller.h"
-#include "src/managers/alarmmanagercpp.h"
+#include "marathon-shell-native/src/alarms.cxxqt.h"
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
@@ -20,7 +20,7 @@
 SystemControlStore::SystemControlStore(
     Network *networkManager, Bluetooth *bluetoothManager,
     marathon::Display *display, Flashlight *flashlightManager,
-    Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
+    Modem *modemManager, SettingsManager *settingsManager, Alarms *alarmManager,
     Location *locationManager, Haptics *hapticManager, Power *powerManager,
     marathon::Audio *audioManager, AudioPolicyController *audioPolicyController,
     ScreenshotServiceCpp *screenshotService, QObject *parent)
@@ -103,9 +103,9 @@ SystemControlStore::SystemControlStore(
 
     if (m_alarmManager) {
         refreshAlarmState();
-        connect(m_alarmManager, &AlarmManagerCpp::alarmsChanged, this,
+        connect(m_alarmManager, &Alarms::alarmsChanged, this,
                 [this]() { refreshAlarmState(); });
-        connect(m_alarmManager, &AlarmManagerCpp::activeAlarmsChanged, this,
+        connect(m_alarmManager, &Alarms::activeAlarmsChanged, this,
                 [this]() { refreshAlarmState(); });
     }
 
@@ -487,5 +487,5 @@ void SystemControlStore::refreshAlarmState() {
         setIsAlarmOn(false);
         return;
     }
-    setIsAlarmOn(m_alarmManager->hasActiveAlarm() || m_alarmManager->hasEnabledAlarm());
+    setIsAlarmOn(m_alarmManager->getHasActiveAlarm() || m_alarmManager->getHasEnabledAlarm());
 }

@@ -43,7 +43,7 @@
 #include "src/components/crashhandler.h"
 #include "src/models/appmodel.h"
 #include "src/models/taskmodel.h"
-#include "src/managers/alarmmanagercpp.h"
+#include "marathon-shell-native/src/alarms.cxxqt.h"
 #include "src/services/applaunchservice.h"
 #include "src/services/applifecyclemanager.h"
 #include "src/services/backgroundtaskobserver.h"
@@ -887,10 +887,17 @@ int main(int argc, char *argv[]) {
     auto *clipboard = new Clipboard();
     clipboard->setParent(&app);
     ctx->setContextProperty("ClipboardManagerCpp", clipboard);
-    auto *alarmManager = createObject<AlarmManagerCpp>(
-        ctx, "AlarmManagerCpp", settingsManager, power, audioManager, hapticManager, &app);
-    QObject::connect(alarmManager, &AlarmManagerCpp::nextAlarmScheduled, power,
+    auto *alarmManager = new Alarms();
+    alarmManager->setParent(&app);
+    ctx->setContextProperty("AlarmManagerCpp", alarmManager);
+    QObject::connect(alarmManager, &Alarms::nextAlarmScheduled, power,
                      [power](qint64 at) { power->setWakeTimer(QStringLiteral("alarm"), at); });
+    QObject::connect(alarmManager, &Alarms::dataChanged, settingsManager,
+                     [=] { settingsManager->set("alarms/data", alarmManager->getData()); });
+    // Its timer stands still while suspended; this runs before anything
+    // below asks whether an alarm rings.
+    QObject::connect(power, &Power::resumedFromSuspend, alarmManager, &Alarms::checkAlarms);
+    alarmManager->setData(settingsManager->get("alarms/data", "[]").toString());
     auto *flashlightManager = new Flashlight();
     flashlightManager->setParent(&app);
     ctx->setContextProperty("FlashlightManagerCpp", flashlightManager);
@@ -1016,12 +1023,12 @@ int main(int argc, char *argv[]) {
     // ringing by then (checkAlarms runs first) keeps the screen on.
     QObject::connect(power, &Power::resumedFromSuspend, display,
                      [display, alarmManager](bool backgroundWake) {
-                         if (backgroundWake && !alarmManager->hasActiveAlarm())
+                         if (backgroundWake && !alarmManager->getHasActiveAlarm())
                              display->turnScreenOff(QStringLiteral("background-wake (doze)"));
                          else
                              display->forceScreenOn();
                      });
-    QObject::connect(alarmManager, &AlarmManagerCpp::alarmTriggered, display,
+    QObject::connect(alarmManager, &Alarms::alarmTriggered, display,
                      &marathon::Display::turnScreenOn);
 
     // logind has HandlePowerKey=ignore (50-marathon.conf): the shell owns
@@ -1040,6 +1047,19 @@ int main(int argc, char *argv[]) {
         new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);
     qmlRegisterSingletonInstance<AudioPolicyController>(
         "MarathonOS.Shell", 1, 0, "AudioPolicyControllerCpp", audioPolicyController);
+    QObject::connect(alarmManager, &Alarms::ringing, audioPolicyController,
+                     [=](bool sound, bool vibrate) {
+                         power->acquireWakelock(QStringLiteral("alarm_ringing"));
+                         if (sound)
+                             audioPolicyController->playAlarmSound();
+                         if (vibrate)
+                             hapticManager->vibratePattern({500, 500});
+                     });
+    QObject::connect(alarmManager, &Alarms::silenced, audioPolicyController, [=] {
+        audioPolicyController->stopAlarmSound();
+        hapticManager->cancelVibration();
+        power->releaseWakelock(QStringLiteral("alarm_ringing"));
+    });
     auto *notificationService = new NotificationServiceCpp(
         notificationModel, settingsManager, audioPolicyController, hapticManager, &app);
     qmlRegisterSingletonInstance<NotificationServiceCpp>(
@@ -1257,14 +1277,14 @@ int main(int argc, char *argv[]) {
     QObject::connect(security, &Security::dataEncryptionChanged, updateService, startupPin);
     const auto reconsider = [=] {
         updateService->reconsider(!display->getScreenOn() && !power->getHasActiveCalls() &&
-                                  !alarmManager->hasActiveAlarm());
+                                  !alarmManager->getHasActiveAlarm());
     };
     QObject::connect(power, &Power::hasActiveCallsChanged, updateService, reconsider);
     QObject::connect(display, &marathon::Display::screenOnChanged, updateService, reconsider);
     QObject::connect(power, &Power::isPluggedInChanged, updateService, reconsider);
     QObject::connect(power, &Power::resumedFromSuspend, updateService, reconsider);
     QObject::connect(network, &Network::wifiConnectedChanged, updateService, reconsider);
-    QObject::connect(alarmManager, &AlarmManagerCpp::activeAlarmsChanged, updateService,
+    QObject::connect(alarmManager, &Alarms::activeAlarmsChanged, updateService,
                      reconsider);
     reconsider();
     // A suspended device wakes for the restart window, as for an alarm.

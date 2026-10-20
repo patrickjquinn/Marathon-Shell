@@ -79,7 +79,7 @@ namespace {
     // Where the shell acts on each key. A key with no entry fails the test.
     const QHash<QString, Consumer> &consumers() {
         static const QHash<QString, Consumer> table = {
-            {"alarmSound", {"shell/src/managers/alarmmanagercpp.cpp", "alarmSound"}},
+            {"alarmSound", {"shell/src/controllers/audiopolicycontroller.cpp", "alarmSound"}},
             {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
             {"autoLockTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLockTimeout"}},
             {"wallpaperPath", {"shell/src/services/wallpaperstore.cpp", "wallpaperPath()"}},

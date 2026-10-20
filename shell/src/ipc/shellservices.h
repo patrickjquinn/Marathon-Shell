@@ -45,7 +45,7 @@ class AudioPolicyController;
 class Haptics;
 class RotationManager;
 class Location;
-class AlarmManagerCpp;
+class Alarms;
 
 // The Marathon app (or "service:<unit>") a D-Bus caller's process belongs
 // to, "" if none.
@@ -580,7 +580,7 @@ class AlarmObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Alarm1")
 
   public:
-    AlarmObject(AlarmManagerCpp *alarms, MarathonPermissionManager *permissions,
+    AlarmObject(Alarms *alarms, MarathonPermissionManager *permissions,
                 AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -610,7 +610,7 @@ class AlarmObject : public IpcPermissionedService {
     bool requireAlarms() {
         return requirePermission("Alarm", {"alarms", "system"});
     }
-    AlarmManagerCpp *m_alarms = nullptr;
+    Alarms *m_alarms = nullptr;
 };
 
 

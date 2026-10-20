@@ -260,20 +260,6 @@ else()
     add_test(NAME Shell_FreedesktopNotify COMMAND test_shell_freedesktopnotify)
 endif()
 
-# AlarmManager: one-shot, hidden, exactly-timed alarms (countdown timers)
-find_package(Qt6 REQUIRED COMPONENTS Multimedia)
-add_executable(test_shell_alarmmanager
-    test_alarmmanager.cpp
-    ../../shell/src/managers/alarmmanagercpp.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
-target_link_libraries(test_shell_alarmmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
-target_include_directories(test_shell_alarmmanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Shell_AlarmManager COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with-media-roles.sh
-    $<TARGET_FILE:test_shell_alarmmanager>)
-set_tests_properties(Shell_AlarmManager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
 
 # SecurityManager: quick PIN failures count towards the lockout
 find_package(Qt6 REQUIRED COMPONENTS Concurrent)
