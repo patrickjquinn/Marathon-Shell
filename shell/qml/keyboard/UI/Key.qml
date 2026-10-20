@@ -30,7 +30,7 @@ Rectangle {
 
     width: Math.round(60 * Constants.scaleFactor)
     height: Math.round(45 * Constants.scaleFactor)
-    // Sailfish's keyboard: letters without boxes, function keys on a faint
+    // Letters without boxes, function keys on a faint
     // rounded backdrop, the ambience highlight under a pressed key.
     color: "transparent"
 

@@ -109,7 +109,7 @@ Item {
     visible: opacity > 0
     opacity: (PermissionManager && PermissionManager.promptActive) ? 1 : 0
 
-    // A full-screen system dialog on the ambience, as Sailfish asks for app
+    // A full-screen system dialog on the ambience, which asks for app
     // permissions: Deny and Allow in the header corners, the app, then each
     // permission requested.
     KeelAmbienceBackground {

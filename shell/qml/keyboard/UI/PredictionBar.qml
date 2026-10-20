@@ -15,7 +15,7 @@ Rectangle {
     implicitHeight: Math.round(48 * Constants.scaleFactor)
     visible: predictions.length > 0
     height: visible ? implicitHeight : 0
-    // Plain words, the best guess in the highlight, as Sailfish shows them.
+    // Plain words, the best guess in the highlight.
     color: "transparent"
 
     Row {

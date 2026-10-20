@@ -47,7 +47,7 @@ Item {
     Accessible.role: Accessible.Dialog
     Accessible.name: "Power"
 
-    // A choice in Sailfish's style: a glass ring with its label beneath.
+    // A choice: a glass ring with its label beneath.
     component PowerAction: Item {
         id: action
 

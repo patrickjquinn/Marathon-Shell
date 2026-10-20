@@ -3,7 +3,7 @@ import MarathonOS.Shell
 import QtQuick
 
 // Line-icon renderer. Phosphor Thin: its stroke is 1/32 of the em, the same
-// as Sailfish's own icon-m-* set. Callers may use Phosphor's canonical
+// as the icon-m-* set Silica's icon names stand for. Callers may use Phosphor's canonical
 // name (e.g. "caret-right") or one of the legacy Lucide aliases listed in
 // scripts/build-phosphor-glyphs.py (e.g. "chevron-right"); both resolve to
 // the same glyph.

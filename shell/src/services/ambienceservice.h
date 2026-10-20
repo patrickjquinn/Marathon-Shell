@@ -38,7 +38,7 @@ class AmbienceService : public QObject {
     // Silica's pixel ratio at Marathon's scale (Constants.scaleFactor =
     // dpi / 160 x interface size): Silica's base sizes are twice Marathon's
     // design px (fontSizeMedium 32 = body 16), so Silica px == shell px.
-    static qreal sailfishPixelRatio(qreal dpi, qreal userScale);
+    static qreal silicaPixelRatio(qreal dpi, qreal userScale);
 
     void             setWallpaper(const QString &path);
     void             setPixelRatio(qreal ratio);

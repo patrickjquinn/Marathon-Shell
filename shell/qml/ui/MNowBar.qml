@@ -5,7 +5,7 @@ import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
 // Now Bar: live-activity row (music / call / nav / timer) drawn as a
-// Sailfish list item: glass-ring glyph, title and a secondary line.
+// A list item: glass-ring glyph, title and a secondary line.
 Item {
     id: root
 
@@ -20,8 +20,8 @@ Item {
     property bool playing: variant === "music"
     property bool pulsing: variant === "call"
 
-    // Media transport in place of the visualiser, as Sailfish's media
-    // controls: previous, play/pause, next.
+    // Media transport in place of the visualiser: previous, play/pause,
+    // next.
     property bool controls: false
     property bool canGoPrevious: false
     property bool canGoNext: false

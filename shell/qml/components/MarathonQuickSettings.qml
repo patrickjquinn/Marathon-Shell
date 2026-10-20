@@ -4,7 +4,7 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Quick Settings, laid out as Sailfish's top menu: Settings and Power, a grid
+// Quick Settings, laid out as a top menu: Settings and Power, a grid
 // of switches, the sliders, now playing and shortcuts. Ambiences are picked in
 // Settings > Ambience; notifications live in the Hub.
 Item {
@@ -19,7 +19,7 @@ Item {
     // at every scale.
     property real maxHeight: 0
 
-    // The wallpaper, frosted behind the shade as Sailfish frosts its ambience.
+    // The wallpaper, frosted behind the shade.
     property Item homeBackdrop: null
 
     signal closed

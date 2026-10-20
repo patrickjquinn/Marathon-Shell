@@ -181,7 +181,7 @@ target_include_directories(test_core_ambienceclient PRIVATE
 add_test(NAME Core_AmbienceClient COMMAND test_core_ambienceclient)
 set_tests_properties(Core_KeelHost PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# Marathon.Platform: the runner's service clients under Sailfish-style names
+# Marathon.Platform: the runner's service clients under their QML names
 find_package(Qt6 REQUIRED COMPONENTS Qml)
 add_executable(test_core_platformtypes
     test_platformtypes.cpp

@@ -98,17 +98,17 @@ class TestAmbienceService : public QObject {
         QFETCH(qreal, dpi);
         QFETCH(qreal, userScale);
         const qreal scale = dpi / 160 * userScale;
-        const qreal ratio = AmbienceService::sailfishPixelRatio(dpi, userScale);
+        const qreal ratio = AmbienceService::silicaPixelRatio(dpi, userScale);
         for (int base : {12, 14, 16, 32})
             QCOMPARE(px(2 * base * ratio), px(base * scale));
     }
 
     void pixelRatioFollowsMarathonScale() {
-        QCOMPARE(AmbienceService::sailfishPixelRatio(160, 1.0), 0.5);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(320, 1.0), 1.0);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(254, 1.0), 0.79375);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(254, 1.2), 0.9525);
-        QCOMPARE(AmbienceService::sailfishPixelRatio(0, 1.0), 0.0);
+        QCOMPARE(AmbienceService::silicaPixelRatio(160, 1.0), 0.5);
+        QCOMPARE(AmbienceService::silicaPixelRatio(320, 1.0), 1.0);
+        QCOMPARE(AmbienceService::silicaPixelRatio(254, 1.0), 0.79375);
+        QCOMPARE(AmbienceService::silicaPixelRatio(254, 1.2), 0.9525);
+        QCOMPARE(AmbienceService::silicaPixelRatio(0, 1.0), 0.0);
     }
 
     void pixelRatioIsPublishedForKeel() {

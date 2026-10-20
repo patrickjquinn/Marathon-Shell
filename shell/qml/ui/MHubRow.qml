@@ -3,7 +3,7 @@ import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
 // Hub row: unread dot, a glass-ring monogram or icon, then sender and
-// time, account and a one-line snippet, laid out as Sailfish's events.
+// time, account and a one-line snippet.
 // Swiping it to the right dismisses it; leftward stays with the pager.
 // An ongoing row shows its progress and can't be swiped away.
 // A focus scope: the list focuses its current row, which must leave the
@@ -119,7 +119,7 @@ FocusScope {
             color: row.down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
         }
 
-        // Sailfish's lit glass mark for what is new.
+        // A lit glass mark for what is new.
         Silica.GlassItem {
             objectName: "hubRowUnread"
             width: Silica.Theme.itemSizeExtraSmall * 0.6

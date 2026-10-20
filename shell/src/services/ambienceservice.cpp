@@ -35,7 +35,7 @@ void AmbienceService::setWallpaper(const QString &path) {
     emit seedChanged();
 }
 
-qreal AmbienceService::sailfishPixelRatio(qreal dpi, qreal userScale) {
+qreal AmbienceService::silicaPixelRatio(qreal dpi, qreal userScale) {
     return dpi / 160.0 * userScale / 2.0;
 }
 

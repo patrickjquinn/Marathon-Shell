@@ -2,8 +2,8 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Lock-screen media controls, straight on the ambience as Sailfish
-// shows them: art, title and artist, a highlight scrubber, ring buttons.
+// Lock-screen media controls, straight on the ambience: art, title and
+// artist, a highlight scrubber, ring buttons.
 Item {
     id: mediaManager
 

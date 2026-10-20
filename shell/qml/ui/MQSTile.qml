@@ -37,7 +37,7 @@ Item {
         height: width
         radius: width / 2
         scale: tileMouse.pressed ? 0.92 : 1.0
-        // A glass ring, filled with the highlight when on, as in Sailfish.
+        // A glass ring, filled with the highlight when on.
         color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
                        : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
         border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))

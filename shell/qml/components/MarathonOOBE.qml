@@ -7,7 +7,7 @@ import QtQuick.Layouts
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
-// First-run setup, drawn as Sailfish's setup wizard: each step is a page
+// First-run setup as a wizard: each step is a page
 // on the dimmed ambience with a highlight-coloured heading.
 Item {
     id: oobeRoot

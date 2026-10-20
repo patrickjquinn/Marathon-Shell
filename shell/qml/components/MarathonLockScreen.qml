@@ -239,7 +239,7 @@ Item {
         target: NotificationModel
     }
 
-    // The ambience's wallpaper at full strength, as on Sailfish's lock
+    // The ambience's wallpaper at full strength, as on the lock
     // screen. It stays put while the content lifts, and dissolves into the
     // shell's own copy of it.
     Item {
@@ -473,7 +473,7 @@ Item {
                 }
             }
 
-            // Sailfish's lock clock: large and extra-light, the weekday and
+            // The lock clock: large and extra-light, the weekday and
             // the date beneath on their own lines, all in the primary colour.
             Silica.Label {
                 text: SystemStatusStore.timeString

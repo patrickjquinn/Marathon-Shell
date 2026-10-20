@@ -19,7 +19,7 @@ TestCase {
     readonly property var scales: [0.9, 1.0, 1.1, 1.2, 1.3]
     readonly property var names: ["Calendar", "Calculator", "App Store", "Messages", "Settings", "Terminal"]
 
-    // AmbienceService::sailfishPixelRatio
+    // AmbienceService::silicaPixelRatio
     function pixelRatio(device, scale) {
         return Math.round(device.ratio * scale * 20) / 20;
     }

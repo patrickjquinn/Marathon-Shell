@@ -38,7 +38,7 @@ Item {
     anchors.fill: parent
     z: 2900
 
-    // A strip across the top with a highlight bar, as Sailfish shows volume.
+    // A strip across the top with a highlight bar for the volume.
     Rectangle {
         id: hud
 

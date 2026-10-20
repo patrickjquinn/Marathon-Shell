@@ -146,7 +146,7 @@ Item {
                 width: Silica.Theme.iconSizeLauncher
                 height: Silica.Theme.iconSizeLauncher
 
-                // Pressed: the icon itself dims, as on Sailfish's launcher.
+                // Pressed: the icon itself dims.
                 MAppIcon {
                     id: appIcon
 
@@ -157,7 +157,7 @@ Item {
                 }
             }
 
-            // Silica's launcher label size, as on Sailfish's home.
+            // Silica's launcher label size.
             Text {
                 width: iconCell.width - Silica.Theme.paddingSmall
                 horizontalAlignment: Text.AlignHCenter

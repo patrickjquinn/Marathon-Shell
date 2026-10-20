@@ -2,7 +2,7 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// Sailfish status area: battery left, clock (or lock glyph) centre,
+// The status area: battery left, clock (or lock glyph) centre,
 // radios right. No background; small regular-weight text.
 Item {
     id: statusBar

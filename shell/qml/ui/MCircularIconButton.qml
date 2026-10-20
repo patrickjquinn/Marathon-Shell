@@ -2,7 +2,7 @@ import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// A round button in Sailfish's glass-ring style: a thin ring with a light
+// A round button in the glass-ring style: a thin ring with a light
 // digit or icon, filled with the ambience highlight when pressed. "primary"
 // is the lit, emphasised one (play/pause, confirm).
 Item {

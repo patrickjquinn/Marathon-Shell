@@ -272,7 +272,7 @@ Item {
         }
     }
 
-    // The ambience, blurred and dimmed, as behind Sailfish's lock code.
+    // The ambience, blurred and dimmed, behind the lock code.
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.45)
@@ -304,7 +304,7 @@ Item {
             }
         }
 
-        // Sailfish's code field: a dot per digit, backspace at its end.
+        // The code field: a dot per digit, backspace at its end.
         Item {
             anchors.horizontalCenter: parent.horizontalCenter
             // Six dots centred, clear of a key-sized cell either side.

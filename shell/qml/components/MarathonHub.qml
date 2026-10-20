@@ -7,7 +7,7 @@ import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 import "../core/Agenda.js" as Agenda
 
-// The Hub, as Sailfish's Events view: today's date and calendar agenda,
+// The Hub: today's date and calendar agenda,
 // then the notifications by day, on the lightly frosted ambience. Like
 // BB10's Hub it narrows to one source, here with a row of filter chips.
 Rectangle {
@@ -125,7 +125,7 @@ Rectangle {
 
     signal closed
 
-    // Sailfish's Events view: the blurred ambience, opaque even over an app.
+    // The blurred ambience, opaque even over an app.
     color: "transparent"
 
     // The window's size, not the hub's: the peek animates the hub's width,
@@ -271,7 +271,7 @@ Rectangle {
                 }
             }
 
-            // BB10's account list as Sailfish chips: one per app, with what is
+            // BB10's account list as chips: one per app, with what is
             // unread. Only when there is more than one app to choose from.
             Flickable {
                 objectName: "hubFilters"

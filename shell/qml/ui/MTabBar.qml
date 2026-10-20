@@ -4,7 +4,7 @@ import QtQuick
 import MarathonOS.Shell
 import Sailfish.Silica 1.0 as Silica
 
-// Sailfish tab header: equal-width tabs, current one in highlightColor
+// The tab header: equal-width tabs, current one in highlightColor
 // with a thin highlight line beneath; no boxes or glows.
 Rectangle {
     id: root

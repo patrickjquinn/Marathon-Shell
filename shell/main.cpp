@@ -675,7 +675,7 @@ int main(int argc, char *argv[]) {
     // the interface-size setting scales them with the rest of the shell.
     {
         auto update = [ambienceService, settingsManager, screenMetrics]() {
-            const qreal ratio = AmbienceService::sailfishPixelRatio(
+            const qreal ratio = AmbienceService::silicaPixelRatio(
                 screenMetrics->dpi(), settingsManager->userScaleFactor());
             ambienceService->setPixelRatio(ratio);
             // Keel's forwarded layer, read when its Ambience is first created:
