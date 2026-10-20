@@ -2364,8 +2364,18 @@ UpdatesObject::UpdatesObject(marathon::Updates *updates, MarathonPermissionManag
             [this]() { emit StateChanged(buildState()); });
 }
 
+// cxx-qt makes a Rust i64 a QVariant of C long, which QtDBus cannot send:
+// libdbus aborts on the half-written entry.
+static QVariantMap withLongLongs(QVariantMap map) {
+    for (QVariant &v : map) {
+        if (v.typeId() == QMetaType::Long)
+            v = QVariant::fromValue(qlonglong(v.value<long>()));
+    }
+    return map;
+}
+
 QVariantMap UpdatesObject::buildState() const {
-    QVariantMap state = m_updates->state();
+    QVariantMap state = withLongLongs(m_updates->state());
     state.insert(QStringLiteral("currentVersion"), QCoreApplication::applicationVersion());
     return state;
 }
