@@ -1,0 +1,283 @@
+# Marathon fork of Alpine v3.23's linux-rpi. Same source and patches; the
+# config adds utilization clamping (UCLAMP_TASK, UCLAMP_TASK_GROUP) so the
+# shell's cpu.uclamp.min boost for the app in front takes effect. Release
+# stays 6.12.85-0-rpi, as upstream. Drop this fork when Alpine enables it.
+# Maintainer: Natanael Copa <ncopa@alpinelinux.org>
+
+pkgname=linux-rpi-marathon
+pkgver=6.12.85
+_kernver=${pkgver%.*}
+pkgrel=0
+pkgdesc="Raspberry Pi kernel — Marathon fork with utilization clamping"
+url=https://github.com/raspberrypi/linux
+depends="initramfs-generator linux-firmware-brcm"
+_depends_dev="perl gmp-dev elfutils-dev bash mpc1-dev mpfr-dev"
+makedepends="$_depends_dev gcc>=13.1.1_git20230603 sed installkernel bc linux-headers linux-firmware-any
+	bison flex openssl-dev>3 findutils xz mawk
+"
+options="!strip !check"
+_rpi_repo="https://github.com/raspberrypi/linux.git"
+_linux_repo="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git"
+source="https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/linux-$_kernver.tar.xz
+	patch-$pkgver.patch.xz::https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/patch-$pkgver.xz
+	https://dev.alpinelinux.org/archive/rpi-patches/rpi-$pkgver-alpine.patch
+
+	common-changes.config
+	"
+arch="armhf armv7 aarch64"
+license="GPL-2.0-only"
+builddir="$srcdir"/linux-$_kernver
+_flavors="rpi"
+
+subpackages="$pkgname-dev:_dev:$CBUILD_ARCH"
+
+case "$CARCH" in
+	aarch64) _carch="arm64" ;;
+	arm*) _carch="arm" ;;
+esac
+
+prepare() {
+	default_prepare
+
+	# remove localversion from patch if any
+	rm -f localversion*
+
+	local flavor=
+	for flavor in $_flavors; do
+		local _builddir="$srcdir"/build-$flavor.$CARCH
+		mkdir -p "$_builddir"
+		echo "-$pkgrel-$flavor" > "$_builddir"/localversion-alpine
+		_genconfig $flavor
+		make -C "$builddir" \
+			O="$_builddir" \
+			ARCH="$_carch" \
+			olddefconfig
+		_verifyconfig $flavor
+	done
+}
+
+# generate config from defconfig and apply local changes.
+# common-changes.config holds a list of = delimited
+# config command and values used by kernel scripts/config script.
+_genconfig() {
+	local flavor=$1 defconfig=
+	local _builddir="$srcdir"/build-$flavor.$CARCH
+	local defconfig=
+	case "$CARCH" in
+		armhf) defconfig=bcmrpi_defconfig;;
+		armv7) defconfig=bcm2709_defconfig;;
+		aarch64) defconfig=bcm2711_defconfig;;
+		*) die "Unknown CARCH: $CARCH" ;;
+	esac
+
+	cp "$builddir"/arch/$_carch/configs/$defconfig \
+		"$_builddir"/.config
+
+	while read line; do
+		# skip comments
+		case "$line" in
+			"#"*) continue;;
+		esac
+		local option=${line%%=*} str=
+		local cmd=$(echo $line | cut -d= -f2)
+		case "$cmd" in
+			y) cmd="enable";;
+			n) cmd="disable";;
+			m) cmd="module";;
+			'"'*) cmd="set-str"; str="${line#*=}";;
+			[0-9]*) cmd="set-val"; str="${line#*=}";;
+			*) die "Command $cmd not accepted" ;;
+		esac
+		msg "[$flavor] $cmd: $option $str"
+		"$srcdir"/linux-$_kernver/scripts/config \
+			--file "$_builddir"/.config \
+			--$cmd "$option" "${str//\"/}"
+	done < "$srcdir"/common-changes.config
+}
+
+# verify if options are set to correct value
+_verifyconfig() {
+	local flavor=$1
+	local _builddir="$srcdir"/build-$flavor.$CARCH
+	while read line; do
+		[ ${line:0:1} = "#" ] && continue
+		local option=${line%%=*} str= invert=
+		local cmd=$(echo $line | cut -d= -f2)
+		case "$cmd" in
+			enable) str="$option=y" ;;
+			disable) str="$option"; invert="-v" ;;
+			module) str="$option=m" ;;
+			set-val) str="$option=${line##*=}" ;;
+			set-str) str=${line##*=}
+				str="$option=\"${str//\"/}\"" ;;
+		esac
+		grep -q $invert "^$str" "$_builddir"/.config || \
+			die "Config: $option not properly set!"
+	done < "$srcdir"/common-changes.config
+}
+
+build() {
+	unset LDFLAGS
+	# for some reason these sometimes leak into the kernel build,
+	# -Werror=format-security breaks some stuff
+	unset CFLAGS CPPFLAGS CXXFLAGS
+	for i in $_flavors; do
+		cd "$srcdir"/build-$i.$CARCH
+		local _kver=$(make kernelversion)
+		if [ "$_kver" != "$pkgver" ]; then
+			error "Version in Makefile ($_kver) does not correspond with pkgver ($pkgver)"
+			return 1
+		fi
+		make ARCH="$_carch" CC="${CC:-gcc}" \
+			AWK=mawk \
+			KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-Alpine"
+	done
+}
+
+_package() {
+	local _buildflavor="$1" _outdir="$2"
+	local _builddir="$srcdir"/build-$_buildflavor.$CARCH
+
+	cd "$_builddir"
+	local _abi_release="$(make -s kernelrelease)"
+	mkdir -p "$_outdir"/boot "$_outdir"/lib/modules
+
+	local _install
+	case "$CARCH" in
+	arm*)
+		_install="zinstall dtbs_install"
+		;;
+	aarch64)
+		_install="install dtbs_install"
+		;;
+	*)
+		_install=install
+		;;
+	esac
+
+	# modules_install seems to regenerate a defect Modules.symvers. Work
+	# around it by backing it up and restore it after modules_install
+	cp Module.symvers Module.symvers.backup
+
+	local INSTALL_DTBS_PATH="$_outdir"/boot
+	make modules_install $_install \
+		ARCH="$_carch" \
+		INSTALL_MOD_PATH="$_outdir" \
+		INSTALL_PATH="$_outdir"/boot \
+		INSTALL_DTBS_PATH="$INSTALL_DTBS_PATH"
+	cp Module.symvers.backup Module.symvers
+
+	rm -f "$_outdir"/lib/modules/$_abi_release/build \
+		"$_outdir"/lib/modules/$_abi_release/source
+	rm -rf "$_outdir"/lib/firmware
+
+	install -D -m644 include/config/kernel.release \
+		"$_outdir"/usr/share/kernel/$_buildflavor/kernel.release
+
+	ln -sf /boot/vmlinuz-"$_buildflavor" \
+		"$_outdir"/lib/modules/"$_abi_release"/vmlinuz
+
+	# allow the initramfs generators to know the package name the kernel came from
+	echo "${subpkgname:-$pkgname}" > "$_outdir"/lib/modules/$_abi_release/pkgname
+
+	if [ "$CARCH" = "aarch64" ]; then
+		mv -f "$INSTALL_DTBS_PATH"/broadcom/*.dtb \
+			"$INSTALL_DTBS_PATH"
+		rmdir "$INSTALL_DTBS_PATH"/broadcom
+	fi
+}
+
+# main flavor installs in $pkgdir
+package() {
+	case "$CARCH" in
+	armv7)
+		provides="linux-rpi2=$pkgver-r$pkgrel"  # for backward compatibility
+		replaces="linux-rpi2"  # for backward compatibility
+	;;
+	aarch64)
+		# Stands in for Alpine's linux-rpi; r99 outranks its own pkgrels.
+		provides="linux-rpi=$pkgver-r99"
+		replaces="linux-rpi"
+	;;
+	esac
+	_package rpi "$pkgdir"
+}
+
+
+_dev() {
+	local _flavor=rpi
+	local _builddir="$srcdir"/build-$_flavor.$CARCH
+
+	cd "$_builddir"
+	local _abi_release="$(make -s kernelrelease)"
+	# copy the only the parts that we really need for build 3rd party
+	# kernel modules and install those as /usr/src/linux-headers,
+	# simlar to what ubuntu does
+	#
+	# this way you dont need to install the 300-400 kernel sources to
+	# build a tiny kernel module
+	#
+	pkgdesc="Headers and script for third party modules for $_flavor kernel"
+	depends="$_depends_dev"
+
+	# handle backward compatibility with legacy flavors
+	case "$_flavor" in
+		rpi)
+			case "$CARCH" in
+				armv7)
+					provides="linux-rpi2-dev=$pkgver-r$pkgrel"
+					replaces="linux-rpi2-dev"
+				;;
+				aarch64)
+					provides="linux-rpi-dev=$pkgver-r99"
+					replaces="linux-rpi-dev"
+				;;
+			esac
+			;;
+		*) die "Unknown flavor: $flavor" ;;
+	esac
+
+	local dir="$subpkgdir"/usr/src/linux-headers-$_abi_release
+
+	# first we import config, run prepare to set up for building
+	# external modules, and create the scripts
+	mkdir -p "$dir"
+	cp "$_builddir"/.config "$dir"/.config
+	echo "-$pkgrel-$_flavor" > "$dir"/localversion-alpine
+
+	make -j1 -C "$builddir" ARCH="$_carch" O="$dir" \
+		syncconfig prepare modules_prepare scripts
+
+	# remove the stuff that points to real sources. we want 3rd party
+	# modules to believe this is the soruces
+	rm "$dir"/Makefile "$dir"/source
+
+	# copy the needed stuff from real sources
+	#
+	# this is taken from ubuntu kernel build script
+	# http://kernel.ubuntu.com/git/ubuntu/ubuntu-zesty.git/tree/debian/rules.d/3-binary-indep.mk
+	cd "$builddir"
+	find .  -path './include/*' -prune \
+		-o -path './scripts/*' -prune -o -type f \
+		\( -name 'Makefile*' -o -name 'Kconfig*' -o -name 'Kbuild*' -o \
+		   -name '*.sh' -o -name '*.pl' -o -name '*.lds' \) \
+		-print | cpio -pdm "$dir"
+
+	cp -a scripts include "$dir"
+	find $(find arch -name include -type d -print) -type f \
+		| cpio -pdm "$dir"
+
+	install -Dm644 "$_builddir"/Module.symvers \
+		"$dir"/Module.symvers
+
+	mkdir -p "$subpkgdir"/lib/modules/$_abi_release
+	ln -sf /usr/src/linux-headers-$_abi_release \
+		"$subpkgdir"/lib/modules/$_abi_release/build
+}
+
+sha512sums="
+a37b1823df7b4f72542f689b65882634740ba0401a42fdcf6601d9efd2e132e5a7650e70450ba76f6cd1f13ca31180f2ccee9d54fe4df89bc0000ade4380a548  linux-6.12.tar.xz
+6b7c0c220ca26b900462b21641f8615f7c84dc25cc79527c8d32e9ac5742bb89851d30a69e1f1b1bfdb5bd353153c31ae523538eca1cead8cc12261a47f4a18b  patch-6.12.85.patch.xz
+0b4124f429a7858abd62e04a2a59fdc9c6b72e2a290882cdecf2834ce8697ac277e95d4cf6e4b9f97dc736baf970924f69ae87c9f2dfdc1ce3ee611176549885  rpi-6.12.85-alpine.patch
+267d865b1ffdebc50422c6c5b2382a785ce72ab2e0482b7d5717e3789e5a8d231bd5779f69f77f0607785ed81fda75a9902af9d1e05e199670f65f7604230382  common-changes.config
+"

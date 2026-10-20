@@ -211,21 +211,6 @@ if [ -d "$DEVICE_OVERLAY_APORT" ]; then
         "$DEVICE_OVERLAY_APORT/APKBUILD"
 fi
 
-# Binary apks the target's device manifest pins (kernel.pins), such as the
-# Pi 5's linux-rpi 6.12.85-r0 (mkosi-configure.py: edge's 6.18.35
-# NULL-derefs during initrd udev on a Pi 5) from the stable branch that
-# still carries it. Fetched once, checked against the pin every build.
-python3 "$MARATHON_SHELL_SRC/tools/devices/devices.py" pins "$MARATHON_TARGET_DEVICE" |
-while read -r file url sha512; do
-    if [ ! -s "$MKOSI_PKG_DIR/$file" ]; then
-        echo "==> fetching pinned $file"
-        curl -fsSL -o "$MKOSI_PKG_DIR/$file.part" "$url"
-        mv "$MKOSI_PKG_DIR/$file.part" "$MKOSI_PKG_DIR/$file"
-    fi
-    echo "$sha512  $MKOSI_PKG_DIR/$file" | sha512sum -c --quiet - \
-        || { echo "$MKOSI_PKG_DIR/$file does not match its pin in devices/" >&2; exit 1; }
-done
-
 # A/B images update over the air (docs/OTA.md): sysupdate transfers for the
 # feed at $MARATHON_OTA_URL and the keyring that verifies it go into the
 # image through mkosi.extra. Single-root images get neither.

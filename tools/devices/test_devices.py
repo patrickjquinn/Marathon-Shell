@@ -132,11 +132,6 @@ class Profile(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.tree.render_profile("raspberry/pi5")
 
-    def test_pins_follow_the_build_target(self):
-        files = sorted(p["file"] for p in self.tree.pins("raspberry-pi5"))
-        self.assertEqual(files, ["linux-rpi-6.12.85-r0.apk", "linux-rpi-dev-6.12.85-r0.apk"])
-        self.assertEqual(self.tree.pins("purism-librem5"), [])
-
 
 if __name__ == "__main__":
     unittest.main()

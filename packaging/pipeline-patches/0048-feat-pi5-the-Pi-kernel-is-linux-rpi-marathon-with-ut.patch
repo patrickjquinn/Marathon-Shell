@@ -1,0 +1,41 @@
+From b313c70571119f981691c5787512504fcb13ac15 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.quinn@thriveglobal.com>
+Date: Tue, 20 Oct 2026 22:02:30 +0100
+Subject: [PATCH] feat(pi5): the Pi kernel is linux-rpi-marathon, with
+ utilization clamping
+
+---
+ scripts/mkosi-configure.py | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index dc790d7..f7d8e77 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -138,16 +138,16 @@ def main() -> int:
+         extra_overlays = []
+         if has_overlay:
+             extra_overlays.append(marathon_overlay)
+-        # Pi 5 / CM5 only: pin linux-rpi to 6.12.85-r0. Alpine edge's
+-        # linux-rpi 6.18.35-r0 has a Pi 5-specific NULL-deref in
+-        # __mod_node_page_state during initrd udev. Marathon ships the
+-        # pinned APK in mkosi.packages/linux-rpi-6.12.85-r0.apk. Other
+-        # devices (Librem 5 = linux-purism-librem5, OnePlus 6 =
++        # Pi 5 / CM5 only: Marathon's linux-rpi-marathon, Alpine v3.23's
++        # 6.12.85 with utilization clamping, in mkosi.packages. Alpine
++        # edge's linux-rpi 6.18.35-r0 has a Pi 5-specific NULL-deref in
++        # __mod_node_page_state during initrd udev. Other devices
++        # (Librem 5 = linux-purism-librem5, OnePlus 6 =
+         # linux-postmarketos-qcom-sdm845, etc.) get their kernel via
+         # device-*-marathon's dep chain.
+         if device.startswith("raspberry-pi") or device.startswith("rpi"):
+-            extra_overlays.extend(["linux-rpi=6.12.85-r0",
+-                                   "linux-rpi-dev=6.12.85-r0"])
++            extra_overlays.extend(["linux-rpi-marathon",
++                                   "linux-rpi-marathon-dev"])
+         # Layer-2 enclosure overlay: for raspberry-pi5, pull in
+         # device-hackberrypi-cm5-marathon when its APK is present in
+         # mkosi.packages/. Vanilla Pi 5 / CM5 dev boards skip building
+-- 
+2.55.0
+

@@ -4,7 +4,7 @@
 pkgname=device-raspberry-pi5-marathon
 pkgdesc="Raspberry Pi 5 / CM5 — Marathon OS base port (no enclosure)"
 pkgver=1.0.0
-pkgrel=12
+pkgrel=13
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -21,7 +21,8 @@ replaces="device-raspberry-pi5"
 #
 # Notes on the depends list:
 #   - device-raspberry-pi5 pulls postmarketos-base + raspberrypi-bootloader
-#     + linux-rpi. The CM5 uses the same BCM2712 as the Pi 5.
+#     + linux-rpi, which linux-rpi-marathon provides. The CM5 uses the same
+#     BCM2712 as the Pi 5.
 #   - marathon-shell + marathon-base-config + marathon-boot-logo +
 #     marathon-plymouth-theme + plymouth + the runtime stack mirror the
 #     OnePlus 6 / Librem 5 overlay aports for consistency.
@@ -30,6 +31,7 @@ replaces="device-raspberry-pi5"
 #     marathon-base-config preset).
 depends="
 	device-raspberry-pi5
+	linux-rpi-marathon
 	marathon-shell
 	marathon-base-config
 	marathon-plymouth-theme

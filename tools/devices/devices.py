@@ -4,8 +4,6 @@
   devices.py check              validate the manifests against their schemas,
                                 the overlay aports and the shell
   devices.py profile <package>  print the package's device-profile.conf
-  devices.py pins <target>      print "file url sha512" for each binary the
-                                build target pins
 
 Exit: 0 ok, 1 invalid, 2 could not run.
 """
@@ -58,14 +56,6 @@ class Tree:
         if len(found) != 1:
             raise KeyError(f"{len(found)} manifests name package {package!r}")
         return found[0]
-
-    def pins(self, target: str) -> list[dict]:
-        seen: dict[str, dict] = {}
-        for device in self.devices.values():
-            if device["build"]["target"] == target:
-                for pin in device.get("kernel", {}).get("pins", []):
-                    seen[pin["file"]] = pin
-        return list(seen.values())
 
 
 def _toml(path: Path) -> dict:
@@ -296,17 +286,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("check")
     sub.add_parser("profile").add_argument("package")
-    sub.add_parser("pins").add_argument("target")
     args = parser.parse_args(argv)
     root = args.root.resolve()
 
     if args.command == "profile":
         tree = Tree(root)
         sys.stdout.write(tree.render_profile(tree.by_package(args.package)))
-        return 0
-    if args.command == "pins":
-        for pin in Tree(root).pins(args.target):
-            print(pin["file"], pin["url"], pin["sha512"])
         return 0
 
     try:
