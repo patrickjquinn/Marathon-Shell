@@ -14,6 +14,7 @@ async-channel = "2.5.0"
 async-executor = "1.14.0"
 async-io = "2.6.0"
 async-lock = "3.4.2"
+async-tungstenite = { version = "0.35.0", default-features = false, features = ["handshake", "smol-runtime", "futures-rustls-webpki-roots"] }
 blocking = "1.7.0"
 cxx = "1.0.205"
 cxx-qt = { version = "=0.10.0", default-features = false }

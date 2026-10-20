@@ -36,10 +36,6 @@ set(SOURCES
     src/services/notificationservicecpp.cpp
     src/services/telephonyintegrationcpp.h
     src/services/telephonyintegrationcpp.cpp
-    src/services/unifiedpushdistributor.h
-    src/services/unifiedpushdistributor.cpp
-    src/services/marathonntfyclient.h
-    src/services/marathonntfyclient.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
@@ -640,7 +636,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Multimedia
     Qt6::Network
     Qt6::Sensors
-    Qt6::WebSockets
     MarathonCore
     MarathonServices
     ${LIBDRM_LIBRARIES}

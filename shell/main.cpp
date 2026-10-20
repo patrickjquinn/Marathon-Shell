@@ -54,8 +54,7 @@
 #include "src/models/notificationmodel.h"
 #include "src/services/notificationhandlercpp.h"
 #include "src/services/notificationservicecpp.h"
-#include "src/services/unifiedpushdistributor.h"
-#include "src/services/marathonntfyclient.h"
+#include "marathon-shell-native/src/push.cxxqt.h"
 #include "src/services/motiondaemon.h"
 #include "marathon-shell-native/src/timezone.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
@@ -1191,11 +1190,13 @@ int main(int argc, char *argv[]) {
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::bannerRequested,
                          notificationService, &NotificationServiceCpp::notificationReceived);
 
-        auto *unifiedPush = new UnifiedPushDistributor(notificationService, settingsManager, &app);
-        if (unifiedPush->registerService()) {
-            qInfo() << "[MarathonShell]  org.unifiedpush.Distributor.marathon registered";
-        }
-        new MarathonNtfyClient(unifiedPush, &app);
+        const auto pushFallback = [settingsManager] {
+            marathon::push::set_fallback_notifications(settingsManager->unifiedPushFallbackEnabled());
+        };
+        pushFallback();
+        QObject::connect(settingsManager, &SettingsManager::unifiedPushFallbackEnabledChanged,
+                         settingsManager, pushFallback);
+        marathon::push::serve();
 
         auto *shareService = createObject<ShareService>(
             ctx, "ShareService", appRegistry, marathon::sandbox::shared_folders(),

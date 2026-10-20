@@ -10,6 +10,7 @@ fn main() {
         .file("src/network.rs")
         .file("src/power.rs")
         .file("src/pressure.rs")
+        .file("src/push.rs")
         .file("src/sandbox.rs")
         .file("src/security.rs")
         .file("src/timezone.rs")
