@@ -44,7 +44,7 @@ class AudioManagerCpp;
 class AudioPolicyController;
 class Haptics;
 class RotationManager;
-class LocationManager;
+class Location;
 class AlarmManagerCpp;
 
 // The Marathon app (or "service:<unit>") a D-Bus caller's process belongs
@@ -553,7 +553,7 @@ class LocationObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Location1")
 
   public:
-    LocationObject(LocationManager *location, MarathonPermissionManager *permissions,
+    LocationObject(Location *location, MarathonPermissionManager *permissions,
                    AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -572,7 +572,7 @@ class LocationObject : public IpcPermissionedService {
         return requirePermission("Location", {"location"});
     }
     QVariantMap      location() const;
-    LocationManager *m_location = nullptr;
+    Location *m_location = nullptr;
 };
 
 class AlarmObject : public IpcPermissionedService {

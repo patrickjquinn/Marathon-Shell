@@ -92,8 +92,7 @@
 
 #include "marathon-shell-native/src/mpris.cxxqt.h"
 #include "src/managers/rotationmanager.h"
-#include "src/managers/locationmanager.h"
-#include "src/managers/geoclueagent.h"
+#include "marathon-shell-native/src/location.cxxqt.h"
 #include "marathon-shell-native/src/clipboard.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/flashlight.cxxqt.h"
@@ -854,18 +853,19 @@ int main(int argc, char *argv[]) {
     QObject::connect(bluetoothManager, &Bluetooth::availableChanged, bluetoothManager,
                      applyDeviceName);
     startupMark("system managers");
-    auto *locationManager  = new LocationManager(&app);
+    auto *locationManager = new Location();
+    locationManager->setParent(&app);
     // Never starts location itself: with Location off there is no fix and the zone stays.
     const auto automaticTimeZone = [=] {
-        if (!settingsManager->automaticTimeZone() || !locationManager->active() ||
-            locationManager->timestamp() <= 0)
+        if (!settingsManager->automaticTimeZone() || !locationManager->getActive() ||
+            locationManager->getTimestamp() <= 0)
             return;
-        const QString zone =
-            marathon::timezone::nearest(locationManager->latitude(), locationManager->longitude());
+        const QString zone = marathon::timezone::nearest(locationManager->getLatitude(),
+                                                         locationManager->getLongitude());
         if (!zone.isEmpty() && zone != settingsManager->timeZone())
             settingsManager->setTimeZone(zone);
     };
-    QObject::connect(locationManager, &LocationManager::locationChanged, settingsManager,
+    QObject::connect(locationManager, &Location::locationChanged, settingsManager,
                      automaticTimeZone);
     QObject::connect(settingsManager, &SettingsManager::automaticTimeZoneChanged, settingsManager,
                      automaticTimeZone);
@@ -1218,23 +1218,16 @@ int main(int argc, char *argv[]) {
                                                   QStringLiteral("/apps/%1/").arg(appId)});
                      });
 
-    // The shell, weatherd, the portal (which asks the user itself) and
-    // deckardd (Android asks for each Android app) locate freely; anything
-    // else needs the location permission.
-    new GeoClueAgent(
-        QDBusConnection::systemBus(),
-        [permissionManager](const QString &desktopId) {
-            static const QStringList kSystem = {QStringLiteral("org.marathon.Shell"),
-                                                QStringLiteral("marathon-weather"),
-                                                QStringLiteral("xdg-desktop-portal"),
-                                                QStringLiteral("org.marathonos.Deckard")};
-            if (kSystem.contains(desktopId) ||
-                permissionManager->hasPermission(desktopId, QStringLiteral("location")))
-                return true;
-            permissionManager->askIfUndecided(desktopId, {QStringLiteral("location")});
-            return false;
+    QObject::connect(
+        locationManager, &Location::authorizationRequested, permissionManager,
+        [locationManager, permissionManager](const QString &desktopId) {
+            const bool allowed =
+                permissionManager->hasPermission(desktopId, QStringLiteral("location"));
+            if (!allowed)
+                permissionManager->askIfUndecided(desktopId, {QStringLiteral("location")});
+            locationManager->authorize(desktopId, allowed);
         },
-        &app);
+        Qt::QueuedConnection);
 
     QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
                      &MarathonPermissionManager::dismissForApp);
@@ -1403,9 +1396,6 @@ int main(int argc, char *argv[]) {
     engine.addImportPath(QCoreApplication::applicationDirPath() + "/..");
 
     const QUrl url(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
-
-    qRegisterMetaType<GeoClueTimestamp>("GeoClueTimestamp");
-    qDBusRegisterMetaType<GeoClueTimestamp>();
 
     const auto devices = QInputDevice::devices();
 #if !defined(QT_NO_INFO_OUTPUT)

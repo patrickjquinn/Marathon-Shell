@@ -20,7 +20,7 @@ class AudioPolicyController;
 class Haptics;
 class Security;
 class RotationManager;
-class LocationManager;
+class Location;
 class AlarmManagerCpp;
 class AudioRoutingManager;
 class MarathonAppInstaller;
@@ -45,7 +45,7 @@ class ShellIpcServer : public QObject {
                             AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
                             Network *networkManager, Haptics *hapticManager,
                             Security *securityManager, RotationManager *rotationManager,
-                            LocationManager *locationManager, AlarmManagerCpp *alarmManager,
+                            Location *locationManager, AlarmManagerCpp *alarmManager,
                             AudioRoutingManager *audioRoutingManager, marathon::Updates *updateService,
                             AppLaunchService    *appLaunchService,
                             AppLifecycleManager *lifecycleManager, MarathonAppRegistry *appRegistry,
@@ -91,7 +91,7 @@ class ShellIpcServer : public QObject {
     Haptics                   *m_hapticManager       = nullptr;
     Security           *m_securityManager     = nullptr;
     RotationManager           *m_rotationManager     = nullptr;
-    LocationManager           *m_locationManager     = nullptr;
+    Location                  *m_locationManager     = nullptr;
     AlarmManagerCpp           *m_alarmManager        = nullptr;
     AudioRoutingManager       *m_audioRoutingManager = nullptr;
     marathon::Updates         *m_updateService       = nullptr;

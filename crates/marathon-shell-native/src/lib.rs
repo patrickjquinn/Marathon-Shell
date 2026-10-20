@@ -19,6 +19,7 @@ pub mod display;
 pub mod flashlight;
 pub mod haptics;
 mod identity;
+pub mod location;
 pub mod modem;
 pub mod motion;
 pub mod mpris;

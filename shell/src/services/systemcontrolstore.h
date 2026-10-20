@@ -15,7 +15,7 @@ class Flashlight;
 class Modem;
 class SettingsManager;
 class AlarmManagerCpp;
-class LocationManager;
+class Location;
 class Haptics;
 class Power;
 class AudioManagerCpp;
@@ -55,7 +55,7 @@ class SystemControlStore : public QObject {
                                 marathon::Display              *display,
                                 Flashlight *flashlightManager,
                                 Modem *modemManager, SettingsManager *settingsManager,
-                                AlarmManagerCpp *alarmManager, LocationManager *locationManager,
+                                AlarmManagerCpp *alarmManager, Location *locationManager,
                                 Haptics *hapticManager, Power *powerManager,
                                 AudioManagerCpp       *audioManager,
                                 AudioPolicyController *audioPolicyController,
@@ -192,7 +192,7 @@ class SystemControlStore : public QObject {
     Modem       *m_modemManager;
     SettingsManager       *m_settingsManager;
     AlarmManagerCpp       *m_alarmManager;
-    LocationManager       *m_locationManager;
+    Location              *m_locationManager;
     Haptics               *m_hapticManager;
     Power       *m_powerManager;
     AudioManagerCpp       *m_audioManager;

@@ -6,7 +6,7 @@
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "marathon-shell-native/src/flashlight.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
-#include "src/managers/locationmanager.h"
+#include "marathon-shell-native/src/location.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
@@ -21,7 +21,7 @@ SystemControlStore::SystemControlStore(
     Network *networkManager, Bluetooth *bluetoothManager,
     marathon::Display *display, Flashlight *flashlightManager,
     Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
-    LocationManager *locationManager, Haptics *hapticManager, Power *powerManager,
+    Location *locationManager, Haptics *hapticManager, Power *powerManager,
     AudioManagerCpp *audioManager, AudioPolicyController *audioPolicyController,
     ScreenshotServiceCpp *screenshotService, QObject *parent)
     : QObject(parent)
@@ -110,9 +110,9 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_locationManager) {
-        setIsLocationOn(m_locationManager->active());
-        connect(m_locationManager, &LocationManager::activeChanged, this,
-                [this]() { setIsLocationOn(m_locationManager->active()); });
+        setIsLocationOn(m_locationManager->getActive());
+        connect(m_locationManager, &Location::activeChanged, this,
+                [this]() { setIsLocationOn(m_locationManager->getActive()); });
     }
 
     if (m_hapticManager) {

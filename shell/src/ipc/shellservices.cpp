@@ -25,7 +25,7 @@
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
-#include "locationmanager.h"
+#include "marathon-shell-native/src/location.cxxqt.h"
 #include "alarmmanagercpp.h"
 #include "ratelimiter.h"
 #include "securitylogger.h"
@@ -1879,23 +1879,23 @@ int SensorObject::AmbientLight() {
     return requireSensors() ? m_sensors->getAmbientLight() : 0;
 }
 
-LocationObject::LocationObject(LocationManager *location, MarathonPermissionManager *permissions,
+LocationObject::LocationObject(Location *location, MarathonPermissionManager *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_location(location) {
     Q_ASSERT(m_location);
-    QObject::connect(m_location, &LocationManager::locationChanged, this,
+    QObject::connect(m_location, &Location::locationChanged, this,
                      [this]() { emit LocationChanged(this->location()); });
-    QObject::connect(m_location, &LocationManager::activeChanged, this,
-                     [this]() { emit activeChanged(m_location->active()); });
+    QObject::connect(m_location, &Location::activeChanged, this,
+                     [this]() { emit activeChanged(m_location->getActive()); });
 }
 
 bool LocationObject::IsAvailable() {
-    return requireLocation() && m_location->available();
+    return requireLocation() && m_location->getAvailable();
 }
 
 bool LocationObject::IsActive() {
-    return requireLocation() && m_location->active();
+    return requireLocation() && m_location->getActive();
 }
 
 void LocationObject::Start() {
@@ -1909,10 +1909,10 @@ void LocationObject::Stop() {
 }
 
 QVariantMap LocationObject::location() const {
-    return {{"latitude", m_location->latitude()},   {"longitude", m_location->longitude()},
-            {"accuracy", m_location->accuracy()},   {"altitude", m_location->altitude()},
-            {"speed", m_location->speed()},         {"heading", m_location->heading()},
-            {"timestamp", m_location->timestamp()}};
+    return {{"latitude", m_location->getLatitude()},   {"longitude", m_location->getLongitude()},
+            {"accuracy", m_location->getAccuracy()},   {"altitude", m_location->getAltitude()},
+            {"speed", m_location->getSpeed()},         {"heading", m_location->getHeading()},
+            {"timestamp", static_cast<qint64>(m_location->getTimestamp())}};
 }
 
 QVariantMap LocationObject::GetLocation() {

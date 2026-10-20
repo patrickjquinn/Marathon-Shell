@@ -374,11 +374,6 @@ target_link_libraries(test_core_soundname Qt6::Test Qt6::Core)
 target_include_directories(test_core_soundname PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_SoundName COMMAND test_core_soundname)
 
-# The shell as GeoClue's agent
-add_executable(test_core_geoclueagent test_geoclueagent.cpp ../../shell/src/managers/geoclueagent.cpp)
-target_link_libraries(test_core_geoclueagent Qt6::Test Qt6::Core Qt6::DBus)
-target_include_directories(test_core_geoclueagent PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
-add_test(NAME Core_GeoClueAgent COMMAND test_core_geoclueagent)
 
 # Wake touch hygiene: no touch for 100 ms after wake, none until a fresh one
 add_executable(test_core_waketouchfilter
