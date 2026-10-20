@@ -50,7 +50,7 @@
 #include "src/services/gesturetracker.h"
 #include "src/components/windowtextureitem.h"
 #include "src/services/waketouchfilter.h"
-#include "src/services/memorypressuremonitor.h"
+#include "marathon-shell-native/src/pressure.cxxqt.h"
 #include "src/models/notificationmodel.h"
 #include "src/services/notificationhandlercpp.h"
 #include "src/services/notificationservicecpp.h"
@@ -1353,15 +1353,12 @@ int main(int argc, char *argv[]) {
     // PSI some-avg10: High (≥ 20%) sends apps a low-memory hint, Critical
     // (≥ 40%) kills the longest-frozen app. systemd-oomd on the slice is the
     // fallback.
-    auto *pressureMonitor = new MemoryPressureMonitor(&app);
-    QObject::connect(pressureMonitor, &MemoryPressureMonitor::pressureLevelChanged,
-                     appLifecycleManager,
-                     [appLifecycleManager](MemoryPressureMonitor::PressureLevel level, double) {
-                         if (level >= MemoryPressureMonitor::High)
-                             appLifecycleManager->broadcastLowMemory();
-                         if (level >= MemoryPressureMonitor::Critical)
-                             appLifecycleManager->killOldestFrozenApp();
-                     });
+    auto *pressure = new marathon::MemoryPressure();
+    pressure->setParent(&app);
+    QObject::connect(pressure, &marathon::MemoryPressure::high, appLifecycleManager,
+                     &AppLifecycleManager::broadcastLowMemory);
+    QObject::connect(pressure, &marathon::MemoryPressure::critical, appLifecycleManager,
+                     &AppLifecycleManager::killOldestFrozenApp);
 
     QObject::connect(modem, &Modem::callStateChanged, audioRoutingManager,
                      [audioRoutingManager](const QString &state) {

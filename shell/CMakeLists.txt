@@ -16,8 +16,6 @@ set(SOURCES
     src/services/processstopper.cpp
     src/managers/drmmasterwait.h
     src/managers/drmmasterwait.cpp
-    src/services/memorypressuremonitor.h
-    src/services/memorypressuremonitor.cpp
     src/ipc/shellipcserver.h
     src/ipc/shellipcserver.cpp
     src/ipc/permissionauth.h

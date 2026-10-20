@@ -18,6 +18,7 @@ pub mod network;
 mod pam;
 pub mod power;
 mod sandbox;
+pub mod pressure;
 pub mod security;
 mod systemd;
 mod variant;
