@@ -57,7 +57,7 @@
 #include "src/services/unifiedpushdistributor.h"
 #include "src/services/marathonntfyclient.h"
 #include "src/services/motiondaemon.h"
-#include "src/services/automatictimezone.h"
+#include "marathon-shell-native/src/timezone.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "marathon-shell-native/src/identity.cxxqt.h"
@@ -868,7 +868,20 @@ int main(int argc, char *argv[]) {
                      applyDeviceName);
     startupMark("system managers");
     auto *locationManager  = new LocationManager(&app);
-    new AutomaticTimeZone(settingsManager, locationManager, &app);
+    // Never starts location itself: with Location off there is no fix and the zone stays.
+    const auto automaticTimeZone = [=] {
+        if (!settingsManager->automaticTimeZone() || !locationManager->active() ||
+            locationManager->timestamp() <= 0)
+            return;
+        const QString zone =
+            marathon::timezone::nearest(locationManager->latitude(), locationManager->longitude());
+        if (!zone.isEmpty() && zone != settingsManager->timeZone())
+            settingsManager->setTimeZone(zone);
+    };
+    QObject::connect(locationManager, &LocationManager::locationChanged, settingsManager,
+                     automaticTimeZone);
+    QObject::connect(settingsManager, &SettingsManager::automaticTimeZoneChanged, settingsManager,
+                     automaticTimeZone);
     auto *hapticManager    = new HapticManager(&app);
     qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
                                                 hapticManager);

@@ -430,19 +430,6 @@ target_link_libraries(test_core_geoclueagent Qt6::Test Qt6::Core Qt6::DBus)
 target_include_directories(test_core_geoclueagent PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
 add_test(NAME Core_GeoClueAgent COMMAND test_core_geoclueagent)
 
-# Automatic time zone: nearest zone.tab city to the location fix
-add_executable(test_core_automatictimezone
-    test_automatictimezone.cpp
-    ../../shell/src/services/automatictimezone.cpp
-    ../../shell/src/managers/locationmanager.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
-set_target_properties(test_core_automatictimezone PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_automatictimezone Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_core_automatictimezone PRIVATE ${CMAKE_SOURCE_DIR}/shell/src ${CMAKE_SOURCE_DIR}/shell)
-add_test(NAME Core_AutomaticTimeZone COMMAND test_core_automatictimezone)
-
 # Wake touch hygiene: no touch for 100 ms after wake, none until a fresh one
 add_executable(test_core_waketouchfilter
     test_waketouchfilter.cpp

@@ -21,6 +21,7 @@ mod sandbox;
 pub mod pressure;
 pub mod security;
 mod systemd;
+mod timezone;
 mod variant;
 mod wake_timer;
 pub mod weather;

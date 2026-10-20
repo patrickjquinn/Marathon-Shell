@@ -103,8 +103,6 @@ set(SOURCES
     src/services/waketouchfilter.cpp
     src/services/pilotclient.h
     src/services/pilotclient.cpp
-    src/services/automatictimezone.h
-    src/services/automatictimezone.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/managers/mpris2controller.h

@@ -85,8 +85,7 @@ namespace {
             {"vibrationEnabled", {"shell/qml/components/VirtualKeyboard.qml", "SettingsManagerCpp.vibrationEnabled"}},
             // The setter applies it through timedated.
             {"automaticTime", {"shell/src/managers/settingsmanager.cpp", "SetNTP"}},
-            {"automaticTimeZone",
-             {"shell/src/services/automatictimezone.cpp", "m_settings->automaticTimeZone()"}},
+            {"automaticTimeZone", {"shell/main.cpp", "settingsManager->automaticTimeZone()"}},
             {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->deviceName())"}},
             {"appNotificationSettings",
              {"shell/src/services/notificationservicecpp.cpp", "isNotificationsEnabledForApp"}},

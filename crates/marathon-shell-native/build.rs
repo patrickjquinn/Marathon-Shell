@@ -12,6 +12,7 @@ fn main() {
         .file("src/pressure.rs")
         .file("src/sandbox.rs")
         .file("src/security.rs")
+        .file("src/timezone.rs")
         .file("src/weather.rs")
         .build();
 }
