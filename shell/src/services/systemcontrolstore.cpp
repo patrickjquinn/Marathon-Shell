@@ -1,7 +1,7 @@
 #include "systemcontrolstore.h"
 #include "src/controllers/audiopolicycontroller.h"
 #include "src/managers/alarmmanagercpp.h"
-#include "src/managers/audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "marathon-shell-native/src/flashlight.cxxqt.h"
@@ -22,7 +22,7 @@ SystemControlStore::SystemControlStore(
     marathon::Display *display, Flashlight *flashlightManager,
     Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
     Location *locationManager, Haptics *hapticManager, Power *powerManager,
-    AudioManagerCpp *audioManager, AudioPolicyController *audioPolicyController,
+    marathon::Audio *audioManager, AudioPolicyController *audioPolicyController,
     ScreenshotServiceCpp *screenshotService, QObject *parent)
     : QObject(parent)
     , m_networkManager(networkManager)
@@ -129,10 +129,10 @@ SystemControlStore::SystemControlStore(
 
     if (m_audioManager) {
         setVolumeValue(
-            static_cast<int>(std::round(std::clamp(m_audioManager->volume(), 0.0, 1.0) * 100.0)));
-        connect(m_audioManager, &AudioManagerCpp::volumeChanged, this, [this]() {
+            static_cast<int>(std::round(std::clamp(m_audioManager->getVolume(), 0.0, 1.0) * 100.0)));
+        connect(m_audioManager, &marathon::Audio::volumeChanged, this, [this]() {
             setVolumeValue(static_cast<int>(
-                std::round(std::clamp(m_audioManager->volume(), 0.0, 1.0) * 100.0)));
+                std::round(std::clamp(m_audioManager->getVolume(), 0.0, 1.0) * 100.0)));
         });
     }
 }

@@ -1,9 +1,9 @@
 #include "audioroutingmanager.h"
-#include "managers/audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 
 #include <QDebug>
 
-AudioRoutingManager::AudioRoutingManager(AudioManagerCpp *audio, QObject *parent)
+AudioRoutingManager::AudioRoutingManager(marathon::Audio *audio, QObject *parent)
     : QObject(parent)
     , m_audio(audio) {}
 

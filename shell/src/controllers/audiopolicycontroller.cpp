@@ -1,6 +1,6 @@
 #include "audiopolicycontroller.h"
 
-#include "audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "mediarole.h"
 #include "settingsmanager.h"
@@ -20,7 +20,7 @@ namespace {
     }
 }
 
-AudioPolicyController::AudioPolicyController(AudioManagerCpp *audioManager,
+AudioPolicyController::AudioPolicyController(marathon::Audio *audioManager,
                                              SettingsManager *settings, Haptics *haptics,
                                              QObject *parent)
     : QObject(parent)
@@ -37,10 +37,10 @@ AudioPolicyController::AudioPolicyController(AudioManagerCpp *audioManager,
     , m_previewOutput(nullptr) {
 
     if (m_audioManager && m_settings) {
-        connect(m_audioManager, &AudioManagerCpp::volumeChanged, this, [this]() {
+        connect(m_audioManager, &marathon::Audio::volumeChanged, this, [this]() {
             if (!m_audioManager || !m_settings)
                 return;
-            const double v = m_audioManager->volume();
+            const double v = m_audioManager->getVolume();
             if (!qFuzzyCompare(m_settings->systemVolume(), v)) {
                 m_settings->setSystemVolume(v);
             }
@@ -251,8 +251,8 @@ void AudioPolicyController::wirePlayerVolumes() {
     };
     connect(m_settings, &SettingsManager::notificationVolumeChanged, this, updateNotification);
     if (m_audioManager) {
-        connect(m_audioManager, &AudioManagerCpp::volumeChanged, this, updateNotification);
-        connect(m_audioManager, &AudioManagerCpp::mutedChanged, this, updateNotification);
+        connect(m_audioManager, &marathon::Audio::volumeChanged, this, updateNotification);
+        connect(m_audioManager, &marathon::Audio::mutedChanged, this, updateNotification);
     }
     connect(m_settings, &SettingsManager::alarmVolumeChanged, this, [this]() {
         if (m_alarmOutput && m_settings) {
@@ -264,6 +264,6 @@ void AudioPolicyController::wirePlayerVolumes() {
 double AudioPolicyController::notificationLevel() const {
     double level = m_settings ? qBound(0.0, m_settings->notificationVolume(), 1.0) : 1.0;
     if (m_audioManager)
-        level *= m_audioManager->muted() ? 0.0 : m_audioManager->volume();
+        level *= m_audioManager->getMuted() ? 0.0 : m_audioManager->getVolume();
     return level;
 }

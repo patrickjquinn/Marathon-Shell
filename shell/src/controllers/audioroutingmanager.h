@@ -3,7 +3,9 @@
 
 #include <QObject>
 
-class AudioManagerCpp;
+namespace marathon {
+    class Audio;
+}
 
 // The call's speakerphone and microphone mute. Which card profile and route
 // carry the call is WirePlumber's policy (marathon/call-routing.lua): it
@@ -15,7 +17,7 @@ class AudioRoutingManager : public QObject {
     Q_PROPERTY(bool isMuted READ isMuted NOTIFY mutedChanged)
 
   public:
-    explicit AudioRoutingManager(AudioManagerCpp *audio, QObject *parent = nullptr);
+    explicit AudioRoutingManager(marathon::Audio *audio, QObject *parent = nullptr);
 
     bool isInCall() const {
         return m_isInCall;
@@ -39,7 +41,7 @@ class AudioRoutingManager : public QObject {
     void mutedChanged(bool muted);
 
   private:
-    AudioManagerCpp *m_audio;
+    marathon::Audio *m_audio;
     bool             m_isInCall              = false;
     bool             m_isSpeakerphoneEnabled = false;
     bool             m_isMuted               = false;

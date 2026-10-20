@@ -11,7 +11,9 @@
 
 class SettingsManager;
 class Power;
-class AudioManagerCpp;
+namespace marathon {
+    class Audio;
+}
 class Haptics;
 class QSoundEffect;
 
@@ -45,7 +47,7 @@ class AlarmManagerCpp : public QObject {
 
   public:
     explicit AlarmManagerCpp(SettingsManager *settings, Power *power,
-                             AudioManagerCpp *audio, Haptics *haptic,
+                             marathon::Audio *audio, Haptics *haptic,
                              QObject *parent = nullptr);
 
     QVariantList        alarms() const;
@@ -86,7 +88,7 @@ class AlarmManagerCpp : public QObject {
 
     SettingsManager *m_settings;
     Power *m_power;
-    AudioManagerCpp *m_audio;
+    marathon::Audio *m_audio;
     Haptics         *m_haptic;
 
     QList<Alarm>     m_alarms;

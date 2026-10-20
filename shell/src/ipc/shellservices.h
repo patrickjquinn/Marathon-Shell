@@ -31,6 +31,7 @@ class Security;
 class FactoryReset;
 class Bluetooth;
 namespace marathon {
+    class Audio;
     class Display;
     class Updates;
 }
@@ -40,7 +41,6 @@ class Modem;
 class Power;
 class ForegroundApp;
 class SessionStore;
-class AudioManagerCpp;
 class AudioPolicyController;
 class Haptics;
 class RotationManager;
@@ -348,7 +348,7 @@ class AudioObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Audio1")
 
   public:
-    AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
+    AudioObject(marathon::Audio *audio, AudioPolicyController *policy,
                 MarathonPermissionManager *permissions, AppLaunchService *launchService,
                 QObject *parent = nullptr);
 
@@ -380,7 +380,7 @@ class AudioObject : public IpcPermissionedService {
     }
     QVariantMap            buildState() const;
 
-    AudioManagerCpp       *m_audio  = nullptr;
+    marathon::Audio       *m_audio  = nullptr;
     AudioPolicyController *m_policy = nullptr;
 };
 

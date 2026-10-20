@@ -36,41 +36,11 @@ target_link_libraries(test_shell_foregroundapp Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_foregroundapp PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_ForegroundApp COMMAND test_shell_foregroundapp)
 
-# SinkVolume: volume and mute follow the current default sink
-add_executable(test_shell_sinkvolume
-    test_sinkvolume.cpp
-    ../../shell/src/managers/sinkvolume.cpp
-)
-target_link_libraries(test_shell_sinkvolume Qt6::Test Qt6::Core)
-target_include_directories(test_shell_sinkvolume PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
-add_test(NAME Shell_SinkVolume COMMAND test_shell_sinkvolume)
-
-# The shell's client of marathon-audiod and its call controls, against a
-# fake service on a private bus
-find_package(Qt6 REQUIRED COMPONENTS DBus)
-add_executable(test_shell_audiodclient
-    test_audiodclient.cpp
-    ../../shell/src/managers/audiodclient.cpp
-    ../../shell/src/managers/sinkvolume.cpp
-    ../../shell/src/managers/audiomanagercpp.cpp
-    ../../shell/src/controllers/audioroutingmanager.cpp
-)
-target_link_libraries(test_shell_audiodclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_shell_audiodclient PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src/controllers
-)
-add_test(NAME Shell_AudiodClient COMMAND test_shell_audiodclient)
-
 # AudioPolicyController: which sounds the profile lets through
 find_package(Qt6 REQUIRED COMPONENTS Multimedia)
 add_executable(test_shell_audiopolicy
     test_audiopolicy.cpp
     ../../shell/src/controllers/audiopolicycontroller.cpp
-    ../../shell/src/managers/audiomanagercpp.cpp
-    ../../shell/src/managers/audiodclient.cpp
-    ../../shell/src/managers/sinkvolume.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/models/notificationmodel.cpp
@@ -97,9 +67,6 @@ add_executable(test_shell_notificationhandler
     ../../shell/src/services/navigationroutercpp.cpp
     ../../shell/src/services/notificationtarget.cpp
     ../../shell/src/controllers/audiopolicycontroller.cpp
-    ../../shell/src/managers/audiomanagercpp.cpp
-    ../../shell/src/managers/audiodclient.cpp
-    ../../shell/src/managers/sinkvolume.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/models/notificationmodel.cpp

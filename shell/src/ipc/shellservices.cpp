@@ -22,7 +22,7 @@
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "audiopolicycontroller.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
@@ -1046,30 +1046,7 @@ bool PowerObject::ScheduleWake(qint64 epochSecs, const QString &reason) {
     return false;
 }
 
-static QVariantList audioStreamsToVariantList(AudioManagerCpp *audio) {
-    QVariantList out;
-    if (!audio || !audio->streams())
-        return out;
-
-    auto     *m    = audio->streams();
-    const int rows = m->rowCount();
-    out.reserve(rows);
-
-    for (int row = 0; row < rows; ++row) {
-        const QModelIndex idx = m->index(row, 0);
-        QVariantMap       s;
-        s.insert("streamId", m->data(idx, AudioStreamModel::IdRole));
-        s.insert("name", m->data(idx, AudioStreamModel::NameRole));
-        s.insert("appName", m->data(idx, AudioStreamModel::AppNameRole));
-        s.insert("volume", m->data(idx, AudioStreamModel::VolumeRole));
-        s.insert("muted", m->data(idx, AudioStreamModel::MutedRole));
-        s.insert("mediaClass", m->data(idx, AudioStreamModel::MediaClassRole));
-        out.push_back(s);
-    }
-    return out;
-}
-
-AudioObject::AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
+AudioObject::AudioObject(marathon::Audio *audio, AudioPolicyController *policy,
                          MarathonPermissionManager *permissions, AppLaunchService *launchService,
                          QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
@@ -1080,10 +1057,10 @@ AudioObject::AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
     Q_ASSERT(m_launchService);
 
     auto push = [this]() { emit StateChanged(buildState()); };
-    QObject::connect(m_audio, &AudioManagerCpp::availableChanged, this, push);
-    QObject::connect(m_audio, &AudioManagerCpp::volumeChanged, this, push);
-    QObject::connect(m_audio, &AudioManagerCpp::mutedChanged, this, push);
-    QObject::connect(m_audio, &AudioManagerCpp::streamsChanged, this, push);
+    QObject::connect(m_audio, &marathon::Audio::availableChanged, this, push);
+    QObject::connect(m_audio, &marathon::Audio::volumeChanged, this, push);
+    QObject::connect(m_audio, &marathon::Audio::mutedChanged, this, push);
+    QObject::connect(m_audio, &marathon::Audio::streamsChanged, this, push);
     if (m_policy) {
         QObject::connect(m_policy, &AudioPolicyController::audioProfileChanged, this, push);
         QObject::connect(m_policy, &AudioPolicyController::doNotDisturbChanged, this, push);
@@ -1092,11 +1069,11 @@ AudioObject::AudioObject(AudioManagerCpp *audio, AudioPolicyController *policy,
 
 QVariantMap AudioObject::buildState() const {
     return {
-        {"available", m_audio->available()},
-        {"volume", m_audio->volume()},
-        {"muted", m_audio->muted()},
+        {"available", m_audio->getAvailable()},
+        {"volume", m_audio->getVolume()},
+        {"muted", m_audio->getMuted()},
         {"perAppVolumeSupported", m_audio->perAppVolumeSupported()},
-        {"streams", audioStreamsToVariantList(m_audio)},
+        {"streams", m_audio->getStreams()},
         {"doNotDisturb", m_policy ? m_policy->isDoNotDisturb() : false},
         {"audioProfile", m_policy ? m_policy->audioProfile() : QString()},
     };

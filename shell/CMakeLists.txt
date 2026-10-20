@@ -42,13 +42,7 @@ set(SOURCES
     src/managers/deviceprofile.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
-    src/managers/audiomanagercpp.h
-    src/managers/audiomanagercpp.cpp
-    src/managers/sinkvolume.h
-    src/managers/sinkvolume.cpp
     src/managers/mediarole.h
-    src/managers/audiodclient.h
-    src/managers/audiodclient.cpp
     src/managers/settingsmanager.h
     src/managers/settingsmanager.cpp
     src/managers/platformcpp.h
@@ -502,8 +496,6 @@ qt6_add_qml_module(marathon-shell
         src/models/filechoosermodel.h
         src/models/taskmodel.cpp
         src/models/taskmodel.h
-        src/managers/audiomanagercpp.cpp
-        src/managers/audiomanagercpp.h
                 src/services/applaunchservice.cpp
         src/services/applaunchservice.h
         src/services/applifecyclemanager.cpp

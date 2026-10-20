@@ -68,7 +68,7 @@
 #include "marathon-shell-native/src/weather.cxxqt.h"
 #include "src/services/inputboost.h"
 #include "src/services/touchresampler.h"
-#include "src/managers/audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/ambienceservice.h"
@@ -826,8 +826,9 @@ int main(int argc, char *argv[]) {
     // zero traffic with the screen off.
     QObject::connect(display, &marathon::Display::screenStateChanged, rotationManager,
                      &RotationManager::setScreenOn);
-    auto *audioManager = new AudioManagerCpp(&app);
-    qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
+    auto *audioManager = new marathon::Audio();
+    audioManager->setParent(&app);
+    qmlRegisterSingletonInstance<marathon::Audio>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
                                                   audioManager);
     auto *modem = new Modem();
     modem->setParent(&app);
@@ -1109,9 +1110,9 @@ int main(int argc, char *argv[]) {
         qInfo() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
     }
 
-    QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, power,
+    QObject::connect(audioManager, &marathon::Audio::isPlayingChanged, power,
                      [power, audioManager]() {
-                         if (audioManager->isPlaying()) {
+                         if (audioManager->getIsPlaying()) {
                              power->acquireWakelock("audio_playback");
                              qInfo()
                                  << "[MarathonShell] Audio playback started - acquired wakelock";

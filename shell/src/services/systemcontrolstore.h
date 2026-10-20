@@ -9,6 +9,7 @@
 class Network;
 class Bluetooth;
 namespace marathon {
+    class Audio;
     class Display;
 }
 class Flashlight;
@@ -18,7 +19,6 @@ class AlarmManagerCpp;
 class Location;
 class Haptics;
 class Power;
-class AudioManagerCpp;
 class AudioPolicyController;
 class ScreenshotServiceCpp;
 
@@ -57,7 +57,7 @@ class SystemControlStore : public QObject {
                                 Modem *modemManager, SettingsManager *settingsManager,
                                 AlarmManagerCpp *alarmManager, Location *locationManager,
                                 Haptics *hapticManager, Power *powerManager,
-                                AudioManagerCpp       *audioManager,
+                                marathon::Audio       *audioManager,
                                 AudioPolicyController *audioPolicyController,
                                 ScreenshotServiceCpp *screenshotService, QObject *parent = nullptr);
 
@@ -195,7 +195,7 @@ class SystemControlStore : public QObject {
     Location              *m_locationManager;
     Haptics               *m_hapticManager;
     Power       *m_powerManager;
-    AudioManagerCpp       *m_audioManager;
+    marathon::Audio       *m_audioManager;
     AudioPolicyController *m_audioPolicyController;
     ScreenshotServiceCpp  *m_screenshotService;
 

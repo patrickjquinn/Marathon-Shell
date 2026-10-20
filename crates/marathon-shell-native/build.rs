@@ -2,6 +2,7 @@ use cxx_qt_build::CxxQtBuilder;
 
 fn main() {
     CxxQtBuilder::new()
+        .file("src/audio.rs")
         .file("src/bluetooth.rs")
         .file("src/cgroup.rs")
         .file("src/clipboard.rs")

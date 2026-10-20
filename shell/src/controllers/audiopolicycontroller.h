@@ -5,7 +5,9 @@
 #include <QUrl>
 #include <qqml.h>
 
-class AudioManagerCpp;
+namespace marathon {
+    class Audio;
+}
 class Haptics;
 class SettingsManager;
 
@@ -18,7 +20,7 @@ class AudioPolicyController : public QObject {
     QML_SINGLETON
 
   public:
-    explicit AudioPolicyController(AudioManagerCpp *audioManager, SettingsManager *settings,
+    explicit AudioPolicyController(marathon::Audio *audioManager, SettingsManager *settings,
                                    Haptics *haptics, QObject *parent = nullptr);
 
     Q_INVOKABLE void setMasterVolume(double volume);
@@ -59,7 +61,7 @@ class AudioPolicyController : public QObject {
                       bool loopForever);
     void startPlayback(QMediaPlayer *player, const QUrl &source, bool loopForever);
 
-    QPointer<AudioManagerCpp> m_audioManager;
+    QPointer<marathon::Audio> m_audioManager;
     QPointer<SettingsManager> m_settings;
     QPointer<Haptics>         m_haptics;
 

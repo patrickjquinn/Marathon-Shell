@@ -5,7 +5,7 @@
 #include <QStandardPaths>
 #include <QTest>
 
-#include "audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "audiopolicycontroller.h"
 #include "mediarole.h"
 #include "notificationmodel.h"
@@ -102,7 +102,7 @@ class TestAudioPolicy : public QObject {
     // The volume slider scales notification sounds; their own setting sets
     // their level under it.
     void notificationsFollowTheVolume() {
-        AudioManagerCpp audio;
+        marathon::Audio audio;
         audio.setVolume(0.5);
         m_settings->setNotificationVolume(0.8);
         m_settings->setNotificationSound("/nonexistent/notification.ogg");

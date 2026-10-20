@@ -9,7 +9,7 @@
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "audiopolicycontroller.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
@@ -23,7 +23,7 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions,
                                Modem *telephony,
                                SettingsManager *settingsManager, Bluetooth *bluetoothManager,
                                marathon::Display *display, Power *powerManager,
-                               AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
+                               marathon::Audio *audioManager, AudioPolicyController *audioPolicy,
                                Network *networkManager, Haptics *hapticManager,
                                Security *securityManager, RotationManager *rotationManager,
                                Location *locationManager, AlarmManagerCpp *alarmManager,

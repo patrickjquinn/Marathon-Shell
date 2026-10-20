@@ -1,7 +1,7 @@
 #include "alarmmanagercpp.h"
 #include "settingsmanager.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "audiomanagercpp.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "mediarole.h"
 #include <QJsonDocument>
@@ -63,7 +63,7 @@ QVariantMap Alarm::toVariantMap() const {
 }
 
 AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, Power *power,
-                                 AudioManagerCpp *audio, Haptics *haptic, QObject *parent)
+                                 marathon::Audio *audio, Haptics *haptic, QObject *parent)
     : QObject(parent)
     , m_settings(settings)
     , m_power(power)
