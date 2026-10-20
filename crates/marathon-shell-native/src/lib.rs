@@ -9,6 +9,8 @@ extern crate marathon_rt;
 pub(crate) use marathon_rt::{io, log};
 
 mod audit;
+mod cgroup;
+mod desktop;
 pub mod display;
 mod identity;
 pub mod modem;
@@ -16,4 +18,5 @@ pub mod network;
 mod pam;
 pub mod power;
 pub mod security;
+mod systemd;
 mod wake_timer;

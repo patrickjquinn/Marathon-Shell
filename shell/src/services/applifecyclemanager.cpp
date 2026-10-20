@@ -1,16 +1,11 @@
 #include "applifecyclemanager.h"
 
 #include "applaunchservice.h"
-#include "appscope.h"
-#include "cgroupmanager.h"
+#include "marathon-shell-native/src/cgroup.cxxqt.h"
 #include "processstopper.h"
 #include "taskmodel.h"
 
 #include <QDateTime>
-#include <QDBusConnection>
-#include <QDBusMessage>
-#include <QDBusPendingCallWatcher>
-#include <QFile>
 #include <QLoggingCategory>
 #include <QMetaObject>
 #include <QPointer>
@@ -28,15 +23,7 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
     : QObject(parent)
     , m_taskModel(taskModel)
     , m_appLaunchService(appLaunchService)
-    , m_cgroup(new CgroupManager(this)) {
-    // A previous shell session's app cgroups (and any frozen orphan pids
-    // inside them) outlive greetd restarts — reap them before the first
-    // launch of this session can inherit a stale freeze=1.
-    if (m_cgroup->isAvailable())
-        m_cgroup->reconcileStaleAppCgroups();
-    QFile self(QStringLiteral("/proc/self/cgroup"));
-    if (self.open(QIODevice::ReadOnly))
-        m_shellCgroup = AppScope::cgroupFromProcFile(self.readAll());
+    , m_cgroups(marathon::cgroup::app_cgroups()) {
 
     // Apply oom_score bias + cgroup placement as soon as a PID becomes
     // known. Both are best-effort on the dev box (procfs and cgroup writes
@@ -88,25 +75,15 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
                     if (auto it = m_appStates.find(appId); it != m_appStates.end()) {
                         writeOomScoreAdj(appId, it->state);
                     }
-                    // Moving a scoped app out of its scope would leave its
-                    // other processes (bwrap, the D-Bus proxy) unfrozen.
-                    const QString scope = AppScope::unitForCgroup(cgroupOfPid(pid), m_shellCgroup);
-                    if (!scope.isEmpty()) {
-                        m_appScopes.insert(appId, scope);
-                    } else if (m_cgroup && m_cgroup->isAvailable()) {
-                        m_cgroup->placeAppPid(pid, appId);
-                        if (auto it = m_appStates.find(appId); it != m_appStates.end()) {
-                            m_cgroup->setAppFrozen(appId, it->state == Frozen);
-                            m_cgroup->setAppUclampMin(appId, it->state == Foreground ? 30 : 0);
-                        }
-                    }
+                    const auto it = m_appStates.constFind(appId);
+                    const bool known = it != m_appStates.cend();
+                    m_cgroups->adopt(appId, pid, cgroupOfPid(pid), known && it->state == Frozen,
+                                     known && it->state == Foreground);
                 });
         connect(m_appLaunchService, &AppLaunchService::pidUnregistered, this,
                 [this](qint64 pid, const QString &appId) {
                     Q_UNUSED(pid);
-                    m_appScopes.remove(appId);
-                    if (m_cgroup)
-                        m_cgroup->removeAppCgroup(appId);
+                    m_cgroups->forget(appId);
                 });
     }
 }
@@ -540,15 +517,7 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
         setAppFrozen(appId, true);
     else if (old == Frozen)
         setAppFrozen(appId, false);
-    if (m_cgroup && m_cgroup->isAvailable()) {
-        // cpu.uclamp.min — mainline replacement for Android's ROM-lore
-        // "touch boost". Foreground app gets 30 (guarantees ~30% of
-        // capacity as a schedutil freq floor while its tasks are
-        // runnable); everything else resets to 0 (no boost). This is
-        // the right layer to fight ondemand's 100 ms sampling lag on
-        // interactive load spikes.
-        m_cgroup->setAppUclampMin(appId, newState == Foreground ? 30 : 0);
-    }
+    m_cgroups->set_front(appId, newState == Foreground);
     if (old == Frozen && m_appLaunchService && m_appLaunchService->servesKeelActions(appId))
         m_appLaunchService->notifyRunnerThawed(appId);
 
@@ -640,9 +609,9 @@ void AppLifecycleManager::stopAllApps(int graceMs) {
     if (m_stopping)
         return;
     m_stopping = true;
-    m_cgroup->thawAll();
-    for (auto it = m_appScopes.cbegin(); it != m_appScopes.cend(); ++it) {
-        if (lifecycleState(it.key()) == Frozen)
+    m_cgroups->thaw_all();
+    for (auto it = m_appStates.cbegin(); it != m_appStates.cend(); ++it) {
+        if (it->state == Frozen)
             setAppFrozen(it.key(), false);
     }
     QList<qint64> pids;
@@ -661,51 +630,17 @@ void AppLifecycleManager::stopAllApps(int graceMs) {
 }
 
 QString AppLifecycleManager::cgroupOfPid(qint64 pid) const {
-    QFile f(QStringLiteral("/proc/%1/cgroup").arg(pid));
-    return f.open(QIODevice::ReadOnly) ? AppScope::cgroupFromProcFile(f.readAll()) : QString();
+    return marathon::cgroup::cgroup_of_pid(pid);
 }
 
-// A scope belongs to the user manager, so it freezes the whole unit; the
-// shell only writes cgroup.freeze in the subtree delegated to it.
 void AppLifecycleManager::setAppFrozen(const QString &appId, bool frozen) {
-    const QString scope = m_appScopes.value(appId);
-    if (scope.isEmpty()) {
-        if (m_cgroup->isAvailable())
-            m_cgroup->setAppFrozen(appId, frozen);
-        return;
-    }
-    const QString method = frozen ? QStringLiteral("FreezeUnit") : QStringLiteral("ThawUnit");
-    QDBusMessage  msg    = QDBusMessage::createMethodCall(
-        QStringLiteral("org.freedesktop.systemd1"), QStringLiteral("/org/freedesktop/systemd1"),
-        QStringLiteral("org.freedesktop.systemd1.Manager"), method);
-    msg << scope;
-    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(msg), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this,
-            [method, scope](QDBusPendingCallWatcher *w) {
-                if (w->isError())
-                    qCWarning(lcLifecycle) << method << scope << "failed:" << w->error().message();
-                else
-                    qCInfo(lcLifecycle) << method << scope;
-                w->deleteLater();
-            });
+    m_cgroups->set_frozen(appId, frozen);
 }
 
 void AppLifecycleManager::writeOomScoreAdj(const QString &appId, LifecycleState state) {
-    if (!m_appLaunchService)
-        return;
-    const qint64 pid = m_appLaunchService->pidForAppId(appId);
-    if (pid <= 0)
-        return;
-    const int score = oomScoreForState(state);
-    QFile     f(QStringLiteral("/proc/%1/oom_score_adj").arg(pid));
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        qCDebug(lcLifecycle) << "oom_score_adj write skipped for" << appId << "pid" << pid
-                             << "(open failed:" << f.errorString() << ")";
-        return;
-    }
-    f.write(QByteArray::number(score));
-    f.close();
-    qCDebug(lcLifecycle) << "oom_score_adj=" << score << "for" << appId << "pid" << pid;
+    if (m_appLaunchService)
+        marathon::cgroup::set_oom_score_adj(m_appLaunchService->pidForAppId(appId),
+                                            oomScoreForState(state));
 }
 
 bool AppLifecycleManager::ensureTaskExists(const QString &appId) {

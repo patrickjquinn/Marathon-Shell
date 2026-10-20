@@ -2,24 +2,9 @@
 //! marathon-background arm-wake reads before a suspend so the system wakes
 //! for it (`docs/BACKGROUND_WORK.md`).
 
-use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::zvariant::Value;
 
-#[zbus::proxy(
-    interface = "org.freedesktop.systemd1.Manager",
-    default_service = "org.freedesktop.systemd1",
-    default_path = "/org/freedesktop/systemd1"
-)]
-trait SystemdManager {
-    fn start_transient_unit(
-        &self,
-        name: &str,
-        mode: &str,
-        properties: &[(&str, Value<'_>)],
-        aux: &[(&str, &[(&str, Value<'_>)])],
-    ) -> zbus::Result<OwnedObjectPath>;
-
-    fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
-}
+use crate::systemd::SystemdManagerProxy;
 
 /// One key's wake-up; setting it again replaces the timer.
 pub struct WakeTimer {

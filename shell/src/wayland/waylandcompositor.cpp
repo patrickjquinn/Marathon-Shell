@@ -16,7 +16,7 @@
 #include "src/components/windowtextureitem.h"
 #include "src/managers/deviceprofile.h"
 #include "src/services/processtree.h"
-#include "src/services/sailfishlaunch.h"
+#include "marathon-shell-native/src/desktop.cxxqt.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -662,7 +662,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
 
     env.insert("QT_MEDIA_BACKEND", "ffmpeg");
 
-    if (actualCommand.contains("marathon-app-runner") || SailfishLaunch::isHosted(actualCommand)) {
+    if (actualCommand.contains("marathon-app-runner") || marathon::desktop::is_keel_hosted(actualCommand)) {
         env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
     }
 
@@ -801,7 +801,7 @@ void WaylandCompositor::closeWindow(int surfaceId) {
     const qint64 clientPid = m_surfaceIdToPid.value(surfaceId, -1);
     for (auto it = m_processes.cbegin(); it != m_processes.cend(); ++it) {
         QPointer<QProcess> host(it.key());
-        if (!SailfishLaunch::isHosted(it.value()) || host->state() == QProcess::NotRunning ||
+        if (!marathon::desktop::is_keel_hosted(it.value()) || host->state() == QProcess::NotRunning ||
             !isDescendantPid(clientPid, host->processId()))
             continue;
         qInfo() << "[WaylandCompositor] Closing hosted app via its Keel host, PID"

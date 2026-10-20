@@ -123,17 +123,6 @@ target_link_libraries(test_core_updateservice Qt6::Test Qt6::Core Qt6::DBus Qt6:
 target_include_directories(test_core_updateservice PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Core_UpdateService COMMAND test_core_updateservice)
 
-# DesktopFileParser tests (exec cleaning, .desktop parsing, icon resolution)
-add_executable(test_core_desktopfileparser
-    test_desktopfileparser.cpp
-    ../../shell/src/components/desktopfileparser.cpp
-)
-target_link_libraries(test_core_desktopfileparser Qt6::Test Qt6::Core)
-target_include_directories(test_core_desktopfileparser PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src/components
-)
-add_test(NAME Core_DesktopFileParser COMMAND test_core_desktopfileparser)
-
 # Pool keepalive page touching (marathon-app-runner)
 add_executable(test_core_pagetouch
     test_pagetouch.cpp

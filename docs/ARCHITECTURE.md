@@ -26,7 +26,7 @@ Marathon Shell is a Wayland compositor and mobile application shell implemented 
 │  ├── WaylandCompositor (QtWaylandCompositor)                    │
 │  ├── AppLifecycleManager                                         │
 │  ├── MarathonAppRegistry & Loader                                │
-│  ├── DesktopFileParser                                           │
+│  ├── desktop entries (Rust)                                      │
 │  └── D-Bus Service Managers                                      │
 │      ├── NetworkManagerCpp (NetworkManager D-Bus)                │
 │      ├── PowerManagerCpp (UPower D-Bus)                          │
@@ -75,7 +75,7 @@ Marathon Shell implements a Wayland compositor using QtWaylandCompositor. The co
 ```
 1. User launches app via App Grid
    ↓
-2. Shell parses .desktop file (DesktopFileParser)
+2. Shell parses .desktop file (marathon::desktop, in Rust)
    ↓
 3. Shell sets WAYLAND_DISPLAY=marathon-wayland-0
    ↓

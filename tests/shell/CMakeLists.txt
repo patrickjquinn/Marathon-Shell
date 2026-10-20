@@ -283,18 +283,6 @@ target_link_libraries(test_shell_toolkitthemewriter Qt6::Test Qt6::Core Qt6::Gui
 target_include_directories(test_shell_toolkitthemewriter PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_ToolkitThemeWriter COMMAND test_shell_toolkitthemewriter)
 
-# Sailfish apps launch under marathon-keel-host
-add_executable(test_shell_sailfishlaunch test_sailfishlaunch.cpp)
-target_link_libraries(test_shell_sailfishlaunch Qt6::Test Qt6::Core)
-target_include_directories(test_shell_sailfishlaunch PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_SailfishLaunch COMMAND test_shell_sailfishlaunch)
-
-add_executable(test_shell_desktopfileparser test_desktopfileparser.cpp
-    ../../shell/src/components/desktopfileparser.cpp)
-target_link_libraries(test_shell_desktopfileparser Qt6::Test Qt6::Core)
-target_include_directories(test_shell_desktopfileparser PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/components)
-add_test(NAME Shell_DesktopFileParser COMMAND test_shell_desktopfileparser)
-
 add_executable(test_shell_processtree test_processtree.cpp)
 target_link_libraries(test_shell_processtree Qt6::Test Qt6::Core)
 target_include_directories(test_shell_processtree PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
@@ -410,9 +398,7 @@ add_test(NAME Shell_FactoryReset COMMAND test_shell_factoryreset)
 add_executable(test_shell_backgroundlaunch
     test_backgroundlaunch.cpp
     ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
     ../../shell/src/models/appmodel.cpp
@@ -433,9 +419,7 @@ add_test(NAME Shell_BackgroundLaunch COMMAND test_shell_backgroundlaunch)
 add_executable(test_shell_sharedclient
     test_sharedclient.cpp
     ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
     ../../shell/src/models/appmodel.cpp
@@ -461,9 +445,7 @@ endif()
 add_executable(test_shell_sandboxlaunch
     test_sandboxlaunch.cpp
     ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
     ../../shell/src/models/appmodel.cpp
@@ -485,9 +467,7 @@ set_tests_properties(Shell_SandboxLaunch PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM
 add_executable(test_shell_runnerpool
     test_runnerpool.cpp
     ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/components/desktopfileparser.cpp
     ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/cgroupmanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
     ../../shell/src/models/appmodel.cpp
@@ -510,9 +490,7 @@ if(DBUS_RUN_SESSION)
     add_executable(test_shell_keelactionsfreeze
         test_keelactionsfreeze.cpp
         ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
         ../../shell/src/models/appmodel.cpp
@@ -536,9 +514,7 @@ if(DBUS_RUN_SESSION)
     add_executable(test_shell_androidfreeze
         test_androidfreeze.cpp
         ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
         ../../shell/src/models/appmodel.cpp
@@ -557,19 +533,11 @@ if(DBUS_RUN_SESSION)
         COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_androidfreeze>)
 endif()
 
-# Native apps in their own systemd scope are frozen through the user manager
-add_executable(test_shell_appscope test_appscope.cpp)
-target_link_libraries(test_shell_appscope Qt6::Test Qt6::Core)
-target_include_directories(test_shell_appscope PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_AppScope COMMAND test_shell_appscope)
-
 if(DBUS_RUN_SESSION)
     add_executable(test_shell_nativelifecycle
         test_nativelifecycle.cpp
         ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
         ../../shell/src/models/appmodel.cpp
@@ -624,9 +592,7 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
         ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/components/desktopfileparser.cpp
         ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/cgroupmanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
         ../../shell/src/models/appmodel.cpp

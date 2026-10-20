@@ -9,9 +9,10 @@
 #include <QVariantMap>
 #include <qqml.h>
 
+#include "marathon-shell-native/src/cgroup.cxxqt.h"
+
 class TaskModel;
 class AppLaunchService;
-class CgroupManager;
 
 class AppLifecycleManager : public QObject {
     Q_OBJECT
@@ -134,11 +135,7 @@ class AppLifecycleManager : public QObject {
 
     QPointer<TaskModel>               m_taskModel;
     QPointer<AppLaunchService>        m_appLaunchService;
-    CgroupManager                    *m_cgroup = nullptr;
-    QString                           m_shellCgroup;
-    // Native apps that run in their own systemd scope (flatpak's, or a
-    // launcher's): appId to unit name. systemd freezes those.
-    QHash<QString, QString>           m_appScopes;
+    rust::Box<marathon::cgroup::AppCgroups> m_cgroups;
 
     QHash<QString, QPointer<QObject>> m_appRegistry;
     QHash<QString, AppState>          m_appStates;

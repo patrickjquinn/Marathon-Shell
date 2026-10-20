@@ -2,8 +2,6 @@ set(SOURCES
     main.cpp
     src/diag/fpsmonitor.h
     src/diag/fpsmonitor.cpp
-    src/components/desktopfileparser.h
-    src/components/desktopfileparser.cpp
     src/components/lunasvgimageprovider.h
     src/components/lunasvgimageprovider.cpp
     src/models/appmodel.h
@@ -14,8 +12,6 @@ set(SOURCES
     src/services/applifecyclemanager.cpp
     src/services/backgroundtaskobserver.h
     src/services/backgroundtaskobserver.cpp
-    src/services/cgroupmanager.h
-    src/services/cgroupmanager.cpp
     src/services/processstopper.h
     src/services/processstopper.cpp
     src/managers/drmmasterwait.h

@@ -6,7 +6,6 @@
 
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
-#include "appscope.h"
 #include "taskmodel.h"
 
 // The user manager's Manager interface, as the shell calls it.
@@ -306,9 +305,7 @@ class TestNativeLifecycle : public QObject {
     }
 
     void neverFreezesTheShellsScope() {
-        QFile self(QStringLiteral("/proc/self/cgroup"));
-        QVERIFY(self.open(QIODevice::ReadOnly));
-        open(AppScope::cgroupFromProcFile(self.readAll()));
+        open(marathon::cgroup::cgroup_of_pid(QCoreApplication::applicationPid()));
         QVERIFY(lifecycle->minimizeForegroundApp());
         QTRY_COMPARE(state(), int(AppLifecycleManager::Frozen));
         QTest::qWait(50);

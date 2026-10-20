@@ -2,6 +2,8 @@ use cxx_qt_build::CxxQtBuilder;
 
 fn main() {
     CxxQtBuilder::new()
+        .file("src/cgroup.rs")
+        .file("src/desktop.rs")
         .file("src/display.rs")
         .file("src/identity.rs")
         .file("src/modem.rs")

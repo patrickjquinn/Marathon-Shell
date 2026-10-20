@@ -3,8 +3,7 @@
 
 #include "appmodel.h"
 #include "processtree.h"
-#include "sailfishlaunch.h"
-#include "src/components/desktopfileparser.h"
+#include "marathon-shell-native/src/desktop.cxxqt.h"
 #include "taskmodel.h"
 #include "src/managers/deviceprofile.h"
 #include "src/managers/screenmetrics.h"
@@ -524,7 +523,7 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
         const QString entry = QStandardPaths::locate(QStandardPaths::ApplicationsLocation,
                                                      appId + QStringLiteral(".desktop"));
         if (!entry.isEmpty())
-            return DesktopFileParser().parseDesktopFile(entry, true);
+            return marathon::desktop::parse(entry);
 
         return {};
     }
@@ -2127,7 +2126,7 @@ void AppLaunchService::notifyRunnerThawed(const QString &appId) {
 
 qint64 AppLaunchService::hostPidForAppId(const QString &appId) const {
     for (auto it = m_activeByPid.cbegin(); it != m_activeByPid.cend(); ++it) {
-        if (it->appId == appId && SailfishLaunch::isHosted(it->command))
+        if (it->appId == appId && marathon::desktop::is_keel_hosted(it->command))
             return it.key();
     }
     return -1;

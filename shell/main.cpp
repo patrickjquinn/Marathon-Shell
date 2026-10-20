@@ -38,7 +38,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "src/components/desktopfileparser.h"
+#include "marathon-shell-native/src/desktop.cxxqt.h"
 #include "src/components/crashhandler.h"
 #include "src/models/appmodel.h"
 #include "src/models/taskmodel.h"
@@ -1561,16 +1561,11 @@ int main(int argc, char *argv[]) {
                                  watcher->deleteLater();
                              });
 
-            QFuture<QVariantList> future = QtConcurrent::run([searchPaths, filterMobile]() {
-                DesktopFileParser parser;
-                parser.setPhoneApps(DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
-                return parser.scanApplications(searchPaths, filterMobile);
-            });
+            QFuture<QVariantList> future = QtConcurrent::run(
+                [searchPaths, filterMobile]() { return marathon::desktop::scan(searchPaths, filterMobile); });
             watcher->setFuture(future);
 #else
-        DesktopFileParser parser;
-        parser.setPhoneApps(DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
-        const QVariantList nativeApps = parser.scanApplications(searchPaths, filterMobile);
+        const QVariantList nativeApps = marathon::desktop::scan(searchPaths, filterMobile);
         appModel->addApps(nativeApps);
 #endif
 
@@ -1598,12 +1593,8 @@ int main(int argc, char *argv[]) {
                                              apply(watcher->result());
                                          watcher->deleteLater();
                                      });
-                    watcher->setFuture(QtConcurrent::run([paths, filterMobile]() {
-                        DesktopFileParser parser;
-                        parser.setPhoneApps(
-                            DesktopFileParser::readPhoneApps(DesktopFileParser::phoneAppsPath()));
-                        return parser.scanApplications(paths, filterMobile);
-                    }));
+                    watcher->setFuture(QtConcurrent::run(
+                        [paths, filterMobile]() { return marathon::desktop::scan(paths, filterMobile); }));
                 };
             const auto replaceApps = [appModel](const QVariantList &apps, const QStringList &types) {
                 QSet<QString> seen;
@@ -1644,15 +1635,15 @@ int main(int argc, char *argv[]) {
 
             // The Store writes which Flathub apps fit a phone here (replaced
             // whole, so the directory is watched).
-            const QString storeCache = QFileInfo(DesktopFileParser::phoneAppsPath()).absolutePath();
+            const QString storeCache = QFileInfo(marathon::desktop::phone_apps_path()).absolutePath();
             QDir().mkpath(storeCache);
             auto *storeCacheWatcher = new QFileSystemWatcher({storeCache}, &app);
             QObject::connect(storeCacheWatcher, &QFileSystemWatcher::directoryChanged,
                              userAppsDebounce,
                              [userAppsDebounce,
-                              seen = QFileInfo(DesktopFileParser::phoneAppsPath()).lastModified()]() mutable {
+                              seen = QFileInfo(marathon::desktop::phone_apps_path()).lastModified()]() mutable {
                                  const QDateTime now =
-                                     QFileInfo(DesktopFileParser::phoneAppsPath()).lastModified();
+                                     QFileInfo(marathon::desktop::phone_apps_path()).lastModified();
                                  if (now != seen) {
                                      seen = now;
                                      userAppsDebounce->start();
