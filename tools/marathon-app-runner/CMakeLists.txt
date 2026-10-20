@@ -20,9 +20,7 @@ set(SOURCES
     ../../shell/src/services/touchresampler.cpp
     pagetouch.cpp
     keelhost.cpp
-    ambienceclient.cpp
     platformtypes.cpp
-    wallpaperclient.cpp
     calendarmanagercpp.cpp
     worldclockhelper.h
     ../../marathon-services/src/musiclibrarymanager.cpp
@@ -78,7 +76,7 @@ install(TARGETS marathon-app-runner
 # Marathon.Platform described for qmllint; only its qmltypes is ever built.
 # The Rust clients' QObjects are described from their generated headers.
 set(_app_native_headers)
-foreach(_client alarms audio bluetooth contacts dav display haptics history lifecycle location media modem navigation network notifications permissions power security sensors settings sms store stores telephony updates)
+foreach(_client alarms audio bluetooth contacts dav display haptics history lifecycle location media modem navigation network notifications permissions power security sensors settings sms store stores telephony updates wallpapers)
     list(APPEND _app_native_headers
         "${CMAKE_BINARY_DIR}/crates/cxxqt-export/crates/marathon-app-native/include/marathon-app-native/src/${_client}.cxxqt.h")
 endforeach()
@@ -92,7 +90,6 @@ qt6_add_qml_module(marathon-platform-types
     SOURCES
         platformqmltypes.h
         calendarmanagercpp.h
-        wallpaperclient.h
         worldclockhelper.h
         ../../marathon-core/src/marathonappregistry.h
         ${_app_native_headers}
@@ -106,6 +103,6 @@ target_link_libraries(marathon-platform-types PRIVATE Qt6::Qml Qt6::DBus maratho
 add_dependencies(qmllint-types marathon-platform-types_qmltyperegistration)
 
 # Native Keel apps (Sailfish apps rebuilt on Keel's sailfishapp) under a Keel host
-qt6_add_executable(marathon-keel-host keelhostmain.cpp keelhost.cpp hostedapp.cpp hostlifecycle.cpp ambienceclient.cpp sailjail.cpp)
-target_link_libraries(marathon-keel-host PRIVATE Qt6::Core Qt6::DBus)
+qt6_add_executable(marathon-keel-host keelhostmain.cpp keelhost.cpp hostedapp.cpp hostlifecycle.cpp sailjail.cpp)
+target_link_libraries(marathon-keel-host PRIVATE Qt6::Core Qt6::DBus marathon_app_native)
 install(TARGETS marathon-keel-host RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

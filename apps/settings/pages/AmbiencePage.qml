@@ -28,10 +28,10 @@ Page {
             required property var modelData
             // GridItem reads model.index to make room for an open menu.
             required property var model
-            readonly property bool current: page.store !== null && page.store.currentWallpaper === modelData.path
+            readonly property bool current: Settings.wallpaperPath === modelData.path
 
             function choose() {
-                page.store.setWallpaper(modelData.path, modelData.isDark);
+                Settings.wallpaperPath = modelData.path;
             }
 
             objectName: "ambience-" + modelData.name

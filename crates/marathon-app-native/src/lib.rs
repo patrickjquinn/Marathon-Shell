@@ -9,6 +9,7 @@
 extern crate marathon_rt;
 
 pub mod alarms;
+pub mod ambience;
 pub mod audio;
 pub mod bluetooth;
 pub mod contacts;
@@ -35,3 +36,4 @@ pub mod stores;
 pub mod telephony;
 pub mod updates;
 mod variant;
+pub mod wallpapers;

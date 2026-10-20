@@ -3,6 +3,7 @@ import QtQml
 
 QtObject {
     property string timeZone: "Europe/London"
+    property string wallpaperPath: "file:///wallpapers/slate-aurora.svg"
     property string timeFormat: "24h"
     property var hiddenApps: []
     property int appGridColumns: 0
@@ -36,6 +37,7 @@ QtObject {
 
     function reset() {
         timeZone = "Europe/London";
+        wallpaperPath = "file:///wallpapers/slate-aurora.svg";
         timeFormat = "24h";
         hiddenApps = [];
         appGridColumns = 0;

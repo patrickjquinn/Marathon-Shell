@@ -32,7 +32,6 @@ TestCase {
         Power.reset();
         Audio.reset();
         Navigation.reset();
-        Wallpapers.reset();
         Security.reset();
     }
 
@@ -77,7 +76,7 @@ TestCase {
         compare(valueOf(entry(app, "storage")), "Storage, 24.0 GB free");
         compare(valueOf(entry(app, "appsort")), "App grid, Automatic");
         compare(valueOf(entry(app, "ambience")), "Ambience, Slate Aurora");
-        Wallpapers.setWallpaper("file:///wallpapers/dawn.svg", false);
+        Settings.wallpaperPath = "file:///wallpapers/dawn.svg";
         compare(valueOf(entry(app, "ambience")), "Ambience, Dawn");
         Settings.hiddenApps = ["notes", "weather"];
         compare(valueOf(entry(app, "hiddenapps")), "Hidden apps, 2 hidden");

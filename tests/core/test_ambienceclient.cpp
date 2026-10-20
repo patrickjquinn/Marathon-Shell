@@ -1,14 +1,15 @@
 // clazy:excludeall=const-signal-or-slot (D-Bus fakes: a getter is a slot to be exported)
 
-#include <QTest>
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QElapsedTimer>
 #include <QProcess>
+#include <QTest>
 #include <QThread>
 
-#include "ambienceclient.h"
+#include "marathon-app-native/src/ambience.cxxqt.h"
 
-// Stands in for the shell's org.marathonos.Shell.Ambience1.
+// The shell's Ambience1, on its own thread because fetchNow blocks.
 class FakeAmbience : public QObject {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Ambience1")
@@ -20,105 +21,71 @@ class FakeAmbience : public QObject {
     QVariantMap GetAmbience() const {
         return map;
     }
-
-  signals:
-    void AmbienceChanged(const QVariantMap &ambience);
 };
 
 class TestAmbienceClient : public QObject {
     Q_OBJECT
 
-    QProcess daemon;
-    QString  address;
+    QProcess     daemon;
+    QString      address;
+    QThread      shellThread;
+    FakeAmbience fake;
+
+    QString highlight(const marathon::platform::Ambience &a) const {
+        return a.getAmbience().value("/desktop/jolla/theme/color/highlight").toString();
+    }
+
+    void publish() {
+        QDBusConnection shell = QDBusConnection::connectToBus(address, "shell");
+        QVERIFY(shell.registerObject("/org/marathonos/Shell/Ambience", &fake,
+                                     QDBusConnection::ExportAllSlots));
+        QVERIFY(shell.registerService("org.marathonos.Shell"));
+    }
 
   private slots:
     void initTestCase() {
         daemon.start("dbus-daemon", {"--session", "--nofork", "--print-address"});
         QVERIFY(daemon.waitForReadyRead(5000));
         address = QString::fromUtf8(daemon.readLine()).trimmed();
-        QVERIFY(!address.isEmpty());
+        qputenv("DBUS_SESSION_BUS_ADDRESS", address.toUtf8());
+        fake.moveToThread(&shellThread);
+        shellThread.start();
     }
 
     void cleanupTestCase() {
+        shellThread.quit();
+        shellThread.wait();
         daemon.kill();
         daemon.waitForFinished();
     }
 
-    void fetchesWhenTheShellAppearsLater() {
-        QDBusConnection client = QDBusConnection::connectToBus(address, "client1");
-        QVERIFY(client.isConnected());
-        AmbienceClient ambience(client);
-        QTest::qWait(200);
-        QVERIFY(ambience.ambience().isEmpty());
-
-        QDBusConnection shell = QDBusConnection::connectToBus(address, "shell1");
-        FakeAmbience    fake;
+    // A spare can start before the shell is up and miss its publish.
+    void readsWhenTheShellAppearsLater() {
         fake.map = {{"/desktop/jolla/theme/color/highlight", "#759b97"}};
-        QVERIFY(shell.registerObject("/org/marathonos/Shell/Ambience", &fake,
-                                     QDBusConnection::ExportAllSlots |
-                                         QDBusConnection::ExportAllSignals));
-        QVERIFY(shell.registerService("org.marathonos.Shell"));
-
-        QTRY_COMPARE(ambience.ambience().value("/desktop/jolla/theme/color/highlight").toString(),
-                     QStringLiteral("#759b97"));
-        shell.unregisterService("org.marathonos.Shell");
-        QDBusConnection::disconnectFromBus("shell1");
-        QDBusConnection::disconnectFromBus("client1");
-    }
-
-    void fetchNowReturnsTheAmbienceWithoutTheEventLoop() {
-        // The real shell is another process; a thread stands in so the
-        // blocking call can be answered.
-        QThread         shellThread;
-        QDBusConnection shell = QDBusConnection::connectToBus(address, "shell3");
-        FakeAmbience    fake;
-        fake.map = {{"/desktop/jolla/theme/color/highlight", "#123456"}};
-        fake.moveToThread(&shellThread);
-        shellThread.start();
-        QVERIFY(shell.registerObject("/org/marathonos/Shell/Ambience", &fake,
-                                     QDBusConnection::ExportAllSlots |
-                                         QDBusConnection::ExportAllSignals));
-        QVERIFY(shell.registerService("org.marathonos.Shell"));
-        QDBusConnection client = QDBusConnection::connectToBus(address, "client3");
-        AmbienceClient  ambience(client);
-        QVERIFY(ambience.fetchNow(1000));
-        QCOMPARE(ambience.ambience().value("/desktop/jolla/theme/color/highlight").toString(),
-                 QStringLiteral("#123456"));
-        shell.unregisterService("org.marathonos.Shell");
-        shell.unregisterObject("/org/marathonos/Shell/Ambience");
-        shellThread.quit();
-        shellThread.wait();
-        fake.moveToThread(thread());
-        QDBusConnection::disconnectFromBus("shell3");
-        QDBusConnection::disconnectFromBus("client3");
-    }
-
-    void fetchNowFailsFastWithoutTheShell() {
-        QDBusConnection client = QDBusConnection::connectToBus(address, "client4");
-        AmbienceClient  ambience(client);
-        QElapsedTimer   t;
+        marathon::platform::Ambience ambience;
+        QElapsedTimer                t;
         t.start();
-        QVERIFY(!ambience.fetchNow(1000));
+        QVERIFY(!ambience.fetchNow());
         QVERIFY(t.elapsed() < 1500);
-        QDBusConnection::disconnectFromBus("client4");
+        publish();
+        QTRY_COMPARE(highlight(ambience), QStringLiteral("#759b97"));
+    }
+
+    void fetchNowAnswersWithoutTheEventLoop() {
+        fake.map = {{"/desktop/jolla/theme/color/highlight", "#123456"}};
+        marathon::platform::Ambience ambience;
+        QVERIFY(ambience.fetchNow());
+        QCOMPARE(highlight(ambience), QStringLiteral("#123456"));
     }
 
     void followsChangeSignals() {
-        QDBusConnection shell = QDBusConnection::connectToBus(address, "shell2");
-        FakeAmbience    fake;
-        QVERIFY(shell.registerObject("/org/marathonos/Shell/Ambience", &fake,
-                                     QDBusConnection::ExportAllSlots |
-                                         QDBusConnection::ExportAllSignals));
-        QVERIFY(shell.registerService("org.marathonos.Shell"));
-        QDBusConnection client = QDBusConnection::connectToBus(address, "client2");
-        AmbienceClient  ambience(client);
+        marathon::platform::Ambience ambience;
         QTest::qWait(200);
-        emit fake.AmbienceChanged({{"/desktop/jolla/theme/color_scheme", "darkonlight"}});
-        QTRY_COMPARE(ambience.ambience().value("/desktop/jolla/theme/color_scheme").toString(),
-                     QStringLiteral("darkonlight"));
-        shell.unregisterService("org.marathonos.Shell");
-        QDBusConnection::disconnectFromBus("shell2");
-        QDBusConnection::disconnectFromBus("client2");
+        QDBusMessage changed = QDBusMessage::createSignal(
+            "/org/marathonos/Shell/Ambience", "org.marathonos.Shell.Ambience1", "AmbienceChanged");
+        changed << QVariantMap{{"/desktop/jolla/theme/color/highlight", "#abcdef"}};
+        QVERIFY(QDBusConnection(QStringLiteral("shell")).send(changed));
+        QTRY_COMPARE(highlight(ambience), QStringLiteral("#abcdef"));
     }
 };
 

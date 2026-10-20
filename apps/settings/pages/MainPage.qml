@@ -33,7 +33,7 @@ Page {
         case "display":
             return qsTr("Brightness %1%").arg(Logic.percent(Display.brightness));
         case "ambience": {
-            const current = page.wallpapers ? page.wallpapers.wallpapers.find(w => w.path === page.wallpapers.currentWallpaper) : undefined;
+            const current = page.wallpapers ? page.wallpapers.wallpapers.find(w => w.path === Settings.wallpaperPath) : undefined;
             return current ? current.name : "";
         }
         case "sound":

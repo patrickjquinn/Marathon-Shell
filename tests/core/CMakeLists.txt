@@ -159,14 +159,9 @@ target_include_directories(test_core_keelhost PRIVATE
 add_test(NAME Core_KeelHost COMMAND test_core_keelhost)
 
 # Ambience relay client (marathon-app-runner)
-add_executable(test_core_ambienceclient
-    test_ambienceclient.cpp
-    ../../tools/marathon-app-runner/ambienceclient.cpp
-)
-target_link_libraries(test_core_ambienceclient Qt6::Test Qt6::Core Qt6::DBus)
-target_include_directories(test_core_ambienceclient PRIVATE
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-)
+add_executable(test_core_ambienceclient test_ambienceclient.cpp)
+set_target_properties(test_core_ambienceclient PROPERTIES AUTOMOC ON)
+target_link_libraries(test_core_ambienceclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
 add_test(NAME Core_AmbienceClient COMMAND test_core_ambienceclient)
 set_tests_properties(Core_KeelHost PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -206,17 +201,6 @@ target_include_directories(test_core_hostlifecycle PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
 )
 add_test(NAME Core_HostLifecycle COMMAND test_core_hostlifecycle)
-
-# Wallpapers for the Settings app (Marathon.Platform Wallpapers)
-add_executable(test_core_wallpaperclient
-    test_wallpaperclient.cpp
-    ../../tools/marathon-app-runner/wallpaperclient.cpp
-)
-target_link_libraries(test_core_wallpaperclient Qt6::Test Qt6::Core Qt6::DBus)
-target_include_directories(test_core_wallpaperclient PRIVATE
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-)
-add_test(NAME Core_WallpaperClient COMMAND test_core_wallpaperclient)
 
 # Sailjail permissions as a bwrap sandbox for Sailfish apps
 add_executable(test_core_sailjail test_sailjail.cpp ../../tools/marathon-app-runner/sailjail.cpp)

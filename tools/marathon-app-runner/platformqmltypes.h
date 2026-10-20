@@ -32,8 +32,8 @@
 #include "marathon-app-native/src/stores.cxxqt.h"
 #include "marathon-app-native/src/telephony.cxxqt.h"
 #include "marathon-app-native/src/updates.cxxqt.h"
+#include "marathon-app-native/src/wallpapers.cxxqt.h"
 #include "marathonappregistry.h"
-#include "wallpaperclient.h"
 #include "worldclockhelper.h"
 
 struct PlatformPermissions {
@@ -213,7 +213,7 @@ struct PlatformAppStore {
 
 struct PlatformWallpapers {
     Q_GADGET
-    QML_FOREIGN(WallpaperClient)
+    QML_FOREIGN(marathon::platform::Wallpapers)
     QML_NAMED_ELEMENT(Wallpapers)
     QML_SINGLETON
 };

@@ -156,9 +156,9 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/updates.cxxqt.h"
 #include "pagetouch.h"
 #include "keelhost.h"
-#include "ambienceclient.h"
+#include "marathon-app-native/src/ambience.cxxqt.h"
 #include "platformtypes.h"
-#include "wallpaperclient.h"
+#include "marathon-app-native/src/wallpapers.cxxqt.h"
 #include "calendarmanagercpp.h"
 #include "musiclibrarymanager.h"
 
@@ -735,17 +735,17 @@ int main(int argc, char *argv[]) {
     QString launchRoute;
     QString launchRouteParams;
     std::unique_ptr<QQuickView>     pooledView;
-    std::unique_ptr<AmbienceClient> ambienceClient;
+    std::unique_ptr<marathon::platform::Ambience> ambienceClient;
     std::unique_ptr<KeelHost>       keelHost;
     // Keel reads its host environment when its plugin first creates the Shell
     // client, which in a pool spare happens during warm-up, so the host must
     // exist before then.
     auto startKeelHost = [&ambienceClient, &keelHost]() {
-        ambienceClient = std::make_unique<AmbienceClient>();
-        ambienceClient->fetchNow(1000);
+        ambienceClient = std::make_unique<marathon::platform::Ambience>();
+        ambienceClient->fetchNow();
         keelHost = std::make_unique<KeelHost>(
             qRound(QGuiApplication::primaryScreen()->physicalDotsPerInch()));
-        keelHost->setAmbience(ambienceClient->ambience());
+        keelHost->setAmbience(ambienceClient->getAmbience());
         if (!keelHost->start(qEnvironmentVariable("XDG_RUNTIME_DIR"))) {
             qWarning() << "[marathon-app-runner] Keel host failed to start";
             keelHost.reset();
@@ -758,9 +758,10 @@ int main(int argc, char *argv[]) {
                 qputenv(it.key().toUtf8(), it.value().toUtf8());
         };
         exportEnv();
-        QObject::connect(ambienceClient.get(), &AmbienceClient::ambienceChanged, keelHost.get(),
-                         [host = keelHost.get(), exportEnv](const QVariantMap &ambience) {
-                             host->setAmbience(ambience);
+        QObject::connect(ambienceClient.get(), &marathon::platform::Ambience::ambienceChanged,
+                         keelHost.get(),
+                         [host = keelHost.get(), ambience = ambienceClient.get(), exportEnv]() {
+                             host->setAmbience(ambience->getAmbience());
                              exportEnv();
                          });
     };
@@ -1220,8 +1221,8 @@ int main(int argc, char *argv[]) {
     else
         exposeClient<marathon::platform::Settings>(ctx, "MarathonA11ySettings", false);
 
-    if (hasPerm("system") && settingsClient)
-        ctx->setContextProperty("WallpaperStore", new WallpaperClient(settingsClient, QDBusConnection::sessionBus(), &app));
+    if (hasPerm("system"))
+        exposeClient<marathon::platform::Wallpapers>(ctx, "WallpaperStore");
     if (hasPerm("system")) {
         exposeClient<marathon::platform::Bluetooth>(ctx, "BluetoothManagerCpp");
         exposeClient<marathon::platform::Security>(ctx, "SecurityManagerCpp");

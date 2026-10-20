@@ -31,7 +31,6 @@ TestCase {
         Modem.reset();
         Audio.reset();
         Power.reset();
-        Wallpapers.reset();
         KeyboardSettingsStore.reset();
         SettingsController.reset();
     }
@@ -133,7 +132,7 @@ TestCase {
         const dawn = child(page, "ambience-Dawn");
         verify(!dawn.current);
         dawn.clicked(null);
-        compare(Wallpapers.currentWallpaper, "file:///wallpapers/dawn.svg");
+        compare(Settings.wallpaperPath, "file:///wallpapers/dawn.svg");
         verify(dawn.current);
     }
 

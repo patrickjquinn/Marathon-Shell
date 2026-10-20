@@ -4,7 +4,7 @@
 // Runs a native Keel app (a Sailfish app rebuilt on Keel's sailfishapp) under
 // a Keel host, as marathon-app-runner does for QML apps.
 
-#include "ambienceclient.h"
+#include "marathon-app-native/src/ambience.cxxqt.h"
 #include "hostedapp.h"
 #include "hostlifecycle.h"
 #include "keelhost.h"
@@ -47,15 +47,16 @@ int main(int argc, char *argv[]) {
     const QString appId = option(QStringLiteral("--app-id"));
     const int     dpi   = option(QStringLiteral("--dpi")).toInt();
 
-    AmbienceClient ambience;
-    ambience.fetchNow(1000);
+    marathon::platform::Ambience ambience;
+    ambience.fetchNow();
     KeelHost host(dpi > 0 ? dpi : 160);
-    host.setAmbience(ambience.ambience());
+    host.setAmbience(ambience.getAmbience());
     if (!host.start(qEnvironmentVariable("XDG_RUNTIME_DIR"))) {
         qCritical("marathon-keel-host: cannot start the Keel host");
         return 1;
     }
-    QObject::connect(&ambience, &AmbienceClient::ambienceChanged, &host, &KeelHost::setAmbience);
+    QObject::connect(&ambience, &marathon::platform::Ambience::ambienceChanged, &host,
+                     [&] { host.setAmbience(ambience.getAmbience()); });
     host.onActivate = [appId]() {
         QDBusMessage call = QDBusMessage::createMethodCall(
             QStringLiteral("org.marathonos.Shell"), QStringLiteral("/org/marathonos/Shell/Navigation"),
