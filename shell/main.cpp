@@ -876,6 +876,9 @@ int main(int argc, char *argv[]) {
 
     startupMark("sensors, location, security");
     auto *appLaunchService = new AppLaunchService(appModel, taskModel, &app);
+    appLaunchService->setUserScale(settingsManager->userScaleFactor());
+    QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged, appLaunchService,
+                     [=] { appLaunchService->setUserScale(settingsManager->userScaleFactor()); });
     qmlRegisterSingletonInstance<AppLaunchService>("MarathonOS.Shell", 1, 0, "AppLaunchService",
                                                    appLaunchService);
     createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, appRegistry,

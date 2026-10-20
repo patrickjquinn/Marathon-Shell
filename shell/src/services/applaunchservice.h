@@ -41,6 +41,10 @@ class AppLaunchService : public QObject {
         return m_compositor.data();
     }
     void     setCompositor(QObject *obj);
+    // The user's UI scale, passed to every app it starts.
+    void     setUserScale(qreal scale) {
+        m_userScale = scale;
+    }
 
     QObject *appWindow() const {
         return m_appWindow.data();
@@ -255,6 +259,7 @@ class AppLaunchService : public QObject {
     // How long an app with no process of its own keeps its card after its
     // last window, for a replacement.
     int                           m_windowGraceMs = 1000;
+    qreal                         m_userScale     = 1.0;
     // Every mapped toplevel of an app, oldest first.
     struct Window {
         int               surfaceId = -1;

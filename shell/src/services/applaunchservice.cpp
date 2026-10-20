@@ -21,7 +21,6 @@
 #include <QJsonDocument>
 #include <QDateTime>
 #include <QJsonObject>
-#include <QSettings>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QFileInfo>
@@ -931,11 +930,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     {
         env.insert("MARATHON_DPI", QString::number(shellDpi(), 'f', 1));
 
-        QSettings    shellSettings(QSettings::IniFormat, QSettings::UserScope,
-                                   QStringLiteral("marathon-os"), QStringLiteral("Marathon Shell"));
-        const double userScale =
-            shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble();
-        env.insert("MARATHON_USER_SCALE", QString::number(userScale, 'f', 3));
+        env.insert("MARATHON_USER_SCALE", QString::number(m_userScale, 'f', 3));
 
         // Real screen size, forwarded so the app-runner can populate
         // Constants.screenWidth/screenHeight (ScreenMetricsCpp is not
@@ -1369,13 +1364,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         // resulting size mismatch is visible as tiny status bar / huge app
         // (or vice-versa) the moment the user picks a non-default scale.
         {
-            QSettings    shellSettings(QSettings::IniFormat, QSettings::UserScope,
-                                       QStringLiteral("marathon-os"),
-                                       QStringLiteral("Marathon Shell"));
-            const double userScale =
-                shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble();
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_USER_SCALE")
-                      << QString::number(userScale, 'f', 3);
+                      << QString::number(m_userScale, 'f', 3);
         }
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
                   << QString::number(shellDpi(), 'f', 1);
@@ -1856,14 +1846,7 @@ bool AppLaunchService::adoptSpareRunner(SpareShape shape, const PendingLaunch &p
     if (!spare.adoptable || spare.process->state() != QProcess::Running)
         return false;
     QJsonObject envObj;
-    {
-        QSettings shellSettings(QSettings::IniFormat, QSettings::UserScope,
-                                QStringLiteral("marathon-os"), QStringLiteral("Marathon Shell"));
-        envObj.insert(
-            QStringLiteral("MARATHON_USER_SCALE"),
-            QString::number(
-                shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble(), 'f', 3));
-    }
+    envObj.insert(QStringLiteral("MARATHON_USER_SCALE"), QString::number(m_userScale, 'f', 3));
     // The grants the app's own helpers check, such as marathon-mail-oauth.
     for (auto it = env.cbegin(); it != env.cend(); ++it) {
         if (it.key().startsWith(QLatin1String("MARATHON_PERM_")))
