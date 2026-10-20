@@ -10,7 +10,8 @@
 #include <QSet>
 #include <QTest>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/bluetooth.cxxqt.h"
+#include "marathon-app-native/src/security.cxxqt.h"
 #include "marathon-app-native/src/audio.cxxqt.h"
 #include "marathon-app-native/src/display.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
@@ -150,11 +151,11 @@ namespace {
         static const QHash<QString, const QMetaObject *> table = {
             {"Settings", &marathon::platform::Settings::staticMetaObject},
             {"Display", &marathon::platform::Display::staticMetaObject},
-            {"Bluetooth", &BluetoothClient::staticMetaObject},
+            {"Bluetooth", &marathon::platform::Bluetooth::staticMetaObject},
             {"Network", &marathon::platform::Network::staticMetaObject},
             {"Power", &marathon::platform::Power::staticMetaObject},
             {"Audio", &Audio::staticMetaObject},
-            {"Security", &SecurityClient::staticMetaObject},
+            {"Security", &marathon::platform::Security::staticMetaObject},
             {"Modem", &marathon::platform::Modem::staticMetaObject},
             {"Permissions", &marathon::platform::Permissions::staticMetaObject},
         };

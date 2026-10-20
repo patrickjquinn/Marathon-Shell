@@ -157,21 +157,13 @@ impl Sms {
     }
     crate::shell::asks! { SMS;
         delete_message(id: i32) -> bool => "DeleteMessage";
+        get_messages(conversation_id: &QString) -> QList<QVariant> => "GetMessages";
+        generate_conversation_id(number: &QString) -> QString => "GenerateConversationId";
     }
 
     fn refresh(&self) {
         let qt = self.qt_thread();
         io::spawn(async move { read(&qt, &mut false).await });
-    }
-
-    fn get_messages(&self, conversation_id: &QString) -> QList<QVariant> {
-        let messages: Option<Vec<OwnedValue>> = SMS.ask_now("GetMessages", &(conversation_id.to_string(),));
-        variant::qlist(&messages.unwrap_or_default())
-    }
-
-    fn generate_conversation_id(&self, number: &QString) -> QString {
-        let id: Option<String> = SMS.ask_now("GenerateConversationId", &(number.to_string(),));
-        id.map(|id| QString::from(&id)).unwrap_or_default()
     }
 
     fn send_mms(&self, recipients: &QStringList, text: &QString, attachments: &QList<QVariant>) -> i32 {

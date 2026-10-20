@@ -157,6 +157,7 @@ impl Alarms {
         trigger_alarm_now(label: &QString) => "TriggerAlarmNow";
     }
     crate::shell::asks! { ALARM;
+        update_alarm(id: &QString, updates: &QMap<QMapPair_QString_QVariant>) -> bool => "UpdateAlarm";
         delete_alarm(id: &QString) -> bool => "DeleteAlarm";
         enable_alarm(id: &QString) -> bool => "EnableAlarm";
         disable_alarm(id: &QString) -> bool => "DisableAlarm";
@@ -175,8 +176,5 @@ impl Alarms {
         ALARM.ask_now::<_, String>("CreateAlarm", &body).map(|id| QString::from(&id)).unwrap_or_default()
     }
 
-    fn update_alarm(&self, id: &QString, updates: &QMap<QMapPair_QString_QVariant>) -> bool {
-        ALARM.ask_now("UpdateAlarm", &(id.to_string(), variant::map(updates))).unwrap_or(false)
-    }
 
 }

@@ -1,6 +1,5 @@
 //! `Contacts`: the shell's Contacts1, the address book.
 
-use std::collections::HashMap;
 use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
@@ -127,19 +126,9 @@ impl Contacts {
         CONTACTS.call("UpdateContact", (id, variant::map(data)));
     }
 
-    fn search_contacts(&self, query: &QString) -> QList<QVariant> {
-        let found: Option<Vec<OwnedValue>> = CONTACTS.ask_now("SearchContacts", &(query.to_string(),));
-        variant::qlist(&found.unwrap_or_default())
-    }
-
-    fn get_contact(&self, id: i32) -> QMap<QMapPair_QString_QVariant> {
-        let found: Option<HashMap<String, OwnedValue>> = CONTACTS.ask_now("GetContact", &(id,));
-        variant::qmap(&found.unwrap_or_default())
-    }
-
-    fn get_contact_by_number(&self, phone_number: &QString) -> QMap<QMapPair_QString_QVariant> {
-        let found: Option<HashMap<String, OwnedValue>> =
-            CONTACTS.ask_now("GetContactByNumber", &(phone_number.to_string(),));
-        variant::qmap(&found.unwrap_or_default())
+    crate::shell::asks! { CONTACTS;
+        search_contacts(query: &QString) -> QList<QVariant> => "SearchContacts";
+        get_contact(id: i32) -> QMap<QMapPair_QString_QVariant> => "GetContact";
+        get_contact_by_number(phone_number: &QString) -> QMap<QMapPair_QString_QVariant> => "GetContactByNumber";
     }
 }

@@ -1259,6 +1259,7 @@ name = "marathon-app-native"
 version = "0.1.0"
 dependencies = [
  "async-io",
+ "async-lock",
  "cxx",
  "cxx-qt",
  "cxx-qt-build",
@@ -1267,6 +1268,7 @@ dependencies = [
  "marathon-permissions",
  "marathon-rt",
  "serde",
+ "serde_json",
  "zbus",
 ]
 

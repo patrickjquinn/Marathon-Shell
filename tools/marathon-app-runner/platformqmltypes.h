@@ -7,20 +7,31 @@
 #include <QtQml/qqmlregistration.h>
 
 #include "calendarmanagercpp.h"
-#include "ipc/shellipcclients.h"
 #include "marathon-app-native/src/alarms.cxxqt.h"
 #include "marathon-app-native/src/audio.cxxqt.h"
+#include "marathon-app-native/src/bluetooth.cxxqt.h"
 #include "marathon-app-native/src/contacts.cxxqt.h"
+#include "marathon-app-native/src/dav.cxxqt.h"
 #include "marathon-app-native/src/display.cxxqt.h"
+#include "marathon-app-native/src/haptics.cxxqt.h"
+#include "marathon-app-native/src/history.cxxqt.h"
+#include "marathon-app-native/src/lifecycle.cxxqt.h"
 #include "marathon-app-native/src/location.cxxqt.h"
+#include "marathon-app-native/src/media.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
+#include "marathon-app-native/src/navigation.cxxqt.h"
 #include "marathon-app-native/src/network.cxxqt.h"
+#include "marathon-app-native/src/notifications.cxxqt.h"
 #include "marathon-app-native/src/permissions.cxxqt.h"
 #include "marathon-app-native/src/power.cxxqt.h"
+#include "marathon-app-native/src/security.cxxqt.h"
 #include "marathon-app-native/src/sensors.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
 #include "marathon-app-native/src/sms.cxxqt.h"
+#include "marathon-app-native/src/store.cxxqt.h"
+#include "marathon-app-native/src/stores.cxxqt.h"
 #include "marathon-app-native/src/telephony.cxxqt.h"
+#include "marathon-app-native/src/updates.cxxqt.h"
 #include "marathonappregistry.h"
 #include "wallpaperclient.h"
 #include "worldclockhelper.h"
@@ -34,14 +45,14 @@ struct PlatformPermissions {
 
 struct PlatformLifecycle {
     Q_GADGET
-    QML_FOREIGN(AppLifecycleClient)
+    QML_FOREIGN(marathon::platform::Lifecycle)
     QML_NAMED_ELEMENT(Lifecycle)
     QML_SINGLETON
 };
 
 struct PlatformNavigation {
     Q_GADGET
-    QML_FOREIGN(NavigationClient)
+    QML_FOREIGN(marathon::platform::Navigation)
     QML_NAMED_ELEMENT(Navigation)
     QML_SINGLETON
 };
@@ -55,7 +66,7 @@ struct PlatformContacts {
 
 struct PlatformCallHistory {
     Q_GADGET
-    QML_FOREIGN(CallHistoryClient)
+    QML_FOREIGN(marathon::platform::CallHistory)
     QML_NAMED_ELEMENT(CallHistory)
     QML_SINGLETON
 };
@@ -76,7 +87,7 @@ struct PlatformSms {
 
 struct PlatformMediaLibrary {
     Q_GADGET
-    QML_FOREIGN(MediaLibraryClient)
+    QML_FOREIGN(marathon::platform::MediaLibrary)
     QML_NAMED_ELEMENT(MediaLibrary)
     QML_SINGLETON
 };
@@ -104,7 +115,7 @@ struct PlatformSensors {
 
 struct PlatformHaptics {
     Q_GADGET
-    QML_FOREIGN(HapticClient)
+    QML_FOREIGN(marathon::platform::Haptics)
     QML_NAMED_ELEMENT(Haptics)
     QML_SINGLETON
 };
@@ -146,7 +157,7 @@ struct PlatformModem {
 
 struct PlatformBluetooth {
     Q_GADGET
-    QML_FOREIGN(BluetoothClient)
+    QML_FOREIGN(marathon::platform::Bluetooth)
     QML_NAMED_ELEMENT(Bluetooth)
     QML_SINGLETON
 };
@@ -174,28 +185,28 @@ struct PlatformAudio {
 
 struct PlatformSecurity {
     Q_GADGET
-    QML_FOREIGN(SecurityClient)
+    QML_FOREIGN(marathon::platform::Security)
     QML_NAMED_ELEMENT(Security)
     QML_SINGLETON
 };
 
 struct PlatformUpdates {
     Q_GADGET
-    QML_FOREIGN(UpdateClient)
+    QML_FOREIGN(marathon::platform::Updates)
     QML_NAMED_ELEMENT(Updates)
     QML_SINGLETON
 };
 
 struct PlatformDavSync {
     Q_GADGET
-    QML_FOREIGN(DavClient)
+    QML_FOREIGN(marathon::platform::DavSync)
     QML_NAMED_ELEMENT(DavSync)
     QML_SINGLETON
 };
 
 struct PlatformAppStore {
     Q_GADGET
-    QML_FOREIGN(AppStoreClient)
+    QML_FOREIGN(marathon::platform::AppStore)
     QML_NAMED_ELEMENT(AppStore)
     QML_SINGLETON
 };
@@ -216,7 +227,7 @@ struct PlatformApps {
 
 struct PlatformAppInstaller {
     Q_GADGET
-    QML_FOREIGN(AppInstallerClient)
+    QML_FOREIGN(marathon::platform::AppInstaller)
     QML_NAMED_ELEMENT(AppInstaller)
     QML_SINGLETON
 };

@@ -128,21 +128,32 @@ static void applyMainPriorityForActive(bool active) {
 }
 #endif
 
-#include "ipc/shellipcclients.h"
 #include "marathon-app-native/src/alarms.cxxqt.h"
 #include "marathon-app-native/src/audio.cxxqt.h"
+#include "marathon-app-native/src/bluetooth.cxxqt.h"
 #include "marathon-app-native/src/contacts.cxxqt.h"
+#include "marathon-app-native/src/dav.cxxqt.h"
 #include "marathon-app-native/src/display.cxxqt.h"
+#include "marathon-app-native/src/haptics.cxxqt.h"
+#include "marathon-app-native/src/history.cxxqt.h"
+#include "marathon-app-native/src/lifecycle.cxxqt.h"
 #include "marathon-app-native/src/location.cxxqt.h"
+#include "marathon-app-native/src/media.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
+#include "marathon-app-native/src/navigation.cxxqt.h"
 #include "marathon-app-native/src/network.cxxqt.h"
+#include "marathon-app-native/src/notifications.cxxqt.h"
 #include "marathon-app-native/src/permissions.cxxqt.h"
 #include "marathon-app-native/src/power.cxxqt.h"
+#include "marathon-app-native/src/security.cxxqt.h"
 #include "marathon-app-native/src/sensors.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
 #include "marathon-app-native/src/shell.cxxqt.h"
 #include "marathon-app-native/src/sms.cxxqt.h"
+#include "marathon-app-native/src/store.cxxqt.h"
+#include "marathon-app-native/src/stores.cxxqt.h"
 #include "marathon-app-native/src/telephony.cxxqt.h"
+#include "marathon-app-native/src/updates.cxxqt.h"
 #include "pagetouch.h"
 #include "keelhost.h"
 #include "ambienceclient.h"
@@ -1018,10 +1029,15 @@ int main(int argc, char *argv[]) {
         format.setAlphaBufferSize(8);
         view.setFormat(format);
     }
+    // Set below, with the other clients; a Keel app's activation asks it.
+    marathon::platform::Navigation *navigation = nullptr;
     if (keelHost) {
         QObject::connect(&view, &QWindow::activeChanged, keelHost.get(),
                          [&view, host = keelHost.get()]() { host->setActive(view.isActive()); });
-        keelHost->onActivate = [appId]() { NavigationClient().launchApp(appId); };
+        keelHost->onActivate = [&navigation, appId]() {
+            if (navigation)
+                navigation->launchApp(appId);
+        };
     }
 
     // A Keel app is told to close (CloseRequested) and given a second to save,
@@ -1140,7 +1156,7 @@ int main(int argc, char *argv[]) {
     // perm-less app like Calculator can use anyway (the shell rejects every
     // call with AccessDenied).
     //
-    // Permissions, NavigationClient and HapticClient are unconditional:
+    // Permissions, Navigation and Haptics are unconditional:
     // every app uses back/close gestures (Navigation), Marathon UI hooks
     // haptic feedback on standard buttons, and apps need Permissions to
     // introspect their own grants.
@@ -1157,11 +1173,8 @@ int main(int argc, char *argv[]) {
     // Two names: "AppLifecycle" for code that uses the runner-friendly
     // alias, "AppLifecycleManager" for MApp and anything else that reaches
     // it through the MarathonOS.Shell singleton.
-    auto *appLifecycleClient = new AppLifecycleClient(&app);
-    ctx->setContextProperty("AppLifecycle", appLifecycleClient);
-    ctx->setContextProperty("AppLifecycleManager", appLifecycleClient);
-    qmlRegisterSingletonInstance<AppLifecycleClient>("MarathonOS.Shell", 1, 0,
-                                                     "AppLifecycleManager", appLifecycleClient);
+    ctx->setContextProperty("AppLifecycle",
+                            exposeClient<marathon::platform::Lifecycle>(ctx, "AppLifecycleManager"));
 
     // Same singleton-mirror pattern as SettingsManagerCpp / Display /
     // Bluetooth below: apps compiled against the shell module see these
@@ -1173,10 +1186,7 @@ int main(int argc, char *argv[]) {
     if (hasPerm("contacts"))
         exposeClient<marathon::platform::Contacts>(ctx, "ContactsManager");
     if (hasPerm("telephony") || hasPerm("phone")) {
-        auto *callHistoryClient = new CallHistoryClient(&app);
-        ctx->setContextProperty("CallHistoryManager", callHistoryClient);
-        qmlRegisterSingletonInstance<CallHistoryClient>("MarathonOS.Shell", 1, 0,
-                                                        "CallHistoryManager", callHistoryClient);
+        exposeClient<marathon::platform::CallHistory>(ctx, "CallHistoryManager");
     }
     if (hasPerm("telephony") || hasPerm("phone"))
         exposeClient<marathon::platform::Telephony>(ctx, "TelephonyService");
@@ -1184,10 +1194,7 @@ int main(int argc, char *argv[]) {
         exposeClient<marathon::platform::Sms>(ctx, "SMSService");
 
     if (hasPerm("storage")) {
-        auto *mediaLibraryClient = new MediaLibraryClient(appId, &app);
-        ctx->setContextProperty("MediaLibraryManager", mediaLibraryClient);
-        qmlRegisterSingletonInstance<MediaLibraryClient>("MarathonOS.Shell", 1, 0,
-                                                         "MediaLibraryManager", mediaLibraryClient);
+        exposeClient<marathon::platform::MediaLibrary>(ctx, "MediaLibraryManager");
         qmlRegisterSingletonType<MusicLibraryManager>(
             "MarathonOS.Shell", 1, 0, "MusicLibraryManager",
             [](QQmlEngine *, QJSEngine *) -> QObject * { return new MusicLibraryManager(); });
@@ -1213,25 +1220,17 @@ int main(int argc, char *argv[]) {
     else
         exposeClient<marathon::platform::Settings>(ctx, "MarathonA11ySettings", false);
 
-    BluetoothClient *bluetoothClient = nullptr;
-    SecurityClient  *securityClient  = nullptr;
     if (hasPerm("system") && settingsClient)
         ctx->setContextProperty("WallpaperStore", new WallpaperClient(settingsClient, QDBusConnection::sessionBus(), &app));
     if (hasPerm("system")) {
-        bluetoothClient = new BluetoothClient(appId, &app);
+        exposeClient<marathon::platform::Bluetooth>(ctx, "BluetoothManagerCpp");
+        exposeClient<marathon::platform::Security>(ctx, "SecurityManagerCpp");
         exposeClient<marathon::platform::Display>(ctx, "DisplayManagerCpp");
         exposeClient<marathon::platform::Power>(ctx, "PowerManagerService");
         auto *audio   = exposeClient<Audio>(ctx, "AudioManagerCpp");
         auto *streams = new AudioStreams();
         streams->setParent(audio);
         audio->setStreams(streams);
-        securityClient  = new SecurityClient(appId, &app);
-        ctx->setContextProperty("BluetoothManagerCpp", bluetoothClient);
-        ctx->setContextProperty("SecurityManagerCpp", securityClient);
-        qmlRegisterSingletonInstance<BluetoothClient>("MarathonOS.Shell", 1, 0,
-                                                      "BluetoothManagerCpp", bluetoothClient);
-        qmlRegisterSingletonInstance<SecurityClient>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
-                                                     securityClient);
     }
 
     if (hasPerm("network")) {
@@ -1239,20 +1238,16 @@ int main(int argc, char *argv[]) {
         exposeClient<marathon::platform::Modem>(ctx, "ModemManagerCpp", false);
     }
 
-    auto *navigationClient = new NavigationClient(&app);
-    ctx->setContextProperty("NavigationService", navigationClient);
-    ctx->setContextProperty("NavigationRouter", navigationClient);
-    auto *hapticClient = new HapticClient(&app);
-    ctx->setContextProperty("HapticService", hapticClient);
-    qmlRegisterSingletonInstance<HapticClient>("MarathonOS.Shell", 1, 0, "HapticService",
-                                               hapticClient);
+    navigation = exposeClient<marathon::platform::Navigation>(ctx, "NavigationService", false);
+    ctx->setContextProperty("NavigationRouter", navigation);
+    exposeClient<marathon::platform::Haptics>(ctx, "HapticService");
 
-    NotificationClient *notificationClient = nullptr;
+    marathon::platform::Notifications *notifications = nullptr;
     if (hasPerm("notifications")) {
-        notificationClient = new NotificationClient(appId, &app);
-        ctx->setContextProperty("NativeNotificationService", notificationClient);
+        notifications =
+            exposeClient<marathon::platform::Notifications>(ctx, "NativeNotificationService", false);
         // Apps and the test suite consume this under the shorter name.
-        ctx->setContextProperty("NotificationService", notificationClient);
+        ctx->setContextProperty("NotificationService", notifications);
     }
     if (hasPerm("sensors") || hasPerm("system"))
         exposeClient<marathon::platform::Sensors>(ctx, "SensorService", false);
@@ -1261,40 +1256,26 @@ int main(int argc, char *argv[]) {
     if (hasPerm("alarms") || hasPerm("system"))
         exposeClient<marathon::platform::Alarms>(ctx, "AlarmService", false);
     if (hasPerm("system"))
-        ctx->setContextProperty("UpdateService", new UpdateClient(&app));
+        exposeClient<marathon::platform::Updates>(ctx, "UpdateService", false);
     // The shell's Dav1 gates on "system"; with "storage" every app's client
     // was refused at launch.
     if (hasPerm("system"))
-        ctx->setContextProperty("DavSyncEngine", new DavClient(&app));
+        exposeClient<marathon::platform::DavSync>(ctx, "DavSyncEngine", false);
     if (hasPerm("system"))
-        ctx->setContextProperty("AppStoreService", new AppStoreClient(&app));
+        exposeClient<marathon::platform::AppStore>(ctx, "AppStoreService", false);
     if (hasPerm("system")) {
-        auto *installer = new AppInstallerClient(&app);
-        QObject::connect(installer, &AppInstallerClient::appRemoved, &registry,
+        auto *installer =
+            exposeClient<marathon::platform::AppInstaller>(ctx, "MarathonAppInstaller", false);
+        QObject::connect(installer, &marathon::platform::AppInstaller::appRemoved, &registry,
                          &MarathonAppRegistry::unregisterApp);
-        ctx->setContextProperty("MarathonAppInstaller", installer);
     }
 
-    auto *systemStatusStore = new SystemStatusStoreClient(
-        qobject_cast<marathon::platform::Power *>(ctx->contextProperty("PowerManagerService").value<QObject *>()),
-        qobject_cast<marathon::platform::Network *>(ctx->contextProperty("NetworkManagerCpp").value<QObject *>()),
-        &app);
-    qmlRegisterSingletonInstance<SystemStatusStoreClient>("MarathonOS.Shell", 1, 0,
-                                                          "SystemStatusStore", systemStatusStore);
-    auto *systemControlStore = new SystemControlStoreClient(
-        qobject_cast<marathon::platform::Network *>(ctx->contextProperty("NetworkManagerCpp").value<QObject *>()),
-        qobject_cast<BluetoothClient *>(
-            ctx->contextProperty("BluetoothManagerCpp").value<QObject *>()),
-        qobject_cast<marathon::platform::Display *>(ctx->contextProperty("DisplayManagerCpp").value<QObject *>()),
-        settingsClient,
-        qobject_cast<Audio *>(ctx->contextProperty("AudioManagerCpp").value<QObject *>()),
-        &app);
-    qmlRegisterSingletonInstance<SystemControlStoreClient>(
-        "MarathonOS.Shell", 1, 0, "SystemControlStore", systemControlStore);
+    exposeClient<marathon::platform::SystemStatusStore>(ctx, "SystemStatusStore");
+    exposeClient<marathon::platform::SystemControlStore>(ctx, "SystemControlStore");
 
     if (appId == "calendar") {
         ctx->setContextProperty("CalendarManager",
-                                new CalendarManagerCpp(settingsClient, notificationClient, &app));
+                                new CalendarManagerCpp(settingsClient, notifications, &app));
     }
     registerPlatformTypes(ctx);
 

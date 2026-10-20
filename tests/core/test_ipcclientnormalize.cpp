@@ -4,7 +4,7 @@
 #include <QThread>
 #include <QTest>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/history.cxxqt.h"
 #include "marathon-app-native/src/alarms.cxxqt.h"
 #include "marathon-app-native/src/contacts.cxxqt.h"
 #include "marathon-app-native/src/permissions.cxxqt.h"
@@ -154,8 +154,9 @@ class TestIpcClientNormalize : public QObject {
     }
 
     void callHistoryFieldsReachQml() {
-        CallHistoryClient client;
-        QCOMPARE(client.history().constFirst().toMap().value("number").toString(), QString("555"));
+        marathon::platform::CallHistory client;
+        QTRY_COMPARE(client.getCount(), 1);
+        QCOMPARE(client.getHistory().constFirst().toMap().value("number").toString(), QString("555"));
     }
 
     void settingsGetReturnsPlainLists() {

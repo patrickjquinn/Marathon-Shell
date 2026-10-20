@@ -356,40 +356,19 @@ fn follow_time_zone(name: &str, value: &OwnedValue) {
 impl Settings {
     crate::shell::asks! { SETTINGS;
         screen_timeout_value(option: &QString) -> i32 => "ScreenTimeoutValue";
+        available_ringtones() -> QStringList => "AvailableRingtones";
+        available_notification_sounds() -> QStringList => "AvailableNotificationSounds";
+        available_alarm_sounds() -> QStringList => "AvailableAlarmSounds";
+        screen_timeout_options() -> QStringList => "ScreenTimeoutOptions";
+        asset_url(relative_path: &QString) -> QString => "AssetUrl";
     }
 
     fn set_system_time(&self, msecs_since_epoch: i64) {
         SETTINGS.call("SetSystemTime", (msecs_since_epoch,));
     }
 
-    fn strings(method: &str) -> QStringList {
-        let list: Vec<String> = SETTINGS.ask_now(method, &()).unwrap_or_default();
-        QStringList::from(&list.iter().map(QString::from).collect::<cxx_qt_lib::QList<QString>>())
-    }
-
-    fn available_ringtones(&self) -> QStringList {
-        Self::strings("AvailableRingtones")
-    }
-
-    fn available_notification_sounds(&self) -> QStringList {
-        Self::strings("AvailableNotificationSounds")
-    }
-
-    fn available_alarm_sounds(&self) -> QStringList {
-        Self::strings("AvailableAlarmSounds")
-    }
-
-    fn screen_timeout_options(&self) -> QStringList {
-        Self::strings("ScreenTimeoutOptions")
-    }
-
     fn format_sound_name(&self, path: &QString) -> QString {
         QString::from(&sound_name(&path.to_string()))
-    }
-
-    fn asset_url(&self, relative_path: &QString) -> QString {
-        let url: Option<String> = SETTINGS.ask_now("AssetUrl", &(relative_path.to_string(),));
-        url.map(|u| QString::from(&u)).unwrap_or_default()
     }
 
     fn get(&self, key: &QString, default_value: &QVariant) -> QVariant {

@@ -1,5 +1,5 @@
 #include "calendarmanagercpp.h"
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/notifications.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
 
 #include <QDate>
@@ -9,7 +9,7 @@
 #include <QJsonObject>
 #include <utility>   // std::as_const
 
-CalendarManagerCpp::CalendarManagerCpp(marathon::platform::Settings *settings, NotificationClient *notifications,
+CalendarManagerCpp::CalendarManagerCpp(marathon::platform::Settings *settings, marathon::platform::Notifications *notifications,
                                        QObject *parent)
     : QObject(parent)
     , m_settings(settings)
@@ -245,7 +245,7 @@ void CalendarManagerCpp::triggerNotification(const QVariantMap &event) {
     options.insert("priority", "high");
     options.insert("actions", QVariantList{"Dismiss"});
 
-    m_notifications->sendNotification("calendar", title, body, options);
+    m_notifications->sendNotification(QStringLiteral("calendar"), title, body, options);
 }
 
 QString CalendarManagerCpp::triggerKeyForEvent(const QVariantMap &event,

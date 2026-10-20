@@ -68,7 +68,8 @@ impl Service {
         format!("org.marathonos.Shell.{}1", self.0)
     }
 
-    async fn reply<B>(self, method: &str, body: &B) -> zbus::Result<zbus::Message>
+    /// The reply, whatever its body.
+    pub async fn reply<B>(self, method: &str, body: &B) -> zbus::Result<zbus::Message>
     where
         B: Serialize + DynamicType,
     {
@@ -150,6 +151,22 @@ pub fn mirror<T>(qt: CxxQtThread<T>, service: Service, permission: &'static str,
 where
     T: Threading + CxxQtType + 'static,
 {
+    follow(qt, service, permission, false, apply);
+}
+
+/// As `mirror`, but never asks for the permission: for what an app shows
+/// in passing, such as the status bar.
+pub fn watch<T>(qt: CxxQtThread<T>, service: Service, permission: &'static str, apply: fn(Pin<&mut T>, Update))
+where
+    T: Threading + CxxQtType + 'static,
+{
+    follow(qt, service, permission, true, apply);
+}
+
+fn follow<T>(qt: CxxQtThread<T>, service: Service, permission: &'static str, quiet: bool, apply: fn(Pin<&mut T>, Update))
+where
+    T: Threading + CxxQtType + 'static,
+{
     io::spawn(async move {
         enum Event {
             State(State),
@@ -168,7 +185,7 @@ where
         let queue = |update: Update| {
             qt.queue(move |obj| apply(obj, update)).ok();
         };
-        let mut asked = false;
+        let mut asked = quiet;
         refresh(service, permission, &mut asked, &queue).await;
         while let Some(event) = events.next().await {
             match event {
@@ -332,7 +349,7 @@ macro_rules! plain {
         }
     )*};
 }
-plain!(bool, i32, u32, f64);
+plain!(bool, i32, u32, i64, f64);
 
 /// Invokables that only call the shell: `name(args) => "Method";`, and
 /// with `mut` the property setters, which cxx-qt gives a pinned `self`.
@@ -350,12 +367,61 @@ macro_rules! calls {
 }
 pub(crate) use calls;
 
+/// A reply as QML gets it.
+pub trait Reply: Default {
+    type Wire: DeserializeOwned + Type;
+    fn from_wire(wire: Self::Wire) -> Self;
+}
+
+macro_rules! plain_reply {
+    ($($t:ty),*) => {$(
+        impl Reply for $t {
+            type Wire = $t;
+            fn from_wire(wire: $t) -> $t {
+                wire
+            }
+        }
+    )*};
+}
+plain_reply!(bool, i32, u32, i64);
+
+impl Reply for cxx_qt_lib::QString {
+    type Wire = String;
+    fn from_wire(wire: String) -> Self {
+        Self::from(&wire)
+    }
+}
+
+impl Reply for cxx_qt_lib::QStringList {
+    type Wire = Vec<String>;
+    fn from_wire(wire: Vec<String>) -> Self {
+        Self::from(&wire.iter().map(cxx_qt_lib::QString::from).collect::<cxx_qt_lib::QList<_>>())
+    }
+}
+
+impl Reply for cxx_qt_lib::QList<cxx_qt_lib::QVariant> {
+    type Wire = Vec<OwnedValue>;
+    fn from_wire(wire: Vec<OwnedValue>) -> Self {
+        crate::variant::qlist(&wire)
+    }
+}
+
+impl Reply for cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant> {
+    type Wire = HashMap<String, OwnedValue>;
+    fn from_wire(wire: HashMap<String, OwnedValue>) -> Self {
+        crate::variant::qmap(&wire)
+    }
+}
+
 /// Invokables QML reads an answer from at once: `name(args) -> T => "Method";`,
 /// the type's default when the shell does not answer.
 macro_rules! asks {
     ($service:expr; $($name:ident($($arg:ident: $ty:ty),*) -> $ret:ty => $method:literal;)*) => {$(
         fn $name(&self, $($arg: $ty),*) -> $ret {
-            $service.ask_now::<_, $ret>($method, &($(crate::shell::Arg::wire($arg),)*)).unwrap_or_default()
+            $service
+                .ask_now::<_, <$ret as crate::shell::Reply>::Wire>($method, &($(crate::shell::Arg::wire($arg),)*))
+                .map(<$ret as crate::shell::Reply>::from_wire)
+                .unwrap_or_default()
         }
     )*};
 }

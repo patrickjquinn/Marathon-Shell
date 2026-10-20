@@ -6,7 +6,7 @@
 #include <QThread>
 #include <QTest>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/store.cxxqt.h"
 #include "marathonappinstaller.h"
 #include "marathonapppaths.h"
 #include "marathonappregistry.h"
@@ -124,27 +124,27 @@ class TestAppInstallerClient : public QObject {
     }
 
     void onlyUserInstallsCanBeUninstalled() {
-        AppInstallerClient client;
-        QVERIFY(client.canUninstall("com.example.crafted"));
-        QVERIFY(!client.canUninstall("testapp"));
-        QVERIFY(!client.canUninstall("com.example.missing"));
+        marathon::platform::AppInstaller client;
+        QVERIFY(client.canUninstall(QStringLiteral("com.example.crafted")));
+        QVERIFY(!client.canUninstall(QStringLiteral("testapp")));
+        QVERIFY(!client.canUninstall(QStringLiteral("com.example.missing")));
     }
 
     void refusedCallersAreToldWhy() {
         store.refused = 1;
-        AppInstallerClient client;
-        QVERIFY(!client.canUninstall("com.example.crafted"));
-        QSignalSpy failed(&client, &AppInstallerClient::uninstallFailed);
-        client.uninstallApp("com.example.crafted");
+        marathon::platform::AppInstaller client;
+        QVERIFY(!client.canUninstall(QStringLiteral("com.example.crafted")));
+        QSignalSpy failed(&client, &marathon::platform::AppInstaller::uninstallFailed);
+        client.uninstallApp(QStringLiteral("com.example.crafted"));
         QTRY_COMPARE(failed.count(), 1);
         QCOMPARE(failed.first().at(1).toString(), QString("Missing permission: system"));
         QVERIFY(QDir(MarathonAppPaths::installDir("com.example.crafted")).exists());
     }
 
     void systemAppsStayInstalled() {
-        AppInstallerClient client;
-        QSignalSpy         failed(&client, &AppInstallerClient::uninstallFailed);
-        client.uninstallApp("testapp");
+        marathon::platform::AppInstaller client;
+        QSignalSpy         failed(&client, &marathon::platform::AppInstaller::uninstallFailed);
+        client.uninstallApp(QStringLiteral("testapp"));
         QTRY_COMPARE(failed.count(), 1);
         QCOMPARE(failed.first().at(0).toString(), QString("testapp"));
         QVERIFY(QFile::exists(MarathonAppPaths::systemApps() + "/testapp/manifest.json"));
@@ -157,10 +157,10 @@ class TestAppInstallerClient : public QObject {
         const QString userFile = home.path() + "/Documents/crafted.txt";
         QVERIFY(writeFile(userFile, "the user's"));
 
-        AppInstallerClient client;
+        marathon::platform::AppInstaller client;
         QVERIFY(client.canUninstall(id));
-        QSignalSpy done(&client, &AppInstallerClient::uninstallComplete);
-        QSignalSpy removed(&client, &AppInstallerClient::appRemoved);
+        QSignalSpy done(&client, &marathon::platform::AppInstaller::uninstallComplete);
+        QSignalSpy removed(&client, &marathon::platform::AppInstaller::appRemoved);
         client.uninstallApp(id);
         QTRY_COMPARE(done.count(), 1);
         QCOMPARE(removed.count(), 1);
@@ -174,9 +174,9 @@ class TestAppInstallerClient : public QObject {
     // Another app (the home screen's menu) uninstalled it: the list drops it,
     // but this client asked for nothing.
     void othersUninstallsOnlyUpdateTheList() {
-        AppInstallerClient client;
-        QSignalSpy         done(&client, &AppInstallerClient::uninstallComplete);
-        QSignalSpy         removed(&client, &AppInstallerClient::appRemoved);
+        marathon::platform::AppInstaller client;
+        QSignalSpy         done(&client, &marathon::platform::AppInstaller::uninstallComplete);
+        QSignalSpy         removed(&client, &marathon::platform::AppInstaller::appRemoved);
         QMetaObject::invokeMethod(&store, "announce", Q_ARG(QString, "com.example.other"));
         QTRY_COMPARE(removed.count(), 1);
         QCOMPARE(removed.first().at(0).toString(), QString("com.example.other"));
