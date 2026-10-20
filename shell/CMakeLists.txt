@@ -107,8 +107,6 @@ set(SOURCES
     src/services/waketouchfilter.cpp
     src/services/pilotclient.h
     src/services/pilotclient.cpp
-    src/services/weatherclient.h
-    src/services/weatherclient.cpp
     src/services/automatictimezone.h
     src/services/automatictimezone.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
@@ -549,8 +547,6 @@ qt6_add_qml_module(marathon-shell
         src/services/surfaceregistry.h
         src/services/pilotclient.cpp
         src/services/pilotclient.h
-        src/services/weatherclient.cpp
-        src/services/weatherclient.h
         src/services/domainsuggestions.cpp
         src/services/domainsuggestions.h
         src/services/emojipredictor.cpp

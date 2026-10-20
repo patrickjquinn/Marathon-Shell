@@ -20,4 +20,6 @@ pub mod power;
 mod sandbox;
 pub mod security;
 mod systemd;
+mod variant;
 mod wake_timer;
+pub mod weather;

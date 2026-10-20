@@ -11,5 +11,6 @@ fn main() {
         .file("src/power.rs")
         .file("src/sandbox.rs")
         .file("src/security.rs")
+        .file("src/weather.rs")
         .build();
 }

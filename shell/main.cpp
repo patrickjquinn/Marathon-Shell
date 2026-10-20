@@ -67,7 +67,7 @@
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/services/wakeonkeyfilter.h"
 #include "src/services/pilotclient.h"
-#include "src/services/weatherclient.h"
+#include "marathon-shell-native/src/weather.cxxqt.h"
 #include "src/services/inputboost.h"
 #include "src/services/touchresampler.h"
 #include "src/managers/audiomanagercpp.h"
@@ -1099,9 +1099,10 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<PilotClient>(
         "MarathonOS.Shell", 1, 0, "PilotClient",
         new PilotClient(QDBusConnection::sessionBus(), &app));
-    qmlRegisterSingletonInstance<WeatherClient>(
-        "MarathonOS.Shell", 1, 0, "WeatherClient",
-        new WeatherClient(QDBusConnection::sessionBus(), &app));
+    auto *weather = new marathon::WeatherClient();
+    weather->setParent(&app);
+    qmlRegisterSingletonInstance<marathon::WeatherClient>("MarathonOS.Shell", 1, 0, "WeatherClient",
+                                                          weather);
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {
