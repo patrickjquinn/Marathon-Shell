@@ -4,9 +4,11 @@
 #include "sensormanagercpp.h"
 #include "platform.h"
 #include "deviceprofile.h"
+#include "marathon-shell-native/src/backlight.cxxqt.h"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
 #include <QEventLoop>
@@ -17,7 +19,6 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusVariant>
 #include <QTimer>
-#include <QThread>
 #include <QFileSystemWatcher>
 #include <QScreen>
 #include <QSettings>
@@ -73,7 +74,25 @@ DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
         m_available = detectBacklightDevice();
         if (m_available) {
             qInfo() << "[DisplayManagerCpp] Backlight control available:" << m_backlightDevice;
-            m_brightness = getBrightness();
+            m_brightness   = readBrightness();
+            m_sysfsWritable = QFileInfo(backlightFile("brightness")).isWritable();
+            m_backlight     = new Backlight();
+            m_backlight->setParent(this);
+            m_backlight->setDevice(m_backlightDir + u'/' + m_backlightDevice);
+            connect(m_backlight, &Backlight::levelReadBack, this, &DisplayManagerCpp::onLevelReadBack);
+            connect(m_backlight, &Backlight::litChecked, this, [this](bool lit) {
+                if (lit)
+                    return;
+                if (m_wakeVerifyTries-- > 0) {
+                    qWarning() << "[DisplayManagerCpp] wake: panel still dark -- re-asserting backlight,"
+                               << "tries left" << m_wakeVerifyTries;
+                    forceBacklightOn();
+                    if (m_wakeVerifyTimer)
+                        m_wakeVerifyTimer->start();
+                } else {
+                    qWarning() << "[DisplayManagerCpp] wake: panel failed to light after retries";
+                }
+            });
 
             setupBrightnessMonitoring();
         } else {
@@ -127,66 +146,24 @@ int DisplayManagerCpp::backlightLevel(double user) const {
 }
 
 double DisplayManagerCpp::brightness() const {
-    // Live sysfs read on every binding evaluation. The cached m_brightness
-    // drifts when systemd-logind or kernel auto-brightness writes the
-    // brightness file without firing the QFileSystemWatcher inotify event
-    // we expect (sysfs nodes are "special" — replaced not renamed on some
-    // kernel paths). QML caches the binding result until brightnessChanged
-    // emits, so the perceived cost is one sysfs read per emit, not per
-    // frame.
-    if (!m_available)
-        return m_brightness;
-    QFile file(backlightFile("brightness"));
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        const int v = file.readAll().trimmed().toInt();
-        file.close();
-        if (m_maxBrightness > 0)
-            return brightnessHwToUser(static_cast<double>(v) / m_maxBrightness);
-    }
     return m_brightness;
 }
 
+// The LED's power cycle runs on the I/O thread (Backlight::forceOn): after
+// the display domain gated in deep-idle Doze, a pwm-backlight duty can stay
+// latched at 0, and a plain bl_power=0 leaves it dark. Waking to a lit
+// panel is non-negotiable, at the user's level through the visible floor.
 void DisplayManagerCpp::forceBacklightOn() {
-    if (m_backlightDevice.isEmpty())
-        return;
-
-    const QString blPath = backlightFile("bl_power");
-    const QString brPath = backlightFile("brightness");
-
-    // Target duty = user brightness remapped through the visible floor
-    // (never below ~28% real). Waking to a lit panel is non-negotiable.
-    const int target = backlightLevel(m_brightness);
-
-    auto      writeFile = [](const QString &path, const QByteArray &val) {
-        QFile f(path);
-        if (f.open(QIODevice::WriteOnly)) {
-            f.write(val + "\n");
-            f.close();
-            return true;
-        }
-        return false;
-    };
-
-    // Full power-cycle of the backlight LED. After the display domain
-    // gated (deep-idle Doze), the pwm-backlight duty can stay latched at
-    // 0; a plain bl_power=0 leaves it dark. Powering the LED down, letting
-    // the PWM/domain settle, then back up + re-writing the duty re-inits
-    // it reliably — this is the exact sequence verified to recover a
-    // wedged panel on i.MX8MQ. The brief msleep runs on the wake path
-    // only (a one-time transition, not a hot path); the scene-graph render
-    // thread is unaffected.
-    writeFile(blPath, "4");
-    QThread::msleep(30);
-    writeFile(blPath, "0");
-    // Nudge low->target across two stores so pwm_backlight_update_status
-    // re-applies the duty (a single idempotent write can be skipped).
-    writeFile(brPath, "1");
-    if (!writeFile(brPath, QByteArray::number(target))) {
-        qWarning() << "[DisplayManagerCpp] forceBacklightOn: cannot write brightness";
-    }
+    if (m_backlight)
+        m_backlight->forceOn(backlightLevel(m_brightness));
 }
 
 double DisplayManagerCpp::getBrightness() {
+    return m_brightness;
+}
+
+// Once, at startup; afterwards the cache follows every write and read-back.
+double DisplayManagerCpp::readBrightness() const {
     if (!m_available) {
         return 0.5;
     }
@@ -223,7 +200,7 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     // Manual set — the user's intent wins over auto-brightness for a
     // grace window, and any in-flight auto ramp is abandoned.
     m_lastManualSetMs = QDateTime::currentMSecsSinceEpoch();
-    if (m_rampTimer && m_rampTimer->isActive())
+    if (m_rampTimer)
         m_rampTimer->stop();
 
     // Drive the hardware with the remapped value so 0% still lights the
@@ -232,12 +209,10 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     m_brightness = brightnessHwToUser(static_cast<double>(brightnessValue) / m_maxBrightness);
 
     // The device's udev rule makes the sysfs node writable; GSD (desktop runs)
-    // and logind are the fallbacks, asked asynchronously: a slider drag calls
-    // this per step on the GUI thread.
-    QFile file(backlightFile("brightness"));
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text) &&
-        file.write(QByteArray::number(brightnessValue)) > 0) {
-        file.close();
+    // and logind are the fallbacks. Either way asynchronously: a slider drag
+    // calls this per step.
+    if (m_sysfsWritable && m_backlight) {
+        m_backlight->setLevel(brightnessValue);
         emit brightnessChanged();
         return;
     }
@@ -474,47 +449,31 @@ void DisplayManagerCpp::onAmbientLightChanged() {
 // m_rampDurationMs, writing intermediate hardware values directly (cheap
 // sysfs writes) so the change is a glide, not a step. m_brightness (the
 // user-facing value) + brightnessChanged fire once at the end.
+// A smoothstep ease over m_rampDurationMs, as the hardware levels it passes:
+// a 10-level backlight is written four or five times, not thirty.
 void DisplayManagerCpp::startBrightnessRamp(double targetUser) {
-    if (!m_available || m_backlightDevice.isEmpty())
+    if (!m_available || !m_backlight)
         return;
+    constexpr int kStepMs  = 20;
+    const double  from     = m_brightness;
+    m_rampToUser           = qBound(0.0, targetUser, 1.0);
+    QList<int>    levels;
+    const int     steps = m_rampDurationMs / kStepMs;
+    for (int i = 1; i <= steps; ++i) {
+        const double t = double(i) / steps;
+        levels.append(backlightLevel(from + (m_rampToUser - from) * t * t * (3.0 - 2.0 * t)));
+    }
+    m_backlight->ramp(levels, kStepMs);
 
     if (!m_rampTimer) {
         m_rampTimer = new QTimer(this);
-        m_rampTimer->setInterval(20); // ~50 Hz — smooth to the eye
-        connect(m_rampTimer, &QTimer::timeout, this, &DisplayManagerCpp::rampStep);
+        m_rampTimer->setSingleShot(true);
+        connect(m_rampTimer, &QTimer::timeout, this, [this] {
+            m_brightness = m_rampToUser;
+            emit brightnessChanged();
+        });
     }
-
-    m_rampFromUser = m_brightness;
-    m_rampToUser   = qBound(0.0, targetUser, 1.0);
-    m_rampStartMs  = QDateTime::currentMSecsSinceEpoch();
-    if (!m_rampTimer->isActive())
-        m_rampTimer->start();
-}
-
-void DisplayManagerCpp::rampStep() {
-    const qint64 now  = QDateTime::currentMSecsSinceEpoch();
-    double       t    = double(now - m_rampStartMs) / double(m_rampDurationMs);
-    bool         done = false;
-    if (t >= 1.0) {
-        t    = 1.0;
-        done = true;
-    }
-    // smoothstep ease
-    const double e       = t * t * (3.0 - 2.0 * t);
-    const double curUser = m_rampFromUser + (m_rampToUser - m_rampFromUser) * e;
-
-    const int    hwVal = backlightLevel(curUser);
-    QFile        f(backlightFile("brightness"));
-    if (f.open(QIODevice::WriteOnly)) {
-        f.write(QByteArray::number(hwVal) + "\n");
-        f.close();
-    }
-
-    if (done) {
-        m_rampTimer->stop();
-        m_brightness = m_rampToUser;
-        emit brightnessChanged();
-    }
+    m_rampTimer->start(m_rampDurationMs);
 }
 
 // A lightweight, call-scoped backlight blank — NOT the deep-idle Doze
@@ -531,20 +490,9 @@ void DisplayManagerCpp::setCallProximityBlank(bool blank) {
     if (blank)
         qWarning() << "[DisplayManagerCpp] screen off by proximity during a call";
 
-    QFile blPower(backlightFile("bl_power"));
-    if (blPower.open(QIODevice::WriteOnly)) {
-        blPower.write(blank ? "4\n" : "0\n");
-        blPower.close();
-    }
-    if (!blank) {
-        // Restore the pre-blank duty (through the visible floor).
-        const int target = backlightLevel(m_brightness);
-        QFile     br(backlightFile("brightness"));
-        if (br.open(QIODevice::WriteOnly)) {
-            br.write(QByteArray::number(target) + "\n");
-            br.close();
-        }
-    }
+    // Unblanking restores the duty from before, through the visible floor.
+    if (m_backlight)
+        m_backlight->blank(blank, backlightLevel(m_brightness));
 }
 
 void DisplayManagerCpp::setRotationLock(bool locked) {
@@ -766,31 +714,11 @@ void DisplayManagerCpp::setScreenState(bool on, const QString &reason) {
     }
 }
 
+// bl_power 0 means the panel lit; Backlight answers with litChecked, which
+// re-asserts the backlight a few times if it didn't.
 void DisplayManagerCpp::verifyWakeLit() {
-    if (m_backlightDevice.isEmpty())
-        return;
-
-    // bl_power == "0" (FB_BLANK_UNBLANK) means the panel actually lit.
-    // Anything else (4 == FB_BLANK_POWERDOWN, latched) means the wake write
-    // did not take -- re-assert the backlight until it holds or we give up.
-    QByteArray state;
-    QFile      blPower(backlightFile("bl_power"));
-    if (blPower.open(QIODevice::ReadOnly)) {
-        state = blPower.readAll().trimmed();
-        blPower.close();
-    }
-    if (state == "0")
-        return; // lit -- wake succeeded
-
-    if (m_wakeVerifyTries-- > 0) {
-        qWarning() << "[DisplayManagerCpp] wake: panel still dark (bl_power=" << state
-                   << ") -- re-asserting backlight, tries left" << m_wakeVerifyTries;
-        forceBacklightOn();
-        if (m_wakeVerifyTimer)
-            m_wakeVerifyTimer->start();
-    } else {
-        qWarning() << "[DisplayManagerCpp] wake: panel failed to light after retries";
-    }
+    if (m_backlight)
+        m_backlight->checkLit();
 }
 
 void DisplayManagerCpp::setupBrightnessMonitoring() {
@@ -803,8 +731,8 @@ void DisplayManagerCpp::setupBrightnessMonitoring() {
         watcher->addPath(actualPath);
         watcher->addPath(reqPath);
 
-        connect(watcher, &QFileSystemWatcher::fileChanged, this,
-                &DisplayManagerCpp::onExternalBrightnessChanged);
+        // Read back on the I/O thread; only a level the shell didn't write answers.
+        connect(watcher, &QFileSystemWatcher::fileChanged, m_backlight, &Backlight::refresh);
         qInfo() << "[DisplayManagerCpp] Monitoring sysfs paths:" << actualPath << "and" << reqPath;
     }
 
@@ -821,57 +749,20 @@ void DisplayManagerCpp::setupBrightnessMonitoring() {
     }
 }
 
-void DisplayManagerCpp::onExternalBrightnessChanged() {
-
-    if (m_backlightDevice.isEmpty())
+void DisplayManagerCpp::onLevelReadBack(int actualVal, int reqVal) {
+    if (m_maxBrightness <= 0)
         return;
-
-    QString actualPath = backlightFile("actual_brightness");
-    QFile   actualFile(actualPath);
-    int     actualVal = -1;
-
-    if (actualFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&actualFile);
-        actualVal = in.readAll().trimmed().toInt();
-        actualFile.close();
-    }
-
-    QString reqPath = backlightFile("brightness");
-    QFile   reqFile(reqPath);
-    int     reqVal = -1;
-
-    if (reqFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&reqFile);
-        reqVal = in.readAll().trimmed().toInt();
-        reqFile.close();
-    }
-
-    double currentBrightness = m_brightness;
-    bool   changed           = false;
-
-    // Hardware values are in the remapped [floor,1] domain; convert back
-    // to the user's [0,1] domain before comparing against m_brightness.
-    if (actualVal != -1) {
-        double actualNorm = brightnessHwToUser((double)actualVal / m_maxBrightness);
-        if (qAbs(actualNorm - m_brightness) > 0.02) {
-            currentBrightness = actualNorm;
-            changed           = true;
-            qDebug() << "[DisplayManagerCpp] Hardware brightness changed (actual):" << actualVal;
+    // Hardware values are in the remapped [floor,1] domain; compare in the
+    // user's [0,1] domain.
+    for (const int level : {reqVal, actualVal}) {
+        if (level < 0)
+            continue;
+        const double user = brightnessHwToUser(double(level) / m_maxBrightness);
+        if (qAbs(user - m_brightness) > 0.02) {
+            m_brightness = user;
+            emit brightnessChanged();
+            return;
         }
-    }
-
-    if (!changed && reqVal != -1) {
-        double reqNorm = brightnessHwToUser((double)reqVal / m_maxBrightness);
-        if (qAbs(reqNorm - m_brightness) > 0.02) {
-            currentBrightness = reqNorm;
-            changed           = true;
-            qDebug() << "[DisplayManagerCpp] Hardware brightness changed (requested):" << reqVal;
-        }
-    }
-
-    if (changed) {
-        m_brightness = currentBrightness;
-        emit brightnessChanged();
     }
 }
 

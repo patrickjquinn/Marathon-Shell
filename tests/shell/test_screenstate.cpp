@@ -100,7 +100,7 @@ class TestScreenState : public QObject {
         QVERIFY(m_handler->screenOff());
 
         dbusSetScreenState(true);
-        QCOMPARE(blPower(), QByteArray("0"));
+        QTRY_COMPARE(blPower(), QByteArray("0"));
         QVERIFY(m_display->screenOn());
         QVERIFY(m_policy->screenOn());
         QVERIFY(!m_power->dozing());

@@ -9,6 +9,7 @@ class PowerManagerCpp;
 class RotationManager;
 class SensorManagerCpp;
 class QTimer;
+class Backlight;
 
 class DisplayManagerCpp : public QObject {
     Q_OBJECT
@@ -112,6 +113,7 @@ class DisplayManagerCpp : public QObject {
     void forceBacklightOn();
     void setBrightnessOverDBus(int brightnessValue);
     int  backlightLevel(double user) const;
+    double readBrightness() const;
 
     // --- Adaptive brightness engine ---------------------------------
     // Map an ambient-light reading (lux) to a user-space [0,1] target
@@ -120,7 +122,6 @@ class DisplayManagerCpp : public QObject {
     // a smooth PWM ramp instead of an instant jump.
     double luxToUserBrightness(double lux) const;
     void   startBrightnessRamp(double targetUser);
-    void   rampStep();
 
     // Adaptive (learned) curve. luxToUserBrightness = baseCurve + learnedOffset.
     // The base curve is the fixed perceptual log map; the offset is what the
@@ -146,10 +147,9 @@ class DisplayManagerCpp : public QObject {
     qint64               m_luxAboveSinceMs = 0;    // dwell timers for hysteresis
     qint64               m_luxBelowSinceMs = 0;
     qint64               m_lastManualSetMs = 0; // manual override grace window
+    // Fires as the backlight ramp (Backlight::ramp) reaches its target.
     QTimer              *m_rampTimer       = nullptr;
-    double               m_rampFromUser    = 0.0;
     double               m_rampToUser      = 0.0;
-    qint64               m_rampStartMs     = 0;
     int                  m_rampDurationMs  = 600;
 
     // Self-heal the documented dark-panel-on-wake race: after a wake we
@@ -160,6 +160,10 @@ class DisplayManagerCpp : public QObject {
     bool              m_proximityBlanked = false;
     bool              m_screenOn         = true;
 
+    // Its sysfs writes, on the I/O thread (crates/marathon-shell-native/src/backlight.rs).
+    Backlight        *m_backlight = nullptr;
+    // The udev rule lets the shell write sysfs; else GSD or logind.
+    bool              m_sysfsWritable = false;
     bool              m_available;
     QString           m_backlightDir;
     QString           m_backlightDevice;
@@ -184,7 +188,7 @@ class DisplayManagerCpp : public QObject {
     void setupBrightnessMonitoring();
 
   private slots:
-    void onExternalBrightnessChanged();
+    void onLevelReadBack(int actual, int requested);
     void onDBusPropertiesChanged(const QString &interface, const QVariantMap &changed,
                                  const QStringList &invalidated);
     void onAmbientLightChanged();

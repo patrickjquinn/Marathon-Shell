@@ -90,7 +90,7 @@ class TestBrightness : public QObject {
         QCOMPARE(qRound(display.brightness() * 100), 78);
         // The test app's Increase: +10%.
         display.setBrightness(display.brightness() + 0.1);
-        QCOMPARE(level(), 9);
+        QTRY_COMPARE(level(), 9);
         QCOMPARE(display.brightness(), shownAs(9));
     }
 
@@ -98,7 +98,7 @@ class TestBrightness : public QObject {
         setLevel(8);
         DisplayManagerCpp display(nullptr, nullptr, nullptr, backlightDir());
         display.setBrightness(display.brightness() - 0.1);
-        QCOMPARE(level(), 7);
+        QTRY_COMPARE(level(), 7);
     }
 
     void everyStepMovesOneLevel() {
@@ -106,11 +106,11 @@ class TestBrightness : public QObject {
         DisplayManagerCpp display(nullptr, nullptr, nullptr, backlightDir());
         for (int l = 2; l <= 10; ++l) {
             display.setBrightness(display.brightness() + 0.1);
-            QCOMPARE(level(), l);
+            QTRY_COMPARE(level(), l);
         }
         for (int l = 9; l >= 1; --l) {
             display.setBrightness(display.brightness() - 0.1);
-            QCOMPARE(level(), l);
+            QTRY_COMPARE(level(), l);
         }
     }
 
@@ -120,18 +120,18 @@ class TestBrightness : public QObject {
         display.setBrightness(display.brightness() + 0.1);
         display.setScreenState(false);
         display.setScreenState(true);
-        QCOMPARE(level(), 9);
+        QTRY_COMPARE(level(), 9);
     }
 
     void aValueRoundsToTheNearestLevel() {
         setLevel(3);
         DisplayManagerCpp display(nullptr, nullptr, nullptr, backlightDir());
         display.setBrightness(0.75); // 7.75 of 10
-        QCOMPARE(level(), 8);
+        QTRY_COMPARE(level(), 8);
         display.setBrightness(1.0);
-        QCOMPARE(level(), 10);
+        QTRY_COMPARE(level(), 10);
         display.setBrightness(0.0);
-        QCOMPARE(level(), 1);
+        QTRY_COMPARE(level(), 1);
     }
 
     void theEffectiveValueIsReported() {

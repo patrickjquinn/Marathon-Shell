@@ -2,6 +2,7 @@ use cxx_qt_build::CxxQtBuilder;
 
 fn main() {
     let builder = CxxQtBuilder::new()
+        .file("src/backlight.rs")
         .file("src/identity.rs")
         .file("src/network.rs")
         .file("src/power.rs")
