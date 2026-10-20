@@ -12,7 +12,7 @@ class WallpaperClient : public QObject {
     Q_PROPERTY(QString currentWallpaper READ currentWallpaper NOTIFY currentWallpaperChanged)
 
   public:
-    // settings carries a wallpaperPath property (SettingsClient).
+    // settings carries a wallpaperPath property (Settings).
     explicit WallpaperClient(QObject *settings, const QDBusConnection &bus = QDBusConnection::sessionBus(),
                              QObject *parent = nullptr);
 

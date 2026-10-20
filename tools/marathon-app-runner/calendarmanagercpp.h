@@ -6,7 +6,9 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-class SettingsClient;
+namespace marathon::platform {
+    class Settings;
+}
 class NotificationClient;
 
 class CalendarManagerCpp : public QObject {
@@ -15,7 +17,7 @@ class CalendarManagerCpp : public QObject {
     Q_PROPERTY(int nextEventId READ nextEventId NOTIFY nextEventIdChanged)
 
   public:
-    explicit CalendarManagerCpp(SettingsClient *settings, NotificationClient *notifications,
+    explicit CalendarManagerCpp(marathon::platform::Settings *settings, NotificationClient *notifications,
                                 QObject *parent = nullptr);
 
     QVariantList events() const {
@@ -51,7 +53,7 @@ class CalendarManagerCpp : public QObject {
     void                triggerNotification(const QVariantMap &event);
     QString             triggerKeyForEvent(const QVariantMap &event, const QDateTime &now) const;
 
-    SettingsClient     *m_settings      = nullptr;
+    marathon::platform::Settings *m_settings = nullptr;
     NotificationClient *m_notifications = nullptr;
     QVariantList        m_events;
     int                 m_nextEventId = 1;

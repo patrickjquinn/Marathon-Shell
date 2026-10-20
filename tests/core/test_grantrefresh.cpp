@@ -5,7 +5,9 @@
 #include <QThread>
 #include <QTest>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/alarms.cxxqt.h"
+#include "marathon-app-native/src/location.cxxqt.h"
+#include "marathon-app-native/src/shell.cxxqt.h"
 
 // The shell answers an undecided permission with nothing and asks the user;
 // a client loaded at startup reads again once the user allows it.
@@ -74,6 +76,7 @@ class TestGrantRefresh : public QObject {
         QVERIFY(daemon.waitForReadyRead(5000));
         const QString address = QString::fromUtf8(daemon.readLine()).trimmed();
         qputenv("DBUS_SESSION_BUS_ADDRESS", address.toUtf8());
+        marathon::platform::set_app_id("test");
 
         QDBusConnection shell = QDBusConnection::connectToBus(address, "shell");
         const auto      flags = QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals;
@@ -94,21 +97,23 @@ class TestGrantRefresh : public QObject {
     }
 
     void alarmsReadAgainOnceAllowed() {
-        AlarmClient client;
-        QCOMPARE(client.alarms().size(), 0);
+        marathon::platform::Alarms client;
+        QTest::qWait(100);
+        QCOMPARE(client.getAlarms().size(), 0);
         alarms.granted = 1;
         QMetaObject::invokeMethod(&permissions, "grant", Q_ARG(QString, "test"),
                                   Q_ARG(QString, "alarms"));
-        QTRY_COMPARE(client.alarms().size(), 1);
+        QTRY_COMPARE(client.getAlarms().size(), 1);
     }
 
     void locationReadsAgainOnceAllowed() {
-        LocationClient client;
-        QVERIFY(!client.available());
+        marathon::platform::Location client;
+        QTest::qWait(100);
+        QVERIFY(!client.getAvailable());
         location.granted = 1;
         QMetaObject::invokeMethod(&permissions, "grant", Q_ARG(QString, "test"),
                                   Q_ARG(QString, "location"));
-        QTRY_VERIFY(client.available());
+        QTRY_VERIFY(client.getAvailable());
     }
 };
 

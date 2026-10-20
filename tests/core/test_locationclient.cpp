@@ -6,7 +6,7 @@
 #include <QTest>
 #include <QSignalSpy>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/location.cxxqt.h"
 
 // The shell's Location1: one GeoClue session shared by the shell and apps.
 class FakeLocation : public QObject {
@@ -71,20 +71,20 @@ class TestLocationClient : public QObject {
     }
 
     void stopShowsTheSessionStopped() {
-        LocationClient client;
+        marathon::platform::Location client;
         client.start();
-        QVERIFY(client.active());
+        QTRY_VERIFY(client.getActive());
         client.stop();
-        QTRY_VERIFY(!client.active());
+        QTRY_VERIFY(!client.getActive());
     }
 
     void followsTheShellStoppingIt() {
-        LocationClient client;
+        marathon::platform::Location client;
         client.start();
-        QVERIFY(client.active());
-        QSignalSpy changed(&client, &LocationClient::activeChanged);
+        QTRY_VERIFY(client.getActive());
+        QSignalSpy changed(&client, &marathon::platform::Location::activeChanged);
         QMetaObject::invokeMethod(&location, "setActive", Q_ARG(bool, false));
-        QTRY_VERIFY(!client.active());
+        QTRY_VERIFY(!client.getActive());
         QCOMPARE(changed.count(), 1);
     }
 };

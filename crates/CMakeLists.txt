@@ -51,26 +51,30 @@ target_include_directories(marathon_core_native INTERFACE "${MARATHON_CARGO_TARG
 target_link_libraries(marathon_core_native INTERFACE
     "${MARATHON_CORE_NATIVE_LIB}" Threads::Threads ${CMAKE_DL_LIBS} m)
 
-# The shell's Rust half (CXX-Qt QObjects), linked into marathon-shell-bin.
-set(_shell_native_export "${_cxxqt_export}/crates/marathon-shell-native")
-set(MARATHON_SHELL_NATIVE_LIB
-    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/libmarathon_shell_native.a")
-add_custom_target(marathon_shell_native_cargo ALL
-    COMMAND ${_cargo_env} "CXX_QT_EXPORT_CRATE_marathon-shell-native=1"
-            "${MARATHON_CARGO}" build -p marathon-shell-native
-            ${_cargo_flags} ${_cargo_profile_flag}
-    BYPRODUCTS "${MARATHON_SHELL_NATIVE_LIB}" "${_shell_native_export}/initializers.o"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building marathon-shell-native (Rust, CXX-Qt)"
-    USES_TERMINAL
-    VERBATIM)
-file(MAKE_DIRECTORY "${_shell_native_export}/include")
-add_library(marathon_shell_native INTERFACE)
-add_dependencies(marathon_shell_native marathon_shell_native_cargo)
-target_include_directories(marathon_shell_native INTERFACE "${_shell_native_export}/include")
-target_link_libraries(marathon_shell_native INTERFACE
-    "${_shell_native_export}/initializers.o" "${MARATHON_SHELL_NATIVE_LIB}"
-    Qt6::Core Qt6::Qml pam Threads::Threads ${CMAKE_DL_LIBS} m)
+# A CXX-Qt crate as an INTERFACE target <target> that links its QObjects.
+function(marathon_cxxqt_crate crate target)
+    string(REPLACE "-" "_" _lib "${crate}")
+    set(_export "${_cxxqt_export}/crates/${crate}")
+    set(_archive "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/lib${_lib}.a")
+    add_custom_target(${target}_cargo ALL
+        COMMAND ${_cargo_env} "CXX_QT_EXPORT_CRATE_${crate}=1"
+                "${MARATHON_CARGO}" build -p ${crate} ${_cargo_flags} ${_cargo_profile_flag}
+        BYPRODUCTS "${_archive}" "${_export}/initializers.o"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Building ${crate} (Rust, CXX-Qt)"
+        USES_TERMINAL
+        VERBATIM)
+    file(MAKE_DIRECTORY "${_export}/include")
+    add_library(${target} INTERFACE)
+    add_dependencies(${target} ${target}_cargo)
+    target_include_directories(${target} INTERFACE "${_export}/include")
+    target_link_libraries(${target} INTERFACE "${_export}/initializers.o" "${_archive}"
+        Qt6::Core Qt6::Qml ${ARGN} Threads::Threads ${CMAKE_DL_LIBS} m)
+endfunction()
+
+# The shell's Rust half, linked into marathon-shell-bin, and the app runner's.
+marathon_cxxqt_crate(marathon-shell-native marathon_shell_native pam)
+marathon_cxxqt_crate(marathon-app-native marathon_app_native)
 
 # marathon-store:// URL handler (xdg-open target and the store refresh timer).
 include(GNUInstallDirs)

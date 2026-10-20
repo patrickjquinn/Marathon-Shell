@@ -1,5 +1,6 @@
 #include "calendarmanagercpp.h"
 #include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/settings.cxxqt.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -8,7 +9,7 @@
 #include <QJsonObject>
 #include <utility>   // std::as_const
 
-CalendarManagerCpp::CalendarManagerCpp(SettingsClient *settings, NotificationClient *notifications,
+CalendarManagerCpp::CalendarManagerCpp(marathon::platform::Settings *settings, NotificationClient *notifications,
                                        QObject *parent)
     : QObject(parent)
     , m_settings(settings)
@@ -131,7 +132,7 @@ void CalendarManagerCpp::load() {
         return;
     }
 
-    const QVariant raw = m_settings->get("calendar/events", QVariantList());
+    const QVariant raw = m_settings->get(QStringLiteral("calendar/events"), QVariant(QVariantList()));
     if (raw.canConvert<QVariantList>()) {
         m_events = raw.toList();
         return;
@@ -159,7 +160,7 @@ void CalendarManagerCpp::load() {
 void CalendarManagerCpp::save() {
     if (!m_settings)
         return;
-    m_settings->set("calendar/events", m_events);
+    m_settings->set(QStringLiteral("calendar/events"), QVariant(m_events));
 }
 
 void CalendarManagerCpp::updateNextEventId() {

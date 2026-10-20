@@ -3,7 +3,9 @@
 #include <QThread>
 #include <QTest>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/display.cxxqt.h"
+#include "marathon-app-native/src/power.cxxqt.h"
+#include "marathon-app-native/src/shell.cxxqt.h"
 
 // Power1 and Display1 need the system permission, which the shell refuses
 // an unprotected app; their clients say so instead of showing empty state.
@@ -67,6 +69,7 @@ class TestRefusedClients : public QObject {
         QVERIFY(daemon.waitForReadyRead(5000));
         const QString address = QString::fromUtf8(daemon.readLine()).trimmed();
         qputenv("DBUS_SESSION_BUS_ADDRESS", address.toUtf8());
+        marathon::platform::set_app_id("test");
 
         QDBusConnection shell = QDBusConnection::connectToBus(address, "shell");
         const auto      flags = QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals;
@@ -90,22 +93,22 @@ class TestRefusedClients : public QObject {
     }
 
     void powerSaysWhenRefused() {
-        PowerClient client("test");
-        QTRY_VERIFY(!client.permitted());
-        QCOMPARE(client.batteryLevel(), 0);
+        marathon::platform::Power client;
+        QTRY_VERIFY(!client.getPermitted());
+        QCOMPARE(client.getBatteryLevel(), 0);
         QMetaObject::invokeMethod(&permissions, "grant", Q_ARG(QString, "test"),
                                   Q_ARG(QString, "system"));
-        QTRY_COMPARE(client.batteryLevel(), 81);
-        QVERIFY(client.permitted());
+        QTRY_COMPARE(client.getBatteryLevel(), 81);
+        QVERIFY(client.getPermitted());
     }
 
     void displaySaysWhenRefused() {
-        DisplayClient client("test");
-        QTRY_VERIFY(!client.permitted());
+        marathon::platform::Display client;
+        QTRY_VERIFY(!client.getPermitted());
         QMetaObject::invokeMethod(&permissions, "grant", Q_ARG(QString, "test"),
                                   Q_ARG(QString, "system"));
-        QTRY_COMPARE(client.brightness(), 0.5);
-        QVERIFY(client.permitted());
+        QTRY_COMPARE(client.getBrightness(), 0.5);
+        QVERIFY(client.getPermitted());
     }
 };
 

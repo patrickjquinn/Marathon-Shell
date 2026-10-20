@@ -58,6 +58,7 @@ target_link_libraries(marathon-app-runner PRIVATE
     Qt6::DBus
     Qt6::Sql
     MarathonCore
+    marathon_app_native
 )
 
 # Qt WebEngine is the heaviest optional dependency in the OS. Linking it
@@ -77,6 +78,13 @@ install(TARGETS marathon-app-runner
 )
 
 # Marathon.Platform described for qmllint; only its qmltypes is ever built.
+# The Rust clients' QObjects are described from their generated headers.
+set(_app_native_headers)
+foreach(_client alarms contacts display location modem network permissions power sensors settings telephony)
+    list(APPEND _app_native_headers
+        "${CMAKE_BINARY_DIR}/crates/cxxqt-export/crates/marathon-app-native/include/marathon-app-native/src/${_client}.cxxqt.h")
+endforeach()
+set_source_files_properties(${_app_native_headers} PROPERTIES GENERATED TRUE)
 qt6_add_library(marathon-platform-types STATIC)
 set_target_properties(marathon-platform-types PROPERTIES EXCLUDE_FROM_ALL TRUE)
 qt6_add_qml_module(marathon-platform-types
@@ -90,13 +98,14 @@ qt6_add_qml_module(marathon-platform-types
         wallpaperclient.h
         worldclockhelper.h
         ../../marathon-core/src/marathonappregistry.h
+        ${_app_native_headers}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qmllint-types/Marathon/Platform
 )
 target_include_directories(marathon-platform-types PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-core/src
 )
-target_link_libraries(marathon-platform-types PRIVATE Qt6::Qml Qt6::DBus)
+target_link_libraries(marathon-platform-types PRIVATE Qt6::Qml Qt6::DBus marathon_app_native)
 add_dependencies(qmllint-types marathon-platform-types_qmltyperegistration)
 
 # Native Keel apps (Sailfish apps rebuilt on Keel's sailfishapp) under a Keel host

@@ -2,7 +2,7 @@
 
 pub mod archive;
 pub mod manifest;
-pub mod permissions;
+pub use marathon_permissions as permissions;
 pub mod signature;
 
 use std::path::Path;

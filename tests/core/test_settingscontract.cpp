@@ -1,5 +1,5 @@
 // Every setting the Settings app writes must reach the shell and be read
-// there: a property on the runner's SettingsClient, a GetState/SetProperty
+// there: a property on the runner's Settings, a GetState/SetProperty
 // case in the shell's Settings service, a property on SettingsManager, and a
 // named shell consumer. The app's QML stubs must match the real clients.
 
@@ -11,6 +11,12 @@
 #include <QTest>
 
 #include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/display.cxxqt.h"
+#include "marathon-app-native/src/modem.cxxqt.h"
+#include "marathon-app-native/src/network.cxxqt.h"
+#include "marathon-app-native/src/permissions.cxxqt.h"
+#include "marathon-app-native/src/settings.cxxqt.h"
+#include "marathon-app-native/src/power.cxxqt.h"
 #include "managers/settingsmanager.h"
 
 namespace {
@@ -141,15 +147,15 @@ namespace {
     // Marathon.Platform names the Settings app uses and the runner clients behind them.
     const QHash<QString, const QMetaObject *> &platformClients() {
         static const QHash<QString, const QMetaObject *> table = {
-            {"Settings", &SettingsClient::staticMetaObject},
-            {"Display", &DisplayClient::staticMetaObject},
+            {"Settings", &marathon::platform::Settings::staticMetaObject},
+            {"Display", &marathon::platform::Display::staticMetaObject},
             {"Bluetooth", &BluetoothClient::staticMetaObject},
-            {"Network", &NetworkClient::staticMetaObject},
-            {"Power", &PowerClient::staticMetaObject},
+            {"Network", &marathon::platform::Network::staticMetaObject},
+            {"Power", &marathon::platform::Power::staticMetaObject},
             {"Audio", &AudioClient::staticMetaObject},
             {"Security", &SecurityClient::staticMetaObject},
-            {"Modem", &ModemClient::staticMetaObject},
-            {"Permissions", &PermissionClient::staticMetaObject},
+            {"Modem", &marathon::platform::Modem::staticMetaObject},
+            {"Permissions", &marathon::platform::Permissions::staticMetaObject},
         };
         return table;
     }
@@ -170,8 +176,8 @@ class TestSettingsContract : public QObject {
 
     void writtenKeys() {
         QFETCH(QString, key);
-        QVERIFY2(hasWritableProperty(SettingsClient::staticMetaObject, key),
-                 "not a writable, notifying property on the runner's SettingsClient");
+        QVERIFY2(hasWritableProperty(marathon::platform::Settings::staticMetaObject, key),
+                 "not a writable, notifying property on the runner's Settings");
         QVERIFY2(hasWritableProperty(SettingsManager::staticMetaObject, key),
                  "not a writable, notifying property on the shell's SettingsManager");
 
@@ -192,7 +198,7 @@ class TestSettingsContract : public QObject {
     // A keyboard setting the shell never reads is a dead control.
     void keyboardSettingsAreRead() {
         for (const QMetaObject *meta :
-             {&SettingsManager::staticMetaObject, &SettingsClient::staticMetaObject}) {
+             {&SettingsManager::staticMetaObject, &marathon::platform::Settings::staticMetaObject}) {
             for (int i = meta->propertyOffset(); i < meta->propertyCount(); ++i) {
                 const QString name = QString::fromLatin1(meta->property(i).name());
                 if (name.startsWith(QLatin1String("keyboard")))
@@ -266,7 +272,7 @@ class TestSettingsContract : public QObject {
         QVERIFY(read("tools/marathon-app-runner/platformtypes.cpp")
                     .contains(R"({QStringLiteral("ModemManagerCpp"), QStringLiteral("Modem")})"));
         QVERIFY(read("tools/marathon-app-runner/main.cpp")
-                    .contains(R"(setContextProperty("ModemManagerCpp", new ModemClient)"));
+                    .contains(R"(exposeClient<marathon::platform::Modem>(ctx, "ModemManagerCpp")"));
         QVERIFY(read("shell/src/ipc/shellipcserver.cpp").contains("/org/marathonos/Shell/Modem"));
     }
 

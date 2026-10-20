@@ -1,4 +1,4 @@
-//! The shell's I/O thread: one executor for every backend, so D-Bus, sysfs
+//! The process's I/O thread: one executor for every backend, so D-Bus, sysfs
 //! and file work never runs on the GUI thread.
 
 use std::future::Future;

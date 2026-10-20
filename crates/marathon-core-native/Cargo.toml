@@ -13,6 +13,7 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 cxx = "1.0.205"
 jsonschema = { version = "0.58.6", default-features = false }
+marathon-permissions = { path = "../marathon-permissions" }
 minisign = "0.10.0"
 regex = "1.13.1"
 serde = { version = "1.0.229", features = ["derive"] }

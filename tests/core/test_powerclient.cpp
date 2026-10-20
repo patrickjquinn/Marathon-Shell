@@ -5,7 +5,8 @@
 #include <QThread>
 #include <QTest>
 
-#include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/power.cxxqt.h"
+#include "marathon-app-native/src/shell.cxxqt.h"
 
 // The shell's Power1 and Permissions1, on their own thread because the
 // client blocks on its calls.
@@ -57,6 +58,7 @@ class TestPowerClient : public QObject {
         QVERIFY(daemon.waitForReadyRead(5000));
         const QString address = QString::fromUtf8(daemon.readLine()).trimmed();
         qputenv("DBUS_SESSION_BUS_ADDRESS", address.toUtf8());
+        marathon::platform::set_app_id("test");
 
         QDBusConnection shell = QDBusConnection::connectToBus(address, "shell");
         power.moveToThread(&serviceThread);
@@ -78,20 +80,20 @@ class TestPowerClient : public QObject {
     }
 
     void wakeReportsTheShellsAnswer() {
-        PowerClient client("test");
-        QVERIFY(client.wake("alarm"));
+        marathon::platform::Power client;
+        QVERIFY(client.wake(QStringLiteral("alarm")));
         power.refuse.storeRelaxed(1);
-        QVERIFY(!client.wake("call"));
+        QVERIFY(!client.wake(QStringLiteral("call")));
         QCOMPARE(power.calls.mid(power.calls.size() - 2), (QStringList{"Wake alarm", "Wake call"}));
     }
 
     void scheduleWakeSendsTheTimeInSeconds() {
-        PowerClient     client("test");
+        marathon::platform::Power client;
         const QDateTime when = QDateTime::fromSecsSinceEpoch(1792236376);
-        QVERIFY(client.scheduleWake(when, "test"));
+        QVERIFY(client.scheduleWake(when, QStringLiteral("test")));
         QCOMPARE(power.calls.last(), QStringLiteral("ScheduleWake 1792236376 test"));
         power.refuse.storeRelaxed(1);
-        QVERIFY(!client.scheduleWake(when, "test"));
+        QVERIFY(!client.scheduleWake(when, QStringLiteral("test")));
     }
 };
 

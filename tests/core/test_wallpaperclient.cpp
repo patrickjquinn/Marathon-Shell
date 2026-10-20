@@ -17,7 +17,7 @@ class FakeWallpapers : public QObject {
     }
 };
 
-// Stands in for SettingsClient's wallpaperPath.
+// Stands in for Settings' wallpaperPath.
 class FakeSettings : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString wallpaperPath READ wallpaperPath WRITE setWallpaperPath NOTIFY wallpaperPathChanged)

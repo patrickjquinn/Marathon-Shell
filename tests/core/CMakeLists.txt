@@ -251,7 +251,7 @@ add_executable(test_core_settingscontract
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
 )
-target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
+target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
 target_include_directories(test_core_settingscontract PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
@@ -271,7 +271,7 @@ add_executable(test_core_ipcclientnormalize
     ../../shell/src/managers/deviceprofile.cpp
 )
 set_target_properties(test_core_ipcclientnormalize PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
+target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
 target_include_directories(test_core_ipcclientnormalize PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
@@ -281,22 +281,9 @@ target_include_directories(test_core_ipcclientnormalize PRIVATE
 add_test(NAME Core_IpcClientNormalize COMMAND test_core_ipcclientnormalize)
 
 # Runner clients read again once the user allows their permission
-add_executable(test_core_grantrefresh
-    test_grantrefresh.cpp
-    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
-    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
+add_executable(test_core_grantrefresh test_grantrefresh.cpp)
 set_target_properties(test_core_grantrefresh PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_grantrefresh Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
-target_include_directories(test_core_grantrefresh PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
+target_link_libraries(test_core_grantrefresh Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
 add_test(NAME Core_GrantRefresh COMMAND test_core_grantrefresh)
 
 # Settings uninstalls through the shell, over the shell's real installer
@@ -314,7 +301,7 @@ add_executable(test_core_appinstallerclient
     ../../marathon-core/src/marathonappscanner.cpp
 )
 set_target_properties(test_core_appinstallerclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_appinstallerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
+target_link_libraries(test_core_appinstallerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
 target_include_directories(test_core_appinstallerclient PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
@@ -324,60 +311,23 @@ target_include_directories(test_core_appinstallerclient PRIVATE
 add_test(NAME Core_AppInstallerClient COMMAND test_core_appinstallerclient)
 
 # The runner's Power client reports whether the shell woke the screen
-add_executable(test_core_powerclient
-    test_powerclient.cpp
-    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
-    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
+add_executable(test_core_powerclient test_powerclient.cpp)
 set_target_properties(test_core_powerclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_powerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
-target_include_directories(test_core_powerclient PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
+target_link_libraries(test_core_powerclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
 add_test(NAME Core_PowerClient COMMAND test_core_powerclient)
 
 # The runner's Power and Display clients say when the shell refuses them
 add_executable(test_core_refusedclients
     test_refusedclients.cpp
-    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
-    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
 )
 set_target_properties(test_core_refusedclients PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_refusedclients Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
-target_include_directories(test_core_refusedclients PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
+target_link_libraries(test_core_refusedclients Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
 add_test(NAME Core_RefusedClients COMMAND test_core_refusedclients)
 
 # The runner's Location client follows the shared session's state
-add_executable(test_core_locationclient
-    test_locationclient.cpp
-    ../../tools/marathon-app-runner/ipc/shellipcclients.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
-    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
+add_executable(test_core_locationclient test_locationclient.cpp)
 set_target_properties(test_core_locationclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_locationclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
-target_include_directories(test_core_locationclient PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
+target_link_libraries(test_core_locationclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
 add_test(NAME Core_LocationClient COMMAND test_core_locationclient)
 
 # D-Bus reply containers normalize without demarshalling the wrong type
@@ -486,7 +436,7 @@ if(TARGET MarathonServices)
             ../../shell/src/managers/settingsmanager.cpp
             ../../shell/src/managers/deviceprofile.cpp
         )
-        target_link_libraries(test_core_smsclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native)
+        target_link_libraries(test_core_smsclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_core_native marathon_app_native)
         target_include_directories(test_core_smsclient PRIVATE
             ${CMAKE_SOURCE_DIR}/marathon-services/src
             ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner

@@ -8,13 +8,24 @@
 
 #include "calendarmanagercpp.h"
 #include "ipc/shellipcclients.h"
+#include "marathon-app-native/src/alarms.cxxqt.h"
+#include "marathon-app-native/src/contacts.cxxqt.h"
+#include "marathon-app-native/src/display.cxxqt.h"
+#include "marathon-app-native/src/location.cxxqt.h"
+#include "marathon-app-native/src/modem.cxxqt.h"
+#include "marathon-app-native/src/network.cxxqt.h"
+#include "marathon-app-native/src/permissions.cxxqt.h"
+#include "marathon-app-native/src/power.cxxqt.h"
+#include "marathon-app-native/src/sensors.cxxqt.h"
+#include "marathon-app-native/src/settings.cxxqt.h"
+#include "marathon-app-native/src/telephony.cxxqt.h"
 #include "marathonappregistry.h"
 #include "wallpaperclient.h"
 #include "worldclockhelper.h"
 
 struct PlatformPermissions {
     Q_GADGET
-    QML_FOREIGN(PermissionClient)
+    QML_FOREIGN(marathon::platform::Permissions)
     QML_NAMED_ELEMENT(Permissions)
     QML_SINGLETON
 };
@@ -35,7 +46,7 @@ struct PlatformNavigation {
 
 struct PlatformContacts {
     Q_GADGET
-    QML_FOREIGN(ContactsClient)
+    QML_FOREIGN(marathon::platform::Contacts)
     QML_NAMED_ELEMENT(Contacts)
     QML_SINGLETON
 };
@@ -49,7 +60,7 @@ struct PlatformCallHistory {
 
 struct PlatformTelephony {
     Q_GADGET
-    QML_FOREIGN(TelephonyClient)
+    QML_FOREIGN(marathon::platform::Telephony)
     QML_NAMED_ELEMENT(Telephony)
     QML_SINGLETON
 };
@@ -84,7 +95,7 @@ struct PlatformWorldClock {
 
 struct PlatformSensors {
     Q_GADGET
-    QML_FOREIGN(SensorClient)
+    QML_FOREIGN(marathon::platform::Sensors)
     QML_NAMED_ELEMENT(Sensors)
     QML_SINGLETON
 };
@@ -98,35 +109,35 @@ struct PlatformHaptics {
 
 struct PlatformLocation {
     Q_GADGET
-    QML_FOREIGN(LocationClient)
+    QML_FOREIGN(marathon::platform::Location)
     QML_NAMED_ELEMENT(Location)
     QML_SINGLETON
 };
 
 struct PlatformAlarms {
     Q_GADGET
-    QML_FOREIGN(AlarmClient)
+    QML_FOREIGN(marathon::platform::Alarms)
     QML_NAMED_ELEMENT(Alarms)
     QML_SINGLETON
 };
 
 struct PlatformSettings {
     Q_GADGET
-    QML_FOREIGN(SettingsClient)
+    QML_FOREIGN(marathon::platform::Settings)
     QML_NAMED_ELEMENT(Settings)
     QML_SINGLETON
 };
 
 struct PlatformNetwork {
     Q_GADGET
-    QML_FOREIGN(NetworkClient)
+    QML_FOREIGN(marathon::platform::Network)
     QML_NAMED_ELEMENT(Network)
     QML_SINGLETON
 };
 
 struct PlatformModem {
     Q_GADGET
-    QML_FOREIGN(ModemClient)
+    QML_FOREIGN(marathon::platform::Modem)
     QML_NAMED_ELEMENT(Modem)
     QML_SINGLETON
 };
@@ -140,14 +151,14 @@ struct PlatformBluetooth {
 
 struct PlatformDisplay {
     Q_GADGET
-    QML_FOREIGN(DisplayClient)
+    QML_FOREIGN(marathon::platform::Display)
     QML_NAMED_ELEMENT(Display)
     QML_SINGLETON
 };
 
 struct PlatformPower {
     Q_GADGET
-    QML_FOREIGN(PowerClient)
+    QML_FOREIGN(marathon::platform::Power)
     QML_NAMED_ELEMENT(Power)
     QML_SINGLETON
 };
