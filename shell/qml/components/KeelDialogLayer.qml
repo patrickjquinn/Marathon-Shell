@@ -60,8 +60,8 @@ Item {
             light: AmbienceService.light
         }
 
-        // Quarter resolution, re-captured twice a second rather than live:
-        // the blur hides the detail and etnaviv can't afford a full-res pass.
+        // Quarter resolution, captured when the dialog opens or moves, not
+        // live: the blur hides the detail and etnaviv can't afford a pass a frame.
         ShaderEffectSource {
             id: snapshot
 
@@ -79,6 +79,7 @@ Item {
             live: false
             hideSource: false
             onSourceItemChanged: scheduleUpdate()
+            onSourceRectChanged: scheduleUpdate()
         }
 
         MultiEffect {
@@ -90,13 +91,6 @@ Item {
             blur: 1
             blurMax: 16
             brightness: -0.15
-        }
-
-        Timer {
-            interval: 500
-            repeat: true
-            running: snapshot.sourceItem !== null
-            onTriggered: snapshot.scheduleUpdate()
         }
 
         Behavior on opacity {

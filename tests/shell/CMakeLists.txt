@@ -330,7 +330,6 @@ add_executable(test_shell_freedesktopnotify
     ../../marathon-core/src/marathonappregistry.cpp
 )
 target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
-target_link_libraries(test_shell_freedesktopnotify marathon_shell_native)
 target_include_directories(test_shell_freedesktopnotify PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src/services
@@ -359,7 +358,6 @@ add_executable(test_shell_updatenotifier
     ../../marathon-core/src/marathonappregistry.cpp
 )
 target_link_libraries(test_shell_updatenotifier Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
-target_link_libraries(test_shell_updatenotifier marathon_shell_native)
 target_include_directories(test_shell_updatenotifier PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src/services
@@ -381,7 +379,6 @@ add_executable(test_shell_alarmmanager
     ../../shell/src/managers/hapticmanager.cpp
 )
 target_link_libraries(test_shell_alarmmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
-target_link_libraries(test_shell_alarmmanager marathon_shell_native)
 target_include_directories(test_shell_alarmmanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_AlarmManager COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with-media-roles.sh
     $<TARGET_FILE:test_shell_alarmmanager>)
@@ -403,7 +400,6 @@ add_executable(test_shell_securitymanager
     test_securitymanager.cpp
 )
 target_link_libraries(test_shell_securitymanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Concurrent ${PAM_LIBRARY})
-target_link_libraries(test_shell_securitymanager marathon_shell_native)
 target_include_directories(test_shell_securitymanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src/components ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_SecurityManager COMMAND test_shell_securitymanager)
 
@@ -415,7 +411,6 @@ add_executable(test_shell_factoryreset
 )
 target_link_libraries(test_shell_factoryreset Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Network
     Qt6::Concurrent ${PAM_LIBRARY})
-target_link_libraries(test_shell_factoryreset marathon_shell_native)
 target_include_directories(test_shell_factoryreset PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers
     ${CMAKE_SOURCE_DIR}/shell/src/services ${CMAKE_SOURCE_DIR}/shell/src/components
     ${CMAKE_SOURCE_DIR}/shell/src)
@@ -536,7 +531,6 @@ if(DBUS_RUN_SESSION)
         ../../marathon-core/src/marathonappregistry.cpp
     )
     target_link_libraries(test_shell_keelactionsfreeze Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-target_link_libraries(test_shell_keelactionsfreeze marathon_shell_native)
     target_include_directories(test_shell_keelactionsfreeze PRIVATE
         ${CMAKE_SOURCE_DIR}/shell
         ${CMAKE_SOURCE_DIR}/shell/src/services
@@ -990,7 +984,6 @@ add_executable(test_shell_screenstate
 )
 target_link_libraries(test_shell_screenstate Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
     Qt6::Quick Qt6::Sensors)
-target_link_libraries(test_shell_screenstate marathon_shell_native)
 target_include_directories(test_shell_screenstate PRIVATE
     ${CMAKE_SOURCE_DIR}/shell
     ${CMAKE_SOURCE_DIR}/shell/src
@@ -1025,7 +1018,6 @@ add_executable(test_shell_powermanager
 )
 target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
     Qt6::Sensors)
-target_link_libraries(test_shell_powermanager marathon_shell_native)
 target_include_directories(test_shell_powermanager PRIVATE
     ${CMAKE_SOURCE_DIR}/shell
     ${CMAKE_SOURCE_DIR}/shell/src
@@ -1047,9 +1039,18 @@ add_executable(test_shell_brightness
 )
 target_link_libraries(test_shell_brightness Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
     Qt6::Sensors)
-target_link_libraries(test_shell_brightness marathon_shell_native)
 target_include_directories(test_shell_brightness PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
     ${CMAKE_SOURCE_DIR}/shell/src/managers
 )
 add_test(NAME Shell_Brightness COMMAND test_shell_brightness)
+
+# The shell's Rust half (crates/marathon-shell-native) backs classes most
+# of these tests compile; every shell test links it.
+get_property(_shell_tests DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(_t IN LISTS _shell_tests)
+    get_target_property(_type ${_t} TYPE)
+    if(_t MATCHES "^test_shell_" AND _type STREQUAL "EXECUTABLE")
+        target_link_libraries(${_t} marathon_shell_native)
+    endif()
+endforeach()

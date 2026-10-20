@@ -1045,6 +1045,11 @@ Item {
             width: shell.width
             height: shell.height
             source: WallpaperStore.path
+            // Decoded off the GUI thread at the screen's size; a new one
+            // replaces the old once ready.
+            sourceSize: Qt.size(width, height)
+            asynchronous: true
+            retainWhileLoading: true
             fillMode: Image.PreserveAspectCrop
             opacity: shell.wallpaperCovered ? 0 : 1
         }

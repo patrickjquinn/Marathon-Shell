@@ -225,6 +225,8 @@ Item {
         anchors.fill: parent
         source: WallpaperStore.path
         sourceSize: Qt.size(width, height)
+        asynchronous: true
+        retainWhileLoading: true
         fillMode: Image.PreserveAspectCrop
         cache: true
         smooth: true

@@ -294,6 +294,7 @@ class WaylandCompositor : public QWaylandCompositor {
     HiddenFrameThrottle                     m_frameThrottle;
     QElapsedTimer                           m_frameClock;
     QElapsedTimer                           m_lastUserInput;
+    QElapsedTimer                           m_activityEmitted;
     QElapsedTimer                           m_keyboardFocusSince;
     QStringList                             m_secureApps;
     QTimer                                  m_hiddenFrameTimer;

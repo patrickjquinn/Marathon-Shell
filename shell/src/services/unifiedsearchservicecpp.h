@@ -2,6 +2,7 @@
 #define UNIFIEDSEARCHSERVICECPP_H
 
 #include <QObject>
+#include <QTimer>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -50,6 +51,7 @@ class UnifiedSearchServiceCpp : public QObject {
     void settingRequested(const QString &settingId);
 
   private:
+    QTimer m_rebuild;
     struct SearchItem {
         QString     type;
         QString     id;

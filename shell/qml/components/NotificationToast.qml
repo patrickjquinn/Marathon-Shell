@@ -9,6 +9,7 @@ Item {
 
     property var toastQueue: []
     property var currentToast: null
+    onCurrentToastChanged: appCapture.scheduleUpdate()
     property bool showInlineReply: false
     // Only a sender that advertised inline-reply can receive the text.
     readonly property bool canReply: {
@@ -105,9 +106,13 @@ Item {
         width: toast.width
         height: toast.height
         sourceItem: toast.visible ? toastContainer.backdropSource : null
-        sourceRect: Qt.rect(toast.x, toast.y, toast.width, toast.height)
+        // Where the toast lands, captured once per toast, not each frame it
+        // slides or the app under it draws.
+        sourceRect: Qt.rect(toast.x, Constants.statusBarHeight, toast.width, toast.height)
         textureSize: Qt.size(Math.max(1, Math.round(toast.width / 2)), Math.max(1, Math.round(toast.height / 2)))
-        live: toast.visible
+        live: false
+        onSourceItemChanged: scheduleUpdate()
+        onSourceRectChanged: scheduleUpdate()
         visible: false
     }
 

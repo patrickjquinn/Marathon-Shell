@@ -36,13 +36,18 @@ UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(AppModel *appModel, MarathonApp
     , m_appLaunch(appLaunch) {
     loadRecentSearches();
 
+    m_rebuild.setSingleShot(true);
+    m_rebuild.setInterval(0);
+    connect(&m_rebuild, &QTimer::timeout, this, &UnifiedSearchServiceCpp::buildSearchIndex);
+
     if (m_scanner) {
         connect(m_scanner, &MarathonAppScanner::scanComplete, this,
-                [this](int) { buildSearchIndex(); });
+                [this](int) { m_rebuild.start(); });
     }
 
     if (m_appModel) {
-        connect(m_appModel, &AppModel::countChanged, this, [this]() { buildSearchIndex(); });
+        // A scan adds and removes apps one at a time: one rebuild for all of them.
+        connect(m_appModel, &AppModel::countChanged, this, [this]() { m_rebuild.start(); });
     }
 
     buildSearchIndex();

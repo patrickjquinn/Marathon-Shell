@@ -2320,9 +2320,14 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         // foreground app" which is the dominant interaction pattern;
         // the idle-screen-off timer then fires mid-gesture. Wheel +
         // KeyRelease are belt-and-braces for kbd-only paths.
-        if (type == QEvent::TouchBegin || type == QEvent::TouchUpdate ||
-            type == QEvent::MouseButtonPress || type == QEvent::MouseMove ||
-            type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+        // A move only refreshes timers measured in seconds: at most every
+        // 250 ms, not on each touch report (three QML slots ran per event).
+        const bool edge = type == QEvent::TouchBegin || type == QEvent::MouseButtonPress ||
+            type == QEvent::KeyPress || type == QEvent::KeyRelease;
+        const bool move =
+            type == QEvent::TouchUpdate || type == QEvent::MouseMove || type == QEvent::Wheel;
+        if (edge || (move && (!m_activityEmitted.isValid() || m_activityEmitted.elapsed() >= 250))) {
+            m_activityEmitted.start();
             emit userActivity();
         }
         if (type == QEvent::TouchBegin || type == QEvent::MouseButtonPress ||
