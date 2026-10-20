@@ -1,13 +1,13 @@
 #include "powerpolicycontroller.h"
 #include "src/managers/deviceprofile.h"
 
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "displaymanagercpp.h"
 #include "../services/applifecyclemanager.h"
 
 #include <QProcess>
 
-PowerPolicyController::PowerPolicyController(PowerManagerCpp     *powerManager,
+PowerPolicyController::PowerPolicyController(Power     *powerManager,
                                              DisplayManagerCpp   *displayManager,
                                              AppLifecycleManager *lifecycle, QObject *parent)
     : QObject(parent)
@@ -16,14 +16,14 @@ PowerPolicyController::PowerPolicyController(PowerManagerCpp     *powerManager,
     , m_lifecycle(lifecycle) {
 
     if (m_powerManager) {
-        connect(m_powerManager, &PowerManagerCpp::activeWakelocksChanged, this, [this]() {
+        connect(m_powerManager, &Power::activeWakelocksChanged, this, [this]() {
             emit wakeLockCountChanged();
             emitCanSleepMaybeChanged();
         });
 
-        connect(m_powerManager, &PowerManagerCpp::batteryLevelChanged, this,
+        connect(m_powerManager, &Power::batteryLevelChanged, this,
                 &PowerPolicyController::handleBatteryPolicy);
-        connect(m_powerManager, &PowerManagerCpp::isChargingChanged, this,
+        connect(m_powerManager, &Power::isChargingChanged, this,
                 &PowerPolicyController::handleBatteryPolicy);
     }
 
@@ -39,7 +39,7 @@ PowerPolicyController::PowerPolicyController(PowerManagerCpp     *powerManager,
 int PowerPolicyController::wakeLockCount() const {
     if (!m_powerManager)
         return 0;
-    return m_powerManager->wakeLockCount();
+    return m_powerManager->getWakeLockCount();
 }
 
 bool PowerPolicyController::canSleep() const {
@@ -74,9 +74,9 @@ void PowerPolicyController::handleBatteryPolicy() {
     if (!m_powerManager)
         return;
 
-    const int  level      = m_powerManager->batteryLevel();
-    const bool isCharging = m_powerManager->isCharging();
-    const uint warning    = m_powerManager->warningLevel();
+    const int  level      = m_powerManager->getBatteryLevel();
+    const bool isCharging = m_powerManager->getIsCharging();
+    const uint warning    = m_powerManager->getWarningLevel();
 
     if (isCharging) {
         m_lastBatteryWarningLevel = 100;
@@ -91,7 +91,7 @@ void PowerPolicyController::handleBatteryPolicy() {
     if (warning >= 4 && !m_hasShownCriticalWarning) {
         QString action = QStringLiteral("shutdown");
         if (m_powerManager) {
-            const QString configured = m_powerManager->criticalAction();
+            const QString configured = m_powerManager->getCriticalAction();
             if (!configured.isEmpty())
                 action = configured;
         }
@@ -166,7 +166,7 @@ void PowerPolicyController::performCriticalPowerAction() {
     if (!m_powerManager)
         return;
 
-    const QString action = m_powerManager->criticalAction();
+    const QString action = m_powerManager->getCriticalAction();
     qInfo() << "[PowerPolicyController] Performing critical power action:" << action;
 
     if (action.compare("HybridSleep", Qt::CaseInsensitive) == 0) {

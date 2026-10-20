@@ -10,7 +10,7 @@
 #include <QJsonObject>
 
 class SettingsManager;
-class PowerManagerCpp;
+class Power;
 class AudioManagerCpp;
 class HapticManager;
 class QSoundEffect;
@@ -44,7 +44,7 @@ class AlarmManagerCpp : public QObject {
     Q_PROPERTY(bool hasActiveAlarm READ hasActiveAlarm NOTIFY activeAlarmsChanged)
 
   public:
-    explicit AlarmManagerCpp(SettingsManager *settings, PowerManagerCpp *power,
+    explicit AlarmManagerCpp(SettingsManager *settings, Power *power,
                              AudioManagerCpp *audio, HapticManager *haptic,
                              QObject *parent = nullptr);
 
@@ -85,7 +85,7 @@ class AlarmManagerCpp : public QObject {
     QString          makeId(const QString &seed) const;
 
     SettingsManager *m_settings;
-    PowerManagerCpp *m_power;
+    Power *m_power;
     AudioManagerCpp *m_audio;
     HapticManager   *m_haptic;
 

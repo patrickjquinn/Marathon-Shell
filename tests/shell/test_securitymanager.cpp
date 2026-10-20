@@ -2,7 +2,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
-#include "securitymanager.h"
+#include "marathon-shell-native/src/security.cxxqt.h"
 
 class TestSecurityManager : public QObject {
     Q_OBJECT
@@ -46,28 +46,28 @@ class TestSecurityManager : public QObject {
     void firstRunPinBecomesTheStartupPin() {
         const QString log = m_dir.filePath("helper.log");
         qputenv("MARATHON_DATA_KEY_HELPER", fakeHelper(log, 0).toLocal8Bit());
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun("246813"));
         QTRY_COMPARE(readFile(log), QByteArray("set 246813"));
-        QVERIFY(security.hasQuickPIN());
+        QVERIFY(security.getHasQuickPIN());
         removePin();
     }
 
     void aFailedStartupPinKeepsTheQuickPin() {
         const QString log = m_dir.filePath("failed.log");
         qputenv("MARATHON_DATA_KEY_HELPER", fakeHelper(log, 1).toLocal8Bit());
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun("246813"));
         QTRY_COMPARE(readFile(log), QByteArray("set 246813"));
-        QVERIFY(security.hasQuickPIN());
+        QVERIFY(security.getHasQuickPIN());
         removePin();
     }
 
     void aWrongPasswordLeavesTheStartupPinAlone() {
         const QString log = m_dir.filePath("password.log");
         qputenv("MARATHON_DATA_KEY_HELPER", fakeHelper(log, 0).toLocal8Bit());
-        SecurityManager security;
-        QSignalSpy      failed(&security, &SecurityManager::authenticationFailed);
+        Security security;
+        QSignalSpy      failed(&security, &Security::authenticationFailed);
         security.setQuickPIN("111111", "not the password");
         QTRY_COMPARE(failed.count(), 1);
         security.removeQuickPIN("not the password");
@@ -78,28 +78,28 @@ class TestSecurityManager : public QObject {
 
     void theRightPinUnlocksAndClearsTheCount() {
         qunsetenv("MARATHON_DATA_KEY_HELPER");
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun("975310"));
-        QSignalSpy failed(&security, &SecurityManager::authenticationFailed);
-        QSignalSpy unlocked(&security, &SecurityManager::authenticationSuccess);
+        QSignalSpy failed(&security, &Security::authenticationFailed);
+        QSignalSpy unlocked(&security, &Security::authenticationSuccess);
         security.authenticateQuickPIN("000000");
         QTRY_COMPARE(failed.count(), 1);
-        QCOMPARE(security.failedAttempts(), 1);
+        QCOMPARE(security.getFailedAttempts(), 1);
         security.authenticateQuickPIN("975310");
         QTRY_COMPARE(unlocked.count(), 1);
-        QCOMPARE(security.failedAttempts(), 0);
+        QCOMPARE(security.getFailedAttempts(), 0);
         removePin();
     }
 
     void wrongQuickPinsLockOut() {
         qunsetenv("MARATHON_DATA_KEY_HELPER");
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun("135724"));
-        QSignalSpy failed(&security, &SecurityManager::authenticationFailed);
+        QSignalSpy failed(&security, &Security::authenticationFailed);
         for (int i = 1; i <= 5; ++i) {
             security.authenticateQuickPIN("000000");
             QTRY_COMPARE(failed.count(), i);
-            QCOMPARE(security.failedAttempts(), i);
+            QCOMPARE(security.getFailedAttempts(), i);
         }
         QVERIFY(security.isLockedOut());
     }

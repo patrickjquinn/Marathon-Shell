@@ -1,6 +1,6 @@
 #include "alarmmanagercpp.h"
 #include "settingsmanager.h"
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "audiomanagercpp.h"
 #include "hapticmanager.h"
 #include "mediarole.h"
@@ -62,7 +62,7 @@ QVariantMap Alarm::toVariantMap() const {
     return toJson().toVariantMap();
 }
 
-AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, PowerManagerCpp *power,
+AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, Power *power,
                                  AudioManagerCpp *audio, HapticManager *haptic, QObject *parent)
     : QObject(parent)
     , m_settings(settings)
@@ -79,7 +79,7 @@ AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, PowerManagerCpp *pow
     // The monotonic timer stands still while suspended; after an RTC wake it
     // would ring late by the time spent asleep.
     if (m_power)
-        connect(m_power, &PowerManagerCpp::resumedFromSuspend, this, &AlarmManagerCpp::checkAlarms);
+        connect(m_power, &Power::resumedFromSuspend, this, &AlarmManagerCpp::checkAlarms);
 
     QTimer::singleShot(0, this, [this]() {
         loadAlarms();

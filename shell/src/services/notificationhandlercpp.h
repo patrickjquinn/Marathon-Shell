@@ -10,14 +10,14 @@
 class MarathonAppRegistry;
 class NotificationServiceCpp;
 class NavigationRouterCpp;
-class ModemManagerCpp;
+class Modem;
 
 class NotificationHandlerCpp : public QObject {
     Q_OBJECT
 
   public:
     explicit NotificationHandlerCpp(NotificationServiceCpp *notifications,
-                                    NavigationRouterCpp *router, ModemManagerCpp *telephony,
+                                    NavigationRouterCpp *router, Modem *telephony,
                                     MarathonAppRegistry *registry, QObject *parent = nullptr);
 
     // Shows an app the registry cannot open (an Android app, a desktop app):
@@ -35,7 +35,7 @@ class NotificationHandlerCpp : public QObject {
 
     QPointer<NotificationServiceCpp> m_notifications;
     QPointer<NavigationRouterCpp>    m_router;
-    QPointer<ModemManagerCpp>       m_telephony;
+    QPointer<Modem>       m_telephony;
     QPointer<MarathonAppRegistry>    m_registry;
     std::function<bool(const QString &, bool)> m_showApp;
 };

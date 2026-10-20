@@ -2,7 +2,7 @@ import MarathonOS.Shell
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 
-// WEA / ETWS / CMAS emergency alert overlay. Fed by CellBroadcastManagerCpp
+// WEA / ETWS / CMAS emergency alert overlay. Fed by Modem
 // (org.freedesktop.ModemManager1.Modem.CellBroadcast — ModemManager 1.22+).
 //
 // Visual: pulsing red strip + category label + body text on the ambience. Tone +
@@ -20,10 +20,10 @@ Item {
     id: overlay
 
     anchors.fill: parent
-    visible: CellBroadcastManagerCpp.activeBroadcasts.length > 0
+    visible: Modem.activeBroadcasts.length > 0
     z: Constants.zIndexModalOverlay + 200 // above modals, below incoming-call
 
-    readonly property var current: visible ? CellBroadcastManagerCpp.activeBroadcasts[0] : null
+    readonly property var current: visible ? Modem.activeBroadcasts[0] : null
 
     function categoryColor(cat) {
         switch (cat) {
@@ -77,7 +77,7 @@ Item {
             // as IncomingCallOverlay already does for the ringtone.
             AudioPolicyControllerCpp.playAlarmSound();
         }
-        target: CellBroadcastManagerCpp
+        target: Modem
     }
 
     KeelAmbienceBackground {
@@ -154,7 +154,7 @@ Item {
             text: "Acknowledge"
             onClicked: {
                 if (overlay.current)
-                    CellBroadcastManagerCpp.acknowledge(overlay.current.path);
+                    Modem.acknowledge(overlay.current.path);
             }
         }
 
@@ -192,7 +192,7 @@ Item {
                     if (elapsed >= 3000 && overlay.current) {
                         elapsed = 0;
                         stop();
-                        CellBroadcastManagerCpp.acknowledge(overlay.current.path);
+                        Modem.acknowledge(overlay.current.path);
                     }
                 }
                 onRunningChanged: if (!running)

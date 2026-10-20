@@ -3,7 +3,7 @@
 #include <QObject>
 #include <QString>
 
-class SecurityManager;
+class Security;
 
 // Settings' "Erase all content" (docs/FACTORY_RESET.md). Once the owner's
 // PIN checks out, asks the root marathon-factory-reset service for an erase
@@ -15,7 +15,7 @@ class FactoryReset : public QObject {
   public:
     static constexpr const char *SOCKET = "/run/marathon/factory-reset.sock";
 
-    explicit FactoryReset(SecurityManager *security, QString socketPath = QString::fromLatin1(SOCKET),
+    explicit FactoryReset(Security *security, QString socketPath = QString::fromLatin1(SOCKET),
                           QObject *parent = nullptr);
 
     bool supported() const;
@@ -27,7 +27,7 @@ class FactoryReset : public QObject {
   private:
     void             requestErase();
 
-    SecurityManager *m_security;
+    Security *m_security;
     QString          m_socketPath;
     // Owner checks asked for and not answered yet; they answer in order.
     int              m_pending = 0;

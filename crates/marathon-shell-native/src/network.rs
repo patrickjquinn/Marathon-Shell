@@ -1,4 +1,4 @@
-//! `NetworkManagerCpp`: Wi-Fi, Ethernet, saved networks, the hotspot and
+//! `Network`: Wi-Fi, Ethernet, saved networks, the hotspot and
 //! airplane mode. QML and the shell's C++ see the `QObject`; `NetworkManager`
 //! is only ever read and driven from one actor on the I/O thread.
 
@@ -30,79 +30,29 @@ pub mod qobject {
 
     extern "RustQt" {
         #[qobject]
-        #[qproperty(bool, wifi_enabled, cxx_name = "wifiEnabled", READ = wifi_enabled, NOTIFY = wifi_enabled_changed)]
-        #[qproperty(bool, wifi_connected, cxx_name = "wifiConnected", READ = wifi_connected, NOTIFY = wifi_connected_changed)]
-        #[qproperty(QString, wifi_ssid, cxx_name = "wifiSsid", READ = wifi_ssid, NOTIFY = wifi_ssid_changed)]
-        #[qproperty(i32, wifi_signal_strength, cxx_name = "wifiSignalStrength", READ = wifi_signal_strength, NOTIFY = wifi_signal_strength_changed)]
-        #[qproperty(bool, ethernet_connected, cxx_name = "ethernetConnected", READ = ethernet_connected, NOTIFY = ethernet_connected_changed)]
-        #[qproperty(QString, ethernet_connection_name, cxx_name = "ethernetConnectionName", READ = ethernet_connection_name, NOTIFY = ethernet_connection_name_changed)]
-        #[qproperty(bool, wifi_available, cxx_name = "wifiAvailable", READ = wifi_available, NOTIFY = wifi_available_changed)]
-        #[qproperty(bool, bluetooth_available, cxx_name = "bluetoothAvailable", READ = bluetooth_available, NOTIFY = bluetooth_available_changed)]
+        #[qproperty(bool, wifi_enabled, cxx_name = "wifiEnabled", READ, NOTIFY)]
+        #[qproperty(bool, wifi_connected, cxx_name = "wifiConnected", READ, NOTIFY)]
+        #[qproperty(QString, wifi_ssid, cxx_name = "wifiSsid", READ, NOTIFY)]
+        #[qproperty(i32, wifi_signal_strength, cxx_name = "wifiSignalStrength", READ, NOTIFY)]
+        #[qproperty(bool, ethernet_connected, cxx_name = "ethernetConnected", READ, NOTIFY)]
+        #[qproperty(QString, ethernet_connection_name, cxx_name = "ethernetConnectionName", READ, NOTIFY)]
+        #[qproperty(bool, wifi_available, cxx_name = "wifiAvailable", READ, NOTIFY)]
+        #[qproperty(bool, bluetooth_available, cxx_name = "bluetoothAvailable", READ, NOTIFY)]
         #[qproperty(bool, wifi_available, cxx_name = "hotspotSupported", READ = hotspot_supported, NOTIFY = hotspot_supported_changed)]
-        #[qproperty(bool, airplane_mode_enabled, cxx_name = "airplaneModeEnabled", READ = airplane_mode_enabled, NOTIFY = airplane_mode_enabled_changed)]
+        #[qproperty(bool, airplane_mode_enabled, cxx_name = "airplaneModeEnabled", READ, NOTIFY)]
         #[qproperty(bool, hotspot_active, cxx_name = "hotspotActive", READ = is_hotspot_active, NOTIFY = hotspot_active_changed)]
-        #[qproperty(QList_QVariant, available_networks, cxx_name = "availableNetworks", READ = available_networks, NOTIFY = available_networks_changed)]
-        type NetworkManagerCpp = super::NetworkRust;
+        #[qproperty(QList_QVariant, available_networks, cxx_name = "availableNetworks", READ, NOTIFY)]
+        type Network = super::NetworkRust;
 
-        #[cxx_name = "wifiEnabled"]
-        fn wifi_enabled(self: &NetworkManagerCpp) -> bool;
-        #[cxx_name = "wifiConnected"]
-        fn wifi_connected(self: &NetworkManagerCpp) -> bool;
-        #[cxx_name = "wifiSsid"]
-        fn wifi_ssid(self: &NetworkManagerCpp) -> QString;
-        #[cxx_name = "wifiSignalStrength"]
-        fn wifi_signal_strength(self: &NetworkManagerCpp) -> i32;
-        #[cxx_name = "ethernetConnected"]
-        fn ethernet_connected(self: &NetworkManagerCpp) -> bool;
-        #[cxx_name = "ethernetConnectionName"]
-        fn ethernet_connection_name(self: &NetworkManagerCpp) -> QString;
-        #[cxx_name = "wifiAvailable"]
-        fn wifi_available(self: &NetworkManagerCpp) -> bool;
-        #[cxx_name = "bluetoothAvailable"]
-        fn bluetooth_available(self: &NetworkManagerCpp) -> bool;
         #[cxx_name = "hotspotSupported"]
-        fn hotspot_supported(self: &NetworkManagerCpp) -> bool;
-        #[cxx_name = "airplaneModeEnabled"]
-        fn airplane_mode_enabled(self: &NetworkManagerCpp) -> bool;
+        fn hotspot_supported(self: &Network) -> bool;
         #[qinvokable]
         #[cxx_name = "isHotspotActive"]
-        fn is_hotspot_active(self: &NetworkManagerCpp) -> bool;
-        #[cxx_name = "availableNetworks"]
-        fn available_networks(self: &NetworkManagerCpp) -> QList_QVariant;
+        fn is_hotspot_active(self: &Network) -> bool;
 
-        #[qsignal]
-        #[cxx_name = "wifiEnabledChanged"]
-        fn wifi_enabled_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "wifiConnectedChanged"]
-        fn wifi_connected_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "wifiSsidChanged"]
-        fn wifi_ssid_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "wifiSignalStrengthChanged"]
-        fn wifi_signal_strength_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "ethernetConnectedChanged"]
-        fn ethernet_connected_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "ethernetConnectionNameChanged"]
-        fn ethernet_connection_name_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "wifiAvailableChanged"]
-        fn wifi_available_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "bluetoothAvailableChanged"]
-        fn bluetooth_available_changed(self: Pin<&mut Self>);
         #[qsignal]
         #[cxx_name = "hotspotSupportedChanged"]
         fn hotspot_supported_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "airplaneModeEnabledChanged"]
-        fn airplane_mode_enabled_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "availableNetworksChanged"]
-        fn available_networks_changed(self: Pin<&mut Self>);
         #[qsignal]
         #[cxx_name = "hotspotActiveChanged"]
         fn hotspot_active_changed(self: Pin<&mut Self>);
@@ -122,50 +72,50 @@ pub mod qobject {
 
         #[qinvokable]
         #[cxx_name = "enableWifi"]
-        fn enable_wifi(self: &NetworkManagerCpp);
+        fn enable_wifi(self: &Network);
         #[qinvokable]
         #[cxx_name = "disableWifi"]
-        fn disable_wifi(self: &NetworkManagerCpp);
+        fn disable_wifi(self: &Network);
         #[qinvokable]
         #[cxx_name = "toggleWifi"]
-        fn toggle_wifi(self: &NetworkManagerCpp);
+        fn toggle_wifi(self: &Network);
         #[qinvokable]
         #[cxx_name = "scanWifi"]
-        fn scan_wifi(self: &NetworkManagerCpp);
+        fn scan_wifi(self: &Network);
         #[qinvokable]
         #[cxx_name = "connectToNetwork"]
-        fn connect_to_network(self: &NetworkManagerCpp, ssid: &QString, password: &QString);
+        fn connect_to_network(self: &Network, ssid: &QString, password: &QString);
         /// `security`: "none", "wpa-psk" or "sae".
         #[qinvokable]
         #[cxx_name = "connectToHiddenNetwork"]
-        fn connect_to_hidden_network(self: &NetworkManagerCpp, ssid: &QString, security: &QString, password: &QString);
+        fn connect_to_hidden_network(self: &Network, ssid: &QString, security: &QString, password: &QString);
         #[qinvokable]
         #[cxx_name = "disconnectWifi"]
-        fn disconnect_wifi(self: &NetworkManagerCpp);
+        fn disconnect_wifi(self: &Network);
         /// Abandons a connection that has not reached ACTIVATED yet.
         #[qinvokable]
         #[cxx_name = "cancelPendingConnection"]
-        fn cancel_pending_connection(self: &NetworkManagerCpp);
+        fn cancel_pending_connection(self: &Network);
         /// Drops every saved profile for `ssid`.
         #[qinvokable]
         #[cxx_name = "forgetNetwork"]
-        fn forget_network(self: &NetworkManagerCpp, ssid: &QString);
+        fn forget_network(self: &Network, ssid: &QString);
         #[qinvokable]
         #[cxx_name = "setAirplaneMode"]
-        fn set_airplane_mode(self: Pin<&mut NetworkManagerCpp>, enabled: bool);
+        fn set_airplane_mode(self: Pin<&mut Network>, enabled: bool);
         #[qinvokable]
         #[cxx_name = "createHotspot"]
-        fn create_hotspot(self: &NetworkManagerCpp, ssid: &QString, password: &QString);
+        fn create_hotspot(self: &Network, ssid: &QString, password: &QString);
         #[qinvokable]
         #[cxx_name = "stopHotspot"]
-        fn stop_hotspot(self: &NetworkManagerCpp);
+        fn stop_hotspot(self: &Network);
     }
 
-    impl cxx_qt::Threading for NetworkManagerCpp {}
-    impl cxx_qt::Initialize for NetworkManagerCpp {}
+    impl cxx_qt::Threading for Network {}
+    impl cxx_qt::Initialize for Network {}
 }
 
-use qobject::NetworkManagerCpp;
+use qobject::Network;
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
@@ -201,7 +151,7 @@ enum Command {
 
 /// An access point as QML sees it, the strongest of each SSID.
 #[derive(Clone, Debug, PartialEq)]
-struct Network {
+struct AccessPoint {
     ssid: String,
     strength: u8,
     security: &'static str,
@@ -219,7 +169,7 @@ struct Links {
     ethernet: Option<String>,
 }
 
-impl cxx_qt::Initialize for NetworkManagerCpp {
+impl cxx_qt::Initialize for Network {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(32);
         io::spawn(run(self.qt_thread(), rx));
@@ -227,53 +177,13 @@ impl cxx_qt::Initialize for NetworkManagerCpp {
     }
 }
 
-impl NetworkManagerCpp {
-    fn wifi_enabled(&self) -> bool {
-        self.wifi_enabled
-    }
-
-    fn wifi_connected(&self) -> bool {
-        self.wifi_connected
-    }
-
-    fn wifi_ssid(&self) -> QString {
-        self.wifi_ssid.clone()
-    }
-
-    fn wifi_signal_strength(&self) -> i32 {
-        self.wifi_signal_strength
-    }
-
-    fn ethernet_connected(&self) -> bool {
-        self.ethernet_connected
-    }
-
-    fn ethernet_connection_name(&self) -> QString {
-        self.ethernet_connection_name.clone()
-    }
-
-    fn wifi_available(&self) -> bool {
-        self.wifi_available
-    }
-
-    fn bluetooth_available(&self) -> bool {
-        self.bluetooth_available
-    }
-
+impl Network {
     fn hotspot_supported(&self) -> bool {
         self.wifi_available
     }
 
-    fn airplane_mode_enabled(&self) -> bool {
-        self.airplane_mode_enabled
-    }
-
     fn is_hotspot_active(&self) -> bool {
         self.hotspot_active
-    }
-
-    fn available_networks(&self) -> QList<QVariant> {
-        self.available_networks.clone()
     }
 
     fn send(&self, command: Command) {
@@ -392,7 +302,7 @@ impl NetworkManagerCpp {
         }
     }
 
-    fn apply_networks(mut self: Pin<&mut Self>, networks: &[Network]) {
+    fn apply_networks(mut self: Pin<&mut Self>, networks: &[AccessPoint]) {
         let mut list = QList::<QVariant>::default();
         list.reserve(isize::try_from(networks.len()).unwrap_or(0));
         for n in networks {
@@ -410,7 +320,7 @@ impl NetworkManagerCpp {
     }
 }
 
-impl Network {
+impl AccessPoint {
     fn to_map(&self) -> QMap<QMapPair_QString_QVariant> {
         let mut map = QMap::<QMapPair_QString_QVariant>::default();
         let mut put = |key: &str, value: QVariant| map.insert(QString::from(key), value);
@@ -586,14 +496,14 @@ fn deactivation_error(reason: u32) -> &'static str {
 }
 
 /// The strongest access point per SSID, connected first, then by strength.
-fn merge(mut aps: Vec<Network>) -> Vec<Network> {
+fn merge(mut aps: Vec<AccessPoint>) -> Vec<AccessPoint> {
     aps.sort_by(|a, b| b.connected.cmp(&a.connected).then(b.strength.cmp(&a.strength)));
     let mut seen = std::collections::HashSet::new();
     aps.retain(|n| seen.insert(n.ssid.clone()));
     aps
 }
 
-type Qt = cxx_qt::CxxQtThread<NetworkManagerCpp>;
+type Qt = cxx_qt::CxxQtThread<Network>;
 
 enum Event {
     Command(Command),
@@ -618,7 +528,7 @@ struct Actor {
     nm: NmProxy<'static>,
     wifi_device: Option<OwnedObjectPath>,
     saved: HashMap<String, Vec<OwnedObjectPath>>,
-    networks: Vec<Network>,
+    networks: Vec<AccessPoint>,
     links: Links,
     active_ap: Option<OwnedObjectPath>,
     pending: Option<Pending>,
@@ -838,7 +748,7 @@ impl Actor {
                 continue;
             }
             let strength = props.get("Strength").and_then(|v| u8::try_from(v).ok()).unwrap_or(0);
-            aps.push(Network {
+            aps.push(AccessPoint {
                 connected: self.links.wifi.as_deref() == Some(ssid.as_str()),
                 known: self.saved.contains_key(&ssid),
                 ssid,
@@ -880,7 +790,7 @@ impl Actor {
         if let (Some(pending), Some(ssid)) = (&self.pending, &links.wifi) {
             if &pending.ssid == ssid {
                 self.pending = None;
-                self.qt.queue(NetworkManagerCpp::connection_success).ok();
+                self.qt.queue(Network::connection_success).ok();
             }
         }
         if links != self.links {
@@ -1167,10 +1077,10 @@ fn set_rfkill(types: &[&str], block: bool) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{activation_error, deactivation_error, merge, security, Network};
+    use super::{activation_error, deactivation_error, merge, security, AccessPoint};
 
-    fn ap(ssid: &str, strength: u8, connected: bool) -> Network {
-        Network {
+    fn ap(ssid: &str, strength: u8, connected: bool) -> AccessPoint {
+        AccessPoint {
             ssid: ssid.to_owned(),
             strength,
             security: "WPA2/WPA3",

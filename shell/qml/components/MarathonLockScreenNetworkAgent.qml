@@ -21,7 +21,7 @@ import Sailfish.Silica 1.0 as Silica
 //
 // Hooks: trigger via `agent.show(ssid, security)` from wherever you
 // detect a missing-credential / captive-portal state. Until r201 wires
-// NetworkManagerCpp's secret-needed signal to this, the agent only
+// Network's secret-needed signal to this, the agent only
 // surfaces when explicitly called — keeps the lock screen quiet in
 // the common case.
 Item {
@@ -170,7 +170,7 @@ Item {
         if (passwordField.text.length === 0)
             return;
         statusText = "";
-        NetworkManagerCpp.connectToNetwork(targetSsid, passwordField.text);
+        Network.connectToNetwork(targetSsid, passwordField.text);
     }
 
     Connections {
@@ -182,7 +182,7 @@ Item {
             if (agent.active)
                 agent.statusText = message !== "" ? message : "Connection failed";
         }
-        target: NetworkManagerCpp
+        target: Network
     }
 
     Behavior on opacity {

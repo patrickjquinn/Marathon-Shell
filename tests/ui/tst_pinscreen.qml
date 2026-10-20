@@ -29,9 +29,9 @@ TestCase {
     }
 
     function init() {
-        SecurityManagerCpp.attempts = [];
-        SecurityManagerCpp.isLockedOut = false;
-        SecurityManagerCpp.lockoutStateChanged();
+        Security.attempts = [];
+        Security.isLockedOut = false;
+        Security.lockoutStateChanged();
         pinScreen.authenticating = false;
         win.requestActivate();
         tryVerify(() => win.active);
@@ -46,38 +46,38 @@ TestCase {
     function test_fourDigitPinSubmitsWithAccept() {
         type("1234");
         wait(200);
-        compare(SecurityManagerCpp.attempts.length, 0);
+        compare(Security.attempts.length, 0);
         const accept = findChild(pinScreen, "acceptKey");
         verify(accept);
         verify(!accept.disabled);
         mouseClick(accept);
-        compare(SecurityManagerCpp.attempts, ["1234"]);
+        compare(Security.attempts, ["1234"]);
     }
 
     function test_returnSubmitsFiveDigits() {
         type("12345");
         keyClick(Qt.Key_Return);
-        compare(SecurityManagerCpp.attempts, ["12345"]);
+        compare(Security.attempts, ["12345"]);
     }
 
     function test_acceptNeedsFourDigits() {
         type("123");
         verify(findChild(pinScreen, "acceptKey").disabled);
         keyClick(Qt.Key_Return);
-        compare(SecurityManagerCpp.attempts.length, 0);
+        compare(Security.attempts.length, 0);
     }
 
     function test_sixDigitsStillSubmitOnce() {
         type("123456");
-        tryCompare(SecurityManagerCpp, "attempts", ["123456"]);
+        tryCompare(Security, "attempts", ["123456"]);
         keyClick(Qt.Key_Return);
-        compare(SecurityManagerCpp.attempts.length, 1);
+        compare(Security.attempts.length, 1);
     }
 
     function test_errorStaysUntilNextDigit() {
         type("123456");
-        tryCompare(SecurityManagerCpp, "attempts", ["123456"]);
-        SecurityManagerCpp.authenticationFailed("Incorrect PIN (3 attempts remaining)");
+        tryCompare(Security, "attempts", ["123456"]);
+        Security.authenticationFailed("Incorrect PIN (3 attempts remaining)");
         compare(pinScreen.pin, "");
         wait(1500);
         compare(pinScreen.error, "Incorrect PIN (3 attempts remaining)");
@@ -86,19 +86,19 @@ TestCase {
     }
 
     function test_lockoutDisablesKeypadAndCountsDown() {
-        SecurityManagerCpp.lockoutSecondsRemaining = 30;
-        SecurityManagerCpp.isLockedOut = true;
-        SecurityManagerCpp.lockoutStateChanged();
+        Security.lockoutSecondsRemaining = 30;
+        Security.isLockedOut = true;
+        Security.lockoutStateChanged();
         verify(pinScreen.error.indexOf("30") >= 0);
         verify(findChild(pinScreen, "key1").disabled);
         verify(findChild(pinScreen, "key0").disabled);
         type("1");
         compare(pinScreen.pin, "");
-        SecurityManagerCpp.lockoutSecondsRemaining = 29;
-        SecurityManagerCpp.lockoutStateChanged();
+        Security.lockoutSecondsRemaining = 29;
+        Security.lockoutStateChanged();
         verify(pinScreen.error.indexOf("29") >= 0);
-        SecurityManagerCpp.isLockedOut = false;
-        SecurityManagerCpp.lockoutStateChanged();
+        Security.isLockedOut = false;
+        Security.lockoutStateChanged();
         compare(pinScreen.error, "");
         verify(!findChild(pinScreen, "key1").disabled);
     }
@@ -106,7 +106,7 @@ TestCase {
     function test_errorDoesNotMoveKeypad() {
         const key = findChild(pinScreen, "key1");
         const before = key.mapToItem(null, 0, 0).y;
-        SecurityManagerCpp.authenticationFailed("Incorrect PIN (3 attempts remaining)");
+        Security.authenticationFailed("Incorrect PIN (3 attempts remaining)");
         waitForRendering(pinScreen);
         compare(key.mapToItem(null, 0, 0).y, before);
         type("1");

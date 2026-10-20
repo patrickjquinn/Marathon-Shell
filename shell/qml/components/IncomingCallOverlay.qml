@@ -13,7 +13,7 @@ Item {
     property bool answeredHere: false
     property bool pinShown: false
     // Answered while locked: the call stays here and the session stays locked.
-    readonly property bool inCall: answeredHere && SessionStore.isLocked && TelephonyService.callState !== "idle" && TelephonyService.callState !== "terminated"
+    readonly property bool inCall: answeredHere && SessionStore.isLocked && Modem.callState !== "idle" && Modem.callState !== "terminated"
 
     signal unlockRequested
 
@@ -160,7 +160,7 @@ Item {
                     HapticManager.medium();
                     callOverlay.hide();
                     // Last: the call state change can unload this overlay.
-                    TelephonyService.hangup();
+                    Modem.hangup();
                 }
             }
 
@@ -176,7 +176,7 @@ Item {
                     callOverlay.hide();
                     UIStore.openApp("phone", "Phone", "");
                     // Last: the call state change can unload this overlay.
-                    TelephonyService.answer();
+                    Modem.answer();
                 }
             }
         }
@@ -189,7 +189,7 @@ Item {
             label: qsTr("End call")
             onActivated: {
                 HapticManager.medium();
-                TelephonyService.hangup();
+                Modem.hangup();
             }
         }
 

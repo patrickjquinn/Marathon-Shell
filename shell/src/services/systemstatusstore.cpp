@@ -1,17 +1,17 @@
 #include "systemstatusstore.h"
 #include "src/managers/bluetoothmanager.h"
-#include "src/managers/modemmanagercpp.h"
-#include "src/managers/networkmanagercpp.h"
-#include "src/managers/powermanagercpp.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
+#include "marathon-shell-native/src/network.cxxqt.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/notificationservicecpp.h"
 #include <QDateTime>
 #include <QLocale>
 
-SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
-                                     NetworkManagerCpp      *networkManager,
+SystemStatusStore::SystemStatusStore(Power        *powerManager,
+                                     Network      *networkManager,
                                      BluetoothManager       *bluetoothManager,
-                                     ModemManagerCpp        *modemManager,
+                                     Modem        *modemManager,
                                      NotificationServiceCpp *notificationService,
                                      SettingsManager *settingsManager, QObject *parent)
     : QObject(parent)
@@ -22,36 +22,36 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
     , m_notificationService(notificationService)
     , m_settingsManager(settingsManager) {
     if (m_powerManager) {
-        setBatteryLevel(m_powerManager->batteryLevel());
-        setIsCharging(m_powerManager->isCharging());
-        setIsPluggedIn(m_powerManager->isPluggedIn());
-        connect(m_powerManager, &PowerManagerCpp::batteryLevelChanged, this,
-                [this]() { setBatteryLevel(m_powerManager->batteryLevel()); });
-        connect(m_powerManager, &PowerManagerCpp::isChargingChanged, this,
-                [this]() { setIsCharging(m_powerManager->isCharging()); });
-        connect(m_powerManager, &PowerManagerCpp::isPluggedInChanged, this,
-                [this]() { setIsPluggedIn(m_powerManager->isPluggedIn()); });
+        setBatteryLevel(m_powerManager->getBatteryLevel());
+        setIsCharging(m_powerManager->getIsCharging());
+        setIsPluggedIn(m_powerManager->getIsPluggedIn());
+        connect(m_powerManager, &Power::batteryLevelChanged, this,
+                [this]() { setBatteryLevel(m_powerManager->getBatteryLevel()); });
+        connect(m_powerManager, &Power::isChargingChanged, this,
+                [this]() { setIsCharging(m_powerManager->getIsCharging()); });
+        connect(m_powerManager, &Power::isPluggedInChanged, this,
+                [this]() { setIsPluggedIn(m_powerManager->getIsPluggedIn()); });
     }
 
     if (m_networkManager) {
-        setIsWifiOn(m_networkManager->wifiEnabled());
-        setWifiStrength(m_networkManager->wifiSignalStrength());
-        setWifiNetwork(m_networkManager->wifiSsid());
-        setWifiConnected(m_networkManager->wifiConnected());
-        setEthernetConnected(m_networkManager->ethernetConnected());
-        setIsAirplaneMode(m_networkManager->airplaneModeEnabled());
-        connect(m_networkManager, &NetworkManagerCpp::wifiEnabledChanged, this,
-                [this]() { setIsWifiOn(m_networkManager->wifiEnabled()); });
-        connect(m_networkManager, &NetworkManagerCpp::wifiSignalStrengthChanged, this,
-                [this]() { setWifiStrength(m_networkManager->wifiSignalStrength()); });
-        connect(m_networkManager, &NetworkManagerCpp::wifiSsidChanged, this,
-                [this]() { setWifiNetwork(m_networkManager->wifiSsid()); });
-        connect(m_networkManager, &NetworkManagerCpp::wifiConnectedChanged, this,
-                [this]() { setWifiConnected(m_networkManager->wifiConnected()); });
-        connect(m_networkManager, &NetworkManagerCpp::ethernetConnectedChanged, this,
-                [this]() { setEthernetConnected(m_networkManager->ethernetConnected()); });
-        connect(m_networkManager, &NetworkManagerCpp::airplaneModeEnabledChanged, this,
-                [this]() { setIsAirplaneMode(m_networkManager->airplaneModeEnabled()); });
+        setIsWifiOn(m_networkManager->getWifiEnabled());
+        setWifiStrength(m_networkManager->getWifiSignalStrength());
+        setWifiNetwork(m_networkManager->getWifiSsid());
+        setWifiConnected(m_networkManager->getWifiConnected());
+        setEthernetConnected(m_networkManager->getEthernetConnected());
+        setIsAirplaneMode(m_networkManager->getAirplaneModeEnabled());
+        connect(m_networkManager, &Network::wifiEnabledChanged, this,
+                [this]() { setIsWifiOn(m_networkManager->getWifiEnabled()); });
+        connect(m_networkManager, &Network::wifiSignalStrengthChanged, this,
+                [this]() { setWifiStrength(m_networkManager->getWifiSignalStrength()); });
+        connect(m_networkManager, &Network::wifiSsidChanged, this,
+                [this]() { setWifiNetwork(m_networkManager->getWifiSsid()); });
+        connect(m_networkManager, &Network::wifiConnectedChanged, this,
+                [this]() { setWifiConnected(m_networkManager->getWifiConnected()); });
+        connect(m_networkManager, &Network::ethernetConnectedChanged, this,
+                [this]() { setEthernetConnected(m_networkManager->getEthernetConnected()); });
+        connect(m_networkManager, &Network::airplaneModeEnabledChanged, this,
+                [this]() { setIsAirplaneMode(m_networkManager->getAirplaneModeEnabled()); });
     }
 
     if (m_bluetoothManager) {
@@ -66,11 +66,11 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
         setCellularStrength(m_modemManager->getSignalStrength());
         setCarrier(m_modemManager->getOperatorName());
         setDataType(m_modemManager->getNetworkType());
-        connect(m_modemManager, &ModemManagerCpp::signalStrengthChanged, this,
+        connect(m_modemManager, &Modem::signalStrengthChanged, this,
                 [this]() { setCellularStrength(m_modemManager->getSignalStrength()); });
-        connect(m_modemManager, &ModemManagerCpp::operatorNameChanged, this,
+        connect(m_modemManager, &Modem::operatorNameChanged, this,
                 [this]() { setCarrier(m_modemManager->getOperatorName()); });
-        connect(m_modemManager, &ModemManagerCpp::networkTypeChanged, this,
+        connect(m_modemManager, &Modem::networkTypeChanged, this,
                 [this]() { setDataType(m_modemManager->getNetworkType()); });
     }
 

@@ -308,7 +308,7 @@ Item {
         Item {
             id: lockNowBar
 
-            readonly property bool callActive: TelephonyService.callState === "active" || TelephonyService.callState === "ringing"
+            readonly property bool callActive: Modem.callState === "active" || Modem.callState === "ringing"
             // Wall-clock timestamp of the most recent "active" transition.
             // Reset to 0 whenever the call leaves the active state so the
             // duration flips back to "00:00".
@@ -323,7 +323,7 @@ Item {
             }
 
             function callerLabel() {
-                const num = TelephonyService.activeNumber || "";
+                const num = Modem.activeNumber || "";
                 if (!num)
                     return "Unknown";
                 const svc = (typeof ContactsManager !== "undefined" && ContactsManager) ? ContactsManager : null;
@@ -346,9 +346,9 @@ Item {
             z: 6
 
             Connections {
-                target: TelephonyService
+                target: Modem
                 function onCallStateChanged() {
-                    if (TelephonyService.callState === "active") {
+                    if (Modem.callState === "active") {
                         lockNowBar.callStartedAt = Date.now();
                         lockNowBar.callElapsed = 0;
                     } else {
@@ -435,7 +435,7 @@ Item {
                     a11yName: "End call"
                     rotation: 135
                     onClicked: {
-                        TelephonyService.hangup();
+                        Modem.hangup();
                     }
                 }
             }

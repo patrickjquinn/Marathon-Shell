@@ -7,10 +7,10 @@
 #include <QTimer>
 #include <qqml.h>
 
-class PowerManagerCpp;
-class NetworkManagerCpp;
+class Power;
+class Network;
 class BluetoothManager;
-class ModemManagerCpp;
+class Modem;
 class NotificationServiceCpp;
 class SettingsManager;
 
@@ -47,8 +47,8 @@ class SystemStatusStore : public QObject {
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY notificationsChanged)
 
   public:
-    explicit SystemStatusStore(PowerManagerCpp *powerManager, NetworkManagerCpp *networkManager,
-                               BluetoothManager *bluetoothManager, ModemManagerCpp *modemManager,
+    explicit SystemStatusStore(Power *powerManager, Network *networkManager,
+                               BluetoothManager *bluetoothManager, Modem *modemManager,
                                NotificationServiceCpp *notificationService,
                                SettingsManager *settingsManager, QObject *parent = nullptr);
 
@@ -169,10 +169,10 @@ class SystemStatusStore : public QObject {
     void                    setDateString(const QString &dateString);
     void                    setNotifications(const QVariantList &notifications);
 
-    PowerManagerCpp        *m_powerManager;
-    NetworkManagerCpp      *m_networkManager;
+    Power        *m_powerManager;
+    Network      *m_networkManager;
     BluetoothManager       *m_bluetoothManager;
-    ModemManagerCpp        *m_modemManager;
+    Modem        *m_modemManager;
     NotificationServiceCpp *m_notificationService;
     SettingsManager        *m_settingsManager;
 

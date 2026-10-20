@@ -10,7 +10,7 @@
 #include "marathonappregistry.h"
 #include "notificationdatabase.h"
 #include "notificationmodel.h"
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 
 class TestFreedesktopNotify : public QObject {
     Q_OBJECT

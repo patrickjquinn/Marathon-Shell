@@ -1,5 +1,5 @@
 //! `PowerManagerService`: battery, power profiles, wakelocks, sleep and the
-//! power actions. QML and the shell's C++ see the `QObject` `PowerManagerCpp`;
+//! power actions. QML and the shell's C++ see the `QObject` `Power`;
 //! everything that talks to `UPower`, logind, power-profiles-daemon, systemd
 //! or sysfs runs in one actor on the I/O thread.
 
@@ -29,69 +29,19 @@ pub mod qobject {
 
     extern "RustQt" {
         #[qobject]
-        #[qproperty(i32, battery_level, cxx_name = "batteryLevel", READ = battery_level, NOTIFY = battery_level_changed)]
-        #[qproperty(u32, warning_level, cxx_name = "warningLevel", READ = warning_level, NOTIFY = warning_level_changed)]
-        #[qproperty(bool, is_charging, cxx_name = "isCharging", READ = is_charging, NOTIFY = is_charging_changed)]
-        #[qproperty(bool, is_plugged_in, cxx_name = "isPluggedIn", READ = is_plugged_in, NOTIFY = is_plugged_in_changed)]
-        #[qproperty(bool, is_power_save_mode, cxx_name = "isPowerSaveMode", READ = is_power_save_mode, NOTIFY = is_power_save_mode_changed)]
-        #[qproperty(i32, estimated_battery_time, cxx_name = "estimatedBatteryTime", READ = estimated_battery_time, NOTIFY = estimated_battery_time_changed)]
-        #[qproperty(QString, power_profile, cxx_name = "powerProfile", READ = power_profile, NOTIFY = power_profile_changed)]
-        #[qproperty(bool, power_profiles_supported, cxx_name = "powerProfilesSupported", READ = power_profiles_supported, NOTIFY = power_profile_changed)]
-        #[qproperty(QStringList, active_wakelocks, cxx_name = "activeWakelocks", READ = active_wakelocks, NOTIFY = active_wakelocks_changed)]
-        #[qproperty(i32, wake_lock_count, cxx_name = "wakeLockCount", READ = wake_lock_count, NOTIFY = active_wakelocks_changed)]
-        #[qproperty(QString, critical_action, cxx_name = "criticalAction", READ = critical_action, NOTIFY = critical_action_changed)]
-        type PowerManagerCpp = super::PowerRust;
+        #[qproperty(i32, battery_level, cxx_name = "batteryLevel", READ, NOTIFY)]
+        #[qproperty(u32, warning_level, cxx_name = "warningLevel", READ, NOTIFY)]
+        #[qproperty(bool, is_charging, cxx_name = "isCharging", READ, NOTIFY)]
+        #[qproperty(bool, is_plugged_in, cxx_name = "isPluggedIn", READ, NOTIFY)]
+        #[qproperty(bool, is_power_save_mode, cxx_name = "isPowerSaveMode", READ, NOTIFY)]
+        #[qproperty(i32, estimated_battery_time, cxx_name = "estimatedBatteryTime", READ, NOTIFY)]
+        #[qproperty(QString, power_profile, cxx_name = "powerProfile", READ, NOTIFY)]
+        #[qproperty(bool, power_profiles_supported, cxx_name = "powerProfilesSupported", READ, NOTIFY)]
+        #[qproperty(QStringList, active_wakelocks, cxx_name = "activeWakelocks", READ, NOTIFY)]
+        #[qproperty(i32, wake_lock_count, cxx_name = "wakeLockCount", READ, NOTIFY)]
+        #[qproperty(QString, critical_action, cxx_name = "criticalAction", READ, NOTIFY)]
+        type Power = super::PowerRust;
 
-        // Getters under the names the shell's C++ calls.
-        #[cxx_name = "batteryLevel"]
-        fn battery_level(self: &PowerManagerCpp) -> i32;
-        #[cxx_name = "warningLevel"]
-        fn warning_level(self: &PowerManagerCpp) -> u32;
-        #[cxx_name = "isCharging"]
-        fn is_charging(self: &PowerManagerCpp) -> bool;
-        #[cxx_name = "isPluggedIn"]
-        fn is_plugged_in(self: &PowerManagerCpp) -> bool;
-        #[cxx_name = "isPowerSaveMode"]
-        fn is_power_save_mode(self: &PowerManagerCpp) -> bool;
-        #[cxx_name = "estimatedBatteryTime"]
-        fn estimated_battery_time(self: &PowerManagerCpp) -> i32;
-        #[cxx_name = "powerProfile"]
-        fn power_profile(self: &PowerManagerCpp) -> QString;
-        #[cxx_name = "powerProfilesSupported"]
-        fn power_profiles_supported(self: &PowerManagerCpp) -> bool;
-        #[cxx_name = "activeWakelocks"]
-        fn active_wakelocks(self: &PowerManagerCpp) -> QStringList;
-        #[cxx_name = "wakeLockCount"]
-        fn wake_lock_count(self: &PowerManagerCpp) -> i32;
-        #[cxx_name = "criticalAction"]
-        fn critical_action(self: &PowerManagerCpp) -> QString;
-        #[qsignal]
-        #[cxx_name = "batteryLevelChanged"]
-        fn battery_level_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "warningLevelChanged"]
-        fn warning_level_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "isChargingChanged"]
-        fn is_charging_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "isPluggedInChanged"]
-        fn is_plugged_in_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "isPowerSaveModeChanged"]
-        fn is_power_save_mode_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "estimatedBatteryTimeChanged"]
-        fn estimated_battery_time_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "powerProfileChanged"]
-        fn power_profile_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "activeWakelocksChanged"]
-        fn active_wakelocks_changed(self: Pin<&mut Self>);
-        #[qsignal]
-        #[cxx_name = "criticalActionChanged"]
-        fn critical_action_changed(self: Pin<&mut Self>);
         /// UPower's warning level reached critical (4) or beyond.
         #[qsignal]
         #[cxx_name = "criticalBattery"]
@@ -105,46 +55,46 @@ pub mod qobject {
         fn resumed_from_suspend(self: Pin<&mut Self>, background_wake: bool);
 
         #[qinvokable]
-        fn suspend(self: &PowerManagerCpp);
+        fn suspend(self: &Power);
         #[qinvokable]
-        fn hibernate(self: &PowerManagerCpp);
+        fn hibernate(self: &Power);
         #[qinvokable]
         #[cxx_name = "hybridSleep"]
-        fn hybrid_sleep(self: &PowerManagerCpp);
+        fn hybrid_sleep(self: &Power);
         #[qinvokable]
-        fn shutdown(self: &PowerManagerCpp);
+        fn shutdown(self: &Power);
         #[qinvokable]
-        fn restart(self: &PowerManagerCpp);
+        fn restart(self: &Power);
         #[qinvokable]
         #[cxx_name = "setPowerSaveMode"]
-        fn set_power_save_mode(self: Pin<&mut PowerManagerCpp>, enabled: bool);
+        fn set_power_save_mode(self: Pin<&mut Power>, enabled: bool);
         #[qinvokable]
         #[cxx_name = "setPowerProfile"]
-        fn set_power_profile(self: &PowerManagerCpp, profile: &QString);
+        fn set_power_profile(self: &Power, profile: &QString);
         #[qinvokable]
         #[cxx_name = "acquireWakelock"]
-        fn acquire_wakelock(self: Pin<&mut PowerManagerCpp>, name: &QString) -> bool;
+        fn acquire_wakelock(self: Pin<&mut Power>, name: &QString) -> bool;
         #[qinvokable]
         #[cxx_name = "releaseWakelock"]
-        fn release_wakelock(self: Pin<&mut PowerManagerCpp>, name: &QString) -> bool;
+        fn release_wakelock(self: Pin<&mut Power>, name: &QString) -> bool;
         /// Replaces the shell's own sleep delay lock with one for `who`.
         #[qinvokable]
         #[cxx_name = "inhibitSuspend"]
-        fn inhibit_suspend(self: &PowerManagerCpp, who: &QString, why: &QString) -> bool;
+        fn inhibit_suspend(self: &Power, who: &QString, why: &QString) -> bool;
         #[qinvokable]
         #[cxx_name = "releaseInhibitor"]
-        fn release_inhibitor(self: &PowerManagerCpp);
+        fn release_inhibitor(self: &Power);
         /// The next alarm, which wakes a suspended device; 0 for none.
         #[qinvokable]
         #[cxx_name = "setAlarmWake"]
-        fn set_alarm_wake(self: &PowerManagerCpp, epoch_secs: i64);
+        fn set_alarm_wake(self: &Power, epoch_secs: i64);
     }
 
-    impl cxx_qt::Threading for PowerManagerCpp {}
-    impl cxx_qt::Initialize for PowerManagerCpp {}
+    impl cxx_qt::Threading for Power {}
+    impl cxx_qt::Initialize for Power {}
 }
 
-use qobject::PowerManagerCpp;
+use qobject::Power;
 
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
 pub struct PowerRust {
@@ -203,7 +153,7 @@ enum Action {
     Reboot,
 }
 
-impl cxx_qt::Initialize for PowerManagerCpp {
+impl cxx_qt::Initialize for Power {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(64);
         let qt = self.qt_thread();
@@ -212,51 +162,7 @@ impl cxx_qt::Initialize for PowerManagerCpp {
     }
 }
 
-impl PowerManagerCpp {
-    fn battery_level(&self) -> i32 {
-        self.battery_level
-    }
-
-    fn warning_level(&self) -> u32 {
-        self.warning_level
-    }
-
-    fn is_charging(&self) -> bool {
-        self.is_charging
-    }
-
-    fn is_plugged_in(&self) -> bool {
-        self.is_plugged_in
-    }
-
-    fn is_power_save_mode(&self) -> bool {
-        self.is_power_save_mode
-    }
-
-    fn estimated_battery_time(&self) -> i32 {
-        self.estimated_battery_time
-    }
-
-    fn power_profile(&self) -> QString {
-        self.power_profile.clone()
-    }
-
-    fn power_profiles_supported(&self) -> bool {
-        self.power_profiles_supported
-    }
-
-    fn active_wakelocks(&self) -> QStringList {
-        self.active_wakelocks.clone()
-    }
-
-    fn wake_lock_count(&self) -> i32 {
-        self.wake_lock_count
-    }
-
-    fn critical_action(&self) -> QString {
-        self.critical_action.clone()
-    }
-
+impl Power {
     fn send(&self, command: Command) -> bool {
         self.actor.as_ref().is_some_and(|a| a.try_send(command).is_ok())
     }
@@ -353,6 +259,7 @@ impl PowerManagerCpp {
         let mut rust = self.as_mut().rust_mut();
         rust.active_wakelocks = QStringList::from(&names);
         rust.wake_lock_count = count;
+        self.as_mut().wake_lock_count_changed();
         self.active_wakelocks_changed();
     }
 
@@ -404,6 +311,7 @@ impl PowerManagerCpp {
             rust.power_profiles_supported = true;
             rust.power_profile = QString::from(profile);
             self.as_mut().power_profile_changed();
+            self.as_mut().power_profiles_supported_changed();
         }
         let saver = profile == "power-saver";
         if self.is_power_save_mode != saver {
@@ -517,7 +425,7 @@ const WAKE_LOCK: &str = "/sys/power/wake_lock";
 const WAKE_UNLOCK: &str = "/sys/power/wake_unlock";
 const BACKGROUND_WAKE_MARKER: &str = "/run/marathon-background/wake";
 
-type Qt = cxx_qt::CxxQtThread<PowerManagerCpp>;
+type Qt = cxx_qt::CxxQtThread<Power>;
 
 enum Event {
     Command(Command),

@@ -3,7 +3,7 @@
 #include <QObject>
 #include <qqml.h>
 
-class PowerManagerCpp;
+class Power;
 class DisplayManagerCpp;
 class AppLifecycleManager;
 
@@ -39,7 +39,7 @@ class PowerPolicyController : public QObject {
     };
     Q_ENUM(SleepAction)
 
-    explicit PowerPolicyController(PowerManagerCpp *powerManager, DisplayManagerCpp *displayManager,
+    explicit PowerPolicyController(Power *powerManager, DisplayManagerCpp *displayManager,
                                    AppLifecycleManager *lifecycle = nullptr,
                                    QObject             *parent    = nullptr);
 
@@ -99,7 +99,7 @@ class PowerPolicyController : public QObject {
     void                 onScreenOnChanged(bool on);
     void                 handleBatteryPolicy();
 
-    PowerManagerCpp     *m_powerManager   = nullptr;
+    Power     *m_powerManager   = nullptr;
     DisplayManagerCpp   *m_displayManager = nullptr;
     AppLifecycleManager *m_lifecycle      = nullptr;
 

@@ -7,13 +7,13 @@
 #include "callhistorymanager.h"
 #include "contactsmanager.h"
 #include "smsservice.h"
-#include "telephonyservice.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "medialibrarymanager.h"
 #include "settingsmanager.h"
 #include "bluetoothmanager.h"
 #include "displaymanagercpp.h"
-#include "networkmanagercpp.h"
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/network.cxxqt.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
@@ -27,13 +27,13 @@
 #include <QDebug>
 
 ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsManager *contacts,
-                               CallHistoryManager *callHistory, ModemManagerCpp *telephony,
+                               CallHistoryManager *callHistory, Modem *telephony,
                                SMSService *sms, MediaLibraryManager *mediaLibrary,
                                SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
-                               DisplayManagerCpp *displayManager, PowerManagerCpp *powerManager,
+                               DisplayManagerCpp *displayManager, Power *powerManager,
                                AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
-                               NetworkManagerCpp *networkManager, HapticManager *hapticManager,
-                               SecurityManager *securityManager, SensorManagerCpp *sensorManager,
+                               Network *networkManager, HapticManager *hapticManager,
+                               Security *securityManager, SensorManagerCpp *sensorManager,
                                LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                                AudioRoutingManager *audioRoutingManager,
                                UpdateService *updateService, DavSyncEngine *davSyncEngine,

@@ -5,7 +5,7 @@
 #include "marathonappregistry.h"
 #include "notificationmodel.h"
 #include "notificationtarget.h"
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include <QBuffer>
 #include <QDBusArgument>
 #include <QDBusConnection>
@@ -64,7 +64,7 @@ namespace {
 
 FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *database,
                                                    NotificationModel    *model,
-                                                   PowerManagerCpp *powerManager, QObject *parent)
+                                                   Power *powerManager, QObject *parent)
     : QObject(parent)
     , m_database(database)
     , m_model(model)

@@ -5,13 +5,13 @@
 
 #include <utility>
 
-#include "securitymanager.h"
+#include "marathon-shell-native/src/security.cxxqt.h"
 
-FactoryReset::FactoryReset(SecurityManager *security, QString socketPath, QObject *parent)
+FactoryReset::FactoryReset(Security *security, QString socketPath, QObject *parent)
     : QObject(parent)
     , m_security(security)
     , m_socketPath(std::move(socketPath)) {
-    connect(m_security, &SecurityManager::ownerConfirmed, this, [this](const QString &refusal) {
+    connect(m_security, &Security::ownerConfirmed, this, [this](const QString &refusal) {
         if (m_pending == 0)
             return;
         --m_pending;

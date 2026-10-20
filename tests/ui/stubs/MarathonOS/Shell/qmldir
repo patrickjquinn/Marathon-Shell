@@ -7,7 +7,7 @@ singleton MHaptics 1.0 ../../../../../shell/qml/ui/MHaptics.qml
 singleton MMotion 1.0 MMotion.qml
 singleton Constants 1.0 Constants.qml
 singleton HapticManager 1.0 HapticManager.qml
-singleton SecurityManagerCpp 1.0 SecurityManagerCpp.qml
+singleton Security 1.0 Security.qml
 singleton SessionStore 1.0 SessionStore.qml
 singleton DisplayManagerCpp 1.0 DisplayManagerCpp.qml
 singleton DisplayPolicyControllerCpp 1.0 DisplayPolicyControllerCpp.qml
@@ -32,21 +32,19 @@ NotificationIcon 1.0 ../../../../../shell/qml/ui/NotificationIcon.qml
 NotificationActions 1.0 ../../../../../shell/qml/ui/NotificationActions.qml
 singleton Router 1.0 Router.qml
 singleton AlarmManagerCpp 1.0 AlarmManagerCpp.qml
-singleton CellBroadcastManagerCpp 1.0 CellBroadcastManagerCpp.qml
 singleton AudioPolicyControllerCpp 1.0 AudioPolicyControllerCpp.qml
-singleton TelephonyService 1.0 TelephonyService.qml
 singleton UIStore 1.0 UIStore.qml
 singleton SystemStatusStore 1.0 SystemStatusStore.qml
 singleton MPhoneNumber 1.0 ../../../../../shell/qml/ui/MPhoneNumber.qml
 KeelAmbienceBackground 1.0 ../../../../../shell/qml/components/KeelAmbienceBackground.qml
 singleton ClipboardManagerCpp 1.0 ClipboardManagerCpp.qml
 singleton LanguageManager 1.0 LanguageManager.qml
-singleton NetworkManagerCpp 1.0 NetworkManagerCpp.qml
+singleton Network 1.0 Network.qml
 MEntrance 1.0 MEntrance.qml
 MAppIcon 1.0 MAppIcon.qml
 singleton AppLaunchService 1.0 AppLaunchService.qml
 singleton SystemControlStore 1.0 SystemControlStore.qml
-singleton ModemManagerCpp 1.0 ModemManagerCpp.qml
+singleton Modem 1.0 Modem.qml
 singleton FlashlightManagerCpp 1.0 FlashlightManagerCpp.qml
 singleton RotationManager 1.0 RotationManager.qml
 singleton SensorManagerCpp 1.0 SensorManagerCpp.qml

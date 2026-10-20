@@ -58,9 +58,9 @@
 #include "src/services/flatpakmanager.h"
 #include "src/services/motiondaemon.h"
 #include "src/services/automatictimezone.h"
-#include "src/managers/networkmanagercpp.h"
+#include "marathon-shell-native/src/network.cxxqt.h"
 #include "src/managers/waketimers.h"
-#include "src/managers/powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "marathon-shell-native/src/identity.cxxqt.h"
 #include "src/controllers/powerpolicycontroller.h"
 #include "src/managers/deviceprofile.h"
@@ -75,7 +75,7 @@
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
-#include "src/managers/modemmanagercpp.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/ambienceservice.h"
@@ -94,7 +94,7 @@
 #include "src/services/sysupdatebackend.h"
 #include "src/services/updatenotifier.h"
 #include "contactsmanager.h"
-#include "telephonyservice.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "callhistorymanager.h"
 #include "smsservice.h"
 #include "mmsmanager.h"
@@ -117,7 +117,7 @@
 #include "src/managers/flashlightmanagercpp.h"
 #include "src/controllers/audioroutingmanager.h"
 #include "src/controllers/audiopolicycontroller.h"
-#include "src/managers/securitymanager.h"
+#include "marathon-shell-native/src/security.cxxqt.h"
 #include "src/managers/screenmetrics.h"
 #include "src/managers/platformcpp.h"
 #include "src/services/navigationroutercpp.h"
@@ -795,18 +795,18 @@ int main(int argc, char *argv[]) {
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
     startupMark("models");
-    auto *networkManager = new NetworkManagerCpp();
-    networkManager->setParent(&app);
-    qmlRegisterSingletonInstance<NetworkManagerCpp>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
-                                                    networkManager);
+    auto *network = new Network();
+    network->setParent(&app);
+    qmlRegisterSingletonInstance<Network>("MarathonOS.Shell", 1, 0, "Network",
+                                                    network);
     // IPC callers' PIDs, learnt on the I/O thread before they call.
     marathon::identity::watch_session_bus();
-    auto *powerManager = new PowerManagerCpp();
-    powerManager->setParent(&app);
-    qmlRegisterSingletonInstance<PowerManagerCpp>("MarathonOS.Shell", 1, 0, "PowerManagerService",
-                                                  powerManager);
+    auto *power = new Power();
+    power->setParent(&app);
+    qmlRegisterSingletonInstance<Power>("MarathonOS.Shell", 1, 0, "Power",
+                                                  power);
     auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
-    auto *displayManager  = new DisplayManagerCpp(powerManager, rotationManager, &app);
+    auto *displayManager  = new DisplayManagerCpp(power, rotationManager, &app);
     qmlRegisterSingletonInstance<DisplayManagerCpp>("MarathonOS.Shell", 1, 0, "DisplayManagerCpp",
                                                     displayManager);
     // Lazy-claim the orientation sensor: only run it while the panel
@@ -818,14 +818,13 @@ int main(int argc, char *argv[]) {
     auto *audioManager = new AudioManagerCpp(&app);
     qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
                                                   audioManager);
-    auto *modemManager = new ModemManagerCpp();
-    modemManager->setParent(&app);
-    // One object serves the modem and its cell broadcasts.
-    ctx->setContextProperty("ModemManagerCpp", modemManager);
-    ctx->setContextProperty("CellBroadcastManagerCpp", modemManager);
-    modemManager->setDataRoamingAllowed(settingsManager->get("cellular/dataRoaming", false).toBool());
-    QObject::connect(modemManager, &ModemManagerCpp::dataRoamingAllowedChanged, settingsManager, [=] {
-        settingsManager->set("cellular/dataRoaming", modemManager->getDataRoamingAllowed());
+    auto *modem = new Modem();
+    modem->setParent(&app);
+    // The modem, its calls and its cell broadcasts.
+    qmlRegisterSingletonInstance<Modem>("MarathonOS.Shell", 1, 0, "Modem", modem);
+    modem->setDataRoamingAllowed(settingsManager->get("cellular/dataRoaming", false).toBool());
+    QObject::connect(modem, &Modem::dataRoamingAllowedChanged, settingsManager, [=] {
+        settingsManager->set("cellular/dataRoaming", modem->getDataRoamingAllowed());
     });
     auto *sensorManager = new SensorManagerCpp(&app);
     qmlRegisterSingletonInstance<SensorManagerCpp>("MarathonOS.Shell", 1, 0, "SensorManagerCpp",
@@ -867,15 +866,15 @@ int main(int argc, char *argv[]) {
     }
     createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
     auto *alarmManager = createObject<AlarmManagerCpp>(
-        ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);
-    QObject::connect(alarmManager, &AlarmManagerCpp::nextAlarmScheduled, powerManager,
-                     &PowerManagerCpp::setAlarmWake);
+        ctx, "AlarmManagerCpp", settingsManager, power, audioManager, hapticManager, &app);
+    QObject::connect(alarmManager, &AlarmManagerCpp::nextAlarmScheduled, power,
+                     &Power::setAlarmWake);
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager = new AudioRoutingManager(audioManager, &app);
-    auto *securityManager = new SecurityManager();
-    securityManager->setParent(&app);
-    qmlRegisterSingletonInstance<SecurityManager>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
-                                                  securityManager);
+    auto *security = new Security();
+    security->setParent(&app);
+    qmlRegisterSingletonInstance<Security>("MarathonOS.Shell", 1, 0, "Security",
+                                                  security);
 
     startupMark("sensors, location, security");
     auto *appLaunchService = new AppLaunchService(appModel, taskModel, &app);
@@ -952,7 +951,7 @@ int main(int argc, char *argv[]) {
     // and freeze background apps immediately on screen-off. AppLifecycle
     // is constructed above on line ~670 so this dependency order is safe.
     auto *powerPolicyController =
-        new PowerPolicyController(powerManager, displayManager, appLifecycleManager, &app);
+        new PowerPolicyController(power, displayManager, appLifecycleManager, &app);
     qmlRegisterSingletonInstance<PowerPolicyController>(
         "MarathonOS.Shell", 1, 0, "PowerPolicyControllerCpp", powerPolicyController);
 
@@ -1000,7 +999,7 @@ int main(int argc, char *argv[]) {
     // tasks run with the screen off, as they would have in Doze. An alarm
     // ringing by then (checkAlarms runs first) keeps the screen on.
     QObject::connect(
-        powerManager, &PowerManagerCpp::resumedFromSuspend, powerPolicyController,
+        power, &Power::resumedFromSuspend, powerPolicyController,
         [displayPolicyController, powerPolicyController, alarmManager](bool backgroundWake) {
             if (backgroundWake && !alarmManager->hasActiveAlarm()) {
                 powerPolicyController->enterDoze(QStringLiteral("background-wake"));
@@ -1067,7 +1066,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<NotificationServiceCpp>(
         "MarathonOS.Shell", 1, 0, "NotificationService", notificationService);
     auto *systemStatusStore =
-        new SystemStatusStore(powerManager, networkManager, bluetoothManager, modemManager,
+        new SystemStatusStore(power, network, bluetoothManager, modem,
                               notificationService, settingsManager, &app);
     qmlRegisterSingletonInstance<SystemStatusStore>("MarathonOS.Shell", 1, 0, "SystemStatusStore",
                                                     systemStatusStore);
@@ -1106,8 +1105,8 @@ int main(int argc, char *argv[]) {
         }
     }
     auto *systemControlStore = new SystemControlStore(
-        networkManager, bluetoothManager, displayManager, flashlightManager, modemManager,
-        settingsManager, alarmManager, locationManager, hapticManager, powerManager, audioManager,
+        network, bluetoothManager, displayManager, flashlightManager, modem,
+        settingsManager, alarmManager, locationManager, hapticManager, power, audioManager,
         audioPolicyController, screenshotService, &app);
     qmlRegisterSingletonInstance<SystemControlStore>("MarathonOS.Shell", 1, 0, "SystemControlStore",
                                                      systemControlStore);
@@ -1130,14 +1129,14 @@ int main(int argc, char *argv[]) {
         qInfo() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
     }
 
-    QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, powerManager,
-                     [powerManager, audioManager]() {
+    QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, power,
+                     [power, audioManager]() {
                          if (audioManager->isPlaying()) {
-                             powerManager->acquireWakelock("audio_playback");
+                             power->acquireWakelock("audio_playback");
                              qInfo()
                                  << "[MarathonShell] Audio playback started - acquired wakelock";
                          } else {
-                             powerManager->releaseWakelock("audio_playback");
+                             power->releaseWakelock("audio_playback");
                              qInfo()
                                  << "[MarathonShell] Audio playback stopped - released wakelock";
                          }
@@ -1191,7 +1190,7 @@ int main(int argc, char *argv[]) {
         notificationModel->loadFromDatabase(notifDb);
 
         freedesktopNotif = createObject<FreedesktopNotifications>(
-            ctx, "FreedesktopNotifications", notifDb, notificationModel, powerManager, &app);
+            ctx, "FreedesktopNotifications", notifDb, notificationModel, power, &app);
         freedesktopNotif->setAppRegistry(appRegistry);
         freedesktopNotif->setAppModel(appModel);
         if (freedesktopNotif->registerService()) {
@@ -1295,8 +1294,6 @@ int main(int argc, char *argv[]) {
     createObject<MotionDaemon>(ctx, "ActivityService", &app);
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
-    auto *telephonyService   = modemManager;
-    ctx->setContextProperty("TelephonyService", telephonyService);
     auto *callHistoryManager = new CallHistoryManager(&app);
     auto *smsService         = new SMSService(&app);
     auto *mmsManager         = new MmsManager(&app);
@@ -1319,13 +1316,13 @@ int main(int argc, char *argv[]) {
         },
         UpdateService::imageVersion(osRelease), bootId, [] { return QDateTime::currentDateTime(); },
         &app);
-    QObject::connect(updateService, &UpdateService::rebootRequested, powerManager,
-                     &PowerManagerCpp::restart);
-    const auto startupPin = [updateService, securityManager]() {
-        updateService->setStartupPin(securityManager->dataEncryption() == u"pin");
+    QObject::connect(updateService, &UpdateService::rebootRequested, power,
+                     &Power::restart);
+    const auto startupPin = [updateService, security]() {
+        updateService->setStartupPin(security->getDataEncryption() == u"pin");
     };
     startupPin();
-    QObject::connect(securityManager, &SecurityManager::dataEncryptionChanged, updateService,
+    QObject::connect(security, &Security::dataEncryptionChanged, updateService,
                      startupPin);
     QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged,
                      updateService, &UpdateService::reconsider);
@@ -1333,11 +1330,11 @@ int main(int argc, char *argv[]) {
                      updateService, &UpdateService::reconsider);
     QObject::connect(displayPolicyController, &DisplayPolicyController::screenOnChanged,
                      updateService, &UpdateService::reconsider);
-    QObject::connect(powerManager, &PowerManagerCpp::isPluggedInChanged, updateService,
+    QObject::connect(power, &Power::isPluggedInChanged, updateService,
                      &UpdateService::reconsider);
-    QObject::connect(powerManager, &PowerManagerCpp::resumedFromSuspend, updateService,
+    QObject::connect(power, &Power::resumedFromSuspend, updateService,
                      &UpdateService::reconsider);
-    QObject::connect(networkManager, &NetworkManagerCpp::wifiConnectedChanged, updateService,
+    QObject::connect(network, &Network::wifiConnectedChanged, updateService,
                      &UpdateService::reconsider);
     // A suspended device wakes for the restart window, as for an alarm.
     auto *updateWake = new WakeTimers(QDBusConnection::sessionBus(), updateService);
@@ -1352,7 +1349,7 @@ int main(int argc, char *argv[]) {
     auto *davCalendarStore = new DavCalendarStore(&app);
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     auto *notificationHandler = createObject<NotificationHandlerCpp>(
-        ctx, "NotificationHandler", notificationService, navigationRouter, telephonyService,
+        ctx, "NotificationHandler", notificationService, navigationRouter, modem,
         appRegistry, &app);
     // Its window, or the one its notification's default action opens (an
     // Android app's contentIntent), comes to the front.
@@ -1366,7 +1363,7 @@ int main(int argc, char *argv[]) {
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
         displayPolicyController, displayManager, audioPolicyController, hapticManager,
-        telephonyService, smsService, sensorManager, &app);
+        modem, smsService, sensorManager, &app);
     if (freedesktopNotif)
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
                          telephonyIntegration, &TelephonyIntegrationCpp::replyToMessageNotification);
@@ -1378,7 +1375,7 @@ int main(int argc, char *argv[]) {
     // AppLifecycleManager capability claims so backgrounded apps holding a
     // capability are kept warm (BackgroundActive) and never frozen.
     new BackgroundTaskObserver(appLifecycleManager, appLaunchService, mpris2Controller,
-                               telephonyService, &app);
+                               modem, &app);
 
     // PSI some-avg10: High (≥ 20%) sends apps a low-memory hint, Critical
     // (≥ 40%) kills the longest-frozen app. systemd-oomd on the slice is the
@@ -1393,7 +1390,7 @@ int main(int argc, char *argv[]) {
                              appLifecycleManager->killOldestFrozenApp();
                      });
 
-    QObject::connect(telephonyService, &ModemManagerCpp::callStateChanged, audioRoutingManager,
+    QObject::connect(modem, &Modem::callStateChanged, audioRoutingManager,
                      [audioRoutingManager](const QString &state) {
                          if (state == "active" || state == "incoming") {
                              audioRoutingManager->startCallAudio();
@@ -1408,15 +1405,15 @@ int main(int argc, char *argv[]) {
 
     {
         auto *ipc = new ShellIpcServer(
-            permissionManager, contactsManager, callHistoryManager, telephonyService, smsService,
-            mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
-            audioManager, audioPolicyController, networkManager, hapticManager, securityManager,
+            permissionManager, contactsManager, callHistoryManager, modem, smsService,
+            mediaLibraryManager, settingsManager, bluetoothManager, displayManager, power,
+            audioManager, audioPolicyController, network, hapticManager, security,
             sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
             davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
             &app);
         ipc->setAmbienceService(ambienceService);
         ipc->setWallpaperStore(wallpaperStore);
-        ipc->setModemManager(modemManager);
+        ipc->setModemManager(modem);
         ipc->setFlashlightManager(flashlightManager);
         ipc->setPowerPolicy(powerPolicyController);
         ipc->setAppInstaller(appInstaller);
@@ -1477,7 +1474,7 @@ int main(int argc, char *argv[]) {
             qWarning() << "[MarathonShell] Keel Actions not served (org.marathonos.shell)";
     }
 
-    QObject::connect(telephonyService, &ModemManagerCpp::callEnded, callHistoryManager,
+    QObject::connect(modem, &Modem::callEnded, callHistoryManager,
                      &CallHistoryManager::addCall);
     qInfo() << "[MarathonShell] Call history wired to telephony";
 

@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 #include "controllers/powerpolicycontroller.h"
-#include "managers/powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 
 namespace {
 
@@ -136,7 +136,7 @@ class TestPowerManager : public QObject {
     }
 
     void aWakelockLeavesTheLifelongInhibitorHeld() {
-        PowerManagerCpp power;
+        Power power;
         QTRY_VERIFY(holds(QStringLiteral("Handle wake events")));
 
         QVERIFY(power.acquireWakelock(QStringLiteral("call")));
@@ -149,19 +149,19 @@ class TestPowerManager : public QObject {
     }
 
     void wakelocksAreReleasedOneByOne() {
-        PowerManagerCpp power;
+        Power power;
         QVERIFY(power.acquireWakelock(QStringLiteral("a")));
         QVERIFY(power.acquireWakelock(QStringLiteral("b")));
         QTRY_VERIFY(holds(QStringLiteral("Wakelock: b")));
         QVERIFY(power.releaseWakelock(QStringLiteral("a")));
         QTRY_VERIFY(!holds(QStringLiteral("Wakelock: a")));
         QVERIFY(holds(QStringLiteral("Wakelock: b")));
-        QCOMPARE(power.activeWakelocks(), QStringList{QStringLiteral("b")});
+        QCOMPARE(power.getActiveWakelocks(), QStringList{QStringLiteral("b")});
     }
 
     void destroyingTheServiceReleasesItsLocks() {
         {
-            PowerManagerCpp power;
+            Power power;
             QVERIFY(power.acquireWakelock(QStringLiteral("gone")));
             QTRY_VERIFY(holds(QStringLiteral("Wakelock: gone")));
         }
@@ -169,42 +169,42 @@ class TestPowerManager : public QObject {
     }
 
     void aWakeForACallOrMessageTakesNoWakelock() {
-        PowerManagerCpp       power;
+        Power       power;
         PowerPolicyController policy(&power, nullptr);
         policy.wake(QStringLiteral("call"));
         policy.wake(QStringLiteral("notification"));
-        QCOMPARE(power.wakeLockCount(), 0);
+        QCOMPARE(power.getWakeLockCount(), 0);
         QVERIFY(policy.canSleep());
     }
 
     void startsFromTheActiveProfile() {
         m_profiles->setActiveProfile(QStringLiteral("performance"));
-        PowerManagerCpp power;
-        QTRY_VERIFY(power.powerProfilesSupported());
-        QCOMPARE(power.powerProfile(), QStringLiteral("performance"));
-        QVERIFY(!power.isPowerSaveMode());
+        Power power;
+        QTRY_VERIFY(power.getPowerProfilesSupported());
+        QCOMPARE(power.getPowerProfile(), QStringLiteral("performance"));
+        QVERIFY(!power.getIsPowerSaveMode());
     }
 
     void powerSaveSwitchesToThePowerSaverProfileAndBack() {
-        PowerManagerCpp power;
-        QTRY_VERIFY(power.powerProfilesSupported());
+        Power power;
+        QTRY_VERIFY(power.getPowerProfilesSupported());
         power.setPowerSaveMode(true);
         QTRY_COMPARE(m_profiles->activeProfile(), QStringLiteral("power-saver"));
-        QVERIFY(power.isPowerSaveMode());
+        QVERIFY(power.getIsPowerSaveMode());
         power.setPowerSaveMode(false);
         QTRY_COMPARE(m_profiles->activeProfile(), QStringLiteral("balanced"));
-        QTRY_COMPARE(power.powerProfile(), QStringLiteral("balanced"));
-        QVERIFY(!power.isPowerSaveMode());
+        QTRY_COMPARE(power.getPowerProfile(), QStringLiteral("balanced"));
+        QVERIFY(!power.getIsPowerSaveMode());
     }
 
     void aProfileSetElsewhereIsReported() {
-        PowerManagerCpp power;
-        QTRY_VERIFY(power.powerProfilesSupported());
-        QSignalSpy saver(&power, &PowerManagerCpp::isPowerSaveModeChanged);
+        Power power;
+        QTRY_VERIFY(power.getPowerProfilesSupported());
+        QSignalSpy saver(&power, &Power::isPowerSaveModeChanged);
         // powerprofilesctl set power-saver
         m_profiles->setActiveProfile(QStringLiteral("power-saver"));
-        QTRY_VERIFY(power.isPowerSaveMode());
-        QCOMPARE(power.powerProfile(), QStringLiteral("power-saver"));
+        QTRY_VERIFY(power.getIsPowerSaveMode());
+        QCOMPARE(power.getPowerProfile(), QStringLiteral("power-saver"));
         QCOMPARE(saver.count(), 1);
     }
 };

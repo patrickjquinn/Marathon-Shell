@@ -1,6 +1,6 @@
 #include <QTest>
 #include <QSignalSpy>
-#include "telephonyservice.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
 
 class TestTelephonyService : public QObject {
     Q_OBJECT
@@ -15,8 +15,8 @@ class TestTelephonyService : public QObject {
     }
 
     void declinedCallIsRejected() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateIncomingCall("+1234567890");
         phone.hangup();
         QCOMPARE(ended.count(), 1);
@@ -26,8 +26,8 @@ class TestTelephonyService : public QObject {
     }
 
     void callEndedByTheCallerIsMissed() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateIncomingCall("+1555111222");
         phone.simulateCallStateChange("terminated");
         QCOMPARE(ended.count(), 1);
@@ -35,16 +35,16 @@ class TestTelephonyService : public QObject {
     }
 
     void callThatStopsRingingIsMissed() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateIncomingCall("+1555123456");
         phone.simulateCallStateChange("idle");
         QCOMPARE(endedType(ended), QString("missed"));
     }
 
     void answeredCallIsIncomingHoweverShort() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateIncomingCall("+1234567890");
         phone.answer();
         phone.hangup();
@@ -53,8 +53,8 @@ class TestTelephonyService : public QObject {
     }
 
     void answeredCallEndedByTheCallerIsIncoming() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateIncomingCall("+1234567890");
         phone.answer();
         phone.simulateCallStateChange("terminated");
@@ -62,8 +62,8 @@ class TestTelephonyService : public QObject {
     }
 
     void outgoingCallIsOutgoing() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateCallStateChange("dialing");
         phone.simulateCallStateChange("active");
         phone.simulateCallStateChange("idle");
@@ -71,8 +71,8 @@ class TestTelephonyService : public QObject {
     }
 
     void aCallEndsOnce() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateIncomingCall("+1234567890");
         phone.hangup();
         phone.simulateCallStateChange("terminated");
@@ -80,8 +80,8 @@ class TestTelephonyService : public QObject {
     }
 
     void eachCallIsClassifiedOnItsOwn() {
-        ModemManagerCpp phone;
-        QSignalSpy       ended(&phone, &ModemManagerCpp::callEnded);
+        Modem phone;
+        QSignalSpy       ended(&phone, &Modem::callEnded);
         phone.simulateIncomingCall("+1234567890");
         phone.hangup();
         phone.simulateIncomingCall("+1555111222");

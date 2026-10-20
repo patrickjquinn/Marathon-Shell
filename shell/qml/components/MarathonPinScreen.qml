@@ -37,7 +37,7 @@ Item {
     signal cancelled
 
     function handleInput(digit) {
-        if (pin.length < 6 && !SecurityManagerCpp.isLockedOut) {
+        if (pin.length < 6 && !Security.isLockedOut) {
             pin += digit;
             error = "";
             if (pin.length === 6)
@@ -56,25 +56,25 @@ Item {
     function verifyPin() {
         if (authenticating)
             return;
-        if (SecurityManagerCpp.isLockedOut) {
-            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
+        if (Security.isLockedOut) {
+            var secs = Security.lockoutSecondsRemaining;
             error = "Locked for " + secs + "s";
             HapticManager.heavy();
             return;
         }
         Logger.info("PinScreen", "Starting authentication, showing spinner");
         authenticating = true;
-        if (SecurityManagerCpp.hasQuickPIN && !passwordMode) {
-            SecurityManagerCpp.authenticateQuickPIN(pin);
+        if (Security.hasQuickPIN && !passwordMode) {
+            Security.authenticateQuickPIN(pin);
         } else {
             var inputPassword = passwordMode ? password : pin;
-            SecurityManagerCpp.authenticatePassword(inputPassword);
+            Security.authenticatePassword(inputPassword);
         }
     }
 
     function verifyPasswordInput() {
-        if (SecurityManagerCpp.isLockedOut) {
-            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
+        if (Security.isLockedOut) {
+            var secs = Security.lockoutSecondsRemaining;
             error = "Locked for " + secs + "s";
             HapticManager.heavy();
             return;
@@ -86,24 +86,24 @@ Item {
         }
         Logger.info("PinScreen", "Starting password authentication, showing spinner");
         authenticating = true;
-        SecurityManagerCpp.authenticatePassword(password);
+        Security.authenticatePassword(password);
     }
 
     function startBiometric() {
-        if (SecurityManagerCpp.isLockedOut) {
-            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
+        if (Security.isLockedOut) {
+            var secs = Security.lockoutSecondsRemaining;
             error = "Locked for " + secs + "s";
             HapticManager.heavy();
             return;
         }
-        if (!SecurityManagerCpp.fingerprintAvailable) {
+        if (!Security.fingerprintAvailable) {
             error = "Fingerprint not enrolled";
             HapticManager.light();
             return;
         }
         biometricInProgress = true;
         error = "Place your finger...";
-        SecurityManagerCpp.authenticateBiometric(0);
+        Security.authenticateBiometric(0);
     }
 
     function switchToPasswordMode() {
@@ -207,8 +207,8 @@ Item {
         }
 
         function onLockoutStateChanged() {
-            if (SecurityManagerCpp.isLockedOut) {
-                var secs = SecurityManagerCpp.lockoutSecondsRemaining;
+            if (Security.isLockedOut) {
+                var secs = Security.lockoutSecondsRemaining;
                 pinScreen.error = "Locked for " + secs + "s";
                 Logger.warn("PinScreen", "Account locked for", secs, "seconds");
             } else {
@@ -216,7 +216,7 @@ Item {
             }
         }
 
-        target: SecurityManagerCpp
+        target: Security
     }
 
     Image {
@@ -480,7 +480,7 @@ Item {
                         MCircularIconButton {
                             objectName: "key" + pinKey.digit
                             anchors.centerIn: parent
-                            disabled: SecurityManagerCpp.isLockedOut
+                            disabled: Security.isLockedOut
                             text: pinKey.digit
                             iconSize: pinScreen.compactLayout ? Math.round(28 * pinScreen.compactUnit) : 28
                             buttonSize: pinScreen.keyButtonSize
@@ -524,7 +524,7 @@ Item {
                     MCircularIconButton {
                         objectName: "key0"
                         anchors.centerIn: parent
-                        disabled: SecurityManagerCpp.isLockedOut
+                        disabled: Security.isLockedOut
                         text: "0"
                         iconSize: pinScreen.compactLayout ? Math.round(28 * pinScreen.compactUnit) : 28
                         buttonSize: pinScreen.keyButtonSize
@@ -548,7 +548,7 @@ Item {
                         iconSize: pinScreen.compactLayout ? Math.round(24 * pinScreen.compactUnit) : 24
                         buttonSize: pinScreen.keyButtonSize
                         variant: disabled ? "secondary" : "primary"
-                        disabled: pinScreen.pin.length < 4 || pinScreen.authenticating || SecurityManagerCpp.isLockedOut
+                        disabled: pinScreen.pin.length < 4 || pinScreen.authenticating || Security.isLockedOut
                         a11yName: "Unlock"
                         onClicked: {
                             HapticManager.light();
@@ -670,8 +670,8 @@ Item {
             iconSize: 28
             buttonSize: 64
             variant: "secondary"
-            visible: SecurityManagerCpp.fingerprintAvailable && !pinScreen.biometricInProgress && !pinScreen.passwordMode
-            enabled: !SecurityManagerCpp.isLockedOut
+            visible: Security.fingerprintAvailable && !pinScreen.biometricInProgress && !pinScreen.passwordMode
+            enabled: !Security.isLockedOut
             onClicked: {
                 HapticManager.light();
                 pinScreen.startBiometric();
@@ -696,7 +696,7 @@ Item {
         Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Emergency call"
-            visible: typeof ModemManagerCpp === "undefined" || ModemManagerCpp.modemAvailable
+            visible: typeof Modem === "undefined" || Modem.modemAvailable
             backgroundColor: "transparent"
             color: Silica.Theme.errorColor
             onClicked: {

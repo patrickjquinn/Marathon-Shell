@@ -25,7 +25,7 @@ TestCase {
     }
 
     function init() {
-        SecurityManagerCpp.firstRunPins = [];
+        Security.firstRunPins = [];
         oobe.currentPage = 0;
         win.requestActivate();
         tryVerify(() => win.active);
@@ -76,7 +76,7 @@ TestCase {
         compare(page.stage, "confirm");
         for (const d of "123456")
             keyClick(Qt.Key_0 + Number(d));
-        compare(SecurityManagerCpp.firstRunPins, ["123456"]);
+        compare(Security.firstRunPins, ["123456"]);
         compare(oobe.currentPage, 6);
     }
 }

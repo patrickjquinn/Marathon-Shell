@@ -6,16 +6,16 @@
 #include <QString>
 #include <qqml.h>
 
-class NetworkManagerCpp;
+class Network;
 class BluetoothManager;
 class DisplayManagerCpp;
 class FlashlightManagerCpp;
-class ModemManagerCpp;
+class Modem;
 class SettingsManager;
 class AlarmManagerCpp;
 class LocationManager;
 class HapticManager;
-class PowerManagerCpp;
+class Power;
 class AudioManagerCpp;
 class AudioPolicyController;
 class ScreenshotServiceCpp;
@@ -48,13 +48,13 @@ class SystemControlStore : public QObject {
     Q_PROPERTY(QStringList pendingSwitches READ pendingSwitches NOTIFY pendingSwitchesChanged)
 
   public:
-    explicit SystemControlStore(NetworkManagerCpp    *networkManager,
+    explicit SystemControlStore(Network    *networkManager,
                                 BluetoothManager     *bluetoothManager,
                                 DisplayManagerCpp    *displayManager,
                                 FlashlightManagerCpp *flashlightManager,
-                                ModemManagerCpp *modemManager, SettingsManager *settingsManager,
+                                Modem *modemManager, SettingsManager *settingsManager,
                                 AlarmManagerCpp *alarmManager, LocationManager *locationManager,
-                                HapticManager *hapticManager, PowerManagerCpp *powerManager,
+                                HapticManager *hapticManager, Power *powerManager,
                                 AudioManagerCpp       *audioManager,
                                 AudioPolicyController *audioPolicyController,
                                 ScreenshotServiceCpp *screenshotService, QObject *parent = nullptr);
@@ -183,16 +183,16 @@ class SystemControlStore : public QObject {
     void                   markPending(const QString &id);
     void                   clearPending(const QString &id);
 
-    NetworkManagerCpp     *m_networkManager;
+    Network     *m_networkManager;
     BluetoothManager      *m_bluetoothManager;
     DisplayManagerCpp     *m_displayManager;
     FlashlightManagerCpp  *m_flashlightManager;
-    ModemManagerCpp       *m_modemManager;
+    Modem       *m_modemManager;
     SettingsManager       *m_settingsManager;
     AlarmManagerCpp       *m_alarmManager;
     LocationManager       *m_locationManager;
     HapticManager         *m_hapticManager;
-    PowerManagerCpp       *m_powerManager;
+    Power       *m_powerManager;
     AudioManagerCpp       *m_audioManager;
     AudioPolicyController *m_audioPolicyController;
     ScreenshotServiceCpp  *m_screenshotService;

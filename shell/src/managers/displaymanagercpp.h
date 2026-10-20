@@ -5,7 +5,7 @@
 #include <QString>
 #include <qqml.h>
 
-class PowerManagerCpp;
+class Power;
 class RotationManager;
 class SensorManagerCpp;
 class QTimer;
@@ -36,7 +36,7 @@ class DisplayManagerCpp : public QObject {
 
   public:
     explicit DisplayManagerCpp(
-        PowerManagerCpp *powerManager, RotationManager *rotationManager, QObject *parent = nullptr,
+        Power *powerManager, RotationManager *rotationManager, QObject *parent = nullptr,
         const QString &backlightDir = QStringLiteral("/sys/class/backlight"));
 
     void setSensorManager(SensorManagerCpp *sensorManager);
@@ -175,7 +175,7 @@ class DisplayManagerCpp : public QObject {
     bool              m_nightLightEnabled;
     int               m_nightLightTemperature;
     QString           m_nightLightSchedule;
-    PowerManagerCpp  *m_powerManager;
+    Power  *m_powerManager;
     RotationManager  *m_rotationManager;
     SensorManagerCpp *m_sensorManager = nullptr;
 

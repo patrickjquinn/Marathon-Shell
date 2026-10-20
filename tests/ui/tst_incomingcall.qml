@@ -29,7 +29,7 @@ TestCase {
                 host.active = false;
             }
 
-            target: TelephonyService
+            target: Modem
         }
 
         // As TelephonyIntegrationCpp: a call wakes the screen when it rings and when it ends.
@@ -38,7 +38,7 @@ TestCase {
                 DisplayPolicyControllerCpp.turnScreenOn();
             }
 
-            target: TelephonyService
+            target: Modem
         }
     }
 
@@ -47,7 +47,7 @@ TestCase {
         UIStore.appWindowOpen = true;
         SessionStore.isLocked = false;
         SessionStore.showLockScreen = false;
-        TelephonyService.callState = "incoming";
+        Modem.callState = "incoming";
         host.active = true;
         host.item.show("+1234567890", "");
         waitForRendering(host.item);
@@ -63,7 +63,7 @@ TestCase {
         const answer = button("Answer");
         verify(answer);
         mouseClick(answer);
-        compare(TelephonyService.callState, "active");
+        compare(Modem.callState, "active");
         compare(UIStore.opened, ["phone"]);
     }
 
@@ -71,7 +71,7 @@ TestCase {
         const decline = button("Decline");
         verify(decline);
         mouseClick(decline);
-        compare(TelephonyService.callState, "idle");
+        compare(Modem.callState, "idle");
         compare(UIStore.opened, []);
     }
 

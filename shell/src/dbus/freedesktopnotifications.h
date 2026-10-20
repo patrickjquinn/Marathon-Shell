@@ -13,7 +13,7 @@
 class AppModel;
 class MarathonAppRegistry;
 class NotificationModel;
-class PowerManagerCpp;
+class Power;
 class QDBusServiceWatcher;
 
 class FreedesktopNotifications : public QObject, protected QDBusContext {
@@ -22,7 +22,7 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
 
   public:
     explicit FreedesktopNotifications(NotificationDatabase *database, NotificationModel *model,
-                                      PowerManagerCpp *powerManager, QObject *parent = nullptr);
+                                      Power *powerManager, QObject *parent = nullptr);
     ~FreedesktopNotifications() override;
 
     bool registerService();
@@ -66,7 +66,7 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
   private:
     NotificationDatabase *m_database;
     NotificationModel    *m_model;
-    PowerManagerCpp      *m_powerManager;
+    Power      *m_powerManager;
     QPointer<MarathonAppRegistry> m_registry;
     QPointer<AppModel>            m_apps;
     // Transient notifications have ids no database row will reach.

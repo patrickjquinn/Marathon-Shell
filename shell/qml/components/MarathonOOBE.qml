@@ -296,18 +296,18 @@ Item {
             clip: true
 
             property string pendingSsid: ""
-            property bool firstScanDone: NetworkManagerCpp.availableNetworks.length > 0
+            property bool firstScanDone: Network.availableNetworks.length > 0
             // Connected as Settings' Wi-Fi page says: the scan can predate the connection.
-            readonly property var networks: NetworkManagerCpp.availableNetworks.map(n => Object.assign({}, n, {
-                        "connected": NetworkManagerCpp.wifiConnected && n.ssid === NetworkManagerCpp.wifiSsid
+            readonly property var networks: Network.availableNetworks.map(n => Object.assign({}, n, {
+                        "connected": Network.wifiConnected && n.ssid === Network.wifiSsid
                     })).sort((a, b) => b.connected - a.connected)
             // Compact: the title shares the rescan row to leave room for the list.
             readonly property bool titleInHeader: oobeRoot.compactLayout && SystemStatusStore.isWifiOn
             readonly property bool pageActive: oobeRoot.visible && oobeRoot.currentPage === 2 && SystemStatusStore.isWifiOn
 
             function rescan() {
-                wifiPage.firstScanDone = NetworkManagerCpp.availableNetworks.length > 0;
-                NetworkManagerCpp.scanWifi();
+                wifiPage.firstScanDone = Network.availableNetworks.length > 0;
+                Network.scanWifi();
                 scanTimeout.restart();
             }
 
@@ -317,7 +317,7 @@ Item {
             }
 
             Connections {
-                target: NetworkManagerCpp
+                target: Network
                 function onConnectionSuccess() {
                     wifiPage.pendingSsid = "";
                 }
@@ -325,7 +325,7 @@ Item {
                     wifiPage.pendingSsid = "";
                 }
                 function onAvailableNetworksChanged() {
-                    if (NetworkManagerCpp.availableNetworks.length > 0)
+                    if (Network.availableNetworks.length > 0)
                         wifiPage.firstScanDone = true;
                 }
             }
@@ -341,8 +341,8 @@ Item {
             Timer {
                 interval: 8000
                 repeat: true
-                running: wifiPage.pageActive && NetworkManagerCpp.availableNetworks.length === 0
-                onTriggered: NetworkManagerCpp.scanWifi()
+                running: wifiPage.pageActive && Network.availableNetworks.length === 0
+                onTriggered: Network.scanWifi()
             }
 
             ColumnLayout {
@@ -436,7 +436,7 @@ Item {
                         width: parent.width - 2 * x
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Silica.Theme.paddingMedium
-                        visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length === 0
+                        visible: wifiPage.firstScanDone && Network.availableNetworks.length === 0
 
                         Silica.Label {
                             width: parent.width
@@ -471,7 +471,7 @@ Item {
                         contentHeight: networkColumn.height
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
-                        visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length > 0
+                        visible: wifiPage.firstScanDone && Network.availableNetworks.length > 0
 
                         Column {
                             id: networkColumn
@@ -502,7 +502,7 @@ Item {
                                             wifiPasswordDialogLoader.show(networkRow.modelData.ssid, networkRow.modelData.strength, networkRow.modelData.security, networkRow.modelData.secured);
                                         } else {
                                             wifiPage.pendingSsid = networkRow.modelData.ssid;
-                                            NetworkManagerCpp.connectToNetwork(networkRow.modelData.ssid, "");
+                                            Network.connectToNetwork(networkRow.modelData.ssid, "");
                                         }
                                     }
 
@@ -785,7 +785,7 @@ Item {
                 {
                     "icon": "chevron-right",
                     "title": "Hub",
-                    "body": "Swipe in from the left edge of the screen to peek at the Hub — " + (ModemManagerCpp.modemAvailable ? "messages, notifications and calls." : "messages and notifications."),
+                    "body": "Swipe in from the left edge of the screen to peek at the Hub — " + (Modem.modemAvailable ? "messages, notifications and calls." : "messages and notifications."),
                     "direction": "right",
                     "source": "edge"
                 },
@@ -1062,8 +1062,8 @@ Item {
                             HapticManager.medium();
                         return;
                     }
-                    if (typeof SecurityManagerCpp !== 'undefined')
-                        SecurityManagerCpp.setQuickPINFirstRun(passcodePage.enteredPin);
+                    if (typeof Security !== 'undefined')
+                        Security.setQuickPINFirstRun(passcodePage.enteredPin);
                     oobeRoot.newPasscode = passcodePage.enteredPin;
                     oobeRoot.confirmPasscode = passcodePage.enteredPin;
                     oobeRoot.passcodeSkipped = false;
@@ -1439,7 +1439,7 @@ Item {
         sourceComponent: WiFiPasswordDialog {
             onConnectRequested: (ssid, password) => {
                 Logger.info("OOBE", "Connecting to WiFi:", ssid);
-                NetworkManagerCpp.connectToNetwork(ssid, password);
+                Network.connectToNetwork(ssid, password);
             }
             onCancelled: {
                 Logger.info("OOBE", "WiFi connection cancelled");
@@ -1462,7 +1462,7 @@ Item {
                 oobeRoot.activePasswordDialog.showError(message);
         }
 
-        target: NetworkManagerCpp
+        target: Network
     }
 
     Timer {
@@ -1480,7 +1480,7 @@ Item {
         repeat: false
         onTriggered: {
             if (SystemStatusStore.isWifiOn) {
-                NetworkManagerCpp.scanWifi();
+                Network.scanWifi();
             }
         }
     }

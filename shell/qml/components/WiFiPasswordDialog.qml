@@ -42,7 +42,7 @@ Item {
 
     function cancel() {
         if (isConnecting)
-            NetworkManagerCpp.cancelPendingConnection();
+            Network.cancelPendingConnection();
         cancelled();
         hide();
     }
@@ -71,7 +71,7 @@ Item {
         objectName: "connectTimeout"
         interval: 30000
         onTriggered: {
-            NetworkManagerCpp.cancelPendingConnection();
+            Network.cancelPendingConnection();
             wifiDialog.showError(qsTr("Couldn't connect. Check the password or move closer to the router."));
         }
     }

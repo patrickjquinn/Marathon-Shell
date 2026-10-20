@@ -22,7 +22,8 @@ use futures_lite::{future, StreamExt};
 use sha2::{Digest, Sha256};
 use zbus::zvariant::OwnedObjectPath;
 
-use crate::{io, log};
+use crate::audit::{self, Severity};
+use crate::{io, log, pam};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -31,56 +32,29 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
     }
 
-    #[namespace = "marathon::pam"]
-    unsafe extern "C++" {
-        include!("components/pamauth.h");
-        /// Blocks for PAM's failure delay on a wrong password: call it on
-        /// the blocking pool.
-        fn authenticate(user: &QString, password: &QString) -> bool;
-    }
-
-    #[namespace = "marathon::audit"]
-    unsafe extern "C++" {
-        include!("components/securityaudit.h");
-        #[cxx_name = "authSuccess"]
-        fn auth_success(user: &QString, method: &QString);
-        #[cxx_name = "authFailure"]
-        fn auth_failure(user: &QString, reason: &QString, source: &QString);
-        #[cxx_name = "authLockout"]
-        fn auth_lockout(user: &QString, seconds: i32);
-    }
-
     extern "RustQt" {
         #[qobject]
         #[qproperty(i32, auth_mode, cxx_name = "authMode", READ = auth_mode, NOTIFY = auth_mode_changed)]
-        #[qproperty(bool, has_quick_pin, cxx_name = "hasQuickPIN", READ = has_quick_pin, NOTIFY = quick_pin_changed)]
+        #[qproperty(bool, has_quick_pin, cxx_name = "hasQuickPIN", READ, NOTIFY = quick_pin_changed)]
         #[qproperty(bool, fingerprint_available, cxx_name = "fingerprintAvailable", READ = fingerprint_available, NOTIFY = fingerprint_available_changed)]
         #[qproperty(bool, is_locked_out, cxx_name = "isLockedOut", READ = is_locked_out, NOTIFY = lockout_state_changed)]
         #[qproperty(i32, lockout_seconds_remaining, cxx_name = "lockoutSecondsRemaining", READ = lockout_seconds_remaining, NOTIFY = lockout_state_changed)]
-        #[qproperty(i32, failed_attempts, cxx_name = "failedAttempts", READ = failed_attempts, NOTIFY = failed_attempts_changed)]
+        #[qproperty(i32, failed_attempts, cxx_name = "failedAttempts", READ, NOTIFY = failed_attempts_changed)]
         /// "none", "off", "open" or "pin": see `data_encryption_state`.
-        #[qproperty(QString, data_encryption, cxx_name = "dataEncryption", READ = data_encryption, NOTIFY = data_encryption_changed)]
+        #[qproperty(QString, data_encryption, cxx_name = "dataEncryption", READ, NOTIFY = data_encryption_changed)]
         /// The PIN was typed at startup to unlock the data; the lock screen
         /// needn't ask again this boot.
-        #[qproperty(bool, boot_unlocked, cxx_name = "bootUnlocked", READ = boot_unlocked, NOTIFY = boot_unlocked_changed)]
-        type SecurityManager = super::SecurityRust;
+        #[qproperty(bool, boot_unlocked, cxx_name = "bootUnlocked", READ, NOTIFY = boot_unlocked_changed)]
+        type Security = super::SecurityRust;
 
         #[cxx_name = "authMode"]
-        fn auth_mode(self: &SecurityManager) -> i32;
-        #[cxx_name = "hasQuickPIN"]
-        fn has_quick_pin(self: &SecurityManager) -> bool;
+        fn auth_mode(self: &Security) -> i32;
         #[cxx_name = "fingerprintAvailable"]
-        fn fingerprint_available(self: &SecurityManager) -> bool;
+        fn fingerprint_available(self: &Security) -> bool;
         #[cxx_name = "isLockedOut"]
-        fn is_locked_out(self: &SecurityManager) -> bool;
+        fn is_locked_out(self: &Security) -> bool;
         #[cxx_name = "lockoutSecondsRemaining"]
-        fn lockout_seconds_remaining(self: &SecurityManager) -> i32;
-        #[cxx_name = "failedAttempts"]
-        fn failed_attempts(self: &SecurityManager) -> i32;
-        #[cxx_name = "dataEncryption"]
-        fn data_encryption(self: &SecurityManager) -> QString;
-        #[cxx_name = "bootUnlocked"]
-        fn boot_unlocked(self: &SecurityManager) -> bool;
+        fn lockout_seconds_remaining(self: &Security) -> i32;
 
         #[qsignal]
         #[cxx_name = "authenticationSuccess"]
@@ -119,49 +93,49 @@ pub mod qobject {
 
         #[qinvokable]
         #[cxx_name = "authenticatePassword"]
-        fn authenticate_password(self: Pin<&mut SecurityManager>, password: &QString);
+        fn authenticate_password(self: Pin<&mut Security>, password: &QString);
         #[qinvokable]
         #[cxx_name = "authenticateQuickPIN"]
-        fn authenticate_quick_pin(self: Pin<&mut SecurityManager>, pin: &QString);
+        fn authenticate_quick_pin(self: Pin<&mut Security>, pin: &QString);
         /// `kind` 0 is the fingerprint, the only one there is.
         #[qinvokable]
         #[cxx_name = "authenticateBiometric"]
-        fn authenticate_biometric(self: Pin<&mut SecurityManager>, kind: i32);
+        fn authenticate_biometric(self: Pin<&mut Security>, kind: i32);
         #[qinvokable]
         #[cxx_name = "cancelAuthentication"]
-        fn cancel_authentication(self: Pin<&mut SecurityManager>);
+        fn cancel_authentication(self: Pin<&mut Security>);
         /// Changes the quick PIN after the system password.
         #[qinvokable]
         #[cxx_name = "setQuickPIN"]
-        fn set_quick_pin(self: &SecurityManager, pin: &QString, system_password: &QString);
+        fn set_quick_pin(self: &Security, pin: &QString, system_password: &QString);
         /// The first-run PIN, set without a password while none is set yet.
         #[qinvokable]
         #[cxx_name = "setQuickPINFirstRun"]
-        fn set_quick_pin_first_run(self: Pin<&mut SecurityManager>, pin: &QString) -> bool;
+        fn set_quick_pin_first_run(self: Pin<&mut Security>, pin: &QString) -> bool;
         #[qinvokable]
         #[cxx_name = "removeQuickPIN"]
-        fn remove_quick_pin(self: &SecurityManager, system_password: &QString);
+        fn remove_quick_pin(self: &Security, system_password: &QString);
         /// The quick PIN, or the system password when there is none; a
         /// failure counts towards the lockout. Answers with `ownerConfirmed`.
         #[qinvokable]
         #[cxx_name = "confirmOwner"]
-        fn confirm_owner(self: Pin<&mut SecurityManager>, secret: &QString);
+        fn confirm_owner(self: Pin<&mut Security>, secret: &QString);
         #[qinvokable]
         #[cxx_name = "isBiometricEnrolled"]
-        fn is_biometric_enrolled(self: &SecurityManager, kind: i32) -> bool;
+        fn is_biometric_enrolled(self: &Security, kind: i32) -> bool;
         #[qinvokable]
         #[cxx_name = "resetLockout"]
-        fn reset_lockout(self: Pin<&mut SecurityManager>);
+        fn reset_lockout(self: Pin<&mut Security>);
         #[qinvokable]
         #[cxx_name = "getCurrentUsername"]
-        fn get_current_username(self: &SecurityManager) -> QString;
+        fn get_current_username(self: &Security) -> QString;
     }
 
-    impl cxx_qt::Threading for SecurityManager {}
-    impl cxx_qt::Initialize for SecurityManager {}
+    impl cxx_qt::Threading for Security {}
+    impl cxx_qt::Initialize for Security {}
 }
 
-use qobject::SecurityManager;
+use qobject::Security;
 
 const MAX_ATTEMPTS: i32 = 5;
 const LOCKOUT: Duration = Duration::from_secs(300);
@@ -191,7 +165,7 @@ enum Secret {
     Fingerprint,
 }
 
-impl cxx_qt::Initialize for SecurityManager {
+impl cxx_qt::Initialize for Security {
     fn initialize(mut self: Pin<&mut Self>) {
         // Read once at startup: the lock screen decides from these at once.
         let user = current_user();
@@ -220,14 +194,10 @@ impl cxx_qt::Initialize for SecurityManager {
     }
 }
 
-impl SecurityManager {
+impl Security {
     fn auth_mode(&self) -> i32 {
         // SystemPassword 0, QuickPIN 1.
         i32::from(self.has_quick_pin)
-    }
-
-    fn has_quick_pin(&self) -> bool {
-        self.has_quick_pin
     }
 
     fn fingerprint_available(&self) -> bool {
@@ -242,18 +212,6 @@ impl SecurityManager {
         self.locked_until
             .and_then(|until| until.checked_duration_since(Instant::now()))
             .map_or(0, |left| i32::try_from(left.as_secs()).unwrap_or(i32::MAX))
-    }
-
-    fn failed_attempts(&self) -> i32 {
-        self.failed_attempts
-    }
-
-    fn data_encryption(&self) -> QString {
-        self.data_encryption.clone()
-    }
-
-    fn boot_unlocked(&self) -> bool {
-        self.boot_unlocked
     }
 
     fn get_current_username(&self) -> QString {
@@ -305,7 +263,7 @@ impl SecurityManager {
         self.as_mut().rust_mut().checking = true;
         let (qt, user) = (self.qt_thread(), self.user.clone());
         io::spawn(async move {
-            let ok = blocking::unblock(move || pam_authenticate(&user, &password)).await;
+            let ok = blocking::unblock(move || pam::authenticate(&user, &password)).await;
             qt.queue(move |obj| obj.finish(ok, Secret::Password)).ok();
         });
     }
@@ -321,7 +279,6 @@ impl SecurityManager {
     /// Counts an attempt towards the lockout and audits it; the failure
     /// message, if it failed.
     fn settle(mut self: Pin<&mut Self>, ok: bool, secret: Secret) -> Option<String> {
-        let user = QString::from(self.user.as_str());
         let (method, what, source) = match secret {
             Secret::Pin => ("quick_pin", "PIN", "QuickPIN"),
             Secret::Password => ("password", "password", "PAM"),
@@ -329,14 +286,14 @@ impl SecurityManager {
         };
         if ok {
             self.as_mut().reset_lockout();
-            qobject::auth_success(&user, &QString::from(method));
+            audit::log(Severity::Info, &format!("Authentication success: user={} method={method}", self.user));
             return None;
         }
         self.as_mut().record_failure();
-        qobject::auth_failure(&user, &QString::from(format!("Invalid {what}").as_str()), &QString::from(source));
+        audit::log(Severity::Warning, &format!("Authentication failure: user={} reason=Invalid {what} source={source}", self.user));
         Some(if self.is_locked_out() {
             let seconds = self.lockout_seconds_remaining();
-            qobject::auth_lockout(&user, seconds);
+            audit::log(Severity::Alert, &format!("Account locked out: user={} duration={seconds}s", self.user));
             format!("Too many failed attempts. Locked for {seconds} seconds.")
         } else if matches!(secret, Secret::Fingerprint) {
             "Fingerprint not recognized".to_owned()
@@ -397,7 +354,7 @@ impl SecurityManager {
     fn set_quick_pin(&self, pin: &QString, system_password: &QString) {
         let (pin, password, user, qt) = (pin.to_string(), system_password.to_string(), self.user.clone(), self.qt_thread());
         io::spawn(async move {
-            if !blocking::unblock(move || pam_authenticate(&user, &password)).await {
+            if !blocking::unblock(move || pam::authenticate(&user, &password)).await {
                 qt.queue(|obj| obj.fail("System password incorrect. Cannot set Quick PIN.")).ok();
                 return;
             }
@@ -452,7 +409,7 @@ impl SecurityManager {
     fn remove_quick_pin(&self, system_password: &QString) {
         let (password, user, qt) = (system_password.to_string(), self.user.clone(), self.qt_thread());
         io::spawn(async move {
-            if !blocking::unblock(move || pam_authenticate(&user, &password)).await {
+            if !blocking::unblock(move || pam::authenticate(&user, &password)).await {
                 qt.queue(|obj| obj.fail("System password incorrect. Cannot remove Quick PIN.")).ok();
                 return;
             }
@@ -484,7 +441,7 @@ impl SecurityManager {
         let (pin, user, qt) = (self.has_quick_pin, self.user.clone(), self.qt_thread());
         self.as_mut().rust_mut().checking = true;
         io::spawn(async move {
-            let ok = if pin { check_pin(secret).await } else { blocking::unblock(move || pam_authenticate(&user, &secret)).await };
+            let ok = if pin { check_pin(secret).await } else { blocking::unblock(move || pam::authenticate(&user, &secret)).await };
             qt.queue(move |mut obj| {
                 obj.as_mut().rust_mut().checking = false;
                 let secret = if pin { Secret::Pin } else { Secret::Password };
@@ -549,7 +506,7 @@ fn helper_ok(code: Option<i32>) -> bool {
     matches!(code, Some(0 | 3))
 }
 
-fn queue_encryption(qt: &cxx_qt::CxxQtThread<SecurityManager>) {
+fn queue_encryption(qt: &cxx_qt::CxxQtThread<Security>) {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
     let state = data_encryption_state(&home, &Probe::default());
     qt.queue(move |mut obj| {
@@ -670,10 +627,6 @@ fn unhex(text: &str) -> Option<Vec<u8>> {
         return None;
     }
     (0..text.len()).step_by(2).map(|i| u8::from_str_radix(text.get(i..i + 2)?, 16).ok()).collect()
-}
-
-fn pam_authenticate(user: &str, password: &str) -> bool {
-    qobject::authenticate(&QString::from(user), &QString::from(password))
 }
 
 /// The user the shell runs as, from its real uid and /etc/passwd.
@@ -806,7 +759,7 @@ async fn fprint_device(path: OwnedObjectPath) -> zbus::Result<FprintDeviceProxy<
 }
 
 // A reader with an enrolled finger; none on most devices.
-async fn find_fingerprint_reader(qt: cxx_qt::CxxQtThread<SecurityManager>, user: String) {
+async fn find_fingerprint_reader(qt: cxx_qt::CxxQtThread<Security>, user: String) {
     let found = async {
         let bus = io::system_bus().await.ok()?;
         let path = FprintManagerProxy::new(&bus).await.ok()?.get_default_device().await.ok()?;
@@ -824,7 +777,7 @@ async fn find_fingerprint_reader(qt: cxx_qt::CxxQtThread<SecurityManager>, user:
 }
 
 /// One verification: `Some(matched)`, or why it could not start.
-async fn verify_fingerprint(qt: &cxx_qt::CxxQtThread<SecurityManager>, path: OwnedObjectPath, user: &str) -> Result<Option<bool>, String> {
+async fn verify_fingerprint(qt: &cxx_qt::CxxQtThread<Security>, path: OwnedObjectPath, user: &str) -> Result<Option<bool>, String> {
     let device = fprint_device(path).await.map_err(|e| e.to_string())?;
     let mut statuses = device.receive_verify_status().await.map_err(|e| e.to_string())?;
     if let Err(e) = device.claim(user).await {

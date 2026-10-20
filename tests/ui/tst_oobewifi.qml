@@ -22,9 +22,9 @@ TestCase {
 
     function cleanup() {
         SystemStatusStore.isWifiOn = false;
-        NetworkManagerCpp.availableNetworks = [];
-        NetworkManagerCpp.wifiConnected = false;
-        NetworkManagerCpp.wifiSsid = "";
+        Network.availableNetworks = [];
+        Network.wifiConnected = false;
+        Network.wifiSsid = "";
         oobe.currentPage = 0;
     }
 
@@ -35,9 +35,9 @@ TestCase {
     // A pre-seeded network can connect after the scan the list came from.
     function test_marksTheNetworkAlreadyConnected() {
         SystemStatusStore.isWifiOn = true;
-        NetworkManagerCpp.availableNetworks = [network("Cafe", 90), network("Home", 60)];
-        NetworkManagerCpp.wifiConnected = true;
-        NetworkManagerCpp.wifiSsid = "Home";
+        Network.availableNetworks = [network("Cafe", 90), network("Home", 60)];
+        Network.wifiConnected = true;
+        Network.wifiSsid = "Home";
         oobe.currentPage = 2;
         let home = null;
         tryVerify(() => (home = findChild(oobe, "oobeNetwork-Home")) && home.visible);

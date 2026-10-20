@@ -26,20 +26,20 @@ class MarathonAppRegistry;
 
 class ContactsManager;
 class CallHistoryManager;
-class ModemManagerCpp;
+class Modem;
 class SMSService;
 class MediaLibraryManager;
 class SettingsManager;
 class AmbienceService;
 class WallpaperStore;
-class SecurityManager;
+class Security;
 class FactoryReset;
 class BluetoothManager;
 class DisplayManagerCpp;
 class FlashlightManagerCpp;
-class NetworkManagerCpp;
-class ModemManagerCpp;
-class PowerManagerCpp;
+class Network;
+class Modem;
+class Power;
 class PowerPolicyController;
 class WakeTimers;
 class ForegroundApp;
@@ -166,7 +166,7 @@ class TelephonyObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Telephony1")
 
   public:
-    TelephonyObject(ModemManagerCpp *telephony, MarathonPermissionManager *permissions,
+    TelephonyObject(Modem *telephony, MarathonPermissionManager *permissions,
                     AppLaunchService *launchService, AudioRoutingManager *audioRouting,
                     QObject *parent = nullptr);
 
@@ -199,7 +199,7 @@ class TelephonyObject : public IpcPermissionedService {
         return requirePermission("Telephony", {"telephony", "phone"});
     }
 
-    ModemManagerCpp    *m_telephony    = nullptr;
+    Modem    *m_telephony    = nullptr;
     AudioRoutingManager *m_audioRouting = nullptr;
 };
 
@@ -337,7 +337,7 @@ class SecurityObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Security1")
 
   public:
-    SecurityObject(SecurityManager *security, MarathonPermissionManager *permissions,
+    SecurityObject(Security *security, MarathonPermissionManager *permissions,
                    AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -368,7 +368,7 @@ class SecurityObject : public IpcPermissionedService {
     }
     QVariantMap      buildState() const;
 
-    SecurityManager *m_security     = nullptr;
+    Security *m_security     = nullptr;
     FactoryReset    *m_factoryReset = nullptr;
 };
 
@@ -456,7 +456,7 @@ class PowerObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Power1")
 
   public:
-    PowerObject(PowerManagerCpp *power, PowerPolicyController *policy,
+    PowerObject(Power *power, PowerPolicyController *policy,
                 MarathonPermissionManager *permissions, AppLaunchService *launchService,
                 QObject *parent = nullptr);
 
@@ -482,7 +482,7 @@ class PowerObject : public IpcPermissionedService {
     }
     QVariantMap            buildState() const;
 
-    PowerManagerCpp       *m_power      = nullptr;
+    Power       *m_power      = nullptr;
     PowerPolicyController *m_policy     = nullptr;
     WakeTimers            *m_wakeTimers = nullptr;
 };
@@ -533,7 +533,7 @@ class NetworkObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Network1")
 
   public:
-    NetworkObject(NetworkManagerCpp *network, MarathonPermissionManager *permissions,
+    NetworkObject(Network *network, MarathonPermissionManager *permissions,
                   AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -567,7 +567,7 @@ class NetworkObject : public IpcPermissionedService {
     }
     QVariantMap        buildState() const;
 
-    NetworkManagerCpp *m_network = nullptr;
+    Network *m_network = nullptr;
 };
 
 class ModemObject : public IpcPermissionedService {
@@ -575,7 +575,7 @@ class ModemObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Modem1")
 
   public:
-    ModemObject(ModemManagerCpp *modem, MarathonPermissionManager *permissions,
+    ModemObject(Modem *modem, MarathonPermissionManager *permissions,
                 AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -594,7 +594,7 @@ class ModemObject : public IpcPermissionedService {
     }
     QVariantMap      buildState() const;
 
-    ModemManagerCpp *m_modem = nullptr;
+    Modem *m_modem = nullptr;
 };
 
 class NavigationObject : public QObject, protected QDBusContext {

@@ -2,7 +2,7 @@
 #include "navigationroutercpp.h"
 #include "notificationdatabase.h"
 #include "notificationmodel.h"
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "updatenotifier.h"
 
 #include <QCoreApplication>

@@ -6,7 +6,7 @@
 #include "powerpolicycontroller.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
-#include "telephonyservice.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "smsservice.h"
 #include "contactsmanager.h"
 #include "sensormanagercpp.h"
@@ -17,7 +17,7 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
     PowerPolicyController *powerPolicy, DisplayPolicyController *displayPolicy,
     DisplayManagerCpp *displayManager, AudioPolicyController *audioPolicy, HapticManager *haptics,
-    ModemManagerCpp *telephonyService, SMSService *smsService, SensorManagerCpp *sensorManager,
+    Modem *telephonyService, SMSService *smsService, SensorManagerCpp *sensorManager,
     QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
@@ -31,11 +31,11 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     , m_smsService(smsService)
     , m_sensorManager(sensorManager) {
     if (m_telephonyService) {
-        connect(m_telephonyService, &ModemManagerCpp::incomingCall, this,
+        connect(m_telephonyService, &Modem::incomingCall, this,
                 &TelephonyIntegrationCpp::handleIncomingCall);
-        connect(m_telephonyService, &ModemManagerCpp::callStateChanged, this,
+        connect(m_telephonyService, &Modem::callStateChanged, this,
                 &TelephonyIntegrationCpp::handleCallStateChanged);
-        connect(m_telephonyService, &ModemManagerCpp::callEnded, this,
+        connect(m_telephonyService, &Modem::callEnded, this,
                 &TelephonyIntegrationCpp::handleCallEnded);
     }
 

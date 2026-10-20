@@ -4,14 +4,14 @@
 #include "navigationroutercpp.h"
 #include "notificationservicecpp.h"
 #include "notificationtarget.h"
-#include "telephonyservice.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
 
 #include <algorithm>
 #include <QDebug>
 
 NotificationHandlerCpp::NotificationHandlerCpp(NotificationServiceCpp *notifications,
                                                NavigationRouterCpp    *router,
-                                               ModemManagerCpp       *telephony,
+                                               Modem       *telephony,
                                                MarathonAppRegistry *registry, QObject *parent)
     : QObject(parent)
     , m_notifications(notifications)

@@ -1,4 +1,4 @@
-//! `ModemManagerCpp`: the modem's state for the status bar, Quick Settings
+//! `Modem`: the modem's state for the status bar, Quick Settings
 //! and the emergency-call affordances, mobile data, network modes and cell
 //! broadcasts. One `ModemManager` object cache on the I/O thread: the managed
 //! objects give every interface's properties at once, and the modem's
@@ -57,7 +57,7 @@ pub mod qobject {
         #[qproperty(QString, active_number, cxx_name = "activeNumber", READ, NOTIFY = active_number_changed)]
         /// The modem can make calls.
         #[qproperty(bool, has_modem, cxx_name = "hasModem", READ, NOTIFY = modem_changed)]
-        type ModemManagerCpp = super::ModemRust;
+        type Modem = super::ModemRust;
 
         #[qsignal]
         #[cxx_name = "callStateChanged"]
@@ -80,24 +80,24 @@ pub mod qobject {
         fn call_ended(self: Pin<&mut Self>, number: &QString, kind: &QString, started_ms: i64, duration_seconds: i32);
 
         #[qinvokable]
-        fn dial(self: Pin<&mut ModemManagerCpp>, number: &QString);
+        fn dial(self: Pin<&mut Modem>, number: &QString);
         /// Dials after an audit line that lands whatever the modem does.
         #[qinvokable]
         #[cxx_name = "dialEmergency"]
-        fn dial_emergency(self: Pin<&mut ModemManagerCpp>, number: &QString);
+        fn dial_emergency(self: Pin<&mut Modem>, number: &QString);
         #[qinvokable]
-        fn answer(self: Pin<&mut ModemManagerCpp>);
+        fn answer(self: Pin<&mut Modem>);
         #[qinvokable]
-        fn hangup(self: Pin<&mut ModemManagerCpp>);
+        fn hangup(self: Pin<&mut Modem>);
         #[qinvokable]
         #[cxx_name = "sendDTMF"]
-        fn send_dtmf(self: &ModemManagerCpp, digit: &QString);
+        fn send_dtmf(self: &Modem, digit: &QString);
         #[qinvokable]
         #[cxx_name = "simulateIncomingCall"]
-        fn simulate_incoming_call(self: Pin<&mut ModemManagerCpp>, number: &QString);
+        fn simulate_incoming_call(self: Pin<&mut Modem>, number: &QString);
         #[qinvokable]
         #[cxx_name = "simulateCallStateChange"]
-        fn simulate_call_state_change(self: Pin<&mut ModemManagerCpp>, state: &QString);
+        fn simulate_call_state_change(self: Pin<&mut Modem>, state: &QString);
 
         #[qsignal]
         #[cxx_name = "modesChanged"]
@@ -107,30 +107,30 @@ pub mod qobject {
         fn broadcast_received(self: Pin<&mut Self>, broadcast: &QMap_QString_QVariant);
 
         #[cxx_name = "setDataRoamingAllowed"]
-        fn set_data_roaming_allowed(self: Pin<&mut ModemManagerCpp>, allowed: bool);
+        fn set_data_roaming_allowed(self: Pin<&mut Modem>, allowed: bool);
         #[qinvokable]
-        fn enable(self: &ModemManagerCpp);
+        fn enable(self: &Modem);
         #[qinvokable]
-        fn disable(self: &ModemManagerCpp);
+        fn disable(self: &Modem);
         #[qinvokable]
         #[cxx_name = "enableData"]
-        fn enable_data(self: Pin<&mut ModemManagerCpp>);
+        fn enable_data(self: Pin<&mut Modem>);
         #[qinvokable]
         #[cxx_name = "disableData"]
-        fn disable_data(self: Pin<&mut ModemManagerCpp>);
+        fn disable_data(self: Pin<&mut Modem>);
         /// One of `supportedModes`, each a ModemManager `MMModemMode` mask.
         #[qinvokable]
         #[cxx_name = "setAllowedModes"]
-        fn set_allowed_modes(self: &ModemManagerCpp, allowed: u32);
+        fn set_allowed_modes(self: &Modem, allowed: u32);
         #[qinvokable]
-        fn acknowledge(self: Pin<&mut ModemManagerCpp>, path: &QString);
+        fn acknowledge(self: Pin<&mut Modem>, path: &QString);
     }
 
-    impl cxx_qt::Threading for ModemManagerCpp {}
-    impl cxx_qt::Initialize for ModemManagerCpp {}
+    impl cxx_qt::Threading for Modem {}
+    impl cxx_qt::Initialize for Modem {}
 }
 
-use qobject::ModemManagerCpp;
+use qobject::Modem;
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
@@ -201,7 +201,7 @@ macro_rules! set {
     }};
 }
 
-impl cxx_qt::Initialize for ModemManagerCpp {
+impl cxx_qt::Initialize for Modem {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(16);
         io::spawn(run(self.qt_thread(), rx));
@@ -211,7 +211,7 @@ impl cxx_qt::Initialize for ModemManagerCpp {
     }
 }
 
-impl ModemManagerCpp {
+impl Modem {
     fn send(&self, command: Command) {
         if !self.modem_available {
             return;
@@ -602,7 +602,7 @@ const VOICE: &str = "org.freedesktop.ModemManager1.Modem.Voice";
 const CALL: &str = "org.freedesktop.ModemManager1.Call";
 
 #[zbus::proxy(interface = "org.freedesktop.ModemManager1.Modem", default_service = "org.freedesktop.ModemManager1")]
-trait Modem {
+trait ManagedModem {
     fn enable(&self, enable: bool) -> zbus::Result<()>;
     fn set_current_modes(&self, modes: &(u32, u32)) -> zbus::Result<()>;
 }
@@ -613,7 +613,7 @@ trait Simple {
     fn disconnect(&self, bearer: &zbus::zvariant::ObjectPath<'_>) -> zbus::Result<()>;
 }
 
-type Qt = cxx_qt::CxxQtThread<ModemManagerCpp>;
+type Qt = cxx_qt::CxxQtThread<Modem>;
 
 enum Event {
     Command(Command),
@@ -841,9 +841,9 @@ async fn load_broadcast(bus: &zbus::Connection, qt: &Qt, path: OwnedObjectPath) 
 async fn act(bus: &zbus::Connection, state: &Snapshot, command: Command, qt: &Qt) -> zbus::Result<()> {
     let Some(path) = state.path.clone() else { return Ok(()) };
     match command {
-        Command::Enable(on) => ModemProxy::builder(bus).path(path)?.build().await?.enable(on).await,
+        Command::Enable(on) => ManagedModemProxy::builder(bus).path(path)?.build().await?.enable(on).await,
         Command::Modes(allowed) => match state.preferred(allowed) {
-            Some(preferred) => ModemProxy::builder(bus).path(path)?.build().await?.set_current_modes(&(allowed, preferred)).await,
+            Some(preferred) => ManagedModemProxy::builder(bus).path(path)?.build().await?.set_current_modes(&(allowed, preferred)).await,
             None => Ok(()),
         },
         // Dialling a bearer takes seconds; the I/O thread waits, not the GUI.

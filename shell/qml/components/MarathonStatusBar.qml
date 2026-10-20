@@ -176,7 +176,7 @@ Item {
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
-            visible: ModemManagerCpp.modemAvailable
+            visible: Modem.modemAvailable
         }
 
         Text {
@@ -185,7 +185,7 @@ Item {
             font.family: Silica.Theme.fontFamily
             font.pixelSize: Silica.Theme.fontSizeTiny
             anchors.verticalCenter: parent.verticalCenter
-            visible: ModemManagerCpp.modemAvailable && SystemStatusStore.dataType !== "" && SystemStatusStore.dataType !== "Unknown"
+            visible: Modem.modemAvailable && SystemStatusStore.dataType !== "" && SystemStatusStore.dataType !== "Unknown"
         }
 
         GlyphIcon {
@@ -197,7 +197,7 @@ Item {
         }
 
         GlyphIcon {
-            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
+            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected)
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter

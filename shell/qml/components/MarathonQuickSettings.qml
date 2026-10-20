@@ -164,7 +164,7 @@ Item {
     // Hardware tiles only when the hardware exists: without it they control nothing.
     readonly property var tiles: {
         var t = [{ id: "wifi",      icon: "wifi-high",        label: "Wi-Fi",     on: SystemControlStore.isWifiOn }];
-        if (ModemManagerCpp.modemAvailable)
+        if (Modem.modemAvailable)
             t.push({ id: "cellular",  icon: "cell-signal-high", label: "Mobile",    on: SystemControlStore.isCellularDataOn });
         t.push({ id: "bluetooth", icon: "bluetooth",        label: "Bluetooth", on: SystemControlStore.isBluetoothOn },
                { id: "airplane",  icon: "airplane-tilt",    label: "Flight",    on: SystemControlStore.isAirplaneModeOn },

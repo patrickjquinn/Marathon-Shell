@@ -7,9 +7,9 @@
 #include "src/managers/flashlightmanagercpp.h"
 #include "src/managers/hapticmanager.h"
 #include "src/managers/locationmanager.h"
-#include "src/managers/modemmanagercpp.h"
-#include "src/managers/networkmanagercpp.h"
-#include "src/managers/powermanagercpp.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
+#include "marathon-shell-native/src/network.cxxqt.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/screenshotservicecpp.h"
 #include <QRandomGenerator>
@@ -18,10 +18,10 @@
 #include <algorithm>
 
 SystemControlStore::SystemControlStore(
-    NetworkManagerCpp *networkManager, BluetoothManager *bluetoothManager,
+    Network *networkManager, BluetoothManager *bluetoothManager,
     DisplayManagerCpp *displayManager, FlashlightManagerCpp *flashlightManager,
-    ModemManagerCpp *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
-    LocationManager *locationManager, HapticManager *hapticManager, PowerManagerCpp *powerManager,
+    Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
+    LocationManager *locationManager, HapticManager *hapticManager, Power *powerManager,
     AudioManagerCpp *audioManager, AudioPolicyController *audioPolicyController,
     ScreenshotServiceCpp *screenshotService, QObject *parent)
     : QObject(parent)
@@ -39,20 +39,20 @@ SystemControlStore::SystemControlStore(
     , m_audioPolicyController(audioPolicyController)
     , m_screenshotService(screenshotService) {
     if (m_networkManager) {
-        setIsWifiOn(m_networkManager->wifiEnabled());
-        setIsAirplaneModeOn(m_networkManager->airplaneModeEnabled());
+        setIsWifiOn(m_networkManager->getWifiEnabled());
+        setIsAirplaneModeOn(m_networkManager->getAirplaneModeEnabled());
         setIsHotspotOn(m_networkManager->isHotspotActive());
-        connect(m_networkManager, &NetworkManagerCpp::hotspotActiveChanged, this,
+        connect(m_networkManager, &Network::hotspotActiveChanged, this,
                 [this]() { setIsHotspotOn(m_networkManager->isHotspotActive()); });
-        connect(m_networkManager, &NetworkManagerCpp::hotspotFailed, this,
+        connect(m_networkManager, &Network::hotspotFailed, this,
                 [this](const QString &message) {
                     clearPending(QStringLiteral("hotspot"));
                     emit hotspotFailed(message);
                 });
-        connect(m_networkManager, &NetworkManagerCpp::wifiEnabledChanged, this,
-                [this]() { setIsWifiOn(m_networkManager->wifiEnabled()); });
-        connect(m_networkManager, &NetworkManagerCpp::airplaneModeEnabledChanged, this,
-                [this]() { setIsAirplaneModeOn(m_networkManager->airplaneModeEnabled()); });
+        connect(m_networkManager, &Network::wifiEnabledChanged, this,
+                [this]() { setIsWifiOn(m_networkManager->getWifiEnabled()); });
+        connect(m_networkManager, &Network::airplaneModeEnabledChanged, this,
+                [this]() { setIsAirplaneModeOn(m_networkManager->getAirplaneModeEnabled()); });
     }
 
     if (m_bluetoothManager) {
@@ -89,9 +89,9 @@ SystemControlStore::SystemControlStore(
     if (m_modemManager) {
         setIsCellularOn(m_modemManager->getModemEnabled());
         setIsCellularDataOn(m_modemManager->getDataEnabled());
-        connect(m_modemManager, &ModemManagerCpp::modemEnabledChanged, this,
+        connect(m_modemManager, &Modem::modemEnabledChanged, this,
                 [this]() { setIsCellularOn(m_modemManager->getModemEnabled()); });
-        connect(m_modemManager, &ModemManagerCpp::dataEnabledChanged, this,
+        connect(m_modemManager, &Modem::dataEnabledChanged, this,
                 [this]() { setIsCellularDataOn(m_modemManager->getDataEnabled()); });
     }
 
@@ -122,9 +122,9 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_powerManager) {
-        setIsLowPowerMode(m_powerManager->isPowerSaveMode());
-        connect(m_powerManager, &PowerManagerCpp::isPowerSaveModeChanged, this,
-                [this]() { setIsLowPowerMode(m_powerManager->isPowerSaveMode()); });
+        setIsLowPowerMode(m_powerManager->getIsPowerSaveMode());
+        connect(m_powerManager, &Power::isPowerSaveModeChanged, this,
+                [this]() { setIsLowPowerMode(m_powerManager->getIsPowerSaveMode()); });
     }
 
     if (m_audioManager) {

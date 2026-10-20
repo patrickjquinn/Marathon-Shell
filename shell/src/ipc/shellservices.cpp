@@ -14,13 +14,13 @@
 #include "settingsmanager.h"
 #include "ambienceservice.h"
 #include "wallpaperstore.h"
-#include "securitymanager.h"
+#include "marathon-shell-native/src/security.cxxqt.h"
 #include "bluetoothmanager.h"
 #include "displaymanagercpp.h"
 #include "flashlightmanagercpp.h"
-#include "networkmanagercpp.h"
-#include "modemmanagercpp.h"
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/network.cxxqt.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "powerpolicycontroller.h"
 #include "waketimers.h"
 #include "audiomanagercpp.h"
@@ -36,7 +36,7 @@
 #include "contactsmanager.h"
 #include "smsservice.h"
 #include "audioroutingmanager.h"
-#include "telephonyservice.h"
+#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "medialibrarymanager.h"
 #include "../services/updateservice.h"
 #include "../services/factoryreset.h"
@@ -613,7 +613,7 @@ void SettingsObject::SetSystemTime(qlonglong msecsSinceEpoch) {
     m_settings->setSystemTime(msecsSinceEpoch);
 }
 
-SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionManager *permissions,
+SecurityObject::SecurityObject(Security *security, MarathonPermissionManager *permissions,
                                AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_security(security)
@@ -623,26 +623,26 @@ SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionMana
     Q_ASSERT(m_launchService);
 
     QObject::connect(m_factoryReset, &FactoryReset::failed, this, &SecurityObject::EraseFailed);
-    QObject::connect(m_security, &SecurityManager::authModeChanged, this,
+    QObject::connect(m_security, &Security::authModeChanged, this,
                      [this]() { emit StateChanged(buildState()); });
-    QObject::connect(m_security, &SecurityManager::quickPINChanged, this, [this]() {
+    QObject::connect(m_security, &Security::quickPINChanged, this, [this]() {
         emit QuickPINChanged();
         emit StateChanged(buildState());
     });
-    QObject::connect(m_security, &SecurityManager::fingerprintAvailableChanged, this,
+    QObject::connect(m_security, &Security::fingerprintAvailableChanged, this,
                      [this]() { emit StateChanged(buildState()); });
-    QObject::connect(m_security, &SecurityManager::lockoutStateChanged, this,
+    QObject::connect(m_security, &Security::lockoutStateChanged, this,
                      [this]() { emit StateChanged(buildState()); });
-    QObject::connect(m_security, &SecurityManager::failedAttemptsChanged, this,
+    QObject::connect(m_security, &Security::failedAttemptsChanged, this,
                      [this]() { emit StateChanged(buildState()); });
-    QObject::connect(m_security, &SecurityManager::dataEncryptionChanged, this,
+    QObject::connect(m_security, &Security::dataEncryptionChanged, this,
                      [this]() { emit StateChanged(buildState()); });
-    QObject::connect(m_security, &SecurityManager::authenticationFailed, this,
+    QObject::connect(m_security, &Security::authenticationFailed, this,
                      [this](const QString &reason) {
                          emit AuthenticationFailed(reason);
                          emit StateChanged(buildState());
                      });
-    QObject::connect(m_security, &SecurityManager::authenticationSuccess, this, [this]() {
+    QObject::connect(m_security, &Security::authenticationSuccess, this, [this]() {
         emit AuthenticationSuccess();
         emit StateChanged(buildState());
     });
@@ -651,13 +651,13 @@ SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionMana
 QVariantMap SecurityObject::buildState() const {
     return {
         {"authMode", static_cast<int>(m_security->authMode())},
-        {"hasQuickPIN", m_security->hasQuickPIN()},
+        {"hasQuickPIN", m_security->getHasQuickPIN()},
         {"fingerprintAvailable", m_security->fingerprintAvailable()},
         {"isLockedOut", m_security->isLockedOut()},
         {"lockoutSecondsRemaining", m_security->lockoutSecondsRemaining()},
-        {"failedAttempts", m_security->failedAttempts()},
+        {"failedAttempts", m_security->getFailedAttempts()},
         {"canEraseAllContent", m_factoryReset->supported()},
-        {"dataEncryption", m_security->dataEncryption()},
+        {"dataEncryption", m_security->getDataEncryption()},
     };
 }
 
@@ -687,7 +687,7 @@ void SecurityObject::AuthenticatePassword(const QString &password) {
 
 void SecurityObject::AuthenticateQuickPIN(const QString &pin) {
     // No requireSystem() here — the PIN itself is the auth. The
-    // SecurityManager applies its own lockout policy after N failed
+    // Security applies its own lockout policy after N failed
     // attempts, and the IpcPermissionedService rate-limit caps the
     // attempt rate at one per RATE_LIMIT_WINDOW_MS. Requiring a separate
     // "system" permission would force every dev/test caller to chain
@@ -955,7 +955,7 @@ void DisplayObject::Wake() {
     m_display->setScreenState(true);
 }
 
-PowerObject::PowerObject(PowerManagerCpp *power, PowerPolicyController *policy,
+PowerObject::PowerObject(Power *power, PowerPolicyController *policy,
                          MarathonPermissionManager *permissions, AppLaunchService *launchService,
                          QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
@@ -968,25 +968,25 @@ PowerObject::PowerObject(PowerManagerCpp *power, PowerPolicyController *policy,
     Q_ASSERT(m_launchService);
 
     auto push = [this]() { emit StateChanged(buildState()); };
-    QObject::connect(m_power, &PowerManagerCpp::batteryLevelChanged, this, push);
-    QObject::connect(m_power, &PowerManagerCpp::isChargingChanged, this, push);
-    QObject::connect(m_power, &PowerManagerCpp::isPluggedInChanged, this, push);
-    QObject::connect(m_power, &PowerManagerCpp::isPowerSaveModeChanged, this, push);
-    QObject::connect(m_power, &PowerManagerCpp::estimatedBatteryTimeChanged, this, push);
-    QObject::connect(m_power, &PowerManagerCpp::powerProfileChanged, this, push);
+    QObject::connect(m_power, &Power::batteryLevelChanged, this, push);
+    QObject::connect(m_power, &Power::isChargingChanged, this, push);
+    QObject::connect(m_power, &Power::isPluggedInChanged, this, push);
+    QObject::connect(m_power, &Power::isPowerSaveModeChanged, this, push);
+    QObject::connect(m_power, &Power::estimatedBatteryTimeChanged, this, push);
+    QObject::connect(m_power, &Power::powerProfileChanged, this, push);
     QObject::connect(m_policy, &PowerPolicyController::dozingChanged, this, push);
 }
 
 QVariantMap PowerObject::buildState() const {
     return {
         {"dozing", m_policy->dozing()},
-        {"batteryLevel", m_power->batteryLevel()},
-        {"isCharging", m_power->isCharging()},
-        {"isPluggedIn", m_power->isPluggedIn()},
-        {"isPowerSaveMode", m_power->isPowerSaveMode()},
-        {"estimatedBatteryTime", m_power->estimatedBatteryTime()},
-        {"powerProfile", m_power->powerProfile()},
-        {"powerProfilesSupported", m_power->powerProfilesSupported()},
+        {"batteryLevel", m_power->getBatteryLevel()},
+        {"isCharging", m_power->getIsCharging()},
+        {"isPluggedIn", m_power->getIsPluggedIn()},
+        {"isPowerSaveMode", m_power->getIsPowerSaveMode()},
+        {"estimatedBatteryTime", m_power->getEstimatedBatteryTime()},
+        {"powerProfile", m_power->getPowerProfile()},
+        {"powerProfilesSupported", m_power->getPowerProfilesSupported()},
     };
 }
 
@@ -1221,7 +1221,7 @@ void AudioObject::VibratePattern(const QVariantList &pattern) {
         m_policy->vibratePattern(pattern);
 }
 
-NetworkObject::NetworkObject(NetworkManagerCpp *network, MarathonPermissionManager *permissions,
+NetworkObject::NetworkObject(Network *network, MarathonPermissionManager *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_network(network) {
@@ -1230,45 +1230,45 @@ NetworkObject::NetworkObject(NetworkManagerCpp *network, MarathonPermissionManag
     Q_ASSERT(m_launchService);
 
     auto push = [this]() { emit StateChanged(buildState()); };
-    QObject::connect(m_network, &NetworkManagerCpp::wifiEnabledChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::wifiConnectedChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::wifiSsidChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::wifiSignalStrengthChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::ethernetConnectedChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::ethernetConnectionNameChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::wifiAvailableChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::bluetoothAvailableChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::hotspotSupportedChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::hotspotActiveChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::airplaneModeEnabledChanged, this, push);
-    QObject::connect(m_network, &NetworkManagerCpp::availableNetworksChanged, this, push);
+    QObject::connect(m_network, &Network::wifiEnabledChanged, this, push);
+    QObject::connect(m_network, &Network::wifiConnectedChanged, this, push);
+    QObject::connect(m_network, &Network::wifiSsidChanged, this, push);
+    QObject::connect(m_network, &Network::wifiSignalStrengthChanged, this, push);
+    QObject::connect(m_network, &Network::ethernetConnectedChanged, this, push);
+    QObject::connect(m_network, &Network::ethernetConnectionNameChanged, this, push);
+    QObject::connect(m_network, &Network::wifiAvailableChanged, this, push);
+    QObject::connect(m_network, &Network::bluetoothAvailableChanged, this, push);
+    QObject::connect(m_network, &Network::hotspotSupportedChanged, this, push);
+    QObject::connect(m_network, &Network::hotspotActiveChanged, this, push);
+    QObject::connect(m_network, &Network::airplaneModeEnabledChanged, this, push);
+    QObject::connect(m_network, &Network::availableNetworksChanged, this, push);
 
-    QObject::connect(m_network, &NetworkManagerCpp::networkError, this,
+    QObject::connect(m_network, &Network::networkError, this,
                      &NetworkObject::NetworkError);
-    QObject::connect(m_network, &NetworkManagerCpp::connectionSuccess, this,
+    QObject::connect(m_network, &Network::connectionSuccess, this,
                      &NetworkObject::ConnectionSuccess);
-    QObject::connect(m_network, &NetworkManagerCpp::connectionFailed, this,
+    QObject::connect(m_network, &Network::connectionFailed, this,
                      &NetworkObject::ConnectionFailed);
 }
 
 QVariantMap NetworkObject::buildState() const {
     QVariantList       wrappedNetworks;
-    const QVariantList nets = m_network->availableNetworks();
+    const QVariantList nets = m_network->getAvailableNetworks();
     wrappedNetworks.reserve(nets.size());
     for (const QVariant &v : nets) {
         wrappedNetworks.push_back(QVariant::fromValue(QDBusVariant(v)));
     }
     return {
-        {"wifiEnabled", m_network->wifiEnabled()},
-        {"wifiConnected", m_network->wifiConnected()},
-        {"wifiSsid", m_network->wifiSsid()},
-        {"wifiSignalStrength", m_network->wifiSignalStrength()},
-        {"ethernetConnected", m_network->ethernetConnected()},
-        {"ethernetConnectionName", m_network->ethernetConnectionName()},
-        {"wifiAvailable", m_network->wifiAvailable()},
-        {"bluetoothAvailable", m_network->bluetoothAvailable()},
+        {"wifiEnabled", m_network->getWifiEnabled()},
+        {"wifiConnected", m_network->getWifiConnected()},
+        {"wifiSsid", m_network->getWifiSsid()},
+        {"wifiSignalStrength", m_network->getWifiSignalStrength()},
+        {"ethernetConnected", m_network->getEthernetConnected()},
+        {"ethernetConnectionName", m_network->getEthernetConnectionName()},
+        {"wifiAvailable", m_network->getWifiAvailable()},
+        {"bluetoothAvailable", m_network->getBluetoothAvailable()},
         {"hotspotSupported", m_network->hotspotSupported()},
-        {"airplaneModeEnabled", m_network->airplaneModeEnabled()},
+        {"airplaneModeEnabled", m_network->getAirplaneModeEnabled()},
         {"availableNetworks", wrappedNetworks},
         {"hotspotActive", m_network->isHotspotActive()},
     };
@@ -1323,20 +1323,20 @@ void NetworkObject::ForgetNetwork(const QString &ssid) {
     m_network->forgetNetwork(ssid);
 }
 
-ModemObject::ModemObject(ModemManagerCpp *modem, MarathonPermissionManager *permissions,
+ModemObject::ModemObject(Modem *modem, MarathonPermissionManager *permissions,
                          AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_modem(modem) {
     Q_ASSERT(m_modem);
     auto push = [this]() { emit StateChanged(buildState()); };
-    for (auto signal : {&ModemManagerCpp::modemAvailableChanged,
-                        &ModemManagerCpp::modemEnabledChanged, &ModemManagerCpp::simPresentChanged,
-                        &ModemManagerCpp::registeredChanged, &ModemManagerCpp::operatorNameChanged,
-                        &ModemManagerCpp::signalStrengthChanged,
-                        &ModemManagerCpp::networkTypeChanged, &ModemManagerCpp::roamingChanged,
-                        &ModemManagerCpp::dataEnabledChanged,
-                        &ModemManagerCpp::dataRoamingAllowedChanged,
-                        &ModemManagerCpp::modesChanged})
+    for (auto signal : {&Modem::modemAvailableChanged,
+                        &Modem::modemEnabledChanged, &Modem::simPresentChanged,
+                        &Modem::registeredChanged, &Modem::operatorNameChanged,
+                        &Modem::signalStrengthChanged,
+                        &Modem::networkTypeChanged, &Modem::roamingChanged,
+                        &Modem::dataEnabledChanged,
+                        &Modem::dataRoamingAllowedChanged,
+                        &Modem::modesChanged})
         // clazy can't resolve a member-function pointer held in a variable.
         QObject::connect(m_modem, signal, this, push); // clazy:exclude=connect-non-signal
 }
@@ -1758,7 +1758,7 @@ void CallHistoryObject::ClearHistory() {
     m_callHistory->clearHistory();
 }
 
-TelephonyObject::TelephonyObject(ModemManagerCpp          *telephony,
+TelephonyObject::TelephonyObject(Modem          *telephony,
                                  MarathonPermissionManager *permissions,
                                  AppLaunchService *launchService, AudioRoutingManager *audioRouting,
                                  QObject *parent)
@@ -1769,15 +1769,15 @@ TelephonyObject::TelephonyObject(ModemManagerCpp          *telephony,
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
 
-    QObject::connect(m_telephony, &ModemManagerCpp::callStateChanged, this,
+    QObject::connect(m_telephony, &Modem::callStateChanged, this,
                      &TelephonyObject::CallStateChanged);
-    QObject::connect(m_telephony, &ModemManagerCpp::incomingCall, this,
+    QObject::connect(m_telephony, &Modem::incomingCall, this,
                      &TelephonyObject::IncomingCall);
-    QObject::connect(m_telephony, &ModemManagerCpp::callFailed, this,
+    QObject::connect(m_telephony, &Modem::callFailed, this,
                      &TelephonyObject::CallFailed);
-    QObject::connect(m_telephony, &ModemManagerCpp::modemChanged, this,
+    QObject::connect(m_telephony, &Modem::modemChanged, this,
                      &TelephonyObject::ModemChanged);
-    QObject::connect(m_telephony, &ModemManagerCpp::activeNumberChanged, this,
+    QObject::connect(m_telephony, &Modem::activeNumberChanged, this,
                      &TelephonyObject::ActiveNumberChanged);
 }
 

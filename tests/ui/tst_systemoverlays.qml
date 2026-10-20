@@ -48,8 +48,8 @@ TestCase {
                 "snoozeEnabled": true,
                 "snoozeDuration": 5
             }];
-        CellBroadcastManagerCpp.activeBroadcasts = [];
-        TelephonyService.callState = "idle";
+        Modem.activeBroadcasts = [];
+        Modem.callState = "idle";
         SessionStore.isLocked = false;
         UIStore.opened = [];
         call.hide();
@@ -115,7 +115,7 @@ TestCase {
     }
 
     function test_broadcastSwallowsTaps() {
-        CellBroadcastManagerCpp.activeBroadcasts = [{
+        Modem.activeBroadcasts = [{
                 "path": "/cb/1",
                 "category": "amber",
                 "text": "Alert",
@@ -129,10 +129,10 @@ TestCase {
     function test_answerWhileLockedKeepsTheDeviceLocked() {
         SessionStore.isLocked = true;
         call.show("+14155550142", "");
-        TelephonyService.callState = "incoming";
+        Modem.callState = "incoming";
         verify(call.visible);
         call.answeredHere = true;
-        TelephonyService.answer();
+        Modem.answer();
         call.hide();
         verify(SessionStore.isLocked);
         verify(call.inCall);
@@ -141,7 +141,7 @@ TestCase {
         call.pinShown = true;
         verify(!call.visible);
         call.pinShown = false;
-        TelephonyService.hangup();
+        Modem.hangup();
         verify(!call.visible);
     }
 
@@ -149,7 +149,7 @@ TestCase {
         call.show("+14155550142", "");
         verify(call.visible);
         call.answeredHere = true;
-        TelephonyService.answer();
+        Modem.answer();
         call.hide();
         verify(!call.inCall);
         verify(!call.visible);

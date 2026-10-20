@@ -7,7 +7,7 @@
 #include <QTest>
 
 #include "factoryreset.h"
-#include "securitymanager.h"
+#include "marathon-shell-native/src/security.cxxqt.h"
 
 namespace {
 
@@ -68,7 +68,7 @@ class TestFactoryReset : public QObject {
     }
 
     void withoutTheServiceItIsUnsupported() {
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun(PIN));
         FactoryReset reset(&security, socketPath());
         QVERIFY(!reset.supported());
@@ -79,7 +79,7 @@ class TestFactoryReset : public QObject {
     }
 
     void theRightPinAsksTheService() {
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun(PIN));
         FakeService  service(socketPath(), "ok\n");
         FactoryReset reset(&security, socketPath());
@@ -92,7 +92,7 @@ class TestFactoryReset : public QObject {
     }
 
     void aWrongPinNeverReachesTheService() {
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun(PIN));
         FakeService  service(socketPath(), "ok\n");
         FactoryReset reset(&security, socketPath());
@@ -100,13 +100,13 @@ class TestFactoryReset : public QObject {
         reset.erase(QStringLiteral("000000"));
         QTRY_COMPARE(failed.count(), 1);
         QCOMPARE(failed.at(0).at(0).toString(), QStringLiteral("Incorrect PIN"));
-        QCOMPARE(security.failedAttempts(), 1);
+        QCOMPARE(security.getFailedAttempts(), 1);
         QTest::qWait(100);
         QVERIFY(service.requests.isEmpty());
     }
 
     void lockedOutEvenTheRightPinIsRefused() {
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun(PIN));
         FakeService  service(socketPath(), "ok\n");
         FactoryReset reset(&security, socketPath());
@@ -122,8 +122,8 @@ class TestFactoryReset : public QObject {
     }
 
     void withoutAPinTheSystemPasswordIsAsked() {
-        SecurityManager security;
-        QVERIFY(!security.hasQuickPIN());
+        Security security;
+        QVERIFY(!security.getHasQuickPIN());
         FakeService  service(socketPath(), "ok\n");
         FactoryReset reset(&security, socketPath());
         QSignalSpy   failed(&reset, &FactoryReset::failed);
@@ -134,7 +134,7 @@ class TestFactoryReset : public QObject {
     }
 
     void theServicesRefusalIsPassedOn() {
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun(PIN));
         FakeService  service(socketPath(), "this device has no data partition to erase\n");
         FactoryReset reset(&security, socketPath());
@@ -146,7 +146,7 @@ class TestFactoryReset : public QObject {
     }
 
     void aServiceThatHangsUpSilentlyIsAFailure() {
-        SecurityManager security;
+        Security security;
         QVERIFY(security.setQuickPINFirstRun(PIN));
         FakeService  service(socketPath(), "");
         FactoryReset reset(&security, socketPath());

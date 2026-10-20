@@ -1,5 +1,5 @@
 #include "displaymanagercpp.h"
-#include "powermanagercpp.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "rotationmanager.h"
 #include "sensormanagercpp.h"
 #include "platform.h"
@@ -52,7 +52,7 @@ static inline double brightnessHwToUser(double hw) {
     return qBound(0.0, (hw - floor) / (1.0 - floor), 1.0);
 }
 
-DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
+DisplayManagerCpp::DisplayManagerCpp(Power *powerManager,
                                      RotationManager *rotationManager, QObject *parent,
                                      const QString &backlightDir)
     : QObject(parent)

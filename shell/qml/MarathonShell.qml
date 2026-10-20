@@ -177,7 +177,7 @@ Item {
     }
     Component.onCompleted: {
         shell.forceActiveFocus();
-        if (SecurityManagerCpp.bootUnlocked && SessionStore.isLocked)
+        if (Security.bootUnlocked && SessionStore.isLocked)
             SessionStore.unlock();
         MHaptics.backend = HapticManager;
         compositor = shellInitialization.initialize(shell, shellWindow);
@@ -340,8 +340,8 @@ Item {
                     if (!existing || !existing.id)
                         ContactsManager.addContact("Maya Chen", "+1 415 555 0142", "maya@example.com");
                 }
-                TelephonyService.simulateIncomingCall("+1 415 555 0142");
-                TelephonyService.simulateCallStateChange("active");
+                Modem.simulateIncomingCall("+1 415 555 0142");
+                Modem.simulateCallStateChange("active");
             }
             if (seedDemo) {
                 NotificationModel.addNotification("imessage", "Maya Chen", "Heading out, see you at 8 — saved a spot near the back.", "message");
@@ -2011,14 +2011,14 @@ Item {
     // immediately. Belt-and-braces: clear showLockScreen here too. If
     // both handlers fire, setShowLockScreen(false) twice is a no-op.
     Connections {
-        target: SecurityManagerCpp
+        target: Security
         function onAuthenticationSuccess() {
             if (SessionStore.isLocked && !shell.showPinScreen)
                 SessionStore.unlock();
         }
         // The PIN was just typed at startup; don't ask for it twice.
         function onBootUnlockedChanged() {
-            if (SecurityManagerCpp.bootUnlocked && SessionStore.isLocked)
+            if (Security.bootUnlocked && SessionStore.isLocked)
                 SessionStore.unlock();
         }
     }
@@ -2278,26 +2278,26 @@ Item {
 
     Connections {
         function onWifiConnectedChanged() {
-            if (NetworkManagerCpp.wifiConnected)
-                connectionToast.show(qsTr("Connected to %1").arg(NetworkManagerCpp.wifiSsid), "wifi");
-            else if (NetworkManagerCpp.wifiEnabled)
+            if (Network.wifiConnected)
+                connectionToast.show(qsTr("Connected to %1").arg(Network.wifiSsid), "wifi");
+            else if (Network.wifiEnabled)
                 connectionToast.show(qsTr("Wi-Fi disconnected"), "wifi-slash");
         }
 
         // Emitted just after wifiConnectedChanged when the network is new.
         function onWifiSsidChanged() {
-            if (NetworkManagerCpp.wifiConnected)
-                connectionToast.show(qsTr("Connected to %1").arg(NetworkManagerCpp.wifiSsid), "wifi");
+            if (Network.wifiConnected)
+                connectionToast.show(qsTr("Connected to %1").arg(Network.wifiSsid), "wifi");
         }
 
         function onEthernetConnectedChanged() {
-            if (NetworkManagerCpp.ethernetConnected)
+            if (Network.ethernetConnected)
                 connectionToast.show("Connected to Ethernet", "plug-zap");
-            else if (!NetworkManagerCpp.ethernetConnected && !NetworkManagerCpp.wifiConnected)
+            else if (!Network.ethernetConnected && !Network.wifiConnected)
                 connectionToast.show("No network connection", "wifi-slash");
         }
 
-        target: NetworkManagerCpp
+        target: Network
     }
 
     Connections {
@@ -2384,7 +2384,7 @@ Item {
     // screen + PIN entry so an Amber Alert that fires while the device
     // is locked still displays — see component header for FCC §10.500
     // rules on non-dismissable categories. Visibility is bound to
-    // CellBroadcastManagerCpp.activeBroadcasts; manager stays dormant
+    // Modem.activeBroadcasts; manager stays dormant
     // on devices without a 3GPP modem.
     MarathonCellBroadcastOverlay {
         id: cellBroadcastOverlay
@@ -2393,7 +2393,7 @@ Item {
     // Lock-screen WiFi / captive-portal credential prompt. Currently
     // inert — only surfaces when something calls
     // lockScreenNetworkAgent.show(ssid, security). r201+ will wire it
-    // to NetworkManagerCpp's secret-needed signal.
+    // to Network's secret-needed signal.
     //
     // The component self-gates on `agent.active` (visible: active).
     // Do NOT add an outer `visible:` binding here — it overrides the
@@ -2732,11 +2732,11 @@ Item {
         }
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");
-            PowerManagerService.restart();
+            Power.restart();
         }
         onShutdownRequested: {
             Logger.info("Shell", "Shutdown requested from power menu");
-            PowerManagerService.shutdown();
+            Power.shutdown();
         }
     }
 
