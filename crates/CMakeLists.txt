@@ -31,7 +31,7 @@ get_target_property(_qmake Qt6::qmake IMPORTED_LOCATION)
 set(_cxxqt_export "${CMAKE_CURRENT_BINARY_DIR}/cxxqt-export")
 set(_cargo_env ${CMAKE_COMMAND} -E env
     "CARGO_TARGET_DIR=${MARATHON_CARGO_TARGET_DIR}" "CARGO_INCREMENTAL=0"
-    "QMAKE=${_qmake}" "CXX_QT_EXPORT_DIR=${_cxxqt_export}")
+    "QMAKE=${_qmake}" "CXX_QT_EXPORT_DIR=${_cxxqt_export}" "MARATHON_VERSION=${MARATHON_VERSION}")
 
 # libMarathonCore's Rust half. Link it with --exclude-libs so its copy of the
 # Rust runtime stays private to the consuming .so.

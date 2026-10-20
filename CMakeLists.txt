@@ -206,6 +206,10 @@ add_custom_target(qmllint-types)
 add_subdirectory(thirdparty)
 
 # Rust crates (marathon-core-native and later components)
+# Settings > About; packages pass -DMARATHON_VERSION=pkgver-rpkgrel.
+if(NOT DEFINED MARATHON_VERSION)
+    set(MARATHON_VERSION "${PROJECT_VERSION}")
+endif()
 add_subdirectory(crates)
 
 # Marathon Core library (shared app management logic)
