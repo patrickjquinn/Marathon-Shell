@@ -21,7 +21,6 @@ set(SOURCES
     pagetouch.cpp
     keelhost.cpp
     platformtypes.cpp
-    calendarmanagercpp.cpp
     worldclockhelper.h
     ../../marathon-services/src/musiclibrarymanager.cpp
 )
@@ -76,7 +75,7 @@ install(TARGETS marathon-app-runner
 # Marathon.Platform described for qmllint; only its qmltypes is ever built.
 # The Rust clients' QObjects are described from their generated headers.
 set(_app_native_headers)
-foreach(_client alarms audio bluetooth contacts dav display haptics history lifecycle location media modem navigation network notifications permissions power security sensors settings sms store stores telephony updates wallpapers)
+foreach(_client alarms audio bluetooth calendar contacts dav display haptics history lifecycle location media modem navigation network notifications permissions power security sensors settings sms store stores telephony updates wallpapers)
     list(APPEND _app_native_headers
         "${CMAKE_BINARY_DIR}/crates/cxxqt-export/crates/marathon-app-native/include/marathon-app-native/src/${_client}.cxxqt.h")
 endforeach()
@@ -89,7 +88,6 @@ qt6_add_qml_module(marathon-platform-types
     NO_PLUGIN
     SOURCES
         platformqmltypes.h
-        calendarmanagercpp.h
         worldclockhelper.h
         ../../marathon-core/src/marathonappregistry.h
         ${_app_native_headers}

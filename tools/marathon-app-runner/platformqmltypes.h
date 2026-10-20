@@ -6,7 +6,7 @@
 
 #include <QtQml/qqmlregistration.h>
 
-#include "calendarmanagercpp.h"
+#include "marathon-app-native/src/calendar.cxxqt.h"
 #include "marathon-app-native/src/alarms.cxxqt.h"
 #include "marathon-app-native/src/audio.cxxqt.h"
 #include "marathon-app-native/src/bluetooth.cxxqt.h"
@@ -94,7 +94,7 @@ struct PlatformMediaLibrary {
 
 struct PlatformCalendar {
     Q_GADGET
-    QML_FOREIGN(CalendarManagerCpp)
+    QML_FOREIGN(marathon::platform::Calendar)
     QML_NAMED_ELEMENT(Calendar)
     QML_SINGLETON
 };

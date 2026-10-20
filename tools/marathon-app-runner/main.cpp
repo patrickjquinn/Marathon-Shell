@@ -159,7 +159,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/ambience.cxxqt.h"
 #include "platformtypes.h"
 #include "marathon-app-native/src/wallpapers.cxxqt.h"
-#include "calendarmanagercpp.h"
+#include "marathon-app-native/src/calendar.cxxqt.h"
 #include "musiclibrarymanager.h"
 
 class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
@@ -1274,10 +1274,8 @@ int main(int argc, char *argv[]) {
     exposeClient<marathon::platform::SystemStatusStore>(ctx, "SystemStatusStore");
     exposeClient<marathon::platform::SystemControlStore>(ctx, "SystemControlStore");
 
-    if (appId == "calendar") {
-        ctx->setContextProperty("CalendarManager",
-                                new CalendarManagerCpp(settingsClient, notifications, &app));
-    }
+    if (appId == "calendar")
+        exposeClient<marathon::platform::Calendar>(ctx, "CalendarManager", false);
     registerPlatformTypes(ctx);
 
     const QString entryAbs      = QDir(info->absolutePath).filePath(info->entryPoint);

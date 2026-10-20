@@ -6,6 +6,7 @@ fn main() {
         .file("src/ambience.rs")
         .file("src/audio.rs")
         .file("src/bluetooth.rs")
+        .file("src/calendar.rs")
         .file("src/contacts.rs")
         .file("src/dav.rs")
         .file("src/display.rs")

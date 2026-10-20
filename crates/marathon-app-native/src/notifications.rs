@@ -75,7 +75,7 @@ async fn server() -> &'static str {
         .await
 }
 
-async fn call<B>(method: &str, body: &B) -> zbus::Result<zbus::Message>
+pub(crate) async fn call<B>(method: &str, body: &B) -> zbus::Result<zbus::Message>
 where
     B: serde::Serialize + zbus::zvariant::DynamicType,
 {

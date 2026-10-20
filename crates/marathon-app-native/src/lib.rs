@@ -12,6 +12,7 @@ pub mod alarms;
 pub mod ambience;
 pub mod audio;
 pub mod bluetooth;
+pub mod calendar;
 pub mod contacts;
 pub mod dav;
 pub mod display;
