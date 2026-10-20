@@ -9,6 +9,7 @@ fn main() {
         .file("src/modem.rs")
         .file("src/motion.rs")
         .file("src/network.rs")
+        .file("src/ngf.rs")
         .file("src/pilot.rs")
         .file("src/power.rs")
         .file("src/pressure.rs")

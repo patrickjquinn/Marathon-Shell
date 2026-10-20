@@ -73,7 +73,7 @@
 #include "src/managers/settingsmanager.h"
 #include "src/services/ambienceservice.h"
 #include "src/services/toolkitthemewriter.h"
-#include "src/services/ngfservice.h"
+#include "marathon-shell-native/src/ngf.cxxqt.h"
 #include "src/dbus/portalsettings.h"
 #include "src/dbus/portalfilechooser.h"
 #include "src/models/filechoosermodel.h"
@@ -886,16 +886,12 @@ int main(int argc, char *argv[]) {
                      [hapticManager, settingsManager] {
                          hapticManager->setEnabled(settingsManager->vibrationEnabled());
                      });
-    {
-        auto *ngf = new NgfService(
-            [hapticManager](const QList<int> &pattern) { hapticManager->vibratePattern(pattern); },
-            [hapticManager]() { hapticManager->cancelVibration(); }, &app);
-        QDBusConnection bus = QDBusConnection::systemBus();
-        if (!bus.registerObject(QStringLiteral("/com/nokia/NonGraphicFeedback1"), ngf,
-                                QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals) ||
-            !bus.registerService(QStringLiteral("com.nokia.NonGraphicFeedback1.Backend")))
-            qWarning() << "[MarathonShell] Nemo.Ngf backend not registered:" << bus.lastError().message();
-    }
+    auto *ngf = new marathon::Ngf();
+    ngf->setParent(&app);
+    QObject::connect(ngf, &marathon::Ngf::vibrate, hapticManager,
+                     qOverload<const QList<int> &>(&HapticManager::vibratePattern));
+    QObject::connect(ngf, &marathon::Ngf::stopVibration, hapticManager,
+                     &HapticManager::cancelVibration);
     createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, power, audioManager, hapticManager, &app);

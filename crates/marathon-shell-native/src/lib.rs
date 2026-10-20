@@ -17,6 +17,7 @@ mod identity;
 pub mod modem;
 pub mod motion;
 pub mod network;
+pub mod ngf;
 mod notifications;
 mod pam;
 pub mod pilot;

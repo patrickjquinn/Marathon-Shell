@@ -123,7 +123,6 @@ set(SOURCES
     src/services/router.cpp
     src/services/ambiencederivation.cpp
     src/services/ambienceservice.cpp
-    src/services/ngfservice.cpp
     src/services/toolkittheme.h
     src/services/toolkittheme.cpp
     src/services/toolkitthemewriter.h
@@ -517,8 +516,6 @@ qt6_add_qml_module(marathon-shell
         src/services/ambiencederivation.h
         src/services/ambienceservice.cpp
         src/services/ambienceservice.h
-        src/services/ngfservice.cpp
-        src/services/ngfservice.h
         src/dbus/portalsettings.cpp
         src/dbus/portalsettings.h
         src/services/surfaceregistry.cpp

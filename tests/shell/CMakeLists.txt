@@ -221,18 +221,6 @@ target_link_libraries(test_shell_nativeback Qt6::Test Qt6::Core Qt6::Gui)
 target_include_directories(test_shell_nativeback PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
 add_test(NAME Shell_NativeBack COMMAND test_shell_nativeback)
 
-# Nemo.Ngf events to vibration patterns
-add_executable(test_shell_ngfevents test_ngfevents.cpp)
-target_link_libraries(test_shell_ngfevents Qt6::Test Qt6::Core)
-target_include_directories(test_shell_ngfevents PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_NgfEvents COMMAND test_shell_ngfevents)
-
-# Nemo.Ngf backend (com.nokia.NonGraphicFeedback1)
-add_executable(test_shell_ngfservice test_ngfservice.cpp ../../shell/src/services/ngfservice.cpp)
-target_link_libraries(test_shell_ngfservice Qt6::Test Qt6::Core)
-target_include_directories(test_shell_ngfservice PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_NgfService COMMAND test_shell_ngfservice)
-
 # Nemo.Notifications remote actions (x-nemo-remote-action-*)
 find_package(Qt6 REQUIRED COMPONENTS DBus)
 add_executable(test_shell_nemoremoteaction test_nemoremoteaction.cpp)
