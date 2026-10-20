@@ -87,17 +87,13 @@ TestCase {
         compare(underneath.taps, 0);
     }
 
-    function test_alarmDismissNeedsAHold() {
+    function test_alarmDismissIsATap() {
         alarm.show({
             "id": "a1",
             "label": "Wake"
         });
         const dismiss = findChild(alarm, "dismissAction");
         mouseClick(dismiss, dismiss.width / 2, dismiss.width / 2);
-        compare(AlarmManagerCpp.dismissed.length, 0);
-        mousePress(dismiss, dismiss.width / 2, dismiss.width / 2);
-        wait(1200);
-        mouseRelease(dismiss, dismiss.width / 2, dismiss.width / 2);
         compare(AlarmManagerCpp.dismissed, ["a1"]);
         verify(!alarm.visible);
     }

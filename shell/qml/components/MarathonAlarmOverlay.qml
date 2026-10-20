@@ -45,7 +45,6 @@ Item {
         property string iconName
         property string label
         property bool emphasised: false
-        property bool holdToActivate: false
 
         signal activated
 
@@ -61,17 +60,9 @@ Item {
             height: width
             iconName: action.iconName
             iconSize: Silica.Theme.iconSizeMedium
-            variant: action.emphasised || holdArea.pressed ? "primary" : "secondary"
+            variant: action.emphasised ? "primary" : "secondary"
             a11yName: action.label
             onClicked: action.activated()
-
-            MouseArea {
-                id: holdArea
-
-                anchors.fill: parent
-                enabled: action.holdToActivate
-                onPressAndHold: action.activated()
-            }
         }
 
         Silica.Label {
@@ -136,7 +127,6 @@ Item {
                 objectName: "dismissAction"
                 iconName: "x"
                 label: qsTr("Dismiss")
-                holdToActivate: true
                 onActivated: {
                     HapticManager.medium();
                     alarmOverlay.dismiss();
@@ -154,13 +144,6 @@ Item {
                     alarmOverlay.snooze();
                 }
             }
-        }
-
-        Silica.Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: qsTr("Hold Dismiss to stop the alarm")
-            color: Silica.Theme.secondaryColor
-            font.pixelSize: Silica.Theme.fontSizeExtraSmall
         }
     }
 }
