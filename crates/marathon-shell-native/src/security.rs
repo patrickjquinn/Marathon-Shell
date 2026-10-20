@@ -551,12 +551,7 @@ async fn store_pin(pin: String) -> bool {
 }
 
 fn pin_path() -> PathBuf {
-    let config = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-        .unwrap_or_default();
-    config.join("marathon/quickpin.conf")
+    marathon_rt::dirs::config().join("marathon/quickpin.conf")
 }
 
 fn stored_pin() -> String {

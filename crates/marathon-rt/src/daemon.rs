@@ -34,28 +34,15 @@ pub async fn admit(bus: &zbus::Connection, header: &Header<'_>, area: &str, perm
     }
 }
 
-fn home(var: &str, fallback: &str) -> PathBuf {
-    std::env::var_os(var)
-        .filter(|dir| !dir.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(fallback)))
-        .unwrap_or_default()
-}
-
-/// `$XDG_DATA_HOME`.
-pub fn data_home() -> PathBuf {
-    home("XDG_DATA_HOME", ".local/share")
-}
-
 /// The shell's own data (Qt's `AppLocalDataLocation`), where its services
 /// kept their databases.
 pub fn shell_data() -> PathBuf {
-    data_home().join("Marathon OS/Marathon Shell")
+    crate::dirs::data().join("Marathon OS/Marathon Shell")
 }
 
 /// The shell's cache (`CacheLocation`), which app sandboxes bind.
 pub fn shell_cache() -> PathBuf {
-    home("XDG_CACHE_HOME", ".cache").join("Marathon OS/Marathon Shell")
+    crate::dirs::cache().join("Marathon OS/Marathon Shell")
 }
 
 /// State that blocking work takes in turn, off the executor.

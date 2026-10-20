@@ -7,7 +7,7 @@
 
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -64,15 +64,9 @@ pub fn parse_changes(query: &str) -> Option<Vec<(String, bool)>> {
     changes.filter(|c| !c.is_empty())
 }
 
-fn config_dir() -> PathBuf {
-    std::env::var_os("XDG_CONFIG_HOME").map_or_else(
-        || Path::new(&std::env::var_os("HOME").unwrap_or_default()).join(".config"),
-        PathBuf::from,
-    )
-}
 
 fn path() -> PathBuf {
-    config_dir().join("marathon-store/settings.json")
+    marathon_rt::dirs::config().join("marathon-store/settings.json")
 }
 
 pub fn load() -> Settings {

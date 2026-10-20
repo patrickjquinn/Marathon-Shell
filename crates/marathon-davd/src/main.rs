@@ -346,18 +346,10 @@ impl DavService {
     async fn account_discovery_failed(e: &SignalEmitter<'_>, account_id: &str, reason: &str) -> zbus::Result<()>;
 }
 
-fn config_home() -> std::path::PathBuf {
-    std::env::var_os("XDG_CONFIG_HOME")
-        .filter(|d| !d.is_empty())
-        .map(std::path::PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
-        .unwrap_or_default()
-}
-
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let dir = shell_data().join("marathon");
     let book = Shared::new(Book::open(dir.join("contacts")));
-    let accounts = Shared::new(Accounts::open(dir.join("dav-accounts.json"), &config_home().join("Marathon OS/Marathon Shell.conf")));
+    let accounts = Shared::new(Accounts::open(dir.join("dav-accounts.json"), &marathon_rt::dirs::config().join("Marathon OS/Marathon Shell.conf")));
     let events = Shared::new(Events::open(&dir.join("dav-events.db"))?);
     let bus = io::session_bus().await?;
     let (keyring, wake) = async_channel::bounded(1);

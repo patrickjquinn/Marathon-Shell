@@ -1748,6 +1748,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "flate2",
+ "marathon-rt",
  "nix 0.31.3",
  "quick-xml",
  "regex",
@@ -1786,6 +1787,7 @@ dependencies = [
  "blocking",
  "futures-lite",
  "httpdate",
+ "marathon-rt",
  "serde",
  "serde_json",
  "tz-rs",

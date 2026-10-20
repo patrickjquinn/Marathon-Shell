@@ -157,11 +157,7 @@ pub fn phone_apps(source: impl BufRead) -> io::Result<Vec<String>> {
 /// Flathub's catalogue in the user installation, as `flatpak update
 /// --appstream` leaves it.
 fn catalogue() -> Option<PathBuf> {
-    let data = std::env::var_os("XDG_DATA_HOME").map_or_else(
-        || Path::new(&std::env::var_os("HOME").unwrap_or_default()).join(".local/share"),
-        PathBuf::from,
-    );
-    let dir = data
+    let dir = marathon_rt::dirs::data()
         .join("flatpak/appstream/flathub")
         .join(std::env::consts::ARCH)
         .join("active");

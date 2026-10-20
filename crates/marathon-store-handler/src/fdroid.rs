@@ -311,11 +311,7 @@ pub fn parse_index<R: Read>(reader: R) -> io::Result<(Vec<Value>, String, u64)> 
 }
 
 pub(crate) fn cache_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_CACHE_HOME").map_or_else(
-        || Path::new(&std::env::var_os("HOME").unwrap_or_default()).join(".cache"),
-        PathBuf::from,
-    );
-    base.join("marathon-store")
+    marathon_rt::dirs::cache().join("marathon-store")
 }
 
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {

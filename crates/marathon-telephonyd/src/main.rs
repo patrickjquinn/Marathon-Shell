@@ -13,7 +13,7 @@ use std::io::Read;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
-use marathon_rt::daemon::{admit, data_home, shell_data, Shared};
+use marathon_rt::daemon::{admit, shell_data, Shared};
 use marathon_rt::{io, log};
 use zbus::message::Header;
 use zbus::object_server::SignalEmitter;
@@ -323,7 +323,7 @@ impl CallHistory {
 }
 
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let store = Shared::new(Store::open(&shell_data().join("messages.db"), data_home().join("marathon/mms"))?);
+    let store = Shared::new(Store::open(&shell_data().join("messages.db"), marathon_rt::dirs::data().join("marathon/mms"))?);
     let log = Shared::new(CallLog::open(&shell_data().join("marathon/callhistory.db"))?);
     let bus = io::session_bus().await?;
     let core = Core { bus: bus.clone(), store, mms: Arc::default() };

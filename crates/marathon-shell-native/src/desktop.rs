@@ -260,7 +260,7 @@ struct Icons {
 
 impl Icons {
     fn new() -> Self {
-        let home = home();
+        let home = marathon_rt::dirs::home();
         let local = home.join(".local/share");
         let bases = [local.join("icons"), "/usr/share/icons".into(), local.join("flatpak/exports/share/icons"), "/var/lib/flatpak/exports/share/icons".into()];
         let themes = ["hicolor", "PiXtrix", "Adwaita", "gnome", "AdwaitaLegacy"];
@@ -307,13 +307,8 @@ impl Icons {
     }
 }
 
-fn home() -> PathBuf {
-    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default()
-}
-
 fn cached_phone_apps() -> PathBuf {
-    let cache = std::env::var_os("XDG_CACHE_HOME").filter(|v| !v.is_empty()).map_or_else(|| home().join(".cache"), PathBuf::from);
-    cache.join("marathon-store/phone-apps.json")
+    marathon_rt::dirs::cache().join("marathon-store/phone-apps.json")
 }
 
 /// Desktop ids in the Store's `{"apps": [...]}`.

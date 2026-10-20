@@ -39,14 +39,6 @@ pub struct Store {
     cache: PathBuf,
 }
 
-fn xdg_dir(var: &str, fallback: &str) -> PathBuf {
-    std::env::var_os(var)
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| Path::new(&h).join(fallback)))
-        .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join("marathon-weather")
-}
 
 fn read<T: DeserializeOwned>(path: &Path) -> Option<T> {
     serde_json::from_slice(&fs::read(path).ok()?).ok()
@@ -68,8 +60,8 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
 impl Store {
     pub fn from_env() -> Self {
         Store {
-            config: xdg_dir("XDG_CONFIG_HOME", ".config"),
-            cache: xdg_dir("XDG_CACHE_HOME", ".cache"),
+            config: marathon_rt::dirs::config().join("marathon-weather"),
+            cache: marathon_rt::dirs::cache().join("marathon-weather"),
         }
     }
 

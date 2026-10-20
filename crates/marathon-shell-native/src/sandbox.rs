@@ -105,20 +105,14 @@ fn var_or(name: &str, fallback: &str) -> String {
     var(name).unwrap_or_else(|| fallback.to_owned())
 }
 
-fn home() -> PathBuf {
-    PathBuf::from(var_or("HOME", "/home/user"))
-}
-
-fn xdg(name: &str, fallback: &str) -> PathBuf {
-    var(name).map_or_else(|| home().join(fallback), PathBuf::from)
-}
+use marathon_rt::dirs::home;
 
 fn system_apps() -> PathBuf {
     PathBuf::from(var_or("MARATHON_APPS_DIR", "/usr/share/marathon-apps"))
 }
 
 fn user_installs() -> PathBuf {
-    xdg("XDG_DATA_HOME", ".local/share").join("marathon/apps")
+    marathon_rt::dirs::data().join("marathon/apps")
 }
 
 fn is_user_installed(app_id: &QString) -> bool {
@@ -281,7 +275,7 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     let home = home();
     let runtime = var_or("XDG_RUNTIME_DIR", "/run/user/1000");
     let (data_home, cache_home, config_home) =
-        (xdg("XDG_DATA_HOME", ".local/share"), xdg("XDG_CACHE_HOME", ".cache"), xdg("XDG_CONFIG_HOME", ".config"));
+        (marathon_rt::dirs::data(), marathon_rt::dirs::cache(), marathon_rt::dirs::config());
     let own = |base: &Path| app.map_or_else(|| base.join("marathon-apps"), |a| base.join("marathon-apps").join(&a.id));
     let (data, cache, config) = (own(&data_home), own(&cache_home), own(&config_home));
     // Spares only ever become Marathon's own apps, so they share one cache.
