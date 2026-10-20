@@ -126,13 +126,9 @@
 #include "src/services/router.h"
 #include "src/services/surfaceregistry.h"
 #include "src/services/languagemanager.h"
-#include "src/services/dictionary.h"
-#include "src/services/autocorrect.h"
-#include "src/services/emojipredictor.h"
-#include "src/services/phrasepredictor.h"
 #include "src/services/inputcontext.h"
 #include "src/services/remotetextinput.h"
-#include "qml/keyboard/Data/WordEngine.h"
+#include "marathon-shell-native/src/words.cxxqt.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
 #include "src/ipc/shellipcserver.h"
@@ -1132,22 +1128,16 @@ int main(int argc, char *argv[]) {
     createObject<StatusBarIconServiceCpp>(ctx, "StatusBarIconService", &app);
     qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
 
-    auto *wordEngine = new WordEngine(&app);
-    wordEngine->setLanguage("en_US");
-    wordEngine->setEnabled(true);
-    qInfo() << "[MarathonShell] Word Engine initialized";
-    auto *emojiPredictor = new EmojiPredictor(&app);
     startupMark("policies and stores");
-    qmlRegisterSingletonInstance<EmojiPredictor>("MarathonOS.Shell", 1, 0, "EmojiPredictor",
-                                                 emojiPredictor);
-    auto *phrasePredictor = new PhrasePredictor(&app);
-    qmlRegisterSingletonInstance<PhrasePredictor>("MarathonOS.Shell", 1, 0, "PhrasePredictor",
-                                                  phrasePredictor);
-    auto *dictionary = new Dictionary(wordEngine, emojiPredictor, phrasePredictor, &app);
-    qmlRegisterSingletonInstance<Dictionary>("MarathonOS.Shell", 1, 0, "Dictionary", dictionary);
-    auto *autoCorrect = new AutoCorrect(dictionary, &app);
-    qmlRegisterSingletonInstance<AutoCorrect>("MarathonOS.Shell", 1, 0, "AutoCorrect", autoCorrect);
-    auto *languageManager = new LanguageManager(settingsManager, wordEngine, &app);
+    auto *dictionary = new marathon::Dictionary();
+    dictionary->setParent(&app);
+    qmlRegisterSingletonInstance<marathon::Dictionary>("MarathonOS.Shell", 1, 0, "Dictionary",
+                                                       dictionary);
+    auto *domainSuggestions = new marathon::DomainSuggestions();
+    domainSuggestions->setParent(&app);
+    qmlRegisterSingletonInstance<marathon::DomainSuggestions>("MarathonOS.Shell", 1, 0,
+                                                              "DomainSuggestions", domainSuggestions);
+    auto *languageManager = new LanguageManager(settingsManager, dictionary, &app);
     startupMark("keyboard engine");
     qmlRegisterSingletonInstance<LanguageManager>("MarathonOS.Shell", 1, 0, "LanguageManager",
                                                   languageManager);

@@ -4,14 +4,14 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
-#include "qml/keyboard/Data/WordEngine.h"
+#include "marathon-shell-native/src/words.cxxqt.h"
 #include "src/managers/settingsmanager.h"
 
-LanguageManager::LanguageManager(SettingsManager *settingsManager, WordEngine *wordEngine,
+LanguageManager::LanguageManager(SettingsManager *settingsManager, marathon::Dictionary *dictionary,
                                  QObject *parent)
     : QObject(parent)
     , m_settingsManager(settingsManager)
-    , m_wordEngine(wordEngine) {
+    , m_dictionary(dictionary) {
     if (m_settingsManager) {
         connect(m_settingsManager, &SettingsManager::keyboardLanguageChanged, this,
                 &LanguageManager::onSettingsLanguageChanged);
@@ -50,7 +50,7 @@ void LanguageManager::loadLanguage(const QString &languageId) {
 void LanguageManager::applyLayout(const QVariantMap &layout, const QString &languageId) {
     setCurrentLayout(layout);
     setCurrentLanguage(languageId);
-    updateWordEngine(layout, languageId);
+    updateDictionary(layout, languageId);
 
     if (m_settingsManager && m_settingsManager->keyboardLanguage() != languageId) {
         m_settingsManager->setKeyboardLanguage(languageId);
@@ -136,12 +136,12 @@ void LanguageManager::setCurrentLayout(const QVariantMap &layout) {
     emit currentLayoutChanged();
 }
 
-void LanguageManager::updateWordEngine(const QVariantMap &layout, const QString &languageId) {
-    if (!m_wordEngine) {
+void LanguageManager::updateDictionary(const QVariantMap &layout, const QString &languageId) {
+    if (!m_dictionary) {
         return;
     }
     const QString dictionary = layout.value("dictionary").toString();
-    m_wordEngine->setLanguage(dictionary.isEmpty() ? languageId : dictionary);
+    m_dictionary->setLanguage(dictionary.isEmpty() ? languageId : dictionary);
 }
 
 void LanguageManager::onSettingsLanguageChanged() {

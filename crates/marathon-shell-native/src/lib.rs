@@ -33,3 +33,4 @@ pub mod updates;
 mod variant;
 mod wake_timer;
 pub mod weather;
+pub mod words;

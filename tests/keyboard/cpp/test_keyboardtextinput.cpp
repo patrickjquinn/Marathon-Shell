@@ -23,9 +23,7 @@
 #include <cstring>
 #include <unistd.h>
 
-#include "services/autocorrect.h"
-#include "services/dictionary.h"
-#include "services/domainsuggestions.h"
+#include "marathon-shell-native/src/words.cxxqt.h"
 #include "services/inputcontext.h"
 
 namespace {
@@ -157,15 +155,12 @@ class TestKeyboardTextInput : public QObject {
         QTRY_VERIFY2(m_printed.contains(QLatin1String("FOCUSED")), qPrintable(m_printed));
 
         qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
-        qmlRegisterSingletonType<Dictionary>(
+        qmlRegisterSingletonType<marathon::Dictionary>(
             "MarathonOS.Shell", 1, 0, "Dictionary",
-            [](QQmlEngine *, QJSEngine *) { return new Dictionary(nullptr, nullptr, nullptr); });
-        qmlRegisterSingletonType<AutoCorrect>(
-            "MarathonOS.Shell", 1, 0, "AutoCorrect",
-            [](QQmlEngine *, QJSEngine *) { return new AutoCorrect(nullptr); });
-        qmlRegisterSingletonType<DomainSuggestions>(
+            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::Dictionary(); });
+        qmlRegisterSingletonType<marathon::DomainSuggestions>(
             "MarathonOS.Shell", 1, 0, "DomainSuggestions",
-            [](QQmlEngine *, QJSEngine *) { return new DomainSuggestions; });
+            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::DomainSuggestions(); });
         m_engine = new QQmlEngine(this);
         const QStringList imports = qEnvironmentVariable("MARATHON_TEST_QML_IMPORTS").split(u':');
         for (const QString &path : imports)

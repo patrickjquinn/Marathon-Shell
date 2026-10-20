@@ -19,6 +19,7 @@ fn main() {
         .file("src/timezone.rs")
         .file("src/updates.rs")
         .file("src/weather.rs")
+        .file("src/words.rs")
         .build();
 
     let oxford = std::path::Path::new("../../thirdparty/oxford-step-counter");

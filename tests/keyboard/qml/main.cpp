@@ -5,9 +5,7 @@
 
 #include <algorithm>
 
-#include "services/autocorrect.h"
-#include "services/dictionary.h"
-#include "services/domainsuggestions.h"
+#include "marathon-shell-native/src/words.cxxqt.h"
 #include "services/inputcontext.h"
 
 // A field that reports its text `lag` edits late, as an app over text-input
@@ -64,24 +62,19 @@ class LaggingField : public QQuickItem {
     int         m_lag = 0;
 };
 
-// The keyboard's C++ types join the stubbed MarathonOS.Shell module. The
-// dictionary has no word engine, so corrections come from AutoCorrect's typo
-// table alone and stay the same on every host.
+// The keyboard's native types join the stubbed MarathonOS.Shell module.
 class Setup : public QObject {
     Q_OBJECT
 
   public slots:
     void applicationAvailable() {
         qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
-        qmlRegisterSingletonType<Dictionary>(
+        qmlRegisterSingletonType<marathon::Dictionary>(
             "MarathonOS.Shell", 1, 0, "Dictionary",
-            [](QQmlEngine *, QJSEngine *) { return new Dictionary(nullptr, nullptr, nullptr); });
-        qmlRegisterSingletonType<AutoCorrect>(
-            "MarathonOS.Shell", 1, 0, "AutoCorrect",
-            [](QQmlEngine *, QJSEngine *) { return new AutoCorrect(nullptr); });
-        qmlRegisterSingletonType<DomainSuggestions>(
+            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::Dictionary(); });
+        qmlRegisterSingletonType<marathon::DomainSuggestions>(
             "MarathonOS.Shell", 1, 0, "DomainSuggestions",
-            [](QQmlEngine *, QJSEngine *) { return new DomainSuggestions; });
+            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::DomainSuggestions(); });
         qmlRegisterType<LaggingField>("KeyboardTest", 1, 0, "LaggingField");
     }
 };

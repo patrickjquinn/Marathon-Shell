@@ -1561,6 +1561,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "spellbook",
  "tempfile",
  "ureq",
  "zbus",
@@ -2403,6 +2404,16 @@ name = "smallvec"
 version = "1.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b3dc8af474f516a851ff4bd12db780f948b9250ad37211e4eec0bccea54e01b"
+
+[[package]]
+name = "spellbook"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a"
+dependencies = [
+ "foldhash",
+ "hashbrown 0.17.1",
+]
 
 [[package]]
 name = "static_assertions"

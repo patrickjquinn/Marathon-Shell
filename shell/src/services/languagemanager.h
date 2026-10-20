@@ -7,7 +7,9 @@
 #include <qqml.h>
 
 class SettingsManager;
-class WordEngine;
+namespace marathon {
+    class Dictionary;
+}
 
 class LanguageManager : public QObject {
     Q_OBJECT
@@ -20,7 +22,7 @@ class LanguageManager : public QObject {
         QStringList availableLanguages READ availableLanguages NOTIFY availableLanguagesChanged)
 
   public:
-    explicit LanguageManager(SettingsManager *settingsManager, WordEngine *wordEngine,
+    explicit LanguageManager(SettingsManager *settingsManager, marathon::Dictionary *dictionary,
                              QObject *parent = nullptr);
 
     QString currentLanguage() const {
@@ -50,11 +52,11 @@ class LanguageManager : public QObject {
     QVariantMap fallbackLayout() const;
     void        setCurrentLanguage(const QString &languageId);
     void        setCurrentLayout(const QVariantMap &layout);
-    void        updateWordEngine(const QVariantMap &layout, const QString &languageId);
+    void        updateDictionary(const QVariantMap &layout, const QString &languageId);
     void        onSettingsLanguageChanged();
 
     QPointer<SettingsManager> m_settingsManager;
-    QPointer<WordEngine>      m_wordEngine;
+    QPointer<marathon::Dictionary> m_dictionary;
     QString                   m_currentLanguage;
     QVariantMap               m_currentLayout;
     QStringList               m_availableLanguages;

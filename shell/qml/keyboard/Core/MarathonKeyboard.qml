@@ -99,7 +99,7 @@ Rectangle {
         if (keyboard.currentWord.length > 0) {
             var originalWord = keyboard.currentWord;
             if (inputContextInstance.shouldAutoCorrect) {
-                var correctedWord = AutoCorrect.correct(originalWord);
+                var correctedWord = Dictionary.correct(originalWord);
                 if (correctedWord !== originalWord && inputContextInstance.replaceCurrentWord(correctedWord)) {
                     Dictionary.learnWord(correctedWord);
                     keyboard.lastOriginalWord = originalWord;

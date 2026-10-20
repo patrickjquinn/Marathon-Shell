@@ -38,10 +38,6 @@ set(SOURCES
     src/services/telephonyintegrationcpp.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
-    qml/keyboard/Data/WordEngine.h
-    qml/keyboard/Data/WordEngine.cpp
-    qml/keyboard/Data/WordTrie.h
-    qml/keyboard/Data/WordTrie.cpp
     src/managers/deviceprofile.h
     src/managers/deviceprofile.cpp
     src/services/screenshotservicecpp.h
@@ -132,18 +128,8 @@ set(SOURCES
     src/dbus/portalfilechooser.cpp
     src/services/surfaceregistry.h
     src/services/surfaceregistry.cpp
-    src/services/domainsuggestions.h
-    src/services/domainsuggestions.cpp
-    src/services/emojipredictor.h
-    src/services/emojipredictor.cpp
-    src/services/phrasepredictor.h
-    src/services/phrasepredictor.cpp
     src/services/languagemanager.h
     src/services/languagemanager.cpp
-    src/services/dictionary.h
-    src/services/dictionary.cpp
-    src/services/autocorrect.h
-    src/services/autocorrect.cpp
     src/services/inputcontext.h
     src/services/inputcontext.cpp
     src/services/remotetextinput.h
@@ -520,18 +506,8 @@ qt6_add_qml_module(marathon-shell
         src/dbus/portalsettings.h
         src/services/surfaceregistry.cpp
         src/services/surfaceregistry.h
-        src/services/domainsuggestions.cpp
-        src/services/domainsuggestions.h
-        src/services/emojipredictor.cpp
-        src/services/emojipredictor.h
-        src/services/phrasepredictor.cpp
-        src/services/phrasepredictor.h
         src/services/languagemanager.cpp
         src/services/languagemanager.h
-        src/services/dictionary.cpp
-        src/services/dictionary.h
-        src/services/autocorrect.cpp
-        src/services/autocorrect.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
         src/managers/hapticmanager.cpp
@@ -655,19 +631,6 @@ target_link_libraries(marathon-shell PRIVATE marathon_shell_native)
 # run out-of-process under marathon-app-runner, which is the binary that
 # owns the Chromium runtime cost (gated on manifest requiresQtModules).
 # See tools/marathon-app-runner/CMakeLists.txt + main.cpp.
-
-# Link Hunspell for spell-checking
-pkg_check_modules(HUNSPELL hunspell)
-if(HUNSPELL_FOUND)
-    set(HAVE_HUNSPELL TRUE)
-endif()
-
-if(HAVE_HUNSPELL)
-    target_link_libraries(marathon-shell PRIVATE ${HUNSPELL_LIBRARIES})
-    target_include_directories(marathon-shell PRIVATE ${HUNSPELL_INCLUDE_DIRS})
-    target_compile_definitions(marathon-shell PRIVATE HAVE_HUNSPELL)
-    message(STATUS "Linking Hunspell to marathon-shell")
-endif()
 
 # Enable QML Debugging/Profiling — Debug builds only. QT_QML_DEBUG opens a
 # TCP debug port (off by default but the macro pulls in the QML profiler
