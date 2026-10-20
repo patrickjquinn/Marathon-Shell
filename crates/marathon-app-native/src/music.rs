@@ -63,6 +63,7 @@ pub struct MusicLibraryRust {
     track_count: i32,
     is_scanning: bool,
     scan_progress: i32,
+    watching: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -99,6 +100,24 @@ fn scan(root: &Path) -> Vec<Track> {
         .collect();
     tracks.sort_by(|a, b| (&a.artist, &a.album, &a.path).cmp(&(&b.artist, &b.album, &b.path)));
     tracks
+}
+
+/// Scans again two seconds after songs come or go under Music, at any depth.
+fn watch(qt: cxx_qt::CxxQtThread<MusicLibrary>) {
+    use inotify::{Inotify, WatchMask};
+    std::thread::spawn(move || -> std::io::Result<()> {
+        let mut inotify = Inotify::init()?;
+        let mask = WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVED_FROM | WatchMask::MOVED_TO | WatchMask::CLOSE_WRITE;
+        let mut buffer = [0; 4096];
+        loop {
+            for dir in walkdir::WalkDir::new(music_dir()).into_iter().flatten().filter(|e| e.file_type().is_dir()) {
+                inotify.watches().add(dir.path(), mask).ok();
+            }
+            inotify.read_events_blocking(&mut buffer)?;
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            qt.queue(MusicLibrary::scan_library_async).ok();
+        }
+    });
 }
 
 fn music_dir() -> PathBuf {
@@ -144,6 +163,9 @@ impl MusicLibrary {
         self.as_mut().rust_mut().scan_progress = 0;
         self.as_mut().scan_progress_changed(0);
         let qt = self.qt_thread();
+        if !std::mem::replace(&mut self.as_mut().rust_mut().watching, true) {
+            watch(qt.clone());
+        }
         io::spawn(async move {
             let tracks = blocking::unblock(|| scan(&music_dir())).await;
             qt.queue(move |mut obj| {

@@ -1592,6 +1592,7 @@ dependencies = [
  "cxx-qt-lib",
  "dirs",
  "futures-lite",
+ "inotify",
  "jiff",
  "marathon-permissions",
  "marathon-rt",
