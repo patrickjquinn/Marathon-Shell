@@ -527,6 +527,17 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
     emit stateChanged(appId, static_cast<int>(old), static_cast<int>(newState));
 }
 
+void AppLifecycleManager::setFrontApp(const QString &appId) {
+    const QString android = appId.startsWith(QLatin1String("waydroid.")) ? appId : QString();
+    if (android == m_frontAndroidApp)
+        return;
+    if (!m_frontAndroidApp.isEmpty())
+        m_cgroups->set_front(m_frontAndroidApp, false);
+    m_frontAndroidApp = android;
+    if (!android.isEmpty())
+        m_cgroups->set_front(android, true);
+}
+
 int AppLifecycleManager::oomScoreForState(LifecycleState state) {
     // oom_score_adj range is [-1000, 1000]. Lower = less likely to be
     // killed by the kernel OOM killer / systemd-oomd. Values below taken

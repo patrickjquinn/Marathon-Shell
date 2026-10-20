@@ -84,6 +84,10 @@ class AppLifecycleManager : public QObject {
         return m_idleFreezeDebounceMs;
     }
 
+    // The app in front, as the compositor sees it; Android apps have no
+    // lifecycle state, so only their CPU boost follows it.
+    void setFrontApp(const QString &appId);
+
   signals:
     void appRegistered(const QString &appId, QObject *appInstance);
     void appUnregistered(const QString &appId);
@@ -140,6 +144,7 @@ class AppLifecycleManager : public QObject {
     QHash<QString, QPointer<QObject>> m_appRegistry;
     QHash<QString, AppState>          m_appStates;
     QString                           m_foregroundAppId;
+    QString                           m_frontAndroidApp;
     QStringList                       m_pendingForegroundApps;
     int                               m_idleFreezeDebounceMs = 10000;
     bool                              m_stopping             = false;

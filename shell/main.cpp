@@ -1333,6 +1333,8 @@ int main(int argc, char *argv[]) {
         ipc->setWallpaperStore(wallpaperStore);
         ipc->setAppInstaller(appInstaller);
         auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
+        QObject::connect(foregroundApp, &ForegroundApp::changed, appLifecycleManager,
+                         &AppLifecycleManager::setFrontApp);
         ipc->setForegroundApp(foregroundApp);
         ipc->setSessionStore(sessionStore);
 #ifdef HAVE_WAYLAND

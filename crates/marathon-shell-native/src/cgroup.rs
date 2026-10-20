@@ -32,7 +32,8 @@ mod ffi {
         /// app's cgroup, frozen or not and boosted in front.
         fn adopt(self: &mut AppCgroups, app_id: &QString, pid: i64, pid_cgroup: &QString, frozen: bool, front: bool);
         fn set_frozen(self: &AppCgroups, app_id: &QString, frozen: bool);
-        /// The app in front gets a CPU-frequency floor (`cpu.uclamp.min`).
+        /// The app in front gets a CPU-frequency floor (`cpu.uclamp.min`);
+        /// an Android app's is Waydroid's container.
         fn set_front(self: &AppCgroups, app_id: &QString, front: bool);
         /// The app's process exited.
         fn forget(self: &mut AppCgroups, app_id: &QString);
@@ -46,6 +47,8 @@ mod ffi {
 }
 
 const FRONT_UCLAMP_MIN: u8 = 30;
+// Deckard delegates it to the session's user.
+const WAYDROID: &str = "/sys/fs/cgroup/lxc.payload.waydroid";
 
 pub struct AppCgroups {
     // marathon.slice/marathon-apps, when the shell may write under it.
@@ -137,7 +140,10 @@ impl AppCgroups {
     // The pid's cgroup can come after the app is in front, so the path is
     // tried even before it is placed.
     fn set_front(&self, app_id: &QString, front: bool) {
-        if let Some(dir) = self.dir(&app_id.to_string()) {
+        let app_id = app_id.to_string();
+        if app_id.starts_with("waydroid.") {
+            write_uclamp(Path::new(WAYDROID), front);
+        } else if let Some(dir) = self.dir(&app_id) {
             write_uclamp(&dir, front);
         }
     }
