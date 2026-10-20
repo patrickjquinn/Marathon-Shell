@@ -1165,6 +1165,10 @@ int main(int argc, char *argv[]) {
     // (lightweight, no IPC, no permissions).
     ctx->setContextProperty("WorldClockHelper", new WorldClockHelper(&app));
 
+    // Whose permissions the Rust clients ask for, before any client asks.
+    marathon::platform::set_app_id(appId.toStdString());
+    marathon::platform::set_cache_dir(
+        QStandardPaths::writableLocation(QStandardPaths::CacheLocation).toStdString());
     exposeClient<marathon::platform::Permissions>(ctx, "PermissionManager");
 
     // Lifecycle client is unconditional — any app might need to declare
@@ -1208,10 +1212,6 @@ int main(int argc, char *argv[]) {
     // but is not a singleton anymore" -- every singleton-style call throws
     // and onCompleted bails before tabs are created. Mirror the shell's
     // registration in the runner so the compiled-cache lookup resolves.
-    // Whose permissions the Rust clients ask for.
-    marathon::platform::set_app_id(appId.toStdString());
-    marathon::platform::set_cache_dir(
-        QStandardPaths::writableLocation(QStandardPaths::CacheLocation).toStdString());
     marathon::platform::Settings *settingsClient = nullptr;
     if (hasPerm("system") || hasPerm("storage"))
         settingsClient = exposeClient<marathon::platform::Settings>(ctx, "SettingsManagerCpp");
