@@ -59,5 +59,6 @@ There are 44 patches. **There is no 0011**: it vendored a loose
 | 0044 | feat(hackberrypi): ship Deckard's system bridge | The HackberryPi image installs `deckard` next to Waydroid: deckardd (Android notifications in the Hub, media sessions as MPRIS players, Android kept as quiet as Marathon's audio profile) and the Android-side overlay files, built from Marathon-Deckard by `scripts/qemu/lib/build-deckard-apk.sh`. |
 | 0045 | feat(hackberrypi): Android gets a memory budget | Waydroid's LXC config gets Deckard's `deckard-container-limits` start-host hook: the container's `memory.high` at 30 % of RAM and `memory.max` at 40 %, so Android is reclaimed first and an Android out-of-memory stays inside the container. |
 | 0046 | feat(hackberrypi): Android's shared storage is the user's folders | Waydroid's LXC config gets Deckard's `deckard-shared-folders` mount hook: the user's Documents, Downloads, Pictures, Music, Videos and ~/DCIM are bound over Android's shared storage folders in the container's mount namespace. |
+| 0047 | fix(verify): Navigation and AppLifecycle are on org.marathonos.Shell.Session | `verify-dynamic.sh` calls the shell's C++ interfaces on their new bus name, now that Rust owns `org.marathonos.Shell`. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.

@@ -1,0 +1,53 @@
+From 7ddc45038a35eae588d40def1a4a5617f4f06353 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.quinn@thriveglobal.com>
+Date: Tue, 20 Oct 2026 21:15:37 +0100
+Subject: [PATCH] fix(verify): Navigation and AppLifecycle are on
+ org.marathonos.Shell.Session
+
+---
+ marathon-extras/verify-dynamic.sh | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/marathon-extras/verify-dynamic.sh b/marathon-extras/verify-dynamic.sh
+index c6924b3..28ba2c1 100644
+--- a/marathon-extras/verify-dynamic.sh
++++ b/marathon-extras/verify-dynamic.sh
+@@ -20,7 +20,7 @@ dbus_launch() {
+         export XDG_RUNTIME_DIR=/run/user/${USER_UID}
+         export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
+         busctl --user call \
+-            org.marathonos.Shell /org/marathonos/Shell/Navigation \
++            org.marathonos.Shell.Session /org/marathonos/Shell/Navigation \
+             org.marathonos.Shell.Navigation1 LaunchApp s '$app' 2>&1
+     "
+ }
+@@ -84,7 +84,7 @@ HANDLE_LINE="$(su -s /bin/sh "$USER_NAME" -c "
+     export XDG_RUNTIME_DIR=/run/user/${USER_UID}
+     export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
+     busctl --user call \
+-        org.marathonos.Shell /org/marathonos/Shell/AppLifecycle \
++        org.marathonos.Shell.Session /org/marathonos/Shell/AppLifecycle \
+         org.marathonos.Shell.AppLifecycle1 \
+         BeginBackgroundTask ss audio-playback 'qemu-verify' 2>&1
+ ")"
+@@ -111,7 +111,7 @@ else
+         export XDG_RUNTIME_DIR=/run/user/${USER_UID}
+         export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
+         busctl --user call \
+-            org.marathonos.Shell /org/marathonos/Shell/AppLifecycle \
++            org.marathonos.Shell.Session /org/marathonos/Shell/AppLifecycle \
+             org.marathonos.Shell.AppLifecycle1 \
+             EndBackgroundTask u $HANDLE 2>&1
+     "
+@@ -132,7 +132,7 @@ DENY=$(su -s /bin/sh "$USER_NAME" -c "
+     export XDG_RUNTIME_DIR=/run/user/${USER_UID}
+     export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus
+     busctl --user call \
+-        org.marathonos.Shell /org/marathonos/Shell/AppLifecycle \
++        org.marathonos.Shell.Session /org/marathonos/Shell/AppLifecycle \
+         org.marathonos.Shell.AppLifecycle1 \
+         BeginBackgroundTask ss active-call 'qemu-verify' 2>&1
+ ")"
+-- 
+2.55.0
+
