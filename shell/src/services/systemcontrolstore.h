@@ -8,7 +8,9 @@
 
 class Network;
 class BluetoothManager;
-class DisplayManagerCpp;
+namespace marathon {
+    class Display;
+}
 class FlashlightManagerCpp;
 class Modem;
 class SettingsManager;
@@ -50,7 +52,7 @@ class SystemControlStore : public QObject {
   public:
     explicit SystemControlStore(Network    *networkManager,
                                 BluetoothManager     *bluetoothManager,
-                                DisplayManagerCpp    *displayManager,
+                                marathon::Display              *display,
                                 FlashlightManagerCpp *flashlightManager,
                                 Modem *modemManager, SettingsManager *settingsManager,
                                 AlarmManagerCpp *alarmManager, LocationManager *locationManager,
@@ -185,7 +187,7 @@ class SystemControlStore : public QObject {
 
     Network     *m_networkManager;
     BluetoothManager      *m_bluetoothManager;
-    DisplayManagerCpp     *m_displayManager;
+    marathon::Display               *m_display;
     FlashlightManagerCpp  *m_flashlightManager;
     Modem       *m_modemManager;
     SettingsManager       *m_settingsManager;

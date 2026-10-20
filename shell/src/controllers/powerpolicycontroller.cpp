@@ -2,17 +2,17 @@
 #include "src/managers/deviceprofile.h"
 
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "displaymanagercpp.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
 #include "../services/applifecyclemanager.h"
 
 #include <QProcess>
 
 PowerPolicyController::PowerPolicyController(Power     *powerManager,
-                                             DisplayManagerCpp   *displayManager,
+                                             marathon::Display             *display,
                                              AppLifecycleManager *lifecycle, QObject *parent)
     : QObject(parent)
     , m_powerManager(powerManager)
-    , m_displayManager(displayManager)
+    , m_display(display)
     , m_lifecycle(lifecycle) {
 
     if (m_powerManager) {
@@ -27,9 +27,9 @@ PowerPolicyController::PowerPolicyController(Power     *powerManager,
                 &PowerPolicyController::handleBatteryPolicy);
     }
 
-    if (m_displayManager)
-        connect(m_displayManager, &DisplayManagerCpp::screenOnChanged, this,
-                &PowerPolicyController::onScreenOnChanged);
+    if (m_display)
+        connect(m_display, &marathon::Display::screenOnChanged, this,
+                [this] { onScreenOnChanged(m_display->getScreenOn()); });
 
     m_lastCanSleep = canSleep();
 
@@ -182,8 +182,8 @@ void PowerPolicyController::performCriticalPowerAction() {
 }
 
 QString PowerPolicyController::wake(const QString &reason) {
-    if (m_displayManager)
-        m_displayManager->setScreenState(true);
+    if (m_display)
+        m_display->turnScreenOn();
 
     emit systemWaking(reason);
     return reason;
@@ -197,18 +197,18 @@ bool PowerPolicyController::sleep(const QString &reason) {
 }
 
 bool PowerPolicyController::dozing() const {
-    return m_displayManager && !m_displayManager->screenOn();
+    return m_display && !m_display->getScreenOn();
 }
 
 bool PowerPolicyController::enterDoze(const QString &reason) {
-    if (m_displayManager && m_displayManager->screenOn())
-        m_displayManager->setScreenState(false, QStringLiteral("%1 (doze)").arg(reason));
+    if (m_display && m_display->getScreenOn())
+        m_display->turnScreenOff(QStringLiteral("%1 (doze)").arg(reason));
     return true;
 }
 
 bool PowerPolicyController::exitDoze() {
     if (dozing())
-        m_displayManager->setScreenState(true);
+        m_display->turnScreenOn();
     return true;
 }
 

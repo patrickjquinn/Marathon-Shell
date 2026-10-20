@@ -6,18 +6,17 @@
 #include <QPointer>
 
 class PowerPolicyController;
-class DisplayPolicyController;
-class DisplayManagerCpp;
+namespace marathon {
+    class Display;
+}
 class HapticManager;
 
 class PowerBatteryHandlerCpp : public QObject {
     Q_OBJECT
 
   public:
-    explicit PowerBatteryHandlerCpp(PowerPolicyController   *powerPolicy,
-                                    DisplayPolicyController *displayPolicy,
-                                    DisplayManagerCpp *displayManager, HapticManager *haptics,
-                                    QObject *parent = nullptr);
+    explicit PowerBatteryHandlerCpp(PowerPolicyController *powerPolicy, marathon::Display *display,
+                                    HapticManager *haptics, QObject *parent = nullptr);
 
     Q_INVOKABLE void handlePowerButtonPress(bool sessionLocked, bool screenOnHint = true,
                                             const QString &source = QStringLiteral("power key"));
@@ -43,8 +42,7 @@ class PowerBatteryHandlerCpp : public QObject {
     void                              turnScreenOff(const QString &reason);
 
     QPointer<PowerPolicyController>   m_powerPolicy;
-    QPointer<DisplayPolicyController> m_displayPolicy;
-    QPointer<DisplayManagerCpp>       m_displayManager;
+    QPointer<marathon::Display>                 m_display;
     QPointer<HapticManager>           m_haptics;
 
     // Fallback dedupe window for handlePowerButtonPress, used when

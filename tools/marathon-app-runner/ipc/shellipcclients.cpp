@@ -1847,17 +1847,6 @@ void DisplayClient::setRotationLocked(bool locked) {
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[DisplayClient] SetRotationLock failed:" << r.errorMessage();
 }
-int DisplayClient::screenTimeout() const {
-    return m_state.value("screenTimeout").toInt();
-}
-void DisplayClient::setScreenTimeout(int seconds) {
-    auto r = m_iface.call("SetScreenTimeout", seconds);
-    if (r.type() == QDBusMessage::ErrorMessage)
-        qWarning() << "[DisplayClient] SetScreenTimeout failed:" << r.errorMessage();
-}
-QString DisplayClient::screenTimeoutString() const {
-    return m_state.value("screenTimeoutString").toString();
-}
 double DisplayClient::brightness() const {
     return m_state.value("brightness").toDouble();
 }

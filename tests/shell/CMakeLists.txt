@@ -629,11 +629,8 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/ipc/shellkeelactions.cpp
         ../../shell/src/services/uistore.cpp
         ../../shell/src/services/sessionstore.cpp
-        ../../shell/src/controllers/displaypolicycontroller.cpp
-        ../../shell/src/managers/displaymanagercpp.cpp
             ../../shell/src/managers/waketimers.cpp
         ../../shell/src/managers/rotationmanager.cpp
-        ../../shell/src/managers/sensormanagercpp.cpp
         ../../shell/src/managers/settingsmanager.cpp
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
@@ -961,14 +958,11 @@ set_tests_properties(Shell_RemoteTextInput PROPERTIES ENVIRONMENT
 find_package(Qt6 REQUIRED COMPONENTS Quick Sensors)
 add_executable(test_shell_screenstate
     test_screenstate.cpp
-    ../../shell/src/managers/displaymanagercpp.cpp
     ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
-    ../../shell/src/managers/sensormanagercpp.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/hapticmanager.cpp
-    ../../shell/src/controllers/displaypolicycontroller.cpp
     ../../shell/src/controllers/powerpolicycontroller.cpp
     ../../shell/src/services/powerbatteryhandlercpp.cpp
     ../../shell/src/services/waketouchfilter.cpp
@@ -1000,10 +994,8 @@ set_tests_properties(Shell_ScreenState PROPERTIES ENVIRONMENT
 # PowerManagerCpp against a fake logind: wakelocks and the lifelong inhibitor
 add_executable(test_shell_powermanager
     test_powermanager.cpp
-    ../../shell/src/managers/displaymanagercpp.cpp
     ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/rotationmanager.cpp
-    ../../shell/src/managers/sensormanagercpp.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/controllers/powerpolicycontroller.cpp
     ../../shell/src/services/applifecyclemanager.cpp
@@ -1029,20 +1021,8 @@ target_include_directories(test_shell_powermanager PRIVATE
 add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)
 
 # Brightness lands on hardware levels; auto-brightness only with a light sensor
-add_executable(test_shell_brightness
-    test_brightness.cpp
-    ../../shell/src/managers/displaymanagercpp.cpp
-    ../../shell/src/managers/waketimers.cpp
-    ../../shell/src/managers/rotationmanager.cpp
-    ../../shell/src/managers/sensormanagercpp.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
-target_link_libraries(test_shell_brightness Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
-    Qt6::Sensors)
-target_include_directories(test_shell_brightness PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-)
+add_executable(test_shell_brightness test_brightness.cpp)
+target_link_libraries(test_shell_brightness Qt6::Test Qt6::Core)
 add_test(NAME Shell_Brightness COMMAND test_shell_brightness)
 
 # The shell's Rust half (crates/marathon-shell-native) backs classes most

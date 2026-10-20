@@ -385,10 +385,7 @@ fn is_background_wake(marker: &str, alarm: i64, now: i64) -> bool {
     if alarm > 0 && woke_for(alarm) {
         return false;
     }
-    std::fs::read_to_string(marker)
-        .ok()
-        .and_then(|s| s.trim().parse::<i64>().ok())
-        .is_some_and(woke_for)
+    io::read::<i64>(marker).is_some_and(woke_for)
 }
 
 #[zbus::proxy(

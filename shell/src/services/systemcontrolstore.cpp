@@ -3,7 +3,7 @@
 #include "src/managers/alarmmanagercpp.h"
 #include "src/managers/audiomanagercpp.h"
 #include "src/managers/bluetoothmanager.h"
-#include "src/managers/displaymanagercpp.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/managers/flashlightmanagercpp.h"
 #include "src/managers/hapticmanager.h"
 #include "src/managers/locationmanager.h"
@@ -19,7 +19,7 @@
 
 SystemControlStore::SystemControlStore(
     Network *networkManager, BluetoothManager *bluetoothManager,
-    DisplayManagerCpp *displayManager, FlashlightManagerCpp *flashlightManager,
+    marathon::Display *display, FlashlightManagerCpp *flashlightManager,
     Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
     LocationManager *locationManager, HapticManager *hapticManager, Power *powerManager,
     AudioManagerCpp *audioManager, AudioPolicyController *audioPolicyController,
@@ -27,7 +27,7 @@ SystemControlStore::SystemControlStore(
     : QObject(parent)
     , m_networkManager(networkManager)
     , m_bluetoothManager(bluetoothManager)
-    , m_displayManager(displayManager)
+    , m_display(display)
     , m_flashlightManager(flashlightManager)
     , m_modemManager(modemManager)
     , m_settingsManager(settingsManager)
@@ -62,21 +62,21 @@ SystemControlStore::SystemControlStore(
         });
     }
 
-    if (m_displayManager) {
-        setIsRotationLocked(m_displayManager->rotationLocked());
-        setIsAutoBrightnessOn(m_displayManager->autoBrightnessEnabled());
-        setIsNightLightOn(m_displayManager->nightLightEnabled());
+    if (m_display) {
+        setIsRotationLocked(m_display->getRotationLocked());
+        setIsAutoBrightnessOn(m_display->getAutoBrightness());
+        setIsNightLightOn(m_display->getNightLightEnabled());
         setBrightnessValue(static_cast<int>(
-            std::round(std::clamp(m_displayManager->brightness(), 0.0, 1.0) * 100.0)));
-        connect(m_displayManager, &DisplayManagerCpp::rotationLockedChanged, this,
-                [this]() { setIsRotationLocked(m_displayManager->rotationLocked()); });
-        connect(m_displayManager, &DisplayManagerCpp::autoBrightnessEnabledChanged, this,
-                [this]() { setIsAutoBrightnessOn(m_displayManager->autoBrightnessEnabled()); });
-        connect(m_displayManager, &DisplayManagerCpp::nightLightEnabledChanged, this,
-                [this]() { setIsNightLightOn(m_displayManager->nightLightEnabled()); });
-        connect(m_displayManager, &DisplayManagerCpp::brightnessChanged, this, [this]() {
+            std::round(std::clamp(m_display->getBrightness(), 0.0, 1.0) * 100.0)));
+        connect(m_display, &marathon::Display::rotationLockedChanged, this,
+                [this]() { setIsRotationLocked(m_display->getRotationLocked()); });
+        connect(m_display, &marathon::Display::autoBrightnessChanged, this,
+                [this]() { setIsAutoBrightnessOn(m_display->getAutoBrightness()); });
+        connect(m_display, &marathon::Display::nightLightEnabledChanged, this,
+                [this]() { setIsNightLightOn(m_display->getNightLightEnabled()); });
+        connect(m_display, &marathon::Display::brightnessChanged, this, [this]() {
             setBrightnessValue(static_cast<int>(
-                std::round(std::clamp(m_displayManager->brightness(), 0.0, 1.0) * 100.0)));
+                std::round(std::clamp(m_display->getBrightness(), 0.0, 1.0) * 100.0)));
         });
     }
 
@@ -172,10 +172,10 @@ int SystemControlStore::brightness() const {
     // Live-read so we don't ship a cached 0% that was captured before
     // the backlight device finished probing. Same passthrough pattern
     // as isBluetoothOn().
-    if (!m_displayManager)
+    if (!m_display)
         return 0;
     return static_cast<int>(
-        std::round(std::clamp(m_displayManager->brightness(), 0.0, 1.0) * 100.0));
+        std::round(std::clamp(m_display->getBrightness(), 0.0, 1.0) * 100.0));
 }
 
 void SystemControlStore::toggleBluetooth() {
@@ -192,8 +192,8 @@ void SystemControlStore::toggleAirplaneMode() {
 }
 
 void SystemControlStore::toggleRotationLock() {
-    if (m_displayManager) {
-        m_displayManager->setRotationLock(!m_isRotationLocked);
+    if (m_display) {
+        m_display->setRotationLocked(!m_isRotationLocked);
     }
 }
 
@@ -232,8 +232,8 @@ void SystemControlStore::toggleLowPowerMode() {
 }
 
 void SystemControlStore::toggleAutoBrightness() {
-    if (m_displayManager) {
-        m_displayManager->setAutoBrightness(!m_isAutoBrightnessOn);
+    if (m_display) {
+        m_display->setAutoBrightness(!m_isAutoBrightnessOn);
     }
 }
 
@@ -298,8 +298,8 @@ void SystemControlStore::toggleVibration() {
 }
 
 void SystemControlStore::toggleNightLight() {
-    if (m_displayManager) {
-        m_displayManager->setNightLightEnabled(!m_isNightLightOn);
+    if (m_display) {
+        m_display->setNightLightEnabled(!m_isNightLightOn);
     }
 }
 
@@ -311,18 +311,18 @@ void SystemControlStore::captureScreenshot() {
 
 void SystemControlStore::setBrightness(int value) {
     int clamped = std::clamp(value, 0, 100);
-    if (m_displayManager) {
-        m_displayManager->setBrightness(static_cast<double>(clamped) / 100.0);
+    if (m_display) {
+        m_display->setBrightness(static_cast<double>(clamped) / 100.0);
     }
     setBrightnessValue(clamped);
 }
 
 void SystemControlStore::setBrightnessFromUser(int value) {
     int clamped = std::clamp(value, 0, 100);
-    if (m_displayManager) {
+    if (m_display) {
         // Routes through the learning path so the adaptive curve is taught;
         // the plain setBrightness above stays silent for idle-dim/programmatic.
-        m_displayManager->setBrightnessFromUser(static_cast<double>(clamped) / 100.0);
+        m_display->setBrightnessFromUser(static_cast<double>(clamped) / 100.0);
     }
     setBrightnessValue(clamped);
     emit userBrightnessChanged(clamped);

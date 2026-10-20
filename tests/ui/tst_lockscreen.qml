@@ -39,7 +39,7 @@ TestCase {
         pad.enabled = false;
         pad.clicks = 0;
         lockScreen.swipeProgress = 0;
-        DisplayPolicyControllerCpp.screenOn = true;
+        Display.screenOn = true;
     }
 
     function test_unlockSwipeEndsWithoutAClick() {
@@ -55,38 +55,38 @@ TestCase {
 
     function test_screenTurnedOnWhileOnLeavesTheSessionAlone() {
         SessionStore.showLockScreen = false;
-        DisplayPolicyControllerCpp.turnScreenOn();
+        Display.turnScreenOn();
         verify(!SessionStore.showLockScreen, "the lock screen stays down");
     }
 
     // An SMS (PowerPolicyController.wake) or D-Bus Display1.Wake re-asserts the panel directly.
     function test_eventWakeOnALitScreenLeavesTheSessionAlone() {
         SessionStore.showLockScreen = false;
-        DisplayManagerCpp.screenStateChanged(true);
+        Display.screenStateChanged(true);
         verify(!SessionStore.showLockScreen);
     }
 
     function test_wakingTheScreenShowsTheLockScreen() {
-        DisplayPolicyControllerCpp.turnScreenOff("test");
+        Display.turnScreenOff("test");
         SessionStore.showLockScreen = false;
-        DisplayPolicyControllerCpp.turnScreenOn();
+        Display.turnScreenOn();
         verify(SessionStore.showLockScreen);
     }
 
     function test_resumeShowsTheLockScreen() {
         SessionStore.showLockScreen = false;
-        DisplayPolicyControllerCpp.forceScreenOn();
+        Display.forceScreenOn();
         verify(SessionStore.showLockScreen);
     }
 
     function test_aRingingAlarmHoldsTheIdleBlank() {
-        DisplayPolicyControllerCpp.offReasons = [];
+        Display.offReasons = [];
         AlarmManagerCpp.hasActiveAlarm = true;
         SettingsManagerCpp.screenTimeout = 200;
         wait(500);
-        compare(DisplayPolicyControllerCpp.offReasons.length, 0);
+        compare(Display.offReasons.length, 0);
         AlarmManagerCpp.hasActiveAlarm = false;
-        tryVerify(() => DisplayPolicyControllerCpp.offReasons.length === 1, 1000);
+        tryVerify(() => Display.offReasons.length === 1, 1000);
         SettingsManagerCpp.screenTimeout = 0;
     }
 
@@ -95,9 +95,9 @@ TestCase {
         PowerPolicyControllerCpp.hasActiveCalls = true;
         lockScreen.resetIdleTimer();
         wait(300);
-        verify(DisplayPolicyControllerCpp.screenOn, "a ringing call keeps the screen on");
+        verify(Display.screenOn, "a ringing call keeps the screen on");
         PowerPolicyControllerCpp.hasActiveCalls = false;
-        tryVerify(() => !DisplayPolicyControllerCpp.screenOn, 1000);
+        tryVerify(() => !Display.screenOn, 1000);
         SettingsManagerCpp.screenTimeout = 0;
     }
 

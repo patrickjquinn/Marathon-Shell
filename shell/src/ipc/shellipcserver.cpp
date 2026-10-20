@@ -11,13 +11,11 @@
 #include "medialibrarymanager.h"
 #include "settingsmanager.h"
 #include "bluetoothmanager.h"
-#include "displaymanagercpp.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
-#include "sensormanagercpp.h"
 #include "locationmanager.h"
 #include "alarmmanagercpp.h"
 #include "../services/marathonappstoreservice.h"
@@ -30,10 +28,10 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
                                CallHistoryManager *callHistory, Modem *telephony,
                                SMSService *sms, MediaLibraryManager *mediaLibrary,
                                SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
-                               DisplayManagerCpp *displayManager, Power *powerManager,
+                               marathon::Display *display, Power *powerManager,
                                AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
                                Network *networkManager, HapticManager *hapticManager,
-                               Security *securityManager, SensorManagerCpp *sensorManager,
+                               Security *securityManager, RotationManager *rotationManager,
                                LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                                AudioRoutingManager *audioRoutingManager,
                                UpdateService *updateService, DavSyncEngine *davSyncEngine,
@@ -50,14 +48,14 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
     , m_mediaLibrary(mediaLibrary)
     , m_settingsManager(settingsManager)
     , m_bluetoothManager(bluetoothManager)
-    , m_displayManager(displayManager)
+    , m_display(display)
     , m_powerManager(powerManager)
     , m_audioManager(audioManager)
     , m_audioPolicy(audioPolicy)
     , m_networkManager(networkManager)
     , m_hapticManager(hapticManager)
     , m_securityManager(securityManager)
-    , m_sensorManager(sensorManager)
+    , m_rotationManager(rotationManager)
     , m_locationManager(locationManager)
     , m_alarmManager(alarmManager)
     , m_audioRoutingManager(audioRoutingManager)
@@ -101,8 +99,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *securityObj =
         new SecurityObject(m_securityManager, m_permissions, m_appLaunchService, this);
     auto *btObj = new BluetoothObject(m_bluetoothManager, m_permissions, m_appLaunchService, this);
-    auto *displayObj = new DisplayObject(m_displayManager, m_flashlightManager, m_permissions,
-                                       m_appLaunchService, this);
+    auto *displayObj = new DisplayObject(m_display, m_rotationManager, m_flashlightManager,
+                                       m_permissions, m_appLaunchService, this);
     auto *powerObj =
         new PowerObject(m_powerManager, m_powerPolicy, m_permissions, m_appLaunchService, this);
     auto *audioObj =
@@ -113,7 +111,7 @@ bool ShellIpcServer::registerOnSessionBus() {
         navObj->setForegroundApp(m_foregroundApp);
     navObj->setSessionStore(m_sessionStore);
     auto *hapticObj  = new HapticObject(m_hapticManager, m_appLaunchService, this);
-    auto *sensorObj  = new SensorObject(m_sensorManager, m_permissions, m_appLaunchService, this);
+    auto *sensorObj  = new SensorObject(m_display, m_permissions, m_appLaunchService, this);
     auto *locObj   = new LocationObject(m_locationManager, m_permissions, m_appLaunchService, this);
     auto *alarmObj = new AlarmObject(m_alarmManager, m_permissions, m_appLaunchService, this);
     auto *updatesObj = new UpdatesObject(m_updateService, m_permissions, m_appLaunchService, this);

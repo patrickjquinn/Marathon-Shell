@@ -3,10 +3,20 @@
 
 #![allow(clippy::unnecessary_box_returns, reason = "cxx-qt's generated constructors return a Box")]
 
+/// Sets a property's field and notifies, if it changed.
+macro_rules! set {
+    ($obj:expr, $field:ident, $changed:ident, $value:expr) => {{
+        let value = $value;
+        if $obj.$field != value {
+            $obj.as_mut().rust_mut().$field = value;
+            $obj.as_mut().$changed();
+        }
+    }};
+}
+
 mod audit;
-pub mod backlight;
+pub mod display;
 mod identity;
-pub mod iio;
 mod io;
 mod log;
 pub mod modem;

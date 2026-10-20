@@ -1,21 +1,18 @@
 #include "powerbatteryhandlercpp.h"
 
-#include "displaymanagercpp.h"
-#include "displaypolicycontroller.h"
 #include "hapticmanager.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
 #include "powerpolicycontroller.h"
 
 #include <QDateTime>
 #include <QDebug>
 
 PowerBatteryHandlerCpp::PowerBatteryHandlerCpp(PowerPolicyController   *powerPolicy,
-                                               DisplayPolicyController *displayPolicy,
-                                               DisplayManagerCpp       *displayManager,
-                                               HapticManager *haptics, QObject *parent)
+                                               marathon::Display *display, HapticManager *haptics,
+                                               QObject *parent)
     : QObject(parent)
     , m_powerPolicy(powerPolicy)
-    , m_displayPolicy(displayPolicy)
-    , m_displayManager(displayManager)
+    , m_display(display)
     , m_haptics(haptics) {}
 
 void PowerBatteryHandlerCpp::notePowerButtonDown() {
@@ -74,7 +71,7 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
     }
     m_lastPressMs = nowMs;
 
-    const bool screenOn = m_displayPolicy ? m_displayPolicy->screenOn() : screenOnHint;
+    const bool screenOn = m_display ? m_display->getScreenOn() : screenOnHint;
     const auto action   = m_powerPolicy->powerButtonAction(screenOn, sessionLocked);
 
     if (action == PowerPolicyController::TurnScreenOn) {
@@ -91,7 +88,7 @@ void PowerBatteryHandlerCpp::handlePowerButtonPress(bool sessionLocked, bool scr
 }
 
 bool PowerBatteryHandlerCpp::screenOff() const {
-    return (m_displayPolicy && !m_displayPolicy->screenOn()) ||
+    return (m_display && !m_display->getScreenOn()) ||
         (m_powerPolicy && m_powerPolicy->dozing());
 }
 
@@ -106,19 +103,17 @@ void PowerBatteryHandlerCpp::wakeFromKey() {
 
 void PowerBatteryHandlerCpp::turnScreenOn() {
     // Route through Doze exit when available — that path (a) re-syncs
-    // m_screenOn via DisplayPolicyController::forceScreenOn semantics,
+    // m_screenOn via marathon::Display::forceScreenOn semantics,
     // (b) re-writes brightness to defeat the i.MX 8M PWM glitch
     // (r293), and (c) thaws background apps' freeze debounce. Plain
-    // displayPolicy->turnScreenOn() is fine if PowerPolicy isn't
+    // display->turnScreenOn() is fine if PowerPolicy isn't
     // wired (early boot path).
     if (m_powerPolicy && m_powerPolicy->dozing()) {
         m_powerPolicy->exitDoze();
         return;
     }
-    if (m_displayPolicy)
-        m_displayPolicy->turnScreenOn();
-    else if (m_displayManager)
-        m_displayManager->setScreenState(true);
+    if (m_display)
+        m_display->turnScreenOn();
 }
 
 void PowerBatteryHandlerCpp::turnScreenOff(const QString &reason) {
@@ -131,8 +126,6 @@ void PowerBatteryHandlerCpp::turnScreenOff(const QString &reason) {
         m_powerPolicy->enterDoze(reason);
         return;
     }
-    if (m_displayPolicy)
-        m_displayPolicy->turnScreenOff(reason);
-    else if (m_displayManager)
-        m_displayManager->setScreenState(false, reason);
+    if (m_display)
+        m_display->turnScreenOff(reason);
 }

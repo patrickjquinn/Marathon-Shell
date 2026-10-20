@@ -13,7 +13,9 @@ class AppLaunchService;
 class MediaLibraryManager;
 class SettingsManager;
 class BluetoothManager;
-class DisplayManagerCpp;
+namespace marathon {
+    class Display;
+}
 class Network;
 class Power;
 class PowerPolicyController;
@@ -21,7 +23,7 @@ class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
 class Security;
-class SensorManagerCpp;
+class RotationManager;
 class LocationManager;
 class AlarmManagerCpp;
 class AudioRoutingManager;
@@ -47,10 +49,10 @@ class ShellIpcServer : public QObject {
                             CallHistoryManager *callHistory, Modem *telephony,
                             SMSService *sms, MediaLibraryManager *mediaLibrary,
                             SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
-                            DisplayManagerCpp *displayManager, Power *powerManager,
+                            marathon::Display *display, Power *powerManager,
                             AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
                             Network *networkManager, HapticManager *hapticManager,
-                            Security *securityManager, SensorManagerCpp *sensorManager,
+                            Security *securityManager, RotationManager *rotationManager,
                             LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                             AudioRoutingManager *audioRoutingManager, UpdateService *updateService,
                             DavSyncEngine *davSyncEngine, MarathonAppStoreService *appStoreService,
@@ -97,7 +99,7 @@ class ShellIpcServer : public QObject {
     Modem           *m_modemManager        = nullptr;
     FlashlightManagerCpp      *m_flashlightManager   = nullptr;
     BluetoothManager          *m_bluetoothManager    = nullptr;
-    DisplayManagerCpp         *m_displayManager      = nullptr;
+    marathon::Display                   *m_display             = nullptr;
     Power           *m_powerManager        = nullptr;
     PowerPolicyController     *m_powerPolicy         = nullptr;
     AudioManagerCpp           *m_audioManager        = nullptr;
@@ -105,7 +107,7 @@ class ShellIpcServer : public QObject {
     Network         *m_networkManager      = nullptr;
     HapticManager             *m_hapticManager       = nullptr;
     Security           *m_securityManager     = nullptr;
-    SensorManagerCpp          *m_sensorManager       = nullptr;
+    RotationManager           *m_rotationManager     = nullptr;
     LocationManager           *m_locationManager     = nullptr;
     AlarmManagerCpp           *m_alarmManager        = nullptr;
     AudioRoutingManager       *m_audioRoutingManager = nullptr;

@@ -453,7 +453,7 @@ fn hotspot_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
 
 /// The kernel makes UUIDs; no crate needed for one per new profile.
 fn new_uuid() -> String {
-    std::fs::read_to_string("/proc/sys/kernel/random/uuid").map(|s| s.trim().to_owned()).unwrap_or_default()
+    io::read("/proc/sys/kernel/random/uuid").unwrap_or_default()
 }
 
 fn security(wpa_flags: u32, rsn_flags: u32) -> &'static str {
@@ -1069,7 +1069,7 @@ fn set_rfkill(types: &[&str], block: bool) -> usize {
     entries
         .filter_map(Result::ok)
         .filter(|e| {
-            std::fs::read_to_string(e.path().join("type")).is_ok_and(|t| types.contains(&t.trim()))
+            io::read::<String>(e.path().join("type")).is_some_and(|t| types.contains(&t.as_str()))
         })
         .filter(|e| std::fs::write(e.path().join("soft"), if block { "1\n" } else { "0\n" }).is_ok())
         .count()

@@ -2,7 +2,13 @@
 //! and file work never runs on the GUI thread.
 
 use std::future::Future;
+use std::path::Path;
+use std::str::FromStr;
 use std::sync::Once;
+use std::time::Duration;
+
+use async_channel::{Receiver, RecvError};
+use async_io::Timer;
 
 use async_executor::Executor;
 use async_lock::OnceCell;
@@ -21,6 +27,22 @@ pub fn spawn(task: impl Future<Output = ()> + Send + 'static) {
         }
     });
     EXECUTOR.spawn(task).detach();
+}
+
+/// A file's trimmed contents, parsed: how sysfs and procfs report a value.
+pub fn read<T: FromStr>(path: impl AsRef<Path>) -> Option<T> {
+    std::fs::read_to_string(path).ok()?.trim().parse().ok()
+}
+
+/// The next message, or `None` if `within` passes first; with no `within`,
+/// waits for it.
+pub async fn recv_within<T>(rx: &Receiver<T>, within: Option<Duration>) -> Option<Result<T, RecvError>> {
+    let Some(within) = within else { return Some(rx.recv().await) };
+    futures_lite::future::or(async { Some(rx.recv().await) }, async {
+        Timer::after(within).await;
+        None
+    })
+    .await
 }
 
 /// The process's one system bus connection; a failed connect is retried on

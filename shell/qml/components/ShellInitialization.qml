@@ -51,7 +51,7 @@ QtObject {
     }
 
     Component.onCompleted: {
-        DisplayManagerCpp.screenStateChanged.connect(function (on) {
+        Display.screenStateChanged.connect(function (on) {
             if (root.compositor)
                 root.compositor.setCompositorActive(on);
         });

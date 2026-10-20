@@ -35,7 +35,7 @@ TestCase {
         // As TelephonyIntegrationCpp: a call wakes the screen when it rings and when it ends.
         Connections {
             function onCallStateChanged() {
-                DisplayPolicyControllerCpp.turnScreenOn();
+                Display.turnScreenOn();
             }
 
             target: Modem

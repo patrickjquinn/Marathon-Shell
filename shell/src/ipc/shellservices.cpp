@@ -1,5 +1,6 @@
 #include "shellservices.h"
 #include "callerpid.h"
+#include <algorithm>
 #include <unistd.h>
 #include <fcntl.h>
 #include <QDBusMetaType>
@@ -16,7 +17,8 @@
 #include "wallpaperstore.h"
 #include "marathon-shell-native/src/security.cxxqt.h"
 #include "bluetoothmanager.h"
-#include "displaymanagercpp.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
+#include "rotationmanager.h"
 #include "flashlightmanagercpp.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
@@ -26,7 +28,6 @@
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
-#include "sensormanagercpp.h"
 #include "locationmanager.h"
 #include "alarmmanagercpp.h"
 #include "ratelimiter.h"
@@ -850,44 +851,41 @@ void BluetoothObject::CancelPairing(const QString &address) {
     m_bt->cancelPairing(address);
 }
 
-DisplayObject::DisplayObject(DisplayManagerCpp *display, FlashlightManagerCpp *flashlight,
-                             MarathonPermissionManager *permissions,
+DisplayObject::DisplayObject(marathon::Display *display, RotationManager *rotation,
+                             FlashlightManagerCpp *flashlight, MarathonPermissionManager *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_display(display)
+    , m_rotation(rotation)
     , m_flashlight(flashlight) {
     Q_ASSERT(m_display);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
 
     auto push = [this]() { emit StateChanged(buildState()); };
-    QObject::connect(m_display, &DisplayManagerCpp::availableChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::autoBrightnessEnabledChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::rotationLockedChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::screenTimeoutChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::brightnessChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::nightLightEnabledChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::nightLightTemperatureChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::nightLightScheduleChanged, this, push);
-    QObject::connect(m_display, &DisplayManagerCpp::screenStateChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::autoBrightnessChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::rotationLockedChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::brightnessChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::nightLightEnabledChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::nightLightTemperatureChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::nightLightScheduleChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::screenStateChanged, this, push);
     if (m_flashlight)
         QObject::connect(m_flashlight, &FlashlightManagerCpp::availableChanged, this, push);
 }
 
 QVariantMap DisplayObject::buildState() const {
     return {
-        {"available", m_display->available()},
-        {"autoBrightnessEnabled", m_display->autoBrightnessEnabled()},
-        {"rotationLocked", m_display->rotationLocked()},
-        {"rotationAvailable", m_display->rotationAvailable()},
-        {"lightSensorAvailable", m_display->lightSensorAvailable()},
+        {"available", m_display->getAvailable()},
+        {"autoBrightnessEnabled", m_display->getAutoBrightness()},
+        {"rotationLocked", m_display->getRotationLocked()},
+        {"rotationAvailable", m_rotation && m_rotation->available()},
+        {"lightSensorAvailable", m_display->getLightAvailable()},
         {"torchAvailable", m_flashlight && m_flashlight->available()},
-        {"screenTimeout", m_display->screenTimeout()},
-        {"screenTimeoutString", m_display->screenTimeoutString()},
-        {"brightness", m_display->brightness()},
-        {"nightLightEnabled", m_display->nightLightEnabled()},
-        {"nightLightTemperature", m_display->nightLightTemperature()},
-        {"nightLightSchedule", m_display->nightLightSchedule()},
+        {"brightness", m_display->getBrightness()},
+        {"nightLightEnabled", m_display->getNightLightEnabled()},
+        {"nightLightTemperature", m_display->getNightLightTemperature()},
+        {"nightLightSchedule", m_display->getNightLightSchedule()},
     };
 }
 
@@ -906,13 +904,7 @@ void DisplayObject::SetAutoBrightness(bool enabled) {
 void DisplayObject::SetRotationLock(bool locked) {
     if (!requireSystem())
         return;
-    m_display->setRotationLock(locked);
-}
-
-void DisplayObject::SetScreenTimeout(int seconds) {
-    if (!requireSystem())
-        return;
-    m_display->setScreenTimeout(seconds);
+    m_display->setRotationLocked(locked);
 }
 
 void DisplayObject::SetBrightness(double brightness) {
@@ -931,7 +923,7 @@ void DisplayObject::SetNightLightEnabled(bool enabled) {
 void DisplayObject::SetNightLightTemperature(int temperature) {
     if (!requireSystem())
         return;
-    m_display->setNightLightTemperature(temperature);
+    m_display->setNightLightTemperature(std::clamp(temperature, 2700, 6500));
 }
 
 void DisplayObject::SetNightLightSchedule(const QString &schedule) {
@@ -943,7 +935,10 @@ void DisplayObject::SetNightLightSchedule(const QString &schedule) {
 void DisplayObject::SetScreenState(bool on) {
     if (!requireSystem())
         return;
-    m_display->setScreenState(on, QStringLiteral("D-Bus Display1.SetScreenState"));
+    if (on)
+        m_display->turnScreenOn();
+    else
+        m_display->turnScreenOff(QStringLiteral("D-Bus Display1.SetScreenState"));
 }
 
 void DisplayObject::Wake() {
@@ -952,7 +947,7 @@ void DisplayObject::Wake() {
     // security exposure: the lock screen / PIN screen still gates anything
     // sensitive, and the rate-limit windowing in IpcPermissionedService
     // prevents wake-spam.
-    m_display->setScreenState(true);
+    m_display->turnScreenOn();
 }
 
 PowerObject::PowerObject(Power *power, PowerPolicyController *policy,
@@ -2233,27 +2228,27 @@ void HapticObject::Stop() {
         m_haptic->cancelVibration();
 }
 
-SensorObject::SensorObject(SensorManagerCpp *sensors, MarathonPermissionManager *permissions,
+SensorObject::SensorObject(marathon::Display *sensors, MarathonPermissionManager *permissions,
                            AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_sensors(sensors) {
     Q_ASSERT(m_sensors);
-    QObject::connect(m_sensors, &SensorManagerCpp::proximityNearChanged, this,
-                     [this]() { emit ProximityChanged(m_sensors->proximityNear()); });
-    QObject::connect(m_sensors, &SensorManagerCpp::ambientLightChanged, this,
-                     [this]() { emit AmbientLightChanged(m_sensors->ambientLight()); });
+    QObject::connect(m_sensors, &marathon::Display::proximityNearChanged, this,
+                     [this]() { emit ProximityChanged(m_sensors->getProximityNear()); });
+    QObject::connect(m_sensors, &marathon::Display::ambientLightChanged, this,
+                     [this]() { emit AmbientLightChanged(m_sensors->getAmbientLight()); });
 }
 
 bool SensorObject::IsAvailable() {
-    return requireSensors() && m_sensors->available();
+    return requireSensors() && (m_sensors->getLightAvailable() || m_sensors->getProximityAvailable());
 }
 
 bool SensorObject::ProximityNear() {
-    return requireSensors() && m_sensors->proximityNear();
+    return requireSensors() && m_sensors->getProximityNear();
 }
 
 int SensorObject::AmbientLight() {
-    return requireSensors() ? m_sensors->ambientLight() : 0;
+    return requireSensors() ? m_sensors->getAmbientLight() : 0;
 }
 
 LocationObject::LocationObject(LocationManager *location, MarathonPermissionManager *permissions,

@@ -12,7 +12,9 @@ class AppLaunchService;
 class AppLifecycleManager;
 class UIStore;
 class SessionStore;
-class DisplayPolicyController;
+namespace marathon {
+    class Display;
+}
 
 // The shell's Keel Actions (org.shipwright.Keel.Actions on org.marathonos.shell,
 // manifest shell/dbus/keel-actions.json): navigation an app cannot offer, for
@@ -24,7 +26,7 @@ class ShellKeelActions : public QObject, protected QDBusContext {
   public:
     ShellKeelActions(AppModel *apps, TaskModel *tasks, AppLaunchService *launchService,
                      AppLifecycleManager *lifecycle, UIStore *uiStore, SessionStore *session,
-                     DisplayPolicyController *display, QObject *parent = nullptr);
+                     marathon::Display *display, QObject *parent = nullptr);
 
     bool registerOnSessionBus();
 
@@ -46,7 +48,7 @@ class ShellKeelActions : public QObject, protected QDBusContext {
     AppLifecycleManager        *m_lifecycle;
     UIStore                    *m_uiStore;
     SessionStore               *m_session;
-    DisplayPolicyController    *m_display;
+    marathon::Display                    *m_display;
     QByteArray                  m_manifest;
     QHash<QString, QJsonObject> m_tools;
 };

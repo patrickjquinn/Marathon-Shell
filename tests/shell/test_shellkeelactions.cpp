@@ -14,7 +14,7 @@
 #include "appmodel.h"
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
-#include "displaypolicycontroller.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
 #include "ipc/shellkeelactions.h"
 #include "sessionstore.h"
 #include "taskmodel.h"
@@ -47,7 +47,7 @@ class TestShellKeelActions : public QObject {
     AppLifecycleManager     lifecycle{&tasks, &launcher};
     UIStore                 ui;
     SessionStore            session;
-    DisplayPolicyController display{nullptr, nullptr};
+    marathon::Display                 display;
     FakeCompositor          compositor;
     FakeShell               shell;
     ShellKeelActions        actions{&apps, &tasks, &launcher, &lifecycle, &ui, &session, &display};

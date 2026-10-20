@@ -4,7 +4,7 @@
 #include "appmodel.h"
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
-#include "displaypolicycontroller.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
 #include "processtree.h"
 #include "sessionstore.h"
 #include "taskmodel.h"
@@ -49,7 +49,7 @@ namespace {
 ShellKeelActions::ShellKeelActions(AppModel *apps, TaskModel *tasks,
                                    AppLaunchService *launchService, AppLifecycleManager *lifecycle,
                                    UIStore *uiStore, SessionStore *session,
-                                   DisplayPolicyController *display, QObject *parent)
+                                   marathon::Display *display, QObject *parent)
     : QObject(parent)
     , m_apps(apps)
     , m_tasks(tasks)
@@ -141,7 +141,7 @@ QString ShellKeelActions::run(const QString &action, const QJsonObject &args) {
     }
     if (action == QLatin1String("shell.state")) {
         return compact({{QStringLiteral("locked"), m_session->isLocked()},
-                        {QStringLiteral("screenOn"), m_display->screenOn()},
+                        {QStringLiteral("screenOn"), m_display->getScreenOn()},
                         {QStringLiteral("foregroundApp"),
                          m_uiStore->appWindowOpen() ? m_uiStore->currentAppId() : QString()},
                         {QStringLiteral("quickSettingsOpen"), m_uiStore->quickSettingsOpen()}});

@@ -150,7 +150,7 @@ Item {
         // "Never" (SettingsManager.screenTimeout == 0) gates the timer off
         // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
         // interval fires every tick and blanks the lock screen immediately.
-        readonly property bool armed: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && !AlarmManagerCpp.hasActiveAlarm && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
+        readonly property bool armed: lockScreen.visible && Display.screenOn && !AlarmManagerCpp.hasActiveAlarm && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
 
         function rearm() {
             if (armed)
@@ -174,7 +174,7 @@ Item {
                 return;
             }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
-            DisplayPolicyControllerCpp.turnScreenOff("lock-screen idle timer (" + idleTimer.interval + "ms)");
+            Display.turnScreenOff("lock-screen idle timer (" + idleTimer.interval + "ms)");
         }
     }
 
@@ -187,8 +187,8 @@ Item {
                 // disruptive thing DND is supposed to prevent. Still refresh
                 // the list quietly so it's there when the user wakes it.
                 if (!NotificationService.isDndEnabled) {
-                    if (!DisplayPolicyControllerCpp.screenOn)
-                        DisplayPolicyControllerCpp.turnScreenOn();
+                    if (!Display.screenOn)
+                        Display.turnScreenOn();
                     lockScreen.resetIdleTimer();
                 }
                 lockScreen.refreshNotifications();
@@ -206,18 +206,18 @@ Item {
             }
         }
 
-        target: DisplayManagerCpp
+        target: Display
     }
 
     // Only a wake brings the lock screen up; a call or notification
     // re-asserting a screen that is already on leaves the session alone.
     Connections {
         function onScreenOnChanged() {
-            if (DisplayPolicyControllerCpp.screenOn)
+            if (Display.screenOn)
                 SessionStore.showLock();
         }
 
-        target: DisplayPolicyControllerCpp
+        target: Display
     }
 
     // Visible-cards model — populated by refreshNotifications().

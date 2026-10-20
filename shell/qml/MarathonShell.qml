@@ -169,7 +169,7 @@ Item {
         } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             powerButtonPressed = false;
             if (powerButtonTimer.running) {
-                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, DisplayPolicyControllerCpp.screenOn, "power key (shell Keys)");
+                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, Display.screenOn, "power key (shell Keys)");
                 powerButtonTimer.stop();
             }
             event.accepted = true;
@@ -456,7 +456,7 @@ Item {
             // display holds this thread for ~800ms on the PinePhone, so the
             // release arrived after the long-press timer had fired and a
             // plain wake opened the power menu.
-            if (!powerButtonTimer.running && DisplayPolicyControllerCpp.screenOn)
+            if (!powerButtonTimer.running && Display.screenOn)
                 powerButtonTimer.start();
 
             event.accepted = true;
@@ -777,7 +777,7 @@ Item {
         // blank the screen immediately.
         readonly property int effectiveInterval: SettingsManagerCpp ? SettingsManagerCpp.screenTimeout : defaultIntervalMs
 
-        readonly property bool armed: effectiveInterval > 0 && DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked && !AlarmManagerCpp.hasActiveAlarm
+        readonly property bool armed: effectiveInterval > 0 && Display.screenOn && !SessionStore.isLocked && !AlarmManagerCpp.hasActiveAlarm
 
         // restart() on activity would start a timer whose `running` binding
         // says no ("Never", locked, screen off) and break that binding for
@@ -806,7 +806,7 @@ Item {
             }
             Logger.info("Shell", "Idle timeout (" + idleScreenTimer.interval + "ms) — blanking + auto-locking");
             SessionStore.isLocked = true;
-            DisplayPolicyControllerCpp.turnScreenOff("idle timer (" + idleScreenTimer.interval + "ms)");
+            Display.turnScreenOff("idle timer (" + idleScreenTimer.interval + "ms)");
         }
     }
 
@@ -839,7 +839,7 @@ Item {
         readonly property int dimAdvanceMs: 30000
 
         function dim() {
-            if (dimmed || !SystemControlStore || !DisplayPolicyControllerCpp.screenOn)
+            if (dimmed || !SystemControlStore || !Display.screenOn)
                 return;
             preDimBrightness = SystemControlStore.brightness;
             if (preDimBrightness <= 0)
@@ -895,10 +895,10 @@ Item {
     // restored bl_power=0 (screen on) but brightness stayed pinned at
     // the dim value (5-25%) — user perceived the screen as dead.
     Connections {
-        target: DisplayPolicyControllerCpp
+        target: Display
         ignoreUnknownSignals: true
         function onScreenOnChanged() {
-            if (DisplayPolicyControllerCpp.screenOn) {
+            if (Display.screenOn) {
                 dimState.restore();
                 // Re-arm idle timers from the moment of wake.
                 idleScreenTimer.rearm();

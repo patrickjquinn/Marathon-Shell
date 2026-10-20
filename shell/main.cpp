@@ -65,18 +65,16 @@
 #include "src/controllers/powerpolicycontroller.h"
 #include "src/managers/deviceprofile.h"
 #include "src/managers/drmmasterwait.h"
-#include "src/managers/displaymanagercpp.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/managers/powerkeylistener.h"
 #include "src/services/wakeonkeyfilter.h"
 #include "src/services/pilotclient.h"
 #include "src/services/weatherclient.h"
 #include "src/services/inputboost.h"
 #include "src/services/touchresampler.h"
-#include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "src/managers/sensormanagercpp.h"
 #include "src/managers/settingsmanager.h"
 #include "src/services/ambienceservice.h"
 #include "src/services/toolkitthemewriter.h"
@@ -806,14 +804,47 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<Power>("MarathonOS.Shell", 1, 0, "Power",
                                                   power);
     auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
-    auto *displayManager  = new DisplayManagerCpp(power, rotationManager, &app);
-    qmlRegisterSingletonInstance<DisplayManagerCpp>("MarathonOS.Shell", 1, 0, "DisplayManagerCpp",
-                                                    displayManager);
+    auto *display = new marathon::Display();
+    display->setParent(&app);
+    display->start(QStringLiteral("/sys/class/backlight"), QStringLiteral("/sys/bus/iio/devices"),
+                   DeviceProfile::instance().brightnessFloor());
+    qmlRegisterSingletonInstance<marathon::Display>("MarathonOS.Shell", 1, 0, "Display", display);
+    QObject::connect(display, &marathon::Display::rotationLockedChanged, rotationManager, [=] {
+        if (display->getRotationLocked())
+            rotationManager->lockOrientation(rotationManager->currentOrientation());
+        else
+            rotationManager->unlockOrientation();
+    });
+    const std::pair<const char *, void (marathon::Display::*)()> displaySettings[] = {
+        {"rotationLocked", &marathon::Display::rotationLockedChanged},
+        {"nightLightEnabled", &marathon::Display::nightLightEnabledChanged},
+        {"nightLightTemperature", &marathon::Display::nightLightTemperatureChanged},
+        {"nightLightSchedule", &marathon::Display::nightLightScheduleChanged},
+        {"learnedCurve", &marathon::Display::learnedCurveChanged},
+    };
+    for (const auto &[name, changed] : displaySettings) {
+        const QString key = QStringLiteral("display/") + QLatin1String(name);
+        if (const QVariant saved = settingsManager->get(key); saved.isValid())
+            display->setProperty(name, saved);
+        QObject::connect(display, changed, settingsManager,
+                         [=] { settingsManager->set(key, display->property(name)); });
+    }
+    display->setAutoBrightness(settingsManager->autoBrightness());
+    QObject::connect(settingsManager, &SettingsManager::autoBrightnessChanged, display,
+                     [=] { display->setAutoBrightness(settingsManager->autoBrightness()); });
+    QObject::connect(display, &marathon::Display::autoBrightnessChanged, settingsManager,
+                     [=] { settingsManager->setAutoBrightness(display->getAutoBrightness()); });
+    QObject::connect(display, &marathon::Display::screenStateChanged, power, [power](bool on) {
+        if (on)
+            power->acquireWakelock(QStringLiteral("display"));
+        else
+            power->releaseWakelock(QStringLiteral("display"));
+    });
     // Lazy-claim the orientation sensor: only run it while the panel
     // is actually on. RotationManager keeps the sensor stopped until
     // this signal flips it true; lsm6dsx (or whatever backend) sees
     // zero traffic with the screen off.
-    QObject::connect(displayManager, &DisplayManagerCpp::screenStateChanged, rotationManager,
+    QObject::connect(display, &marathon::Display::screenStateChanged, rotationManager,
                      &RotationManager::setScreenOn);
     auto *audioManager = new AudioManagerCpp(&app);
     qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
@@ -826,14 +857,10 @@ int main(int argc, char *argv[]) {
     QObject::connect(modem, &Modem::dataRoamingAllowedChanged, settingsManager, [=] {
         settingsManager->set("cellular/dataRoaming", modem->getDataRoamingAllowed());
     });
-    auto *sensorManager = new SensorManagerCpp(&app);
-    qmlRegisterSingletonInstance<SensorManagerCpp>("MarathonOS.Shell", 1, 0, "SensorManagerCpp",
-                                                   sensorManager);
-    displayManager->setSensorManager(sensorManager);
     auto *wakeTouchFilter = new WakeTouchFilter(&app);
     app.installEventFilter(wakeTouchFilter);
-    QObject::connect(displayManager, &DisplayManagerCpp::screenOnChanged, wakeTouchFilter,
-                     &WakeTouchFilter::setScreenOn);
+    QObject::connect(display, &marathon::Display::screenOnChanged, wakeTouchFilter,
+                     [=] { wakeTouchFilter->setScreenOn(display->getScreenOn()); });
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     // The device name is what other Bluetooth devices see.
     auto applyDeviceName = [bluetoothManager, settingsManager]() {
@@ -951,30 +978,14 @@ int main(int argc, char *argv[]) {
     // and freeze background apps immediately on screen-off. AppLifecycle
     // is constructed above on line ~670 so this dependency order is safe.
     auto *powerPolicyController =
-        new PowerPolicyController(power, displayManager, appLifecycleManager, &app);
+        new PowerPolicyController(power, display, appLifecycleManager, &app);
     qmlRegisterSingletonInstance<PowerPolicyController>(
         "MarathonOS.Shell", 1, 0, "PowerPolicyControllerCpp", powerPolicyController);
 
-    // Phosh-pattern lazy sensor claim. Proximity runs only during active
-    // voice calls; ambient light runs only while auto-brightness is on.
-    // Push initial state once, then let the signal wires keep it in sync.
-    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged,
-                     sensorManager, [sensorManager, powerPolicyController]() {
-                         sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
-                     });
-    sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
-    // The light sensor reads only while auto-brightness has a lit screen to set.
-    const auto lightWanted = [sensorManager, settingsManager, displayManager]() {
-        sensorManager->setLightActive(settingsManager->autoBrightness() && displayManager->screenOn());
-    };
-    QObject::connect(settingsManager, &SettingsManager::autoBrightnessChanged, sensorManager, lightWanted);
-    QObject::connect(displayManager, &DisplayManagerCpp::screenOnChanged, sensorManager, lightWanted);
-    lightWanted();
-
-    auto *displayPolicyController =
-        new DisplayPolicyController(displayManager, settingsManager, &app);
-    qmlRegisterSingletonInstance<DisplayPolicyController>(
-        "MarathonOS.Shell", 1, 0, "DisplayPolicyControllerCpp", displayPolicyController);
+    // Proximity reads only during voice calls.
+    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged, display,
+                     [=] { display->setProximityWanted(powerPolicyController->hasActiveCalls()); });
+    display->setProximityWanted(powerPolicyController->hasActiveCalls());
 
     // Resume-from-suspend bridge. External suspends (logind IdleAction,
     // lid switch, RTC alarm — anything not going through
@@ -1000,12 +1011,12 @@ int main(int argc, char *argv[]) {
     // ringing by then (checkAlarms runs first) keeps the screen on.
     QObject::connect(
         power, &Power::resumedFromSuspend, powerPolicyController,
-        [displayPolicyController, powerPolicyController, alarmManager](bool backgroundWake) {
+        [display, powerPolicyController, alarmManager](bool backgroundWake) {
             if (backgroundWake && !alarmManager->hasActiveAlarm()) {
                 powerPolicyController->enterDoze(QStringLiteral("background-wake"));
                 return;
             }
-            displayPolicyController->forceScreenOn();
+            display->forceScreenOn();
             powerPolicyController->exitDoze();
         });
     QObject::connect(
@@ -1032,8 +1043,7 @@ int main(int argc, char *argv[]) {
     QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, inputBoost,
                      &InputBoost::boost);
     auto *powerBatteryHandler = createObject<PowerBatteryHandlerCpp>(
-        ctx, "PowerBatteryHandler", powerPolicyController, displayPolicyController, displayManager,
-        hapticManager, &app);
+        ctx, "PowerBatteryHandler", powerPolicyController, display, hapticManager, &app);
     // Key-DOWN stamps the hold-start so the release handler can tell a long
     // press (power menu) from a short press (screen toggle). Without this the
     // raw /dev/input release ran the screen-off action even for the release
@@ -1041,9 +1051,8 @@ int main(int argc, char *argv[]) {
     QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, powerBatteryHandler,
                      [powerBatteryHandler]() { powerBatteryHandler->notePowerButtonDown(); });
     QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyReleased, powerBatteryHandler,
-                     [powerBatteryHandler, displayPolicyController](const QString &device) {
-                         const bool screenOn =
-                             displayPolicyController ? displayPolicyController->screenOn() : true;
+                     [powerBatteryHandler, display](const QString &device) {
+                         const bool screenOn = display->getScreenOn();
                          // sessionLocked=false is a reasonable fallback — the
                          // lock/unlock decision in powerButtonAction only
                          // matters for the screen-ON path (LockAndTurnScreenOff
@@ -1105,7 +1114,7 @@ int main(int argc, char *argv[]) {
         }
     }
     auto *systemControlStore = new SystemControlStore(
-        network, bluetoothManager, displayManager, flashlightManager, modem,
+        network, bluetoothManager, display, flashlightManager, modem,
         settingsManager, alarmManager, locationManager, hapticManager, power, audioManager,
         audioPolicyController, screenshotService, &app);
     qmlRegisterSingletonInstance<SystemControlStore>("MarathonOS.Shell", 1, 0, "SystemControlStore",
@@ -1307,9 +1316,9 @@ int main(int argc, char *argv[]) {
         QStringLiteral("/usr/lib/os-release");
     auto         *updateService = new UpdateService(
         new SysupdateBackend,
-        [displayPolicyController, powerPolicyController]() {
+        [display, powerPolicyController]() {
             UpdateConditions c = SysupdateBackend::systemConditions();
-            c.idle             = !displayPolicyController->screenOn() &&
+            c.idle             = !display->getScreenOn() &&
                 !powerPolicyController->hasActiveCalls() &&
                 !powerPolicyController->hasActiveAlarm();
             return c;
@@ -1328,8 +1337,8 @@ int main(int argc, char *argv[]) {
                      updateService, &UpdateService::reconsider);
     QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveAlarmChanged,
                      updateService, &UpdateService::reconsider);
-    QObject::connect(displayPolicyController, &DisplayPolicyController::screenOnChanged,
-                     updateService, &UpdateService::reconsider);
+    QObject::connect(display, &marathon::Display::screenOnChanged, updateService,
+                     &UpdateService::reconsider);
     QObject::connect(power, &Power::isPluggedInChanged, updateService,
                      &UpdateService::reconsider);
     QObject::connect(power, &Power::resumedFromSuspend, updateService,
@@ -1362,8 +1371,7 @@ int main(int argc, char *argv[]) {
     });
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
-        displayPolicyController, displayManager, audioPolicyController, hapticManager,
-        modem, smsService, sensorManager, &app);
+        display, audioPolicyController, hapticManager, modem, smsService, &app);
     if (freedesktopNotif)
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
                          telephonyIntegration, &TelephonyIntegrationCpp::replyToMessageNotification);
@@ -1406,9 +1414,9 @@ int main(int argc, char *argv[]) {
     {
         auto *ipc = new ShellIpcServer(
             permissionManager, contactsManager, callHistoryManager, modem, smsService,
-            mediaLibraryManager, settingsManager, bluetoothManager, displayManager, power,
+            mediaLibraryManager, settingsManager, bluetoothManager, display, power,
             audioManager, audioPolicyController, network, hapticManager, security,
-            sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
+            rotationManager, locationManager, alarmManager, audioRoutingManager, updateService,
             davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
             &app);
         ipc->setAmbienceService(ambienceService);
@@ -1469,7 +1477,7 @@ int main(int argc, char *argv[]) {
             qWarning() << "[MarathonShell] TextInput1 not served";
         auto *keelActions =
             new ShellKeelActions(appModel, taskModel, appLaunchService, appLifecycleManager,
-                                 uiStore, sessionStore, displayPolicyController, &app);
+                                 uiStore, sessionStore, display, &app);
         if (!keelActions->registerOnSessionBus())
             qWarning() << "[MarathonShell] Keel Actions not served (org.marathonos.shell)";
     }

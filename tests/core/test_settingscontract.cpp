@@ -118,12 +118,10 @@ namespace {
     const QHash<QString, Consumer> &clientWriteConsumers() {
         static const QHash<QString, Consumer> table = {
             {"Display.brightness",
-             {"shell/src/managers/displaymanagercpp.cpp",
-              "void DisplayManagerCpp::setBrightnessFromUser"}},
+             {"crates/marathon-shell-native/src/display.rs", "fn set_brightness_from_user"}},
             {"Display.autoBrightnessEnabled",
-             {"shell/src/managers/displaymanagercpp.cpp", "&DisplayManagerCpp::onAmbientLightChanged"}},
-            {"Display.rotationLocked",
-             {"shell/src/managers/displaymanagercpp.cpp", "m_rotationManager"}},
+             {"crates/marathon-shell-native/src/display.rs", "self.auto_brightness && self.screen_on"}},
+            {"Display.rotationLocked", {"shell/main.cpp", "rotationManager->lockOrientation"}},
             {"Bluetooth.enabled", {"shell/src/managers/bluetoothmanager.cpp", "\"Powered\""}},
         };
         return table;

@@ -9,8 +9,7 @@ singleton Constants 1.0 Constants.qml
 singleton HapticManager 1.0 HapticManager.qml
 singleton Security 1.0 Security.qml
 singleton SessionStore 1.0 SessionStore.qml
-singleton DisplayManagerCpp 1.0 DisplayManagerCpp.qml
-singleton DisplayPolicyControllerCpp 1.0 DisplayPolicyControllerCpp.qml
+singleton Display 1.0 Display.qml
 singleton PowerPolicyControllerCpp 1.0 PowerPolicyControllerCpp.qml
 singleton Logger 1.0 Logger.qml
 singleton WallpaperStore 1.0 WallpaperStore.qml
@@ -47,7 +46,6 @@ singleton SystemControlStore 1.0 SystemControlStore.qml
 singleton Modem 1.0 Modem.qml
 singleton FlashlightManagerCpp 1.0 FlashlightManagerCpp.qml
 singleton RotationManager 1.0 RotationManager.qml
-singleton SensorManagerCpp 1.0 SensorManagerCpp.qml
 singleton MPRIS2Controller 1.0 MPRIS2Controller.qml
 MQSTile 1.0 ../../../../../shell/qml/ui/MQSTile.qml
 MQSSlider 1.0 ../../../../../shell/qml/ui/MQSSlider.qml

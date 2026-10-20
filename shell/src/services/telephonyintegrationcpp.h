@@ -8,13 +8,13 @@
 class ContactsManager;
 class NotificationServiceCpp;
 class PowerPolicyController;
-class DisplayPolicyController;
-class DisplayManagerCpp;
+namespace marathon {
+    class Display;
+}
 class AudioPolicyController;
 class HapticManager;
 class Modem;
 class SMSService;
-class SensorManagerCpp;
 
 class TelephonyIntegrationCpp : public QObject {
     Q_OBJECT
@@ -29,10 +29,9 @@ class TelephonyIntegrationCpp : public QObject {
   public:
     explicit TelephonyIntegrationCpp(
         ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
-        PowerPolicyController *powerPolicy, DisplayPolicyController *displayPolicy,
-        DisplayManagerCpp *displayManager, AudioPolicyController *audioPolicy,
+        PowerPolicyController *powerPolicy, marathon::Display *display, AudioPolicyController *audioPolicy,
         HapticManager *haptics, Modem *telephonyService, SMSService *smsService,
-        SensorManagerCpp *sensorManager = nullptr, QObject *parent = nullptr);
+        QObject *parent = nullptr);
 
     QString lastCallState() const {
         return m_lastCallState;
@@ -82,13 +81,11 @@ class TelephonyIntegrationCpp : public QObject {
     ContactsManager         *m_contactsManager     = nullptr;
     NotificationServiceCpp  *m_notificationService = nullptr;
     PowerPolicyController   *m_powerPolicy         = nullptr;
-    DisplayPolicyController *m_displayPolicy       = nullptr;
-    DisplayManagerCpp       *m_displayManager      = nullptr;
+    marathon::Display                 *m_display             = nullptr;
     AudioPolicyController   *m_audioPolicy         = nullptr;
     HapticManager           *m_haptics             = nullptr;
     Modem        *m_telephonyService    = nullptr;
     SMSService              *m_smsService          = nullptr;
-    SensorManagerCpp        *m_sensorManager       = nullptr;
 
     QString                  m_lastCallState = "idle";
     QString                  m_lastCallerNumber;

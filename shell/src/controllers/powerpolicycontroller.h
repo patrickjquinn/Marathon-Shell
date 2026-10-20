@@ -4,7 +4,9 @@
 #include <qqml.h>
 
 class Power;
-class DisplayManagerCpp;
+namespace marathon {
+    class Display;
+}
 class AppLifecycleManager;
 
 class PowerPolicyController : public QObject {
@@ -39,7 +41,7 @@ class PowerPolicyController : public QObject {
     };
     Q_ENUM(SleepAction)
 
-    explicit PowerPolicyController(Power *powerManager, DisplayManagerCpp *displayManager,
+    explicit PowerPolicyController(Power *powerManager, marathon::Display *display,
                                    AppLifecycleManager *lifecycle = nullptr,
                                    QObject             *parent    = nullptr);
 
@@ -100,7 +102,7 @@ class PowerPolicyController : public QObject {
     void                 handleBatteryPolicy();
 
     Power     *m_powerManager   = nullptr;
-    DisplayManagerCpp   *m_displayManager = nullptr;
+    marathon::Display             *m_display = nullptr;
     AppLifecycleManager *m_lifecycle      = nullptr;
 
     int                  m_savedFreezeDebounceMs = -1;

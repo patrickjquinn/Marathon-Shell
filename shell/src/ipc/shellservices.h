@@ -35,7 +35,9 @@ class WallpaperStore;
 class Security;
 class FactoryReset;
 class BluetoothManager;
-class DisplayManagerCpp;
+namespace marathon {
+    class Display;
+}
 class FlashlightManagerCpp;
 class Network;
 class Modem;
@@ -47,7 +49,7 @@ class SessionStore;
 class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
-class SensorManagerCpp;
+class RotationManager;
 class LocationManager;
 class AlarmManagerCpp;
 
@@ -419,7 +421,7 @@ class DisplayObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Display1")
 
   public:
-    DisplayObject(DisplayManagerCpp *display, FlashlightManagerCpp *flashlight,
+    DisplayObject(marathon::Display *display, RotationManager *rotation, FlashlightManagerCpp *flashlight,
                   MarathonPermissionManager *permissions, AppLaunchService *launchService,
                   QObject *parent = nullptr);
 
@@ -427,7 +429,6 @@ class DisplayObject : public IpcPermissionedService {
     QVariantMap GetState();
     void        SetAutoBrightness(bool enabled);
     void        SetRotationLock(bool locked);
-    void        SetScreenTimeout(int seconds);
     void        SetBrightness(double brightness);
     void        SetNightLightEnabled(bool enabled);
     void        SetNightLightTemperature(int temperature);
@@ -435,7 +436,7 @@ class DisplayObject : public IpcPermissionedService {
     void        SetScreenState(bool on);
     // Wake() — no auth, just turns the panel on. Equivalent to a power
     // button tap. Useful for remote testing over SSH when there is no
-    // physical button. Calls into DisplayManager::setScreenState(true).
+    // physical button. Calls into marathon::Display::turnScreenOn().
     void Wake();
 
   signals:
@@ -447,7 +448,8 @@ class DisplayObject : public IpcPermissionedService {
     }
     QVariantMap           buildState() const;
 
-    DisplayManagerCpp    *m_display    = nullptr;
+    marathon::Display              *m_display    = nullptr;
+    RotationManager      *m_rotation   = nullptr;
     FlashlightManagerCpp *m_flashlight = nullptr;
 };
 
@@ -673,7 +675,7 @@ class SensorObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sensor1")
 
   public:
-    SensorObject(SensorManagerCpp *sensors, MarathonPermissionManager *permissions,
+    SensorObject(marathon::Display *sensors, MarathonPermissionManager *permissions,
                  AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -689,7 +691,7 @@ class SensorObject : public IpcPermissionedService {
     bool requireSensors() {
         return requirePermission("Sensor", {"sensors", "system"});
     }
-    SensorManagerCpp *m_sensors = nullptr;
+    marathon::Display *m_sensors = nullptr;
 };
 
 class LocationObject : public IpcPermissionedService {

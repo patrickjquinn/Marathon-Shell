@@ -191,16 +191,6 @@ enum CallAction {
 }
 
 /// Sets a property and emits its change signal if it changed.
-macro_rules! set {
-    ($obj:expr, $field:ident, $changed:ident, $value:expr) => {{
-        let value = $value;
-        if $obj.$field != value {
-            $obj.as_mut().rust_mut().$field = value;
-            $obj.as_mut().$changed();
-        }
-    }};
-}
-
 impl cxx_qt::Initialize for Modem {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(16);

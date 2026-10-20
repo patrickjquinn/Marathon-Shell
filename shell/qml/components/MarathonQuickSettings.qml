@@ -176,7 +176,7 @@ Item {
                { id: "nightlight", icon: "moon",            label: "Night",     on: SystemControlStore.isNightLightOn });
         if (RotationManager.available)
             t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
-        if (SensorManagerCpp.lightAvailable)
+        if (Display.lightAvailable)
             t.push({ id: "autobrightness", icon: "sun",     label: "Auto",    on: SystemControlStore.isAutoBrightnessOn });
         t.push({ id: "lowpower",       icon: "battery-low", label: "Saver",   on: SystemControlStore.isLowPowerMode });
         if (HapticManager.available)

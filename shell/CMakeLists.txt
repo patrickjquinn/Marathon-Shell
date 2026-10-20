@@ -60,10 +60,6 @@ set(SOURCES
     src/controllers/powerpolicycontroller.cpp
     src/services/powerbatteryhandlercpp.h
     src/services/powerbatteryhandlercpp.cpp
-    src/controllers/displaypolicycontroller.h
-    src/controllers/displaypolicycontroller.cpp
-    src/managers/displaymanagercpp.h
-    src/managers/displaymanagercpp.cpp
     src/managers/deviceprofile.h
     src/managers/deviceprofile.cpp
     src/managers/powerkeylistener.h
@@ -77,8 +73,6 @@ set(SOURCES
     src/managers/mediarole.h
     src/managers/audiodclient.h
     src/managers/audiodclient.cpp
-    src/managers/sensormanagercpp.h
-    src/managers/sensormanagercpp.cpp
     src/managers/settingsmanager.h
     src/managers/settingsmanager.cpp
     src/managers/platformcpp.h
@@ -597,8 +591,6 @@ qt6_add_qml_module(marathon-shell
         src/models/filechoosermodel.h
         src/models/taskmodel.cpp
         src/models/taskmodel.h
-                    src/managers/displaymanagercpp.cpp
-        src/managers/displaymanagercpp.h
         src/managers/audiomanagercpp.cpp
         src/managers/audiomanagercpp.h
                 src/services/applaunchservice.cpp
@@ -609,8 +601,6 @@ qt6_add_qml_module(marathon-shell
         src/services/notificationservicecpp.h
         src/controllers/powerpolicycontroller.cpp
         src/controllers/powerpolicycontroller.h
-        src/controllers/displaypolicycontroller.cpp
-        src/controllers/displaypolicycontroller.h
         src/controllers/audiopolicycontroller.cpp
         src/controllers/audiopolicycontroller.h
     RESOURCES ${JSON_FILES} ${UI_RESOURCES}

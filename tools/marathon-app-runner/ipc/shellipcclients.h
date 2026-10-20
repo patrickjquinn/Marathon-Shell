@@ -688,8 +688,6 @@ class DisplayClient : public QObject {
     Q_PROPERTY(bool rotationAvailable READ rotationAvailable NOTIFY stateChanged)
     Q_PROPERTY(bool lightSensorAvailable READ lightSensorAvailable NOTIFY stateChanged)
     Q_PROPERTY(bool torchAvailable READ torchAvailable NOTIFY stateChanged)
-    Q_PROPERTY(int screenTimeout READ screenTimeout WRITE setScreenTimeout NOTIFY stateChanged)
-    Q_PROPERTY(QString screenTimeoutString READ screenTimeoutString NOTIFY stateChanged)
     Q_PROPERTY(double brightness READ brightness WRITE setBrightness NOTIFY stateChanged)
     Q_PROPERTY(bool nightLightEnabled READ nightLightEnabled WRITE setNightLightEnabled NOTIFY
                    stateChanged)
@@ -714,9 +712,6 @@ class DisplayClient : public QObject {
     bool             rotationAvailable() const;
     bool             lightSensorAvailable() const;
     bool             torchAvailable() const;
-    int              screenTimeout() const;
-    void             setScreenTimeout(int seconds);
-    QString          screenTimeoutString() const;
     double           brightness() const;
     void             setBrightness(double v);
     bool             nightLightEnabled() const;

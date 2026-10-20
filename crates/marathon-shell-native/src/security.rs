@@ -560,7 +560,7 @@ fn pin_path() -> PathBuf {
 }
 
 fn stored_pin() -> String {
-    fs::read_to_string(pin_path()).map(|s| s.trim().to_owned()).unwrap_or_default()
+    io::read(pin_path()).unwrap_or_default()
 }
 
 // Argon2id at 8 MiB and two passes: tens of milliseconds on a phone's core,
@@ -695,7 +695,7 @@ impl Default for Probe {
 /// otherwise. Without: "off" when the image has a data partition that
 /// erasing would encrypt, "none" when not.
 fn data_encryption_state(home: &Path, probe: &Probe) -> &'static str {
-    let read = |p: &Path| fs::read_to_string(p).map(|s| s.trim().to_owned()).unwrap_or_default();
+    let read = |p: &Path| io::read::<String>(p).unwrap_or_default();
     let luks = device_of(home, &read(&probe.mount_info))
         .is_some_and(|device| read(&probe.sys_dev_block.join(device).join("dm/uuid")).starts_with("CRYPT-LUKS"));
     if !luks {

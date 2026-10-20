@@ -1,35 +1,29 @@
 #include "telephonyintegrationcpp.h"
 
 #include "notificationservicecpp.h"
-#include "displaymanagercpp.h"
-#include "displaypolicycontroller.h"
+#include "marathon-shell-native/src/display.cxxqt.h"
 #include "powerpolicycontroller.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "smsservice.h"
 #include "contactsmanager.h"
-#include "sensormanagercpp.h"
 
 #include <QMetaObject>
 
 TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
-    PowerPolicyController *powerPolicy, DisplayPolicyController *displayPolicy,
-    DisplayManagerCpp *displayManager, AudioPolicyController *audioPolicy, HapticManager *haptics,
-    Modem *telephonyService, SMSService *smsService, SensorManagerCpp *sensorManager,
-    QObject *parent)
+    PowerPolicyController *powerPolicy, marathon::Display *display, AudioPolicyController *audioPolicy,
+    HapticManager *haptics, Modem *telephonyService, SMSService *smsService, QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
     , m_notificationService(notificationService)
     , m_powerPolicy(powerPolicy)
-    , m_displayPolicy(displayPolicy)
-    , m_displayManager(displayManager)
+    , m_display(display)
     , m_audioPolicy(audioPolicy)
     , m_haptics(haptics)
     , m_telephonyService(telephonyService)
-    , m_smsService(smsService)
-    , m_sensorManager(sensorManager) {
+    , m_smsService(smsService) {
     if (m_telephonyService) {
         connect(m_telephonyService, &Modem::incomingCall, this,
                 &TelephonyIntegrationCpp::handleIncomingCall);
@@ -44,8 +38,8 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
                 &TelephonyIntegrationCpp::handleMessageReceived);
     }
 
-    if (m_sensorManager) {
-        connect(m_sensorManager, &SensorManagerCpp::proximityNearChanged, this,
+    if (m_display) {
+        connect(m_display, &marathon::Display::proximityNearChanged, this,
                 &TelephonyIntegrationCpp::handleProximityChanged);
     }
 }
@@ -82,10 +76,8 @@ void TelephonyIntegrationCpp::handleIncomingCall(const QString &number) {
     if (m_powerPolicy)
         m_powerPolicy->wake("call");
 
-    if (m_displayPolicy)
-        m_displayPolicy->turnScreenOn();
-    else if (m_displayManager)
-        m_displayManager->setScreenState(true);
+    if (m_display)
+        m_display->turnScreenOn();
 
     if (m_audioPolicy)
         m_audioPolicy->playRingtone();
@@ -112,10 +104,8 @@ void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
     // firing (handleProximityChanged checks m_hasActiveCall) and a stale
     // "near" reading would otherwise leave the device unwakable.
     if (state == "idle" || state == "terminated") {
-        if (m_displayPolicy)
-            m_displayPolicy->turnScreenOn();
-        else if (m_displayManager)
-            m_displayManager->setScreenState(true);
+        if (m_display)
+            m_display->turnScreenOn();
     }
 
     setLastCallState(state);
@@ -220,45 +210,28 @@ void TelephonyIntegrationCpp::updateHasActiveCall(const QString &state) {
 
     // Drive the shared call-state flag so the proximity sensor gets
     // powered on/off for the duration of the call (main.cpp wires
-    // PowerPolicyController::hasActiveCalls -> SensorManager::
-    // setProximityActive). Without this the sensor never starts and the
+    // PowerPolicyController::hasActiveCalls -> marathon::Display::
+    // setProximityWanted). Without this the sensor never starts and the
     // proximity blank below never fires. Also gates canSleep().
     if (m_powerPolicy)
         m_powerPolicy->setHasActiveCalls(active);
 
     // Call ended with the screen still proximity-blanked (phone was at
     // the ear when the other side hung up): un-blank immediately.
-    if (!active && m_displayManager)
-        m_displayManager->setCallProximityBlank(false);
+    if (!active && m_display)
+        m_display->setProximityBlank(false);
 }
 
 void TelephonyIntegrationCpp::handleProximityChanged() {
-    if (!m_hasActiveCall || !m_sensorManager || !m_displayManager)
+    if (!m_hasActiveCall || !m_display)
         return;
 
-    // CRITICAL: only act on proximity if the sensor is actually present and
-    // running. On hardware without a proximity sensor (e.g. QEMU, mid-range
-    // devices), QtSensors may still synthesise readings from a default
-    // backend, and a stray "near" report will leave the user stuck with a
-    // dark screen during a call -- there's no way to re-wake without the
-    // sensor reporting "far". SensorManagerCpp clears proximityAvailable
-    // unless connectToBackend() AND start() both succeeded.
-    if (!m_sensorManager->proximityAvailable()) {
-        qDebug()
-            << "[TelephonyIntegration] Ignoring proximity event - no proximity sensor available";
-        return;
-    }
-
-    // Use the lightweight backlight-only blank, NOT setScreenState —
-    // the latter now triggers the full deep-idle Doze (CRTC ACTIVE=0 +
+    // Use the lightweight backlight-only blank, NOT turnScreenOff —
+    // the latter triggers the full deep-idle Doze (CRTC ACTIVE=0 +
     // DDR downshift + lock), which is far too heavy to toggle every
     // time the phone moves to/from the ear and would lock the session
-    // mid-call. setCallProximityBlank just powers the LED down/up.
-    if (m_sensorManager->proximityNear()) {
-        qInfo() << "[TelephonyIntegration] Proximity near during call - backlight off";
-        m_displayManager->setCallProximityBlank(true);
-    } else {
-        qInfo() << "[TelephonyIntegration] Proximity far during call - backlight on";
-        m_displayManager->setCallProximityBlank(false);
-    }
+    // mid-call. setProximityBlank just powers the LED down/up.
+    qInfo() << "[TelephonyIntegration] Proximity during call - backlight"
+            << (m_display->getProximityNear() ? "off" : "on");
+    m_display->setProximityBlank(m_display->getProximityNear());
 }
