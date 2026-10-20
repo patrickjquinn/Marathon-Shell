@@ -958,11 +958,13 @@ int main(int argc, char *argv[]) {
                          sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
                      });
     sensorManager->setProximityActive(powerPolicyController->hasActiveCalls());
-    QObject::connect(settingsManager, &SettingsManager::autoBrightnessChanged, sensorManager,
-                     [sensorManager, settingsManager]() {
-                         sensorManager->setLightActive(settingsManager->autoBrightness());
-                     });
-    sensorManager->setLightActive(settingsManager->autoBrightness());
+    // The light sensor reads only while auto-brightness has a lit screen to set.
+    const auto lightWanted = [sensorManager, settingsManager, displayManager]() {
+        sensorManager->setLightActive(settingsManager->autoBrightness() && displayManager->screenOn());
+    };
+    QObject::connect(settingsManager, &SettingsManager::autoBrightnessChanged, sensorManager, lightWanted);
+    QObject::connect(displayManager, &DisplayManagerCpp::screenOnChanged, sensorManager, lightWanted);
+    lightWanted();
 
     auto *displayPolicyController =
         new DisplayPolicyController(displayManager, settingsManager, &app);

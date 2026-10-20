@@ -5,6 +5,7 @@
 
 pub mod backlight;
 mod identity;
+pub mod iio;
 mod io;
 mod log;
 pub mod network;

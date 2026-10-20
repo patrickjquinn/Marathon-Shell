@@ -1,4 +1,5 @@
 #include "sensormanagercpp.h"
+#include "marathon-shell-native/src/iio.cxxqt.h"
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusReply>
@@ -72,8 +73,21 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent, const QString &iioDir)
     // no iio ambient-light device is present (e.g. QEMU).
     m_useIio = detectIioSensors();
     if (m_useIio) {
-        m_iioTimer = new QTimer(this);
-        connect(m_iioTimer, &QTimer::timeout, this, &SensorManagerCpp::pollIio);
+        m_iio = new IioPoller();
+        m_iio->setParent(this);
+        m_iio->setChannels(m_iioLightPath, m_iioLuxScale, m_iioProxPath, m_iioProxNearLevel);
+        connect(m_iio, &IioPoller::lightRead, this, [this](int lux) {
+            if (m_lightRunning && lux != m_ambientLight) {
+                m_ambientLight = lux;
+                emit ambientLightChanged();
+            }
+        });
+        connect(m_iio, &IioPoller::proximityRead, this, [this](bool near) {
+            if (m_proximityRunning && near != m_proximityNear) {
+                m_proximityNear = near;
+                emit proximityNearChanged();
+            }
+        });
         m_lightBackend     = true;
         m_proximityBackend = !m_iioProxPath.isEmpty();
         m_available        = true;
@@ -114,12 +128,6 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent, const QString &iioDir)
     }
 }
 
-// Start/stop the shared iio poll timer and pick an interval — fast
-// (200ms) while a call needs proximity, gentle (1s) for ambient-only.
-static int iioIntervalFor(bool proximity) {
-    return proximity ? 200 : 1000;
-}
-
 void SensorManagerCpp::setProximityActive(bool active) {
     if (m_proximityActive == active)
         return;
@@ -130,16 +138,11 @@ void SensorManagerCpp::setProximityActive(bool active) {
             return;
         if (active && !m_proximityRunning) {
             m_proximityRunning = true;
-            m_iioTimer->setInterval(iioIntervalFor(true));
-            if (!m_iioTimer->isActive())
-                m_iioTimer->start();
-            pollIio();
+            m_iio->setActive(m_lightRunning, true);
             qInfo() << "[SensorManagerCpp] Proximity (iio) started (in-call)";
         } else if (!active && m_proximityRunning) {
             m_proximityRunning = false;
-            m_iioTimer->setInterval(iioIntervalFor(false));
-            if (!m_lightRunning)
-                m_iioTimer->stop();
+            m_iio->setActive(m_lightRunning, false);
             if (m_proximityNear) {
                 m_proximityNear = false;
                 emit proximityNearChanged();
@@ -179,16 +182,11 @@ void SensorManagerCpp::setLightActive(bool active) {
     if (m_useIio) {
         if (active && !m_lightRunning) {
             m_lightRunning = true;
-            if (!m_iioTimer->isActive()) {
-                m_iioTimer->setInterval(iioIntervalFor(m_proximityRunning));
-                m_iioTimer->start();
-            }
-            pollIio();
-            qInfo() << "[SensorManagerCpp] Ambient light (iio) started (auto-brightness on)";
+            m_iio->setActive(true, m_proximityRunning);
+            qInfo() << "[SensorManagerCpp] Ambient light (iio) started";
         } else if (!active && m_lightRunning) {
             m_lightRunning = false;
-            if (!m_proximityRunning)
-                m_iioTimer->stop();
+            m_iio->setActive(false, m_proximityRunning);
             qInfo() << "[SensorManagerCpp] Ambient light (iio) stopped (auto-brightness off)";
         }
         return;
@@ -226,33 +224,3 @@ void SensorManagerCpp::onLightChanged() {
     }
 }
 
-// Direct-iio poll: read the raw sysfs channels and translate to the same
-// lux / near semantics QtSensors would have provided.
-void SensorManagerCpp::pollIio() {
-    auto readInt = [](const QString &path, int fallback) {
-        QFile f(path);
-        if (f.open(QIODevice::ReadOnly | QIODevice::Text))
-            return QTextStream(&f).readAll().trimmed().toInt();
-        return fallback;
-    };
-
-    if (m_lightRunning && !m_iioLightPath.isEmpty()) {
-        const int raw = readInt(m_iioLightPath, -1);
-        if (raw >= 0) {
-            const int lux = static_cast<int>(std::lround(raw * m_iioLuxScale));
-            if (lux != m_ambientLight) {
-                m_ambientLight = lux;
-                emit ambientLightChanged();
-            }
-        }
-    }
-
-    if (m_proximityRunning && !m_iioProxPath.isEmpty()) {
-        const int  raw  = readInt(m_iioProxPath, 0);
-        const bool near = raw >= m_iioProxNearLevel;
-        if (near != m_proximityNear) {
-            m_proximityNear = near;
-            emit proximityNearChanged();
-        }
-    }
-}

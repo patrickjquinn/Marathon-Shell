@@ -154,6 +154,20 @@ class TestBrightness : public QObject {
         QVERIFY(!display.autoBrightnessEnabled());
     }
 
+    void theLightSensorIsReadOnlyWhileWanted() {
+        SensorManagerCpp sensors(nullptr, m_sysfs.filePath(QStringLiteral("iio-light")));
+        QSignalSpy       changed(&sensors, &SensorManagerCpp::ambientLightChanged);
+        sensors.setLightActive(true);
+        QTRY_COMPARE(sensors.ambientLight(), 40);
+        sensors.setLightActive(false);
+        write(m_sysfs.filePath(QStringLiteral("iio-light/iio:device0/in_illuminance_raw")), "900\n");
+        QTest::qWait(1500);
+        QCOMPARE(sensors.ambientLight(), 40);
+        sensors.setLightActive(true);
+        QTRY_COMPARE(sensors.ambientLight(), 900);
+        write(m_sysfs.filePath(QStringLiteral("iio-light/iio:device0/in_illuminance_raw")), "40\n");
+    }
+
     void aLightSensorMakesAutoBrightnessAvailable() {
         SensorManagerCpp sensors(nullptr, m_sysfs.filePath(QStringLiteral("iio-light")));
         QVERIFY(sensors.lightAvailable());

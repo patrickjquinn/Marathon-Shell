@@ -197,6 +197,10 @@ async fn run(qt: Qt, dir: PathBuf, commands: Receiver<Command>) {
                     ramp.clear();
                     device.write("bl_power", "4");
                     Timer::after(Duration::from_millis(30)).await;
+                    // Its owner went while the LED was down: nothing to light.
+                    if commands.is_closed() {
+                        return;
+                    }
                     device.write("bl_power", "0");
                     // Two stores, so pwm_backlight_update_status re-applies
                     // the duty: one idempotent write can be skipped.

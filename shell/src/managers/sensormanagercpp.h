@@ -2,7 +2,8 @@
 #define SENSORMANAGERCPP_H
 
 #include <QObject>
-#include <QTimer>
+
+class IioPoller;
 #include <QLightSensor>
 #include <QLightReading>
 #include <QProximitySensor>
@@ -49,7 +50,6 @@ class SensorManagerCpp : public QObject {
   private slots:
     void onProximityChanged();
     void onLightChanged();
-    void pollIio();
 
   signals:
     void availableChanged();
@@ -86,7 +86,8 @@ class SensorManagerCpp : public QObject {
     double  m_iioLuxScale = 1.0;
     QString m_iioProxPath;           // .../in_proximity_raw
     int     m_iioProxNearLevel = 16; // raw >= this => near (baseline ~3)
-    QTimer *m_iioTimer         = nullptr;
+    // Reads the channels on the I/O thread (crates/marathon-shell-native/src/iio.rs).
+    IioPoller *m_iio            = nullptr;
 };
 
 #endif
