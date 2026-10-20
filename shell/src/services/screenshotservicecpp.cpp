@@ -1,7 +1,7 @@
 #include "screenshotservicecpp.h"
 
 #include "audiopolicycontroller.h"
-#include "hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "notificationservicecpp.h"
 
 #include <QDateTime>
@@ -14,7 +14,7 @@
 #include <QStandardPaths>
 
 ScreenshotServiceCpp::ScreenshotServiceCpp(AudioPolicyController  *audioPolicy,
-                                           HapticManager          *haptics,
+                                           Haptics                *haptics,
                                            NotificationServiceCpp *notificationService,
                                            QObject                *parent)
     : QObject(parent)

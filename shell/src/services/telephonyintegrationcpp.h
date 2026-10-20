@@ -12,7 +12,7 @@ namespace marathon {
     class Display;
 }
 class AudioPolicyController;
-class HapticManager;
+class Haptics;
 class Modem;
 class Telephonyd;
 
@@ -30,7 +30,7 @@ class TelephonyIntegrationCpp : public QObject {
     explicit TelephonyIntegrationCpp(
         Contacts *contacts, NotificationServiceCpp *notificationService,
         Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
-        HapticManager *haptics, Modem *telephonyService, Telephonyd *telephonyd,
+        Haptics *haptics, Modem *telephonyService, Telephonyd *telephonyd,
         QObject *parent = nullptr);
 
     QString lastCallState() const {
@@ -83,7 +83,7 @@ class TelephonyIntegrationCpp : public QObject {
     Power                   *m_power               = nullptr;
     marathon::Display                 *m_display             = nullptr;
     AudioPolicyController   *m_audioPolicy         = nullptr;
-    HapticManager           *m_haptics             = nullptr;
+    Haptics                 *m_haptics             = nullptr;
     Modem        *m_telephonyService    = nullptr;
     Telephonyd              *m_telephonyd          = nullptr;
 

@@ -2,7 +2,7 @@
 #include "settingsmanager.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "audiomanagercpp.h"
-#include "hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "mediarole.h"
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -63,7 +63,7 @@ QVariantMap Alarm::toVariantMap() const {
 }
 
 AlarmManagerCpp::AlarmManagerCpp(SettingsManager *settings, Power *power,
-                                 AudioManagerCpp *audio, HapticManager *haptic, QObject *parent)
+                                 AudioManagerCpp *audio, Haptics *haptic, QObject *parent)
     : QObject(parent)
     , m_settings(settings)
     , m_power(power)
@@ -437,6 +437,6 @@ void AlarmManagerCpp::triggerAlarm(const Alarm &alarm) {
     if (m_haptic && alarm.vibrate) {
         QVariantList pattern;
         pattern << 500 << 500;
-        m_haptic->vibratePatternVariant(pattern);
+        m_haptic->vibratePattern(pattern);
     }
 }

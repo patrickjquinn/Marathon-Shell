@@ -6,7 +6,7 @@
 #include <qqml.h>
 
 class AudioManagerCpp;
-class HapticManager;
+class Haptics;
 class SettingsManager;
 
 class QAudioOutput;
@@ -19,7 +19,7 @@ class AudioPolicyController : public QObject {
 
   public:
     explicit AudioPolicyController(AudioManagerCpp *audioManager, SettingsManager *settings,
-                                   HapticManager *haptics, QObject *parent = nullptr);
+                                   Haptics *haptics, QObject *parent = nullptr);
 
     Q_INVOKABLE void setMasterVolume(double volume);
     Q_INVOKABLE void setMuted(bool muted);
@@ -61,7 +61,7 @@ class AudioPolicyController : public QObject {
 
     QPointer<AudioManagerCpp> m_audioManager;
     QPointer<SettingsManager> m_settings;
-    QPointer<HapticManager>   m_haptics;
+    QPointer<Haptics>         m_haptics;
 
     QMediaPlayer             *m_ringtonePlayer;
     QAudioOutput             *m_ringtoneOutput;

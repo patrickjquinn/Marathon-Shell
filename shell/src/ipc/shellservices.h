@@ -42,7 +42,7 @@ class ForegroundApp;
 class SessionStore;
 class AudioManagerCpp;
 class AudioPolicyController;
-class HapticManager;
+class Haptics;
 class RotationManager;
 class LocationManager;
 class AlarmManagerCpp;
@@ -508,7 +508,7 @@ class HapticObject : public QObject, protected QDBusContext {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Haptic1")
 
   public:
-    HapticObject(HapticManager *haptic, AppLaunchService *launchService, QObject *parent = nullptr);
+    HapticObject(Haptics *haptic, AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
     bool IsAvailable() const;
@@ -520,7 +520,7 @@ class HapticObject : public QObject, protected QDBusContext {
     void Stop();
 
   private:
-    HapticManager    *m_haptic        = nullptr;
+    Haptics          *m_haptic        = nullptr;
     AppLaunchService *m_launchService = nullptr;
 };
 

@@ -68,7 +68,7 @@ Item {
     Connections {
         function onBroadcastReceived(broadcast) {
             if (typeof HapticManager !== "undefined")
-                HapticManager.vibratePattern(overlay.weaPattern, 0);
+                HapticManager.vibratePattern(overlay.weaPattern);
             // AudioManagerCpp has no play method -- it is the mixer
             // (setVolume/setMuted/streams). The guard `&& playAlert` meant
             // that resolved to undefined and the branch was skipped in

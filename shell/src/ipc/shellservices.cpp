@@ -24,7 +24,7 @@
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
-#include "hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "locationmanager.h"
 #include "alarmmanagercpp.h"
 #include "ratelimiter.h"
@@ -1815,7 +1815,7 @@ bool NavigationObject::ToggleQuickSettings() {
     return true;
 }
 
-HapticObject::HapticObject(HapticManager *haptic, AppLaunchService *launchService, QObject *parent)
+HapticObject::HapticObject(Haptics *haptic, AppLaunchService *launchService, QObject *parent)
     : QObject(parent)
     , m_haptic(haptic)
     , m_launchService(launchService) {
@@ -1823,32 +1823,32 @@ HapticObject::HapticObject(HapticManager *haptic, AppLaunchService *launchServic
 }
 
 bool HapticObject::IsAvailable() const {
-    return m_haptic ? m_haptic->available() : false;
+    return m_haptic ? m_haptic->getAvailable() : false;
 }
 
 void HapticObject::Light() {
-    if (m_haptic && m_haptic->available())
+    if (m_haptic && m_haptic->getAvailable())
         m_haptic->vibrate(10);
 }
 
 void HapticObject::Medium() {
-    if (m_haptic && m_haptic->available())
+    if (m_haptic && m_haptic->getAvailable())
         m_haptic->vibrate(25);
 }
 
 void HapticObject::Heavy() {
-    if (m_haptic && m_haptic->available())
+    if (m_haptic && m_haptic->getAvailable())
         m_haptic->vibrate(50);
 }
 
 void HapticObject::Vibrate(int duration) {
-    if (m_haptic && m_haptic->available())
+    if (m_haptic && m_haptic->getAvailable())
         m_haptic->vibrate(duration);
 }
 
 void HapticObject::VibratePattern(const QVariantList &pattern) {
-    if (m_haptic && m_haptic->available())
-        m_haptic->vibratePatternVariant(pattern);
+    if (m_haptic && m_haptic->getAvailable())
+        m_haptic->vibratePattern(pattern);
 }
 
 void HapticObject::Stop() {

@@ -1,7 +1,7 @@
 #include "audiopolicycontroller.h"
 
 #include "audiomanagercpp.h"
-#include "hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "mediarole.h"
 #include "settingsmanager.h"
 
@@ -21,7 +21,7 @@ namespace {
 }
 
 AudioPolicyController::AudioPolicyController(AudioManagerCpp *audioManager,
-                                             SettingsManager *settings, HapticManager *haptics,
+                                             SettingsManager *settings, Haptics *haptics,
                                              QObject *parent)
     : QObject(parent)
     , m_audioManager(audioManager)
@@ -233,7 +233,7 @@ void AudioPolicyController::vibratePattern(const QVariantList &pattern) {
     if (!m_haptics)
         return;
 
-    m_haptics->vibratePatternVariant(pattern);
+    m_haptics->vibratePattern(pattern);
 }
 
 void AudioPolicyController::wirePlayerVolumes() {

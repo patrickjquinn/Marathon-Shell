@@ -2,14 +2,14 @@
 #include "notificationmodel.h"
 #include "settingsmanager.h"
 #include "audiopolicycontroller.h"
-#include "hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 
 #include <QModelIndex>
 #include <utility>   // std::as_const
 
 NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, SettingsManager *settings,
                                                AudioPolicyController *audioPolicy,
-                                               HapticManager *haptics, QObject *parent)
+                                               Haptics *haptics, QObject *parent)
     : QObject(parent)
     , m_model(model)
     , m_settings(settings)
@@ -246,7 +246,7 @@ void NotificationServiceCpp::playFeedbackIfNeeded(bool sound) {
         m_audioPolicy->playNotificationSound();
 
     if (m_vibrationEnabled && m_haptics)
-        m_haptics->pattern({50, 100, 50});
+        m_haptics->vibratePattern({50, 100, 50});
 }
 
 void NotificationServiceCpp::removeNotificationById(int id) {

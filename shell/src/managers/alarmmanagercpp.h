@@ -12,7 +12,7 @@
 class SettingsManager;
 class Power;
 class AudioManagerCpp;
-class HapticManager;
+class Haptics;
 class QSoundEffect;
 
 struct Alarm {
@@ -45,7 +45,7 @@ class AlarmManagerCpp : public QObject {
 
   public:
     explicit AlarmManagerCpp(SettingsManager *settings, Power *power,
-                             AudioManagerCpp *audio, HapticManager *haptic,
+                             AudioManagerCpp *audio, Haptics *haptic,
                              QObject *parent = nullptr);
 
     QVariantList        alarms() const;
@@ -87,7 +87,7 @@ class AlarmManagerCpp : public QObject {
     SettingsManager *m_settings;
     Power *m_power;
     AudioManagerCpp *m_audio;
-    HapticManager   *m_haptic;
+    Haptics         *m_haptic;
 
     QList<Alarm>     m_alarms;
     QList<Alarm>     m_activeAlarms;

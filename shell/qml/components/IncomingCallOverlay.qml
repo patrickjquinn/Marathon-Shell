@@ -36,7 +36,7 @@ Item {
 
     function silence() {
         AudioPolicyControllerCpp.stopRingtone();
-        HapticManager.stopVibration();
+        HapticManager.cancelVibration();
     }
 
     anchors.fill: parent

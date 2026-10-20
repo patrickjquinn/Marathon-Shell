@@ -4,7 +4,7 @@
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "audiopolicycontroller.h"
-#include "hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/telephonyd.cxxqt.h"
 #include "marathon-shell-native/src/contacts.cxxqt.h"
@@ -14,7 +14,7 @@
 TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     Contacts *contacts, NotificationServiceCpp *notificationService,
     Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
-    HapticManager *haptics, Modem *telephonyService, Telephonyd *telephonyd, QObject *parent)
+    Haptics *haptics, Modem *telephonyService, Telephonyd *telephonyd, QObject *parent)
     : QObject(parent)
     , m_contacts(contacts)
     , m_notificationService(notificationService)
@@ -80,7 +80,7 @@ void TelephonyIntegrationCpp::handleIncomingCall(const QString &number) {
         m_audioPolicy->playRingtone();
 
     if (m_haptics)
-        m_haptics->vibratePattern(QVariantList{1000, 500}, -1);
+        m_haptics->vibratePattern({1000, 500});
 
     showIncomingOverlay(number);
 }
@@ -92,7 +92,7 @@ void TelephonyIntegrationCpp::handleCallStateChanged(const QString &state) {
         if (m_audioPolicy)
             m_audioPolicy->stopRingtone();
         if (m_haptics)
-            m_haptics->stopVibration();
+            m_haptics->cancelVibration();
         hideIncomingOverlay();
     }
 

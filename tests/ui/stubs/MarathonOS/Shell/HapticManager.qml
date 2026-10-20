@@ -6,6 +6,6 @@ QtObject {
     function heavy() {}
     function tick() {}
     function vibrate() {}
-    function stopVibration() {}
+    function cancelVibration() {}
     function vibratePattern() {}
 }

@@ -17,6 +17,7 @@ pub mod contacts;
 mod desktop;
 pub mod display;
 pub mod flashlight;
+pub mod haptics;
 mod identity;
 pub mod modem;
 pub mod motion;

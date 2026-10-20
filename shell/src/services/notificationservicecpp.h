@@ -10,7 +10,7 @@
 class NotificationModel;
 class SettingsManager;
 class AudioPolicyController;
-class HapticManager;
+class Haptics;
 
 class NotificationServiceCpp : public QObject {
     Q_OBJECT
@@ -27,7 +27,7 @@ class NotificationServiceCpp : public QObject {
 
   public:
     explicit NotificationServiceCpp(NotificationModel *model, SettingsManager *settings,
-                                    AudioPolicyController *audioPolicy, HapticManager *haptics,
+                                    AudioPolicyController *audioPolicy, Haptics *haptics,
                                     QObject *parent = nullptr);
 
     QVariantList notifications() const {
@@ -95,7 +95,7 @@ class NotificationServiceCpp : public QObject {
     NotificationModel *m_model    = nullptr;
     SettingsManager   *m_settings = nullptr;
     QPointer<AudioPolicyController> m_audioPolicy;
-    QPointer<HapticManager>         m_haptics;
+    QPointer<Haptics>               m_haptics;
 
     QVariantList                    m_notifications;
     QHash<int, QVariantMap>         m_notificationMeta;

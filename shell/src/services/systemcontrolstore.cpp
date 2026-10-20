@@ -5,7 +5,7 @@
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "marathon-shell-native/src/flashlight.cxxqt.h"
-#include "src/managers/hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "src/managers/locationmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
@@ -21,7 +21,7 @@ SystemControlStore::SystemControlStore(
     Network *networkManager, Bluetooth *bluetoothManager,
     marathon::Display *display, Flashlight *flashlightManager,
     Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
-    LocationManager *locationManager, HapticManager *hapticManager, Power *powerManager,
+    LocationManager *locationManager, Haptics *hapticManager, Power *powerManager,
     AudioManagerCpp *audioManager, AudioPolicyController *audioPolicyController,
     ScreenshotServiceCpp *screenshotService, QObject *parent)
     : QObject(parent)
@@ -116,9 +116,9 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_hapticManager) {
-        setIsVibrationOn(m_hapticManager->enabled());
-        connect(m_hapticManager, &HapticManager::enabledChanged, this,
-                [this]() { setIsVibrationOn(m_hapticManager->enabled()); });
+        setIsVibrationOn(m_hapticManager->getEnabled());
+        connect(m_hapticManager, &Haptics::enabledChanged, this,
+                [this]() { setIsVibrationOn(m_hapticManager->getEnabled()); });
     }
 
     if (m_powerManager) {

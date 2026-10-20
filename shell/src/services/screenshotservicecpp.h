@@ -5,7 +5,7 @@
 #include <QString>
 
 class AudioPolicyController;
-class HapticManager;
+class Haptics;
 class NotificationServiceCpp;
 
 class ScreenshotServiceCpp : public QObject {
@@ -16,7 +16,7 @@ class ScreenshotServiceCpp : public QObject {
     Q_PROPERTY(QObject *compositor MEMBER m_compositor NOTIFY compositorChanged)
 
   public:
-    explicit ScreenshotServiceCpp(AudioPolicyController *audioPolicy, HapticManager *haptics,
+    explicit ScreenshotServiceCpp(AudioPolicyController *audioPolicy, Haptics *haptics,
                                   NotificationServiceCpp *notificationService,
                                   QObject                *parent = nullptr);
 
@@ -52,7 +52,7 @@ class ScreenshotServiceCpp : public QObject {
     bool                    secureContentShown() const;
 
     AudioPolicyController  *m_audioPolicy         = nullptr;
-    HapticManager          *m_haptics             = nullptr;
+    Haptics                *m_haptics             = nullptr;
     NotificationServiceCpp *m_notificationService = nullptr;
     QObject                *m_shellWindow         = nullptr;
     QObject                *m_compositor          = nullptr;

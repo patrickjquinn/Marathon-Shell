@@ -17,7 +17,7 @@ class Network;
 class Power;
 class AudioManagerCpp;
 class AudioPolicyController;
-class HapticManager;
+class Haptics;
 class Security;
 class RotationManager;
 class LocationManager;
@@ -43,7 +43,7 @@ class ShellIpcServer : public QObject {
                             SettingsManager *settingsManager, Bluetooth *bluetoothManager,
                             marathon::Display *display, Power *powerManager,
                             AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
-                            Network *networkManager, HapticManager *hapticManager,
+                            Network *networkManager, Haptics *hapticManager,
                             Security *securityManager, RotationManager *rotationManager,
                             LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                             AudioRoutingManager *audioRoutingManager, marathon::Updates *updateService,
@@ -88,7 +88,7 @@ class ShellIpcServer : public QObject {
     AudioManagerCpp           *m_audioManager        = nullptr;
     AudioPolicyController     *m_audioPolicy         = nullptr;
     Network         *m_networkManager      = nullptr;
-    HapticManager             *m_hapticManager       = nullptr;
+    Haptics                   *m_hapticManager       = nullptr;
     Security           *m_securityManager     = nullptr;
     RotationManager           *m_rotationManager     = nullptr;
     LocationManager           *m_locationManager     = nullptr;

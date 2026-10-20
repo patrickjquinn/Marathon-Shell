@@ -16,7 +16,7 @@ class Modem;
 class SettingsManager;
 class AlarmManagerCpp;
 class LocationManager;
-class HapticManager;
+class Haptics;
 class Power;
 class AudioManagerCpp;
 class AudioPolicyController;
@@ -56,7 +56,7 @@ class SystemControlStore : public QObject {
                                 Flashlight *flashlightManager,
                                 Modem *modemManager, SettingsManager *settingsManager,
                                 AlarmManagerCpp *alarmManager, LocationManager *locationManager,
-                                HapticManager *hapticManager, Power *powerManager,
+                                Haptics *hapticManager, Power *powerManager,
                                 AudioManagerCpp       *audioManager,
                                 AudioPolicyController *audioPolicyController,
                                 ScreenshotServiceCpp *screenshotService, QObject *parent = nullptr);
@@ -193,7 +193,7 @@ class SystemControlStore : public QObject {
     SettingsManager       *m_settingsManager;
     AlarmManagerCpp       *m_alarmManager;
     LocationManager       *m_locationManager;
-    HapticManager         *m_hapticManager;
+    Haptics               *m_hapticManager;
     Power       *m_powerManager;
     AudioManagerCpp       *m_audioManager;
     AudioPolicyController *m_audioPolicyController;

@@ -9,6 +9,7 @@ fn main() {
         .file("src/desktop.rs")
         .file("src/display.rs")
         .file("src/flashlight.rs")
+        .file("src/haptics.rs")
         .file("src/identity.rs")
         .file("src/modem.rs")
         .file("src/motion.rs")

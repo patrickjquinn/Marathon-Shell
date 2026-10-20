@@ -85,8 +85,6 @@ set(SOURCES
     src/managers/locationmanager.cpp
     src/managers/geoclueagent.h
     src/managers/geoclueagent.cpp
-    src/managers/hapticmanager.h
-    src/managers/hapticmanager.cpp
     src/managers/alarmmanagercpp.h
     src/managers/alarmmanagercpp.cpp
     src/services/statusbariconservicecpp.h
@@ -498,8 +496,6 @@ qt6_add_qml_module(marathon-shell
         src/services/languagemanager.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
-        src/managers/hapticmanager.cpp
-        src/managers/hapticmanager.h
         src/managers/settingsmanager.cpp
         src/managers/settingsmanager.h
         src/marathonpermissionmanager.cpp

@@ -95,7 +95,7 @@
 #include "src/managers/locationmanager.h"
 #include "src/managers/geoclueagent.h"
 #include "marathon-shell-native/src/clipboard.cxxqt.h"
-#include "src/managers/hapticmanager.h"
+#include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/flashlight.cxxqt.h"
 #include "src/controllers/audioroutingmanager.h"
 #include "src/controllers/audiopolicycontroller.h"
@@ -869,9 +869,9 @@ int main(int argc, char *argv[]) {
                      automaticTimeZone);
     QObject::connect(settingsManager, &SettingsManager::automaticTimeZoneChanged, settingsManager,
                      automaticTimeZone);
-    auto *hapticManager    = new HapticManager(&app);
-    qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
-                                                hapticManager);
+    auto *hapticManager = new Haptics();
+    hapticManager->setParent(&app);
+    qmlRegisterSingletonInstance<Haptics>("MarathonOS.Shell", 1, 0, "HapticManager", hapticManager);
     hapticManager->setEnabled(settingsManager->vibrationEnabled());
     QObject::connect(settingsManager, &SettingsManager::vibrationEnabledChanged, hapticManager,
                      [hapticManager, settingsManager] {
@@ -879,10 +879,10 @@ int main(int argc, char *argv[]) {
                      });
     auto *ngf = new marathon::Ngf();
     ngf->setParent(&app);
-    QObject::connect(ngf, &marathon::Ngf::vibrate, hapticManager,
-                     qOverload<const QList<int> &>(&HapticManager::vibratePattern));
-    QObject::connect(ngf, &marathon::Ngf::stopVibration, hapticManager,
-                     &HapticManager::cancelVibration);
+    QObject::connect(ngf, &marathon::Ngf::vibrate, hapticManager, [hapticManager](const QList<int> &pattern) {
+        hapticManager->vibratePattern(QVariantList(pattern.begin(), pattern.end()));
+    });
+    QObject::connect(ngf, &marathon::Ngf::stopVibration, hapticManager, &Haptics::cancelVibration);
     auto *clipboard = new Clipboard();
     clipboard->setParent(&app);
     ctx->setContextProperty("ClipboardManagerCpp", clipboard);
