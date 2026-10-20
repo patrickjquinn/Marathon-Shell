@@ -1,13 +1,14 @@
 # Marathon fork of Alpine v3.23's linux-rpi. Same source and patches; the
 # config adds utilization clamping (UCLAMP_TASK, UCLAMP_TASK_GROUP) so the
-# shell's cpu.uclamp.min boost for the app in front takes effect. Release
-# stays 6.12.85-0-rpi, as upstream. Drop this fork when Alpine enables it.
+# shell's cpu.uclamp.min boost for the app in front takes effect. Its
+# release, 6.12.85-1-rpi, keeps its modules apart from Alpine's r0. Drop this
+# fork when Alpine enables it.
 # Maintainer: Natanael Copa <ncopa@alpinelinux.org>
 
 pkgname=linux-rpi-marathon
 pkgver=6.12.85
 _kernver=${pkgver%.*}
-pkgrel=0
+pkgrel=1
 pkgdesc="Raspberry Pi kernel — Marathon fork with utilization clamping"
 url=https://github.com/raspberrypi/linux
 depends="initramfs-generator linux-firmware-brcm"
@@ -166,6 +167,11 @@ _package() {
 		INSTALL_PATH="$_outdir"/boot \
 		INSTALL_DTBS_PATH="$INSTALL_DTBS_PATH"
 	cp Module.symvers.backup Module.symvers
+	# postmarketOS's installkernel names it vmlinux-<release>; the image
+	# stages vmlinuz-<flavor>, as Alpine's names it.
+	if [ -f "$_outdir"/boot/vmlinux-$_abi_release ]; then
+		mv "$_outdir"/boot/vmlinux-$_abi_release "$_outdir"/boot/vmlinuz-$_buildflavor
+	fi
 
 	rm -f "$_outdir"/lib/modules/$_abi_release/build \
 		"$_outdir"/lib/modules/$_abi_release/source
