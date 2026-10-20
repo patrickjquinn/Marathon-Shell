@@ -40,8 +40,6 @@ set(SOURCES
     src/services/unifiedpushdistributor.cpp
     src/services/marathonntfyclient.h
     src/services/marathonntfyclient.cpp
-    src/services/flatpakmanager.h
-    src/services/flatpakmanager.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h

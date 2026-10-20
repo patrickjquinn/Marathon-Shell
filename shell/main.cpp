@@ -56,7 +56,6 @@
 #include "src/services/notificationservicecpp.h"
 #include "src/services/unifiedpushdistributor.h"
 #include "src/services/marathonntfyclient.h"
-#include "src/services/flatpakmanager.h"
 #include "src/services/motiondaemon.h"
 #include "src/services/automatictimezone.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
@@ -1248,23 +1247,6 @@ int main(int argc, char *argv[]) {
     auto *appStoreService = new MarathonAppStoreService(appInstaller, &app);
     qInfo() << "[MarathonShell] App Store Service initialized";
 
-    auto *flatpakManager = new FlatpakManager(&app);
-    if (debugEnabled && flatpakManager->available()) {
-        QObject::connect(flatpakManager, &FlatpakManager::installedAppsChanged, &app,
-                         [flatpakManager]() {
-                             const QVariantList apps = flatpakManager->installedApps();
-                             qInfo() << "[FlatpakManager] installed:" << apps.size();
-                             if (!apps.isEmpty())
-                                 flatpakManager->requestPermissions(
-                                     apps.first().toMap().value("ref").toString());
-                         });
-        QObject::connect(flatpakManager, &FlatpakManager::permissionsReady, &app,
-                         [](const QString &ref, const QVariantMap &perms) {
-                             qInfo() << "[FlatpakManager] perms for" << ref
-                                     << "sections=" << perms.keys();
-                         });
-        flatpakManager->refresh();
-    }
 
     // Activity Rings backend — feeds the lock-screen Activity NowBar
     // and the Active Frames Health frame off IIO accelerometer samples
