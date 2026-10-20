@@ -6,7 +6,7 @@
 
 class AppLifecycleManager;
 class AppLaunchService;
-class MPRIS2Controller;
+class Mpris;
 class Modem;
 
 // Bridges system-observed activity signals into AppLifecycleManager
@@ -22,7 +22,7 @@ class BackgroundTaskObserver : public QObject {
 
   public:
     BackgroundTaskObserver(AppLifecycleManager *lifecycle, AppLaunchService *launch,
-                           MPRIS2Controller *mpris, Modem *telephony,
+                           Mpris *mpris, Modem *telephony,
                            QObject *parent = nullptr);
 
   private:
@@ -37,7 +37,7 @@ class BackgroundTaskObserver : public QObject {
 
     QPointer<AppLifecycleManager> m_lifecycle;
     QPointer<AppLaunchService>    m_launch;
-    QPointer<MPRIS2Controller>    m_mpris;
+    QPointer<Mpris>               m_mpris;
     QPointer<Modem>    m_telephony;
 
     // Track who's currently holding each capability so we can release it

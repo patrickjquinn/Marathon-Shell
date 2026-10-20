@@ -18,6 +18,7 @@ pub mod display;
 mod identity;
 pub mod modem;
 pub mod motion;
+pub mod mpris;
 pub mod network;
 pub mod ngf;
 mod notifications;

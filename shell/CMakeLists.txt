@@ -79,8 +79,6 @@ set(SOURCES
     src/services/wakeonkeyfilter.cpp
     src/services/waketouchfilter.h
     src/services/waketouchfilter.cpp
-    src/managers/mpris2controller.h
-    src/managers/mpris2controller.cpp
     src/managers/rotationmanager.h
     src/managers/rotationmanager.cpp
     src/managers/locationmanager.h
@@ -508,8 +506,6 @@ qt6_add_qml_module(marathon-shell
         src/managers/hapticmanager.h
         src/managers/settingsmanager.cpp
         src/managers/settingsmanager.h
-        src/managers/mpris2controller.cpp
-        src/managers/mpris2controller.h
         src/marathonpermissionmanager.cpp
         src/marathonpermissionmanager.h
         src/models/notificationmodel.cpp

@@ -121,7 +121,6 @@ target_include_directories(test_shell_notificationhandler PRIVATE
 )
 add_test(NAME Shell_NotificationHandler COMMAND test_shell_notificationhandler)
 
-# MPRIS2Controller against fake players on a private session bus
 find_program(DBUS_RUN_SESSION dbus-run-session)
 
 # AppModel tests (data model with validation)

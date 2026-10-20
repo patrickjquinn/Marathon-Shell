@@ -3,7 +3,7 @@
 
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
-#include "managers/mpris2controller.h"
+#include "marathon-shell-native/src/mpris.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 
 #include <QDBusConnection>
@@ -22,7 +22,7 @@ static bool callIsActive(const QString &state) {
 }
 
 BackgroundTaskObserver::BackgroundTaskObserver(AppLifecycleManager *lifecycle,
-                                               AppLaunchService *launch, MPRIS2Controller *mpris,
+                                               AppLaunchService *launch, Mpris *mpris,
                                                Modem *telephony, QObject *parent)
     : QObject(parent)
     , m_lifecycle(lifecycle)
@@ -30,9 +30,9 @@ BackgroundTaskObserver::BackgroundTaskObserver(AppLifecycleManager *lifecycle,
     , m_mpris(mpris)
     , m_telephony(telephony) {
     if (m_mpris) {
-        connect(m_mpris, &MPRIS2Controller::playbackStatusChanged, this,
+        connect(m_mpris, &Mpris::playbackStatusChanged, this,
                 &BackgroundTaskObserver::onMprisPlaybackChanged);
-        connect(m_mpris, &MPRIS2Controller::activePlayerChanged, this,
+        connect(m_mpris, &Mpris::activePlayerChanged, this,
                 &BackgroundTaskObserver::onMprisActivePlayerChanged);
     }
     if (m_telephony) {
@@ -44,12 +44,12 @@ BackgroundTaskObserver::BackgroundTaskObserver(AppLifecycleManager *lifecycle,
 void BackgroundTaskObserver::onMprisPlaybackChanged() {
     if (!m_mpris || !m_lifecycle)
         return;
-    if (m_mpris->isPlaying()) {
-        const QString busName = m_mpris->currentBusName();
+    if (m_mpris->getIsPlaying()) {
+        const QString busName = m_mpris->getCurrentBusName();
         QString       appId   = resolveAppIdForBusName(busName);
         // Sandboxed (flatpak) players reach the bus through xdg-dbus-proxy,
         // whose pid is not the app's; fall back to the player's DesktopEntry.
-        const QString entry = m_mpris->desktopEntry();
+        const QString entry = m_mpris->getDesktopEntry();
         if (appId.isEmpty() && !entry.isEmpty() && m_launch && m_launch->pidForAppId(entry) > 0)
             appId = entry;
         if (appId.isEmpty()) {

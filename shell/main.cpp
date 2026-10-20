@@ -90,7 +90,7 @@
 #include "src/managers/cursormanager.h"
 #include "src/components/lunasvgimageprovider.h"
 
-#include "src/managers/mpris2controller.h"
+#include "marathon-shell-native/src/mpris.cxxqt.h"
 #include "src/managers/rotationmanager.h"
 #include "src/managers/locationmanager.h"
 #include "src/managers/geoclueagent.h"
@@ -222,7 +222,6 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
     }
 }
 
-#include "src/components/mpris_types.h"
 #include <utility>   // std::as_const
 #include <QtPlugin>
 
@@ -254,7 +253,6 @@ int main(int argc, char *argv[]) {
     if (!qEnvironmentVariableIsSet("QSG_ANTIALIASING_METHOD"))
         qputenv("QSG_ANTIALIASING_METHOD", "vertex");
 
-    registerMprisTypes();
 
     QString debugEnv     = qgetenv("MARATHON_DEBUG");
     bool    debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
@@ -626,9 +624,10 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<DeviceProfile>("MarathonOS.Shell", 1, 0, "DeviceProfile",
                                                 &DeviceProfile::instance());
 
-    auto *mpris2Controller = new MPRIS2Controller(&app);
-    qmlRegisterSingletonInstance<MPRIS2Controller>("MarathonOS.Shell", 1, 0, "MPRIS2Controller",
-                                                   mpris2Controller);
+    auto *mpris2Controller = new Mpris();
+    mpris2Controller->setParent(&app);
+    qmlRegisterSingletonInstance<Mpris>("MarathonOS.Shell", 1, 0, "MPRIS2Controller",
+                                        mpris2Controller);
     qInfo() << "[MarathonShell]MPRIS2 media controller initialized";
 
     startupMark("stores");
