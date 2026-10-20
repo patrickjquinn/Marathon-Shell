@@ -12,4 +12,6 @@ fn main() {
     // it changes no generated code.
     let builder = unsafe { builder.cc_builder(|cc| { cc.include("../../shell/src"); }) };
     builder.build();
+    // components/pamauth.h calls libpam.
+    println!("cargo::rustc-link-lib=pam");
 }

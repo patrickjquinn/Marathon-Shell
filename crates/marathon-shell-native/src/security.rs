@@ -31,6 +31,14 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
     }
 
+    #[namespace = "marathon::pam"]
+    unsafe extern "C++" {
+        include!("components/pamauth.h");
+        /// Blocks for PAM's failure delay on a wrong password: call it on
+        /// the blocking pool.
+        fn authenticate(user: &QString, password: &QString) -> bool;
+    }
+
     #[namespace = "marathon::audit"]
     unsafe extern "C++" {
         include!("components/securityaudit.h");
@@ -665,15 +673,7 @@ fn unhex(text: &str) -> Option<Vec<u8>> {
 }
 
 fn pam_authenticate(user: &str, password: &str) -> bool {
-    let mut client = match pam::Client::with_password("marathon-shell") {
-        Ok(c) => c,
-        Err(e) => {
-            log::warn("security", format_args!("PAM: {e}"));
-            return false;
-        }
-    };
-    client.conversation_mut().set_credentials(user, password);
-    client.authenticate().is_ok()
+    qobject::authenticate(&QString::from(user), &QString::from(password))
 }
 
 /// The user the shell runs as, from its real uid and /etc/passwd.
