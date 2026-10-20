@@ -10,7 +10,12 @@ else()
 endif()
 set(MARATHON_CARGO_TARGET_DIR "${_cargo_default_target}" CACHE PATH "Cargo target directory for crates/")
 
-if(CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo|MinSizeRel)$")
+# MARATHON_CARGO_PROFILE=dev-fast for the device loop (crates/Cargo.toml).
+set(MARATHON_CARGO_PROFILE "" CACHE STRING "Cargo profile; empty follows CMAKE_BUILD_TYPE")
+if(MARATHON_CARGO_PROFILE)
+    set(_cargo_profile_flag --profile ${MARATHON_CARGO_PROFILE})
+    set(_cargo_profile_dir ${MARATHON_CARGO_PROFILE})
+elseif(CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo|MinSizeRel)$")
     set(_cargo_profile_flag --release)
     set(_cargo_profile_dir release)
 else()
