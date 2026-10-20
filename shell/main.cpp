@@ -39,6 +39,7 @@
 #include <fcntl.h>
 
 #include "marathon-shell-native/src/desktop.cxxqt.h"
+#include "marathon-shell-native/src/sandbox.cxxqt.h"
 #include "src/components/crashhandler.h"
 #include "src/models/appmodel.h"
 #include "src/models/taskmodel.h"
@@ -1186,7 +1187,7 @@ int main(int argc, char *argv[]) {
         new MarathonNtfyClient(unifiedPush, &app);
 
         auto *shareService = createObject<ShareService>(
-            ctx, "ShareService", appRegistry, AppLaunchService::sharedFolders(),
+            ctx, "ShareService", appRegistry, marathon::sandbox::shared_folders(),
             [appLaunchService](qint64 pid) { return appIdForCallerPid(pid, appLaunchService); },
             [appLaunchService](const QString &appId) { appLaunchService->launchApp(QVariant(appId)); },
             &app);

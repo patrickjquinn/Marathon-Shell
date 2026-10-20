@@ -185,19 +185,8 @@ class AppLaunchService : public QObject {
     void              noteLaunchShape(SpareShape shape);
     QList<SpareShape> wantedSpareShapes() const;
     QString           runnerExecutablePath() const;
-    QStringList       spareSandboxArgs(const QString &waylandSocket, SpareShape shape) const;
     QString     openSandboxSocket(const QString &appId, const QString &instanceId) const;
     void        closeSandboxSocket(const QString &instanceId) const;
-
-  public:
-    // An app the user installed (not one of Marathon's own).
-    static bool        isUserInstalled(const QString &appId);
-    // bwrap arguments that show an app its installed code, read-only and
-    // apart from its writable data; a system app that lists other apps
-    // sees every install.
-    static QStringList installBinds(const QString &appId, const QStringList &permissions);
-    // The media folders an app with the "storage" permission sees.
-    static QStringList sharedFolders();
 
   private:
     friend class TestRunnerPool;

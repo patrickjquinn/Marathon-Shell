@@ -17,6 +17,7 @@ pub mod modem;
 pub mod network;
 mod pam;
 pub mod power;
+mod sandbox;
 pub mod security;
 mod systemd;
 mod wake_timer;

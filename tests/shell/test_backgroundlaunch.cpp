@@ -4,6 +4,7 @@
 #include "marathonapppaths.h"
 #include "applifecyclemanager.h"
 #include "taskmodel.h"
+#include "marathon-shell-native/src/sandbox.cxxqt.h"
 
 // The compositor, app window and UIStore as AppLaunchService calls them.
 class FakeCompositor : public QObject {
@@ -126,17 +127,31 @@ class TestBackgroundLaunch : public QObject {
         QVERIFY(manifest.open(QIODevice::WriteOnly));
         manifest.close();
 
-        const QString install = MarathonAppPaths::installDir("com.example.app");
-        QVERIFY(AppLaunchService::isUserInstalled("com.example.app"));
-        QCOMPARE(AppLaunchService::installBinds("com.example.app", {"system"}),
-                 QStringList({"--ro-bind", install, install}));
-        QVERIFY(!install.startsWith(MarathonAppPaths::dataDir("com.example.app")));
+        QFile bwrap(home.path() + "/bwrap");
+        QVERIFY(bwrap.open(QIODevice::WriteOnly));
+        bwrap.setPermissions(QFile::ReadOwner | QFile::ExeOwner);
+        bwrap.close();
+        const QByteArray oldPath = qgetenv("PATH");
+        qputenv("PATH", home.path().toUtf8());
+        const auto argv = [](const QString &id, const QStringList &permissions) {
+            return marathon::sandbox::argv(marathon::sandbox::Runner{id, permissions}, "runner");
+        };
+        const auto binds = [](const QStringList &argv, const QString &kind, const QString &dir) {
+            for (qsizetype i = 0; i + 2 < argv.size(); ++i)
+                if (argv[i] == kind && argv[i + 1] == dir && argv[i + 2] == dir)
+                    return true;
+            return false;
+        };
 
-        const QString all = MarathonAppPaths::userInstalls();
-        QVERIFY(!AppLaunchService::isUserInstalled("settings"));
-        QCOMPARE(AppLaunchService::installBinds("settings", {"system"}),
-                 QStringList({"--ro-bind-try", all, all}));
-        QVERIFY(AppLaunchService::installBinds("calculator", {}).isEmpty());
+        const QString install = MarathonAppPaths::installDir("com.example.app");
+        const QString all     = MarathonAppPaths::userInstalls();
+        QVERIFY(marathon::sandbox::is_user_installed("com.example.app"));
+        QVERIFY(binds(argv("com.example.app", {"system"}), "--ro-bind", install));
+        QVERIFY(!install.startsWith(MarathonAppPaths::dataDir("com.example.app")));
+        QVERIFY(!marathon::sandbox::is_user_installed("settings"));
+        QVERIFY(binds(argv("settings", {"system"}), "--ro-bind-try", all));
+        QVERIFY(!argv("calculator", {}).join(' ').contains(all));
+        qputenv("PATH", oldPath);
 
         qputenv("HOME", oldHome);
         qunsetenv("MARATHON_APPS_DIR");
