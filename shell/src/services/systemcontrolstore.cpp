@@ -4,7 +4,7 @@
 #include "src/managers/audiomanagercpp.h"
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
-#include "src/managers/flashlightmanagercpp.h"
+#include "marathon-shell-native/src/flashlight.cxxqt.h"
 #include "src/managers/hapticmanager.h"
 #include "src/managers/locationmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
@@ -19,7 +19,7 @@
 
 SystemControlStore::SystemControlStore(
     Network *networkManager, Bluetooth *bluetoothManager,
-    marathon::Display *display, FlashlightManagerCpp *flashlightManager,
+    marathon::Display *display, Flashlight *flashlightManager,
     Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
     LocationManager *locationManager, HapticManager *hapticManager, Power *powerManager,
     AudioManagerCpp *audioManager, AudioPolicyController *audioPolicyController,
@@ -81,9 +81,9 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_flashlightManager) {
-        setIsFlashlightOn(m_flashlightManager->enabled());
-        connect(m_flashlightManager, &FlashlightManagerCpp::enabledChanged, this,
-                [this]() { setIsFlashlightOn(m_flashlightManager->enabled()); });
+        setIsFlashlightOn(m_flashlightManager->getEnabled());
+        connect(m_flashlightManager, &Flashlight::enabledChanged, this,
+                [this]() { setIsFlashlightOn(m_flashlightManager->getEnabled()); });
     }
 
     if (m_modemManager) {

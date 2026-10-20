@@ -34,7 +34,7 @@ namespace marathon {
     class Display;
     class Updates;
 }
-class FlashlightManagerCpp;
+class Flashlight;
 class Network;
 class Modem;
 class Power;
@@ -274,7 +274,7 @@ class DisplayObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Display1")
 
   public:
-    DisplayObject(marathon::Display *display, RotationManager *rotation, FlashlightManagerCpp *flashlight,
+    DisplayObject(marathon::Display *display, RotationManager *rotation, Flashlight *flashlight,
                   MarathonPermissionManager *permissions, AppLaunchService *launchService,
                   QObject *parent = nullptr);
 
@@ -303,7 +303,7 @@ class DisplayObject : public IpcPermissionedService {
 
     marathon::Display              *m_display    = nullptr;
     RotationManager      *m_rotation   = nullptr;
-    FlashlightManagerCpp *m_flashlight = nullptr;
+    Flashlight *m_flashlight = nullptr;
 };
 
 class PowerObject : public IpcPermissionedService {

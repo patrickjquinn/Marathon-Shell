@@ -94,9 +94,9 @@
 #include "src/managers/rotationmanager.h"
 #include "src/managers/locationmanager.h"
 #include "src/managers/geoclueagent.h"
-#include "src/managers/clipboardmanagercpp.h"
+#include "marathon-shell-native/src/clipboard.cxxqt.h"
 #include "src/managers/hapticmanager.h"
-#include "src/managers/flashlightmanagercpp.h"
+#include "marathon-shell-native/src/flashlight.cxxqt.h"
 #include "src/controllers/audioroutingmanager.h"
 #include "src/controllers/audiopolicycontroller.h"
 #include "marathon-shell-native/src/security.cxxqt.h"
@@ -883,12 +883,16 @@ int main(int argc, char *argv[]) {
                      qOverload<const QList<int> &>(&HapticManager::vibratePattern));
     QObject::connect(ngf, &marathon::Ngf::stopVibration, hapticManager,
                      &HapticManager::cancelVibration);
-    createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
+    auto *clipboard = new Clipboard();
+    clipboard->setParent(&app);
+    ctx->setContextProperty("ClipboardManagerCpp", clipboard);
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, power, audioManager, hapticManager, &app);
     QObject::connect(alarmManager, &AlarmManagerCpp::nextAlarmScheduled, power,
                      [power](qint64 at) { power->setWakeTimer(QStringLiteral("alarm"), at); });
-    auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
+    auto *flashlightManager = new Flashlight();
+    flashlightManager->setParent(&app);
+    ctx->setContextProperty("FlashlightManagerCpp", flashlightManager);
     auto *audioRoutingManager = new AudioRoutingManager(audioManager, &app);
     auto *security = new Security();
     security->setParent(&app);

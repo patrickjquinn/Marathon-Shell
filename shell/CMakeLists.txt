@@ -85,8 +85,6 @@ set(SOURCES
     src/managers/locationmanager.cpp
     src/managers/geoclueagent.h
     src/managers/geoclueagent.cpp
-    src/managers/clipboardmanagercpp.h
-    src/managers/clipboardmanagercpp.cpp
     src/managers/hapticmanager.h
     src/managers/hapticmanager.cpp
     src/managers/alarmmanagercpp.h
@@ -126,8 +124,6 @@ set(SOURCES
     src/services/inputcontext.cpp
     src/services/remotetextinput.h
     src/services/remotetextinput.cpp
-    src/managers/flashlightmanagercpp.h
-    src/managers/flashlightmanagercpp.cpp
     src/controllers/audioroutingmanager.h
     src/controllers/audioroutingmanager.cpp
     src/controllers/audiopolicycontroller.h

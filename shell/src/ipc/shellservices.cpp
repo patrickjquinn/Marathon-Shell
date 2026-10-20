@@ -18,7 +18,7 @@
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "rotationmanager.h"
-#include "flashlightmanagercpp.h"
+#include "marathon-shell-native/src/flashlight.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
@@ -841,7 +841,7 @@ void BluetoothObject::CancelPairing(const QString &address) {
 }
 
 DisplayObject::DisplayObject(marathon::Display *display, RotationManager *rotation,
-                             FlashlightManagerCpp *flashlight, MarathonPermissionManager *permissions,
+                             Flashlight *flashlight, MarathonPermissionManager *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_display(display)
@@ -859,8 +859,6 @@ DisplayObject::DisplayObject(marathon::Display *display, RotationManager *rotati
     QObject::connect(m_display, &marathon::Display::nightLightTemperatureChanged, this, push);
     QObject::connect(m_display, &marathon::Display::nightLightScheduleChanged, this, push);
     QObject::connect(m_display, &marathon::Display::screenStateChanged, this, push);
-    if (m_flashlight)
-        QObject::connect(m_flashlight, &FlashlightManagerCpp::availableChanged, this, push);
 }
 
 QVariantMap DisplayObject::buildState() const {
@@ -870,7 +868,7 @@ QVariantMap DisplayObject::buildState() const {
         {"rotationLocked", m_display->getRotationLocked()},
         {"rotationAvailable", m_rotation && m_rotation->available()},
         {"lightSensorAvailable", m_display->getLightAvailable()},
-        {"torchAvailable", m_flashlight && m_flashlight->available()},
+        {"torchAvailable", m_flashlight && m_flashlight->getAvailable()},
         {"brightness", m_display->getBrightness()},
         {"nightLightEnabled", m_display->getNightLightEnabled()},
         {"nightLightTemperature", m_display->getNightLightTemperature()},

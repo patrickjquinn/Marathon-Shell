@@ -32,7 +32,7 @@ class WallpaperStore;
 class ForegroundApp;
 class SessionStore;
 class Modem;
-class FlashlightManagerCpp;
+class Flashlight;
 
 class ShellIpcServer : public QObject {
     Q_OBJECT
@@ -60,7 +60,7 @@ class ShellIpcServer : public QObject {
     void setModemManager(Modem *modem) {
         m_modemManager = modem;
     }
-    void setFlashlightManager(FlashlightManagerCpp *flashlight) {
+    void setFlashlightManager(Flashlight *flashlight) {
         m_flashlightManager = flashlight;
     }
     void setAppInstaller(MarathonAppInstaller *installer) {
@@ -81,7 +81,7 @@ class ShellIpcServer : public QObject {
     AmbienceService           *m_ambience            = nullptr;
     WallpaperStore            *m_wallpaperStore      = nullptr;
     Modem           *m_modemManager        = nullptr;
-    FlashlightManagerCpp      *m_flashlightManager   = nullptr;
+    Flashlight                *m_flashlightManager   = nullptr;
     Bluetooth                 *m_bluetoothManager    = nullptr;
     marathon::Display                   *m_display             = nullptr;
     Power           *m_powerManager        = nullptr;
