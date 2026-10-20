@@ -839,16 +839,6 @@ class AppStoreObject : public IpcPermissionedService {
                    AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
-    QVariantMap  GetState();
-    void         RefreshCatalog();
-    QVariantList SearchApps(const QString &query);
-    QVariantMap  GetApp(const QString &appId);
-    QVariantList GetFeaturedApps();
-    QVariantList GetAppsByCategory(const QString &category);
-    QVariantList GetAvailableUpdates();
-    void         CheckForUpdates();
-    void         DownloadApp(const QString &appId);
-    void         CancelDownload(const QString &appId);
     // Runs marathon-store-handler for a marathon-store:// URL. The Store's
     // own sandbox gives it a private home, so flatpak --user must run from
     // the shell's side of that boundary.
@@ -860,11 +850,6 @@ class AppStoreObject : public IpcPermissionedService {
     void Uninstall(const QString &appId);
 
   signals:
-    void StateChanged(const QVariantMap &state);
-    void CatalogRefreshed();
-    void DownloadProgress(const QString &appId, qint64 bytesReceived, qint64 bytesTotal);
-    void DownloadComplete(const QString &appId, const QString &packagePath);
-    void DownloadFailed(const QString &appId, const QString &error);
     void UninstallComplete(const QString &appId);
     void UninstallFailed(const QString &appId, const QString &error);
 

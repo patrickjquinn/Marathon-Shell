@@ -2489,43 +2489,6 @@ AppStoreObject::AppStoreObject(MarathonAppInstaller *installer,
     }
 }
 
-QVariantMap AppStoreObject::GetState() {
-    if (!requireSystem())
-        return {};
-    return {{"catalogLoaded", false}, {"loading", false}, {"repositoryUrl", QString()}};
-}
-
-void AppStoreObject::RefreshCatalog() {}
-
-QVariantList AppStoreObject::SearchApps(const QString &) {
-    return {};
-}
-
-QVariantMap AppStoreObject::GetApp(const QString &) {
-    return {};
-}
-
-QVariantList AppStoreObject::GetFeaturedApps() {
-    return {};
-}
-
-QVariantList AppStoreObject::GetAppsByCategory(const QString &) {
-    return {};
-}
-
-QVariantList AppStoreObject::GetAvailableUpdates() {
-    return {};
-}
-
-void AppStoreObject::CheckForUpdates() {}
-
-void AppStoreObject::DownloadApp(const QString &appId) {
-    if (requireSystem())
-        emit DownloadFailed(appId, QStringLiteral("App not found in catalog"));
-}
-
-void AppStoreObject::CancelDownload(const QString &) {}
-
 void AppStoreObject::RunStoreUrl(const QString &url) {
     if (!requireSystem())
         return;

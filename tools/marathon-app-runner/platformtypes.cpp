@@ -29,7 +29,6 @@ QHash<QString, QString> platformTypeNames() {
         {QStringLiteral("SecurityManagerCpp"), QStringLiteral("Security")},
         {QStringLiteral("UpdateService"), QStringLiteral("Updates")},
         {QStringLiteral("DavSyncEngine"), QStringLiteral("DavSync")},
-        {QStringLiteral("AppStoreService"), QStringLiteral("AppStore")},
         {QStringLiteral("WallpaperStore"), QStringLiteral("Wallpapers")},
         {QStringLiteral("MarathonAppRegistry"), QStringLiteral("Apps")},
         {QStringLiteral("MarathonAppInstaller"), QStringLiteral("AppInstaller")},

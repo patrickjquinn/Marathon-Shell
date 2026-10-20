@@ -1262,8 +1262,6 @@ int main(int argc, char *argv[]) {
     // was refused at launch.
     if (hasPerm("system"))
         exposeClient<marathon::platform::DavSync>(ctx, "DavSyncEngine", false);
-    if (hasPerm("system"))
-        exposeClient<marathon::platform::AppStore>(ctx, "AppStoreService", false);
     if (hasPerm("system")) {
         auto *installer =
             exposeClient<marathon::platform::AppInstaller>(ctx, "MarathonAppInstaller", false);

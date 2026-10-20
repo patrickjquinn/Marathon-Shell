@@ -204,13 +204,6 @@ struct PlatformDavSync {
     QML_SINGLETON
 };
 
-struct PlatformAppStore {
-    Q_GADGET
-    QML_FOREIGN(marathon::platform::AppStore)
-    QML_NAMED_ELEMENT(AppStore)
-    QML_SINGLETON
-};
-
 struct PlatformWallpapers {
     Q_GADGET
     QML_FOREIGN(marathon::platform::Wallpapers)
