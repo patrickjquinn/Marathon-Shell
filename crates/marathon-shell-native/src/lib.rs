@@ -19,6 +19,7 @@ pub mod motion;
 pub mod network;
 mod notifications;
 mod pam;
+pub mod pilot;
 pub mod power;
 mod sandbox;
 pub mod pressure;

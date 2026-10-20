@@ -64,7 +64,7 @@
 #include "src/managers/drmmasterwait.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/services/wakeonkeyfilter.h"
-#include "src/services/pilotclient.h"
+#include "marathon-shell-native/src/pilot.cxxqt.h"
 #include "marathon-shell-native/src/weather.cxxqt.h"
 #include "src/services/inputboost.h"
 #include "src/services/touchresampler.h"
@@ -1104,9 +1104,10 @@ int main(int argc, char *argv[]) {
     auto *surfaceRegistry = new SurfaceRegistry(&app);
     qmlRegisterSingletonInstance<SurfaceRegistry>("MarathonOS.Shell", 1, 0, "SurfaceRegistry",
                                                   surfaceRegistry);
-    qmlRegisterSingletonInstance<PilotClient>(
-        "MarathonOS.Shell", 1, 0, "PilotClient",
-        new PilotClient(QDBusConnection::sessionBus(), &app));
+    auto *pilot = new marathon::PilotClient();
+    pilot->setParent(&app);
+    qmlRegisterSingletonInstance<marathon::PilotClient>("MarathonOS.Shell", 1, 0, "PilotClient",
+                                                        pilot);
     auto *weather = new marathon::WeatherClient();
     weather->setParent(&app);
     qmlRegisterSingletonInstance<marathon::WeatherClient>("MarathonOS.Shell", 1, 0, "WeatherClient",

@@ -407,13 +407,6 @@ target_link_libraries(test_core_soundname Qt6::Test Qt6::Core)
 target_include_directories(test_core_soundname PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_SoundName COMMAND test_core_soundname)
 
-# The shell's client of Shipwright Pilot's pilotd
-add_executable(test_core_pilotclient test_pilotclient.cpp ../../shell/src/services/pilotclient.cpp)
-find_package(Qt6 REQUIRED COMPONENTS Qml)
-target_link_libraries(test_core_pilotclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_core_pilotclient PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Core_PilotClient COMMAND test_core_pilotclient)
-
 # The shell as GeoClue's agent
 add_executable(test_core_geoclueagent test_geoclueagent.cpp ../../shell/src/managers/geoclueagent.cpp)
 target_link_libraries(test_core_geoclueagent Qt6::Test Qt6::Core Qt6::DBus)
