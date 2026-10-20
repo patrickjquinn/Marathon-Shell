@@ -8,6 +8,7 @@ ContextMenu 1.0 ContextMenu.qml
 DatePickerDialog 1.0 DatePickerDialog.qml
 Dialog 1.0 Dialog.qml
 DialogHeader 1.0 DialogHeader.qml
+DetailItem 1.0 DetailItem.qml
 FocusFrame 1.0 FocusFrame.qml
 IconButton 1.0 IconButton.qml
 IconTextSwitch 1.0 IconTextSwitch.qml
