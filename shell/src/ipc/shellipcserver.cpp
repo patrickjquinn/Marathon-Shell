@@ -34,7 +34,7 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
                                Security *securityManager, RotationManager *rotationManager,
                                LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                                AudioRoutingManager *audioRoutingManager,
-                               UpdateService *updateService, DavSyncEngine *davSyncEngine,
+                               marathon::Updates *updateService, DavSyncEngine *davSyncEngine,
                                MarathonAppStoreService *appStoreService,
                                AppLaunchService        *appLaunchService,
                                AppLifecycleManager     *lifecycleManager,

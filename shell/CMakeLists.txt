@@ -83,14 +83,8 @@ set(SOURCES
     src/components/portalmanager.cpp
     src/services/marathonappstoreservice.h
     src/services/marathonappstoreservice.cpp
-    src/services/updateservice.h
-    src/services/updateservice.cpp
-    src/services/updatenotifier.h
-    src/services/updatenotifier.cpp
     src/services/factoryreset.h
     src/services/factoryreset.cpp
-    src/services/sysupdatebackend.h
-    src/services/sysupdatebackend.cpp
     src/services/motiondaemon.h
     src/services/motiondaemon.cpp
     src/services/inputboost.h

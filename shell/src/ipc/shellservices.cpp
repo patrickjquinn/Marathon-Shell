@@ -37,7 +37,7 @@
 #include "audioroutingmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "medialibrarymanager.h"
-#include "../services/updateservice.h"
+#include "marathon-shell-native/src/updates.cxxqt.h"
 #include "../services/factoryreset.h"
 #include "../services/marathonappstoreservice.h"
 #include "marathonappinstaller.h"
@@ -2357,31 +2357,18 @@ void AlarmObject::TriggerAlarmNow(const QString &label) {
 
 // === UpdatesObject =========================================================
 
-UpdatesObject::UpdatesObject(UpdateService *updates, MarathonPermissionManager *permissions,
+UpdatesObject::UpdatesObject(marathon::Updates *updates, MarathonPermissionManager *permissions,
                              AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_updates(updates) {
-    connect(m_updates, &UpdateService::stateChanged, this,
+    connect(m_updates, &marathon::Updates::stateChanged, this,
             [this]() { emit StateChanged(buildState()); });
 }
 
 QVariantMap UpdatesObject::buildState() const {
-    return {
-        {"state", m_updates->stateName()},
-        {"currentVersion", m_updates->currentVersion()},
-        {"osVersion", m_updates->osVersion()},
-        {"availableVersion", m_updates->availableVersion()},
-        {"downloadSize", m_updates->downloadSize()},
-        {"releaseNotes", m_updates->releaseNotes()},
-        {"progress", m_updates->progress()},
-        {"blockedReason", m_updates->blockedReason()},
-        {"rolledBackVersion", m_updates->rolledBackVersion()},
-        {"lastError", m_updates->lastError()},
-        {"lastCheckedMs", m_updates->lastCheckedMs()},
-        {"autoUpdate", m_updates->autoUpdate()},
-        {"restartScheduled", m_updates->restartScheduled()},
-        {"currentReleaseNotes", m_updates->currentReleaseNotes()},
-    };
+    QVariantMap state = m_updates->state();
+    state.insert(QStringLiteral("currentVersion"), QCoreApplication::applicationVersion());
+    return state;
 }
 
 QVariantMap UpdatesObject::GetState() {

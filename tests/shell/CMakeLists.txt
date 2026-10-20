@@ -332,30 +332,6 @@ else()
     add_test(NAME Shell_FreedesktopNotify COMMAND test_shell_freedesktopnotify)
 endif()
 
-# UpdateService's news as "Software update" notifications, and their actions
-add_executable(test_shell_updatenotifier
-    test_updatenotifier.cpp
-    ../../shell/src/services/updatenotifier.cpp
-    ../../shell/src/services/updateservice.cpp
-    ../../shell/src/services/navigationroutercpp.cpp
-    ../../shell/src/dbus/freedesktopnotifications.cpp
-    ../../shell/src/dbus/notificationdatabase.cpp
-    ../../shell/src/models/notificationmodel.cpp
-    ../../shell/src/models/appmodel.cpp
-    ../../shell/src/services/notificationtarget.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_updatenotifier Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
-target_include_directories(test_shell_updatenotifier PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/dbus
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
-add_test(NAME Shell_UpdateNotifier COMMAND test_shell_updatenotifier)
-
 # AlarmManager: one-shot, hidden, exactly-timed alarms (countdown timers)
 find_package(Qt6 REQUIRED COMPONENTS Multimedia)
 add_executable(test_shell_alarmmanager

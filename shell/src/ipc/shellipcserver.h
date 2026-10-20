@@ -15,6 +15,7 @@ class SettingsManager;
 class BluetoothManager;
 namespace marathon {
     class Display;
+    class Updates;
 }
 class Network;
 class Power;
@@ -26,7 +27,6 @@ class RotationManager;
 class LocationManager;
 class AlarmManagerCpp;
 class AudioRoutingManager;
-class UpdateService;
 class DavSyncEngine;
 class MarathonAppStoreService;
 class MarathonAppInstaller;
@@ -53,7 +53,7 @@ class ShellIpcServer : public QObject {
                             Network *networkManager, HapticManager *hapticManager,
                             Security *securityManager, RotationManager *rotationManager,
                             LocationManager *locationManager, AlarmManagerCpp *alarmManager,
-                            AudioRoutingManager *audioRoutingManager, UpdateService *updateService,
+                            AudioRoutingManager *audioRoutingManager, marathon::Updates *updateService,
                             DavSyncEngine *davSyncEngine, MarathonAppStoreService *appStoreService,
                             AppLaunchService    *appLaunchService,
                             AppLifecycleManager *lifecycleManager, MarathonAppRegistry *appRegistry,
@@ -106,7 +106,7 @@ class ShellIpcServer : public QObject {
     LocationManager           *m_locationManager     = nullptr;
     AlarmManagerCpp           *m_alarmManager        = nullptr;
     AudioRoutingManager       *m_audioRoutingManager = nullptr;
-    UpdateService             *m_updateService       = nullptr;
+    marathon::Updates         *m_updateService       = nullptr;
     DavSyncEngine             *m_davSyncEngine       = nullptr;
     MarathonAppStoreService   *m_appStoreService     = nullptr;
     MarathonAppInstaller      *m_appInstaller        = nullptr;

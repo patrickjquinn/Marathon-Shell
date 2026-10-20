@@ -1495,10 +1495,12 @@ dependencies = [
  "futures-lite",
  "libc",
  "marathon-rt",
+ "quick-xml",
  "serde",
  "serde_json",
  "sha2 0.11.1",
  "tempfile",
+ "ureq",
  "zbus",
 ]
 

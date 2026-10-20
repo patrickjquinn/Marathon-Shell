@@ -7,9 +7,9 @@ pub fn from_json(value: &Value) -> QVariant {
     match value {
         Value::Null => QVariant::default(),
         Value::Bool(b) => QVariant::from(b),
-        Value::Number(n) => match n.as_i64().map(i32::try_from) {
-            Some(Ok(n)) => QVariant::from(&n),
-            _ => QVariant::from(&n.as_f64().unwrap_or_default()),
+        Value::Number(n) => match n.as_i64() {
+            Some(n) => i32::try_from(n).map_or_else(|_| QVariant::from(&n), |n| QVariant::from(&n)),
+            None => QVariant::from(&n.as_f64().unwrap_or_default()),
         },
         Value::String(s) => QVariant::from(&QString::from(s)),
         Value::Array(items) => QVariant::from(&list(items)),

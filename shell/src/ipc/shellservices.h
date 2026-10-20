@@ -37,6 +37,7 @@ class FactoryReset;
 class BluetoothManager;
 namespace marathon {
     class Display;
+    class Updates;
 }
 class FlashlightManagerCpp;
 class Network;
@@ -758,17 +759,16 @@ class AlarmObject : public IpcPermissionedService {
     AlarmManagerCpp *m_alarms = nullptr;
 };
 
-class UpdateService;
 class DavSyncEngine;
 
-// Surfaces UpdateService over D-Bus so the Settings app (running in the
+// Surfaces Updates over D-Bus so the Settings app (running in the
 // app-runner process) can check for, install and reboot into OS updates.
 class UpdatesObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Updates1")
 
   public:
-    UpdatesObject(UpdateService *updates, MarathonPermissionManager *permissions,
+    UpdatesObject(marathon::Updates *updates, MarathonPermissionManager *permissions,
                   AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -787,9 +787,9 @@ class UpdatesObject : public IpcPermissionedService {
     bool requireSystem() {
         return requirePermission("Updates", {"system"});
     }
-    QVariantMap    buildState() const;
+    QVariantMap        buildState() const;
 
-    UpdateService *m_updates = nullptr;
+    marathon::Updates *m_updates = nullptr;
 };
 
 // Surfaces DavSyncEngine: account add/remove/list + sync trigger. Settings

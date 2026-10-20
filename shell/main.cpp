@@ -84,9 +84,7 @@
 #include "marathonappinstaller.h"
 #include "src/marathonpermissionmanager.h"
 #include "src/services/marathonappstoreservice.h"
-#include "src/services/updateservice.h"
-#include "src/services/sysupdatebackend.h"
-#include "src/services/updatenotifier.h"
+#include "marathon-shell-native/src/updates.cxxqt.h"
 #include "contactsmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "callhistorymanager.h"
@@ -1273,48 +1271,32 @@ int main(int argc, char *argv[]) {
     auto *smsService         = new SMSService(&app);
     auto *mmsManager         = new MmsManager(&app);
     smsService->setMmsManager(mmsManager);
-    QFile         bootIdFile(QStringLiteral("/proc/sys/kernel/random/boot_id"));
-    const QString bootId    = bootIdFile.open(QIODevice::ReadOnly) ?
-        QString::fromLatin1(bootIdFile.readAll()).trimmed() :
-        QString();
-    const QString osRelease = QFile::exists(QStringLiteral("/etc/os-release")) ?
-        QStringLiteral("/etc/os-release") :
-        QStringLiteral("/usr/lib/os-release");
-    auto         *updateService = new UpdateService(
-        new SysupdateBackend,
-        [display, power, alarmManager]() {
-            UpdateConditions c = SysupdateBackend::systemConditions();
-            c.idle             = !display->getScreenOn() && !power->getHasActiveCalls() &&
-                !alarmManager->hasActiveAlarm();
-            return c;
-        },
-        UpdateService::imageVersion(osRelease), bootId, [] { return QDateTime::currentDateTime(); },
-        &app);
-    QObject::connect(updateService, &UpdateService::rebootRequested, power,
-                     &Power::restart);
+    auto *updateService = new marathon::Updates();
+    updateService->setParent(&app);
+    QObject::connect(updateService, &marathon::Updates::rebootRequested, power, &Power::restart);
+    QObject::connect(updateService, &marathon::Updates::settingsRequested, navigationRouter, [=] {
+        navigationRouter->navigateToDeepLink(QStringLiteral("settings"), QStringLiteral("updates"));
+    });
     const auto startupPin = [updateService, security]() {
         updateService->setStartupPin(security->getDataEncryption() == u"pin");
     };
     startupPin();
-    QObject::connect(security, &Security::dataEncryptionChanged, updateService,
-                     startupPin);
-    QObject::connect(power, &Power::hasActiveCallsChanged, updateService,
-                     &UpdateService::reconsider);
-    QObject::connect(display, &marathon::Display::screenOnChanged, updateService,
-                     &UpdateService::reconsider);
-    QObject::connect(power, &Power::isPluggedInChanged, updateService,
-                     &UpdateService::reconsider);
-    QObject::connect(power, &Power::resumedFromSuspend, updateService,
-                     &UpdateService::reconsider);
-    QObject::connect(network, &Network::wifiConnectedChanged, updateService,
-                     &UpdateService::reconsider);
+    QObject::connect(security, &Security::dataEncryptionChanged, updateService, startupPin);
+    const auto reconsider = [=] {
+        updateService->reconsider(!display->getScreenOn() && !power->getHasActiveCalls() &&
+                                  !alarmManager->hasActiveAlarm());
+    };
+    QObject::connect(power, &Power::hasActiveCallsChanged, updateService, reconsider);
+    QObject::connect(display, &marathon::Display::screenOnChanged, updateService, reconsider);
+    QObject::connect(power, &Power::isPluggedInChanged, updateService, reconsider);
+    QObject::connect(power, &Power::resumedFromSuspend, updateService, reconsider);
+    QObject::connect(network, &Network::wifiConnectedChanged, updateService, reconsider);
+    QObject::connect(alarmManager, &AlarmManagerCpp::activeAlarmsChanged, updateService,
+                     reconsider);
+    reconsider();
     // A suspended device wakes for the restart window, as for an alarm.
-    QObject::connect(updateService, &UpdateService::restartWindowChanged, power, [=]() {
-        const QDateTime at = updateService->nextRestartWindow();
-        power->setWakeTimer(QStringLiteral("update-restart"), at.isValid() ? at.toSecsSinceEpoch() : 0);
-    });
-    if (freedesktopNotif)
-        new UpdateNotifier(updateService, freedesktopNotif, navigationRouter, &app);
+    QObject::connect(updateService, &marathon::Updates::restartWindowChanged, power,
+                     [power](qint64 at) { power->setWakeTimer(QStringLiteral("update-restart"), at); });
     auto *davCalendarStore = new DavCalendarStore(&app);
     auto *davSyncEngine    = new DavSyncEngine(contactsManager, davCalendarStore, &app);
     auto *notificationHandler = createObject<NotificationHandlerCpp>(

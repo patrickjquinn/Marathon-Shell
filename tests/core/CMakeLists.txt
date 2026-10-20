@@ -113,16 +113,6 @@ target_include_directories(test_core_appscanner PRIVATE
 )
 add_test(NAME Core_AppScanner COMMAND test_core_appscanner)
 
-# UpdateService state machine and download gating; sysupdated's AppStream parse
-add_executable(test_core_updateservice
-    test_updateservice.cpp
-    ../../shell/src/services/updateservice.cpp
-    ../../shell/src/services/sysupdatebackend.cpp
-)
-target_link_libraries(test_core_updateservice Qt6::Test Qt6::Core Qt6::DBus Qt6::Network)
-target_include_directories(test_core_updateservice PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Core_UpdateService COMMAND test_core_updateservice)
-
 # Pool keepalive page touching (marathon-app-runner)
 add_executable(test_core_pagetouch
     test_pagetouch.cpp

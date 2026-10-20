@@ -1,6 +1,7 @@
 //! What Marathon's Rust `QObject`s share: one I/O thread and its buses, the
 //! log, and the property setter.
 
+pub mod dirs;
 pub mod io;
 pub mod log;
 
