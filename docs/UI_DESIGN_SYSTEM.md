@@ -636,18 +636,16 @@ reachability.
 
 ### Code surface
 
-- `PowerPolicyController::enterDoze()` / `exitDoze()` — bundles the
-  policy (display off → freeze debounce 0 → wifi PSM on, and the
-  mirror on exit). `dozing` property visible from QML.
-- `PowerPolicyController::sleep()` — backwards-compat alias that now
-  routes to `enterDoze()` (was `m_powerManager->suspend()` historically).
-- `PowerPolicyController::deepSleep()` — the new explicit S3 path,
-  reserved for PowerMenu "Deep Sleep" + critical-battery.
-- `PowerBatteryHandlerCpp::turnScreenOff/On` — power-key entry point;
-  routes through `enterDoze` / `exitDoze` when PowerPolicy is wired.
-- `DisplayPolicyController::forceScreenOn` — r293; re-syncs `m_screenOn`
-  + emits `screenOnChanged` so QML hooks (dimState, idle timer) fire
-  on the resume edge.
+- Doze is `Display.screenOn` false: `turnScreenOff` enters it and
+  `turnScreenOn` leaves it. main.cpp freezes background apps at once
+  (freeze debounce 0) and turns Wi-Fi power save on, and the mirror on
+  exit.
+- `Power.powerKeyPressed` / `powerKeyReleased` — the power key from
+  /dev/input; MarathonShell.qml wakes, locks and blanks, or opens the
+  power menu on a long press.
+- `Display::forceScreenOn` — re-asserts the panel and emits
+  `screenOnChanged` so QML hooks (dimState, idle timer) fire on the
+  resume edge.
 - `DisplayManagerCpp::setScreenState(true)` — r293; re-writes
   `brightness` after `bl_power=0` to defeat the i.MX 8M PWM glitch.
 - `main.cpp` — wires `PowerManagerCpp::resumedFromSuspend` to BOTH

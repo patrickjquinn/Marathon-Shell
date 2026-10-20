@@ -42,8 +42,6 @@ class FlashlightManagerCpp;
 class Network;
 class Modem;
 class Power;
-class PowerPolicyController;
-class WakeTimers;
 class ForegroundApp;
 class SessionStore;
 class AudioManagerCpp;
@@ -458,7 +456,7 @@ class PowerObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Power1")
 
   public:
-    PowerObject(Power *power, PowerPolicyController *policy,
+    PowerObject(Power *power, marathon::Display *display,
                 MarathonPermissionManager *permissions, AppLaunchService *launchService,
                 QObject *parent = nullptr);
 
@@ -484,9 +482,10 @@ class PowerObject : public IpcPermissionedService {
     }
     QVariantMap            buildState() const;
 
-    Power       *m_power      = nullptr;
-    PowerPolicyController *m_policy     = nullptr;
-    WakeTimers            *m_wakeTimers = nullptr;
+    Power                       *m_power   = nullptr;
+    marathon::Display           *m_display = nullptr;
+    // ScheduleWake calls, answered once systemd has their timer.
+    QHash<QString, QList<QDBusMessage>> m_pendingWakes;
 };
 
 class AudioObject : public IpcPermissionedService {

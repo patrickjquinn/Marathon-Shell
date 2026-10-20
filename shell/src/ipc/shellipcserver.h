@@ -18,7 +18,6 @@ namespace marathon {
 }
 class Network;
 class Power;
-class PowerPolicyController;
 class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
@@ -72,9 +71,6 @@ class ShellIpcServer : public QObject {
     void setFlashlightManager(FlashlightManagerCpp *flashlight) {
         m_flashlightManager = flashlight;
     }
-    void setPowerPolicy(PowerPolicyController *policy) {
-        m_powerPolicy = policy;
-    }
     void setAppInstaller(MarathonAppInstaller *installer) {
         m_appInstaller = installer;
     }
@@ -101,7 +97,6 @@ class ShellIpcServer : public QObject {
     BluetoothManager          *m_bluetoothManager    = nullptr;
     marathon::Display                   *m_display             = nullptr;
     Power           *m_powerManager        = nullptr;
-    PowerPolicyController     *m_powerPolicy         = nullptr;
     AudioManagerCpp           *m_audioManager        = nullptr;
     AudioPolicyController     *m_audioPolicy         = nullptr;
     Network         *m_networkManager      = nullptr;

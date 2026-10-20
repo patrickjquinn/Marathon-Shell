@@ -10,9 +10,7 @@
 
 #include <memory>
 
-#include "controllers/powerpolicycontroller.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
-#include "services/powerbatteryhandlercpp.h"
 #include "services/waketouchfilter.h"
 
 // One screen state: Display1, the power key, the idle timer and Doze all turn
@@ -22,8 +20,6 @@ class TestScreenState : public QObject {
 
     QTemporaryDir                            m_sysfs;
     std::unique_ptr<marathon::Display>                 m_display;
-    std::unique_ptr<PowerPolicyController>   m_power;
-    std::unique_ptr<PowerBatteryHandlerCpp>  m_handler;
     std::unique_ptr<WakeTouchFilter>         m_touch;
     QPointingDevice                         *m_device = nullptr;
 
@@ -65,8 +61,6 @@ class TestScreenState : public QObject {
         write(m_sysfs.filePath(QStringLiteral("panel/bl_power")), "0\n");
         m_display = std::make_unique<marathon::Display>();
         m_display->start(m_sysfs.path(), m_sysfs.filePath(QStringLiteral("no-iio")), 0.28);
-        m_power   = std::make_unique<PowerPolicyController>(nullptr, m_display.get());
-        m_handler = std::make_unique<PowerBatteryHandlerCpp>(m_power.get(), m_display.get(), nullptr);
         m_touch   = std::make_unique<WakeTouchFilter>();
         // As main.cpp wires it.
         connect(m_display.get(), &marathon::Display::screenOnChanged, m_touch.get(),
@@ -76,35 +70,17 @@ class TestScreenState : public QObject {
 
     void cleanup() {
         m_touch.reset();
-        m_handler.reset();
-        m_power.reset();
         m_display.reset();
-    }
-
-    // Power1.StateChanged carries "dozing" on this signal.
-    void dozingIsSignalled() {
-        QSignalSpy changed(m_power.get(), &PowerPolicyController::dozingChanged);
-        dbusSetScreenState(false);
-        QCOMPARE(changed.count(), 1);
-        dbusSetScreenState(true);
-        QCOMPARE(changed.count(), 2);
     }
 
     void dbusBlankThenWakeLeavesTheShellAwake() {
         dbusSetScreenState(false);
         QCOMPARE(blPower(), QByteArray("4"));
         QVERIFY(!m_display->getScreenOn());
-        QVERIFY(m_power->dozing());
-        QVERIFY(m_handler->screenOff());
 
         dbusSetScreenState(true);
         QTRY_COMPARE(blPower(), QByteArray("0"));
         QVERIFY(m_display->getScreenOn());
-        QVERIFY(!m_power->dozing());
-        QVERIFY(!m_handler->screenOff());
-        // The next power press turns the screen off rather than "waking" it.
-        QCOMPARE(m_power->powerButtonAction(m_display->getScreenOn(), false),
-                 PowerPolicyController::LockAndTurnScreenOff);
     }
 
     void touchWorksAgainAfterDbusBlankAndWake() {
@@ -137,51 +113,6 @@ class TestScreenState : public QObject {
         QCOMPARE(scene->property("taps").toInt(), before + 2);
     }
 
-    void wakingFromDozeByDbusLeavesDoze() {
-        QSignalSpy exited(m_power.get(), &PowerPolicyController::dozeExited);
-        m_handler->handlePowerButtonPress(false, true);
-        QVERIFY(m_power->dozing());
-        m_display->turnScreenOn();
-        QVERIFY(!m_power->dozing());
-        QCOMPARE(exited.count(), 1);
-        QVERIFY(!m_handler->screenOff());
-    }
-
-    // wake(reason) is how a call, a message or an alarm turns the screen on.
-    void wakingFromDozeLeavesDoze() {
-        QVERIFY(m_power->enterDoze(QStringLiteral("power key")));
-        QSignalSpy exited(m_power.get(), &PowerPolicyController::dozeExited);
-        QSignalSpy waking(m_power.get(), &PowerPolicyController::systemWaking);
-
-        QCOMPARE(m_power->wake(QStringLiteral("alarm")), QStringLiteral("alarm"));
-        QVERIFY(!m_power->dozing());
-        QCOMPARE(exited.count(), 1);
-        QCOMPARE(waking.last().at(0).toString(), QStringLiteral("alarm"));
-
-        QSignalSpy entered(m_power.get(), &PowerPolicyController::dozeEntered);
-        m_power->enterDoze(QStringLiteral("power key"));
-        QCOMPARE(entered.count(), 1);
-    }
-
-    void wakingAnAwakeDeviceDoesNotTouchDoze() {
-        QSignalSpy exited(m_power.get(), &PowerPolicyController::dozeExited);
-        QSignalSpy waking(m_power.get(), &PowerPolicyController::systemWaking);
-        m_power->wake(QStringLiteral("call"));
-        QCOMPARE(exited.count(), 0);
-        QCOMPARE(waking.count(), 1);
-    }
-
-    void anyScreenOffIsDoze() {
-        QSignalSpy entered(m_power.get(), &PowerPolicyController::dozeEntered);
-        m_display->turnScreenOff(QStringLiteral("idle timer"));
-        QVERIFY(m_power->dozing());
-        QCOMPARE(entered.count(), 1);
-        m_power->enterDoze(QStringLiteral("power key"));
-        QCOMPARE(entered.count(), 1);
-        m_power->exitDoze();
-        QVERIFY(m_display->getScreenOn());
-    }
-
     void reassertingALitScreenIsNotAWake() {
         QSignalSpy wakes(m_display.get(), &marathon::Display::screenOnChanged);
         QSignalSpy hardware(m_display.get(), &marathon::Display::screenStateChanged);
@@ -210,7 +141,7 @@ int main(int argc, char **argv) {
     if (!bus.waitForReadyRead(5000))
         qFatal("no dbus-daemon");
     const QByteArray address = bus.readLine().trimmed();
-    // Brightness writes go to GSD and logind first: keep them off the host's.
+    // logind sets brightness when sysfs is not writable: keep it off the host's.
     qputenv("DBUS_SESSION_BUS_ADDRESS", address);
     qputenv("DBUS_SYSTEM_BUS_ADDRESS", address);
     qputenv("MARATHON_WIFI_POWERSAVE", "0");

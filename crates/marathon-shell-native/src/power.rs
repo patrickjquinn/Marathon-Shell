@@ -1,15 +1,17 @@
-//! `PowerManagerService`: battery, power profiles, wakelocks, sleep and the
-//! power actions. QML and the shell's C++ see the `QObject` `Power`;
-//! everything that talks to `UPower`, logind, power-profiles-daemon, systemd
-//! or sysfs runs in one actor on the I/O thread.
+//! Battery and its warnings, power profiles, wakelocks, wake-ups, the power
+//! key, sleep and the power actions. QML and the shell's C++ see the
+//! `QObject` `Power`; everything that talks to `UPower`, logind,
+//! power-profiles-daemon, systemd or sysfs runs in one actor on the I/O
+//! thread, and each power key is read on its own.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::pin::Pin;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_channel::{Receiver, Sender};
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QString, QStringList};
+use evdev::{EventSummary, KeyCode};
 use futures_lite::{stream, StreamExt};
 use zbus::fdo::{DBusProxy, PropertiesProxy};
 use zbus::names::InterfaceName;
@@ -40,12 +42,30 @@ pub mod qobject {
         #[qproperty(QStringList, active_wakelocks, cxx_name = "activeWakelocks", READ, NOTIFY)]
         #[qproperty(i32, wake_lock_count, cxx_name = "wakeLockCount", READ, NOTIFY)]
         #[qproperty(QString, critical_action, cxx_name = "criticalAction", READ, NOTIFY)]
+        #[qproperty(bool, has_active_calls, cxx_name = "hasActiveCalls", READ, WRITE, NOTIFY)]
         type Power = super::PowerRust;
 
-        /// UPower's warning level reached critical (4) or beyond.
         #[qsignal]
-        #[cxx_name = "criticalBattery"]
-        fn critical_battery(self: Pin<&mut Self>);
+        #[cxx_name = "batteryWarning"]
+        fn battery_warning(self: Pin<&mut Self>, title: &QString, body: &QString, icon: &QString, haptic: i32);
+        /// The critical action runs in `seconds` unless a charger comes.
+        #[qsignal]
+        #[cxx_name = "emergencyShutdownArmed"]
+        fn emergency_shutdown_armed(self: Pin<&mut Self>, seconds: i32);
+        #[qsignal]
+        #[cxx_name = "emergencyShutdownDisarmed"]
+        fn emergency_shutdown_disarmed(self: Pin<&mut Self>);
+        /// `device` is the input node: "<name> (<path>)".
+        #[qsignal]
+        #[cxx_name = "powerKeyPressed"]
+        fn power_key_pressed(self: Pin<&mut Self>, device: &QString);
+        #[qsignal]
+        #[cxx_name = "powerKeyReleased"]
+        fn power_key_released(self: Pin<&mut Self>, device: &QString);
+        /// Whether systemd took the wake-up `setWakeTimer` asked for.
+        #[qsignal]
+        #[cxx_name = "wakeTimerSet"]
+        fn wake_timer_set(self: Pin<&mut Self>, key: &QString, ok: bool);
         #[qsignal]
         #[cxx_name = "powerError"]
         fn power_error(self: Pin<&mut Self>, message: &QString);
@@ -84,10 +104,16 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "releaseInhibitor"]
         fn release_inhibitor(self: &Power);
-        /// The next alarm, which wakes a suspended device; 0 for none.
+        /// Wakes a suspended device at `epoch_secs` for `key`, replacing its
+        /// last wake-up; 0 for none. The key "alarm" is the alarm clock's.
         #[qinvokable]
-        #[cxx_name = "setAlarmWake"]
-        fn set_alarm_wake(self: &Power, epoch_secs: i64);
+        #[cxx_name = "setWakeTimer"]
+        fn set_wake_timer(self: &Power, key: &QString, epoch_secs: i64);
+        /// UPower's critical action: hybrid sleep, hibernate, suspend or, for
+        /// anything else, power off.
+        #[qinvokable]
+        #[cxx_name = "performCriticalPowerAction"]
+        fn perform_critical_power_action(self: &Power);
     }
 
     impl cxx_qt::Threading for Power {}
@@ -110,6 +136,10 @@ pub struct PowerRust {
     wake_lock_count: i32,
     critical_action: QString,
     profile_before_saver: Option<String>,
+    has_active_calls: bool,
+    /// The level last warned at, 100 for none since charging.
+    warned_at: i32,
+    shutdown_armed: bool,
     held: BTreeSet<String>,
     actor: Option<Sender<Command>>,
 }
@@ -129,6 +159,9 @@ impl Default for PowerRust {
             wake_lock_count: 0,
             critical_action: QString::from("PowerOff"),
             profile_before_saver: None,
+            has_active_calls: false,
+            warned_at: 100,
+            shutdown_armed: false,
             held: BTreeSet::new(),
             actor: None,
         }
@@ -141,7 +174,7 @@ enum Command {
     ReleaseInhibitor,
     Act(Action),
     Profile(String),
-    AlarmWake(i64),
+    WakeTimer(String, i64),
 }
 
 #[derive(Clone, Copy)]
@@ -157,6 +190,7 @@ impl cxx_qt::Initialize for Power {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(64);
         let qt = self.qt_thread();
+        watch_power_keys(qt.clone());
         io::spawn(run(qt, rx));
         self.as_mut().rust_mut().actor = Some(tx);
     }
@@ -271,8 +305,46 @@ impl Power {
         self.send(Command::ReleaseInhibitor);
     }
 
-    fn set_alarm_wake(&self, epoch_secs: i64) {
-        self.send(Command::AlarmWake(epoch_secs));
+    fn set_wake_timer(&self, key: &QString, epoch_secs: i64) {
+        self.send(Command::WakeTimer(key.to_string(), epoch_secs));
+    }
+
+    fn perform_critical_power_action(&self) {
+        let action = self.critical_action.to_string().to_ascii_lowercase();
+        log::warn("power", format_args!("critical battery: {action}"));
+        self.act(match action.as_str() {
+            "hybridsleep" => Action::HybridSleep,
+            "hibernate" => Action::Hibernate,
+            "suspend" => Action::Suspend,
+            _ => Action::PowerOff,
+        });
+    }
+
+    /// Warns once per threshold on the way down, and arms the critical
+    /// action at `UPower`'s critical level; a charger resets both.
+    fn warn_battery(mut self: Pin<&mut Self>) {
+        let (level, warning) = (self.battery_level, self.warning_level);
+        if self.is_charging || warning < 4 {
+            if self.shutdown_armed {
+                self.as_mut().rust_mut().shutdown_armed = false;
+                self.as_mut().emergency_shutdown_disarmed();
+            }
+            if self.is_charging {
+                self.as_mut().rust_mut().warned_at = 100;
+                return;
+            }
+        }
+        let Some(Warning { at, title, body, icon, haptic }) =
+            battery_warning(level, warning, self.warned_at, &self.critical_action.to_string())
+        else {
+            return;
+        };
+        self.as_mut().rust_mut().warned_at = at;
+        self.as_mut().battery_warning(&QString::from(title), &QString::from(&body), &QString::from(icon), haptic);
+        if warning >= 4 && !self.shutdown_armed {
+            self.as_mut().rust_mut().shutdown_armed = true;
+            self.emergency_shutdown_armed(10);
+        }
     }
 
     fn apply_battery(mut self: Pin<&mut Self>, battery: Battery) {
@@ -284,9 +356,6 @@ impl Power {
         if self.warning_level != battery.warning {
             self.as_mut().rust_mut().warning_level = battery.warning;
             self.as_mut().warning_level_changed();
-            if battery.warning >= 4 {
-                self.as_mut().critical_battery();
-            }
         }
         let charging = battery.is_charging();
         if self.is_charging != charging {
@@ -303,6 +372,7 @@ impl Power {
             self.as_mut().rust_mut().estimated_battery_time = minutes;
             self.as_mut().estimated_battery_time_changed();
         }
+        self.warn_battery();
     }
 
     fn apply_profile(mut self: Pin<&mut Self>, profile: &str) {
@@ -325,6 +395,81 @@ impl Power {
             self.as_mut().rust_mut().critical_action = QString::from(action);
             self.critical_action_changed();
         }
+    }
+}
+
+struct Warning {
+    /// The level it warns at; it warns again only below it.
+    at: i32,
+    title: &'static str,
+    body: String,
+    icon: &'static str,
+    haptic: i32,
+}
+
+/// The warning due at `level` and `UPower`'s `warning`, after one at `warned_at`.
+fn battery_warning(level: i32, warning: u32, warned_at: i32, critical_action: &str) -> Option<Warning> {
+    let remaining = format!("{level}% remaining");
+    let warn = |at, title, body, icon, haptic| Some(Warning { at, title, body, icon, haptic });
+    match warning {
+        4.. if warned_at > 3 => warn(
+            level.min(3),
+            "Critical Battery",
+            format!("Device will {critical_action} in 10 seconds to prevent data loss"),
+            "battery-warning",
+            3,
+        ),
+        3 if warned_at > 20 => warn(20, "Battery Low", remaining, "battery", 1),
+        0..=2 if level <= 5 && warned_at > 5 => {
+            warn(5, "Very Low Battery", format!("{remaining}. Connect charger immediately."), "battery-warning", 3)
+        }
+        0..=2 if level <= 10 && warned_at > 10 => {
+            warn(10, "Low Battery", format!("{remaining}. Connect charger soon."), "battery", 2)
+        }
+        0..=2 if level <= 20 && warned_at > 20 => warn(20, "Battery Low", remaining, "battery", 1),
+        _ => None,
+    }
+}
+
+/// Reads every input device with a power key on a thread of its own: the
+/// key wakes the screen, so it never waits behind other I/O.
+fn watch_power_keys(qt: Qt) {
+    let found = std::thread::Builder::new().name("marathon-keys".into()).spawn(move || {
+        let keys = evdev::enumerate().filter(|(_, d)| d.supported_keys().is_some_and(|k| k.contains(KeyCode::KEY_POWER)));
+        let mut watched = 0;
+        for (path, mut device) in keys {
+            let name = format!("{} ({})", device.name().unwrap_or("?"), path.display());
+            let qt = qt.clone();
+            let read = move || loop {
+                let events = match device.fetch_events() {
+                    Ok(events) => events,
+                    Err(e) => return log::warn("power", format_args!("{name}: {e}")),
+                };
+                for event in events {
+                    if let EventSummary::Key(_, KeyCode::KEY_POWER, value @ 0..=1) = event.destructure() {
+                        let device = QString::from(name.as_str());
+                        qt.queue(move |obj| {
+                            if value == 1 {
+                                obj.power_key_pressed(&device);
+                            } else {
+                                obj.power_key_released(&device);
+                            }
+                        })
+                        .ok();
+                    }
+                }
+            };
+            match std::thread::Builder::new().name("marathon-powerkey".into()).spawn(read) {
+                Ok(_) => watched += 1,
+                Err(e) => log::warn("power", format_args!("cannot read a power key: {e}")),
+            }
+        }
+        if watched == 0 {
+            log::warn("power", "no input device has a power key the shell can read; the power button will not wake the display");
+        }
+    });
+    if let Err(e) = found {
+        log::warn("power", format_args!("cannot look for power keys: {e}"));
     }
 }
 
@@ -442,7 +587,7 @@ struct Actor {
     kernel_wakelocks: bool,
     battery: Battery,
     alarm: i64,
-    alarm_timer: WakeTimer,
+    wake_timers: HashMap<String, WakeTimer>,
 }
 
 async fn run(qt: Qt, commands: Receiver<Command>) {
@@ -462,7 +607,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         kernel_wakelocks: std::fs::OpenOptions::new().write(true).open(WAKE_LOCK).is_ok(),
         battery: Battery::default(),
         alarm: 0,
-        alarm_timer: WakeTimer::new("alarm"),
+        wake_timers: HashMap::new(),
     };
     actor.lifelong = actor.inhibit("marathon-shell", "Handle wake events").await;
     actor.read_critical_action(&qt).await;
@@ -525,14 +670,30 @@ impl Actor {
             Command::ReleaseInhibitor => self.lifelong = None,
             Command::Act(action) => self.act(qt, action).await,
             Command::Profile(name) => self.set_profile(qt, name).await,
-            Command::AlarmWake(epoch_secs) => {
-                self.alarm = epoch_secs;
-                match io::session_bus().await {
-                    Ok(session) => self.alarm_timer.set(&session, epoch_secs).await,
-                    Err(e) => log::warn("power", format_args!("no session bus: {e}")),
+            Command::WakeTimer(key, epoch_secs) => {
+                if key == "alarm" {
+                    self.alarm = epoch_secs;
                 }
+                let ok = self.set_wake_timer(&key, epoch_secs).await;
+                qt.queue(move |obj| obj.wake_timer_set(&QString::from(&key), ok)).ok();
             }
         }
+    }
+
+    async fn set_wake_timer(&mut self, key: &str, epoch_secs: i64) -> bool {
+        if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric() || "_.-".contains(c)) {
+            log::warn("wake", format_args!("refusing the wake-up key {key:?}"));
+            return false;
+        }
+        let session = match io::session_bus().await {
+            Ok(session) => session,
+            Err(e) => {
+                log::warn("wake", format_args!("no session bus: {e}"));
+                return false;
+            }
+        };
+        let timer = self.wake_timers.entry(key.to_owned()).or_insert_with(|| WakeTimer::new(key.to_owned()));
+        timer.set(&session, epoch_secs).await
     }
 
     /// A kernel wakelock if the kernel lets the shell write one, else
@@ -733,6 +894,22 @@ fn write(path: &str, value: &str) -> bool {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::{is_background_wake, Battery};
+
+    #[test]
+    fn each_battery_threshold_warns_once_on_the_way_down() {
+        let mut warned_at = 100;
+        let mut titles = Vec::new();
+        for level in (1..=25).rev() {
+            if let Some(w) = super::battery_warning(level, 1, warned_at, "PowerOff") {
+                warned_at = w.at;
+                titles.push(w.title);
+            }
+        }
+        assert_eq!(titles, ["Battery Low", "Low Battery", "Very Low Battery"]);
+        let critical = super::battery_warning(2, 4, warned_at, "PowerOff").map(|w| w.body);
+        assert_eq!(critical.as_deref(), Some("Device will PowerOff in 10 seconds to prevent data loss"));
+        assert!(super::battery_warning(2, 4, 2, "PowerOff").is_none());
+    }
     use std::io::Write;
 
     const ARMED: i64 = 1_792_236_376;

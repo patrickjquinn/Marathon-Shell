@@ -375,7 +375,6 @@ add_executable(test_shell_alarmmanager
     ../../shell/src/managers/alarmmanagercpp.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/managers/waketimers.cpp
     ../../shell/src/managers/hapticmanager.cpp
 )
 target_link_libraries(test_shell_alarmmanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia)
@@ -384,15 +383,6 @@ add_test(NAME Shell_AlarmManager COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with
     $<TARGET_FILE:test_shell_alarmmanager>)
 set_tests_properties(Shell_AlarmManager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-
-# Wake-up timers are transient systemd user units, against a fake manager
-add_executable(test_shell_waketimers
-    test_waketimers.cpp
-    ../../shell/src/managers/waketimers.cpp
-)
-target_link_libraries(test_shell_waketimers Qt6::Test Qt6::Core Qt6::DBus)
-target_include_directories(test_shell_waketimers PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
-add_test(NAME Shell_WakeTimers COMMAND test_shell_waketimers)
 
 # SecurityManager: quick PIN failures count towards the lockout
 find_package(Qt6 REQUIRED COMPONENTS Concurrent)
@@ -629,7 +619,6 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/ipc/shellkeelactions.cpp
         ../../shell/src/services/uistore.cpp
         ../../shell/src/services/sessionstore.cpp
-            ../../shell/src/managers/waketimers.cpp
         ../../shell/src/managers/rotationmanager.cpp
         ../../shell/src/managers/settingsmanager.cpp
         ../../shell/src/managers/deviceprofile.cpp
@@ -953,71 +942,21 @@ add_test(NAME Shell_RemoteTextInput COMMAND test_shell_remotetextinput)
 set_tests_properties(Shell_RemoteTextInput PROPERTIES ENVIRONMENT
     "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 
-# One screen state: Display1, the power key and Doze agree on it, and touch
-# works again after a blank and wake
-find_package(Qt6 REQUIRED COMPONENTS Quick Sensors)
-add_executable(test_shell_screenstate
-    test_screenstate.cpp
-    ../../shell/src/managers/waketimers.cpp
-    ../../shell/src/managers/rotationmanager.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/managers/hapticmanager.cpp
-    ../../shell/src/controllers/powerpolicycontroller.cpp
-    ../../shell/src/services/powerbatteryhandlercpp.cpp
-    ../../shell/src/services/waketouchfilter.cpp
-    ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/components/desktopfileparser.cpp
-    ../../shell/src/services/cgroupmanager.cpp
-    ../../shell/src/services/processstopper.cpp
-    ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/models/appmodel.cpp
-    ../../shell/src/managers/screenmetrics.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
+# One screen state, blanked and woken through the backlight, and touch works
+# again after a blank and wake
+find_package(Qt6 REQUIRED COMPONENTS Quick)
+add_executable(test_shell_screenstate test_screenstate.cpp
+    ../../shell/src/services/waketouchfilter.cpp)
 target_link_libraries(test_shell_screenstate Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
-    Qt6::Quick Qt6::Sensors)
-target_include_directories(test_shell_screenstate PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src/controllers
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
+    Qt6::Quick)
+target_include_directories(test_shell_screenstate PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_ScreenState COMMAND test_shell_screenstate)
 set_tests_properties(Shell_ScreenState PROPERTIES ENVIRONMENT
     "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 
-# PowerManagerCpp against a fake logind: wakelocks and the lifelong inhibitor
-add_executable(test_shell_powermanager
-    test_powermanager.cpp
-    ../../shell/src/managers/waketimers.cpp
-    ../../shell/src/managers/rotationmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/controllers/powerpolicycontroller.cpp
-    ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/components/desktopfileparser.cpp
-    ../../shell/src/services/cgroupmanager.cpp
-    ../../shell/src/services/processstopper.cpp
-    ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/models/appmodel.cpp
-    ../../shell/src/managers/screenmetrics.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
-    Qt6::Sensors)
-target_include_directories(test_shell_powermanager PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
+# Power against fake logind, power profiles and systemd: locks, profiles, wake-ups
+add_executable(test_shell_powermanager test_powermanager.cpp)
+target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::DBus)
 add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)
 
 # Brightness lands on hardware levels; auto-brightness only with a light sensor

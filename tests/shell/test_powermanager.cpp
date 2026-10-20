@@ -4,7 +4,9 @@
 #include <QSignalSpy>
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QDBusObjectPath>
 #include <QDBusUnixFileDescriptor>
+#include <QDBusVirtualObject>
 #include <QMutex>
 #include <QProcess>
 #include <QThread>
@@ -13,7 +15,6 @@
 #include <poll.h>
 #include <unistd.h>
 
-#include "controllers/powerpolicycontroller.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 
 namespace {
@@ -84,6 +85,55 @@ namespace {
         QString        active = QStringLiteral("balanced");
     };
 
+    // systemd's Manager, as much of it as transient units need.
+    class FakeSystemd : public QDBusVirtualObject {
+      public:
+        mutable QMutex mutex;
+        QSet<QString>  loaded;
+        QStringList    started;
+        QStringList    stopped;
+        QString        signature;
+        bool           refuse = false;
+
+        void           reset() {
+            const QMutexLocker lock(&mutex);
+            loaded.clear();
+            started.clear();
+            stopped.clear();
+            signature.clear();
+            refuse = false;
+        }
+
+        QString introspect(const QString &) const override {
+            return {};
+        }
+
+        bool handleMessage(const QDBusMessage &m, const QDBusConnection &bus) override {
+            const QMutexLocker lock(&mutex);
+            const QString      unit = m.arguments().value(0).toString();
+            const auto fail = [&](const char *error) {
+                return bus.send(m.createErrorReply(QString::fromLatin1(error), unit));
+            };
+            if (m.member() == u"StartTransientUnit") {
+                started << unit;
+                signature = m.signature();
+                if (refuse)
+                    return fail("org.freedesktop.DBus.Error.AccessDenied");
+                if (loaded.contains(unit))
+                    return fail("org.freedesktop.systemd1.UnitExists");
+                loaded << unit;
+            } else if (m.member() == u"StopUnit") {
+                stopped << unit;
+                if (!loaded.remove(unit))
+                    return fail("org.freedesktop.systemd1.NoSuchUnit");
+            } else {
+                return false;
+            }
+            return bus.send(m.createReply(
+                QVariant::fromValue(QDBusObjectPath(QStringLiteral("/org/freedesktop/systemd1/job/1")))));
+        }
+    };
+
     bool held(int readFd) {
         pollfd p{readFd, POLLIN, 0};
         return ::poll(&p, 1, 0) == 0;
@@ -97,6 +147,21 @@ class TestPowerManager : public QObject {
     QThread                            m_serviceThread;
     std::unique_ptr<FakeLogind>        m_logind;
     std::unique_ptr<FakePowerProfiles> m_profiles;
+    std::unique_ptr<FakeSystemd>       m_systemd;
+
+    // Sets a wake-up and waits for systemd's answer.
+    static bool setTimer(Power &power, const QString &key, qint64 at) {
+        QSignalSpy answered(&power, &Power::wakeTimerSet);
+        power.setWakeTimer(key, at);
+        if (!answered.wait(5000))
+            qFatal("systemd did not answer");
+        return answered.first().at(1).toBool();
+    }
+
+    template <typename T> T systemd(T FakeSystemd::*field) {
+        const QMutexLocker lock(&m_systemd->mutex);
+        return (*m_systemd).*field;
+    }
 
     bool                               holds(const QString &why) {
         // The fake lives on its own thread; give it the bus round trip.
@@ -124,10 +189,16 @@ class TestPowerManager : public QObject {
         QVERIFY(services.registerObject(QStringLiteral("/org/freedesktop/UPower/PowerProfiles"),
                                         m_profiles.get(), QDBusConnection::ExportAllProperties));
         QVERIFY(services.registerService(QStringLiteral("org.freedesktop.UPower.PowerProfiles")));
+
+        m_systemd = std::make_unique<FakeSystemd>();
+        QVERIFY(services.registerVirtualObject(QStringLiteral("/org/freedesktop/systemd1"),
+                                               m_systemd.get()));
+        QVERIFY(services.registerService(QStringLiteral("org.freedesktop.systemd1")));
     }
 
     void init() {
         m_profiles->setActiveProfile(QStringLiteral("balanced"));
+        m_systemd->reset();
     }
 
     void cleanupTestCase() {
@@ -168,13 +239,92 @@ class TestPowerManager : public QObject {
         QTRY_VERIFY(!holds(QStringLiteral("Wakelock: gone")));
     }
 
-    void aWakeForACallOrMessageTakesNoWakelock() {
-        Power       power;
-        PowerPolicyController policy(&power, nullptr);
-        policy.wake(QStringLiteral("call"));
-        policy.wake(QStringLiteral("notification"));
-        QCOMPARE(power.getWakeLockCount(), 0);
-        QVERIFY(policy.canSleep());
+    void anAlarmIsATimerArmWakeReads() {
+        Power power;
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1792236376));
+        QCOMPARE(systemd(&FakeSystemd::started),
+                 QStringList{QStringLiteral("marathon-wake-alarm-1792236376.timer")});
+        QCOMPARE(systemd(&FakeSystemd::signature), QStringLiteral("ssa(sv)a(sa(sv))"));
+    }
+
+    void aNewTimeReplacesTheTimer() {
+        Power power;
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 2000));
+        QCOMPARE(systemd(&FakeSystemd::stopped),
+                 QStringList{QStringLiteral("marathon-wake-alarm-1000.timer")});
+        QCOMPARE(systemd(&FakeSystemd::loaded),
+                 QSet<QString>{QStringLiteral("marathon-wake-alarm-2000.timer")});
+    }
+
+    void theSameTimeKeepsTheTimer() {
+        Power power;
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        QCOMPARE(systemd(&FakeSystemd::started).size(), 1);
+        QVERIFY(systemd(&FakeSystemd::stopped).isEmpty());
+    }
+
+    void noTimeRemovesTheTimer() {
+        Power power;
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 0));
+        QVERIFY(systemd(&FakeSystemd::loaded).isEmpty());
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 0));
+        QCOMPARE(systemd(&FakeSystemd::stopped).size(), 1);
+    }
+
+    void aTimerLeftByAPreviousShellIsKept() {
+        {
+            const QMutexLocker lock(&m_systemd->mutex);
+            m_systemd->loaded << QStringLiteral("marathon-wake-alarm-1000.timer");
+        }
+        Power power;
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 2000));
+        QCOMPARE(systemd(&FakeSystemd::stopped),
+                 QStringList{QStringLiteral("marathon-wake-alarm-1000.timer")});
+    }
+
+    void anElapsedTimerIsReplacedQuietly() {
+        Power power;
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        {
+            const QMutexLocker lock(&m_systemd->mutex);
+            m_systemd->loaded.clear();
+        }
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 2000));
+        QCOMPARE(systemd(&FakeSystemd::loaded),
+                 QSet<QString>{QStringLiteral("marathon-wake-alarm-2000.timer")});
+    }
+
+    void aRefusedTimerFailsAndIsRetried() {
+        Power power;
+        {
+            const QMutexLocker lock(&m_systemd->mutex);
+            m_systemd->refuse = true;
+        }
+        QVERIFY(!setTimer(power, QStringLiteral("alarm"), 1000));
+        {
+            const QMutexLocker lock(&m_systemd->mutex);
+            m_systemd->refuse = false;
+        }
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        QCOMPARE(systemd(&FakeSystemd::started).size(), 2);
+    }
+
+    void keysHaveTheirOwnTimers() {
+        Power power;
+        QVERIFY(setTimer(power, QStringLiteral("alarm"), 1000));
+        QVERIFY(setTimer(power, QStringLiteral("app-test"), 1000));
+        QCOMPARE(systemd(&FakeSystemd::loaded).size(), 2);
+    }
+
+    void aKeyThatIsNoUnitNameIsRefused() {
+        Power power;
+        QVERIFY(!setTimer(power, QStringLiteral("../x"), 1000));
+        QVERIFY(!setTimer(power, QStringLiteral("a b"), 1000));
+        QVERIFY(systemd(&FakeSystemd::started).isEmpty());
     }
 
     void startsFromTheActiveProfile() {

@@ -59,7 +59,7 @@ TestCase {
         verify(!SessionStore.showLockScreen, "the lock screen stays down");
     }
 
-    // An SMS (PowerPolicyController.wake) or D-Bus Display1.Wake re-asserts the panel directly.
+    // An SMS or D-Bus Display1.Wake re-asserts the panel directly.
     function test_eventWakeOnALitScreenLeavesTheSessionAlone() {
         SessionStore.showLockScreen = false;
         Display.screenStateChanged(true);
@@ -92,11 +92,11 @@ TestCase {
 
     function test_aCallHoldsOffTheIdleBlank() {
         SettingsManagerCpp.screenTimeout = 100;
-        PowerPolicyControllerCpp.hasActiveCalls = true;
+        Power.hasActiveCalls = true;
         lockScreen.resetIdleTimer();
         wait(300);
         verify(Display.screenOn, "a ringing call keeps the screen on");
-        PowerPolicyControllerCpp.hasActiveCalls = false;
+        Power.hasActiveCalls = false;
         tryVerify(() => !Display.screenOn, 1000);
         SettingsManagerCpp.screenTimeout = 0;
     }

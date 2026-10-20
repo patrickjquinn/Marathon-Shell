@@ -2,7 +2,7 @@
 
 #include "notificationservicecpp.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
-#include "powerpolicycontroller.h"
+#include "marathon-shell-native/src/power.cxxqt.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
@@ -13,12 +13,12 @@
 
 TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
-    PowerPolicyController *powerPolicy, marathon::Display *display, AudioPolicyController *audioPolicy,
+    Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
     HapticManager *haptics, Modem *telephonyService, SMSService *smsService, QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
     , m_notificationService(notificationService)
-    , m_powerPolicy(powerPolicy)
+    , m_power(power)
     , m_display(display)
     , m_audioPolicy(audioPolicy)
     , m_haptics(haptics)
@@ -73,9 +73,6 @@ void TelephonyIntegrationCpp::setIncomingCallOverlay(QObject *overlay) {
 void TelephonyIntegrationCpp::handleIncomingCall(const QString &number) {
     setLastCallerNumber(number);
 
-    if (m_powerPolicy)
-        m_powerPolicy->wake("call");
-
     if (m_display)
         m_display->turnScreenOn();
 
@@ -129,8 +126,8 @@ void TelephonyIntegrationCpp::replyToMessageNotification(uint id, const QString 
 
 void TelephonyIntegrationCpp::handleMessageReceived(const QString &sender, const QString &text,
                                                     qint64) {
-    if (m_powerPolicy)
-        m_powerPolicy->wake("notification");
+    if (m_display)
+        m_display->turnScreenOn();
 
     const QString contactName = resolveContactName(sender);
     if (m_notificationService) {
@@ -210,11 +207,11 @@ void TelephonyIntegrationCpp::updateHasActiveCall(const QString &state) {
 
     // Drive the shared call-state flag so the proximity sensor gets
     // powered on/off for the duration of the call (main.cpp wires
-    // PowerPolicyController::hasActiveCalls -> marathon::Display::
-    // setProximityWanted). Without this the sensor never starts and the
-    // proximity blank below never fires. Also gates canSleep().
-    if (m_powerPolicy)
-        m_powerPolicy->setHasActiveCalls(active);
+    // Power::hasActiveCalls -> marathon::Display::setProximityWanted).
+    // Without this the sensor never starts and the proximity blank below
+    // never fires.
+    if (m_power)
+        m_power->setHasActiveCalls(active);
 
     // Call ended with the screen still proximity-blanked (phone was at
     // the ear when the other side hung up): un-blank immediately.

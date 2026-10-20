@@ -70,6 +70,11 @@ pub mod qobject {
         #[cxx_name = "hotspotFailed"]
         fn hotspot_failed(self: Pin<&mut Self>, message: &QString);
 
+        /// The chip's power save: idles between beacons while the
+        /// association, and push sockets, stay up.
+        #[qinvokable]
+        #[cxx_name = "setWifiPowerSave"]
+        fn set_wifi_power_save(self: &Network, on: bool);
         #[qinvokable]
         #[cxx_name = "enableWifi"]
         fn enable_wifi(self: &Network);
@@ -178,6 +183,18 @@ impl cxx_qt::Initialize for Network {
 }
 
 impl Network {
+    #[allow(clippy::unused_self, reason = "an invokable")]
+    fn set_wifi_power_save(&self, on: bool) {
+        // marathon-iw-setcap.service grants iw cap_net_admin.
+        io::spawn(async move {
+            let state = if on { "on" } else { "off" };
+            let iw = ["dev", "wlan0", "set", "power_save", state];
+            if let Err(e) = blocking::unblock(move || std::process::Command::new("/usr/sbin/iw").args(iw).status()).await {
+                log::warn("network", format_args!("iw power_save {state}: {e}"));
+            }
+        });
+    }
+
     fn hotspot_supported(&self) -> bool {
         self.wifi_available
     }

@@ -6,7 +6,7 @@ the modem is looked after across a suspend.
 
 ## How Marathon sleeps
 
-Marathon's daily sleep is **Doze** (`PowerPolicyController`): screen off,
+Marathon's daily sleep is **Doze**, the screen off (`Display`):
 background apps frozen, kernel, Wi-Fi and modem running. Nothing suspends
 the system automatically. A real suspend happens only on a critical battery
 (when UPower's action is Suspend), through `org.marathonos.Shell.Power1.Suspend`,
@@ -170,7 +170,7 @@ The alarm clock (`AlarmManagerCpp`) wakes the device through the same timer.
 For the next alarm the shell keeps one transient user timer,
 `marathon-wake-alarm-T.timer` (`OnCalendar=@T`, `RemainAfterElapse=no`,
 starting a `/bin/true` service), created with the user manager's
-`StartTransientUnit` on the session bus (`WakeTimers`). A new time stops the
+`StartTransientUnit` on the session bus (`Power.setWakeTimer`). A new time stops the
 old timer and starts one with the new time in its name, since a stopped
 transient unit's name is not free at once. arm-wake takes it like any other
 `marathon-wake-*` timer, so the earliest of the alarms and the background
@@ -184,7 +184,7 @@ during the suspend, so `resumedFromSuspend` checks the alarms again.
 System apps reach the same two paths over `org.marathonos.Shell.Power1`
 (permission `system`; the test suite's Alarms page uses them):
 `Wake(reason)` turns the screen on as an alarm, call or notification does
-(`PowerPolicyController::wake`, which leaves Doze), and
+(`Display::turnScreenOn`, which leaves Doze), and
 `ScheduleWake(epochSecs, reason)` keeps one `marathon-wake-app-<id>-T` timer
 per app, so a suspended device resumes at that time, in Doze.
 

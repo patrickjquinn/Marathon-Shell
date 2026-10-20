@@ -166,13 +166,6 @@ Item {
         if (event.key === Qt.Key_VolumeUp) {
             volumeUpPressed = false;
             event.accepted = true;
-        } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
-            powerButtonPressed = false;
-            if (powerButtonTimer.running) {
-                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, Display.screenOn, "power key (shell Keys)");
-                powerButtonTimer.stop();
-            }
-            event.accepted = true;
         }
     }
     Component.onCompleted: {
@@ -443,24 +436,7 @@ Item {
             event.accepted = true;
             return;
         }
-        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
-            powerButtonPressed = true;
-            if (volumeUpPressed) {
-                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
-                screenshotFlash.trigger();
-                ScreenshotService.captureScreen(shell);
-                event.accepted = true;
-                return;
-            }
-            // A press while the screen is off is a wake press. Waking the
-            // display holds this thread for ~800ms on the PinePhone, so the
-            // release arrived after the long-press timer had fired and a
-            // plain wake opened the power menu.
-            if (!powerButtonTimer.running && Display.screenOn)
-                powerButtonTimer.start();
-
-            event.accepted = true;
-        } else if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
+        if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+Space pressed - Opening Universal Search");
             UIStore.toggleSearch();
             HapticManager.light();
@@ -799,7 +775,7 @@ Item {
                 idleScreenTimer.rearm();
                 return;
             }
-            if (PowerPolicyControllerCpp.hasActiveCalls) {
+            if (Power.hasActiveCalls) {
                 Logger.info("Shell", "Active call — postponing blank");
                 idleScreenTimer.rearm();
                 return;
@@ -889,9 +865,8 @@ Item {
 
     // Power-key + system-level screen-on must ALSO restore the dim.
     // compositor.userActivity only fires for touch / wayland input, not
-    // for /dev/input/event3 KEY_POWER (which PowerKeyListener routes via
-    // PowerBatteryHandlerCpp.turnScreenOn → DisplayPolicyController.
-    // screenOnChanged). Without this hook, pressing the power key
+    // for KEY_POWER (which Power reads from /dev/input, and which turns
+    // the screen on through Display). Without this hook, pressing the power key
     // restored bl_power=0 (screen on) but brightness stayed pinned at
     // the dim value (5-25%) — user perceived the screen as dead.
     Connections {
@@ -993,12 +968,34 @@ Item {
         target: NotificationService
     }
 
+    // The power key, read from /dev/input whichever window has focus. A
+    // press while the screen is off wakes it on release; a short press locks
+    // and blanks it; a long one opens the power menu.
     Connections {
-        function onLockRequested() {
-            SessionStore.lock();
+        function onPowerKeyPressed(device) {
+            powerButtonPressed = true;
+            HapticManager.medium();
+            if (volumeUpPressed) {
+                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
+                screenshotFlash.trigger();
+                ScreenshotService.captureScreen(shell);
+            } else if (Display.screenOn) {
+                powerButtonTimer.start();
+            }
         }
 
-        target: PowerBatteryHandler
+        function onPowerKeyReleased(device) {
+            powerButtonPressed = false;
+            if (powerButtonTimer.running) {
+                powerButtonTimer.stop();
+                SessionStore.lock();
+                Display.turnScreenOff("power key on " + device);
+            } else if (!Display.screenOn) {
+                Display.turnScreenOn();
+            }
+        }
+
+        target: Power
     }
 
     Connections {
@@ -2335,7 +2332,7 @@ Item {
             criticalBatteryShutdownTimer.stop();
         }
 
-        target: PowerPolicyControllerCpp
+        target: Power
     }
 
     Timer {
@@ -2345,7 +2342,7 @@ Item {
         repeat: false
         onTriggered: {
             Logger.error("Battery", "Emergency critical power action due to battery");
-            PowerPolicyControllerCpp.performCriticalPowerAction();
+            Power.performCriticalPowerAction();
         }
     }
 
@@ -2724,11 +2721,8 @@ Item {
 
         onSleepRequested: {
             Logger.info("Shell", "Sleep requested from power menu");
-            var locked = SessionStore.isLocked;
-            var action = PowerPolicyControllerCpp.sleepAction(locked);
-            if (action === PowerPolicyControllerCpp.LockThenSleep)
-                SessionStore.lock();
-            PowerPolicyControllerCpp.sleep("power menu sleep");
+            SessionStore.lock();
+            Display.turnScreenOff("power menu sleep");
         }
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");

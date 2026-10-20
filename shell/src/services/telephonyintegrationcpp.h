@@ -7,7 +7,7 @@
 
 class ContactsManager;
 class NotificationServiceCpp;
-class PowerPolicyController;
+class Power;
 namespace marathon {
     class Display;
 }
@@ -29,7 +29,7 @@ class TelephonyIntegrationCpp : public QObject {
   public:
     explicit TelephonyIntegrationCpp(
         ContactsManager *contactsManager, NotificationServiceCpp *notificationService,
-        PowerPolicyController *powerPolicy, marathon::Display *display, AudioPolicyController *audioPolicy,
+        Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
         HapticManager *haptics, Modem *telephonyService, SMSService *smsService,
         QObject *parent = nullptr);
 
@@ -80,7 +80,7 @@ class TelephonyIntegrationCpp : public QObject {
 
     ContactsManager         *m_contactsManager     = nullptr;
     NotificationServiceCpp  *m_notificationService = nullptr;
-    PowerPolicyController   *m_powerPolicy         = nullptr;
+    Power                   *m_power               = nullptr;
     marathon::Display                 *m_display             = nullptr;
     AudioPolicyController   *m_audioPolicy         = nullptr;
     HapticManager           *m_haptics             = nullptr;

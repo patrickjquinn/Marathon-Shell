@@ -10,7 +10,7 @@ singleton HapticManager 1.0 HapticManager.qml
 singleton Security 1.0 Security.qml
 singleton SessionStore 1.0 SessionStore.qml
 singleton Display 1.0 Display.qml
-singleton PowerPolicyControllerCpp 1.0 PowerPolicyControllerCpp.qml
+singleton Power 1.0 Power.qml
 singleton Logger 1.0 Logger.qml
 singleton WallpaperStore 1.0 WallpaperStore.qml
 singleton AppLifecycleManager 1.0 AppLifecycleManager.qml

@@ -168,7 +168,7 @@ Item {
                 idleTimer.rearm();
                 return;
             }
-            if (PowerPolicyControllerCpp.hasActiveCalls) {
+            if (Power.hasActiveCalls) {
                 Logger.info("LockScreen", "Call ringing or active - postponing screen blank");
                 idleTimer.rearm();
                 return;

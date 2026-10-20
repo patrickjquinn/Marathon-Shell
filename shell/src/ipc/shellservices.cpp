@@ -23,8 +23,6 @@
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "powerpolicycontroller.h"
-#include "waketimers.h"
 #include "audiomanagercpp.h"
 #include "audiopolicycontroller.h"
 #include "hapticmanager.h"
@@ -950,15 +948,14 @@ void DisplayObject::Wake() {
     m_display->turnScreenOn();
 }
 
-PowerObject::PowerObject(Power *power, PowerPolicyController *policy,
+PowerObject::PowerObject(Power *power, marathon::Display *display,
                          MarathonPermissionManager *permissions, AppLaunchService *launchService,
                          QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_power(power)
-    , m_policy(policy)
-    , m_wakeTimers(new WakeTimers(QDBusConnection::sessionBus(), this)) {
+    , m_display(display) {
     Q_ASSERT(m_power);
-    Q_ASSERT(m_policy);
+    Q_ASSERT(m_display);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
 
@@ -969,12 +966,20 @@ PowerObject::PowerObject(Power *power, PowerPolicyController *policy,
     QObject::connect(m_power, &Power::isPowerSaveModeChanged, this, push);
     QObject::connect(m_power, &Power::estimatedBatteryTimeChanged, this, push);
     QObject::connect(m_power, &Power::powerProfileChanged, this, push);
-    QObject::connect(m_policy, &PowerPolicyController::dozingChanged, this, push);
+    QObject::connect(m_display, &marathon::Display::screenOnChanged, this, push);
+    QObject::connect(m_power, &Power::wakeTimerSet, this, [this](const QString &key, bool ok) {
+        auto calls = m_pendingWakes.find(key);
+        if (calls == m_pendingWakes.end())
+            return;
+        connection().send(calls->takeFirst().createReply(ok));
+        if (calls->isEmpty())
+            m_pendingWakes.erase(calls);
+    });
 }
 
 QVariantMap PowerObject::buildState() const {
     return {
-        {"dozing", m_policy->dozing()},
+        {"dozing", !m_display->getScreenOn()},
         {"batteryLevel", m_power->getBatteryLevel()},
         {"isCharging", m_power->getIsCharging()},
         {"isPluggedIn", m_power->getIsPluggedIn()},
@@ -1032,7 +1037,7 @@ bool PowerObject::Wake(const QString &reason) {
         return false;
     }
     qInfo() << "[PowerObject]" << callerAppIdOrEmpty() << "wakes the screen for" << reason;
-    m_policy->wake(reason);
+    m_display->turnScreenOn();
     return true;
 }
 
@@ -1045,11 +1050,10 @@ bool PowerObject::ScheduleWake(qint64 epochSecs, const QString &reason) {
     }
     const QString app = callerAppIdOrEmpty();
     qInfo() << "[PowerObject]" << app << "schedules a wake-up at" << epochSecs << "for" << reason;
-    // Answered once systemd has the timer.
+    const QString key = QStringLiteral("app-") + app;
     setDelayedReply(true);
-    m_wakeTimers->set(
-        QStringLiteral("app-") + app, epochSecs,
-        [bus = connection(), call = message()](bool ok) { bus.send(call.createReply(ok)); });
+    m_pendingWakes[key].append(message());
+    m_power->setWakeTimer(key, epochSecs);
     return false;
 }
 

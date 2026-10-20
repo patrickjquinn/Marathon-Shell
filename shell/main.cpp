@@ -59,20 +59,16 @@
 #include "src/services/motiondaemon.h"
 #include "src/services/automatictimezone.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
-#include "src/managers/waketimers.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "marathon-shell-native/src/identity.cxxqt.h"
-#include "src/controllers/powerpolicycontroller.h"
 #include "src/managers/deviceprofile.h"
 #include "src/managers/drmmasterwait.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
-#include "src/managers/powerkeylistener.h"
 #include "src/services/wakeonkeyfilter.h"
 #include "src/services/pilotclient.h"
 #include "src/services/weatherclient.h"
 #include "src/services/inputboost.h"
 #include "src/services/touchresampler.h"
-#include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "src/managers/settingsmanager.h"
@@ -895,7 +891,7 @@ int main(int argc, char *argv[]) {
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, power, audioManager, hapticManager, &app);
     QObject::connect(alarmManager, &AlarmManagerCpp::nextAlarmScheduled, power,
-                     &Power::setAlarmWake);
+                     [power](qint64 at) { power->setWakeTimer(QStringLiteral("alarm"), at); });
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager = new AudioRoutingManager(audioManager, &app);
     auto *security = new Security();
@@ -973,23 +969,31 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // PowerPolicyController takes the lifecycle manager so its
-    // enterDoze() / exitDoze() can flip the freeze-debounce window
-    // and freeze background apps immediately on screen-off. AppLifecycle
-    // is constructed above on line ~670 so this dependency order is safe.
-    auto *powerPolicyController =
-        new PowerPolicyController(power, display, appLifecycleManager, &app);
-    qmlRegisterSingletonInstance<PowerPolicyController>(
-        "MarathonOS.Shell", 1, 0, "PowerPolicyControllerCpp", powerPolicyController);
+    // Doze, the screen off: background apps freeze at once (the foreground
+    // one stays thawed for an instant wake) and the Wi-Fi chip idles while
+    // its association, and push, stay up.
+    const bool wifiPowerSave = DeviceProfile::instance().wifiPowerSave();
+    QObject::connect(display, &marathon::Display::screenOnChanged, appLifecycleManager,
+                     [=, debounceMs = -1]() mutable {
+                         const bool on = display->getScreenOn();
+                         if (!on) {
+                             debounceMs = appLifecycleManager->idleFreezeDebounceMs();
+                             appLifecycleManager->setIdleFreezeDebounceMs(0);
+                         } else if (debounceMs >= 0) {
+                             appLifecycleManager->setIdleFreezeDebounceMs(debounceMs);
+                             debounceMs = -1;
+                         }
+                         if (wifiPowerSave)
+                             network->setWifiPowerSave(!on);
+                     });
 
     // Proximity reads only during voice calls.
-    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged, display,
-                     [=] { display->setProximityWanted(powerPolicyController->hasActiveCalls()); });
-    display->setProximityWanted(powerPolicyController->hasActiveCalls());
+    QObject::connect(power, &Power::hasActiveCallsChanged, display,
+                     [=] { display->setProximityWanted(power->getHasActiveCalls()); });
 
     // Resume-from-suspend bridge. External suspends (logind IdleAction,
     // lid switch, RTC alarm — anything not going through
-    // PowerPolicyController::sleep) never tell the shell the screen
+    // the power key or the idle timer) never tell the shell the screen
     // went off. m_screenOn stays stale TRUE across the sleep; on the
     // power-key wake the policy then reads screenOn=true and chooses
     // LockAndTurnScreenOff → bl_power=4 → backlight stays off, even
@@ -1009,62 +1013,27 @@ int main(int argc, char *argv[]) {
     // A wake-up armed for background work lands in Doze instead: the
     // tasks run with the screen off, as they would have in Doze. An alarm
     // ringing by then (checkAlarms runs first) keeps the screen on.
-    QObject::connect(
-        power, &Power::resumedFromSuspend, powerPolicyController,
-        [display, powerPolicyController, alarmManager](bool backgroundWake) {
-            if (backgroundWake && !alarmManager->hasActiveAlarm()) {
-                powerPolicyController->enterDoze(QStringLiteral("background-wake"));
-                return;
-            }
-            display->forceScreenOn();
-            powerPolicyController->exitDoze();
-        });
-    QObject::connect(
-        alarmManager, &AlarmManagerCpp::alarmTriggered, powerPolicyController,
-        [powerPolicyController]() { powerPolicyController->wake(QStringLiteral("alarm")); });
+    QObject::connect(power, &Power::resumedFromSuspend, display,
+                     [display, alarmManager](bool backgroundWake) {
+                         if (backgroundWake && !alarmManager->hasActiveAlarm())
+                             display->turnScreenOff(QStringLiteral("background-wake (doze)"));
+                         else
+                             display->forceScreenOn();
+                     });
+    QObject::connect(alarmManager, &AlarmManagerCpp::alarmTriggered, display,
+                     &marathon::Display::turnScreenOn);
 
-    // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
-    // the power button. PowerKeyListener reads /dev/input/event* directly,
-    // which is essential when a marathon-app-runner subprocess has Wayland
-    // focus — in that case Qt routes KEY_POWER to the runner's window and
-    // MarathonShell.qml's Keys.onReleased never fires, so the shell would
-    // otherwise miss the wake press entirely. The runner has no reason
-    // (and no code) to forward KEY_POWER upstream.
-    //
-    // Both event sources (QML Keys.onReleased when shell has focus,
-    // PowerKeyListener when it doesn't) invoke the same
-    // handlePowerButtonPress, which acts once per key-DOWN stamped by
-    // PowerKeyListener, so both firing for one physical press toggle once.
-    auto *powerKeyListener    = new PowerKeyListener(&app);
+    // logind has HandlePowerKey=ignore (50-marathon.conf): the shell owns
+    // the power button, and Power reads it from /dev/input, since Qt routes
+    // KEY_POWER to whichever window has focus, often an app's.
     // Full CPU clock while the user interacts; the power key counts, since
     // waking the display is the slowest thing a press does.
     auto *inputBoost = new InputBoost(&app);
     app.installEventFilter(inputBoost);
-    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, inputBoost,
-                     &InputBoost::boost);
-    auto *powerBatteryHandler = createObject<PowerBatteryHandlerCpp>(
-        ctx, "PowerBatteryHandler", powerPolicyController, display, hapticManager, &app);
-    // Key-DOWN stamps the hold-start so the release handler can tell a long
-    // press (power menu) from a short press (screen toggle). Without this the
-    // raw /dev/input release ran the screen-off action even for the release
-    // that ends a long press, blanking the screen the moment the menu appeared.
-    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, powerBatteryHandler,
-                     [powerBatteryHandler]() { powerBatteryHandler->notePowerButtonDown(); });
-    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyReleased, powerBatteryHandler,
-                     [powerBatteryHandler, display](const QString &device) {
-                         const bool screenOn = display->getScreenOn();
-                         // sessionLocked=false is a reasonable fallback — the
-                         // lock/unlock decision in powerButtonAction only
-                         // matters for the screen-ON path (LockAndTurnScreenOff
-                         // vs TurnScreenOff), and the screen-OFF wake path
-                         // (TurnScreenOn) is agnostic to it.
-                         powerBatteryHandler->handlePowerButtonPress(
-                             false, screenOn, QStringLiteral("power key on ") + device);
-                     });
+    QObject::connect(power, &Power::powerKeyPressed, inputBoost, &InputBoost::boost);
     if (DeviceProfile::instance().wakeOnKey()) {
-        app.installEventFilter(new WakeOnKeyFilter(
-            [powerBatteryHandler]() { return powerBatteryHandler->screenOff(); },
-            [powerBatteryHandler]() { powerBatteryHandler->wakeFromKey(); }, &app));
+        app.installEventFilter(new WakeOnKeyFilter([display]() { return !display->getScreenOn(); },
+                                                   [display]() { display->turnScreenOn(); }, &app));
     }
     auto *audioPolicyController =
         new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);
@@ -1316,11 +1285,10 @@ int main(int argc, char *argv[]) {
         QStringLiteral("/usr/lib/os-release");
     auto         *updateService = new UpdateService(
         new SysupdateBackend,
-        [display, powerPolicyController]() {
+        [display, power, alarmManager]() {
             UpdateConditions c = SysupdateBackend::systemConditions();
-            c.idle             = !display->getScreenOn() &&
-                !powerPolicyController->hasActiveCalls() &&
-                !powerPolicyController->hasActiveAlarm();
+            c.idle             = !display->getScreenOn() && !power->getHasActiveCalls() &&
+                !alarmManager->hasActiveAlarm();
             return c;
         },
         UpdateService::imageVersion(osRelease), bootId, [] { return QDateTime::currentDateTime(); },
@@ -1333,10 +1301,8 @@ int main(int argc, char *argv[]) {
     startupPin();
     QObject::connect(security, &Security::dataEncryptionChanged, updateService,
                      startupPin);
-    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveCallsChanged,
-                     updateService, &UpdateService::reconsider);
-    QObject::connect(powerPolicyController, &PowerPolicyController::hasActiveAlarmChanged,
-                     updateService, &UpdateService::reconsider);
+    QObject::connect(power, &Power::hasActiveCallsChanged, updateService,
+                     &UpdateService::reconsider);
     QObject::connect(display, &marathon::Display::screenOnChanged, updateService,
                      &UpdateService::reconsider);
     QObject::connect(power, &Power::isPluggedInChanged, updateService,
@@ -1346,13 +1312,10 @@ int main(int argc, char *argv[]) {
     QObject::connect(network, &Network::wifiConnectedChanged, updateService,
                      &UpdateService::reconsider);
     // A suspended device wakes for the restart window, as for an alarm.
-    auto *updateWake = new WakeTimers(QDBusConnection::sessionBus(), updateService);
-    QObject::connect(updateService, &UpdateService::restartWindowChanged, updateWake,
-                     [updateService, updateWake]() {
-                         const QDateTime at = updateService->nextRestartWindow();
-                         updateWake->set(QStringLiteral("update-restart"),
-                                         at.isValid() ? at.toSecsSinceEpoch() : 0);
-                     });
+    QObject::connect(updateService, &UpdateService::restartWindowChanged, power, [=]() {
+        const QDateTime at = updateService->nextRestartWindow();
+        power->setWakeTimer(QStringLiteral("update-restart"), at.isValid() ? at.toSecsSinceEpoch() : 0);
+    });
     if (freedesktopNotif)
         new UpdateNotifier(updateService, freedesktopNotif, navigationRouter, &app);
     auto *davCalendarStore = new DavCalendarStore(&app);
@@ -1370,7 +1333,7 @@ int main(int argc, char *argv[]) {
         return true;
     });
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
-        ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
+        ctx, "TelephonyIntegration", contactsManager, notificationService, power,
         display, audioPolicyController, hapticManager, modem, smsService, &app);
     if (freedesktopNotif)
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
@@ -1423,7 +1386,6 @@ int main(int argc, char *argv[]) {
         ipc->setWallpaperStore(wallpaperStore);
         ipc->setModemManager(modem);
         ipc->setFlashlightManager(flashlightManager);
-        ipc->setPowerPolicy(powerPolicyController);
         ipc->setAppInstaller(appInstaller);
         auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
         ipc->setForegroundApp(foregroundApp);

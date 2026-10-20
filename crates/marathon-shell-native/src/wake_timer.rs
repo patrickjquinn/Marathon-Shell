@@ -23,26 +23,30 @@ trait SystemdManager {
 
 /// One key's wake-up; setting it again replaces the timer.
 pub struct WakeTimer {
-    key: &'static str,
+    key: String,
     unit: Option<String>,
 }
 
 impl WakeTimer {
-    pub const fn new(key: &'static str) -> Self {
+    pub const fn new(key: String) -> Self {
         Self { key, unit: None }
     }
 
-    /// Wakes the system at `epoch_secs`, or at no time for `epoch_secs <= 0`.
-    pub async fn set(&mut self, bus: &zbus::Connection, epoch_secs: i64) {
+    /// Wakes the system at `epoch_secs`, or at no time for `epoch_secs <= 0`;
+    /// false if systemd refused.
+    pub async fn set(&mut self, bus: &zbus::Connection, epoch_secs: i64) -> bool {
         // The time is in the name: a stopped transient unit can linger for a
         // moment, so reusing one name would race its garbage collection.
-        let unit = (epoch_secs > 0).then(|| unit_name(self.key, epoch_secs));
+        let unit = (epoch_secs > 0).then(|| unit_name(&self.key, epoch_secs));
         if unit == self.unit {
-            return;
+            return true;
         }
         let manager = match SystemdManagerProxy::new(bus).await {
             Ok(m) => m,
-            Err(e) => return crate::log::warn("wake", e),
+            Err(e) => {
+                crate::log::warn("wake", e);
+                return false;
+            }
         };
         if let Some(old) = self.unit.take() {
             if let Err(e) = manager.stop_unit(&old, "replace").await {
@@ -52,7 +56,7 @@ impl WakeTimer {
                 }
             }
         }
-        let Some(unit) = unit else { return };
+        let Some(unit) = unit else { return true };
         let service = unit.replace(".timer", ".service");
         let timer = [
             ("Description", Value::from(format!("Marathon wake-up: {}", self.key))),
@@ -65,8 +69,12 @@ impl WakeTimer {
             // A previous shell left the same wake-up behind.
             Err(e) if !is_error(&e, "org.freedesktop.systemd1.UnitExists") => {
                 crate::log::warn("wake", format_args!("could not start {unit}: {e}"));
+                false
             }
-            _ => self.unit = Some(unit),
+            _ => {
+                self.unit = Some(unit);
+                true
+            }
         }
     }
 }

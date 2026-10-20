@@ -54,16 +54,8 @@ set(SOURCES
     qml/keyboard/Data/WordEngine.cpp
     qml/keyboard/Data/WordTrie.h
     qml/keyboard/Data/WordTrie.cpp
-    src/managers/waketimers.h
-    src/managers/waketimers.cpp
-    src/controllers/powerpolicycontroller.h
-    src/controllers/powerpolicycontroller.cpp
-    src/services/powerbatteryhandlercpp.h
-    src/services/powerbatteryhandlercpp.cpp
     src/managers/deviceprofile.h
     src/managers/deviceprofile.cpp
-    src/managers/powerkeylistener.h
-    src/managers/powerkeylistener.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/audiomanagercpp.h
@@ -599,8 +591,6 @@ qt6_add_qml_module(marathon-shell
         src/services/applifecyclemanager.h
         src/services/notificationservicecpp.cpp
         src/services/notificationservicecpp.h
-        src/controllers/powerpolicycontroller.cpp
-        src/controllers/powerpolicycontroller.h
         src/controllers/audiopolicycontroller.cpp
         src/controllers/audiopolicycontroller.h
     RESOURCES ${JSON_FILES} ${UI_RESOURCES}
