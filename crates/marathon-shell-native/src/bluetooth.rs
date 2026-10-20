@@ -14,8 +14,10 @@ use futures_lite::{stream, StreamExt};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy};
 use zbus::message::Type as MessageType;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
-use zbus::{MatchRule, MessageStream};
+use zbus::message::Header;
+use zbus::{fdo, MatchRule, MessageStream};
 
+use crate::ipc::{self, value, State};
 use crate::{io, log};
 
 #[cxx_qt::bridge]
@@ -171,6 +173,29 @@ impl cxx_qt::Initialize for Bluetooth {
         let mut rust = self.as_mut().rust_mut();
         rust.actor = Some(tx);
         rust.answers = Some(answer);
+        let push = |obj: Pin<&mut Self>| ipc::signal("Bluetooth", "StateChanged", (state(&obj),));
+        self.as_mut().on_available_changed(push).release();
+        self.as_mut().on_enabled_changed(push).release();
+        self.as_mut().on_scanning_changed(push).release();
+        self.as_mut().on_devices_changed(push).release();
+        self.as_mut().on_paired_devices_changed(push).release();
+        self.as_mut().on_adapter_name_changed(push).release();
+        self.as_mut()
+            .on_pairing_failed(|_, a, e| ipc::signal("Bluetooth", "PairingFailed", (a.to_string(), e.to_string())))
+            .release();
+        self.as_mut().on_pairing_succeeded(|_, a| ipc::signal("Bluetooth", "PairingSucceeded", (a.to_string(),))).release();
+        self.as_mut()
+            .on_pin_requested(|_, a, n| ipc::signal("Bluetooth", "PinRequested", (a.to_string(), n.to_string())))
+            .release();
+        self.as_mut()
+            .on_passkey_requested(|_, a, n| ipc::signal("Bluetooth", "PasskeyRequested", (a.to_string(), n.to_string())))
+            .release();
+        self.as_mut()
+            .on_passkey_confirmation(|_, a, n, k| {
+                ipc::signal("Bluetooth", "PasskeyConfirmation", (a.to_string(), n.to_string(), k));
+            })
+            .release();
+        ipc::export("Bluetooth", Bluetooth1 { qt: self.qt_thread() });
     }
 }
 
@@ -328,6 +353,89 @@ impl Device {
         map.insert(QString::from("trusted"), QVariant::from(&self.trusted));
         map.insert(QString::from("rssi"), QVariant::from(&i32::from(self.rssi)));
         map
+    }
+
+    fn to_state(&self) -> OwnedValue {
+        OwnedValue::from(State::from([
+            ("address".to_owned(), value(self.address.clone())),
+            ("name".to_owned(), value(self.name.clone())),
+            ("alias".to_owned(), value(self.alias.clone())),
+            ("icon".to_owned(), value(self.icon)),
+            ("paired".to_owned(), value(self.paired)),
+            ("connected".to_owned(), value(self.connected)),
+            ("trusted".to_owned(), value(self.trusted)),
+            ("rssi".to_owned(), value(i32::from(self.rssi))),
+        ]))
+    }
+}
+
+fn state(bt: &Bluetooth) -> State {
+    let devices = |paired: bool| value(bt.known.iter().filter(|d| d.paired || !paired).map(Device::to_state).collect::<Vec<_>>());
+    State::from([
+        ("available".to_owned(), value(bt.available)),
+        ("enabled".to_owned(), value(bt.enabled)),
+        ("scanning".to_owned(), value(bt.scanning)),
+        ("discoverable".to_owned(), value(bt.discoverable)),
+        ("adapterName".to_owned(), value(bt.adapter_name.to_string())),
+        ("devices".to_owned(), devices(false)),
+        ("pairedDevices".to_owned(), devices(true)),
+    ])
+}
+
+struct Bluetooth1 {
+    qt: cxx_qt::CxxQtThread<Bluetooth>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Bluetooth1")]
+impl Bluetooth1 {
+    async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        ipc::admit(&h, "Bluetooth", &["bluetooth", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| state(&obj)).await
+    }
+
+    async fn set_enabled(&self, enabled: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["bluetooth", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_enabled(enabled)).await
+    }
+
+    async fn start_scan(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.start_scan()).await
+    }
+
+    async fn stop_scan(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.stop_scan()).await
+    }
+
+    async fn connect_device(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.connect_device(&QString::from(&address))).await
+    }
+
+    async fn disconnect_device(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.disconnect_device(&QString::from(&address))).await
+    }
+
+    async fn pair_device(&self, address: String, pin: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.pair_device(&QString::from(&address), &QString::from(&pin))).await
+    }
+
+    async fn unpair_device(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.unpair_device(&QString::from(&address))).await
+    }
+
+    async fn confirm_pairing(&self, address: String, confirmed: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.confirm_pairing(&QString::from(&address), confirmed)).await
+    }
+
+    async fn cancel_pairing(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Bluetooth", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.cancel_pairing(&QString::from(&address))).await
     }
 }
 

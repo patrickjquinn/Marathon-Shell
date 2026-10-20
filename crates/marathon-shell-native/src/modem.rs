@@ -15,8 +15,10 @@ use futures_lite::{future, stream, StreamExt};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy, PropertiesProxy};
 use zbus::message::Type as MessageType;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
-use zbus::{MatchRule, MessageStream};
+use zbus::message::Header;
+use zbus::{fdo, MatchRule, MessageStream};
 
+use crate::ipc::{self, value, State};
 use crate::{io, log};
 
 #[cxx_qt::bridge]
@@ -198,6 +200,19 @@ impl cxx_qt::Initialize for Modem {
         let mut rust = self.as_mut().rust_mut();
         rust.actor = Some(tx);
         rust.call_state = QString::from("idle");
+        let push = |obj: Pin<&mut Self>| ipc::signal("Modem", "StateChanged", (state(&obj),));
+        self.as_mut().on_modem_available_changed(push).release();
+        self.as_mut().on_modem_enabled_changed(push).release();
+        self.as_mut().on_sim_present_changed(push).release();
+        self.as_mut().on_registered_changed(push).release();
+        self.as_mut().on_operator_name_changed(push).release();
+        self.as_mut().on_signal_strength_changed(push).release();
+        self.as_mut().on_network_type_changed(push).release();
+        self.as_mut().on_roaming_changed(push).release();
+        self.as_mut().on_data_enabled_changed(push).release();
+        self.as_mut().on_data_roaming_allowed_changed(push).release();
+        self.as_mut().on_modes_changed(push).release();
+        ipc::export("Modem", Modem1 { qt: self.qt_thread() });
     }
 }
 
@@ -432,6 +447,56 @@ impl Modem {
     fn publish_broadcasts(mut self: Pin<&mut Self>) {
         let list: QList<QVariant> = self.broadcasts.iter().map(|b| QVariant::from(&b.to_map())).collect();
         set!(self, active_broadcasts, active_broadcasts_changed, list);
+    }
+}
+
+fn state(modem: &Modem) -> State {
+    let supported = modem.supported_modes.iter().filter_map(QVariant::value::<u32>).map(OwnedValue::from);
+    State::from([
+        ("available".to_owned(), value(modem.modem_available)),
+        ("enabled".to_owned(), value(modem.modem_enabled)),
+        ("simPresent".to_owned(), value(modem.sim_present)),
+        ("registered".to_owned(), value(modem.registered)),
+        ("operatorName".to_owned(), value(modem.operator_name.to_string())),
+        ("signalStrength".to_owned(), value(modem.signal_strength)),
+        ("networkType".to_owned(), value(modem.network_type.to_string())),
+        ("roaming".to_owned(), value(modem.roaming)),
+        ("dataEnabled".to_owned(), value(modem.data_enabled)),
+        ("dataRoamingAllowed".to_owned(), value(modem.data_roaming_allowed)),
+        ("supportedModes".to_owned(), value(supported.collect::<Vec<_>>())),
+        ("allowedModes".to_owned(), value(modem.current_modes)),
+    ])
+}
+
+struct Modem1 {
+    qt: cxx_qt::CxxQtThread<Modem>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Modem1")]
+impl Modem1 {
+    async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        ipc::admit(&h, "Modem", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| state(&obj)).await
+    }
+
+    async fn enable_data(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Modem", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, Modem::enable_data).await
+    }
+
+    async fn disable_data(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Modem", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, Modem::disable_data).await
+    }
+
+    async fn set_data_roaming_allowed(&self, allowed: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Modem", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_data_roaming_allowed(allowed)).await
+    }
+
+    async fn set_allowed_modes(&self, allowed: u32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Modem", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_allowed_modes(allowed)).await
     }
 }
 

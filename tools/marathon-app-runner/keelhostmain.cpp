@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
                      [&] { host.setAmbience(ambience.getAmbience()); });
     host.onActivate = [appId]() {
         QDBusMessage call = QDBusMessage::createMethodCall(
-            QStringLiteral("org.marathonos.Shell"), QStringLiteral("/org/marathonos/Shell/Navigation"),
+            QStringLiteral("org.marathonos.Shell.Session"), QStringLiteral("/org/marathonos/Shell/Navigation"),
             QStringLiteral("org.marathonos.Shell.Navigation1"), QStringLiteral("LaunchApp"));
         call << appId;
         QDBusConnection::sessionBus().asyncCall(call);

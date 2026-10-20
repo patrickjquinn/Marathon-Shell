@@ -12,8 +12,10 @@ use async_channel::{Receiver, Sender};
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QVariant};
 use evdev::{FFEffect, FFEffectCode, FFEffectData, FFEffectKind, FFReplay};
+use zbus::fdo;
+use zbus::zvariant::OwnedValue;
 
-use crate::{io, log};
+use crate::{io, ipc, log, variant};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -88,6 +90,7 @@ impl cxx_qt::Initialize for Haptics {
             run(motor, rx).await;
         });
         self.as_mut().rust_mut().motor = Some(tx);
+        ipc::export("Haptic", Haptic1 { qt: self.qt_thread() });
     }
 }
 
@@ -130,6 +133,42 @@ impl Haptics {
 
     fn tick(&self) {
         self.rumble(20, 25_000);
+    }
+}
+
+struct Haptic1 {
+    qt: cxx_qt::CxxQtThread<Haptics>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Haptic1")]
+impl Haptic1 {
+    async fn is_available(&self) -> fdo::Result<bool> {
+        ipc::on_gui(&self.qt, |obj| obj.available).await
+    }
+
+    async fn light(&self) -> fdo::Result<()> {
+        ipc::on_gui(&self.qt, |obj| obj.light()).await
+    }
+
+    async fn medium(&self) -> fdo::Result<()> {
+        ipc::on_gui(&self.qt, |obj| obj.medium()).await
+    }
+
+    async fn heavy(&self) -> fdo::Result<()> {
+        ipc::on_gui(&self.qt, |obj| obj.heavy()).await
+    }
+
+    async fn vibrate(&self, duration: i32) -> fdo::Result<()> {
+        ipc::on_gui(&self.qt, move |obj| obj.vibrate(duration)).await
+    }
+
+    async fn vibrate_pattern(&self, pattern: Vec<OwnedValue>) -> fdo::Result<()> {
+        let steps = pattern_steps(pattern.iter().filter_map(|v| variant::number(v)).filter_map(|n| i32::try_from(n).ok()));
+        ipc::on_gui(&self.qt, move |obj| obj.play(steps)).await
+    }
+
+    async fn stop(&self) -> fdo::Result<()> {
+        ipc::on_gui(&self.qt, |obj| obj.cancel_vibration()).await
     }
 }
 

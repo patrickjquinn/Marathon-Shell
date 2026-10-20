@@ -61,28 +61,19 @@ class TestIpcGates : public QObject {
     void theGateAsksForUndecidedPermissions() {
         QVERIFY(read(QStringLiteral("crates/marathon-shell-native/src/gate.rs"))
                     .contains(QStringLiteral("permissions::ask_if_undecided(&caller, permissions)")));
-        QVERIFY(read(QStringLiteral("shell/main.cpp"))
-                    .contains(QStringLiteral(
-                        "askIfUndecided(desktopId, {QStringLiteral(\"location\")})")));
+        QVERIFY(read(QStringLiteral("crates/marathon-shell-native/src/location.rs"))
+                    .contains(QStringLiteral("permissions::ask_if_undecided(desktop_id")));
     }
 
     void deviceAndPersonalInterfacesCheckPermissions_data() {
         QTest::addColumn<QString>("cls");
         for (const char *cls :
-             {"TelephonyObject",
-              "SecurityObject", "BluetoothObject", "DisplayObject",
-              "PowerObject", "AudioObject", "NetworkObject", "ModemObject", "SensorObject",
-              "LocationObject", "AlarmObject", "UpdatesObject", "AppStoreObject",
-              "PermissionsObject"})
+             {"TelephonyObject", "AudioObject", "AppStoreObject"})
             QTest::newRow(cls) << QString::fromLatin1(cls);
     }
 
     void deviceAndPersonalInterfacesCheckPermissions() {
         QFETCH(QString, cls);
-        // Turning the screen on is a power-button press; the lock screen
-        // still guards everything behind it.
-        const QStringList open = {QStringLiteral("DisplayObject::Wake")};
-
         const QString     header  = read(QStringLiteral("shell/src/ipc/shellservices.h"));
         const QString     source  = read(QStringLiteral("shell/src/ipc/shellservices.cpp"));
         const QStringList methods = slotsOf(header, cls);
@@ -91,11 +82,9 @@ class TestIpcGates : public QObject {
             header.contains(QStringLiteral("class %1 : public IpcPermissionedService").arg(cls)),
             qPrintable(cls));
         static const QRegularExpression gate(QStringLiteral(
-            R"(\brequire\w*\(|authorizePermissionCall\(|hasAnyPermission\(|checkCaller\w*\(|\badmit\()"));
+            R"(\brequire\w*\(|hasAnyPermission\(|checkCaller\w*\(|\badmit\()"));
         for (const QString &method : methods) {
             const QString name = cls + QStringLiteral("::") + method;
-            if (open.contains(name))
-                continue;
             const QString body = bodyOf(source, cls, method);
             QVERIFY2(!body.isEmpty(), qPrintable(name + " has no definition"));
             QVERIFY2(gate.match(body).hasMatch(), qPrintable(name + " checks no permission"));

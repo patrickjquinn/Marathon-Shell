@@ -4,6 +4,7 @@ import QtQml
 QtObject {
     property bool screenOn: true
     property bool lightAvailable: true
+    property bool rotationAvailable: true
     property var offReasons: []
     signal screenStateChanged(bool on)
     function turnScreenOn() { screenOn = true; screenStateChanged(true); }

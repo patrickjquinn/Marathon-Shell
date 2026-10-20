@@ -40,7 +40,7 @@ from qemu_driver import QemuDriver  # noqa: E402
 
 def busctl_launch(drv: QemuDriver, app_id: str) -> bool:
     cmd = (
-        "busctl --machine=user@.host --user call org.marathonos.Shell "
+        "busctl --machine=user@.host --user call org.marathonos.Shell.Session "
         "/org/marathonos/Shell/Navigation org.marathonos.Shell.Navigation1 "
         f"LaunchApp s '{app_id}'"
     )
@@ -92,7 +92,7 @@ def wake_display(drv: QemuDriver):
     """
     drv.ssh("marathon-remote wake 2>/dev/null || true")
     for prop in ("screenTimeout", "autoLockTimeout"):
-        drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
+        drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell.Session "
                 "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
                 f"SetProperty sv {prop} i 0 2>/dev/null || true")
     time.sleep(1.0)

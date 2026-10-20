@@ -16,7 +16,6 @@ depends="
 	qt6-qtwebengine
 	qt6-qtwebchannel
 	qt6-qtmultimedia
-	qt6-qtsensors
 	qt6-qtsvg
 	qt6-qtvirtualkeyboard
 	qt6-qtlocation
@@ -84,7 +83,6 @@ makedepends="
 	qt6-qtwebengine-dev
 	qt6-qtwebchannel-dev
 	qt6-qtmultimedia-dev
-	qt6-qtsensors-dev
 	qt6-qtsvg-dev
 	qt6-qtlocation-dev
 	qt6-qtpositioning-dev

@@ -34,7 +34,7 @@ fn fail(message: &str, code: u8) -> ExitCode {
 
 fn call_shell(path: &str, interface: &str, method: &str, arg: &str) -> zbus::Result<()> {
     zbus::blocking::Connection::session()?.call_method(
-        Some("org.marathonos.Shell"),
+        Some("org.marathonos.Shell.Session"),
         path,
         Some(interface),
         method,

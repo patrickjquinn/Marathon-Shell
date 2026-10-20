@@ -45,7 +45,6 @@ singleton AppLaunchService 1.0 AppLaunchService.qml
 singleton SystemControlStore 1.0 SystemControlStore.qml
 singleton Modem 1.0 Modem.qml
 singleton FlashlightManagerCpp 1.0 FlashlightManagerCpp.qml
-singleton RotationManager 1.0 RotationManager.qml
 singleton MPRIS2Controller 1.0 MPRIS2Controller.qml
 MQSTile 1.0 ../../../../../shell/qml/ui/MQSTile.qml
 MQSSlider 1.0 ../../../../../shell/qml/ui/MQSSlider.qml

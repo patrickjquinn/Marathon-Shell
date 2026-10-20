@@ -15,8 +15,10 @@ use zbus::fdo::PropertiesProxy;
 use zbus::message::Type as MessageType;
 use zbus::names::InterfaceName;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
-use zbus::{MatchRule, MessageStream};
+use zbus::message::Header;
+use zbus::{fdo, MatchRule, MessageStream};
 
+use crate::ipc::{self, value, State};
 use crate::{io, log};
 
 #[cxx_qt::bridge]
@@ -136,6 +138,7 @@ pub struct NetworkRust {
     airplane_mode_enabled: bool,
     hotspot_active: bool,
     available_networks: QList<QVariant>,
+    networks: Vec<AccessPoint>,
     actor: Option<Sender<Command>>,
 }
 
@@ -179,6 +182,23 @@ impl cxx_qt::Initialize for Network {
         let (tx, rx) = async_channel::bounded(32);
         io::spawn(run(self.qt_thread(), rx));
         self.as_mut().rust_mut().actor = Some(tx);
+        let push = |obj: Pin<&mut Self>| ipc::signal("Network", "StateChanged", (state(&obj),));
+        self.as_mut().on_wifi_enabled_changed(push).release();
+        self.as_mut().on_wifi_connected_changed(push).release();
+        self.as_mut().on_wifi_ssid_changed(push).release();
+        self.as_mut().on_wifi_signal_strength_changed(push).release();
+        self.as_mut().on_ethernet_connected_changed(push).release();
+        self.as_mut().on_ethernet_connection_name_changed(push).release();
+        self.as_mut().on_wifi_available_changed(push).release();
+        self.as_mut().on_bluetooth_available_changed(push).release();
+        self.as_mut().on_hotspot_supported_changed(push).release();
+        self.as_mut().on_hotspot_active_changed(push).release();
+        self.as_mut().on_airplane_mode_enabled_changed(push).release();
+        self.as_mut().on_available_networks_changed(push).release();
+        self.as_mut().on_network_error(|_, m| ipc::signal("Network", "NetworkError", (m.to_string(),))).release();
+        self.as_mut().on_connection_success(|_| ipc::signal("Network", "ConnectionSuccess", ())).release();
+        self.as_mut().on_connection_failed(|_, m| ipc::signal("Network", "ConnectionFailed", (m.to_string(),))).release();
+        ipc::export("Network", Network1 { qt: self.qt_thread() });
     }
 }
 
@@ -325,7 +345,9 @@ impl Network {
         for n in networks {
             list.append(QVariant::from(&n.to_map()));
         }
-        self.as_mut().rust_mut().available_networks = list;
+        let mut rust = self.as_mut().rust_mut();
+        rust.available_networks = list;
+        rust.networks = networks.to_vec();
         self.available_networks_changed();
     }
 
@@ -350,6 +372,117 @@ impl AccessPoint {
         put("connected", QVariant::from(&self.connected));
         put("known", QVariant::from(&self.known));
         map
+    }
+
+    fn to_state(&self) -> OwnedValue {
+        OwnedValue::from(State::from([
+            ("ssid".to_owned(), value(self.ssid.clone())),
+            ("strength".to_owned(), value(i32::from(self.strength))),
+            ("secured".to_owned(), value(self.security != "Open")),
+            ("security".to_owned(), value(self.security)),
+            ("frequency".to_owned(), value(i32::try_from(self.frequency).unwrap_or(0))),
+            ("path".to_owned(), value(self.path.clone())),
+            ("connected".to_owned(), value(self.connected)),
+            ("known".to_owned(), value(self.known)),
+        ]))
+    }
+}
+
+fn state(network: &Network) -> State {
+    State::from([
+        ("wifiEnabled".to_owned(), value(network.wifi_enabled)),
+        ("wifiConnected".to_owned(), value(network.wifi_connected)),
+        ("wifiSsid".to_owned(), value(network.wifi_ssid.to_string())),
+        ("wifiSignalStrength".to_owned(), value(network.wifi_signal_strength)),
+        ("ethernetConnected".to_owned(), value(network.ethernet_connected)),
+        ("ethernetConnectionName".to_owned(), value(network.ethernet_connection_name.to_string())),
+        ("wifiAvailable".to_owned(), value(network.wifi_available)),
+        ("bluetoothAvailable".to_owned(), value(network.bluetooth_available)),
+        ("hotspotSupported".to_owned(), value(network.hotspot_supported())),
+        ("airplaneModeEnabled".to_owned(), value(network.airplane_mode_enabled)),
+        ("availableNetworks".to_owned(), value(network.networks.iter().map(AccessPoint::to_state).collect::<Vec<_>>())),
+        ("hotspotActive".to_owned(), value(network.hotspot_active)),
+    ])
+}
+
+struct Network1 {
+    qt: cxx_qt::CxxQtThread<Network>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Network1")]
+impl Network1 {
+    async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| state(&obj)).await
+    }
+
+    async fn enable_wifi(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.enable_wifi()).await
+    }
+
+    async fn disable_wifi(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.disable_wifi()).await
+    }
+
+    async fn toggle_wifi(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.toggle_wifi()).await
+    }
+
+    async fn scan_wifi(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.scan_wifi()).await
+    }
+
+    async fn connect_to_network(&self, ssid: String, password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.connect_to_network(&QString::from(&ssid), &QString::from(&password))).await
+    }
+
+    async fn connect_to_hidden_network(
+        &self,
+        ssid: String,
+        security: String,
+        password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.connect_to_hidden_network(&QString::from(&ssid), &QString::from(&security), &QString::from(&password));
+        })
+        .await
+    }
+
+    async fn forget_network(&self, ssid: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.forget_network(&QString::from(&ssid))).await
+    }
+
+    async fn disconnect_wifi(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.disconnect_wifi()).await
+    }
+
+    async fn set_airplane_mode(&self, enabled: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_airplane_mode(enabled)).await
+    }
+
+    async fn create_hotspot(&self, ssid: String, password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.create_hotspot(&QString::from(&ssid), &QString::from(&password))).await
+    }
+
+    async fn stop_hotspot(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.stop_hotspot()).await
+    }
+
+    async fn is_hotspot_active(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        ipc::admit(&h, "Network", &["network", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.is_hotspot_active()).await
     }
 }
 

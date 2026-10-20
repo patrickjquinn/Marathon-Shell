@@ -1,7 +1,25 @@
-//! JSON as QML's `QVariant`s.
+//! JSON as QML's `QVariant`s, and D-Bus callers' numbers.
 
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use serde_json::Value;
+use zbus::zvariant;
+
+/// Any D-Bus integer, or a whole double as a QML caller sends one.
+#[allow(clippy::cast_possible_truncation, reason = "whole doubles only")]
+pub fn number(value: &zvariant::Value<'_>) -> Option<i64> {
+    match value {
+        zvariant::Value::U8(n) => Some(i64::from(*n)),
+        zvariant::Value::I16(n) => Some(i64::from(*n)),
+        zvariant::Value::U16(n) => Some(i64::from(*n)),
+        zvariant::Value::I32(n) => Some(i64::from(*n)),
+        zvariant::Value::U32(n) => Some(i64::from(*n)),
+        zvariant::Value::I64(n) => Some(*n),
+        zvariant::Value::U64(n) => i64::try_from(*n).ok(),
+        zvariant::Value::F64(f) if f.fract() == 0.0 && f.abs() < 9e15 => Some(*f as i64),
+        zvariant::Value::Value(inner) => number(inner),
+        _ => None,
+    }
+}
 
 pub fn from_json(value: &Value) -> QVariant {
     match value {

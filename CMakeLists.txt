@@ -122,7 +122,6 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS
     Sql
     Multimedia
     Positioning
-    Sensors
 )
 # Qt6::Location was a hard requirement when Marathon's Maps app used
 # QtLocation's OSM Map block. After Maps was rewritten to use

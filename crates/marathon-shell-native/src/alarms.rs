@@ -11,8 +11,12 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use serde::{Deserialize, Serialize};
 use tz::{DateTime, TimeZone, TimeZoneRef, UtcDateTime};
+use zbus::fdo;
+use zbus::message::Header;
+use zbus::zvariant::{OwnedValue, Value};
 
-use crate::{io, log};
+use crate::ipc::{self, value, State};
+use crate::{io, log, variant};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -214,32 +218,106 @@ impl Alarm {
         map
     }
 
-    /// Applies the fields `options` has.
-    fn apply(&mut self, options: &QMap<QMapPair_QString_QVariant>) {
+    fn to_state(&self) -> State {
+        let mut state = State::from([
+            ("id".to_owned(), value(self.id.clone())),
+            ("time".to_owned(), value(self.time.clone())),
+            ("label".to_owned(), value(self.label.clone())),
+            ("sound".to_owned(), value(self.sound.clone())),
+            ("repeat".to_owned(), value(self.repeat.clone())),
+            ("enabled".to_owned(), value(self.enabled)),
+            ("vibrate".to_owned(), value(self.vibrate)),
+            ("snoozeEnabled".to_owned(), value(self.snooze_enabled)),
+            ("snoozeDuration".to_owned(), value(self.snooze_duration)),
+        ]);
+        if self.one_shot {
+            state.insert("at".to_owned(), value(self.at));
+            state.insert("oneShot".to_owned(), value(true));
+        }
+        if self.hidden {
+            state.insert("hidden".to_owned(), value(true));
+        }
+        state
+    }
+
+    fn apply(&mut self, c: &Changes) {
+        let Changes { time, label, sound, enabled, vibrate, snooze_enabled, snooze_duration, repeat, .. } = c.clone();
+        self.time = time.unwrap_or_else(|| std::mem::take(&mut self.time));
+        self.label = label.unwrap_or_else(|| std::mem::take(&mut self.label));
+        self.sound = sound.unwrap_or_else(|| std::mem::take(&mut self.sound));
+        self.enabled = enabled.unwrap_or(self.enabled);
+        self.vibrate = vibrate.unwrap_or(self.vibrate);
+        self.snooze_enabled = snooze_enabled.unwrap_or(self.snooze_enabled);
+        self.snooze_duration = snooze_duration.unwrap_or(self.snooze_duration);
+        self.repeat = repeat.unwrap_or_else(|| std::mem::take(&mut self.repeat));
+    }
+}
+
+/// The fields a caller's options set, from QML or D-Bus.
+#[derive(Clone, Default)]
+struct Changes {
+    time: Option<String>,
+    label: Option<String>,
+    sound: Option<String>,
+    enabled: Option<bool>,
+    vibrate: Option<bool>,
+    snooze_enabled: Option<bool>,
+    snooze_duration: Option<i32>,
+    repeat: Option<Vec<i32>>,
+    one_shot: Option<bool>,
+    hidden: Option<bool>,
+    at: Option<i64>,
+}
+
+impl Changes {
+    fn from_qt(options: &QMap<QMapPair_QString_QVariant>) -> Self {
         let get = |k: &str| options.get(&QString::from(k));
-        if let Some(v) = get("time").and_then(|v| v.value::<QString>()) {
-            self.time = v.to_string();
+        let text = |k: &str| get(k).and_then(|v| v.value::<QString>()).map(|v| v.to_string());
+        let flag = |k: &str| get(k).and_then(|v| v.value::<bool>());
+        Self {
+            time: text("time"),
+            label: text("label"),
+            sound: text("sound"),
+            enabled: flag("enabled"),
+            vibrate: flag("vibrate"),
+            snooze_enabled: flag("snoozeEnabled"),
+            snooze_duration: get("snoozeDuration").and_then(|v| v.value::<i32>()),
+            repeat: get("repeat").and_then(|v| v.value::<QList<QVariant>>()).map(|v| v.iter().filter_map(QVariant::value::<i32>).collect()),
+            one_shot: flag("oneShot"),
+            hidden: flag("hidden"),
+            at: get("at").and_then(|v| v.value::<i64>()),
         }
-        if let Some(v) = get("label").and_then(|v| v.value::<QString>()) {
-            self.label = v.to_string();
-        }
-        if let Some(v) = get("sound").and_then(|v| v.value::<QString>()) {
-            self.sound = v.to_string();
-        }
-        if let Some(v) = get("enabled").and_then(|v| v.value::<bool>()) {
-            self.enabled = v;
-        }
-        if let Some(v) = get("vibrate").and_then(|v| v.value::<bool>()) {
-            self.vibrate = v;
-        }
-        if let Some(v) = get("snoozeEnabled").and_then(|v| v.value::<bool>()) {
-            self.snooze_enabled = v;
-        }
-        if let Some(v) = get("snoozeDuration").and_then(|v| v.value::<i32>()) {
-            self.snooze_duration = v;
-        }
-        if let Some(v) = get("repeat").and_then(|v| v.value::<QList<QVariant>>()) {
-            self.repeat = v.iter().filter_map(QVariant::value::<i32>).collect();
+    }
+
+    fn from_dbus(options: &State) -> Self {
+        let get = |k: &str| options.get(k).map(|v| match &**v {
+            Value::Value(inner) => inner.as_ref(),
+            v => v,
+        });
+        let text = |k: &str| match get(k) {
+            Some(Value::Str(s)) => Some(s.to_string()),
+            _ => None,
+        };
+        let flag = |k: &str| match get(k) {
+            Some(Value::Bool(b)) => Some(*b),
+            _ => None,
+        };
+        let int = |k: &str| get(k).and_then(variant::number);
+        Self {
+            time: text("time"),
+            label: text("label"),
+            sound: text("sound"),
+            enabled: flag("enabled"),
+            vibrate: flag("vibrate"),
+            snooze_enabled: flag("snoozeEnabled"),
+            snooze_duration: int("snoozeDuration").and_then(|n| i32::try_from(n).ok()),
+            repeat: match get("repeat") {
+                Some(Value::Array(days)) => Some(days.iter().filter_map(variant::number).filter_map(|n| i32::try_from(n).ok()).collect()),
+                _ => None,
+            },
+            one_shot: flag("oneShot"),
+            hidden: flag("hidden"),
+            at: int("at"),
         }
     }
 }
@@ -306,6 +384,16 @@ impl cxx_qt::Initialize for Alarms {
         let (tx, rx) = async_channel::bounded(16);
         io::spawn(timer(self.qt_thread(), rx));
         self.as_mut().rust_mut().timer = Some(tx);
+        self.as_mut().on_alarms_changed(|_| ipc::signal("Alarm", "AlarmsChanged", ())).release();
+        self.as_mut().on_active_alarms_changed(|_| ipc::signal("Alarm", "ActiveAlarmsChanged", ())).release();
+        self.as_mut()
+            .on_alarm_triggered(|_, id, label| ipc::signal("Alarm", "AlarmTriggered", (id.to_string(), label.to_string())))
+            .release();
+        self.as_mut().on_alarm_dismissed(|_, id| ipc::signal("Alarm", "AlarmDismissed", (id.to_string(),))).release();
+        self.as_mut()
+            .on_alarm_snoozed(|_, id, minutes| ipc::signal("Alarm", "AlarmSnoozed", (id.to_string(), minutes)))
+            .release();
+        ipc::export("Alarm", Alarm1 { qt: self.qt_thread() });
     }
 }
 
@@ -375,26 +463,29 @@ impl Alarms {
         }
     }
 
-    fn create_alarm(mut self: Pin<&mut Self>, time: &QString, label: &QString, repeat: &QList<i32>, options: &QMap<QMapPair_QString_QVariant>) -> QString {
+    fn create_alarm(self: Pin<&mut Self>, time: &QString, label: &QString, repeat: &QList<i32>, options: &QMap<QMapPair_QString_QVariant>) -> QString {
+        QString::from(&self.create(time.to_string(), label.to_string(), repeat.iter().copied().collect(), &Changes::from_qt(options)))
+    }
+
+    fn create(mut self: Pin<&mut Self>, time: String, label: String, repeat: Vec<i32>, options: &Changes) -> String {
         let now = now_ms();
-        let flag = |k: &str, default: bool| options.get(&QString::from(k)).and_then(|v| v.value::<bool>()).unwrap_or(default);
         let mut alarm = Alarm {
-            time: time.to_string(),
-            label: if label.is_empty() { "Alarm".to_owned() } else { label.to_string() },
-            repeat: repeat.iter().copied().collect(),
+            time,
+            label: if label.is_empty() { "Alarm".to_owned() } else { label },
+            repeat,
             enabled: true,
             sound: "default".to_owned(),
             vibrate: true,
             snooze_enabled: true,
-            one_shot: flag("oneShot", false),
-            hidden: flag("hidden", false),
+            one_shot: options.one_shot.unwrap_or(false),
+            hidden: options.hidden.unwrap_or(false),
             ..Alarm::default()
         };
         alarm.apply(options);
         if alarm.one_shot {
-            alarm.at = options.get(&QString::from("at")).and_then(|v| v.value::<i64>()).unwrap_or(0);
+            alarm.at = options.at.unwrap_or(0);
             if alarm.at <= 0 {
-                return QString::default();
+                return String::new();
             }
             alarm.time = hh_mm(alarm.at, self.zone());
             alarm.repeat.clear();
@@ -404,22 +495,23 @@ impl Alarms {
         let shown = !alarm.hidden;
         self.as_mut().rust_mut().book.alarms.push(alarm);
         self.changed(shown);
-        QString::from(id.as_str())
+        id
     }
 
-    fn update_alarm(mut self: Pin<&mut Self>, id: &QString, updates: &QMap<QMapPair_QString_QVariant>) -> bool {
-        let id = id.to_string();
+    fn update_alarm(self: Pin<&mut Self>, id: &QString, updates: &QMap<QMapPair_QString_QVariant>) -> bool {
+        self.update(&id.to_string(), &Changes::from_qt(updates))
+    }
+
+    fn update(mut self: Pin<&mut Self>, id: &str, changes: &Changes) -> bool {
         let mut rust = self.as_mut().rust_mut();
         let Some(alarm) = rust.book.alarms.iter_mut().find(|a| a.id == id) else { return false };
-        alarm.apply(updates);
+        alarm.apply(changes);
         self.changed(true);
         true
     }
 
     fn set_enabled(self: Pin<&mut Self>, id: &QString, enabled: bool) -> bool {
-        let mut updates = QMap::<QMapPair_QString_QVariant>::default();
-        updates.insert(QString::from("enabled"), QVariant::from(&enabled));
-        self.update_alarm(id, &updates)
+        self.update(&id.to_string(), &Changes { enabled: Some(enabled), ..Changes::default() })
     }
 
     fn enable_alarm(self: Pin<&mut Self>, id: &QString) -> bool {
@@ -532,6 +624,70 @@ impl Alarms {
             self.as_mut().rust_mut().zone = zone;
         }
         self.check_alarms();
+    }
+}
+
+struct Alarm1 {
+    qt: cxx_qt::CxxQtThread<Alarms>,
+}
+
+impl Alarm1 {
+    async fn call<R: Send + 'static>(&self, h: &Header<'_>, f: impl FnOnce(Pin<&mut Alarms>) -> R + Send + 'static) -> fdo::Result<R> {
+        ipc::admit(h, "Alarm", &["alarms", "system"]).await?;
+        ipc::on_gui(&self.qt, f).await
+    }
+}
+
+fn listed<'a>(alarms: impl Iterator<Item = &'a Alarm>) -> Vec<OwnedValue> {
+    alarms.map(|a| value(a.to_state())).collect()
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Alarm1")]
+impl Alarm1 {
+    async fn get_alarms(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<OwnedValue>> {
+        self.call(&h, |obj| listed(obj.book.alarms.iter().filter(|a| !a.hidden))).await
+    }
+
+    async fn get_active_alarms(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<OwnedValue>> {
+        self.call(&h, |obj| listed(obj.active.iter())).await
+    }
+
+    async fn create_alarm(&self, time: String, label: String, repeat: Vec<i32>, options: State, #[zbus(header)] h: Header<'_>) -> fdo::Result<String> {
+        let options = Changes::from_dbus(&options);
+        self.call(&h, move |obj| obj.create(time, label, repeat, &options)).await
+    }
+
+    async fn update_alarm(&self, id: String, updates: State, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        let updates = Changes::from_dbus(&updates);
+        self.call(&h, move |obj| obj.update(&id, &updates)).await
+    }
+
+    async fn delete_alarm(&self, id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        self.call(&h, move |obj| obj.delete_alarm(&QString::from(&id))).await
+    }
+
+    async fn enable_alarm(&self, id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        self.call(&h, move |obj| obj.enable_alarm(&QString::from(&id))).await
+    }
+
+    async fn disable_alarm(&self, id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        self.call(&h, move |obj| obj.disable_alarm(&QString::from(&id))).await
+    }
+
+    async fn snooze_alarm(&self, id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        self.call(&h, move |obj| obj.snooze_alarm(&QString::from(&id))).await
+    }
+
+    async fn dismiss_alarm(&self, id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        self.call(&h, move |obj| obj.dismiss_alarm(&QString::from(&id))).await
+    }
+
+    async fn stop_all(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        self.call(&h, Alarms::stop_all).await
+    }
+
+    async fn trigger_alarm_now(&self, label: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        self.call(&h, move |obj| obj.trigger_alarm_now(&QString::from(&label))).await
     }
 }
 

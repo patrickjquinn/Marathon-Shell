@@ -18,7 +18,6 @@ set(SOURCES
     src/managers/drmmasterwait.cpp
     src/ipc/shellipcserver.h
     src/ipc/shellipcserver.cpp
-    src/ipc/permissionauth.h
     src/ipc/shellservices.h
     src/ipc/shellservices.cpp
     src/ipc/shellkeelactions.h
@@ -59,8 +58,6 @@ set(SOURCES
     src/services/notificationtarget.cpp
     src/dbus/notificationdatabase.h
     src/dbus/notificationdatabase.cpp
-    src/services/factoryreset.h
-    src/services/factoryreset.cpp
     src/services/inputboost.h
     src/services/inputboost.cpp
     src/services/touchresampler.h
@@ -69,8 +66,6 @@ set(SOURCES
     src/services/wakeonkeyfilter.cpp
     src/services/waketouchfilter.h
     src/services/waketouchfilter.cpp
-    src/managers/rotationmanager.h
-    src/managers/rotationmanager.cpp
     src/services/statusbariconservicecpp.h
     src/services/statusbariconservicecpp.cpp
     src/services/systemstatusstore.h
@@ -562,7 +557,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::DBus
     Qt6::Multimedia
     Qt6::Network
-    Qt6::Sensors
     MarathonCore
     ${LIBDRM_LIBRARIES}
     ${PAM_LIBRARY}

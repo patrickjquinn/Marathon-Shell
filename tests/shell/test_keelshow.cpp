@@ -123,7 +123,7 @@ class TestKeelShow : public QObject {
         QVERIFY(shell.isConnected());
         QVERIFY(shell.registerObject(QStringLiteral("/org/marathonos/Shell/Navigation"), &navigation,
                                      QDBusConnection::ExportAllSlots));
-        QVERIFY(shell.registerService(QStringLiteral("org.marathonos.Shell")));
+        QVERIFY(shell.registerService(QStringLiteral("org.marathonos.Shell.Session")));
     }
 
     void cleanupTestCase() {

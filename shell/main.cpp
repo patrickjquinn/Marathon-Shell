@@ -92,7 +92,6 @@
 #include "src/components/lunasvgimageprovider.h"
 
 #include "marathon-shell-native/src/mpris.cxxqt.h"
-#include "src/managers/rotationmanager.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
 #include "marathon-shell-native/src/clipboard.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
@@ -784,18 +783,11 @@ int main(int argc, char *argv[]) {
     power->setParent(&app);
     qmlRegisterSingletonInstance<Power>("MarathonOS.Shell", 1, 0, "Power",
                                                   power);
-    auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
     auto *display = new marathon::Display();
     display->setParent(&app);
     display->start(QStringLiteral("/sys/class/backlight"), QStringLiteral("/sys/bus/iio/devices"),
                    DeviceProfile::instance().brightnessFloor());
     qmlRegisterSingletonInstance<marathon::Display>("MarathonOS.Shell", 1, 0, "Display", display);
-    QObject::connect(display, &marathon::Display::rotationLockedChanged, rotationManager, [=] {
-        if (display->getRotationLocked())
-            rotationManager->lockOrientation(rotationManager->currentOrientation());
-        else
-            rotationManager->unlockOrientation();
-    });
     const std::pair<const char *, void (marathon::Display::*)()> displaySettings[] = {
         {"rotationLocked", &marathon::Display::rotationLockedChanged},
         {"nightLightEnabled", &marathon::Display::nightLightEnabledChanged},
@@ -821,12 +813,6 @@ int main(int argc, char *argv[]) {
         else
             power->releaseWakelock(QStringLiteral("display"));
     });
-    // Lazy-claim the orientation sensor: only run it while the panel
-    // is actually on. RotationManager keeps the sensor stopped until
-    // this signal flips it true; lsm6dsx (or whatever backend) sees
-    // zero traffic with the screen off.
-    QObject::connect(display, &marathon::Display::screenStateChanged, rotationManager,
-                     &RotationManager::setScreenOn);
     auto *audioManager = new marathon::Audio();
     audioManager->setParent(&app);
     qmlRegisterSingletonInstance<marathon::Audio>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
@@ -1253,17 +1239,6 @@ int main(int argc, char *argv[]) {
                                                   QStringLiteral("/apps/%1/").arg(appId)});
                      });
 
-    QObject::connect(
-        locationManager, &Location::authorizationRequested, permissionManager,
-        [locationManager, permissionManager](const QString &desktopId) {
-            const bool allowed =
-                permissionManager->hasPermission(desktopId, QStringLiteral("location"));
-            if (!allowed)
-                permissionManager->askIfUndecided(desktopId, {QStringLiteral("location")});
-            locationManager->authorize(desktopId, allowed);
-        },
-        Qt::QueuedConnection);
-
     QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
                      &marathon::Permissions::dismissForApp);
     QObject::connect(appLaunchService, &AppLaunchService::appLaunchCompleted, permissionManager,
@@ -1351,17 +1326,11 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell] Audio routing wired to telephony";
 
     {
-        auto *ipc = new ShellIpcServer(
-            permissionManager, modem,
-            settingsManager, bluetoothManager, display, power,
-            audioManager, audioPolicyController, network, hapticManager, security,
-            rotationManager, locationManager, alarmManager, audioRoutingManager, updateService,
-            appLaunchService, appLifecycleManager, appRegistry,
-            &app);
+        auto *ipc = new ShellIpcServer(permissionManager, modem, settingsManager, audioManager,
+                                       audioPolicyController, audioRoutingManager,
+                                       appLaunchService, appLifecycleManager, appRegistry, &app);
         ipc->setAmbienceService(ambienceService);
         ipc->setWallpaperStore(wallpaperStore);
-        ipc->setModemManager(modem);
-        ipc->setFlashlightManager(flashlightManager);
         ipc->setAppInstaller(appInstaller);
         auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
         ipc->setForegroundApp(foregroundApp);
@@ -1406,7 +1375,7 @@ int main(int argc, char *argv[]) {
             qWarning() << "[MarathonShell] Portal backends not registered";
         if (!ipc->registerOnSessionBus()) {
             qCritical()
-                << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";
+                << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell.Session)";
         }
         if (!QDBusConnection::sessionBus().registerObject(
                 QStringLiteral("/org/marathonos/Shell/TextInput"),

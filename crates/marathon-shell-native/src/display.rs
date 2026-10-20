@@ -3,12 +3,16 @@
 //! runs on the I/O thread: a DCS or I2C backlight can take milliseconds a
 //! write, and a vcnl4000-class sensor measures while its read waits. The one
 //! exception is the doze blank, which must land before the CRTC goes off.
+//! The orientation comes from iio-sensor-proxy, claimed only while the screen
+//! is on and unlocked.
 
 use std::collections::VecDeque;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
@@ -16,9 +20,13 @@ use async_channel::{Receiver, Sender};
 use async_io::Timer;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
+use futures_lite::{future, StreamExt};
+use zbus::fdo;
+use zbus::message::Header;
 
 use crate::io::{self, read};
-use crate::log;
+use crate::ipc::{self, value, State};
+use crate::{flashlight, log};
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {
@@ -35,7 +43,10 @@ pub mod qobject {
         #[qproperty(bool, proximity_available, cxx_name = "proximityAvailable", READ, CONSTANT)]
         #[qproperty(f64, brightness, READ, NOTIFY)]
         #[qproperty(bool, auto_brightness, cxx_name = "autoBrightness", READ, WRITE = set_auto_brightness, NOTIFY)]
-        #[qproperty(bool, rotation_locked, cxx_name = "rotationLocked", READ, WRITE, NOTIFY)]
+        #[qproperty(bool, rotation_locked, cxx_name = "rotationLocked", READ, WRITE = set_rotation_locked, NOTIFY)]
+        #[qproperty(bool, rotation_available, cxx_name = "rotationAvailable", READ, NOTIFY)]
+        /// portrait, landscape, portrait-inverted or landscape-inverted.
+        #[qproperty(QString, orientation, READ, NOTIFY)]
         #[qproperty(bool, night_light_enabled, cxx_name = "nightLightEnabled", READ, WRITE, NOTIFY)]
         #[qproperty(i32, night_light_temperature, cxx_name = "nightLightTemperature", READ, WRITE, NOTIFY)]
         #[qproperty(QString, night_light_schedule, cxx_name = "nightLightSchedule", READ, WRITE, NOTIFY)]
@@ -55,6 +66,8 @@ pub mod qobject {
 
         #[cxx_name = "setAutoBrightness"]
         fn set_auto_brightness(self: Pin<&mut Display>, enabled: bool);
+        #[cxx_name = "setRotationLocked"]
+        fn set_rotation_locked(self: Pin<&mut Display>, locked: bool);
         #[cxx_name = "setLearnedCurve"]
         fn set_learned_curve(self: Pin<&mut Display>, curve: &QString);
 
@@ -94,6 +107,15 @@ pub mod qobject {
 
 use qobject::Display;
 
+/// The display, for the I/O thread's services.
+pub(crate) static DISPLAY: OnceLock<cxx_qt::CxxQtThread<Display>> = OnceLock::new();
+static SCREEN_ON: AtomicBool = AtomicBool::new(true);
+
+/// Whether the screen is on, from any thread.
+pub(crate) fn screen_on() -> bool {
+    SCREEN_ON.load(Ordering::Relaxed)
+}
+
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
 pub struct DisplayRust {
     available: bool,
@@ -102,6 +124,8 @@ pub struct DisplayRust {
     brightness: f64,
     auto_brightness: bool,
     rotation_locked: bool,
+    rotation_available: bool,
+    orientation: QString,
     night_light_enabled: bool,
     night_light_temperature: i32,
     night_light_schedule: QString,
@@ -111,6 +135,7 @@ pub struct DisplayRust {
     ambient_light: i32,
     panel: Option<Panel>,
     sensors: Option<Sender<(bool, bool)>>,
+    accelerometer: Option<Sender<bool>>,
     proximity_wanted: bool,
     proximity_blanked: bool,
     curve: Curve,
@@ -130,6 +155,8 @@ impl Default for DisplayRust {
             brightness: 0.5,
             auto_brightness: false,
             rotation_locked: false,
+            rotation_available: false,
+            orientation: QString::from("portrait"),
             night_light_enabled: false,
             night_light_temperature: 3400,
             night_light_schedule: QString::from("off"),
@@ -139,6 +166,7 @@ impl Default for DisplayRust {
             ambient_light: 500,
             panel: None,
             sensors: None,
+            accelerometer: None,
             proximity_wanted: false,
             proximity_blanked: false,
             curve: Curve::default(),
@@ -179,6 +207,7 @@ impl Panel {
 
 impl Display {
     fn start(mut self: Pin<&mut Self>, backlight_dir: &QString, iio_dir: &QString, floor: f64) {
+        DISPLAY.set(self.qt_thread()).ok();
         if let Some((dir, max, level)) = find_backlight(Path::new(&backlight_dir.to_string())) {
             let (tx, rx) = async_channel::bounded(64);
             io::spawn(backlight(dir.clone(), rx));
@@ -196,6 +225,28 @@ impl Display {
             rust.proximity_available = channels.proximity.is_some();
             rust.sensors = Some(tx);
         }
+        let (tx, rx) = async_channel::bounded(8);
+        io::spawn(rotation(self.qt_thread(), rx));
+        self.as_mut().rust_mut().accelerometer = Some(tx);
+        self.want_sensors();
+        let push = |obj: Pin<&mut Self>| ipc::signal("Display", "StateChanged", (state(&obj),));
+        self.as_mut().on_auto_brightness_changed(push).release();
+        self.as_mut().on_rotation_locked_changed(push).release();
+        self.as_mut().on_rotation_available_changed(push).release();
+        self.as_mut().on_brightness_changed(push).release();
+        self.as_mut().on_night_light_enabled_changed(push).release();
+        self.as_mut().on_night_light_temperature_changed(push).release();
+        self.as_mut().on_night_light_schedule_changed(push).release();
+        self.as_mut().on_screen_on_changed(push).release();
+        self.as_mut()
+            .on_proximity_near_changed(|obj| ipc::signal("Sensor", "ProximityChanged", (obj.proximity_near,)))
+            .release();
+        self.as_mut()
+            .on_ambient_light_changed(|obj| ipc::signal("Sensor", "AmbientLightChanged", (obj.ambient_light,)))
+            .release();
+        let qt = self.qt_thread();
+        ipc::export("Display", Display1 { qt: qt.clone() });
+        ipc::export("Sensor", Sensor1 { qt });
     }
 
     fn set_brightness(mut self: Pin<&mut Self>, brightness: f64) {
@@ -243,6 +294,11 @@ impl Display {
         rust.curve = curve.to_string().parse().unwrap_or_default();
         rust.learned_curve = curve.clone();
         self.learned_curve_changed();
+    }
+
+    fn set_rotation_locked(mut self: Pin<&mut Self>, locked: bool) {
+        set!(self, rotation_locked, rotation_locked_changed, locked);
+        self.want_sensors();
     }
 
     fn set_auto_brightness(mut self: Pin<&mut Self>, enabled: bool) {
@@ -295,7 +351,7 @@ impl Display {
         self.brightness_changed();
     }
 
-    fn turn_screen_on(self: Pin<&mut Self>) {
+    pub(crate) fn turn_screen_on(self: Pin<&mut Self>) {
         self.set_screen(true);
     }
 
@@ -323,6 +379,8 @@ impl Display {
             panel.send(Command::Sleep);
         }
         set!(self, screen_on, screen_on_changed, on);
+        SCREEN_ON.store(on, Ordering::Relaxed);
+        crate::power::state_changed();
         self.as_mut().screen_state_changed(on);
         if let (true, Some(panel)) = (on, &self.panel) {
             panel.send(Command::Wake(panel.level(self.brightness)));
@@ -352,10 +410,13 @@ impl Display {
     }
 
     /// Light while auto-brightness has a lit screen to set; proximity while
-    /// a call wants it.
+    /// a call wants it; the accelerometer while a lit screen may rotate.
     fn want_sensors(&self) {
         if let Some(sensors) = &self.sensors {
             sensors.try_send((self.auto_brightness && self.screen_on, self.proximity_wanted)).ok();
+        }
+        if let Some(accelerometer) = &self.accelerometer {
+            accelerometer.try_send(self.screen_on && !self.rotation_locked).ok();
         }
     }
 }
@@ -663,6 +724,163 @@ async fn sensors(qt: cxx_qt::CxxQtThread<Display>, channels: Channels, wanted: R
                 qt.queue(move |mut obj| set!(obj, proximity_near, proximity_near_changed, near)).ok();
             }
         }
+    }
+}
+
+#[zbus::proxy(
+    interface = "net.hadess.SensorProxy",
+    default_service = "net.hadess.SensorProxy",
+    default_path = "/net/hadess/SensorProxy"
+)]
+trait SensorProxy {
+    fn claim_accelerometer(&self) -> zbus::Result<()>;
+    fn release_accelerometer(&self) -> zbus::Result<()>;
+    #[zbus(property)]
+    fn has_accelerometer(&self) -> zbus::Result<bool>;
+    #[zbus(property)]
+    fn accelerometer_orientation(&self) -> zbus::Result<String>;
+}
+
+fn orientation(proxy: &str) -> Option<&'static str> {
+    match proxy {
+        "normal" => Some("portrait"),
+        "right-up" => Some("landscape"),
+        "bottom-up" => Some("portrait-inverted"),
+        "left-up" => Some("landscape-inverted"),
+        _ => None,
+    }
+}
+
+/// Follows the accelerometer while it is wanted.
+async fn rotation(qt: cxx_qt::CxxQtThread<Display>, wanted: Receiver<bool>) {
+    let proxy = async { SensorProxyProxy::new(&io::system_bus().await?).await }.await;
+    let Ok(proxy) = proxy else { return };
+    if !proxy.has_accelerometer().await.unwrap_or(false) {
+        return;
+    }
+    qt.queue(|mut obj| set!(obj, rotation_available, rotation_available_changed, true)).ok();
+    let mut turns = proxy.receive_accelerometer_orientation_changed().await;
+    let mut claimed = false;
+    loop {
+        let next = future::or(async { Ok(wanted.recv().await) }, async { Err(turns.next().await) }).await;
+        let turned = match next {
+            Ok(Err(_)) | Err(None) => return,
+            Ok(Ok(want)) if want == claimed => continue,
+            Ok(Ok(want)) => {
+                let done = if want { proxy.claim_accelerometer().await } else { proxy.release_accelerometer().await };
+                if let Err(e) = done {
+                    log::warn("display", format_args!("accelerometer: {e}"));
+                    continue;
+                }
+                claimed = want;
+                if !want {
+                    continue;
+                }
+                proxy.accelerometer_orientation().await.ok()
+            }
+            Err(Some(turn)) if claimed => turn.get().await.ok(),
+            Err(Some(_)) => continue,
+        };
+        if let Some(o) = turned.as_deref().and_then(orientation) {
+            qt.queue(move |mut obj| set!(obj, orientation, orientation_changed, QString::from(o))).ok();
+        }
+    }
+}
+
+fn state(display: &Display) -> State {
+    State::from([
+        ("available".to_owned(), value(display.available)),
+        ("autoBrightnessEnabled".to_owned(), value(display.auto_brightness)),
+        ("rotationLocked".to_owned(), value(display.rotation_locked)),
+        ("rotationAvailable".to_owned(), value(display.rotation_available)),
+        ("lightSensorAvailable".to_owned(), value(display.light_available)),
+        ("torchAvailable".to_owned(), value(flashlight::available())),
+        ("brightness".to_owned(), value(display.brightness)),
+        ("nightLightEnabled".to_owned(), value(display.night_light_enabled)),
+        ("nightLightTemperature".to_owned(), value(display.night_light_temperature)),
+        ("nightLightSchedule".to_owned(), value(display.night_light_schedule.to_string())),
+    ])
+}
+
+struct Display1 {
+    qt: cxx_qt::CxxQtThread<Display>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Display1")]
+impl Display1 {
+    async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| state(&obj)).await
+    }
+
+    async fn set_auto_brightness(&self, enabled: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_auto_brightness(enabled)).await
+    }
+
+    async fn set_rotation_lock(&self, locked: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_rotation_locked(locked)).await
+    }
+
+    /// The user's choice, which the curve learns.
+    async fn set_brightness(&self, brightness: f64, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_brightness_from_user(brightness)).await
+    }
+
+    async fn set_night_light_enabled(&self, enabled: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_night_light_enabled(enabled)).await
+    }
+
+    async fn set_night_light_temperature(&self, temperature: i32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_night_light_temperature(temperature.clamp(2700, 6500))).await
+    }
+
+    async fn set_night_light_schedule(&self, schedule: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_night_light_schedule(QString::from(&schedule))).await
+    }
+
+    async fn set_screen_state(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| {
+            if on {
+                obj.turn_screen_on();
+            } else {
+                obj.turn_screen_off(&QString::from("D-Bus Display1.SetScreenState"));
+            }
+        })
+        .await
+    }
+
+    /// As the power key does: the lock screen still guards what's behind it.
+    async fn wake(&self) -> fdo::Result<()> {
+        ipc::on_gui(&self.qt, Display::turn_screen_on).await
+    }
+}
+
+struct Sensor1 {
+    qt: cxx_qt::CxxQtThread<Display>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Sensor1")]
+impl Sensor1 {
+    async fn is_available(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        ipc::admit(&h, "Sensor", &["sensors", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.light_available || obj.proximity_available).await
+    }
+
+    async fn proximity_near(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        ipc::admit(&h, "Sensor", &["sensors", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.proximity_near).await
+    }
+
+    async fn ambient_light(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<i32> {
+        ipc::admit(&h, "Sensor", &["sensors", "system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.ambient_light).await
     }
 }
 

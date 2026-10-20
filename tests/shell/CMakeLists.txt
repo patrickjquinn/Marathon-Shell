@@ -270,19 +270,6 @@ target_link_libraries(test_shell_securitymanager Qt6::Test Qt6::Core Qt6::DBus Q
 target_include_directories(test_shell_securitymanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src/components ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_SecurityManager COMMAND test_shell_securitymanager)
 
-# Erase all content: only the owner's PIN reaches the root erase service
-find_package(Qt6 REQUIRED COMPONENTS Network)
-add_executable(test_shell_factoryreset
-    test_factoryreset.cpp
-    ../../shell/src/services/factoryreset.cpp
-)
-target_link_libraries(test_shell_factoryreset Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Network
-    Qt6::Concurrent ${PAM_LIBRARY})
-target_include_directories(test_shell_factoryreset PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src/services ${CMAKE_SOURCE_DIR}/shell/src/components
-    ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Shell_FactoryReset COMMAND test_shell_factoryreset)
-
 # A background launch starts the app without bringing it to the front
 add_executable(test_shell_backgroundlaunch
     test_backgroundlaunch.cpp
@@ -470,13 +457,11 @@ endif()
 
 # The shell's own Keel Actions on a private bus: dispatch, arguments, who may call
 if(DBUS_RUN_SESSION AND BUSCTL)
-    find_package(Qt6 REQUIRED COMPONENTS Sensors)
     add_executable(test_shell_shellkeelactions
         test_shellkeelactions.cpp
         ../../shell/src/ipc/shellkeelactions.cpp
         ../../shell/src/services/uistore.cpp
         ../../shell/src/services/sessionstore.cpp
-        ../../shell/src/managers/rotationmanager.cpp
         ../../shell/src/managers/settingsmanager.cpp
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
@@ -493,7 +478,7 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         FILES ${CMAKE_SOURCE_DIR}/shell/dbus/keel-actions.json
     )
     target_link_libraries(test_shell_shellkeelactions Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus
-        Qt6::Qml Qt6::Sensors)
+        Qt6::Qml)
     target_include_directories(test_shell_shellkeelactions PRIVATE
         ${CMAKE_SOURCE_DIR}/shell
         ${CMAKE_SOURCE_DIR}/shell/src

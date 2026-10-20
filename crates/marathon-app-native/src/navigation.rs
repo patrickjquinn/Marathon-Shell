@@ -48,7 +48,7 @@ pub mod qobject {
 
 use qobject::Navigation;
 
-const NAVIGATION: Service = Service::shell("Navigation");
+const NAVIGATION: Service = Service::session("Navigation");
 
 #[derive(Default)]
 pub struct NavigationRust;

@@ -184,7 +184,7 @@ index e83f64c..60a4182 100644
 +        )
 +        .await
 +        .unwrap();
-+    shell.request_name(marathon::SHELL).await.unwrap();
++    shell.request_name(marathon::SESSION).await.unwrap();
 +
 +    let found = marathon::app_for_pid(&client, app.id()).await.unwrap();
 +    assert_eq!(
@@ -245,7 +245,7 @@ index e83f64c..60a4182 100644
 +        )
 +        .await
 +        .unwrap();
-+    shell.request_name(marathon::SHELL).await.unwrap();
++    shell.request_name(marathon::SESSION).await.unwrap();
 +
 +    let found = marathon::android_in_front(&client, data.path())
 +        .await

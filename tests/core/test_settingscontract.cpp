@@ -129,7 +129,7 @@ namespace {
              {"crates/marathon-shell-native/src/display.rs", "fn set_brightness_from_user"}},
             {"Display.autoBrightnessEnabled",
              {"crates/marathon-shell-native/src/display.rs", "self.auto_brightness && self.screen_on"}},
-            {"Display.rotationLocked", {"shell/main.cpp", "rotationManager->lockOrientation"}},
+            {"Display.rotationLocked", {"crates/marathon-shell-native/src/display.rs", "!self.rotation_locked"}},
             {"Bluetooth.enabled", {"crates/marathon-shell-native/src/bluetooth.rs", "set_powered(on)"}},
         };
         return table;
@@ -274,7 +274,7 @@ class TestSettingsContract : public QObject {
                     .contains(R"({QStringLiteral("ModemManagerCpp"), QStringLiteral("Modem")})"));
         QVERIFY(read("tools/marathon-app-runner/main.cpp")
                     .contains(R"(exposeClient<marathon::platform::Modem>(ctx, "ModemManagerCpp")"));
-        QVERIFY(read("shell/src/ipc/shellipcserver.cpp").contains("/org/marathonos/Shell/Modem"));
+        QVERIFY(read("crates/marathon-shell-native/src/modem.rs").contains(R"(ipc::export("Modem")"));
     }
 
     void quickSettingsTileIds() {

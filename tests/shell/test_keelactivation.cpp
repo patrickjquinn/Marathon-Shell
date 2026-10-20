@@ -87,7 +87,7 @@ class TestKeelActivation : public QObject {
         QDBusConnection shell = QDBusConnection::connectToBus(address, QStringLiteral("shell"));
         QVERIFY(shell.registerObject(QStringLiteral("/org/marathonos/Shell/Navigation"),
                                      &navigation, QDBusConnection::ExportAllSlots));
-        QVERIFY(shell.registerService(QStringLiteral("org.marathonos.Shell")));
+        QVERIFY(shell.registerService(QStringLiteral("org.marathonos.Shell.Session")));
     }
 
     void cleanupTestCase() {

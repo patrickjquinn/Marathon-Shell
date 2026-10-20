@@ -7,18 +7,18 @@
 
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::Duration;
 
 use async_channel::{Receiver, Sender};
-use async_lock::Mutex;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 use futures_lite::{stream, StreamExt};
-use zbus::fdo::DBusProxy;
+use zbus::fdo::{self, DBusProxy};
+use zbus::message::Header;
 use zbus::names::BusName;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue};
 
-use crate::{io, log};
+use crate::ipc::{self, value, State};
+use crate::{io, log, permissions};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -46,18 +46,11 @@ pub mod qobject {
         fn location_changed(self: Pin<&mut Self>);
         #[qsignal]
         fn error(self: Pin<&mut Self>, message: &QString);
-        /// `GeoClue` asks whether `desktop_id` may locate; answer with
-        /// `authorize`, never from the slot itself.
-        #[qsignal]
-        #[cxx_name = "authorizationRequested"]
-        fn authorization_requested(self: Pin<&mut Self>, desktop_id: &QString);
 
         #[qinvokable]
         fn start(self: &Location);
         #[qinvokable]
         fn stop(self: &Location);
-        #[qinvokable]
-        fn authorize(self: &Location, desktop_id: &QString, allowed: bool);
     }
 
     impl cxx_qt::Threading for Location {}
@@ -78,7 +71,6 @@ pub struct LocationRust {
     heading: f64,
     timestamp: i64,
     actor: Option<Sender<bool>>,
-    verdicts: Option<Sender<(String, bool)>>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -95,11 +87,55 @@ struct Fix {
 impl cxx_qt::Initialize for Location {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(8);
-        let (verdict, verdicts) = async_channel::bounded(8);
-        io::spawn(run(self.qt_thread(), rx, verdicts));
-        let mut rust = self.as_mut().rust_mut();
-        rust.actor = Some(tx);
-        rust.verdicts = Some(verdict);
+        io::spawn(run(self.qt_thread(), rx));
+        self.as_mut().rust_mut().actor = Some(tx);
+        self.as_mut().on_location_changed(|obj| ipc::signal("Location", "LocationChanged", (fix(&obj),))).release();
+        self.as_mut().on_active_changed(|obj| ipc::signal("Location", "activeChanged", (obj.active,))).release();
+        ipc::export("Location", Location1 { qt: self.qt_thread() });
+    }
+}
+
+fn fix(location: &Location) -> State {
+    State::from([
+        ("latitude".to_owned(), value(location.latitude)),
+        ("longitude".to_owned(), value(location.longitude)),
+        ("accuracy".to_owned(), value(location.accuracy)),
+        ("altitude".to_owned(), value(location.altitude)),
+        ("speed".to_owned(), value(location.speed)),
+        ("heading".to_owned(), value(location.heading)),
+        ("timestamp".to_owned(), value(location.timestamp)),
+    ])
+}
+
+struct Location1 {
+    qt: cxx_qt::CxxQtThread<Location>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Location1")]
+impl Location1 {
+    async fn is_available(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        ipc::admit(&h, "Location", &["location"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.available).await
+    }
+
+    async fn is_active(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        ipc::admit(&h, "Location", &["location"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.active).await
+    }
+
+    async fn start(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Location", &["location"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.start()).await
+    }
+
+    async fn stop(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Location", &["location"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.stop()).await
+    }
+
+    async fn get_location(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        ipc::admit(&h, "Location", &["location"]).await?;
+        ipc::on_gui(&self.qt, |obj| fix(&obj)).await
     }
 }
 
@@ -113,12 +149,6 @@ impl Location {
     fn stop(&self) {
         if let Some(actor) = &self.actor {
             actor.try_send(false).ok();
-        }
-    }
-
-    fn authorize(&self, desktop_id: &QString, allowed: bool) {
-        if let Some(verdicts) = &self.verdicts {
-            verdicts.try_send((desktop_id.to_string(), allowed)).ok();
         }
     }
 
@@ -192,13 +222,12 @@ enum Event {
     Updated(OwnedObjectPath),
 }
 
-async fn run(qt: Qt, wanted: Receiver<bool>, verdicts: Receiver<(String, bool)>) {
+async fn run(qt: Qt, wanted: Receiver<bool>) {
     let bus = match io::system_bus().await {
         Ok(bus) => bus,
         Err(e) => return log::warn("location", format_args!("no system bus: {e}")),
     };
-    let agent = Agent { qt: qt.clone(), verdicts: Mutex::new(verdicts) };
-    if let Err(e) = bus.object_server().at("/org/freedesktop/GeoClue2/Agent", agent).await {
+    if let Err(e) = bus.object_server().at("/org/freedesktop/GeoClue2/Agent", Agent).await {
         log::warn("location", format_args!("cannot export the agent: {e}"));
     }
     let Ok(dbus) = DBusProxy::new(&bus).await else { return };
@@ -303,17 +332,16 @@ async fn properties(bus: &zbus::Connection, path: &OwnedObjectPath) -> HashMap<S
 }
 
 /// `GeoClue`'s agent: the system's apps locate freely, the rest by the
-/// shell's permissions, asked one at a time.
-struct Agent {
-    qt: Qt,
-    verdicts: Mutex<Receiver<(String, bool)>>,
-}
+/// shell's permissions.
+struct Agent;
 
 #[zbus::interface(name = "org.freedesktop.GeoClue2.Agent")]
 impl Agent {
-    async fn authorize_app(&self, desktop_id: String, requested_accuracy_level: u32) -> (bool, u32) {
-        let allowed = SYSTEM.contains(&desktop_id.as_str()) || self.ask(&desktop_id).await;
+    #[allow(clippy::unused_self, reason = "a D-Bus method")]
+    fn authorize_app(&self, desktop_id: &str, requested_accuracy_level: u32) -> (bool, u32) {
+        let allowed = SYSTEM.contains(&desktop_id) || permissions::has(desktop_id, "location");
         if !allowed {
+            permissions::ask_if_undecided(desktop_id, &["location".to_owned()]);
             log::warn("location", format_args!("refused location to {desktop_id}"));
         }
         (allowed, if allowed { requested_accuracy_level.min(EXACT) } else { 0 })
@@ -326,23 +354,6 @@ impl Agent {
     }
 }
 
-impl Agent {
-    async fn ask(&self, desktop_id: &str) -> bool {
-        let verdicts = self.verdicts.lock().await;
-        while verdicts.try_recv().is_ok() {}
-        let id = QString::from(desktop_id);
-        self.qt.queue(move |obj| obj.authorization_requested(&id)).ok();
-        let verdict = io::timeout(Duration::from_secs(5), async {
-            while let Ok((id, allowed)) = verdicts.recv().await {
-                if id == desktop_id {
-                    return allowed;
-                }
-            }
-            false
-        });
-        verdict.await.unwrap_or(false)
-    }
-}
 
 #[cfg(test)]
 mod tests {

@@ -21,11 +21,13 @@ use cxx_qt_lib::{QMap, QMapPair_QString_QVariant};
 use futures_lite::{future, StreamExt};
 use quick_xml::events::Event;
 use serde::{Deserialize, Serialize};
-use zbus::fdo::PropertiesProxy;
+use zbus::fdo::{self, PropertiesProxy};
+use zbus::message::Header;
 use zbus::names::InterfaceName;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
 use crate::notifications::NotificationsProxy;
+use crate::ipc::{self, value};
 use crate::{clock, io, log, stored, variant};
 
 #[cxx_qt::bridge(namespace = "marathon")]
@@ -104,6 +106,7 @@ const RESTART_HOURS: std::ops::Range<i32> = 2..5;
 #[derive(Default)]
 pub struct UpdatesRust {
     view: QMap<QMapPair_QString_QVariant>,
+    json: serde_json::Value,
     actor: Option<Sender<Msg>>,
 }
 
@@ -503,6 +506,8 @@ impl cxx_qt::Initialize for Updates {
         let (tx, rx) = async_channel::unbounded();
         io::spawn(run(self.qt_thread(), tx.clone(), rx));
         self.as_mut().rust_mut().actor = Some(tx);
+        self.as_mut().on_state_changed(|obj| ipc::signal("Updates", "StateChanged", (wire(&obj.json),))).release();
+        ipc::export("Updates", Updates1 { qt: self.qt_thread() });
     }
 }
 
@@ -684,7 +689,9 @@ impl Actor {
             self.shown = view.clone();
             self.qt
                 .queue(move |mut obj| {
-                    obj.as_mut().rust_mut().view = variant::map(&view);
+                    let mut rust = obj.as_mut().rust_mut();
+                    rust.view = variant::map(&view);
+                    rust.json = view;
                     obj.state_changed();
                 })
                 .ok();
@@ -1054,6 +1061,71 @@ impl Notifier {
             Ok(id) => self.id = id,
             Err(e) => log::warn("updates", format_args!("notifying: {e}")),
         }
+    }
+}
+
+/// The view as Updates1 sends it, with the shell's version.
+fn wire(view: &serde_json::Value) -> ipc::State {
+    let mut state: ipc::State = view
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(k, v)| {
+            let v = match v {
+                serde_json::Value::Bool(b) => value(*b),
+                serde_json::Value::String(s) => value(s.clone()),
+                serde_json::Value::Number(n) => match n.as_i64() {
+                    Some(n) => i32::try_from(n).map_or_else(|_| value(n), value),
+                    None => value(n.as_f64().unwrap_or_default()),
+                },
+                _ => return None,
+            };
+            Some((k.clone(), v))
+        })
+        .collect();
+    state.insert("currentVersion".to_owned(), value(option_env!("MARATHON_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))));
+    state
+}
+
+struct Updates1 {
+    qt: Qt,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Updates1")]
+impl Updates1 {
+    async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<ipc::State> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| wire(&obj.json)).await
+    }
+
+    async fn check_now(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.check_now()).await
+    }
+
+    async fn install(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.install()).await
+    }
+
+    async fn cancel(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.cancel()).await
+    }
+
+    async fn reboot(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.reboot()).await
+    }
+
+    async fn schedule_restart(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.schedule_restart()).await
+    }
+
+    async fn set_auto_update(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Updates", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_auto_update(on)).await
     }
 }
 

@@ -25,7 +25,7 @@ new file mode 100644
 index 0000000..7383214
 --- /dev/null
 +++ b/shoal/pilot/pilotd/src/adapters/marathon.rs
-@@ -0,0 +1,652 @@
+@@ -0,0 +1,654 @@
 +// SPDX-FileCopyrightText: 2026 Patrick Quinn
 +// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
 +
@@ -50,6 +50,7 @@ index 0000000..7383214
 +use crate::localtime::{self, LocalNow};
 +
 +pub const SHELL: &str = "org.marathonos.Shell";
++pub const SESSION: &str = "org.marathonos.Shell.Session";
 +const ROOT: &str = "/org/marathonos/Shell";
 +
 +/// Whether the Marathon shell is on this session bus.
@@ -66,6 +67,7 @@ index 0000000..7383214
 +    match object {
 +        "Sms" | "CallHistory" => "org.marathonos.Telephony",
 +        "Contacts" => "org.marathonos.Dav",
++        "Settings" | "Telephony" | "Navigation" => SESSION,
 +        _ => SHELL,
 +    }
 +}
@@ -753,7 +755,7 @@ new file mode 100644
 index 0000000..e83f64c
 --- /dev/null
 +++ b/shoal/pilot/pilotd/tests/marathon.rs
-@@ -0,0 +1,252 @@
+@@ -0,0 +1,253 @@
 +// SPDX-FileCopyrightText: 2026 Patrick Quinn
 +// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
 +
@@ -944,6 +946,7 @@ index 0000000..e83f64c
 +        .await
 +        .unwrap();
 +    shell.request_name(marathon::SHELL).await.unwrap();
++    shell.request_name(marathon::SESSION).await.unwrap();
 +    shell.request_name("org.marathonos.Dav").await.unwrap();
 +    assert!(marathon::present(&client));
 +

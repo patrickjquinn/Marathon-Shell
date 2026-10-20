@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::pin::Pin;
+use std::sync::{LazyLock, Mutex, OnceLock, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_channel::{Receiver, Sender};
@@ -13,12 +14,14 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QString, QStringList};
 use evdev::{EventSummary, KeyCode};
 use futures_lite::{stream, StreamExt};
-use zbus::fdo::{DBusProxy, PropertiesProxy};
+use zbus::fdo::{self, DBusProxy, PropertiesProxy};
+use zbus::message::Header;
 use zbus::names::InterfaceName;
 use zbus::zvariant::{OwnedFd, OwnedValue, Value};
 
+use crate::ipc::{self, value, State};
 use crate::wake_timer::WakeTimer;
-use crate::{io, log};
+use crate::{display, io, log};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -190,6 +193,8 @@ impl cxx_qt::Initialize for Power {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(64);
         let qt = self.qt_thread();
+        POWER.set(qt.clone()).ok();
+        ipc::export("Power", Power1 { qt: qt.clone() });
         watch_power_keys(qt.clone());
         io::spawn(run(qt, rx));
         self.as_mut().rust_mut().actor = Some(tx);
@@ -243,6 +248,7 @@ impl Power {
         self.request_profile(&profile);
         self.as_mut().rust_mut().is_power_save_mode = enabled;
         self.is_power_save_mode_changed();
+        state_changed();
     }
 
     fn set_power_profile(&self, profile: &QString) {
@@ -348,6 +354,7 @@ impl Power {
     }
 
     fn apply_battery(mut self: Pin<&mut Self>, battery: Battery) {
+        let before = state(&self);
         let level = battery.level();
         if self.battery_level != level {
             self.as_mut().rust_mut().battery_level = level;
@@ -372,10 +379,14 @@ impl Power {
             self.as_mut().rust_mut().estimated_battery_time = minutes;
             self.as_mut().estimated_battery_time_changed();
         }
+        if state(&self) != before {
+            state_changed();
+        }
         self.warn_battery();
     }
 
     fn apply_profile(mut self: Pin<&mut Self>, profile: &str) {
+        let before = state(&self);
         if !self.power_profiles_supported || self.power_profile.to_string() != profile {
             let mut rust = self.as_mut().rust_mut();
             rust.power_profiles_supported = true;
@@ -387,6 +398,9 @@ impl Power {
         if self.is_power_save_mode != saver {
             self.as_mut().rust_mut().is_power_save_mode = saver;
             self.as_mut().is_power_save_mode_changed();
+        }
+        if state(&self) != before {
+            state_changed();
         }
     }
 
@@ -675,6 +689,9 @@ impl Actor {
                     self.alarm = epoch_secs;
                 }
                 let ok = self.set_wake_timer(&key, epoch_secs).await;
+                for waiter in WAKES.lock().unwrap_or_else(PoisonError::into_inner).remove(&key).unwrap_or_default() {
+                    waiter.try_send(ok).ok();
+                }
                 qt.queue(move |obj| obj.wake_timer_set(&QString::from(&key), ok)).ok();
             }
         }
@@ -966,5 +983,94 @@ mod tests {
         let draining = Battery { state: 2, time_to_empty: 7200, ..charging };
         assert!(!draining.is_plugged_in());
         assert_eq!(draining.estimated_minutes(), 120);
+    }
+}
+
+static POWER: OnceLock<cxx_qt::CxxQtThread<Power>> = OnceLock::new();
+// ScheduleWake calls, answered once systemd has their timer.
+static WAKES: LazyLock<Mutex<HashMap<String, Vec<Sender<bool>>>>> = LazyLock::new(Mutex::default);
+
+fn state(power: &Power) -> State {
+    State::from([
+        ("dozing".to_owned(), value(!display::screen_on())),
+        ("batteryLevel".to_owned(), value(power.battery_level)),
+        ("isCharging".to_owned(), value(power.is_charging)),
+        ("isPluggedIn".to_owned(), value(power.is_plugged_in)),
+        ("isPowerSaveMode".to_owned(), value(power.is_power_save_mode)),
+        ("estimatedBatteryTime".to_owned(), value(power.estimated_battery_time)),
+        ("powerProfile".to_owned(), value(power.power_profile.to_string())),
+        ("powerProfilesSupported".to_owned(), value(power.power_profiles_supported)),
+    ])
+}
+
+/// Power1's state moved: the battery, the profile or the screen.
+pub(crate) fn state_changed() {
+    if let Some(qt) = POWER.get() {
+        qt.queue(|obj| ipc::signal("Power", "StateChanged", (state(&obj),))).ok();
+    }
+}
+
+struct Power1 {
+    qt: cxx_qt::CxxQtThread<Power>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Power1")]
+impl Power1 {
+    async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        ipc::admit(&h, "Power", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| state(&obj)).await
+    }
+
+    async fn set_power_save_mode(&self, enabled: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Power", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_power_save_mode(enabled)).await
+    }
+
+    async fn set_power_profile(&self, profile: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Power", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_power_profile(&QString::from(&profile))).await
+    }
+
+    async fn suspend(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Power", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.suspend()).await
+    }
+
+    async fn restart(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Power", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.restart()).await
+    }
+
+    async fn shutdown(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Power", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.shutdown()).await
+    }
+
+    /// Turns the screen on as an alarm, call or notification does.
+    async fn wake(&self, reason: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        let caller = ipc::admit(&h, "Power", &["system"]).await?;
+        if !["alarm", "call", "notification"].contains(&reason.as_str()) {
+            return Err(fdo::Error::InvalidArgs("Unknown wake reason".into()));
+        }
+        log::warn("power", format_args!("{caller} wakes the screen for {reason}"));
+        let display = display::DISPLAY.get().ok_or_else(|| fdo::Error::Failed("no display".into()))?;
+        ipc::on_gui(display, display::qobject::Display::turn_screen_on).await?;
+        Ok(true)
+    }
+
+    /// Has a suspended device resume at `epoch_secs`, in Doze as for
+    /// background work; one per app, replacing the last.
+    async fn schedule_wake(&self, epoch_secs: i64, reason: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        let caller = ipc::admit(&h, "Power", &["system"]).await?;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
+        if epoch_secs <= now {
+            return Err(fdo::Error::InvalidArgs("Wake time is not in the future".into()));
+        }
+        log::warn("power", format_args!("{caller} schedules a wake-up at {epoch_secs} for {reason}"));
+        let key = format!("app-{caller}");
+        let (tx, rx) = async_channel::bounded(1);
+        WAKES.lock().unwrap_or_else(PoisonError::into_inner).entry(key.clone()).or_default().push(tx);
+        ipc::on_gui(&self.qt, move |obj| obj.set_wake_timer(&QString::from(&key), epoch_secs)).await?;
+        Ok(rx.recv().await.unwrap_or(false))
     }
 }

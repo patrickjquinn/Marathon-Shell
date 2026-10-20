@@ -6,6 +6,7 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::{Command, Stdio};
@@ -20,10 +21,13 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 use futures_lite::{future, StreamExt};
 use sha2::{Digest, Sha256};
+use zbus::fdo;
+use zbus::message::Header;
 use zbus::zvariant::OwnedObjectPath;
 
 use crate::audit::{self, Severity};
-use crate::{io, log, pam};
+use crate::ipc::{self, value, State};
+use crate::{gate, io, log, pam};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -62,10 +66,6 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "authenticationFailed"]
         fn authentication_failed(self: Pin<&mut Self>, reason: &QString);
-        /// `confirmOwner`'s answer: "" or why the secret was refused.
-        #[qsignal]
-        #[cxx_name = "ownerConfirmed"]
-        fn owner_confirmed(self: Pin<&mut Self>, refusal: &QString);
         #[qsignal]
         #[cxx_name = "authModeChanged"]
         fn auth_mode_changed(self: Pin<&mut Self>);
@@ -115,11 +115,6 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "removeQuickPIN"]
         fn remove_quick_pin(self: &Security, system_password: &QString);
-        /// The quick PIN, or the system password when there is none; a
-        /// failure counts towards the lockout. Answers with `ownerConfirmed`.
-        #[qinvokable]
-        #[cxx_name = "confirmOwner"]
-        fn confirm_owner(self: Pin<&mut Security>, secret: &QString);
         #[qinvokable]
         #[cxx_name = "isBiometricEnrolled"]
         fn is_biometric_enrolled(self: &Security, kind: i32) -> bool;
@@ -140,6 +135,8 @@ use qobject::Security;
 const MAX_ATTEMPTS: i32 = 5;
 const LOCKOUT: Duration = Duration::from_secs(300);
 const DATA_KEY_HELPER: &str = "/usr/libexec/marathon-data-key";
+/// The root service that erases the device at the next boot, on images that can.
+const FACTORY_RESET: &str = "/run/marathon/factory-reset.sock";
 
 #[derive(Default)]
 pub struct SecurityRust {
@@ -177,7 +174,32 @@ impl cxx_qt::Initialize for Security {
             rust.data_encryption = QString::from(encryption);
             rust.user.clone_from(&user);
         }
+        let push = |obj: Pin<&mut Self>| ipc::signal("Security", "StateChanged", (state(&obj),));
+        self.as_mut().on_auth_mode_changed(push).release();
+        self.as_mut().on_fingerprint_available_changed(push).release();
+        self.as_mut().on_lockout_state_changed(push).release();
+        self.as_mut().on_failed_attempts_changed(push).release();
+        self.as_mut().on_data_encryption_changed(push).release();
+        self.as_mut()
+            .on_quick_pin_changed(move |obj| {
+                ipc::signal("Security", "QuickPINChanged", ());
+                push(obj);
+            })
+            .release();
+        self.as_mut()
+            .on_authentication_failed(move |obj, reason| {
+                ipc::signal("Security", "AuthenticationFailed", (reason.to_string(),));
+                push(obj);
+            })
+            .release();
+        self.as_mut()
+            .on_authentication_success(move |obj| {
+                ipc::signal("Security", "AuthenticationSuccess", ());
+                push(obj);
+            })
+            .release();
         let qt = self.qt_thread();
+        ipc::export("Security", Security1 { qt: qt.clone() });
         io::spawn(find_fingerprint_reader(qt.clone(), user));
         if encryption == "pin" {
             // The initramfs leaves a note when the PIN was typed there.
@@ -432,11 +454,11 @@ impl Security {
         });
     }
 
-    fn confirm_owner(mut self: Pin<&mut Self>, secret: &QString) {
-        let secret = secret.to_string();
+    /// `answer` gets "" or why the secret was refused.
+    fn check_owner(mut self: Pin<&mut Self>, secret: String, answer: impl FnOnce(Pin<&mut Self>, String) + Send + 'static) {
         if self.is_locked_out() {
             let refusal = format!("Too many failed attempts. Try again in {} seconds.", self.lockout_seconds_remaining());
-            return self.owner_confirmed(&QString::from(refusal.as_str()));
+            return answer(self, refusal);
         }
         let (pin, user, qt) = (self.has_quick_pin, self.user.clone(), self.qt_thread());
         self.as_mut().rust_mut().checking = true;
@@ -453,7 +475,7 @@ impl Security {
                     Some(_) if pin => "Incorrect PIN".to_owned(),
                     Some(_) => "Incorrect password".to_owned(),
                 };
-                obj.owner_confirmed(&QString::from(refusal.as_str()));
+                answer(obj, refusal);
             })
             .ok();
         });
@@ -498,6 +520,129 @@ impl Security {
         if let Some(stop) = self.as_mut().rust_mut().stop_fingerprint.take() {
             stop.try_send(()).ok();
         }
+    }
+}
+
+fn state(security: &Security) -> State {
+    State::from([
+        ("authMode".to_owned(), value(security.auth_mode())),
+        ("hasQuickPIN".to_owned(), value(security.has_quick_pin)),
+        ("fingerprintAvailable".to_owned(), value(security.fingerprint_available())),
+        ("isLockedOut".to_owned(), value(security.is_locked_out())),
+        ("lockoutSecondsRemaining".to_owned(), value(security.lockout_seconds_remaining())),
+        ("failedAttempts".to_owned(), value(security.failed_attempts)),
+        ("canEraseAllContent".to_owned(), value(Path::new(FACTORY_RESET).exists())),
+        ("dataEncryption".to_owned(), value(security.data_encryption.to_string())),
+    ])
+}
+
+/// Once the owner's secret checks out, asks the service for an erase; it
+/// restarts the device. Err says why not.
+async fn erase(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(), String> {
+    if !Path::new(FACTORY_RESET).exists() {
+        return Err("This device can't erase itself".into());
+    }
+    let (tx, rx) = async_channel::bounded(1);
+    ipc::on_gui(qt, move |obj| {
+        obj.check_owner(secret, move |_, refusal| {
+            tx.try_send(refusal).ok();
+        });
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    let refusal = rx.recv().await.map_err(|e| e.to_string())?;
+    if !refusal.is_empty() {
+        return Err(refusal);
+    }
+    let reply = blocking::unblock(|| {
+        let mut socket = UnixStream::connect(FACTORY_RESET)?;
+        socket.write_all(b"erase\n")?;
+        let mut reply = String::new();
+        socket.read_to_string(&mut reply)?;
+        Ok::<_, std::io::Error>(reply)
+    })
+    .await
+    .map_err(|e| format!("Couldn't reach the erase service: {e}"))?;
+    match reply.trim() {
+        "ok" => Ok(()),
+        "" => Err("Couldn't reach the erase service: it closed the connection".into()),
+        why => Err(why.to_owned()),
+    }
+}
+
+struct Security1 {
+    qt: cxx_qt::CxxQtThread<Security>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Security1")]
+impl Security1 {
+    async fn get_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| state(&obj)).await
+    }
+
+    #[zbus(name = "SetQuickPIN")]
+    async fn set_quick_pin(&self, pin: String, system_password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_quick_pin(&QString::from(&pin), &QString::from(&system_password))).await
+    }
+
+    #[zbus(name = "RemoveQuickPIN")]
+    async fn remove_quick_pin(&self, system_password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.remove_quick_pin(&QString::from(&system_password))).await
+    }
+
+    async fn authenticate_password(&self, password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.authenticate_password(&QString::from(&password))).await
+    }
+
+    /// The PIN is the authentication: only the rate limit stands before it.
+    #[zbus(name = "AuthenticateQuickPIN")]
+    async fn authenticate_quick_pin(&self, pin: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        if !gate::in_window(h.sender().map(zbus::names::UniqueName::as_str).unwrap_or_default(), "Security") {
+            return Err(fdo::Error::LimitsExceeded("Rate limit exceeded".into()));
+        }
+        ipc::on_gui(&self.qt, move |obj| obj.authenticate_quick_pin(&QString::from(&pin))).await
+    }
+
+    async fn authenticate_biometric(&self, kind: i32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.authenticate_biometric(kind)).await
+    }
+
+    async fn cancel_authentication(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, Security::cancel_authentication).await
+    }
+
+    async fn reset_lockout(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, Security::reset_lockout).await
+    }
+
+    async fn is_biometric_enrolled(&self, kind: i32, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.is_biometric_enrolled(kind)).await
+    }
+
+    async fn current_username(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<String> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        ipc::on_gui(&self.qt, |obj| obj.user.clone()).await
+    }
+
+    /// Erases the device at the next boot if `secret` is the owner's quick
+    /// PIN, or system password without one; `EraseFailed` says why not.
+    async fn erase_all_content(&self, secret: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        let qt = self.qt.clone();
+        io::spawn(async move {
+            if let Err(reason) = erase(&qt, secret).await {
+                ipc::signal("Security", "EraseFailed", (reason,));
+            }
+        });
+        Ok(())
     }
 }
 

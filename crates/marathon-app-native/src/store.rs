@@ -46,7 +46,7 @@ pub mod qobject {
 
 use qobject::AppInstaller;
 
-const STORE: Service = Service::shell("AppStore");
+const STORE: Service = Service::session("AppStore");
 
 #[derive(Default)]
 pub struct AppInstallerRust {

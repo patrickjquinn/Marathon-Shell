@@ -14,6 +14,7 @@ fn main() {
         .file("src/haptics.rs")
         .file("src/gate.rs")
         .file("src/identity.rs")
+        .file("src/ipc.rs")
         .file("src/location.rs")
         .file("src/modem.rs")
         .file("src/motion.rs")

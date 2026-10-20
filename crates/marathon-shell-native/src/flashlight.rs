@@ -3,6 +3,7 @@
 
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use cxx_qt::{CxxQtType, Threading};
 
@@ -27,6 +28,13 @@ pub mod qobject {
 
 use qobject::Flashlight;
 
+static AVAILABLE: AtomicBool = AtomicBool::new(false);
+
+/// Whether there is a torch, from any thread.
+pub(crate) fn available() -> bool {
+    AVAILABLE.load(Ordering::Relaxed)
+}
+
 #[derive(Default)]
 pub struct FlashlightRust {
     available: bool,
@@ -39,6 +47,7 @@ impl cxx_qt::Initialize for Flashlight {
         let led = find_led(Path::new("/sys/class/leds"));
         let mut rust = self.as_mut().rust_mut();
         rust.available = led.is_some();
+        AVAILABLE.store(rust.available, Ordering::Relaxed);
         rust.led = led;
     }
 }

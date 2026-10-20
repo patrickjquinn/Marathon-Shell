@@ -22,7 +22,7 @@
 # Web search needs the relay. Speech (pilot-voice, pilot-tts) is not built.
 pkgname=shoal-pilotd
 pkgver=0.1.0
-pkgrel=4
+pkgrel=5
 _commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 pkgdesc="Pilot assistant daemon for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"

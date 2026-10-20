@@ -9,13 +9,9 @@
 // all of which are the intended design rather than a mistake.
 
 #include <QDBusMessage>
-#include <QDBusServiceWatcher>
 #include <QHash>
-#include <QPointer>
-#include <QSet>
 #include <QObject>
 #include <QDBusContext>
-#include <QDBusUnixFileDescriptor>
 
 #include <QDBusVariant>
 #include <QVariantList>
@@ -23,34 +19,18 @@
 
 namespace marathon {
     class Permissions;
+    class Audio;
 }
 class AppLaunchService;
 class AppLifecycleManager;
 class MarathonAppRegistry;
-
 class Modem;
 class SettingsManager;
 class AmbienceService;
 class WallpaperStore;
-class Security;
-class FactoryReset;
-class Bluetooth;
-namespace marathon {
-    class Audio;
-    class Display;
-    class Updates;
-}
-class Flashlight;
-class Network;
-class Modem;
-class Power;
 class ForegroundApp;
 class SessionStore;
 class AudioPolicyController;
-class Haptics;
-class RotationManager;
-class Location;
-class Alarms;
 
 // The Marathon app (or "service:<unit>") a D-Bus caller's process belongs
 // to, "" if none.
@@ -71,43 +51,6 @@ class IpcPermissionedService : public QObject, protected QDBusContext {
 
     marathon::Permissions *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
-};
-
-class PermissionsObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Permissions1")
-
-  public:
-    PermissionsObject(marathon::Permissions *permissions, AppLaunchService *launchService,
-                      QObject *parent = nullptr);
-
-  public slots:
-    bool HasPermission(const QString &appId, const QString &permission);
-    void RequestPermission(const QString &appId, const QString &permission);
-    void SetPermission(const QString &appId, const QString &permission, bool granted,
-                       bool remember = true);
-    // deckardd's prompt for an Android app, waydroid.<package>. Replies
-    // once answered with answer allow, once, deny or cancel and precise.
-    // Options: request, 16 hex digits; kind; once; accuracy; preciseDefault.
-    QVariantMap PromptAndroid(const QString &appId, const QString &permission,
-                              const QVariantMap &options);
-    void        CancelAndroidPrompt(const QString &request);
-    // A session daemon's gate for a caller of its own, marathon-rt's admit:
-    // replies as requirePermission would to that caller.
-    void        Admit(const QString &sender, const QString &area, const QStringList &permissions);
-
-  signals:
-    void PermissionGranted(const QString &appId, const QString &permission);
-    void PermissionDenied(const QString &appId, const QString &permission);
-
-  private:
-    QString       requireForeignPrompter();
-    struct Waiting {
-        QDBusMessage                  call;
-        QString                       bus;
-        QPointer<QDBusServiceWatcher> watcher;
-    };
-    QHash<QString, Waiting> m_waiting;
 };
 
 class AudioRoutingManager;
@@ -195,162 +138,6 @@ class SettingsObject : public IpcPermissionedService {
     SettingsManager *m_settings = nullptr;
 };
 
-class SecurityObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Security1")
-
-  public:
-    SecurityObject(Security *security, marathon::Permissions *permissions,
-                   AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-    void        SetQuickPIN(const QString &pin, const QString &systemPassword);
-    void        RemoveQuickPIN(const QString &systemPassword);
-    void        AuthenticatePassword(const QString &password);
-    void        AuthenticateQuickPIN(const QString &pin);
-    void        AuthenticateBiometric(int type);
-    void        CancelAuthentication();
-    void        ResetLockout();
-    bool        IsBiometricEnrolled(int type);
-    QString     CurrentUsername();
-    // Erases the device at the next boot if `secret` is the owner's quick
-    // PIN, or system password without one; EraseFailed says why not.
-    void EraseAllContent(const QString &secret);
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-    void AuthenticationFailed(const QString &reason);
-    void AuthenticationSuccess();
-    void QuickPINChanged();
-    void EraseFailed(const QString &reason);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Security", {"system"});
-    }
-    QVariantMap      buildState() const;
-
-    Security *m_security     = nullptr;
-    FactoryReset    *m_factoryReset = nullptr;
-};
-
-class BluetoothObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Bluetooth1")
-
-  public:
-    BluetoothObject(Bluetooth *bt, marathon::Permissions *permissions,
-                    AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-    void        SetEnabled(bool enabled);
-    void        StartScan();
-    void        StopScan();
-    void        ConnectDevice(const QString &address);
-    void        DisconnectDevice(const QString &address);
-    void        PairDevice(const QString &address, const QString &pin = QString());
-    void        UnpairDevice(const QString &address);
-    void        ConfirmPairing(const QString &address, bool confirmed);
-    void        CancelPairing(const QString &address);
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-    void PairingFailed(const QString &address, const QString &error);
-    void PairingSucceeded(const QString &address);
-    void PinRequested(const QString &address, const QString &deviceName);
-    void PasskeyRequested(const QString &address, const QString &deviceName);
-    void PasskeyConfirmation(const QString &address, const QString &deviceName, quint32 passkey);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Bluetooth", {"system"});
-    }
-    bool requireBluetooth() {
-        return requirePermission("Bluetooth", {"bluetooth", "system"});
-    }
-
-    QVariantMap       buildState() const;
-    QVariantList      buildDevices(bool pairedOnly) const;
-
-    Bluetooth        *m_bt = nullptr;
-};
-
-class DisplayObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Display1")
-
-  public:
-    DisplayObject(marathon::Display *display, RotationManager *rotation, Flashlight *flashlight,
-                  marathon::Permissions *permissions, AppLaunchService *launchService,
-                  QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-    void        SetAutoBrightness(bool enabled);
-    void        SetRotationLock(bool locked);
-    void        SetBrightness(double brightness);
-    void        SetNightLightEnabled(bool enabled);
-    void        SetNightLightTemperature(int temperature);
-    void        SetNightLightSchedule(const QString &schedule);
-    void        SetScreenState(bool on);
-    // Wake() — no auth, just turns the panel on. Equivalent to a power
-    // button tap. Useful for remote testing over SSH when there is no
-    // physical button. Calls into marathon::Display::turnScreenOn().
-    void Wake();
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Display", {"system"});
-    }
-    QVariantMap           buildState() const;
-
-    marathon::Display              *m_display    = nullptr;
-    RotationManager      *m_rotation   = nullptr;
-    Flashlight *m_flashlight = nullptr;
-};
-
-class PowerObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Power1")
-
-  public:
-    PowerObject(Power *power, marathon::Display *display,
-                marathon::Permissions *permissions, AppLaunchService *launchService,
-                QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-    void        SetPowerSaveMode(bool enabled);
-    void        SetPowerProfile(const QString &profile);
-    void        Suspend();
-    void        Restart();
-    void        Shutdown();
-    // Turns the screen on as an alarm, call or notification does.
-    bool Wake(const QString &reason);
-    // Has a suspended device resume at epochSecs, in Doze as for background
-    // work; one per app, replacing the last.
-    bool ScheduleWake(qint64 epochSecs, const QString &reason);
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Power", {"system"});
-    }
-    QVariantMap            buildState() const;
-
-    Power                       *m_power   = nullptr;
-    marathon::Display           *m_display = nullptr;
-    // ScheduleWake calls, answered once systemd has their timer.
-    QHash<QString, QList<QDBusMessage>> m_pendingWakes;
-};
-
 class AudioObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Audio1")
@@ -390,75 +177,6 @@ class AudioObject : public IpcPermissionedService {
 
     marathon::Audio       *m_audio  = nullptr;
     AudioPolicyController *m_policy = nullptr;
-};
-
-class NetworkObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Network1")
-
-  public:
-    NetworkObject(Network *network, marathon::Permissions *permissions,
-                  AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-
-    void        EnableWifi();
-    void        DisableWifi();
-    void        ToggleWifi();
-    void        ScanWifi();
-    void        ConnectToNetwork(const QString &ssid, const QString &password);
-    void        ConnectToHiddenNetwork(const QString &ssid, const QString &security,
-                                       const QString &password);
-    void        ForgetNetwork(const QString &ssid);
-    void        DisconnectWifi();
-
-    void        SetAirplaneMode(bool enabled);
-
-    void        CreateHotspot(const QString &ssid, const QString &password);
-    void        StopHotspot();
-    bool        IsHotspotActive() const;
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-    void NetworkError(const QString &message);
-    void ConnectionSuccess();
-    void ConnectionFailed(const QString &message);
-
-  private:
-    bool requireNetwork() {
-        return requirePermission("Network", {"network", "system"});
-    }
-    QVariantMap        buildState() const;
-
-    Network *m_network = nullptr;
-};
-
-class ModemObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Modem1")
-
-  public:
-    ModemObject(Modem *modem, marathon::Permissions *permissions,
-                AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-    void        EnableData();
-    void        DisableData();
-    void        SetDataRoamingAllowed(bool allowed);
-    void        SetAllowedModes(uint allowed);
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-
-  private:
-    bool requireNetwork() {
-        return requirePermission("Modem", {"network", "system"});
-    }
-    QVariantMap      buildState() const;
-
-    Modem *m_modem = nullptr;
 };
 
 class NavigationObject : public QObject, protected QDBusContext {
@@ -511,147 +229,6 @@ class NavigationObject : public QObject, protected QDBusContext {
     bool              requireService();
 };
 
-class HapticObject : public QObject, protected QDBusContext {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Haptic1")
-
-  public:
-    HapticObject(Haptics *haptic, AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    bool IsAvailable() const;
-    void Light();
-    void Medium();
-    void Heavy();
-    void Vibrate(int duration);
-    void VibratePattern(const QVariantList &pattern);
-    void Stop();
-
-  private:
-    Haptics          *m_haptic        = nullptr;
-    AppLaunchService *m_launchService = nullptr;
-};
-
-class SensorObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sensor1")
-
-  public:
-    SensorObject(marathon::Display *sensors, marathon::Permissions *permissions,
-                 AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    bool IsAvailable();
-    bool ProximityNear();
-    int  AmbientLight();
-
-  signals:
-    void ProximityChanged(bool near);
-    void AmbientLightChanged(int lux);
-
-  private:
-    bool requireSensors() {
-        return requirePermission("Sensor", {"sensors", "system"});
-    }
-    marathon::Display *m_sensors = nullptr;
-};
-
-class LocationObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Location1")
-
-  public:
-    LocationObject(Location *location, marathon::Permissions *permissions,
-                   AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    bool        IsAvailable();
-    bool        IsActive();
-    void        Start();
-    void        Stop();
-    QVariantMap GetLocation();
-
-  signals:
-    void LocationChanged(const QVariantMap &location);
-    void activeChanged(bool active);
-
-  private:
-    bool requireLocation() {
-        return requirePermission("Location", {"location"});
-    }
-    QVariantMap      location() const;
-    Location *m_location = nullptr;
-};
-
-class AlarmObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Alarm1")
-
-  public:
-    AlarmObject(Alarms *alarms, marathon::Permissions *permissions,
-                AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-
-    QVariantList GetAlarms();
-    QVariantList GetActiveAlarms();
-
-    QString      CreateAlarm(const QString &time, const QString &label, const QList<int> &repeat,
-                             const QVariantMap &options);
-    bool         UpdateAlarm(const QString &id, const QVariantMap &updates);
-    bool         DeleteAlarm(const QString &id);
-    bool         EnableAlarm(const QString &id);
-    bool         DisableAlarm(const QString &id);
-    bool         SnoozeAlarm(const QString &id);
-    bool         DismissAlarm(const QString &id);
-    void         StopAll();
-    void         TriggerAlarmNow(const QString &label);
-
-  signals:
-    void AlarmsChanged();
-    void ActiveAlarmsChanged();
-    void AlarmTriggered(const QString &id, const QString &label);
-    void AlarmDismissed(const QString &id);
-    void AlarmSnoozed(const QString &id, int minutes);
-
-  private:
-    bool requireAlarms() {
-        return requirePermission("Alarm", {"alarms", "system"});
-    }
-    Alarms *m_alarms = nullptr;
-};
-
-
-// Surfaces Updates over D-Bus so the Settings app (running in the
-// app-runner process) can check for, install and reboot into OS updates.
-class UpdatesObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Updates1")
-
-  public:
-    UpdatesObject(marathon::Updates *updates, marathon::Permissions *permissions,
-                  AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-    void        CheckNow();
-    void        Install();
-    void        Cancel();
-    void        Reboot();
-    void        ScheduleRestart();
-    void        SetAutoUpdate(bool on);
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Updates", {"system"});
-    }
-    QVariantMap        buildState() const;
-
-    marathon::Updates *m_updates = nullptr;
-};
 
 class MarathonAppInstaller;
 

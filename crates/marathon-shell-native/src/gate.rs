@@ -162,6 +162,16 @@ pub fn caller(pid: Option<u32>) -> Option<String> {
     pid.and_then(resolve).or_else(|| trusted_tests().then(|| TEST_CALLER.to_owned()))
 }
 
+/// The tests' stand-in caller, while the tests run.
+pub fn is_test_caller(caller: &str) -> bool {
+    caller == TEST_CALLER && trusted_tests()
+}
+
+/// The tests' stand-in, or a declared service that holds `permission`.
+pub fn service_or_test(caller: &str, permission: &str) -> bool {
+    is_test_caller(caller) || declared_by_service(caller, &[permission.to_owned()], Path::new(SERVICES))
+}
+
 fn caller_of_pid(pid: i64) -> QString {
     QString::from(&caller(u32::try_from(pid).ok()).unwrap_or_default())
 }
@@ -181,7 +191,7 @@ fn within_rate(sender: &QString, area: &QString) -> bool {
     in_window(&sender.to_string(), &area.to_string())
 }
 
-fn in_window(sender: &str, area: &str) -> bool {
+pub(crate) fn in_window(sender: &str, area: &str) -> bool {
     let now = Instant::now();
     let mut calls = lock(&CALLS);
     let window = calls.entry((sender.to_owned(), area.to_owned())).or_default();

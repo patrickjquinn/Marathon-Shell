@@ -174,7 +174,7 @@ Item {
         t.push({ id: "location",  icon: "map-pin",          label: "Location",  on: SystemControlStore.isLocationOn },
                { id: "hotspot",   icon: "broadcast",        label: "Hotspot",   on: SystemControlStore.isHotspotOn },
                { id: "nightlight", icon: "moon",            label: "Night",     on: SystemControlStore.isNightLightOn });
-        if (RotationManager.available)
+        if (Display.rotationAvailable)
             t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
         if (Display.lightAvailable)
             t.push({ id: "autobrightness", icon: "sun",     label: "Auto",    on: SystemControlStore.isAutoBrightnessOn });

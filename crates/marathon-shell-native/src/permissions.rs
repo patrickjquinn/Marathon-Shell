@@ -14,10 +14,16 @@ use std::pin::Pin;
 use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
 
+use async_channel::Sender;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
+use futures_lite::{future, StreamExt};
+use zbus::fdo;
+use zbus::message::Header;
+use zbus::names::BusName;
 
-use crate::{io, log};
+use crate::ipc::{self, value, State};
+use crate::{gate, io, log};
 
 #[cxx_qt::bridge(namespace = "marathon")]
 mod qobject {
@@ -56,10 +62,6 @@ mod qobject {
         #[qsignal]
         #[cxx_name = "permissionsRequested"]
         fn permissions_requested(self: Pin<&mut Self>, app_id: &QString, permissions: &QStringList);
-        /// A foreign prompt's answer: allow, once, deny or cancel.
-        #[qsignal]
-        #[cxx_name = "foreignAnswered"]
-        fn foreign_answered(self: Pin<&mut Self>, key: &QString, answer: &QString, precise: bool);
 
         #[qinvokable]
         #[cxx_name = "hasPermission"]
@@ -77,15 +79,6 @@ mod qobject {
         /// Every permission the app declared that is not decided yet: at launch.
         #[cxx_name = "requestDeclaredPermissions"]
         fn request_declared_permissions(self: Pin<&mut Permissions>, app_id: &QString);
-        /// For a caller refused all of `permissions`: asks for the first it
-        /// declared but was never asked about, and names it.
-        #[cxx_name = "askIfUndecided"]
-        fn ask_if_undecided(self: Pin<&mut Permissions>, app_id: &QString, permissions: &QStringList) -> QString;
-        /// options: kind, once, accuracy, preciseDefault. Answered by foreignAnswered.
-        #[cxx_name = "askForeign"]
-        fn ask_foreign(self: Pin<&mut Permissions>, key: &QString, app_id: &QString, permission: &QString, options: &QMap_QString_QVariant);
-        #[cxx_name = "cancelForeign"]
-        fn cancel_foreign(self: Pin<&mut Permissions>, key: &QString);
         #[qinvokable]
         fn respond(self: Pin<&mut Permissions>, granted: bool);
         /// With a foreign prompt's choices: only this time, precise.
@@ -444,6 +437,9 @@ pub struct PermissionsRust {
 static CORE: LazyLock<Mutex<Core>> =
     LazyLock::new(|| Mutex::new(Core::load(marathon_rt::dirs::config().join("marathon/app-permissions.json"))));
 static QT: OnceLock<cxx_qt::CxxQtThread<Permissions>> = OnceLock::new();
+type Answer = (String, bool);
+// Permissions1.PromptAndroid's callers, by prompt key.
+static WAITING: LazyLock<Mutex<HashMap<String, Sender<Answer>>>> = LazyLock::new(Mutex::default);
 
 fn core() -> MutexGuard<'static, Core> {
     CORE.lock().unwrap_or_else(PoisonError::into_inner)
@@ -477,6 +473,7 @@ fn list(items: &[String]) -> QStringList {
 impl cxx_qt::Initialize for Permissions {
     fn initialize(self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
+        ipc::export("Permissions", Permissions1 { qt: self.qt_thread() });
     }
 }
 
@@ -485,11 +482,21 @@ impl Permissions {
     fn apply(mut self: Pin<&mut Self>, events: Vec<Event>) {
         for event in events {
             match event {
-                Event::Granted(a, p) => self.as_mut().permission_granted(&QString::from(&a), &QString::from(&p)),
-                Event::Denied(a, p) => self.as_mut().permission_denied(&QString::from(&a), &QString::from(&p)),
+                Event::Granted(a, p) => {
+                    self.as_mut().permission_granted(&QString::from(&a), &QString::from(&p));
+                    ipc::signal("Permissions", "PermissionGranted", (a, p));
+                }
+                Event::Denied(a, p) => {
+                    self.as_mut().permission_denied(&QString::from(&a), &QString::from(&p));
+                    ipc::signal("Permissions", "PermissionDenied", (a, p));
+                }
                 Event::Revoked(a, p) => self.as_mut().permission_revoked(&QString::from(&a), &QString::from(&p)),
                 Event::Requested(a, ps) => self.as_mut().permissions_requested(&QString::from(&a), &list(&ps)),
-                Event::Answered(k, a, precise) => self.as_mut().foreign_answered(&QString::from(&k), &QString::from(a), precise),
+                Event::Answered(k, a, precise) => {
+                    if let Some(waiter) = WAITING.lock().unwrap_or_else(PoisonError::into_inner).remove(&k) {
+                        waiter.try_send((a.to_owned(), precise)).ok();
+                    }
+                }
                 Event::PromptChanged => self.as_mut().show_prompt(),
                 Event::Recheck(ms) => self.as_mut().recheck(ms),
             }
@@ -570,29 +577,15 @@ impl Permissions {
         });
     }
 
-    fn ask_if_undecided(self: Pin<&mut Self>, app_id: &QString, permissions: &QStringList) -> QString {
-        let mut asked = None;
-        self.with(|core, out| asked = core.ask_if_undecided(&app_id.to_string(), &strings(permissions), out));
-        QString::from(asked.as_deref().unwrap_or_default())
-    }
-
-    fn ask_foreign(self: Pin<&mut Self>, key: &QString, app_id: &QString, permission: &QString, options: &QMap<QMapPair_QString_QVariant>) {
-        let text = |k: &str| options.get(&QString::from(k)).and_then(|v| v.value::<QString>()).map(|v| v.to_string()).unwrap_or_default();
-        let flag = |k: &str| options.get(&QString::from(k)).and_then(|v| v.value::<bool>()).unwrap_or(false);
-        let foreign = Foreign {
-            key: key.to_string(),
-            app: app_id.to_string(),
-            permission: permission.to_string(),
-            options: ForeignOptions { kind: text("kind"), once: flag("once"), accuracy: text("accuracy"), precise_default: flag("preciseDefault") },
-        };
+    fn foreign(self: Pin<&mut Self>, foreign: Foreign) {
         self.with(|core, out| {
             core.foreign.push_back(foreign);
             core.process(out);
         });
     }
 
-    fn cancel_foreign(self: Pin<&mut Self>, key: &QString) {
-        self.with(|core, out| core.finish_foreign(&key.to_string(), "cancel", false, out));
+    fn cancel_foreign(self: Pin<&mut Self>, key: &str) {
+        self.with(|core, out| core.finish_foreign(key, "cancel", false, out));
     }
 
     fn respond(self: Pin<&mut Self>, granted: bool) {
@@ -675,6 +668,171 @@ impl Permissions {
 
     fn permission_description(&self, permission: &QString) -> QString {
         QString::from(marathon_permissions::describe(&permission.to_string()).map_or("Unknown permission", |d| d.description.as_str()))
+    }
+}
+
+/// Who may act on an app's permissions: an app on its own, never granting;
+/// Settings on any, asking only for itself.
+fn allowed(caller: &str, app: &str, op: Op) -> bool {
+    if gate::is_test_caller(caller) {
+        return true;
+    }
+    if caller.is_empty() || app.is_empty() {
+        return false;
+    }
+    if caller == "settings" {
+        return caller == app || op != Op::Request;
+    }
+    caller == app && op != Op::Grant
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum Op {
+    Read,
+    Request,
+    Grant,
+    Revoke,
+}
+
+fn is_android_app(app: &str) -> bool {
+    let segment = |s: &str| s.starts_with(|c: char| c.is_ascii_alphabetic()) && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    app.len() <= 9 + 255 && app.strip_prefix("waydroid.").is_some_and(|pkg| pkg.split('.').all(segment))
+}
+
+/// A foreign prompt's options, when every known one is valid.
+fn foreign_options(options: &State) -> Option<ForeignOptions> {
+    let text = |k: &str, default: &str| match options.get(k) {
+        None => Some(default.to_owned()),
+        Some(v) => v.downcast_ref::<&str>().ok().map(str::to_owned),
+    };
+    let flag = |k: &str| match options.get(k) {
+        None => Some(false),
+        Some(v) => v.downcast_ref::<bool>().ok(),
+    };
+    let (kind, accuracy) = (text("kind", "foreground")?, text("accuracy", "")?);
+    if !["foreground", "background", "precise"].contains(&kind.as_str()) || !["", "choice", "approximate"].contains(&accuracy.as_str()) {
+        return None;
+    }
+    Some(ForeignOptions { kind, once: flag("once")?, accuracy, precise_default: flag("preciseDefault")? })
+}
+
+async fn pid_of(name: &str) -> Option<u32> {
+    let bus = io::session_bus().await.ok()?;
+    let name = BusName::try_from(name).ok()?;
+    fdo::DBusProxy::new(&bus).await.ok()?.get_connection_unix_process_id(name).await.ok()
+}
+
+async fn caller(h: &Header<'_>) -> String {
+    let pid = match h.sender() {
+        Some(sender) => pid_of(sender.as_str()).await,
+        None => None,
+    };
+    gate::caller(pid).unwrap_or_default()
+}
+
+async fn authorize(h: &Header<'_>, app: &str, op: Op) -> fdo::Result<()> {
+    if allowed(&caller(h).await, app, op) {
+        Ok(())
+    } else {
+        Err(fdo::Error::AccessDenied("AppId spoofing or unknown caller".into()))
+    }
+}
+
+async fn prompter(h: &Header<'_>) -> fdo::Result<String> {
+    let caller = caller(h).await;
+    if gate::service_or_test(&caller, "android-permissions") {
+        Ok(caller)
+    } else {
+        Err(fdo::Error::AccessDenied("Not a permission prompter".into()))
+    }
+}
+
+// Forgets its prompt's caller however the call ends.
+struct Waiting(String);
+
+impl Drop for Waiting {
+    fn drop(&mut self) {
+        WAITING.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.0);
+    }
+}
+
+struct Permissions1 {
+    qt: cxx_qt::CxxQtThread<Permissions>,
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Permissions1")]
+impl Permissions1 {
+    async fn has_permission(&self, app_id: String, permission: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        authorize(&h, &app_id, Op::Read).await?;
+        Ok(has(&app_id, &permission))
+    }
+
+    async fn request_permission(&self, app_id: String, permission: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        authorize(&h, &app_id, Op::Request).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.request_permission(&QString::from(&app_id), &QString::from(&permission))).await
+    }
+
+    async fn set_permission(&self, app_id: String, permission: String, granted: bool, remember: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        authorize(&h, &app_id, if granted { Op::Grant } else { Op::Revoke }).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_permission(&QString::from(&app_id), &QString::from(&permission), granted, remember)).await
+    }
+
+    /// deckardd's prompt for an Android app, `waydroid.<package>`; options
+    /// request (16 hex digits), kind, once, accuracy and preciseDefault.
+    /// Answers allow, once, deny or cancel, and precise.
+    async fn prompt_android(&self, app_id: String, permission: String, options: State, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+        let caller = prompter(&h).await?;
+        let request = options.get("request").and_then(|v| v.downcast_ref::<&str>().ok()).unwrap_or_default().to_owned();
+        let known = marathon_permissions::permissions().get(&permission).is_some_and(|p| !p.restricted);
+        let cleaned = foreign_options(&options);
+        let hex = request.len() == 16 && request.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+        let (Some(cleaned), true, true, true) = (cleaned, is_android_app(&app_id), known, hex) else {
+            return Err(fdo::Error::InvalidArgs("Bad prompt".into()));
+        };
+        let key = format!("{caller} {request}");
+        let (tx, rx) = async_channel::bounded(1);
+        {
+            let mut waiting = WAITING.lock().unwrap_or_else(PoisonError::into_inner);
+            if waiting.contains_key(&key) || waiting.len() >= 16 {
+                return Err(fdo::Error::LimitsExceeded("Too many prompts".into()));
+            }
+            waiting.insert(key.clone(), tx);
+        }
+        let _waiting = Waiting(key.clone());
+        let sender = h.sender().map(ToString::to_string).unwrap_or_default();
+        let bus = io::session_bus().await?;
+        let mut gone = fdo::DBusProxy::new(&bus).await?.receive_name_owner_changed_with_args(&[(0, sender.as_str()), (2, "")]).await?;
+        let foreign = Foreign { key: key.clone(), app: app_id, permission, options: cleaned };
+        ipc::on_gui(&self.qt, move |obj| obj.foreign(foreign)).await?;
+        // A prompter that leaves the bus takes its prompts with it.
+        let answered = future::or(async { rx.recv().await.ok() }, async {
+            gone.next().await;
+            None
+        })
+        .await;
+        let Some((answer, precise)) = answered else {
+            ipc::on_gui(&self.qt, move |obj| obj.cancel_foreign(&key)).await?;
+            return Err(fdo::Error::Failed("The prompter left".into()));
+        };
+        Ok(State::from([("answer".to_owned(), value(answer)), ("precise".to_owned(), value(precise))]))
+    }
+
+    async fn cancel_android_prompt(&self, request: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        let key = format!("{} {request}", prompter(&h).await?);
+        ipc::on_gui(&self.qt, move |obj| obj.cancel_foreign(&key)).await
+    }
+
+    /// A session daemon's gate for a caller of its own, as the shell's own
+    /// services answer that caller.
+    async fn admit(&self, sender: String, area: String, permissions: Vec<String>, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        if !gate::service_or_test(&caller(&h).await, "admit-callers") {
+            return Err(fdo::Error::AccessDenied("Not a session daemon".into()));
+        }
+        let pid = pid_of(&sender).await;
+        if pid != Some(std::process::id()) {
+            gate::admit(pid, &sender, &area, &permissions)?;
+        }
+        Ok(())
     }
 }
 
@@ -814,5 +972,30 @@ mod tests {
         c.stored.remove("x");
         assert!(c.pending.is_empty() && c.prompt.is_none());
         assert_eq!(c.status("x", "storage"), Status::NotRequested);
+    }
+
+    #[test]
+    fn apps_act_on_themselves_settings_on_others_and_only_the_user_grants() {
+        use super::{allowed, Op};
+        assert!(!allowed("", "notes", Op::Read) && !allowed("settings", "", Op::Read));
+        assert!(allowed("notes", "notes", Op::Request) && allowed("notes", "notes", Op::Revoke));
+        assert!(!allowed("notes", "notes", Op::Grant) && !allowed("notes", "weather", Op::Read));
+        assert!(allowed("settings", "weather", Op::Grant) && !allowed("settings", "weather", Op::Request));
+        assert!(!allowed("Settings", "weather", Op::Read) && !allowed(" settings", "weather", Op::Grant));
+    }
+
+    #[test]
+    fn android_prompts_take_only_android_apps_and_known_options() {
+        use super::{foreign_options, is_android_app, value, State};
+        assert!(is_android_app("waydroid.org.fossify.camera"));
+        for bad in ["waydroid.", "notes", "waydroid.bad pkg", "waydroid.9lives", "waydroid.a..b", &format!("waydroid.{}", "a".repeat(256))] {
+            assert!(!is_android_app(bad), "{bad}");
+        }
+        assert_eq!(foreign_options(&State::new()).unwrap().kind, "foreground");
+        let o = State::from([("kind".to_owned(), value("background")), ("once".to_owned(), value(true))]);
+        assert!(foreign_options(&o).is_some_and(|o| o.kind == "background" && o.once));
+        for (k, v) in [("kind", value("always")), ("accuracy", value("fine")), ("once", value("yes"))] {
+            assert!(foreign_options(&State::from([(k.to_owned(), v)])).is_none(), "{k}");
+        }
     }
 }

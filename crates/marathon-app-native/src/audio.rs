@@ -125,7 +125,7 @@ pub mod qobject {
 
 use qobject::{Audio, AudioStreams};
 
-const AUDIO: Service = Service::shell("Audio");
+const AUDIO: Service = Service::session("Audio");
 
 pub struct AudioRust {
     available: bool,

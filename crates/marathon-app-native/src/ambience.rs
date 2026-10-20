@@ -44,8 +44,8 @@ pub mod qobject {
 
 use qobject::Ambience;
 
-const AMBIENCE: Service = Service::shell("Ambience");
-const SHELL: &str = "org.marathonos.Shell";
+const AMBIENCE: Service = Service::session("Ambience");
+const SHELL: &str = "org.marathonos.Shell.Session";
 
 type State = HashMap<String, OwnedValue>;
 

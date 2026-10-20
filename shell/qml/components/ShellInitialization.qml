@@ -55,8 +55,8 @@ QtObject {
             if (root.compositor)
                 root.compositor.setCompositorActive(on);
         });
-        RotationManager.orientationChanged.connect(function () {
-            var orientation = RotationManager.currentOrientation;
+        Display.orientationChanged.connect(function () {
+            var orientation = Display.orientation;
             if (root.compositor)
                 Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
 
