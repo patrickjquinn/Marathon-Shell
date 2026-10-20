@@ -74,10 +74,10 @@ impl cxx_qt::Initialize for Ambience {
                     qt.queue(move |obj| show(obj, &state)).ok();
                 }
             };
-            read().await;
             let Ok(bus) = io::session_bus().await else { return };
             let Ok(dbus) = zbus::fdo::DBusProxy::new(&bus).await else { return };
             let Ok(mut owners) = dbus.receive_name_owner_changed_with_args(&[(0, SHELL)]).await else { return };
+            read().await;
             while let Some(change) = owners.next().await {
                 if change.args().is_ok_and(|a| a.new_owner().is_some()) {
                     read().await;
