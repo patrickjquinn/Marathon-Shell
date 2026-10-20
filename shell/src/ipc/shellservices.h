@@ -29,7 +29,7 @@ class AmbienceService;
 class WallpaperStore;
 class Security;
 class FactoryReset;
-class BluetoothManager;
+class Bluetooth;
 namespace marathon {
     class Display;
     class Updates;
@@ -232,7 +232,7 @@ class BluetoothObject : public IpcPermissionedService {
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Bluetooth1")
 
   public:
-    BluetoothObject(BluetoothManager *bt, MarathonPermissionManager *permissions,
+    BluetoothObject(Bluetooth *bt, MarathonPermissionManager *permissions,
                     AppLaunchService *launchService, QObject *parent = nullptr);
 
   public slots:
@@ -266,7 +266,7 @@ class BluetoothObject : public IpcPermissionedService {
     QVariantMap       buildState() const;
     QVariantList      buildDevices(bool pairedOnly) const;
 
-    BluetoothManager *m_bt = nullptr;
+    Bluetooth        *m_bt = nullptr;
 };
 
 class DisplayObject : public IpcPermissionedService {

@@ -54,10 +54,6 @@ set(SOURCES
     src/managers/platformcpp.h
     src/services/navigationroutercpp.h
     src/services/navigationroutercpp.cpp
-    src/managers/bluetoothmanager.h
-    src/managers/bluetoothmanager.cpp
-    src/components/bluetoothagent.h
-    src/components/bluetoothagent.cpp
     src/managers/marathoninputmethodengine.h
     src/managers/marathoninputmethodengine.cpp
     src/managers/marathoninputcontext.cpp

@@ -9,7 +9,7 @@
 
 class Power;
 class Network;
-class BluetoothManager;
+class Bluetooth;
 class Modem;
 class NotificationServiceCpp;
 class SettingsManager;
@@ -48,7 +48,7 @@ class SystemStatusStore : public QObject {
 
   public:
     explicit SystemStatusStore(Power *powerManager, Network *networkManager,
-                               BluetoothManager *bluetoothManager, Modem *modemManager,
+                               Bluetooth *bluetoothManager, Modem *modemManager,
                                NotificationServiceCpp *notificationService,
                                SettingsManager *settingsManager, QObject *parent = nullptr);
 
@@ -171,7 +171,7 @@ class SystemStatusStore : public QObject {
 
     Power        *m_powerManager;
     Network      *m_networkManager;
-    BluetoothManager       *m_bluetoothManager;
+    Bluetooth              *m_bluetoothManager;
     Modem        *m_modemManager;
     NotificationServiceCpp *m_notificationService;
     SettingsManager        *m_settingsManager;

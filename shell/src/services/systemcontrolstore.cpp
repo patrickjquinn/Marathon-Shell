@@ -2,7 +2,7 @@
 #include "src/controllers/audiopolicycontroller.h"
 #include "src/managers/alarmmanagercpp.h"
 #include "src/managers/audiomanagercpp.h"
-#include "src/managers/bluetoothmanager.h"
+#include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/managers/flashlightmanagercpp.h"
 #include "src/managers/hapticmanager.h"
@@ -18,7 +18,7 @@
 #include <algorithm>
 
 SystemControlStore::SystemControlStore(
-    Network *networkManager, BluetoothManager *bluetoothManager,
+    Network *networkManager, Bluetooth *bluetoothManager,
     marathon::Display *display, FlashlightManagerCpp *flashlightManager,
     Modem *modemManager, SettingsManager *settingsManager, AlarmManagerCpp *alarmManager,
     LocationManager *locationManager, HapticManager *hapticManager, Power *powerManager,
@@ -56,7 +56,7 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_bluetoothManager) {
-        connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this, [this]() {
+        connect(m_bluetoothManager, &Bluetooth::enabledChanged, this, [this]() {
             clearPending(QStringLiteral("bluetooth"));
             emit isBluetoothOnChanged();
         });
@@ -165,7 +165,7 @@ void SystemControlStore::toggleWifi() {
 }
 
 bool SystemControlStore::isBluetoothOn() const {
-    return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
+    return m_bluetoothManager ? m_bluetoothManager->getEnabled() : false;
 }
 
 int SystemControlStore::brightness() const {
@@ -181,7 +181,7 @@ int SystemControlStore::brightness() const {
 void SystemControlStore::toggleBluetooth() {
     if (m_bluetoothManager) {
         markPending(QStringLiteral("bluetooth"));
-        m_bluetoothManager->setEnabled(!m_bluetoothManager->enabled());
+        m_bluetoothManager->setEnabled(!m_bluetoothManager->getEnabled());
     }
 }
 

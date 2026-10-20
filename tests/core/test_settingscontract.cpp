@@ -130,7 +130,7 @@ namespace {
             {"Display.autoBrightnessEnabled",
              {"crates/marathon-shell-native/src/display.rs", "self.auto_brightness && self.screen_on"}},
             {"Display.rotationLocked", {"shell/main.cpp", "rotationManager->lockOrientation"}},
-            {"Bluetooth.enabled", {"shell/src/managers/bluetoothmanager.cpp", "\"Powered\""}},
+            {"Bluetooth.enabled", {"crates/marathon-shell-native/src/bluetooth.rs", "set_powered(on)"}},
         };
         return table;
     }

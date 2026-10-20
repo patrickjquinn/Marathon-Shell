@@ -1,5 +1,5 @@
 #include "systemstatusstore.h"
-#include "src/managers/bluetoothmanager.h"
+#include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
@@ -10,7 +10,7 @@
 
 SystemStatusStore::SystemStatusStore(Power        *powerManager,
                                      Network      *networkManager,
-                                     BluetoothManager       *bluetoothManager,
+                                     Bluetooth              *bluetoothManager,
                                      Modem        *modemManager,
                                      NotificationServiceCpp *notificationService,
                                      SettingsManager *settingsManager, QObject *parent)
@@ -56,9 +56,9 @@ SystemStatusStore::SystemStatusStore(Power        *powerManager,
 
     if (m_bluetoothManager) {
         updateBluetoothDevices();
-        connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this,
+        connect(m_bluetoothManager, &Bluetooth::enabledChanged, this,
                 &SystemStatusStore::isBluetoothOnChanged);
-        connect(m_bluetoothManager, &BluetoothManager::pairedDevicesChanged, this,
+        connect(m_bluetoothManager, &Bluetooth::pairedDevicesChanged, this,
                 [this]() { updateBluetoothDevices(); });
     }
 
@@ -135,9 +135,8 @@ void SystemStatusStore::addNotification(const QString &title, const QString &mes
 void SystemStatusStore::updateBluetoothDevices() {
     bool connected = false;
     if (m_bluetoothManager) {
-        const QList<QObject *> paired = m_bluetoothManager->pairedDevices();
-        for (QObject *device : paired) {
-            if (device && device->property("connected").toBool()) {
+        for (const QVariant &device : m_bluetoothManager->getPairedDevices()) {
+            if (device.toMap().value("connected").toBool()) {
                 connected = true;
                 break;
             }
@@ -218,7 +217,7 @@ void SystemStatusStore::setEthernetConnected(bool connected) {
 }
 
 bool SystemStatusStore::isBluetoothOn() const {
-    return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
+    return m_bluetoothManager ? m_bluetoothManager->getEnabled() : false;
 }
 
 void SystemStatusStore::setIsBluetoothConnected(bool connected) {

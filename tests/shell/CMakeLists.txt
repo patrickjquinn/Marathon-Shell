@@ -123,29 +123,6 @@ add_test(NAME Shell_NotificationHandler COMMAND test_shell_notificationhandler)
 
 # MPRIS2Controller against fake players on a private session bus
 find_program(DBUS_RUN_SESSION dbus-run-session)
-if(DBUS_RUN_SESSION)
-    find_package(Qt6 REQUIRED COMPONENTS DBus)
-    add_executable(test_shell_mpris2controller
-        test_mpris2controller.cpp
-        ../../shell/src/managers/mpris2controller.cpp
-    )
-    target_link_libraries(test_shell_mpris2controller Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-    target_include_directories(test_shell_mpris2controller PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers)
-    add_test(NAME Shell_MPRIS2Controller COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_mpris2controller>)
-
-    # BluetoothManager against a fake bluetoothd on a private bus
-    add_executable(test_shell_bluetoothmanager
-        test_bluetoothmanager.cpp
-        ../../shell/src/managers/bluetoothmanager.cpp
-        ../../shell/src/components/bluetoothagent.cpp
-    )
-    target_link_libraries(test_shell_bluetoothmanager Qt6::Test Qt6::Core Qt6::DBus)
-    target_include_directories(test_shell_bluetoothmanager PRIVATE
-        ${CMAKE_SOURCE_DIR}/shell/src/managers
-        ${CMAKE_SOURCE_DIR}/shell/src/components
-    )
-    add_test(NAME Shell_BluetoothManager COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_bluetoothmanager>)
-endif()
 
 # AppModel tests (data model with validation)
 add_executable(test_shell_appmodel

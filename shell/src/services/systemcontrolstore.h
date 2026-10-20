@@ -7,7 +7,7 @@
 #include <qqml.h>
 
 class Network;
-class BluetoothManager;
+class Bluetooth;
 namespace marathon {
     class Display;
 }
@@ -51,7 +51,7 @@ class SystemControlStore : public QObject {
 
   public:
     explicit SystemControlStore(Network    *networkManager,
-                                BluetoothManager     *bluetoothManager,
+                                Bluetooth            *bluetoothManager,
                                 marathon::Display              *display,
                                 FlashlightManagerCpp *flashlightManager,
                                 Modem *modemManager, SettingsManager *settingsManager,
@@ -186,7 +186,7 @@ class SystemControlStore : public QObject {
     void                   clearPending(const QString &id);
 
     Network     *m_networkManager;
-    BluetoothManager      *m_bluetoothManager;
+    Bluetooth             *m_bluetoothManager;
     marathon::Display               *m_display;
     FlashlightManagerCpp  *m_flashlightManager;
     Modem       *m_modemManager;

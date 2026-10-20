@@ -15,7 +15,7 @@
 #include "ambienceservice.h"
 #include "wallpaperstore.h"
 #include "marathon-shell-native/src/security.cxxqt.h"
-#include "bluetoothmanager.h"
+#include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "rotationmanager.h"
 #include "flashlightmanagercpp.h"
@@ -738,7 +738,7 @@ void SecurityObject::EraseAllContent(const QString &secret) {
     m_factoryReset->erase(secret);
 }
 
-BluetoothObject::BluetoothObject(BluetoothManager *bt, MarathonPermissionManager *permissions,
+BluetoothObject::BluetoothObject(Bluetooth *bt, MarathonPermissionManager *permissions,
                                  AppLaunchService *launchService, QObject *parent)
     : IpcPermissionedService(permissions, launchService, parent)
     , m_bt(bt) {
@@ -747,48 +747,35 @@ BluetoothObject::BluetoothObject(BluetoothManager *bt, MarathonPermissionManager
     Q_ASSERT(m_launchService);
 
     auto push = [this]() { emit StateChanged(buildState()); };
-    QObject::connect(m_bt, &BluetoothManager::enabledChanged, this, push);
-    QObject::connect(m_bt, &BluetoothManager::scanningChanged, this, push);
-    QObject::connect(m_bt, &BluetoothManager::devicesChanged, this, push);
-    QObject::connect(m_bt, &BluetoothManager::pairedDevicesChanged, this, push);
-    QObject::connect(m_bt, &BluetoothManager::availableChanged, this, push);
-    QObject::connect(m_bt, &BluetoothManager::adapterNameChanged, this, push);
+    QObject::connect(m_bt, &Bluetooth::enabledChanged, this, push);
+    QObject::connect(m_bt, &Bluetooth::scanningChanged, this, push);
+    QObject::connect(m_bt, &Bluetooth::devicesChanged, this, push);
+    QObject::connect(m_bt, &Bluetooth::pairedDevicesChanged, this, push);
+    QObject::connect(m_bt, &Bluetooth::availableChanged, this, push);
+    QObject::connect(m_bt, &Bluetooth::adapterNameChanged, this, push);
 
-    QObject::connect(m_bt, &BluetoothManager::pairingFailed, this, &BluetoothObject::PairingFailed);
-    QObject::connect(m_bt, &BluetoothManager::pairingSucceeded, this,
+    QObject::connect(m_bt, &Bluetooth::pairingFailed, this, &BluetoothObject::PairingFailed);
+    QObject::connect(m_bt, &Bluetooth::pairingSucceeded, this,
                      &BluetoothObject::PairingSucceeded);
-    QObject::connect(m_bt, &BluetoothManager::pinRequested, this, &BluetoothObject::PinRequested);
-    QObject::connect(m_bt, &BluetoothManager::passkeyRequested, this,
+    QObject::connect(m_bt, &Bluetooth::pinRequested, this, &BluetoothObject::PinRequested);
+    QObject::connect(m_bt, &Bluetooth::passkeyRequested, this,
                      &BluetoothObject::PasskeyRequested);
-    QObject::connect(m_bt, &BluetoothManager::passkeyConfirmation, this,
+    QObject::connect(m_bt, &Bluetooth::passkeyConfirmation, this,
                      &BluetoothObject::PasskeyConfirmation);
 }
 
 QVariantList BluetoothObject::buildDevices(bool pairedOnly) const {
-    QVariantList           out;
-    const QList<QObject *> list = pairedOnly ? m_bt->pairedDevices() : m_bt->devices();
-    for (QObject *d : list) {
-        if (!d)
-            continue;
-        out.push_back(QVariant::fromValue(QDBusVariant(QVariantMap{
-            {"address", d->property("address").toString()},
-            {"name", d->property("name").toString()},
-            {"alias", d->property("alias").toString()},
-            {"paired", d->property("paired").toBool()},
-            {"connected", d->property("connected").toBool()},
-            {"trusted", d->property("trusted").toBool()},
-            {"rssi", d->property("rssi").toInt()},
-            {"icon", d->property("icon").toString()},
-        })));
-    }
+    QVariantList out;
+    for (const QVariant &d : pairedOnly ? m_bt->getPairedDevices() : m_bt->getDevices())
+        out.push_back(QVariant::fromValue(QDBusVariant(d)));
     return out;
 }
 
 QVariantMap BluetoothObject::buildState() const {
     return {
-        {"available", m_bt->available()},      {"enabled", m_bt->enabled()},
-        {"scanning", m_bt->scanning()},        {"discoverable", m_bt->discoverable()},
-        {"adapterName", m_bt->adapterName()},  {"devices", buildDevices(false)},
+        {"available", m_bt->getAvailable()},     {"enabled", m_bt->getEnabled()},
+        {"scanning", m_bt->getScanning()},       {"discoverable", m_bt->getDiscoverable()},
+        {"adapterName", m_bt->getAdapterName()}, {"devices", buildDevices(false)},
         {"pairedDevices", buildDevices(true)},
     };
 }

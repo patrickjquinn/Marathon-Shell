@@ -77,7 +77,7 @@
 #include "src/dbus/portalsettings.h"
 #include "src/dbus/portalfilechooser.h"
 #include "src/models/filechoosermodel.h"
-#include "src/managers/bluetoothmanager.h"
+#include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
 #include "marathonappinstaller.h"
@@ -843,14 +843,16 @@ int main(int argc, char *argv[]) {
     app.installEventFilter(wakeTouchFilter);
     QObject::connect(display, &marathon::Display::screenOnChanged, wakeTouchFilter,
                      [=] { wakeTouchFilter->setScreenOn(display->getScreenOn()); });
-    auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
+    auto *bluetoothManager = new Bluetooth();
+    bluetoothManager->setParent(&app);
+    ctx->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     // The device name is what other Bluetooth devices see.
     auto applyDeviceName = [bluetoothManager, settingsManager]() {
         bluetoothManager->setAdapterAlias(settingsManager->deviceName());
     };
     QObject::connect(settingsManager, &SettingsManager::deviceNameChanged, bluetoothManager,
                      applyDeviceName);
-    QObject::connect(bluetoothManager, &BluetoothManager::availableChanged, bluetoothManager,
+    QObject::connect(bluetoothManager, &Bluetooth::availableChanged, bluetoothManager,
                      applyDeviceName);
     startupMark("system managers");
     auto *locationManager  = new LocationManager(&app);

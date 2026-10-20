@@ -9,6 +9,7 @@ extern crate marathon_rt;
 pub(crate) use marathon_rt::{io, log};
 
 mod audit;
+pub mod bluetooth;
 mod cgroup;
 mod clock;
 pub mod contacts;

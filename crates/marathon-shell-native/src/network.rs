@@ -1081,7 +1081,7 @@ impl Actor {
 /// Soft-blocks or unblocks every rfkill switch of the given types; the
 /// number of switches written. sysfs, not the rfkill CLI, which aborts on
 /// some rows.
-fn set_rfkill(types: &[&str], block: bool) -> usize {
+pub(crate) fn set_rfkill(types: &[&str], block: bool) -> usize {
     let Ok(entries) = std::fs::read_dir("/sys/class/rfkill") else { return 0 };
     entries
         .filter_map(Result::ok)
