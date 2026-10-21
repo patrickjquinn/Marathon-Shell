@@ -111,7 +111,7 @@ class TestAppInstallerClient : public QObject {
         for (QObject *o : std::initializer_list<QObject *>{&registry, &scanner, &installer, &store})
             o->moveToThread(&serviceThread);
         serviceThread.start();
-        QVERIFY(shell.registerService("org.marathonos.Shell.Session"));
+        QVERIFY(shell.registerService("org.marathonos.Shell"));
     }
     void cleanupTestCase() {
         serviceThread.quit();

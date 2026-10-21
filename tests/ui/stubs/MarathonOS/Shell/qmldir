@@ -14,7 +14,7 @@ singleton Power 1.0 Power.qml
 singleton Logger 1.0 Logger.qml
 singleton WallpaperStore 1.0 WallpaperStore.qml
 singleton Tasks 1.0 Tasks.qml
-singleton AppInstances 1.0 ../../../../../shell/qml/core/AppInstances.qml
+singleton AppInstances 1.0 AppInstances.qml
 singleton SurfaceRegistry 1.0 SurfaceRegistry.qml
 singleton NotificationModel 1.0 NotificationModel.qml
 singleton NotificationService 1.0 NotificationService.qml
@@ -32,7 +32,7 @@ NotificationIcon 1.0 ../../../../../shell/qml/ui/NotificationIcon.qml
 NotificationActions 1.0 ../../../../../shell/qml/ui/NotificationActions.qml
 singleton Router 1.0 Router.qml
 singleton AlarmManagerCpp 1.0 AlarmManagerCpp.qml
-singleton AudioPolicyControllerCpp 1.0 AudioPolicyControllerCpp.qml
+singleton AudioManagerCpp 1.0 AudioManagerCpp.qml
 singleton UIStore 1.0 UIStore.qml
 singleton SystemStatusStore 1.0 SystemStatusStore.qml
 singleton MPhoneNumber 1.0 ../../../../../shell/qml/ui/MPhoneNumber.qml

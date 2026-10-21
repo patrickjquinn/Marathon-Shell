@@ -144,27 +144,26 @@ mod tests {
             format!(r#""(?:Has|Request)Permission", m_appId, {name}"#),
             format!(r"allowed\({name},"),
             format!(r#"answers\("\w+",\s*{name}\)"#),
+            r#"admit\(&?h, "\w+", &\[([^\]]*)\]"#.to_owned(),
         ]
         .iter()
         .map(|p| regex::Regex::new(p).unwrap())
         .collect();
         let quoted = regex::Regex::new(r#""([a-z][a-z-]*)""#).unwrap();
         let mut seen = BTreeSet::new();
-        let clients = fs::read_dir(root.join("crates/marathon-app-native/src")).unwrap();
-        let files = [
-            "shell/src/ipc/shellservices.h",
-            "shell/src/ipc/shellservices.cpp",
-            "shell/src/services/applaunchservice.cpp",
-            "shell/main.cpp",
-            "tools/marathon-app-runner/main.cpp",
-        ]
-        .map(|file| root.join(file))
-        .into_iter()
-        .chain(clients.map(|entry| entry.unwrap().path()));
+        let sources = |dir: &str| fs::read_dir(root.join(dir)).unwrap().map(|entry| entry.unwrap().path()).filter(|p| p.is_file());
+        let files = ["shell/main.cpp", "tools/marathon-app-runner/main.cpp"]
+            .map(|file| root.join(file))
+            .into_iter()
+            .chain(sources("crates/marathon-app-native/src"))
+            .chain(sources("crates/marathon-shell-native/src"))
+            .chain(sources("crates/marathon-shell-native/src/tasks"));
         for file in files {
-            let text = fs::read_to_string(file).unwrap();
+            let source = fs::read_to_string(&file).unwrap();
+            // A Rust file's tests call its gates with an app's id.
+            let text = if file.extension().is_some_and(|e| e == "rs") { source.split("#[cfg(test)]").next().unwrap_or_default() } else { source.as_str() };
             for gate in &gates {
-                for capture in gate.captures_iter(&text) {
+                for capture in gate.captures_iter(text) {
                     let names = &capture[1];
                     if names.contains('"') {
                         seen.extend(quoted.captures_iter(names).map(|c| c[1].to_owned()));
