@@ -500,104 +500,6 @@ Item {
             }
         }
 
-        // ── Activity NowBar ─────────────────────────────────
-        // Per screens-modern.jsx:LockNowBar — a second activity strip
-        // beneath the time, showing Move / Stand ring progress. Bound
-        // to ActivityService (Oxford C-Step-Counter).
-        // Hidden when no media card is up and no rings are closed yet,
-        // so a brand-new device doesn't crowd the lock with zero-state
-        // chrome.
-        Item {
-            id: activityBar
-
-            readonly property bool serviceUp: typeof ActivityService !== "undefined" && ActivityService !== null && ActivityService.available
-            readonly property int moveP: serviceUp ? Math.round(ActivityService.movePercent * 100) : 0
-            readonly property int exerciseP: serviceUp ? Math.round(ActivityService.exercisePercent * 100) : 0
-            readonly property int standP: serviceUp ? Math.round(ActivityService.standPercent * 100) : 0
-            readonly property int ringsLeft: {
-                let n = 0;
-                if (moveP < 100)
-                    n++;
-                if (exerciseP < 100)
-                    n++;
-                if (standP < 100)
-                    n++;
-                return n;
-            }
-            readonly property int rawSteps: serviceUp ? ActivityService.stepsToday : 0
-            readonly property bool anyProgress: rawSteps > 0 || moveP > 0 || exerciseP > 0 || standP > 0
-
-            visible: serviceUp && anyProgress && !lockScreenMediaPlayer.hasMedia
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: Silica.Theme.horizontalPageMargin
-            anchors.rightMargin: Silica.Theme.horizontalPageMargin
-            anchors.top: clockColumn.bottom
-            anchors.topMargin: Silica.Theme.paddingLarge * 2
-            height: Math.max(rings.height, activityText.height)
-
-            Row {
-                anchors.fill: parent
-                spacing: Silica.Theme.paddingLarge
-
-                // 44 × 44 squircle with three concentric activity rings.
-                // The arc widths are constants; ring fill is communicated
-                // by the percentages above instead of redrawing arcs each
-                // frame.
-                Rectangle {
-                    id: rings
-
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Silica.Theme.itemSizeExtraSmall
-                    height: width
-                    radius: width / 2
-                    color: "transparent"
-                    border.width: Math.round(Silica.Theme.paddingSmall / 2)
-                    border.color: Qt.rgba(255 / 255, 59 / 255, 71 / 255, activityBar.moveP > 0 ? 0.9 : 0.25)
-
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: parent.width - parent.border.width * 6
-                        height: width
-                        radius: width / 2
-                        color: "transparent"
-                        border.width: parent.border.width
-                        border.color: Qt.rgba(165 / 255, 255 / 255, 132 / 255, activityBar.exerciseP > 0 ? 0.9 : 0.25)
-                    }
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: parent.width - parent.border.width * 12
-                        height: width
-                        radius: width / 2
-                        color: "transparent"
-                        border.width: parent.border.width
-                        border.color: Qt.rgba(0 / 255, 191 / 255, 255 / 255, activityBar.standP > 0 ? 0.9 : 0.25)
-                    }
-                }
-
-                Column {
-                    id: activityText
-
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - rings.width - parent.spacing
-
-                    Silica.Label {
-                        width: parent.width
-                        text: "Move " + activityBar.moveP + "% · Stand " + activityBar.standP + "%"
-                        color: Silica.Theme.primaryColor
-                        truncationMode: Silica.TruncationMode.Fade
-                    }
-                    Silica.Label {
-                        width: parent.width
-                        text: activityBar.ringsLeft === 0 ? "All rings closed today" : activityBar.ringsLeft + " ring" + (activityBar.ringsLeft === 1 ? "" : "s") + " left to close before bed"
-                        color: Silica.Theme.secondaryColor
-                        font.pixelSize: Silica.Theme.fontSizeExtraSmall
-                        truncationMode: Silica.TruncationMode.Fade
-                    }
-                }
-            }
-        }
-
         // ── Media card (LockMedia variant) ──────────────────
         // Per screens-shell.jsx:188-240 LockMedia(): absolute
         // positioned at top:360, left/right:18. Visible only when
@@ -626,7 +528,7 @@ Item {
             anchors.right: parent.right
             anchors.leftMargin: Silica.Theme.horizontalPageMargin
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
-            anchors.top: lockScreenMediaPlayer.visible ? lockScreenMediaPlayer.bottom : (activityBar.visible ? activityBar.bottom : clockColumn.bottom)
+            anchors.top: lockScreenMediaPlayer.visible ? lockScreenMediaPlayer.bottom : clockColumn.bottom
             anchors.topMargin: Silica.Theme.paddingLarge * 2
             spacing: Silica.Theme.paddingMedium
             visible: unreadModel.count > 0 || lockScreen.moreCount > 0

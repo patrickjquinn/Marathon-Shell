@@ -51,7 +51,6 @@
 #include "marathon-shell-native/src/pressure.cxxqt.h"
 #include "marathon-shell-native/src/notifications.cxxqt.h"
 #include "marathon-shell-native/src/push.cxxqt.h"
-#include "marathon-shell-native/src/motion.cxxqt.h"
 #include "marathon-shell-native/src/timezone.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
@@ -1193,7 +1192,6 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<marathon::Permissions>("MarathonOS.Shell", 1, 0,
                                                         "PermissionManager", permissionManager);
 
-    createObject<marathon::ActivityService>(ctx, "ActivityService")->setParent(&app);
 
     auto *contacts           = new Contacts();
     contacts->setParent(&app);

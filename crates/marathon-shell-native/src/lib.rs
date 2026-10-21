@@ -31,7 +31,6 @@ pub mod layouts;
 pub mod links;
 pub mod location;
 pub mod modem;
-pub mod motion;
 pub mod mpris;
 pub mod network;
 pub mod ngf;

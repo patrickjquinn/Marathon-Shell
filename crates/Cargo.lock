@@ -2646,7 +2646,6 @@ dependencies = [
  "async-tungstenite",
  "base64 0.23.1",
  "blocking",
- "cc",
  "cxx",
  "cxx-qt",
  "cxx-qt-build",
