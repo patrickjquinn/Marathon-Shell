@@ -48,6 +48,7 @@ mod timezone;
 mod variant;
 pub mod tasks;
 pub mod telephonyd;
+pub mod text_input;
 pub mod updates;
 mod wake_timer;
 pub mod weather;

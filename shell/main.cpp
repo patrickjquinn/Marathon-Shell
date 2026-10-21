@@ -115,6 +115,7 @@
 #include "src/services/languagemanager.h"
 #include "src/services/inputcontext.h"
 #include "src/services/remotetextinput.h"
+#include "marathon-shell-native/src/text_input.cxxqt.h"
 #include "marathon-shell-native/src/words.cxxqt.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
@@ -815,8 +816,11 @@ int main(int argc, char *argv[]) {
     createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
     qInfo() << "Input Method Engine initialized";
 
-    auto *remoteTextInput = createObject<RemoteTextInput>(
-        ctx, "RemoteTextInput",
+    auto *remoteTextInput = new RemoteTextInput();
+    remoteTextInput->setParent(&app);
+    ctx->setContextProperty(QStringLiteral("RemoteTextInput"), remoteTextInput);
+    auto *remoteTextInputFilter = new RemoteTextInputFilter(
+        remoteTextInput,
         [compositorManager](QObject *object) -> QString {
 #ifdef HAVE_WAYLAND
             return RemoteTextInputTarget::appIdOf(object, compositorManager->compositor());
@@ -826,6 +830,11 @@ int main(int argc, char *argv[]) {
 #endif
         },
         &app);
+    QObject::connect(remoteTextInput, &RemoteTextInput::panelWanted, remoteTextInputFilter,
+                     [=](bool show) {
+                         if (!show || remoteTextInputFilter->targetsFocus())
+                             remoteTextInput->panelRequested(show);
+                     });
 
     auto *appModel = new Apps();
     appModel->setParent(&app);
@@ -1432,14 +1441,7 @@ int main(int argc, char *argv[]) {
             !QDBusConnection::sessionBus().registerService(
                 QStringLiteral("org.freedesktop.impl.portal.desktop.marathon")))
             qWarning() << "[MarathonShell] Portal backends not registered";
-        if (!QDBusConnection::sessionBus().registerService(QStringLiteral("org.marathonos.Shell.Session")))
-            qWarning() << "[MarathonShell] org.marathonos.Shell.Session not owned";
         marathon::ipc::own_name();
-        if (!QDBusConnection::sessionBus().registerObject(
-                QStringLiteral("/org/marathonos/Shell/TextInput"),
-                new RemoteTextInputService(remoteTextInput, &app),
-                QDBusConnection::ExportAllSlots))
-            qWarning() << "[MarathonShell] TextInput1 not served";
         auto *keelActions =
             new ShellKeelActions(appModel, tasks, uiStore, sessionStore, display, &app);
         if (!keelActions->registerOnSessionBus())

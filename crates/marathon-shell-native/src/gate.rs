@@ -13,7 +13,7 @@ use std::path::Path;
 use std::sync::{LazyLock, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use cxx_qt_lib::{QList, QString, QStringList};
+use cxx_qt_lib::QString;
 
 use crate::audit::{self, Severity};
 use crate::permissions;
@@ -23,16 +23,12 @@ mod ffi {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
-        include!("cxx-qt-lib/qstringlist.h");
-        type QStringList = cxx_qt_lib::QStringList;
     }
 
     #[namespace = "marathon::gate"]
     extern "Rust" {
         /// The caller behind a process, empty when unknown.
         fn caller_of_pid(pid: i64) -> QString;
-        /// A declared session service may use `permissions`.
-        fn service_allows(caller: &QString, permissions: &QStringList) -> bool;
     }
 }
 
@@ -169,10 +165,6 @@ fn declared_by_service(caller: &str, permissions: &[String], dir: &Path) -> bool
     declared["permissions"].as_array().is_some_and(|d| permissions.iter().any(|p| d.iter().any(|v| v.as_str() == Some(p))))
 }
 
-fn service_allows(caller: &QString, permissions: &QStringList) -> bool {
-    declared_by_service(&caller.to_string(), &strings(permissions), Path::new(SERVICES))
-}
-
 pub(crate) fn in_window(sender: &str, area: &str) -> bool {
     let now = Instant::now();
     let mut calls = lock(&CALLS);
@@ -185,10 +177,6 @@ pub(crate) fn in_window(sender: &str, area: &str) -> bool {
     }
     window.push_back(now);
     true
-}
-
-fn strings(list: &QStringList) -> Vec<String> {
-    QList::<QString>::from(list).iter().map(ToString::to_string).collect()
 }
 
 /// The caller, when `sender` (process `pid`) may use any of `permissions` for `area`.

@@ -1,12 +1,8 @@
 #include "remotetextinput.h"
-#include "../ipc/callerpid.h"
 
-#include "marathon-shell-native/src/gate.cxxqt.h"
+#include "marathon-shell-native/src/text_input.cxxqt.h"
 
 #include <QCoreApplication>
-#include <QDBusConnection>
-#include <QDBusConnectionInterface>
-#include <QDBusMessage>
 #include <QGuiApplication>
 #include <QInputDevice>
 #include <QInputMethodEvent>
@@ -57,27 +53,23 @@ namespace {
             default: return {};
         }
     }
-
-    // NOLINTBEGIN(bugprone-throwing-static-initialization) QStringLiteral never allocates
-    const QString kPath      = QStringLiteral("/org/marathonos/Shell/TextInput");
-    const QString kInterface = QStringLiteral("org.marathonos.Shell.TextInput1");
-    // NOLINTEND(bugprone-throwing-static-initialization)
 } // namespace
 
-RemoteTextInput::RemoteTextInput(AppIdOf appIdOf, QObject *parent)
+RemoteTextInputFilter::RemoteTextInputFilter(RemoteTextInput *input, AppIdOf appIdOf, QObject *parent)
     : QObject(parent)
+    , m_input(input)
     , m_appIdOf(std::move(appIdOf)) {
     QCoreApplication::instance()->installEventFilter(this);
 }
 
-RemoteTextInput::~RemoteTextInput() {
+RemoteTextInputFilter::~RemoteTextInputFilter() {
     if (QCoreApplication::instance())
         QCoreApplication::instance()->removeEventFilter(this);
 }
 
 // Qt's own text-input v3 mapping (qwaylandtextinputv3.cpp), so an app's
 // field reads the same to the keyboard whichever way it arrives.
-Qt::InputMethodHints RemoteTextInput::qtHints(uint purpose, uint hints) {
+Qt::InputMethodHints RemoteTextInputFilter::qtHints(uint purpose, uint hints) {
     Qt::InputMethodHints out;
     if (!(hints & Completion))
         out |= Qt::ImhNoPredictiveText;
@@ -112,128 +104,46 @@ Qt::InputMethodHints RemoteTextInput::qtHints(uint purpose, uint hints) {
     return out;
 }
 
-bool RemoteTextInput::owns(const QString &appId) const {
-    return !m_prefix.isEmpty() && appId.size() > m_prefix.size() && appId.startsWith(m_prefix);
-}
-
-bool RemoteTextInput::handles(const QString &appId) const {
-    return owns(appId);
-}
-
 // The editor's window, or, while Qt's focus is on no window and no text field
 // of the shell's, the app in front.
-bool RemoteTextInput::targets(QObject *object) const {
-    if (!object || m_editor.appId.isEmpty())
+bool RemoteTextInputFilter::targets(QObject *object) const {
+    const QString editor = m_input->editorAppId();
+    if (!object || editor.isEmpty())
         return false;
     const QString appId = m_appIdOf ? m_appIdOf(object) : QString();
     if (!appId.isEmpty())
-        return appId == m_editor.appId;
+        return appId == editor;
     auto *item = qobject_cast<QQuickItem *>(object);
     if (item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod))
         return false;
-    return m_frontAppId == m_editor.appId;
+    return m_input->getFrontAppId() == editor;
 }
 
-void RemoteTextInput::setFrontAppId(const QString &appId) {
-    if (m_frontAppId == appId)
-        return;
-    m_frontAppId = appId;
-    emit frontAppIdChanged();
+bool RemoteTextInputFilter::targetsFocus() const {
+    return targets(QGuiApplication::focusObject());
 }
 
-void RemoteTextInput::setService(const QString &appIdPrefix) {
-    if (m_prefix == appIdPrefix)
-        return;
-    m_prefix = appIdPrefix;
-    m_editor = {};
-    emit appIdPrefixChanged();
-}
-
-bool RemoteTextInput::setEditor(const QString &appId, uint purpose, uint hints) {
-    if (!owns(appId))
-        return false;
-    const Qt::InputMethodHints qt      = qtHints(purpose, hints);
-    const bool                 changed = m_editor.appId != appId || m_editor.hints != qt;
-    m_editor                           = {appId, qt, {}, 0, 0};
-    if (changed)
-        emit hintsChanged();
-    return true;
-}
-
-bool RemoteTextInput::setSurroundingText(const QString &appId, const QString &text, int cursor,
-                                         int anchor) {
-    if (!owns(appId) || appId != m_editor.appId)
-        return false;
-    const int size  = int(text.size());
-    m_editor.text   = text;
-    m_editor.cursor = std::clamp(cursor, 0, size);
-    m_editor.anchor = std::clamp(anchor, 0, size);
-    return true;
-}
-
-bool RemoteTextInput::clearEditor(const QString &appId) {
-    if (!owns(appId))
-        return false;
-    if (m_editor.appId == appId)
-        m_editor = {};
-    return true;
-}
-
-// Shown only for the window in front; hiding needs no focus.
-bool RemoteTextInput::requestPanel(const QString &appId, bool show) {
-    if (!owns(appId) || appId != m_editor.appId)
-        return false;
-    if (show && !targets(QGuiApplication::focusObject()))
-        return false;
-    emit panelRequested(show);
-    return true;
-}
-
-void RemoteTextInput::setPanel(const QString &appId, int covered, int height) {
-    if (!owns(appId))
-        return;
-    covered = std::max(0, covered);
-    if (appId == m_panelAppId && covered == m_covered && height == m_height)
-        return;
-    m_panelAppId = appId;
-    m_covered    = covered;
-    m_height     = height;
-    emit panelChanged(appId, covered, height);
-}
-
-QVariant RemoteTextInput::query(Qt::InputMethodQuery query) const {
-    const int from = std::min(m_editor.cursor, m_editor.anchor);
-    const int to   = std::max(m_editor.cursor, m_editor.anchor);
+QVariant RemoteTextInputFilter::query(Qt::InputMethodQuery query) const {
+    const QString text   = m_input->editorText();
+    const int     cursor = m_input->editorCursor();
+    const int     anchor = m_input->editorAnchor();
+    const int     from   = std::min(cursor, anchor);
     switch (query) {
         case Qt::ImEnabled: return true;
-        case Qt::ImHints: return int(m_editor.hints);
-        case Qt::ImSurroundingText: return m_editor.text;
-        case Qt::ImCursorPosition: return m_editor.cursor;
-        case Qt::ImAnchorPosition: return m_editor.anchor;
-        case Qt::ImTextBeforeCursor: return m_editor.text.left(m_editor.cursor);
-        case Qt::ImTextAfterCursor: return m_editor.text.mid(m_editor.cursor);
-        case Qt::ImCurrentSelection: return m_editor.text.mid(from, to - from);
+        case Qt::ImHints: return int(qtHints(m_input->editorPurpose(), m_input->editorHints()));
+        case Qt::ImSurroundingText: return text;
+        case Qt::ImCursorPosition: return cursor;
+        case Qt::ImAnchorPosition: return anchor;
+        case Qt::ImTextBeforeCursor: return text.left(cursor);
+        case Qt::ImTextAfterCursor: return text.mid(cursor);
+        case Qt::ImCurrentSelection: return text.mid(from, std::max(cursor, anchor) - from);
         default: return {};
     }
 }
 
-// The edit is applied to the reported text at once, so the keyboard's next
-// query sees it before the app reports back.
-void RemoteTextInput::edit(const QString &text, int before, int after) {
-    QString &t    = m_editor.text;
-    int      from = std::min(m_editor.cursor, m_editor.anchor);
-    int      to   = std::max(m_editor.cursor, m_editor.anchor);
-    if (from == to) {
-        from = std::max(0, from - before);
-        to   = std::min(int(t.size()), to + after);
-    }
-    t.replace(from, to - from, text);
-    m_editor.cursor = m_editor.anchor = from + int(text.size());
-}
-
 // Replacements reach the service as counts around the cursor; any other
 // range would need a selection protocol nobody sends.
-void RemoteTextInput::commit(const QInputMethodEvent &event) {
+void RemoteTextInputFilter::commit(const QInputMethodEvent &event) {
     const QString &text   = event.commitString();
     int            before = 0;
     int            after  = 0;
@@ -245,11 +155,10 @@ void RemoteTextInput::commit(const QInputMethodEvent &event) {
     }
     if (text.isEmpty() && before == 0 && after == 0)
         return;
-    edit(text, before, after);
-    emit commitString(m_editor.appId, text, before, after);
+    m_input->commit(text, before, after);
 }
 
-bool RemoteTextInput::eventFilter(QObject *watched, QEvent *event) {
+bool RemoteTextInputFilter::eventFilter(QObject *watched, QEvent *event) {
     switch (event->type()) {
         case QEvent::InputMethodQuery: {
             if (!targets(watched))
@@ -277,104 +186,12 @@ bool RemoteTextInput::eventFilter(QObject *watched, QEvent *event) {
             const QString name = keyName(key->key());
             if (name.isEmpty())
                 break;
-            if (event->type() == QEvent::KeyPress) {
-                if (name == QLatin1String("backspace"))
-                    edit({}, 1, 0);
-                emit this->key(m_editor.appId, name);
-            }
+            if (event->type() == QEvent::KeyPress)
+                m_input->key(name);
             event->accept();
             return true;
         }
         default: break;
     }
     return QObject::eventFilter(watched, event);
-}
-
-RemoteTextInputService::RemoteTextInputService(RemoteTextInput *input, QObject *parent)
-    : QObject(parent)
-    , m_input(input) {
-    m_watcher.setConnection(QDBusConnection::sessionBus());
-    m_watcher.setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
-    connect(&m_watcher, &QDBusServiceWatcher::serviceUnregistered, this,
-            [this](const QString &name) {
-                if (name != m_owner)
-                    return;
-                m_owner.clear();
-                m_watcher.setWatchedServices({});
-                m_input->setService(QString());
-            });
-    connect(input, &RemoteTextInput::commitString, this,
-            [this](const QString &appId, const QString &text, int before, int after) {
-                send(QStringLiteral("CommitString"), {appId, text, before, after});
-            });
-    connect(input, &RemoteTextInput::key, this, [this](const QString &appId, const QString &name) {
-        send(QStringLiteral("Key"), {appId, name});
-    });
-    connect(input, &RemoteTextInput::panelChanged, this,
-            [this](const QString &appId, int covered, int height) {
-                send(QStringLiteral("PanelChanged"), {appId, covered, height});
-            });
-}
-
-void RemoteTextInputService::send(const QString &name, const QVariantList &arguments) {
-    if (m_owner.isEmpty())
-        return;
-    QDBusMessage signal = QDBusMessage::createTargetedSignal(m_owner, kPath, kInterface, name);
-    signal.setArguments(arguments);
-    QDBusConnection::sessionBus().send(signal);
-}
-
-// The caller must be the registered service; Register itself needs the
-// "text-input" permission and takes over from any earlier owner.
-bool RemoteTextInputService::fromOwner() {
-    if (calledFromDBus() && message().service() == m_owner)
-        return true;
-    sendErrorReply(QDBusError::AccessDenied, QStringLiteral("Not the registered input method"));
-    return false;
-}
-
-void RemoteTextInputService::Register(const QString &appIdPrefix) {
-    const QString caller =
-        marathon::gate::caller_of_pid(callerPid(connection(), message().service()));
-    if (!marathon::gate::service_allows(caller, {QStringLiteral("text-input")})) {
-        sendErrorReply(QDBusError::AccessDenied, QStringLiteral("Needs the text-input permission"));
-        return;
-    }
-    if (appIdPrefix.size() < 2 || !appIdPrefix.endsWith(QLatin1Char('.'))) {
-        sendErrorReply(QDBusError::InvalidArgs, QStringLiteral("An app id prefix ends in '.'"));
-        return;
-    }
-    m_owner = message().service();
-    m_watcher.setWatchedServices({m_owner});
-    m_input->setService(appIdPrefix);
-}
-
-void RemoteTextInputService::SetEditor(const QString &appId, uint purpose, uint hints) {
-    if (fromOwner() && !m_input->setEditor(appId, purpose, hints))
-        sendErrorReply(QDBusError::InvalidArgs, QStringLiteral("Not one of your apps"));
-}
-
-void RemoteTextInputService::SetSurroundingText(const QString &appId, const QString &text,
-                                                int cursor, int anchor) {
-    if (text.size() > 4096) {
-        sendErrorReply(QDBusError::InvalidArgs, QStringLiteral("Text too long"));
-        return;
-    }
-    if (fromOwner())
-        m_input->setSurroundingText(appId, text, cursor, anchor);
-}
-
-void RemoteTextInputService::ClearEditor(const QString &appId) {
-    if (fromOwner())
-        m_input->clearEditor(appId);
-}
-
-void RemoteTextInputService::ShowPanel(const QString &appId) {
-    if (fromOwner())
-        m_input->requestPanel(appId, true);
-}
-
-void RemoteTextInputService::HidePanel(const QString &appId) {
-    if (fromOwner())
-        m_input->requestPanel(appId, false);
 }

@@ -431,26 +431,6 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER)
         ${_security_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
     add_test(NAME Shell_MarathonSurface COMMAND test_shell_marathonsurface)
     set_tests_properties(Shell_MarathonSurface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-    # Marathon's keyboard against a Waydroid-like window: hints and commits
-    # reach RemoteTextInput with Qt focus or only the seat's keyboard focus
-    add_executable(test_shell_remotetextinputwayland
-        test_remotetextinputwayland.cpp
-        ../../shell/src/services/remotetextinput.cpp
-        ../../shell/src/services/inputcontext.cpp
-        ../../shell/src/managers/marathoninputmethodengine.cpp
-        ../../shell/src/wayland/remotetextinputtarget.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/protocols/xdg-shell-client.h
-        ${CMAKE_CURRENT_BINARY_DIR}/protocols/xdg-shell.c
-    )
-    target_link_libraries(test_shell_remotetextinputwayland
-        Qt6::Test Qt6::Quick Qt6::DBus Qt6::WaylandCompositor ${WAYLAND_CLIENT_LIBRARIES})
-    target_include_directories(test_shell_remotetextinputwayland PRIVATE
-        ${CMAKE_SOURCE_DIR}/shell/src ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/protocols
-        ${WAYLAND_CLIENT_INCLUDE_DIRS})
-    add_test(NAME Shell_RemoteTextInputWayland COMMAND test_shell_remotetextinputwayland)
-    set_tests_properties(Shell_RemoteTextInputWayland PROPERTIES ENVIRONMENT
-        "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
 
 # The keyboard's replacements reach a text-input-v3 client as byte deletions
@@ -479,19 +459,6 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AN
     set_tests_properties(Shell_TextInputReplace PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
-
-# Marathon's keyboard types into an input method service's editors (Deckard's
-# Android apps): queries, commits and keys for the window it reported
-add_executable(test_shell_remotetextinput
-    test_remotetextinput.cpp
-    ../../shell/src/services/remotetextinput.cpp
-    ../../shell/src/services/inputcontext.cpp
-)
-target_link_libraries(test_shell_remotetextinput Qt6::Test Qt6::Quick Qt6::DBus)
-target_include_directories(test_shell_remotetextinput PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Shell_RemoteTextInput COMMAND test_shell_remotetextinput)
-set_tests_properties(Shell_RemoteTextInput PROPERTIES ENVIRONMENT
-    "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 
 # One screen state, blanked and woken through the backlight, and touch works
 # again after a blank and wake

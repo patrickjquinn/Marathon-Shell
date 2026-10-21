@@ -32,6 +32,7 @@ fn main() {
         .file("src/settings.rs")
         .file("src/tasks.rs")
         .file("src/telephonyd.rs")
+        .file("src/text_input.rs")
         .file("src/timezone.rs")
         .file("src/updates.rs")
         .file("src/weather.rs")
