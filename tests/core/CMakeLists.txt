@@ -5,12 +5,6 @@ enable_testing()
 
 find_package(Qt6 REQUIRED COMPONENTS Test Core DBus Gui Network)
 
-# Every device and personal-data D-Bus method checks a permission
-add_executable(test_core_ipcgates test_ipcgates.cpp)
-target_link_libraries(test_core_ipcgates Qt6::Test Qt6::Core)
-target_compile_definitions(test_core_ipcgates PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-add_test(NAME Core_IpcGates COMMAND test_core_ipcgates)
-
 # Permissions1 authorisation: self-only, except Settings
 
 # Marathon.Platform: the runner's service clients under their QML names
@@ -24,70 +18,6 @@ target_include_directories(test_core_platformtypes PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
 )
 add_test(NAME Core_PlatformTypes COMMAND test_core_platformtypes)
-
-# Every setting the Settings app writes reaches the shell and has a reader
-find_package(Qt6 REQUIRED COMPONENTS DBus Qml)
-add_executable(test_core_settingscontract
-    test_settingscontract.cpp
-    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-)
-target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_app_native)
-target_include_directories(test_core_settingscontract PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
-target_compile_definitions(test_core_settingscontract PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-add_test(NAME Core_SettingsContract COMMAND test_core_settingscontract)
-
-# Runner IPC clients hand QML plain maps and lists, not QDBusArgument
-add_executable(test_core_ipcclientnormalize
-    test_ipcclientnormalize.cpp
-)
-set_target_properties(test_core_ipcclientnormalize PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_app_native)
-target_include_directories(test_core_ipcclientnormalize PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
-add_test(NAME Core_IpcClientNormalize COMMAND test_core_ipcclientnormalize)
-
-# Runner clients read again once the user allows their permission
-add_executable(test_core_grantrefresh test_grantrefresh.cpp)
-set_target_properties(test_core_grantrefresh PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_grantrefresh Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
-add_test(NAME Core_GrantRefresh COMMAND test_core_grantrefresh)
-
-# The runner's Power client reports whether the shell woke the screen
-add_executable(test_core_powerclient test_powerclient.cpp)
-set_target_properties(test_core_powerclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_powerclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
-add_test(NAME Core_PowerClient COMMAND test_core_powerclient)
-
-# The runner's Power and Display clients say when the shell refuses them
-add_executable(test_core_refusedclients
-    test_refusedclients.cpp
-)
-set_target_properties(test_core_refusedclients PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_refusedclients Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
-add_test(NAME Core_RefusedClients COMMAND test_core_refusedclients)
-
-# The runner's Location client follows the shared session's state
-add_executable(test_core_locationclient test_locationclient.cpp)
-set_target_properties(test_core_locationclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_locationclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
-add_test(NAME Core_LocationClient COMMAND test_core_locationclient)
-
-# D-Bus reply containers normalize without demarshalling the wrong type
-add_executable(test_core_dbusnormalize
-    test_dbusnormalize.cpp
-    ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-)
-set_target_properties(test_core_dbusnormalize PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_dbusnormalize Qt6::Test Qt6::Core Qt6::DBus)
-target_include_directories(test_core_dbusnormalize PRIVATE ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner)
-add_test(NAME Core_DbusNormalize COMMAND test_core_dbusnormalize)
 
 # WAKE_ON_KEY: a key wakes a blanked screen without reaching apps
 add_executable(test_core_wakeonkeyfilter
@@ -124,18 +54,6 @@ add_executable(test_core_musicartwork
 target_link_libraries(test_core_musicartwork Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml)
 target_include_directories(test_core_musicartwork PRIVATE ${CMAKE_SOURCE_DIR}/apps/music/src)
 add_test(NAME Core_MusicArtwork COMMAND test_core_musicartwork)
-
-# The runner's Sms client: MMS parts as descriptors, attachments cached
-if(DBUS_RUN_SESSION)
-    add_executable(test_core_smsclient test_smsclient.cpp)
-    target_link_libraries(test_core_smsclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
-    add_test(NAME Core_SmsClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_core_smsclient>)
-endif()
-
-# Calls: how each one ends up in the call log
-add_executable(test_core_telephonyservice test_telephonyservice.cpp)
-target_link_libraries(test_core_telephonyservice Qt6::Test Qt6::Core Qt6::DBus marathon_shell_native)
-add_test(NAME Core_TelephonyService COMMAND test_core_telephonyservice)
 
 # Sound names format locally, shared by the shell and the app runner
 

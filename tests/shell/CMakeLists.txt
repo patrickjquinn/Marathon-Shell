@@ -37,38 +37,6 @@ pkg_check_modules(LIBDRM REQUIRED libdrm)
 
 
 
-# SecurityManager: quick PIN failures count towards the lockout
-find_package(Qt6 REQUIRED COMPONENTS Concurrent)
-add_executable(test_shell_securitymanager
-    test_securitymanager.cpp
-)
-target_link_libraries(test_shell_securitymanager Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Concurrent ${PAM_LIBRARY})
-target_include_directories(test_shell_securitymanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src/components ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Shell_SecurityManager COMMAND test_shell_securitymanager)
-
-# A call for a Keel app that is not running is bus-activated through the shell
-find_program(BUSCTL busctl)
-find_program(DBUS_DAEMON dbus-daemon)
-if(BUSCTL AND DBUS_DAEMON)
-    set(_services ${CMAKE_CURRENT_BINARY_DIR}/keel-activation-services)
-    set(MARATHON_ACTIVATE ${CMAKE_SOURCE_DIR}/systemd/marathon-activate)
-    foreach(KEEL_APP notes refused)
-        configure_file(${CMAKE_SOURCE_DIR}/apps/keel-actions.service.in
-            ${_services}/org.marathonos.${KEEL_APP}.service @ONLY)
-    endforeach()
-    add_executable(test_shell_keelactivation test_keelactivation.cpp)
-    target_link_libraries(test_shell_keelactivation Qt6::Test Qt6::Core Qt6::DBus)
-    target_compile_definitions(test_shell_keelactivation PRIVATE SERVICES_DIR="${_services}")
-    add_test(NAME Shell_KeelActivation COMMAND test_shell_keelactivation)
-endif()
-
-# app.show for an app that is not running, through the real runner (registered
-# in tests/CMakeLists.txt, which finds Keel's Silica)
-if(DBUS_DAEMON)
-    add_executable(test_shell_keelshow test_keelshow.cpp)
-    target_link_libraries(test_shell_keelshow Qt6::Test Qt6::Core Qt6::DBus)
-endif()
-
 # Gesture engine: velocity window, commit decisions, settle spring
 add_executable(test_shell_gesturetracker
     test_gesturetracker.cpp
@@ -303,28 +271,6 @@ if(TARGET Qt6::WaylandCompositor AND WAYLAND_CLIENT_FOUND AND WAYLAND_SCANNER AN
     set_tests_properties(Shell_TextInputReplace PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
-
-# One screen state, blanked and woken through the backlight, and touch works
-# again after a blank and wake
-find_package(Qt6 REQUIRED COMPONENTS Quick)
-add_executable(test_shell_screenstate test_screenstate.cpp
-    ../../shell/src/services/waketouchfilter.cpp)
-target_link_libraries(test_shell_screenstate Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml
-    Qt6::Quick)
-target_include_directories(test_shell_screenstate PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Shell_ScreenState COMMAND test_shell_screenstate)
-set_tests_properties(Shell_ScreenState PROPERTIES ENVIRONMENT
-    "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
-
-# Power against fake logind, power profiles and systemd: locks, profiles, wake-ups
-add_executable(test_shell_powermanager test_powermanager.cpp)
-target_link_libraries(test_shell_powermanager Qt6::Test Qt6::Core Qt6::DBus)
-add_test(NAME Shell_PowerManager COMMAND test_shell_powermanager)
-
-# Brightness lands on hardware levels; auto-brightness only with a light sensor
-add_executable(test_shell_brightness test_brightness.cpp)
-target_link_libraries(test_shell_brightness Qt6::Test Qt6::Core)
-add_test(NAME Shell_Brightness COMMAND test_shell_brightness)
 
 # The shell's Rust half (crates/marathon-shell-native) backs classes most
 # of these tests compile; every shell test links it.

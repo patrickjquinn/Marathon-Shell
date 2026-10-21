@@ -5,7 +5,6 @@ set(SOURCES
     src/components/svgimageprovider.h
     src/ipc/shellkeelactions.h
     src/ipc/shellkeelactions.cpp
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc/dbusnormalize.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/marathoninputmethodengine.h
@@ -415,7 +414,6 @@ target_include_directories(marathon-shell PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/managers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/models
     ${CMAKE_CURRENT_SOURCE_DIR}/src/controllers
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Gui)
