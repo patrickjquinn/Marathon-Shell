@@ -14,6 +14,7 @@ use zbus::zvariant::OwnedValue;
 
 use crate::ipc::{self, value, State};
 use crate::io;
+use marathon_rt::qvariant;
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {
@@ -301,7 +302,7 @@ impl Ambience {
 }
 
 fn state(map: &Map) -> State {
-    map.iter().filter_map(|(k, v)| Some((k.to_string(), crate::variant::to_value(v)?))).collect()
+    map.iter().filter_map(|(k, v)| Some((k.to_string(), qvariant::from_qt(v)?.try_to_owned().ok()?))).collect()
 }
 
 struct Ambience1 {

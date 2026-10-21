@@ -70,7 +70,7 @@ pub fn qlist(items: &[OwnedValue]) -> QList<QVariant> {
 }
 
 /// An `a{sv}` reply as a `QVariantMap`.
-pub fn qmap(entries: &HashMap<String, OwnedValue>) -> QMap<QMapPair_QString_QVariant> {
+pub fn qmap<S: std::hash::BuildHasher>(entries: &HashMap<String, OwnedValue, S>) -> QMap<QMapPair_QString_QVariant> {
     let mut map = QMap::<QMapPair_QString_QVariant>::default();
     for (key, item) in entries {
         map.insert(QString::from(key), to_qt(item));

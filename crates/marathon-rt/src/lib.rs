@@ -5,6 +5,8 @@ pub mod daemon;
 pub mod dirs;
 pub mod io;
 pub mod log;
+#[cfg(feature = "qt")]
+pub mod qvariant;
 #[cfg(feature = "testing")]
 pub mod testing;
 
