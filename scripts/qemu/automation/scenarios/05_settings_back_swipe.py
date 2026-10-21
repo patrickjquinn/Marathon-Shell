@@ -41,7 +41,7 @@ def run(drv: QemuDriver, since: str) -> int:
         return 0
 
     drv.ssh("sudo -u user -i bash -lc "
-            "'busctl --user call org.marathonos.Shell.Session "
+            "'busctl --user call org.marathonos.Shell "
             "/org/marathonos/Shell/Navigation "
             "org.marathonos.Shell.Navigation1 LaunchApp s settings'")
     time.sleep(4)

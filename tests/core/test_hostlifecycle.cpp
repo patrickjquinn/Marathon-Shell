@@ -17,7 +17,7 @@ class TestHostLifecycle : public QObject {
     QString       address;
     QTemporaryDir runtime;
 
-    // From the shell's side, as AppLaunchService calls it.
+    // From the shell's side, as Tasks calls it.
     QDBusMessage callAs(const QString &connection, const QString &appId, const QString &method,
                         const QVariantList &args) {
         QDBusConnection bus = QDBusConnection::connectToBus(address, connection);

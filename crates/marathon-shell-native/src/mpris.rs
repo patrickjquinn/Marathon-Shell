@@ -209,7 +209,9 @@ impl Mpris {
         let text = |s: &str| QString::from(s);
         let active = p.active && !p.bus_name.is_empty();
         let status = if active { p.status.as_str() } else { "Stopped" };
-        if self.has_active_player != active || self.player_name != text(&p.name) || self.desktop_entry != text(&p.desktop_entry) || self.bus_name != text(&p.bus_name) {
+        let changed_player = self.has_active_player != active || self.player_name != text(&p.name) || self.desktop_entry != text(&p.desktop_entry) || self.bus_name != text(&p.bus_name);
+        let changed_status = self.playback_status != text(status);
+        if changed_player {
             let mut rust = self.as_mut().rust_mut();
             rust.has_active_player = active;
             rust.player_name = text(&p.name);
@@ -217,12 +219,15 @@ impl Mpris {
             rust.bus_name = text(&p.bus_name);
             self.as_mut().active_player_changed();
         }
-        if self.playback_status != text(status) {
+        if changed_status {
             let mut rust = self.as_mut().rust_mut();
             rust.playback_status = text(status);
             rust.is_playing = status == "Playing";
             rust.is_paused = status == "Paused";
             self.as_mut().playback_status_changed();
+        }
+        if changed_player || changed_status {
+            crate::tasks::playback_changed(p.bus_name.clone(), p.desktop_entry.clone(), active && status == "Playing");
         }
         let t = &p.track;
         if self.track_title != text(&t.title) || self.track_artist != text(&t.artist) || self.track_album != text(&t.album) || self.album_art_url != text(&t.art_url) || self.track_length != t.length {

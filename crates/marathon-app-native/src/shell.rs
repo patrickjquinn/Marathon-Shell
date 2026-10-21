@@ -52,7 +52,6 @@ pub fn cache_dir() -> &'static str {
 pub type State = HashMap<String, OwnedValue>;
 
 const SHELL: &str = "org.marathonos.Shell";
-const SESSION: &str = "org.marathonos.Shell.Session";
 
 /// `org.marathonos.Shell.<name>1` at `/org/marathonos/Shell/<name>`, on the
 /// shell or on the daemon that serves it now.
@@ -67,11 +66,6 @@ pub const PERMISSIONS: Service = Service::shell("Permissions");
 impl Service {
     pub const fn shell(name: &'static str) -> Self {
         Self { name, bus: SHELL }
-    }
-
-    /// One the shell's C++ session still serves.
-    pub const fn session(name: &'static str) -> Self {
-        Self { name, bus: SESSION }
     }
 
     pub const fn on(bus: &'static str, name: &'static str) -> Self {

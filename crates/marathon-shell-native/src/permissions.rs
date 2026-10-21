@@ -462,6 +462,13 @@ pub(crate) fn ask_if_undecided(app: &str, permissions: &[String]) -> Option<Stri
 }
 
 
+/// Runs `f` on the permissions, on the GUI thread.
+pub(crate) fn with(f: impl FnOnce(Pin<&mut Permissions>) + Send + 'static) {
+    if let Some(qt) = QT.get() {
+        qt.queue(f).ok();
+    }
+}
+
 fn strings(list: &QStringList) -> Vec<String> {
     QList::<QString>::from(list).iter().map(ToString::to_string).collect()
 }
@@ -568,7 +575,7 @@ impl Permissions {
         });
     }
 
-    fn request_declared_permissions(self: Pin<&mut Self>, app_id: &QString) {
+    pub(crate) fn request_declared_permissions(self: Pin<&mut Self>, app_id: &QString) {
         let app = app_id.to_string();
         self.with(|core, out| {
             for permission in core.apps.get(&app).map(|f| f.declared.clone()).unwrap_or_default() {
@@ -626,7 +633,7 @@ impl Permissions {
         self.with(|core, out| core.dismiss_for(None, out));
     }
 
-    fn dismiss_for_app(self: Pin<&mut Self>, app_id: &QString) {
+    pub(crate) fn dismiss_for_app(self: Pin<&mut Self>, app_id: &QString) {
         let app = app_id.to_string();
         if !app.is_empty() {
             self.with(|core, out| core.dismiss_for(Some(&app), out));

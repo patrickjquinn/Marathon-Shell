@@ -324,6 +324,8 @@ impl Modem {
         let qstate = QString::from(state);
         self.as_mut().rust_mut().call_state = qstate.clone();
         self.as_mut().call_state_changed(&qstate);
+        let in_call = matches!(state, "active" | "ringing" | "incoming" | "dialing" | "outgoing" | "alerting" | "held" | "waiting");
+        crate::tasks::with(move |t| t.call_active(in_call));
         let ended = matches!(state, "idle" | "terminated");
         if matches!(state, "active" | "dialing" | "incoming") {
             self.command(Command::Inhibit(true));

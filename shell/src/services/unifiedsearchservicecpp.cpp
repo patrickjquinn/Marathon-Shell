@@ -1,6 +1,6 @@
 #include "unifiedsearchservicecpp.h"
 
-#include "applaunchservice.h"
+#include "marathon-shell-native/src/tasks.cxxqt.h"
 #include "marathon-shell-native/src/apps.cxxqt.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
@@ -26,7 +26,7 @@ UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(Apps *appModel, MarathonAppRegi
                                                  MarathonAppScanner  *scanner,
                                                  marathon::Settings     *settings,
                                                  NavigationRouterCpp *router,
-                                                 AppLaunchService *appLaunch, QObject *parent)
+                                                 Tasks *appLaunch, QObject *parent)
     : QObject(parent)
     , m_appModel(appModel)
     , m_registry(registry)
@@ -145,12 +145,7 @@ void UnifiedSearchServiceCpp::executeSearchResult(const QVariantMap &result) {
     if (type == "app") {
         if (!m_appLaunch)
             return;
-        QVariantMap appMap;
-        appMap["id"]   = data.value("id");
-        appMap["name"] = data.value("name");
-        appMap["icon"] = data.value("icon");
-        appMap["type"] = data.value("type", "marathon");
-        m_appLaunch->launchApp(appMap);
+        m_appLaunch->launchApp(data.value("id").toString());
         return;
     }
 

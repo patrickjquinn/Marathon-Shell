@@ -122,7 +122,7 @@ fn scan(paths: &QStringList, phone_only: bool) -> QList<QVariant> {
         .collect()
 }
 
-fn parse(path: &QString) -> QMap<QMapPair_QString_QVariant> {
+pub(crate) fn parse(path: &QString) -> QMap<QMapPair_QString_QVariant> {
     read_app(Path::new(&path.to_string()), &mut Icons::new()).map(|app| app.to_qt()).unwrap_or_default()
 }
 
@@ -132,7 +132,7 @@ fn phone_apps_path() -> QString {
 
 const KEEL_HOST: &str = "marathon-keel-host ";
 
-fn is_keel_hosted(command: &QString) -> bool {
+pub(crate) fn is_keel_hosted(command: &QString) -> bool {
     command.to_string().starts_with(KEEL_HOST)
 }
 

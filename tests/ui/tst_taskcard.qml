@@ -27,7 +27,6 @@ TestCase {
             width: GridView.view.cellWidth
             height: GridView.view.cellHeight
             coverSize: Qt.size(width, height * 0.8)
-            waylandSurface: null
         }
     }
 

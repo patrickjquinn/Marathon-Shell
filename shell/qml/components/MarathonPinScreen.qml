@@ -702,7 +702,7 @@ Item {
             onClicked: {
                 HapticManager.medium();
                 Logger.info("PinScreen", "Emergency dial requested from lock screen");
-                AppLifecycleManager.launchAppWithRoute("phone", "/emergency", "{}");
+                Tasks.launchAppWithRoute("phone", "/emergency", "{}");
             }
         }
     }

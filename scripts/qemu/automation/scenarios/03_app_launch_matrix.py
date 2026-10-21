@@ -50,7 +50,7 @@ def busctl(drv: QemuDriver, method: str, arg: str = "") -> tuple[int, str, str]:
     # --machine=user@.host hops onto the user session bus from our root
     # ssh — without it busctl can't find $DBUS_SESSION_BUS_ADDRESS.
     cmd = (
-        "busctl --machine=user@.host --user call org.marathonos.Shell.Session "
+        "busctl --machine=user@.host --user call org.marathonos.Shell "
         "/org/marathonos/Shell/Navigation "
         "org.marathonos.Shell.Navigation1 "
         f"{method} s '{arg}'"
@@ -100,7 +100,7 @@ def wake_display(drv: QemuDriver):
     """
     drv.ssh("marathon-remote wake 2>/dev/null || true")
     for prop in ("screenTimeout", "autoLockTimeout"):
-        drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell.Session "
+        drv.ssh("busctl --machine=user@.host --user call org.marathonos.Shell "
                 "/org/marathonos/Shell/Settings org.marathonos.Shell.Settings1 "
                 f"SetProperty sv {prop} i 0 2>/dev/null || true")
     time.sleep(1.0)

@@ -889,6 +889,13 @@ QObject *WaylandCompositor::getSurfaceById(int surfaceId) {
     return m_surfaceMap.value(surfaceId, nullptr);
 }
 
+QObject *WaylandCompositor::shellSurfaceById(int surfaceId) {
+    QObject *xdg = m_xdgSurfaceMap.value(surfaceId, nullptr);
+    if (xdg)
+        QQmlEngine::setObjectOwnership(xdg, QQmlEngine::CppOwnership);
+    return xdg ? xdg : m_surfaceMap.value(surfaceId, nullptr);
+}
+
 namespace {
 
     // Waydroid sizes its windows itself (persist.waydroid.width/height) and

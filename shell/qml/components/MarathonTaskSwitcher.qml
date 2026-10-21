@@ -61,7 +61,7 @@ Item {
         readonly property real commitThreshold: 0.35
 
         anchors.fill: parent
-        enabled: TaskModel.taskCount === 0
+        enabled: Tasks.taskCount === 0
         z: 2
         onPressed: function (mouse) {
             startX = mouse.x;
@@ -125,7 +125,7 @@ Item {
         anchors.topMargin: (Constants.isSquareScreen || Constants.screenHeight < 800 ? Math.round(Constants.screenHeight * 0.14) : Math.round(190 * Constants.scaleFactor)) - Constants.statusBarHeight
         width: parent.width * 0.9
         spacing: Constants.spacingSmall
-        visible: TaskModel.taskCount === 0
+        visible: Tasks.taskCount === 0
         z: 1
 
         Silica.Label {
@@ -153,7 +153,7 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        enabled: TaskModel.taskCount > 0
+        enabled: Tasks.taskCount > 0
         propagateComposedEvents: true
         z: -1
         onClicked: mouse => {
@@ -164,10 +164,10 @@ Item {
 
     Connections {
         function onTaskCountChanged() {
-            Logger.info("TaskSwitcher", "TaskModel count changed: " + TaskModel.taskCount);
+            Logger.info("TaskSwitcher", "Task count changed: " + Tasks.taskCount);
         }
 
-        target: TaskModel
+        target: Tasks
     }
 
     GridView {
@@ -221,13 +221,13 @@ Item {
         pressDelay: 0
         interactive: pages > 1
         boundsBehavior: Flickable.StopAtBounds
-        model: TaskModel
+        model: Tasks
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
         onDraggingChanged: Logger.info("TaskSwitcher", "GridView dragging: " + dragging)
         onFlickingChanged: Logger.info("TaskSwitcher", "GridView flicking: " + flicking)
         onMovingChanged: Logger.info("TaskSwitcher", "GridView moving: " + moving + ", contentY: " + contentY)
-        onInteractiveChanged: Logger.info("TaskSwitcher", "GridView interactive changed: " + interactive + ", taskCount: " + TaskModel.taskCount)
+        onInteractiveChanged: Logger.info("TaskSwitcher", "GridView interactive changed: " + interactive + ", taskCount: " + Tasks.taskCount)
         onDragStarted: {
             pageAnimation.stop();
             dragStartPage = Math.round((contentY - originY) / pageHeight);

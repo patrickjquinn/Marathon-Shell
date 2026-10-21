@@ -44,7 +44,7 @@ pub mod qobject {
 #[derive(Default)]
 pub struct LifecycleRust;
 
-const LIFECYCLE: Service = Service::session("AppLifecycle");
+const LIFECYCLE: Service = Service::shell("AppLifecycle");
 
 impl qobject::Lifecycle {
     crate::shell::asks! { LIFECYCLE;

@@ -27,7 +27,7 @@ Item {
             "surfaceId": surfaceId
         });
         dialogs = dialogs.concat([dialog]);
-        AppLifecycleManager.addCapability(appId, "dialog");
+        Tasks.addCapability(appId, "dialog");
     }
 
     function _updateShowing() {
@@ -40,7 +40,7 @@ Item {
         dialogs = dialogs.filter(d => d !== dialog);
         _updateShowing();
         if (!dialogs.some(d => d.appId === dialog.appId))
-            AppLifecycleManager.removeCapability(dialog.appId, "dialog");
+            Tasks.removeCapability(dialog.appId, "dialog");
         closed(dialog.appId);
         dialog.destroy();
     }

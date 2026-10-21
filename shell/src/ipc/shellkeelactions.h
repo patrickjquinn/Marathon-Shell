@@ -7,9 +7,7 @@
 #include <QVariantMap>
 
 class Apps;
-class TaskModel;
-class AppLaunchService;
-class AppLifecycleManager;
+class Tasks;
 class UIStore;
 class SessionStore;
 namespace marathon {
@@ -24,8 +22,7 @@ class ShellKeelActions : public QObject, protected QDBusContext {
     Q_CLASSINFO("D-Bus Interface", "org.shipwright.Keel.Actions")
 
   public:
-    ShellKeelActions(Apps *apps, TaskModel *tasks, AppLaunchService *launchService,
-                     AppLifecycleManager *lifecycle, UIStore *uiStore, SessionStore *session,
+    ShellKeelActions(Apps *apps, Tasks *tasks, UIStore *uiStore, SessionStore *session,
                      marathon::Display *display, QObject *parent = nullptr);
 
     bool registerOnSessionBus();
@@ -43,9 +40,7 @@ class ShellKeelActions : public QObject, protected QDBusContext {
     QString                     run(const QString &action, const QJsonObject &args);
 
     Apps                       *m_apps;
-    TaskModel                  *m_tasks;
-    AppLaunchService           *m_launchService;
-    AppLifecycleManager        *m_lifecycle;
+    Tasks                      *m_tasks;
     UIStore                    *m_uiStore;
     SessionStore               *m_session;
     marathon::Display                    *m_display;

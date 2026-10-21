@@ -26,7 +26,7 @@ MApp {
     readonly property bool ambienceBackdrop: keelApp || nativeAppId.startsWith("waydroid.")
     readonly property bool keelApp: {
         const info = typeof MarathonAppRegistry !== "undefined" && nativeAppId !== "" ? MarathonAppRegistry.getApp(nativeAppId) : null;
-        return !!info || AppLaunchService.isKeelHostApp(nativeAppId);
+        return !!info || Tasks.isKeelHostApp(nativeAppId);
     }
 
     // Both of these are declared and driven by MApp. Redeclaring them here
@@ -68,7 +68,7 @@ MApp {
 
         // The window went: show the app's other window, or the one that
         // replaces it (Waydroid re-creates a task's window as Android redraws
-        // it, and the card waits for it, AppLaunchService), else close.
+        // it, and the card waits for it, Tasks), else close.
         Timer {
             id: followTask
 
@@ -77,11 +77,11 @@ MApp {
             interval: 100
             repeat: true
             onTriggered: {
-                const task = TaskModel.getTaskByAppId(nativeAppWindow.nativeAppId);
+                const task = Tasks.getTaskByAppId(nativeAppWindow.nativeAppId);
                 if (task && task.surfaceId > 0 && task.surfaceId !== nativeAppWindow.surfaceId) {
                     stop();
                     Logger.info("NativeAppWindow", "Surface destroyed - showing surfaceId " + task.surfaceId);
-                    nativeAppWindow.waylandSurface = task.waylandSurface;
+                    nativeAppWindow.waylandSurface = WaylandCompositorManager.compositor.shellSurfaceById(task.surfaceId);
                     nativeAppWindow.surfaceId = task.surfaceId;
                     nativeAppWindow.surfaceSwitched();
                 } else if (!task || ++tries > 12) {

@@ -59,7 +59,7 @@ Item {
             backPressed();
             return true;
         }
-        if (typeof AppLifecycleManager !== 'undefined') {
+        if (typeof Tasks !== 'undefined') {
             minimizeRequested();
             return true;
         }
@@ -164,7 +164,7 @@ Item {
         console.log("  appId:", appId);
         console.log("  appName:", appName);
         console.log("  appIcon:", appIcon);
-        console.log("  AppLifecycleManager defined:", typeof AppLifecycleManager !== 'undefined');
+        console.log("  Tasks defined:", typeof Tasks !== 'undefined');
 
         appCreated();
         isActive = true;
@@ -174,11 +174,11 @@ Item {
         appStarted();
         appResumed();
 
-        if (typeof AppLifecycleManager !== 'undefined' && appId) {
-            console.log("   Calling AppLifecycleManager.registerApp() directly");
-            AppLifecycleManager.registerApp(appId, root);
+        if (typeof Tasks !== 'undefined' && appId) {
+            console.log("   Calling AppInstances.register() directly");
+            AppInstances.register(appId, root);
         } else {
-            console.log("  ℹ  AppLifecycleManager not available, emitting requestRegister signal");
+            console.log("  ℹ  Tasks not available, emitting requestRegister signal");
             requestRegister(appId, root);
         }
         // Flip revealReady on the next event-loop tick so the shell's
@@ -196,8 +196,8 @@ Item {
         appWillTerminate();
         appClosed();
 
-        if (typeof AppLifecycleManager !== 'undefined' && appId) {
-            AppLifecycleManager.unregisterApp(appId);
+        if (typeof Tasks !== 'undefined' && appId) {
+            AppInstances.unregister(appId);
         } else {
             requestUnregister(appId);
         }

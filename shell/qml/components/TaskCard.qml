@@ -14,7 +14,7 @@ Item {
     required property string icon
     required property string type
     required property int surfaceId
-    required property var waylandSurface
+    readonly property var waylandSurface: surfaceId > 0 && WaylandCompositorManager.compositor ? WaylandCompositorManager.compositor.shellSurfaceById(surfaceId) : null
     property bool haveWayland: false
     property real bannerHeight: Theme.itemSizeSmall
     // The cover area, the size Keel covers are laid out at.
@@ -44,7 +44,7 @@ Item {
     property bool frozen: false
     // A marathon_surface_v1 secure window, or a secure app's: its content stays off the card.
     readonly property var marathonSurface: compositor && compositor.marathonSurfaces ? compositor.marathonSurfaces[surfaceId] : undefined
-    readonly property bool secure: (marathonSurface ? marathonSurface.secure : false) || (AppLaunchService.secureApps || []).indexOf(taskCard.appId) >= 0
+    readonly property bool secure: (marathonSurface ? marathonSurface.secure : false) || (Tasks.secureApps || []).indexOf(taskCard.appId) >= 0
 
     signal closed
     signal taskClosed(string appId)
@@ -81,9 +81,9 @@ Item {
         var appType = taskCard.type;
         Qt.callLater(function () {
             if (appType !== "native")
-                AppLifecycleManager.restoreApp(appId);
+                Tasks.restoreApp(appId);
             else
-                AppLifecycleManager.bringToForeground(appId);
+                Tasks.bringToForeground(appId);
             UIStore.restoreApp(appId, appTitle, appIcon);
             taskCard.closed();
         });
@@ -103,15 +103,15 @@ Item {
         if (taskCard.type === "native") {
             if (typeof taskCard.compositor !== 'undefined' && taskCard.compositor && taskCard.surfaceId >= 0) {
                 Logger.info("TaskCard", "Closing native app via compositor, surfaceId: " + taskCard.surfaceId);
-                AppLifecycleManager.prepareClose(taskCard.appId);
+                Tasks.prepareClose(taskCard.appId);
                 // Its live windows: Waydroid re-creates an app's window, so the
                 // card's own surface may be gone.
-                if (AppLaunchService.closeAppWindows(taskCard.appId) === 0)
+                if (Tasks.closeAppWindows(taskCard.appId) === 0)
                     taskCard.compositor.closeWindow(taskCard.surfaceId);
             }
-            TaskModel.closeTask(taskCard.id);
+            Tasks.closeTask(taskCard.id);
         } else {
-            AppLifecycleManager.closeApp(taskCard.appId);
+            Tasks.closeApp(taskCard.appId, false);
         }
         // A close that left the task in place brings its card back.
         restoreTimer.restart();
@@ -383,7 +383,7 @@ Item {
                                         liveApp = null;
                                         return;
                                     }
-                                    var instance = AppLifecycleManager.getAppInstance(taskCard.appId);
+                                    var instance = AppInstances.get(taskCard.appId);
                                     liveApp = instance;
                                     if (liveApp)
                                         snapshotUpdateDebounce.restart();
@@ -426,7 +426,7 @@ Item {
                                         previewContainer.liveApp = null;
                                     }
 
-                                    target: AppLifecycleManager
+                                    target: Tasks
                                 }
 
                                 Connections {

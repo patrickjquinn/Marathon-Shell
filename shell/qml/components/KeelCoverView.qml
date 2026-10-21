@@ -22,14 +22,14 @@ Item {
 
     function _report() {
         if (appId !== "")
-            AppLaunchService.setCoverVisible(appId, shown && available);
+            Tasks.setCoverVisible(appId, shown && available);
     }
 
     objectName: "keelCoverView"
     visible: available
     onShownChanged: _report()
     onAvailableChanged: _report()
-    Component.onDestruction: if (shown && available) AppLaunchService.setCoverVisible(appId, false)
+    Component.onDestruction: if (shown && available) Tasks.setCoverVisible(appId, false)
 
     Connections {
         target: root.compositor

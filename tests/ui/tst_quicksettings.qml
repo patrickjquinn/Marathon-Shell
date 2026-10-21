@@ -407,7 +407,7 @@ TestCase {
         compare(MPRIS2Controller.calls, [], "the text is not a control");
     }
 
-    // AppLaunchService resolves an app by its "id" key.
+    // Tasks launches an app by its "id" key.
     function test_settingsButtonLaunchesSettings() {
         launchSpy.clear();
         mouseClick(findChild(qs, "settingsButton"));

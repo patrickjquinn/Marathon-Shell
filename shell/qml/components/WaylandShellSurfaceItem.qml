@@ -16,7 +16,7 @@ ShellSurfaceItem {
     // exists to hold the detached foreground item's last frame, not this.
     property bool isPreview: false
     // Typed QObject in C++; the members used here are WaylandCompositor's.
-    readonly property var launchCompositor: AppLaunchService.compositor
+    readonly property var launchCompositor: WaylandCompositorManager.compositor
     // The client's marathon_surface_v1 state, if it has one.
     readonly property var marathonSurface: launchCompositor ? launchCompositor.marathonSurfaces[surfaceId] : undefined
     readonly property bool focusable: !marathonSurface || marathonSurface.focusable

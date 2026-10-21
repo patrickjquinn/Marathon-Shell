@@ -14,6 +14,9 @@ class MarathonAppRegistry;
 
 class WaylandCompositorManager : public QObject {
     Q_OBJECT
+#ifdef HAVE_WAYLAND
+    Q_PROPERTY(WaylandCompositor *compositor READ compositor NOTIFY compositorCreated)
+#endif
 
   public:
     explicit WaylandCompositorManager(QObject *parent = nullptr);
@@ -29,6 +32,9 @@ class WaylandCompositorManager : public QObject {
     WaylandCompositor *compositor() const {
         return m_compositor;
     }
+
+  signals:
+    void compositorCreated(WaylandCompositor *compositor);
 #endif
 
   private:

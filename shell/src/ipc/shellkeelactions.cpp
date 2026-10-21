@@ -2,12 +2,10 @@
 #include "callerpid.h"
 
 #include "marathon-shell-native/src/apps.cxxqt.h"
-#include "applaunchservice.h"
-#include "applifecyclemanager.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "processtree.h"
 #include "sessionstore.h"
-#include "taskmodel.h"
+#include "marathon-shell-native/src/tasks.cxxqt.h"
 #include "uistore.h"
 
 #include <QCoreApplication>
@@ -46,15 +44,11 @@ namespace {
 
 } // namespace
 
-ShellKeelActions::ShellKeelActions(Apps *apps, TaskModel *tasks,
-                                   AppLaunchService *launchService, AppLifecycleManager *lifecycle,
-                                   UIStore *uiStore, SessionStore *session,
+ShellKeelActions::ShellKeelActions(Apps *apps, Tasks *tasks, UIStore *uiStore, SessionStore *session,
                                    marathon::Display *display, QObject *parent)
     : QObject(parent)
     , m_apps(apps)
     , m_tasks(tasks)
-    , m_launchService(launchService)
-    , m_lifecycle(lifecycle)
     , m_uiStore(uiStore)
     , m_session(session)
     , m_display(display) {
@@ -81,7 +75,7 @@ bool ShellKeelActions::fromApp() const {
     if (caller < 0)
         return true;
     const qint64 shell  = QCoreApplication::applicationPid();
-    return !m_launchService->appIdForPid(caller).isEmpty() ||
+    return !m_tasks->appIdForPid(caller).isEmpty() ||
         (caller != shell && isDescendantPid(caller, shell));
 }
 
@@ -131,11 +125,10 @@ QString ShellKeelActions::run(const QString &action, const QJsonObject &args) {
     }
     if (action == QLatin1String("apps.running")) {
         QJsonArray open;
-        for (int i = 0; i < m_tasks->rowCount(); ++i) {
+        for (int i = 0; i < m_tasks->rowCount(QModelIndex()); ++i) {
             const QModelIndex row = m_tasks->index(i);
-            open.append(
-                QJsonObject{{QStringLiteral("id"), row.data(TaskModel::AppIdRole).toString()},
-                            {QStringLiteral("name"), row.data(TaskModel::TitleRole).toString()}});
+            open.append(QJsonObject{{QStringLiteral("id"), row.data(Qt::UserRole + 2).toString()},
+                                    {QStringLiteral("name"), row.data(Qt::UserRole + 3).toString()}});
         }
         return compact({{QStringLiteral("result"), open}});
     }
@@ -147,37 +140,37 @@ QString ShellKeelActions::run(const QString &action, const QJsonObject &args) {
                         {QStringLiteral("quickSettingsOpen"), m_uiStore->quickSettingsOpen()}});
     }
     if (action == QLatin1String("app.launch")) {
-        if (!m_launchService->canLaunch(id))
+        if (!m_tasks->canLaunch(id))
             return fail(QStringLiteral("InvalidArguments"), QStringLiteral("no app ") + id);
         const QString route = args.value(QLatin1String("route")).toString();
-        const bool ok = route.isEmpty() ? m_launchService->launchApp(id) :
-                                          m_launchService->launchAppWithRoute(id, route, QString());
+        const bool ok = route.isEmpty() ? m_tasks->launchApp(id) :
+                                          m_tasks->launchAppWithRoute(id, route, QString());
         return ok ? QStringLiteral("{}") :
                     fail(QStringLiteral("Failed"), id + QStringLiteral(" did not start"));
     }
     if (action == QLatin1String("app.close")) {
-        const Task *task = m_tasks->getTaskByAppId(id);
-        if (!task)
+        const QVariantMap task = m_tasks->getTaskByAppId(id);
+        if (task.isEmpty())
             return fail(QStringLiteral("InvalidArguments"), id + QStringLiteral(" is not open"));
         // As its switcher card closes it.
-        if (task->appType() == QLatin1String("native") && task->surfaceId() >= 0) {
-            const QString taskId = task->id();
-            m_lifecycle->prepareClose(id);
-            if (m_launchService->closeAppWindows(id) == 0)
-                m_launchService->closeNativeApp(task->surfaceId());
-            m_tasks->closeTask(taskId);
+        const int surfaceId = task.value(QStringLiteral("surfaceId")).toInt();
+        if (task.value(QStringLiteral("appType")).toString() == QLatin1String("native") && surfaceId >= 0) {
+            m_tasks->prepareClose(id);
+            if (m_tasks->closeAppWindows(id) == 0)
+                m_tasks->closeWindowRequested(surfaceId);
+            m_tasks->closeTask(task.value(QStringLiteral("id")).toString());
         } else {
-            m_lifecycle->closeApp(id);
+            m_tasks->closeApp(id, false);
         }
         return QStringLiteral("{}");
     }
     if (action == QLatin1String("shell.home") || action == QLatin1String("shell.switcher")) {
-        m_launchService->requestHome(action == QLatin1String("shell.switcher"));
+        m_tasks->homeRequested(action == QLatin1String("shell.switcher"));
         return QStringLiteral("{}");
     }
     if (action == QLatin1String("quicksettings.show") ||
         action == QLatin1String("quicksettings.hide")) {
-        m_launchService->requestQuickSettings(action == QLatin1String("quicksettings.show") ? 1 :
+        m_tasks->quickSettingsRequested(action == QLatin1String("quicksettings.show") ? 1 :
                                                                                               0);
         return QStringLiteral("{}");
     }

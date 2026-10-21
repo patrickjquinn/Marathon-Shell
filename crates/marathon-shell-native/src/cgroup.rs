@@ -10,41 +10,8 @@ use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use cxx_qt_lib::QString;
-
 use crate::systemd::SystemdManagerProxy;
 use crate::{io, log};
-
-#[cxx_qt::bridge]
-mod ffi {
-    unsafe extern "C++" {
-        include!("cxx-qt-lib/qstring.h");
-        type QString = cxx_qt_lib::QString;
-    }
-
-    #[namespace = "marathon::cgroup"]
-    extern "Rust" {
-        type AppCgroups;
-
-        /// This session's app cgroups, once a previous session's are reaped.
-        fn app_cgroups() -> Box<AppCgroups>;
-        /// The app's process, whose own cgroup is `pid_cgroup`, in the
-        /// app's cgroup, frozen or not and boosted in front.
-        fn adopt(self: &mut AppCgroups, app_id: &QString, pid: i64, pid_cgroup: &QString, frozen: bool, front: bool);
-        fn set_frozen(self: &AppCgroups, app_id: &QString, frozen: bool);
-        /// The app in front gets a CPU-frequency floor (`cpu.uclamp.min`);
-        /// an Android app's is Waydroid's container.
-        fn set_front(self: &AppCgroups, app_id: &QString, front: bool);
-        /// The app's process exited.
-        fn forget(self: &mut AppCgroups, app_id: &QString);
-        fn thaw_all(self: &AppCgroups);
-
-        /// The process's cgroup v2 path, from `/proc/<pid>/cgroup`.
-        fn cgroup_of_pid(pid: i64) -> QString;
-        /// How readily the kernel's OOM killer picks the process.
-        fn set_oom_score_adj(pid: i64, score: i32);
-    }
-}
 
 const FRONT_UCLAMP_MIN: u8 = 30;
 // Deckard delegates it to the session's user.
@@ -59,7 +26,8 @@ pub struct AppCgroups {
     scopes: HashMap<String, String>,
 }
 
-fn app_cgroups() -> Box<AppCgroups> {
+/// This session's app cgroups, once a previous session's are reaped.
+pub(crate) fn app_cgroups() -> AppCgroups {
     let shell = read_cgroup(Path::new("/proc/self/cgroup"));
     let root = apps_root(&shell);
     if root.is_none() {
@@ -67,7 +35,7 @@ fn app_cgroups() -> Box<AppCgroups> {
     }
     let cgroups = AppCgroups { root, shell, placed: HashSet::new(), scopes: HashMap::new() };
     cgroups.reap_stale();
-    Box::new(cgroups)
+    cgroups
 }
 
 /// `marathon-apps` beside the shell's `marathon-shell-*.scope`, in the
@@ -101,13 +69,14 @@ impl AppCgroups {
         Some(self.root.as_ref()?.join(format!("marathon-app-{app_id}")))
     }
 
-    fn adopt(&mut self, app_id: &QString, pid: i64, pid_cgroup: &QString, frozen: bool, front: bool) {
-        let app_id = app_id.to_string();
-        if let Some(unit) = scope_unit(&pid_cgroup.to_string(), &self.shell) {
-            self.scopes.insert(app_id, unit);
+    /// The app's process, whose own cgroup is `pid_cgroup`, in the app's
+    /// cgroup, frozen or not and boosted in front.
+    pub(crate) fn adopt(&mut self, app_id: &str, pid: i64, pid_cgroup: &str, frozen: bool, front: bool) {
+        if let Some(unit) = scope_unit(pid_cgroup, &self.shell) {
+            self.scopes.insert(app_id.to_owned(), unit);
             return;
         }
-        let Some(dir) = self.dir(&app_id).filter(|_| pid > 0 && !app_id.is_empty()) else { return };
+        let Some(dir) = self.dir(app_id).filter(|_| pid > 0 && !app_id.is_empty()) else { return };
         // A previous instance may have left the cgroup frozen, which would
         // freeze this one at birth.
         if !write(&dir.join("cgroup.freeze"), "0") && fs::create_dir(&dir).is_err() {
@@ -115,14 +84,13 @@ impl AppCgroups {
         }
         if write(&dir.join("cgroup.procs"), &pid.to_string()) {
             write(&dir.join("cgroup.freeze"), if frozen { "1" } else { "0" });
-            self.placed.insert(app_id);
+            self.placed.insert(app_id.to_owned());
             write_uclamp(&dir, front);
         }
     }
 
-    fn set_frozen(&self, app_id: &QString, frozen: bool) {
-        let app_id = app_id.to_string();
-        if let Some(unit) = self.scopes.get(&app_id).cloned() {
+    pub(crate) fn set_frozen(&self, app_id: &str, frozen: bool) {
+        if let Some(unit) = self.scopes.get(app_id).cloned() {
             io::spawn(async move {
                 let done = async {
                     let manager = SystemdManagerProxy::new(&io::session_bus().await?).await?;
@@ -132,31 +100,31 @@ impl AppCgroups {
                     log::warn("cgroup", format_args!("freezing {unit} {frozen}: {e}"));
                 }
             });
-        } else if self.placed.contains(&app_id) {
-            self.dir(&app_id).map(|dir| write(&dir.join("cgroup.freeze"), if frozen { "1" } else { "0" }));
+        } else if self.placed.contains(app_id) {
+            self.dir(app_id).map(|dir| write(&dir.join("cgroup.freeze"), if frozen { "1" } else { "0" }));
         }
     }
 
-    // The pid's cgroup can come after the app is in front, so the path is
-    // tried even before it is placed.
-    fn set_front(&self, app_id: &QString, front: bool) {
-        let app_id = app_id.to_string();
+    /// The app in front gets a CPU-frequency floor (`cpu.uclamp.min`); an
+    /// Android app's is Waydroid's container. The pid's cgroup can come
+    /// after the app is in front, so the path is tried before it is placed.
+    pub(crate) fn set_front(&self, app_id: &str, front: bool) {
         if app_id.starts_with("waydroid.") {
             write_uclamp(Path::new(WAYDROID), front);
-        } else if let Some(dir) = self.dir(&app_id) {
+        } else if let Some(dir) = self.dir(app_id) {
             write_uclamp(&dir, front);
         }
     }
 
-    fn forget(&mut self, app_id: &QString) {
-        let app_id = app_id.to_string();
-        self.scopes.remove(&app_id);
-        if self.placed.remove(&app_id) {
-            self.dir(&app_id).map(fs::remove_dir);
+    /// The app's process exited.
+    pub(crate) fn forget(&mut self, app_id: &str) {
+        self.scopes.remove(app_id);
+        if self.placed.remove(app_id) {
+            self.dir(app_id).map(fs::remove_dir);
         }
     }
 
-    fn thaw_all(&self) {
+    pub(crate) fn thaw_all(&self) {
         for app_id in &self.placed {
             self.dir(app_id).map(|dir| write(&dir.join("cgroup.freeze"), "0"));
         }
@@ -210,11 +178,13 @@ fn unified(contents: &str) -> String {
     contents.lines().find_map(|l| l.strip_prefix("0::")).unwrap_or_default().trim().to_owned()
 }
 
-fn cgroup_of_pid(pid: i64) -> QString {
-    QString::from(&read_cgroup(Path::new(&format!("/proc/{pid}/cgroup"))))
+/// The process's cgroup v2 path, from `/proc/<pid>/cgroup`.
+pub(crate) fn cgroup_of_pid(pid: i64) -> String {
+    read_cgroup(Path::new(&format!("/proc/{pid}/cgroup")))
 }
 
-fn set_oom_score_adj(pid: i64, score: i32) {
+/// How readily the kernel's OOM killer picks the process.
+pub(crate) fn set_oom_score_adj(pid: i64, score: i32) {
     if pid > 0 {
         write(Path::new(&format!("/proc/{pid}/oom_score_adj")), &score.to_string());
     }

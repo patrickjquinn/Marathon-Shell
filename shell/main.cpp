@@ -42,11 +42,9 @@
 #include "marathon-shell-native/src/sandbox.cxxqt.h"
 #include "src/components/crashhandler.h"
 #include "marathon-shell-native/src/apps.cxxqt.h"
-#include "src/models/taskmodel.h"
+#include "marathon-shell-native/src/tasks.cxxqt.h"
+#include "marathon-shell-native/src/ipc.cxxqt.h"
 #include "marathon-shell-native/src/alarms.cxxqt.h"
-#include "src/services/applaunchservice.h"
-#include "src/services/applifecyclemanager.h"
-#include "src/services/backgroundtaskobserver.h"
 #include "src/services/gesturetracker.h"
 #include "src/components/windowtextureitem.h"
 #include "src/services/waketouchfilter.h"
@@ -110,7 +108,6 @@
 #include "src/services/systemstatusstore.h"
 #include "src/services/systemcontrolstore.h"
 #include "src/services/uistore.h"
-#include "src/services/foregroundapp.h"
 #include "src/services/shareservice.h"
 #include "src/services/appstore.h"
 #include "src/services/router.h"
@@ -121,8 +118,6 @@
 #include "marathon-shell-native/src/words.cxxqt.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
-#include "src/ipc/shellipcserver.h"
-#include "src/ipc/shellservices.h"
 #include "src/ipc/shellkeelactions.h"
 #include <QDBusConnection>
 
@@ -133,6 +128,10 @@
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
 #include "src/wayland/remotetextinputtarget.h"
+#include "src/wayland/foreignfocus.h"
+#include <QtWaylandCompositor/QWaylandClient>
+#include <QtWaylandCompositor/QWaylandXdgSurface>
+#include <QtWaylandCompositor/QWaylandXdgToplevel>
 #endif
 
 template <typename T, typename... Args>
@@ -143,6 +142,69 @@ static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
     ctx->setContextProperty(qmlName, obj);
     return obj;
 }
+
+#ifdef HAVE_WAYLAND
+// The compositor's processes and windows, told to the tasks; what the
+// tasks ask of the compositor, done.
+static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
+    wc->setSecureApps(tasks->getSecureApps());
+    QObject::connect(tasks, &Tasks::secureAppsChanged, wc,
+                     [=] { wc->setSecureApps(tasks->getSecureApps()); });
+    const auto viewport = [=] {
+        tasks->setAppViewport(wc->appViewportSize().width(), wc->appViewportSize().height());
+    };
+    viewport();
+    QObject::connect(wc, &WaylandCompositor::appViewportSizeChanged, tasks, viewport);
+    QObject::connect(tasks, &Tasks::spawnRequested, wc,
+                     [=](const QString &command, const QVariantMap &env) { wc->launchApp(command, env); });
+    QObject::connect(tasks, &Tasks::closeWindowRequested, wc, &WaylandCompositor::closeWindow);
+    QObject::connect(tasks, &Tasks::sandboxSocketRequested, wc,
+                     [=](const QString &appId, const QString &instance) { wc->openSandboxSocket(appId, instance); });
+    QObject::connect(tasks, &Tasks::sandboxSocketClosed, wc, &WaylandCompositor::closeSandboxSocket);
+    QObject::connect(tasks, &Tasks::sandboxAppAssigned, wc, &WaylandCompositor::assignSandboxApp);
+    QObject::connect(tasks, &Tasks::nativeBackRequested, wc, &WaylandCompositor::sendNativeBack);
+    QObject::connect(tasks, &Tasks::nativeForwardRequested, wc, &WaylandCompositor::sendNativeForward);
+
+    QObject::connect(wc, &WaylandCompositor::appLaunched, tasks,
+                     [=](const QString &command, int pid) { tasks->appLaunched(command, pid); });
+    QObject::connect(wc, &WaylandCompositor::appClosed, tasks, [=](int pid) { tasks->appClosed(pid); });
+    QObject::connect(wc, &WaylandCompositor::nativeBackUnhandled, tasks, &Tasks::nativeBackUnhandled);
+    QObject::connect(wc, &WaylandCompositor::surfaceDestroyed, tasks,
+                     [=](QWaylandSurface *, int surfaceId) { tasks->windowDestroyed(surfaceId); });
+    QObject::connect(wc, &WaylandCompositor::surfaceActivated, tasks,
+                     [=](QWaylandSurface *, int surfaceId, QWaylandXdgSurface *, qint64 launchPid) {
+                         tasks->windowActivated(surfaceId, launchPid);
+                     });
+    const auto clientPid = [](QWaylandSurface *surface) -> qint64 {
+        return surface && surface->client() ? surface->client()->processId() : -1;
+    };
+    QObject::connect(wc, &WaylandCompositor::dialogCreated, tasks,
+                     [=](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *) {
+                         tasks->dialogMapped(clientPid(surface), wc->sandboxAppId(surface->client()->client()), surfaceId);
+                     });
+    QObject::connect(
+        wc, &WaylandCompositor::surfaceCreated, tasks,
+        [=](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdg) {
+            if (!surface)
+                return;
+            const qint64  pid       = clientPid(surface);
+            const QString sandboxId = surface->client() ? wc->sandboxAppId(surface->client()->client()) : QString();
+            QString       xdgAppId, title;
+            if (xdg && xdg->toplevel()) {
+                xdgAppId = xdg->toplevel()->appId();
+                title    = xdg->toplevel()->title();
+            }
+            const bool shown = tasks->windowMapped(pid, pid, xdgAppId, title, sandboxId, surfaceId,
+                                                   wc->recentUserInput(2000));
+            // Read by the compositor: the window's first configure, and
+            // whether it may be configured only to change something.
+            surface->setProperty("mappedInBackground", !shown);
+            surface->setProperty("foreignClient", tasks->isForeignWindow(surfaceId));
+            if (!shown)
+                ForeignFocus::keepFront(wc->defaultSeat(), surface);
+        });
+}
+#endif
 
 // Marathon's own apps, as the registry lists them, for the home grid.
 static void loadRegistryApps(Apps *apps, MarathonAppRegistry *registry) {
@@ -769,8 +831,13 @@ int main(int argc, char *argv[]) {
     appModel->setParent(&app);
     ctx->setContextProperty(QStringLiteral("AppModel"), appModel);
     appStore->setAppModel(appModel);
-    auto *taskModel = new TaskModel(&app);
-    qmlRegisterSingletonInstance<TaskModel>("MarathonOS.Shell", 1, 0, "TaskModel", taskModel);
+    auto *tasks = new Tasks();
+    tasks->setParent(&app);
+    qmlRegisterSingletonInstance<Tasks>("MarathonOS.Shell", 1, 0, "Tasks", tasks);
+#ifdef HAVE_WAYLAND
+    QObject::connect(compositorManager, &WaylandCompositorManager::compositorCreated, tasks,
+                     [tasks](WaylandCompositor *wc) { connectTasks(tasks, wc); });
+#endif
     auto *notificationModel = new NotificationModel(&app);
     qmlRegisterSingletonInstance<NotificationModel>("MarathonOS.Shell", 1, 0, "NotificationModel",
                                                     notificationModel);
@@ -901,39 +968,38 @@ int main(int argc, char *argv[]) {
                                                   security);
 
     startupMark("sensors, location, security");
-    auto *appLaunchService = new AppLaunchService(appModel, taskModel, &app);
-    appLaunchService->setUserScale(settingsManager->getUserScaleFactor());
-    QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged, appLaunchService,
-                     [=] { appLaunchService->setUserScale(settingsManager->getUserScaleFactor()); });
-    qmlRegisterSingletonInstance<AppLaunchService>("MarathonOS.Shell", 1, 0, "AppLaunchService",
-                                                   appLaunchService);
+    {
+        const DeviceProfile &device = DeviceProfile::instance();
+        QScreen             *screen = QGuiApplication::primaryScreen();
+        const qreal          dpi    = ScreenMetrics::computeDpi(screen);
+        tasks->setDevice({
+            {QStringLiteral("renderNode"), device.renderNode()},
+            {QStringLiteral("gpuWebgl"), device.gpuStack() == QLatin1String("mesa-v3d")},
+            {QStringLiteral("runnerPool"), device.runnerPool()},
+            {QStringLiteral("runnerWidth"), device.runnerWidth()},
+            {QStringLiteral("runnerHeight"), device.runnerHeight()},
+            {QStringLiteral("thumbnails"), QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+                                               QStringLiteral("/marathon/thumbnails")},
+            {QStringLiteral("dpi"), dpi > 0 ? dpi : 160.0},
+            {QStringLiteral("screenWidth"), screen ? screen->geometry().width() : 0},
+            {QStringLiteral("screenHeight"), screen ? screen->geometry().height() : 0},
+        });
+    }
+    tasks->setUserScale(settingsManager->getUserScaleFactor());
+    QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged, tasks,
+                     [=] { tasks->setUserScale(settingsManager->getUserScaleFactor()); });
     createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, appRegistry,
                                           appScanner, settingsManager, navigationRouter,
-                                          appLaunchService, &app);
+                                          tasks, &app);
 
     const QByteArray autoLaunchRaw = qgetenv("MARATHON_AUTO_LAUNCH_APP_ID").trimmed();
     if (!autoLaunchRaw.isEmpty()) {
         const QString autoAppId = QString::fromLocal8Bit(autoLaunchRaw);
-        auto          launched  = std::make_shared<bool>(false);
-        auto          tryLaunch = [appLaunchService, autoAppId, launched]() {
-            if (!appLaunchService || *launched)
-                return;
-            if (!appLaunchService->compositor() || !appLaunchService->appWindow())
-                return;
-            *launched = true;
-            QTimer::singleShot(0, appLaunchService, [appLaunchService, autoAppId]() {
-                qWarning() << "[MarathonShell] Auto-launching app:" << autoAppId;
-                appLaunchService->launchApp(autoAppId);
-            });
-        };
-        QObject::connect(appLaunchService, &AppLaunchService::compositorChanged, &app, tryLaunch);
-        QObject::connect(appLaunchService, &AppLaunchService::appWindowChanged, &app, tryLaunch);
-        QTimer::singleShot(3000, &app, tryLaunch);
+        QTimer::singleShot(3000, tasks, [tasks, autoAppId]() {
+            qWarning() << "[MarathonShell] Auto-launching app:" << autoAppId;
+            tasks->launchApp(autoAppId);
+        });
     }
-
-    auto *appLifecycleManager = new AppLifecycleManager(taskModel, appLaunchService, &app);
-    qmlRegisterSingletonInstance<AppLifecycleManager>("MarathonOS.Shell", 1, 0,
-                                                      "AppLifecycleManager", appLifecycleManager);
 
     // Session stop (greetd's SIGTERM, a VT hangup, systemd stopping the
     // scope): the apps close while the compositor still serves them.
@@ -952,15 +1018,15 @@ int main(int argc, char *argv[]) {
             for (const int sig : {SIGTERM, SIGINT, SIGHUP})
                 ::sigaction(sig, &sa, nullptr);
             auto *sn = new QSocketNotifier(termPipe[0], QSocketNotifier::Read, &app);
-            QObject::connect(sn, &QSocketNotifier::activated, appLifecycleManager,
-                             [appLifecycleManager]() {
+            QObject::connect(sn, &QSocketNotifier::activated, tasks,
+                             [tasks]() {
                                  char drain[16];
                                  (void)::read(termPipe[0], drain, sizeof(drain));
                                  qInfo() << "[MarathonShell] session stop: closing apps";
-                                 appLifecycleManager->stopAllApps(3000);
+                                 tasks->stopAllApps(3000);
                              });
             // Skip Qt teardown: the next shell waits on our exit for DRM master.
-            QObject::connect(appLifecycleManager, &AppLifecycleManager::allAppsStopped,
+            QObject::connect(tasks, &Tasks::allAppsStopped,
                              settingsManager, [settingsManager]() {
                                  settingsManager->sync();
                                  qInfo() << "[MarathonShell] session stop: apps closed, exiting";
@@ -974,14 +1040,14 @@ int main(int argc, char *argv[]) {
     // one stays thawed for an instant wake) and the Wi-Fi chip idles while
     // its association, and push, stay up.
     const bool wifiPowerSave = DeviceProfile::instance().wifiPowerSave();
-    QObject::connect(display, &marathon::Display::screenOnChanged, appLifecycleManager,
+    QObject::connect(display, &marathon::Display::screenOnChanged, tasks,
                      [=, debounceMs = -1]() mutable {
                          const bool on = display->getScreenOn();
                          if (!on) {
-                             debounceMs = appLifecycleManager->idleFreezeDebounceMs();
-                             appLifecycleManager->setIdleFreezeDebounceMs(0);
+                             debounceMs = tasks->idleFreezeDebounceMs();
+                             tasks->setIdleFreezeDebounceMs(0);
                          } else if (debounceMs >= 0) {
-                             appLifecycleManager->setIdleFreezeDebounceMs(debounceMs);
+                             tasks->setIdleFreezeDebounceMs(debounceMs);
                              debounceMs = -1;
                          }
                          if (wifiPowerSave)
@@ -1196,7 +1262,7 @@ int main(int argc, char *argv[]) {
         auto *shareService = createObject<ShareService>(
             ctx, "ShareService", appRegistry, marathon::sandbox::shared_folders(),
             [](qint64 pid) { return marathon::gate::caller_of_pid(pid); },
-            [appLaunchService](const QString &appId) { appLaunchService->launchApp(QVariant(appId)); },
+            [tasks](const QString &appId) { tasks->launchApp(appId); },
             &app);
         if (shareService->registerOnSessionBus())
             qInfo() << "[MarathonShell]  org.sailfishos.share registered";
@@ -1221,10 +1287,6 @@ int main(int argc, char *argv[]) {
     QObject::connect(appRegistry, &MarathonAppRegistry::appRegistered, permissionManager, learnApp);
     QObject::connect(appRegistry, &MarathonAppRegistry::appUnregistered, permissionManager,
                      &marathon::Permissions::removeApp);
-    QObject::connect(appLaunchService, &AppLaunchService::pidRegistered, permissionManager,
-                     [](qint64 pid, const QString &appId) { marathon::gate::remember(pid, appId); });
-    QObject::connect(appLaunchService, &AppLaunchService::pidUnregistered, permissionManager,
-                     [](qint64 pid, const QString &) { marathon::gate::remember(pid, QString()); });
 
     // Before the first scan, which no longer looks in the old location.
     const QStringList migrated = appInstaller->migrateLegacyInstalls();
@@ -1241,10 +1303,14 @@ int main(int argc, char *argv[]) {
                                                   QStringLiteral("/apps/%1/").arg(appId)});
                      });
 
-    QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
-                     &marathon::Permissions::dismissForApp);
-    QObject::connect(appLaunchService, &AppLaunchService::appLaunchCompleted, permissionManager,
-                     &marathon::Permissions::requestDeclaredPermissions);
+    QObject::connect(tasks, &Tasks::uninstallRequested, appInstaller,
+                     [appInstaller](const QString &appId) { appInstaller->uninstallApp(appId); });
+    QObject::connect(appInstaller, &MarathonAppInstaller::uninstallComplete, tasks,
+                     [tasks](const QString &appId) { tasks->uninstallFinished(appId, QString()); });
+    QObject::connect(appInstaller, &MarathonAppInstaller::uninstallFailed, tasks,
+                     [tasks](const QString &appId, const QString &error) {
+                         tasks->uninstallFinished(appId, error.isEmpty() ? QStringLiteral("failed") : error);
+                     });
 
 
 
@@ -1286,11 +1352,11 @@ int main(int argc, char *argv[]) {
         appRegistry, &app);
     // Its window, or the one its notification's default action opens (an
     // Android app's contentIntent), comes to the front.
-    notificationHandler->setShowApp([appLaunchService](const QString &appId, bool opensItself) {
-        if (!appLaunchService->canLaunch(appId))
+    notificationHandler->setShowApp([tasks](const QString &appId, bool opensItself) {
+        if (!tasks->canLaunch(appId))
             return false;
-        if (!appLaunchService->expectWindow(appId) && !opensItself)
-            appLaunchService->launchApp(QVariant(appId));
+        if (!tasks->expectWindow(appId) && !opensItself)
+            tasks->launchApp(appId);
         return true;
     });
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
@@ -1301,37 +1367,40 @@ int main(int argc, char *argv[]) {
                          telephonyIntegration, &TelephonyIntegrationCpp::replyToMessageNotification);
 
 
-    // Bridges system-observed activity (audio playback, active calls) into
-    // AppLifecycleManager capability claims so backgrounded apps holding a
-    // capability are kept warm (BackgroundActive) and never frozen.
-    new BackgroundTaskObserver(appLifecycleManager, appLaunchService, mpris2Controller,
-                               modem, &app);
-
     // PSI some-avg10: High (≥ 20%) sends apps a low-memory hint, Critical
     // (≥ 40%) kills the longest-frozen app. systemd-oomd on the slice is the
     // fallback.
     auto *pressure = new marathon::MemoryPressure();
     pressure->setParent(&app);
-    QObject::connect(pressure, &marathon::MemoryPressure::high, appLifecycleManager,
-                     &AppLifecycleManager::broadcastLowMemory);
-    QObject::connect(pressure, &marathon::MemoryPressure::critical, appLifecycleManager,
-                     &AppLifecycleManager::killOldestFrozenApp);
+    QObject::connect(pressure, &marathon::MemoryPressure::high, tasks, &Tasks::broadcastLowMemory);
+    QObject::connect(pressure, &marathon::MemoryPressure::critical, tasks,
+                     [tasks] { tasks->killOldestFrozenApp(); });
 
     {
-        auto *ipc = new ShellIpcServer(permissionManager, appLaunchService, appLifecycleManager, appRegistry, &app);
-        ipc->setAppInstaller(appInstaller);
-        auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
-        QObject::connect(foregroundApp, &ForegroundApp::changed, appLifecycleManager,
-                         &AppLifecycleManager::setFrontApp);
-        ipc->setForegroundApp(foregroundApp);
-        ipc->setSessionStore(sessionStore);
-#ifdef HAVE_WAYLAND
-        QObject::connect(foregroundApp, &ForegroundApp::changed, &app,
-                         [compositorManager](const QString &appId) {
-                             WaylandCompositor *compositor = compositorManager->compositor();
-                             if (appId.isEmpty() && compositor)
-                                 compositor->releaseForeignKeyboard();
+        QObject::connect(tasks, &Tasks::openAppRequested, uiStore,
+                         [uiStore](const QString &appId, const QString &name, const QString &icon, bool restore) {
+                             if (restore)
+                                 uiStore->restoreApp(appId, name, icon);
+                             else
+                                 uiStore->openApp(appId, name, icon);
                          });
+        // Settled first: the switcher closes and the next app opens in one turn.
+        auto *settle = new QTimer(&app);
+        settle->setSingleShot(true);
+        settle->setInterval(0);
+        QObject::connect(settle, &QTimer::timeout, tasks, [=] {
+            tasks->setShellState(uiStore->appWindowOpen(), uiStore->currentAppId(), sessionStore->isLocked());
+        });
+        QObject::connect(uiStore, &UIStore::appWindowOpenChanged, settle, qOverload<>(&QTimer::start));
+        QObject::connect(uiStore, &UIStore::currentAppIdChanged, settle, qOverload<>(&QTimer::start));
+        QObject::connect(sessionStore, &SessionStore::isLockedChanged, settle, qOverload<>(&QTimer::start));
+        settle->start();
+#ifdef HAVE_WAYLAND
+        QObject::connect(tasks, &Tasks::foregroundAppIdChanged, &app, [=] {
+            WaylandCompositor *compositor = compositorManager->compositor();
+            if (tasks->getForegroundAppId().isEmpty() && compositor)
+                compositor->releaseForeignKeyboard();
+        });
 #endif
         auto *portalSettings = new PortalSettings(&app);
         // Files first: GTK 3 reloads its theme when the portal flips
@@ -1363,18 +1432,16 @@ int main(int argc, char *argv[]) {
             !QDBusConnection::sessionBus().registerService(
                 QStringLiteral("org.freedesktop.impl.portal.desktop.marathon")))
             qWarning() << "[MarathonShell] Portal backends not registered";
-        if (!ipc->registerOnSessionBus()) {
-            qCritical()
-                << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell.Session)";
-        }
+        if (!QDBusConnection::sessionBus().registerService(QStringLiteral("org.marathonos.Shell.Session")))
+            qWarning() << "[MarathonShell] org.marathonos.Shell.Session not owned";
+        marathon::ipc::own_name();
         if (!QDBusConnection::sessionBus().registerObject(
                 QStringLiteral("/org/marathonos/Shell/TextInput"),
                 new RemoteTextInputService(remoteTextInput, &app),
                 QDBusConnection::ExportAllSlots))
             qWarning() << "[MarathonShell] TextInput1 not served";
         auto *keelActions =
-            new ShellKeelActions(appModel, taskModel, appLaunchService, appLifecycleManager,
-                                 uiStore, sessionStore, display, &app);
+            new ShellKeelActions(appModel, tasks, uiStore, sessionStore, display, &app);
         if (!keelActions->registerOnSessionBus())
             qWarning() << "[MarathonShell] Keel Actions not served (org.marathonos.shell)";
     }

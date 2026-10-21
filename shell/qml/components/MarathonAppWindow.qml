@@ -69,7 +69,7 @@ Rectangle {
                 const freeWithApp = function (goneId) {
                     if (goneId !== id)
                         return;
-                    AppLifecycleManager.appUnregistered.disconnect(freeWithApp);
+                    Tasks.appUnregistered.disconnect(freeWithApp);
                     if (appWindow.appContainer && appWindow.appContainer["appInstance"] === nativeInstance)
                         appWindow.appContainer["appInstance"] = null;
                     nativeInstance.destroy();
@@ -79,10 +79,10 @@ Rectangle {
                             appWindow.closeApp(true, id);
                     });
                 };
-                AppLifecycleManager.appUnregistered.connect(freeWithApp);
+                Tasks.appUnregistered.connect(freeWithApp);
                 Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
-                AppLifecycleManager.registerApp(id, nativeInstance);
-                AppLifecycleManager.bringToForeground(id);
+                AppInstances.register(id, nativeInstance);
+                Tasks.bringToForeground(id);
                 // Direct connect — a Connections target through the container
                 // breaks when the instance is reparented into the switcher.
                 if (nativeInstance.revealReadyChanged !== undefined) {
@@ -133,7 +133,7 @@ Rectangle {
             appWindow.appContainer["appInstance"].surfaceId = sid;
             // Backing out minimized it and may have frozen it.
             _unminimize(appWindow.appContainer["appInstance"]);
-            AppLifecycleManager.bringToForeground(id);
+            Tasks.bringToForeground(id);
             appWindow.visible = true;
             appWindow.focusApp();
             if (appWindow.opacity < 1)
@@ -179,7 +179,7 @@ Rectangle {
             }
         }
         if (hasSurface) {
-            var existingNativeInstance = AppLifecycleManager.getAppInstance(id);
+            var existingNativeInstance = AppInstances.get(id);
             if (existingNativeInstance) {
                 Logger.info("AppWindow", "Reusing existing app instance: " + id);
                 // An instance closed from the switcher while minimized is kept
@@ -193,7 +193,7 @@ Rectangle {
                 // thaws it through restoreApp(), but a restore that arrives
                 // here (home-screen tap, LaunchApp) drew the app's last frame
                 // over a process that could not respond to input.
-                AppLifecycleManager.bringToForeground(id);
+                Tasks.bringToForeground(id);
                 appWindow.pendingAppInstance = existingNativeInstance;
                 if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
                     appWindow.appContainer["adoptPendingApp"]();
@@ -265,7 +265,7 @@ Rectangle {
         if (targetAppId === "")
             return;
 
-        AppLifecycleManager.closeApp(targetAppId, skipNativeClose === true);
+        Tasks.closeApp(targetAppId, skipNativeClose === true);
         if (targetAppId !== appId)
             return;
 
@@ -369,7 +369,7 @@ Rectangle {
 
         interval: 20000
         repeat: false
-        running: appWindow.isLoadingComponent && !appWindow.hasError && !AppLaunchService.androidStarting
+        running: appWindow.isLoadingComponent && !appWindow.hasError && !Tasks.androidStarting
         onTriggered: {
             Logger.warn("AppWindow", "Launch timeout for " + appWindow.appId + " — no surface after 20 s");
             appWindow.isLoadingComponent = false;
@@ -608,13 +608,13 @@ Rectangle {
                     if (appInstance.requestRegister)
                         appInstance.requestRegister.connect(containerRoot, function (appId, appInst) {
                             console.log("AppWindow: App requested registration:", appId);
-                            AppLifecycleManager.registerApp(appId, appInst);
+                            AppInstances.register(appId, appInst);
                         });
 
                     if (appInstance.requestUnregister)
                         appInstance.requestUnregister.connect(containerRoot, function (appId) {
                             console.log("AppWindow: App requested unregistration:", appId);
-                            AppLifecycleManager.unregisterApp(appId);
+                            AppInstances.unregister(appId);
                         });
 
                     if (appInstance.minimizeRequested)

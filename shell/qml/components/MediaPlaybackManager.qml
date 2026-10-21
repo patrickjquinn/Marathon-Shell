@@ -37,7 +37,7 @@ Item {
                 if (appId && appId !== "") {
                     HapticManager.light();
                     Logger.info("MediaPlayback", "Launching " + appId);
-                    AppLaunchService.launchApp(appId);
+                    Tasks.launchApp(appId);
                 }
             }
         }

@@ -4,25 +4,11 @@ set(SOURCES
     src/diag/fpsmonitor.cpp
     src/components/lunasvgimageprovider.h
     src/components/lunasvgimageprovider.cpp
-    src/services/applaunchservice.h
-    src/services/applaunchservice.cpp
-    src/services/applifecyclemanager.h
-    src/services/applifecyclemanager.cpp
-    src/services/backgroundtaskobserver.h
-    src/services/backgroundtaskobserver.cpp
-    src/services/processstopper.h
-    src/services/processstopper.cpp
     src/managers/drmmasterwait.h
     src/managers/drmmasterwait.cpp
-    src/ipc/shellipcserver.h
-    src/ipc/shellipcserver.cpp
-    src/ipc/shellservices.h
-    src/ipc/shellservices.cpp
     src/ipc/shellkeelactions.h
     src/ipc/shellkeelactions.cpp
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    src/models/taskmodel.h
-    src/models/taskmodel.cpp
     src/services/unifiedsearchservicecpp.h
     src/services/unifiedsearchservicecpp.cpp
     src/models/notificationmodel.h
@@ -69,8 +55,6 @@ set(SOURCES
     src/services/systemcontrolstore.cpp
     src/services/uistore.h
     src/services/uistore.cpp
-    src/services/foregroundapp.h
-    src/services/foregroundapp.cpp
     src/services/shareservice.h
     src/services/shareservice.cpp
     src/services/appstore.h
@@ -234,6 +218,7 @@ set(QML_FILES
     qml/core/Logger.qml
     qml/core/AmbienceController.qml
     qml/core/WindowOrigins.qml
+    qml/core/AppInstances.qml
     qml/models/FilteredAppModel.qml
     qml/theme/MColors.qml
     qml/theme/MTypography.qml
@@ -315,6 +300,7 @@ set(SINGLETON_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/WindowOrigins.qml
+    qml/core/AppInstances.qml
     qml/theme/MColors.qml
     qml/theme/MTypography.qml
     qml/theme/MSpacing.qml
@@ -456,12 +442,6 @@ qt6_add_qml_module(marathon-shell
         src/models/notificationmodel.h
         src/models/filechoosermodel.cpp
         src/models/filechoosermodel.h
-        src/models/taskmodel.cpp
-        src/models/taskmodel.h
-                src/services/applaunchservice.cpp
-        src/services/applaunchservice.h
-        src/services/applifecyclemanager.cpp
-        src/services/applifecyclemanager.h
         src/services/notificationservicecpp.cpp
         src/services/notificationservicecpp.h
     RESOURCES ${JSON_FILES} ${UI_RESOURCES}

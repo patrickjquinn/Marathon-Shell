@@ -93,6 +93,8 @@ pub struct App {
     pub permissions: Vec<String>,
     pub flatpak_ref: String,
     pub search_terms: Vec<String>,
+    /// What the manifest lets it claim to keep running in the background.
+    pub background_capabilities: Vec<String>,
 }
 
 const ROLES: [&str; 6] = ["id", "name", "icon", "type", "exec", "flatpakRef"];
@@ -145,6 +147,7 @@ fn from_desktop(map: &QMap<QMapPair_QString_QVariant>) -> Option<App> {
         permissions: list(map, "permissions"),
         flatpak_ref: text(map, "flatpakRef"),
         search_terms: [list(map, "keywords"), list(map, "categories")].concat().iter().map(|t| t.to_lowercase()).collect(),
+        background_capabilities: Vec::new(),
     };
     let valid = !app.id.is_empty() && !app.name.is_empty() && !app.icon.is_empty();
     (valid && ["native", "marathon", "system", "flatpak"].contains(&app.kind.as_str())).then_some(app)
@@ -165,7 +168,7 @@ fn from_registry(map: &QMap<QMapPair_QString_QVariant>) -> Option<App> {
         }
         icon = format!("file://{icon}");
     }
-    let app = App { id: text(map, "id"), name: text(map, "name"), icon, kind: kind.to_owned(), permissions: list(map, "permissions"), ..App::default() };
+    let app = App { id: text(map, "id"), name: text(map, "name"), icon, kind: kind.to_owned(), permissions: list(map, "permissions"), background_capabilities: list(map, "backgroundCapabilities"), ..App::default() };
     (!app.id.is_empty() && !app.name.is_empty() && !app.icon.is_empty()).then_some(app)
 }
 

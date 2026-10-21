@@ -14,7 +14,7 @@ namespace marathon {
     class Settings;
 }
 class NavigationRouterCpp;
-class AppLaunchService;
+class Tasks;
 
 class UnifiedSearchServiceCpp : public QObject {
     Q_OBJECT
@@ -26,7 +26,7 @@ class UnifiedSearchServiceCpp : public QObject {
   public:
     explicit UnifiedSearchServiceCpp(Apps *appModel, MarathonAppRegistry *registry,
                                      MarathonAppScanner *scanner, marathon::Settings *settings,
-                                     NavigationRouterCpp *router, AppLaunchService *appLaunch,
+                                     NavigationRouterCpp *router, Tasks *appLaunch,
                                      QObject *parent = nullptr);
 
     QVariantList searchIndex() const;
@@ -81,7 +81,7 @@ class UnifiedSearchServiceCpp : public QObject {
     MarathonAppScanner  *m_scanner   = nullptr;
     marathon::Settings     *m_settings  = nullptr;
     NavigationRouterCpp *m_router    = nullptr;
-    AppLaunchService    *m_appLaunch = nullptr;
+    Tasks               *m_appLaunch = nullptr;
 
     QVector<SearchItem>  m_items;
     QStringList          m_recentSearches;

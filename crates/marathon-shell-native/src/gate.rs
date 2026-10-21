@@ -29,19 +29,10 @@ mod ffi {
 
     #[namespace = "marathon::gate"]
     extern "Rust" {
-        /// Empty when `sender`, whose process is `pid` (-1 if unknown), may
-        /// make the call; else the D-Bus error name and its message, split
-        /// by a newline.
-        fn refusal(pid: i64, sender: &QString, area: &QString, permissions: &QStringList) -> QString;
         /// The caller behind a process, empty when unknown.
         fn caller_of_pid(pid: i64) -> QString;
-        /// Within the rate limit: unpermissioned reads use it alone.
-        fn within_rate(sender: &QString, area: &QString) -> bool;
-        /// The launch service knows `pid` as `app_id`; an empty id forgets it.
-        fn remember(pid: i64, app_id: &QString);
         /// A declared session service may use `permissions`.
         fn service_allows(caller: &QString, permissions: &QStringList) -> bool;
-        fn log_denied(app_id: &QString, permission: &QString);
     }
 }
 
@@ -66,14 +57,6 @@ impl Refusal {
             Self::UnknownCaller => "Unknown caller".into(),
             Self::Requested(p) => format!("Permission requested: {p}"),
             Self::Missing(p) => format!("Missing permission: {p}"),
-        }
-    }
-
-    fn name(&self) -> &'static str {
-        if *self == Self::RateLimited {
-            "org.freedesktop.DBus.Error.LimitsExceeded"
-        } else {
-            "org.freedesktop.DBus.Error.AccessDenied"
         }
     }
 }
@@ -101,14 +84,17 @@ fn trusted_tests() -> bool {
     std::env::var("MARATHON_TEST_TRUSTED").is_ok_and(|v| v.parse::<i32>().is_ok_and(|n| n != 0))
 }
 
-fn remember(pid: i64, app_id: &QString) {
+/// The app behind a process, as the launcher knows it; "" forgets it.
+/// The launcher knows `pid` as `app_id`.
+pub(crate) fn remember_pid(pid: i64, app_id: &str) {
     let Ok(pid) = u32::try_from(pid) else { return };
-    let app = app_id.to_string();
-    if app.is_empty() {
-        lock(&PIDS).remove(&pid);
-    } else {
-        lock(&PIDS).insert(pid, app);
-    }
+    lock(&PIDS).insert(pid, app_id.to_owned());
+}
+
+/// The process exited: its pid may come back as another's.
+pub(crate) fn forget_pid(pid: i64) {
+    let Ok(pid) = u32::try_from(pid) else { return };
+    lock(&PIDS).remove(&pid);
 }
 
 fn cgroup(pid: u32) -> String {
@@ -187,10 +173,6 @@ fn service_allows(caller: &QString, permissions: &QStringList) -> bool {
     declared_by_service(&caller.to_string(), &strings(permissions), Path::new(SERVICES))
 }
 
-fn within_rate(sender: &QString, area: &QString) -> bool {
-    in_window(&sender.to_string(), &area.to_string())
-}
-
 pub(crate) fn in_window(sender: &str, area: &str) -> bool {
     let now = Instant::now();
     let mut calls = lock(&CALLS);
@@ -233,14 +215,7 @@ pub fn admit(pid: Option<u32>, sender: &str, area: &str, permissions: &[String])
     Err(Refusal::Missing(primary))
 }
 
-fn refusal(pid: i64, sender: &QString, area: &QString, permissions: &QStringList) -> QString {
-    match admit(u32::try_from(pid).ok(), &sender.to_string(), &area.to_string(), &strings(permissions)) {
-        Ok(_) => QString::default(),
-        Err(r) => QString::from(&format!("{}\n{}", r.name(), r.message())),
-    }
-}
-
-fn log_denied(app_id: &QString, permission: &QString) {
+pub(crate) fn denied(app_id: &str, permission: &str) {
     audit::log(Severity::Warning, &format!("permission denied: {app_id} {permission}"));
 }
 
@@ -271,11 +246,11 @@ mod tests {
     #[test]
     fn the_launch_service_names_a_pid_and_its_children() {
         let (me, parent) = (std::process::id(), parent(std::process::id()).unwrap());
-        remember(i64::from(parent), &QString::from("notes"));
+        remember_pid(i64::from(parent), "notes");
         assert_eq!(resolve(me).as_deref(), Some("notes"), "a child of a known pid, found once");
         assert_eq!(resolve(me).as_deref(), Some("notes"), "and remembered");
-        remember(i64::from(me), &QString::default());
-        remember(i64::from(parent), &QString::default());
+        forget_pid(i64::from(me));
+        forget_pid(i64::from(parent));
         assert_ne!(resolve(me).as_deref(), Some("notes"));
     }
 }

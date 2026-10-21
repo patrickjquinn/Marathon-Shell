@@ -25,17 +25,6 @@ target_link_libraries(test_shell_sessionstore Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_sessionstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_SessionStore COMMAND test_shell_sessionstore)
 
-# ForegroundApp: the app in front, "" at home, in the switcher or locked
-add_executable(test_shell_foregroundapp
-    test_foregroundapp.cpp
-    ../../shell/src/services/foregroundapp.cpp
-    ../../shell/src/services/sessionstore.cpp
-    ../../shell/src/services/uistore.cpp
-)
-target_link_libraries(test_shell_foregroundapp Qt6::Test Qt6::Core Qt6::Qml)
-target_include_directories(test_shell_foregroundapp PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_ForegroundApp COMMAND test_shell_foregroundapp)
-
 # Tapping a notification shows its app, the registry's or not
 add_executable(test_shell_notificationhandler
     test_notificationhandler.cpp
@@ -73,17 +62,6 @@ target_include_directories(test_shell_notificationmodel PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
 )
 add_test(NAME Shell_NotificationModel COMMAND test_shell_notificationmodel)
-
-# TaskModel tests (data model, launch/close/update)
-add_executable(test_shell_taskmodel
-    test_taskmodel.cpp
-    ../../shell/src/models/taskmodel.cpp
-)
-target_link_libraries(test_shell_taskmodel Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml)
-target_include_directories(test_shell_taskmodel PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-)
-add_test(NAME Shell_TaskModel COMMAND test_shell_taskmodel)
 
 # Which keys the compositor keeps for system navigation
 add_executable(test_shell_keyrouting test_keyrouting.cpp)
@@ -152,11 +130,6 @@ target_link_libraries(test_shell_processtree Qt6::Test Qt6::Core)
 target_include_directories(test_shell_processtree PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_ProcessTree COMMAND test_shell_processtree)
 
-add_executable(test_shell_processstopper test_processstopper.cpp ../../shell/src/services/processstopper.cpp)
-target_link_libraries(test_shell_processstopper Qt6::Test Qt6::Core)
-target_include_directories(test_shell_processstopper PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_ProcessStopper COMMAND test_shell_processstopper)
-
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBDRM REQUIRED libdrm)
 add_executable(test_shell_drmmasterwait test_drmmasterwait.cpp ../../shell/src/managers/drmmasterwait.cpp)
@@ -205,161 +178,6 @@ target_link_libraries(test_shell_securitymanager Qt6::Test Qt6::Core Qt6::DBus Q
 target_include_directories(test_shell_securitymanager PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${CMAKE_SOURCE_DIR}/shell/src/components ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_SecurityManager COMMAND test_shell_securitymanager)
 
-# A background launch starts the app without bringing it to the front
-add_executable(test_shell_backgroundlaunch
-    test_backgroundlaunch.cpp
-    ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/processstopper.cpp
-    ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/managers/screenmetrics.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_backgroundlaunch Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-target_include_directories(test_shell_backgroundlaunch PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Shell_BackgroundLaunch COMMAND test_shell_backgroundlaunch)
-
-# One client's toplevels are separate apps, launched by another process
-add_executable(test_shell_sharedclient
-    test_sharedclient.cpp
-    ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/processstopper.cpp
-    ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/managers/screenmetrics.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_sharedclient Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-target_include_directories(test_shell_sharedclient PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-# A private bus: an Android launch asks the session's systemd for Waydroid.
-if(DBUS_RUN_SESSION)
-    add_test(NAME Shell_SharedClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_sharedclient>)
-else()
-    add_test(NAME Shell_SharedClient COMMAND test_shell_sharedclient)
-endif()
-
-# The bwrap sandbox a Marathon app is launched in
-add_executable(test_shell_sandboxlaunch
-    test_sandboxlaunch.cpp
-    ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/processstopper.cpp
-    ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/managers/screenmetrics.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_sandboxlaunch Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-target_include_directories(test_shell_sandboxlaunch PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Shell_SandboxLaunch COMMAND test_shell_sandboxlaunch)
-set_tests_properties(Shell_SandboxLaunch PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-# The warm spare runners and which apps each may become
-add_executable(test_shell_runnerpool
-    test_runnerpool.cpp
-    ../../shell/src/services/applaunchservice.cpp
-    ../../shell/src/services/applifecyclemanager.cpp
-    ../../shell/src/services/processstopper.cpp
-    ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/managers/screenmetrics.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_runnerpool Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-target_include_directories(test_shell_runnerpool PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Shell_RunnerPool COMMAND test_shell_runnerpool)
-set_tests_properties(Shell_RunnerPool PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-# A Keel Actions app gives up its bus name before it is frozen, and is woken
-if(DBUS_RUN_SESSION)
-    add_executable(test_shell_keelactionsfreeze
-        test_keelactionsfreeze.cpp
-        ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/processstopper.cpp
-        ../../shell/src/models/taskmodel.cpp
-        ../../shell/src/managers/deviceprofile.cpp
-        ../../shell/src/managers/screenmetrics.cpp
-        ../../marathon-core/src/marathonappregistry.cpp
-    )
-    target_link_libraries(test_shell_keelactionsfreeze Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-    target_include_directories(test_shell_keelactionsfreeze PRIVATE
-        ${CMAKE_SOURCE_DIR}/shell
-        ${CMAKE_SOURCE_DIR}/shell/src/services
-        ${CMAKE_SOURCE_DIR}/shell/src/models
-        ${CMAKE_SOURCE_DIR}/marathon-core/src
-    )
-    add_test(NAME Shell_KeelActionsFreeze
-        COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_keelactionsfreeze>)
-endif()
-
-# The shell leaves Waydroid's container running; Android freezes its own apps
-if(DBUS_RUN_SESSION)
-    add_executable(test_shell_androidfreeze
-        test_androidfreeze.cpp
-        ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/processstopper.cpp
-        ../../shell/src/models/taskmodel.cpp
-        ../../shell/src/managers/deviceprofile.cpp
-        ../../shell/src/managers/screenmetrics.cpp
-        ../../marathon-core/src/marathonappregistry.cpp
-    )
-    target_link_libraries(test_shell_androidfreeze Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-    target_include_directories(test_shell_androidfreeze PRIVATE
-        ${CMAKE_SOURCE_DIR}/shell
-        ${CMAKE_SOURCE_DIR}/shell/src/services
-        ${CMAKE_SOURCE_DIR}/shell/src/models
-        ${CMAKE_SOURCE_DIR}/marathon-core/src
-    )
-    add_test(NAME Shell_AndroidFreeze
-        COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_androidfreeze>)
-endif()
-
-if(DBUS_RUN_SESSION)
-    add_executable(test_shell_nativelifecycle
-        test_nativelifecycle.cpp
-        ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/processstopper.cpp
-        ../../shell/src/models/taskmodel.cpp
-        ../../shell/src/managers/deviceprofile.cpp
-        ../../shell/src/managers/screenmetrics.cpp
-        ../../marathon-core/src/marathonappregistry.cpp
-    )
-    target_link_libraries(test_shell_nativelifecycle Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus Qt6::Qml)
-    target_include_directories(test_shell_nativelifecycle PRIVATE
-        ${CMAKE_SOURCE_DIR}/shell
-        ${CMAKE_SOURCE_DIR}/shell/src/services
-        ${CMAKE_SOURCE_DIR}/shell/src/models
-        ${CMAKE_SOURCE_DIR}/marathon-core/src
-    )
-    add_test(NAME Shell_NativeLifecycle
-        COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_nativelifecycle>)
-endif()
-
 # A call for a Keel app that is not running is bus-activated through the shell
 find_program(BUSCTL busctl)
 find_program(DBUS_DAEMON dbus-daemon)
@@ -383,40 +201,7 @@ if(DBUS_DAEMON)
     target_link_libraries(test_shell_keelshow Qt6::Test Qt6::Core Qt6::DBus)
 endif()
 
-# The shell's own Keel Actions on a private bus: dispatch, arguments, who may call
 if(DBUS_RUN_SESSION AND BUSCTL)
-    add_executable(test_shell_shellkeelactions
-        test_shellkeelactions.cpp
-        ../../shell/src/ipc/shellkeelactions.cpp
-        ../../shell/src/services/uistore.cpp
-        ../../shell/src/services/sessionstore.cpp
-        ../../shell/src/managers/deviceprofile.cpp
-        ../../shell/src/managers/screenmetrics.cpp
-        ../../shell/src/services/applaunchservice.cpp
-        ../../shell/src/services/applifecyclemanager.cpp
-        ../../shell/src/services/processstopper.cpp
-        ../../shell/src/models/taskmodel.cpp
-        ../../marathon-core/src/marathonappregistry.cpp
-    )
-    qt_add_resources(test_shell_shellkeelactions "keel_actions"
-        PREFIX "/keel"
-        BASE "${CMAKE_SOURCE_DIR}/shell/dbus"
-        FILES ${CMAKE_SOURCE_DIR}/shell/dbus/keel-actions.json
-    )
-    target_link_libraries(test_shell_shellkeelactions Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus
-        Qt6::Qml)
-    target_include_directories(test_shell_shellkeelactions PRIVATE
-        ${CMAKE_SOURCE_DIR}/shell
-        ${CMAKE_SOURCE_DIR}/shell/src
-        ${CMAKE_SOURCE_DIR}/shell/src/managers
-        ${CMAKE_SOURCE_DIR}/shell/src/controllers
-        ${CMAKE_SOURCE_DIR}/shell/src/services
-        ${CMAKE_SOURCE_DIR}/shell/src/models
-        ${CMAKE_SOURCE_DIR}/marathon-core/src
-    )
-    add_test(NAME Shell_ShellKeelActions
-        COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_shellkeelactions>)
-
     # The share sheet's org.sailfishos.share, against fake receivers on a private bus
     add_executable(test_shell_shareservice
         test_shareservice.cpp

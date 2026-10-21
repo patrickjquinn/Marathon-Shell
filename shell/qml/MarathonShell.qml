@@ -81,12 +81,27 @@ Item {
             return;
         }
         Logger.info("Shell", "Back Key Triggered - Calling handleSystemBack");
-        var handled = AppLifecycleManager.handleSystemBack();
+        var handled = shell.systemBack();
         if (!handled) {
             Logger.info("Shell", "Back not handled by app, closing");
             if (UIStore.appWindowOpen)
                 UIStore.closeApp();
         }
+    }
+
+    // An app out of process answers itself; an in-shell one here.
+    function systemBack() {
+        if (Tasks.handleSystemBack())
+            return true;
+        const instance = AppInstances.get(UIStore.currentAppId);
+        return !!instance && typeof instance.handleBack === "function" && instance.handleBack();
+    }
+
+    function systemForward() {
+        if (Tasks.handleSystemForward())
+            return true;
+        const instance = AppInstances.get(UIStore.currentAppId);
+        return !!instance && typeof instance.handleForward === "function" && instance.handleForward();
     }
 
     function dismissPermissionPrompt() {
@@ -107,7 +122,7 @@ Item {
             return;
         }
         if (UIStore.appWindowOpen) {
-            AppLifecycleManager.minimizeForegroundApp();
+            Tasks.minimizeForegroundApp();
 
             var appInstance = appWindow.detachCurrentApp();
             if (appInstance) {
@@ -174,10 +189,6 @@ Item {
             SessionStore.unlock();
         MHaptics.backend = HapticManager;
         compositor = shellInitialization.initialize(shell, shellWindow);
-        AppLaunchService.compositor = compositor;
-        AppLaunchService.appWindow = appWindow;
-        AppLaunchService.uiStore = UIStore;
-        AppLaunchService.appLifecycleManager = AppLifecycleManager;
         // Wire the *actual* QQuickWindow (not the root Item) so the
         // synchronous saveScreenshotTo() path works. Existing call
         // sites still pass `shell` explicitly when they want a frame
@@ -897,7 +908,7 @@ Item {
 
     Connections {
         function onDeepLinkRequested(appId, route, params) {
-            if (!AppLaunchService.launchAppWithRoute(appId, route, JSON.stringify(params || {}), shell.compositor, appWindow))
+            if (!Tasks.launchAppWithRoute(appId, route, JSON.stringify(params || {})))
                 Logger.warn("Shell", "Deep link not opened: " + appId + " " + route);
         }
 
@@ -910,7 +921,7 @@ Item {
         function onSystemBackUnhandled() {
             shell.backOutOfApp();
         }
-        target: AppLifecycleManager
+        target: Tasks
     }
 
     Connections {
@@ -999,7 +1010,7 @@ Item {
     }
 
     Connections {
-        // marathon CLI `qs` verb → NavigationObject (D-Bus) → AppLaunchService.
+        // marathon CLI `qs` verb → NavigationObject (D-Bus) → Tasks.
         // Lets a dev host drive the shade over IPC; top-edge touch injection
         // never reaches statusBarDragArea. mode: 0 hide, 1 show, 2 toggle.
         // Refuse show/toggle while locked — mirrors the shade's own gate.
@@ -1014,6 +1025,10 @@ Item {
                 UIStore.openQuickSettings();
         }
 
+        function onShowRequested(appId, name, icon, kind, surfaceId) {
+            appWindow.show(appId, name, icon, kind, surfaceId >= 0 && shell.compositor ? shell.compositor.shellSurfaceById(surfaceId) : null, surfaceId);
+        }
+
         function onHomeRequested(switcher) {
             shell.handleHomeKey();
             if (!switcher) {
@@ -1022,7 +1037,7 @@ Item {
             }
         }
 
-        target: AppLaunchService
+        target: Tasks
     }
 
     Comp.ShellInitialization {
@@ -1108,7 +1123,7 @@ Item {
                     }
                 }
                 onAppLaunched: app => {
-                    AppLaunchService.launchApp(app, compositor, appWindow);
+                    Tasks.launchApp(typeof app === "string" ? app : app.id);
                 }
                 onAppLongPressed: (app, sceneRect) => appContextMenu.show(app, appContextMenu.mapFromItem(null, sceneRect))
                 Component.onCompleted: {
@@ -1137,7 +1152,7 @@ Item {
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
                     onAppLaunched: app => {
-                        AppLaunchService.launchApp(app, shell.compositor, appWindow);
+                        Tasks.launchApp(typeof app === "string" ? app : app.id);
                     }
                     onPageNavigationRequested: page => {
                         Logger.info("BottomBar", "Navigation requested to page: " + page);
@@ -1209,7 +1224,7 @@ Item {
         }
         onSwipeRight: {
             if (UIStore.appWindowOpen) {
-                var handled = AppLifecycleManager.handleSystemForward();
+                var handled = shell.systemForward();
                 if (handled)
                     return;
             }
@@ -1248,7 +1263,7 @@ Item {
             }
             if (shell.closeOverlay())
                 return;
-            var handled = AppLifecycleManager.handleSystemBack();
+            var handled = shell.systemBack();
             if (!handled) {
                 Logger.info("NavBar", "App didn't handle back, closing");
                 shell.backOutOfApp();
@@ -1289,9 +1304,9 @@ Item {
                 Logger.info("NavBar", "APP WINDOW OPEN - Minimizing to task switcher");
                 Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                Logger.info("NavBar", " Calling AppLifecycleManager.minimizeForegroundApp()");
-                var result = AppLifecycleManager.minimizeForegroundApp();
-                Logger.info("NavBar", "   AppLifecycleManager.minimizeForegroundApp() returned: " + result);
+                Logger.info("NavBar", " Calling Tasks.minimizeForegroundApp()");
+                var result = Tasks.minimizeForegroundApp();
+                Logger.info("NavBar", "   Tasks.minimizeForegroundApp() returned: " + result);
                 Logger.info("NavBar", "   Triggering snapIntoGridAnimation for smooth transition");
                 shell.isTransitioningToActiveFrames = true;
                 snapIntoGridAnimation.startWithVelocity(-1500);
@@ -1311,7 +1326,7 @@ Item {
         }
         onMinimizeApp: {
             Logger.info("Shell", "NavBar minimize gesture detected");
-            AppLifecycleManager.minimizeForegroundApp();
+            Tasks.minimizeForegroundApp();
             shell.isTransitioningToActiveFrames = true;
             var initialVelocity = -1000;
             snapIntoGridAnimation.startWithVelocity(initialVelocity);
@@ -1335,7 +1350,7 @@ Item {
         }
         // Any launch brings an app forward, also over an app already open.
         Connections {
-            target: AppLaunchService
+            target: Tasks
             function onAppLaunchStarted() {
                 peekFlow.closePeek();
                 UIStore.closeQuickSettings();
@@ -1459,12 +1474,12 @@ Item {
         function showForegroundApp(reason) {
             if (!UIStore.appWindowOpen || !UIStore.currentAppId)
                 return;
-            var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
+            var task = Tasks.getTaskByAppId(UIStore.currentAppId);
             // The launch-hold only guards duplicate spawns; an app that
             // already has a surface is a re-show and must always proceed,
             // or a restore inside the hold window leaves the window blank.
-            if ((!task || task.surfaceId < 0) && AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
-                Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
+            if ((!task || task.surfaceId < 0) && Tasks.isAppLaunching(UIStore.currentAppId)) {
+                Logger.info("Shell", "Tasks is launching " + UIStore.currentAppId + " - skipping redundant show()");
                 return;
             }
             Logger.warn("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
@@ -1488,11 +1503,11 @@ Item {
             // launchApp restores running apps via its existing-task branch;
             // only block it when a live runner has no surface to restore
             // (spawning there duplicates into the void).
-            if (AppLaunchService.pidForAppId(UIStore.currentAppId) > 0 && (!task || task.surfaceId < 0)) {
+            if (Tasks.pidForAppId(UIStore.currentAppId) > 0 && (!task || task.surfaceId < 0)) {
                 Logger.warn("Shell", "Runner alive without surface for " + UIStore.currentAppId + " - skipping fallback relaunch");
                 return;
             }
-            AppLaunchService.launchApp(UIStore.currentAppId, shell.compositor, appWindow);
+            Tasks.launchApp(UIStore.currentAppId);
         }
 
         Connections {
@@ -1568,7 +1583,7 @@ Item {
             MarathonAppWindow {
                 id: appWindow
 
-                onRetryRequested: id => Qt.callLater(() => AppLaunchService.launchApp(id, shell.compositor, appWindow))
+                onRetryRequested: id => Qt.callLater(() => Tasks.launchApp(id))
 
                 x: -cardBorder.x
                 y: Constants.safeAreaTop - cardBorder.y
@@ -1723,11 +1738,11 @@ Item {
         }
 
         Connections {
-            function onDialogSurfaceCreated(appId, xdgSurface, surfaceId) {
-                keelDialogs.add(appId, xdgSurface, surfaceId);
+            function onDialogSurfaceCreated(appId, surfaceId) {
+                keelDialogs.add(appId, shell.compositor.shellSurfaceById(surfaceId), surfaceId);
             }
 
-            target: AppLaunchService
+            target: Tasks
         }
     }
 
@@ -1811,7 +1826,7 @@ Item {
             UIStore.closeQuickSettings();
         }
         onLaunchApp: app => {
-            AppLaunchService.launchApp(app, shell.compositor, appWindow);
+            Tasks.launchApp(typeof app === "string" ? app : app.id);
         }
         onPowerRequested: shell.showPowerMenu()
         // The screen changed size while open (rotation).
@@ -2708,7 +2723,7 @@ Item {
             easing.type: Easing.OutCubic
         }
         onFinished: {
-            AppLifecycleManager.minimizeForegroundApp();
+            Tasks.minimizeForegroundApp();
             UIStore.closeApp();
             navBar.backTracker.value = 0;
             appWindow.opacity = 1;

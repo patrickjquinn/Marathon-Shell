@@ -13,58 +13,42 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex, PoisonError};
 
-use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
+use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
 
 #[cxx_qt::bridge]
 mod ffi {
     unsafe extern "C++" {
-        include!("cxx-qt-lib/qstring.h");
-        type QString = cxx_qt_lib::QString;
         include!("cxx-qt-lib/qstringlist.h");
         type QStringList = cxx_qt_lib::QStringList;
-        include!("cxx-qt-lib/qmap.h");
-        type QMap_QString_QVariant = cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant>;
-    }
-
-    /// One runner to start. A spare has no app id yet.
-    #[namespace = "marathon::sandbox"]
-    struct Runner {
-        app_id: QString,
-        permissions: QStringList,
-        requires_qt: QStringList,
-        /// A spare that will become an app with "storage".
-        storage_spare: bool,
-        wayland_socket: QString,
-        render_node: QString,
-        /// The GPU stack runs WebGL (ANGLE over GLES).
-        gpu_webgl: bool,
-        thumbnails: QString,
-        dpi: f64,
-        user_scale: f64,
-        screen_width: i32,
-        screen_height: i32,
-        app_width: i32,
-        app_height: i32,
     }
 
     #[namespace = "marathon::sandbox"]
     extern "Rust" {
-        /// bubblewrap, or empty when apps run unsandboxed.
-        fn bwrap() -> QString;
-        /// The program and its arguments.
-        fn argv(runner: &Runner, runner_path: &QString) -> QStringList;
-        fn environment(runner: &Runner) -> QMap_QString_QVariant;
-        fn uses_webengine(runner: &Runner) -> bool;
-        /// `argv` as one line that `QProcess::splitCommand` gives back whole.
-        fn command_line(argv: &QStringList) -> QString;
         /// The media folders an app with "storage" sees.
         fn shared_folders() -> QStringList;
-        /// The user installed it; it is not one of Marathon's own apps.
-        fn is_user_installed(app_id: &QString) -> bool;
     }
 }
 
-use ffi::Runner;
+/// One runner to start. A spare has no app id yet.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Runner {
+    pub app_id: String,
+    pub permissions: Vec<String>,
+    pub requires_qt: Vec<String>,
+    /// A spare that will become an app with "storage".
+    pub storage_spare: bool,
+    pub wayland_socket: String,
+    pub render_node: String,
+    /// The GPU stack runs WebGL (ANGLE over GLES).
+    pub gpu_webgl: bool,
+    pub thumbnails: String,
+    pub dpi: f64,
+    pub user_scale: f64,
+    pub screen_width: i32,
+    pub screen_height: i32,
+    pub app_width: i32,
+    pub app_height: i32,
+}
 
 // QtWebEngine's Chromium cannot drive etnaviv's GLES2: software raster, WebGL1 only.
 const CHROMIUM_FLAGS: &str = "--use-gl=disabled --disable-gpu --ignore-gpu-blocklist --disable-dev-shm-usage \
@@ -87,12 +71,7 @@ impl App<'_> {
 }
 
 fn app(runner: &Runner) -> Option<App<'_>> {
-    let id = runner.app_id.to_string();
-    (!id.is_empty()).then(|| App { id, permissions: strings(&runner.permissions), runner })
-}
-
-fn strings(list: &QStringList) -> Vec<String> {
-    QList::<QString>::from(list).iter().map(ToString::to_string).collect()
+    (!runner.app_id.is_empty()).then(|| App { id: runner.app_id.clone(), permissions: runner.permissions.clone(), runner })
 }
 
 fn var(name: &str) -> Option<String> {
@@ -115,19 +94,20 @@ fn user_installs() -> PathBuf {
     marathon_rt::dirs::data().join("marathon/apps")
 }
 
-fn is_user_installed(app_id: &QString) -> bool {
-    let id = app_id.to_string();
-    !system_apps().join(&id).join("manifest.json").exists() && user_installs().join(&id).join("receipt.json").exists()
+/// The user installed it; it is not one of Marathon's own apps.
+pub(crate) fn is_user_installed(app_id: &str) -> bool {
+    !system_apps().join(app_id).join("manifest.json").exists() && user_installs().join(app_id).join("receipt.json").exists()
 }
 
-fn bwrap() -> QString {
+/// bubblewrap, or none when apps run unsandboxed.
+pub(crate) fn bwrap() -> Option<String> {
     if env::var_os("MARATHON_DISABLE_SANDBOX").is_some() {
-        return QString::default();
+        return None;
     }
     let found = env::var_os("PATH")
         .map(|p| env::split_paths(&p).map(|d| d.join("bwrap")).find(|p| p.is_file()))
         .unwrap_or_default();
-    found.map_or_else(QString::default, |p| QString::from(p.to_string_lossy().as_ref()))
+    found.map(|p| p.to_string_lossy().into_owned())
 }
 
 #[derive(Default, Clone)]
@@ -158,9 +138,9 @@ fn manifest(app_id: &str) -> Manifest {
         .clone()
 }
 
-fn uses_webengine(runner: &Runner) -> bool {
+pub(crate) fn uses_webengine(runner: &Runner) -> bool {
     let Some(app) = app(runner) else { return false };
-    let mut modules = strings(&runner.requires_qt);
+    let mut modules = runner.requires_qt.clone();
     if modules.is_empty() {
         modules = manifest(&app.id).requires_qt;
     }
@@ -223,7 +203,7 @@ fn variables(runner: &Runner) -> Vec<(&'static str, String)> {
         vars.push(("QT_OPENGL", var_or("QT_OPENGL", "es2")));
         vars.push(("EGL_PLATFORM", "wayland".to_owned()));
         vars.push(("QTWEBENGINE_CHROMIUM_FLAGS", chromium_flags(&app)));
-        vars.push(("WLR_RENDER_DRM_DEVICE", var("WLR_RENDER_DRM_DEVICE").unwrap_or_else(|| runner.render_node.to_string())));
+        vars.push(("WLR_RENDER_DRM_DEVICE", var("WLR_RENDER_DRM_DEVICE").unwrap_or_else(|| runner.render_node.clone())));
         if let Some(gles) = var("MARATHON_MESA_GLES_OVERRIDE") {
             vars.push(("MESA_GLES_VERSION_OVERRIDE", gles));
         }
@@ -231,9 +211,9 @@ fn variables(runner: &Runner) -> Vec<(&'static str, String)> {
     vars
 }
 
-fn environment(runner: &Runner) -> QMap<QMapPair_QString_QVariant> {
+pub(crate) fn environment(runner: &Runner) -> QMap<QMapPair_QString_QVariant> {
     let mut map = QMap::<QMapPair_QString_QVariant>::default();
-    let sandboxed = !bwrap().is_empty();
+    let sandboxed = bwrap().is_some();
     for (name, value) in variables(runner).into_iter().chain(sandboxed.then(|| ("MARATHON_SANDBOXED", "1".to_owned()))) {
         map.insert(QString::from(name), QVariant::from(&QString::from(&value)));
     }
@@ -260,15 +240,17 @@ fn media_folders() -> Vec<PathBuf> {
         .collect()
 }
 
-fn argv(runner: &Runner, runner_path: &QString) -> QStringList {
+/// The program and its arguments.
+pub(crate) fn argv(runner: &Runner, runner_path: &str) -> Vec<String> {
     let app = app(runner);
     let tail = match &app {
-        Some(app) => vec![runner_path.to_string(), "--app-id".to_owned(), app.id.clone()],
-        None => vec![runner_path.to_string(), "--pool".to_owned()],
+        Some(app) => vec![runner_path.to_owned(), "--app-id".to_owned(), app.id.clone()],
+        None => vec![runner_path.to_owned(), "--pool".to_owned()],
     };
-    let bwrap = bwrap();
-    let args = if bwrap.is_empty() { tail } else { [vec![bwrap.to_string()], sandbox(runner, app.as_ref()), tail].concat() };
-    args.iter().map(QString::from).collect()
+    match bwrap() {
+        Some(bwrap) => [vec![bwrap], sandbox(runner, app.as_ref()), tail].concat(),
+        None => tail,
+    }
 }
 
 fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
@@ -283,7 +265,7 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     for dir in [&data, &cache_env, &config] {
         fs::create_dir_all(dir).ok();
     }
-    let render = runner.render_node.to_string();
+    let render = runner.render_node.clone();
     let mut args = Args::default();
     args.flags(&["--die-with-parent", "--new-session"]);
     // The shell's own driver pin sends Mesa to software rendering on a render node.
@@ -320,12 +302,12 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     args.bind("--ro-bind-try", &config_home.join("dconf").to_string_lossy());
     // The app's own security-context socket where WAYLAND_DISPLAY points,
     // every sandbox's socket hidden.
-    let socket = runner.wayland_socket.to_string();
+    let socket = runner.wayland_socket.clone();
     let display = var_or("MARATHON_WL_SOCKET_NAME", "marathon-wayland-0");
     args.flags(&["--ro-bind", &socket, &format!("{runtime}/{display}")]);
     args.flags(&["--tmpfs", &Path::new(&socket).parent().unwrap_or_else(|| Path::new("/")).to_string_lossy()]);
     match app {
-        Some(app) if is_user_installed(&QString::from(&app.id)) => {
+        Some(app) if is_user_installed(&app.id) => {
             args.bind("--ro-bind", &user_installs().join(&app.id).to_string_lossy());
         }
         Some(app) if !app.has("system") => {}
@@ -340,7 +322,7 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
                 args.bind("--bind", &dir.to_string_lossy());
             }
         }
-        let thumbnails = runner.thumbnails.to_string();
+        let thumbnails = runner.thumbnails.clone();
         fs::create_dir_all(&thumbnails).ok();
         args.bind("--ro-bind", &thumbnails);
     }
@@ -372,9 +354,11 @@ impl Args {
 }
 
 // splitCommand honours double quotes only, and drops an empty argument.
-fn command_line(argv: &QStringList) -> QString {
-    let quoted: Vec<String> = strings(argv)
-        .into_iter()
+/// `argv` as one line that `QProcess::splitCommand` gives back whole.
+pub(crate) fn command_line(argv: &[String]) -> String {
+    let quoted: Vec<String> = argv
+        .iter()
+        .cloned()
         .map(|a| {
             if a.is_empty() {
                 "\"\"".to_owned()
@@ -385,5 +369,5 @@ fn command_line(argv: &QStringList) -> QString {
             }
         })
         .collect();
-    QString::from(&quoted.join(" "))
+    quoted.join(" ")
 }

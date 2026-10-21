@@ -46,6 +46,7 @@ mod stored;
 mod systemd;
 mod timezone;
 mod variant;
+pub mod tasks;
 pub mod telephonyd;
 pub mod updates;
 mod wake_timer;

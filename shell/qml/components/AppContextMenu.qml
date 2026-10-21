@@ -58,7 +58,7 @@ Item {
 
             MenuEntry {
                 text: qsTr("App info")
-                onActivated: AppLaunchService.launchAppWithRoute("settings", "appmanager/" + contextMenu.appId, JSON.stringify({
+                onActivated: Tasks.launchAppWithRoute("settings", "appmanager/" + contextMenu.appId, JSON.stringify({
                     "appId": contextMenu.appId
                 }), null, null)
             }
