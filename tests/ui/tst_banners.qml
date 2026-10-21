@@ -210,7 +210,7 @@ TestCase {
         verify(!notificationToast.shown);
     }
 
-    // A missed call's actions, as TelephonyIntegration names them.
+    // A missed call's actions, as the shell names them.
     function test_shellNotificationActionsById() {
         notificationToast.showToast(message([{
                 "id": "call_back",

@@ -1,0 +1,49 @@
+
+window, .background, dialog, popover, menu, .menu {
+  background-color: @theme_bg_color;
+  color: @theme_fg_color;
+}
+headerbar, .titlebar, headerbar:backdrop, .titlebar:backdrop {
+  background: @marathon_header_color;
+  color: @theme_fg_color;
+  border-color: @borders;
+  box-shadow: none;
+}
+.view, iconview, textview text, treeview, list, row, entry, spinbutton {
+  background-color: @theme_base_color;
+  color: @theme_text_color;
+}
+button {
+  background: @marathon_button_color;
+  color: @theme_fg_color;
+  border-color: @borders;
+  box-shadow: none;
+  text-shadow: none;
+  -gtk-icon-shadow: none;
+}
+button:hover {
+  background: shade(@marathon_button_color, 1.1);
+}
+button.suggested-action, button:checked {
+  background: @theme_selected_bg_color;
+  color: @theme_selected_fg_color;
+  border-color: @theme_selected_bg_color;
+}
+entry:focus, spinbutton:focus {
+  border-color: @theme_selected_bg_color;
+  box-shadow: inset 0 0 0 1px @theme_selected_bg_color;
+}
+*:selected, selection, .view:selected, row:selected {
+  background-color: @theme_selected_bg_color;
+  color: @theme_selected_fg_color;
+}
+*:link {
+  color: @marathon_link_color;
+}
+*:visited {
+  color: @marathon_visited_color;
+}
+scale highlight, progressbar progress, levelbar block.filled, switch:checked {
+  background: @theme_selected_bg_color;
+  border-color: @theme_selected_bg_color;
+}

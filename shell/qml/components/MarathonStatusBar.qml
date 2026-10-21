@@ -12,6 +12,20 @@ Item {
     // Ongoing-activity chip; replaces the clock while non-null.
     property Component activityChip: null
 
+    function batteryIcon(level, charging) {
+        return charging ? "battery-charging" : level <= 10 ? "battery-warning" : level <= 25 ? "battery-low" : level <= 50 ? "battery-medium" : "battery-full";
+    }
+
+    // Strength is carried by the glyph, never by opacity: dimmed icons fall
+    // below 3:1 on the bar and the steps can't be told apart.
+    function signalIcon(strength) {
+        return strength === 0 ? "cell-signal-none" : strength <= 25 ? "cell-signal-low" : strength <= 50 ? "cell-signal-medium" : strength <= 75 ? "cell-signal-high" : "cell-signal-full";
+    }
+
+    function wifiIcon(enabled, strength, connected) {
+        return !enabled || !connected ? "wifi-slash" : strength <= 33 ? "wifi-low" : strength <= 66 ? "wifi-medium" : "wifi-high";
+    }
+
     Row {
         id: leftIconGroup
 
@@ -22,7 +36,7 @@ Item {
         z: 1
 
         GlyphIcon {
-            name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
+            name: statusBar.batteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
@@ -152,7 +166,7 @@ Item {
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
-            visible: StatusBarIconService.shouldShowAirplaneMode(SystemStatusStore.isAirplaneMode)
+            visible: SystemStatusStore.isAirplaneMode
         }
 
         GlyphIcon {
@@ -160,11 +174,11 @@ Item {
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
-            visible: StatusBarIconService.shouldShowDnd(SystemStatusStore.isDndMode)
+            visible: SystemStatusStore.isDndMode
         }
 
         GlyphIcon {
-            name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
+            name: SystemStatusStore.isBluetoothConnected ? "bluetooth-connected" : "bluetooth"
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
@@ -172,7 +186,7 @@ Item {
         }
 
         GlyphIcon {
-            name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
+            name: statusBar.signalIcon(SystemStatusStore.cellularStrength)
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
@@ -197,7 +211,7 @@ Item {
         }
 
         GlyphIcon {
-            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected)
+            name: statusBar.wifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected)
             color: Silica.Theme.primaryColor
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter

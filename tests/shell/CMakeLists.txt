@@ -45,43 +45,7 @@ target_link_libraries(test_shell_keelcover Qt6::Test Qt6::Core)
 target_include_directories(test_shell_keelcover PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
 add_test(NAME Shell_KeelCover COMMAND test_shell_keelcover)
 
-# xdg-desktop-portal Settings backend (appearance from the ambience)
 find_package(Qt6 REQUIRED COMPONENTS Gui DBus)
-add_executable(test_shell_portalsettings test_portalsettings.cpp ../../shell/src/dbus/portalsettings.cpp
-    ../../shell/src/services/toolkittheme.cpp)
-target_link_libraries(test_shell_portalsettings Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus)
-target_include_directories(test_shell_portalsettings PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
-add_test(NAME Shell_PortalSettings COMMAND test_shell_portalsettings)
-
-# The file chooser's list: folders, filters, search, recent
-add_executable(test_shell_filechoosermodel test_filechoosermodel.cpp
-    ../../shell/src/models/filechoosermodel.cpp)
-target_link_libraries(test_shell_filechoosermodel Qt6::Test Qt6::Core Qt6::Qml)
-target_include_directories(test_shell_filechoosermodel PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/models)
-add_test(NAME Shell_FileChooserModel COMMAND test_shell_filechoosermodel)
-
-# xdg-desktop-portal FileChooser backend: requests, replies, Close, on a private bus
-add_executable(test_shell_portalfilechooser test_portalfilechooser.cpp
-    ../../shell/src/dbus/portalfilechooser.cpp)
-target_link_libraries(test_shell_portalfilechooser Qt6::Test Qt6::Core Qt6::DBus)
-target_include_directories(test_shell_portalfilechooser PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
-add_test(NAME Shell_PortalFileChooser
-    COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_portalfilechooser>)
-
-# GTK / libadwaita / KDE colours derived from the ambience
-add_executable(test_shell_toolkittheme test_toolkittheme.cpp ../../shell/src/services/toolkittheme.cpp)
-target_link_libraries(test_shell_toolkittheme Qt6::Test Qt6::Core Qt6::Gui)
-target_include_directories(test_shell_toolkittheme PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-target_compile_definitions(test_shell_toolkittheme PRIVATE
-    MARATHON_TOOLKIT_THEMES="${CMAKE_SOURCE_DIR}/shell/toolkit-themes")
-add_test(NAME Shell_ToolkitTheme COMMAND test_shell_toolkittheme)
-
-add_executable(test_shell_toolkitthemewriter test_toolkitthemewriter.cpp
-    ../../shell/src/services/toolkitthemewriter.cpp ../../shell/src/services/toolkittheme.cpp)
-target_link_libraries(test_shell_toolkitthemewriter Qt6::Test Qt6::Core Qt6::Gui)
-target_include_directories(test_shell_toolkitthemewriter PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_ToolkitThemeWriter COMMAND test_shell_toolkitthemewriter)
-
 add_executable(test_shell_processtree test_processtree.cpp)
 target_link_libraries(test_shell_processtree Qt6::Test Qt6::Core)
 target_include_directories(test_shell_processtree PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
@@ -89,13 +53,6 @@ add_test(NAME Shell_ProcessTree COMMAND test_shell_processtree)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBDRM REQUIRED libdrm)
-
-# Status bar glyphs: real Phosphor names, state carried by the glyph
-add_executable(test_shell_statusbaricons test_statusbaricons.cpp ../../shell/src/services/statusbariconservicecpp.cpp)
-target_link_libraries(test_shell_statusbaricons Qt6::Test Qt6::Core)
-target_include_directories(test_shell_statusbaricons PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-target_compile_definitions(test_shell_statusbaricons PRIVATE GLYPHS_JS="${CMAKE_SOURCE_DIR}/shell/qml/ui/PhosphorGlyphs.js")
-add_test(NAME Shell_StatusBarIcons COMMAND test_shell_statusbaricons)
 
 
 # SecurityManager: quick PIN failures count towards the lockout

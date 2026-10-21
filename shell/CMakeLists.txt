@@ -6,16 +6,12 @@ set(SOURCES
     src/ipc/shellkeelactions.h
     src/ipc/shellkeelactions.cpp
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    src/services/unifiedsearchservicecpp.h
-    src/services/unifiedsearchservicecpp.cpp
     src/models/notificationmodel.h
     src/models/notificationmodel.cpp
     src/services/notificationhandlercpp.h
     src/services/notificationhandlercpp.cpp
     src/services/notificationservicecpp.h
     src/services/notificationservicecpp.cpp
-    src/services/telephonyintegrationcpp.h
-    src/services/telephonyintegrationcpp.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/marathoninputmethodengine.h
@@ -34,17 +30,6 @@ set(SOURCES
     src/services/wakeonkeyfilter.cpp
     src/services/waketouchfilter.h
     src/services/waketouchfilter.cpp
-    src/services/statusbariconservicecpp.h
-    src/services/statusbariconservicecpp.cpp
-    src/services/shareservice.h
-    src/services/shareservice.cpp
-    src/services/toolkittheme.h
-    src/services/toolkittheme.cpp
-    src/services/toolkitthemewriter.h
-    src/services/toolkitthemewriter.cpp
-    src/dbus/portalsettings.cpp
-    src/dbus/portalfilechooser.h
-    src/dbus/portalfilechooser.cpp
     src/services/inputcontext.h
     src/services/inputcontext.cpp
     src/services/remotetextinput.h
@@ -397,14 +382,10 @@ qt6_add_qml_module(marathon-shell
         src/components/windowtexturegeometry.h
         src/components/windowtextureitem.cpp
         src/components/windowtextureitem.h
-        src/dbus/portalsettings.cpp
-        src/dbus/portalsettings.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
                 src/models/notificationmodel.cpp
         src/models/notificationmodel.h
-        src/models/filechoosermodel.cpp
-        src/models/filechoosermodel.h
         src/services/notificationservicecpp.cpp
         src/services/notificationservicecpp.h
     RESOURCES ${JSON_FILES} ${UI_RESOURCES}

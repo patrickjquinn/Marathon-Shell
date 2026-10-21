@@ -2775,13 +2775,11 @@ Item {
         onLoaded: {
             item.pinShown = Qt.binding(() => shell.showPinScreen);
             shell.incomingCallOverlay = item;
-            TelephonyIntegration.incomingCallOverlay = item;
+            item.show(calls.ringing, calls.nameOf(calls.ringing));
         }
         onActiveChanged: {
-            if (!active) {
+            if (!active)
                 shell.incomingCallOverlay = null;
-                TelephonyIntegration.incomingCallOverlay = null;
-            }
         }
     }
 
@@ -2804,12 +2802,42 @@ Item {
         enabled: shell.incomingCallOverlay !== null
     }
 
+    // Calls and texts: ring, the call overlay, missed-call and message
+    // notifications, and the proximity blank while a call is up.
     Connections {
-        function onIncomingCallRequested(number) {
-            incomingCallOverlayLoader.active = true;
+        id: calls
+
+        property string ringing: ""
+        property bool active: false
+
+        function nameOf(number) {
+            return ContactsManager.getContactByNumber(number).name || number;
         }
 
-        function onCallOverlayDismissRequested() {
+        function onIncomingCall(number) {
+            ringing = number;
+            Display.turnScreenOn();
+            AudioManagerCpp.playRingtone();
+            HapticManager.vibratePattern([1000, 500]);
+            if (shell.incomingCallOverlay)
+                shell.incomingCallOverlay.show(number, nameOf(number));
+            else
+                incomingCallOverlayLoader.active = true;
+        }
+
+        function onCallStateChanged(state) {
+            active = state === "incoming" || state === "ringing" || state === "active";
+            Power.hasActiveCalls = active;
+            if (!active)
+                Display.setProximityBlank(false);
+            if (state !== "active" && state !== "idle" && state !== "terminated")
+                return;
+            AudioManagerCpp.stopRingtone();
+            HapticManager.cancelVibration();
+            ringing = "";
+            // The call's end may find the screen proximity-blanked at the ear.
+            if (state !== "active")
+                Display.turnScreenOn();
             if (shell.incomingCallOverlay) {
                 shell.incomingCallOverlay.hide();
                 if (shell.incomingCallOverlay.inCall)
@@ -2818,7 +2846,45 @@ Item {
             shell.unloadCallOverlay();
         }
 
-        target: TelephonyIntegration
+        function onCallEnded(number, kind) {
+            if (kind !== "missed")
+                return;
+            NotificationService.sendNotification("phone", "Missed Call", "From: " + nameOf(number), {
+                "icon": "phone-missed",
+                "category": "call",
+                "priority": "high",
+                "actions": [{ "id": "call_back", "label": "Call Back" }, { "id": "message", "label": "Message" }]
+            });
+            HapticManager.heavy();
+        }
+
+        target: Modem
+    }
+
+    Connections {
+        function onProximityNearChanged() {
+            if (calls.active)
+                Display.setProximityBlank(Display.proximityNear);
+        }
+
+        target: Display
+    }
+
+    Connections {
+        function onMessageReceived(sender, text) {
+            Display.turnScreenOn();
+            NotificationService.sendNotification("messages", calls.nameOf(sender), text, {
+                "icon": "message-circle",
+                "category": "message",
+                "priority": "high",
+                "actions": [{ "id": "inline-reply", "label": "Reply" }, { "id": "mark_read", "label": "Mark Read" }],
+                "replyTarget": sender
+            });
+            HapticManager.medium();
+            AudioManagerCpp.playNotificationSound();
+        }
+
+        target: Telephonyd
     }
 
     // The panel shows fewer than 8 bits per channel and nothing below us

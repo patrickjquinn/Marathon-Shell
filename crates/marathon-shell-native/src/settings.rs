@@ -798,14 +798,14 @@ impl Settings {
         });
     }
 
-    fn get(&self, key: &QString, default_value: &QVariant) -> QVariant {
+    pub(crate) fn get(&self, key: &QString, default_value: &QVariant) -> QVariant {
         match self.ini.0.get(&key.to_string()) {
             Some(Value::Invalid) | None => default_value.clone(),
             Some(value) => qvariant::to_qt(&value.to_dbus()),
         }
     }
 
-    fn set(mut self: Pin<&mut Self>, key: &QString, value: &QVariant) {
+    pub(crate) fn set(mut self: Pin<&mut Self>, key: &QString, value: &QVariant) {
         let Some(value) = qvariant::from_qt(value).filter(|_| storable(value)) else {
             return log::warn("settings", format_args!("cannot store {key}: not a settings type"));
         };

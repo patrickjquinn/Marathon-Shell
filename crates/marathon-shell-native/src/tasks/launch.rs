@@ -157,11 +157,11 @@ impl Tasks {
         self.pid_seen(pid, app_id);
     }
 
-    pub(super) fn launch_app(self: Pin<&mut Self>, app_id: &QString) -> bool {
+    pub(crate) fn launch_app(self: Pin<&mut Self>, app_id: &QString) -> bool {
         self.launch(&app_id.to_string())
     }
 
-    pub(super) fn launch_app_with_route(mut self: Pin<&mut Self>, app_id: &QString, route: &QString, params_json: &QString) -> bool {
+    pub(crate) fn launch_app_with_route(mut self: Pin<&mut Self>, app_id: &QString, route: &QString, params_json: &QString) -> bool {
         self.as_mut().rust_mut().pending_route = Some((route.to_string(), params_json.to_string()));
         let ok = self.as_mut().launch(&app_id.to_string());
         if !ok {

@@ -25,20 +25,27 @@ drm = "0.14.1"
 drm-ffi = "0.9.1"
 evdev = { version = "0.13.2", default-features = false }
 freedesktop_entry_parser = "2.0.1"
+fuzzy-matcher = "0.3.7"
 futures-lite = "2.6.1"
+globset = "0.4.16"
 libc = "0.2.190"
 marathon-apps = { path = "../marathon-apps" }
 marathon-permissions = { path = "../marathon-permissions" }
 marathon-qt = { path = "../marathon-qt" }
 marathon-rt = { path = "../marathon-rt" }
+mime_guess = "2.0.5"
+palette = { version = "0.7.6", default-features = false, features = ["std"] }
 quick-xml = "0.42.0"
 resvg = { version = "0.45.1", default-features = false, features = ["text", "system-fonts", "memmap-fonts"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = { version = "0.11.1", default-features = false }
 spellbook = "0.4.2"
+tempfile = "3.27.0"
 tz-rs = "0.7.3"
+url = "2.5.4"
 ureq = "3.4.2"
+walkdir = "2.5.0"
 zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
 
 [lints]
@@ -48,5 +55,3 @@ workspace = true
 cc = "1.8.0"
 cxx-qt-build = "=0.10.0"
 
-[dev-dependencies]
-tempfile = "3.27.0"

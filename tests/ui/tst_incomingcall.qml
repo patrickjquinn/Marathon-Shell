@@ -32,7 +32,7 @@ TestCase {
             target: Modem
         }
 
-        // As TelephonyIntegrationCpp: a call wakes the screen when it rings and when it ends.
+        // As the shell does: a call wakes the screen when it rings and when it ends.
         Connections {
             function onCallStateChanged() {
                 Display.turnScreenOn();

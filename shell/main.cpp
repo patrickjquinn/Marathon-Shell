@@ -1,4 +1,5 @@
 #include <cmath>
+#include <QClipboard>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QQmlApplicationEngine>
@@ -68,11 +69,9 @@
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/settings.cxxqt.h"
 #include "marathon-shell-native/src/ambience.cxxqt.h"
-#include "src/services/toolkitthemewriter.h"
 #include "marathon-shell-native/src/ngf.cxxqt.h"
-#include "src/dbus/portalsettings.h"
-#include "src/dbus/portalfilechooser.h"
-#include "src/models/filechoosermodel.h"
+#include "marathon-shell-native/src/portal.cxxqt.h"
+#include "marathon-shell-native/src/file_model.cxxqt.h"
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
 #include "marathon-shell-native/src/gate.cxxqt.h"
 #include "marathon-shell-native/src/permissions.cxxqt.h"
@@ -94,19 +93,15 @@
 #include "src/managers/screenmetrics.h"
 #include "marathon-shell-native/src/links.cxxqt.h"
 #include "marathon-shell-native/src/layouts.cxxqt.h"
-#include "src/services/statusbariconservicecpp.h"
-#include "src/services/unifiedsearchservicecpp.h"
-#include "src/services/telephonyintegrationcpp.h"
+#include "marathon-shell-native/src/search.cxxqt.h"
 #include "src/services/screenshotservicecpp.h"
 #include "marathon-shell-native/src/session.cxxqt.h"
 #include "marathon-shell-native/src/ui.cxxqt.h"
-#include "src/services/shareservice.h"
+#include "marathon-shell-native/src/share.cxxqt.h"
 #include "src/services/inputcontext.h"
 #include "src/services/remotetextinput.h"
 #include "marathon-shell-native/src/text_input.cxxqt.h"
 #include "marathon-shell-native/src/words.cxxqt.h"
-#include "src/dbus/freedesktopnotifications.h"
-#include "src/dbus/notificationdatabase.h"
 #include "src/ipc/shellkeelactions.h"
 #include <QDBusConnection>
 
@@ -955,8 +950,9 @@ int main(int argc, char *argv[]) {
     tasks->setUserScale(settingsManager->getUserScaleFactor());
     QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged, tasks,
                      [=] { tasks->setUserScale(settingsManager->getUserScaleFactor()); });
-    createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, settingsManager,
-                                          navigationRouter, tasks, &app);
+    auto *search = new Search();
+    search->setParent(&app);
+    ctx->setContextProperty("UnifiedSearchService", search);
 
     const QByteArray autoLaunchRaw = qgetenv("MARATHON_AUTO_LAUNCH_APP_ID").trimmed();
     if (!autoLaunchRaw.isEmpty()) {
@@ -1149,7 +1145,6 @@ int main(int argc, char *argv[]) {
                      });
     qInfo() << "[MarathonShell] Audio playback wakelock integration enabled";
 
-    createObject<StatusBarIconServiceCpp>(ctx, "StatusBarIconService", &app);
     qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
 
     startupMark("policies and stores");
@@ -1210,13 +1205,11 @@ int main(int argc, char *argv[]) {
                          settingsManager, pushFallback);
         marathon::push::serve();
 
-        auto *shareService = createObject<ShareService>(
-            ctx, "ShareService", appModel, marathon::sandbox::shared_folders(),
-            [](qint64 pid) { return marathon::gate::caller_of_pid(pid); },
-            [tasks](const QString &appId) { tasks->launchApp(appId); },
-            &app);
-        if (shareService->registerOnSessionBus())
-            qInfo() << "[MarathonShell]  org.sailfishos.share registered";
+        auto *share = new Share();
+        share->setParent(&app);
+        ctx->setContextProperty("ShareService", share);
+        QObject::connect(share, &Share::copyRequested, &app,
+                         [](const QString &text) { QGuiApplication::clipboard()->setText(text); });
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
@@ -1262,24 +1255,18 @@ int main(int argc, char *argv[]) {
     // A suspended device wakes for the restart window, as for an alarm.
     QObject::connect(updateService, &marathon::Updates::restartWindowChanged, power,
                      [power](qint64 at) { power->setWakeTimer(QStringLiteral("update-restart"), at); });
-    auto *notificationHandler = createObject<NotificationHandlerCpp>(
-        ctx, "NotificationHandler", notificationService, navigationRouter, modem,
-        appModel, &app);
-    // Its window, or the one its notification's default action opens (an
-    // Android app's contentIntent), comes to the front.
-    notificationHandler->setShowApp([tasks](const QString &appId, bool opensItself) {
-        if (!tasks->canLaunch(appId))
-            return false;
-        if (!tasks->expectWindow(appId) && !opensItself)
-            tasks->launchApp(appId);
-        return true;
-    });
-    auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
-        ctx, "TelephonyIntegration", contacts, notificationService, power,
-        display, audioManager, hapticManager, modem, telephonyd, &app);
-    if (freedesktopNotif)
-        QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
-                         telephonyIntegration, &TelephonyIntegrationCpp::replyToMessageNotification);
+    ctx->setContextProperty("Telephonyd", telephonyd);
+    // A message notification's Reply goes to its sender.
+    QObject::connect(notificationService, &Notifications::replied, telephonyd,
+                         [=](int id, const QString &text) {
+                             const QVariantMap n  = notificationService->getNotification(int(id));
+                             const QString     to = n.value(QStringLiteral("replyTarget")).toString();
+                             if (text.trimmed().isEmpty() || to.isEmpty() ||
+                                 n.value(QStringLiteral("appId")).toString() != QLatin1String("messages"))
+                                 return;
+                             telephonyd->sendMessage(to, text);
+                             notificationService->markAsRead(int(id));
+                         });
 
 
     // PSI some-avg10: High (≥ 20%) sends apps a low-memory hint, Critical
@@ -1317,36 +1304,9 @@ int main(int argc, char *argv[]) {
                 compositor->releaseForeignKeyboard();
         });
 #endif
-        auto *portalSettings = new PortalSettings(&app);
-        // Files first: GTK 3 reloads its theme when the portal flips
-        // Marathon to Marathon-dark, and must find the new colours.
-        auto applyAmbience = [portalSettings,
-                              themeWriter = ToolkitThemeWriter(
-                                  QStandardPaths::writableLocation(
-                                      QStandardPaths::GenericConfigLocation),
-                                  QStandardPaths::writableLocation(
-                                      QStandardPaths::GenericDataLocation))](
-                                 const QVariantMap &ambience) {
-            const QVariantMap appearance = PortalSettings::appearance(ambience);
-            if (appearance.contains(QStringLiteral("accent-color")))
-                themeWriter.write(appearance.value(QStringLiteral("accent-color")).value<QColor>(),
-                                  appearance.value(QStringLiteral("color-scheme")).toUInt() != 2);
-            portalSettings->setGtk3Theme(themeWriter.gtk3ThemeInstalled());
-            portalSettings->setAmbience(ambience);
-        };
-        applyAmbience(ambienceService->getAmbience());
-        QObject::connect(ambienceService, &marathon::Ambience::ambienceChanged, portalSettings,
-                         [=] { applyAmbience(ambienceService->getAmbience()); });
-        auto *fileChooser = createObject<FileChooserPortal>(ctx, "FileChooserPortal",
-                                                            QDBusConnection::sessionBus(), &app);
-        new FileChooserAdaptor(portalSettings, fileChooser);
-        if (!QDBusConnection::sessionBus().registerObject(
-                QStringLiteral("/org/freedesktop/portal/desktop"), portalSettings,
-                QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals |
-                    QDBusConnection::ExportAllProperties | QDBusConnection::ExportAdaptors) ||
-            !QDBusConnection::sessionBus().registerService(
-                QStringLiteral("org.freedesktop.impl.portal.desktop.marathon")))
-            qWarning() << "[MarathonShell] Portal backends not registered";
+        auto *fileChooser = new FileChooser();
+        fileChooser->setParent(&app);
+        ctx->setContextProperty("FileChooserPortal", fileChooser);
         marathon::ipc::own_name();
         auto *keelActions =
             new ShellKeelActions(appModel, tasks, uiStore, sessionStore, display, &app);

@@ -218,6 +218,11 @@ fn shared_folders() -> QStringList {
     media_folders().iter().map(|p| QString::from(p.to_string_lossy().as_ref())).collect()
 }
 
+/// The media folders an app with "storage" sees, at the same paths.
+pub(crate) fn shared_paths() -> Vec<PathBuf> {
+    media_folders()
+}
+
 fn media_folders() -> Vec<PathBuf> {
     let home = home();
     let user = [

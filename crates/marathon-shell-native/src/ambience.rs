@@ -202,6 +202,17 @@ fn highlight(seed: &Seed) -> QColor {
 impl cxx_qt::Initialize for Ambience {
     fn initialize(mut self: Pin<&mut Self>) {
         self.as_mut().on_ambience_changed(|obj| ipc::signal("Ambience", "AmbienceChanged", (state(&obj.ambience),))).release();
+        self.as_mut().on_ambience_changed(|obj| {
+            let get = |k: &str| obj.ambience.get(&QString::from(k));
+            let highlight = get("/desktop/jolla/theme/color/highlight").and_then(|v| {
+                v.value::<QColor>()
+                    .map(|c| crate::theme::Color::new(c.red_f(), c.green_f(), c.blue_f()))
+                    .or_else(|| v.value::<QString>().and_then(|s| crate::theme::parse(&s.to_string())))
+            });
+            let scheme = get("/desktop/jolla/theme/color_scheme").and_then(|v| v.value::<QString>()).map(|s| s.to_string()).unwrap_or_default();
+            crate::portal::set_ambience(highlight, &scheme);
+        })
+        .release();
         ipc::export("Ambience", Ambience1 { qt: self.qt_thread() });
         ipc::export("Wallpaper", Wallpaper1);
     }

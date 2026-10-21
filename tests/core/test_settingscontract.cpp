@@ -109,7 +109,7 @@ namespace {
             {"ringtone", {"crates/marathon-shell-native/src/audio.rs", "s.ringtone()"}},
             {"screenTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.screenTimeout"}},
             {"searchNativeApps",
-             {"shell/src/services/unifiedsearchservicecpp.cpp", "getSearchNativeApps()"}},
+             {"crates/marathon-shell-native/src/search.rs", "search_native_apps()"}},
             {"showNotificationBadges",
              {"shell/qml/components/MarathonAppGrid.qml", "showNotificationBadges"}},
             {"showNotificationsOnLockScreen",
