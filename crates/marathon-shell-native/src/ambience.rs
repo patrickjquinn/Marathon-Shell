@@ -14,7 +14,7 @@ use zbus::zvariant::OwnedValue;
 
 use crate::ipc::{self, value, State};
 use crate::io;
-use marathon_rt::qvariant;
+use marathon_qt as qvariant;
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {

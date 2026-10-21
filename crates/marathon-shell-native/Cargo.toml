@@ -25,7 +25,8 @@ freedesktop_entry_parser = "2.0.1"
 futures-lite = "2.6.1"
 libc = "0.2.190"
 marathon-permissions = { path = "../marathon-permissions" }
-marathon-rt = { path = "../marathon-rt", features = ["qt"] }
+marathon-qt = { path = "../marathon-qt" }
+marathon-rt = { path = "../marathon-rt" }
 quick-xml = "0.42.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"

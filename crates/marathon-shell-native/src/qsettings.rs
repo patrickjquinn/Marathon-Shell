@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use marathon_rt::qvariant;
+use marathon_qt as qvariant;
 use zbus::zvariant;
 
 #[derive(Clone, Debug, PartialEq)]

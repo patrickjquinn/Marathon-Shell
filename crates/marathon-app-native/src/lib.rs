@@ -37,5 +37,5 @@ pub mod store;
 pub mod stores;
 pub mod telephony;
 pub mod updates;
-use marathon_rt::qvariant as variant;
+use marathon_qt as variant;
 pub mod wallpapers;

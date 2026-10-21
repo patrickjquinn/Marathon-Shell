@@ -14,11 +14,8 @@ async-lock = "3.4.2"
 blocking = "1.7.0"
 futures-lite = "2.6.1"
 zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
-cxx-qt-lib = { version = "=0.10.0", default-features = false, optional = true }
 
 [features]
-# D-Bus values as QML's: for the crates that serve or mirror the shell.
-qt = ["dep:cxx-qt-lib"]
 # The daemons' tests: a private bus and a stand-in shell.
 testing = []
 

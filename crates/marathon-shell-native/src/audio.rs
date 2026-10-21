@@ -242,7 +242,7 @@ pub(crate) fn push_state() {
 }
 
 fn state(audio: &Audio) -> State {
-    let streams: Vec<OwnedValue> = audio.streams.iter().filter_map(|s| marathon_rt::qvariant::from_qt(s)?.try_to_owned().ok()).collect();
+    let streams: Vec<OwnedValue> = audio.streams.iter().filter_map(|s| marathon_qt::from_qt(s)?.try_to_owned().ok()).collect();
     State::from([
         ("available".to_owned(), value(audio.available)),
         ("perAppVolumeSupported".to_owned(), value(audio.available)),

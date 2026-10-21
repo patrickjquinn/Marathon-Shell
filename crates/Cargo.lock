@@ -1595,6 +1595,7 @@ dependencies = [
  "inotify",
  "jiff",
  "marathon-permissions",
+ "marathon-qt",
  "marathon-rt",
  "serde",
  "serde_json",
@@ -1697,6 +1698,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-qt"
+version = "0.1.0"
+dependencies = [
+ "cxx-qt-lib",
+ "zbus",
+]
+
+[[package]]
 name = "marathon-rt"
 version = "0.1.0"
 dependencies = [
@@ -1705,7 +1714,6 @@ dependencies = [
  "async-io",
  "async-lock",
  "blocking",
- "cxx-qt-lib",
  "futures-lite",
  "zbus",
 ]
@@ -1732,6 +1740,7 @@ dependencies = [
  "futures-lite",
  "libc",
  "marathon-permissions",
+ "marathon-qt",
  "marathon-rt",
  "quick-xml",
  "serde",
