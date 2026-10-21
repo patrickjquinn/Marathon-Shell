@@ -130,10 +130,6 @@ fi
 ( cd /tmp/shellsrc-stage && tar -cf - Marathon-Shell-main ) | gzip -1 \
     > "/var/cache/distfiles/marathon-shell-${PKGVER}.tar.gz"
 
-[ -f /var/cache/distfiles/asyncfuture.tar.gz ] || \
-    curl -fsL -o /var/cache/distfiles/asyncfuture.tar.gz \
-        https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
-
 cd /work/aports/marathon-shell
 abuild -F checksum >/dev/null
 abuild -d -F

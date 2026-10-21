@@ -71,7 +71,7 @@ cmd_fmt() {
     local cf_files
     cf_files="$(find "$MARATHON_SRC/shell" "$MARATHON_SRC/tools" -type f \
         \( -name '*.cpp' -o -name '*.h' \) \
-        -not -path '*/build/*' -not -path '*/asyncfuture/*')"
+        -not -path '*/build/*')"
     if [ "$fix" = "1" ]; then
         echo "$cf_files" | xargs clang-format -i
         marathon::success "clang-format applied"
