@@ -67,7 +67,7 @@ index 0000000..7383214
 +    match object {
 +        "Sms" | "CallHistory" => "org.marathonos.Telephony",
 +        "Contacts" => "org.marathonos.Dav",
-+        "Settings" | "Telephony" | "Navigation" => SESSION,
++        "Navigation" => SESSION,
 +        _ => SHELL,
 +    }
 +}
