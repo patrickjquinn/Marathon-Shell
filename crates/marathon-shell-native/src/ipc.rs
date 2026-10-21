@@ -42,13 +42,22 @@ pub fn export<I: Interface>(name: &'static str, iface: I) {
     });
 }
 
+static NAMED: async_lock::OnceCell<()> = async_lock::OnceCell::new();
+
 fn own_name() {
     io::spawn(async {
         let owned = async { io::session_bus().await?.request_name(NAME).await };
         if let Err(e) = owned.await {
-            log::warn("ipc", format_args!("cannot own {NAME}: {e}"));
+            return log::warn("ipc", format_args!("cannot own {NAME}: {e}"));
         }
+        NAMED.set(()).await.ok();
     });
+}
+
+/// Once the shell owns `org.marathonos.Shell`: the services that ask it
+/// who their caller is answer the shell only then.
+pub async fn named() {
+    NAMED.wait().await;
 }
 
 /// Sends `<Name>1.<member>` from `/org/marathonos/Shell/<name>`.

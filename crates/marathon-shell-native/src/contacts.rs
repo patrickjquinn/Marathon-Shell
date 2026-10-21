@@ -80,6 +80,7 @@ impl cxx_qt::Initialize for Contacts {
                 Err(e) => Err(e),
             };
             let Ok(changes) = changes else { return log::warn("Contacts", "cannot follow the address book") };
+            crate::ipc::named().await;
             let mut changes = std::pin::pin!(changes);
             loop {
                 match read(&bus).await {
