@@ -54,6 +54,24 @@ pub fn create(source_dir: &Path, archive: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Packages an app directory: its manifest names what an app needs and its
+/// entry point is there.
+pub fn package(app_dir: &Path, archive: &Path) -> Result<(), String> {
+    let manifest: serde_json::Value = fs::read(app_dir.join("manifest.json"))
+        .map_err(|e| format!("manifest.json: {e}"))
+        .and_then(|b| serde_json::from_slice(&b).map_err(|e| format!("Invalid JSON in manifest.json: {e}")))?;
+    for field in ["id", "name", "version", "entryPoint", "icon"] {
+        if manifest.get(field).and_then(serde_json::Value::as_str).is_none_or(str::is_empty) {
+            return Err(format!("manifest.json missing required field: {field}"));
+        }
+    }
+    let entry = manifest["entryPoint"].as_str().unwrap_or_default();
+    if !app_dir.join(entry).exists() {
+        return Err(format!("Entry point file not found: {entry}"));
+    }
+    create(app_dir, archive)
+}
+
 /// Extracts `archive` into `dest_dir`. An archive holding a symlink, or an
 /// entry whose name would land outside `dest_dir`, is refused before
 /// anything is written.

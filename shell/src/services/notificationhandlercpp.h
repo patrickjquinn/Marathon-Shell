@@ -7,7 +7,7 @@
 #include <QPointer>
 #include <QVariantMap>
 
-class MarathonAppRegistry;
+class Apps;
 class NotificationServiceCpp;
 class NavigationRouterCpp;
 class Modem;
@@ -18,7 +18,7 @@ class NotificationHandlerCpp : public QObject {
   public:
     explicit NotificationHandlerCpp(NotificationServiceCpp *notifications,
                                     NavigationRouterCpp *router, Modem *telephony,
-                                    MarathonAppRegistry *registry, QObject *parent = nullptr);
+                                    Apps *registry, QObject *parent = nullptr);
 
     // Shows an app the registry cannot open (an Android app, a desktop app):
     // true if it could. opensItself: the tap ran the app's default action.
@@ -36,7 +36,7 @@ class NotificationHandlerCpp : public QObject {
     QPointer<NotificationServiceCpp> m_notifications;
     QPointer<NavigationRouterCpp>    m_router;
     QPointer<Modem>       m_telephony;
-    QPointer<MarathonAppRegistry>    m_registry;
+    QPointer<Apps>                   m_registry;
     std::function<bool(const QString &, bool)> m_showApp;
 };
 

@@ -33,24 +33,6 @@ set(_cargo_env ${CMAKE_COMMAND} -E env
     "CARGO_TARGET_DIR=${MARATHON_CARGO_TARGET_DIR}" "CARGO_INCREMENTAL=0"
     "QMAKE=${_qmake}" "CXX_QT_EXPORT_DIR=${_cxxqt_export}" "MARATHON_VERSION=${MARATHON_VERSION}")
 
-# libMarathonCore's Rust half. Link it with --exclude-libs so its copy of the
-# Rust runtime stays private to the consuming .so.
-set(MARATHON_CORE_NATIVE_LIB
-    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/libmarathon_core_native.a")
-add_custom_target(marathon_core_native_cargo ALL
-    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-core-native
-            ${_cargo_flags} ${_cargo_profile_flag}
-    BYPRODUCTS "${MARATHON_CORE_NATIVE_LIB}"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building marathon-core-native (Rust)"
-    USES_TERMINAL
-    VERBATIM)
-add_library(marathon_core_native INTERFACE)
-add_dependencies(marathon_core_native marathon_core_native_cargo)
-target_include_directories(marathon_core_native INTERFACE "${MARATHON_CARGO_TARGET_DIR}/cxxbridge")
-target_link_libraries(marathon_core_native INTERFACE
-    "${MARATHON_CORE_NATIVE_LIB}" Threads::Threads ${CMAKE_DL_LIBS} m)
-
 # A CXX-Qt crate as an INTERFACE target <target> that links its QObjects.
 function(marathon_cxxqt_crate crate target)
     string(REPLACE "-" "_" _lib "${crate}")
@@ -78,6 +60,18 @@ marathon_cxxqt_crate(marathon-app-native marathon_app_native)
 
 # marathon-store:// URL handler (xdg-open target and the store refresh timer).
 include(GNUInstallDirs)
+set(MARATHON_DEV_BIN "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-dev"
+    CACHE INTERNAL "marathon-dev, built by cargo")
+add_custom_target(marathon_dev_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-apps --bin marathon-dev
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_DEV_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-dev (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_DEV_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 set(MARATHON_STORE_HANDLER_BIN
     "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-store-handler")
 add_custom_target(marathon_store_handler_cargo ALL

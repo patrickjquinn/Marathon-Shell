@@ -86,17 +86,11 @@ fn var_or(name: &str, fallback: &str) -> String {
 
 use marathon_rt::dirs::home;
 
-fn system_apps() -> PathBuf {
-    PathBuf::from(var_or("MARATHON_APPS_DIR", "/usr/share/marathon-apps"))
-}
-
-fn user_installs() -> PathBuf {
-    marathon_rt::dirs::data().join("marathon/apps")
-}
+use marathon_apps::paths::{system_apps, user_installs};
 
 /// The user installed it; it is not one of Marathon's own apps.
 pub(crate) fn is_user_installed(app_id: &str) -> bool {
-    !system_apps().join(app_id).join("manifest.json").exists() && user_installs().join(app_id).join("receipt.json").exists()
+    !marathon_apps::paths::system_app(app_id).join("manifest.json").exists() && marathon_apps::paths::receipt(app_id).exists()
 }
 
 /// bubblewrap, or none when apps run unsandboxed.

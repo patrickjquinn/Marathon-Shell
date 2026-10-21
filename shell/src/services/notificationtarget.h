@@ -4,7 +4,7 @@
 #include <QString>
 #include <QStringList>
 
-class MarathonAppRegistry;
+class Apps;
 
 // Which installed app a notification belongs to.
 namespace NotificationTarget {
@@ -16,7 +16,7 @@ namespace NotificationTarget {
 
     // The registry id of the first candidate that names an installed app, by
     // id (a .desktop suffix is dropped) or by display name, ignoring case.
-    QString resolve(const QStringList &candidates, const MarathonAppRegistry *registry);
+    QString resolve(const QStringList &candidates, const Apps *apps);
 
     // appFromCgroup() for a running process.
     QString appForPid(uint pid);

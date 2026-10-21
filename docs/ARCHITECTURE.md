@@ -25,7 +25,7 @@ Marathon Shell is a Wayland compositor and mobile application shell implemented 
 │  C++ Backend (main.cpp, src/)                                    │
 │  ├── WaylandCompositor (QtWaylandCompositor)                    │
 │  ├── Tasks (Rust: launcher, lifecycle, task list)                │
-│  ├── MarathonAppRegistry & Loader                                │
+│  ├── Apps (Rust: the app catalogue and uninstalls)               │
 │  ├── desktop entries (Rust)                                      │
 │  └── D-Bus Service Managers                                      │
 │      ├── NetworkManagerCpp (NetworkManager D-Bus)                │
@@ -34,10 +34,10 @@ Marathon Shell is a Wayland compositor and mobile application shell implemented 
 │      ├── ModemManagerCpp (ModemManager D-Bus)                    │
 │      └── Security Manager (PAM)                                  │
 ├------------------------------------------------------------┤
-│  Marathon Core Library (libmarathon-core.a)                      │
-│  ├── MarathonAppPackager                                         │
-│  ├── MarathonAppVerifier (minisign)                              │
-│  ├── MarathonAppInstaller                                        │
+│  marathon-apps (Rust crate, crates/marathon-apps)                │
+│  ├── manifests, receipts and the catalogue                       │
+│  ├── packages (zip) and signatures (minisign)                    │
+│  ├── install and uninstall, marathon-dev                         │
 │  └── Permission Manager                                          │
 ├------------------------------------------------------------┤
 │  Qt6 Framework                                                   │
@@ -236,8 +236,8 @@ NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
 PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
 SecurityManager *securityManager = new SecurityManager(&app);
 
-// 4. App system
-MarathonAppRegistry *appRegistry = new MarathonAppRegistry(&app);
+// 4. App system: Rust's Apps scans manifests and receipts itself
+auto *appModel = new Apps();
 
 // 5. Expose to QML
 engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
@@ -277,11 +277,11 @@ way).
 
 **Launch + Isolation Model (current):**
 
-1. `MarathonAppScanner` scans the system apps, then the user installs. A user
+1. `marathon_apps::apps::scan` reads the system apps, then the user installs. A user
    install counts only with its receipt, and its permissions are the
    receipt's, never re-read from the manifest
 2. Parses `manifest.json` for each app
-3. `MarathonAppRegistry` stores app metadata. An app is a system app when it
+3. The shell's `Apps` (and the runner's `AppRegistry`) hold app metadata. An app is a system app when it
    is under the system directory or its package was signed with a key in
    `/usr/share/marathon/system-keys/`; only a system app can be `protected`
 4. User launches app from App Grid / task switcher
@@ -311,15 +311,15 @@ myapp.marathon.minisig     # minisign signature over the whole archive (required
 **Installation:**
 
 1. User installs via `marathon-dev install` or App Store
-2. `MarathonAppInstaller` copies the package and its `.minisig` to a private temp directory
-3. `MarathonAppVerifier` checks the signature over that copy against the trusted keys, before anything reads the archive
-4. `MarathonAppPackager` extracts the same copy to a temp directory
-5. `MarathonAppInstaller` validates the manifest, describes every permission (refusing unknown ones) and holds an update that adds permissions until the user approves them
+2. `marathon_apps::install` copies the package and its `.minisig` to a private temp directory
+3. It checks the signature over that copy against the trusted keys, before anything reads the archive
+4. It extracts the same copy to a temp directory
+5. It validates the manifest, describes every permission (refusing unknown ones) and holds an update that adds permissions until the user approves them
 6. Files moved to `~/.local/share/marathon/apps/<id>/files/` and the receipt written beside them
 7. App appears in App Grid on next scan
 
 Installs from before this layout, which lived in the data directory, are
-copied out at shell start (`MarathonAppInstaller::migrateLegacyInstalls`).
+copied out at shell start (`marathon_apps::install::migrate_legacy_installs`).
 
 **Uninstalling** honours the manifest's `dataLifecycle`: the install and
 the cache always go; the data and config directories, the app's dconf keys
@@ -427,7 +427,7 @@ SpringAnimation: animates to final position with physics
 
 ```
 CMakeLists.txt (root)
-├── marathon-core/CMakeLists.txt
+├── crates/CMakeLists.txt (Rust, marathon-dev included)
 ├── marathon-ui/CMakeLists.txt
 │   ├── Theme/CMakeLists.txt
 │   ├── Core/CMakeLists.txt
@@ -437,19 +437,18 @@ CMakeLists.txt (root)
 │   ├── browser/CMakeLists.txt
 │   ├── settings/CMakeLists.txt
 │   └── ... (other apps)
-└── tools/CMakeLists.txt
-    └── marathon-dev/CMakeLists.txt
+└── tools/ (marathon-app-runner, ...)
 ```
 
 **Build Flow:**
 
 1. Root CMakeLists.txt configures global settings
 2. Subdirectories build in order:
-   - marathon-core (static library)
+   - crates (Rust static libraries and binaries, marathon-dev)
    - marathon-ui (QML modules)
-   - shell (executable, links marathon-core)
+   - shell (executable, links marathon-shell-native)
    - apps (QML modules, some with C++ plugins)
-   - tools (marathon-dev CLI)
+   - tools (marathon-app-runner)
 
 **QML Module Building:**
 

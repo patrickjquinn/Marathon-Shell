@@ -2,7 +2,6 @@
 #include "../ipc/callerpid.h"
 #include "marathon-shell-native/src/apps.cxxqt.h"
 #include "nemoremoteaction.h"
-#include "marathonappregistry.h"
 #include "notificationmodel.h"
 #include "notificationtarget.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
@@ -119,10 +118,6 @@ bool FreedesktopNotifications::registerService() {
 
     qInfo() << "[FreedesktopNotifications] Registered org.freedesktop.Notifications on D-Bus";
     return true;
-}
-
-void FreedesktopNotifications::setAppRegistry(MarathonAppRegistry *registry) {
-    m_registry = registry;
 }
 
 void FreedesktopNotifications::setAppModel(Apps *apps) {
@@ -348,7 +343,7 @@ QString FreedesktopNotifications::extractAppName(const QString     &provided,
             senderApp = NotificationTarget::appForPid(pid);
     }
     QString installed = NotificationTarget::resolve(
-        {hints.value(QStringLiteral("desktop-entry")).toString(), senderApp, provided}, m_registry);
+        {hints.value(QStringLiteral("desktop-entry")).toString(), senderApp, provided}, m_apps);
     if (!installed.isEmpty())
         return installed;
 

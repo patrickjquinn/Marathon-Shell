@@ -1,6 +1,6 @@
 #include "notificationhandlercpp.h"
 
-#include "marathonappregistry.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "navigationroutercpp.h"
 #include "notificationservicecpp.h"
 #include "notificationtarget.h"
@@ -12,7 +12,7 @@
 NotificationHandlerCpp::NotificationHandlerCpp(NotificationServiceCpp *notifications,
                                                NavigationRouterCpp    *router,
                                                Modem       *telephony,
-                                               MarathonAppRegistry *registry, QObject *parent)
+                                               Apps *registry, QObject *parent)
     : QObject(parent)
     , m_notifications(notifications)
     , m_router(router)

@@ -81,7 +81,7 @@ overlay in `packaging/packages/device-*-marathon` ships the
 - Mail: QMF 4.0.4 + `MailService` + the `marathonoauth`/`marathonclassic`
   credential plugins + the `marathon-mail-oauth` Rust helper.
 - Rust services live in `crates/` (`marathon-audiod`, `marathon-weatherd`,
-  `marathon-store-handler`, `marathon-core-native`).
+  `marathon-store-handler`, `marathon-apps`).
 
 ---
 
@@ -273,8 +273,8 @@ module; when in doubt, ship the apk.
 | `shell/` | Shell C++ (`shell/src/`) and QML (`shell/qml/`). `shell/main.cpp` is the entry. |
 | `apps/` | Bundled QML apps. |
 | `marathon-silica/` | `Marathon.Silica`: Keel's Silica plus accessibility, keyboard operation and missing components. |
-| `marathon-core/`, `marathon-services/` | Shared libraries and services. |
-| `crates/` | Rust workspace (`marathon-audiod`, `marathon-background`, `marathon-core-native`, `marathon-health`, `marathon-store-handler`, `marathon-weatherd`). |
+| `marathon-services/` | Shared libraries and services. |
+| `crates/` | Rust workspace (`marathon-audiod`, `marathon-background`, `marathon-apps`, `marathon-health`, `marathon-store-handler`, `marathon-weatherd`). |
 | `tools/` | `marathon-app-runner`, `marathon-webview-runner`, `marathon-mail-oauth`, ... |
 | `scripts/` | Build wrappers, `marathon` CLI, `device-snap.sh`, `hot-deploy.sh`, `flash/`, `qemu/`. |
 | `packaging/` | aports, pipeline patches, configs. See `packaging/README.md`. |

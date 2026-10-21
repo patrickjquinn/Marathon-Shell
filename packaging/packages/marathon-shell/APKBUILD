@@ -127,7 +127,7 @@ source="
 	eglfs-kms.json
 	"
 builddir="$srcdir/Marathon-Shell-main"
-# cargo fetch reaches crates.io for crates/ (libMarathonCore's Rust half).
+# cargo fetch reaches crates.io for crates/.
 options="net !check"
 
 prepare() {

@@ -2,7 +2,7 @@
 #include "src/wayland/keyrouting.h"
 #include "src/wayland/keelcover.h"
 #include "src/wayland/nativeback.h"
-#include "marathonappregistry.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "src/wayland/committimingv1.h"
 #include "src/wayland/fifov1.h"
 #include "src/wayland/linuxdmabufv1.h"
@@ -43,8 +43,8 @@
 #include <cstring>
 #include <wayland-server-core.h>
 
-#include "util/frametiming.h"
-#include "util/rtprio.h"
+#include "diag/frametiming.h"
+#include "marathon-shell-native/src/rt.cxxqt.h"
 #include <algorithm>
 #include <utility>   // std::as_const
 
@@ -1711,7 +1711,7 @@ void WaylandCompositor::setCompositorRealtimePriority() {
             if (primed)
                 return;
             primed = true;
-            if (const int rc = marathon::rt::setCurrentThreadPriority(1); rc != 0)
+            if (const int rc = marathon::rt::set_thread_priority(1); rc != 0)
                 qWarning() << "[WaylandCompositor] QSGRenderThread RT elevation failed:"
                            << strerror(rc);
         },
@@ -2260,10 +2260,10 @@ bool WaylandCompositor::checkIdleInhibitors() {
 
 QString WaylandCompositor::focusedToolkit() const {
     const QWaylandSurface *focus = defaultSeat() ? defaultSeat()->keyboardFocus() : nullptr;
-    if (!focus || !m_appRegistry)
+    if (!focus || !m_apps)
         return {};
     const QString appId = focus->property("appId").toString();
-    return appId.isEmpty() ? QString() : m_appRegistry->getApp(appId).value("toolkit").toString();
+    return appId.isEmpty() ? QString() : m_apps->getApp(appId).value("toolkit").toString();
 }
 
 qint64 WaylandCompositor::monotonicUs() {

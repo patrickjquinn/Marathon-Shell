@@ -22,7 +22,7 @@ WaylandCompositor *WaylandCompositorManager::createCompositor(QQuickWindow *wind
     }
 
     m_compositor = new WaylandCompositor(window);
-    m_compositor->setAppRegistry(m_appRegistry);
+    m_compositor->setApps(m_apps);
     m_compositor->setNativeScale(m_nativeScale);
     emit compositorCreated(m_compositor);
     return m_compositor;

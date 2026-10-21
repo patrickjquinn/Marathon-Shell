@@ -10,7 +10,7 @@ two files define it:
   the permission vocabulary: each name, the wording the user sees, and
   whether it is *sensitive* or *restricted*. The shell's permission manager
   reads its names and wording from this file (through
-  `MarathonManifest::permissions()` in libMarathonCore), so the prompt,
+  `marathon_apps::permissions`), so the prompt,
   Settings and the lint always agree.
 
 Editors that support JSON Schema can validate a manifest as you type when it
@@ -50,7 +50,7 @@ restricted permissions.
 | `package` | the package extracts (the installer's archive rules: no symlinks, no paths outside the app) |
 
 The schema validation uses the [`jsonschema`](https://crates.io/crates/jsonschema)
-crate; the rules are in `crates/marathon-core-native/src/manifest.rs`.
+crate; the rules are in `crates/marathon-apps/src/manifest.rs`.
 
 ## Example
 
@@ -198,7 +198,7 @@ running, emits `NavigationRouter.deepLinkRequested(appId, route, params)`.
 
 ## What else checks the manifest
 
-- The scanner (`MarathonAppScanner`) skips a manifest without `id`, `name`
+- The scanner (`marathon_apps::apps`) skips a manifest without `id`, `name`
   or `entryPoint`.
 - The packager and installer require `id`, `name`, `version`, `entryPoint`
   and `icon`, and that the entry point exists.

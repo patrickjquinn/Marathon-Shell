@@ -9,7 +9,7 @@
 
 #include <functional>
 
-class MarathonAppRegistry;
+class Apps;
 
 // The share sheet's service, org.sailfishos.share on the session bus, as
 // Keel's ShareAction calls it. A request opens the sheet with the apps whose
@@ -27,7 +27,7 @@ class ShareService : public QObject, protected QDBusContext {
     using Raise = std::function<void(const QString &)>;
 
     // sharedFolders: the folders apps with storage see, at the same paths.
-    ShareService(MarathonAppRegistry *apps, QStringList sharedFolders, AppForPid appForPid,
+    ShareService(Apps *apps, QStringList sharedFolders, AppForPid appForPid,
                  Raise raise, QObject *parent = nullptr);
 
     bool             registerOnSessionBus();
@@ -75,7 +75,7 @@ class ShareService : public QObject, protected QDBusContext {
     void         deliver(const QString &targetId, const QString &appId, const QString &method,
                          const QVariantMap &configuration, int tries);
 
-    MarathonAppRegistry *m_apps;
+    Apps                *m_apps;
     QStringList          m_sharedFolders;
     AppForPid            m_appForPid;
     Raise                m_raise;

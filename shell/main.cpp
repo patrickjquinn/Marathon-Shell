@@ -29,7 +29,7 @@
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 
-#include "util/rtprio.h"
+#include "marathon-shell-native/src/rt.cxxqt.h"
 #include <cstdio>
 #include <cstring>
 
@@ -76,9 +76,6 @@
 #include "src/dbus/portalfilechooser.h"
 #include "src/models/filechoosermodel.h"
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
-#include "marathonappregistry.h"
-#include "marathonappscanner.h"
-#include "marathonappinstaller.h"
 #include "marathon-shell-native/src/gate.cxxqt.h"
 #include "marathon-shell-native/src/permissions.cxxqt.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
@@ -206,15 +203,6 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
         });
 }
 #endif
-
-// Marathon's own apps, as the registry lists them, for the home grid.
-static void loadRegistryApps(Apps *apps, MarathonAppRegistry *registry) {
-    QVariantList entries;
-    const QStringList ids = registry->getAllAppIds();
-    for (const QString &id : ids)
-        entries << registry->getApp(id);
-    apps->setRegistryApps(entries);
-}
 
 static QFile       *logFile   = nullptr;
 static QTextStream *logStream = nullptr;
@@ -606,7 +594,7 @@ int main(int argc, char *argv[]) {
 #ifdef Q_OS_LINUX
     // Shell main thread = SCHED_RR/2; render thread is set to RR/1 from
     // WaylandCompositor. See docs/RT_SCHEDULING.md for the full hierarchy.
-    if (const int rc = marathon::rt::setCurrentThreadPriority(2); rc != 0) {
+    if (const int rc = marathon::rt::set_thread_priority(2); rc != 0) {
         qWarning() << "[MarathonShell] Main thread RT elevation failed:" << strerror(rc)
                    << "-- grant CAP_SYS_NICE or rtprio in /etc/security/limits.d/.";
     }
@@ -802,13 +790,12 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("fpsMonitor", fpsMonitor);
     ctx->setContextProperty("MARATHON_FPS_OVERLAY", fpsOverlay);
 
-    auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
-    compositorManager->setAppRegistry(appRegistry);
-    auto *appStore    = new AppStore(appRegistry, &app);
+    auto *appModel = new Apps();
+    appModel->setParent(&app);
+    ctx->setContextProperty(QStringLiteral("AppModel"), appModel);
+    compositorManager->setApps(appModel);
+    auto *appStore = new AppStore(appModel, &app);
     qmlRegisterSingletonInstance<AppStore>("MarathonOS.Shell", 1, 0, "AppStore", appStore);
-    auto *appScanner   = new MarathonAppScanner(appRegistry, &app);
-    auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
-                                                            appRegistry, appScanner, &app);
     if (debugEnabled || profileMode) {
         qInfo() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
     }
@@ -836,10 +823,6 @@ int main(int argc, char *argv[]) {
                              remoteTextInput->panelRequested(show);
                      });
 
-    auto *appModel = new Apps();
-    appModel->setParent(&app);
-    ctx->setContextProperty(QStringLiteral("AppModel"), appModel);
-    appStore->setAppModel(appModel);
     auto *tasks = new Tasks();
     tasks->setParent(&app);
     qmlRegisterSingletonInstance<Tasks>("MarathonOS.Shell", 1, 0, "Tasks", tasks);
@@ -997,9 +980,8 @@ int main(int argc, char *argv[]) {
     tasks->setUserScale(settingsManager->getUserScaleFactor());
     QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged, tasks,
                      [=] { tasks->setUserScale(settingsManager->getUserScaleFactor()); });
-    createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, appRegistry,
-                                          appScanner, settingsManager, navigationRouter,
-                                          tasks, &app);
+    createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, settingsManager,
+                                          navigationRouter, tasks, &app);
 
     const QByteArray autoLaunchRaw = qgetenv("MARATHON_AUTO_LAUNCH_APP_ID").trimmed();
     if (!autoLaunchRaw.isEmpty()) {
@@ -1250,7 +1232,6 @@ int main(int argc, char *argv[]) {
 
         freedesktopNotif = createObject<FreedesktopNotifications>(
             ctx, "FreedesktopNotifications", notifDb, notificationModel, power, &app);
-        freedesktopNotif->setAppRegistry(appRegistry);
         freedesktopNotif->setAppModel(appModel);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
@@ -1269,7 +1250,7 @@ int main(int argc, char *argv[]) {
         marathon::push::serve();
 
         auto *shareService = createObject<ShareService>(
-            ctx, "ShareService", appRegistry, marathon::sandbox::shared_folders(),
+            ctx, "ShareService", appModel, marathon::sandbox::shared_folders(),
             [](qint64 pid) { return marathon::gate::caller_of_pid(pid); },
             [tasks](const QString &appId) { tasks->launchApp(appId); },
             &app);
@@ -1286,42 +1267,6 @@ int main(int argc, char *argv[]) {
     permissionManager->setParent(&app);
     qmlRegisterSingletonInstance<marathon::Permissions>("MarathonOS.Shell", 1, 0,
                                                         "PermissionManager", permissionManager);
-    // What each app declared, from its manifest or install receipt.
-    const auto learnApp = [appRegistry, permissionManager](const QString &appId) {
-        if (const MarathonAppRegistry::AppInfo *info = appRegistry->getAppInfo(appId))
-            permissionManager->setApp(appId, info->permissions, info->isProtected);
-    };
-    for (const QString &appId : appRegistry->getAllAppIds())
-        learnApp(appId);
-    QObject::connect(appRegistry, &MarathonAppRegistry::appRegistered, permissionManager, learnApp);
-    QObject::connect(appRegistry, &MarathonAppRegistry::appUnregistered, permissionManager,
-                     &marathon::Permissions::removeApp);
-
-    // Before the first scan, which no longer looks in the old location.
-    const QStringList migrated = appInstaller->migrateLegacyInstalls();
-    for (const QString &appId : migrated)
-        permissionManager->forgetApp(appId);
-
-    QObject::connect(appInstaller, &MarathonAppInstaller::uninstallComplete, permissionManager,
-                     &marathon::Permissions::forgetApp);
-    QObject::connect(appInstaller, &MarathonAppInstaller::appDataRemoved, settingsManager,
-                     [settingsManager](const QString &appId) {
-                         settingsManager->removeAppKeys(appId);
-                         QProcess::startDetached(QStringLiteral("dconf"),
-                                                 {QStringLiteral("reset"), QStringLiteral("-f"),
-                                                  QStringLiteral("/apps/%1/").arg(appId)});
-                     });
-
-    QObject::connect(tasks, &Tasks::uninstallRequested, appInstaller,
-                     [appInstaller](const QString &appId) { appInstaller->uninstallApp(appId); });
-    QObject::connect(appInstaller, &MarathonAppInstaller::uninstallComplete, tasks,
-                     [tasks](const QString &appId) { tasks->uninstallFinished(appId, QString()); });
-    QObject::connect(appInstaller, &MarathonAppInstaller::uninstallFailed, tasks,
-                     [tasks](const QString &appId, const QString &error) {
-                         tasks->uninstallFinished(appId, error.isEmpty() ? QStringLiteral("failed") : error);
-                     });
-
-
 
     createObject<marathon::ActivityService>(ctx, "ActivityService")->setParent(&app);
 
@@ -1358,7 +1303,7 @@ int main(int argc, char *argv[]) {
                      [power](qint64 at) { power->setWakeTimer(QStringLiteral("update-restart"), at); });
     auto *notificationHandler = createObject<NotificationHandlerCpp>(
         ctx, "NotificationHandler", notificationService, navigationRouter, modem,
-        appRegistry, &app);
+        appModel, &app);
     // Its window, or the one its notification's default action opens (an
     // Android app's contentIntent), comes to the front.
     notificationHandler->setShowApp([tasks](const QString &appId, bool opensItself) {
@@ -1451,9 +1396,6 @@ int main(int argc, char *argv[]) {
     QObject::connect(modem, &Modem::callEnded, telephonyd, &Telephonyd::logCall);
     qInfo() << "[MarathonShell] Call history wired to telephony";
 
-    QObject::connect(appRegistry, &MarathonAppRegistry::appUnregistered, appModel,
-                     [appModel](const QString &appId) { appModel->removeApp(appId); });
-    loadRegistryApps(appModel, appRegistry);
 
     engine.addImportPath("qrc:/");
     engine.addImportPath(QStringLiteral("/usr/lib/qt6/qml"));
@@ -1545,7 +1487,7 @@ int main(int argc, char *argv[]) {
     }
 
     QTimer::singleShot(
-        0, &app, [&app, settingsManager, appModel, appRegistry, appScanner]() {
+        0, &app, [&app, settingsManager, appModel]() {
             const QStringList searchPaths = {
                 "/usr/share/applications", "/usr/local/share/applications",
                 QDir::homePath() + "/.local/share/applications",
@@ -1569,16 +1511,6 @@ int main(int argc, char *argv[]) {
 #else
         const QVariantList nativeApps = marathon::desktop::scan(searchPaths, filterMobile);
         appModel->addApps(nativeApps);
-#endif
-
-            QObject::connect(
-                appScanner, &MarathonAppScanner::scanComplete, &app,
-                [appModel, appRegistry](int) { loadRegistryApps(appModel, appRegistry); });
-
-#ifdef HAVE_QT_CONCURRENT
-            appScanner->scanApplicationsAsync();
-#else
-        appScanner->scanApplications();
 #endif
 
             // Rescans parse every entry on the pool (Waydroid rewrites its

@@ -1,12 +1,13 @@
-//! `Apps`: the apps the shell can start, Marathon's own (from the app
-//! registry) and the desktop's, as the home grid's list model (QML
-//! `AppModel`) and as a catalogue the shell's other Rust objects read.
+//! `Apps`: the apps the shell can start, Marathon's own (their manifests and
+//! install receipts, `marathon_apps`) and the desktop's, as the home grid's
+//! list model (QML `AppModel`) and as a catalogue the shell's other Rust
+//! objects read. It also removes the user's installs.
 
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::sync::{LazyLock, RwLock};
+use std::sync::{LazyLock, OnceLock, RwLock};
 
-use cxx_qt::CxxQtType;
+use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant, QModelIndex, QString, QStringList, QVariant};
 
 // In the global namespace: cxx-qt 0.10 would put the base class in a
@@ -37,6 +38,32 @@ pub mod qobject {
         #[base = QAbstractListModel]
         #[qproperty(i32, count, READ, NOTIFY)]
         type Apps = super::AppsRust;
+
+        /// A Marathon app's manifest, as the registry gave it: id, name,
+        /// icon, absolutePath, toolkit, entryPoint, version, isProtected,
+        /// isSystem, permissions, searchKeywords, deepLinks, categories,
+        /// handlesUriSchemes, defaultFor, backgroundCapabilities and
+        /// requiresQtModules; empty for none.
+        #[qinvokable]
+        #[cxx_name = "getApp"]
+        fn get_app(self: &Apps, app_id: &QString) -> QMap_QString_QVariant;
+        /// Marathon's own apps' ids.
+        #[qinvokable]
+        #[cxx_name = "getAllAppIds"]
+        fn get_all_app_ids(self: &Apps) -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "hasApp"]
+        fn has_app(self: &Apps, app_id: &QString) -> bool;
+        /// A user install, not protected.
+        #[qinvokable]
+        #[cxx_name = "canUninstall"]
+        fn can_uninstall(self: Pin<&mut Apps>, app_id: &QString) -> bool;
+        #[qinvokable]
+        fn uninstall(self: Pin<&mut Apps>, app_id: &QString) -> bool;
+        /// Marathon's own apps were read again.
+        #[qsignal]
+        #[cxx_name = "registryChanged"]
+        fn registry_changed(self: Pin<&mut Apps>);
 
         #[inherit]
         #[cxx_name = "beginResetModel"]
@@ -73,11 +100,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "removeApp"]
         fn remove_app(self: Pin<&mut Apps>, app_id: &QString);
-        /// Marathon's own apps, the registry's entries (its `getApp` maps);
-        /// each replaces any entry of its id.
-        #[cxx_name = "setRegistryApps"]
-        fn set_registry_apps(self: Pin<&mut Apps>, apps: &QList_QVariant);
     }
+
+    impl cxx_qt::Threading for Apps {}
+    impl cxx_qt::Initialize for Apps {}
 }
 
 use qobject::Apps;
@@ -107,6 +133,42 @@ pub struct AppsRust {
 }
 
 static CATALOGUE: LazyLock<RwLock<HashMap<String, App>>> = LazyLock::new(RwLock::default);
+
+/// Marathon's own apps, as their manifests and receipts describe them.
+static REGISTRY: LazyLock<RwLock<Vec<marathon_apps::apps::App>>> = LazyLock::new(RwLock::default);
+
+static QT: OnceLock<cxx_qt::CxxQtThread<Apps>> = OnceLock::new();
+
+/// Marathon's app of `id`, as its manifest describes it.
+pub fn manifest(id: &str) -> Option<marathon_apps::apps::App> {
+    REGISTRY.read().unwrap_or_else(std::sync::PoisonError::into_inner).iter().find(|a| a.id == id).cloned()
+}
+
+/// Runs `f` on the apps, on the GUI thread.
+pub(crate) fn with(f: impl FnOnce(Pin<&mut Apps>) + Send + 'static) {
+    if let Some(qt) = QT.get() {
+        qt.queue(f).ok();
+    }
+}
+
+impl cxx_qt::Initialize for Apps {
+    fn initialize(self: Pin<&mut Self>) {
+        QT.set(self.qt_thread()).ok();
+        let qt = self.qt_thread();
+        crate::io::spawn(async move {
+            let found = blocking::unblock(|| {
+                // Grants a legacy install's manifest claimed as "protected"
+                // came from that claim, which a user install never has.
+                for id in marathon_apps::install::migrate_legacy_installs() {
+                    crate::permissions::with(move |p| p.forget_app(&QString::from(&id)));
+                }
+                marathon_apps::apps::scan()
+            })
+            .await;
+            qt.queue(move |obj| obj.set_registry(found)).ok();
+        });
+    }
+}
 
 /// The app of `id`, as the home grid lists it.
 pub fn get(id: &str) -> Option<App> {
@@ -153,23 +215,42 @@ fn from_desktop(map: &QMap<QMapPair_QString_QVariant>) -> Option<App> {
     (valid && ["native", "marathon", "system", "flatpak"].contains(&app.kind.as_str())).then_some(app)
 }
 
-/// A registry entry: its type is `MarathonAppRegistry::AppType` (0 system,
-/// 1 Marathon, 2 native), and a relative icon lies in the app's directory.
-fn from_registry(map: &QMap<QMapPair_QString_QVariant>) -> Option<App> {
-    let kind = match map.get(&QString::from("type")).and_then(|v| v.value::<i32>()) {
-        Some(0) => "system",
-        Some(2) => "native",
-        _ => "marathon",
-    };
-    let mut icon = text(map, "icon");
-    if !icon.is_empty() && !icon.starts_with("qrc:") && !icon.starts_with("file://") {
-        if !icon.starts_with('/') {
-            icon = format!("{}/{icon}", text(map, "absolutePath"));
-        }
-        icon = format!("file://{icon}");
+fn from_manifest(m: &marathon_apps::apps::App) -> Option<App> {
+    let app = App { id: m.id.clone(), name: m.name.clone(), icon: m.icon.clone(), kind: "marathon".to_owned(), permissions: m.permissions.clone(), background_capabilities: m.background_capabilities.clone(), ..App::default() };
+    (!app.icon.is_empty()).then_some(app)
+}
+
+fn strings(items: &[String]) -> QStringList {
+    let mut l = QList::<QString>::default();
+    for s in items {
+        l.append(QString::from(s));
     }
-    let app = App { id: text(map, "id"), name: text(map, "name"), icon, kind: kind.to_owned(), permissions: list(map, "permissions"), background_capabilities: list(map, "backgroundCapabilities"), ..App::default() };
-    (!app.id.is_empty() && !app.name.is_empty() && !app.icon.is_empty()).then_some(app)
+    QStringList::from(&l)
+}
+
+fn manifest_map(m: &marathon_apps::apps::App) -> QMap<QMapPair_QString_QVariant> {
+    let mut map = QMap::<QMapPair_QString_QVariant>::default();
+    let text = |s: &str| QVariant::from(&QString::from(s));
+    for (key, value) in [("id", &m.id), ("name", &m.name), ("icon", &m.icon), ("toolkit", &m.toolkit), ("entryPoint", &m.entry_point), ("version", &m.version)] {
+        map.insert(QString::from(key), text(value));
+    }
+    map.insert(QString::from("type"), QVariant::from(&1_i32));
+    map.insert(QString::from("absolutePath"), text(&m.path.to_string_lossy()));
+    map.insert(QString::from("deepLinks"), text(&m.deep_links_json()));
+    map.insert(QString::from("isProtected"), QVariant::from(&m.is_protected));
+    map.insert(QString::from("isSystem"), QVariant::from(&m.is_system));
+    for (key, value) in [
+        ("permissions", &m.permissions),
+        ("searchKeywords", &m.search_keywords),
+        ("categories", &m.categories),
+        ("handlesUriSchemes", &m.handles_uri_schemes),
+        ("defaultFor", &m.default_for),
+        ("backgroundCapabilities", &m.background_capabilities),
+        ("requiresQtModules", &m.requires_qt_modules),
+    ] {
+        map.insert(QString::from(key), QVariant::from(&strings(value)));
+    }
+    map
 }
 
 fn to_map(app: &App) -> QMap<QMapPair_QString_QVariant> {
@@ -257,12 +338,81 @@ impl Apps {
         }
     }
 
-    fn set_registry_apps(self: Pin<&mut Self>, apps: &QList<QVariant>) {
-        let mut registry: Vec<App> = apps.iter().filter_map(map_of).filter_map(|m| from_registry(&m)).collect();
-        registry.sort_by(|a, b| a.id.cmp(&b.id));
-        let mut next: Vec<App> = self.apps.iter().filter(|a| !registry.iter().any(|r| r.id == a.id)).cloned().collect();
-        next.extend(registry);
-        self.replace(next);
+    #[allow(clippy::unused_self, reason = "a QML invokable")]
+    fn get_app(&self, app_id: &QString) -> QMap<QMapPair_QString_QVariant> {
+        manifest(&app_id.to_string()).as_ref().map(manifest_map).unwrap_or_default()
+    }
+
+    #[allow(clippy::unused_self, reason = "a QML invokable")]
+    fn get_all_app_ids(&self) -> QStringList {
+        let ids: Vec<String> = REGISTRY.read().unwrap_or_else(std::sync::PoisonError::into_inner).iter().map(|a| a.id.clone()).collect();
+        strings(&ids)
+    }
+
+    #[allow(clippy::unused_self, reason = "a QML invokable")]
+    fn has_app(&self, app_id: &QString) -> bool {
+        manifest(&app_id.to_string()).is_some()
+    }
+
+    /// Marathon's own apps, read again: the grid, the permissions' record of
+    /// what each declared, and the shell's other readers.
+    fn set_registry(mut self: Pin<&mut Self>, found: Vec<marathon_apps::apps::App>) {
+        let gone: Vec<String> = {
+            let old = REGISTRY.read().unwrap_or_else(std::sync::PoisonError::into_inner);
+            old.iter().filter(|o| !found.iter().any(|f| f.id == o.id)).map(|o| o.id.clone()).collect()
+        };
+        for app in &found {
+            crate::permissions::declare(&app.id, app.permissions.clone(), app.is_protected);
+        }
+        for id in &gone {
+            crate::permissions::undeclare(id);
+        }
+        let mut grid: Vec<App> = found.iter().filter_map(from_manifest).collect();
+        grid.sort_by(|a, b| a.id.cmp(&b.id));
+        *REGISTRY.write().unwrap_or_else(std::sync::PoisonError::into_inner) = found;
+        let mut next: Vec<App> = self.apps.iter().filter(|a| a.kind != "marathon" && !grid.iter().any(|r| r.id == a.id)).cloned().collect();
+        next.extend(grid);
+        self.as_mut().replace(next);
+        self.registry_changed();
+    }
+
+    fn rescan(self: Pin<&mut Self>) {
+        self.set_registry(marathon_apps::apps::scan());
+    }
+
+    /// marathon-dev installs from its own process: an install the shell has
+    /// not read yet is read first.
+    fn can_uninstall(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
+        let id = app_id.to_string();
+        if manifest(&id).is_none() && marathon_apps::paths::receipt(&id).exists() {
+            self.as_mut().rescan();
+        }
+        marathon_apps::install::can_uninstall(&id)
+    }
+
+    pub(crate) fn uninstall(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
+        let id = app_id.to_string();
+        let done = if self.as_mut().can_uninstall(app_id) { marathon_apps::install::uninstall(&id) } else { Err("Cannot uninstall a protected or system app".to_owned()) };
+        let error = match done {
+            Ok(data_removed) => {
+                self.as_mut().rescan();
+                crate::permissions::with({
+                    let id = id.clone();
+                    move |p| p.forget_app(&QString::from(&id))
+                });
+                if data_removed {
+                    let key = id.clone();
+                    crate::settings::with(move |s| s.remove_app_keys(&QString::from(&key)));
+                    if let Ok(mut reset) = std::process::Command::new("dconf").args(["reset", "-f", &format!("/apps/{id}/")]).spawn() {
+                        std::thread::spawn(move || reset.wait());
+                    }
+                }
+                String::new()
+            }
+            Err(e) => e,
+        };
+        crate::tasks::uninstalled(&id, &error);
+        error.is_empty()
     }
 
     /// A reset rather than row edits: the lists are a few dozen apps, and
@@ -288,7 +438,7 @@ impl Apps {
 mod tests {
     use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString, QVariant};
 
-    use super::{from_desktop, from_registry};
+    use super::from_desktop;
 
     fn entry(pairs: &[(&str, QVariant)]) -> QMap<QMapPair_QString_QVariant> {
         let mut map = QMap::<QMapPair_QString_QVariant>::default();
@@ -300,15 +450,6 @@ mod tests {
 
     fn s(v: &str) -> QVariant {
         QVariant::from(&QString::from(v))
-    }
-
-    #[test]
-    fn registry_types_are_the_registrys_enum() {
-        let app = |kind: i32| {
-            from_registry(&entry(&[("id", s("clock")), ("name", s("Clock")), ("icon", s("icon.svg")), ("absolutePath", s("/apps/clock")), ("type", QVariant::from(&kind))])).unwrap()
-        };
-        assert_eq!((app(0).kind.as_str(), app(1).kind.as_str(), app(2).kind.as_str()), ("system", "marathon", "native"));
-        assert_eq!(app(1).icon, "file:///apps/clock/icon.svg");
     }
 
     #[test]

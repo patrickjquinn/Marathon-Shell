@@ -7,7 +7,6 @@
 #include <qqml.h>
 
 class Apps;
-class MarathonAppRegistry;
 
 class AppStore : public QObject {
     Q_OBJECT
@@ -17,9 +16,8 @@ class AppStore : public QObject {
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
 
   public:
-    explicit AppStore(MarathonAppRegistry *appRegistry, QObject *parent = nullptr);
-    // Desktop apps (flatpaks, Android apps) are looked up there after the registry.
-    void setAppModel(Apps *apps);
+    // Desktop apps (flatpaks, Android apps) are looked up after Marathon's.
+    explicit AppStore(Apps *apps, QObject *parent = nullptr);
 
     QVariantList apps() const {
         return m_apps;
@@ -28,7 +26,6 @@ class AppStore : public QObject {
     Q_INVOKABLE QVariantMap getApp(const QString &appId) const;
     Q_INVOKABLE QString     getAppName(const QString &appId) const;
     Q_INVOKABLE QString     getAppIcon(const QString &appId) const;
-    Q_INVOKABLE bool        isNativeApp(const QString &appId) const;
 
   signals:
     void appsChanged();
@@ -36,7 +33,6 @@ class AppStore : public QObject {
   private:
     void                 refreshApps();
 
-    MarathonAppRegistry *m_appRegistry;
     QPointer<Apps>       m_appModel;
     QVariantList         m_apps;
 };

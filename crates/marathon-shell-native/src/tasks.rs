@@ -12,7 +12,7 @@
 #![allow(clippy::too_many_arguments, reason = "windowMapped: the window's facts, from the compositor")]
 
 mod dbus;
-pub(crate) use dbus::playback_changed;
+pub(crate) use dbus::{playback_changed, uninstalled};
 mod launch;
 mod lifecycle;
 mod pool;
@@ -327,13 +327,6 @@ pub mod qobject {
         /// lifecycle state, so only their CPU boost follows it.
         #[cxx_name = "setFrontApp"]
         fn set_front_app(self: Pin<&mut Tasks>, app_id: &QString);
-        /// AppStore1 asks the installer (main.cpp connects it).
-        #[qsignal]
-        #[cxx_name = "uninstallRequested"]
-        fn uninstall_requested(self: Pin<&mut Tasks>, app_id: &QString);
-        /// The installer's answer; an empty error is success.
-        #[cxx_name = "uninstallFinished"]
-        fn uninstall_finished(self: &Tasks, app_id: &QString, error: &QString);
     }
 
     impl cxx_qt::Threading for Tasks {}

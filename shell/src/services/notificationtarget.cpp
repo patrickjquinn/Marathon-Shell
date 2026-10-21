@@ -1,6 +1,6 @@
 #include "notificationtarget.h"
 
-#include "marathonappregistry.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 
 #include <QFile>
 #include <QRegularExpression>
@@ -52,7 +52,7 @@ QString NotificationTarget::appFromCgroup(const QString &cgroup) {
 }
 
 QString NotificationTarget::resolve(const QStringList         &candidates,
-                                    const MarathonAppRegistry *registry) {
+                                    const Apps        *registry) {
     if (!registry)
         return {};
     const QStringList ids = registry->getAllAppIds();

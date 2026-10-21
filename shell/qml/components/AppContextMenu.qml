@@ -9,7 +9,7 @@ Item {
 
     property var appData: null
     readonly property string appId: appData ? (appData.id || "") : ""
-    readonly property bool removable: appId !== "" && typeof MarathonAppInstaller !== "undefined" && MarathonAppInstaller.canUninstall(appId)
+    readonly property bool removable: appId !== "" && AppModel.canUninstall(appId)
 
     // Above the icon when there's room, otherwise below it.
     function show(app, rect) {
@@ -69,7 +69,7 @@ Item {
                 onActivated: {
                     const id = contextMenu.appId;
                     UIStore.showConfirmDialog(qsTr("Uninstall %1?").arg(contextMenu.appData.name), qsTr("This app will be removed from your device."), function () {
-                        MarathonAppInstaller.uninstallApp(id);
+                        AppModel.uninstall(id);
                     }, qsTr("Uninstall"));
                 }
             }

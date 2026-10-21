@@ -335,7 +335,7 @@ Wrap at ~72 columns. Two short paragraphs usually beats one long one.
 
 ### G5. Don't bundle unrelated files
 
-If a single commit touches `apps/phone/`, `shell/src/wayland/`, and `marathon-core/src/marathonappinstaller.cpp`, audit it. It's almost certainly three commits in a trench coat.
+If a single commit touches `apps/phone/`, `shell/src/wayland/`, and `crates/marathon-apps/src/install.rs`, audit it. It's almost certainly three commits in a trench coat.
 
 Exception: a single cross-cutting rename or interface change that genuinely affects all three is one commit; the subject must say so.
 

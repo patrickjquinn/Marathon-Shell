@@ -823,7 +823,7 @@ impl Settings {
         app_id.is_empty() || self.app_notification_settings.get(app_id).and_then(|v| v.value::<bool>()).unwrap_or(true)
     }
 
-    fn remove_app_keys(mut self: Pin<&mut Self>, app_id: &QString) {
+    pub(crate) fn remove_app_keys(mut self: Pin<&mut Self>, app_id: &QString) {
         if !app_id.is_empty() {
             self.as_mut().rust_mut().ini.remove_tree(&app_id.to_string());
             self.save_soon();

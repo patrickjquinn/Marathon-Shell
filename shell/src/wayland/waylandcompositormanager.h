@@ -10,7 +10,7 @@
 
 class WaylandCompositor;
 
-class MarathonAppRegistry;
+class Apps;
 
 class WaylandCompositorManager : public QObject {
     Q_OBJECT
@@ -23,8 +23,8 @@ class WaylandCompositorManager : public QObject {
 
     Q_INVOKABLE WaylandCompositor *createCompositor(QQuickWindow *window);
 
-    void setAppRegistry(MarathonAppRegistry *registry) {
-        m_appRegistry = registry;
+    void setApps(Apps *apps) {
+        m_apps = apps;
     }
     // Held until the compositor exists, which QML creates later.
     void setNativeScale(qreal scale);
@@ -38,7 +38,7 @@ class WaylandCompositorManager : public QObject {
 #endif
 
   private:
-    MarathonAppRegistry *m_appRegistry = nullptr;
+    Apps *m_apps = nullptr;
     qreal                m_nativeScale = 1.0;
 #ifdef HAVE_WAYLAND
     WaylandCompositor *m_compositor = nullptr;

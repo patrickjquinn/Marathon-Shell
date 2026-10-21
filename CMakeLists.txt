@@ -205,16 +205,12 @@ add_custom_target(qmllint-types)
 # Vendored third-party libraries (Oxford step counter, maplibre, etc.)
 add_subdirectory(thirdparty)
 
-# Rust crates (marathon-core-native and later components)
+# Marathon's Rust crates
 # Settings > About; packages pass -DMARATHON_VERSION=pkgver-rpkgrel.
 if(NOT DEFINED MARATHON_VERSION)
     set(MARATHON_VERSION "${PROJECT_VERSION}")
 endif()
 add_subdirectory(crates)
-
-# Marathon Core library (shared app management logic)
-add_subdirectory(marathon-core)
-message(STATUS "Marathon Core library added for app management")
 
 add_subdirectory(marathon-services)
 
@@ -222,7 +218,6 @@ add_subdirectory(marathon-silica)
 add_subdirectory(marathon-icon-theme)
 add_subdirectory(marathon-fonts)
 add_subdirectory(shell)
-add_subdirectory(tools/marathon-dev)
 add_subdirectory(tools/marathon-app-runner)
 add_subdirectory(tools/sailfish-qml)
 add_subdirectory(tools/sailfish-install)

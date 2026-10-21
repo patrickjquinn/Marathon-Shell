@@ -37,10 +37,10 @@ and the image pipeline under `packaging/`.
 | Compositor and shell | `shell/` | Qt 6 (QtWaylandCompositor) compositor and the QML shell UI in one process. Owns the gestures, Hub, task switcher, lock screen, quick settings, keyboard and the shell's D-Bus services (`org.marathonos.Shell`). |
 | UI framework | `marathon-silica/`, `packaging/packages/keel-silica` | Keel, Shipwright's Sailfish Silica for Qt 6, used unmodified, plus `Marathon.Silica`: accessibility, keyboard operation and the components Silica lacks. The shell and every bundled app use it. |
 | App runner | `tools/marathon-app-runner/` | `marathon-app-runner` and `marathon-keel-host` run each app in its own process and bubblewrap sandbox, with `Marathon.Platform` exposing the shell's services. |
-| App platform | `marathon-core/`, `tools/marathon-dev/` | `.marathon` packages: packaging, minisign signing, verification, install, discovery. |
+| App platform | `crates/marathon-apps/` (and its `marathon-dev`) | `.marathon` packages: packaging, minisign signing, verification, install, discovery. |
 | Data services | `marathon-services/` | Telephony, SMS/MMS, contacts, call history, CalDAV/CardDAV sync, media library, mail (QMF). |
 | Android apps | [Marathon-Deckard](https://github.com/patrickjquinn/Marathon-Deckard), `packaging/packages/deckard` | Deckard: Waydroid (LineageOS 20, Android 13) with `deckardd` on the host and Marathon's own system apps inside Android. The aport pins a Marathon-Deckard commit. |
-| Rust services | `crates/`, `tools/marathon-mail-oauth/` | `marathon-audiod`, `marathon-weatherd`, `marathon-store-handler`, `marathon-core-native`, `marathon-mail-oauth`. |
+| Rust services | `crates/`, `tools/marathon-mail-oauth/` | `marathon-audiod`, `marathon-weatherd`, `marathon-store-handler`, `marathon-apps`, `marathon-mail-oauth`. |
 | Image pipeline | `packaging/`, `scripts/build-image.sh` | Alpine/postmarketOS aports and the duranium/mkosi pipeline that builds device images. |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for more.
@@ -218,8 +218,7 @@ The shell also runs nested on a Linux desktop for development.
 
 The canonical list is the `makedepends` of
 [packaging/packages/marathon-shell/APKBUILD](packaging/packages/marathon-shell/APKBUILD).
-`scripts/install_dependencies.sh` and
-[docs/FEDORA_SETUP.md](docs/FEDORA_SETUP.md) cover host setup.
+[docs/FEDORA_SETUP.md](docs/FEDORA_SETUP.md) covers host setup.
 
 ### Build and run
 
@@ -336,9 +335,8 @@ directly. Snaps may need
 Marathon-Shell/
 ├── shell/              compositor + shell (C++ in src/, QML in qml/)
 ├── marathon-silica/    Marathon.Silica, on top of Keel's Sailfish.Silica
-├── marathon-core/      .marathon package, signing, install, discovery
 ├── marathon-services/  telephony, SMS/MMS, contacts, DAV, media, mail
-├── crates/             Rust: audiod, weatherd, store handler, core-native
+├── crates/             Rust: apps (packages, install, marathon-dev), audiod, weatherd, store handler
 ├── apps/               bundled apps (+ template/)
 ├── tools/              app runner + Keel host, sandbox, marathon-dev,
 │                       mail-oauth, sailfish-qml, sailfish-install

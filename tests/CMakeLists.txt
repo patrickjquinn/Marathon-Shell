@@ -22,8 +22,8 @@ add_test(NAME Lint_WebEngineBackground COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint
 # Every in-tree app meets the manifest contract (docs/APP_MANIFEST_SCHEMA.md)
 file(GLOB _app_manifests CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/*/manifest.json)
 list(TRANSFORM _app_manifests REPLACE "/manifest.json$" "")
-add_test(NAME Lint_AppManifests COMMAND marathon-dev lint --system-app ${_app_manifests})
-add_test(NAME Lint_DevInit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-dev-init.sh $<TARGET_FILE:marathon-dev>)
+add_test(NAME Lint_AppManifests COMMAND ${MARATHON_DEV_BIN} lint --system-app ${_app_manifests})
+add_test(NAME Lint_DevInit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lint/check-dev-init.sh ${MARATHON_DEV_BIN})
 
 # The modem's suspend hook (marathon-base-config) against stub mmcli/systemctl
 add_test(NAME Script_ModemSleep COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-modem-sleep.sh ${CMAKE_SOURCE_DIR}/packaging/packages/marathon-base-config/marathon-modem-sleep)

@@ -22,7 +22,6 @@ All editable source code is located in the project repository:
 ./apps/           - Application sources
 ./shell/          - Shell sources (C++ and QML)
 ./marathon-ui/    - UI library sources
-./marathon-core/  - Core library sources
 ```
 
 ### Installed Files (Do Not Edit)
@@ -117,7 +116,6 @@ Runtime Loading
 The build system defines the following main targets:
 
 - `marathon-shell` - Main shell executable
-- `marathon-core` - Core library (app management)
 - `marathon-ui-*` - UI library modules
 - `marathon-dev` - Developer CLI tool
 - Individual app targets in `build-apps/`

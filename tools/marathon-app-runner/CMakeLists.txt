@@ -37,7 +37,6 @@ qt_add_resources(SHELL_SINGLETONS_RCC marathon-shell-singletons.qrc)
 target_sources(marathon-app-runner PRIVATE ${SHELL_SINGLETONS_RCC})
 
 target_include_directories(marathon-app-runner PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-core/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../shell/src
 )
 
@@ -50,7 +49,6 @@ target_link_libraries(marathon-app-runner PRIVATE
     Qt6::QuickControls2
     Qt6::DBus
     Qt6::Sql
-    MarathonCore
     marathon_app_native
 )
 
@@ -73,7 +71,7 @@ install(TARGETS marathon-app-runner
 # Marathon.Platform described for qmllint; only its qmltypes is ever built.
 # The Rust clients' QObjects are described from their generated headers.
 set(_app_native_headers)
-foreach(_client alarms audio bluetooth calendar contacts dav display haptics history lifecycle location media modem navigation network notifications permissions power security sensors settings sms store stores telephony updates wallpapers)
+foreach(_client alarms apps audio bluetooth calendar contacts dav display haptics history lifecycle location media modem navigation network notifications permissions power security sensors settings sms store stores telephony updates wallpapers)
     list(APPEND _app_native_headers
         "${CMAKE_BINARY_DIR}/crates/cxxqt-export/crates/marathon-app-native/include/marathon-app-native/src/${_client}.cxxqt.h")
 endforeach()
@@ -87,13 +85,11 @@ qt6_add_qml_module(marathon-platform-types
     SOURCES
         platformqmltypes.h
         worldclockhelper.h
-        ../../marathon-core/src/marathonappregistry.h
         ${_app_native_headers}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qmllint-types/Marathon/Platform
 )
 target_include_directories(marathon-platform-types PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-core/src
 )
 target_link_libraries(marathon-platform-types PRIVATE Qt6::Qml Qt6::DBus marathon_app_native)
 add_dependencies(qmllint-types marathon-platform-types_qmltyperegistration)

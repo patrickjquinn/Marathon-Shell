@@ -37,7 +37,7 @@ declare it, and only its protected apps hold it). `phone` is an alias of
 [APP_MANIFEST_SCHEMA.md](APP_MANIFEST_SCHEMA.md).
 
 The sections below follow the vocabulary file; a unit test in
-`crates/marathon-core-native/src/permissions.rs` fails when they drift.
+`crates/marathon-permissions` fails when they drift.
 
 ### `network`
 

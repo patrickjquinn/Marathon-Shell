@@ -2,8 +2,6 @@
 
 #include "marathon-shell-native/src/tasks.cxxqt.h"
 #include "marathon-shell-native/src/apps.cxxqt.h"
-#include "marathonappregistry.h"
-#include "marathonappscanner.h"
 #include "navigationroutercpp.h"
 #include "marathon-shell-native/src/settings.cxxqt.h"
 
@@ -22,15 +20,11 @@ static const QRegularExpression &whitespace() {
     return re;
 }
 
-UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(Apps *appModel, MarathonAppRegistry *registry,
-                                                 MarathonAppScanner  *scanner,
-                                                 marathon::Settings     *settings,
+UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(Apps *appModel, marathon::Settings *settings,
                                                  NavigationRouterCpp *router,
                                                  Tasks *appLaunch, QObject *parent)
     : QObject(parent)
     , m_appModel(appModel)
-    , m_registry(registry)
-    , m_scanner(scanner)
     , m_settings(settings)
     , m_router(router)
     , m_appLaunch(appLaunch) {
@@ -40,12 +34,8 @@ UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(Apps *appModel, MarathonAppRegi
     m_rebuild.setInterval(0);
     connect(&m_rebuild, &QTimer::timeout, this, &UnifiedSearchServiceCpp::buildSearchIndex);
 
-    if (m_scanner) {
-        connect(m_scanner, &MarathonAppScanner::scanComplete, this,
-                [this](int) { m_rebuild.start(); });
-    }
-
     if (m_appModel) {
+        connect(m_appModel, &Apps::registryChanged, this, [this]() { m_rebuild.start(); });
         // A scan adds and removes apps one at a time: one rebuild for all of them.
         connect(m_appModel, &Apps::countChanged, this, [this]() { m_rebuild.start(); });
     }
@@ -231,12 +221,12 @@ void UnifiedSearchServiceCpp::appendAppItems() {
 }
 
 void UnifiedSearchServiceCpp::appendDeepLinkItems() {
-    if (!m_registry)
+    if (!m_appModel)
         return;
 
-    const QStringList appIds = m_registry->getAllAppIds();
+    const QStringList appIds = m_appModel->getAllAppIds();
     for (const QString &appId : appIds) {
-        const QVariantMap appData = m_registry->getApp(appId);
+        const QVariantMap appData = m_appModel->getApp(appId);
         if (!appData.value("id").isValid())
             continue;
 

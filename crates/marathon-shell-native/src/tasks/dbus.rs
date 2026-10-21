@@ -15,12 +15,12 @@ use zbus::zvariant::{DynamicType, OwnedValue, Value};
 use zbus::fdo;
 
 use super::{q, Qt, Tasks};
-use crate::{apps, gate, io, ipc, log, sandbox};
+use crate::{apps, gate, io, ipc, log};
 
 pub(super) fn export(qt: Qt) {
     ipc::export("Navigation", Navigation1 { qt: qt.clone() });
-    ipc::export("AppLifecycle", AppLifecycle1 { qt: qt.clone() });
-    ipc::export("AppStore", AppStore1 { qt });
+    ipc::export("AppLifecycle", AppLifecycle1 { qt });
+    ipc::export("AppStore", AppStore1);
 }
 
 pub(super) fn foreground_changed(app_id: &str) {
@@ -197,9 +197,7 @@ impl AppLifecycle1 {
     }
 }
 
-struct AppStore1 {
-    qt: Qt,
-}
+struct AppStore1;
 
 async fn system(h: &Header<'_>) -> fdo::Result<()> {
     ipc::admit(h, "AppStore", &["system"]).await.map(drop)
@@ -224,24 +222,26 @@ impl AppStore1 {
 
     async fn can_uninstall(&self, app_id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
         system(&h).await?;
-        Ok(sandbox::is_user_installed(&app_id))
+        Ok(marathon_apps::install::can_uninstall(&app_id))
     }
 
     /// The outcome comes as `UninstallComplete` or `UninstallFailed`.
     async fn uninstall(&self, app_id: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
         system(&h).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.uninstall_requested(&q(&app_id))).await
+        crate::apps::with(move |apps| {
+            apps.uninstall(&QString::from(&app_id));
+        });
+        Ok(())
     }
 }
 
-impl Tasks {
-    #[allow(clippy::unused_self, reason = "the installer's answer, connected in main.cpp")]
-    pub(super) fn uninstall_finished(&self, app_id: &QString, error: &QString) {
-        if error.is_empty() {
-            ipc::signal("AppStore", "UninstallComplete", (app_id.to_string(),));
-        } else {
-            ipc::signal("AppStore", "UninstallFailed", (app_id.to_string(), error.to_string()));
-        }
+/// An uninstall's outcome, for `AppStore1`'s callers; an empty error is
+/// success.
+pub(crate) fn uninstalled(app_id: &str, error: &str) {
+    if error.is_empty() {
+        ipc::signal("AppStore", "UninstallComplete", (app_id.to_owned(),));
+    } else {
+        ipc::signal("AppStore", "UninstallFailed", (app_id.to_owned(), error.to_owned()));
     }
 }
 

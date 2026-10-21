@@ -5,52 +5,6 @@ enable_testing()
 
 find_package(Qt6 REQUIRED COMPONENTS Test Core DBus Gui Network)
 
-# AppRegistry tests (pure data model, no external deps)
-add_executable(test_core_appregistry
-    test_appregistry.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_core_appregistry Qt6::Test Qt6::Core)
-target_include_directories(test_core_appregistry PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Core_AppRegistry COMMAND test_core_appregistry)
-
-# Which installed app a notification belongs to
-add_executable(test_core_notificationtarget
-    test_notificationtarget.cpp
-    ../../shell/src/services/notificationtarget.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_core_notificationtarget Qt6::Test Qt6::Core)
-target_include_directories(test_core_notificationtarget PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-)
-add_test(NAME Core_NotificationTarget COMMAND test_core_notificationtarget)
-
-# AppPackager tests (validation, round-trip, archive symlink refusal)
-add_executable(test_core_apppackager
-    test_apppackager.cpp
-    ../../marathon-core/src/marathonapppackager.cpp
-)
-target_link_libraries(test_core_apppackager Qt6::Test Qt6::Core marathon_core_native)
-target_include_directories(test_core_apppackager PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Core_AppPackager COMMAND test_core_apppackager)
-
-# Manifest lint and permission vocabulary through the C++ API
-add_executable(test_core_manifest
-    test_manifest.cpp
-    ../../marathon-core/src/marathonmanifest.cpp
-)
-target_link_libraries(test_core_manifest Qt6::Test Qt6::Core marathon_core_native)
-target_include_directories(test_core_manifest PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Core_Manifest COMMAND test_core_manifest)
-
 # Every device and personal-data D-Bus method checks a permission
 add_executable(test_core_ipcgates test_ipcgates.cpp)
 target_link_libraries(test_core_ipcgates Qt6::Test Qt6::Core)
@@ -58,34 +12,6 @@ target_compile_definitions(test_core_ipcgates PRIVATE MARATHON_SOURCE_DIR="${CMA
 add_test(NAME Core_IpcGates COMMAND test_core_ipcgates)
 
 # Permissions1 authorisation: self-only, except Settings
-
-# AppInstaller security tests (path traversal, uninstall protection)
-add_executable(test_core_installer_security
-    test_installer_security.cpp
-    ../../marathon-core/src/marathonappinstaller.cpp
-    ../../marathon-core/src/marathonapppackager.cpp
-    ../../marathon-core/src/marathonappverifier.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-    ../../marathon-core/src/marathonappscanner.cpp
-)
-target_link_libraries(test_core_installer_security Qt6::Test Qt6::Core marathon_core_native)
-target_include_directories(test_core_installer_security PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Core_InstallerSecurity COMMAND test_core_installer_security)
-
-# AppScanner tests (manifest parsing, signal contracts, validation)
-add_executable(test_core_appscanner
-    test_appscanner.cpp
-    ../../marathon-core/src/marathonappscanner.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-    ../../marathon-core/src/marathonappverifier.cpp
-)
-target_link_libraries(test_core_appscanner Qt6::Test Qt6::Core marathon_core_native)
-target_include_directories(test_core_appscanner PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Core_AppScanner COMMAND test_core_appscanner)
 
 # Pool keepalive page touching (marathon-app-runner)
 add_executable(test_core_pagetouch
@@ -97,19 +23,6 @@ target_include_directories(test_core_pagetouch PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
 )
 add_test(NAME Core_PageTouch COMMAND test_core_pagetouch)
-
-# Manifest toolkit field (keel by default, marathonui for legacy apps)
-add_executable(test_core_apptoolkit
-    test_apptoolkit.cpp
-    ../../marathon-core/src/marathonappscanner.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-    ../../marathon-core/src/marathonappverifier.cpp
-)
-target_link_libraries(test_core_apptoolkit Qt6::Test Qt6::Core marathon_core_native)
-target_include_directories(test_core_apptoolkit PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Core_AppToolkit COMMAND test_core_apptoolkit)
 
 # Keel host protocol server (marathon-app-runner)
 add_executable(test_core_keelhost
@@ -172,23 +85,16 @@ target_link_libraries(test_core_sailjail Qt6::Test Qt6::Core)
 target_include_directories(test_core_sailjail PRIVATE ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner)
 add_test(NAME Core_Sailjail COMMAND test_core_sailjail)
 
-# App signature trust: only keys in trusted-keys verify
-add_executable(test_core_appverifier test_appverifier.cpp ../../marathon-core/src/marathonappverifier.cpp)
-target_link_libraries(test_core_appverifier Qt6::Test Qt6::Core marathon_core_native)
-target_include_directories(test_core_appverifier PRIVATE ${CMAKE_SOURCE_DIR}/marathon-core/src)
-add_test(NAME Core_AppVerifier COMMAND test_core_appverifier)
-
 # Every setting the Settings app writes reaches the shell and has a reader
 find_package(Qt6 REQUIRED COMPONENTS DBus Qml)
 add_executable(test_core_settingscontract
     test_settingscontract.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
 )
-target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml MarathonCore marathon_app_native)
+target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_app_native)
 target_include_directories(test_core_settingscontract PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src
 )
 target_compile_definitions(test_core_settingscontract PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -199,11 +105,10 @@ add_executable(test_core_ipcclientnormalize
     test_ipcclientnormalize.cpp
 )
 set_target_properties(test_core_ipcclientnormalize PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml MarathonCore marathon_app_native)
+target_link_libraries(test_core_ipcclientnormalize Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml marathon_app_native)
 target_include_directories(test_core_ipcclientnormalize PRIVATE
     ${CMAKE_SOURCE_DIR}/marathon-services/src
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
     ${CMAKE_SOURCE_DIR}/shell/src
 )
 add_test(NAME Core_IpcClientNormalize COMMAND test_core_ipcclientnormalize)
@@ -213,20 +118,6 @@ add_executable(test_core_grantrefresh test_grantrefresh.cpp)
 set_target_properties(test_core_grantrefresh PROPERTIES AUTOMOC ON)
 target_link_libraries(test_core_grantrefresh Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
 add_test(NAME Core_GrantRefresh COMMAND test_core_grantrefresh)
-
-# Settings uninstalls through the shell, over the shell's real installer
-add_executable(test_core_appinstallerclient
-    test_appinstallerclient.cpp
-)
-set_target_properties(test_core_appinstallerclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_appinstallerclient Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml MarathonCore marathon_app_native)
-target_include_directories(test_core_appinstallerclient PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-services/src
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
-add_test(NAME Core_AppInstallerClient COMMAND test_core_appinstallerclient)
 
 # The runner's Power client reports whether the shell woke the screen
 add_executable(test_core_powerclient test_powerclient.cpp)

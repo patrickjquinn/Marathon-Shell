@@ -2,7 +2,7 @@
 #include "../ipc/callerpid.h"
 
 #include "dbusnormalize.h"
-#include "marathonappregistry.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 
 #include <QClipboard>
 #include <QDBusArgument>
@@ -34,7 +34,7 @@ namespace {
     constexpr int kTries        = 50;
 } // namespace
 
-ShareService::ShareService(MarathonAppRegistry *apps, QStringList sharedFolders,
+ShareService::ShareService(Apps *apps, QStringList sharedFolders,
                            AppForPid appForPid, Raise raise, QObject *parent)
     : QObject(parent)
     , m_apps(apps)
@@ -238,10 +238,10 @@ QVariantList ShareService::targetsFor(const QString &mimeType, const QStringList
     QVariantList out;
     const QStringList ids = m_apps ? m_apps->getAllAppIds() : QStringList();
     for (const QString &appId : ids) {
-        const MarathonAppRegistry::AppInfo *info = m_apps->getAppInfo(appId);
-        if (!info || leftOut.contains(appId))
+        const QVariantMap info = m_apps->getApp(appId);
+        if (info.isEmpty() || leftOut.contains(appId))
             continue;
-        QFile manifest(info->absolutePath + QStringLiteral("/manifest.json"));
+        QFile manifest(info.value(QStringLiteral("absolutePath")).toString() + QStringLiteral("/manifest.json"));
         if (!manifest.open(QIODevice::ReadOnly))
             continue;
         const QJsonArray methods = QJsonDocument::fromJson(manifest.readAll())
@@ -259,9 +259,9 @@ QVariantList ShareService::targetsFor(const QString &mimeType, const QStringList
             const QString id   = appId + QLatin1Char('/') + name;
             m_targets << Target{id, appId, name};
             out << QVariantMap{{QStringLiteral("id"), id},
-                               {QStringLiteral("name"), info->name},
+                               {QStringLiteral("name"), info.value(QStringLiteral("name"))},
                                {QStringLiteral("action"), method.value(QStringLiteral("title")).toString()},
-                               {QStringLiteral("icon"), info->icon}};
+                               {QStringLiteral("icon"), info.value(QStringLiteral("icon"))}};
         }
     }
     if (textOnly) {

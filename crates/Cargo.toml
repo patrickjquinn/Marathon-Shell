@@ -2,7 +2,7 @@
 # Built by crates/CMakeLists.txt; tools/marathon-mail-oauth stays its own crate.
 [workspace]
 resolver = "2"
-members = ["marathon-audiod", "marathon-background", "marathon-core-native", "marathon-app-native", "marathon-davd", "marathon-health", "marathon-medialibd", "marathon-permissions", "marathon-qt", "marathon-rt", "marathon-shell-native", "marathon-store-handler", "marathon-telephonyd", "marathon-weatherd", "marathon-websearch"]
+members = ["marathon-apps", "marathon-audiod", "marathon-background", "marathon-app-native", "marathon-davd", "marathon-health", "marathon-medialibd", "marathon-permissions", "marathon-qt", "marathon-rt", "marathon-shell-native", "marathon-store-handler", "marathon-telephonyd", "marathon-weatherd", "marathon-websearch"]
 
 [workspace.package]
 version = "0.1.0"
@@ -39,7 +39,7 @@ redundant_clone = "warn"
 needless_collect = "warn"
 or_fun_call = "warn"
 
-# Dependencies' debug info made libMarathonCore.so ~60 MB in dev builds.
+# Dependencies' debug info made the static libraries ~60 MB in dev builds.
 [profile.dev.package."*"]
 debug = false
 

@@ -17,6 +17,7 @@
 #include "marathon-app-native/src/history.cxxqt.h"
 #include "marathon-app-native/src/lifecycle.cxxqt.h"
 #include "marathon-app-native/src/location.cxxqt.h"
+#include "marathon-app-native/src/mail.cxxqt.h"
 #include "marathon-app-native/src/media.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
 #include "marathon-app-native/src/navigation.cxxqt.h"
@@ -33,7 +34,7 @@
 #include "marathon-app-native/src/telephony.cxxqt.h"
 #include "marathon-app-native/src/updates.cxxqt.h"
 #include "marathon-app-native/src/wallpapers.cxxqt.h"
-#include "marathonappregistry.h"
+#include "marathon-app-native/src/apps.cxxqt.h"
 #include "worldclockhelper.h"
 
 struct PlatformPermissions {
@@ -213,7 +214,7 @@ struct PlatformWallpapers {
 
 struct PlatformApps {
     Q_GADGET
-    QML_FOREIGN(MarathonAppRegistry)
+    QML_FOREIGN(AppRegistry)
     QML_NAMED_ELEMENT(Apps)
     QML_SINGLETON
 };
@@ -228,5 +229,11 @@ struct PlatformAppInstaller {
 struct PlatformAudioStreams {
     Q_GADGET
     QML_FOREIGN(AudioStreams)
+    QML_ANONYMOUS
+};
+
+struct PlatformMailList {
+    Q_GADGET
+    QML_FOREIGN(MailList)
     QML_ANONYMOUS
 };

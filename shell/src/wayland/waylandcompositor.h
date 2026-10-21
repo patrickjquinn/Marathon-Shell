@@ -37,7 +37,7 @@ class XdgActivationV1;
 class MarathonSurfaceManagerV1;
 struct wl_client;
 
-class MarathonAppRegistry;
+class Apps;
 
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
@@ -72,8 +72,8 @@ class WaylandCompositor : public QWaylandCompositor {
     explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
 
-    void setAppRegistry(MarathonAppRegistry *registry) {
-        m_appRegistry = registry;
+    void setApps(Apps *apps) {
+        m_apps = apps;
     }
 
     // A client created a text-input object (see watchTextInputBinds()).
@@ -310,7 +310,7 @@ class WaylandCompositor : public QWaylandCompositor {
     // flood that backpressures the log pipe and stalls the GUI thread.
     QAtomicInt                              m_frameSwapCount{0};
     QAtomicInt                              m_clientCommitCount{0};
-    MarathonAppRegistry *m_appRegistry = nullptr;
+    Apps *m_apps = nullptr;
     QHash<QString, QPointer<QWaylandSurface>> m_covers;
 };
 

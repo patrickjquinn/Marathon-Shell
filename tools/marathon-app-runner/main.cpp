@@ -76,12 +76,11 @@ static const QRegularExpression &nonIdentifier() {
 #include <QtWebEngineQuick/QtWebEngineQuick>
 #endif
 
-#include "marathonappregistry.h"
-#include "marathonappscanner.h"
+#include "marathon-app-native/src/apps.cxxqt.h"
 #include "worldclockhelper.h"
 
-#include "util/frametiming.h"
-#include "util/rtprio.h"
+#include "diag/frametiming.h"
+#include "marathon-app-native/src/rt.cxxqt.h"
 
 #ifdef Q_OS_LINUX
 // Foreground app: main thread RR/4, render thread RR/3 -- see
@@ -97,7 +96,7 @@ static void applyRenderPriorityIfNeeded() {
     const int  want = g_desiredRenderPriority.load(std::memory_order_relaxed);
     if (want == last)
         return;
-    const int rc = marathon::rt::setCurrentThreadPriority(want);
+    const int rc = marathon::rt::set_thread_priority(want);
     last         = want;
     if (rc != 0) {
         static bool warned = false;
@@ -116,7 +115,7 @@ static void applyMainPriorityForActive(bool active) {
     const int  want = active ? kForegroundMainPriority : 0;
     if (want == last)
         return;
-    const int rc = marathon::rt::setCurrentThreadPriority(want);
+    const int rc = marathon::rt::set_thread_priority(want);
     last         = want;
     if (rc != 0) {
         static bool warned = false;
@@ -609,12 +608,7 @@ int main(int argc, char *argv[]) {
     // processes that actually use it, not by the shell.
     if (!poolMode) {
         const QString earlyAppId = peekAppId(argc, argv);
-        if (!earlyAppId.isEmpty()) {
-            MarathonAppRegistry earlyRegistry;
-            MarathonAppScanner  earlyScanner(&earlyRegistry);
-            if (earlyScanner.scanSingleApp(earlyAppId)) {
-                auto *info = earlyRegistry.getAppInfo(earlyAppId);
-                if (info && info->requiresQtModules.contains(QStringLiteral("webengine"))) {
+        if (marathon::apps::requiresQtModule(earlyAppId, QStringLiteral("webengine"))) {
 #ifdef HAVE_WEBENGINE
                     // Keep Chromium's own sandbox enabled — the parent
                     // bwrap recipe omits --unshare-user-try for webengine
@@ -690,8 +684,6 @@ int main(int argc, char *argv[]) {
                                   " build of marathon-app-runner was compiled without"
                                   " HAVE_WEBENGINE -- WebEngineView will fail to load.";
 #endif
-                }
-            }
         }
     }
 
@@ -951,36 +943,26 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    MarathonAppRegistry registry;
-    MarathonAppScanner  scanner(&registry);
-
-    // Fast path: only parse this app's manifest, not every installed app.
-    // Falling back to a full scan if the targeted parse fails preserves the
-    // previous behaviour for apps that ship in non-standard layouts (e.g.
-    // a future per-user install dir not yet on the search path).
-    if (!scanner.scanSingleApp(appId)) {
-        qWarning() << "[marathon-app-runner] Single-app scan miss for" << appId
-                   << "-- falling back to full scan";
-        scanner.scanApplications();
-    }
-
-    MarathonAppRegistry::AppInfo *info = registry.getAppInfo(appId);
-    if (!info) {
-        qCritical() << "[marathon-app-runner] App not found in registry:" << appId;
+    // The app's manifest, and with "system" every app's (Settings' default-app
+    // pickers and notification toggles).
+    auto *registry = new AppRegistry();
+    registry->setParent(QCoreApplication::instance());
+    if (!registry->load(appId)) {
+        qCritical() << "[marathon-app-runner] No app" << appId;
         return 3;
     }
-    // System apps configure other apps (Settings' default-app pickers and
-    // notification toggles), so they need every app in the registry, not
-    // just their own. The scan only appends, so `info` stays valid.
-    if (info->permissions.contains(QStringLiteral("system")))
-        scanner.scanApplications();
+    const QVariantMap info        = registry->getApp(appId);
+    const QString     appName     = info.value(QStringLiteral("name")).toString();
+    const QString     appPath     = info.value(QStringLiteral("absolutePath")).toString();
+    const QString     entryPoint  = info.value(QStringLiteral("entryPoint")).toString();
+    const QStringList permissions = info.value(QStringLiteral("permissions")).toStringList();
 
     const bool viewPrewarmed = pooledView != nullptr;
     std::unique_ptr<QQuickView> ownedView =
         pooledView ? std::move(pooledView) : std::make_unique<QQuickView>();
     QQuickView &view = *ownedView;
     view.setResizeMode(QQuickView::SizeRootObjectToView);
-    view.setTitle(info->name);
+    view.setTitle(appName);
 
     view.setColor(Qt::transparent);
 
@@ -1071,9 +1053,9 @@ int main(int argc, char *argv[]) {
 
     if (!viewPrewarmed)
         addSharedImportPaths(engine);
-    if (QDir(info->absolutePath).exists()) {
+    if (QDir(appPath).exists()) {
         QStringList paths = engine->importPathList();
-        paths.insert(sharedImportPathCount, info->absolutePath);
+        paths.insert(sharedImportPathCount, appPath);
         engine->setImportPathList(paths);
     }
 
@@ -1081,7 +1063,7 @@ int main(int argc, char *argv[]) {
     engine->addImportPath(":/");
 
     auto *ctx = view.rootContext();
-    ctx->setContextProperty("MarathonAppRegistry", &registry);
+    ctx->setContextProperty("MarathonAppRegistry", registry);
 
     // Mirror the shell's MARATHON_DEBUG flag into the runner so Logger.info()
     // and the test-app auto-run path actually emit. Without this, every
@@ -1103,7 +1085,7 @@ int main(int argc, char *argv[]) {
     // file:// URL for its tile_providers manifest because QtLocation's
     // OSM plugin reads providersrepository.address via QNAM and qrc://
     // URLs sometimes don't survive that round trip.
-    ctx->setContextProperty("MARATHON_APP_PATH", info->absolutePath);
+    ctx->setContextProperty("MARATHON_APP_PATH", appPath);
 
     // The shell forwards its current user scale factor and detected DPI in
     // env vars so the app can size in lockstep with shell chrome. Without
@@ -1146,8 +1128,8 @@ int main(int argc, char *argv[]) {
     }
 
     const auto hasPerm = [&](const QString &perm) -> bool {
-        return std::find(info->permissions.begin(), info->permissions.end(), perm) !=
-            info->permissions.end();
+        return std::find(permissions.begin(), permissions.end(), perm) !=
+            permissions.end();
     };
 
     // Construct only the IPC clients whose permissions the app actually
@@ -1265,8 +1247,8 @@ int main(int argc, char *argv[]) {
     if (hasPerm("system")) {
         auto *installer =
             exposeClient<marathon::platform::AppInstaller>(ctx, "MarathonAppInstaller", false);
-        QObject::connect(installer, &marathon::platform::AppInstaller::appRemoved, &registry,
-                         &MarathonAppRegistry::unregisterApp);
+        QObject::connect(installer, &marathon::platform::AppInstaller::appRemoved, registry,
+                         &AppRegistry::unregisterApp);
     }
 
     exposeClient<marathon::platform::SystemStatusStore>(ctx, "SystemStatusStore");
@@ -1276,12 +1258,12 @@ int main(int argc, char *argv[]) {
         exposeClient<marathon::platform::Calendar>(ctx, "CalendarManager", false);
     registerPlatformTypes(ctx);
 
-    const QString entryAbs      = QDir(info->absolutePath).filePath(info->entryPoint);
+    const QString entryAbs      = QDir(appPath).filePath(entryPoint);
     const QUrl    entryUrl      = QUrl::fromLocalFile(entryAbs);
-    const QString componentName = QFileInfo(info->entryPoint).completeBaseName();
+    const QString componentName = QFileInfo(entryPoint).completeBaseName();
 
-    qInfo() << "[marathon-app-runner] Starting app" << appId << "entryPoint" << info->entryPoint
-            << "entryAbs" << entryAbs << "appPath" << info->absolutePath;
+    qInfo() << "[marathon-app-runner] Starting app" << appId << "entryPoint" << entryPoint
+            << "entryAbs" << entryAbs << "appPath" << appPath;
 
     // qWarning: Release defines QT_NO_INFO_OUTPUT, which compiles qInfo out.
     if (logStartup) {
@@ -1333,7 +1315,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    const QString appAbsPath = info->absolutePath;
+    const QString appAbsPath = appPath;
 
     QTimer::singleShot(
         0, &view,

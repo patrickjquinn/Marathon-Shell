@@ -10,6 +10,7 @@ extern crate marathon_rt;
 
 pub mod alarms;
 pub mod ambience;
+pub mod apps;
 pub mod audio;
 pub mod bluetooth;
 pub mod calendar;
@@ -28,6 +29,7 @@ pub mod network;
 pub mod notifications;
 pub mod permissions;
 pub mod power;
+mod rt;
 pub mod security;
 pub mod sensors;
 pub mod settings;

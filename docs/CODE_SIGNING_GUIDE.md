@@ -16,9 +16,9 @@ opens the archive at all.
 - Only pre-hashed signatures are accepted. That is what `minisign -S` makes
   by default; `minisign -S -l` makes the legacy kind, which is refused.
 
-The check lives in Rust (`crates/marathon-core-native/src/signature.rs`,
+The check lives in Rust (`crates/marathon-apps/src/signature.rs`,
 using the [`minisign`](https://crates.io/crates/minisign) crate) and is
-called from `MarathonAppVerifier::verifyPackage`.
+called from `marathon_apps::install::verify`.
 
 ## Making a key
 

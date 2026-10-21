@@ -28,6 +28,7 @@ fn main() {
         .file("src/pressure.rs")
         .file("src/push.rs")
         .file("src/sandbox.rs")
+        .file("src/rt.rs")
         .file("src/security.rs")
         .file("src/settings.rs")
         .file("src/tasks.rs")

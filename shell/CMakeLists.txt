@@ -509,7 +509,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Svg
     Qt6::DBus
     Qt6::Network
-    MarathonCore
     ${LIBDRM_LIBRARIES}
     ${PAM_LIBRARY}
     lunasvg

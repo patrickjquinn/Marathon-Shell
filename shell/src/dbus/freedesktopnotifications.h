@@ -11,7 +11,6 @@
 #include "notificationdatabase.h"
 
 class Apps;
-class MarathonAppRegistry;
 class NotificationModel;
 class Power;
 class QDBusServiceWatcher;
@@ -28,7 +27,6 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
     bool registerService();
 
     // Lets notifications name the installed app they came from.
-    void setAppRegistry(MarathonAppRegistry *registry);
     // And the desktop apps the shell lists (flatpaks, Android apps).
     void setAppModel(Apps *apps);
 
@@ -67,7 +65,6 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
     NotificationDatabase *m_database;
     NotificationModel    *m_model;
     Power      *m_powerManager;
-    QPointer<MarathonAppRegistry> m_registry;
     QPointer<Apps>                m_apps;
     // Transient notifications have ids no database row will reach.
     uint                          m_nextTransientId = 1u << 31;

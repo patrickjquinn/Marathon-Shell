@@ -109,8 +109,7 @@ e2e_snapshot_bins() {
     local b=$E2E_OUT/bin
     mkdir -p "$b/shell" "$b/tools/marathon-app-runner" "$b/lib"
     cp "$E2E_SHELL_BIN" "$b/shell/" &&
-        cp "$E2E_BUILD/tools/marathon-app-runner/marathon-app-runner" "$b/tools/marathon-app-runner/" &&
-        cp -L "$E2E_BUILD/marathon-core/libMarathonCore.so.1" "$b/lib/" ||
+        cp "$E2E_BUILD/tools/marathon-app-runner/marathon-app-runner" "$b/tools/marathon-app-runner/" ||
         return 1
     E2E_SHELL_BIN=$b/shell/${E2E_SHELL_BIN##*/}
     E2E_LIB_PATH=$b/lib

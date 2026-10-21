@@ -105,14 +105,6 @@ mod qobject {
         #[qinvokable]
         #[cxx_name = "dismissForApp"]
         fn dismiss_for_app(self: Pin<&mut Permissions>, app_id: &QString);
-        /// Every decision, as when it is uninstalled.
-        #[cxx_name = "forgetApp"]
-        fn forget_app(self: Pin<&mut Permissions>, app_id: &QString);
-        /// What the app declared and whether it is a protected system app.
-        #[cxx_name = "setApp"]
-        fn set_app(self: Pin<&mut Permissions>, app_id: &QString, declared: &QStringList, system: bool);
-        #[cxx_name = "removeApp"]
-        fn remove_app(self: Pin<&mut Permissions>, app_id: &QString);
         #[qinvokable]
         #[cxx_name = "getAppPermissions"]
         fn app_permissions(self: &Permissions, app_id: &QString) -> QStringList;
@@ -462,6 +454,15 @@ pub(crate) fn ask_if_undecided(app: &str, permissions: &[String]) -> Option<Stri
 }
 
 
+/// What an app declared, from its manifest or install receipt.
+pub(crate) fn declare(app_id: &str, declared: Vec<String>, system: bool) {
+    core().apps.insert(app_id.to_owned(), Facts { declared, protected: system });
+}
+
+pub(crate) fn undeclare(app_id: &str) {
+    core().apps.remove(app_id);
+}
+
 /// Runs `f` on the permissions, on the GUI thread.
 pub(crate) fn with(f: impl FnOnce(Pin<&mut Permissions>) + Send + 'static) {
     if let Some(qt) = QT.get() {
@@ -640,7 +641,8 @@ impl Permissions {
         }
     }
 
-    fn forget_app(self: Pin<&mut Self>, app_id: &QString) {
+    /// Every decision, as when it is uninstalled.
+    pub(crate) fn forget_app(self: Pin<&mut Self>, app_id: &QString) {
         let app = app_id.to_string();
         self.with(|core, out| {
             core.dismiss_for(Some(&app), out);
@@ -648,14 +650,6 @@ impl Permissions {
                 core.save();
             }
         });
-    }
-
-    fn set_app(self: Pin<&mut Self>, app_id: &QString, declared: &QStringList, system: bool) {
-        core().apps.insert(app_id.to_string(), Facts { declared: strings(declared), protected: system });
-    }
-
-    fn remove_app(self: Pin<&mut Self>, app_id: &QString) {
-        core().apps.remove(&app_id.to_string());
     }
 
     fn app_permissions(&self, app_id: &QString) -> QStringList {

@@ -8,8 +8,6 @@
 #include <QVariantMap>
 
 class Apps;
-class MarathonAppRegistry;
-class MarathonAppScanner;
 namespace marathon {
     class Settings;
 }
@@ -24,8 +22,7 @@ class UnifiedSearchServiceCpp : public QObject {
     Q_PROPERTY(int maxRecentSearches READ maxRecentSearches CONSTANT)
 
   public:
-    explicit UnifiedSearchServiceCpp(Apps *appModel, MarathonAppRegistry *registry,
-                                     MarathonAppScanner *scanner, marathon::Settings *settings,
+    explicit UnifiedSearchServiceCpp(Apps *appModel, marathon::Settings *settings,
                                      NavigationRouterCpp *router, Tasks *appLaunch,
                                      QObject *parent = nullptr);
 
@@ -77,8 +74,6 @@ class UnifiedSearchServiceCpp : public QObject {
     void                 persistRecentSearches();
 
     Apps                *m_appModel  = nullptr;
-    MarathonAppRegistry *m_registry  = nullptr;
-    MarathonAppScanner  *m_scanner   = nullptr;
     marathon::Settings     *m_settings  = nullptr;
     NavigationRouterCpp *m_router    = nullptr;
     Tasks               *m_appLaunch = nullptr;

@@ -25,8 +25,7 @@ MApp {
     // window background), so they sit on the ambience as Keel apps do.
     readonly property bool ambienceBackdrop: keelApp || nativeAppId.startsWith("waydroid.")
     readonly property bool keelApp: {
-        const info = typeof MarathonAppRegistry !== "undefined" && nativeAppId !== "" ? MarathonAppRegistry.getApp(nativeAppId) : null;
-        return !!info || Tasks.isKeelHostApp(nativeAppId);
+        return AppModel.hasApp(nativeAppId) || Tasks.isKeelHostApp(nativeAppId);
     }
 
     // Both of these are declared and driven by MApp. Redeclaring them here

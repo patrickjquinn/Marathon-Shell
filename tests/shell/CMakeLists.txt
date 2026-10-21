@@ -25,29 +25,6 @@ target_link_libraries(test_shell_sessionstore Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_sessionstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_SessionStore COMMAND test_shell_sessionstore)
 
-# Tapping a notification shows its app, the registry's or not
-add_executable(test_shell_notificationhandler
-    test_notificationhandler.cpp
-    ../../shell/src/services/notificationhandlercpp.cpp
-    ../../shell/src/services/navigationroutercpp.cpp
-    ../../shell/src/services/notificationtarget.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/models/notificationmodel.cpp
-    ../../shell/src/dbus/notificationdatabase.cpp
-    ../../shell/src/services/notificationservicecpp.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_notificationhandler Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Sql)
-target_include_directories(test_shell_notificationhandler PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src/controllers
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Shell_NotificationHandler COMMAND test_shell_notificationhandler)
-
 find_program(DBUS_RUN_SESSION dbus-run-session)
 
 # NotificationModel tests (data model, add/dismiss/read)
@@ -144,30 +121,6 @@ target_include_directories(test_shell_statusbaricons PRIVATE ${CMAKE_SOURCE_DIR}
 target_compile_definitions(test_shell_statusbaricons PRIVATE GLYPHS_JS="${CMAKE_SOURCE_DIR}/shell/qml/ui/PhosphorGlyphs.js")
 add_test(NAME Shell_StatusBarIcons COMMAND test_shell_statusbaricons)
 
-# org.freedesktop.Notifications Notify: actions and reply hints reach the banner map
-add_executable(test_shell_freedesktopnotify
-    test_freedesktopnotify.cpp
-    ../../shell/src/dbus/freedesktopnotifications.cpp
-    ../../shell/src/dbus/notificationdatabase.cpp
-    ../../shell/src/models/notificationmodel.cpp
-    ../../shell/src/services/notificationtarget.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
-target_include_directories(test_shell_freedesktopnotify PRIVATE
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-    ${CMAKE_SOURCE_DIR}/shell/src/dbus
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
-if(DBUS_RUN_SESSION)
-    add_test(NAME Shell_FreedesktopNotify COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_freedesktopnotify>)
-else()
-    add_test(NAME Shell_FreedesktopNotify COMMAND test_shell_freedesktopnotify)
-endif()
-
 
 # SecurityManager: quick PIN failures count towards the lockout
 find_package(Qt6 REQUIRED COMPONENTS Concurrent)
@@ -199,25 +152,6 @@ endif()
 if(DBUS_DAEMON)
     add_executable(test_shell_keelshow test_keelshow.cpp)
     target_link_libraries(test_shell_keelshow Qt6::Test Qt6::Core Qt6::DBus)
-endif()
-
-if(DBUS_RUN_SESSION AND BUSCTL)
-    # The share sheet's org.sailfishos.share, against fake receivers on a private bus
-    add_executable(test_shell_shareservice
-        test_shareservice.cpp
-        ../../shell/src/services/shareservice.cpp
-        ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-        ../../marathon-core/src/marathonappregistry.cpp
-    )
-    target_link_libraries(test_shell_shareservice Qt6::Test Qt6::Core Qt6::Gui Qt6::DBus)
-    target_include_directories(test_shell_shareservice PRIVATE
-        ${CMAKE_SOURCE_DIR}/shell/src/services
-        ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc
-        ${CMAKE_SOURCE_DIR}/marathon-core/src
-    )
-    add_test(NAME Shell_ShareService
-        COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_shell_shareservice>)
-    set_tests_properties(Shell_ShareService PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 # Gesture engine: velocity window, commit decisions, settle spring
