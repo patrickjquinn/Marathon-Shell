@@ -139,6 +139,7 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/location.cxxqt.h"
 #include "marathon-app-native/src/media.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
+#include "marathon-app-native/src/mail.cxxqt.h"
 #include "marathon-app-native/src/music.cxxqt.h"
 #include "marathon-app-native/src/navigation.cxxqt.h"
 #include "marathon-app-native/src/network.cxxqt.h"
@@ -1179,6 +1180,18 @@ int main(int argc, char *argv[]) {
         exposeClient<marathon::platform::Telephony>(ctx, "TelephonyService");
     if (hasPerm("sms") || hasPerm("telephony"))
         exposeClient<marathon::platform::Sms>(ctx, "SMSService");
+
+    // marathon-maild's client, made when the Mail app first reads it.
+    qmlRegisterSingletonType<MailService>("MarathonOS.Services", 1, 0, "MailService",
+                                          [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                              auto *mail     = new MailService();
+                                              auto *accounts = new MailList();
+                                              auto *messages = new MailList();
+                                              accounts->setParent(mail);
+                                              messages->setParent(mail);
+                                              mail->setModels(accounts, messages);
+                                              return mail;
+                                          });
 
     if (hasPerm("storage")) {
         exposeClient<marathon::platform::MediaLibrary>(ctx, "MediaLibraryManager");

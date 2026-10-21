@@ -38,8 +38,8 @@ boots from the same duranium build as everything else.
    rsyncs `scripts/qemu/duranium-overlay/` over the tree and sets the dev
    root password.
 3. **Apks** — builds each Marathon aport into `mkosi.packages/` unless an
-   apk with the aport's current `pkgver-pkgrel` is already there: `qmf`,
-   `marathon-base-config`, `marathon-mail-oauth`, `marathon-plymouth-theme`,
+   apk with the aport's current `pkgver-pkgrel` is already there: `marathon-base-config`,
+   `marathon-plymouth-theme`,
    `keel-silica`, `wpewebkit`, `pacific`, `shoal-pilotd`, `shoal-pilot`,
    `keel-mcp`, `marathon-shell`, `postmarketos-ui-marathon`, then the
    target's `device-<target>-marathon` overlay and any `*-marathon` kernel

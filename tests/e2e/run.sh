@@ -185,10 +185,6 @@ flow_apps() {
     ensure_session || { e2e_check apps "shell starts" false; return; }
     for a in $APPS; do
         id=${a%%:*}
-        if [ "$id" = email ] && [ ! -f "$E2E_BUILD/MarathonOS/Services/qmldir" ]; then
-            e2e_skip $f "Mail needs MarathonOS.Services (built only with QMF)"
-            continue
-        fi
         name=${a#*:}
         name=${name//_/ }
         go_home

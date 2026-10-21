@@ -15,6 +15,7 @@ fn main() {
         .file("src/history.rs")
         .file("src/lifecycle.rs")
         .file("src/location.rs")
+        .file("src/mail.rs")
         .file("src/media.rs")
         .file("src/modem.rs")
         .file("src/music.rs")

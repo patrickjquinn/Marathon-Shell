@@ -1,0 +1,4 @@
+{
+  "exec": "@CMAKE_INSTALL_FULL_BINDIR@/marathon-maild",
+  "permissions": ["admit-callers"]
+}

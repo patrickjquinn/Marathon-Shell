@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.marathonos.Mail
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/marathon-maild
+SystemdService=marathon-maild.service

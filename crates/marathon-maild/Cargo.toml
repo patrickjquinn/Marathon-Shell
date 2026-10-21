@@ -1,0 +1,29 @@
+[package]
+name = "marathon-maild"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-channel = "2.5.0"
+async-imap = { version = "0.12.0", default-features = false, features = ["runtime-async-std"] }
+async-io = "2.6.0"
+blocking = "1.7.0"
+futures-lite = "2.6.1"
+futures-rustls = { version = "0.26.0", default-features = false, features = ["ring", "tls12"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["io", "std"] }
+lettre = { version = "0.11.23", default-features = false, features = ["smtp-transport", "builder", "rustls-tls"] }
+mail-parser = "0.11.9"
+marathon-rt = { path = "../marathon-rt" }
+oauth2 = { version = "5.0.0", default-features = false }
+rusqlite = "0.40.2"
+secret-service = { version = "5.2.0", default-features = false, features = ["rt-async-io-crypto-rust"] }
+serde_json = "1.0.154"
+tiny_http = "0.12.0"
+ureq = "3.4.2"
+webpki-roots = "1.0.9"
+zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
+
+[lints]
+workspace = true

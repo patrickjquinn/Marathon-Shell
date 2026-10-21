@@ -1,0 +1,13 @@
+[Unit]
+Description=Marathon mail (IMAP sync and push, SMTP)
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.marathonos.Mail
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-maild
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=graphical-session.target

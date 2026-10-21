@@ -47,7 +47,7 @@ mkdir -p "$PMAPORTS/main" "$PMAPORTS/device/community"
 cp -r "$MARATHON_PKGS/device-raspberry-pi5-marathon" "$PMAPORTS/device/community/"
 python3 "$(dirname "${BASH_SOURCE[0]}")/../../tools/devices/devices.py" profile device-raspberry-pi5-marathon \
     > "$PMAPORTS/device/community/device-raspberry-pi5-marathon/device-profile.conf"
-for p in marathon-base-config marathon-shell marathon-plymouth-theme marathon-boot-logo postmarketos-ui-marathon marathon-mail-oauth qmf; do
+for p in marathon-base-config marathon-shell marathon-plymouth-theme marathon-boot-logo postmarketos-ui-marathon; do
     cp -r "$MARATHON_PKGS/$p" "$PMAPORTS/main/"
 done
 
@@ -97,7 +97,7 @@ chmod +x "$PMAPORTS/device/community/device-raspberry-pi5-marathon/device-raspbe
 
 # ─── 5. Regenerate checksums + index ──────────────────────────────────────
 echo "+ regenerating checksums"
-for p in marathon-base-config marathon-shell marathon-plymouth-theme marathon-boot-logo postmarketos-ui-marathon marathon-mail-oauth qmf device-raspberry-pi5-marathon; do
+for p in marathon-base-config marathon-shell marathon-plymouth-theme marathon-boot-logo postmarketos-ui-marathon device-raspberry-pi5-marathon; do
     pmbootstrap checksum "$p" 2>&1 | tail -1
 done
 pmbootstrap index 2>&1 | tail -1

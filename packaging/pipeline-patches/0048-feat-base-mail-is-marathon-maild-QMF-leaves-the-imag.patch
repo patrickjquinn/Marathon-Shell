@@ -1,0 +1,34 @@
+From c4b15513881cc16f4cd559dc7898a212a99f7bb2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 21 Oct 2026 14:43:21 +0100
+Subject: [PATCH] feat(base): mail is marathon-maild, QMF leaves the image
+
+Mail syncs, pushes and sends through marathon-maild, which the
+marathon-shell package installs (Rust: async-imap, lettre, mail-parser,
+the keyring through Secret Service). The QMF libraries, its messageserver
+and the marathon-mail-oauth helper are no longer installed.
+---
+ mkosi.images/base/mkosi.conf | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/mkosi.images/base/mkosi.conf b/mkosi.images/base/mkosi.conf
+index 5271ccd..1c99e62 100644
+--- a/mkosi.images/base/mkosi.conf
++++ b/mkosi.images/base/mkosi.conf
+@@ -38,16 +38,6 @@ Packages=
+ 	foot
+ 	alacritty
+ 	xterm
+-	# QMF mail backend (built via marathon-extras/build-qmf-apk.sh).
+-	# Provides libQmfClient.so.4 + libQmfMessageServer.so.4 + the
+-	# messageserver daemon that marathon-mailserver.service launches.
+-	qmf-libs
+-	qmf-messageserver
+-	# OAuth2 + Secret-Service credential helper for QMF
+-	# (built via marathon-extras/build-marathon-mail-oauth-apk.sh).
+-	# Installs /usr/bin/marathon-mail-oauth, invoked by the
+-	# marathonoauth + marathonclassic QMF credential plugins.
+-	marathon-mail-oauth
+ 	# Avahi daemon so the device responds to `<hostname>.local` on the
+ 	# LAN. Postinst sets hostname=marathon via /usr/share/factory/etc/
+ 	# hostname + tmpfiles and enables avahi-daemon via systemd preset so

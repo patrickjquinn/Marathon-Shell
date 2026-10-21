@@ -53,8 +53,15 @@ if [ -n "$MARATHON_SHELL_SRC" ]; then
     SHELL_MOUNT_ARGS=(-v "$MARATHON_SHELL_SRC:/shellsrc:z,ro")
 fi
 
+# Mail's OAuth client IDs, when this checkout has them (oauth-clients.env).
+OAUTH_ENV="${MARATHON_SHELL_SRC:+$MARATHON_SHELL_SRC/crates/marathon-maild/oauth-clients.env}"
+# shellcheck disable=SC1090
+[ -n "$OAUTH_ENV" ] && [ -f "$OAUTH_ENV" ] && . "$OAUTH_ENV"
+
 podman run --rm -i \
     --tmpfs /work:rw,exec,size=6g \
+    -e MARATHON_DEFAULT_GOOGLE_CLIENT_ID="${MARATHON_DEFAULT_GOOGLE_CLIENT_ID:-}" \
+    -e MARATHON_DEFAULT_MICROSOFT_CLIENT_ID="${MARATHON_DEFAULT_MICROSOFT_CLIENT_ID:-}" \
     -e MARATHON_SHELL_GIT="$MARATHON_SHELL_GIT" \
     -e MARATHON_SHELL_REF="$MARATHON_SHELL_REF" \
     -e USE_LOCAL_SHELL_SRC="$([ -n "$MARATHON_SHELL_SRC" ] && echo 1 || echo 0)" \
@@ -84,27 +91,6 @@ apk add --no-cache --quiet \
     qt6-qtspeech-dev \
     hunspell-dev pulseaudio-dev wayland-dev wayland-protocols \
     mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3 || true
-
-# qmf-dev is built locally (it isn't in alpine:edge upstream yet) so we
-# install it from /local-apks with --allow-untrusted. find_library() in
-# our CMakeLists.txt needs libQmfClient.so + qmailstore.h to land at the
-# canonical /usr/lib + /usr/include/qt6/QmfClient paths.
-# `|| true` is load-bearing under `set -euo pipefail`: when the glob
-# matches nothing, ls exits 2, pipefail propagates that through `head`,
-# and the assignment aborts the whole script with no message on stderr
-# (it was sent to /dev/null). Locally /local-apks always holds qmf apks
-# from an earlier build so it never fired; on a clean CI runner the
-# directory is empty and the build died silently one minute in.
-QMF_DEV_APK="$(ls /local-apks/qmf-dev-*.apk 2>/dev/null | head -1 || true)"
-QMF_LIBS_APK="$(ls /local-apks/qmf-libs-*.apk 2>/dev/null | head -1 || true)"
-QMF_MS_APK="$(ls /local-apks/qmf-messageserver-*.apk 2>/dev/null | head -1 || true)"
-if [ -n "$QMF_DEV_APK" ] && [ -n "$QMF_LIBS_APK" ] && [ -n "$QMF_MS_APK" ]; then
-    apk add --no-cache --quiet --allow-untrusted \
-        "$QMF_LIBS_APK" "$QMF_MS_APK" "$QMF_DEV_APK" 2>&1 | tail -3 || true
-    echo "qmf-dev installed from $QMF_DEV_APK"
-else
-    echo "WARNING: qmf-*.apk not found under /local-apks — Mail backend will be skipped"
-fi
 
 KEEL_SILICA_APK="$(ls -1v /local-apks/keel-silica-[0-9]*.apk 2>/dev/null | tail -1 || true)"
 KEEL_SILICA_DEV_APK="$(ls -1v /local-apks/keel-silica-dev-*.apk 2>/dev/null | tail -1 || true)"

@@ -233,8 +233,13 @@ function(marathon_daemon crate bus)
 endfunction()
 
 marathon_daemon(marathon-davd org.marathonos.Dav)
+marathon_daemon(marathon-maild org.marathonos.Mail)
 marathon_daemon(marathon-medialibd org.marathonos.MediaLibrary)
 marathon_daemon(marathon-telephonyd org.marathonos.Telephony)
+# Mail's IDLE push runs from login, not only once the app opens.
+install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants\")
+    file(MAKE_DIRECTORY \"\${_wants}\")
+    file(CREATE_LINK ../marathon-maild.service \"\${_wants}/marathon-maild.service\" SYMBOLIC)")
 
 if(BUILD_TESTING)
     add_test(NAME Rust_Crates

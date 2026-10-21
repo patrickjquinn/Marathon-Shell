@@ -9,14 +9,14 @@ Geary, and K-9 Mail use.
 
 ## How client IDs resolve
 
-`marathon-mail-oauth` resolves the client ID for each provider through
+marathon-maild resolves the client ID for each provider through
 a three-tier ladder. Highest precedence first:
 
 | Layer | Source | Used by |
 |-------|--------|---------|
 | 1 | Runtime env var: `MARATHON_OAUTH_GOOGLE_CLIENT_ID`, `MARATHON_OAUTH_MICROSOFT_CLIENT_ID` | Enterprise forks, per-machine overrides |
 | 2 | Compile-time embedded: `MARATHON_DEFAULT_GOOGLE_CLIENT_ID`, `MARATHON_DEFAULT_MICROSOFT_CLIENT_ID` (set at `cargo build` time) | Marathon's own image build |
-| 3 | Empty | Community forks / pre-registration builds — helper returns `kind:"error", code:"oauth_not_configured"` and the QML side routes users to the classic IMAP setup |
+| 3 | Empty | Community forks / pre-registration builds — the provider is not offered and Mail shows only the password setup |
 
 For the Marathon project's own image (`duranium-build`), layer 2 is the
 correct one: the project owns one Gmail client and one Outlook client,
@@ -73,7 +73,7 @@ but the OAuth concepts are stable since 2018.
    - Copy the **Client ID** (looks like
      `842XXXXX-XXXXX.apps.googleusercontent.com`).
    - The Client Secret shown is **not** used (PKCE replaces it);
-     marathon-mail-oauth passes an empty secret string.
+     marathon-maild sends no secret (PKCE).
 
 ### Microsoft (Outlook / Office 365 / Microsoft 365)
 
@@ -104,77 +104,29 @@ Steps as of 2026-05 against Microsoft Entra (formerly Azure AD).
 
 ## Baking the IDs into Marathon's image
 
-Once both client IDs are registered, copy the env template:
+Copy `crates/marathon-maild/oauth-clients.env.example` to
+`oauth-clients.env` beside it (gitignored) and fill in
+`MARATHON_DEFAULT_GOOGLE_CLIENT_ID` and `MARATHON_DEFAULT_MICROSOFT_CLIENT_ID`.
+`scripts/qemu/lib/build-marathon-shell-apk.sh` passes them into the
+marathon-shell build, where `option_env!` in
+`crates/marathon-maild/src/oauth.rs` bakes them into marathon-maild.
 
-```
-$ cd tools/marathon-mail-oauth
-$ cp oauth-clients.env.example oauth-clients.env
-$ $EDITOR oauth-clients.env
-```
+With neither set, `Mail1.OAuthProviders` answers empty and Mail offers
+only the password setup (Fastmail, iCloud, Gmail with an app password,
+self-hosted).
 
-Fill in the two variables:
-
-```sh
-MARATHON_DEFAULT_GOOGLE_CLIENT_ID="842XXXXX-XXXXX.apps.googleusercontent.com"
-MARATHON_DEFAULT_MICROSOFT_CLIENT_ID="4f9d3e2a-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
-```
-
-`oauth-clients.env` is `.gitignored` — your IDs never leak into the
-repo. The duranium build wrapper sources it before invoking cargo:
-
-```
-$ cd ~/.cache/marathon-build/duranium
-$ MARATHON_SHELL_SRC=~/Developer/Marathon-Shell \
-    bash marathon-extras/build-marathon-mail-oauth-apk.sh
-oauth bake: gmail=set, microsoft=set
-…
-$ python3 scripts/build-image.py device-qemu-aarch64 ui-marathon
-```
-
-`option_env!` in `tools/marathon-mail-oauth/src/main.rs` reads the
-env vars at `cargo build` time and bakes them as `&'static str`
-constants in the binary. No runtime env var is needed after that.
-
-If `oauth-clients.env` is missing or both values are empty, the
-wrapper prints `oauth bake: none — community apk` and the binary
-emits `kind:"error", code:"oauth_not_configured"` when a user taps
-Sign in with Google/Microsoft. The classic IMAP setup form still
-works fine for Fastmail / iCloud / app-password Gmail / self-hosted.
-
-Verify on QEMU:
-
-```
-$ MARATHON_PERM_SECRET_SERVICE=1 /usr/bin/marathon-mail-oauth \
-    add --provider gmail --account-id test-account
-Open this URL in your browser to authorise Marathon Mail:
-https://accounts.google.com/o/oauth2/v2/auth?…
-```
-
-If you instead see
-
-```
-{"kind":"error","code":"oauth_not_configured","message":"…"}
-```
-
-then the env vars were not visible to `cargo build`, the binary was
-compiled without baking them. Re-check the APKBUILD build() function
-and rebuild.
+Check on a device: `busctl --user call org.marathonos.Mail
+/org/marathonos/Shell/Mail org.marathonos.Shell.Mail1 OAuthProviders`
+lists `gmail` and `outlook` once their IDs are baked in.
 
 ## Forks / enterprise overrides
 
-A Marathon fork or an IT department that wants to ship Marathon with
-its own OAuth client (e.g. corporate tenant restriction) overrides via
-runtime env var, no rebuild needed. Drop a systemd unit:
+`MARATHON_OAUTH_GOOGLE_CLIENT_ID` and `MARATHON_OAUTH_MICROSOFT_CLIENT_ID`
+in marathon-maild's environment win over the baked IDs, no rebuild needed:
 
 ```ini
-# /etc/systemd/user/marathon-mail-oauth.service.d/override.conf
+# /etc/systemd/user/marathon-maild.service.d/override.conf
 [Service]
 Environment=MARATHON_OAUTH_GOOGLE_CLIENT_ID=...
 Environment=MARATHON_OAUTH_MICROSOFT_CLIENT_ID=...
 ```
-
-or set them in the per-app launch env via the manifest's `env` block
-(not yet implemented; see `docs/APP_MANIFEST_SCHEMA.md` for the
-future env-injection field).
-
-The runtime override wins regardless of what was baked at compile time.

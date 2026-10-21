@@ -16,9 +16,7 @@
 #   3. Build local apks in dependency order, skipping any already
 #      cached in mkosi.packages/ (drop the .apk or set
 #      FORCE_REBUILD=1 to invalidate):
-#        qmf (libs + dev + messageserver)            ~ 5-10 min cold
 #        marathon-base-config                        ~ 30 s
-#        marathon-mail-oauth (Rust)                  ~ 1 min
 #        marathon-shell                              ~ 2-3 min
 #        postmarketos-ui-marathon                    ~ 30 s
 #        device-<device>-marathon  (if present)      ~ 30 s
@@ -167,9 +165,7 @@ build_if_missing() {
 
 echo "==> stage 3: build apks"
 APORTS_DIR="$MARATHON_IMAGE_DIR/packages"
-build_if_missing "qmf"                       'qmf-libs-*.apk'                 "$LIB/build-qmf-apk.sh"                       "$APORTS_DIR/qmf/APKBUILD"
 build_if_missing "marathon-base-config"      'marathon-base-config-*.apk'     "$LIB/build-marathon-base-config-apk.sh"      "$APORTS_DIR/marathon-base-config/APKBUILD"
-build_if_missing "marathon-mail-oauth"       'marathon-mail-oauth-*.apk'      "$LIB/build-marathon-mail-oauth-apk.sh"       "$APORTS_DIR/marathon-mail-oauth/APKBUILD"
 build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$LIB/build-marathon-plymouth-theme-apk.sh"   "$APORTS_DIR/marathon-plymouth-theme/APKBUILD"
 build_if_missing "keel-silica"               'keel-silica-*.apk'              "$LIB/build-keel-silica-apk.sh"               "$APORTS_DIR/keel-silica/APKBUILD"
 APORT=wpewebkit \

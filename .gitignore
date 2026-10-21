@@ -50,7 +50,7 @@ build-podman/
 # Not secrets — PKCE installed-app means the client_id alone can't be
 # used to impersonate. Gitignored anyway so each release / fork picks
 # its own IDs without colliding with upstream Marathon's quota.
-tools/marathon-mail-oauth/oauth-clients.env
+crates/marathon-maild/oauth-clients.env
 # Rust cargo build artefacts under each Rust crate
 tools/marathon-mail-oauth/target/
 crates/target/

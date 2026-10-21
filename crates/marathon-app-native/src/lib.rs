@@ -21,6 +21,7 @@ pub mod haptics;
 pub mod history;
 pub mod lifecycle;
 pub mod location;
+pub mod mail;
 pub mod media;
 pub mod modem;
 pub mod music;

@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 44 patches. **There is no 0011**: it vendored a loose
+There are 47 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -60,5 +60,6 @@ There are 44 patches. **There is no 0011**: it vendored a loose
 | 0045 | feat(hackberrypi): Android gets a memory budget | Waydroid's LXC config gets Deckard's `deckard-container-limits` start-host hook: the container's `memory.high` at 30 % of RAM and `memory.max` at 40 %, so Android is reclaimed first and an Android out-of-memory stays inside the container. |
 | 0046 | feat(hackberrypi): Android's shared storage is the user's folders | Waydroid's LXC config gets Deckard's `deckard-shared-folders` mount hook: the user's Documents, Downloads, Pictures, Music, Videos and ~/DCIM are bound over Android's shared storage folders in the container's mount namespace. |
 | 0047 | feat(pi5): the Pi kernel is linux-rpi-marathon, with utilization clamping | `mkosi-configure.py` installs `linux-rpi-marathon` (Alpine v3.23's 6.12.85 plus `CONFIG_UCLAMP_TASK`/`_GROUP`) in place of the pinned `linux-rpi=6.12.85-r0`, so the shell's `cpu.uclamp.min` boost for the app in front works. |
+| 0048 | feat(base): mail is marathon-maild, QMF leaves the image | The base image no longer installs `qmf-libs`, `qmf-messageserver` or `marathon-mail-oauth`: Mail is marathon-maild, in the marathon-shell package. 0001 and 0002's mail pieces are inert since. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.

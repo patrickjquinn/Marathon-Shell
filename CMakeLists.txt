@@ -212,8 +212,6 @@ if(NOT DEFINED MARATHON_VERSION)
 endif()
 add_subdirectory(crates)
 
-add_subdirectory(marathon-services)
-
 add_subdirectory(marathon-silica)
 add_subdirectory(marathon-icon-theme)
 add_subdirectory(marathon-fonts)

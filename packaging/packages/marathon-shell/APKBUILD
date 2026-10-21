@@ -62,9 +62,6 @@ depends="
 	ffmpeg
 	gst-plugins-base
 	gst-plugins-good
-	qmf
-	qmf-libs
-	qmf-messageserver
 	python3
 	py3-evdev
 	iw
@@ -100,7 +97,6 @@ makedepends="
 	libinput-dev
 	git
 	linux-pam-dev
-	qmf-dev
 	sqlite-dev
 	"
 install="$pkgname.post-install"

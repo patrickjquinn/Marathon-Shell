@@ -4,8 +4,8 @@
 #
 #   podman run --rm -v "$PWD:/src:ro" docker.io/library/alpine:edge /src/scripts/ci/build-and-test.sh
 #
-# keel-silica-dev and qmf-dev come from Marathon's own aports, not Alpine, so
-# the Keel Silica QML suites and the Mail backend are left out (see ci.yml).
+# keel-silica-dev comes from Marathon's own aports, not Alpine, so the Keel
+# Silica QML suites are left out (see ci.yml).
 set -eu
 
 apk add --no-cache \
@@ -30,5 +30,4 @@ export QT_QPA_PLATFORM=offscreen
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
-cargo clippy --manifest-path crates/Cargo.toml --workspace --all-targets --locked -- -D warnings
-cargo clippy --manifest-path tools/marathon-mail-oauth/Cargo.toml --all-targets --locked -- -D warnings'
+cargo clippy --manifest-path crates/Cargo.toml --workspace --all-targets --locked -- -D warnings'
