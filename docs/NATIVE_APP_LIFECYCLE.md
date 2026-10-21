@@ -7,8 +7,8 @@ Marathon's own apps get over D-Bus. Marathon apps answer `Back` through
 the shell uses what each toolkit already listens to.
 
 Code: `shell/src/wayland/nativeback.h`, `WaylandCompositor::sendNativeBack`,
-`crates/marathon-shell-native/src/cgroup.rs`, `AppLifecycleManager::setAppFrozen`,
-`AppLaunchService::activateRunningApp`.
+`crates/marathon-shell-native/src/cgroup.rs`, `tasks/lifecycle.rs` (`transition`),
+`tasks/launch.rs` (`activate_running`).
 
 ## Back
 

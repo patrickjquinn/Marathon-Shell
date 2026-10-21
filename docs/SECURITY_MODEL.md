@@ -7,7 +7,7 @@ the file that implements it. Where a layer has a gap, the gap is listed.
 
 | App kind | How it runs | Confinement |
 |----------|-------------|-------------|
-| Marathon QML apps (bundled and `.marathon` packages) | `bwrap` + `marathon-app-runner`, launched by `AppLaunchService` | bwrap, security-context Wayland socket, shell D-Bus permission gate |
+| Marathon QML apps (bundled and `.marathon` packages) | `bwrap` + `marathon-app-runner`, launched by `Tasks` (`crates/marathon-shell-native/src/tasks/launch.rs`) | bwrap, security-context Wayland socket, shell D-Bus permission gate |
 | Marathon WebEngine apps (Browser, Maps) | as above | as above, plus Chromium's own sandbox inside |
 | Flatpak apps | `flatpak run`, launched by the compositor | Flatpak's sandbox and portals; Flatpak's security-context socket |
 | Sailfish apps that declare Sailjail permissions | `marathon-keel-host --sailjail` | bwrap built from the Sailjail permissions (`tools/marathon-app-runner/sailjail.cpp`) |
@@ -50,8 +50,8 @@ wrapped:
 
 ## Layer 1: bwrap around Marathon apps
 
-`AppLaunchService::launchMarathonApp` (`shell/src/services/applaunchservice.cpp`)
-and the warm runner pool (`spareSandboxArgs`) build the sandbox:
+`sandbox::argv` (`crates/marathon-shell-native/src/sandbox.rs`) builds the
+sandbox for each launch and for the warm runner pool (`tasks/pool.rs`):
 
 - New user, PID, UTS, IPC and cgroup namespaces, and a network namespace
   with only loopback unless the app holds the `network` permission.
@@ -85,7 +85,7 @@ Gaps:
 The compositor implements `wp_security_context_v1`
 (`shell/src/wayland/securitycontextv1.{h,cpp}`).
 
-**Marathon apps.** Before each launch `AppLaunchService` asks the
+**Marathon apps.** Before each launch `Tasks` asks the
 compositor (`WaylandCompositor::openSandboxSocket`) for a socket at
 `$XDG_RUNTIME_DIR/marathon-sandbox/<instance-uuid>`. The compositor tags
 every client that connects there with engine `org.marathonos.AppRunner`,
@@ -130,7 +130,7 @@ commit.
 **App identity.** A sandboxed client is the app its context names,
 whatever `xdg_toplevel.app_id` it sets, and its surfaces match that
 app's launch even when its process is not a descendant of the launched
-one (`AppLaunchService::onCompositorSurfaceCreated`). Only an app the
+one (`Tasks::window_mapped`, `tasks/launch.rs`). Only an app the
 shell runs may open a dialog window over others.
 
 Gaps: Sailfish apps under `marathon-keel-host` and native apps connect on
@@ -158,7 +158,7 @@ shell's environment replaces the default flags for every WebEngine app.
 
 ## Layer 4: the shell's D-Bus permission gate
 
-Shell services on the session bus (`shell/src/ipc/shellservices.cpp`)
+Shell services on the session bus (`crates/marathon-shell-native/src`, `ipc::admit`)
 resolve the caller's app from its PID (the launcher's PID map, then the
 process ancestry up to the shell) and check the app's granted
 permissions before acting. See `docs/PERMISSION_GUIDE.md`.

@@ -24,7 +24,7 @@ Marathon Shell is a Wayland compositor and mobile application shell implemented 
 ├------------------------------------------------------------┤
 │  C++ Backend (main.cpp, src/)                                    │
 │  ├── WaylandCompositor (QtWaylandCompositor)                    │
-│  ├── AppLifecycleManager                                         │
+│  ├── Tasks (Rust: launcher, lifecycle, task list)                │
 │  ├── MarathonAppRegistry & Loader                                │
 │  ├── desktop entries (Rust)                                      │
 │  └── D-Bus Service Managers                                      │
@@ -384,11 +384,10 @@ User taps app icon in App Grid
     ↓
 AppGrid.qml: emits appLaunched(appId)
     ↓
-MarathonShell.qml: calls AppLifecycleManager.launchApp(appId)
+MarathonShell.qml: calls Tasks.launchApp(appId)
     ↓
-AppLifecycleManager: queries MarathonAppRegistry for app metadata
-    ↓
-WaylandCompositor: launches `marathon-app-runner --app-id <id>`
+Tasks: adopts a warm spare runner, else asks the compositor (spawnRequested)
+to launch `marathon-app-runner --app-id <id>` in its sandbox
     ↓
 App (runner): loads the app QML entry point in its own process
     ↓
@@ -396,7 +395,7 @@ App connects to shell compositor (Wayland) and creates an xdg_toplevel surface
     ↓
 Shell: receives surface, binds it into `MarathonAppWindow` / task model
     ↓
-AppLifecycleManager: tracks foreground/background, minimize/restore
+Tasks: tracks foreground/background, freezes idle apps, minimize/restore
 ```
 
 ### Example 3: Gesture Navigation

@@ -306,7 +306,7 @@ for system navigation**. Its semantic surface area:
 Back-swipe drives **predictive back**: `backProgress` rises with finger
 travel; the foreground app shrinks proportionally toward 0.9. On
 release past 50% threshold OR with velocity > 500 px/s, commit fires
-`swipeBack` → `AppLifecycleManager.handleSystemBack()` → app-runner DBus
+`swipeBack` → `Tasks.handleSystemBack()` → app-runner DBus
 → app's `MAppRouter.popRoute()` (subview pop) or falls through to
 `closeApp()`.
 
@@ -367,7 +367,7 @@ Future work (live activities, glass-architecture lensing, recents
 live-thumbs) compounds the advantage.
 
 **Trade-off acknowledged.** A shell crash kills every app. Mitigation:
-the cgroup v2 freezer + state-machine lifecycle (`AppLifecycleManager`)
+the cgroup v2 freezer + state-machine lifecycle (`Tasks`, `tasks/lifecycle.rs`)
 + `BeginBackgroundTask` model means apps survive shell restarts via
 their separate processes. The compositor-split path is parked
 (see `project_compositor_split_deferred` memory) — discipline beats

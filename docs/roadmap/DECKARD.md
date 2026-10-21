@@ -7,7 +7,7 @@ The design is "Deckard – Android runtime for Marathon OS, technical design" (d
 | Question | Answer |
 |---|---|
 | Does the keyboard serve Wayland clients over text-input-v3? | Yes. The compositor creates `QWaylandTextInputManagerV3` (`shell/src/wayland/waylandcompositor.h`), and Marathon's keyboard types into Wayland apps through it. |
-| Hub interface and app registry API | The Hub is `org.freedesktop.Notifications` (`shell/src/dbus/freedesktopnotifications.*`), with KDE inline reply and `NotificationReplied`. The shell services are `org.marathonos.Shell.*1` in `shell/src/ipc/shellservices.h`: AppStore1, Navigation1, AppLifecycle1, Permissions1, Alarm1, Location1, Sensor1, and others. Apps also expose Keel Actions (`org.shipwright.Keel.Actions`). |
+| Hub interface and app registry API | The Hub is `org.freedesktop.Notifications` (`shell/src/dbus/freedesktopnotifications.*`), with KDE inline reply and `NotificationReplied`. The shell services are `org.marathonos.Shell.*1` in `crates/marathon-shell-native/src` (AppStore1, Navigation1 and AppLifecycle1 in `tasks/dbus.rs`): Permissions1, Alarm1, Location1, Sensor1, and others. Apps also expose Keel Actions (`org.shipwright.Keel.Actions`). |
 | BINDER_FREEZE and a delegatable cgroup2 freezer | HackberryPi kernel 6.12.85: `ANDROID_BINDER_IPC=y`, `ANDROID_BINDERFS=y`, `USER_NS=y`, `CGROUP_FREEZER=y`, PSI, memcg; binder is in `/proc/filesystems`. The shell already freezes apps by writing `cgroup.freeze` in a subtree delegated to it. |
 | Touch cancel, libdbus across the user namespace, binder on PREEMPT_RT, palette | To be measured in M0. Note that `packaging/packages/linux-marathon/config-marathon-base.aarch64` sets `PREEMPT_RT=y`. |
 

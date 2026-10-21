@@ -26,11 +26,11 @@ page covers what the shell does with it.
   fullscreen task hides the ones under it and Waydroid then destroys their
   windows.
 - **A window going.** Waydroid re-creates a task's window as Android
-  redraws it, so the last window of an app waits `m_windowGraceMs` (1 s,
-  `AppLaunchService::onWindowDestroyed`) before the app is closed. If it
+  redraws it, so the last window of an app waits `WINDOW_GRACE` (1 s,
+  `Tasks::window_destroyed`, `tasks/launch.rs`) before the app is closed. If it
   was on screen, its app window closes with it (`MarathonAppWindow.qml`).
 - **Permissions.** Android's runtime permission prompts are drawn by the
-  shell (`Permissions1`, `shell/src/ipc/shellservices.cpp`). Allow and Deny
+  shell (`Permissions1`, `crates/marathon-shell-native/src/permissions.rs`). Allow and Deny
   answer Android; Back cancels and changes nothing.
 - **Notifications.** `deckardd` posts Android's notifications to the Hub
   through `org.freedesktop.Notifications`, with inline reply, and its media

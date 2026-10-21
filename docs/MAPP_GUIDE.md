@@ -27,15 +27,15 @@ The MApp framework consists of three core components:
 1. **MApp.qml** (`marathon-ui/Containers/MApp.qml`)
    - Base QML component that all Marathon apps extend
    - Provides lifecycle hooks and state management
-   - Handles auto-registration with AppLifecycleManager
+   - Handles auto-registration with the shell's lifecycle (`Tasks`)
 
 2. **marathon-app-runner** (`tools/marathon-app-runner/`)
    - Isolated app process (Wayland client) that loads the app QML module
    - Hosts app-side DBus proxy clients for shell services (Settings/Network/etc.)
    - Keeps app UI out of the shell process for stability and security
 
-3. **AppLifecycleManager** (`shell/qml/services/AppLifecycleManager.qml`)
-   - Singleton service coordinating app lifecycle
+3. **Tasks** (`crates/marathon-shell-native/src/tasks/lifecycle.rs`)
+   - The shell's singleton coordinating app lifecycle
    - Tracks foreground/background state
    - Routes system events to apps
 
@@ -247,8 +247,8 @@ MApp {
 |--------|------------|------------------|
 | `backPressed()` | User swipes back or presses back button | Pop navigation stack if `canNavigateBack` is true, otherwise minimize app |
 | `forwardPressed()` | User navigates forward | Only fired if `canNavigateForward` is true |
-| `minimizeRequested()` | App should minimize | Sent to AppLifecycleManager |
-| `closed()` | App should close | Sent to AppLifecycleManager |
+| `minimizeRequested()` | App should minimize | Sent to the shell's `Tasks` |
+| `closed()` | App should close | Sent to the shell's `Tasks` |
 
 ---
 
