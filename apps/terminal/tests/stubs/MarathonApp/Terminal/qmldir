@@ -1,3 +1,0 @@
-module MarathonApp.Terminal
-TerminalEngine 1.0 TerminalEngine.qml
-TerminalRenderer 1.0 TerminalRenderer.qml

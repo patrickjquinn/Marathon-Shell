@@ -10,7 +10,6 @@
 #include <QSize>
 #include <QUrl>
 #include <QVariantList>
-#include <QTimer>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 class CameraController : public QObject {
@@ -37,17 +36,7 @@ class CameraController : public QObject {
     Q_PROPERTY(QSize photoResolution READ photoResolution WRITE setPhotoResolution NOTIFY
                    photoResolutionChanged)
 
-    Q_PROPERTY(
-        int timerDuration READ timerDuration WRITE setTimerDuration NOTIFY timerDurationChanged)
-    Q_PROPERTY(int timerCountdown READ timerCountdown NOTIFY timerCountdownChanged)
-    Q_PROPERTY(bool timerActive READ timerActive NOTIFY timerActiveChanged)
-
     Q_PROPERTY(bool isRecording READ isRecording NOTIFY recordingChanged)
-    Q_PROPERTY(int recordingDuration READ recordingDuration NOTIFY recordingDurationChanged)
-
-    // The newest photo or video, and an image of it (the photo itself, or a video's poster frame).
-    Q_PROPERTY(QString latestCapture READ latestCapture NOTIFY latestCaptureChanged)
-    Q_PROPERTY(QString latestPreview READ latestPreview NOTIFY latestCaptureChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorOccurred)
 
   public:
@@ -78,28 +67,17 @@ class CameraController : public QObject {
     QSize            photoResolution() const;
     void             setPhotoResolution(const QSize &size);
 
-    int              timerDuration() const;
-    void             setTimerDuration(int seconds);
-    int              timerCountdown() const;
-    bool             timerActive() const;
-
     bool             isRecording() const;
-    int              recordingDuration() const;
-
-    QString          latestCapture() const;
-    QString          latestPreview() const;
     QString          errorMessage() const;
 
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
     Q_INVOKABLE void flipCamera();
-    Q_INVOKABLE void capturePhoto();
-    Q_INVOKABLE void captureWithTimer();
-    Q_INVOKABLE void cancelTimer();
-    Q_INVOKABLE void startRecording();
+    // Paths come from Captures (crates/marathon-app-native/src/camera.rs).
+    Q_INVOKABLE void capturePhoto(const QString &path);
+    Q_INVOKABLE void startRecording(const QString &path, const QString &posterPath);
     Q_INVOKABLE void stopRecording();
     Q_INVOKABLE void focusOnPoint(qreal x, qreal y);
-    Q_INVOKABLE void deleteLatestCapture();
 
   signals:
     void videoSinkChanged();
@@ -113,15 +91,11 @@ class CameraController : public QObject {
     void flashAvailableChanged();
     void photoResolutionsChanged();
     void photoResolutionChanged();
-    void timerDurationChanged();
-    void timerCountdownChanged();
-    void timerActiveChanged();
     void recordingChanged();
-    void recordingDurationChanged();
-    void latestCaptureChanged();
     void errorOccurred(const QString &message);
     void photoExposed();
-    void photoSaved(const QString &path);
+    void photoSaved(const QString &url);
+    void videoSaved(const QString &url);
     void cameraFlipStarted();
     void cameraFlipCompleted();
 
@@ -132,16 +106,11 @@ class CameraController : public QObject {
     void onImageError(int id, QImageCapture::Error error, const QString &errorString);
     void onRecorderStateChanged(QMediaRecorder::RecorderState state);
     void onRecorderError(QMediaRecorder::Error error, const QString &errorString);
-    void onTimerTick();
-    void onRecordingTick();
 
   private:
     void                  initialize();
     void                  setupCamera(int index);
     void                  updateZoomRange();
-    QString               generateFilePath(const QString &prefix, const QString &extension);
-    void                  scanForLatestCapture();
-    void                  setLatestCapture(const QString &file, const QString &preview);
 
     QCamera              *m_camera         = nullptr;
     QMediaCaptureSession *m_captureSession = nullptr;
@@ -162,16 +131,7 @@ class CameraController : public QObject {
     QList<QSize>          m_photoResolutions;
     QSize                 m_photoResolution;
 
-    int                   m_timerDuration  = 0;
-    int                   m_timerCountdown = 0;
-    QTimer               *m_countdownTimer = nullptr;
-
-    int                   m_recordingDuration = 0;
-    QTimer               *m_recordingTimer    = nullptr;
-
-    QString               m_savePath;
-    QString               m_latestCapture;
-    QString               m_latestPreview;
     QImage                m_recordingPoster;
+    QString               m_posterPath;
     QString               m_errorMessage;
 };

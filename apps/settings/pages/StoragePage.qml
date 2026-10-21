@@ -1,7 +1,7 @@
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
-import MarathonApp.Settings
+import MarathonOS.Settings 1.0
 
 Page {
     id: page

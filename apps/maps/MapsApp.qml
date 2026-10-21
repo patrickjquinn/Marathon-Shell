@@ -5,7 +5,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import Nemo.Configuration 1.0
-import MarathonApp.Maps
+import MarathonOS.Maps 1.0
 import "MapsLogic.js" as Logic
 import "pages"
 import "cover"
@@ -91,12 +91,11 @@ ApplicationWindow {
     // Without a fix: where the phone last was, else the whole world.
     readonly property var fix: geoclueValid ? { lat: location.latitude, lon: location.longitude } : positionSource.position.coordinate.isValid ? { lat: positionSource.position.coordinate.latitude, lon: positionSource.position.coordinate.longitude } : savedFix || { lat: 20, lon: 0 }
 
-    property var router: ValhallaRoutingClient {
+    property var router: Routing {
         onRouteReady: (geojson, maneuvers, durationSec, distanceM, summary) => root._routeReady(geojson, maneuvers, durationSec, distanceM, summary)
         onRouteFailed: error => Notices.show(Logic.routeFailure(error, root.currentMode))
     }
-    // VoiceClient only exists when the build found Qt TextToSpeech.
-    property var voice: null
+    property var voice: Voice {}
 
     function mapCall(method) {
         const args = Array.prototype.slice.call(arguments, 1).map(a => JSON.stringify(a)).join(",");
@@ -386,11 +385,6 @@ ApplicationWindow {
     Component.onCompleted: {
         openRoute(route, routeParams, PageStackAction.Immediate);
         resumable = Logic.parseSavedRoute(activeRouteStore.value);
-        try {
-            voice = Qt.createQmlObject("import MarathonApp.Maps; VoiceClient {}", root, "VoiceClient");
-        } catch (e) {
-            console.info("Maps: no voice client; navigation cues will be silent");
-        }
     }
 
     Connections {

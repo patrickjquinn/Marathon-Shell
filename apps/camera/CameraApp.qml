@@ -3,6 +3,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
+import MarathonOS.Services 1.0
 import MarathonApp.Camera 1.0
 import Nemo.Configuration 1.0
 import "pages"
@@ -25,7 +26,37 @@ ApplicationWindow {
     property var captureCall: null
     property bool captureRecorded: false
     readonly property bool capturing: captureCall !== null
-    property CameraController camera: CameraController {
+    property Captures captures: Captures {}
+    property var camera: CameraController {
+        id: cam
+
+        property int timerDuration: 0
+        property int timerCountdown: 0
+        property bool timerActive: false
+        property int recordingDuration: 0
+        property string latestCapture: app.captures.latest
+        property string latestPreview: app.captures.preview
+
+        function captureWithTimer() {
+            if (timerDuration <= 0) {
+                capturePhoto(app.captures.nextPath("photo"));
+                return;
+            }
+            timerCountdown = timerDuration;
+            timerActive = true;
+        }
+
+        function cancelTimer() {
+            timerActive = false;
+            timerCountdown = 0;
+        }
+
+        function deleteLatestCapture() {
+            app.captures.deleteLatest();
+            latestCapture = Qt.binding(() => app.captures.latest);
+            latestPreview = Qt.binding(() => app.captures.preview);
+        }
+
         onErrorOccurred: function (message) {
             console.warn("[Camera] Error:", message);
             if (app.camera.cameraCount === 0)
@@ -40,6 +71,41 @@ ApplicationWindow {
             if (app.camera.active)
                 app.cameraFailed = false;
         }
+        onPhotoSaved: function (path) {
+            app.captures.add(path);
+            if (app.capturing && app.mode === "photo")
+                app.returnCapture(path);
+        }
+        onVideoSaved: function (path) {
+            app.captures.add(path);
+            if (app.capturing && app.captureRecorded)
+                app.returnCapture(path);
+        }
+        onRecordingChanged: {
+            recordingDuration = 0;
+            if (app.capturing && isRecording)
+                app.captureRecorded = true;
+        }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: cam.timerActive
+        onTriggered: {
+            cam.timerCountdown--;
+            if (cam.timerCountdown <= 0) {
+                cam.timerActive = false;
+                cam.capturePhoto(app.captures.nextPath("photo"));
+            }
+        }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: cam.isRecording
+        onTriggered: cam.recordingDuration++
     }
 
     function shoot() {
@@ -49,8 +115,10 @@ ApplicationWindow {
             camera.captureWithTimer();
         else if (camera.isRecording)
             camera.stopRecording();
-        else
-            camera.startRecording();
+        else {
+            const path = captures.nextPath("video");
+            camera.startRecording(path, captures.posterPath(path));
+        }
     }
 
     function setMode(next) {
@@ -88,6 +156,7 @@ ApplicationWindow {
 
     function retry() {
         cameraFailed = false;
+        camera.cancelTimer();
         camera.stop();
         camera.start();
     }
@@ -123,6 +192,7 @@ ApplicationWindow {
         // Finishes the file; stopping the camera alone would cut it off unsaved.
         if (camera.isRecording)
             camera.stopRecording();
+        camera.cancelTimer();
         camera.stop();
     }
 
@@ -131,23 +201,6 @@ ApplicationWindow {
         if (!applicationActive && capturing && !camera.isRecording)
             cancelCapture(qsTr("the person left the camera"));
         updateCamera();
-    }
-
-    Connections {
-        target: app.camera
-
-        function onPhotoSaved(path) {
-            if (app.capturing && app.mode === "photo")
-                app.returnCapture(path);
-        }
-        function onRecordingChanged() {
-            if (app.capturing && app.camera.isRecording)
-                app.captureRecorded = true;
-        }
-        function onLatestCaptureChanged() {
-            if (app.capturing && app.captureRecorded && !app.camera.isRecording && /\.mp4$/i.test(app.camera.latestCapture))
-                app.returnCapture(app.camera.latestCapture);
-        }
     }
 
     Connections {

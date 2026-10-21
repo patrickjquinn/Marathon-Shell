@@ -12,10 +12,6 @@ add_marathon_app(${APP_NAME}
     URI "MarathonApp.Music"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
-    SOURCES src/MprisPlayer.cpp src/MprisPlayer.h src/Artwork.cpp src/Artwork.h
 )
-
-find_package(Qt6 REQUIRED COMPONENTS DBus Gui)
-target_link_libraries(${APP_NAME} PRIVATE Qt6::DBus Qt6::Gui)
 
 install_keel_actions(${APP_NAME} keel-actions.json)

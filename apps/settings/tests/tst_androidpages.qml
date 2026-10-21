@@ -3,7 +3,7 @@ import QtTest
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
-import MarathonApp.Settings
+import MarathonOS.Settings 1.0
 import "../SettingsLogic.js" as Logic
 import ".."
 

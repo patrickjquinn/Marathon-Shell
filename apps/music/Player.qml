@@ -1,6 +1,6 @@
 import QtQuick
 import QtMultimedia
-import MarathonApp.Music 1.0
+import MarathonOS.Music 1.0
 import "Queue.js" as Queue
 
 QtObject {
@@ -19,17 +19,7 @@ QtObject {
     readonly property real position: media.position
     readonly property real duration: media.duration > 0 ? media.duration : (currentTrack ? currentTrack.duration * 1000 : 0)
 
-    readonly property url artUrl: {
-        if (!currentTrack)
-            return "";
-        const loaded = media.source.toString() === currentTrack.path
-                     && [MediaPlayer.LoadedMedia, MediaPlayer.BufferingMedia, MediaPlayer.BufferedMedia].indexOf(media.mediaStatus) >= 0;
-        const embedded = loaded && media.metaData
-                       ? media.metaData.value(MediaMetaData.CoverArtImage) || media.metaData.value(MediaMetaData.ThumbnailImage)
-                       : undefined;
-        const cached = embedded ? Artwork.cache(embedded, currentTrack.path) : "";
-        return cached.toString() !== "" ? cached : Artwork.folderArt(currentTrack.path);
-    }
+    readonly property url artUrl: currentTrack ? Artwork.art(currentTrack.path) : ""
 
     property real _resumeAt: 0
     // Consecutive tracks that failed to play, so a queue of broken files stops.

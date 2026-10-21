@@ -19,9 +19,11 @@ set(SOURCES
     main.cpp
     ../../shell/src/services/touchresampler.cpp
     platformtypes.cpp
+    terminalrenderer.cpp
 )
 
 qt6_add_executable(marathon-app-runner ${SOURCES})
+set_target_properties(marathon-app-runner PROPERTIES AUTOMOC ON)
 
 # The installed shell qmldir keeps its native `prefer :/qt/qml/MarathonOS/Shell/`
 # directive — when an app-runner-hosted app imports MarathonOS.Shell and

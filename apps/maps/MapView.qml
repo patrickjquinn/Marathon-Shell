@@ -2,7 +2,6 @@ import QtQuick
 import QtWebChannel
 import QtWebEngine
 import Sailfish.Silica 1.0
-import MarathonApp.Maps
 
 // MapLibre GL JS in a WebEngineView (web/maps.html). QML drives it through
 // window.MarathonMaps.* and hears back through MapsBridge.
@@ -23,13 +22,22 @@ Item {
         web.reload();
     }
 
-    MapsBridge {
+    QtObject {
         id: bridge
 
         WebChannel.id: "marathonBridge"
-        onReady: root.ready()
-        onMapClicked: (lat, lon) => root.clicked(lat, lon)
-        onMapError: message => root.failed(message)
+
+        function notifyReady() {
+            root.ready();
+        }
+
+        function onMapClicked(lat, lon) {
+            root.clicked(lat, lon);
+        }
+
+        function onMapError(message) {
+            root.failed(message);
+        }
     }
 
     WebChannel {

@@ -2,7 +2,7 @@ import QtQuick
 import QtTest
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
-import MarathonApp.Terminal
+import MarathonOS.Terminal 1.0
 import "../cover"
 
 TestCase {

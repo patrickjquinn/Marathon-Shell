@@ -1,7 +1,0 @@
-module MarathonApp.Settings
-singleton SettingsController 1.0 SettingsController.qml
-singleton KeyboardSettingsStore 1.0 KeyboardSettingsStore.qml
-StorageInfo 1.0 StorageInfo.qml
-TimeZoneList 1.0 TimeZoneList.qml
-singleton AndroidApps 1.0 AndroidApps.qml
-singleton MmsSettings 1.0 MmsSettings.qml

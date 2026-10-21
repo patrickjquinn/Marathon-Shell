@@ -1,0 +1,3 @@
+module MarathonOS.Music
+MprisPlayer 1.0 MprisPlayer.qml
+singleton Artwork 1.0 Artwork.qml

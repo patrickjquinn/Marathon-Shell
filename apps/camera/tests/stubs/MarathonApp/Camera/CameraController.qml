@@ -16,18 +16,13 @@ QtObject {
     property bool flashAvailable: true
     property var photoResolutions: [Qt.size(4000, 3000), Qt.size(1920, 1080)]
     property size photoResolution: Qt.size(-1, -1)
-    property int timerDuration: 0
-    property int timerCountdown: 0
-    property bool timerActive: false
     property bool isRecording: false
-    property int recordingDuration: 0
-    property string latestCapture: ""
-    property string latestPreview: ""
     property var calls: []
 
     signal errorOccurred(string message)
     signal photoExposed
     signal photoSaved(string path)
+    signal videoSaved(string path)
     signal cameraFlipStarted
     signal cameraFlipCompleted
     // The real controller's NOTIFY for isRecording.
@@ -49,20 +44,11 @@ QtObject {
         record("flipCamera");
         cameraFlipStarted();
     }
-    function capturePhoto() { record("capturePhoto"); }
-    function captureWithTimer() {
+    function capturePhoto(path) {
+        record("capturePhoto");
         record("captureWithTimer");
-        if (timerDuration > 0) {
-            timerCountdown = timerDuration;
-            timerActive = true;
-        }
     }
-    function cancelTimer() {
-        record("cancelTimer");
-        timerActive = false;
-        timerCountdown = 0;
-    }
-    function startRecording() {
+    function startRecording(path, posterPath) {
         record("startRecording");
         isRecording = true;
         recordingChanged();
@@ -71,13 +57,7 @@ QtObject {
         record("stopRecording");
         isRecording = false;
         recordingChanged();
-        latestCapture = "file:///pictures/VID_1.mp4";
-        latestPreview = Qt.resolvedUrl("../../../data/photo.png");
+        videoSaved("file:///pictures/VID_1.mp4");
     }
     function focusOnPoint(x, y) { record("focusOnPoint"); }
-    function deleteLatestCapture() {
-        record("deleteLatestCapture");
-        latestCapture = "";
-        latestPreview = "";
-    }
 }

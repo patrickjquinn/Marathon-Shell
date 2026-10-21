@@ -7,7 +7,7 @@ import MarathonApp.Camera 1.0
 DockedPanel {
     id: panel
 
-    property CameraController camera
+    property var camera
     property var gridStore
     readonly property var timers: [0, 3, 10]
 

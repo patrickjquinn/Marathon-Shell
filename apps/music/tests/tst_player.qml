@@ -1,7 +1,7 @@
 import QtQuick
 import QtTest
 import QtMultimedia
-import MarathonApp.Music 1.0
+import MarathonOS.Music 1.0
 import ".."
 
 TestCase {

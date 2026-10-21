@@ -10,6 +10,7 @@ description = "The app runner's Rust half: Marathon.Platform's clients of the sh
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
+alacritty_terminal = "0.26.0"
 async-channel = "2.5.0"
 async-io = "2.6.0"
 async-lock = "3.4.2"
@@ -17,18 +18,21 @@ blocking = "1.7.0"
 clap = { version = "4.6.7", features = ["derive"] }
 cxx = "1.0.205"
 cxx-qt = { version = "=0.10.0", default-features = false }
-cxx-qt-lib = { version = "=0.10.0", default-features = false }
+cxx-qt-lib = { version = "=0.10.0", default-features = false, features = ["qt_gui"] }
 dirs = "6.0.0"
 futures-lite = "2.6.1"
 inotify = { version = "0.11.5", default-features = false }
 jiff = "0.2.15"
 libc = "0.2.190"
+lofty = "0.22.4"
 marathon-apps = { path = "../marathon-apps" }
 marathon-keel = { path = "../marathon-keel" }
 marathon-permissions = { path = "../marathon-permissions" }
 marathon-qt = { path = "../marathon-qt" }
 marathon-rt = { path = "../marathon-rt" }
+polyline = "0.11"
 serde = { version = "1.0.229", features = ["derive"] }
+ureq = "3.4.2"
 signal-hook = { version = "0.3", default-features = false, features = ["iterator"] }
 serde_json = "1.0.154"
 walkdir = "2.5.0"

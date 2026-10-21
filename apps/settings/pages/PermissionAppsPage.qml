@@ -3,7 +3,7 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
-import MarathonApp.Settings
+import MarathonOS.Settings 1.0
 
 // Every app that asks for one permission, Marathon's and Android's in one list.
 Page {

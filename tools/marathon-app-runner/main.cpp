@@ -2,6 +2,7 @@
 #include <QQuickView>
 #include <memory>
 #include <QQuickWindow>
+#include <QScreen>
 #include "services/touchresampler.h"
 #include <QSGRendererInterface>
 #include <QQmlEngine>
@@ -107,6 +108,7 @@ static void applyMainPriorityForActive(bool active) {
 #endif
 
 #include "marathon-app-native/src/alarms.cxxqt.h"
+#include "marathon-app-native/src/android.cxxqt.h"
 #include "marathon-app-native/src/audio.cxxqt.h"
 #include "marathon-app-native/src/bluetooth.cxxqt.h"
 #include "marathon-app-native/src/contacts.cxxqt.h"
@@ -119,6 +121,8 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/media.cxxqt.h"
 #include "marathon-app-native/src/modem.cxxqt.h"
 #include "marathon-app-native/src/mail.cxxqt.h"
+#include "marathon-app-native/src/maps.cxxqt.h"
+#include "marathon-app-native/src/mpris.cxxqt.h"
 #include "marathon-app-native/src/music.cxxqt.h"
 #include "marathon-app-native/src/navigation.cxxqt.h"
 #include "marathon-app-native/src/network.cxxqt.h"
@@ -128,15 +132,19 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/security.cxxqt.h"
 #include "marathon-app-native/src/sensors.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
+#include "marathon-app-native/src/settings_app.cxxqt.h"
 #include "marathon-app-native/src/shell.cxxqt.h"
 #include "marathon-app-native/src/sms.cxxqt.h"
 #include "marathon-app-native/src/store.cxxqt.h"
 #include "marathon-app-native/src/stores.cxxqt.h"
 #include "marathon-app-native/src/telephony.cxxqt.h"
+#include "marathon-app-native/src/terminal.cxxqt.h"
 #include "marathon-app-native/src/updates.cxxqt.h"
 #include "platformtypes.h"
+#include "terminalrenderer.h"
 #include "marathon-app-native/src/wallpapers.cxxqt.h"
 #include "marathon-app-native/src/calendar.cxxqt.h"
+#include "marathon-app-native/src/camera.cxxqt.h"
 
 // The app root's Back or Forward handler (`method`), else its plain signal
 // (`fallback`), which counts as handled.
@@ -727,6 +735,7 @@ int main(int argc, char *argv[]) {
         exposeClient<marathon::platform::Sms>(ctx, "SMSService");
 
     // marathon-maild's client, made when the Mail app first reads it.
+    qmlRegisterType<Captures>("MarathonOS.Services", 1, 0, "Captures");
     qmlRegisterSingletonType<MailService>("MarathonOS.Services", 1, 0, "MailService",
                                           [](QQmlEngine *, QJSEngine *) -> QObject * {
                                               auto *mail     = new MailService();
@@ -737,6 +746,50 @@ int main(int argc, char *argv[]) {
                                               mail->setModels(accounts, messages);
                                               return mail;
                                           });
+
+    // The Music app's MPRIS player and album art.
+    qmlRegisterType<marathon::platform::MprisPlayer>("MarathonOS.Music", 1, 0, "MprisPlayer");
+    qmlRegisterSingletonType<marathon::platform::Artwork>("MarathonOS.Music", 1, 0, "Artwork",
+                                                          [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                                              return new marathon::platform::Artwork();
+                                                          });
+
+    // The Maps app's routing and voice cues.
+    qmlRegisterType<marathon::maps::Routing>("MarathonOS.Maps", 1, 0, "Routing");
+    qmlRegisterType<marathon::maps::Voice>("MarathonOS.Maps", 1, 0, "Voice");
+
+    // The Settings app's native types.
+    qmlRegisterSingletonType<marathon::platform::AndroidApps>(
+        "MarathonOS.Settings", 1, 0, "AndroidApps",
+        [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::AndroidApps(); });
+    qmlRegisterSingletonType<marathon::platform::MmsSettings>(
+        "MarathonOS.Settings", 1, 0, "MmsSettings",
+        [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::MmsSettings(); });
+    qmlRegisterSingletonType<marathon::platform::KeyboardSettingsStore>(
+        "MarathonOS.Settings", 1, 0, "KeyboardSettingsStore",
+        [](QQmlEngine *, QJSEngine *) -> QObject * {
+            return new marathon::platform::KeyboardSettingsStore();
+        });
+    qmlRegisterSingletonType<marathon::platform::SettingsController>(
+        "MarathonOS.Settings", 1, 0, "SettingsController",
+        [](QQmlEngine *, QJSEngine *) -> QObject * {
+            auto *ctrl = new marathon::platform::SettingsController();
+            if (QScreen *scr = QGuiApplication::primaryScreen()) {
+                ctrl->initDisplay(
+                    QStringLiteral("%1x%2").arg(scr->size().width()).arg(scr->size().height()),
+                    QString::number(scr->refreshRate(), 'f', 0) + QStringLiteral(" Hz"),
+                    QString::number(scr->physicalDotsPerInch(), 'f', 0) + QStringLiteral(" dpi"),
+                    QString::number(scr->devicePixelRatio(), 'f', 2));
+            }
+            return ctrl;
+        });
+    qmlRegisterType<marathon::platform::StorageInfo>("MarathonOS.Settings", 1, 0, "StorageInfo");
+    qmlRegisterType<marathon::platform::TimeZoneList>("MarathonOS.Settings", 1, 0, "TimeZoneList");
+
+    // The Terminal app's VT engine and painter.
+    qmlRegisterType<marathon::terminal::TerminalEngine>("MarathonOS.Terminal", 1, 0,
+                                                        "TerminalEngine");
+    qmlRegisterType<TerminalRenderer>("MarathonOS.Terminal", 1, 0, "TerminalRenderer");
 
     if (hasPerm("storage")) {
         exposeClient<marathon::platform::MediaLibrary>(ctx, "MediaLibraryManager");

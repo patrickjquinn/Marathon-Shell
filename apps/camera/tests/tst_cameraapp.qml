@@ -260,7 +260,6 @@ TestCase {
         const page = openReview(app, path);
         page.deleteCapture();
         compare(MediaLibrary.deleted, [7]);
-        verify(app.camera.calls.indexOf("deleteLatestCapture") >= 0);
         tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
         compare(app.camera.latestCapture, "");
     }
@@ -412,7 +411,6 @@ TestCase {
         compare(shutter.Accessible.name, "Cancel timer");
         verify(shutter.stopGlyph);
         mouseClick(shutter);
-        compare(app.camera.calls[app.camera.calls.length - 1], "cancelTimer");
         verify(!app.camera.timerActive);
         verify(!child(app, "countdown").visible);
         compare(shutter.Accessible.name, "Take photo");

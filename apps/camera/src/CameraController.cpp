@@ -1,27 +1,16 @@
 #include "CameraController.h"
-#include <QDateTime>
 #include <algorithm>
 #include <QDebug>
-#include <QDir>
-#include <QDirIterator>
-#include <QFile>
-#include <QFileInfo>
 #include <QElapsedTimer>
-#include <QFutureWatcher>
+#include <QFileInfo>
 #include <QMediaDevices>
-#include <QtConcurrent/QtConcurrentRun>
-#include <QStandardPaths>
+#include <QTimer>
 
 namespace {
     QtMessageHandler originalHandler = nullptr;
 
-    QString          posterPath(const QString &video) {
-        return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/posters/" +
-            QFileInfo(video).completeBaseName() + ".jpg";
-    }
-
-    void             cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
-                                          const QString &msg) {
+    void cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                              const QString &msg) {
         if (msg.contains("V4L2_MEMORY_USERPTR") || msg.contains("memorytransfer")) {
             return;
         }
@@ -32,21 +21,10 @@ namespace {
 }
 
 CameraController::CameraController(QObject *parent)
-    : QObject(parent)
-    , m_countdownTimer(new QTimer(this))
-    , m_recordingTimer(new QTimer(this)) {
-
+    : QObject(parent) {
     if (!originalHandler) {
         originalHandler = qInstallMessageHandler(cameraMessageHandler);
     }
-
-    m_savePath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation) + "/Marathon";
-
-    m_countdownTimer->setInterval(1000);
-    connect(m_countdownTimer, &QTimer::timeout, this, &CameraController::onTimerTick);
-
-    m_recordingTimer->setInterval(1000);
-    connect(m_recordingTimer, &QTimer::timeout, this, &CameraController::onRecordingTick);
 }
 
 CameraController::~CameraController() {
@@ -76,7 +54,6 @@ void CameraController::initialize() {
     connect(m_mediaRecorder, &QMediaRecorder::errorOccurred, this,
             &CameraController::onRecorderError);
 
-    QDir().mkpath(m_savePath);
     m_cameras    = QMediaDevices::videoInputs();
     m_discovered = true;
     qWarning() << "[CameraController] Found" << m_cameras.size() << "cameras in"
@@ -85,8 +62,6 @@ void CameraController::initialize() {
     emit cameraCountChanged();
     emit currentCameraIndexChanged();
     emit readyChanged();
-
-    scanForLatestCapture();
 }
 
 void CameraController::setupCamera(int index) {
@@ -146,8 +121,6 @@ void CameraController::stop() {
     if (m_camera) {
         m_camera->stop();
     }
-    cancelTimer();
-    m_recordingTimer->stop();
 }
 
 void CameraController::flipCamera() {
@@ -159,7 +132,7 @@ void CameraController::flipCamera() {
 
     emit cameraFlipStarted();
 
-    int  nextIndex = (m_currentCameraIndex + 1) % m_cameras.size();
+    int nextIndex = (m_currentCameraIndex + 1) % m_cameras.size();
 
     QTimer::singleShot(150, this, [this, nextIndex]() {
         setupCamera(nextIndex);
@@ -170,47 +143,25 @@ void CameraController::flipCamera() {
     });
 }
 
-void CameraController::capturePhoto() {
+void CameraController::capturePhoto(const QString &path) {
     if (!m_imageCapture || !m_camera || !m_camera->isActive()) {
         m_errorMessage = "Camera not ready";
         emit errorOccurred(m_errorMessage);
         return;
     }
 
-    QString filePath = generateFilePath("IMG", "jpg");
-    m_imageCapture->captureToFile(filePath);
+    m_imageCapture->captureToFile(path);
 }
 
-void CameraController::captureWithTimer() {
-    if (m_timerDuration <= 0) {
-        capturePhoto();
-        return;
-    }
-
-    m_timerCountdown = m_timerDuration;
-    emit timerCountdownChanged();
-    emit timerActiveChanged();
-    m_countdownTimer->start();
-}
-
-void CameraController::cancelTimer() {
-    if (!m_countdownTimer->isActive())
-        return;
-    m_countdownTimer->stop();
-    m_timerCountdown = 0;
-    emit timerCountdownChanged();
-    emit timerActiveChanged();
-}
-
-void CameraController::startRecording() {
+void CameraController::startRecording(const QString &path, const QString &posterPath) {
     if (!m_mediaRecorder || !m_camera || !m_camera->isActive()) {
         m_errorMessage = "Camera not ready for recording";
         emit errorOccurred(m_errorMessage);
         return;
     }
 
-    QString filePath = generateFilePath("VID", "mp4");
-    m_mediaRecorder->setOutputLocation(QUrl::fromLocalFile(filePath));
+    m_posterPath = posterPath;
+    m_mediaRecorder->setOutputLocation(QUrl::fromLocalFile(path));
     m_mediaRecorder->record();
 }
 
@@ -229,20 +180,6 @@ void CameraController::focusOnPoint(qreal x, qreal y) {
     if (m_camera->isFocusModeSupported(QCamera::FocusModeAutoNear)) {
         m_camera->setFocusMode(QCamera::FocusModeAutoNear);
     }
-}
-
-void CameraController::deleteLatestCapture() {
-    const QString file = QUrl(m_latestCapture).toLocalFile();
-    if (file.isEmpty())
-        return;
-    const QString preview = QUrl(m_latestPreview).toLocalFile();
-    QFile::remove(file);
-    if (!preview.isEmpty() && preview != file)
-        QFile::remove(preview);
-    m_latestCapture.clear();
-    m_latestPreview.clear();
-    emit latestCaptureChanged();
-    scanForLatestCapture();
 }
 
 QObject *CameraController::videoSink() const {
@@ -369,46 +306,8 @@ void CameraController::setPhotoResolution(const QSize &size) {
     emit photoResolutionChanged();
 }
 
-int CameraController::timerDuration() const {
-    return m_timerDuration;
-}
-
-void CameraController::setTimerDuration(int seconds) {
-    if (m_timerDuration == seconds)
-        return;
-
-    m_timerDuration = seconds;
-    emit timerDurationChanged();
-}
-
-int CameraController::timerCountdown() const {
-    return m_timerCountdown;
-}
-
-bool CameraController::timerActive() const {
-    return m_countdownTimer->isActive();
-}
-
 bool CameraController::isRecording() const {
     return m_mediaRecorder && m_mediaRecorder->recorderState() == QMediaRecorder::RecordingState;
-}
-
-int CameraController::recordingDuration() const {
-    return m_recordingDuration;
-}
-
-QString CameraController::latestCapture() const {
-    return m_latestCapture;
-}
-
-QString CameraController::latestPreview() const {
-    return m_latestPreview;
-}
-
-void CameraController::setLatestCapture(const QString &file, const QString &preview) {
-    m_latestCapture = QUrl::fromLocalFile(file).toString();
-    m_latestPreview = preview.isEmpty() ? QString() : QUrl::fromLocalFile(preview).toString();
-    emit latestCaptureChanged();
 }
 
 QString CameraController::errorMessage() const {
@@ -433,8 +332,7 @@ void CameraController::onCameraErrorOccurred(QCamera::Error error, const QString
 void CameraController::onImageSaved(int id, const QString &fileName) {
     Q_UNUSED(id)
     qWarning() << "[CameraController] Photo saved:" << fileName;
-    setLatestCapture(fileName, fileName);
-    emit photoSaved(m_latestCapture);
+    emit photoSaved(QUrl::fromLocalFile(fileName).toString());
 }
 
 void CameraController::onImageError(int id, QImageCapture::Error error,
@@ -450,26 +348,18 @@ void CameraController::onRecorderStateChanged(QMediaRecorder::RecorderState stat
     emit recordingChanged();
 
     if (state == QMediaRecorder::RecordingState) {
-        m_recordingDuration = 0;
-        m_recordingTimer->start();
         if (m_videoSink)
             m_recordingPoster = m_videoSink->videoFrame().toImage().scaled(
                 512, 512, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    } else {
-        m_recordingTimer->stop();
-        if (state == QMediaRecorder::StoppedState) {
-            m_recordingDuration = 0;
-            emit recordingDurationChanged();
-
-            const QString video = m_mediaRecorder->actualLocation().toLocalFile();
-            if (QFileInfo::exists(video)) {
-                const QString poster = posterPath(video);
-                QDir().mkpath(QFileInfo(poster).path());
-                const bool saved = !m_recordingPoster.isNull() && m_recordingPoster.save(poster);
-                setLatestCapture(video, saved ? poster : QString());
-            }
-            m_recordingPoster = QImage();
+    } else if (state == QMediaRecorder::StoppedState) {
+        const QString video = m_mediaRecorder->actualLocation().toLocalFile();
+        if (QFileInfo::exists(video)) {
+            if (!m_posterPath.isEmpty() && !m_recordingPoster.isNull())
+                m_recordingPoster.save(m_posterPath);
+            emit videoSaved(QUrl::fromLocalFile(video).toString());
         }
+        m_recordingPoster = QImage();
+        m_posterPath.clear();
     }
 }
 
@@ -478,53 +368,4 @@ void CameraController::onRecorderError(QMediaRecorder::Error error, const QStrin
     m_errorMessage = errorString;
     emit errorOccurred(m_errorMessage);
     qWarning() << "[CameraController] Recording error:" << errorString;
-}
-
-void CameraController::onTimerTick() {
-    m_timerCountdown--;
-    emit timerCountdownChanged();
-
-    if (m_timerCountdown <= 0) {
-        m_countdownTimer->stop();
-        emit timerActiveChanged();
-        capturePhoto();
-    }
-}
-
-void CameraController::onRecordingTick() {
-    m_recordingDuration++;
-    emit recordingDurationChanged();
-}
-
-QString CameraController::generateFilePath(const QString &prefix, const QString &extension) {
-    QString timestamp = QString::number(QDateTime::currentMSecsSinceEpoch());
-    return m_savePath + "/" + prefix + "_" + timestamp + "." + extension;
-}
-
-// Runs off the GUI thread and keeps only the newest file instead of sorting the folder.
-void CameraController::scanForLatestCapture() {
-    using Capture = std::pair<QString, QString>;
-    auto *watcher = new QFutureWatcher<Capture>(this);
-    connect(watcher, &QFutureWatcher<Capture>::finished, this, [this, watcher]() {
-        const Capture latest = watcher->result();
-        watcher->deleteLater();
-        if (!latest.first.isEmpty() && m_latestCapture.isEmpty())
-            setLatestCapture(latest.first, latest.second);
-    });
-    watcher->setFuture(QtConcurrent::run([dir = m_savePath]() {
-        QDirIterator it(dir, {"*.jpg", "*.jpeg", "*.png", "*.mp4"}, QDir::Files);
-        QString      newest;
-        QDateTime    newestTime;
-        while (it.hasNext()) {
-            const QFileInfo info = it.nextFileInfo();
-            if (newest.isEmpty() || info.lastModified() > newestTime) {
-                newest     = info.absoluteFilePath();
-                newestTime = info.lastModified();
-            }
-        }
-        if (!newest.endsWith(".mp4"))
-            return Capture(newest, newest);
-        const QString poster = posterPath(newest);
-        return Capture(newest, QFileInfo::exists(poster) ? poster : QString());
-    }));
 }

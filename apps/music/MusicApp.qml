@@ -6,7 +6,7 @@ import Marathon.Silica 1.0
 // The runner registers MusicLibraryManager in MarathonOS.Shell at runtime.
 import MarathonOS.Shell // qmllint disable unused-imports
 import Marathon.Platform 1.0
-import MarathonApp.Music 1.0 as Native
+import MarathonOS.Music 1.0 as Native
 import Nemo.Configuration 1.0
 import "Library.js" as Library
 import "Playlists.js" as Playlists
