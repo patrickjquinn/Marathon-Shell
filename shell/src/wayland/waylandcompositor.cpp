@@ -14,7 +14,7 @@
 #include "src/wayland/toplevelconfigure.h"
 #include "marathon-surface-v1-server.h"
 #include "src/components/windowtextureitem.h"
-#include "src/managers/deviceprofile.h"
+#include "marathon-shell-native/src/device.cxxqt.h"
 #include "src/services/processtree.h"
 #include "marathon-shell-native/src/desktop.cxxqt.h"
 #include <QDebug>
@@ -1656,7 +1656,7 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
     m_output->setAvailableGeometry(QRect(QPoint(0, 0), windowSize));
 
     QSize       physicalSizeMm(0, 0);
-    const qreal panelDpi = DeviceProfile::instance().panelDpi();
+    const qreal panelDpi = marathon::device::profile().panel_dpi;
     if (panelDpi > 0.0) {
         physicalSizeMm = QSize(qMax(1, qRound(windowSize.width() / panelDpi * 25.4)),
                                qMax(1, qRound(windowSize.height() / panelDpi * 25.4)));
@@ -1931,7 +1931,7 @@ void WaylandCompositor::setDisplayPowerState(bool on) {
     // deep-idle holds, after the backlight-after-CRTC ordering fix in
     // DisplayManagerCpp::setScreenState + forceBacklightOn(). Set
     // MARATHON_DOZE_DPMS=0 to disable (e.g. bring-up on other panels).
-    static const bool enabled = DeviceProfile::instance().dozeDpms();
+    static const bool enabled = marathon::device::profile().doze_dpms;
     if (!enabled)
         return;
     if (!initAtomicDisplay())

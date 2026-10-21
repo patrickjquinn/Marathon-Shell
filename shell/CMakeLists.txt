@@ -2,10 +2,7 @@ set(SOURCES
     main.cpp
     src/diag/fpsmonitor.h
     src/diag/fpsmonitor.cpp
-    src/components/lunasvgimageprovider.h
-    src/components/lunasvgimageprovider.cpp
-    src/managers/drmmasterwait.h
-    src/managers/drmmasterwait.cpp
+    src/components/svgimageprovider.h
     src/ipc/shellkeelactions.h
     src/ipc/shellkeelactions.cpp
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc/dbusnormalize.cpp
@@ -19,18 +16,11 @@ set(SOURCES
     src/services/notificationservicecpp.cpp
     src/services/telephonyintegrationcpp.h
     src/services/telephonyintegrationcpp.cpp
-    src/components/crashhandler.h
-    src/components/crashhandler.cpp
-    src/managers/deviceprofile.h
-    src/managers/deviceprofile.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
-    src/managers/platformcpp.h
     src/managers/marathoninputmethodengine.h
     src/managers/marathoninputmethodengine.cpp
     src/managers/marathoninputcontext.cpp
-    src/managers/rtscheduler.h
-    src/managers/rtscheduler.cpp
     src/dbus/freedesktopnotifications.h
     src/dbus/freedesktopnotifications.cpp
     src/services/notificationtarget.h
@@ -38,7 +28,6 @@ set(SOURCES
     src/dbus/notificationdatabase.h
     src/dbus/notificationdatabase.cpp
     src/services/inputboost.h
-    src/services/inputboost.cpp
     src/services/touchresampler.h
     src/services/touchresampler.cpp
     src/services/wakeonkeyfilter.h
@@ -485,7 +474,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Network
     ${LIBDRM_LIBRARIES}
     ${PAM_LIBRARY}
-    lunasvg
 )
 
 

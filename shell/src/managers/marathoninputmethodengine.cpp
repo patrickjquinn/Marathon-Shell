@@ -1,5 +1,5 @@
 #include "marathoninputmethodengine.h"
-#include "platform.h"
+#include "marathon-shell-native/src/device.cxxqt.h"
 #include <QDebug>
 #include <QGuiApplication>
 #include <QInputMethod>
@@ -121,9 +121,9 @@ bool MarathonInputMethodEngine::eventFilter(QObject *obj, QEvent *event) {
 
         if (query.value(Qt::ImEnabled).toBool()) {
             qDebug() << "[InputEngine] FocusIn detected on:" << obj
-                     << "HW Keyboard:" << Platform::hasHardwareKeyboard();
+                     << "HW Keyboard:" << marathon::device::has_hardware_keyboard();
 
-            if (!Platform::hasHardwareKeyboard()) {
+            if (!marathon::device::has_hardware_keyboard()) {
 
                 showKeyboard(true);
                 emit inputItemFocused();

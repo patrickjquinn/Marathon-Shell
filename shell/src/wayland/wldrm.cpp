@@ -1,6 +1,6 @@
 #include "src/wayland/wldrm.h"
 
-#include "src/managers/deviceprofile.h"
+#include "marathon-shell-native/src/device.cxxqt.h"
 #include <QDebug>
 #include <QFile>
 #include <QWaylandCompositor>
@@ -96,10 +96,10 @@ WlDrmManager::WlDrmManager(QWaylandCompositor *compositor)
         return;
     }
 
-    // DeviceProfile::renderNode() already resolves MARATHON_RENDER_NODE env >
+    // The device profile's render_node already resolves MARATHON_RENDER_NODE env >
     // conf RENDER_NODE > /dev/dri/renderD128 default, so this stays byte-for-byte
     // the historical value on an un-provisioned L5 while an overlay can retarget it.
-    m_deviceNode = DeviceProfile::instance().renderNode().toLocal8Bit();
+    m_deviceNode = marathon::device::profile().render_node.toLocal8Bit();
 
     if (!QFile::exists(QString::fromLocal8Bit(m_deviceNode))) {
         qWarning() << "[WlDrm] render node" << m_deviceNode

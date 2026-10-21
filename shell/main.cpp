@@ -40,7 +40,6 @@
 
 #include "marathon-shell-native/src/desktop.cxxqt.h"
 #include "marathon-shell-native/src/sandbox.cxxqt.h"
-#include "src/components/crashhandler.h"
 #include "marathon-shell-native/src/apps.cxxqt.h"
 #include "marathon-shell-native/src/tasks.cxxqt.h"
 #include "marathon-shell-native/src/ipc.cxxqt.h"
@@ -58,8 +57,7 @@
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
 #include "marathon-shell-native/src/identity.cxxqt.h"
-#include "src/managers/deviceprofile.h"
-#include "src/managers/drmmasterwait.h"
+#include "marathon-shell-native/src/device.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/services/wakeonkeyfilter.h"
 #include "marathon-shell-native/src/pilot.cxxqt.h"
@@ -82,9 +80,8 @@
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "src/wayland/waylandcompositormanager.h"
 #include "src/managers/marathoninputmethodengine.h"
-#include "src/managers/rtscheduler.h"
 #include "src/managers/cursormanager.h"
-#include "src/components/lunasvgimageprovider.h"
+#include "src/components/svgimageprovider.h"
 
 #include "marathon-shell-native/src/mpris.cxxqt.h"
 #include "marathon-shell-native/src/location.cxxqt.h"
@@ -95,7 +92,6 @@
 #include "marathon-shell-native/src/contacts.cxxqt.h"
 #include "marathon-shell-native/src/telephonyd.cxxqt.h"
 #include "src/managers/screenmetrics.h"
-#include "src/managers/platformcpp.h"
 #include "marathon-shell-native/src/links.cxxqt.h"
 #include "marathon-shell-native/src/layouts.cxxqt.h"
 #include "src/services/statusbariconservicecpp.h"
@@ -370,11 +366,11 @@ int main(int argc, char *argv[]) {
         // the Vivante blob) declares GLES_LEVEL=3.0, and a device whose CRTC
         // is ARGB declares SURFACE_ALPHA=1. Defaults still match the Librem 5
         // (GLES 2.0, no alpha) so an un-provisioned device is unchanged.
-        const DeviceProfile &dp  = DeviceProfile::instance();
-        QSurfaceFormat       fmt = QSurfaceFormat::defaultFormat();
+        const marathon::device::Profile dp  = marathon::device::profile();
+        QSurfaceFormat                  fmt = QSurfaceFormat::defaultFormat();
         fmt.setRenderableType(QSurfaceFormat::OpenGLES);
-        fmt.setMajorVersion(dp.glesMajor());
-        fmt.setMinorVersion(dp.glesMinor());
+        fmt.setMajorVersion(dp.gles_major);
+        fmt.setMinorVersion(dp.gles_minor);
         fmt.setProfile(QSurfaceFormat::NoProfile);
         fmt.setColorSpace(QColorSpace::SRgb);
         fmt.setSamples(0);
@@ -388,7 +384,7 @@ int main(int argc, char *argv[]) {
         // the panel never updates. So we set alpha ONLY when the device
         // profile says its CRTC has an alpha channel; otherwise we leave Qt's
         // defaults (which land on the XRGB-matching EGLConfig).
-        if (dp.surfaceHasAlpha())
+        if (dp.surface_has_alpha)
             fmt.setAlphaBufferSize(8);
         QSurfaceFormat::setDefaultFormat(fmt);
     }
@@ -400,13 +396,11 @@ int main(int argc, char *argv[]) {
     // After a session restart the previous shell's master can outlive its
     // process for a moment, and eglfs_kms opening the card then never gets it.
     if (qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs"))) {
-        const QStringList cards  = eglfsKmsCards();
-        const int         waited = waitForDrmMaster(cards, 5000);
+        const int waited = marathon::device::wait_for_drm_master(5000);
         if (waited < 0)
-            qCritical() << "[MarathonShell] DRM master on" << cards
-                        << "still held after 5 s; the display will not update";
+            qCritical() << "[MarathonShell] DRM master still held after 5 s; the display will not update";
         else if (waited > 0)
-            qWarning() << "[MarathonShell] waited" << waited << "ms for DRM master on" << cards;
+            qWarning() << "[MarathonShell] waited" << waited << "ms for DRM master";
     }
 
     // Touch comes from Qt's evdevtouch, read on its own thread with the
@@ -415,15 +409,15 @@ int main(int argc, char *argv[]) {
     const bool evdevTouch = qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs")) &&
         !qEnvironmentVariableIsSet("QT_QPA_GENERIC_PLUGINS");
     if (evdevTouch) {
-        const DeviceProfile &dp = DeviceProfile::instance();
-        QStringList          spec{QStringLiteral("evdevtouch")};
-        if (dp.touchFilter())
+        const marathon::device::Profile dp = marathon::device::profile();
+        QStringList                     spec{QStringLiteral("evdevtouch")};
+        if (dp.touch_filter)
             spec << QStringLiteral("filtered");
         // Each report is applied as it comes; compression held it for the
         // next frame's sync. Apps inherit this: the shell forwards each.
         qputenv("QML_NO_TOUCH_COMPRESSION", "1");
-        if (!dp.touchParams().isEmpty())
-            spec << dp.touchParams();
+        if (!dp.touch_params.isEmpty())
+            spec << dp.touch_params;
         qputenv("QT_QPA_GENERIC_PLUGINS", spec.join(QLatin1Char(':')).toLocal8Bit());
     }
 
@@ -448,7 +442,7 @@ int main(int argc, char *argv[]) {
     {
         bool      envOk      = false;
         const int envSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &envOk);
-        int       chosen     = envOk ? envSamples : DeviceProfile::instance().hwMsaaSamples();
+        int       chosen     = envOk ? envSamples : marathon::device::profile().hw_msaa_samples;
 
         if (qEnvironmentVariableIntValue("MARATHON_ENABLE_MSAA_PROBE") != 0) {
             int               maxSamples = 0;
@@ -578,14 +572,6 @@ int main(int argc, char *argv[]) {
         QLoggingCategory::setFilterRules(rules);
     }
 
-    CrashHandler *crashHandler = CrashHandler::instance();
-    crashHandler->install();
-    crashHandler->setCrashCallback([](const QString &msg) {
-        qCritical() << "[Marathon] App crash detected:" << msg;
-        qCritical() << "[Marathon] Crash occurred in the shell process.";
-    });
-    qInfo() << "[Marathon] Crash protection installed (signal handlers active)";
-
 #ifdef Q_OS_LINUX
     // Shell main thread = SCHED_RR/2; render thread is set to RR/1 from
     // WaylandCompositor. See docs/RT_SCHEDULING.md for the full hierarchy.
@@ -660,20 +646,19 @@ int main(int argc, char *argv[]) {
     sessionStore->setParent(&app);
     qmlRegisterSingletonInstance<Session>("MarathonOS.Shell", 1, 0, "SessionStore", sessionStore);
 
-    engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
-
-    engine.addImageProvider("lunasvgqrc", new LunaSvgImageProvider());
-    qInfo() << "[MarathonShell] LunaSVG image provider registered";
+    engine.addImageProvider("svg", new SvgImageProvider());
 
     auto *ctx = engine.rootContext();
 
     auto *screenMetrics = createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
 
-    // DeviceProfile is a process-lifetime singleton (already loaded early for
-    // the surface format); expose the same instance to QML so the UI can key
-    // off declared device traits instead of env sniffing.
-    qmlRegisterSingletonInstance<DeviceProfile>("MarathonOS.Shell", 1, 0, "DeviceProfile",
-                                                &DeviceProfile::instance());
+    const marathon::device::Profile device = marathon::device::profile();
+    ctx->setContextProperty(QStringLiteral("DeviceProfile"),
+                            QVariantMap{{QStringLiteral("panelDither"), device.panel_dither},
+                                        {QStringLiteral("panelDepth"), device.panel_depth}});
+    ctx->setContextProperty(QStringLiteral("Platform"),
+                            QVariantMap{{QStringLiteral("hasHardwareKeyboard"),
+                                         marathon::device::has_hardware_keyboard()}});
 
     auto *mpris2Controller = new Mpris();
     mpris2Controller->setParent(&app);
@@ -684,7 +669,7 @@ int main(int argc, char *argv[]) {
     startupMark("stores");
     auto *settingsManager = new marathon::Settings();
     settingsManager->setParent(&app);
-    settingsManager->load(DeviceProfile::instance().screenTimeoutMs());
+    settingsManager->load(device.screen_timeout_ms);
     qmlRegisterSingletonInstance<marathon::Settings>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                   settingsManager);
     auto *ambienceService = new marathon::Ambience();
@@ -699,10 +684,10 @@ int main(int argc, char *argv[]) {
     // Keel picks phone or tablet metrics (page margins, ...) from the panel's
     // physical size; a DT that misreports it (the HackberryPi's doubled
     // width-mm) gives a phone tablet margins. The profile's true DPI wins.
-    if (!qEnvironmentVariableIsSet("KEEL_SCREEN_DIAGONAL") && DeviceProfile::instance().panelDpi() > 0) {
+    if (!qEnvironmentVariableIsSet("KEEL_SCREEN_DIAGONAL") && device.panel_dpi > 0) {
         if (const QScreen *screen = QGuiApplication::primaryScreen()) {
             const QSize px = screen->size() * screen->devicePixelRatio();
-            const qreal inches = std::hypot(px.width(), px.height()) / DeviceProfile::instance().panelDpi();
+            const qreal inches = std::hypot(px.width(), px.height()) / device.panel_dpi;
             qputenv("KEEL_SCREEN_DIAGONAL", QByteArray::number(inches, 'f', 2));
         }
     }
@@ -733,10 +718,10 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_WAYLAND
     // Native apps follow the interface size too, from the DPI the shell scales by.
     {
-        auto update = [compositorManager, settingsManager, screenMetrics]() {
+        auto update = [compositorManager, settingsManager, screenMetrics, scale = device.native_scale]() {
             compositorManager->setNativeScale(
                 NativeClientScale::fromDpi(screenMetrics->dpi(), settingsManager->getUserScaleFactor(),
-                                           DeviceProfile::instance().nativeScale()));
+                                           scale));
         };
         update();
         QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged,
@@ -847,7 +832,7 @@ int main(int argc, char *argv[]) {
     auto *display = new marathon::Display();
     display->setParent(&app);
     display->start(QStringLiteral("/sys/class/backlight"), QStringLiteral("/sys/bus/iio/devices"),
-                   DeviceProfile::instance().brightnessFloor());
+                   device.brightness_floor);
     qmlRegisterSingletonInstance<marathon::Display>("MarathonOS.Shell", 1, 0, "Display", display);
     const std::pair<const char *, void (marathon::Display::*)()> displaySettings[] = {
         {"rotationLocked", &marathon::Display::rotationLockedChanged},
@@ -957,15 +942,9 @@ int main(int argc, char *argv[]) {
 
     startupMark("sensors, location, security");
     {
-        const DeviceProfile &device = DeviceProfile::instance();
-        QScreen             *screen = QGuiApplication::primaryScreen();
-        const qreal          dpi    = ScreenMetrics::computeDpi(screen);
+        QScreen    *screen = QGuiApplication::primaryScreen();
+        const qreal dpi    = ScreenMetrics::computeDpi(screen);
         tasks->setDevice({
-            {QStringLiteral("renderNode"), device.renderNode()},
-            {QStringLiteral("gpuWebgl"), device.gpuStack() == QLatin1String("mesa-v3d")},
-            {QStringLiteral("runnerPool"), device.runnerPool()},
-            {QStringLiteral("runnerWidth"), device.runnerWidth()},
-            {QStringLiteral("runnerHeight"), device.runnerHeight()},
             {QStringLiteral("thumbnails"), QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
                                                QStringLiteral("/marathon/thumbnails")},
             {QStringLiteral("dpi"), dpi > 0 ? dpi : 160.0},
@@ -1026,7 +1005,7 @@ int main(int argc, char *argv[]) {
     // Doze, the screen off: background apps freeze at once (the foreground
     // one stays thawed for an instant wake) and the Wi-Fi chip idles while
     // its association, and push, stay up.
-    const bool wifiPowerSave = DeviceProfile::instance().wifiPowerSave();
+    const bool wifiPowerSave = device.wifi_power_save;
     QObject::connect(display, &marathon::Display::screenOnChanged, tasks,
                      [=, debounceMs = -1]() mutable {
                          const bool on = display->getScreenOn();
@@ -1082,10 +1061,9 @@ int main(int argc, char *argv[]) {
     // KEY_POWER to whichever window has focus, often an app's.
     // Full CPU clock while the user interacts; the power key counts, since
     // waking the display is the slowest thing a press does.
-    auto *inputBoost = new InputBoost(&app);
-    app.installEventFilter(inputBoost);
-    QObject::connect(power, &Power::powerKeyPressed, inputBoost, &InputBoost::boost);
-    if (DeviceProfile::instance().wakeOnKey()) {
+    app.installEventFilter(new InputBoost(&app));
+    QObject::connect(power, &Power::powerKeyPressed, &app, [] { marathon::boost::input(); });
+    if (device.wake_on_key) {
         app.installEventFilter(new WakeOnKeyFilter([display]() { return !display->getScreenOn(); },
                                                    [display]() { display->turnScreenOn(); }, &app));
     }
@@ -1171,7 +1149,6 @@ int main(int argc, char *argv[]) {
                      });
     qInfo() << "[MarathonShell] Audio playback wakelock integration enabled";
 
-    createObject<PlatformCpp>(ctx, "Platform", &app);
     createObject<StatusBarIconServiceCpp>(ctx, "StatusBarIconService", &app);
     qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
 
@@ -1198,13 +1175,6 @@ int main(int argc, char *argv[]) {
     layouts->loadLanguage(settingsManager->getKeyboardLanguage());
     startupMark("keyboard engine");
     qmlRegisterSingletonInstance<KeyboardLayouts>("MarathonOS.Shell", 1, 0, "LanguageManager", layouts);
-
-    auto *rtScheduler = new RTScheduler(&app);
-    if (rtScheduler->isRealtimeKernel()) {
-        qInfo() << "[MarathonShell] RT Scheduler initialized (PREEMPT_RT kernel detected)";
-        qInfo() << "[MarathonShell]   Current policy:" << rtScheduler->getCurrentPolicy()
-                << "Priority:" << rtScheduler->getCurrentPriority();
-    }
 
     qInfo() << "[MarathonShell] Initializing Marathon Service Bus (D-Bus)...";
     QDBusConnection           bus              = QDBusConnection::sessionBus();
@@ -1446,7 +1416,7 @@ int main(int argc, char *argv[]) {
     }
 
     // MARATHON_TOUCH_RESAMPLE=0 turns it off.
-    if (evdevTouch && !DeviceProfile::instance().touchFilter() &&
+    if (evdevTouch && !device.touch_filter &&
         qEnvironmentVariable("MARATHON_TOUCH_RESAMPLE") != QLatin1String("0")) {
         const auto rootObjects = engine.rootObjects();
         for (QObject *root : rootObjects) {

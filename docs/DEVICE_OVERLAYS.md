@@ -86,10 +86,10 @@ answer is a runtime probe or a `DeviceProfile` field.
 
 ## DeviceProfile (the shell seam)
 
-`shell/src/managers/deviceprofile.{h,cpp}` — a process-lifetime singleton
-loaded once, early in `main()` (before `QGuiApplication`, so it can decide the
-default `QSurfaceFormat`). Also a QML singleton (`MarathonOS.Shell`,
-`DeviceProfile`).
+`crates/marathon-shell-native/src/device.rs` — read once, early in `main()`
+(before `QGuiApplication`, so it can decide the default `QSurfaceFormat`);
+C++ calls `marathon::device::profile()`. QML sees the keys it needs as the
+`DeviceProfile` context property.
 
 Every field resolves with the precedence:
 
@@ -225,9 +225,9 @@ validated in isolation.
 6. **Build + boot test**: add `scripts/build-<device>-image.sh` (and a flash
    script under `scripts/flash/`) and name them in the manifest's `[build]`.
    Build, then boot (QEMU first if the SoC is emulated; otherwise flash to
-   hardware). Confirm the shell reaches the lock screen and the
-   `[DeviceProfile]` log line reports the expected traits, then move the
-   manifest's `status` on.
+   hardware). Confirm the shell reaches the lock screen with the expected
+   traits (scale, panel depth, GPU stack), then move the manifest's `status`
+   on.
 7. **Verify no core leak**: `grep -rni "<soc>\|<vendor>" shell/ apps/` should
    return only comments — any live branch is a bug; move it to a probe or a
    `DeviceProfile` field.

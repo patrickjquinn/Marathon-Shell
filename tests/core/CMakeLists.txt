@@ -198,11 +198,6 @@ target_link_libraries(test_core_telephonyservice Qt6::Test Qt6::Core Qt6::DBus m
 add_test(NAME Core_TelephonyService COMMAND test_core_telephonyservice)
 
 # Sound names format locally, shared by the shell and the app runner
-add_executable(test_core_soundname test_soundname.cpp)
-set_target_properties(test_core_soundname PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_soundname Qt6::Test Qt6::Core)
-target_include_directories(test_core_soundname PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Core_SoundName COMMAND test_core_soundname)
 
 
 # Wake touch hygiene: no touch for 100 ms after wake, none until a fresh one

@@ -89,10 +89,6 @@ add_test(NAME Shell_ProcessTree COMMAND test_shell_processtree)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBDRM REQUIRED libdrm)
-add_executable(test_shell_drmmasterwait test_drmmasterwait.cpp ../../shell/src/managers/drmmasterwait.cpp)
-target_link_libraries(test_shell_drmmasterwait Qt6::Test Qt6::Core ${LIBDRM_LIBRARIES})
-target_include_directories(test_shell_drmmasterwait PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/managers ${LIBDRM_INCLUDE_DIRS})
-add_test(NAME Shell_DrmMasterWait COMMAND test_shell_drmmasterwait)
 
 # Status bar glyphs: real Phosphor names, state carried by the glyph
 add_executable(test_shell_statusbaricons test_statusbaricons.cpp ../../shell/src/services/statusbariconservicecpp.cpp)
@@ -188,11 +184,6 @@ target_include_directories(test_shell_touchresampler PRIVATE ${CMAKE_SOURCE_DIR}
 add_test(NAME Shell_TouchResampler COMMAND test_shell_touchresampler)
 
 # The touch CPU boost's resting floor
-add_executable(test_shell_inputboost test_inputboost.cpp ../../shell/src/services/inputboost.cpp)
-set_target_properties(test_shell_inputboost PROPERTIES AUTOMOC ON)
-target_link_libraries(test_shell_inputboost Qt6::Test Qt6::Core)
-target_include_directories(test_shell_inputboost PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Shell_InputBoost COMMAND test_shell_inputboost)
 
 # Frame callbacks of hidden surfaces: about once a second
 add_executable(test_shell_hiddenframethrottle test_hiddenframethrottle.cpp)

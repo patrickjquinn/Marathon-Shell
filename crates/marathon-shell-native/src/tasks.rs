@@ -601,15 +601,16 @@ impl Tasks {
         let text = |k: &str| device.get(&QString::from(k)).and_then(|v| v.value::<QString>()).map(|s| s.to_string()).unwrap_or_default();
         let int = |k: &str| device.get(&QString::from(k)).and_then(|v| v.value::<i32>()).unwrap_or_default();
         let real = |k: &str| device.get(&QString::from(k)).and_then(|v| v.value::<f64>()).unwrap_or_default();
-        let flag = |k: &str| device.get(&QString::from(k)).and_then(|v| v.value::<bool>()).unwrap_or_default();
+        let profile = &*crate::device::VALUES;
+        let (runner_width, runner_height) = profile.runner_size();
         let user_scale = self.device.user_scale;
         let viewport = (self.device.viewport_width, self.device.viewport_height);
         self.as_mut().rust_mut().device = Device {
-            render_node: text("renderNode"),
-            gpu_webgl: flag("gpuWebgl"),
-            runner_pool: int("runnerPool"),
-            runner_width: int("runnerWidth"),
-            runner_height: int("runnerHeight"),
+            render_node: profile.render_node(),
+            gpu_webgl: profile.gpu_stack() == "mesa-v3d",
+            runner_pool: profile.runner_pool(),
+            runner_width,
+            runner_height,
             thumbnails: text("thumbnails"),
             dpi: real("dpi"),
             screen_width: int("screenWidth"),

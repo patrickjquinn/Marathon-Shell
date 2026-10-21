@@ -32,7 +32,7 @@ Item {
             if (!svgPath.startsWith("/"))
                 svgPath = "/" + svgPath;
 
-            return "image://lunasvg" + svgPath;
+            return "image://svg" + svgPath;
         }
 
         if (source.startsWith("/") && !source.startsWith("file://"))
