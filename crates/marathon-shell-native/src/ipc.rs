@@ -60,12 +60,15 @@ pub async fn named() {
     NAMED.wait().await;
 }
 
-/// Sends `<Name>1.<member>` from `/org/marathonos/Shell/<name>`.
+/// Sends `<Name>1.<member>` from `/org/marathonos/Shell/<name>`, once the
+/// shell owns its name: clients match the sender by it, so one sent before
+/// would reach none of them.
 pub fn signal<B>(name: &'static str, member: &'static str, body: B)
 where
     B: Serialize + DynamicType + Send + Sync + 'static,
 {
     io::spawn(async move {
+        named().await;
         let Ok(bus) = io::session_bus().await else { return };
         let interface = format!("{NAME}.{name}1");
         if let Err(e) = bus.emit_signal(None::<&str>, path(name).as_str(), interface.as_str(), member, &body).await {
