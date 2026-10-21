@@ -1,0 +1,20 @@
+[Unit]
+Description=On-device language model for Pilot (llama.cpp)
+Documentation=https://github.com/ggml-org/llama.cpp/tree/master/tools/server
+# A 4-core phone with RAM to spare: the HackberryPi, not the Librem 5.
+ConditionMemory=>=8G
+
+[Service]
+ExecStart=/usr/libexec/marathon-llm/run
+# The first start downloads the model.
+TimeoutStartSec=infinity
+Restart=on-failure
+RestartSec=30
+# Behind the shell and the app in front, ahead of frozen apps under OOM.
+Nice=5
+CPUWeight=50
+IOSchedulingClass=idle
+OOMScoreAdjust=300
+
+[Install]
+WantedBy=graphical-session.target

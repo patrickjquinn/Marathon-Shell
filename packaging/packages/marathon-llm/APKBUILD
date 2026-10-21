@@ -1,0 +1,32 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# Pilot's on-device model: llama.cpp's llama-server (Alpine's) serving
+# Qwen3.5-2B on 127.0.0.1:8088, OpenAI-compatible, for pilotd's local
+# mode. The model (1.4 GB) downloads to ~/.local/share/marathon-llm on
+# first start; the unit runs only on phones with 8 GB of RAM or more.
+pkgname=marathon-llm
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="On-device language model server for Pilot"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="noarch"
+license="Apache-2.0"
+depends="llama-server wget"
+source="
+	run
+	marathon-llm.service
+	"
+options="!check"
+
+package() {
+	install -Dm755 "$srcdir"/run "$pkgdir"/usr/libexec/marathon-llm/run
+	install -Dm644 "$srcdir"/marathon-llm.service \
+		"$pkgdir"/usr/lib/systemd/user/marathon-llm.service
+	install -d "$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants
+	ln -s ../marathon-llm.service \
+		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/marathon-llm.service
+}
+
+sha512sums="
+752065f8b6801142f658f7e7e3811b3cbcf441d476689cd954ec6062f34306c589983040125a25bf197f08d8f734ae40759fe5a341b28a451ba32729e050a2df  run
+dacdf54b87cb3c1968f7b9db002e0ab37a02c4946a597db4017f51eb75c4cd607a9d7b05201ae60b399a417467a4d83abb805ad1ab8c7fe6849e46e6097d08e6  marathon-llm.service
+"
