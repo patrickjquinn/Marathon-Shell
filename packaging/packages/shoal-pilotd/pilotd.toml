@@ -13,7 +13,7 @@ open_command = ["/usr/libexec/shoal-pilot/marathon-open", "/usr/bin/shoal-pilot"
 [sheet]
 open_command = ["/usr/libexec/shoal-pilot/marathon-open", "/usr/bin/shoal-pilot"]
 
-# The owner's Groq and Jev keys in ~/.config/shoal-pilot/keys.env (0600),
-# when that file exists; without it, the Pilot relay.
-[direct]
+# The model runs on the phone (llama-server on 127.0.0.1:8088): no relay,
+# no licence, nothing leaves the phone.
+[local]
 enabled = true

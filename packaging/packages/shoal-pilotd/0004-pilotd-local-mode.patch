@@ -1,0 +1,252 @@
+From 4b16abf0b31deaee32e7eba57d7bad32c3fa648e Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 21 Oct 2026 11:52:47 +0100
+Subject: [PATCH] pilotd: local mode
+
+[local] in pilotd.toml runs the standard backend on the phone: the LLM is
+llama.cpp's llama-server on this machine, and LocalJev stands in for Jev,
+handing the phone's own parsers what they do without a model and
+everything else to the model. No relay, no Reef licence, no keys; replies
+are stamped as processed on the device.
+---
+ shoal/pilot/pilotd/src/config.rs | 46 +++++++++++++++++++++++++++++-
+ shoal/pilot/pilotd/src/daemon.rs | 49 +++++++++++++++++++++++++++++---
+ shoal/pilot/pilotd/src/jev.rs    | 42 +++++++++++++++++++++++++++
+ 3 files changed, 132 insertions(+), 5 deletions(-)
+
+diff --git a/shoal/pilot/pilotd/src/config.rs b/shoal/pilot/pilotd/src/config.rs
+index ebea6c4..a0d46b9 100644
+--- a/shoal/pilot/pilotd/src/config.rs
++++ b/shoal/pilot/pilotd/src/config.rs
+@@ -112,6 +112,8 @@ pub enum JevConfig {
+         #[serde(default = "default_jev_provider")]
+         provider: String,
+     },
++    /// Local mode's stand-in (jev.rs `LocalJev`): no requests.
++    Local,
+     /// SGLang `/v1/score` over an open model (Lighthouse, section 10.1).
+     Score {
+         url: String,
+@@ -359,6 +361,37 @@ impl DirectConfig {
+     }
+ }
+ 
++/// `[local]`: the model runs on the phone (llama.cpp's llama-server): no
++/// relay, no licence, no keys. Wins over
++/// `[direct]`.
++#[derive(Debug, Clone, PartialEq, Deserialize)]
++#[serde(default, deny_unknown_fields)]
++pub struct LocalConfig {
++    pub enabled: bool,
++    /// OpenAI-compatible chat completions on this machine.
++    pub llm_url: String,
++    pub model: String,
++    pub max_completion_tokens: u64,
++    /// A phone's CPU answers slower than a hosted model.
++    pub timeout_secs: u64,
++    /// The `web.search` tool, the relay's contract, on this machine.
++    /// Empty: not offered.
++    pub web_search_url: String,
++}
++
++impl Default for LocalConfig {
++    fn default() -> Self {
++        LocalConfig {
++            enabled: false,
++            llm_url: "http://127.0.0.1:8088/v1/chat/completions".into(),
++            model: "local".into(),
++            max_completion_tokens: 1024,
++            timeout_secs: 120,
++            web_search_url: "http://127.0.0.1:8089/v1/search".into(),
++        }
++    }
++}
++
+ #[derive(Debug, Clone, PartialEq, Deserialize)]
+ #[serde(default, deny_unknown_fields)]
+ pub struct Config {
+@@ -382,6 +415,7 @@ pub struct Config {
+     pub events: EventsConfig,
+     pub sheet: SheetConfig,
+     pub direct: DirectConfig,
++    pub local: LocalConfig,
+     pub backends: BTreeMap<String, Backend>,
+ }
+ 
+@@ -421,6 +455,7 @@ impl Default for Config {
+             events: EventsConfig::default(),
+             sheet: SheetConfig::default(),
+             direct: DirectConfig::default(),
++            local: LocalConfig::default(),
+             backends,
+         }
+     }
+@@ -481,10 +516,11 @@ impl Config {
+             let urls = [
+                 match &b.jev {
+                     JevConfig::Jev { url, .. } | JevConfig::Score { url, .. } => url.as_str(),
++                    JevConfig::Local => "",
+                 },
+                 b.llm.url.as_str(),
+             ];
+-            for u in urls {
++            for u in urls.into_iter().filter(|u| !u.is_empty()) {
+                 // Plain HTTP only to this machine (tests, a local relay).
+                 if !u.starts_with("https://") && !is_local(u) {
+                     return Err(ConfigError::Invalid(format!(
+@@ -515,6 +551,14 @@ impl Config {
+                 return Err(ConfigError::Invalid(format!("{name} {x} is not https")));
+             }
+         }
++        for (name, x) in [
++            ("local.llm_url", &self.local.llm_url),
++            ("local.web_search_url", &self.local.web_search_url),
++        ] {
++            if self.local.enabled && !x.is_empty() && !is_local(x) {
++                return Err(ConfigError::Invalid(format!("{name} {x} is not on this machine")));
++            }
++        }
+         if !self.backends.contains_key("standard") {
+             return Err(ConfigError::Invalid("no [backends.standard]".into()));
+         }
+diff --git a/shoal/pilot/pilotd/src/daemon.rs b/shoal/pilot/pilotd/src/daemon.rs
+index 2c184c0..be99d7b 100644
+--- a/shoal/pilot/pilotd/src/daemon.rs
++++ b/shoal/pilot/pilotd/src/daemon.rs
+@@ -11,7 +11,7 @@ use std::time::Duration;
+ use crate::adapters::{self, Adapters, Missing};
+ use crate::config::{Config, JevConfig};
+ use crate::dbus::{BackendFactory, PilotService, BUS_NAME, PATH};
+-use crate::jev::{HttpJev, JevClient, ScoreJev};
++use crate::jev::{HttpJev, JevClient, LocalJev, ScoreJev};
+ use crate::llm::{LlmClient, OpenAiClient};
+ use crate::localtime::{self, LocalNow};
+ use crate::pipeline::{Backends, Pipeline, PipelineParts, TurnResult};
+@@ -69,7 +69,7 @@ pub fn direct_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, St
+             model,
+             provider: "jev".into(),
+         },
+-        score @ JevConfig::Score { .. } => score,
++        other => other,
+     };
+     standard.llm.url.clone_from(&d.llm_url);
+     standard.llm.provider = "groq".into();
+@@ -257,6 +257,7 @@ pub fn make_backends(cfg: &Config, name: &str, remote: &Remote) -> Option<Backen
+             model: model.clone(),
+             provider: provider.clone(),
+         }),
++        JevConfig::Local => Arc::new(LocalJev),
+         JevConfig::Score {
+             url,
+             model,
+@@ -320,7 +321,43 @@ fn proactive(
+     (triage, events)
+ }
+ 
+-/// The given credential, else direct mode's keys if configured.
++/// `[local]`: the standard backend is the model on this machine, with no
++/// relay to exchange a licence or stamp the processing region.
++pub fn local_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, StartError> {
++    let l = cfg.local.clone();
++    if !l.enabled {
++        return Ok(None);
++    }
++    let standard = cfg
++        .backends
++        .get_mut("standard")
++        .ok_or_else(|| StartError::Backend("standard".into()))?;
++    standard.jev = JevConfig::Local;
++    standard.llm.url.clone_from(&l.llm_url);
++    standard.llm.model.clone_from(&l.model);
++    standard.llm.provider = "local".into();
++    standard.llm.allowed_regions = vec!["device".into()];
++    cfg.web_search_url.clone_from(&l.web_search_url);
++    cfg.token_exchange_url.clear();
++    cfg.timeout_secs = cfg.timeout_secs.max(l.timeout_secs);
++    log::info!("local mode: the model at {}", l.llm_url);
++    Ok(Some(crate::direct::Direct {
++        jev: crate::direct::Upstream {
++            url: String::new(),
++            key: String::new(),
++            region: None,
++        },
++        llm: crate::direct::Upstream {
++            url: l.llm_url,
++            key: String::new(),
++            region: Some("device".into()),
++        },
++        region_header: standard.llm.region_header.to_ascii_lowercase(),
++        max_completion_tokens: l.max_completion_tokens,
++    }))
++}
++
++/// The given credential, else local mode, else direct mode's keys.
+ fn direct_credential(
+     given: Option<Credential>,
+     config: &mut Config,
+@@ -328,7 +365,11 @@ fn direct_credential(
+     if given.is_some() {
+         return Ok(given);
+     }
+-    Ok(direct_mode(config)?.map(|d| Credential::Direct(Arc::new(d))))
++    let direct = match local_mode(config)? {
++        Some(local) => Some(local),
++        None => direct_mode(config)?,
++    };
++    Ok(direct.map(|d| Credential::Direct(Arc::new(d))))
+ }
+ 
+ pub fn build(opts: Options) -> Result<Daemon, StartError> {
+diff --git a/shoal/pilot/pilotd/src/jev.rs b/shoal/pilot/pilotd/src/jev.rs
+index 8154d1d..e763e6e 100644
+--- a/shoal/pilot/pilotd/src/jev.rs
++++ b/shoal/pilot/pilotd/src/jev.rs
+@@ -270,6 +270,48 @@ impl JevClient for HttpJev {
+     }
+ }
+ 
++/// Local mode's Jev: the phone's own parsers take what they can do without
++/// a model (a timer, an alarm, music); everything else goes to the local
++/// model, which picks its tools itself. It asks nothing of anyone.
++pub struct LocalJev;
++
++#[async_trait]
++impl JevClient for LocalJev {
++    async fn decide(&self, req: &DecideRequest, purpose: &str) -> Result<Answers, RemoteError> {
++        if purpose != "decide" {
++            return Err(RemoteError::Offline);
++        }
++        let utterance = req.state.get("utterance").and_then(Value::as_str).unwrap_or_default();
++        let parsed = crate::intents::local_intent(utterance).map(|(intent, _)| intent);
++        let (intent, confidence, generation) = match parsed {
++            Some(intent) => (intent, 1.0, 0.0),
++            None => ("open_ended", 0.5, 1.0),
++        };
++        let mut out = BTreeMap::new();
++        out.insert(
++            "intent".to_owned(),
++            Answer::Choice {
++                distribution: vec![(intent.to_owned(), confidence)],
++                confidence,
++            },
++        );
++        out.insert("needs_generation".to_owned(), Answer::Noul { p: generation });
++        out.insert("needs_web".to_owned(), Answer::Noul { p: 0.0 });
++        out.insert(
++            "ambiguity".to_owned(),
++            Answer::Score {
++                value: 0.0,
++                confidence: 1.0,
++            },
++        );
++        Ok(Answers(out))
++    }
++
++    fn provider(&self) -> &str {
++        "local"
++    }
++}
++
+ /// A label the scorer model can answer with, and its token id in that
+ /// model's tokenizer (configuration, since it depends on the model).
+ #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

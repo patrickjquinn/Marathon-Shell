@@ -2,8 +2,8 @@
 # Builds Shipwright's Pilot (shoal/pilot) into mkosi.packages/: shoal-pilotd
 # (the daemon) and shoal-pilot (the app). Needs the keel-silica apks there
 # first: the app links Keel's SailfishApp.
-# PILOT_SRC=<Shipwright checkout> builds that checkout's HEAD instead of the
-# public shipwright-open export the APKBUILDs pin.
+# PILOT_SRC=<Shipwright checkout> builds that checkout's PILOT_REF (default
+# HEAD) instead of the public shipwright-open export the APKBUILDs pin.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,12 +26,12 @@ trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
 LOCAL_COMMIT=""
 if [ -n "${PILOT_SRC:-}" ]; then
-    LOCAL_COMMIT="$(git -C "$PILOT_SRC" rev-parse HEAD)"
+    LOCAL_COMMIT="$(git -C "$PILOT_SRC" rev-parse "${PILOT_REF:-HEAD}")"
     mkdir -p "$WORK_DIR/distfiles"
     # Whole tree: pilotd is in the root workspace, the app includes
     # tools/keel-launcher.
     git -C "$PILOT_SRC" archive --format=tar.gz --prefix="shipwright-open-$LOCAL_COMMIT/" \
-        -o "$WORK_DIR/distfiles/shoal-pilot-$LOCAL_COMMIT.tar.gz" HEAD
+        -o "$WORK_DIR/distfiles/shoal-pilot-$LOCAL_COMMIT.tar.gz" "$LOCAL_COMMIT"
     echo "pilot source: $PILOT_SRC @ $LOCAL_COMMIT"
 fi
 

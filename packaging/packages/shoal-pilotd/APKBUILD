@@ -7,22 +7,21 @@
 # radios) when org.marathonos.Shell is on the bus; the shell admits pilotd
 # by its unit and executable (shoal-pilotd.service.json, installed to
 # /usr/share/marathon-shell/services) with the permissions listed there.
-# 0002 adds direct mode, which pilotd.toml (/etc/shoal-pilot) turns on.
+# 0002 adds direct mode (the owner's Groq and Jev keys instead of the relay).
 # 0003 asks the shell (Navigation1.AppIdForPid) which app a
 # marathon-app-runner is, for Pilot's on-screen context; for any other
 # process, Navigation1.GetForegroundApp, taken when it is an Android app
 # (waydroid.<package>, deckardd's Keel provider for it).
+# 0004 adds local mode, which pilotd.toml (/etc/shoal-pilot) turns on: the
+# model is llama-server on the phone, no relay, no Reef licence, no keys.
 #
-# Direct mode: the owner provides ~/.config/shoal-pilot/keys.env, mode
-# 0600 (pilotd refuses to start if group or others can read it):
-#     PILOT_RELAY_GROQ_KEY=<Groq API key>
-#     PILOT_RELAY_JEV_KEY=<Jev API key>
-# pilotd then calls Groq (api.groq.com, processed in the US) and Jev
-# (api.typesafe.ai) itself. Without the file it uses the Pilot relay.
-# Web search needs the relay. Speech (pilot-voice, pilot-tts) is not built.
+# The pinned commit is no longer in the public export: build it with
+# PILOT_SRC=<Shipwright checkout> PILOT_REF=<this commit>
+# scripts/qemu/lib/build-pilot-apk.sh. Speech (pilot-voice, pilot-tts) is
+# not built.
 pkgname=shoal-pilotd
 pkgver=0.1.0
-pkgrel=7
+pkgrel=8
 _commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 pkgdesc="Pilot assistant daemon for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -34,6 +33,7 @@ source="shoal-pilot-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright
 	0001-pilotd-marathon-adapters.patch
 	0002-pilotd-direct-mode.patch
 	0003-pilotd-marathon-onscreen.patch
+	0004-pilotd-local-mode.patch
 	pilotd.toml
 	marathon-open
 	shoal-pilotd.service.json
