@@ -3,7 +3,7 @@
 #include "notificationservicecpp.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "audiopolicycontroller.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/telephonyd.cxxqt.h"
@@ -13,7 +13,7 @@
 
 TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     Contacts *contacts, NotificationServiceCpp *notificationService,
-    Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
+    Power *power, marathon::Display *display, marathon::Audio *audioPolicy,
     Haptics *haptics, Modem *telephonyService, Telephonyd *telephonyd, QObject *parent)
     : QObject(parent)
     , m_contacts(contacts)

@@ -41,7 +41,6 @@ set(SOURCES
     src/managers/deviceprofile.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
-    src/managers/mediarole.h
     src/managers/platformcpp.h
     src/services/navigationroutercpp.h
     src/services/navigationroutercpp.cpp
@@ -95,8 +94,6 @@ set(SOURCES
     src/services/inputcontext.cpp
     src/services/remotetextinput.h
     src/services/remotetextinput.cpp
-    src/controllers/audiopolicycontroller.h
-    src/controllers/audiopolicycontroller.cpp
     src/managers/screenmetrics.h
     src/managers/screenmetrics.cpp
 )
@@ -469,8 +466,6 @@ qt6_add_qml_module(marathon-shell
         src/services/applifecyclemanager.h
         src/services/notificationservicecpp.cpp
         src/services/notificationservicecpp.h
-        src/controllers/audiopolicycontroller.cpp
-        src/controllers/audiopolicycontroller.h
     RESOURCES ${JSON_FILES} ${UI_RESOURCES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
@@ -535,7 +530,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::QuickControls2
     Qt6::Svg
     Qt6::DBus
-    Qt6::Multimedia
     Qt6::Network
     MarathonCore
     ${LIBDRM_LIBRARIES}

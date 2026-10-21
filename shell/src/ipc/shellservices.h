@@ -19,14 +19,12 @@
 
 namespace marathon {
     class Permissions;
-    class Audio;
 }
 class AppLaunchService;
 class AppLifecycleManager;
 class MarathonAppRegistry;
 class ForegroundApp;
 class SessionStore;
-class AudioPolicyController;
 
 // The Marathon app (or "service:<unit>") a D-Bus caller's process belongs
 // to, "" if none.
@@ -47,47 +45,6 @@ class IpcPermissionedService : public QObject, protected QDBusContext {
 
     marathon::Permissions *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
-};
-
-class AudioObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Audio1")
-
-  public:
-    AudioObject(marathon::Audio *audio, AudioPolicyController *policy,
-                marathon::Permissions *permissions, AppLaunchService *launchService,
-                QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetState();
-    void        SetVolume(double volume);
-    void        SetMuted(bool muted);
-    void        SetStreamVolume(int streamId, double volume);
-    void        SetStreamMuted(int streamId, bool muted);
-    void        RefreshStreams();
-
-    void        SetDoNotDisturb(bool enabled);
-    void        SetAudioProfile(const QString &profile);
-
-    void        PlayRingtone();
-    void        StopRingtone();
-    void        PlayNotificationSound();
-    void        PlayAlarmSound();
-    void        StopAlarmSound();
-    void        PreviewSound(const QString &soundPath);
-    void        VibratePattern(const QVariantList &pattern);
-
-  signals:
-    void StateChanged(const QVariantMap &state);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Audio", {"system"});
-    }
-    QVariantMap            buildState() const;
-
-    marathon::Audio       *m_audio  = nullptr;
-    AudioPolicyController *m_policy = nullptr;
 };
 
 class NavigationObject : public QObject, protected QDBusContext {

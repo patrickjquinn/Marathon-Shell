@@ -1,5 +1,4 @@
 #include "systemcontrolstore.h"
-#include "src/controllers/audiopolicycontroller.h"
 #include "marathon-shell-native/src/alarms.cxxqt.h"
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/bluetooth.cxxqt.h"
@@ -22,7 +21,7 @@ SystemControlStore::SystemControlStore(
     marathon::Display *display, Flashlight *flashlightManager,
     Modem *modemManager, marathon::Settings *settingsManager, Alarms *alarmManager,
     Location *locationManager, Haptics *hapticManager, Power *powerManager,
-    marathon::Audio *audioManager, AudioPolicyController *audioPolicyController,
+    marathon::Audio *audioManager,
     ScreenshotServiceCpp *screenshotService, QObject *parent)
     : QObject(parent)
     , m_networkManager(networkManager)
@@ -36,7 +35,6 @@ SystemControlStore::SystemControlStore(
     , m_hapticManager(hapticManager)
     , m_powerManager(powerManager)
     , m_audioManager(audioManager)
-    , m_audioPolicyController(audioPolicyController)
     , m_screenshotService(screenshotService) {
     if (m_networkManager) {
         setIsWifiOn(m_networkManager->getWifiEnabled());
@@ -220,9 +218,6 @@ void SystemControlStore::toggleDndMode() {
     if (m_settingsManager) {
         m_settingsManager->setDndEnabled(enable);
     }
-    if (m_audioPolicyController) {
-        m_audioPolicyController->setDoNotDisturb(enable);
-    }
 }
 
 void SystemControlStore::toggleLowPowerMode() {
@@ -332,8 +327,6 @@ void SystemControlStore::setVolume(int value) {
     int clamped = std::clamp(value, 0, 100);
     if (m_audioManager) {
         m_audioManager->setVolume(static_cast<double>(clamped) / 100.0);
-    } else if (m_audioPolicyController) {
-        m_audioPolicyController->setMasterVolume(static_cast<double>(clamped) / 100.0);
     }
     setVolumeValue(clamped);
 }

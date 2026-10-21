@@ -24,6 +24,7 @@ depends="
 	qt6-qt5compat
 	hunspell
 	hunspell-en-us
+	pulseaudio-utils
 	wayland
 	wayland-protocols
 	mesa

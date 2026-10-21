@@ -21,7 +21,6 @@ class Alarms;
 class Location;
 class Haptics;
 class Power;
-class AudioPolicyController;
 class ScreenshotServiceCpp;
 
 class SystemControlStore : public QObject {
@@ -60,7 +59,6 @@ class SystemControlStore : public QObject {
                                 Alarms *alarmManager, Location *locationManager,
                                 Haptics *hapticManager, Power *powerManager,
                                 marathon::Audio       *audioManager,
-                                AudioPolicyController *audioPolicyController,
                                 ScreenshotServiceCpp *screenshotService, QObject *parent = nullptr);
 
     bool isWifiOn() const {
@@ -198,7 +196,6 @@ class SystemControlStore : public QObject {
     Haptics               *m_hapticManager;
     Power       *m_powerManager;
     marathon::Audio       *m_audioManager;
-    AudioPolicyController *m_audioPolicyController;
     ScreenshotServiceCpp  *m_screenshotService;
 
     bool                   m_isWifiOn           = true;

@@ -11,7 +11,9 @@ class NotificationModel;
 namespace marathon {
     class Settings;
 }
-class AudioPolicyController;
+namespace marathon {
+    class Audio;
+}
 class Haptics;
 
 class NotificationServiceCpp : public QObject {
@@ -29,7 +31,7 @@ class NotificationServiceCpp : public QObject {
 
   public:
     explicit NotificationServiceCpp(NotificationModel *model, marathon::Settings *settings,
-                                    AudioPolicyController *audioPolicy, Haptics *haptics,
+                                    marathon::Audio *audioPolicy, Haptics *haptics,
                                     QObject *parent = nullptr);
 
     QVariantList notifications() const {
@@ -96,7 +98,7 @@ class NotificationServiceCpp : public QObject {
 
     NotificationModel *m_model    = nullptr;
     marathon::Settings   *m_settings = nullptr;
-    QPointer<AudioPolicyController> m_audioPolicy;
+    QPointer<marathon::Audio> m_audioPolicy;
     QPointer<Haptics>               m_haptics;
 
     QVariantList                    m_notifications;

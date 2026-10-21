@@ -73,9 +73,9 @@ Item {
             // (setVolume/setMuted/streams). The guard `&& playAlert` meant
             // that resolved to undefined and the branch was skipped in
             // silence, so a Wireless Emergency Alert made no sound at all.
-            // AudioPolicyControllerCpp is what actually plays shell sounds,
+            // AudioManagerCpp is what actually plays shell sounds,
             // as IncomingCallOverlay already does for the ringtone.
-            AudioPolicyControllerCpp.playAlarmSound();
+            AudioManagerCpp.playAlarmSound();
         }
         target: Modem
     }

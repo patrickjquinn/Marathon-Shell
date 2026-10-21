@@ -76,7 +76,7 @@ const NETWORK: Service = Service::shell("Network");
 const BLUETOOTH: Service = Service::shell("Bluetooth");
 const DISPLAY: Service = Service::shell("Display");
 const SETTINGS: Service = Service::shell("Settings");
-const AUDIO: Service = Service::session("Audio");
+const AUDIO: Service = Service::shell("Audio");
 
 #[derive(Default)]
 pub struct SystemStatusStoreRust {

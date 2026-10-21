@@ -96,7 +96,6 @@
 #include "marathon-shell-native/src/clipboard.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/flashlight.cxxqt.h"
-#include "src/controllers/audiopolicycontroller.h"
 #include "marathon-shell-native/src/security.cxxqt.h"
 #include "marathon-shell-native/src/contacts.cxxqt.h"
 #include "marathon-shell-native/src/telephonyd.cxxqt.h"
@@ -1026,25 +1025,21 @@ int main(int argc, char *argv[]) {
         app.installEventFilter(new WakeOnKeyFilter([display]() { return !display->getScreenOn(); },
                                                    [display]() { display->turnScreenOn(); }, &app));
     }
-    auto *audioPolicyController =
-        new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);
-    qmlRegisterSingletonInstance<AudioPolicyController>(
-        "MarathonOS.Shell", 1, 0, "AudioPolicyControllerCpp", audioPolicyController);
-    QObject::connect(alarmManager, &Alarms::ringing, audioPolicyController,
+    QObject::connect(alarmManager, &Alarms::ringing, audioManager,
                      [=](bool sound, bool vibrate) {
                          power->acquireWakelock(QStringLiteral("alarm_ringing"));
                          if (sound)
-                             audioPolicyController->playAlarmSound();
+                             audioManager->playAlarmSound();
                          if (vibrate)
                              hapticManager->vibratePattern({500, 500});
                      });
-    QObject::connect(alarmManager, &Alarms::silenced, audioPolicyController, [=] {
-        audioPolicyController->stopAlarmSound();
+    QObject::connect(alarmManager, &Alarms::silenced, audioManager, [=] {
+        audioManager->stopAlarmSound();
         hapticManager->cancelVibration();
         power->releaseWakelock(QStringLiteral("alarm_ringing"));
     });
     auto *notificationService = new NotificationServiceCpp(
-        notificationModel, settingsManager, audioPolicyController, hapticManager, &app);
+        notificationModel, settingsManager, audioManager, hapticManager, &app);
     qmlRegisterSingletonInstance<NotificationServiceCpp>(
         "MarathonOS.Shell", 1, 0, "NotificationService", notificationService);
     auto *systemStatusStore =
@@ -1053,7 +1048,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<SystemStatusStore>("MarathonOS.Shell", 1, 0, "SystemStatusStore",
                                                     systemStatusStore);
     auto *screenshotService = createObject<ScreenshotServiceCpp>(
-        ctx, "ScreenshotService", audioPolicyController, hapticManager, notificationService, &app);
+        ctx, "ScreenshotService", audioManager, hapticManager, notificationService, &app);
 
     // SIGUSR1 → live screenshot to $MARATHON_SCREENSHOT_PATH (default
     // /tmp/marathon-shot.png). Unlike --screenshot-after which quits
@@ -1089,7 +1084,7 @@ int main(int argc, char *argv[]) {
     auto *systemControlStore = new SystemControlStore(
         network, bluetoothManager, display, flashlightManager, modem,
         settingsManager, alarmManager, locationManager, hapticManager, power, audioManager,
-        audioPolicyController, screenshotService, &app);
+        screenshotService, &app);
     qmlRegisterSingletonInstance<SystemControlStore>("MarathonOS.Shell", 1, 0, "SystemControlStore",
                                                      systemControlStore);
     auto *uiStore = new UIStore(&app);
@@ -1289,7 +1284,7 @@ int main(int argc, char *argv[]) {
     });
     auto *telephonyIntegration = createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contacts, notificationService, power,
-        display, audioPolicyController, hapticManager, modem, telephonyd, &app);
+        display, audioManager, hapticManager, modem, telephonyd, &app);
     if (freedesktopNotif)
         QObject::connect(freedesktopNotif, &FreedesktopNotifications::NotificationReplied,
                          telephonyIntegration, &TelephonyIntegrationCpp::replyToMessageNotification);
@@ -1312,9 +1307,7 @@ int main(int argc, char *argv[]) {
                      &AppLifecycleManager::killOldestFrozenApp);
 
     {
-        auto *ipc = new ShellIpcServer(permissionManager, audioManager,
-                                       audioPolicyController,
-                                       appLaunchService, appLifecycleManager, appRegistry, &app);
+        auto *ipc = new ShellIpcServer(permissionManager, appLaunchService, appLifecycleManager, appRegistry, &app);
         ipc->setAppInstaller(appInstaller);
         auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
         QObject::connect(foregroundApp, &ForegroundApp::changed, appLifecycleManager,

@@ -22,7 +22,7 @@ Item {
         callerName = name || "";
         answeredHere = false;
         isRinging = true;
-        AudioPolicyControllerCpp.playRingtone();
+        AudioManagerCpp.playRingtone();
         HapticManager.vibrate(1000);
         Logger.info("IncomingCallOverlay", "Showing call from: " + number);
     }
@@ -30,12 +30,12 @@ Item {
     // Ends the ringing prompt; an answered call stays on screen while locked.
     function hide() {
         isRinging = false;
-        AudioPolicyControllerCpp.stopRingtone();
+        AudioManagerCpp.stopRingtone();
         Logger.info("IncomingCallOverlay", "Hiding call overlay");
     }
 
     function silence() {
-        AudioPolicyControllerCpp.stopRingtone();
+        AudioManagerCpp.stopRingtone();
         HapticManager.cancelVibration();
     }
 

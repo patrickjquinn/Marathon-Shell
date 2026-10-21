@@ -11,7 +11,9 @@ class Power;
 namespace marathon {
     class Display;
 }
-class AudioPolicyController;
+namespace marathon {
+    class Audio;
+}
 class Haptics;
 class Modem;
 class Telephonyd;
@@ -29,7 +31,7 @@ class TelephonyIntegrationCpp : public QObject {
   public:
     explicit TelephonyIntegrationCpp(
         Contacts *contacts, NotificationServiceCpp *notificationService,
-        Power *power, marathon::Display *display, AudioPolicyController *audioPolicy,
+        Power *power, marathon::Display *display, marathon::Audio *audioPolicy,
         Haptics *haptics, Modem *telephonyService, Telephonyd *telephonyd,
         QObject *parent = nullptr);
 
@@ -82,7 +84,7 @@ class TelephonyIntegrationCpp : public QObject {
     NotificationServiceCpp  *m_notificationService = nullptr;
     Power                   *m_power               = nullptr;
     marathon::Display                 *m_display             = nullptr;
-    AudioPolicyController   *m_audioPolicy         = nullptr;
+    marathon::Audio   *m_audioPolicy         = nullptr;
     Haptics                 *m_haptics             = nullptr;
     Modem        *m_telephonyService    = nullptr;
     Telephonyd              *m_telephonyd          = nullptr;

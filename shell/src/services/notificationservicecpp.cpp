@@ -1,14 +1,14 @@
 #include "notificationservicecpp.h"
 #include "notificationmodel.h"
 #include "marathon-shell-native/src/settings.cxxqt.h"
-#include "audiopolicycontroller.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 
 #include <QModelIndex>
 #include <utility>   // std::as_const
 
 NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, marathon::Settings *settings,
-                                               AudioPolicyController *audioPolicy,
+                                               marathon::Audio *audioPolicy,
                                                Haptics *haptics, QObject *parent)
     : QObject(parent)
     , m_model(model)

@@ -36,44 +36,19 @@ target_link_libraries(test_shell_foregroundapp Qt6::Test Qt6::Core Qt6::Qml)
 target_include_directories(test_shell_foregroundapp PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
 add_test(NAME Shell_ForegroundApp COMMAND test_shell_foregroundapp)
 
-# AudioPolicyController: which sounds the profile lets through
-find_package(Qt6 REQUIRED COMPONENTS Multimedia)
-add_executable(test_shell_audiopolicy
-    test_audiopolicy.cpp
-    ../../shell/src/controllers/audiopolicycontroller.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/models/notificationmodel.cpp
-    ../../shell/src/dbus/notificationdatabase.cpp
-    ../../shell/src/services/notificationservicecpp.cpp
-)
-target_link_libraries(test_shell_audiopolicy Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Multimedia Qt6::Sql)
-target_include_directories(test_shell_audiopolicy PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src
-    ${CMAKE_SOURCE_DIR}/shell/src/managers
-    ${CMAKE_SOURCE_DIR}/shell/src/controllers
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-)
-target_compile_definitions(test_shell_audiopolicy PRIVATE MARATHON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-add_test(NAME Shell_AudioPolicy COMMAND sh ${CMAKE_SOURCE_DIR}/tests/shell/with-media-roles.sh
-    $<TARGET_FILE:test_shell_audiopolicy>)
-set_tests_properties(Shell_AudioPolicy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
 # Tapping a notification shows its app, the registry's or not
 add_executable(test_shell_notificationhandler
     test_notificationhandler.cpp
     ../../shell/src/services/notificationhandlercpp.cpp
     ../../shell/src/services/navigationroutercpp.cpp
     ../../shell/src/services/notificationtarget.cpp
-    ../../shell/src/controllers/audiopolicycontroller.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/models/notificationmodel.cpp
     ../../shell/src/dbus/notificationdatabase.cpp
     ../../shell/src/services/notificationservicecpp.cpp
     ../../marathon-core/src/marathonappregistry.cpp
 )
-target_link_libraries(test_shell_notificationhandler Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml
-    Qt6::Multimedia Qt6::Sql)
+target_link_libraries(test_shell_notificationhandler Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml Qt6::Sql)
 target_include_directories(test_shell_notificationhandler PRIVATE
     ${CMAKE_SOURCE_DIR}/shell/src
     ${CMAKE_SOURCE_DIR}/shell/src/managers

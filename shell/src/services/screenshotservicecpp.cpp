@@ -1,6 +1,6 @@
 #include "screenshotservicecpp.h"
 
-#include "audiopolicycontroller.h"
+#include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "notificationservicecpp.h"
 
@@ -13,7 +13,7 @@
 #include <QQuickWindow>
 #include <QStandardPaths>
 
-ScreenshotServiceCpp::ScreenshotServiceCpp(AudioPolicyController  *audioPolicy,
+ScreenshotServiceCpp::ScreenshotServiceCpp(marathon::Audio  *audioPolicy,
                                            Haptics                *haptics,
                                            NotificationServiceCpp *notificationService,
                                            QObject                *parent)

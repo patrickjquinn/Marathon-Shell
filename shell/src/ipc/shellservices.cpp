@@ -6,8 +6,6 @@
 #include "foregroundapp.h"
 #include "sessionstore.h"
 #include "marathon-shell-native/src/permissions.cxxqt.h"
-#include "marathon-shell-native/src/audio.cxxqt.h"
-#include "audiopolicycontroller.h"
 
 #include "marathonappinstaller.h"
 #include "../services/applifecyclemanager.h"
@@ -21,27 +19,6 @@
 #include <QDBusError>
 #include <QDBusMessage>
 #include <QCoreApplication>
-
-// cxx-qt makes a Rust i64 a QVariant of C long, which QtDBus cannot send:
-// libdbus aborts on the half-written entry. Rust values pass through this.
-static QVariant sendable(const QVariant &value) {
-    switch (value.typeId()) {
-        case QMetaType::Long: return QVariant::fromValue(qlonglong(value.value<long>()));
-        case QMetaType::QVariantList: {
-            QVariantList list = value.toList();
-            for (QVariant &v : list)
-                v = sendable(v);
-            return list;
-        }
-        case QMetaType::QVariantMap: {
-            QVariantMap map = value.toMap();
-            for (QVariant &v : map)
-                v = sendable(v);
-            return map;
-        }
-        default: return value;
-    }
-}
 
 static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
     return !ctx.calledFromDBus() || marathon::gate::within_rate(ctx.message().service(), method);
@@ -81,146 +58,6 @@ bool IpcPermissionedService::admit(const QString &sender, const QString &rateLim
         return true;
     sendErrorReply(refusal.section(QLatin1Char('\n'), 0, 0), refusal.section(QLatin1Char('\n'), 1));
     return false;
-}
-
-AudioObject::AudioObject(marathon::Audio *audio, AudioPolicyController *policy,
-                         marathon::Permissions *permissions, AppLaunchService *launchService,
-                         QObject *parent)
-    : IpcPermissionedService(permissions, launchService, parent)
-    , m_audio(audio)
-    , m_policy(policy) {
-    Q_ASSERT(m_audio);
-    Q_ASSERT(m_permissions);
-    Q_ASSERT(m_launchService);
-
-    auto push = [this]() { emit StateChanged(buildState()); };
-    QObject::connect(m_audio, &marathon::Audio::availableChanged, this, push);
-    QObject::connect(m_audio, &marathon::Audio::volumeChanged, this, push);
-    QObject::connect(m_audio, &marathon::Audio::mutedChanged, this, push);
-    QObject::connect(m_audio, &marathon::Audio::streamsChanged, this, push);
-    if (m_policy) {
-        QObject::connect(m_policy, &AudioPolicyController::audioProfileChanged, this, push);
-        QObject::connect(m_policy, &AudioPolicyController::doNotDisturbChanged, this, push);
-    }
-}
-
-QVariantMap AudioObject::buildState() const {
-    return {
-        {"available", m_audio->getAvailable()},
-        {"volume", m_audio->getVolume()},
-        {"muted", m_audio->getMuted()},
-        {"perAppVolumeSupported", m_audio->perAppVolumeSupported()},
-        {"streams", sendable(m_audio->getStreams())},
-        {"doNotDisturb", m_policy ? m_policy->isDoNotDisturb() : false},
-        {"audioProfile", m_policy ? m_policy->audioProfile() : QString()},
-    };
-}
-
-QVariantMap AudioObject::GetState() {
-    if (!requireSystem())
-        return {};
-    return buildState();
-}
-
-void AudioObject::SetVolume(double volume) {
-    if (!requireSystem())
-        return;
-    if (m_policy) {
-        m_policy->setMasterVolume(volume);
-    } else {
-        m_audio->setVolume(volume);
-    }
-}
-
-void AudioObject::SetMuted(bool muted) {
-    if (!requireSystem())
-        return;
-    if (m_policy) {
-        m_policy->setMuted(muted);
-    } else {
-        m_audio->setMuted(muted);
-    }
-}
-
-void AudioObject::SetStreamVolume(int streamId, double volume) {
-    if (!requireSystem())
-        return;
-    m_audio->setStreamVolume(streamId, volume);
-}
-
-void AudioObject::SetStreamMuted(int streamId, bool muted) {
-    if (!requireSystem())
-        return;
-    m_audio->setStreamMuted(streamId, muted);
-}
-
-void AudioObject::RefreshStreams() {
-    if (!requireSystem())
-        return;
-    m_audio->refreshStreams();
-}
-
-void AudioObject::SetDoNotDisturb(bool enabled) {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->setDoNotDisturb(enabled);
-}
-
-void AudioObject::SetAudioProfile(const QString &profile) {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->setAudioProfile(profile);
-}
-
-void AudioObject::PlayRingtone() {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->playRingtone();
-}
-
-void AudioObject::StopRingtone() {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->stopRingtone();
-}
-
-void AudioObject::PlayNotificationSound() {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->playNotificationSound();
-}
-
-void AudioObject::PlayAlarmSound() {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->playAlarmSound();
-}
-
-void AudioObject::StopAlarmSound() {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->stopAlarmSound();
-}
-
-void AudioObject::PreviewSound(const QString &soundPath) {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->previewSound(soundPath);
-}
-
-void AudioObject::VibratePattern(const QVariantList &pattern) {
-    if (!requireSystem())
-        return;
-    if (m_policy)
-        m_policy->vibratePattern(pattern);
 }
 
 NavigationObject::NavigationObject(AppLaunchService *launchService, QObject *parent)

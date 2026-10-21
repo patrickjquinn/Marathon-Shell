@@ -90,7 +90,18 @@ impl cxx_qt::Initialize for Haptics {
             run(motor, rx).await;
         });
         self.as_mut().rust_mut().motor = Some(tx);
+        HAPTICS.set(self.qt_thread()).ok();
         ipc::export("Haptic", Haptic1 { qt: self.qt_thread() });
+    }
+}
+
+static HAPTICS: std::sync::OnceLock<cxx_qt::CxxQtThread<Haptics>> = std::sync::OnceLock::new();
+
+/// A pattern from another of the shell's Rust objects: on, off, on, … in ms.
+pub(crate) fn vibrate(pattern: &[OwnedValue]) {
+    let steps = pattern_steps(pattern.iter().filter_map(|v| variant::number(v)).filter_map(|n| i32::try_from(n).ok()));
+    if let Some(qt) = HAPTICS.get() {
+        qt.queue(move |obj| obj.play(steps)).ok();
     }
 }
 
@@ -162,9 +173,9 @@ impl Haptic1 {
         ipc::on_gui(&self.qt, move |obj| obj.vibrate(duration)).await
     }
 
-    async fn vibrate_pattern(&self, pattern: Vec<OwnedValue>) -> fdo::Result<()> {
-        let steps = pattern_steps(pattern.iter().filter_map(|v| variant::number(v)).filter_map(|n| i32::try_from(n).ok()));
-        ipc::on_gui(&self.qt, move |obj| obj.play(steps)).await
+    #[allow(clippy::unused_self, clippy::needless_pass_by_value, reason = "a D-Bus method's arguments")]
+    fn vibrate_pattern(&self, pattern: Vec<OwnedValue>) {
+        vibrate(&pattern);
     }
 
     async fn stop(&self) -> fdo::Result<()> {

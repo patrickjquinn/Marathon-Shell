@@ -308,7 +308,7 @@ impl Field for Map {
 macro_rules! properties {
     (@setter custom $($rest:tt)*) => {};
     (@setter $field:ident, $changed:ident, $setter:ident($arg:ty)) => {
-        fn $setter(mut self: Pin<&mut Self>, value: $arg) {
+        pub(crate) fn $setter(mut self: Pin<&mut Self>, value: $arg) {
             let value = Field::own(value);
             if self.$field != value {
                 self.as_mut().rust_mut().$field = value;
@@ -542,6 +542,20 @@ async fn timedate() -> zbus::Result<TimedateProxy<'static>> {
 
 type Qt = cxx_qt::CxxQtThread<Settings>;
 
+static QT: OnceLock<Qt> = OnceLock::new();
+
+/// Runs `f` on the settings, on the GUI thread: how the shell's other Rust
+/// objects read and change them.
+pub(crate) fn with(f: impl FnOnce(Pin<&mut Settings>) + Send + 'static) {
+    if let Some(qt) = QT.get() {
+        qt.queue(f).ok();
+    }
+}
+
+pub(crate) fn thread() -> Option<&'static Qt> {
+    QT.get()
+}
+
 enum Timedated {
     Ntp(bool),
     Zone(String),
@@ -618,6 +632,7 @@ impl cxx_qt::Initialize for Settings {
             .on_date_time_change_failed(|_, reason| ipc::signal("Settings", "DateTimeChangeFailed", (reason.to_string(),)))
             .release();
         let qt = self.qt_thread();
+        QT.set(qt.clone()).ok();
         ipc::export("Settings", Settings1 { qt: qt.clone() });
         io::spawn(async move {
             let Ok(proxy) = timedate().await else { return };
@@ -638,7 +653,7 @@ impl cxx_qt::Initialize for Settings {
 
 macro_rules! volume_setters {
     ($($setter:ident: $field:ident, $changed:ident;)*) => {
-        $(fn $setter(mut self: Pin<&mut Self>, value: f64) {
+        $(pub(crate) fn $setter(mut self: Pin<&mut Self>, value: f64) {
             let value = value.clamp(0.0, 1.0);
             if (self.$field - value).abs() > f64::EPSILON {
                 self.as_mut().rust_mut().$field = value;
@@ -754,6 +769,9 @@ impl Settings {
         }
         if let Some(value) = state(&self).remove(name) {
             ipc::signal("Settings", "PropertyChanged", (name.to_owned(), value));
+        }
+        if matches!(name, "dndEnabled" | "audioProfile") {
+            crate::audio::push_state();
         }
         self.save_soon();
     }

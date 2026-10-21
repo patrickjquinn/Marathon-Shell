@@ -68,7 +68,7 @@ class TestIpcGates : public QObject {
     void deviceAndPersonalInterfacesCheckPermissions_data() {
         QTest::addColumn<QString>("cls");
         for (const char *cls :
-             {"AudioObject", "AppStoreObject"})
+             {"AppStoreObject"})
             QTest::newRow(cls) << QString::fromLatin1(cls);
     }
 

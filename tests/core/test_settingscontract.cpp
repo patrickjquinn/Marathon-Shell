@@ -78,7 +78,7 @@ namespace {
     // Where the shell acts on each key. A key with no entry fails the test.
     const QHash<QString, Consumer> &consumers() {
         static const QHash<QString, Consumer> table = {
-            {"alarmSound", {"shell/src/controllers/audiopolicycontroller.cpp", "getAlarmSound()"}},
+            {"alarmSound", {"crates/marathon-shell-native/src/audio.rs", "s.alarm_sound()"}},
             {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
             {"autoLockTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLockTimeout"}},
             {"wallpaperPath", {"shell/main.cpp", "setWallpaper(settingsManager->getWallpaperPath())"}},
@@ -89,7 +89,7 @@ namespace {
             {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->getDeviceName())"}},
             {"appNotificationSettings",
              {"shell/src/services/notificationservicecpp.cpp", "isNotificationsEnabledForApp"}},
-            {"dndEnabled", {"shell/src/controllers/audiopolicycontroller.cpp", "getDndEnabled()"}},
+            {"dndEnabled", {"crates/marathon-shell-native/src/audio.rs", "*s.dnd_enabled()"}},
             {"enabledQuickSettingsTiles",
              {"shell/qml/components/MarathonQuickSettings.qml", "enabledQuickSettingsTiles"}},
             {"filterMobileFriendlyApps", {"shell/main.cpp", "filterMobileFriendlyApps"}},
@@ -104,9 +104,9 @@ namespace {
             {"keyboardPredictiveText",
              {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardPredictiveText"}},
             {"notificationSound",
-             {"shell/src/controllers/audiopolicycontroller.cpp", "getNotificationSound()"}},
+             {"crates/marathon-shell-native/src/audio.rs", "s.notification_sound()"}},
             {"reduceMotion", {"shell/qml/theme/MMotion.qml", "reduceMotion"}},
-            {"ringtone", {"shell/src/controllers/audiopolicycontroller.cpp", "getRingtone()"}},
+            {"ringtone", {"crates/marathon-shell-native/src/audio.rs", "s.ringtone()"}},
             {"screenTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.screenTimeout"}},
             {"searchNativeApps",
              {"shell/src/services/unifiedsearchservicecpp.cpp", "getSearchNativeApps()"}},
@@ -245,16 +245,13 @@ class TestSettingsContract : public QObject {
         const QSet<QString> keys =
             matches(read("crates/marathon-app-native/src/audio.rs"), R"re(get\(&s, "(\w+)"\))re");
         QVERIFY(keys.contains(QStringLiteral("audioProfile")));
-        const QString   service = read("shell/src/ipc/shellservices.cpp");
-        const qsizetype begin   = service.indexOf(QLatin1String("AudioObject::AudioObject("));
-        const qsizetype end = service.indexOf(QLatin1String("QVariantMap AudioObject::GetState"));
-        QVERIFY(begin >= 0 && end > begin);
-        const QString audio = service.mid(begin, end - begin);
+        const QString audio = read("crates/marathon-shell-native/src/audio.rs");
         for (const QString &key : keys)
-            QVERIFY2(audio.contains(QStringLiteral("{\"%1\",").arg(key)),
+            QVERIFY2(audio.contains(QStringLiteral("(\"%1\".to_owned()").arg(key))
+                         || audio.contains(QStringLiteral("insert(\"%1\".into()").arg(key)),
                      qPrintable(key + QStringLiteral(": not in the Audio GetState snapshot")));
-        QVERIFY(audio.contains(
-            QLatin1String("&AudioPolicyController::audioProfileChanged, this, push")));
+        QVERIFY(read("crates/marathon-shell-native/src/settings.rs")
+                    .contains(QLatin1String("\"dndEnabled\" | \"audioProfile\") {\n            crate::audio::push_state();")));
     }
 
     void platformMembersExist_data() {
