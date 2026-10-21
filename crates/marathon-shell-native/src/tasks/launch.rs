@@ -253,10 +253,18 @@ impl Tasks {
             return true;
         }
         if native {
-            self.launch_native(&app)
-        } else {
-            self.launch_marathon(&app)
+            return self.launch_native(&app);
         }
+        // A runner that never showed its window keeps the app's bus name,
+        // which the next one could not take.
+        if let Ok(stuck) = i32::try_from(self.pid_for(&app.id)) {
+            if stuck > 0 {
+                log::warn("tasks", format_args!("{} runner {stuck} never showed a window: replaced", app.id));
+                // SAFETY: kill(2) takes plain integers.
+                unsafe { libc::kill(stuck, libc::SIGKILL) };
+            }
+        }
+        self.launch_marathon(&app)
     }
 
     fn launch_native(mut self: Pin<&mut Self>, app: &App) -> bool {
