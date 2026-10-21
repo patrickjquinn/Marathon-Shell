@@ -34,6 +34,12 @@ pub mod qobject {
         #[qproperty(QList_QVariant, streams, READ, NOTIFY)]
         type Audio = super::AudioRust;
 
+        /// A sink the shell knew changed its level: not a first report,
+        /// not one of the shell's own writes.
+        #[qsignal]
+        #[cxx_name = "levelChanged"]
+        fn level_changed(self: Pin<&mut Self>);
+
         #[cxx_name = "perAppVolumeSupported"]
         fn per_app_volume_supported(self: &Audio) -> bool;
 
@@ -79,6 +85,7 @@ pub struct AudioRust {
 /// Volume and mute of whichever sink is the default now. A report that
 /// crosses a write of ours in flight is stale for that field.
 #[derive(Debug)]
+#[allow(clippy::struct_excessive_bools, reason = "a field and its pending write each")]
 struct Sink {
     name: String,
     volume: f64,
@@ -87,11 +94,12 @@ struct Sink {
     mute_pending: bool,
     volume_writes: u32,
     mute_writes: u32,
+    reported: bool,
 }
 
 impl Default for Sink {
     fn default() -> Self {
-        Self { name: String::new(), volume: 0.6, muted: false, volume_pending: false, mute_pending: false, volume_writes: 0, mute_writes: 0 }
+        Self { name: String::new(), volume: 0.6, muted: false, volume_pending: false, mute_pending: false, volume_writes: 0, mute_writes: 0, reported: false }
     }
 }
 
@@ -110,20 +118,25 @@ impl Sink {
 
     /// Set before a default sink exists (at boot): applied to the first one.
     fn set_default(&mut self, name: &str) -> (Option<f64>, Option<bool>) {
+        self.reported &= name == self.name;
         name.clone_into(&mut self.name);
         (self.write_volume(), self.write_muted())
     }
 
-    fn report(&mut self, name: &str, volume: f64, muted: bool) {
+    /// Whether the level of a sink already reported changed.
+    fn report(&mut self, name: &str, volume: f64, muted: bool) -> bool {
         if name != self.name {
-            return;
+            return false;
         }
+        let (before, was_muted) = (self.volume, self.muted);
         if self.volume_writes == 0 {
             self.volume = volume.clamp(0.0, 1.0);
         }
         if self.mute_writes == 0 {
             self.muted = muted;
         }
+        let changed = (self.volume - before).abs() > f64::EPSILON || self.muted != was_muted;
+        std::mem::replace(&mut self.reported, true) && changed
     }
 
     fn write_volume(&mut self) -> Option<f64> {
@@ -243,12 +256,16 @@ impl Audio {
         if let Some(name) = report.default.filter(|n| *n != self.sink.name) {
             writes = self.as_mut().rust_mut().sink.set_default(&name);
         }
+        let mut level = false;
         if let Some((volume, muted)) = report.level {
             let mut rust = self.as_mut().rust_mut();
             let name = rust.sink.name.clone();
-            rust.sink.report(&name, volume, muted);
+            level = rust.sink.report(&name, volume, muted);
         }
         self.as_mut().write(writes.0, writes.1);
+        if level {
+            self.as_mut().level_changed();
+        }
         if let Some(streams) = report.streams {
             let mut list = QList::<QVariant>::default();
             for (id, name, volume, muted) in &streams {
@@ -425,6 +442,16 @@ mod tests {
         s.volume_writes = 0;
         s.report("speaker", 0.7, true);
         assert!((s.volume - 0.7).abs() < 1e-9 && s.muted);
+    }
+
+    #[test]
+    fn only_a_known_sinks_change_is_a_level_change() {
+        let mut s = sink("speaker");
+        assert!(!s.report("speaker", 0.5, false));
+        assert!(s.report("speaker", 0.6, false));
+        assert!(!s.report("speaker", 0.6, false));
+        s.set_default("headset");
+        assert!(!s.report("headset", 0.2, false));
     }
 
     #[test]
