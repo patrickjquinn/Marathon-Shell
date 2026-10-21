@@ -31,8 +31,8 @@ TestCase {
     }
 
     function init() {
-        NotificationModel.clear();
-        NotificationModel.read = [];
+        NotificationService.clear();
+        NotificationService.read = [];
         NotificationService.clicked = [];
         NotificationService.dismissed = [];
         NotificationService.dismissedAll = false;
@@ -47,7 +47,7 @@ TestCase {
     // Every role the delegate reads, since a ListView sees only the roles
     // its first row had.
     function addNotification(id, appId, icon) {
-        NotificationModel.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
+        NotificationService.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
         hub.refreshSources();
     }
 
@@ -95,7 +95,7 @@ TestCase {
         addNotification(1, "mail");
         addNotification(2, "messages");
         hub.filterApp = "messages";
-        NotificationModel.remove(1);
+        NotificationService.remove(1);
         hub.refreshSources();
         compare(hub.filterApp, "");
     }
@@ -108,13 +108,13 @@ TestCase {
         return list.itemAtIndex(i);
     }
 
-    // NotificationHandler opens the app on the click; the Hub must not too.
+    // clickNotification opens the app; the Hub must not too.
     function test_tapClicksTheNotificationOnce() {
         addNotification(42, "messages");
         tryVerify(() => row(0));
         mouseClick(row(0));
         compare(NotificationService.clicked, [42]);
-        compare(NotificationModel.read, [42]);
+        compare(NotificationService.read, [42]);
         compare(NavigationRouter.deepLinks.length, 0);
     }
 
@@ -131,7 +131,7 @@ TestCase {
         addNotification(7, "");
         tryVerify(() => row(0));
         mouseClick(row(0));
-        compare(NotificationModel.read, [7]);
+        compare(NotificationService.read, [7]);
         compare(NavigationRouter.deepLinks.length, 0);
     }
 
@@ -195,7 +195,7 @@ TestCase {
     // A system notice names no sender, so its glyph stands in, as on the
     // lock screen; a message keeps its sender's monogram.
     function test_systemNotificationShowsItsGlyph() {
-        NotificationModel.append({ id: 3, appId: "Software update", title: "Restart to finish updating", body: "", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false });
+        NotificationService.append({ id: 3, appId: "Software update", title: "Restart to finish updating", body: "", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false });
         addNotification(4, "messages", "message-circle");
         tryVerify(() => row(1));
         verify(findChild(row(0), "hubRowImage").visible);
@@ -234,13 +234,13 @@ TestCase {
                 "label": "Snooze"
             }];
         // Yesterday's row: the new ones open a "Today" section above it.
-        NotificationModel.append({ id: 1, appId: "messages", title: "Ada", body: "Hi", icon: "", timestamp: Date.now() - 86400000, isRead: false, ongoing: false, progress: -1, day: isoDay(1) });
+        NotificationService.append({ id: 1, appId: "messages", title: "Ada", body: "Hi", icon: "", timestamp: Date.now() - 86400000, isRead: false, ongoing: false, progress: -1, day: isoDay(1) });
         hub.refreshSources();
         tryVerify(() => row(0));
         row(0).actions = snooze;
         wait(400);
         for (let id = 2; id <= 6; id++) {
-            NotificationModel.insert(0, { id: id, appId: id === 2 ? "mail" : "messages", title: "Bob" + id, body: "Yo", icon: "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
+            NotificationService.insert(0, { id: id, appId: id === 2 ? "mail" : "messages", title: "Bob" + id, body: "Yo", icon: "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
             hub.refreshSources();
             // The real model has the actions when the row is made.
             list.forceLayout();
@@ -342,7 +342,7 @@ TestCase {
     }
 
     function addProgress(id, progress) {
-        NotificationModel.append({ id: id, appId: "Software update", title: "Downloading Marathon OS 26101801", body: "42%", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false, ongoing: true, progress: progress });
+        NotificationService.append({ id: id, appId: "Software update", title: "Downloading Marathon OS 26101801", body: "42%", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false, ongoing: true, progress: progress });
     }
 
     // An ongoing row draws its progress, stays put under a swipe and

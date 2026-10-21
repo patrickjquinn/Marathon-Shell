@@ -7,19 +7,6 @@ find_package(Qt6 REQUIRED COMPONENTS Test Core Gui Qml Sql)
 
 find_program(DBUS_RUN_SESSION dbus-run-session)
 
-# NotificationModel tests (data model, add/dismiss/read)
-add_executable(test_shell_notificationmodel
-    test_notificationmodel.cpp
-    ../../shell/src/models/notificationmodel.cpp
-    ../../shell/src/dbus/notificationdatabase.cpp
-)
-target_link_libraries(test_shell_notificationmodel Qt6::Test Qt6::Core Qt6::Sql Qt6::Qml)
-target_include_directories(test_shell_notificationmodel PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/shell/src
-)
-add_test(NAME Shell_NotificationModel COMMAND test_shell_notificationmodel)
-
 # Which keys the compositor keeps for system navigation
 add_executable(test_shell_keyrouting test_keyrouting.cpp)
 target_link_libraries(test_shell_keyrouting Qt6::Test Qt6::Core)
@@ -32,13 +19,6 @@ target_link_libraries(test_shell_nativeback Qt6::Test Qt6::Core Qt6::Gui)
 target_include_directories(test_shell_nativeback PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
 add_test(NAME Shell_NativeBack COMMAND test_shell_nativeback)
 
-# Nemo.Notifications remote actions (x-nemo-remote-action-*)
-find_package(Qt6 REQUIRED COMPONENTS DBus)
-add_executable(test_shell_nemoremoteaction test_nemoremoteaction.cpp)
-target_link_libraries(test_shell_nemoremoteaction Qt6::Test Qt6::Core Qt6::DBus)
-target_include_directories(test_shell_nemoremoteaction PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/dbus)
-add_test(NAME Shell_NemoRemoteAction COMMAND test_shell_nemoremoteaction)
-
 # Keel cover windows (keel/shell/PROTOCOL.md section 3)
 add_executable(test_shell_keelcover test_keelcover.cpp)
 target_link_libraries(test_shell_keelcover Qt6::Test Qt6::Core)
@@ -46,6 +26,7 @@ target_include_directories(test_shell_keelcover PRIVATE ${CMAKE_SOURCE_DIR}/shel
 add_test(NAME Shell_KeelCover COMMAND test_shell_keelcover)
 
 find_package(Qt6 REQUIRED COMPONENTS Gui DBus)
+
 add_executable(test_shell_processtree test_processtree.cpp)
 target_link_libraries(test_shell_processtree Qt6::Test Qt6::Core)
 target_include_directories(test_shell_processtree PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
@@ -53,6 +34,7 @@ add_test(NAME Shell_ProcessTree COMMAND test_shell_processtree)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBDRM REQUIRED libdrm)
+
 
 
 # SecurityManager: quick PIN failures count towards the lockout

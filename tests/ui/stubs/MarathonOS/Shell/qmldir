@@ -16,7 +16,6 @@ singleton WallpaperStore 1.0 WallpaperStore.qml
 singleton Tasks 1.0 Tasks.qml
 singleton AppInstances 1.0 AppInstances.qml
 singleton SurfaceRegistry 1.0 SurfaceRegistry.qml
-singleton NotificationModel 1.0 NotificationModel.qml
 singleton NotificationService 1.0 NotificationService.qml
 singleton AppModel 1.0 AppModel.qml
 singleton NavigationRouter 1.0 NavigationRouter.qml

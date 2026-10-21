@@ -1003,6 +1003,22 @@ fn state(power: &Power) -> State {
     ])
 }
 
+/// Holds `name` awake for `time`, from another of the shell's Rust objects.
+pub(crate) fn hold_wakelock(name: &'static str, time: std::time::Duration) {
+    let Some(qt) = POWER.get().cloned() else { return };
+    qt.queue(move |obj| {
+        obj.acquire_wakelock(&QString::from(name));
+    })
+    .ok();
+    io::spawn(async move {
+        async_io::Timer::after(time).await;
+        qt.queue(move |obj| {
+            obj.release_wakelock(&QString::from(name));
+        })
+        .ok();
+    });
+}
+
 /// Power1's state moved: the battery, the profile or the screen.
 pub(crate) fn state_changed() {
     if let Some(qt) = POWER.get() {

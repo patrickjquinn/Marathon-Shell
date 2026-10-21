@@ -36,7 +36,7 @@ pub mod motion;
 pub mod mpris;
 pub mod network;
 pub mod ngf;
-mod notifications;
+pub mod notifications;
 mod pam;
 pub mod pilot;
 pub mod permissions;

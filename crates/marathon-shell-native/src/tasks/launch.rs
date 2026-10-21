@@ -79,7 +79,7 @@ impl Tasks {
         desktop_entry(app_id)
     }
 
-    pub(super) fn can_launch(&self, app_id: &QString) -> bool {
+    pub(crate) fn can_launch(&self, app_id: &QString) -> bool {
         self.resolve(&app_id.to_string()).is_some()
     }
 
@@ -213,7 +213,7 @@ impl Tasks {
         self.app_launch_completed(&q(&app.id), &q(&app.name));
     }
 
-    pub(super) fn launch(mut self: Pin<&mut Self>, app_id: &str) -> bool {
+    pub(crate) fn launch(mut self: Pin<&mut Self>, app_id: &str) -> bool {
         let Some(mut app) = self.resolve(app_id) else {
             log::warn("tasks", format_args!("no app {app_id} to launch"));
             self.as_mut().app_launch_failed(&q(app_id), &q(app_id), &q("Invalid app object"));
@@ -465,7 +465,7 @@ impl Tasks {
         self.app_exited(&q(app_id));
     }
 
-    pub(super) fn expect_window(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
+    pub(crate) fn expect_window(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
         let id = app_id.to_string();
         self.as_mut().rust_mut().expected_windows.insert(id.clone(), Instant::now() + EXPECT_WINDOW);
         if self.task(&id).is_none_or(|t| t.surface_id < 0) {

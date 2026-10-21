@@ -346,14 +346,13 @@ Item {
                 Modem.simulateCallStateChange("active");
             }
             if (seedDemo) {
-                NotificationModel.addNotification("imessage", "Maya Chen", "Heading out, see you at 8 — saved a spot near the back.", "message");
-                NotificationModel.addNotification("calendar", "Design review", "Studio B · in 22m", "calendar");
-                NotificationModel.addNotification("linear", "Linear", "Devon assigned: investigate compositor frame timing when keyboard is shown over video.", "briefcase");
-                NotificationModel.addNotification("mail", "Cassandra Reyes", "Q4 retro — agenda + pre-reads attached. Lmk what you think.", "mail");
-                NotificationModel.addNotification("phone", "Missed call · Devon", "No voicemail left", "phone");
-                // Toast subscribes to NotificationModel.notificationAdded →
-                // NotificationServiceCpp.notificationReceived, so seeding
-                // fires the toast queue. Suppress it for validation.
+                NotificationService.addNotification("imessage", "Maya Chen", "Heading out, see you at 8 — saved a spot near the back.", "message");
+                NotificationService.addNotification("calendar", "Design review", "Studio B · in 22m", "calendar");
+                NotificationService.addNotification("linear", "Linear", "Devon assigned: investigate compositor frame timing when keyboard is shown over video.", "briefcase");
+                NotificationService.addNotification("mail", "Cassandra Reyes", "Q4 retro — agenda + pre-reads attached. Lmk what you think.", "mail");
+                NotificationService.addNotification("phone", "Missed call · Devon", "No voicemail left", "phone");
+                // Toast subscribes to NotificationService.notificationReceived,
+                // so seeding fires the toast queue. Suppress it for validation.
                 notificationToast.toastQueue = [];
                 notificationToast.currentToast = null;
                 notificationToast.visible = false;
@@ -963,18 +962,6 @@ Item {
                 UIStore.closeQuickSettings();
         }
         target: PermissionManager
-    }
-
-    Connections {
-        function onNotificationClicked(id) {
-            NotificationHandler.handleNotificationClick(id);
-        }
-
-        function onNotificationActionTriggered(id, action) {
-            NotificationHandler.handleNotificationAction(id, action);
-        }
-
-        target: NotificationService
     }
 
     // The power key, read from /dev/input whichever window has focus. A
@@ -2242,8 +2229,7 @@ Item {
             appToast.show(notification);
         }
 
-        // Only with a session bus (main.cpp).
-        target: typeof FreedesktopNotifications !== "undefined" ? FreedesktopNotifications : null
+        target: NotificationService
     }
 
     Comp.PermissionDialog {

@@ -26,6 +26,7 @@ fn main() {
         .file("src/motion.rs")
         .file("src/mpris.rs")
         .file("src/network.rs")
+        .file("src/notifications.rs")
         .file("src/ngf.rs")
         .file("src/pilot.rs")
         .file("src/permissions.rs")

@@ -8,7 +8,7 @@ namespace marathon {
     class Audio;
 }
 class Haptics;
-class NotificationServiceCpp;
+class Notifications;
 
 class ScreenshotServiceCpp : public QObject {
     Q_OBJECT
@@ -19,7 +19,7 @@ class ScreenshotServiceCpp : public QObject {
 
   public:
     explicit ScreenshotServiceCpp(marathon::Audio *audioPolicy, Haptics *haptics,
-                                  NotificationServiceCpp *notificationService,
+                                  Notifications *notificationService,
                                   QObject                *parent = nullptr);
 
     QString screenshotsPath() const {
@@ -55,7 +55,7 @@ class ScreenshotServiceCpp : public QObject {
 
     marathon::Audio  *m_audioPolicy         = nullptr;
     Haptics                *m_haptics             = nullptr;
-    NotificationServiceCpp *m_notificationService = nullptr;
+    Notifications *m_notificationService = nullptr;
     QObject                *m_shellWindow         = nullptr;
     QObject                *m_compositor          = nullptr;
     QString                 m_screenshotsPath;

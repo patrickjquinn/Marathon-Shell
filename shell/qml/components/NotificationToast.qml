@@ -68,7 +68,7 @@ Item {
     function sendReply() {
         if (!currentToast || replyField.text.trim().length === 0)
             return;
-        FreedesktopNotifications.InvokeReply(currentToast.id, replyField.text);
+        NotificationService.reply(currentToast.id, replyField.text);
         dismissToast();
     }
 
@@ -292,7 +292,7 @@ Item {
                     return;
                 const n = toastContainer.currentToast;
                 NotificationService.clickNotification(n.id);
-                NotificationModel.markAsRead(n.id);
+                NotificationService.markAsRead(n.id);
                 toastContainer.dismissToast();
             }
         }

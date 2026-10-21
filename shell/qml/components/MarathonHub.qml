@@ -21,7 +21,7 @@ Rectangle {
     property var sources: []
 
     function refreshSources() {
-        const apps = NotificationModel.sources();
+        const apps = NotificationService.sources();
         sources = apps.map(s => ({
                     "app": s.appId,
                     "label": s.appId ? accountFor(s.appId) : qsTr("System"),
@@ -85,7 +85,7 @@ Rectangle {
     }
 
     Connections {
-        target: NotificationModel
+        target: NotificationService
         function onRowsInserted() {
             Qt.callLater(hub.refreshSources);
         }
@@ -107,7 +107,7 @@ Rectangle {
     SortFilterProxyModel {
         id: shownNotifications
 
-        model: NotificationModel
+        model: NotificationService
         filters: ValueFilter {
             roleName: "appId"
             value: hub.filterApp
@@ -115,10 +115,10 @@ Rectangle {
         }
     }
 
-    // NotificationHandler opens the sender's app, if one is installed.
+    // clickNotification opens the sender's app, if one is installed.
     function openNotification(notifId, appId) {
         NotificationService.clickNotification(notifId);
-        NotificationModel.markAsRead(notifId);
+        NotificationService.markAsRead(notifId);
         if (appId && isInPeekMode)
             closed();
     }
@@ -364,7 +364,7 @@ Rectangle {
             onActivated: hub.openNotification(model.id, appId)
             onDismissed: NotificationService.dismissNotification(model.id)
             onActionInvoked: key => NotificationService.triggerAction(model.id, key)
-            onReplied: text => FreedesktopNotifications.InvokeReply(model.id, text)
+            onReplied: text => NotificationService.reply(model.id, text)
         }
     }
 

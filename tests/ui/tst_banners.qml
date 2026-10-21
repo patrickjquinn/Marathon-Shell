@@ -79,7 +79,7 @@ TestCase {
         };
     }
 
-    // NotificationHandler opens the app on the click; the banner must not too.
+    // clickNotification opens the app; the banner must not too.
     function test_tapOnMessageClicksItOnce() {
         notificationToast.showToast(message([]));
         wait(50);

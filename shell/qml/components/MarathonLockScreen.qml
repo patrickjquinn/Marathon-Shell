@@ -43,10 +43,10 @@ Item {
     signal hubRequested
 
     function roleId(name) {
-        if (!NotificationModel || !name)
+        if (!NotificationService || !name)
             return -1;
 
-        return NotificationModel.roleId(name);
+        return NotificationService.roleId(name);
     }
 
     function resetIdleTimer() {
@@ -70,7 +70,7 @@ Item {
     }
 
     // Rebuilds the visible-notifications model from the global
-    // NotificationModel — keeps only the first `maxNotificationsShown`
+    // NotificationService — keeps only the first `maxNotificationsShown`
     // unread items so the lock surface stays calm. The remainder are
     // surfaced via the 'N more' card, which opens the Hub.
     function refreshNotifications(keepLimit) {
@@ -86,18 +86,18 @@ Item {
             return;
         }
         let unread = 0;
-        for (let i = 0; i < NotificationModel.rowCount(); i++) {
-            const idx = NotificationModel.index(i, 0);
-            if (NotificationModel.data(idx, roleIsRead))
+        for (let i = 0; i < NotificationService.rowCount(); i++) {
+            const idx = NotificationService.index(i, 0);
+            if (NotificationService.data(idx, roleIsRead))
                 continue;
             if (unread < shownLimit) {
                 unreadModel.append({
-                    "notifId": NotificationModel.data(idx, roleIdValue) || 0,
-                    "appId": NotificationModel.data(idx, roleAppId) || "other",
-                    "icon": NotificationModel.data(idx, roleIcon) || "bell",
-                    "title": NotificationModel.data(idx, roleTitle) || "",
-                    "body": NotificationModel.data(idx, roleBody) || "",
-                    "timestamp": NotificationModel.data(idx, roleTimestamp) || 0
+                    "notifId": NotificationService.data(idx, roleIdValue) || 0,
+                    "appId": NotificationService.data(idx, roleAppId) || "other",
+                    "icon": NotificationService.data(idx, roleIcon) || "bell",
+                    "title": NotificationService.data(idx, roleTitle) || "",
+                    "body": NotificationService.data(idx, roleBody) || "",
+                    "timestamp": NotificationService.data(idx, roleTimestamp) || 0
                 });
             }
             unread++;
@@ -236,7 +236,7 @@ Item {
             lockScreen.refreshNotifications();
         }
 
-        target: NotificationModel
+        target: NotificationService
     }
 
     // The ambience's wallpaper at full strength, as on the lock

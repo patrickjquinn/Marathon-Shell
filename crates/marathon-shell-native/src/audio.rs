@@ -190,6 +190,13 @@ type Stream = (u32, String, f64, bool);
 
 static AUDIO: OnceLock<Qt> = OnceLock::new();
 
+/// A notification's sound, unless the profile or DND silences it.
+pub(crate) fn notification_sound() {
+    if let Some(qt) = AUDIO.get() {
+        qt.queue(|a| a.play_notification_sound()).ok();
+    }
+}
+
 impl cxx_qt::Initialize for Audio {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(64);
@@ -419,7 +426,7 @@ impl Audio {
     }
 
     /// At the notification level, scaled by the system volume.
-    fn play_notification_sound(&self) {
+    pub(crate) fn play_notification_sound(&self) {
         let volume = if self.muted { 0.0 } else { self.volume };
         settings::with(move |s| {
             if ringer_audible(&s.audio_profile().to_string(), *s.dnd_enabled()) {

@@ -121,7 +121,7 @@ Item {
             opacity: peekComponent.peekProgress < 0.3 ? 1 : Math.max(0, (0.35 - peekComponent.peekProgress) / 0.05)
             z: 10
             Component.onCompleted: {
-                Logger.info("Peek", "NotificationPreview initialized, count: " + NotificationModel.count);
+                Logger.info("Peek", "NotificationPreview initialized, count: " + NotificationService.count);
             }
 
             Rectangle {
@@ -135,12 +135,12 @@ Item {
                     spacing: Silica.Theme.paddingMedium
 
                     Repeater {
-                        model: NotificationModel
+                        model: NotificationService
                         onCountChanged: {
-                            Logger.info("Peek", "Repeater count changed: " + count + ", NotificationModel.count: " + NotificationModel.count);
+                            Logger.info("Peek", "Repeater count changed: " + count + ", NotificationService.count: " + NotificationService.count);
                         }
                         Component.onCompleted: {
-                            Logger.info("Peek", "Repeater initialized with count: " + count + ", NotificationModel.count: " + NotificationModel.count);
+                            Logger.info("Peek", "Repeater initialized with count: " + count + ", NotificationService.count: " + NotificationService.count);
                         }
 
                         delegate: Item {
@@ -203,7 +203,7 @@ Item {
                     }
 
                     Silica.Label {
-                        visible: NotificationModel.count === 0
+                        visible: NotificationService.count === 0
                         text: "No notifications"
                         color: Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeMedium

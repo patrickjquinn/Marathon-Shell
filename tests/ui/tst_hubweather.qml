@@ -43,7 +43,7 @@ TestCase {
         WeatherClient.state = "";
         WeatherClient.calls = [];
         card().gaveUp = false;
-        NotificationModel.clear();
+        NotificationService.clear();
         sheet().open = false;
         sheet().choosing = false;
         card().expanded = false;

@@ -6,23 +6,11 @@ set(SOURCES
     src/ipc/shellkeelactions.h
     src/ipc/shellkeelactions.cpp
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    src/models/notificationmodel.h
-    src/models/notificationmodel.cpp
-    src/services/notificationhandlercpp.h
-    src/services/notificationhandlercpp.cpp
-    src/services/notificationservicecpp.h
-    src/services/notificationservicecpp.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/marathoninputmethodengine.h
     src/managers/marathoninputmethodengine.cpp
     src/managers/marathoninputcontext.cpp
-    src/dbus/freedesktopnotifications.h
-    src/dbus/freedesktopnotifications.cpp
-    src/services/notificationtarget.h
-    src/services/notificationtarget.cpp
-    src/dbus/notificationdatabase.h
-    src/dbus/notificationdatabase.cpp
     src/services/inputboost.h
     src/services/touchresampler.h
     src/services/touchresampler.cpp
@@ -384,10 +372,6 @@ qt6_add_qml_module(marathon-shell
         src/components/windowtextureitem.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
-                src/models/notificationmodel.cpp
-        src/models/notificationmodel.h
-        src/services/notificationservicecpp.cpp
-        src/services/notificationservicecpp.h
     RESOURCES ${JSON_FILES} ${UI_RESOURCES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )

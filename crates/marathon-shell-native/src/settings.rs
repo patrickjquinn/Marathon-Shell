@@ -819,7 +819,7 @@ impl Settings {
         }
     }
 
-    fn is_notifications_enabled_for_app(&self, app_id: &QString) -> bool {
+    pub(crate) fn is_notifications_enabled_for_app(&self, app_id: &QString) -> bool {
         app_id.is_empty() || self.app_notification_settings.get(app_id).and_then(|v| v.value::<bool>()).unwrap_or(true)
     }
 

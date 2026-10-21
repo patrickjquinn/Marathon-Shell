@@ -195,8 +195,19 @@ enum CallAction {
 }
 
 /// Sets a property and emits its change signal if it changed.
+static QT: std::sync::OnceLock<cxx_qt::CxxQtThread<Modem>> = std::sync::OnceLock::new();
+
+/// Dials, from another of the shell's Rust objects.
+pub(crate) fn dial(number: &str) {
+    let number = QString::from(number);
+    if let Some(qt) = QT.get() {
+        qt.queue(move |obj| obj.dial(&number)).ok();
+    }
+}
+
 impl cxx_qt::Initialize for Modem {
     fn initialize(mut self: Pin<&mut Self>) {
+        QT.set(self.qt_thread()).ok();
         let (tx, rx) = async_channel::bounded(16);
         io::spawn(run(self.qt_thread(), rx));
         let mut rust = self.as_mut().rust_mut();

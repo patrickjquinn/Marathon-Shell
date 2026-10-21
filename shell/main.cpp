@@ -49,9 +49,7 @@
 #include "src/components/windowtextureitem.h"
 #include "src/services/waketouchfilter.h"
 #include "marathon-shell-native/src/pressure.cxxqt.h"
-#include "src/models/notificationmodel.h"
-#include "src/services/notificationhandlercpp.h"
-#include "src/services/notificationservicecpp.h"
+#include "marathon-shell-native/src/notifications.cxxqt.h"
 #include "marathon-shell-native/src/push.cxxqt.h"
 #include "marathon-shell-native/src/motion.cxxqt.h"
 #include "marathon-shell-native/src/timezone.cxxqt.h"
@@ -803,15 +801,16 @@ int main(int argc, char *argv[]) {
     QObject::connect(compositorManager, &WaylandCompositorManager::compositorCreated, tasks,
                      [tasks](WaylandCompositor *wc) { connectTasks(tasks, wc); });
 #endif
-    auto *notificationModel = new NotificationModel(&app);
-    qmlRegisterSingletonInstance<NotificationModel>("MarathonOS.Shell", 1, 0, "NotificationModel",
-                                                    notificationModel);
+    auto *notificationService = new Notifications();
+    notificationService->setParent(&app);
+    qmlRegisterSingletonInstance<Notifications>("MarathonOS.Shell", 1, 0, "NotificationService",
+                                                notificationService);
+    notificationService->setDndEnabled(settingsManager->getDndEnabled());
+    QObject::connect(settingsManager, &marathon::Settings::dndEnabledChanged, notificationService,
+                     [=] { notificationService->setDndEnabled(settingsManager->getDndEnabled()); });
     auto *links = new Links();
     links->setParent(&app);
     qmlRegisterSingletonInstance<Links>("MarathonOS.Shell", 1, 0, "NavigationRouter", links);
-
-    qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
-                                     "NotificationRoles", "Cannot create NotificationRoles enum");
 
     startupMark("models");
     auto *network = new Network();
@@ -1076,10 +1075,6 @@ int main(int argc, char *argv[]) {
         hapticManager->cancelVibration();
         power->releaseWakelock(QStringLiteral("alarm_ringing"));
     });
-    auto *notificationService = new NotificationServiceCpp(
-        notificationModel, settingsManager, audioManager, hapticManager, &app);
-    qmlRegisterSingletonInstance<NotificationServiceCpp>(
-        "MarathonOS.Shell", 1, 0, "NotificationService", notificationService);
     auto *screenshotService = createObject<ScreenshotServiceCpp>(
         ctx, "ScreenshotService", audioManager, hapticManager, notificationService, &app);
 
@@ -1173,29 +1168,10 @@ int main(int argc, char *argv[]) {
 
     qInfo() << "[MarathonShell] Initializing Marathon Service Bus (D-Bus)...";
     QDBusConnection           bus              = QDBusConnection::sessionBus();
-    FreedesktopNotifications *freedesktopNotif = nullptr;
     if (!bus.isConnected()) {
         qCritical() << "[MarathonShell] Failed to connect to D-Bus session bus!";
     } else {
         qInfo() << "[MarathonShell] Connected to D-Bus session bus";
-
-        NotificationDatabase *notifDb = new NotificationDatabase(&app);
-        if (!notifDb->initialize()) {
-            qWarning() << "[MarathonShell] Failed to initialize notification database";
-        }
-
-        notificationModel->loadFromDatabase(notifDb);
-
-        freedesktopNotif = createObject<FreedesktopNotifications>(
-            ctx, "FreedesktopNotifications", notifDb, notificationModel, power, &app);
-        freedesktopNotif->setAppModel(appModel);
-        if (freedesktopNotif->registerService()) {
-            qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
-        }
-        QObject::connect(notificationService, &NotificationServiceCpp::notificationActivated,
-                         freedesktopNotif, &FreedesktopNotifications::activate);
-        QObject::connect(freedesktopNotif, &FreedesktopNotifications::bannerRequested,
-                         notificationService, &NotificationServiceCpp::notificationReceived);
 
         const auto pushFallback = [settingsManager] {
             marathon::push::set_fallback_notifications(settingsManager->getUnifiedPushFallbackEnabled());

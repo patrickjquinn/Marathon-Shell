@@ -2,7 +2,7 @@
 
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
-#include "notificationservicecpp.h"
+#include "marathon-shell-native/src/notifications.cxxqt.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -15,7 +15,7 @@
 
 ScreenshotServiceCpp::ScreenshotServiceCpp(marathon::Audio  *audioPolicy,
                                            Haptics                *haptics,
-                                           NotificationServiceCpp *notificationService,
+                                           Notifications *notificationService,
                                            QObject                *parent)
     : QObject(parent)
     , m_audioPolicy(audioPolicy)
