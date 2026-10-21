@@ -1,5 +1,7 @@
 #include <QTest>
 #include <QSignalSpy>
+#include <QDir>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -515,18 +517,23 @@ class TestInstallerSecurity : public QObject {
     void installFromDir_rejectsEntryPointTraversal() {
         QFETCH(QString, maliciousEntry);
 
-        QTemporaryDir sourceDir;
-        QDir().mkpath(sourceDir.path());
-        writeFile(sourceDir.path() + "/manifest.json",
-                  manifest("com.safe.id", "Test", maliciousEntry));
-        writeFile(sourceDir.path() + "/" + maliciousEntry, "Item{}");
+        // Deep enough that the traversal lands in the temporary tree, never
+        // on the real file: the tests run as root in CI's container.
+        QTemporaryDir root;
+        const QString source = root.path() + "/a/b/c/app";
+        const QString target = QDir::cleanPath(source + "/" + maliciousEntry);
+        QVERIFY2(target.startsWith(root.path()), qPrintable(target));
+        QDir().mkpath(QFileInfo(target).absolutePath());
+        QDir().mkpath(source);
+        writeFile(source + "/manifest.json", manifest("com.safe.id", "Test", maliciousEntry));
+        writeFile(target, "Item{}");
 
         MarathonAppRegistry  registry;
         MarathonAppScanner   scanner(&registry);
         MarathonAppInstaller installer(&registry, &scanner);
         QSignalSpy           failSpy(&installer, &MarathonAppInstaller::installFailed);
 
-        bool                 result = installer.installFromDirectory(sourceDir.path());
+        bool                 result = installer.installFromDirectory(source);
 
         QVERIFY2(!result,
                  qPrintable("Entry point traversal '" + maliciousEntry + "' was NOT blocked"));
