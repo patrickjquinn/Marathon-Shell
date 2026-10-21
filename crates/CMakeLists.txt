@@ -55,7 +55,7 @@ function(marathon_cxxqt_crate crate target)
 endfunction()
 
 # The shell's Rust half, linked into marathon-shell-bin, and the app runner's.
-marathon_cxxqt_crate(marathon-shell-native marathon_shell_native Qt6::Gui pam)
+marathon_cxxqt_crate(marathon-shell-native marathon_shell_native Qt6::Gui pam sqlite3)
 marathon_cxxqt_crate(marathon-app-native marathon_app_native)
 
 # marathon-store:// URL handler (xdg-open target and the store refresh timer).
