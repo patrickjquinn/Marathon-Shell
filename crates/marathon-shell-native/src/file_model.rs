@@ -313,11 +313,13 @@ impl FileChooserModel {
         };
         entries.shrink_to_fit();
         let count = i32::try_from(entries.len()).unwrap_or(i32::MAX);
+        let changed = count != self.count;
         self.as_mut().begin_reset_model();
-        self.as_mut().rust_mut().entries = entries;
+        let mut rust = self.as_mut().rust_mut();
+        rust.entries = entries;
+        rust.count = count;
         self.as_mut().end_reset_model();
-        if count != self.count {
-            self.as_mut().rust_mut().count = count;
+        if changed {
             self.count_changed();
         }
     }
