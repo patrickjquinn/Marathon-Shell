@@ -174,8 +174,6 @@ build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$
 build_if_missing "keel-silica"               'keel-silica-*.apk'              "$LIB/build-keel-silica-apk.sh"               "$APORTS_DIR/keel-silica/APKBUILD"
 APORT=wpewebkit \
 build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/wpewebkit/APKBUILD"
-APORT=marathon-llm \
-build_if_missing "marathon-llm"              'marathon-llm-*.apk'             "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-llm/APKBUILD"
 # A local Shipwright checkout, when there is one, builds in place of the
 # shipwright-open commit the APKBUILD pins.
 PACIFIC_SRC="${PACIFIC_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pacific" ] && echo "$HOME/Developer/Shipwright")}" \

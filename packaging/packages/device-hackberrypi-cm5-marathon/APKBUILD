@@ -4,7 +4,7 @@
 pkgname=device-hackberrypi-cm5-marathon
 pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
 pkgver=1.0.0
-pkgrel=23
+pkgrel=24
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -14,7 +14,6 @@ options="!check !archcheck"
 # only and the include line in /boot/usercfg.txt silently no-ops.
 depends="
 	device-raspberry-pi5-marathon
-	marathon-llm
 "
 # Takes over /etc/marathon/device-profile.conf from the Pi 5 base.
 replaces="device-raspberry-pi5-marathon"
