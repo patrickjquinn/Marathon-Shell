@@ -8,13 +8,9 @@
 #include "sessionstore.h"
 #include "marathon-shell-native/src/permissions.cxxqt.h"
 #include "settingsmanager.h"
-#include "ambienceservice.h"
-#include "wallpaperstore.h"
-#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "audiopolicycontroller.h"
 
-#include "audioroutingmanager.h"
 #include "marathonappinstaller.h"
 #include "../services/applifecyclemanager.h"
 #include "marathonappregistry.h"
@@ -619,109 +615,6 @@ void AudioObject::VibratePattern(const QVariantList &pattern) {
         m_policy->vibratePattern(pattern);
 }
 
-TelephonyObject::TelephonyObject(Modem          *telephony,
-                                 marathon::Permissions *permissions,
-                                 AppLaunchService *launchService, AudioRoutingManager *audioRouting,
-                                 QObject *parent)
-    : IpcPermissionedService(permissions, launchService, parent)
-    , m_telephony(telephony)
-    , m_audioRouting(audioRouting) {
-    Q_ASSERT(m_telephony);
-    Q_ASSERT(m_permissions);
-    Q_ASSERT(m_launchService);
-
-    QObject::connect(m_telephony, &Modem::callStateChanged, this,
-                     &TelephonyObject::CallStateChanged);
-    QObject::connect(m_telephony, &Modem::incomingCall, this,
-                     &TelephonyObject::IncomingCall);
-    QObject::connect(m_telephony, &Modem::callFailed, this,
-                     &TelephonyObject::CallFailed);
-    QObject::connect(m_telephony, &Modem::modemChanged, this,
-                     &TelephonyObject::ModemChanged);
-    QObject::connect(m_telephony, &Modem::activeNumberChanged, this,
-                     &TelephonyObject::ActiveNumberChanged);
-}
-
-QString TelephonyObject::CallState() const {
-    if (!const_cast<TelephonyObject *>(this)->requirePhone())
-        return {};
-    return m_telephony->getCallState();
-}
-
-bool TelephonyObject::HasModem() const {
-    if (!const_cast<TelephonyObject *>(this)->requirePhone())
-        return false;
-    return m_telephony->getHasModem();
-}
-
-QString TelephonyObject::ActiveNumber() const {
-    if (!const_cast<TelephonyObject *>(this)->requirePhone())
-        return {};
-    return m_telephony->getActiveNumber();
-}
-
-void TelephonyObject::Dial(const QString &number) {
-    if (!requirePhone())
-        return;
-    m_telephony->dial(number);
-}
-
-void TelephonyObject::Answer() {
-    if (!requirePhone())
-        return;
-    m_telephony->answer();
-}
-
-void TelephonyObject::Hangup() {
-    if (!requirePhone())
-        return;
-    m_telephony->hangup();
-}
-
-void TelephonyObject::SendDTMF(const QString &digit) {
-    if (!requirePhone())
-        return;
-    m_telephony->sendDTMF(digit);
-}
-
-void TelephonyObject::SimulateIncomingCall(const QString &number) {
-    if (!requirePhone())
-        return;
-    m_telephony->simulateIncomingCall(number);
-}
-
-void TelephonyObject::SimulateCallStateChange(const QString &state) {
-    if (!requirePhone())
-        return;
-    m_telephony->simulateCallStateChange(state);
-}
-
-void TelephonyObject::SetSpeakerphone(bool on) {
-    if (!requirePhone())
-        return;
-    if (m_audioRouting)
-        m_audioRouting->setSpeakerphone(on);
-}
-
-void TelephonyObject::SetCallMuted(bool muted) {
-    if (!requirePhone())
-        return;
-    if (m_audioRouting)
-        m_audioRouting->setMuted(muted);
-}
-
-bool TelephonyObject::IsSpeakerphoneOn() const {
-    if (!const_cast<TelephonyObject *>(this)->requirePhone())
-        return false;
-    return m_audioRouting ? m_audioRouting->isSpeakerphoneEnabled() : false;
-}
-
-bool TelephonyObject::IsCallMuted() const {
-    if (!const_cast<TelephonyObject *>(this)->requirePhone())
-        return false;
-    return m_audioRouting ? m_audioRouting->isMuted() : false;
-}
-
 NavigationObject::NavigationObject(AppLaunchService *launchService, QObject *parent)
     : QObject(parent)
     , m_launchService(launchService) {
@@ -1015,22 +908,4 @@ QStringList AppLifecycleObject::GetMyCapabilities() {
     if (appId.isEmpty())
         return {};
     return m_lifecycle->activeCapabilities(appId);
-}
-
-AmbienceObject::AmbienceObject(AmbienceService *ambience, QObject *parent)
-    : QObject(parent)
-    , m_ambience(ambience) {
-    connect(ambience, &AmbienceService::ambienceChanged, this, &AmbienceObject::AmbienceChanged);
-}
-
-QVariantMap AmbienceObject::GetAmbience() {
-    return m_ambience->ambience();
-}
-
-WallpaperObject::WallpaperObject(WallpaperStore *store, QObject *parent)
-    : QObject(parent)
-    , m_store(store) {}
-
-QVariantList WallpaperObject::GetWallpapers() {
-    return m_store->wallpapers();
 }

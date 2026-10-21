@@ -223,7 +223,7 @@ Item {
         id: wallpaperSource
 
         anchors.fill: parent
-        source: WallpaperStore.path
+        source: SettingsManagerCpp.wallpaperPath
         sourceSize: Qt.size(width, height)
         asynchronous: true
         retainWhileLoading: true

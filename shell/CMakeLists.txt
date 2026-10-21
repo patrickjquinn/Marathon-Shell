@@ -80,12 +80,8 @@ set(SOURCES
     src/services/shareservice.cpp
     src/services/appstore.h
     src/services/appstore.cpp
-    src/services/wallpaperstore.h
-    src/services/wallpaperstore.cpp
     src/services/router.h
     src/services/router.cpp
-    src/services/ambiencederivation.cpp
-    src/services/ambienceservice.cpp
     src/services/toolkittheme.h
     src/services/toolkittheme.cpp
     src/services/toolkitthemewriter.h
@@ -101,8 +97,6 @@ set(SOURCES
     src/services/inputcontext.cpp
     src/services/remotetextinput.h
     src/services/remotetextinput.cpp
-    src/controllers/audioroutingmanager.h
-    src/controllers/audioroutingmanager.cpp
     src/controllers/audiopolicycontroller.h
     src/controllers/audiopolicycontroller.cpp
     src/managers/screenmetrics.h
@@ -450,8 +444,6 @@ qt6_add_qml_module(marathon-shell
         src/services/uistore.h
         src/services/appstore.cpp
         src/services/appstore.h
-        src/services/wallpaperstore.cpp
-        src/services/wallpaperstore.h
         src/services/router.cpp
         src/services/router.h
         src/services/gesturetracker.cpp
@@ -459,10 +451,6 @@ qt6_add_qml_module(marathon-shell
         src/components/windowtexturegeometry.h
         src/components/windowtextureitem.cpp
         src/components/windowtextureitem.h
-        src/services/ambiencederivation.cpp
-        src/services/ambiencederivation.h
-        src/services/ambienceservice.cpp
-        src/services/ambienceservice.h
         src/dbus/portalsettings.cpp
         src/dbus/portalsettings.h
         src/services/surfaceregistry.cpp

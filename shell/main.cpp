@@ -71,7 +71,7 @@
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "src/managers/settingsmanager.h"
-#include "src/services/ambienceservice.h"
+#include "marathon-shell-native/src/ambience.cxxqt.h"
 #include "src/services/toolkitthemewriter.h"
 #include "marathon-shell-native/src/ngf.cxxqt.h"
 #include "src/dbus/portalsettings.h"
@@ -96,7 +96,6 @@
 #include "marathon-shell-native/src/clipboard.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/flashlight.cxxqt.h"
-#include "src/controllers/audioroutingmanager.h"
 #include "src/controllers/audiopolicycontroller.h"
 #include "marathon-shell-native/src/security.cxxqt.h"
 #include "marathon-shell-native/src/contacts.cxxqt.h"
@@ -115,7 +114,6 @@
 #include "src/services/foregroundapp.h"
 #include "src/services/shareservice.h"
 #include "src/services/appstore.h"
-#include "src/services/wallpaperstore.h"
 #include "src/services/router.h"
 #include "src/services/surfaceregistry.h"
 #include "src/services/languagemanager.h"
@@ -633,16 +631,14 @@ int main(int argc, char *argv[]) {
     auto *settingsManager = new SettingsManager(&app);
     qmlRegisterSingletonInstance<SettingsManager>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                   settingsManager);
-    auto *wallpaperStore = new WallpaperStore(settingsManager, &app);
-    qmlRegisterSingletonInstance<WallpaperStore>("MarathonOS.Shell", 1, 0, "WallpaperStore",
-                                                 wallpaperStore);
-    auto *ambienceService = new AmbienceService(&app);
+    auto *ambienceService = new marathon::Ambience();
+    ambienceService->setParent(&app);
     ambienceService->setWallpaper(settingsManager->wallpaperPath());
     QObject::connect(settingsManager, &SettingsManager::wallpaperPathChanged, ambienceService,
                      [settingsManager, ambienceService]() {
                          ambienceService->setWallpaper(settingsManager->wallpaperPath());
                      });
-    qmlRegisterSingletonInstance<AmbienceService>("MarathonOS.Shell", 1, 0, "AmbienceService",
+    qmlRegisterSingletonInstance<marathon::Ambience>("MarathonOS.Shell", 1, 0, "AmbienceService",
                                                   ambienceService);
     // Keel picks phone or tablet metrics (page margins, ...) from the panel's
     // physical size; a DT that misreports it (the HackberryPi's doubled
@@ -659,9 +655,8 @@ int main(int argc, char *argv[]) {
     // the interface-size setting scales them with the rest of the shell.
     {
         auto update = [ambienceService, settingsManager, screenMetrics]() {
-            const qreal ratio = AmbienceService::silicaPixelRatio(
-                screenMetrics->dpi(), settingsManager->userScaleFactor());
-            ambienceService->setPixelRatio(ratio);
+            ambienceService->setScale(screenMetrics->dpi(), settingsManager->userScaleFactor());
+            const qreal ratio = ambienceService->getPixelRatio();
             // Keel's forwarded layer, read when its Ambience is first created:
             // the shell's Silica starts at this ratio instead of the width rule.
             if (ratio > 0) {
@@ -888,7 +883,6 @@ int main(int argc, char *argv[]) {
     auto *flashlightManager = new Flashlight();
     flashlightManager->setParent(&app);
     ctx->setContextProperty("FlashlightManagerCpp", flashlightManager);
-    auto *audioRoutingManager = new AudioRoutingManager(audioManager, &app);
     auto *security = new Security();
     security->setParent(&app);
     qmlRegisterSingletonInstance<Security>("MarathonOS.Shell", 1, 0, "Security",
@@ -1315,22 +1309,10 @@ int main(int argc, char *argv[]) {
     QObject::connect(pressure, &marathon::MemoryPressure::critical, appLifecycleManager,
                      &AppLifecycleManager::killOldestFrozenApp);
 
-    QObject::connect(modem, &Modem::callStateChanged, audioRoutingManager,
-                     [audioRoutingManager](const QString &state) {
-                         if (state == "active" || state == "incoming") {
-                             audioRoutingManager->startCallAudio();
-                         } else if (state == "idle" || state == "terminated") {
-                             audioRoutingManager->stopCallAudio();
-                         }
-                     });
-    qInfo() << "[MarathonShell] Audio routing wired to telephony";
-
     {
-        auto *ipc = new ShellIpcServer(permissionManager, modem, settingsManager, audioManager,
-                                       audioPolicyController, audioRoutingManager,
+        auto *ipc = new ShellIpcServer(permissionManager, settingsManager, audioManager,
+                                       audioPolicyController,
                                        appLaunchService, appLifecycleManager, appRegistry, &app);
-        ipc->setAmbienceService(ambienceService);
-        ipc->setWallpaperStore(wallpaperStore);
         ipc->setAppInstaller(appInstaller);
         auto *foregroundApp = new ForegroundApp(uiStore, sessionStore, &app);
         QObject::connect(foregroundApp, &ForegroundApp::changed, appLifecycleManager,
@@ -1362,9 +1344,9 @@ int main(int argc, char *argv[]) {
             portalSettings->setGtk3Theme(themeWriter.gtk3ThemeInstalled());
             portalSettings->setAmbience(ambience);
         };
-        applyAmbience(ambienceService->ambience());
-        QObject::connect(ambienceService, &AmbienceService::ambienceChanged, portalSettings,
-                         applyAmbience);
+        applyAmbience(ambienceService->getAmbience());
+        QObject::connect(ambienceService, &marathon::Ambience::ambienceChanged, portalSettings,
+                         [=] { applyAmbience(ambienceService->getAmbience()); });
         auto *fileChooser = createObject<FileChooserPortal>(ctx, "FileChooserPortal",
                                                             QDBusConnection::sessionBus(), &app);
         new FileChooserAdaptor(portalSettings, fileChooser);

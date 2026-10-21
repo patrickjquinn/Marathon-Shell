@@ -3,7 +3,6 @@
 #include <QTest>
 
 #include "managers/settingsmanager.h"
-#include "services/wallpaperstore.h"
 
 class TestDefaultWallpaper : public QObject {
     Q_OBJECT
@@ -36,18 +35,6 @@ class TestDefaultWallpaper : public QObject {
         QCOMPARE(m.wallpaperPath(), QString("file:///usr/share/marathon-shell/wallpapers/slate-aurora.svg"));
     }
 
-    void auroraNameIsUtf8() {
-        reset();
-        SettingsManager m;
-        WallpaperStore  store(&m);
-        QString name;
-        const QVariantList wallpapers = store.wallpapers();
-        for (const QVariant &w : wallpapers) {
-            if (w.toMap().value("path").toString().endsWith("aurora-myvatn.jpg"))
-                name = w.toMap().value("name").toString();
-        }
-        QCOMPARE(name, QString::fromUtf8("Mývatn Aurora"));
-    }
 };
 
 QTEST_GUILESS_MAIN(TestDefaultWallpaper)

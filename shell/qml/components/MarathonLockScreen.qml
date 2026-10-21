@@ -256,7 +256,7 @@ Item {
             id: lockWallpaper
 
             anchors.fill: parent
-            source: WallpaperStore.path
+            source: SettingsManagerCpp.wallpaperPath
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
         }

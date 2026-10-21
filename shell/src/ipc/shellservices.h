@@ -24,10 +24,7 @@ namespace marathon {
 class AppLaunchService;
 class AppLifecycleManager;
 class MarathonAppRegistry;
-class Modem;
 class SettingsManager;
-class AmbienceService;
-class WallpaperStore;
 class ForegroundApp;
 class SessionStore;
 class AudioPolicyController;
@@ -51,50 +48,6 @@ class IpcPermissionedService : public QObject, protected QDBusContext {
 
     marathon::Permissions *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
-};
-
-class AudioRoutingManager;
-
-class TelephonyObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Telephony1")
-
-  public:
-    TelephonyObject(Modem *telephony, marathon::Permissions *permissions,
-                    AppLaunchService *launchService, AudioRoutingManager *audioRouting,
-                    QObject *parent = nullptr);
-
-  public slots:
-    QString CallState() const;
-    bool    HasModem() const;
-    QString ActiveNumber() const;
-    void    Dial(const QString &number);
-    void    Answer();
-    void    Hangup();
-    void    SendDTMF(const QString &digit);
-
-    void    SetSpeakerphone(bool on);
-    void    SetCallMuted(bool muted);
-    bool    IsSpeakerphoneOn() const;
-    bool    IsCallMuted() const;
-
-    void    SimulateIncomingCall(const QString &number);
-    void    SimulateCallStateChange(const QString &state);
-
-  signals:
-    void CallStateChanged(const QString &state);
-    void IncomingCall(const QString &number);
-    void CallFailed(const QString &reason);
-    void ModemChanged(bool hasModem);
-    void ActiveNumberChanged(const QString &number);
-
-  private:
-    bool requirePhone() {
-        return requirePermission("Telephony", {"telephony", "phone"});
-    }
-
-    Modem    *m_telephony    = nullptr;
-    AudioRoutingManager *m_audioRouting = nullptr;
 };
 
 class SettingsObject : public IpcPermissionedService {
@@ -302,37 +255,4 @@ class AppLifecycleObject : public QObject, protected QDBusContext {
     AppLaunchService          *m_launchService = nullptr;
     quint32                    m_nextHandle    = 1;
     QHash<quint32, ActiveTask> m_handles;
-};
-
-// Public read: the ambience is what every app is drawn with.
-class AmbienceObject : public QObject {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Ambience1")
-
-  public:
-    explicit AmbienceObject(AmbienceService *ambience, QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap GetAmbience();
-
-  signals:
-    void AmbienceChanged(const QVariantMap &ambience);
-
-  private:
-    AmbienceService *m_ambience = nullptr;
-};
-
-// Public read: the built-in wallpapers, for the Settings app's picker.
-class WallpaperObject : public QObject {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Wallpaper1")
-
-  public:
-    explicit WallpaperObject(WallpaperStore *store, QObject *parent = nullptr);
-
-  public slots:
-    QVariantList GetWallpapers();
-
-  private:
-    WallpaperStore *m_store = nullptr;
 };

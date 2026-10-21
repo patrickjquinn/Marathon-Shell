@@ -126,29 +126,6 @@ target_include_directories(test_shell_taskmodel PRIVATE
 )
 add_test(NAME Shell_TaskModel COMMAND test_shell_taskmodel)
 
-# Ambience derivation from the wallpaper
-add_executable(test_shell_ambiencederivation
-    test_ambiencederivation.cpp
-    ../../shell/src/services/ambiencederivation.cpp
-)
-target_link_libraries(test_shell_ambiencederivation Qt6::Test Qt6::Core Qt6::Gui)
-target_include_directories(test_shell_ambiencederivation PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-)
-add_test(NAME Shell_AmbienceDerivation COMMAND test_shell_ambiencederivation)
-
-# Ambience service: wallpaper seed and debounced publishing
-add_executable(test_shell_ambienceservice
-    test_ambienceservice.cpp
-    ../../shell/src/services/ambienceservice.cpp
-    ../../shell/src/services/ambiencederivation.cpp
-)
-target_link_libraries(test_shell_ambienceservice Qt6::Test Qt6::Core Qt6::Gui)
-target_include_directories(test_shell_ambienceservice PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-)
-add_test(NAME Shell_AmbienceService COMMAND test_shell_ambienceservice)
-
 # Which keys the compositor keeps for system navigation
 add_executable(test_shell_keyrouting test_keyrouting.cpp)
 target_link_libraries(test_shell_keyrouting Qt6::Test Qt6::Core)

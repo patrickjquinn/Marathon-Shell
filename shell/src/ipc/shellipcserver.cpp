@@ -3,7 +3,6 @@
 #include "shellservices.h"
 
 #include "marathon-shell-native/src/ipc.cxxqt.h"
-#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "audiopolicycontroller.h"
 #include "settingsmanager.h"
@@ -12,20 +11,17 @@
 #include <QDBusError>
 #include <QDebug>
 
-ShellIpcServer::ShellIpcServer(marathon::Permissions *permissions, Modem *telephony,
+ShellIpcServer::ShellIpcServer(marathon::Permissions *permissions,
                                SettingsManager *settingsManager, marathon::Audio *audioManager,
                                AudioPolicyController *audioPolicy,
-                               AudioRoutingManager   *audioRoutingManager,
                                AppLaunchService      *appLaunchService,
                                AppLifecycleManager   *lifecycleManager,
                                MarathonAppRegistry *appRegistry, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
-    , m_telephony(telephony)
     , m_settingsManager(settingsManager)
     , m_audioManager(audioManager)
     , m_audioPolicy(audioPolicy)
-    , m_audioRoutingManager(audioRoutingManager)
     , m_appLaunchService(appLaunchService)
     , m_lifecycleManager(lifecycleManager)
     , m_appRegistry(appRegistry) {}
@@ -48,10 +44,6 @@ bool ShellIpcServer::registerOnSessionBus() {
 
     const auto all = QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals;
     bool       ok  = true;
-    ok &= bus.registerObject("/org/marathonos/Shell/Telephony",
-                             new TelephonyObject(m_telephony, m_permissions, m_appLaunchService,
-                                                 m_audioRoutingManager, this),
-                             all);
     ok &= bus.registerObject(
         "/org/marathonos/Shell/Settings",
         new SettingsObject(m_settingsManager, m_permissions, m_appLaunchService, this), all);
@@ -66,13 +58,6 @@ bool ShellIpcServer::registerOnSessionBus() {
     ok &= bus.registerObject(
         "/org/marathonos/Shell/AppLifecycle",
         new AppLifecycleObject(m_lifecycleManager, m_appRegistry, m_appLaunchService, this), all);
-    if (m_wallpaperStore)
-        ok &= bus.registerObject("/org/marathonos/Shell/Wallpaper",
-                                 new WallpaperObject(m_wallpaperStore, this),
-                                 QDBusConnection::ExportAllSlots);
-    if (m_ambience)
-        ok &= bus.registerObject("/org/marathonos/Shell/Ambience",
-                                 new AmbienceObject(m_ambience, this), all);
     ok &= bus.registerService("org.marathonos.Shell.Session");
     if (!ok) {
         qWarning() << "[ShellIpcServer] Failed to register the session's DBus API:"

@@ -14,7 +14,7 @@ Item {
         id: wallpaper
 
         anchors.fill: parent
-        source: WallpaperStore.path
+        source: SettingsManagerCpp.wallpaperPath
         sourceSize: Qt.size(Math.max(1, Math.round(root.width / 6)), Math.max(1, Math.round(root.height / 6)))
         fillMode: Image.PreserveAspectCrop
         asynchronous: true

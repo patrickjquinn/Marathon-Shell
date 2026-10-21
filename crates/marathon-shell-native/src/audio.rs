@@ -59,10 +59,6 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "refreshStreams"]
         fn refresh_streams(self: &Audio);
-        #[cxx_name = "setInputMuted"]
-        fn set_input_muted(self: &Audio, muted: bool);
-        #[cxx_name = "setSpeakerphone"]
-        fn set_speakerphone(self: &Audio, on: bool);
     }
 
     impl cxx_qt::Threading for Audio {}
@@ -163,8 +159,6 @@ enum Command {
     Muted(bool),
     StreamVolume(u32, f64),
     StreamMuted(u32, bool),
-    InputMuted(bool),
-    Speakerphone(bool),
     Refresh,
 }
 
@@ -216,14 +210,6 @@ impl Audio {
 
     fn refresh_streams(&self) {
         self.send(Command::Refresh);
-    }
-
-    fn set_input_muted(&self, muted: bool) {
-        self.send(Command::InputMuted(muted));
-    }
-
-    fn set_speakerphone(&self, on: bool) {
-        self.send(Command::Speakerphone(on));
     }
 
     fn write(mut self: Pin<&mut Self>, volume: Option<f64>, muted: Option<bool>) {
@@ -395,8 +381,6 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             }
             Event::Command(Command::StreamVolume(id, v)) => call(&bus, "SetStreamVolume", &(id, v)).await,
             Event::Command(Command::StreamMuted(id, m)) => call(&bus, "SetStreamMuted", &(id, m)).await,
-            Event::Command(Command::InputMuted(m)) => call(&bus, "SetInputMuted", &(m,)).await,
-            Event::Command(Command::Speakerphone(on)) => call(&bus, "SetSpeakerphone", &(on,)).await,
         };
         if let Err(e) = result {
             log::warn("audio", e);
@@ -405,7 +389,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
 }
 
 /// Answered once `PipeWire` has it.
-async fn call<B: serde::Serialize + DynamicType>(bus: &zbus::Connection, method: &str, body: &B) -> zbus::Result<()> {
+pub async fn call<B: serde::Serialize + DynamicType>(bus: &zbus::Connection, method: &str, body: &B) -> zbus::Result<()> {
     bus.call_method(Some(SERVICE), PATH, Some(INTERFACE), method, body).await.map(|_| ())
 }
 

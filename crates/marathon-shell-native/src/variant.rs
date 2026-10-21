@@ -1,4 +1,5 @@
-//! JSON as QML's `QVariant`s, and D-Bus callers' numbers.
+//! JSON as QML's `QVariant`s, QML's values for D-Bus, and D-Bus callers'
+//! numbers.
 
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use serde_json::Value;
@@ -50,4 +51,16 @@ pub fn map(value: &Value) -> QMap<QMapPair_QString_QVariant> {
         map.insert(QString::from(key), from_json(item));
     }
     map
+}
+
+/// A QML string, number or bool as D-Bus sends it.
+pub fn to_value(v: &QVariant) -> Option<zvariant::OwnedValue> {
+    let owned = |v: zvariant::Value<'_>| v.try_to_owned().ok();
+    match v.type_name() {
+        "QString" => owned(v.value::<QString>()?.to_string().into()),
+        "double" => owned(v.value::<f64>()?.into()),
+        "int" => owned(v.value::<i32>()?.into()),
+        "bool" => owned(v.value::<bool>()?.into()),
+        _ => None,
+    }
 }

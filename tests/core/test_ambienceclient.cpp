@@ -39,7 +39,7 @@ class TestAmbienceClient : public QObject {
         QDBusConnection shell = QDBusConnection::connectToBus(address, "shell");
         QVERIFY(shell.registerObject("/org/marathonos/Shell/Ambience", &fake,
                                      QDBusConnection::ExportAllSlots));
-        QVERIFY(shell.registerService("org.marathonos.Shell.Session"));
+        QVERIFY(shell.registerService("org.marathonos.Shell"));
     }
 
   private slots:

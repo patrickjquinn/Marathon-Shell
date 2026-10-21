@@ -157,6 +157,8 @@ pub struct ModemRust {
     call_state: QString,
     active_number: QString,
     has_modem: bool,
+    speakerphone: bool,
+    call_muted: bool,
     call: Option<String>,
     logged: Option<LoggedCall>,
     actor: Option<Sender<Command>>,
@@ -212,7 +214,13 @@ impl cxx_qt::Initialize for Modem {
         self.as_mut().on_data_enabled_changed(push).release();
         self.as_mut().on_data_roaming_allowed_changed(push).release();
         self.as_mut().on_modes_changed(push).release();
+        self.as_mut().on_call_state_changed(|_, s| ipc::signal("Telephony", "CallStateChanged", (s.to_string(),))).release();
+        self.as_mut().on_incoming_call(|_, n| ipc::signal("Telephony", "IncomingCall", (n.to_string(),))).release();
+        self.as_mut().on_call_failed(|_, r| ipc::signal("Telephony", "CallFailed", (r.to_string(),))).release();
+        self.as_mut().on_modem_changed(|_, m| ipc::signal("Telephony", "ModemChanged", (m,))).release();
+        self.as_mut().on_active_number_changed(|_, n| ipc::signal("Telephony", "ActiveNumberChanged", (n.to_string(),))).release();
         ipc::export("Modem", Modem1 { qt: self.qt_thread() });
+        ipc::export("Telephony", Telephony1 { qt: self.qt_thread() });
     }
 }
 
@@ -285,6 +293,20 @@ impl Modem {
         self.set_call_state(&state.to_string());
     }
 
+    fn set_speakerphone(mut self: Pin<&mut Self>, on: bool) {
+        if self.speakerphone != on {
+            self.as_mut().rust_mut().speakerphone = on;
+            route_audio("SetSpeakerphone", on);
+        }
+    }
+
+    fn set_call_muted(mut self: Pin<&mut Self>, muted: bool) {
+        if self.call_muted != muted {
+            self.as_mut().rust_mut().call_muted = muted;
+            route_audio("SetInputMuted", muted);
+        }
+    }
+
     fn set_active_number(mut self: Pin<&mut Self>, number: &str) {
         if self.active_number.to_string() != number {
             let number = QString::from(number);
@@ -315,6 +337,9 @@ impl Modem {
             logged.answered_ms.get_or_insert_with(now_ms);
         }
         if ended {
+            // The next call starts on the earpiece with the microphone open.
+            self.as_mut().set_speakerphone(false);
+            self.as_mut().set_call_muted(false);
             self.as_mut().rust_mut().call = None;
             self.as_mut().set_active_number("");
             if let Some(call) = self.as_mut().rust_mut().logged.take() {
@@ -497,6 +522,93 @@ impl Modem1 {
     async fn set_allowed_modes(&self, allowed: u32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
         ipc::admit(&h, "Modem", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_allowed_modes(allowed)).await
+    }
+}
+
+/// `WirePlumber`'s call routing follows marathon-audiod's speakerphone.
+fn route_audio(method: &'static str, on: bool) {
+    io::spawn(async move {
+        let routed = async { crate::audio::call(&io::session_bus().await?, method, &(on,)).await };
+        if let Err(e) = routed.await {
+            log::warn("modem", format_args!("{method}: {e}"));
+        }
+    });
+}
+
+struct Telephony1 {
+    qt: cxx_qt::CxxQtThread<Modem>,
+}
+
+async fn phone(h: &Header<'_>) -> fdo::Result<()> {
+    ipc::admit(h, "Telephony", &["telephony", "phone"]).await.map(drop)
+}
+
+#[zbus::interface(name = "org.marathonos.Shell.Telephony1")]
+impl Telephony1 {
+    async fn call_state(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<String> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, |obj| obj.call_state.to_string()).await
+    }
+
+    async fn has_modem(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, |obj| obj.has_modem).await
+    }
+
+    async fn active_number(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<String> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, |obj| obj.active_number.to_string()).await
+    }
+
+    async fn dial(&self, number: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.dial(&QString::from(&number))).await
+    }
+
+    async fn answer(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, Modem::answer).await
+    }
+
+    async fn hangup(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, Modem::hangup).await
+    }
+
+    #[zbus(name = "SendDTMF")]
+    async fn send_dtmf(&self, digit: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.send_dtmf(&QString::from(&digit))).await
+    }
+
+    async fn set_speakerphone(&self, on: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_speakerphone(on)).await
+    }
+
+    async fn set_call_muted(&self, muted: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.set_call_muted(muted)).await
+    }
+
+    async fn is_speakerphone_on(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, |obj| obj.speakerphone).await
+    }
+
+    async fn is_call_muted(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, |obj| obj.call_muted).await
+    }
+
+    async fn simulate_incoming_call(&self, number: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.simulate_incoming_call(&QString::from(&number))).await
+    }
+
+    async fn simulate_call_state_change(&self, state: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+        phone(&h).await?;
+        ipc::on_gui(&self.qt, move |obj| obj.simulate_call_state_change(&QString::from(&state))).await
     }
 }
 

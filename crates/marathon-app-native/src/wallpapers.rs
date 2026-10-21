@@ -44,7 +44,7 @@ impl cxx_qt::Initialize for Wallpapers {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
         io::spawn(async move {
-            if let Ok(list) = Service::session("Wallpaper").ask::<_, Vec<OwnedValue>>("GetWallpapers", &()).await {
+            if let Ok(list) = Service::shell("Wallpaper").ask::<_, Vec<OwnedValue>>("GetWallpapers", &()).await {
                 qt.queue(move |mut obj: Pin<&mut Wallpapers>| {
                     obj.as_mut().rust_mut().wallpapers = variant::qlist(&list);
                     obj.wallpapers_changed();

@@ -3,6 +3,7 @@ use cxx_qt_build::CxxQtBuilder;
 fn main() {
     CxxQtBuilder::new()
         .file("src/alarms.rs")
+        .file("src/ambience.rs")
         .file("src/audio.rs")
         .file("src/bluetooth.rs")
         .file("src/cgroup.rs")

@@ -286,7 +286,6 @@ add_executable(test_core_defaultwallpaper
     test_defaultwallpaper.cpp
     ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
-    ../../shell/src/services/wallpaperstore.cpp
 )
 set_target_properties(test_core_defaultwallpaper PROPERTIES AUTOMOC ON)
 target_link_libraries(test_core_defaultwallpaper Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
