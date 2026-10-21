@@ -1,4 +1,12 @@
 {
   "exec": "/usr/bin/pilotd",
-  "permissions": ["bluetooth", "calendar", "contacts", "network", "sms", "telephony"]
+  "permissions": [
+    "alarms",
+    "bluetooth",
+    "calendar",
+    "contacts",
+    "network",
+    "sms",
+    "telephony"
+  ]
 }

@@ -1,0 +1,16 @@
+[Unit]
+Description=Pilot's on-device tool-picking embeddings (llama.cpp)
+Documentation=https://github.com/ggml-org/llama.cpp/tree/master/tools/server
+# Gone once its proxy has been idle.
+StopWhenUnneeded=yes
+
+[Service]
+ExecStart=/usr/libexec/marathon-llm/run embed
+ExecStartPost=/usr/libexec/marathon-llm/run wait 8091
+# The first start downloads the model.
+TimeoutStartSec=infinity
+# Behind the shell and the app in front, ahead of frozen apps under OOM.
+Nice=5
+CPUWeight=50
+IOSchedulingClass=idle
+OOMScoreAdjust=300

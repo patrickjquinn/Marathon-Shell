@@ -1,0 +1,9 @@
+[Unit]
+Description=Pilot's on-device tool-picking embeddings, started on first use
+
+[Socket]
+ListenStream=127.0.0.1:8087
+Service=marathon-llm-embed-proxy.service
+
+[Install]
+WantedBy=sockets.target

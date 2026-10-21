@@ -1,0 +1,9 @@
+[Unit]
+Description=Pilot's on-device language model, started on first use
+
+[Socket]
+ListenStream=127.0.0.1:8088
+Service=marathon-llm-chat-proxy.service
+
+[Install]
+WantedBy=sockets.target

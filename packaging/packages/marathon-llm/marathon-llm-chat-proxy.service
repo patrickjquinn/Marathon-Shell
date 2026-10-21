@@ -1,0 +1,7 @@
+[Unit]
+Description=Pilot's on-device language model: the proxy that keeps it loaded while used
+Requires=marathon-llm-chat.service
+After=marathon-llm-chat.service
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:8090

@@ -1,25 +1,55 @@
 #!/bin/sh
-# Pilot's model server: llama-server on 127.0.0.1:8088, OpenAI-compatible.
-# The model, Qwen3.5-2B (Apache-2.0) quantised by bartowski with llama.cpp,
-# downloads on first start and is checked against its sha256.
+# Pilot's on-device models, each llama-server on a private port behind a
+# socket-activated proxy that exits when idle (marathon-llm*.socket):
+#   run chat    Qwen3 for tool calls and writing: 1.7B with 8 GB of RAM or
+#               more, else 0.6B (Apache-2.0, bartowski's llama.cpp quants).
+#               A plain transformer, so the prompt cache holds across turns
+#               (llama.cpp cannot reuse Qwen3.5's hybrid state).
+#   run embed   multilingual-e5-small (MIT), which picks the tools
+#   run wait P  until the server on port P answers
+# A model downloads on first use and is checked against its sha256.
 set -eu
 
-MODEL=Qwen_Qwen3.5-2B-Q4_K_M.gguf
-URL=https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/$MODEL
-SHA256=57a1085840f497d764a7fc5d346922dbde961efb54cc792ea81d694fd846a1d8
 DIR="${XDG_DATA_HOME:-$HOME/.local/share}/marathon-llm"
 
-mkdir -p "$DIR"
-if [ ! -f "$DIR/$MODEL" ]; then
-	wget -q -c -O "$DIR/$MODEL.part" "$URL"
-	[ "$(sha256sum "$DIR/$MODEL.part" | cut -d' ' -f1)" = "$SHA256" ] || {
-		rm -f "$DIR/$MODEL.part"
-		echo "marathon-llm: $MODEL failed its checksum" >&2
+fetch() { # file url sha256
+	[ -f "$DIR/$1" ] && return
+	mkdir -p "$DIR"
+	wget -q -c -O "$DIR/$1.part" "$2"
+	[ "$(sha256sum "$DIR/$1.part" | cut -d' ' -f1)" = "$3" ] || {
+		rm -f "$DIR/$1.part"
+		echo "marathon-llm: $1 failed its checksum" >&2
 		exit 1
 	}
-	mv "$DIR/$MODEL.part" "$DIR/$MODEL"
-fi
+	mv "$DIR/$1.part" "$DIR/$1"
+}
 
-exec llama-server --host 127.0.0.1 --port 8088 --model "$DIR/$MODEL" --alias qwen3.5-2b \
-	--jinja --reasoning off --threads 4 --ctx-size 8192 --parallel 1 --flash-attn on \
-	--cache-reuse 256 --no-webui
+case "${1:-}" in
+chat)
+	if [ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ]; then
+		size=1.7B sha=72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb
+	else
+		size=0.6B sha=9acfc1e001311f34b4252001b626f2e466d592a42065f66571bff3790d4e1b14
+	fi
+	model=Qwen_Qwen3-$size-Q4_K_M.gguf
+	fetch "$model" "https://huggingface.co/bartowski/Qwen_Qwen3-$size-GGUF/resolve/main/$model" "$sha"
+	exec llama-server --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
+		--jinja --reasoning off --threads 4 --ctx-size 8192 --parallel 1 --flash-attn on \
+		--cache-reuse 256 --no-webui
+	;;
+embed)
+	model=multilingual-e5-small-Q8_0.gguf
+	fetch "$model" "https://huggingface.co/keisuke-miyako/multilingual-e5-small-gguf-q8_0/resolve/main/$model" \
+		0d5a5a0b0ad84faad6357a6145e769b0661f0efbf53acf74598afc34dab454f4
+	exec llama-server --host 127.0.0.1 --port 8091 --model "$DIR/$model" --alias e5-small \
+		--embedding --pooling mean --threads 2 --ctx-size 512 --batch-size 512 --ubatch-size 512 \
+		--parallel 1 --no-webui
+	;;
+wait)
+	until wget -q -O /dev/null "http://127.0.0.1:$2/health"; do sleep 0.3; done
+	;;
+*)
+	echo "usage: run chat|embed|wait PORT" >&2
+	exit 2
+	;;
+esac

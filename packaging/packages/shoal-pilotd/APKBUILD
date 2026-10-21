@@ -13,7 +13,9 @@
 # process, Navigation1.GetForegroundApp, taken when it is an Android app
 # (waydroid.<package>, deckardd's Keel provider for it).
 # 0004 adds local mode, which pilotd.toml (/etc/shoal-pilot) turns on: the
-# model is llama-server on the phone, no relay, no Reef licence, no keys.
+# model is llama-server on the phone (marathon-llm), tools picked by an
+# embedding model, web search on the phone (marathon-websearch); no relay,
+# no Reef licence, no keys.
 #
 # The pinned commit is no longer in the public export: build it with
 # PILOT_SRC=<Shipwright checkout> PILOT_REF=<this commit>
@@ -21,13 +23,13 @@
 # not built.
 pkgname=shoal-pilotd
 pkgver=0.1.0
-pkgrel=8
+pkgrel=9
 _commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 pkgdesc="Pilot assistant daemon for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
 arch="aarch64 x86_64"
 license="LicenseRef-Shipwright-Proprietary"
-depends="dbus systemd"
+depends="dbus marathon-llm systemd"
 makedepends="cargo clang"
 source="shoal-pilot-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
 	0001-pilotd-marathon-adapters.patch

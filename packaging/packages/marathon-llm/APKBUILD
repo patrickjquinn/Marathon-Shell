@@ -1,32 +1,48 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
-# Pilot's on-device model: llama.cpp's llama-server (Alpine's) serving
-# Qwen3.5-2B on 127.0.0.1:8088, OpenAI-compatible, for pilotd's local
-# mode. The model (1.4 GB) downloads to ~/.local/share/marathon-llm on
-# first start; the unit runs only on phones with 8 GB of RAM or more.
+# Pilot's on-device models for pilotd's local mode, llama.cpp's
+# llama-server (Alpine's), each started on first use and stopped when idle:
+# Qwen3 (1.7B with 8 GB of RAM, else 0.6B) on 127.0.0.1:8088,
+# OpenAI-compatible, and multilingual-e5-small embeddings on :8087, which
+# pick the tools the model sees. Models download to
+# ~/.local/share/marathon-llm on first use.
 pkgname=marathon-llm
 pkgver=0.1.0
-pkgrel=0
+pkgrel=1
 pkgdesc="On-device language model server for Pilot"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="noarch"
 license="Apache-2.0"
 depends="llama-server wget"
-source="
-	run
-	marathon-llm.service
+_units="
+	marathon-llm-chat.socket
+	marathon-llm-chat-proxy.service
+	marathon-llm-chat.service
+	marathon-llm-embed.socket
+	marathon-llm-embed-proxy.service
+	marathon-llm-embed.service
 	"
+source="run $_units"
 options="!check"
 
 package() {
 	install -Dm755 "$srcdir"/run "$pkgdir"/usr/libexec/marathon-llm/run
-	install -Dm644 "$srcdir"/marathon-llm.service \
-		"$pkgdir"/usr/lib/systemd/user/marathon-llm.service
-	install -d "$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants
-	ln -s ../marathon-llm.service \
-		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/marathon-llm.service
+	local u
+	for u in $_units; do
+		install -Dm644 "$srcdir"/$u "$pkgdir"/usr/lib/systemd/user/$u
+	done
+	install -d "$pkgdir"/usr/lib/systemd/user/sockets.target.wants
+	for u in chat embed; do
+		ln -s ../marathon-llm-$u.socket \
+			"$pkgdir"/usr/lib/systemd/user/sockets.target.wants/marathon-llm-$u.socket
+	done
 }
 
 sha512sums="
-752065f8b6801142f658f7e7e3811b3cbcf441d476689cd954ec6062f34306c589983040125a25bf197f08d8f734ae40759fe5a341b28a451ba32729e050a2df  run
-dacdf54b87cb3c1968f7b9db002e0ab37a02c4946a597db4017f51eb75c4cd607a9d7b05201ae60b399a417467a4d83abb805ad1ab8c7fe6849e46e6097d08e6  marathon-llm.service
+69c399ecea9e6dac0a902c7d07bb2ad297e129b43f3b6298ffd3199bdff6b6d522e018d5d1a5d0517a1234d3ea138c2a18f8336a7d559934bbfb29817cb3c06e  run
+a1fbcff490c664e21b242c129926cc061e5328f3f03c54d5bb5daafacdd9a597ba2a61a1b8244292b6a8facbb285c426b8546583e2145dc792b48f44dd34b13e  marathon-llm-chat.socket
+7e7ee00bc380fe693a0d10717a103ba411f80a3e1dda642f165cf7c195218bae0317ec8c7b1ef989c21f7d6fc7c4aaadcb2bb1fbe2532fd53d02bcaf263fb43c  marathon-llm-chat-proxy.service
+5943eda6e5174dd922268348fdae2ed9d53fb3469d72d251f3bff020e027d71e325be6b3603b9fa1c34a21d9d3989fe3d1738bd155dc1ace46834748f5096d15  marathon-llm-chat.service
+e428e18ce0827cb6497cd5d194589a363611c9028ac65a7a02337ff922a0ad0c771f003931d9cc701301324deec9bb695b10e6012aa23ad2ccf5b332202b3fa4  marathon-llm-embed.socket
+eb39aee26daaf096e35b3586574a331307270ff9ba0e53ff1118eeceb4091db37ee628ce6da3ac00aaf885f303e3ed6335264087b39809454f385076b8f81d97  marathon-llm-embed-proxy.service
+3c044425411943ec177cdf6b2160d988be9fe468d87efa1fa53bcb1c29ad33584729dff0bc875e37e54d2764a79b3b66d7c5420ae97db22890cf92da30fd7d98  marathon-llm-embed.service
 "

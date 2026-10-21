@@ -1,33 +1,41 @@
-From 4b16abf0b31deaee32e7eba57d7bad32c3fa648e Mon Sep 17 00:00:00 2001
+From 7bec1ca6f52f1c10834b3a3aa7c5570feeeb4ef6 Mon Sep 17 00:00:00 2001
 From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 21 Oct 2026 11:52:47 +0100
 Subject: [PATCH] pilotd: local mode
 
 [local] in pilotd.toml runs the standard backend on the phone: the LLM is
-llama.cpp's llama-server on this machine, and LocalJev stands in for Jev,
-handing the phone's own parsers what they do without a model and
-everything else to the model. No relay, no Reef licence, no keys; replies
-are stamped as processed on the device.
+llama.cpp's llama-server on this machine with a short prompt of its own,
+and LocalJev stands in for Jev. The phone's parsers take what they do
+without a model; apps and actions (the two-stage tool routing) are ranked
+by a small embedding model plus shared words, so the model sees only the
+tools that fit; web.search is a service on the phone. No relay, no Reef
+licence, no keys; replies are stamped as processed on the device, and
+answers say they were written on the phone.
+
+The system prompt no longer carries the time: it moved to the turn, so a
+model server's prompt cache keeps the prompt.
 ---
- shoal/pilot/pilotd/src/config.rs | 46 +++++++++++++++++++++++++++++-
- shoal/pilot/pilotd/src/daemon.rs | 49 +++++++++++++++++++++++++++++---
- shoal/pilot/pilotd/src/jev.rs    | 42 +++++++++++++++++++++++++++
- 3 files changed, 132 insertions(+), 5 deletions(-)
+ shoal/pilot/pilotd/src/config.rs   |  51 ++++++-
+ shoal/pilot/pilotd/src/daemon.rs   |  55 +++++++-
+ shoal/pilot/pilotd/src/jev.rs      | 216 +++++++++++++++++++++++++++++
+ shoal/pilot/pilotd/src/pipeline.rs |  77 +++++++---
+ 4 files changed, 378 insertions(+), 21 deletions(-)
 
 diff --git a/shoal/pilot/pilotd/src/config.rs b/shoal/pilot/pilotd/src/config.rs
-index ebea6c4..a0d46b9 100644
+index ebea6c4..3732429 100644
 --- a/shoal/pilot/pilotd/src/config.rs
 +++ b/shoal/pilot/pilotd/src/config.rs
-@@ -112,6 +112,8 @@ pub enum JevConfig {
+@@ -112,6 +112,9 @@ pub enum JevConfig {
          #[serde(default = "default_jev_provider")]
          provider: String,
      },
-+    /// Local mode's stand-in (jev.rs `LocalJev`): no requests.
-+    Local,
++    /// Local mode's stand-in (jev.rs `LocalJev`): embeddings on this
++    /// machine at `url`.
++    Local { url: String },
      /// SGLang `/v1/score` over an open model (Lighthouse, section 10.1).
      Score {
          url: String,
-@@ -359,6 +361,37 @@ impl DirectConfig {
+@@ -359,6 +362,40 @@ impl DirectConfig {
      }
  }
  
@@ -47,6 +55,8 @@ index ebea6c4..a0d46b9 100644
 +    /// The `web.search` tool, the relay's contract, on this machine.
 +    /// Empty: not offered.
 +    pub web_search_url: String,
++    /// OpenAI-compatible embeddings on this machine, which pick the tools.
++    pub embed_url: String,
 +}
 +
 +impl Default for LocalConfig {
@@ -58,6 +68,7 @@ index ebea6c4..a0d46b9 100644
 +            max_completion_tokens: 1024,
 +            timeout_secs: 120,
 +            web_search_url: "http://127.0.0.1:8089/v1/search".into(),
++            embed_url: "http://127.0.0.1:8087/v1/embeddings".into(),
 +        }
 +    }
 +}
@@ -65,7 +76,7 @@ index ebea6c4..a0d46b9 100644
  #[derive(Debug, Clone, PartialEq, Deserialize)]
  #[serde(default, deny_unknown_fields)]
  pub struct Config {
-@@ -382,6 +415,7 @@ pub struct Config {
+@@ -382,6 +419,7 @@ pub struct Config {
      pub events: EventsConfig,
      pub sheet: SheetConfig,
      pub direct: DirectConfig,
@@ -73,7 +84,7 @@ index ebea6c4..a0d46b9 100644
      pub backends: BTreeMap<String, Backend>,
  }
  
-@@ -421,6 +455,7 @@ impl Default for Config {
+@@ -421,6 +459,7 @@ impl Default for Config {
              events: EventsConfig::default(),
              sheet: SheetConfig::default(),
              direct: DirectConfig::default(),
@@ -81,11 +92,11 @@ index ebea6c4..a0d46b9 100644
              backends,
          }
      }
-@@ -481,10 +516,11 @@ impl Config {
+@@ -481,10 +520,11 @@ impl Config {
              let urls = [
                  match &b.jev {
                      JevConfig::Jev { url, .. } | JevConfig::Score { url, .. } => url.as_str(),
-+                    JevConfig::Local => "",
++                    JevConfig::Local { url } => url.as_str(),
                  },
                  b.llm.url.as_str(),
              ];
@@ -94,13 +105,14 @@ index ebea6c4..a0d46b9 100644
                  // Plain HTTP only to this machine (tests, a local relay).
                  if !u.starts_with("https://") && !is_local(u) {
                      return Err(ConfigError::Invalid(format!(
-@@ -515,6 +551,14 @@ impl Config {
+@@ -515,6 +555,15 @@ impl Config {
                  return Err(ConfigError::Invalid(format!("{name} {x} is not https")));
              }
          }
 +        for (name, x) in [
 +            ("local.llm_url", &self.local.llm_url),
 +            ("local.web_search_url", &self.local.web_search_url),
++            ("local.embed_url", &self.local.embed_url),
 +        ] {
 +            if self.local.enabled && !x.is_empty() && !is_local(x) {
 +                return Err(ConfigError::Invalid(format!("{name} {x} is not on this machine")));
@@ -110,7 +122,7 @@ index ebea6c4..a0d46b9 100644
              return Err(ConfigError::Invalid("no [backends.standard]".into()));
          }
 diff --git a/shoal/pilot/pilotd/src/daemon.rs b/shoal/pilot/pilotd/src/daemon.rs
-index 2c184c0..be99d7b 100644
+index 2c184c0..7564f56 100644
 --- a/shoal/pilot/pilotd/src/daemon.rs
 +++ b/shoal/pilot/pilotd/src/daemon.rs
 @@ -11,7 +11,7 @@ use std::time::Duration;
@@ -131,15 +143,19 @@ index 2c184c0..be99d7b 100644
      };
      standard.llm.url.clone_from(&d.llm_url);
      standard.llm.provider = "groq".into();
-@@ -257,6 +257,7 @@ pub fn make_backends(cfg: &Config, name: &str, remote: &Remote) -> Option<Backen
+@@ -257,6 +257,11 @@ pub fn make_backends(cfg: &Config, name: &str, remote: &Remote) -> Option<Backen
              model: model.clone(),
              provider: provider.clone(),
          }),
-+        JevConfig::Local => Arc::new(LocalJev),
++        JevConfig::Local { url } => Arc::new(LocalJev {
++            remote: remote.clone(),
++            embed_url: url.clone(),
++            cache: std::sync::Mutex::default(),
++        }),
          JevConfig::Score {
              url,
              model,
-@@ -320,7 +321,43 @@ fn proactive(
+@@ -320,7 +325,45 @@ fn proactive(
      (triage, events)
  }
  
@@ -155,7 +171,9 @@ index 2c184c0..be99d7b 100644
 +        .backends
 +        .get_mut("standard")
 +        .ok_or_else(|| StartError::Backend("standard".into()))?;
-+    standard.jev = JevConfig::Local;
++    standard.jev = JevConfig::Local {
++        url: l.embed_url.clone(),
++    };
 +    standard.llm.url.clone_from(&l.llm_url);
 +    standard.llm.model.clone_from(&l.model);
 +    standard.llm.provider = "local".into();
@@ -184,7 +202,7 @@ index 2c184c0..be99d7b 100644
  fn direct_credential(
      given: Option<Credential>,
      config: &mut Config,
-@@ -328,7 +365,11 @@ fn direct_credential(
+@@ -328,7 +371,11 @@ fn direct_credential(
      if given.is_some() {
          return Ok(given);
      }
@@ -198,22 +216,183 @@ index 2c184c0..be99d7b 100644
  
  pub fn build(opts: Options) -> Result<Daemon, StartError> {
 diff --git a/shoal/pilot/pilotd/src/jev.rs b/shoal/pilot/pilotd/src/jev.rs
-index 8154d1d..e763e6e 100644
+index 8154d1d..7e88792 100644
 --- a/shoal/pilot/pilotd/src/jev.rs
 +++ b/shoal/pilot/pilotd/src/jev.rs
-@@ -270,6 +270,48 @@ impl JevClient for HttpJev {
+@@ -270,6 +270,222 @@ impl JevClient for HttpJev {
      }
  }
  
 +/// Local mode's Jev: the phone's own parsers take what they can do without
 +/// a model (a timer, an alarm, music); everything else goes to the local
-+/// model, which picks its tools itself. It asks nothing of anyone.
-+pub struct LocalJev;
++/// model. A choice among apps or actions (the two-stage tool routing) is
++/// made by meaning, with a small embedding model on the phone, so the model
++/// sees only the tools that can do it; by shared words while that model is
++/// unavailable.
++pub struct LocalJev {
++    pub remote: Remote,
++    /// OpenAI-compatible embeddings on this machine.
++    pub embed_url: String,
++    /// Options' embeddings: their descriptions rarely change.
++    pub cache: std::sync::Mutex<std::collections::HashMap<String, Vec<f32>>>,
++}
++
++impl LocalJev {
++    async fn embed(&self, purpose: &str, texts: &[String]) -> Result<Vec<Vec<f32>>, RemoteError> {
++        let body = json!({"model": "e5-small", "input": texts});
++        let reply = self.remote.post_json("local", purpose, &self.embed_url, &body).await?;
++        let data = reply
++            .body
++            .get("data")
++            .and_then(Value::as_array)
++            .ok_or_else(|| bad("local", "no embeddings"))?;
++        let mut out = vec![Vec::new(); texts.len()];
++        for (i, d) in data.iter().enumerate() {
++            let at = d.get("index").and_then(Value::as_u64).map_or(i, |x| usize::try_from(x).unwrap_or(i));
++            let v: Vec<f32> = d
++                .get("embedding")
++                .and_then(Value::as_array)
++                .map(|a| a.iter().filter_map(Value::as_f64).map(|x| x as f32).collect())
++                .unwrap_or_default();
++            if let Some(slot) = out.get_mut(at) {
++                *slot = v;
++            }
++        }
++        if out.iter().any(Vec::is_empty) {
++            return Err(bad("local", "an embedding is missing"));
++        }
++        Ok(out)
++    }
++
++    /// [`rank`] by meaning: e5's query and passage forms, cosine similarity.
++    async fn rank_by_meaning(
++        &self,
++        utterance: &str,
++        options: &[String],
++        descriptions: &[String],
++    ) -> Result<Answer, RemoteError> {
++        let passages: Vec<String> = options
++            .iter()
++            .enumerate()
++            .map(|(i, o)| {
++                let d = descriptions.get(i).map_or("", String::as_str);
++                format!("passage: {} {d}", o.replace(['.', '_'], " ")).chars().take(1500).collect()
++            })
++            .collect();
++        let missing: Vec<String> = {
++            let cache = self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++            passages.iter().filter(|p| !cache.contains_key(*p)).cloned().collect()
++        };
++        let mut texts = vec![format!("query: {utterance}")];
++        texts.extend(missing.iter().cloned());
++        let mut vectors = self.embed("decide", &texts).await?.into_iter();
++        let query = vectors.next().unwrap_or_default();
++        let mut cache = self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++        for (p, v) in missing.into_iter().zip(vectors) {
++            cache.insert(p, v);
++        }
++        let cosine = |a: &[f32], b: &[f32]| {
++            let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
++            let norm = |v: &[f32]| v.iter().map(|x| x * x).sum::<f32>().sqrt().max(f32::EPSILON);
++            f64::from(dot / (norm(a) * norm(b)))
++        };
++        // e5's similarities sit close together: sharpened, and the words
++        // the request shares with an option added (hybrid retrieval).
++        let words = lexical(utterance, options, descriptions);
++        let scores: Vec<f64> = passages
++            .iter()
++            .zip(words)
++            .map(|(p, w)| cache.get(p).map_or(0.0, |v| cosine(&query, v)) / 0.02 + w)
++            .collect();
++        Ok(distribution(options, &scores))
++    }
++}
++
++/// Words of `text`, lowercased, stemmed a little, without the commonest.
++fn words(text: &str) -> Vec<String> {
++    const STOP: &[&str] = &[
++        "a", "an", "the", "to", "of", "in", "on", "for", "and", "or", "is", "it", "me", "my",
++        "i", "you", "what", "can", "do", "does", "please", "with", "at", "this", "that", "be",
++        "are", "how", "app",
++    ];
++    text.to_lowercase()
++        .split(|c: char| !c.is_alphanumeric())
++        .filter(|w| w.len() > 1 && !STOP.contains(w))
++        .map(|w| {
++            let w = w.strip_suffix("ing").filter(|r| r.len() > 2).unwrap_or(w);
++            let w = w.strip_suffix("es").filter(|r| r.len() > 2).unwrap_or(w);
++            w.strip_suffix('s').filter(|r| r.len() > 2).unwrap_or(w).to_owned()
++        })
++        .collect()
++}
++
++/// The options most like `utterance`, most likely first, by [`lexical`].
++fn rank(utterance: &str, options: &[String], descriptions: &[String]) -> Answer {
++    distribution(options, &lexical(utterance, options, descriptions))
++}
++
++/// Each request word an option shares counts the more, the fewer options
++/// have it.
++fn lexical(utterance: &str, options: &[String], descriptions: &[String]) -> Vec<f64> {
++    let asked = words(utterance);
++    let texts: Vec<Vec<String>> = options
++        .iter()
++        .enumerate()
++        .map(|(i, o)| words(&format!("{o} {}", descriptions.get(i).map_or("", String::as_str))))
++        .collect();
++    #[allow(clippy::cast_precision_loss, reason = "a handful of options")]
++    let n = texts.len().max(1) as f64;
++    texts
++        .iter()
++        .map(|t| {
++            asked
++                .iter()
++                .filter(|w| t.contains(w))
++                .map(|w| {
++                    #[allow(clippy::cast_precision_loss, reason = "a handful of options")]
++                    let with = texts.iter().filter(|x| x.contains(w)).count() as f64;
++                    (n / with).ln() + 1.0
++                })
++                .sum()
++        })
++        .collect()
++}
++
++/// Options most likely first, from scores (softmax).
++fn distribution(options: &[String], scores: &[f64]) -> Answer {
++    let top = scores.iter().copied().fold(f64::MIN, f64::max);
++    let total: f64 = scores.iter().map(|s| (s - top).exp()).sum();
++    let mut distribution: Vec<(String, f64)> = options
++        .iter()
++        .cloned()
++        .zip(scores.iter().map(|s| (s - top).exp() / total))
++        .collect();
++    distribution.sort_by(|a, b| b.1.total_cmp(&a.1));
++    let confidence = distribution.first().map_or(0.0, |d| d.1);
++    Answer::Choice {
++        distribution,
++        confidence,
++    }
++}
++
++/// Facts that change: the web, before the model answers.
++fn needs_web(utterance: &str) -> bool {
++    const WORDS: &[&str] = &[
++        "news", "latest", "today", "tonight", "current", "price", "prices", "cost", "score",
++        "scores", "result", "results", "won", "match", "release", "version", "stock", "election",
++        "recent", "yesterday",
++    ];
++    const PHRASES: &[&str] = &["who is", "opening hours", "this week", "right now"];
++    let lower = utterance.to_lowercase();
++    !lower.contains("weather")
++        && (lower.split(|c: char| !c.is_alphanumeric()).any(|w| WORDS.contains(&w))
++            || PHRASES.iter().any(|p| lower.contains(p)))
++}
 +
 +#[async_trait]
 +impl JevClient for LocalJev {
 +    async fn decide(&self, req: &DecideRequest, purpose: &str) -> Result<Answers, RemoteError> {
-+        if purpose != "decide" {
++        if purpose != "decide" && purpose != "decide-action" {
 +            return Err(RemoteError::Offline);
 +        }
 +        let utterance = req.state.get("utterance").and_then(Value::as_str).unwrap_or_default();
@@ -223,22 +402,35 @@ index 8154d1d..e763e6e 100644
 +            None => ("open_ended", 0.5, 1.0),
 +        };
 +        let mut out = BTreeMap::new();
-+        out.insert(
-+            "intent".to_owned(),
-+            Answer::Choice {
-+                distribution: vec![(intent.to_owned(), confidence)],
-+                confidence,
-+            },
-+        );
-+        out.insert("needs_generation".to_owned(), Answer::Noul { p: generation });
-+        out.insert("needs_web".to_owned(), Answer::Noul { p: 0.0 });
-+        out.insert(
-+            "ambiguity".to_owned(),
-+            Answer::Score {
-+                value: 0.0,
-+                confidence: 1.0,
-+            },
-+        );
++        for (name, q) in &req.questions {
++            let answer = match (name.as_str(), q) {
++                ("intent", _) => Answer::Choice {
++                    distribution: vec![(intent.to_owned(), confidence)],
++                    confidence,
++                },
++                ("needs_generation", _) => Answer::Noul { p: generation },
++                (_, Question::Choice {
++                    options,
++                    descriptions,
++                    ..
++                }) => match self.rank_by_meaning(utterance, options, descriptions).await {
++                    Ok(a) => a,
++                    Err(e) => {
++                        log::warn!("local embeddings: {e}; ranking by words");
++                        rank(utterance, options, descriptions)
++                    }
++                },
++                ("needs_web", _) => Answer::Noul {
++                    p: if needs_web(utterance) { 0.9 } else { 0.0 },
++                },
++                (_, Question::Noul { .. }) => Answer::Noul { p: 0.0 },
++                (_, Question::Score { .. }) => Answer::Score {
++                    value: 0.0,
++                    confidence: 1.0,
++                },
++            };
++            out.insert(name.clone(), answer);
++        }
 +        Ok(Answers(out))
 +    }
 +
@@ -250,3 +442,154 @@ index 8154d1d..e763e6e 100644
  /// A label the scorer model can answer with, and its token id in that
  /// model's tokenizer (configuration, since it depends on the model).
  #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+diff --git a/shoal/pilot/pilotd/src/pipeline.rs b/shoal/pilot/pilotd/src/pipeline.rs
+index e346151..609e29e 100644
+--- a/shoal/pilot/pilotd/src/pipeline.rs
++++ b/shoal/pilot/pilotd/src/pipeline.rs
+@@ -349,15 +349,16 @@ impl TurnResult {
+     }
+ }
+ 
+-/// Where a turn's answer came from, for the provenance line.
+-fn via(r: &TurnResult) -> &'static str {
++/// Where a turn's answer came from, for the provenance line. `local`: the
++/// model runs on the phone.
++fn via(r: &TurnResult, local: bool) -> &'static str {
+     let web = r
+         .cards
+         .iter()
+         .any(|c| matches!(c, Card::Answer { sources, .. } if !sources.is_empty()));
+     if web {
+         "web"
+-    } else if r.route.starts_with("qwen") || r.route == "look" {
++    } else if (r.route.starts_with("qwen") || r.route == "look") && !local {
+         "cloud"
+     } else {
+         "phone"
+@@ -1341,7 +1342,7 @@ impl Pipeline {
+             result.cards.push(card);
+         }
+         result.ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+-        result.via = via(&result).into();
++        result.via = via(&result, self.backends().llm.provider() == "local").into();
+         result.spoken = spoken;
+         if spoken {
+             result.transcript = Some(said.to_owned());
+@@ -2239,11 +2240,14 @@ impl Pipeline {
+         s
+     }
+ 
+-    fn system_prompt(&self, hints: &[(String, f64)]) -> String {
+-        let now = (self.now)();
++    /// The same every turn, so a model server's prompt cache keeps it: what
++    /// changes (the time, hints, memory) is in [`Self::turn_context`].
++    fn system_prompt(&self) -> String {
++        if self.backends().llm.provider() == "local" {
++            return self.local_system_prompt();
++        }
+         let mut p = format!(
+-            "You are Pilot, the assistant on the person's Sailfish OS phone.\n\
+-             Today is {}, local time {}; this weekend is {}.{}{}\n\
++            "You are Pilot, the assistant on the person's phone.{}{}\n\
+              \n\
+              Answering:\n\
+              - Be brief: one to three sentences unless asked for more.\n\
+@@ -2299,9 +2303,6 @@ impl Pipeline {
+              Privacy: personal details in the person's words are placeholders such as <CONTACT_1> \
+              or <PHONE_1>. Use them exactly as written in replies and tool arguments; never guess \
+              what they stand for.",
+-            now.long_date(),
+-            now.hhmm(),
+-            now.weekend(),
+             crate::localtime::zone_name().map_or_else(String::new, |z| format!(
+                 " The phone's time zone is {z}: for weather and places assume {} unless the \
+                  person says otherwise; for news and prices, that country.",
+@@ -2310,6 +2311,41 @@ impl Pipeline {
+             crate::lang::prompt_line(&crate::lang::current())
+         );
+         let _ = write!(p, "\n\n{}", self.capabilities_line());
++        p
++    }
++
++    /// For a small model on the phone: short, so it reads quickly, and
++    /// letting it answer from what it knows.
++    fn local_system_prompt(&self) -> String {
++        let mut p = String::from(
++            "You are Pilot, the assistant on the person's phone. Answer in one to three plain \
++             sentences, the answer first, no Markdown.\n\
++             - Answer general knowledge, explanations, advice and writing yourself.\n\
++             - Use a tool for anything on the phone or the person's own data (calendar, \
++             contacts, messages, timers, settings, apps). Never say you did something without \
++             the tool call that did it.\n\
++             - News, prices, scores and other facts that change: use the web results you are \
++             given, name the site, and say so if they do not answer it.\n\
++             - Details like <CONTACT_1> or <PHONE_1> are placeholders: use them exactly.\n\
++             - After an answer (not an action), add a last line: FOLLOWUPS: two short questions \
++             the person might ask next, separated by |.",
++        );
++        if let Some(z) = crate::localtime::zone_name() {
++            let _ = write!(p, "\nThe phone's time zone is {z}; assume {} for places and weather.", crate::localtime::zone_city(&z));
++        }
++        let _ = write!(p, "{}", crate::lang::prompt_line(&crate::lang::current()));
++        p
++    }
++
++    /// What this turn adds to the request: the time, and Jev's hints.
++    fn turn_context(&self, hints: &[(String, f64)]) -> String {
++        let now = (self.now)();
++        let mut p = format!(
++            "Today is {}, local time {}; this weekend is {}.",
++            now.long_date(),
++            now.hhmm(),
++            now.weekend()
++        );
+         if !hints.is_empty() {
+             let h: Vec<String> = hints.iter().map(|(i, p)| format!("{i} ({p:.2})")).collect();
+             let _ = write!(p, " The request is probably one of: {}.", h.join(", "));
+@@ -2365,7 +2401,7 @@ impl Pipeline {
+         if !memory.is_empty() {
+             steps.push(how("memory", "Used what you asked Pilot to remember"));
+         }
+-        let mut system = self.system_prompt(hints) + &memory;
++        let mut system = self.system_prompt();
+         if self.spoken.load(Ordering::Relaxed) {
+             // Speech recognition writes fluent words for speech it could
+             // not follow ("And so my fellow man has not..."), with no sign
+@@ -2385,7 +2421,11 @@ impl Pipeline {
+             ));
+         }
+         messages.extend(earlier);
+-        messages.push(Message::text(Role::User, redacted));
++        let context = self.turn_context(hints) + &memory;
++        messages.push(Message::text(
++            Role::User,
++            format!("[{}]\n\n{redacted}", context.trim()),
++        ));
+         let registry = self.registry();
+         let tools = self
+             .select_tools(&registry, scope, redacted, backends)
+@@ -2685,7 +2725,11 @@ impl Pipeline {
+                 if text.is_empty() && !cards.is_empty() {
+                     return cards;
+                 }
+-                steps.push(how("cloud", "Wrote the answer in the cloud"));
++                if backends.llm.provider() == "local" {
++                    steps.push(how("phone", "Wrote the answer on the phone"));
++                } else {
++                    steps.push(how("cloud", "Wrote the answer in the cloud"));
++                }
+                 if own_details > 0 {
+                     steps.push(how(
+                         "private",
+@@ -3033,8 +3077,9 @@ impl Pipeline {
+                 Message::text(
+                     Role::System,
+                     format!(
+-                        "{} The user just took the attached photo with the phone's camera.",
+-                        self.system_prompt(&[])
++                        "{} {} The user just took the attached photo with the phone's camera.",
++                        self.system_prompt(),
++                        self.turn_context(&[])
+                     ),
+                 ),
+                 user,
