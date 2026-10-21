@@ -75,7 +75,7 @@ const POWER: Service = Service::shell("Power");
 const NETWORK: Service = Service::shell("Network");
 const BLUETOOTH: Service = Service::shell("Bluetooth");
 const DISPLAY: Service = Service::shell("Display");
-const SETTINGS: Service = Service::session("Settings");
+const SETTINGS: Service = Service::shell("Settings");
 const AUDIO: Service = Service::session("Audio");
 
 #[derive(Default)]

@@ -5,7 +5,7 @@
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
 #include "navigationroutercpp.h"
-#include "settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -24,7 +24,7 @@ static const QRegularExpression &whitespace() {
 
 UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(AppModel *appModel, MarathonAppRegistry *registry,
                                                  MarathonAppScanner  *scanner,
-                                                 SettingsManager     *settings,
+                                                 marathon::Settings     *settings,
                                                  NavigationRouterCpp *router,
                                                  AppLaunchService *appLaunch, QObject *parent)
     : QObject(parent)
@@ -289,7 +289,7 @@ void UnifiedSearchServiceCpp::appendDeepLinkItems() {
 bool UnifiedSearchServiceCpp::shouldIndexNativeApp() const {
     if (!m_settings)
         return true;
-    return m_settings->searchNativeApps();
+    return m_settings->getSearchNativeApps();
 }
 
 int UnifiedSearchServiceCpp::computeScore(const SearchItem &item, const QString &query) const {

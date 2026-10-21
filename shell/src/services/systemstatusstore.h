@@ -12,7 +12,9 @@ class Network;
 class Bluetooth;
 class Modem;
 class NotificationServiceCpp;
-class SettingsManager;
+namespace marathon {
+    class Settings;
+}
 
 class SystemStatusStore : public QObject {
     Q_OBJECT
@@ -50,7 +52,7 @@ class SystemStatusStore : public QObject {
     explicit SystemStatusStore(Power *powerManager, Network *networkManager,
                                Bluetooth *bluetoothManager, Modem *modemManager,
                                NotificationServiceCpp *notificationService,
-                               SettingsManager *settingsManager, QObject *parent = nullptr);
+                               marathon::Settings *settingsManager, QObject *parent = nullptr);
 
     int batteryLevel() const {
         return m_batteryLevel;
@@ -174,7 +176,7 @@ class SystemStatusStore : public QObject {
     Bluetooth              *m_bluetoothManager;
     Modem        *m_modemManager;
     NotificationServiceCpp *m_notificationService;
-    SettingsManager        *m_settingsManager;
+    marathon::Settings        *m_settingsManager;
 
     int                     m_batteryLevel = 0;
     bool                    m_isCharging   = false;

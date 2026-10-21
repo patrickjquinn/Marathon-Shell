@@ -183,8 +183,6 @@ find_package(Qt6 REQUIRED COMPONENTS DBus Qml)
 add_executable(test_core_settingscontract
     test_settingscontract.cpp
     ../../tools/marathon-app-runner/ipc/dbusnormalize.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
 )
 target_link_libraries(test_core_settingscontract Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml MarathonCore marathon_app_native)
 target_include_directories(test_core_settingscontract PRIVATE
@@ -270,38 +268,6 @@ target_link_libraries(test_core_wakeonkeyfilter Qt6::Test Qt6::Gui Qt6::GuiPriva
 target_include_directories(test_core_wakeonkeyfilter PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Core_WakeOnKeyFilter COMMAND test_core_wakeonkeyfilter)
 set_tests_properties(Core_WakeOnKeyFilter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-# The old auto-lock switch carried into the lock delay
-add_executable(test_core_lockdelaymigration
-    test_lockdelaymigration.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
-target_link_libraries(test_core_lockdelaymigration Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_core_lockdelaymigration PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Core_LockDelayMigration COMMAND test_core_lockdelaymigration)
-
-# New installs default to the Mývatn aurora; a chosen wallpaper stays
-add_executable(test_core_defaultwallpaper
-    test_defaultwallpaper.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
-set_target_properties(test_core_defaultwallpaper PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_defaultwallpaper Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_core_defaultwallpaper PRIVATE ${CMAKE_SOURCE_DIR}/shell/src ${CMAKE_SOURCE_DIR}/shell)
-add_test(NAME Core_DefaultWallpaper COMMAND test_core_defaultwallpaper)
-
-# Unstorable settings values neither poison the file nor reach QML
-add_executable(test_core_settingsstore
-    test_settingsstore.cpp
-    ../../shell/src/managers/settingsmanager.cpp
-    ../../shell/src/managers/deviceprofile.cpp
-)
-set_target_properties(test_core_settingsstore PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_settingsstore Qt6::Test Qt6::Core Qt6::DBus Qt6::Qml)
-target_include_directories(test_core_settingsstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
-add_test(NAME Core_SettingsStore COMMAND test_core_settingsstore)
 
 # Music's MPRIS publisher, on a private session bus
 find_program(DBUS_RUN_SESSION dbus-run-session)

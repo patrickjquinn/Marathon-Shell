@@ -99,27 +99,11 @@ fn built_in(path: &str) -> Option<(u8, u8, u8)> {
     found.filter(|_| path.contains("wallpapers/")).map(|w| w.2)
 }
 
-fn data_dir() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var("MARATHON_DATA_DIR").ok().filter(|d| !d.trim().is_empty()) {
-        return Some(PathBuf::from(dir.trim()));
-    }
-    let user = dirs::home_dir().map(|h| h.join(".local/share/marathon-shell"));
-    [Some(PathBuf::from("/usr/share/marathon-shell")), user].into_iter().flatten().find(|d| d.is_dir())
-}
-
-/// An installed wallpaper's file URL, else the shell's built-in copy.
-fn wallpaper_url(file: &str) -> String {
-    match data_dir().map(|d| d.join("wallpapers").join(file)).filter(|p| p.exists()) {
-        Some(path) => format!("file://{}", path.display()),
-        None => format!("qrc:/wallpapers/{file}"),
-    }
-}
-
 fn wallpapers() -> Vec<OwnedValue> {
     let entry = |(name, file, _): &(&str, &str, _)| {
         value(State::from([
             ("name".to_owned(), value((*name).to_owned())),
-            ("path".to_owned(), value(wallpaper_url(file))),
+            ("path".to_owned(), value(crate::settings::asset_url(&format!("wallpapers/{file}")))),
             ("isDark".to_owned(), value(true)),
         ]))
     };

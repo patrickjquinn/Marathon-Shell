@@ -52,7 +52,7 @@ pub mod qobject {
 
 use qobject::Calendar;
 
-const SETTINGS: Service = Service::session("Settings");
+const SETTINGS: Service = Service::shell("Settings");
 const KEY: &str = "calendar/events";
 
 type Event = HashMap<String, Value<'static>>;

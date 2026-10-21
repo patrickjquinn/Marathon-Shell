@@ -5,15 +5,15 @@
 #include <QJsonObject>
 
 #include "marathon-shell-native/src/words.cxxqt.h"
-#include "src/managers/settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 
-LanguageManager::LanguageManager(SettingsManager *settingsManager, marathon::Dictionary *dictionary,
+LanguageManager::LanguageManager(marathon::Settings *settingsManager, marathon::Dictionary *dictionary,
                                  QObject *parent)
     : QObject(parent)
     , m_settingsManager(settingsManager)
     , m_dictionary(dictionary) {
     if (m_settingsManager) {
-        connect(m_settingsManager, &SettingsManager::keyboardLanguageChanged, this,
+        connect(m_settingsManager, &marathon::Settings::keyboardLanguageChanged, this,
                 &LanguageManager::onSettingsLanguageChanged);
     }
 
@@ -26,7 +26,7 @@ void LanguageManager::initialize() {
     emit          availableLanguagesChanged();
 
     const QString savedLanguage =
-        m_settingsManager ? m_settingsManager->keyboardLanguage() : QString();
+        m_settingsManager ? m_settingsManager->getKeyboardLanguage() : QString();
     const QString languageToLoad =
         savedLanguage.isEmpty() ? QStringLiteral("en_US") : savedLanguage;
     loadLanguage(languageToLoad);
@@ -52,7 +52,7 @@ void LanguageManager::applyLayout(const QVariantMap &layout, const QString &lang
     setCurrentLanguage(languageId);
     updateDictionary(layout, languageId);
 
-    if (m_settingsManager && m_settingsManager->keyboardLanguage() != languageId) {
+    if (m_settingsManager && m_settingsManager->getKeyboardLanguage() != languageId) {
         m_settingsManager->setKeyboardLanguage(languageId);
     }
 
@@ -148,7 +148,7 @@ void LanguageManager::onSettingsLanguageChanged() {
     if (!m_settingsManager) {
         return;
     }
-    const QString languageId = m_settingsManager->keyboardLanguage();
+    const QString languageId = m_settingsManager->getKeyboardLanguage();
     if (languageId.isEmpty() || languageId == m_currentLanguage) {
         return;
     }

@@ -3,7 +3,7 @@
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "mediarole.h"
-#include "settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 
 #include <QAudioOutput>
 #include <QDebug>
@@ -21,7 +21,7 @@ namespace {
 }
 
 AudioPolicyController::AudioPolicyController(marathon::Audio *audioManager,
-                                             SettingsManager *settings, Haptics *haptics,
+                                             marathon::Settings *settings, Haptics *haptics,
                                              QObject *parent)
     : QObject(parent)
     , m_audioManager(audioManager)
@@ -41,7 +41,7 @@ AudioPolicyController::AudioPolicyController(marathon::Audio *audioManager,
             if (!m_audioManager || !m_settings)
                 return;
             const double v = m_audioManager->getVolume();
-            if (!qFuzzyCompare(m_settings->systemVolume(), v)) {
+            if (!qFuzzyCompare(m_settings->getSystemVolume(), v)) {
                 m_settings->setSystemVolume(v);
             }
         });
@@ -50,11 +50,11 @@ AudioPolicyController::AudioPolicyController(marathon::Audio *audioManager,
     wirePlayerVolumes();
 
     if (m_settings) {
-        connect(m_settings, &SettingsManager::audioProfileChanged, this,
+        connect(m_settings, &marathon::Settings::audioProfileChanged, this,
                 &AudioPolicyController::audioProfileChanged);
-        connect(m_settings, &SettingsManager::dndEnabledChanged, this,
+        connect(m_settings, &marathon::Settings::dndEnabledChanged, this,
                 &AudioPolicyController::doNotDisturbChanged);
-        const QString profile           = m_settings->audioProfile();
+        const QString profile           = m_settings->getAudioProfile();
         const QString desktop           = qEnvironmentVariable("XDG_CURRENT_DESKTOP");
         const QString session           = qEnvironmentVariable("XDG_SESSION_DESKTOP");
         const bool    isMarathonSession = (desktop.compare("marathon", Qt::CaseInsensitive) == 0) ||
@@ -91,11 +91,11 @@ void AudioPolicyController::setDoNotDisturb(bool enabled) {
 }
 
 QString AudioPolicyController::audioProfile() const {
-    return m_settings ? m_settings->audioProfile() : QString();
+    return m_settings ? m_settings->getAudioProfile() : QString();
 }
 
 bool AudioPolicyController::isDoNotDisturb() const {
-    return m_settings ? m_settings->dndEnabled() : false;
+    return m_settings ? m_settings->getDndEnabled() : false;
 }
 
 void AudioPolicyController::setVibrationEnabled(bool enabled) {
@@ -178,14 +178,14 @@ bool AudioPolicyController::ringerAudible(const QString &profile, bool dnd) {
 void AudioPolicyController::playRingtone() {
     if (!m_settings)
         return;
-    if (!ringerAudible(m_settings->audioProfile(), m_settings->dndEnabled())) {
+    if (!ringerAudible(m_settings->getAudioProfile(), m_settings->getDndEnabled())) {
         qInfo() << "[AudioPolicyController] Ringtone suppressed (profile or DND)";
         return;
     }
 
-    ensurePlayer(m_ringtonePlayer, m_ringtoneOutput, m_settings->ringtoneVolume(), true);
+    ensurePlayer(m_ringtonePlayer, m_ringtoneOutput, m_settings->getRingtoneVolume(), true);
     m_ringtoneOutput->setDevice(MediaRole::output("ringtone"));
-    startPlayback(m_ringtonePlayer, toUrl(m_settings->ringtone()), true);
+    startPlayback(m_ringtonePlayer, toUrl(m_settings->getRingtone()), true);
 }
 
 void AudioPolicyController::stopRingtone() {
@@ -197,23 +197,23 @@ void AudioPolicyController::stopRingtone() {
 void AudioPolicyController::playNotificationSound() {
     if (!m_settings)
         return;
-    if (!ringerAudible(m_settings->audioProfile(), m_settings->dndEnabled())) {
+    if (!ringerAudible(m_settings->getAudioProfile(), m_settings->getDndEnabled())) {
         qInfo() << "[AudioPolicyController] Notification suppressed (profile or DND)";
         return;
     }
 
     ensurePlayer(m_notificationPlayer, m_notificationOutput, notificationLevel(), false);
     m_notificationOutput->setDevice(MediaRole::output("notification"));
-    startPlayback(m_notificationPlayer, toUrl(m_settings->notificationSound()), false);
+    startPlayback(m_notificationPlayer, toUrl(m_settings->getNotificationSound()), false);
 }
 
 void AudioPolicyController::playAlarmSound() {
     if (!m_settings)
         return;
 
-    ensurePlayer(m_alarmPlayer, m_alarmOutput, m_settings->alarmVolume(), true);
+    ensurePlayer(m_alarmPlayer, m_alarmOutput, m_settings->getAlarmVolume(), true);
     m_alarmOutput->setDevice(MediaRole::output("alarm"));
-    startPlayback(m_alarmPlayer, toUrl(m_settings->alarmSound()), true);
+    startPlayback(m_alarmPlayer, toUrl(m_settings->getAlarmSound()), true);
 }
 
 void AudioPolicyController::stopAlarmSound() {
@@ -228,7 +228,7 @@ void AudioPolicyController::previewSound(const QString &soundPath) {
 }
 
 void AudioPolicyController::vibratePattern(const QVariantList &pattern) {
-    if (!m_settings || !m_settings->vibrationEnabled())
+    if (!m_settings || !m_settings->getVibrationEnabled())
         return;
     if (!m_haptics)
         return;
@@ -240,29 +240,29 @@ void AudioPolicyController::wirePlayerVolumes() {
     if (!m_settings)
         return;
 
-    connect(m_settings, &SettingsManager::ringtoneVolumeChanged, this, [this]() {
+    connect(m_settings, &marathon::Settings::ringtoneVolumeChanged, this, [this]() {
         if (m_ringtoneOutput && m_settings) {
-            m_ringtoneOutput->setVolume(qBound(0.0, m_settings->ringtoneVolume(), 1.0));
+            m_ringtoneOutput->setVolume(qBound(0.0, m_settings->getRingtoneVolume(), 1.0));
         }
     });
     const auto updateNotification = [this]() {
         if (m_notificationOutput)
             m_notificationOutput->setVolume(notificationLevel());
     };
-    connect(m_settings, &SettingsManager::notificationVolumeChanged, this, updateNotification);
+    connect(m_settings, &marathon::Settings::notificationVolumeChanged, this, updateNotification);
     if (m_audioManager) {
         connect(m_audioManager, &marathon::Audio::volumeChanged, this, updateNotification);
         connect(m_audioManager, &marathon::Audio::mutedChanged, this, updateNotification);
     }
-    connect(m_settings, &SettingsManager::alarmVolumeChanged, this, [this]() {
+    connect(m_settings, &marathon::Settings::alarmVolumeChanged, this, [this]() {
         if (m_alarmOutput && m_settings) {
-            m_alarmOutput->setVolume(qBound(0.0, m_settings->alarmVolume(), 1.0));
+            m_alarmOutput->setVolume(qBound(0.0, m_settings->getAlarmVolume(), 1.0));
         }
     });
 }
 
 double AudioPolicyController::notificationLevel() const {
-    double level = m_settings ? qBound(0.0, m_settings->notificationVolume(), 1.0) : 1.0;
+    double level = m_settings ? qBound(0.0, m_settings->getNotificationVolume(), 1.0) : 1.0;
     if (m_audioManager)
         level *= m_audioManager->getMuted() ? 0.0 : m_audioManager->getVolume();
     return level;

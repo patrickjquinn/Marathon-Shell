@@ -1,7 +1,7 @@
 // Every setting the Settings app writes must reach the shell and be read
-// there: a property on the runner's Settings, a GetState/SetProperty
-// case in the shell's Settings service, a property on SettingsManager, and a
-// named shell consumer. The app's QML stubs must match the real clients.
+// there: a property on the runner's Settings, a property on the shell's
+// (whose table also gives it its GetState and SetProperty case), and a named
+// shell consumer. The app's QML stubs must match the real clients.
 
 #include <QDirIterator>
 #include <QFile>
@@ -19,7 +19,6 @@
 #include "marathon-app-native/src/permissions.cxxqt.h"
 #include "marathon-app-native/src/settings.cxxqt.h"
 #include "marathon-app-native/src/power.cxxqt.h"
-#include "managers/settingsmanager.h"
 
 namespace {
 
@@ -79,18 +78,18 @@ namespace {
     // Where the shell acts on each key. A key with no entry fails the test.
     const QHash<QString, Consumer> &consumers() {
         static const QHash<QString, Consumer> table = {
-            {"alarmSound", {"shell/src/controllers/audiopolicycontroller.cpp", "alarmSound"}},
+            {"alarmSound", {"shell/src/controllers/audiopolicycontroller.cpp", "getAlarmSound()"}},
             {"appGridColumns", {"shell/qml/components/MarathonAppGrid.qml", "appGridColumns"}},
             {"autoLockTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.autoLockTimeout"}},
-            {"wallpaperPath", {"shell/main.cpp", "setWallpaper(settingsManager->wallpaperPath())"}},
+            {"wallpaperPath", {"shell/main.cpp", "setWallpaper(settingsManager->getWallpaperPath())"}},
             {"vibrationEnabled", {"shell/qml/components/VirtualKeyboard.qml", "SettingsManagerCpp.vibrationEnabled"}},
             // The setter applies it through timedated.
-            {"automaticTime", {"shell/src/managers/settingsmanager.cpp", "SetNTP"}},
-            {"automaticTimeZone", {"shell/main.cpp", "settingsManager->automaticTimeZone()"}},
-            {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->deviceName())"}},
+            {"automaticTime", {"crates/marathon-shell-native/src/settings.rs", "p.set_ntp(value, false)"}},
+            {"automaticTimeZone", {"shell/main.cpp", "settingsManager->getAutomaticTimeZone()"}},
+            {"deviceName", {"shell/main.cpp", "setAdapterAlias(settingsManager->getDeviceName())"}},
             {"appNotificationSettings",
              {"shell/src/services/notificationservicecpp.cpp", "isNotificationsEnabledForApp"}},
-            {"dndEnabled", {"shell/src/controllers/audiopolicycontroller.cpp", "dndEnabled"}},
+            {"dndEnabled", {"shell/src/controllers/audiopolicycontroller.cpp", "getDndEnabled()"}},
             {"enabledQuickSettingsTiles",
              {"shell/qml/components/MarathonQuickSettings.qml", "enabledQuickSettingsTiles"}},
             {"filterMobileFriendlyApps", {"shell/main.cpp", "filterMobileFriendlyApps"}},
@@ -105,19 +104,19 @@ namespace {
             {"keyboardPredictiveText",
              {"shell/qml/keyboard/Core/MarathonKeyboard.qml", "keyboardPredictiveText"}},
             {"notificationSound",
-             {"shell/src/controllers/audiopolicycontroller.cpp", "notificationSound"}},
+             {"shell/src/controllers/audiopolicycontroller.cpp", "getNotificationSound()"}},
             {"reduceMotion", {"shell/qml/theme/MMotion.qml", "reduceMotion"}},
-            {"ringtone", {"shell/src/controllers/audiopolicycontroller.cpp", "ringtone"}},
+            {"ringtone", {"shell/src/controllers/audiopolicycontroller.cpp", "getRingtone()"}},
             {"screenTimeout", {"shell/qml/MarathonShell.qml", "SettingsManagerCpp.screenTimeout"}},
             {"searchNativeApps",
-             {"shell/src/services/unifiedsearchservicecpp.cpp", "searchNativeApps"}},
+             {"shell/src/services/unifiedsearchservicecpp.cpp", "getSearchNativeApps()"}},
             {"showNotificationBadges",
              {"shell/qml/components/MarathonAppGrid.qml", "showNotificationBadges"}},
             {"showNotificationsOnLockScreen",
              {"shell/qml/components/MarathonLockScreen.qml", "showNotificationsOnLockScreen"}},
             {"timeFormat", {"shell/src/services/systemstatusstore.cpp", "timeFormat"}},
             // The setter applies it through timedated.
-            {"timeZone", {"shell/src/managers/settingsmanager.cpp", "SetTimezone"}},
+            {"timeZone", {"crates/marathon-shell-native/src/settings.rs", "p.set_timezone(&asked, false)"}},
             {"userScaleFactor", {"shell/qml/core/Constants.qml", "userScaleFactor"}},
         };
         return table;
@@ -139,6 +138,23 @@ namespace {
     const QHash<QString, QString> &knownGaps() {
         static const QHash<QString, QString> table;
         return table;
+    }
+
+    // The shell's Settings properties, from its Rust bridge.
+    const QSet<QString> &shellProperties() {
+        static const QSet<QString> names = [] {
+            QSet<QString>   out;
+            const QString   rust = read("crates/marathon-shell-native/src/settings.rs");
+            static const QRegularExpression property(
+                R"re(#\[qproperty\(\w+, (\w+), (?:cxx_name = "(\w+)", )?READ, WRITE = \w+, NOTIFY\)\])re");
+            auto it = property.globalMatch(rust);
+            while (it.hasNext()) {
+                const QRegularExpressionMatch m = it.next();
+                out.insert(m.captured(2).isEmpty() ? m.captured(1) : m.captured(2));
+            }
+            return out;
+        }();
+        return names;
     }
 
     bool hasWritableProperty(const QMetaObject &meta, const QString &name) {
@@ -180,14 +196,8 @@ class TestSettingsContract : public QObject {
         QFETCH(QString, key);
         QVERIFY2(hasWritableProperty(marathon::platform::Settings::staticMetaObject, key),
                  "not a writable, notifying property on the runner's Settings");
-        QVERIFY2(hasWritableProperty(SettingsManager::staticMetaObject, key),
-                 "not a writable, notifying property on the shell's SettingsManager");
-
-        const QString service = read("shell/src/ipc/shellservices.cpp");
-        QVERIFY2(service.contains(QStringLiteral("name == \"%1\"").arg(key)),
-                 "no SetProperty case in shellservices.cpp");
-        QVERIFY2(service.contains(QStringLiteral("{\"%1\", m_settings->").arg(key)),
-                 "not in the Settings GetState snapshot");
+        QVERIFY2(shellProperties().contains(key),
+                 "not a writable, notifying property on the shell's Settings");
 
         if (knownGaps().contains(key))
             QSKIP(qPrintable(QStringLiteral("no shell consumer yet (%1)").arg(knownGaps()[key])));
@@ -199,14 +209,15 @@ class TestSettingsContract : public QObject {
 
     // A keyboard setting the shell never reads is a dead control.
     void keyboardSettingsAreRead() {
-        for (const QMetaObject *meta :
-             {&SettingsManager::staticMetaObject, &marathon::platform::Settings::staticMetaObject}) {
-            for (int i = meta->propertyOffset(); i < meta->propertyCount(); ++i) {
-                const QString name = QString::fromLatin1(meta->property(i).name());
-                if (name.startsWith(QLatin1String("keyboard")))
-                    QVERIFY2(consumers().contains(name),
-                             qPrintable(name + QStringLiteral(": no shell consumer")));
-            }
+        QVERIFY(shellProperties().size() > 40);
+        QStringList names = shellProperties().values();
+        const QMetaObject &app = marathon::platform::Settings::staticMetaObject;
+        for (int i = app.propertyOffset(); i < app.propertyCount(); ++i)
+            names << QString::fromLatin1(app.property(i).name());
+        for (const QString &name : std::as_const(names)) {
+            if (name.startsWith(QLatin1String("keyboard")))
+                QVERIFY2(consumers().contains(name),
+                         qPrintable(name + QStringLiteral(": no shell consumer")));
         }
     }
 

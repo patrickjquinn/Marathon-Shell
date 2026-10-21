@@ -5,21 +5,18 @@
 #include "marathon-shell-native/src/ipc.cxxqt.h"
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "audiopolicycontroller.h"
-#include "settingsmanager.h"
 
 #include <QDBusConnection>
 #include <QDBusError>
 #include <QDebug>
 
-ShellIpcServer::ShellIpcServer(marathon::Permissions *permissions,
-                               SettingsManager *settingsManager, marathon::Audio *audioManager,
+ShellIpcServer::ShellIpcServer(marathon::Permissions *permissions, marathon::Audio *audioManager,
                                AudioPolicyController *audioPolicy,
                                AppLaunchService      *appLaunchService,
                                AppLifecycleManager   *lifecycleManager,
                                MarathonAppRegistry *appRegistry, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
-    , m_settingsManager(settingsManager)
     , m_audioManager(audioManager)
     , m_audioPolicy(audioPolicy)
     , m_appLaunchService(appLaunchService)
@@ -44,9 +41,6 @@ bool ShellIpcServer::registerOnSessionBus() {
 
     const auto all = QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals;
     bool       ok  = true;
-    ok &= bus.registerObject(
-        "/org/marathonos/Shell/Settings",
-        new SettingsObject(m_settingsManager, m_permissions, m_appLaunchService, this), all);
     ok &= bus.registerObject(
         "/org/marathonos/Shell/Audio",
         new AudioObject(m_audioManager, m_audioPolicy, m_permissions, m_appLaunchService, this),

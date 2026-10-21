@@ -207,7 +207,7 @@ pub mod qobject {
 
 use qobject::Settings;
 
-const SETTINGS: Service = Service::session("Settings");
+const SETTINGS: Service = Service::shell("Settings");
 
 /// The properties: field, type and any default, the shell's name, and setter.
 macro_rules! properties {

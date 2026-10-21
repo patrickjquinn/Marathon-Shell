@@ -42,8 +42,6 @@ set(SOURCES
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/mediarole.h
-    src/managers/settingsmanager.h
-    src/managers/settingsmanager.cpp
     src/managers/platformcpp.h
     src/services/navigationroutercpp.h
     src/services/navigationroutercpp.cpp
@@ -459,8 +457,6 @@ qt6_add_qml_module(marathon-shell
         src/services/languagemanager.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
-        src/managers/settingsmanager.cpp
-        src/managers/settingsmanager.h
                 src/models/notificationmodel.cpp
         src/models/notificationmodel.h
         src/models/filechoosermodel.cpp

@@ -10,7 +10,7 @@
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "src/managers/settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 #include "src/services/screenshotservicecpp.h"
 #include <QRandomGenerator>
 #include <QTimer>
@@ -20,7 +20,7 @@
 SystemControlStore::SystemControlStore(
     Network *networkManager, Bluetooth *bluetoothManager,
     marathon::Display *display, Flashlight *flashlightManager,
-    Modem *modemManager, SettingsManager *settingsManager, Alarms *alarmManager,
+    Modem *modemManager, marathon::Settings *settingsManager, Alarms *alarmManager,
     Location *locationManager, Haptics *hapticManager, Power *powerManager,
     marathon::Audio *audioManager, AudioPolicyController *audioPolicyController,
     ScreenshotServiceCpp *screenshotService, QObject *parent)
@@ -96,9 +96,9 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_settingsManager) {
-        setIsDndMode(m_settingsManager->dndEnabled());
-        connect(m_settingsManager, &SettingsManager::dndEnabledChanged, this,
-                [this]() { setIsDndMode(m_settingsManager->dndEnabled()); });
+        setIsDndMode(m_settingsManager->getDndEnabled());
+        connect(m_settingsManager, &marathon::Settings::dndEnabledChanged, this,
+                [this]() { setIsDndMode(m_settingsManager->getDndEnabled()); });
     }
 
     if (m_alarmManager) {
@@ -267,8 +267,8 @@ void SystemControlStore::ensureHotspotCredentials() {
     if (!m_hotspotPassword.isEmpty())
         return;
     if (m_settingsManager) {
-        m_hotspotSsid     = m_settingsManager->get("hotspot/ssid").toString();
-        m_hotspotPassword = m_settingsManager->get("hotspot/password").toString();
+        m_hotspotSsid     = m_settingsManager->get("hotspot/ssid", QVariant()).toString();
+        m_hotspotPassword = m_settingsManager->get("hotspot/password", QVariant()).toString();
     }
     if (m_hotspotPassword.isEmpty()) {
         // No 0/O/1/l/i: the password is read off the screen and typed.

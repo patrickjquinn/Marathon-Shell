@@ -10,7 +10,9 @@
 class AppModel;
 class MarathonAppRegistry;
 class MarathonAppScanner;
-class SettingsManager;
+namespace marathon {
+    class Settings;
+}
 class NavigationRouterCpp;
 class AppLaunchService;
 
@@ -23,7 +25,7 @@ class UnifiedSearchServiceCpp : public QObject {
 
   public:
     explicit UnifiedSearchServiceCpp(AppModel *appModel, MarathonAppRegistry *registry,
-                                     MarathonAppScanner *scanner, SettingsManager *settings,
+                                     MarathonAppScanner *scanner, marathon::Settings *settings,
                                      NavigationRouterCpp *router, AppLaunchService *appLaunch,
                                      QObject *parent = nullptr);
 
@@ -77,7 +79,7 @@ class UnifiedSearchServiceCpp : public QObject {
     AppModel            *m_appModel  = nullptr;
     MarathonAppRegistry *m_registry  = nullptr;
     MarathonAppScanner  *m_scanner   = nullptr;
-    SettingsManager     *m_settings  = nullptr;
+    marathon::Settings     *m_settings  = nullptr;
     NavigationRouterCpp *m_router    = nullptr;
     AppLaunchService    *m_appLaunch = nullptr;
 

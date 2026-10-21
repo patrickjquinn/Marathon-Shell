@@ -70,7 +70,7 @@
 #include "src/services/touchresampler.h"
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
-#include "src/managers/settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 #include "marathon-shell-native/src/ambience.cxxqt.h"
 #include "src/services/toolkitthemewriter.h"
 #include "marathon-shell-native/src/ngf.cxxqt.h"
@@ -628,15 +628,17 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell]MPRIS2 media controller initialized";
 
     startupMark("stores");
-    auto *settingsManager = new SettingsManager(&app);
-    qmlRegisterSingletonInstance<SettingsManager>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
+    auto *settingsManager = new marathon::Settings();
+    settingsManager->setParent(&app);
+    settingsManager->load(DeviceProfile::instance().screenTimeoutMs());
+    qmlRegisterSingletonInstance<marathon::Settings>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                   settingsManager);
     auto *ambienceService = new marathon::Ambience();
     ambienceService->setParent(&app);
-    ambienceService->setWallpaper(settingsManager->wallpaperPath());
-    QObject::connect(settingsManager, &SettingsManager::wallpaperPathChanged, ambienceService,
+    ambienceService->setWallpaper(settingsManager->getWallpaperPath());
+    QObject::connect(settingsManager, &marathon::Settings::wallpaperPathChanged, ambienceService,
                      [settingsManager, ambienceService]() {
-                         ambienceService->setWallpaper(settingsManager->wallpaperPath());
+                         ambienceService->setWallpaper(settingsManager->getWallpaperPath());
                      });
     qmlRegisterSingletonInstance<marathon::Ambience>("MarathonOS.Shell", 1, 0, "AmbienceService",
                                                   ambienceService);
@@ -655,7 +657,7 @@ int main(int argc, char *argv[]) {
     // the interface-size setting scales them with the rest of the shell.
     {
         auto update = [ambienceService, settingsManager, screenMetrics]() {
-            ambienceService->setScale(screenMetrics->dpi(), settingsManager->userScaleFactor());
+            ambienceService->setScale(screenMetrics->dpi(), settingsManager->getUserScaleFactor());
             const qreal ratio = ambienceService->getPixelRatio();
             // Keel's forwarded layer, read when its Ambience is first created:
             // the shell's Silica starts at this ratio instead of the width rule.
@@ -665,7 +667,7 @@ int main(int argc, char *argv[]) {
             }
         };
         update();
-        QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged, ambienceService, update);
+        QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged, ambienceService, update);
         QObject::connect(screenMetrics, &ScreenMetrics::metricsChanged, ambienceService, update);
     }
 
@@ -679,11 +681,11 @@ int main(int argc, char *argv[]) {
     {
         auto update = [compositorManager, settingsManager, screenMetrics]() {
             compositorManager->setNativeScale(
-                NativeClientScale::fromDpi(screenMetrics->dpi(), settingsManager->userScaleFactor(),
+                NativeClientScale::fromDpi(screenMetrics->dpi(), settingsManager->getUserScaleFactor(),
                                            DeviceProfile::instance().nativeScale()));
         };
         update();
-        QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged,
+        QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged,
                          compositorManager, update);
         QObject::connect(screenMetrics, &ScreenMetrics::metricsChanged, compositorManager, update);
     }
@@ -792,14 +794,14 @@ int main(int argc, char *argv[]) {
     };
     for (const auto &[name, changed] : displaySettings) {
         const QString key = QStringLiteral("display/") + QLatin1String(name);
-        if (const QVariant saved = settingsManager->get(key); saved.isValid())
+        if (const QVariant saved = settingsManager->get(key, QVariant()); saved.isValid())
             display->setProperty(name, saved);
         QObject::connect(display, changed, settingsManager,
                          [=] { settingsManager->set(key, display->property(name)); });
     }
-    display->setAutoBrightness(settingsManager->autoBrightness());
-    QObject::connect(settingsManager, &SettingsManager::autoBrightnessChanged, display,
-                     [=] { display->setAutoBrightness(settingsManager->autoBrightness()); });
+    display->setAutoBrightness(settingsManager->getAutoBrightness());
+    QObject::connect(settingsManager, &marathon::Settings::autoBrightnessChanged, display,
+                     [=] { display->setAutoBrightness(settingsManager->getAutoBrightness()); });
     QObject::connect(display, &marathon::Display::autoBrightnessChanged, settingsManager,
                      [=] { settingsManager->setAutoBrightness(display->getAutoBrightness()); });
     QObject::connect(display, &marathon::Display::screenStateChanged, power, [power](bool on) {
@@ -829,9 +831,9 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     // The device name is what other Bluetooth devices see.
     auto applyDeviceName = [bluetoothManager, settingsManager]() {
-        bluetoothManager->setAdapterAlias(settingsManager->deviceName());
+        bluetoothManager->setAdapterAlias(settingsManager->getDeviceName());
     };
-    QObject::connect(settingsManager, &SettingsManager::deviceNameChanged, bluetoothManager,
+    QObject::connect(settingsManager, &marathon::Settings::deviceNameChanged, bluetoothManager,
                      applyDeviceName);
     QObject::connect(bluetoothManager, &Bluetooth::availableChanged, bluetoothManager,
                      applyDeviceName);
@@ -840,25 +842,25 @@ int main(int argc, char *argv[]) {
     locationManager->setParent(&app);
     // Never starts location itself: with Location off there is no fix and the zone stays.
     const auto automaticTimeZone = [=] {
-        if (!settingsManager->automaticTimeZone() || !locationManager->getActive() ||
+        if (!settingsManager->getAutomaticTimeZone() || !locationManager->getActive() ||
             locationManager->getTimestamp() <= 0)
             return;
         const QString zone = marathon::timezone::nearest(locationManager->getLatitude(),
                                                          locationManager->getLongitude());
-        if (!zone.isEmpty() && zone != settingsManager->timeZone())
+        if (!zone.isEmpty() && zone != settingsManager->getTimeZone())
             settingsManager->setTimeZone(zone);
     };
     QObject::connect(locationManager, &Location::locationChanged, settingsManager,
                      automaticTimeZone);
-    QObject::connect(settingsManager, &SettingsManager::automaticTimeZoneChanged, settingsManager,
+    QObject::connect(settingsManager, &marathon::Settings::automaticTimeZoneChanged, settingsManager,
                      automaticTimeZone);
     auto *hapticManager = new Haptics();
     hapticManager->setParent(&app);
     qmlRegisterSingletonInstance<Haptics>("MarathonOS.Shell", 1, 0, "HapticManager", hapticManager);
-    hapticManager->setEnabled(settingsManager->vibrationEnabled());
-    QObject::connect(settingsManager, &SettingsManager::vibrationEnabledChanged, hapticManager,
+    hapticManager->setEnabled(settingsManager->getVibrationEnabled());
+    QObject::connect(settingsManager, &marathon::Settings::vibrationEnabledChanged, hapticManager,
                      [hapticManager, settingsManager] {
-                         hapticManager->setEnabled(settingsManager->vibrationEnabled());
+                         hapticManager->setEnabled(settingsManager->getVibrationEnabled());
                      });
     auto *ngf = new marathon::Ngf();
     ngf->setParent(&app);
@@ -890,9 +892,9 @@ int main(int argc, char *argv[]) {
 
     startupMark("sensors, location, security");
     auto *appLaunchService = new AppLaunchService(appModel, taskModel, &app);
-    appLaunchService->setUserScale(settingsManager->userScaleFactor());
-    QObject::connect(settingsManager, &SettingsManager::userScaleFactorChanged, appLaunchService,
-                     [=] { appLaunchService->setUserScale(settingsManager->userScaleFactor()); });
+    appLaunchService->setUserScale(settingsManager->getUserScaleFactor());
+    QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged, appLaunchService,
+                     [=] { appLaunchService->setUserScale(settingsManager->getUserScaleFactor()); });
     qmlRegisterSingletonInstance<AppLaunchService>("MarathonOS.Shell", 1, 0, "AppLaunchService",
                                                    appLaunchService);
     createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, appRegistry,
@@ -1178,10 +1180,10 @@ int main(int argc, char *argv[]) {
                          notificationService, &NotificationServiceCpp::notificationReceived);
 
         const auto pushFallback = [settingsManager] {
-            marathon::push::set_fallback_notifications(settingsManager->unifiedPushFallbackEnabled());
+            marathon::push::set_fallback_notifications(settingsManager->getUnifiedPushFallbackEnabled());
         };
         pushFallback();
-        QObject::connect(settingsManager, &SettingsManager::unifiedPushFallbackEnabledChanged,
+        QObject::connect(settingsManager, &marathon::Settings::unifiedPushFallbackEnabledChanged,
                          settingsManager, pushFallback);
         marathon::push::serve();
 
@@ -1310,7 +1312,7 @@ int main(int argc, char *argv[]) {
                      &AppLifecycleManager::killOldestFrozenApp);
 
     {
-        auto *ipc = new ShellIpcServer(permissionManager, settingsManager, audioManager,
+        auto *ipc = new ShellIpcServer(permissionManager, audioManager,
                                        audioPolicyController,
                                        appLaunchService, appLifecycleManager, appRegistry, &app);
         ipc->setAppInstaller(appInstaller);
@@ -1475,7 +1477,7 @@ int main(int argc, char *argv[]) {
                 "/var/lib/flatpak/exports/share/applications",
                 QDir::homePath() + "/.local/share/flatpak/exports/share/applications"};
 
-            const bool filterMobile = settingsManager->filterMobileFriendlyApps();
+            const bool filterMobile = settingsManager->getFilterMobileFriendlyApps();
 
 #ifdef HAVE_QT_CONCURRENT
             auto *watcher = new QFutureWatcher<QVariantList>(&app);
@@ -1536,14 +1538,14 @@ int main(int argc, char *argv[]) {
             };
             const auto rescanDesktopApps = [scanDesktopApps, replaceApps, settingsManager,
                                             searchPaths, generation = std::make_shared<int>(0)]() {
-                scanDesktopApps(generation, searchPaths, settingsManager->filterMobileFriendlyApps(),
+                scanDesktopApps(generation, searchPaths, settingsManager->getFilterMobileFriendlyApps(),
                                 [replaceApps](const QVariantList &apps) {
                                     replaceApps(apps, {QStringLiteral("native"),
                                                        QStringLiteral("flatpak")});
                                 });
             };
             // "Hide desktop apps" applies as soon as it is switched.
-            QObject::connect(settingsManager, &SettingsManager::filterMobileFriendlyAppsChanged,
+            QObject::connect(settingsManager, &marathon::Settings::filterMobileFriendlyAppsChanged,
                              &app, rescanDesktopApps);
 
             // Waydroid writes and removes its apps' entries here while it runs.
@@ -1599,7 +1601,7 @@ int main(int argc, char *argv[]) {
                                  [scanDesktopApps, replaceApps, flatpakDirs, settingsManager,
                                   generation = std::make_shared<int>(0)]() {
                                      scanDesktopApps(generation, flatpakDirs,
-                                                     settingsManager->filterMobileFriendlyApps(),
+                                                     settingsManager->getFilterMobileFriendlyApps(),
                                                      [replaceApps](const QVariantList &apps) {
                                                          replaceApps(apps, {QStringLiteral("flatpak")});
                                                      });

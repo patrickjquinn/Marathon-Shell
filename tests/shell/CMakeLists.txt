@@ -41,7 +41,6 @@ find_package(Qt6 REQUIRED COMPONENTS Multimedia)
 add_executable(test_shell_audiopolicy
     test_audiopolicy.cpp
     ../../shell/src/controllers/audiopolicycontroller.cpp
-    ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/models/notificationmodel.cpp
     ../../shell/src/dbus/notificationdatabase.cpp
@@ -67,7 +66,6 @@ add_executable(test_shell_notificationhandler
     ../../shell/src/services/navigationroutercpp.cpp
     ../../shell/src/services/notificationtarget.cpp
     ../../shell/src/controllers/audiopolicycontroller.cpp
-    ../../shell/src/managers/settingsmanager.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/models/notificationmodel.cpp
     ../../shell/src/dbus/notificationdatabase.cpp
@@ -439,7 +437,6 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/ipc/shellkeelactions.cpp
         ../../shell/src/services/uistore.cpp
         ../../shell/src/services/sessionstore.cpp
-        ../../shell/src/managers/settingsmanager.cpp
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
         ../../shell/src/services/applaunchservice.cpp

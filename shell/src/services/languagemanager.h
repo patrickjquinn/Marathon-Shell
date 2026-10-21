@@ -6,7 +6,9 @@
 #include <QStringList>
 #include <qqml.h>
 
-class SettingsManager;
+namespace marathon {
+    class Settings;
+}
 namespace marathon {
     class Dictionary;
 }
@@ -22,7 +24,7 @@ class LanguageManager : public QObject {
         QStringList availableLanguages READ availableLanguages NOTIFY availableLanguagesChanged)
 
   public:
-    explicit LanguageManager(SettingsManager *settingsManager, marathon::Dictionary *dictionary,
+    explicit LanguageManager(marathon::Settings *settingsManager, marathon::Dictionary *dictionary,
                              QObject *parent = nullptr);
 
     QString currentLanguage() const {
@@ -55,7 +57,7 @@ class LanguageManager : public QObject {
     void        updateDictionary(const QVariantMap &layout, const QString &languageId);
     void        onSettingsLanguageChanged();
 
-    QPointer<SettingsManager> m_settingsManager;
+    QPointer<marathon::Settings> m_settingsManager;
     QPointer<marathon::Dictionary> m_dictionary;
     QString                   m_currentLanguage;
     QVariantMap               m_currentLayout;

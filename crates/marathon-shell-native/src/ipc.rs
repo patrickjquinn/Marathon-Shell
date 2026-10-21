@@ -77,6 +77,14 @@ where
     });
 }
 
+/// The app (or `service:<unit>`) behind this call, if any.
+pub async fn caller(header: &Header<'_>) -> Option<String> {
+    let sender = header.sender()?;
+    let bus = io::session_bus().await.ok()?;
+    let pid = fdo::DBusProxy::new(&bus).await.ok()?.get_connection_unix_process_id(sender.clone().into()).await.ok();
+    gate::caller(pid)
+}
+
 /// The caller of this call, when it may use any of `permissions` for `area`.
 pub async fn admit(header: &Header<'_>, area: &str, permissions: &[&str]) -> fdo::Result<String> {
     let sender = header.sender().ok_or_else(|| fdo::Error::AccessDenied("Unknown caller".into()))?;

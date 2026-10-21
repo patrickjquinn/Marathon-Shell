@@ -1,13 +1,13 @@
 #include "notificationservicecpp.h"
 #include "notificationmodel.h"
-#include "settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 #include "audiopolicycontroller.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 
 #include <QModelIndex>
 #include <utility>   // std::as_const
 
-NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, SettingsManager *settings,
+NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, marathon::Settings *settings,
                                                AudioPolicyController *audioPolicy,
                                                Haptics *haptics, QObject *parent)
     : QObject(parent)
@@ -43,7 +43,7 @@ NotificationServiceCpp::NotificationServiceCpp(NotificationModel *model, Setting
                 &NotificationServiceCpp::onUnreadCountChanged);
     }
     if (m_settings) {
-        connect(m_settings, &SettingsManager::dndEnabledChanged, this,
+        connect(m_settings, &marathon::Settings::dndEnabledChanged, this,
                 &NotificationServiceCpp::onDndChanged);
     }
 }
@@ -53,7 +53,7 @@ int NotificationServiceCpp::unreadCount() const {
 }
 
 bool NotificationServiceCpp::isDndEnabled() const {
-    return m_settings ? m_settings->dndEnabled() : false;
+    return m_settings ? m_settings->getDndEnabled() : false;
 }
 
 int NotificationServiceCpp::sendNotification(const QString &appId, const QString &title,

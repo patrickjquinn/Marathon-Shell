@@ -29,6 +29,7 @@ fn main() {
         .file("src/push.rs")
         .file("src/sandbox.rs")
         .file("src/security.rs")
+        .file("src/settings.rs")
         .file("src/telephonyd.rs")
         .file("src/timezone.rs")
         .file("src/updates.rs")

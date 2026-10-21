@@ -3,7 +3,7 @@
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "src/managers/settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 #include "src/services/notificationservicecpp.h"
 #include <QDateTime>
 #include <QLocale>
@@ -13,7 +13,7 @@ SystemStatusStore::SystemStatusStore(Power        *powerManager,
                                      Bluetooth              *bluetoothManager,
                                      Modem        *modemManager,
                                      NotificationServiceCpp *notificationService,
-                                     SettingsManager *settingsManager, QObject *parent)
+                                     marathon::Settings *settingsManager, QObject *parent)
     : QObject(parent)
     , m_powerManager(powerManager)
     , m_networkManager(networkManager)
@@ -84,9 +84,9 @@ SystemStatusStore::SystemStatusStore(Power        *powerManager,
     }
 
     if (m_settingsManager) {
-        connect(m_settingsManager, &SettingsManager::timeFormatChanged, this,
+        connect(m_settingsManager, &marathon::Settings::timeFormatChanged, this,
                 [this]() { updateTime(); });
-        connect(m_settingsManager, &SettingsManager::timeZoneChanged, this,
+        connect(m_settingsManager, &marathon::Settings::timeZoneChanged, this,
                 [this]() { updateTime(); });
     }
 
@@ -115,7 +115,7 @@ void SystemStatusStore::updateTime() {
     setCurrentTime(QDateTime::currentDateTime());
     QString timeFormat = "24h";
     if (m_settingsManager) {
-        timeFormat = m_settingsManager->timeFormat();
+        timeFormat = m_settingsManager->getTimeFormat();
     }
     const QString timePattern = (timeFormat == "24h") ? "HH:mm" : "h:mm AP";
     setTimeString(QLocale::system().toString(m_currentTime.time(), timePattern));

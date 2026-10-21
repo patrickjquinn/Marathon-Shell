@@ -10,17 +10,18 @@
 #include "mediarole.h"
 #include "notificationmodel.h"
 #include "notificationservicecpp.h"
-#include "settingsmanager.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 
 class TestAudioPolicy : public QObject {
     Q_OBJECT
 
-    SettingsManager *m_settings = nullptr;
+    marathon::Settings *m_settings = nullptr;
 
   private slots:
     void initTestCase() {
         QStandardPaths::setTestModeEnabled(true);
-        m_settings = new SettingsManager(this);
+        m_settings = new marathon::Settings();
+        m_settings->setParent(this);
     }
 
     void init() {

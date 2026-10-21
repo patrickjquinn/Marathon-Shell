@@ -8,7 +8,9 @@
 #include <qqml.h>
 
 class NotificationModel;
-class SettingsManager;
+namespace marathon {
+    class Settings;
+}
 class AudioPolicyController;
 class Haptics;
 
@@ -26,7 +28,7 @@ class NotificationServiceCpp : public QObject {
     Q_PROPERTY(bool isDndEnabled READ isDndEnabled NOTIFY isDndEnabledChanged)
 
   public:
-    explicit NotificationServiceCpp(NotificationModel *model, SettingsManager *settings,
+    explicit NotificationServiceCpp(NotificationModel *model, marathon::Settings *settings,
                                     AudioPolicyController *audioPolicy, Haptics *haptics,
                                     QObject *parent = nullptr);
 
@@ -93,7 +95,7 @@ class NotificationServiceCpp : public QObject {
     void               removeNotificationById(int id);
 
     NotificationModel *m_model    = nullptr;
-    SettingsManager   *m_settings = nullptr;
+    marathon::Settings   *m_settings = nullptr;
     QPointer<AudioPolicyController> m_audioPolicy;
     QPointer<Haptics>               m_haptics;
 

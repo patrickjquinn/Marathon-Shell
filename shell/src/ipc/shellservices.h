@@ -24,7 +24,6 @@ namespace marathon {
 class AppLaunchService;
 class AppLifecycleManager;
 class MarathonAppRegistry;
-class SettingsManager;
 class ForegroundApp;
 class SessionStore;
 class AudioPolicyController;
@@ -48,47 +47,6 @@ class IpcPermissionedService : public QObject, protected QDBusContext {
 
     marathon::Permissions *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
-};
-
-class SettingsObject : public IpcPermissionedService {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Settings1")
-
-  public:
-    SettingsObject(SettingsManager *settings, marathon::Permissions *permissions,
-                   AppLaunchService *launchService, QObject *parent = nullptr);
-
-  public slots:
-    QVariantMap  GetState();
-    void         SetProperty(const QString &name, const QDBusVariant &value);
-
-    QStringList  AvailableRingtones();
-    QStringList  AvailableNotificationSounds();
-    QStringList  AvailableAlarmSounds();
-    QStringList  ScreenTimeoutOptions();
-    int          ScreenTimeoutValue(const QString &option);
-    QString      FormatSoundName(const QString &path);
-    QString      AssetUrl(const QString &relativePath);
-
-    QDBusVariant Get(const QString &key, const QDBusVariant &defaultValue = QDBusVariant());
-    void         Set(const QString &key, const QDBusVariant &value);
-    void         Sync();
-    void         SetSystemTime(qlonglong msecsSinceEpoch);
-
-  signals:
-    void PropertyChanged(const QString &name, const QDBusVariant &value);
-    void DateTimeChangeFailed(const QString &reason);
-
-  private:
-    bool requireSystem() {
-        return requirePermission("Settings", {"system"});
-    }
-    bool requireStorage() {
-        return requirePermission("Settings.Storage", {"storage"});
-    }
-    bool             isAppScopedKey(const QString &key) const;
-
-    SettingsManager *m_settings = nullptr;
 };
 
 class AudioObject : public IpcPermissionedService {

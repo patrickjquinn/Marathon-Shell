@@ -39,6 +39,8 @@ mod sandbox;
 pub mod pressure;
 mod push;
 pub mod security;
+pub mod settings;
+mod qsettings;
 mod stored;
 mod systemd;
 mod timezone;

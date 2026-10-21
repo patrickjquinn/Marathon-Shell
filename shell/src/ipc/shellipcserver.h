@@ -7,7 +7,6 @@ namespace marathon {
     class Audio;
 }
 class AppLaunchService;
-class SettingsManager;
 class AudioPolicyController;
 class MarathonAppInstaller;
 class AppLifecycleManager;
@@ -21,8 +20,8 @@ class ShellIpcServer : public QObject {
     Q_OBJECT
 
   public:
-    explicit ShellIpcServer(marathon::Permissions *permissions, SettingsManager *settingsManager,
-                            marathon::Audio *audioManager, AudioPolicyController *audioPolicy,
+    explicit ShellIpcServer(marathon::Permissions *permissions, marathon::Audio *audioManager,
+                            AudioPolicyController *audioPolicy,
                             AppLaunchService *appLaunchService, AppLifecycleManager *lifecycleManager,
                             MarathonAppRegistry *appRegistry, QObject *parent = nullptr);
 
@@ -39,7 +38,6 @@ class ShellIpcServer : public QObject {
 
   private:
     marathon::Permissions *m_permissions         = nullptr;
-    SettingsManager       *m_settingsManager     = nullptr;
     marathon::Audio       *m_audioManager        = nullptr;
     AudioPolicyController *m_audioPolicy         = nullptr;
     MarathonAppInstaller  *m_appInstaller        = nullptr;
