@@ -35,7 +35,7 @@
 #include "marathon-app-native/src/updates.cxxqt.h"
 #include "marathon-app-native/src/wallpapers.cxxqt.h"
 #include "marathon-app-native/src/apps.cxxqt.h"
-#include "worldclockhelper.h"
+#include "marathon-app-native/src/world_clock.cxxqt.h"
 
 struct PlatformPermissions {
     Q_GADGET
@@ -102,7 +102,7 @@ struct PlatformCalendar {
 
 struct PlatformWorldClock {
     Q_GADGET
-    QML_FOREIGN(WorldClockHelper)
+    QML_FOREIGN(marathon::platform::WorldClock)
     QML_NAMED_ELEMENT(WorldClock)
     QML_SINGLETON
 };

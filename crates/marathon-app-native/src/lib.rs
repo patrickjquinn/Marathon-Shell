@@ -9,7 +9,6 @@
 extern crate marathon_rt;
 
 pub mod alarms;
-pub mod ambience;
 pub mod apps;
 pub mod audio;
 pub mod bluetooth;
@@ -18,6 +17,7 @@ pub mod contacts;
 pub mod dav;
 pub mod display;
 pub mod haptics;
+pub mod keel;
 pub mod history;
 pub mod lifecycle;
 pub mod location;
@@ -31,6 +31,7 @@ pub mod notifications;
 pub mod permissions;
 pub mod power;
 mod rt;
+pub mod runner;
 pub mod security;
 pub mod sensors;
 pub mod settings;
@@ -42,3 +43,4 @@ pub mod telephony;
 pub mod updates;
 use marathon_qt as variant;
 pub mod wallpapers;
+pub mod world_clock;

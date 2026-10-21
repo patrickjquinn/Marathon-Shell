@@ -72,6 +72,17 @@ add_custom_target(marathon_dev_cargo ALL
     VERBATIM)
 install(PROGRAMS "${MARATHON_DEV_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+set(MARATHON_KEEL_HOST_BIN "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-keel-host")
+add_custom_target(marathon_keel_host_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-keel --bin marathon-keel-host
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_KEEL_HOST_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-keel-host (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_KEEL_HOST_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 set(MARATHON_STORE_HANDLER_BIN
     "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-store-handler")
 add_custom_target(marathon_store_handler_cargo ALL

@@ -13,35 +13,6 @@ add_test(NAME Core_IpcGates COMMAND test_core_ipcgates)
 
 # Permissions1 authorisation: self-only, except Settings
 
-# Pool keepalive page touching (marathon-app-runner)
-add_executable(test_core_pagetouch
-    test_pagetouch.cpp
-    ../../tools/marathon-app-runner/pagetouch.cpp
-)
-target_link_libraries(test_core_pagetouch Qt6::Test Qt6::Core)
-target_include_directories(test_core_pagetouch PRIVATE
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-)
-add_test(NAME Core_PageTouch COMMAND test_core_pagetouch)
-
-# Keel host protocol server (marathon-app-runner)
-add_executable(test_core_keelhost
-    test_keelhost.cpp
-    ../../tools/marathon-app-runner/keelhost.cpp
-)
-target_link_libraries(test_core_keelhost Qt6::Test Qt6::Core Qt6::DBus Qt6::Gui)
-target_include_directories(test_core_keelhost PRIVATE
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-)
-add_test(NAME Core_KeelHost COMMAND test_core_keelhost)
-
-# Ambience relay client (marathon-app-runner)
-add_executable(test_core_ambienceclient test_ambienceclient.cpp)
-set_target_properties(test_core_ambienceclient PROPERTIES AUTOMOC ON)
-target_link_libraries(test_core_ambienceclient Qt6::Test Qt6::Core Qt6::DBus marathon_app_native)
-add_test(NAME Core_AmbienceClient COMMAND test_core_ambienceclient)
-set_tests_properties(Core_KeelHost PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
 # Marathon.Platform: the runner's service clients under their QML names
 find_package(Qt6 REQUIRED COMPONENTS Qml)
 add_executable(test_core_platformtypes
@@ -53,37 +24,6 @@ target_include_directories(test_core_platformtypes PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
 )
 add_test(NAME Core_PlatformTypes COMMAND test_core_platformtypes)
-
-# A native Keel app (rebuilt SailfishApp) run under a Keel host
-add_executable(test_core_hostedapp
-    test_hostedapp.cpp
-    ../../tools/marathon-app-runner/hostedapp.cpp
-    ../../tools/marathon-app-runner/keelhost.cpp
-)
-target_link_libraries(test_core_hostedapp Qt6::Test Qt6::Core Qt6::DBus Qt6::Gui)
-target_include_directories(test_core_hostedapp PRIVATE
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-)
-add_test(NAME Core_HostedApp COMMAND test_core_hostedapp)
-set_tests_properties(Core_HostedApp PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-# The shell's lifecycle calls to a hosted app
-add_executable(test_core_hostlifecycle
-    test_hostlifecycle.cpp
-    ../../tools/marathon-app-runner/hostlifecycle.cpp
-    ../../tools/marathon-app-runner/keelhost.cpp
-)
-target_link_libraries(test_core_hostlifecycle Qt6::Test Qt6::Core Qt6::DBus Qt6::Gui)
-target_include_directories(test_core_hostlifecycle PRIVATE
-    ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner
-)
-add_test(NAME Core_HostLifecycle COMMAND test_core_hostlifecycle)
-
-# Sailjail permissions as a bwrap sandbox for Sailfish apps
-add_executable(test_core_sailjail test_sailjail.cpp ../../tools/marathon-app-runner/sailjail.cpp)
-target_link_libraries(test_core_sailjail Qt6::Test Qt6::Core)
-target_include_directories(test_core_sailjail PRIVATE ${CMAKE_SOURCE_DIR}/tools/marathon-app-runner)
-add_test(NAME Core_Sailjail COMMAND test_core_sailjail)
 
 # Every setting the Settings app writes reaches the shell and has a reader
 find_package(Qt6 REQUIRED COMPONENTS DBus Qml)

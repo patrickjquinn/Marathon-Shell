@@ -3,7 +3,6 @@ use cxx_qt_build::CxxQtBuilder;
 fn main() {
     CxxQtBuilder::new()
         .file("src/alarms.rs")
-        .file("src/ambience.rs")
         .file("src/apps.rs")
         .file("src/audio.rs")
         .file("src/bluetooth.rs")
@@ -12,6 +11,7 @@ fn main() {
         .file("src/dav.rs")
         .file("src/display.rs")
         .file("src/haptics.rs")
+        .file("src/keel.rs")
         .file("src/history.rs")
         .file("src/lifecycle.rs")
         .file("src/location.rs")
@@ -25,6 +25,7 @@ fn main() {
         .file("src/permissions.rs")
         .file("src/power.rs")
         .file("src/rt.rs")
+        .file("src/runner.rs")
         .file("src/security.rs")
         .file("src/sensors.rs")
         .file("src/settings.rs")
@@ -35,5 +36,6 @@ fn main() {
         .file("src/telephony.rs")
         .file("src/updates.rs")
         .file("src/wallpapers.rs")
+        .file("src/world_clock.rs")
         .build();
 }

@@ -8,8 +8,6 @@
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlListReference>
-#include <QCommandLineParser>
-#include <QCommandLineOption>
 #include <QFileInfo>
 #include <QDir>
 #include <QStandardPaths>
@@ -19,7 +17,6 @@
 #include <QQuickItem>
 #include <QFile>
 #include <QTextStream>
-#include <QRegularExpression>
 #include <QColor>
 #include <QDateTime>
 #include <QElapsedTimer>
@@ -27,11 +24,6 @@
 #include <QVariantMap>
 #include <QtQml/qqml.h>
 #include <QDBusConnection>
-#include <QDBusConnectionInterface>
-#include <QDBusContext>
-#include <QDBusError>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QEventLoop>
 #include <QSocketNotifier>
 #include <QOffscreenSurface>
@@ -40,17 +32,11 @@
 #include <atomic>
 #include <cerrno>
 #include <cstring>
-#include <cstdio>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <csignal>
-#include <sys/socket.h>
 
 
-// Function-local statics: compiled once on first use, with no pre-main
-// initialiser that could throw uncatchably (which a namespace-scope
-// QRegularExpression has).
 // A Rust client of the shell under `name`: a context property and, when apps
 // compiled against the shell module look it up as one, a MarathonOS.Shell
 // singleton.
@@ -63,21 +49,14 @@ template <typename T> T *exposeClient(QQmlContext *ctx, const char *name, bool s
     return client;
 }
 
-static const QRegularExpression &whitespace() {
-    static const QRegularExpression re{QStringLiteral("\\s+")};
-    return re;
-}
-static const QRegularExpression &nonIdentifier() {
-    static const QRegularExpression re{QStringLiteral("[^A-Za-z0-9_]")};
-    return re;
-}
-
 #ifdef HAVE_WEBENGINE
 #include <QtWebEngineQuick/QtWebEngineQuick>
 #endif
 
 #include "marathon-app-native/src/apps.cxxqt.h"
-#include "worldclockhelper.h"
+#include "marathon-app-native/src/keel.cxxqt.h"
+#include "marathon-app-native/src/runner.cxxqt.h"
+#include "marathon-app-native/src/world_clock.cxxqt.h"
 
 #include "diag/frametiming.h"
 #include "marathon-app-native/src/rt.cxxqt.h"
@@ -155,126 +134,45 @@ static void applyMainPriorityForActive(bool active) {
 #include "marathon-app-native/src/stores.cxxqt.h"
 #include "marathon-app-native/src/telephony.cxxqt.h"
 #include "marathon-app-native/src/updates.cxxqt.h"
-#include "pagetouch.h"
-#include "keelhost.h"
-#include "marathon-app-native/src/ambience.cxxqt.h"
 #include "platformtypes.h"
 #include "marathon-app-native/src/wallpapers.cxxqt.h"
 #include "marathon-app-native/src/calendar.cxxqt.h"
 
-class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.marathonos.AppRunner.Lifecycle1")
+// The app root's Back or Forward handler (`method`), else its plain signal
+// (`fallback`), which counts as handled.
+static bool invokeRoot(QObject *root, const char *method, const char *fallback) {
+    if (!root)
+        return false;
+    QVariant ret;
+    if (QMetaObject::invokeMethod(root, method, Qt::DirectConnection, Q_RETURN_ARG(QVariant, ret)))
+        return ret.toBool();
+    QMetaObject::invokeMethod(root, fallback, Qt::DirectConnection);
+    return true;
+}
 
+// A Keel app's window close (xdg_toplevel.close from the task switcher)
+// becomes CloseRequested: a close before the app is closing is held back and
+// reported, so the app gets its grace period before the runner quits. Quit
+// closes the window too, which then passes.
+class KeelCloseGuard : public QObject {
   public:
-    explicit AppRunnerLifecycleObject(QObject *parent = nullptr)
-        : QObject(parent) {
-        const QByteArray shellPidRaw = qgetenv("MARATHON_SHELL_PID").trimmed();
-        bool             ok          = false;
-        m_expectedShellPid           = shellPidRaw.toLongLong(&ok);
-        if (!ok)
-            m_expectedShellPid = -1;
-    }
+    KeelCloseGuard(std::shared_ptr<bool> closing, std::function<void()> beginClose, QObject *parent)
+        : QObject(parent)
+        , m_closing(std::move(closing))
+        , m_beginClose(std::move(beginClose)) {}
 
-    void setRoot(QObject *root) {
-        m_root = root;
-        const int sig = root->metaObject()->indexOfSignal("minimizeRequested()");
-        if (sig >= 0)
-            connect(root, root->metaObject()->method(sig), this,
-                    metaObject()->method(metaObject()->indexOfSlot("onMinimizeRequested()")));
-    }
-
-  public slots:
-    bool Back() {
-        if (!verifyCallerIsShell())
-            return false;
-        // An MApp with nothing to go back to emits minimizeRequested.
-        // Nothing here acts on it; answer "unhandled" so the shell sends
-        // the app home.
-        m_minimizeRequested = false;
-        const bool handled  = invokeBool("handleBack");
-        return handled && !m_minimizeRequested;
-    }
-    bool Forward() {
-        if (!verifyCallerIsShell())
-            return false;
-        return invokeBool("handleForward");
-    }
-    // The shell shows (1) or hides (0) the app's cover in the task switcher.
-    void SetCoverStatus(int status) {
-        if (verifyCallerIsShell() && m_keelHost)
-            m_keelHost->setCoverStatus(status);
-    }
-    // Keel.Actions owns its name on this process's session-bus connection.
-    // While frozen the app holds no name, so a call for it is bus-activated
-    // and the shell thaws the app instead of the call hanging.
-    void PrepareFreeze() {
-        const QString name = qEnvironmentVariable("KEEL_ACTIONS_APP_ID");
-        if (verifyCallerIsShell() && !name.isEmpty())
-            m_actionsNameReleased = QDBusConnection::sessionBus().unregisterService(name);
-    }
-    void Thawed() {
-        if (verifyCallerIsShell() && m_actionsNameReleased)
-            m_actionsNameReleased = !QDBusConnection::sessionBus().registerService(
-                qEnvironmentVariable("KEEL_ACTIONS_APP_ID"));
-    }
-
-  public:
-    void setKeelHost(KeelHost *host) {
-        m_keelHost = host;
-    }
-
-  private slots:
-    void onMinimizeRequested() {
-        m_minimizeRequested = true;
-    }
-
-  private:
-    bool verifyCallerIsShell() {
-        if (!calledFromDBus())
-            return false;
-        if (m_expectedShellPid <= 0) {
-            sendErrorReply(QDBusError::AccessDenied, "MARATHON_SHELL_PID not set");
-            return false;
-        }
-        const QString sender = message().service();
-        auto          pidR   = connection().interface()->servicePid(sender);
-        if (!pidR.isValid()) {
-            sendErrorReply(QDBusError::AccessDenied, "Unable to resolve sender PID");
-            return false;
-        }
-        if (static_cast<qint64>(pidR.value()) != m_expectedShellPid) {
-            sendErrorReply(QDBusError::AccessDenied, "Caller is not the shell");
-            return false;
-        }
+  protected:
+    bool eventFilter(QObject *watched, QEvent *event) override {
+        if (event->type() != QEvent::Close || *m_closing)
+            return QObject::eventFilter(watched, event);
+        event->ignore();
+        m_beginClose();
         return true;
     }
 
-    bool invokeBool(const char *method) {
-        if (!m_root) {
-            sendErrorReply(QDBusError::Failed, "App root not ready");
-            return false;
-        }
-
-        QVariant ret;
-        bool     ok = QMetaObject::invokeMethod(m_root.data(), method, Qt::DirectConnection,
-                                                Q_RETURN_ARG(QVariant, ret));
-        if (!ok) {
-
-            QMetaObject::invokeMethod(m_root.data(),
-                                      QByteArray(method) == "handleBack" ? "backPressed" :
-                                                                           "forwardPressed",
-                                      Qt::DirectConnection);
-            return true;
-        }
-        return ret.toBool();
-    }
-
-    qint64            m_expectedShellPid  = -1;
-    QPointer<QObject> m_root;
-    bool              m_minimizeRequested = false;
-    bool              m_actionsNameReleased = false;
-    QPointer<KeelHost> m_keelHost;
+  private:
+    std::shared_ptr<bool> m_closing;
+    std::function<void()> m_beginClose;
 };
 
 // A page that focused itself while the app was built (Keel's initial page
@@ -288,306 +186,13 @@ static bool subtreeHasFocus(const QQuickItem *item) {
     return false;
 }
 
-static QString capitalizeAppId(const QString &appId) {
-    if (appId.isEmpty())
-        return appId;
-    return appId.left(1).toUpper() + appId.mid(1);
-}
-
-static QString readTextFile(const QString &path) {
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
-        return {};
-    return QString::fromUtf8(f.readAll());
-}
-
-static bool copyDirRecursively(const QString &srcPath, const QString &dstPath) {
-    const QDir src(srcPath);
-    if (!src.exists())
-        return false;
-
-    QDir dst(dstPath);
-    if (!dst.exists()) {
-        if (!QDir().mkpath(dstPath))
-            return false;
-    }
-
-    const QFileInfoList entries = src.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries);
-    for (const QFileInfo &fi : entries) {
-        const QString srcItem = fi.absoluteFilePath();
-        const QString dstItem = dst.filePath(fi.fileName());
-
-        if (fi.isDir()) {
-            if (!copyDirRecursively(srcItem, dstItem))
-                return false;
-        } else {
-
-            if (QFileInfo::exists(dstItem))
-                QFile::remove(dstItem);
-            if (!QFile::copy(srcItem, dstItem))
-                return false;
-        }
-    }
-
-    return true;
-}
-
-static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
-                                                const QString &moduleRelDir) {
-    const QDir    importDir(importRoot);
-    const QString moduleAbsDir = importDir.filePath(moduleRelDir);
-    const QString qmldirAbs    = QDir(moduleAbsDir).filePath("qmldir");
-
-    const QString qmldirText = readTextFile(qmldirAbs);
-    if (qmldirText.isEmpty())
-        return {};
-
-    if (!qmldirText.contains("prefer :/qt/qml/"))
-        return {};
-
-    const QString tmpBase =
-        QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/marathon-app-runner";
-    // Suffix the tmp root with a hash of the source path so multiple
-    // calls within one process (e.g. dev build + a stale install)
-    // each land in their own staging dir. Reusing a single
-    // pid-keyed dir across sources would let the second call's
-    // qmldir replace the first while keeping the first call's
-    // files, leaving orphan type declarations behind.
-    const quint64 srcHash =
-        qHash(importRoot + ":" + moduleRelDir, qHash(QByteArray("marathon-app-runner")));
-    QString tmpRoot = tmpBase +
-        QString("/shell-qmldir-%1-%2")
-            .arg(QCoreApplication::applicationPid())
-            .arg(srcHash, 16, 16, QChar('0'));
-    const QString tmpModuleDir = QDir(tmpRoot).filePath(moduleRelDir);
-
-    QDir().mkpath(tmpModuleDir);
-
-    QString     patched;
-    QTextStream out(&patched);
-
-    // Type declarations in qmldir look like "Name 1.0 path/file.qml"
-    // or "singleton Name 1.0 path/file.qml". If the referenced file
-    // doesn't exist alongside the patched qmldir we drop the line —
-    // stale installs accrue orphan declarations (we hit this with
-    // an AlarmManager singleton that survived deletion of its .qml)
-    // and Qt's resolver chases the orphan into a `Type X
-    // unavailable` cascade.
-    const QStringList lines = qmldirText.split('\n');
-    for (const QString &raw : lines) {
-        const QString line = raw.trimmed();
-        if (line.isEmpty() || line.startsWith('#'))
-            continue;
-
-        if (line.startsWith("prefer "))
-            continue;
-
-        const QStringList parts = line.split(whitespace(), Qt::SkipEmptyParts);
-        const bool        looksLikeTypeDecl = parts.size() >= 3 && parts.last().endsWith(".qml") &&
-            !line.startsWith("module ") && !line.startsWith("plugin ") &&
-            !line.startsWith("classname ") && !line.startsWith("typeinfo ") &&
-            !line.startsWith("depends ") && !line.startsWith("import ") &&
-            !line.startsWith("linktarget ");
-        if (looksLikeTypeDecl) {
-            const QString &relTarget = parts.last();
-            const QString  srcCheck  = QDir(moduleAbsDir).filePath(relTarget);
-            if (!QFileInfo::exists(srcCheck))
-                continue;
-        }
-
-        out << line << '\n';
-    }
-
-    QFile f(QDir(tmpModuleDir).filePath("qmldir"));
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
-        return {};
-    f.write(patched.toUtf8());
-    f.close();
-
-    const QString srcQmlDir = QDir(moduleAbsDir).filePath("qml");
-    const QString dstQmlDir = QDir(tmpModuleDir).filePath("qml");
-    if (!QDir(dstQmlDir).exists()) {
-        if (!copyDirRecursively(srcQmlDir, dstQmlDir))
-            return {};
-    }
-
-    const QString srcTypes = QDir(moduleAbsDir).filePath("marathon-shell.qmltypes");
-    const QString dstTypes = QDir(tmpModuleDir).filePath("marathon-shell.qmltypes");
-    if (QFileInfo::exists(srcTypes) && !QFileInfo::exists(dstTypes))
-        QFile::copy(srcTypes, dstTypes);
-
-    return tmpRoot;
-}
-
-struct QmldirInfo {
-    QString moduleUri;
-    QString componentVersion;
-};
-
-static QmldirInfo parseQmldirForComponent(const QString &qmldirPath, const QString &componentName) {
-    QmldirInfo    out;
-    const QString text = readTextFile(qmldirPath);
-    if (text.isEmpty())
-        return out;
-
-    const QStringList lines = text.split('\n');
-    for (const QString &raw : lines) {
-        const QString line = raw.trimmed();
-        if (line.isEmpty() || line.startsWith('#'))
-            continue;
-
-        if (line.startsWith("module ")) {
-            out.moduleUri = line.mid(QString("module ").size()).trimmed();
-            continue;
-        }
-
-        if (line.startsWith(componentName + ' ')) {
-            const QStringList parts = line.split(whitespace(), Qt::SkipEmptyParts);
-            if (parts.size() >= 2)
-                out.componentVersion = parts.at(1).trimmed();
-        }
-    }
-
-    return out;
-}
-
-static QString findAppQmldirPath(const QString &appAbsolutePath, const QString &appId) {
-
-    QString p1 = QDir(appAbsolutePath)
-                     .filePath(QStringLiteral("MarathonApp/%1/qmldir").arg(capitalizeAppId(appId)));
-    if (QFileInfo::exists(p1))
-        return p1;
-
-    const QDir root(QDir(appAbsolutePath).filePath("MarathonApp"));
-    if (!root.exists())
-        return {};
-
-    const QStringList children = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-    for (const QString &child : children) {
-        const QString cand = root.filePath(child + "/qmldir");
-        if (QFileInfo::exists(cand))
-            return cand;
-    }
-
-    return {};
-}
-
-// Find --app-id / -a in argv without constructing any Qt application
-// object. QtWebEngineQuick::initialize() must run before QGuiApplication
-// is created, so we peek at argv first to look up the manifest.
-static bool peekPoolFlag(int argc, char *argv[]) {
-    for (int i = 1; i < argc; ++i) {
-        if (::strcmp(argv[i], "--pool") == 0)
-            return true;
-    }
-    return false;
-}
-
-
-// Append one startup milestone to $XDG_RUNTIME_DIR/marathon-startup.log with
-// a raw O_APPEND write (atomic, unbuffered, immediately visible) so launch
-// timing can be read off-device without fighting the shell log's block
-// buffering. Gated by MARATHON_STARTUP_TIMING; the qWarning line stays too.
-static void logStartupPhase(const QString &appId, const char *phase, qint64 ms) {
-    const QByteArray rt = qgetenv("XDG_RUNTIME_DIR");
-    if (rt.isEmpty())
-        return;
-    const QByteArray path = rt + "/marathon-startup.log";
-    const int        fd   = ::open(path.constData(), O_WRONLY | O_CREAT | O_APPEND, 0644);
-    if (fd < 0)
-        return;
-    const QByteArray l =
-        appId.toUtf8() + ' ' + phase + ' ' + QByteArray::number(ms) + " ms\n";
-    const ssize_t w = ::write(fd, l.constData(), static_cast<size_t>(l.size()));
-    (void)w;
-    ::close(fd);
-}
-
-static QString peekAppId(int argc, char *argv[]) {
-    auto take = [&](const QString &val) { return val.startsWith('-') ? QString() : val.trimmed(); };
-    for (int i = 1; i < argc; ++i) {
-        const QString a = QString::fromUtf8(argv[i]);
-        if ((a == QLatin1String("-a") || a == QLatin1String("--app-id")) && i + 1 < argc)
-            return take(QString::fromUtf8(argv[i + 1]));
-        if (a.startsWith(QLatin1String("--app-id=")))
-            return a.mid(QStringLiteral("--app-id=").size()).trimmed();
-        if (a.startsWith(QLatin1String("-a=")))
-            return a.mid(QStringLiteral("-a=").size()).trimmed();
-    }
-    return {};
-}
-
-// SIGTERM reaches the event loop through this pipe, so a Keel app gets
-// CloseRequested and a grace period to save.
-static int g_termFds[2] = {-1, -1};
-static void onTerm(int) {
-    const char c = 1;
-    (void)::write(g_termFds[0], &c, 1);
-}
-
 // MarathonOS.Shell roots, ahead of Qt's defaults. App-independent, so a pool
 // spare sets them up before it is adopted.
 static int sharedImportPathCount = 0;
 static void addSharedImportPaths(QQmlEngine *engine) {
-    const int before = engine->importPathList().size();
-
-    // MarathonOS.Shell resolution.
-    //
-    // We've hit a stale-install footgun in the past: an old
-    // /usr/local/lib/qt6/qml/MarathonOS/Shell/ left over from a
-    // prior packaging run declared `singleton AlarmManager 1.0
-    // qml/services/AlarmManager.qml` in its qmldir, but the
-    // corresponding .qml file had already been removed from the
-    // source tree. Because /usr/local/lib/qt6/qml was on the
-    // engine's import paths (and Qt searches first-added-first),
-    // the stale install would win lookup over the development build, every app
-    // that imported MarathonOS.Shell would inherit the broken
-    // AlarmManager declaration, and Settings would refuse to
-    // load with `Type AlarmManager unavailable` chasing up the
-    // type-resolution chain.
-    //
-    // We patch this on two axes:
-    //   1. Re-walk all candidate roots even when
-    //      MARATHON_SHELL_QML_IMPORT_PATH is set, so a stale
-    //      install also gets visited by the patcher (which now
-    //      drops qmldir entries whose target files don't exist
-    //      on disk — see createPatchedQmldirWithoutPrefer).
-    //   2. Prepend the dev build's patched root to the engine's
-    //      import path list so it wins resolution over any
-    //      install path already on it.
-    QStringList shellImportPaths;
-    auto        considerShellRoot = [&](const QString &cand) {
-        if (cand.isEmpty() || !QDir(cand).exists())
-            return;
-        if (!QDir(cand + "/MarathonOS/Shell").exists())
-            return;
-        const QString patched = createPatchedQmldirWithoutPrefer(cand, "MarathonOS/Shell");
-        shellImportPaths.append(patched.isEmpty() ? cand : patched);
-    };
-
-    const QByteArray shellQmlEnv = qgetenv("MARATHON_SHELL_QML_IMPORT_PATH").trimmed();
-    if (!shellQmlEnv.isEmpty())
-        considerShellRoot(QString::fromLocal8Bit(shellQmlEnv));
-
-    {
-        const QDir        binDir(QCoreApplication::applicationDirPath());
-        const QStringList candidates = {
-            binDir.filePath("../../shell/qml"),
-            binDir.filePath("../shell/qml"),
-            binDir.filePath("shell/qml"),
-            "/usr/local/lib/qt6/qml",
-            "/usr/lib/qt6/qml",
-            "/usr/lib64/qt6/qml",
-        };
-        for (const QString &cand : candidates)
-            considerShellRoot(cand);
-    }
-
-    // Reorder: shell roots first (dev build/env winning over
-    // installed paths). QQmlEngine's import search is first-added-first.
-    const QStringList existing = engine->importPathList();
-    engine->setImportPathList(shellImportPaths + existing);
-    sharedImportPathCount = engine->importPathList().size() - before;
+    const QStringList roots = marathon::runner::shell_import_roots(QCoreApplication::applicationDirPath());
+    engine->setImportPathList(roots + engine->importPathList());
+    sharedImportPathCount = roots.size();
 }
 
 int main(int argc, char *argv[]) {
@@ -601,14 +206,15 @@ int main(int argc, char *argv[]) {
 
     // Pool mode (--pool): no app id yet; WebEngine apps never adopt from
     // the pool, so STAGE 1 is skipped entirely.
-    const bool poolMode = peekPoolFlag(argc, argv);
+    marathon::runner::Launch launch = marathon::runner::launch();
+    const bool               poolMode = launch.pool;
 
     // STAGE 1: Pre-QGuiApplication. We peek at the manifest to learn
     // which Qt modules this app needs at process scope (currently just
     // WebEngine). The cost of loading Chromium is then paid by app
     // processes that actually use it, not by the shell.
     if (!poolMode) {
-        const QString earlyAppId = peekAppId(argc, argv);
+        const QString earlyAppId = launch.app_id;
         if (marathon::apps::requiresQtModule(earlyAppId, QStringLiteral("webengine"))) {
 #ifdef HAVE_WEBENGINE
                     // Keep Chromium's own sandbox enabled — the parent
@@ -724,39 +330,17 @@ int main(int argc, char *argv[]) {
     // back to Noto Sans on this build).
     QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
 
-    QString appId;
-    QString launchRoute;
-    QString launchRouteParams;
-    std::unique_ptr<QQuickView>     pooledView;
-    std::unique_ptr<marathon::platform::Ambience> ambienceClient;
-    std::unique_ptr<KeelHost>       keelHost;
+    std::unique_ptr<QQuickView>                   pooledView;
+    std::unique_ptr<marathon::platform::KeelHost> keelHost;
     // Keel reads its host environment when its plugin first creates the Shell
     // client, which in a pool spare happens during warm-up, so the host must
     // exist before then.
-    auto startKeelHost = [&ambienceClient, &keelHost]() {
-        ambienceClient = std::make_unique<marathon::platform::Ambience>();
-        ambienceClient->fetchNow();
-        keelHost = std::make_unique<KeelHost>(
-            qRound(QGuiApplication::primaryScreen()->physicalDotsPerInch()));
-        keelHost->setAmbience(ambienceClient->getAmbience());
-        if (!keelHost->start(qEnvironmentVariable("XDG_RUNTIME_DIR"))) {
+    auto startKeelHost = [&keelHost]() {
+        keelHost = std::make_unique<marathon::platform::KeelHost>();
+        if (!keelHost->start(qRound(QGuiApplication::primaryScreen()->physicalDotsPerInch()))) {
             qWarning() << "[marathon-app-runner] Keel host failed to start";
             keelHost.reset();
-            return;
         }
-        // Re-exported on each change, for a spare whose app starts later.
-        auto exportEnv = [host = keelHost.get()]() {
-            const auto env = host->environment();
-            for (auto it = env.cbegin(); it != env.cend(); ++it)
-                qputenv(it.key().toUtf8(), it.value().toUtf8());
-        };
-        exportEnv();
-        QObject::connect(ambienceClient.get(), &marathon::platform::Ambience::ambienceChanged,
-                         keelHost.get(),
-                         [host = keelHost.get(), ambience = ambienceClient.get(), exportEnv]() {
-                             host->setAmbience(ambience->getAmbience());
-                             exportEnv();
-                         });
     };
     if (poolMode) {
         // Warm the GL stack off the critical path: EGL display init, the
@@ -870,9 +454,10 @@ int main(int argc, char *argv[]) {
             QTimer keepalive;
             if (!poolLocked) {
                 keepalive.setInterval(3000);
-                QObject::connect(&keepalive, &QTimer::timeout, &keepalive, touchOwnResidentPages);
+                QObject::connect(&keepalive, &QTimer::timeout, &keepalive,
+                                 marathon::runner::touch_resident_pages);
                 keepalive.start();
-                touchOwnResidentPages();
+                marathon::runner::touch_resident_pages();
             }
             wait.exec();
         }
@@ -881,14 +466,8 @@ int main(int argc, char *argv[]) {
         // MCL_FUTURE in place would pin everything the adopt path allocates.
         if (poolLocked)
             ::munlockall();
-        const QJsonObject msg    = QJsonDocument::fromJson(line).object();
-        appId                    = msg.value(QStringLiteral("appId")).toString().trimmed();
-        launchRoute              = msg.value(QStringLiteral("route")).toString();
-        launchRouteParams        = msg.value(QStringLiteral("routeParams")).toString();
-        const QJsonObject envObj = msg.value(QStringLiteral("env")).toObject();
-        for (auto it = envObj.begin(); it != envObj.end(); ++it)
-            qputenv(it.key().toUtf8(), it.value().toString().toUtf8());
-        if (appId.isEmpty()) {
+        launch = marathon::runner::adopt(line);
+        if (launch.app_id.isEmpty()) {
             // EOF without a message: the shell went away or drained the pool.
             if (line.isEmpty())
                 return 0;
@@ -898,37 +477,16 @@ int main(int argc, char *argv[]) {
         // Report adopt -> frame: the portion of launch the pool influences.
         startupTimer.restart();
         if (logStartup) {
-            qWarning().noquote() << "[startup]" << appId << "pooled-adopt";
-            logStartupPhase(appId, "pooled-adopt", 0);
+            qWarning().noquote() << "[startup]" << launch.app_id << "pooled-adopt";
+            marathon::runner::log_startup(launch.app_id, "pooled-adopt", 0);
         }
-    } else {
-        QCommandLineParser parser;
-        parser.setApplicationDescription(
-            "Marathon App Runner (Wayland client) - runs a Marathon QML app out-of-process");
-        parser.addHelpOption();
-
-        QCommandLineOption appIdOpt(QStringList() << "a"
-                                                  << "app-id",
-                                    "Marathon app id (e.g. phone, calculator)", "appId");
-        parser.addOption(appIdOpt);
-        QCommandLineOption routeOpt(QStringList() << "r"
-                                                  << "route",
-                                    "In-app route to open (e.g. /emergency)", "route");
-        parser.addOption(routeOpt);
-        parser.process(app);
-
-        appId = parser.value(appIdOpt).trimmed();
-        if (appId.isEmpty()) {
-            qCritical() << "[marathon-app-runner] Missing --app-id";
-            return 2;
-        }
-        // Route may also arrive via env (when shell sets MARATHON_APP_ROUTE).
-        // CLI flag wins, then env, then empty.
-        launchRoute = parser.value(routeOpt).trimmed();
-        if (launchRoute.isEmpty())
-            launchRoute = qEnvironmentVariable("MARATHON_APP_ROUTE");
-        launchRouteParams = qEnvironmentVariable("MARATHON_APP_ROUTE_PARAMS");
+    } else if (launch.app_id.isEmpty()) {
+        qCritical() << "[marathon-app-runner] Missing --app-id";
+        return 2;
     }
+    const QString appId             = launch.app_id;
+    const QString launchRoute       = launch.route;
+    const QString launchRouteParams = launch.route_params;
 
     QGuiApplication::setDesktopFileName(appId);
 
@@ -1013,41 +571,24 @@ int main(int argc, char *argv[]) {
         format.setAlphaBufferSize(8);
         view.setFormat(format);
     }
-    // Set below, with the other clients; a Keel app's activation asks it.
-    marathon::platform::Navigation *navigation = nullptr;
-    if (keelHost) {
+    if (keelHost)
         QObject::connect(&view, &QWindow::activeChanged, keelHost.get(),
                          [&view, host = keelHost.get()]() { host->setActive(view.isActive()); });
-        keelHost->onActivate = [&navigation, appId]() {
-            if (navigation)
-                navigation->launchApp(appId);
-        };
-    }
 
     // A Keel app is told to close (CloseRequested) and given a second to save,
     // whether the close comes from the task switcher or as SIGTERM.
     if (keelHost) {
-        auto beginClose = [host = keelHost.get(), closing = std::make_shared<bool>(false)]() {
+        auto closing    = std::make_shared<bool>(false);
+        auto beginClose = [host = keelHost.get(), closing]() {
             if (*closing)
                 return;
             *closing = true;
             host->requestClose();
             QTimer::singleShot(1000, qApp, &QCoreApplication::quit);
         };
-        view.installEventFilter(new KeelCloseGuard(beginClose, &view));
-        if (::socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, g_termFds) == 0) {
-            auto *termNotifier = new QSocketNotifier(g_termFds[1], QSocketNotifier::Read, &app);
-            QObject::connect(termNotifier, &QSocketNotifier::activated, &app, [beginClose]() {
-                char c;
-                (void)::read(g_termFds[1], &c, 1);
-                beginClose();
-            });
-            struct sigaction sa {};
-            sa.sa_handler = onTerm;
-            sigemptyset(&sa.sa_mask);
-            sa.sa_flags = SA_RESTART;
-            ::sigaction(SIGTERM, &sa, nullptr);
-        }
+        view.installEventFilter(new KeelCloseGuard(closing, beginClose, &view));
+        QObject::connect(keelHost.get(), &marathon::platform::KeelHost::closeRequested, &view,
+                         beginClose);
     }
 
     QQmlEngine *engine = view.engine();
@@ -1146,7 +687,11 @@ int main(int argc, char *argv[]) {
     // introspect their own grants.
     // Unconditional: every app gets the world-clock / timezone helper
     // (lightweight, no IPC, no permissions).
-    ctx->setContextProperty("WorldClockHelper", new WorldClockHelper(&app));
+    {
+        auto *worldClock = new marathon::platform::WorldClock();
+        worldClock->setParent(&app);
+        ctx->setContextProperty("WorldClockHelper", worldClock);
+    }
 
     // Whose permissions the Rust clients ask for, before any client asks.
     marathon::platform::set_app_id(appId.toStdString());
@@ -1234,8 +779,9 @@ int main(int argc, char *argv[]) {
         exposeClient<marathon::platform::Modem>(ctx, "ModemManagerCpp", false);
     }
 
-    navigation = exposeClient<marathon::platform::Navigation>(ctx, "NavigationService", false);
-    ctx->setContextProperty("NavigationRouter", navigation);
+    ctx->setContextProperty(
+        "NavigationRouter",
+        exposeClient<marathon::platform::Navigation>(ctx, "NavigationService", false));
     exposeClient<marathon::platform::Haptics>(ctx, "HapticService");
 
     marathon::platform::Notifications *notifications = nullptr;
@@ -1282,7 +828,7 @@ int main(int argc, char *argv[]) {
     if (logStartup) {
         qWarning().noquote() << "[startup]" << appId << "qml-setup" << startupTimer.elapsed()
                              << "ms";
-        logStartupPhase(appId, "qml-setup", startupTimer.elapsed());
+        marathon::runner::log_startup(appId, "qml-setup", startupTimer.elapsed());
     }
     if (logStartup) {
         // One-shot: time from process entry to the first rendered frame —
@@ -1294,70 +840,52 @@ int main(int argc, char *argv[]) {
                              fired = true;
                              qWarning().noquote() << "[startup]" << appId << "first-frame"
                                                   << startupTimer.elapsed() << "ms";
-                             logStartupPhase(appId, "first-frame", startupTimer.elapsed());
+                             marathon::runner::log_startup(appId, "first-frame", startupTimer.elapsed());
                          });
     }
 
-    AppRunnerLifecycleObject lifecycleObj;
-    lifecycleObj.setKeelHost(keelHost.get());
-    {
-        // Use the app-id rather than the PID. The runner runs inside a
-        // bwrap PID namespace where applicationPid() returns 2 for
-        // every app (PID 1 is the namespace init), so PID-based service
-        // names like AppRunner.pid2 collided across every running app
-        // and registration silently failed. There is at most one runner
-        // per app id, and the shell already routes per-app via the
-        // same identifier, so AppRunner.<appId> is unique and stable.
-        const QString sanitizedAppId = QString(appId).replace(nonIdentifier(), QStringLiteral("_"));
-        const QString serviceName =
-            QStringLiteral("org.marathonos.AppRunner.%1").arg(sanitizedAppId);
-        auto bus = QDBusConnection::sessionBus();
-        if (bus.isConnected()) {
-            if (!bus.registerService(serviceName)) {
-                qWarning() << "[marathon-app-runner] Failed to register DBus service" << serviceName
-                           << ":" << bus.lastError().message();
-            }
-            if (!bus.registerObject(QStringLiteral("/org/marathonos/AppRunner/Lifecycle"),
-                                    &lifecycleObj, QDBusConnection::ExportAllSlots)) {
-                qWarning() << "[marathon-app-runner] Failed to register lifecycle object:"
-                           << bus.lastError().message();
-            }
-        } else {
-            qWarning()
-                << "[marathon-app-runner] Session bus not connected; nav gestures won't work";
-        }
-    }
+    marathon::runner::RunnerLifecycle lifecycle;
+    QPointer<QObject>                 appRoot;
+    QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::backRequested, &lifecycle,
+                     [&]() { lifecycle.answer(invokeRoot(appRoot, "handleBack", "backPressed")); });
+    QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::forwardRequested, &lifecycle,
+                     [&]() { lifecycle.answer(invokeRoot(appRoot, "handleForward", "forwardPressed")); });
+    // Keel.Actions owns its name on Qt's session-bus connection.
+    auto actionsReleased = std::make_shared<bool>(false);
+    QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::prepareFreezeRequested,
+                     &lifecycle, [actionsReleased]() {
+                         const QString name = qEnvironmentVariable("KEEL_ACTIONS_APP_ID");
+                         if (!name.isEmpty())
+                             *actionsReleased = QDBusConnection::sessionBus().unregisterService(name);
+                     });
+    QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::thawed, &lifecycle,
+                     [actionsReleased]() {
+                         if (*actionsReleased)
+                             *actionsReleased = !QDBusConnection::sessionBus().registerService(
+                                 qEnvironmentVariable("KEEL_ACTIONS_APP_ID"));
+                     });
+    lifecycle.serve(appId);
 
     const QString appAbsPath = appPath;
 
     QTimer::singleShot(
         0, &view,
-        [&view, engine, ctx, entryUrl, entryAbs, appId, componentName, appAbsPath,
-         &lifecycleObj, &startupTimer, logStartup]() {
+        [&view, engine, ctx, entryUrl, entryAbs, appId, componentName, appAbsPath, &lifecycle,
+         &appRoot, &startupTimer, logStartup]() {
             QQmlComponent *component = nullptr;
 
             if (QFileInfo::exists(entryAbs)) {
                 component = new QQmlComponent(engine, entryUrl, &view);
             } else {
-                const QString    qmldirPath = findAppQmldirPath(appAbsPath, appId);
-                const QmldirInfo qmldir     = parseQmldirForComponent(qmldirPath, componentName);
-
-                if (qmldir.moduleUri.isEmpty()) {
+                const QString wrapper =
+                    marathon::runner::entry_wrapper(appAbsPath, appId, componentName);
+                if (wrapper.isEmpty()) {
                     qCritical() << "[marathon-app-runner] Entry point file not found and no qmldir "
                                    "module found for"
-                                << appId << "entryAbs=" << entryAbs << "qmldir=" << qmldirPath;
+                                << appId << "entryAbs=" << entryAbs;
                     QCoreApplication::exit(4);
                     return;
                 }
-
-                QString wrapper;
-                wrapper += "import QtQuick\n";
-                if (!qmldir.componentVersion.isEmpty())
-                    wrapper +=
-                        QString("import %1 %2\n").arg(qmldir.moduleUri, qmldir.componentVersion);
-                else
-                    wrapper += QString("import %1\n").arg(qmldir.moduleUri);
-                wrapper += QString("%1 { }\n").arg(componentName);
 
                 // A local URL loads synchronously: a Keel Actions call queued for
                 // the app's bus name arrives only once its window is shown. Not
@@ -1369,8 +897,8 @@ int main(int argc, char *argv[]) {
                                        QStringLiteral("/marathon-app/%1/Wrapper.qml").arg(appId)));
             }
 
-            auto createAndAttach = [component, &view, ctx, appId, &lifecycleObj, &startupTimer,
-                                    logStartup]() {
+            auto createAndAttach = [component, &view, ctx, appId, &lifecycle, &appRoot,
+                                    &startupTimer, logStartup]() {
                 if (!component) {
                     QCoreApplication::exit(4);
                     return;
@@ -1392,7 +920,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (logStartup)
-                    logStartupPhase(appId, "component-ready", startupTimer.elapsed());
+                    marathon::runner::log_startup(appId, "component-ready", startupTimer.elapsed());
                 QObject *rootObj = component->create(ctx);
                 if (!rootObj) {
                     qCritical() << "[marathon-app-runner] Failed to create app instance for"
@@ -1424,10 +952,15 @@ int main(int argc, char *argv[]) {
                 QObject::connect(&view, &QQuickView::heightChanged, rootItem,
                                  [&view, rootItem](int) { rootItem->setHeight(view.height()); });
 
-                lifecycleObj.setRoot(rootObj);
+                appRoot       = rootObj;
+                const int sig = rootObj->metaObject()->indexOfSignal("minimizeRequested()");
+                if (sig >= 0)
+                    QObject::connect(rootObj, rootObj->metaObject()->method(sig), &lifecycle,
+                                     lifecycle.metaObject()->method(
+                                         lifecycle.metaObject()->indexOfMethod("minimizeRequested()")));
 
                 if (logStartup)
-                    logStartupPhase(appId, "created", startupTimer.elapsed());
+                    marathon::runner::log_startup(appId, "created", startupTimer.elapsed());
                 // Map only once the app's content exists: an earlier show() hands
                 // the shell empty frames, which it reveals as a black window.
                 view.show();
@@ -1448,7 +981,5 @@ int main(int argc, char *argv[]) {
 
     return QGuiApplication::exec();
 }
-
-#include "main.moc"
 
 
