@@ -5,26 +5,6 @@ enable_testing()
 
 find_package(Qt6 REQUIRED COMPONENTS Test Core Gui Qml Sql)
 
-# Router tests (pure state machine, zero deps)
-add_executable(test_shell_router
-    test_router.cpp
-    ../../shell/src/services/router.cpp
-)
-target_link_libraries(test_shell_router Qt6::Test Qt6::Core Qt6::Qml)
-target_include_directories(test_shell_router PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src/services
-)
-add_test(NAME Shell_Router COMMAND test_shell_router)
-
-# SessionStore: the PIN grace period after locking
-add_executable(test_shell_sessionstore
-    test_sessionstore.cpp
-    ../../shell/src/services/sessionstore.cpp
-)
-target_link_libraries(test_shell_sessionstore Qt6::Test Qt6::Core Qt6::Qml)
-target_include_directories(test_shell_sessionstore PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
-add_test(NAME Shell_SessionStore COMMAND test_shell_sessionstore)
-
 find_program(DBUS_RUN_SESSION dbus-run-session)
 
 # NotificationModel tests (data model, add/dismiss/read)

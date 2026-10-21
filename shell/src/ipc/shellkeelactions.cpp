@@ -4,9 +4,9 @@
 #include "marathon-shell-native/src/apps.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "processtree.h"
-#include "sessionstore.h"
+#include "marathon-shell-native/src/session.cxxqt.h"
 #include "marathon-shell-native/src/tasks.cxxqt.h"
-#include "uistore.h"
+#include "marathon-shell-native/src/ui.cxxqt.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>
@@ -44,7 +44,7 @@ namespace {
 
 } // namespace
 
-ShellKeelActions::ShellKeelActions(Apps *apps, Tasks *tasks, UIStore *uiStore, SessionStore *session,
+ShellKeelActions::ShellKeelActions(Apps *apps, Tasks *tasks, Ui *uiStore, Session *session,
                                    marathon::Display *display, QObject *parent)
     : QObject(parent)
     , m_apps(apps)
@@ -106,7 +106,7 @@ QString ShellKeelActions::Invoke(const QString &action, const QString &arguments
         !why.isEmpty())
         return fail(QStringLiteral("InvalidArguments"), why);
     if (!tool[QLatin1String("annotations")][QLatin1String("readOnlyHint")].toBool() &&
-        m_session->isLocked())
+        m_session->getIsLocked())
         return fail(QStringLiteral("NotAvailable"), QStringLiteral("the phone is locked"));
     qInfo() << "[ShellKeelActions]" << action << arguments;
     return run(action, doc.object());
@@ -133,11 +133,11 @@ QString ShellKeelActions::run(const QString &action, const QJsonObject &args) {
         return compact({{QStringLiteral("result"), open}});
     }
     if (action == QLatin1String("shell.state")) {
-        return compact({{QStringLiteral("locked"), m_session->isLocked()},
+        return compact({{QStringLiteral("locked"), m_session->getIsLocked()},
                         {QStringLiteral("screenOn"), m_display->getScreenOn()},
                         {QStringLiteral("foregroundApp"),
-                         m_uiStore->appWindowOpen() ? m_uiStore->currentAppId() : QString()},
-                        {QStringLiteral("quickSettingsOpen"), m_uiStore->quickSettingsOpen()}});
+                         m_uiStore->getAppWindowOpen() ? m_uiStore->getCurrentAppId() : QString()},
+                        {QStringLiteral("quickSettingsOpen"), m_uiStore->getQuickSettingsOpen()}});
     }
     if (action == QLatin1String("app.launch")) {
         if (!m_tasks->canLaunch(id))

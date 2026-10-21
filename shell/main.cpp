@@ -96,20 +96,15 @@
 #include "marathon-shell-native/src/telephonyd.cxxqt.h"
 #include "src/managers/screenmetrics.h"
 #include "src/managers/platformcpp.h"
-#include "src/services/navigationroutercpp.h"
+#include "marathon-shell-native/src/links.cxxqt.h"
+#include "marathon-shell-native/src/layouts.cxxqt.h"
 #include "src/services/statusbariconservicecpp.h"
 #include "src/services/unifiedsearchservicecpp.h"
 #include "src/services/telephonyintegrationcpp.h"
 #include "src/services/screenshotservicecpp.h"
-#include "src/services/sessionstore.h"
-#include "src/services/systemstatusstore.h"
-#include "src/services/systemcontrolstore.h"
-#include "src/services/uistore.h"
+#include "marathon-shell-native/src/session.cxxqt.h"
+#include "marathon-shell-native/src/ui.cxxqt.h"
 #include "src/services/shareservice.h"
-#include "src/services/appstore.h"
-#include "src/services/router.h"
-#include "src/services/surfaceregistry.h"
-#include "src/services/languagemanager.h"
 #include "src/services/inputcontext.h"
 #include "src/services/remotetextinput.h"
 #include "marathon-shell-native/src/text_input.cxxqt.h"
@@ -661,9 +656,9 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<FileChooserModel>("MarathonOS.Shell", 1, 0, "FileChooserModel");
     qmlRegisterType<WindowTextureItem>("MarathonOS.Shell", 1, 0, "WindowTextureItem");
 
-    auto *sessionStore = new SessionStore(&app);
-    qmlRegisterSingletonInstance<SessionStore>("MarathonOS.Shell", 1, 0, "SessionStore",
-                                               sessionStore);
+    auto *sessionStore = new Session();
+    sessionStore->setParent(&app);
+    qmlRegisterSingletonInstance<Session>("MarathonOS.Shell", 1, 0, "SessionStore", sessionStore);
 
     engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
 
@@ -794,8 +789,6 @@ int main(int argc, char *argv[]) {
     appModel->setParent(&app);
     ctx->setContextProperty(QStringLiteral("AppModel"), appModel);
     compositorManager->setApps(appModel);
-    auto *appStore = new AppStore(appModel, &app);
-    qmlRegisterSingletonInstance<AppStore>("MarathonOS.Shell", 1, 0, "AppStore", appStore);
     if (debugEnabled || profileMode) {
         qInfo() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
     }
@@ -833,7 +826,9 @@ int main(int argc, char *argv[]) {
     auto *notificationModel = new NotificationModel(&app);
     qmlRegisterSingletonInstance<NotificationModel>("MarathonOS.Shell", 1, 0, "NotificationModel",
                                                     notificationModel);
-    auto *navigationRouter = createObject<NavigationRouterCpp>(ctx, "NavigationRouter", &app);
+    auto *links = new Links();
+    links->setParent(&app);
+    qmlRegisterSingletonInstance<Links>("MarathonOS.Shell", 1, 0, "NavigationRouter", links);
 
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
@@ -909,6 +904,7 @@ int main(int argc, char *argv[]) {
     startupMark("system managers");
     auto *locationManager = new Location();
     locationManager->setParent(&app);
+    ctx->setContextProperty("LocationManager", locationManager);
     // Never starts location itself: with Location off there is no fix and the zone stays.
     const auto automaticTimeZone = [=] {
         if (!settingsManager->getAutomaticTimeZone() || !locationManager->getActive() ||
@@ -1110,11 +1106,6 @@ int main(int argc, char *argv[]) {
         notificationModel, settingsManager, audioManager, hapticManager, &app);
     qmlRegisterSingletonInstance<NotificationServiceCpp>(
         "MarathonOS.Shell", 1, 0, "NotificationService", notificationService);
-    auto *systemStatusStore =
-        new SystemStatusStore(power, network, bluetoothManager, modem,
-                              notificationService, settingsManager, &app);
-    qmlRegisterSingletonInstance<SystemStatusStore>("MarathonOS.Shell", 1, 0, "SystemStatusStore",
-                                                    systemStatusStore);
     auto *screenshotService = createObject<ScreenshotServiceCpp>(
         ctx, "ScreenshotService", audioManager, hapticManager, notificationService, &app);
 
@@ -1149,19 +1140,9 @@ int main(int argc, char *argv[]) {
             qInfo() << "[Screenshot] SIGUSR1 handler armed (default path /tmp/marathon-shot.png)";
         }
     }
-    auto *systemControlStore = new SystemControlStore(
-        network, bluetoothManager, display, flashlightManager, modem,
-        settingsManager, alarmManager, locationManager, hapticManager, power, audioManager,
-        screenshotService, &app);
-    qmlRegisterSingletonInstance<SystemControlStore>("MarathonOS.Shell", 1, 0, "SystemControlStore",
-                                                     systemControlStore);
-    auto *uiStore = new UIStore(&app);
-    qmlRegisterSingletonInstance<UIStore>("MarathonOS.Shell", 1, 0, "UIStore", uiStore);
-    auto *router = new Router(&app);
-    qmlRegisterSingletonInstance<Router>("MarathonOS.Shell", 1, 0, "Router", router);
-    auto *surfaceRegistry = new SurfaceRegistry(&app);
-    qmlRegisterSingletonInstance<SurfaceRegistry>("MarathonOS.Shell", 1, 0, "SurfaceRegistry",
-                                                  surfaceRegistry);
+    auto *uiStore = new Ui();
+    uiStore->setParent(&app);
+    qmlRegisterSingletonInstance<Ui>("MarathonOS.Shell", 1, 0, "UIStore", uiStore);
     auto *pilot = new marathon::PilotClient();
     pilot->setParent(&app);
     qmlRegisterSingletonInstance<marathon::PilotClient>("MarathonOS.Shell", 1, 0, "PilotClient",
@@ -1203,10 +1184,20 @@ int main(int argc, char *argv[]) {
     domainSuggestions->setParent(&app);
     qmlRegisterSingletonInstance<marathon::DomainSuggestions>("MarathonOS.Shell", 1, 0,
                                                               "DomainSuggestions", domainSuggestions);
-    auto *languageManager = new LanguageManager(settingsManager, dictionary, &app);
+    auto *layouts = new KeyboardLayouts();
+    layouts->setParent(&app);
+    QObject::connect(layouts, &KeyboardLayouts::languageChanged, dictionary,
+                     [=](const QString &language, const QString &words) {
+                         dictionary->setLanguage(words);
+                         settingsManager->setKeyboardLanguage(language);
+                     });
+    QObject::connect(settingsManager, &marathon::Settings::keyboardLanguageChanged, layouts, [=] {
+        if (settingsManager->getKeyboardLanguage() != layouts->getCurrentLanguage())
+            layouts->loadLanguage(settingsManager->getKeyboardLanguage());
+    });
+    layouts->loadLanguage(settingsManager->getKeyboardLanguage());
     startupMark("keyboard engine");
-    qmlRegisterSingletonInstance<LanguageManager>("MarathonOS.Shell", 1, 0, "LanguageManager",
-                                                  languageManager);
+    qmlRegisterSingletonInstance<KeyboardLayouts>("MarathonOS.Shell", 1, 0, "LanguageManager", layouts);
 
     auto *rtScheduler = new RTScheduler(&app);
     if (rtScheduler->isRealtimeKernel()) {
@@ -1278,8 +1269,8 @@ int main(int argc, char *argv[]) {
     auto *updateService = new marathon::Updates();
     updateService->setParent(&app);
     QObject::connect(updateService, &marathon::Updates::rebootRequested, power, &Power::restart);
-    QObject::connect(updateService, &marathon::Updates::settingsRequested, navigationRouter, [=] {
-        navigationRouter->navigateToDeepLink(QStringLiteral("settings"), QStringLiteral("updates"));
+    QObject::connect(updateService, &marathon::Updates::settingsRequested, links, [=] {
+        links->navigateToDeepLink(QStringLiteral("settings"), QStringLiteral("updates"), {});
     });
     const auto startupPin = [updateService, security]() {
         updateService->setStartupPin(security->getDataEncryption() == u"pin");
@@ -1343,11 +1334,11 @@ int main(int argc, char *argv[]) {
         settle->setSingleShot(true);
         settle->setInterval(0);
         QObject::connect(settle, &QTimer::timeout, tasks, [=] {
-            tasks->setShellState(uiStore->appWindowOpen(), uiStore->currentAppId(), sessionStore->isLocked());
+            tasks->setShellState(uiStore->getAppWindowOpen(), uiStore->getCurrentAppId(), sessionStore->getIsLocked());
         });
-        QObject::connect(uiStore, &UIStore::appWindowOpenChanged, settle, qOverload<>(&QTimer::start));
-        QObject::connect(uiStore, &UIStore::currentAppIdChanged, settle, qOverload<>(&QTimer::start));
-        QObject::connect(sessionStore, &SessionStore::isLockedChanged, settle, qOverload<>(&QTimer::start));
+        QObject::connect(uiStore, &Ui::appWindowOpenChanged, settle, qOverload<>(&QTimer::start));
+        QObject::connect(uiStore, &Ui::currentAppIdChanged, settle, qOverload<>(&QTimer::start));
+        QObject::connect(sessionStore, &Session::isLockedChanged, settle, qOverload<>(&QTimer::start));
         settle->start();
 #ifdef HAVE_WAYLAND
         QObject::connect(tasks, &Tasks::foregroundAppIdChanged, &app, [=] {

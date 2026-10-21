@@ -44,6 +44,8 @@ pub mod qobject {
         #[qproperty(bool, airplane_mode_enabled, cxx_name = "airplaneModeEnabled", READ, NOTIFY)]
         #[qproperty(bool, hotspot_active, cxx_name = "hotspotActive", READ = is_hotspot_active, NOTIFY = hotspot_active_changed)]
         #[qproperty(QList_QVariant, available_networks, cxx_name = "availableNetworks", READ, NOTIFY)]
+        #[qproperty(QString, hotspot_ssid, cxx_name = "hotspotSsid", READ, NOTIFY = hotspot_credentials_changed)]
+        #[qproperty(QString, hotspot_password, cxx_name = "hotspotPassword", READ, NOTIFY = hotspot_credentials_changed)]
         type Network = super::NetworkRust;
 
         #[cxx_name = "hotspotSupported"]
@@ -116,6 +118,17 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "stopHotspot"]
         fn stop_hotspot(self: &Network);
+        /// Made once per device and kept, so clients that joined stay joined.
+        #[qinvokable]
+        #[cxx_name = "ensureHotspotCredentials"]
+        fn ensure_hotspot_credentials(self: Pin<&mut Network>);
+        /// Starts it with the device's credentials, or stops it.
+        #[qinvokable]
+        #[cxx_name = "toggleHotspot"]
+        fn toggle_hotspot(self: Pin<&mut Network>);
+        #[qsignal]
+        #[cxx_name = "hotspotCredentialsChanged"]
+        fn hotspot_credentials_changed(self: Pin<&mut Network>);
     }
 
     impl cxx_qt::Threading for Network {}
@@ -123,6 +136,29 @@ pub mod qobject {
 }
 
 use qobject::Network;
+
+/// `Marathon-XXXX` and `xxxx-xxxx-xxxx`, read off the screen and typed: no
+/// 0/O/1/l/i.
+fn hotspot_credentials() -> (String, String) {
+    const ALPHABET: &[u8] = b"abcdefghjkmnpqrstuvwxyz23456789";
+    let pick = |n: usize| -> String {
+        let mut out = String::new();
+        while out.len() < n {
+            let mut byte = [0u8; 1];
+            // SAFETY: getrandom writes the one byte it is given.
+            if unsafe { libc::getrandom(byte.as_mut_ptr().cast(), 1, 0) } != 1 {
+                continue;
+            }
+            // Below 248 (8 x 31): no bias to the alphabet's start.
+            if usize::from(byte[0]) < ALPHABET.len() * 8 {
+                out.push(char::from(ALPHABET[usize::from(byte[0]) % ALPHABET.len()]));
+            }
+        }
+        out
+    };
+    let ssid = format!("Marathon-{}", pick(4).to_uppercase());
+    (ssid, format!("{}-{}-{}", pick(4), pick(4), pick(4)))
+}
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
@@ -138,6 +174,8 @@ pub struct NetworkRust {
     airplane_mode_enabled: bool,
     hotspot_active: bool,
     available_networks: QList<QVariant>,
+    hotspot_ssid: QString,
+    hotspot_password: QString,
     networks: Vec<AccessPoint>,
     actor: Option<Sender<Command>>,
 }
@@ -279,6 +317,46 @@ impl Network {
         }
         self.as_mut().rust_mut().airplane_mode_enabled = enabled;
         self.airplane_mode_enabled_changed();
+    }
+
+    fn ensure_hotspot_credentials(self: Pin<&mut Self>) {
+        self.with_hotspot_credentials(|_| {});
+    }
+
+    fn toggle_hotspot(self: Pin<&mut Self>) {
+        if self.hotspot_active {
+            return self.stop_hotspot();
+        }
+        self.with_hotspot_credentials(|n| n.create_hotspot(&n.hotspot_ssid, &n.hotspot_password));
+    }
+
+    /// `then` once the credentials are known: from the settings, else new.
+    fn with_hotspot_credentials(self: Pin<&mut Self>, then: impl FnOnce(&Network) + Send + 'static) {
+        if !self.hotspot_password.is_empty() {
+            return then(&self);
+        }
+        let qt = self.qt_thread();
+        crate::settings::with(move |mut settings| {
+            let get = |s: &crate::settings::qobject::Settings, key: &str| s.get(&QString::from(key), &QVariant::default()).value::<QString>().unwrap_or_default();
+            let (mut ssid, mut password) = (get(&settings, "hotspot/ssid"), get(&settings, "hotspot/password"));
+            if password.is_empty() {
+                let (new_ssid, new_password) = hotspot_credentials();
+                (ssid, password) = (QString::from(&new_ssid), QString::from(&new_password));
+                settings.as_mut().set(&QString::from("hotspot/ssid"), &QVariant::from(&ssid));
+                settings.as_mut().set(&QString::from("hotspot/password"), &QVariant::from(&password));
+                settings.sync();
+            }
+            qt.queue(move |mut obj| {
+                {
+                    let mut rust = obj.as_mut().rust_mut();
+                    rust.hotspot_ssid = ssid;
+                    rust.hotspot_password = password;
+                }
+                obj.as_mut().hotspot_credentials_changed();
+                then(&obj);
+            })
+            .ok();
+        });
     }
 
     fn create_hotspot(&self, ssid: &QString, password: &QString) {

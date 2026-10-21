@@ -21,7 +21,7 @@ TestCase {
     }
 
     function init() {
-        AppStore.names = { "test": "Test Suite" };
+        AppModel.names = { "test": "Test Suite" };
         PermissionManager.currentAppId = "test";
         PermissionManager.currentPermissions = ["notifications", "contacts", "alarms", "sensors"];
         PermissionManager.promptActive = true;
@@ -35,7 +35,7 @@ TestCase {
     }
 
     function ask(appId, permission, options) {
-        AppStore.names = { "waydroid.org.example.cam": "Example Camera" };
+        AppModel.names = { "waydroid.org.example.cam": "Example Camera" };
         PermissionManager.currentAppId = appId;
         PermissionManager.currentPermissions = [permission];
         PermissionManager.currentOptions = options;

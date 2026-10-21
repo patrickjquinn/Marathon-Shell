@@ -25,7 +25,7 @@ Item {
     id: permissionDialog
 
     property string appId: PermissionManager && PermissionManager.currentAppId ? PermissionManager.currentAppId : ""
-    property var appData: appId ? AppStore.getApp(appId) : ({})
+    property var appData: appId ? AppModel.findById(appId) : ({})
     property string appName: (appData && appData.name) ? appData.name : (appId || "Unknown App")
     property string appIconSource: (appData && appData.icon) ? appData.icon : ""
     // No publisher field in the manifest yet (see marathon-core/marathonappregistry.cpp).

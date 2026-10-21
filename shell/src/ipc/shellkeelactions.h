@@ -8,8 +8,8 @@
 
 class Apps;
 class Tasks;
-class UIStore;
-class SessionStore;
+class Ui;
+class Session;
 namespace marathon {
     class Display;
 }
@@ -22,7 +22,7 @@ class ShellKeelActions : public QObject, protected QDBusContext {
     Q_CLASSINFO("D-Bus Interface", "org.shipwright.Keel.Actions")
 
   public:
-    ShellKeelActions(Apps *apps, Tasks *tasks, UIStore *uiStore, SessionStore *session,
+    ShellKeelActions(Apps *apps, Tasks *tasks, Ui *uiStore, Session *session,
                      marathon::Display *display, QObject *parent = nullptr);
 
     bool registerOnSessionBus();
@@ -41,8 +41,8 @@ class ShellKeelActions : public QObject, protected QDBusContext {
 
     Apps                       *m_apps;
     Tasks                      *m_tasks;
-    UIStore                    *m_uiStore;
-    SessionStore               *m_session;
+    Ui                         *m_uiStore;
+    Session                    *m_session;
     marathon::Display                    *m_display;
     QByteArray                  m_manifest;
     QHash<QString, QJsonObject> m_tools;

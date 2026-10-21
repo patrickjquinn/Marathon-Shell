@@ -136,14 +136,12 @@ Item {
             UIStore.minimizeApp();
         }
         pageView.currentIndex = 1;
-        Router.goToFrames();
     }
 
     // Back lands on home, so home is what shows under the app as it goes.
     function revealHomeUnderApp() {
         if (pageView.currentIndex < 2) {
             pageView.jumpToIndex(2);
-            Router.goToAppPage(0);
         }
     }
 
@@ -1033,7 +1031,6 @@ Item {
             shell.handleHomeKey();
             if (!switcher) {
                 pageView.currentIndex = 2;
-                Router.goToAppPage(0);
             }
         }
 
@@ -1217,7 +1214,6 @@ Item {
 
             if (pageView.currentIndex < pageView.count - 1) {
                 pageView.incrementCurrentIndex();
-                Router.navigateLeft();
             } else {
                 pageView.nudgeAtBoundary(1);
             }
@@ -1233,7 +1229,6 @@ Item {
 
             if (pageView.currentIndex > 0) {
                 pageView.decrementCurrentIndex();
-                Router.navigateRight();
             } else {
                 pageView.nudgeAtBoundary(-1);
             }
@@ -1284,7 +1279,6 @@ Item {
             });
             // Hub=0, Frames=1, AppGrid pages start at index 2 (home).
             pageView.currentIndex = 2;
-            Router.goToAppPage(0);
         }
         onLongSwipeUp: {
             shell.dismissPermissionPrompt();
@@ -1313,14 +1307,12 @@ Item {
             } else {
                 Logger.info("NavBar", "No app open - just navigating to task switcher");
                 pageView.currentIndex = 1;
-                Router.goToFrames();
             }
             Logger.info("NavBar", "------- LONG SWIPE UP COMPLETE -------");
         }
         onStartPageTransition: {
             if ((UIStore.appWindowOpen || UIStore.settingsOpen) && pageView.currentIndex !== 1) {
                 pageView.currentIndex = 1;
-                Router.goToFrames();
             }
             WindowOrigins.revealCard(UIStore.currentAppId);
         }
@@ -1543,7 +1535,6 @@ Item {
             function onValueChanged() {
                 if (navBar.minimizeTracker.active && navBar.minimizeTracker.value > 0 && UIStore.appWindowOpen && pageView.currentIndex !== 1) {
                     pageView.jumpToIndex(1);
-                    Router.goToFrames();
                     WindowOrigins.revealCard(UIStore.currentAppId);
                     appWindowContainer.dockCardEpoch++;
                 }
@@ -1594,7 +1585,6 @@ Item {
                     Logger.info("AppWindow", "Minimized: " + appWindow.appName);
                     UIStore.minimizeApp();
                     pageView.currentIndex = 1;
-                    Router.goToFrames();
                 }
                 onClosed: {
                     Logger.info("AppWindow", "Closed: " + appWindow.appName);
@@ -1756,7 +1746,6 @@ Item {
             appWindowContainer.dockAnimated = appWindowContainer.gestureDock;
             appWindowContainer.landed = false;
             pageView.currentIndex = 1;
-            Router.goToFrames();
             var remaining = (1 - appWindowContainer.dockAnimated) * shell.height * 0.6;
             dockStep.duration = MMotion.reduceMotion ? MMotion.micro : Math.max(MMotion.quick, Math.min(MMotion.slow, 1000 * remaining / Math.max(1, Math.abs(velocity))));
             restart();
@@ -2172,14 +2161,6 @@ Item {
 
     ScreenshotPreview {
         id: screenshotPreview
-    }
-
-    Connections {
-        function onSettingRequested(settingId) {
-            Router.navigateToSetting(settingId);
-        }
-
-        target: UnifiedSearchService
     }
 
     Connections {

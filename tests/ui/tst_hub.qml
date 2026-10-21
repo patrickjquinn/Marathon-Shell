@@ -37,7 +37,7 @@ TestCase {
         NotificationService.dismissed = [];
         NotificationService.dismissedAll = false;
         NotificationService.triggered = [];
-        AppStore.names = {};
+        AppModel.names = {};
         NavigationRouter.deepLinks = [];
         closedSpy.clear();
         hub.isInPeekMode = false;
@@ -157,7 +157,7 @@ TestCase {
     }
 
     function test_accountIsTheSendersAppName() {
-        AppStore.names = { "email": "Mail" };
+        AppModel.names = { "email": "Mail" };
         addNotification(1, "email");
         addNotification(2, "signal");
         tryVerify(() => row(1));

@@ -813,7 +813,7 @@ impl Settings {
         self.save_soon();
     }
 
-    fn sync(&self) {
+    pub(crate) fn sync(&self) {
         if let Err(e) = write(&self.ini.render()) {
             log::warn("settings", format_args!("cannot save: {e}"));
         }

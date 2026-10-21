@@ -11,7 +11,7 @@ Item {
     property var current: null
     property bool shown: false
     property real dragOffset: 0
-    readonly property string appIcon: current ? (current.icon || AppStore.getAppIcon(current.appId) || "") : ""
+    readonly property string appIcon: current ? (current.icon || AppModel.findById(current.appId).icon || "") : ""
 
     function show(notification) {
         current = notification;

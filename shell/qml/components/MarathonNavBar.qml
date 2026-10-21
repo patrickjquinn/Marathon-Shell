@@ -313,21 +313,14 @@ Rectangle {
                     var frameDeltaY = diffY - prevDiffY;
                     prevDiffY = diffY;
                     var newHeight = UIStore.quickSettingsHeight - frameDeltaY;
-                    // shellRef is plain QObject* in C++; `as MarathonShell`
-                    // returns null because MarathonShell is a QML composite
-                    // with no class. Duck-type the property access — qmllint
-                    // will flag it as missing-property, but it resolves at
-                    // runtime.
-                    var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000; // qmllint disable missing-property
-                    UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
+                    UIStore.quickSettingsHeight = Math.max(0, Math.min(UIStore.maxQuickSettingsHeight, newHeight));
                 } else if (pullingQuickSettings || (diffY < 0 && !navBar.pinScreenMode && !SessionStore.isLocked)) {
                     // The bar sits at the screen edge with only its own
                     // height to travel, so the shade follows at a gain:
                     // fully open at 40 % of the bar.
                     pullingQuickSettings = true;
                     UIStore.quickSettingsDragging = true;
-                    var shadeMax = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000; // qmllint disable missing-property
-                    UIStore.quickSettingsHeight = shadeMax * Math.max(0, Math.min(1, -diffY / Math.max(1, navBar.height * 0.4)));
+                    UIStore.quickSettingsHeight = UIStore.maxQuickSettingsHeight * Math.max(0, Math.min(1, -diffY / Math.max(1, navBar.height * 0.4)));
                 } else if (navBar.isAppOpen) {
                     var oldProgress = navBar.gestureProgress;
                     navBar.minimizeThumbX = diffX;
@@ -388,7 +381,7 @@ Rectangle {
             }
             if (draggingQuickSettings || ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture)) {
                 UIStore.quickSettingsDragging = false;
-                var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400; // qmllint disable missing-property
+                var threshold = UIStore.quickSettingsThreshold;
                 // Dismiss on any of: upward fling, drag pulled the panel
                 // below threshold, or a deliberate upward swipe of ≥40 px
                 // while QS is open (the documented swipe-up-from-nav

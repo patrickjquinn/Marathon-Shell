@@ -24,7 +24,7 @@ Item {
     implicitHeight: layoutColumn.implicitHeight
     Component.onCompleted: {
         if (LanguageManager.currentLayout)
-            dynamicLayout.layoutData = LanguageManager.currentLayout;
+            dynamicLayout.layoutData = JSON.parse(LanguageManager.currentLayout);
     }
 
     Column {
@@ -203,7 +203,7 @@ Item {
 
     Connections {
         function onLayoutLoaded(layout) {
-            dynamicLayout.layoutData = layout;
+            dynamicLayout.layoutData = JSON.parse(layout);
         }
 
         target: LanguageManager

@@ -98,8 +98,8 @@ Rectangle {
     }
 
     Connections {
-        target: AppStore
-        function onAppsChanged() {
+        target: AppModel
+        function onCountChanged() {
             Qt.callLater(hub.refreshSources);
         }
     }
@@ -344,8 +344,8 @@ Rectangle {
             // People get their monogram; anything else its app, as BB10
             // marked each row with its service.
             readonly property bool fromPerson: ["messages", "phone", "call", "email", "mail"].indexOf(appKey) >= 0
-            // AppStore.apps: look again once the registry has loaded.
-            readonly property string appIcon: fromPerson || AppStore.apps.length === 0 ? "" : AppStore.getAppIcon(appKey)
+            // AppModel.count: look again once the apps have loaded.
+            readonly property string appIcon: fromPerson || AppModel.count === 0 ? "" : (AppModel.findById(appKey).icon || "")
 
             unread: !isRead
             avatarText: appIcon ? "" : hub.monogramFor(title, appKey)
@@ -446,10 +446,10 @@ Rectangle {
     function accountFor(rawAppId) {
         const raw = String(rawAppId || "");
         // Read again once the registry has loaded.
-        if (AppStore.apps.length === 0)
+        if (AppModel.count === 0)
             return raw.charAt(0).toUpperCase() + raw.slice(1);
-        const name = AppStore.getAppName(raw);
-        if (name !== raw)
+        const name = AppModel.findById(raw).name;
+        if (name)
             return name;
         return raw.charAt(0).toUpperCase() + raw.slice(1);
     }

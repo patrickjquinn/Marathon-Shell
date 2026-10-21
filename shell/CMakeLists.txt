@@ -26,8 +26,6 @@ set(SOURCES
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/platformcpp.h
-    src/services/navigationroutercpp.h
-    src/services/navigationroutercpp.cpp
     src/managers/marathoninputmethodengine.h
     src/managers/marathoninputmethodengine.cpp
     src/managers/marathoninputcontext.cpp
@@ -49,18 +47,8 @@ set(SOURCES
     src/services/waketouchfilter.cpp
     src/services/statusbariconservicecpp.h
     src/services/statusbariconservicecpp.cpp
-    src/services/systemstatusstore.h
-    src/services/systemstatusstore.cpp
-    src/services/systemcontrolstore.h
-    src/services/systemcontrolstore.cpp
-    src/services/uistore.h
-    src/services/uistore.cpp
     src/services/shareservice.h
     src/services/shareservice.cpp
-    src/services/appstore.h
-    src/services/appstore.cpp
-    src/services/router.h
-    src/services/router.cpp
     src/services/toolkittheme.h
     src/services/toolkittheme.cpp
     src/services/toolkitthemewriter.h
@@ -68,10 +56,6 @@ set(SOURCES
     src/dbus/portalsettings.cpp
     src/dbus/portalfilechooser.h
     src/dbus/portalfilechooser.cpp
-    src/services/surfaceregistry.h
-    src/services/surfaceregistry.cpp
-    src/services/languagemanager.h
-    src/services/languagemanager.cpp
     src/services/inputcontext.h
     src/services/inputcontext.cpp
     src/services/remotetextinput.h
@@ -219,6 +203,9 @@ set(QML_FILES
     qml/core/AmbienceController.qml
     qml/core/WindowOrigins.qml
     qml/core/AppInstances.qml
+    qml/core/SurfaceRegistry.qml
+    qml/core/SystemControlStore.qml
+    qml/core/SystemStatusStore.qml
     qml/models/FilteredAppModel.qml
     qml/theme/MColors.qml
     qml/theme/MTypography.qml
@@ -301,6 +288,9 @@ set(SINGLETON_FILES
     qml/core/Logger.qml
     qml/core/WindowOrigins.qml
     qml/core/AppInstances.qml
+    qml/core/SurfaceRegistry.qml
+    qml/core/SystemControlStore.qml
+    qml/core/SystemStatusStore.qml
     qml/theme/MColors.qml
     qml/theme/MTypography.qml
     qml/theme/MSpacing.qml
@@ -413,18 +403,6 @@ qt6_add_qml_module(marathon-shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
     SOURCES
-        src/services/sessionstore.cpp
-        src/services/sessionstore.h
-        src/services/systemstatusstore.cpp
-        src/services/systemstatusstore.h
-        src/services/systemcontrolstore.cpp
-        src/services/systemcontrolstore.h
-        src/services/uistore.cpp
-        src/services/uistore.h
-        src/services/appstore.cpp
-        src/services/appstore.h
-        src/services/router.cpp
-        src/services/router.h
         src/services/gesturetracker.cpp
         src/services/gesturetracker.h
         src/components/windowtexturegeometry.h
@@ -432,10 +410,6 @@ qt6_add_qml_module(marathon-shell
         src/components/windowtextureitem.h
         src/dbus/portalsettings.cpp
         src/dbus/portalsettings.h
-        src/services/surfaceregistry.cpp
-        src/services/surfaceregistry.h
-        src/services/languagemanager.cpp
-        src/services/languagemanager.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
                 src/models/notificationmodel.cpp
