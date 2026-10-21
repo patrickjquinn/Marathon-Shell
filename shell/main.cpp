@@ -55,7 +55,6 @@
 #include "marathon-shell-native/src/timezone.cxxqt.h"
 #include "marathon-shell-native/src/network.cxxqt.h"
 #include "marathon-shell-native/src/power.cxxqt.h"
-#include "marathon-shell-native/src/identity.cxxqt.h"
 #include "marathon-shell-native/src/device.cxxqt.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
 #include "src/services/wakeonkeyfilter.h"
@@ -100,7 +99,6 @@
 #include "src/services/remotetextinput.h"
 #include "marathon-shell-native/src/text_input.cxxqt.h"
 #include "marathon-shell-native/src/words.cxxqt.h"
-#include "src/ipc/shellkeelactions.h"
 #include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
@@ -746,8 +744,7 @@ int main(int argc, char *argv[]) {
     // RGBA16F as a colour-buffer attachment. Falling back to RGBA8
     // gives a slightly darker halo around bright pixels but no warnings
     // and no perf hit.
-    const bool gpuHdr = qEnvironmentVariableIntValue("MARATHON_GPU_HDR") != 0;
-    ctx->setContextProperty("MARATHON_GPU_HDR", gpuHdr);
+    ctx->setContextProperty("MARATHON_GPU_HDR", marathon::device::profile().gpu_hdr);
 
 #ifdef HAVE_WAYLAND
     ctx->setContextProperty("HAVE_WAYLAND", true);
@@ -817,8 +814,6 @@ int main(int argc, char *argv[]) {
     network->setParent(&app);
     qmlRegisterSingletonInstance<Network>("MarathonOS.Shell", 1, 0, "Network",
                                                     network);
-    // IPC callers' PIDs, learnt on the I/O thread before they call.
-    marathon::identity::watch_session_bus();
     auto *power = new Power();
     power->setParent(&app);
     qmlRegisterSingletonInstance<Power>("MarathonOS.Shell", 1, 0, "Power",
@@ -1267,10 +1262,12 @@ int main(int argc, char *argv[]) {
         settle->setSingleShot(true);
         settle->setInterval(0);
         QObject::connect(settle, &QTimer::timeout, tasks, [=] {
-            tasks->setShellState(uiStore->getAppWindowOpen(), uiStore->getCurrentAppId(), sessionStore->getIsLocked());
+            tasks->setShellState(uiStore->getAppWindowOpen(), uiStore->getCurrentAppId(), sessionStore->getIsLocked(),
+                                 uiStore->getQuickSettingsOpen());
         });
         QObject::connect(uiStore, &Ui::appWindowOpenChanged, settle, qOverload<>(&QTimer::start));
         QObject::connect(uiStore, &Ui::currentAppIdChanged, settle, qOverload<>(&QTimer::start));
+        QObject::connect(uiStore, &Ui::quickSettingsOpenChanged, settle, qOverload<>(&QTimer::start));
         QObject::connect(sessionStore, &Session::isLockedChanged, settle, qOverload<>(&QTimer::start));
         settle->start();
 #ifdef HAVE_WAYLAND
@@ -1284,10 +1281,6 @@ int main(int argc, char *argv[]) {
         fileChooser->setParent(&app);
         ctx->setContextProperty("FileChooserPortal", fileChooser);
         marathon::ipc::own_name();
-        auto *keelActions =
-            new ShellKeelActions(appModel, tasks, uiStore, sessionStore, display, &app);
-        if (!keelActions->registerOnSessionBus())
-            qWarning() << "[MarathonShell] Keel Actions not served (org.marathonos.shell)";
     }
 
     QObject::connect(modem, &Modem::callEnded, telephonyd, &Telephonyd::logCall);

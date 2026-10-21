@@ -19,8 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGES = Path("packaging/packages")
-SHELL_KEYS_SRC = Path("shell/src/managers/deviceprofile.cpp")
+SHELL_KEYS_SRC = Path("crates/marathon-shell-native/src/device.rs")
 SESSION_SRC = PACKAGES / "marathon-shell/marathon-shell-session"
+TUNED_SRC = PACKAGES / "marathon-base-config/tuned-balanced.conf"
 
 
 class Tree:
@@ -269,15 +270,15 @@ class Checker:
 
     def check_shell_keys(self, tree: Tree) -> None:
         """The schema's profile keys are exactly the keys the shell and its session read."""
-        read = set(re.findall(r'conf\.value\("MARATHON_\w+",\s*QStringLiteral\("([A-Z0-9_]+)"\)',
-                              (self.root / SHELL_KEYS_SRC).read_text()))
+        read = set(re.findall(r'"MARATHON_\w+",\s*"([A-Z0-9_]+)"', (self.root / SHELL_KEYS_SRC).read_text()))
         read |= set(re.findall(r"\^\[\[:space:\]\]\*([A-Z0-9_]+)\[\[:space:\]\]\*=", (self.root / SESSION_SRC).read_text()))
+        read |= set(re.findall(r"\$\{([A-Z0-9_]+)\}", (self.root / TUNED_SRC).read_text()))
         declared = {key.upper() for key in tree.profile_keys} | {"DEVICE_ID"}
         for key in sorted(read - declared):
             self.error("devices/device.schema.json", f"profile has no {key.lower()}, which the shell reads as {key}")
         for key in sorted(declared - read):
             self.error("devices/device.schema.json", f"profile key {key.lower()} is read by neither "
-                                                    f"{SHELL_KEYS_SRC} nor {SESSION_SRC}")
+                                                    f"{SHELL_KEYS_SRC}, {SESSION_SRC} nor {TUNED_SRC}")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -12,6 +12,7 @@
 #![allow(clippy::too_many_arguments, reason = "windowMapped: the window's facts, from the compositor")]
 
 mod dbus;
+mod keel;
 pub(crate) use dbus::{playback_changed, uninstalled};
 mod launch;
 mod lifecycle;
@@ -232,7 +233,7 @@ pub mod qobject {
         #[cxx_name = "setAppViewport"]
         fn set_app_viewport(self: Pin<&mut Tasks>, width: i32, height: i32);
         #[cxx_name = "setShellState"]
-        fn set_shell_state(self: Pin<&mut Tasks>, app_window_open: bool, current_app_id: &QString, locked: bool);
+        fn set_shell_state(self: Pin<&mut Tasks>, app_window_open: bool, current_app_id: &QString, locked: bool, quick_settings_open: bool);
 
         // The lifecycle.
         /// An app the shell draws itself (an in-shell QML app or a native
@@ -405,6 +406,7 @@ pub struct TasksRust {
     app_window_open: bool,
     current_app_id: String,
     locked: bool,
+    quick_settings_open: bool,
     // The launcher.
     launching: HashSet<String>,
     background_launches: HashSet<String>,
@@ -429,6 +431,7 @@ impl cxx_qt::Initialize for Tasks {
     fn initialize(self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
         dbus::export(self.qt_thread());
+        keel::export(self.qt_thread());
         pool::refill_later(self.qt_thread(), std::time::Duration::from_secs(8));
     }
 }
@@ -633,8 +636,9 @@ impl Tasks {
 
     /// The app in front: "" on the home screen, the switcher or the lock
     /// screen.
-    fn set_shell_state(mut self: Pin<&mut Self>, app_window_open: bool, current_app_id: &QString, locked: bool) {
+    fn set_shell_state(mut self: Pin<&mut Self>, app_window_open: bool, current_app_id: &QString, locked: bool, quick_settings_open: bool) {
         let mut rust = self.as_mut().rust_mut();
+        rust.quick_settings_open = quick_settings_open;
         rust.app_window_open = app_window_open;
         rust.current_app_id = current_app_id.to_string();
         rust.locked = locked;

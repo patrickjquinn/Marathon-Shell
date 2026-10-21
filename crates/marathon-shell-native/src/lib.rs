@@ -26,7 +26,6 @@ pub mod file_model;
 pub mod flashlight;
 pub mod haptics;
 pub mod gate;
-mod identity;
 pub mod ipc;
 pub mod layouts;
 pub mod links;

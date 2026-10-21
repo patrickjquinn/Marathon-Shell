@@ -17,7 +17,6 @@ fn main() {
         .file("src/flashlight.rs")
         .file("src/haptics.rs")
         .file("src/gate.rs")
-        .file("src/identity.rs")
         .file("src/ipc.rs")
         .file("src/layouts.rs")
         .file("src/links.rs")

@@ -3,8 +3,6 @@ set(SOURCES
     src/diag/fpsmonitor.h
     src/diag/fpsmonitor.cpp
     src/components/svgimageprovider.h
-    src/ipc/shellkeelactions.h
-    src/ipc/shellkeelactions.cpp
     src/services/screenshotservicecpp.h
     src/services/screenshotservicecpp.cpp
     src/managers/marathoninputmethodengine.h
@@ -318,11 +316,6 @@ qt_add_resources(marathon-shell "shell_shaders"
         shaders/windowcorner.vert.qsb
         shaders/windowcorner.frag.qsb
         shaders/glassplatter.frag.qsb
-)
-qt_add_resources(marathon-shell "shell_keel_actions"
-    PREFIX "/keel"
-    BASE "${CMAKE_CURRENT_SOURCE_DIR}/dbus"
-    FILES dbus/keel-actions.json
 )
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"

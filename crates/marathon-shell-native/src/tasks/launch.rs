@@ -25,7 +25,7 @@ const EXPECT_WINDOW: Duration = Duration::from_secs(10);
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
 /// Its process tree reaches `ancestor`.
-fn descends_from(pid: i64, ancestor: i64) -> bool {
+pub(super) fn descends_from(pid: i64, ancestor: i64) -> bool {
     let mut cursor = pid;
     for _ in 0..64 {
         if cursor == ancestor {

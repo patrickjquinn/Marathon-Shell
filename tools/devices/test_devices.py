@@ -100,12 +100,12 @@ class Check(unittest.TestCase):
         self.assertError("kernel version 6.6.1 but its APKBUILD has pkgver 6.6.139")
 
     def test_shell_reads_a_key_the_schema_lacks(self):
-        self.edit(devices.SHELL_KEYS_SRC.as_posix(), 'conf.value("MARATHON_DEVICE_ID"',
-                  'conf.value("MARATHON_X", QStringLiteral("NEW_KEY"), s);\n    conf.value("MARATHON_DEVICE_ID"')
+        self.edit(devices.SHELL_KEYS_SRC.as_posix(), 'v.text("MARATHON_DEVICE_ID"',
+                  'v.text("MARATHON_X", "NEW_KEY", ""); v.text("MARATHON_DEVICE_ID"')
         self.assertError("profile has no new_key")
 
     def test_schema_key_nothing_reads(self):
-        self.edit(devices.SHELL_KEYS_SRC.as_posix(), 'QStringLiteral("WAKE_ON_KEY")', 'QStringLiteral("WAKE_KEY")')
+        self.edit(devices.SHELL_KEYS_SRC.as_posix(), '"WAKE_ON_KEY"', '"WAKE_KEY"')
         self.assertError("profile key wake_on_key is read by neither")
 
 
