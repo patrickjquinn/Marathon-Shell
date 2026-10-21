@@ -1,0 +1,9 @@
+[Unit]
+Description=Pilot's web search on the phone (DuckDuckGo, pages rendered in WPE)
+Requires=marathon-websearch.socket
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/marathon-websearch
+Restart=on-failure
+RestartSec=10

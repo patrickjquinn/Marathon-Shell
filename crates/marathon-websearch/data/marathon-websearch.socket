@@ -1,0 +1,9 @@
+[Unit]
+Description=Pilot's web search on the phone
+PartOf=graphical-session.target
+
+[Socket]
+ListenStream=127.0.0.1:8089
+
+[Install]
+WantedBy=graphical-session.target

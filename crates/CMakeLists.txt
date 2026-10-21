@@ -124,6 +124,28 @@ install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/use
     file(MAKE_DIRECTORY \"\${_wants}\")
     file(CREATE_LINK ../marathon-bg-weather.timer \"\${_wants}/marathon-bg-weather.timer\" SYMBOLIC)")
 
+# Pilot's web search: socket-activated on 127.0.0.1:8089, DuckDuckGo
+# results with each page's text, rendered in WPE when it needs JavaScript.
+set(MARATHON_WEBSEARCH_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-websearch")
+add_custom_target(marathon_websearch_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-websearch
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_WEBSEARCH_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-websearch (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_WEBSEARCH_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+configure_file(marathon-websearch/data/marathon-websearch.service.in
+    marathon-websearch.service @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-websearch.service"
+    marathon-websearch/data/marathon-websearch.socket
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
+install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants\")
+    file(MAKE_DIRECTORY \"\${_wants}\")
+    file(CREATE_LINK ../marathon-websearch.socket \"\${_wants}/marathon-websearch.socket\" SYMBOLIC)")
+
 # Boot health check: holds boot-complete.target until the shell's first frame.
 set(MARATHON_HEALTH_BIN
     "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-health")
