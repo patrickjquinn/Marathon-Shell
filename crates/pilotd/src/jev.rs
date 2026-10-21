@@ -270,6 +270,222 @@ impl JevClient for HttpJev {
     }
 }
 
+/// Local mode's Jev: the phone's own parsers take what they can do without
+/// a model (a timer, an alarm, music); everything else goes to the local
+/// model. A choice among apps or actions (the two-stage tool routing) is
+/// made by meaning, with a small embedding model on the phone, so the model
+/// sees only the tools that can do it; by shared words while that model is
+/// unavailable.
+pub struct LocalJev {
+    pub remote: Remote,
+    /// OpenAI-compatible embeddings on this machine.
+    pub embed_url: String,
+    /// Options' embeddings: their descriptions rarely change.
+    pub cache: std::sync::Mutex<std::collections::HashMap<String, Vec<f32>>>,
+}
+
+impl LocalJev {
+    async fn embed(&self, purpose: &str, texts: &[String]) -> Result<Vec<Vec<f32>>, RemoteError> {
+        let body = json!({"model": "e5-small", "input": texts});
+        let reply = self.remote.post_json("local", purpose, &self.embed_url, &body).await?;
+        let data = reply
+            .body
+            .get("data")
+            .and_then(Value::as_array)
+            .ok_or_else(|| bad("local", "no embeddings"))?;
+        let mut out = vec![Vec::new(); texts.len()];
+        for (i, d) in data.iter().enumerate() {
+            let at = d.get("index").and_then(Value::as_u64).map_or(i, |x| usize::try_from(x).unwrap_or(i));
+            let v: Vec<f32> = d
+                .get("embedding")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_f64).map(|x| x as f32).collect())
+                .unwrap_or_default();
+            if let Some(slot) = out.get_mut(at) {
+                *slot = v;
+            }
+        }
+        if out.iter().any(Vec::is_empty) {
+            return Err(bad("local", "an embedding is missing"));
+        }
+        Ok(out)
+    }
+
+    /// [`rank`] by meaning: e5's query and passage forms, cosine similarity.
+    async fn rank_by_meaning(
+        &self,
+        utterance: &str,
+        options: &[String],
+        descriptions: &[String],
+    ) -> Result<Answer, RemoteError> {
+        let passages: Vec<String> = options
+            .iter()
+            .enumerate()
+            .map(|(i, o)| {
+                let d = descriptions.get(i).map_or("", String::as_str);
+                format!("passage: {} {d}", o.replace(['.', '_'], " ")).chars().take(1500).collect()
+            })
+            .collect();
+        let missing: Vec<String> = {
+            let cache = self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            passages.iter().filter(|p| !cache.contains_key(*p)).cloned().collect()
+        };
+        let mut texts = vec![format!("query: {utterance}")];
+        texts.extend(missing.iter().cloned());
+        let mut vectors = self.embed("decide", &texts).await?.into_iter();
+        let query = vectors.next().unwrap_or_default();
+        let mut cache = self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        for (p, v) in missing.into_iter().zip(vectors) {
+            cache.insert(p, v);
+        }
+        let cosine = |a: &[f32], b: &[f32]| {
+            let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
+            let norm = |v: &[f32]| v.iter().map(|x| x * x).sum::<f32>().sqrt().max(f32::EPSILON);
+            f64::from(dot / (norm(a) * norm(b)))
+        };
+        // e5's similarities sit close together: sharpened, and the words
+        // the request shares with an option added (hybrid retrieval).
+        let words = lexical(utterance, options, descriptions);
+        let scores: Vec<f64> = passages
+            .iter()
+            .zip(words)
+            .map(|(p, w)| cache.get(p).map_or(0.0, |v| cosine(&query, v)) / 0.02 + w)
+            .collect();
+        Ok(distribution(options, &scores))
+    }
+}
+
+/// Words of `text`, lowercased, stemmed a little, without the commonest.
+fn words(text: &str) -> Vec<String> {
+    const STOP: &[&str] = &[
+        "a", "an", "the", "to", "of", "in", "on", "for", "and", "or", "is", "it", "me", "my",
+        "i", "you", "what", "can", "do", "does", "please", "with", "at", "this", "that", "be",
+        "are", "how", "app",
+    ];
+    text.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() > 1 && !STOP.contains(w))
+        .map(|w| {
+            let w = w.strip_suffix("ing").filter(|r| r.len() > 2).unwrap_or(w);
+            let w = w.strip_suffix("es").filter(|r| r.len() > 2).unwrap_or(w);
+            w.strip_suffix('s').filter(|r| r.len() > 2).unwrap_or(w).to_owned()
+        })
+        .collect()
+}
+
+/// The options most like `utterance`, most likely first, by [`lexical`].
+fn rank(utterance: &str, options: &[String], descriptions: &[String]) -> Answer {
+    distribution(options, &lexical(utterance, options, descriptions))
+}
+
+/// Each request word an option shares counts the more, the fewer options
+/// have it.
+fn lexical(utterance: &str, options: &[String], descriptions: &[String]) -> Vec<f64> {
+    let asked = words(utterance);
+    let texts: Vec<Vec<String>> = options
+        .iter()
+        .enumerate()
+        .map(|(i, o)| words(&format!("{o} {}", descriptions.get(i).map_or("", String::as_str))))
+        .collect();
+    #[allow(clippy::cast_precision_loss, reason = "a handful of options")]
+    let n = texts.len().max(1) as f64;
+    texts
+        .iter()
+        .map(|t| {
+            asked
+                .iter()
+                .filter(|w| t.contains(w))
+                .map(|w| {
+                    #[allow(clippy::cast_precision_loss, reason = "a handful of options")]
+                    let with = texts.iter().filter(|x| x.contains(w)).count() as f64;
+                    (n / with).ln() + 1.0
+                })
+                .sum()
+        })
+        .collect()
+}
+
+/// Options most likely first, from scores (softmax).
+fn distribution(options: &[String], scores: &[f64]) -> Answer {
+    let top = scores.iter().copied().fold(f64::MIN, f64::max);
+    let total: f64 = scores.iter().map(|s| (s - top).exp()).sum();
+    let mut distribution: Vec<(String, f64)> = options
+        .iter()
+        .cloned()
+        .zip(scores.iter().map(|s| (s - top).exp() / total))
+        .collect();
+    distribution.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let confidence = distribution.first().map_or(0.0, |d| d.1);
+    Answer::Choice {
+        distribution,
+        confidence,
+    }
+}
+
+/// Facts that change: the web, before the model answers.
+fn needs_web(utterance: &str) -> bool {
+    const WORDS: &[&str] = &[
+        "news", "latest", "today", "tonight", "current", "price", "prices", "cost", "score",
+        "scores", "result", "results", "won", "match", "release", "version", "stock", "election",
+        "recent", "yesterday",
+    ];
+    const PHRASES: &[&str] = &["who is", "opening hours", "this week", "right now"];
+    let lower = utterance.to_lowercase();
+    !lower.contains("weather")
+        && (lower.split(|c: char| !c.is_alphanumeric()).any(|w| WORDS.contains(&w))
+            || PHRASES.iter().any(|p| lower.contains(p)))
+}
+
+#[async_trait]
+impl JevClient for LocalJev {
+    async fn decide(&self, req: &DecideRequest, purpose: &str) -> Result<Answers, RemoteError> {
+        if purpose != "decide" && purpose != "decide-action" {
+            return Err(RemoteError::Offline);
+        }
+        let utterance = req.state.get("utterance").and_then(Value::as_str).unwrap_or_default();
+        let parsed = crate::intents::local_intent(utterance).map(|(intent, _)| intent);
+        let (intent, confidence, generation) = match parsed {
+            Some(intent) => (intent, 1.0, 0.0),
+            None => ("open_ended", 0.5, 1.0),
+        };
+        let mut out = BTreeMap::new();
+        for (name, q) in &req.questions {
+            let answer = match (name.as_str(), q) {
+                ("intent", _) => Answer::Choice {
+                    distribution: vec![(intent.to_owned(), confidence)],
+                    confidence,
+                },
+                ("needs_generation", _) => Answer::Noul { p: generation },
+                (_, Question::Choice {
+                    options,
+                    descriptions,
+                    ..
+                }) => match self.rank_by_meaning(utterance, options, descriptions).await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        log::warn!("local embeddings: {e}; ranking by words");
+                        rank(utterance, options, descriptions)
+                    }
+                },
+                ("needs_web", _) => Answer::Noul {
+                    p: if needs_web(utterance) { 0.9 } else { 0.0 },
+                },
+                (_, Question::Noul { .. }) => Answer::Noul { p: 0.0 },
+                (_, Question::Score { .. }) => Answer::Score {
+                    value: 0.0,
+                    confidence: 1.0,
+                },
+            };
+            out.insert(name.clone(), answer);
+        }
+        Ok(Answers(out))
+    }
+
+    fn provider(&self) -> &str {
+        "local"
+    }
+}
+
 /// A label the scorer model can answer with, and its token id in that
 /// model's tokenizer (configuration, since it depends on the model).
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

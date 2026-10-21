@@ -11,7 +11,7 @@ use std::time::Duration;
 use crate::adapters::{self, Adapters, Missing};
 use crate::config::{Config, JevConfig};
 use crate::dbus::{BackendFactory, PilotService, BUS_NAME, PATH};
-use crate::jev::{HttpJev, JevClient, ScoreJev};
+use crate::jev::{HttpJev, JevClient, LocalJev, ScoreJev};
 use crate::llm::{LlmClient, OpenAiClient};
 use crate::localtime::{self, LocalNow};
 use crate::pipeline::{Backends, Pipeline, PipelineParts, TurnResult};
@@ -69,7 +69,7 @@ pub fn direct_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, St
             model,
             provider: "jev".into(),
         },
-        score @ JevConfig::Score { .. } => score,
+        other => other,
     };
     standard.llm.url.clone_from(&d.llm_url);
     standard.llm.provider = "groq".into();
@@ -257,6 +257,11 @@ pub fn make_backends(cfg: &Config, name: &str, remote: &Remote) -> Option<Backen
             model: model.clone(),
             provider: provider.clone(),
         }),
+        JevConfig::Local { url } => Arc::new(LocalJev {
+            remote: remote.clone(),
+            embed_url: url.clone(),
+            cache: std::sync::Mutex::default(),
+        }),
         JevConfig::Score {
             url,
             model,
@@ -320,7 +325,45 @@ fn proactive(
     (triage, events)
 }
 
-/// The given credential, else direct mode's keys if configured.
+/// `[local]`: the standard backend is the model on this machine, with no
+/// relay to exchange a licence or stamp the processing region.
+pub fn local_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, StartError> {
+    let l = cfg.local.clone();
+    if !l.enabled {
+        return Ok(None);
+    }
+    let standard = cfg
+        .backends
+        .get_mut("standard")
+        .ok_or_else(|| StartError::Backend("standard".into()))?;
+    standard.jev = JevConfig::Local {
+        url: l.embed_url.clone(),
+    };
+    standard.llm.url.clone_from(&l.llm_url);
+    standard.llm.model.clone_from(&l.model);
+    standard.llm.provider = "local".into();
+    standard.llm.allowed_regions = vec!["device".into()];
+    cfg.web_search_url.clone_from(&l.web_search_url);
+    cfg.token_exchange_url.clear();
+    cfg.timeout_secs = cfg.timeout_secs.max(l.timeout_secs);
+    log::info!("local mode: the model at {}", l.llm_url);
+    Ok(Some(crate::direct::Direct {
+        jev: crate::direct::Upstream {
+            url: String::new(),
+            key: String::new(),
+            region: None,
+        },
+        llm: crate::direct::Upstream {
+            url: l.llm_url,
+            key: String::new(),
+            region: Some("device".into()),
+        },
+        region_header: standard.llm.region_header.to_ascii_lowercase(),
+        max_completion_tokens: l.max_completion_tokens,
+    }))
+}
+
+/// The given credential, else local mode, else direct mode's keys.
 fn direct_credential(
     given: Option<Credential>,
     config: &mut Config,
@@ -328,7 +371,11 @@ fn direct_credential(
     if given.is_some() {
         return Ok(given);
     }
-    Ok(direct_mode(config)?.map(|d| Credential::Direct(Arc::new(d))))
+    let direct = match local_mode(config)? {
+        Some(local) => Some(local),
+        None => direct_mode(config)?,
+    };
+    Ok(direct.map(|d| Credential::Direct(Arc::new(d))))
 }
 
 pub fn build(opts: Options) -> Result<Daemon, StartError> {

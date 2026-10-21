@@ -349,15 +349,16 @@ impl TurnResult {
     }
 }
 
-/// Where a turn's answer came from, for the provenance line.
-fn via(r: &TurnResult) -> &'static str {
+/// Where a turn's answer came from, for the provenance line. `local`: the
+/// model runs on the phone.
+fn via(r: &TurnResult, local: bool) -> &'static str {
     let web = r
         .cards
         .iter()
         .any(|c| matches!(c, Card::Answer { sources, .. } if !sources.is_empty()));
     if web {
         "web"
-    } else if r.route.starts_with("qwen") || r.route == "look" {
+    } else if (r.route.starts_with("qwen") || r.route == "look") && !local {
         "cloud"
     } else {
         "phone"
@@ -1341,7 +1342,7 @@ impl Pipeline {
             result.cards.push(card);
         }
         result.ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        result.via = via(&result).into();
+        result.via = via(&result, self.backends().llm.provider() == "local").into();
         result.spoken = spoken;
         if spoken {
             result.transcript = Some(said.to_owned());
@@ -2239,11 +2240,14 @@ impl Pipeline {
         s
     }
 
-    fn system_prompt(&self, hints: &[(String, f64)]) -> String {
-        let now = (self.now)();
+    /// The same every turn, so a model server's prompt cache keeps it: what
+    /// changes (the time, hints, memory) is in [`Self::turn_context`].
+    fn system_prompt(&self) -> String {
+        if self.backends().llm.provider() == "local" {
+            return self.local_system_prompt();
+        }
         let mut p = format!(
-            "You are Pilot, the assistant on the person's Sailfish OS phone.\n\
-             Today is {}, local time {}; this weekend is {}.{}{}\n\
+            "You are Pilot, the assistant on the person's phone.{}{}\n\
              \n\
              Answering:\n\
              - Be brief: one to three sentences unless asked for more.\n\
@@ -2299,9 +2303,6 @@ impl Pipeline {
              Privacy: personal details in the person's words are placeholders such as <CONTACT_1> \
              or <PHONE_1>. Use them exactly as written in replies and tool arguments; never guess \
              what they stand for.",
-            now.long_date(),
-            now.hhmm(),
-            now.weekend(),
             crate::localtime::zone_name().map_or_else(String::new, |z| format!(
                 " The phone's time zone is {z}: for weather and places assume {} unless the \
                  person says otherwise; for news and prices, that country.",
@@ -2310,6 +2311,41 @@ impl Pipeline {
             crate::lang::prompt_line(&crate::lang::current())
         );
         let _ = write!(p, "\n\n{}", self.capabilities_line());
+        p
+    }
+
+    /// For a small model on the phone: short, so it reads quickly, and
+    /// letting it answer from what it knows.
+    fn local_system_prompt(&self) -> String {
+        let mut p = String::from(
+            "You are Pilot, the assistant on the person's phone. Answer in one to three plain \
+             sentences, the answer first, no Markdown.\n\
+             - Answer general knowledge, explanations, advice and writing yourself.\n\
+             - Use a tool for anything on the phone or the person's own data (calendar, \
+             contacts, messages, timers, settings, apps). Never say you did something without \
+             the tool call that did it.\n\
+             - News, prices, scores and other facts that change: use the web results you are \
+             given, name the site, and say so if they do not answer it.\n\
+             - Details like <CONTACT_1> or <PHONE_1> are placeholders: use them exactly.\n\
+             - After an answer (not an action), add a last line: FOLLOWUPS: two short questions \
+             the person might ask next, separated by |.",
+        );
+        if let Some(z) = crate::localtime::zone_name() {
+            let _ = write!(p, "\nThe phone's time zone is {z}; assume {} for places and weather.", crate::localtime::zone_city(&z));
+        }
+        let _ = write!(p, "{}", crate::lang::prompt_line(&crate::lang::current()));
+        p
+    }
+
+    /// What this turn adds to the request: the time, and Jev's hints.
+    fn turn_context(&self, hints: &[(String, f64)]) -> String {
+        let now = (self.now)();
+        let mut p = format!(
+            "Today is {}, local time {}; this weekend is {}.",
+            now.long_date(),
+            now.hhmm(),
+            now.weekend()
+        );
         if !hints.is_empty() {
             let h: Vec<String> = hints.iter().map(|(i, p)| format!("{i} ({p:.2})")).collect();
             let _ = write!(p, " The request is probably one of: {}.", h.join(", "));
@@ -2365,7 +2401,7 @@ impl Pipeline {
         if !memory.is_empty() {
             steps.push(how("memory", "Used what you asked Pilot to remember"));
         }
-        let mut system = self.system_prompt(hints) + &memory;
+        let mut system = self.system_prompt();
         if self.spoken.load(Ordering::Relaxed) {
             // Speech recognition writes fluent words for speech it could
             // not follow ("And so my fellow man has not..."), with no sign
@@ -2385,7 +2421,11 @@ impl Pipeline {
             ));
         }
         messages.extend(earlier);
-        messages.push(Message::text(Role::User, redacted));
+        let context = self.turn_context(hints) + &memory;
+        messages.push(Message::text(
+            Role::User,
+            format!("[{}]\n\n{redacted}", context.trim()),
+        ));
         let registry = self.registry();
         let tools = self
             .select_tools(&registry, scope, redacted, backends)
@@ -2685,7 +2725,11 @@ impl Pipeline {
                 if text.is_empty() && !cards.is_empty() {
                     return cards;
                 }
-                steps.push(how("cloud", "Wrote the answer in the cloud"));
+                if backends.llm.provider() == "local" {
+                    steps.push(how("phone", "Wrote the answer on the phone"));
+                } else {
+                    steps.push(how("cloud", "Wrote the answer in the cloud"));
+                }
                 if own_details > 0 {
                     steps.push(how(
                         "private",
@@ -3033,8 +3077,9 @@ impl Pipeline {
                 Message::text(
                     Role::System,
                     format!(
-                        "{} The user just took the attached photo with the phone's camera.",
-                        self.system_prompt(&[])
+                        "{} {} The user just took the attached photo with the phone's camera.",
+                        self.system_prompt(),
+                        self.turn_context(&[])
                     ),
                 ),
                 user,

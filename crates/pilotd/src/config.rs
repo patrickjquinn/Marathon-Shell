@@ -112,6 +112,9 @@ pub enum JevConfig {
         #[serde(default = "default_jev_provider")]
         provider: String,
     },
+    /// Local mode's stand-in (jev.rs `LocalJev`): embeddings on this
+    /// machine at `url`.
+    Local { url: String },
     /// SGLang `/v1/score` over an open model (Lighthouse, section 10.1).
     Score {
         url: String,
@@ -359,6 +362,40 @@ impl DirectConfig {
     }
 }
 
+/// `[local]`: the model runs on the phone (llama.cpp's llama-server): no
+/// relay, no licence, no keys. Wins over
+/// `[direct]`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LocalConfig {
+    pub enabled: bool,
+    /// OpenAI-compatible chat completions on this machine.
+    pub llm_url: String,
+    pub model: String,
+    pub max_completion_tokens: u64,
+    /// A phone's CPU answers slower than a hosted model.
+    pub timeout_secs: u64,
+    /// The `web.search` tool, the relay's contract, on this machine.
+    /// Empty: not offered.
+    pub web_search_url: String,
+    /// OpenAI-compatible embeddings on this machine, which pick the tools.
+    pub embed_url: String,
+}
+
+impl Default for LocalConfig {
+    fn default() -> Self {
+        LocalConfig {
+            enabled: false,
+            llm_url: "http://127.0.0.1:8088/v1/chat/completions".into(),
+            model: "local".into(),
+            max_completion_tokens: 1024,
+            timeout_secs: 120,
+            web_search_url: "http://127.0.0.1:8089/v1/search".into(),
+            embed_url: "http://127.0.0.1:8087/v1/embeddings".into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -382,6 +419,7 @@ pub struct Config {
     pub events: EventsConfig,
     pub sheet: SheetConfig,
     pub direct: DirectConfig,
+    pub local: LocalConfig,
     pub backends: BTreeMap<String, Backend>,
 }
 
@@ -421,6 +459,7 @@ impl Default for Config {
             events: EventsConfig::default(),
             sheet: SheetConfig::default(),
             direct: DirectConfig::default(),
+            local: LocalConfig::default(),
             backends,
         }
     }
@@ -481,10 +520,11 @@ impl Config {
             let urls = [
                 match &b.jev {
                     JevConfig::Jev { url, .. } | JevConfig::Score { url, .. } => url.as_str(),
+                    JevConfig::Local { url } => url.as_str(),
                 },
                 b.llm.url.as_str(),
             ];
-            for u in urls {
+            for u in urls.into_iter().filter(|u| !u.is_empty()) {
                 // Plain HTTP only to this machine (tests, a local relay).
                 if !u.starts_with("https://") && !is_local(u) {
                     return Err(ConfigError::Invalid(format!(
@@ -513,6 +553,15 @@ impl Config {
         ] {
             if !x.is_empty() && !x.starts_with("https://") && !is_local(x) {
                 return Err(ConfigError::Invalid(format!("{name} {x} is not https")));
+            }
+        }
+        for (name, x) in [
+            ("local.llm_url", &self.local.llm_url),
+            ("local.web_search_url", &self.local.web_search_url),
+            ("local.embed_url", &self.local.embed_url),
+        ] {
+            if self.local.enabled && !x.is_empty() && !is_local(x) {
+                return Err(ConfigError::Invalid(format!("{name} {x} is not on this machine")));
             }
         }
         if !self.backends.contains_key("standard") {
