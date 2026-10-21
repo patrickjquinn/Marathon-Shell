@@ -6,7 +6,7 @@
 #include <QObject>
 #include <QVariantMap>
 
-class AppModel;
+class Apps;
 class TaskModel;
 class AppLaunchService;
 class AppLifecycleManager;
@@ -24,7 +24,7 @@ class ShellKeelActions : public QObject, protected QDBusContext {
     Q_CLASSINFO("D-Bus Interface", "org.shipwright.Keel.Actions")
 
   public:
-    ShellKeelActions(AppModel *apps, TaskModel *tasks, AppLaunchService *launchService,
+    ShellKeelActions(Apps *apps, TaskModel *tasks, AppLaunchService *launchService,
                      AppLifecycleManager *lifecycle, UIStore *uiStore, SessionStore *session,
                      marathon::Display *display, QObject *parent = nullptr);
 
@@ -42,7 +42,7 @@ class ShellKeelActions : public QObject, protected QDBusContext {
     QString                     fail(const QString &code, const QString &message);
     QString                     run(const QString &action, const QJsonObject &args);
 
-    AppModel                   *m_apps;
+    Apps                       *m_apps;
     TaskModel                  *m_tasks;
     AppLaunchService           *m_launchService;
     AppLifecycleManager        *m_lifecycle;

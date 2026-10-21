@@ -11,7 +11,7 @@
 #include <QProcess>
 #include <QTemporaryDir>
 
-#include "appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
@@ -41,7 +41,7 @@ class FakeShell : public QObject {
 class TestShellKeelActions : public QObject {
     Q_OBJECT
 
-    AppModel                apps;
+    Apps                apps;
     TaskModel               tasks;
     AppLaunchService        launcher{&apps, &tasks};
     AppLifecycleManager     lifecycle{&tasks, &launcher};
@@ -83,8 +83,8 @@ class TestShellKeelActions : public QObject {
         launcher.setCompositor(&compositor);
         launcher.setAppWindow(&shell);
         launcher.setUiStore(&shell);
-        apps.addApp(QStringLiteral("notes"), QStringLiteral("Notes"), QStringLiteral("notes"),
-                    QStringLiteral("native"), QStringLiteral("notes-bin"));
+        apps.addApps({QVariantMap{{"id", "notes"}, {"name", "Notes"}, {"icon", "notes"},
+                                  {"type", "native"}, {"exec", "notes-bin"}}});
         session.setIsLocked(false);
         QVERIFY(actions.registerOnSessionBus());
     }

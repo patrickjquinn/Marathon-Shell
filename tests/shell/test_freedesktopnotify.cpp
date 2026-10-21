@@ -6,7 +6,7 @@
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include "freedesktopnotifications.h"
-#include "appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "marathonappregistry.h"
 #include "notificationdatabase.h"
 #include "notificationmodel.h"
@@ -80,7 +80,7 @@ class TestFreedesktopNotify : public QObject {
         NotificationDatabase db;
         db.initialize();
         NotificationModel        model;
-        AppModel                 apps;
+        Apps                 apps;
         apps.addApps({QVariantMap{{"id", "waydroid.org.fdroid.fdroid"},
                                   {"name", "F-Droid"},
                                   {"icon", "f-droid.png"},

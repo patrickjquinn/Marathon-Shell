@@ -1,6 +1,6 @@
 #include "freedesktopnotifications.h"
 #include "../ipc/callerpid.h"
-#include "appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "nemoremoteaction.h"
 #include "marathonappregistry.h"
 #include "notificationmodel.h"
@@ -125,7 +125,7 @@ void FreedesktopNotifications::setAppRegistry(MarathonAppRegistry *registry) {
     m_registry = registry;
 }
 
-void FreedesktopNotifications::setAppModel(AppModel *apps) {
+void FreedesktopNotifications::setAppModel(Apps *apps) {
     m_apps = apps;
 }
 
@@ -355,7 +355,7 @@ QString FreedesktopNotifications::extractAppName(const QString     &provided,
     QString desktopEntry = hints.value(QStringLiteral("desktop-entry")).toString();
     if (desktopEntry.endsWith(QLatin1String(".desktop")))
         desktopEntry.chop(int(qstrlen(".desktop")));
-    if (!desktopEntry.isEmpty() && m_apps && m_apps->getApp(desktopEntry))
+    if (!desktopEntry.isEmpty() && m_apps && !m_apps->findById(desktopEntry).isEmpty())
         return desktopEntry;
 
     // An entry no app lists ("waydroid.com.android.deskclock") says less

@@ -10,7 +10,7 @@
 
 #include <functional>
 
-class AppModel;
+class Apps;
 class TaskModel;
 class QProcess;
 
@@ -35,7 +35,7 @@ class AppLaunchService : public QObject {
                    NOTIFY appLifecycleManagerChanged)
 
   public:
-    explicit AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent = nullptr);
+    explicit AppLaunchService(Apps *appModel, TaskModel *taskModel, QObject *parent = nullptr);
 
     QObject *compositor() const {
         return m_compositor.data();
@@ -224,7 +224,7 @@ class AppLaunchService : public QObject {
                                       qint64 launchPid);
 #endif
 
-    QPointer<AppModel>            m_appModel;
+    QPointer<Apps>                m_appModel;
     QPointer<TaskModel>           m_taskModel;
 
     QPointer<QObject>             m_compositor;

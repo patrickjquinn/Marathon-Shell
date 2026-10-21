@@ -61,20 +61,6 @@ add_test(NAME Shell_NotificationHandler COMMAND test_shell_notificationhandler)
 
 find_program(DBUS_RUN_SESSION dbus-run-session)
 
-# AppModel tests (data model with validation)
-add_executable(test_shell_appmodel
-    test_appmodel.cpp
-    ../../shell/src/models/appmodel.cpp
-    ../../shell/src/services/appstore.cpp
-    ../../marathon-core/src/marathonappregistry.cpp
-)
-target_link_libraries(test_shell_appmodel Qt6::Test Qt6::Core Qt6::Qml)
-target_include_directories(test_shell_appmodel PRIVATE
-    ${CMAKE_SOURCE_DIR}/shell/src/models
-    ${CMAKE_SOURCE_DIR}/marathon-core/src
-)
-add_test(NAME Shell_AppModel COMMAND test_shell_appmodel)
-
 # NotificationModel tests (data model, add/dismiss/read)
 add_executable(test_shell_notificationmodel
     test_notificationmodel.cpp
@@ -192,7 +178,6 @@ add_executable(test_shell_freedesktopnotify
     ../../shell/src/dbus/notificationdatabase.cpp
     ../../shell/src/models/notificationmodel.cpp
     ../../shell/src/services/notificationtarget.cpp
-    ../../shell/src/models/appmodel.cpp
     ../../marathon-core/src/marathonappregistry.cpp
 )
 target_link_libraries(test_shell_freedesktopnotify Qt6::Test Qt6::Core Qt6::Gui Qt6::Sql Qt6::Qml Qt6::DBus)
@@ -227,7 +212,6 @@ add_executable(test_shell_backgroundlaunch
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/models/appmodel.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/screenmetrics.cpp
     ../../marathon-core/src/marathonappregistry.cpp
@@ -248,7 +232,6 @@ add_executable(test_shell_sharedclient
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/models/appmodel.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/screenmetrics.cpp
     ../../marathon-core/src/marathonappregistry.cpp
@@ -274,7 +257,6 @@ add_executable(test_shell_sandboxlaunch
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/models/appmodel.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/screenmetrics.cpp
     ../../marathon-core/src/marathonappregistry.cpp
@@ -296,7 +278,6 @@ add_executable(test_shell_runnerpool
     ../../shell/src/services/applifecyclemanager.cpp
     ../../shell/src/services/processstopper.cpp
     ../../shell/src/models/taskmodel.cpp
-    ../../shell/src/models/appmodel.cpp
     ../../shell/src/managers/deviceprofile.cpp
     ../../shell/src/managers/screenmetrics.cpp
     ../../marathon-core/src/marathonappregistry.cpp
@@ -319,7 +300,6 @@ if(DBUS_RUN_SESSION)
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
-        ../../shell/src/models/appmodel.cpp
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
         ../../marathon-core/src/marathonappregistry.cpp
@@ -343,7 +323,6 @@ if(DBUS_RUN_SESSION)
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
-        ../../shell/src/models/appmodel.cpp
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
         ../../marathon-core/src/marathonappregistry.cpp
@@ -366,7 +345,6 @@ if(DBUS_RUN_SESSION)
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
-        ../../shell/src/models/appmodel.cpp
         ../../shell/src/managers/deviceprofile.cpp
         ../../shell/src/managers/screenmetrics.cpp
         ../../marathon-core/src/marathonappregistry.cpp
@@ -418,7 +396,6 @@ if(DBUS_RUN_SESSION AND BUSCTL)
         ../../shell/src/services/applifecyclemanager.cpp
         ../../shell/src/services/processstopper.cpp
         ../../shell/src/models/taskmodel.cpp
-        ../../shell/src/models/appmodel.cpp
         ../../marathon-core/src/marathonappregistry.cpp
     )
     qt_add_resources(test_shell_shellkeelactions "keel_actions"

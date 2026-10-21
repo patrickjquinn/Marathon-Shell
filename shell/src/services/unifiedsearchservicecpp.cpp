@@ -1,7 +1,7 @@
 #include "unifiedsearchservicecpp.h"
 
 #include "applaunchservice.h"
-#include "appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
 #include "navigationroutercpp.h"
@@ -22,7 +22,7 @@ static const QRegularExpression &whitespace() {
     return re;
 }
 
-UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(AppModel *appModel, MarathonAppRegistry *registry,
+UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(Apps *appModel, MarathonAppRegistry *registry,
                                                  MarathonAppScanner  *scanner,
                                                  marathon::Settings     *settings,
                                                  NavigationRouterCpp *router,
@@ -47,7 +47,7 @@ UnifiedSearchServiceCpp::UnifiedSearchServiceCpp(AppModel *appModel, MarathonApp
 
     if (m_appModel) {
         // A scan adds and removes apps one at a time: one rebuild for all of them.
-        connect(m_appModel, &AppModel::countChanged, this, [this]() { m_rebuild.start(); });
+        connect(m_appModel, &Apps::countChanged, this, [this]() { m_rebuild.start(); });
     }
 
     buildSearchIndex();
@@ -181,15 +181,15 @@ QVariantMap UnifiedSearchServiceCpp::mapForItem(const SearchItem &item, int scor
     return map;
 }
 
-UnifiedSearchServiceCpp::SearchItem UnifiedSearchServiceCpp::itemForApp(QObject *app) const {
+UnifiedSearchServiceCpp::SearchItem UnifiedSearchServiceCpp::itemForApp(const QVariantMap &app) const {
     SearchItem item;
-    if (!app)
+    if (app.isEmpty())
         return item;
 
-    const QVariant idVar   = app->property("id");
-    const QVariant nameVar = app->property("name");
-    const QVariant iconVar = app->property("icon");
-    const QVariant typeVar = app->property("type");
+    const QVariant idVar   = app.value("id");
+    const QVariant nameVar = app.value("name");
+    const QVariant iconVar = app.value("icon");
+    const QVariant typeVar = app.value("type");
 
     const QString  appId   = idVar.toString();
     const QString  appName = nameVar.toString();
@@ -206,7 +206,7 @@ UnifiedSearchServiceCpp::SearchItem UnifiedSearchServiceCpp::itemForApp(QObject 
     const QStringList nameParts =
         appName.toLower().split(whitespace(), Qt::SkipEmptyParts);
     item.keywords.append(nameParts);
-    const QStringList terms = app->property("searchTerms").toStringList();
+    const QStringList terms = app.value("searchTerms").toStringList();
     item.keywords.append(terms);
 
     item.searchText = appName.toLower() + " " + appId.toLower() + " " + terms.join(' ');
@@ -218,14 +218,14 @@ void UnifiedSearchServiceCpp::appendAppItems() {
     if (!m_appModel)
         return;
 
-    const int  count           = m_appModel->count();
+    const int  count           = m_appModel->getCount();
     const bool indexNativeApps = shouldIndexNativeApp();
     for (int i = 0; i < count; ++i) {
-        QObject *app = m_appModel->getAppAtIndex(i);
-        if (!app)
+        const QVariantMap app = m_appModel->getAppAtIndex(i);
+        if (app.isEmpty())
             continue;
 
-        const QString appType = app->property("type").toString();
+        const QString appType = app.value("type").toString();
         if (appType == "native" && !indexNativeApps)
             continue;
 

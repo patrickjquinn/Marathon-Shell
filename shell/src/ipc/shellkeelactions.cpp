@@ -1,7 +1,7 @@
 #include "shellkeelactions.h"
 #include "callerpid.h"
 
-#include "appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "applaunchservice.h"
 #include "applifecyclemanager.h"
 #include "marathon-shell-native/src/display.cxxqt.h"
@@ -46,7 +46,7 @@ namespace {
 
 } // namespace
 
-ShellKeelActions::ShellKeelActions(AppModel *apps, TaskModel *tasks,
+ShellKeelActions::ShellKeelActions(Apps *apps, TaskModel *tasks,
                                    AppLaunchService *launchService, AppLifecycleManager *lifecycle,
                                    UIStore *uiStore, SessionStore *session,
                                    marathon::Display *display, QObject *parent)
@@ -122,10 +122,10 @@ QString ShellKeelActions::run(const QString &action, const QJsonObject &args) {
     const QString id = args.value(QLatin1String("id")).toString();
     if (action == QLatin1String("apps.list")) {
         QJsonArray apps;
-        for (int i = 0; i < m_apps->count(); ++i) {
-            const App *app = m_apps->getAppAtIndex(i);
-            apps.append(QJsonObject{{QStringLiteral("id"), app->id()},
-                                    {QStringLiteral("name"), app->name()}});
+        for (int i = 0; i < m_apps->getCount(); ++i) {
+            const QVariantMap app = m_apps->getAppAtIndex(i);
+            apps.append(QJsonObject{{QStringLiteral("id"), app.value("id").toString()},
+                                    {QStringLiteral("name"), app.value("name").toString()}});
         }
         return compact({{QStringLiteral("result"), apps}});
     }

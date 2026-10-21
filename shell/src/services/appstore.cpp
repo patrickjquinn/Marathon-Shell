@@ -1,5 +1,5 @@
 #include "appstore.h"
-#include "appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "marathonappregistry.h"
 
 AppStore::AppStore(MarathonAppRegistry *appRegistry, QObject *parent)
@@ -16,17 +16,17 @@ AppStore::AppStore(MarathonAppRegistry *appRegistry, QObject *parent)
     refreshApps();
 }
 
-void AppStore::setAppModel(AppModel *apps) {
+void AppStore::setAppModel(Apps *apps) {
     m_appModel = apps;
     // Names read through apps (the Hub's) look again as desktop apps load.
-    connect(apps, &AppModel::countChanged, this, &AppStore::appsChanged);
+    connect(apps, &Apps::countChanged, this, &AppStore::appsChanged);
 }
 
 QVariantMap AppStore::getApp(const QString &appId) const {
     QVariantMap app = m_appRegistry ? m_appRegistry->getApp(appId) : QVariantMap();
     if (app.isEmpty() && m_appModel) {
-        if (const App *a = m_appModel->getApp(appId))
-            app = {{"id", a->id()}, {"name", a->name()}, {"icon", a->icon()}};
+        if (const QVariantMap a = m_appModel->findById(appId); !a.isEmpty())
+            app = {{"id", a.value("id")}, {"name", a.value("name")}, {"icon", a.value("icon")}};
     }
     return app;
 }

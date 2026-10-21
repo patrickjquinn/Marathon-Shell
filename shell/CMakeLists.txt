@@ -4,8 +4,6 @@ set(SOURCES
     src/diag/fpsmonitor.cpp
     src/components/lunasvgimageprovider.h
     src/components/lunasvgimageprovider.cpp
-    src/models/appmodel.h
-    src/models/appmodel.cpp
     src/services/applaunchservice.h
     src/services/applaunchservice.cpp
     src/services/applifecyclemanager.h

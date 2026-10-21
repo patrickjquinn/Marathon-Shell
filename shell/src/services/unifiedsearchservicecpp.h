@@ -7,7 +7,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-class AppModel;
+class Apps;
 class MarathonAppRegistry;
 class MarathonAppScanner;
 namespace marathon {
@@ -24,7 +24,7 @@ class UnifiedSearchServiceCpp : public QObject {
     Q_PROPERTY(int maxRecentSearches READ maxRecentSearches CONSTANT)
 
   public:
-    explicit UnifiedSearchServiceCpp(AppModel *appModel, MarathonAppRegistry *registry,
+    explicit UnifiedSearchServiceCpp(Apps *appModel, MarathonAppRegistry *registry,
                                      MarathonAppScanner *scanner, marathon::Settings *settings,
                                      NavigationRouterCpp *router, AppLaunchService *appLaunch,
                                      QObject *parent = nullptr);
@@ -67,7 +67,7 @@ class UnifiedSearchServiceCpp : public QObject {
     };
 
     QVariantMap          mapForItem(const SearchItem &item, int score) const;
-    SearchItem           itemForApp(QObject *app) const;
+    SearchItem           itemForApp(const QVariantMap &app) const;
     void                 appendAppItems();
     void                 appendDeepLinkItems();
     bool                 shouldIndexNativeApp() const;
@@ -76,7 +76,7 @@ class UnifiedSearchServiceCpp : public QObject {
     void                 loadRecentSearches();
     void                 persistRecentSearches();
 
-    AppModel            *m_appModel  = nullptr;
+    Apps                *m_appModel  = nullptr;
     MarathonAppRegistry *m_registry  = nullptr;
     MarathonAppScanner  *m_scanner   = nullptr;
     marathon::Settings     *m_settings  = nullptr;

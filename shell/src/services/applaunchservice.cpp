@@ -1,7 +1,7 @@
 #include "applaunchservice.h"
 #include "marathonapppaths.h"
 
-#include "appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "processtree.h"
 #include "marathon-shell-native/src/desktop.cxxqt.h"
 #include "marathon-shell-native/src/sandbox.cxxqt.h"
@@ -86,7 +86,7 @@ marathon::sandbox::Runner runnerFor(const QString &appId, const QStringList &per
 }
 }
 
-AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
+AppLaunchService::AppLaunchService(Apps *appModel, TaskModel *taskModel, QObject *parent)
     : QObject(parent)
     , m_spareCount(DeviceProfile::instance().runnerPool())
     , m_appModel(appModel)
@@ -234,17 +234,17 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
         QVariantMap   out   = app.toMap();
         const QString appId = out.value("id").toString();
         if (!appId.isEmpty() && m_appModel) {
-            if (App *a = m_appModel->getApp(appId)) {
+            if (const QVariantMap a = m_appModel->findById(appId); !a.isEmpty()) {
                 if (out.value("name").toString().isEmpty())
-                    out["name"] = a->name();
+                    out["name"] = a.value("name").toString();
                 if (out.value("icon").toString().isEmpty())
-                    out["icon"] = a->icon();
+                    out["icon"] = a.value("icon").toString();
                 if (out.value("type").toString().isEmpty())
-                    out["type"] = a->type();
+                    out["type"] = a.value("type").toString();
                 if (out.value("exec").toString().isEmpty())
-                    out["exec"] = a->exec();
+                    out["exec"] = a.value("exec").toString();
                 if (out.value("permissions").toStringList().isEmpty())
-                    out["permissions"] = a->permissions();
+                    out["permissions"] = a.value("permissions").toStringList();
             }
         }
         return out;
@@ -265,10 +265,10 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
 
     if (app.typeId() == QMetaType::QString) {
         const QString appId = app.toString();
-        if (App *a = m_appModel ? m_appModel->getApp(appId) : nullptr) {
+        if (const QVariantMap a = m_appModel ? m_appModel->findById(appId) : QVariantMap(); !a.isEmpty()) {
             return {
-                {"id", a->id()},     {"name", a->name()}, {"icon", a->icon()},
-                {"type", a->type()}, {"exec", a->exec()}, {"permissions", a->permissions()},
+                {"id", a.value("id").toString()},     {"name", a.value("name").toString()}, {"icon", a.value("icon").toString()},
+                {"type", a.value("type").toString()}, {"exec", a.value("exec").toString()}, {"permissions", a.value("permissions").toStringList()},
             };
         }
 
@@ -318,17 +318,17 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
         }
 
         if (!appId.isEmpty() && m_appModel) {
-            if (App *a = m_appModel->getApp(appId)) {
+            if (const QVariantMap a = m_appModel->findById(appId); !a.isEmpty()) {
                 if (out.value("name").toString().isEmpty())
-                    out["name"] = a->name();
+                    out["name"] = a.value("name").toString();
                 if (out.value("icon").toString().isEmpty())
-                    out["icon"] = a->icon();
+                    out["icon"] = a.value("icon").toString();
                 if (out.value("type").toString().isEmpty())
-                    out["type"] = a->type();
+                    out["type"] = a.value("type").toString();
                 if (out.value("exec").toString().isEmpty())
-                    out["exec"] = a->exec();
+                    out["exec"] = a.value("exec").toString();
                 if (perms.isEmpty())
-                    perms = a->permissions();
+                    perms = a.value("permissions").toStringList();
             }
         }
         out["permissions"] = perms;
@@ -1156,8 +1156,8 @@ void AppLaunchService::registerPidForAppId(qint64 pid, const QString &appId) {
 bool AppLaunchService::isMarathonAppId(const QString &appId) const {
     if (!m_appModel)
         return false;
-    if (App *a = m_appModel->getApp(appId))
-        return a->type() == QStringLiteral("marathon");
+    if (const QVariantMap a = m_appModel->findById(appId); !a.isEmpty())
+        return a.value("type").toString() == QStringLiteral("marathon");
     return false;
 }
 
@@ -1453,9 +1453,9 @@ bool AppLaunchService::mapWindow(qint64 pid, const QString &xdgAppId, const QStr
 
     QString appIcon = !xdgAppId.isEmpty() ? xdgAppId : QStringLiteral("application-x-executable");
     if (m_appModel && !xdgAppId.isEmpty()) {
-        if (App *a = m_appModel->getApp(xdgAppId)) {
-            if (!a->icon().isEmpty())
-                appIcon = a->icon();
+        if (const QVariantMap a = m_appModel->findById(xdgAppId); !a.isEmpty()) {
+            if (!a.value("icon").toString().isEmpty())
+                appIcon = a.value("icon").toString();
         }
     }
 

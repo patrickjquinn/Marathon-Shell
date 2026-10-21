@@ -41,7 +41,7 @@
 #include "marathon-shell-native/src/desktop.cxxqt.h"
 #include "marathon-shell-native/src/sandbox.cxxqt.h"
 #include "src/components/crashhandler.h"
-#include "src/models/appmodel.h"
+#include "marathon-shell-native/src/apps.cxxqt.h"
 #include "src/models/taskmodel.h"
 #include "marathon-shell-native/src/alarms.cxxqt.h"
 #include "src/services/applaunchservice.h"
@@ -142,6 +142,15 @@ static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
     T *obj = new T(std::forward<Args>(args)...);
     ctx->setContextProperty(qmlName, obj);
     return obj;
+}
+
+// Marathon's own apps, as the registry lists them, for the home grid.
+static void loadRegistryApps(Apps *apps, MarathonAppRegistry *registry) {
+    QVariantList entries;
+    const QStringList ids = registry->getAllAppIds();
+    for (const QString &id : ids)
+        entries << registry->getApp(id);
+    apps->setRegistryApps(entries);
 }
 
 static QFile       *logFile   = nullptr;
@@ -756,7 +765,9 @@ int main(int argc, char *argv[]) {
         },
         &app);
 
-    auto *appModel  = createObject<AppModel>(ctx, "AppModel", &app);
+    auto *appModel = new Apps();
+    appModel->setParent(&app);
+    ctx->setContextProperty(QStringLiteral("AppModel"), appModel);
     appStore->setAppModel(appModel);
     auto *taskModel = new TaskModel(&app);
     qmlRegisterSingletonInstance<TaskModel>("MarathonOS.Shell", 1, 0, "TaskModel", taskModel);
@@ -1371,7 +1382,9 @@ int main(int argc, char *argv[]) {
     QObject::connect(modem, &Modem::callEnded, telephonyd, &Telephonyd::logCall);
     qInfo() << "[MarathonShell] Call history wired to telephony";
 
-    appModel->loadFromRegistry(appRegistry);
+    QObject::connect(appRegistry, &MarathonAppRegistry::appUnregistered, appModel,
+                     [appModel](const QString &appId) { appModel->removeApp(appId); });
+    loadRegistryApps(appModel, appRegistry);
 
     engine.addImportPath("qrc:/");
     engine.addImportPath(QStringLiteral("/usr/lib/qt6/qml"));
@@ -1491,7 +1504,7 @@ int main(int argc, char *argv[]) {
 
             QObject::connect(
                 appScanner, &MarathonAppScanner::scanComplete, &app,
-                [appModel, appRegistry](int) { appModel->loadFromRegistry(appRegistry); });
+                [appModel, appRegistry](int) { loadRegistryApps(appModel, appRegistry); });
 
 #ifdef HAVE_QT_CONCURRENT
             appScanner->scanApplicationsAsync();
