@@ -1,24 +1,29 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 # Deckard (Android apps as Marathon apps) from Marathon-Deckard: deckardd,
-# the host end of the system bridge, built here; and the Android-side files
-# Waydroid mounts over Android's system partition. Those include prebuilt,
+# the host end of the system bridge; deckard-containerd, the Rust root
+# container manager that replaces Waydroid's Python one; the Rust session,
+# launcher and helpers; and the Android-side files mounted over Android's
+# system partition. Those include prebuilt,
 # signed APKs: Alpine has no Android SDK, so they are built on a developer
 # host (image/tools/build-apk.sh) and committed to Marathon-Deckard.
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=10
-_commit=3fa2fa3868cb57e62280631d13f08131c67c0bd1
+pkgrel=11
+_commit=3f3c08c5070e4283177325405b667119676c8d2f
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND GPL-3.0-only"
-depends="waydroid python3 iproute2-ss util-linux-misc qt6-qtbase qt6-qtbase-x11 libstdc++ libgcc"
+depends="waydroid iproute2-ss util-linux-misc qt6-qtbase qt6-qtbase-x11 libstdc++ libgcc"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so deckardd's libraries are listed above instead.
 options="!tracedeps net"
+# deckard-containerd owns id.waydro.Container: its D-Bus activation file
+# replaces Waydroid's, which would start the Python container manager.
+replaces="waydroid"
 makedepends="cargo cmake samurai qt6-qtbase-dev unzip"
-checkdepends="dbus python3"
+checkdepends="dbus"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
 _microg=v0.3.17.252432
 _gms=com.google.android.gms-252432034.apk
@@ -37,7 +42,9 @@ prepare() {
 		[ -f host/deckard-fonts-sync/Cargo.toml ] &&
 	[ -f host/deckard-overlay-sync/Cargo.toml ] &&
 	[ -f host/deckard-runtime/Cargo.toml ] &&
-	[ -f host/deckard-launch/Cargo.toml ] ||
+	[ -f host/deckard-launch/Cargo.toml ] &&
+	[ -f host/deckard-container/Cargo.toml ] &&
+	[ -f host/deckard-host-tools/src/reset.rs ] ||
 		die "pin a Deckard commit containing the native host tools"
 }
 
@@ -50,7 +57,7 @@ build() {
 	export RUSTFLAGS="-C target-feature=-crt-static"
 	cargo build --release --locked -p deckard-host-tools \
 		-p deckard-fonts-sync -p deckard-overlay-sync \
-		-p deckard-runtime -p deckard-launch
+		-p deckard-runtime -p deckard-launch -p deckard-container
 }
 
 check() {
@@ -58,7 +65,8 @@ check() {
 	export CARGO_TARGET_DIR="$builddir/target"
 	export RUSTFLAGS="-C target-feature=-crt-static"
 	cargo test --locked -p deckard-host-tools -p deckard-fonts-sync \
-		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch
+		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch \
+		-p deckard-container
 }
 
 package() {
@@ -67,7 +75,6 @@ package() {
 	ln -s ../deckardd.service \
 		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckardd.service
 	local p=host/packaging
-	install -Dm755 $p/deckard-waydroid "$pkgdir"/usr/libexec/deckard-waydroid
 	install -Dm755 target/release/deckard-overlay-sync \
 		"$pkgdir"/usr/libexec/deckard-overlay-sync
 	install -Dm755 target/release/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
@@ -76,7 +83,7 @@ package() {
 		"$pkgdir"/usr/share/applications/org.marathonos.deckard.apk.desktop
 	install -Dm755 target/release/deckard-fonts-sync \
 		"$pkgdir"/usr/libexec/deckard-fonts-sync
-	install -Dm755 $p/deckard-reset "$pkgdir"/usr/libexec/deckard-reset
+	install -Dm755 target/release/deckard-reset "$pkgdir"/usr/libexec/deckard-reset
 	install -Dm755 target/release/deckard-shared-folders \
 		"$pkgdir"/usr/libexec/deckard-shared-folders
 	install -Dm755 target/release/deckard-runtime \
@@ -87,6 +94,12 @@ package() {
 	ln -s ../libexec/deckard-launch "$pkgdir"/usr/bin/deckard-launch
 	install -Dm644 $p/deckard-session.service \
 		"$pkgdir"/usr/lib/systemd/user/deckard-session.service
+	install -Dm755 target/release/deckard-containerd \
+		"$pkgdir"/usr/libexec/deckard-containerd
+	install -Dm644 $p/deckard-container.service \
+		"$pkgdir"/usr/lib/systemd/system/deckard-container.service
+	install -Dm644 $p/id.waydro.Container.service \
+		"$pkgdir"/usr/share/dbus-1/system-services/id.waydro.Container.service
 	[ ! -f $p/deckard-boot-evidence ] ||
 		install -Dm755 $p/deckard-boot-evidence "$pkgdir"/usr/libexec/deckard-boot-evidence
 	install -Dm644 $p/org.marathonos.deckard.policy \
@@ -94,10 +107,6 @@ package() {
 	for f in fonts.xml fonts_customization.xml host-fonts.txt android-fonts.txt hidden-fonts.txt; do
 		install -Dm644 image/vendor_deckard/fonts/$f "$pkgdir"/usr/share/deckard/fonts/$f
 	done
-	install -Dm644 $p/waydroid-container-deckard.conf \
-		"$pkgdir"/usr/lib/systemd/system/waydroid-container.service.d/deckard.conf
-	install -Dm644 $p/marathon-waydroid-deckard.conf \
-		"$pkgdir"/usr/lib/systemd/user/marathon-waydroid.service.d/deckard.conf
 
 	install -d "$pkgdir"/usr/share/deckard
 	cp -r image/overlay "$pkgdir"/usr/share/deckard/overlay
