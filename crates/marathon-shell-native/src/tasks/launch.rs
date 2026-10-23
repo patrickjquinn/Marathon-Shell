@@ -24,6 +24,14 @@ const EXPECT_WINDOW: Duration = Duration::from_secs(10);
 /// A second tap within this of the first starts no second copy.
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
+pub(super) fn is_android_app_id(app_id: &str) -> bool {
+    ["waydroid.", "deckard."].iter().any(|prefix| {
+        app_id
+            .strip_prefix(prefix)
+            .is_some_and(|package| !package.is_empty() && package.contains('.'))
+    })
+}
+
 fn is_foreground_flatpak_run(command: &str) -> bool {
     let words: Vec<&str> = command.split_ascii_whitespace().collect();
     let Some(flatpak) = words.iter().position(|program| {
@@ -1091,7 +1099,16 @@ impl Tasks {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_foreground_flatpak_run, ForegroundLaunches};
+    use super::{is_android_app_id, is_foreground_flatpak_run, ForegroundLaunches};
+
+    #[test]
+    fn external_window_handoff_accepts_only_android_ids() {
+        assert!(is_android_app_id("waydroid.com.nononsenseapps.feeder"));
+        assert!(is_android_app_id("deckard.com.nononsenseapps.feeder"));
+        assert!(!is_android_app_id("de.haeckerfelix.Shortwave"));
+        assert!(!is_android_app_id("waydroid."));
+        assert!(!is_android_app_id("deckard.invalid"));
+    }
 
     #[test]
     fn only_latest_launch_generation_owns_foreground() {

@@ -88,6 +88,23 @@ impl Navigation1 {
         Ok(ok)
     }
 
+    /// An external Android launcher has already sent its Binder launch. Raise
+    /// its existing window, or accept the next one, without sending a second
+    /// launcher intent. Like `LaunchApp`, this only changes visible UI state.
+    async fn show_android_app(&self, app_id: String) -> fdo::Result<bool> {
+        if !super::launch::is_android_app_id(&app_id) {
+            return Err(fdo::Error::InvalidArgs("Expected an Android app ID".into()));
+        }
+        ipc::on_gui(&self.qt, move |obj| {
+            if obj.locked || !obj.can_launch(&q(&app_id)) {
+                return false;
+            }
+            obj.expect_window(&q(&app_id));
+            true
+        })
+        .await
+    }
+
     /// Starts the app without bringing it to the front (Pilot's overlay).
     async fn start_app_in_background(&self, app_id: String) -> fdo::Result<bool> {
         not_empty(&app_id)?;
