@@ -12,10 +12,10 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use futures_lite::{stream, StreamExt};
 use zbus::fdo::PropertiesProxy;
+use zbus::message::Header;
 use zbus::message::Type as MessageType;
 use zbus::names::InterfaceName;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
-use zbus::message::Header;
 use zbus::{fdo, MatchRule, MessageStream};
 
 use crate::ipc::{self, value, State};
@@ -35,15 +35,45 @@ pub mod qobject {
         #[qproperty(bool, wifi_enabled, cxx_name = "wifiEnabled", READ, NOTIFY)]
         #[qproperty(bool, wifi_connected, cxx_name = "wifiConnected", READ, NOTIFY)]
         #[qproperty(QString, wifi_ssid, cxx_name = "wifiSsid", READ, NOTIFY)]
-        #[qproperty(i32, wifi_signal_strength, cxx_name = "wifiSignalStrength", READ, NOTIFY)]
+        #[qproperty(
+            i32,
+            wifi_signal_strength,
+            cxx_name = "wifiSignalStrength",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(bool, ethernet_connected, cxx_name = "ethernetConnected", READ, NOTIFY)]
-        #[qproperty(QString, ethernet_connection_name, cxx_name = "ethernetConnectionName", READ, NOTIFY)]
+        #[qproperty(
+            QString,
+            ethernet_connection_name,
+            cxx_name = "ethernetConnectionName",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(bool, wifi_available, cxx_name = "wifiAvailable", READ, NOTIFY)]
-        #[qproperty(bool, bluetooth_available, cxx_name = "bluetoothAvailable", READ, NOTIFY)]
+        #[qproperty(
+            bool,
+            bluetooth_available,
+            cxx_name = "bluetoothAvailable",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(bool, wifi_available, cxx_name = "hotspotSupported", READ = hotspot_supported, NOTIFY = hotspot_supported_changed)]
-        #[qproperty(bool, airplane_mode_enabled, cxx_name = "airplaneModeEnabled", READ, NOTIFY)]
+        #[qproperty(
+            bool,
+            airplane_mode_enabled,
+            cxx_name = "airplaneModeEnabled",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(bool, hotspot_active, cxx_name = "hotspotActive", READ = is_hotspot_active, NOTIFY = hotspot_active_changed)]
-        #[qproperty(QList_QVariant, available_networks, cxx_name = "availableNetworks", READ, NOTIFY)]
+        #[qproperty(
+            QList_QVariant,
+            available_networks,
+            cxx_name = "availableNetworks",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(QString, hotspot_ssid, cxx_name = "hotspotSsid", READ, NOTIFY = hotspot_credentials_changed)]
         #[qproperty(QString, hotspot_password, cxx_name = "hotspotPassword", READ, NOTIFY = hotspot_credentials_changed)]
         type Network = super::NetworkRust;
@@ -97,7 +127,12 @@ pub mod qobject {
         /// `security`: "none", "wpa-psk" or "sae".
         #[qinvokable]
         #[cxx_name = "connectToHiddenNetwork"]
-        fn connect_to_hidden_network(self: &Network, ssid: &QString, security: &QString, password: &QString);
+        fn connect_to_hidden_network(
+            self: &Network,
+            ssid: &QString,
+            security: &QString,
+            password: &QString,
+        );
         #[qinvokable]
         #[cxx_name = "disconnectWifi"]
         fn disconnect_wifi(self: &Network);
@@ -180,18 +215,26 @@ pub struct NetworkRust {
     actor: Option<Sender<Command>>,
 }
 
-
-
 enum Command {
     Wifi(bool),
     Scan,
-    Connect { ssid: String, password: String },
-    ConnectHidden { ssid: String, security: String, password: String },
+    Connect {
+        ssid: String,
+        password: String,
+    },
+    ConnectHidden {
+        ssid: String,
+        security: String,
+        password: String,
+    },
     Disconnect,
     CancelPending,
     Forget(String),
     Airplane(bool),
-    CreateHotspot { ssid: String, password: String },
+    CreateHotspot {
+        ssid: String,
+        password: String,
+    },
     StopHotspot,
 }
 
@@ -224,19 +267,38 @@ impl cxx_qt::Initialize for Network {
         self.as_mut().on_wifi_enabled_changed(push).release();
         self.as_mut().on_wifi_connected_changed(push).release();
         self.as_mut().on_wifi_ssid_changed(push).release();
-        self.as_mut().on_wifi_signal_strength_changed(push).release();
+        self.as_mut()
+            .on_wifi_signal_strength_changed(push)
+            .release();
         self.as_mut().on_ethernet_connected_changed(push).release();
-        self.as_mut().on_ethernet_connection_name_changed(push).release();
+        self.as_mut()
+            .on_ethernet_connection_name_changed(push)
+            .release();
         self.as_mut().on_wifi_available_changed(push).release();
         self.as_mut().on_bluetooth_available_changed(push).release();
         self.as_mut().on_hotspot_supported_changed(push).release();
         self.as_mut().on_hotspot_active_changed(push).release();
-        self.as_mut().on_airplane_mode_enabled_changed(push).release();
+        self.as_mut()
+            .on_airplane_mode_enabled_changed(push)
+            .release();
         self.as_mut().on_available_networks_changed(push).release();
-        self.as_mut().on_network_error(|_, m| ipc::signal("Network", "NetworkError", (m.to_string(),))).release();
-        self.as_mut().on_connection_success(|_| ipc::signal("Network", "ConnectionSuccess", ())).release();
-        self.as_mut().on_connection_failed(|_, m| ipc::signal("Network", "ConnectionFailed", (m.to_string(),))).release();
-        ipc::export("Network", Network1 { qt: self.qt_thread() });
+        self.as_mut()
+            .on_network_error(|_, m| ipc::signal("Network", "NetworkError", (m.to_string(),)))
+            .release();
+        self.as_mut()
+            .on_connection_success(|_| ipc::signal("Network", "ConnectionSuccess", ()))
+            .release();
+        self.as_mut()
+            .on_connection_failed(|_, m| {
+                ipc::signal("Network", "ConnectionFailed", (m.to_string(),));
+            })
+            .release();
+        ipc::export(
+            "Network",
+            Network1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
@@ -247,7 +309,11 @@ impl Network {
         io::spawn(async move {
             let state = if on { "on" } else { "off" };
             let iw = ["dev", "wlan0", "set", "power_save", state];
-            if let Err(e) = blocking::unblock(move || std::process::Command::new("/usr/sbin/iw").args(iw).status()).await {
+            if let Err(e) = blocking::unblock(move || {
+                std::process::Command::new("/usr/sbin/iw").args(iw).status()
+            })
+            .await
+            {
                 log::warn("network", format_args!("iw power_save {state}: {e}"));
             }
         });
@@ -262,7 +328,11 @@ impl Network {
     }
 
     fn send(&self, command: Command) {
-        if self.actor.as_ref().is_none_or(|a| a.try_send(command).is_err()) {
+        if self
+            .actor
+            .as_ref()
+            .is_none_or(|a| a.try_send(command).is_err())
+        {
             log::warn("network", "no network backend");
         }
     }
@@ -284,7 +354,10 @@ impl Network {
     }
 
     fn connect_to_network(&self, ssid: &QString, password: &QString) {
-        self.send(Command::Connect { ssid: ssid.to_string(), password: password.to_string() });
+        self.send(Command::Connect {
+            ssid: ssid.to_string(),
+            password: password.to_string(),
+        });
     }
 
     fn connect_to_hidden_network(&self, ssid: &QString, security: &QString, password: &QString) {
@@ -331,19 +404,34 @@ impl Network {
     }
 
     /// `then` once the credentials are known: from the settings, else new.
-    fn with_hotspot_credentials(self: Pin<&mut Self>, then: impl FnOnce(&Network) + Send + 'static) {
+    fn with_hotspot_credentials(
+        self: Pin<&mut Self>,
+        then: impl FnOnce(&Network) + Send + 'static,
+    ) {
         if !self.hotspot_password.is_empty() {
             return then(&self);
         }
         let qt = self.qt_thread();
         crate::settings::with(move |mut settings| {
-            let get = |s: &crate::settings::qobject::Settings, key: &str| s.get(&QString::from(key), &QVariant::default()).value::<QString>().unwrap_or_default();
-            let (mut ssid, mut password) = (get(&settings, "hotspot/ssid"), get(&settings, "hotspot/password"));
+            let get = |s: &crate::settings::qobject::Settings, key: &str| {
+                s.get(&QString::from(key), &QVariant::default())
+                    .value::<QString>()
+                    .unwrap_or_default()
+            };
+            let (mut ssid, mut password) = (
+                get(&settings, "hotspot/ssid"),
+                get(&settings, "hotspot/password"),
+            );
             if password.is_empty() {
                 let (new_ssid, new_password) = hotspot_credentials();
                 (ssid, password) = (QString::from(&new_ssid), QString::from(&new_password));
-                settings.as_mut().set(&QString::from("hotspot/ssid"), &QVariant::from(&ssid));
-                settings.as_mut().set(&QString::from("hotspot/password"), &QVariant::from(&password));
+                settings
+                    .as_mut()
+                    .set(&QString::from("hotspot/ssid"), &QVariant::from(&ssid));
+                settings.as_mut().set(
+                    &QString::from("hotspot/password"),
+                    &QVariant::from(&password),
+                );
                 settings.sync();
             }
             qt.queue(move |mut obj| {
@@ -360,7 +448,10 @@ impl Network {
     }
 
     fn create_hotspot(&self, ssid: &QString, password: &QString) {
-        self.send(Command::CreateHotspot { ssid: ssid.to_string(), password: password.to_string() });
+        self.send(Command::CreateHotspot {
+            ssid: ssid.to_string(),
+            password: password.to_string(),
+        });
     }
 
     fn stop_hotspot(&self) {
@@ -445,7 +536,10 @@ impl AccessPoint {
         put("strength", QVariant::from(&i32::from(self.strength)));
         put("secured", QVariant::from(&(self.security != "Open")));
         put("security", QVariant::from(&QString::from(self.security)));
-        put("frequency", QVariant::from(&i32::try_from(self.frequency).unwrap_or(0)));
+        put(
+            "frequency",
+            QVariant::from(&i32::try_from(self.frequency).unwrap_or(0)),
+        );
         put("path", QVariant::from(&QString::from(self.path.as_str())));
         put("connected", QVariant::from(&self.connected));
         put("known", QVariant::from(&self.known));
@@ -458,7 +552,10 @@ impl AccessPoint {
             ("strength".to_owned(), value(i32::from(self.strength))),
             ("secured".to_owned(), value(self.security != "Open")),
             ("security".to_owned(), value(self.security)),
-            ("frequency".to_owned(), value(i32::try_from(self.frequency).unwrap_or(0))),
+            (
+                "frequency".to_owned(),
+                value(i32::try_from(self.frequency).unwrap_or(0)),
+            ),
             ("path".to_owned(), value(self.path.clone())),
             ("connected".to_owned(), value(self.connected)),
             ("known".to_owned(), value(self.known)),
@@ -471,14 +568,41 @@ fn state(network: &Network) -> State {
         ("wifiEnabled".to_owned(), value(network.wifi_enabled)),
         ("wifiConnected".to_owned(), value(network.wifi_connected)),
         ("wifiSsid".to_owned(), value(network.wifi_ssid.to_string())),
-        ("wifiSignalStrength".to_owned(), value(network.wifi_signal_strength)),
-        ("ethernetConnected".to_owned(), value(network.ethernet_connected)),
-        ("ethernetConnectionName".to_owned(), value(network.ethernet_connection_name.to_string())),
+        (
+            "wifiSignalStrength".to_owned(),
+            value(network.wifi_signal_strength),
+        ),
+        (
+            "ethernetConnected".to_owned(),
+            value(network.ethernet_connected),
+        ),
+        (
+            "ethernetConnectionName".to_owned(),
+            value(network.ethernet_connection_name.to_string()),
+        ),
         ("wifiAvailable".to_owned(), value(network.wifi_available)),
-        ("bluetoothAvailable".to_owned(), value(network.bluetooth_available)),
-        ("hotspotSupported".to_owned(), value(network.hotspot_supported())),
-        ("airplaneModeEnabled".to_owned(), value(network.airplane_mode_enabled)),
-        ("availableNetworks".to_owned(), value(network.networks.iter().map(AccessPoint::to_state).collect::<Vec<_>>())),
+        (
+            "bluetoothAvailable".to_owned(),
+            value(network.bluetooth_available),
+        ),
+        (
+            "hotspotSupported".to_owned(),
+            value(network.hotspot_supported()),
+        ),
+        (
+            "airplaneModeEnabled".to_owned(),
+            value(network.airplane_mode_enabled),
+        ),
+        (
+            "availableNetworks".to_owned(),
+            value(
+                network
+                    .networks
+                    .iter()
+                    .map(AccessPoint::to_state)
+                    .collect::<Vec<_>>(),
+            ),
+        ),
         ("hotspotActive".to_owned(), value(network.hotspot_active)),
     ])
 }
@@ -514,9 +638,17 @@ impl Network1 {
         ipc::on_gui(&self.qt, |obj| obj.scan_wifi()).await
     }
 
-    async fn connect_to_network(&self, ssid: String, password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn connect_to_network(
+        &self,
+        ssid: String,
+        password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.connect_to_network(&QString::from(&ssid), &QString::from(&password))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.connect_to_network(&QString::from(&ssid), &QString::from(&password));
+        })
+        .await
     }
 
     async fn connect_to_hidden_network(
@@ -528,14 +660,21 @@ impl Network1 {
     ) -> fdo::Result<()> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, move |obj| {
-            obj.connect_to_hidden_network(&QString::from(&ssid), &QString::from(&security), &QString::from(&password));
+            obj.connect_to_hidden_network(
+                &QString::from(&ssid),
+                &QString::from(&security),
+                &QString::from(&password),
+            );
         })
         .await
     }
 
     async fn forget_network(&self, ssid: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.forget_network(&QString::from(&ssid))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.forget_network(&QString::from(&ssid));
+        })
+        .await
     }
 
     async fn disconnect_wifi(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
@@ -543,14 +682,26 @@ impl Network1 {
         ipc::on_gui(&self.qt, |obj| obj.disconnect_wifi()).await
     }
 
-    async fn set_airplane_mode(&self, enabled: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_airplane_mode(
+        &self,
+        enabled: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_airplane_mode(enabled)).await
     }
 
-    async fn create_hotspot(&self, ssid: String, password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn create_hotspot(
+        &self,
+        ssid: String,
+        password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Network", &["network", "system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.create_hotspot(&QString::from(&ssid), &QString::from(&password))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.create_hotspot(&QString::from(&ssid), &QString::from(&password));
+        })
+        .await
     }
 
     async fn stop_hotspot(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
@@ -575,11 +726,25 @@ const DEACTIVATED: u32 = 4;
 const WIFI: u32 = 2;
 const BLUETOOTH: u32 = 5;
 
-#[zbus::proxy(interface = "org.freedesktop.NetworkManager", default_service = "org.freedesktop.NetworkManager", default_path = "/org/freedesktop/NetworkManager")]
+#[zbus::proxy(
+    interface = "org.freedesktop.NetworkManager",
+    default_service = "org.freedesktop.NetworkManager",
+    default_path = "/org/freedesktop/NetworkManager"
+)]
 trait Nm {
     fn get_devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
-    fn activate_connection(&self, connection: &ObjectPath<'_>, device: &ObjectPath<'_>, specific: &ObjectPath<'_>) -> zbus::Result<OwnedObjectPath>;
-    fn add_and_activate_connection(&self, settings: Settings<'_>, device: &ObjectPath<'_>, specific: &ObjectPath<'_>) -> zbus::Result<(OwnedObjectPath, OwnedObjectPath)>;
+    fn activate_connection(
+        &self,
+        connection: &ObjectPath<'_>,
+        device: &ObjectPath<'_>,
+        specific: &ObjectPath<'_>,
+    ) -> zbus::Result<OwnedObjectPath>;
+    fn add_and_activate_connection(
+        &self,
+        settings: Settings<'_>,
+        device: &ObjectPath<'_>,
+        specific: &ObjectPath<'_>,
+    ) -> zbus::Result<(OwnedObjectPath, OwnedObjectPath)>;
     fn deactivate_connection(&self, active: &ObjectPath<'_>) -> zbus::Result<()>;
     #[zbus(property)]
     fn wireless_enabled(&self) -> zbus::Result<bool>;
@@ -589,14 +754,20 @@ trait Nm {
     fn active_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.NetworkManager.Device", default_service = "org.freedesktop.NetworkManager")]
+#[zbus::proxy(
+    interface = "org.freedesktop.NetworkManager.Device",
+    default_service = "org.freedesktop.NetworkManager"
+)]
 trait Device {
     fn disconnect(&self) -> zbus::Result<()>;
     #[zbus(property)]
     fn device_type(&self) -> zbus::Result<u32>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.NetworkManager.Device.Wireless", default_service = "org.freedesktop.NetworkManager")]
+#[zbus::proxy(
+    interface = "org.freedesktop.NetworkManager.Device.Wireless",
+    default_service = "org.freedesktop.NetworkManager"
+)]
 trait Wireless {
     fn request_scan(&self, options: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
     fn get_all_access_points(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
@@ -604,7 +775,11 @@ trait Wireless {
     fn active_access_point(&self) -> zbus::Result<OwnedObjectPath>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.NetworkManager.Settings", default_service = "org.freedesktop.NetworkManager", default_path = "/org/freedesktop/NetworkManager/Settings")]
+#[zbus::proxy(
+    interface = "org.freedesktop.NetworkManager.Settings",
+    default_service = "org.freedesktop.NetworkManager",
+    default_path = "/org/freedesktop/NetworkManager/Settings"
+)]
 trait NmSettings {
     fn list_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn get_connection_by_uuid(&self, uuid: &str) -> zbus::Result<OwnedObjectPath>;
@@ -614,7 +789,10 @@ trait NmSettings {
     fn connection_removed(&self, connection: ObjectPath<'_>) -> zbus::Result<()>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.NetworkManager.Settings.Connection", default_service = "org.freedesktop.NetworkManager")]
+#[zbus::proxy(
+    interface = "org.freedesktop.NetworkManager.Settings.Connection",
+    default_service = "org.freedesktop.NetworkManager"
+)]
 trait SavedConnection {
     fn get_settings(&self) -> zbus::Result<HashMap<String, HashMap<String, OwnedValue>>>;
     fn update(&self, settings: Settings<'_>) -> zbus::Result<()>;
@@ -624,8 +802,16 @@ trait SavedConnection {
 /// `NetworkManager`'s connection settings, `a{sa{sv}}`.
 type Settings<'a> = HashMap<&'a str, HashMap<&'a str, Value<'a>>>;
 
-fn wifi_settings<'a>(ssid: &'a str, key_mgmt: Option<&'a str>, password: &'a str, hidden: bool) -> Settings<'a> {
-    let mut wireless = HashMap::from([("ssid", Value::from(ssid.as_bytes())), ("mode", Value::from("infrastructure"))]);
+fn wifi_settings<'a>(
+    ssid: &'a str,
+    key_mgmt: Option<&'a str>,
+    password: &'a str,
+    hidden: bool,
+) -> Settings<'a> {
+    let mut wireless = HashMap::from([
+        ("ssid", Value::from(ssid.as_bytes())),
+        ("mode", Value::from("infrastructure")),
+    ]);
     if hidden {
         wireless.insert("hidden", Value::from(true));
     }
@@ -646,7 +832,10 @@ fn wifi_settings<'a>(ssid: &'a str, key_mgmt: Option<&'a str>, password: &'a str
     if let Some(key_mgmt) = key_mgmt {
         settings.insert(
             "802-11-wireless-security",
-            HashMap::from([("key-mgmt", Value::from(key_mgmt)), ("psk", Value::from(password))]),
+            HashMap::from([
+                ("key-mgmt", Value::from(key_mgmt)),
+                ("psk", Value::from(password)),
+            ]),
         );
     }
     settings
@@ -665,7 +854,11 @@ fn hotspot_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
         ),
         (
             "802-11-wireless",
-            HashMap::from([("ssid", Value::from(ssid.as_bytes())), ("mode", Value::from("ap")), ("band", Value::from("bg"))]),
+            HashMap::from([
+                ("ssid", Value::from(ssid.as_bytes())),
+                ("mode", Value::from("ap")),
+                ("band", Value::from("bg")),
+            ]),
         ),
         ("ipv4", HashMap::from([("method", Value::from("shared"))])),
         ("ipv6", HashMap::from([("method", Value::from("ignore"))])),
@@ -673,7 +866,10 @@ fn hotspot_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
     if password.chars().count() >= 8 {
         settings.insert(
             "802-11-wireless-security",
-            HashMap::from([("key-mgmt", Value::from("wpa-psk")), ("psk", Value::from(password))]),
+            HashMap::from([
+                ("key-mgmt", Value::from("wpa-psk")),
+                ("psk", Value::from(password)),
+            ]),
         );
     }
     settings
@@ -698,7 +894,10 @@ fn security(wpa_flags: u32, rsn_flags: u32) -> &'static str {
 fn activation_error(name: &str, message: &str) -> String {
     if name.contains("InvalidArgs") || message.contains("not allowed") {
         "Connection rejected by NetworkManager (bad config)".to_owned()
-    } else if ["secrets-required", "no-secrets", "not authorized"].iter().any(|m| message.contains(m)) {
+    } else if ["secrets-required", "no-secrets", "not authorized"]
+        .iter()
+        .any(|m| message.contains(m))
+    {
         "Incorrect password".to_owned()
     } else if message.contains("timeout") {
         "Connection timeout".to_owned()
@@ -725,7 +924,11 @@ fn deactivation_error(reason: u32) -> &'static str {
 
 /// The strongest access point per SSID, connected first, then by strength.
 fn merge(mut aps: Vec<AccessPoint>) -> Vec<AccessPoint> {
-    aps.sort_by(|a, b| b.connected.cmp(&a.connected).then(b.strength.cmp(&a.strength)));
+    aps.sort_by(|a, b| {
+        b.connected
+            .cmp(&a.connected)
+            .then(b.strength.cmp(&a.strength))
+    });
     let mut seen = std::collections::HashSet::new();
     aps.retain(|n| seen.insert(n.ssid.clone()));
     aps
@@ -738,9 +941,16 @@ enum Event {
     Closed,
     WirelessEnabled(bool),
     ActiveChanged,
-    ActiveState { path: OwnedObjectPath, state: u32, reason: u32 },
+    ActiveState {
+        path: OwnedObjectPath,
+        state: u32,
+        reason: u32,
+    },
     Saved,
-    Strength { path: OwnedObjectPath, strength: u8 },
+    Strength {
+        path: OwnedObjectPath,
+        strength: u8,
+    },
     Rescan,
 }
 
@@ -791,7 +1001,10 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     };
     actor.detect_hardware().await;
     if let Ok(enabled) = actor.nm.wireless_enabled().await {
-        actor.qt.queue(move |obj| obj.apply_wifi_enabled(enabled)).ok();
+        actor
+            .qt
+            .queue(move |obj| obj.apply_wifi_enabled(enabled))
+            .ok();
     }
     actor.refresh_links().await;
     actor.refresh_saved().await;
@@ -810,10 +1023,17 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             Event::Command(command) => actor.handle(command).await,
             Event::Closed => break,
             Event::WirelessEnabled(enabled) => {
-                actor.qt.queue(move |obj| obj.apply_wifi_enabled(enabled)).ok();
+                actor
+                    .qt
+                    .queue(move |obj| obj.apply_wifi_enabled(enabled))
+                    .ok();
             }
             Event::ActiveChanged => actor.refresh_links().await,
-            Event::ActiveState { path, state, reason } => actor.on_active_state(&path, state, reason).await,
+            Event::ActiveState {
+                path,
+                state,
+                reason,
+            } => actor.on_active_state(&path, state, reason).await,
             Event::Saved => actor.refresh_saved().await,
             Event::Strength { path, strength } => {
                 if actor.active_ap.as_ref() == Some(&path) {
@@ -837,9 +1057,17 @@ impl Actor {
             .ok()
     }
 
-    async fn get_all(&self, path: &OwnedObjectPath, interface: &'static str) -> HashMap<String, OwnedValue> {
-        let Some(props) = self.props(path).await else { return HashMap::new() };
-        let Ok(interface) = InterfaceName::try_from(interface) else { return HashMap::new() };
+    async fn get_all(
+        &self,
+        path: &OwnedObjectPath,
+        interface: &'static str,
+    ) -> HashMap<String, OwnedValue> {
+        let Some(props) = self.props(path).await else {
+            return HashMap::new();
+        };
+        let Ok(interface) = InterfaceName::try_from(interface) else {
+            return HashMap::new();
+        };
         props.get_all(interface).await.unwrap_or_default()
     }
 
@@ -850,8 +1078,16 @@ impl Actor {
         };
         let (mut wifi, mut bluetooth) = (false, false);
         for path in devices {
-            let Ok(device) = DeviceProxy::builder(&self.bus).path(path.clone()) else { continue };
-            let Ok(device) = device.cache_properties(zbus::proxy::CacheProperties::No).build().await else { continue };
+            let Ok(device) = DeviceProxy::builder(&self.bus).path(path.clone()) else {
+                continue;
+            };
+            let Ok(device) = device
+                .cache_properties(zbus::proxy::CacheProperties::No)
+                .build()
+                .await
+            else {
+                continue;
+            };
             match device.device_type().await {
                 Ok(WIFI) => {
                     wifi = true;
@@ -861,7 +1097,9 @@ impl Actor {
                 _ => {}
             }
         }
-        self.qt.queue(move |obj| obj.apply_hardware(wifi, bluetooth)).ok();
+        self.qt
+            .queue(move |obj| obj.apply_hardware(wifi, bluetooth))
+            .ok();
     }
 
     async fn handle(&mut self, command: Command) {
@@ -872,8 +1110,14 @@ impl Actor {
                 let result = self.nm.set_wireless_enabled(enabled).await;
                 let now = if let Err(e) = result {
                     log::warn("network", format_args!("WirelessEnabled: {e}"));
-                    let message = if enabled { "Failed to enable WiFi" } else { "Failed to disable WiFi" };
-                    self.qt.queue(move |obj| obj.network_error(&QString::from(message))).ok();
+                    let message = if enabled {
+                        "Failed to enable WiFi"
+                    } else {
+                        "Failed to disable WiFi"
+                    };
+                    self.qt
+                        .queue(move |obj| obj.network_error(&QString::from(message)))
+                        .ok();
                     !enabled
                 } else {
                     enabled
@@ -882,16 +1126,26 @@ impl Actor {
             }
             Command::Scan => self.request_scan().await,
             Command::Connect { ssid, password } => self.connect(ssid, &password).await,
-            Command::ConnectHidden { ssid, security, password } => {
+            Command::ConnectHidden {
+                ssid,
+                security,
+                password,
+            } => {
                 self.forget(&ssid).await;
                 let key_mgmt = (security != "none").then_some(security.as_str());
                 let settings = wifi_settings(&ssid, key_mgmt, &password, true);
                 self.add_and_activate(ssid.clone(), settings).await;
             }
             Command::Disconnect => {
-                let Some(path) = self.wifi_device.clone() else { return };
+                let Some(path) = self.wifi_device.clone() else {
+                    return;
+                };
                 let disconnected = match DeviceProxy::builder(&self.bus).path(path) {
-                    Ok(b) => match b.cache_properties(zbus::proxy::CacheProperties::No).build().await {
+                    Ok(b) => match b
+                        .cache_properties(zbus::proxy::CacheProperties::No)
+                        .build()
+                        .await
+                    {
                         Ok(device) => device.disconnect().await,
                         Err(e) => Err(e),
                     },
@@ -899,7 +1153,11 @@ impl Actor {
                 };
                 if let Err(e) = disconnected {
                     log::warn("network", format_args!("disconnect: {e}"));
-                    self.qt.queue(|obj| obj.network_error(&QString::from("Failed to disconnect Wi-Fi"))).ok();
+                    self.qt
+                        .queue(|obj| {
+                            obj.network_error(&QString::from("Failed to disconnect Wi-Fi"));
+                        })
+                        .ok();
                 }
             }
             Command::CancelPending => {
@@ -925,7 +1183,9 @@ impl Actor {
                     log::warn("network", format_args!("WirelessEnabled: {e}"));
                 }
             }
-            Command::CreateHotspot { ssid, password } => self.create_hotspot(&ssid, &password).await,
+            Command::CreateHotspot { ssid, password } => {
+                self.create_hotspot(&ssid, &password).await;
+            }
             Command::StopHotspot => {
                 if let Some(path) = self.hotspot.take() {
                     if let Err(e) = self.nm.deactivate_connection(&path).await {
@@ -939,17 +1199,27 @@ impl Actor {
 
     async fn wireless(&self) -> Option<WirelessProxy<'static>> {
         let path = self.wifi_device.clone()?;
-        WirelessProxy::builder(&self.bus).path(path).ok()?.cache_properties(zbus::proxy::CacheProperties::No).build().await.ok()
+        WirelessProxy::builder(&self.bus)
+            .path(path)
+            .ok()?
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+            .ok()
     }
 
     async fn request_scan(&mut self) {
-        let Some(wireless) = self.wireless().await else { return };
+        let Some(wireless) = self.wireless().await else {
+            return;
+        };
         // The list comes back once NetworkManager has heard the new beacons.
         let delay = match wireless.request_scan(HashMap::new()).await {
             Ok(()) => Duration::from_secs(2),
             Err(e) => {
                 log::warn("network", format_args!("scan: {e}"));
-                self.qt.queue(|obj| obj.network_error(&QString::from("Failed to scan for networks"))).ok();
+                self.qt
+                    .queue(|obj| obj.network_error(&QString::from("Failed to scan for networks")))
+                    .ok();
                 Duration::from_millis(250)
             }
         };
@@ -961,12 +1231,21 @@ impl Actor {
     }
 
     async fn scan(&mut self) {
-        let Some(wireless) = self.wireless().await else { return };
-        let Ok(paths) = wireless.get_all_access_points().await else { return };
+        let Some(wireless) = self.wireless().await else {
+            return;
+        };
+        let Ok(paths) = wireless.get_all_access_points().await else {
+            return;
+        };
         let mut aps = Vec::with_capacity(paths.len());
         for path in paths {
             let props = self.get_all(&path, ACCESS_POINT).await;
-            let get_u32 = |k: &str| props.get(k).and_then(|v| u32::try_from(v).ok()).unwrap_or(0);
+            let get_u32 = |k: &str| {
+                props
+                    .get(k)
+                    .and_then(|v| u32::try_from(v).ok())
+                    .unwrap_or(0)
+            };
             let ssid = props
                 .get("Ssid")
                 .and_then(|v| Vec::<u8>::try_from(v.try_clone().ok()?).ok())
@@ -975,7 +1254,10 @@ impl Actor {
             if ssid.is_empty() {
                 continue;
             }
-            let strength = props.get("Strength").and_then(|v| u8::try_from(v).ok()).unwrap_or(0);
+            let strength = props
+                .get("Strength")
+                .and_then(|v| u8::try_from(v).ok())
+                .unwrap_or(0);
             aps.push(AccessPoint {
                 connected: self.links.wifi.as_deref() == Some(ssid.as_str()),
                 known: self.saved.contains_key(&ssid),
@@ -999,7 +1281,12 @@ impl Actor {
         let mut links = Links::default();
         for path in self.nm.active_connections().await.unwrap_or_default() {
             let props = self.get_all(&path, ACTIVE).await;
-            let text = |k: &str| props.get(k).and_then(|v| String::try_from(v.try_clone().ok()?).ok()).unwrap_or_default();
+            let text = |k: &str| {
+                props
+                    .get(k)
+                    .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
+                    .unwrap_or_default()
+            };
             if props.get("State").and_then(|v| u32::try_from(v).ok()) != Some(ACTIVATED) {
                 continue;
             }
@@ -1037,9 +1324,19 @@ impl Actor {
             self.active_ap = None;
             return;
         };
-        let Ok(builder) = WirelessProxy::builder(&self.bus).path(device) else { return };
-        let Ok(wireless) = builder.cache_properties(zbus::proxy::CacheProperties::No).build().await else { return };
-        let Ok(ap) = wireless.active_access_point().await else { return };
+        let Ok(builder) = WirelessProxy::builder(&self.bus).path(device) else {
+            return;
+        };
+        let Ok(wireless) = builder
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+        else {
+            return;
+        };
+        let Ok(ap) = wireless.active_access_point().await else {
+            return;
+        };
         if ap.as_str() == "/" {
             return;
         }
@@ -1051,15 +1348,29 @@ impl Actor {
     }
 
     async fn refresh_saved(&mut self) {
-        let Ok(settings) = NmSettingsProxy::new(&self.bus).await else { return };
-        let Ok(paths) = settings.list_connections().await else { return };
+        let Ok(settings) = NmSettingsProxy::new(&self.bus).await else {
+            return;
+        };
+        let Ok(paths) = settings.list_connections().await else {
+            return;
+        };
         let mut saved: HashMap<String, Vec<OwnedObjectPath>> = HashMap::new();
         for path in paths {
-            let Ok(builder) = SavedConnectionProxy::builder(&self.bus).path(path.clone()) else { continue };
-            let Ok(connection) = builder.build().await else { continue };
-            let Ok(all) = connection.get_settings().await else { continue };
-            let Some(wireless) = all.get("802-11-wireless") else { continue };
-            let mode = wireless.get("mode").and_then(|v| String::try_from(v.try_clone().ok()?).ok());
+            let Ok(builder) = SavedConnectionProxy::builder(&self.bus).path(path.clone()) else {
+                continue;
+            };
+            let Ok(connection) = builder.build().await else {
+                continue;
+            };
+            let Ok(all) = connection.get_settings().await else {
+                continue;
+            };
+            let Some(wireless) = all.get("802-11-wireless") else {
+                continue;
+            };
+            let mode = wireless
+                .get("mode")
+                .and_then(|v| String::try_from(v.try_clone().ok()?).ok());
             if mode.as_deref() == Some("ap") {
                 continue;
             }
@@ -1081,7 +1392,9 @@ impl Actor {
 
     async fn forget(&mut self, ssid: &str) {
         for path in self.saved.remove(ssid).unwrap_or_default() {
-            let Ok(builder) = SavedConnectionProxy::builder(&self.bus).path(path) else { continue };
+            let Ok(builder) = SavedConnectionProxy::builder(&self.bus).path(path) else {
+                continue;
+            };
             if let Ok(connection) = builder.build().await {
                 if let Err(e) = connection.delete().await {
                     log::warn("network", format_args!("forget {ssid}: {e}"));
@@ -1091,16 +1404,30 @@ impl Actor {
     }
 
     async fn connect(&mut self, ssid: String, password: &str) {
-        let (Some(device), Some(ap)) = (self.wifi_device.clone(), self.networks.iter().find(|n| n.ssid == ssid)) else {
-            let message = if self.wifi_device.is_none() { "WiFi not available" } else { "Network not found" };
-            self.qt.queue(move |obj| obj.connection_failed(&QString::from(message))).ok();
+        let (Some(device), Some(ap)) = (
+            self.wifi_device.clone(),
+            self.networks.iter().find(|n| n.ssid == ssid),
+        ) else {
+            let message = if self.wifi_device.is_none() {
+                "WiFi not available"
+            } else {
+                "Network not found"
+            };
+            self.qt
+                .queue(move |obj| obj.connection_failed(&QString::from(message)))
+                .ok();
             return;
         };
         let (ap_path, secured) = (ap.path.clone(), ap.security != "Open");
         let saved = self.saved.get(&ssid).cloned().unwrap_or_default();
         if let (Some(profile), true) = (saved.first(), password.is_empty()) {
-            let Ok(ap_path) = ObjectPath::try_from(ap_path.as_str()) else { return };
-            let result = self.nm.activate_connection(profile, &device, &ap_path).await;
+            let Ok(ap_path) = ObjectPath::try_from(ap_path.as_str()) else {
+                return;
+            };
+            let result = self
+                .nm
+                .activate_connection(profile, &device, &ap_path)
+                .await;
             self.on_activating(ssid, result).await;
             return;
         }
@@ -1108,19 +1435,31 @@ impl Actor {
         self.forget(&ssid).await;
         let key_mgmt = (secured && !password.is_empty()).then_some("wpa-psk");
         let settings = wifi_settings(&ssid, key_mgmt, password, false);
-        let Ok(ap_path) = ObjectPath::try_from(ap_path.as_str()) else { return };
-        let result = self.nm.add_and_activate_connection(settings, &device, &ap_path).await.map(|(_, active)| active);
+        let Ok(ap_path) = ObjectPath::try_from(ap_path.as_str()) else {
+            return;
+        };
+        let result = self
+            .nm
+            .add_and_activate_connection(settings, &device, &ap_path)
+            .await
+            .map(|(_, active)| active);
         self.on_activating(ssid, result).await;
     }
 
     async fn add_and_activate(&mut self, ssid: String, settings: Settings<'_>) {
         let Some(device) = self.wifi_device.clone() else {
-            self.qt.queue(|obj| obj.connection_failed(&QString::from("WiFi not available"))).ok();
+            self.qt
+                .queue(|obj| obj.connection_failed(&QString::from("WiFi not available")))
+                .ok();
             return;
         };
         let result = self
             .nm
-            .add_and_activate_connection(settings, &device, &ObjectPath::from_static_str_unchecked("/"))
+            .add_and_activate_connection(
+                settings,
+                &device,
+                &ObjectPath::from_static_str_unchecked("/"),
+            )
             .await
             .map(|(_, active)| active);
         self.on_activating(ssid, result).await;
@@ -1129,17 +1468,24 @@ impl Actor {
     // Accepted only: authentication and DHCP haven't run. The active
     // connection's state says how it ends.
     async fn on_activating(&mut self, ssid: String, result: zbus::Result<OwnedObjectPath>) {
-        let cancelled = self.pending.as_ref().is_some_and(|p| p.cancelled && p.ssid == ssid);
+        let cancelled = self
+            .pending
+            .as_ref()
+            .is_some_and(|p| p.cancelled && p.ssid == ssid);
         match result {
             Err(e) => {
                 self.pending = None;
                 if !cancelled {
                     let message = match &e {
-                        zbus::Error::MethodError(name, text, _) => activation_error(name.as_str(), text.as_deref().unwrap_or("")),
+                        zbus::Error::MethodError(name, text, _) => {
+                            activation_error(name.as_str(), text.as_deref().unwrap_or(""))
+                        }
                         other => activation_error("", &other.to_string()),
                     };
                     log::warn("network", format_args!("activation failed: {e}"));
-                    self.qt.queue(move |obj| obj.connection_failed(&QString::from(message.as_str()))).ok();
+                    self.qt
+                        .queue(move |obj| obj.connection_failed(&QString::from(message.as_str())))
+                        .ok();
                 }
             }
             Ok(path) if cancelled => {
@@ -1147,7 +1493,11 @@ impl Actor {
                 self.nm.deactivate_connection(&path).await.ok();
             }
             Ok(path) => {
-                self.pending = Some(Pending { ssid, path: Some(path), cancelled: false });
+                self.pending = Some(Pending {
+                    ssid,
+                    path: Some(path),
+                    cancelled: false,
+                });
                 self.refresh_links().await;
             }
         }
@@ -1160,14 +1510,18 @@ impl Actor {
         let pending_here = self.pending.as_ref().and_then(|p| p.path.as_ref()) == Some(path);
         if pending_here && state == DEACTIVATED {
             self.pending = None;
-            self.qt.queue(move |obj| obj.connection_failed(&QString::from(deactivation_error(reason)))).ok();
+            self.qt
+                .queue(move |obj| obj.connection_failed(&QString::from(deactivation_error(reason))))
+                .ok();
         }
         self.refresh_links().await;
     }
 
     async fn create_hotspot(&mut self, ssid: &str, password: &str) {
         let Some(device) = self.wifi_device.clone() else {
-            self.qt.queue(|obj| obj.hotspot_failed(&QString::from("Wi-Fi is not available"))).ok();
+            self.qt
+                .queue(|obj| obj.hotspot_failed(&QString::from("Wi-Fi is not available")))
+                .ok();
             return;
         };
         let no_ap = ObjectPath::from_static_str_unchecked("/");
@@ -1198,14 +1552,20 @@ impl Actor {
         };
         match activated {
             Ok(path) => {
-                let state = self.get_all(&path, ACTIVE).await.get("State").and_then(|v| u32::try_from(v).ok());
+                let state = self
+                    .get_all(&path, ACTIVE)
+                    .await
+                    .get("State")
+                    .and_then(|v| u32::try_from(v).ok());
                 self.hotspot = Some(path);
                 self.on_hotspot_state(state.unwrap_or(0));
             }
             Err(e) => {
                 log::warn("network", format_args!("hotspot: {e}"));
                 let message = e.to_string();
-                self.qt.queue(move |obj| obj.hotspot_failed(&QString::from(message.as_str()))).ok();
+                self.qt
+                    .queue(move |obj| obj.hotspot_failed(&QString::from(message.as_str())))
+                    .ok();
             }
         }
     }
@@ -1219,7 +1579,11 @@ impl Actor {
                 self.set_hotspot(false);
                 if !was_active {
                     self.qt
-                        .queue(|obj| obj.hotspot_failed(&QString::from("The Wi-Fi adapter could not start an access point")))
+                        .queue(|obj| {
+                            obj.hotspot_failed(&QString::from(
+                                "The Wi-Fi adapter could not start an access point",
+                            ));
+                        })
                         .ok();
                 }
             }
@@ -1240,7 +1604,11 @@ impl Actor {
             .await
             .then(|change| async move { change.get().await.ok().map(Event::WirelessEnabled) })
             .filter_map(|event| event);
-        let active = self.nm.receive_active_connections_changed().await.map(|_| Event::ActiveChanged);
+        let active = self
+            .nm
+            .receive_active_connections_changed()
+            .await
+            .map(|_| Event::ActiveChanged);
         enabled.or(active).boxed()
     }
 
@@ -1257,23 +1625,36 @@ impl Actor {
                 .map(zbus::match_rule::Builder::build)
         };
         let mut merged = stream::empty().boxed();
-        if let Ok(rule) = rule(ACTIVE, "StateChanged", "/org/freedesktop/NetworkManager/ActiveConnection") {
+        if let Ok(rule) = rule(
+            ACTIVE,
+            "StateChanged",
+            "/org/freedesktop/NetworkManager/ActiveConnection",
+        ) {
             if let Ok(s) = MessageStream::for_match_rule(rule, &self.bus, Some(64)).await {
                 let states = s.filter_map(|m| {
                     let m = m.ok()?;
                     let path = OwnedObjectPath::from(m.header().path()?.clone());
                     let (state, reason): (u32, u32) = m.body().deserialize().ok()?;
-                    Some(Event::ActiveState { path, state, reason })
+                    Some(Event::ActiveState {
+                        path,
+                        state,
+                        reason,
+                    })
                 });
                 merged = merged.or(states).boxed();
             }
         }
-        if let Ok(rule) = rule("org.freedesktop.DBus.Properties", "PropertiesChanged", "/org/freedesktop/NetworkManager/AccessPoint") {
+        if let Ok(rule) = rule(
+            "org.freedesktop.DBus.Properties",
+            "PropertiesChanged",
+            "/org/freedesktop/NetworkManager/AccessPoint",
+        ) {
             if let Ok(s) = MessageStream::for_match_rule(rule, &self.bus, Some(64)).await {
                 let strengths = s.filter_map(|m| {
                     let m = m.ok()?;
                     let path = OwnedObjectPath::from(m.header().path()?.clone());
-                    let (_, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) = m.body().deserialize().ok()?;
+                    let (_, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) =
+                        m.body().deserialize().ok()?;
                     let strength = u8::try_from(changed.get("Strength")?).ok()?;
                     Some(Event::Strength { path, strength })
                 });
@@ -1281,8 +1662,14 @@ impl Actor {
             }
         }
         if let Ok(settings) = NmSettingsProxy::new(&self.bus).await {
-            if let (Ok(added), Ok(removed)) = (settings.receive_new_connection().await, settings.receive_connection_removed().await) {
-                merged = merged.or(added.map(|_| Event::Saved)).or(removed.map(|_| Event::Saved)).boxed();
+            if let (Ok(added), Ok(removed)) = (
+                settings.receive_new_connection().await,
+                settings.receive_connection_removed().await,
+            ) {
+                merged = merged
+                    .or(added.map(|_| Event::Saved))
+                    .or(removed.map(|_| Event::Saved))
+                    .boxed();
             }
         }
         merged
@@ -1293,13 +1680,17 @@ impl Actor {
 /// number of switches written. sysfs, not the rfkill CLI, which aborts on
 /// some rows.
 pub(crate) fn set_rfkill(types: &[&str], block: bool) -> usize {
-    let Ok(entries) = std::fs::read_dir("/sys/class/rfkill") else { return 0 };
+    let Ok(entries) = std::fs::read_dir("/sys/class/rfkill") else {
+        return 0;
+    };
     entries
         .filter_map(Result::ok)
         .filter(|e| {
             io::read::<String>(e.path().join("type")).is_some_and(|t| types.contains(&t.as_str()))
         })
-        .filter(|e| std::fs::write(e.path().join("soft"), if block { "1\n" } else { "0\n" }).is_ok())
+        .filter(|e| {
+            std::fs::write(e.path().join("soft"), if block { "1\n" } else { "0\n" }).is_ok()
+        })
         .count()
 }
 
@@ -1321,8 +1712,16 @@ mod tests {
 
     #[test]
     fn each_ssid_shows_once_at_its_strongest_connected_first() {
-        let merged = merge(vec![ap("Cafe", 40, false), ap("Home", 30, true), ap("Cafe", 70, false), ap("Home", 20, true)]);
-        let shown: Vec<(&str, u8)> = merged.iter().map(|n| (n.ssid.as_str(), n.strength)).collect();
+        let merged = merge(vec![
+            ap("Cafe", 40, false),
+            ap("Home", 30, true),
+            ap("Cafe", 70, false),
+            ap("Home", 20, true),
+        ]);
+        let shown: Vec<(&str, u8)> = merged
+            .iter()
+            .map(|n| (n.ssid.as_str(), n.strength))
+            .collect();
         assert_eq!(shown, [("Home", 30), ("Cafe", 70)]);
     }
 
@@ -1335,10 +1734,22 @@ mod tests {
 
     #[test]
     fn errors_read_as_the_person_needs_them() {
-        assert_eq!(activation_error("org.freedesktop.NetworkManager.InvalidArgs", ""), "Connection rejected by NetworkManager (bad config)");
-        assert_eq!(activation_error("x", "802-1x: no-secrets"), "Incorrect password");
-        assert_eq!(activation_error("x", "activation timeout"), "Connection timeout");
-        assert_eq!(activation_error("org.x.Failed", ""), "Failed (org.x.Failed)");
+        assert_eq!(
+            activation_error("org.freedesktop.NetworkManager.InvalidArgs", ""),
+            "Connection rejected by NetworkManager (bad config)"
+        );
+        assert_eq!(
+            activation_error("x", "802-1x: no-secrets"),
+            "Incorrect password"
+        );
+        assert_eq!(
+            activation_error("x", "activation timeout"),
+            "Connection timeout"
+        );
+        assert_eq!(
+            activation_error("org.x.Failed", ""),
+            "Failed (org.x.Failed)"
+        );
         assert_eq!(deactivation_error(9), "Incorrect password");
         assert_eq!(deactivation_error(6), "Connection timeout");
         assert_eq!(deactivation_error(1), "Couldn't connect");

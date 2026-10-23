@@ -2,7 +2,7 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import QtWayland.Compositor
 
-ShellSurfaceItem {
+NativeSurfaceItem {
     id: surfaceItem
     property var surfaceObj: null
     property int surfaceId: -1
@@ -29,6 +29,13 @@ ShellSurfaceItem {
     // subsurfaces and touch points map 1:1 onto the client's coordinates.
     readonly property real clientScale: !isPreview && launchCompositor && launchCompositor.usesNativeScale(surface) ? launchCompositor.nativeScale : 1
     readonly property size configureSize: parent ? Qt.size(Math.round(parent.width / clientScale), Math.round(parent.height / clientScale)) : Qt.size(0, 0)
+    applicationTerms: {
+        var toplevel = _toplevelFromObj(surfaceObj);
+        if (!toplevel || !toplevel.appId)
+            return [];
+        var app = AppModel.findById(toplevel.appId);
+        return app.searchTerms || [];
+    }
 
     function scheduleSizeUpdate() {
         sizeUpdateScheduled = true;
@@ -192,7 +199,9 @@ ShellSurfaceItem {
     height: clientScale === 1 ? (parent ? parent.height : 0) : implicitHeight
     scale: clientScale
     transformOrigin: Item.TopLeft
-    autoCreatePopupItems: true
+    // NativeSurfaceItem creates popup children itself because Qt's built-in
+    // integration ignores configured popup geometry and loses our input policy.
+    autoCreatePopupItems: false
     // Keep the surface item visible from when it's mapped. The compositor now
     // sends an initial xdg_toplevel.configure from C++ (see handleXdgToplevelCreated
     // in waylandcompositor.cpp) so the client can ack and commit its first buffer

@@ -9,7 +9,11 @@ use lettre::{Address, Message, SmtpTransport, Transport};
 use crate::store::Account;
 
 fn mailboxes(list: &str) -> Result<Vec<Mailbox>, String> {
-    list.split([',', ';']).map(str::trim).filter(|s| !s.is_empty()).map(|s| s.parse::<Mailbox>().map_err(|e| format!("{s}: {e}"))).collect()
+    list.split([',', ';'])
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.parse::<Mailbox>().map_err(|e| format!("{s}: {e}")))
+        .collect()
 }
 
 pub struct Draft<'a> {
@@ -25,7 +29,10 @@ pub struct Draft<'a> {
 /// The message as sent and its envelope's recipients; Err names a bad
 /// address.
 pub fn compose(account: &Account, d: Draft<'_>) -> Result<(Vec<u8>, String), String> {
-    let from: Mailbox = format!("{} <{}>", account.name, account.address).parse().or_else(|_: lettre::address::AddressError| account.address.parse()).map_err(|e| format!("{}: {e}", account.address))?;
+    let from: Mailbox = format!("{} <{}>", account.name, account.address)
+        .parse()
+        .or_else(|_: lettre::address::AddressError| account.address.parse())
+        .map_err(|e| format!("{}: {e}", account.address))?;
     let mut b = Message::builder().from(from).subject(d.subject);
     for m in mailboxes(d.to)? {
         b = b.to(m);
@@ -48,7 +55,13 @@ pub fn compose(account: &Account, d: Draft<'_>) -> Result<(Vec<u8>, String), Str
         b.multipart(parts)
     }
     .map_err(|e| e.to_string())?;
-    let recipients = message.envelope().to().iter().map(Address::to_string).collect::<Vec<_>>().join(",");
+    let recipients = message
+        .envelope()
+        .to()
+        .iter()
+        .map(Address::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
     Ok((message.formatted(), recipients))
 }
 
@@ -68,7 +81,12 @@ fn reason(e: &lettre::transport::smtp::Error) -> &'static str {
     }
 }
 
-pub fn send(account: &Account, credential: &str, raw: &[u8], recipients: &str) -> Result<(), &'static str> {
+pub fn send(
+    account: &Account,
+    credential: &str,
+    raw: &[u8],
+    recipients: &str,
+) -> Result<(), &'static str> {
     let s = &account.smtp;
     let builder = match s.security {
         1 => SmtpTransport::relay(&s.host),
@@ -79,12 +97,29 @@ pub fn send(account: &Account, credential: &str, raw: &[u8], recipients: &str) -
         marathon_rt::log::warn("Mail", format_args!("SMTP {}: {e}", s.host));
         "server"
     })?;
-    let mechanisms = if account.provider.is_empty() { vec![Mechanism::Plain, Mechanism::Login] } else { vec![Mechanism::Xoauth2] };
-    let transport = builder.port(s.port).credentials(Credentials::new(account.username.clone(), credential.to_owned())).authentication(mechanisms).build();
-    let to: Vec<Address> = recipients.split(',').filter_map(|a| a.parse().ok()).collect();
+    let mechanisms = if account.provider.is_empty() {
+        vec![Mechanism::Plain, Mechanism::Login]
+    } else {
+        vec![Mechanism::Xoauth2]
+    };
+    let transport = builder
+        .port(s.port)
+        .credentials(Credentials::new(
+            account.username.clone(),
+            credential.to_owned(),
+        ))
+        .authentication(mechanisms)
+        .build();
+    let to: Vec<Address> = recipients
+        .split(',')
+        .filter_map(|a| a.parse().ok())
+        .collect();
     let envelope = Envelope::new(account.address.parse().ok(), to).map_err(|e| {
         marathon_rt::log::warn("Mail", format_args!("envelope: {e}"));
         "address"
     })?;
-    transport.send_raw(&envelope, raw).map(drop).map_err(|e| reason(&e))
+    transport
+        .send_raw(&envelope, raw)
+        .map(drop)
+        .map_err(|e| reason(&e))
 }

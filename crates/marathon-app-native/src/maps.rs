@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use cxx_qt::{CxxQtType, Threading};
@@ -40,7 +40,14 @@ pub mod qobject {
         /// `mode`: Valhalla's costing, "auto", "pedestrian" or "bicycle".
         #[qinvokable]
         #[cxx_name = "requestRoute"]
-        fn request_route(self: Pin<&mut Routing>, start_lat: f64, start_lon: f64, end_lat: f64, end_lon: f64, mode: &QString);
+        fn request_route(
+            self: Pin<&mut Routing>,
+            start_lat: f64,
+            start_lon: f64,
+            end_lat: f64,
+            end_lon: f64,
+            mode: &QString,
+        );
         #[qinvokable]
         #[cxx_name = "clearRoute"]
         fn clear_route(self: Pin<&mut Routing>);
@@ -50,7 +57,14 @@ pub mod qobject {
         /// steps; distance in metres.
         #[qsignal]
         #[cxx_name = "routeReady"]
-        fn route_ready(self: Pin<&mut Routing>, geojson: &QString, maneuvers: &QList_QVariant, duration_sec: f64, distance_meters: f64, summary: &QMap_QString_QVariant);
+        fn route_ready(
+            self: Pin<&mut Routing>,
+            geojson: &QString,
+            maneuvers: &QList_QVariant,
+            duration_sec: f64,
+            distance_meters: f64,
+            summary: &QMap_QString_QVariant,
+        );
         #[qsignal]
         #[cxx_name = "routeFailed"]
         fn route_failed(self: Pin<&mut Routing>, error: &QString);
@@ -95,7 +109,10 @@ fn text(s: &str) -> QVariant {
 fn variant(value: &Value) -> QVariant {
     match value {
         Value::Bool(b) => QVariant::from(b),
-        Value::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()).map_or_else(|| QVariant::from(&n.as_f64().unwrap_or(0.0)), |i| QVariant::from(&i)),
+        Value::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()).map_or_else(
+            || QVariant::from(&n.as_f64().unwrap_or(0.0)),
+            |i| QVariant::from(&i),
+        ),
         Value::String(s) => text(s),
         Value::Array(items) => {
             let mut list = QList::<QVariant>::default();
@@ -116,7 +133,9 @@ fn variant(value: &Value) -> QVariant {
 }
 
 fn map(value: &Value) -> QMap<QMapPair_QString_QVariant> {
-    variant(value).value::<QMap<QMapPair_QString_QVariant>>().unwrap_or_default()
+    variant(value)
+        .value::<QMap<QMapPair_QString_QVariant>>()
+        .unwrap_or_default()
 }
 
 /// The route Valhalla answers, as QML takes it: the line, the steps and the
@@ -134,21 +153,35 @@ fn route(from: (f64, f64), to: (f64, f64), mode: &str) -> Result<(String, Value,
         .http_status_as_error(false)
         .build()
         .into();
-    let mut reply = agent.post(VALHALLA).header("Content-Type", "application/json").send(body.to_string()).map_err(|e| match e {
-        ureq::Error::Timeout(_) => "Timed out".to_owned(),
-        e => e.to_string(),
-    })?;
+    let mut reply = agent
+        .post(VALHALLA)
+        .header("Content-Type", "application/json")
+        .send(body.to_string())
+        .map_err(|e| match e {
+            ureq::Error::Timeout(_) => "Timed out".to_owned(),
+            e => e.to_string(),
+        })?;
     let ok = reply.status().is_success();
-    let reply: Value = serde_json::from_str(&reply.body_mut().read_to_string().map_err(|e| e.to_string())?).map_err(|e| format!("Parse error: {e}"))?;
+    let reply: Value = serde_json::from_str(
+        &reply
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("Parse error: {e}"))?;
     if !ok {
         // Valhalla answers "no route" as an HTTP error with a reason.
-        return Err(reply["error"].as_str().unwrap_or("Valhalla refused the route").to_owned());
+        return Err(reply["error"]
+            .as_str()
+            .unwrap_or("Valhalla refused the route")
+            .to_owned());
     }
     let leg = &reply["trip"]["legs"][0];
     if leg.is_null() {
         return Err("Valhalla returned an empty trip".into());
     }
-    let line = polyline::decode_polyline(leg["shape"].as_str().unwrap_or_default(), 6).map_err(|e| format!("Bad route shape: {e}"))?;
+    let line = polyline::decode_polyline(leg["shape"].as_str().unwrap_or_default(), 6)
+        .map_err(|e| format!("Bad route shape: {e}"))?;
     let coordinates: Vec<[f64; 2]> = line.coords().map(|c| [c.x, c.y]).collect();
     let geojson = json!({"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {}, "geometry": {"type": "LineString", "coordinates": coordinates}}]});
     let maneuvers: Vec<Value> = leg["maneuvers"]
@@ -182,7 +215,14 @@ fn route(from: (f64, f64), to: (f64, f64), mode: &str) -> Result<(String, Value,
 }
 
 impl Routing {
-    fn request_route(mut self: Pin<&mut Self>, start_lat: f64, start_lon: f64, end_lat: f64, end_lon: f64, mode: &QString) {
+    fn request_route(
+        mut self: Pin<&mut Self>,
+        start_lat: f64,
+        start_lon: f64,
+        end_lat: f64,
+        end_lon: f64,
+        mode: &QString,
+    ) {
         if self.routing {
             return;
         }
@@ -194,8 +234,13 @@ impl Routing {
                 obj.as_mut().routing_now(false);
                 match answer {
                     Ok((geojson, maneuvers, summary)) => {
-                        let (time, km) = (summary["time"].as_f64().unwrap_or(0.0), summary["distance"].as_f64().unwrap_or(0.0));
-                        let steps = variant(&maneuvers).value::<QList<QVariant>>().unwrap_or_default();
+                        let (time, km) = (
+                            summary["time"].as_f64().unwrap_or(0.0),
+                            summary["distance"].as_f64().unwrap_or(0.0),
+                        );
+                        let steps = variant(&maneuvers)
+                            .value::<QList<QVariant>>()
+                            .unwrap_or_default();
                         let summary = map(&summary);
                         let mut current = QMap::<QMapPair_QString_QVariant>::default();
                         current.insert(QString::from("geojson"), text(&geojson));
@@ -204,7 +249,13 @@ impl Routing {
                         current.insert(QString::from("distance"), QVariant::from(&(km * 1000.0)));
                         current.insert(QString::from("summary"), QVariant::from(&summary));
                         obj.as_mut().rust_mut().current_route = current;
-                        obj.as_mut().route_ready(&QString::from(&geojson), &steps, time, km * 1000.0, &summary);
+                        obj.as_mut().route_ready(
+                            &QString::from(&geojson),
+                            &steps,
+                            time,
+                            km * 1000.0,
+                            &summary,
+                        );
                     }
                     Err(e) => {
                         obj.as_mut().error_now(&e);
@@ -229,7 +280,13 @@ impl Routing {
     fn clear_route(mut self: Pin<&mut Self>) {
         self.as_mut().rust_mut().current_route = QMap::default();
         self.as_mut().error_now("");
-        self.route_ready(&QString::default(), &QList::default(), 0.0, 0.0, &QMap::default());
+        self.route_ready(
+            &QString::default(),
+            &QList::default(),
+            0.0,
+            0.0,
+            &QMap::default(),
+        );
     }
 }
 
@@ -243,7 +300,11 @@ enum Engine {
 fn engine() -> Option<Engine> {
     let home = dirs::home_dir().unwrap_or_default();
     let first = |paths: Vec<PathBuf>| paths.into_iter().find(|p| p.exists());
-    let piper = first(vec!["/usr/bin/piper".into(), "/usr/local/bin/piper".into(), home.join(".local/bin/piper")]);
+    let piper = first(vec![
+        "/usr/bin/piper".into(),
+        "/usr/local/bin/piper".into(),
+        home.join(".local/bin/piper"),
+    ]);
     let model = first(vec![
         "/usr/share/marathon/voice/en_US-amy-low.onnx".into(),
         "/usr/share/piper-voices/en_US-amy-low.onnx".into(),
@@ -291,15 +352,25 @@ impl Default for VoiceRust {
 /// Runs `command` as the cue's current process, until it exits or is
 /// stopped; whether it succeeded.
 fn run(slot: &Mutex<Option<Child>>, command: &mut Command, input: Option<&str>) -> bool {
-    let Ok(mut child) = command.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::null()).spawn() else { return false };
+    let Ok(mut child) = command
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::null())
+        .spawn()
+    else {
+        return false;
+    };
     if let (Some(text), Some(mut stdin)) = (input, child.stdin.take()) {
         use std::io::Write as _;
         stdin.write_all(text.as_bytes()).ok();
     }
     let pid = child.id();
-    *slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(child);
+    *slot.lock().unwrap_or_else(|_| std::process::abort()) = Some(child);
     loop {
-        let mut guard = slot.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut guard = slot.lock().unwrap_or_else(|_| std::process::abort());
         match guard.as_mut() {
             Some(c) if c.id() == pid => match c.try_wait() {
                 Ok(Some(status)) => {
@@ -319,8 +390,20 @@ fn run(slot: &Mutex<Option<Child>>, command: &mut Command, input: Option<&str>) 
 
 fn say(engine: &Engine, text: &str, wav: &Path, slot: &Mutex<Option<Child>>) -> bool {
     let synthesised = match engine {
-        Engine::Piper { bin, model } => run(slot, Command::new(bin).arg("--model").arg(model).arg("--output_file").arg(wav), Some(text)),
-        Engine::Flite(bin) => run(slot, Command::new(bin).arg("-t").arg(text).arg("-o").arg(wav), None),
+        Engine::Piper { bin, model } => run(
+            slot,
+            Command::new(bin)
+                .arg("--model")
+                .arg(model)
+                .arg("--output_file")
+                .arg(wav),
+            Some(text),
+        ),
+        Engine::Flite(bin) => run(
+            slot,
+            Command::new(bin).arg("-t").arg(text).arg("-o").arg(wav),
+            None,
+        ),
     };
     let played = synthesised && run(slot, Command::new("paplay").arg(wav), None);
     std::fs::remove_file(wav).ok();
@@ -329,14 +412,26 @@ fn say(engine: &Engine, text: &str, wav: &Path, slot: &Mutex<Option<Child>>) -> 
 
 impl Voice {
     fn speak(mut self: Pin<&mut Self>, text: &QString) {
-        let Some(engine) = self.engine.clone().filter(|_| !self.muted && !text.is_empty()) else { return };
+        let Some(engine) = self
+            .engine
+            .clone()
+            .filter(|_| !self.muted && !text.is_empty())
+        else {
+            return;
+        };
         // The latest maneuver wins: rerouting, or turns in quick succession.
         self.as_mut().stop();
         let turn = self.turn.fetch_add(1, Ordering::SeqCst) + 1;
         self.as_mut().speaking_now(true);
-        let (qt, child, turns, text) = (self.qt_thread(), Arc::clone(&self.child), Arc::clone(&self.turn), text.to_string());
+        let (qt, child, turns, text) = (
+            self.qt_thread(),
+            Arc::clone(&self.child),
+            Arc::clone(&self.turn),
+            text.to_string(),
+        );
         std::thread::spawn(move || {
-            let wav = std::env::temp_dir().join(format!("marathon-nav-{}-{turn}.wav", std::process::id()));
+            let wav = std::env::temp_dir()
+                .join(format!("marathon-nav-{}-{turn}.wav", std::process::id()));
             if !say(&engine, &text, &wav, &child) && turns.load(Ordering::SeqCst) == turn {
                 log::warn("maps", "a voice cue failed to play");
             }
@@ -351,7 +446,12 @@ impl Voice {
 
     fn stop(mut self: Pin<&mut Self>) {
         self.turn.fetch_add(1, Ordering::SeqCst);
-        if let Some(mut child) = self.child.lock().unwrap_or_else(PoisonError::into_inner).take() {
+        if let Some(mut child) = self
+            .child
+            .lock()
+            .unwrap_or_else(|_| std::process::abort())
+            .take()
+        {
             child.kill().ok();
             child.wait().ok();
         }

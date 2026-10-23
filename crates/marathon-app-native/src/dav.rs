@@ -48,7 +48,14 @@ pub mod qobject {
 
         #[qinvokable]
         #[cxx_name = "addAccount"]
-        fn add_account(self: &DavSync, display_name: &QString, base_url: &QString, username: &QString, secret: &QString, auth_kind: &QString) -> QString;
+        fn add_account(
+            self: &DavSync,
+            display_name: &QString,
+            base_url: &QString,
+            username: &QString,
+            secret: &QString,
+            auth_kind: &QString,
+        ) -> QString;
         #[qinvokable]
         #[cxx_name = "removeAccount"]
         fn remove_account(self: &DavSync, id: &QString) -> bool;
@@ -84,11 +91,23 @@ type Qt = cxx_qt::CxxQtThread<DavSync>;
 impl cxx_qt::Initialize for DavSync {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), DAV, "SyncFinished", |obj, (id,): (String,)| obj.sync_finished(&QString::from(&id)));
-        relay(qt.clone(), DAV, "AccountDiscovered", |obj, (id,): (String,)| obj.account_discovered(&QString::from(&id)));
-        relay(qt.clone(), DAV, "AccountDiscoveryFailed", |obj, (id, why): (String, String)| {
-            obj.account_discovery_failed(&QString::from(&id), &QString::from(&why));
+        relay(qt.clone(), DAV, "SyncFinished", |obj, (id,): (String,)| {
+            obj.sync_finished(&QString::from(&id));
         });
+        relay(
+            qt.clone(),
+            DAV,
+            "AccountDiscovered",
+            |obj, (id,): (String,)| obj.account_discovered(&QString::from(&id)),
+        );
+        relay(
+            qt.clone(),
+            DAV,
+            "AccountDiscoveryFailed",
+            |obj, (id, why): (String, String)| {
+                obj.account_discovery_failed(&QString::from(&id), &QString::from(&why));
+            },
+        );
         mirror(qt.clone(), DAV, "system", |mut obj, update| {
             let Update::State(s) = update else { return };
             let mut d = obj.as_mut().rust_mut();
@@ -99,7 +118,9 @@ impl cxx_qt::Initialize for DavSync {
         });
         io::spawn(async move {
             accounts(&qt).await;
-            let Ok(changes) = DAV.signals::<()>("AccountsChanged").await else { return };
+            let Ok(changes) = DAV.signals::<()>("AccountsChanged").await else {
+                return;
+            };
             let mut changes = std::pin::pin!(changes);
             while changes.next().await.is_some() {
                 accounts(&qt).await;

@@ -47,6 +47,10 @@ QtObject {
     // libraries, abis, sdk, gms; null until Android has answered once.
     property var androidDevice: null
     property var pendingUpdates: []
+    property bool stateRefreshInFlight: false
+    property int stateRefreshStartedAt: 0
+    property bool installedStateFresh: false
+    property bool updateStateFresh: false
     // appId → the handler's last progress record: {state, percent, error}.
     property var jobs: ({})
     // Four collections load concurrently, so this counts fetches in flight
@@ -376,8 +380,11 @@ QtObject {
         lastError = "";
         if (catalogAppCount === 0)
             restoreCatalog();
-        startupTimer.queue = [() => loadAndroidCatalog(true), () => loadAppOfTheDay(), () => loadCollection("verified"), () => loadCollection("trending"), () => loadCollection("popular"), () => loadCollection("mobile"), () => loadCollection("recently-added"), () => refreshState()];
+        loadInstalled();
+        loadUpdates();
+        startupTimer.queue = [() => refreshState(), () => loadAppOfTheDay(), () => loadCollection("verified"), () => loadCollection("trending"), () => loadCollection("popular"), () => loadCollection("mobile"), () => loadCollection("recently-added")];
         startupTimer.running = true;
+        androidCatalogTimer.restart();
     }
 
     function loadCollection(name) {
@@ -504,6 +511,10 @@ QtObject {
     }
 
     function saveCatalog() {
+        catalogSaveTimer.restart();
+    }
+
+    function writeCatalog() {
         const slimmed = {};
         for (const k in collections)
             slimmed[k] = collections[k].map(slim);
@@ -1048,19 +1059,27 @@ QtObject {
 
     function loadInstalled() {
         readLocalJson(stateDir + "/installed.json", function (data) {
-            var list = data && data.installed ? data.installed : [];
+            if (!data || !Array.isArray(data.installed))
+                return;
+            var list = data.installed;
             root.installedApps = list.map(a => ({
                         "app_id": a.app_id,
                         "name": a.name,
                         "version": a.version,
                         "launchable": a.launchable !== false
                     }));
+            if (data.ts >= root.stateRefreshStartedAt)
+                root.installedStateFresh = true;
         });
     }
 
     function loadUpdates() {
         readLocalJson(stateDir + "/updates.json", function (data) {
-            root.pendingUpdates = data && data.updates ? data.updates : [];
+            if (!data || !Array.isArray(data.updates))
+                return;
+            root.pendingUpdates = data.updates;
+            if (data.ts >= root.stateRefreshStartedAt)
+                root.updateStateFresh = true;
         });
     }
 
@@ -1085,11 +1104,18 @@ QtObject {
     }
 
     function refreshState() {
+        if (stateRefreshInFlight)
+            return;
+        stateRefreshInFlight = true;
+        stateRefreshStartedAt = Math.floor(Date.now() / 1000);
+        installedStateFresh = false;
+        updateStateFresh = false;
         adoptJobs();
         loadInstalled();
         loadUpdates();
         loadStoreSettings();
         root.openExternally("marathon-store://refresh-state/all");
+        stateRefreshTimer.tries = 0;
         stateRefreshTimer.restart();
     }
 
@@ -1456,12 +1482,32 @@ QtObject {
     // after a remote-ls that can take seconds; read both once it has had time.
     property Timer _stateRefreshTimer: Timer {
         id: stateRefreshTimer
-        interval: 2500
+        property int tries: 0
+        interval: 500
+        repeat: true
         onTriggered: {
             root.loadInstalled();
             root.loadUpdates();
             root.loadStoreSettings();
+            if ((root.installedStateFresh && root.updateStateFresh) || ++tries >= 60) {
+                stop();
+                root.stateRefreshInFlight = false;
+            }
         }
+    }
+
+    // Parsing the multi-megabyte F-Droid catalogue and serialising every
+    // partial Flathub response used to contend with the Store's first frame.
+    property Timer _androidCatalogTimer: Timer {
+        id: androidCatalogTimer
+        interval: 2500
+        onTriggered: root.loadAndroidCatalog(true)
+    }
+
+    property Timer _catalogSaveTimer: Timer {
+        id: catalogSaveTimer
+        interval: 750
+        onTriggered: root.writeCatalog()
     }
 
     // Stagger startup requests rather than opening six at once.

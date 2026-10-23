@@ -103,6 +103,7 @@
 #ifdef HAVE_WAYLAND
 #include "src/wayland/waylandcompositor.h"
 #include "src/wayland/nativeclientscale.h"
+#include "src/wayland/nativesurfaceitem.h"
 #include "src/diag/fpsmonitor.h"
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
@@ -600,6 +601,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef HAVE_WAYLAND
 
+    qmlRegisterType<NativeSurfaceItem>("MarathonOS.Shell", 1, 0, "NativeSurfaceItem");
     qmlRegisterUncreatableType<QWaylandSurface>("MarathonOS.Wayland", 1, 0, "WaylandSurface",
                                                 "WaylandSurface cannot be created from QML");
     qmlRegisterUncreatableType<QWaylandXdgSurface>("MarathonOS.Wayland", 1, 0, "WaylandXdgSurface",

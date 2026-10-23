@@ -4,9 +4,13 @@
 
 use std::pin::Pin;
 
-use cxx_qt::CxxQtType;
-use cxx_qt_lib::{QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant, QModelIndex, QString, QStringList, QVariant};
+use cxx_qt::{CxxQtType, Threading};
+use cxx_qt_lib::{
+    QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant,
+    QModelIndex, QString, QStringList, QVariant,
+};
 use marathon_apps::apps::{self, App};
+use marathon_rt::io;
 
 // In the global namespace: cxx-qt 0.10 would put the base class in a
 // bridge's namespace too.
@@ -53,9 +57,11 @@ pub mod qobject {
         #[cxx_name = "roleNames"]
         fn role_names(self: &AppRegistry) -> QHash_i32_QByteArray;
 
-        /// Loads `app_id`'s entry, and every app's when it has "system";
-        /// false when there is no such app.
+        /// Loads only `app_id`; false when there is no such app.
         fn load(self: Pin<&mut AppRegistry>, app_id: &QString) -> bool;
+        /// Starts the one-shot background catalogue load for a system app.
+        #[cxx_name = "loadAll"]
+        fn load_all(self: Pin<&mut AppRegistry>);
         /// The entry's fields, as `roleNames` and `toolkit`, `isSystem` and
         /// `requiresQtModules`; empty for none.
         #[qinvokable]
@@ -79,6 +85,8 @@ pub mod qobject {
         fn unregister_app(self: Pin<&mut AppRegistry>, app_id: &QString);
     }
 
+    impl cxx_qt::Threading for AppRegistry {}
+
     #[namespace = "marathon::apps"]
     extern "Rust" {
         /// Before the app's engine exists: whether its manifest asks for
@@ -91,8 +99,21 @@ pub mod qobject {
 use qobject::AppRegistry;
 
 const ROLES: [&str; 15] = [
-    "id", "name", "icon", "type", "absolutePath", "entryPoint", "version", "isProtected", "permissions", "searchKeywords", "deepLinks", "categories",
-    "handlesUriSchemes", "defaultFor", "backgroundCapabilities",
+    "id",
+    "name",
+    "icon",
+    "type",
+    "absolutePath",
+    "entryPoint",
+    "version",
+    "isProtected",
+    "permissions",
+    "searchKeywords",
+    "deepLinks",
+    "categories",
+    "handlesUriSchemes",
+    "defaultFor",
+    "backgroundCapabilities",
 ];
 const USER_ROLE: i32 = 0x0100;
 
@@ -100,6 +121,18 @@ const USER_ROLE: i32 = 0x0100;
 pub struct AppRegistryRust {
     count: i32,
     apps: Vec<App>,
+    may_load_all: bool,
+    full_load_started: bool,
+}
+
+impl AppRegistryRust {
+    fn begin_full_load(&mut self) -> bool {
+        if !self.may_load_all || self.full_load_started {
+            return false;
+        }
+        self.full_load_started = true;
+        true
+    }
 }
 
 fn strings(items: &[String]) -> QVariant {
@@ -141,6 +174,14 @@ fn requires_qt_module(app_id: &QString, module: &QString) -> bool {
     apps::find(&app_id.to_string()).is_some_and(|a| a.requires_qt_modules.contains(&module))
 }
 
+fn initial_apps(app: App) -> (Vec<App>, bool) {
+    let load_all = app
+        .permissions
+        .iter()
+        .any(|permission| permission == "system");
+    (vec![app], load_all)
+}
+
 impl AppRegistry {
     fn row_count(&self, parent: &QModelIndex) -> i32 {
         if parent.is_valid() {
@@ -151,8 +192,12 @@ impl AppRegistry {
     }
 
     fn data(&self, index: &QModelIndex, role: i32) -> QVariant {
-        let app = usize::try_from(index.row()).ok().and_then(|row| self.apps.get(row));
-        let name = usize::try_from(role - USER_ROLE - 1).ok().and_then(|i| ROLES.get(i));
+        let app = usize::try_from(index.row())
+            .ok()
+            .and_then(|row| self.apps.get(row));
+        let name = usize::try_from(role - USER_ROLE - 1)
+            .ok()
+            .and_then(|i| ROLES.get(i));
         app.zip(name).map(|(a, n)| field(a, n)).unwrap_or_default()
     }
 
@@ -179,19 +224,41 @@ impl AppRegistry {
         self.count_changed();
     }
 
-    fn load(self: Pin<&mut Self>, app_id: &QString) -> bool {
-        let Some(app) = apps::find(&app_id.to_string()) else { return false };
-        // System apps configure other apps (Settings' default-app pickers
-        // and notification toggles), so they need every app.
-        let found = if app.permissions.iter().any(|p| p == "system") { apps::scan() } else { vec![app] };
-        self.set(found);
+    fn load(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
+        let Some(app) = apps::find(&app_id.to_string()) else {
+            return false;
+        };
+        let (initial, load_all) = initial_apps(app);
+        let mut rust = self.as_mut().rust_mut();
+        rust.may_load_all = load_all;
+        rust.full_load_started = false;
+        self.set(initial);
+
         true
+    }
+
+    fn load_all(mut self: Pin<&mut Self>) {
+        if !self.as_mut().rust_mut().begin_full_load() {
+            return;
+        }
+        let qt = self.qt_thread();
+
+        // System apps configure other apps, but only their own manifest is
+        // needed to start. The runner calls this after the first frame, and
+        // directory and manifest I/O stays off the GUI thread.
+        io::spawn(async move {
+            let found = blocking::unblock(apps::scan).await;
+            qt.queue(move |obj| obj.set(found)).ok();
+        });
     }
 
     fn get_app(&self, app_id: &QString) -> QMap<QMapPair_QString_QVariant> {
         let mut map = QMap::<QMapPair_QString_QVariant>::default();
         if let Some(app) = self.find(app_id) {
-            for name in ROLES.iter().chain(&["toolkit", "isSystem", "requiresQtModules"]) {
+            for name in ROLES
+                .iter()
+                .chain(&["toolkit", "isSystem", "requiresQtModules"])
+            {
                 map.insert(QString::from(*name), field(app, name));
             }
         }
@@ -215,7 +282,13 @@ impl AppRegistry {
     }
 
     fn get_background_capabilities(&self, app_id: &QString) -> QStringList {
-        self.find(app_id).map(|a| field(a, "backgroundCapabilities").value::<QStringList>().unwrap_or_default()).unwrap_or_default()
+        self.find(app_id)
+            .map(|a| {
+                field(a, "backgroundCapabilities")
+                    .value::<QStringList>()
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default()
     }
 
     fn unregister_app(self: Pin<&mut Self>, app_id: &QString) {
@@ -224,5 +297,53 @@ impl AppRegistry {
             let rest = self.apps.iter().filter(|a| a.id != id).cloned().collect();
             self.set(rest);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn system_app_starts_with_only_its_own_entry() {
+        let app = App {
+            id: "settings".to_owned(),
+            permissions: vec!["system".to_owned()],
+            ..App::default()
+        };
+
+        let (initial, load_all) = initial_apps(app);
+
+        assert!(load_all);
+        assert_eq!(initial.len(), 1);
+        assert_eq!(initial[0].id, "settings");
+    }
+
+    #[test]
+    fn regular_app_keeps_single_entry_model() {
+        let app = App {
+            id: "calculator".to_owned(),
+            permissions: vec!["storage".to_owned()],
+            ..App::default()
+        };
+
+        let (initial, load_all) = initial_apps(app);
+
+        assert!(!load_all);
+        assert_eq!(initial.len(), 1);
+        assert_eq!(initial[0].id, "calculator");
+    }
+
+    #[test]
+    fn full_catalog_load_is_system_only_and_one_shot() {
+        let mut regular = AppRegistryRust::default();
+        assert!(!regular.begin_full_load());
+
+        let mut system = AppRegistryRust {
+            may_load_all: true,
+            ..AppRegistryRust::default()
+        };
+        assert!(system.begin_full_load());
+        assert!(!system.begin_full_load());
     }
 }

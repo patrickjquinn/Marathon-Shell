@@ -19,6 +19,18 @@ target_link_libraries(test_shell_nativeback Qt6::Test Qt6::Core Qt6::Gui)
 target_include_directories(test_shell_nativeback PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
 add_test(NAME Shell_NativeBack COMMAND test_shell_nativeback)
 
+# Native toolkit compatibility stays limited to clients known to ignore wl_touch.
+add_executable(test_shell_nativeinput test_nativeinput.cpp)
+target_link_libraries(test_shell_nativeinput Qt6::Test Qt6::Core)
+target_include_directories(test_shell_nativeinput PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
+add_test(NAME Shell_NativeInput COMMAND test_shell_nativeinput)
+
+# xdg-positioner flip/slide/resize policy at phone viewport edges.
+add_executable(test_shell_popupplacement test_popupplacement.cpp)
+target_link_libraries(test_shell_popupplacement Qt6::Test Qt6::Core)
+target_include_directories(test_shell_popupplacement PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/wayland)
+add_test(NAME Shell_PopupPlacement COMMAND test_shell_popupplacement)
+
 # Keel cover windows (keel/shell/PROTOCOL.md section 3)
 add_executable(test_shell_keelcover test_keelcover.cpp)
 target_link_libraries(test_shell_keelcover Qt6::Test Qt6::Core)

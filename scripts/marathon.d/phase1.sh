@@ -127,7 +127,10 @@ cmd_deploy() {
     marathon::scp "$local_bin" '/tmp/marathon-shell-bin.new' >/dev/null
 
     marathon::step "atomic replace + restart greetd"
-    marathon::ssh 'mv /tmp/marathon-shell-bin.new /usr/bin/marathon-shell-bin && chmod 755 /usr/bin/marathon-shell-bin && systemctl restart greetd' >/dev/null
+    # Let the compositor run its normal app shutdown before greetd tears the
+    # session down.  The session entry point also retires frozen Flatpak scopes
+    # as a hard backstop for clients that cannot acknowledge the close.
+    marathon::ssh 'mv /tmp/marathon-shell-bin.new /usr/bin/marathon-shell-bin && chmod 755 /usr/bin/marathon-shell-bin || exit; marathon-remote close >/dev/null 2>&1 || true; systemctl restart greetd' >/dev/null
 
     marathon::step "wait for shell up"
     local deadline=$(( $(date +%s) + 30 ))
@@ -163,7 +166,7 @@ cmd_build_shell() {
 # ── reset ───────────────────────────────────────────────────────────
 cmd_reset() {
     marathon::info "restart greetd (safer than pkill)"
-    marathon::ssh 'systemctl restart greetd'
+    marathon::ssh 'marathon-remote close >/dev/null 2>&1 || true; systemctl restart greetd'
     marathon::step "wait for shell"
     marathon::wait_reachable 30 || return 1
     local deadline=$(( $(date +%s) + 20 ))

@@ -54,14 +54,20 @@ impl cxx_qt::Initialize for Flashlight {
 
 impl Flashlight {
     fn toggle(mut self: Pin<&mut Self>) -> bool {
-        let Some((dir, max)) = self.led.clone() else { return false };
+        let Some((dir, max)) = self.led.clone() else {
+            return false;
+        };
         let on = !self.enabled;
         let qt = self.qt_thread();
         io::spawn(async move {
             let level = if on { max.min(255) } else { 0 };
-            if let Err(e) = blocking::unblock(move || std::fs::write(dir.join("brightness"), level.to_string())).await {
+            if let Err(e) =
+                blocking::unblock(move || std::fs::write(dir.join("brightness"), level.to_string()))
+                    .await
+            {
                 log::warn("flashlight", e);
-                qt.queue(move |mut obj| set!(obj, enabled, enabled_changed, !on)).ok();
+                qt.queue(move |mut obj| set!(obj, enabled, enabled_changed, !on))
+                    .ok();
             }
         });
         set!(self, enabled, enabled_changed, on);
@@ -71,7 +77,11 @@ impl Flashlight {
 
 /// The torch's directory and `max_brightness`.
 fn find_led(root: &Path) -> Option<(PathBuf, i32)> {
-    let mut names: Vec<String> = std::fs::read_dir(root).ok()?.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+    let mut names: Vec<String> = std::fs::read_dir(root)
+        .ok()?
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
     names.sort();
     let name = names.into_iter().find(|n| {
         let n = n.to_lowercase();
@@ -81,7 +91,9 @@ fn find_led(root: &Path) -> Option<(PathBuf, i32)> {
     if !dir.join("brightness").exists() {
         return None;
     }
-    let max = io::read(dir.join("max_brightness")).filter(|m| *m > 0).unwrap_or(255);
+    let max = io::read(dir.join("max_brightness"))
+        .filter(|m| *m > 0)
+        .unwrap_or(255);
     Some((dir, max))
 }
 
@@ -97,7 +109,10 @@ mod tests {
             std::fs::write(dir.join("brightness"), "0").unwrap();
             std::fs::write(dir.join("max_brightness"), max).unwrap();
         }
-        assert_eq!(super::find_led(root.path()), Some((root.path().join("white:flash"), 15)));
+        assert_eq!(
+            super::find_led(root.path()),
+            Some((root.path().join("white:flash"), 15))
+        );
         std::fs::remove_dir_all(root.path().join("white:flash")).unwrap();
         assert_eq!(super::find_led(root.path()), None);
     }

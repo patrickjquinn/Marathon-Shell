@@ -1,0 +1,8 @@
+[Unit]
+Description=Start power profiles after the interactive boot
+ConditionPathExists=/usr/sbin/tuned-ppd
+
+[Timer]
+OnBootSec=45s
+AccuracySec=1s
+Unit=marathon-power-profiles.service

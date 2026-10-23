@@ -8,7 +8,7 @@ pub mod sailjail;
 use std::collections::HashMap;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_io::Async;
@@ -24,7 +24,10 @@ const PATH: &str = "/org/shipwright/keel/Shell";
 const INTERFACE: &str = "org.shipwright.keel.Shell1";
 const SHELL: &str = "org.marathonos.Shell";
 // Keel's forwarded dconf directories (keel/silica/plugin/src/config.rs).
-const FORWARDED: [(&str, &str); 2] = [("/desktop/jolla/theme/", "KEEL_AMBIENCE_"), ("/desktop/sailfish/silica/", "KEEL_SILICA_")];
+const FORWARDED: [(&str, &str); 2] = [
+    ("/desktop/jolla/theme/", "KEEL_AMBIENCE_"),
+    ("/desktop/sailfish/silica/", "KEEL_SILICA_"),
+];
 
 #[derive(Default)]
 struct State {
@@ -51,12 +54,25 @@ impl Host {
     /// first (up to a second) so the environment carries it. `on_activate`
     /// runs when the app asks to come forward; `on_ambience` when the
     /// environment changes.
-    pub fn start(runtime_dir: &Path, dpi: i32, on_activate: Callback, on_ambience: Callback) -> std::io::Result<Self> {
+    pub fn start(
+        runtime_dir: &Path,
+        dpi: i32,
+        on_activate: Callback,
+        on_ambience: Callback,
+    ) -> std::io::Result<Self> {
         let id = std::fs::read_to_string("/proc/sys/kernel/random/uuid").unwrap_or_default();
         let path = runtime_dir.join(format!("keel-{}", id.trim()));
         let listener = Async::new(UnixListener::bind(&path)?)?;
-        let host = Self { state: Arc::default(), socket: Arc::new(path), dpi, on_activate, on_ambience };
-        if let Some(ambience) = async_io::block_on(io::timeout(Duration::from_secs(1), read_ambience())).flatten() {
+        let host = Self {
+            state: Arc::default(),
+            socket: Arc::new(path),
+            dpi,
+            on_activate,
+            on_ambience,
+        };
+        if let Some(ambience) =
+            async_io::block_on(io::timeout(Duration::from_secs(1), read_ambience())).flatten()
+        {
             host.lock().ambience = ambience;
         }
         let accepting = host.clone();
@@ -90,7 +106,7 @@ impl Host {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        self.state.lock().unwrap_or_else(|_| std::process::abort())
     }
 
     pub fn address(&self) -> String {
@@ -119,8 +135,14 @@ impl Host {
         let mut keys = Vec::new();
         for (key, value) in &self.lock().ambience {
             for (dir, prefix) in FORWARDED {
-                let Some(name) = key.strip_prefix(dir) else { continue };
-                let name: String = name.to_uppercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+                let Some(name) = key.strip_prefix(dir) else {
+                    continue;
+                };
+                let name: String = name
+                    .to_uppercase()
+                    .chars()
+                    .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+                    .collect();
                 env.push((format!("{prefix}{name}"), text(value)));
                 keys.push(key.clone());
             }
@@ -133,19 +155,32 @@ impl Host {
     }
 
     pub fn set_active(&self, active: bool) {
-        self.change(|s| std::mem::replace(&mut s.active, active) != active, "ActiveChanged", active);
+        self.change(
+            |s| std::mem::replace(&mut s.active, active) != active,
+            "ActiveChanged",
+            active,
+        );
     }
 
     /// 1 while the app's cover is on screen in the task switcher.
     pub fn set_cover_status(&self, status: i32) {
-        self.change(|s| std::mem::replace(&mut s.cover_status, status) != status, "CoverStatusChanged", status);
+        self.change(
+            |s| std::mem::replace(&mut s.cover_status, status) != status,
+            "CoverStatusChanged",
+            status,
+        );
     }
 
     pub fn request_close(&self) {
         self.emit("CloseRequested", ());
     }
 
-    fn change<T: Body + zbus::zvariant::Type>(&self, apply: impl FnOnce(&mut State) -> bool, member: &'static str, value: T) {
+    fn change<T: Body + zbus::zvariant::Type>(
+        &self,
+        apply: impl FnOnce(&mut State) -> bool,
+        member: &'static str,
+        value: T,
+    ) {
         if apply(&mut self.lock()) {
             self.emit(member, (value,));
         }
@@ -155,7 +190,9 @@ impl Host {
         let peers = self.lock().peers.clone();
         io::spawn(async move {
             for peer in peers {
-                peer.emit_signal(None::<&str>, PATH, INTERFACE, member, &body).await.ok();
+                peer.emit_signal(None::<&str>, PATH, INTERFACE, member, &body)
+                    .await
+                    .ok();
             }
         });
     }
@@ -170,7 +207,10 @@ impl Host {
             .member("AmbienceChanged")?
             .build();
         let mut changes = zbus::MessageStream::for_match_rule(rule, &bus, None).await?;
-        let mut owners = zbus::fdo::DBusProxy::new(&bus).await?.receive_name_owner_changed_with_args(&[(0, SHELL)]).await?;
+        let mut owners = zbus::fdo::DBusProxy::new(&bus)
+            .await?
+            .receive_name_owner_changed_with_args(&[(0, SHELL)])
+            .await?;
         let reread = self.clone();
         io::spawn(async move {
             while let Some(change) = owners.next().await {
@@ -209,7 +249,16 @@ impl<T: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static> 
 
 async fn read_ambience() -> Option<Ambience> {
     let bus = io::session_bus().await.ok()?;
-    let reply = bus.call_method(Some(SHELL), "/org/marathonos/Shell/Ambience", Some("org.marathonos.Shell.Ambience1"), "GetAmbience", &()).await.ok()?;
+    let reply = bus
+        .call_method(
+            Some(SHELL),
+            "/org/marathonos/Shell/Ambience",
+            Some("org.marathonos.Shell.Ambience1"),
+            "GetAmbience",
+            &(),
+        )
+        .await
+        .ok()?;
     reply.body().deserialize().ok()
 }
 
@@ -248,10 +297,17 @@ impl Shell1 {
         (self.0.on_activate)();
     }
 
-    async fn set_content_orientation(&self, degrees: i32, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) {
+    async fn set_content_orientation(
+        &self,
+        degrees: i32,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) {
         let changed = std::mem::replace(&mut self.0.lock().content_orientation, degrees) != degrees;
         if changed {
-            emitter.emit(INTERFACE, "ContentOrientationChanged", &(degrees,)).await.ok();
+            emitter
+                .emit(INTERFACE, "ContentOrientationChanged", &(degrees,))
+                .await
+                .ok();
         }
     }
 
@@ -293,7 +349,16 @@ impl Shell1 {
 
 /// The bus name the shell calls an app's runner by.
 pub fn runner_name(app_id: &str) -> String {
-    let id: String = app_id.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' }).collect();
+    let id: String = app_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
     format!("org.marathonos.AppRunner.{id}")
 }
 
@@ -302,10 +367,19 @@ pub const RUNNER_PATH: &str = "/org/marathonos/AppRunner/Lifecycle";
 /// The caller is the shell that started this process (`MARATHON_SHELL_PID`).
 pub async fn caller_is_shell(header: &Header<'_>) -> zbus::fdo::Result<()> {
     let denied = |why: &str| zbus::fdo::Error::AccessDenied(why.to_owned());
-    let shell: u32 = std::env::var("MARATHON_SHELL_PID").ok().and_then(|p| p.trim().parse().ok()).ok_or_else(|| denied("MARATHON_SHELL_PID not set"))?;
-    let sender = header.sender().ok_or_else(|| denied("Unable to resolve sender PID"))?;
+    let shell: u32 = std::env::var("MARATHON_SHELL_PID")
+        .ok()
+        .and_then(|p| p.trim().parse().ok())
+        .ok_or_else(|| denied("MARATHON_SHELL_PID not set"))?;
+    let sender = header
+        .sender()
+        .ok_or_else(|| denied("Unable to resolve sender PID"))?;
     let bus = io::session_bus().await?;
-    let pid = zbus::fdo::DBusProxy::new(&bus).await?.get_connection_unix_process_id(sender.clone().into()).await.map_err(|e| denied(&format!("Unable to resolve sender PID: {e}")))?;
+    let pid = zbus::fdo::DBusProxy::new(&bus)
+        .await?
+        .get_connection_unix_process_id(sender.clone().into())
+        .await
+        .map_err(|e| denied(&format!("Unable to resolve sender PID: {e}")))?;
     if pid == shell {
         Ok(())
     } else {
@@ -316,7 +390,17 @@ pub async fn caller_is_shell(header: &Header<'_>) -> zbus::fdo::Result<()> {
 /// Asks the shell to bring `app_id` forward.
 pub fn launch(app_id: String) {
     io::spawn(async move {
-        let Ok(bus) = io::session_bus().await else { return };
-        bus.call_method(Some(SHELL), "/org/marathonos/Shell/Navigation", Some("org.marathonos.Shell.Navigation1"), "LaunchApp", &(app_id,)).await.ok();
+        let Ok(bus) = io::session_bus().await else {
+            return;
+        };
+        bus.call_method(
+            Some(SHELL),
+            "/org/marathonos/Shell/Navigation",
+            Some("org.marathonos.Shell.Navigation1"),
+            "LaunchApp",
+            &(app_id,),
+        )
+        .await
+        .ok();
     });
 }

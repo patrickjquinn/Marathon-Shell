@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=53
+pkgrel=55
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -79,6 +79,9 @@ source="
 	marathon-sleep-log
 	marathon-modem-sleep
 	marathon-modem-sleep.service
+	marathon-power-profiles.service
+	marathon-power-profiles.timer
+	marathon-power-profiles-on-demand.conf
 	tuned-balanced.conf
 	tuned-balanced-battery.conf
 	tuned-powersave.conf
@@ -110,11 +113,20 @@ package() {
 		install -Dm644 "$srcdir/tuned-$_profile.conf" \
 			"$pkgdir/etc/tuned/profiles/$_profile/tuned.conf"
 	done
-	mkdir -p "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	# tuned takes about twelve seconds to import its Python plugins on the
+	# CM5. It remains D-Bus activatable, but starts after the shell instead
+	# of holding multi-user.target and graphical.target open.
+	install -Dm644 "$srcdir/marathon-power-profiles.timer" \
+		"$pkgdir/usr/lib/systemd/system/marathon-power-profiles.timer"
+	install -Dm644 "$srcdir/marathon-power-profiles.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-power-profiles.service"
 	for _unit in tuned tuned-ppd; do
-		ln -sf "../$_unit.service" \
-			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$_unit.service"
+		install -Dm644 "$srcdir/marathon-power-profiles-on-demand.conf" \
+			"$pkgdir/usr/lib/systemd/system/$_unit.service.d/marathon-on-demand.conf"
 	done
+	install -d "$pkgdir/usr/lib/systemd/system/timers.target.wants"
+	ln -sf ../marathon-power-profiles.timer \
+		"$pkgdir/usr/lib/systemd/system/timers.target.wants/marathon-power-profiles.timer"
 	install -Dm644 "$srcdir/60-marathon-iosched.rules" \
 		"$pkgdir/etc/udev/rules.d/60-marathon-iosched.rules"
 	install -Dm644 "$srcdir/60-gpu-acceleration.rules" \
@@ -196,6 +208,11 @@ disable NetworkManager-wait-online.service
 # both daemons race for nl80211 on the same wiphy. wpa_supplicant
 # stays enabled.
 disable iwd.service
+
+# Power profiles are available shortly after login, without making TuneD's
+# Python startup a prerequisite for the display manager.
+disable tuned.service
+disable tuned-ppd.service
 PRESET
 
 	# User-scope preset: no socket-activated gnome-keyring. The session
@@ -324,6 +341,9 @@ db146f0f6ec6a0d78ce2436e2f390edd7d0c9c43b8857eb04b6d63d100da2a4e76dcfb95a58f91fe
 7179719bb41b61f57043bbaa1591d3a087a434f71374d80a1950aedce01c53df15bcda89a05d3abe45b03a3f967a1792067534e6548f706b9063daf098f6c73a  marathon-sleep-log
 59389161ed320b918a42ea453f384546bfc6e648fafa35681f7b08299e8a3e64589a88bb1b111ec441b6cc1384c6792d180f79972ac7707ada76f4e8fcb8a41c  marathon-modem-sleep
 d10016488f9eb217cae82aa0274f2b388f54bb9aefc47e340b3ddff7cb341912638b626800293013c86ef95f90442e802732809f798ec07fff7bc8c093377bd3  marathon-modem-sleep.service
+SKIP  marathon-power-profiles.service
+SKIP  marathon-power-profiles.timer
+SKIP  marathon-power-profiles-on-demand.conf
 fa7bec3a2a7175f9b0651201f3687f1555054c4140ff310c331474d02466ea169057b5f131db490be3b6459413761f859a5291084ec901df59c0476221b693bc  tuned-balanced.conf
 c459546fda45f9cf56f2c49e6816f3f56597abffcc8ff9de2bc453cc390a5e34bee5628c9dd572f89f15f488ad839657a763c06421a12d9d3facb867c5d5de0c  tuned-balanced-battery.conf
 7308f130022acbf3ee1b21b187119234d058a65f0568d7a99516acc777a4d3abe777e9d3013796f8eae84d2d15c6f20126a1032e9acd39bebfcae57c5489e654  tuned-powersave.conf

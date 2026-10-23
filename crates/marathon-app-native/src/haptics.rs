@@ -57,7 +57,8 @@ impl cxx_qt::Initialize for Haptics {
         let qt = self.qt_thread();
         io::spawn(async move {
             if let Ok(available) = HAPTIC.ask::<_, bool>("IsAvailable", &()).await {
-                qt.queue(move |mut obj| set!(obj, available, available_changed, available)).ok();
+                qt.queue(move |mut obj| set!(obj, available, available_changed, available))
+                    .ok();
             }
         });
     }

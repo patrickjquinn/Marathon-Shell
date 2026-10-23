@@ -50,8 +50,13 @@ impl App {
         if app.toolkit.is_empty() {
             "keel".clone_into(&mut app.toolkit);
         }
-        if !app.icon.is_empty() && !app.icon.starts_with("qrc:") && !app.icon.starts_with("file://") {
-            let icon = if app.icon.starts_with('/') { PathBuf::from(&app.icon) } else { dir.join(&app.icon) };
+        if !app.icon.is_empty() && !app.icon.starts_with("qrc:") && !app.icon.starts_with("file://")
+        {
+            let icon = if app.icon.starts_with('/') {
+                PathBuf::from(&app.icon)
+            } else {
+                dir.join(&app.icon)
+            };
             app.icon = format!("file://{}", icon.display());
         }
         dir.clone_into(&mut app.path);
@@ -127,8 +132,14 @@ fn ids(dir: &Path) -> Vec<String> {
 
 /// Every app, the OS's first; a user install never shadows one of them.
 pub fn scan() -> Vec<App> {
-    let mut apps: Vec<App> = ids(&paths::system_apps()).iter().filter_map(|id| system(id)).collect();
-    for app in ids(&paths::user_installs()).iter().filter_map(|id| user(id)) {
+    let mut apps: Vec<App> = ids(&paths::system_apps())
+        .iter()
+        .filter_map(|id| system(id))
+        .collect();
+    for app in ids(&paths::user_installs())
+        .iter()
+        .filter_map(|id| user(id))
+    {
         if !apps.iter().any(|a| a.id == app.id) {
             apps.push(app);
         }

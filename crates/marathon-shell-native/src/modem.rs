@@ -13,9 +13,9 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
 use futures_lite::{future, stream, StreamExt};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy, PropertiesProxy};
+use zbus::message::Header;
 use zbus::message::Type as MessageType;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
-use zbus::message::Header;
 use zbus::{fdo, MatchRule, MessageStream};
 
 use crate::ipc::{self, value, State};
@@ -50,9 +50,21 @@ pub mod qobject {
         #[qproperty(QList_QVariant, supported_modes, cxx_name = "supportedModes", READ, NOTIFY = modes_changed)]
         #[qproperty(u32, current_modes, cxx_name = "allowedModes", READ, NOTIFY)]
         #[qproperty(bool, emergency_only, cxx_name = "emergencyOnly", READ, NOTIFY)]
-        #[qproperty(QStringList, sim_emergency_numbers, cxx_name = "simEmergencyNumbers", READ, NOTIFY)]
+        #[qproperty(
+            QStringList,
+            sim_emergency_numbers,
+            cxx_name = "simEmergencyNumbers",
+            READ,
+            NOTIFY
+        )]
         /// Cell broadcasts not yet acknowledged, newest last.
-        #[qproperty(QList_QVariant, active_broadcasts, cxx_name = "activeBroadcasts", READ, NOTIFY)]
+        #[qproperty(
+            QList_QVariant,
+            active_broadcasts,
+            cxx_name = "activeBroadcasts",
+            READ,
+            NOTIFY
+        )]
         /// "idle", "dialing", "ringing", "incoming", "active", "held",
         /// "waiting" or "terminated".
         #[qproperty(QString, call_state, cxx_name = "callState", READ, NOTIFY = call_state_changed)]
@@ -79,7 +91,13 @@ pub mod qobject {
         /// `kind`: "incoming", "outgoing", "missed" or "rejected".
         #[qsignal]
         #[cxx_name = "callEnded"]
-        fn call_ended(self: Pin<&mut Self>, number: &QString, kind: &QString, started_ms: i64, duration_seconds: i32);
+        fn call_ended(
+            self: Pin<&mut Self>,
+            number: &QString,
+            kind: &QString,
+            started_ms: i64,
+            duration_seconds: i32,
+        );
 
         #[qinvokable]
         fn dial(self: Pin<&mut Modem>, number: &QString);
@@ -176,7 +194,9 @@ struct LoggedCall {
 const SIMULATED_CALL: &str = "/org/freedesktop/ModemManager1/Call/simulate";
 
 fn now_ms() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
 }
 
 enum Command {
@@ -223,15 +243,41 @@ impl cxx_qt::Initialize for Modem {
         self.as_mut().on_network_type_changed(push).release();
         self.as_mut().on_roaming_changed(push).release();
         self.as_mut().on_data_enabled_changed(push).release();
-        self.as_mut().on_data_roaming_allowed_changed(push).release();
+        self.as_mut()
+            .on_data_roaming_allowed_changed(push)
+            .release();
         self.as_mut().on_modes_changed(push).release();
-        self.as_mut().on_call_state_changed(|_, s| ipc::signal("Telephony", "CallStateChanged", (s.to_string(),))).release();
-        self.as_mut().on_incoming_call(|_, n| ipc::signal("Telephony", "IncomingCall", (n.to_string(),))).release();
-        self.as_mut().on_call_failed(|_, r| ipc::signal("Telephony", "CallFailed", (r.to_string(),))).release();
-        self.as_mut().on_modem_changed(|_, m| ipc::signal("Telephony", "ModemChanged", (m,))).release();
-        self.as_mut().on_active_number_changed(|_, n| ipc::signal("Telephony", "ActiveNumberChanged", (n.to_string(),))).release();
-        ipc::export("Modem", Modem1 { qt: self.qt_thread() });
-        ipc::export("Telephony", Telephony1 { qt: self.qt_thread() });
+        self.as_mut()
+            .on_call_state_changed(|_, s| {
+                ipc::signal("Telephony", "CallStateChanged", (s.to_string(),));
+            })
+            .release();
+        self.as_mut()
+            .on_incoming_call(|_, n| ipc::signal("Telephony", "IncomingCall", (n.to_string(),)))
+            .release();
+        self.as_mut()
+            .on_call_failed(|_, r| ipc::signal("Telephony", "CallFailed", (r.to_string(),)))
+            .release();
+        self.as_mut()
+            .on_modem_changed(|_, m| ipc::signal("Telephony", "ModemChanged", (m,)))
+            .release();
+        self.as_mut()
+            .on_active_number_changed(|_, n| {
+                ipc::signal("Telephony", "ActiveNumberChanged", (n.to_string(),));
+            })
+            .release();
+        ipc::export(
+            "Modem",
+            Modem1 {
+                qt: self.qt_thread(),
+            },
+        );
+        ipc::export(
+            "Telephony",
+            Telephony1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
@@ -265,12 +311,20 @@ impl Modem {
     }
 
     fn dial_emergency(self: Pin<&mut Self>, number: &QString) {
-        log::warn("SECURITY", format_args!("Emergency dial: number={number} operator={}", self.operator_name));
+        log::warn(
+            "SECURITY",
+            format_args!(
+                "Emergency dial: number={number} operator={}",
+                self.operator_name
+            ),
+        );
         self.dial(number);
     }
 
     fn answer(mut self: Pin<&mut Self>) {
-        let Some(call) = self.call.clone() else { return };
+        let Some(call) = self.call.clone() else {
+            return;
+        };
         if call != SIMULATED_CALL {
             self.command(Command::Call(call, CallAction::Accept));
         }
@@ -278,7 +332,9 @@ impl Modem {
     }
 
     fn hangup(mut self: Pin<&mut Self>) {
-        let Some(call) = self.call.clone() else { return };
+        let Some(call) = self.call.clone() else {
+            return;
+        };
         if self.call_state.to_string() == "incoming" {
             if let Some(logged) = &mut self.as_mut().rust_mut().logged {
                 logged.rejected = true;
@@ -292,7 +348,10 @@ impl Modem {
 
     fn send_dtmf(&self, digit: &QString) {
         if let (Some(call), true) = (&self.call, self.call_state.to_string() == "active") {
-            self.command(Command::Call(call.clone(), CallAction::Dtmf(digit.to_string())));
+            self.command(Command::Call(
+                call.clone(),
+                CallAction::Dtmf(digit.to_string()),
+            ));
         }
     }
 
@@ -335,7 +394,17 @@ impl Modem {
         let qstate = QString::from(state);
         self.as_mut().rust_mut().call_state = qstate.clone();
         self.as_mut().call_state_changed(&qstate);
-        let in_call = matches!(state, "active" | "ringing" | "incoming" | "dialing" | "outgoing" | "alerting" | "held" | "waiting");
+        let in_call = matches!(
+            state,
+            "active"
+                | "ringing"
+                | "incoming"
+                | "dialing"
+                | "outgoing"
+                | "alerting"
+                | "held"
+                | "waiting"
+        );
         crate::tasks::with(move |t| t.call_active(in_call));
         let ended = matches!(state, "idle" | "terminated");
         if matches!(state, "active" | "dialing" | "incoming") {
@@ -346,7 +415,13 @@ impl Modem {
         if state == "active" {
             let number = self.active_number.to_string();
             let mut rust = self.as_mut().rust_mut();
-            let logged = rust.logged.get_or_insert_with(|| LoggedCall { number, incoming: false, started_ms: now_ms(), answered_ms: None, rejected: false });
+            let logged = rust.logged.get_or_insert_with(|| LoggedCall {
+                number,
+                incoming: false,
+                started_ms: now_ms(),
+                answered_ms: None,
+                rejected: false,
+            });
             logged.answered_ms.get_or_insert_with(now_ms);
         }
         if ended {
@@ -362,8 +437,15 @@ impl Modem {
                     (true, Some(_), _) => "incoming",
                     (false, _, _) => "outgoing",
                 };
-                let duration = call.answered_ms.map_or(0, |at| i32::try_from((now_ms() - at) / 1000).unwrap_or(0));
-                self.call_ended(&QString::from(call.number.as_str()), &QString::from(kind), call.started_ms, duration);
+                let duration = call
+                    .answered_ms
+                    .map_or(0, |at| i32::try_from((now_ms() - at) / 1000).unwrap_or(0));
+                self.call_ended(
+                    &QString::from(call.number.as_str()),
+                    &QString::from(kind),
+                    call.started_ms,
+                    duration,
+                );
             }
         }
     }
@@ -371,7 +453,13 @@ impl Modem {
     fn call_added(mut self: Pin<&mut Self>, path: String, incoming: bool, number: &str) {
         if incoming {
             self.as_mut().rust_mut().call = Some(path);
-            self.as_mut().rust_mut().logged = Some(LoggedCall { number: number.to_owned(), incoming: true, started_ms: now_ms(), answered_ms: None, rejected: false });
+            self.as_mut().rust_mut().logged = Some(LoggedCall {
+                number: number.to_owned(),
+                incoming: true,
+                started_ms: now_ms(),
+                answered_ms: None,
+                rejected: false,
+            });
             self.as_mut().set_active_number(number);
             self.as_mut().incoming_call(&QString::from(number));
             self.set_call_state("incoming");
@@ -428,7 +516,12 @@ impl Modem {
     }
 
     fn set_data_roaming_allowed(mut self: Pin<&mut Self>, allowed: bool) {
-        set!(self, data_roaming_allowed, data_roaming_allowed_changed, allowed);
+        set!(
+            self,
+            data_roaming_allowed,
+            data_roaming_allowed_changed,
+            allowed
+        );
         if !allowed && self.roaming && self.data_enabled {
             self.disable_data();
         }
@@ -436,7 +529,10 @@ impl Modem {
 
     fn acknowledge(mut self: Pin<&mut Self>, path: &QString) {
         let path = path.to_string();
-        self.as_mut().rust_mut().broadcasts.retain(|b| b.path != path);
+        self.as_mut()
+            .rust_mut()
+            .broadcasts
+            .retain(|b| b.path != path);
         self.publish_broadcasts();
     }
 
@@ -445,21 +541,52 @@ impl Modem {
         set!(self, modem_available, modem_available_changed, view.modem);
         set!(self, modem_enabled, modem_enabled_changed, view.enabled);
         set!(self, data_enabled, data_enabled_changed, view.data);
-        set!(self, signal_strength, signal_strength_changed, view.strength);
+        set!(
+            self,
+            signal_strength,
+            signal_strength_changed,
+            view.strength
+        );
         set!(self, registered, registered_changed, view.registered);
         set!(self, roaming, roaming_changed, view.roaming);
         set!(self, sim_present, sim_present_changed, view.sim);
-        set!(self, emergency_only, emergency_only_changed, view.emergency_only);
+        set!(
+            self,
+            emergency_only,
+            emergency_only_changed,
+            view.emergency_only
+        );
         if self.has_modem != view.voice {
             self.as_mut().rust_mut().has_modem = view.voice;
             self.as_mut().modem_changed(view.voice);
         }
         if !view.operator.is_empty() {
-            set!(self, operator_name, operator_name_changed, QString::from(view.operator.as_str()));
+            set!(
+                self,
+                operator_name,
+                operator_name_changed,
+                QString::from(view.operator.as_str())
+            );
         }
-        set!(self, network_type, network_type_changed, QString::from(view.network_type));
-        let numbers = QStringList::from(&view.emergency_numbers.iter().map(|n| QString::from(n.as_str())).collect::<QList<QString>>());
-        set!(self, sim_emergency_numbers, sim_emergency_numbers_changed, numbers);
+        set!(
+            self,
+            network_type,
+            network_type_changed,
+            QString::from(view.network_type)
+        );
+        let numbers = QStringList::from(
+            &view
+                .emergency_numbers
+                .iter()
+                .map(|n| QString::from(n.as_str()))
+                .collect::<QList<QString>>(),
+        );
+        set!(
+            self,
+            sim_emergency_numbers,
+            sim_emergency_numbers_changed,
+            numbers
+        );
         let modes: QList<QVariant> = view.modes.iter().map(QVariant::from).collect();
         let allowed = view.allowed;
         if self.supported_modes != modes || self.current_modes != allowed {
@@ -478,30 +605,53 @@ impl Modem {
     }
 
     fn broadcast_gone(mut self: Pin<&mut Self>, path: &str) {
-        self.as_mut().rust_mut().broadcasts.retain(|b| b.path != path);
+        self.as_mut()
+            .rust_mut()
+            .broadcasts
+            .retain(|b| b.path != path);
         self.publish_broadcasts();
     }
 
     fn publish_broadcasts(mut self: Pin<&mut Self>) {
-        let list: QList<QVariant> = self.broadcasts.iter().map(|b| QVariant::from(&b.to_map())).collect();
+        let list: QList<QVariant> = self
+            .broadcasts
+            .iter()
+            .map(|b| QVariant::from(&b.to_map()))
+            .collect();
         set!(self, active_broadcasts, active_broadcasts_changed, list);
     }
 }
 
 fn state(modem: &Modem) -> State {
-    let supported = modem.supported_modes.iter().filter_map(QVariant::value::<u32>).map(OwnedValue::from);
+    let supported = modem
+        .supported_modes
+        .iter()
+        .filter_map(QVariant::value::<u32>)
+        .map(OwnedValue::from);
     State::from([
         ("available".to_owned(), value(modem.modem_available)),
         ("enabled".to_owned(), value(modem.modem_enabled)),
         ("simPresent".to_owned(), value(modem.sim_present)),
         ("registered".to_owned(), value(modem.registered)),
-        ("operatorName".to_owned(), value(modem.operator_name.to_string())),
+        (
+            "operatorName".to_owned(),
+            value(modem.operator_name.to_string()),
+        ),
         ("signalStrength".to_owned(), value(modem.signal_strength)),
-        ("networkType".to_owned(), value(modem.network_type.to_string())),
+        (
+            "networkType".to_owned(),
+            value(modem.network_type.to_string()),
+        ),
         ("roaming".to_owned(), value(modem.roaming)),
         ("dataEnabled".to_owned(), value(modem.data_enabled)),
-        ("dataRoamingAllowed".to_owned(), value(modem.data_roaming_allowed)),
-        ("supportedModes".to_owned(), value(supported.collect::<Vec<_>>())),
+        (
+            "dataRoamingAllowed".to_owned(),
+            value(modem.data_roaming_allowed),
+        ),
+        (
+            "supportedModes".to_owned(),
+            value(supported.collect::<Vec<_>>()),
+        ),
         ("allowedModes".to_owned(), value(modem.current_modes)),
     ])
 }
@@ -527,12 +677,20 @@ impl Modem1 {
         ipc::on_gui(&self.qt, Modem::disable_data).await
     }
 
-    async fn set_data_roaming_allowed(&self, allowed: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_data_roaming_allowed(
+        &self,
+        allowed: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Modem", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_data_roaming_allowed(allowed)).await
     }
 
-    async fn set_allowed_modes(&self, allowed: u32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_allowed_modes(
+        &self,
+        allowed: u32,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Modem", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_allowed_modes(allowed)).await
     }
@@ -553,7 +711,9 @@ struct Telephony1 {
 }
 
 async fn phone(h: &Header<'_>) -> fdo::Result<()> {
-    ipc::admit(h, "Telephony", &["telephony", "phone"]).await.map(drop)
+    ipc::admit(h, "Telephony", &["telephony", "phone"])
+        .await
+        .map(drop)
 }
 
 #[zbus::interface(name = "org.marathonos.Shell.Telephony1")]
@@ -614,14 +774,28 @@ impl Telephony1 {
         ipc::on_gui(&self.qt, |obj| obj.call_muted).await
     }
 
-    async fn simulate_incoming_call(&self, number: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn simulate_incoming_call(
+        &self,
+        number: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         phone(&h).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.simulate_incoming_call(&QString::from(&number))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.simulate_incoming_call(&QString::from(&number));
+        })
+        .await
     }
 
-    async fn simulate_call_state_change(&self, state: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn simulate_call_state_change(
+        &self,
+        state: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         phone(&h).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.simulate_call_state_change(&QString::from(&state))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.simulate_call_state_change(&QString::from(&state));
+        })
+        .await
     }
 }
 
@@ -672,22 +846,50 @@ impl Snapshot {
         let owned = || value.try_to_owned().ok();
         match name {
             "Snapshot" => self.state = value.downcast_ref().unwrap_or(self.state),
-            "Sim" => self.sim = owned().and_then(|v| OwnedObjectPath::try_from(v).ok()).filter(|p| p.as_str() != "/"),
-            "SignalQuality" => self.quality = owned().and_then(|v| <(u32, bool)>::try_from(v).ok()).map_or(self.quality, |q| q.0),
+            "Sim" => {
+                self.sim = owned()
+                    .and_then(|v| OwnedObjectPath::try_from(v).ok())
+                    .filter(|p| p.as_str() != "/");
+            }
+            "SignalQuality" => {
+                self.quality = owned()
+                    .and_then(|v| <(u32, bool)>::try_from(v).ok())
+                    .map_or(self.quality, |q| q.0);
+            }
             "Rssi" => self.rssi = value.downcast_ref().unwrap_or(self.rssi),
             "AccessTechnologies" => self.access = value.downcast_ref().unwrap_or(self.access),
-            "OperatorName" => self.operator = owned().and_then(|v| String::try_from(v).ok()).unwrap_or_default(),
-            "RegistrationState" => self.registration = value.downcast_ref().unwrap_or(self.registration),
-            "EmergencyOnly" => self.emergency_only = value.downcast_ref().unwrap_or(self.emergency_only),
-            "SupportedModes" => self.supported = owned().and_then(|v| Vec::try_from(v).ok()).unwrap_or_default(),
-            "CurrentModes" => self.current = owned().and_then(|v| <(u32, u32)>::try_from(v).ok()).map_or(self.current, |m| m.0 & !CIRCUIT_SWITCHED),
+            "OperatorName" => {
+                self.operator = owned()
+                    .and_then(|v| String::try_from(v).ok())
+                    .unwrap_or_default();
+            }
+            "RegistrationState" => {
+                self.registration = value.downcast_ref().unwrap_or(self.registration);
+            }
+            "EmergencyOnly" => {
+                self.emergency_only = value.downcast_ref().unwrap_or(self.emergency_only);
+            }
+            "SupportedModes" => {
+                self.supported = owned()
+                    .and_then(|v| Vec::try_from(v).ok())
+                    .unwrap_or_default();
+            }
+            "CurrentModes" => {
+                self.current = owned()
+                    .and_then(|v| <(u32, u32)>::try_from(v).ok())
+                    .map_or(self.current, |m| m.0 & !CIRCUIT_SWITCHED);
+            }
             _ => {}
         }
     }
 
     // Each allowed mask once, widest first.
     fn modes(&self) -> Vec<u32> {
-        let mut modes: Vec<u32> = self.supported.iter().map(|&(allowed, _)| allowed & !CIRCUIT_SWITCHED).collect();
+        let mut modes: Vec<u32> = self
+            .supported
+            .iter()
+            .map(|&(allowed, _)| allowed & !CIRCUIT_SWITCHED)
+            .collect();
         modes.sort_unstable_by(|a, b| b.cmp(a));
         modes.dedup();
         modes
@@ -695,9 +897,21 @@ impl Snapshot {
 
     // The preferred mode for `allowed`: its fastest, if the modem offers it.
     fn preferred(&self, allowed: u32) -> Option<u32> {
-        let choices: Vec<u32> = self.supported.iter().filter(|(a, _)| a & !CIRCUIT_SWITCHED == allowed).map(|&(_, p)| p).collect();
-        let fastest = if allowed == 0 { 0 } else { 1 << allowed.ilog2() };
-        choices.contains(&fastest).then_some(fastest).or_else(|| choices.first().copied())
+        let choices: Vec<u32> = self
+            .supported
+            .iter()
+            .filter(|(a, _)| a & !CIRCUIT_SWITCHED == allowed)
+            .map(|&(_, p)| p)
+            .collect();
+        let fastest = if allowed == 0 {
+            0
+        } else {
+            1 << allowed.ilog2()
+        };
+        choices
+            .contains(&fastest)
+            .then_some(fastest)
+            .or_else(|| choices.first().copied())
     }
 
     fn view(&self, daemon: bool) -> View {
@@ -732,10 +946,19 @@ impl Snapshot {
 }
 
 fn network_type(access: u32) -> &'static str {
-    [(0x8000, "5G"), (0x4000, "LTE"), (0x0600, "HSPA+"), (0x0100, "HSPA"), (0x0020, "UMTS"), (0x0010, "EDGE"), (0x0002, "GPRS"), (0x0001, "GSM")]
-        .iter()
-        .find(|(bit, _)| access & bit != 0)
-        .map_or("Unknown", |&(_, name)| name)
+    [
+        (0x8000, "5G"),
+        (0x4000, "LTE"),
+        (0x0600, "HSPA+"),
+        (0x0100, "HSPA"),
+        (0x0020, "UMTS"),
+        (0x0010, "EDGE"),
+        (0x0002, "GPRS"),
+        (0x0001, "GSM"),
+    ]
+    .iter()
+    .find(|(bit, _)| access & bit != 0)
+    .map_or("Unknown", |&(_, name)| name)
 }
 
 /// An emergency alert, as the overlay reads it.
@@ -762,15 +985,30 @@ impl Broadcast {
     fn to_map(&self) -> QMap<QMapPair_QString_QVariant> {
         let mut map = QMap::<QMapPair_QString_QVariant>::default();
         let category = self.category();
-        map.insert(QString::from("path"), QVariant::from(&QString::from(self.path.as_str())));
-        map.insert(QString::from("text"), QVariant::from(&QString::from(self.text.as_str())));
+        map.insert(
+            QString::from("path"),
+            QVariant::from(&QString::from(self.path.as_str())),
+        );
+        map.insert(
+            QString::from("text"),
+            QVariant::from(&QString::from(self.text.as_str())),
+        );
         map.insert(QString::from("channelId"), QVariant::from(&self.channel));
         for (key, value) in self.fields {
             map.insert(QString::from(key), QVariant::from(&value));
         }
-        map.insert(QString::from("category"), QVariant::from(&QString::from(category)));
-        map.insert(QString::from("nonDismissable"), QVariant::from(&matches!(category, "presidential" | "ETWS")));
-        map.insert(QString::from("receivedMsecsSinceEpoch"), QVariant::from(&self.received_ms));
+        map.insert(
+            QString::from("category"),
+            QVariant::from(&QString::from(category)),
+        );
+        map.insert(
+            QString::from("nonDismissable"),
+            QVariant::from(&matches!(category, "presidential" | "ETWS")),
+        );
+        map.insert(
+            QString::from("receivedMsecsSinceEpoch"),
+            QVariant::from(&self.received_ms),
+        );
         map
     }
 }
@@ -781,13 +1019,19 @@ const CELL_BROADCAST: &str = "org.freedesktop.ModemManager1.Modem.CellBroadcast"
 const VOICE: &str = "org.freedesktop.ModemManager1.Modem.Voice";
 const CALL: &str = "org.freedesktop.ModemManager1.Call";
 
-#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Modem", default_service = "org.freedesktop.ModemManager1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.ModemManager1.Modem",
+    default_service = "org.freedesktop.ModemManager1"
+)]
 trait ManagedModem {
     fn enable(&self, enable: bool) -> zbus::Result<()>;
     fn set_current_modes(&self, modes: &(u32, u32)) -> zbus::Result<()>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Modem.Simple", default_service = "org.freedesktop.ModemManager1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.ModemManager1.Modem.Simple",
+    default_service = "org.freedesktop.ModemManager1"
+)]
 trait Simple {
     fn connect(&self, properties: HashMap<&str, Value<'_>>) -> zbus::Result<OwnedObjectPath>;
     fn disconnect(&self, bearer: &zbus::zvariant::ObjectPath<'_>) -> zbus::Result<()>;
@@ -807,20 +1051,38 @@ enum Event {
 }
 
 async fn run(qt: Qt, commands: Receiver<Command>) {
-    let Ok(bus) = io::system_bus().await else { return };
-    let Ok(manager) = ObjectManagerProxy::builder(&bus).destination(MM).and_then(|b| b.path("/org/freedesktop/ModemManager1")) else { return };
-    let Ok(manager) = manager.build().await else { return };
+    let Ok(bus) = io::system_bus().await else {
+        return;
+    };
+    let Ok(manager) = ObjectManagerProxy::builder(&bus)
+        .destination(MM)
+        .and_then(|b| b.path("/org/freedesktop/ModemManager1"))
+    else {
+        return;
+    };
+    let Ok(manager) = manager.build().await else {
+        return;
+    };
     // The modem coming or going, or ModemManager starting: look again.
     let mut objects = stream::empty().boxed();
-    if let (Ok(added), Ok(removed)) = (manager.receive_interfaces_added().await, manager.receive_interfaces_removed().await) {
-        objects = added.map(|_| Event::Objects).or(removed.map(|_| Event::Objects)).boxed();
+    if let (Ok(added), Ok(removed)) = (
+        manager.receive_interfaces_added().await,
+        manager.receive_interfaces_removed().await,
+    ) {
+        objects = added
+            .map(|_| Event::Objects)
+            .or(removed.map(|_| Event::Objects))
+            .boxed();
     }
     if let Ok(dbus) = DBusProxy::new(&bus).await {
         if let Ok(owners) = dbus.receive_name_owner_changed_with_args(&[(0, MM)]).await {
             objects = objects.or(owners.map(|_| Event::Objects)).boxed();
         }
     }
-    let shared = commands.map(Event::Command).chain(stream::once(Event::Closed)).or(objects);
+    let shared = commands
+        .map(Event::Command)
+        .chain(stream::once(Event::Closed))
+        .or(objects);
     let mut shared = std::pin::pin!(shared);
     let mut state = Snapshot::default();
     let mut modem_events: Option<stream::Boxed<Event>> = None;
@@ -846,7 +1108,9 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     log::warn("modem", e);
                 }
             }
-            Some(Event::Objects) => daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await,
+            Some(Event::Objects) => {
+                daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
+            }
             Some(Event::Changed(changed)) => {
                 let sim = state.sim.clone();
                 for (name, value) in &changed {
@@ -863,9 +1127,14 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             Some(Event::CallAdded(path)) => {
                 let props = properties(&bus, &path, CALL).await;
                 // MM_CALL_DIRECTION_INCOMING is 1.
-                let incoming = props.get("Direction").and_then(|v| u32::try_from(v).ok()) == Some(1);
-                let number = props.get("Number").and_then(|v| String::try_from(v.try_clone().ok()?).ok()).unwrap_or_else(|| "Unknown".to_owned());
-                qt.queue(move |obj| obj.call_added(path.to_string(), incoming, &number)).ok();
+                let incoming =
+                    props.get("Direction").and_then(|v| u32::try_from(v).ok()) == Some(1);
+                let number = props
+                    .get("Number")
+                    .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
+                    .unwrap_or_else(|| "Unknown".to_owned());
+                qt.queue(move |obj| obj.call_added(path.to_string(), incoming, &number))
+                    .ok();
             }
             Some(Event::CallChanged(path, state)) => {
                 qt.queue(move |obj| obj.call_changed(&path, state)).ok();
@@ -878,13 +1147,21 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
 
 /// Finds the modem in `ModemManager`'s objects, taking every interface's
 /// properties from the same reply; whether `ModemManager` answered.
-async fn discover(bus: &zbus::Connection, manager: &ObjectManagerProxy<'_>, qt: &Qt, state: &mut Snapshot, events: &mut Option<stream::Boxed<Event>>) -> bool {
+async fn discover(
+    bus: &zbus::Connection,
+    manager: &ObjectManagerProxy<'_>,
+    qt: &Qt,
+    state: &mut Snapshot,
+    events: &mut Option<stream::Boxed<Event>>,
+) -> bool {
     let Ok(objects) = manager.get_managed_objects().await else {
         *state = Snapshot::default();
         *events = None;
         return false;
     };
-    let found = objects.into_iter().find(|(_, interfaces)| interfaces.keys().any(|i| i.as_str() == MODEM));
+    let found = objects
+        .into_iter()
+        .find(|(_, interfaces)| interfaces.keys().any(|i| i.as_str() == MODEM));
     let Some((path, interfaces)) = found else {
         *state = Snapshot::default();
         *events = None;
@@ -894,7 +1171,11 @@ async fn discover(bus: &zbus::Connection, manager: &ObjectManagerProxy<'_>, qt: 
         return true;
     }
     let voice = interfaces.keys().any(|i| i.as_str() == VOICE);
-    *state = Snapshot { path: Some(path.clone()), voice, ..Snapshot::default() };
+    *state = Snapshot {
+        path: Some(path.clone()),
+        voice,
+        ..Snapshot::default()
+    };
     for properties in interfaces.values() {
         for (name, value) in properties {
             state.set(name, value);
@@ -917,20 +1198,34 @@ async fn discover(bus: &zbus::Connection, manager: &ObjectManagerProxy<'_>, qt: 
 // The modem's property changes and its cell broadcasts arriving and going.
 async fn modem_events(bus: &zbus::Connection, path: OwnedObjectPath) -> stream::Boxed<Event> {
     let mut events = stream::empty().boxed();
-    if let Ok(props) = PropertiesProxy::builder(bus).destination(MM).and_then(|b| b.path(path.clone())) {
-        if let Ok(props) = props.cache_properties(zbus::proxy::CacheProperties::No).build().await {
+    if let Ok(props) = PropertiesProxy::builder(bus)
+        .destination(MM)
+        .and_then(|b| b.path(path.clone()))
+    {
+        if let Ok(props) = props
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+        {
             if let Ok(changes) = props.receive_properties_changed().await {
                 events = changes
                     .filter_map(|signal| {
                         let args = signal.args().ok()?;
-                        let changed = args.changed_properties().iter().filter_map(|(k, v)| Some(((*k).to_owned(), v.try_to_owned().ok()?))).collect();
+                        let changed = args
+                            .changed_properties()
+                            .iter()
+                            .filter_map(|(k, v)| Some(((*k).to_owned(), v.try_to_owned().ok()?)))
+                            .collect();
                         Some(Event::Changed(changed))
                     })
                     .boxed();
             }
         }
     }
-    let rule = MatchRule::builder().msg_type(MessageType::Signal).sender(MM).and_then(|b| b.interface(CELL_BROADCAST)?.path(path.clone()));
+    let rule = MatchRule::builder()
+        .msg_type(MessageType::Signal)
+        .sender(MM)
+        .and_then(|b| b.interface(CELL_BROADCAST)?.path(path.clone()));
     if let Some(signals) = signals(bus, rule).await {
         let broadcasts = signals.filter_map(|m| {
             let m = m.ok()?;
@@ -951,7 +1246,10 @@ async fn modem_events(bus: &zbus::Connection, path: OwnedObjectPath) -> stream::
 // Calls arriving on the modem, and every call's state as it changes.
 async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::Boxed<Event> {
     let mut events = stream::empty().boxed();
-    let voice = MatchRule::builder().msg_type(MessageType::Signal).sender(MM).and_then(|b| b.interface(VOICE)?.path(modem));
+    let voice = MatchRule::builder()
+        .msg_type(MessageType::Signal)
+        .sender(MM)
+        .and_then(|b| b.interface(VOICE)?.path(modem));
     if let Some(voice) = signals(bus, voice).await {
         events = voice
             .filter_map(|m| {
@@ -968,12 +1266,16 @@ async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::
     let states = MatchRule::builder()
         .msg_type(MessageType::Signal)
         .sender(MM)
-        .and_then(|b| b.interface("org.freedesktop.DBus.Properties")?.path_namespace("/org/freedesktop/ModemManager1/Call"));
+        .and_then(|b| {
+            b.interface("org.freedesktop.DBus.Properties")?
+                .path_namespace("/org/freedesktop/ModemManager1/Call")
+        });
     if let Some(states) = signals(bus, states).await {
         let states = states.filter_map(|m| {
             let m = m.ok()?;
             let path = m.header().path()?.to_string();
-            let (interface, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) = m.body().deserialize().ok()?;
+            let (interface, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) =
+                m.body().deserialize().ok()?;
             let state = u32::try_from(changed.get("State")?).ok()?;
             (interface == CALL).then_some(Event::CallChanged(path, Some(state)))
         });
@@ -982,15 +1284,35 @@ async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::
     events
 }
 
-async fn signals(bus: &zbus::Connection, rule: zbus::Result<zbus::match_rule::Builder<'static>>) -> Option<MessageStream> {
-    MessageStream::for_match_rule(rule.ok()?.build(), bus, Some(16)).await.ok()
+async fn signals(
+    bus: &zbus::Connection,
+    rule: zbus::Result<zbus::match_rule::Builder<'static>>,
+) -> Option<MessageStream> {
+    MessageStream::for_match_rule(rule.ok()?.build(), bus, Some(16))
+        .await
+        .ok()
 }
 
-async fn properties(bus: &zbus::Connection, path: &OwnedObjectPath, interface: &'static str) -> HashMap<String, OwnedValue> {
+async fn properties(
+    bus: &zbus::Connection,
+    path: &OwnedObjectPath,
+    interface: &'static str,
+) -> HashMap<String, OwnedValue> {
     let props = async {
-        let props = PropertiesProxy::builder(bus).destination(MM).ok()?.path(path.clone()).ok()?;
-        let props = props.cache_properties(zbus::proxy::CacheProperties::No).build().await.ok()?;
-        props.get_all(zbus::names::InterfaceName::try_from(interface).ok()?).await.ok()
+        let props = PropertiesProxy::builder(bus)
+            .destination(MM)
+            .ok()?
+            .path(path.clone())
+            .ok()?;
+        let props = props
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+            .ok()?;
+        props
+            .get_all(zbus::names::InterfaceName::try_from(interface).ok()?)
+            .await
+            .ok()
     };
     props.await.unwrap_or_default()
 }
@@ -1007,47 +1329,103 @@ async fn emergency_numbers(bus: &zbus::Connection, sim: Option<&OwnedObjectPath>
 
 async fn load_broadcast(bus: &zbus::Connection, qt: &Qt, path: OwnedObjectPath) {
     let props = properties(bus, &path, "org.freedesktop.ModemManager1.CellBroadcast").await;
-    let number = |k: &str| props.get(k).and_then(|v| u32::try_from(v).ok()).unwrap_or(0);
+    let number = |k: &str| {
+        props
+            .get(k)
+            .and_then(|v| u32::try_from(v).ok())
+            .unwrap_or(0)
+    };
     let broadcast = Broadcast {
-        text: props.get("Text").and_then(|v| String::try_from(v.try_clone().ok()?).ok()).unwrap_or_default(),
+        text: props
+            .get("Text")
+            .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
+            .unwrap_or_default(),
         channel: number("ChannelId"),
-        fields: [("messageCode", number("MessageCode")), ("updateNumber", number("UpdateNumber")), ("serial", number("Serial")), ("state", number("Snapshot"))],
-        received_ms: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0)),
+        fields: [
+            ("messageCode", number("MessageCode")),
+            ("updateNumber", number("UpdateNumber")),
+            ("serial", number("Serial")),
+            ("state", number("Snapshot")),
+        ],
+        received_ms: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0)),
         path: path.to_string(),
     };
     qt.queue(move |obj| obj.broadcast(broadcast)).ok();
 }
 
-async fn act(bus: &zbus::Connection, state: &Snapshot, command: Command, qt: &Qt) -> zbus::Result<()> {
-    let Some(path) = state.path.clone() else { return Ok(()) };
+async fn act(
+    bus: &zbus::Connection,
+    state: &Snapshot,
+    command: Command,
+    qt: &Qt,
+) -> zbus::Result<()> {
+    let Some(path) = state.path.clone() else {
+        return Ok(());
+    };
     match command {
-        Command::Enable(on) => ManagedModemProxy::builder(bus).path(path)?.build().await?.enable(on).await,
+        Command::Enable(on) => {
+            ManagedModemProxy::builder(bus)
+                .path(path)?
+                .build()
+                .await?
+                .enable(on)
+                .await
+        }
         Command::Modes(allowed) => match state.preferred(allowed) {
-            Some(preferred) => ManagedModemProxy::builder(bus).path(path)?.build().await?.set_current_modes(&(allowed, preferred)).await,
+            Some(preferred) => {
+                ManagedModemProxy::builder(bus)
+                    .path(path)?
+                    .build()
+                    .await?
+                    .set_current_modes(&(allowed, preferred))
+                    .await
+            }
             None => Ok(()),
         },
         // Dialling a bearer takes seconds; the I/O thread waits, not the GUI.
         Command::Data(true, roaming) => {
             let simple = SimpleProxy::builder(bus).path(path)?.build().await?;
-            simple.connect(HashMap::from([("apn", Value::from("")), ("allow-roaming", Value::from(roaming))])).await.map(drop)
+            simple
+                .connect(HashMap::from([
+                    ("apn", Value::from("")),
+                    ("allow-roaming", Value::from(roaming)),
+                ]))
+                .await
+                .map(drop)
         }
         Command::Data(false, _) => {
-            SimpleProxy::builder(bus).path(path)?.build().await?.disconnect(&zbus::zvariant::ObjectPath::from_static_str_unchecked("/")).await
+            SimpleProxy::builder(bus)
+                .path(path)?
+                .build()
+                .await?
+                .disconnect(&zbus::zvariant::ObjectPath::from_static_str_unchecked("/"))
+                .await
         }
         Command::Dial(number) => {
             let voice = VoiceProxy::builder(bus).path(path)?.build().await?;
-            let created = voice.create_call(HashMap::from([("number", Value::from(number.as_str()))])).await;
+            let created = voice
+                .create_call(HashMap::from([("number", Value::from(number.as_str()))]))
+                .await;
             let call = match created {
                 Ok(call) => call,
                 Err(e) => {
                     let reason = format!("CreateCall: {e}");
-                    qt.queue(move |obj| obj.call_failed(&QString::from(reason.as_str()))).ok();
+                    qt.queue(move |obj| obj.call_failed(&QString::from(reason.as_str())))
+                        .ok();
                     return Err(e);
                 }
             };
             let added = call.to_string();
-            qt.queue(move |obj| obj.call_added(added, false, &number)).ok();
-            CallProxy::builder(bus).path(call)?.build().await?.start().await
+            qt.queue(move |obj| obj.call_added(added, false, &number))
+                .ok();
+            CallProxy::builder(bus)
+                .path(call)?
+                .build()
+                .await?
+                .start()
+                .await
         }
         Command::Call(call, action) => {
             let call = CallProxy::builder(bus).path(call)?.build().await?;
@@ -1063,7 +1441,15 @@ async fn act(bus: &zbus::Connection, state: &Snapshot, command: Command, qt: &Qt
 
 async fn inhibit_calls(bus: &zbus::Connection) -> Option<zbus::zvariant::OwnedFd> {
     let logind = crate::power::LogindProxy::new(bus).await.ok()?;
-    match logind.inhibit("sleep", "marathon-shell", "Active call inhibits system suspend", "block").await {
+    match logind
+        .inhibit(
+            "sleep",
+            "marathon-shell",
+            "Active call inhibits system suspend",
+            "block",
+        )
+        .await
+    {
         Ok(fd) => Some(fd),
         Err(e) => {
             log::warn("modem", format_args!("no call inhibitor: {e}"));
@@ -1072,12 +1458,18 @@ async fn inhibit_calls(bus: &zbus::Connection) -> Option<zbus::zvariant::OwnedFd
     }
 }
 
-#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Modem.Voice", default_service = "org.freedesktop.ModemManager1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.ModemManager1.Modem.Voice",
+    default_service = "org.freedesktop.ModemManager1"
+)]
 trait Voice {
     fn create_call(&self, properties: HashMap<&str, Value<'_>>) -> zbus::Result<OwnedObjectPath>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Call", default_service = "org.freedesktop.ModemManager1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.ModemManager1.Call",
+    default_service = "org.freedesktop.ModemManager1"
+)]
 trait Call {
     fn start(&self) -> zbus::Result<()>;
     fn accept(&self) -> zbus::Result<()>;
@@ -1099,7 +1491,10 @@ mod tests {
     #[test]
     fn modes_are_offered_widest_first_with_their_fastest_preferred() {
         // 2G|3G|4G with 4G or 3G preferred, 2G|3G, and 4G only; CS bit set.
-        let state = Snapshot { supported: vec![(0b1111, 8), (0b1111, 4), (0b0111, 4), (0b1001, 8)], ..Snapshot::default() };
+        let state = Snapshot {
+            supported: vec![(0b1111, 8), (0b1111, 4), (0b0111, 4), (0b1001, 8)],
+            ..Snapshot::default()
+        };
         assert_eq!(state.modes(), [0b1110, 0b1000, 0b0110]);
         assert_eq!(state.preferred(0b1110), Some(8));
         assert_eq!(state.preferred(0b0110), Some(4));
@@ -1108,7 +1503,10 @@ mod tests {
 
     #[test]
     fn rssi_wins_over_signal_quality() {
-        let mut state = Snapshot { quality: 40, ..Snapshot::default() };
+        let mut state = Snapshot {
+            quality: 40,
+            ..Snapshot::default()
+        };
         assert_eq!(state.view(true).strength, 40);
         state.rssi = -70.0;
         assert_eq!(state.view(true).strength, 60);

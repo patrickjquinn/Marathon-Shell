@@ -86,7 +86,14 @@ impl Service {
         B: Serialize + DynamicType,
     {
         let bus = io::session_bus().await?;
-        bus.call_method(Some(self.bus), self.path().as_str(), Some(self.interface().as_str()), method, body).await
+        bus.call_method(
+            Some(self.bus),
+            self.path().as_str(),
+            Some(self.interface().as_str()),
+            method,
+            body,
+        )
+        .await
     }
 
     pub async fn ask<B, R>(self, method: &str, body: &B) -> zbus::Result<R>
@@ -141,9 +148,15 @@ impl Service {
 
 /// The shell's `member` (`PermissionGranted` or `PermissionDenied`) for
 /// this app's `permission`.
-pub async fn answers(member: &'static str, permission: &'static str) -> zbus::Result<impl Stream<Item = ()>> {
+pub async fn answers(
+    member: &'static str,
+    permission: &'static str,
+) -> zbus::Result<impl Stream<Item = ()>> {
     let answers = PERMISSIONS.signals::<(String, String)>(member).await?;
-    Ok(answers.filter_map(move |(app, name)| (app == app_id() && name == permission).then_some(())))
+    Ok(
+        answers
+            .filter_map(move |(app, name)| (app == app_id() && name == permission).then_some(())),
+    )
 }
 
 /// The shell's words for a failed call, as `QDBusError::message()` gives them.
@@ -167,8 +180,12 @@ pub enum Update {
 /// Mirrors `service`'s state into `apply`: `GetState` once the shell lets
 /// the app read it, asking for `permission` when refused, then every
 /// `StateChanged`, and a refusal when the permission is revoked.
-pub fn mirror<T>(qt: CxxQtThread<T>, service: Service, permission: &'static str, apply: fn(Pin<&mut T>, Update))
-where
+pub fn mirror<T>(
+    qt: CxxQtThread<T>,
+    service: Service,
+    permission: &'static str,
+    apply: fn(Pin<&mut T>, Update),
+) where
     T: Threading + CxxQtType + 'static,
 {
     follow(qt, service, permission, false, apply);
@@ -176,15 +193,24 @@ where
 
 /// As `mirror`, but never asks for the permission: for what an app shows
 /// in passing, such as the status bar.
-pub fn watch<T>(qt: CxxQtThread<T>, service: Service, permission: &'static str, apply: fn(Pin<&mut T>, Update))
-where
+pub fn watch<T>(
+    qt: CxxQtThread<T>,
+    service: Service,
+    permission: &'static str,
+    apply: fn(Pin<&mut T>, Update),
+) where
     T: Threading + CxxQtType + 'static,
 {
     follow(qt, service, permission, true, apply);
 }
 
-fn follow<T>(qt: CxxQtThread<T>, service: Service, permission: &'static str, quiet: bool, apply: fn(Pin<&mut T>, Update))
-where
+fn follow<T>(
+    qt: CxxQtThread<T>,
+    service: Service,
+    permission: &'static str,
+    quiet: bool,
+    apply: fn(Pin<&mut T>, Update),
+) where
     T: Threading + CxxQtType + 'static,
 {
     io::spawn(async move {
@@ -200,7 +226,10 @@ where
         ) else {
             return log::warn(service.name, "no session bus");
         };
-        let events = changes.map(Event::State).or(grants.map(|()| Event::Granted)).or(denials.map(|()| Event::Denied));
+        let events = changes
+            .map(Event::State)
+            .or(grants.map(|()| Event::Granted))
+            .or(denials.map(|()| Event::Denied));
         let mut events = std::pin::pin!(events);
         let queue = |update: Update| {
             qt.queue(move |obj| apply(obj, update)).ok();
@@ -218,7 +247,12 @@ where
 }
 
 /// `GetState` once the app holds `permission`; retried while the shell starts.
-async fn refresh(service: Service, permission: &'static str, asked: &mut bool, queue: &impl Fn(Update)) {
+async fn refresh(
+    service: Service,
+    permission: &'static str,
+    asked: &mut bool,
+    queue: &impl Fn(Update),
+) {
     for attempt in 0..40u32 {
         let read = match allowed(permission, asked).await {
             Ok(false) => return,
@@ -228,7 +262,9 @@ async fn refresh(service: Service, permission: &'static str, asked: &mut bool, q
         match read {
             Ok(state) => return queue(Update::State(state)),
             Err(e) if is_access_denied(&e) => return,
-            Err(e) if attempt == 39 => return log::warn(service.name, format_args!("GetState: {e}")),
+            Err(e) if attempt == 39 => {
+                return log::warn(service.name, format_args!("GetState: {e}"))
+            }
             Err(_) => {
                 Timer::after(Duration::from_millis(250 << (attempt / 8).min(3))).await;
             }
@@ -240,16 +276,25 @@ async fn refresh(service: Service, permission: &'static str, asked: &mut bool, q
 /// does not, it asks the shell, which answers with `PermissionGranted` or
 /// `PermissionDenied`.
 pub async fn allowed(permission: &'static str, asked: &mut bool) -> zbus::Result<bool> {
-    let held = PERMISSIONS.ask::<_, bool>("HasPermission", &(app_id(), permission)).await?;
+    let held = PERMISSIONS
+        .ask::<_, bool>("HasPermission", &(app_id(), permission))
+        .await?;
     if !held && !std::mem::replace(asked, true) {
-        PERMISSIONS.call("RequestPermission", (app_id().to_owned(), permission.to_owned()));
+        PERMISSIONS.call(
+            "RequestPermission",
+            (app_id().to_owned(), permission.to_owned()),
+        );
     }
     Ok(held)
 }
 
 /// Forwards each `member` signal of `service` to `emit` on the GUI thread.
-pub fn relay<T, A>(qt: CxxQtThread<T>, service: Service, member: &'static str, emit: fn(Pin<&mut T>, A))
-where
+pub fn relay<T, A>(
+    qt: CxxQtThread<T>,
+    service: Service,
+    member: &'static str,
+    emit: fn(Pin<&mut T>, A),
+) where
     T: Threading + CxxQtType + 'static,
     A: DeserializeOwned + Type + Send + 'static,
 {
@@ -286,9 +331,14 @@ macro_rules! numeric {
 numeric!(i32, u32, i64);
 
 impl Field for f64 {
-    #[allow(clippy::cast_precision_loss, reason = "QVariant::toDouble does the same")]
+    #[allow(
+        clippy::cast_precision_loss,
+        reason = "QVariant::toDouble does the same"
+    )]
     fn from_value(value: &OwnedValue) -> Option<Self> {
-        f64::try_from(value).ok().or_else(|| crate::variant::number(value).map(|n| n as f64))
+        f64::try_from(value)
+            .ok()
+            .or_else(|| crate::variant::number(value).map(|n| n as f64))
     }
 }
 
@@ -312,11 +362,15 @@ impl Field for cxx_qt_lib::QVariant {
 
 impl Field for cxx_qt_lib::QStringList {
     fn from_value(value: &OwnedValue) -> Option<Self> {
-        crate::variant::to_qt(value).value::<cxx_qt_lib::QList<cxx_qt_lib::QVariant>>().map(|list| {
-            let strings: cxx_qt_lib::QList<cxx_qt_lib::QString> =
-                list.iter().filter_map(cxx_qt_lib::QVariant::value::<cxx_qt_lib::QString>).collect();
-            Self::from(&strings)
-        })
+        crate::variant::to_qt(value)
+            .value::<cxx_qt_lib::QList<cxx_qt_lib::QVariant>>()
+            .map(|list| {
+                let strings: cxx_qt_lib::QList<cxx_qt_lib::QString> = list
+                    .iter()
+                    .filter_map(cxx_qt_lib::QVariant::value::<cxx_qt_lib::QString>)
+                    .collect();
+                Self::from(&strings)
+            })
     }
 }
 
@@ -334,14 +388,22 @@ impl Field for cxx_qt_lib::QList<cxx_qt_lib::QVariant> {
 
 /// A QML argument as D-Bus sends it.
 pub trait Arg {
-    type Wire: Serialize + DynamicType + Into<zbus::zvariant::Value<'static>> + Send + Sync + 'static;
+    type Wire: Serialize
+        + DynamicType
+        + Into<zbus::zvariant::Value<'static>>
+        + Send
+        + Sync
+        + 'static;
     fn wire(self) -> Self::Wire;
 }
 
 impl Arg for &cxx_qt_lib::QStringList {
     type Wire = Vec<String>;
     fn wire(self) -> Vec<String> {
-        cxx_qt_lib::QList::<cxx_qt_lib::QString>::from(self).iter().map(ToString::to_string).collect()
+        cxx_qt_lib::QList::<cxx_qt_lib::QString>::from(self)
+            .iter()
+            .map(ToString::to_string)
+            .collect()
     }
 }
 
@@ -415,7 +477,12 @@ impl Reply for cxx_qt_lib::QString {
 impl Reply for cxx_qt_lib::QStringList {
     type Wire = Vec<String>;
     fn from_wire(wire: Vec<String>) -> Self {
-        Self::from(&wire.iter().map(cxx_qt_lib::QString::from).collect::<cxx_qt_lib::QList<_>>())
+        Self::from(
+            &wire
+                .iter()
+                .map(cxx_qt_lib::QString::from)
+                .collect::<cxx_qt_lib::QList<_>>(),
+        )
     }
 }
 

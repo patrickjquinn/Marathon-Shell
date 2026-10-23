@@ -15,7 +15,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::pin::Pin;
-use std::sync::{LazyLock, Mutex, OnceLock, PoisonError};
+use std::sync::{LazyLock, Mutex, OnceLock};
 
 use cxx_qt::Threading;
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList};
@@ -51,7 +51,12 @@ pub mod qobject {
         /// paths: the files chosen; for SaveMany the folder. filter_index:
         /// the filter in effect, -1 for none. choices: id -> value.
         #[qinvokable]
-        fn accept(self: &FileChooser, paths: &QStringList, filter_index: i32, choices: &QMap_QString_QVariant);
+        fn accept(
+            self: &FileChooser,
+            paths: &QStringList,
+            filter_index: i32,
+            choices: &QMap_QString_QVariant,
+        );
         #[qinvokable]
         fn cancel(self: &FileChooser);
     }
@@ -73,6 +78,7 @@ const MONO: &str = "JetBrains Mono";
 enum V {
     U(u32),
     I(i32),
+    F(f64),
     B(bool),
     S(String),
     Rgb(f64, f64, f64),
@@ -83,6 +89,7 @@ impl V {
         let v = match self {
             Self::U(x) => Value::from(*x),
             Self::I(x) => Value::from(*x),
+            Self::F(x) => Value::from(*x),
             Self::B(x) => Value::from(*x),
             Self::S(x) => Value::from(x.clone()),
             Self::Rgb(r, g, b) => Value::from((*r, *g, *b)),
@@ -93,10 +100,10 @@ impl V {
 
 type Namespaces = BTreeMap<String, BTreeMap<String, V>>;
 
-static CURRENT: LazyLock<Mutex<Namespaces>> = LazyLock::new(|| Mutex::new(settings(None, 0, false)));
+static CURRENT: LazyLock<Mutex<Namespaces>> = LazyLock::new(|| Mutex::new(settings(None, 1)));
 
 fn current() -> std::sync::MutexGuard<'static, Namespaces> {
-    CURRENT.lock().unwrap_or_else(PoisonError::into_inner)
+    CURRENT.lock().unwrap_or_else(|_| std::process::abort())
 }
 
 /// `QFont::toString`'s form, which kdeglobals stores and `KFontSettingsData` parses.
@@ -105,58 +112,113 @@ fn kde_font(family: &str, points: u32) -> V {
 }
 
 /// Every namespace served for an ambience. scheme: 0 no preference, 1
-/// dark, 2 light. `gtk3_theme`: GTK 3 can load the Marathon themes, else it
-/// is pointed at Adwaita.
-fn settings(accent: Option<Color>, scheme: u32, gtk3_theme: bool) -> Namespaces {
+/// dark, 2 light. GTK 3 stays on upstream Adwaita; GTK 4 and KDE consume the
+/// generated semantic colours.
+fn settings(accent: Option<Color>, scheme: u32) -> Namespaces {
     let s = |x: &str| V::S(x.to_owned());
-    let theme = if gtk3_theme { "Marathon" } else { "Adwaita" };
-    let mut fdo = BTreeMap::from([("color-scheme".to_owned(), V::U(scheme))]);
+    let theme = "Adwaita";
+    let mut fdo = BTreeMap::from([
+        ("color-scheme".to_owned(), V::U(scheme)),
+        ("contrast".to_owned(), V::U(0)),
+        ("reduced-motion".to_owned(), V::U(0)),
+    ]);
     let mut gnome = BTreeMap::from([
-        ("color-scheme".to_owned(), s(match scheme {
-            1 => "prefer-dark",
-            2 => "prefer-light",
-            _ => "default",
-        })),
-        ("gtk-theme".to_owned(), V::S(if scheme == 1 { format!("{theme}-dark") } else { theme.to_owned() })),
+        (
+            "color-scheme".to_owned(),
+            s(match scheme {
+                1 => "prefer-dark",
+                2 => "prefer-light",
+                _ => "default",
+            }),
+        ),
+        (
+            "gtk-theme".to_owned(),
+            V::S(if scheme == 1 {
+                format!("{theme}-dark")
+            } else {
+                theme.to_owned()
+            }),
+        ),
         ("icon-theme".to_owned(), s("Adwaita")),
         ("font-name".to_owned(), V::S(format!("{SANS} 11"))),
+        ("document-font-name".to_owned(), V::S(format!("{SANS} 11"))),
         ("monospace-font-name".to_owned(), V::S(format!("{MONO} 10"))),
+        ("text-scaling-factor".to_owned(), V::F(1.0)),
+        ("cursor-theme".to_owned(), s("Adwaita")),
         ("cursor-size".to_owned(), V::I(24)),
+        ("gtk-decoration-layout".to_owned(), s(":")),
+        ("overlay-scrolling".to_owned(), V::B(true)),
+        ("gtk-enable-primary-paste".to_owned(), V::B(false)),
         ("enable-animations".to_owned(), V::B(true)),
     ]);
     let mut kde: BTreeMap<String, BTreeMap<String, V>> = BTreeMap::from([
-        ("General".to_owned(), BTreeMap::from([
-            ("font".to_owned(), kde_font(SANS, 10)),
-            ("menuFont".to_owned(), kde_font(SANS, 10)),
-            ("toolBarFont".to_owned(), kde_font(SANS, 10)),
-            ("smallestReadableFont".to_owned(), kde_font(SANS, 8)),
-            ("fixed".to_owned(), kde_font(MONO, 10)),
-        ])),
-        ("KDE".to_owned(), BTreeMap::from([("widgetStyle".to_owned(), s("Breeze"))])),
-        ("Icons".to_owned(), BTreeMap::from([("Theme".to_owned(), s("breeze"))])),
+        (
+            "General".to_owned(),
+            BTreeMap::from([
+                ("font".to_owned(), kde_font(SANS, 11)),
+                ("menuFont".to_owned(), kde_font(SANS, 11)),
+                ("toolBarFont".to_owned(), kde_font(SANS, 11)),
+                ("taskbarFont".to_owned(), kde_font(SANS, 11)),
+                ("smallestReadableFont".to_owned(), kde_font(SANS, 9)),
+                ("fixed".to_owned(), kde_font(MONO, 10)),
+            ]),
+        ),
+        (
+            "KDE".to_owned(),
+            BTreeMap::from([("widgetStyle".to_owned(), s("Breeze"))]),
+        ),
+        (
+            "Icons".to_owned(),
+            BTreeMap::from([("Theme".to_owned(), s("breeze"))]),
+        ),
+        (
+            "WM".to_owned(),
+            BTreeMap::from([("activeFont".to_owned(), kde_font(SANS, 11))]),
+        ),
     ]);
     if let Some(accent) = accent {
-        fdo.insert("accent-color".to_owned(), V::Rgb(accent.red.into(), accent.green.into(), accent.blue.into()));
+        fdo.insert(
+            "accent-color".to_owned(),
+            V::Rgb(accent.red.into(), accent.green.into(), accent.blue.into()),
+        );
         gnome.insert("accent-color".to_owned(), s(theme::gnome_accent(accent)));
         for (group, keys) in theme::kde_colors(&theme::palette(accent, scheme != 2)) {
-            kde.entry(group).or_default().extend(keys.into_iter().map(|(k, v)| (k, V::S(v))));
+            kde.entry(group)
+                .or_default()
+                .extend(keys.into_iter().map(|(k, v)| (k, V::S(v))));
         }
-        kde.entry("General".to_owned()).or_default().insert("ColorScheme".to_owned(), s("Marathon"));
-        kde.entry("WM".to_owned()).or_default().insert("activeFont".to_owned(), kde_font(SANS, 10));
+        kde.entry("General".to_owned())
+            .or_default()
+            .insert("ColorScheme".to_owned(), s("Marathon"));
     }
-    let mut out = Namespaces::from([("org.freedesktop.appearance".to_owned(), fdo), ("org.gnome.desktop.interface".to_owned(), gnome)]);
-    out.extend(kde.into_iter().map(|(g, keys)| (format!("org.kde.kdeglobals.{g}"), keys)));
+    let mut out = Namespaces::from([
+        ("org.freedesktop.appearance".to_owned(), fdo),
+        ("org.gnome.desktop.interface".to_owned(), gnome),
+        (
+            "org.gnome.desktop.wm.preferences".to_owned(),
+            BTreeMap::from([("button-layout".to_owned(), s(":"))]),
+        ),
+    ]);
+    out.extend(
+        kde.into_iter()
+            .map(|(g, keys)| (format!("org.kde.kdeglobals.{g}"), keys)),
+    );
     out
 }
 
 /// Whether a namespace matches `ReadAll`'s filters ("" or "prefix.*" globs).
 fn matches(ns: &str, filters: &[String]) -> bool {
-    filters.is_empty() || filters.iter().any(|f| f.is_empty() || f == ns || f.strip_suffix('*').is_some_and(|p| p.ends_with('.') && ns.starts_with(p)))
+    filters.is_empty()
+        || filters.iter().any(|f| {
+            f.is_empty()
+                || f == ns
+                || f.strip_suffix('*')
+                    .is_some_and(|p| p.ends_with('.') && ns.starts_with(p))
+        })
 }
 
-/// A new ambience: GTK's files first (GTK 3 reloads its theme when the
-/// portal flips Marathon to Marathon-dark, and must find the new colours),
-/// then what changed. KDE's platform theme reloads the whole palette when
+/// A new ambience: write GTK 4 and KDE files first, then announce what
+/// changed. KDE's platform theme reloads the whole palette when
 /// General/ColorScheme changes and ignores the colour keys themselves, as
 /// xdg-desktop-portal-kde signals it, so colours are announced through that
 /// key alone.
@@ -167,11 +229,12 @@ pub(crate) fn set_ambience(highlight: Option<Color>, color_scheme: &str) {
         _ => 0,
     };
     io::spawn(async move {
-        let gtk3 = match highlight {
-            Some(h) => blocking::unblock(move || theme::write(h, scheme != 2)).await,
-            None => false,
-        };
-        let next = settings(highlight, scheme, gtk3);
+        if let Some(h) = highlight {
+            if let Err(e) = blocking::unblock(move || theme::write(h, scheme != 2)).await {
+                log::warn("portal", format_args!("writing native app themes: {e}"));
+            }
+        }
+        let next = settings(highlight, scheme);
         let changes: Vec<(String, String, V)> = {
             let mut cur = current();
             let prev = std::mem::replace(&mut *cur, next.clone());
@@ -182,7 +245,8 @@ pub(crate) fn set_ambience(highlight: Option<Color>, color_scheme: &str) {
                     if prev.get(ns).and_then(|p| p.get(k)) == Some(v) {
                         continue;
                     }
-                    let kde_colors = ns.starts_with("org.kde.kdeglobals.Colors:") || ns == "org.kde.kdeglobals.WM";
+                    let kde_colors = ns.starts_with("org.kde.kdeglobals.Colors:")
+                        || ns == "org.kde.kdeglobals.WM";
                     if kde_colors || (ns == "org.kde.kdeglobals.General" && k == "ColorScheme") {
                         kde_changed = true;
                     } else {
@@ -190,15 +254,29 @@ pub(crate) fn set_ambience(highlight: Option<Color>, color_scheme: &str) {
                     }
                 }
             }
-            if let Some(v) = next.get("org.kde.kdeglobals.General").and_then(|g| g.get("ColorScheme")).filter(|_| kde_changed) {
-                out.push(("org.kde.kdeglobals.General".into(), "ColorScheme".into(), v.clone()));
+            if let Some(v) = next
+                .get("org.kde.kdeglobals.General")
+                .and_then(|g| g.get("ColorScheme"))
+                .filter(|_| kde_changed)
+            {
+                out.push((
+                    "org.kde.kdeglobals.General".into(),
+                    "ColorScheme".into(),
+                    v.clone(),
+                ));
             }
             out
         };
-        let Ok(bus) = io::session_bus().await else { return };
-        let Ok(emitter) = SignalEmitter::new(&bus, PATH) else { return };
+        let Ok(bus) = io::session_bus().await else {
+            return;
+        };
+        let Ok(emitter) = SignalEmitter::new(&bus, PATH) else {
+            return;
+        };
         for (ns, key, v) in changes {
-            if let Err(e) = Settings::setting_changed(&emitter, &ns, &key, Value::from(v.value())).await {
+            if let Err(e) =
+                Settings::setting_changed(&emitter, &ns, &key, Value::from(v.value())).await
+            {
                 log::warn("portal", format_args!("SettingChanged {ns} {key}: {e}"));
             }
         }
@@ -218,7 +296,12 @@ impl Settings {
         current()
             .iter()
             .filter(|(ns, _)| matches(ns, &namespaces))
-            .map(|(ns, keys)| (ns.clone(), keys.iter().map(|(k, v)| (k.clone(), v.value())).collect()))
+            .map(|(ns, keys)| {
+                (
+                    ns.clone(),
+                    keys.iter().map(|(k, v)| (k.clone(), v.value())).collect(),
+                )
+            })
             .collect()
     }
 
@@ -235,7 +318,12 @@ impl Settings {
     }
 
     #[zbus(signal)]
-    async fn setting_changed(emitter: &SignalEmitter<'_>, namespace: &str, key: &str, value: Value<'_>) -> zbus::Result<()>;
+    async fn setting_changed(
+        emitter: &SignalEmitter<'_>,
+        namespace: &str,
+        key: &str,
+        value: Value<'_>,
+    ) -> zbus::Result<()>;
 }
 
 // The FileChooser.
@@ -256,6 +344,7 @@ struct Options {
     current_folder: Option<Vec<u8>>,
     current_file: Option<Vec<u8>>,
     files: Option<Vec<Vec<u8>>>,
+    modal: Option<bool>,
 }
 
 /// The portal's byte strings (ay) end with a NUL.
@@ -285,7 +374,7 @@ static PENDING: Mutex<Option<Pending>> = Mutex::new(None);
 static QT: OnceLock<cxx_qt::CxxQtThread<FileChooser>> = OnceLock::new();
 
 fn pending() -> std::sync::MutexGuard<'static, Option<Pending>> {
-    PENDING.lock().unwrap_or_else(PoisonError::into_inner)
+    PENDING.lock().unwrap_or_else(|_| std::process::abort())
 }
 
 /// Ends the request in flight: 0 chosen, 1 cancelled, 2 gone.
@@ -295,12 +384,21 @@ fn finish(response: u32, results: HashMap<String, OwnedValue>) {
     let handle = p.handle;
     io::spawn(async move {
         if let Ok(bus) = io::session_bus().await {
-            bus.object_server().remove::<Request, _>(handle.as_ref()).await.ok();
+            bus.object_server()
+                .remove::<Request, _>(handle.as_ref())
+                .await
+                .ok();
         }
     });
 }
 
-fn gone() {
+fn gone(handle: &ObjectPath<'_>) {
+    let matches_current = pending()
+        .as_ref()
+        .is_some_and(|request| request.handle.as_ref() == handle.as_str());
+    if !matches_current {
+        return;
+    }
     finish(2, HashMap::new());
     if let Some(qt) = QT.get() {
         qt.queue(FileChooser::closed).ok();
@@ -312,54 +410,127 @@ fn owned(v: Value<'_>) -> OwnedValue {
 }
 
 /// A Request: xdg-desktop-portal closes it when the app gives up.
-struct Request;
+struct Request {
+    handle: OwnedObjectPath,
+}
 
 #[interface(name = "org.freedesktop.impl.portal.Request")]
 impl Request {
     fn close(&self) {
-        gone();
+        gone(&self.handle.as_ref());
     }
 }
 
 struct Chooser;
 
 impl Chooser {
-    async fn request(&self, mode: Mode, handle: ObjectPath<'_>, title: String, o: Options) -> fdo::Result<Answer> {
+    #[allow(
+        clippy::too_many_lines,
+        reason = "portal request validation and response construction form one protocol transaction"
+    )]
+    async fn request(
+        &self,
+        mode: Mode,
+        handle: ObjectPath<'_>,
+        app_id: String,
+        parent_window: String,
+        title: String,
+        o: Options,
+    ) -> fdo::Result<Answer> {
         if pending().is_some() {
-            gone();
+            let old_handle = pending().as_ref().map(|request| request.handle.clone());
+            if let Some(old_handle) = old_handle {
+                gone(&old_handle.as_ref());
+            }
         }
         let filters = o.filters.unwrap_or_default();
-        let files: Vec<String> = o.files.unwrap_or_default().iter().map(|f| {
-            let p = path_of(Some(f));
-            p.rsplit('/').next().unwrap_or_default().to_owned()
-        }).collect();
-        let filter_index = o.current_filter.as_ref().and_then(|c| filters.iter().position(|f| f.0 == c.0)).map_or(if filters.is_empty() { -1 } else { 0 }, |i| i32::try_from(i).unwrap_or(0));
+        let files: Vec<String> = o
+            .files
+            .unwrap_or_default()
+            .iter()
+            .map(|f| {
+                let p = path_of(Some(f));
+                p.rsplit('/').next().unwrap_or_default().to_owned()
+            })
+            .collect();
+        let filter_index = o
+            .current_filter
+            .as_ref()
+            .and_then(|c| filters.iter().position(|f| f.0 == c.0))
+            .map_or(if filters.is_empty() { -1 } else { 0 }, |i| {
+                i32::try_from(i).unwrap_or(0)
+            });
         let mut folder = path_of(o.current_folder.as_deref());
         let mut name = o.current_name.unwrap_or_default();
         let file = path_of(o.current_file.as_deref());
         if let Some((dir, base)) = file.rsplit_once('/') {
             (folder, name) = (dir.to_owned(), base.to_owned());
         }
-        let shown_filters: Vec<Value<'_>> = filters.iter().map(|(n, patterns)| {
-            let of = |t: u32| patterns.iter().filter(|p| p.0 == t).map(|p| p.1.clone()).collect::<Vec<_>>();
-            Value::from(HashMap::from([("name", Value::from(n.clone())), ("globs", Value::from(of(0))), ("mimes", Value::from(of(1)))]))
-        }).collect();
-        let choices: Vec<Value<'_>> = o.choices.unwrap_or_default().into_iter().map(|(id, label, options, initial)| {
-            let options: Vec<Value<'_>> = options.into_iter().map(|(i, l)| Value::from(HashMap::from([("id", i), ("label", l)]))).collect();
-            Value::from(HashMap::from([("id", Value::from(id)), ("label", Value::from(label)), ("options", Value::from(options)), ("value", Value::from(initial))]))
-        }).collect();
+        let shown_filters: Vec<Value<'_>> = filters
+            .iter()
+            .map(|(n, patterns)| {
+                let of = |t: u32| {
+                    patterns
+                        .iter()
+                        .filter(|p| p.0 == t)
+                        .map(|p| p.1.clone())
+                        .collect::<Vec<_>>()
+                };
+                Value::from(HashMap::from([
+                    ("name", Value::from(n.clone())),
+                    ("globs", Value::from(of(0))),
+                    ("mimes", Value::from(of(1))),
+                ]))
+            })
+            .collect();
+        let choices: Vec<Value<'_>> = o
+            .choices
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(id, label, options, initial)| {
+                let options: Vec<Value<'_>> = options
+                    .into_iter()
+                    .map(|(i, l)| Value::from(HashMap::from([("id", i), ("label", l)])))
+                    .collect();
+                Value::from(HashMap::from([
+                    ("id", Value::from(id)),
+                    ("label", Value::from(label)),
+                    ("options", Value::from(options)),
+                    ("value", Value::from(initial)),
+                ]))
+            })
+            .collect();
         let request: HashMap<String, OwnedValue> = [
-            ("mode", Value::from(match mode { Mode::Open => "open", Mode::Save => "save", Mode::SaveMany => "saveMany" })),
+            (
+                "mode",
+                Value::from(match mode {
+                    Mode::Open => "open",
+                    Mode::Save => "save",
+                    Mode::SaveMany => "saveMany",
+                }),
+            ),
             ("title", Value::from(title)),
-            ("acceptLabel", Value::from(o.accept_label.unwrap_or_default())),
-            ("multiple", Value::from(mode == Mode::Open && o.multiple.unwrap_or(false))),
-            ("directory", Value::from(mode == Mode::SaveMany || o.directory.unwrap_or(false))),
+            (
+                "acceptLabel",
+                Value::from(o.accept_label.unwrap_or_default()),
+            ),
+            (
+                "multiple",
+                Value::from(mode == Mode::Open && o.multiple.unwrap_or(false)),
+            ),
+            (
+                "directory",
+                Value::from(mode == Mode::SaveMany || o.directory.unwrap_or(false)),
+            ),
             ("filters", Value::from(shown_filters)),
             ("filterIndex", Value::from(filter_index)),
             ("folder", Value::from(folder)),
             ("name", Value::from(name)),
             ("files", Value::from(files.clone())),
             ("choices", Value::from(choices)),
+            ("appId", Value::from(app_id)),
+            ("parentWindow", Value::from(parent_window)),
+            ("modal", Value::from(o.modal.unwrap_or(true))),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_owned(), owned(v)))
@@ -368,11 +539,29 @@ impl Chooser {
         let (tx, rx) = async_channel::bounded(1);
         let handle = OwnedObjectPath::from(handle);
         let bus = io::session_bus().await?;
-        bus.object_server().at(handle.as_ref(), Request).await?;
-        *pending() = Some(Pending { handle, mode, filters, files, reply: tx });
-        let qt = QT.get().ok_or_else(|| fdo::Error::Failed("no file chooser".into()))?;
-        qt.queue(move |obj| obj.requested(&marathon_qt::qmap(&request))).ok();
-        rx.recv().await.map_err(|e| fdo::Error::Failed(format!("the shell is stopping: {e}")))
+        bus.object_server()
+            .at(
+                handle.as_ref(),
+                Request {
+                    handle: handle.clone(),
+                },
+            )
+            .await?;
+        *pending() = Some(Pending {
+            handle,
+            mode,
+            filters,
+            files,
+            reply: tx,
+        });
+        let qt = QT
+            .get()
+            .ok_or_else(|| fdo::Error::Failed("no file chooser".into()))?;
+        qt.queue(move |obj| obj.requested(&marathon_qt::qmap(&request)))
+            .ok();
+        rx.recv()
+            .await
+            .map_err(|e| fdo::Error::Failed(format!("the shell is stopping: {e}")))
     }
 }
 
@@ -383,16 +572,47 @@ impl Chooser {
         4
     }
 
-    async fn open_file(&self, handle: ObjectPath<'_>, _app_id: String, _parent_window: String, title: String, options: Options) -> fdo::Result<Answer> {
-        self.request(Mode::Open, handle, title, options).await
+    async fn open_file(
+        &self,
+        handle: ObjectPath<'_>,
+        app_id: String,
+        parent_window: String,
+        title: String,
+        options: Options,
+    ) -> fdo::Result<Answer> {
+        self.request(Mode::Open, handle, app_id, parent_window, title, options)
+            .await
     }
 
-    async fn save_file(&self, handle: ObjectPath<'_>, _app_id: String, _parent_window: String, title: String, options: Options) -> fdo::Result<Answer> {
-        self.request(Mode::Save, handle, title, options).await
+    async fn save_file(
+        &self,
+        handle: ObjectPath<'_>,
+        app_id: String,
+        parent_window: String,
+        title: String,
+        options: Options,
+    ) -> fdo::Result<Answer> {
+        self.request(Mode::Save, handle, app_id, parent_window, title, options)
+            .await
     }
 
-    async fn save_files(&self, handle: ObjectPath<'_>, _app_id: String, _parent_window: String, title: String, options: Options) -> fdo::Result<Answer> {
-        self.request(Mode::SaveMany, handle, title, options).await
+    async fn save_files(
+        &self,
+        handle: ObjectPath<'_>,
+        app_id: String,
+        parent_window: String,
+        title: String,
+        options: Options,
+    ) -> fdo::Result<Answer> {
+        self.request(
+            Mode::SaveMany,
+            handle,
+            app_id,
+            parent_window,
+            title,
+            options,
+        )
+        .await
     }
 }
 
@@ -421,23 +641,47 @@ impl cxx_qt::Initialize for FileChooser {
 }
 
 impl FileChooser {
-    fn accept(&self, paths: &QStringList, filter_index: i32, choices: &QMap<QMapPair_QString_QVariant>) {
-        let paths: Vec<String> = QList::<QString>::from(paths).iter().map(ToString::to_string).collect();
+    fn accept(
+        &self,
+        paths: &QStringList,
+        filter_index: i32,
+        choices: &QMap<QMapPair_QString_QVariant>,
+    ) {
+        let paths: Vec<String> = QList::<QString>::from(paths)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
         let (mode, filters, files) = match pending().as_ref() {
             Some(p) => (p.mode, p.filters.clone(), p.files.clone()),
             None => return,
         };
         let uris: Vec<String> = if mode == Mode::SaveMany {
             let folder = paths.first().cloned().unwrap_or_default();
-            files.iter().map(|f| file_uri(&format!("{}/{f}", folder.trim_end_matches('/')))).collect()
+            files
+                .iter()
+                .map(|f| file_uri(&format!("{}/{f}", folder.trim_end_matches('/'))))
+                .collect()
         } else {
             paths.iter().map(|p| file_uri(p)).collect()
         };
         let mut results = HashMap::from([("uris".to_owned(), owned(Value::from(uris)))]);
-        if let Some(f) = usize::try_from(filter_index).ok().and_then(|i| filters.get(i)) {
+        if let Some(f) = usize::try_from(filter_index)
+            .ok()
+            .and_then(|i| filters.get(i))
+        {
             results.insert("current_filter".into(), owned(Value::from(f.clone())));
         }
-        let chosen: Vec<(String, String)> = choices.iter().map(|(k, v)| (k.to_string(), v.value::<QString>().map(|s| s.to_string()).unwrap_or_default())).collect();
+        let chosen: Vec<(String, String)> = choices
+            .iter()
+            .map(|(k, v)| {
+                (
+                    k.to_string(),
+                    v.value::<QString>()
+                        .map(|s| s.to_string())
+                        .unwrap_or_default(),
+                )
+            })
+            .collect();
         if !chosen.is_empty() {
             results.insert("choices".into(), owned(Value::from(chosen)));
         }

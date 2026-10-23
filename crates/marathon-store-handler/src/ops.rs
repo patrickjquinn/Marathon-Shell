@@ -24,18 +24,22 @@ fn is_app_ref(app_id: &str) -> bool {
     !(app_id.ends_with(".Locale") || app_id.ends_with(".Sources") || app_id.ends_with(".Debug"))
 }
 
-fn stdout_of(cmd: &mut Command) -> String {
-    cmd.stderr(Stdio::null())
-        .output()
-        // Field by field: stripping also drops the tabs between columns.
-        .map(|out| {
-            String::from_utf8_lossy(&out.stdout)
-                .split('\t')
-                .map(strip_ansi_escapes::strip_str)
-                .collect::<Vec<_>>()
-                .join("\t")
-        })
-        .unwrap_or_default()
+fn stdout_of(cmd: &mut Command) -> io::Result<String> {
+    let out = cmd.stderr(Stdio::piped()).output()?;
+    if !out.status.success() {
+        let error = strip_ansi_escapes::strip_str(String::from_utf8_lossy(&out.stderr));
+        return Err(io::Error::other(format!(
+            "command exited with {}: {}",
+            out.status,
+            error.trim()
+        )));
+    }
+    // Field by field: stripping also drops the tabs between columns.
+    Ok(String::from_utf8_lossy(&out.stdout)
+        .split('\t')
+        .map(strip_ansi_escapes::strip_str)
+        .collect::<Vec<_>>()
+        .join("\t"))
 }
 
 /// User installs need a user remote; the image only registers Flathub for
@@ -98,6 +102,10 @@ fn run_on_pty(
 /// install / update / uninstall one app, reporting progress through its
 /// state file and `notice`. Every outcome, including flatpak failing to
 /// start, ends in a final record, so the Store never waits on "pending".
+#[allow(
+    clippy::print_stderr,
+    reason = "the detached handler has no other diagnostics channel"
+)]
 pub fn run_op(
     state: &StateDir,
     flatpak: &str,
@@ -144,7 +152,15 @@ pub fn run_op(
         }
     });
     if matches!(result, Ok((true, _))) {
-        notice.finish(app_id, &icon_for(&icons_dir(), app_id));
+        let icon = icon_for(&icons_dir(), app_id);
+        // Flatpak runtimes have no exported app icon. Their successful
+        // maintenance should close the progress row, not leave one unread
+        // Store notification per runtime component.
+        if verb == Verb::Update && icon.is_empty() {
+            notice.close();
+        } else {
+            notice.finish(app_id, &icon);
+        }
     } else {
         notice.close();
     }
@@ -163,7 +179,10 @@ pub fn run_op(
             ..record("failed", -1)
         })?,
     }
-    refresh(state, flatpak)
+    if let Err(error) = refresh(state, flatpak) {
+        eprintln!("marathon-store-handler: state refresh failed after {op}: {error}");
+    }
+    Ok(())
 }
 
 /// Every queued app reports "pending" up front, so the Store doesn't give up
@@ -175,8 +194,9 @@ pub fn update_all(state: &StateDir, flatpak: &str, handler: &Path) -> io::Result
         "--user",
         "remote-ls",
         "--updates",
+        "--app",
         "--columns=application",
-    ]));
+    ]))?;
     let android: Vec<String> = crate::fdroid::lists()
         .1
         .iter()
@@ -304,9 +324,12 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
         "list",
         "--app",
         "--columns=application,version,name",
-    ]));
-    let (android_installed, android_updates) = crate::fdroid::lists();
+    ]))?;
     let mut listed = installed(&listing, &icons);
+    // Publish local Flatpaks before asking Deckard for Android packages. The
+    // latter may be booting Waydroid and must not hide already-known apps.
+    state.write_json("installed.json", &listed)?;
+    let (android_installed, android_updates) = crate::fdroid::lists();
     if let Some(apps) = listed["installed"].as_array_mut() {
         apps.extend(android_installed);
     }
@@ -319,8 +342,9 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
         "--user",
         "remote-ls",
         "--updates",
+        "--app",
         "--columns=application",
-    ]));
+    ]))?;
     let mut pending = updates(&listing);
     if let Some(apps) = pending["updates"].as_array_mut() {
         apps.extend(android_updates);
@@ -495,7 +519,8 @@ mod tests {
     fn keeps_the_columns_of_a_listing() {
         let tmp = tempfile::tempdir().unwrap();
         let output = "\u{1b}[?25horg.gnome.Maps\t45\tMaps\n";
-        let listing = stdout_of(Command::new(fake_flatpak(tmp.path(), output, 0)).arg("list"));
+        let listing =
+            stdout_of(Command::new(fake_flatpak(tmp.path(), output, 0)).arg("list")).unwrap();
         let value = installed(&listing, tmp.path());
         assert_eq!(value["installed"][0]["app_id"], "org.gnome.Maps");
         assert_eq!(value["installed"][0]["version"], "45");
@@ -507,7 +532,8 @@ mod tests {
     fn keeps_a_row_after_a_glued_escape() {
         let tmp = tempfile::tempdir().unwrap();
         let output = "\u{1b}[?25horg.x.Y\n";
-        let listing = stdout_of(Command::new(fake_flatpak(tmp.path(), output, 0)).arg("list"));
+        let listing =
+            stdout_of(Command::new(fake_flatpak(tmp.path(), output, 0)).arg("list")).unwrap();
         assert_eq!(
             updates(&listing)["updates"],
             json!([{ "app_id": "org.x.Y" }])

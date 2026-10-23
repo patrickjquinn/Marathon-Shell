@@ -33,7 +33,13 @@ pub mod qobject {
         #[qproperty(QMap_QString_QVariant, runtime, READ, NOTIFY)]
         #[qproperty(QList_QVariant, apps, READ, NOTIFY)]
         /// microG: {installed, enabled, push, accounts}; empty until loaded.
-        #[qproperty(QMap_QString_QVariant, google_services, cxx_name = "googleServices", READ, NOTIFY)]
+        #[qproperty(
+            QMap_QString_QVariant,
+            google_services,
+            cxx_name = "googleServices",
+            READ,
+            NOTIFY
+        )]
         type AndroidApps = super::AndroidAppsRust;
 
         #[qsignal]
@@ -50,7 +56,11 @@ pub mod qobject {
         fn special_access_loaded(self: Pin<&mut Self>, kind: &QString, apps: &QList_QVariant);
         #[qsignal]
         #[cxx_name = "permissionAppsLoaded"]
-        fn permission_apps_loaded(self: Pin<&mut Self>, permission: &QString, apps: &QList_QVariant);
+        fn permission_apps_loaded(
+            self: Pin<&mut Self>,
+            permission: &QString,
+            apps: &QList_QVariant,
+        );
         /// `action`: the invokable's name ("clearData", "uninstall", ...).
         #[qsignal]
         fn done(self: Pin<&mut Self>, pkg: &QString, action: &QString);
@@ -132,7 +142,11 @@ use qobject::AndroidApps;
 type Qt = CxxQtThread<AndroidApps>;
 type Map = HashMap<String, OwnedValue>;
 
-#[zbus::proxy(interface = "org.marathonos.Deckard1", default_service = "org.marathonos.Deckard", default_path = "/org/marathonos/Deckard")]
+#[zbus::proxy(
+    interface = "org.marathonos.Deckard1",
+    default_service = "org.marathonos.Deckard",
+    default_path = "/org/marathonos/Deckard"
+)]
 trait Deckard {
     fn get_runtime(&self) -> zbus::Result<Map>;
     fn app_icon(&self, pkg: &str) -> zbus::Result<String>;
@@ -147,7 +161,11 @@ trait Deckard {
     fn app_changed(&self, pkg: String) -> zbus::Result<()>;
 }
 
-#[zbus::proxy(interface = "org.marathonos.Deckard1.Packages", default_service = "org.marathonos.Deckard", default_path = "/org/marathonos/Deckard")]
+#[zbus::proxy(
+    interface = "org.marathonos.Deckard1.Packages",
+    default_service = "org.marathonos.Deckard",
+    default_path = "/org/marathonos/Deckard"
+)]
 trait Packages {
     fn list_packages(&self) -> zbus::Result<Vec<Map>>;
     fn uninstall_package(&self, pkg: &str) -> zbus::Result<String>;
@@ -183,7 +201,10 @@ fn q(s: &str) -> QString {
 }
 
 fn text(m: &Map, key: &str) -> String {
-    m.get(key).and_then(|v| <&str>::try_from(&**v).ok()).unwrap_or_default().to_owned()
+    m.get(key)
+        .and_then(|v| <&str>::try_from(&**v).ok())
+        .unwrap_or_default()
+        .to_owned()
 }
 
 impl cxx_qt::Initialize for AndroidApps {
@@ -198,12 +219,34 @@ impl cxx_qt::Initialize for AndroidApps {
 async fn follow(qt: Qt) {
     let follow = async {
         let (d, p) = (deckard().await?, packages().await?);
-        let runtime = d.receive_runtime_changed().await?.filter_map(|s| s.args().ok().map(|a| Event::Runtime(a.runtime)));
-        let app = d.receive_app_changed().await?.filter_map(|s| s.args().ok().map(|a| Event::App(a.pkg)));
-        let package = p.receive_package_changed().await?.filter_map(|s| s.args().ok().map(|a| Event::Package(a.pkg, a.change)));
-        let finished = p.receive_finished().await?.filter_map(|s| s.args().ok().map(|a| Event::Finished(a.job, a.ok, a.pkg, a.message)));
-        let owner = d.inner().receive_owner_changed().await?.map(|o| Event::Owner(o.is_some()));
-        let mut events = runtime.boxed().or(app.boxed()).or(package.boxed()).or(finished.boxed()).or(owner.boxed());
+        let runtime = d
+            .receive_runtime_changed()
+            .await?
+            .filter_map(|s| s.args().ok().map(|a| Event::Runtime(a.runtime)));
+        let app = d
+            .receive_app_changed()
+            .await?
+            .filter_map(|s| s.args().ok().map(|a| Event::App(a.pkg)));
+        let package = p
+            .receive_package_changed()
+            .await?
+            .filter_map(|s| s.args().ok().map(|a| Event::Package(a.pkg, a.change)));
+        let finished = p.receive_finished().await?.filter_map(|s| {
+            s.args()
+                .ok()
+                .map(|a| Event::Finished(a.job, a.ok, a.pkg, a.message))
+        });
+        let owner = d
+            .inner()
+            .receive_owner_changed()
+            .await?
+            .map(|o| Event::Owner(o.is_some()));
+        let mut events = runtime
+            .boxed()
+            .or(app.boxed())
+            .or(package.boxed())
+            .or(finished.boxed())
+            .or(owner.boxed());
         while let Some(event) = events.next().await {
             qt.queue(move |obj| obj.on_event(event)).ok();
         }
@@ -240,13 +283,24 @@ impl AndroidApps {
             // package matches too.
             Event::Finished(job, ok, finished_pkg, message) => {
                 let mut rust = self.as_mut().rust_mut();
-                let pkg = rust.jobs.remove(&job).or_else(|| rust.uninstalling.contains(&finished_pkg).then_some(finished_pkg));
-                let Some(pkg) = pkg.filter(|p| rust.uninstalling.remove(p)) else { return };
+                let pkg = rust.jobs.remove(&job).or_else(|| {
+                    rust.uninstalling
+                        .contains(&finished_pkg)
+                        .then_some(finished_pkg)
+                });
+                let Some(pkg) = pkg.filter(|p| rust.uninstalling.remove(p)) else {
+                    return;
+                };
                 if ok {
                     self.as_mut().done(&q(&pkg), &q("uninstall"));
                 } else {
-                    let message = if message.is_empty() { "Android refused".to_owned() } else { message };
-                    self.as_mut().failed(&q(&pkg), &q("uninstall"), &q(&message));
+                    let message = if message.is_empty() {
+                        "Android refused".to_owned()
+                    } else {
+                        message
+                    };
+                    self.as_mut()
+                        .failed(&q(&pkg), &q("uninstall"), &q(&message));
                 }
                 self.refresh();
             }
@@ -276,7 +330,13 @@ impl AndroidApps {
         let mut list = QList::<QVariant>::default();
         for app in apps {
             let mut map = variant::qmap(&app);
-            map.insert(q("icon"), QVariant::from(&q(self.icons.get(&text(&app, "pkg")).map_or("", String::as_str))));
+            map.insert(
+                q("icon"),
+                QVariant::from(&q(self
+                    .icons
+                    .get(&text(&app, "pkg"))
+                    .map_or("", String::as_str))),
+            );
             list.append(QVariant::from(&map));
         }
         list
@@ -286,7 +346,9 @@ impl AndroidApps {
         self.refresh_runtime();
         let qt = self.qt_thread();
         io::spawn(async move {
-            let Ok(packages) = async { packages().await?.list_packages().await }.await else { return };
+            let Ok(packages) = async { packages().await?.list_packages().await }.await else {
+                return;
+            };
             qt.queue(move |obj| obj.set_packages(packages)).ok();
         });
     }
@@ -294,13 +356,31 @@ impl AndroidApps {
     fn set_packages(mut self: Pin<&mut Self>, packages: Vec<Map>) {
         let mut apps: Vec<(String, Map)> = packages
             .into_iter()
-            .filter(|p| !text(p, "pkg").is_empty() && !p.get("system").is_some_and(|s| bool::try_from(&**s).unwrap_or(false)))
+            .filter(|p| {
+                !text(p, "pkg").is_empty()
+                    && !p
+                        .get("system")
+                        .is_some_and(|s| bool::try_from(&**s).unwrap_or(false))
+            })
             .map(|p| {
                 let (pkg, label) = (text(&p, "pkg"), text(&p, "label"));
                 let mut app = Map::new();
-                app.insert("pkg".into(), OwnedValue::from(zbus::zvariant::Str::from(pkg.clone())));
-                app.insert("id".into(), OwnedValue::from(zbus::zvariant::Str::from(format!("waydroid.{pkg}"))));
-                app.insert("name".into(), OwnedValue::from(zbus::zvariant::Str::from(if label.is_empty() { pkg.clone() } else { label })));
+                app.insert(
+                    "pkg".into(),
+                    OwnedValue::from(zbus::zvariant::Str::from(pkg.clone())),
+                );
+                app.insert(
+                    "id".into(),
+                    OwnedValue::from(zbus::zvariant::Str::from(format!("waydroid.{pkg}"))),
+                );
+                app.insert(
+                    "name".into(),
+                    OwnedValue::from(zbus::zvariant::Str::from(if label.is_empty() {
+                        pkg.clone()
+                    } else {
+                        label
+                    })),
+                );
                 if let Some(v) = p.get("versionName").and_then(|v| v.try_clone().ok()) {
                     app.insert("version".into(), v);
                 }
@@ -308,7 +388,11 @@ impl AndroidApps {
             })
             .collect();
         apps.sort_by_key(|(_, a)| text(a, "name").to_lowercase());
-        let missing: Vec<String> = apps.iter().map(|(pkg, _)| pkg.clone()).filter(|p| !self.icons.contains_key(p)).collect();
+        let missing: Vec<String> = apps
+            .iter()
+            .map(|(pkg, _)| pkg.clone())
+            .filter(|p| !self.icons.contains_key(p))
+            .collect();
         let list = self.with_icons(apps.into_iter().map(|(_, a)| a).collect());
         self.as_mut().rust_mut().apps = list;
         self.as_mut().apps_changed();
@@ -318,19 +402,33 @@ impl AndroidApps {
     }
 
     fn load_icon(mut self: Pin<&mut Self>, pkg: String) {
-        self.as_mut().rust_mut().icons.insert(pkg.clone(), String::new());
+        self.as_mut()
+            .rust_mut()
+            .icons
+            .insert(pkg.clone(), String::new());
         let qt = self.qt_thread();
         io::spawn(async move {
-            let Ok(icon) = async { deckard().await?.app_icon(&pkg).await }.await else { return };
+            let Ok(icon) = async { deckard().await?.app_icon(&pkg).await }.await else {
+                return;
+            };
             if icon.is_empty() {
                 return;
             }
             qt.queue(move |mut obj| {
-                obj.as_mut().rust_mut().icons.insert(pkg.clone(), icon.clone());
+                obj.as_mut()
+                    .rust_mut()
+                    .icons
+                    .insert(pkg.clone(), icon.clone());
                 let mut apps = QList::<QVariant>::default();
                 for app in &obj.apps {
-                    let mut map = app.value::<QMap<QMapPair_QString_QVariant>>().unwrap_or_default();
-                    if map.get(&q("pkg")).and_then(|p| p.value::<QString>()).is_some_and(|p| p.to_string() == pkg) {
+                    let mut map = app
+                        .value::<QMap<QMapPair_QString_QVariant>>()
+                        .unwrap_or_default();
+                    if map
+                        .get(&q("pkg"))
+                        .and_then(|p| p.value::<QString>())
+                        .is_some_and(|p| p.to_string() == pkg)
+                    {
                         map.insert(q("icon"), QVariant::from(&q(&icon)));
                     }
                     apps.append(QVariant::from(&map));
@@ -385,23 +483,48 @@ impl AndroidApps {
     }
 
     fn set_start_at_login(&self, enabled: bool) {
-        self.act("setStartAtLogin", &QString::default(), "SetStartAtLogin", (enabled,));
+        self.act(
+            "setStartAtLogin",
+            &QString::default(),
+            "SetStartAtLogin",
+            (enabled,),
+        );
     }
 
     fn set_permission(&self, pkg: &QString, permission: &QString, granted: bool) {
-        self.act("setPermission", pkg, "SetPermission", (pkg.to_string(), permission.to_string(), granted));
+        self.act(
+            "setPermission",
+            pkg,
+            "SetPermission",
+            (pkg.to_string(), permission.to_string(), granted),
+        );
     }
 
     fn set_notifications(&self, pkg: &QString, enabled: bool) {
-        self.act("setNotifications", pkg, "SetNotifications", (pkg.to_string(), enabled));
+        self.act(
+            "setNotifications",
+            pkg,
+            "SetNotifications",
+            (pkg.to_string(), enabled),
+        );
     }
 
     fn set_open_links(&self, pkg: &QString, enabled: bool) {
-        self.act("setOpenLinks", pkg, "SetOpenLinks", (pkg.to_string(), enabled));
+        self.act(
+            "setOpenLinks",
+            pkg,
+            "SetOpenLinks",
+            (pkg.to_string(), enabled),
+        );
     }
 
     fn set_battery(&self, pkg: &QString, mode: &QString) {
-        self.act("setBattery", pkg, "SetBattery", (pkg.to_string(), mode.to_string()));
+        self.act(
+            "setBattery",
+            pkg,
+            "SetBattery",
+            (pkg.to_string(), mode.to_string()),
+        );
     }
 
     fn force_stop(&self, pkg: &QString) {
@@ -417,11 +540,21 @@ impl AndroidApps {
     }
 
     fn set_special_access(&self, kind: &QString, pkg: &QString, granted: bool) {
-        self.act("setSpecialAccess", pkg, "SetSpecialAccess", (kind.to_string(), pkg.to_string(), granted));
+        self.act(
+            "setSpecialAccess",
+            pkg,
+            "SetSpecialAccess",
+            (kind.to_string(), pkg.to_string(), granted),
+        );
     }
 
     fn open_google_services(&self, page: &QString) {
-        self.act("openGoogleServices", &QString::default(), "OpenGoogleServices", (page.to_string(),));
+        self.act(
+            "openGoogleServices",
+            &QString::default(),
+            "OpenGoogleServices",
+            (page.to_string(),),
+        );
     }
 
     fn reset_android(&self) {
@@ -430,7 +563,11 @@ impl AndroidApps {
             let reply = async { deckard().await?.reset_android().await }.await;
             qt.queue(move |mut obj| {
                 if let Err(e) = reply {
-                    return obj.failed(&QString::default(), &q("reset"), &q(&crate::shell::message(&e)));
+                    return obj.failed(
+                        &QString::default(),
+                        &q("reset"),
+                        &q(&crate::shell::message(&e)),
+                    );
                 }
                 // Android is stopped, so ListPackages can't say the apps are gone.
                 let mut rust = obj.as_mut().rust_mut();
@@ -451,7 +588,10 @@ impl AndroidApps {
             qt.queue(move |obj| match app {
                 Ok(app) => {
                     let mut map = variant::qmap(&app);
-                    map.insert(q("icon"), QVariant::from(&q(obj.icons.get(&name).map_or("", String::as_str))));
+                    map.insert(
+                        q("icon"),
+                        QVariant::from(&q(obj.icons.get(&name).map_or("", String::as_str))),
+                    );
                     obj.app_loaded(&q(&name), &map);
                 }
                 Err(e) => obj.failed(&q(&name), &q("loadApp"), &q(&crate::shell::message(&e))),
@@ -466,7 +606,9 @@ impl AndroidApps {
     fn load_permission_apps(&self, permission: &QString) {
         let (qt, permission) = (self.qt_thread(), permission.to_string());
         io::spawn(async move {
-            let apps = async { deckard().await?.get_permission_apps(&permission).await }.await.unwrap_or_default();
+            let apps = async { deckard().await?.get_permission_apps(&permission).await }
+                .await
+                .unwrap_or_default();
             qt.queue(move |obj| {
                 let list = obj.with_icons(apps);
                 obj.permission_apps_loaded(&q(&permission), &list);
@@ -484,7 +626,11 @@ impl AndroidApps {
                     let list = obj.with_icons(apps);
                     obj.special_access_loaded(&q(&kind), &list);
                 }
-                Err(e) => obj.failed(&QString::default(), &q("loadSpecialAccess"), &q(&crate::shell::message(&e))),
+                Err(e) => obj.failed(
+                    &QString::default(),
+                    &q("loadSpecialAccess"),
+                    &q(&crate::shell::message(&e)),
+                ),
             })
             .ok();
         });
@@ -501,7 +647,11 @@ impl AndroidApps {
                 if !job.is_empty() && rust.uninstalling.contains(&pkg) {
                     rust.jobs.insert(job, pkg);
                 } else if job.is_empty() && rust.uninstalling.remove(&pkg) {
-                    let error = reply.err().map(|e| crate::shell::message(&e)).filter(|e| !e.is_empty()).unwrap_or_else(|| "Android refused".into());
+                    let error = reply
+                        .err()
+                        .map(|e| crate::shell::message(&e))
+                        .filter(|e| !e.is_empty())
+                        .unwrap_or_else(|| "Android refused".into());
                     obj.failed(&q(&pkg), &q("uninstall"), &q(&error));
                 }
             })
@@ -512,7 +662,9 @@ impl AndroidApps {
     fn load_google_services(&self) {
         let qt = self.qt_thread();
         io::spawn(async move {
-            let google = async { deckard().await?.get_google_services().await }.await.unwrap_or_default();
+            let google = async { deckard().await?.get_google_services().await }
+                .await
+                .unwrap_or_default();
             qt.queue(move |mut obj| {
                 obj.as_mut().rust_mut().google_services = variant::qmap(&google);
                 obj.google_services_changed();
@@ -524,10 +676,21 @@ impl AndroidApps {
     fn set_google_services(&self, key: &QString, enabled: bool) {
         let (qt, key) = (self.qt_thread(), key.to_string());
         io::spawn(async move {
-            let reply = async { deckard().await?.inner().call_method("SetGoogleServices", &(key, enabled)).await }.await;
+            let reply = async {
+                deckard()
+                    .await?
+                    .inner()
+                    .call_method("SetGoogleServices", &(key, enabled))
+                    .await
+            }
+            .await;
             qt.queue(move |mut obj| {
                 if let Err(e) = reply {
-                    obj.as_mut().failed(&QString::default(), &q("setGoogleServices"), &q(&crate::shell::message(&e)));
+                    obj.as_mut().failed(
+                        &QString::default(),
+                        &q("setGoogleServices"),
+                        &q(&crate::shell::message(&e)),
+                    );
                 }
                 obj.load_google_services();
             })

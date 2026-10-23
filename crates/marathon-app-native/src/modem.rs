@@ -106,5 +106,4 @@ impl Modem {
         set_data_roaming_allowed(allowed: bool) => "SetDataRoamingAllowed";
         set_allowed_modes(allowed: u32) => "SetAllowedModes";
     }
-
 }

@@ -36,7 +36,13 @@ pub mod qobject {
         fn request_permission(self: &Permissions, app_id: &QString, permission: &QString);
         #[qinvokable]
         #[cxx_name = "setPermission"]
-        fn set_permission(self: &Permissions, app_id: &QString, permission: &QString, granted: bool, remember: bool) -> bool;
+        fn set_permission(
+            self: &Permissions,
+            app_id: &QString,
+            permission: &QString,
+            granted: bool,
+            remember: bool,
+        ) -> bool;
         /// Its label, description and whether only Marathon's own apps hold it.
         #[qinvokable]
         fn describe(self: &Permissions, permission: &QString) -> QMap_QString_QVariant;
@@ -60,10 +66,15 @@ fn qt_pair((app, permission): &Pair) -> (QString, QString) {
 impl cxx_qt::Initialize for Permissions {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), PERMISSIONS, "PermissionGranted", |obj, p: Pair| {
-            let (app, permission) = qt_pair(&p);
-            obj.permission_granted(&app, &permission);
-        });
+        relay(
+            qt.clone(),
+            PERMISSIONS,
+            "PermissionGranted",
+            |obj, p: Pair| {
+                let (app, permission) = qt_pair(&p);
+                obj.permission_granted(&app, &permission);
+            },
+        );
         relay(qt, PERMISSIONS, "PermissionDenied", |obj, p: Pair| {
             let (app, permission) = qt_pair(&p);
             obj.permission_denied(&app, &permission);
@@ -79,21 +90,43 @@ impl Permissions {
         has_permission(app_id: &QString, permission: &QString) -> bool => "HasPermission";
     }
 
-    fn set_permission(&self, app_id: &QString, permission: &QString, granted: bool, remember: bool) -> bool {
-        let body = (app_id.to_string(), permission.to_string(), granted, remember);
-        PERMISSIONS.ask_now::<_, ()>("SetPermission", &body).is_some()
+    fn set_permission(
+        &self,
+        app_id: &QString,
+        permission: &QString,
+        granted: bool,
+        remember: bool,
+    ) -> bool {
+        let body = (
+            app_id.to_string(),
+            permission.to_string(),
+            granted,
+            remember,
+        );
+        PERMISSIONS
+            .ask_now::<_, ()>("SetPermission", &body)
+            .is_some()
     }
 
     fn describe(&self, permission: &QString) -> QMap<QMapPair_QString_QVariant> {
         let mut map = QMap::<QMapPair_QString_QVariant>::default();
         let name = permission.to_string();
         if let Some(p) = marathon_permissions::describe(&name) {
-            map.insert(QString::from("label"), QVariant::from(&QString::from(&p.label)));
-            map.insert(QString::from("description"), QVariant::from(&QString::from(&p.description)));
+            map.insert(
+                QString::from("label"),
+                QVariant::from(&QString::from(&p.label)),
+            );
+            map.insert(
+                QString::from("description"),
+                QVariant::from(&QString::from(&p.description)),
+            );
             map.insert(QString::from("restricted"), QVariant::from(&p.restricted));
         } else {
             map.insert(QString::from("label"), QVariant::from(permission));
-            map.insert(QString::from("description"), QVariant::from(&QString::default()));
+            map.insert(
+                QString::from("description"),
+                QVariant::from(&QString::default()),
+            );
         }
         map
     }

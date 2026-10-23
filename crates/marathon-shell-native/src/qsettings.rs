@@ -83,13 +83,21 @@ impl Value {
             V::Str(s) => Self::Text(s.as_str().to_owned()),
             V::ObjectPath(p) => Self::Text(p.as_str().to_owned()),
             V::Value(inner) => Self::from_dbus(inner),
-            V::Array(items) if items.element_signature() == "s" => {
-                Self::List(items.iter().filter_map(|v| <&str>::try_from(v).ok().map(str::to_owned)).collect())
-            }
+            V::Array(items) if items.element_signature() == "s" => Self::List(
+                items
+                    .iter()
+                    .filter_map(|v| <&str>::try_from(v).ok().map(str::to_owned))
+                    .collect(),
+            ),
             V::Array(items) => Self::Seq(items.iter().map(Self::from_dbus).collect()),
             V::Dict(dict) => Self::Map(
                 dict.iter()
-                    .map(|(k, v)| (<&str>::try_from(k).map(str::to_owned).unwrap_or_default(), Self::from_dbus(v)))
+                    .map(|(k, v)| {
+                        (
+                            <&str>::try_from(k).map(str::to_owned).unwrap_or_default(),
+                            Self::from_dbus(v),
+                        )
+                    })
                     .collect(),
             ),
             other => qvariant::number(other).map_or(Self::Invalid, Self::Int),
@@ -106,8 +114,16 @@ impl Value {
             Self::Bool(b) => V::from(*b),
             Self::Int(n) => i32::try_from(*n).map_or_else(|_| V::from(*n), V::from),
             Self::Double(d) => V::from(*d),
-            Self::Seq(s) => V::from(s.iter().map(|v| V::Value(Box::new(v.to_dbus()))).collect::<Vec<_>>()),
-            Self::Map(m) => V::from(m.iter().map(|(k, v)| (k.clone(), V::Value(Box::new(v.to_dbus())))).collect::<std::collections::HashMap<_, _>>()),
+            Self::Seq(s) => V::from(
+                s.iter()
+                    .map(|v| V::Value(Box::new(v.to_dbus())))
+                    .collect::<Vec<_>>(),
+            ),
+            Self::Map(m) => V::from(
+                m.iter()
+                    .map(|(k, v)| (k.clone(), V::Value(Box::new(v.to_dbus()))))
+                    .collect::<std::collections::HashMap<_, _>>(),
+            ),
         }
     }
 }
@@ -126,7 +142,10 @@ impl Ini {
             if line.is_empty() || line.starts_with([';', '#']) {
                 continue;
             }
-            if let Some(name) = line.strip_prefix('[').and_then(|l| l.trim_end().strip_suffix(']')) {
+            if let Some(name) = line
+                .strip_prefix('[')
+                .and_then(|l| l.trim_end().strip_suffix(']'))
+            {
                 group = match name {
                     "General" => String::new(),
                     "%General" => "General".to_owned(),
@@ -134,14 +153,20 @@ impl Ini {
                 };
                 continue;
             }
-            let Some((key, value)) = line.split_once('=') else { continue };
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
             let mut value = value.to_owned();
             while value.ends_with('\\') && !value.ends_with("\\\\") {
                 value.pop();
                 value.push_str(lines.next().unwrap_or_default());
             }
             let key = unescape_key(key.trim());
-            let full = if group.is_empty() { key } else { format!("{group}/{key}") };
+            let full = if group.is_empty() {
+                key
+            } else {
+                format!("{group}/{key}")
+            };
             entries.insert(full, parse_value(&value));
         }
         Self(entries)
@@ -267,7 +292,10 @@ fn scalar_text(value: &Value) -> String {
         Value::Invalid => "@Invalid()".to_owned(),
         Value::Map(_) | Value::Seq(_) => {
             let bytes = stream(value);
-            format!("@Variant({})", bytes.iter().map(|&b| char::from(b)).collect::<String>())
+            format!(
+                "@Variant({})",
+                bytes.iter().map(|&b| char::from(b)).collect::<String>()
+            )
         }
         other => other.as_text().unwrap_or_default(),
     }
@@ -276,7 +304,10 @@ fn scalar_text(value: &Value) -> String {
 fn render_value(value: &Value) -> String {
     let mut out = String::new();
     let items: Vec<String> = match value {
-        Value::List(l) if l.len() != 1 => l.iter().map(|s| scalar_text(&Value::Text(s.clone()))).collect(),
+        Value::List(l) if l.len() != 1 => l
+            .iter()
+            .map(|s| scalar_text(&Value::Text(s.clone())))
+            .collect(),
         Value::List(l) => vec![scalar_text(&Value::Text(l[0].clone()))],
         Value::Seq(s) if s.len() != 1 => s.iter().map(scalar_text).collect(),
         other => vec![scalar_text(other)],
@@ -337,7 +368,11 @@ fn parse_value(text: &str) -> Value {
                     });
                     continue;
                 }
-                let mut n = if radix == 8 { e.to_digit(8).unwrap_or(0) } else { 0 };
+                let mut n = if radix == 8 {
+                    e.to_digit(8).unwrap_or(0)
+                } else {
+                    0
+                };
                 while let Some(d) = chars.peek().and_then(|d| d.to_digit(radix)) {
                     n = n.wrapping_mul(radix).wrapping_add(d);
                     chars.next();
@@ -353,7 +388,16 @@ fn parse_value(text: &str) -> Value {
     }
     pieces.push(cur);
     if pieces.len() > 1 {
-        return Value::List(pieces.into_iter().map(|p| p.strip_prefix('@').filter(|p| p.starts_with('@')).map_or_else(|| p.clone(), str::to_owned)).collect());
+        return Value::List(
+            pieces
+                .into_iter()
+                .map(|p| {
+                    p.strip_prefix('@')
+                        .filter(|p| p.starts_with('@'))
+                        .map_or_else(|| p.clone(), str::to_owned)
+                })
+                .collect(),
+        );
     }
     let s = pieces.pop().unwrap_or_default();
     if let Some(rest) = s.strip_prefix("@@") {
@@ -364,11 +408,20 @@ fn parse_value(text: &str) -> Value {
     }
     // What a version 4.0 stream has no word for (a `QDBusArgument` some
     // devices stored) reads as no value.
-    if let Some(inner) = s.strip_prefix("@Variant(").and_then(|r| r.strip_suffix(')')) {
-        let bytes: Vec<u8> = inner.chars().map(|c| u8::try_from(u32::from(c)).unwrap_or(0)).collect();
+    if let Some(inner) = s
+        .strip_prefix("@Variant(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
+        let bytes: Vec<u8> = inner
+            .chars()
+            .map(|c| u8::try_from(u32::from(c)).unwrap_or(0))
+            .collect();
         return unstream(&mut bytes.as_slice()).unwrap_or(Value::Invalid);
     }
-    if let Some(inner) = s.strip_prefix("@ByteArray(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(inner) = s
+        .strip_prefix("@ByteArray(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         return Value::Text(inner.to_owned());
     }
     Value::Text(s)
@@ -389,7 +442,11 @@ const BYTES: u32 = 12;
 
 fn put_string(s: &str, out: &mut Vec<u8>) {
     let units: Vec<u16> = s.encode_utf16().collect();
-    out.extend(u32::try_from(units.len() * 2).unwrap_or(u32::MAX).to_be_bytes());
+    out.extend(
+        u32::try_from(units.len() * 2)
+            .unwrap_or(u32::MAX)
+            .to_be_bytes(),
+    );
     out.extend(units.iter().flat_map(|u| u.to_be_bytes()));
 }
 
@@ -471,7 +528,12 @@ fn take_string(input: &mut &[u8]) -> Option<String> {
     let len = usize::try_from(len).ok()?;
     let (bytes, rest) = input.split_at_checked(len)?;
     *input = rest;
-    let units: Vec<u16> = bytes.as_chunks::<2>().0.iter().map(|c| u16::from_be_bytes(*c)).collect();
+    let units: Vec<u16> = bytes
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| u16::from_be_bytes(*c))
+        .collect();
     Some(String::from_utf16_lossy(&units))
 }
 
@@ -491,14 +553,30 @@ fn unstream(input: &mut &[u8]) -> Option<Value> {
         STRING => Value::Text(take_string(input)?),
         BYTES => {
             let len = take_u32(input)?;
-            let len = if len == u32::MAX { 0 } else { usize::try_from(len).ok()? };
+            let len = if len == u32::MAX {
+                0
+            } else {
+                usize::try_from(len).ok()?
+            };
             let (bytes, rest) = input.split_at_checked(len)?;
             *input = rest;
             Value::Text(String::from_utf8_lossy(bytes).into_owned())
         }
-        STRINGS => Value::List((0..count(input)?).map(|_| take_string(input)).collect::<Option<_>>()?),
-        LIST => Value::Seq((0..count(input)?).map(|_| unstream(input)).collect::<Option<_>>()?),
-        MAP => Value::Map((0..count(input)?).map(|_| Some((take_string(input)?, unstream(input)?))).collect::<Option<_>>()?),
+        STRINGS => Value::List(
+            (0..count(input)?)
+                .map(|_| take_string(input))
+                .collect::<Option<_>>()?,
+        ),
+        LIST => Value::Seq(
+            (0..count(input)?)
+                .map(|_| unstream(input))
+                .collect::<Option<_>>()?,
+        ),
+        MAP => Value::Map(
+            (0..count(input)?)
+                .map(|_| Some((take_string(input)?, unstream(input)?)))
+                .collect::<Option<_>>()?,
+        ),
         _ => return None,
     })
 }
@@ -540,9 +618,18 @@ wallpaperPath=file:///usr/share/marathon-shell/wallpapers/slate-aurora.svg
     fn qts_file_reads_back_as_qt_wrote_it() {
         let ini = Ini::parse(DEVICE);
         let get = |k: &str| ini.0.get(k).cloned().unwrap();
-        assert_eq!(get("clock/timer"), Value::Text(r#"{"endsAt":-1,"total":20,"remaining":0}"#.into()));
-        assert_eq!(get("notifications/appSettings"), Value::Map(BTreeMap::default()));
-        assert_eq!(get("quicksettings/tiles").as_list(), ["wifi", "cellular", "bluetooth"]);
+        assert_eq!(
+            get("clock/timer"),
+            Value::Text(r#"{"endsAt":-1,"total":20,"remaining":0}"#.into())
+        );
+        assert_eq!(
+            get("notifications/appSettings"),
+            Value::Map(BTreeMap::default())
+        );
+        assert_eq!(
+            get("quicksettings/tiles").as_list(),
+            ["wifi", "cellular", "bluetooth"]
+        );
         assert_eq!(get("apps/hiddenApps").as_list(), ["test"]);
         assert_eq!(get("apps/defaultFiles"), Value::Text(String::new()));
         assert_eq!(get("audio/alarmVolume").as_f64(), Some(0.9));
@@ -553,11 +640,17 @@ wallpaperPath=file:///usr/share/marathon-shell/wallpapers/slate-aurora.svg
     #[test]
     fn writes_are_byte_for_byte_qts() {
         let mut ini = Ini::default();
-        ini.0.insert("notifications/appSettings".into(), Value::Map(BTreeMap::default()));
-        ini.0.insert("clock/timer".into(), Value::Text(r#"{"a":1,"b":2}"#.into()));
-        ini.0.insert("apps/hiddenApps".into(), Value::List(vec!["test".into()]));
+        ini.0.insert(
+            "notifications/appSettings".into(),
+            Value::Map(BTreeMap::default()),
+        );
+        ini.0
+            .insert("clock/timer".into(), Value::Text(r#"{"a":1,"b":2}"#.into()));
+        ini.0
+            .insert("apps/hiddenApps".into(), Value::List(vec!["test".into()]));
         ini.0.insert("apps/none".into(), Value::List(Vec::new()));
-        ini.0.insert("ui/userScaleFactor".into(), Value::Double(1.0));
+        ini.0
+            .insert("ui/userScaleFactor".into(), Value::Double(1.0));
         ini.0.insert("firstKey".into(), Value::Bool(true));
         assert_eq!(
             ini.render(),
@@ -573,9 +666,12 @@ wallpaperPath=file:///usr/share/marathon-shell/wallpapers/slate-aurora.svg
         map.insert("Mývatn".to_owned(), Value::Text("a, \"b\"\n".into()));
         map.insert("n".to_owned(), Value::Int(-7));
         let mut ini = Ini::default();
-        ini.0.insert("notifications/appSettings".into(), Value::Map(map));
-        ini.0.insert("x/@lead".into(), Value::Text("@at, \tspaced ".into()));
-        ini.0.insert("x/deep/key with space".into(), Value::Text("Mývatn".into()));
+        ini.0
+            .insert("notifications/appSettings".into(), Value::Map(map));
+        ini.0
+            .insert("x/@lead".into(), Value::Text("@at, \tspaced ".into()));
+        ini.0
+            .insert("x/deep/key with space".into(), Value::Text("Mývatn".into()));
         assert_eq!(Ini::parse(&ini.render()), ini);
     }
 

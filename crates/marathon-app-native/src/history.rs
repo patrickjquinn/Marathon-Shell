@@ -40,7 +40,13 @@ pub mod qobject {
         fn refresh(self: &CallHistory);
         #[qinvokable]
         #[cxx_name = "addCall"]
-        fn add_call(self: &CallHistory, number: &QString, kind: &QString, timestamp: i64, duration: i32);
+        fn add_call(
+            self: &CallHistory,
+            number: &QString,
+            kind: &QString,
+            timestamp: i64,
+            duration: i32,
+        );
         #[qinvokable]
         #[cxx_name = "deleteCall"]
         fn delete_call(self: &CallHistory, id: i32);
@@ -74,10 +80,14 @@ type Qt = cxx_qt::CxxQtThread<CallHistory>;
 impl cxx_qt::Initialize for CallHistory {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), HISTORY, "CallAdded", |obj, (id,): (i32,)| obj.call_added(id));
+        relay(qt.clone(), HISTORY, "CallAdded", |obj, (id,): (i32,)| {
+            obj.call_added(id);
+        });
         io::spawn(async move {
             read(&qt).await;
-            let Ok(changes) = HISTORY.signals::<()>("HistoryChanged").await else { return };
+            let Ok(changes) = HISTORY.signals::<()>("HistoryChanged").await else {
+                return;
+            };
             let mut changes = std::pin::pin!(changes);
             while changes.next().await.is_some() {
                 read(&qt).await;

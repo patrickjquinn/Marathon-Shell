@@ -7,7 +7,7 @@ use std::time::Duration;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 
-use crate::io;
+use crate::{io, log};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -19,10 +19,38 @@ pub mod qobject {
     extern "RustQt" {
         #[qobject]
         #[qproperty(bool, is_locked, cxx_name = "isLocked", READ, WRITE = set_is_locked, NOTIFY)]
-        #[qproperty(bool, is_on_lock_screen, cxx_name = "isOnLockScreen", READ, WRITE, NOTIFY)]
-        #[qproperty(bool, show_lock_screen, cxx_name = "showLockScreen", READ, WRITE, NOTIFY)]
-        #[qproperty(bool, is_animating_lock, cxx_name = "isAnimatingLock", READ, WRITE, NOTIFY)]
-        #[qproperty(QString, lock_transition, cxx_name = "lockTransition", READ, WRITE, NOTIFY)]
+        #[qproperty(
+            bool,
+            is_on_lock_screen,
+            cxx_name = "isOnLockScreen",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
+        #[qproperty(
+            bool,
+            show_lock_screen,
+            cxx_name = "showLockScreen",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
+        #[qproperty(
+            bool,
+            is_animating_lock,
+            cxx_name = "isAnimatingLock",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
+        #[qproperty(
+            QString,
+            lock_transition,
+            cxx_name = "lockTransition",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
         /// Seconds after locking during which unlocking skips the PIN.
         #[qproperty(i32, lock_delay, cxx_name = "lockDelay", READ, WRITE = set_lock_delay, NOTIFY)]
         type Session = super::SessionRust;
@@ -100,9 +128,22 @@ impl Default for SessionRust {
 }
 
 fn boot_ms() -> i64 {
-    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
-    // SAFETY: clock_gettime writes the timespec it is given.
-    unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &raw mut ts) };
+    let mut ts = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: `ts` is valid writable storage for the duration of the call.
+    let rc = unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &raw mut ts) };
+    if rc != 0 {
+        log::warn(
+            "session",
+            format_args!(
+                "reading CLOCK_BOOTTIME: {}",
+                std::io::Error::last_os_error()
+            ),
+        );
+        return 0;
+    }
     ts.tv_sec * 1000 + ts.tv_nsec / 1_000_000
 }
 
@@ -114,7 +155,11 @@ impl Session {
         let delay = i64::from(self.lock_delay);
         let mut rust = self.as_mut().rust_mut();
         rust.is_locked = locked;
-        rust.valid_until_ms = if locked && delay > 0 { boot_ms() + delay * 1000 } else { 0 };
+        rust.valid_until_ms = if locked && delay > 0 {
+            boot_ms() + delay * 1000
+        } else {
+            0
+        };
         self.is_locked_changed();
     }
 
@@ -123,7 +168,12 @@ impl Session {
     }
 
     fn transition(mut self: Pin<&mut Self>, to_locked: bool) {
-        self.as_mut().set_lock_transition(QString::from(if to_locked { "locking" } else { "unlocking" }));
+        self.as_mut()
+            .set_lock_transition(QString::from(if to_locked {
+                "locking"
+            } else {
+                "unlocking"
+            }));
         self.as_mut().set_is_animating_lock(true);
         self.as_mut().lock_state_changing(to_locked);
         let turn = {
@@ -145,7 +195,9 @@ impl Session {
     }
 
     fn settle(mut self: Pin<&mut Self>) {
-        let Some(locked) = self.as_mut().rust_mut().settling.take() else { return };
+        let Some(locked) = self.as_mut().rust_mut().settling.take() else {
+            return;
+        };
         self.as_mut().set_is_locked(locked);
         self.as_mut().set_is_animating_lock(false);
         self.as_mut().set_lock_transition(QString::default());

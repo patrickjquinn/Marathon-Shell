@@ -269,12 +269,25 @@ fn capture(pattern: &str, text: &str) -> Option<String> {
         .map(|c| c[1].to_owned())
 }
 
+/// Which manifest namespace and permissions an app may use.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AppClass {
+    System,
+    ThirdParty,
+}
+
+impl AppClass {
+    const fn is_system(self) -> bool {
+        matches!(self, Self::System)
+    }
+}
+
 /// The manifest-only rules: the schema, the id namespace, `protected` and
-/// the permissions. `system_app` admits Marathon's own apps (single-word
-/// ids, protected, restricted permissions).
-pub fn lint_manifest(manifest: &Value, system_app: bool) -> Vec<Finding> {
+/// the permissions. System apps may use Marathon's single-word IDs,
+/// protection flag and restricted permissions.
+pub fn lint_manifest(manifest: &Value, class: AppClass) -> Vec<Finding> {
     let mut lint = Lint::default();
-    lint.manifest(manifest, system_app);
+    lint.manifest(manifest, class.is_system());
     lint.findings
 }
 
@@ -307,12 +320,12 @@ fn lint_tree(dir: &Path, system_app: bool, lint: &mut Lint) -> Option<String> {
 }
 
 /// Lints an app source or install directory.
-pub fn lint_dir(dir: &Path, system_app: bool) -> Vec<Finding> {
+pub fn lint_dir(dir: &Path, class: AppClass) -> Vec<Finding> {
     let mut lint = Lint::default();
-    let id = lint_tree(dir, system_app, &mut lint);
+    let id = lint_tree(dir, class.is_system(), &mut lint);
     // A third-party source tree may be named anything; the installer
     // names the installed directory after the id.
-    if let Some(id) = id.filter(|_| system_app) {
+    if let Some(id) = id.filter(|_| class.is_system()) {
         let name = fs::canonicalize(dir)
             .ok()
             .and_then(|d| d.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -329,7 +342,7 @@ pub fn lint_dir(dir: &Path, system_app: bool) -> Vec<Finding> {
 }
 
 /// Lints a `.marathon` package.
-pub fn lint_package(archive: &Path, system_app: bool) -> Vec<Finding> {
+pub fn lint_package(archive: &Path, class: AppClass) -> Vec<Finding> {
     let mut lint = Lint::default();
     let extracted = match tempfile::tempdir()
         .map_err(|e| e.to_string())
@@ -341,7 +354,7 @@ pub fn lint_package(archive: &Path, system_app: bool) -> Vec<Finding> {
             return lint.findings;
         }
     };
-    if let Some(id) = lint_tree(extracted.path(), system_app, &mut lint) {
+    if let Some(id) = lint_tree(extracted.path(), class.is_system(), &mut lint) {
         let stem = archive
             .file_stem()
             .map(|s| s.to_string_lossy().into_owned())
@@ -363,6 +376,9 @@ pub fn lint_package(archive: &Path, system_app: bool) -> Vec<Finding> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    const SYSTEM: AppClass = AppClass::System;
+    const THIRD_PARTY: AppClass = AppClass::ThirdParty;
 
     fn manifest() -> Value {
         json!({
@@ -417,7 +433,7 @@ mod tests {
 
     #[test]
     fn a_complete_manifest_passes() {
-        assert_eq!(lint_manifest(&manifest(), false), Vec::new());
+        assert_eq!(lint_manifest(&manifest(), THIRD_PARTY), Vec::new());
     }
 
     #[test]
@@ -453,7 +469,7 @@ mod tests {
             ),
         ];
         for (value, path) in cases {
-            let findings = lint_manifest(&value, false);
+            let findings = lint_manifest(&value, THIRD_PARTY);
             assert!(
                 findings
                     .iter()
@@ -472,15 +488,15 @@ mod tests {
             json!({ "secret-service": "Keeps your sign-in token" }),
         );
         assert_eq!(
-            rules(&lint_manifest(&secrets, false)),
+            rules(&lint_manifest(&secrets, THIRD_PARTY)),
             [("schema", "/dataLifecycle")]
         );
         let declared = with(secrets, "/dataLifecycle/secrets", json!("remove"));
-        assert_eq!(lint_manifest(&declared, false), Vec::new());
+        assert_eq!(lint_manifest(&declared, THIRD_PARTY), Vec::new());
 
         let undeclared = with(manifest(), "/dataLifecycle/userFiles", json!("preserve"));
         assert_eq!(
-            rules(&lint_manifest(&undeclared, false)),
+            rules(&lint_manifest(&undeclared, THIRD_PARTY)),
             [("schema", "/dataLifecycle")]
         );
         let storage = with(undeclared, "/permissions", json!(["storage"]));
@@ -489,9 +505,9 @@ mod tests {
             "/permissionReasons",
             json!({ "storage": "Saves notes as text files in Documents" }),
         );
-        assert_eq!(lint_manifest(&storage, false), Vec::new());
+        assert_eq!(lint_manifest(&storage, THIRD_PARTY), Vec::new());
         assert_eq!(
-            lint_manifest(&without(storage, "dataLifecycle"), false).len(),
+            lint_manifest(&without(storage, "dataLifecycle"), THIRD_PARTY).len(),
             1
         );
     }
@@ -499,23 +515,23 @@ mod tests {
     #[test]
     fn third_party_namespace() {
         let bare = with(manifest(), "/id", json!("notes"));
-        assert_eq!(rules(&lint_manifest(&bare, false)), [("id", "/id")]);
-        assert_eq!(lint_manifest(&bare, true), Vec::new());
+        assert_eq!(rules(&lint_manifest(&bare, THIRD_PARTY)), [("id", "/id")]);
+        assert_eq!(lint_manifest(&bare, SYSTEM), Vec::new());
         let ours = with(manifest(), "/id", json!("org.marathonos.notes"));
-        assert_eq!(rules(&lint_manifest(&ours, false)), [("id", "/id")]);
+        assert_eq!(rules(&lint_manifest(&ours, THIRD_PARTY)), [("id", "/id")]);
         let protected = with(manifest(), "/protected", json!(true));
         assert_eq!(
-            rules(&lint_manifest(&protected, false)),
+            rules(&lint_manifest(&protected, THIRD_PARTY)),
             [("protected", "/protected")]
         );
-        assert_eq!(lint_manifest(&protected, true), Vec::new());
+        assert_eq!(lint_manifest(&protected, SYSTEM), Vec::new());
     }
 
     #[test]
     fn permission_rules() {
         let no_reason = without(manifest(), "permissionReasons");
         assert_eq!(
-            rules(&lint_manifest(&no_reason, false)),
+            rules(&lint_manifest(&no_reason, THIRD_PARTY)),
             [("permission-reason", "/permissions/1")]
         );
 
@@ -525,7 +541,7 @@ mod tests {
             json!("Scans QR codes on notes"),
         );
         assert_eq!(
-            rules(&lint_manifest(&stray, false)),
+            rules(&lint_manifest(&stray, THIRD_PARTY)),
             [("permission-reason", "/permissionReasons/camera")]
         );
 
@@ -536,10 +552,10 @@ mod tests {
             json!({ "system": "Changes device settings" }),
         );
         assert_eq!(
-            rules(&lint_manifest(&system, false)),
+            rules(&lint_manifest(&system, THIRD_PARTY)),
             [("permission", "/permissions/0")]
         );
-        assert_eq!(lint_manifest(&system, true), Vec::new());
+        assert_eq!(lint_manifest(&system, SYSTEM), Vec::new());
     }
 
     fn write(dir: &Path, file: &str, text: &str) {
@@ -568,7 +584,7 @@ mod tests {
     fn a_complete_app_directory_passes() {
         let root = app(&manifest());
         assert_eq!(
-            lint_dir(&root.path().join("com.example.notes"), false),
+            lint_dir(&root.path().join("com.example.notes"), THIRD_PARTY),
             Vec::new()
         );
     }
@@ -582,7 +598,7 @@ mod tests {
         write(&dir, "CMakeLists.txt", "set(APP_NAME notes)\nadd_marathon_app(${APP_NAME} URI x)\ninstall_keel_actions(${APP_NAME} actions.json)\n");
         write(&dir, "actions.json", r#"{"appId": "org.marathonos.notes"}"#);
         assert_eq!(
-            rules(&lint_dir(&dir, false)),
+            rules(&lint_dir(&dir, THIRD_PARTY)),
             [
                 ("files", "/icon"),
                 ("tested-on", "/testedOn/widths/1"),
@@ -599,13 +615,13 @@ mod tests {
         let root = app(&manifest());
         let moved = root.path().join("notes");
         fs::rename(root.path().join("com.example.notes"), &moved).unwrap();
-        assert_eq!(lint_dir(&moved, false), Vec::new());
+        assert_eq!(lint_dir(&moved, THIRD_PARTY), Vec::new());
         let ours = with(manifest(), "/id", json!("notes"));
         fs::write(moved.join("manifest.json"), ours.to_string()).unwrap();
-        assert_eq!(lint_dir(&moved, true), Vec::new());
+        assert_eq!(lint_dir(&moved, SYSTEM), Vec::new());
         fs::rename(&moved, root.path().join("memo")).unwrap();
         assert_eq!(
-            rules(&lint_dir(&root.path().join("memo"), true)),
+            rules(&lint_dir(&root.path().join("memo"), SYSTEM)),
             [("id-directory", "")]
         );
     }
@@ -619,14 +635,18 @@ mod tests {
             Ok(())
         );
         assert_eq!(
-            rules(&lint_package(&package, false)),
+            rules(&lint_package(&package, THIRD_PARTY)),
             [("id-package", package.to_str().unwrap())]
         );
         let named = root.path().join("com.example.notes-1.2.0.marathon");
         fs::rename(&package, &named).unwrap();
-        assert_eq!(lint_package(&named, false), Vec::new());
+        assert_eq!(lint_package(&named, THIRD_PARTY), Vec::new());
         assert_eq!(
-            rules(&lint_package(&root.path().join("missing.marathon"), false))[0].0,
+            rules(&lint_package(
+                &root.path().join("missing.marathon"),
+                THIRD_PARTY
+            ))[0]
+                .0,
             "package"
         );
     }

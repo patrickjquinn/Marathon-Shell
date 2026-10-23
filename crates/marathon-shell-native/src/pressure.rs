@@ -50,7 +50,12 @@ fn level(avg10: f64) -> Level {
 }
 
 fn some_avg10(psi: &str) -> Option<f64> {
-    psi.lines().find_map(|l| l.strip_prefix("some "))?.split(' ').find_map(|f| f.strip_prefix("avg10="))?.parse().ok()
+    psi.lines()
+        .find_map(|l| l.strip_prefix("some "))?
+        .split(' ')
+        .find_map(|f| f.strip_prefix("avg10="))?
+        .parse()
+        .ok()
 }
 
 impl cxx_qt::Initialize for qobject::MemoryPressure {
@@ -58,12 +63,19 @@ impl cxx_qt::Initialize for qobject::MemoryPressure {
         let qt = self.qt_thread();
         io::spawn(async move {
             if let Err(e) = std::fs::read_to_string(PSI) {
-                log::warn("pressure", format_args!("no PSI, pressure is not watched: {e}"));
+                log::warn(
+                    "pressure",
+                    format_args!("no PSI, pressure is not watched: {e}"),
+                );
                 return;
             }
             let mut last = Level::Normal;
             loop {
-                if let Some(avg10) = std::fs::read_to_string(PSI).ok().as_deref().and_then(some_avg10) {
+                if let Some(avg10) = std::fs::read_to_string(PSI)
+                    .ok()
+                    .as_deref()
+                    .and_then(some_avg10)
+                {
                     let now = level(avg10);
                     if now != last {
                         log::warn("pressure", format_args!("{now:?} (avg10 {avg10} %)"));

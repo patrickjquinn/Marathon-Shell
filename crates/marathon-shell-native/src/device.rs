@@ -77,15 +77,27 @@ pub struct Values {
 
 impl Values {
     fn get(&self, env: &str, key: &str) -> Option<String> {
-        std::env::var(env).ok().filter(|v| !v.is_empty()).or_else(|| self.raw.get(key).cloned())
+        std::env::var(env)
+            .ok()
+            .filter(|v| !v.is_empty())
+            .or_else(|| self.raw.get(key).cloned())
     }
 
     fn text(&self, env: &str, key: &str, default: &str) -> String {
         self.get(env, key).unwrap_or_else(|| default.to_owned())
     }
 
-    fn number<T: std::str::FromStr>(&self, env: &str, key: &str, default: T, valid: impl Fn(&T) -> bool) -> T {
-        self.get(env, key).and_then(|v| v.parse().ok()).filter(valid).unwrap_or(default)
+    fn number<T: std::str::FromStr>(
+        &self,
+        env: &str,
+        key: &str,
+        default: T,
+        valid: impl Fn(&T) -> bool,
+    ) -> T {
+        self.get(env, key)
+            .and_then(|v| v.parse().ok())
+            .filter(valid)
+            .unwrap_or(default)
     }
 
     fn flag(&self, env: &str, key: &str, default: bool) -> bool {
@@ -105,7 +117,9 @@ impl Values {
     }
 
     pub fn runner_pool(&self) -> i32 {
-        self.number("MARATHON_RUNNER_POOL", "RUNNER_POOL", 1, |n| (0..=2).contains(n))
+        self.number("MARATHON_RUNNER_POOL", "RUNNER_POOL", 1, |n| {
+            (0..=2).contains(n)
+        })
     }
 
     pub fn runner_size(&self) -> (i32, i32) {
@@ -117,8 +131,11 @@ impl Values {
 }
 
 pub static VALUES: LazyLock<Values> = LazyLock::new(|| {
-    let path = std::env::var("MARATHON_DEVICE_PROFILE").unwrap_or_else(|_| "/etc/marathon/device-profile.conf".into());
-    let raw = dotenvy::from_path_iter(path).map(|i| i.flatten().collect()).unwrap_or_default();
+    let path = std::env::var("MARATHON_DEVICE_PROFILE")
+        .unwrap_or_else(|_| "/etc/marathon/device-profile.conf".into());
+    let raw = dotenvy::from_path_iter(path)
+        .map(|i| i.flatten().collect())
+        .unwrap_or_default();
     Values { raw }
 });
 
@@ -129,7 +146,10 @@ fn profile() -> Profile {
         .get("MARATHON_GLES_VERSION", "GLES_LEVEL")
         .and_then(|s| {
             let (major, minor) = s.split_once('.').unwrap_or((&s, "0"));
-            Some((major.parse().ok().filter(|m| *m > 0)?, minor.parse().unwrap_or(0)))
+            Some((
+                major.parse().ok().filter(|m| *m > 0)?,
+                minor.parse().unwrap_or(0),
+            ))
         })
         .unwrap_or((2, 0));
     let (runner_width, runner_height) = v.runner_size();
@@ -143,15 +163,24 @@ fn profile() -> Profile {
         hw_msaa_samples: v.number("MARATHON_LAYER_SAMPLES", "GPU_MSAA", 0, |_| true),
         panel_dither: v.flag("MARATHON_PANEL_DITHER", "PANEL_DITHER", true),
         render_node: q(v.render_node()),
-        brightness_floor: v.number("MARATHON_BRIGHTNESS_FLOOR", "BRIGHTNESS_FLOOR", 0.28, |f| (0.0..=1.0).contains(f)),
+        brightness_floor: v.number("MARATHON_BRIGHTNESS_FLOOR", "BRIGHTNESS_FLOOR", 0.28, |f| {
+            (0.0..=1.0).contains(f)
+        }),
         runner_width,
         runner_height,
         panel_dpi: v.number("MARATHON_PANEL_DPI", "PANEL_DPI", 0.0, |f| *f > 0.0),
         native_scale: v.number("MARATHON_NATIVE_SCALE", "NATIVE_SCALE", 0.0, |f| *f > 0.0),
         doze_dpms: v.flag("MARATHON_DOZE_DPMS", "DOZE_DPMS", true),
         wifi_power_save: v.flag("MARATHON_WIFI_POWERSAVE", "WIFI_POWERSAVE", true),
-        screen_timeout_ms: v.number("MARATHON_SCREEN_TIMEOUT_MS", "SCREEN_TIMEOUT_MS", 300_000, |n| *n >= 0),
-        panel_depth: v.number("MARATHON_PANEL_DEPTH", "PANEL_DEPTH", 8, |n| (4..=10).contains(n)),
+        screen_timeout_ms: v.number(
+            "MARATHON_SCREEN_TIMEOUT_MS",
+            "SCREEN_TIMEOUT_MS",
+            300_000,
+            |n| *n >= 0,
+        ),
+        panel_depth: v.number("MARATHON_PANEL_DEPTH", "PANEL_DEPTH", 8, |n| {
+            (4..=10).contains(n)
+        }),
         wake_on_key: v.flag("MARATHON_WAKE_ON_KEY", "WAKE_ON_KEY", false),
         runner_pool: v.runner_pool(),
         touch_filter: v.flag("MARATHON_TOUCH_FILTER", "TOUCH_FILTER", false),
@@ -166,11 +195,22 @@ fn has_hardware_keyboard() -> bool {
     if std::env::var_os("MARATHON_FORCE_VKB").is_some() {
         return false;
     }
-    std::fs::read_to_string("/proc/bus/input/devices").unwrap_or_default().split("\n\n").any(|device| {
-        let field = |prefix: &str| device.lines().find_map(|l| l.strip_prefix(prefix)).unwrap_or("").trim();
-        let ev = u64::from_str_radix(field("B: EV="), 16).unwrap_or(0);
-        field("H: Handlers=").split(' ').any(|h| h == "kbd") && ev & EV_REP != 0 && field("B: KEY=").len() > 40
-    })
+    std::fs::read_to_string("/proc/bus/input/devices")
+        .unwrap_or_default()
+        .split("\n\n")
+        .any(|device| {
+            let field = |prefix: &str| {
+                device
+                    .lines()
+                    .find_map(|l| l.strip_prefix(prefix))
+                    .unwrap_or("")
+                    .trim()
+            };
+            let ev = u64::from_str_radix(field("B: EV="), 16).unwrap_or(0);
+            field("H: Handlers=").split(' ').any(|h| h == "kbd")
+                && ev & EV_REP != 0
+                && field("B: KEY=").len() > 40
+        })
 }
 
 struct Card(std::fs::File);
@@ -185,7 +225,12 @@ impl drm::Device for Card {}
 impl drm::control::Device for Card {}
 
 fn open(path: &std::path::Path) -> Option<Card> {
-    std::fs::OpenOptions::new().read(true).write(true).open(path).ok().map(Card)
+    std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .ok()
+        .map(Card)
 }
 
 /// `QT_QPA_EGLFS_KMS_CONFIG`'s device, else every card with connectors.
@@ -203,8 +248,15 @@ fn eglfs_cards() -> Vec<std::path::PathBuf> {
         .flatten()
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("card")))
-        .filter(|p| open(p).is_some_and(|c| drm::control::Device::resource_handles(&c).is_ok_and(|r| !r.connectors().is_empty())))
+        .filter(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("card"))
+        })
+        .filter(|p| {
+            open(p).is_some_and(|c| {
+                drm::control::Device::resource_handles(&c).is_ok_and(|r| !r.connectors().is_empty())
+            })
+        })
         .collect();
     cards.sort();
     cards
@@ -213,7 +265,10 @@ fn eglfs_cards() -> Vec<std::path::PathBuf> {
 /// The kernel makes the first opener master: an open that is not master
 /// means another holds it (drmIsMaster's test).
 fn held_by_other(card: &std::path::Path) -> bool {
-    open(card).is_some_and(|c| drm_ffi::auth::auth_magic_token(c.0.as_fd(), 0).is_err_and(|e| e.raw_os_error() == Some(libc::EACCES)))
+    open(card).is_some_and(|c| {
+        drm_ffi::auth::auth_magic_token(c.0.as_fd(), 0)
+            .is_err_and(|e| e.raw_os_error() == Some(libc::EACCES))
+    })
 }
 
 fn wait_for_drm_master(timeout_ms: i32) -> i32 {

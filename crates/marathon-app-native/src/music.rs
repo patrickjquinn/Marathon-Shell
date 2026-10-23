@@ -84,16 +84,28 @@ fn scan(root: &Path) -> Vec<Track> {
     let mut tracks: Vec<Track> = walkdir::WalkDir::new(root)
         .into_iter()
         .flatten()
-        .filter(|e| e.file_type().is_file() && e.path().extension().is_some_and(|x| AUDIO.contains(&x.to_string_lossy().to_ascii_lowercase().as_str())))
+        .filter(|e| {
+            e.file_type().is_file()
+                && e.path().extension().is_some_and(|x| {
+                    AUDIO.contains(&x.to_string_lossy().to_ascii_lowercase().as_str())
+                })
+        })
         .map(|e| {
             let path = e.path().to_string_lossy().into_owned();
-            let hash = path.bytes().fold(0x811c_9dc5_u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
+            let hash = path.bytes().fold(0x811c_9dc5_u32, |h, b| {
+                (h ^ u32::from(b)).wrapping_mul(0x0100_0193)
+            });
             let album = e.path().parent();
             Track {
                 id: i32::try_from(hash >> 1).unwrap_or_default().max(1),
-                title: e.path().file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(),
+                title: e
+                    .path()
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
                 album: name(album).unwrap_or_else(|| "Unknown Album".into()),
-                artist: name(album.and_then(Path::parent)).unwrap_or_else(|| "Unknown Artist".into()),
+                artist: name(album.and_then(Path::parent))
+                    .unwrap_or_else(|| "Unknown Artist".into()),
                 path,
             }
         })
@@ -107,10 +119,18 @@ fn watch(qt: cxx_qt::CxxQtThread<MusicLibrary>) {
     use inotify::{Inotify, WatchMask};
     std::thread::spawn(move || -> std::io::Result<()> {
         let mut inotify = Inotify::init()?;
-        let mask = WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVED_FROM | WatchMask::MOVED_TO | WatchMask::CLOSE_WRITE;
+        let mask = WatchMask::CREATE
+            | WatchMask::DELETE
+            | WatchMask::MOVED_FROM
+            | WatchMask::MOVED_TO
+            | WatchMask::CLOSE_WRITE;
         let mut buffer = [0; 4096];
         loop {
-            for dir in walkdir::WalkDir::new(music_dir()).into_iter().flatten().filter(|e| e.file_type().is_dir()) {
+            for dir in walkdir::WalkDir::new(music_dir())
+                .into_iter()
+                .flatten()
+                .filter(|e| e.file_type().is_dir())
+            {
                 inotify.watches().add(dir.path(), mask).ok();
             }
             inotify.read_events_blocking(&mut buffer)?;
@@ -121,7 +141,9 @@ fn watch(qt: cxx_qt::CxxQtThread<MusicLibrary>) {
 }
 
 fn music_dir() -> PathBuf {
-    let dir = dirs::audio_dir().or_else(|| dirs::home_dir().map(|h| h.join("Music"))).unwrap_or_default();
+    let dir = dirs::audio_dir()
+        .or_else(|| dirs::home_dir().map(|h| h.join("Music")))
+        .unwrap_or_default();
     std::fs::create_dir_all(&dir).ok();
     dir
 }
@@ -148,7 +170,11 @@ fn artists(tracks: &[Track]) -> QList<QVariant> {
     for group in tracks.chunk_by(|a, b| a.artist == b.artist) {
         let mut albums: Vec<&str> = group.iter().map(|t| t.album.as_str()).collect();
         albums.dedup();
-        out.append(map(&[("name", text(&group[0].artist)), ("albumCount", QVariant::from(&count(albums.len()))), ("trackCount", QVariant::from(&count(group.len())))]));
+        out.append(map(&[
+            ("name", text(&group[0].artist)),
+            ("albumCount", QVariant::from(&count(albums.len()))),
+            ("trackCount", QVariant::from(&count(group.len()))),
+        ]));
     }
     out
 }
@@ -226,7 +252,10 @@ mod tests {
         touch(dir.path(), "Ava/Sky/Blue.mp3");
         touch(dir.path(), "Bo/Ice/notes.txt");
         let tracks = scan(dir.path());
-        let titles: Vec<(&str, &str, &str)> = tracks.iter().map(|t| (t.artist.as_str(), t.album.as_str(), t.title.as_str())).collect();
+        let titles: Vec<(&str, &str, &str)> = tracks
+            .iter()
+            .map(|t| (t.artist.as_str(), t.album.as_str(), t.title.as_str()))
+            .collect();
         assert_eq!(titles, [("Ava", "Sky", "Blue"), ("Bo", "Ice", "Cold")]);
     }
 

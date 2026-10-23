@@ -34,9 +34,23 @@ const PROMPT_ECHO_OFF: c_int = 1;
 const PROMPT_ECHO_ON: c_int = 2;
 const SILENT: c_int = 0x8000;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Error {
+    InvalidInput,
+    Start(c_int),
+    Authenticate(c_int),
+    Account(c_int),
+    End(c_int),
+}
+
 #[link(name = "pam")]
 extern "C" {
-    fn pam_start(service: *const c_char, user: *const c_char, conversation: *const Conversation, handle: *mut *mut Handle) -> c_int;
+    fn pam_start(
+        service: *const c_char,
+        user: *const c_char,
+        conversation: *const Conversation,
+        handle: *mut *mut Handle,
+    ) -> c_int;
     fn pam_authenticate(handle: *mut Handle, flags: c_int) -> c_int;
     fn pam_acct_mgmt(handle: *mut Handle, flags: c_int) -> c_int;
     fn pam_end(handle: *mut Handle, status: c_int) -> c_int;
@@ -49,8 +63,15 @@ extern "C" {
 }
 
 /// Answers every prompt with the password in `data`.
-extern "C" fn converse(count: c_int, messages: *mut *const Message, answers: *mut *mut Response, data: *mut c_void) -> c_int {
-    let Ok(count) = usize::try_from(count) else { return CONV_ERR };
+extern "C" fn converse(
+    count: c_int,
+    messages: *mut *const Message,
+    answers: *mut *mut Response,
+    data: *mut c_void,
+) -> c_int {
+    let Ok(count) = usize::try_from(count) else {
+        return CONV_ERR;
+    };
     if count == 0 || messages.is_null() || answers.is_null() || data.is_null() {
         return CONV_ERR;
     }
@@ -72,25 +93,48 @@ extern "C" fn converse(count: c_int, messages: *mut *const Message, answers: *mu
     SUCCESS
 }
 
-/// Whether `password` is `user`'s, by PAM's auth and account stacks. Waits
-/// out PAM's failure delay on a wrong one: call it off the GUI thread.
-pub fn authenticate(user: &str, password: &str) -> bool {
-    let (Ok(service), Ok(user), Ok(password)) = (CString::new("marathon-shell"), CString::new(user), CString::new(password)) else {
-        return false;
+/// Verifies `password` through PAM's authentication and account stacks. Waits
+/// out PAM's failure delay on rejection: call it off the GUI thread.
+pub fn authenticate(user: &str, password: &str) -> Result<(), Error> {
+    let (Ok(service), Ok(user), Ok(password)) = (
+        CString::new("marathon-shell"),
+        CString::new(user),
+        CString::new(password),
+    ) else {
+        return Err(Error::InvalidInput);
     };
-    let conversation = Conversation { converse, data: ptr::from_ref(&password).cast_mut().cast() };
+    let conversation = Conversation {
+        converse,
+        data: ptr::from_ref(&password).cast_mut().cast(),
+    };
     let mut handle = ptr::null_mut();
     // SAFETY: the strings and the conversation outlive the PAM transaction,
     // which ends with pam_end before they drop.
     unsafe {
-        if pam_start(service.as_ptr(), user.as_ptr(), &raw const conversation, &raw mut handle) != SUCCESS {
-            return false;
+        let started = pam_start(
+            service.as_ptr(),
+            user.as_ptr(),
+            &raw const conversation,
+            &raw mut handle,
+        );
+        if started != SUCCESS {
+            return Err(Error::Start(started));
         }
-        let mut status = pam_authenticate(handle, SILENT);
-        if status == SUCCESS {
-            status = pam_acct_mgmt(handle, SILENT);
+        let authenticated = pam_authenticate(handle, SILENT);
+        if authenticated != SUCCESS {
+            pam_end(handle, authenticated);
+            return Err(Error::Authenticate(authenticated));
         }
-        pam_end(handle, status);
-        status == SUCCESS
+        let account = pam_acct_mgmt(handle, SILENT);
+        if account != SUCCESS {
+            pam_end(handle, account);
+            return Err(Error::Account(account));
+        }
+        let ended = pam_end(handle, SUCCESS);
+        if ended == SUCCESS {
+            Ok(())
+        } else {
+            Err(Error::End(ended))
+        }
     }
 }

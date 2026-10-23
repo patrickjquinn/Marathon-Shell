@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Install packages
         run: |
-          pacman -Syu --noconfirm git clang qt6-declarative
+          pacman -Syu --noconfirm git clang qt6-declarative rust
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -31,6 +31,9 @@ jobs:
 
           echo "=== Running qmlformat ==="
           /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml')
+
+          echo "=== Checking Rust formatting ==="
+          cargo fmt --manifest-path crates/Cargo.toml --all -- --check
 
           if [[ -n $(git status --porcelain) ]]; then
             echo "needs_formatting=true" >> $GITHUB_OUTPUT
@@ -49,6 +52,7 @@ jobs:
             ```bash
             clang-format -i <files>
             qmlformat -i <files> (must be from Qt 6)
+            cargo fmt --manifest-path crates/Cargo.toml --all
             ```
             Commit the updated files and push again.
 

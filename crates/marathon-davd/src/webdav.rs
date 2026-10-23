@@ -22,7 +22,10 @@ pub fn authorization(kind: &str, username: &str, secret: &str) -> String {
     if kind == "bearer" {
         format!("Bearer {secret}")
     } else {
-        format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(format!("{username}:{secret}")))
+        format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(format!("{username}:{secret}"))
+        )
     }
 }
 
@@ -31,34 +34,67 @@ pub fn resolve(base: &str, href: &str) -> String {
     if href.starts_with("http://") || href.starts_with("https://") {
         return href.to_owned();
     }
-    let origin = base.find("://").map_or(0, |i| base[i + 3..].find('/').map_or(base.len(), |j| i + 3 + j));
+    let origin = base.find("://").map_or(0, |i| {
+        base[i + 3..].find('/').map_or(base.len(), |j| i + 3 + j)
+    });
     if href.starts_with('/') {
         return format!("{}{href}", &base[..origin]);
     }
-    let dir = base.rfind('/').filter(|&i| i >= origin).map_or_else(|| format!("{base}/"), |i| base[..=i].to_owned());
+    let dir = base
+        .rfind('/')
+        .filter(|&i| i >= origin)
+        .map_or_else(|| format!("{base}/"), |i| base[..=i].to_owned());
     format!("{dir}{href}")
 }
 
 /// The body of a 2xx answer, following redirects with the same method.
-pub fn request(agent: &ureq::Agent, auth: &str, method: &str, url: &str, depth: Option<&str>, body: Option<&str>) -> Result<String, String> {
+pub fn request(
+    agent: &ureq::Agent,
+    auth: &str,
+    method: &str,
+    url: &str,
+    depth: Option<&str>,
+    body: Option<&str>,
+) -> Result<String, String> {
     let mut url = url.to_owned();
     for _ in 0..5 {
-        let mut builder = ureq::http::Request::builder().method(method).uri(&url).header("Authorization", auth);
+        let mut builder = ureq::http::Request::builder()
+            .method(method)
+            .uri(&url)
+            .header("Authorization", auth);
         if let Some(depth) = depth {
             builder = builder.header("Depth", depth);
         }
         let sent = match body {
-            Some(xml) => builder.header("Content-Type", "application/xml; charset=utf-8").body(xml.to_owned()).map(|r| agent.run(r)),
+            Some(xml) => builder
+                .header("Content-Type", "application/xml; charset=utf-8")
+                .body(xml.to_owned())
+                .map(|r| agent.run(r)),
             None => builder.body(()).map(|r| agent.run(r)),
         };
-        let mut response = sent.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+        let mut response = sent
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
         let status = response.status().as_u16();
-        if let (300..=399, Some(to)) = (status, response.headers().get("location").and_then(|l| l.to_str().ok())) {
+        if let (300..=399, Some(to)) = (
+            status,
+            response
+                .headers()
+                .get("location")
+                .and_then(|l| l.to_str().ok()),
+        ) {
             url = resolve(&url, to);
             continue;
         }
-        let text = response.body_mut().read_to_string().map_err(|e| e.to_string())?;
-        return if (200..300).contains(&status) { Ok(text) } else { Err(format!("{method} {url}: HTTP {status}")) };
+        let text = response
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| e.to_string())?;
+        return if (200..300).contains(&status) {
+            Ok(text)
+        } else {
+            Err(format!("{method} {url}: HTTP {status}"))
+        };
     }
     Err(format!("{method} {url}: too many redirects"))
 }
@@ -88,7 +124,10 @@ fn reference(name: &str) -> Option<char> {
         "quot" => Some('"'),
         "apos" => Some('\''),
         _ => {
-            let code = name.strip_prefix("#x").map_or_else(|| name.strip_prefix('#')?.parse().ok(), |hex| u32::from_str_radix(hex, 16).ok())?;
+            let code = name.strip_prefix("#x").map_or_else(
+                || name.strip_prefix('#')?.parse().ok(),
+                |hex| u32::from_str_radix(hex, 16).ok(),
+            )?;
             char::from_u32(code)
         }
     }
@@ -108,8 +147,12 @@ pub fn multistatus(xml: &str) -> Multistatus {
         };
         let opens = matches!(event, Event::Start(_));
         match event {
-            Event::Start(e) | Event::Empty(e) if path.last().is_some_and(|p| p == "resourcetype") => {
-                current.resource_type.push(e.local_name().as_ref().to_owned());
+            Event::Start(e) | Event::Empty(e)
+                if path.last().is_some_and(|p| p == "resourcetype") =>
+            {
+                current
+                    .resource_type
+                    .push(e.local_name().as_ref().to_owned());
                 if opens {
                     path.push(String::new());
                 }
@@ -149,8 +192,14 @@ pub const HOMES: &str = r#"<?xml version="1.0" encoding="utf-8" ?><d:propfind xm
 pub const COLLECTIONS: &str = r#"<?xml version="1.0" encoding="utf-8" ?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:displayname/><d:sync-token/></d:prop></d:propfind>"#;
 
 pub fn sync_collection(token: &str) -> String {
-    let token = if token.is_empty() { "<d:sync-token/>".to_owned() } else { format!("<d:sync-token>{token}</d:sync-token>") };
-    format!(r#"<?xml version="1.0" encoding="utf-8" ?><d:sync-collection xmlns:d="DAV:">{token}<d:sync-level>1</d:sync-level><d:prop><d:getetag/></d:prop></d:sync-collection>"#)
+    let token = if token.is_empty() {
+        "<d:sync-token/>".to_owned()
+    } else {
+        format!("<d:sync-token>{token}</d:sync-token>")
+    };
+    format!(
+        r#"<?xml version="1.0" encoding="utf-8" ?><d:sync-collection xmlns:d="DAV:">{token}<d:sync-level>1</d:sync-level><d:prop><d:getetag/></d:prop></d:sync-collection>"#
+    )
 }
 
 #[cfg(test)]
@@ -159,10 +208,22 @@ mod tests {
 
     #[test]
     fn relative_hrefs_resolve_against_their_url() {
-        assert_eq!(resolve("https://dav.example.com/remote.php/dav/", "/principals/me/"), "https://dav.example.com/principals/me/");
-        assert_eq!(resolve("https://dav.example.com/books/", "work/"), "https://dav.example.com/books/work/");
-        assert_eq!(resolve("https://dav.example.com", "books/"), "https://dav.example.com/books/");
-        assert_eq!(resolve("https://a.example/x", "https://b.example/y"), "https://b.example/y");
+        assert_eq!(
+            resolve("https://dav.example.com/remote.php/dav/", "/principals/me/"),
+            "https://dav.example.com/principals/me/"
+        );
+        assert_eq!(
+            resolve("https://dav.example.com/books/", "work/"),
+            "https://dav.example.com/books/work/"
+        );
+        assert_eq!(
+            resolve("https://dav.example.com", "books/"),
+            "https://dav.example.com/books/"
+        );
+        assert_eq!(
+            resolve("https://a.example/x", "https://b.example/y"),
+            "https://b.example/y"
+        );
     }
 
     #[test]
@@ -182,7 +243,13 @@ mod tests {
         assert_eq!(m.sync_token, "http://example.com/sync/7");
         assert_eq!(m.responses.len(), 3);
         assert_eq!(m.responses[0].resource_type, ["collection", "addressbook"]);
-        assert_eq!((m.responses[1].href.as_str(), m.responses[1].gone), ("/books/me/a&b.vcf", true));
-        assert_eq!((m.responses[2].body.as_str(), m.responses[2].gone), ("BEGIN:VCARD", false));
+        assert_eq!(
+            (m.responses[1].href.as_str(), m.responses[1].gone),
+            ("/books/me/a&b.vcf", true)
+        );
+        assert_eq!(
+            (m.responses[2].body.as_str(), m.responses[2].gone),
+            ("BEGIN:VCARD", false)
+        );
     }
 }

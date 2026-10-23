@@ -18,7 +18,7 @@ mod zones;
 
 use std::process::ExitCode;
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
@@ -60,7 +60,7 @@ struct Published {
 }
 
 fn lock(published: &Mutex<Published>) -> MutexGuard<'_, Published> {
-    published.lock().unwrap_or_else(PoisonError::into_inner)
+    published.lock().unwrap_or_else(|_| std::process::abort())
 }
 
 struct Weather {

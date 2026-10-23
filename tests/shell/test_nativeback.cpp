@@ -34,15 +34,19 @@ class TestNativeBack : public QObject {
         QCOMPARE(int(NativeBack::toolkitFromMaps(maps)), toolkit);
     }
 
-    // Escape pops an AdwNavigationView page and closes an AdwDialog; the Back
-    // key is what libhandy, Kirigami and the browsers navigate with.
+    // Native apps first receive XF86Back. If that makes no visible change,
+    // GTK gets Escape while Qt/browser stacks get Alt+Left.
     void backKey() {
-        QCOMPARE(NativeBack::backKey(Adwaita, false), int(Qt::Key_Escape));
-        QCOMPARE(NativeBack::backKey(Gtk4, false), int(Qt::Key_Escape));
+        QCOMPARE(NativeBack::backKey(Adwaita, false), int(Qt::Key_Back));
+        QCOMPARE(NativeBack::backKey(Gtk4, false), int(Qt::Key_Back));
         QCOMPARE(NativeBack::backKey(Gtk3, false), int(Qt::Key_Back));
         QCOMPARE(NativeBack::backKey(QtApp, false), int(Qt::Key_Back));
         QCOMPARE(NativeBack::backKey(Unknown, false), int(Qt::Key_Back));
         QCOMPARE(NativeBack::backKey(QtApp, true), int(Qt::Key_Escape));
+        QCOMPARE(NativeBack::fallbackBackKey(Adwaita), int(Qt::Key_Escape));
+        QCOMPARE(NativeBack::fallbackBackModifiers(Adwaita), Qt::NoModifier);
+        QCOMPARE(NativeBack::fallbackBackKey(QtApp), int(Qt::Key_Left));
+        QCOMPARE(NativeBack::fallbackBackModifiers(QtApp), Qt::AltModifier);
     }
 
     void pageChangeIsVisible() {

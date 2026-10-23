@@ -24,6 +24,44 @@ const EXPECT_WINDOW: Duration = Duration::from_secs(10);
 /// A second tap within this of the first starts no second copy.
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
+fn is_foreground_flatpak_run(command: &str) -> bool {
+    let words: Vec<&str> = command.split_ascii_whitespace().collect();
+    let Some(flatpak) = words.iter().position(|program| {
+        Path::new(program)
+            .file_name()
+            .is_some_and(|name| name == "flatpak")
+    }) else {
+        return false;
+    };
+    words.get(flatpak + 1) == Some(&"run") && !words[flatpak + 2..].contains(&"--background")
+}
+
+fn process_is_live(pid: i64) -> bool {
+    fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|stat| stat.rsplit_once(')').map(|(_, rest)| rest.to_owned()))
+        .and_then(|rest| rest.split_whitespace().next().map(str::to_owned))
+        .is_some_and(|state| state != "Z")
+}
+
+#[derive(Default)]
+pub(super) struct ForegroundLaunches {
+    next: u64,
+    current: u64,
+}
+
+impl ForegroundLaunches {
+    fn begin(&mut self) -> u64 {
+        self.next = self.next.wrapping_add(1).max(1);
+        self.current = self.next;
+        self.current
+    }
+
+    fn owns_foreground(&self, generation: u64) -> bool {
+        generation != 0 && generation == self.current
+    }
+}
+
 /// Its process tree reaches `ancestor`.
 pub(super) fn descends_from(pid: i64, ancestor: i64) -> bool {
     let mut cursor = pid;
@@ -31,8 +69,16 @@ pub(super) fn descends_from(pid: i64, ancestor: i64) -> bool {
         if cursor == ancestor {
             return true;
         }
-        let Ok(stat) = fs::read_to_string(format!("/proc/{cursor}/stat")) else { return false };
-        let Some(parent) = stat.rsplit_once(')').and_then(|(_, rest)| rest.split_whitespace().nth(1)).and_then(|p| p.parse::<i64>().ok()) else { return false };
+        let Ok(stat) = fs::read_to_string(format!("/proc/{cursor}/stat")) else {
+            return false;
+        };
+        let Some(parent) = stat
+            .rsplit_once(')')
+            .and_then(|(_, rest)| rest.split_whitespace().nth(1))
+            .and_then(|p| p.parse::<i64>().ok())
+        else {
+            return false;
+        };
         if parent <= 1 {
             return false;
         }
@@ -44,11 +90,27 @@ pub(super) fn descends_from(pid: i64, ancestor: i64) -> bool {
 /// An entry kept off the grid (Waydroid's stock Android apps) still
 /// launches by its id.
 fn desktop_entry(app_id: &str) -> Option<App> {
-    let dirs = std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
-    let found = std::iter::once(marathon_rt::dirs::data()).chain(dirs.split(':').map(std::path::PathBuf::from)).map(|d| d.join("applications").join(format!("{app_id}.desktop"))).find(|p| p.is_file())?;
+    let dirs =
+        std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
+    let found = std::iter::once(marathon_rt::dirs::data())
+        .chain(dirs.split(':').map(std::path::PathBuf::from))
+        .map(|d| d.join("applications").join(format!("{app_id}.desktop")))
+        .find(|p| p.is_file())?;
     let map = desktop::parse(&QString::from(&*found.to_string_lossy()));
-    let text = |k: &str| map.get(&q(k)).and_then(|v| v.value::<QString>()).map(|s| s.to_string()).unwrap_or_default();
-    Some(App { id: text("id"), name: text("name"), icon: text("icon"), kind: text("type"), exec: text("exec"), ..App::default() })
+    let text = |k: &str| {
+        map.get(&q(k))
+            .and_then(|v| v.value::<QString>())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
+    };
+    Some(App {
+        id: text("id"),
+        name: text("name"),
+        icon: text("icon"),
+        kind: text("type"),
+        exec: text("exec"),
+        ..App::default()
+    })
 }
 
 /// The app's Keel Actions manifest, so its runner owns
@@ -57,12 +119,37 @@ pub(super) fn serves_keel_actions(app_id: &str) -> bool {
     if app_id.is_empty() {
         return false;
     }
-    let dirs = std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
+    let dirs =
+        std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/local/share:/usr/share".to_owned());
     let file = format!("keel/actions/org.marathonos.{app_id}.json");
-    std::iter::once(marathon_rt::dirs::data()).chain(dirs.split(':').map(std::path::PathBuf::from)).any(|d| d.join(&file).is_file())
+    std::iter::once(marathon_rt::dirs::data())
+        .chain(dirs.split(':').map(std::path::PathBuf::from))
+        .any(|d| d.join(&file).is_file())
 }
 
 impl Tasks {
+    /// Makes this app the only in-flight launch allowed to claim foreground.
+    fn claim_foreground(mut self: Pin<&mut Self>, app_id: &str) -> u64 {
+        let mut rust = self.as_mut().rust_mut();
+        let generation = rust.foreground_launches.begin();
+        for launch in rust.pending_by_command.values_mut() {
+            if launch.app_id == app_id {
+                launch.foreground_generation = generation;
+            }
+        }
+        for launch in rust.active_by_pid.values_mut() {
+            if launch.app_id == app_id {
+                launch.foreground_generation = generation;
+            }
+        }
+        for launch in rust.exited_launches.values_mut() {
+            if launch.app_id == app_id {
+                launch.foreground_generation = generation;
+            }
+        }
+        generation
+    }
+
     /// What it knows of the app: the grid's entry, its card, its desktop entry.
     fn resolve(&self, app_id: &str) -> Option<App> {
         if app_id.is_empty() {
@@ -72,9 +159,23 @@ impl Tasks {
             return Some(app);
         }
         if let Some(task) = self.task(app_id) {
-            let name = if task.title.is_empty() { app_id.to_owned() } else { task.title.clone() };
-            let kind = if task.kind.is_empty() { "native".to_owned() } else { task.kind.clone() };
-            return Some(App { id: app_id.to_owned(), name, icon: task.icon.clone(), kind, ..App::default() });
+            let name = if task.title.is_empty() {
+                app_id.to_owned()
+            } else {
+                task.title.clone()
+            };
+            let kind = if task.kind.is_empty() {
+                "native".to_owned()
+            } else {
+                task.kind.clone()
+            };
+            return Some(App {
+                id: app_id.to_owned(),
+                name,
+                icon: task.icon.clone(),
+                kind,
+                ..App::default()
+            });
         }
         desktop_entry(app_id)
     }
@@ -104,7 +205,10 @@ impl Tasks {
     }
 
     fn host_pid(&self, app_id: &str) -> i64 {
-        self.active_by_pid.iter().find(|(_, l)| l.app_id == app_id && desktop::is_keel_hosted(&q(&l.command))).map_or(-1, |(pid, _)| *pid)
+        self.active_by_pid
+            .iter()
+            .find(|(_, l)| l.app_id == app_id && desktop::is_keel_hosted(&q(&l.command)))
+            .map_or(-1, |(pid, _)| *pid)
     }
 
     pub(super) fn is_keel_host(&self, app_id: &str) -> bool {
@@ -161,7 +265,12 @@ impl Tasks {
         self.launch(&app_id.to_string())
     }
 
-    pub(crate) fn launch_app_with_route(mut self: Pin<&mut Self>, app_id: &QString, route: &QString, params_json: &QString) -> bool {
+    pub(crate) fn launch_app_with_route(
+        mut self: Pin<&mut Self>,
+        app_id: &QString,
+        route: &QString,
+        params_json: &QString,
+    ) -> bool {
         self.as_mut().rust_mut().pending_route = Some((route.to_string(), params_json.to_string()));
         let ok = self.as_mut().launch(&app_id.to_string());
         if !ok {
@@ -171,7 +280,11 @@ impl Tasks {
     }
 
     fn take_route(mut self: Pin<&mut Self>) -> Option<(String, String)> {
-        self.as_mut().rust_mut().pending_route.take().filter(|(r, _)| !r.is_empty())
+        self.as_mut()
+            .rust_mut()
+            .pending_route
+            .take()
+            .filter(|(r, _)| !r.is_empty())
     }
 
     pub(super) fn start_app_in_background(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
@@ -196,7 +309,13 @@ impl Tasks {
     }
 
     fn show(self: Pin<&mut Self>, app: &App, kind: &str, surface_id: i32) {
-        self.show_requested(&q(&app.id), &q(&app.name), &q(&app.icon), &q(kind), surface_id);
+        self.show_requested(
+            &q(&app.id),
+            &q(&app.name),
+            &q(&app.icon),
+            &q(kind),
+            surface_id,
+        );
     }
 
     fn open(self: Pin<&mut Self>, app: &App, restore: bool) {
@@ -207,7 +326,8 @@ impl Tasks {
         let id = q(&app.id);
         crate::permissions::with(move |p| p.request_declared_permissions(&id));
         if let Some((route, params)) = self.as_mut().take_route() {
-            self.as_mut().route_for_running_app(&q(&app.id), &q(&route), &q(&params));
+            self.as_mut()
+                .route_for_running_app(&q(&app.id), &q(&route), &q(&params));
             dbus::deep_link(&app.id, &route, &params);
         }
         self.app_launch_completed(&q(&app.id), &q(&app.name));
@@ -216,7 +336,8 @@ impl Tasks {
     pub(crate) fn launch(mut self: Pin<&mut Self>, app_id: &str) -> bool {
         let Some(mut app) = self.resolve(app_id) else {
             log::warn("tasks", format_args!("no app {app_id} to launch"));
-            self.as_mut().app_launch_failed(&q(app_id), &q(app_id), &q("Invalid app object"));
+            self.as_mut()
+                .app_launch_failed(&q(app_id), &q(app_id), &q("Invalid app object"));
             return false;
         };
         if app.kind.is_empty() {
@@ -224,7 +345,11 @@ impl Tasks {
         }
         let held = self.task(&app.id).filter(|t| t.surface_id >= 0).cloned();
         // Still starting in the background: show it as it maps.
-        if !self.starting_in_background && held.is_none() && self.as_mut().rust_mut().background_launches.remove(&app.id) {
+        if !self.starting_in_background
+            && held.is_none()
+            && self.as_mut().rust_mut().background_launches.remove(&app.id)
+        {
+            self.as_mut().claim_foreground(&app.id);
             self.as_mut().open(&app, false);
             let kind = app.kind.clone();
             self.as_mut().show(&app, &kind, -1);
@@ -235,6 +360,11 @@ impl Tasks {
             log::warn("tasks", format_args!("{} is already launching", app.id));
             return false;
         }
+        let foreground_generation = if self.starting_in_background {
+            0
+        } else {
+            self.as_mut().claim_foreground(&app.id)
+        };
         // Running with a window: forward, not a second copy.
         if let Some(task) = held {
             self.as_mut().open(&app, true);
@@ -248,41 +378,75 @@ impl Tasks {
         let native = app.kind == "native" || app.kind == "flatpak";
         // Running without a window: a second instance would only hand off
         // to it, so the running one is asked for a window.
-        if native && self.pid_for(&app.id) > 0 && app.id.contains('.') {
-            self.activate_running(app);
-            return true;
+        if native && app.id.contains('.') {
+            let registered_pid = self.pid_for(&app.id);
+            if process_is_live(registered_pid) {
+                self.activate_running(app, foreground_generation);
+                return true;
+            }
+            if registered_pid > 0 {
+                self.as_mut().forget_registered_pid(&app.id, registered_pid);
+            }
         }
         if native {
-            return self.launch_native(&app);
+            return self.launch_native(&app, foreground_generation);
         }
         // A runner that never showed its window keeps the app's bus name,
         // which the next one could not take.
         if let Ok(stuck) = i32::try_from(self.pid_for(&app.id)) {
             if stuck > 0 {
-                log::warn("tasks", format_args!("{} runner {stuck} never showed a window: replaced", app.id));
-                // SAFETY: kill(2) takes plain integers.
-                unsafe { libc::kill(stuck, libc::SIGKILL) };
+                log::warn(
+                    "tasks",
+                    format_args!("{} runner {stuck} never showed a window: replaced", app.id),
+                );
+                // SAFETY: `stuck` is a validated positive process ID, so this
+                // targets that process rather than a process group.
+                if unsafe { libc::kill(stuck, libc::SIGKILL) } != 0 {
+                    log::warn(
+                        "tasks",
+                        format_args!(
+                            "cannot kill stale {} runner {stuck}: {}",
+                            app.id,
+                            std::io::Error::last_os_error()
+                        ),
+                    );
+                }
             }
         }
-        self.launch_marathon(&app)
+        self.launch_marathon(&app, foreground_generation)
     }
 
-    fn launch_native(mut self: Pin<&mut Self>, app: &App) -> bool {
+    fn launch_native(mut self: Pin<&mut Self>, app: &App, foreground_generation: u64) -> bool {
         if !self.background_launches.contains(&app.id) {
             self.as_mut().open(app, false);
             self.as_mut().show(app, "native", -1);
         }
         if !app.exec.is_empty() {
-            let launch = Launch { app_id: app.id.clone(), name: app.name.clone(), icon: app.icon.clone(), kind: "native".to_owned(), command: app.exec.clone(), ..Launch::default() };
-            self.as_mut().rust_mut().pending_by_command.insert(app.exec.clone(), launch);
+            let launch = Launch {
+                app_id: app.id.clone(),
+                name: app.name.clone(),
+                icon: app.icon.clone(),
+                kind: "native".to_owned(),
+                command: app.exec.clone(),
+                foreground_generation,
+                ..Launch::default()
+            };
+            self.as_mut()
+                .rust_mut()
+                .pending_by_command
+                .insert(app.exec.clone(), launch);
             if app.exec.starts_with("waydroid app ") {
                 self.as_mut().wake(&app.id);
                 self.as_mut().after_android_boots(app.exec.clone());
             } else {
-                self.as_mut().spawn_requested(&q(&app.exec), &Map::default());
+                self.as_mut()
+                    .spawn_requested(&q(&app.exec), &Map::default());
             }
         }
-        self.as_mut().rust_mut().launching.remove(&app.id);
+        let id = app.id.clone();
+        later(self.qt_thread(), LAUNCH_HOLD, move |mut obj| {
+            obj.as_mut().rust_mut().launching.remove(&id);
+        });
         self.launched(app);
         true
     }
@@ -314,14 +478,21 @@ impl Tasks {
 
     /// `org.freedesktop.Application.Activate` on the desktop id; anything
     /// that does not answer it starts as before.
-    fn activate_running(mut self: Pin<&mut Self>, app: App) {
+    fn activate_running(mut self: Pin<&mut Self>, app: App, foreground_generation: u64) {
         self.as_mut().wake(&app.id);
         let qt = self.qt_thread();
         io::spawn(async move {
             let activated = dbus::activate(&app.id).await;
             qt.queue(move |mut obj| {
+                if !obj
+                    .foreground_launches
+                    .owns_foreground(foreground_generation)
+                {
+                    obj.as_mut().rust_mut().launching.remove(&app.id);
+                    return;
+                }
                 if !activated {
-                    obj.launch_native(&app);
+                    obj.launch_native(&app, foreground_generation);
                     return;
                 }
                 obj.as_mut().open(&app, false);
@@ -333,9 +504,18 @@ impl Tasks {
         });
     }
 
-    pub(super) fn runner(&self, app_id: &str, permissions: &[String], storage_spare: bool) -> sandbox::Runner {
+    pub(super) fn runner(
+        &self,
+        app_id: &str,
+        permissions: &[String],
+        storage_spare: bool,
+    ) -> sandbox::Runner {
         let d = &self.device;
-        let (app_width, app_height) = if d.viewport_width > 0 && d.viewport_height > 0 { (d.viewport_width, d.viewport_height) } else { (d.runner_width, d.runner_height) };
+        let (app_width, app_height) = if d.viewport_width > 0 && d.viewport_height > 0 {
+            (d.viewport_width, d.viewport_height)
+        } else {
+            (d.runner_width, d.runner_height)
+        };
         sandbox::Runner {
             app_id: app_id.to_owned(),
             permissions: permissions.to_vec(),
@@ -355,13 +535,20 @@ impl Tasks {
     }
 
     /// The sandbox's own Wayland socket, from the compositor.
-    pub(super) fn open_sandbox_socket(mut self: Pin<&mut Self>, app_id: &str, instance: &str) -> Option<String> {
-        self.as_mut().sandbox_socket_requested(&q(app_id), &q(instance));
-        let path = Path::new(&std::env::var("XDG_RUNTIME_DIR").unwrap_or_default()).join("marathon-sandbox").join(instance);
+    pub(super) fn open_sandbox_socket(
+        mut self: Pin<&mut Self>,
+        app_id: &str,
+        instance: &str,
+    ) -> Option<String> {
+        self.as_mut()
+            .sandbox_socket_requested(&q(app_id), &q(instance));
+        let path = Path::new(&std::env::var("XDG_RUNTIME_DIR").unwrap_or_default())
+            .join("marathon-sandbox")
+            .join(instance);
         path.exists().then(|| path.to_string_lossy().into_owned())
     }
 
-    fn launch_marathon(mut self: Pin<&mut Self>, app: &App) -> bool {
+    fn launch_marathon(mut self: Pin<&mut Self>, app: &App, foreground_generation: u64) -> bool {
         if !self.background_launches.contains(&app.id) {
             self.as_mut().open(app, false);
             self.as_mut().show(app, &app.kind, -1);
@@ -373,7 +560,15 @@ impl Tasks {
         // and not WebEngine's, whose environment is per app.
         if !sandbox::is_user_installed(&app.id) && !webengine {
             let storage = app.permissions.iter().any(|p| p == "storage");
-            let launch = Launch { app_id: app.id.clone(), name: app.name.clone(), icon: app.icon.clone(), kind: app.kind.clone(), command: format!("pool-adopt {}", app.id), ..Launch::default() };
+            let launch = Launch {
+                app_id: app.id.clone(),
+                name: app.name.clone(),
+                icon: app.icon.clone(),
+                kind: app.kind.clone(),
+                command: format!("pool-adopt {}", app.id),
+                foreground_generation,
+                ..Launch::default()
+            };
             if self.as_mut().adopt_spare(storage, launch, &env) {
                 let qt = self.qt_thread();
                 let id = app.id.clone();
@@ -387,8 +582,13 @@ impl Tasks {
         let mut instance = String::new();
         if sandbox::bwrap().is_some() {
             instance = super::launch_uuid();
-            if let Some(socket) = self.as_mut().open_sandbox_socket(&app.id, &instance) { runner.wayland_socket = socket } else {
-                log::warn("tasks", format_args!("no sandbox Wayland socket for {}", app.id));
+            if let Some(socket) = self.as_mut().open_sandbox_socket(&app.id, &instance) {
+                runner.wayland_socket = socket;
+            } else {
+                log::warn(
+                    "tasks",
+                    format_args!("no sandbox Wayland socket for {}", app.id),
+                );
                 self.as_mut().rust_mut().launching.remove(&app.id);
                 self.app_launch_failed(&q(&app.id), &q(&app.name), &q("No sandbox Wayland socket"));
                 return false;
@@ -402,8 +602,20 @@ impl Tasks {
                 env.insert(q("MARATHON_APP_ROUTE_PARAMS"), QVariant::from(&q(&params)));
             }
         }
-        let launch = Launch { app_id: app.id.clone(), name: app.name.clone(), icon: app.icon.clone(), kind: app.kind.clone(), command: command.clone(), sandbox_instance: instance, pid: -1 };
-        self.as_mut().rust_mut().pending_by_command.insert(command.clone(), launch);
+        let launch = Launch {
+            app_id: app.id.clone(),
+            name: app.name.clone(),
+            icon: app.icon.clone(),
+            kind: app.kind.clone(),
+            command: command.clone(),
+            sandbox_instance: instance,
+            pid: -1,
+            foreground_generation,
+        };
+        self.as_mut()
+            .rust_mut()
+            .pending_by_command
+            .insert(command.clone(), launch);
         self.as_mut().spawn_requested(&q(&command), &env);
         let id = app.id.clone();
         later(self.qt_thread(), LAUNCH_HOLD, move |mut obj| {
@@ -411,42 +623,101 @@ impl Tasks {
         });
         let id = q(&app.id);
         crate::permissions::with(move |p| p.request_declared_permissions(&id));
-        self.as_mut().app_launch_completed(&q(&app.id), &q(&app.name));
+        self.as_mut()
+            .app_launch_completed(&q(&app.id), &q(&app.name));
         true
     }
 
     pub(super) fn app_launched(mut self: Pin<&mut Self>, command: &QString, pid: i64) {
-        let Some(mut launch) = self.as_mut().rust_mut().pending_by_command.remove(&command.to_string()) else { return };
+        let Some(mut launch) = self
+            .as_mut()
+            .rust_mut()
+            .pending_by_command
+            .remove(&command.to_string())
+        else {
+            return;
+        };
         launch.pid = pid;
-        let mut rust = self.as_mut().rust_mut();
-        rust.pid_to_app.insert(pid, launch.app_id.clone());
-        rust.app_to_pid.insert(launch.app_id.clone(), pid);
-        rust.active_by_pid.insert(pid, launch);
+        let app_id = launch.app_id.clone();
+        {
+            let mut rust = self.as_mut().rust_mut();
+            rust.pid_to_app.insert(pid, app_id.clone());
+            rust.app_to_pid.insert(app_id.clone(), pid);
+            rust.active_by_pid.insert(pid, launch);
+        }
+        crate::gate::remember_pid(pid, &app_id);
+        self.as_mut().pid_registered(pid, &q(&app_id));
+    }
+
+    fn forget_registered_pid(mut self: Pin<&mut Self>, app_id: &str, pid: i64) -> bool {
+        let (current, reverse) = {
+            let mut rust = self.as_mut().rust_mut();
+            let current = rust.app_to_pid.get(app_id) == Some(&pid);
+            let reverse = rust.pid_to_app.get(&pid).is_some_and(|id| id == app_id);
+            if current {
+                rust.app_to_pid.remove(app_id);
+            }
+            if reverse {
+                rust.pid_to_app.remove(&pid);
+            }
+            (current, reverse)
+        };
+        if reverse {
+            crate::gate::forget_pid(pid);
+            self.as_mut().pid_unregistered(pid, &q(app_id));
+        }
+        if current {
+            self.as_mut().pid_gone(app_id);
+        }
+        current || reverse
     }
 
     pub(super) fn app_closed(mut self: Pin<&mut Self>, pid: i64) {
-        let Some(launch) = self.as_mut().rust_mut().active_by_pid.remove(&pid) else { return };
+        let Some(launch) = self.as_mut().rust_mut().active_by_pid.remove(&pid) else {
+            return;
+        };
         if !launch.sandbox_instance.is_empty() {
-            self.as_mut().sandbox_socket_closed(&q(&launch.sandbox_instance));
+            self.as_mut()
+                .sandbox_socket_closed(&q(&launch.sandbox_instance));
         }
-        self.as_mut().rust_mut().pid_to_app.remove(&pid);
         // The app's pid may be the sandbox's inner runner (matched by its
         // window), which died with the sandbox.
         let own_pid = self.pid_for(&launch.app_id);
-        if own_pid == pid || (own_pid > 0 && !Path::new(&format!("/proc/{own_pid}")).exists()) {
-            let mut rust = self.as_mut().rust_mut();
-            rust.app_to_pid.remove(&launch.app_id);
-            rust.pid_to_app.remove(&own_pid);
-            crate::gate::forget_pid(own_pid);
-            self.as_mut().pid_unregistered(own_pid, &q(&launch.app_id));
-            self.as_mut().pid_gone(&launch.app_id);
+        let replacement_active = self
+            .active_by_pid
+            .values()
+            .any(|active| active.app_id == launch.app_id);
+        self.as_mut().forget_registered_pid(&launch.app_id, pid);
+        if !replacement_active && own_pid != pid && !process_is_live(own_pid) {
+            self.as_mut().forget_registered_pid(&launch.app_id, own_pid);
+        } else if !replacement_active
+            && own_pid != pid
+            && is_foreground_flatpak_run(&launch.command)
+        {
+            // The inner process can outlive `flatpak run` briefly during
+            // teardown. Recheck after the window grace, but only remove the
+            // exact mapping observed now: a replacement launch may already
+            // have registered a different PID.
+            let app_id = launch.app_id.clone();
+            later(self.qt_thread(), WINDOW_GRACE, move |mut obj| {
+                if !process_is_live(own_pid) || !obj.windows.contains_key(&app_id) {
+                    obj.as_mut().forget_registered_pid(&app_id, own_pid);
+                }
+            });
         }
         // Exited before any window: a launcher, unless no window comes.
         if !self.windows.contains_key(&launch.app_id) && self.task(&launch.app_id).is_none() {
             let app_id = launch.app_id.clone();
-            self.as_mut().rust_mut().exited_launches.insert(app_id.clone(), launch);
+            self.as_mut()
+                .rust_mut()
+                .exited_launches
+                .insert(app_id.clone(), launch);
             later(self.qt_thread(), EXITED_LAUNCH_GRACE, move |mut obj| {
-                if obj.exited_launches.get(&app_id).is_some_and(|l| l.pid == pid) {
+                if obj
+                    .exited_launches
+                    .get(&app_id)
+                    .is_some_and(|l| l.pid == pid)
+                {
                     obj.as_mut().rust_mut().exited_launches.remove(&app_id);
                     obj.finish_exit(&app_id);
                 }
@@ -467,7 +738,10 @@ impl Tasks {
 
     pub(crate) fn expect_window(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
         let id = app_id.to_string();
-        self.as_mut().rust_mut().expected_windows.insert(id.clone(), Instant::now() + EXPECT_WINDOW);
+        self.as_mut()
+            .rust_mut()
+            .expected_windows
+            .insert(id.clone(), Instant::now() + EXPECT_WINDOW);
         if self.task(&id).is_none_or(|t| t.surface_id < 0) {
             return false;
         }
@@ -476,7 +750,11 @@ impl Tasks {
     }
 
     pub(super) fn close_app_windows(mut self: Pin<&mut Self>, app_id: &QString) -> i32 {
-        let windows = self.windows.get(&app_id.to_string()).cloned().unwrap_or_default();
+        let windows = self
+            .windows
+            .get(&app_id.to_string())
+            .cloned()
+            .unwrap_or_default();
         for surface in &windows {
             self.as_mut().close_window_requested(*surface);
         }
@@ -488,42 +766,107 @@ impl Tasks {
         for windows in rust.windows.values_mut() {
             windows.retain(|s| *s != surface_id);
         }
-        rust.windows.entry(app_id.to_owned()).or_default().push(surface_id);
+        rust.windows
+            .entry(app_id.to_owned())
+            .or_default()
+            .push(surface_id);
     }
 
-    /// Files the window under its launch and shows it, unless the launch
-    /// was in the background.
+    /// Files the window under its launch and shows it only while that launch
+    /// still owns foreground.
     fn show_launch(mut self: Pin<&mut Self>, launch: &Launch, surface_id: i32) -> bool {
-        let kind = if launch.kind.is_empty() { "native".to_owned() } else { launch.kind.clone() };
+        self.as_mut().rust_mut().launching.remove(&launch.app_id);
+        let kind = if launch.kind.is_empty() {
+            "native".to_owned()
+        } else {
+            launch.kind.clone()
+        };
         if self.task(&launch.app_id).is_some() {
             self.as_mut().update_task_window(&launch.app_id, surface_id);
         } else {
-            self.as_mut().add_task(&launch.app_id, &launch.name, &launch.icon, &kind, surface_id);
+            self.as_mut().add_task(
+                &launch.app_id,
+                &launch.name,
+                &launch.icon,
+                &kind,
+                surface_id,
+            );
         }
         self.as_mut().file_window(&launch.app_id, surface_id);
-        if self.as_mut().rust_mut().background_launches.remove(&launch.app_id) {
+        if self
+            .as_mut()
+            .rust_mut()
+            .background_launches
+            .remove(&launch.app_id)
+        {
             return false;
         }
-        self.show_requested(&q(&launch.app_id), &q(&launch.name), &q(&launch.icon), &q(&kind), surface_id);
+        if !self
+            .foreground_launches
+            .owns_foreground(launch.foreground_generation)
+        {
+            return false;
+        }
+        self.show_requested(
+            &q(&launch.app_id),
+            &q(&launch.name),
+            &q(&launch.icon),
+            &q(&kind),
+            surface_id,
+        );
         true
     }
 
     /// Android's own rule for an activity in front: in answer to the
     /// user's input on the app in front.
-    fn take_front(mut self: Pin<&mut Self>, app_id: &str, name: &str, icon: &str, surface_id: i32) -> bool {
-        self.as_mut().open_app_requested(&q(app_id), &q(name), &q(icon), false);
+    fn take_front(
+        mut self: Pin<&mut Self>,
+        app_id: &str,
+        name: &str,
+        icon: &str,
+        surface_id: i32,
+    ) -> bool {
+        self.as_mut().claim_foreground(app_id);
+        self.as_mut()
+            .open_app_requested(&q(app_id), &q(name), &q(icon), false);
         self.show_requested(&q(app_id), &q(name), &q(icon), &q("native"), surface_id);
         true
     }
 
-    #[allow(clippy::too_many_arguments, reason = "the compositor's view of the window")]
-    pub(super) fn window_mapped(mut self: Pin<&mut Self>, pid: i64, client_pid: i64, xdg_app_id: &QString, title: &QString, sandbox_app_id: &QString, surface_id: i32, recent_input: bool) -> bool {
+    #[allow(
+        clippy::too_many_arguments,
+        clippy::too_many_lines,
+        reason = "the compositor's view of the window"
+    )]
+    pub(super) fn window_mapped(
+        mut self: Pin<&mut Self>,
+        pid: i64,
+        client_pid: i64,
+        xdg_app_id: &QString,
+        title: &QString,
+        sandbox_app_id: &QString,
+        surface_id: i32,
+        recent_input: bool,
+    ) -> bool {
         let (sandboxed, title) = (sandbox_app_id.to_string(), title.to_string());
-        let xdg = if sandboxed.is_empty() { xdg_app_id.to_string() } else { sandboxed.clone() };
-        self.as_mut().rust_mut().window_clients.insert(surface_id, client_pid);
+        let xdg = if sandboxed.is_empty() {
+            xdg_app_id.to_string()
+        } else {
+            sandboxed.clone()
+        };
+        self.as_mut()
+            .rust_mut()
+            .window_clients
+            .insert(surface_id, client_pid);
         // In answer to the user's touch on the app in front, from the same client.
-        let front_surface = if self.app_window_open { self.task(&self.current_app_id).map_or(-1, |t| t.surface_id) } else { -1 };
-        let mut front_input = recent_input && front_surface >= 0 && self.window_clients.get(&front_surface) == Some(&client_pid);
+        let front_surface = if self.app_window_open {
+            self.task(&self.current_app_id).map_or(-1, |t| t.surface_id)
+        } else {
+            -1
+        };
+        let mut front_input = recent_input
+            && front_surface >= 0
+            && self.window_clients.get(&front_surface) == Some(&client_pid);
         if let Some(deadline) = self.expected_windows.get(&xdg).copied() {
             front_input |= Instant::now() < deadline;
             if Instant::now() >= deadline {
@@ -537,7 +880,15 @@ impl Tasks {
                 }
                 return self.show_launch(&launch, surface_id);
             }
-            let parent = self.active_by_pid.iter().find(|(p, l)| **p > 0 && ((!sandboxed.is_empty() && l.app_id == sandboxed) || descends_from(pid, **p))).map(|(_, l)| l.clone());
+            let parent = self
+                .active_by_pid
+                .iter()
+                .find(|(p, l)| {
+                    **p > 0
+                        && ((!sandboxed.is_empty() && l.app_id == sandboxed)
+                            || descends_from(pid, **p))
+                })
+                .map(|(_, l)| l.clone());
             if let Some(launch) = parent {
                 self.as_mut().register_pid(pid, &launch.app_id);
                 return self.show_launch(&launch, surface_id);
@@ -546,11 +897,21 @@ impl Tasks {
         // Launched by another process (`waydroid app launch`), not the app.
         if !xdg.is_empty() {
             let mut launch = self.as_mut().rust_mut().exited_launches.remove(&xdg);
-            let pending: Vec<String> = self.pending_by_command.iter().filter(|(_, l)| l.app_id == xdg).map(|(c, _)| c.clone()).collect();
+            let pending: Vec<String> = self
+                .pending_by_command
+                .iter()
+                .filter(|(_, l)| l.app_id == xdg)
+                .map(|(c, _)| c.clone())
+                .collect();
             for command in pending {
                 launch = self.as_mut().rust_mut().pending_by_command.remove(&command);
             }
-            let active: Vec<i64> = self.active_by_pid.iter().filter(|(_, l)| l.app_id == xdg).map(|(p, _)| *p).collect();
+            let active: Vec<i64> = self
+                .active_by_pid
+                .iter()
+                .filter(|(_, l)| l.app_id == xdg)
+                .map(|(p, _)| *p)
+                .collect();
             for p in active {
                 let mut rust = self.as_mut().rust_mut();
                 launch = rust.active_by_pid.remove(&p);
@@ -571,17 +932,43 @@ impl Tasks {
         let app_id = if !xdg.is_empty() {
             xdg.clone()
         } else if !title.is_empty() {
-            let slug: String = title.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
-            format!("native-app-{}", slug.split('-').filter(|s| !s.is_empty()).collect::<Vec<_>>().join("-"))
+            let slug: String = title
+                .to_lowercase()
+                .chars()
+                .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+                .collect();
+            format!(
+                "native-app-{}",
+                slug.split('-')
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+                    .join("-")
+            )
         } else {
             format!("native-surface-{surface_id}")
         };
-        let name = if !title.is_empty() { title } else if !xdg.is_empty() { xdg.clone() } else { app_id.clone() };
-        let icon = apps::get(&xdg).map(|a| a.icon).filter(|i| !i.is_empty()).unwrap_or_else(|| if xdg.is_empty() { "application-x-executable".to_owned() } else { xdg.clone() });
+        let name = if !title.is_empty() {
+            title
+        } else if !xdg.is_empty() {
+            xdg.clone()
+        } else {
+            app_id.clone()
+        };
+        let icon = apps::get(&xdg)
+            .map(|a| a.icon)
+            .filter(|i| !i.is_empty())
+            .unwrap_or_else(|| {
+                if xdg.is_empty() {
+                    "application-x-executable".to_owned()
+                } else {
+                    xdg.clone()
+                }
+            });
         if self.task(&app_id).is_some() {
             self.as_mut().update_task_window(&app_id, surface_id);
         } else {
-            self.as_mut().add_task(&app_id, &name, &icon, "native", surface_id);
+            self.as_mut()
+                .add_task(&app_id, &name, &icon, "native", surface_id);
         }
         self.as_mut().file_window(&app_id, surface_id);
         // Nobody launched it: a card. Waydroid re-creates a task's window
@@ -590,7 +977,10 @@ impl Tasks {
     }
 
     pub(super) fn is_foreign_window(&self, surface_id: i32) -> bool {
-        self.tasks.iter().find(|t| t.surface_id == surface_id).is_some_and(|t| self.termination_pid(&t.app_id) <= 0)
+        self.tasks
+            .iter()
+            .find(|t| t.surface_id == surface_id)
+            .is_some_and(|t| self.termination_pid(&t.app_id) <= 0)
     }
 
     /// The card shows the newest window left; with none, an app with no
@@ -598,11 +988,25 @@ impl Tasks {
     /// task's window as Android redraws it.
     pub(super) fn window_destroyed(mut self: Pin<&mut Self>, surface_id: i32) {
         self.as_mut().rust_mut().window_clients.remove(&surface_id);
-        let Some(app_id) = self.windows.iter().find(|(_, w)| w.contains(&surface_id)).map(|(a, _)| a.clone()) else { return };
-        let left: Vec<i32> = self.windows.get(&app_id).map(|w| w.iter().copied().filter(|s| *s != surface_id).collect()).unwrap_or_default();
+        let Some(app_id) = self
+            .windows
+            .iter()
+            .find(|(_, w)| w.contains(&surface_id))
+            .map(|(a, _)| a.clone())
+        else {
+            return;
+        };
+        let left: Vec<i32> = self
+            .windows
+            .get(&app_id)
+            .map(|w| w.iter().copied().filter(|s| *s != surface_id).collect())
+            .unwrap_or_default();
         let task_surface = self.task(&app_id).map(|t| t.surface_id);
         if let Some(&newest) = left.last() {
-            self.as_mut().rust_mut().windows.insert(app_id.clone(), left);
+            self.as_mut()
+                .rust_mut()
+                .windows
+                .insert(app_id.clone(), left);
             if task_surface == Some(surface_id) {
                 self.as_mut().update_task_window(&app_id, newest);
             }
@@ -611,7 +1015,11 @@ impl Tasks {
         self.as_mut().rust_mut().windows.remove(&app_id);
         if task_surface.is_none_or(|s| s == surface_id) && self.termination_pid(&app_id) <= 0 {
             later(self.qt_thread(), WINDOW_GRACE, move |mut obj| {
-                if obj.windows.contains_key(&app_id) || obj.task(&app_id).is_some_and(|t| t.surface_id != surface_id) {
+                if obj.windows.contains_key(&app_id)
+                    || obj
+                        .task(&app_id)
+                        .is_some_and(|t| t.surface_id != surface_id)
+                {
                     return;
                 }
                 obj.as_mut().close_task_of(&app_id);
@@ -623,7 +1031,11 @@ impl Tasks {
     /// Activated with its launch's token, a window is that launch's;
     /// any other honoured activation brings its task forward.
     pub(super) fn window_activated(mut self: Pin<&mut Self>, surface_id: i32, launch_pid: i64) {
-        let task = self.tasks.iter().find(|t| t.surface_id == surface_id).cloned();
+        let task = self
+            .tasks
+            .iter()
+            .find(|t| t.surface_id == surface_id)
+            .cloned();
         if let Some(launch) = self.active_by_pid.get(&launch_pid).cloned() {
             if task.as_ref().is_some_and(|t| t.app_id == launch.app_id) {
                 return;
@@ -635,23 +1047,80 @@ impl Tasks {
             return;
         }
         let Some(task) = task else { return };
-        self.as_mut().open_app_requested(&q(&task.app_id), &q(&task.title), &q(&task.icon), false);
-        self.show_requested(&q(&task.app_id), &q(&task.title), &q(&task.icon), &q(&task.kind), surface_id);
+        self.as_mut()
+            .open_app_requested(&q(&task.app_id), &q(&task.title), &q(&task.icon), false);
+        self.show_requested(
+            &q(&task.app_id),
+            &q(&task.title),
+            &q(&task.icon),
+            &q(&task.kind),
+            surface_id,
+        );
     }
 
     /// Only an app the shell runs may put a window over others.
-    pub(super) fn dialog_mapped(mut self: Pin<&mut Self>, pid: i64, sandbox_app_id: &QString, surface_id: i32) {
+    pub(super) fn dialog_mapped(
+        mut self: Pin<&mut Self>,
+        pid: i64,
+        sandbox_app_id: &QString,
+        surface_id: i32,
+    ) {
         let mut app_id = sandbox_app_id.to_string();
         if app_id.is_empty() {
             app_id = self.app_for_pid(pid);
         }
         if app_id.is_empty() {
-            app_id = self.pid_to_app.iter().find(|(p, _)| descends_from(pid, **p)).map(|(_, a)| a.clone()).unwrap_or_default();
+            app_id = self
+                .pid_to_app
+                .iter()
+                .find(|(p, _)| descends_from(pid, **p))
+                .map(|(_, a)| a.clone())
+                .unwrap_or_default();
         }
         if app_id.is_empty() {
-            log::warn("tasks", format_args!("dialog {surface_id} from pid {pid} of no app: not shown"));
+            log::warn(
+                "tasks",
+                format_args!("dialog {surface_id} from pid {pid} of no app: not shown"),
+            );
             return;
         }
-        self.as_mut().dialog_surface_created(&q(&app_id), surface_id);
+        self.as_mut()
+            .dialog_surface_created(&q(&app_id), surface_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_foreground_flatpak_run, ForegroundLaunches};
+
+    #[test]
+    fn only_latest_launch_generation_owns_foreground() {
+        let mut launches = ForegroundLaunches::default();
+        assert!(!launches.owns_foreground(0));
+
+        let stale = launches.begin();
+        assert!(launches.owns_foreground(stale));
+
+        let latest = launches.begin();
+        assert!(!launches.owns_foreground(stale));
+        assert!(launches.owns_foreground(latest));
+    }
+
+    #[test]
+    fn identifies_flatpak_supervisors() {
+        assert!(is_foreground_flatpak_run("flatpak run org.example.App"));
+        assert!(is_foreground_flatpak_run(
+            "/usr/bin/flatpak run org.example.App"
+        ));
+        assert!(is_foreground_flatpak_run(
+            "env FOO=bar flatpak run org.example.App"
+        ));
+        assert!(!is_foreground_flatpak_run(
+            "flatpak run --background org.example.App"
+        ));
+        assert!(!is_foreground_flatpak_run("flatpak update org.example.App"));
+        assert!(!is_foreground_flatpak_run(
+            "waydroid app launch org.example.App"
+        ));
     }
 }

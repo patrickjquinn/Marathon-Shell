@@ -94,7 +94,11 @@ impl cxx_qt::Initialize for Updates {
             u.current_version = get(&s, "currentVersion");
             u.os_version = get(&s, "osVersion");
             u.available_version = get(&s, "availableVersion");
-            u.download_size = if s.contains_key("downloadSize") { get(&s, "downloadSize") } else { -1 };
+            u.download_size = if s.contains_key("downloadSize") {
+                get(&s, "downloadSize")
+            } else {
+                -1
+            };
             u.release_notes = get(&s, "releaseNotes");
             u.progress = get(&s, "progress");
             u.blocked_reason = get(&s, "blockedReason");

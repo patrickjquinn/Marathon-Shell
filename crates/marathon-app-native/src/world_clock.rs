@@ -33,7 +33,8 @@ pub struct WorldClockRust;
 impl qobject::WorldClock {
     fn time_in(&self, zone: &QString) -> QMap<QMapPair_QString_QVariant> {
         let mut out = QMap::<QMapPair_QString_QVariant>::default();
-        let mut put = |k: &str, v: &str| out.insert(QString::from(k), QVariant::from(&QString::from(v)));
+        let mut put =
+            |k: &str, v: &str| out.insert(QString::from(k), QVariant::from(&QString::from(v)));
         let Ok(tz) = TimeZone::get(&zone.to_string()) else {
             put("time", "—:—");
             put("weekday", "");
@@ -44,8 +45,16 @@ impl qobject::WorldClock {
         let there = now.to_zoned(tz.clone());
         put("time", &there.strftime("%-I:%M %p").to_string());
         put("weekday", &there.strftime("%a").to_string().to_uppercase());
-        let hours = (tz.to_offset(now).seconds() - TimeZone::system().to_offset(now).seconds()) / 3600;
-        put("offsetLabel", &if hours == 0 { "Local".to_owned() } else { format!("{hours:+}h") });
+        let hours =
+            (tz.to_offset(now).seconds() - TimeZone::system().to_offset(now).seconds()) / 3600;
+        put(
+            "offsetLabel",
+            &if hours == 0 {
+                "Local".to_owned()
+            } else {
+                format!("{hours:+}h")
+            },
+        );
         out
     }
 }

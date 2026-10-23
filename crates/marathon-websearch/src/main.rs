@@ -35,7 +35,9 @@ fn main() {
     if args.next().as_deref() == Some("render") {
         std::process::exit(render::main(&args.next().unwrap_or_default()));
     }
-    let server = match listener().and_then(|l| tiny_http::Server::from_listener(l, None).map_err(std::io::Error::other)) {
+    let server = match listener()
+        .and_then(|l| tiny_http::Server::from_listener(l, None).map_err(std::io::Error::other))
+    {
         Ok(s) => s,
         Err(e) => {
             log::warn("websearch", format_args!("cannot listen on {ADDRESS}: {e}"));
@@ -49,7 +51,9 @@ fn main() {
 
 /// systemd's socket (marathon-websearch.socket), else our own.
 fn listener() -> std::io::Result<std::net::TcpListener> {
-    if std::env::var("LISTEN_PID").ok() == Some(std::process::id().to_string()) && std::env::var("LISTEN_FDS").ok().as_deref() == Some("1") {
+    if std::env::var("LISTEN_PID").ok() == Some(std::process::id().to_string())
+        && std::env::var("LISTEN_FDS").ok().as_deref() == Some("1")
+    {
         use std::os::fd::FromRawFd as _;
         // SAFETY: systemd passed exactly one socket, as fd 3, to this process.
         return Ok(unsafe { std::net::TcpListener::from_raw_fd(3) });
@@ -58,19 +62,34 @@ fn listener() -> std::io::Result<std::net::TcpListener> {
 }
 
 fn answer(mut request: tiny_http::Request) {
-    let (status, body) = if request.method() != &tiny_http::Method::Post || request.url() != "/v1/search" {
-        (404, error("not found"))
-    } else {
-        let mut raw = Vec::new();
-        let read = request.as_reader().take(MAX_BODY as u64 + 1).read_to_end(&mut raw);
-        match read.ok().filter(|n| *n <= MAX_BODY).and_then(|_| serde_json::from_slice::<Request>(&raw).ok()) {
-            Some(r) if !r.query.trim().is_empty() && r.query.chars().count() <= MAX_QUERY => {
-                let items = search::search(r.query.trim(), r.limit.clamp(1, search::MAX_RESULTS), r.fresh);
-                (200, serde_json::json!({ "items": items }).to_string())
+    let (status, body) =
+        if request.method() != &tiny_http::Method::Post || request.url() != "/v1/search" {
+            (404, error("not found"))
+        } else {
+            let mut raw = Vec::new();
+            let read = request
+                .as_reader()
+                .take(MAX_BODY as u64 + 1)
+                .read_to_end(&mut raw);
+            match read
+                .ok()
+                .filter(|n| *n <= MAX_BODY)
+                .and_then(|_| serde_json::from_slice::<Request>(&raw).ok())
+            {
+                Some(r) if !r.query.trim().is_empty() && r.query.chars().count() <= MAX_QUERY => {
+                    let items = search::search(
+                        r.query.trim(),
+                        r.limit.clamp(1, search::MAX_RESULTS),
+                        r.fresh,
+                    );
+                    (200, serde_json::json!({ "items": items }).to_string())
+                }
+                _ => (
+                    400,
+                    error("a JSON body with a query of at most 1024 characters"),
+                ),
             }
-            _ => (400, error("a JSON body with a query of at most 1024 characters")),
-        }
-    };
+        };
     let json = tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]);
     let mut response = tiny_http::Response::from_string(body).with_status_code(status);
     if let Ok(h) = json {

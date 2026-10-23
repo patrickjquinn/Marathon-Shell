@@ -593,11 +593,31 @@ Rectangle {
             id: containerRoot
 
             property var appInstance: null
+            property var registerConnection: null
+            property var unregisterConnection: null
             property var minimizeConnection: null
             property var closedConnection: null
 
+            function disconnectApp() {
+                if (!appInstance)
+                    return;
+                if (registerConnection && appInstance.requestRegister)
+                    appInstance.requestRegister.disconnect(containerRoot, registerConnection);
+                if (unregisterConnection && appInstance.requestUnregister)
+                    appInstance.requestUnregister.disconnect(containerRoot, unregisterConnection);
+                if (minimizeConnection && appInstance.minimizeRequested)
+                    appInstance.minimizeRequested.disconnect(containerRoot, minimizeConnection);
+                if (closedConnection && appInstance.closed)
+                    appInstance.closed.disconnect(containerRoot, closedConnection);
+                registerConnection = null;
+                unregisterConnection = null;
+                minimizeConnection = null;
+                closedConnection = null;
+            }
+
             function adoptPendingApp() {
                 if (appWindow.pendingAppInstance) {
+                    disconnectApp();
                     appInstance = appWindow.pendingAppInstance;
                     appWindow.pendingAppInstance = null;
                     appInstance.parent = containerRoot;
@@ -605,31 +625,39 @@ Rectangle {
                     var capturedAppName = appWindow.appName;
                     var capturedAppId = appWindow.appId;
                     var capturedWindow = appWindow;
-                    if (appInstance.requestRegister)
-                        appInstance.requestRegister.connect(containerRoot, function (appId, appInst) {
+                    if (appInstance.requestRegister) {
+                        registerConnection = function (appId, appInst) {
                             console.log("AppWindow: App requested registration:", appId);
                             AppInstances.register(appId, appInst);
-                        });
+                        };
+                        appInstance.requestRegister.connect(containerRoot, registerConnection);
+                    }
 
-                    if (appInstance.requestUnregister)
-                        appInstance.requestUnregister.connect(containerRoot, function (appId) {
+                    if (appInstance.requestUnregister) {
+                        unregisterConnection = function (appId) {
                             console.log("AppWindow: App requested unregistration:", appId);
                             AppInstances.unregister(appId);
-                        });
+                        };
+                        appInstance.requestUnregister.connect(containerRoot, unregisterConnection);
+                    }
 
-                    if (appInstance.minimizeRequested)
-                        minimizeConnection = appInstance.minimizeRequested.connect(containerRoot, function () {
+                    if (appInstance.minimizeRequested) {
+                        minimizeConnection = function () {
                             Logger.info("AppWindow", "MApp minimize requested: " + capturedAppName);
                             if (capturedWindow)
                                 capturedWindow.minimized();
-                        });
+                        };
+                        appInstance.minimizeRequested.connect(containerRoot, minimizeConnection);
+                    }
 
-                    if (appInstance.closed)
-                        closedConnection = appInstance.closed.connect(containerRoot, function () {
+                    if (appInstance.closed) {
+                        closedConnection = function () {
                             Logger.info("AppWindow", "MApp closed: " + capturedAppName);
                             if (capturedWindow)
                                 capturedWindow.hide();
-                        });
+                        };
+                        appInstance.closed.connect(containerRoot, closedConnection);
+                    }
 
                     Logger.info("AppWindow", "MApp instance connected: " + capturedAppId);
                 }
@@ -639,15 +667,7 @@ Rectangle {
             Component.onCompleted: {
                 adoptPendingApp();
             }
-            Component.onDestruction: {
-                if (appInstance) {
-                    if (minimizeConnection && appInstance.minimizeRequested)
-                        appInstance.minimizeRequested.disconnect(minimizeConnection);
-
-                    if (closedConnection && appInstance.closed)
-                        appInstance.closed.disconnect(closedConnection);
-                }
-            }
+            Component.onDestruction: disconnectApp()
         }
     }
 

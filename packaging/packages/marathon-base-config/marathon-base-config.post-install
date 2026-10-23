@@ -15,6 +15,10 @@ if [ -x /bin/systemctl ]; then
 	
 	echo "Enabling zram..."
 	systemctl enable systemd-zram-setup@zram0.service || true
+
+	# These daemons remain available through the delayed timer and D-Bus,
+	# but must not retain enablement from an older image.
+	systemctl disable tuned.service tuned-ppd.service || true
 	
 	# shell.service enablement handled via symlinks in APKBUILD
 fi

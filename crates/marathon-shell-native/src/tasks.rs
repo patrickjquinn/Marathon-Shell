@@ -9,7 +9,10 @@
 //! this object's signals ask. QML shows the windows and runs the app
 //! instances it holds when asked to.
 
-#![allow(clippy::too_many_arguments, reason = "windowMapped: the window's facts, from the compositor")]
+#![allow(
+    clippy::too_many_arguments,
+    reason = "windowMapped: the window's facts, from the compositor"
+)]
 
 mod dbus;
 mod keel;
@@ -24,7 +27,10 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::{QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant, QModelIndex, QString, QStringList, QVariant};
+use cxx_qt_lib::{
+    QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant,
+    QModelIndex, QString, QStringList, QVariant,
+};
 
 // In the global namespace: cxx-qt 0.10 would put the base class in a
 // bridge's namespace too.
@@ -82,7 +88,14 @@ pub mod qobject {
         fn task_closed(self: Pin<&mut Tasks>, task_id: &QString);
         #[qinvokable]
         #[cxx_name = "launchTask"]
-        fn launch_task(self: Pin<&mut Tasks>, app_id: &QString, name: &QString, icon: &QString, kind: &QString, surface_id: i32);
+        fn launch_task(
+            self: Pin<&mut Tasks>,
+            app_id: &QString,
+            name: &QString,
+            icon: &QString,
+            kind: &QString,
+            surface_id: i32,
+        );
         #[qinvokable]
         #[cxx_name = "closeTask"]
         fn close_task(self: Pin<&mut Tasks>, task_id: &QString);
@@ -102,7 +115,12 @@ pub mod qobject {
         /// A route and its JSON parameters for the runner (MARATHON_APP_ROUTE).
         #[qinvokable]
         #[cxx_name = "launchAppWithRoute"]
-        fn launch_app_with_route(self: Pin<&mut Tasks>, app_id: &QString, route: &QString, params_json: &QString) -> bool;
+        fn launch_app_with_route(
+            self: Pin<&mut Tasks>,
+            app_id: &QString,
+            route: &QString,
+            params_json: &QString,
+        ) -> bool;
         /// Starts the app without bringing it on screen; a running one is
         /// left where it is, thawed if it was frozen.
         #[qinvokable]
@@ -146,11 +164,21 @@ pub mod qobject {
         fn app_launch_completed(self: Pin<&mut Tasks>, app_id: &QString, name: &QString);
         #[qsignal]
         #[cxx_name = "appLaunchFailed"]
-        fn app_launch_failed(self: Pin<&mut Tasks>, app_id: &QString, name: &QString, error: &QString);
+        fn app_launch_failed(
+            self: Pin<&mut Tasks>,
+            app_id: &QString,
+            name: &QString,
+            error: &QString,
+        );
         /// A route for a running app, which must handle it live.
         #[qsignal]
         #[cxx_name = "routeForRunningApp"]
-        fn route_for_running_app(self: Pin<&mut Tasks>, app_id: &QString, route: &QString, params_json: &QString);
+        fn route_for_running_app(
+            self: Pin<&mut Tasks>,
+            app_id: &QString,
+            route: &QString,
+            params_json: &QString,
+        );
         #[qsignal]
         #[cxx_name = "appExited"]
         fn app_exited(self: Pin<&mut Tasks>, app_id: &QString);
@@ -175,11 +203,24 @@ pub mod qobject {
         // What QML does for it: UIStore's app, and the app window.
         #[qsignal]
         #[cxx_name = "openAppRequested"]
-        fn open_app_requested(self: Pin<&mut Tasks>, app_id: &QString, name: &QString, icon: &QString, restore: bool);
+        fn open_app_requested(
+            self: Pin<&mut Tasks>,
+            app_id: &QString,
+            name: &QString,
+            icon: &QString,
+            restore: bool,
+        );
         /// `surface_id` -1 shows the splash until the app's window maps.
         #[qsignal]
         #[cxx_name = "showRequested"]
-        fn show_requested(self: Pin<&mut Tasks>, app_id: &QString, name: &QString, icon: &QString, kind: &QString, surface_id: i32);
+        fn show_requested(
+            self: Pin<&mut Tasks>,
+            app_id: &QString,
+            name: &QString,
+            icon: &QString,
+            kind: &QString,
+            surface_id: i32,
+        );
 
         // What the compositor does for it (main.cpp connects these).
         #[qsignal]
@@ -212,7 +253,16 @@ pub mod qobject {
         /// A new toplevel; true if it is shown. `recent_input`: the user
         /// touched the screen just now.
         #[cxx_name = "windowMapped"]
-        fn window_mapped(self: Pin<&mut Tasks>, pid: i64, client_pid: i64, xdg_app_id: &QString, title: &QString, sandbox_app_id: &QString, surface_id: i32, recent_input: bool) -> bool;
+        fn window_mapped(
+            self: Pin<&mut Tasks>,
+            pid: i64,
+            client_pid: i64,
+            xdg_app_id: &QString,
+            title: &QString,
+            sandbox_app_id: &QString,
+            surface_id: i32,
+            recent_input: bool,
+        ) -> bool;
         /// The window's app has no process of its own (Android's).
         #[cxx_name = "isForeignWindow"]
         fn is_foreign_window(self: &Tasks, surface_id: i32) -> bool;
@@ -221,7 +271,12 @@ pub mod qobject {
         #[cxx_name = "windowActivated"]
         fn window_activated(self: Pin<&mut Tasks>, surface_id: i32, launch_pid: i64);
         #[cxx_name = "dialogMapped"]
-        fn dialog_mapped(self: Pin<&mut Tasks>, pid: i64, sandbox_app_id: &QString, surface_id: i32);
+        fn dialog_mapped(
+            self: Pin<&mut Tasks>,
+            pid: i64,
+            sandbox_app_id: &QString,
+            surface_id: i32,
+        );
         #[cxx_name = "nativeBackUnhandled"]
         fn native_back_unhandled(self: Pin<&mut Tasks>, surface_id: i32);
 
@@ -233,7 +288,13 @@ pub mod qobject {
         #[cxx_name = "setAppViewport"]
         fn set_app_viewport(self: Pin<&mut Tasks>, width: i32, height: i32);
         #[cxx_name = "setShellState"]
-        fn set_shell_state(self: Pin<&mut Tasks>, app_window_open: bool, current_app_id: &QString, locked: bool, quick_settings_open: bool);
+        fn set_shell_state(
+            self: Pin<&mut Tasks>,
+            app_window_open: bool,
+            current_app_id: &QString,
+            locked: bool,
+            quick_settings_open: bool,
+        );
 
         // The lifecycle.
         /// An app the shell draws itself (an in-shell QML app or a native
@@ -360,7 +421,15 @@ struct Task {
     timestamp: i64,
 }
 
-const ROLES: [&str; 7] = ["id", "appId", "title", "icon", "type", "surfaceId", "timestamp"];
+const ROLES: [&str; 7] = [
+    "id",
+    "appId",
+    "title",
+    "icon",
+    "type",
+    "surfaceId",
+    "timestamp",
+];
 const USER_ROLE: i32 = 0x0100;
 
 /// A started process, until it exits.
@@ -373,6 +442,7 @@ struct Launch {
     command: String,
     sandbox_instance: String,
     pid: i64,
+    foreground_generation: u64,
 }
 
 /// What a runner is started with on this device.
@@ -393,7 +463,10 @@ struct Device {
 }
 
 #[derive(Default)]
-#[allow(clippy::struct_excessive_bools, reason = "the QML properties and the shell's state")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "the QML properties and the shell's state"
+)]
 pub struct TasksRust {
     task_count: i32,
     secure_apps: QStringList,
@@ -411,6 +484,7 @@ pub struct TasksRust {
     launching: HashSet<String>,
     background_launches: HashSet<String>,
     starting_in_background: bool,
+    foreground_launches: launch::ForegroundLaunches,
     pending_route: Option<(String, String)>,
     pending_by_command: HashMap<String, Launch>,
     active_by_pid: HashMap<i64, Launch>,
@@ -446,7 +520,12 @@ impl Tasks {
     }
 
     fn data(&self, index: &QModelIndex, role: i32) -> QVariant {
-        let Some(task) = usize::try_from(index.row()).ok().and_then(|row| self.tasks.get(row)) else { return QVariant::default() };
+        let Some(task) = usize::try_from(index.row())
+            .ok()
+            .and_then(|row| self.tasks.get(row))
+        else {
+            return QVariant::default();
+        };
         let text = |s: &str| QVariant::from(&QString::from(s));
         match role - USER_ROLE - 1 {
             0 => text(&task.id),
@@ -507,11 +586,31 @@ impl Tasks {
         self.refresh_secure();
     }
 
-    fn launch_task(self: Pin<&mut Self>, app_id: &QString, name: &QString, icon: &QString, kind: &QString, surface_id: i32) {
-        self.add_task(&app_id.to_string(), &name.to_string(), &icon.to_string(), &kind.to_string(), surface_id);
+    fn launch_task(
+        self: Pin<&mut Self>,
+        app_id: &QString,
+        name: &QString,
+        icon: &QString,
+        kind: &QString,
+        surface_id: i32,
+    ) {
+        self.add_task(
+            &app_id.to_string(),
+            &name.to_string(),
+            &icon.to_string(),
+            &kind.to_string(),
+            surface_id,
+        );
     }
 
-    fn add_task(mut self: Pin<&mut Self>, app_id: &str, name: &str, icon: &str, kind: &str, surface_id: i32) {
+    fn add_task(
+        mut self: Pin<&mut Self>,
+        app_id: &str,
+        name: &str,
+        icon: &str,
+        kind: &str,
+        surface_id: i32,
+    ) {
         if self.task(app_id).is_some() {
             return;
         }
@@ -520,7 +619,15 @@ impl Tasks {
             rust.next_task += 1;
             format!("task_{}", rust.next_task)
         };
-        let task = Task { id: id.clone(), app_id: app_id.to_owned(), title: name.to_owned(), icon: icon.to_owned(), kind: kind.to_owned(), surface_id, timestamp: now_ms() };
+        let task = Task {
+            id: id.clone(),
+            app_id: app_id.to_owned(),
+            title: name.to_owned(),
+            icon: icon.to_owned(),
+            kind: kind.to_owned(),
+            surface_id,
+            timestamp: now_ms(),
+        };
         let mut tasks = self.tasks.clone();
         tasks.insert(0, task);
         self.as_mut().set_tasks(tasks);
@@ -537,14 +644,23 @@ impl Tasks {
     }
 
     fn remove_task(mut self: Pin<&mut Self>, which: impl Fn(&Task) -> bool) {
-        let Some(task) = self.tasks.iter().find(|t| which(t)).cloned() else { return };
-        let tasks = self.tasks.iter().filter(|t| t.id != task.id).cloned().collect();
+        let Some(task) = self.tasks.iter().find(|t| which(t)).cloned() else {
+            return;
+        };
+        let tasks = self
+            .tasks
+            .iter()
+            .filter(|t| t.id != task.id)
+            .cloned()
+            .collect();
         self.as_mut().set_tasks(tasks);
         self.task_closed(&QString::from(&task.id));
     }
 
     fn move_to_front(mut self: Pin<&mut Self>, app_id: &str) {
-        let Some(at) = self.tasks.iter().position(|t| t.app_id == app_id) else { return };
+        let Some(at) = self.tasks.iter().position(|t| t.app_id == app_id) else {
+            return;
+        };
         if at > 0 {
             let mut tasks = self.tasks.clone();
             let task = tasks.remove(at);
@@ -556,7 +672,9 @@ impl Tasks {
     /// The task shows the window; a native one, whatever it started as.
     fn update_task_window(mut self: Pin<&mut Self>, app_id: &str, surface_id: i32) {
         let mut tasks = self.tasks.clone();
-        let Some(task) = tasks.iter_mut().find(|t| t.app_id == app_id) else { return };
+        let Some(task) = tasks.iter_mut().find(|t| t.app_id == app_id) else {
+            return;
+        };
         "native".clone_into(&mut task.kind);
         task.surface_id = surface_id;
         self.as_mut().set_tasks(tasks);
@@ -570,7 +688,8 @@ impl Tasks {
             *had_card |= ids.contains(app);
         }
         let before = rust.secure.len();
-        rust.secure.retain(|app, had_card| !*had_card || ids.contains(app));
+        rust.secure
+            .retain(|app, had_card| !*had_card || ids.contains(app));
         if rust.secure.len() != before {
             self.publish_secure();
         }
@@ -601,9 +720,25 @@ impl Tasks {
     }
 
     fn set_device(mut self: Pin<&mut Self>, device: &Map) {
-        let text = |k: &str| device.get(&QString::from(k)).and_then(|v| v.value::<QString>()).map(|s| s.to_string()).unwrap_or_default();
-        let int = |k: &str| device.get(&QString::from(k)).and_then(|v| v.value::<i32>()).unwrap_or_default();
-        let real = |k: &str| device.get(&QString::from(k)).and_then(|v| v.value::<f64>()).unwrap_or_default();
+        let text = |k: &str| {
+            device
+                .get(&QString::from(k))
+                .and_then(|v| v.value::<QString>())
+                .map(|s| s.to_string())
+                .unwrap_or_default()
+        };
+        let int = |k: &str| {
+            device
+                .get(&QString::from(k))
+                .and_then(|v| v.value::<i32>())
+                .unwrap_or_default()
+        };
+        let real = |k: &str| {
+            device
+                .get(&QString::from(k))
+                .and_then(|v| v.value::<f64>())
+                .unwrap_or_default()
+        };
         let profile = &*crate::device::VALUES;
         let (runner_width, runner_height) = profile.runner_size();
         let user_scale = self.device.user_scale;
@@ -636,13 +771,23 @@ impl Tasks {
 
     /// The app in front: "" on the home screen, the switcher or the lock
     /// screen.
-    fn set_shell_state(mut self: Pin<&mut Self>, app_window_open: bool, current_app_id: &QString, locked: bool, quick_settings_open: bool) {
+    fn set_shell_state(
+        mut self: Pin<&mut Self>,
+        app_window_open: bool,
+        current_app_id: &QString,
+        locked: bool,
+        quick_settings_open: bool,
+    ) {
         let mut rust = self.as_mut().rust_mut();
         rust.quick_settings_open = quick_settings_open;
         rust.app_window_open = app_window_open;
         rust.current_app_id = current_app_id.to_string();
         rust.locked = locked;
-        let front = if app_window_open && !locked { current_app_id.clone() } else { QString::default() };
+        let front = if app_window_open && !locked {
+            current_app_id.clone()
+        } else {
+            QString::default()
+        };
         if self.foreground_app_id != front {
             self.as_mut().rust_mut().foreground_app_id = front.clone();
             self.as_mut().foreground_app_id_changed();
@@ -665,9 +810,14 @@ fn later(qt: Qt, after: std::time::Duration, f: impl FnOnce(Pin<&mut Tasks>) + S
 
 /// A sandbox instance's id.
 fn launch_uuid() -> String {
-    std::fs::read_to_string("/proc/sys/kernel/random/uuid").unwrap_or_default().trim().to_owned()
+    std::fs::read_to_string("/proc/sys/kernel/random/uuid")
+        .unwrap_or_default()
+        .trim()
+        .to_owned()
 }
 
 fn now_ms() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
 }

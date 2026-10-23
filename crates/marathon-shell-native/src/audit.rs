@@ -18,6 +18,11 @@ pub fn log(severity: Severity, message: &str) {
     crate::log::warn("audit", &line);
     let priority = AUTH * 8 + severity as u8;
     if let Ok(socket) = UnixDatagram::unbound() {
-        socket.send_to(format!("<{priority}>marathon-shell[{}]: {line}", std::process::id()).as_bytes(), "/dev/log").ok();
+        socket
+            .send_to(
+                format!("<{priority}>marathon-shell[{}]: {line}", std::process::id()).as_bytes(),
+                "/dev/log",
+            )
+            .ok();
     }
 }

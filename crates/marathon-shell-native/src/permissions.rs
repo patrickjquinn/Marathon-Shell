@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock, PoisonError};
+use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
 use std::time::Duration;
 
 use async_channel::Sender;
@@ -75,7 +75,11 @@ mod qobject {
         fn request_permission(self: Pin<&mut Permissions>, app_id: &QString, permission: &QString);
         #[qinvokable]
         #[cxx_name = "requestPermissions"]
-        fn request_permissions(self: Pin<&mut Permissions>, app_id: &QString, permissions: &QStringList);
+        fn request_permissions(
+            self: Pin<&mut Permissions>,
+            app_id: &QString,
+            permissions: &QStringList,
+        );
         /// Every permission the app declared that is not decided yet: at launch.
         #[cxx_name = "requestDeclaredPermissions"]
         fn request_declared_permissions(self: Pin<&mut Permissions>, app_id: &QString);
@@ -91,10 +95,22 @@ mod qobject {
         fn respond_to_back(self: Pin<&mut Permissions>);
         #[qinvokable]
         #[cxx_name = "setPermission"]
-        fn set_permission(self: Pin<&mut Permissions>, app_id: &QString, permission: &QString, granted: bool, remember: bool);
+        fn set_permission(
+            self: Pin<&mut Permissions>,
+            app_id: &QString,
+            permission: &QString,
+            granted: bool,
+            remember: bool,
+        );
         #[qinvokable]
         #[cxx_name = "setPermissions"]
-        fn set_permissions(self: Pin<&mut Permissions>, app_id: &QString, permissions: &QStringList, granted: bool, remember: bool);
+        fn set_permissions(
+            self: Pin<&mut Permissions>,
+            app_id: &QString,
+            permissions: &QStringList,
+            granted: bool,
+            remember: bool,
+        );
         #[qinvokable]
         #[cxx_name = "revokePermission"]
         fn revoke_permission(self: Pin<&mut Permissions>, app_id: &QString, permission: &QString);
@@ -189,40 +205,67 @@ struct Core {
 
 impl Core {
     fn load(path: PathBuf) -> Self {
-        let json: serde_json::Value = fs::read(&path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        let json: serde_json::Value = fs::read(&path)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default();
         let stored = json
             .as_object()
             .into_iter()
             .flatten()
             .map(|(app, grants)| {
-                let grants = grants.as_object().into_iter().flatten().map(|(p, g)| (canonical(p), g.as_bool().unwrap_or(false))).collect();
+                let grants = grants
+                    .as_object()
+                    .into_iter()
+                    .flatten()
+                    .map(|(p, g)| (canonical(p), g.as_bool().unwrap_or(false)))
+                    .collect();
                 (app.clone(), grants)
             })
             .collect();
-        Self { path: Some(path), stored, ..Self::default() }
+        Self {
+            path: Some(path),
+            stored,
+            ..Self::default()
+        }
     }
 
     fn save(&self) {
         let Some(path) = &self.path else { return };
-        let written = path.parent().map(fs::create_dir_all).transpose().and_then(|_| {
-            fs::write(path, serde_json::to_vec_pretty(&self.stored).unwrap_or_default())
-        });
+        let written = path
+            .parent()
+            .map(fs::create_dir_all)
+            .transpose()
+            .and_then(|_| {
+                fs::write(
+                    path,
+                    serde_json::to_vec_pretty(&self.stored).unwrap_or_default(),
+                )
+            });
         if let Err(e) = written {
-            log::warn("permissions", format_args!("saving {}: {e}", path.display()));
+            log::warn(
+                "permissions",
+                format_args!("saving {}: {e}", path.display()),
+            );
         }
     }
 
     fn declares(&self, app: &str, permission: &str) -> bool {
-        self.apps.get(app).is_none_or(|f| f.declared.iter().any(|d| canonical(d) == permission))
+        self.apps
+            .get(app)
+            .is_none_or(|f| f.declared.iter().any(|d| canonical(d) == permission))
     }
 
     // Restricted permissions are held only by protected system apps.
     fn refused(&self, app: &str, permission: &str) -> bool {
-        marathon_permissions::describe(permission).is_some_and(|p| p.restricted) && !self.apps.get(app).is_some_and(|f| f.protected)
+        marathon_permissions::describe(permission).is_some_and(|p| p.restricted)
+            && !self.apps.get(app).is_some_and(|f| f.protected)
     }
 
     fn decided(&self, app: &str, permission: &str) -> bool {
-        self.stored.get(app).is_some_and(|g| g.contains_key(permission))
+        self.stored
+            .get(app)
+            .is_some_and(|g| g.contains_key(permission))
     }
 
     fn status(&self, app: &str, permission: &str) -> Status {
@@ -246,7 +289,10 @@ impl Core {
     fn request(&mut self, app: &str, permission: &str, out: &mut Vec<Event>) {
         let permission = canonical(permission);
         if !self.declares(app, &permission) {
-            log::warn("permissions", format_args!("SECURITY: undeclared permission requested: {app} {permission}"));
+            log::warn(
+                "permissions",
+                format_args!("SECURITY: undeclared permission requested: {app} {permission}"),
+            );
             return out.push(Event::Denied(app.to_owned(), permission));
         }
         // A refusal the user has not been shown yet goes to the prompt.
@@ -261,9 +307,17 @@ impl Core {
         }
     }
 
-    fn ask_if_undecided(&mut self, app: &str, permissions: &[String], out: &mut Vec<Event>) -> Option<String> {
+    fn ask_if_undecided(
+        &mut self,
+        app: &str,
+        permissions: &[String],
+        out: &mut Vec<Event>,
+    ) -> Option<String> {
         self.apps.get(app)?;
-        let permission = permissions.iter().map(|p| canonical(p)).find(|p| self.status(app, p) == Status::NotRequested)?;
+        let permission = permissions
+            .iter()
+            .map(|p| canonical(p))
+            .find(|p| self.status(app, p) == Status::NotRequested)?;
         self.request(app, &permission, out);
         Some(permission)
     }
@@ -289,8 +343,12 @@ impl Core {
             });
             return out.push(Event::PromptChanged);
         }
-        let Some((app, _)) = self.pending.first().cloned() else { return };
-        let (mine, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending).into_iter().partition(|(a, _)| *a == app);
+        let Some((app, _)) = self.pending.first().cloned() else {
+            return;
+        };
+        let (mine, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending)
+            .into_iter()
+            .partition(|(a, _)| *a == app);
         self.pending = rest;
         let (mut asked, mut refused) = (Vec::new(), Vec::new());
         for (_, permission) in mine {
@@ -317,7 +375,12 @@ impl Core {
             return self.check_queue(out);
         }
         out.push(Event::Requested(app.clone(), asked.clone()));
-        self.prompt = Some(Prompt { app, asked, refused, foreign: None });
+        self.prompt = Some(Prompt {
+            app,
+            asked,
+            refused,
+            foreign: None,
+        });
         out.push(Event::PromptChanged);
     }
 
@@ -326,10 +389,23 @@ impl Core {
         out.push(Event::PromptChanged);
     }
 
-    fn finish_foreign(&mut self, key: &str, answer: &'static str, precise: bool, out: &mut Vec<Event>) {
-        let Some(i) = self.foreign.iter().position(|f| f.key == key) else { return };
+    fn finish_foreign(
+        &mut self,
+        key: &str,
+        answer: &'static str,
+        precise: bool,
+        out: &mut Vec<Event>,
+    ) {
+        let Some(i) = self.foreign.iter().position(|f| f.key == key) else {
+            return;
+        };
         self.foreign.remove(i);
-        if self.prompt.as_ref().and_then(|p| p.foreign.as_ref()).is_some_and(|(k, _)| k == key) {
+        if self
+            .prompt
+            .as_ref()
+            .and_then(|p| p.foreign.as_ref())
+            .is_some_and(|(k, _)| k == key)
+        {
             self.close(out);
             self.check_queue(out);
         }
@@ -337,7 +413,9 @@ impl Core {
     }
 
     fn respond(&mut self, granted: bool, once: bool, precise: Option<bool>, out: &mut Vec<Event>) {
-        let Some(prompt) = self.prompt.clone() else { return };
+        let Some(prompt) = self.prompt.clone() else {
+            return;
+        };
         if let Some((key, options)) = prompt.foreign {
             let answer = if !granted {
                 "deny"
@@ -367,10 +445,22 @@ impl Core {
         } else {
             self.set(&prompt.app, &prompt.asked, granted, true, out);
         }
-        out.extend(prompt.refused.into_iter().map(|p| Event::Denied(prompt.app.clone(), p)));
+        out.extend(
+            prompt
+                .refused
+                .into_iter()
+                .map(|p| Event::Denied(prompt.app.clone(), p)),
+        );
     }
 
-    fn set(&mut self, app: &str, permissions: &[String], granted: bool, remember: bool, out: &mut Vec<Event>) {
+    fn set(
+        &mut self,
+        app: &str,
+        permissions: &[String],
+        granted: bool,
+        remember: bool,
+        out: &mut Vec<Event>,
+    ) {
         let permissions: Vec<String> = permissions.iter().map(|p| canonical(p)).collect();
         let grants = self.stored.entry(app.to_owned()).or_default();
         for permission in &permissions {
@@ -381,7 +471,11 @@ impl Core {
         }
         // Answers only what it decides: a grant for another app must not
         // close this prompt and lose its requests.
-        if let Some(p) = self.prompt.as_mut().filter(|p| p.foreign.is_none() && p.app == app) {
+        if let Some(p) = self
+            .prompt
+            .as_mut()
+            .filter(|p| p.foreign.is_none() && p.app == app)
+        {
             p.asked.retain(|a| !permissions.contains(a));
             if p.asked.is_empty() && p.refused.is_empty() {
                 self.close(out);
@@ -400,12 +494,22 @@ impl Core {
     }
 
     fn dismiss_for(&mut self, app: Option<&str>, out: &mut Vec<Event>) {
-        let keys: Vec<String> = self.foreign.iter().filter(|f| app.is_none_or(|a| f.app == a)).map(|f| f.key.clone()).collect();
+        let keys: Vec<String> = self
+            .foreign
+            .iter()
+            .filter(|f| app.is_none_or(|a| f.app == a))
+            .map(|f| f.key.clone())
+            .collect();
         for key in keys {
             self.finish_foreign(&key, "cancel", false, out);
         }
-        self.pending.retain(|(a, _)| app.is_some_and(|app| a != app));
-        if self.prompt.as_ref().is_some_and(|p| app.is_none_or(|a| p.app == a)) {
+        self.pending
+            .retain(|(a, _)| app.is_some_and(|app| a != app));
+        if self
+            .prompt
+            .as_ref()
+            .is_some_and(|p| app.is_none_or(|a| p.app == a))
+        {
             self.close(out);
             self.check_queue(out);
         }
@@ -426,15 +530,18 @@ pub struct PermissionsRust {
 
 // The I/O thread's gate reads the decisions as the GUI thread's prompt
 // changes them; held only while one call runs.
-static CORE: LazyLock<Mutex<Core>> =
-    LazyLock::new(|| Mutex::new(Core::load(marathon_rt::dirs::config().join("marathon/app-permissions.json"))));
+static CORE: LazyLock<Mutex<Core>> = LazyLock::new(|| {
+    Mutex::new(Core::load(
+        marathon_rt::dirs::config().join("marathon/app-permissions.json"),
+    ))
+});
 static QT: OnceLock<cxx_qt::CxxQtThread<Permissions>> = OnceLock::new();
 type Answer = (String, bool);
 // Permissions1.PromptAndroid's callers, by prompt key.
 static WAITING: LazyLock<Mutex<HashMap<String, Sender<Answer>>>> = LazyLock::new(Mutex::default);
 
 fn core() -> MutexGuard<'static, Core> {
-    CORE.lock().unwrap_or_else(PoisonError::into_inner)
+    CORE.lock().unwrap_or_else(|_| std::process::abort())
 }
 
 /// Whether the app holds `permission`, from any thread.
@@ -453,10 +560,15 @@ pub(crate) fn ask_if_undecided(app: &str, permissions: &[String]) -> Option<Stri
     asked
 }
 
-
 /// What an app declared, from its manifest or install receipt.
 pub(crate) fn declare(app_id: &str, declared: Vec<String>, system: bool) {
-    core().apps.insert(app_id.to_owned(), Facts { declared, protected: system });
+    core().apps.insert(
+        app_id.to_owned(),
+        Facts {
+            declared,
+            protected: system,
+        },
+    );
 }
 
 pub(crate) fn undeclare(app_id: &str) {
@@ -471,7 +583,10 @@ pub(crate) fn with(f: impl FnOnce(Pin<&mut Permissions>) + Send + 'static) {
 }
 
 fn strings(list: &QStringList) -> Vec<String> {
-    QList::<QString>::from(list).iter().map(ToString::to_string).collect()
+    QList::<QString>::from(list)
+        .iter()
+        .map(ToString::to_string)
+        .collect()
 }
 
 fn list(items: &[String]) -> QStringList {
@@ -481,27 +596,45 @@ fn list(items: &[String]) -> QStringList {
 impl cxx_qt::Initialize for Permissions {
     fn initialize(self: Pin<&mut Self>) {
         QT.set(self.qt_thread()).ok();
-        ipc::export("Permissions", Permissions1 { qt: self.qt_thread() });
+        ipc::export(
+            "Permissions",
+            Permissions1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
-#[allow(clippy::unused_self, reason = "invokables are the QObject's methods, whatever of it they read")]
+#[allow(
+    clippy::unused_self,
+    reason = "invokables are the QObject's methods, whatever of it they read"
+)]
 impl Permissions {
     fn apply(mut self: Pin<&mut Self>, events: Vec<Event>) {
         for event in events {
             match event {
                 Event::Granted(a, p) => {
-                    self.as_mut().permission_granted(&QString::from(&a), &QString::from(&p));
+                    self.as_mut()
+                        .permission_granted(&QString::from(&a), &QString::from(&p));
                     ipc::signal("Permissions", "PermissionGranted", (a, p));
                 }
                 Event::Denied(a, p) => {
-                    self.as_mut().permission_denied(&QString::from(&a), &QString::from(&p));
+                    self.as_mut()
+                        .permission_denied(&QString::from(&a), &QString::from(&p));
                     ipc::signal("Permissions", "PermissionDenied", (a, p));
                 }
-                Event::Revoked(a, p) => self.as_mut().permission_revoked(&QString::from(&a), &QString::from(&p)),
-                Event::Requested(a, ps) => self.as_mut().permissions_requested(&QString::from(&a), &list(&ps)),
+                Event::Revoked(a, p) => self
+                    .as_mut()
+                    .permission_revoked(&QString::from(&a), &QString::from(&p)),
+                Event::Requested(a, ps) => self
+                    .as_mut()
+                    .permissions_requested(&QString::from(&a), &list(&ps)),
                 Event::Answered(k, a, precise) => {
-                    if let Some(waiter) = WAITING.lock().unwrap_or_else(PoisonError::into_inner).remove(&k) {
+                    if let Some(waiter) = WAITING
+                        .lock()
+                        .unwrap_or_else(|_| std::process::abort())
+                        .remove(&k)
+                    {
                         waiter.try_send((a.to_owned(), precise)).ok();
                     }
                 }
@@ -515,16 +648,26 @@ impl Permissions {
         let prompt = core().prompt.clone();
         let mut options = QMap::<QMapPair_QString_QVariant>::default();
         if let Some((_, o)) = prompt.as_ref().and_then(|p| p.foreign.as_ref()) {
-            options.insert(QString::from("kind"), QVariant::from(&QString::from(&o.kind)));
+            options.insert(
+                QString::from("kind"),
+                QVariant::from(&QString::from(&o.kind)),
+            );
             options.insert(QString::from("once"), QVariant::from(&o.once));
-            options.insert(QString::from("accuracy"), QVariant::from(&QString::from(&o.accuracy)));
-            options.insert(QString::from("preciseDefault"), QVariant::from(&o.precise_default));
+            options.insert(
+                QString::from("accuracy"),
+                QVariant::from(&QString::from(&o.accuracy)),
+            );
+            options.insert(
+                QString::from("preciseDefault"),
+                QVariant::from(&o.precise_default),
+            );
         }
         let mut rust = self.as_mut().rust_mut();
         let p = prompt.as_ref();
         rust.current_app_id = QString::from(p.map_or("", |p| p.app.as_str()));
         rust.current_permissions = list(p.map_or(&[][..], |p| &p.asked));
-        rust.current_permission = QString::from(p.and_then(|p| p.asked.first()).map_or("", String::as_str));
+        rust.current_permission =
+            QString::from(p.and_then(|p| p.asked.first()).map_or("", String::as_str));
         rust.current_refused = list(p.map_or(&[][..], |p| &p.refused));
         rust.current_options = options;
         let active = prompt.is_some();
@@ -579,7 +722,12 @@ impl Permissions {
     pub(crate) fn request_declared_permissions(self: Pin<&mut Self>, app_id: &QString) {
         let app = app_id.to_string();
         self.with(|core, out| {
-            for permission in core.apps.get(&app).map(|f| f.declared.clone()).unwrap_or_default() {
+            for permission in core
+                .apps
+                .get(&app)
+                .map(|f| f.declared.clone())
+                .unwrap_or_default()
+            {
                 core.request(&app, &permission, out);
             }
         });
@@ -605,18 +753,48 @@ impl Permissions {
     }
 
     fn respond_to_back(self: Pin<&mut Self>) {
-        self.with(|core, out| match core.prompt.as_ref().and_then(|p| p.foreign.clone()) {
-            Some((key, _)) => core.finish_foreign(&key, "cancel", false, out),
-            None => core.respond(false, false, None, out),
+        self.with(
+            |core, out| match core.prompt.as_ref().and_then(|p| p.foreign.clone()) {
+                Some((key, _)) => core.finish_foreign(&key, "cancel", false, out),
+                None => core.respond(false, false, None, out),
+            },
+        );
+    }
+
+    fn set_permission(
+        self: Pin<&mut Self>,
+        app_id: &QString,
+        permission: &QString,
+        granted: bool,
+        remember: bool,
+    ) {
+        self.with(|core, out| {
+            core.set(
+                &app_id.to_string(),
+                &[permission.to_string()],
+                granted,
+                remember,
+                out,
+            );
         });
     }
 
-    fn set_permission(self: Pin<&mut Self>, app_id: &QString, permission: &QString, granted: bool, remember: bool) {
-        self.with(|core, out| core.set(&app_id.to_string(), &[permission.to_string()], granted, remember, out));
-    }
-
-    fn set_permissions(self: Pin<&mut Self>, app_id: &QString, permissions: &QStringList, granted: bool, remember: bool) {
-        self.with(|core, out| core.set(&app_id.to_string(), &strings(permissions), granted, remember, out));
+    fn set_permissions(
+        self: Pin<&mut Self>,
+        app_id: &QString,
+        permissions: &QStringList,
+        granted: bool,
+        remember: bool,
+    ) {
+        self.with(|core, out| {
+            core.set(
+                &app_id.to_string(),
+                &strings(permissions),
+                granted,
+                remember,
+                out,
+            );
+        });
     }
 
     fn revoke_permission(self: Pin<&mut Self>, app_id: &QString, permission: &QString) {
@@ -655,20 +833,31 @@ impl Permissions {
     fn app_permissions(&self, app_id: &QString) -> QStringList {
         let app = app_id.to_string();
         let core = core();
-        marathon_permissions::permissions().keys().filter(|p| core.has(&app, p)).map(QString::from).collect()
+        marathon_permissions::permissions()
+            .keys()
+            .filter(|p| core.has(&app, p))
+            .map(QString::from)
+            .collect()
     }
 
     fn available_permissions(&self) -> QStringList {
-        marathon_permissions::permissions().keys().map(QString::from).collect()
+        marathon_permissions::permissions()
+            .keys()
+            .map(QString::from)
+            .collect()
     }
 
     fn permission_label(&self, permission: &QString) -> QString {
         let p = permission.to_string();
-        marathon_permissions::describe(&p).map_or_else(|| permission.clone(), |d| QString::from(&d.label))
+        marathon_permissions::describe(&p)
+            .map_or_else(|| permission.clone(), |d| QString::from(&d.label))
     }
 
     fn permission_description(&self, permission: &QString) -> QString {
-        QString::from(marathon_permissions::describe(&permission.to_string()).map_or("Unknown permission", |d| d.description.as_str()))
+        QString::from(
+            marathon_permissions::describe(&permission.to_string())
+                .map_or("Unknown permission", |d| d.description.as_str()),
+        )
     }
 }
 
@@ -696,8 +885,14 @@ enum Op {
 }
 
 fn is_android_app(app: &str) -> bool {
-    let segment = |s: &str| s.starts_with(|c: char| c.is_ascii_alphabetic()) && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
-    app.len() <= 9 + 255 && app.strip_prefix("waydroid.").is_some_and(|pkg| pkg.split('.').all(segment))
+    let segment = |s: &str| {
+        s.starts_with(|c: char| c.is_ascii_alphabetic())
+            && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    app.len() <= 9 + 255
+        && app
+            .strip_prefix("waydroid.")
+            .is_some_and(|pkg| pkg.split('.').all(segment))
 }
 
 /// A foreign prompt's options, when every known one is valid.
@@ -711,16 +906,28 @@ fn foreign_options(options: &State) -> Option<ForeignOptions> {
         Some(v) => v.downcast_ref::<bool>().ok(),
     };
     let (kind, accuracy) = (text("kind", "foreground")?, text("accuracy", "")?);
-    if !["foreground", "background", "precise"].contains(&kind.as_str()) || !["", "choice", "approximate"].contains(&accuracy.as_str()) {
+    if !["foreground", "background", "precise"].contains(&kind.as_str())
+        || !["", "choice", "approximate"].contains(&accuracy.as_str())
+    {
         return None;
     }
-    Some(ForeignOptions { kind, once: flag("once")?, accuracy, precise_default: flag("preciseDefault")? })
+    Some(ForeignOptions {
+        kind,
+        once: flag("once")?,
+        accuracy,
+        precise_default: flag("preciseDefault")?,
+    })
 }
 
 async fn pid_of(name: &str) -> Option<u32> {
     let bus = io::session_bus().await.ok()?;
     let name = BusName::try_from(name).ok()?;
-    fdo::DBusProxy::new(&bus).await.ok()?.get_connection_unix_process_id(name).await.ok()
+    fdo::DBusProxy::new(&bus)
+        .await
+        .ok()?
+        .get_connection_unix_process_id(name)
+        .await
+        .ok()
 }
 
 async fn caller(h: &Header<'_>) -> String {
@@ -735,7 +942,9 @@ async fn authorize(h: &Header<'_>, app: &str, op: Op) -> fdo::Result<()> {
     if allowed(&caller(h).await, app, op) {
         Ok(())
     } else {
-        Err(fdo::Error::AccessDenied("AppId spoofing or unknown caller".into()))
+        Err(fdo::Error::AccessDenied(
+            "AppId spoofing or unknown caller".into(),
+        ))
     }
 }
 
@@ -753,7 +962,10 @@ struct Waiting(String);
 
 impl Drop for Waiting {
     fn drop(&mut self) {
-        WAITING.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.0);
+        WAITING
+            .lock()
+            .unwrap_or_else(|_| std::process::abort())
+            .remove(&self.0);
     }
 }
 
@@ -763,37 +975,81 @@ struct Permissions1 {
 
 #[zbus::interface(name = "org.marathonos.Shell.Permissions1")]
 impl Permissions1 {
-    async fn has_permission(&self, app_id: String, permission: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+    async fn has_permission(
+        &self,
+        app_id: String,
+        permission: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<bool> {
         authorize(&h, &app_id, Op::Read).await?;
         Ok(has(&app_id, &permission))
     }
 
-    async fn request_permission(&self, app_id: String, permission: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn request_permission(
+        &self,
+        app_id: String,
+        permission: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         authorize(&h, &app_id, Op::Request).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.request_permission(&QString::from(&app_id), &QString::from(&permission))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.request_permission(&QString::from(&app_id), &QString::from(&permission));
+        })
+        .await
     }
 
-    async fn set_permission(&self, app_id: String, permission: String, granted: bool, remember: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_permission(
+        &self,
+        app_id: String,
+        permission: String,
+        granted: bool,
+        remember: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         authorize(&h, &app_id, if granted { Op::Grant } else { Op::Revoke }).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.set_permission(&QString::from(&app_id), &QString::from(&permission), granted, remember)).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.set_permission(
+                &QString::from(&app_id),
+                &QString::from(&permission),
+                granted,
+                remember,
+            );
+        })
+        .await
     }
 
     /// deckardd's prompt for an Android app, `waydroid.<package>`; options
     /// request (16 hex digits), kind, once, accuracy and preciseDefault.
     /// Answers allow, once, deny or cancel, and precise.
-    async fn prompt_android(&self, app_id: String, permission: String, options: State, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
+    async fn prompt_android(
+        &self,
+        app_id: String,
+        permission: String,
+        options: State,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<State> {
         let caller = prompter(&h).await?;
-        let request = options.get("request").and_then(|v| v.downcast_ref::<&str>().ok()).unwrap_or_default().to_owned();
-        let known = marathon_permissions::permissions().get(&permission).is_some_and(|p| !p.restricted);
+        let request = options
+            .get("request")
+            .and_then(|v| v.downcast_ref::<&str>().ok())
+            .unwrap_or_default()
+            .to_owned();
+        let known = marathon_permissions::permissions()
+            .get(&permission)
+            .is_some_and(|p| !p.restricted);
         let cleaned = foreign_options(&options);
-        let hex = request.len() == 16 && request.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
-        let (Some(cleaned), true, true, true) = (cleaned, is_android_app(&app_id), known, hex) else {
+        let hex = request.len() == 16
+            && request
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+        let (Some(cleaned), true, true, true) = (cleaned, is_android_app(&app_id), known, hex)
+        else {
             return Err(fdo::Error::InvalidArgs("Bad prompt".into()));
         };
         let key = format!("{caller} {request}");
         let (tx, rx) = async_channel::bounded(1);
         {
-            let mut waiting = WAITING.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut waiting = WAITING.lock().unwrap_or_else(|_| std::process::abort());
             if waiting.contains_key(&key) || waiting.len() >= 16 {
                 return Err(fdo::Error::LimitsExceeded("Too many prompts".into()));
             }
@@ -802,8 +1058,16 @@ impl Permissions1 {
         let _waiting = Waiting(key.clone());
         let sender = h.sender().map(ToString::to_string).unwrap_or_default();
         let bus = io::session_bus().await?;
-        let mut gone = fdo::DBusProxy::new(&bus).await?.receive_name_owner_changed_with_args(&[(0, sender.as_str()), (2, "")]).await?;
-        let foreign = Foreign { key: key.clone(), app: app_id, permission, options: cleaned };
+        let mut gone = fdo::DBusProxy::new(&bus)
+            .await?
+            .receive_name_owner_changed_with_args(&[(0, sender.as_str()), (2, "")])
+            .await?;
+        let foreign = Foreign {
+            key: key.clone(),
+            app: app_id,
+            permission,
+            options: cleaned,
+        };
         ipc::on_gui(&self.qt, move |obj| obj.foreign(foreign)).await?;
         // A prompter that leaves the bus takes its prompts with it.
         let answered = future::or(async { rx.recv().await.ok() }, async {
@@ -815,17 +1079,30 @@ impl Permissions1 {
             ipc::on_gui(&self.qt, move |obj| obj.cancel_foreign(&key)).await?;
             return Err(fdo::Error::Failed("The prompter left".into()));
         };
-        Ok(State::from([("answer".to_owned(), value(answer)), ("precise".to_owned(), value(precise))]))
+        Ok(State::from([
+            ("answer".to_owned(), value(answer)),
+            ("precise".to_owned(), value(precise)),
+        ]))
     }
 
-    async fn cancel_android_prompt(&self, request: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn cancel_android_prompt(
+        &self,
+        request: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         let key = format!("{} {request}", prompter(&h).await?);
         ipc::on_gui(&self.qt, move |obj| obj.cancel_foreign(&key)).await
     }
 
     /// A session daemon's gate for a caller of its own, as the shell's own
     /// services answer that caller.
-    async fn admit(&self, sender: String, area: String, permissions: Vec<String>, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn admit(
+        &self,
+        sender: String,
+        area: String,
+        permissions: Vec<String>,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         if !gate::service_or_test(&caller(&h).await, "admit-callers") {
             return Err(fdo::Error::AccessDenied("Not a session daemon".into()));
         }
@@ -847,7 +1124,13 @@ mod tests {
     }
 
     fn app(core: &mut Core, id: &str, declared: &[&str], protected: bool) {
-        core.apps.insert(id.to_owned(), Facts { declared: declared.iter().map(|s| (*s).to_owned()).collect(), protected });
+        core.apps.insert(
+            id.to_owned(),
+            Facts {
+                declared: declared.iter().map(|s| (*s).to_owned()).collect(),
+                protected,
+            },
+        );
     }
 
     fn run(core: &mut Core, f: impl FnOnce(&mut Core, &mut Vec<Event>)) -> Vec<Event> {
@@ -861,10 +1144,19 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("p.json");
         let mut c = Core::load(path.clone());
-        run(&mut c, |c, o| c.set("notes", &["storage".into()], true, true, o));
-        run(&mut c, |c, o| c.set("notes", &["network".into()], false, true, o));
-        run(&mut c, |c, o| c.set("notes", &["camera".into()], true, false, o));
-        assert!(c.has("notes", "camera"), "a grant not remembered still holds this session");
+        run(&mut c, |c, o| {
+            c.set("notes", &["storage".into()], true, true, o);
+        });
+        run(&mut c, |c, o| {
+            c.set("notes", &["network".into()], false, true, o);
+        });
+        run(&mut c, |c, o| {
+            c.set("notes", &["camera".into()], true, false, o);
+        });
+        assert!(
+            c.has("notes", "camera"),
+            "a grant not remembered still holds this session"
+        );
         let c = Core::load(path);
         assert_eq!(c.status("notes", "storage"), Status::Granted);
         assert_eq!(c.status("notes", "network"), Status::Denied);
@@ -885,12 +1177,25 @@ mod tests {
         app(&mut c, "notes", &["storage"], false);
         app(&mut c, "settings", &["system", "storage"], true);
         app(&mut c, "rogue", &["system"], false);
-        run(&mut c, |c, o| c.set("notes", &["network".into()], true, false, o));
+        run(&mut c, |c, o| {
+            c.set("notes", &["network".into()], true, false, o);
+        });
         assert_eq!(c.status("notes", "network"), Status::Denied, "undeclared");
-        assert!(c.has("settings", "system"), "protected apps hold without asking");
-        run(&mut c, |c, o| c.set("rogue", &["system".into()], true, false, o));
-        assert!(!c.has("rogue", "system"), "restricted needs a protected app");
-        assert_eq!(run(&mut c, |c, o| c.request("notes", "network", o)), [Event::Denied("notes".into(), "network".into())]);
+        assert!(
+            c.has("settings", "system"),
+            "protected apps hold without asking"
+        );
+        run(&mut c, |c, o| {
+            c.set("rogue", &["system".into()], true, false, o);
+        });
+        assert!(
+            !c.has("rogue", "system"),
+            "restricted needs a protected app"
+        );
+        assert_eq!(
+            run(&mut c, |c, o| c.request("notes", "network", o)),
+            [Event::Denied("notes".into(), "network".into())]
+        );
     }
 
     #[test]
@@ -904,9 +1209,14 @@ mod tests {
             c.request("mail", "storage", o);
         });
         let shown = run(&mut c, Core::process);
-        assert_eq!(shown[0], Event::Requested("mail".into(), vec!["network".into(), "storage".into()]));
+        assert_eq!(
+            shown[0],
+            Event::Requested("mail".into(), vec!["network".into(), "storage".into()])
+        );
         // A grant for another app leaves the prompt open.
-        run(&mut c, |c, o| c.set("maps", &["location".into()], true, true, o));
+        run(&mut c, |c, o| {
+            c.set("maps", &["location".into()], true, true, o);
+        });
         assert_eq!(c.prompt.as_ref().unwrap().app, "mail");
         let answered = run(&mut c, |c, o| c.respond(true, false, None, o));
         assert!(answered.contains(&Event::Granted("mail".into(), "storage".into())));
@@ -921,10 +1231,23 @@ mod tests {
     fn an_undecided_permission_is_asked_on_first_use() {
         let mut c = core();
         app(&mut c, "camera", &["camera", "storage"], false);
-        run(&mut c, |c, o| c.set("camera", &["storage".into()], false, false, o));
-        let asked = run(&mut c, |c, o| assert_eq!(c.ask_if_undecided("camera", &["storage".into(), "camera".into()], o).as_deref(), Some("camera")));
+        run(&mut c, |c, o| {
+            c.set("camera", &["storage".into()], false, false, o);
+        });
+        let asked = run(&mut c, |c, o| {
+            assert_eq!(
+                c.ask_if_undecided("camera", &["storage".into(), "camera".into()], o)
+                    .as_deref(),
+                Some("camera")
+            );
+        });
         assert_eq!(asked, [Event::Recheck(150)]);
-        assert_eq!(run(&mut c, |c, o| assert!(c.ask_if_undecided("unknown", &["camera".into()], o).is_none())), []);
+        assert_eq!(
+            run(&mut c, |c, o| assert!(c
+                .ask_if_undecided("unknown", &["camera".into()], o)
+                .is_none())),
+            []
+        );
     }
 
     #[test]
@@ -936,7 +1259,10 @@ mod tests {
         assert_eq!(c.prompt.as_ref().unwrap().refused, ["system"]);
         let out = run(&mut c, |c, o| c.respond(true, false, None, o));
         assert!(out.contains(&Event::Denied("rogue".into(), "system".into())));
-        assert_eq!(run(&mut c, |c, o| c.request("rogue", "system", o)), [Event::Denied("rogue".into(), "system".into())]);
+        assert_eq!(
+            run(&mut c, |c, o| c.request("rogue", "system", o)),
+            [Event::Denied("rogue".into(), "system".into())]
+        );
     }
 
     #[test]
@@ -947,13 +1273,21 @@ mod tests {
                 key: key.into(),
                 app: "waydroid.org.a".into(),
                 permission: "location".into(),
-                options: ForeignOptions { kind: "foreground".into(), once, accuracy: accuracy.into(), precise_default: true },
+                options: ForeignOptions {
+                    kind: "foreground".into(),
+                    once,
+                    accuracy: accuracy.into(),
+                    precise_default: true,
+                },
             });
             run(c, Core::process);
         };
         ask(&mut c, "k1", false, "approximate");
         let out = run(&mut c, |c, o| c.respond(true, true, Some(false), o));
-        assert!(out.contains(&Event::Answered("k1".into(), "allow", true)), "{out:?}");
+        assert!(
+            out.contains(&Event::Answered("k1".into(), "allow", true)),
+            "{out:?}"
+        );
         ask(&mut c, "k2", true, "choice");
         let out = run(&mut c, |c, o| c.respond(true, true, Some(false), o));
         assert!(out.contains(&Event::Answered("k2".into(), "once", false)));
@@ -967,7 +1301,9 @@ mod tests {
     fn forgetting_an_app_drops_its_decisions_and_prompts() {
         let mut c = core();
         app(&mut c, "x", &["storage", "network"], false);
-        run(&mut c, |c, o| c.set("x", &["storage".into()], true, false, o));
+        run(&mut c, |c, o| {
+            c.set("x", &["storage".into()], true, false, o);
+        });
         run(&mut c, |c, o| c.request("x", "network", o));
         run(&mut c, |c, o| c.dismiss_for(Some("x"), o));
         c.stored.remove("x");
@@ -981,22 +1317,45 @@ mod tests {
         assert!(!allowed("", "notes", Op::Read) && !allowed("settings", "", Op::Read));
         assert!(allowed("notes", "notes", Op::Request) && allowed("notes", "notes", Op::Revoke));
         assert!(!allowed("notes", "notes", Op::Grant) && !allowed("notes", "weather", Op::Read));
-        assert!(allowed("settings", "weather", Op::Grant) && !allowed("settings", "weather", Op::Request));
-        assert!(!allowed("Settings", "weather", Op::Read) && !allowed(" settings", "weather", Op::Grant));
+        assert!(
+            allowed("settings", "weather", Op::Grant)
+                && !allowed("settings", "weather", Op::Request)
+        );
+        assert!(
+            !allowed("Settings", "weather", Op::Read)
+                && !allowed(" settings", "weather", Op::Grant)
+        );
     }
 
     #[test]
     fn android_prompts_take_only_android_apps_and_known_options() {
         use super::{foreign_options, is_android_app, value, State};
         assert!(is_android_app("waydroid.org.fossify.camera"));
-        for bad in ["waydroid.", "notes", "waydroid.bad pkg", "waydroid.9lives", "waydroid.a..b", &format!("waydroid.{}", "a".repeat(256))] {
+        for bad in [
+            "waydroid.",
+            "notes",
+            "waydroid.bad pkg",
+            "waydroid.9lives",
+            "waydroid.a..b",
+            &format!("waydroid.{}", "a".repeat(256)),
+        ] {
             assert!(!is_android_app(bad), "{bad}");
         }
         assert_eq!(foreign_options(&State::new()).unwrap().kind, "foreground");
-        let o = State::from([("kind".to_owned(), value("background")), ("once".to_owned(), value(true))]);
+        let o = State::from([
+            ("kind".to_owned(), value("background")),
+            ("once".to_owned(), value(true)),
+        ]);
         assert!(foreign_options(&o).is_some_and(|o| o.kind == "background" && o.once));
-        for (k, v) in [("kind", value("always")), ("accuracy", value("fine")), ("once", value("yes"))] {
-            assert!(foreign_options(&State::from([(k.to_owned(), v)])).is_none(), "{k}");
+        for (k, v) in [
+            ("kind", value("always")),
+            ("accuracy", value("fine")),
+            ("once", value("yes")),
+        ] {
+            assert!(
+                foreign_options(&State::from([(k.to_owned(), v)])).is_none(),
+                "{k}"
+            );
         }
     }
 }

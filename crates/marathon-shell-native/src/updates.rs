@@ -26,8 +26,8 @@ use zbus::message::Header;
 use zbus::names::InterfaceName;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
-use crate::notifications::NotificationsProxy;
 use crate::ipc::{self, value};
+use crate::notifications::NotificationsProxy;
 use crate::{clock, io, log, stored, variant};
 
 #[cxx_qt::bridge(namespace = "marathon")]
@@ -156,7 +156,8 @@ struct Conditions {
 impl Conditions {
     /// Charging, fully charged or pending charge.
     fn on_charge(&self) -> bool {
-        self.battery.is_none_or(|(_, state)| matches!(state, 1 | 4 | 5))
+        self.battery
+            .is_none_or(|(_, state)| matches!(state, 1 | 4 | 5))
     }
 
     /// "metered", "battery" or "" when a download may start.
@@ -198,7 +199,11 @@ struct Saved {
 
 impl Saved {
     fn load() -> Self {
-        stored::load("updates.json").unwrap_or_else(|| Self::from_qsettings(&marathon_rt::dirs::config().join("Marathon OS/Marathon Shell.conf")))
+        stored::load("updates.json").unwrap_or_else(|| {
+            Self::from_qsettings(
+                &marathon_rt::dirs::config().join("Marathon OS/Marathon Shell.conf"),
+            )
+        })
     }
 
     /// The `[updates]` group the C++ shell kept in its `QSettings`.
@@ -249,7 +254,13 @@ struct Machine {
 
 impl Machine {
     fn new(os_version: String, boot_id: String, saved: Saved) -> Self {
-        Self { os_version, boot_id, saved, download_size: -1, ..Self::default() }
+        Self {
+            os_version,
+            boot_id,
+            saved,
+            download_size: -1,
+            ..Self::default()
+        }
     }
 
     /// What Settings shows.
@@ -283,7 +294,11 @@ impl Machine {
         // Before lastSeenVersion was kept, only an install of ours says
         // this version is new.
         let seen = &self.saved.last_seen_version;
-        let updated = if seen.is_empty() { ours == self.os_version } else { *seen != self.os_version };
+        let updated = if seen.is_empty() {
+            ours == self.os_version
+        } else {
+            *seen != self.os_version
+        };
         self.saved.last_seen_version.clone_from(&self.os_version);
         self.dirty = true;
         if !installed.is_empty() && installed != self.os_version {
@@ -321,12 +336,17 @@ impl Machine {
     }
 
     fn mark_checked(&mut self) {
-        self.saved.last_checked = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0));
+        self.saved.last_checked = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0));
         self.dirty = true;
     }
 
     fn check_now(&mut self) {
-        if !matches!(self.state, State::Idle | State::UpToDate | State::Available | State::RolledBack | State::Error) {
+        if !matches!(
+            self.state,
+            State::Idle | State::UpToDate | State::Available | State::RolledBack | State::Error
+        ) {
             return;
         }
         self.error.clear();
@@ -346,7 +366,11 @@ impl Machine {
         }
         if version.is_empty() {
             self.available.clear();
-            self.state = if self.rolled_back.is_empty() { State::UpToDate } else { State::RolledBack };
+            self.state = if self.rolled_back.is_empty() {
+                State::UpToDate
+            } else {
+                State::RolledBack
+            };
             return;
         }
         if version != self.available {
@@ -427,7 +451,10 @@ impl Machine {
         if !matches!(self.state, State::Checking | State::Downloading) {
             return;
         }
-        log::warn("updates", format_args!("{} failed: {error}", self.state.name()));
+        log::warn(
+            "updates",
+            format_args!("{} failed: {error}", self.state.name()),
+        );
         if self.state == State::Checking {
             self.mark_checked();
         }
@@ -465,12 +492,17 @@ impl Machine {
     }
 
     fn restart_scheduled(&self) -> bool {
-        self.state == State::ReadyToReboot && !self.startup_pin && (!self.saved.manual || self.saved.tonight_version == self.available)
+        self.state == State::ReadyToReboot
+            && !self.startup_pin
+            && (!self.saved.manual || self.saved.tonight_version == self.available)
     }
 
     /// At `hour`, whether to restart into the installed update now.
     fn restart_now(&self, hour: i32) -> bool {
-        self.restart_scheduled() && RESTART_HOURS.contains(&hour) && self.conditions.idle && self.conditions.on_charge()
+        self.restart_scheduled()
+            && RESTART_HOURS.contains(&hour)
+            && self.conditions.idle
+            && self.conditions.on_charge()
     }
 }
 
@@ -497,7 +529,10 @@ enum Msg {
 
 impl Msg {
     fn needs_conditions(&self) -> bool {
-        !matches!(self, Msg::Progress(_) | Msg::Job(_) | Msg::Info(..) | Msg::Probed(..))
+        !matches!(
+            self,
+            Msg::Progress(_) | Msg::Job(_) | Msg::Info(..) | Msg::Probed(..)
+        )
     }
 }
 
@@ -506,8 +541,15 @@ impl cxx_qt::Initialize for Updates {
         let (tx, rx) = async_channel::unbounded();
         io::spawn(run(self.qt_thread(), tx.clone(), rx));
         self.as_mut().rust_mut().actor = Some(tx);
-        self.as_mut().on_state_changed(|obj| ipc::signal("Updates", "StateChanged", (wire(&obj.json),))).release();
-        ipc::export("Updates", Updates1 { qt: self.qt_thread() });
+        self.as_mut()
+            .on_state_changed(|obj| ipc::signal("Updates", "StateChanged", (wire(&obj.json),)))
+            .release();
+        ipc::export(
+            "Updates",
+            Updates1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
@@ -575,13 +617,28 @@ struct Actor {
 }
 
 async fn run(qt: Qt, tx: Sender<Msg>, rx: Receiver<Msg>) {
-    let os_release = ["/etc/os-release", "/usr/lib/os-release"].into_iter().find(|p| Path::new(p).exists()).unwrap_or_default();
+    let os_release = ["/etc/os-release", "/usr/lib/os-release"]
+        .into_iter()
+        .find(|p| Path::new(p).exists())
+        .unwrap_or_default();
     let boot_id = io::read::<String>("/proc/sys/kernel/random/boot_id").unwrap_or_default();
     let m = Machine::new(image_version(Path::new(os_release)), boot_id, Saved::load());
-    let notifier = Notifier { id: m.saved.notice_id, shown: None };
+    let notifier = Notifier {
+        id: m.saved.notice_id,
+        shown: None,
+    };
     spawn(&tx, probe());
     Notifier::listen(&tx);
-    let mut actor = Actor { qt, tx, m, notifier, target: None, job: None, shown: serde_json::Value::Null, window: 0 };
+    let mut actor = Actor {
+        qt,
+        tx,
+        m,
+        notifier,
+        target: None,
+        job: None,
+        shown: serde_json::Value::Null,
+        window: 0,
+    };
     while let Ok(msg) = rx.recv().await {
         if msg.needs_conditions() {
             actor.m.conditions = conditions(actor.m.conditions.idle).await;
@@ -663,7 +720,9 @@ impl Actor {
                 }),
                 Effect::Install => {
                     let actor = self.tx.clone();
-                    spawn(&self.tx, async move { Ok(Msg::Installed(install(&actor, &target).await)) });
+                    spawn(&self.tx, async move {
+                        Ok(Msg::Installed(install(&actor, &target).await))
+                    });
                 }
                 Effect::Cancel => {
                     if let Some(path) = self.job.take() {
@@ -703,22 +762,38 @@ impl Actor {
             m.saved.notice_id = self.notifier.id;
             m.dirty = true;
         }
-        if std::mem::take(&mut m.dirty) {
-            stored::save("updates.json", &m.saved);
+        if m.dirty {
+            match stored::save("updates.json", &m.saved) {
+                Ok(()) => m.dirty = false,
+                Err(error) => log::warn("updates", format_args!("saving state: {error}")),
+            }
         }
 
         let now = clock::now();
         if m.restart_now(clock::local(now).map_or(0, |tm| tm.tm_hour)) {
-            log::warn("updates", format_args!("restarting overnight into {}", m.available));
+            log::warn(
+                "updates",
+                format_args!("restarting overnight into {}", m.available),
+            );
             queue(&self.qt, Updates::reboot_requested);
         }
-        let next = if m.restart_scheduled() { clock::next(now, RESTART_HOURS.start) } else { 0 };
+        let next = if m.restart_scheduled() {
+            clock::next(now, RESTART_HOURS.start)
+        } else {
+            0
+        };
         if next != self.window {
             self.window = next;
             if next > now {
-                after(&self.tx, Duration::from_secs(u64::try_from(next - now).unwrap_or_default()), Msg::Window);
+                after(
+                    &self.tx,
+                    Duration::from_secs(u64::try_from(next - now).unwrap_or_default()),
+                    Msg::Window,
+                );
             }
-            self.qt.queue(move |obj| obj.restart_window_changed(next)).ok();
+            self.qt
+                .queue(move |obj| obj.restart_window_changed(next))
+                .ok();
         }
     }
 }
@@ -729,7 +804,10 @@ fn queue(qt: &Qt, signal: impl FnOnce(Pin<&mut Updates>) + Send + 'static) {
 
 /// Runs `task` and hands the actor its answer; a task that cannot reach the
 /// bus answers nothing.
-fn spawn(tx: &Sender<Msg>, task: impl future::Future<Output = Result<Msg, String>> + Send + 'static) {
+fn spawn(
+    tx: &Sender<Msg>,
+    task: impl future::Future<Output = Result<Msg, String>> + Send + 'static,
+) {
     let tx = tx.clone();
     io::spawn(async move {
         match task.await {
@@ -759,7 +837,10 @@ trait Manager {
     fn job_removed(&self, id: u64, path: OwnedObjectPath, status: i32) -> zbus::Result<()>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.sysupdate1.Target", default_service = "org.freedesktop.sysupdate1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.sysupdate1.Target",
+    default_service = "org.freedesktop.sysupdate1"
+)]
 trait Target {
     fn get_version(&self) -> zbus::Result<String>;
     fn get_app_stream(&self) -> zbus::Result<Vec<String>>;
@@ -773,7 +854,10 @@ trait Target {
     fn install(&self, version: &str, flags: u64) -> zbus::Result<(String, u64, OwnedObjectPath)>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.sysupdate1.Job", default_service = "org.freedesktop.sysupdate1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.sysupdate1.Job",
+    default_service = "org.freedesktop.sysupdate1"
+)]
 trait Job {
     #[zbus(allow_interactive_auth)]
     fn cancel(&self) -> zbus::Result<()>;
@@ -783,12 +867,22 @@ trait Job {
 
 async fn sysupdate(target: &OwnedObjectPath) -> Result<TargetProxy<'static>, String> {
     let bus = io::system_bus().await.map_err(text)?;
-    TargetProxy::builder(&bus).path(target.clone()).map_err(text)?.build().await.map_err(text)
+    TargetProxy::builder(&bus)
+        .path(target.clone())
+        .map_err(text)?
+        .build()
+        .await
+        .map_err(text)
 }
 
 async fn probe() -> Result<Msg, String> {
     let bus = io::system_bus().await.map_err(text)?;
-    let targets = match ManagerProxy::new(&bus).await.map_err(text)?.list_targets().await {
+    let targets = match ManagerProxy::new(&bus)
+        .await
+        .map_err(text)?
+        .list_targets()
+        .await
+    {
         Ok(targets) => targets,
         Err(e) => {
             log::warn("updates", format_args!("no update service: {}", text(e)));
@@ -798,10 +892,14 @@ async fn probe() -> Result<Msg, String> {
     let Some((_, _, path)) = targets.into_iter().find(|(class, _, _)| class == "host") else {
         return Ok(Msg::Probed(None, String::new()));
     };
-    let installed = sysupdate(&path).await?.get_version().await.unwrap_or_else(|e| {
-        log::warn("updates", format_args!("GetVersion: {}", text(e)));
-        String::new()
-    });
+    let installed = sysupdate(&path)
+        .await?
+        .get_version()
+        .await
+        .unwrap_or_else(|e| {
+            log::warn("updates", format_args!("GetVersion: {}", text(e)));
+            String::new()
+        });
     Ok(Msg::Probed(Some(path), installed))
 }
 
@@ -815,18 +913,38 @@ async fn install(tx: &Sender<Msg>, target: &OwnedObjectPath) -> Result<String, S
 
 async fn job(tx: &Sender<Msg>, target: &OwnedObjectPath, install: bool) -> Result<String, String> {
     let bus = io::system_bus().await.map_err(text)?;
-    let mut removed = ManagerProxy::new(&bus).await.map_err(text)?.receive_job_removed().await.map_err(text)?;
+    let mut removed = ManagerProxy::new(&bus)
+        .await
+        .map_err(text)?
+        .receive_job_removed()
+        .await
+        .map_err(text)?;
     let target = sysupdate(target).await?;
-    let (version, id, path) = if install { target.install("", 0).await } else { target.acquire("", 0).await }.map_err(text)?;
+    let (version, id, path) = if install {
+        target.install("", 0).await
+    } else {
+        target.acquire("", 0).await
+    }
+    .map_err(text)?;
     tx.send(Msg::Job(path.clone())).await.ok();
-    let job = JobProxy::builder(&bus).path(path).map_err(text)?.build().await.map_err(text)?;
+    let job = JobProxy::builder(&bus)
+        .path(path)
+        .map_err(text)?
+        .build()
+        .await
+        .map_err(text)?;
     let mut progress = job.receive_progress_changed().await;
     loop {
-        let next = future::or(async { Err(progress.next().await) }, async { Ok(removed.next().await) }).await;
+        let next = future::or(async { Err(progress.next().await) }, async {
+            Ok(removed.next().await)
+        })
+        .await;
         match next {
             Err(Some(changed)) => {
                 if let Ok(percent) = changed.get().await {
-                    tx.send(Msg::Progress(i32::try_from(percent).unwrap_or(100))).await.ok();
+                    tx.send(Msg::Progress(i32::try_from(percent).unwrap_or(100)))
+                        .await
+                        .ok();
                 }
             }
             Ok(Some(signal)) => {
@@ -836,7 +954,9 @@ async fn job(tx: &Sender<Msg>, target: &OwnedObjectPath, install: bool) -> Resul
                 }
                 return match args.status {
                     0 => Ok(version),
-                    status if status > 0 => Err(format!("systemd-sysupdate exited with status {status}")),
+                    status if status > 0 => {
+                        Err(format!("systemd-sysupdate exited with status {status}"))
+                    }
                     status => Err(std::io::Error::from_raw_os_error(-status).to_string()),
                 };
             }
@@ -846,7 +966,12 @@ async fn job(tx: &Sender<Msg>, target: &OwnedObjectPath, install: bool) -> Resul
 }
 
 async fn cancel(path: OwnedObjectPath) -> zbus::Result<()> {
-    JobProxy::builder(&io::system_bus().await?).path(path)?.build().await?.cancel().await
+    JobProxy::builder(&io::system_bus().await?)
+        .path(path)?
+        .build()
+        .await?
+        .cancel()
+        .await
 }
 
 /// Download size (-1 unknown) and notes for a version, from the target's
@@ -856,14 +981,21 @@ async fn release_info(target: &OwnedObjectPath, version: &str) -> (i64, String) 
         Ok(target) => target.get_app_stream().await.map_err(text),
         Err(e) => Err(e),
     };
-    let Some(url) = urls.unwrap_or_else(|e| {
-        log::warn("updates", format_args!("GetAppStream: {e}"));
-        Vec::new()
-    }).into_iter().next() else {
+    let Some(url) = urls
+        .unwrap_or_else(|e| {
+            log::warn("updates", format_args!("GetAppStream: {e}"));
+            Vec::new()
+        })
+        .into_iter()
+        .next()
+    else {
         return (-1, String::new());
     };
     let fetched = blocking::unblock(move || {
-        let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(30))).build().into();
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(30)))
+            .build()
+            .into();
         agent.get(&url).call()?.body_mut().read_to_vec()
     })
     .await;
@@ -886,7 +1018,12 @@ fn app_stream(xml: &[u8], version: &str) -> Option<(i64, String)> {
     loop {
         match reader.read_event_into(&mut buf).ok()? {
             Event::Start(e) => {
-                let attribute = |name| e.try_get_attribute(name).ok().flatten().map(|a| a.value.into_owned());
+                let attribute = |name| {
+                    e.try_get_attribute(name)
+                        .ok()
+                        .flatten()
+                        .map(|a| a.value.into_owned())
+                };
                 match e.name().as_ref() {
                     "release" => in_release = attribute("version").as_deref() == Some(version),
                     "size" => download = attribute("type").as_deref() == Some("download"),
@@ -897,7 +1034,8 @@ fn app_stream(xml: &[u8], version: &str) -> Option<(i64, String)> {
             Event::Text(t) => text.push_str(&t),
             Event::GeneralRef(r) => match r.resolve_char_ref() {
                 Ok(Some(c)) => text.push(c),
-                _ => text.push_str(quick_xml::escape::resolve_predefined_entity(&r).unwrap_or_default()),
+                _ => text
+                    .push_str(quick_xml::escape::resolve_predefined_entity(&r).unwrap_or_default()),
             },
             Event::End(e) => {
                 let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -925,32 +1063,78 @@ fn app_stream(xml: &[u8], version: &str) -> Option<(i64, String)> {
 /// `IMAGE_VERSION` from an os-release file.
 fn image_version(os_release: &Path) -> String {
     let text = std::fs::read_to_string(os_release).unwrap_or_default();
-    let value = text.lines().find_map(|l| l.trim().strip_prefix("IMAGE_VERSION=")).unwrap_or_default();
+    let value = text
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("IMAGE_VERSION="))
+        .unwrap_or_default();
     match value.as_bytes() {
-        [q @ (b'"' | b'\''), .., last] if last == q && value.len() >= 2 => value[1..value.len() - 1].to_owned(),
+        [q @ (b'"' | b'\''), .., last] if last == q && value.len() >= 2 => {
+            value[1..value.len() - 1].to_owned()
+        }
         _ => value.to_owned(),
     }
 }
 
-async fn property(bus: &zbus::Connection, service: &'static str, path: &'static str, interface: &'static str, name: &str) -> Option<OwnedValue> {
-    let props = PropertiesProxy::builder(bus).destination(service).ok()?.path(path).ok()?.build().await.ok()?;
-    props.get(InterfaceName::from_static_str_unchecked(interface), name).await.ok()
+async fn property(
+    bus: &zbus::Connection,
+    service: &'static str,
+    path: &'static str,
+    interface: &'static str,
+    name: &str,
+) -> Option<OwnedValue> {
+    let props = PropertiesProxy::builder(bus)
+        .destination(service)
+        .ok()?
+        .path(path)
+        .ok()?
+        .build()
+        .await
+        .ok()?;
+    props
+        .get(InterfaceName::from_static_str_unchecked(interface), name)
+        .await
+        .ok()
 }
 
 async fn conditions(idle: bool) -> Conditions {
-    let Ok(bus) = io::system_bus().await else { return Conditions { idle, ..Conditions::default() } };
+    let Ok(bus) = io::system_bus().await else {
+        return Conditions {
+            idle,
+            ..Conditions::default()
+        };
+    };
     let nm = "org.freedesktop.NetworkManager";
-    let metered = property(&bus, nm, "/org/freedesktop/NetworkManager", nm, "Metered").await.and_then(|v| u32::try_from(v).ok()).unwrap_or(0);
-    let (upower, device, iface) = ("org.freedesktop.UPower", "/org/freedesktop/UPower/devices/DisplayDevice", "org.freedesktop.UPower.Device");
-    let present = property(&bus, upower, device, iface, "IsPresent").await.and_then(|v| bool::try_from(v).ok()).unwrap_or(false);
+    let metered = property(&bus, nm, "/org/freedesktop/NetworkManager", nm, "Metered")
+        .await
+        .and_then(|v| u32::try_from(v).ok())
+        .unwrap_or(0);
+    let (upower, device, iface) = (
+        "org.freedesktop.UPower",
+        "/org/freedesktop/UPower/devices/DisplayDevice",
+        "org.freedesktop.UPower.Device",
+    );
+    let present = property(&bus, upower, device, iface, "IsPresent")
+        .await
+        .and_then(|v| bool::try_from(v).ok())
+        .unwrap_or(false);
     let battery = if present {
-        let percent = property(&bus, upower, device, iface, "Percentage").await.and_then(|v| f64::try_from(v).ok()).unwrap_or(0.0);
-        let state = property(&bus, upower, device, iface, "State").await.and_then(|v| u32::try_from(v).ok()).unwrap_or(0);
+        let percent = property(&bus, upower, device, iface, "Percentage")
+            .await
+            .and_then(|v| f64::try_from(v).ok())
+            .unwrap_or(0.0);
+        let state = property(&bus, upower, device, iface, "State")
+            .await
+            .and_then(|v| u32::try_from(v).ok())
+            .unwrap_or(0);
         Some((percent, state))
     } else {
         None
     };
-    Conditions { metered, battery, idle }
+    Conditions {
+        metered,
+        battery,
+        idle,
+    }
 }
 
 enum Action {
@@ -974,10 +1158,17 @@ impl Notifier {
     fn listen(tx: &Sender<Msg>) {
         let tx = tx.clone();
         io::spawn(async move {
-            let actions = async { NotificationsProxy::new(&io::session_bus().await?).await?.receive_action_invoked().await };
+            let actions = async {
+                NotificationsProxy::new(&io::session_bus().await?)
+                    .await?
+                    .receive_action_invoked()
+                    .await
+            };
             let mut actions = match actions.await {
                 Ok(actions) => actions,
-                Err(e) => return log::warn("updates", format_args!("no notification actions: {e}")),
+                Err(e) => {
+                    return log::warn("updates", format_args!("no notification actions: {e}"))
+                }
             };
             while let Some(signal) = actions.next().await {
                 if let Ok(args) = signal.args() {
@@ -1021,9 +1212,15 @@ impl Notifier {
             }
             Notice::RolledBack => (
                 format!("Marathon {version} didn't start"),
-                format!("The update couldn't start, so Marathon went back to {}.", m.os_version),
+                format!(
+                    "The update couldn't start, so Marathon went back to {}.",
+                    m.os_version
+                ),
             ),
-            Notice::Updated => (format!("Updated to Marathon {version}"), "Tap to see what's new.".to_owned()),
+            Notice::Updated => (
+                format!("Updated to Marathon {version}"),
+                "Tap to see what's new.".to_owned(),
+            ),
         };
         self.notify(&summary, &body, &actions, None).await;
     }
@@ -1033,7 +1230,14 @@ impl Notifier {
     async fn show_progress(&mut self, m: &Machine) {
         if m.state != State::Downloading {
             if self.shown.take().is_some() {
-                if let Err(e) = async { NotificationsProxy::new(&io::session_bus().await?).await?.close_notification(self.id).await }.await {
+                if let Err(e) = async {
+                    NotificationsProxy::new(&io::session_bus().await?)
+                        .await?
+                        .close_notification(self.id)
+                        .await
+                }
+                .await
+                {
                     log::warn("updates", format_args!("closing the progress row: {e}"));
                 }
             }
@@ -1044,17 +1248,34 @@ impl Notifier {
             return;
         }
         self.shown = Some(now);
-        let summary = if m.installing { "Installing update" } else { "Downloading update" };
+        let summary = if m.installing {
+            "Installing update"
+        } else {
+            "Downloading update"
+        };
         let body = format!("Marathon OS {} · {}%", m.available, m.progress);
-        self.notify(summary, &body, &["default", "Open"], Some(m.progress)).await;
+        self.notify(summary, &body, &["default", "Open"], Some(m.progress))
+            .await;
     }
 
     async fn notify(&mut self, summary: &str, body: &str, actions: &[&str], percent: Option<i32>) {
-        let hints = percent.map(|p| ("value", Value::from(p))).into_iter().collect();
+        let hints = percent
+            .map(|p| ("value", Value::from(p)))
+            .into_iter()
+            .collect();
         let sent = async {
             NotificationsProxy::new(&io::session_bus().await?)
                 .await?
-                .notify("Software update", self.id, "arrow-circle-up", summary, body, actions, hints, -1)
+                .notify(
+                    "Software update",
+                    self.id,
+                    "arrow-circle-up",
+                    summary,
+                    body,
+                    actions,
+                    hints,
+                    -1,
+                )
                 .await
         };
         match sent.await {
@@ -1083,7 +1304,10 @@ fn wire(view: &serde_json::Value) -> ipc::State {
             Some((k.clone(), v))
         })
         .collect();
-    state.insert("currentVersion".to_owned(), value(option_env!("MARATHON_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))));
+    state.insert(
+        "currentVersion".to_owned(),
+        value(option_env!("MARATHON_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))),
+    );
     state
 }
 
@@ -1144,7 +1368,10 @@ mod tests {
     }
 
     fn idle() -> Machine {
-        let mut m = machine(Saved { last_seen_version: OS.into(), ..Saved::default() });
+        let mut m = machine(Saved {
+            last_seen_version: OS.into(),
+            ..Saved::default()
+        });
         m.probed(true, OS);
         m.effects.clear();
         m
@@ -1153,7 +1380,16 @@ mod tests {
     type Notices<'a> = Vec<(Notice, &'a str)>;
 
     fn notices(m: &Machine) -> Notices<'_> {
-        m.effects.iter().filter_map(|e| if let Effect::Notice(k, v) = e { Some((*k, v.as_str())) } else { None }).collect()
+        m.effects
+            .iter()
+            .filter_map(|e| {
+                if let Effect::Notice(k, v) = e {
+                    Some((*k, v.as_str()))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     #[test]
@@ -1174,7 +1410,9 @@ mod tests {
         m.effects.clear();
         m.checked(NEW);
         assert_eq!(m.state, State::Downloading);
-        assert!(m.effects.contains(&Effect::Install) && m.effects.contains(&Effect::Info(NEW.into())));
+        assert!(
+            m.effects.contains(&Effect::Install) && m.effects.contains(&Effect::Info(NEW.into()))
+        );
         assert_eq!(notices(&m), Notices::new());
     }
 
@@ -1197,10 +1435,27 @@ mod tests {
 
     #[test]
     fn a_low_battery_blocks_unless_charging() {
-        let low = Conditions { battery: Some((20.0, 2)), ..Conditions::default() };
+        let low = Conditions {
+            battery: Some((20.0, 2)),
+            ..Conditions::default()
+        };
         assert_eq!(low.block_reason(), "battery");
-        assert_eq!(Conditions { battery: Some((20.0, 1)), ..low }.block_reason(), "");
-        assert_eq!(Conditions { battery: Some((31.0, 2)), ..low }.block_reason(), "");
+        assert_eq!(
+            Conditions {
+                battery: Some((20.0, 1)),
+                ..low
+            }
+            .block_reason(),
+            ""
+        );
+        assert_eq!(
+            Conditions {
+                battery: Some((31.0, 2)),
+                ..low
+            }
+            .block_reason(),
+            ""
+        );
         assert_eq!(Conditions::default().block_reason(), "");
     }
 
@@ -1214,7 +1469,13 @@ mod tests {
         assert_eq!((m.progress, m.installing), (0, true));
         m.installed(NEW);
         assert_eq!(m.state, State::ReadyToReboot);
-        assert_eq!((m.saved.installed_version.as_str(), m.saved.installed_boot_id.as_str()), (NEW, "boot-b"));
+        assert_eq!(
+            (
+                m.saved.installed_version.as_str(),
+                m.saved.installed_boot_id.as_str()
+            ),
+            (NEW, "boot-b")
+        );
         assert_eq!(notices(&m), [(Notice::Restart, NEW)]);
     }
 
@@ -1244,7 +1505,12 @@ mod tests {
 
     #[test]
     fn an_image_we_installed_last_boot_that_is_not_running_rolled_back() {
-        let saved = Saved { installed_version: NEW.into(), installed_boot_id: "boot-a".into(), last_seen_version: OS.into(), ..Saved::default() };
+        let saved = Saved {
+            installed_version: NEW.into(),
+            installed_boot_id: "boot-a".into(),
+            last_seen_version: OS.into(),
+            ..Saved::default()
+        };
         let mut m = machine(saved.clone());
         m.probed(true, NEW);
         assert_eq!((m.state, m.rolled_back.as_str()), (State::RolledBack, NEW));
@@ -1254,23 +1520,40 @@ mod tests {
         again.probed(true, NEW);
         assert_eq!(notices(&again), Notices::new());
         // Installed this boot: it waits for the restart.
-        let mut m = machine(Saved { installed_boot_id: "boot-b".into(), ..saved });
+        let mut m = machine(Saved {
+            installed_boot_id: "boot-b".into(),
+            ..saved
+        });
         m.probed(true, NEW);
         assert_eq!((m.state, m.available.as_str()), (State::ReadyToReboot, NEW));
     }
 
     #[test]
     fn a_boot_into_a_new_version_is_announced_once() {
-        let mut m = machine(Saved { last_seen_version: "26101601".into(), ..Saved::default() });
+        let mut m = machine(Saved {
+            last_seen_version: "26101601".into(),
+            ..Saved::default()
+        });
         m.probed(true, OS);
         assert_eq!(notices(&m), [(Notice::Updated, OS)]);
         assert!(m.effects.contains(&Effect::Info(OS.into())));
         let mut first = machine(Saved::default());
         first.probed(true, OS);
-        assert_eq!(notices(&first), Notices::new(), "the first boot is no update");
-        let mut ours = machine(Saved { installed_version: OS.into(), ..Saved::default() });
+        assert_eq!(
+            notices(&first),
+            Notices::new(),
+            "the first boot is no update"
+        );
+        let mut ours = machine(Saved {
+            installed_version: OS.into(),
+            ..Saved::default()
+        });
         ours.probed(true, OS);
-        assert_eq!(notices(&ours), [(Notice::Updated, OS)], "an install from before lastSeenVersion was kept");
+        assert_eq!(
+            notices(&ours),
+            [(Notice::Updated, OS)],
+            "an install from before lastSeenVersion was kept"
+        );
     }
 
     #[test]
@@ -1288,7 +1571,10 @@ mod tests {
         assert!(!m.restart_now(3));
         m.conditions.idle = true;
         m.startup_pin = true;
-        assert!(!m.restart_scheduled(), "a startup PIN would wait at the prompt");
+        assert!(
+            !m.restart_scheduled(),
+            "a startup PIN would wait at the prompt"
+        );
     }
 
     #[test]
@@ -1317,7 +1603,10 @@ mod tests {
             <release version="26101801"><size type="download">100</size><size type="installed">900</size><size type="download">20</size>
               <description><p>Faster   apps.</p><ul><li>Maps</li></ul></description></release>
         </releases></component>"#;
-        assert_eq!(app_stream(xml, NEW), Some((120, "Faster apps.\n• Maps".to_owned())));
+        assert_eq!(
+            app_stream(xml, NEW),
+            Some((120, "Faster apps.\n• Maps".to_owned()))
+        );
         assert_eq!(app_stream(xml, "none"), Some((-1, String::new())));
     }
 
@@ -1328,7 +1617,10 @@ mod tests {
         std::fs::write(&conf, "[General]\nx=1\n\n[updates]\nautoUpdate=false\ninstalledVersion=26101801\nnotice\\Restart=26101801\nnoticeId=7\n\n[other]\nautoUpdate=true\n").unwrap();
         let saved = Saved::from_qsettings(&conf);
         assert!(saved.manual);
-        assert_eq!((saved.installed_version.as_str(), saved.notice_id), (NEW, 7));
+        assert_eq!(
+            (saved.installed_version.as_str(), saved.notice_id),
+            (NEW, 7)
+        );
         assert_eq!(saved.notices.get("Restart").map(String::as_str), Some(NEW));
     }
 }

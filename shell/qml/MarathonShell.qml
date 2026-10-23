@@ -22,7 +22,7 @@ Item {
     // An app at rest covers everything but the status bar, whose glass lets
     // the wallpaper show through. The wallpaper is clipped to that strip
     // then, instead of being shaded full-screen under every app frame.
-    readonly property bool appCoversWallpaper: state === "app" && !isTransitioningToActiveFrames && navBar.gestureProgress === 0 && navBar.backProgress === 0 && appWindowContainer.dock === 0 && appWindowContainer.opacity === 1 && !appWindow.zooming && appWindow.scale === 1 && appWindow.opacity === 1
+    readonly property bool appCoversWallpaper: state === "app" && !isTransitioningToActiveFrames && navBar.gestureProgress === 0 && appWindowContainer.dock === 0 && appWindowContainer.opacity === 1 && !appWindow.zooming && appWindow.scale === 1 && appWindow.opacity === 1
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
@@ -138,21 +138,20 @@ Item {
         pageView.currentIndex = 1;
     }
 
-    // Back lands on home, so home is what shows under the app as it goes.
+    // Back lands on home when the foreground app has no page to pop.
     function revealHomeUnderApp() {
         if (pageView.currentIndex < 2) {
             pageView.jumpToIndex(2);
         }
     }
 
-    // Back on an app's root page: the app recedes and the home grid is underneath.
+    // Back on an app's root page: fade it to the home grid. During the
+    // gesture the app stays fixed; only app-owned predictive-back content
+    // follows the finger.
     function backOutOfApp() {
         if (!UIStore.appWindowOpen || backExit.running)
             return;
         revealHomeUnderApp();
-        // The app carries on from where the finger left it.
-        navBar.backTracker.stop();
-        backExitSlide.to = navBar.backTracker.value > 0 ? navBar.backTracker.value + shell.width * 0.25 : 0;
         backExit.start();
     }
 
@@ -1264,8 +1263,11 @@ Item {
             Logger.gesture("NavBar", "shortSwipeUp", {
                 "target": "home"
             });
-            // Hub=0, Frames=1, AppGrid pages start at index 2 (home).
-            pageView.currentIndex = 2;
+            if (UIStore.appWindowOpen || UIStore.settingsOpen)
+                shell.backOutOfApp();
+            else
+                // Hub=0, Frames=1, AppGrid pages start at index 2 (home).
+                pageView.currentIndex = 2;
         }
         onLongSwipeUp: {
             shell.dismissPermissionPrompt();
@@ -1507,14 +1509,6 @@ Item {
             enabled: UIStore !== null
         }
 
-        // Back: home shows dimmed under the app the finger draws aside.
-        Connections {
-            target: navBar.backTracker
-            function onValueChanged() {
-                if (navBar.backTracker.active && navBar.backTracker.value > 0 && UIStore.appWindowOpen)
-                    shell.revealHomeUnderApp();
-            }
-        }
         // Minimise: the switcher is already in place under the app, its
         // card settled, before the window takes its first step towards it.
         Connections {
@@ -1527,13 +1521,6 @@ Item {
                 }
             }
         }
-        Rectangle {
-            anchors.fill: parent
-            color: "black"
-            visible: navBar.backTracker.value > 0
-            opacity: 0.5 * (1 - navBar.backProgress) * appWindow.opacity
-        }
-
         // Crops the window to what the card shows as it lands; a scissor
         // clip, not a layer, so the gesture costs no offscreen pass.
         Item {
@@ -1544,20 +1531,6 @@ Item {
             y: Constants.safeAreaTop * appWindowContainer.dock
             height: parent.height + (Constants.safeAreaTop + appWindowContainer.dockHeight - parent.height) * appWindowContainer.dock - y
             clip: appWindowContainer.dock > 0
-            // Back: the app follows the pill left and recedes to 0.9.
-            readonly property real backShrink: Math.min(1, navBar.backTracker.value / (parent.width * 0.3))
-            transform: [
-                Scale {
-                    origin.x: cardBorder.width / 2
-                    origin.y: cardBorder.height / 2
-                    xScale: 1 - 0.1 * cardBorder.backShrink
-                    yScale: 1 - 0.1 * cardBorder.backShrink
-                },
-                Translate {
-                    x: -navBar.backTracker.value
-                }
-            ]
-
             MarathonAppWindow {
                 id: appWindow
 
@@ -1667,29 +1640,6 @@ Item {
             }
         }
 
-        // The edge shadow the drawn-aside app casts on home.
-        Rectangle {
-            readonly property real s: 1 - 0.1 * cardBorder.backShrink
-
-            x: parent.width * (1 + s) / 2 - navBar.backTracker.value
-            y: parent.height * (1 - s) / 2
-            width: Constants.spacingXLarge
-            height: parent.height * s
-            visible: navBar.backTracker.value > 0
-            opacity: Math.min(1, navBar.backTracker.value / width) * appWindow.opacity
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-
-                GradientStop {
-                    position: 0
-                    color: Qt.rgba(0, 0, 0, 0.45)
-                }
-                GradientStop {
-                    position: 1
-                    color: "transparent"
-                }
-            }
-        }
 
         Behavior on anchors.margins {
             NumberAnimation {
@@ -2200,6 +2150,11 @@ Item {
 
     Connections {
         function onRequested(request) {
+            if (request.appId && UIStore.currentAppId !== request.appId) {
+                const owner = AppModel.findById ? AppModel.findById(request.appId) : null;
+                UIStore.openApp(request.appId, owner && owner.name ? owner.name : request.appId,
+                                owner && owner.icon ? owner.icon : "");
+            }
             filePicker.open(request);
         }
 
@@ -2668,14 +2623,6 @@ Item {
         id: backExit
 
         NumberAnimation {
-            id: backExitSlide
-
-            target: navBar.backTracker
-            property: "value"
-            duration: MMotion.reduceMotion ? 0 : 180
-            easing.type: Easing.OutCubic
-        }
-        NumberAnimation {
             target: appWindow
             property: "opacity"
             to: 0
@@ -2692,7 +2639,6 @@ Item {
         onFinished: {
             Tasks.minimizeForegroundApp();
             UIStore.closeApp();
-            navBar.backTracker.value = 0;
             appWindow.opacity = 1;
             appWindow.scale = 1;
         }

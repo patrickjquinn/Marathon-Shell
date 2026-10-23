@@ -215,6 +215,8 @@ Rectangle {
         // About a millimetre: the bar sits at the screen edge, so a pull
         // down from the pill runs off the panel after a few pixels.
         readonly property real pullSlop: Math.max(3, Math.round(2 * Constants.scaleFactor))
+        readonly property real directionLockDistance: 10
+        readonly property real verticalIntentRatio: 0.72
 
         anchors.fill: parent
         anchors.topMargin: 0
@@ -258,6 +260,22 @@ Rectangle {
             return button.visible && button.contains(button.mapFromItem(navBar, navBar.startX, navBar.startY));
         }
 
+        // Up/down gestures get a small directional bias. A thumb naturally
+        // arcs across the pill, and requiring |dy| > |dx| made a deliberate
+        // diagonal home/switcher gesture become Back. Ambiguous motion waits
+        // for another sample instead of locking to the wrong axis.
+        function gestureAxis(diffX, diffY) {
+            const ax = Math.abs(diffX);
+            const ay = Math.abs(diffY);
+            if (Math.max(ax, ay) <= directionLockDistance)
+                return 0;
+            if (ay >= ax * verticalIntentRatio)
+                return 1;
+            if (ax >= ay / verticalIntentRatio)
+                return 2;
+            return 0;
+        }
+
         // A grab stolen mid-drag ends here instead of in onReleased.
         onCanceled: resetGesture(false)
         onPressed: mouse => {
@@ -284,19 +302,20 @@ Rectangle {
                 return;
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
-            // Lock the axis once; a thumb arcs upward during a back swipe.
             const pullingDown = -diffY > pullSlop && Math.abs(diffY) >= Math.abs(diffX);
             if (!isVerticalGesture && !isHorizontalGesture && (pullingDown || Math.max(Math.abs(diffX), Math.abs(diffY)) > 10)) {
-                if (Math.abs(diffY) > Math.abs(diffX)) {
+                const axis = pullingDown ? 1 : gestureAxis(diffX, diffY);
+                if (axis === 1) {
                     isVerticalGesture = true;
                     pillX.settleTo(0);
                     backDrag.settleTo(0);
-                } else {
+                } else if (axis === 2) {
                     isHorizontalGesture = true;
                     pillY.settleTo(0);
                     minimizeDrag.settleTo(0);
                 }
-                stopPilot();
+                if (axis !== 0)
+                    stopPilot();
             }
             if (!isHorizontalGesture)
                 pillY.move(pillBaseY + diffY);
@@ -422,9 +441,6 @@ Rectangle {
                     navBar.shortSwipeUp();
                 }
             } else if (isHorizontalGesture && navBar.isAppOpen && diffX < 0) {
-                // The shell may hold the app where it is (back out of the
-                // app), so the settle starts before swipeBack is sent.
-                backDrag.settleTo(0);
                 if (backCommit) {
                     Logger.gesture("NavBar", "swipeBack", {
                         "velocityX": velocityX,
@@ -432,6 +448,7 @@ Rectangle {
                     });
                     navBar.swipeBack();
                 }
+                backDrag.settleTo(0);
                 resetGesture(true);
                 return;
             } else if (isHorizontalGesture && horizontalCommit) {

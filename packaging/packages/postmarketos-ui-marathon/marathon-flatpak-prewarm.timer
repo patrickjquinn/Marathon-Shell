@@ -1,0 +1,10 @@
+[Unit]
+Description=Warm Flatpak after the shell starts
+ConditionPathExists=/usr/bin/flatpak
+ConditionUser=!root
+PartOf=graphical-session.target
+
+[Timer]
+OnActiveSec=3s
+AccuracySec=250ms
+Unit=marathon-flatpak-prewarm.service

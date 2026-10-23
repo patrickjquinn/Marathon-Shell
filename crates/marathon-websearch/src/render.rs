@@ -49,7 +49,16 @@ struct Frames {
 }
 
 struct Page {
-    eval: unsafe extern "C" fn(*mut c_void, *const c_char, isize, *const c_char, *const c_char, *mut c_void, gio_callback, gpointer),
+    eval: unsafe extern "C" fn(
+        *mut c_void,
+        *const c_char,
+        isize,
+        *const c_char,
+        *const c_char,
+        *mut c_void,
+        gio_callback,
+        gpointer,
+    ),
     eval_finish: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut *mut GError) -> *mut c_void,
     to_string: unsafe extern "C" fn(*mut c_void) -> *mut c_char,
     view: *mut c_void,
@@ -95,7 +104,13 @@ unsafe extern "C" fn load_changed(_view: *mut c_void, event: c_int, data: gpoint
     }
 }
 
-unsafe extern "C" fn load_failed(_view: *mut c_void, _event: c_int, _uri: *const c_char, _error: *mut GError, data: gpointer) -> gboolean {
+unsafe extern "C" fn load_failed(
+    _view: *mut c_void,
+    _event: c_int,
+    _uri: *const c_char,
+    _error: *mut GError,
+    data: gpointer,
+) -> gboolean {
     // SAFETY: as `load_changed`.
     let page = unsafe { &mut *data.cast::<Page>() };
     page.status = 2;
@@ -108,7 +123,18 @@ unsafe extern "C" fn evaluate(data: gpointer) -> gboolean {
     // SAFETY: as `load_changed`.
     let page = unsafe { &*data.cast::<Page>() };
     // SAFETY: the view is alive; the script is a NUL-terminated string.
-    unsafe { (page.eval)(page.view, SCRIPT.as_ptr(), -1, ptr::null(), ptr::null(), ptr::null_mut(), Some(evaluated), data) };
+    unsafe {
+        (page.eval)(
+            page.view,
+            SCRIPT.as_ptr(),
+            -1,
+            ptr::null(),
+            ptr::null(),
+            ptr::null_mut(),
+            Some(evaluated),
+            data,
+        );
+    };
     GFALSE
 }
 
@@ -126,7 +152,10 @@ unsafe extern "C" fn evaluated(_source: *mut GObject, result: *mut c_void, data:
         if !text.is_null() {
             // SAFETY: a NUL-terminated string from JSC.
             let html = unsafe { CStr::from_ptr(text) }.to_string_lossy();
-            #[allow(clippy::print_stdout, reason = "the rendered page is this process's output")]
+            #[allow(
+                clippy::print_stdout,
+                reason = "the rendered page is this process's output"
+            )]
             {
                 print!("{html}");
             }
@@ -159,28 +188,59 @@ pub fn main(url: &str) -> i32 {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "WPE's dynamically loaded C API is initialized as one ordered transaction"
+)]
 fn run(url: &str) -> Result<i32, libloading::Error> {
-    let Ok(uri) = CString::new(url) else { return Ok(2) };
+    let Ok(uri) = CString::new(url) else {
+        return Ok(2);
+    };
     // SAFETY: system libraries with C constructors only.
-    let (wpe, fdo, webkit) = unsafe { (Library::new("libwpe-1.0.so.1")?, Library::new("libWPEBackend-fdo-1.0.so.1")?, Library::new("libWPEWebKit-2.0.so.1")?) };
+    let (wpe, fdo, webkit) = unsafe {
+        (
+            Library::new("libwpe-1.0.so.1")?,
+            Library::new("libWPEBackend-fdo-1.0.so.1")?,
+            Library::new("libWPEWebKit-2.0.so.1")?,
+        )
+    };
     // SAFETY: each symbol is looked up with its C signature (wpe/fdo.h,
     // wpe/WebKitWebView.h); the libraries outlive this function's loop.
     unsafe {
-        let loader_init: libloading::Symbol<unsafe extern "C" fn(*const c_char) -> bool> = wpe.get(b"wpe_loader_init\0")?;
-        let initialize_shm: libloading::Symbol<unsafe extern "C" fn() -> bool> = fdo.get(b"wpe_fdo_initialize_shm\0")?;
-        let create: libloading::Symbol<Create> = fdo.get(b"wpe_view_backend_exportable_fdo_create\0")?;
-        let view_backend: libloading::Symbol<Exported> = fdo.get(b"wpe_view_backend_exportable_fdo_get_view_backend\0")?;
+        let loader_init: libloading::Symbol<unsafe extern "C" fn(*const c_char) -> bool> =
+            wpe.get(b"wpe_loader_init\0")?;
+        let initialize_shm: libloading::Symbol<unsafe extern "C" fn() -> bool> =
+            fdo.get(b"wpe_fdo_initialize_shm\0")?;
+        let create: libloading::Symbol<Create> =
+            fdo.get(b"wpe_view_backend_exportable_fdo_create\0")?;
+        let view_backend: libloading::Symbol<Exported> =
+            fdo.get(b"wpe_view_backend_exportable_fdo_get_view_backend\0")?;
         let frames = Box::leak(Box::new(Frames {
             exportable: ptr::null_mut(),
-            release_buffer: *fdo.get::<Release>(b"wpe_view_backend_exportable_fdo_dispatch_release_buffer\0")?,
-            release_shm: *fdo.get::<Release>(b"wpe_view_backend_exportable_fdo_dispatch_release_shm_exported_buffer\0")?,
-            frame_complete: *fdo.get::<FrameComplete>(b"wpe_view_backend_exportable_fdo_dispatch_frame_complete\0")?,
+            release_buffer: *fdo
+                .get::<Release>(b"wpe_view_backend_exportable_fdo_dispatch_release_buffer\0")?,
+            release_shm: *fdo.get::<Release>(
+                b"wpe_view_backend_exportable_fdo_dispatch_release_shm_exported_buffer\0",
+            )?,
+            frame_complete: *fdo.get::<FrameComplete>(
+                b"wpe_view_backend_exportable_fdo_dispatch_frame_complete\0",
+            )?,
         }));
-        let backend_new: libloading::Symbol<unsafe extern "C" fn(*mut c_void, Option<unsafe extern "C" fn(gpointer)>, gpointer) -> *mut c_void> = webkit.get(b"webkit_web_view_backend_new\0")?;
-        let view_type: libloading::Symbol<unsafe extern "C" fn() -> glib_sys::GType> = webkit.get(b"webkit_web_view_get_type\0")?;
-        let ephemeral: libloading::Symbol<unsafe extern "C" fn() -> *mut c_void> = webkit.get(b"webkit_network_session_new_ephemeral\0")?;
-        let settings: libloading::Symbol<unsafe extern "C" fn(*mut c_void) -> *mut c_void> = webkit.get(b"webkit_web_view_get_settings\0")?;
-        let load_uri: libloading::Symbol<unsafe extern "C" fn(*mut c_void, *const c_char)> = webkit.get(b"webkit_web_view_load_uri\0")?;
+        let backend_new: libloading::Symbol<
+            unsafe extern "C" fn(
+                *mut c_void,
+                Option<unsafe extern "C" fn(gpointer)>,
+                gpointer,
+            ) -> *mut c_void,
+        > = webkit.get(b"webkit_web_view_backend_new\0")?;
+        let view_type: libloading::Symbol<unsafe extern "C" fn() -> glib_sys::GType> =
+            webkit.get(b"webkit_web_view_get_type\0")?;
+        let ephemeral: libloading::Symbol<unsafe extern "C" fn() -> *mut c_void> =
+            webkit.get(b"webkit_network_session_new_ephemeral\0")?;
+        let settings: libloading::Symbol<unsafe extern "C" fn(*mut c_void) -> *mut c_void> =
+            webkit.get(b"webkit_web_view_get_settings\0")?;
+        let load_uri: libloading::Symbol<unsafe extern "C" fn(*mut c_void, *const c_char)> =
+            webkit.get(b"webkit_web_view_load_uri\0")?;
 
         if !loader_init(c"libWPEBackend-fdo-1.0.so.1".as_ptr()) || !initialize_shm() {
             return Ok(1);
@@ -198,8 +258,22 @@ fn run(url: &str) -> Result<i32, libloading::Error> {
             return Ok(1);
         }
         let backend = backend_new(view_backend(frames.exportable), None, ptr::null_mut());
-        let view = gobject_sys::g_object_new(view_type(), c"backend".as_ptr(), backend, c"network-session".as_ptr(), ephemeral(), ptr::null::<c_char>());
-        gobject_sys::g_object_set(settings(view.cast()).cast(), c"auto-load-images".as_ptr(), GFALSE, c"enable-media".as_ptr(), GFALSE, ptr::null::<c_char>());
+        let view = gobject_sys::g_object_new(
+            view_type(),
+            c"backend".as_ptr(),
+            backend,
+            c"network-session".as_ptr(),
+            ephemeral(),
+            ptr::null::<c_char>(),
+        );
+        gobject_sys::g_object_set(
+            settings(view.cast()).cast(),
+            c"auto-load-images".as_ptr(),
+            GFALSE,
+            c"enable-media".as_ptr(),
+            GFALSE,
+            ptr::null::<c_char>(),
+        );
         let page = Box::leak(Box::new(Page {
             eval: *webkit.get(b"webkit_web_view_evaluate_javascript\0")?,
             eval_finish: *webkit.get(b"webkit_web_view_evaluate_javascript_finish\0")?,
@@ -209,8 +283,30 @@ fn run(url: &str) -> Result<i32, libloading::Error> {
             status: 0,
         }));
         let data: *mut Page = page;
-        connect(view, c"load-changed", std::mem::transmute::<unsafe extern "C" fn(*mut c_void, c_int, gpointer), unsafe extern "C" fn()>(load_changed), data.cast());
-        connect(view, c"load-failed", std::mem::transmute::<unsafe extern "C" fn(*mut c_void, c_int, *const c_char, *mut GError, gpointer) -> gboolean, unsafe extern "C" fn()>(load_failed), data.cast());
+        connect(
+            view,
+            c"load-changed",
+            std::mem::transmute::<
+                unsafe extern "C" fn(*mut c_void, c_int, gpointer),
+                unsafe extern "C" fn(),
+            >(load_changed),
+            data.cast(),
+        );
+        connect(
+            view,
+            c"load-failed",
+            std::mem::transmute::<
+                unsafe extern "C" fn(
+                    *mut c_void,
+                    c_int,
+                    *const c_char,
+                    *mut GError,
+                    gpointer,
+                ) -> gboolean,
+                unsafe extern "C" fn(),
+            >(load_failed),
+            data.cast(),
+        );
         glib_sys::g_timeout_add_seconds(GIVE_UP_S, Some(give_up), data.cast());
         load_uri(view.cast(), uri.as_ptr());
         glib_sys::g_main_loop_run(page.main_loop);
@@ -221,8 +317,15 @@ fn run(url: &str) -> Result<i32, libloading::Error> {
 
 /// # Safety
 /// `handler` must have the signal's C signature.
-unsafe fn connect(object: *mut GObject, signal: &CStr, handler: unsafe extern "C" fn(), data: gpointer) {
+unsafe fn connect(
+    object: *mut GObject,
+    signal: &CStr,
+    handler: unsafe extern "C" fn(),
+    data: gpointer,
+) {
     let callback: GCallback = Some(handler);
     // SAFETY: per this function's contract.
-    unsafe { gobject_sys::g_signal_connect_data(object.cast(), signal.as_ptr(), callback, data, None, 0) };
+    unsafe {
+        gobject_sys::g_signal_connect_data(object.cast(), signal.as_ptr(), callback, data, None, 0)
+    };
 }

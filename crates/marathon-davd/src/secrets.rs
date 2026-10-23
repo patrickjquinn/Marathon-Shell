@@ -6,19 +6,41 @@ use std::collections::HashMap;
 
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
 
-#[zbus::proxy(interface = "org.freedesktop.Secret.Service", default_service = "org.freedesktop.secrets", default_path = "/org/freedesktop/secrets")]
+#[zbus::proxy(
+    interface = "org.freedesktop.Secret.Service",
+    default_service = "org.freedesktop.secrets",
+    default_path = "/org/freedesktop/secrets"
+)]
 trait SecretService {
-    fn open_session(&self, algorithm: &str, input: &Value<'_>) -> zbus::Result<(OwnedValue, OwnedObjectPath)>;
-    fn search_items(&self, attributes: HashMap<&str, &str>) -> zbus::Result<(Vec<OwnedObjectPath>, Vec<OwnedObjectPath>)>;
+    fn open_session(
+        &self,
+        algorithm: &str,
+        input: &Value<'_>,
+    ) -> zbus::Result<(OwnedValue, OwnedObjectPath)>;
+    fn search_items(
+        &self,
+        attributes: HashMap<&str, &str>,
+    ) -> zbus::Result<(Vec<OwnedObjectPath>, Vec<OwnedObjectPath>)>;
     fn read_alias(&self, name: &str) -> zbus::Result<OwnedObjectPath>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.Secret.Collection", default_service = "org.freedesktop.secrets")]
+#[zbus::proxy(
+    interface = "org.freedesktop.Secret.Collection",
+    default_service = "org.freedesktop.secrets"
+)]
 trait Collection {
-    fn create_item(&self, properties: HashMap<&str, Value<'_>>, secret: &Secret, replace: bool) -> zbus::Result<(OwnedObjectPath, OwnedObjectPath)>;
+    fn create_item(
+        &self,
+        properties: HashMap<&str, Value<'_>>,
+        secret: &Secret,
+        replace: bool,
+    ) -> zbus::Result<(OwnedObjectPath, OwnedObjectPath)>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.Secret.Item", default_service = "org.freedesktop.secrets")]
+#[zbus::proxy(
+    interface = "org.freedesktop.Secret.Item",
+    default_service = "org.freedesktop.secrets"
+)]
 trait Item {
     fn get_secret(&self, session: &ObjectPath<'_>) -> zbus::Result<Secret>;
     fn delete(&self) -> zbus::Result<OwnedObjectPath>;
@@ -50,7 +72,12 @@ async fn session(service: &SecretServiceProxy<'_>) -> Result<OwnedObjectPath, Un
     Ok(service.open_session("plain", &Value::from("")).await?.1)
 }
 
-pub async fn store(bus: &zbus::Connection, id: &str, label: &str, secret: &str) -> Result<(), Unavailable> {
+pub async fn store(
+    bus: &zbus::Connection,
+    id: &str,
+    label: &str,
+    secret: &str,
+) -> Result<(), Unavailable> {
     let service = SecretServiceProxy::new(bus).await?;
     let session = session(&service).await?;
     let collection = service.read_alias("default").await?;
@@ -59,12 +86,27 @@ pub async fn store(bus: &zbus::Connection, id: &str, label: &str, secret: &str) 
     }
     let properties = HashMap::from([
         ("org.freedesktop.Secret.Item.Label", Value::from(label)),
-        ("org.freedesktop.Secret.Item.Attributes", Value::from(attributes(id))),
+        (
+            "org.freedesktop.Secret.Item.Attributes",
+            Value::from(attributes(id)),
+        ),
     ]);
-    let secret = (session, Vec::new(), secret.as_bytes().to_vec(), "text/plain".to_owned());
-    let collection = CollectionProxy::builder(bus).path(collection)?.build().await?;
+    let secret = (
+        session,
+        Vec::new(),
+        secret.as_bytes().to_vec(),
+        "text/plain".to_owned(),
+    );
+    let collection = CollectionProxy::builder(bus)
+        .path(collection)?
+        .build()
+        .await?;
     let (_, prompt) = collection.create_item(properties, &secret, true).await?;
-    if none(&prompt) { Ok(()) } else { Err(Unavailable) }
+    if none(&prompt) {
+        Ok(())
+    } else {
+        Err(Unavailable)
+    }
 }
 
 /// The account's secret; `None` when the keyring has none.
@@ -72,7 +114,11 @@ pub async fn load(bus: &zbus::Connection, id: &str) -> Result<Option<String>, Un
     let service = SecretServiceProxy::new(bus).await?;
     let (unlocked, locked) = service.search_items(attributes(id)).await?;
     let Some(item) = unlocked.into_iter().next() else {
-        return if locked.is_empty() { Ok(None) } else { Err(Unavailable) };
+        return if locked.is_empty() {
+            Ok(None)
+        } else {
+            Err(Unavailable)
+        };
     };
     let session = session(&service).await?;
     let item = ItemProxy::builder(bus).path(item)?.build().await?;
@@ -87,7 +133,12 @@ pub async fn remove(bus: &zbus::Connection, id: &str) -> Result<(), Unavailable>
         return Err(Unavailable);
     }
     for item in unlocked {
-        let prompt = ItemProxy::builder(bus).path(item)?.build().await?.delete().await?;
+        let prompt = ItemProxy::builder(bus)
+            .path(item)?
+            .build()
+            .await?
+            .delete()
+            .await?;
         if !none(&prompt) {
             return Err(Unavailable);
         }

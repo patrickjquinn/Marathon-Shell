@@ -166,7 +166,9 @@ impl cxx_qt::Initialize for Security {
     fn initialize(mut self: Pin<&mut Self>) {
         // Read once at startup: the lock screen decides from these at once.
         let user = current_user();
-        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default();
         let encryption = data_encryption_state(&home, &Probe::default());
         {
             let mut rust = self.as_mut().rust_mut();
@@ -176,7 +178,9 @@ impl cxx_qt::Initialize for Security {
         }
         let push = |obj: Pin<&mut Self>| ipc::signal("Security", "StateChanged", (state(&obj),));
         self.as_mut().on_auth_mode_changed(push).release();
-        self.as_mut().on_fingerprint_available_changed(push).release();
+        self.as_mut()
+            .on_fingerprint_available_changed(push)
+            .release();
         self.as_mut().on_lockout_state_changed(push).release();
         self.as_mut().on_failed_attempts_changed(push).release();
         self.as_mut().on_data_encryption_changed(push).release();
@@ -227,7 +231,8 @@ impl Security {
     }
 
     fn is_locked_out(&self) -> bool {
-        self.locked_until.is_some_and(|until| Instant::now() < until)
+        self.locked_until
+            .is_some_and(|until| Instant::now() < until)
     }
 
     fn lockout_seconds_remaining(&self) -> i32 {
@@ -251,7 +256,10 @@ impl Security {
     // Why the attempt can't start, if it can't.
     fn refuse(&self, secret: &str) -> Option<String> {
         if self.is_locked_out() {
-            Some(format!("Account locked. Try again in {} seconds.", self.lockout_seconds_remaining()))
+            Some(format!(
+                "Account locked. Try again in {} seconds.",
+                self.lockout_seconds_remaining()
+            ))
         } else if secret.is_empty() {
             Some("PIN cannot be empty".to_owned())
         } else if self.checking {
@@ -285,7 +293,7 @@ impl Security {
         self.as_mut().rust_mut().checking = true;
         let (qt, user) = (self.qt_thread(), self.user.clone());
         io::spawn(async move {
-            let ok = blocking::unblock(move || pam::authenticate(&user, &password)).await;
+            let ok = password_ok(user, password).await;
             qt.queue(move |obj| obj.finish(ok, Secret::Password)).ok();
         });
     }
@@ -308,20 +316,39 @@ impl Security {
         };
         if ok {
             self.as_mut().reset_lockout();
-            audit::log(Severity::Info, &format!("Authentication success: user={} method={method}", self.user));
+            audit::log(
+                Severity::Info,
+                &format!("Authentication success: user={} method={method}", self.user),
+            );
             return None;
         }
         self.as_mut().record_failure();
-        audit::log(Severity::Warning, &format!("Authentication failure: user={} reason=Invalid {what} source={source}", self.user));
+        audit::log(
+            Severity::Warning,
+            &format!(
+                "Authentication failure: user={} reason=Invalid {what} source={source}",
+                self.user
+            ),
+        );
         Some(if self.is_locked_out() {
             let seconds = self.lockout_seconds_remaining();
-            audit::log(Severity::Alert, &format!("Account locked out: user={} duration={seconds}s", self.user));
+            audit::log(
+                Severity::Alert,
+                &format!("Account locked out: user={} duration={seconds}s", self.user),
+            );
             format!("Too many failed attempts. Locked for {seconds} seconds.")
         } else if matches!(secret, Secret::Fingerprint) {
             "Fingerprint not recognized".to_owned()
         } else {
-            let incorrect = if matches!(secret, Secret::Pin) { "Incorrect PIN" } else { "Incorrect password" };
-            format!("{incorrect} ({} attempts remaining)", MAX_ATTEMPTS - self.failed_attempts)
+            let incorrect = if matches!(secret, Secret::Pin) {
+                "Incorrect PIN"
+            } else {
+                "Incorrect password"
+            };
+            format!(
+                "{incorrect} ({} attempts remaining)",
+                MAX_ATTEMPTS - self.failed_attempts
+            )
         })
     }
 
@@ -374,17 +401,26 @@ impl Security {
     }
 
     fn set_quick_pin(&self, pin: &QString, system_password: &QString) {
-        let (pin, password, user, qt) = (pin.to_string(), system_password.to_string(), self.user.clone(), self.qt_thread());
+        let (pin, password, user, qt) = (
+            pin.to_string(),
+            system_password.to_string(),
+            self.user.clone(),
+            self.qt_thread(),
+        );
         io::spawn(async move {
-            if !blocking::unblock(move || pam::authenticate(&user, &password)).await {
-                qt.queue(|obj| obj.fail("System password incorrect. Cannot set Quick PIN.")).ok();
+            if !password_ok(user, password).await {
+                qt.queue(|obj| obj.fail("System password incorrect. Cannot set Quick PIN."))
+                    .ok();
                 return;
             }
             // The startup PIN changes first, so a failure leaves both on the old PIN.
             let helper = run_data_key("set", &pin).await;
             queue_encryption(&qt);
             if !helper_ok(helper) {
-                qt.queue(|obj| obj.fail("Couldn't change the PIN that unlocks your data at startup")).ok();
+                qt.queue(|obj| {
+                    obj.fail("Couldn't change the PIN that unlocks your data at startup");
+                })
+                .ok();
                 return;
             }
             let stored = store_pin(pin).await;
@@ -429,16 +465,24 @@ impl Security {
     }
 
     fn remove_quick_pin(&self, system_password: &QString) {
-        let (password, user, qt) = (system_password.to_string(), self.user.clone(), self.qt_thread());
+        let (password, user, qt) = (
+            system_password.to_string(),
+            self.user.clone(),
+            self.qt_thread(),
+        );
         io::spawn(async move {
-            if !blocking::unblock(move || pam::authenticate(&user, &password)).await {
-                qt.queue(|obj| obj.fail("System password incorrect. Cannot remove Quick PIN.")).ok();
+            if !password_ok(user, password).await {
+                qt.queue(|obj| obj.fail("System password incorrect. Cannot remove Quick PIN."))
+                    .ok();
                 return;
             }
             let helper = run_data_key("clear", "").await;
             queue_encryption(&qt);
             if !helper_ok(helper) {
-                qt.queue(|obj| obj.fail("Couldn't turn off the PIN that unlocks your data at startup")).ok();
+                qt.queue(|obj| {
+                    obj.fail("Couldn't turn off the PIN that unlocks your data at startup");
+                })
+                .ok();
                 return;
             }
             let _guard = PIN_FILE.lock().await;
@@ -455,22 +499,36 @@ impl Security {
     }
 
     /// `answer` gets "" or why the secret was refused.
-    fn check_owner(mut self: Pin<&mut Self>, secret: String, answer: impl FnOnce(Pin<&mut Self>, String) + Send + 'static) {
+    fn check_owner(
+        mut self: Pin<&mut Self>,
+        secret: String,
+        answer: impl FnOnce(Pin<&mut Self>, String) + Send + 'static,
+    ) {
         if self.is_locked_out() {
-            let refusal = format!("Too many failed attempts. Try again in {} seconds.", self.lockout_seconds_remaining());
+            let refusal = format!(
+                "Too many failed attempts. Try again in {} seconds.",
+                self.lockout_seconds_remaining()
+            );
             return answer(self, refusal);
         }
         let (pin, user, qt) = (self.has_quick_pin, self.user.clone(), self.qt_thread());
         self.as_mut().rust_mut().checking = true;
         io::spawn(async move {
-            let ok = if pin { check_pin(secret).await } else { blocking::unblock(move || pam::authenticate(&user, &secret)).await };
+            let ok = if pin {
+                check_pin(secret).await
+            } else {
+                password_ok(user, secret).await
+            };
             qt.queue(move |mut obj| {
                 obj.as_mut().rust_mut().checking = false;
                 let secret = if pin { Secret::Pin } else { Secret::Password };
                 let refusal = match obj.as_mut().settle(ok, secret) {
                     None => String::new(),
                     Some(_) if obj.is_locked_out() => {
-                        format!("Too many failed attempts. Try again in {} seconds.", obj.lockout_seconds_remaining())
+                        format!(
+                            "Too many failed attempts. Try again in {} seconds.",
+                            obj.lockout_seconds_remaining()
+                        )
                     }
                     Some(_) if pin => "Incorrect PIN".to_owned(),
                     Some(_) => "Incorrect password".to_owned(),
@@ -486,7 +544,10 @@ impl Security {
             return self.fail("Biometric type not supported");
         }
         if self.is_locked_out() {
-            let refusal = format!("Account locked. Try again in {} seconds.", self.lockout_seconds_remaining());
+            let refusal = format!(
+                "Account locked. Try again in {} seconds.",
+                self.lockout_seconds_remaining()
+            );
             return self.fail(&refusal);
         }
         let Some(device) = self.fingerprint.clone() else {
@@ -527,12 +588,24 @@ fn state(security: &Security) -> State {
     State::from([
         ("authMode".to_owned(), value(security.auth_mode())),
         ("hasQuickPIN".to_owned(), value(security.has_quick_pin)),
-        ("fingerprintAvailable".to_owned(), value(security.fingerprint_available())),
+        (
+            "fingerprintAvailable".to_owned(),
+            value(security.fingerprint_available()),
+        ),
         ("isLockedOut".to_owned(), value(security.is_locked_out())),
-        ("lockoutSecondsRemaining".to_owned(), value(security.lockout_seconds_remaining())),
+        (
+            "lockoutSecondsRemaining".to_owned(),
+            value(security.lockout_seconds_remaining()),
+        ),
         ("failedAttempts".to_owned(), value(security.failed_attempts)),
-        ("canEraseAllContent".to_owned(), value(Path::new(FACTORY_RESET).exists())),
-        ("dataEncryption".to_owned(), value(security.data_encryption.to_string())),
+        (
+            "canEraseAllContent".to_owned(),
+            value(Path::new(FACTORY_RESET).exists()),
+        ),
+        (
+            "dataEncryption".to_owned(),
+            value(security.data_encryption.to_string()),
+        ),
     ])
 }
 
@@ -582,32 +655,70 @@ impl Security1 {
     }
 
     #[zbus(name = "SetQuickPIN")]
-    async fn set_quick_pin(&self, pin: String, system_password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_quick_pin(
+        &self,
+        pin: String,
+        system_password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Security", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.set_quick_pin(&QString::from(&pin), &QString::from(&system_password))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.set_quick_pin(&QString::from(&pin), &QString::from(&system_password));
+        })
+        .await
     }
 
     #[zbus(name = "RemoveQuickPIN")]
-    async fn remove_quick_pin(&self, system_password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn remove_quick_pin(
+        &self,
+        system_password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Security", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.remove_quick_pin(&QString::from(&system_password))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.remove_quick_pin(&QString::from(&system_password));
+        })
+        .await
     }
 
-    async fn authenticate_password(&self, password: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn authenticate_password(
+        &self,
+        password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Security", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.authenticate_password(&QString::from(&password))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.authenticate_password(&QString::from(&password));
+        })
+        .await
     }
 
     /// The PIN is the authentication: only the rate limit stands before it.
     #[zbus(name = "AuthenticateQuickPIN")]
-    async fn authenticate_quick_pin(&self, pin: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
-        if !gate::in_window(h.sender().map(zbus::names::UniqueName::as_str).unwrap_or_default(), "Security") {
+    async fn authenticate_quick_pin(
+        &self,
+        pin: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        if !gate::in_window(
+            h.sender()
+                .map(zbus::names::UniqueName::as_str)
+                .unwrap_or_default(),
+            "Security",
+        ) {
             return Err(fdo::Error::LimitsExceeded("Rate limit exceeded".into()));
         }
-        ipc::on_gui(&self.qt, move |obj| obj.authenticate_quick_pin(&QString::from(&pin))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.authenticate_quick_pin(&QString::from(&pin));
+        })
+        .await
     }
 
-    async fn authenticate_biometric(&self, kind: i32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn authenticate_biometric(
+        &self,
+        kind: i32,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Security", &["system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.authenticate_biometric(kind)).await
     }
@@ -622,7 +733,11 @@ impl Security1 {
         ipc::on_gui(&self.qt, Security::reset_lockout).await
     }
 
-    async fn is_biometric_enrolled(&self, kind: i32, #[zbus(header)] h: Header<'_>) -> fdo::Result<bool> {
+    async fn is_biometric_enrolled(
+        &self,
+        kind: i32,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<bool> {
         ipc::admit(&h, "Security", &["system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.is_biometric_enrolled(kind)).await
     }
@@ -634,7 +749,11 @@ impl Security1 {
 
     /// Erases the device at the next boot if `secret` is the owner's quick
     /// PIN, or system password without one; `EraseFailed` says why not.
-    async fn erase_all_content(&self, secret: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn erase_all_content(
+        &self,
+        secret: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Security", &["system"]).await?;
         let qt = self.qt.clone();
         io::spawn(async move {
@@ -652,7 +771,9 @@ fn helper_ok(code: Option<i32>) -> bool {
 }
 
 fn queue_encryption(qt: &cxx_qt::CxxQtThread<Security>) {
-    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default();
     let state = data_encryption_state(&home, &Probe::default());
     qt.queue(move |mut obj| {
         if obj.data_encryption.to_string() != state {
@@ -666,6 +787,19 @@ fn queue_encryption(qt: &cxx_qt::CxxQtThread<Security>) {
 // The PIN file is read and written one at a time: a PIN set during setup
 // is on disk before the first unlock checks it.
 static PIN_FILE: Mutex<()> = Mutex::new(());
+
+async fn password_ok(user: String, password: String) -> bool {
+    match blocking::unblock(move || pam::authenticate(&user, &password)).await {
+        Ok(()) => true,
+        Err(e) => {
+            log::warn(
+                "security",
+                format_args!("PAM rejected authentication: {e:?}"),
+            );
+            false
+        }
+    }
+}
 
 async fn check_pin(pin: String) -> bool {
     let _guard = PIN_FILE.lock().await;
@@ -707,12 +841,18 @@ fn stored_pin() -> String {
 // on the blocking pool, against offline guessing of a short PIN.
 fn argon2() -> Option<argon2::Argon2<'static>> {
     let params = argon2::Params::new(8 * 1024, 2, 1, Some(32)).ok()?;
-    Some(argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params))
+    Some(argon2::Argon2::new(
+        argon2::Algorithm::Argon2id,
+        argon2::Version::V0x13,
+        params,
+    ))
 }
 
 fn argon2_hash(pin: &str, salt: &[u8]) -> Option<[u8; 32]> {
     let mut out = [0u8; 32];
-    argon2()?.hash_password_into(pin.as_bytes(), salt, &mut out).ok()?;
+    argon2()?
+        .hash_password_into(pin.as_bytes(), salt, &mut out)
+        .ok()?;
     Some(out)
 }
 
@@ -726,7 +866,12 @@ fn write_pin(pin: &str) -> std::io::Result<()> {
         fs::create_dir_all(dir)?;
     }
     let tmp = path.with_extension("tmp");
-    let mut file = fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&tmp)?;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(&tmp)?;
     file.write_all(format!("argon2id:{}:{}", hex(&salt), hex(&hash)).as_bytes())?;
     file.sync_all()?;
     fs::rename(tmp, path)
@@ -737,10 +882,16 @@ fn write_pin(pin: &str) -> std::io::Result<()> {
 fn verify_pin(pin: &str, stored: &str) -> bool {
     let parts: Vec<&str> = stored.split(':').collect();
     let (expected, computed) = match parts.as_slice() {
-        ["argon2id", salt, hash] => (unhex(hash), unhex(salt).and_then(|s| argon2_hash(pin, &s)).map(Vec::from)),
+        ["argon2id", salt, hash] => (
+            unhex(hash),
+            unhex(salt)
+                .and_then(|s| argon2_hash(pin, &s))
+                .map(Vec::from),
+        ),
         [salt, hash] => {
             let computed = unhex(salt).map(|salt| {
-                let mut digest = Sha256::digest([salt.as_slice(), pin.as_bytes()].concat()).to_vec();
+                let mut digest =
+                    Sha256::digest([salt.as_slice(), pin.as_bytes()].concat()).to_vec();
                 for _ in 1..10_000 {
                     digest = Sha256::digest(&digest).to_vec();
                 }
@@ -752,28 +903,42 @@ fn verify_pin(pin: &str, stored: &str) -> bool {
         _ => (None, None),
     };
     match (expected, computed) {
-        (Some(a), Some(b)) => a.len() == b.len() && a.iter().zip(&b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0,
+        (Some(a), Some(b)) => {
+            a.len() == b.len() && a.iter().zip(&b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+        }
         _ => false,
     }
 }
 
 fn hex(bytes: &[u8]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
-    bytes.iter().flat_map(|b| [DIGITS[usize::from(b >> 4)], DIGITS[usize::from(b & 0xf)]]).map(char::from).collect()
+    bytes
+        .iter()
+        .flat_map(|b| [DIGITS[usize::from(b >> 4)], DIGITS[usize::from(b & 0xf)]])
+        .map(char::from)
+        .collect()
 }
 
 fn unhex(text: &str) -> Option<Vec<u8>> {
     if !text.len().is_multiple_of(2) {
         return None;
     }
-    (0..text.len()).step_by(2).map(|i| u8::from_str_radix(text.get(i..i + 2)?, 16).ok()).collect()
+    (0..text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(text.get(i..i + 2)?, 16).ok())
+        .collect()
 }
 
 /// The user the shell runs as, from its real uid and /etc/passwd.
 fn current_user() -> String {
-    let uid = fs::read_to_string("/proc/self/status").ok().and_then(|status| {
-        status.lines().find_map(|l| l.strip_prefix("Uid:")).and_then(|ids| ids.split_whitespace().next().map(str::to_owned))
-    });
+    let uid = fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|status| {
+            status
+                .lines()
+                .find_map(|l| l.strip_prefix("Uid:"))
+                .and_then(|ids| ids.split_whitespace().next().map(str::to_owned))
+        });
     let passwd = fs::read_to_string("/etc/passwd").unwrap_or_default();
     uid.and_then(|uid| {
         passwd.lines().find_map(|line| {
@@ -793,17 +958,32 @@ async fn run_data_key(command: &str, secret: &str) -> Option<i32> {
     let (program, args) = match std::env::var("MARATHON_DATA_KEY_HELPER") {
         Ok(helper) if !helper.is_empty() => (helper, vec![command.to_owned()]),
         _ if !Path::new(DATA_KEY_HELPER).exists() => return Some(0),
-        _ => ("pkexec".to_owned(), vec![DATA_KEY_HELPER.to_owned(), command.to_owned()]),
+        _ => (
+            "pkexec".to_owned(),
+            vec![DATA_KEY_HELPER.to_owned(), command.to_owned()],
+        ),
     };
     let secret = secret.to_owned();
     blocking::unblock(move || {
-        let mut child = Command::new(&program).args(&args).stdin(Stdio::piped()).stderr(Stdio::piped()).spawn().ok()?;
+        let mut child = Command::new(&program)
+            .args(&args)
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .ok()?;
         if let Some(mut stdin) = child.stdin.take() {
             stdin.write_all(secret.as_bytes()).ok();
         }
         let out = child.wait_with_output().ok()?;
         if !out.status.success() && !out.stderr.is_empty() {
-            log::warn("security", format_args!("marathon-data-key {}: {}", args.join(" "), String::from_utf8_lossy(&out.stderr).trim()));
+            log::warn(
+                "security",
+                format_args!(
+                    "marathon-data-key {}: {}",
+                    args.join(" "),
+                    String::from_utf8_lossy(&out.stderr).trim()
+                ),
+            );
         }
         out.status.code()
     })
@@ -836,12 +1016,21 @@ impl Default for Probe {
 /// erasing would encrypt, "none" when not.
 fn data_encryption_state(home: &Path, probe: &Probe) -> &'static str {
     let read = |p: &Path| io::read::<String>(p).unwrap_or_default();
-    let luks = device_of(home, &read(&probe.mount_info))
-        .is_some_and(|device| read(&probe.sys_dev_block.join(device).join("dm/uuid")).starts_with("CRYPT-LUKS"));
+    let luks = device_of(home, &read(&probe.mount_info)).is_some_and(|device| {
+        read(&probe.sys_dev_block.join(device).join("dm/uuid")).starts_with("CRYPT-LUKS")
+    });
     if !luks {
-        return if probe.data_partition.exists() { "off" } else { "none" };
+        return if probe.data_partition.exists() {
+            "off"
+        } else {
+            "none"
+        };
     }
-    if read(&probe.state_file) == "pin" { "pin" } else { "open" }
+    if read(&probe.state_file) == "pin" {
+        "pin"
+    } else {
+        "open"
+    }
 }
 
 /// The major:minor of the mount that holds `path`; later lines are mounted
@@ -850,7 +1039,9 @@ fn device_of<'a>(path: &Path, mount_info: &'a str) -> Option<&'a str> {
     let mut best: Option<(usize, &str)> = None;
     for line in mount_info.lines() {
         let fields: Vec<&str> = line.split(' ').collect();
-        let (Some(device), Some(mount_point)) = (fields.get(2), fields.get(4)) else { continue };
+        let (Some(device), Some(mount_point)) = (fields.get(2), fields.get(4)) else {
+            continue;
+        };
         let mount_point = unescape_mount_point(mount_point);
         if path.starts_with(&mount_point) && best.is_none_or(|(len, _)| mount_point.len() >= len) {
             best = Some((mount_point.len(), device));
@@ -865,7 +1056,9 @@ fn unescape_mount_point(field: &str) -> String {
     let mut rest = field;
     while let Some(i) = rest.find('\\') {
         out.push_str(&rest[..i]);
-        let code = rest.get(i + 1..i + 4).and_then(|o| u8::from_str_radix(o, 8).ok());
+        let code = rest
+            .get(i + 1..i + 4)
+            .and_then(|o| u8::from_str_radix(o, 8).ok());
         if let Some(c) = code {
             out.push(char::from(c));
             rest = &rest[i + 4..];
@@ -878,12 +1071,19 @@ fn unescape_mount_point(field: &str) -> String {
     out
 }
 
-#[zbus::proxy(interface = "net.reactivated.Fprint.Manager", default_service = "net.reactivated.Fprint", default_path = "/net/reactivated/Fprint/Manager")]
+#[zbus::proxy(
+    interface = "net.reactivated.Fprint.Manager",
+    default_service = "net.reactivated.Fprint",
+    default_path = "/net/reactivated/Fprint/Manager"
+)]
 trait FprintManager {
     fn get_default_device(&self) -> zbus::Result<OwnedObjectPath>;
 }
 
-#[zbus::proxy(interface = "net.reactivated.Fprint.Device", default_service = "net.reactivated.Fprint")]
+#[zbus::proxy(
+    interface = "net.reactivated.Fprint.Device",
+    default_service = "net.reactivated.Fprint"
+)]
 trait FprintDevice {
     fn list_enrolled_fingers(&self, user: &str) -> zbus::Result<Vec<String>>;
     fn claim(&self, user: &str) -> zbus::Result<()>;
@@ -895,15 +1095,28 @@ trait FprintDevice {
 }
 
 async fn fprint_device(path: OwnedObjectPath) -> zbus::Result<FprintDeviceProxy<'static>> {
-    FprintDeviceProxy::builder(&io::system_bus().await?).path(path)?.build().await
+    FprintDeviceProxy::builder(&io::system_bus().await?)
+        .path(path)?
+        .build()
+        .await
 }
 
 // A reader with an enrolled finger; none on most devices.
 async fn find_fingerprint_reader(qt: cxx_qt::CxxQtThread<Security>, user: String) {
     let found = async {
         let bus = io::system_bus().await.ok()?;
-        let path = FprintManagerProxy::new(&bus).await.ok()?.get_default_device().await.ok()?;
-        let fingers = fprint_device(path.clone()).await.ok()?.list_enrolled_fingers(&user).await.ok()?;
+        let path = FprintManagerProxy::new(&bus)
+            .await
+            .ok()?
+            .get_default_device()
+            .await
+            .ok()?;
+        let fingers = fprint_device(path.clone())
+            .await
+            .ok()?
+            .list_enrolled_fingers(&user)
+            .await
+            .ok()?;
         (!fingers.is_empty()).then_some(path)
     }
     .await;
@@ -917,9 +1130,16 @@ async fn find_fingerprint_reader(qt: cxx_qt::CxxQtThread<Security>, user: String
 }
 
 /// One verification: `Some(matched)`, or why it could not start.
-async fn verify_fingerprint(qt: &cxx_qt::CxxQtThread<Security>, path: OwnedObjectPath, user: &str) -> Result<Option<bool>, String> {
+async fn verify_fingerprint(
+    qt: &cxx_qt::CxxQtThread<Security>,
+    path: OwnedObjectPath,
+    user: &str,
+) -> Result<Option<bool>, String> {
     let device = fprint_device(path).await.map_err(|e| e.to_string())?;
-    let mut statuses = device.receive_verify_status().await.map_err(|e| e.to_string())?;
+    let mut statuses = device
+        .receive_verify_status()
+        .await
+        .map_err(|e| e.to_string())?;
     if let Err(e) = device.claim(user).await {
         log::warn("security", format_args!("fingerprint claim: {e}"));
         return Err("Fingerprint device busy".to_owned());
@@ -928,7 +1148,8 @@ async fn verify_fingerprint(qt: &cxx_qt::CxxQtThread<Security>, path: OwnedObjec
         device.release().await.ok();
         return Err("Fingerprint verification failed to start".to_owned());
     }
-    qt.queue(|obj| obj.biometric_prompt(&QString::from("Place your finger on the sensor"))).ok();
+    qt.queue(|obj| obj.biometric_prompt(&QString::from("Place your finger on the sensor")))
+        .ok();
     let mut matched = None;
     while let Some(status) = statuses.next().await {
         let Ok(args) = status.args() else { continue };
@@ -947,7 +1168,8 @@ async fn verify_fingerprint(qt: &cxx_qt::CxxQtThread<Security>, path: OwnedObjec
             "verify-remove-and-retry" => "Remove finger and try again",
             _ => continue,
         };
-        qt.queue(move |obj| obj.biometric_prompt(&QString::from(prompt))).ok();
+        qt.queue(move |obj| obj.biometric_prompt(&QString::from(prompt)))
+            .ok();
     }
     device.verify_stop().await.ok();
     device.release().await.ok();
@@ -965,7 +1187,11 @@ mod tests {
     #[test]
     fn every_stored_pin_format_verifies() {
         let salt = [7u8; 16];
-        let argon = format!("argon2id:{}:{}", hex(&salt), hex(&super::argon2_hash("135724", &salt).unwrap()));
+        let argon = format!(
+            "argon2id:{}:{}",
+            hex(&salt),
+            hex(&super::argon2_hash("135724", &salt).unwrap())
+        );
         assert!(verify_pin("135724", &argon));
         assert!(!verify_pin("135725", &argon));
 
@@ -1011,7 +1237,9 @@ mod tests {
 
         fn remove(&self, name: &str) {
             let path = self.0.path().join(name);
-            fs::remove_dir_all(&path).or_else(|_| fs::remove_file(&path)).ok();
+            fs::remove_dir_all(&path)
+                .or_else(|_| fs::remove_file(&path))
+                .ok();
         }
 
         fn state(&self, home: &str) -> &'static str {

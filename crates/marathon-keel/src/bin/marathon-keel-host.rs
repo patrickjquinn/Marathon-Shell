@@ -40,13 +40,21 @@ struct Lifecycle1(Host);
 
 #[zbus::interface(name = "org.marathonos.AppRunner.Lifecycle1")]
 impl Lifecycle1 {
-    async fn set_active(&self, active: bool, #[zbus(header)] h: Header<'_>) -> zbus::fdo::Result<()> {
+    async fn set_active(
+        &self,
+        active: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> zbus::fdo::Result<()> {
         caller_is_shell(&h).await?;
         self.0.set_active(active);
         Ok(())
     }
 
-    async fn set_cover_status(&self, status: i32, #[zbus(header)] h: Header<'_>) -> zbus::fdo::Result<()> {
+    async fn set_cover_status(
+        &self,
+        status: i32,
+        #[zbus(header)] h: Header<'_>,
+    ) -> zbus::fdo::Result<()> {
         caller_is_shell(&h).await?;
         self.0.set_cover_status(status);
         Ok(())
@@ -58,13 +66,18 @@ impl Lifecycle1 {
 fn thaw(pid: u32, depth: u8) {
     let cgroup = std::fs::read_to_string(format!("/proc/{pid}/cgroup")).unwrap_or_default();
     if let Some(path) = cgroup.lines().next().and_then(|l| l.strip_prefix("0::")) {
-        if path.rsplit('/').next().is_some_and(|d| d.starts_with("marathon-app-")) {
+        if path
+            .rsplit('/')
+            .next()
+            .is_some_and(|d| d.starts_with("marathon-app-"))
+        {
             std::fs::write(format!("/sys/fs/cgroup{path}/cgroup.freeze"), "0").ok();
             return;
         }
     }
     if depth < 3 {
-        let children = std::fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")).unwrap_or_default();
+        let children =
+            std::fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")).unwrap_or_default();
         for child in children.split_whitespace().filter_map(|c| c.parse().ok()) {
             thaw(child, depth + 1);
         }
@@ -83,25 +96,49 @@ fn main() -> ExitCode {
     let runtime = PathBuf::from(std::env::var("XDG_RUNTIME_DIR").unwrap_or_default());
     let app_id = args.app_id.clone().unwrap_or_default();
     let activate = app_id.clone();
-    let host = match Host::start(&runtime, args.dpi, Arc::new(move || launch(activate.clone())), Arc::new(|| {})) {
+    let host = match Host::start(
+        &runtime,
+        args.dpi,
+        Arc::new(move || launch(activate.clone())),
+        Arc::new(|| {}),
+    ) {
         Ok(host) => host,
         Err(e) => {
-            log::warn("marathon-keel-host", format_args!("cannot start the Keel host: {e}"));
+            log::warn(
+                "marathon-keel-host",
+                format_args!("cannot start the Keel host: {e}"),
+            );
             return ExitCode::FAILURE;
         }
     };
 
-    let Some((program, rest)) = args.command.split_first() else { return ExitCode::from(2) };
+    let Some((program, rest)) = args.command.split_first() else {
+        return ExitCode::from(2);
+    };
     let mut command = Command::new(program);
     command.args(rest);
-    let bwrap = std::env::var_os("PATH").and_then(|p| std::env::split_paths(&p).map(|d| d.join("bwrap")).find(|p| p.is_file()));
+    let bwrap = std::env::var_os("PATH").and_then(|p| {
+        std::env::split_paths(&p)
+            .map(|d| d.join("bwrap"))
+            .find(|p| p.is_file())
+    });
     if let (Some(permissions), Some(bwrap)) = (&args.sailjail, bwrap) {
         let home = std::env::var("HOME").unwrap_or_default();
         for base in ["/.local/share/", "/.cache/", "/.config/"] {
             std::fs::create_dir_all(format!("{home}{base}{}/{}", args.org, args.app)).ok();
         }
         command = Command::new(bwrap);
-        command.args(sailjail::bwrap_args(permissions, &args.org, &args.app, &home, &runtime.to_string_lossy())).arg("--").arg(program).args(rest);
+        command
+            .args(sailjail::bwrap_args(
+                permissions,
+                &args.org,
+                &args.app,
+                &home,
+                &runtime.to_string_lossy(),
+            ))
+            .arg("--")
+            .arg(program)
+            .args(rest);
     }
     command.envs(host.environment());
 
@@ -115,7 +152,10 @@ fn main() -> ExitCode {
                 bus.request_name(name.as_str()).await
             };
             if let Err(e) = served.await {
-                log::warn("marathon-keel-host", format_args!("cannot register {name}: {e}"));
+                log::warn(
+                    "marathon-keel-host",
+                    format_args!("cannot register {name}: {e}"),
+                );
             }
         });
     }
@@ -123,7 +163,10 @@ fn main() -> ExitCode {
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(e) => {
-            log::warn("marathon-keel-host", format_args!("cannot start {program}: {e}"));
+            log::warn(
+                "marathon-keel-host",
+                format_args!("cannot start {program}: {e}"),
+            );
             return ExitCode::FAILURE;
         }
     };

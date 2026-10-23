@@ -18,9 +18,9 @@ use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, Q
 use futures_lite::StreamExt;
 use marathon_qt as qvariant;
 use marathon_rt::dirs;
+use zbus::fdo;
 use zbus::message::Header;
 use zbus::zvariant::OwnedValue;
-use zbus::fdo;
 
 use crate::ipc::{self, State};
 use crate::qsettings::{Ini, Value};
@@ -240,7 +240,11 @@ macro_rules! copy_field {
 
 copy_field!(bool, Value::as_bool, Value::Bool);
 copy_field!(f64, Value::as_f64, Value::Double);
-copy_field!(i32, |v: &Value| v.as_i64().and_then(|n| i32::try_from(n).ok()), Value::Int);
+copy_field!(
+    i32,
+    |v: &Value| v.as_i64().and_then(|n| i32::try_from(n).ok()),
+    Value::Int
+);
 
 impl Field for QString {
     type Arg<'a> = &'a QString;
@@ -272,7 +276,12 @@ impl Field for QStringList {
         Some(string_list(&value.as_list()))
     }
     fn value(&self) -> Value {
-        Value::List(QList::<QString>::from(self).iter().map(ToString::to_string).collect())
+        Value::List(
+            QList::<QString>::from(self)
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+        )
     }
     fn own(arg: &QStringList) -> Self {
         arg.clone()
@@ -285,7 +294,9 @@ impl Field for QStringList {
 impl Field for Map {
     type Arg<'a> = &'a Map;
     fn read(value: &Value) -> Option<Self> {
-        let Value::Map(entries) = value else { return None };
+        let Value::Map(entries) = value else {
+            return None;
+        };
         let mut map = Map::default();
         for (k, v) in entries {
             map.insert(QString::from(k), qvariant::to_qt(&v.to_dbus()));
@@ -293,7 +304,16 @@ impl Field for Map {
         Some(map)
     }
     fn value(&self) -> Value {
-        Value::Map(self.iter().map(|(k, v)| (k.to_string(), qvariant::from_qt(v).map_or(Value::Invalid, |v| Value::from_dbus(&v)))).collect())
+        Value::Map(
+            self.iter()
+                .map(|(k, v)| {
+                    (
+                        k.to_string(),
+                        qvariant::from_qt(v).map_or(Value::Invalid, |v| Value::from_dbus(&v)),
+                    )
+                })
+                .collect(),
+        )
     }
     fn own(arg: &Map) -> Self {
         arg.clone()
@@ -427,17 +447,40 @@ properties! {
 
 /// `MarathonQuickSettings.qml`'s tile ids.
 fn tiles() -> Vec<String> {
-    ["wifi", "cellular", "bluetooth", "airplane", "dnd", "torch", "location", "hotspot", "nightlight", "rotation", "autobrightness", "lowpower", "vibration", "power"]
-        .map(str::to_owned)
-        .to_vec()
+    [
+        "wifi",
+        "cellular",
+        "bluetooth",
+        "airplane",
+        "dnd",
+        "torch",
+        "location",
+        "hotspot",
+        "nightlight",
+        "rotation",
+        "autobrightness",
+        "lowpower",
+        "vibration",
+        "power",
+    ]
+    .map(str::to_owned)
+    .to_vec()
 }
 
 /// Where the shell's wallpapers and sounds are installed.
 pub fn data_dir() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var("MARATHON_DATA_DIR").ok().filter(|d| !d.trim().is_empty()) {
+    if let Some(dir) = std::env::var("MARATHON_DATA_DIR")
+        .ok()
+        .filter(|d| !d.trim().is_empty())
+    {
         return Some(PathBuf::from(dir.trim()));
     }
-    [PathBuf::from("/usr/share/marathon-shell"), dirs::home().join(".local/share/marathon-shell")].into_iter().find(|d| d.is_dir())
+    [
+        PathBuf::from("/usr/share/marathon-shell"),
+        dirs::home().join(".local/share/marathon-shell"),
+    ]
+    .into_iter()
+    .find(|d| d.is_dir())
 }
 
 fn file_url(path: &Path) -> String {
@@ -449,7 +492,10 @@ pub fn asset_url(relative: &str) -> String {
     if let Some(path) = data_dir().map(|d| d.join(relative)).filter(|p| p.exists()) {
         return file_url(&path);
     }
-    relative.strip_prefix("wallpapers/").map_or_else(|| relative.to_owned(), |file| format!("qrc:/wallpapers/{file}"))
+    relative.strip_prefix("wallpapers/").map_or_else(
+        || relative.to_owned(),
+        |file| format!("qrc:/wallpapers/{file}"),
+    )
 }
 
 /// A built-in wallpaper or sound of an older image, at its installed path.
@@ -457,7 +503,10 @@ fn installed(path: &str) -> Option<String> {
     let relative = path
         .strip_prefix("qrc:/wallpapers/")
         .map(|f| format!("wallpapers/{f}"))
-        .or_else(|| path.strip_prefix("qrc:/sounds/resources/sounds/").map(|f| format!("sounds/{f}")))?;
+        .or_else(|| {
+            path.strip_prefix("qrc:/sounds/resources/sounds/")
+                .map(|f| format!("sounds/{f}"))
+        })?;
     let file = data_dir()?.join(relative);
     file.exists().then(|| file_url(&file))
 }
@@ -469,7 +518,10 @@ fn sounds(dirs: &[&str]) -> QStringList {
             let path = entry.path();
             if path.is_dir() {
                 walk(&path, out);
-            } else if path.extension().is_some_and(|e| ["wav", "ogg", "mp3", "m4a"].iter().any(|x| e == *x)) {
+            } else if path
+                .extension()
+                .is_some_and(|e| ["wav", "ogg", "mp3", "m4a"].iter().any(|x| e == *x))
+            {
                 out.push(path);
             }
         }
@@ -486,17 +538,30 @@ fn sounds(dirs: &[&str]) -> QStringList {
     string_list(&found)
 }
 
-const SCREEN_TIMEOUTS: [(&str, i32); 5] = [("30 seconds", 30_000), ("1 minute", 60_000), ("2 minutes", 120_000), ("5 minutes", 300_000), ("Never", 0)];
+const SCREEN_TIMEOUTS: [(&str, i32); 5] = [
+    ("30 seconds", 30_000),
+    ("1 minute", 60_000),
+    ("2 minutes", 120_000),
+    ("5 minutes", 300_000),
+    ("Never", 0),
+];
 
 /// `file:///usr/share/sounds/ring_old_phone.ogg` is "Old Phone".
 fn sound_name(path: &str) -> String {
     let path = path.strip_prefix("file://").unwrap_or(path);
     let file = path.rsplit('/').next().unwrap_or(path);
-    let base = file.split('.').next().unwrap_or(file).replace("alarm_", "").replace("ring_", "");
+    let base = file
+        .split('.')
+        .next()
+        .unwrap_or(file)
+        .replace("alarm_", "")
+        .replace("ring_", "");
     base.split(['_', '-', ' '])
         .map(|word| {
             let mut chars = word.chars();
-            chars.next().map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect())
+            chars
+                .next()
+                .map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect())
         })
         .collect::<Vec<_>>()
         .join(" ")
@@ -506,7 +571,15 @@ fn sound_name(path: &str) -> String {
 fn local_zone() -> String {
     let target = fs::read_link("/etc/localtime").unwrap_or_default();
     let target = target.to_string_lossy();
-    target.split_once("zoneinfo/").map_or_else(|| std::env::var("TZ").unwrap_or_default().trim_start_matches(':').to_owned(), |(_, z)| z.to_owned())
+    target.split_once("zoneinfo/").map_or_else(
+        || {
+            std::env::var("TZ")
+                .unwrap_or_default()
+                .trim_start_matches(':')
+                .to_owned()
+        },
+        |(_, z)| z.to_owned(),
+    )
 }
 
 extern "C" {
@@ -520,7 +593,11 @@ fn follow_zone(zone: &str) {
     unsafe { tzset() };
 }
 
-#[zbus::proxy(interface = "org.freedesktop.timedate1", default_service = "org.freedesktop.timedate1", default_path = "/org/freedesktop/timedate1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.timedate1",
+    default_service = "org.freedesktop.timedate1",
+    default_path = "/org/freedesktop/timedate1"
+)]
 trait Timedate {
     fn set_timezone(&self, timezone: &str, interactive: bool) -> zbus::Result<()>;
     #[zbus(name = "SetNTP")]
@@ -532,7 +609,11 @@ trait Timedate {
     fn ntp(&self) -> zbus::Result<bool>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.hostname1", default_service = "org.freedesktop.hostname1", default_path = "/org/freedesktop/hostname1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.hostname1",
+    default_service = "org.freedesktop.hostname1",
+    default_path = "/org/freedesktop/hostname1"
+)]
 trait Hostname {
     fn set_pretty_hostname(&self, hostname: &str, interactive: bool) -> zbus::Result<()>;
 }
@@ -563,8 +644,12 @@ enum Timedated {
 }
 
 /// Runs a timedated change; a refusal resets `reset` and is reported.
-fn ask_timedate<F, R>(qt: Qt, change: F, reset: fn(Pin<&mut Settings>), done: impl FnOnce(Pin<&mut Settings>) + Send + 'static)
-where
+fn ask_timedate<F, R>(
+    qt: Qt,
+    change: F,
+    reset: fn(Pin<&mut Settings>),
+    done: impl FnOnce(Pin<&mut Settings>) + Send + 'static,
+) where
     F: FnOnce(TimedateProxy<'static>) -> R + Send + 'static,
     R: std::future::Future<Output = zbus::Result<()>> + Send,
 {
@@ -612,7 +697,12 @@ fn write(text: &str) -> std::io::Result<()> {
         fs::create_dir_all(dir)?;
     }
     let temp = path.with_extension("conf.new");
-    let mut out = fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&temp)?;
+    let mut out = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(&temp)?;
     out.write_all(text.as_bytes())?;
     out.sync_all()?;
     fs::rename(&temp, &path)
@@ -630,15 +720,23 @@ impl cxx_qt::Initialize for Settings {
     fn initialize(mut self: Pin<&mut Self>) {
         self.as_mut().watch();
         self.as_mut()
-            .on_date_time_change_failed(|_, reason| ipc::signal("Settings", "DateTimeChangeFailed", (reason.to_string(),)))
+            .on_date_time_change_failed(|_, reason| {
+                ipc::signal("Settings", "DateTimeChangeFailed", (reason.to_string(),));
+            })
             .release();
         let qt = self.qt_thread();
         QT.set(qt.clone()).ok();
         ipc::export("Settings", Settings1 { qt: qt.clone() });
         io::spawn(async move {
             let Ok(proxy) = timedate().await else { return };
-            let ntp = proxy.receive_ntp_changed().await.then(|c| async move { c.get().await.ok().map(Timedated::Ntp) });
-            let zone = proxy.receive_timezone_changed().await.then(|c| async move { c.get().await.ok().map(Timedated::Zone) });
+            let ntp = proxy
+                .receive_ntp_changed()
+                .await
+                .then(|c| async move { c.get().await.ok().map(Timedated::Ntp) });
+            let zone = proxy
+                .receive_timezone_changed()
+                .await
+                .then(|c| async move { c.get().await.ok().map(Timedated::Zone) });
             let mut changes = std::pin::pin!(ntp.or(zone));
             if let Ok(on) = proxy.ntp().await {
                 qt.queue(move |obj| obj.timedated(Timedated::Ntp(on))).ok();
@@ -684,7 +782,12 @@ impl Settings {
 
     fn set_status_bar_clock_position(mut self: Pin<&mut Self>, value: &QString) {
         if ["left", "center", "right"].contains(&value.to_string().as_str()) {
-            set!(self, status_bar_clock_position, status_bar_clock_position_changed, value.clone());
+            set!(
+                self,
+                status_bar_clock_position,
+                status_bar_clock_position_changed,
+                value.clone()
+            );
         }
     }
 
@@ -697,7 +800,12 @@ impl Settings {
         self.as_mut().device_name_changed();
         let name = value.to_string();
         io::spawn(async move {
-            let set = async { HostnameProxy::new(&io::system_bus().await?).await?.set_pretty_hostname(&name, false).await };
+            let set = async {
+                HostnameProxy::new(&io::system_bus().await?)
+                    .await?
+                    .set_pretty_hostname(&name, false)
+                    .await
+            };
             if let Err(e) = set.await {
                 log::warn("settings", format_args!("SetPrettyHostname: {e}"));
             }
@@ -711,20 +819,35 @@ impl Settings {
             return;
         }
         let asked = zone.clone();
-        ask_timedate(self.qt_thread(), move |p| async move { p.set_timezone(&asked, false).await }, Settings::time_zone_changed, move |mut obj| {
-            follow_zone(&zone);
-            set!(obj, time_zone, time_zone_changed, QString::from(&zone));
-        });
+        ask_timedate(
+            self.qt_thread(),
+            move |p| async move { p.set_timezone(&asked, false).await },
+            Settings::time_zone_changed,
+            move |mut obj| {
+                follow_zone(&zone);
+                set!(obj, time_zone, time_zone_changed, QString::from(&zone));
+            },
+        );
     }
 
     fn set_automatic_time(self: Pin<&mut Self>, value: bool) {
-        ask_timedate(self.qt_thread(), move |p| async move { p.set_ntp(value, false).await }, Settings::automatic_time_changed, move |mut obj| {
-            set!(obj, automatic_time, automatic_time_changed, value);
-        });
+        ask_timedate(
+            self.qt_thread(),
+            move |p| async move { p.set_ntp(value, false).await },
+            Settings::automatic_time_changed,
+            move |mut obj| {
+                set!(obj, automatic_time, automatic_time_changed, value);
+            },
+        );
     }
 
     fn set_system_time(&self, msecs: i64) {
-        ask_timedate(self.qt_thread(), move |p| async move { p.set_time(msecs * 1000, false, false).await }, |_| {}, |_| {});
+        ask_timedate(
+            self.qt_thread(),
+            move |p| async move { p.set_time(msecs * 1000, false, false).await },
+            |_| {},
+            |_| {},
+        );
     }
 
     fn timedated(mut self: Pin<&mut Self>, change: Timedated) {
@@ -735,7 +858,9 @@ impl Settings {
     }
 
     fn load(mut self: Pin<&mut Self>, screen_timeout: i32) {
-        let mut ini = fs::read_to_string(file()).map(|t| Ini::parse(&t)).unwrap_or_default();
+        let mut ini = fs::read_to_string(file())
+            .map(|t| Ini::parse(&t))
+            .unwrap_or_default();
         let migrated = migrate(&mut ini);
         let mut rust = self.as_mut().rust_mut();
         rust.ini = ini;
@@ -744,12 +869,24 @@ impl Settings {
         self.as_mut().read_properties();
         // Every "open in default..." resolves to one of Marathon's own apps
         // until the user picks another; an empty saved choice is none.
-        let browser = if Path::new("/usr/share/applications/shipwright-pacific.desktop").exists() { "shipwright-pacific" } else { "browser" };
+        let browser = if Path::new("/usr/share/applications/shipwright-pacific.desktop").exists() {
+            "shipwright-pacific"
+        } else {
+            "browser"
+        };
         let mut apps = Map::default();
         for (role, key, default) in DEFAULT_APPS {
             let default = if role == "browser" { browser } else { default };
-            let saved = self.ini.0.get(key).and_then(Value::as_text).filter(|s| !s.is_empty() || default.is_empty());
-            apps.insert(QString::from(role), QVariant::from(&QString::from(&saved.unwrap_or_else(|| default.to_owned()))));
+            let saved = self
+                .ini
+                .0
+                .get(key)
+                .and_then(Value::as_text)
+                .filter(|s| !s.is_empty() || default.is_empty());
+            apps.insert(
+                QString::from(role),
+                QVariant::from(&QString::from(&saved.unwrap_or_else(|| default.to_owned()))),
+            );
         }
         self.as_mut().rust_mut().default_apps = apps;
         self.as_mut().write_properties();
@@ -764,8 +901,14 @@ impl Settings {
         if name == "defaultApps" {
             let mut rust = self.as_mut().rust_mut();
             for (role, key, _) in DEFAULT_APPS {
-                let app = rust.default_apps.get(&QString::from(role)).and_then(|v| v.value::<QString>()).unwrap_or_default();
-                rust.ini.0.insert(key.to_owned(), Value::Text(app.to_string()));
+                let app = rust
+                    .default_apps
+                    .get(&QString::from(role))
+                    .and_then(|v| v.value::<QString>())
+                    .unwrap_or_default();
+                rust.ini
+                    .0
+                    .insert(key.to_owned(), Value::Text(app.to_string()));
             }
         }
         if let Some(value) = state(&self).remove(name) {
@@ -807,9 +950,16 @@ impl Settings {
 
     pub(crate) fn set(mut self: Pin<&mut Self>, key: &QString, value: &QVariant) {
         let Some(value) = qvariant::from_qt(value).filter(|_| storable(value)) else {
-            return log::warn("settings", format_args!("cannot store {key}: not a settings type"));
+            return log::warn(
+                "settings",
+                format_args!("cannot store {key}: not a settings type"),
+            );
         };
-        self.as_mut().rust_mut().ini.0.insert(key.to_string(), Value::from_dbus(&value));
+        self.as_mut()
+            .rust_mut()
+            .ini
+            .0
+            .insert(key.to_string(), Value::from_dbus(&value));
         self.save_soon();
     }
 
@@ -820,12 +970,20 @@ impl Settings {
     }
 
     pub(crate) fn is_notifications_enabled_for_app(&self, app_id: &QString) -> bool {
-        app_id.is_empty() || self.app_notification_settings.get(app_id).and_then(|v| v.value::<bool>()).unwrap_or(true)
+        app_id.is_empty()
+            || self
+                .app_notification_settings
+                .get(app_id)
+                .and_then(|v| v.value::<bool>())
+                .unwrap_or(true)
     }
 
     pub(crate) fn remove_app_keys(mut self: Pin<&mut Self>, app_id: &QString) {
         if !app_id.is_empty() {
-            self.as_mut().rust_mut().ini.remove_tree(&app_id.to_string());
+            self.as_mut()
+                .rust_mut()
+                .ini
+                .remove_tree(&app_id.to_string());
             self.save_soon();
         }
     }
@@ -835,9 +993,21 @@ impl Settings {
 fn storable(value: &QVariant) -> bool {
     use cxx_qt_lib::QMetaTypeType as T;
     match value.type_id() {
-        T::QVariantList => value.value::<QList<QVariant>>().is_some_and(|l| l.iter().all(storable)),
-        T::QVariantMap => value.value::<Map>().is_some_and(|m| m.iter().all(|(_, v)| storable(v))),
-        T::UnknownType | T::Bool | T::Int | T::UInt | T::LongLong | T::ULongLong | T::Double | T::QString | T::QStringList => true,
+        T::QVariantList => value
+            .value::<QList<QVariant>>()
+            .is_some_and(|l| l.iter().all(storable)),
+        T::QVariantMap => value
+            .value::<Map>()
+            .is_some_and(|m| m.iter().all(|(_, v)| storable(v))),
+        T::UnknownType
+        | T::Bool
+        | T::Int
+        | T::UInt
+        | T::LongLong
+        | T::ULongLong
+        | T::Double
+        | T::QString
+        | T::QStringList => true,
         _ => false,
     }
 }
@@ -849,23 +1019,45 @@ fn migrate(ini: &mut Ini) -> bool {
     // Before the lock delay, autoLock off meant "don't lock on idle": those
     // users get the longest delay.
     if !flag(ini, "system/autoLockTimeoutMigrated") {
-        let auto_lock = ini.0.get("system/autoLock").and_then(Value::as_bool).unwrap_or(true);
-        ini.0.insert("system/autoLockTimeout".into(), Value::Int(if auto_lock { 0 } else { 300 }));
-        ini.0.insert("system/autoLockTimeoutMigrated".into(), Value::Bool(true));
+        let auto_lock = ini
+            .0
+            .get("system/autoLock")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        ini.0.insert(
+            "system/autoLockTimeout".into(),
+            Value::Int(if auto_lock { 0 } else { 300 }),
+        );
+        ini.0
+            .insert("system/autoLockTimeoutMigrated".into(), Value::Bool(true));
         changed = true;
     }
     // Once only, so a developer who unhides the Test Suite keeps it.
     if !flag(ini, "apps/testHiddenByDefault") {
-        let mut hidden = ini.0.get("apps/hiddenApps").map_or_else(|| vec!["terminal".to_owned()], Value::as_list);
+        let mut hidden = ini
+            .0
+            .get("apps/hiddenApps")
+            .map_or_else(|| vec!["terminal".to_owned()], Value::as_list);
         if !hidden.iter().any(|a| a == "test") {
             hidden.push("test".to_owned());
         }
         ini.0.insert("apps/hiddenApps".into(), Value::List(hidden));
-        ini.0.insert("apps/testHiddenByDefault".into(), Value::Bool(true));
+        ini.0
+            .insert("apps/testHiddenByDefault".into(), Value::Bool(true));
         changed = true;
     }
-    for key in ["ui/wallpaperPath", "audio/ringtone", "audio/notificationSound", "audio/alarmSound"] {
-        if let Some(file) = ini.0.get(key).and_then(Value::as_text).and_then(|p| installed(&p)) {
+    for key in [
+        "ui/wallpaperPath",
+        "audio/ringtone",
+        "audio/notificationSound",
+        "audio/alarmSound",
+    ] {
+        if let Some(file) = ini
+            .0
+            .get(key)
+            .and_then(Value::as_text)
+            .and_then(|p| installed(&p))
+        {
             ini.0.insert(key.into(), Value::Text(file));
             changed = true;
         }
@@ -895,11 +1087,15 @@ async fn system(h: &Header<'_>) -> fdo::Result<()> {
 }
 
 async fn storage(h: &Header<'_>) -> fdo::Result<()> {
-    ipc::admit(h, "Settings.Storage", &["storage"]).await.map(drop)
+    ipc::admit(h, "Settings.Storage", &["storage"])
+        .await
+        .map(drop)
 }
 
 fn owned(value: &zbus::zvariant::Value<'_>) -> fdo::Result<OwnedValue> {
-    value.try_to_owned().map_err(|e| fdo::Error::Failed(e.to_string()))
+    value
+        .try_to_owned()
+        .map_err(|e| fdo::Error::Failed(e.to_string()))
 }
 
 #[zbus::interface(name = "org.marathonos.Shell.Settings1")]
@@ -913,55 +1109,110 @@ impl Settings1 {
         ipc::on_gui(&self.qt, |obj| state(&obj)).await
     }
 
-    async fn set_property(&self, name: String, value: OwnedValue, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_property(
+        &self,
+        name: String,
+        value: OwnedValue,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
         let value = Value::from_dbus(&value);
-        let known = ipc::on_gui(&self.qt, move |obj| obj.set_named(&name.clone(), &value).then_some(()).ok_or(name)).await?;
+        let known = ipc::on_gui(&self.qt, move |obj| {
+            obj.set_named(&name.clone(), &value)
+                .then_some(())
+                .ok_or(name)
+        })
+        .await?;
         known.map_err(|name| fdo::Error::InvalidArgs(format!("Unknown settings property: {name}")))
     }
 
     async fn available_ringtones(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<String>> {
         system(&h).await?;
-        Ok(QList::<QString>::from(&sounds(&["phone", "bbm"])).iter().map(ToString::to_string).collect())
+        Ok(QList::<QString>::from(&sounds(&["phone", "bbm"]))
+            .iter()
+            .map(ToString::to_string)
+            .collect())
     }
 
-    async fn available_notification_sounds(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<String>> {
+    async fn available_notification_sounds(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<Vec<String>> {
         system(&h).await?;
-        Ok(QList::<QString>::from(&sounds(&["text", "messages", "bbm"])).iter().map(ToString::to_string).collect())
+        Ok(
+            QList::<QString>::from(&sounds(&["text", "messages", "bbm"]))
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+        )
     }
 
-    async fn available_alarm_sounds(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<String>> {
+    async fn available_alarm_sounds(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<Vec<String>> {
         system(&h).await?;
-        Ok(QList::<QString>::from(&sounds(&["alarms"])).iter().map(ToString::to_string).collect())
+        Ok(QList::<QString>::from(&sounds(&["alarms"]))
+            .iter()
+            .map(ToString::to_string)
+            .collect())
     }
 
-    async fn screen_timeout_options(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<String>> {
+    async fn screen_timeout_options(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<Vec<String>> {
         system(&h).await?;
-        Ok(SCREEN_TIMEOUTS.iter().map(|(name, _)| (*name).to_owned()).collect())
+        Ok(SCREEN_TIMEOUTS
+            .iter()
+            .map(|(name, _)| (*name).to_owned())
+            .collect())
     }
 
-    async fn screen_timeout_value(&self, option: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<i32> {
+    async fn screen_timeout_value(
+        &self,
+        option: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<i32> {
         system(&h).await?;
-        Ok(SCREEN_TIMEOUTS.iter().find(|(name, _)| *name == option).map_or(120_000, |(_, ms)| *ms))
+        Ok(SCREEN_TIMEOUTS
+            .iter()
+            .find(|(name, _)| *name == option)
+            .map_or(120_000, |(_, ms)| *ms))
     }
 
-    async fn format_sound_name(&self, path: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<String> {
+    async fn format_sound_name(
+        &self,
+        path: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<String> {
         system(&h).await?;
         Ok(sound_name(&path))
     }
 
-    async fn asset_url(&self, relative_path: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<String> {
+    async fn asset_url(
+        &self,
+        relative_path: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<String> {
         system(&h).await?;
         Ok(asset_url(&relative_path))
     }
 
     /// The caller's own `<appId>/...` keys with "storage", the Calendar's
     /// events (read only) with "calendar", anything with "system".
-    async fn get(&self, key: String, default_value: OwnedValue, #[zbus(header)] h: Header<'_>) -> fdo::Result<OwnedValue> {
+    async fn get(
+        &self,
+        key: String,
+        default_value: OwnedValue,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<OwnedValue> {
         let caller = ipc::caller(&h).await.unwrap_or_default();
         if !caller.is_empty() && key.starts_with(&format!("{caller}/")) {
             storage(&h).await?;
-        } else if key.starts_with("calendar/") && (gate::service_or_test(&caller, "calendar") || permissions::has(&caller, "calendar")) {
+        } else if key.starts_with("calendar/")
+            && (gate::service_or_test(&caller, "calendar") || permissions::has(&caller, "calendar"))
+        {
             let sender = h.sender().map(ToString::to_string).unwrap_or_default();
             if !gate::in_window(&sender, "Settings.Calendar") {
                 return Err(fdo::Error::LimitsExceeded("Rate limit exceeded".into()));
@@ -969,11 +1220,23 @@ impl Settings1 {
         } else {
             system(&h).await?;
         }
-        let found = ipc::on_gui(&self.qt, move |obj| obj.ini.0.get(&key).filter(|v| **v != Value::Invalid).map(Value::to_dbus)).await?;
+        let found = ipc::on_gui(&self.qt, move |obj| {
+            obj.ini
+                .0
+                .get(&key)
+                .filter(|v| **v != Value::Invalid)
+                .map(Value::to_dbus)
+        })
+        .await?;
         found.map_or(Ok(default_value), |v| owned(&v))
     }
 
-    async fn set(&self, key: String, value: OwnedValue, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set(
+        &self,
+        key: String,
+        value: OwnedValue,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         let caller = ipc::caller(&h).await.unwrap_or_default();
         if !caller.is_empty() && key.starts_with(&format!("{caller}/")) {
             storage(&h).await?;
@@ -995,7 +1258,11 @@ impl Settings1 {
         ipc::on_gui(&self.qt, |obj| obj.sync()).await
     }
 
-    async fn set_system_time(&self, msecs_since_epoch: i64, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_system_time(
+        &self,
+        msecs_since_epoch: i64,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_system_time(msecs_since_epoch)).await
     }
@@ -1013,9 +1280,18 @@ mod tests {
             ini.0.get("system/autoLockTimeout").and_then(Value::as_i64)
         };
         assert_eq!(delay(""), Some(0));
-        assert_eq!(delay("[system]\nautoLock=true\nautoLockTimeout=300\n"), Some(0));
-        assert_eq!(delay("[system]\nautoLock=false\nautoLockTimeout=300\n"), Some(300));
-        assert_eq!(delay("[system]\nautoLockTimeout=30\nautoLockTimeoutMigrated=true\n"), Some(30));
+        assert_eq!(
+            delay("[system]\nautoLock=true\nautoLockTimeout=300\n"),
+            Some(0)
+        );
+        assert_eq!(
+            delay("[system]\nautoLock=false\nautoLockTimeout=300\n"),
+            Some(300)
+        );
+        assert_eq!(
+            delay("[system]\nautoLockTimeout=30\nautoLockTimeoutMigrated=true\n"),
+            Some(30)
+        );
     }
 
     #[test]
@@ -1026,13 +1302,22 @@ mod tests {
             ini.0.get("apps/hiddenApps").map(Value::as_list)
         };
         assert_eq!(hidden("").unwrap_or_default(), ["terminal", "test"]);
-        assert_eq!(hidden("[apps]\nhiddenApps=notes\n").unwrap_or_default(), ["notes", "test"]);
-        assert_eq!(hidden("[apps]\nhiddenApps=@Invalid()\ntestHiddenByDefault=true\n").unwrap_or_default(), Vec::<String>::new());
+        assert_eq!(
+            hidden("[apps]\nhiddenApps=notes\n").unwrap_or_default(),
+            ["notes", "test"]
+        );
+        assert_eq!(
+            hidden("[apps]\nhiddenApps=@Invalid()\ntestHiddenByDefault=true\n").unwrap_or_default(),
+            Vec::<String>::new()
+        );
     }
 
     #[test]
     fn sound_files_read_as_names() {
-        assert_eq!(sound_name("file:///usr/share/marathon-shell/sounds/alarms/alarm_early-riser.wav"), "Early Riser");
+        assert_eq!(
+            sound_name("file:///usr/share/marathon-shell/sounds/alarms/alarm_early-riser.wav"),
+            "Early Riser"
+        );
         assert_eq!(sound_name("/x/ring_old_phone.ogg"), "Old Phone");
     }
 }

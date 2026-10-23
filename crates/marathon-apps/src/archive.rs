@@ -59,9 +59,15 @@ pub fn create(source_dir: &Path, archive: &Path) -> Result<(), String> {
 pub fn package(app_dir: &Path, archive: &Path) -> Result<(), String> {
     let manifest: serde_json::Value = fs::read(app_dir.join("manifest.json"))
         .map_err(|e| format!("manifest.json: {e}"))
-        .and_then(|b| serde_json::from_slice(&b).map_err(|e| format!("Invalid JSON in manifest.json: {e}")))?;
+        .and_then(|b| {
+            serde_json::from_slice(&b).map_err(|e| format!("Invalid JSON in manifest.json: {e}"))
+        })?;
     for field in ["id", "name", "version", "entryPoint", "icon"] {
-        if manifest.get(field).and_then(serde_json::Value::as_str).is_none_or(str::is_empty) {
+        if manifest
+            .get(field)
+            .and_then(serde_json::Value::as_str)
+            .is_none_or(str::is_empty)
+        {
             return Err(format!("manifest.json missing required field: {field}"));
         }
     }

@@ -90,12 +90,22 @@ impl cxx_qt::Initialize for SystemStatusStore {
         let qt = self.qt_thread();
         watch(qt.clone(), POWER, "system", |mut obj, update| {
             if let Update::State(s) = update {
-                set!(obj, battery_level, battery_level_changed, get(&s, "batteryLevel"));
+                set!(
+                    obj,
+                    battery_level,
+                    battery_level_changed,
+                    get(&s, "batteryLevel")
+                );
             }
         });
         watch(qt, NETWORK, "network", |mut obj, update| {
             if let Update::State(s) = update {
-                set!(obj, wifi_connected, wifi_connected_changed, get(&s, "wifiConnected"));
+                set!(
+                    obj,
+                    wifi_connected,
+                    wifi_connected_changed,
+                    get(&s, "wifiConnected")
+                );
                 set!(obj, wifi_network, wifi_network_changed, get(&s, "wifiSsid"));
             }
         });
@@ -139,18 +149,38 @@ impl cxx_qt::Initialize for SystemControlStore {
         watch(qt.clone(), NETWORK, "network", |mut obj, update| {
             if let Update::State(s) = update {
                 set!(obj, is_wifi_on, is_wifi_on_changed, get(&s, "wifiEnabled"));
-                set!(obj, is_airplane_mode_on, is_airplane_mode_on_changed, get(&s, "airplaneModeEnabled"));
+                set!(
+                    obj,
+                    is_airplane_mode_on,
+                    is_airplane_mode_on_changed,
+                    get(&s, "airplaneModeEnabled")
+                );
             }
         });
         watch(qt.clone(), BLUETOOTH, "system", |mut obj, update| {
             if let Update::State(s) = update {
-                set!(obj, is_bluetooth_on, is_bluetooth_on_changed, get(&s, "enabled"));
+                set!(
+                    obj,
+                    is_bluetooth_on,
+                    is_bluetooth_on_changed,
+                    get(&s, "enabled")
+                );
             }
         });
         watch(qt.clone(), DISPLAY, "system", |mut obj, update| {
             if let Update::State(s) = update {
-                set!(obj, is_rotation_locked, is_rotation_locked_changed, get(&s, "rotationLocked"));
-                set!(obj, brightness, brightness_changed, percent(get(&s, "brightness")));
+                set!(
+                    obj,
+                    is_rotation_locked,
+                    is_rotation_locked_changed,
+                    get(&s, "rotationLocked")
+                );
+                set!(
+                    obj,
+                    brightness,
+                    brightness_changed,
+                    percent(get(&s, "brightness"))
+                );
             }
         });
         watch(qt.clone(), AUDIO, "system", |mut obj, update| {
@@ -158,13 +188,21 @@ impl cxx_qt::Initialize for SystemControlStore {
                 set!(obj, volume, volume_changed, percent(get(&s, "volume")));
             }
         });
-        relay(qt.clone(), SETTINGS, "PropertyChanged", |obj, (name, value): (String, OwnedValue)| {
-            if name == "dndEnabled" {
-                show_dnd(obj, &value);
-            }
-        });
+        relay(
+            qt.clone(),
+            SETTINGS,
+            "PropertyChanged",
+            |obj, (name, value): (String, OwnedValue)| {
+                if name == "dndEnabled" {
+                    show_dnd(obj, &value);
+                }
+            },
+        );
         io::spawn(async move {
-            if let Ok(state) = SETTINGS.ask::<_, crate::shell::State>("GetState", &()).await {
+            if let Ok(state) = SETTINGS
+                .ask::<_, crate::shell::State>("GetState", &())
+                .await
+            {
                 if let Some(dnd) = state.get("dndEnabled").cloned() {
                     qt.queue(move |obj| show_dnd(obj, &dnd)).ok();
                 }
@@ -198,7 +236,10 @@ impl SystemControlStore {
 
     fn toggle_dnd_mode(&self) {
         let on = !self.is_dnd_mode;
-        SETTINGS.call("SetProperty", ("dndEnabled", zbus::zvariant::Value::from(on)));
+        SETTINGS.call(
+            "SetProperty",
+            ("dndEnabled", zbus::zvariant::Value::from(on)),
+        );
         AUDIO.call("SetDoNotDisturb", (on,));
     }
 

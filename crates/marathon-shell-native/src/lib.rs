@@ -1,7 +1,10 @@
 //! The shell's Rust half: `QObject`s QML binds to, backed by D-Bus and system
 //! I/O that runs on one I/O thread, never on the GUI thread.
 
-#![allow(clippy::unnecessary_box_returns, reason = "cxx-qt's generated constructors return a Box")]
+#![allow(
+    clippy::unnecessary_box_returns,
+    reason = "cxx-qt's generated constructors return a Box"
+)]
 
 #[macro_use]
 extern crate marathon_rt;
@@ -11,21 +14,21 @@ pub(crate) use marathon_rt::{io, log};
 pub mod alarms;
 pub mod ambience;
 pub mod apps;
-mod audit;
 pub mod audio;
+mod audit;
 pub mod bluetooth;
 mod boost;
 mod cgroup;
-mod clock;
 pub mod clipboard;
+mod clock;
 pub mod contacts;
 mod desktop;
 pub mod device;
 pub mod display;
 pub mod file_model;
 pub mod flashlight;
-pub mod haptics;
 pub mod gate;
+pub mod haptics;
 pub mod ipc;
 pub mod layouts;
 pub mod links;
@@ -36,31 +39,31 @@ pub mod network;
 pub mod ngf;
 pub mod notifications;
 mod pam;
-pub mod pilot;
 pub mod permissions;
+pub mod pilot;
 pub mod portal;
 pub mod power;
-mod sandbox;
 pub mod pressure;
 mod push;
+mod qsettings;
 mod rt;
+mod sandbox;
 pub mod search;
 pub mod security;
 pub mod session;
-pub mod share;
 pub mod settings;
-mod qsettings;
+pub mod share;
 mod stored;
 mod svg;
 mod systemd;
-mod theme;
-mod timezone;
-mod variant;
 pub mod tasks;
 pub mod telephonyd;
 pub mod text_input;
+mod theme;
+mod timezone;
 pub mod ui;
 pub mod updates;
+mod variant;
 mod wake_timer;
 pub mod weather;
 pub mod words;

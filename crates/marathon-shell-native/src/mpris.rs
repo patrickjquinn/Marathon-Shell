@@ -209,7 +209,10 @@ impl Mpris {
         let text = |s: &str| QString::from(s);
         let active = p.active && !p.bus_name.is_empty();
         let status = if active { p.status.as_str() } else { "Stopped" };
-        let changed_player = self.has_active_player != active || self.player_name != text(&p.name) || self.desktop_entry != text(&p.desktop_entry) || self.bus_name != text(&p.bus_name);
+        let changed_player = self.has_active_player != active
+            || self.player_name != text(&p.name)
+            || self.desktop_entry != text(&p.desktop_entry)
+            || self.bus_name != text(&p.bus_name);
         let changed_status = self.playback_status != text(status);
         if changed_player {
             let mut rust = self.as_mut().rust_mut();
@@ -227,10 +230,19 @@ impl Mpris {
             self.as_mut().playback_status_changed();
         }
         if changed_player || changed_status {
-            crate::tasks::playback_changed(p.bus_name.clone(), p.desktop_entry.clone(), active && status == "Playing");
+            crate::tasks::playback_changed(
+                p.bus_name.clone(),
+                p.desktop_entry.clone(),
+                active && status == "Playing",
+            );
         }
         let t = &p.track;
-        if self.track_title != text(&t.title) || self.track_artist != text(&t.artist) || self.track_album != text(&t.album) || self.album_art_url != text(&t.art_url) || self.track_length != t.length {
+        if self.track_title != text(&t.title)
+            || self.track_artist != text(&t.artist)
+            || self.track_album != text(&t.album)
+            || self.album_art_url != text(&t.art_url)
+            || self.track_length != t.length
+        {
             let mut rust = self.as_mut().rust_mut();
             rust.track_title = text(&t.title);
             rust.track_artist = text(&t.artist);
@@ -239,10 +251,29 @@ impl Mpris {
             rust.track_length = t.length;
             self.as_mut().metadata_changed();
         }
-        let caps = [p.can_play, p.can_pause, p.can_go_next, p.can_go_previous, p.can_seek];
-        if [self.can_play, self.can_pause, self.can_go_next, self.can_go_previous, self.can_seek] != caps {
+        let caps = [
+            p.can_play,
+            p.can_pause,
+            p.can_go_next,
+            p.can_go_previous,
+            p.can_seek,
+        ];
+        if [
+            self.can_play,
+            self.can_pause,
+            self.can_go_next,
+            self.can_go_previous,
+            self.can_seek,
+        ] != caps
+        {
             let mut rust = self.as_mut().rust_mut();
-            [rust.can_play, rust.can_pause, rust.can_go_next, rust.can_go_previous, rust.can_seek] = caps;
+            [
+                rust.can_play,
+                rust.can_pause,
+                rust.can_go_next,
+                rust.can_go_previous,
+                rust.can_seek,
+            ] = caps;
             self.as_mut().capabilities_changed();
         }
         set!(self, position, position_changed, p.position);
@@ -254,21 +285,43 @@ impl Player {
         let short = bus_name.strip_prefix(PREFIX).unwrap_or(bus_name);
         let short = short.split('.').next().unwrap_or(short);
         let mut chars = short.chars();
-        let name = chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default();
-        Self { bus_name: bus_name.to_owned(), name, desktop_entry: short.to_lowercase(), status: "Stopped".to_owned(), ..Self::default() }
+        let name = chars
+            .next()
+            .map(|c| c.to_uppercase().chain(chars).collect())
+            .unwrap_or_default();
+        Self {
+            bus_name: bus_name.to_owned(),
+            name,
+            desktop_entry: short.to_lowercase(),
+            status: "Stopped".to_owned(),
+            ..Self::default()
+        }
     }
 
     fn set(&mut self, key: &str, value: &Value<'_>) {
-        let text = || value.downcast_ref::<&str>().map(str::to_owned).unwrap_or_default();
+        let text = || {
+            value
+                .downcast_ref::<&str>()
+                .map(str::to_owned)
+                .unwrap_or_default()
+        };
         let flag = || value.downcast_ref::<bool>().unwrap_or(false);
         match key {
             "Identity" | "DesktopEntry" => {
-                let field = if key == "Identity" { &mut self.name } else { &mut self.desktop_entry };
+                let field = if key == "Identity" {
+                    &mut self.name
+                } else {
+                    &mut self.desktop_entry
+                };
                 if let Some(v) = Some(text()).filter(|v| !v.is_empty()) {
                     *field = v;
                 }
             }
-            "PlaybackStatus" => self.status = Some(text()).filter(|s| !s.is_empty()).unwrap_or_else(|| self.status.clone()),
+            "PlaybackStatus" => {
+                self.status = Some(text())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| self.status.clone());
+            }
             "CanPlay" => self.can_play = flag(),
             "CanPause" => self.can_pause = flag(),
             "CanGoNext" => self.can_go_next = flag(),
@@ -279,7 +332,11 @@ impl Player {
                 if let Value::Dict(dict) = value {
                     self.track = Track::default();
                     for (k, v) in dict.iter() {
-                        let v = if let Value::Value(inner) = v { inner } else { v };
+                        let v = if let Value::Value(inner) = v {
+                            inner
+                        } else {
+                            v
+                        };
                         if let Value::Str(k) = k {
                             self.track.set(k, v);
                         }
@@ -311,7 +368,12 @@ impl Track {
             Value::Str(s) => s.to_string(),
             Value::ObjectPath(p) => p.to_string(),
             // xesam:artist is a list; some players send one string.
-            Value::Array(a) => a.iter().next().and_then(|v| v.downcast_ref::<&str>().ok()).unwrap_or_default().to_owned(),
+            Value::Array(a) => a
+                .iter()
+                .next()
+                .and_then(|v| v.downcast_ref::<&str>().ok())
+                .unwrap_or_default()
+                .to_owned(),
             _ => String::new(),
         };
         match key {
@@ -347,8 +409,15 @@ type Qt = cxx_qt::CxxQtThread<Mpris>;
 enum Event {
     Command(Command),
     Closed,
-    Changed { sender: String, interface: String, changed: HashMap<String, OwnedValue> },
-    Owner { name: String, owner: Option<String> },
+    Changed {
+        sender: String,
+        interface: String,
+        changed: HashMap<String, OwnedValue>,
+    },
+    Owner {
+        name: String,
+        owner: Option<String>,
+    },
     Tick,
 }
 
@@ -364,7 +433,12 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         Ok(bus) => bus,
         Err(e) => return log::warn("mpris", format_args!("no session bus: {e}")),
     };
-    let mut actor = Actor { qt, bus, player: Player::default(), owner: None };
+    let mut actor = Actor {
+        qt,
+        bus,
+        player: Player::default(),
+        owner: None,
+    };
     let events = commands
         .map(Event::Command)
         .chain(stream::once(Event::Closed))
@@ -376,8 +450,14 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         match event {
             Event::Command(command) => actor.handle(command).await,
             Event::Closed => break,
-            Event::Changed { sender, interface, changed } => {
-                if actor.owner.as_ref() == Some(&sender) && (interface == PLAYER || interface == ROOT) {
+            Event::Changed {
+                sender,
+                interface,
+                changed,
+            } => {
+                if actor.owner.as_ref() == Some(&sender)
+                    && (interface == PLAYER || interface == ROOT)
+                {
                     for (key, value) in &changed {
                         actor.player.set(key, value);
                     }
@@ -419,7 +499,9 @@ impl Actor {
     /// The first player already on the bus; later ones arrive by
     /// `NameOwnerChanged`.
     async fn scan(&mut self) {
-        let Some(dbus) = self.dbus().await else { return };
+        let Some(dbus) = self.dbus().await else {
+            return;
+        };
         let names = dbus.list_names().await.unwrap_or_default();
         if let Some(name) = names.iter().find(|n| n.as_str().starts_with(PREFIX)) {
             self.follow(name.as_str()).await;
@@ -429,7 +511,11 @@ impl Actor {
     async fn follow(&mut self, name: &str) {
         self.player = Player::new(name);
         self.owner = match (self.dbus().await, zbus::names::BusName::try_from(name)) {
-            (Some(dbus), Ok(bus_name)) => dbus.get_name_owner(bus_name).await.ok().map(|o| o.to_string()),
+            (Some(dbus), Ok(bus_name)) => dbus
+                .get_name_owner(bus_name)
+                .await
+                .ok()
+                .map(|o| o.to_string()),
             _ => None,
         };
         self.read(ROOT).await;
@@ -442,7 +528,11 @@ impl Actor {
     /// Reads an interface's properties into the player; false if it didn't answer.
     async fn read(&mut self, interface: &str) -> bool {
         let reply = self.call(PROPERTIES, "GetAll", &(interface,)).await;
-        let Some(props) = reply.and_then(|m| m.body().deserialize::<HashMap<String, OwnedValue>>().ok()) else { return false };
+        let Some(props) =
+            reply.and_then(|m| m.body().deserialize::<HashMap<String, OwnedValue>>().ok())
+        else {
+            return false;
+        };
         for (key, value) in &props {
             self.player.set(key, value);
         }
@@ -462,7 +552,9 @@ impl Actor {
         B: serde::Serialize + DynamicType,
     {
         let name = self.player.bus_name.as_str();
-        let call = self.bus.call_method(Some(name), PATH, Some(interface), method, body);
+        let call = self
+            .bus
+            .call_method(Some(name), PATH, Some(interface), method, body);
         match io::timeout(Duration::from_secs(2), call).await {
             Some(Ok(reply)) => Some(reply),
             Some(Err(e)) => {
@@ -481,7 +573,10 @@ impl Actor {
     {
         let (bus, name) = (self.bus.clone(), self.player.bus_name.clone());
         io::spawn(async move {
-            if let Err(e) = bus.call_method(Some(name.as_str()), PATH, Some(PLAYER), method, &body).await {
+            if let Err(e) = bus
+                .call_method(Some(name.as_str()), PATH, Some(PLAYER), method, &body)
+                .await
+            {
                 log::warn("mpris", format_args!("{name} {method}: {e}"));
             }
         });
@@ -500,10 +595,12 @@ impl Actor {
                 None => return,
             },
             Command::Seek(offset) if p.can_seek => self.send("Seek", (offset,)),
-            Command::SetPosition(position) if p.can_seek => match OwnedObjectPath::try_from(p.track.id.as_str()) {
-                Ok(track) => self.send("SetPosition", (track, position)),
-                Err(_) => return,
-            },
+            Command::SetPosition(position) if p.can_seek => {
+                match OwnedObjectPath::try_from(p.track.id.as_str()) {
+                    Ok(track) => self.send("SetPosition", (track, position)),
+                    Err(_) => return,
+                }
+            }
             Command::Seek(_) | Command::SetPosition(_) => return,
         }
         Timer::after(Duration::from_millis(150)).await;
@@ -525,8 +622,16 @@ impl Actor {
                     .or(s.filter_map(|m| {
                         let m = m.ok()?;
                         let sender = m.header().sender()?.to_string();
-                        let (interface, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) = m.body().deserialize().ok()?;
-                        Some(Event::Changed { sender, interface, changed })
+                        let (interface, changed, _): (
+                            String,
+                            HashMap<String, OwnedValue>,
+                            Vec<String>,
+                        ) = m.body().deserialize().ok()?;
+                        Some(Event::Changed {
+                            sender,
+                            interface,
+                            changed,
+                        })
                     }))
                     .boxed();
             }
@@ -536,7 +641,10 @@ impl Actor {
                 let owners = owners.filter_map(|signal| {
                     let args = signal.args().ok()?;
                     let name = args.name().to_string();
-                    name.starts_with(PREFIX).then(|| Event::Owner { name, owner: args.new_owner().as_ref().map(ToString::to_string) })
+                    name.starts_with(PREFIX).then(|| Event::Owner {
+                        name,
+                        owner: args.new_owner().as_ref().map(ToString::to_string),
+                    })
                 });
                 merged = merged.or(owners).boxed();
             }
@@ -564,17 +672,29 @@ mod tests {
     #[test]
     fn a_player_is_named_from_its_bus_name_until_it_says() {
         let mut p = Player::new("org.mpris.MediaPlayer2.shortwave.instance42");
-        assert_eq!((p.name.as_str(), p.desktop_entry.as_str()), ("Shortwave", "shortwave"));
+        assert_eq!(
+            (p.name.as_str(), p.desktop_entry.as_str()),
+            ("Shortwave", "shortwave")
+        );
         p.set("DesktopEntry", &Value::from("de.haeckerfelix.Shortwave"));
         p.set("Identity", &Value::from(""));
-        assert_eq!((p.name.as_str(), p.desktop_entry.as_str()), ("Shortwave", "de.haeckerfelix.Shortwave"));
+        assert_eq!(
+            (p.name.as_str(), p.desktop_entry.as_str()),
+            ("Shortwave", "de.haeckerfelix.Shortwave")
+        );
     }
 
     #[test]
     fn the_artist_is_the_first_of_a_list_or_a_lone_string() {
         let mut p = Player::new("org.mpris.MediaPlayer2.x");
-        p.set("Metadata", &metadata(Value::from(vec!["CJME News/Talk 980", "Other"]), 0));
-        assert_eq!((p.track.artist.as_str(), p.track.title.as_str()), ("CJME News/Talk 980", "News"));
+        p.set(
+            "Metadata",
+            &metadata(Value::from(vec!["CJME News/Talk 980", "Other"]), 0),
+        );
+        assert_eq!(
+            (p.track.artist.as_str(), p.track.title.as_str()),
+            ("CJME News/Talk 980", "News")
+        );
         p.set("Metadata", &metadata(Value::from("Solo"), 0));
         assert_eq!(p.track.artist, "Solo");
     }

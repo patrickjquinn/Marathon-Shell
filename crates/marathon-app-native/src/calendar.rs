@@ -13,8 +13,8 @@ use zbus::zvariant::{OwnedValue, Value};
 
 use crate::shell::{allowed, Service};
 use crate::{notifications, variant};
-use marathon_rt::log;
 use marathon_rt::io;
+use marathon_rt::log;
 
 #[cxx_qt::bridge(namespace = "marathon::platform")]
 pub mod qobject {
@@ -37,7 +37,10 @@ pub mod qobject {
 
         #[qinvokable]
         #[cxx_name = "createEvent"]
-        fn create_event(self: Pin<&mut Calendar>, event: &QMap_QString_QVariant) -> QMap_QString_QVariant;
+        fn create_event(
+            self: Pin<&mut Calendar>,
+            event: &QMap_QString_QVariant,
+        ) -> QMap_QString_QVariant;
         #[qinvokable]
         #[cxx_name = "updateEvent"]
         fn update_event(self: Pin<&mut Calendar>, event: &QMap_QString_QVariant) -> bool;
@@ -108,7 +111,9 @@ fn normalized(event: &QMap<QMapPair_QString_QVariant>) -> Event {
 
 /// The event happens on `day`, itself or as a repeat.
 fn falls_on(event: &Event, day: Date) -> bool {
-    let Ok(first) = text(event, "date").parse::<Date>() else { return false };
+    let Ok(first) = text(event, "date").parse::<Date>() else {
+        return false;
+    };
     if first == day {
         return true;
     }
@@ -129,7 +134,9 @@ fn due(event: &Event, now: &Zoned) -> bool {
     if reminder < 0 {
         return false;
     }
-    let Ok(at) = now.checked_add(Span::new().minutes(reminder)) else { return false };
+    let Ok(at) = now.checked_add(Span::new().minutes(reminder)) else {
+        return false;
+    };
     text(event, "time") == at.strftime("%H:%M").to_string() && falls_on(event, at.date())
 }
 
@@ -138,8 +145,17 @@ impl CalendarRust {
         let events = obj.list.iter().map(|e| QVariant::from(&as_qt(e))).collect();
         obj.as_mut().rust_mut().events = events;
         obj.as_mut().events_changed();
-        let stored: Vec<Value<'static>> =
-            obj.list.iter().map(|e| Value::from(e.iter().filter_map(|(k, v)| Some((k.clone(), v.try_clone().ok()?))).collect::<HashMap<_, _>>())).collect();
+        let stored: Vec<Value<'static>> = obj
+            .list
+            .iter()
+            .map(|e| {
+                Value::from(
+                    e.iter()
+                        .filter_map(|(k, v)| Some((k.clone(), v.try_clone().ok()?)))
+                        .collect::<HashMap<_, _>>(),
+                )
+            })
+            .collect();
         SETTINGS.call("Set", (KEY.to_owned(), Value::from(stored)));
     }
 
@@ -150,7 +166,13 @@ impl CalendarRust {
             .list
             .iter()
             .filter(|e| due(e, &now))
-            .map(|e| (format!("{}_{minute}", int(e, "id")), text(e, "title").to_owned(), text(e, "time").to_owned()))
+            .map(|e| {
+                (
+                    format!("{}_{minute}", int(e, "id")),
+                    text(e, "title").to_owned(),
+                    text(e, "time").to_owned(),
+                )
+            })
             .collect();
         for (key, title, time) in due {
             let shown = &mut obj.as_mut().rust_mut().shown;
@@ -162,9 +184,27 @@ impl CalendarRust {
                 shown.pop_front();
             }
             io::spawn(async move {
-                let hints = HashMap::from([("category", Value::from("reminder")), ("urgency", Value::U8(2))]);
-                let body = ("calendar", 0u32, "qrc:/images/calendar.svg", title, time, vec!["Dismiss", "Dismiss"], hints, 5000i32);
-                let sent = async { if allowed("notifications", &mut false).await? { notifications::call("Notify", &body).await.map(drop) } else { Ok(()) } };
+                let hints = HashMap::from([
+                    ("category", Value::from("reminder")),
+                    ("urgency", Value::U8(2)),
+                ]);
+                let body = (
+                    "calendar",
+                    0u32,
+                    "qrc:/images/calendar.svg",
+                    title,
+                    time,
+                    vec!["Dismiss", "Dismiss"],
+                    hints,
+                    5000i32,
+                );
+                let sent = async {
+                    if allowed("notifications", &mut false).await? {
+                        notifications::call("Notify", &body).await.map(drop)
+                    } else {
+                        Ok(())
+                    }
+                };
                 if let Err(e) = sent.await {
                     log::warn("Calendar", format_args!("reminder: {e}"));
                 }
@@ -177,9 +217,22 @@ impl cxx_qt::Initialize for Calendar {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
         io::spawn(async move {
-            let stored: Option<OwnedValue> = SETTINGS.ask("Get", &(KEY, Value::from(Vec::<Value>::new()))).await.ok();
+            let stored: Option<OwnedValue> = SETTINGS
+                .ask("Get", &(KEY, Value::from(Vec::<Value>::new())))
+                .await
+                .ok();
             let list: Vec<Event> = match stored.as_deref().map(variant::to_qt) {
-                Some(v) => v.value::<QList<QVariant>>().map(|l| l.iter().filter_map(|e| e.value::<QMap<QMapPair_QString_QVariant>>().map(|m| variant::map(&m))).collect()).unwrap_or_default(),
+                Some(v) => v
+                    .value::<QList<QVariant>>()
+                    .map(|l| {
+                        l.iter()
+                            .filter_map(|e| {
+                                e.value::<QMap<QMapPair_QString_QVariant>>()
+                                    .map(|m| variant::map(&m))
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
                 None => Vec::new(),
             };
             qt.queue(move |mut obj| {
@@ -199,11 +252,20 @@ impl cxx_qt::Initialize for Calendar {
 }
 
 impl Calendar {
-    fn create_event(mut self: Pin<&mut Self>, event: &QMap<QMapPair_QString_QVariant>) -> QMap<QMapPair_QString_QVariant> {
+    fn create_event(
+        mut self: Pin<&mut Self>,
+        event: &QMap<QMapPair_QString_QVariant>,
+    ) -> QMap<QMapPair_QString_QVariant> {
         let mut event = normalized(event);
         let id = self.list.iter().map(|e| int(e, "id")).max().unwrap_or(0) + 1;
-        event.insert("id".to_owned(), Value::from(i32::try_from(id).unwrap_or(i32::MAX)));
-        event.insert("timestamp".to_owned(), Value::from(jiff::Timestamp::now().as_millisecond()));
+        event.insert(
+            "id".to_owned(),
+            Value::from(i32::try_from(id).unwrap_or(i32::MAX)),
+        );
+        event.insert(
+            "timestamp".to_owned(),
+            Value::from(jiff::Timestamp::now().as_millisecond()),
+        );
         let created = as_qt(&event);
         self.as_mut().rust_mut().list.push(event);
         CalendarRust::publish(self);
@@ -213,7 +275,9 @@ impl Calendar {
     fn update_event(mut self: Pin<&mut Self>, event: &QMap<QMapPair_QString_QVariant>) -> bool {
         let mut event = normalized(event);
         let id = int(&event, "id");
-        let Some(at) = self.list.iter().position(|e| int(e, "id") == id) else { return false };
+        let Some(at) = self.list.iter().position(|e| int(e, "id") == id) else {
+            return false;
+        };
         event.insert("id".to_owned(), Value::from(i32::try_from(id).unwrap_or(0)));
         self.as_mut().rust_mut().list[at] = event;
         CalendarRust::publish(self);
@@ -221,7 +285,9 @@ impl Calendar {
     }
 
     fn delete_event(mut self: Pin<&mut Self>, id: i32) -> bool {
-        let Some(at) = self.list.iter().position(|e| int(e, "id") == i64::from(id)) else { return false };
+        let Some(at) = self.list.iter().position(|e| int(e, "id") == i64::from(id)) else {
+            return false;
+        };
         self.as_mut().rust_mut().list.remove(at);
         CalendarRust::publish(self);
         true
@@ -248,13 +314,34 @@ mod tests {
 
     #[test]
     fn repeats_fall_on_their_days() {
-        assert!(falls_on(&event("2026-10-20", "", "none", 0), day("2026-10-20")));
-        assert!(!falls_on(&event("2026-10-20", "", "none", 0), day("2026-10-21")));
-        assert!(falls_on(&event("2026-10-20", "", "daily", 0), day("2026-11-03")));
-        assert!(falls_on(&event("2026-10-20", "", "weekly", 0), day("2026-10-27")));
-        assert!(!falls_on(&event("2026-10-20", "", "weekly", 0), day("2026-10-28")));
-        assert!(falls_on(&event("2026-10-20", "", "monthly", 0), day("2026-12-20")));
-        assert!(!falls_on(&event("2026-10-20", "", "daily", 0), day("2026-10-19")));
+        assert!(falls_on(
+            &event("2026-10-20", "", "none", 0),
+            day("2026-10-20")
+        ));
+        assert!(!falls_on(
+            &event("2026-10-20", "", "none", 0),
+            day("2026-10-21")
+        ));
+        assert!(falls_on(
+            &event("2026-10-20", "", "daily", 0),
+            day("2026-11-03")
+        ));
+        assert!(falls_on(
+            &event("2026-10-20", "", "weekly", 0),
+            day("2026-10-27")
+        ));
+        assert!(!falls_on(
+            &event("2026-10-20", "", "weekly", 0),
+            day("2026-10-28")
+        ));
+        assert!(falls_on(
+            &event("2026-10-20", "", "monthly", 0),
+            day("2026-12-20")
+        ));
+        assert!(!falls_on(
+            &event("2026-10-20", "", "daily", 0),
+            day("2026-10-19")
+        ));
     }
 
     #[test]

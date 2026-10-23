@@ -510,8 +510,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // The app's manifest, and with "system" every app's (Settings' default-app
-    // pickers and notification toggles).
+    // Load only the app's manifest now. System apps need the complete app
+    // model for pickers and notification toggles, but that scan waits until
+    // after the first frame.
     auto *registry = new AppRegistry();
     registry->setParent(QCoreApplication::instance());
     if (!registry->load(appId)) {
@@ -530,6 +531,11 @@ int main(int argc, char *argv[]) {
     QQuickView &view = *ownedView;
     view.setResizeMode(QQuickView::SizeRootObjectToView);
     view.setTitle(appName);
+
+    if (permissions.contains(QStringLiteral("system"))) {
+        QObject::connect(&view, &QQuickWindow::frameSwapped, registry,
+                         [registry]() { registry->loadAll(); }, Qt::SingleShotConnection);
+    }
 
     view.setColor(Qt::transparent);
 

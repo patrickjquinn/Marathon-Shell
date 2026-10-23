@@ -60,16 +60,24 @@ pub struct CapturesRust {
 const KINDS: [&str; 4] = ["jpg", "jpeg", "png", "mp4"];
 
 fn folder() -> PathBuf {
-    dirs::picture_dir().unwrap_or_else(|| marathon_rt::dirs::home().join("Pictures")).join("Marathon")
+    dirs::picture_dir()
+        .unwrap_or_else(|| marathon_rt::dirs::home().join("Pictures"))
+        .join("Marathon")
 }
 
 fn poster_path(video: &Path) -> PathBuf {
-    let name = video.file_stem().map_or_else(Default::default, |s| s.to_string_lossy().into_owned());
-    dirs::cache_dir().unwrap_or_else(|| marathon_rt::dirs::home().join(".cache")).join("posters").join(format!("{name}.jpg"))
+    let name = video
+        .file_stem()
+        .map_or_else(Default::default, |s| s.to_string_lossy().into_owned());
+    dirs::cache_dir()
+        .unwrap_or_else(|| marathon_rt::dirs::home().join(".cache"))
+        .join("posters")
+        .join(format!("{name}.jpg"))
 }
 
 fn is_video(path: &Path) -> bool {
-    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("mp4"))
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("mp4"))
 }
 
 /// A photo is its own preview; a video, its poster if it has one.
@@ -88,7 +96,12 @@ fn url(path: &Path) -> QString {
 fn local(capture: &QString) -> PathBuf {
     let text = capture.to_string();
     if text.starts_with("file:") {
-        PathBuf::from(QUrl::from(capture).to_local_file().map(|p| p.to_string()).unwrap_or_default())
+        PathBuf::from(
+            QUrl::from(capture)
+                .to_local_file()
+                .map(|p| p.to_string())
+                .unwrap_or_default(),
+        )
     } else {
         PathBuf::from(text)
     }
@@ -99,7 +112,11 @@ fn newest(dir: &Path) -> Option<PathBuf> {
     fs::read_dir(dir)
         .ok()?
         .flatten()
-        .filter(|e| e.path().extension().is_some_and(|x| KINDS.iter().any(|k| x.eq_ignore_ascii_case(k))))
+        .filter(|e| {
+            e.path()
+                .extension()
+                .is_some_and(|x| KINDS.iter().any(|k| x.eq_ignore_ascii_case(k)))
+        })
         .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
         .max_by_key(|(time, _)| *time)
         .map(|(_, path)| path)
@@ -109,7 +126,9 @@ impl cxx_qt::Initialize for Captures {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
         std::thread::spawn(move || {
-            let Some(found) = newest(&folder()) else { return };
+            let Some(found) = newest(&folder()) else {
+                return;
+            };
             qt.queue(move |obj| {
                 if obj.latest.is_empty() {
                     obj.show(Some(&found));
@@ -124,16 +143,30 @@ impl Captures {
     fn show(mut self: Pin<&mut Self>, file: Option<&Path>) {
         let mut rust = self.as_mut().rust_mut();
         rust.latest = file.map(url).unwrap_or_default();
-        rust.preview = file.and_then(preview_of).as_deref().map(url).unwrap_or_default();
+        rust.preview = file
+            .and_then(preview_of)
+            .as_deref()
+            .map(url)
+            .unwrap_or_default();
         self.changed();
     }
 
     fn next_path(&self, kind: &QString) -> QString {
         let dir = folder();
         fs::create_dir_all(&dir).ok();
-        let (prefix, extension) = if kind.to_string() == "video" { ("VID", "mp4") } else { ("IMG", "jpg") };
-        let ms = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis());
-        QString::from(&*dir.join(format!("{prefix}_{ms}.{extension}")).to_string_lossy())
+        let (prefix, extension) = if kind.to_string() == "video" {
+            ("VID", "mp4")
+        } else {
+            ("IMG", "jpg")
+        };
+        let ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        QString::from(
+            &*dir
+                .join(format!("{prefix}_{ms}.{extension}"))
+                .to_string_lossy(),
+        )
     }
 
     fn poster_path_of(&self, video: &QString) -> QString {

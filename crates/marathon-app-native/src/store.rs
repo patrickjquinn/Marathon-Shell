@@ -58,19 +58,29 @@ pub struct AppInstallerRust {
 impl cxx_qt::Initialize for AppInstaller {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), STORE, "UninstallComplete", |mut obj, (id,): (String,)| {
-            obj.as_mut().rust_mut().removable.remove(&id);
-            let app = QString::from(&id);
-            obj.as_mut().app_removed(&app);
-            if obj.as_mut().rust_mut().pending.remove(&id) {
-                obj.uninstall_complete(&app);
-            }
-        });
-        relay(qt, STORE, "UninstallFailed", |mut obj, (id, error): (String, String)| {
-            if obj.as_mut().rust_mut().pending.remove(&id) {
-                obj.uninstall_failed(&QString::from(&id), &QString::from(&error));
-            }
-        });
+        relay(
+            qt.clone(),
+            STORE,
+            "UninstallComplete",
+            |mut obj, (id,): (String,)| {
+                obj.as_mut().rust_mut().removable.remove(&id);
+                let app = QString::from(&id);
+                obj.as_mut().app_removed(&app);
+                if obj.as_mut().rust_mut().pending.remove(&id) {
+                    obj.uninstall_complete(&app);
+                }
+            },
+        );
+        relay(
+            qt,
+            STORE,
+            "UninstallFailed",
+            |mut obj, (id, error): (String, String)| {
+                if obj.as_mut().rust_mut().pending.remove(&id) {
+                    obj.uninstall_failed(&QString::from(&id), &QString::from(&error));
+                }
+            },
+        );
     }
 }
 
@@ -80,7 +90,9 @@ impl AppInstaller {
         if let Some(known) = self.removable.get(&id) {
             return *known;
         }
-        let Some(removable) = STORE.ask_now::<_, bool>("CanUninstall", &(id.clone(),)) else { return false };
+        let Some(removable) = STORE.ask_now::<_, bool>("CanUninstall", &(id.clone(),)) else {
+            return false;
+        };
         self.as_mut().rust_mut().removable.insert(id, removable);
         removable
     }

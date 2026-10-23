@@ -35,6 +35,7 @@ class WlDrmManager;
 class NativeClientScale;
 class XdgActivationV1;
 class MarathonSurfaceManagerV1;
+class QWaylandPresentationTime;
 struct wl_client;
 
 class Apps;
@@ -192,11 +193,14 @@ class WaylandCompositor : public QWaylandCompositor {
 
   private:
     QString focusedToolkit() const;
-    void    watchNativeBack(QWaylandSurface *surface, int surfaceId);
+    void    watchNativeBack(QWaylandSurface *surface, int surfaceId,
+                            const std::function<void()> &fallback = {});
     // sent runs once the key has gone out, which can be after the call returns.
     void    sendKeyTo(QWaylandSurface *surface, int key, Qt::KeyboardModifiers modifiers,
                       const std::function<void()> &sent = {});
     void    mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void    configureToplevelState(QWaylandXdgToplevel *toplevel, bool maximized,
+                                   bool fullscreen);
     void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
     void    configureCover(QWaylandXdgToplevel *toplevel) const;
     void    mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
@@ -249,6 +253,7 @@ class WaylandCompositor : public QWaylandCompositor {
     XdgActivationV1                        *m_xdgActivation            = nullptr;
     MarathonSurfaceManagerV1               *m_marathonSurfaceManager   = nullptr;
     QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
+    QWaylandPresentationTime               *m_presentationTime         = nullptr;
     QWaylandQuickOutput                    *m_output                   = nullptr;
     QQuickWindow                           *m_window                   = nullptr;
 
@@ -266,7 +271,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // ~4-vblank app<->compositor round-trip that throttles client scroll to
     // ~15fps on this in-process compositor (client swap blocks ~67ms, both
     // sides idle). Sends wl_surface.frame at frame START (beforeSynchronizing)
-    // so the client renders concurrently. MARATHON_PRESENT_FREERUN also
+    // so the client renders concurrently. MARATHON_PRESENT_FREERUN (default
+    // on) also
     // free-runs the compositor at vsync while a client is actively committing
     // so its buffer lands next vblank.
     bool                                    m_presentPipeline = false;
@@ -274,7 +280,13 @@ class WaylandCompositor : public QWaylandCompositor {
     QSize                                   m_appViewportSize;
     QSize                                   m_coverSize;
     QList<QPointer<QWaylandXdgToplevel>>    m_coverToplevels;
+    struct TrackedPopup {
+        QPointer<QWaylandXdgPopup> popup;
+        QPointer<QWaylandSurface>  surface;
+    };
+    QList<TrackedPopup>                     m_popups;
     QSize                                   appConfigureSize(QWaylandSurface *surface) const;
+    QSize                                   fullOutputConfigureSize(QWaylandSurface *surface) const;
     // Frames of vsync free-run remaining before the compositor idles back to
     // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),
     // decremented each frameSwapped. Touched from render + GUI threads.
@@ -284,9 +296,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // hidden ones (MARATHON_HIDDEN_THROTTLE, default on) about once a
     // second, from the timer when the compositor itself is idle.
     void                                    sendPacedFrameCallbacks(bool idleTick);
-    // Frames latch MARATHON_FRAME_PHASE_MS (8; 0 for at once) after the
-    // vblank and frame callbacks go out at the vblank, so a client's frame
-    // makes the next composite instead of the one after.
+    // Frames latch MARATHON_FRAME_PHASE_MS (0 by default) after the previous
+    // vblank. Positive values retain the experimental late-latch path.
     int                                     m_framePhaseMs = 0;
     bool                                    m_passUpdate   = false;
     QTimer                                  m_gateTimer;
@@ -310,6 +321,7 @@ class WaylandCompositor : public QWaylandCompositor {
     // flood that backpressures the log pipe and stalls the GUI thread.
     QAtomicInt                              m_frameSwapCount{0};
     QAtomicInt                              m_clientCommitCount{0};
+    quint64                                 m_presentSequence = 0;
     Apps *m_apps = nullptr;
     QHash<QString, QPointer<QWaylandSurface>> m_covers;
 };

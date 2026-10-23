@@ -12,7 +12,7 @@ mod graph;
 mod pw;
 
 use std::process::ExitCode;
-use std::sync::{mpsc, Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{mpsc, Arc, Mutex, MutexGuard};
 use std::thread;
 
 use zbus::{fdo, interface};
@@ -29,7 +29,7 @@ fn log(message: &str) {
 }
 
 fn lock(snapshot: &Mutex<Snapshot>) -> MutexGuard<'_, Snapshot> {
-    snapshot.lock().unwrap_or_else(PoisonError::into_inner)
+    snapshot.lock().unwrap_or_else(|_| std::process::abort())
 }
 
 fn ports(ports: &[Port]) -> Vec<(String, String)> {

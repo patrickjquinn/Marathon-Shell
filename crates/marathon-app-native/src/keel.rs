@@ -84,7 +84,8 @@ impl KeelHost {
         };
         export(&host);
         HOST.set(host).ok();
-        if let Ok(mut signals) = signal_hook::iterator::Signals::new([signal_hook::consts::SIGTERM]) {
+        if let Ok(mut signals) = signal_hook::iterator::Signals::new([signal_hook::consts::SIGTERM])
+        {
             std::thread::spawn(move || {
                 for _ in signals.forever() {
                     qt.queue(qobject::KeelHost::close_requested).ok();

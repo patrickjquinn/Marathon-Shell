@@ -151,7 +151,12 @@ mod tests {
         .collect();
         let quoted = regex::Regex::new(r#""([a-z][a-z-]*)""#).unwrap();
         let mut seen = BTreeSet::new();
-        let sources = |dir: &str| fs::read_dir(root.join(dir)).unwrap().map(|entry| entry.unwrap().path()).filter(|p| p.is_file());
+        let sources = |dir: &str| {
+            fs::read_dir(root.join(dir))
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .filter(|p| p.is_file())
+        };
         let files = ["shell/main.cpp", "tools/marathon-app-runner/main.cpp"]
             .map(|file| root.join(file))
             .into_iter()
@@ -161,7 +166,11 @@ mod tests {
         for file in files {
             let source = fs::read_to_string(&file).unwrap();
             // A Rust file's tests call its gates with an app's id.
-            let text = if file.extension().is_some_and(|e| e == "rs") { source.split("#[cfg(test)]").next().unwrap_or_default() } else { source.as_str() };
+            let text = if file.extension().is_some_and(|e| e == "rs") {
+                source.split("#[cfg(test)]").next().unwrap_or_default()
+            } else {
+                source.as_str()
+            };
             for gate in &gates {
                 for capture in gate.captures_iter(text) {
                     let names = &capture[1];

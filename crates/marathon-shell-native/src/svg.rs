@@ -18,19 +18,30 @@ mod ffi {
 static OPTIONS: LazyLock<usvg::Options<'static>> = LazyLock::new(|| {
     let mut fonts = usvg::fontdb::Database::new();
     fonts.load_system_fonts();
-    let mut options = usvg::Options { font_family: "Sora".into(), ..usvg::Options::default() };
+    let mut options = usvg::Options {
+        font_family: "Sora".into(),
+        ..usvg::Options::default()
+    };
     options.fontdb = Arc::new(fonts);
     options
 });
 
 #[allow(clippy::cast_precision_loss, reason = "icon sizes")]
 fn render(data: &[u8], width: u32, height: u32) -> Vec<u8> {
-    let Ok(tree) = usvg::Tree::from_data(data, &OPTIONS) else { return Vec::new() };
-    let Some(mut pixmap) = tiny_skia::Pixmap::new(width, height) else { return Vec::new() };
+    let Ok(tree) = usvg::Tree::from_data(data, &OPTIONS) else {
+        return Vec::new();
+    };
+    let Some(mut pixmap) = tiny_skia::Pixmap::new(width, height) else {
+        return Vec::new();
+    };
     let size = tree.size();
     let scale = (width as f32 / size.width()).min(height as f32 / size.height());
     let dx = (width as f32 - size.width() * scale) / 2.0;
     let dy = (height as f32 - size.height() * scale) / 2.0;
-    resvg::render(&tree, tiny_skia::Transform::from_row(scale, 0.0, 0.0, scale, dx, dy), &mut pixmap.as_mut());
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_row(scale, 0.0, 0.0, scale, dx, dy),
+        &mut pixmap.as_mut(),
+    );
     pixmap.take()
 }

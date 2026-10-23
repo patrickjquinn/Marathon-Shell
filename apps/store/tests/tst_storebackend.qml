@@ -201,6 +201,7 @@ TestCase {
         const first = makeBackend();
         first.collections = Fixtures.collections();
         first.saveCatalog();
+        tryVerify(() => first._cache.value("catalog", "") !== "", 2000);
         first.saveJson("list/collection/mobile", { "ts": 1000, "apps": [{ "app_id": "org.example.M1" }] });
         const b = createTemporaryObject(backendComponent, testCase, { "cacheFile": first.cacheFile });
         b.loadCatalog();

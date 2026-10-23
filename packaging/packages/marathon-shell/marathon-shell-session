@@ -37,6 +37,9 @@ unset gst_registry
 export XDG_SESSION_TYPE=wayland
 export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
+# Alpine/musl otherwise starts graphical sessions in the ASCII C locale.
+# Toolkits then redo locale fallbacks and mishandle Unicode filenames.
+export LANG="${LANG:-C.UTF-8}"
 
 # ---- Marathon paths ----------------------------------------------------------
 
@@ -470,6 +473,29 @@ if command -v pgrep >/dev/null 2>&1; then
     unset _i
 fi
 
+# Flatpak applications live in independent user scopes.  Background apps may
+# be frozen by Marathon's lifecycle manager, so restarting greetd can leave the
+# scope (and its xdg-dbus-proxy singleton names) alive after the compositor has
+# gone away.  Such clients cannot reconnect to the replacement Wayland socket;
+# worse, a fresh launch delegates to the stale singleton and appears to hang.
+# A new compositor session owns a new client generation, so retire every scope
+# from the previous generation before accepting launches.
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user list-units --type=scope --all --plain --no-legend \
+        'app-flatpak-*.scope' 2>/dev/null \
+        | while read -r _flatpak_scope _; do
+            [ -n "$_flatpak_scope" ] || continue
+            systemctl --user thaw "$_flatpak_scope" >/dev/null 2>&1 || true
+            # The previous shell already offered its clients a graceful-close
+            # window. Kill only the survivors here and never hold first frame
+            # behind a unit's stop timeout.
+            systemctl --user kill --kill-whom=all --signal=KILL \
+                "$_flatpak_scope" >/dev/null 2>&1 || true
+            systemctl --user stop --no-block "$_flatpak_scope" >/dev/null 2>&1 || true
+        done
+    unset _flatpak_scope
+fi
+
 # Send the shell's stdout/stderr to the journal. Otherwise they are the VT
 # greetd started the session on, and fbcon draws every log line on the CPU
 # even while the shell owns the display: on the PinePhone each scroll held
@@ -558,8 +584,14 @@ if command -v systemctl >/dev/null 2>&1; then
             sleep 0.5
         done
         systemctl --user set-environment WAYLAND_DISPLAY="$socket" \
-            XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland
+            XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland \
+            LANG="$LANG"
         systemctl --user start marathon-session.target
+        # A hot shell replacement keeps the user manager alive. Rebind portal
+        # processes which inherited the previous compositor socket instead of
+        # leaving them in a broken-pipe restart loop.
+        systemctl --user restart xdg-desktop-portal-gtk.service \
+            xdg-desktop-portal.service >/dev/null 2>&1 || true
     ) </dev/null >/dev/null 2>&1 &
 fi
 
@@ -603,6 +635,7 @@ if command -v systemd-run >/dev/null 2>&1 && \
         --property=TimeoutStopSec=5 \
         --setenv=DBUS_SESSION_BUS_ADDRESS \
         --setenv=XDG_RUNTIME_DIR \
+        --setenv=LANG \
         --setenv=WAYLAND_DISPLAY \
         --setenv=QT_QPA_PLATFORM \
         --setenv=QT_QPA_EGLFS_INTEGRATION \
@@ -624,6 +657,15 @@ if command -v systemd-run >/dev/null 2>&1 && \
         --setenv=MARATHON_ACTIVE_GPU_STACK \
         --setenv=MARATHON_FORCE_DPI \
         --setenv=MARATHON_LAYER_SAMPLES \
+        --setenv=MARATHON_FRAME_PHASE_MS \
+        --setenv=MARATHON_PRESENT_STATS \
+        --setenv=MARATHON_PRESENT_FREERUN \
+        --setenv=MARATHON_DISCARD_FRONT \
+        --setenv=MARATHON_FRAME_TIMING \
+        --setenv=MARATHON_WL_VERBOSE \
+        --setenv=MARATHON_APP_LOGS \
+        --setenv=MARATHON_APP_LOGS_ALL \
+        --setenv=MARATHON_DEBUG \
         --setenv=MARATHON_APPS_DIR \
         --setenv=MARATHON_DATA_DIR \
         --setenv=MARATHON_PREFIX \

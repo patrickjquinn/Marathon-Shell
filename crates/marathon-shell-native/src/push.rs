@@ -55,16 +55,30 @@ fn serve() {
 async fn start() -> zbus::Result<()> {
     let conn = io::session_bus().await?;
     let registrations = load();
-    let distributor = Distributor { registrations: registrations.clone(), subscriptions: HashMap::new() };
+    let distributor = Distributor {
+        registrations: registrations.clone(),
+        subscriptions: HashMap::new(),
+    };
     conn.object_server().at(PATH, distributor).await?;
-    let reply = conn.request_name_with_flags(NAME, RequestNameFlags::DoNotQueue.into()).await?;
-    if !matches!(reply, RequestNameReply::PrimaryOwner | RequestNameReply::AlreadyOwner) {
-        log::warn("push", format_args!("another distributor has {NAME}; yielding"));
+    let reply = conn
+        .request_name_with_flags(NAME, RequestNameFlags::DoNotQueue.into())
+        .await?;
+    if !matches!(
+        reply,
+        RequestNameReply::PrimaryOwner | RequestNameReply::AlreadyOwner
+    ) {
+        log::warn(
+            "push",
+            format_args!("another distributor has {NAME}; yielding"),
+        );
         conn.object_server().remove::<Distributor, _>(PATH).await?;
         return Ok(());
     }
     // Subscriptions resume without waiting for apps to register again.
-    let iface = conn.object_server().interface::<_, Distributor>(PATH).await?;
+    let iface = conn
+        .object_server()
+        .interface::<_, Distributor>(PATH)
+        .await?;
     let mut distributor = iface.get_mut().await;
     for (token, registration) in &registrations {
         distributor.subscribe(&conn, token, &registration.endpoint);
@@ -94,29 +108,73 @@ type Reply = HashMap<&'static str, Value<'static>>;
 impl Distributor {
     /// `service`, `token`, optional `description` and `vapid`; answers
     /// `success`: "OK" or why not, and `reason`.
-    fn register(&mut self, mut args: HashMap<String, OwnedValue>, #[zbus(connection)] conn: &Connection) -> Reply {
-        let (service, token, description) = (take(&mut args, "service"), take(&mut args, "token"), take(&mut args, "description"));
+    fn register(
+        &mut self,
+        mut args: HashMap<String, OwnedValue>,
+        #[zbus(connection)] conn: &Connection,
+    ) -> Reply {
+        let (service, token, description) = (
+            take(&mut args, "service"),
+            take(&mut args, "token"),
+            take(&mut args, "description"),
+        );
         if service.is_empty() || token.is_empty() {
-            return Reply::from([("success", "INVALID_ARGUMENTS".into()), ("reason", "service and token are required".into())]);
+            return Reply::from([
+                ("success", "INVALID_ARGUMENTS".into()),
+                ("reason", "service and token are required".into()),
+            ]);
         }
-        let registration = self.registrations.entry(token.clone()).or_default();
+        let mut registrations = self.registrations.clone();
+        let registration = registrations.entry(token.clone()).or_default();
         registration.service = service;
         registration.description = description;
         let registration = registration.clone();
-        save(&self.registrations);
+        if let Err(error) = save(&registrations) {
+            log::warn("push", format_args!("saving registration: {error}"));
+            return Reply::from([
+                ("success", "INTERNAL_ERROR".into()),
+                ("reason", error.to_string().into()),
+            ]);
+        }
+        self.registrations = registrations;
         self.subscribe(conn, &token, &registration.endpoint);
         if !registration.endpoint.is_empty() {
-            connector(conn, &registration.service, "NewEndpoint", [("token", token.into()), ("endpoint", registration.endpoint.into())]);
+            connector(
+                conn,
+                &registration.service,
+                "NewEndpoint",
+                [
+                    ("token", token.into()),
+                    ("endpoint", registration.endpoint.into()),
+                ],
+            );
         }
         Reply::from([("success", "OK".into())])
     }
 
-    fn unregister(&mut self, mut args: HashMap<String, OwnedValue>, #[zbus(connection)] conn: &Connection) -> Reply {
+    fn unregister(
+        &mut self,
+        mut args: HashMap<String, OwnedValue>,
+        #[zbus(connection)] conn: &Connection,
+    ) -> Reply {
         let token = take(&mut args, "token");
-        if let Some(registration) = self.registrations.remove(&token) {
-            save(&self.registrations);
+        let mut registrations = self.registrations.clone();
+        if let Some(registration) = registrations.remove(&token) {
+            if let Err(error) = save(&registrations) {
+                log::warn("push", format_args!("removing registration: {error}"));
+                return Reply::from([
+                    ("success", "INTERNAL_ERROR".into()),
+                    ("reason", error.to_string().into()),
+                ]);
+            }
+            self.registrations = registrations;
             self.subscriptions.remove(&token);
-            connector(conn, &registration.service, "Unregistered", [("token", token.into())]);
+            connector(
+                conn,
+                &registration.service,
+                "Unregistered",
+                [("token", token.into())],
+            );
         }
         Reply::new()
     }
@@ -127,26 +185,51 @@ impl Distributor {
         if self.subscriptions.contains_key(token) {
             return;
         }
-        let topic = if endpoint.is_empty() { mint_topic() } else { topic_of(endpoint).to_owned() };
+        let topic = if endpoint.is_empty() {
+            mint_topic()
+        } else {
+            topic_of(endpoint).to_owned()
+        };
         if topic.is_empty() {
             return log::warn("push", format_args!("no topic for {token}"));
         }
         let (stop, stopped) = async_channel::bounded(1);
         self.subscriptions.insert(token.to_owned(), stop);
-        io::spawn(listen(conn.clone(), token.to_owned(), topic, endpoint.is_empty(), stopped));
+        io::spawn(listen(
+            conn.clone(),
+            token.to_owned(),
+            topic,
+            endpoint.is_empty(),
+            stopped,
+        ));
     }
 }
 
 fn take(args: &mut HashMap<String, OwnedValue>, key: &str) -> String {
-    args.remove(key).and_then(|v| String::try_from(v).ok()).unwrap_or_default()
+    args.remove(key)
+        .and_then(|v| String::try_from(v).ok())
+        .unwrap_or_default()
 }
 
 /// Calls the app's connector without waiting for it.
-fn connector<const N: usize>(conn: &Connection, service: &str, method: &'static str, args: [(&'static str, Value<'static>); N]) {
+fn connector<const N: usize>(
+    conn: &Connection,
+    service: &str,
+    method: &'static str,
+    args: [(&'static str, Value<'static>); N],
+) {
     let (conn, service) = (conn.clone(), service.to_owned());
     io::spawn(async move {
         let args: HashMap<_, _> = args.into_iter().collect();
-        let called = conn.call_method(Some(service.as_str()), "/org/unifiedpush/Connector", Some("org.unifiedpush.Connector2"), method, &(args,)).await;
+        let called = conn
+            .call_method(
+                Some(service.as_str()),
+                "/org/unifiedpush/Connector",
+                Some("org.unifiedpush.Connector2"),
+                method,
+                &(args,),
+            )
+            .await;
         if let Err(e) = called {
             log::warn("push", format_args!("{service} {method}: {e}"));
         }
@@ -154,7 +237,10 @@ fn connector<const N: usize>(conn: &Connection, service: &str, method: &'static 
 }
 
 fn server() -> String {
-    std::env::var("MARATHON_NTFY_SERVER").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "https://ntfy.sh".to_owned())
+    std::env::var("MARATHON_NTFY_SERVER")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "https://ntfy.sh".to_owned())
 }
 
 /// Whether the server takes TLS, and its host and port.
@@ -171,7 +257,11 @@ fn endpoint_for(server: &str, topic: &str) -> String {
 }
 
 fn topic_of(endpoint: &str) -> &str {
-    endpoint.split_once("://").map_or(endpoint, |(_, rest)| rest).split_once('/').map_or("", |(_, path)| path)
+    endpoint
+        .split_once("://")
+        .map_or(endpoint, |(_, rest)| rest)
+        .split_once('/')
+        .map_or("", |(_, path)| path)
 }
 
 fn random<const N: usize>() -> [u8; N] {
@@ -186,17 +276,33 @@ fn random<const N: usize>() -> [u8; N] {
 /// topic is all it takes to read one.
 fn mint_topic() -> String {
     const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
-    random::<16>().iter().map(|b| char::from(ALPHABET[usize::from(*b) % ALPHABET.len()])).collect()
+    random::<16>()
+        .iter()
+        .map(|b| char::from(ALPHABET[usize::from(*b) % ALPHABET.len()]))
+        .collect()
 }
 
 fn message_id() -> String {
     let hex = format!("{:032x}", u128::from_be_bytes(random()));
-    format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..])
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..]
+    )
 }
 
 /// The topic's socket, reopened with a backoff from 1 s to a minute, until
 /// the registration goes.
-async fn listen(conn: Connection, token: String, topic: String, mut fresh: bool, stopped: Receiver<()>) {
+async fn listen(
+    conn: Connection,
+    token: String,
+    topic: String,
+    mut fresh: bool,
+    stopped: Receiver<()>,
+) {
     let server = server();
     let (tls, host) = host(&server);
     let url = format!("{}://{host}/{topic}/ws", if tls { "wss" } else { "ws" });
@@ -214,7 +320,9 @@ async fn listen(conn: Connection, token: String, topic: String, mut fresh: bool,
             loop {
                 let frame = future::or(async { socket.next().await }, async {
                     Timer::after(SILENCE).await;
-                    Some(Err(std::io::Error::from(std::io::ErrorKind::TimedOut).into()))
+                    Some(Err(
+                        std::io::Error::from(std::io::ErrorKind::TimedOut).into()
+                    ))
                 });
                 let Some(frame) = frame.await else { break };
                 if let Message::Text(json) = frame? {
@@ -248,31 +356,84 @@ async fn listen(conn: Connection, token: String, topic: String, mut fresh: bool,
 }
 
 async fn deliver_endpoint(conn: &Connection, token: &str, endpoint: String) {
-    let Ok(iface) = conn.object_server().interface::<_, Distributor>(PATH).await else { return };
+    let Ok(iface) = conn.object_server().interface::<_, Distributor>(PATH).await else {
+        return;
+    };
     let mut distributor = iface.get_mut().await;
-    let Some(registration) = distributor.registrations.get_mut(token) else { return };
+    let mut registrations = distributor.registrations.clone();
+    let Some(registration) = registrations.get_mut(token) else {
+        return;
+    };
     registration.endpoint.clone_from(&endpoint);
     let service = registration.service.clone();
-    save(&distributor.registrations);
-    connector(conn, &service, "NewEndpoint", [("token", token.to_owned().into()), ("endpoint", endpoint.into())]);
+    if let Err(error) = save(&registrations) {
+        return log::warn("push", format_args!("saving endpoint: {error}"));
+    }
+    distributor.registrations = registrations;
+    connector(
+        conn,
+        &service,
+        "NewEndpoint",
+        [
+            ("token", token.to_owned().into()),
+            ("endpoint", endpoint.into()),
+        ],
+    );
 }
 
 /// ntfy's "message" events; "open", "keepalive" and `poll_request` only
 /// keep the socket warm.
 async fn deliver_message(conn: &Connection, token: &str, json: &str) {
-    let Ok(event) = serde_json::from_str::<serde_json::Value>(json) else { return };
+    let Ok(event) = serde_json::from_str::<serde_json::Value>(json) else {
+        return;
+    };
     if event["event"] != "message" {
         return;
     }
-    let payload = event["message"].as_str().unwrap_or_default().as_bytes().to_vec();
-    let Ok(iface) = conn.object_server().interface::<_, Distributor>(PATH).await else { return };
-    let Some(registration) = iface.get().await.registrations.get(token).cloned() else { return };
-    connector(conn, &registration.service, "Message", [("token", token.to_owned().into()), ("message", payload.into()), ("id", message_id().into())]);
+    let payload = event["message"]
+        .as_str()
+        .unwrap_or_default()
+        .as_bytes()
+        .to_vec();
+    let Ok(iface) = conn.object_server().interface::<_, Distributor>(PATH).await else {
+        return;
+    };
+    let Some(registration) = iface.get().await.registrations.get(token).cloned() else {
+        return;
+    };
+    connector(
+        conn,
+        &registration.service,
+        "Message",
+        [
+            ("token", token.to_owned().into()),
+            ("message", payload.into()),
+            ("id", message_id().into()),
+        ],
+    );
     if FALLBACK.load(Ordering::Relaxed) {
         // Payloads are opaque, often end-to-end encrypted: the app has the keys.
-        let title = if registration.description.is_empty() { &registration.service } else { &registration.description };
+        let title = if registration.description.is_empty() {
+            &registration.service
+        } else {
+            &registration.description
+        };
         let hints = HashMap::from([("category", Value::from("push"))]);
-        let posted = async { NotificationsProxy::new(conn).await?.notify(&registration.service, 0, "", title, "New push notification", &[], hints, -1).await };
+        let posted = async {
+            NotificationsProxy::new(conn)
+                .await?
+                .notify(
+                    &registration.service,
+                    0,
+                    "",
+                    title,
+                    "New push notification",
+                    &[],
+                    hints,
+                    -1,
+                )
+                .await
+        };
         if let Err(e) = posted.await {
             log::warn("push", format_args!("fallback notification: {e}"));
         }
@@ -280,11 +441,15 @@ async fn deliver_message(conn: &Connection, token: &str, json: &str) {
 }
 
 fn load() -> HashMap<String, Registration> {
-    stored::load("unifiedpush.json").unwrap_or_else(|| from_qsettings(&marathon_rt::dirs::config().join("Marathon OS/Marathon Shell/unifiedpush.ini")))
+    stored::load("unifiedpush.json").unwrap_or_else(|| {
+        from_qsettings(
+            &marathon_rt::dirs::config().join("Marathon OS/Marathon Shell/unifiedpush.ini"),
+        )
+    })
 }
 
-fn save(registrations: &HashMap<String, Registration>) {
-    stored::save("unifiedpush.json", registrations);
+fn save(registrations: &HashMap<String, Registration>) -> Result<(), stored::SaveError> {
+    stored::save("unifiedpush.json", registrations)
 }
 
 /// The registrations the C++ shell kept, a `QSettings` array.
@@ -292,7 +457,11 @@ fn from_qsettings(path: &Path) -> HashMap<String, Registration> {
     let mut rows: HashMap<String, (String, Registration)> = HashMap::new();
     for (key, value) in stored::qsettings(path, "unifiedpush") {
         let mut parts = key.split('\\');
-        let (Some("registrations"), Some(row), Some(field)) = (parts.next(), parts.next(), parts.next()) else { continue };
+        let (Some("registrations"), Some(row), Some(field)) =
+            (parts.next(), parts.next(), parts.next())
+        else {
+            continue;
+        };
         let (token, registration) = rows.entry(row.to_owned()).or_default();
         match field {
             "token" => *token = value,
@@ -302,7 +471,9 @@ fn from_qsettings(path: &Path) -> HashMap<String, Registration> {
             _ => {}
         }
     }
-    rows.into_values().filter(|(token, _)| !token.is_empty()).collect()
+    rows.into_values()
+        .filter(|(token, _)| !token.is_empty())
+        .collect()
 }
 
 #[cfg(test)]
@@ -312,14 +483,22 @@ mod tests {
 
     #[test]
     fn endpoints_and_topics_round_trip() {
-        assert_eq!(endpoint_for("https://ntfy.sh", "abc"), "https://ntfy.sh/abc");
-        assert_eq!(endpoint_for("http://push.local:8080/", "abc"), "https://push.local:8080/abc");
+        assert_eq!(
+            endpoint_for("https://ntfy.sh", "abc"),
+            "https://ntfy.sh/abc"
+        );
+        assert_eq!(
+            endpoint_for("http://push.local:8080/", "abc"),
+            "https://push.local:8080/abc"
+        );
         assert_eq!(host("http://push.local:8080"), (false, "push.local:8080"));
         assert_eq!(topic_of("https://ntfy.sh/abc"), "abc");
         assert_eq!(topic_of("https://ntfy.sh"), "");
         let topic = mint_topic();
         assert_eq!(topic.len(), 16);
-        assert!(topic.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()));
+        assert!(topic
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()));
         assert_ne!(topic, mint_topic());
     }
 
@@ -332,7 +511,11 @@ mod tests {
         assert_eq!(registrations.len(), 1);
         assert_eq!(
             registrations["t1"],
-            Registration { service: "org.example.Chat".into(), description: "Chat".into(), endpoint: "https://ntfy.sh/abc".into() }
+            Registration {
+                service: "org.example.Chat".into(),
+                description: "Chat".into(),
+                endpoint: "https://ntfy.sh/abc".into()
+            }
         );
     }
 }

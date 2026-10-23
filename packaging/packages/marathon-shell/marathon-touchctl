@@ -39,8 +39,20 @@ except ImportError:
     sys.exit(2)
 
 
-WIDTH = int(os.environ.get("MARATHON_TOUCH_WIDTH", "720"))
-HEIGHT = int(os.environ.get("MARATHON_TOUCH_HEIGHT", "1440"))
+def screen_size() -> tuple[int, int]:
+    width = os.environ.get("MARATHON_TOUCH_WIDTH")
+    height = os.environ.get("MARATHON_TOUCH_HEIGHT")
+    if width and height:
+        return int(width), int(height)
+    try:
+        raw = open("/sys/class/graphics/fb0/virtual_size", encoding="ascii").read().strip()
+        detected_width, detected_height = raw.split(",", 1)
+        return int(width or detected_width), int(height or detected_height)
+    except (OSError, ValueError):
+        return int(width or 720), int(height or 1440)
+
+
+WIDTH, HEIGHT = screen_size()
 ABS_MAX = 32767
 
 

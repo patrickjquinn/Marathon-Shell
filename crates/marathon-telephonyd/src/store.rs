@@ -43,7 +43,10 @@ impl Store {
         if let Some(dir) = db.parent() {
             fs::create_dir_all(dir).ok();
         }
-        let store = Self { db: Connection::open(db)?, files };
+        let store = Self {
+            db: Connection::open(db)?,
+            files,
+        };
         store.migrate()?;
         Ok(store)
     }
@@ -65,7 +68,10 @@ impl Store {
             .collect::<rusqlite::Result<_>>()?;
         for column in ["status", "participants", "mmsPath"] {
             if !columns.iter().any(|c| c == column) {
-                self.db.execute(&format!("ALTER TABLE messages ADD COLUMN {column} TEXT NOT NULL DEFAULT ''"), [])?;
+                self.db.execute(
+                    &format!("ALTER TABLE messages ADD COLUMN {column} TEXT NOT NULL DEFAULT ''"),
+                    [],
+                )?;
             }
         }
         self.db.execute_batch(
@@ -88,7 +94,11 @@ impl Store {
         let rows = query.query_map([], |row| {
             let id: String = row.get(0)?;
             let recipient: String = row.get(2)?;
-            let number = if recipient == "me" || recipient.is_empty() { id.clone() } else { recipient };
+            let number = if recipient == "me" || recipient.is_empty() {
+                id.clone()
+            } else {
+                recipient
+            };
             Ok(Row::from([
                 ("id", Value::from(id)),
                 ("contactName", Value::from(number.clone())),
@@ -123,9 +133,9 @@ impl Store {
                 ]),
             ))
         })?;
-        let mut attachments = self
-            .db
-            .prepare("SELECT id, contentType, name, size FROM attachments WHERE messageId = ? ORDER BY id")?;
+        let mut attachments = self.db.prepare(
+            "SELECT id, contentType, name, size FROM attachments WHERE messageId = ? ORDER BY id",
+        )?;
         rows.map(|row| {
             let (id, mut message) = row?;
             let list: Vec<Value> = attachments
@@ -149,38 +159,65 @@ impl Store {
         self.db.execute(
             "INSERT INTO messages (conversationId, sender, recipient, text, timestamp, isRead,
                  isOutgoing, status, mmsPath) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            params![conversation_id(thread), m.sender, m.recipient, m.text, m.timestamp, m.outgoing, m.outgoing, m.status, m.mms_path],
+            params![
+                conversation_id(thread),
+                m.sender,
+                m.recipient,
+                m.text,
+                m.timestamp,
+                m.outgoing,
+                m.outgoing,
+                m.status,
+                m.mms_path
+            ],
         )?;
         Ok(i32::try_from(self.db.last_insert_rowid()).unwrap_or(i32::MAX))
     }
 
     /// An incoming message already stored, as `ModemManager` lists a text
     /// until it is deleted.
-    pub fn has(&self, sender: &str, timestamp: i64, text: &str) -> bool {
+    pub fn has(&self, sender: &str, timestamp: i64, text: &str) -> rusqlite::Result<bool> {
         self.db
-            .query_row("SELECT 1 FROM messages WHERE sender = ? AND timestamp = ? AND text = ?", params![sender, timestamp, text], |_| Ok(()))
+            .query_row(
+                "SELECT 1 FROM messages WHERE sender = ? AND timestamp = ? AND text = ?",
+                params![sender, timestamp, text],
+                |_| Ok(()),
+            )
             .optional()
-            .is_ok_and(|found| found.is_some())
+            .map(|found| found.is_some())
     }
 
-    pub fn set_status(&self, id: i32, status: &str) -> bool {
-        self.db.execute("UPDATE messages SET status = ? WHERE id = ?", params![status, id]).is_ok_and(|n| n > 0)
+    pub fn set_status(&self, id: i32, status: &str) -> rusqlite::Result<bool> {
+        self.db
+            .execute(
+                "UPDATE messages SET status = ? WHERE id = ?",
+                params![status, id],
+            )
+            .map(|n| n > 0)
     }
 
     pub fn set_mms_path(&self, id: i32, path: &str) -> rusqlite::Result<usize> {
-        self.db.execute("UPDATE messages SET mmsPath = ? WHERE id = ?", params![path, id])
+        self.db.execute(
+            "UPDATE messages SET mmsPath = ? WHERE id = ?",
+            params![path, id],
+        )
     }
 
-    pub fn sent_as(&self, mms_path: &str) -> Option<i32> {
+    pub fn sent_as(&self, mms_path: &str) -> rusqlite::Result<Option<i32>> {
         self.db
-            .query_row("SELECT id FROM messages WHERE mmsPath = ? AND isOutgoing = 1", [mms_path], |row| row.get(0))
+            .query_row(
+                "SELECT id FROM messages WHERE mmsPath = ? AND isOutgoing = 1",
+                [mms_path],
+                |row| row.get(0),
+            )
             .optional()
-            .ok()
-            .flatten()
     }
 
     pub fn mark_read(&self, conversation: &str) -> rusqlite::Result<usize> {
-        self.db.execute("UPDATE messages SET isRead = 1 WHERE conversationId = ?", [conversation])
+        self.db.execute(
+            "UPDATE messages SET isRead = 1 WHERE conversationId = ?",
+            [conversation],
+        )
     }
 
     pub fn delete_message(&self, id: i32) -> rusqlite::Result<bool> {
@@ -190,10 +227,17 @@ impl Store {
 
     pub fn delete_conversation(&self, conversation: &str) -> rusqlite::Result<usize> {
         self.remove_attachments("conversationId", &conversation)?;
-        self.db.execute("DELETE FROM messages WHERE conversationId = ?", [conversation])
+        self.db.execute(
+            "DELETE FROM messages WHERE conversationId = ?",
+            [conversation],
+        )
     }
 
-    fn remove_attachments(&self, column: &str, value: &dyn rusqlite::ToSql) -> rusqlite::Result<()> {
+    fn remove_attachments(
+        &self,
+        column: &str,
+        value: &dyn rusqlite::ToSql,
+    ) -> rusqlite::Result<()> {
         let ids: Vec<i32> = self
             .db
             .prepare(&format!("SELECT id FROM messages WHERE {column} = ?"))?
@@ -201,14 +245,21 @@ impl Store {
             .collect::<rusqlite::Result<_>>()?;
         for id in ids {
             fs::remove_dir_all(self.files.join(id.to_string())).ok();
-            self.db.execute("DELETE FROM attachments WHERE messageId = ?", [id])?;
+            self.db
+                .execute("DELETE FROM attachments WHERE messageId = ?", [id])?;
         }
         Ok(())
     }
 
     /// Stores `data` as an attachment of `message`; `name` is reduced to a
     /// file name.
-    pub fn add_attachment(&self, message: i32, content_type: &str, name: &str, data: &[u8]) -> Option<i32> {
+    pub fn add_attachment(
+        &self,
+        message: i32,
+        content_type: &str,
+        name: &str,
+        data: &[u8],
+    ) -> Option<i32> {
         let file = match Path::new(name).file_name().and_then(|n| n.to_str()) {
             Some(file) if file != "." && file != ".." => file.to_owned(),
             _ => "attachment".to_owned(),
@@ -235,27 +286,31 @@ impl Store {
         i32::try_from(self.db.last_insert_rowid()).ok()
     }
 
-    pub fn attachment(&self, id: i32) -> Option<Attachment> {
+    pub fn attachment(&self, id: i32) -> rusqlite::Result<Option<Attachment>> {
         self.db
-            .query_row("SELECT contentType, name, size, path FROM attachments WHERE id = ?", [id], |row| {
-                Ok(Attachment {
-                    content_type: row.get(0)?,
-                    name: row.get(1)?,
-                    size: row.get(2)?,
-                    path: PathBuf::from(row.get::<_, String>(3)?),
-                })
-            })
+            .query_row(
+                "SELECT contentType, name, size, path FROM attachments WHERE id = ?",
+                [id],
+                |row| {
+                    Ok(Attachment {
+                        content_type: row.get(0)?,
+                        name: row.get(1)?,
+                        size: row.get(2)?,
+                        path: PathBuf::from(row.get::<_, String>(3)?),
+                    })
+                },
+            )
             .optional()
-            .ok()
-            .flatten()
     }
 
     /// The attachment's file is now a JPEG of `size` bytes.
-    pub fn became_jpeg(&self, id: i32, name: &str, size: i64) -> bool {
-        let stem = Path::new(name).file_stem().map_or_else(|| "attachment".into(), |s| s.to_string_lossy());
+    pub fn became_jpeg(&self, id: i32, name: &str, size: i64) -> rusqlite::Result<bool> {
+        let stem = Path::new(name)
+            .file_stem()
+            .map_or_else(|| "attachment".into(), |s| s.to_string_lossy());
         self.db
             .execute("UPDATE attachments SET contentType = 'image/jpeg', name = ?, size = ? WHERE id = ?", params![format!("{stem}.jpg"), size, id])
-            .is_ok_and(|n| n > 0)
+            .map(|n| n > 0)
     }
 }
 
@@ -269,7 +324,15 @@ mod tests {
     }
 
     fn received<'a>(sender: &'a str, text: &'a str, timestamp: i64) -> Message<'a> {
-        Message { sender, recipient: "me", text, timestamp, outgoing: false, status: "received", mms_path: "" }
+        Message {
+            sender,
+            recipient: "me",
+            text,
+            timestamp,
+            outgoing: false,
+            status: "received",
+            mms_path: "",
+        }
     }
 
     fn text(row: &Row, key: &str) -> String {
@@ -286,7 +349,10 @@ mod tests {
         let left = s.messages("+15550001").unwrap();
         assert_eq!(left.len(), 1);
         assert_eq!(text(&left[0], "text"), "second");
-        assert_eq!(text(&s.conversations().unwrap()[0], "lastMessage"), "second");
+        assert_eq!(
+            text(&s.conversations().unwrap()[0], "lastMessage"),
+            "second"
+        );
         assert!(!s.delete_message(999_999).unwrap());
     }
 
@@ -322,14 +388,35 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let s = store(dir.path());
         let id = s.insert(&received("+15550003", "", 1)).unwrap();
-        let attachment = s.add_attachment(id, "image/png", "../../beach.png", b"\x89PNG data").unwrap();
-        let stored = s.attachment(attachment).unwrap();
+        let attachment = s
+            .add_attachment(id, "image/png", "../../beach.png", b"\x89PNG data")
+            .unwrap();
+        let stored = s.attachment(attachment).unwrap().unwrap();
         assert_eq!(stored.name, "beach.png");
         assert_eq!(stored.size, 9);
         assert!(stored.path.starts_with(dir.path().join("mms")));
         assert_eq!(fs::read(&stored.path).unwrap(), b"\x89PNG data");
         assert!(s.delete_message(id).unwrap());
         assert!(!stored.path.exists());
-        assert!(s.attachment(attachment).is_none());
+        assert!(s.attachment(attachment).unwrap().is_none());
+    }
+
+    #[test]
+    fn audited_operations_propagate_database_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = store(dir.path());
+        assert!(!s.has("+15550004", 1, "missing").unwrap());
+        assert!(!s.set_status(999_999, "sent").unwrap());
+        assert!(s.sent_as("/missing").unwrap().is_none());
+        assert!(s.attachment(999_999).unwrap().is_none());
+        assert!(!s.became_jpeg(999_999, "missing.png", 1).unwrap());
+
+        s.db.execute_batch("DROP TABLE messages; DROP TABLE attachments;")
+            .unwrap();
+        assert!(s.has("+15550004", 1, "missing").is_err());
+        assert!(s.set_status(999_999, "sent").is_err());
+        assert!(s.sent_as("/missing").is_err());
+        assert!(s.attachment(999_999).is_err());
+        assert!(s.became_jpeg(999_999, "missing.png", 1).is_err());
     }
 }

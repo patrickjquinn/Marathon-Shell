@@ -10,11 +10,11 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
-use lofty::prelude::*;
+use lofty::prelude::TaggedFileExt as _;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
 
 use marathon_rt::{io, log};
@@ -139,8 +139,13 @@ impl State {
     }
 
     fn track_path(&self) -> OwnedObjectPath {
-        let path = if self.track_id >= 0 { format!("/org/marathonos/music/track/{}", self.track_id) } else { "/org/mpris/MediaPlayer2/TrackList/NoTrack".into() };
-        ObjectPath::try_from(path).map_or_else(|_| OwnedObjectPath::default(), OwnedObjectPath::from)
+        let path = if self.track_id >= 0 {
+            format!("/org/marathonos/music/track/{}", self.track_id)
+        } else {
+            "/org/mpris/MediaPlayer2/TrackList/NoTrack".into()
+        };
+        ObjectPath::try_from(path)
+            .map_or_else(|_| OwnedObjectPath::default(), OwnedObjectPath::from)
     }
 
     fn metadata(&self) -> HashMap<String, Value<'static>> {
@@ -151,7 +156,10 @@ impl State {
         map.insert("mpris:trackid".into(), Value::from(self.track_path()));
         map.insert("mpris:length".into(), Value::from(self.length * 1000));
         map.insert("xesam:title".into(), Value::from(self.title.clone()));
-        map.insert("xesam:artist".into(), Value::from(vec![self.artist.clone()]));
+        map.insert(
+            "xesam:artist".into(),
+            Value::from(vec![self.artist.clone()]),
+        );
         map.insert("xesam:album".into(), Value::from(self.album.clone()));
         if !self.art_url.is_empty() {
             map.insert("mpris:artUrl".into(), Value::from(self.art_url.clone()));
@@ -163,7 +171,10 @@ impl State {
 type Shared = Arc<Mutex<State>>;
 
 fn read(state: &Shared) -> State {
-    state.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    state
+        .lock()
+        .unwrap_or_else(|_| std::process::abort())
+        .clone()
 }
 
 pub struct MprisPlayerRust {
@@ -225,7 +236,8 @@ impl cxx_qt::Initialize for MprisPlayer {
                 obj.announce();
             })
             .release();
-        self.on_position_changed(|mut obj| obj.as_mut().snapshot()).release();
+        self.on_position_changed(|mut obj| obj.as_mut().snapshot())
+            .release();
     }
 }
 
@@ -245,7 +257,7 @@ impl MprisPlayer {
             length: self.length,
             position: self.position,
         };
-        *self.state.lock().unwrap_or_else(PoisonError::into_inner) = s;
+        *self.state.lock().unwrap_or_else(|_| std::process::abort()) = s;
     }
 
     /// The service follows `active`.
@@ -257,7 +269,15 @@ impl MprisPlayer {
                 let server = bus.object_server();
                 if active {
                     server.at(PATH, Root { qt: qt.clone() }).await?;
-                    server.at(PATH, Player { qt: qt.clone(), state }).await?;
+                    server
+                        .at(
+                            PATH,
+                            Player {
+                                qt: qt.clone(),
+                                state,
+                            },
+                        )
+                        .await?;
                     bus.request_name(SERVICE).await?;
                 } else {
                     bus.release_name(SERVICE).await.ok();
@@ -304,9 +324,24 @@ impl MprisPlayer {
                 ("CanPause", Value::from(has_track)),
                 ("CanSeek", Value::from(has_track)),
             ]);
-            let Ok(bus) = io::session_bus().await else { return };
-            let body = ("org.mpris.MediaPlayer2.Player", changed, Vec::<String>::new());
-            if let Err(e) = bus.emit_signal(None::<&str>, PATH, "org.freedesktop.DBus.Properties", "PropertiesChanged", &body).await {
+            let Ok(bus) = io::session_bus().await else {
+                return;
+            };
+            let body = (
+                "org.mpris.MediaPlayer2.Player",
+                changed,
+                Vec::<String>::new(),
+            );
+            if let Err(e) = bus
+                .emit_signal(
+                    None::<&str>,
+                    PATH,
+                    "org.freedesktop.DBus.Properties",
+                    "PropertiesChanged",
+                    &body,
+                )
+                .await
+            {
                 log::warn("MprisPlayer", format_args!("PropertiesChanged: {e}"));
             }
         });
@@ -399,7 +434,11 @@ impl Player {
     }
 
     /// Past the end is the next track.
-    async fn seek(&self, offset: i64, #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>) {
+    async fn seek(
+        &self,
+        offset: i64,
+        #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>,
+    ) {
         let s = read(&self.state);
         let target = (s.position + offset / 1000).max(0);
         if s.length > 0 && target > s.length {
@@ -409,9 +448,17 @@ impl Player {
         Self::seeked(&emitter, target * 1000).await.ok();
     }
 
-    async fn set_position(&self, track_id: ObjectPath<'_>, position: i64, #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>) {
+    async fn set_position(
+        &self,
+        track_id: ObjectPath<'_>,
+        position: i64,
+        #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>,
+    ) {
         let s = read(&self.state);
-        if *s.track_path() != track_id || position < 0 || (s.length > 0 && position / 1000 > s.length) {
+        if *s.track_path() != track_id
+            || position < 0
+            || (s.length > 0 && position / 1000 > s.length)
+        {
             return;
         }
         self.ask(move |obj| obj.seek_requested(position / 1000));
@@ -423,7 +470,10 @@ impl Player {
     }
 
     #[zbus(signal)]
-    async fn seeked(emitter: &zbus::object_server::SignalEmitter<'_>, position: i64) -> zbus::Result<()>;
+    async fn seeked(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        position: i64,
+    ) -> zbus::Result<()>;
 
     #[zbus(property)]
     fn playback_status(&self) -> &'static str {
@@ -530,7 +580,17 @@ impl Player {
 pub struct ArtworkRust;
 
 /// Names a folder's cover image goes by.
-const COVERS: &[&str] = &["cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "front.png", "Cover.jpg", "Folder.jpg", "AlbumArt.jpg"];
+const COVERS: &[&str] = &[
+    "cover.jpg",
+    "cover.png",
+    "folder.jpg",
+    "folder.png",
+    "front.jpg",
+    "front.png",
+    "Cover.jpg",
+    "Folder.jpg",
+    "AlbumArt.jpg",
+];
 
 fn local_path(track: &str) -> PathBuf {
     PathBuf::from(track.strip_prefix("file://").unwrap_or(track))
@@ -540,12 +600,19 @@ fn local_path(track: &str) -> PathBuf {
 fn embedded(track: &str, file: &Path) -> Option<PathBuf> {
     let mut hasher = std::hash::DefaultHasher::new();
     track.hash(&mut hasher);
-    let cached = dirs::cache_dir()?.join("music/art").join(format!("{:016x}", hasher.finish()));
+    let cached = dirs::cache_dir()?
+        .join("music/art")
+        .join(format!("{:016x}", hasher.finish()));
     if cached.exists() {
         return Some(cached);
     }
     let tagged = lofty::read_from_path(file).ok()?;
-    let picture = tagged.primary_tag().or_else(|| tagged.first_tag())?.pictures().first()?.clone();
+    let picture = tagged
+        .primary_tag()
+        .or_else(|| tagged.first_tag())?
+        .pictures()
+        .first()?
+        .clone();
     std::fs::create_dir_all(cached.parent()?).ok()?;
     std::fs::write(&cached, picture.data()).ok()?;
     Some(cached)
@@ -556,7 +623,14 @@ impl qobject::Artwork {
     fn art(&self, track: &QString) -> QString {
         let track = track.to_string();
         let file = local_path(&track);
-        let found = embedded(&track, &file).or_else(|| COVERS.iter().map(|c| file.with_file_name(c)).find(|p| p.exists()));
-        found.map_or_else(QString::default, |p| QString::from(&format!("file://{}", p.display())))
+        let found = embedded(&track, &file).or_else(|| {
+            COVERS
+                .iter()
+                .map(|c| file.with_file_name(c))
+                .find(|p| p.exists())
+        });
+        found.map_or_else(QString::default, |p| {
+            QString::from(&format!("file://{}", p.display()))
+        })
     }
 }

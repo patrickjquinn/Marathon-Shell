@@ -7,7 +7,10 @@ use std::pin::Pin;
 use std::time::{Duration, SystemTime};
 
 use cxx_qt::CxxQtType;
-use cxx_qt_lib::{QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant, QModelIndex, QString, QStringList, QVariant};
+use cxx_qt_lib::{
+    QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant,
+    QModelIndex, QString, QStringList, QVariant,
+};
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 
 #[cxx_qt::bridge]
@@ -33,10 +36,31 @@ pub mod qobject {
         #[qobject]
         #[base = QAbstractListModel]
         #[qproperty(QString, folder, READ, WRITE, NOTIFY)]
-        #[qproperty(QStringList, name_filters, cxx_name = "nameFilters", READ, WRITE, NOTIFY)]
-        #[qproperty(QStringList, mime_filters, cxx_name = "mimeFilters", READ, WRITE, NOTIFY)]
+        #[qproperty(
+            QStringList,
+            name_filters,
+            cxx_name = "nameFilters",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
+        #[qproperty(
+            QStringList,
+            mime_filters,
+            cxx_name = "mimeFilters",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
         #[qproperty(bool, show_hidden, cxx_name = "showHidden", READ, WRITE, NOTIFY)]
-        #[qproperty(bool, directories_only, cxx_name = "directoriesOnly", READ, WRITE, NOTIFY)]
+        #[qproperty(
+            bool,
+            directories_only,
+            cxx_name = "directoriesOnly",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
         #[qproperty(QString, search, READ, WRITE, NOTIFY)]
         #[qproperty(bool, recent, READ, WRITE, NOTIFY)]
         #[qproperty(i32, count, READ, NOTIFY)]
@@ -101,11 +125,15 @@ pub struct FileChooserModelRust {
 }
 
 fn strings(list: &QStringList) -> Vec<String> {
-    QList::<QString>::from(list).iter().map(ToString::to_string).collect()
+    QList::<QString>::from(list)
+        .iter()
+        .map(ToString::to_string)
+        .collect()
 }
 
 fn hidden(path: &Path) -> bool {
-    path.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.'))
+    path.file_name()
+        .is_some_and(|n| n.to_string_lossy().starts_with('.'))
 }
 
 fn mime(path: &Path) -> Option<mime_guess::Mime> {
@@ -125,11 +153,20 @@ impl Accepts {
         let globs = strings(&m.name_filters);
         let mut set = GlobSetBuilder::new();
         for g in &globs {
-            if let Ok(glob) = GlobBuilder::new(g).case_insensitive(true).literal_separator(true).build() {
+            if let Ok(glob) = GlobBuilder::new(g)
+                .case_insensitive(true)
+                .literal_separator(true)
+                .build()
+            {
                 set.add(glob);
             }
         }
-        Self { globs: set.build().unwrap_or_else(|_| GlobSet::empty()), any_glob: !globs.is_empty(), mimes: strings(&m.mime_filters), dirs_only: m.directories_only }
+        Self {
+            globs: set.build().unwrap_or_else(|_| GlobSet::empty()),
+            any_glob: !globs.is_empty(),
+            mimes: strings(&m.mime_filters),
+            dirs_only: m.directories_only,
+        }
     }
 
     fn file(&self, path: &Path) -> bool {
@@ -143,14 +180,20 @@ impl Accepts {
             return true;
         }
         let Some(m) = mime(path) else { return false };
-        self.mimes.iter().any(|want| want.strip_suffix("/*").map_or_else(|| m.essence_str() == want, |kind| m.type_() == kind))
+        self.mimes.iter().any(|want| {
+            want.strip_suffix("/*")
+                .map_or_else(|| m.essence_str() == want, |kind| m.type_() == kind)
+        })
     }
 }
 
 fn entry(path: PathBuf, meta: &std::fs::Metadata) -> Entry {
     let image = !meta.is_dir() && mime(&path).is_some_and(|m| m.type_() == mime_guess::mime::IMAGE);
     Entry {
-        name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+        name: path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
         dir: meta.is_dir(),
         size: meta.len(),
         modified: meta.modified().unwrap_or(SystemTime::UNIX_EPOCH),
@@ -184,13 +227,23 @@ fn media() -> Vec<(&'static str, PathBuf)> {
 fn recent(accepts: &Accepts) -> Vec<Entry> {
     let since = SystemTime::now() - RECENT;
     let mut paths: Vec<PathBuf> = Vec::new();
-    if let Ok(xbel) = std::fs::read_to_string(marathon_rt::dirs::data().join("recently-used.xbel")) {
+    if let Ok(xbel) = std::fs::read_to_string(marathon_rt::dirs::data().join("recently-used.xbel"))
+    {
         let mut reader = quick_xml::Reader::from_str(&xbel);
         while let Ok(event) = reader.read_event() {
             match event {
-                quick_xml::events::Event::Start(e) | quick_xml::events::Event::Empty(e) if AsRef::<str>::as_ref(&e.name()) == "bookmark" => {
-                    let href = e.try_get_attribute("href").ok().flatten().and_then(|a| a.normalized_value(quick_xml::XmlVersion::default()).ok().map(std::borrow::Cow::into_owned));
-                    if let Some(p) = href.and_then(|h| url::Url::parse(&h).ok()).and_then(|u| u.to_file_path().ok()) {
+                quick_xml::events::Event::Start(e) | quick_xml::events::Event::Empty(e)
+                    if AsRef::<str>::as_ref(&e.name()) == "bookmark" =>
+                {
+                    let href = e.try_get_attribute("href").ok().flatten().and_then(|a| {
+                        a.normalized_value(quick_xml::XmlVersion::default())
+                            .ok()
+                            .map(std::borrow::Cow::into_owned)
+                    });
+                    if let Some(p) = href
+                        .and_then(|h| url::Url::parse(&h).ok())
+                        .and_then(|u| u.to_file_path().ok())
+                    {
                         paths.push(p);
                     }
                 }
@@ -199,13 +252,28 @@ fn recent(accepts: &Accepts) -> Vec<Entry> {
             }
         }
     }
-    let walked = media().into_iter().flat_map(|(_, dir)| walkdir::WalkDir::new(dir).min_depth(1).into_iter().filter_map(Result::ok).take(VISITED)).filter(|e| e.file_type().is_file()).map(walkdir::DirEntry::into_path);
+    let walked = media()
+        .into_iter()
+        .flat_map(|(_, dir)| {
+            walkdir::WalkDir::new(dir)
+                .min_depth(1)
+                .into_iter()
+                .filter_map(Result::ok)
+                .take(VISITED)
+        })
+        .filter(|e| e.file_type().is_file())
+        .map(walkdir::DirEntry::into_path);
     paths.extend(walked);
     let mut seen = std::collections::HashSet::new();
     let mut out: Vec<Entry> = paths
         .into_iter()
         .filter(|p| !hidden(p) && seen.insert(p.clone()) && accepts.file(p))
-        .filter_map(|p| std::fs::metadata(&p).ok().filter(|m| m.is_file() && m.modified().is_ok_and(|t| t >= since)).map(|m| entry(p, &m)))
+        .filter_map(|p| {
+            std::fs::metadata(&p)
+                .ok()
+                .filter(|m| m.is_file() && m.modified().is_ok_and(|t| t >= since))
+                .map(|m| entry(p, &m))
+        })
         .collect();
     out.sort_by_key(|e| std::cmp::Reverse(e.modified));
     out.truncate(MAX_RECENT);
@@ -214,23 +282,46 @@ fn recent(accepts: &Accepts) -> Vec<Entry> {
 
 impl cxx_qt::Initialize for FileChooserModel {
     fn initialize(mut self: Pin<&mut Self>) {
-        self.as_mut().on_folder_changed(FileChooserModel::reload).release();
-        self.as_mut().on_name_filters_changed(FileChooserModel::reload).release();
-        self.as_mut().on_mime_filters_changed(FileChooserModel::reload).release();
-        self.as_mut().on_show_hidden_changed(FileChooserModel::reload).release();
-        self.as_mut().on_directories_only_changed(FileChooserModel::reload).release();
-        self.as_mut().on_search_changed(FileChooserModel::reload).release();
-        self.as_mut().on_recent_changed(FileChooserModel::reload).release();
+        self.as_mut()
+            .on_folder_changed(FileChooserModel::reload)
+            .release();
+        self.as_mut()
+            .on_name_filters_changed(FileChooserModel::reload)
+            .release();
+        self.as_mut()
+            .on_mime_filters_changed(FileChooserModel::reload)
+            .release();
+        self.as_mut()
+            .on_show_hidden_changed(FileChooserModel::reload)
+            .release();
+        self.as_mut()
+            .on_directories_only_changed(FileChooserModel::reload)
+            .release();
+        self.as_mut()
+            .on_search_changed(FileChooserModel::reload)
+            .release();
+        self.as_mut()
+            .on_recent_changed(FileChooserModel::reload)
+            .release();
     }
 }
 
 impl FileChooserModel {
     fn row_count(&self, parent: &QModelIndex) -> i32 {
-        if parent.is_valid() { 0 } else { self.count }
+        if parent.is_valid() {
+            0
+        } else {
+            self.count
+        }
     }
 
     fn data(&self, index: &QModelIndex, role: i32) -> QVariant {
-        let Some(e) = usize::try_from(index.row()).ok().and_then(|r| self.entries.get(r)) else { return QVariant::default() };
+        let Some(e) = usize::try_from(index.row())
+            .ok()
+            .and_then(|r| self.entries.get(r))
+        else {
+            return QVariant::default();
+        };
         let text = |s: &str| QVariant::from(&QString::from(s));
         match role - USER_ROLE - 1 {
             0 => text(&e.name),
@@ -238,7 +329,11 @@ impl FileChooserModel {
             2 => QVariant::from(&e.dir),
             3 => QVariant::from(&i64::try_from(e.size).unwrap_or(i64::MAX)),
             4 => QVariant::from(&e.image),
-            5 => text(&url::Url::from_file_path(&e.path).map(String::from).unwrap_or_default()),
+            5 => text(
+                &url::Url::from_file_path(&e.path)
+                    .map(String::from)
+                    .unwrap_or_default(),
+            ),
             _ => QVariant::default(),
         }
     }
@@ -259,7 +354,10 @@ impl FileChooserModel {
         let place = |name: &str, path: &Path| {
             let mut m = QMap::<QMapPair_QString_QVariant>::default();
             m.insert(QString::from("name"), QVariant::from(&QString::from(name)));
-            m.insert(QString::from("path"), QVariant::from(&QString::from(&*path.to_string_lossy())));
+            m.insert(
+                QString::from("path"),
+                QVariant::from(&QString::from(&*path.to_string_lossy())),
+            );
             QVariant::from(&m)
         };
         out.append(place("Home", &home));
@@ -276,7 +374,11 @@ impl FileChooserModel {
 
     #[allow(clippy::unused_self, reason = "a QML invokable")]
     fn join(&self, folder: &QString, name: &QString) -> QString {
-        QString::from(&*Path::new(&folder.to_string()).join(name.to_string()).to_string_lossy())
+        QString::from(
+            &*Path::new(&folder.to_string())
+                .join(name.to_string())
+                .to_string_lossy(),
+        )
     }
 
     fn reload(mut self: Pin<&mut Self>) {
@@ -295,7 +397,14 @@ impl FileChooserModel {
                 .filter_entry(|e| show_hidden || !hidden(e.path()))
                 .filter_map(Result::ok)
                 .take(VISITED)
-                .filter(|e| e.file_type().is_file() && e.file_name().to_string_lossy().to_lowercase().contains(&search) && accepts.file(e.path()))
+                .filter(|e| {
+                    e.file_type().is_file()
+                        && e.file_name()
+                            .to_string_lossy()
+                            .to_lowercase()
+                            .contains(&search)
+                        && accepts.file(e.path())
+                })
                 .filter_map(|e| e.metadata().ok().map(|m| entry(e.into_path(), &m)))
                 .take(MAX_SEARCH)
                 .collect()
@@ -305,7 +414,11 @@ impl FileChooserModel {
                 .flatten()
                 .filter_map(Result::ok)
                 .filter(|e| show_hidden || !hidden(&e.path()))
-                .filter_map(|e| std::fs::metadata(e.path()).ok().map(|m| entry(e.path(), &m)))
+                .filter_map(|e| {
+                    std::fs::metadata(e.path())
+                        .ok()
+                        .map(|m| entry(e.path(), &m))
+                })
                 .filter(|e| e.dir || accepts.file(&e.path))
                 .collect();
             list.sort_by_key(|e| (!e.dir, e.name.to_lowercase()));

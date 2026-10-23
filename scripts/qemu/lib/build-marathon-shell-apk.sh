@@ -53,13 +53,22 @@ if [ -n "$MARATHON_SHELL_SRC" ]; then
     SHELL_MOUNT_ARGS=(-v "$MARATHON_SHELL_SRC:/shellsrc:z,ro")
 fi
 
+# The complete Rust workspace can exceed a 6 GiB tmpfs as new daemons are
+# added. CI can keep the fast tmpfs default; local device builds may point this
+# at a disk-backed scratch directory and remove it after packaging.
+WORK_MOUNT_ARGS=(--tmpfs "/work:rw,exec,size=${MARATHON_APK_TMPFS_SIZE:-6g}")
+if [ -n "${MARATHON_APK_WORK_DIR:-}" ]; then
+    mkdir -p "$MARATHON_APK_WORK_DIR"
+    WORK_MOUNT_ARGS=(-v "$MARATHON_APK_WORK_DIR:/work:z")
+fi
+
 # Mail's OAuth client IDs, when this checkout has them (oauth-clients.env).
 OAUTH_ENV="${MARATHON_SHELL_SRC:+$MARATHON_SHELL_SRC/crates/marathon-maild/oauth-clients.env}"
 # shellcheck disable=SC1090
 [ -n "$OAUTH_ENV" ] && [ -f "$OAUTH_ENV" ] && . "$OAUTH_ENV"
 
 podman run --rm -i \
-    --tmpfs /work:rw,exec,size=6g \
+    "${WORK_MOUNT_ARGS[@]}" \
     -e MARATHON_DEFAULT_GOOGLE_CLIENT_ID="${MARATHON_DEFAULT_GOOGLE_CLIENT_ID:-}" \
     -e MARATHON_DEFAULT_MICROSOFT_CLIENT_ID="${MARATHON_DEFAULT_MICROSOFT_CLIENT_ID:-}" \
     -e MARATHON_SHELL_GIT="$MARATHON_SHELL_GIT" \
@@ -119,6 +128,7 @@ if [ "${USE_LOCAL_SHELL_SRC:-0}" = "1" ]; then
     rsync -a --checksum --no-times --delete \
           --exclude='.git' --exclude='/build' --exclude='/build-*' \
           --exclude='.cache' --exclude='packaging' \
+          --exclude='.marathon-apk-work' --exclude='crates/target' \
           /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
 else
     echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"

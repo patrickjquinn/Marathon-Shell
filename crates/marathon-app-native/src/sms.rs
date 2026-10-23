@@ -72,7 +72,12 @@ pub mod qobject {
         /// bus. The message's id, or -1.
         #[qinvokable]
         #[cxx_name = "sendMms"]
-        fn send_mms(self: &Sms, recipients: &QStringList, text: &QString, attachments: &QList_QVariant) -> i32;
+        fn send_mms(
+            self: &Sms,
+            recipients: &QStringList,
+            text: &QString,
+            attachments: &QList_QVariant,
+        ) -> i32;
         /// A received attachment as a file in the app's cache, where an
         /// `Image` can read it; empty if there is none.
         #[qinvokable]
@@ -99,25 +104,51 @@ type Qt = cxx_qt::CxxQtThread<Sms>;
 impl cxx_qt::Initialize for Sms {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), SMS, "MessageReceived", |obj, (sender, text, at): (String, String, i64)| {
-            obj.message_received(&QString::from(&sender), &QString::from(&text), at);
-        });
-        relay(qt.clone(), SMS, "MessageSent", |obj, (to, at): (String, i64)| obj.message_sent(&QString::from(&to), at));
-        relay(qt.clone(), SMS, "SendFailed", |obj, (to, why): (String, String)| {
-            obj.send_failed(&QString::from(&to), &QString::from(&why));
-        });
-        relay(qt.clone(), SMS, "MessageStatusChanged", |obj, (id, status): (i32, String)| {
-            obj.message_status_changed(id, &QString::from(&status));
-        });
-        relay(qt.clone(), SMS, "MmsAvailableChanged", |mut obj, (available,): (bool,)| {
-            set!(obj, mms_available, mms_available_changed, available);
-        });
+        relay(
+            qt.clone(),
+            SMS,
+            "MessageReceived",
+            |obj, (sender, text, at): (String, String, i64)| {
+                obj.message_received(&QString::from(&sender), &QString::from(&text), at);
+            },
+        );
+        relay(
+            qt.clone(),
+            SMS,
+            "MessageSent",
+            |obj, (to, at): (String, i64)| obj.message_sent(&QString::from(&to), at),
+        );
+        relay(
+            qt.clone(),
+            SMS,
+            "SendFailed",
+            |obj, (to, why): (String, String)| {
+                obj.send_failed(&QString::from(&to), &QString::from(&why));
+            },
+        );
+        relay(
+            qt.clone(),
+            SMS,
+            "MessageStatusChanged",
+            |obj, (id, status): (i32, String)| {
+                obj.message_status_changed(id, &QString::from(&status));
+            },
+        );
+        relay(
+            qt.clone(),
+            SMS,
+            "MmsAvailableChanged",
+            |mut obj, (available,): (bool,)| {
+                set!(obj, mms_available, mms_available_changed, available);
+            },
+        );
         io::spawn(async move {
             let mut asked = false;
             read(&qt, &mut asked).await;
-            let (Ok(changes), Ok(grants)) =
-                (SMS.signals::<()>("ConversationsChanged").await, answers("PermissionGranted", "sms").await)
-            else {
+            let (Ok(changes), Ok(grants)) = (
+                SMS.signals::<()>("ConversationsChanged").await,
+                answers("PermissionGranted", "sms").await,
+            ) else {
                 return;
             };
             let mut events = std::pin::pin!(changes.or(grants));
@@ -166,13 +197,23 @@ impl Sms {
         io::spawn(async move { read(&qt, &mut false).await });
     }
 
-    fn send_mms(&self, recipients: &QStringList, text: &QString, attachments: &QList<QVariant>) -> i32 {
+    fn send_mms(
+        &self,
+        recipients: &QStringList,
+        text: &QString,
+        attachments: &QList<QVariant>,
+    ) -> i32 {
         let mut files = Vec::new();
         let mut kinds = Vec::new();
         for attachment in attachments {
-            let attachment = attachment.value::<QMap<QMapPair_QString_QVariant>>().unwrap_or_default();
+            let attachment = attachment
+                .value::<QMap<QMapPair_QString_QVariant>>()
+                .unwrap_or_default();
             let field = |key: &str| {
-                attachment.get(&QString::from(key)).and_then(|v| v.value::<QString>()).map(|v| v.to_string())
+                attachment
+                    .get(&QString::from(key))
+                    .and_then(|v| v.value::<QString>())
+                    .map(|v| v.to_string())
             };
             let path = field("filePath").unwrap_or_default();
             let Ok(file) = File::open(&path) else {
@@ -180,19 +221,29 @@ impl Sms {
                 return -1;
             };
             let name = field("name").filter(|n| !n.is_empty()).unwrap_or_else(|| {
-                Path::new(&path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+                Path::new(&path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
             });
             kinds.push((field("contentType").unwrap_or_default(), name));
             files.push(file);
         }
-        let parts: Vec<(&str, &str, Fd<'_>)> =
-            kinds.iter().zip(&files).map(|((kind, name), file)| (kind.as_str(), name.as_str(), Fd::from(file.as_fd()))).collect();
-        SMS.ask_now("SendMms", &(recipients.wire(), text.to_string(), parts)).unwrap_or(-1)
+        let parts: Vec<(&str, &str, Fd<'_>)> = kinds
+            .iter()
+            .zip(&files)
+            .map(|((kind, name), file)| (kind.as_str(), name.as_str(), Fd::from(file.as_fd())))
+            .collect();
+        SMS.ask_now("SendMms", &(recipients.wire(), text.to_string(), parts))
+            .unwrap_or(-1)
     }
 
     fn open_attachment(&self, id: i32, name: &QString) -> QString {
         let name = name.to_string();
-        let file = match Path::new(&name).file_name().map(|n| n.to_string_lossy().into_owned()) {
+        let file = match Path::new(&name)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+        {
             Some(file) if file != "." && file != ".." => file,
             _ => "attachment".to_owned(),
         };

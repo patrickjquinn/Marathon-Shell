@@ -66,9 +66,13 @@ impl cxx_qt::Initialize for Clipboard {
         let qt = self.qt_thread();
         let (tx, rx) = async_channel::bounded(4);
         io::spawn(async move {
-            let items: Vec<Item> = blocking::unblock(|| std::fs::read(path()).ok().and_then(|b| serde_json::from_slice(&b).ok()))
-                .await
-                .unwrap_or_default();
+            let items: Vec<Item> = blocking::unblock(|| {
+                std::fs::read(path())
+                    .ok()
+                    .and_then(|b| serde_json::from_slice(&b).ok())
+            })
+            .await
+            .unwrap_or_default();
             qt.queue(move |obj| obj.show(items)).ok();
             writer(rx).await;
         });
@@ -82,9 +86,18 @@ impl Clipboard {
         if text.is_empty() {
             return;
         }
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
         let mut items = std::mem::take(&mut self.as_mut().rust_mut().items);
-        add(&mut items, Item { text, kind: "text".to_owned(), timestamp: now });
+        add(
+            &mut items,
+            Item {
+                text,
+                kind: "text".to_owned(),
+                timestamp: now,
+            },
+        );
         self.save(items);
     }
 
@@ -120,8 +133,14 @@ impl Clipboard {
         let mut history = QList::<QVariant>::default();
         for item in &items {
             let mut map = QMap::<QMapPair_QString_QVariant>::default();
-            map.insert(QString::from("text"), QVariant::from(&QString::from(item.text.as_str())));
-            map.insert(QString::from("type"), QVariant::from(&QString::from(item.kind.as_str())));
+            map.insert(
+                QString::from("text"),
+                QVariant::from(&QString::from(item.text.as_str())),
+            );
+            map.insert(
+                QString::from("type"),
+                QVariant::from(&QString::from(item.kind.as_str())),
+            );
             map.insert(QString::from("timestamp"), QVariant::from(&item.timestamp));
             history.append(QVariant::from(&map));
         }
@@ -175,7 +194,11 @@ mod tests {
     use super::{add, Item, MAX};
 
     fn item(text: &str) -> Item {
-        Item { text: text.to_owned(), kind: "text".to_owned(), timestamp: 0 }
+        Item {
+            text: text.to_owned(),
+            kind: "text".to_owned(),
+            timestamp: 0,
+        }
     }
 
     #[test]

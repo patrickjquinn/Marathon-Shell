@@ -12,9 +12,9 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use futures_lite::{stream, StreamExt};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy};
+use zbus::message::Header;
 use zbus::message::Type as MessageType;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
-use zbus::message::Header;
 use zbus::{fdo, MatchRule, MessageStream};
 
 use crate::ipc::{self, value, State};
@@ -39,7 +39,13 @@ pub mod qobject {
         /// Each device as a map: address, name, alias, paired, connected,
         /// trusted, rssi and icon.
         #[qproperty(QList_QVariant, devices, READ, NOTIFY)]
-        #[qproperty(QList_QVariant, paired_devices, cxx_name = "pairedDevices", READ, NOTIFY)]
+        #[qproperty(
+            QList_QVariant,
+            paired_devices,
+            cxx_name = "pairedDevices",
+            READ,
+            NOTIFY
+        )]
         type Bluetooth = super::BluetoothRust;
 
         #[cxx_name = "setEnabled"]
@@ -61,7 +67,12 @@ pub mod qobject {
         fn passkey_requested(self: Pin<&mut Self>, address: &QString, device_name: &QString);
         #[qsignal]
         #[cxx_name = "passkeyConfirmation"]
-        fn passkey_confirmation(self: Pin<&mut Self>, address: &QString, device_name: &QString, passkey: u32);
+        fn passkey_confirmation(
+            self: Pin<&mut Self>,
+            address: &QString,
+            device_name: &QString,
+            passkey: u32,
+        );
 
         /// The name other devices see.
         #[qinvokable]
@@ -181,27 +192,54 @@ impl cxx_qt::Initialize for Bluetooth {
         self.as_mut().on_paired_devices_changed(push).release();
         self.as_mut().on_adapter_name_changed(push).release();
         self.as_mut()
-            .on_pairing_failed(|_, a, e| ipc::signal("Bluetooth", "PairingFailed", (a.to_string(), e.to_string())))
-            .release();
-        self.as_mut().on_pairing_succeeded(|_, a| ipc::signal("Bluetooth", "PairingSucceeded", (a.to_string(),))).release();
-        self.as_mut()
-            .on_pin_requested(|_, a, n| ipc::signal("Bluetooth", "PinRequested", (a.to_string(), n.to_string())))
+            .on_pairing_failed(|_, a, e| {
+                ipc::signal("Bluetooth", "PairingFailed", (a.to_string(), e.to_string()));
+            })
             .release();
         self.as_mut()
-            .on_passkey_requested(|_, a, n| ipc::signal("Bluetooth", "PasskeyRequested", (a.to_string(), n.to_string())))
+            .on_pairing_succeeded(|_, a| {
+                ipc::signal("Bluetooth", "PairingSucceeded", (a.to_string(),));
+            })
+            .release();
+        self.as_mut()
+            .on_pin_requested(|_, a, n| {
+                ipc::signal("Bluetooth", "PinRequested", (a.to_string(), n.to_string()));
+            })
+            .release();
+        self.as_mut()
+            .on_passkey_requested(|_, a, n| {
+                ipc::signal(
+                    "Bluetooth",
+                    "PasskeyRequested",
+                    (a.to_string(), n.to_string()),
+                );
+            })
             .release();
         self.as_mut()
             .on_passkey_confirmation(|_, a, n, k| {
-                ipc::signal("Bluetooth", "PasskeyConfirmation", (a.to_string(), n.to_string(), k));
+                ipc::signal(
+                    "Bluetooth",
+                    "PasskeyConfirmation",
+                    (a.to_string(), n.to_string(), k),
+                );
             })
             .release();
-        ipc::export("Bluetooth", Bluetooth1 { qt: self.qt_thread() });
+        ipc::export(
+            "Bluetooth",
+            Bluetooth1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
 impl Bluetooth {
     fn send(&self, command: Command) {
-        if self.actor.as_ref().is_none_or(|a| a.try_send(command).is_err()) {
+        if self
+            .actor
+            .as_ref()
+            .is_none_or(|a| a.try_send(command).is_err())
+        {
             log::warn("bluetooth", "no Bluetooth backend");
         }
     }
@@ -214,7 +252,10 @@ impl Bluetooth {
 
     fn path_of(&self, address: &QString) -> Option<String> {
         let address = address.to_string();
-        self.known.iter().find(|d| d.address == address).map(|d| d.path.clone())
+        self.known
+            .iter()
+            .find(|d| d.address == address)
+            .map(|d| d.path.clone())
     }
 
     fn call(&self, address: &QString, method: &'static str) {
@@ -253,7 +294,10 @@ impl Bluetooth {
         if !pin.is_empty() {
             self.answer(Answer::Pin(pin.to_string()));
         } else if let Some(path) = self.path_of(address) {
-            self.send(Command::Pair { path, address: address.to_string() });
+            self.send(Command::Pair {
+                path,
+                address: address.to_string(),
+            });
         }
     }
 
@@ -287,12 +331,27 @@ impl Bluetooth {
         set!(self, available, available_changed, available);
         set!(self, enabled, enabled_changed, adapter.powered);
         set!(self, scanning, scanning_changed, adapter.discovering);
-        set!(self, discoverable, discoverable_changed, adapter.discoverable);
-        set!(self, adapter_name, adapter_name_changed, QString::from(adapter.alias.as_str()));
+        set!(
+            self,
+            discoverable,
+            discoverable_changed,
+            adapter.discoverable
+        );
+        set!(
+            self,
+            adapter_name,
+            adapter_name_changed,
+            QString::from(adapter.alias.as_str())
+        );
     }
 
     fn apply_devices(mut self: Pin<&mut Self>, devices: Vec<Device>) {
-        let paired = |list: &[Device]| list.iter().filter(|d| d.paired).cloned().collect::<Vec<_>>();
+        let paired = |list: &[Device]| {
+            list.iter()
+                .filter(|d| d.paired)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
         let paired_changed = paired(&devices) != paired(&self.known);
         let mut rust = self.as_mut().rust_mut();
         rust.devices = to_list(devices.iter());
@@ -307,7 +366,11 @@ impl Bluetooth {
     fn agent_request(mut self: Pin<&mut Self>, ask: Ask, path: &str) {
         let device = self.known.iter().find(|d| d.path == path);
         let name = QString::from(device.map_or("Unknown Device", Device::shown_name));
-        let address = QString::from(device.map_or_else(|| address_of(path), |d| d.address.clone()).as_str());
+        let address = QString::from(
+            device
+                .map_or_else(|| address_of(path), |d| d.address.clone())
+                .as_str(),
+        );
         match ask {
             Ask::Pin => self.as_mut().pin_requested(&address, &name),
             Ask::Passkey => self.as_mut().passkey_requested(&address, &name),
@@ -318,7 +381,12 @@ impl Bluetooth {
 
 impl Device {
     fn set(&mut self, key: &str, value: &Value<'_>) {
-        let text = || value.downcast_ref::<&str>().map(str::to_owned).unwrap_or_default();
+        let text = || {
+            value
+                .downcast_ref::<&str>()
+                .map(str::to_owned)
+                .unwrap_or_default()
+        };
         let flag = || value.downcast_ref::<bool>().unwrap_or(false);
         match key {
             "Address" => self.address = text(),
@@ -343,7 +411,9 @@ impl Device {
 
     fn to_map(&self) -> QMap<QMapPair_QString_QVariant> {
         let mut map = QMap::<QMapPair_QString_QVariant>::default();
-        let mut text = |key: &str, value: &str| map.insert(QString::from(key), QVariant::from(&QString::from(value)));
+        let mut text = |key: &str, value: &str| {
+            map.insert(QString::from(key), QVariant::from(&QString::from(value)));
+        };
         text("address", &self.address);
         text("name", &self.name);
         text("alias", &self.alias);
@@ -370,7 +440,15 @@ impl Device {
 }
 
 fn state(bt: &Bluetooth) -> State {
-    let devices = |paired: bool| value(bt.known.iter().filter(|d| d.paired || !paired).map(Device::to_state).collect::<Vec<_>>());
+    let devices = |paired: bool| {
+        value(
+            bt.known
+                .iter()
+                .filter(|d| d.paired || !paired)
+                .map(Device::to_state)
+                .collect::<Vec<_>>(),
+        )
+    };
     State::from([
         ("available".to_owned(), value(bt.available)),
         ("enabled".to_owned(), value(bt.enabled)),
@@ -408,34 +486,78 @@ impl Bluetooth1 {
         ipc::on_gui(&self.qt, |obj| obj.stop_scan()).await
     }
 
-    async fn connect_device(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn connect_device(
+        &self,
+        address: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Bluetooth", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.connect_device(&QString::from(&address))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.connect_device(&QString::from(&address));
+        })
+        .await
     }
 
-    async fn disconnect_device(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn disconnect_device(
+        &self,
+        address: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Bluetooth", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.disconnect_device(&QString::from(&address))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.disconnect_device(&QString::from(&address));
+        })
+        .await
     }
 
-    async fn pair_device(&self, address: String, pin: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn pair_device(
+        &self,
+        address: String,
+        pin: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Bluetooth", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.pair_device(&QString::from(&address), &QString::from(&pin))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.pair_device(&QString::from(&address), &QString::from(&pin));
+        })
+        .await
     }
 
-    async fn unpair_device(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn unpair_device(
+        &self,
+        address: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Bluetooth", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.unpair_device(&QString::from(&address))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.unpair_device(&QString::from(&address));
+        })
+        .await
     }
 
-    async fn confirm_pairing(&self, address: String, confirmed: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn confirm_pairing(
+        &self,
+        address: String,
+        confirmed: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Bluetooth", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.confirm_pairing(&QString::from(&address), confirmed)).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.confirm_pairing(&QString::from(&address), confirmed);
+        })
+        .await
     }
 
-    async fn cancel_pairing(&self, address: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn cancel_pairing(
+        &self,
+        address: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         ipc::admit(&h, "Bluetooth", &["system"]).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.cancel_pairing(&QString::from(&address))).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.cancel_pairing(&QString::from(&address));
+        })
+        .await
     }
 }
 
@@ -445,7 +567,12 @@ impl Adapter {
             "Powered" => self.powered = value.downcast_ref().unwrap_or(false),
             "Discovering" => self.discovering = value.downcast_ref().unwrap_or(false),
             "Discoverable" => self.discoverable = value.downcast_ref().unwrap_or(false),
-            "Alias" => self.alias = value.downcast_ref::<&str>().map(str::to_owned).unwrap_or_default(),
+            "Alias" => {
+                self.alias = value
+                    .downcast_ref::<&str>()
+                    .map(str::to_owned)
+                    .unwrap_or_default();
+            }
             _ => {}
         }
     }
@@ -481,7 +608,11 @@ fn icon(raw: &str) -> &'static str {
 
 /// `/org/bluez/hci0/dev_AA_BB_…` as `AA:BB:…`.
 fn address_of(path: &str) -> String {
-    path.rsplit('/').next().and_then(|s| s.strip_prefix("dev_")).map(|s| s.replace('_', ":")).unwrap_or_default()
+    path.rsplit('/')
+        .next()
+        .and_then(|s| s.strip_prefix("dev_"))
+        .map(|s| s.replace('_', ":"))
+        .unwrap_or_default()
 }
 
 const BLUEZ: &str = "org.bluez";
@@ -508,7 +639,11 @@ trait Adapter1 {
     fn set_alias(&self, alias: &str) -> zbus::Result<()>;
 }
 
-#[zbus::proxy(interface = "org.bluez.AgentManager1", default_service = "org.bluez", default_path = "/org/bluez")]
+#[zbus::proxy(
+    interface = "org.bluez.AgentManager1",
+    default_service = "org.bluez",
+    default_path = "/org/bluez"
+)]
 trait AgentManager1 {
     fn register_agent(&self, agent: &ObjectPath<'_>, capability: &str) -> zbus::Result<()>;
     fn request_default_agent(&self, agent: &ObjectPath<'_>) -> zbus::Result<()>;
@@ -520,9 +655,20 @@ type Properties = HashMap<String, OwnedValue>;
 enum Event {
     Command(Command),
     Closed,
-    Changed { path: OwnedObjectPath, interface: String, changed: Properties, invalidated: Vec<String> },
-    Added { path: OwnedObjectPath, interfaces: HashMap<String, Properties> },
-    Removed { path: OwnedObjectPath, interfaces: Vec<String> },
+    Changed {
+        path: OwnedObjectPath,
+        interface: String,
+        changed: Properties,
+        invalidated: Vec<String>,
+    },
+    Added {
+        path: OwnedObjectPath,
+        interfaces: HashMap<String, Properties>,
+    },
+    Removed {
+        path: OwnedObjectPath,
+        interfaces: Vec<String>,
+    },
     /// bluetoothd started or stopped.
     Restarted,
     ScanTimeout(u64),
@@ -538,17 +684,34 @@ struct Actor {
     timeouts: Sender<u64>,
 }
 
-async fn run(qt: Qt, commands: Receiver<Command>, answer: Sender<Answer>, answers: Receiver<Answer>) {
+async fn run(
+    qt: Qt,
+    commands: Receiver<Command>,
+    answer: Sender<Answer>,
+    answers: Receiver<Answer>,
+) {
     let bus = match io::system_bus().await {
         Ok(bus) => bus,
         Err(e) => return log::warn("bluetooth", format_args!("no system bus: {e}")),
     };
-    let agent = Agent { qt: qt.clone(), answers, cancel: answer };
+    let agent = Agent {
+        qt: qt.clone(),
+        answers,
+        cancel: answer,
+    };
     if let Err(e) = bus.object_server().at(AGENT, agent).await {
         log::warn("bluetooth", format_args!("no pairing agent: {e}"));
     }
     let (timeouts, timed_out) = async_channel::bounded(4);
-    let mut actor = Actor { qt, bus, adapter: None, state: Adapter::default(), devices: Vec::new(), scans: 0, timeouts };
+    let mut actor = Actor {
+        qt,
+        bus,
+        adapter: None,
+        state: Adapter::default(),
+        devices: Vec::new(),
+        scans: 0,
+        timeouts,
+    };
     let events = commands
         .map(Event::Command)
         .chain(stream::once(Event::Closed))
@@ -560,13 +723,24 @@ async fn run(qt: Qt, commands: Receiver<Command>, answer: Sender<Answer>, answer
         match event {
             Event::Command(command) => actor.handle(command).await,
             Event::Closed => break,
-            Event::Changed { path, interface, changed, invalidated } => {
+            Event::Changed {
+                path,
+                interface,
+                changed,
+                invalidated,
+            } => {
                 let reset = Value::Bool(false);
-                let values = changed.iter().map(|(k, v)| (k.as_str(), &**v)).chain(invalidated.iter().map(|k| (k.as_str(), &reset)));
+                let values = changed
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), &**v))
+                    .chain(invalidated.iter().map(|k| (k.as_str(), &reset)));
                 if interface == ADAPTER && actor.adapter.as_ref() == Some(&path) {
                     values.for_each(|(k, v)| actor.state.set(k, v));
                     actor.publish_adapter();
-                } else if let (DEVICE, Some(device)) = (interface.as_str(), actor.devices.iter_mut().find(|d| d.path == path.as_str())) {
+                } else if let (DEVICE, Some(device)) = (
+                    interface.as_str(),
+                    actor.devices.iter_mut().find(|d| d.path == path.as_str()),
+                ) {
                     values.for_each(|(k, v)| device.set(k, v));
                     actor.publish_devices();
                 }
@@ -580,7 +754,8 @@ async fn run(qt: Qt, commands: Receiver<Command>, answer: Sender<Answer>, answer
                 }
             }
             Event::Removed { path, interfaces } => {
-                if interfaces.iter().any(|i| i == ADAPTER) && actor.adapter.as_ref() == Some(&path) {
+                if interfaces.iter().any(|i| i == ADAPTER) && actor.adapter.as_ref() == Some(&path)
+                {
                     actor.load().await;
                 } else if interfaces.iter().any(|i| i == DEVICE) {
                     actor.devices.retain(|d| d.path != path.as_str());
@@ -600,7 +775,9 @@ async fn run(qt: Qt, commands: Receiver<Command>, answer: Sender<Answer>, answer
 impl Actor {
     fn publish_adapter(&self) {
         let (available, state) = (self.adapter.is_some(), self.state.clone());
-        self.qt.queue(move |obj| obj.apply_adapter(available, &state)).ok();
+        self.qt
+            .queue(move |obj| obj.apply_adapter(available, &state))
+            .ok();
     }
 
     fn publish_devices(&self) {
@@ -609,10 +786,19 @@ impl Actor {
     }
 
     fn add(&mut self, path: &OwnedObjectPath, props: &Properties) {
-        if self.adapter.as_ref().is_none_or(|a| !path.as_str().starts_with(a.as_str())) || self.devices.iter().any(|d| d.path == path.as_str()) {
+        if self
+            .adapter
+            .as_ref()
+            .is_none_or(|a| !path.as_str().starts_with(a.as_str()))
+            || self.devices.iter().any(|d| d.path == path.as_str())
+        {
             return;
         }
-        let mut device = Device { path: path.to_string(), icon: icon(""), ..Device::default() };
+        let mut device = Device {
+            path: path.to_string(),
+            icon: icon(""),
+            ..Device::default()
+        };
         for (key, value) in props {
             device.set(key, value);
         }
@@ -625,7 +811,10 @@ impl Actor {
         self.adapter = None;
         self.state = Adapter::default();
         self.devices.clear();
-        let objects = match ObjectManagerProxy::builder(&self.bus).destination(BLUEZ).and_then(|b| b.path("/")) {
+        let objects = match ObjectManagerProxy::builder(&self.bus)
+            .destination(BLUEZ)
+            .and_then(|b| b.path("/"))
+        {
             Ok(b) => match b.build().await {
                 Ok(manager) => manager.get_managed_objects().await,
                 Err(e) => Err(e.into()),
@@ -633,7 +822,9 @@ impl Actor {
             Err(e) => Err(e.into()),
         };
         let objects = objects.unwrap_or_default();
-        let adapter = objects.iter().find_map(|(path, ifaces)| Some((path, ifaces.iter().find(|(i, _)| i.as_str() == ADAPTER)?.1)));
+        let adapter = objects.iter().find_map(|(path, ifaces)| {
+            Some((path, ifaces.iter().find(|(i, _)| i.as_str() == ADAPTER)?.1))
+        });
         if let Some((path, props)) = adapter {
             self.adapter = Some(path.clone());
             for (key, value) in props {
@@ -657,23 +848,35 @@ impl Actor {
             let manager = AgentManager1Proxy::new(&self.bus).await?;
             let path = ObjectPath::from_static_str_unchecked(AGENT);
             match manager.register_agent(&path, "KeyboardDisplay").await {
-                Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == "org.bluez.Error.AlreadyExists" => {}
+                Err(zbus::Error::MethodError(name, _, _))
+                    if name.as_str() == "org.bluez.Error.AlreadyExists" => {}
                 other => other?,
             }
             manager.request_default_agent(&path).await
         };
         if let Err(e) = registered.await {
-            log::warn("bluetooth", format_args!("pairing agent not registered: {e}"));
+            log::warn(
+                "bluetooth",
+                format_args!("pairing agent not registered: {e}"),
+            );
         }
     }
 
     async fn adapter_proxy(&self) -> Option<Adapter1Proxy<'static>> {
         let path = self.adapter.clone()?;
-        Adapter1Proxy::builder(&self.bus).path(path).ok()?.cache_properties(zbus::proxy::CacheProperties::No).build().await.ok()
+        Adapter1Proxy::builder(&self.bus)
+            .path(path)
+            .ok()?
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+            .ok()
     }
 
     async fn handle(&mut self, command: Command) {
-        let Some(adapter) = self.adapter_proxy().await else { return };
+        let Some(adapter) = self.adapter_proxy().await else {
+            return;
+        };
         let result = match command {
             Command::Powered(on) => {
                 if on {
@@ -709,7 +912,10 @@ impl Actor {
                         let address = QString::from(address.as_str());
                         match result {
                             Ok(()) => obj.as_mut().pairing_succeeded(&address),
-                            Err(e) => obj.as_mut().pairing_failed(&address, &QString::from(pairing_error(&e).as_str())),
+                            Err(e) => obj.as_mut().pairing_failed(
+                                &address,
+                                &QString::from(pairing_error(&e).as_str()),
+                            ),
                         }
                     })
                     .ok();
@@ -741,20 +947,33 @@ impl Actor {
                 .map(zbus::match_rule::Builder::build)
         };
         let stream = |rule: zbus::Result<MatchRule<'static>>| async {
-            MessageStream::for_match_rule(rule.ok()?, &self.bus, Some(64)).await.ok()
+            MessageStream::for_match_rule(rule.ok()?, &self.bus, Some(64))
+                .await
+                .ok()
         };
         let mut merged = stream::empty().boxed();
-        if let Some(s) = stream(rule("org.freedesktop.DBus.Properties", "PropertiesChanged")).await {
+        if let Some(s) = stream(rule("org.freedesktop.DBus.Properties", "PropertiesChanged")).await
+        {
             merged = merged
                 .or(s.filter_map(|m| {
                     let m = m.ok()?;
                     let path = OwnedObjectPath::from(m.header().path()?.clone());
                     let (interface, changed, invalidated) = m.body().deserialize().ok()?;
-                    Some(Event::Changed { path, interface, changed, invalidated })
+                    Some(Event::Changed {
+                        path,
+                        interface,
+                        changed,
+                        invalidated,
+                    })
                 }))
                 .boxed();
         }
-        if let Some(s) = stream(rule("org.freedesktop.DBus.ObjectManager", "InterfacesAdded")).await {
+        if let Some(s) = stream(rule(
+            "org.freedesktop.DBus.ObjectManager",
+            "InterfacesAdded",
+        ))
+        .await
+        {
             merged = merged
                 .or(s.filter_map(|m| {
                     let (path, interfaces) = m.ok()?.body().deserialize().ok()?;
@@ -762,7 +981,12 @@ impl Actor {
                 }))
                 .boxed();
         }
-        if let Some(s) = stream(rule("org.freedesktop.DBus.ObjectManager", "InterfacesRemoved")).await {
+        if let Some(s) = stream(rule(
+            "org.freedesktop.DBus.ObjectManager",
+            "InterfacesRemoved",
+        ))
+        .await
+        {
             merged = merged
                 .or(s.filter_map(|m| {
                     let (path, interfaces) = m.ok()?.body().deserialize().ok()?;
@@ -771,7 +995,10 @@ impl Actor {
                 .boxed();
         }
         if let Ok(dbus) = DBusProxy::new(&self.bus).await {
-            if let Ok(owners) = dbus.receive_name_owner_changed_with_args(&[(0, BLUEZ)]).await {
+            if let Ok(owners) = dbus
+                .receive_name_owner_changed_with_args(&[(0, BLUEZ)])
+                .await
+            {
                 merged = merged.or(owners.map(|_| Event::Restarted)).boxed();
             }
         }
@@ -780,17 +1007,25 @@ impl Actor {
 }
 
 async fn device_call(bus: &zbus::Connection, path: &str, method: &str) -> zbus::Result<()> {
-    bus.call_method(Some(BLUEZ), path, Some(DEVICE), method, &()).await.map(|_| ())
+    bus.call_method(Some(BLUEZ), path, Some(DEVICE), method, &())
+        .await
+        .map(|_| ())
 }
 
 fn pairing_error(e: &zbus::Error) -> String {
     match e {
-        zbus::Error::MethodError(name, message, _) => message.clone().unwrap_or_else(|| name.to_string()),
+        zbus::Error::MethodError(name, message, _) => {
+            message.clone().unwrap_or_else(|| name.to_string())
+        }
         other => other.to_string(),
     }
 }
 
-#[allow(clippy::unused_self, clippy::used_underscore_binding, reason = "Agent1's methods, most answered as they come")]
+#[allow(
+    clippy::unused_self,
+    clippy::used_underscore_binding,
+    reason = "Agent1's methods, most answered as they come"
+)]
 mod agent {
     use async_channel::{Receiver, Sender};
     use zbus::zvariant::ObjectPath;
@@ -844,7 +1079,11 @@ mod agent {
             }
         }
 
-        async fn request_confirmation(&self, device: ObjectPath<'_>, passkey: u32) -> Result<(), AgentError> {
+        async fn request_confirmation(
+            &self,
+            device: ObjectPath<'_>,
+            passkey: u32,
+        ) -> Result<(), AgentError> {
             match self.ask(Ask::Confirm(passkey), &device).await {
                 Answer::Confirm(true) => Ok(()),
                 _ => Err(rejected()),
@@ -885,7 +1124,10 @@ mod tests {
         assert!(!speaker.connected);
         speaker.set("Connected", &Value::from(true));
         assert!(speaker.connected && speaker.paired);
-        assert_eq!((speaker.shown_name(), speaker.icon), ("Speaker", "volume-2"));
+        assert_eq!(
+            (speaker.shown_name(), speaker.icon),
+            ("Speaker", "volume-2")
+        );
         speaker.set("Connected", &Value::Bool(false));
         assert!(!speaker.connected);
     }
@@ -895,6 +1137,9 @@ mod tests {
         assert_eq!(icon("audio-headphones"), "music");
         assert_eq!(icon("input-keyboard"), "keyboard");
         assert_eq!(icon(""), "bluetooth");
-        assert_eq!(address_of("/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"), "AA:BB:CC:DD:EE:FF");
+        assert_eq!(
+            address_of("/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"),
+            "AA:BB:CC:DD:EE:FF"
+        );
     }
 }

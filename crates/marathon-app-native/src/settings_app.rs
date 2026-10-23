@@ -97,7 +97,13 @@ pub mod qobject {
         #[qproperty(bool, auto_capitalize_enabled, cxx_name = "autoCapitalizeEnabled", READ, WRITE = set_auto_capitalize_enabled, NOTIFY)]
         #[qproperty(bool, haptic_feedback_enabled, cxx_name = "hapticFeedbackEnabled", READ, WRITE = set_haptic_feedback_enabled, NOTIFY)]
         #[qproperty(bool, predictions_enabled, cxx_name = "predictionsEnabled", READ, WRITE = set_predictions_enabled, NOTIFY)]
-        #[qproperty(QStringList, available_languages, cxx_name = "availableLanguages", READ, CONSTANT)]
+        #[qproperty(
+            QStringList,
+            available_languages,
+            cxx_name = "availableLanguages",
+            READ,
+            CONSTANT
+        )]
         type KeyboardSettingsStore = super::KeyboardSettingsStoreRust;
 
         #[cxx_name = "setCurrentLanguage"]
@@ -127,7 +133,13 @@ pub mod qobject {
         #[qproperty(QString, display_refresh_rate, cxx_name = "displayRefreshRate", READ, NOTIFY = system_info_changed)]
         #[qproperty(QString, display_dpi, cxx_name = "displayDpi", READ, NOTIFY = system_info_changed)]
         #[qproperty(QString, display_scale, cxx_name = "displayScale", READ, NOTIFY = system_info_changed)]
-        #[qproperty(QList_QVariant, open_source_licenses, cxx_name = "openSourceLicenses", READ, CONSTANT)]
+        #[qproperty(
+            QList_QVariant,
+            open_source_licenses,
+            cxx_name = "openSourceLicenses",
+            READ,
+            CONSTANT
+        )]
         #[qproperty(bool, wifi_dialog_visible, cxx_name = "wifiDialogVisible", READ, NOTIFY = wifi_dialog_changed)]
         #[qproperty(QString, wifi_dialog_ssid, cxx_name = "wifiDialogSsid", READ, NOTIFY = wifi_dialog_changed)]
         #[qproperty(i32, wifi_dialog_strength, cxx_name = "wifiDialogStrength", READ, NOTIFY = wifi_dialog_changed)]
@@ -161,14 +173,30 @@ pub mod qobject {
         fn system_info_changed(self: Pin<&mut Self>);
 
         #[cxx_name = "initDisplay"]
-        fn init_display(self: Pin<&mut SettingsController>, resolution: &QString, refresh_rate: &QString, dpi: &QString, scale: &QString);
+        fn init_display(
+            self: Pin<&mut SettingsController>,
+            resolution: &QString,
+            refresh_rate: &QString,
+            dpi: &QString,
+            scale: &QString,
+        );
 
         #[qinvokable]
         #[cxx_name = "setNotificationEnabled"]
-        fn set_notification_enabled(self: Pin<&mut SettingsController>, app_id: &QString, enabled: bool);
+        fn set_notification_enabled(
+            self: Pin<&mut SettingsController>,
+            app_id: &QString,
+            enabled: bool,
+        );
         #[qinvokable]
         #[cxx_name = "showWifiDialog"]
-        fn show_wifi_dialog(self: Pin<&mut SettingsController>, ssid: &QString, strength: i32, security: &QString, secured: bool);
+        fn show_wifi_dialog(
+            self: Pin<&mut SettingsController>,
+            ssid: &QString,
+            strength: i32,
+            security: &QString,
+            secured: bool,
+        );
         #[qinvokable]
         #[cxx_name = "dismissWifiDialog"]
         fn dismiss_wifi_dialog(self: Pin<&mut SettingsController>);
@@ -177,19 +205,42 @@ pub mod qobject {
         fn submit_wifi_password(self: Pin<&mut SettingsController>, password: &QString);
         #[qinvokable]
         #[cxx_name = "connectSavedNetwork"]
-        fn connect_saved_network(self: Pin<&mut SettingsController>, ssid: &QString, strength: i32, security: &QString, secured: bool);
+        fn connect_saved_network(
+            self: Pin<&mut SettingsController>,
+            ssid: &QString,
+            strength: i32,
+            security: &QString,
+            secured: bool,
+        );
         #[qinvokable]
         #[cxx_name = "showHiddenNetworkDialog"]
         fn show_hidden_network_dialog(self: Pin<&mut SettingsController>);
         #[qinvokable]
         #[cxx_name = "connectHiddenNetwork"]
-        fn connect_hidden_network(self: Pin<&mut SettingsController>, ssid: &QString, security: &QString, password: &QString);
+        fn connect_hidden_network(
+            self: Pin<&mut SettingsController>,
+            ssid: &QString,
+            security: &QString,
+            password: &QString,
+        );
         #[qinvokable]
         #[cxx_name = "showBluetoothDialog"]
-        fn show_bluetooth_dialog(self: Pin<&mut SettingsController>, name: &QString, address: &QString, device_type: &QString, mode: &QString);
+        fn show_bluetooth_dialog(
+            self: Pin<&mut SettingsController>,
+            name: &QString,
+            address: &QString,
+            device_type: &QString,
+            mode: &QString,
+        );
         #[qinvokable]
         #[cxx_name = "showBluetoothPasskeyConfirmation"]
-        fn show_bluetooth_passkey_confirmation(self: Pin<&mut SettingsController>, name: &QString, address: &QString, device_type: &QString, passkey: u32);
+        fn show_bluetooth_passkey_confirmation(
+            self: Pin<&mut SettingsController>,
+            name: &QString,
+            address: &QString,
+            device_type: &QString,
+            passkey: u32,
+        );
         #[qinvokable]
         #[cxx_name = "dismissBluetoothDialog"]
         fn dismiss_bluetooth_dialog(self: Pin<&mut SettingsController>);
@@ -213,13 +264,26 @@ pub mod qobject {
         fn bluetooth_help_text(self: &SettingsController, mode: &QString) -> QString;
         #[qinvokable]
         #[cxx_name = "bluetoothCanPair"]
-        fn bluetooth_can_pair(self: &SettingsController, mode: &QString, pin: &QString, passkey: &QString) -> bool;
+        fn bluetooth_can_pair(
+            self: &SettingsController,
+            mode: &QString,
+            pin: &QString,
+            passkey: &QString,
+        ) -> bool;
         #[qinvokable]
         #[cxx_name = "lockoutStatusText"]
-        fn lockout_status_text(self: &SettingsController, locked_out: bool, seconds_remaining: i32) -> QString;
+        fn lockout_status_text(
+            self: &SettingsController,
+            locked_out: bool,
+            seconds_remaining: i32,
+        ) -> QString;
         #[qinvokable]
         #[cxx_name = "quickPinValidationError"]
-        fn quick_pin_validation_error(self: &SettingsController, pin: &QString, password: &QString) -> QString;
+        fn quick_pin_validation_error(
+            self: &SettingsController,
+            pin: &QString,
+            password: &QString,
+        ) -> QString;
     }
 
     impl cxx_qt::Threading for MmsSettings {}
@@ -267,9 +331,13 @@ impl Default for MmsSettingsRust {
     }
 }
 
-async fn mms_call<B: serde::Serialize + zbus::zvariant::DynamicType>(method: &str, body: &B) -> zbus::Result<zbus::Message> {
+async fn mms_call<B: serde::Serialize + zbus::zvariant::DynamicType>(
+    method: &str,
+    body: &B,
+) -> zbus::Result<zbus::Message> {
     let bus = io::session_bus().await?;
-    bus.call_method(Some(MMS_SERVICE), MMS_PATH, Some(MMS_IFACE), method, body).await
+    bus.call_method(Some(MMS_SERVICE), MMS_PATH, Some(MMS_IFACE), method, body)
+        .await
 }
 
 impl cxx_qt::Initialize for MmsSettings {
@@ -277,7 +345,9 @@ impl cxx_qt::Initialize for MmsSettings {
         self.refresh();
         let qt = self.qt_thread();
         io::spawn(async move {
-            let Ok(bus) = io::session_bus().await else { return };
+            let Ok(bus) = io::session_bus().await else {
+                return;
+            };
             let Ok(rule) = MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
                 .sender(MMS_SERVICE)
@@ -288,7 +358,9 @@ impl cxx_qt::Initialize for MmsSettings {
             else {
                 return;
             };
-            let Ok(mut stream) = MessageStream::for_match_rule(rule, &bus, None).await else { return };
+            let Ok(mut stream) = MessageStream::for_match_rule(rule, &bus, None).await else {
+                return;
+            };
             while stream.next().await.is_some() {
                 qt.queue(|obj| obj.refresh()).ok();
             }
@@ -300,7 +372,9 @@ impl MmsSettings {
     fn refresh(&self) {
         let qt = self.qt_thread();
         io::spawn(async move {
-            let reply = mms_call("ViewSettings", &()).await.and_then(|m| m.body().deserialize::<HashMap<String, OwnedValue>>());
+            let reply = mms_call("ViewSettings", &())
+                .await
+                .and_then(|m| m.body().deserialize::<HashMap<String, OwnedValue>>());
             qt.queue(move |mut obj| {
                 let mut rust = obj.as_mut().rust_mut();
                 rust.loaded = true;
@@ -309,7 +383,10 @@ impl MmsSettings {
                     rust.mmsc = get(&map, "CarrierMMSC");
                     rust.apn = get(&map, "MMS_APN");
                     rust.proxy = get(&map, "CarrierMMSProxy");
-                    rust.auto_download = map.get("AutoProcessSMSWAP").and_then(bool::from_value).unwrap_or(true);
+                    rust.auto_download = map
+                        .get("AutoProcessSMSWAP")
+                        .and_then(bool::from_value)
+                        .unwrap_or(true);
                 } else {
                     rust.available = false;
                     rust.mmsc = QString::default();
@@ -324,12 +401,24 @@ impl MmsSettings {
     }
 
     fn save(&self, mmsc: &QString, apn: &QString, proxy: &QString) {
-        let (qt, mmsc, apn, proxy) = (self.qt_thread(), mmsc.to_string(), apn.to_string(), proxy.to_string());
+        let (qt, mmsc, apn, proxy) = (
+            self.qt_thread(),
+            mmsc.to_string(),
+            apn.to_string(),
+            proxy.to_string(),
+        );
         io::spawn(async move {
             let mut all = HashMap::<&str, Value<'_>>::new();
             all.insert("CarrierMMSC", Value::from(mmsc));
             all.insert("MMS_APN", Value::from(apn));
-            all.insert("CarrierMMSProxy", Value::from(if proxy.is_empty() { "NULL".to_owned() } else { proxy }));
+            all.insert(
+                "CarrierMMSProxy",
+                Value::from(if proxy.is_empty() {
+                    "NULL".to_owned()
+                } else {
+                    proxy
+                }),
+            );
             let reply = mms_call("ChangeAllSettings", &(all,)).await;
             if reply.is_ok() {
                 mms_call("ProcessMessageQueue", &()).await.ok();
@@ -375,7 +464,10 @@ pub struct StorageInfoRust {
     used_space_string: QString,
 }
 
-#[allow(clippy::cast_precision_loss, reason = "human-readable storage formatting")]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "human-readable storage formatting"
+)]
 fn format_bytes(bytes: i64) -> QString {
     const KB: i64 = 1024;
     const MB: i64 = KB * 1024;
@@ -404,14 +496,17 @@ fn stat_disk() -> (i64, i64) {
     candidates.push(PathBuf::from("/usr"));
     candidates.push(PathBuf::from("/"));
     for path in &candidates {
-        let Ok(cpath) = CString::new(path.to_string_lossy().as_bytes()) else { continue };
+        let Ok(cpath) = CString::new(path.to_string_lossy().as_bytes()) else {
+            continue;
+        };
         // SAFETY: zeroed statfs struct filled by libc::statfs with valid C string.
         let (rc, s) = unsafe {
             let mut s: libc::statfs = std::mem::zeroed();
             (libc::statfs(cpath.as_ptr(), &raw mut s), s)
         };
-        if rc == 0 && s.f_type != TMPFS_MAGIC && s.f_blocks > 0 {
-            let bsize = i64::try_from(s.f_frsize).unwrap_or(4096);
+        let fs_type = u64::try_from(s.f_type).unwrap_or(u64::MAX);
+        if rc == 0 && fs_type != TMPFS_MAGIC && s.f_blocks > 0 {
+            let bsize = i64::try_from(s.f_frsize).unwrap_or(0);
             let total = i64::try_from(s.f_blocks).unwrap_or(0).saturating_mul(bsize);
             let avail = i64::try_from(s.f_bavail).unwrap_or(0).saturating_mul(bsize);
             return (total, avail);
@@ -431,7 +526,11 @@ impl StorageInfo {
     fn refresh(mut self: Pin<&mut Self>) {
         let (total, avail) = stat_disk();
         let used = (total - avail).max(0);
-        let pct = if total > 0 { used as f64 / total as f64 } else { 0.0 };
+        let pct = if total > 0 {
+            used as f64 / total as f64
+        } else {
+            0.0
+        };
         let mut rust = self.as_mut().rust_mut();
         rust.total_space = total;
         rust.available_space = avail;
@@ -487,14 +586,24 @@ fn canonical_zones() -> HashSet<String> {
 impl Default for TimeZoneListRust {
     fn default() -> Self {
         const REGIONS: [&str; 9] = [
-            "Africa", "America", "Antarctica", "Asia", "Atlantic", "Australia", "Europe", "Indian", "Pacific",
+            "Africa",
+            "America",
+            "Antarctica",
+            "Asia",
+            "Atlantic",
+            "Australia",
+            "Europe",
+            "Indian",
+            "Pacific",
         ];
         let now = Timestamp::now();
         let canonical = canonical_zones();
         let mut entries = Vec::new();
         for raw_id in jiff::tz::db().available() {
             let id = raw_id.as_str();
-            let Some((region, _)) = id.split_once('/') else { continue };
+            let Some((region, _)) = id.split_once('/') else {
+                continue;
+            };
             if !REGIONS.contains(&region) || (!canonical.is_empty() && !canonical.contains(id)) {
                 continue;
             }
@@ -594,9 +703,14 @@ impl Default for KeyboardSettingsStoreRust {
 impl cxx_qt::Initialize for KeyboardSettingsStore {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), SETTINGS, "PropertyChanged", |mut obj, (name, val): (String, OwnedValue)| {
-            obj.as_mut().apply_prop(&name, &val);
-        });
+        relay(
+            qt.clone(),
+            SETTINGS,
+            "PropertyChanged",
+            |mut obj, (name, val): (String, OwnedValue)| {
+                obj.as_mut().apply_prop(&name, &val);
+            },
+        );
         io::spawn(async move {
             if let Ok(state) = SETTINGS.ask::<_, State>("GetState", &()).await {
                 qt.queue(move |mut obj| {
@@ -664,7 +778,10 @@ impl KeyboardSettingsStore {
         }
         self.as_mut().rust_mut().current_language = language_id.clone();
         self.current_language_changed();
-        SETTINGS.call("SetProperty", ("keyboardLanguage", Value::from(language_id.to_string())));
+        SETTINGS.call(
+            "SetProperty",
+            ("keyboardLanguage", Value::from(language_id.to_string())),
+        );
     }
 
     fn set_auto_correct_enabled(mut self: Pin<&mut Self>, enabled: bool) {
@@ -673,7 +790,10 @@ impl KeyboardSettingsStore {
         }
         self.as_mut().rust_mut().auto_correct_enabled = enabled;
         self.auto_correct_enabled_changed();
-        SETTINGS.call("SetProperty", ("keyboardAutoCorrection", Value::from(enabled)));
+        SETTINGS.call(
+            "SetProperty",
+            ("keyboardAutoCorrection", Value::from(enabled)),
+        );
     }
 
     fn set_auto_capitalize_enabled(mut self: Pin<&mut Self>, enabled: bool) {
@@ -682,7 +802,10 @@ impl KeyboardSettingsStore {
         }
         self.as_mut().rust_mut().auto_capitalize_enabled = enabled;
         self.auto_capitalize_enabled_changed();
-        SETTINGS.call("SetProperty", ("keyboardAutoCapitalize", Value::from(enabled)));
+        SETTINGS.call(
+            "SetProperty",
+            ("keyboardAutoCapitalize", Value::from(enabled)),
+        );
     }
 
     fn set_haptic_feedback_enabled(mut self: Pin<&mut Self>, enabled: bool) {
@@ -692,7 +815,10 @@ impl KeyboardSettingsStore {
         self.as_mut().rust_mut().haptic_feedback_enabled = enabled;
         self.haptic_feedback_enabled_changed();
         let strength = if enabled { "medium" } else { "off" };
-        SETTINGS.call("SetProperty", ("keyboardHapticStrength", Value::from(strength)));
+        SETTINGS.call(
+            "SetProperty",
+            ("keyboardHapticStrength", Value::from(strength)),
+        );
     }
 
     fn set_predictions_enabled(mut self: Pin<&mut Self>, enabled: bool) {
@@ -701,12 +827,18 @@ impl KeyboardSettingsStore {
         }
         self.as_mut().rust_mut().predictions_enabled = enabled;
         self.predictions_enabled_changed();
-        SETTINGS.call("SetProperty", ("keyboardPredictiveText", Value::from(enabled)));
+        SETTINGS.call(
+            "SetProperty",
+            ("keyboardPredictiveText", Value::from(enabled)),
+        );
     }
 
     fn get_language_name(&self, language_id: &QString) -> QString {
         let id = language_id.to_string();
-        LANGUAGES.iter().find(|(k, _)| *k == id).map_or_else(|| language_id.clone(), |(_, v)| q(v))
+        LANGUAGES
+            .iter()
+            .find(|(k, _)| *k == id)
+            .map_or_else(|| language_id.clone(), |(_, v)| q(v))
     }
 }
 
@@ -752,7 +884,10 @@ pub struct SettingsControllerRust {
 fn read_trimmed(path: &str) -> Option<String> {
     fs::read_to_string(path)
         .ok()
-        .map(|s| s.trim_matches(|c: char| c == '\0' || c.is_whitespace()).to_owned())
+        .map(|s| {
+            s.trim_matches(|c: char| c == '\0' || c.is_whitespace())
+                .to_owned()
+        })
         .filter(|s| !s.is_empty())
 }
 
@@ -786,14 +921,25 @@ fn licenses_list() -> QList<QVariant> {
         QVariant::from(&m)
     };
     let mut out = QList::<QVariant>::default();
-    out.append(section("Marathon OS", &[("Marathon Shell", "Core shell and system apps", "Apache-2.0")]));
+    out.append(section(
+        "Marathon OS",
+        &[("Marathon Shell", "Core shell and system apps", "Apache-2.0")],
+    ));
     out.append(section(
         "Third-party components",
         &[
-            ("Qt 6", "Qt Core, QML, Quick, Wayland, WebEngine", "LGPL-3.0 / GPL-3.0"),
+            (
+                "Qt 6",
+                "Qt Core, QML, Quick, Wayland, WebEngine",
+                "LGPL-3.0 / GPL-3.0",
+            ),
             ("LunaSVG", "SVG rendering backend", "MIT"),
             ("PlutoVG", "Vector graphics rasterizer (via LunaSVG)", "MIT"),
-            ("Hunspell", "Spell checking and predictions", "MPL-1.1 / LGPL-2.1 / GPL-2.0"),
+            (
+                "Hunspell",
+                "Spell checking and predictions",
+                "MPL-1.1 / LGPL-2.1 / GPL-2.0",
+            ),
             ("Wayland Protocols", "Wayland compositor + protocols", "MIT"),
             ("GStreamer", "Media playback backend", "LGPL-2.1"),
             ("PulseAudio", "Audio routing backend", "LGPL-2.1"),
@@ -870,39 +1016,79 @@ impl cxx_qt::Initialize for SettingsController {
             r.wifi_dialog_visible = false;
             obj.wifi_dialog_changed();
         });
-        relay(qt.clone(), NETWORK, "ConnectionFailed", |mut obj, (msg,): (String,)| {
-            let mut r = obj.as_mut().rust_mut();
-            r.wifi_dialog_connecting = false;
-            r.wifi_dialog_error = q(&msg);
-            obj.wifi_dialog_changed();
-        });
-        relay(qt.clone(), BLUETOOTH, "PairingSucceeded", |mut obj, (_addr,): (String,)| {
-            let mut r = obj.as_mut().rust_mut();
-            r.bluetooth_dialog_pairing = false;
-            r.bluetooth_dialog_error = QString::default();
-            r.bluetooth_dialog_visible = false;
-            obj.bluetooth_dialog_changed();
-        });
-        relay(qt.clone(), BLUETOOTH, "PairingFailed", |mut obj, (_addr, err): (String, String)| {
-            let mut r = obj.as_mut().rust_mut();
-            r.bluetooth_dialog_pairing = false;
-            r.bluetooth_dialog_error = q(&err);
-            obj.bluetooth_dialog_changed();
-        });
-        relay(qt.clone(), BLUETOOTH, "PinRequested", |obj, (addr, name): (String, String)| {
-            obj.show_bluetooth_dialog(&q(&name), &q(&addr), &q("device"), &q("pin"));
-        });
-        relay(qt.clone(), BLUETOOTH, "PasskeyRequested", |obj, (addr, name): (String, String)| {
-            obj.show_bluetooth_dialog(&q(&name), &q(&addr), &q("device"), &q("passkey"));
-        });
-        relay(qt.clone(), BLUETOOTH, "PasskeyConfirmation", |obj, (addr, name, passkey): (String, String, u32)| {
-            obj.show_bluetooth_passkey_confirmation(&q(&name), &q(&addr), &q("device"), passkey);
-        });
-        relay(qt.clone(), SETTINGS, "PropertyChanged", |obj, (name, value): (String, OwnedValue)| {
-            if name == "appNotificationSettings" {
-                apply_notification_settings(obj, Some(&value));
-            }
-        });
+        relay(
+            qt.clone(),
+            NETWORK,
+            "ConnectionFailed",
+            |mut obj, (msg,): (String,)| {
+                let mut r = obj.as_mut().rust_mut();
+                r.wifi_dialog_connecting = false;
+                r.wifi_dialog_error = q(&msg);
+                obj.wifi_dialog_changed();
+            },
+        );
+        relay(
+            qt.clone(),
+            BLUETOOTH,
+            "PairingSucceeded",
+            |mut obj, (_addr,): (String,)| {
+                let mut r = obj.as_mut().rust_mut();
+                r.bluetooth_dialog_pairing = false;
+                r.bluetooth_dialog_error = QString::default();
+                r.bluetooth_dialog_visible = false;
+                obj.bluetooth_dialog_changed();
+            },
+        );
+        relay(
+            qt.clone(),
+            BLUETOOTH,
+            "PairingFailed",
+            |mut obj, (_addr, err): (String, String)| {
+                let mut r = obj.as_mut().rust_mut();
+                r.bluetooth_dialog_pairing = false;
+                r.bluetooth_dialog_error = q(&err);
+                obj.bluetooth_dialog_changed();
+            },
+        );
+        relay(
+            qt.clone(),
+            BLUETOOTH,
+            "PinRequested",
+            |obj, (addr, name): (String, String)| {
+                obj.show_bluetooth_dialog(&q(&name), &q(&addr), &q("device"), &q("pin"));
+            },
+        );
+        relay(
+            qt.clone(),
+            BLUETOOTH,
+            "PasskeyRequested",
+            |obj, (addr, name): (String, String)| {
+                obj.show_bluetooth_dialog(&q(&name), &q(&addr), &q("device"), &q("passkey"));
+            },
+        );
+        relay(
+            qt.clone(),
+            BLUETOOTH,
+            "PasskeyConfirmation",
+            |obj, (addr, name, passkey): (String, String, u32)| {
+                obj.show_bluetooth_passkey_confirmation(
+                    &q(&name),
+                    &q(&addr),
+                    &q("device"),
+                    passkey,
+                );
+            },
+        );
+        relay(
+            qt.clone(),
+            SETTINGS,
+            "PropertyChanged",
+            |obj, (name, value): (String, OwnedValue)| {
+                if name == "appNotificationSettings" {
+                    apply_notification_settings(obj, Some(&value));
+                }
+            },
+        );
         mirror(qt, SETTINGS, "system", |obj, update| {
             if let Update::State(s) = &update {
                 apply_notification_settings(obj, s.get("appNotificationSettings"));
@@ -926,7 +1112,13 @@ fn apply_notification_settings(mut obj: Pin<&mut SettingsController>, v: Option<
 }
 
 impl SettingsController {
-    fn init_display(mut self: Pin<&mut Self>, resolution: &QString, refresh_rate: &QString, dpi: &QString, scale: &QString) {
+    fn init_display(
+        mut self: Pin<&mut Self>,
+        resolution: &QString,
+        refresh_rate: &QString,
+        dpi: &QString,
+        scale: &QString,
+    ) {
         let mut r = self.as_mut().rust_mut();
         r.display_resolution = resolution.clone();
         r.display_refresh_rate = refresh_rate.clone();
@@ -945,10 +1137,19 @@ impl SettingsController {
             wire.insert(k.clone(), Value::from(*v));
         }
         self.notification_apps_changed();
-        SETTINGS.call("SetProperty", ("appNotificationSettings", Value::from(wire)));
+        SETTINGS.call(
+            "SetProperty",
+            ("appNotificationSettings", Value::from(wire)),
+        );
     }
 
-    fn show_wifi_dialog(mut self: Pin<&mut Self>, ssid: &QString, strength: i32, security: &QString, secured: bool) {
+    fn show_wifi_dialog(
+        mut self: Pin<&mut Self>,
+        ssid: &QString,
+        strength: i32,
+        security: &QString,
+        secured: bool,
+    ) {
         let mut r = self.as_mut().rust_mut();
         if &r.wifi_dialog_ssid != ssid || r.wifi_dialog_hidden {
             r.wifi_dialog_password = QString::default();
@@ -956,7 +1157,11 @@ impl SettingsController {
         r.wifi_dialog_hidden = false;
         r.wifi_dialog_ssid = ssid.clone();
         r.wifi_dialog_strength = strength;
-        r.wifi_dialog_security = if security.is_empty() { q("WPA2") } else { security.clone() };
+        r.wifi_dialog_security = if security.is_empty() {
+            q("WPA2")
+        } else {
+            security.clone()
+        };
         r.wifi_dialog_secured = secured;
         r.wifi_dialog_connecting = false;
         r.wifi_dialog_error = QString::default();
@@ -982,8 +1187,15 @@ impl SettingsController {
         NETWORK.call("ConnectToNetwork", (ssid, pw));
     }
 
-    fn connect_saved_network(mut self: Pin<&mut Self>, ssid: &QString, strength: i32, security: &QString, secured: bool) {
-        self.as_mut().show_wifi_dialog(ssid, strength, security, secured);
+    fn connect_saved_network(
+        mut self: Pin<&mut Self>,
+        ssid: &QString,
+        strength: i32,
+        security: &QString,
+        secured: bool,
+    ) {
+        self.as_mut()
+            .show_wifi_dialog(ssid, strength, security, secured);
         self.submit_wifi_password(&QString::default());
     }
 
@@ -1001,7 +1213,12 @@ impl SettingsController {
         self.wifi_dialog_changed();
     }
 
-    fn connect_hidden_network(mut self: Pin<&mut Self>, ssid: &QString, security: &QString, password: &QString) {
+    fn connect_hidden_network(
+        mut self: Pin<&mut Self>,
+        ssid: &QString,
+        security: &QString,
+        password: &QString,
+    ) {
         let mut r = self.as_mut().rust_mut();
         r.wifi_dialog_hidden = true;
         r.wifi_dialog_visible = true;
@@ -1011,15 +1228,32 @@ impl SettingsController {
         r.wifi_dialog_connecting = true;
         r.wifi_dialog_error = QString::default();
         self.wifi_dialog_changed();
-        NETWORK.call("ConnectToHiddenNetwork", (ssid.to_string(), security.to_string(), password.to_string()));
+        NETWORK.call(
+            "ConnectToHiddenNetwork",
+            (ssid.to_string(), security.to_string(), password.to_string()),
+        );
     }
 
-    fn show_bluetooth_dialog(mut self: Pin<&mut Self>, name: &QString, address: &QString, device_type: &QString, mode: &QString) {
+    fn show_bluetooth_dialog(
+        mut self: Pin<&mut Self>,
+        name: &QString,
+        address: &QString,
+        device_type: &QString,
+        mode: &QString,
+    ) {
         let mut r = self.as_mut().rust_mut();
         r.bluetooth_dialog_name = name.clone();
         r.bluetooth_dialog_address = address.clone();
-        r.bluetooth_dialog_type = if device_type.is_empty() { q("device") } else { device_type.clone() };
-        r.bluetooth_dialog_mode = if mode.is_empty() { q("justworks") } else { mode.clone() };
+        r.bluetooth_dialog_type = if device_type.is_empty() {
+            q("device")
+        } else {
+            device_type.clone()
+        };
+        r.bluetooth_dialog_mode = if mode.is_empty() {
+            q("justworks")
+        } else {
+            mode.clone()
+        };
         r.bluetooth_dialog_passkey = QString::default();
         r.bluetooth_dialog_pairing = false;
         r.bluetooth_dialog_error = QString::default();
@@ -1027,11 +1261,21 @@ impl SettingsController {
         self.bluetooth_dialog_changed();
     }
 
-    fn show_bluetooth_passkey_confirmation(mut self: Pin<&mut Self>, name: &QString, address: &QString, device_type: &QString, passkey: u32) {
+    fn show_bluetooth_passkey_confirmation(
+        mut self: Pin<&mut Self>,
+        name: &QString,
+        address: &QString,
+        device_type: &QString,
+        passkey: u32,
+    ) {
         let mut r = self.as_mut().rust_mut();
         r.bluetooth_dialog_name = name.clone();
         r.bluetooth_dialog_address = address.clone();
-        r.bluetooth_dialog_type = if device_type.is_empty() { q("device") } else { device_type.clone() };
+        r.bluetooth_dialog_type = if device_type.is_empty() {
+            q("device")
+        } else {
+            device_type.clone()
+        };
         r.bluetooth_dialog_mode = q("confirm");
         r.bluetooth_dialog_passkey = q(&passkey.to_string());
         r.bluetooth_dialog_pairing = false;

@@ -30,13 +30,23 @@ namespace NativeBack {
         return Unknown;
     }
 
-    // GTK 4 closes dialogs, search bars and (AdwNavigationView) pages on Escape
-    // and does nothing else with it. Elsewhere the Back key is the navigation
-    // key: Kirigami (StandardKey.Back), Chromium, Firefox and Electron (GTK 3).
+    // XF86Back is the native navigation key across libadwaita, Kirigami and
+    // browsers. Keel uses Escape for its in-process page stack.
     inline int backKey(Toolkit toolkit, bool keelHosted) {
-        if (keelHosted || toolkit == Gtk4 || toolkit == Adwaita)
+        if (keelHosted)
             return Qt::Key_Escape;
         return Qt::Key_Back;
+    }
+
+    // Some GTK apps only wire Escape for an in-window dialog/search and some
+    // Qt/browser stacks only wire Alt+Left. Retry one standard shortcut when
+    // XF86Back produces no visible change.
+    inline int fallbackBackKey(Toolkit toolkit) {
+        return toolkit == Gtk4 || toolkit == Adwaita ? Qt::Key_Escape : Qt::Key_Left;
+    }
+
+    inline Qt::KeyboardModifiers fallbackBackModifiers(Toolkit toolkit) {
+        return toolkit == Gtk4 || toolkit == Adwaita ? Qt::NoModifier : Qt::AltModifier;
     }
 
     // How long a back has to show its effect before it counts as unhandled.

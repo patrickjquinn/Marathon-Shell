@@ -39,7 +39,6 @@ pub struct Store {
     cache: PathBuf,
 }
 
-
 fn read<T: DeserializeOwned>(path: &Path) -> Option<T> {
     serde_json::from_slice(&fs::read(path).ok()?).ok()
 }

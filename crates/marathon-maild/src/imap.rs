@@ -64,7 +64,9 @@ impl From<async_imap::error::Error> for Failure {
 
 impl From<std::io::Error> for Failure {
     fn from(e: std::io::Error) -> Self {
-        if e.get_ref().is_some_and(|inner| inner.to_string().contains("certificate")) {
+        if e.get_ref()
+            .is_some_and(|inner| inner.to_string().contains("certificate"))
+        {
             Self::Certificate(e.to_string())
         } else {
             Self::Offline(e.to_string())
@@ -74,18 +76,27 @@ impl From<std::io::Error> for Failure {
 
 fn tls() -> TlsConnector {
     static CONFIG: LazyLock<Arc<ClientConfig>> = LazyLock::new(|| {
-        let roots = RootCertStore { roots: webpki_roots::TLS_SERVER_ROOTS.to_vec() };
-        Arc::new(ClientConfig::builder().with_root_certificates(roots).with_no_client_auth())
+        let roots = RootCertStore {
+            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+        };
+        Arc::new(
+            ClientConfig::builder()
+                .with_root_certificates(roots)
+                .with_no_client_auth(),
+        )
     });
     TlsConnector::from(Arc::clone(&CONFIG))
 }
 
 async fn tcp(host: &str, port: u16) -> Result<Async<TcpStream>, Failure> {
     let target = format!("{host}:{port}");
-    let addrs: Vec<_> = blocking::unblock(move || target.to_socket_addrs().map(Iterator::collect)).await?;
+    let addrs: Vec<_> =
+        blocking::unblock(move || target.to_socket_addrs().map(Iterator::collect)).await?;
     let mut last = Failure::Offline(format!("{host} has no address"));
     for addr in addrs {
-        match marathon_rt::io::timeout(Duration::from_secs(15), Async::<TcpStream>::connect(addr)).await {
+        match marathon_rt::io::timeout(Duration::from_secs(15), Async::<TcpStream>::connect(addr))
+            .await
+        {
             Some(Ok(s)) => return Ok(s),
             Some(Err(e)) => last = e.into(),
             None => last = Failure::Offline(format!("{addr} did not answer")),
@@ -125,7 +136,10 @@ pub async fn connect(server: &Server) -> Result<Client<Stream>, Failure> {
                 let reply = line(&mut plain).await?;
                 if let Some(status) = reply.strip_prefix("a0 ") {
                     if !status.starts_with("OK") {
-                        return Err(Failure::Server(format!("STARTTLS refused: {}", reply.trim())));
+                        return Err(Failure::Server(format!(
+                            "STARTTLS refused: {}",
+                            reply.trim()
+                        )));
                     }
                     break;
                 }
@@ -157,11 +171,15 @@ pub fn xoauth2(user: &str, token: &str) -> String {
 /// Signed in with the account's password or OAuth token.
 pub async fn session(account: &Account) -> Result<Imap, Failure> {
     let client = connect(&account.imap).await?;
-    let secret = crate::secrets::credential(account).await.map_err(Failure::Login)?;
+    let secret = crate::secrets::credential(account)
+        .await
+        .map_err(Failure::Login)?;
     let signed = if account.provider.is_empty() {
         client.login(&account.username, &secret).await
     } else {
-        client.authenticate("XOAUTH2", XOAuth2(xoauth2(&account.username, &secret))).await
+        client
+            .authenticate("XOAUTH2", XOAuth2(xoauth2(&account.username, &secret)))
+            .await
     };
     signed.map_err(|(e, _)| Failure::Login(e.to_string()))
 }
@@ -189,25 +207,44 @@ pub async fn folders(s: &mut Imap, store: &Shared<Store>, account: i64) -> Resul
             found.push((name.name().to_owned(), store::kind(name.name(), special)));
         }
     }
-    store.with(move |st| st.set_folders(account, &found)).await.map_err(|e| Failure::Server(e.to_string()))
+    store
+        .with(move |st| st.set_folders(account, &found))
+        .await
+        .map_err(|e| Failure::Server(e.to_string()))
 }
 
 /// The folder's newest messages into the store; the ids of those new to
 /// the phone and unread.
-pub async fn sync(s: &mut Imap, store: &Shared<Store>, account: i64, folder: &str) -> Result<Vec<i64>, Failure> {
+pub async fn sync(
+    s: &mut Imap,
+    store: &Shared<Store>,
+    account: i64,
+    folder: &str,
+) -> Result<Vec<i64>, Failure> {
     let mailbox = s.select(folder).await?;
     let validity = mailbox.uid_validity.unwrap_or(0);
     let path = folder.to_owned();
     let failed = |e: rusqlite::Error| Failure::Server(e.to_string());
-    store.with(move |st| st.validate(account, &path, validity)).await.map_err(failed)?;
+    store
+        .with(move |st| st.validate(account, &path, validity))
+        .await
+        .map_err(failed)?;
     let mut server: HashMap<u32, (bool, u32)> = HashMap::new();
     if mailbox.exists > 0 {
         let from = mailbox.exists.saturating_sub(WINDOW - 1).max(1);
-        let mut fetches = s.fetch(format!("{from}:*"), "(UID FLAGS RFC822.SIZE)").await?;
+        let mut fetches = s
+            .fetch(format!("{from}:*"), "(UID FLAGS RFC822.SIZE)")
+            .await?;
         while let Some(f) = fetches.next().await {
             let f = f?;
             if let Some(uid) = f.uid {
-                server.insert(uid, (f.flags().any(|x| matches!(x, Flag::Seen)), f.size.unwrap_or(0)));
+                server.insert(
+                    uid,
+                    (
+                        f.flags().any(|x| matches!(x, Flag::Seen)),
+                        f.size.unwrap_or(0),
+                    ),
+                );
             }
         }
     }
@@ -223,13 +260,25 @@ pub async fn sync(s: &mut Imap, store: &Shared<Store>, account: i64, folder: &st
     // A folder's first sync brings its mail in; none of it is news.
     let primed = !known.is_empty();
     let mut added = Vec::new();
-    let new: Vec<(u32, bool, u32)> = server.iter().filter(|(u, _)| !known.contains_key(u)).map(|(u, (s, z))| (*u, *s, *z)).collect();
+    let new: Vec<(u32, bool, u32)> = server
+        .iter()
+        .filter(|(u, _)| !known.contains_key(u))
+        .map(|(u, (s, z))| (*u, *s, *z))
+        .collect();
     for whole in [true, false] {
-        let set: Vec<String> = new.iter().filter(|(_, _, size)| (*size < WHOLE_BELOW) == whole).map(|(u, _, _)| u.to_string()).collect();
+        let set: Vec<String> = new
+            .iter()
+            .filter(|(_, _, size)| (*size < WHOLE_BELOW) == whole)
+            .map(|(u, _, _)| u.to_string())
+            .collect();
         if set.is_empty() {
             continue;
         }
-        let item = if whole { "(UID FLAGS BODY.PEEK[])" } else { "(UID FLAGS BODY.PEEK[HEADER])" };
+        let item = if whole {
+            "(UID FLAGS BODY.PEEK[])"
+        } else {
+            "(UID FLAGS BODY.PEEK[HEADER])"
+        };
         let mut got = Vec::new();
         {
             let mut fetches = s.uid_fetch(set.join(","), item).await?;
@@ -261,7 +310,10 @@ pub async fn sync(s: &mut Imap, store: &Shared<Store>, account: i64, folder: &st
     let unread = u32::try_from(s.uid_search("UNSEEN").await?.len()).unwrap_or(u32::MAX);
     let path = folder.to_owned();
     let total = mailbox.exists;
-    store.with(move |st| st.set_counts(account, &path, unread, total)).await.map_err(failed)?;
+    store
+        .with(move |st| st.set_counts(account, &path, unread, total))
+        .await
+        .map_err(failed)?;
     Ok(if primed { added } else { Vec::new() })
 }
 
@@ -278,8 +330,15 @@ pub async fn whole(s: &mut Imap, folder: &str, uid: u32) -> Result<Vec<u8>, Fail
 
 pub async fn set_seen(s: &mut Imap, folder: &str, uid: u32, seen: bool) -> Result<(), Failure> {
     s.select(folder).await?;
-    let change = if seen { "+FLAGS (\\Seen)" } else { "-FLAGS (\\Seen)" };
-    s.uid_store(uid.to_string(), change).await?.collect::<Vec<_>>().await;
+    let change = if seen {
+        "+FLAGS (\\Seen)"
+    } else {
+        "-FLAGS (\\Seen)"
+    };
+    s.uid_store(uid.to_string(), change)
+        .await?
+        .collect::<Vec<_>>()
+        .await;
     Ok(())
 }
 
@@ -291,7 +350,10 @@ pub async fn move_to(s: &mut Imap, folder: &str, uid: u32, to: &str) -> Result<(
         s.uid_mv(uid.to_string(), to).await?;
     } else {
         s.uid_copy(uid.to_string(), to).await?;
-        s.uid_store(uid.to_string(), "+FLAGS (\\Deleted)").await?.collect::<Vec<_>>().await;
+        s.uid_store(uid.to_string(), "+FLAGS (\\Deleted)")
+            .await?
+            .collect::<Vec<_>>()
+            .await;
         s.expunge().await?.collect::<Vec<_>>().await;
     }
     Ok(())

@@ -55,13 +55,26 @@ pub struct ContactsRust {
 }
 
 async fn read(bus: &zbus::Connection) -> zbus::Result<Vec<Known>> {
-    let reply = bus.call_method(Some(BUS), PATH, Some(INTERFACE), "GetContacts", &()).await?;
+    let reply = bus
+        .call_method(Some(BUS), PATH, Some(INTERFACE), "GetContacts", &())
+        .await?;
     let rows: Vec<OwnedValue> = reply.body().deserialize()?;
-    let field = |row: &HashMap<String, OwnedValue>, key: &str| row.get(key).and_then(|v| String::try_from(v.try_clone().ok()?).ok()).unwrap_or_default();
+    let field = |row: &HashMap<String, OwnedValue>, key: &str| {
+        row.get(key)
+            .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
+            .unwrap_or_default()
+    };
     Ok(rows
         .into_iter()
         .filter_map(|row| HashMap::<String, OwnedValue>::try_from(row).ok())
-        .map(|row| Known { id: row.get("id").and_then(|v| i32::try_from(v).ok()).unwrap_or_default(), name: field(&row, "name"), phone: field(&row, "phone") })
+        .map(|row| Known {
+            id: row
+                .get("id")
+                .and_then(|v| i32::try_from(v).ok())
+                .unwrap_or_default(),
+            name: field(&row, "name"),
+            phone: field(&row, "phone"),
+        })
         .collect())
 }
 
@@ -69,7 +82,9 @@ impl cxx_qt::Initialize for Contacts {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
         io::spawn(async move {
-            let Ok(bus) = io::session_bus().await else { return log::warn("Contacts", "no session bus") };
+            let Ok(bus) = io::session_bus().await else {
+                return log::warn("Contacts", "no session bus");
+            };
             let rule = MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
                 .sender(BUS)
@@ -79,13 +94,16 @@ impl cxx_qt::Initialize for Contacts {
                 Ok(rule) => MessageStream::for_match_rule(rule.build(), &bus, None).await,
                 Err(e) => Err(e),
             };
-            let Ok(changes) = changes else { return log::warn("Contacts", "cannot follow the address book") };
+            let Ok(changes) = changes else {
+                return log::warn("Contacts", "cannot follow the address book");
+            };
             crate::ipc::named().await;
             let mut changes = std::pin::pin!(changes);
             loop {
                 match read(&bus).await {
                     Ok(known) => {
-                        qt.queue(move |mut obj| obj.as_mut().rust_mut().known = known).ok();
+                        qt.queue(move |mut obj| obj.as_mut().rust_mut().known = known)
+                            .ok();
                     }
                     Err(e) => log::warn("Contacts", format_args!("GetContacts: {e}")),
                 }
@@ -101,10 +119,21 @@ impl Contacts {
     fn get_contact_by_number(&self, number: &QString) -> QMap<QMapPair_QString_QVariant> {
         let number = number.to_string();
         let mut map = QMap::default();
-        if let Some(c) = self.rust().known.iter().find(|c| marathon_rt::daemon::same_number(&c.phone, &number)) {
+        if let Some(c) = self
+            .rust()
+            .known
+            .iter()
+            .find(|c| marathon_rt::daemon::same_number(&c.phone, &number))
+        {
             map.insert(QString::from("id"), QVariant::from(&c.id));
-            map.insert(QString::from("name"), QVariant::from(&QString::from(&c.name)));
-            map.insert(QString::from("phone"), QVariant::from(&QString::from(&c.phone)));
+            map.insert(
+                QString::from("name"),
+                QVariant::from(&QString::from(&c.name)),
+            );
+            map.insert(
+                QString::from("phone"),
+                QVariant::from(&QString::from(&c.phone)),
+            );
         }
         map
     }
@@ -114,7 +143,10 @@ impl Contacts {
         let body = (name.to_string(), phone.to_string(), email.to_string());
         io::spawn(async move {
             let added = match io::session_bus().await {
-                Ok(bus) => bus.call_method(Some(BUS), PATH, Some(INTERFACE), "AddContact", &body).await.map(drop),
+                Ok(bus) => bus
+                    .call_method(Some(BUS), PATH, Some(INTERFACE), "AddContact", &body)
+                    .await
+                    .map(drop),
                 Err(e) => Err(e),
             };
             if let Err(e) = added {

@@ -84,7 +84,16 @@ impl cxx_qt::Initialize for Ngf {
         io::spawn(async move {
             let served = async {
                 let conn = io::system_bus().await?;
-                conn.object_server().at(PATH, Server { qt, next: 1, playing: HashMap::new() }).await?;
+                conn.object_server()
+                    .at(
+                        PATH,
+                        Server {
+                            qt,
+                            next: 1,
+                            playing: HashMap::new(),
+                        },
+                    )
+                    .await?;
                 conn.request_name(NAME).await
             };
             if let Err(e) = served.await {
@@ -110,7 +119,10 @@ struct Server {
 }
 
 fn effect(event: &str) -> Option<Effect> {
-    EFFECTS.iter().find(|(name, _, _)| *name == event).map(|&(_, pattern, repeat)| (pattern, repeat))
+    EFFECTS
+        .iter()
+        .find(|(name, _, _)| *name == event)
+        .map(|&(_, pattern, repeat)| (pattern, repeat))
 }
 
 /// After the call's reply, so the caller knows the id.
@@ -123,10 +135,18 @@ fn status(emitter: &SignalEmitter<'_>, id: u32, state: u32) {
 }
 
 #[zbus::interface(name = "com.nokia.NonGraphicFeedback1")]
-#[allow(clippy::needless_pass_by_value, reason = "the arguments zbus hands over")]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "the arguments zbus hands over"
+)]
 impl Server {
     #[allow(unused_variables, reason = "no event takes properties")]
-    fn play(&mut self, event: &str, properties: HashMap<String, OwnedValue>, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> u32 {
+    fn play(
+        &mut self,
+        event: &str,
+        properties: HashMap<String, OwnedValue>,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> u32 {
         let id = self.next;
         self.next = self.next.wrapping_add(1).max(1);
         let Some(effect) = effect(event) else {
@@ -136,12 +156,25 @@ impl Server {
         self.vibrate(effect.0);
         status(&emitter, id, PLAYING);
         let timer = Self::start(id, effect, &emitter);
-        self.playing.insert(id, Playing { effect, timer: Some(timer) });
+        self.playing.insert(
+            id,
+            Playing {
+                effect,
+                timer: Some(timer),
+            },
+        );
         id
     }
 
-    fn pause(&mut self, id: u32, pause: bool, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> bool {
-        let Some(playing) = self.playing.get_mut(&id) else { return false };
+    fn pause(
+        &mut self,
+        id: u32,
+        pause: bool,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> bool {
+        let Some(playing) = self.playing.get_mut(&id) else {
+            return false;
+        };
         if pause {
             playing.timer = None;
             self.qt.queue(Ngf::stop_vibration).ok();
@@ -170,7 +203,9 @@ impl Server {
 
 impl Server {
     fn vibrate(&self, pattern: &'static [i32]) {
-        self.qt.queue(move |obj| obj.vibrate(&pattern.iter().copied().collect::<QList<i32>>())).ok();
+        self.qt
+            .queue(move |obj| obj.vibrate(&pattern.iter().copied().collect::<QList<i32>>()))
+            .ok();
     }
 
     /// Every pattern's length: a repeating effect vibrates again, any other
@@ -191,7 +226,14 @@ impl Server {
                 if ended.await {
                     return;
                 }
-                let Ok(iface) = emitter.connection().object_server().interface::<_, Server>(PATH).await else { return };
+                let Ok(iface) = emitter
+                    .connection()
+                    .object_server()
+                    .interface::<_, Server>(PATH)
+                    .await
+                else {
+                    return;
+                };
                 let mut server = iface.get_mut().await;
                 if stopped.is_closed() {
                     return;

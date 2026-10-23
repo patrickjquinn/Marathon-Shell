@@ -151,17 +151,6 @@ Item {
         }
     }
 
-    MouseArea {
-        anchors.fill: parent
-        enabled: Tasks.taskCount > 0
-        propagateComposedEvents: true
-        z: -1
-        onClicked: mouse => {
-            mouse.accepted = false;
-            taskSwitcher.closed();
-        }
-    }
-
     Connections {
         function onTaskCountChanged() {
             Logger.info("TaskSwitcher", "Task count changed: " + Tasks.taskCount);

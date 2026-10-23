@@ -308,13 +308,23 @@ fn store(name: &'static str, value: Value<'static>) {
 impl cxx_qt::Initialize for Settings {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), SETTINGS, "DateTimeChangeFailed", |obj, (r,): (String,)| {
-            obj.date_time_change_failed(&QString::from(&r));
-        });
-        relay(qt.clone(), SETTINGS, "PropertyChanged", |obj, (name, value): (String, OwnedValue)| {
-            follow_time_zone(&name, &value);
-            show(obj, &name, &value);
-        });
+        relay(
+            qt.clone(),
+            SETTINGS,
+            "DateTimeChangeFailed",
+            |obj, (r,): (String,)| {
+                obj.date_time_change_failed(&QString::from(&r));
+            },
+        );
+        relay(
+            qt.clone(),
+            SETTINGS,
+            "PropertyChanged",
+            |obj, (name, value): (String, OwnedValue)| {
+                follow_time_zone(&name, &value);
+                show(obj, &name, &value);
+            },
+        );
         // A read, which every app needs to size its UI: no permission.
         io::spawn(async move {
             loop {
@@ -343,7 +353,9 @@ extern "C" {
 
 /// libc keeps the zone it read at startup; local time follows a new `TZ`.
 fn follow_time_zone(name: &str, value: &OwnedValue) {
-    let Ok(zone) = <&str>::try_from(value) else { return };
+    let Ok(zone) = <&str>::try_from(value) else {
+        return;
+    };
     if name != "timeZone" || zone.is_empty() {
         return;
     }
@@ -380,7 +392,10 @@ impl Settings {
     fn set(&self, key: &QString, value: &QVariant) {
         match variant::from_qt(value) {
             Some(value) => SETTINGS.call("Set", (key.to_string(), value)),
-            None => log::warn("Settings", format_args!("cannot store {key}: no D-Bus type")),
+            None => log::warn(
+                "Settings",
+                format_args!("cannot store {key}: no D-Bus type"),
+            ),
         }
     }
 
@@ -393,11 +408,18 @@ impl Settings {
 fn sound_name(path: &str) -> String {
     let path = path.strip_prefix("file://").unwrap_or(path);
     let file = path.rsplit('/').next().unwrap_or(path);
-    let base = file.split('.').next().unwrap_or(file).replace("alarm_", "").replace("ring_", "");
+    let base = file
+        .split('.')
+        .next()
+        .unwrap_or(file)
+        .replace("alarm_", "")
+        .replace("ring_", "");
     base.split(['_', '-', ' '])
         .map(|word| {
             let mut chars = word.chars();
-            chars.next().map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect())
+            chars
+                .next()
+                .map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect())
         })
         .collect::<Vec<_>>()
         .join(" ")
@@ -407,7 +429,10 @@ fn sound_name(path: &str) -> String {
 mod tests {
     #[test]
     fn sound_names_read_as_words() {
-        assert_eq!(super::sound_name("file:///usr/share/sounds/ring_old_phone.ogg"), "Old Phone");
+        assert_eq!(
+            super::sound_name("file:///usr/share/sounds/ring_old_phone.ogg"),
+            "Old Phone"
+        );
         assert_eq!(super::sound_name("/x/alarm_early-bird.wav"), "Early Bird");
     }
 }

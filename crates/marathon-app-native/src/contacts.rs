@@ -83,12 +83,29 @@ type Qt = cxx_qt::CxxQtThread<Contacts>;
 impl cxx_qt::Initialize for Contacts {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), CONTACTS, "ContactAdded", |obj, (id,): (i32,)| obj.contact_added(id));
-        relay(qt.clone(), CONTACTS, "ContactUpdated", |obj, (id,): (i32,)| obj.contact_updated(id));
-        relay(qt.clone(), CONTACTS, "ContactDeleted", |obj, (id,): (i32,)| obj.contact_deleted(id));
+        relay(
+            qt.clone(),
+            CONTACTS,
+            "ContactAdded",
+            |obj, (id,): (i32,)| obj.contact_added(id),
+        );
+        relay(
+            qt.clone(),
+            CONTACTS,
+            "ContactUpdated",
+            |obj, (id,): (i32,)| obj.contact_updated(id),
+        );
+        relay(
+            qt.clone(),
+            CONTACTS,
+            "ContactDeleted",
+            |obj, (id,): (i32,)| obj.contact_deleted(id),
+        );
         io::spawn(async move {
             read(&qt).await;
-            let Ok(changes) = CONTACTS.signals::<()>("ContactsChanged").await else { return };
+            let Ok(changes) = CONTACTS.signals::<()>("ContactsChanged").await else {
+                return;
+            };
             let mut changes = std::pin::pin!(changes);
             while changes.next().await.is_some() {
                 read(&qt).await;

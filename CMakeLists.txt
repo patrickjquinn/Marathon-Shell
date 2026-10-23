@@ -174,6 +174,11 @@ if(TARGET Qt6::WaylandCompositor)
         set(HAVE_WAYLAND_PRIVATE FALSE)
     endif()
 
+    # Qt ships presentation-time as a separate compositor extension module.
+    # It is optional for older distro Qt builds, but current Marathon images
+    # use it to give GTK/Qt clients real frame presentation feedback.
+    find_package(Qt6 6.4 COMPONENTS WaylandCompositorPresentationTime QUIET)
+
 else()
         message(STATUS "Qt WaylandCompositor not found - Wayland support disabled")
     set(HAVE_WAYLAND FALSE)

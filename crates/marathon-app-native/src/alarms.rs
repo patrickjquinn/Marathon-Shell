@@ -100,13 +100,28 @@ enum Event {
 impl cxx_qt::Initialize for Alarms {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), ALARM, "AlarmTriggered", |obj, (id, label): (String, String)| {
-            obj.alarm_triggered(&QString::from(&id), &QString::from(&label));
-        });
-        relay(qt.clone(), ALARM, "AlarmDismissed", |obj, (id,): (String,)| obj.alarm_dismissed(&QString::from(&id)));
-        relay(qt.clone(), ALARM, "AlarmSnoozed", |obj, (id, minutes): (String, i32)| {
-            obj.alarm_snoozed(&QString::from(&id), minutes);
-        });
+        relay(
+            qt.clone(),
+            ALARM,
+            "AlarmTriggered",
+            |obj, (id, label): (String, String)| {
+                obj.alarm_triggered(&QString::from(&id), &QString::from(&label));
+            },
+        );
+        relay(
+            qt.clone(),
+            ALARM,
+            "AlarmDismissed",
+            |obj, (id,): (String,)| obj.alarm_dismissed(&QString::from(&id)),
+        );
+        relay(
+            qt.clone(),
+            ALARM,
+            "AlarmSnoozed",
+            |obj, (id, minutes): (String, i32)| {
+                obj.alarm_snoozed(&QString::from(&id), minutes);
+            },
+        );
         io::spawn(async move {
             read(&qt, true).await;
             read(&qt, false).await;
@@ -117,7 +132,10 @@ impl cxx_qt::Initialize for Alarms {
             ) else {
                 return;
             };
-            let events = alarms.map(|()| Event::Alarms).or(active.map(|()| Event::Active)).or(grants.map(|()| Event::Granted));
+            let events = alarms
+                .map(|()| Event::Alarms)
+                .or(active.map(|()| Event::Active))
+                .or(grants.map(|()| Event::Granted));
             let mut events = std::pin::pin!(events);
             while let Some(event) = events.next().await {
                 match event {
@@ -172,9 +190,15 @@ impl Alarms {
         options: &QMap<QMapPair_QString_QVariant>,
     ) -> QString {
         let repeat: Vec<i32> = repeat.iter().copied().collect();
-        let body = (time.to_string(), label.to_string(), repeat, variant::map(options));
-        ALARM.ask_now::<_, String>("CreateAlarm", &body).map(|id| QString::from(&id)).unwrap_or_default()
+        let body = (
+            time.to_string(),
+            label.to_string(),
+            repeat,
+            variant::map(options),
+        );
+        ALARM
+            .ask_now::<_, String>("CreateAlarm", &body)
+            .map(|id| QString::from(&id))
+            .unwrap_or_default()
     }
-
-
 }

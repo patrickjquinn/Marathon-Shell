@@ -4,11 +4,12 @@
 pkgname=device-hackberrypi-cm5-marathon
 pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
 pkgver=1.0.0
-pkgrel=24
+pkgrel=25
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
 options="!check !archcheck"
+install="$pkgname.post-install"
 # Layered on top of the generic Pi 5 / CM5 base. Vanilla Pi 5 / CM5 dev
 # boards don't install this; they get device-raspberry-pi5-marathon
 # only and the include line in /boot/usercfg.txt silently no-ops.
@@ -28,6 +29,8 @@ source="
 	marathon-waydroid-session
 	marathon-waydroid.service
 	marathon-waydroid.tmpfiles
+	marathon-waydroid-on-demand.conf
+	50-marathon-waydroid.rules
 	waydroid.cfg
 	hackberrypi.modules
 	device-profile.conf
@@ -98,6 +101,15 @@ package() {
 		"$pkgdir/usr/libexec/marathon-waydroid-session"
 	install -Dm644 "$srcdir/marathon-waydroid.service" \
 		"$pkgdir/usr/lib/systemd/user/marathon-waydroid.service"
+	install -Dm644 "$srcdir/marathon-waydroid-on-demand.conf" \
+		"$pkgdir/usr/lib/systemd/system/waydroid-container.service.d/marathon-on-demand.conf"
+	install -Dm644 "$srcdir/50-marathon-waydroid.rules" \
+		"$pkgdir/usr/share/polkit-1/rules.d/50-marathon-waydroid.rules"
+	install -d "$pkgdir/usr/lib/systemd/system-preset"
+	cat > "$pkgdir/usr/lib/systemd/system-preset/20-marathon-waydroid-on-demand.preset" <<'PRESET'
+# Android is started by marathon-waydroid.service when an Android app opens.
+disable waydroid-container.service
+PRESET
 
 	# Generated from devices/hackberrypi/cm5/device.toml.
 	install -Dm644 "$srcdir/device-profile.conf" \
@@ -111,9 +123,11 @@ a457f7f97758b002ffb81cfc33774d6843f18ab6e7c2ccbed85bfecde799a7e5d2144527f66ac576
 89c51433ed181fd0bc2bbd482ded56151371a297420b714ea373f2ae8b4f93eb74234c87c47d79831d672b316e8b96a6d24d42d50aef6e01ce6e19313d669623  marathon-irq-dwc2
 c01c58dc77b79d63ed7994bd8c78bea44bf7060c49da91b2faef0fa46bcae989ea9c0b5f06c4ddee701c46f955a5fc406564ec917b09b54b1670c856c57386b2  marathon-cm5-fuelgauge.conf
 8cae38d27beaee73534ca01274bfa8b18cc2db7a0cb772a5c11c91ae683c9f6534f36ac219a9561deaa9bcf866228f4780c6e62262e715d688df723b6dce6842  marathon-waydroid.conf
-cc797d3994cc743336ad9759d302d8ddfd75661a8fa4b0df96c237ecf60638120bcc869e5bc3f7fa82e5f4de515d1a4140a5ddf982d6117c12acec2957fef45a  marathon-waydroid-session
+93ddd0a7e89a74a6fc93be4b63ba716340196c8d8c145a824437b32d28c1027645491003a6ad88f5cec8a3f5a27b93ff2505cf85599a2b952519885b3e9926d5  marathon-waydroid-session
 989eee86251bc858d3f7230884bc81737ea2d005c1d4e5a08620122b4ad2785cb7852c70296c9d5959802e3b27cce4b6a9ca3ec22543979eaabc3c5a353640d6  marathon-waydroid.service
 79477406e0da73278ecc0d7d672447d02b26ccc87fc97cdc6a085510ec3284d4a81692c9aa036572b823f2945ad0ce11f9211e2929634454c36b97fe4f5dc491  marathon-waydroid.tmpfiles
+SKIP  marathon-waydroid-on-demand.conf
+SKIP  50-marathon-waydroid.rules
 f81a79b666c9ff21ec87e2bb867ab21638412cc2d3d908704e51d9de37ab8cc16843afe3ec99b4b61895fb132774c0115f62f0d08668fddbdabf56891f295ffa  waydroid.cfg
 5d1df39b4c12e370e1d1c4069820a476d3a760a8186f36fcc409db086ae57e98a4623de646723ac1b4b689df7965597a5613f5dcf84058e213b67e858ae1791d  hackberrypi.modules
 88850bcb6f5e57e275658a5f55307e149ba4501e98b1376162fe39d2813148014de4a2361b7bda03d6612f6fc912c0131c475333766000cd63d9f6241139eea7  device-profile.conf

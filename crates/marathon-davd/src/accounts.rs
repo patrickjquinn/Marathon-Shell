@@ -35,10 +35,22 @@ impl Account {
             ("baseUrl", Value::from(self.base_url.clone())),
             ("username", Value::from(self.username.clone())),
             ("authKind", Value::from(self.auth_kind.clone())),
-            ("homeUrlContacts", Value::from(self.home_url_contacts.clone())),
-            ("homeUrlCalendar", Value::from(self.home_url_calendar.clone())),
-            ("collectionsContacts", Value::from(self.collections_contacts.clone())),
-            ("collectionsCalendar", Value::from(self.collections_calendar.clone())),
+            (
+                "homeUrlContacts",
+                Value::from(self.home_url_contacts.clone()),
+            ),
+            (
+                "homeUrlCalendar",
+                Value::from(self.home_url_calendar.clone()),
+            ),
+            (
+                "collectionsContacts",
+                Value::from(self.collections_contacts.clone()),
+            ),
+            (
+                "collectionsCalendar",
+                Value::from(self.collections_calendar.clone()),
+            ),
             ("enabled", Value::from(self.enabled)),
         ])
     }
@@ -54,7 +66,11 @@ pub struct Saved {
 
 /// What the keyring still has to do.
 pub enum SecretOp {
-    Store { id: String, label: String, secret: String },
+    Store {
+        id: String,
+        label: String,
+        secret: String,
+    },
     Load(String),
     Remove(String),
 }
@@ -76,8 +92,18 @@ impl Accounts {
         let saved = fs::read_to_string(&file)
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_else(|| fs::read_to_string(shell_settings).map(|ini| from_shell_settings(&ini)).unwrap_or_default());
-        let mut accounts = Self { file, saved, secrets: HashMap::new(), waiting: HashSet::new(), unstored: HashMap::new() };
+            .unwrap_or_else(|| {
+                fs::read_to_string(shell_settings)
+                    .map(|ini| from_shell_settings(&ini))
+                    .unwrap_or_default()
+            });
+        let mut accounts = Self {
+            file,
+            saved,
+            secrets: HashMap::new(),
+            waiting: HashSet::new(),
+            unstored: HashMap::new(),
+        };
         for a in &accounts.saved.accounts {
             match &a.secret {
                 Some(secret) => {
@@ -94,14 +120,19 @@ impl Accounts {
     }
 
     pub fn save(&self) {
-        let written = serde_json::to_string_pretty(&self.saved).map_err(std::io::Error::other).and_then(|json| {
-            if let Some(dir) = self.file.parent() {
-                fs::create_dir_all(dir)?;
-            }
-            fs::write(&self.file, json)
-        });
+        let written = serde_json::to_string_pretty(&self.saved)
+            .map_err(std::io::Error::other)
+            .and_then(|json| {
+                if let Some(dir) = self.file.parent() {
+                    fs::create_dir_all(dir)?;
+                }
+                fs::write(&self.file, json)
+            });
         if let Err(e) = written {
-            marathon_rt::log::warn("Dav", format_args!("cannot save {}: {e}", self.file.display()));
+            marathon_rt::log::warn(
+                "Dav",
+                format_args!("cannot save {}: {e}", self.file.display()),
+            );
         }
     }
 
@@ -115,8 +146,13 @@ impl Accounts {
 
     /// An account that can be reached now, with its secret.
     pub fn ready(&self, id: &str) -> Option<(Account, String)> {
-        let account = self.get(id).filter(|a| a.enabled && !self.waiting.contains(id))?;
-        Some((account.clone(), self.secrets.get(id).cloned().unwrap_or_default()))
+        let account = self
+            .get(id)
+            .filter(|a| a.enabled && !self.waiting.contains(id))?;
+        Some((
+            account.clone(),
+            self.secrets.get(id).cloned().unwrap_or_default(),
+        ))
     }
 
     pub fn add(&mut self, account: Account, secret: String) {
@@ -142,10 +178,29 @@ impl Accounts {
     }
 
     pub fn secret_work(&self) -> Vec<SecretOp> {
-        let label = |id: &str| self.get(id).map_or(id, |a| if a.display_name.is_empty() { id } else { &a.display_name }).to_owned();
-        let stores = self.unstored.iter().map(|(id, secret)| SecretOp::Store { id: id.clone(), label: format!("Marathon DAV · {}", label(id)), secret: secret.clone() });
+        let label = |id: &str| {
+            self.get(id)
+                .map_or(id, |a| {
+                    if a.display_name.is_empty() {
+                        id
+                    } else {
+                        &a.display_name
+                    }
+                })
+                .to_owned()
+        };
+        let stores = self.unstored.iter().map(|(id, secret)| SecretOp::Store {
+            id: id.clone(),
+            label: format!("Marathon DAV · {}", label(id)),
+            secret: secret.clone(),
+        });
         let loads = self.waiting.iter().cloned().map(SecretOp::Load);
-        let removals = self.saved.pending_secret_removals.iter().cloned().map(SecretOp::Remove);
+        let removals = self
+            .saved
+            .pending_secret_removals
+            .iter()
+            .cloned()
+            .map(SecretOp::Remove);
         stores.chain(loads).chain(removals).collect()
     }
 
@@ -165,7 +220,10 @@ impl Accounts {
                 Some(secret) => {
                     self.secrets.insert(id.to_owned(), secret);
                 }
-                None => marathon_rt::log::warn("Dav", format_args!("no keyring secret for account {id}")),
+                None => marathon_rt::log::warn(
+                    "Dav",
+                    format_args!("no keyring secret for account {id}"),
+                ),
             }
         }
     }
@@ -192,7 +250,11 @@ fn ini_values(raw: &str) -> Vec<String> {
             (false, _) => values.last_mut().into_iter().for_each(|v| v.push(c)),
         }
     }
-    values.into_iter().map(|v| v.trim().to_owned()).filter(|v| !v.is_empty()).collect()
+    values
+        .into_iter()
+        .map(|v| v.trim().to_owned())
+        .filter(|v| !v.is_empty())
+        .collect()
 }
 
 /// The `[dav]` group of the shell's `QSettings` file.
@@ -204,16 +266,31 @@ fn from_shell_settings(ini: &str) -> Saved {
             in_dav = section.trim_end_matches(']') == "dav";
             continue;
         }
-        let Some((key, raw)) = line.split_once('=').filter(|_| in_dav) else { continue };
+        let Some((key, raw)) = line.split_once('=').filter(|_| in_dav) else {
+            continue;
+        };
         if key.trim() == "pendingSecretRemovals" {
             saved.pending_secret_removals = ini_values(raw);
             continue;
         }
-        let Some((id, field)) = key.trim().strip_prefix("accounts\\").and_then(|rest| rest.split_once('\\')) else { continue };
+        let Some((id, field)) = key
+            .trim()
+            .strip_prefix("accounts\\")
+            .and_then(|rest| rest.split_once('\\'))
+        else {
+            continue;
+        };
         if !saved.accounts.iter().any(|a| a.id == id) {
-            saved.accounts.push(Account { id: id.to_owned(), auth_kind: "basic".into(), enabled: true, ..Account::default() });
+            saved.accounts.push(Account {
+                id: id.to_owned(),
+                auth_kind: "basic".into(),
+                enabled: true,
+                ..Account::default()
+            });
         }
-        let Some(a) = saved.accounts.iter_mut().find(|a| a.id == id) else { continue };
+        let Some(a) = saved.accounts.iter_mut().find(|a| a.id == id) else {
+            continue;
+        };
         let mut values = ini_values(raw);
         let one = values.first().cloned().unwrap_or_default();
         match field {
@@ -246,9 +323,15 @@ mod tests {
         fs::write(&shell, ini).unwrap();
         let accounts = Accounts::open(dir.path().join("dav-accounts.json"), &shell);
         let a = accounts.get("a1").unwrap();
-        assert_eq!((a.display_name.as_str(), a.auth_kind.as_str(), a.enabled), ("Fastmail", "basic", true));
+        assert_eq!(
+            (a.display_name.as_str(), a.auth_kind.as_str(), a.enabled),
+            ("Fastmail", "basic", true)
+        );
         assert_eq!(a.collections_contacts, ["https://x/1/", "https://x/2/"]);
-        assert_eq!(accounts.unstored.get("a1").map(String::as_str), Some("p,ss\"word"));
+        assert_eq!(
+            accounts.unstored.get("a1").map(String::as_str),
+            Some("p,ss\"word")
+        );
         assert_eq!(accounts.saved.pending_secret_removals, ["old"]);
     }
 
@@ -259,7 +342,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("dav-accounts.json");
         let mut accounts = Accounts::open(file.clone(), &dir.path().join("none.conf"));
-        accounts.add(Account { id: "n".into(), enabled: true, ..Account::default() }, "fresh".into());
+        accounts.add(
+            Account {
+                id: "n".into(),
+                enabled: true,
+                ..Account::default()
+            },
+            "fresh".into(),
+        );
         assert!(!fs::read_to_string(&file).unwrap().contains("fresh"));
         accounts.get_mut("n").unwrap().secret = Some("old".into());
         accounts.save();

@@ -102,12 +102,25 @@ impl Tasks {
     }
 
     fn state_of(&self, app_id: &str) -> State {
-        self.lifecycle.apps.get(app_id).map_or(State::Unregistered, |a| a.state)
+        self.lifecycle
+            .apps
+            .get(app_id)
+            .map_or(State::Unregistered, |a| a.state)
     }
 
     fn insert_state(mut self: Pin<&mut Self>, app_id: &str, state: State) {
-        let entry = AppState { state, entered: Instant::now(), capabilities: HashSet::new(), freeze_turn: 0 };
-        self.as_mut().rust_mut().lifecycle.apps.entry(app_id.to_owned()).or_insert(entry);
+        let entry = AppState {
+            state,
+            entered: Instant::now(),
+            capabilities: HashSet::new(),
+            freeze_turn: 0,
+        };
+        self.as_mut()
+            .rust_mut()
+            .lifecycle
+            .apps
+            .entry(app_id.to_owned())
+            .or_insert(entry);
     }
 
     /// A runner's process is known: its first state, its cgroup, its OOM
@@ -115,7 +128,14 @@ impl Tasks {
     pub(super) fn pid_seen(mut self: Pin<&mut Self>, pid: i64, app_id: &str) {
         let background = self.background_launches.contains(app_id);
         if !self.lifecycle.apps.contains_key(app_id) {
-            self.as_mut().insert_state(app_id, if background { State::BackgroundIdle } else { State::Foreground });
+            self.as_mut().insert_state(
+                app_id,
+                if background {
+                    State::BackgroundIdle
+                } else {
+                    State::Foreground
+                },
+            );
             if !background {
                 self.set_app_active(app_id, true);
             }
@@ -130,7 +150,15 @@ impl Tasks {
         let state = self.state_of(app_id);
         cgroup::set_oom_score_adj(pid, state.oom_score());
         let cgroup = cgroup::cgroup_of_pid(pid);
-        self.as_mut().rust_mut().lifecycle.cgroups.adopt(app_id, pid, &cgroup, state == State::Frozen, state == State::Foreground);
+        self.as_mut().rust_mut().lifecycle.cgroups.adopt(
+            app_id,
+            pid,
+            &cgroup,
+            cgroup::Placement {
+                frozen: state == State::Frozen,
+                foreground: state == State::Foreground,
+            },
+        );
     }
 
     pub(super) fn pid_gone(mut self: Pin<&mut Self>, app_id: &str) {
@@ -142,19 +170,43 @@ impl Tasks {
         if id.is_empty() {
             return;
         }
-        let text = |k: &str| info.get(&q(k)).and_then(|v| v.value::<QString>()).map(|s| s.to_string()).unwrap_or_default();
+        let text = |k: &str| {
+            info.get(&q(k))
+                .and_then(|v| v.value::<QString>())
+                .map(|s| s.to_string())
+                .unwrap_or_default()
+        };
         let instance = Instance {
             name: text("appName"),
             icon: text("appIcon"),
             kind: text("appType"),
-            native: info.get(&q("isNative")).and_then(|v| v.value::<bool>()).unwrap_or(false),
-            surface_id: info.get(&q("surfaceId")).and_then(|v| v.value::<i32>()).unwrap_or(-1),
+            native: info
+                .get(&q("isNative"))
+                .and_then(|v| v.value::<bool>())
+                .unwrap_or(false),
+            surface_id: info
+                .get(&q("surfaceId"))
+                .and_then(|v| v.value::<i32>())
+                .unwrap_or(-1),
         };
-        self.as_mut().rust_mut().lifecycle.instances.insert(id.clone(), instance);
+        self.as_mut()
+            .rust_mut()
+            .lifecycle
+            .instances
+            .insert(id.clone(), instance);
         self.as_mut().app_registered(app_id);
         self.as_mut().insert_state(&id, State::BackgroundIdle);
-        if let Some(at) = self.lifecycle.pending_foreground.iter().position(|a| *a == id) {
-            self.as_mut().rust_mut().lifecycle.pending_foreground.remove(at);
+        if let Some(at) = self
+            .lifecycle
+            .pending_foreground
+            .iter()
+            .position(|a| *a == id)
+        {
+            self.as_mut()
+                .rust_mut()
+                .lifecycle
+                .pending_foreground
+                .remove(at);
             self.as_mut().bring_forward(&id);
         }
         self.ensure_task(&id);
@@ -172,7 +224,8 @@ impl Tasks {
         self.as_mut().cancel_freeze(app_id);
         let old = self.state_of(app_id);
         if self.lifecycle.apps.contains_key(app_id) && old != State::Killed {
-            self.as_mut().state_changed(&q(app_id), old as i32, State::Killed as i32);
+            self.as_mut()
+                .state_changed(&q(app_id), old as i32, State::Killed as i32);
         }
         let mut rust = self.as_mut().rust_mut();
         rust.lifecycle.instances.remove(app_id);
@@ -189,10 +242,21 @@ impl Tasks {
         if self.task(app_id).is_some() {
             return;
         }
-        let Some(i) = self.lifecycle.instances.get(app_id).cloned() else { return };
-        let name = if i.name.is_empty() { app_id.to_owned() } else { i.name };
-        let kind = if i.kind.is_empty() { "marathon".to_owned() } else { i.kind };
-        self.as_mut().add_task(app_id, &name, &i.icon, &kind, i.surface_id);
+        let Some(i) = self.lifecycle.instances.get(app_id).cloned() else {
+            return;
+        };
+        let name = if i.name.is_empty() {
+            app_id.to_owned()
+        } else {
+            i.name
+        };
+        let kind = if i.kind.is_empty() {
+            "marathon".to_owned()
+        } else {
+            i.kind
+        };
+        self.as_mut()
+            .add_task(app_id, &name, &i.icon, &kind, i.surface_id);
     }
 
     pub(super) fn bring_to_foreground(self: Pin<&mut Self>, app_id: &QString) {
@@ -213,8 +277,17 @@ impl Tasks {
             self.as_mut().foreground_exit(&previous);
         }
         if !self.lifecycle.instances.contains_key(app_id) {
-            if !self.lifecycle.pending_foreground.iter().any(|a| a == app_id) {
-                self.as_mut().rust_mut().lifecycle.pending_foreground.push(app_id.to_owned());
+            if !self
+                .lifecycle
+                .pending_foreground
+                .iter()
+                .any(|a| a == app_id)
+            {
+                self.as_mut()
+                    .rust_mut()
+                    .lifecycle
+                    .pending_foreground
+                    .push(app_id.to_owned());
             }
             return;
         }
@@ -258,7 +331,9 @@ impl Tasks {
             dbus::runner_back(self.qt_thread(), front);
             return true;
         }
-        let Some(surface) = self.native_surface(&front) else { return false };
+        let Some(surface) = self.native_surface(&front) else {
+            return false;
+        };
         let hosted = self.is_keel_host(&front);
         self.as_mut().native_back_requested(surface, hosted);
         true
@@ -273,7 +348,9 @@ impl Tasks {
             dbus::runner(&front, "Forward", ());
             return true;
         }
-        let Some(surface) = self.native_surface(&front) else { return false };
+        let Some(surface) = self.native_surface(&front) else {
+            return false;
+        };
         let hosted = self.is_keel_host(&front);
         self.as_mut().native_forward_requested(surface, hosted);
         true
@@ -355,7 +432,12 @@ impl Tasks {
     }
 
     pub(super) fn capabilities_of(&self, app_id: &str) -> Vec<String> {
-        let mut caps: Vec<String> = self.lifecycle.apps.get(app_id).map(|a| a.capabilities.iter().cloned().collect()).unwrap_or_default();
+        let mut caps: Vec<String> = self
+            .lifecycle
+            .apps
+            .get(app_id)
+            .map(|a| a.capabilities.iter().cloned().collect())
+            .unwrap_or_default();
         caps.sort();
         caps
     }
@@ -382,7 +464,9 @@ impl Tasks {
             return;
         }
         let mut rust = self.as_mut().rust_mut();
-        let Some(app) = rust.lifecycle.apps.get_mut(app_id) else { return };
+        let Some(app) = rust.lifecycle.apps.get_mut(app_id) else {
+            return;
+        };
         if !app.capabilities.insert(capability.to_owned()) {
             return;
         }
@@ -396,7 +480,9 @@ impl Tasks {
 
     pub(super) fn remove_cap(mut self: Pin<&mut Self>, app_id: &str, capability: &str) {
         let mut rust = self.as_mut().rust_mut();
-        let Some(app) = rust.lifecycle.apps.get_mut(app_id) else { return };
+        let Some(app) = rust.lifecycle.apps.get_mut(app_id) else {
+            return;
+        };
         if !app.capabilities.remove(capability) {
             return;
         }
@@ -409,7 +495,8 @@ impl Tasks {
     }
 
     pub(super) fn set_idle_freeze_debounce_ms(mut self: Pin<&mut Self>, ms: i32) {
-        self.as_mut().rust_mut().lifecycle.idle_freeze = Duration::from_millis(u64::try_from(ms.max(0)).unwrap_or(0));
+        self.as_mut().rust_mut().lifecycle.idle_freeze =
+            Duration::from_millis(u64::try_from(ms.max(0)).unwrap_or(0));
     }
 
     pub(super) fn idle_freeze_debounce_ms(&self) -> i32 {
@@ -418,7 +505,9 @@ impl Tasks {
 
     /// A capability decides where it goes: running, or idle until it freezes.
     fn foreground_exit(mut self: Pin<&mut Self>, app_id: &str) {
-        let Some(app) = self.lifecycle.apps.get(app_id) else { return };
+        let Some(app) = self.lifecycle.apps.get(app_id) else {
+            return;
+        };
         if app.capabilities.is_empty() {
             self.as_mut().transition(app_id, State::BackgroundIdle);
             self.start_freeze_debounce(app_id, false);
@@ -431,9 +520,15 @@ impl Tasks {
     /// time: woken for work, or not yet showing its first window.
     fn start_freeze_debounce(mut self: Pin<&mut Self>, app_id: &str, grace: bool) {
         self.as_mut().cancel_freeze(app_id);
-        let Some(turn) = self.lifecycle.apps.get(app_id).map(|a| a.freeze_turn) else { return };
+        let Some(turn) = self.lifecycle.apps.get(app_id).map(|a| a.freeze_turn) else {
+            return;
+        };
         let debounce = self.lifecycle.idle_freeze;
-        let delay = if debounce.is_zero() && grace { Duration::from_secs(10) } else { debounce };
+        let delay = if debounce.is_zero() && grace {
+            Duration::from_secs(10)
+        } else {
+            debounce
+        };
         if delay.is_zero() {
             if self.state_of(app_id) == State::BackgroundIdle {
                 self.freeze(app_id);
@@ -442,7 +537,12 @@ impl Tasks {
         }
         let id = app_id.to_owned();
         later(self.qt_thread(), delay, move |obj| {
-            if obj.lifecycle.apps.get(&id).is_some_and(|a| a.freeze_turn == turn && a.state == State::BackgroundIdle) {
+            if obj
+                .lifecycle
+                .apps
+                .get(&id)
+                .is_some_and(|a| a.freeze_turn == turn && a.state == State::BackgroundIdle)
+            {
                 obj.freeze(&id);
             }
         });
@@ -462,7 +562,12 @@ impl Tasks {
         }
         let turn = self.lifecycle.apps.get(app_id).map_or(0, |a| a.freeze_turn);
         dbus::prepare_freeze(self.qt_thread(), app_id.to_owned(), move |mut obj, id| {
-            if obj.lifecycle.apps.get(&id).is_some_and(|a| a.freeze_turn == turn && a.state == State::BackgroundIdle) {
+            if obj
+                .lifecycle
+                .apps
+                .get(&id)
+                .is_some_and(|a| a.freeze_turn == turn && a.state == State::BackgroundIdle)
+            {
                 obj.as_mut().transition(&id, State::Frozen);
             }
             if obj.state_of(&id) != State::Frozen {
@@ -474,7 +579,10 @@ impl Tasks {
     /// The one place a state changes.
     pub(super) fn transition(mut self: Pin<&mut Self>, app_id: &str, new: State) {
         let old = self.state_of(app_id);
-        if !self.lifecycle.apps.contains_key(app_id) || old == new || (self.lifecycle.stopping && new == State::Frozen) {
+        if !self.lifecycle.apps.contains_key(app_id)
+            || old == new
+            || (self.lifecycle.stopping && new == State::Frozen)
+        {
             return;
         }
         // Never freeze an app that has not mapped its first window: it
@@ -497,7 +605,9 @@ impl Tasks {
         } else if old == State::Frozen {
             self.lifecycle.cgroups.set_frozen(app_id, false);
         }
-        self.lifecycle.cgroups.set_front(app_id, new == State::Foreground);
+        self.lifecycle
+            .cgroups
+            .set_front(app_id, new == State::Foreground);
         if old == State::Frozen && serves_keel_actions(app_id) {
             dbus::runner(app_id, "Thawed", ());
         }
@@ -509,12 +619,18 @@ impl Tasks {
 
     pub(super) fn set_front_app(mut self: Pin<&mut Self>, app_id: &QString) {
         let id = app_id.to_string();
-        let android = if id.starts_with("waydroid.") { id } else { String::new() };
+        let android = if id.starts_with("waydroid.") {
+            id
+        } else {
+            String::new()
+        };
         if android == self.lifecycle.front_android {
             return;
         }
         if !self.lifecycle.front_android.is_empty() {
-            self.lifecycle.cgroups.set_front(&self.lifecycle.front_android, false);
+            self.lifecycle
+                .cgroups
+                .set_front(&self.lifecycle.front_android, false);
         }
         if !android.is_empty() {
             self.lifecycle.cgroups.set_front(&android, true);
@@ -523,22 +639,51 @@ impl Tasks {
     }
 
     pub(super) fn kill_oldest_frozen_app(self: Pin<&mut Self>) -> i32 {
-        let Some(oldest) = self.lifecycle.apps.iter().filter(|(_, a)| a.state == State::Frozen).min_by_key(|(_, a)| a.entered).map(|(id, _)| id.clone()) else { return -1 };
+        let Some(oldest) = self
+            .lifecycle
+            .apps
+            .iter()
+            .filter(|(_, a)| a.state == State::Frozen)
+            .min_by_key(|(_, a)| a.entered)
+            .map(|(id, _)| id.clone())
+        else {
+            return -1;
+        };
         let pid = self.termination_pid(&oldest);
-        let Ok(raw) = i32::try_from(pid) else { return -1 };
+        let Ok(raw) = i32::try_from(pid) else {
+            return -1;
+        };
         if raw <= 0 {
             log::warn("tasks", format_args!("no pid to kill for {oldest}"));
             return -1;
         }
         // Thawed first: a frozen process cannot run its SIGTERM handler.
         self.lifecycle.cgroups.set_frozen(&oldest, false);
-        // SAFETY: kill(2) takes plain integers.
-        unsafe { libc::kill(raw, libc::SIGTERM) };
+        // SAFETY: `raw` is a validated positive process ID, so this targets
+        // that process rather than a process group.
+        if unsafe { libc::kill(raw, libc::SIGTERM) } != 0 {
+            log::warn(
+                "tasks",
+                format_args!(
+                    "cannot terminate {oldest} ({raw}): {}",
+                    std::io::Error::last_os_error()
+                ),
+            );
+        }
         let id = oldest.clone();
         later(self.qt_thread(), Duration::from_secs(5), move |obj| {
             if obj.termination_pid(&id) == pid {
-                // SAFETY: as above.
-                unsafe { libc::kill(raw, libc::SIGKILL) };
+                // SAFETY: `raw` remains the positive PID associated with this
+                // lifecycle generation. Failure is harmless if it exited.
+                if unsafe { libc::kill(raw, libc::SIGKILL) } != 0 {
+                    log::warn(
+                        "tasks",
+                        format_args!(
+                            "cannot kill {id} ({raw}): {}",
+                            std::io::Error::last_os_error()
+                        ),
+                    );
+                }
             }
         });
         self.transition(&oldest, State::Killed);
@@ -552,13 +697,20 @@ impl Tasks {
         self.as_mut().rust_mut().lifecycle.stopping = true;
         self.lifecycle.cgroups.thaw_all();
         let ids: Vec<String> = self.lifecycle.apps.keys().cloned().collect();
-        let pids: Vec<i32> = ids.iter().filter_map(|id| i32::try_from(self.termination_pid(id)).ok()).filter(|p| *p > 0).collect();
+        let pids: Vec<i32> = ids
+            .iter()
+            .filter_map(|id| i32::try_from(self.termination_pid(id)).ok())
+            .filter(|p| *p > 0)
+            .collect();
         let qt = self.qt_thread();
         let grace = Duration::from_millis(u64::try_from(grace_ms.max(0)).unwrap_or(0));
         io::spawn(async move {
             let killed = blocking::unblock(move || stop_processes(&pids, grace)).await;
             if killed > 0 {
-                log::warn("tasks", format_args!("stopAllApps: {killed} SIGKILLed after the grace"));
+                log::warn(
+                    "tasks",
+                    format_args!("stopAllApps: {killed} SIGKILLed after the grace"),
+                );
             }
             qt.queue(super::qobject::Tasks::all_apps_stopped).ok();
         });
@@ -600,18 +752,33 @@ impl Tasks {
         let mut rust = self.as_mut().rust_mut();
         let handle = rust.lifecycle.next_claim;
         rust.lifecycle.next_claim += 1;
-        rust.lifecycle.claims.insert(handle, (app_id.to_owned(), category.to_owned()));
+        rust.lifecycle
+            .claims
+            .insert(handle, (app_id.to_owned(), category.to_owned()));
         self.add_cap(app_id, category);
         handle
     }
 
     /// Only the app that began it ends it.
     pub(super) fn end_claim(mut self: Pin<&mut Self>, handle: u32, caller: &str) -> bool {
-        if self.lifecycle.claims.get(&handle).is_none_or(|c| c.0 != caller) {
+        if self
+            .lifecycle
+            .claims
+            .get(&handle)
+            .is_none_or(|c| c.0 != caller)
+        {
             return false;
         }
-        let Some((app, category)) = self.as_mut().rust_mut().lifecycle.claims.remove(&handle) else { return false };
-        if !self.lifecycle.claims.values().any(|c| c.0 == app && c.1 == category) {
+        let Some((app, category)) = self.as_mut().rust_mut().lifecycle.claims.remove(&handle)
+        else {
+            return false;
+        };
+        if !self
+            .lifecycle
+            .claims
+            .values()
+            .any(|c| c.0 == app && c.1 == category)
+        {
             self.remove_cap(&app, &category);
         }
         true
@@ -631,7 +798,16 @@ fn stop_processes(pids: &[i32], grace: Duration) -> usize {
             continue;
         }
         // SAFETY: as above, with a pidfd this function opened.
-        if unsafe { libc::syscall(libc::SYS_pidfd_send_signal, fd, libc::SIGTERM, std::ptr::null::<libc::siginfo_t>(), 0) } == 0 {
+        if unsafe {
+            libc::syscall(
+                libc::SYS_pidfd_send_signal,
+                fd,
+                libc::SIGTERM,
+                std::ptr::null::<libc::siginfo_t>(),
+                0,
+            )
+        } == 0
+        {
             fds.push(fd);
         } else {
             // SAFETY: closes the pidfd this function opened.
@@ -641,12 +817,36 @@ fn stop_processes(pids: &[i32], grace: Duration) -> usize {
     let mut killed = 0;
     for fd in fds {
         let left = deadline.saturating_duration_since(Instant::now());
-        let mut poll = libc::pollfd { fd, events: libc::POLLIN, revents: 0 };
+        let mut poll = libc::pollfd {
+            fd,
+            events: libc::POLLIN,
+            revents: 0,
+        };
         // SAFETY: one pollfd this function owns.
-        let ready = unsafe { libc::poll(&raw mut poll, 1, i32::try_from(left.as_millis()).unwrap_or(i32::MAX)) };
+        let ready = unsafe {
+            libc::poll(
+                &raw mut poll,
+                1,
+                i32::try_from(left.as_millis()).unwrap_or(i32::MAX),
+            )
+        };
         // A pidfd polls readable once its process has exited, reaped or not.
-        // SAFETY: as above.
-        if ready <= 0 && unsafe { libc::syscall(libc::SYS_pidfd_send_signal, fd, libc::SIGKILL, std::ptr::null::<libc::siginfo_t>(), 0) } == 0 {
+        let signalled = if ready <= 0 {
+            // SAFETY: `fd` is the pidfd opened above and the remaining syscall
+            // arguments follow pidfd_send_signal's contract.
+            (unsafe {
+                libc::syscall(
+                    libc::SYS_pidfd_send_signal,
+                    fd,
+                    libc::SIGKILL,
+                    std::ptr::null::<libc::siginfo_t>(),
+                    0,
+                )
+            }) == 0
+        } else {
+            false
+        };
+        if signalled {
             killed += 1;
         }
         // SAFETY: closes the pidfd this function opened.

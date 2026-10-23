@@ -98,10 +98,30 @@ enum Event {
 impl cxx_qt::Initialize for MediaLibrary {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), MEDIA, "ScanComplete", |obj, (p, v): (i32, i32)| obj.scan_complete(p, v));
-        relay(qt.clone(), MEDIA, "NewMediaAdded", |obj, (path,): (String,)| obj.new_media_added(&QString::from(&path)));
-        relay(qt.clone(), MEDIA, "ScanningChanged", |obj, (scanning,): (bool,)| show_scanning(obj, scanning));
-        relay(qt.clone(), MEDIA, "ScanProgressChanged", |obj, (p,): (i32,)| show_progress(obj, p));
+        relay(
+            qt.clone(),
+            MEDIA,
+            "ScanComplete",
+            |obj, (p, v): (i32, i32)| obj.scan_complete(p, v),
+        );
+        relay(
+            qt.clone(),
+            MEDIA,
+            "NewMediaAdded",
+            |obj, (path,): (String,)| obj.new_media_added(&QString::from(&path)),
+        );
+        relay(
+            qt.clone(),
+            MEDIA,
+            "ScanningChanged",
+            |obj, (scanning,): (bool,)| show_scanning(obj, scanning),
+        );
+        relay(
+            qt.clone(),
+            MEDIA,
+            "ScanProgressChanged",
+            |obj, (p,): (i32,)| show_progress(obj, p),
+        );
         io::spawn(async move {
             let mut asked = false;
             read(&qt, &mut asked).await;
@@ -112,7 +132,10 @@ impl cxx_qt::Initialize for MediaLibrary {
             ) else {
                 return;
             };
-            let events = albums.map(|()| Event::Albums).or(library.map(|()| Event::Library)).or(grants.map(|()| Event::Albums));
+            let events = albums
+                .map(|()| Event::Albums)
+                .or(library.map(|()| Event::Library))
+                .or(grants.map(|()| Event::Albums));
             let mut events = std::pin::pin!(events);
             while let Some(event) = events.next().await {
                 match event {
@@ -142,7 +165,9 @@ async fn read(qt: &Qt, asked: &mut bool) {
     if !allowed("storage", asked).await.unwrap_or(false) {
         return;
     }
-    let Ok(albums) = MEDIA.ask::<_, Vec<OwnedValue>>("Albums", &()).await else { return };
+    let Ok(albums) = MEDIA.ask::<_, Vec<OwnedValue>>("Albums", &()).await else {
+        return;
+    };
     let scanning = MEDIA.ask::<_, bool>("IsScanning", &()).await;
     let progress = MEDIA.ask::<_, i32>("ScanProgress", &()).await;
     qt.queue(move |mut obj| {

@@ -45,13 +45,20 @@ fn roots() -> Vec<PathBuf> {
     for dir in &roots {
         std::fs::create_dir_all(dir).ok();
     }
-    roots.extend(dirs::home_dir().map(|h| h.join("DCIM")).filter(|d| d.is_dir()));
+    roots.extend(
+        dirs::home_dir()
+            .map(|h| h.join("DCIM"))
+            .filter(|d| d.is_dir()),
+    );
     roots
 }
 
 impl Core {
     fn emitter(&self) -> SignalEmitter<'static> {
-        SignalEmitter::from_parts(self.bus.clone(), ObjectPath::from_static_str_unchecked(PATH))
+        SignalEmitter::from_parts(
+            self.bus.clone(),
+            ObjectPath::from_static_str_unchecked(PATH),
+        )
     }
 
     async fn show(&self, scanning: Option<bool>, percent: i32) {
@@ -71,15 +78,23 @@ impl Core {
     /// Adds what is new under Pictures and DCIM, with thumbnails, and drops
     /// what went.
     async fn scan(&self) {
-        if self.progress.with(|p| std::mem::replace(&mut p.scanning, true)).await {
+        if self
+            .progress
+            .with(|p| std::mem::replace(&mut p.scanning, true))
+            .await
+        {
             return;
         }
         self.show(Some(true), 0).await;
         let found = blocking::unblock(|| library::walk(&roots())).await;
-        let todo = self.library.with(move |l| l.reconcile(found)).await.unwrap_or_else(|e| {
-            log::warn("MediaLibrary", format_args!("cannot read the library: {e}"));
-            Vec::new()
-        });
+        let todo = self
+            .library
+            .with(move |l| l.reconcile(found))
+            .await
+            .unwrap_or_else(|e| {
+                log::warn("MediaLibrary", format_args!("cannot read the library: {e}"));
+                Vec::new()
+            });
         let total = todo.len();
         let e = self.emitter();
         for (done, file) in todo.into_iter().enumerate() {
@@ -89,13 +104,20 @@ impl Core {
                     MediaLibrary::new_media_added(&e, path.path()).await.ok();
                 }
                 Ok(false) => {}
-                Err(err) => log::warn("MediaLibrary", format_args!("cannot add {}: {err}", path.path())),
+                Err(err) => log::warn(
+                    "MediaLibrary",
+                    format_args!("cannot add {}: {err}", path.path()),
+                ),
             }
             if done % 25 == 24 {
-                self.show(None, i32::try_from(done * 100 / total).unwrap_or(100)).await;
+                self.show(None, i32::try_from(done * 100 / total).unwrap_or(100))
+                    .await;
             }
         }
-        let (photos, videos) = self.library.with(|l| (l.count("photo"), l.count("video"))).await;
+        let (photos, videos) = self
+            .library
+            .with(|l| (l.count("photo"), l.count("video")))
+            .await;
         MediaLibrary::albums_changed(&e).await.ok();
         MediaLibrary::scan_complete(&e, photos, videos).await.ok();
         MediaLibrary::library_changed(&e).await.ok();
@@ -110,9 +132,19 @@ impl MediaLibrary {
         admit(&self.0.bus, h, "MediaLibrary", &["storage"]).await
     }
 
-    async fn rows(&self, h: &Header<'_>, kind: &'static str, album: Option<String>) -> fdo::Result<Vec<Value<'static>>> {
+    async fn rows(
+        &self,
+        h: &Header<'_>,
+        kind: &'static str,
+        album: Option<String>,
+    ) -> fdo::Result<Vec<Value<'static>>> {
         self.admit(h).await?;
-        let rows = self.0.library.with(move |l| l.items(kind, album.as_deref())).await.map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        let rows = self
+            .0
+            .library
+            .with(move |l| l.items(kind, album.as_deref()))
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(rows.into_iter().map(Value::from).collect())
     }
 
@@ -126,7 +158,12 @@ impl MediaLibrary {
 impl MediaLibrary {
     async fn albums(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<Value<'static>>> {
         self.admit(&h).await?;
-        let rows = self.0.library.with(|l| l.albums()).await.map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        let rows = self
+            .0
+            .library
+            .with(|l| l.albums())
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(rows.into_iter().map(Value::from).collect())
     }
 
@@ -162,11 +199,18 @@ impl MediaLibrary {
         Ok(())
     }
 
-    async fn get_photos(&self, #[zbus(header)] h: Header<'_>, album_id: String) -> fdo::Result<Vec<Value<'static>>> {
+    async fn get_photos(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+        album_id: String,
+    ) -> fdo::Result<Vec<Value<'static>>> {
         self.rows(&h, "photo", Some(album_id)).await
     }
 
-    async fn get_all_photos(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<Vec<Value<'static>>> {
+    async fn get_all_photos(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<Vec<Value<'static>>> {
         self.rows(&h, "photo", None).await
     }
 
@@ -174,15 +218,33 @@ impl MediaLibrary {
         self.rows(&h, "video", None).await
     }
 
-    async fn generate_thumbnail(&self, #[zbus(header)] h: Header<'_>, file_path: String) -> fdo::Result<String> {
+    async fn generate_thumbnail(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+        file_path: String,
+    ) -> fdo::Result<String> {
         self.admit(&h).await?;
-        let path = file_path.strip_prefix("file://").unwrap_or(&file_path).to_owned();
-        Ok(self.0.library.with(move |l| library::thumbnail(&path, &l.thumbnails, l.size)).await.unwrap_or_default())
+        let path = file_path
+            .strip_prefix("file://")
+            .unwrap_or(&file_path)
+            .to_owned();
+        Ok(self
+            .0
+            .library
+            .with(move |l| library::thumbnail(&path, &l.thumbnails, l.size))
+            .await
+            .unwrap_or_default())
     }
 
     async fn delete_media(&self, #[zbus(header)] h: Header<'_>, media_id: i32) -> fdo::Result<()> {
         self.admit(&h).await?;
-        if self.0.library.with(move |l| l.delete(media_id)).await.map_err(|e| fdo::Error::Failed(e.to_string()))? {
+        if self
+            .0
+            .library
+            .with(move |l| l.delete(media_id))
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?
+        {
             let e = self.0.emitter();
             Self::albums_changed(&e).await?;
             Self::library_changed(&e).await?;
@@ -195,7 +257,11 @@ impl MediaLibrary {
     #[zbus(signal)]
     async fn scanning_changed(e: &SignalEmitter<'_>, scanning: bool) -> zbus::Result<()>;
     #[zbus(signal)]
-    async fn scan_complete(e: &SignalEmitter<'_>, photo_count: i32, video_count: i32) -> zbus::Result<()>;
+    async fn scan_complete(
+        e: &SignalEmitter<'_>,
+        photo_count: i32,
+        video_count: i32,
+    ) -> zbus::Result<()>;
     #[zbus(signal)]
     async fn new_media_added(e: &SignalEmitter<'_>, path: &str) -> zbus::Result<()>;
     #[zbus(signal)]
@@ -212,7 +278,11 @@ async fn watch(core: Core) {
     let follow = move || -> std::io::Result<()> {
         use inotify::{Inotify, WatchMask};
         let mut inotify = Inotify::init()?;
-        let mask = WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVED_FROM | WatchMask::MOVED_TO | WatchMask::CLOSE_WRITE;
+        let mask = WatchMask::CREATE
+            | WatchMask::DELETE
+            | WatchMask::MOVED_FROM
+            | WatchMask::MOVED_TO
+            | WatchMask::CLOSE_WRITE;
         inotify.watches().add(&pictures, mask)?;
         let mut buffer = [0; 4096];
         loop {
@@ -220,11 +290,16 @@ async fn watch(core: Core) {
             tx.try_send(()).ok();
         }
     };
-    let watcher = std::thread::Builder::new().name("pictures-watch".into()).spawn(move || {
-        if let Err(e) = follow() {
-            log::warn("MediaLibrary", format_args!("stopped watching Pictures: {e}"));
-        }
-    });
+    let watcher = std::thread::Builder::new()
+        .name("pictures-watch".into())
+        .spawn(move || {
+            if let Err(e) = follow() {
+                log::warn(
+                    "MediaLibrary",
+                    format_args!("stopped watching Pictures: {e}"),
+                );
+            }
+        });
     if let Err(e) = watcher {
         return log::warn("MediaLibrary", format_args!("cannot watch Pictures: {e}"));
     }
@@ -244,11 +319,25 @@ async fn watch(core: Core) {
 }
 
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let size = std::env::var("MARATHON_THUMBNAIL_SIZE").ok().and_then(|s| s.parse().ok()).filter(|s| *s > 0).unwrap_or(768);
-    let library = Library::open(&shell_data().join("marathon/medialibrary.db"), shell_cache().join("marathon/thumbnails"), size)?;
+    let size = std::env::var("MARATHON_THUMBNAIL_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|s| *s > 0)
+        .unwrap_or(768);
+    let library = Library::open(
+        &shell_data().join("marathon/medialibrary.db"),
+        shell_cache().join("marathon/thumbnails"),
+        size,
+    )?;
     let bus = io::session_bus().await?;
-    let core = Core { bus: bus.clone(), library: Shared::new(library), progress: Shared::new(Progress::default()) };
-    bus.object_server().at(PATH, MediaLibrary(core.clone())).await?;
+    let core = Core {
+        bus: bus.clone(),
+        library: Shared::new(library),
+        progress: Shared::new(Progress::default()),
+    };
+    bus.object_server()
+        .at(PATH, MediaLibrary(core.clone()))
+        .await?;
     bus.request_name(BUS_NAME).await?;
     watch(core).await;
     future::pending().await

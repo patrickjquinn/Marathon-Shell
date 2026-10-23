@@ -9,7 +9,7 @@
 set -eu
 
 apk add --no-cache \
-	build-base cmake samurai pkgconf git python3 py3-jsonschema cargo rust-clippy \
+	build-base cmake samurai pkgconf git python3 py3-jsonschema cargo rust-clippy rustfmt \
 	qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev qt6-qtwebengine-dev \
 	qt6-qtwebchannel-dev qt6-qtmultimedia-dev qt6-qtsensors-dev qt6-qtsvg-dev \
 	qt6-qtlocation-dev qt6-qtpositioning-dev qt6-qtspeech-dev qt6-qtwebsockets-dev \
@@ -27,6 +27,7 @@ exec su ci -c 'set -eu
 cd /home/ci/src
 unset KEEL_QML
 export QT_QPA_PLATFORM=offscreen
+cargo fmt --manifest-path crates/Cargo.toml --all -- --check
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build build
 ctest --test-dir build --output-on-failure

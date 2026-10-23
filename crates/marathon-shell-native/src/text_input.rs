@@ -99,7 +99,12 @@ pub struct RemoteTextInputRust {
 
 impl cxx_qt::Initialize for RemoteTextInput {
     fn initialize(self: Pin<&mut Self>) {
-        ipc::export("TextInput", TextInput1 { qt: self.qt_thread() });
+        ipc::export(
+            "TextInput",
+            TextInput1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
@@ -160,7 +165,10 @@ impl RemoteTextInput {
     fn commit(mut self: Pin<&mut Self>, text: &QString, before: i32, after: i32) {
         let text = text.to_string();
         self.as_mut().edit(&text, to_usize(before), to_usize(after));
-        self.send("CommitString", (self.editor.app_id.clone(), text, before, after));
+        self.send(
+            "CommitString",
+            (self.editor.app_id.clone(), text, before, after),
+        );
     }
 
     fn key(mut self: Pin<&mut Self>, name: &QString) {
@@ -194,8 +202,13 @@ impl RemoteTextInput {
         }
         let owner = self.owner.clone();
         io::spawn(async move {
-            let Ok(bus) = io::session_bus().await else { return };
-            if let Err(e) = bus.emit_signal(Some(owner.as_str()), PATH, INTERFACE, member, &body).await {
+            let Ok(bus) = io::session_bus().await else {
+                return;
+            };
+            if let Err(e) = bus
+                .emit_signal(Some(owner.as_str()), PATH, INTERFACE, member, &body)
+                .await
+            {
                 log::warn("text-input", format_args!("{member}: {e}"));
             }
         });
@@ -205,14 +218,21 @@ impl RemoteTextInput {
         let mut rust = self.as_mut().rust_mut();
         rust.owner = owner;
         rust.editor = Editor::default();
-        set!(self, app_id_prefix, app_id_prefix_changed, QString::from(prefix));
+        set!(
+            self,
+            app_id_prefix,
+            app_id_prefix_changed,
+            QString::from(prefix)
+        );
     }
 
     fn check_owner(&self, sender: &str) -> fdo::Result<()> {
         if !self.owner.is_empty() && sender == self.owner {
             return Ok(());
         }
-        Err(fdo::Error::AccessDenied("Not the registered input method".into()))
+        Err(fdo::Error::AccessDenied(
+            "Not the registered input method".into(),
+        ))
     }
 }
 
@@ -230,7 +250,10 @@ fn watch_owner(qt: Qt, owner: String) {
         let gone = async {
             let bus = io::session_bus().await?;
             let name = BusName::try_from(owner.as_str())?;
-            let mut changes = fdo::DBusProxy::new(&bus).await?.receive_name_owner_changed_with_args(&[(0, name.as_str())]).await?;
+            let mut changes = fdo::DBusProxy::new(&bus)
+                .await?
+                .receive_name_owner_changed_with_args(&[(0, name.as_str())])
+                .await?;
             while let Some(change) = changes.next().await {
                 if change.args().is_ok_and(|a| a.new_owner().is_none()) {
                     break;
@@ -255,28 +278,48 @@ fn watch_owner(qt: Qt, owner: String) {
 impl TextInput1 {
     /// Claims the windows whose app id starts with `app_id_prefix`, from any
     /// earlier owner.
-    async fn register(&self, app_id_prefix: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn register(
+        &self,
+        app_id_prefix: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         let caller = ipc::caller(&h).await.unwrap_or_default();
         if !gate::service_or_test(&caller, "text-input") {
-            return Err(fdo::Error::AccessDenied("Needs the text-input permission".into()));
+            return Err(fdo::Error::AccessDenied(
+                "Needs the text-input permission".into(),
+            ));
         }
         if app_id_prefix.len() < 2 || !app_id_prefix.ends_with('.') {
-            return Err(fdo::Error::InvalidArgs("An app id prefix ends in '.'".into()));
+            return Err(fdo::Error::InvalidArgs(
+                "An app id prefix ends in '.'".into(),
+            ));
         }
         let owner = sender(&h);
         watch_owner(self.qt.clone(), owner.clone());
         ipc::on_gui(&self.qt, move |obj| obj.set_service(owner, &app_id_prefix)).await
     }
 
-    async fn set_editor(&self, app_id: String, purpose: u32, hints: u32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_editor(
+        &self,
+        app_id: String,
+        purpose: u32,
+        hints: u32,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         let h = sender(&h);
         ipc::on_gui(&self.qt, move |mut obj| {
             obj.check_owner(&h)?;
             if !obj.owns(&app_id) {
                 return Err(fdo::Error::InvalidArgs("Not one of your apps".into()));
             }
-            let changed = obj.editor.app_id != app_id || (obj.editor.purpose, obj.editor.hints) != (purpose, hints);
-            obj.as_mut().rust_mut().editor = Editor { app_id, purpose, hints, ..Editor::default() };
+            let changed = obj.editor.app_id != app_id
+                || (obj.editor.purpose, obj.editor.hints) != (purpose, hints);
+            obj.as_mut().rust_mut().editor = Editor {
+                app_id,
+                purpose,
+                hints,
+                ..Editor::default()
+            };
             if changed {
                 obj.hints_changed();
             }
@@ -285,7 +328,14 @@ impl TextInput1 {
         .await?
     }
 
-    async fn set_surrounding_text(&self, app_id: String, text: String, cursor: i32, anchor: i32, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_surrounding_text(
+        &self,
+        app_id: String,
+        text: String,
+        cursor: i32,
+        anchor: i32,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         let text: Vec<u16> = text.encode_utf16().collect();
         if text.len() > 4096 {
             return Err(fdo::Error::InvalidArgs("Text too long".into()));

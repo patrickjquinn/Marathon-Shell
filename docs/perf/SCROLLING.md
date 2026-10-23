@@ -173,7 +173,7 @@ versions:
 
 | Butter | Marathon | Commits | Off switch |
 |---|---|---|---|
-| Vsync pacing | The compositor latches 8 ms after each vblank and sends frame callbacks at the vblank, so a client draws with the newest touch and makes the same flip; the shell's own frames latch at that phase too | 81b75d68, b756094a | `MARATHON_FRAME_PHASE_MS=0` |
+| Vsync pacing | The compositor sends frame callbacks at frame start. A fixed 8 ms late latch remains available for experiments, but is no longer the default: on the 60 Hz Hackberry panel it reduced a real Shortwave scroll from about 47 fps to 35 fps | 81b75d68, b756094a | `MARATHON_FRAME_PHASE_MS=8` |
 | Touch prediction | The shell samples touch at each frame's latch, raw until the drag distance; apps resample theirs at their own frame time in `marathon-app-runner` | c01e70a6, 8a4fa977 | `MARATHON_TOUCH_RESAMPLE=0`, `MARATHON_APP_TOUCH_RESAMPLE=0` |
 | Input boost | A 1.5 s CPU floor on input, written off the GUI thread; it rests at `cpuinfo_min_freq`, also after a shell killed mid-boost | 535f4528, 1cfa3271 | |
 | Triple buffering | Not needed: apps hold 60 fps here | | |

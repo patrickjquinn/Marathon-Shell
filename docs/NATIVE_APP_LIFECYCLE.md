@@ -35,15 +35,16 @@ Wayland mouse buttons are evdev codes: BTN_SIDE 0x113 (back, GDK button 8,
    has a mapped child `xdg_toplevel` (one with a parent: a GTK 3 or Qt dialog
    window), the newest gets `close`. Neither depends on which widget has
    keyboard focus.
-2. **Otherwise one key, picked per toolkit** from the libraries mapped into
+2. **Otherwise a native back key, with one toolkit fallback** selected from
+   the libraries mapped into
    the client (`/proc/<pid>/maps`, read once per window; works for Flatpaks,
    whose runtime libraries show at their sandbox paths):
-   - GTK 4 / libadwaita and Keel-hosted apps: **Escape**. It pops an
-     `AdwNavigationView` page *and* closes an `AdwDialog` sheet or a search
-     bar, which XF86Back does not. An Escape nothing uses changes nothing:
-     GTK 4 turns focus-visible back off on release when focus did not move.
-   - GTK 3, Qt (Kirigami, Widgets, Quick), unknown (Electron, Firefox, SDL):
-     **XF86Back**. GTK 3 and Qt do not navigate on Escape.
+   - Native GTK, Qt and browser apps first receive **XF86Back**, the platform
+     back action understood by `AdwNavigationView`, Kirigami and browsers.
+   - If that produces no visible change within 180 ms, GTK 4/libadwaita gets
+     **Escape** for in-window dialogs, popovers and search, while Qt, GTK 3
+     and unknown browser-style clients get **Alt+Left**.
+   - Keel-hosted apps receive **Escape**, as their page stack expects.
    - Qt's gtk3 platform theme maps libgtk-3 into Qt apps, so Qt is checked
      before GTK 3.
 
@@ -69,7 +70,8 @@ on the first of:
 - any surface of the same client being created, mapping, unmapping or being
   destroyed (popup closed, dialog closed, the window itself closed).
 
-Otherwise the compositor emits `nativeBackUnhandled(surfaceId)`; the
+If neither the primary nor fallback action changes the app, the compositor
+emits `nativeBackUnhandled(surfaceId)`; the
 lifecycle turns it into `systemBackUnhandled` if that window still belongs to
 the foreground app, and `MarathonShell.qml` backs out of the app exactly as
 for a Marathon app's refusal.

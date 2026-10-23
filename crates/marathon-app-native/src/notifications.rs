@@ -39,7 +39,13 @@ pub mod qobject {
         /// (low, normal, high), `icon` and `persistent`. The id, or -1.
         #[qinvokable]
         #[cxx_name = "sendNotification"]
-        fn send_notification(self: &Notifications, app_id: &QString, title: &QString, body: &QString, options: &QMap_QString_QVariant) -> i32;
+        fn send_notification(
+            self: &Notifications,
+            app_id: &QString,
+            title: &QString,
+            body: &QString,
+            options: &QMap_QString_QVariant,
+        ) -> i32;
         #[qinvokable]
         #[cxx_name = "dismissNotification"]
         fn dismiss_notification(self: &Notifications, id: i32);
@@ -68,9 +74,15 @@ async fn server() -> &'static str {
             let ours = async {
                 let bus = io::session_bus().await.ok()?;
                 let dbus = zbus::fdo::DBusProxy::new(&bus).await.ok()?;
-                dbus.name_has_owner("org.marathon.Notifications".try_into().ok()?).await.ok()
+                dbus.name_has_owner("org.marathon.Notifications".try_into().ok()?)
+                    .await
+                    .ok()
             };
-            if ours.await == Some(true) { "org.marathon.Notifications" } else { INTERFACE }
+            if ours.await == Some(true) {
+                "org.marathon.Notifications"
+            } else {
+                INTERFACE
+            }
         })
         .await
 }
@@ -79,7 +91,10 @@ pub(crate) async fn call<B>(method: &str, body: &B) -> zbus::Result<zbus::Messag
 where
     B: serde::Serialize + zbus::zvariant::DynamicType,
 {
-    io::session_bus().await?.call_method(Some(server().await), PATH, Some(INTERFACE), method, body).await
+    io::session_bus()
+        .await?
+        .call_method(Some(server().await), PATH, Some(INTERFACE), method, body)
+        .await
 }
 
 impl cxx_qt::Initialize for Notifications {
@@ -87,7 +102,12 @@ impl cxx_qt::Initialize for Notifications {
         let qt = self.qt_thread();
         io::spawn(async move {
             let rule = |member| -> zbus::Result<MatchRule<'static>> {
-                Ok(MatchRule::builder().msg_type(zbus::message::Type::Signal).path(PATH)?.interface(INTERFACE)?.member(member)?.build())
+                Ok(MatchRule::builder()
+                    .msg_type(zbus::message::Type::Signal)
+                    .path(PATH)?
+                    .interface(INTERFACE)?
+                    .member(member)?
+                    .build())
             };
             let streams = async {
                 let bus = io::session_bus().await?;
@@ -96,19 +116,30 @@ impl cxx_qt::Initialize for Notifications {
                     MessageStream::for_match_rule(rule("ActionInvoked")?, &bus, None).await?,
                 ))
             };
-            let Ok((closed, invoked)) = streams.await else { return log::warn("Notifications", "no session bus") };
+            let Ok((closed, invoked)) = streams.await else {
+                return log::warn("Notifications", "no session bus");
+            };
             let mut events = std::pin::pin!(closed.or(invoked));
             while let Some(Ok(message)) = events.next().await {
-                let member = message.header().member().map(ToString::to_string).unwrap_or_default();
+                let member = message
+                    .header()
+                    .member()
+                    .map(ToString::to_string)
+                    .unwrap_or_default();
                 let body = message.body();
                 if member == "NotificationClosed" {
                     if let Ok((id, reason)) = body.deserialize::<(u32, u32)>() {
-                        let (id, reason) = (i32::try_from(id).unwrap_or(-1), i32::try_from(reason).unwrap_or(0));
-                        qt.queue(move |obj| obj.notification_closed(id, reason)).ok();
+                        let (id, reason) = (
+                            i32::try_from(id).unwrap_or(-1),
+                            i32::try_from(reason).unwrap_or(0),
+                        );
+                        qt.queue(move |obj| obj.notification_closed(id, reason))
+                            .ok();
                     }
                 } else if let Ok((id, action)) = body.deserialize::<(u32, String)>() {
                     let id = i32::try_from(id).unwrap_or(-1);
-                    qt.queue(move |obj| obj.action_invoked(id, &QString::from(&action))).ok();
+                    qt.queue(move |obj| obj.action_invoked(id, &QString::from(&action)))
+                        .ok();
                 }
             }
         });
@@ -116,29 +147,67 @@ impl cxx_qt::Initialize for Notifications {
 }
 
 impl Notifications {
-    fn send_notification(&self, app_id: &QString, title: &QString, body: &QString, options: &QMap<QMapPair_QString_QVariant>) -> i32 {
+    fn send_notification(
+        &self,
+        app_id: &QString,
+        title: &QString,
+        body: &QString,
+        options: &QMap<QMapPair_QString_QVariant>,
+    ) -> i32 {
         let option = |key: &str| options.get(&QString::from(key));
-        let text = |key: &str| option(key).and_then(|v| v.value::<QString>()).map(|v| v.to_string()).unwrap_or_default();
+        let text = |key: &str| {
+            option(key)
+                .and_then(|v| v.value::<QString>())
+                .map(|v| v.to_string())
+                .unwrap_or_default()
+        };
         let actions: Vec<String> = option("actions")
             .and_then(|v| v.value::<cxx_qt_lib::QList<QVariant>>())
-            .map(|list| list.iter().filter_map(QVariant::value::<QString>).flat_map(|a| [a.to_string(), a.to_string()]).collect())
+            .map(|list| {
+                list.iter()
+                    .filter_map(QVariant::value::<QString>)
+                    .flat_map(|a| [a.to_string(), a.to_string()])
+                    .collect()
+            })
             .unwrap_or_default();
         let mut hints: HashMap<&str, Value<'_>> = HashMap::new();
         if option("category").is_some() {
             hints.insert("category", Value::from(text("category")));
         }
         if option("priority").is_some() {
-            hints.insert("urgency", Value::U8(match text("priority").as_str() { "high" => 2, "low" => 0, _ => 1 }));
+            hints.insert(
+                "urgency",
+                Value::U8(match text("priority").as_str() {
+                    "high" => 2,
+                    "low" => 0,
+                    _ => 1,
+                }),
+            );
         }
         hints.insert("desktop-entry", Value::from(app_id.to_string()));
-        let persistent = option("persistent").and_then(|v| v.value::<bool>()).unwrap_or(false);
+        let persistent = option("persistent")
+            .and_then(|v| v.value::<bool>())
+            .unwrap_or(false);
         let timeout = if persistent { 0 } else { 5000 };
-        let body = (app_id.to_string(), 0u32, text("icon"), title.to_string(), body.to_string(), actions, hints, timeout);
+        let body = (
+            app_id.to_string(),
+            0u32,
+            text("icon"),
+            title.to_string(),
+            body.to_string(),
+            actions,
+            hints,
+            timeout,
+        );
         let sent = async_io::block_on(async {
             if !allowed("notifications", &mut false).await? {
                 return Ok(None);
             }
-            call("Notify", &body).await?.body().deserialize::<u32>().map(Some)
+            call("Notify", &body)
+                .await?
+                .body()
+                .deserialize::<u32>()
+                .map(Some)
         });
         match sent {
             Ok(Some(id)) => i32::try_from(id).unwrap_or(-1),

@@ -23,15 +23,45 @@ pub mod qobject {
         #[qproperty(bool, wifi_enabled, cxx_name = "wifiEnabled", READ, NOTIFY)]
         #[qproperty(bool, wifi_connected, cxx_name = "wifiConnected", READ, NOTIFY)]
         #[qproperty(QString, wifi_ssid, cxx_name = "wifiSsid", READ, NOTIFY)]
-        #[qproperty(i32, wifi_signal_strength, cxx_name = "wifiSignalStrength", READ, NOTIFY)]
+        #[qproperty(
+            i32,
+            wifi_signal_strength,
+            cxx_name = "wifiSignalStrength",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(bool, ethernet_connected, cxx_name = "ethernetConnected", READ, NOTIFY)]
-        #[qproperty(QString, ethernet_connection_name, cxx_name = "ethernetConnectionName", READ, NOTIFY)]
+        #[qproperty(
+            QString,
+            ethernet_connection_name,
+            cxx_name = "ethernetConnectionName",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(bool, wifi_available, cxx_name = "wifiAvailable", READ, NOTIFY)]
-        #[qproperty(bool, bluetooth_available, cxx_name = "bluetoothAvailable", READ, NOTIFY)]
+        #[qproperty(
+            bool,
+            bluetooth_available,
+            cxx_name = "bluetoothAvailable",
+            READ,
+            NOTIFY
+        )]
         #[qproperty(bool, hotspot_supported, cxx_name = "hotspotSupported", READ, NOTIFY)]
         #[qproperty(bool, hotspot_active, cxx_name = "hotspotActive", READ, NOTIFY)]
-        #[qproperty(bool, airplane_mode_enabled, cxx_name = "airplaneModeEnabled", READ, NOTIFY)]
-        #[qproperty(QList_QVariant, available_networks, cxx_name = "availableNetworks", READ, NOTIFY)]
+        #[qproperty(
+            bool,
+            airplane_mode_enabled,
+            cxx_name = "airplaneModeEnabled",
+            READ,
+            NOTIFY
+        )]
+        #[qproperty(
+            QList_QVariant,
+            available_networks,
+            cxx_name = "availableNetworks",
+            READ,
+            NOTIFY
+        )]
         type Network = super::NetworkRust;
 
         #[qsignal]
@@ -61,7 +91,12 @@ pub mod qobject {
         fn connect_to_network(self: &Network, ssid: &QString, password: &QString);
         #[qinvokable]
         #[cxx_name = "connectToHiddenNetwork"]
-        fn connect_to_hidden_network(self: &Network, ssid: &QString, security: &QString, password: &QString);
+        fn connect_to_hidden_network(
+            self: &Network,
+            ssid: &QString,
+            security: &QString,
+            password: &QString,
+        );
         #[qinvokable]
         #[cxx_name = "forgetNetwork"]
         fn forget_network(self: &Network, ssid: &QString);
@@ -110,23 +145,90 @@ pub struct NetworkRust {
 impl cxx_qt::Initialize for Network {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), NETWORK, "NetworkError", |obj, (m,): (String,)| obj.network_error(&QString::from(&m)));
-        relay(qt.clone(), NETWORK, "ConnectionSuccess", |obj, ()| obj.connection_success());
-        relay(qt.clone(), NETWORK, "ConnectionFailed", |obj, (m,): (String,)| obj.connection_failed(&QString::from(&m)));
+        relay(
+            qt.clone(),
+            NETWORK,
+            "NetworkError",
+            |obj, (m,): (String,)| obj.network_error(&QString::from(&m)),
+        );
+        relay(qt.clone(), NETWORK, "ConnectionSuccess", |obj, ()| {
+            obj.connection_success();
+        });
+        relay(
+            qt.clone(),
+            NETWORK,
+            "ConnectionFailed",
+            |obj, (m,): (String,)| obj.connection_failed(&QString::from(&m)),
+        );
         mirror(qt, NETWORK, "network", |mut obj, update| {
             let Update::State(s) = update else { return };
-            set!(obj, wifi_enabled, wifi_enabled_changed, get(&s, "wifiEnabled"));
-            set!(obj, wifi_connected, wifi_connected_changed, get(&s, "wifiConnected"));
+            set!(
+                obj,
+                wifi_enabled,
+                wifi_enabled_changed,
+                get(&s, "wifiEnabled")
+            );
+            set!(
+                obj,
+                wifi_connected,
+                wifi_connected_changed,
+                get(&s, "wifiConnected")
+            );
             set!(obj, wifi_ssid, wifi_ssid_changed, get(&s, "wifiSsid"));
-            set!(obj, wifi_signal_strength, wifi_signal_strength_changed, get(&s, "wifiSignalStrength"));
-            set!(obj, ethernet_connected, ethernet_connected_changed, get(&s, "ethernetConnected"));
-            set!(obj, ethernet_connection_name, ethernet_connection_name_changed, get(&s, "ethernetConnectionName"));
-            set!(obj, wifi_available, wifi_available_changed, get(&s, "wifiAvailable"));
-            set!(obj, bluetooth_available, bluetooth_available_changed, get(&s, "bluetoothAvailable"));
-            set!(obj, hotspot_supported, hotspot_supported_changed, get(&s, "hotspotSupported"));
-            set!(obj, hotspot_active, hotspot_active_changed, get(&s, "hotspotActive"));
-            set!(obj, airplane_mode_enabled, airplane_mode_enabled_changed, get(&s, "airplaneModeEnabled"));
-            set!(obj, available_networks, available_networks_changed, get(&s, "availableNetworks"));
+            set!(
+                obj,
+                wifi_signal_strength,
+                wifi_signal_strength_changed,
+                get(&s, "wifiSignalStrength")
+            );
+            set!(
+                obj,
+                ethernet_connected,
+                ethernet_connected_changed,
+                get(&s, "ethernetConnected")
+            );
+            set!(
+                obj,
+                ethernet_connection_name,
+                ethernet_connection_name_changed,
+                get(&s, "ethernetConnectionName")
+            );
+            set!(
+                obj,
+                wifi_available,
+                wifi_available_changed,
+                get(&s, "wifiAvailable")
+            );
+            set!(
+                obj,
+                bluetooth_available,
+                bluetooth_available_changed,
+                get(&s, "bluetoothAvailable")
+            );
+            set!(
+                obj,
+                hotspot_supported,
+                hotspot_supported_changed,
+                get(&s, "hotspotSupported")
+            );
+            set!(
+                obj,
+                hotspot_active,
+                hotspot_active_changed,
+                get(&s, "hotspotActive")
+            );
+            set!(
+                obj,
+                airplane_mode_enabled,
+                airplane_mode_enabled_changed,
+                get(&s, "airplaneModeEnabled")
+            );
+            set!(
+                obj,
+                available_networks,
+                available_networks_changed,
+                get(&s, "availableNetworks")
+            );
         });
     }
 }
@@ -148,5 +250,4 @@ impl Network {
     crate::shell::asks! { NETWORK;
         is_hotspot_active() -> bool => "IsHotspotActive";
     }
-
 }

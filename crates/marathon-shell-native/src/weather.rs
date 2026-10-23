@@ -65,7 +65,8 @@ type Qt = CxxQtThread<WeatherClient>;
 
 const SERVICE: &str = "org.marathonos.Weather";
 const PATH: &str = "/org/marathonos/Weather";
-const INTERFACE: InterfaceName<'static> = InterfaceName::from_static_str_unchecked("org.marathonos.Weather1");
+const INTERFACE: InterfaceName<'static> =
+    InterfaceName::from_static_str_unchecked("org.marathonos.Weather1");
 
 #[zbus::proxy(
     interface = "org.marathonos.Weather1",
@@ -75,7 +76,13 @@ const INTERFACE: InterfaceName<'static> = InterfaceName::from_static_str_uncheck
 trait Weather {
     fn refresh(&self) -> zbus::Result<()>;
     fn search(&self, query: &str) -> zbus::Result<String>;
-    fn set_location(&self, name: &str, region: &str, latitude: f64, longitude: f64) -> zbus::Result<()>;
+    fn set_location(
+        &self,
+        name: &str,
+        region: &str,
+        latitude: f64,
+        longitude: f64,
+    ) -> zbus::Result<()>;
     fn set_automatic(&self) -> zbus::Result<()>;
 }
 
@@ -106,7 +113,16 @@ fn territory() -> String {
     ["LC_ALL", "LC_MEASUREMENT", "LANG"]
         .iter()
         .find_map(|key| std::env::var(key).ok().filter(|v| !v.is_empty()))
-        .and_then(|locale| Some(locale.split(['.', '@']).next()?.split_once('_')?.1.to_owned()))
+        .and_then(|locale| {
+            Some(
+                locale
+                    .split(['.', '@'])
+                    .next()?
+                    .split_once('_')?
+                    .1
+                    .to_owned(),
+            )
+        })
         .unwrap_or_default()
 }
 
@@ -122,7 +138,11 @@ impl cxx_qt::Initialize for WeatherClient {
 }
 
 async fn properties() -> zbus::Result<PropertiesProxy<'static>> {
-    PropertiesProxy::builder(&io::session_bus().await?).destination(SERVICE)?.path(PATH)?.build().await
+    PropertiesProxy::builder(&io::session_bus().await?)
+        .destination(SERVICE)?
+        .path(PATH)?
+        .build()
+        .await
 }
 
 async fn weather() -> zbus::Result<WeatherProxy<'static>> {
@@ -135,7 +155,11 @@ async fn watch(qt: &Qt) -> zbus::Result<()> {
         let args = signal.args()?;
         if args.interface_name == INTERFACE {
             let changed = args.changed_properties();
-            publish(qt, text(changed.get("Forecast")), text(changed.get("State")));
+            publish(
+                qt,
+                text(changed.get("Forecast")),
+                text(changed.get("State")),
+            );
         }
     }
     Ok(())
@@ -161,7 +185,10 @@ fn publish(qt: &Qt, forecast: Option<String>, state: Option<String>) {
     .ok();
 }
 
-fn call<F: future::Future<Output = zbus::Result<()>> + Send>(method: &'static str, done: impl FnOnce(WeatherProxy<'static>) -> F + Send + 'static) {
+fn call<F: future::Future<Output = zbus::Result<()>> + Send>(
+    method: &'static str,
+    done: impl FnOnce(WeatherProxy<'static>) -> F + Send + 'static,
+) {
     io::spawn(async move {
         let result = async { done(weather().await?).await }.await;
         if let Err(e) = result {
@@ -190,17 +217,30 @@ impl WeatherClient {
         let qt = self.qt_thread();
         let query = query.to_string();
         io::spawn(async move {
-            let found = future::or(async { async { weather().await?.search(&query).await }.await.map_err(|e| e.to_string()) }, async {
-                Timer::after(Duration::from_secs(15)).await;
-                Err("Timed out".to_owned())
-            });
+            let found = future::or(
+                async {
+                    async { weather().await?.search(&query).await }
+                        .await
+                        .map_err(|e| e.to_string())
+                },
+                async {
+                    Timer::after(Duration::from_secs(15)).await;
+                    Err("Timed out".to_owned())
+                },
+            );
             let found: Result<String, String> = found.await;
             let (json, error) = match found {
-                Ok(json) => (serde_json::from_str(&json).unwrap_or_default(), String::new()),
+                Ok(json) => (
+                    serde_json::from_str(&json).unwrap_or_default(),
+                    String::new(),
+                ),
                 Err(e) => (serde_json::Value::Null, e),
             };
             qt.queue(move |obj| {
-                let places = json.as_array().map(|items| variant::list(items)).unwrap_or_default();
+                let places = json
+                    .as_array()
+                    .map(|items| variant::list(items))
+                    .unwrap_or_default();
                 obj.search_finished(&places, &QString::from(&error));
             })
             .ok();
@@ -209,10 +249,28 @@ impl WeatherClient {
 
     #[allow(clippy::unused_self, reason = "an invokable")]
     fn set_location(&self, place: &QMap<QMapPair_QString_QVariant>) {
-        let text = |key| place.get(&QString::from(key)).and_then(|v| v.value::<QString>()).map(|s| s.to_string()).unwrap_or_default();
-        let number = |key| place.get(&QString::from(key)).and_then(|v| v.value::<f64>()).unwrap_or_default();
-        let (name, region, latitude, longitude) = (text("name"), text("region"), number("latitude"), number("longitude"));
-        call("SetLocation", move |w| async move { w.set_location(&name, &region, latitude, longitude).await });
+        let text = |key| {
+            place
+                .get(&QString::from(key))
+                .and_then(|v| v.value::<QString>())
+                .map(|s| s.to_string())
+                .unwrap_or_default()
+        };
+        let number = |key| {
+            place
+                .get(&QString::from(key))
+                .and_then(|v| v.value::<f64>())
+                .unwrap_or_default()
+        };
+        let (name, region, latitude, longitude) = (
+            text("name"),
+            text("region"),
+            number("latitude"),
+            number("longitude"),
+        );
+        call("SetLocation", move |w| async move {
+            w.set_location(&name, &region, latitude, longitude).await
+        });
     }
 
     #[allow(clippy::unused_self, reason = "an invokable")]

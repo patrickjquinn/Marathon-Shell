@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Older images enabled Waydroid into multi-user.target. Keep the container
+# installed and startable on demand, but remove that persistent boot link.
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl disable waydroid-container.service || true
+	systemctl daemon-reload || true
+fi
+
+exit 0

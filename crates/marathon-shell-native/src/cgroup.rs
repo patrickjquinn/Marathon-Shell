@@ -26,14 +26,30 @@ pub struct AppCgroups {
     scopes: HashMap<String, String>,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct Placement {
+    pub(crate) frozen: bool,
+    pub(crate) foreground: bool,
+}
+
 /// This session's app cgroups, once a previous session's are reaped.
 pub(crate) fn app_cgroups() -> AppCgroups {
     let shell = read_cgroup(Path::new("/proc/self/cgroup"));
     let root = apps_root(&shell);
     if root.is_none() {
-        log::warn("cgroup", format_args!("no delegated marathon.slice (shell in {shell:?}); freezing is logged only"));
+        log::warn(
+            "cgroup",
+            format_args!(
+                "no delegated marathon.slice (shell in {shell:?}); freezing is logged only"
+            ),
+        );
     }
-    let cgroups = AppCgroups { root, shell, placed: HashSet::new(), scopes: HashMap::new() };
+    let cgroups = AppCgroups {
+        root,
+        shell,
+        placed: HashSet::new(),
+        scopes: HashMap::new(),
+    };
     cgroups.reap_stale();
     cgroups
 }
@@ -46,7 +62,11 @@ fn apps_root(shell: &str) -> Option<PathBuf> {
     if !fs_root.join("cgroup.controllers").exists() || shell.strip_suffix(".scope").is_none() {
         return None;
     }
-    let slice = fs_root.join(shell.get(..shell.rfind("/marathon-shell-").filter(|&i| i > 0)?)?.trim_start_matches('/'));
+    let slice = fs_root.join(
+        shell
+            .get(..shell.rfind("/marathon-shell-").filter(|&i| i > 0)?)?
+            .trim_start_matches('/'),
+    );
     let root = slice.join("marathon-apps");
     // systemd chowns a delegated slice a moment after making it.
     let made = (0..5).any(|attempt| {
@@ -71,21 +91,26 @@ impl AppCgroups {
 
     /// The app's process, whose own cgroup is `pid_cgroup`, in the app's
     /// cgroup, frozen or not and boosted in front.
-    pub(crate) fn adopt(&mut self, app_id: &str, pid: i64, pid_cgroup: &str, frozen: bool, front: bool) {
+    pub(crate) fn adopt(&mut self, app_id: &str, pid: i64, pid_cgroup: &str, placement: Placement) {
         if let Some(unit) = scope_unit(pid_cgroup, &self.shell) {
             self.scopes.insert(app_id.to_owned(), unit);
             return;
         }
-        let Some(dir) = self.dir(app_id).filter(|_| pid > 0 && !app_id.is_empty()) else { return };
+        let Some(dir) = self.dir(app_id).filter(|_| pid > 0 && !app_id.is_empty()) else {
+            return;
+        };
         // A previous instance may have left the cgroup frozen, which would
         // freeze this one at birth.
         if !write(&dir.join("cgroup.freeze"), "0") && fs::create_dir(&dir).is_err() {
             return;
         }
         if write(&dir.join("cgroup.procs"), &pid.to_string()) {
-            write(&dir.join("cgroup.freeze"), if frozen { "1" } else { "0" });
+            write(
+                &dir.join("cgroup.freeze"),
+                if placement.frozen { "1" } else { "0" },
+            );
             self.placed.insert(app_id.to_owned());
-            write_uclamp(&dir, front);
+            write_uclamp(&dir, placement.foreground);
         }
     }
 
@@ -94,14 +119,19 @@ impl AppCgroups {
             io::spawn(async move {
                 let done = async {
                     let manager = SystemdManagerProxy::new(&io::session_bus().await?).await?;
-                    if frozen { manager.freeze_unit(&unit).await } else { manager.thaw_unit(&unit).await }
+                    if frozen {
+                        manager.freeze_unit(&unit).await
+                    } else {
+                        manager.thaw_unit(&unit).await
+                    }
                 };
                 if let Err(e) = done.await {
                     log::warn("cgroup", format_args!("freezing {unit} {frozen}: {e}"));
                 }
             });
         } else if self.placed.contains(app_id) {
-            self.dir(app_id).map(|dir| write(&dir.join("cgroup.freeze"), if frozen { "1" } else { "0" }));
+            self.dir(app_id)
+                .map(|dir| write(&dir.join("cgroup.freeze"), if frozen { "1" } else { "0" }));
         }
     }
 
@@ -126,7 +156,8 @@ impl AppCgroups {
 
     pub(crate) fn thaw_all(&self) {
         for app_id in &self.placed {
-            self.dir(app_id).map(|dir| write(&dir.join("cgroup.freeze"), "0"));
+            self.dir(app_id)
+                .map(|dir| write(&dir.join("cgroup.freeze"), "0"));
         }
     }
 
@@ -139,10 +170,17 @@ impl AppCgroups {
             .into_iter()
             .flatten()
             .flatten()
-            .filter(|e| e.file_name().to_string_lossy().starts_with("marathon-app-") && e.path().is_dir())
+            .filter(|e| {
+                e.file_name().to_string_lossy().starts_with("marathon-app-") && e.path().is_dir()
+            })
             .map(|e| e.path())
             .collect();
-        let signal_all = |signal| dirs.iter().flat_map(|d| pids(d)).filter(|&pid| kill(pid, signal)).count();
+        let signal_all = |signal| {
+            dirs.iter()
+                .flat_map(|d| pids(d))
+                .filter(|&pid| kill(pid, signal))
+                .count()
+        };
         for dir in &dirs {
             write(&dir.join("cgroup.freeze"), "0");
         }
@@ -155,7 +193,13 @@ impl AppCgroups {
         let killed = signal_all(libc::SIGKILL);
         // A dir that stays, its pids not yet reaped, is reused thawed.
         let removed = dirs.iter().filter(|d| fs::remove_dir(d).is_ok()).count();
-        log::warn("cgroup", format_args!("reaped {} stale app cgroups ({removed} removed, {killed} pids SIGKILLed)", dirs.len()));
+        log::warn(
+            "cgroup",
+            format_args!(
+                "reaped {} stale app cgroups ({removed} removed, {killed} pids SIGKILLed)",
+                dirs.len()
+            ),
+        );
     }
 }
 
@@ -171,11 +215,20 @@ fn scope_unit(cgroup: &str, shell: &str) -> Option<String> {
 }
 
 fn read_cgroup(proc_file: &Path) -> String {
-    fs::read_to_string(proc_file).ok().as_deref().map(unified).unwrap_or_default()
+    fs::read_to_string(proc_file)
+        .ok()
+        .as_deref()
+        .map(unified)
+        .unwrap_or_default()
 }
 
 fn unified(contents: &str) -> String {
-    contents.lines().find_map(|l| l.strip_prefix("0::")).unwrap_or_default().trim().to_owned()
+    contents
+        .lines()
+        .find_map(|l| l.strip_prefix("0::"))
+        .unwrap_or_default()
+        .trim()
+        .to_owned()
 }
 
 /// The process's cgroup v2 path, from `/proc/<pid>/cgroup`.
@@ -186,16 +239,26 @@ pub(crate) fn cgroup_of_pid(pid: i64) -> String {
 /// How readily the kernel's OOM killer picks the process.
 pub(crate) fn set_oom_score_adj(pid: i64, score: i32) {
     if pid > 0 {
-        write(Path::new(&format!("/proc/{pid}/oom_score_adj")), &score.to_string());
+        write(
+            Path::new(&format!("/proc/{pid}/oom_score_adj")),
+            &score.to_string(),
+        );
     }
 }
 
 fn write_uclamp(dir: &Path, front: bool) {
-    write(&dir.join("cpu.uclamp.min"), &if front { FRONT_UCLAMP_MIN } else { 0 }.to_string());
+    write(
+        &dir.join("cpu.uclamp.min"),
+        &if front { FRONT_UCLAMP_MIN } else { 0 }.to_string(),
+    );
 }
 
 fn pids(dir: &Path) -> Vec<i32> {
-    fs::read_to_string(dir.join("cgroup.procs")).unwrap_or_default().lines().filter_map(|l| l.trim().parse().ok()).collect()
+    fs::read_to_string(dir.join("cgroup.procs"))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| l.trim().parse().ok())
+        .collect()
 }
 
 fn kill(pid: i32, signal: i32) -> bool {
@@ -216,10 +279,17 @@ mod tests {
 
     #[test]
     fn a_launchers_scope_is_the_apps() {
-        let shell = "/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-shell-1.scope";
+        let shell =
+            "/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-shell-1.scope";
         let flatpak = format!("{APPS}/app-flatpak-org.gnome.Maps-1234.scope");
-        assert_eq!(scope_unit(&flatpak, shell).as_deref(), Some("app-flatpak-org.gnome.Maps-1234.scope"));
-        assert_eq!(scope_unit(&format!("{APPS}/app-gnome-foot-99.scope"), shell).as_deref(), Some("app-gnome-foot-99.scope"));
+        assert_eq!(
+            scope_unit(&flatpak, shell).as_deref(),
+            Some("app-flatpak-org.gnome.Maps-1234.scope")
+        );
+        assert_eq!(
+            scope_unit(&format!("{APPS}/app-gnome-foot-99.scope"), shell).as_deref(),
+            Some("app-gnome-foot-99.scope")
+        );
         assert_eq!(scope_unit(shell, shell), None);
         assert_eq!(scope_unit(&format!("{APPS}/dbus.service"), shell), None);
         assert_eq!(scope_unit("", shell), None);
@@ -228,20 +298,29 @@ mod tests {
     #[test]
     fn the_shells_own_scope_never_freezes() {
         let terminal = format!("{APPS}/app-gnome-ptyxis-7.scope");
-        assert_eq!(scope_unit(&terminal, &format!("{terminal}/vte-spawn")), None);
+        assert_eq!(
+            scope_unit(&terminal, &format!("{terminal}/vte-spawn")),
+            None
+        );
         assert_eq!(scope_unit(&terminal, &terminal), None);
     }
 
     #[test]
     fn the_unified_line_is_the_cgroup() {
-        assert_eq!(unified("0::/user.slice/app-x-1.scope\n"), "/user.slice/app-x-1.scope");
+        assert_eq!(
+            unified("0::/user.slice/app-x-1.scope\n"),
+            "/user.slice/app-x-1.scope"
+        );
         assert_eq!(unified("1:name=systemd:/a\n0::/b\n"), "/b");
         assert_eq!(unified(""), "");
     }
 
     #[test]
     fn without_marathon_slice_nothing_is_written() {
-        assert_eq!(apps_root("/user.slice/user-1000.slice/session-1.scope"), None);
+        assert_eq!(
+            apps_root("/user.slice/user-1000.slice/session-1.scope"),
+            None
+        );
         assert_eq!(apps_root(""), None);
     }
 }

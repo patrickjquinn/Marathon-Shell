@@ -14,13 +14,17 @@ pub struct CallLog {
     db: Connection,
 }
 
-const COLUMNS: &str = "SELECT id, number, contact_name, type, timestamp, duration FROM call_history";
+const COLUMNS: &str =
+    "SELECT id, number, contact_name, type, timestamp, duration FROM call_history";
 
 fn row(r: &rusqlite::Row) -> rusqlite::Result<Row> {
     Ok(Row::from([
         ("id", Value::from(r.get::<_, i32>(0)?)),
         ("number", Value::from(r.get::<_, String>(1)?)),
-        ("contactName", Value::from(r.get::<_, Option<String>>(2)?.unwrap_or_default())),
+        (
+            "contactName",
+            Value::from(r.get::<_, Option<String>>(2)?.unwrap_or_default()),
+        ),
         ("type", Value::from(r.get::<_, String>(3)?)),
         ("timestamp", Value::from(r.get::<_, i64>(4)?)),
         ("duration", Value::from(r.get::<_, i32>(5)?)),
@@ -44,19 +48,35 @@ impl CallLog {
 
     /// The newest calls, or those with `number`.
     pub fn calls(&self, number: Option<&str>) -> rusqlite::Result<Vec<Row>> {
-        let mut query = self.db.prepare(&format!("{COLUMNS} ORDER BY timestamp DESC LIMIT {KEPT}"))?;
-        let rows = query.query_map([], row)?.collect::<rusqlite::Result<Vec<Row>>>()?;
+        let mut query = self
+            .db
+            .prepare(&format!("{COLUMNS} ORDER BY timestamp DESC LIMIT {KEPT}"))?;
+        let rows = query
+            .query_map([], row)?
+            .collect::<rusqlite::Result<Vec<Row>>>()?;
         Ok(match number {
-            Some(number) => rows.into_iter().filter(|r| r["number"] == Value::from(number)).collect(),
+            Some(number) => rows
+                .into_iter()
+                .filter(|r| r["number"] == Value::from(number))
+                .collect(),
             None => rows,
         })
     }
 
     pub fn call(&self, id: i32) -> rusqlite::Result<Option<Row>> {
-        self.db.query_row(&format!("{COLUMNS} WHERE id = ?"), [id], row).optional()
+        self.db
+            .query_row(&format!("{COLUMNS} WHERE id = ?"), [id], row)
+            .optional()
     }
 
-    pub fn add(&self, number: &str, name: &str, kind: &str, timestamp: i64, duration: i32) -> rusqlite::Result<i32> {
+    pub fn add(
+        &self,
+        number: &str,
+        name: &str,
+        kind: &str,
+        timestamp: i64,
+        duration: i32,
+    ) -> rusqlite::Result<i32> {
         self.db.execute(
             "INSERT INTO call_history (number, contact_name, type, timestamp, duration) VALUES (?, ?, ?, ?, ?)",
             params![number, name, kind, timestamp, duration],
@@ -71,7 +91,9 @@ impl CallLog {
 
     pub fn delete(&self, id: Option<i32>) -> rusqlite::Result<usize> {
         match id {
-            Some(id) => self.db.execute("DELETE FROM call_history WHERE id = ?", [id]),
+            Some(id) => self
+                .db
+                .execute("DELETE FROM call_history WHERE id = ?", [id]),
             None => self.db.execute("DELETE FROM call_history", []),
         }
     }

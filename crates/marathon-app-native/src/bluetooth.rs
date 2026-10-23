@@ -44,7 +44,12 @@ pub mod qobject {
         fn passkey_requested(self: Pin<&mut Self>, address: &QString, device_name: &QString);
         #[qsignal]
         #[cxx_name = "passkeyConfirmation"]
-        fn passkey_confirmation(self: Pin<&mut Self>, address: &QString, device_name: &QString, passkey: u32);
+        fn passkey_confirmation(
+            self: Pin<&mut Self>,
+            address: &QString,
+            device_name: &QString,
+            passkey: u32,
+        );
 
         #[cxx_name = "setEnabled"]
         fn set_enabled(self: Pin<&mut Bluetooth>, enabled: bool);
@@ -105,18 +110,33 @@ impl cxx_qt::Initialize for Bluetooth {
             let (address, error) = qt(&d);
             obj.pairing_failed(&address, &error);
         });
-        relay(t.clone(), BLUETOOTH, "PairingSucceeded", |obj, (a,): (String,)| obj.pairing_succeeded(&QString::from(&a)));
+        relay(
+            t.clone(),
+            BLUETOOTH,
+            "PairingSucceeded",
+            |obj, (a,): (String,)| obj.pairing_succeeded(&QString::from(&a)),
+        );
         relay(t.clone(), BLUETOOTH, "PinRequested", |obj, d: Device| {
             let (address, name) = qt(&d);
             obj.pin_requested(&address, &name);
         });
-        relay(t.clone(), BLUETOOTH, "PasskeyRequested", |obj, d: Device| {
-            let (address, name) = qt(&d);
-            obj.passkey_requested(&address, &name);
-        });
-        relay(t.clone(), BLUETOOTH, "PasskeyConfirmation", |obj, (a, n, key): (String, String, u32)| {
-            obj.passkey_confirmation(&QString::from(&a), &QString::from(&n), key);
-        });
+        relay(
+            t.clone(),
+            BLUETOOTH,
+            "PasskeyRequested",
+            |obj, d: Device| {
+                let (address, name) = qt(&d);
+                obj.passkey_requested(&address, &name);
+            },
+        );
+        relay(
+            t.clone(),
+            BLUETOOTH,
+            "PasskeyConfirmation",
+            |obj, (a, n, key): (String, String, u32)| {
+                obj.passkey_confirmation(&QString::from(&a), &QString::from(&n), key);
+            },
+        );
         mirror(t, BLUETOOTH, "system", |mut obj, update| {
             let Update::State(s) = update else { return };
             let mut b = obj.as_mut().rust_mut();

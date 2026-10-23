@@ -31,7 +31,13 @@ pub mod qobject {
         fn send_message(self: &Telephonyd, recipient: &QString, text: &QString);
         #[qinvokable]
         #[cxx_name = "logCall"]
-        fn log_call(self: &Telephonyd, number: &QString, kind: &QString, started_ms: i64, duration_seconds: i32);
+        fn log_call(
+            self: &Telephonyd,
+            number: &QString,
+            kind: &QString,
+            started_ms: i64,
+            duration_seconds: i32,
+        );
     }
 
     impl cxx_qt::Threading for Telephonyd {}
@@ -49,7 +55,9 @@ impl cxx_qt::Initialize for Telephonyd {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
         io::spawn(async move {
-            let Ok(bus) = io::session_bus().await else { return log::warn("Telephonyd", "no session bus") };
+            let Ok(bus) = io::session_bus().await else {
+                return log::warn("Telephonyd", "no session bus");
+            };
             let rule = MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
                 .sender(BUS)
@@ -59,13 +67,22 @@ impl cxx_qt::Initialize for Telephonyd {
                 Ok(rule) => MessageStream::for_match_rule(rule.build(), &bus, None).await,
                 Err(e) => Err(e),
             };
-            let Ok(received) = received else { return log::warn("Telephonyd", "cannot follow received texts") };
+            let Ok(received) = received else {
+                return log::warn("Telephonyd", "cannot follow received texts");
+            };
             if let Err(e) = start(&bus).await {
                 log::warn("Telephonyd", format_args!("cannot start {BUS}: {e}"));
             }
-            let mut texts = std::pin::pin!(received.filter_map(|m| m.ok()?.body().deserialize::<(String, String, i64)>().ok()));
+            let mut texts = std::pin::pin!(received.filter_map(|m| m
+                .ok()?
+                .body()
+                .deserialize::<(String, String, i64)>()
+                .ok()));
             while let Some((sender, text, at)) = texts.next().await {
-                qt.queue(move |obj| obj.message_received(&QString::from(&sender), &QString::from(&text), at)).ok();
+                qt.queue(move |obj| {
+                    obj.message_received(&QString::from(&sender), &QString::from(&text), at);
+                })
+                .ok();
             }
         });
     }
@@ -73,7 +90,10 @@ impl cxx_qt::Initialize for Telephonyd {
 
 /// Starts the daemon with the shell: texts arrive whether or not an app asked.
 async fn start(bus: &zbus::Connection) -> zbus::Result<()> {
-    DBusProxy::new(bus).await?.start_service_by_name(BUS.try_into()?, 0).await?;
+    DBusProxy::new(bus)
+        .await?
+        .start_service_by_name(BUS.try_into()?, 0)
+        .await?;
     Ok(())
 }
 
@@ -83,7 +103,10 @@ where
 {
     io::spawn(async move {
         let sent = match io::session_bus().await {
-            Ok(bus) => bus.call_method(Some(BUS), path, Some(interface), method, &body).await.map(drop),
+            Ok(bus) => bus
+                .call_method(Some(BUS), path, Some(interface), method, &body)
+                .await
+                .map(drop),
             Err(e) => Err(e),
         };
         if let Err(e) = sent {
@@ -95,11 +118,26 @@ where
 #[allow(clippy::unused_self, reason = "invokables are the QObject's methods")]
 impl Telephonyd {
     fn send_message(&self, recipient: &QString, text: &QString) {
-        call("/org/marathonos/Shell/Sms", "org.marathonos.Shell.Sms1", "SendMessage", (recipient.to_string(), text.to_string()));
+        call(
+            "/org/marathonos/Shell/Sms",
+            "org.marathonos.Shell.Sms1",
+            "SendMessage",
+            (recipient.to_string(), text.to_string()),
+        );
     }
 
     fn log_call(&self, number: &QString, kind: &QString, started_ms: i64, duration_seconds: i32) {
-        let body = (number.to_string(), kind.to_string(), started_ms, duration_seconds);
-        call("/org/marathonos/Shell/CallHistory", "org.marathonos.Shell.CallHistory1", "AddCall", body);
+        let body = (
+            number.to_string(),
+            kind.to_string(),
+            started_ms,
+            duration_seconds,
+        );
+        call(
+            "/org/marathonos/Shell/CallHistory",
+            "org.marathonos.Shell.CallHistory1",
+            "AddCall",
+            body,
+        );
     }
 }

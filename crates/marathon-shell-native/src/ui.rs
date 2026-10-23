@@ -18,20 +18,60 @@ pub mod qobject {
 
     extern "RustQt" {
         #[qobject]
-        #[qproperty(bool, quick_settings_open, cxx_name = "quickSettingsOpen", READ, NOTIFY)]
-        #[qproperty(f64, quick_settings_height, cxx_name = "quickSettingsHeight", READ, WRITE, NOTIFY)]
-        #[qproperty(bool, quick_settings_dragging, cxx_name = "quickSettingsDragging", READ, WRITE, NOTIFY)]
+        #[qproperty(
+            bool,
+            quick_settings_open,
+            cxx_name = "quickSettingsOpen",
+            READ,
+            NOTIFY
+        )]
+        #[qproperty(
+            f64,
+            quick_settings_height,
+            cxx_name = "quickSettingsHeight",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
+        #[qproperty(
+            bool,
+            quick_settings_dragging,
+            cxx_name = "quickSettingsDragging",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
         /// The shade fully open, as the shell lays it out.
-        #[qproperty(f64, max_quick_settings_height, cxx_name = "maxQuickSettingsHeight", READ, WRITE, NOTIFY)]
+        #[qproperty(
+            f64,
+            max_quick_settings_height,
+            cxx_name = "maxQuickSettingsHeight",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
         /// How far a pull must go to open the shade.
-        #[qproperty(f64, quick_settings_threshold, cxx_name = "quickSettingsThreshold", READ, WRITE, NOTIFY)]
+        #[qproperty(
+            f64,
+            quick_settings_threshold,
+            cxx_name = "quickSettingsThreshold",
+            READ,
+            WRITE,
+            NOTIFY
+        )]
         #[qproperty(bool, app_window_open, cxx_name = "appWindowOpen", READ, NOTIFY)]
         #[qproperty(QString, current_app_id, cxx_name = "currentAppId", READ, NOTIFY)]
         #[qproperty(QString, current_app_name, cxx_name = "currentAppName", READ, NOTIFY)]
         #[qproperty(QString, current_app_icon, cxx_name = "currentAppIcon", READ, NOTIFY)]
         #[qproperty(bool, settings_open, cxx_name = "settingsOpen", READ, NOTIFY)]
         #[qproperty(bool, search_open, cxx_name = "searchOpen", READ, NOTIFY)]
-        #[qproperty(bool, clipboard_manager_open, cxx_name = "clipboardManagerOpen", READ, NOTIFY)]
+        #[qproperty(
+            bool,
+            clipboard_manager_open,
+            cxx_name = "clipboardManagerOpen",
+            READ,
+            NOTIFY
+        )]
         type Ui = super::UiRust;
 
         #[qinvokable]
@@ -85,7 +125,13 @@ pub mod qobject {
 
         #[qsignal]
         #[cxx_name = "showConfirmDialog"]
-        fn show_confirm_dialog(self: Pin<&mut Ui>, title: &QString, message: &QString, on_confirm: &QVariant, confirm_text: &QString);
+        fn show_confirm_dialog(
+            self: Pin<&mut Ui>,
+            title: &QString,
+            message: &QString,
+            on_confirm: &QVariant,
+            confirm_text: &QString,
+        );
     }
 }
 
@@ -145,11 +191,21 @@ impl Ui {
     }
 
     fn open_clipboard_manager(mut self: Pin<&mut Self>) {
-        set!(self, clipboard_manager_open, clipboard_manager_open_changed, true);
+        set!(
+            self,
+            clipboard_manager_open,
+            clipboard_manager_open_changed,
+            true
+        );
     }
 
     fn close_clipboard_manager(mut self: Pin<&mut Self>) {
-        set!(self, clipboard_manager_open, clipboard_manager_open_changed, false);
+        set!(
+            self,
+            clipboard_manager_open,
+            clipboard_manager_open_changed,
+            false
+        );
     }
 
     fn open_quick_settings(mut self: Pin<&mut Self>) {
@@ -159,7 +215,12 @@ impl Ui {
     }
 
     fn close_quick_settings(mut self: Pin<&mut Self>) {
-        set!(self, quick_settings_open, quick_settings_open_changed, false);
+        set!(
+            self,
+            quick_settings_open,
+            quick_settings_open_changed,
+            false
+        );
         self.set_quick_settings_height(0.0);
     }
 
@@ -195,9 +256,24 @@ impl Ui {
         if self.current_app_id == QString::from("settings") {
             set!(self, settings_open, settings_open_changed, false);
         }
-        set!(self, current_app_id, current_app_id_changed, QString::default());
-        set!(self, current_app_name, current_app_name_changed, QString::default());
-        set!(self, current_app_icon, current_app_icon_changed, QString::default());
+        set!(
+            self,
+            current_app_id,
+            current_app_id_changed,
+            QString::default()
+        );
+        set!(
+            self,
+            current_app_name,
+            current_app_name_changed,
+            QString::default()
+        );
+        set!(
+            self,
+            current_app_icon,
+            current_app_icon_changed,
+            QString::default()
+        );
     }
 
     fn minimize_app(self: Pin<&mut Self>) {

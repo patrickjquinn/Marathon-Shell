@@ -73,14 +73,18 @@ impl cxx_qt::Initialize for Location {
                 return log::warn("Location", "no session bus");
             };
             refresh(&qt).await;
-            let events = fixes.map(Event::Fix).or(active.map(Event::Active)).or(grants.map(|()| Event::Granted));
+            let events = fixes
+                .map(Event::Fix)
+                .or(active.map(Event::Active))
+                .or(grants.map(|()| Event::Granted));
             let mut events = std::pin::pin!(events);
             while let Some(event) = events.next().await {
                 match event {
                     Event::Fix(fix) => show(&qt, fix),
                     Event::Granted => refresh(&qt).await,
                     Event::Active(active) => {
-                        qt.queue(move |mut obj| set!(obj, active, active_changed, active)).ok();
+                        qt.queue(move |mut obj| set!(obj, active, active_changed, active))
+                            .ok();
                     }
                 }
             }
@@ -102,12 +106,17 @@ impl Location {
             refresh(&qt).await;
         });
     }
-
 }
 
 async fn refresh(qt: &Qt) {
-    let available = LOCATION.ask::<_, bool>("IsAvailable", &()).await.unwrap_or(false);
-    let active = LOCATION.ask::<_, bool>("IsActive", &()).await.unwrap_or(false);
+    let available = LOCATION
+        .ask::<_, bool>("IsAvailable", &())
+        .await
+        .unwrap_or(false);
+    let active = LOCATION
+        .ask::<_, bool>("IsActive", &())
+        .await
+        .unwrap_or(false);
     qt.queue(move |mut obj| {
         set!(obj, available, available_changed, available);
         set!(obj, active, active_changed, active);

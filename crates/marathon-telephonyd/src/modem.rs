@@ -22,14 +22,20 @@ const SMS: &str = "org.freedesktop.ModemManager1.Sms";
 const RECEIVED: u32 = 3;
 const SENT: u32 = 5;
 
-#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Modem.Messaging", default_service = "org.freedesktop.ModemManager1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.ModemManager1.Modem.Messaging",
+    default_service = "org.freedesktop.ModemManager1"
+)]
 trait Messaging {
     fn list(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn create(&self, properties: HashMap<&str, Value<'_>>) -> zbus::Result<OwnedObjectPath>;
     fn delete(&self, path: &OwnedObjectPath) -> zbus::Result<()>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.ModemManager1.Sms", default_service = "org.freedesktop.ModemManager1")]
+#[zbus::proxy(
+    interface = "org.freedesktop.ModemManager1.Sms",
+    default_service = "org.freedesktop.ModemManager1"
+)]
 trait Sms {
     fn send(&self) -> zbus::Result<()>;
 }
@@ -45,7 +51,9 @@ pub fn iso_ms(text: &str) -> Option<i64> {
     let (clock, zone) = time.split_at(zone_at);
     let mut hms = clock.split(':');
     let (hour, minute) = (digits(hms.next()?)?, digits(hms.next()?)?);
-    let second = hms.next().map_or(Some(0), |s| digits(s.split('.').next()?))?;
+    let second = hms
+        .next()
+        .map_or(Some(0), |s| digits(s.split('.').next()?))?;
     let offset = match zone.chars().next() {
         Some(sign @ ('+' | '-')) => {
             let zone: String = zone[1..].chars().filter(char::is_ascii_digit).collect();
@@ -60,7 +68,11 @@ pub fn iso_ms(text: &str) -> Option<i64> {
 }
 
 async fn modems(bus: &zbus::Connection) -> zbus::Result<Vec<MessagingProxy<'static>>> {
-    let manager = ObjectManagerProxy::builder(bus).destination(MM)?.path("/org/freedesktop/ModemManager1")?.build().await?;
+    let manager = ObjectManagerProxy::builder(bus)
+        .destination(MM)?
+        .path("/org/freedesktop/ModemManager1")?
+        .build()
+        .await?;
     let mut found = Vec::new();
     for (path, interfaces) in manager.get_managed_objects().await? {
         if interfaces.keys().any(|i| i.as_str() == MESSAGING) {
@@ -71,7 +83,10 @@ async fn modems(bus: &zbus::Connection) -> zbus::Result<Vec<MessagingProxy<'stat
 }
 
 fn field<T: TryFrom<OwnedValue>>(props: &HashMap<String, OwnedValue>, key: &str) -> Option<T> {
-    props.get(key).and_then(|v| v.try_clone().ok()).and_then(|v| T::try_from(v).ok())
+    props
+        .get(key)
+        .and_then(|v| v.try_clone().ok())
+        .and_then(|v| T::try_from(v).ok())
 }
 
 /// Moves each received text into the store. A text still arriving is
@@ -79,7 +94,11 @@ fn field<T: TryFrom<OwnedValue>>(props: &HashMap<String, OwnedValue>, key: &str)
 async fn drain(core: &Core, bus: &zbus::Connection) -> zbus::Result<()> {
     for modem in modems(bus).await? {
         for path in modem.list().await? {
-            let props = PropertiesProxy::builder(bus).destination(MM)?.path(&path)?.build().await?;
+            let props = PropertiesProxy::builder(bus)
+                .destination(MM)?
+                .path(&path)?
+                .build()
+                .await?;
             let props = props.get_all(SMS.try_into()?).await?;
             let state: u32 = field(&props, "State").unwrap_or_default();
             let text: String = field(&props, "Text").unwrap_or_default();
@@ -90,13 +109,33 @@ async fn drain(core: &Core, bus: &zbus::Connection) -> zbus::Result<()> {
                 continue;
             }
             let sender: String = field(&props, "Number").unwrap_or_default();
-            let timestamp = field::<String>(&props, "Timestamp").and_then(|t| iso_ms(&t)).unwrap_or_else(now_ms);
+            let timestamp = field::<String>(&props, "Timestamp")
+                .and_then(|t| iso_ms(&t))
+                .unwrap_or_else(now_ms);
             let (who, said) = (sender.clone(), text.clone());
-            if !core.store.with(move |s| s.has(&who, timestamp, &said)).await {
-                core.receive(sender, text, timestamp, String::new(), Vec::new()).await;
+            match core
+                .store
+                .with(move |s| s.has(&who, timestamp, &said))
+                .await
+            {
+                Ok(false) => {
+                    core.receive(sender.clone(), text, timestamp, String::new(), Vec::new())
+                        .await;
+                }
+                Ok(true) => {}
+                Err(e) => {
+                    log::warn(
+                        "Sms",
+                        format_args!("cannot check whether a text from {sender} is stored: {e}"),
+                    );
+                    continue;
+                }
             }
             if let Err(e) = modem.delete(&path).await {
-                log::warn("Sms", format_args!("cannot delete {path} from the modem: {e}"));
+                log::warn(
+                    "Sms",
+                    format_args!("cannot delete {path} from the modem: {e}"),
+                );
             }
         }
     }
@@ -105,8 +144,14 @@ async fn drain(core: &Core, bus: &zbus::Connection) -> zbus::Result<()> {
 
 /// Drains the modem at start, on each `Messaging.Added` and once a minute.
 pub async fn watch(core: &Core) {
-    let Ok(bus) = io::system_bus().await else { return log::warn("Sms", "no system bus") };
-    let rule = MatchRule::builder().msg_type(zbus::message::Type::Signal).sender(MM).and_then(|r| r.interface(MESSAGING)).and_then(|r| r.member("Added"));
+    let Ok(bus) = io::system_bus().await else {
+        return log::warn("Sms", "no system bus");
+    };
+    let rule = MatchRule::builder()
+        .msg_type(zbus::message::Type::Signal)
+        .sender(MM)
+        .and_then(|r| r.interface(MESSAGING))
+        .and_then(|r| r.member("Added"));
     let added = match rule {
         Ok(rule) => MessageStream::for_match_rule(rule.build(), &bus, None).await,
         Err(e) => Err(e),
@@ -130,19 +175,41 @@ pub async fn watch(core: &Core) {
 }
 
 async fn send_through_modem(recipient: &str, text: &str) -> Result<(), String> {
-    let bus = io::system_bus().await.map_err(|e| format!("No modem available: {e}"))?;
-    let modem = modems(&bus).await.map_err(|e| format!("No modem available: {e}"))?;
-    let modem = modem.into_iter().next().ok_or("No SMS-capable modem available")?;
-    let properties = HashMap::from([("number", Value::from(recipient)), ("text", Value::from(text))]);
-    let path = modem.create(properties).await.map_err(|e| format!("Failed to create SMS: {e}"))?;
-    let sms = SmsProxy::builder(&bus).path(path).map_err(|e| e.to_string())?.build().await.map_err(|e| e.to_string())?;
-    sms.send().await.map_err(|e| format!("Failed to send SMS: {e}"))
+    let bus = io::system_bus()
+        .await
+        .map_err(|e| format!("No modem available: {e}"))?;
+    let modem = modems(&bus)
+        .await
+        .map_err(|e| format!("No modem available: {e}"))?;
+    let modem = modem
+        .into_iter()
+        .next()
+        .ok_or("No SMS-capable modem available")?;
+    let properties = HashMap::from([
+        ("number", Value::from(recipient)),
+        ("text", Value::from(text)),
+    ]);
+    let path = modem
+        .create(properties)
+        .await
+        .map_err(|e| format!("Failed to create SMS: {e}"))?;
+    let sms = SmsProxy::builder(&bus)
+        .path(path)
+        .map_err(|e| e.to_string())?
+        .build()
+        .await
+        .map_err(|e| e.to_string())?;
+    sms.send()
+        .await
+        .map_err(|e| format!("Failed to send SMS: {e}"))
 }
 
 /// Sends a text and stores it as sent, or as failed with `SendFailed`.
 pub async fn send(core: &Core, recipient: String, text: String) {
     if recipient.is_empty() || text.is_empty() {
-        return core.send_failed(&recipient, "Message text or recipient is empty").await;
+        return core
+            .send_failed(&recipient, "Message text or recipient is empty")
+            .await;
     }
     let sent = send_through_modem(&recipient, &text).await;
     let timestamp = now_ms();
@@ -151,18 +218,33 @@ pub async fn send(core: &Core, recipient: String, text: String) {
         .store
         .with(move |s| {
             let status = if ok { "sent" } else { "failed" };
-            s.insert(&Message { sender: "me", recipient: &to, text: &body, timestamp, outgoing: true, status, mms_path: "" })
+            s.insert(&Message {
+                sender: "me",
+                recipient: &to,
+                text: &body,
+                timestamp,
+                outgoing: true,
+                status,
+                mms_path: "",
+            })
         })
         .await;
     if let Err(e) = stored {
-        log::warn("Sms", format_args!("cannot store a text to {recipient}: {e}"));
+        log::warn(
+            "Sms",
+            format_args!("cannot store a text to {recipient}: {e}"),
+        );
     }
     SmsService::conversations_changed(&core.sms()).await.ok();
     match sent {
-        Ok(()) => SmsService::message_sent(&core.sms(), &recipient, timestamp).await.ok(),
+        Ok(()) => SmsService::message_sent(&core.sms(), &recipient, timestamp)
+            .await
+            .ok(),
         Err(reason) => {
             log::warn("Sms", format_args!("{reason}"));
-            SmsService::send_failed(&core.sms(), &recipient, &reason).await.ok()
+            SmsService::send_failed(&core.sms(), &recipient, &reason)
+                .await
+                .ok()
         }
     };
 }
@@ -176,7 +258,10 @@ mod tests {
         assert_eq!(iso_ms("2026-10-20T10:00:00Z"), Some(1_792_490_400_000));
         assert_eq!(iso_ms("2026-10-20T12:00:00+02"), Some(1_792_490_400_000));
         assert_eq!(iso_ms("2026-10-20T05:30:00-0430"), Some(1_792_490_400_000));
-        assert_eq!(iso_ms("2026-10-20T10:00:00.5+00:00"), Some(1_792_490_400_000));
+        assert_eq!(
+            iso_ms("2026-10-20T10:00:00.5+00:00"),
+            Some(1_792_490_400_000)
+        );
         assert_eq!(iso_ms("yesterday"), None);
     }
 }

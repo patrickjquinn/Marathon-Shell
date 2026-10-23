@@ -1,8 +1,10 @@
 //! `MarathonOS.Terminal`: `TerminalEngine` backed by `alacritty_terminal` and a POSIX PTY.
 
-use std::ffi::CString;
+use std::ffi::{CString, OsString};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::unix::ffi::OsStringExt;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use alacritty_terminal::event::{Event, EventListener};
@@ -92,8 +94,22 @@ const DEFAULT_FG: u32 = 0xFFFF_FFFF;
 const DEFAULT_BG: u32 = 0xFF00_0000;
 
 const PALETTE_16: [u32; 16] = [
-    0xFF00_0000, 0xFFCC_0000, 0xFF4E_9A06, 0xFFC4_A000, 0xFF34_65A4, 0xFF75_507B, 0xFF06_989A, 0xFFD3_D7CF,
-    0xFF55_5753, 0xFFEF_2929, 0xFF8A_E234, 0xFFFC_E94F, 0xFF72_9FCF, 0xFFAD_7FA8, 0xFF34_E2E2, 0xFFEE_EEEC,
+    0xFF00_0000,
+    0xFFCC_0000,
+    0xFF4E_9A06,
+    0xFFC4_A000,
+    0xFF34_65A4,
+    0xFF75_507B,
+    0xFF06_989A,
+    0xFFD3_D7CF,
+    0xFF55_5753,
+    0xFFEF_2929,
+    0xFF8A_E234,
+    0xFFFC_E94F,
+    0xFF72_9FCF,
+    0xFFAD_7FA8,
+    0xFF34_E2E2,
+    0xFFEE_EEEC,
 ];
 
 #[derive(Clone, Default)]
@@ -105,10 +121,11 @@ impl EventListener for Proxy {
     fn send_event(&self, event: Event) {
         match event {
             Event::Title(t) => {
-                *self.title.lock().unwrap_or_else(PoisonError::into_inner) = Some(t);
+                *self.title.lock().unwrap_or_else(|_| std::process::abort()) = Some(t);
             }
             Event::ResetTitle => {
-                *self.title.lock().unwrap_or_else(PoisonError::into_inner) = Some("Terminal".to_owned());
+                *self.title.lock().unwrap_or_else(|_| std::process::abort()) =
+                    Some("Terminal".to_owned());
             }
             _ => {}
         }
@@ -138,7 +155,7 @@ pub struct TerminalEngineRust {
     running: bool,
     failed: bool,
     title: QString,
-    master_fd: i32,
+    master_fd: Option<OwnedFd>,
     pid: i32,
     session_id: u64,
     proxy: Proxy,
@@ -149,13 +166,16 @@ pub struct TerminalEngineRust {
 impl Default for TerminalEngineRust {
     fn default() -> Self {
         let proxy = Proxy::default();
-        let config = Config { scrolling_history: 1000, ..Config::default() };
+        let config = Config {
+            scrolling_history: 1000,
+            ..Config::default()
+        };
         let term = Term::new(config, &Size { cols: 80, rows: 24 }, proxy.clone());
         Self {
             running: false,
             failed: false,
             title: QString::from("Terminal"),
-            master_fd: -1,
+            master_fd: None,
             pid: -1,
             session_id: 0,
             proxy,
@@ -173,11 +193,7 @@ impl Drop for TerminalEngineRust {
 
 impl TerminalEngineRust {
     fn kill_child(&mut self) {
-        if self.master_fd != -1 {
-            // SAFETY: master_fd is a valid open file descriptor owned by this engine.
-            unsafe { libc::close(self.master_fd) };
-            self.master_fd = -1;
-        }
+        drop(self.master_fd.take());
         if self.pid > 0 {
             let pid = self.pid;
             self.pid = -1;
@@ -192,7 +208,11 @@ impl TerminalEngineRust {
 
     fn advance_bytes(&mut self, bytes: &[u8]) -> Option<String> {
         self.parser.advance(&mut self.term, bytes);
-        self.proxy.title.lock().unwrap_or_else(PoisonError::into_inner).take()
+        self.proxy
+            .title
+            .lock()
+            .unwrap_or_else(|_| std::process::abort())
+            .take()
     }
 
     fn cell_at(&self, x: i32, y: i32) -> Option<&Cell> {
@@ -228,21 +248,32 @@ fn indexed_color(idx: u8) -> u32 {
 
 fn resolve_color(color: Color, is_fg: bool) -> u32 {
     match color {
-        Color::Spec(rgb) => 0xFF00_0000 | (u32::from(rgb.r) << 16) | (u32::from(rgb.g) << 8) | u32::from(rgb.b),
+        Color::Spec(rgb) => {
+            0xFF00_0000 | (u32::from(rgb.r) << 16) | (u32::from(rgb.g) << 8) | u32::from(rgb.b)
+        }
         Color::Indexed(idx) => indexed_color(idx),
         Color::Named(named) => match named {
             NamedColor::Foreground
             | NamedColor::BrightForeground
             | NamedColor::DimForeground
             | NamedColor::Background => {
-                if is_fg { DEFAULT_FG } else { DEFAULT_BG }
+                if is_fg {
+                    DEFAULT_FG
+                } else {
+                    DEFAULT_BG
+                }
             }
             other => {
                 let code = other as usize;
                 if let Some(&c) = PALETTE_16.get(code) {
                     c
-                } else if (NamedColor::DimBlack as usize..=NamedColor::DimWhite as usize).contains(&code) {
-                    PALETTE_16.get(code - NamedColor::DimBlack as usize).copied().unwrap_or(DEFAULT_FG)
+                } else if (NamedColor::DimBlack as usize..=NamedColor::DimWhite as usize)
+                    .contains(&code)
+                {
+                    PALETTE_16
+                        .get(code - NamedColor::DimBlack as usize)
+                        .copied()
+                        .unwrap_or(DEFAULT_FG)
                 } else if is_fg {
                     DEFAULT_FG
                 } else {
@@ -253,12 +284,14 @@ fn resolve_color(color: Color, is_fg: bool) -> u32 {
     }
 }
 
-fn write_all_fd(fd: i32, mut data: &[u8]) {
+fn write_all_fd(fd: &OwnedFd, mut data: &[u8]) {
     while !data.is_empty() {
         // SAFETY: fd is a valid open PTY master descriptor and data points to valid memory.
-        let written = unsafe { libc::write(fd, data.as_ptr().cast(), data.len()) };
+        let written = unsafe { libc::write(fd.as_raw_fd(), data.as_ptr().cast(), data.len()) };
         if written > 0 {
-            let Ok(n) = usize::try_from(written) else { break };
+            let Ok(n) = usize::try_from(written) else {
+                break;
+            };
             data = &data[n..];
         } else {
             break;
@@ -266,26 +299,71 @@ fn write_all_fd(fd: i32, mut data: &[u8]) {
     }
 }
 
-fn exec_shell(shell_prog: &str) -> ! {
-    let term_k = CString::new("TERM").unwrap_or_default();
-    let term_v = CString::new("xterm-256color").unwrap_or_default();
-    let color_k = CString::new("COLORTERM").unwrap_or_default();
-    let color_v = CString::new("truecolor").unwrap_or_default();
-    let prog_c = CString::new(shell_prog.as_bytes()).unwrap_or_default();
-    let dash_i = CString::new("-i").unwrap_or_default();
-    let fallback_sh = CString::new("/bin/sh").unwrap_or_default();
-    let sh_name = CString::new("sh").unwrap_or_default();
-    let argv = [prog_c.as_ptr(), dash_i.as_ptr(), std::ptr::null()];
-    // SAFETY: child process immediately after forkpty sets env vars and execs shell.
+struct ShellExec {
+    _argv0: CString,
+    programs: Vec<CString>,
+    argv: [*const libc::c_char; 3],
+    fallback_argv: [*const libc::c_char; 3],
+    _environment: Vec<CString>,
+    envp: Vec<*const libc::c_char>,
+}
+
+fn prepare_shell_exec(shell_prog: &str) -> ShellExec {
+    let argv0 = CString::new(shell_prog.as_bytes()).unwrap_or_default();
+    let programs = if shell_prog.as_bytes().contains(&b'/') {
+        vec![CString::new(shell_prog.as_bytes()).unwrap_or_default()]
+    } else {
+        let path = std::env::var_os("PATH").unwrap_or_else(|| OsString::from("/bin:/usr/bin"));
+        std::env::split_paths(&path)
+            .map(|directory| {
+                CString::new(directory.join(shell_prog).into_os_string().into_vec())
+                    .unwrap_or_default()
+            })
+            .collect()
+    };
+
+    let environment: Vec<CString> = std::env::vars_os()
+        .filter(|(key, _)| key != "TERM" && key != "COLORTERM")
+        .map(|(key, value)| {
+            let mut entry = key.into_vec();
+            entry.push(b'=');
+            entry.extend(value.into_vec());
+            CString::new(entry).unwrap_or_default()
+        })
+        .collect();
+    let mut envp: Vec<*const libc::c_char> =
+        environment.iter().map(|entry| entry.as_ptr()).collect();
+    envp.push(c"TERM=xterm-256color".as_ptr());
+    envp.push(c"COLORTERM=truecolor".as_ptr());
+    envp.push(std::ptr::null());
+
+    let argv = [argv0.as_ptr(), c"-i".as_ptr(), std::ptr::null()];
+    let fallback_argv = [c"sh".as_ptr(), c"-i".as_ptr(), std::ptr::null()];
+    ShellExec {
+        _argv0: argv0,
+        programs,
+        argv,
+        fallback_argv,
+        _environment: environment,
+        envp,
+    }
+}
+
+fn exec_shell(command: &ShellExec) -> ! {
+    // SAFETY: all pointers were prepared before fork and remain valid; execve and
+    // _exit are async-signal-safe and this path performs no allocation.
     unsafe {
-        libc::setenv(term_k.as_ptr(), term_v.as_ptr(), 1);
-        libc::setenv(color_k.as_ptr(), color_v.as_ptr(), 1);
-        libc::execvp(prog_c.as_ptr(), argv.as_ptr());
-        libc::execl(
-            fallback_sh.as_ptr(),
-            sh_name.as_ptr(),
-            dash_i.as_ptr(),
-            std::ptr::null::<libc::c_char>(),
+        for program in &command.programs {
+            libc::execve(
+                program.as_ptr(),
+                command.argv.as_ptr(),
+                command.envp.as_ptr(),
+            );
+        }
+        libc::execve(
+            c"/bin/sh".as_ptr(),
+            command.fallback_argv.as_ptr(),
+            command.envp.as_ptr(),
         );
         libc::_exit(127);
     }
@@ -312,13 +390,18 @@ impl TerminalEngine {
     #[allow(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
-        reason = "terminal dimensions fit in u16 for winsize"
+        clippy::too_many_lines,
+        reason = "PTY creation, ownership transfer, and reader startup form one ordered transaction"
     )]
     fn start(mut self: Pin<&mut Self>) {
         if self.pid > 0 {
             return;
         }
-        let shell_prog = std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/bash".to_owned());
+        let shell_prog = std::env::var("SHELL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "/bin/bash".to_owned());
+        let shell_exec = prepare_shell_exec(&shell_prog);
         self.as_mut().rust_mut().failed = false;
 
         let mut winp = libc::winsize {
@@ -345,12 +428,28 @@ impl TerminalEngine {
             return;
         }
         if pid == 0 {
-            exec_shell(&shell_prog);
+            exec_shell(&shell_exec);
         }
+
+        // SAFETY: forkpty returned this descriptor to the parent, which takes ownership here.
+        let master_fd = unsafe { OwnedFd::from_raw_fd(master_fd) };
+        let Ok(reader_fd) = master_fd.try_clone() else {
+            drop(master_fd);
+            // SAFETY: terminate and reap the child whose PTY cannot be safely monitored.
+            unsafe {
+                libc::kill(pid, libc::SIGKILL);
+                libc::waitpid(pid, std::ptr::null_mut(), 0);
+            }
+            self.as_mut().rust_mut().failed = true;
+            let notice = format!("[Couldn't start {shell_prog}]");
+            self.as_mut().write_notice(&notice);
+            self.running_changed();
+            return;
+        };
 
         let session_id = {
             let mut r = self.as_mut().rust_mut();
-            r.master_fd = master_fd;
+            r.master_fd = Some(master_fd);
             r.pid = pid;
             r.running = true;
             r.session_id = r.session_id.wrapping_add(1);
@@ -363,8 +462,10 @@ impl TerminalEngine {
             let started = Instant::now();
             let mut buf = [0u8; 4096];
             loop {
-                // SAFETY: reading from the valid master_fd into stack buffer buf.
-                let n = unsafe { libc::read(master_fd, buf.as_mut_ptr().cast(), buf.len()) };
+                // SAFETY: reader_fd exclusively owns a valid duplicate of the PTY master.
+                let n = unsafe {
+                    libc::read(reader_fd.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len())
+                };
                 if n > 0 {
                     let Ok(len) = usize::try_from(n) else { break };
                     let chunk = buf[..len].to_vec();
@@ -412,12 +513,16 @@ impl TerminalEngine {
     }
 
     fn send_input(&self, text: &QString) {
-        if self.master_fd != -1 {
-            write_all_fd(self.master_fd, text.to_string().as_bytes());
+        if let Some(master_fd) = &self.master_fd {
+            write_all_fd(master_fd, text.to_string().as_bytes());
         }
     }
 
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "ASCII control codes 1..=26 fit in u8")]
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "ASCII control codes 1..=26 fit in u8"
+    )]
     fn send_key(&self, key: i32, text: &QString, modifiers: i32) {
         const CTRL_MOD: i32 = 0x0400_0000;
         const ALT_MOD: i32 = 0x0800_0000;
@@ -435,9 +540,9 @@ impl TerminalEngine {
         const KEY_PAGE_UP: i32 = 0x0100_0016;
         const KEY_PAGE_DOWN: i32 = 0x0100_0017;
 
-        if self.master_fd == -1 {
+        let Some(master_fd) = &self.master_fd else {
             return;
-        }
+        };
 
         let mut data = Vec::<u8>::new();
         if (modifiers & CTRL_MOD) != 0 {
@@ -476,7 +581,7 @@ impl TerminalEngine {
             if (modifiers & ALT_MOD) != 0 {
                 data.insert(0, 0x1B);
             }
-            write_all_fd(self.master_fd, &data);
+            write_all_fd(master_fd, &data);
         }
     }
 
@@ -488,7 +593,7 @@ impl TerminalEngine {
     fn resize(mut self: Pin<&mut Self>, cols: i32, rows: i32) {
         let cols = cols.max(2);
         let rows = rows.max(1);
-        if self.master_fd != -1 {
+        if let Some(master_fd) = &self.master_fd {
             let winp = libc::winsize {
                 ws_row: rows as u16,
                 ws_col: cols as u16,
@@ -497,7 +602,7 @@ impl TerminalEngine {
             };
             // SAFETY: TIOCSWINSZ updates the kernel PTY window size on valid master_fd.
             unsafe {
-                libc::ioctl(self.master_fd, libc::TIOCSWINSZ, &raw const winp);
+                libc::ioctl(master_fd.as_raw_fd(), libc::TIOCSWINSZ, &raw const winp);
             }
         }
         self.as_mut().rust_mut().term.resize(Size {
@@ -568,7 +673,11 @@ impl TerminalEngine {
         let sr = sy.clamp(min_row, max_row);
         let er = ey.clamp(min_row, max_row);
 
-        let mut sel = Selection::new(SelectionType::Simple, Point::new(Line(sr), Column(sc)), Side::Left);
+        let mut sel = Selection::new(
+            SelectionType::Simple,
+            Point::new(Line(sr), Column(sc)),
+            Side::Left,
+        );
         sel.update(Point::new(Line(er), Column(ec)), Side::Right);
         self.as_mut().rust_mut().term.selection = Some(sel);
         self.screen_changed();
@@ -582,7 +691,9 @@ impl TerminalEngine {
     }
 
     fn selected_text(&self) -> QString {
-        self.term.selection_to_string().map_or_else(QString::default, |s| QString::from(&s))
+        self.term
+            .selection_to_string()
+            .map_or_else(QString::default, |s| QString::from(&s))
     }
 
     fn cell_code(&self, x: i32, y: i32) -> u32 {
@@ -590,15 +701,19 @@ impl TerminalEngine {
     }
 
     fn cell_fg(&self, x: i32, y: i32) -> u32 {
-        self.cell_at(x, y).map_or(DEFAULT_FG, |c| resolve_color(c.fg, true))
+        self.cell_at(x, y)
+            .map_or(DEFAULT_FG, |c| resolve_color(c.fg, true))
     }
 
     fn cell_bg(&self, x: i32, y: i32) -> u32 {
-        self.cell_at(x, y).map_or(DEFAULT_BG, |c| resolve_color(c.bg, false))
+        self.cell_at(x, y)
+            .map_or(DEFAULT_BG, |c| resolve_color(c.bg, false))
     }
 
     fn cell_flags(&self, x: i32, y: i32) -> i32 {
-        let Some(c) = self.cell_at(x, y) else { return 0 };
+        let Some(c) = self.cell_at(x, y) else {
+            return 0;
+        };
         let mut bits = 0;
         if c.flags.contains(Flags::BOLD) {
             bits |= 1;

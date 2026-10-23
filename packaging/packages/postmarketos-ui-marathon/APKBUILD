@@ -10,7 +10,7 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=9
+pkgrel=10
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -54,6 +54,8 @@ source="
 	marathon-flatpak-theming.conf
 	marathon-flatpak-theming-user.conf
 	marathon-geoclue.conf
+	marathon-flatpak-prewarm.service
+	marathon-flatpak-prewarm.timer
 	"
 options="!check pmb:drm pmb:systemd"
 install="$pkgname.post-install"
@@ -84,6 +86,16 @@ package() {
 
 	install -Dm644 "$srcdir/marathon-geoclue.conf" \
 		"$pkgdir/etc/geoclue/conf.d/90-marathon.conf"
+
+	# Flatpak's helper and portals otherwise all cold-start during the first
+	# native app launch. Warm them just after the shell becomes interactive.
+	install -Dm644 "$srcdir/marathon-flatpak-prewarm.service" \
+		"$pkgdir/usr/lib/systemd/user/marathon-flatpak-prewarm.service"
+	install -Dm644 "$srcdir/marathon-flatpak-prewarm.timer" \
+		"$pkgdir/usr/lib/systemd/user/marathon-flatpak-prewarm.timer"
+	install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+	ln -sf ../marathon-flatpak-prewarm.timer \
+		"$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/marathon-flatpak-prewarm.timer"
 }
 sha512sums="
 SKIP  flathub.flatpakrepo
@@ -92,4 +104,6 @@ SKIP  marathon-flatpak-overrides
 SKIP  marathon-flatpak-theming.conf
 SKIP  marathon-flatpak-theming-user.conf
 SKIP  marathon-geoclue.conf
+SKIP  marathon-flatpak-prewarm.service
+SKIP  marathon-flatpak-prewarm.timer
 "

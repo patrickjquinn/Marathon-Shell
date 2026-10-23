@@ -7,6 +7,8 @@ QtObject {
     property bool quickSettingsOpen: false
     property real quickSettingsHeight: 0
     property bool quickSettingsDragging: false
+    property real maxQuickSettingsHeight: 1000
+    property real quickSettingsThreshold: 400
     property bool searchOpen: false
     property bool appWindowOpen: false
     property bool settingsOpen: false

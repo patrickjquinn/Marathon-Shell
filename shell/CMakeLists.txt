@@ -46,6 +46,9 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/wldrm.cpp
         src/wayland/nativeclientscale.h
         src/wayland/nativeclientscale.cpp
+        src/wayland/popupplacement.h
+        src/wayland/nativesurfaceitem.h
+        src/wayland/nativesurfaceitem.cpp
         src/wayland/xdgactivationv1.h
         src/wayland/xdgactivationv1.cpp
         src/wayland/marathonsurfacev1.h
@@ -443,6 +446,10 @@ if(TARGET Qt6::WaylandCompositor)
     if(TARGET Qt6::WaylandCompositorPrivate)
         target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositorPrivate)
         target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND_PRIVATE)
+    endif()
+    if(TARGET Qt6::WaylandCompositorPresentationTime)
+        target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositorPresentationTime)
+        target_compile_definitions(marathon-shell PRIVATE HAVE_PRESENTATION_TIME)
     endif()
 endif()
 

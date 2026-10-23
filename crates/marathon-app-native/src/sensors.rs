@@ -57,12 +57,18 @@ impl cxx_qt::Initialize for Sensors {
                 return log::warn("Sensor", "no session bus");
             };
             refresh(&qt).await;
-            let readings = near.map(Reading::Near).or(lux.map(Reading::Lux)).or(grants.map(|()| Reading::Granted));
+            let readings = near
+                .map(Reading::Near)
+                .or(lux.map(Reading::Lux))
+                .or(grants.map(|()| Reading::Granted));
             let mut readings = std::pin::pin!(readings);
             while let Some(reading) = readings.next().await {
                 match reading {
-                    Reading::Near(near) => qt.queue(move |mut obj| set!(obj, proximity_near, proximity_changed, near)),
-                    Reading::Lux(lux) => qt.queue(move |mut obj| set!(obj, ambient_light, ambient_light_changed, lux)),
+                    Reading::Near(near) => {
+                        qt.queue(move |mut obj| set!(obj, proximity_near, proximity_changed, near))
+                    }
+                    Reading::Lux(lux) => qt
+                        .queue(move |mut obj| set!(obj, ambient_light, ambient_light_changed, lux)),
                     Reading::Granted => {
                         refresh(&qt).await;
                         continue;

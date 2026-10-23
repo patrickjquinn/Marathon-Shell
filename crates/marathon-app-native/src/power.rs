@@ -113,6 +113,8 @@ impl Power {
 
     fn schedule_wake(&self, when: &QDateTime, reason: &QString) -> bool {
         let at = when.to_msecs_since_epoch() / 1000;
-        POWER.ask_now("ScheduleWake", &(at, reason.to_string())).unwrap_or(false)
+        POWER
+            .ask_now("ScheduleWake", &(at, reason.to_string()))
+            .unwrap_or(false)
     }
 }

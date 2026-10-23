@@ -23,5 +23,8 @@ fn bluetooth_audio_outlives_the_login_session() {
                 .iter()
                 .any(|l| l.replace(' ', "") == "monitor.bluez.seat-monitoring=disabled")
     });
-    assert!(found, "no conf.d file disables monitor.bluez.seat-monitoring in the main profile");
+    assert!(
+        found,
+        "no conf.d file disables monitor.bluez.seat-monitoring in the main profile"
+    );
 }

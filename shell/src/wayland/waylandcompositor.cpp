@@ -8,6 +8,7 @@
 #include "src/wayland/linuxdmabufv1.h"
 #include "src/wayland/wldrm.h"
 #include "src/wayland/nativeclientscale.h"
+#include "src/wayland/popupplacement.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/xdgactivationv1.h"
 #include "src/wayland/marathonsurfacev1.h"
@@ -35,6 +36,8 @@
 #include <QQmlEngine>
 #include <QQuickItem>
 #include <QKeyEvent>
+#include <QMouseEvent>
+#include <QTouchEvent>
 #include <QScreen>
 #include <QGuiApplication>
 #include <qpa/qplatformnativeinterface.h>
@@ -42,6 +45,10 @@
 #include <xf86drmMode.h>
 #include <cstring>
 #include <wayland-server-core.h>
+
+#ifdef HAVE_PRESENTATION_TIME
+#include <private/qwaylandpresentationtime_p.h>
+#endif
 
 #include "diag/frametiming.h"
 #include "marathon-shell-native/src/rt.cxxqt.h"
@@ -201,6 +208,21 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // for the honesty note on the public-API constraint.
     m_commitTimingManager = new CommitTimingManagerV1(this);
 
+#ifdef HAVE_PRESENTATION_TIME
+    m_presentationTime = new QWaylandPresentationTime(this);
+    connect(m_window, &QQuickWindow::frameSwapped, this, [this]() {
+        // Queue behind QtWayland's afterFrameEnd bookkeeping so feedback for
+        // the commit in this swap is armed before the presented event fires.
+        QMetaObject::invokeMethod(this, [this]() {
+            timespec ts{};
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            m_presentationTime->sendFeedback(m_window, ++m_presentSequence,
+                                             quint64(ts.tv_sec), quint32(ts.tv_nsec));
+        }, Qt::QueuedConnection);
+    }, Qt::DirectConnection);
+    qInfo() << "[WaylandCompositor] wp_presentation enabled";
+#endif
+
     // zwp_linux_dmabuf_v1 v4 — Marathon's own implementation that
     // advertises the v4 feedback layer (main_device + tranche_*) on
     // top of Qt's existing v3 plugin. Chromium binds the higher
@@ -233,12 +255,6 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     } else {
         qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 disabled";
     }
-    // Note: wp_presentation (QWaylandPresentationTime) is intentionally NOT
-    // wired up here. Qt 6.10.2 on Fedora exposes the class only via private
-    // headers; using it would tie Marathon to Qt's private API. Re-add when
-    // either (a) we standardize on a Qt version with the public class, or
-    // (b) we decide the private-header dependency is acceptable.
-
     connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
             [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
                 Q_UNUSED(oldFocus);
@@ -323,8 +339,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         // concurrently, instead of only after our frame completes.
         bool phaseSet  = false;
         m_framePhaseMs = qEnvironmentVariableIntValue("MARATHON_FRAME_PHASE_MS", &phaseSet);
+        // A fixed late latch worked for the original Marathon clients, but
+        // makes current GTK and Qt Flatpaks miss alternating vblanks under
+        // load. Physical-device traces on the 60 Hz Hackberry panel measured
+        // ~35 fps at 8 ms versus ~47 fps with immediate latching. Keep the
+        // environment override for device-specific experiments.
         if (!phaseSet)
-            m_framePhaseMs = 8;
+            m_framePhaseMs = 0;
         if (m_framePhaseMs > 0) {
             // Frames latch late in the vblank interval and clients hear at the
             // vblank, so a client's frame lands in the next composite.
@@ -357,9 +378,9 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame callbacks), phase" << m_framePhaseMs;
     }
 
-    // Opt-in (MARATHON_PRESENT_FREERUN): unthrottled where swap doesn't block
-    // on vblank (software backend, Xvfb): ~3 compositor frames per commit.
-    m_presentFreeRun = m_presentPipeline && envBool("MARATHON_PRESENT_FREERUN", false);
+    // Commit-gated free-run (opt out with MARATHON_PRESENT_FREERUN=0): keep
+    // the on-demand render loop awake around active client commits.
+    m_presentFreeRun = m_presentPipeline && envBool("MARATHON_PRESENT_FREERUN", true);
     if (m_presentFreeRun) {
         // While a client is actively committing, free-run the on-demand loop
         // at vsync so its just-committed buffer composites on the very next
@@ -551,6 +572,40 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.remove("QT_NO_BUILTIN_SELECTORS");
     env.remove("GST_REGISTRY_UPDATE");
 
+    // The shell itself runs on EGLFS, with scaling and render-loop choices
+    // tuned for the compositor.  Passing those into Wayland clients makes
+    // toolkit metrics depend on how the shell was started and, in Flatpaks,
+    // can select plugins which do not exist in the runtime.
+    for (const char *name : {
+             "QT_AUTO_SCREEN_SCALE_FACTOR",
+             "QT_ENABLE_HIGHDPI_SCALING",
+             "QT_QPA_EGLFS_ALWAYS_SET_MODE",
+             "QT_QPA_EGLFS_HIDECURSOR",
+             "QT_QPA_EGLFS_INTEGRATION",
+             "QT_QPA_EGLFS_KMS_ATOMIC",
+             "QT_QPA_EGLFS_KMS_CONFIG",
+             "QT_WAYLAND_HARDWARE_INTEGRATION",
+         }) {
+        env.remove(QString::fromLatin1(name));
+    }
+
+    if (isFlatpak || isSnap) {
+        // These make the shell deterministic when host dconf/GVfs services
+        // are absent, but sandboxed desktop apps need their own persistent
+        // settings backend and portal/GVfs integration.
+        env.remove("GIO_USE_VFS");
+        env.remove("GSETTINGS_BACKEND");
+        env.remove("QML_DISK_CACHE_PATH");
+        env.remove("QML_DISABLE_DISK_CACHE");
+        env.remove("QML_IMPORT_PATH");
+        env.remove("QML2_IMPORT_PATH");
+        env.remove("QSG_RENDER_LOOP");
+        env.remove("QT_SCALE_FACTOR");
+        env.remove("QT_SCREEN_SCALE_FACTORS");
+        env.remove("QT_FONT_DPI");
+        env.remove("QT_WEBENGINE_DISABLE_SANDBOX");
+    }
+
     const bool isRunner = actualCommand.contains("marathon-app-runner");
 
     qint64     timestamp   = QDateTime::currentMSecsSinceEpoch();
@@ -648,11 +703,23 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("GTK_IM_MODULE", "wayland");
     env.insert("ELECTRON_OZONE_PLATFORM_HINT", "wayland");
 
-    env.insert("LIBADWAITA_MOBILE", "1");
     env.insert("PURISM_FORM_FACTOR", "phone");
     env.insert("QT_QUICK_CONTROLS_MOBILE", "1");
-    env.insert("QT_QUICK_CONTROLS_STYLE", "Basic");
-    env.insert("GTK_CSD", "1");
+    env.remove("QT_QUICK_CONTROLS_STYLE");
+
+    // Kirigami's mobile metrics are selected by QT_QUICK_CONTROLS_MOBILE;
+    // Breeze then supplies the platform-native controls.  Basic discards
+    // both the KDE palette and the touch geometry, which is especially
+    // visible in Koko and KWeather.
+    const bool isKdeApp = isFlatpak && actualCommand.contains("org.kde.", Qt::CaseInsensitive);
+    if (isKdeApp) {
+        env.insert("QT_QPA_PLATFORMTHEME", "kde");
+        env.insert("QT_QUICK_CONTROLS_STYLE", "org.kde.breeze");
+        env.insert("PLASMA_INTEGRATION_USE_PORTAL", "1");
+        env.insert("PLASMA_PLATFORM", "phone:handset");
+        env.insert("EGL_PLATFORM", "wayland");
+        env.insert("QT_ENABLE_GLYPH_CACHE_WORKAROUND", "1");
+    }
     if (!env.contains("GTK_USE_PORTAL")) {
         const bool enablePortals = isFlatpak || envBool("MARATHON_ENABLE_PORTALS", false);
         env.insert("GTK_USE_PORTAL", enablePortals ? "1" : "0");
@@ -660,7 +727,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
 
     env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1");
 
-    env.insert("QT_MEDIA_BACKEND", "ffmpeg");
+    if (!isFlatpak && !isSnap)
+        env.insert("QT_MEDIA_BACKEND", "ffmpeg");
 
     if (actualCommand.contains("marathon-app-runner") || marathon::desktop::is_keel_hosted(actualCommand)) {
         env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
@@ -1055,6 +1123,8 @@ void WaylandCompositor::setAppViewportSize(const QSize &size) {
     if (size == m_appViewportSize)
         return;
     m_appViewportSize = size;
+    if (m_output && size.isValid())
+        m_output->setAvailableGeometry(QRect(QPoint(0, 0), size));
     emit appViewportSizeChanged();
 }
 
@@ -1083,6 +1153,13 @@ QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
         return NativeClientScale::toLogical(m_appViewportSize, scale);
     return NativeClientScale::toLogical(
         (m_output && m_output->window()) ? m_output->window()->size() : QSize(), scale);
+}
+
+QSize WaylandCompositor::fullOutputConfigureSize(QWaylandSurface *surface) const {
+    const qreal scale = m_nativeClientScale->scaleFor(surface->client()->client());
+    const QSize physical = (m_output && m_output->window()) ? m_output->window()->size()
+                                                            : m_window->size();
+    return NativeClientScale::toLogical(physical, scale);
 }
 
 QVariantMap WaylandCompositor::marathonSurfaces() const {
@@ -1131,7 +1208,7 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
         ToplevelConfigure::repeat(xdg->toplevel()))
         return;
     QWaylandXdgToplevel *top  = xdg->toplevel();
-    const QSize          size = surface->destinationSize();
+    const QSize          size = appConfigureSize(surface);
     if (!size.isEmpty()) {
         // Mirror the toplevel's true state: dropping activated here
         // told every nudged app it was deactivated, demoting its RT
@@ -1144,8 +1221,13 @@ void WaylandCompositor::nudgeSurface(int surfaceId) {
 }
 
 void WaylandCompositor::resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size) {
-    if (toplevel)
-        ToplevelConfigure::resize(toplevel, sizesItself(toplevel) ? QSize(0, 0) : size);
+    if (!toplevel)
+        return;
+    if (toplevel->fullscreen()) {
+        configureToplevelState(toplevel, false, true);
+        return;
+    }
+    ToplevelConfigure::resize(toplevel, sizesItself(toplevel) ? QSize(0, 0) : size);
 }
 
 bool WaylandCompositor::recentUserInput(int ms) const {
@@ -1314,7 +1396,8 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
             if (*decided || !pendingToplevel || !pendingXdg)
                 return;
             const bool cover  = KeelCover::isCoverTitle(pendingToplevel->title());
-            const bool dialog = KeelDialog::isDialogTitle(pendingToplevel->title());
+            const bool dialog = KeelDialog::isDialogTitle(pendingToplevel->title()) ||
+                pendingToplevel->parentToplevel() || pendingToplevel->property("modal").toBool();
             if (!cover && !dialog && !final)
                 return;
             *decided = true;
@@ -1326,6 +1409,8 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                 mapToplevel(pendingToplevel, pendingXdg);
         };
         connect(toplevel, &QWaylandXdgToplevel::titleChanged, this, [decide]() { decide(false); });
+        connect(toplevel, &QWaylandXdgToplevel::parentToplevelChanged, this,
+                [decide]() { decide(false); });
         connect(surface, &QWaylandSurface::redraw, this, [decide]() { decide(true); });
         QTimer::singleShot(300, this, [decide]() { decide(true); });
     }
@@ -1369,16 +1454,24 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
 
     // The shell-surface item answers these with the output size in its own
     // units; a native-scale client is put back at its app-area size.
-    if (usesNativeScale(surface)) {
-        const auto resize = [this, surfaceId]() { nudgeSurface(surfaceId); };
-        connect(toplevel, &QWaylandXdgToplevel::setMaximized, this, resize, Qt::QueuedConnection);
-        connect(toplevel, &QWaylandXdgToplevel::unsetMaximized, this, resize, Qt::QueuedConnection);
-        connect(toplevel, &QWaylandXdgToplevel::setFullscreen, this, resize, Qt::QueuedConnection);
-        connect(toplevel, &QWaylandXdgToplevel::unsetFullscreen, this, resize,
-                Qt::QueuedConnection);
-    }
-
+    // Qt's generic shell integration sizes maximize/fullscreen against the
+    // physical output. Marathon's app viewport excludes system chrome and may
+    // use a per-client fractional scale, so our queued policy configure must
+    // be the final one for every client.
     QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
+    const auto configure = [this, safeToplevel](bool maximized, bool fullscreen) {
+        if (safeToplevel)
+            configureToplevelState(safeToplevel, maximized, fullscreen);
+    };
+    connect(toplevel, &QWaylandXdgToplevel::setMaximized, this,
+            [configure]() { configure(true, false); }, Qt::QueuedConnection);
+    connect(toplevel, &QWaylandXdgToplevel::unsetMaximized, this,
+            [configure]() { configure(false, false); }, Qt::QueuedConnection);
+    connect(toplevel, &QWaylandXdgToplevel::setFullscreen, this,
+            [configure]() { configure(false, true); }, Qt::QueuedConnection);
+    connect(toplevel, &QWaylandXdgToplevel::unsetFullscreen, this,
+            [configure]() { configure(false, false); }, Qt::QueuedConnection);
+
     QPointer<QWaylandSurface>     safeSurface(surface);
 
     connect(toplevel, &QWaylandXdgToplevel::titleChanged, this,
@@ -1421,6 +1514,24 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
                 }
             });
     }
+}
+
+void WaylandCompositor::configureToplevelState(QWaylandXdgToplevel *toplevel, bool maximized,
+                                                bool fullscreen) {
+    if (!toplevel || !toplevel->xdgSurface() || !toplevel->xdgSurface()->surface())
+        return;
+    QWaylandSurface *surface = toplevel->xdgSurface()->surface();
+    QList<QWaylandXdgToplevel::State> states;
+    if (maximized)
+        states << QWaylandXdgToplevel::MaximizedState;
+    if (fullscreen)
+        states << QWaylandXdgToplevel::FullscreenState;
+    if (toplevel->activated())
+        states << QWaylandXdgToplevel::ActivatedState;
+    const QSize size = sizesItself(toplevel)
+        ? QSize(0, 0)
+        : fullscreen ? fullOutputConfigureSize(surface) : appConfigureSize(surface);
+    ToplevelConfigure::send(toplevel, size, states);
 }
 
 void WaylandCompositor::mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface) {
@@ -1515,6 +1626,42 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
     surface->setProperty("isPopup", true);
     surface->setProperty("xdgPopup", QVariant::fromValue(popup));
     surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
+
+    // Qt's xdg-shell object sends the unconstrained initial configure before
+    // popupCreated. Apply Marathon's work-area policy immediately, before the
+    // first buffer is mapped. Nested popup coordinates are relative to their
+    // direct parent's window geometry, so translate the root app viewport.
+    QPoint               parentOffset;
+    QWaylandXdgSurface  *root = popup->parentXdgSurface();
+    while (root && root->popup()) {
+        QWaylandXdgPopup *parentPopup = root->popup();
+        const QRect parentGeometry = parentPopup->configuredGeometry().isValid()
+            ? parentPopup->configuredGeometry()
+            : QRect(parentPopup->unconstrainedPosition(), parentPopup->positionerSize());
+        parentOffset += parentGeometry.topLeft();
+        root = parentPopup->parentXdgSurface();
+    }
+    QWaylandSurface *rootSurface = root ? root->surface() : popup->parentXdgSurface()->surface();
+    const QRect bounds(-parentOffset, appConfigureSize(rootSurface));
+    const QRect unconstrained(popup->unconstrainedPosition(), popup->positionerSize());
+    const QRect configured = PopupPlacement::constrain(
+        unconstrained, popup->anchorRect(), popup->anchorEdges(), popup->gravityEdges(),
+        popup->offset(), bounds, popup->flipConstraints(), popup->slideConstraints(),
+        popup->resizeConstraints());
+    if (configured != unconstrained)
+        popup->sendConfigure(configured);
+
+    const auto prunePopups = [this]() {
+        m_popups.erase(std::remove_if(m_popups.begin(), m_popups.end(),
+                                      [](const TrackedPopup &entry) {
+                                          return entry.popup.isNull() || entry.surface.isNull();
+                                      }),
+                       m_popups.end());
+    };
+    prunePopups();
+    m_popups.append({popup, surface});
+    connect(popup, &QObject::destroyed, this, prunePopups);
+    connect(surface, &QObject::destroyed, this, prunePopups);
 
     m_surfaces.append(surface);
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
@@ -1653,7 +1800,8 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
         m_output->setScaleFactor(scale);
 
     const QSize windowSize = m_window->size();
-    m_output->setAvailableGeometry(QRect(QPoint(0, 0), windowSize));
+    m_output->setAvailableGeometry(
+        QRect(QPoint(0, 0), m_appViewportSize.isValid() ? m_appViewportSize : windowSize));
 
     QSize       physicalSizeMm(0, 0);
     const qreal panelDpi = marathon::device::profile().panel_dpi;
@@ -2101,11 +2249,22 @@ void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
                                                        NativeBack::Unknown);
         surface->setProperty("nativeToolkit", toolkit);
     }
+    const auto nativeToolkit = NativeBack::Toolkit(toolkit.toInt());
     QPointer<QWaylandSurface> target(surface);
-    sendKeyTo(surface, NativeBack::backKey(NativeBack::Toolkit(toolkit.toInt()), keelHosted),
-              Qt::NoModifier, [this, target, surfaceId]() {
+    const auto fallback = [this, target, surfaceId, nativeToolkit]() {
+        if (!target)
+            return;
+        sendKeyTo(target, NativeBack::fallbackBackKey(nativeToolkit),
+                  NativeBack::fallbackBackModifiers(nativeToolkit),
+                  [this, target, surfaceId]() {
+                      if (target)
+                          watchNativeBack(target, surfaceId);
+                  });
+    };
+    sendKeyTo(surface, NativeBack::backKey(nativeToolkit, keelHosted), Qt::NoModifier,
+              [this, target, surfaceId, fallback]() {
                   if (target)
-                      watchNativeBack(target, surfaceId);
+                      watchNativeBack(target, surfaceId, fallback);
               });
 }
 
@@ -2142,7 +2301,8 @@ void WaylandCompositor::sendNativeForward(int surfaceId, bool keelHosted) {
 
 // Wayland has no reply to a key: back counts as handled once the app shows a
 // change, and as unhandled if the watch window passes without one.
-void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId) {
+void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId,
+                                        const std::function<void()> &fallback) {
     static const int watchMs = [] {
         bool      ok = false;
         const int ms = qEnvironmentVariableIntValue("MARATHON_NATIVE_BACK_MS", &ok);
@@ -2193,9 +2353,14 @@ void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId)
                 if (created->client() == client)
                     changed();
             });
-    QTimer::singleShot(watchMs, watch, [this, watch, settled, surfaceId]() {
-        if (!*settled)
-            emit nativeBackUnhandled(surfaceId);
+    QTimer::singleShot(fallback ? std::min(watchMs, 180) : watchMs, watch,
+                       [this, watch, settled, surfaceId, fallback]() {
+        if (!*settled) {
+            if (fallback)
+                fallback();
+            else
+                emit nativeBackUnhandled(surfaceId);
+        }
         watch->deleteLater();
     });
 }
@@ -2321,6 +2486,42 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
     }
     if (watched == m_window) {
         const auto type = event->type();
+
+        m_popups.erase(std::remove_if(m_popups.begin(), m_popups.end(),
+                                      [](const TrackedPopup &entry) {
+                                          return entry.popup.isNull() || entry.surface.isNull();
+                                      }),
+                       m_popups.end());
+
+        // QtWayland accepts xdg_popup.grab but does not implement its outside
+        // press behavior. Dismiss the topmost popup before the press can fall
+        // through to the app below it. Presses inside the popup keep flowing to
+        // its QWaylandQuickItem normally.
+        if ((type == QEvent::TouchBegin || type == QEvent::MouseButtonPress) &&
+            !m_popups.isEmpty()) {
+            QPointF scenePosition;
+            if (type == QEvent::TouchBegin) {
+                const auto *touch = static_cast<QTouchEvent *>(event);
+                if (!touch->points().isEmpty())
+                    scenePosition = touch->points().first().scenePosition();
+            } else {
+                scenePosition = static_cast<QMouseEvent *>(event)->scenePosition();
+            }
+            for (auto it = m_popups.crbegin(); it != m_popups.crend(); ++it) {
+                QWaylandXdgPopup *popup = it->popup.data();
+                QWaylandSurface  *popupSurface = it->surface.data();
+                QWaylandView *view = popupSurface ? popupSurface->primaryView() : nullptr;
+                auto *item = view ? qobject_cast<QQuickItem *>(view->renderObject()) : nullptr;
+                if (!item || !popupSurface->hasContent())
+                    continue;
+                const QPointF local = item->mapFromScene(scenePosition);
+                if (!QRectF(QPointF(), item->size()).contains(local)) {
+                    popup->sendPopupDone();
+                    return true;
+                }
+                break;
+            }
+        }
         // Emit userActivity() on any human-input signal — not just the
         // edge-triggered Begin/Press events. Without TouchUpdate /
         // MouseMove we miss "user is scrolling / dragging in the

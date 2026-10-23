@@ -2,13 +2,19 @@
 //! accounts and their folders, the open folder's messages as a list model,
 //! sending and signing in.
 
-#![allow(clippy::too_many_arguments, reason = "addImapAccount: an account's fields, as QML passes them")]
+#![allow(
+    clippy::too_many_arguments,
+    reason = "addImapAccount: an account's fields, as QML passes them"
+)]
 
 use std::fs::File;
 use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::{QByteArray, QDateTime, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant, QModelIndex, QString, QStringList, QTimeZone, QVariant};
+use cxx_qt_lib::{
+    QByteArray, QDateTime, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant,
+    QModelIndex, QString, QStringList, QTimeZone, QVariant,
+};
 use zbus::zvariant::{Fd, OwnedValue};
 
 use crate::shell::{calls, relay, Service};
@@ -60,7 +66,11 @@ pub mod qobject {
 
         /// Before QML reads `accounts` or `messages`.
         #[cxx_name = "setModels"]
-        unsafe fn set_models(self: Pin<&mut MailService>, accounts: *mut MailList, messages: *mut MailList);
+        unsafe fn set_models(
+            self: Pin<&mut MailService>,
+            accounts: *mut MailList,
+            messages: *mut MailList,
+        );
         #[cxx_name = "setCurrentAccountId"]
         fn set_current_account_id(self: Pin<&mut MailService>, id: QString);
         #[cxx_name = "setCurrentFolderId"]
@@ -106,7 +116,12 @@ pub mod qobject {
         fn account_setup_failed(self: Pin<&mut MailService>, reason: &QString);
         #[qsignal]
         #[cxx_name = "attachmentSaved"]
-        fn attachment_saved(self: Pin<&mut MailService>, message_id: &QString, location: &QString, path: &QString);
+        fn attachment_saved(
+            self: Pin<&mut MailService>,
+            message_id: &QString,
+            location: &QString,
+            path: &QString,
+        );
         #[qsignal]
         #[cxx_name = "attachmentFailed"]
         fn attachment_failed(self: Pin<&mut MailService>, message_id: &QString, location: &QString);
@@ -140,7 +155,15 @@ pub mod qobject {
         fn move_to_archive(self: &MailService, message_id: &QString) -> bool;
         /// Queued once it returns true; sendSucceeded or sendFailed follows.
         #[qinvokable]
-        fn send(self: &MailService, to: &QString, cc: &QString, bcc: &QString, subject: &QString, body: &QString, attachment_paths: &QStringList) -> bool;
+        fn send(
+            self: &MailService,
+            to: &QString,
+            cc: &QString,
+            bcc: &QString,
+            subject: &QString,
+            body: &QString,
+            attachment_paths: &QStringList,
+        ) -> bool;
         /// subject, from, to, cc, date, bodyHtml, bodyPlain and
         /// attachments: [{ name, size, mime, location }].
         #[qinvokable]
@@ -253,11 +276,15 @@ impl Default for MailServiceRust {
 }
 
 fn text(map: &Map, key: &str) -> QString {
-    map.get(&QString::from(key)).and_then(|v| v.value::<QString>()).unwrap_or_default()
+    map.get(&QString::from(key))
+        .and_then(|v| v.value::<QString>())
+        .unwrap_or_default()
 }
 
 fn number(map: &Map, key: &str) -> i64 {
-    map.get(&QString::from(key)).and_then(|v| v.value::<i64>()).unwrap_or_default()
+    map.get(&QString::from(key))
+        .and_then(|v| v.value::<i64>())
+        .unwrap_or_default()
 }
 
 fn maps(list: &QList<QVariant>) -> Vec<Map> {
@@ -267,31 +294,91 @@ fn maps(list: &QList<QVariant>) -> Vec<Map> {
 impl cxx_qt::Initialize for MailService {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), MAIL, "Changed", |obj, (account,): (String,)| reload(&obj.qt_thread(), Some(account)));
-        relay(qt.clone(), MAIL, "StateChanged", |mut obj, (account, state, error): (String, String, String)| {
-            if obj.current_account_id.to_string() == account {
-                obj.as_mut().apply_state(&state, &error);
-            }
+        relay(qt.clone(), MAIL, "Changed", |obj, (account,): (String,)| {
+            reload(&obj.qt_thread(), Some(account));
         });
-        relay(qt.clone(), MAIL, "SendSucceeded", |obj, (): ()| obj.send_succeeded());
-        relay(qt.clone(), MAIL, "SendFailed", |obj, (reason,): (String,)| obj.send_failed(&QString::from(&reason)));
-        relay(qt.clone(), MAIL, "AccountSetupSucceeded", |mut obj, (id,): (String,)| {
-            obj.as_mut().set_current_account_id(QString::from(&id));
-            obj.account_setup_succeeded(&QString::from(&id));
+        relay(
+            qt.clone(),
+            MAIL,
+            "StateChanged",
+            |mut obj, (account, state, error): (String, String, String)| {
+                if obj.current_account_id.to_string() == account {
+                    obj.as_mut().apply_state(&state, &error);
+                }
+            },
+        );
+        relay(qt.clone(), MAIL, "SendSucceeded", |obj, (): ()| {
+            obj.send_succeeded();
         });
-        relay(qt.clone(), MAIL, "AccountSetupFailed", |obj, (reason,): (String,)| obj.account_setup_failed(&QString::from(&reason)));
-        relay(qt.clone(), MAIL, "AttachmentSaved", |obj, (id, at, path): (String, String, String)| {
-            obj.attachment_saved(&QString::from(&id), &QString::from(&at), &QString::from(&path));
-        });
-        relay(qt.clone(), MAIL, "AttachmentFailed", |obj, (id, at): (String, String)| obj.attachment_failed(&QString::from(&id), &QString::from(&at)));
-        relay(qt.clone(), MAIL, "OAuthAuthUrlReady", |obj, (url,): (String,)| obj.oauth_auth_url_ready(&QString::from(&url)));
-        relay(qt.clone(), MAIL, "OAuthLoginSucceeded", |mut obj, (id,): (String,)| {
-            obj.as_mut().set_current_account_id(QString::from(&id));
-            obj.oauth_login_succeeded(&QString::from(&id));
-        });
-        relay(qt.clone(), MAIL, "OAuthLoginFailed", |obj, (code, text): (String, String)| obj.oauth_login_failed(&QString::from(&code), &QString::from(&text)));
+        relay(
+            qt.clone(),
+            MAIL,
+            "SendFailed",
+            |obj, (reason,): (String,)| obj.send_failed(&QString::from(&reason)),
+        );
+        relay(
+            qt.clone(),
+            MAIL,
+            "AccountSetupSucceeded",
+            |mut obj, (id,): (String,)| {
+                obj.as_mut().set_current_account_id(QString::from(&id));
+                obj.account_setup_succeeded(&QString::from(&id));
+            },
+        );
+        relay(
+            qt.clone(),
+            MAIL,
+            "AccountSetupFailed",
+            |obj, (reason,): (String,)| obj.account_setup_failed(&QString::from(&reason)),
+        );
+        relay(
+            qt.clone(),
+            MAIL,
+            "AttachmentSaved",
+            |obj, (id, at, path): (String, String, String)| {
+                obj.attachment_saved(
+                    &QString::from(&id),
+                    &QString::from(&at),
+                    &QString::from(&path),
+                );
+            },
+        );
+        relay(
+            qt.clone(),
+            MAIL,
+            "AttachmentFailed",
+            |obj, (id, at): (String, String)| {
+                obj.attachment_failed(&QString::from(&id), &QString::from(&at));
+            },
+        );
+        relay(
+            qt.clone(),
+            MAIL,
+            "OAuthAuthUrlReady",
+            |obj, (url,): (String,)| obj.oauth_auth_url_ready(&QString::from(&url)),
+        );
+        relay(
+            qt.clone(),
+            MAIL,
+            "OAuthLoginSucceeded",
+            |mut obj, (id,): (String,)| {
+                obj.as_mut().set_current_account_id(QString::from(&id));
+                obj.oauth_login_succeeded(&QString::from(&id));
+            },
+        );
+        relay(
+            qt.clone(),
+            MAIL,
+            "OAuthLoginFailed",
+            |obj, (code, text): (String, String)| {
+                obj.oauth_login_failed(&QString::from(&code), &QString::from(&text));
+            },
+        );
         io::spawn(async move {
-            let (account, folder) = MAIL.ask::<_, (String, String)>("GetSelection", &()).await.unwrap_or_default();
+            let (account, folder) = MAIL
+                .ask::<_, (String, String)>("GetSelection", &())
+                .await
+                .unwrap_or_default();
             qt.queue(move |mut obj| {
                 let mut s = obj.as_mut().rust_mut();
                 s.current_account_id = QString::from(&account);
@@ -308,7 +395,9 @@ impl cxx_qt::Initialize for MailService {
 fn reload(qt: &Qt, account: Option<String>) {
     let qt = qt.clone();
     io::spawn(async move {
-        let Ok(list) = MAIL.ask::<_, Vec<OwnedValue>>("GetAccounts", &()).await else { return };
+        let Ok(list) = MAIL.ask::<_, Vec<OwnedValue>>("GetAccounts", &()).await else {
+            return;
+        };
         qt.queue(move |mut obj| {
             obj.as_mut().apply_accounts(variant::qlist(&list));
             if account.is_none_or(|a| a == obj.current_account_id.to_string()) {
@@ -320,19 +409,39 @@ fn reload(qt: &Qt, account: Option<String>) {
 }
 
 fn load_messages(obj: &MailService) {
-    let (account, folder) = (obj.current_account_id.to_string(), obj.current_folder_id.to_string());
+    let (account, folder) = (
+        obj.current_account_id.to_string(),
+        obj.current_folder_id.to_string(),
+    );
     let qt = obj.qt_thread();
     io::spawn(async move {
-        let rows = if account.is_empty() { Vec::new() } else { MAIL.ask::<_, Vec<OwnedValue>>("GetMessages", &(account.clone(), folder.clone())).await.unwrap_or_default() };
-        let state = if account.is_empty() { None } else { MAIL.ask::<_, (String, String)>("GetState", &(account.clone(),)).await.ok() };
+        let rows = if account.is_empty() {
+            Vec::new()
+        } else {
+            MAIL.ask::<_, Vec<OwnedValue>>("GetMessages", &(account.clone(), folder.clone()))
+                .await
+                .unwrap_or_default()
+        };
+        let state = if account.is_empty() {
+            None
+        } else {
+            MAIL.ask::<_, (String, String)>("GetState", &(account.clone(),))
+                .await
+                .ok()
+        };
         qt.queue(move |mut obj| {
-            if obj.current_account_id.to_string() != account || obj.current_folder_id.to_string() != folder {
+            if obj.current_account_id.to_string() != account
+                || obj.current_folder_id.to_string() != folder
+            {
                 return;
             }
             if let Some((state, error)) = state {
                 obj.as_mut().apply_state(&state, &error);
             }
-            let rows = maps(&variant::qlist(&rows)).into_iter().map(message_row).collect();
+            let rows = maps(&variant::qlist(&rows))
+                .into_iter()
+                .map(message_row)
+                .collect();
             // SAFETY: the runner parents the models to this object.
             if let Some(model) = unsafe { obj.messages.as_mut() } {
                 // SAFETY: as above; the model is a pinned QObject.
@@ -346,13 +455,21 @@ fn load_messages(obj: &MailService) {
 /// A daemon row with what the inbox shows: the time as the list writes it
 /// and the sender's tile colour.
 fn message_row(mut m: Map) -> Map {
-    m.insert(QString::from("timestamp"), QVariant::from(&relative(number(&m, "date"))));
-    m.insert(QString::from("tint"), QVariant::from(&QString::from(tint(&text(&m, "address").to_string()))));
+    m.insert(
+        QString::from("timestamp"),
+        QVariant::from(&relative(number(&m, "date"))),
+    );
+    m.insert(
+        QString::from("tint"),
+        QVariant::from(&QString::from(tint(&text(&m, "address").to_string()))),
+    );
     m
 }
 
 fn now_ms() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
 }
 
 /// Today "HH:mm", then "Yesterday", the day this week, else "d MMM".
@@ -379,11 +496,15 @@ fn relative(ms: i64) -> QString {
 
 /// One of six muted hues per address, stable across launches.
 fn tint(address: &str) -> &'static str {
-    const PALETTE: [&str; 6] = ["#3a6b9c", "#4a8a5e", "#c89545", "#a85968", "#6b5d8f", "#1a4a3e"];
+    const PALETTE: [&str; 6] = [
+        "#3a6b9c", "#4a8a5e", "#c89545", "#a85968", "#6b5d8f", "#1a4a3e",
+    ];
     if address.is_empty() {
         return "#040404";
     }
-    let hash = address.encode_utf16().fold(0u32, |h, c| h.wrapping_mul(31).wrapping_add(u32::from(c)));
+    let hash = address
+        .encode_utf16()
+        .fold(0u32, |h, c| h.wrapping_mul(31).wrapping_add(u32::from(c)));
     PALETTE[usize::try_from(hash).unwrap_or(0) % PALETTE.len()]
 }
 
@@ -422,11 +543,28 @@ impl MailService {
             self.as_mut().rust_mut().current_folder_id = QString::default();
         }
         let id = self.current_account_id.to_string();
-        let account = accounts.iter().find(|a| text(a, "id").to_string() == id).cloned().unwrap_or_default();
-        let folders: Vec<Map> = account.get(&QString::from("folders")).and_then(|v| v.value::<QList<QVariant>>()).map(|l| maps(&l)).unwrap_or_default();
+        let account = accounts
+            .iter()
+            .find(|a| text(a, "id").to_string() == id)
+            .cloned()
+            .unwrap_or_default();
+        let folders: Vec<Map> = account
+            .get(&QString::from("folders"))
+            .and_then(|v| v.value::<QList<QVariant>>())
+            .map(|l| maps(&l))
+            .unwrap_or_default();
         let folder = self.current_folder_id.to_string();
-        let open = folders.iter().find(|f| text(f, "id").to_string() == folder).or_else(|| folders.iter().find(|f| text(f, "kind").to_string() == "inbox"));
-        let (folder_id, folder_name) = open.map(|f| (text(f, "id"), text(f, "name"))).unwrap_or_default();
+        let open = folders
+            .iter()
+            .find(|f| text(f, "id").to_string() == folder)
+            .or_else(|| {
+                folders
+                    .iter()
+                    .find(|f| text(f, "kind").to_string() == "inbox")
+            });
+        let (folder_id, folder_name) = open
+            .map(|f| (text(f, "id"), text(f, "name")))
+            .unwrap_or_default();
         let name = text(&account, "name");
         if self.current_account_name != name || self.current_account_id.to_string() != id {
             self.as_mut().rust_mut().current_account_name = name;
@@ -447,7 +585,13 @@ impl MailService {
     }
 
     fn select(&self) {
-        MAIL.call("Select", (self.current_account_id.to_string(), self.current_folder_id.to_string()));
+        MAIL.call(
+            "Select",
+            (
+                self.current_account_id.to_string(),
+                self.current_folder_id.to_string(),
+            ),
+        );
     }
 
     fn set_current_account_id(mut self: Pin<&mut Self>, id: QString) {
@@ -474,7 +618,13 @@ impl MailService {
         if self.current_account_id.is_empty() {
             return false;
         }
-        MAIL.call("Refresh", (self.current_account_id.to_string(), self.current_folder_id.to_string()));
+        MAIL.call(
+            "Refresh",
+            (
+                self.current_account_id.to_string(),
+                self.current_folder_id.to_string(),
+            ),
+        );
         true
     }
 
@@ -492,7 +642,8 @@ impl MailService {
     }
 
     fn move_to(&self, message_id: &QString, kind: &str) -> bool {
-        MAIL.ask_now::<_, bool>("MoveTo", &(message_id.to_string(), kind)).unwrap_or(false)
+        MAIL.ask_now::<_, bool>("MoveTo", &(message_id.to_string(), kind))
+            .unwrap_or(false)
     }
 
     fn move_to_trash(&self, message_id: &QString) -> bool {
@@ -503,56 +654,133 @@ impl MailService {
         self.move_to(message_id, "archive")
     }
 
-    fn send(&self, to: &QString, cc: &QString, bcc: &QString, subject: &QString, body: &QString, attachment_paths: &QStringList) -> bool {
+    fn send(
+        &self,
+        to: &QString,
+        cc: &QString,
+        bcc: &QString,
+        subject: &QString,
+        body: &QString,
+        attachment_paths: &QStringList,
+    ) -> bool {
         if self.current_account_id.is_empty() {
             return false;
         }
         let mut files = Vec::new();
-        for path in QList::<QString>::from(attachment_paths).iter().map(|p| p.to_string().trim_start_matches("file://").to_owned()) {
-            let Ok(file) = File::open(&path) else { return false };
+        for path in QList::<QString>::from(attachment_paths)
+            .iter()
+            .map(|p| p.to_string().trim_start_matches("file://").to_owned())
+        {
+            let Ok(file) = File::open(&path) else {
+                return false;
+            };
             let name = path.rsplit('/').next().unwrap_or("attachment").to_owned();
             files.push((name, file));
         }
-        let wire: Vec<(String, Fd<'_>)> = files.iter().map(|(n, f)| (n.clone(), Fd::from(f))).collect();
-        let body = (self.current_account_id.to_string(), to.to_string(), cc.to_string(), bcc.to_string(), subject.to_string(), body.to_string(), wire);
+        let wire: Vec<(String, Fd<'_>)> = files
+            .iter()
+            .map(|(n, f)| (n.clone(), Fd::from(f)))
+            .collect();
+        let body = (
+            self.current_account_id.to_string(),
+            to.to_string(),
+            cc.to_string(),
+            bcc.to_string(),
+            subject.to_string(),
+            body.to_string(),
+            wire,
+        );
         MAIL.ask_now::<_, bool>("Send", &body).unwrap_or(false)
     }
 
     fn open_message(&self, message_id: &QString) -> Map {
-        let Some(wire) = MAIL.ask_now::<_, std::collections::HashMap<String, OwnedValue>>("GetMessage", &(message_id.to_string(),)) else { return Map::default() };
+        let Some(wire) = MAIL.ask_now::<_, std::collections::HashMap<String, OwnedValue>>(
+            "GetMessage",
+            &(message_id.to_string(),),
+        ) else {
+            return Map::default();
+        };
         let mut m = variant::qmap(&wire);
         let date = number(&m, "date");
         if date > 0 {
-            m.insert(QString::from("date"), QVariant::from(&QDateTime::from_msecs_since_epoch(date, &QTimeZone::system_time_zone())));
+            m.insert(
+                QString::from("date"),
+                QVariant::from(&QDateTime::from_msecs_since_epoch(
+                    date,
+                    &QTimeZone::system_time_zone(),
+                )),
+            );
         }
         m
     }
 
     fn save_attachment(&self, message_id: &QString, location: &QString) -> bool {
-        MAIL.call("SaveAttachment", (message_id.to_string(), location.to_string()));
+        MAIL.call(
+            "SaveAttachment",
+            (message_id.to_string(), location.to_string()),
+        );
         !location.is_empty()
     }
 
-    #[allow(clippy::too_many_arguments, reason = "MailService.addImapAccount's arguments")]
-    fn add_imap_account(&self, name: &QString, email: &QString, imap_host: &QString, imap_port: i32, imap_encryption: i32, smtp_host: &QString, smtp_port: i32, smtp_encryption: i32, username: &QString, password: &QString) -> bool {
-        let (Ok(ip), Ok(ie), Ok(sp), Ok(se)) = (u16::try_from(imap_port), u8::try_from(imap_encryption), u16::try_from(smtp_port), u8::try_from(smtp_encryption)) else { return false };
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "MailService.addImapAccount's arguments"
+    )]
+    fn add_imap_account(
+        &self,
+        name: &QString,
+        email: &QString,
+        imap_host: &QString,
+        imap_port: i32,
+        imap_encryption: i32,
+        smtp_host: &QString,
+        smtp_port: i32,
+        smtp_encryption: i32,
+        username: &QString,
+        password: &QString,
+    ) -> bool {
+        let (Ok(ip), Ok(ie), Ok(sp), Ok(se)) = (
+            u16::try_from(imap_port),
+            u8::try_from(imap_encryption),
+            u16::try_from(smtp_port),
+            u8::try_from(smtp_encryption),
+        ) else {
+            return false;
+        };
         if email.is_empty() || imap_host.is_empty() || smtp_host.is_empty() {
             return false;
         }
-        let args = (name.to_string(), email.to_string(), imap_host.to_string(), ip, ie, smtp_host.to_string(), sp, se, username.to_string(), password.to_string());
-        MAIL.ask_now::<_, bool>("AddImapAccount", &args).unwrap_or(false)
+        let args = (
+            name.to_string(),
+            email.to_string(),
+            imap_host.to_string(),
+            ip,
+            ie,
+            smtp_host.to_string(),
+            sp,
+            se,
+            username.to_string(),
+            password.to_string(),
+        );
+        MAIL.ask_now::<_, bool>("AddImapAccount", &args)
+            .unwrap_or(false)
     }
 
     fn start_oauth_login(&self, provider: &QString) -> bool {
-        MAIL.ask_now::<_, bool>("StartOAuthLogin", &(provider.to_string(),)).unwrap_or(false)
+        MAIL.ask_now::<_, bool>("StartOAuthLogin", &(provider.to_string(),))
+            .unwrap_or(false)
     }
 
     fn check_oauth_providers(&self) {
         let qt = self.qt_thread();
         io::spawn(async move {
-            let providers = MAIL.ask::<_, Vec<String>>("OAuthProviders", &()).await.unwrap_or_default();
+            let providers = MAIL
+                .ask::<_, Vec<String>>("OAuthProviders", &())
+                .await
+                .unwrap_or_default();
             qt.queue(move |mut obj| {
-                let list = QStringList::from(&providers.iter().map(QString::from).collect::<QList<_>>());
+                let list =
+                    QStringList::from(&providers.iter().map(QString::from).collect::<QList<_>>());
                 obj.as_mut().rust_mut().oauth_providers = list;
                 obj.oauth_providers_changed();
             })
@@ -566,7 +794,19 @@ pub struct MailListRust {
     rows: Vec<Map>,
 }
 
-const ROLES: [&str; 11] = ["messageId", "subject", "from", "snippet", "timestamp", "unread", "hasAttachment", "tint", "id", "name", "address"];
+const ROLES: [&str; 11] = [
+    "messageId",
+    "subject",
+    "from",
+    "snippet",
+    "timestamp",
+    "unread",
+    "hasAttachment",
+    "tint",
+    "id",
+    "name",
+    "address",
+];
 const FIRST_ROLE: i32 = 0x0100 + 1; // Qt::UserRole + 1
 
 impl MailList {
@@ -577,13 +817,23 @@ impl MailList {
     }
 
     fn row_count(&self, parent: &QModelIndex) -> i32 {
-        if parent.is_valid() { 0 } else { i32::try_from(self.rows.len()).unwrap_or(i32::MAX) }
+        if parent.is_valid() {
+            0
+        } else {
+            i32::try_from(self.rows.len()).unwrap_or(i32::MAX)
+        }
     }
 
     fn data(&self, index: &QModelIndex, role: i32) -> QVariant {
-        let row = usize::try_from(index.row()).ok().and_then(|r| self.rows.get(r));
-        let key = usize::try_from(role - FIRST_ROLE).ok().and_then(|i| ROLES.get(i));
-        row.zip(key).and_then(|(r, key)| r.get(&QString::from(*key))).unwrap_or_default()
+        let row = usize::try_from(index.row())
+            .ok()
+            .and_then(|r| self.rows.get(r));
+        let key = usize::try_from(role - FIRST_ROLE)
+            .ok()
+            .and_then(|i| ROLES.get(i));
+        row.zip(key)
+            .and_then(|(r, key)| r.get(&QString::from(*key)))
+            .unwrap_or_default()
     }
 
     fn role_names(&self) -> QHash<QHashPair_i32_QByteArray> {

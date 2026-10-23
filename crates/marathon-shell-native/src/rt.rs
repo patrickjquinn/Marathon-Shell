@@ -11,4 +11,8 @@ mod ffi {
     }
 }
 
-use marathon_rt::set_thread_priority;
+fn set_thread_priority(priority: i32) -> i32 {
+    marathon_rt::set_thread_priority(priority)
+        .err()
+        .unwrap_or(0)
+}

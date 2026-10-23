@@ -2,16 +2,23 @@
 //! the shell's permission gate, its data directories and their store.
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 
 use zbus::fdo;
 use zbus::message::Header;
 
 /// Whether the caller of `header`'s method holds one of `permissions`, as
 /// the shell answers for its own services; `area` is the rate limit's key.
-pub async fn admit(bus: &zbus::Connection, header: &Header<'_>, area: &str, permissions: &[&str]) -> fdo::Result<()> {
+pub async fn admit(
+    bus: &zbus::Connection,
+    header: &Header<'_>,
+    area: &str,
+    permissions: &[&str],
+) -> fdo::Result<()> {
     let denied = |text: &str| Err(fdo::Error::AccessDenied(text.to_owned()));
-    let Some(sender) = header.sender() else { return denied("Unknown caller") };
+    let Some(sender) = header.sender() else {
+        return denied("Unknown caller");
+    };
     let asked = bus
         .call_method(
             Some("org.marathonos.Shell"),
@@ -23,12 +30,17 @@ pub async fn admit(bus: &zbus::Connection, header: &Header<'_>, area: &str, perm
         .await;
     match asked {
         Ok(_) => Ok(()),
-        Err(zbus::Error::MethodError(name, text, _)) if name.as_str() == "org.freedesktop.DBus.Error.LimitsExceeded" => {
+        Err(zbus::Error::MethodError(name, text, _))
+            if name.as_str() == "org.freedesktop.DBus.Error.LimitsExceeded" =>
+        {
             Err(fdo::Error::LimitsExceeded(text.unwrap_or_default()))
         }
         Err(zbus::Error::MethodError(_, Some(text), _)) => denied(&text),
         Err(e) => {
-            crate::log::warn(area, format_args!("the shell did not answer for {sender}: {e}"));
+            crate::log::warn(
+                area,
+                format_args!("the shell did not answer for {sender}: {e}"),
+            );
             denied("Unknown caller")
         }
     }
@@ -59,15 +71,29 @@ impl<T: Send + 'static> Shared<T> {
         Self(Arc::new(Mutex::new(value)))
     }
 
-    pub async fn with<R: Send + 'static>(&self, work: impl FnOnce(&mut T) -> R + Send + 'static) -> R {
+    /// Runs blocking `work` with exclusive access to the shared state.
+    ///
+    /// Aborts rather than exposing the state if an earlier operation poisoned
+    /// it. Continuing with potentially inconsistent daemon state is unsafe.
+    pub async fn with<R: Send + 'static>(
+        &self,
+        work: impl FnOnce(&mut T) -> R + Send + 'static,
+    ) -> R {
         let state = Arc::clone(&self.0);
-        blocking::unblock(move || work(&mut state.lock().unwrap_or_else(PoisonError::into_inner))).await
+        blocking::unblock(move || {
+            let mut state = state.lock().unwrap_or_else(|_| std::process::abort());
+            work(&mut state)
+        })
+        .await
     }
 }
 
 /// A phone number as dialled: its digits and `+`.
 pub fn dialable(number: &str) -> String {
-    number.chars().filter(|c| c.is_ascii_digit() || *c == '+').collect()
+    number
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == '+')
+        .collect()
 }
 
 /// Whether two numbers reach the same phone: the same, or one ends in the
@@ -75,7 +101,9 @@ pub fn dialable(number: &str) -> String {
 pub fn same_number(a: &str, b: &str) -> bool {
     let (a, b) = (dialable(a), dialable(b));
     let last_ten = |n: &str| n[n.len().saturating_sub(10)..].to_owned();
-    !a.is_empty() && !b.is_empty() && (a == b || a.ends_with(&last_ten(&b)) || b.ends_with(&last_ten(&a)))
+    !a.is_empty()
+        && !b.is_empty()
+        && (a == b || a.ends_with(&last_ten(&b)) || b.ends_with(&last_ten(&a)))
 }
 
 #[cfg(test)]

@@ -46,11 +46,17 @@ pub fn data_dir(app_id: &str) -> PathBuf {
 }
 
 pub fn config_dir(app_id: &str) -> PathBuf {
-    dirs::config_dir().unwrap_or_default().join("marathon-apps").join(app_id)
+    dirs::config_dir()
+        .unwrap_or_default()
+        .join("marathon-apps")
+        .join(app_id)
 }
 
 pub fn cache_dir(app_id: &str) -> PathBuf {
-    dirs::cache_dir().unwrap_or_default().join("marathon-apps").join(app_id)
+    dirs::cache_dir()
+        .unwrap_or_default()
+        .join("marathon-apps")
+        .join(app_id)
 }
 
 /// The keys Marathon's own apps are signed with: only a package one of them
@@ -59,7 +65,10 @@ pub fn cache_dir(app_id: &str) -> PathBuf {
 pub fn system_keys() -> PathBuf {
     std::env::var_os("MARATHON_SYSTEM_KEYS_DIR")
         .filter(|v| !v.is_empty())
-        .map_or_else(|| PathBuf::from("/usr/share/marathon/system-keys"), PathBuf::from)
+        .map_or_else(
+            || PathBuf::from("/usr/share/marathon/system-keys"),
+            PathBuf::from,
+        )
 }
 
 /// Every key a package may be signed with; their `revoked` lists apply to
@@ -68,6 +77,8 @@ pub fn trusted_keys() -> Vec<PathBuf> {
     vec![
         PathBuf::from("/usr/share/marathon/trusted-keys"),
         system_keys(),
-        dirs::config_dir().unwrap_or_default().join("marathon/trusted-keys"),
+        dirs::config_dir()
+            .unwrap_or_default()
+            .join("marathon/trusted-keys"),
     ]
 }

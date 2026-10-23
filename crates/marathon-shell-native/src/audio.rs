@@ -104,7 +104,10 @@ pub struct AudioRust {
 /// Volume and mute of whichever sink is the default now. A report that
 /// crosses a write of ours in flight is stale for that field.
 #[derive(Debug)]
-#[allow(clippy::struct_excessive_bools, reason = "a field and its pending write each")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "a field and its pending write each"
+)]
 struct Sink {
     name: String,
     volume: f64,
@@ -118,7 +121,16 @@ struct Sink {
 
 impl Default for Sink {
     fn default() -> Self {
-        Self { name: String::new(), volume: 0.6, muted: false, volume_pending: false, mute_pending: false, volume_writes: 0, mute_writes: 0, reported: false }
+        Self {
+            name: String::new(),
+            volume: 0.6,
+            muted: false,
+            volume_pending: false,
+            mute_pending: false,
+            volume_writes: 0,
+            mute_writes: 0,
+            reported: false,
+        }
     }
 }
 
@@ -217,10 +229,17 @@ impl cxx_qt::Initialize for Audio {
             })
             .release();
         AUDIO.set(self.qt_thread()).ok();
-        ipc::export("Audio", Audio1 { qt: self.qt_thread() });
+        ipc::export(
+            "Audio",
+            Audio1 {
+                qt: self.qt_thread(),
+            },
+        );
         // A desktop session keeps its own levels; a Marathon one starts in
         // its profile.
-        let marathon = ["XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP"].iter().any(|v| std::env::var(v).is_ok_and(|d| d.eq_ignore_ascii_case("marathon")));
+        let marathon = ["XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP"]
+            .iter()
+            .any(|v| std::env::var(v).is_ok_and(|d| d.eq_ignore_ascii_case("marathon")));
         if marathon {
             settings::with(|s| {
                 let profile = s.audio_profile().to_string();
@@ -238,10 +257,20 @@ fn with(f: impl FnOnce(Pin<&mut Audio>) + Send + 'static) {
 
 /// `Audio1.StateChanged`, with the profile and Do Not Disturb the settings keep.
 pub(crate) fn push_state() {
-    let (Some(audio), Some(settings)) = (AUDIO.get(), settings::thread()) else { return };
+    let (Some(audio), Some(settings)) = (AUDIO.get(), settings::thread()) else {
+        return;
+    };
     io::spawn(async move {
-        let Ok(mut state) = ipc::on_gui(audio, |obj| state(&obj)).await else { return };
-        let Ok((dnd, profile)) = ipc::on_gui(settings, |s| (*s.dnd_enabled(), s.audio_profile().to_string())).await else { return };
+        let Ok(mut state) = ipc::on_gui(audio, |obj| state(&obj)).await else {
+            return;
+        };
+        let Ok((dnd, profile)) = ipc::on_gui(settings, |s| {
+            (*s.dnd_enabled(), s.audio_profile().to_string())
+        })
+        .await
+        else {
+            return;
+        };
         state.insert("doNotDisturb".into(), value(dnd));
         state.insert("audioProfile".into(), value(profile));
         ipc::signal("Audio", "StateChanged", (state,));
@@ -249,7 +278,11 @@ pub(crate) fn push_state() {
 }
 
 fn state(audio: &Audio) -> State {
-    let streams: Vec<OwnedValue> = audio.streams.iter().filter_map(|s| marathon_qt::from_qt(s)?.try_to_owned().ok()).collect();
+    let streams: Vec<OwnedValue> = audio
+        .streams
+        .iter()
+        .filter_map(|s| marathon_qt::from_qt(s)?.try_to_owned().ok())
+        .collect();
     State::from([
         ("available".to_owned(), value(audio.available)),
         ("perAppVolumeSupported".to_owned(), value(audio.available)),
@@ -281,13 +314,20 @@ type Playing = HashMap<Role, (u64, Option<u32>)>;
 static PLAYING: LazyLock<Mutex<Playing>> = LazyLock::new(Mutex::default);
 
 fn playing() -> std::sync::MutexGuard<'static, Playing> {
-    PLAYING.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    PLAYING.lock().unwrap_or_else(|_| std::process::abort())
 }
 
 /// The arguments of `paplay` for `file` at `level` on `role`'s loopback.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a level in 0..=1")]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "a level in 0..=1"
+)]
 fn paplay(role: Option<Role>, file: &str, level: f64) -> Vec<String> {
-    let mut args = vec![format!("--volume={}", (level.clamp(0.0, 1.0) * 65536.0) as u32)];
+    let mut args = vec![format!(
+        "--volume={}",
+        (level.clamp(0.0, 1.0) * 65536.0) as u32
+    )];
     let sink = match role {
         Some(Role::Ringtone) => Some("ringtone"),
         Some(Role::Notification) => Some("notification"),
@@ -376,7 +416,11 @@ fn stop_process(pid: u32) {
 
 impl Audio {
     fn send(&self, command: Command) {
-        if self.actor.as_ref().is_none_or(|a| a.try_send(command).is_err()) {
+        if self
+            .actor
+            .as_ref()
+            .is_none_or(|a| a.try_send(command).is_err())
+        {
             log::warn("audio", "no audio backend");
         }
     }
@@ -415,7 +459,12 @@ impl Audio {
     fn play_ringtone(&self) {
         settings::with(|s| {
             if ringer_audible(&s.audio_profile().to_string(), *s.dnd_enabled()) {
-                play(Role::Ringtone, &s.ringtone().to_string(), *s.ringtone_volume(), true);
+                play(
+                    Role::Ringtone,
+                    &s.ringtone().to_string(),
+                    *s.ringtone_volume(),
+                    true,
+                );
             }
         });
     }
@@ -430,14 +479,26 @@ impl Audio {
         let volume = if self.muted { 0.0 } else { self.volume };
         settings::with(move |s| {
             if ringer_audible(&s.audio_profile().to_string(), *s.dnd_enabled()) {
-                play(Role::Notification, &s.notification_sound().to_string(), *s.notification_volume() * volume, false);
+                play(
+                    Role::Notification,
+                    &s.notification_sound().to_string(),
+                    *s.notification_volume() * volume,
+                    false,
+                );
             }
         });
     }
 
     #[allow(clippy::unused_self, reason = "QML calls it on the object")]
     fn play_alarm_sound(&self) {
-        settings::with(|s| play(Role::Alarm, &s.alarm_sound().to_string(), *s.alarm_volume(), true));
+        settings::with(|s| {
+            play(
+                Role::Alarm,
+                &s.alarm_sound().to_string(),
+                *s.alarm_volume(),
+                true,
+            );
+        });
     }
 
     #[allow(clippy::unused_self, reason = "QML calls it on the object")]
@@ -481,7 +542,11 @@ impl Audio {
 
     fn written(mut self: Pin<&mut Self>, volume: bool) {
         let mut rust = self.as_mut().rust_mut();
-        let writes = if volume { &mut rust.sink.volume_writes } else { &mut rust.sink.mute_writes };
+        let writes = if volume {
+            &mut rust.sink.volume_writes
+        } else {
+            &mut rust.sink.mute_writes
+        };
         *writes = writes.saturating_sub(1);
     }
 
@@ -505,12 +570,18 @@ impl Audio {
             for (id, name, volume, muted) in &streams {
                 let mut map = QMap::<QMapPair_QString_QVariant>::default();
                 let name = QVariant::from(&QString::from(name.as_str()));
-                map.insert(QString::from("streamId"), QVariant::from(&i32::try_from(*id).unwrap_or(i32::MAX)));
+                map.insert(
+                    QString::from("streamId"),
+                    QVariant::from(&i32::try_from(*id).unwrap_or(i32::MAX)),
+                );
                 map.insert(QString::from("name"), name.clone());
                 map.insert(QString::from("appName"), name);
                 map.insert(QString::from("volume"), QVariant::from(volume));
                 map.insert(QString::from("muted"), QVariant::from(muted));
-                map.insert(QString::from("mediaClass"), QVariant::from(&QString::from("Stream/Output/Audio")));
+                map.insert(
+                    QString::from("mediaClass"),
+                    QVariant::from(&QString::from("Stream/Output/Audio")),
+                );
                 list.append(QVariant::from(&map));
             }
             self.as_mut().rust_mut().streams = list;
@@ -551,32 +622,64 @@ struct Cache {
 impl Cache {
     /// The properties as a report, if any of them is one we show.
     fn apply(&mut self, props: &HashMap<String, OwnedValue>) -> Report {
-        let default = props.get("DefaultSink").and_then(|v| v.downcast_ref::<&str>().ok()).map(str::to_owned);
-        let volume = props.get("Volume").and_then(|v| v.downcast_ref::<f64>().ok());
-        let muted = props.get("Muted").and_then(|v| v.downcast_ref::<bool>().ok());
+        let default = props
+            .get("DefaultSink")
+            .and_then(|v| v.downcast_ref::<&str>().ok())
+            .map(str::to_owned);
+        let volume = props
+            .get("Volume")
+            .and_then(|v| v.downcast_ref::<f64>().ok());
+        let muted = props
+            .get("Muted")
+            .and_then(|v| v.downcast_ref::<bool>().ok());
         let level = (default.is_some() || volume.is_some() || muted.is_some()).then(|| {
             self.volume = volume.unwrap_or(self.volume);
             self.muted = muted.unwrap_or(self.muted);
             (self.volume, self.muted)
         });
-        let streams = props.get("Streams").and_then(|v| Vec::<Stream>::try_from(v.try_clone().ok()?).ok());
-        Report { available: true, default, level, streams }
+        let streams = props
+            .get("Streams")
+            .and_then(|v| Vec::<Stream>::try_from(v.try_clone().ok()?).ok());
+        Report {
+            available: true,
+            default,
+            level,
+            streams,
+        }
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the audio actor keeps its connection and event-loop state in one task"
+)]
 async fn run(qt: Qt, commands: Receiver<Command>) {
     let bus = match io::session_bus().await {
         Ok(bus) => bus,
         Err(e) => return log::warn("audio", format_args!("no session bus: {e}")),
     };
     let mut events = stream::empty().boxed();
-    if let Ok(props) = zbus::fdo::PropertiesProxy::builder(&bus).destination(SERVICE).and_then(|b| b.path(PATH)) {
-        if let Ok(props) = props.cache_properties(zbus::proxy::CacheProperties::No).build().await {
+    if let Ok(props) = zbus::fdo::PropertiesProxy::builder(&bus)
+        .destination(SERVICE)
+        .and_then(|b| b.path(PATH))
+    {
+        if let Ok(props) = props
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+        {
             if let Ok(changes) = props.receive_properties_changed().await {
                 let changes = changes.filter_map(|s| {
                     let args = s.args().ok()?;
                     (args.interface_name().as_str() == INTERFACE).then(|| {
-                        Event::Changed(args.changed_properties().iter().filter_map(|(k, v)| Some(((*k).to_owned(), v.try_to_owned().ok()?))).collect())
+                        Event::Changed(
+                            args.changed_properties()
+                                .iter()
+                                .filter_map(|(k, v)| {
+                                    Some(((*k).to_owned(), v.try_to_owned().ok()?))
+                                })
+                                .collect(),
+                        )
                     })
                 });
                 events = events.or(changes).boxed();
@@ -584,11 +687,19 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         }
     }
     if let Ok(dbus) = DBusProxy::new(&bus).await {
-        if let Ok(owners) = dbus.receive_name_owner_changed_with_args(&[(0, SERVICE)]).await {
-            events = events.or(owners.filter_map(|s| Some(Event::Owner(s.args().ok()?.new_owner().is_some())))).boxed();
+        if let Ok(owners) = dbus
+            .receive_name_owner_changed_with_args(&[(0, SERVICE)])
+            .await
+        {
+            events = events
+                .or(owners.filter_map(|s| Some(Event::Owner(s.args().ok()?.new_owner().is_some()))))
+                .boxed();
         }
     }
-    let events = stream::once(Event::Command(Command::Refresh)).chain(commands.map(Event::Command)).chain(stream::once(Event::Closed)).or(events);
+    let events = stream::once(Event::Command(Command::Refresh))
+        .chain(commands.map(Event::Command))
+        .chain(stream::once(Event::Closed))
+        .or(events);
     let mut events = std::pin::pin!(events);
     let mut cache = Cache::default();
     while let Some(event) = events.next().await {
@@ -601,14 +712,23 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             }
             // A restarted service starts from PipeWire's state, not ours.
             Event::Owner(true) | Event::Command(Command::Refresh) => {
-                let all = bus.call_method(Some(SERVICE), PATH, Some("org.freedesktop.DBus.Properties"), "GetAll", &(INTERFACE,)).await;
-                let report = match all.and_then(|m| m.body().deserialize::<HashMap<String, OwnedValue>>()) {
-                    Ok(props) => cache.apply(&props),
-                    Err(e) => {
-                        log::warn("audio", format_args!("marathon-audiod: {e}"));
-                        gone(&mut cache)
-                    }
-                };
+                let all = bus
+                    .call_method(
+                        Some(SERVICE),
+                        PATH,
+                        Some("org.freedesktop.DBus.Properties"),
+                        "GetAll",
+                        &(INTERFACE,),
+                    )
+                    .await;
+                let report =
+                    match all.and_then(|m| m.body().deserialize::<HashMap<String, OwnedValue>>()) {
+                        Ok(props) => cache.apply(&props),
+                        Err(e) => {
+                            log::warn("audio", format_args!("marathon-audiod: {e}"));
+                            gone(&mut cache)
+                        }
+                    };
                 qt.queue(move |obj| obj.apply(report)).ok();
                 Ok(())
             }
@@ -627,8 +747,12 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 qt.queue(|obj| obj.written(false)).ok();
                 result
             }
-            Event::Command(Command::StreamVolume(id, v)) => call(&bus, "SetStreamVolume", &(id, v)).await,
-            Event::Command(Command::StreamMuted(id, m)) => call(&bus, "SetStreamMuted", &(id, m)).await,
+            Event::Command(Command::StreamVolume(id, v)) => {
+                call(&bus, "SetStreamVolume", &(id, v)).await
+            }
+            Event::Command(Command::StreamMuted(id, m)) => {
+                call(&bus, "SetStreamMuted", &(id, m)).await
+            }
         };
         if let Err(e) = result {
             log::warn("audio", e);
@@ -650,7 +774,10 @@ impl Audio1 {
         system(&h).await?;
         let mut state = ipc::on_gui(&self.qt, |obj| state(&obj)).await?;
         if let Some(settings) = settings::thread() {
-            let (dnd, profile) = ipc::on_gui(settings, |s| (*s.dnd_enabled(), s.audio_profile().to_string())).await?;
+            let (dnd, profile) = ipc::on_gui(settings, |s| {
+                (*s.dnd_enabled(), s.audio_profile().to_string())
+            })
+            .await?;
             state.insert("doNotDisturb".into(), value(dnd));
             state.insert("audioProfile".into(), value(profile));
         }
@@ -667,12 +794,25 @@ impl Audio1 {
         ipc::on_gui(&self.qt, move |obj| obj.set_muted(muted)).await
     }
 
-    async fn set_stream_volume(&self, stream_id: i32, volume: f64, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_stream_volume(
+        &self,
+        stream_id: i32,
+        volume: f64,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
-        ipc::on_gui(&self.qt, move |obj| obj.set_stream_volume(stream_id, volume)).await
+        ipc::on_gui(&self.qt, move |obj| {
+            obj.set_stream_volume(stream_id, volume);
+        })
+        .await
     }
 
-    async fn set_stream_muted(&self, stream_id: i32, muted: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_stream_muted(
+        &self,
+        stream_id: i32,
+        muted: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_stream_muted(stream_id, muted)).await
     }
@@ -682,16 +822,26 @@ impl Audio1 {
         ipc::on_gui(&self.qt, |obj| obj.refresh_streams()).await
     }
 
-    async fn set_do_not_disturb(&self, enabled: bool, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_do_not_disturb(
+        &self,
+        enabled: bool,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
         settings::with(move |s| s.set_dnd_enabled(enabled));
         Ok(())
     }
 
-    async fn set_audio_profile(&self, profile: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn set_audio_profile(
+        &self,
+        profile: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
         if !["silent", "vibrate", "normal", "loud"].contains(&profile.as_str()) {
-            return Err(fdo::Error::InvalidArgs(format!("Invalid audio profile: {profile}")));
+            return Err(fdo::Error::InvalidArgs(format!(
+                "Invalid audio profile: {profile}"
+            )));
         }
         let set = profile.clone();
         settings::with(move |s| s.set_audio_profile(&QString::from(&set)));
@@ -725,14 +875,22 @@ impl Audio1 {
         Ok(())
     }
 
-    async fn preview_sound(&self, sound_path: String, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn preview_sound(
+        &self,
+        sound_path: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
         play(Role::Preview, &sound_path, 0.7, false);
         Ok(())
     }
 
     /// When vibration is on.
-    async fn vibrate_pattern(&self, pattern: Vec<OwnedValue>, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
+    async fn vibrate_pattern(
+        &self,
+        pattern: Vec<OwnedValue>,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
         system(&h).await?;
         settings::with(move |s| {
             if *s.vibration_enabled() {
@@ -744,14 +902,25 @@ impl Audio1 {
 }
 
 /// Answered once `PipeWire` has it.
-pub async fn call<B: serde::Serialize + DynamicType>(bus: &zbus::Connection, method: &str, body: &B) -> zbus::Result<()> {
-    bus.call_method(Some(SERVICE), PATH, Some(INTERFACE), method, body).await.map(|_| ())
+pub async fn call<B: serde::Serialize + DynamicType>(
+    bus: &zbus::Connection,
+    method: &str,
+    body: &B,
+) -> zbus::Result<()> {
+    bus.call_method(Some(SERVICE), PATH, Some(INTERFACE), method, body)
+        .await
+        .map(|_| ())
 }
 
 /// The service is gone: no sink, no streams.
 fn gone(cache: &mut Cache) -> Report {
     *cache = Cache::default();
-    Report { available: false, default: Some(String::new()), level: None, streams: Some(Vec::new()) }
+    Report {
+        available: false,
+        default: Some(String::new()),
+        level: None,
+        streams: Some(Vec::new()),
+    }
 }
 
 #[cfg(test)]
@@ -769,9 +938,16 @@ mod tests {
     fn each_sound_plays_on_its_role() {
         assert_eq!(
             paplay(Some(Role::Alarm), "/s/a.wav", 0.5),
-            ["--volume=32768", "--device=input.loopback.sink.role.alarm", "/s/a.wav"]
+            [
+                "--volume=32768",
+                "--device=input.loopback.sink.role.alarm",
+                "/s/a.wav"
+            ]
         );
-        assert_eq!(paplay(None, "/s/a.wav", 2.0), ["--volume=65536", "/s/a.wav"]);
+        assert_eq!(
+            paplay(None, "/s/a.wav", 2.0),
+            ["--volume=65536", "/s/a.wav"]
+        );
     }
 
     fn sink(name: &str) -> Sink {

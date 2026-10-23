@@ -18,14 +18,26 @@ pub struct PrivateBus {
 impl PrivateBus {
     /// None where there is no `dbus-daemon`.
     pub fn start() -> Option<Self> {
-        let mut bus = Command::new("dbus-daemon").args(["--session", "--nofork", "--print-address=1"]).stdout(Stdio::piped()).spawn().ok()?;
+        let mut bus = Command::new("dbus-daemon")
+            .args(["--session", "--nofork", "--print-address=1"])
+            .stdout(Stdio::piped())
+            .spawn()
+            .ok()?;
         let mut address = String::new();
-        BufReader::new(bus.stdout.take()?).read_line(&mut address).ok()?;
-        Some(Self { bus, daemon: None, address: address.trim().to_owned() })
+        BufReader::new(bus.stdout.take()?)
+            .read_line(&mut address)
+            .ok()?;
+        Some(Self {
+            bus,
+            daemon: None,
+            address: address.trim().to_owned(),
+        })
     }
 
     pub async fn connect(&self) -> zbus::Result<Connection> {
-        zbus::connection::Builder::address(self.address.as_str())?.build().await
+        zbus::connection::Builder::address(self.address.as_str())?
+            .build()
+            .await
     }
 
     /// The shell's `Permissions1`, admitting every caller but for `refused`.
@@ -73,7 +85,10 @@ impl Drop for PrivateBus {
 struct Shell(Vec<String>);
 
 #[interface(name = "org.marathonos.Shell.Permissions1")]
-#[allow(clippy::needless_pass_by_value, reason = "the method's D-Bus arguments")]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "the method's D-Bus arguments"
+)]
 impl Shell {
     fn admit(&self, sender: &str, area: &str, permissions: Vec<String>) -> fdo::Result<()> {
         match permissions.iter().find(|p| self.0.contains(p)) {

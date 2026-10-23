@@ -115,11 +115,9 @@ MApp {
             }
         }
 
-        // Sized to match MarathonAppWindow's launch splash so the swap from
-        // shell-side splash → native-side splash on first surface map is
-        // visually seamless (same icon size + text + spacing). Previously
-        // the shell rendered 128 × scaleFactor (~229dp on L5) and this one
-        // rendered raw 128 — user saw a "smaller duplicate appear" mid-load.
+        // The outer MarathonAppWindow splash remains above this item until
+        // revealReady. Hide this fallback on the same edge: delaying it after
+        // the first buffer draws the launch cover over live app content.
         Rectangle {
             id: splashScreen
 
@@ -127,58 +125,7 @@ MApp {
             color: MColors.background
             z: 10
 
-            // revealReady comes with the app's first commit, before the shell
-            // has drawn it: the splash fades once the shell has drawn three
-            // frames since, or after 250 ms if it has nothing else to draw.
-            property bool _revealed: false
-            property int _framesSinceReady: -1
-
-            opacity: _revealed ? 0 : 1
-            visible: opacity > 0.001
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 160
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            function _hold() {
-                _framesSinceReady = 0;
-                revealHold.restart();
-            }
-
-            Timer {
-                id: revealHold
-
-                interval: 250
-                onTriggered: splashScreen._revealed = true
-            }
-            Connections {
-                target: splashScreen._framesSinceReady >= 0 && !splashScreen._revealed ? splashScreen.Window.window : null
-
-                function onAfterAnimating() {
-                    if (++splashScreen._framesSinceReady >= 3)
-                        splashScreen._revealed = true;
-                }
-            }
-            Connections {
-                target: nativeAppWindow
-                function onRevealReadyChanged() {
-                    // One-way: hasContent dips (suspend, buffer churn) after
-                    // first reveal must not bring the splash back.
-                    if (nativeAppWindow.revealReady && !splashScreen._revealed)
-                        splashScreen._hold();
-                }
-            }
-            // Restore path: the surface can already be live (revealReady true)
-            // BEFORE this Connections is wired, so onRevealReadyChanged fires
-            // into the void and the splash never lifts — the #497 black-on-
-            // first-restore. The edge-triggered handler above can't catch a
-            // transition that already happened; level-check it once at creation.
-            Component.onCompleted: {
-                if (nativeAppWindow.revealReady && !splashScreen._revealed)
-                    splashScreen._hold();
-            }
+            visible: !nativeAppWindow.revealReady
 
             // Laid out as MarathonAppWindow's splash, so the icon stays launcher-size through the hand-off.
             Column {

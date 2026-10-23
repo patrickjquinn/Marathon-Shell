@@ -9,11 +9,14 @@ use std::time::Duration;
 
 use async_io::Timer;
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::{AspectRatioMode, QColor, QImage, QMap, QMapPair_QString_QVariant, QString, QUrl, QVariant, TransformationMode};
+use cxx_qt_lib::{
+    AspectRatioMode, QColor, QImage, QMap, QMapPair_QString_QVariant, QString, QUrl, QVariant,
+    TransformationMode,
+};
 use zbus::zvariant::OwnedValue;
 
-use crate::ipc::{self, value, State};
 use crate::io;
+use crate::ipc::{self, value, State};
 use marathon_qt as qvariant;
 
 #[cxx_qt::bridge(namespace = "marathon")]
@@ -95,7 +98,9 @@ const BUILT_IN: [(&str, &str, (u8, u8, u8)); 15] = [
 /// The highlight of one of Marathon's own (dark) wallpapers, by file name.
 fn built_in(path: &str) -> Option<(u8, u8, u8)> {
     let stem = Path::new(path).file_stem()?;
-    let found = BUILT_IN.iter().find(|w| Path::new(w.1).file_stem() == Some(stem));
+    let found = BUILT_IN
+        .iter()
+        .find(|w| Path::new(w.1).file_stem() == Some(stem));
     found.filter(|_| path.contains("wallpapers/")).map(|w| w.2)
 }
 
@@ -103,7 +108,10 @@ fn wallpapers() -> Vec<OwnedValue> {
     let entry = |(name, file, _): &(&str, &str, _)| {
         value(State::from([
             ("name".to_owned(), value((*name).to_owned())),
-            ("path".to_owned(), value(crate::settings::asset_url(&format!("wallpapers/{file}")))),
+            (
+                "path".to_owned(),
+                value(crate::settings::asset_url(&format!("wallpapers/{file}"))),
+            ),
             ("isDark".to_owned(), value(true)),
         ]))
     };
@@ -144,7 +152,12 @@ struct Band {
     count: usize,
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_precision_loss, reason = "hues in [0, 360), 64x64 pixels")]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    reason = "hues in [0, 360), 64x64 pixels"
+)]
 fn seed(pixels: &[[u8; 3]]) -> Option<Seed> {
     if pixels.is_empty() {
         return None;
@@ -155,7 +168,9 @@ fn seed(pixels: &[[u8; 3]]) -> Option<Seed> {
         let rgb = px.map(f64::from);
         sum.iter_mut().zip(rgb).for_each(|(s, c)| *s += c);
         lum += 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
-        let (Some(hue), s, v) = hsv(rgb) else { continue };
+        let (Some(hue), s, v) = hsv(rgb) else {
+            continue;
+        };
         if s < 0.25 || v < 0.15 {
             continue;
         }
@@ -164,10 +179,13 @@ fn seed(pixels: &[[u8; 3]]) -> Option<Seed> {
         band.sum.iter_mut().zip(rgb).for_each(|(s, c)| *s += c);
         band.count += 1;
     }
-    let best = bands.iter().filter(|b| b.count >= pixels.len() / 20).fold(None, |best: Option<&Band>, b| match best {
-        Some(best) if best.weight >= b.weight => Some(best),
-        _ => Some(b),
-    });
+    let best = bands.iter().filter(|b| b.count >= pixels.len() / 20).fold(
+        None,
+        |best: Option<&Band>, b| match best {
+            Some(best) if best.weight >= b.weight => Some(best),
+            _ => Some(b),
+        },
+    );
     let mean = |sum: [f64; 3], n: usize| sum.map(|c| (c / n as f64).round());
     let dominant = best.map_or_else(|| mean(sum, pixels.len()), |b| mean(b.sum, b.count));
     Some(Seed {
@@ -177,15 +195,29 @@ fn seed(pixels: &[[u8; 3]]) -> Option<Seed> {
     })
 }
 
-#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation, reason = "QColor channels are 0..=255")]
+#[allow(
+    clippy::cast_sign_loss,
+    clippy::cast_possible_truncation,
+    reason = "QColor channels are 0..=255"
+)]
 fn pixels(path: &Path) -> Option<Vec<[u8; 3]>> {
     let image = QImage::from_data(&std::fs::read(path).ok()?, None)?;
-    let image = image.scaled(64, 64, AspectRatioMode::IgnoreAspectRatio, TransformationMode::SmoothTransformation);
+    let image = image.scaled(
+        64,
+        64,
+        AspectRatioMode::IgnoreAspectRatio,
+        TransformationMode::SmoothTransformation,
+    );
     let px = |x, y| {
         let c = image.pixel_color(x, y);
         [c.red(), c.green(), c.blue()].map(|c| c as u8)
     };
-    Some((0..image.height()).flat_map(|y| (0..image.width()).map(move |x| (x, y))).map(|(x, y)| px(x, y)).collect())
+    Some(
+        (0..image.height())
+            .flat_map(|y| (0..image.width()).map(move |x| (x, y)))
+            .map(|(x, y)| px(x, y))
+            .collect(),
+    )
 }
 
 /// A light pastel on a dark ambience, a deep quiet tone on a light one; a
@@ -201,19 +233,35 @@ fn highlight(seed: &Seed) -> QColor {
 
 impl cxx_qt::Initialize for Ambience {
     fn initialize(mut self: Pin<&mut Self>) {
-        self.as_mut().on_ambience_changed(|obj| ipc::signal("Ambience", "AmbienceChanged", (state(&obj.ambience),))).release();
-        self.as_mut().on_ambience_changed(|obj| {
-            let get = |k: &str| obj.ambience.get(&QString::from(k));
-            let highlight = get("/desktop/jolla/theme/color/highlight").and_then(|v| {
-                v.value::<QColor>()
-                    .map(|c| crate::theme::Color::new(c.red_f(), c.green_f(), c.blue_f()))
-                    .or_else(|| v.value::<QString>().and_then(|s| crate::theme::parse(&s.to_string())))
-            });
-            let scheme = get("/desktop/jolla/theme/color_scheme").and_then(|v| v.value::<QString>()).map(|s| s.to_string()).unwrap_or_default();
-            crate::portal::set_ambience(highlight, &scheme);
-        })
-        .release();
-        ipc::export("Ambience", Ambience1 { qt: self.qt_thread() });
+        self.as_mut()
+            .on_ambience_changed(|obj| {
+                ipc::signal("Ambience", "AmbienceChanged", (state(&obj.ambience),));
+            })
+            .release();
+        self.as_mut()
+            .on_ambience_changed(|obj| {
+                let get = |k: &str| obj.ambience.get(&QString::from(k));
+                let highlight = get("/desktop/jolla/theme/color/highlight").and_then(|v| {
+                    v.value::<QColor>()
+                        .map(|c| crate::theme::Color::new(c.red_f(), c.green_f(), c.blue_f()))
+                        .or_else(|| {
+                            v.value::<QString>()
+                                .and_then(|s| crate::theme::parse(&s.to_string()))
+                        })
+                });
+                let scheme = get("/desktop/jolla/theme/color_scheme")
+                    .and_then(|v| v.value::<QString>())
+                    .map(|s| s.to_string())
+                    .unwrap_or_default();
+                crate::portal::set_ambience(highlight, &scheme);
+            })
+            .release();
+        ipc::export(
+            "Ambience",
+            Ambience1 {
+                qt: self.qt_thread(),
+            },
+        );
         ipc::export("Wallpaper", Wallpaper1);
     }
 }
@@ -225,7 +273,11 @@ impl Ambience {
         let (local, shown) = if url.scheme_or_default().to_string() == "qrc" {
             (None, path)
         } else {
-            let local = if url.is_local_file() { url.to_local_file_or_default().to_string() } else { path };
+            let local = if url.is_local_file() {
+                url.to_local_file_or_default().to_string()
+            } else {
+                path
+            };
             let shown = QUrl::from_local_file(&QString::from(&local)).to_string();
             (Some(PathBuf::from(local)), shown)
         };
@@ -235,12 +287,18 @@ impl Ambience {
             rust.wallpaper
         };
         if let Some(rgb) = built_in(&shown) {
-            return self.show_seed(QColor::from_rgb(rgb.0.into(), rgb.1.into(), rgb.2.into()), false, &shown);
+            return self.show_seed(
+                QColor::from_rgb(rgb.0.into(), rgb.1.into(), rgb.2.into()),
+                false,
+                &shown,
+            );
         }
         let Some(local) = local else { return };
         let qt = self.qt_thread();
         io::spawn(async move {
-            let Some(seed) = blocking::unblock(move || seed(&pixels(&local)?)).await else { return };
+            let Some(seed) = blocking::unblock(move || seed(&pixels(&local)?)).await else {
+                return;
+            };
             qt.queue(move |obj| {
                 if obj.wallpaper == generation {
                     obj.show_seed(highlight(&seed), seed.light, &shown);
@@ -265,7 +323,11 @@ impl Ambience {
         }
         self.as_mut().rust_mut().pixel_ratio = ratio;
         self.as_mut().pixel_ratio_changed();
-        let latest = if self.pending.is_empty() { self.ambience.clone() } else { self.pending.clone() };
+        let latest = if self.pending.is_empty() {
+            self.ambience.clone()
+        } else {
+            self.pending.clone()
+        };
         self.publish(&latest);
     }
 
@@ -273,7 +335,10 @@ impl Ambience {
     fn publish(mut self: Pin<&mut Self>, map: &Map) {
         let mut map = map.clone();
         if self.pixel_ratio > 0.0 {
-            map.insert(QString::from("/desktop/sailfish/silica/theme_pixel_ratio"), QVariant::from(&self.pixel_ratio));
+            map.insert(
+                QString::from("/desktop/sailfish/silica/theme_pixel_ratio"),
+                QVariant::from(&self.pixel_ratio),
+            );
         }
         let generation = {
             let mut rust = self.as_mut().rust_mut();
@@ -297,7 +362,9 @@ impl Ambience {
 }
 
 fn state(map: &Map) -> State {
-    map.iter().filter_map(|(k, v)| Some((k.to_string(), qvariant::from_qt(v)?.try_to_owned().ok()?))).collect()
+    map.iter()
+        .filter_map(|(k, v)| Some((k.to_string(), qvariant::from_qt(v)?.try_to_owned().ok()?)))
+        .collect()
 }
 
 struct Ambience1 {
@@ -345,7 +412,14 @@ mod tests {
 
     #[test]
     fn a_grey_wallpaper_is_greyed() {
-        assert_eq!(seed(&solid([90, 90, 90])), Some(Seed { hue: 0.0, greyed: true, light: false }));
+        assert_eq!(
+            seed(&solid([90, 90, 90])),
+            Some(Seed {
+                hue: 0.0,
+                greyed: true,
+                light: false
+            })
+        );
     }
 
     #[test]
@@ -358,7 +432,10 @@ mod tests {
 
     #[test]
     fn built_in_wallpapers_have_their_highlight() {
-        assert_eq!(built_in("/usr/share/marathon-shell/wallpapers/indigo-dusk.svg"), Some((0x84, 0xe8, 0xda)));
+        assert_eq!(
+            built_in("/usr/share/marathon-shell/wallpapers/indigo-dusk.svg"),
+            Some((0x84, 0xe8, 0xda))
+        );
         assert!(built_in("qrc:/wallpapers/aurora-myvatn.jpg").is_some());
         assert_eq!(built_in("/home/user/Pictures/beach.jpg"), None);
         assert_eq!(built_in("/home/user/Pictures/dawn.svg"), None);

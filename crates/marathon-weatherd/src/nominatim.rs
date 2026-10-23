@@ -133,7 +133,7 @@ impl Nominatim {
         let mut last = self
             .last_request
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+            .unwrap_or_else(|_| std::process::abort());
         if let Some(wait) = last.and_then(|t| MIN_INTERVAL.checked_sub(t.elapsed())) {
             std::thread::sleep(wait);
         }
@@ -174,7 +174,7 @@ impl Nominatim {
         )?);
         self.searches
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(|_| std::process::abort())
             .insert(key, places.clone());
         Ok(places)
     }
@@ -182,7 +182,7 @@ impl Nominatim {
     fn cached_search(&self, key: &str) -> Option<Vec<Place>> {
         self.searches
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(|_| std::process::abort())
             .get(key)
             .cloned()
     }

@@ -31,6 +31,7 @@ TestCase {
     SignalSpy { id: rightSpy; target: nav; signalName: "swipeRight" }
     SignalSpy { id: pilotSpy; target: nav; signalName: "pilotRequested" }
     SignalSpy { id: backSpy; target: nav; signalName: "swipeBack" }
+    SignalSpy { id: switcherSpy; target: nav; signalName: "longSwipeUp" }
 
     function init() {
         UIStore.closeQuickSettings();
@@ -38,6 +39,7 @@ TestCase {
         nav.pilotEnabled = true;
         pilotSpy.clear();
         backSpy.clear();
+        switcherSpy.clear();
         homeSpy.clear();
         searchSpy.clear();
         keyboardSpy.clear();
@@ -207,6 +209,26 @@ TestCase {
         mouseRelease(nav, nav.width / 2 - 24, nav.height / 2);
         compare(backSpy.count, 0);
         compare(nav.backProgress, 0);
+    }
+
+    function test_diagonalUpIsSwitcherNotBack() {
+        nav.isAppOpen = true;
+        drag(nav.width / 2, nav.height - 5, -180, -150);
+        compare(backSpy.count, 0);
+        compare(switcherSpy.count, 1);
+    }
+
+    function test_horizontalBackAllowsSmallVerticalArc() {
+        nav.isAppOpen = true;
+        drag(nav.width / 2, nav.height / 2, -180, -60);
+        compare(backSpy.count, 1);
+        compare(switcherSpy.count, 0);
+    }
+
+    function test_diagonalPullDownOpensQuickSettings() {
+        drag(nav.width / 2, nav.height / 2, 8, 12);
+        verify(UIStore.quickSettingsOpen);
+        compare(backSpy.count, 0);
     }
 
     function test_pullDownDrawsTheShadeAlong() {

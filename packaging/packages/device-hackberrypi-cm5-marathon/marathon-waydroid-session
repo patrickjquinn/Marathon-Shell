@@ -3,6 +3,11 @@
 # MARATHON_WAYDROID names another waydroid launcher (Deckard's).
 set -u
 
+# The container is intentionally absent from the boot transaction. Polkit
+# permits the active phone user to start this exact unit and nothing else.
+: > "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/marathon-waydroid-requested"
+systemctl start waydroid-container.service || exit 1
+
 "${MARATHON_WAYDROID:-waydroid}" session start &
 session=$!
 

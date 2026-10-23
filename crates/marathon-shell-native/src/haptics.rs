@@ -64,7 +64,11 @@ pub struct HapticsRust {
 
 impl Default for HapticsRust {
     fn default() -> Self {
-        Self { available: false, enabled: true, motor: None }
+        Self {
+            available: false,
+            enabled: true,
+            motor: None,
+        }
     }
 }
 
@@ -86,12 +90,18 @@ impl cxx_qt::Initialize for Haptics {
             let Some(motor) = blocking::unblock(Motor::find).await else {
                 return log::warn("haptics", "no vibrator");
             };
-            qt.queue(|mut obj| set!(obj, available, available_changed, true)).ok();
+            qt.queue(|mut obj| set!(obj, available, available_changed, true))
+                .ok();
             run(motor, rx).await;
         });
         self.as_mut().rust_mut().motor = Some(tx);
         HAPTICS.set(self.qt_thread()).ok();
-        ipc::export("Haptic", Haptic1 { qt: self.qt_thread() });
+        ipc::export(
+            "Haptic",
+            Haptic1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
@@ -99,7 +109,12 @@ static HAPTICS: std::sync::OnceLock<cxx_qt::CxxQtThread<Haptics>> = std::sync::O
 
 /// A pattern from another of the shell's Rust objects: on, off, on, … in ms.
 pub(crate) fn vibrate(pattern: &[OwnedValue]) {
-    let steps = pattern_steps(pattern.iter().filter_map(|v| variant::number(v)).filter_map(|n| i32::try_from(n).ok()));
+    let steps = pattern_steps(
+        pattern
+            .iter()
+            .filter_map(|v| variant::number(v))
+            .filter_map(|n| i32::try_from(n).ok()),
+    );
     if let Some(qt) = HAPTICS.get() {
         qt.queue(move |obj| obj.play(steps)).ok();
     }
@@ -121,7 +136,9 @@ impl Haptics {
     }
 
     fn vibrate_pattern(&self, pattern: &QList<QVariant>) {
-        self.play(pattern_steps(pattern.iter().filter_map(QVariant::value::<i32>)));
+        self.play(pattern_steps(
+            pattern.iter().filter_map(QVariant::value::<i32>),
+        ));
     }
 
     fn cancel_vibration(&self) {
@@ -173,7 +190,11 @@ impl Haptic1 {
         ipc::on_gui(&self.qt, move |obj| obj.vibrate(duration)).await
     }
 
-    #[allow(clippy::unused_self, clippy::needless_pass_by_value, reason = "a D-Bus method's arguments")]
+    #[allow(
+        clippy::unused_self,
+        clippy::needless_pass_by_value,
+        reason = "a D-Bus method's arguments"
+    )]
     fn vibrate_pattern(&self, pattern: Vec<OwnedValue>) {
         vibrate(&pattern);
     }
@@ -189,7 +210,11 @@ fn ms(value: i32) -> u16 {
 
 /// One buzz, with a stop after it for motors that don't time themselves.
 fn rumble(duration: i32, magnitude: u16) -> Vec<Step> {
-    vec![Step { magnitude: Some(magnitude), ms: ms(duration), wait: ms(duration).saturating_add(100) }]
+    vec![Step {
+        magnitude: Some(magnitude),
+        ms: ms(duration),
+        wait: ms(duration).saturating_add(100),
+    }]
 }
 
 fn pattern_steps(pattern: impl Iterator<Item = i32>) -> Vec<Step> {
@@ -197,11 +222,19 @@ fn pattern_steps(pattern: impl Iterator<Item = i32>) -> Vec<Step> {
         .enumerate()
         .map(|(i, d)| {
             let on = i % 2 == 0;
-            Step { magnitude: on.then_some(FULL), ms: if on { ms(d) } else { 0 }, wait: ms(d) }
+            Step {
+                magnitude: on.then_some(FULL),
+                ms: if on { ms(d) } else { 0 },
+                wait: ms(d),
+            }
         })
         .collect();
     if !steps.is_empty() {
-        steps.push(Step { magnitude: None, ms: 0, wait: 50 });
+        steps.push(Step {
+            magnitude: None,
+            ms: 0,
+            wait: 50,
+        });
     }
     steps
 }
@@ -215,7 +248,10 @@ enum Motor {
 impl Motor {
     fn find() -> Option<Self> {
         let rumble = evdev::enumerate().find_map(|(_, mut device)| {
-            if !device.supported_ff().is_some_and(|ff| ff.contains(FFEffectCode::FF_RUMBLE)) {
+            if !device
+                .supported_ff()
+                .is_some_and(|ff| ff.contains(FFEffectCode::FF_RUMBLE))
+            {
                 return None;
             }
             device.upload_ff_effect(effect(25, FULL)).ok()
@@ -223,11 +259,16 @@ impl Motor {
         if let Some(effect) = rumble {
             return Some(Self::Rumble(effect));
         }
-        ["/sys/class/leds/vibrator/brightness", "/sys/class/leds/vibrator/activate", "/sys/class/timed_output/vibrator/enable", "/sys/devices/virtual/timed_output/vibrator/enable"]
-            .into_iter()
-            .map(PathBuf::from)
-            .find(|p| p.exists())
-            .map(Self::Sysfs)
+        [
+            "/sys/class/leds/vibrator/brightness",
+            "/sys/class/leds/vibrator/activate",
+            "/sys/class/timed_output/vibrator/enable",
+            "/sys/devices/virtual/timed_output/vibrator/enable",
+        ]
+        .into_iter()
+        .map(PathBuf::from)
+        .find(|p| p.exists())
+        .map(Self::Sysfs)
     }
 
     fn play(&mut self, ms: u16, magnitude: u16) {
@@ -255,8 +296,14 @@ fn effect(ms: u16, magnitude: u16) -> FFEffectData {
     FFEffectData {
         direction: 0,
         trigger: evdev::FFTrigger::default(),
-        replay: FFReplay { length: ms, delay: 0 },
-        kind: FFEffectKind::Rumble { strong_magnitude: magnitude, weak_magnitude: magnitude },
+        replay: FFReplay {
+            length: ms,
+            delay: 0,
+        },
+        kind: FFEffectKind::Rumble {
+            strong_magnitude: magnitude,
+            weak_magnitude: magnitude,
+        },
     }
 }
 
@@ -298,10 +345,28 @@ mod tests {
 
     #[test]
     fn a_pattern_alternates_on_and_off_then_rests() {
-        let on = |ms| Step { magnitude: Some(FULL), ms, wait: ms };
-        let off = |wait| Step { magnitude: None, ms: 0, wait };
-        assert_eq!(pattern_steps([500, 500, 200].into_iter()), [on(500), off(500), on(200), off(50)]);
+        let on = |ms| Step {
+            magnitude: Some(FULL),
+            ms,
+            wait: ms,
+        };
+        let off = |wait| Step {
+            magnitude: None,
+            ms: 0,
+            wait,
+        };
+        assert_eq!(
+            pattern_steps([500, 500, 200].into_iter()),
+            [on(500), off(500), on(200), off(50)]
+        );
         assert_eq!(pattern_steps(std::iter::empty()), []);
-        assert_eq!(rumble(25, 100), [Step { magnitude: Some(100), ms: 25, wait: 125 }]);
+        assert_eq!(
+            rumble(25, 100),
+            [Step {
+                magnitude: Some(100),
+                ms: 25,
+                wait: 125
+            }]
+        );
     }
 }

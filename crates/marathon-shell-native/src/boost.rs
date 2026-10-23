@@ -32,25 +32,49 @@ struct Policy {
 }
 
 fn read(dir: &Path, name: &str) -> String {
-    fs::read_to_string(dir.join(name)).map(|s| s.trim().to_owned()).unwrap_or_default()
+    fs::read_to_string(dir.join(name))
+        .map(|s| s.trim().to_owned())
+        .unwrap_or_default()
 }
 
 fn policies() -> Vec<Policy> {
     let mut found = Vec::new();
-    for dir in fs::read_dir("/sys/devices/system/cpu/cpufreq").into_iter().flatten().flatten().map(|e| e.path()) {
-        if !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("policy")) {
+    for dir in fs::read_dir("/sys/devices/system/cpu/cpufreq")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+    {
+        if !dir
+            .file_name()
+            .is_some_and(|n| n.to_string_lossy().starts_with("policy"))
+        {
             continue;
         }
         let boosted = read(&dir, "cpuinfo_max_freq");
         let current = read(&dir, "scaling_min_freq");
         // A shell killed while boosting left the boosted floor in place.
-        let resting = if current == boosted { read(&dir, "cpuinfo_min_freq") } else { current };
+        let resting = if current == boosted {
+            read(&dir, "cpuinfo_min_freq")
+        } else {
+            current
+        };
         if boosted.is_empty() || resting.is_empty() {
             continue;
         }
-        match fs::OpenOptions::new().write(true).open(dir.join("scaling_min_freq")) {
-            Ok(file) => found.push(Policy { file, boosted, resting }),
-            Err(e) => crate::log::warn("boost", format_args!("{}: {e}; no interaction boost", dir.display())),
+        match fs::OpenOptions::new()
+            .write(true)
+            .open(dir.join("scaling_min_freq"))
+        {
+            Ok(file) => found.push(Policy {
+                file,
+                boosted,
+                resting,
+            }),
+            Err(e) => crate::log::warn(
+                "boost",
+                format_args!("{}: {e}; no interaction boost", dir.display()),
+            ),
         }
     }
     found

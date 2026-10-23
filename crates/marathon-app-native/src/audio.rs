@@ -4,7 +4,10 @@
 use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::{QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant, QModelIndex, QString, QVariant};
+use cxx_qt_lib::{
+    QByteArray, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant,
+    QModelIndex, QString, QVariant,
+};
 
 use crate::shell::{get, mirror, Service, Update};
 use crate::variant;
@@ -198,7 +201,14 @@ pub struct AudioStreamsRust {
     streams: Vec<QMap<QMapPair_QString_QVariant>>,
 }
 
-const ROLES: [&str; 6] = ["streamId", "name", "appName", "volume", "muted", "mediaClass"];
+const ROLES: [&str; 6] = [
+    "streamId",
+    "name",
+    "appName",
+    "volume",
+    "muted",
+    "mediaClass",
+];
 const FIRST_ROLE: i32 = 0x0100 + 1; // Qt::UserRole + 1
 
 impl cxx_qt::Initialize for AudioStreams {
@@ -207,7 +217,8 @@ impl cxx_qt::Initialize for AudioStreams {
             let Update::State(state) = update else { return };
             let streams: QList<QVariant> = get(&state, "streams");
             model.as_mut().begin_reset_model();
-            model.as_mut().rust_mut().streams = streams.iter().filter_map(QVariant::value).collect();
+            model.as_mut().rust_mut().streams =
+                streams.iter().filter_map(QVariant::value).collect();
             model.end_reset_model();
         });
     }
@@ -215,13 +226,24 @@ impl cxx_qt::Initialize for AudioStreams {
 
 impl AudioStreams {
     fn row_count(&self, parent: &QModelIndex) -> i32 {
-        if parent.is_valid() { 0 } else { i32::try_from(self.streams.len()).unwrap_or(i32::MAX) }
+        if parent.is_valid() {
+            0
+        } else {
+            i32::try_from(self.streams.len()).unwrap_or(i32::MAX)
+        }
     }
 
     fn data(&self, index: &QModelIndex, role: i32) -> QVariant {
-        let stream = usize::try_from(index.row()).ok().and_then(|row| self.streams.get(row));
-        let key = usize::try_from(role - FIRST_ROLE).ok().and_then(|i| ROLES.get(i));
-        stream.zip(key).and_then(|(s, key)| s.get(&QString::from(*key))).unwrap_or_default()
+        let stream = usize::try_from(index.row())
+            .ok()
+            .and_then(|row| self.streams.get(row));
+        let key = usize::try_from(role - FIRST_ROLE)
+            .ok()
+            .and_then(|i| ROLES.get(i));
+        stream
+            .zip(key)
+            .and_then(|(s, key)| s.get(&QString::from(*key)))
+            .unwrap_or_default()
     }
 
     fn role_names(&self) -> QHash<QHashPair_i32_QByteArray> {

@@ -1,0 +1,14 @@
+[Unit]
+Description=Warm Flatpak's session services
+ConditionPathExists=/usr/bin/flatpak
+ConditionUser=!root
+After=graphical-session.target
+Wants=flatpak-session-helper.service
+Wants=xdg-document-portal.service
+Wants=xdg-permission-store.service
+Wants=xdg-desktop-portal.service
+Wants=flatpak-portal.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true

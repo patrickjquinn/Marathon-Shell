@@ -92,11 +92,36 @@ type Qt = cxx_qt::CxxQtThread<Telephony>;
 impl cxx_qt::Initialize for Telephony {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
-        relay(qt.clone(), TELEPHONY, "CallStateChanged", |obj, (s,): (String,)| show_state(obj, &s));
-        relay(qt.clone(), TELEPHONY, "ModemChanged", |obj, (m,): (bool,)| show_modem(obj, m));
-        relay(qt.clone(), TELEPHONY, "ActiveNumberChanged", |obj, (n,): (String,)| show_number(obj, &n));
-        relay(qt.clone(), TELEPHONY, "IncomingCall", |obj, (n,): (String,)| obj.incoming_call(&QString::from(&n)));
-        relay(qt.clone(), TELEPHONY, "CallFailed", |obj, (r,): (String,)| obj.call_failed(&QString::from(&r)));
+        relay(
+            qt.clone(),
+            TELEPHONY,
+            "CallStateChanged",
+            |obj, (s,): (String,)| show_state(obj, &s),
+        );
+        relay(
+            qt.clone(),
+            TELEPHONY,
+            "ModemChanged",
+            |obj, (m,): (bool,)| show_modem(obj, m),
+        );
+        relay(
+            qt.clone(),
+            TELEPHONY,
+            "ActiveNumberChanged",
+            |obj, (n,): (String,)| show_number(obj, &n),
+        );
+        relay(
+            qt.clone(),
+            TELEPHONY,
+            "IncomingCall",
+            |obj, (n,): (String,)| obj.incoming_call(&QString::from(&n)),
+        );
+        relay(
+            qt.clone(),
+            TELEPHONY,
+            "CallFailed",
+            |obj, (r,): (String,)| obj.call_failed(&QString::from(&r)),
+        );
         io::spawn(async move {
             let mut asked = false;
             refresh(&qt, &mut asked).await;
@@ -173,5 +198,4 @@ impl Telephony {
     fn dial_emergency(&self, number: &QString) {
         self.dial(number);
     }
-
 }

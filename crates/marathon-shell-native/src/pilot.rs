@@ -40,7 +40,11 @@ use qobject::PilotClient;
 
 const NAME: &str = "org.shipwright.Pilot";
 
-#[zbus::proxy(interface = "org.shipwright.Pilot1", default_service = "org.shipwright.Pilot", default_path = "/org/shipwright/Pilot")]
+#[zbus::proxy(
+    interface = "org.shipwright.Pilot1",
+    default_service = "org.shipwright.Pilot",
+    default_path = "/org/shipwright/Pilot"
+)]
 trait Pilot {
     fn show_sheet_for(&self, pid: u32) -> zbus::Result<()>;
     fn show_sheet(&self) -> zbus::Result<()>;
@@ -62,7 +66,10 @@ impl cxx_qt::Initialize for PilotClient {
                 Ok(dbus) => dbus,
                 Err(e) => return log::warn("pilot", e),
             };
-            let mut owners = dbus.receive_name_owner_changed_with_args(&[(0, NAME)]).await.ok();
+            let mut owners = dbus
+                .receive_name_owner_changed_with_args(&[(0, NAME)])
+                .await
+                .ok();
             let mut watch = false;
             loop {
                 publish(&qt, available(&dbus).await);
@@ -80,7 +87,11 @@ impl cxx_qt::Initialize for PilotClient {
                         None => future::pending().await,
                     }
                 };
-                match future::or(future::or(poll, owner), async { watching.recv().await.ok() }).await {
+                match future::or(future::or(poll, owner), async {
+                    watching.recv().await.ok()
+                })
+                .await
+                {
                     Some(now) => watch = now,
                     None => return,
                 }
@@ -92,7 +103,11 @@ impl cxx_qt::Initialize for PilotClient {
 
 /// Activatable, or running without a service file (a developer's pilotd).
 async fn available(dbus: &DBusProxy<'_>) -> bool {
-    if dbus.list_activatable_names().await.is_ok_and(|names| names.iter().any(|n| n.as_str() == NAME)) {
+    if dbus
+        .list_activatable_names()
+        .await
+        .is_ok_and(|names| names.iter().any(|n| n.as_str() == NAME))
+    {
         return true;
     }
     match BusName::try_from(NAME) {
@@ -102,7 +117,8 @@ async fn available(dbus: &DBusProxy<'_>) -> bool {
 }
 
 fn publish(qt: &CxxQtThread<PilotClient>, available: bool) {
-    qt.queue(move |mut obj| set!(obj, available, available_changed, available)).ok();
+    qt.queue(move |mut obj| set!(obj, available, available_changed, available))
+        .ok();
 }
 
 impl PilotClient {
@@ -121,7 +137,11 @@ impl PilotClient {
             let shown = async {
                 let pilot = PilotProxy::new(&io::session_bus().await?).await?;
                 match pilot.show_sheet_for(pid).await {
-                    Err(zbus::Error::MethodError(name, ..)) if name.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" => pilot.show_sheet().await,
+                    Err(zbus::Error::MethodError(name, ..))
+                        if name.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" =>
+                    {
+                        pilot.show_sheet().await
+                    }
                     shown => shown,
                 }
             };

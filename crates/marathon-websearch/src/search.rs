@@ -28,7 +28,11 @@ pub struct Item {
 }
 
 fn agent() -> ureq::Agent {
-    ureq::Agent::config_builder().user_agent(USER_AGENT).timeout_global(Some(FETCH_TIMEOUT)).build().into()
+    ureq::Agent::config_builder()
+        .user_agent(USER_AGENT)
+        .timeout_global(Some(FETCH_TIMEOUT))
+        .build()
+        .into()
 }
 
 /// The results, each with its page's text where it could be read in time,
@@ -46,10 +50,21 @@ pub fn search(query: &str, limit: usize, fresh: bool) -> Vec<Item> {
         let deadline = started + BUDGET;
         // All started before any is waited on.
         #[allow(clippy::needless_collect, reason = "the pages load in parallel")]
-        let pages: Vec<_> = results.into_iter().take(limit).map(|r| s.spawn(move || with_text(r, deadline))).collect();
+        let pages: Vec<_> = results
+            .into_iter()
+            .take(limit)
+            .map(|r| s.spawn(move || with_text(r, deadline)))
+            .collect();
         pages.into_iter().filter_map(|p| p.join().ok()).collect()
     });
-    log::warn("websearch", format_args!("{} results in {} ms", items.len(), started.elapsed().as_millis()));
+    log::warn(
+        "websearch",
+        format_args!(
+            "{} results in {} ms",
+            items.len(),
+            started.elapsed().as_millis()
+        ),
+    );
     items
 }
 
@@ -61,7 +76,13 @@ fn results(query: &str, fresh: bool) -> Result<Vec<Item>, ureq::Error> {
     if fresh {
         form.push(("df", "w"));
     }
-    let page = |url| agent().post(url).send_form(form.clone())?.body_mut().read_to_string();
+    let page = |url| {
+        agent()
+            .post(url)
+            .send_form(form.clone())?
+            .body_mut()
+            .read_to_string()
+    };
     let html = Document::from(page("https://html.duckduckgo.com/html/")?.as_str());
     let items: Vec<Item> = html
         .select(".result")
@@ -74,7 +95,12 @@ fn results(query: &str, fresh: bool) -> Result<Vec<Item>, ureq::Error> {
     }
     let lite = Document::from(page("https://lite.duckduckgo.com/lite/")?.as_str());
     let snippets = lite.select("td.result-snippet");
-    Ok(lite.select("a.result-link").iter().zip(snippets.iter()).filter_map(|(link, snippet)| item(&link, &snippet)).collect())
+    Ok(lite
+        .select("a.result-link")
+        .iter()
+        .zip(snippets.iter())
+        .filter_map(|(link, snippet)| item(&link, &snippet))
+        .collect())
 }
 
 fn item(link: &dom_query::Selection<'_>, snippet: &dom_query::Selection<'_>) -> Option<Item> {
@@ -100,12 +126,21 @@ fn with_text(mut item: Item, deadline: Instant) -> Item {
 
 fn fetch(url: &str) -> Option<String> {
     let mut reply = agent().get(url).call().ok()?;
-    let html = reply.headers().get("content-type").and_then(|v| v.to_str().ok()).is_some_and(|t| t.contains("html"));
+    let html = reply
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|t| t.contains("html"));
     if !html {
         return None;
     }
     let mut body = String::new();
-    reply.body_mut().as_reader().take(MAX_PAGE).read_to_string(&mut body).ok()?;
+    reply
+        .body_mut()
+        .as_reader()
+        .take(MAX_PAGE)
+        .read_to_string(&mut body)
+        .ok()?;
     Some(body)
 }
 
@@ -122,7 +157,13 @@ fn rendered(url: &str, deadline: Instant) -> Option<String> {
         return None;
     }
     let exe = std::env::current_exe().ok()?;
-    let mut child = Command::new(exe).args(["render", url]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let mut child = Command::new(exe)
+        .args(["render", url])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
     while child.try_wait().ok()?.is_none() {
         if Instant::now() >= deadline {
             child.kill().ok();

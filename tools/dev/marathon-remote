@@ -58,16 +58,28 @@ cmd_launch() {
     fi
     call_bus call org.marathonos.Shell /org/marathonos/Shell/Navigation \
         org.marathonos.Shell.Navigation1 LaunchApp s "$appId" >/dev/null
-    # Wait until a marathon-app-runner for this id is running. Required
-    # for scripted audits — without this, the next screenshot fires
-    # before the new app's surface is composited.
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-        if pgrep -f "marathon-app-runner --app-id $appId" >/dev/null 2>&1; then
-            sleep 2
-            return 0
-        fi
-        sleep 1
-    done
+    # Flatpaks do not use marathon-app-runner. Their user scope is the first
+    # reliable externally-visible milestone; once it exists, leave two seconds
+    # for the first buffer before a scripted audit takes its screenshot.
+    if [ -f "/home/user/.local/share/flatpak/exports/share/applications/$appId.desktop" ] \
+        || [ -f "/var/lib/flatpak/exports/share/applications/$appId.desktop" ]; then
+        for _ in $(seq 1 100); do
+            if [ "$(id -u)" -eq 1000 ]; then
+                scopes=$(systemctl --user list-units --type=scope --all --plain \
+                    --no-legend "app-flatpak-$appId-*.scope" 2>/dev/null || true)
+            else
+                scopes=$(systemctl --user --machine=user@.host list-units --type=scope \
+                    --all --plain --no-legend "app-flatpak-$appId-*.scope" 2>/dev/null || true)
+            fi
+            if [ -n "$scopes" ]; then
+                sleep 2
+                return 0
+            fi
+            sleep 0.1
+        done
+    else
+        sleep 2
+    fi
     return 0
 }
 
@@ -93,6 +105,29 @@ cmd_close() {
     for p in $(ps -e -o pid=,comm= | awk '$2 ~ /^marathon-app/ {print $1}'); do
         kill -TERM "$p" 2>/dev/null || true
     done
+
+    # Native Flatpaks do not use marathon-app-runner. They live in systemd
+    # scopes and may be frozen while backgrounded, so thaw before stopping.
+    # Root reaches user 1000's manager through the machine transport; an
+    # interactive user invocation can address its own manager directly.
+    if command -v systemctl >/dev/null 2>&1; then
+        if [ "$(id -u)" -eq 1000 ]; then
+            systemctl --user list-units --type=scope --all --plain --no-legend \
+                'app-flatpak-*.scope' 2>/dev/null
+        else
+            systemctl --user --machine=user@.host list-units --type=scope --all \
+                --plain --no-legend 'app-flatpak-*.scope' 2>/dev/null
+        fi | while read -r unit _; do
+            [ -n "$unit" ] || continue
+            if [ "$(id -u)" -eq 1000 ]; then
+                systemctl --user thaw "$unit" >/dev/null 2>&1 || true
+                systemctl --user stop "$unit" >/dev/null 2>&1 || true
+            else
+                systemctl --user --machine=user@.host thaw "$unit" >/dev/null 2>&1 || true
+                systemctl --user --machine=user@.host stop "$unit" >/dev/null 2>&1 || true
+            fi
+        done
+    fi
 }
 
 cmd_screenshot() {

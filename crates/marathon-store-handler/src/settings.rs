@@ -64,7 +64,6 @@ pub fn parse_changes(query: &str) -> Option<Vec<(String, bool)>> {
     changes.filter(|c| !c.is_empty())
 }
 
-
 fn path() -> PathBuf {
     marathon_rt::dirs::config().join("marathon-store/settings.json")
 }

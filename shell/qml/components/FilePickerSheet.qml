@@ -13,6 +13,8 @@ Item {
 
     property var request: null
     property bool shown: false
+    readonly property string ownerAppId: request ? request.appId || "" : ""
+    readonly property bool ownerActive: ownerAppId === "" || UIStore.currentAppId === ownerAppId
     readonly property string mode: request ? request.mode : "open"
     readonly property bool saving: mode === "save"
     readonly property bool folderPick: request ? !!request.directory : false
@@ -68,6 +70,12 @@ Item {
         return place ? place.path : places[0].path;
     }
 
+    // Portal labels use desktop mnemonic markers ("_Open", "&Save").
+    // Marathon has no keyboard mnemonics, so displaying them is visual noise.
+    function plainActionLabel(label) {
+        return String(label || "").replace(/__(?=.)/g, "\u0000").replace(/_(?=.)/g, "").replace(/\u0000/g, "_").replace(/&&(?=.)/g, "\u0000").replace(/&(?=.)/g, "").replace(/\u0000/g, "&");
+    }
+
     function close() {
         shown = false;
     }
@@ -121,7 +129,10 @@ Item {
 
     anchors.fill: parent
     z: 2950
-    visible: shown
+    // A portal dialog belongs above the requesting app, not whichever task is
+    // currently foreground. Keep the request alive but hide it while its owner
+    // is away; it reappears when that task returns.
+    visible: shown && ownerActive
 
     onNameChanged: confirmReplace = false
 
@@ -212,7 +223,7 @@ Item {
                 readonly property string text: {
                     if (picker.confirmReplace)
                         return qsTr("Replace");
-                    const label = picker.request && picker.request.acceptLabel ? picker.request.acceptLabel : picker.folderPick ? qsTr("Select") : picker.saving ? qsTr("Save") : qsTr("Open");
+                    const label = picker.request && picker.request.acceptLabel ? picker.plainActionLabel(picker.request.acceptLabel) : picker.folderPick ? qsTr("Select") : picker.saving ? qsTr("Save") : qsTr("Open");
                     return picker.multiple && picker.selection.length > 0 ? label + " (" + picker.selection.length + ")" : label;
                 }
 
@@ -270,12 +281,19 @@ Item {
                 return out;
             }
 
-            x: Silica.Theme.horizontalPageMargin - picker.gutter
-            width: parent.width - x
+            x: Silica.Theme.horizontalPageMargin
+            width: parent.width - 2 * x
             height: Silica.Theme.itemSizeLarge
             orientation: ListView.Horizontal
             clip: true
+            spacing: Silica.Theme.paddingSmall
+            boundsBehavior: Flickable.StopAtBounds
             model: entries
+
+            footer: Item {
+                width: Silica.Theme.horizontalPageMargin
+                height: 1
+            }
 
             delegate: Silica.BackgroundItem {
                 id: place

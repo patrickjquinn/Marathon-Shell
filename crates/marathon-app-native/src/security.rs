@@ -103,12 +103,26 @@ impl cxx_qt::Initialize for Security {
     fn initialize(mut self: Pin<&mut Self>) {
         self.as_mut().rust_mut().data_encryption = QString::from("none");
         let qt = self.qt_thread();
-        relay(qt.clone(), SECURITY, "AuthenticationFailed", |obj, (r,): (String,)| {
-            obj.authentication_failed(&QString::from(&r));
+        relay(
+            qt.clone(),
+            SECURITY,
+            "AuthenticationFailed",
+            |obj, (r,): (String,)| {
+                obj.authentication_failed(&QString::from(&r));
+            },
+        );
+        relay(qt.clone(), SECURITY, "AuthenticationSuccess", |obj, ()| {
+            obj.authentication_success();
         });
-        relay(qt.clone(), SECURITY, "AuthenticationSuccess", |obj, ()| obj.authentication_success());
-        relay(qt.clone(), SECURITY, "QuickPINChanged", |obj, ()| obj.quick_pin_changed());
-        relay(qt.clone(), SECURITY, "EraseFailed", |obj, (r,): (String,)| obj.erase_failed(&QString::from(&r)));
+        relay(qt.clone(), SECURITY, "QuickPINChanged", |obj, ()| {
+            obj.quick_pin_changed();
+        });
+        relay(
+            qt.clone(),
+            SECURITY,
+            "EraseFailed",
+            |obj, (r,): (String,)| obj.erase_failed(&QString::from(&r)),
+        );
         mirror(qt, SECURITY, "system", |mut obj, update| {
             let Update::State(s) = update else { return };
             let mut x = obj.as_mut().rust_mut();
@@ -119,7 +133,9 @@ impl cxx_qt::Initialize for Security {
             x.lockout_seconds_remaining = get(&s, "lockoutSecondsRemaining");
             x.failed_attempts = get(&s, "failedAttempts");
             x.can_erase_all_content = get(&s, "canEraseAllContent");
-            x.data_encryption = s.get("dataEncryption").map_or_else(|| QString::from("none"), |_| get(&s, "dataEncryption"));
+            x.data_encryption = s
+                .get("dataEncryption")
+                .map_or_else(|| QString::from("none"), |_| get(&s, "dataEncryption"));
             obj.state_changed();
         });
     }

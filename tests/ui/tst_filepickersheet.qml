@@ -100,6 +100,13 @@ TestCase {
         verify(!picker.shown);
     }
 
+    function test_portalMnemonicIsNotShown() {
+        picker.open(request({ "acceptLabel": "_Open" }));
+        compare(findChild(picker, "filePickerAccept").text, "Open");
+        compare(picker.plainActionLabel("Save _As"), "Save As");
+        compare(picker.plainActionLabel("Rock && Roll"), "Rock & Roll");
+    }
+
     function test_picturesShowAsAGrid() {
         picker.open(request({ "filters": [{ "name": "Images", "globs": [], "mimes": ["image/*"] }], "filterIndex": 0 }));
         tryVerify(() => findChild(picker, "filePickerGrid") !== null);

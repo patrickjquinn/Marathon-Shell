@@ -3,11 +3,15 @@
 use std::path::PathBuf;
 
 pub fn home() -> PathBuf {
-    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default()
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default()
 }
 
 fn base(var: &str, fallback: &str) -> PathBuf {
-    std::env::var_os(var).filter(|v| !v.is_empty()).map_or_else(|| home().join(fallback), PathBuf::from)
+    std::env::var_os(var)
+        .filter(|v| !v.is_empty())
+        .map_or_else(|| home().join(fallback), PathBuf::from)
 }
 
 pub fn config() -> PathBuf {

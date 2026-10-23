@@ -3,7 +3,9 @@
 
 use std::collections::HashMap;
 
-use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QMetaTypeType, QString, QStringList, QVariant};
+use cxx_qt_lib::{
+    QList, QMap, QMapPair_QString_QVariant, QMetaTypeType, QString, QStringList, QVariant,
+};
 use zbus::zvariant::{OwnedValue, Value};
 
 /// Any of D-Bus's integers.
@@ -70,7 +72,9 @@ pub fn qlist(items: &[OwnedValue]) -> QList<QVariant> {
 }
 
 /// An `a{sv}` reply as a `QVariantMap`.
-pub fn qmap<S: std::hash::BuildHasher>(entries: &HashMap<String, OwnedValue, S>) -> QMap<QMapPair_QString_QVariant> {
+pub fn qmap<S: std::hash::BuildHasher>(
+    entries: &HashMap<String, OwnedValue, S>,
+) -> QMap<QMapPair_QString_QVariant> {
     let mut map = QMap::<QMapPair_QString_QVariant>::default();
     for (key, item) in entries {
         map.insert(QString::from(key), to_qt(item));
@@ -90,10 +94,15 @@ pub fn from_qt(value: &QVariant) -> Option<Value<'static>> {
         QMetaTypeType::QString => value.value::<QString>()?.to_string().into(),
         QMetaTypeType::QStringList => {
             let list = QList::<QString>::from(&value.value::<QStringList>()?);
-            list.iter().map(ToString::to_string).collect::<Vec<_>>().into()
+            list.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .into()
         }
         QMetaTypeType::QVariantList => list(&value.value::<QList<QVariant>>()?).into(),
-        QMetaTypeType::QVariantMap => map(&value.value::<QMap<QMapPair_QString_QVariant>>()?).into(),
+        QMetaTypeType::QVariantMap => {
+            map(&value.value::<QMap<QMapPair_QString_QVariant>>()?).into()
+        }
         _ => return None,
     })
 }
@@ -105,5 +114,8 @@ pub fn list(items: &QList<QVariant>) -> Vec<Value<'static>> {
 
 /// A `QVariantMap` as `a{sv}`.
 pub fn map(entries: &QMap<QMapPair_QString_QVariant>) -> HashMap<String, Value<'static>> {
-    entries.iter().filter_map(|(k, v)| Some((k.to_string(), from_qt(v)?))).collect()
+    entries
+        .iter()
+        .filter_map(|(k, v)| Some((k.to_string(), from_qt(v)?)))
+        .collect()
 }

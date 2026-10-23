@@ -89,9 +89,18 @@ impl cxx_qt::Initialize for Location {
         let (tx, rx) = async_channel::bounded(8);
         io::spawn(run(self.qt_thread(), rx));
         self.as_mut().rust_mut().actor = Some(tx);
-        self.as_mut().on_location_changed(|obj| ipc::signal("Location", "LocationChanged", (fix(&obj),))).release();
-        self.as_mut().on_active_changed(|obj| ipc::signal("Location", "activeChanged", (obj.active,))).release();
-        ipc::export("Location", Location1 { qt: self.qt_thread() });
+        self.as_mut()
+            .on_location_changed(|obj| ipc::signal("Location", "LocationChanged", (fix(&obj),)))
+            .release();
+        self.as_mut()
+            .on_active_changed(|obj| ipc::signal("Location", "activeChanged", (obj.active,)))
+            .release();
+        ipc::export(
+            "Location",
+            Location1 {
+                qt: self.qt_thread(),
+            },
+        );
     }
 }
 
@@ -167,7 +176,12 @@ impl Location {
 
 impl Fix {
     fn from_properties(props: &HashMap<String, OwnedValue>) -> Self {
-        let number = |key: &str| props.get(key).and_then(|v| v.downcast_ref::<f64>().ok()).unwrap_or(0.0);
+        let number = |key: &str| {
+            props
+                .get(key)
+                .and_then(|v| v.downcast_ref::<f64>().ok())
+                .unwrap_or(0.0)
+        };
         let (secs, micros) = props
             .get("Timestamp")
             .and_then(|v| <(u64, u64)>::try_from(v.try_clone().ok()?).ok())
@@ -189,15 +203,27 @@ const GEOCLUE: &str = "org.freedesktop.GeoClue2";
 const EXACT: u32 = 8;
 /// `GeoClue`'s apps that locate without asking: the shell, weatherd, the
 /// portal (which asks the user itself) and deckardd (Android asks per app).
-const SYSTEM: [&str; 4] = ["org.marathon.Shell", "marathon-weather", "xdg-desktop-portal", "org.marathonos.Deckard"];
+const SYSTEM: [&str; 4] = [
+    "org.marathon.Shell",
+    "marathon-weather",
+    "xdg-desktop-portal",
+    "org.marathonos.Deckard",
+];
 
-#[zbus::proxy(interface = "org.freedesktop.GeoClue2.Manager", default_service = "org.freedesktop.GeoClue2", default_path = "/org/freedesktop/GeoClue2/Manager")]
+#[zbus::proxy(
+    interface = "org.freedesktop.GeoClue2.Manager",
+    default_service = "org.freedesktop.GeoClue2",
+    default_path = "/org/freedesktop/GeoClue2/Manager"
+)]
 trait Manager {
     fn get_client(&self) -> zbus::Result<OwnedObjectPath>;
     fn add_agent(&self, id: &str) -> zbus::Result<()>;
 }
 
-#[zbus::proxy(interface = "org.freedesktop.GeoClue2.Client", default_service = "org.freedesktop.GeoClue2")]
+#[zbus::proxy(
+    interface = "org.freedesktop.GeoClue2.Client",
+    default_service = "org.freedesktop.GeoClue2"
+)]
 trait Client {
     fn start(&self) -> zbus::Result<()>;
     fn stop(&self) -> zbus::Result<()>;
@@ -210,7 +236,11 @@ trait Client {
     #[zbus(property)]
     fn set_requested_accuracy_level(&self, level: u32) -> zbus::Result<()>;
     #[zbus(signal)]
-    fn location_updated(&self, old_location: ObjectPath<'_>, new_location: ObjectPath<'_>) -> zbus::Result<()>;
+    fn location_updated(
+        &self,
+        old_location: ObjectPath<'_>,
+        new_location: ObjectPath<'_>,
+    ) -> zbus::Result<()>;
 }
 
 type Qt = cxx_qt::CxxQtThread<Location>;
@@ -222,21 +252,38 @@ enum Event {
     Updated(OwnedObjectPath),
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the GeoClue connection and event-loop state belong to one actor task"
+)]
 async fn run(qt: Qt, wanted: Receiver<bool>) {
     let bus = match io::system_bus().await {
         Ok(bus) => bus,
         Err(e) => return log::warn("location", format_args!("no system bus: {e}")),
     };
-    if let Err(e) = bus.object_server().at("/org/freedesktop/GeoClue2/Agent", Agent).await {
+    if let Err(e) = bus
+        .object_server()
+        .at("/org/freedesktop/GeoClue2/Agent", Agent)
+        .await
+    {
         log::warn("location", format_args!("cannot export the agent: {e}"));
     }
-    let Ok(dbus) = DBusProxy::new(&bus).await else { return };
+    let Ok(dbus) = DBusProxy::new(&bus).await else {
+        return;
+    };
     let running = match BusName::from_static_str(GEOCLUE) {
         Ok(name) => dbus.name_has_owner(name).await.unwrap_or(false),
         Err(_) => false,
     };
-    let activatable = running || dbus.list_activatable_names().await.unwrap_or_default().iter().any(|n| n.as_str() == GEOCLUE);
-    qt.queue(move |mut obj| set!(obj, available, available_changed, activatable)).ok();
+    let activatable = running
+        || dbus
+            .list_activatable_names()
+            .await
+            .unwrap_or_default()
+            .iter()
+            .any(|n| n.as_str() == GEOCLUE);
+    qt.queue(move |mut obj| set!(obj, available, available_changed, activatable))
+        .ok();
     if !activatable {
         return;
     }
@@ -244,8 +291,13 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
     if running {
         add_agent(&bus).await;
     }
-    let owners = match dbus.receive_name_owner_changed_with_args(&[(0, GEOCLUE)]).await {
-        Ok(s) => s.filter_map(|s| Some(Event::Restarted(s.args().ok()?.new_owner().is_some()))).boxed(),
+    let owners = match dbus
+        .receive_name_owner_changed_with_args(&[(0, GEOCLUE)])
+        .await
+    {
+        Ok(s) => s
+            .filter_map(|s| Some(Event::Restarted(s.args().ok()?.new_owner().is_some())))
+            .boxed(),
         Err(_) => stream::empty().boxed(),
     };
     let (new_fixes, fixes) = async_channel::bounded(8);
@@ -277,38 +329,62 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
         if want && client.is_none() {
             client = new_client(&bus, &new_fixes).await;
             if client.is_none() {
-                qt.queue(|obj| obj.error(&QString::from("Failed to create location client"))).ok();
+                qt.queue(|obj| obj.error(&QString::from("Failed to create location client")))
+                    .ok();
             }
         }
         let Some(c) = &client else { continue };
         if want != active {
-            let result = if want { c.start().await } else { c.stop().await };
+            let result = if want {
+                c.start().await
+            } else {
+                c.stop().await
+            };
             match result {
                 Ok(()) => active = want,
                 Err(e) => {
-                    log::warn("location", format_args!("{}: {e}", if want { "start" } else { "stop" }));
+                    log::warn(
+                        "location",
+                        format_args!("{}: {e}", if want { "start" } else { "stop" }),
+                    );
                     if want {
-                        qt.queue(|obj| obj.error(&QString::from("Failed to start location updates"))).ok();
+                        qt.queue(|obj| {
+                            obj.error(&QString::from("Failed to start location updates"));
+                        })
+                        .ok();
                     }
                 }
             }
         }
-        qt.queue(move |mut obj| set!(obj, active, active_changed, active)).ok();
+        qt.queue(move |mut obj| set!(obj, active, active_changed, active))
+            .ok();
     }
 }
 
 async fn add_agent(bus: &zbus::Connection) {
-    let added = async { ManagerProxy::new(bus).await?.add_agent("marathon-shell").await };
+    let added = async {
+        ManagerProxy::new(bus)
+            .await?
+            .add_agent("marathon-shell")
+            .await
+    };
     if let Err(e) = added.await {
         log::warn("location", format_args!("AddAgent: {e}"));
     }
 }
 
 /// A client for the shell, its fixes forwarded to `updates`.
-async fn new_client(bus: &zbus::Connection, updates: &Sender<OwnedObjectPath>) -> Option<ClientProxy<'static>> {
+async fn new_client(
+    bus: &zbus::Connection,
+    updates: &Sender<OwnedObjectPath>,
+) -> Option<ClientProxy<'static>> {
     let made = async {
         let path = ManagerProxy::new(bus).await?.get_client().await?;
-        let client = ClientProxy::builder(bus).path(path)?.cache_properties(zbus::proxy::CacheProperties::No).build().await?;
+        let client = ClientProxy::builder(bus)
+            .path(path)?
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await?;
         client.set_desktop_id("org.marathon.Shell").await?;
         client.set_requested_accuracy_level(EXACT).await?;
         let mut fixes = client.receive_location_updated().await?;
@@ -316,19 +392,35 @@ async fn new_client(bus: &zbus::Connection, updates: &Sender<OwnedObjectPath>) -
         io::spawn(async move {
             while let Some(signal) = fixes.next().await {
                 let Ok(args) = signal.args() else { continue };
-                if updates.send(OwnedObjectPath::from(args.new_location().clone())).await.is_err() {
+                if updates
+                    .send(OwnedObjectPath::from(args.new_location().clone()))
+                    .await
+                    .is_err()
+                {
                     return;
                 }
             }
         });
         zbus::Result::Ok(client)
     };
-    made.await.map_err(|e| log::warn("location", format_args!("GetClient: {e}"))).ok()
+    made.await
+        .map_err(|e| log::warn("location", format_args!("GetClient: {e}")))
+        .ok()
 }
 
 async fn properties(bus: &zbus::Connection, path: &OwnedObjectPath) -> HashMap<String, OwnedValue> {
-    let reply = bus.call_method(Some(GEOCLUE), path, Some("org.freedesktop.DBus.Properties"), "GetAll", &("org.freedesktop.GeoClue2.Location",)).await;
-    reply.and_then(|m| m.body().deserialize()).unwrap_or_default()
+    let reply = bus
+        .call_method(
+            Some(GEOCLUE),
+            path,
+            Some("org.freedesktop.DBus.Properties"),
+            "GetAll",
+            &("org.freedesktop.GeoClue2.Location",),
+        )
+        .await;
+    reply
+        .and_then(|m| m.body().deserialize())
+        .unwrap_or_default()
 }
 
 /// `GeoClue`'s agent: the system's apps locate freely, the rest by the
@@ -344,7 +436,14 @@ impl Agent {
             permissions::ask_if_undecided(desktop_id, &["location".to_owned()]);
             log::warn("location", format_args!("refused location to {desktop_id}"));
         }
-        (allowed, if allowed { requested_accuracy_level.min(EXACT) } else { 0 })
+        (
+            allowed,
+            if allowed {
+                requested_accuracy_level.min(EXACT)
+            } else {
+                0
+            },
+        )
     }
 
     #[zbus(property)]
@@ -353,7 +452,6 @@ impl Agent {
         EXACT
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -366,7 +464,12 @@ mod tests {
     #[test]
     fn a_fix_reads_geoclues_timestamp() {
         let mut props: HashMap<String, OwnedValue> = HashMap::new();
-        let mut put = |k: &str, v: Value<'_>| props.insert(k.to_owned(), v.try_to_owned().unwrap_or_else(|_| OwnedValue::from(0u8)));
+        let mut put = |k: &str, v: Value<'_>| {
+            props.insert(
+                k.to_owned(),
+                v.try_to_owned().unwrap_or_else(|_| OwnedValue::from(0u8)),
+            )
+        };
         put("Latitude", Value::from(53.35));
         put("Longitude", Value::from(-6.26));
         put("Timestamp", Value::from((1_792_236_376u64, 250_000u64)));

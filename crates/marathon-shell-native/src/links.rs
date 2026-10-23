@@ -22,11 +22,21 @@ pub mod qobject {
 
         #[qinvokable]
         #[cxx_name = "navigateToDeepLink"]
-        fn navigate_to_deep_link(self: Pin<&mut Links>, app_id: &QString, route: &QString, params: &QMap_QString_QVariant) -> bool;
+        fn navigate_to_deep_link(
+            self: Pin<&mut Links>,
+            app_id: &QString,
+            route: &QString,
+            params: &QMap_QString_QVariant,
+        ) -> bool;
 
         #[qsignal]
         #[cxx_name = "deepLinkRequested"]
-        fn deep_link_requested(self: Pin<&mut Links>, app_id: &QString, route: &QString, params: &QMap_QString_QVariant);
+        fn deep_link_requested(
+            self: Pin<&mut Links>,
+            app_id: &QString,
+            route: &QString,
+            params: &QMap_QString_QVariant,
+        );
     }
 
     impl cxx_qt::Threading for Links {}
@@ -59,7 +69,12 @@ impl cxx_qt::Initialize for Links {
 }
 
 impl Links {
-    fn navigate_to_deep_link(self: Pin<&mut Self>, app_id: &QString, route: &QString, params: &Map) -> bool {
+    fn navigate_to_deep_link(
+        self: Pin<&mut Self>,
+        app_id: &QString,
+        route: &QString,
+        params: &Map,
+    ) -> bool {
         if app_id.is_empty() {
             return false;
         }
