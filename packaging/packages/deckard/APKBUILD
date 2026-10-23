@@ -7,8 +7,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=8
-_commit=b8d97b44be4f8113e8f53b6417a2001e0f92af6a
+pkgrel=9
+_commit=3e2caa70a2b64f3fa2d8cbe8df423e67e65265bb
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -33,8 +33,10 @@ prepare() {
 	default_prepare
 	# The pinned Deckard commit must include the Rust workspace and lockfile.
 	[ -f Cargo.toml ] && [ -f Cargo.lock ] &&
-		[ -f host/deckard-host-tools/Cargo.toml ] ||
-		die "pin a Deckard commit containing the deckard-host-tools Cargo workspace"
+		[ -f host/deckard-host-tools/Cargo.toml ] &&
+		[ -f host/deckard-fonts-sync/Cargo.toml ] &&
+		[ -f host/deckard-overlay-sync/Cargo.toml ] ||
+		die "pin a Deckard commit containing the native host tools"
 }
 
 build() {
@@ -44,13 +46,13 @@ build() {
 	cmake --build build
 	export CARGO_TARGET_DIR="$builddir/target"
 	cargo build --release --locked -p deckard-host-tools \
-		--bin deckard-shared-folders --bin deckard-open-apk
+		-p deckard-fonts-sync -p deckard-overlay-sync
 }
 
 check() {
 	ctest --test-dir build --output-on-failure
 	export CARGO_TARGET_DIR="$builddir/target"
-	cargo test --locked -p deckard-host-tools
+	cargo test --locked -p deckard-host-tools -p deckard-fonts-sync -p deckard-overlay-sync
 }
 
 package() {
@@ -60,12 +62,14 @@ package() {
 		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckardd.service
 	local p=host/packaging
 	install -Dm755 $p/deckard-waydroid "$pkgdir"/usr/libexec/deckard-waydroid
-	install -Dm755 $p/deckard-overlay-sync "$pkgdir"/usr/libexec/deckard-overlay-sync
+	install -Dm755 target/release/deckard-overlay-sync \
+		"$pkgdir"/usr/libexec/deckard-overlay-sync
 	install -Dm755 target/release/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
 	install -Dm755 $p/deckard-container-limits "$pkgdir"/usr/libexec/deckard-container-limits
 	install -Dm644 $p/org.marathonos.deckard.apk.desktop \
 		"$pkgdir"/usr/share/applications/org.marathonos.deckard.apk.desktop
-	install -Dm755 $p/deckard-fonts-sync "$pkgdir"/usr/libexec/deckard-fonts-sync
+	install -Dm755 target/release/deckard-fonts-sync \
+		"$pkgdir"/usr/libexec/deckard-fonts-sync
 	install -Dm755 $p/deckard-reset "$pkgdir"/usr/libexec/deckard-reset
 	install -Dm755 target/release/deckard-shared-folders \
 		"$pkgdir"/usr/libexec/deckard-shared-folders
