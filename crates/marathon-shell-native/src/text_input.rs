@@ -21,6 +21,16 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
     }
 
+    #[namespace = "marathon::text_input"]
+    extern "Rust" {
+        fn should_target_editor(
+            editor: &QString,
+            object_app_id: &QString,
+            accepts_input_method: bool,
+            front_app_id: &QString,
+        ) -> bool;
+    }
+
     extern "RustQt" {
         #[qobject]
         #[qproperty(QString, app_id_prefix, cxx_name = "appIdPrefix", READ, NOTIFY)]
@@ -71,6 +81,21 @@ pub mod qobject {
 }
 
 use qobject::RemoteTextInput;
+
+fn should_target_editor(
+    editor: &QString,
+    object_app_id: &QString,
+    accepts_input_method: bool,
+    front_app_id: &QString,
+) -> bool {
+    if editor.len() == 0 {
+        return false;
+    }
+    if object_app_id.len() != 0 {
+        return object_app_id == editor;
+    }
+    !accepts_input_method && front_app_id == editor
+}
 
 type Qt = cxx_qt::CxxQtThread<RemoteTextInput>;
 
@@ -386,5 +411,51 @@ impl TextInput1 {
             Ok(())
         })
         .await?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{should_target_editor, QString};
+
+    #[test]
+    fn editor_target_fixtures() {
+        let fixtures = [
+            ("", "deckard.messages", false, "deckard.messages", false),
+            ("deckard.messages", "deckard.messages", false, "", true),
+            ("deckard.messages", "deckard.messages", true, "", true),
+            (
+                "deckard.messages",
+                "deckard.settings",
+                false,
+                "deckard.messages",
+                false,
+            ),
+            ("deckard.messages", "", false, "deckard.messages", true),
+            ("deckard.messages", "", true, "deckard.messages", false),
+            ("deckard.messages", "", false, "deckard.settings", false),
+            ("deckard.messages", "", false, "", false),
+            ("deckard.caf\u{e9}", "deckard.caf\u{e9}", false, "", true),
+            (
+                "deckard.caf\u{e9}",
+                "deckard.cafe",
+                false,
+                "deckard.caf\u{e9}",
+                false,
+            ),
+        ];
+
+        for (editor, object_app_id, accepts_input_method, front_app_id, expected) in fixtures {
+            assert_eq!(
+                should_target_editor(
+                    &QString::from(editor),
+                    &QString::from(object_app_id),
+                    accepts_input_method,
+                    &QString::from(front_app_id),
+                ),
+                expected,
+                "editor={editor:?} object={object_app_id:?} accepts={accepts_input_method} front={front_app_id:?}"
+            );
+        }
     }
 }

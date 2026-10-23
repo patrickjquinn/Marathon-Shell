@@ -111,12 +111,10 @@ bool RemoteTextInputFilter::targets(QObject *object) const {
     if (!object || editor.isEmpty())
         return false;
     const QString appId = m_appIdOf ? m_appIdOf(object) : QString();
-    if (!appId.isEmpty())
-        return appId == editor;
     auto *item = qobject_cast<QQuickItem *>(object);
-    if (item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod))
-        return false;
-    return m_input->getFrontAppId() == editor;
+    const bool acceptsInputMethod = item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod);
+    return marathon::text_input::should_target_editor(
+        editor, appId, acceptsInputMethod, m_input->getFrontAppId());
 }
 
 bool RemoteTextInputFilter::targetsFocus() const {
