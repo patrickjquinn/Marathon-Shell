@@ -368,7 +368,7 @@ mod tests {
         let mut book = Book::open(path);
 
         assert!(book.add(maya()).is_err());
-        assert!(book.all().is_empty());
+        assert_eq!(book.all(), &[] as &[Contact]);
     }
 
     #[test]

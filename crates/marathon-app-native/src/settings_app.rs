@@ -504,6 +504,7 @@ fn stat_disk() -> (i64, i64) {
             let mut s: libc::statfs = std::mem::zeroed();
             (libc::statfs(cpath.as_ptr(), &raw mut s), s)
         };
+        #[allow(clippy::useless_conversion, reason = "f_type is signed on some libcs")]
         let fs_type = u64::try_from(s.f_type).unwrap_or(u64::MAX);
         if rc == 0 && fs_type != TMPFS_MAGIC && s.f_blocks > 0 {
             let bsize = i64::try_from(s.f_frsize).unwrap_or(0);

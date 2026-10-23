@@ -1168,7 +1168,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("p.json");
         fs::write(&path, "{not json").unwrap();
-        assert!(Core::load(path).stored.is_empty());
+        assert_eq!(Core::load(path).stored, BTreeMap::new());
     }
 
     #[test]
@@ -1291,7 +1291,7 @@ mod tests {
         ask(&mut c, "k2", true, "choice");
         let out = run(&mut c, |c, o| c.respond(true, true, Some(false), o));
         assert!(out.contains(&Event::Answered("k2".into(), "once", false)));
-        assert!(c.stored.is_empty());
+        assert_eq!(c.stored, BTreeMap::new());
         ask(&mut c, "k3", false, "");
         let out = run(&mut c, |c, o| c.dismiss_for(Some("waydroid.org.a"), o));
         assert!(out.contains(&Event::Answered("k3".into(), "cancel", false)));

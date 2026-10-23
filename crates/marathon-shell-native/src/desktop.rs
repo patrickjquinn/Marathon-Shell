@@ -607,7 +607,7 @@ mod tests {
             ]
         );
         assert_eq!(scan_apps(&paths, &mut icons).count(), 7);
-        assert!(read_phone_apps(&dir.path().join("missing.json")).is_empty());
+        assert_eq!(read_phone_apps(&dir.path().join("missing.json")), HashSet::new());
     }
 
     #[test]
