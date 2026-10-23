@@ -14,8 +14,29 @@ use crate::systemd::SystemdManagerProxy;
 use crate::{io, log};
 
 const FRONT_UCLAMP_MIN: u8 = 30;
-// Deckard delegates it to the session's user.
-const WAYDROID: &str = "/sys/fs/cgroup/lxc.payload.waydroid";
+// The existing container keeps its legacy name until the Deckard cutover.
+const ANDROID_CGROUP_NAMES: [&str; 2] = ["lxc.payload.deckard", "lxc.payload.waydroid"];
+
+fn android_cgroup_at(root: &Path) -> Option<PathBuf> {
+    let paths: Vec<PathBuf> = ANDROID_CGROUP_NAMES
+        .iter()
+        .map(|name| root.join(name))
+        .filter(|path| path.is_dir())
+        .collect();
+    paths
+        .iter()
+        .find(|path| {
+            fs::read_to_string(path.join("cgroup.events"))
+                .ok()
+                .is_some_and(|events| events.lines().any(|line| line.trim() == "populated 1"))
+        })
+        .cloned()
+        .or_else(|| paths.into_iter().next())
+}
+
+fn is_android_app(app_id: &str) -> bool {
+    app_id.starts_with("deckard.") || app_id.starts_with("waydroid.")
+}
 
 pub struct AppCgroups {
     // marathon.slice/marathon-apps, when the shell may write under it.
@@ -136,11 +157,13 @@ impl AppCgroups {
     }
 
     /// The app in front gets a CPU-frequency floor (`cpu.uclamp.min`); an
-    /// Android app's is Waydroid's container. The pid's cgroup can come
+    /// Android app's is Deckard's container. The pid's cgroup can come
     /// after the app is in front, so the path is tried before it is placed.
     pub(crate) fn set_front(&self, app_id: &str, front: bool) {
-        if app_id.starts_with("waydroid.") {
-            write_uclamp(Path::new(WAYDROID), front);
+        if is_android_app(app_id) {
+            if let Some(dir) = android_cgroup_at(Path::new("/sys/fs/cgroup")) {
+                write_uclamp(&dir, front);
+            }
         } else if let Some(dir) = self.dir(app_id) {
             write_uclamp(&dir, front);
         }
@@ -322,5 +345,25 @@ mod tests {
             None
         );
         assert_eq!(apps_root(""), None);
+    }
+
+    #[test]
+    fn android_cgroup_prefers_new_name_and_accepts_live_legacy_name() {
+        let root = tempfile::tempdir().unwrap();
+        let old = root.path().join(ANDROID_CGROUP_NAMES[1]);
+        let new = root.path().join(ANDROID_CGROUP_NAMES[0]);
+        assert_eq!(android_cgroup_at(root.path()), None);
+        fs::create_dir(&old).unwrap();
+        assert_eq!(android_cgroup_at(root.path()), Some(old.clone()));
+        fs::create_dir(&new).unwrap();
+        assert_eq!(android_cgroup_at(root.path()), Some(new.clone()));
+        fs::write(old.join("cgroup.events"), "populated 1\n").unwrap();
+        fs::write(new.join("cgroup.events"), "populated 0\n").unwrap();
+        assert_eq!(android_cgroup_at(root.path()), Some(old.clone()));
+        fs::write(new.join("cgroup.events"), "populated 1\n").unwrap();
+        assert_eq!(android_cgroup_at(root.path()), Some(new));
+        assert!(is_android_app("waydroid.org.example.App"));
+        assert!(is_android_app("deckard.org.example.App"));
+        assert!(!is_android_app("org.example.App"));
     }
 }
