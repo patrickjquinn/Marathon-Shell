@@ -10,7 +10,7 @@ page covers what the shell does with it.
 
 | Part | Where | Role |
 |---|---|---|
-| Waydroid container | `waydroid-container.service` (system), `marathon-waydroid.service` (user) | Android's runtime: zygote, system_server, SurfaceFlinger with Waydroid's Wayland hwcomposer in multi-window mode. |
+| Android runtime | `waydroid-container.service` (system), `deckard-session.service` (user) | The system container manager is still Python; the user session and app launcher are Rust. Android runs zygote, system_server, and SurfaceFlinger with Waydroid's Wayland hwcomposer in multi-window mode. |
 | Image overlay | Marathon-Deckard `image/` | Marathon's system apps inside Android (DeckardBridge, DeckardSystem, the blank home, `deckard-wm`), the slimmed system and microG. Mounted over Android's system partition. |
 | `deckardd` | Marathon-Deckard `host/deckardd` | The host daemon: notifications, media, permissions, packages, location and toasts over the bridge protocol (`protocol/bridge.md`). |
 | `deckard` aport | `packaging/packages/deckard` | Packages all of it at the Marathon-Deckard commit `_commit` pins. |
@@ -19,6 +19,8 @@ page covers what the shell does with it.
 
 - **App ids.** An Android app is `waydroid.<package>`
   (`PermissionAuth::isAndroidAppId`, `shell/src/ipc/permissionauth.h`).
+  The native session retains these IDs but exports desktop commands through
+  `/usr/libexec/deckard-launch`.
 - **Windows.** The hwcomposer makes one Wayland toplevel per Android task,
   all from one client. The shell files each toplevel as its own app and
   card, and never freezes or kills a PID that hosts several tasks.
@@ -71,9 +73,10 @@ The overlay is synced only when the container starts
 package:
 
 ```sh
-systemctl daemon-reload
-systemctl restart waydroid-container.service
-su user -c 'systemctl --user restart marathon-waydroid'   # the session
+systemctl --user stop deckard-session.service
+sudo systemctl daemon-reload
+sudo systemctl restart waydroid-container.service
+systemctl --user start deckard-session.service
 ```
 
 Restarting the container alone stops the user session and leaves it down.
