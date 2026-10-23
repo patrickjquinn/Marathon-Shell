@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds Deckard (deckardd and the Android overlay files) into mkosi.packages/.
+# Builds Deckard (the Rust host daemons and the Android overlay files) into
+# mkosi.packages/.
 # DECKARD_SRC=<Marathon-Deckard checkout> builds that checkout's HEAD instead
 # of the commit the APKBUILD pins.
 set -euo pipefail

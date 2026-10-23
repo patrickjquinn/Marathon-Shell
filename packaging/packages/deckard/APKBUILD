@@ -1,28 +1,28 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
-# Deckard (Android apps as Marathon apps) from Marathon-Deckard: deckardd,
-# the host end of the system bridge; deckard-containerd, the Rust root
-# container manager that replaces Waydroid's Python one; the Rust session,
-# launcher and helpers; and the Android-side files mounted over Android's
-# system partition. Those include prebuilt,
-# signed APKs: Alpine has no Android SDK, so they are built on a developer
+# Deckard (Android apps as Marathon apps) from Marathon-Deckard:
+# deckard-bridge, the host end of the system bridge; deckard-containerd, the
+# Rust root container manager that replaces Waydroid's Python one; the Rust
+# session, launcher and helpers; and the Android-side files mounted over
+# Android's system partition. Those include prebuilt, signed APKs: Alpine has no Android SDK, so they are built on a developer
 # host (image/tools/build-apk.sh) and committed to Marathon-Deckard.
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=11
-_commit=3f3c08c5070e4283177325405b667119676c8d2f
+pkgrel=12
+_commit=0fa2c4c9709d65b70e8f5d3b7fb233eee3765cd5
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND GPL-3.0-only"
-depends="waydroid iproute2-ss util-linux-misc qt6-qtbase qt6-qtbase-x11 libstdc++ libgcc"
+depends="waydroid iproute2-ss util-linux-misc libgcc"
 # The overlay carries Android ELF files (the patched composer HAL) that link
-# Android's libc++, so deckardd's libraries are listed above instead.
+# Android's libc++, so the Rust binaries' libgcc_s is listed above instead.
 options="!tracedeps net"
-# deckard-containerd owns id.waydro.Container: its D-Bus activation file
-# replaces Waydroid's, which would start the Python container manager.
+# deckard-containerd owns id.waydro.Container: its D-Bus activation file,
+# bus policy and polkit action replace Waydroid's; the activation file would
+# otherwise start the Python container manager.
 replaces="waydroid"
-makedepends="cargo cmake samurai qt6-qtbase-dev unzip"
+makedepends="cargo unzip"
 checkdepends="dbus"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
 _microg=v0.3.17.252432
@@ -44,37 +44,42 @@ prepare() {
 	[ -f host/deckard-runtime/Cargo.toml ] &&
 	[ -f host/deckard-launch/Cargo.toml ] &&
 	[ -f host/deckard-container/Cargo.toml ] &&
-	[ -f host/deckard-host-tools/src/reset.rs ] ||
+	[ -f host/deckard-host-tools/src/reset.rs ] &&
+	[ -f host/deckard-bridge/Cargo.toml ] ||
 		die "pin a Deckard commit containing the native host tools"
 }
 
 build() {
-	cmake -B build -S host/deckardd -G Ninja \
-		-DCMAKE_BUILD_TYPE=MinSizeRel \
-		-DCMAKE_INSTALL_PREFIX=/usr
-	cmake --build build
 	export CARGO_TARGET_DIR="$builddir/target"
 	export RUSTFLAGS="-C target-feature=-crt-static"
 	cargo build --release --locked -p deckard-host-tools \
 		-p deckard-fonts-sync -p deckard-overlay-sync \
-		-p deckard-runtime -p deckard-launch -p deckard-container
+		-p deckard-runtime -p deckard-launch -p deckard-container \
+		-p deckard-bridge
 }
 
 check() {
-	ctest --test-dir build --output-on-failure
 	export CARGO_TARGET_DIR="$builddir/target"
 	export RUSTFLAGS="-C target-feature=-crt-static"
-	cargo test --locked -p deckard-host-tools -p deckard-fonts-sync \
+	dbus-run-session -- env DECKARD_BRIDGE_PRIVATE_BUS=1 \
+		DECKARD_RUNTIME_PRIVATE_BUS=1 DECKARD_IME_PRIVATE_BUS=1 \
+		cargo test --locked -p deckard-host-tools -p deckard-fonts-sync \
 		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch \
-		-p deckard-container
+		-p deckard-container -p deckard-bridge -p deckard-core \
+		-p deckard-ime -p deckard-mpris -p deckard-notifications \
+		-p deckard-packages
 }
 
 package() {
-	DESTDIR="$pkgdir" cmake --install build
-	install -d "$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants
-	ln -s ../deckardd.service \
-		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckardd.service
 	local p=host/packaging
+	install -Dm755 target/release/deckard-bridge "$pkgdir"/usr/libexec/deckard-bridge
+	install -Dm644 $p/deckard-bridge.service \
+		"$pkgdir"/usr/lib/systemd/user/deckard-bridge.service
+	install -d "$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants
+	ln -s ../deckard-bridge.service \
+		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckard-bridge.service
+	install -Dm644 $p/deckard-bridge.service.json \
+		"$pkgdir"/usr/share/marathon-shell/services/deckard-bridge.service.json
 	install -Dm755 target/release/deckard-overlay-sync \
 		"$pkgdir"/usr/libexec/deckard-overlay-sync
 	install -Dm755 target/release/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
@@ -100,6 +105,10 @@ package() {
 		"$pkgdir"/usr/lib/systemd/system/deckard-container.service
 	install -Dm644 $p/id.waydro.Container.service \
 		"$pkgdir"/usr/share/dbus-1/system-services/id.waydro.Container.service
+	install -Dm644 $p/id.waydro.Container.conf \
+		"$pkgdir"/usr/share/dbus-1/system.d/id.waydro.Container.conf
+	install -Dm644 $p/id.waydro.Container.policy \
+		"$pkgdir"/usr/share/polkit-1/actions/id.waydro.Container.policy
 	[ ! -f $p/deckard-boot-evidence ] ||
 		install -Dm755 $p/deckard-boot-evidence "$pkgdir"/usr/libexec/deckard-boot-evidence
 	install -Dm644 $p/org.marathonos.deckard.policy \
