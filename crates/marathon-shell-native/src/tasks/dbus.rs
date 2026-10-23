@@ -82,8 +82,19 @@ struct Navigation1 {
 impl Navigation1 {
     async fn launch_app(&self, app_id: String) -> fdo::Result<bool> {
         not_empty(&app_id)?;
+        let session_gone = if super::launch::is_android_app_id(&app_id) {
+            android_session_owned().await == Some(false)
+        } else {
+            false
+        };
         let id = app_id.clone();
-        let ok = ipc::on_gui(&self.qt, move |obj| obj.launch(&id)).await?;
+        let ok = ipc::on_gui(&self.qt, move |mut obj| {
+            if session_gone {
+                obj.as_mut().invalidate_android_session(&id);
+            }
+            obj.launch(&id)
+        })
+        .await?;
         launched(&app_id, &app_id, ok);
         Ok(ok)
     }
@@ -208,6 +219,13 @@ impl Navigation1 {
     async fn toggle_quick_settings(&self) -> fdo::Result<bool> {
         self.quick_settings(2).await
     }
+}
+
+pub(super) async fn android_session_owned() -> Option<bool> {
+    let bus = io::session_bus().await.ok()?;
+    let dbus = fdo::DBusProxy::new(&bus).await.ok()?;
+    let name = "id.waydro.Session".try_into().ok()?;
+    dbus.name_has_owner(name).await.ok()
 }
 
 impl Navigation1 {

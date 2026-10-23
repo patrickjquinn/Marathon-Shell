@@ -2,6 +2,7 @@
 //! spare where it can; its process and its windows are matched to it as
 //! they come.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::pin::Pin;
@@ -52,6 +53,16 @@ fn process_is_live(pid: i64) -> bool {
         .and_then(|stat| stat.rsplit_once(')').map(|(_, rest)| rest.to_owned()))
         .and_then(|rest| rest.split_whitespace().next().map(str::to_owned))
         .is_some_and(|state| state != "Z")
+}
+
+fn discard_app_windows(
+    windows: &mut HashMap<String, Vec<i32>>,
+    clients: &mut HashMap<i32, i64>,
+    app_id: &str,
+) {
+    if let Some(old_windows) = windows.remove(app_id) {
+        clients.retain(|surface, _| !old_windows.contains(surface));
+    }
 }
 
 #[derive(Default)]
@@ -289,7 +300,25 @@ impl Tasks {
     }
 
     pub(crate) fn launch_app(self: Pin<&mut Self>, app_id: &QString) -> bool {
-        self.launch(&app_id.to_string())
+        let id = app_id.to_string();
+        if !is_android_app_id(&id) {
+            return self.launch(&id);
+        }
+        if !self.can_launch(app_id) {
+            return false;
+        }
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            let session_gone = dbus::android_session_owned().await == Some(false);
+            qt.queue(move |mut obj| {
+                if session_gone {
+                    obj.as_mut().invalidate_android_session(&id);
+                }
+                obj.launch(&id);
+            })
+            .ok();
+        });
+        true
     }
 
     pub(crate) fn launch_app_with_route(
@@ -358,6 +387,32 @@ impl Tasks {
             dbus::deep_link(&app.id, &route, &params);
         }
         self.app_launch_completed(&q(&app.id), &q(&app.name));
+    }
+
+    /// The session bus name is gone, but its Wayland disconnect can still be
+    /// queued behind a new launch request. Do not restore that session's card.
+    pub(super) fn invalidate_android_session(mut self: Pin<&mut Self>, app_id: &str) {
+        {
+            let mut rust = self.as_mut().rust_mut();
+            let state = &mut *rust;
+            discard_app_windows(&mut state.windows, &mut state.window_clients, app_id);
+        }
+        if self.task(app_id).is_some_and(|task| task.surface_id >= 0) {
+            self.as_mut().update_task_window(app_id, -1);
+        }
+        let mut rust = self.as_mut().rust_mut();
+        rust.android_handoffs.remove(app_id);
+        rust.launching.remove(app_id);
+        rust.expected_windows.remove(app_id);
+        rust.pending_by_command
+            .retain(|_, launch| launch.app_id != app_id);
+        rust.exited_launches.remove(app_id);
+        rust.active_by_pid
+            .retain(|_, launch| launch.app_id != app_id);
+        let pid = self.pid_for(app_id);
+        if pid > 0 {
+            self.as_mut().forget_registered_pid(app_id, pid);
+        }
     }
 
     pub(crate) fn launch(mut self: Pin<&mut Self>, app_id: &str) -> bool {
@@ -1211,9 +1266,28 @@ impl Tasks {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::time::{Duration, Instant};
 
-    use super::{is_android_app_id, is_foreground_flatpak_run, AndroidHandoff, ForegroundLaunches};
+    use super::{
+        discard_app_windows, is_android_app_id, is_foreground_flatpak_run, AndroidHandoff,
+        ForegroundLaunches,
+    };
+
+    #[test]
+    fn stopped_android_session_discards_only_its_old_surfaces() {
+        let mut windows = HashMap::from([
+            ("waydroid.example.feeder".to_owned(), vec![3, 4]),
+            ("org.example.Native".to_owned(), vec![5]),
+        ]);
+        let mut clients = HashMap::from([(3, 10), (4, 10), (5, 20)]);
+
+        discard_app_windows(&mut windows, &mut clients, "waydroid.example.feeder");
+
+        assert!(!windows.contains_key("waydroid.example.feeder"));
+        assert_eq!(windows["org.example.Native"], vec![5]);
+        assert_eq!(clients, HashMap::from([(5, 20)]));
+    }
 
     #[test]
     fn external_window_handoff_accepts_only_android_ids() {

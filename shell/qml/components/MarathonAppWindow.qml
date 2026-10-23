@@ -383,7 +383,10 @@ Rectangle {
     Rectangle {
         id: loadingSplash
 
-        readonly property bool showing: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appWindow.appContainer && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].revealReady === true)
+        readonly property bool showing: appWindow.isLoadingComponent && !appWindow.hasError
+                                        && !(appWindow.waylandSurface && appContentLoader.status === Loader.Ready
+                                             && appWindow.appContainer && appWindow.appContainer["appInstance"]
+                                             && appWindow.appContainer["appInstance"].revealReady === true)
 
         anchors.fill: parent
         color: "black"
