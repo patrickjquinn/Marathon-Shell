@@ -1,5 +1,7 @@
 #pragma once
 
+#include "marathon-shell-native/src/foreign_focus.cxxqt.h"
+
 #include <QWaylandSeat>
 #include <QWaylandSurface>
 
@@ -10,10 +12,12 @@ namespace ForeignFocus {
     // mapped behind the front one re-enters the front one. True if it did.
     inline bool keepFront(QWaylandSeat *seat, const QWaylandSurface *mappedBehind) {
         QWaylandSurface *focus = seat ? seat->keyboardFocus() : nullptr;
-        if (!focus || !mappedBehind || focus == mappedBehind ||
-            focus->client() != mappedBehind->client() ||
-            !focus->property("foreignClient").toBool() ||
-            focus->property("appId") == mappedBehind->property("appId"))
+        if (!focus || !mappedBehind)
+            return false;
+        if (!marathon::foreign_focus::should_reenter_front(
+                focus == mappedBehind, focus->client() == mappedBehind->client(),
+                focus->property("foreignClient").toBool(),
+                focus->property("appId") == mappedBehind->property("appId")))
             return false;
         seat->setKeyboardFocus(nullptr);
         seat->setKeyboardFocus(focus);

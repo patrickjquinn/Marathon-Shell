@@ -27,6 +27,7 @@ pub mod device;
 pub mod display;
 pub mod file_model;
 pub mod flashlight;
+mod foreign_focus;
 pub mod gate;
 pub mod haptics;
 pub mod ipc;

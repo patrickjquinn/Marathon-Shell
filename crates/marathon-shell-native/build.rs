@@ -15,6 +15,7 @@ fn main() {
         .file("src/display.rs")
         .file("src/file_model.rs")
         .file("src/flashlight.rs")
+        .file("src/foreign_focus.rs")
         .file("src/haptics.rs")
         .file("src/gate.rs")
         .file("src/ipc.rs")

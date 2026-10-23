@@ -169,6 +169,21 @@ class TestForeignFocus : public QObject {
             fixture.window(fixture.waydroid, "waydroid.com.android.settings");
         QVERIFY(!ForeignFocus::keepFront(fixture.compositor.defaultSeat(), settings));
     }
+
+    void invalidOrIdenticalMappingChangesNothing() {
+        Fixture fixture;
+        QVERIFY(fixture.start("marathon-test-foreign-focus-5"));
+        QWaylandSurface *files =
+            fixture.window(fixture.waydroid, "waydroid.com.android.documentsui");
+        QVERIFY(files);
+        fixture.focus(files);
+        QVERIFY(!ForeignFocus::keepFront(nullptr, files));
+        QVERIFY(!ForeignFocus::keepFront(fixture.compositor.defaultSeat(), nullptr));
+        QVERIFY(!ForeignFocus::keepFront(fixture.compositor.defaultSeat(), files));
+        roundtrip(fixture.waydroid.display);
+        QCOMPARE(fixture.waydroid.left, 0);
+        QVERIFY(fixture.waydroid.entered.isEmpty());
+    }
 };
 
 QTEST_MAIN(TestForeignFocus)

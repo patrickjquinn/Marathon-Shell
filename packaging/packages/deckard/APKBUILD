@@ -7,8 +7,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=7
-_commit=1dad237815cdfe0b52432f705345772d0b0b2664
+pkgrel=8
+_commit=b8d97b44be4f8113e8f53b6417a2001e0f92af6a
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -16,8 +16,8 @@ license="Apache-2.0 AND GPL-3.0-only"
 depends="waydroid python3 iproute2-ss util-linux-misc qt6-qtbase qt6-qtbase-x11 libstdc++ libgcc"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so deckardd's libraries are listed above instead.
-options="!tracedeps"
-makedepends="cmake samurai qt6-qtbase-dev unzip"
+options="!tracedeps net"
+makedepends="cargo cmake samurai qt6-qtbase-dev unzip"
 checkdepends="dbus python3"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
 _microg=v0.3.17.252432
@@ -29,15 +29,28 @@ source="deckard-$_commit.tar.gz::https://github.com/patrickjquinn/Marathon-Decka
 	"
 builddir="$srcdir/Marathon-Deckard-$_commit"
 
+prepare() {
+	default_prepare
+	# The pinned Deckard commit must include the Rust workspace and lockfile.
+	[ -f Cargo.toml ] && [ -f Cargo.lock ] &&
+		[ -f host/deckard-host-tools/Cargo.toml ] ||
+		die "pin a Deckard commit containing the deckard-host-tools Cargo workspace"
+}
+
 build() {
 	cmake -B build -S host/deckardd -G Ninja \
 		-DCMAKE_BUILD_TYPE=MinSizeRel \
 		-DCMAKE_INSTALL_PREFIX=/usr
 	cmake --build build
+	export CARGO_TARGET_DIR="$builddir/target"
+	cargo build --release --locked -p deckard-host-tools \
+		--bin deckard-shared-folders --bin deckard-open-apk
 }
 
 check() {
 	ctest --test-dir build --output-on-failure
+	export CARGO_TARGET_DIR="$builddir/target"
+	cargo test --locked -p deckard-host-tools
 }
 
 package() {
@@ -48,14 +61,14 @@ package() {
 	local p=host/packaging
 	install -Dm755 $p/deckard-waydroid "$pkgdir"/usr/libexec/deckard-waydroid
 	install -Dm755 $p/deckard-overlay-sync "$pkgdir"/usr/libexec/deckard-overlay-sync
-	install -Dm755 $p/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
+	install -Dm755 target/release/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
 	install -Dm755 $p/deckard-container-limits "$pkgdir"/usr/libexec/deckard-container-limits
 	install -Dm644 $p/org.marathonos.deckard.apk.desktop \
 		"$pkgdir"/usr/share/applications/org.marathonos.deckard.apk.desktop
 	install -Dm755 $p/deckard-fonts-sync "$pkgdir"/usr/libexec/deckard-fonts-sync
 	install -Dm755 $p/deckard-reset "$pkgdir"/usr/libexec/deckard-reset
-	[ ! -f $p/deckard-shared-folders ] ||
-		install -Dm755 $p/deckard-shared-folders "$pkgdir"/usr/libexec/deckard-shared-folders
+	install -Dm755 target/release/deckard-shared-folders \
+		"$pkgdir"/usr/libexec/deckard-shared-folders
 	[ ! -f $p/deckard-boot-evidence ] ||
 		install -Dm755 $p/deckard-boot-evidence "$pkgdir"/usr/libexec/deckard-boot-evidence
 	install -Dm644 $p/org.marathonos.deckard.policy \
