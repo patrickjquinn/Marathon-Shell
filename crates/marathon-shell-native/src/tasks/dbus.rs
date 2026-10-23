@@ -99,8 +99,7 @@ impl Navigation1 {
             if obj.locked || !obj.can_launch(&q(&app_id)) {
                 return false;
             }
-            obj.expect_window(&q(&app_id));
-            true
+            obj.show_android_app(&app_id)
         })
         .await
     }

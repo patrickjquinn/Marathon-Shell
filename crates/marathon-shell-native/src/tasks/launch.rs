@@ -21,6 +21,8 @@ const EXITED_LAUNCH_GRACE: Duration = Duration::from_secs(30);
 /// last window, for a replacement.
 const WINDOW_GRACE: Duration = Duration::from_secs(1);
 const EXPECT_WINDOW: Duration = Duration::from_secs(10);
+/// Android can replace its first toplevel while the cold session finishes booting.
+const ANDROID_HANDOFF_GRACE: Duration = Duration::from_secs(45);
 /// A second tap within this of the first starts no second copy.
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
@@ -56,6 +58,18 @@ fn process_is_live(pid: i64) -> bool {
 pub(super) struct ForegroundLaunches {
     next: u64,
     current: u64,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct AndroidHandoff {
+    deadline: Instant,
+    foreground_generation: u64,
+}
+
+impl AndroidHandoff {
+    fn active(self, now: Instant, launches: &ForegroundLaunches) -> bool {
+        now < self.deadline && launches.owns_foreground(self.foreground_generation)
+    }
 }
 
 impl ForegroundLaunches {
@@ -193,7 +207,12 @@ impl Tasks {
     }
 
     pub(super) fn is_app_launching(&self, app_id: &QString) -> bool {
-        self.launching.contains(&app_id.to_string())
+        let id = app_id.to_string();
+        self.launching.contains(&id)
+            || self
+                .android_handoffs
+                .get(&id)
+                .is_some_and(|handoff| handoff.active(Instant::now(), &self.foreground_launches))
     }
 
     pub(super) fn pid_for(&self, app_id: &str) -> i64 {
@@ -757,6 +776,61 @@ impl Tasks {
         true
     }
 
+    /// Claim the front before Android's first toplevel without asking the
+    /// Shell to send a second launcher intent.
+    pub(crate) fn show_android_app(mut self: Pin<&mut Self>, app_id: &str) -> bool {
+        let Some(app) = self.resolve(app_id) else {
+            return false;
+        };
+        let generation = self.as_mut().claim_foreground(app_id);
+        let handoff = AndroidHandoff {
+            deadline: Instant::now() + ANDROID_HANDOFF_GRACE,
+            foreground_generation: generation,
+        };
+        self.as_mut()
+            .rust_mut()
+            .android_handoffs
+            .insert(app_id.to_owned(), handoff);
+
+        let surface = self
+            .task(app_id)
+            .map(|task| task.surface_id)
+            .filter(|surface| {
+                self.windows
+                    .get(app_id)
+                    .is_some_and(|windows| windows.contains(surface))
+            })
+            .unwrap_or(-1);
+        if self.task(app_id).is_none() {
+            self.as_mut()
+                .add_task(app_id, &app.name, &app.icon, "native", surface);
+        } else if surface < 0 {
+            self.as_mut().update_task_window(app_id, -1);
+        }
+        self.as_mut().open(&app, surface >= 0);
+        self.as_mut().show(&app, "native", surface);
+
+        let id = app_id.to_owned();
+        later(self.qt_thread(), ANDROID_HANDOFF_GRACE, move |mut obj| {
+            if obj
+                .android_handoffs
+                .get(&id)
+                .is_none_or(|current| current.foreground_generation != generation)
+            {
+                return;
+            }
+            obj.as_mut().rust_mut().android_handoffs.remove(&id);
+            if !obj.windows.contains_key(&id) {
+                let was_front = obj.app_window_open && obj.current_app_id == id;
+                obj.as_mut().unregister(&id);
+                if was_front {
+                    obj.home_requested(false);
+                }
+            }
+        });
+        true
+    }
+
     pub(super) fn close_app_windows(mut self: Pin<&mut Self>, app_id: &QString) -> i32 {
         let windows = self
             .windows
@@ -809,9 +883,14 @@ impl Tasks {
         {
             return false;
         }
-        if !self
-            .foreground_launches
-            .owns_foreground(launch.foreground_generation)
+        let handoff_active = self
+            .android_handoffs
+            .get(&launch.app_id)
+            .is_some_and(|handoff| handoff.active(Instant::now(), &self.foreground_launches));
+        if !handoff_active
+            && !self
+                .foreground_launches
+                .owns_foreground(launch.foreground_generation)
         {
             return false;
         }
@@ -834,7 +913,13 @@ impl Tasks {
         icon: &str,
         surface_id: i32,
     ) -> bool {
-        self.as_mut().claim_foreground(app_id);
+        let handoff_active = self
+            .android_handoffs
+            .get(app_id)
+            .is_some_and(|handoff| handoff.active(Instant::now(), &self.foreground_launches));
+        if !handoff_active {
+            self.as_mut().claim_foreground(app_id);
+        }
         self.as_mut()
             .open_app_requested(&q(app_id), &q(name), &q(icon), false);
         self.show_requested(&q(app_id), &q(name), &q(icon), &q("native"), surface_id);
@@ -881,6 +966,10 @@ impl Tasks {
                 self.as_mut().rust_mut().expected_windows.remove(&xdg);
             }
         }
+        front_input |= self
+            .android_handoffs
+            .get(&xdg)
+            .is_some_and(|handoff| handoff.active(Instant::now(), &self.foreground_launches));
         if pid > 0 {
             if let Some(launch) = self.active_by_pid.get(&pid).cloned() {
                 if self.background_launches.contains(&launch.app_id) || launch.kind == "native" {
@@ -1022,7 +1111,21 @@ impl Tasks {
         }
         self.as_mut().rust_mut().windows.remove(&app_id);
         if task_surface.is_none_or(|s| s == surface_id) && self.termination_pid(&app_id) <= 0 {
-            later(self.qt_thread(), WINDOW_GRACE, move |mut obj| {
+            let grace = self
+                .android_handoffs
+                .get(&app_id)
+                .filter(|handoff| handoff.active(Instant::now(), &self.foreground_launches))
+                .map_or(WINDOW_GRACE, |handoff| {
+                    handoff.deadline.saturating_duration_since(Instant::now())
+                });
+            later(self.qt_thread(), grace, move |mut obj| {
+                if obj
+                    .android_handoffs
+                    .get(&app_id)
+                    .is_some_and(|handoff| handoff.active(Instant::now(), &obj.foreground_launches))
+                {
+                    return;
+                }
                 if obj.windows.contains_key(&app_id)
                     || obj
                         .task(&app_id)
@@ -1099,7 +1202,9 @@ impl Tasks {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_android_app_id, is_foreground_flatpak_run, ForegroundLaunches};
+    use std::time::{Duration, Instant};
+
+    use super::{is_android_app_id, is_foreground_flatpak_run, AndroidHandoff, ForegroundLaunches};
 
     #[test]
     fn external_window_handoff_accepts_only_android_ids() {
@@ -1108,6 +1213,21 @@ mod tests {
         assert!(!is_android_app_id("de.haeckerfelix.Shortwave"));
         assert!(!is_android_app_id("waydroid."));
         assert!(!is_android_app_id("deckard.invalid"));
+    }
+
+    #[test]
+    fn android_handoff_survives_remap_but_not_a_new_foreground_claim() {
+        let now = Instant::now();
+        let mut launches = ForegroundLaunches::default();
+        let generation = launches.begin();
+        let handoff = AndroidHandoff {
+            deadline: now + Duration::from_secs(45),
+            foreground_generation: generation,
+        };
+        assert!(handoff.active(now + Duration::from_secs(20), &launches));
+        assert!(!handoff.active(now + Duration::from_secs(45), &launches));
+        launches.begin();
+        assert!(!handoff.active(now + Duration::from_secs(21), &launches));
     }
 
     #[test]

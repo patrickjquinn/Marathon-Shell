@@ -88,10 +88,10 @@ fn should_target_editor(
     accepts_input_method: bool,
     front_app_id: &QString,
 ) -> bool {
-    if editor.len() == 0 {
+    if editor.is_empty() {
         return false;
     }
-    if object_app_id.len() != 0 {
+    if !object_app_id.is_empty() {
         return object_app_id == editor;
     }
     !accepts_input_method && front_app_id == editor

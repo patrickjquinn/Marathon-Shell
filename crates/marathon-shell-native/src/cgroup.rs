@@ -27,8 +27,7 @@ fn android_cgroup_at(root: &Path) -> Option<PathBuf> {
         .iter()
         .find(|path| {
             fs::read_to_string(path.join("cgroup.events"))
-                .ok()
-                .is_some_and(|events| events.lines().any(|line| line.trim() == "populated 1"))
+                .is_ok_and(|events| events.lines().any(|line| line.trim() == "populated 1"))
         })
         .cloned()
         .or_else(|| paths.into_iter().next())
@@ -359,7 +358,7 @@ mod tests {
         assert_eq!(android_cgroup_at(root.path()), Some(new.clone()));
         fs::write(old.join("cgroup.events"), "populated 1\n").unwrap();
         fs::write(new.join("cgroup.events"), "populated 0\n").unwrap();
-        assert_eq!(android_cgroup_at(root.path()), Some(old.clone()));
+        assert_eq!(android_cgroup_at(root.path()), Some(old));
         fs::write(new.join("cgroup.events"), "populated 1\n").unwrap();
         assert_eq!(android_cgroup_at(root.path()), Some(new));
         assert!(is_android_app("waydroid.org.example.App"));

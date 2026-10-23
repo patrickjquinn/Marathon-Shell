@@ -1,5 +1,6 @@
 //! Whether a window mapped behind the current foreign front window needs a
 //! fresh keyboard enter. The compositor owns the surfaces and performs the enter.
+#![allow(clippy::fn_params_excessive_bools, reason = "fixed C++ bridge ABI")]
 
 #[cxx_qt::bridge]
 mod ffi {

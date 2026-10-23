@@ -494,6 +494,7 @@ pub struct TasksRust {
     windows: HashMap<String, Vec<i32>>,
     window_clients: HashMap<i32, i64>,
     expected_windows: HashMap<String, Instant>,
+    android_handoffs: HashMap<String, launch::AndroidHandoff>,
     secure: HashMap<String, bool>,
     after_android_boot: Vec<String>,
     pool: pool::Pool,
@@ -779,6 +780,10 @@ impl Tasks {
         quick_settings_open: bool,
     ) {
         let mut rust = self.as_mut().rust_mut();
+        if rust.current_app_id != current_app_id.to_string() || locked || !app_window_open {
+            let previous = rust.current_app_id.clone();
+            rust.android_handoffs.remove(&previous);
+        }
         rust.quick_settings_open = quick_settings_open;
         rust.app_window_open = app_window_open;
         rust.current_app_id = current_app_id.to_string();
