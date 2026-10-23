@@ -7,8 +7,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=9
-_commit=3e2caa70a2b64f3fa2d8cbe8df423e67e65265bb
+pkgrel=10
+_commit=3fa2fa3868cb57e62280631d13f08131c67c0bd1
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -35,7 +35,9 @@ prepare() {
 	[ -f Cargo.toml ] && [ -f Cargo.lock ] &&
 		[ -f host/deckard-host-tools/Cargo.toml ] &&
 		[ -f host/deckard-fonts-sync/Cargo.toml ] &&
-		[ -f host/deckard-overlay-sync/Cargo.toml ] ||
+	[ -f host/deckard-overlay-sync/Cargo.toml ] &&
+	[ -f host/deckard-runtime/Cargo.toml ] &&
+	[ -f host/deckard-launch/Cargo.toml ] ||
 		die "pin a Deckard commit containing the native host tools"
 }
 
@@ -45,14 +47,18 @@ build() {
 		-DCMAKE_INSTALL_PREFIX=/usr
 	cmake --build build
 	export CARGO_TARGET_DIR="$builddir/target"
+	export RUSTFLAGS="-C target-feature=-crt-static"
 	cargo build --release --locked -p deckard-host-tools \
-		-p deckard-fonts-sync -p deckard-overlay-sync
+		-p deckard-fonts-sync -p deckard-overlay-sync \
+		-p deckard-runtime -p deckard-launch
 }
 
 check() {
 	ctest --test-dir build --output-on-failure
 	export CARGO_TARGET_DIR="$builddir/target"
-	cargo test --locked -p deckard-host-tools -p deckard-fonts-sync -p deckard-overlay-sync
+	export RUSTFLAGS="-C target-feature=-crt-static"
+	cargo test --locked -p deckard-host-tools -p deckard-fonts-sync \
+		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch
 }
 
 package() {
@@ -73,6 +79,14 @@ package() {
 	install -Dm755 $p/deckard-reset "$pkgdir"/usr/libexec/deckard-reset
 	install -Dm755 target/release/deckard-shared-folders \
 		"$pkgdir"/usr/libexec/deckard-shared-folders
+	install -Dm755 target/release/deckard-runtime \
+		"$pkgdir"/usr/libexec/deckard-runtime
+	install -Dm755 target/release/deckard-launch \
+		"$pkgdir"/usr/libexec/deckard-launch
+	install -d "$pkgdir"/usr/bin
+	ln -s ../libexec/deckard-launch "$pkgdir"/usr/bin/deckard-launch
+	install -Dm644 $p/deckard-session.service \
+		"$pkgdir"/usr/lib/systemd/user/deckard-session.service
 	[ ! -f $p/deckard-boot-evidence ] ||
 		install -Dm755 $p/deckard-boot-evidence "$pkgdir"/usr/libexec/deckard-boot-evidence
 	install -Dm644 $p/org.marathonos.deckard.policy \

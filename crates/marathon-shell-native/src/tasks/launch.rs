@@ -448,26 +448,35 @@ impl Tasks {
             self.as_mut().open(app, false);
             self.as_mut().show(app, "native", -1);
         }
-        if !app.exec.is_empty() {
+        // Android desktop files are rewritten during a session cutover. The
+        // catalogue may still hold the old launcher until Shell restarts.
+        let exec = if is_android_app_id(&app.id) {
+            desktop_entry(&app.id)
+                .map(|entry| entry.exec)
+                .filter(|command| !command.is_empty())
+                .unwrap_or_else(|| app.exec.clone())
+        } else {
+            app.exec.clone()
+        };
+        if !exec.is_empty() {
             let launch = Launch {
                 app_id: app.id.clone(),
                 name: app.name.clone(),
                 icon: app.icon.clone(),
                 kind: "native".to_owned(),
-                command: app.exec.clone(),
+                command: exec.clone(),
                 foreground_generation,
                 ..Launch::default()
             };
             self.as_mut()
                 .rust_mut()
                 .pending_by_command
-                .insert(app.exec.clone(), launch);
-            if app.exec.starts_with("waydroid app ") {
+                .insert(exec.clone(), launch);
+            if exec.starts_with("waydroid app ") {
                 self.as_mut().wake(&app.id);
-                self.as_mut().after_android_boots(app.exec.clone());
+                self.as_mut().after_android_boots(exec);
             } else {
-                self.as_mut()
-                    .spawn_requested(&q(&app.exec), &Map::default());
+                self.as_mut().spawn_requested(&q(&exec), &Map::default());
             }
         }
         let id = app.id.clone();
