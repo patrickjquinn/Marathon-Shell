@@ -2811,6 +2811,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-touchctl"
+version = "0.1.0"
+dependencies = [
+ "evdev",
+]
+
+[[package]]
 name = "marathon-weatherd"
 version = "0.1.0"
 dependencies = [
