@@ -1,6 +1,7 @@
 # Gate 5: the bridge's footprint and wakeups, idle and with media sessions
 # and Keel providers active. The release-gate record for the Rust bridge.
-# G_VIDEO    a second media session, if installed (is.xyz.mpv)
+# G_VIDEO    F-Droid video player for a second media session, installed
+#            for the run if absent (is.xyz.mpv)
 # G_SECONDS  wakeup window per phase (60)
 
 G_VIDEO=${G_VIDEO:-is.xyz.mpv}
@@ -40,11 +41,9 @@ android "am broadcast -a $TEST.POST --es kind media -n $TEST/.TestReceiver" > /d
 undo "android 'am broadcast -a $TEST.POST --es kind media_stop -n $TEST/.TestReceiver' > /dev/null"
 sleep 3
 footprint media-1
-if installed "$G_VIDEO"; then
-    launch_android "$G_VIDEO"
-    sleep 6
+if video_ready && video_play; then
     footprint media-2
 else
-    step media-2 skip "$G_VIDEO not installed"
+    step media-2 fail "no second media session"
 fi
 step gate5 ok

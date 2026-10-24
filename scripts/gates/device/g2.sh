@@ -35,6 +35,7 @@ window() {
 
 need_android || exit 0
 snapshot_state
+android 'dumpsys activity settings' | sed -n 's/^ *use_freezer=//p' > "$G_TMP/use-freezer.txt"
 apps=${G_APPS:-$(android_apps)}
 for pkg in $G_EXTRA; do
     [ "$(echo $apps | wc -w)" -ge 8 ] && break

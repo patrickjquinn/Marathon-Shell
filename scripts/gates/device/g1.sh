@@ -91,15 +91,18 @@ for i in range(count):
     time.sleep(1)
 EOF
     chmod 644 "$G_TMP/u/notify.py"
-    hwm() {
-        awk '/^VmHWM:/ {print $2}' /proc/"$G_SHELL_PID"/status
-    }
-    before=$(hwm)
+    while :; do
+        while read -r k v _; do [ "$k" = VmRSS: ] && echo "$v"; done < /proc/"$G_SHELL_PID"/status
+        usleep 50000
+    done > "$G_TMP/images-$1-rss.txt" &
+    R=$!
+    job $R
+    sleep 1
     mark "images-$1 begin"
     as_user "python3 $G_TMP/u/notify.py $G_SIDE $G_IMAGES" >> "$G_TMP/images-$1.txt" ||
         step "images-$1" fail "Notify failed"
     mark "images-$1 end"
-    echo "$before $(hwm)" > "$G_TMP/images-$1-hwm.txt"
+    kill "$R"
     for id in $(awk '{print $2}' "$G_TMP/images-$1.txt"); do
         as_user "busctl --user call org.freedesktop.Notifications /org/freedesktop/Notifications org.freedesktop.Notifications CloseNotification u $id" > /dev/null
     done

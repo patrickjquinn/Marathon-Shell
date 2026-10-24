@@ -162,6 +162,21 @@ touch_cmds() {
     printf '%s\n' "$@" | marathon-touchctl -
 }
 
+# touch_open: one touch device for the run, fed by touch_send through a FIFO,
+# so no input hotplug lands inside a measured window.
+touch_open() {
+    mkfifo "$G_TMP/touch.fifo" || { step touch fail "mkfifo"; return 1; }
+    marathon-touchctl - < "$G_TMP/touch.fifo" &
+    job $!
+    exec 5> "$G_TMP/touch.fifo"
+    undo "exec 5>&-"
+    sleep 1
+}
+
+touch_send() {
+    printf '%s\n' "$@" >&5
+}
+
 foreground() {
     shell_call Navigation GetForegroundApp 2>/dev/null | sed 's/^s "//; s/"$//'
 }
@@ -202,8 +217,36 @@ restore_foreground() {
     fi
 }
 
+# video_ready: G_VIDEO installed and a 5 min 30 fps test video in Movies,
+# both removed at exit.
+video_ready() {
+    fdroid_add "$G_VIDEO" || return 1
+    movies=$G_ANDROID_DATA/media/0/Movies
+    mkdir -p "$movies"
+    ffmpeg -nostdin -loglevel error -f lavfi -i testsrc2=s=480x360:r=30 -t 300 -c:v libx264 -preset ultrafast \
+        -pix_fmt yuv420p -y "$movies/gates.mp4" && chown 1023:1023 "$movies/gates.mp4" &&
+        undo "rm -f $movies/gates.mp4" || { step video-file fail ffmpeg; return 1; }
+    android "pm grant $G_VIDEO android.permission.READ_MEDIA_VIDEO; pm grant $G_VIDEO android.permission.READ_EXTERNAL_STORAGE" > /dev/null 2>&1
+    step video-file ok
+}
+
+# video_play: G_VIDEO in front, playing the test video.
+video_play() {
+    launch_android "$G_VIDEO"
+    sleep 4
+    android "am start -a android.intent.action.VIEW -d file:///sdcard/Movies/gates.mp4 -t video/mp4 -p $G_VIDEO" > /dev/null
+    sleep 6
+    if android 'dumpsys media_session' | grep -q 'state=PlaybackState {state=3'; then
+        step video-playing ok
+    else
+        step video-playing fail "no playing media session: the video may not be running"
+        return 1
+    fi
+}
+
 # trace_start: a private tracefs instance (the global tracer is left alone)
-# with vblanks, GPU submissions and, when the shell runs, its GUI and render
+# with vblanks, GPU job submissions (the ioctl, so in the submitting
+# process; v3d_submit_cl fires in the scheduler's kthread) and, when the shell runs, its GUI and render
 # threads' context switches.
 trace_start() {
     [ -d /sys/kernel/tracing/instances ] || { step tracefs skip "no tracefs"; return 1; }
@@ -214,7 +257,7 @@ trace_start() {
     ev=$G_TRACE/events
     echo 'crtc == 0' > "$ev/drm/drm_vblank_event_delivered/filter"
     echo 1 > "$ev/drm/drm_vblank_event_delivered/enable"
-    [ -d "$ev/v3d/v3d_submit_cl" ] && echo 1 > "$ev/v3d/v3d_submit_cl/enable"
+    [ -d "$ev/v3d/v3d_submit_cl_ioctl" ] && echo 1 > "$ev/v3d/v3d_submit_cl_ioctl/enable"
     echo 1 > "$G_TRACE/options/record-tgid"
     if [ -n "$G_SHELL_PID" ] && [ "${G_SCHED:-1}" = 1 ]; then
         f="prev_pid == $G_SHELL_PID || next_pid == $G_SHELL_PID"

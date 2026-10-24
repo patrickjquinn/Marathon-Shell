@@ -78,7 +78,7 @@ class Trace:
             ts, ev, rest = float(m["ts"]), m["ev"], m["rest"]
             if ev == "drm_vblank_event_delivered":
                 self.vblank.append(ts)
-            elif ev == "v3d_submit_cl":
+            elif ev == "v3d_submit_cl_ioctl":
                 tgid = m["tgid"] if m["tgid"] and m["tgid"] != "-" else m["pid"]
                 self.submits.append((ts, int(tgid), m["comm"].strip()))
             elif ev == "sched_switch":
@@ -124,7 +124,7 @@ class Trace:
                 counts[tgid] += 1
                 names.setdefault(tgid, comm)
         dur = max(end - begin, 1e-9)
-        return {tgid: {"comm": names[tgid], "submits_per_s": round(n / dur, 2)} for tgid, n in counts.items()}
+        return {tgid: {"comm": names[tgid], "gpu_jobs_per_s": round(n / dur, 2)} for tgid, n in counts.items()}
 
 
 def processes(raw, label):
@@ -328,44 +328,54 @@ def gate1(raw, out):
             frame_rows.append({"window": name, **f})
     bursts = [n for n in tr.windows if n.startswith("burst-")]
     for n in sorted(bursts):
-        b, _ = tr.windows[n]
-        f = tr.frames(b, b + 3.0)
-        res[n + "+3s"] = f
-        frame_rows.append({"window": n + "+3s", **f})
+        b, e = tr.windows[n]
+        f = tr.frames(b, e + 1.0)
+        res[n] = f
+        frame_rows.append({"window": n, **f})
     write_csv(out / "frames.csv", frame_rows)
     notify = [m for m in msgs if m["kind"] == "method call" and m.get("member") == "Notify"]
     res["notify_calls"] = len(notify)
     for label in ("keys", "drag"):
         replies = [float(line.split()[2]) for line in read(raw, f"images-{label}.txt").splitlines()]
         res[f"images-{label}_notify_reply_ms"] = stats_ms(replies)
-        hwm = read(raw, f"images-{label}-hwm.txt").split()
-        if len(hwm) == 2:
-            res[f"images-{label}_shell_peak_rss_growth_kb"] = int(hwm[1]) - int(hwm[0])
+        rss = [int(x) for x in read(raw, f"images-{label}-rss.txt").split() if x.isdigit()]
+        if rss:
+            res[f"images-{label}_shell_rss_growth_kb"] = max(rss) - rss[0]
     base = res.get("drag-baseline", {}).get("missed_per_animating_s") or 0
 
     def excess(f):
         return f["missed"] - base * f["animating_s"]
-    burst_excess = [excess(res[n + "+3s"]) for n in bursts if n in ("burst-3", "burst-4")]
+    burst_excess = [excess(res[n]) for n in bursts if n in ("burst-3", "burst-4")]
     if "drag-images" in res:
         burst_excess.append(excess(res["drag-images"]))
     p99_base = (res.get("keys-baseline", {}).get("round_trip_ms") or {}).get("p99")
-    reasons = []
+    literal, measured = [], []
     for name in ("keys-pressure", "keys-images"):
-        p99 = (res.get(name, {}).get("round_trip_ms") or {}).get("p99")
-        if p99 is not None and p99 > 8:
-            reasons.append(f"{name}: keyboard round trip p99 {p99:.1f} ms > 8 ms")
         w = res.get(name, {})
-        if w.get("keys") and w["lost"] > w["keys"] / 100:
-            reasons.append(f"{name}: {w['lost']} of {w['keys']} keystrokes got no editor report within 1 s")
+        p99 = (w.get("round_trip_ms") or {}).get("p99")
+        if p99 is not None and p99 > 8:
+            literal.append(f"{name}: keyboard round trip p99 {p99:.1f} ms > 8 ms")
         if p99 is not None and p99_base is not None:
-            res[name]["load_induced_p99_ms"] = round(p99 - p99_base, 3)
+            w["load_induced_p99_ms"] = round(p99 - p99_base, 3)
+            if p99 - p99_base > 8:
+                measured.append(f"{name}: load adds {p99 - p99_base:.1f} ms to the keyboard round trip p99")
+        answer = (w.get("shell_answer_ms") or {}).get("p99")
+        if answer is not None and answer > 8:
+            measured.append(f"{name}: the Shell answers the editor's report in {answer:.1f} ms p99 > 8 ms")
+        if w.get("keys") and w["lost"] > w["keys"] / 100:
+            measured.append(f"{name}: {w['lost']} of {w['keys']} keystrokes got no editor report within 1 s")
     if burst_excess and max(burst_excess) > 1:
-        reasons.append(f"{max(burst_excess):.1f} frames dropped beyond baseline under a burst")
-    pressure = res.get("keys-pressure", {}).get("round_trip_ms") or {}
-    enough = (pressure.get("n") or 0) >= 50 and bool(burst_excess)
+        measured.append(f"{max(burst_excess):.1f} frames dropped beyond baseline under a burst")
     if p99_base is not None and p99_base > 8:
-        reasons.append(f"note: baseline p99 {p99_base:.1f} ms already > 8 ms, so not load-induced")
-    return res, verdict(reasons, enough)
+        literal.append(f"note: baseline p99 {p99_base:.1f} ms already > 8 ms, so not load-induced")
+    pressure = res.get("keys-pressure", {}).get("round_trip_ms") or {}
+    drawn = res.get("drag-baseline", {}).get("frames", 0) > 0
+    enough = (pressure.get("n") or 0) >= 50 and bool(burst_excess) and drawn
+    if not drawn:
+        measured.append("note: no vblank events in drag-baseline: the frame trace did not work")
+    decision = verdict(literal + [r for r in measured if r not in literal], enough)
+    decision["measured_verdict"] = verdict(measured, enough)["verdict"]
+    return res, decision
 
 
 def gate2(raw, out):
@@ -385,31 +395,41 @@ def gate2(raw, out):
     write_csv(out / "processes.csv", rows)
     kills = read(raw, "kills.txt")
     res["kills_raw"] = kills.splitlines()[-8:]
-    probe = load_probe(raw)
-    res["use_freezer"] = probe.get("android.use_freezer")
-    reasons = []
+    res["use_freezer"] = read(raw, "use-freezer.txt").strip() or None
+    idle = res.get("idle-baseline", {}).get("container_cpu_pct_core")
+    literal, reasons = [], []
     for name in ("hidden-screen-on", "hidden-screen-off"):
         w = res.get(name)
         if not w:
             continue
         if w["container_cpu_pct_core"] > 2:
-            reasons.append(f"{name}: hidden Android apps use {w['container_cpu_pct_core']:.2f} % of a core > 2 %")
+            literal.append(f"{name}: Android uses {w['container_cpu_pct_core']:.2f} % of a core > 2 %")
+        if idle is not None:
+            w["hidden_apps_cpu_pct_core"] = round(w["container_cpu_pct_core"] - idle, 3)
+            if w["hidden_apps_cpu_pct_core"] > 2:
+                reasons.append(f"{name}: hidden apps add {w['hidden_apps_cpu_pct_core']:.2f} % of a core "
+                               "over Android idle > 2 %")
+        if w["container_cpu_pct_core"] >= 1:
+            reasons.append(f"note: {name}: Android at {w['container_cpu_pct_core']:.2f} % of a core, "
+                           "above DEFER's 1 %")
         if (w["android_gpu_pct"] or 0) > 5:
             reasons.append(f"{name}: Android's processes keep the GPU {w['android_gpu_pct']:.1f} % busy > 5 %")
         if w["gpu_busy_pct"] > 5:
-            reasons.append(f"note: {name}: GPU {w['gpu_busy_pct']:.1f} % busy overall, shell included")
+            literal.append(f"{name}: GPU {w['gpu_busy_pct']:.1f} % busy > 5 %, shell included")
         if w["container_oom_kills"]:
             reasons.append(f"{name}: {w['container_oom_kills']} OOM kills")
-    measured = verdict(list(reasons), "hidden-screen-on" in res)
+    enough = "hidden-screen-on" in res and idle is not None
+    measured = verdict(list(reasons), enough)
     if res["use_freezer"] == "false":
-        reasons.append("playbook: Android's cached-app freezer is off (use_freezer=false)")
-    literal = verdict(reasons, "hidden-screen-on" in res)
+        literal.append("playbook: Android's cached-app freezer is off (use_freezer=false)")
+    literal = verdict(literal + reasons, enough)
     literal["measured_verdict"] = measured["verdict"]
     return res, literal
 
 
 def gate3(raw, out):
     tr, res, rows = Trace(raw), {}, []
+    video = (read(raw, "apps.txt").split() or [""])[-1]
     for name in ("static-switcher", "video-switcher", "video-home"):
         if name not in tr.windows:
             continue
@@ -421,73 +441,96 @@ def gate3(raw, out):
             rows.append({"window": name, "tgid": t, "android": t in android,
                          "cmdline": procs.get(t, {}).get("cmdline", "")[:60], **r})
         f = tr.frames(b, e)
-        res[name] = {"compositor_fps": round(f["frames"] / (e - b), 2),
-                     "android_max_submits_per_s": max((r["submits_per_s"] for r in android.values()), default=0),
-                     "android_clients": len(android), **f}
         sf = layer_fps(read(raw, f"sf-latency-{name}.txt"), b, e)
-        res[name]["surfaceflinger_fps"] = sf
+        res[name] = {"compositor_fps": round(f["frames"] / (e - b), 2),
+                     "android_max_gpu_jobs_per_s": max((r["gpu_jobs_per_s"] for r in android.values()), default=0),
+                     "android_clients": len(android), "surfaceflinger_fps": sf,
+                     "hidden_task_max_fps": max(sf.values(), default=0), **f}
     write_csv(out / "render_rates.csv", rows)
     reasons = []
     for name in ("video-switcher", "video-home"):
         w = res.get(name)
-        if w and max([w["android_max_submits_per_s"]] + list(w["surfaceflinger_fps"].values())) >= 30:
-            reasons.append(f"{name}: a hidden Android task renders at "
-                           f"{max([w['android_max_submits_per_s']] + list(w['surfaceflinger_fps'].values())):.0f} fps >= 30")
+        if w and w["hidden_task_max_fps"] >= 30:
+            reasons.append(f"{name}: a hidden Android task renders at {w['hidden_task_max_fps']:.0f} fps >= 30")
     if res.get("video-home", {}).get("compositor_fps", 0) > 5:
         reasons.append(f"video-home: the shell composites {res['video-home']['compositor_fps']} fps for a hidden client")
-    return res, verdict(reasons, "video-switcher" in res)
+    seen = any(video and video in layer for layer in res.get("video-switcher", {}).get("surfaceflinger_fps", {}))
+    if not seen:
+        reasons.append(f"note: no SurfaceFlinger frame record for {video or 'the video app'}")
+    return res, verdict(reasons, seen)
 
 
 def layer_fps(text, begin, end):
+    """Each layer's presented frames per second in [begin, end]. SurfaceFlinger
+    keeps a layer's last 128 frames, so a full record covers only its span."""
     out, layer, frames = {}, None, []
 
     def flush():
-        if layer:
-            n = sum(1 for t in frames if begin * 1e9 <= t <= end * 1e9)
-            out[layer] = round(n / (end - begin), 2)
+        if not layer:
+            return
+        inside = [t / 1e9 for t in frames if begin * 1e9 <= t <= end * 1e9]
+        start = min(frames) / 1e9 if len(frames) >= 120 and min(frames) > begin * 1e9 else begin
+        out[layer] = round(len(inside) / max(end - start, 1e-3), 2)
     for line in text.splitlines():
         if line.startswith("L "):
             flush()
             layer, frames = line[2:], []
-        else:
-            f = line.split()
-            if len(f) == 3 and f[1].isdigit() and int(f[1]) < 2**62:
-                frames.append(int(f[1]))
+            continue
+        f = line.split()
+        if len(f) == 3 and all(x.isdigit() for x in f):
+            t = next((int(x) for x in (f[1], f[0]) if 0 < int(x) < 2**62), None)
+            if t is not None:
+                frames.append(t)
     flush()
     return out
 
 
 def gate4(raw, out):
     tr = Trace(raw)
-    gui, _render = gui_tids(raw)
+    gui, render = gui_tids(raw)
     rows = []
     for name, (b, e) in sorted(tr.windows.items()):
         if not name.startswith("peek-"):
             continue
         f = tr.frames(b, e + 0.3)
         spans = tr.busy_spans(gui, b, e + 0.3) if gui else []
+        rspans = tr.busy_spans(render, b, e + 0.3) if render else []
         rows.append({"window": name, "kind": "launch" if "launch" in name else "baseline",
                      "gui_spans_over_16ms": sum(1 for s in spans if s > 16),
-                     "gui_longest_ms": round(max(spans, default=0), 2), **f})
+                     "gui_longest_ms": round(max(spans, default=0), 2),
+                     "render_spans_over_16ms": sum(1 for s in rspans if s > 16),
+                     "render_longest_ms": round(max(rspans, default=0), 2), **f})
     write_csv(out / "peeks.csv", rows)
     res = {}
     for kind in ("baseline", "launch"):
         r = [x for x in rows if x["kind"] == kind]
         if r:
             res[kind] = {"reps": len(r), "missed_mean": round(statistics.mean(x["missed"] for x in r), 2),
+                         "frames_mean": round(statistics.mean(x["frames"] for x in r), 1),
                          "reps_with_gui_stall": sum(1 for x in r if x["gui_spans_over_16ms"]),
+                         "reps_with_render_stall": sum(1 for x in r if x["render_spans_over_16ms"]),
                          "gui_longest_ms": max(x["gui_longest_ms"] for x in r),
+                         "render_longest_ms": max(x["render_longest_ms"] for x in r),
                          "longest_gap_ms": max(x["longest_gap_ms"] for x in r)}
-    reasons = []
+    literal, measured = [], []
     b, l = res.get("baseline"), res.get("launch")
+    if l and l["reps_with_gui_stall"]:
+        literal.append(f"GUI thread busy > 16 ms in {l['reps_with_gui_stall']}/{l['reps']} launch peeks")
     if b and l:
-        if l["reps_with_gui_stall"] > b["reps_with_gui_stall"]:
-            reasons.append(f"GUI thread busy > 16 ms in {l['reps_with_gui_stall']}/{l['reps']} launch peeks "
-                           f"(baseline {b['reps_with_gui_stall']}/{b['reps']})")
+        for thread in ("gui", "render"):
+            if l[f"reps_with_{thread}_stall"] > b[f"reps_with_{thread}_stall"]:
+                measured.append(f"{thread} thread busy > 16 ms in {l[f'reps_with_{thread}_stall']}/{l['reps']} "
+                                f"launch peeks (baseline {b[f'reps_with_{thread}_stall']}/{b['reps']})")
         if l["missed_mean"] > b["missed_mean"] + 1:
-            reasons.append(f"peek misses {l['missed_mean']} vblanks per launch vs {b['missed_mean']} alone")
+            measured.append(f"peek misses {l['missed_mean']} vblanks per launch vs {b['missed_mean']} alone")
     res["sched_events"] = len(tr.sched)
-    return res, verdict(reasons, bool(b and l and tr.sched))
+    drawn = bool(b and b["frames_mean"] > 0)
+    if not drawn:
+        measured.append("note: no vblank events in the baseline peeks: the frame trace did not work")
+    enough = bool(b and l and tr.sched) and drawn
+    decision = verdict(literal + [r for r in measured if r not in literal], enough)
+    decision["measured_verdict"] = verdict(measured, enough)["verdict"]
+    return res, decision
 
 
 def gate5(raw, out):

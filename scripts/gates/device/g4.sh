@@ -13,13 +13,15 @@ G_DELAY=${G_DELAY:-150}
 
 peek() {
     mark "$1 begin"
-    touch_cmds "swipe $G_PEEK 120"
+    touch_send "swipe $G_PEEK 120"
+    sleep 0.5
     mark "$1 end"
 }
 
 need_android || exit 0
 [ -n "$G_SHELL_PID" ] || { step shell skip "marathon-shell-bin not running"; exit 0; }
 snapshot_state
+touch_open || exit 0
 trace_start
 keel shell.home
 sleep 3
@@ -38,9 +40,10 @@ while [ "$i" -lt "$G_REPS" ]; do
     sleep 1
     mark "launch-$i begin"
     launch_android "$G_LAUNCH" &
+    L=$!
     usleep $((G_DELAY * 1000))
     peek "peek-launch-$i"
-    wait
+    wait "$L"
     sleep 4
     mark "launch-$i end"
     keel shell.home
