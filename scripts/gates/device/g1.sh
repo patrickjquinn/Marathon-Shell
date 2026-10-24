@@ -2,7 +2,8 @@
 # F-Droid install, Android notification bursts with 1024 px pictures, and a
 # session client's notifications carrying 1024 px image-data.
 # G_IME_APP  Android package with a text field (net.gsantner.markor)
-# G_FOCUS    "x y" tap that focuses its text field (optional)
+# G_FOCUS    "x y[,x y...]" taps that focus its text field and raise the
+#            keyboard, e.g. the gesture bar's keyboard button (optional)
 # G_KEY      "x y" of a letter key on Marathon's keyboard (required)
 # G_BKSP     "x y" of its backspace key (required)
 # G_KEYS     keystrokes per phase (300: 30 s at 10 Hz)
@@ -150,7 +151,11 @@ trace_start
 
 launch_android "$G_IME_APP"
 sleep 6
-[ -n "${G_FOCUS:-}" ] && touch_cmds "tap $G_FOCUS" && sleep 2
+if [ -n "${G_FOCUS:-}" ]; then
+    old_ifs=$IFS IFS=,
+    for xy in $G_FOCUS; do IFS=$old_ifs touch_cmds "tap $xy" && sleep 2; done
+    IFS=$old_ifs
+fi
 mark "preflight begin"
 keystrokes 4
 sleep 2
