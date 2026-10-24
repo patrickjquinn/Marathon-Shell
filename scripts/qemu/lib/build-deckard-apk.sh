@@ -55,7 +55,12 @@ if [ -n "$LOCAL_COMMIT" ]; then
     sed -i "s/deckard-[0-9a-f]\{40\}\.tar\.gz/deckard-$LOCAL_COMMIT.tar.gz/" APKBUILD
 fi
 abuild -F checksum
-abuild -r -F
+# -d: depends names marathon-shell, which no repository here has.
+apk add --no-cache --quiet $(srcdir=/; . ./APKBUILD; echo $depends $makedepends $checkdepends |
+    tr ' ' '\n' | grep -v '^marathon-shell')
+# The tests create whiteouts, which the container's overlay root refuses.
+mkdir -p /work/tmp
+TMPDIR=/work/tmp abuild -d -F
 ver=$(srcdir=/; . ./APKBUILD; echo "$pkgver-r$pkgrel")
 cp "/root/packages/aports/"*"/deckard-$ver.apk" /out/
 echo "wrote /out/deckard-$ver.apk"
