@@ -841,7 +841,8 @@ int main(int argc, char *argv[]) {
         const QString key     = QStringLiteral("display/") + QLatin1String(name);
         if (const QVariant saved = settingsManager->get(key, QVariant()); saved.isValid())
             display->setProperty(name, saved);
-        QObject::connect(display, changed, settingsManager,
+        // clazy cannot follow a member pointer read from the table.
+        QObject::connect(display, changed, settingsManager, // clazy:exclude=connect-non-signal
                          [=] { settingsManager->set(key, display->property(name)); });
     }
     display->setAutoBrightness(settingsManager->getAutoBrightness());

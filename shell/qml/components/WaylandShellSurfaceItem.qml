@@ -1,6 +1,5 @@
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtWayland.Compositor
 
 NativeSurfaceItem {
     id: surfaceItem
