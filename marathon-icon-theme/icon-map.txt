@@ -76,7 +76,7 @@ error warning-circle
 events bell
 expand caret-down
 favorite star
-favorite-selected star
+favorite-selected star-fill
 file-apk package
 file-archive file-zip
 file-audio file-audio
