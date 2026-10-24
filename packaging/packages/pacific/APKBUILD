@@ -7,7 +7,7 @@
 # Atlantic engine) are left out; pacific-env gives the engine its environment.
 pkgname=pacific
 pkgver=0.1.0
-pkgrel=7
+pkgrel=8
 _commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 pkgdesc="Pacific web browser for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -43,7 +43,6 @@ source="$pkgname-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-op
 	engine-symbols-on-musl.patch
 	pacific-env
 	shipwright-pacific.desktop
-	shipwright-pacific.svg
 	org.shipwright.pacific.ui.service
 	"
 builddir="$srcdir/shipwright-open-$_commit"
@@ -90,7 +89,11 @@ package() {
 	install -Dm644 "$srcdir/$app.desktop" "$pkgdir/usr/share/applications/$app.desktop"
 	install -Dm644 "$srcdir/org.shipwright.pacific.ui.service" \
 		"$pkgdir/usr/share/dbus-1/services/org.shipwright.pacific.ui.service"
-	install -Dm644 "$srcdir/$app.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/$app.svg"
+	local s
+	for s in 86 108 128 172; do
+		install -Dm644 icons/hicolor/${s}x$s/apps/$app.png \
+			"$pkgdir/usr/share/icons/hicolor/${s}x$s/apps/$app.png"
+	done
 
 	install -Dm644 "$actions/actions.json" \
 		"$pkgdir/usr/share/keel/actions/org.shipwright.pacific.json"
