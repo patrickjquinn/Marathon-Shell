@@ -8,15 +8,16 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=13
-_commit=47c97521f84be90dd78c3773cbbc3cb31c70f188
+pkgrel=14
+_commit=0182a64ee06a2897cdbe3f426a47883f8817195b
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND GPL-3.0-only"
 # deckard-containerd runs lxc-*, dnsmasq, iptables and modprobe (kmod);
-# deckard-boot-evidence runs ss and nsenter.
-depends="lxc dnsmasq iptables kmod iproute2-ss util-linux-misc libgcc"
+# deckard-boot-evidence runs ss and nsenter; deckard-migrate runs
+# marathon-shell-bin --rename-app-ids.
+depends="lxc dnsmasq iptables kmod iproute2-ss util-linux-misc libgcc marathon-shell>=1.0.0-r492"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so the Rust binaries' libgcc_s is listed above instead.
 options="!tracedeps net"
@@ -42,7 +43,7 @@ prepare() {
 	[ -f host/deckard-runtime/Cargo.toml ] &&
 	[ -f host/deckard-launch/Cargo.toml ] &&
 	[ -f host/deckard-container/Cargo.toml ] &&
-	[ -f host/deckard-host-tools/src/reset.rs ] &&
+	[ -f host/deckard-host-tools/src/migrate.rs ] &&
 	[ -f host/deckard-bridge/Cargo.toml ] ||
 		die "pin a Deckard commit containing the native host tools"
 }
@@ -100,12 +101,17 @@ package() {
 		"$pkgdir"/usr/libexec/deckard-containerd
 	install -Dm644 $p/deckard-container.service \
 		"$pkgdir"/usr/lib/systemd/system/deckard-container.service
-	install -Dm644 $p/id.waydro.Container.service \
-		"$pkgdir"/usr/share/dbus-1/system-services/id.waydro.Container.service
-	install -Dm644 $p/id.waydro.Container.conf \
-		"$pkgdir"/usr/share/dbus-1/system.d/id.waydro.Container.conf
-	install -Dm644 $p/id.waydro.Container.policy \
-		"$pkgdir"/usr/share/polkit-1/actions/id.waydro.Container.policy
+	local bus=org.marathonos.Deckard.Container
+	install -Dm644 $p/$bus.service "$pkgdir"/usr/share/dbus-1/system-services/$bus.service
+	install -Dm644 $p/$bus.conf "$pkgdir"/usr/share/dbus-1/system.d/$bus.conf
+	install -Dm644 $p/$bus.policy "$pkgdir"/usr/share/polkit-1/actions/$bus.policy
+	# Moves an upgraded device's Android state to Deckard's names at boot.
+	install -Dm755 target/release/deckard-migrate "$pkgdir"/usr/libexec/deckard-migrate
+	install -Dm644 $p/deckard-migrate.service \
+		"$pkgdir"/usr/lib/systemd/system/deckard-migrate.service
+	install -d "$pkgdir"/usr/lib/systemd/system/sysinit.target.wants
+	ln -s ../deckard-migrate.service \
+		"$pkgdir"/usr/lib/systemd/system/sysinit.target.wants/deckard-migrate.service
 	[ ! -f $p/deckard-boot-evidence ] ||
 		install -Dm755 $p/deckard-boot-evidence "$pkgdir"/usr/libexec/deckard-boot-evidence
 	install -Dm644 $p/org.marathonos.deckard.policy \
