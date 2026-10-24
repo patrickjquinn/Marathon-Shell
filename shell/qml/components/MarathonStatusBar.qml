@@ -26,6 +26,42 @@ Item {
         return !enabled || !connected ? "wifi-slash" : strength <= 33 ? "wifi-low" : strength <= 66 ? "wifi-medium" : "wifi-high";
     }
 
+    // Each cluster's glyphs go dark over a light backdrop, light over a dark one.
+    component Tone: BackdropProbe {
+        property color glyph: light ? Silica.Theme.darkPrimaryColor : Silica.Theme.lightPrimaryColor
+
+        height: parent.height
+        fallbackLight: Silica.Theme.colorScheme === Silica.Theme.DarkOnLight
+
+        Behavior on glyph {
+            ColorAnimation {
+                duration: MMotion.durationFor("hover")
+                easing.type: MMotion.easingFor("hover")
+            }
+        }
+    }
+
+    Tone {
+        id: leftTone
+
+        x: leftIconGroup.x
+        width: leftIconGroup.width
+    }
+
+    Tone {
+        id: centerTone
+
+        x: centerContent.x
+        width: centerContent.width
+    }
+
+    Tone {
+        id: rightTone
+
+        x: rightIconGroup.x
+        width: rightIconGroup.width
+    }
+
     Row {
         id: leftIconGroup
 
@@ -37,14 +73,14 @@ Item {
 
         GlyphIcon {
             name: statusBar.batteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
-            color: Silica.Theme.primaryColor
+            color: leftTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
         }
 
         Text {
             text: SystemStatusStore.batteryLevel + "%"
-            color: Silica.Theme.primaryColor
+            color: leftTone.glyph
             font.family: Silica.Theme.fontFamily
             font.pixelSize: Silica.Theme.fontSizeExtraSmall
             font.features: ({
@@ -95,7 +131,7 @@ Item {
             visible: opacity > 0.01
             opacity: SessionStore.isOnLockScreen ? 0 : 1
             text: SystemStatusStore.timeString
-            color: Silica.Theme.primaryColor
+            color: centerTone.glyph
             font.family: Silica.Theme.fontFamily
             font.pixelSize: Silica.Theme.fontSizeSmall
             font.features: ({
@@ -121,7 +157,7 @@ Item {
             opacity: SessionStore.isOnLockScreen ? 1 : 0
             name: SessionStore.isLocked ? "lock" : "lock-open"
             size: Silica.Theme.iconSizeExtraSmall
-            color: Silica.Theme.primaryColor
+            color: centerTone.glyph
             scale: SessionStore.isAnimatingLock ? 0.8 : 1
             rotation: {
                 if (SessionStore.lockTransition === "locking")
@@ -163,7 +199,7 @@ Item {
 
         GlyphIcon {
             name: "plane"
-            color: Silica.Theme.primaryColor
+            color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.isAirplaneMode
@@ -171,7 +207,7 @@ Item {
 
         GlyphIcon {
             name: "bell-slash"
-            color: Silica.Theme.primaryColor
+            color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.isDndMode
@@ -179,7 +215,7 @@ Item {
 
         GlyphIcon {
             name: SystemStatusStore.isBluetoothConnected ? "bluetooth-connected" : "bluetooth"
-            color: Silica.Theme.primaryColor
+            color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.isBluetoothOn
@@ -187,7 +223,7 @@ Item {
 
         GlyphIcon {
             name: statusBar.signalIcon(SystemStatusStore.cellularStrength)
-            color: Silica.Theme.primaryColor
+            color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: Modem.modemAvailable
@@ -195,7 +231,7 @@ Item {
 
         Text {
             text: SystemStatusStore.dataType
-            color: Silica.Theme.primaryColor
+            color: rightTone.glyph
             font.family: Silica.Theme.fontFamily
             font.pixelSize: Silica.Theme.fontSizeTiny
             anchors.verticalCenter: parent.verticalCenter
@@ -204,7 +240,7 @@ Item {
 
         GlyphIcon {
             name: "cable"
-            color: Silica.Theme.primaryColor
+            color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.ethernetConnected
@@ -212,7 +248,7 @@ Item {
 
         GlyphIcon {
             name: statusBar.wifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, Network.wifiConnected)
-            color: Silica.Theme.primaryColor
+            color: rightTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.isWifiOn
