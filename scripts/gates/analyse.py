@@ -79,7 +79,7 @@ class Trace:
             if ev == "drm_vblank_event_delivered":
                 self.vblank.append(ts)
             elif ev == "v3d_submit_cl_ioctl":
-                tgid = m["tgid"] if m["tgid"] and m["tgid"] != "-" else m["pid"]
+                tgid = m["tgid"] if m["tgid"] and m["tgid"].strip("-") else m["pid"]
                 self.submits.append((ts, int(tgid), m["comm"].strip()))
             elif ev == "sched_switch":
                 s = SCHED_RE.search(rest)
