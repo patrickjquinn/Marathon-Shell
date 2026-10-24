@@ -32,6 +32,15 @@ Rectangle {
     readonly property GestureTracker backTracker: backDrag
     readonly property real backProgressTravel: width * 0.55
 
+    // The bar takes the tone of the content along its top edge.
+    readonly property bool lightBackdrop: backdrop.light
+    property color primary: lightBackdrop ? Silica.Theme.darkPrimaryColor : Silica.Theme.lightPrimaryColor
+    property color secondary: lightBackdrop ? Silica.Theme.darkSecondaryColor : Silica.Theme.lightSecondaryColor
+    property color accent: Silica.Theme.highlightFromColor(Silica.Theme.highlightColor, lightBackdrop ? Silica.Theme.DarkOnLight : Silica.Theme.LightOnDark)
+    // The pill and active glyphs: an ambience highlight can't be trusted to
+    // reach 3:1 on the light bar, so there they go black.
+    property color highlight: lightBackdrop ? Silica.Theme.darkPrimaryColor : Silica.Theme.highlightFromColor(Silica.Theme.highlightColor, Silica.Theme.LightOnDark)
+
     signal swipeLeft
     signal swipeRight
     signal swipeBack
@@ -48,13 +57,56 @@ Rectangle {
     signal pilotRequested
 
     height: Constants.navBarHeight
-    color: Silica.Theme.overlayBackgroundColor
+    color: lightBackdrop ? MColors.barLight : MColors.barDark
+
+    Behavior on color {
+        ColorAnimation {
+            duration: MMotion.durationFor("hover")
+            easing.type: MMotion.easingFor("hover")
+        }
+    }
+    Behavior on primary {
+        ColorAnimation {
+            duration: MMotion.durationFor("hover")
+            easing.type: MMotion.easingFor("hover")
+        }
+    }
+    Behavior on secondary {
+        ColorAnimation {
+            duration: MMotion.durationFor("hover")
+            easing.type: MMotion.easingFor("hover")
+        }
+    }
+    Behavior on accent {
+        ColorAnimation {
+            duration: MMotion.durationFor("hover")
+            easing.type: MMotion.easingFor("hover")
+        }
+    }
+    Behavior on highlight {
+        ColorAnimation {
+            duration: MMotion.durationFor("hover")
+            easing.type: MMotion.easingFor("hover")
+        }
+    }
+
+    BackdropProbe {
+        id: backdrop
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.top
+        height: Silica.Theme.paddingSmall
+        // Pilot's light, and the pill when dragged up, rise over this strip.
+        visible: navBar.pilotCharge === 0 && Math.abs(indicator.dragY) < 1
+        fallbackLight: Silica.Theme.colorScheme === Silica.Theme.DarkOnLight
+    }
 
     Rectangle {
         anchors.top: parent.top
         width: parent.width
         height: Constants.borderWidthThin
-        color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
+        color: Silica.Theme.rgba(navBar.primary, 0.1)
     }
 
     // Shipwright Pilot's bottom-edge notch: a slim highlight pill in a halo
@@ -89,15 +141,15 @@ Rectangle {
             gradient: Gradient {
                 GradientStop {
                     position: 0.0
-                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.0)
+                    color: Silica.Theme.rgba(navBar.accent, 0.0)
                 }
                 GradientStop {
                     position: 0.55
-                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.18)
+                    color: Silica.Theme.rgba(navBar.accent, 0.18)
                 }
                 GradientStop {
                     position: 1.0
-                    color: Silica.Theme.rgba(Silica.Theme.highlightColor, 0.55)
+                    color: Silica.Theme.rgba(navBar.accent, 0.55)
                 }
             }
         }
@@ -113,7 +165,7 @@ Rectangle {
                 width: indicator.width * (navBar.pilotLit ? 0.75 : 0.55) + 2 * spread
                 height: Silica.Theme.paddingSmall + 2 * spread
                 radius: height / 2
-                color: Silica.Theme.highlightColor
+                color: index === 0 ? navBar.highlight : navBar.accent
                 opacity: (index === 0 ? 0.6 : 0.16 / index) * (navBar.pilotLit ? 1.6 : 1)
                 antialiasing: Constants.enableAntialiasing
 
@@ -144,7 +196,7 @@ Rectangle {
         GlyphIcon {
             name: "search"
             size: Silica.Theme.iconSizeExtraSmall
-            color: navBar.searchActive ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+            color: navBar.searchActive ? navBar.highlight : navBar.secondary
             x: Silica.Theme.horizontalPageMargin
             anchors.verticalCenter: parent.verticalCenter
 
@@ -173,7 +225,7 @@ Rectangle {
         GlyphIcon {
             name: "keyboard"
             size: Silica.Theme.iconSizeExtraSmall
-            color: navBar.keyboardVisible ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+            color: navBar.keyboardVisible ? navBar.highlight : navBar.secondary
             anchors.right: parent.right
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.verticalCenter: parent.verticalCenter

@@ -17,6 +17,7 @@ pub mod app_ids;
 pub mod apps;
 pub mod audio;
 mod audit;
+mod backdrop;
 pub mod bluetooth;
 mod boost;
 mod cgroup;

@@ -7,6 +7,7 @@ fn main() {
         .file("src/app_ids.rs")
         .file("src/apps.rs")
         .file("src/audio.rs")
+        .file("src/backdrop.rs")
         .file("src/bluetooth.rs")
         .file("src/boost.rs")
         .file("src/clipboard.rs")

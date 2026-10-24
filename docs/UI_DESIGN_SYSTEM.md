@@ -387,6 +387,11 @@ wifi · bluetooth.
 The clock is *the* legibility test for the system — if it doesn't read
 crisp on a teal-gradient lockscreen wallpaper, the type system is wrong.
 
+Each cluster's glyphs take the tone of the frame behind them: black over
+a light backdrop, white over a dark one (`BackdropProbe`, a GPU readback
+of the cluster's top and bottom pixel rows at most 4×/s, fading over the
+`hover` role).
+
 ### 7.2 Top bar (`MTopBar`)
 
 Per-app chrome. Title in `XLarge` DemiBold; back chevron + optional
@@ -416,6 +421,12 @@ halo of two wider, fainter ones. Held still it widens and brightens and
 a light rises above the thumb until Pilot is asked. The strip is its own
 MouseArea — every system gesture starts here. No tap action on the pill
 itself; it's a *status affordance* (hidden in pin-screen mode).
+
+The bar takes the tone of the content along its top edge: `MColors.barDark`
+under dark content, `MColors.barLight` (Keel's light overlay) under light
+content, where its glyphs and the pill's core turn black so they hold 3:1
+whatever the ambience highlight is. All of its colours fade together over
+the `hover` role.
 
 ### 7.5 Quick Settings shade
 
