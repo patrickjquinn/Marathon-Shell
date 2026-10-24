@@ -2,14 +2,14 @@
 
 #include <QPointer>
 #include <QQuickItem>
-#include <QTimer>
 #include <qqml.h>
 
-class BackdropReader;
+class BackdropSampler;
 
 // Whether the frame is light along this item's top and bottom pixel rows.
-// The rows are read back from frames the scene graph renders anyway, through
-// a pixel buffer and a fence, at most four times a second.
+// One sampler per window reads every probe's rows back from frames the scene
+// graph renders anyway, through a pixel buffer and a fence, at most four
+// times a second.
 class BackdropProbe : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
@@ -32,20 +32,14 @@ class BackdropProbe : public QQuickItem {
   signals:
     void lightChanged();
 
-  protected:
-    void releaseResources() override;
-
   private:
-    void                   attach(QQuickWindow *window);
-    void                   sync();
-    void                   cleanup();
-    void                   setLight(bool light);
-    void                   followUp();
+    friend class BackdropSampler;
 
-    BackdropReader        *m_reader = nullptr;
-    QPointer<QQuickWindow> m_window;
-    QTimer                 m_followUp;
-    bool                   m_light         = false;
-    bool                   m_read          = false;
-    bool                   m_fallbackLight = false;
+    void                      attach(QQuickWindow *window);
+    void                      setLight(bool light);
+
+    QPointer<BackdropSampler> m_sampler;
+    bool                      m_light         = false;
+    bool                      m_read          = false;
+    bool                      m_fallbackLight = false;
 };
