@@ -8,19 +8,19 @@
 # fails to apply (and the shell never launches if you try). See the
 # rationale comment in marathon-shell-session for the full story.
 #
-# This sidecar runs as root in the system slice, polls for the
+# This sidecar runs as root in the system slice, waits for the
 # marathon-shell-bin PID, and writes -800 to /proc/<pid>/oom_score_adj.
 # It rewrites after every shell restart (greetd's Restart=on-failure or
 # a manual `systemctl restart greetd`) without needing greetd to know.
 #
-# Each poll forks at most once (find) while the shell keeps running: the
-# shell PID is cached and checked with a builtin, and pgrep, which scans
-# every process, runs only after the shell restarts.
+# While the shell runs it forks nothing on a timer: inotifyd reports each
+# new app cgroup, and a builtin read timeout checks the shell PID every
+# 30 s.
 
 set -eu
 
 TARGET_SCORE=-800
-POLL_INTERVAL=5
+CHECK_INTERVAL=30
 
 # Chown newly-created cpu.* controller files on marathon-app cgroups
 # to uid 1000. When CgroupManager enables `+cpu` in the marathon.slice
@@ -45,25 +45,46 @@ chown_cpu_files() {
     done
 }
 
-pinned=""
+pin() {
+    for pid in $(pgrep -f marathon-shell-bin 2>/dev/null); do
+        score_path="/proc/$pid/oom_score_adj"
+        [ -w "$score_path" ] || continue
+        read -r cur < "$score_path" 2>/dev/null || cur="?"
+        if [ "$cur" != "$TARGET_SCORE" ]; then
+            echo "$TARGET_SCORE" > "$score_path" 2>/dev/null || continue
+            logger -t marathon-shell-oom \
+                "pinned PID $pid oom_score_adj $cur → $TARGET_SCORE"
+        fi
+        echo "$pid"
+        return
+    done
+}
+
+events=/run/marathon-shell-oom-pin.fifo
 while true; do
-    if [ -z "$pinned" ] || [ ! -d "/proc/$pinned" ]; then
-        pinned=""
-        for pid in $(pgrep -f marathon-shell-bin 2>/dev/null); do
-            score_path="/proc/$pid/oom_score_adj"
-            [ -w "$score_path" ] || continue
-            read -r cur < "$score_path" 2>/dev/null || cur="?"
-            if [ "$cur" != "$TARGET_SCORE" ]; then
-                if echo "$TARGET_SCORE" > "$score_path" 2>/dev/null; then
-                    logger -t marathon-shell-oom \
-                        "pinned PID $pid oom_score_adj $cur → $TARGET_SCORE"
-                    pinned=$pid
-                fi
-            else
-                pinned=$pid
-            fi
-        done
+    pinned=$(pin)
+    apps=$(echo /sys/fs/cgroup/user.slice/user-*.slice/user@*.service/marathon.slice/marathon-apps)
+    if [ -z "$pinned" ] || [ ! -d "$apps" ]; then
+        sleep 2
+        continue
     fi
     chown_cpu_files
-    sleep "$POLL_INTERVAL"
+    rm -f "$events"
+    mkfifo "$events"
+    inotifyd - "$apps:n" > "$events" &
+    watcher=$!
+    exec 3< "$events"
+    while [ -d "/proc/$pinned" ]; do
+        # A line is a new app cgroup; a timeout rechecks the shell; end of
+        # file means inotifyd stopped (marathon-apps went away), so start over.
+        rc=0
+        read -r -t "$CHECK_INTERVAL" _ <&3 || rc=$?
+        if [ "$rc" -eq 0 ]; then
+            chown_cpu_files
+        elif [ "$rc" -le 128 ]; then
+            break
+        fi
+    done
+    exec 3<&-
+    kill "$watcher" 2>/dev/null || true
 done
