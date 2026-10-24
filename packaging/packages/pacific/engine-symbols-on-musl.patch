@@ -1,0 +1,105 @@
+Look up the engine's wpe_sfos_* entry points in libWPEWebKit itself.
+
+Qt loads the WebView plugin RTLD_LOCAL, and musl's dlsym(RTLD_DEFAULT)
+only searches the global scope, which a local dlopen's dependencies never
+join: every lookup came back null on Marathon, so pinch zoom, safe-area
+and obscured insets, dark mode, sensors and the clipboard hook were off.
+
+diff --git a/shoal/pacific/webview/src/bridges.cpp b/shoal/pacific/webview/src/bridges.cpp
+index 45b7db36..215febd0 100644
+--- a/shoal/pacific/webview/src/bridges.cpp
++++ b/shoal/pacific/webview/src/bridges.cpp
+@@ -114,9 +114,9 @@ const SensorAbi& sensorAbi()
+ {
+     static const SensorAbi abi = [] {
+         SensorAbi a;
+-        a.setCallback = reinterpret_cast<SetSensorsCallbackFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_device_sensors_callback"));
+-        a.orientation = reinterpret_cast<OrientationChangedFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_device_orientation_changed"));
+-        a.motion = reinterpret_cast<MotionChangedFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_device_motion_changed"));
++        a.setCallback = reinterpret_cast<SetSensorsCallbackFn>(engineSymbol("wpe_sfos_set_device_sensors_callback"));
++        a.orientation = reinterpret_cast<OrientationChangedFn>(engineSymbol("wpe_sfos_device_orientation_changed"));
++        a.motion = reinterpret_cast<MotionChangedFn>(engineSymbol("wpe_sfos_device_motion_changed"));
+         if (!a.setCallback || !a.orientation || !a.motion)
+             a = SensorAbi();
+         return a;
+@@ -300,7 +300,7 @@ bool ClipboardBridge::ensure()
+         if (qEnvironmentVariableIntValue("PACIFIC_DISABLE_CLIPBOARD_BRIDGE") == 1)
+             return false;
+         using HookFn = void (*)(void (*)(const char*));
+-        auto hook = reinterpret_cast<HookFn>(dlsym(RTLD_DEFAULT, "wpe_qt_set_clipboard_write_hook"));
++        auto hook = reinterpret_cast<HookFn>(engineSymbol("wpe_qt_set_clipboard_write_hook"));
+         if (!hook)
+             return false;
+         // Called on the GUI thread, where the pasteboard IPC is dispatched.
+diff --git a/shoal/pacific/webview/src/bridges.h b/shoal/pacific/webview/src/bridges.h
+index 4b8b63ab..1b74f916 100644
+--- a/shoal/pacific/webview/src/bridges.h
++++ b/shoal/pacific/webview/src/bridges.h
+@@ -18,8 +18,17 @@
+ 
+ #include <QObject>
+ 
++#include <dlfcn.h>
+ #include <wpe/webkit.h>
+ 
++// An engine entry point. Qt loads this plugin RTLD_LOCAL, and musl's
++// RTLD_DEFAULT does not search the libraries it brought in.
++inline void* engineSymbol(const char* name)
++{
++    static void* const engine = dlopen("libWPEWebKit-2.0.so.1", RTLD_NOW | RTLD_NOLOAD);
++    return dlsym(engine ? engine : RTLD_DEFAULT, name);
++}
++
+ class QGeoPositionInfo;
+ class QGeoPositionInfoSource;
+ class QAccelerometer;
+diff --git a/shoal/pacific/webview/src/pacificwebview.cpp b/shoal/pacific/webview/src/pacificwebview.cpp
+index 6bdba020..0dc94a96 100644
+--- a/shoal/pacific/webview/src/pacificwebview.cpp
++++ b/shoal/pacific/webview/src/pacificwebview.cpp
+@@ -1003,7 +1003,7 @@ void PacificWebView::setSafeAreaTop(qreal top)
+ void PacificWebView::applySafeArea()
+ {
+     using SetInsetsFn = void (*)(WebKitWebView*, double, double, double, double);
+-    static const auto setInsets = reinterpret_cast<SetInsetsFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_safe_area_insets"));
++    static const auto setInsets = reinterpret_cast<SetInsetsFn>(engineSymbol("wpe_sfos_set_safe_area_insets"));
+     if (!m_webView || !setInsets)
+         return;
+     const qreal itemPerCss = cssToItem(1, 0).x() - cssToItem(0, 0).x();
+@@ -1027,7 +1027,7 @@ void PacificWebView::applyObscured()
+ {
+     using SetInsetsFn = void (*)(WebKitWebView*, double, double, double, double);
+     static const auto setInsets
+-        = reinterpret_cast<SetInsetsFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_obscured_content_insets"));
++        = reinterpret_cast<SetInsetsFn>(engineSymbol("wpe_sfos_set_obscured_content_insets"));
+     if (!m_webView || !setInsets)
+         return;
+     const qreal itemPerCss = cssToItem(1, 0).x() - cssToItem(0, 0).x();
+@@ -2929,12 +2929,12 @@ using GetPageScaleFn = double (*)(WebKitWebView*);
+ // Atlantic's engine patch (webkit-wpe-page-scale-api); absent: no pinch.
+ SetPageScaleFn setPageScaleFn()
+ {
+-    static const auto fn = reinterpret_cast<SetPageScaleFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_page_scale"));
++    static const auto fn = reinterpret_cast<SetPageScaleFn>(engineSymbol("wpe_sfos_set_page_scale"));
+     return fn;
+ }
+ GetPageScaleFn getPageScaleFn()
+ {
+-    static const auto fn = reinterpret_cast<GetPageScaleFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_get_page_scale"));
++    static const auto fn = reinterpret_cast<GetPageScaleFn>(engineSymbol("wpe_sfos_get_page_scale"));
+     return fn;
+ }
+ constexpr double kMinPageScale = 1.0;
+diff --git a/shoal/pacific/webview/src/profile.cpp b/shoal/pacific/webview/src/profile.cpp
+index 3dcb51d5..f64fd930 100644
+--- a/shoal/pacific/webview/src/profile.cpp
++++ b/shoal/pacific/webview/src/profile.cpp
+@@ -502,7 +502,7 @@ void WebEngine::setDarkMode(bool dark)
+         return;
+     m_darkMode = dark;
+     using SetDarkModeFn = void (*)(int);
+-    static const auto setDarkMode = reinterpret_cast<SetDarkModeFn>(dlsym(RTLD_DEFAULT, "wpe_sfos_set_dark_mode"));
++    static const auto setDarkMode = reinterpret_cast<SetDarkModeFn>(engineSymbol("wpe_sfos_set_dark_mode"));
+     if (setDarkMode)
+         setDarkMode(dark ? 1 : 0);
+     Q_EMIT darkModeChanged();
