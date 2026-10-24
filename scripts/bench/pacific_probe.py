@@ -94,13 +94,13 @@ def serve(a):
     http.server.ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()
 
 
-def last_scale(log, since):
+def last_scale(log, since=0.0, until=float("inf")):
     scale = None
     try:
         with open(log) as f:
             for line in f:
                 rec = json.loads(line)
-                if rec.get("kind") == "scale" and rec["wall"] >= since:
+                if rec.get("kind") == "scale" and since <= rec["wall"] < until:
                     scale = rec["scale"]
     except (OSError, ValueError):
         pass
@@ -155,9 +155,12 @@ def pinch(a):
         fr = [t for t in sb.frames_of(ts) if t1 <= t <= t_up]
         if len(fr) >= 3:
             procs["%d:%s" % (pid, sb.comm(pid))] = sb.interval_stats(fr, 1.0 / a.hz)
-    want = a.gap1 / a.gap0
-    got = last_scale(a.log, started)
+    # Pacific clamps the page scale to 1-5.
+    before = last_scale(a.log, until=started) or 1.0
+    want = min(5.0, max(1.0, before * a.gap1 / a.gap0))
+    got = last_scale(a.log, since=started)
     res = {
+        "start_scale": before,
         "expected_scale": round(want, 3),
         "page_scale": got,
         "scale_ok": got is not None and abs(got - want) <= 0.1 * want,
