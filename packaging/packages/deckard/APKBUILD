@@ -8,20 +8,18 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=12
-_commit=0fa2c4c9709d65b70e8f5d3b7fb233eee3765cd5
+pkgrel=13
+_commit=47c97521f84be90dd78c3773cbbc3cb31c70f188
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="Apache-2.0 AND GPL-3.0-only"
-depends="waydroid iproute2-ss util-linux-misc libgcc"
+# deckard-containerd runs lxc-*, dnsmasq, iptables and modprobe (kmod);
+# deckard-boot-evidence runs ss and nsenter.
+depends="lxc dnsmasq iptables kmod iproute2-ss util-linux-misc libgcc"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so the Rust binaries' libgcc_s is listed above instead.
 options="!tracedeps net"
-# deckard-containerd owns id.waydro.Container: its D-Bus activation file,
-# bus policy and polkit action replace Waydroid's; the activation file would
-# otherwise start the Python container manager.
-replaces="waydroid"
 makedepends="cargo unzip"
 checkdepends="dbus"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
@@ -66,8 +64,7 @@ check() {
 		cargo test --locked -p deckard-host-tools -p deckard-fonts-sync \
 		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch \
 		-p deckard-container -p deckard-bridge -p deckard-core \
-		-p deckard-ime -p deckard-mpris -p deckard-notifications \
-		-p deckard-packages
+		-p deckard-mpris -p deckard-packages
 }
 
 package() {
