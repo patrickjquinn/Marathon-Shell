@@ -159,6 +159,8 @@ type Map = QMap<QMapPair_QString_QVariant>;
 
 const PATH: &str = "/org/freedesktop/Notifications";
 const NAME: &str = "org.freedesktop.Notifications";
+/// NAME's own connection, so a sender's image-data never stalls the shell's.
+static SERVER_BUS: OnceLock<zbus::Connection> = OnceLock::new();
 /// The Hub's history, bounded.
 const KEEP: i64 = 500;
 const ROLES: [&str; 12] = [
@@ -1007,7 +1009,7 @@ where
     B: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static,
 {
     io::spawn(async move {
-        let Ok(bus) = io::session_bus().await else {
+        let Some(bus) = SERVER_BUS.get() else {
             return;
         };
         if let Err(e) = bus
@@ -1201,11 +1203,12 @@ impl Server {
 fn serve(qt: Qt) {
     io::spawn(async move {
         let served = async {
-            let bus = io::session_bus().await?;
+            let bus = zbus::Connection::session().await?;
             bus.object_server()
                 .at(PATH, Server { qt: qt.clone() })
                 .await?;
             bus.request_name(NAME).await?;
+            SERVER_BUS.set(bus.clone()).ok();
             let mut changes = fdo::DBusProxy::new(&bus)
                 .await?
                 .receive_name_owner_changed()
