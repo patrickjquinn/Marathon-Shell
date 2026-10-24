@@ -1,0 +1,16 @@
+#!/bin/sh
+# Leftovers of the Waydroid-to-Deckard cutover on upgraded phones.
+
+# The cutover masked Waydroid's session unit, which r27 removed.
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl --global unmask marathon-waydroid.service >/dev/null 2>&1 || true
+fi
+
+# A hand-deployed copy that still names waydroid-container.service shadows
+# the packaged rule in /usr/share.
+rule=/etc/polkit-1/rules.d/50-marathon-deckard.rules
+if grep -q waydroid-container.service "$rule" 2>/dev/null; then
+	rm -f "$rule"
+fi
+
+exit 0
