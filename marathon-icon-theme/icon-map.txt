@@ -1,5 +1,6 @@
-# Sailfish icon base name (after icon-<size>-) -> Phosphor Thin glyph.
-# Every image://theme/icon-* name Keel's Silica and Marathon's QML use must
+# Sailfish icon base name (after icon-<size>-) -> Phosphor Thin glyph, or a
+# whole theme name -> glyph and base pixel size.
+# Every image://theme name Keel's Silica and Marathon's QML use must
 # resolve here (tests/lint/check-icon-map.sh).
 about info
 accept check
@@ -109,13 +110,16 @@ gallery images
 game game-controller
 gesture hand-tap
 gps crosshair
+graphic-gesture-hint hand-tap 96
 graphics palette
+graphics-edge-swipe-arrow caret-double-up 64
 headphone headphones
 health heartbeat
 hidden eye-slash
 hide-password eye-slash
 history clock-counter-clockwise
 home house
+icon-camera-shutter record 96
 image image
 incognito detective
 incognito-new detective
