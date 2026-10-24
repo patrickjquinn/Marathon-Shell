@@ -1,0 +1,69 @@
+From c981fe6d8abf2fff5ad869d743f87eb41b7e692b Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 24 Oct 2026 10:50:14 +0100
+Subject: [PATCH] feat(hackberrypi): Deckard owns Android, Waydroid leaves the
+ image
+
+The HackberryPi image installs deckard and deckard-images in place of
+waydroid and waydroid-systemd, so no Python Waydroid, /usr/bin/waydroid or
+waydroid-container.service ships. Android's system and vendor images come
+from deckard-images under /usr/share/deckard/images; nothing downloads them
+on the device any more.
+
+The Waydroid block in the base postinst goes too: it edited Waydroid's own
+LXC template and Waydroid.desktop, neither of which exists now. Deckard's
+container manager carries cgroup:rw and both hooks in its own template.
+---
+ mkosi.images/base/mkosi.postinst | 21 ---------------------
+ scripts/mkosi-configure.py       |  6 ++----
+ 2 files changed, 2 insertions(+), 25 deletions(-)
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index a063254..36b16a4 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -592,24 +592,3 @@ EOF
+ 
+ ln -sf ../marathon-flathub-setup.service \
+     "$BUILDROOT/usr/lib/systemd/system/multi-user.target.wants/marathon-flathub-setup.service"
+-
+-# Waydroid (HackberryPi image, Deckard M0).
+-WAYDROID_LXC="$BUILDROOT/usr/lib/waydroid/data/configs/config_base"
+-if [ -f "$WAYDROID_LXC" ]; then
+-    # Android kills apps by process group; read-only cgroups leave them running.
+-    sed -i 's/^lxc.mount.auto = cgroup:ro /lxc.mount.auto = cgroup:rw /' "$WAYDROID_LXC"
+-    grep -q '^lxc.mount.auto = cgroup:rw ' "$WAYDROID_LXC"
+-fi
+-if [ -f "$WAYDROID_LXC" ] && [ -x "$BUILDROOT/usr/libexec/deckard-container-limits" ]; then
+-    # Deckard: Android gets a memory budget sized for the device.
+-    echo 'lxc.hook.start-host = /usr/libexec/deckard-container-limits' >> "$WAYDROID_LXC"
+-fi
+-if [ -f "$WAYDROID_LXC" ] && [ -x "$BUILDROOT/usr/libexec/deckard-shared-folders" ]; then
+-    # Deckard: Android's shared storage folders are the user's own folders.
+-    echo 'lxc.hook.mount = /usr/libexec/deckard-shared-folders' >> "$WAYDROID_LXC"
+-fi
+-WAYDROID_DESKTOP="$BUILDROOT/usr/share/applications/Waydroid.desktop"
+-if [ -f "$WAYDROID_DESKTOP" ]; then
+-    # Full UI closes every per-app window; Android apps have their own entries.
+-    sed -i '/^\[Desktop Entry\]$/a NoDisplay=true' "$WAYDROID_DESKTOP"
+-fi
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index f7d8e77..0d8d419 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -162,10 +162,8 @@ def main() -> int:
+             )
+             if has_hbp:
+                 extra_overlays.append(hbp)
+-                # Deckard M0: stock Waydroid (docs/testing/DECKARD_M0_HACKBERRYPI.md).
+-                extra_overlays.extend(["waydroid", "waydroid-systemd"])
+-                # Deckard: Android notifications, media and audio in Marathon.
+-                extra_overlays.append("deckard")
++                # Deckard: Android apps in Marathon, and Android's images.
++                extra_overlays.extend(["deckard", "deckard-images"])
+         config["Packages"] = list(dict.fromkeys(existing + dynamic + extra_overlays))
+     elif image == "default-initrd":
+         # pmaports emits InitrdPackages to distinguish base-image pkgs from
+-- 
+2.55.0
+
