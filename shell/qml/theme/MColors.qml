@@ -43,6 +43,10 @@ QtObject {
     // --border-glass in marathon-tokens.css.
     readonly property color borderGlass: Qt.rgba(1, 1, 1, 0.06)
 
+    // The nav bar under dark and light content: Keel's overlay backgrounds.
+    readonly property color barDark: Qt.rgba(0.04, 0.04, 0.06, 0.9)
+    readonly property color barLight: Qt.rgba(0.96, 0.96, 0.96, 0.9)
+
     readonly property color ripple: Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, 0.12)
 
     // Marathon DS reserves only --error for destructive UI (decline
