@@ -1,9 +1,11 @@
-# Sailfish icon base name (after icon-<size>-) -> Phosphor Thin glyph.
-# Every image://theme/icon-* name Keel's Silica and Marathon's QML use must
+# Sailfish icon base name (after icon-<size>-) -> Phosphor Thin glyph, or a
+# whole theme name -> glyph and base pixel size.
+# Every image://theme name Keel's Silica and Marathon's QML use must
 # resolve here (tests/lint/check-icon-map.sh).
 about info
 accept check
 add plus
+add-to-grid dots-nine
 airplane-mode airplane
 alarm alarm
 alarm-clock alarm
@@ -19,6 +21,14 @@ backspace backspace
 battery battery-full
 bluetooth bluetooth
 browser globe
+browser-camera camera
+browser-cookies cookie
+browser-location map-pin
+browser-microphone microphone
+browser-notifications bell
+browser-permissions shield-check
+browser-popup app-window
+browser-sound speaker-high
 calendar calendar-blank
 call phone
 camera camera
@@ -26,7 +36,9 @@ camera-switch camera-rotate
 cancel x
 capslock arrow-fat-up
 cellular cell-signal-full
+checkmark check
 clear x-circle
+clear-opaque-cross x-circle
 clipboard clipboard-text
 clock clock
 close x
@@ -39,6 +51,7 @@ contact user
 copy copy
 cut scissors
 data-traffic arrows-down-up
+date calendar-dots
 delete trash
 developer-mode code
 device device-mobile
@@ -50,6 +63,7 @@ do-not-disturb moon
 document file-text
 down caret-down
 download download-simple
+downloads download-simple
 edit pencil-simple
 education graduation-cap
 email envelope
@@ -62,20 +76,31 @@ error warning-circle
 events bell
 expand caret-down
 favorite star
-favorite-selected star
+favorite-selected star-fill
+file-apk package
 file-archive file-zip
 file-audio file-audio
 file-compressed file-zip
 file-document file-text
+file-document-light file-text
 file-folder folder
 file-formatted file-doc
+file-formatted-light file-doc
 file-image file-image
 file-note note
+file-note-light note
 file-other file
+file-other-light file
 file-pdf file-pdf
+file-pdf-light file-pdf
 file-presentation presentation
+file-presentation-light presentation
+file-rpm package
 file-spreadsheet file-xls
+file-spreadsheet-light file-xls
+file-vcard identification-card
 file-video file-video
+filled-warning warning
 filter funnel
 flash lightning
 flash-off lightning-slash
@@ -83,17 +108,26 @@ folder folder
 forward arrow-right
 gallery images
 game game-controller
+gesture hand-tap
 gps crosshair
+graphic-gesture-hint hand-tap 96
 graphics palette
+graphics-edge-swipe-arrow caret-double-up 64
 headphone headphones
 health heartbeat
 hidden eye-slash
+hide-password eye-slash
 history clock-counter-clockwise
 home house
+icon-camera-shutter record 96
 image image
+incognito detective
+incognito-new detective
+incognito-selected detective
 incoming-call phone-incoming
 input-remove x-circle
 keyboard keyboard
+keys key
 language translate
 left caret-left
 like thumbs-up
@@ -129,12 +163,14 @@ music music-note
 mute speaker-slash
 navigate compass
 new plus
+next skip-forward
 next-song skip-forward
 note note
 office briefcase
 notifications bell
 other dots-three-circle
 outgoing-call phone-outgoing
+outline-secure lock
 package package
 page-down caret-down
 page-up caret-up
@@ -145,6 +181,7 @@ phone phone
 pin push-pin
 play play
 power power
+previous skip-back
 print printer
 privacy shield-check
 question question
@@ -155,16 +192,20 @@ repeat repeat
 repeat-single repeat-once
 reply arrow-bend-up-left
 reply-all arrow-bend-double-up-left
+reset arrow-clockwise
 right caret-right
 rotate arrows-clockwise
 save floppy-disk
 scale arrows-out
 science flask
 search magnifying-glass
+search-on-page file-magnifying-glass
 select-all checks
 send paper-plane-tilt
+setting gear
 settings gear
 share share-network
+show-password eye
 shuffle shuffle
 sim sim-card
 sms chat-text
@@ -175,8 +216,13 @@ storage hard-drives
 stopwatch timer
 sync arrows-clockwise
 tab browsers
+tab-close x-square
+tab-new plus-square
+tab-return arrow-u-up-left
+tabs square
 terminal terminal-window
 text-input textbox
+time clock
 timer timer
 toggle toggle-right
 transfer arrows-left-right
@@ -184,6 +230,7 @@ trash trash
 unfocused-down caret-down
 undo arrow-counter-clockwise
 unlock lock-open
+unmute microphone
 up caret-up
 update arrow-circle-up
 usb usb
@@ -198,6 +245,13 @@ vpn shield
 wallpaper image-square
 warning warning
 weather cloud-sun
+weather-d200 cloud-sun
+weather-d200-dark cloud-sun
+weather-d200-light cloud-sun
+weather-n200 cloud-moon
+weather-n200-dark cloud-moon
+weather-n200-light cloud-moon
+website globe
 wlan wifi-high
 wlan-0 wifi-none
 wlan-1 wifi-low

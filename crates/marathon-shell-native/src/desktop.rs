@@ -1,5 +1,6 @@
 //! Desktop entries (`.desktop` files) as the home grid's native apps.
 
+use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -35,6 +36,23 @@ mod ffi {
 }
 
 const FALLBACK_ICON: &str = "layout-grid";
+
+// Sailfish's stock launcher icons, as Marathon's own apps.
+const SAILFISH_LAUNCHERS: &[(&str, &str)] = &[
+    ("browser", "browser"),
+    ("calculator", "calculator"),
+    ("calendar", "calendar"),
+    ("camera", "camera"),
+    ("clock", "clock"),
+    ("email", "email"),
+    ("gallery", "gallery"),
+    ("mediaplayer", "music"),
+    ("messaging", "messages"),
+    ("notes", "notes"),
+    ("phone", "phone"),
+    ("settings", "settings"),
+    ("store", "store"),
+];
 
 // Wayland only: an app that needs an X server would spin on its splash.
 const X11_ONLY: &[&str] = &[
@@ -357,19 +375,23 @@ impl Icons {
             "/var/lib/flatpak/exports/share/icons".into(),
         ];
         let themes = ["hicolor", "PiXtrix", "Adwaita", "gnome", "AdwaitaLegacy"];
-        let sizes = [
-            "scalable", "512x512", "256x256", "128x128", "96x96", "64x64", "48x48", "32x32",
-            "24x24",
-        ];
         let contexts = ["apps", "categories", "devices", "places", "legacy"];
-        let mut dirs = Vec::new();
-        for size in sizes {
-            for theme in themes {
-                for base in &bases {
-                    dirs.extend(contexts.map(|c| base.join(theme).join(size).join(c)));
+        let mut sized = Vec::new();
+        for theme in themes {
+            for base in &bases {
+                for entry in fs::read_dir(base.join(theme))
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+                {
+                    if let Some(size) = entry.file_name().to_str().and_then(icon_size) {
+                        sized.extend(contexts.map(|c| (Reverse(size), entry.path().join(c))));
+                    }
                 }
             }
         }
+        sized.sort_by_key(|(size, _)| *size);
+        let mut dirs: Vec<PathBuf> = sized.into_iter().map(|(_, dir)| dir).collect();
         dirs.extend([
             "/var/lib/snapd/desktop/icons".into(),
             "/usr/share/pixmaps".into(),
@@ -395,6 +417,13 @@ impl Icons {
         if name.is_empty() {
             return None;
         }
+        if let Some(app) = name
+            .strip_prefix("icon-launcher-")
+            .and_then(|l| SAILFISH_LAUNCHERS.iter().find(|(s, _)| *s == l))
+            .and_then(|(_, id)| marathon_apps::apps::find(id))
+        {
+            return Some(app.icon);
+        }
         if name.starts_with('/')
             || [".svg", ".png", ".xpm", ".jpg"]
                 .iter()
@@ -417,6 +446,17 @@ impl Icons {
             })
         })
     }
+}
+
+/// A theme size directory's pixel size (`86x86`, `128x128@2`); scalable
+/// ranks above every bitmap.
+fn icon_size(dir: &str) -> Option<u32> {
+    if dir == "scalable" {
+        return Some(u32::MAX);
+    }
+    let (size, scale) = dir.split_once('@').unwrap_or((dir, "1"));
+    let (width, _) = size.split_once('x')?;
+    width.parse::<u32>().ok()?.checked_mul(scale.parse().ok()?)
 }
 
 fn cached_phone_apps() -> PathBuf {
