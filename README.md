@@ -23,12 +23,14 @@ and the image pipeline under `packaging/`.
 
 | | |
 |:---:|:---:|
-| <img src="screenshots/screen0.png" width="400" alt="Home Screen"> | <img src="screenshots/screen1.png" width="400" alt="App Grid"> |
-| <img src="screenshots/screen2.png" width="400" alt="Task Switcher"> | <img src="screenshots/screen3.png" width="400" alt="Notification Hub"> |
-| <img src="screenshots/screen4.png" width="400" alt="Quick Settings"> | <img src="screenshots/screen5.png" width="400" alt="Lock Screen"> |
-| <img src="screenshots/screen6.png" width="400" alt="Browser"> | <img src="screenshots/screen7.png" width="400" alt="Weather"> |
-| <img src="screenshots/screen8.png" width="400" alt="Native app (Shortwave)"> | <img src="screenshots/screen9.png" width="400" alt="Android app (Material Files)"> |
-| <img src="screenshots/screen10.png" width="400" alt="Android apps settings"> | |
+| <img src="screenshots/screen0.png" width="400" alt="App grid"> | <img src="screenshots/screen1.png" width="400" alt="Task switcher with live covers"> |
+| <img src="screenshots/screen2.png" width="400" alt="Hub: notifications and weather"> | <img src="screenshots/screen3.png" width="400" alt="Hub weather sheet"> |
+| <img src="screenshots/screen4.png" width="400" alt="Quick settings"> | <img src="screenshots/screen5.png" width="400" alt="Lock screen"> |
+| <img src="screenshots/screen6.png" width="400" alt="Pacific browser"> | <img src="screenshots/screen7.png" width="400" alt="Native app (Shortwave, a Flatpak)"> |
+| <img src="screenshots/screen8.png" width="400" alt="Android app (Markor) through Deckard"> | <img src="screenshots/screen9.png" width="400" alt="Light Android app: the gesture bar turns light"> |
+| <img src="screenshots/screen10.png" width="400" alt="Settings: Android apps"> | |
+
+Screenshots are from the HackberryPi CM5 (720x720).
 
 ## Architecture
 
@@ -39,7 +41,7 @@ and the image pipeline under `packaging/`.
 | App runner | `tools/marathon-app-runner/` | `marathon-app-runner` and `marathon-keel-host` run each app in its own process and bubblewrap sandbox, with `Marathon.Platform` exposing the shell's services. |
 | App platform | `crates/marathon-apps/` (and its `marathon-dev`) | `.marathon` packages: packaging, minisign signing, verification, install, discovery. |
 | Data services | `marathon-services/` | Telephony, SMS/MMS, contacts, call history, CalDAV/CardDAV sync, media library, mail (QMF). |
-| Android apps | [Marathon-Deckard](https://github.com/patrickjquinn/Marathon-Deckard), `packaging/packages/deckard` | Deckard: Waydroid (LineageOS 20, Android 13) with `deckardd` on the host and Marathon's own system apps inside Android. The aport pins a Marathon-Deckard commit. |
+| Android apps | [Marathon-Deckard](https://github.com/patrickjquinn/Marathon-Deckard), `packaging/packages/deckard` | Deckard: an Android runtime written in Rust that replaces Waydroid's Python tools and its C++ bridge. `deckard-containerd` runs the LXC container, `deckard-runtime` the session, and `deckard-bridge` joins Android to the shell (windows, keyboard, notifications, media, permissions, sharing). It runs LineageOS 20 (Android 13) today; its own LineageOS 23.2 image is being built. The aport pins a Marathon-Deckard commit. |
 | Rust services | `crates/`, `tools/marathon-mail-oauth/` | `marathon-audiod`, `marathon-weatherd`, `marathon-store-handler`, `marathon-apps`, `marathon-mail-oauth`. |
 | Image pipeline | `packaging/`, `scripts/build-image.sh` | Alpine/postmarketOS aports and the duranium/mkosi pipeline that builds device images. |
 
@@ -54,6 +56,10 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for more.
 - Hub: notifications and messages in one place, with a weather card and a
   weather sheet (hourly chart, places).
 - Task switcher with live app covers (Silica `CoverBackground`).
+- The status bar and the gesture bar sample the pixels under them and
+  switch to dark icons over light content and light icons over dark. The
+  GPU readback is asynchronous and runs only on frames the shell draws
+  anyway, at most four rounds a second.
 - Ambience: scheme, accent and wallpaper-derived colours, applied to the
   shell, Keel apps and native apps.
 - Built-in keyboard (not Qt VirtualKeyboard) with Hunspell prediction,
@@ -81,6 +87,10 @@ Flatpaks from Flathub through `marathon-store-handler`.
 - Background apps are frozen with the cgroup v2 freezer and thawed when
   brought back; memory pressure (PSI) drives OOM priority and
   kill-oldest-frozen.
+- Apps cannot starve the shell of memory or disk: the shell's cgroup has
+  a 400 MB `memory.low` floor, SD and eMMC use the BFQ scheduler (under a
+  heavy app writer the shell's fsyncs take about 0.5 s instead of 10 s),
+  and crash dumps are capped at 64 MB and written at idle priority.
 - Native apps get back and forward from the gesture bar through the input
   their toolkit already handles. See
   [docs/NATIVE_APP_LIFECYCLE.md](docs/NATIVE_APP_LIFECYCLE.md).
@@ -111,6 +121,13 @@ Flatpaks from Flathub through `marathon-store-handler`.
 - The Store says before install whether an Android app will run here (for
   example, "Needs a phone radio"). Gallery shows the photos Android apps
   save to the shared folders.
+- On the HackberryPi the host side uses 7 MB (bridge) and 2.5 MB each
+  (container manager, session) of proportional memory, against 14 MB for
+  the C++ bridge and 23 MB for each Python Waydroid process it replaced.
+  All three daemons sleep at idle (0 wakeups per second).
+- Android apps are known to the shell as `deckard.<package>`; an upgrade
+  from a Waydroid install moves Android's data with `deckard-migrate`,
+  which can be rolled back.
 - See [docs/ANDROID_APPS.md](docs/ANDROID_APPS.md) and the
   [Marathon-Deckard docs](https://github.com/patrickjquinn/Marathon-Deckard/tree/main/docs).
 

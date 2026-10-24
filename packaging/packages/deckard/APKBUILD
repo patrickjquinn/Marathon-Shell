@@ -8,12 +8,12 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=15
-_commit=89387d10865191bc3c49b5c98fa8870620cb39c8
+pkgrel=16
+_commit=0c9ece0dda3460a53bfc93dfa6302f177557ac28
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
-license="Apache-2.0 AND GPL-3.0-only"
+license="GPL-3.0-or-later AND GPL-3.0-only"
 # deckard-containerd runs lxc-*, dnsmasq, iptables and modprobe (kmod);
 # deckard-boot-evidence runs ss and nsenter; deckard-migrate runs
 # marathon-shell-bin --rename-app-ids.
@@ -138,8 +138,7 @@ package() {
 	[ ! -f image/waydroid.prop ] ||
 		install -Dm644 image/waydroid.prop "$pkgdir"/usr/share/deckard/waydroid.prop
 
-	install -Dm644 host/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/Apache-2.0
-	install -Dm644 image/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/GPL-3.0
+	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
 	# What a phone's Deckard should be: the commit, and digests for sha256sum -c from /.
 	(
