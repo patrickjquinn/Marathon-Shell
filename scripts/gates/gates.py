@@ -95,6 +95,8 @@ def static_gate7(out):
         checks.append({"step": f"strict-skip:{helper}", "status": "ok" if strict else "fail"})
     apkbuild = (REPO / "packaging/packages/deckard/APKBUILD").read_text()
     checks.append({"step": "deckard-build-manifest", "status": "ok" if "build-manifest" in apkbuild else "fail"})
+    options = next((line for line in apkbuild.splitlines() if line.startswith("options=")), "")
+    checks.append({"step": "deckard-manifest-unstripped", "status": "ok" if "!strip" in options else "fail"})
     fails = sum(c["status"] == "fail" for c in checks)
     return {"gate": "g7", "verdict": "DONE" if not fails else "EXECUTE",
             "reasons": [c["step"] for c in checks if c["status"] == "fail"] or ["host-side guards in place"],
