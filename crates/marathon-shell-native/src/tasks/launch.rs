@@ -344,6 +344,10 @@ impl Tasks {
         if id.is_empty() {
             return false;
         }
+        let pid = self.pid_for(&id);
+        if pid > 0 && !process_is_live(pid) {
+            self.as_mut().forget_registered_pid(&id, pid);
+        }
         if self.pid_for(&id) > 0 || self.launching.contains(&id) || self.task(&id).is_some() {
             self.wake(&id);
             return true;

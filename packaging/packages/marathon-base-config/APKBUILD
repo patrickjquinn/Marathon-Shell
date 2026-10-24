@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=55
+pkgrel=56
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -264,12 +264,21 @@ EOF
 
 	# Cores of big processes (a WebProcess, Android's system_server) are
 	# gigabytes; writing them to SD/eMMC stalls every app for minutes.
+	# Three WebProcesses dying together took 50 s each at 512M and froze
+	# the shell, so cores stay small and are handled at idle priority.
 	install -d "$pkgdir/usr/lib/systemd/coredump.conf.d"
 	cat > "$pkgdir/usr/lib/systemd/coredump.conf.d/50-marathon.conf" <<'EOF'
 [Coredump]
-ProcessSizeMax=512M
-ExternalSizeMax=512M
+ProcessSizeMax=64M
+ExternalSizeMax=64M
 MaxUse=1G
+EOF
+	install -d "$pkgdir/usr/lib/systemd/system/systemd-coredump@.service.d"
+	cat > "$pkgdir/usr/lib/systemd/system/systemd-coredump@.service.d/50-marathon-idle.conf" <<'EOF'
+[Service]
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
 EOF
 
 	# avahi-daemon drop-in: start after NetworkManager so /etc/resolv.conf
