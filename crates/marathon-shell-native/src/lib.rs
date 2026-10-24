@@ -16,6 +16,7 @@ pub mod ambience;
 pub mod apps;
 pub mod audio;
 mod audit;
+mod backdrop;
 pub mod bluetooth;
 mod boost;
 mod cgroup;

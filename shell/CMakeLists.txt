@@ -362,6 +362,8 @@ qt6_add_qml_module(marathon-shell
     SOURCES
         src/services/gesturetracker.cpp
         src/services/gesturetracker.h
+        src/components/backdropprobe.cpp
+        src/components/backdropprobe.h
         src/components/windowtexturegeometry.h
         src/components/windowtextureitem.cpp
         src/components/windowtextureitem.h
