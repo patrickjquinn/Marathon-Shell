@@ -37,6 +37,23 @@ mod ffi {
 
 const FALLBACK_ICON: &str = "layout-grid";
 
+// Sailfish's stock launcher icons, as Marathon's own apps.
+const SAILFISH_LAUNCHERS: &[(&str, &str)] = &[
+    ("browser", "browser"),
+    ("calculator", "calculator"),
+    ("calendar", "calendar"),
+    ("camera", "camera"),
+    ("clock", "clock"),
+    ("email", "email"),
+    ("gallery", "gallery"),
+    ("mediaplayer", "music"),
+    ("messaging", "messages"),
+    ("notes", "notes"),
+    ("phone", "phone"),
+    ("settings", "settings"),
+    ("store", "store"),
+];
+
 // Wayland only: an app that needs an X server would spin on its splash.
 const X11_ONLY: &[&str] = &[
     "xterm", "uxterm", "xclock", "xcalc", "xeyes", "xlogo", "xev", "xinit", "xrdb", "xfontsel",
@@ -399,6 +416,13 @@ impl Icons {
         let is_file = |p: &Path| p.is_file().then(|| p.to_string_lossy().into_owned());
         if name.is_empty() {
             return None;
+        }
+        if let Some(app) = name
+            .strip_prefix("icon-launcher-")
+            .and_then(|l| SAILFISH_LAUNCHERS.iter().find(|(s, _)| *s == l))
+            .and_then(|(_, id)| marathon_apps::apps::find(id))
+        {
+            return Some(app.icon);
         }
         if name.starts_with('/')
             || [".svg", ".png", ".xpm", ".jpg"]
