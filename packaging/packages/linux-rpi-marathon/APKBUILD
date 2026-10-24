@@ -8,7 +8,7 @@
 pkgname=linux-rpi-marathon
 pkgver=6.12.85
 _kernver=${pkgver%.*}
-pkgrel=1
+pkgrel=2
 pkgdesc="Raspberry Pi kernel — Marathon fork with utilization clamping"
 url=https://github.com/raspberrypi/linux
 depends="initramfs-generator linux-firmware-brcm"
@@ -285,5 +285,5 @@ sha512sums="
 a37b1823df7b4f72542f689b65882634740ba0401a42fdcf6601d9efd2e132e5a7650e70450ba76f6cd1f13ca31180f2ccee9d54fe4df89bc0000ade4380a548  linux-6.12.tar.xz
 6b7c0c220ca26b900462b21641f8615f7c84dc25cc79527c8d32e9ac5742bb89851d30a69e1f1b1bfdb5bd353153c31ae523538eca1cead8cc12261a47f4a18b  patch-6.12.85.patch.xz
 0b4124f429a7858abd62e04a2a59fdc9c6b72e2a290882cdecf2834ce8697ac277e95d4cf6e4b9f97dc736baf970924f69ae87c9f2dfdc1ce3ee611176549885  rpi-6.12.85-alpine.patch
-267d865b1ffdebc50422c6c5b2382a785ce72ab2e0482b7d5717e3789e5a8d231bd5779f69f77f0607785ed81fda75a9902af9d1e05e199670f65f7604230382  common-changes.config
+4f66885180f9a84245d747a46f82c6554be02ba11b0e113dee7a04852eeb420ab696cb490e6a0b87a38b8c43e36f296e19d0b78b7b0d506021edd39be9b9e5c7  common-changes.config
 "
