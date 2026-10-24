@@ -383,7 +383,9 @@ bool WindowTextureItem::isShown(const QQuickItem *item) {
         if (p->opacity() <= 0)
             return false;
     }
-    return true;
+    const QQuickWindow *window = item->window();
+    return item->mapRectToScene(item->boundingRect())
+        .intersects(QRectF(0, 0, window->width(), window->height()));
 }
 
 bool WindowTextureItem::isSampled(const QQuickItem *item) {
