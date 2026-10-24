@@ -98,7 +98,7 @@ package() {
 		"$pkgdir/usr/share/keel/actions/org.shipwright.pacific.json"
 	install -Dm644 "$actions/org.shipwright.pacific.actions.xml" \
 		"$pkgdir/usr/share/dbus-1/interfaces/org.shipwright.pacific.actions.xml"
-	sed 's|^Exec=.*|Exec=/usr/bin/shipwright-pacific --keel-actions|' \
+	sed "s|^Exec=.*|Exec=/usr/libexec/marathon-activate $app org.shipwright.pacific|" \
 		"$actions/org.shipwright.pacific.service" > "$pkgdir/usr/share/dbus-1/services/org.shipwright.pacific.service"
 }
 
