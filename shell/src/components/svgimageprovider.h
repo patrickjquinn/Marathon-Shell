@@ -27,7 +27,7 @@ class SvgImageProvider : public QQuickImageProvider {
                                   w, h);
         if (pixels.empty())
             return {};
-        QImage image = QImage(pixels.data(), w, h, w * 4, QImage::Format_RGBA8888_Premultiplied).copy();
+        QImage image = QImage(pixels.data(), w, h, qsizetype(w) * 4, QImage::Format_RGBA8888_Premultiplied).copy();
         if (size)
             *size = image.size();
         return image;

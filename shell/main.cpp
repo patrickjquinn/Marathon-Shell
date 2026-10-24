@@ -74,7 +74,6 @@
 #include "marathon-shell-native/src/gate.cxxqt.h"
 #include "marathon-shell-native/src/permissions.cxxqt.h"
 #include "marathon-shell-native/src/updates.cxxqt.h"
-#include "marathon-shell-native/src/modem.cxxqt.h"
 #include "src/wayland/waylandcompositormanager.h"
 #include "src/managers/marathoninputmethodengine.h"
 #include "src/managers/cursormanager.h"
@@ -794,7 +793,7 @@ int main(int argc, char *argv[]) {
     QObject::connect(remoteTextInput, &RemoteTextInput::panelWanted, remoteTextInputFilter,
                      [=](bool show) {
                          if (!show || remoteTextInputFilter->targetsFocus())
-                             remoteTextInput->panelRequested(show);
+                             emit remoteTextInput->panelRequested(show);
                      });
 
     auto *tasks = new Tasks();
@@ -836,8 +835,10 @@ int main(int argc, char *argv[]) {
         {"nightLightSchedule", &marathon::Display::nightLightScheduleChanged},
         {"learnedCurve", &marathon::Display::learnedCurveChanged},
     };
-    for (const auto &[name, changed] : displaySettings) {
-        const QString key = QStringLiteral("display/") + QLatin1String(name);
+    for (const auto &setting : displaySettings) {
+        const char   *name    = setting.first;
+        const auto    changed = setting.second;
+        const QString key     = QStringLiteral("display/") + QLatin1String(name);
         if (const QVariant saved = settingsManager->get(key, QVariant()); saved.isValid())
             display->setProperty(name, saved);
         QObject::connect(display, changed, settingsManager,

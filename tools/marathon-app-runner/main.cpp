@@ -925,11 +925,9 @@ int main(int argc, char *argv[]) {
                      });
     lifecycle.serve(appId);
 
-    const QString appAbsPath = appPath;
-
     QTimer::singleShot(
         0, &view,
-        [&view, engine, ctx, entryUrl, entryAbs, appId, componentName, appAbsPath, &lifecycle,
+        [&view, engine, ctx, entryUrl, entryAbs, appId, componentName, appPath, &lifecycle,
          &appRoot, &startupTimer, logStartup]() {
             QQmlComponent *component = nullptr;
 
@@ -937,7 +935,7 @@ int main(int argc, char *argv[]) {
                 component = new QQmlComponent(engine, entryUrl, &view);
             } else {
                 const QString wrapper =
-                    marathon::runner::entry_wrapper(appAbsPath, appId, componentName);
+                    marathon::runner::entry_wrapper(appPath, appId, componentName);
                 if (wrapper.isEmpty()) {
                     qCritical() << "[marathon-app-runner] Entry point file not found and no qmldir "
                                    "module found for"

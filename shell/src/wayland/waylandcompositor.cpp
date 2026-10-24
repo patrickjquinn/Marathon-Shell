@@ -537,15 +537,16 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
             // A per-user app run without --user also opens the system
             // installation, which costs a system-helper call and gpg runs
             // on every launch (about 90 ms on the HackberryPi).
-            QString appRef;
-            for (const QString &part : parts.mid(2)) {
+            const QStringList args = parts.mid(2);
+            QString           appRef;
+            for (const QString &part : args) {
                 if (!part.startsWith('-'))
                     appRef = part;
             }
             if (!appRef.isEmpty() &&
                 QFileInfo::exists(QDir::homePath() + "/.local/share/flatpak/app/" + appRef))
                 newParts << "--user";
-            newParts << parts.mid(2);
+            newParts << args;
             execPartsOverride = newParts;
             actualCommand     = newParts.join(' ');
         } else {
@@ -1269,10 +1270,10 @@ void WaylandCompositor::connectTextInputs() {
         const QByteArray cls = ext->metaObject()->className();
         if (cls != "QWaylandTextInput" && cls != "QWaylandTextInputV3")
             continue;
-        connect(ext, SIGNAL(surfaceEnabled(QWaylandSurface *)), this,
-                SLOT(handleTextInputSurfaceEnabled(QWaylandSurface *)), Qt::UniqueConnection);
-        connect(ext, SIGNAL(surfaceDisabled(QWaylandSurface *)), this,
-                SLOT(handleTextInputSurfaceDisabled(QWaylandSurface *)), Qt::UniqueConnection);
+        connect(ext, SIGNAL(surfaceEnabled(QWaylandSurface*)), this,
+                SLOT(handleTextInputSurfaceEnabled(QWaylandSurface*)), Qt::UniqueConnection);
+        connect(ext, SIGNAL(surfaceDisabled(QWaylandSurface*)), this,
+                SLOT(handleTextInputSurfaceDisabled(QWaylandSurface*)), Qt::UniqueConnection);
         connect(ext, SIGNAL(updateInputMethod(Qt::InputMethodQueries)), this,
                 SLOT(handleTextInputUpdate(Qt::InputMethodQueries)), Qt::UniqueConnection);
     }
