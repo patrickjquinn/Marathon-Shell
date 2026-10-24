@@ -525,10 +525,9 @@ impl Tasks {
                 .insert(exec.clone(), launch);
             if exec.starts_with(app_ids::LAUNCHER) {
                 self.as_mut().wake(&app.id);
-                self.as_mut().after_android_boots(exec);
-            } else {
-                self.as_mut().spawn_requested(&q(&exec), &Map::default());
+                self.as_mut().while_android_starts();
             }
+            self.as_mut().spawn_requested(&q(&exec), &Map::default());
         }
         let id = app.id.clone();
         later(self.qt_thread(), LAUNCH_HOLD, move |mut obj| {
@@ -538,11 +537,10 @@ impl Tasks {
         true
     }
 
-    /// `deckard-launch app launch` before Android has booted is dropped; with no
-    /// session running it becomes the session, and Android stops with it.
-    fn after_android_boots(mut self: Pin<&mut Self>, exec: String) {
-        self.as_mut().rust_mut().after_android_boot.push(exec);
-        if self.after_android_boot.len() > 1 {
+    /// `deckard-launch` starts the session and waits for Android itself;
+    /// until Android runs, the launch watchdog is held off.
+    fn while_android_starts(mut self: Pin<&mut Self>) {
+        if self.android_starting {
             return;
         }
         self.as_mut().rust_mut().android_starting = true;
@@ -550,17 +548,12 @@ impl Tasks {
         let qt = self.qt_thread();
         io::spawn(async move {
             dbus::wait_for_android().await;
-            qt.queue(super::qobject::Tasks::android_booted).ok();
+            qt.queue(|mut obj| {
+                obj.as_mut().rust_mut().android_starting = false;
+                obj.as_mut().android_starting_changed();
+            })
+            .ok();
         });
-    }
-
-    fn android_booted(mut self: Pin<&mut Self>) {
-        let waiting = std::mem::take(&mut self.as_mut().rust_mut().after_android_boot);
-        self.as_mut().rust_mut().android_starting = false;
-        self.as_mut().android_starting_changed();
-        for exec in waiting {
-            self.as_mut().spawn_requested(&q(&exec), &Map::default());
-        }
     }
 
     /// `org.freedesktop.Application.Activate` on the desktop id; anything

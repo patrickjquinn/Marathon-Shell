@@ -469,9 +469,8 @@ fn running(runtime: &HashMap<String, OwnedValue>) -> bool {
         == Some("running")
 }
 
-/// Until deckardd says Android runs: Android boots some ten seconds after
-/// its session, and drops a `deckard-launch app launch` before that. Without
-/// deckardd, or after 90 s, it waits no more.
+/// Until deckard-bridge says Android runs. Without the bridge, or after
+/// 90 s, it waits no more.
 pub(super) async fn wait_for_android() {
     let wait = async {
         let bus = io::session_bus().await?;

@@ -496,7 +496,6 @@ pub struct TasksRust {
     expected_windows: HashMap<String, Instant>,
     android_handoffs: HashMap<String, launch::AndroidHandoff>,
     secure: HashMap<String, bool>,
-    after_android_boot: Vec<String>,
     pool: pool::Pool,
     // The lifecycle.
     lifecycle: lifecycle::Lifecycle,
