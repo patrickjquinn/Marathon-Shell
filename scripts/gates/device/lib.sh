@@ -340,6 +340,7 @@ dbus_watch() {
 finish() {
     while read -r cmd <&4; do eval "$cmd" < /dev/null || step undo fail "$cmd"; done 4< "$G_UNDO"
     for j in $(cat "$G_JOBS"); do kill "$j" 2>/dev/null; done
+    rm -f "$G_TMP"/*.fifo
     uname -a > "$G_TMP/uname.txt"
     tar -C "$G_TMP" -cf - . >&3
     rm -rf "$G_TMP"

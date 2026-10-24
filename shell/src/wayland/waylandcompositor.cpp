@@ -1063,7 +1063,9 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
         // schedules a frame, keeping the compositor at vsync while the app
         // animates. 4 frames (~64ms) of tail bridges brief commit gaps (fling
         // momentum ticks) without holding the loop awake once motion stops.
-        connect(surface, &QWaylandSurface::redraw, this, [this]() {
+        connect(surface, &QWaylandSurface::redraw, this, [this, surface]() {
+            if (m_hiddenThrottle && !surfaceShown(surface))
+                return;
             m_activeFrameCredits.storeRelaxed(4);
             if (m_window)
                 m_window->update();
