@@ -15,7 +15,7 @@ apk add --no-cache \
 	qt6-qtlocation-dev qt6-qtpositioning-dev qt6-qtspeech-dev qt6-qtwebsockets-dev \
 	hunspell-dev hunspell-en-us pulseaudio-dev pipewire-dev wayland-dev wayland-protocols \
 	mesa-dev libdrm-dev dbus dbus-dev eudev-dev libinput-dev linux-pam-dev sqlite-dev \
-	rpm findutils coreutils cryptsetup
+	rpm findutils coreutils cryptsetup pipewire wireplumber pipewire-tools
 
 # Tests that check file permissions pass trivially as root, so build and test
 # as an ordinary user from a private copy of the tree.
@@ -27,6 +27,7 @@ exec su ci -c 'set -eu
 cd /home/ci/src
 unset KEEL_QML
 export QT_QPA_PLATFORM=offscreen
+export MARATHON_TEST_STRICT=1
 cargo fmt --manifest-path crates/Cargo.toml --all -- --check
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build build
