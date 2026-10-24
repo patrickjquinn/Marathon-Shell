@@ -23,6 +23,7 @@ echo "+-- building $PKG --+"
 
 podman run --rm -i \
     -e PKG="$PKG" \
+    -e WPE_BUILD_JOBS="${WPE_BUILD_JOBS:-}" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
     -v "$PMOS_KEY:/etc/apk/keys/build.postmarketos.org.rsa.pub:z,ro" \
     -v "$MKOSI_PKG_DIR:/out:z" \
