@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=57
+pkgrel=58
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -280,6 +280,17 @@ Nice=19
 CPUSchedulingPolicy=idle
 IOSchedulingClass=idle
 EOF
+
+	# A memory floor for the shell: reclaim takes from apps first. Each
+	# ancestor needs the same floor for the scope's to count, and with
+	# memory_recursiveprot the scope claims all of it, so apps get none.
+	local d
+	for d in system/user.slice.d system/user-.slice.d system/user@.service.d \
+		user/marathon.slice.d user/marathon-shell-.scope.d; do
+		install -d "$pkgdir/usr/lib/systemd/$d"
+		printf '[%s]\nMemoryLow=400M\n' "$(case $d in *service.d) echo Service ;; *scope.d) echo Scope ;; *) echo Slice ;; esac)" \
+			> "$pkgdir/usr/lib/systemd/$d/50-marathon-shell-floor.conf"
+	done
 
 	# avahi-daemon drop-in: start after NetworkManager so /etc/resolv.conf
 	# (which NM writes) exists when avahi opens it. Without this we log
