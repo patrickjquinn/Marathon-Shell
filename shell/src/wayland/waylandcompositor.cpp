@@ -24,6 +24,7 @@
 #include <QDateTime>
 #include <QFile>
 #include <QDir>
+#include <QFileInfo>
 #include <QTextStream>
 #include <QCoreApplication>
 #include <QWaylandXdgToplevel>
@@ -533,6 +534,17 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
             newParts << "flatpak"
                      << "run"
                      << "--socket=wayland";
+            // A per-user app run without --user also opens the system
+            // installation, which costs a system-helper call and gpg runs
+            // on every launch (about 90 ms on the HackberryPi).
+            QString appRef;
+            for (const QString &part : parts.mid(2)) {
+                if (!part.startsWith('-'))
+                    appRef = part;
+            }
+            if (!appRef.isEmpty() &&
+                QFileInfo::exists(QDir::homePath() + "/.local/share/flatpak/app/" + appRef))
+                newParts << "--user";
             newParts << parts.mid(2);
             execPartsOverride = newParts;
             actualCommand     = newParts.join(' ');
