@@ -1,5 +1,8 @@
 [Unit]
 Description=Pilot's on-device tool-picking embeddings, started on first use
+# The phone's user only: another user's manager (root's, over ssh) would
+# find the port taken and log the socket as failed.
+ConditionUser=!@system
 
 [Socket]
 ListenStream=127.0.0.1:8087
