@@ -8,7 +8,7 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=12
+pkgrel=13
 _commit=0fa2c4c9709d65b70e8f5d3b7fb233eee3765cd5
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
@@ -135,6 +135,13 @@ package() {
 
 	install -Dm644 host/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/Apache-2.0
 	install -Dm644 image/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/GPL-3.0
+
+	# What a phone's Deckard should be: the commit, and digests for sha256sum -c from /.
+	(
+		echo "commit $_commit"
+		cd "$pkgdir" && find usr -type f -exec sha256sum {} + | sort -k2
+	) > "$srcdir"/build-manifest
+	install -Dm644 "$srcdir"/build-manifest "$pkgdir"/usr/share/deckard/build-manifest
 }
 
 sha512sums="
