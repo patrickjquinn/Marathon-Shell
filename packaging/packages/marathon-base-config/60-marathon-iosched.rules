@@ -1,8 +1,10 @@
 # Marathon OS I/O Scheduler Configuration
-# mq-deadline for flash storage (eMMC/UFS) + polling + read-ahead tuning
+# BFQ for SD/eMMC + polling + read-ahead tuning
 
-# Set mq-deadline on all mmcblk devices
-ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/scheduler}="mq-deadline"
+# BFQ on all mmcblk devices: under a heavy app writer on the HackberryPi's SD
+# card it kept the shell's small reads at ~0.1 s and fsyncs at ~0.5 s, where
+# mq-deadline let them wait 1.5 s and 10-20 s (bulk writes ~23% slower).
+ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/scheduler}="bfq"
 
 # I/O polling DOES NOT apply to MMC — the mmc block driver doesn't
 # implement the poll_fn op, so writing 1 to queue/io_poll returns EINVAL
