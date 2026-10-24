@@ -145,8 +145,11 @@ impl AppCgroups {
         }
     }
 
-    /// The app's process exited.
+    /// The app's process exited or the app was closed. Its cgroup is thawed
+    /// first: a process left frozen there (a Flatpak's bwrap or D-Bus proxy)
+    /// would never exit.
     pub(crate) fn forget(&mut self, app_id: &str) {
+        self.set_frozen(app_id, false);
         self.scopes.remove(app_id);
         if self.placed.remove(app_id) {
             self.dir(app_id).map(fs::remove_dir);

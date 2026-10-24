@@ -222,6 +222,7 @@ impl Tasks {
         }
         self.as_mut().close_task_of(app_id);
         self.as_mut().cancel_freeze(app_id);
+        self.as_mut().rust_mut().lifecycle.cgroups.forget(app_id);
         let old = self.state_of(app_id);
         if self.lifecycle.apps.contains_key(app_id) && old != State::Killed {
             self.as_mut()

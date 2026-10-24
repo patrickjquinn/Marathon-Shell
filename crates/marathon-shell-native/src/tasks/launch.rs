@@ -1167,7 +1167,7 @@ impl Tasks {
             return;
         }
         self.as_mut().rust_mut().windows.remove(&app_id);
-        if task_surface.is_none_or(|s| s == surface_id) && self.termination_pid(&app_id) <= 0 {
+        if task_surface.is_none_or(|s| s == surface_id) {
             let grace = self
                 .android_handoffs
                 .get(&app_id)
@@ -1183,10 +1183,14 @@ impl Tasks {
                 {
                     return;
                 }
+                // A live process may still show another window; a dead one,
+                // or a zombie its frozen parent cannot reap, will not.
+                let pid = obj.termination_pid(&app_id);
                 if obj.windows.contains_key(&app_id)
                     || obj
                         .task(&app_id)
                         .is_some_and(|t| t.surface_id != surface_id)
+                    || (pid > 0 && process_is_live(pid))
                 {
                     return;
                 }
