@@ -25,8 +25,9 @@ done
 
 echo "+-- building $TARGET --+"
 
-# The cargo target directory runs to several GB: keep it off a RAM /tmp.
-WORK_DIR="$(mktemp -d "${HOME}/.cache/marathon-build/pacific-build.XXXXXX")"
+# The cargo target directory runs to several GB: keep it off a RAM /tmp
+# (PACIFIC_BUILD_DIR moves it).
+WORK_DIR="$(mktemp -d "${PACIFIC_BUILD_DIR:-${HOME}/.cache/marathon-build}/pacific-build.XXXXXX")"
 trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
 LOCAL_COMMIT=""
