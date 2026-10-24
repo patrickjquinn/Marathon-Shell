@@ -37,6 +37,9 @@ Rectangle {
     property color primary: lightBackdrop ? Silica.Theme.darkPrimaryColor : Silica.Theme.lightPrimaryColor
     property color secondary: lightBackdrop ? Silica.Theme.darkSecondaryColor : Silica.Theme.lightSecondaryColor
     property color accent: Silica.Theme.highlightFromColor(Silica.Theme.highlightColor, lightBackdrop ? Silica.Theme.DarkOnLight : Silica.Theme.LightOnDark)
+    // The pill and active glyphs: an ambience highlight can't be trusted to
+    // reach 3:1 on the light bar, so there they go black.
+    property color highlight: lightBackdrop ? Silica.Theme.darkPrimaryColor : Silica.Theme.highlightFromColor(Silica.Theme.highlightColor, Silica.Theme.LightOnDark)
 
     signal swipeLeft
     signal swipeRight
@@ -75,6 +78,12 @@ Rectangle {
         }
     }
     Behavior on accent {
+        ColorAnimation {
+            duration: MMotion.durationFor("hover")
+            easing.type: MMotion.easingFor("hover")
+        }
+    }
+    Behavior on highlight {
         ColorAnimation {
             duration: MMotion.durationFor("hover")
             easing.type: MMotion.easingFor("hover")
@@ -156,7 +165,7 @@ Rectangle {
                 width: indicator.width * (navBar.pilotLit ? 0.75 : 0.55) + 2 * spread
                 height: Silica.Theme.paddingSmall + 2 * spread
                 radius: height / 2
-                color: navBar.accent
+                color: index === 0 ? navBar.highlight : navBar.accent
                 opacity: (index === 0 ? 0.6 : 0.16 / index) * (navBar.pilotLit ? 1.6 : 1)
                 antialiasing: Constants.enableAntialiasing
 
@@ -187,7 +196,7 @@ Rectangle {
         GlyphIcon {
             name: "search"
             size: Silica.Theme.iconSizeExtraSmall
-            color: navBar.searchActive ? navBar.accent : navBar.secondary
+            color: navBar.searchActive ? navBar.highlight : navBar.secondary
             x: Silica.Theme.horizontalPageMargin
             anchors.verticalCenter: parent.verticalCenter
 
@@ -216,7 +225,7 @@ Rectangle {
         GlyphIcon {
             name: "keyboard"
             size: Silica.Theme.iconSizeExtraSmall
-            color: navBar.keyboardVisible ? navBar.accent : navBar.secondary
+            color: navBar.keyboardVisible ? navBar.highlight : navBar.secondary
             anchors.right: parent.right
             anchors.rightMargin: Silica.Theme.horizontalPageMargin
             anchors.verticalCenter: parent.verticalCenter
