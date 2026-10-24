@@ -3,6 +3,7 @@
 //! Shell.conf`) so an older image still reads them, and served as
 //! `Settings1` to the Settings app and every app's own keys.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write as _;
 use std::os::unix::fs::OpenOptionsExt as _;
@@ -24,7 +25,7 @@ use zbus::zvariant::OwnedValue;
 
 use crate::ipc::{self, State};
 use crate::qsettings::{Ini, Value};
-use crate::{gate, io, log, permissions};
+use crate::{app_ids, gate, io, log, permissions};
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {
@@ -1063,6 +1064,54 @@ fn migrate(ini: &mut Ini) -> bool {
         }
     }
     changed
+}
+
+/// Moves Android apps' ids from `from` to `to` in the hidden apps, the
+/// default apps and the per-app notification settings.
+///
+/// # Errors
+/// The file cannot be read or written.
+pub fn rename_app_ids(from: &str, to: &str) -> std::io::Result<()> {
+    let text = match fs::read_to_string(file()) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        text => text?,
+    };
+    let mut ini = Ini::parse(&text);
+    let rename = |id: &str| app_ids::renamed(id, from, to);
+    let mut changed = false;
+    let hidden = ini.0.get("apps/hiddenApps").map(Value::as_list);
+    if let Some(hidden) = hidden.filter(|ids| ids.iter().any(|id| id.starts_with(from))) {
+        let mut next = Vec::with_capacity(hidden.len());
+        for id in hidden {
+            next.push(rename(&id).unwrap_or(id));
+        }
+        ini.0.insert("apps/hiddenApps".into(), Value::List(next));
+        changed = true;
+    }
+    for (_, key, _) in DEFAULT_APPS {
+        if let Some(id) = ini
+            .0
+            .get(key)
+            .and_then(Value::as_text)
+            .and_then(|id| rename(&id))
+        {
+            ini.0.insert(key.into(), Value::Text(id));
+            changed = true;
+        }
+    }
+    if let Some(Value::Map(apps)) = ini.0.get_mut("notifications/appSettings") {
+        let mut next = BTreeMap::new();
+        for (id, value) in std::mem::take(apps) {
+            let new = rename(&id);
+            changed |= new.is_some();
+            next.insert(new.unwrap_or(id), value);
+        }
+        *apps = next;
+    }
+    if changed {
+        write(&ini.render())?;
+    }
+    Ok(())
 }
 
 /// Role, the file's key and Marathon's own app for it.

@@ -4,6 +4,7 @@ fn main() {
     CxxQtBuilder::new()
         .file("src/alarms.rs")
         .file("src/ambience.rs")
+        .file("src/app_ids.rs")
         .file("src/apps.rs")
         .file("src/audio.rs")
         .file("src/bluetooth.rs")

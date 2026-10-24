@@ -30,6 +30,7 @@
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 
+#include "marathon-shell-native/src/app_ids.cxxqt.h"
 #include "marathon-shell-native/src/rt.cxxqt.h"
 #include <cstdio>
 #include <cstring>
@@ -276,6 +277,8 @@ static void startupMark(const char *phase) {
 }
 
 int main(int argc, char *argv[]) {
+    if (argc == 4 && std::strcmp(argv[1], "--rename-app-ids") == 0)
+        return marathon::app_ids::rename_app_ids(argv[2], argv[3]);
     startupMark("main");
 
     qputenv("QML_XHR_ALLOW_FILE_READ", "1");

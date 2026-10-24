@@ -287,6 +287,22 @@ fn open_store() -> rusqlite::Result<rusqlite::Connection> {
     Ok(db)
 }
 
+/// Moves Android apps' notifications from the `from` prefix to `to`.
+///
+/// # Errors
+/// The history cannot be opened or written.
+pub fn rename_app_ids(from: &str, to: &str) -> rusqlite::Result<()> {
+    if !store_path().exists() {
+        return Ok(());
+    }
+    let length = i64::try_from(from.len()).unwrap_or(i64::MAX);
+    open_store()?.execute(
+        "UPDATE notifications SET app_id = ?2 || substr(app_id, ?3 + 1) WHERE substr(app_id, 1, ?3) = ?1",
+        rusqlite::params![from, to, length],
+    )?;
+    Ok(())
+}
+
 /// The kept history; progress belongs to a sender of the last session.
 fn load(db: &rusqlite::Connection) -> Vec<Row> {
     db.execute("UPDATE notifications SET dismissed = 1 WHERE dismissed = 0 AND metadata LIKE '%\"value\":%'", []).ok();
