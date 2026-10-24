@@ -9,7 +9,7 @@
 pkgname=deckard
 pkgver=0.1.0
 pkgrel=15
-_commit=a58116ccd16cb6a4fa2a276fc9c6e110b71ed5a8
+_commit=89387d10865191bc3c49b5c98fa8870620cb39c8
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -64,7 +64,7 @@ check() {
 	export RUSTFLAGS="-C target-feature=-crt-static"
 	dbus-run-session -- env DECKARD_BRIDGE_PRIVATE_BUS=1 \
 		DECKARD_RUNTIME_PRIVATE_BUS=1 DECKARD_IME_PRIVATE_BUS=1 \
-		cargo test --locked -p deckard-host-tools -p deckard-fonts-sync \
+		cargo test --release --locked -p deckard-host-tools -p deckard-fonts-sync \
 		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch \
 		-p deckard-container -p deckard-bridge -p deckard-core \
 		-p deckard-mpris -p deckard-packages

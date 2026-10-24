@@ -29,6 +29,7 @@ if [ -n "${DECKARD_SRC:-}" ]; then
 fi
 
 podman run --rm -i \
+    --security-opt label=disable \
     --net=host \
     -e LOCAL_COMMIT="$LOCAL_COMMIT" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
