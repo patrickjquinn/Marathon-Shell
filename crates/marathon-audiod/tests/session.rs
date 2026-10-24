@@ -106,7 +106,7 @@ impl Session {
         Self::start_with(name, true)
     }
 
-    fn start_with(name: &str, roles: bool) -> Option<Session> {
+    fn tools_installed() -> bool {
         let programs = [
             "pipewire",
             "wireplumber",
@@ -115,12 +115,19 @@ impl Session {
             "pw-cat",
             "pw-dump",
         ];
-        if let Some(missing) = programs.iter().find(|p| !on_path(p)) {
-            assert!(
-                std::env::var_os("MARATHON_TEST_STRICT").is_none(),
-                "MARATHON_TEST_STRICT: {missing} is not installed"
-            );
-            eprintln!("skipped: {missing} is not installed");
+        let Some(missing) = programs.iter().find(|p| !on_path(p)) else {
+            return true;
+        };
+        assert!(
+            std::env::var_os("MARATHON_TEST_STRICT").is_none(),
+            "MARATHON_TEST_STRICT: {missing} is not installed"
+        );
+        eprintln!("skipped: {missing} is not installed");
+        false
+    }
+
+    fn start_with(name: &str, roles: bool) -> Option<Session> {
+        if !Self::tools_installed() {
             return None;
         }
         let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/session");
