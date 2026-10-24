@@ -1000,7 +1000,7 @@ QtObject {
 
     function openApp(appId) {
         if (isAndroid(appId) && isValidRef(appId))
-            root.openExternally("marathon-store://open/waydroid." + appId.substring(8));
+            root.openExternally("marathon-store://open/deckard." + appId.substring(8));
         else if (isValidRef(appId))
             root.openExternally("marathon-store://open/" + appId);
     }

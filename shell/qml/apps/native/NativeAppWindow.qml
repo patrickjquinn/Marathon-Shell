@@ -23,7 +23,7 @@ MApp {
     property bool drawnByTexture: false
     // Android windows carry alpha too (a platform-themed app draws a clear
     // window background), so they sit on the ambience as Keel apps do.
-    readonly property bool ambienceBackdrop: keelApp || nativeAppId.startsWith("waydroid.")
+    readonly property bool ambienceBackdrop: keelApp || nativeAppId.startsWith("deckard.")
     readonly property bool keelApp: {
         return AppModel.hasApp(nativeAppId) || Tasks.isKeelHostApp(nativeAppId);
     }
@@ -84,7 +84,7 @@ MApp {
                     nativeAppWindow.surfaceId = task.surfaceId;
                     nativeAppWindow.surfaceSwitched();
                 } else if (!task || (++tries > 12 &&
-                           !((nativeAppWindow.nativeAppId.startsWith("waydroid.") || nativeAppWindow.nativeAppId.startsWith("deckard.")) &&
+                           !(nativeAppWindow.nativeAppId.startsWith("deckard.") &&
                              Tasks.isAppLaunching(nativeAppWindow.nativeAppId)))) {
                     stop();
                     Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");

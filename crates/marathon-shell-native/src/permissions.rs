@@ -23,7 +23,7 @@ use zbus::message::Header;
 use zbus::names::BusName;
 
 use crate::ipc::{self, value, State};
-use crate::{gate, io, log};
+use crate::{app_ids, gate, io, log};
 
 #[cxx_qt::bridge(namespace = "marathon")]
 mod qobject {
@@ -889,10 +889,8 @@ fn is_android_app(app: &str) -> bool {
         s.starts_with(|c: char| c.is_ascii_alphabetic())
             && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     };
-    app.len() <= 9 + 255
-        && app
-            .strip_prefix("waydroid.")
-            .is_some_and(|pkg| pkg.split('.').all(segment))
+    app.len() <= app_ids::ANDROID.len() + 255
+        && app_ids::android_package(app).is_some_and(|pkg| pkg.split('.').all(segment))
 }
 
 /// A foreign prompt's options, when every known one is valid.
@@ -1018,7 +1016,7 @@ impl Permissions1 {
         .await
     }
 
-    /// deckardd's prompt for an Android app, `waydroid.<package>`; options
+    /// deckardd's prompt for an Android app, `deckard.<package>`; options
     /// request (16 hex digits), kind, once, accuracy and preciseDefault.
     /// Answers allow, once, deny or cancel, and precise.
     async fn prompt_android(
@@ -1271,7 +1269,7 @@ mod tests {
         let ask = |c: &mut Core, key: &str, once: bool, accuracy: &str| {
             c.foreign.push_back(Foreign {
                 key: key.into(),
-                app: "waydroid.org.a".into(),
+                app: "deckard.org.a".into(),
                 permission: "location".into(),
                 options: ForeignOptions {
                     kind: "foreground".into(),
@@ -1293,7 +1291,7 @@ mod tests {
         assert!(out.contains(&Event::Answered("k2".into(), "once", false)));
         assert_eq!(c.stored, BTreeMap::new());
         ask(&mut c, "k3", false, "");
-        let out = run(&mut c, |c, o| c.dismiss_for(Some("waydroid.org.a"), o));
+        let out = run(&mut c, |c, o| c.dismiss_for(Some("deckard.org.a"), o));
         assert!(out.contains(&Event::Answered("k3".into(), "cancel", false)));
     }
 
@@ -1330,14 +1328,14 @@ mod tests {
     #[test]
     fn android_prompts_take_only_android_apps_and_known_options() {
         use super::{foreign_options, is_android_app, value, State};
-        assert!(is_android_app("waydroid.org.fossify.camera"));
+        assert!(is_android_app("deckard.org.fossify.camera"));
         for bad in [
-            "waydroid.",
+            "deckard.",
             "notes",
-            "waydroid.bad pkg",
-            "waydroid.9lives",
-            "waydroid.a..b",
-            &format!("waydroid.{}", "a".repeat(256)),
+            "deckard.bad pkg",
+            "deckard.9lives",
+            "deckard.a..b",
+            &format!("deckard.{}", "a".repeat(256)),
         ] {
             assert!(!is_android_app(bad), "{bad}");
         }

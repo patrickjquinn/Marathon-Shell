@@ -35,7 +35,7 @@ Page {
 
     function uninstallAndroid(pkg, name) {
         const next = Object.assign({}, removing);
-        next["waydroid." + pkg] = name;
+        next["deckard." + pkg] = name;
         removing = next;
         AndroidApps.uninstall(pkg);
     }
@@ -44,12 +44,12 @@ Page {
         target: AndroidApps
 
         function onDone(pkg, action) {
-            if (action === "uninstall" && page.removing["waydroid." + pkg] !== undefined)
-                Notices.show(qsTr("%1 uninstalled").arg(page.removing["waydroid." + pkg]));
+            if (action === "uninstall" && page.removing["deckard." + pkg] !== undefined)
+                Notices.show(qsTr("%1 uninstalled").arg(page.removing["deckard." + pkg]));
         }
         function onFailed(pkg, action, error) {
-            if (action === "uninstall" && page.removing["waydroid." + pkg] !== undefined)
-                Notices.show(qsTr("Couldn't uninstall %1: %2").arg(page.removing["waydroid." + pkg]).arg(error));
+            if (action === "uninstall" && page.removing["deckard." + pkg] !== undefined)
+                Notices.show(qsTr("Couldn't uninstall %1: %2").arg(page.removing["deckard." + pkg]).arg(error));
         }
     }
 

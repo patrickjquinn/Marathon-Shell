@@ -293,7 +293,7 @@ TestCase {
     function androidToast(text) {
         return {
             "id": 2147483649,
-            "appId": "waydroid.org.example",
+            "appId": "deckard.org.example",
             "title": text,
             "body": "",
             "icon": "bell"

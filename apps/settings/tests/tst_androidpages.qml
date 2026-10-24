@@ -161,19 +161,19 @@ TestCase {
     // Android apps are rows of Installed apps like any other.
     function test_installedApps() {
         const s = open("appmanager");
-        const row = child(s.page, "app-waydroid.org.fdroid.fdroid");
+        const row = child(s.page, "app-deckard.org.fdroid.fdroid");
         compare(findChild(row, "subtitle").text, "Version 1.20 · Android app");
         verify(row.menu !== null);
         s.page.uninstallAndroid("org.fdroid.fdroid", "F-Droid");
         compare(called("uninstall"), [["uninstall", "org.fdroid.fdroid"]]);
         tap(row);
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !s.app.pageStack.busy);
-        compare(s.app.pageStack.currentPage.appId, "waydroid.org.fdroid.fdroid");
+        compare(s.app.pageStack.currentPage.appId, "deckard.org.fdroid.fdroid");
     }
 
-    // appmanager/waydroid.<pkg>, as DeckardSystem forwards Android's app details.
+    // appmanager/deckard.<pkg>, as DeckardSystem forwards Android's app details.
     function test_appInfo() {
-        const s = open("appmanager/waydroid.org.fdroid.fdroid");
+        const s = open("appmanager/deckard.org.fdroid.fdroid");
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !s.app.pageStack.busy);
         const info = s.app.pageStack.currentPage;
         compare(child(info, "header").title, "F-Droid");
@@ -227,7 +227,7 @@ TestCase {
 
     // Removed elsewhere (or by our own uninstall): the page closes without an error.
     function test_appRemovedClosesThePage() {
-        const s = open("appmanager/waydroid.org.fdroid.fdroid");
+        const s = open("appmanager/deckard.org.fdroid.fdroid");
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !s.app.pageStack.busy);
         const info = s.app.pageStack.currentPage;
         AndroidApps.appRemoved("org.fdroid.fdroid");
@@ -257,17 +257,17 @@ TestCase {
 
     // Android won't remove Deckard's own packages: Settings doesn't offer it.
     function test_deckardPackagesStay() {
-        AndroidApps.apps = AndroidApps.apps.concat([{ pkg: "org.marathonos.deckard.notifytest", id: "waydroid.org.marathonos.deckard.notifytest", name: "Notify Test", version: "0.1.0", icon: "" }]);
+        AndroidApps.apps = AndroidApps.apps.concat([{ pkg: "org.marathonos.deckard.notifytest", id: "deckard.org.marathonos.deckard.notifytest", name: "Notify Test", version: "0.1.0", icon: "" }]);
         AndroidApps.details["org.marathonos.deckard.notifytest"] = Object.assign({}, AndroidApps.details["org.fdroid.fdroid"], { pkg: "org.marathonos.deckard.notifytest", label: "Notify Test" });
         const s = open("appmanager");
-        verify(child(s.page, "app-waydroid.org.marathonos.deckard.notifytest").menu === null);
-        verify(child(s.page, "app-waydroid.org.fdroid.fdroid").menu !== null);
+        verify(child(s.page, "app-deckard.org.marathonos.deckard.notifytest").menu === null);
+        verify(child(s.page, "app-deckard.org.fdroid.fdroid").menu !== null);
         const list = open("androidapps");
-        verify(child(list.page, "app-waydroid.org.marathonos.deckard.notifytest").menu === null);
-        const info = open("appmanager/waydroid.org.marathonos.deckard.notifytest");
+        verify(child(list.page, "app-deckard.org.marathonos.deckard.notifytest").menu === null);
+        const info = open("appmanager/deckard.org.marathonos.deckard.notifytest");
         tryVerify(() => String(info.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !info.app.pageStack.busy);
         verify(!info.app.pageStack.currentPage.canUninstall);
-        const other = open("appmanager/waydroid.org.fdroid.fdroid");
+        const other = open("appmanager/deckard.org.fdroid.fdroid");
         tryVerify(() => String(other.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !other.app.pageStack.busy);
         verify(other.app.pageStack.currentPage.canUninstall);
     }
@@ -347,6 +347,6 @@ TestCase {
         compare(Logic.androidAccess.length, 12);
         compare(Logic.dataSize(912842752), "912.8 MB");
         compare(Logic.routeArgument("androidaccess/all_files/org.example"), "all_files/org.example");
-        compare(Logic.routeArgument("appmanager/waydroid.org.example?x=1"), "waydroid.org.example");
+        compare(Logic.routeArgument("appmanager/deckard.org.example?x=1"), "deckard.org.example");
     }
 }

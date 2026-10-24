@@ -49,8 +49,10 @@
 #ifdef HAVE_PRESENTATION_TIME
 #include <private/qwaylandpresentationtime_p.h>
 #endif
+#include <QtWaylandCompositor/private/qwaylandxdgshell_p.h>
 
 #include "diag/frametiming.h"
+#include "androidappid.h"
 #include "marathon-shell-native/src/rt.cxxqt.h"
 #include <algorithm>
 #include <utility>   // std::as_const
@@ -966,12 +968,11 @@ QObject *WaylandCompositor::shellSurfaceById(int surfaceId) {
 
 namespace {
 
-    // Waydroid sizes its windows itself (persist.waydroid.width/height) and
-    // re-plugs Android's display on every sized configure; a 0x0 one it
-    // takes as "the compositor defers", so its windows only get those.
+    // Android sizes its windows itself (persist.waydroid.width/height) and
+    // re-plugs its display on every sized configure; a 0x0 one it takes as
+    // "the compositor defers", so its windows only get those.
     bool sizesItself(const QWaylandXdgToplevel *toplevel) {
-        const QString appId = toplevel->appId();
-        return appId == QLatin1String("Waydroid") || appId.startsWith(QLatin1String("waydroid."));
+        return AndroidAppId::isAndroid(toplevel->appId());
     }
 
     // On screen: one of its views is shown, or drawn by a shown WindowTextureItem.
@@ -1368,6 +1369,12 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
             << "[WaylandCompositor] XDG surface has no valid Wayland surface or client - ignoring";
         return;
     }
+
+    // First, so every other reader sees the shell's id.
+    connect(toplevel, &QWaylandXdgToplevel::appIdChanged, toplevel, [toplevel]() {
+        QString &appId = QWaylandXdgToplevelPrivate::get(toplevel)->m_appId;
+        appId          = AndroidAppId::canonical(appId);
+    });
 
     surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
     surface->setProperty("xdgToplevel", QVariant::fromValue(toplevel));

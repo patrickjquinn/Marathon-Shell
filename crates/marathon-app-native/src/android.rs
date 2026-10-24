@@ -371,7 +371,7 @@ impl AndroidApps {
                 );
                 app.insert(
                     "id".into(),
-                    OwnedValue::from(zbus::zvariant::Str::from(format!("waydroid.{pkg}"))),
+                    OwnedValue::from(zbus::zvariant::Str::from(format!("deckard.{pkg}"))),
                 );
                 app.insert(
                     "name".into(),

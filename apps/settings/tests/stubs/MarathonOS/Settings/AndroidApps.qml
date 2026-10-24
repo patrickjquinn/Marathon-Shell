@@ -23,7 +23,7 @@ QtObject {
     function reset() {
         available = true;
         runtime = { state: "running", memoryBytes: 734003200, androidVersion: "13", uptimeSeconds: 7500, startAtLogin: true, hasApps: true };
-        apps = [{ pkg: "org.fdroid.fdroid", id: "waydroid.org.fdroid.fdroid", name: "F-Droid", version: "1.20", icon: "" }];
+        apps = [{ pkg: "org.fdroid.fdroid", id: "deckard.org.fdroid.fdroid", name: "F-Droid", version: "1.20", icon: "" }];
         calls = [];
         details = {
             "org.fdroid.fdroid": {

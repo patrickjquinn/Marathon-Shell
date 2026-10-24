@@ -77,7 +77,7 @@ TestCase {
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("PermissionAppsPage") === 0 && !s.app.pageStack.busy);
         const page = s.app.pageStack.currentPage;
         compare(AndroidApps.calls.filter(c => c[0] === "loadPermissionApps"), [["loadPermissionApps", "camera"]]);
-        const android = child(page, "app-waydroid.org.fdroid.fdroid");
+        const android = child(page, "app-deckard.org.fdroid.fdroid");
         compare(android.text, "F-Droid");
         compare(android.description, "Android app");
         verify(!android.checked);

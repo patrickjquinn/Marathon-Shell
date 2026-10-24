@@ -13,6 +13,7 @@ pub(crate) use marathon_rt::{io, log};
 
 pub mod alarms;
 pub mod ambience;
+pub mod app_ids;
 pub mod apps;
 pub mod audio;
 mod audit;

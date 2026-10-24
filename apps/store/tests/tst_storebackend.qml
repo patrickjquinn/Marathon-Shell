@@ -370,7 +370,7 @@ TestCase {
         b.installApp("android:org.example.clock");
         compare(b.opened[b.opened.length - 1], "marathon-store://install/android:org.example.clock?name=Tick");
         b.openApp("android:org.example.clock");
-        compare(b.opened[b.opened.length - 1], "marathon-store://open/waydroid.org.example.clock");
+        compare(b.opened[b.opened.length - 1], "marathon-store://open/deckard.org.example.clock");
         b.installApk("/home/user/Downloads/a b.apk", "org.example.clock", "Tick");
         compare(b.opened[b.opened.length - 1], "marathon-store://apk-install/%2Fhome%2Fuser%2FDownloads%2Fa%20b.apk?pkg=org.example.clock&name=Tick");
         compare(b.jobFor("android:org.example.clock").state, "pending");

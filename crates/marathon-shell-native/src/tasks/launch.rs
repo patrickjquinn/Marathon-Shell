@@ -13,9 +13,9 @@ use cxx_qt_lib::{QString, QVariant};
 
 use super::{dbus, later, pool, q, Launch, Map, Tasks};
 use crate::apps::{self, App};
-use crate::{desktop, io, log, sandbox};
+use crate::{app_ids, desktop, io, log, sandbox};
 
-/// A launcher process (`waydroid app launch`) is not the app: its window
+/// A launcher process (`deckard-launch app launch`) is not the app: its window
 /// may come this long after it exits.
 const EXITED_LAUNCH_GRACE: Duration = Duration::from_secs(30);
 /// An app with no process of its own keeps its card this long after its
@@ -28,11 +28,7 @@ const ANDROID_HANDOFF_GRACE: Duration = Duration::from_secs(45);
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
 pub(super) fn is_android_app_id(app_id: &str) -> bool {
-    ["waydroid.", "deckard."].iter().any(|prefix| {
-        app_id
-            .strip_prefix(prefix)
-            .is_some_and(|package| !package.is_empty() && package.contains('.'))
-    })
+    app_ids::android_package(app_id).is_some_and(|package| package.contains('.'))
 }
 
 fn is_foreground_flatpak_run(command: &str) -> bool {
@@ -527,7 +523,7 @@ impl Tasks {
                 .rust_mut()
                 .pending_by_command
                 .insert(exec.clone(), launch);
-            if exec.starts_with("waydroid app ") {
+            if exec.starts_with(app_ids::LAUNCHER) {
                 self.as_mut().wake(&app.id);
                 self.as_mut().after_android_boots(exec);
             } else {
@@ -542,7 +538,7 @@ impl Tasks {
         true
     }
 
-    /// `waydroid app launch` before Android has booted is dropped; with no
+    /// `deckard-launch app launch` before Android has booted is dropped; with no
     /// session running it becomes the session, and Android stops with it.
     fn after_android_boots(mut self: Pin<&mut Self>, exec: String) {
         self.as_mut().rust_mut().after_android_boot.push(exec);
@@ -1055,7 +1051,7 @@ impl Tasks {
                 return self.show_launch(&launch, surface_id);
             }
         }
-        // Launched by another process (`waydroid app launch`), not the app.
+        // Launched by another process (`deckard-launch app launch`), not the app.
         if !xdg.is_empty() {
             let mut launch = self.as_mut().rust_mut().exited_launches.remove(&xdg);
             let pending: Vec<String> = self
@@ -1277,24 +1273,24 @@ mod tests {
     #[test]
     fn stopped_android_session_discards_only_its_old_surfaces() {
         let mut windows = HashMap::from([
-            ("waydroid.example.feeder".to_owned(), vec![3, 4]),
+            ("deckard.example.feeder".to_owned(), vec![3, 4]),
             ("org.example.Native".to_owned(), vec![5]),
         ]);
         let mut clients = HashMap::from([(3, 10), (4, 10), (5, 20)]);
 
-        discard_app_windows(&mut windows, &mut clients, "waydroid.example.feeder");
+        discard_app_windows(&mut windows, &mut clients, "deckard.example.feeder");
 
-        assert!(!windows.contains_key("waydroid.example.feeder"));
+        assert!(!windows.contains_key("deckard.example.feeder"));
         assert_eq!(windows["org.example.Native"], vec![5]);
         assert_eq!(clients, HashMap::from([(5, 20)]));
     }
 
     #[test]
     fn external_window_handoff_accepts_only_android_ids() {
-        assert!(is_android_app_id("waydroid.com.nononsenseapps.feeder"));
         assert!(is_android_app_id("deckard.com.nononsenseapps.feeder"));
+        assert!(!is_android_app_id("waydroid.com.nononsenseapps.feeder"));
         assert!(!is_android_app_id("de.haeckerfelix.Shortwave"));
-        assert!(!is_android_app_id("waydroid."));
+        assert!(!is_android_app_id("deckard."));
         assert!(!is_android_app_id("deckard.invalid"));
     }
 
@@ -1340,7 +1336,7 @@ mod tests {
         ));
         assert!(!is_foreground_flatpak_run("flatpak update org.example.App"));
         assert!(!is_foreground_flatpak_run(
-            "waydroid app launch org.example.App"
+            "/usr/libexec/deckard-launch app launch org.example.App"
         ));
     }
 }

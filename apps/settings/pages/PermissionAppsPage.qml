@@ -24,7 +24,7 @@ Page {
                     note: a.isProtected ? qsTr("System app") : ""
                 }));
         const android = page.androidApps.map(a => ({
-                    id: "waydroid." + a.pkg,
+                    id: "deckard." + a.pkg,
                     pkg: a.pkg,
                     name: a.label,
                     android: true,

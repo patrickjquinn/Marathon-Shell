@@ -327,7 +327,7 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
     ]))?;
     let mut listed = installed(&listing, &icons);
     // Publish local Flatpaks before asking Deckard for Android packages. The
-    // latter may be booting Waydroid and must not hide already-known apps.
+    // latter may be booting Android and must not hide already-known apps.
     state.write_json("installed.json", &listed)?;
     let (android_installed, android_updates) = crate::fdroid::lists();
     if let Some(apps) = listed["installed"].as_array_mut() {

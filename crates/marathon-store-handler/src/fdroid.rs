@@ -687,7 +687,7 @@ fn finish(
     };
     let pkg = package_of(app_id).unwrap_or_default();
     if ok {
-        notice.finish(&format!("waydroid.{pkg}"), &android_icon(pkg));
+        notice.finish(&format!("deckard.{pkg}"), &android_icon(pkg));
     } else {
         notice.close();
     }

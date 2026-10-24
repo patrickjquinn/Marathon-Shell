@@ -20,7 +20,7 @@ use zbus::message::Header;
 use zbus::zvariant::{Fd, OwnedValue, Value};
 use zbus::{fdo, interface};
 
-use crate::{io, log};
+use crate::{app_ids, io, log};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -478,7 +478,7 @@ fn ask_android(serial: u64, mime: String, source: String, files: usize) {
             return;
         };
         let skipped = source
-            .strip_prefix("waydroid.")
+            .strip_prefix(app_ids::ANDROID)
             .unwrap_or_default()
             .to_owned();
         let s = |m: &HashMap<String, OwnedValue>, k: &str| {

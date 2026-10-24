@@ -14,9 +14,9 @@ Page {
     readonly property var notifications: (SettingsController.notificationApps || []).find(a => a.id === page.appId)
     // Restricted permissions are held only by protected system apps.
     readonly property var refused: page.app.isProtected ? [] : (page.app.permissions || []).filter(p => !!Permissions.describe(p).restricted)
-    // Android apps ("waydroid.<package>") get their details from Android.
-    readonly property bool android: appId.startsWith("waydroid.")
-    readonly property string pkg: android ? appId.substring(9) : ""
+    // Android apps ("deckard.<package>") get their details from Android.
+    readonly property bool android: appId.startsWith("deckard.")
+    readonly property string pkg: android ? appId.substring(8) : ""
     property var androidApp: ({})
     // Android refuses to remove Deckard's own packages.
     readonly property bool canUninstall: android && Logic.androidRemovable(pkg)

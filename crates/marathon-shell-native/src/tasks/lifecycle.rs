@@ -11,7 +11,7 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QString, QStringList};
 
 use super::{dbus, later, launch::serves_keel_actions, q, Map, Tasks};
-use crate::{cgroup, io, log};
+use crate::{app_ids, cgroup, io, log};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(i32)]
@@ -619,7 +619,7 @@ impl Tasks {
 
     pub(super) fn set_front_app(mut self: Pin<&mut Self>, app_id: &QString) {
         let id = app_id.to_string();
-        let android = if id.starts_with("waydroid.") {
+        let android = if id.starts_with(app_ids::ANDROID) {
             id
         } else {
             String::new()

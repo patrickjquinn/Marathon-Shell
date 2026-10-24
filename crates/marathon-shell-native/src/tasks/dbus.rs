@@ -224,7 +224,7 @@ impl Navigation1 {
 pub(super) async fn android_session_owned() -> Option<bool> {
     let bus = io::session_bus().await.ok()?;
     let dbus = fdo::DBusProxy::new(&bus).await.ok()?;
-    let name = "id.waydro.Session".try_into().ok()?;
+    let name = "org.marathonos.Deckard.Session".try_into().ok()?;
     dbus.name_has_owner(name).await.ok()
 }
 
@@ -470,7 +470,7 @@ fn running(runtime: &HashMap<String, OwnedValue>) -> bool {
 }
 
 /// Until deckardd says Android runs: Android boots some ten seconds after
-/// its session, and drops a `waydroid app launch` before that. Without
+/// its session, and drops a `deckard-launch app launch` before that. Without
 /// deckardd, or after 90 s, it waits no more.
 pub(super) async fn wait_for_android() {
     let wait = async {
