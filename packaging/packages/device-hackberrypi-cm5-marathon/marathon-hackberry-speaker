@@ -2,24 +2,55 @@
 # Keep the HackberryPi's built-in Bluetooth speaker module connected: pair it
 # once, then reconnect whenever it drops (boot, session restarts, the module
 # power-cycling). Leaves it alone while Bluetooth is switched off.
+#
+# While the speaker is connected, or Bluetooth is off, this waits on BlueZ's
+# PropertiesChanged signals instead of polling.
 NAME="XWF-M18-M28-M38"
+ADAPTER=/org/bluez/hci0
+events=/run/marathon-hackberry-speaker.fifo
+
+powered() { bluetoothctl show 2>/dev/null | grep -q "Powered: yes"; }
+connected() { bluetoothctl info "$mac" 2>/dev/null | grep -q "Connected: yes"; }
+
+# wait_for PATH PATTERN CHECK: block until PATH's properties change to match
+# PATTERN, unless CHECK already holds once the monitor is listening.
+wait_for() {
+    rm -f "$events"
+    mkfifo "$events"
+    gdbus monitor --system --dest org.bluez --object-path "$1" > "$events" 2>/dev/null &
+    monitor=$!
+    exec 3< "$events"
+    if ! $3; then
+        grep -m1 -q "$2" <&3
+    fi
+    exec 3<&-
+    kill "$monitor" 2>/dev/null
+}
+
+not_connected() { ! connected; }
+
 mac=""
 while :; do
-    if bluetoothctl show 2>/dev/null | grep -q "Powered: yes"; then
-        [ -n "$mac" ] || mac=$(bluetoothctl devices Paired 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
-        if [ -z "$mac" ]; then
-            bluetoothctl --timeout 20 scan on >/dev/null 2>&1
-            mac=$(bluetoothctl devices 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
-            if [ -n "$mac" ]; then
-                bluetoothctl pair "$mac" >/dev/null 2>&1
-                bluetoothctl trust "$mac" >/dev/null 2>&1
-            else
-                sleep 290
-            fi
-        fi
-        if [ -n "$mac" ] && ! bluetoothctl info "$mac" 2>/dev/null | grep -q "Connected: yes"; then
-            bluetoothctl connect "$mac" >/dev/null 2>&1
-        fi
+    if ! powered; then
+        wait_for "$ADAPTER" "'Powered': <true>" powered
+        continue
     fi
-    sleep 10
+    [ -n "$mac" ] || mac=$(bluetoothctl devices Paired 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
+    if [ -z "$mac" ]; then
+        bluetoothctl --timeout 20 scan on >/dev/null 2>&1
+        mac=$(bluetoothctl devices 2>/dev/null | awk -v n="$NAME" '$0 ~ n {print $2; exit}')
+        if [ -z "$mac" ]; then
+            sleep 290
+            continue
+        fi
+        bluetoothctl pair "$mac" >/dev/null 2>&1
+        bluetoothctl trust "$mac" >/dev/null 2>&1
+    fi
+    connected || bluetoothctl connect "$mac" >/dev/null 2>&1
+    if connected; then
+        wait_for "$ADAPTER/dev_$(echo "$mac" | tr : _)" "'Connected': <false>" not_connected
+    else
+        # The module is off or out of range.
+        sleep 60
+    fi
 done

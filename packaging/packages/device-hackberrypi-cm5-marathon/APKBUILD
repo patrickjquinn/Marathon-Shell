@@ -4,7 +4,7 @@
 pkgname=device-hackberrypi-cm5-marathon
 pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
 pkgver=1.0.0
-pkgrel=29
+pkgrel=30
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
