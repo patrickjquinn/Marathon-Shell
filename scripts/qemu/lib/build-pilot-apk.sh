@@ -7,6 +7,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/require-clean.sh"
 DURANIUM_DIR="${DURANIUM_DIR:-${HOME}/.cache/marathon-build/duranium}"
 MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-$(cd "$SCRIPT_DIR/../../.." && pwd)/packaging}"
 APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
@@ -26,6 +27,7 @@ trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
 LOCAL_COMMIT=""
 if [ -n "${PILOT_SRC:-}" ]; then
+    [ -n "${PILOT_REF:-}" ] || require_clean "$PILOT_SRC"
     LOCAL_COMMIT="$(git -C "$PILOT_SRC" rev-parse "${PILOT_REF:-HEAD}")"
     mkdir -p "$WORK_DIR/distfiles"
     # Whole tree: pilotd is in the root workspace, the app includes

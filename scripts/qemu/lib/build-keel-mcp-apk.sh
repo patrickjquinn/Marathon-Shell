@@ -5,6 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/require-clean.sh"
 DURANIUM_DIR="${DURANIUM_DIR:-${HOME}/.cache/marathon-build/duranium}"
 MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-$(cd "$SCRIPT_DIR/../../.." && pwd)/packaging}"
 APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
@@ -18,6 +19,7 @@ trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
 LOCAL_COMMIT=""
 if [ -n "${KEEL_MCP_SRC:-}" ]; then
+    require_clean "$KEEL_MCP_SRC"
     LOCAL_COMMIT="$(git -C "$KEEL_MCP_SRC" rev-parse HEAD)"
     mkdir -p "$WORK_DIR/distfiles"
     # Whole tree: keel-mcp is a member of the root workspace.
