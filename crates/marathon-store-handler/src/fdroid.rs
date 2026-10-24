@@ -430,6 +430,15 @@ pub fn sync(state: &StateDir) -> io::Result<()> {
     refresh(state)
 }
 
+/// The app's name in the synced F-Droid catalogue.
+pub fn catalogue_name(app_id: &str) -> Option<String> {
+    let entry = catalogue_entry(package_of(app_id)?)?;
+    entry["name"]
+        .as_str()
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
+}
+
 fn catalogue_entry(pkg: &str) -> Option<Value> {
     let text = fs::read(cache_dir().join("fdroid.json")).ok()?;
     let catalogue: Value = serde_json::from_slice(&text).ok()?;

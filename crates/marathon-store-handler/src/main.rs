@@ -98,6 +98,7 @@ fn run(request: &Request) -> std::io::Result<()> {
             let name = Some(request.name.clone())
                 .filter(|name| !name.is_empty())
                 .or_else(|| state.installed_name(&request.arg))
+                .or_else(|| fdroid::catalogue_name(&request.arg))
                 .unwrap_or_else(|| request.arg.clone());
             let notice = notice::Notice::for_job(request.verb, &name);
             if fdroid::package_of(&request.arg).is_some() {
