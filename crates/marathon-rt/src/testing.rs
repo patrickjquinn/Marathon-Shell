@@ -16,8 +16,11 @@ pub struct PrivateBus {
 }
 
 impl PrivateBus {
-    /// None where there is no `dbus-daemon`; with `MARATHON_TEST_STRICT`
-    /// set, a panic, so CI never passes a test that did not run.
+    /// None where there is no `dbus-daemon`.
+    ///
+    /// # Panics
+    /// With `MARATHON_TEST_STRICT` set and no `dbus-daemon`, so CI never
+    /// passes a test that did not run.
     pub fn start() -> Option<Self> {
         let bus = Command::new("dbus-daemon")
             .args(["--session", "--nofork", "--print-address=1"])

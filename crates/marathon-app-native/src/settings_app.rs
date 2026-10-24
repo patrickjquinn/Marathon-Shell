@@ -507,6 +507,7 @@ fn stat_disk() -> (i64, i64) {
         #[allow(clippy::useless_conversion, reason = "f_type is signed on some libcs")]
         let fs_type = u64::try_from(s.f_type).unwrap_or(u64::MAX);
         if rc == 0 && fs_type != TMPFS_MAGIC && s.f_blocks > 0 {
+            #[allow(clippy::useless_conversion, reason = "f_frsize is unsigned on musl")]
             let bsize = i64::try_from(s.f_frsize).unwrap_or(0);
             let total = i64::try_from(s.f_blocks).unwrap_or(0).saturating_mul(bsize);
             let avail = i64::try_from(s.f_bavail).unwrap_or(0).saturating_mul(bsize);
