@@ -8,7 +8,7 @@
 # screen.
 pkgname=shoal-pilot
 pkgver=0.1.0
-pkgrel=0
+pkgrel=1
 _commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
 pkgdesc="Pilot assistant for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -32,6 +32,7 @@ makedepends="
 source="shoal-pilot-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
 	0001-shoal-pilot-overlay-under-marathon-keel-host.patch
 	shoal-pilot.desktop
+	shoal-pilot.svg
 	"
 builddir="$srcdir/shipwright-open-$_commit"
 options="!check net"
@@ -49,11 +50,7 @@ package() {
 	install -d "$pkgdir"/usr/share/shoal-pilot/qml
 	cp -R shoal/pilot/ui/. "$pkgdir"/usr/share/shoal-pilot/qml/
 	install -Dm644 "$srcdir"/shoal-pilot.desktop "$pkgdir"/usr/share/applications/shoal-pilot.desktop
-	local s
-	for s in 86 108 128 172; do
-		install -Dm644 icons/hicolor/${s}x$s/apps/shoal-pilot.png \
-			"$pkgdir"/usr/share/icons/hicolor/${s}x$s/apps/shoal-pilot.png
-	done
+	install -Dm644 "$srcdir"/shoal-pilot.svg "$pkgdir"/usr/share/icons/hicolor/scalable/apps/shoal-pilot.svg
 }
 
 sha512sums="

@@ -34,8 +34,8 @@ object does; families are far enough apart that categories never blur.
 
 | Family | Shape (square corners) | Hue band | Apps (hue) |
 |---|---|---|---|
-| Communication | bottom left: the bubble's tail | 154–192, on teal | Messages 154, Mail 172, Phone 192 |
-| Places & web | bottom right: the pin's point | 234–266, blue | Browser 234, Maps 250, Store 266 |
+| Communication | bottom left: the bubble's tail | 154–192, on teal | Messages 154, Mail 172, Pilot 182, Phone 192 |
+| Places & web | bottom right: the pin's point | 234–266, blue | Browser 234, Maps 250, Pacific 258, Store 266 |
 | Media | none: the lens, the disc | 302–338, magenta | Gallery 302, Music 320, Camera 338 |
 | Time & notes | top left: the page's corner | 56–84, amber | Calendar 56, Clock 70, Notes 84 |
 | Tools & system | top left and bottom right: machined | 354–46, red to orange | Terminal 354, Calculator 8, Test 22, Settings 36, Template 46 |
