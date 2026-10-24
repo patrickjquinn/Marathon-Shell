@@ -16,8 +16,8 @@ G_JOBS=$G_TMP/.jobs
 : > "$G_TMP/marks.txt"
 mkdir "$G_TMP/u" && chown user "$G_TMP/u" && chmod 711 "$G_TMP"
 G_BUS="XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
-G_LXC="-P /var/lib/waydroid/lxc -n waydroid"
-G_ANDROID_DATA=/home/user/.local/share/waydroid/data
+G_LXC="-P /var/lib/deckard/lxc -n deckard"
+G_ANDROID_DATA=/home/user/.local/share/deckard/data
 G_V3D_STATS=$(ls /sys/devices/platform/*/*.v3d/gpu_stats 2>/dev/null | head -n 1)
 G_SHELL_PID=$(pidof marathon-shell-bin | awk '{print $1}')
 G_RENDER_TID=""
@@ -154,7 +154,7 @@ fdroid_remove() {
 
 # Launchable Android packages, Deckard's own and microG left out.
 android_apps() {
-    ls /home/user/.local/share/applications/ | sed -n 's/^waydroid\.\(.*\)\.desktop$/\1/p' |
+    ls /home/user/.local/share/applications/ | sed -n 's/^deckard\.\(.*\)\.desktop$/\1/p' |
         grep -v -E '^(com\.google\.android\.gms|org\.marathonos\.deckard\..*)$'
 }
 
@@ -186,11 +186,11 @@ android_running() {
     grep -ah '' /proc/[0-9]*/cmdline 2>/dev/null | tr '\0' '\n' | grep -E '^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$' | sort -u
 }
 
-# launch_android PKG [cold]: brings waydroid.PKG in front; with cold, after a force-stop.
+# launch_android PKG [cold]: brings deckard.PKG in front; with cold, after a force-stop.
 launch_android() {
     [ "${2:-}" = cold ] && android "am force-stop $1"
     echo "$1" >> "$G_TMP/.launched"
-    shell_call Navigation "LaunchApp s waydroid.$1" > /dev/null
+    shell_call Navigation "LaunchApp s deckard.$1" > /dev/null
 }
 
 # Stops what the run started, so the phone ends as it began.

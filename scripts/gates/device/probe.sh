@@ -41,15 +41,15 @@ if [ -n "$C" ]; then
     kv container.uclamp_min "$(cat "$C"/cpu.uclamp.min 2>/dev/null || echo absent)"
 fi
 kv binder.freeze_notification "$(cat /dev/binderfs/features/freeze_notification 2>/dev/null || echo absent)"
-kv android.suspend_prop "$(sed -n 's/^persist.waydroid.suspend *= *//p' /var/lib/waydroid/waydroid.cfg)"
-kv android.suspend_action "$(sed -n 's/^suspend_action *= *//p' /var/lib/waydroid/waydroid.cfg)"
+kv android.suspend_prop "$(sed -n 's/^persist.waydroid.suspend *= *//p' /var/lib/deckard/waydroid.cfg)"
+kv android.suspend_action "$(sed -n 's/^suspend_action *= *//p' /var/lib/deckard/waydroid.cfg)"
 if [ -n "$C" ]; then
     init=$(cat "$C"/cgroup.procs "$C"/*/cgroup.procs 2>/dev/null | head -n 1)
     [ -n "$init" ] && kv android.own_pid_namespace \
         "$([ "$(readlink /proc/"$init"/ns/pid)" != "$(readlink /proc/1/ns/pid)" ] && echo yes || echo no)"
 fi
 A=/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps
-kv shell.android_app_cgroups "$(ls -d "$A"/marathon-app-waydroid.* "$A"/marathon-app-deckard.* 2>/dev/null | wc -l)"
+kv shell.android_app_cgroups "$(ls -d "$A"/marathon-app-deckard.* 2>/dev/null | wc -l)"
 kv shell.frozen_apps "$(cat "$A"/marathon-app-*/cgroup.freeze 2>/dev/null | grep -c 1)"
 
 if android_up; then
@@ -71,7 +71,7 @@ fi
 kv apk_db.deckard "$(awk '/^P:deckard$/ {getline; print substr($0, 3); exit}' /lib/apk/db/installed)"
 kv apk_db.marathon_shell "$(awk '/^P:marathon-shell$/ {getline; print substr($0, 3); exit}' /lib/apk/db/installed)"
 S=/usr/share/deckard/overlay
-L=/var/lib/waydroid/overlay
+L=/var/lib/deckard/overlay
 if [ -d "$S" ] && [ -d "$L" ]; then
     (cd "$S" && find . -type f -exec sha256sum {} +) | sort -k2 > "$G_TMP/overlay-share.sha"
     (cd "$L" && find . -type f -exec sha256sum {} +) | sort -k2 > "$G_TMP/overlay-live.sha"

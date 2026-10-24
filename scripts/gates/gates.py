@@ -71,8 +71,6 @@ def static_gate6(out):
                     if line.startswith("depends=")), "")
     reasons = (["the patcher calls deckard-image-tools permission-view (Rust); no Python left in image/tools"]
                if status == "ok" else [f"Python remains: {rows}"])
-    if "waydroid" in depends.split("=", 1)[-1].strip('"').split():
-        reasons.append("note: the deckard package still depends on waydroid, which pulls python3 onto the image")
     return {"gate": "g6", "verdict": "DONE" if status == "ok" else "PROCEED", "reasons": reasons,
             "steps": {"ok": int(status == "ok"), "skip": 0, "fail": int(status != "ok")},
             "metrics": {"python_files": rows, "rust_patcher": rust, "deckard_depends": depends}}
