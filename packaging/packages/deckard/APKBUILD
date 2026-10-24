@@ -20,7 +20,9 @@ license="Apache-2.0 AND GPL-3.0-only"
 depends="lxc dnsmasq iptables kmod iproute2-ss util-linux-misc libgcc marathon-shell>=1.0.0-r492"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so the Rust binaries' libgcc_s is listed above instead.
-options="!tracedeps net"
+# Cargo strips the binaries; abuild's strip would rewrite them after package()
+# and break the build manifest's digests.
+options="!tracedeps !strip net"
 makedepends="cargo unzip"
 checkdepends="dbus"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
@@ -138,6 +140,13 @@ package() {
 
 	install -Dm644 host/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/Apache-2.0
 	install -Dm644 image/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/GPL-3.0
+
+	# What a phone's Deckard should be: the commit, and digests for sha256sum -c from /.
+	(
+		echo "commit $_commit"
+		cd "$pkgdir" && find usr -type f -exec sha256sum {} + | sort -k2
+	) > "$srcdir"/build-manifest
+	install -Dm644 "$srcdir"/build-manifest "$pkgdir"/usr/share/deckard/build-manifest
 }
 
 sha512sums="

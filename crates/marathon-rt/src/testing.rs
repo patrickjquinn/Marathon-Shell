@@ -16,13 +16,18 @@ pub struct PrivateBus {
 }
 
 impl PrivateBus {
-    /// None where there is no `dbus-daemon`.
+    /// None where there is no `dbus-daemon`; with `MARATHON_TEST_STRICT`
+    /// set, a panic, so CI never passes a test that did not run.
     pub fn start() -> Option<Self> {
-        let mut bus = Command::new("dbus-daemon")
+        let bus = Command::new("dbus-daemon")
             .args(["--session", "--nofork", "--print-address=1"])
             .stdout(Stdio::piped())
-            .spawn()
-            .ok()?;
+            .spawn();
+        assert!(
+            bus.is_ok() || std::env::var_os("MARATHON_TEST_STRICT").is_none(),
+            "MARATHON_TEST_STRICT: no dbus-daemon for this test"
+        );
+        let mut bus = bus.ok()?;
         let mut address = String::new();
         BufReader::new(bus.stdout.take()?)
             .read_line(&mut address)

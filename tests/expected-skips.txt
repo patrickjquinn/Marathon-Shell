@@ -1,0 +1,2 @@
+cargo: phone::tests::whole_catalogue
+TestWindowTextureItem::drawsTheSourceRounded

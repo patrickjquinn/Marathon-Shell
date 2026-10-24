@@ -116,6 +116,10 @@ impl Session {
             "pw-dump",
         ];
         if let Some(missing) = programs.iter().find(|p| !on_path(p)) {
+            assert!(
+                std::env::var_os("MARATHON_TEST_STRICT").is_none(),
+                "MARATHON_TEST_STRICT: {missing} is not installed"
+            );
             eprintln!("skipped: {missing} is not installed");
             return None;
         }
