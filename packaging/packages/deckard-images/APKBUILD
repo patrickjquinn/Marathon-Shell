@@ -1,0 +1,38 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# Android's system and vendor images for Deckard: Waydroid's LineageOS 20
+# VANILLA and MAINLINE builds, the ones Deckard's overlay is made for.
+# deckard-containerd's Init takes them from /usr/share/deckard/images, with
+# the build dates from images.cfg.
+pkgname=deckard-images
+pkgver=20.0.20260927
+pkgrel=0
+_system=1790477549
+_vendor=1790486210
+pkgdesc="Android system and vendor images for Deckard"
+url="https://waydro.id"
+arch="aarch64"
+license="Apache-2.0"
+makedepends="unzip"
+options="!check !strip !tracedeps"
+_sf=https://sourceforge.net/projects/waydroid/files/images
+_sysz=lineage-20.0-20260927-VANILLA-waydroid_arm64-system.zip
+_venz=lineage-20.0-20260927-MAINLINE-waydroid_arm64-vendor.zip
+source="$_sysz::$_sf/system/lineage/waydroid_arm64/$_sysz/download
+	$_venz::$_sf/vendor/waydroid_arm64/$_venz/download
+	"
+
+package() {
+	local d="$pkgdir"/usr/share/deckard/images
+	install -d "$d"
+	unzip -p "$srcdir/$_sysz" system.img > "$d"/system.img
+	unzip -p "$srcdir/$_venz" vendor.img > "$d"/vendor.img
+	chmod 644 "$d"/system.img "$d"/vendor.img
+	printf '[waydroid]\nsystem_datetime = %s\nvendor_datetime = %s\n' \
+		$_system $_vendor > "$d"/images.cfg
+	chmod 644 "$d"/images.cfg
+}
+
+sha512sums="
+2215fd7de205927680ab3db6f10ccc9ba884553fc8c31191be2f803855b17bf186499070c2e97966d87b29fd79aa16f655d53ade9a17d1743bebf807f4d181c3  lineage-20.0-20260927-VANILLA-waydroid_arm64-system.zip
+03dbb5c412f6932c54d4552b3a2a8918a190d8adb78d62c9622c6d43140096be39e7c1eb42f13a5ce0999d8eb6d3c250ebd45e2b1f6592286ebbc4d43205d879  lineage-20.0-20260927-MAINLINE-waydroid_arm64-vendor.zip
+"
