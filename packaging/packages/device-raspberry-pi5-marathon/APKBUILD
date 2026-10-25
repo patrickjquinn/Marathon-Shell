@@ -4,7 +4,7 @@
 pkgname=device-raspberry-pi5-marathon
 pkgdesc="Raspberry Pi 5 / CM5 — Marathon OS base port (no enclosure)"
 pkgver=1.0.0
-pkgrel=15
+pkgrel=16
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -50,7 +50,6 @@ depends="
 	pipewire-pulse
 	wireplumber
 	pulseaudio-utils
-	mesa-vulkan-broadcom
 "
 makedepends=""
 install="$pkgname.post-install"
