@@ -16,7 +16,9 @@
 namespace {
     constexpr qint64 kIntervalMs = 250;
     constexpr int    kCollectMs  = 32;
-    const bool       kStats      = qEnvironmentVariableIntValue("MARATHON_BACKDROP_STATS") != 0;
+    // A frame this recent means more are coming, and one of them will read.
+    constexpr qint64 kLiveMs = 100;
+    const bool       kStats  = qEnvironmentVariableIntValue("MARATHON_BACKDROP_STATS") != 0;
 } // namespace
 
 // sync() runs on the render thread with the GUI thread blocked; the GL half
@@ -107,6 +109,7 @@ class BackdropSampler : public QObject {
     }
 
     void frame() {
+        m_lastFrame.start();
         QOpenGLExtraFunctions *gl = functions();
         if (!gl)
             return;
@@ -134,6 +137,8 @@ class BackdropSampler : public QObject {
         collect(gl);
         if (m_fence)
             schedule(kCollectMs);
+        else if (m_dirty && !m_targets.empty() && m_lastFrame.elapsed() < kLiveMs)
+            schedule(int(kLiveMs - m_lastFrame.elapsed()));
         else if (m_dirty && !m_targets.empty() && m_last.elapsed() >= kIntervalMs) {
             if (kStats)
                 qWarning() << "[Backdrop] trailing frame";
@@ -331,6 +336,7 @@ class BackdropSampler : public QObject {
     QSize                     m_resolveSize;
     GLsync                    m_fence = nullptr;
     QElapsedTimer             m_last;
+    QElapsedTimer             m_lastFrame;
     qint64                    m_issueNs     = 0;
     bool                      m_dirty       = false;
     bool                      m_scheduled   = false;
