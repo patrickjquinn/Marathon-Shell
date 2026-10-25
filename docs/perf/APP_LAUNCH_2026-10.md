@@ -33,15 +33,22 @@ two missed vblanks (the shell: 257 frames, none missed).
   made on first use (r499).
 - `marathon-shell-oom-pin` ran `find` every 5 s and the HackberryPi speaker
   keeper ran `bluetoothctl` every 10 s; both now wait on events.
+- The first GStreamer app after a boot rescans the `va` and `vulkan` plugins,
+  which depend on `/dev/dri/renderD*` and its per-boot mtime. The `vulkan`
+  rescan, like every GTK 4 launch, opened all seven Mesa Vulkan drivers in
+  the Flatpak runtime, lavapipe's 91 MB libLLVM among them: 0.99 s with a
+  cold cache. The Pi 5 profile now sets `vulkan_driver = "broadcom"`, which
+  the session passes on as `VK_LOADER_DRIVERS_SELECT`: 0.18 s cold, and GTK 4
+  apps load only the v3dv driver (r501).
+- Android's init logged "cpuset cgroup controller is not mounted" on every
+  service start, about 240 lines a boot; Deckard's `cgroups.json` now
+  declares cpuset (deckard r18).
 
 ## Open
 
 - Pacific spends about 560 ms in its own process before starting WPE's
   network process: Qt enumerating plugins and loading Pacific's QML. That
   code is Shipwright's.
-- Shortwave's first launch after a boot rebuilds its GStreamer registry
-  (about 1.2 s of `gst-plugin-scanner`); the plugin files have fixed mtimes,
-  so a device dependency (for example `/dev/video*`) is the likely trigger.
 - The stock kernel lacks `CONFIG_INET_UDP_DIAG`, so each closed UDP socket
   sends a kernel worker to run `modprobe udp_diag`; linux-rpi-marathon r2
   enables it.
