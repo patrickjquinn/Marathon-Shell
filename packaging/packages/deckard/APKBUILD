@@ -8,8 +8,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=18
-_commit=4eb11d9f635c1f4185f000887ef36f815ca53a6f
+pkgrel=19
+_commit=6371f28996123388748bfe6cf4c587423a925261
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
