@@ -216,6 +216,7 @@ editing the table, not 200 call sites.
 | `sheet` | Full-bleed sheet (settings deep page) | 320 ms | Low | 0.20 |
 | `entrance` | List-item stagger, app-grid first-paint | 220 ms | Low | 0.25 |
 | `pulse` | Infinite attention loops (chevron, ringing) | 1200 ms | Low | 0.15 |
+| `breathe` | Ambient status loops (charging): calm, never asks for attention | 4000 ms | Low | Critical |
 
 **Two-family damping.** Each role splits its physics across spatial
 (position, size, rotation) and effects (color, opacity). Spatial

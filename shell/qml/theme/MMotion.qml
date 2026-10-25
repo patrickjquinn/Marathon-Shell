@@ -166,6 +166,7 @@ QtObject {
     //   sheet       · full-bleed sheet (settings deep page). 320ms.
     //   entrance    · list-item stagger, app-grid first-paint. 220ms.
     //   pulse       · infinite attention loops (chevron, ringing). 1200ms.
+    //   breathe     · ambient status loops (charging). 4000ms, one breath.
     //
     // For every role the table carries: duration, easing token,
     // easing bezier curve (for Easing.Bezier), spring stiffness,
@@ -364,6 +365,21 @@ QtObject {
                 spatial: {
                     stiffness: stiffnessLow,
                     damping: 0.15
+                },
+                effects: {
+                    stiffness: stiffnessLow,
+                    damping: dampingCritical
+                }
+            },
+            "breathe": {
+                duration: 4000,
+                easing: Easing.InOutSine,
+                curve: [0.37, 0, 0.63, 1.0, 1.0, 1.0],
+                spring: 1.0,
+                damping: dampingCritical,
+                spatial: {
+                    stiffness: stiffnessLow,
+                    damping: dampingCritical
                 },
                 effects: {
                     stiffness: stiffnessLow,
