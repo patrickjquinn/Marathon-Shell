@@ -560,6 +560,59 @@ Rectangle {
         }
     }
 
+    // A thumb aiming at the pill often lands just above the bar. A pull down
+    // from here takes the touch; taps, scrolls and swipes up stay with what
+    // is underneath. apronPoint sees the finger while they hold it.
+    Item {
+        id: apron
+
+        // Down from the press, px, and its speed, px/s.
+        property real pull: 0
+        property real pullVelocity: 0
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.top
+        height: 3 * navMouseArea.edgeBand
+        enabled: apronDrag.active || (!navBar.pinScreenMode && !navBar.keyboardVisible && !navBar.searchActive && !SessionStore.isLocked && !UIStore.quickSettingsOpen && UIStore.quickSettingsHeight === 0)
+
+        PointHandler {
+            id: apronPoint
+
+            acceptedDevices: PointerDevice.TouchScreen
+            onPointChanged: {
+                if (!active)
+                    return;
+                apron.pull = point.position.y - point.pressPosition.y;
+                apron.pullVelocity = point.velocity.y;
+                if (apronDrag.active)
+                    UIStore.quickSettingsHeight = UIStore.maxQuickSettingsHeight * Math.max(0, Math.min(1, apron.pull / Math.max(1, navBar.height * 0.4)));
+            }
+        }
+
+        DragHandler {
+            id: apronDrag
+
+            target: null
+            acceptedDevices: PointerDevice.TouchScreen
+            xAxis.enabled: false
+            grabPermissions: apron.pull > 0 ? PointerHandler.CanTakeOverFromAnything : PointerHandler.ApprovesTakeOverByAnything
+            onActiveChanged: {
+                UIStore.quickSettingsDragging = active;
+                if (active)
+                    return;
+                Logger.gesture("NavBar", "apron released", {
+                    "pull": apron.pull,
+                    "velocity": apron.pullVelocity
+                });
+                if (apron.pull + apron.pullVelocity * 0.1 > navMouseArea.pullSlop)
+                    UIStore.openQuickSettings();
+                else
+                    UIStore.closeQuickSettings();
+            }
+        }
+    }
+
     GestureTracker {
         id: pillX
 

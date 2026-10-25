@@ -14,6 +14,18 @@ TestCase {
         height: 400
         visible: true
 
+        MouseArea {
+            id: content
+
+            property int clicks: 0
+            property int releases: 0
+
+            width: 720
+            height: 300
+            onClicked: ++clicks
+            onReleased: ++releases
+        }
+
         MarathonNavBar {
             id: nav
             y: 300
@@ -45,6 +57,8 @@ TestCase {
         keyboardSpy.clear();
         leftSpy.clear();
         rightSpy.clear();
+        content.clicks = 0;
+        content.releases = 0;
     }
 
     function drag(x, y, dx, dy) {
@@ -242,6 +256,36 @@ TestCase {
         drag(nav.width / 2, nav.height / 2, 180, 20);
         verify(!UIStore.quickSettingsOpen);
         compare(rightSpy.count, 1);
+    }
+
+    function touchDrag(x, y, dx, dy) {
+        const touch = touchEvent(nav);
+        touch.press(0, nav, x, y).commit();
+        const steps = 8;
+        for (let i = 1; i <= steps; ++i) {
+            wait(16);
+            touch.move(0, nav, x + dx * i / steps, y + dy * i / steps).commit();
+        }
+        touch.release(0, nav, x + dx, y + dy).commit();
+    }
+
+    function test_pullDownFromJustAboveTheBarOpensQuickSettings() {
+        touchDrag(nav.width / 2, -12, 10, 40);
+        verify(UIStore.quickSettingsOpen);
+        compare(content.releases, 0);
+    }
+
+    function test_tapJustAboveTheBarReachesTheContent() {
+        touchDrag(nav.width / 2, -12, 0, 0);
+        compare(content.clicks, 1);
+        verify(!UIStore.quickSettingsOpen);
+    }
+
+    function test_swipeUpFromJustAboveTheBarStaysWithTheContent() {
+        touchDrag(nav.width / 2, -12, 0, -80);
+        compare(content.releases, 1);
+        compare(homeSpy.count, 0);
+        verify(!UIStore.quickSettingsOpen);
     }
 
     function test_pullDownDrawsTheShadeAlong() {
