@@ -798,7 +798,21 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<TerminalRenderer>("MarathonOS.Terminal", 1, 0, "TerminalRenderer");
 
     if (hasPerm("storage")) {
-        exposeClient<marathon::platform::MediaLibrary>(ctx, "MediaLibraryManager");
+        // Created on first use: only Gallery reads it, and creating it starts
+        // marathon-medialibd.
+        const auto media = [](QQmlEngine *, QJSEngine *) -> QObject * {
+            static auto *library = [] {
+                auto *created = new marathon::platform::MediaLibrary();
+                created->setParent(QCoreApplication::instance());
+                return created;
+            }();
+            QQmlEngine::setObjectOwnership(library, QQmlEngine::CppOwnership);
+            return library;
+        };
+        qmlRegisterSingletonType<marathon::platform::MediaLibrary>("Marathon.Platform", 1, 0,
+                                                                   "MediaLibrary", media);
+        qmlRegisterSingletonType<marathon::platform::MediaLibrary>("MarathonOS.Shell", 1, 0,
+                                                                   "MediaLibraryManager", media);
         qmlRegisterSingletonType<marathon::platform::MusicLibrary>(
             "MarathonOS.Shell", 1, 0, "MusicLibraryManager",
             [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::MusicLibrary(); });

@@ -12,7 +12,6 @@ QHash<QString, QString> platformTypeNames() {
         {QStringLiteral("CallHistoryManager"), QStringLiteral("CallHistory")},
         {QStringLiteral("TelephonyService"), QStringLiteral("Telephony")},
         {QStringLiteral("SMSService"), QStringLiteral("Sms")},
-        {QStringLiteral("MediaLibraryManager"), QStringLiteral("MediaLibrary")},
         {QStringLiteral("CalendarManager"), QStringLiteral("Calendar")},
         {QStringLiteral("WorldClockHelper"), QStringLiteral("WorldClock")},
         {QStringLiteral("SensorService"), QStringLiteral("Sensors")},
