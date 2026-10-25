@@ -67,6 +67,13 @@ OAUTH_ENV="${MARATHON_SHELL_SRC:+$MARATHON_SHELL_SRC/crates/marathon-maild/oauth
 # shellcheck disable=SC1090
 [ -n "$OAUTH_ENV" ] && [ -f "$OAUTH_ENV" ] && . "$OAUTH_ENV"
 
+# CMAKE_BUILD_PARALLEL_LEVEL / CARGO_BUILD_JOBS cap the build's jobs, for
+# building beside another heavy build.
+JOB_ENV_ARGS=()
+for v in CMAKE_BUILD_PARALLEL_LEVEL CARGO_BUILD_JOBS; do
+    if [ -n "${!v:-}" ]; then JOB_ENV_ARGS+=(-e "$v=${!v}"); fi
+done
+
 podman run --rm -i \
     "${WORK_MOUNT_ARGS[@]}" \
     -e MARATHON_DEFAULT_GOOGLE_CLIENT_ID="${MARATHON_DEFAULT_GOOGLE_CLIENT_ID:-}" \
@@ -78,6 +85,7 @@ podman run --rm -i \
     -e PKGREL="$PKGREL" \
     -e TARGET="$TARGET" \
     -e ALPINE_MIRROR="${ALPINE_MIRROR:-}" \
+    "${JOB_ENV_ARGS[@]}" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
     -v "$MKOSI_PKG_DIR:/out:z" \
     -v "$MKOSI_PKG_DIR:/local-apks:z,ro" \
