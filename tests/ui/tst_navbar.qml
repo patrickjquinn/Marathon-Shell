@@ -231,6 +231,19 @@ TestCase {
         compare(backSpy.count, 0);
     }
 
+    // As recorded on the HackberryPi: 47 px sideways, 13 px down, off the edge.
+    function test_sidewaysPullIntoTheEdgeOpensQuickSettings() {
+        drag(nav.width / 2, nav.height - 19, 47, 13);
+        verify(UIStore.quickSettingsOpen);
+        compare(rightSpy.count, 0);
+    }
+
+    function test_sidewaysSwipeThatStaysOnTheBarIsNotAPull() {
+        drag(nav.width / 2, nav.height / 2, 180, 20);
+        verify(!UIStore.quickSettingsOpen);
+        compare(rightSpy.count, 1);
+    }
+
     function test_pullDownDrawsTheShadeAlong() {
         mousePress(nav, nav.width / 2, nav.height / 2);
         for (let i = 1; i <= 4; ++i)

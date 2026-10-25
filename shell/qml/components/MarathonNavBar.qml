@@ -299,6 +299,8 @@ Rectangle {
         // About a millimetre: the bar sits at the screen edge, so a pull
         // down from the pill runs off the panel after a few pixels.
         readonly property real pullSlop: Math.max(3, Math.round(2 * Constants.scaleFactor))
+        // The last millimetre of the panel.
+        readonly property real edgeBand: Constants.dpi / 25.4
         readonly property real directionLockDistance: 10
         readonly property real verticalIntentRatio: 0.72
 
@@ -386,7 +388,14 @@ Rectangle {
                 return;
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
-            const pullingDown = -diffY > pullSlop && Math.abs(diffY) >= Math.abs(diffX);
+            // A thumb pulled back to the palm runs sideways off the glass, so
+            // reaching the edge on the way down is a pull, however sideways.
+            const intoEdge = -diffY > pullSlop && mouse.y >= height - edgeBand && !navBar.pinScreenMode && !SessionStore.isLocked;
+            if (isHorizontalGesture && intoEdge) {
+                navBar.backGestureEnded();
+                isHorizontalGesture = false;
+            }
+            const pullingDown = -diffY > pullSlop && (Math.abs(diffY) >= Math.abs(diffX) || intoEdge);
             if (!isVerticalGesture && !isHorizontalGesture && (pullingDown || Math.max(Math.abs(diffX), Math.abs(diffY)) > 10)) {
                 const axis = pullingDown ? 1 : gestureAxis(diffX, diffY);
                 if (axis === 1) {
