@@ -104,6 +104,12 @@ impl AppCgroups {
             return;
         }
         if write(&dir.join("cgroup.procs"), &pid.to_string()) {
+            // A pool runner starts helpers (QtWebEngine's zygotes) before it
+            // is adopted; they come too, or they stay in the shell's scope,
+            // unfrozen and charged to the shell.
+            for child in descendants(pid) {
+                write(&dir.join("cgroup.procs"), &child.to_string());
+            }
             write(
                 &dir.join("cgroup.freeze"),
                 if placement.frozen { "1" } else { "0" },
@@ -239,13 +245,41 @@ pub(crate) fn cgroup_of_pid(pid: i64) -> String {
 }
 
 /// How readily the kernel's OOM killer picks the process.
+/// Also the pid's descendants, which a pool runner spawned while it still
+/// carried the shell's score.
 pub(crate) fn set_oom_score_adj(pid: i64, score: i32) {
     if pid > 0 {
-        write(
-            Path::new(&format!("/proc/{pid}/oom_score_adj")),
-            &score.to_string(),
-        );
+        for p in std::iter::once(pid).chain(descendants(pid)) {
+            write(
+                Path::new(&format!("/proc/{p}/oom_score_adj")),
+                &score.to_string(),
+            );
+        }
     }
+}
+
+/// Every process below `pid`, from each thread's `children` list.
+fn descendants(pid: i64) -> Vec<i64> {
+    let mut found = Vec::new();
+    let mut pending = vec![pid];
+    while let Some(parent) = pending.pop() {
+        let Ok(tasks) = fs::read_dir(format!("/proc/{parent}/task")) else {
+            continue;
+        };
+        for task in tasks.flatten() {
+            let children = fs::read_to_string(task.path().join("children")).unwrap_or_default();
+            for child in children
+                .split_whitespace()
+                .filter_map(|c| c.parse::<i64>().ok())
+            {
+                if !found.contains(&child) {
+                    found.push(child);
+                    pending.push(child);
+                }
+            }
+        }
+    }
+    found
 }
 
 fn write_uclamp(dir: &Path, front: bool) {
