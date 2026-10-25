@@ -32,6 +32,18 @@ if [ "$gst_registry" -nt /usr/lib/gstreamer-1.0 ]; then
 fi
 unset gst_registry
 
+# ---- Vulkan driver -----------------------------------------------------------
+#
+# The Vulkan loader opens every installed driver. In a Flatpak runtime that is
+# seven Mesa drivers and lavapipe's LLVM, on each GTK 4 launch and on the
+# GStreamer rescan that /dev/dri's new mtimes force after every boot: 1 s with
+# a cold cache on the Pi 5, 0.18 s with only its own driver. Apps inherit it.
+if [ -z "${VK_LOADER_DRIVERS_SELECT:-}" ] && [ -r /etc/marathon/device-profile.conf ]; then
+    _v=$(sed -n 's/^[[:space:]]*VULKAN_DRIVER[[:space:]]*=[[:space:]]*//p' \
+            /etc/marathon/device-profile.conf | tr -d '"' | head -1)
+    [ -n "$_v" ] && export VK_LOADER_DRIVERS_SELECT="*${_v}*"
+fi
+
 # ---- Session identity --------------------------------------------------------
 
 export XDG_SESSION_TYPE=wayland

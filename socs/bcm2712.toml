@@ -22,3 +22,5 @@ msaa = true
 [profile]
 gpu_stack = "mesa-v3d"
 gpu_msaa = 4
+# Flatpak runtimes ship seven Mesa Vulkan drivers, lavapipe with LLVM.
+vulkan_driver = "broadcom"

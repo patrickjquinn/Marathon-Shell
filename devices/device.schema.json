@@ -168,7 +168,8 @@
         "panel_depth": {"description": "Bits per channel; below 8 the shell dithers the frame.", "type": "integer", "minimum": 4, "maximum": 10},
         "touch_filter": {"description": "Smooth touch with Qt evdevtouch's Kalman filter, one point a frame: even steps, more lag; false = each report as it comes.", "type": "boolean"},
         "touch_params": {"description": "Extra Qt evdevtouch parameters for the panel, colon-separated (rotate=90, invertx, inverty, prediction=ms).", "type": "string", "pattern": "^(rotate=(90|180|270)|invertx|inverty|prediction=[0-9]+)(:(rotate=(90|180|270)|invertx|inverty|prediction=[0-9]+))*$"},
-        "force_dpi": {"description": "Read by marathon-shell-session: pins the shell's DPI and so its scale.", "type": "number", "exclusiveMinimum": 0}
+        "force_dpi": {"description": "Read by marathon-shell-session: pins the shell's DPI and so its scale.", "type": "number", "exclusiveMinimum": 0},
+        "vulkan_driver": {"description": "Read by marathon-shell-session: the one Mesa Vulkan driver apps' loader opens, by ICD manifest name; unset = every installed driver.", "type": "string", "pattern": "^[a-z0-9_]+$"}
       }
     }
   }
