@@ -89,22 +89,27 @@ class TestWindowTextureItem : public QObject {
         QCOMPARE(G::cornerEdges(0, 1), QPointF(1, 1));
     }
 
-    void shownFollowsAncestorsOpacityAndVisibility() {
+    void shownFollowsAncestorsOpacityVisibilityAndTheScreen() {
         QQmlEngine    engine;
         QQmlComponent c(&engine);
         c.setData(
             "import QtQuick\nimport Test\nItem { property alias src: src; property alias tex: tex;"
-            " Item { id: src } WindowTextureItem { id: tex; source: src } }",
+            " Item { id: src; width: 10; height: 10 }"
+            " WindowTextureItem { id: tex; source: src; width: 10; height: 10 } }",
             QUrl());
         std::unique_ptr<QObject> root(c.create());
         QVERIFY2(root, qPrintable(c.errorString()));
         QQuickView view;
-        auto      *item = qobject_cast<QQuickItem *>(root.get());
+        view.resize(100, 100);
+        auto *item = qobject_cast<QQuickItem *>(root.get());
         item->setParentItem(view.contentItem());
         auto *src = root->property("src").value<QQuickItem *>();
         auto *tex = root->property("tex").value<QQuickItem *>();
         QVERIFY(WindowTextureItem::isShown(src));
         QVERIFY(WindowTextureItem::isSampled(src));
+        src->setX(100);
+        QVERIFY(!WindowTextureItem::isShown(src));
+        src->setX(0);
         src->setOpacity(0);
         QVERIFY(!WindowTextureItem::isShown(src));
         QVERIFY(WindowTextureItem::isSampled(src));
