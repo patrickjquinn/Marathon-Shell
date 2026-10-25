@@ -25,6 +25,17 @@ Rectangle {
     // Held still: lit, and the charge rises until Pilot is asked.
     property bool pilotLit: false
     property real pilotCharge: 0
+    // Charging: the pill's breath, 0 at rest to 1 at full swell.
+    property real chargeGlow: 0
+
+    Behavior on chargeGlow {
+        enabled: !chargeBreath.running
+
+        NumberAnimation {
+            duration: MMotion.durationFor("hero")
+            easing.type: MMotion.easingFor("hero")
+        }
+    }
 
     // Back: the pill's leftward travel with an app open, in px (backTracker)
     // and 0..1 over backProgressTravel. The shell draws the app aside by it.
@@ -126,6 +137,27 @@ Rectangle {
         x: targetX + dragX
         y: targetY - dragY
 
+        // One breath per MMotion "breathe", sampled at 15 Hz rather than
+        // run as an animation, which renders every frame: the shell draws
+        // 15 times a second instead of 60, and a step moves the light by
+        // under 1.5%. 67 ms, not 66: a tick shorter than four 60 Hz frames
+        // costs a fifth.
+        Timer {
+            id: chargeBreath
+
+            property double start: 0
+
+            interval: 67
+            repeat: true
+            running: MMotion.gate(Power.isCharging && Display.screenOn && navBar.visible && indicator.visible && !navBar.pilotLit)
+            onRunningChanged: {
+                start = Date.now();
+                if (!running)
+                    navBar.chargeGlow = 0;
+            }
+            onTriggered: navBar.chargeGlow = 0.5 - 0.5 * Math.cos(2 * Math.PI * (Date.now() - start) / MMotion.durationFor("breathe"))
+        }
+
         // Light rising above the thumb that covers the pill.
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -166,7 +198,7 @@ Rectangle {
                 height: Silica.Theme.paddingSmall + 2 * spread
                 radius: height / 2
                 color: index === 0 ? navBar.highlight : navBar.accent
-                opacity: (index === 0 ? 0.6 : 0.16 / index) * (navBar.pilotLit ? 1.6 : 1)
+                opacity: (index === 0 ? 0.6 + 0.2 * navBar.chargeGlow : 0.16 / index * (1 + navBar.chargeGlow)) * (navBar.pilotLit ? 1.6 : 1)
                 antialiasing: Constants.enableAntialiasing
 
                 Behavior on width {
