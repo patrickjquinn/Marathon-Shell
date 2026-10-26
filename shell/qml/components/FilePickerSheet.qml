@@ -166,6 +166,8 @@ Item {
         visible: picker.shown && !picker.glass
         wallpaper: AmbienceService.wallpaperUrl
         light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     // Taps stay in the picker.

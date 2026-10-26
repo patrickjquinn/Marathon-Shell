@@ -55,6 +55,8 @@ Item {
         anchors.fill: parent
         wallpaper: AmbienceService.wallpaperUrl
         light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     // Taps outside the header actions do nothing.

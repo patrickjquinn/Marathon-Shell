@@ -84,6 +84,8 @@ Item {
         anchors.fill: parent
         wallpaper: AmbienceService.wallpaperUrl
         light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     // An emergency alert is modal: nothing underneath takes a tap.

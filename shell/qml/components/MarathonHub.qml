@@ -139,6 +139,8 @@ Rectangle {
         wallpaper: AmbienceService.wallpaperUrl
         toneOpacity: 0.4
         light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     Silica.SilicaListView {

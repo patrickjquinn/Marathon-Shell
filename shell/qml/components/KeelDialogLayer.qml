@@ -58,6 +58,8 @@ Item {
             visible: !root.backdropSource
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
+            brightest: AmbienceService.brightest
+            darkest: AmbienceService.darkest
         }
 
         // Quarter resolution, captured when the dialog opens or moves, not

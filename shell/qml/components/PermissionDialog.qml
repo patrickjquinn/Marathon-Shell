@@ -125,6 +125,8 @@ Item {
         height: permissionDialog.height
         wallpaper: AmbienceService.wallpaperUrl
         light: AmbienceService.light
+        brightest: AmbienceService.brightest
+        darkest: AmbienceService.darkest
     }
 
     // Swallow touches meant for whatever is underneath.

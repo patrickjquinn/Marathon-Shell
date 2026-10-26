@@ -11,6 +11,17 @@ Item {
     property bool light: false
     // How much the tone dims the wallpaper; lower lets the ambience show.
     property real toneOpacity: light ? 0.45 : 0.62
+    // Relative luminance of the wallpaper's brightest and darkest spots.
+    property real brightest: 1
+    property real darkest: 0
+    // Deep enough that secondary text keeps 3:1 over the brightest spot
+    // (#bababa: a backdrop of at most 0.395 sRGB) or the darkest
+    // (#454545: at least 0.565).
+    readonly property real tone: {
+        const srgb = l => l <= 0.0031308 ? 12.92 * l : 1.055 * Math.pow(l, 1 / 2.4) - 0.055;
+        const needed = light ? (0.565 - srgb(darkest)) / (1 - srgb(darkest)) : 1 - 0.395 / Math.max(0.395, srgb(brightest));
+        return Math.max(toneOpacity, needed);
+    }
     readonly property bool ready: image.status === Image.Ready || previous.visible
 
     layer.enabled: ready
@@ -77,7 +88,7 @@ Item {
         anchors.fill: parent
         visible: root.ready
         color: root.light ? "white" : "black"
-        opacity: root.toneOpacity
+        opacity: root.tone
     }
 
     Rectangle {

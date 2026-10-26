@@ -94,6 +94,8 @@ Item {
             visible: !shareSheet.glass
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
+            brightest: AmbienceService.brightest
+            darkest: AmbienceService.darkest
         }
 
         Rectangle {

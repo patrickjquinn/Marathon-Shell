@@ -88,6 +88,8 @@ Item {
             anchors.fill: parent
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
+            brightest: AmbienceService.brightest
+            darkest: AmbienceService.darkest
         }
 
         // Full-screen dialog: a stray tap must not throw away the password.

@@ -13,6 +13,8 @@ use cxx_qt_lib::{
     AspectRatioMode, QColor, QImage, QList, QMap, QMapPair_QString_QVariant, QString, QUrl,
     QVariant, TransformationMode,
 };
+use palette::color_difference::Wcag21RelativeContrast as _;
+use palette::Srgb;
 use zbus::zvariant::OwnedValue;
 
 use crate::io;
@@ -37,6 +39,8 @@ pub mod qobject {
         #[qobject]
         #[qproperty(QColor, base_color, cxx_name = "baseColor", READ, NOTIFY = seed_changed)]
         #[qproperty(bool, light, READ, NOTIFY = seed_changed)]
+        #[qproperty(f64, brightest, READ, NOTIFY = seed_changed)]
+        #[qproperty(f64, darkest, READ, NOTIFY = seed_changed)]
         #[qproperty(QString, wallpaper_url, cxx_name = "wallpaperUrl", READ, NOTIFY = seed_changed)]
         #[qproperty(QMap_QString_QVariant, ambience, READ, NOTIFY)]
         #[qproperty(f64, pixel_ratio, cxx_name = "pixelRatio", READ, NOTIFY)]
@@ -70,6 +74,9 @@ type Map = QMap<QMapPair_QString_QVariant>;
 pub struct AmbienceRust {
     base_color: QColor,
     light: bool,
+    /// Relative luminance of the wallpaper's brightest and darkest spots.
+    brightest: f64,
+    darkest: f64,
     wallpaper_url: QString,
     ambience: Map,
     pixel_ratio: f64,
@@ -79,50 +86,62 @@ pub struct AmbienceRust {
     wallpaper: u64,
 }
 
-/// Name, file and highlight: each picks up its wallpaper's accent, Marathon
-/// teal on most; Tundra leans to its sky, Dawn to its warmer glow.
-const BUILT_IN: [(&str, &str, (u8, u8, u8)); 18] = [
-    ("Meridian", "meridian.jpg", (0x7d, 0xf0, 0xd4)),
-    ("Mývatn Aurora", "aurora-myvatn.jpg", (0x7d, 0xf0, 0xd4)),
-    ("Moos Sunset", "moos-sunset.jpg", (0xff, 0xe2, 0xad)),
+/// Name, file, highlight, and the relative luminance of the brightest spot
+/// of the blurred ambience on a tall or square screen. Each highlight picks
+/// up its wallpaper's accent, Marathon teal on most; Tundra leans to its sky,
+/// Dawn to its warmer glow. All measure dark by `seed`, the sunset and the
+/// dawn too: their bright skies are half the picture at most.
+type BuiltIn = (&'static str, &'static str, (u8, u8, u8), f64);
+
+const BUILT_IN: [BuiltIn; 18] = [
+    ("Meridian", "meridian.jpg", (0x7d, 0xf0, 0xd4), 0.21),
+    (
+        "Mývatn Aurora",
+        "aurora-myvatn.jpg",
+        (0x7d, 0xf0, 0xd4),
+        0.64,
+    ),
+    ("Moos Sunset", "moos-sunset.jpg", (0xff, 0xe2, 0xad), 0.94),
     (
         "Oeschinensee Night",
         "oeschinensee-night.jpg",
         (0xad, 0xe1, 0xff),
+        0.31,
     ),
     (
         "Lake Sylvester Dawn",
         "sylvester-dawn.jpg",
         (0xad, 0xc9, 0xff),
+        0.79,
     ),
-    ("Slate Aurora", "slate-aurora.svg", (0x7d, 0xf0, 0xd4)),
-    ("Long Run", "long-run.svg", (0x7d, 0xf0, 0xd4)),
-    ("Carbon", "carbon.svg", (0x7d, 0xe6, 0xcf)),
-    ("Indigo Dusk", "indigo-dusk.svg", (0x84, 0xe8, 0xda)),
-    ("Track", "track.svg", (0x7d, 0xf0, 0xd4)),
-    ("Mesh", "mesh.svg", (0x7d, 0xf0, 0xd4)),
-    ("Contour", "contour.svg", (0x7d, 0xf0, 0xd4)),
-    ("Stride", "stride.svg", (0x7d, 0xf0, 0xd4)),
-    ("Tundra", "tundra.svg", (0x88, 0xe3, 0xea)),
-    ("Striae", "striae.svg", (0x7d, 0xf0, 0xd4)),
-    ("Halftone", "halftone.svg", (0x7d, 0xf0, 0xd4)),
-    ("Pulse", "pulse.svg", (0x7d, 0xf0, 0xd4)),
-    ("Dawn", "dawn.svg", (0xa3, 0xee, 0xc9)),
+    ("Slate Aurora", "slate-aurora.svg", (0x7d, 0xf0, 0xd4), 0.17),
+    ("Long Run", "long-run.svg", (0x7d, 0xf0, 0xd4), 0.02),
+    ("Carbon", "carbon.svg", (0x7d, 0xe6, 0xcf), 0.01),
+    ("Indigo Dusk", "indigo-dusk.svg", (0x84, 0xe8, 0xda), 0.05),
+    ("Track", "track.svg", (0x7d, 0xf0, 0xd4), 0.01),
+    ("Mesh", "mesh.svg", (0x7d, 0xf0, 0xd4), 0.01),
+    ("Contour", "contour.svg", (0x7d, 0xf0, 0xd4), 0.01),
+    ("Stride", "stride.svg", (0x7d, 0xf0, 0xd4), 0.01),
+    ("Tundra", "tundra.svg", (0x88, 0xe3, 0xea), 0.04),
+    ("Striae", "striae.svg", (0x7d, 0xf0, 0xd4), 0.01),
+    ("Halftone", "halftone.svg", (0x7d, 0xf0, 0xd4), 0.01),
+    ("Pulse", "pulse.svg", (0x7d, 0xf0, 0xd4), 0.02),
+    ("Dawn", "dawn.svg", (0xa3, 0xee, 0xc9), 0.06),
 ];
 
-/// The highlight of one of Marathon's own (dark) wallpapers, by file name.
-fn built_in(path: &str) -> Option<(u8, u8, u8)> {
+/// One of Marathon's own (dark) wallpapers, by file name.
+fn built_in(path: &str) -> Option<&'static BuiltIn> {
     let stem = Path::new(path).file_stem()?;
     let found = BUILT_IN
         .iter()
         .find(|w| Path::new(w.1).file_stem() == Some(stem));
-    found.filter(|_| path.contains("wallpapers/")).map(|w| w.2)
+    found.filter(|_| path.contains("wallpapers/"))
 }
 
 fn wallpapers() -> Vec<OwnedValue> {
-    let entry = |(name, file, _): &(&str, &str, _)| {
+    let entry = |&(name, file, _, _): &BuiltIn| {
         value(State::from([
-            ("name".to_owned(), value((*name).to_owned())),
+            ("name".to_owned(), value(name.to_owned())),
             (
                 "path".to_owned(),
                 value(crate::settings::asset_url(&format!("wallpapers/{file}"))),
@@ -134,12 +153,15 @@ fn wallpapers() -> Vec<OwnedValue> {
 }
 
 /// What an ambience is built from: the hue of the most saturated
-/// well-populated hue band, else of the mean colour, and the scheme.
+/// well-populated hue band, else of the mean colour, the scheme, and the
+/// relative luminance of the brightest and darkest pixels.
 #[derive(Debug, PartialEq)]
 struct Seed {
     hue: f64,
     greyed: bool,
     light: bool,
+    brightest: f64,
+    darkest: f64,
 }
 
 /// Hue in degrees (none for a grey), saturation and value.
@@ -179,10 +201,16 @@ fn seed(pixels: &[[u8; 3]]) -> Option<Seed> {
     }
     let mut bands = [Band::default(); 12];
     let (mut sum, mut lum) = ([0.0; 3], 0.0);
+    let (mut brightest, mut darkest) = (0.0_f32, 1.0_f32);
     for px in pixels {
         let rgb = px.map(f64::from);
         sum.iter_mut().zip(rgb).for_each(|(s, c)| *s += c);
         lum += 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+        let luma = Srgb::new(px[0], px[1], px[2])
+            .into_linear::<f32>()
+            .relative_luminance()
+            .luma;
+        (brightest, darkest) = (brightest.max(luma), darkest.min(luma));
         let (Some(hue), s, v) = hsv(rgb) else {
             continue;
         };
@@ -207,6 +235,8 @@ fn seed(pixels: &[[u8; 3]]) -> Option<Seed> {
         hue: hsv(dominant).0.unwrap_or(0.0) / 360.0,
         greyed: best.is_none(),
         light: lum / pixels.len() as f64 / 255.0 > 0.6,
+        brightest: f64::from(brightest),
+        darkest: f64::from(darkest),
     })
 }
 
@@ -249,6 +279,8 @@ fn highlight(seed: &Seed) -> QColor {
 impl cxx_qt::Initialize for Ambience {
     fn initialize(mut self: Pin<&mut Self>) {
         self.as_mut().rust_mut().wallpapers = qvariant::qlist(&wallpapers());
+        // Until the first seed, as bright and as dark as a wallpaper gets.
+        self.as_mut().rust_mut().brightest = 1.0;
         self.as_mut()
             .on_ambience_changed(|obj| {
                 ipc::signal("Ambience", "AmbienceChanged", (state(&obj.ambience),));
@@ -302,12 +334,9 @@ impl Ambience {
             rust.wallpaper += 1;
             rust.wallpaper
         };
-        if let Some(rgb) = built_in(&shown) {
-            return self.show_seed(
-                QColor::from_rgb(rgb.0.into(), rgb.1.into(), rgb.2.into()),
-                false,
-                &shown,
-            );
+        if let Some(&(_, _, rgb, brightest)) = built_in(&shown) {
+            let base = QColor::from_rgb(rgb.0.into(), rgb.1.into(), rgb.2.into());
+            return self.show_seed(base, false, (brightest, 0.0), &shown);
         }
         let Some(local) = local else { return };
         let qt = self.qt_thread();
@@ -317,17 +346,26 @@ impl Ambience {
             };
             qt.queue(move |obj| {
                 if obj.wallpaper == generation {
-                    obj.show_seed(highlight(&seed), seed.light, &shown);
+                    let extremes = (seed.brightest, seed.darkest);
+                    obj.show_seed(highlight(&seed), seed.light, extremes, &shown);
                 }
             })
             .ok();
         });
     }
 
-    fn show_seed(mut self: Pin<&mut Self>, base: QColor, light: bool, url: &str) {
+    fn show_seed(
+        mut self: Pin<&mut Self>,
+        base: QColor,
+        light: bool,
+        (brightest, darkest): (f64, f64),
+        url: &str,
+    ) {
         let mut rust = self.as_mut().rust_mut();
         rust.base_color = base;
         rust.light = light;
+        rust.brightest = brightest;
+        rust.darkest = darkest;
         rust.wallpaper_url = QString::from(url);
         self.seed_changed();
     }
@@ -409,7 +447,8 @@ impl Wallpaper1 {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
-    use super::{built_in, seed, Seed};
+    use super::{built_in, pixels, seed, BUILT_IN};
+    use std::path::Path;
 
     fn solid(rgb: [u8; 3]) -> Vec<[u8; 3]> {
         vec![rgb; 64 * 64]
@@ -428,14 +467,18 @@ mod tests {
 
     #[test]
     fn a_grey_wallpaper_is_greyed() {
-        assert_eq!(
-            seed(&solid([90, 90, 90])),
-            Some(Seed {
-                hue: 0.0,
-                greyed: true,
-                light: false
-            })
-        );
+        let s = seed(&solid([90, 90, 90])).unwrap();
+        assert!(s.greyed && !s.light && s.hue.abs() < 1e-9);
+        assert!((s.brightest - 0.102).abs() < 1e-3 && (s.darkest - s.brightest).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_seed_spans_its_brightest_and_darkest_pixels() {
+        let mut px = solid([90, 90, 90]);
+        px[0] = [255, 255, 255];
+        px[1] = [0, 0, 0];
+        let s = seed(&px).unwrap();
+        assert!((s.brightest - 1.0).abs() < 1e-6 && s.darkest.abs() < 1e-6);
     }
 
     #[test]
@@ -446,12 +489,13 @@ mod tests {
         assert_eq!(seed(&[]), None);
     }
 
+    fn installed(file: &str) -> Option<&'static super::BuiltIn> {
+        built_in(&format!("/usr/share/marathon-shell/wallpapers/{file}"))
+    }
+
     #[test]
     fn built_in_wallpapers_have_their_highlight() {
-        assert_eq!(
-            built_in("/usr/share/marathon-shell/wallpapers/indigo-dusk.svg"),
-            Some((0x84, 0xe8, 0xda))
-        );
+        assert_eq!(installed("indigo-dusk.svg").unwrap().2, (0x84, 0xe8, 0xda));
         assert!(built_in("qrc:/wallpapers/aurora-myvatn.jpg").is_some());
         assert_eq!(built_in("/home/user/Pictures/beach.jpg"), None);
         assert_eq!(built_in("/home/user/Pictures/dawn.svg"), None);
@@ -464,8 +508,18 @@ mod tests {
             ("oeschinensee-night.jpg", (0xad, 0xe1, 0xff)),
             ("sylvester-dawn.jpg", (0xad, 0xc9, 0xff)),
         ] {
-            let path = format!("/usr/share/marathon-shell/wallpapers/{file}");
-            assert_eq!(built_in(&path), Some(rgb), "{file}");
+            assert_eq!(installed(file).unwrap().2, rgb, "{file}");
+        }
+    }
+
+    // Measured from the shipped files. Blurring only takes a peak down.
+    #[test]
+    fn every_built_in_wallpaper_measures_dark() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../shell/resources/wallpapers");
+        for &(_, file, _, brightest) in &BUILT_IN {
+            let s = seed(&pixels(&dir.join(file)).unwrap()).unwrap();
+            assert!(!s.light, "{file}");
+            assert!(brightest <= s.brightest + 0.01, "{file}: {}", s.brightest);
         }
     }
 }

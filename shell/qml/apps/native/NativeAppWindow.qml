@@ -63,6 +63,8 @@ MApp {
             Component.onCompleted: nativeAppWindow.ambienceItem = ambience
             wallpaper: AmbienceService.wallpaperUrl
             light: AmbienceService.light
+            brightest: AmbienceService.brightest
+            darkest: AmbienceService.darkest
         }
 
         // The window went: show the app's other window, or the one that
