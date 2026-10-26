@@ -143,6 +143,10 @@ set(QML_FILES
     qml/components/oobe/OobePasscode.qml
     qml/components/oobe/OobeHub.qml
     qml/components/oobe/PracticeCoach.qml
+    qml/components/oobe/OobeGridPreview.qml
+    qml/components/oobe/OobeLook.qml
+    qml/components/oobe/OobeSize.qml
+    qml/components/oobe/WallpaperReveal.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/ErrorToast.qml
     qml/components/IncomingCallOverlay.qml

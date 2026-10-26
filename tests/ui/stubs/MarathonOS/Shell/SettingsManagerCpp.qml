@@ -2,6 +2,9 @@ pragma Singleton
 import QtQml
 QtObject {
     property int appGridColumns: 0
+    property string wallpaperPath: ""
+    property real userScaleFactor: 1
+    property bool reduceMotion: false
     property int screenTimeout: 0
     property string timeZone: "Europe/Dublin"
     property bool automaticTimeZone: true
