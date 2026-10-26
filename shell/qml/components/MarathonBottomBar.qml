@@ -48,11 +48,17 @@ Item {
                 event.accepted = false;
         }
 
+        WallpaperTone {
+            id: tone
+
+            anchors.fill: parent
+        }
+
         GlyphIcon {
             anchors.centerIn: parent
             name: dockButton.iconName
             size: Silica.Theme.iconSizeSmall
-            color: dockButton.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
+            color: dockButton.pressed ? tone.accent : tone.glyph
         }
     }
 
@@ -64,7 +70,7 @@ Item {
 
         anchors.verticalCenter: parent.verticalCenter
         size: Silica.Theme.iconSizeExtraSmall
-        color: active ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+        color: active ? indicatorTone.accent : indicatorTone.secondary
         Accessible.ignored: false
         Accessible.role: Accessible.Button
         Accessible.name: a11yName
@@ -98,6 +104,17 @@ Item {
                 "name": qsTr("Phone"),
                 "icon": "phone"
             })
+    }
+
+    WallpaperTone {
+        id: indicatorTone
+
+        objectName: "indicatorTone"
+        x: pageIndicatorRow.x
+        y: pageIndicatorRow.y - Silica.Theme.paddingSmall
+        width: pageIndicatorRow.width
+        height: pageIndicatorRow.height + 2 * Silica.Theme.paddingSmall
+        visible: pageIndicatorRow.visible
     }
 
     Row {
@@ -143,7 +160,7 @@ Item {
                 width: active ? Silica.Theme.paddingLarge * 2 : Silica.Theme.paddingLarge
                 height: Math.max(2, Math.round(Silica.Theme.paddingSmall / 2))
                 radius: height / 2
-                color: active ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
+                color: active ? indicatorTone.accent : indicatorTone.secondary
 
                 Accessible.role: Accessible.Button
                 Accessible.name: qsTr("Page %1").arg(index + 1)

@@ -73,4 +73,12 @@ TestCase {
         mouseClick(scrub, scrub.width - 1, scrub.height / 2);
         compare(pageSpy.signalArguments[1][0], 2);
     }
+
+    function test_indicatorsTakeTheBackdropsTone() {
+        const tone = findChild(bar, "indicatorTone");
+        tone.light = true;
+        verify(tone.secondary.r < 0.1, "dark over a light backdrop");
+        tone.light = false;
+        verify(tone.secondary.r > 0.9, "light over a dark one");
+    }
 }
