@@ -18,6 +18,8 @@ Item {
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false
+    // Icons wait hidden for playEntrance().
+    property bool entranceHeld: false
     readonly property int startIndex: pageIndex * itemsPerPage
     readonly property int pageItemCount: {
         if (!appModel)
@@ -48,6 +50,12 @@ Item {
     signal appLaunched(var app)
     signal longPress(var app, rect sceneRect)
 
+    // The icons rise in one after another, as setup hands over.
+    function playEntrance() {
+        for (let i = 0; i < iconRepeater.count; ++i)
+            (iconRepeater.itemAt(i) as IconCell).playEntrance();
+    }
+
     Timer {
         id: autoDismissTimer
 
@@ -76,6 +84,8 @@ Item {
         // Read by IconOverlay to place this icon's decorations.
         readonly property Item contentColumn: contentColumn
         readonly property Item iconBox: iconBox
+        // 0 hidden and lowered, 1 in place.
+        property real entrance: appGrid.entranceHeld ? 0 : 1
 
         // The window grows out of this icon.
         function launch() {
@@ -83,6 +93,11 @@ Item {
             appGrid.appLaunched(appData);
         }
 
+        function playEntrance() {
+            entranceAnim.restart();
+        }
+
+        objectName: "appIcon-" + index
         width: iconGrid.width / appGrid.columns
         height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.rowSpacing) / appGrid.rows
 
@@ -104,6 +119,26 @@ Item {
             stagger: MMotion.staggerMicro
         }
 
+        SequentialAnimation {
+            id: entranceAnim
+
+            PropertyAction {
+                target: iconCell
+                property: "entrance"
+                value: 0
+            }
+            PauseAnimation {
+                duration: MMotion.reduceMotion ? 0 : iconCell.index * MMotion.staggerHome
+            }
+            NumberAnimation {
+                target: iconCell
+                property: "entrance"
+                to: 1
+                duration: MMotion.durationFor("entrance")
+                easing.type: Easing.OutCubic
+            }
+        }
+
         // Press feedback scales and lifts this column, not the cell:
         // a transform list on every cell (even at scale 1) gives
         // each icon a non-translate matrix, which stops Qt Quick
@@ -116,8 +151,9 @@ Item {
             id: contentColumn
 
             anchors.centerIn: parent
-            anchors.verticalCenterOffset: iconMouseArea.pressShown ? -2 : 0
+            anchors.verticalCenterOffset: (iconMouseArea.pressShown ? -2 : 0) + (1 - iconCell.entrance) * (MMotion.reduceMotion ? 0 : Silica.Theme.paddingLarge)
             scale: iconMouseArea.pressShown ? 0.95 : 1
+            opacity: iconCell.entrance
 
             Behavior on scale {
                 enabled: Constants.enableAnimations
@@ -129,7 +165,7 @@ Item {
             }
 
             Behavior on anchors.verticalCenterOffset {
-                enabled: Constants.enableAnimations
+                enabled: Constants.enableAnimations && !entranceAnim.running
 
                 NumberAnimation {
                     duration: MMotion.durationFor("microPress")
@@ -271,6 +307,7 @@ Item {
             width: overlay.cell ? overlay.cell.contentColumn.width : 0
             height: overlay.cell ? overlay.cell.contentColumn.height : 0
             scale: overlay.cell ? overlay.cell.contentColumn.scale : 1
+            opacity: overlay.cell ? overlay.cell.contentColumn.opacity : 1
 
             Item {
                 id: iconArea

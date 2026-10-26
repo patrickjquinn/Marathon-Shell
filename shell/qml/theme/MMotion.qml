@@ -116,6 +116,8 @@ QtObject {
 
     readonly property int staggerMicro: 20
     readonly property int staggerShort: 50
+    // The home screen building in as setup hands over.
+    readonly property int staggerHome: 30
 
     readonly property int rippleDuration: slow
     readonly property real rippleMaxRadius: 2.5
