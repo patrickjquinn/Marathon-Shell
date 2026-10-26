@@ -19,10 +19,10 @@ Row {
                                      | (altState !== VirtualKeyRow.Idle ? Qt.AltModifier : 0)
 
     readonly property var keys: [
-        { label: "Esc", name: qsTr("Escape"), key: Qt.Key_Escape, text: "" },
-        { label: "Tab", name: qsTr("Tab"), key: Qt.Key_Tab, text: "" },
-        { label: "Ctrl", name: qsTr("Control"), kind: "ctrl" },
-        { label: "Alt", name: qsTr("Alt"), kind: "alt" },
+        { label: "Esc", name: qsTr("Escape"), key: Qt.Key_Escape, text: "" }, // i18n: not user-facing
+        { label: "Tab", name: qsTr("Tab"), key: Qt.Key_Tab, text: "" }, // i18n: not user-facing
+        { label: "Ctrl", name: qsTr("Control"), kind: "ctrl" }, // i18n: not user-facing
+        { label: "Alt", name: qsTr("Alt"), kind: "alt" }, // i18n: not user-facing
         { label: "|", name: qsTr("Pipe"), key: Qt.Key_Bar, text: "|", alt: "\\", altName: qsTr("backslash") },
         { label: "~", name: qsTr("Tilde"), key: Qt.Key_AsciiTilde, text: "~", alt: "`", altName: qsTr("backtick") },
         { icon: "left", name: qsTr("Left"), key: Qt.Key_Left, text: "" },

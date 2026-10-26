@@ -21,7 +21,7 @@ BackgroundItem {
 
         Label {
             anchors.centerIn: parent
-            text: root.count > 99 ? ":D" : root.count
+            text: root.count > 99 ? ":D" : root.count // i18n: not user-facing
             font.pixelSize: Theme.fontSizeSmall
             color: root.highlighted ? Theme.highlightColor : Theme.primaryColor
         }

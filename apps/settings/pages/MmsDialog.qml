@@ -35,7 +35,7 @@ Dialog {
                 objectName: "mmscField"
                 width: parent.width
                 label: qsTr("MMSC")
-                placeholderText: "http://mms.example.com/mms"
+                placeholderText: "http://mms.example.com/mms" // i18n: not user-facing
                 description: text !== "" ? dialog.mmscError : qsTr("The address of your carrier's MMS server")
                 errorHighlight: text !== "" && dialog.mmscError !== ""
                 inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
@@ -61,7 +61,7 @@ Dialog {
                 objectName: "apnField"
                 width: parent.width
                 label: qsTr("MMS APN")
-                placeholderText: "mms.example.com"
+                placeholderText: "mms.example.com" // i18n: not user-facing
                 description: text !== "" ? dialog.apnError : qsTr("Often the same as the internet APN")
                 errorHighlight: text !== "" && dialog.apnError !== ""
                 inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
