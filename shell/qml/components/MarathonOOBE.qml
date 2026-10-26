@@ -18,6 +18,8 @@ Item {
     property int beat: 0
     readonly property var beats: [hello, online, passcode, look, size, hub, finishBeat]
     readonly property bool lastBeat: beat === beats.length - 1
+    // False when a PIN predates this run, e.g. after a restart mid-setup.
+    property bool asksPasscode: true
     property bool leaving: false
     property real exitShrink: 0
     // 0 full screen, 1 at 45 %: the flick on the last beat, then the way out.
@@ -25,9 +27,17 @@ Item {
 
     signal setupComplete
 
+    // Keep it private only while no PIN exists: the first-run setter won't replace one.
+    function step(by) {
+        let to = beat + by;
+        if (beats[to] === passcode && Security.hasQuickPIN)
+            to += by;
+        if (to >= 0 && to < beats.length)
+            beat = to;
+    }
+
     function advance() {
-        if (beat < beats.length - 1)
-            ++beat;
+        step(1);
     }
 
     function next(from) {
@@ -41,8 +51,7 @@ Item {
         const current = beats[beat];
         if (typeof current.handleBack === "function" && current.handleBack())
             return;
-        if (beat > 0)
-            --beat;
+        step(-1);
     }
 
     function begin() {
@@ -74,6 +83,7 @@ Item {
 
     anchors.fill: parent
     visible: !SettingsManagerCpp.firstRunComplete
+    Component.onCompleted: asksPasscode = !Security.hasQuickPIN
     z: Constants.zIndexModalOverlay
 
     MouseArea {
@@ -221,8 +231,8 @@ Item {
             anchors.top: statusBar.bottom
             height: implicitHeight
             visible: oobeRoot.beat >= 1 && oobeRoot.beat <= 5
-            count: 5
-            current: oobeRoot.beat
+            count: oobeRoot.asksPasscode ? 5 : 4
+            current: oobeRoot.beat - (!oobeRoot.asksPasscode && oobeRoot.beat > 2 ? 1 : 0)
         }
 
         Item {

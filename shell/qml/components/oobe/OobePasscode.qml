@@ -61,8 +61,11 @@ Item {
             error = qsTr("Passcodes don't match. Try again.");
             confirmedPin = "";
             HapticManager.medium();
+        } else if (!Security.setQuickPINFirstRun(enteredPin)) {
+            reset();
+            error = qsTr("Couldn't save the passcode. Try again.");
+            HapticManager.medium();
         } else {
-            Security.setQuickPINFirstRun(enteredPin);
             error = "";
             HapticManager.medium();
             done();

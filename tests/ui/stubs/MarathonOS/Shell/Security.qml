@@ -1,7 +1,7 @@
 pragma Singleton
 import QtQml
 QtObject {
-    property bool hasQuickPIN: true
+    property bool hasQuickPIN: false
     property bool isLockedOut: false
     property int lockoutSecondsRemaining: 0
     property bool fingerprintAvailable: false
@@ -16,5 +16,11 @@ QtObject {
     function authenticateQuickPIN(pin) { attempts = attempts.concat([pin]); }
     function authenticatePassword(password) { attempts = attempts.concat([password]); }
     function authenticateBiometric(type) {}
-    function setQuickPINFirstRun(pin) { firstRunPins = firstRunPins.concat([pin]); return true; }
+    function setQuickPINFirstRun(pin) {
+        if (hasQuickPIN)
+            return false;
+        firstRunPins = firstRunPins.concat([pin]);
+        hasQuickPIN = true;
+        return true;
+    }
 }

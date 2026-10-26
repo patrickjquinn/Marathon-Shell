@@ -34,6 +34,8 @@ TestCase {
 
     function init() {
         SessionStore.isLocked = true;
+        Security.hasQuickPIN = false;
+        Security.firstRunPins = [];
         SettingsManagerCpp.firstRunComplete = false;
         SettingsManagerCpp.language = "";
         SettingsManagerCpp.reduceMotion = false;
@@ -447,6 +449,47 @@ TestCase {
         oobe.finish();
         oobe.back();
         compare(oobe.beat, 6);
+    }
+
+    function enterPasscode() {
+        const passcode = child("oobePasscode");
+        for (const d of "123456123456")
+            passcode.appendDigit(d);
+    }
+
+    function test_backPastASetPasscodeSkipsIt() {
+        oobe.beat = 2;
+        enterPasscode();
+        compare(oobe.beat, 3);
+        swipeBack();
+        compare(oobe.beat, 1);
+        verify(child("oobeOnline").visible);
+        child("oobeOnline").done();
+        compare(oobe.beat, 3);
+        compare(Security.firstRunPins, ["123456"]);
+    }
+
+    function test_existingPinNeverAsksForAPasscode() {
+        Security.hasQuickPIN = true;
+        oobe = createTemporaryObject(oobeComponent, window.contentItem);
+        const passcode = child("oobePasscode");
+        let shown = false;
+        passcode.visibleChanged.connect(() => shown = shown || passcode.visible);
+        const progress = child("oobeProgress");
+        swipeUp();
+        compare(oobe.beat, 1);
+        compare(progress.count, 4);
+        compare(progress.current, 1);
+        child("oobeOnline").done();
+        compare(oobe.beat, 3);
+        compare(progress.current, 2);
+        oobe.beat = 5;
+        compare(progress.current, 4);
+        oobe.beat = 3;
+        swipeBack();
+        compare(oobe.beat, 1);
+        verify(!shown);
+        compare(Security.firstRunPins, []);
     }
 
     function test_doneFromABeatNotShownIsIgnored() {

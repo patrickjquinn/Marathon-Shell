@@ -33,6 +33,7 @@ TestCase {
 
     function init() {
         Security.firstRunPins = [];
+        Security.hasQuickPIN = false;
         doneSpy.clear();
         beat.reset();
         win.requestActivate();
@@ -86,6 +87,16 @@ TestCase {
         pad("123456");
         compare(Security.firstRunPins, ["123456"]);
         compare(doneSpy.count, 1);
+    }
+
+    function test_refusedSaveShowsErrorAndStays() {
+        Security.hasQuickPIN = true;
+        pad("123456");
+        pad("123456");
+        compare(Security.firstRunPins, []);
+        compare(findChild(beat, "oobeError").text, "Couldn't save the passcode. Try again.");
+        compare(beat.stage, "enter");
+        compare(doneSpy.count, 0);
     }
 
     function test_backOnConfirmReturnsToEnterAndClears() {
