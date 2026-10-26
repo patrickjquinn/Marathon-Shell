@@ -2,7 +2,9 @@
 """Flag user-facing QML string literals not wrapped in qsTr/qsTrId.
 
 check-untranslated.py [file-or-dir ...]   (default: shell/qml marathon-silica apps)
-Mark a line `// i18n: not user-facing` to exempt it. `description` in *Actions.qml
+Mark a line `// i18n: not user-facing` for text that never reaches the screen, or
+`// i18n: literal` for displayed text that is deliberately never translated
+(".com", "www.", the wordmark). `description` in *Actions.qml
 files is the text Keel hands to agents, not shown to people, so it is skipped there.
 Directories named tests, test, build or build-apps are skipped when walking a directory.
 A value whose literal starts on the next line is also caught.
@@ -18,7 +20,7 @@ PROPS = (r"(?:text|title|label|description|placeholderText|valueText|subtitle|me
 ASSIGN = re.compile(r"(?<![\w.])" + PROPS + r"\s*:\s*(?P<value>.*)$")
 LITERAL = re.compile(r'^(?:[^"\']*?\?\s*)?(?P<q>["\'])(?P<s>(?:\\.|(?!(?P=q)).)*)(?P=q)')
 LETTERS = re.compile(r"[^\W\d_]", re.UNICODE)
-MARKER = "i18n: not user-facing"
+MARKERS = ("i18n: not user-facing", "i18n: literal")
 DEFAULT_ROOTS = ("shell/qml", "marathon-silica", "apps")
 SKIP_PARTS = {"tests", "test", "build", "build-apps"}
 
@@ -36,7 +38,7 @@ def hits(path):
         if stripped.startswith("/*"):
             in_block = "*/" not in stripped
             continue
-        if stripped.startswith("//") or MARKER in line:
+        if stripped.startswith("//") or any(m in line for m in MARKERS):
             continue
         m = ASSIGN.search(line)
         if not m:
@@ -69,7 +71,7 @@ def main(argv):
             print(f'{f}:{n}: "{text}"')
             found += 1
     if found:
-        print(f"{found} untranslated string(s): wrap in qsTr() or mark // {MARKER}", file=sys.stderr)
+        print(f"{found} untranslated string(s): wrap in qsTr() or mark // {MARKERS[0]} or // {MARKERS[1]}", file=sys.stderr)
     return 1 if found else 0
 
 

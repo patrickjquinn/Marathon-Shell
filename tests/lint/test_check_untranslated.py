@@ -52,6 +52,9 @@ class CheckUntranslated(unittest.TestCase):
     def test_marker_passes(self):
         self.assertEqual(hits('Label { text: "Esc" } // i18n: not user-facing\n'), [])
 
+    def test_literal_marker_passes(self):
+        self.assertEqual(hits('Label { text: ".com" } // i18n: literal\n'), [])
+
     def test_comments_pass(self):
         self.assertEqual(hits('// text: "Hello"\n/*\ntext: "Hello"\n*/\n'), [])
 
