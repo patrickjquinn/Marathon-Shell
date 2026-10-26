@@ -81,6 +81,8 @@ source="
 	marathon-modem-sleep.service
 	marathon-power-profiles.service
 	marathon-power-profiles.timer
+	marathon-flatpak-gc.service
+	marathon-flatpak-gc.timer
 	marathon-power-profiles-on-demand.conf
 	tuned-balanced.conf
 	tuned-balanced-battery.conf
@@ -172,6 +174,14 @@ package() {
 		"$pkgdir/usr/lib/systemd/user/marathon.slice"
 	install -Dm644 "$srcdir/marathon-session.target" \
 		"$pkgdir/usr/lib/systemd/user/marathon-session.target"
+	# Unused runtimes pile up as apps are updated and removed.
+	install -Dm644 "$srcdir/marathon-flatpak-gc.service" \
+		"$pkgdir/usr/lib/systemd/user/marathon-flatpak-gc.service"
+	install -Dm644 "$srcdir/marathon-flatpak-gc.timer" \
+		"$pkgdir/usr/lib/systemd/user/marathon-flatpak-gc.timer"
+	install -d "$pkgdir/usr/lib/systemd/user/timers.target.wants"
+	ln -sf ../marathon-flatpak-gc.timer \
+		"$pkgdir/usr/lib/systemd/user/timers.target.wants/marathon-flatpak-gc.timer"
 	install -Dm644 "$srcdir/marathon-portals.conf" \
 		"$pkgdir/usr/share/xdg-desktop-portal/marathon-portals.conf"
 	install -Dm644 "$srcdir/50-marathon-timedate.rules" \
@@ -366,6 +376,8 @@ db146f0f6ec6a0d78ce2436e2f390edd7d0c9c43b8857eb04b6d63d100da2a4e76dcfb95a58f91fe
 d10016488f9eb217cae82aa0274f2b388f54bb9aefc47e340b3ddff7cb341912638b626800293013c86ef95f90442e802732809f798ec07fff7bc8c093377bd3  marathon-modem-sleep.service
 SKIP  marathon-power-profiles.service
 SKIP  marathon-power-profiles.timer
+28704136f277805371f0c0b68e610994a5e7d58c2aba9e9c567836216fa5fe90c96061e0d470a076604f04563288a916720d5c524ba421056b60a66e54b16712  marathon-flatpak-gc.service
+593a9a00f4291e3d502934f1ebb74546602a50f16e4ad681cda0565f9515d76d3ff4545040d0afbfdd84f3b857fe3970b0bc7048759ed3cbee9a2c9e4ae413ff  marathon-flatpak-gc.timer
 SKIP  marathon-power-profiles-on-demand.conf
 fa7bec3a2a7175f9b0651201f3687f1555054c4140ff310c331474d02466ea169057b5f131db490be3b6459413761f859a5291084ec901df59c0476221b693bc  tuned-balanced.conf
 c459546fda45f9cf56f2c49e6816f3f56597abffcc8ff9de2bc453cc390a5e34bee5628c9dd572f89f15f488ad839657a763c06421a12d9d3facb867c5d5de0c  tuned-balanced-battery.conf

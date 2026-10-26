@@ -1,0 +1,12 @@
+[Unit]
+Description=Remove unused Flatpak runtimes
+ConditionPathExists=/usr/bin/flatpak
+ConditionUser=!root
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flatpak uninstall --unused --user -y --noninteractive
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+StandardOutput=null
