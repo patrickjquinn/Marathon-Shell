@@ -291,7 +291,7 @@ with context menu, cover, `Nemo.Configuration` storage, tests); `apps/notes`
 is a fuller example. Every QML file imports `Sailfish.Silica 1.0` then
 `Marathon.Silica 1.0`; the shell's services come from
 `import Marathon.Platform 1.0`. Rules and the old MarathonUI-to-Keel
-mapping: [docs/superpowers/KEEL_APP_MIGRATION.md](docs/superpowers/KEEL_APP_MIGRATION.md).
+mapping: [docs/KEEL_APP_MIGRATION.md](docs/KEEL_APP_MIGRATION.md).
 
 ```qml
 import QtQuick
@@ -369,7 +369,7 @@ Marathon-Shell/
 
 - [Building](docs/BUILDING.md), [Image build architecture](docs/IMAGE_BUILD_ARCHITECTURE.md), [Device support](docs/DEVICE_SUPPORT.md), [Device overlays](docs/DEVICE_OVERLAYS.md)
 - [Architecture](docs/ARCHITECTURE.md), [UI design system](docs/UI_DESIGN_SYSTEM.md), [Coding rules](docs/CODING_RULES.md)
-- [App development](docs/APP_DEVELOPMENT.md), [Keel app migration](docs/superpowers/KEEL_APP_MIGRATION.md), [Permissions](docs/PERMISSION_GUIDE.md)
+- [App development](docs/APP_DEVELOPMENT.md), [Keel app migration](docs/KEEL_APP_MIGRATION.md), [Permissions](docs/PERMISSION_GUIDE.md)
 - [Native app theming](docs/NATIVE_APP_THEMING.md), [scale](docs/NATIVE_APP_SCALE.md), [lifecycle](docs/NATIVE_APP_LIFECYCLE.md)
 - [Android apps](docs/ANDROID_APPS.md), [Scrolling and frame pacing](docs/perf/SCROLLING.md)
 - [Developer CLI](docs/DEV_CLI.md), [Testing on device](docs/TESTING_ON_DEVICE.md), [RT scheduling](docs/RT_SCHEDULING.md)

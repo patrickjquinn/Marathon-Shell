@@ -29,4 +29,4 @@ tests/                 qmltestrunner suite: KEEL_QML=... sh tests/run.sh
   `Nemo.Configuration`, notifications from `Nemo.Notifications`, haptics from `Nemo.Ngf`.
 - Theme sizes, colours and margins only; pulley menus for actions; remorse for deletes.
 
-See docs/superpowers/KEEL_APP_MIGRATION.md for the full rules and the verification steps.
+See docs/KEEL_APP_MIGRATION.md for the full rules and the verification steps.

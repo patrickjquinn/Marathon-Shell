@@ -1,6 +1,6 @@
 # Moving a Marathon app to Keel
 
-Spec: docs/superpowers/specs/2026-10-11-keel-for-marathon-design.md (§3, §4).
+Spec: docs/design/2026-10-11-keel-for-marathon-design.md (§3, §4).
 New apps: copy apps/template (the minimal Keel app: page, pulley, list + context menu, cover,
 Nemo.Configuration, tests). Fuller reference: apps/notes.
 

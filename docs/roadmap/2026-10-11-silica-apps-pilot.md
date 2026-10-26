@@ -1,14 +1,12 @@
 # Silica apps pilot Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** A Silica (Keel) Notes app runs on the PinePhone under Marathon, with Marathon's back gesture, accent and wallpaper.
 
 **Architecture:** Keel's `Sailfish.Silica` is packaged as an Alpine apk from the public shipwright-open repo at a pinned commit. A small `SilicaApp.qml` (Silica `ApplicationWindow` plus the runner's `handleBack()`/`minimizeRequested()` contract and ambience wiring) is the app root. `apps/notes-silica` is the pilot, built only when Silica is available.
 
 **Tech Stack:** Qt 6.11 QML, Keel (Rust/CXX-Qt 0.10 + QML), Alpine abuild in podman, qmltestrunner.
 
-**Spec:** `docs/superpowers/specs/2026-10-11-silica-apps-pilot-design.md`
+**Spec:** `docs/design/2026-10-11-silica-apps-pilot-design.md`
 
 ## Global Constraints
 

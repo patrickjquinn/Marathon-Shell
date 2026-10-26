@@ -1,6 +1,6 @@
 # Keel-for-Marathon programme ledger
 
-Spec: docs/superpowers/specs/2026-10-11-keel-for-marathon-design.md
+Spec: docs/design/2026-10-11-keel-for-marathon-design.md
 User (2026-10-12): do the whole programme without stopping between phases; test on hardware as you go.
 Branch: feat/keel-framework-1a (continue on it).
 
@@ -17,7 +17,7 @@ Branch: feat/keel-framework-1a (continue on it).
 | 5 Sailfish app support (parked by user 2026-10-12) | keel-silica r4 (platform, sailfishapp, qt5compat), marathon-keel-host, Sailjail->bwrap, sailfish-qml, marathon-sailfish-install | host-tested; device pending |
 
 ## Rulings
-- UX direction (user, 2026-10-12): a modern Sailfish with the best of BB10 and Marathon's own twist; Marathon's pill navigation stays (left back, up home/switcher, right forward, down shade). Keep/drop list: docs/superpowers/specs/2026-10-12-sailfish-ux-keep-drop.md.
+- UX direction (user, 2026-10-12): a modern Sailfish with the best of BB10 and Marathon's own twist; Marathon's pill navigation stays (left back, up home/switcher, right forward, down shade). Keep/drop list: docs/design/2026-10-12-sailfish-ux-keep-drop.md.
 - Shell type scale: body = Silica fontSizeMedium, other roles keep their ratio. Cost if wrong: shell text is larger than the old Marathon design everywhere.
 - QS Lock action dropped (power key locks; forum reports it as dead weight). Cost if wrong: one more tap path to lock is gone.
 - 1b: Escape. The compositor turned every Esc key into system back before apps saw it. Ruling: for Keel apps the compositor passes Esc through (KeyRouting); Silica controls use it (menus, dialogs, remorse) and Page turns an unused Esc into handleBack. MarathonUI apps unchanged. Cost if wrong: a Keel app that swallows Esc can't be backed out of by keyboard (back gesture still works).

@@ -1,4 +1,4 @@
-# Marathon's Rust platform code (docs/superpowers/specs/2026-10-13-rust-platform-migration.md).
+# Marathon's Rust platform code (docs/design/2026-10-13-rust-platform-migration.md).
 # Built by crates/CMakeLists.txt; tools/marathon-mail-oauth stays its own crate.
 [workspace]
 resolver = "2"

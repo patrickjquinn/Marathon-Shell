@@ -1,14 +1,12 @@
 # Keel Framework 1a: Theme Pipeline Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** The shell derives a Sailfish ambience from the wallpaper and drives it into its own Keel engine and into every Keel app through Keel's own host protocol; the shell draws the ambience behind Keel apps; a wallpaper change re-themes everything live.
 
 **Architecture:** A pure derivation function turns the wallpaper into a base colour and colour scheme. An `AmbienceService` in the shell holds the published ambience map and exports it on D-Bus. A shell QML `AmbienceController` turns the base colour into Keel's highlight using Keel's own palette rule, applies it to the shell's Keel engine and publishes the map. `marathon-app-runner` becomes a Keel host (PROTOCOL.md v1: environment plus a peer D-Bus `org.shipwright.keel.Shell1`) for every app whose manifest is not `"toolkit": "marathonui"`, relaying ambience, active state and close requests. Because Keel apps under a host leave their background transparent (`Shell.phone`), the shell draws the ambience behind them, as Lipstick does.
 
 **Tech Stack:** Qt 6.11 (C++17, QtDBus, QtQuick), Keel `Keel 1.0` / `Sailfish.Silica 1.0` (consumed, unmodified), QtTest, qmltestrunner.
 
-**Spec:** `docs/superpowers/specs/2026-10-11-keel-for-marathon-design.md` (§1, §2; this plan also adds the shell-drawn ambience background required by Keel's `Shell.phone` behaviour, see Task 7).
+**Spec:** `docs/design/2026-10-11-keel-for-marathon-design.md` (§1, §2; this plan also adds the shell-drawn ambience background required by Keel's `Shell.phone` behaviour, see Task 7).
 
 ## Global Constraints
 

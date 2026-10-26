@@ -1,5 +1,5 @@
 # Marathon's Rust crates, built with cargo the way keel/silica/CMakeLists.txt
-# builds keel_silica_native (docs/superpowers/specs/2026-10-13-rust-platform-migration.md).
+# builds keel_silica_native (docs/design/2026-10-13-rust-platform-migration.md).
 find_program(MARATHON_CARGO cargo REQUIRED)
 find_package(Threads REQUIRED)
 option(MARATHON_CARGO_OFFLINE "Pass --offline to cargo (pre-fetched crates)" OFF)
