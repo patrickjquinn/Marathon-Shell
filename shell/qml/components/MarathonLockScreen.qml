@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
+import "../core/Clock.js" as Clock
 
 Item {
     id: lockScreen
@@ -69,7 +70,7 @@ Item {
         if (diff < 24 * 60 * 60 * 1000)
             //: Age of a notification in hours, e.g. 3h
             return qsTr("%1h").arg(Math.floor(diff / 3600000));
-        return Qt.formatTime(new Date(ts), Locale.ShortFormat);
+        return Clock.format(new Date(ts), SettingsManagerCpp.timeFormat);
     }
 
     // Rebuilds the visible-notifications model from the global

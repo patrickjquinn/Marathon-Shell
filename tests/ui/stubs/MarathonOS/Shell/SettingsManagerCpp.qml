@@ -7,6 +7,7 @@ QtObject {
     property bool reduceMotion: false
     property bool firstRunComplete: false
     property string language: ""
+    property string timeFormat: "12h"
     readonly property var availableLanguages: [
         { code: "en", nativeName: "English", englishName: "English", status: "complete" },
         { code: "de", nativeName: "Deutsch", englishName: "German", status: "preview" },

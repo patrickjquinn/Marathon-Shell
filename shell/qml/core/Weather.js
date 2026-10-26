@@ -111,7 +111,7 @@ function clock(unixSeconds, offsetSeconds, twelveHour) {
     const h = d.getUTCHours();
     const m = ("0" + d.getUTCMinutes()).slice(-2);
     if (twelveHour)
-        return (h % 12 || 12) + ":" + m + (h < 12 ? " AM" : " PM");
+        return (h % 12 || 12) + ":" + m + " " + (h < 12 ? Qt.locale().amText : Qt.locale().pmText);
     return ("0" + h).slice(-2) + ":" + m;
 }
 
@@ -119,7 +119,7 @@ function clock(unixSeconds, offsetSeconds, twelveHour) {
 function hour(unixSeconds, offsetSeconds, twelveHour) {
     const h = atLocation(unixSeconds, offsetSeconds).getUTCHours();
     if (twelveHour)
-        return (h % 12 || 12) + (h < 12 ? " AM" : " PM");
+        return (h % 12 || 12) + " " + (h < 12 ? Qt.locale().amText : Qt.locale().pmText);
     return ("0" + h).slice(-2);
 }
 

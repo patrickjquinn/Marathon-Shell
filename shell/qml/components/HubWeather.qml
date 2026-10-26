@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
+import "../core/Clock.js" as Clock
 import "../core/Weather.js" as Weather
 
 // The Hub's weather: now, and the coming hours under the caret.
@@ -12,7 +13,7 @@ Column {
     readonly property var forecast: WeatherClient.forecast
     readonly property var current: forecast.current || null
     readonly property var today: (forecast.daily || [])[0] || null
-    readonly property bool twelveHour: /a/i.test(Qt.locale().timeFormat(Locale.ShortFormat))
+    readonly property bool twelveHour: Clock.twelveHour(SettingsManagerCpp.timeFormat)
     property bool expanded: String(SettingsManagerCpp.get("weather/expanded", false)) === "true"
     // Until the service answers, skeletons hold the card's place so nothing
     // below it moves when the weather arrives.

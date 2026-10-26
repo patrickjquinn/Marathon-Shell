@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import MarathonOS.Shell
+import "Clock.js" as Clock
 
 // What the status bar shows, from the shell's system objects.
 QtObject {
@@ -23,7 +24,7 @@ QtObject {
     readonly property string dataType: Modem.networkType
 
     property date currentTime: new Date()
-    readonly property string timeString: Qt.formatTime(currentTime, SettingsManagerCpp.timeFormat === "24h" ? "HH:mm" : "h:mm AP")
+    readonly property string timeString: Clock.format(currentTime, SettingsManagerCpp.timeFormat)
     readonly property string dateString: currentTime.toLocaleDateString(Qt.locale(), Locale.LongFormat)
 
     // Fires on each minute's turn, when the shown time changes.

@@ -4,6 +4,7 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
+import "../core/Clock.js" as Clock
 
 Rectangle {
     id: clipboardManager
@@ -78,10 +79,7 @@ Rectangle {
                     }
 
                     Silica.Label {
-                        text: {
-                            var date = new Date(clipItem.modelData.timestamp);
-                            return Qt.formatTime(date, Locale.ShortFormat);
-                        }
+                        text: Clock.format(new Date(clipItem.modelData.timestamp), SettingsManagerCpp.timeFormat)
                         color: clipItem.highlighted ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeExtraSmall
                     }

@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Shapes
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
+import "../core/Clock.js" as Clock
 import "../core/Weather.js" as Weather
 
 // The weather in full, over the Hub: now, the next day by the hour, ten days,
@@ -23,7 +24,7 @@ Item {
     readonly property var daily: forecast.daily || []
     readonly property int offset: forecast.timezone_offset || 0
     readonly property bool fahrenheit: WeatherClient.fahrenheit
-    readonly property bool twelveHour: /a/i.test(Qt.locale().timeFormat(Locale.ShortFormat))
+    readonly property bool twelveHour: Clock.twelveHour(SettingsManagerCpp.timeFormat)
     readonly property var weekdays: [0, 1, 2, 3, 4, 5, 6].map(d => Qt.locale().dayName(d, Locale.ShortFormat))
 
     // True when it closed something.
