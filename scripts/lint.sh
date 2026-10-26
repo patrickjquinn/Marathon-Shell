@@ -73,6 +73,9 @@ else
     fi
 fi
 
+# User-facing QML strings go through qsTr().
+python3 tests/lint/check-untranslated.py || errors=1
+
 # ─ C++ / Qt ──────────────────────────────────────────────────────────────────
 
 if [ ! -f "$COMPDB" ]; then
