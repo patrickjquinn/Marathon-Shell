@@ -171,7 +171,8 @@ Item {
             Key {
                 width: row4.availableWidth * 0.30
                 text: " "
-                displayText: "space"
+                //: space bar key label
+                displayText: qsTr("space")
                 onClicked: {
                     layout.spaceClicked();
                 }
@@ -179,7 +180,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.12
-                text: ".com"  // i18n: not user-facing
+                text: ".com"  // i18n: literal
                 displayText: ".com"
                 isSpecial: true
                 onClicked: {
@@ -189,7 +190,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.10
-                text: "www."  // i18n: not user-facing
+                text: "www."  // i18n: literal
                 displayText: "www."
                 isSpecial: true
                 onClicked: {

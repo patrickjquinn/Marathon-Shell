@@ -163,7 +163,8 @@ Item {
             Key {
                 width: row4.availableWidth * 0.5
                 text: " "
-                displayText: "space"
+                //: space bar key label
+                displayText: qsTr("space")
                 isSpecial: true
                 onClicked: {
                     dynamicLayout.spaceClicked();

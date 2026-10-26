@@ -120,7 +120,7 @@ Item {
         Text {
             visible: root.showLabel
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "marathon"  // i18n: not user-facing
+            text: "marathon"  // i18n: literal
             color: root.monochrome ? "#040404" : "#fff"
             font.family: MTypography.fontFamily
             font.pixelSize: root.wordSize

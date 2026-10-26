@@ -124,7 +124,8 @@ Item {
             Key {
                 width: Math.round(280 * Constants.scaleFactor)
                 text: " "
-                displayText: "space"
+                //: space bar key label
+                displayText: qsTr("space")
                 onClicked: layout.spaceClicked()
             }
 

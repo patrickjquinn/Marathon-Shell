@@ -272,7 +272,8 @@ Item {
             Key {
                 width: cursorRow.availableWidth * 0.1
                 text: "Esc"  // i18n: not user-facing
-                displayText: "Esc"
+                //: terminal key name; usually kept as-is
+                displayText: qsTr("Esc")
                 isSpecial: true
                 onClicked: {
                     layout.cursorKeyClicked(Qt.Key_Escape);
@@ -282,7 +283,8 @@ Item {
             Key {
                 width: cursorRow.availableWidth * 0.1
                 text: "Tab"  // i18n: not user-facing
-                displayText: "Tab"
+                //: terminal key name; usually kept as-is
+                displayText: qsTr("Tab")
                 isSpecial: true
                 onClicked: {
                     layout.cursorKeyClicked(Qt.Key_Tab);
@@ -332,7 +334,8 @@ Item {
             Key {
                 width: cursorRow.availableWidth * 0.2
                 text: "Ctrl"  // i18n: not user-facing
-                displayText: "Ctrl"
+                //: terminal key name; usually kept as-is
+                displayText: qsTr("Ctrl")
                 isSpecial: true
                 onClicked: {
                     layout.cursorKeyClicked(Qt.Key_Control);
@@ -387,7 +390,8 @@ Item {
             Key {
                 width: row4.availableWidth * 0.5
                 text: " "
-                displayText: "space"
+                //: space bar key label
+                displayText: qsTr("space")
                 isSpecial: true
                 onClicked: {
                     layout.spaceClicked();
