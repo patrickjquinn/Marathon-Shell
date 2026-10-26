@@ -438,11 +438,11 @@ impl Security {
         if pin.chars().count() < 4 {
             return false;
         }
-        self.as_mut().pin_stored(true);
         let qt = self.qt_thread();
         io::spawn(async move {
-            if !store_pin(pin.clone()).await {
-                qt.queue(|obj| obj.pin_stored(false)).ok();
+            let stored = store_pin(pin.clone()).await;
+            qt.queue(move |obj| obj.pin_stored(stored)).ok();
+            if !stored {
                 return;
             }
             // If this fails the data still opens at startup without a PIN,

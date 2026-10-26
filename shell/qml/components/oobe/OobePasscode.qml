@@ -14,6 +14,9 @@ Item {
     property string enteredPin: ""
     property string confirmedPin: ""
     property string error: ""
+    // Saving is asynchronous: the beat moves on once the PIN is really stored.
+    property bool saving: false
+    readonly property bool pinSet: Security.hasQuickPIN
     readonly property string currentPin: stage === "enter" ? enteredPin : confirmedPin
 
     signal done
@@ -33,7 +36,7 @@ Item {
     }
 
     function appendDigit(d) {
-        if (currentPin.length >= requiredLength)
+        if (saving || currentPin.length >= requiredLength)
             return;
         if (stage === "enter")
             enteredPin += d;
@@ -46,6 +49,8 @@ Item {
     }
 
     function deleteDigit() {
+        if (saving)
+            return;
         if (stage === "enter" && enteredPin.length > 0)
             enteredPin = enteredPin.slice(0, -1);
         else if (stage === "confirm" && confirmedPin.length > 0)
@@ -61,14 +66,35 @@ Item {
             error = qsTr("Passcodes don't match. Try again.");
             confirmedPin = "";
             HapticManager.medium();
-        } else if (!Security.setQuickPINFirstRun(enteredPin)) {
-            reset();
-            error = qsTr("Couldn't save the passcode. Try again.");
-            HapticManager.medium();
         } else {
             error = "";
+            saving = true;
+            if (!Security.setQuickPINFirstRun(enteredPin))
+                saveFailed();
+        }
+    }
+
+    function saveFailed() {
+        saving = false;
+        reset();
+        error = qsTr("Couldn't save the passcode. Try again.");
+        HapticManager.medium();
+    }
+
+    onPinSetChanged: {
+        if (saving && pinSet) {
+            saving = false;
             HapticManager.medium();
             done();
+        }
+    }
+
+    Connections {
+        target: Security
+        enabled: root.saving
+
+        function onAuthenticationFailed(reason) {
+            root.saveFailed();
         }
     }
 

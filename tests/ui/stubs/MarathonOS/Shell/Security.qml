@@ -7,6 +7,8 @@ QtObject {
     property bool fingerprintAvailable: false
     property var attempts: []
     property var firstRunPins: []
+    // Accept the next first-run PIN, then fail to store it, as a full disk would.
+    property bool failNextSave: false
 
     signal authenticationSuccess
     signal authenticationFailed(string reason)
@@ -20,6 +22,11 @@ QtObject {
         if (hasQuickPIN)
             return false;
         firstRunPins = firstRunPins.concat([pin]);
+        if (failNextSave) {
+            failNextSave = false;
+            Qt.callLater(() => authenticationFailed("Failed to store Quick PIN"));
+            return true;
+        }
         hasQuickPIN = true;
         return true;
     }
