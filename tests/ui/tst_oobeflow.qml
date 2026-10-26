@@ -248,4 +248,27 @@ TestCase {
         compare(completeSpy.count, 1);
         verify(SettingsManagerCpp.firstRunComplete);
     }
+
+    function test_enterDoesNotBeginBehindASheet() {
+        mouseClick(child("helloLanguage"));
+        tryCompare(child("languageSheet"), "open", true);
+        child("oobeHello").forceActiveFocus();
+        keyClick(Qt.Key_Return);
+        compare(oobe.beat, 0);
+        swipeBack();
+        tryCompare(child("languageSheet"), "visible", false);
+        mouseClick(child("helloAccessibility"));
+        tryCompare(child("accessibilitySheet"), "open", true);
+        child("oobeHello").forceActiveFocus();
+        keyClick(Qt.Key_Return);
+        compare(oobe.beat, 0);
+    }
+
+    function test_glowSettlesAfterHello() {
+        const glow = child("oobeGlow");
+        wait(300);
+        swipeUp();
+        compare(oobe.beat, 1);
+        tryCompare(glow, "opacity", 0.6, 1000);
+    }
 }

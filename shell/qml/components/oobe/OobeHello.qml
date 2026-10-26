@@ -28,6 +28,11 @@ Item {
 
     signal done
 
+    function enter() {
+        if (!accessibility.open && !languages.open)
+            done();
+    }
+
     function handleBack(): bool {
         if (!accessibility.open && !languages.open)
             return false;
@@ -36,8 +41,8 @@ Item {
         return true;
     }
 
-    Keys.onReturnPressed: root.done()
-    Keys.onEnterPressed: root.done()
+    Keys.onReturnPressed: root.enter()
+    Keys.onEnterPressed: root.enter()
     onVisibleChanged: {
         accessibility.open = false;
         languages.open = false;

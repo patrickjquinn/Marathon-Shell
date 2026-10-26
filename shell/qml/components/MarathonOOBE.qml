@@ -84,6 +84,7 @@ Item {
     Shape {
         id: glow
 
+        objectName: "oobeGlow"
         width: parent.width * 1.4
         height: width
         anchors.centerIn: parent
@@ -93,6 +94,12 @@ Item {
         SequentialAnimation on opacity {
             running: MMotion.gate(oobeRoot.visible && oobeRoot.beat === 0 && !SettingsManagerCpp.reduceMotion)
             loops: Animation.Infinite
+            onRunningChanged: {
+                if (running)
+                    glowSettle.stop();
+                else
+                    glowSettle.start();
+            }
 
             NumberAnimation {
                 to: 1
@@ -104,6 +111,16 @@ Item {
                 duration: 4000
                 easing.type: Easing.InOutSine
             }
+        }
+
+        NumberAnimation {
+            id: glowSettle
+
+            target: glow
+            property: "opacity"
+            to: 0.6
+            duration: MMotion.durationFor("hero")
+            easing.type: Easing.InOutSine
         }
 
         ShapePath {
