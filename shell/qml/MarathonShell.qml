@@ -1099,6 +1099,7 @@ Item {
                         shell.currentPage = currentPage;
                     }
                 }
+                onPageCountChanged: shell.totalPages = pageView.pageCount
                 onInternalAppGridPageChanged: {
                     if (pageView.currentPage >= 0) {
                         shell.currentPage = pageView.internalAppGridPage;
