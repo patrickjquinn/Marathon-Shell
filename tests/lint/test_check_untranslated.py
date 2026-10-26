@@ -27,8 +27,14 @@ class CheckUntranslated(unittest.TestCase):
 
     def test_every_property_is_flagged(self):
         for prop in ("title", "label", "description", "placeholderText", "valueText",
-                     "subtitle", "message", "Accessible.name"):
+                     "subtitle", "message", "Accessible.name", "Accessible.description",
+                     "header", "hint", "summary", "placeholder", "toolTip", "tooltip", "errorText",
+                     "helperText", "buttonText", "okText", "cancelText"):
             self.assertEqual(len(hits(f'X {{ {prop}: "Hello" }}\n')), 1, prop)
+
+    def test_next_line_literal_is_flagged(self):
+        self.assertEqual(hits('Label {\n    text:\n        "Foo"\n}\n'), [(2, "Foo")])
+        self.assertEqual(hits('Label {\n    text:\n        qsTr("Foo")\n}\n'), [])
 
     def test_qstr_passes(self):
         self.assertEqual(hits('Label { text: qsTr("Hello") }\n'), [])
