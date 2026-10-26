@@ -9,6 +9,22 @@ Item {
 
     signal done
 
+    function applySize() {
+        settle.stop();
+        const factor = Math.round(slider.value) / 100;
+        if (Math.abs(factor - SettingsManagerCpp.userScaleFactor) > 0.001)
+            SettingsManagerCpp.userScaleFactor = factor;
+    }
+
+    // Re-sizing the whole shell takes longer than a drag step on small
+    // devices, so the size follows when the finger rests or lifts.
+    Timer {
+        id: settle
+
+        interval: 250
+        onTriggered: root.applySize()
+    }
+
     Column {
         anchors.fill: parent
         anchors.topMargin: Silica.Theme.paddingLarge
@@ -54,7 +70,14 @@ Item {
             stepSize: 5
             value: Math.round(SettingsManagerCpp.userScaleFactor * 100)
             valueText: Math.round(value) + "%"
-            onValueChanged: SettingsManagerCpp.userScaleFactor = Math.round(value) / 100
+            onValueChanged: {
+                if (down)
+                    settle.restart();
+            }
+            onDownChanged: {
+                if (!down)
+                    root.applySize();
+            }
         }
 
         Silica.Button {

@@ -115,6 +115,13 @@ TestCase {
         compare(grid.rows, 2);
     }
 
+    function test_openingSizeKeepsTheStoredScale() {
+        SettingsManagerCpp.userScaleFactor = 1.03;
+        size.visible = true;
+        wait(400);
+        compare(SettingsManagerCpp.userScaleFactor, 1.03);
+    }
+
     function test_continueEmitsDone() {
         const button = findChild(look, "lookContinue");
         verify(button);
@@ -129,9 +136,13 @@ TestCase {
         compare(slider.minimumValue, 75);
         compare(slider.maximumValue, 150);
         compare(slider.stepSize, 5);
-        slider.value = 150;
-        compare(SettingsManagerCpp.userScaleFactor, 1.5);
+        mousePress(slider, slider.width / 2, slider.height / 2);
+        mouseMove(slider, slider.width / 2 + 20, slider.height / 2);
+        mouseMove(slider, slider.width - 1, slider.height / 2);
         compare(slider.valueText, "150%");
+        compare(SettingsManagerCpp.userScaleFactor, 1);
+        mouseRelease(slider, slider.width - 1, slider.height / 2);
+        compare(SettingsManagerCpp.userScaleFactor, 1.5);
         const grid = findChild(size, "sizePreview").grid;
         const before = grid.columns;
         const ratio = Silica.Theme.pixelRatio;
