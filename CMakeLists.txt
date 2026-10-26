@@ -63,6 +63,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Optional: Qt private API usage is sometimes needed for low-level platform hooks (e.g. screen power).
 # Qt prints a warning when GuiPrivate headers are used because it ties you to the exact Qt build.
 option(MARATHON_USE_QT_GUI_PRIVATE "Use Qt GuiPrivate (Qt internal headers) for platform hooks" ON)
+option(MARATHON_REQUIRE_INPUT_SUPPORT "Fail without Qt InputSupportPrivate (touch de-duplication)" OFF)
 option(MARATHON_SUPPRESS_QT_PRIVATE_WARNINGS "Silence Qt warning about using private modules" ON)
 if(MARATHON_SUPPRESS_QT_PRIVATE_WARNINGS)
     set(QT_NO_PRIVATE_MODULE_WARNING ON CACHE BOOL "Silence Qt private module warning" FORCE)

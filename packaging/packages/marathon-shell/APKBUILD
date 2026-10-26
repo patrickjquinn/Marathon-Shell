@@ -169,6 +169,7 @@ build() {
 		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6 \
+		-DMARATHON_REQUIRE_INPUT_SUPPORT=ON \
 		-DMARATHON_VERSION="$pkgver-r$pkgrel"
 	cmake --build build
 	cargo build --manifest-path crates/Cargo.toml --release --locked -p marathon-touchctl
