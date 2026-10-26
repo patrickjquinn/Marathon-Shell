@@ -143,6 +143,7 @@ set(QML_FILES
     qml/components/MarathonOOBE.qml
     qml/components/oobe/OobeOnline.qml
     qml/components/oobe/OobePasscode.qml
+    qml/components/FirstUseHints.qml
     qml/components/oobe/OobeHub.qml
     qml/components/oobe/PracticeCoach.qml
     qml/components/oobe/OobeGridPreview.qml

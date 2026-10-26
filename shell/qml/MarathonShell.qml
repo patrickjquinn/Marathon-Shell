@@ -2183,6 +2183,10 @@ Item {
         target: NotificationService
     }
 
+    Comp.FirstUseHints {
+        id: firstUseHints
+    }
+
     Comp.PermissionDialog {
         id: permissionDialog
 
