@@ -77,9 +77,20 @@ pub struct AmbienceRust {
 
 /// Name, file and highlight: each picks up its wallpaper's accent, Marathon
 /// teal on most; Tundra leans to its sky, Dawn to its warmer glow.
-const BUILT_IN: [(&str, &str, (u8, u8, u8)); 15] = [
+const BUILT_IN: [(&str, &str, (u8, u8, u8)); 18] = [
     ("Meridian", "meridian.jpg", (0x7d, 0xf0, 0xd4)),
     ("Mývatn Aurora", "aurora-myvatn.jpg", (0x7d, 0xf0, 0xd4)),
+    ("Moos Sunset", "moos-sunset.jpg", (0xff, 0xe2, 0xad)),
+    (
+        "Oeschinensee Night",
+        "oeschinensee-night.jpg",
+        (0xad, 0xe1, 0xff),
+    ),
+    (
+        "Lake Sylvester Dawn",
+        "sylvester-dawn.jpg",
+        (0xad, 0xc9, 0xff),
+    ),
     ("Slate Aurora", "slate-aurora.svg", (0x7d, 0xf0, 0xd4)),
     ("Long Run", "long-run.svg", (0x7d, 0xf0, 0xd4)),
     ("Carbon", "carbon.svg", (0x7d, 0xe6, 0xcf)),
@@ -439,5 +450,17 @@ mod tests {
         assert!(built_in("qrc:/wallpapers/aurora-myvatn.jpg").is_some());
         assert_eq!(built_in("/home/user/Pictures/beach.jpg"), None);
         assert_eq!(built_in("/home/user/Pictures/dawn.svg"), None);
+    }
+
+    #[test]
+    fn the_photographic_wallpapers_have_their_highlight() {
+        for (file, rgb) in [
+            ("moos-sunset.jpg", (0xff, 0xe2, 0xad)),
+            ("oeschinensee-night.jpg", (0xad, 0xe1, 0xff)),
+            ("sylvester-dawn.jpg", (0xad, 0xc9, 0xff)),
+        ] {
+            let path = format!("/usr/share/marathon-shell/wallpapers/{file}");
+            assert_eq!(built_in(&path), Some(rgb), "{file}");
+        }
     }
 }
