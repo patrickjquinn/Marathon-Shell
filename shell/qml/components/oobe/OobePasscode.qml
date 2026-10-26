@@ -100,6 +100,7 @@ Item {
             Layout.fillWidth: true
             //: Heading of the setup step that sets the passcode
             text: qsTr("Keep it private")
+            horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             color: Silica.Theme.highlightColor
             font.pixelSize: Silica.Theme.fontSizeLarge
@@ -108,6 +109,7 @@ Item {
         Silica.Label {
             Layout.fillWidth: true
             text: root.stage === "enter" ? qsTr("Choose a passcode for your messages, photos and accounts.") : qsTr("Re-enter the same passcode.")
+            horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             color: Silica.Theme.secondaryHighlightColor
             font.pixelSize: Silica.Theme.fontSizeSmall

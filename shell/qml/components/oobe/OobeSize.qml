@@ -11,15 +11,16 @@ Item {
 
     Column {
         anchors.fill: parent
+        anchors.topMargin: Silica.Theme.paddingLarge
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        spacing: Silica.Theme.paddingLarge
+        spacing: Silica.Theme.paddingMedium
 
         Silica.Label {
             width: parent.width
             text: qsTr("Easy to read")
             color: Silica.Theme.highlightColor
-            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+            font.pixelSize: Silica.Theme.fontSizeLarge
             wrapMode: Text.WordWrap
         }
 
@@ -28,6 +29,7 @@ Item {
             //: Setup, size step: what the slider does
             text: qsTr("Drag until your home screen feels right.")
             color: Silica.Theme.secondaryHighlightColor
+            font.pixelSize: Silica.Theme.fontSizeSmall
             wrapMode: Text.WordWrap
         }
 

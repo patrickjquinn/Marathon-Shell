@@ -15,15 +15,16 @@ Item {
 
     Column {
         anchors.fill: parent
+        anchors.topMargin: Silica.Theme.paddingLarge
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        spacing: Silica.Theme.paddingLarge
+        spacing: Silica.Theme.paddingMedium
 
         Silica.Label {
             width: parent.width
             text: qsTr("Make it yours")
             color: Silica.Theme.highlightColor
-            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+            font.pixelSize: Silica.Theme.fontSizeLarge
             wrapMode: Text.WordWrap
         }
 
@@ -32,6 +33,7 @@ Item {
             //: Setup, wallpaper step: why the choice matters
             text: qsTr("Your wallpaper sets Marathon's colours, everywhere.")
             color: Silica.Theme.secondaryHighlightColor
+            font.pixelSize: Silica.Theme.fontSizeSmall
             wrapMode: Text.WordWrap
         }
 
