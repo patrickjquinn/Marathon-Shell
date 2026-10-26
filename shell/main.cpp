@@ -117,6 +117,15 @@
 #include <QtWaylandCompositor/QWaylandXdgToplevel>
 #endif
 
+#ifdef MARATHON_HAVE_INPUT_SUPPORT
+#include "src/services/touchdevices.h"
+#include <QtDeviceDiscoverySupport/private/qdevicediscovery_p.h>
+#include <QtGui/private/qguiapplication_p.h>
+#include <QtGui/private/qinputdevicemanager_p_p.h>
+#include <QtInputSupport/private/qevdevtouchhandler_p.h>
+#include <QtInputSupport/private/qevdevutil_p.h>
+#endif
+
 template <typename T, typename... Args>
 static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
     static_assert(std::is_base_of_v<QObject, T>, "T must inherit QObject");
@@ -186,6 +195,53 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
             if (!shown)
                 ForeignFocus::keepFront(wc->defaultSeat(), surface);
         });
+}
+#endif
+
+#ifdef MARATHON_HAVE_INPUT_SUPPORT
+// Qt's QEvdevTouchManager, except that a udev "add" for a node already read
+// doesn't open it again.
+static void startTouchInput(const QString &specification) {
+    QString spec = qEnvironmentVariable("QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS");
+    if (spec.isEmpty())
+        spec = specification;
+    const auto parsed = QEvdevUtil::parseSpecification(spec);
+
+    const auto devices = new TouchDevices(
+        [handlerSpec = parsed.spec](const QString &node) {
+            return std::unique_ptr<QObject>(new QEvdevTouchScreenHandlerThread(node, handlerSpec));
+        },
+        qApp);
+    const auto updateCount = [devices] {
+        int registered = 0;
+        for (QObject *handler : devices->handlers())
+            registered += static_cast<QEvdevTouchScreenHandlerThread *>(handler)
+                              ->isPointingDeviceRegistered();
+        QInputDeviceManagerPrivate::get(QGuiApplicationPrivate::inputDeviceManager())
+            ->setDeviceCount(QInputDeviceManager::DeviceTypeTouch, registered);
+    };
+    const auto add = [devices, updateCount](const QString &node) {
+        if (auto *handler = static_cast<QEvdevTouchScreenHandlerThread *>(devices->add(node)))
+            QObject::connect(handler, &QEvdevTouchScreenHandlerThread::touchDeviceRegistered,
+                             devices, updateCount);
+    };
+
+    for (const QString &node : parsed.devices)
+        add(node);
+    if (!parsed.devices.isEmpty())
+        return;
+    QDeviceDiscovery *discovery = QDeviceDiscovery::create(
+        QDeviceDiscovery::Device_Touchpad | QDeviceDiscovery::Device_Touchscreen, devices);
+    if (!discovery)
+        return;
+    for (const QString &node : discovery->scanConnectedDevices())
+        add(node);
+    QObject::connect(discovery, &QDeviceDiscovery::deviceDetected, devices, add);
+    QObject::connect(discovery, &QDeviceDiscovery::deviceRemoved, devices,
+                     [devices, updateCount](const QString &node) {
+                         if (devices->remove(node))
+                             updateCount();
+                     });
 }
 #endif
 
@@ -404,25 +460,35 @@ int main(int argc, char *argv[]) {
     // libinput, which eglfs reads on the GUI thread.
     const bool evdevTouch = qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs")) &&
         !qEnvironmentVariableIsSet("QT_QPA_GENERIC_PLUGINS");
+    QStringList touchSpec;
     if (evdevTouch) {
         const marathon::device::Profile dp = marathon::device::profile();
-        QStringList                     spec{QStringLiteral("evdevtouch")};
         if (dp.touch_filter)
-            spec << QStringLiteral("filtered");
+            touchSpec << QStringLiteral("filtered");
         // Each report is applied as it comes; compression held it for the
         // next frame's sync. Apps inherit this: the shell forwards each.
         qputenv("QML_NO_TOUCH_COMPRESSION", "1");
         if (!dp.touch_params.isEmpty())
-            spec << dp.touch_params;
-        qputenv("QT_QPA_GENERIC_PLUGINS", spec.join(QLatin1Char(':')).toLocal8Bit());
+            touchSpec << dp.touch_params;
+#ifndef MARATHON_HAVE_INPUT_SUPPORT
+        qputenv("QT_QPA_GENERIC_PLUGINS",
+                (QStringList{QStringLiteral("evdevtouch")} + touchSpec)
+                    .join(QLatin1Char(':'))
+                    .toLocal8Bit());
+#endif
     }
 
     qputenv("QT_IM_MODULES", "marathon");
     QGuiApplication app(argc, argv);
     startupMark("application");
     qunsetenv("QT_IM_MODULES");
-    if (evdevTouch)
+    if (evdevTouch) {
+#ifdef MARATHON_HAVE_INPUT_SUPPORT
+        startTouchInput(touchSpec.join(QLatin1Char(':')));
+#else
         qunsetenv("QT_QPA_GENERIC_PLUGINS");
+#endif
+    }
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
     // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1, so the target HW

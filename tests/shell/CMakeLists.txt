@@ -102,6 +102,14 @@ target_link_libraries(test_shell_touchresampler Qt6::Test Qt6::Gui Qt6::GuiPriva
 target_include_directories(test_shell_touchresampler PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_TouchResampler COMMAND test_shell_touchresampler)
 
+# One touch reader per device node across repeated udev adds
+add_executable(test_shell_touchdevices test_touchdevices.cpp
+    ../../shell/src/services/touchdevices.cpp)
+set_target_properties(test_shell_touchdevices PROPERTIES AUTOMOC ON)
+target_link_libraries(test_shell_touchdevices Qt6::Test Qt6::Core)
+target_include_directories(test_shell_touchdevices PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
+add_test(NAME Shell_TouchDevices COMMAND test_shell_touchdevices)
+
 # Catalogs: loading, switching, and the locale and environment that follow
 add_executable(test_shell_translations test_translations.cpp
     ../../shell/src/services/translations.cpp)

@@ -457,6 +457,14 @@ else()
     target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_QT_GUI_PRIVATE=0)
 endif()
 
+if(TARGET Qt6::InputSupportPrivate AND TARGET Qt6::GuiPrivate)
+    target_sources(marathon-shell PRIVATE src/services/touchdevices.h src/services/touchdevices.cpp)
+    target_link_libraries(marathon-shell PRIVATE Qt6::InputSupportPrivate)
+    target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_INPUT_SUPPORT)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(WARNING "Qt6::InputSupportPrivate not found - touch falls back to Qt's evdevtouch plugin, which reopens a touchscreen on every udev add")
+endif()
+
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui

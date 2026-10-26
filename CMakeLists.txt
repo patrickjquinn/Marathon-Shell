@@ -138,6 +138,7 @@ endif()
 # We only use it when explicitly enabled.
 if(MARATHON_USE_QT_GUI_PRIVATE)
     find_package(Qt6 6.4 COMPONENTS GuiPrivate QUIET)
+    find_package(Qt6 6.4 COMPONENTS InputSupportPrivate QUIET)
 endif()
 if(TARGET Qt6::GuiPrivate)
     message(STATUS "Qt6::GuiPrivate found - enabling private API features")
