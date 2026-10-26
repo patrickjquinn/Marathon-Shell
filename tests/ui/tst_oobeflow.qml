@@ -38,6 +38,7 @@ TestCase {
         SettingsManagerCpp.language = "";
         SettingsManagerCpp.reduceMotion = false;
         SettingsManagerCpp.userScaleFactor = 1;
+        MMotion.reduceMotion = false;
         window.requestActivate();
         tryVerify(() => window.active);
         oobe = createTemporaryObject(oobeComponent, window.contentItem);
@@ -69,6 +70,22 @@ TestCase {
     function swipeUp() {
         const nav = child("oobeNavBar");
         drag(nav, nav.width / 2, nav.height / 2, 0, -150);
+    }
+
+    // Up the bar and let go short of beginning or the minimise threshold.
+    function shortRelease() {
+        const nav = child("oobeNavBar");
+        const x = nav.width / 2, y = nav.height / 2;
+        mousePress(nav, x, y);
+        for (let i = 1; i <= 8; ++i)
+            mouseMove(nav, x, y - 3 * i, 16);
+        mouseRelease(nav, x, y - 24);
+    }
+
+    function demoOn(beat) {
+        const item = findChild(child(beat), "practiceDemo");
+        verify(item, "practiceDemo on " + beat);
+        return item;
     }
 
     function swipeBack() {
@@ -359,5 +376,68 @@ TestCase {
         swipeUp();
         compare(oobe.beat, 1);
         tryCompare(glow, "opacity", 0.6, 1000);
+    }
+
+    function test_finishIdleStartsTheDemo() {
+        oobe.beat = 6;
+        const demo = demoOn("oobeFinish");
+        verify(!demo.running);
+        tryVerify(() => demo.running, 10000);
+        verify(!findChild(child("oobeFinish"), "practiceNotNow").visible);
+    }
+
+    function test_finishTwoShortReleasesStartTheDemo() {
+        oobe.beat = 6;
+        const demo = demoOn("oobeFinish");
+        shortRelease();
+        compare(completeSpy.count, 0);
+        verify(!demo.running);
+        shortRelease();
+        tryVerify(() => demo.running, 1000);
+        compare(completeSpy.count, 0);
+    }
+
+    function test_finishNotNowAfterTheDemoCompletes() {
+        oobe.beat = 6;
+        tryVerify(() => demoOn("oobeFinish").running, 10000);
+        const notNow = findChild(child("oobeFinish"), "practiceNotNow");
+        tryVerify(() => notNow.visible, 15000);
+        mouseClick(notNow);
+        compare(completeSpy.count, 1);
+        tryVerify(() => SettingsManagerCpp.firstRunComplete);
+    }
+
+    function test_finishDemoPlaysOnceUnderReduceMotion() {
+        MMotion.reduceMotion = true;
+        oobe.beat = 6;
+        const demo = demoOn("oobeFinish");
+        tryVerify(() => demo.running, 10000);
+        compare(demo.loops, 1);
+    }
+
+    function test_helloIdleStartsTheDemo() {
+        const demo = demoOn("oobeHello");
+        verify(!demo.running);
+        tryVerify(() => demo.running, 10000);
+        verify(!child("helloBegin").visible);
+    }
+
+    function test_helloTwoShortReleasesStartTheDemo() {
+        const demo = demoOn("oobeHello");
+        shortRelease();
+        compare(oobe.beat, 0);
+        verify(!demo.running);
+        shortRelease();
+        tryVerify(() => demo.running, 1000);
+        compare(oobe.beat, 0);
+    }
+
+    function test_helloBeginAfterTheDemoBegins() {
+        tryVerify(() => demoOn("oobeHello").running, 10000);
+        const begin = child("helloBegin");
+        tryVerify(() => begin.visible, 15000);
+        verify(!findChild(child("oobeHello"), "practiceNotNow").visible);
+        mouseClick(begin);
+        compare(oobe.beat, 1);
     }
 }

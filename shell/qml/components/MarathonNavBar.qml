@@ -21,8 +21,9 @@ Rectangle {
     property bool searchActive: false
     property bool pinScreenMode: false
     // Setup's own bar: a swipe up reports gestureProgress with no app open
-    // and sends minimizeApp past the minimise threshold, and search and the
-    // keyboard hide, leaving the whole bar to the pill.
+    // and sends minimizeApp past the minimise threshold or minimizeCancelled
+    // short of it, and search and the keyboard hide, leaving the whole bar
+    // to the pill.
     property bool setupMode: false
     // What a tap on the pill does, for screen readers; empty hides the pill from them.
     property string pillAction: ""
@@ -68,6 +69,7 @@ Rectangle {
     signal shortSwipeUp
     signal longSwipeUp
     signal minimizeApp(real velocityY)
+    signal minimizeCancelled
     signal startPageTransition
     signal toggleKeyboard
     signal toggleSearch
@@ -536,8 +538,11 @@ Rectangle {
                 resetGesture(false);
                 return;
             }
+            const setupCommit = navBar.setupMode && isVerticalGesture && diffY > 30 && !UIStore.searchOpen && minimizeCommit;
+            if (navBar.setupMode && isVerticalGesture && diffY > 0 && !setupCommit)
+                navBar.minimizeCancelled();
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
-                if (navBar.setupMode && minimizeCommit)
+                if (setupCommit)
                     navBar.minimizeApp(-velocityUp);
                 if (projectedUp > navBar.longSwipeThreshold && (!navBar.isAppOpen || minimizeCommit)) {
                     Logger.info("NavBar", "Long swipe up, isAppOpen: " + navBar.isAppOpen);

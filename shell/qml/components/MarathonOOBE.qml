@@ -328,6 +328,12 @@ Item {
             if (oobeRoot.lastBeat)
                 oobeRoot.finish();
         }
+        onMinimizeCancelled: {
+            if (oobeRoot.beat === 0)
+                ++hello.failedTries;
+            else if (oobeRoot.lastBeat)
+                ++finishBeat.failedTries;
+        }
         onPillTapped: oobeRoot.pressBar()
         onSwipeLeft: oobeRoot.back()
     }

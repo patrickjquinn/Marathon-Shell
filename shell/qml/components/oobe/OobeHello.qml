@@ -6,7 +6,8 @@ import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 
 // Hello: Marathon greets in each shipped language. Swipe up, a tap on the
-// bar or Enter begins; the coordinator reads the bar.
+// bar or Enter begins; the coordinator reads the bar and counts the swipes
+// released short.
 Item {
     id: root
 
@@ -19,6 +20,7 @@ Item {
         })
     readonly property var greetings: SettingsManagerCpp.availableLanguages.map(l => greetingFor[l.code]).filter(g => g !== undefined)
     property int shown: 0
+    property int failedTries: 0
     // The setting if it names a shipped language, else the system's, else English.
     readonly property var language: {
         const all = SettingsManagerCpp.availableLanguages;
@@ -47,6 +49,7 @@ Item {
         accessibility.open = false;
         languages.open = false;
         shown = 0;
+        failedTries = 0;
         if (visible)
             forceActiveFocus();
     }
@@ -115,6 +118,7 @@ Item {
     Silica.InteractionHintLabel {
         id: hint
 
+        visible: !beginButton.visible
         anchors.bottom: parent.bottom
         topMargin: Silica.Theme.paddingLarge
         bottomMargin: Silica.Theme.paddingLarge
@@ -144,6 +148,32 @@ Item {
             Accessible.name: qsTr("Language: %1").arg(text)
             onClicked: languages.open = true
         }
+    }
+
+    // Beginning is not optional: after the demo, a button in place of Not now.
+    PracticeCoach {
+        id: coach
+
+        anchors.fill: parent
+        running: root.visible && !accessibility.open && !languages.open
+        failedTries: root.failedTries
+        offersNotNow: false
+        interactionMode: Silica.TouchInteraction.Swipe
+        direction: Silica.TouchInteraction.Up
+        hint.startY: coach.height - coach.hint.height / 2
+    }
+
+    Silica.Button {
+        id: beginButton
+
+        objectName: "helloBegin"
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Silica.Theme.paddingLarge
+        visible: coach.showNotNow
+        //: Starts setup; shown after the swipe-up demo on the first setup screen
+        text: qsTr("Begin")
+        onClicked: root.done()
     }
 
     OobeAccessibilitySheet {

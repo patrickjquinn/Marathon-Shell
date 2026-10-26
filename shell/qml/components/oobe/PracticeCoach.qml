@@ -14,6 +14,9 @@ Item {
     property int maxFailedTries: 2
     property int direction: Silica.TouchInteraction.Right
     property int interactionMode: Silica.TouchInteraction.EdgeSwipe
+    // False where moving on is not optional: the beat offers its own way on once showNotNow.
+    property bool offersNotNow: true
+    property alias hint: hint
     property bool demoStarted: false
     property bool demoDone: false
     readonly property bool showDemo: running && demoStarted
@@ -75,7 +78,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Silica.Theme.paddingLarge
-        visible: root.showNotNow
+        visible: root.showNotNow && root.offersNotNow
         //: Dismisses the practice and moves on
         text: qsTr("Not now")
         onClicked: root.notNow()
