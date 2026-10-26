@@ -31,6 +31,8 @@ Item {
     }
 
     function back() {
+        if (leaving)
+            return;
         const current = beats[beat];
         if (typeof current.handleBack === "function" && current.handleBack())
             return;

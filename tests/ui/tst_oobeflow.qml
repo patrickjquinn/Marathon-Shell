@@ -440,4 +440,11 @@ TestCase {
         mouseClick(begin);
         compare(oobe.beat, 1);
     }
+
+    function test_backDoesNothingOnceLeaving() {
+        oobe.beat = 6;
+        oobe.finish();
+        oobe.back();
+        compare(oobe.beat, 6);
+    }
 }
