@@ -13,7 +13,7 @@ TestCase {
 
     Window {
         width: 540
-        height: 600
+        height: 1140
         visible: true
 
         OobeLook {

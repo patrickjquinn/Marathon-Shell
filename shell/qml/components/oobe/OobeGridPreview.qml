@@ -10,8 +10,21 @@ Item {
     property alias grid: homeGrid
     property alias wallpaper: backdrop
     property int rows: 2
+    // The grid's own cell: icon, gap, one line of label; its row gap and top margin.
+    readonly property real cellHeight: Silica.Theme.iconSizeLauncher + Math.round(10 * Constants.scaleFactor) + label.height
+    readonly property real rowGap: Math.round(8 * Constants.scaleFactor)
+    readonly property real gridTop: 10
+    readonly property real pillSpace: 2 * Silica.Theme.paddingMedium + pill.height
+    readonly property int fitRows: Math.max(1, Math.floor((height - pillSpace - gridTop + rowGap) / (cellHeight + rowGap)))
 
     clip: true
+
+    FontMetrics {
+        id: label
+
+        font.pixelSize: Silica.Theme.fontSizeTiny
+        font.family: Silica.Theme.fontFamily
+    }
 
     WallpaperReveal {
         id: backdrop
@@ -25,10 +38,13 @@ Item {
         opacity: 0.35
     }
 
+    // The home grid keeps room below for the dock, which the preview leaves
+    // out, and never squeezes a row shorter than its icon.
     MarathonAppGrid {
         id: homeGrid
 
-        anchors.fill: parent
+        width: parent.width
+        height: root.gridTop + Math.max(root.height - root.pillSpace - root.gridTop, root.rows * root.cellHeight + (root.rows - 1) * root.rowGap) + Constants.bottomBarHeight + 12
         appModel: apps
         rows: root.rows
         enabled: false
@@ -39,6 +55,8 @@ Item {
     }
 
     Rectangle {
+        id: pill
+
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Silica.Theme.paddingMedium

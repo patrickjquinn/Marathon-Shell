@@ -16,6 +16,7 @@ Item {
     Column {
         anchors.fill: parent
         anchors.topMargin: Silica.Theme.paddingLarge
+        anchors.bottomMargin: Silica.Theme.paddingMedium
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
         spacing: Silica.Theme.paddingMedium
@@ -42,8 +43,8 @@ Item {
 
             objectName: "lookPreview"
             width: parent.width
-            height: Math.max(Silica.Theme.itemSizeHuge, parent.height - y - strip.height - button.height - 2 * parent.spacing)
-            rows: 2
+            height: Math.max(0, parent.height - y - strip.height - button.height - 2 * parent.spacing)
+            rows: Math.min(2, fitRows)
         }
 
         ListView {

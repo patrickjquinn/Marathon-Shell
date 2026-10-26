@@ -12,6 +12,7 @@ Item {
     Column {
         anchors.fill: parent
         anchors.topMargin: Silica.Theme.paddingLarge
+        anchors.bottomMargin: Silica.Theme.paddingMedium
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
         spacing: Silica.Theme.paddingMedium
@@ -38,8 +39,8 @@ Item {
 
             objectName: "sizePreview"
             width: parent.width
-            height: Math.max(Silica.Theme.itemSizeHuge, parent.height - y - slider.height - button.height - 2 * parent.spacing)
-            rows: Math.max(1, Math.floor((height - Constants.bottomBarHeight) / (Silica.Theme.iconSizeLauncher + Silica.Theme.fontSizeTiny * 3)))
+            height: Math.max(0, parent.height - y - slider.height - button.height - 2 * parent.spacing)
+            rows: fitRows
         }
 
         Silica.Slider {
