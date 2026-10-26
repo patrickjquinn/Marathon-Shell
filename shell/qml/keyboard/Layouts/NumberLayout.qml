@@ -114,8 +114,9 @@ Item {
 
             Key {
                 width: Math.round(80 * Constants.scaleFactor)
-                text: "ABC"
-                displayText: "ABC"
+                text: "ABC"  // i18n: not user-facing
+                //: Keyboard key that returns to the letter layout; use your script's first letters
+                displayText: qsTr("ABC")
                 isSpecial: true
                 onClicked: layout.layoutSwitchClicked("qwerty")
             }

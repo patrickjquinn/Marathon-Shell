@@ -2360,7 +2360,7 @@ Item {
                 "id": id,
                 "label": label
             };
-            Logger.info("Shell", "Alarm triggered: " + (label ? label : "(unknown)"));
+            Logger.info("Shell", "Alarm triggered: " + (label ? label : "(unknown)"));  // i18n: not user-facing
             dimState.restore();
             alarmOverlay.show(alarm);
             HapticManager.heavy();

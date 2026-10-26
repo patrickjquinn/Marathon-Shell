@@ -213,7 +213,7 @@ Item {
 
             Key {
                 width: row3.availableWidth * 0.15
-                text: "shift"
+                text: "shift"  // i18n: not user-facing
                 iconName: layout.capsLock ? "caret-double-up" : "chevron-up"
                 isSpecial: true
                 highlighted: layout.shifted || layout.capsLock
@@ -245,7 +245,7 @@ Item {
                 id: backspaceKey
 
                 width: row3.availableWidth * 0.15
-                text: "backspace"
+                text: "backspace"  // i18n: not user-facing
                 iconName: "delete"
                 autoRepeat: true
                 isSpecial: true
@@ -271,7 +271,7 @@ Item {
 
             Key {
                 width: cursorRow.availableWidth * 0.1
-                text: "Esc"
+                text: "Esc"  // i18n: not user-facing
                 displayText: "Esc"
                 isSpecial: true
                 onClicked: {
@@ -281,7 +281,7 @@ Item {
 
             Key {
                 width: cursorRow.availableWidth * 0.1
-                text: "Tab"
+                text: "Tab"  // i18n: not user-facing
                 displayText: "Tab"
                 isSpecial: true
                 onClicked: {
@@ -331,7 +331,7 @@ Item {
 
             Key {
                 width: cursorRow.availableWidth * 0.2
-                text: "Ctrl"
+                text: "Ctrl"  // i18n: not user-facing
                 displayText: "Ctrl"
                 isSpecial: true
                 onClicked: {
@@ -341,8 +341,9 @@ Item {
 
             Key {
                 width: cursorRow.availableWidth * 0.2
-                text: "ABC"
-                displayText: "ABC"
+                text: "ABC"  // i18n: not user-facing
+                //: Keyboard key that returns to the letter layout; use your script's first letters
+                displayText: qsTr("ABC")
                 isSpecial: true
                 onClicked: {
                     layout.layoutSwitchClicked("qwerty");
@@ -395,7 +396,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.08
-                text: "dismiss"
+                text: "dismiss"  // i18n: not user-facing
                 iconName: "chevron-down"
                 isSpecial: true
                 onClicked: {
@@ -414,7 +415,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.14
-                text: "enter"
+                text: "enter"  // i18n: not user-facing
                 iconName: "corner-down-left"
                 isSpecial: true
                 onClicked: {

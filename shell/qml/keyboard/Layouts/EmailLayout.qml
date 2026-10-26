@@ -179,7 +179,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.12
-                text: ".com"
+                text: ".com"  // i18n: not user-facing
                 displayText: ".com"
                 isSpecial: true
                 onClicked: {
@@ -189,7 +189,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.10
-                text: ".net"
+                text: ".net"  // i18n: not user-facing
                 displayText: ".net"
                 isSpecial: true
                 onClicked: {

@@ -67,7 +67,7 @@ Item {
                     Key {
                         visible: keyRow.isLastRow
                         width: keyRow.sideKeyWidth
-                        text: "shift"
+                        text: "shift"  // i18n: not user-facing
                         iconName: dynamicLayout.capsLock ? "caret-double-up" : "chevron-up"
                         isSpecial: true
                         highlighted: dynamicLayout.shifted || dynamicLayout.capsLock
@@ -102,7 +102,7 @@ Item {
 
                         visible: keyRow.isLastRow
                         width: keyRow.sideKeyWidth
-                        text: "backspace"
+                        text: "backspace"  // i18n: not user-facing
                         iconName: "delete"
                         autoRepeat: true
                         isSpecial: true
@@ -148,7 +148,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.08
-                text: "emoji"
+                text: "emoji"  // i18n: not user-facing
                 iconName: "smiley"
                 isSpecial: true
                 consumesHold: true
@@ -172,7 +172,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.08
-                text: "dismiss"
+                text: "dismiss"  // i18n: not user-facing
                 iconName: "chevron-down"
                 isSpecial: true
                 onClicked: {
@@ -191,7 +191,7 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.14
-                text: "enter"
+                text: "enter"  // i18n: not user-facing
                 iconName: "corner-down-left"
                 isSpecial: true
                 onClicked: {

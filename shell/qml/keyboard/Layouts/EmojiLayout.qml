@@ -247,7 +247,8 @@ Item {
                 Key {
                     width: Math.round(60 * Constants.scaleFactor)
                     height: parent.height
-                    text: "ABC"
+                    //: Keyboard key that returns to the letter layout; use your script's first letters
+                    text: qsTr("ABC")
                     isSpecial: true
                     onClicked: layout.layoutSwitchClicked("qwerty")
                 }
