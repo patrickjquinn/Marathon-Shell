@@ -88,6 +88,25 @@ TestCase {
         compare(doneSpy.count, 1);
     }
 
+    Component {
+        id: beatComponent
+
+        OobeOnline {
+            anchors.fill: parent
+        }
+    }
+
+    function test_scansOnceWhenCreatedVisibleWithWifiOn() {
+        SystemStatusStore.isWifiOn = true;
+        const before = Network.scanCount;
+        const b = createTemporaryObject(beatComponent, beat.parent);
+        compare(Network.scanCount, before + 1);
+        b.visible = false;
+        compare(Network.scanCount, before + 1);
+        b.visible = true;
+        compare(Network.scanCount, before + 2);
+    }
+
     function test_noBackStateToConsume() {
         verify(!beat.handleBack());
     }

@@ -8,6 +8,7 @@ QtObject {
     signal connectionSuccess
     signal connectionFailed(string message)
     function cancelPendingConnection() { cancelledConnects++; }
-    function scanWifi() {}
+    property int scanCount: 0
+    function scanWifi() { scanCount++; }
     function connectToNetwork(ssid, password) {}
 }

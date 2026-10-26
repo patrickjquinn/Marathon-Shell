@@ -32,6 +32,11 @@ Item {
         scanTimeout.restart();
     }
 
+    Component.onCompleted: {
+        if (pageActive && !scanTimeout.running)
+            rescan();
+    }
+
     onPageActiveChanged: {
         if (pageActive)
             rescan();
