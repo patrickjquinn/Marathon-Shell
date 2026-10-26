@@ -9,6 +9,8 @@ Column {
     required property real gridContentY
     required property real gridContentHeight
     required property real gridHeight
+    property color activeColor: MColors.accent
+    property color inactiveColor: Qt.rgba(1, 1, 1, 0.4)
     property int pageCount: gridHeight > 0 ? Math.ceil(gridContentHeight / gridHeight) : 1
     property int currentPage: {
         if (gridContentY >= gridContentHeight - gridHeight - 1)
@@ -36,7 +38,7 @@ Column {
             width: 6
             height: isActive ? 20 : 6
             radius: 3
-            color: isActive ? MColors.accent : Qt.rgba(255, 255, 255, 0.4)
+            color: isActive ? pageIndicator.activeColor : pageIndicator.inactiveColor
             layer.enabled: true
             layer.effect: null
 

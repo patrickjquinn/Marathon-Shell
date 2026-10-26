@@ -599,16 +599,17 @@ Item {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
+                                        // On the card's dark glass, whatever the ambience.
                                         Label {
                                             text: taskCard.title || taskCard.appId
-                                            color: Theme.secondaryColor
+                                            color: Theme.lightPrimaryColor
                                             font.pixelSize: Theme.fontSizeSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
                                         Label {
                                             text: qsTr("Preview unavailable")
-                                            color: Theme.secondaryColor
+                                            color: Theme.lightSecondaryColor
                                             font.pixelSize: Theme.fontSizeExtraSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
@@ -689,6 +690,14 @@ Item {
                 }
             }
 
+            // The banner sits on the wallpaper, under the card.
+            WallpaperTone {
+                id: bannerTone
+
+                objectName: "bannerTone"
+                anchors.fill: parent
+            }
+
             Row {
                 anchors.fill: parent
                 spacing: Theme.paddingSmall
@@ -705,8 +714,11 @@ Item {
                     width: parent.width - bannerIcon.width - closeButtonContainer.width - parent.spacing * 2
 
                     Label {
+                        objectName: "bannerTitle"
                         text: taskCard.title
-                        color: Theme.secondaryColor
+                        color: bannerTone.glyph
+                        style: Text.Outline
+                        styleColor: bannerTone.halo
                         font.pixelSize: Theme.fontSizeExtraSmall
                         truncationMode: TruncationMode.Fade
                         width: parent.width
@@ -739,6 +751,7 @@ Item {
                             sourceSize.width: width
                             sourceSize.height: height
                             source: "image://theme/icon-m-close"
+                            color: bannerTone.target
                             highlighted: closeButtonArea.pressed
                         }
 

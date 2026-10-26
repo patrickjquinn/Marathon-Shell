@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Sailfish.Silica 1.0 as Silica
 import MarathonOS.Shell
 import "../../shell/qml/components"
 
@@ -66,5 +67,17 @@ TestCase {
         wait(1300);
         verify(root.closing);
         compare(root.opacity, 0);
+    }
+
+    // The title sits on the wallpaper under the card.
+    function test_theBannerTitleTakesTheBackdropsTone() {
+        tryVerify(() => grid.itemAtIndex(1) !== null);
+        const card = grid.itemAtIndex(1);
+        const tone = findChild(card, "bannerTone");
+        const title = findChild(card, "bannerTitle");
+        tone.light = true;
+        tryCompare(title, "color", Silica.Theme.darkPrimaryColor);
+        tone.light = false;
+        tryCompare(title, "color", Silica.Theme.lightPrimaryColor);
     }
 }

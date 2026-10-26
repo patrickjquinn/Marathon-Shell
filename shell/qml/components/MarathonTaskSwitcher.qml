@@ -117,8 +117,21 @@ Item {
         }
     }
 
+    WallpaperTone {
+        id: clockTone
+
+        objectName: "emptyClockTone"
+        x: emptyClock.x
+        y: emptyClock.y - emptyClock.spacing
+        width: emptyClock.width
+        height: emptyClock.height + 2 * emptyClock.spacing
+        visible: emptyClock.visible
+    }
+
     // No open apps: the lock screen's clock, in the same place.
     Column {
+        id: emptyClock
+
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         // Matches MarathonLockScreen's clockColumn, compact rule included.
@@ -135,20 +148,26 @@ Item {
             fontSizeMode: Text.HorizontalFit
             font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * 1.9)
             font.weight: Font.ExtraLight
-            color: Silica.Theme.primaryColor
+            color: clockTone.glyph
+            style: Text.Outline
+            styleColor: clockTone.halo
         }
         Silica.Label {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDate(taskSwitcher.today, "dddd")
             font.pixelSize: Silica.Theme.fontSizeLarge
-            color: Silica.Theme.primaryColor
+            color: clockTone.glyph
+            style: Text.Outline
+            styleColor: clockTone.halo
         }
         Silica.Label {
             anchors.horizontalCenter: parent.horizontalCenter
             //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the task switcher date, e.g. 26 October
             text: Qt.formatDate(taskSwitcher.today, qsTr("d MMMM"))
             font.pixelSize: Silica.Theme.fontSizeLarge
-            color: Silica.Theme.primaryColor
+            color: clockTone.glyph
+            style: Text.Outline
+            styleColor: clockTone.halo
         }
     }
 
@@ -301,10 +320,24 @@ Item {
     }
 
     TaskPageIndicator {
+        id: pageDots
+
         anchors.rightMargin: (taskGrid.gap - width) / 2
         gridContentY: taskGrid.contentY - taskGrid.originY
         gridContentHeight: taskGrid.pages * taskGrid.pageHeight
         gridHeight: taskGrid.pageHeight
+        activeColor: dotsTone.light ? dotsTone.glyph : MColors.accent
+        inactiveColor: Silica.Theme.rgba(dotsTone.glyph, 0.4)
+    }
+
+    WallpaperTone {
+        id: dotsTone
+
+        x: pageDots.x
+        y: pageDots.y - pageDots.spacing
+        width: pageDots.width
+        height: pageDots.height + 2 * pageDots.spacing
+        visible: pageDots.visible
     }
 
     Binding {
