@@ -88,7 +88,7 @@ Item {
 
         Item {
             width: parent.width
-            height: Silica.Theme.fontSizeHuge * 1.5
+            height: Silica.Theme.fontSizeHuge * 2.5
 
             Repeater {
                 model: root.greetings
@@ -96,17 +96,19 @@ Item {
                 Silica.Label {
                     required property string modelData
                     required property int index
+                    // The outgoing greeting is gone by the halfway point, before the next appears.
+                    property real shownness: index === root.shown ? 1 : 0
 
                     anchors.centerIn: parent
                     text: modelData
-                    color: Silica.Theme.highlightColor
-                    font.pixelSize: Silica.Theme.fontSizeHuge
+                    color: Silica.Theme.primaryColor
+                    font.pixelSize: Silica.Theme.fontSizeHuge * 1.75
                     font.family: Silica.Theme.fontFamilyHeading
                     font.weight: Font.Light
-                    opacity: index === root.shown ? 1 : 0
+                    opacity: Math.max(0, 2 * shownness - 1)
 
-                    Behavior on opacity {
-                        OpacityAnimator {
+                    Behavior on shownness {
+                        NumberAnimation {
                             duration: 800
                         }
                     }

@@ -33,8 +33,10 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             //: Heading of the last setup step
             text: qsTr("You're ready")
-            color: Silica.Theme.highlightColor
-            font.pixelSize: Silica.Theme.fontSizeExtraLarge
+            color: Silica.Theme.primaryColor
+            font.pixelSize: Silica.Theme.fontSizeHuge
+            font.family: Silica.Theme.fontFamilyHeading
+            font.weight: Font.Light
             wrapMode: Text.Wrap
         }
 
