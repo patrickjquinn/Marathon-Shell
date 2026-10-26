@@ -532,6 +532,7 @@ Rectangle {
 
             Silica.Button {
                 anchors.horizontalCenter: parent.horizontalCenter
+                //: Button that closes the app's error screen
                 text: qsTr("Close")
                 backgroundColor: "transparent"
                 onClicked: appWindow.hide()

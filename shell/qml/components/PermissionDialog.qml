@@ -84,11 +84,17 @@ Item {
 
     function phrase(list) {
         const titles = list.map(p => permissionTitle(p).toLowerCase());
-        if (titles.length <= 2)
-            //: Joins two permission names, e.g. camera and microphone
-            return titles.length === 2 ? qsTr("%1 and %2").arg(titles[0]).arg(titles[1]) : titles.join("");
-        //: Joins three or more permission names; %1 is the comma-separated start, %2 the last
-        return qsTr("%1, and %2").arg(titles.slice(0, -1).join(", ")).arg(titles[titles.length - 1]);
+        if (titles.length === 0)
+            return "";
+        if (titles.length === 1)
+            return titles[0];
+        if (titles.length === 2)
+            //: Builds a list of permission names: two items, e.g. camera and microphone
+            return qsTr("%1 and %2").arg(titles[0]).arg(titles[1]);
+        //: Separator between items in a list of permission names
+        const separator = qsTr(", ");
+        //: Builds a list of permission names: three or more; %1 is the items before the last, already separated, %2 the last
+        return qsTr("%1, and %2").arg(titles.slice(0, -1).join(separator)).arg(titles[titles.length - 1]);
     }
 
     function descriptionText() {

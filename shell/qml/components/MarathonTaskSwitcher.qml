@@ -145,7 +145,7 @@ Item {
         }
         Silica.Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            //: Day and month format for the task switcher date, e.g. 26 October
+            //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the task switcher date, e.g. 26 October
             text: Qt.formatDate(taskSwitcher.today, qsTr("d MMMM"))
             font.pixelSize: Silica.Theme.fontSizeLarge
             color: Silica.Theme.primaryColor

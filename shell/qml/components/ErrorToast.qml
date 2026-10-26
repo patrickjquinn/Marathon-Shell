@@ -146,6 +146,7 @@ Item {
                     id: closeButton
 
                     icon.source: "image://theme/icon-m-close"
+                    //: Accessible name of the button that dismisses the error toast
                     Accessible.name: qsTr("Close")
                     anchors.verticalCenter: parent.verticalCenter
                     onClicked: {

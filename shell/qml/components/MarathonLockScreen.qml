@@ -497,7 +497,7 @@ Item {
                 color: Silica.Theme.primaryColor
             }
             Silica.Label {
-                //: Day and month format for the lock screen date, e.g. 26 October
+                //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
                 text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge

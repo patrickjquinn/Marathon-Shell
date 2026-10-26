@@ -681,6 +681,7 @@ Item {
 
         Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
+            //: Button that leaves the PIN screen
             text: qsTr("Cancel")
             backgroundColor: "transparent"
             color: Silica.Theme.secondaryColor

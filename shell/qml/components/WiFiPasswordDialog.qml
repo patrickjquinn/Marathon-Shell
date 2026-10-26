@@ -119,6 +119,7 @@ Item {
                     anchors.left: parent.left
                     anchors.leftMargin: Silica.Theme.horizontalPageMargin
                     anchors.verticalCenter: parent.verticalCenter
+                    //: Dialog button that dismisses the Wi-Fi password dialog
                     text: qsTr("Cancel")
                     font.pixelSize: Silica.Theme.fontSizeLarge
                     color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
@@ -185,6 +186,7 @@ Item {
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
                 text: {
+                    //: Wi-Fi security type: no password
                     const security = wifiDialog.secured ? wifiDialog.securityType : qsTr("Open");
                     //: %1 is the security type, e.g. WPA2
                     if (wifiDialog.hiddenMode)

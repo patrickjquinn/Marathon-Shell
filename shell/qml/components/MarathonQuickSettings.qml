@@ -339,7 +339,7 @@ Item {
                     anchors.right: headerButtons.left
                     anchors.verticalCenter: parent.verticalCenter
                     // As the Hub and lock screen write it; re-read at midnight.
-                    //: Weekday, day and month format for the quick settings date, e.g. Monday, 26 October
+                    //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Weekday, day and month for the quick settings date, e.g. Monday, 26 October
                     text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), qsTr("dddd, d MMMM"))
                     truncationMode: Silica.TruncationMode.Fade
                     color: Silica.Theme.secondaryHighlightColor

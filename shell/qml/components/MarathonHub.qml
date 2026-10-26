@@ -43,7 +43,7 @@ Rectangle {
             return qsTr("Yesterday");
         if (days < 7)
             return Qt.locale().dayName(date.getDay(), Locale.LongFormat);
-        //: Day and month format for notification group headings, e.g. 26 October
+        //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for notification group headings, e.g. 26 October
         return Qt.formatDate(date, qsTr("d MMMM"));
     }
     readonly property bool overlayOpen: weatherSheet.open
@@ -219,7 +219,7 @@ Rectangle {
             Silica.Label {
                 width: parent.width
                 // Re-read when the date string turns over at midnight.
-                //: Weekday, day and month format for the date heading, e.g. Monday, 26 October
+                //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Weekday, day and month for the date heading, e.g. Monday, 26 October
                 text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), qsTr("dddd, d MMMM"))
                 color: Silica.Theme.secondaryHighlightColor
                 font.pixelSize: Silica.Theme.fontSizeSmall
