@@ -106,6 +106,17 @@ TestCase {
         tryCompare(doneSpy, "count", 1, 3000);
     }
 
+    function test_openingFullyShutsTheHubBeforeMovingOn() {
+        drag(peek().width * 0.6);
+        tryVerify(() => peek().isFullyOpen);
+        compare(findChild(hub, "oobeHubHeading").text, "That's it");
+        wait(1700);
+        compare(doneSpy.count, 0);
+        tryVerify(() => !peek().isFullyOpen, 1000);
+        compare(doneSpy.count, 0);
+        tryCompare(doneSpy, "count", 1, 2000);
+    }
+
     function test_idleStartsTheDemo() {
         verify(!demo().running);
         tryVerify(() => demo().running, 10000);

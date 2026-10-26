@@ -35,7 +35,10 @@ Item {
         if (succeeded)
             return;
         succeeded = true;
-        finish.restart();
+        if (peek.isFullyOpen)
+            glance.restart();
+        else
+            finish.restart();
     }
 
     onVisibleChanged: {
@@ -89,9 +92,14 @@ Item {
                 root.pullPeak = 0;
         }
         onClosed: {
-            // A drag that left the edge and fell short; a bare tap does not count.
-            if (!root.succeeded && root.pullPeak > 0)
+            // Shut after it opened all the way, the confirmation shows; else a
+            // drag that left the edge and fell short. A bare tap does not count.
+            if (root.succeeded) {
+                glance.stop();
+                finish.restart();
+            } else if (root.pullPeak > 0) {
                 ++root.failedTries;
+            }
             root.pullPeak = 0;
         }
     }
@@ -101,6 +109,14 @@ Item {
         running: root.visible && !root.succeeded
         failedTries: root.failedTries
         onNotNow: root.done()
+    }
+
+    // Opened all the way, the Hub covers the confirmation: let it be seen, then shut it.
+    Timer {
+        id: glance
+
+        interval: 2000
+        onTriggered: peek.closePeek()
     }
 
     Timer {
