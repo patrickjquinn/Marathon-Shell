@@ -9,6 +9,9 @@ ListModel {
     property var triggered: []
     property var replies: []
     signal notificationDismissed(int id)
+    function addNotification(appId, title, body, icon) {
+        append({ id: count + 1, appId: appId, title: title, body: body, icon: icon, timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: "" });
+    }
     function markAsRead(id) { read = read.concat([id]); }
     function sources() {
         const out = [];
