@@ -195,10 +195,15 @@ Item {
 
             // Silica's launcher label size.
             Text {
+                id: label
+
+                objectName: "appLabel"
                 width: iconCell.width - Silica.Theme.paddingSmall
                 horizontalAlignment: Text.AlignHCenter
                 text: iconCell.appData ? iconCell.appData.name : ""
-                color: Silica.Theme.primaryColor
+                color: tone.glyph
+                style: Text.Outline
+                styleColor: tone.halo
                 font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeTiny
                 // Names longer than the column wrap to a second line at word
@@ -207,6 +212,17 @@ Item {
                 elide: Text.ElideRight
                 maximumLineCount: 2
             }
+        }
+
+        // The label's own strip of wallpaper, from the gap under the icon.
+        WallpaperTone {
+            id: tone
+
+            objectName: "labelTone"
+            x: contentColumn.x + label.x + (label.width - label.contentWidth) / 2
+            y: contentColumn.y + label.y - contentColumn.spacing / 2
+            width: label.contentWidth
+            height: label.height + contentColumn.spacing
         }
 
         MouseArea {

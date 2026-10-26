@@ -1,5 +1,6 @@
 import QtQuick
 Item {
     property bool fallbackLight: false
-    readonly property bool light: fallbackLight
+    // A test sets it to stand for a reading.
+    property bool light: fallbackLight
 }
