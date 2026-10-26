@@ -20,9 +20,12 @@ Rectangle {
     property bool keyboardVisible: false
     property bool searchActive: false
     property bool pinScreenMode: false
-    // Setup's own bar: a swipe up reports gestureProgress with no app open,
-    // and search and the keyboard hide, leaving the whole bar to the pill.
+    // Setup's own bar: a swipe up reports gestureProgress with no app open
+    // and sends minimizeApp past the minimise threshold, and search and the
+    // keyboard hide, leaving the whole bar to the pill.
     property bool setupMode: false
+    // What a tap on the pill does, for screen readers; empty hides the pill from them.
+    property string pillAction: ""
     // Touch and hold asks Shipwright Pilot (pilotRequested) while true.
     property bool pilotEnabled: false
     // Held still: lit, and the charge rises until Pilot is asked.
@@ -141,6 +144,11 @@ Rectangle {
         visible: !navBar.pinScreenMode
         x: targetX + dragX
         y: targetY - dragY
+
+        Accessible.role: Accessible.Button
+        Accessible.name: navBar.pillAction
+        Accessible.ignored: navBar.pillAction === ""
+        Accessible.onPressAction: navBar.pillTapped()
 
         // One breath per MMotion "breathe", sampled at 15 Hz rather than
         // run as an animation, which renders every frame: the shell draws
@@ -529,6 +537,8 @@ Rectangle {
                 return;
             }
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
+                if (navBar.setupMode && minimizeCommit)
+                    navBar.minimizeApp(-velocityUp);
                 if (projectedUp > navBar.longSwipeThreshold && (!navBar.isAppOpen || minimizeCommit)) {
                     Logger.info("NavBar", "Long swipe up, isAppOpen: " + navBar.isAppOpen);
                     navBar.longSwipeUp();

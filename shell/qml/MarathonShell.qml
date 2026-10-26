@@ -2344,6 +2344,7 @@ Item {
             onSetupComplete: {
                 Logger.info("Shell", "OOBE setup completed");
                 SessionStore.unlock();
+                pageView.playEntrance();
             }
         }
     }

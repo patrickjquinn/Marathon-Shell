@@ -242,11 +242,91 @@ TestCase {
         compare(backdrop.centerY, 900);
     }
 
-    function test_finishingCompletesSetup() {
+    function test_flickPastTheThresholdCompletes() {
         oobe.beat = 6;
         swipeUp();
         compare(completeSpy.count, 1);
-        verify(SettingsManagerCpp.firstRunComplete);
+        tryVerify(() => SettingsManagerCpp.firstRunComplete);
+        compare(completeSpy.count, 1);
+    }
+
+    function test_shortReleaseSpringsBack() {
+        oobe.beat = 6;
+        const nav = child("oobeNavBar");
+        const surface = child("oobeSurface");
+        const x = nav.width / 2, y = nav.height / 2;
+        mousePress(nav, x, y);
+        for (let i = 1; i <= 8; ++i)
+            mouseMove(nav, x, y - 4 * i, 16);
+        verify(surface.scale < 1, "scale " + surface.scale);
+        mouseRelease(nav, x, y - 32);
+        tryCompare(surface, "scale", 1);
+        wait(50);
+        compare(completeSpy.count, 0);
+        verify(!SettingsManagerCpp.firstRunComplete);
+        compare(oobe.beat, 6);
+    }
+
+    function test_scaleTracksProgressDownToFortyFivePercent() {
+        oobe.beat = 6;
+        const tracker = child("oobeNavBar").minimizeTracker;
+        const surface = child("oobeSurface");
+        compare(surface.scale, 1);
+        tracker.value = tracker.to / 2;
+        fuzzyCompare(surface.scale, 1 - 0.55 / 2, 0.001);
+        tracker.value = tracker.to;
+        fuzzyCompare(surface.scale, 0.45, 0.001);
+        tracker.value = tracker.to * 2;
+        fuzzyCompare(surface.scale, 0.45, 0.001);
+        verify(surface.y < 0, "rises: " + surface.y);
+        tracker.value = 0;
+        compare(surface.scale, 1);
+        compare(surface.y, 0);
+    }
+
+    function test_swipeUpOnHelloDoesNotShrink() {
+        const tracker = child("oobeNavBar").minimizeTracker;
+        tracker.value = tracker.to;
+        compare(child("oobeSurface").scale, 1);
+        tracker.value = 0;
+    }
+
+    function test_reduceMotionFadesInsteadOfShrinking() {
+        SettingsManagerCpp.reduceMotion = true;
+        oobe.beat = 6;
+        const tracker = child("oobeNavBar").minimizeTracker;
+        tracker.value = tracker.to;
+        compare(child("oobeSurface").scale, 1);
+        tracker.value = 0;
+        swipeUp();
+        compare(completeSpy.count, 1);
+        compare(child("oobeSurface").scale, 1);
+        tryVerify(() => SettingsManagerCpp.firstRunComplete);
+    }
+
+    function test_tapOnThePillFinishes() {
+        oobe.beat = 6;
+        const nav = child("oobeNavBar");
+        mouseClick(nav, nav.width / 2, nav.height / 2);
+        compare(completeSpy.count, 1);
+        tryVerify(() => SettingsManagerCpp.firstRunComplete);
+    }
+
+    function test_enterFinishes() {
+        oobe.beat = 6;
+        tryVerify(() => child("oobeFinish").activeFocus);
+        keyClick(Qt.Key_Return);
+        compare(completeSpy.count, 1);
+        tryVerify(() => SettingsManagerCpp.firstRunComplete);
+    }
+
+    function test_finishingTwiceCompletesOnce() {
+        oobe.beat = 6;
+        const nav = child("oobeNavBar");
+        mouseClick(nav, nav.width / 2, nav.height / 2);
+        mouseClick(nav, nav.width / 2, nav.height / 2);
+        tryVerify(() => SettingsManagerCpp.firstRunComplete);
+        compare(completeSpy.count, 1);
     }
 
     function test_enterDoesNotBeginBehindASheet() {
@@ -262,6 +342,15 @@ TestCase {
         child("oobeHello").forceActiveFocus();
         keyClick(Qt.Key_Return);
         compare(oobe.beat, 0);
+    }
+
+    function test_pillNamesItsActionForScreenReaders() {
+        const nav = child("oobeNavBar");
+        compare(nav.pillAction, "Begin setup");
+        oobe.beat = 3;
+        compare(nav.pillAction, "");
+        oobe.beat = 6;
+        compare(nav.pillAction, "Go home");
     }
 
     function test_glowSettlesAfterHello() {

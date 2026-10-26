@@ -154,6 +154,7 @@ set(QML_FILES
     qml/components/oobe/OobeSheet.qml
     qml/components/oobe/OobeAccessibilitySheet.qml
     qml/components/oobe/OobeLanguageSheet.qml
+    qml/components/oobe/OobeFinish.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/ErrorToast.qml
     qml/components/IncomingCallOverlay.qml

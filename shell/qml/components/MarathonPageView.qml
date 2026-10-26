@@ -39,6 +39,14 @@ Item {
             hub.dismissOverlay();
     }
 
+    // The app grid page on screen builds in.
+    function playEntrance() {
+        const loader = pageView.itemAtIndex(pageView.currentIndex) as Loader;
+        const grid = loader ? loader.item as MarathonAppGrid : null;
+        if (grid !== null)
+            grid.playEntrance();
+    }
+
     function incrementCurrentIndex() {
         pageView.incrementCurrentIndex();
     }
@@ -257,6 +265,8 @@ Item {
 
             MarathonAppGrid {
                 appModel: sharedAppModel
+                // Setup's handover plays the entrance; until then, no icons behind it.
+                entranceHeld: !SettingsManagerCpp.firstRunComplete
                 // Don't override columns/rows here — AppGrid computes them
                 // scale-aware (drops 4×4 → 3×4 at userScaleFactor ≥ 1.25,
                 // matching the iOS Home Screen density behaviour).
