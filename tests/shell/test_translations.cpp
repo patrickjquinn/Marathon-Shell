@@ -43,7 +43,22 @@ class TestTranslations : public QObject {
         Translations translations({QStringLiteral("test")}, nullptr);
         translations.install(QStringLiteral("de"));
         QCOMPARE(qgetenv("LANGUAGE"), QByteArray("de"));
-        QCOMPARE(qgetenv("LANG"), QByteArray("de.UTF-8"));
+        QCOMPARE(qgetenv("LANG"), QByteArray("de_DE.UTF-8"));
+        translations.install(QStringLiteral("en_XA"));
+        QCOMPARE(qgetenv("LANG"), QByteArray("en_US.UTF-8"));
+        QCOMPARE(qgetenv("LANGUAGE"), QByteArray("en_XA"));
+    }
+
+    void emptySettingRestoresTheImageLocale() {
+        qputenv("LANG", "en_IE.UTF-8");
+        qunsetenv("LANGUAGE");
+        Translations translations({QStringLiteral("test")}, nullptr);
+        translations.install(QStringLiteral("de"));
+        translations.install(QString());
+        QCOMPARE(qgetenv("LANG"), QByteArray("en_IE.UTF-8"));
+        QVERIFY(!qEnvironmentVariableIsSet("LANGUAGE"));
+        QCOMPARE(QLocale().name(), QStringLiteral("en_IE"));
+        QCOMPARE(QCoreApplication::translate("Ctx", "Hello"), QStringLiteral("Hello"));
     }
 };
 

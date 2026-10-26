@@ -22,5 +22,9 @@ pub trait SystemdManager {
 
     fn thaw_unit(&self, name: &str) -> zbus::Result<()>;
 
-    fn set_environment(&self, assignments: &[String]) -> zbus::Result<()>;
+    fn unset_and_set_environment(
+        &self,
+        names: &[String],
+        assignments: &[String],
+    ) -> zbus::Result<()>;
 }

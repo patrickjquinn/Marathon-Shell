@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QList>
 #include <QObject>
 #include <QStringList>
@@ -12,9 +13,11 @@ class Translations : public QObject {
     Q_OBJECT
 
   public:
+    // Keeps LANG and LANGUAGE as they are now: the image's locale.
     Translations(const QStringList &catalogs, QObject *parent);
 
-    // Also sets the default QLocale, LANG and LANGUAGE. False when no catalog loaded.
+    // Also sets the default QLocale, LANG and LANGUAGE; an empty code restores
+    // the image's. False when no catalog loaded.
     bool    install(const QString &code);
     QString code() const { return m_code; }
 
@@ -23,6 +26,8 @@ class Translations : public QObject {
 
   private:
     QStringList          m_catalogs;
+    QByteArray           m_imageLang;
+    QByteArray           m_imageLanguage;
     QString              m_code;
     QList<QTranslator *> m_translators;
 };

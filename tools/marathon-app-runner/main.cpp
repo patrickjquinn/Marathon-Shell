@@ -994,7 +994,7 @@ int main(int argc, char *argv[]) {
                 // The app's catalog is in its library, loaded by now with its module.
                 auto *translations = new Translations(
                     {QDir(appPath).dirName(), QStringLiteral("silica")}, QCoreApplication::instance());
-                translations->install(qEnvironmentVariable("LANGUAGE", QStringLiteral("en")));
+                translations->install(qEnvironmentVariable("LANGUAGE"));
 
                 if (logStartup)
                     marathon::runner::log_startup(appId, "component-ready", startupTimer.elapsed());

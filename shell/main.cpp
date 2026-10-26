@@ -672,11 +672,8 @@ int main(int argc, char *argv[]) {
                                                   settingsManager);
 
     auto *translations = new Translations({QStringLiteral("shell"), QStringLiteral("silica")}, &app);
-    const QString imageLanguage = qEnvironmentVariableIsEmpty("LANGUAGE")
-                                      ? qEnvironmentVariable("LANG")
-                                      : qEnvironmentVariable("LANGUAGE");
-    const auto speak = [translations, settingsManager, imageLanguage] {
-        translations->install(marathon::i18n::resolve(settingsManager->getLanguage(), imageLanguage));
+    const auto speak = [translations, settingsManager] {
+        translations->install(settingsManager->getLanguage());
         marathon::i18n::export_to_session();
     };
     speak();

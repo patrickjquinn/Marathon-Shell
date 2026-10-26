@@ -244,11 +244,9 @@ impl Tasks {
             "MARATHON_USER_SCALE".into(),
             format!("{:.3}", self.device.user_scale).into(),
         );
-        // The language may have changed since the spare started.
+        // The language may have changed since the spare started; empty unsets.
         for key in ["LANG", "LANGUAGE"] {
-            if let Ok(value) = std::env::var(key) {
-                grants.insert(key.into(), value.into());
-            }
+            grants.insert(key.into(), std::env::var(key).unwrap_or_default().into());
         }
         for (key, value) in env {
             let key = key.to_string();
