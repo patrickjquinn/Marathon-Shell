@@ -80,7 +80,7 @@ Item {
         Silica.Label {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: "MARATHON"
+            text: "MARATHON" // i18n: literal
             color: Silica.Theme.secondaryHighlightColor
             font.pixelSize: Silica.Theme.fontSizeSmall
             font.letterSpacing: Silica.Theme.paddingSmall
