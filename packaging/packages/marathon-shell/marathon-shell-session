@@ -596,8 +596,7 @@ if command -v systemctl >/dev/null 2>&1; then
             sleep 0.5
         done
         systemctl --user set-environment WAYLAND_DISPLAY="$socket" \
-            XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland \
-            LANG="$LANG"
+            XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" XDG_SESSION_TYPE=wayland
         systemctl --user start marathon-session.target
         # A hot shell replacement keeps the user manager alive. Rebind portal
         # processes which inherited the previous compositor socket instead of
