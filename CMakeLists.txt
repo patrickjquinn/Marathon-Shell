@@ -103,7 +103,10 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS
     Sql
     Multimedia
     Positioning
+    LinguistTools
 )
+set(MARATHON_LANGUAGES de fr es ga en_XA)
+set(QT_I18N_TRANSLATED_LANGUAGES ${MARATHON_LANGUAGES})
 # Qt6::Location was a hard requirement when Marathon's Maps app used
 # QtLocation's OSM Map block. After Maps was rewritten to use
 # WebEngine + MapLibre GL JS (see docs/redesign/...), no target links

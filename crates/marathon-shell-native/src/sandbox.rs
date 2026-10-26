@@ -199,6 +199,7 @@ fn variables(runner: &Runner) -> Vec<(&'static str, String)> {
         ),
         ("MARATHON_GPU_HDR", var_or("MARATHON_GPU_HDR", "0")),
         ("LANG", var_or("LANG", "en_US.UTF-8")),
+        ("LANGUAGE", var_or("LANGUAGE", "en")),
     ];
     if runner.screen_width > 0 {
         vars.push(("MARATHON_SCREEN_WIDTH", runner.screen_width.to_string()));

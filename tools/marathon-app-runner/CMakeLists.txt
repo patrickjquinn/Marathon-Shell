@@ -18,6 +18,7 @@ find_package(Qt6 REQUIRED COMPONENTS
 set(SOURCES
     main.cpp
     ../../shell/src/services/touchresampler.cpp
+    ../../shell/src/services/translations.cpp
     platformtypes.cpp
     terminalrenderer.cpp
 )
@@ -37,6 +38,14 @@ target_sources(marathon-app-runner PRIVATE ${SHELL_SINGLETONS_RCC})
 
 target_include_directories(marathon-app-runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../shell/src
+)
+
+# Built in marathon-silica; CMP0118 is OLD under this file's minimum version.
+set_source_files_properties(${MARATHON_SILICA_QM} PROPERTIES GENERATED TRUE)
+qt_add_resources(marathon-app-runner "silica_translations"
+    PREFIX "/i18n"
+    BASE "${CMAKE_BINARY_DIR}/marathon-silica"
+    FILES ${MARATHON_SILICA_QM}
 )
 
 target_link_libraries(marathon-app-runner PRIVATE

@@ -4,6 +4,7 @@
 #include <QQuickWindow>
 #include <QScreen>
 #include "services/touchresampler.h"
+#include "services/translations.h"
 #include <QSGRendererInterface>
 #include <QQmlEngine>
 #include <QQmlComponent>
@@ -968,7 +969,7 @@ int main(int argc, char *argv[]) {
                                        QStringLiteral("/marathon-app/%1/Wrapper.qml").arg(appId)));
             }
 
-            auto createAndAttach = [component, &view, ctx, appId, &lifecycle, &appRoot,
+            auto createAndAttach = [component, &view, ctx, appId, appPath, &lifecycle, &appRoot,
                                     &startupTimer, logStartup]() {
                 if (!component) {
                     QCoreApplication::exit(4);
@@ -989,6 +990,11 @@ int main(int argc, char *argv[]) {
                     QCoreApplication::exit(4);
                     return;
                 }
+
+                // The app's catalog is in its library, loaded by now with its module.
+                auto *translations = new Translations(
+                    {QDir(appPath).dirName(), QStringLiteral("silica")}, QCoreApplication::instance());
+                translations->install(qEnvironmentVariable("LANGUAGE", QStringLiteral("en")));
 
                 if (logStartup)
                     marathon::runner::log_startup(appId, "component-ready", startupTimer.elapsed());

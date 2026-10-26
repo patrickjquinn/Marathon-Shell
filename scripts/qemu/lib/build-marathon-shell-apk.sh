@@ -105,7 +105,7 @@ apk add --no-cache --quiet \
     qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev \
     qt6-qtwebengine-dev qt6-qtmultimedia-dev qt6-qtsensors-dev \
     qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \
-    qt6-qtspeech-dev \
+    qt6-qtspeech-dev qt6-qttools-dev \
     hunspell-dev pulseaudio-dev wayland-dev wayland-protocols \
     mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3 || true
 

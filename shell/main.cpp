@@ -66,6 +66,8 @@
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/modem.cxxqt.h"
 #include "marathon-shell-native/src/settings.cxxqt.h"
+#include "marathon-shell-native/src/i18n.cxxqt.h"
+#include "src/services/translations.h"
 #include "marathon-shell-native/src/ambience.cxxqt.h"
 #include "marathon-shell-native/src/ngf.cxxqt.h"
 #include "marathon-shell-native/src/portal.cxxqt.h"
@@ -668,6 +670,19 @@ int main(int argc, char *argv[]) {
     settingsManager->load(device.screen_timeout_ms);
     qmlRegisterSingletonInstance<marathon::Settings>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
                                                   settingsManager);
+
+    auto *translations = new Translations({QStringLiteral("shell"), QStringLiteral("silica")}, &app);
+    const QString imageLanguage = qEnvironmentVariableIsEmpty("LANGUAGE")
+                                      ? qEnvironmentVariable("LANG")
+                                      : qEnvironmentVariable("LANGUAGE");
+    const auto speak = [translations, settingsManager, imageLanguage] {
+        translations->install(marathon::i18n::resolve(settingsManager->getLanguage(), imageLanguage));
+        marathon::i18n::export_to_session();
+    };
+    speak();
+    QObject::connect(settingsManager, &marathon::Settings::languageChanged, translations, speak);
+    QObject::connect(translations, &Translations::installed, &engine, &QQmlEngine::retranslate);
+
     auto *ambienceService = new marathon::Ambience();
     ambienceService->setParent(&app);
     ambienceService->setWallpaper(settingsManager->getWallpaperPath());

@@ -32,6 +32,7 @@ pub mod flashlight;
 mod foreign_focus;
 pub mod gate;
 pub mod haptics;
+mod i18n;
 pub mod ipc;
 pub mod layouts;
 pub mod links;

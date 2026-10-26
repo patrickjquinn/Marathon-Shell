@@ -21,4 +21,6 @@ pub trait SystemdManager {
     fn freeze_unit(&self, name: &str) -> zbus::Result<()>;
 
     fn thaw_unit(&self, name: &str) -> zbus::Result<()>;
+
+    fn set_environment(&self, assignments: &[String]) -> zbus::Result<()>;
 }

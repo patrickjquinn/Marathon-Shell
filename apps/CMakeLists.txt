@@ -19,7 +19,9 @@ if(APPLE AND EXISTS "/opt/homebrew/opt/qt@6")
   list(PREPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6")
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Qml Quick)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Qml Quick LinguistTools)
+set(MARATHON_LANGUAGES de fr es ga en_XA)
+set(QT_I18N_TRANSLATED_LANGUAGES ${MARATHON_LANGUAGES})
 
 
 find_package(Qt6 6.4 COMPONENTS WebEngineQuick)
@@ -164,6 +166,15 @@ function(add_marathon_app APP_NAME)
   set_property(TARGET ${APP_NAME} APPEND PROPERTY QT_QML_IMPORT_PATH
     "${MARATHON_QML_IMPORT_PATH}"
   )
+
+  if(NOT APP_NAME STREQUAL "test")
+    qt_add_translations(${APP_NAME}
+      SOURCE_TARGETS ${APP_NAME}
+      TS_OUTPUT_DIRECTORY ${REPO_ROOT}/translations/${APP_NAME}
+      TS_FILE_BASE ${APP_NAME}
+      RESOURCE_PREFIX /i18n
+      LUPDATE_OPTIONS -no-obsolete -locations relative)
+  endif()
 
   if(APPLE)
     install(

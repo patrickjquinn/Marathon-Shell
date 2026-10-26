@@ -102,6 +102,17 @@ target_link_libraries(test_shell_touchresampler Qt6::Test Qt6::Gui Qt6::GuiPriva
 target_include_directories(test_shell_touchresampler PRIVATE ${CMAKE_SOURCE_DIR}/shell/src)
 add_test(NAME Shell_TouchResampler COMMAND test_shell_touchresampler)
 
+# Catalogs: loading, switching, and the locale and environment that follow
+add_executable(test_shell_translations test_translations.cpp
+    ../../shell/src/services/translations.cpp)
+qt_add_lrelease(TS_FILES data/i18n/test_de.ts QM_FILES_OUTPUT_VARIABLE _test_qm
+    LRELEASE_TARGET test_shell_translations_lrelease NO_GLOBAL_TARGET)
+qt_add_resources(test_shell_translations "test_i18n" PREFIX "/i18n"
+    BASE ${CMAKE_CURRENT_BINARY_DIR} FILES ${_test_qm})
+target_link_libraries(test_shell_translations Qt6::Test Qt6::Core)
+target_include_directories(test_shell_translations PRIVATE ${CMAKE_SOURCE_DIR}/shell/src/services)
+add_test(NAME Shell_Translations COMMAND test_shell_translations)
+
 # The touch CPU boost's resting floor
 
 # Frame callbacks of hidden surfaces: about once a second

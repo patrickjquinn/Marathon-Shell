@@ -19,6 +19,8 @@ set(SOURCES
     src/services/inputcontext.cpp
     src/services/remotetextinput.h
     src/services/remotetextinput.cpp
+    src/services/translations.h
+    src/services/translations.cpp
     src/managers/screenmetrics.h
     src/managers/screenmetrics.cpp
 )
@@ -382,6 +384,19 @@ qt6_add_qml_module(marathon-shell
         src/services/inputcontext.h
     RESOURCES ${JSON_FILES} ${UI_RESOURCES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
+)
+
+qt_add_translations(marathon-shell
+    SOURCE_TARGETS marathon-shell
+    TS_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/translations/shell
+    TS_FILE_BASE shell
+    RESOURCE_PREFIX /i18n
+    LUPDATE_OPTIONS -no-obsolete -locations relative
+)
+qt_add_resources(marathon-shell "silica_translations"
+    PREFIX "/i18n"
+    BASE "${CMAKE_BINARY_DIR}/marathon-silica"
+    FILES ${MARATHON_SILICA_QM}
 )
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/qmllint")
