@@ -445,6 +445,16 @@ Item {
             }
         }
 
+        WallpaperTone {
+            id: clockTone
+
+            objectName: "lockClockTone"
+            x: clockColumn.x
+            y: clockColumn.y - clockColumn.spacing
+            width: clockColumn.width
+            height: clockColumn.height + 2 * clockColumn.spacing
+        }
+
         // ── Clock cluster ───────────────────────────────────
         // Two layouts per the JSX: LockScreen() puts the clock at
         // top:190 / 84 px / -2 tracking; LockMedia() shifts it up
@@ -480,6 +490,7 @@ Item {
             // The lock clock: large and extra-light, the weekday and
             // the date beneath on their own lines, all in the primary colour.
             Silica.Label {
+                objectName: "lockClock"
                 text: SystemStatusStore.timeString
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width
@@ -487,21 +498,27 @@ Item {
                 fontSizeMode: Text.HorizontalFit
                 font.pixelSize: Math.round(Silica.Theme.fontSizeHuge * (clockColumn.mediaActive ? 1.6 : 1.9))
                 font.weight: Font.ExtraLight
-                color: Silica.Theme.primaryColor
+                color: clockTone.glyph
+                style: Text.Outline
+                styleColor: clockTone.halo
             }
 
             Silica.Label {
                 text: Qt.formatDate(clockColumn.today, "dddd")
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                color: Silica.Theme.primaryColor
+                color: clockTone.glyph
+                style: Text.Outline
+                styleColor: clockTone.halo
             }
             Silica.Label {
                 //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
                 text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                color: Silica.Theme.primaryColor
+                color: clockTone.glyph
+                style: Text.Outline
+                styleColor: clockTone.halo
             }
         }
 
@@ -736,7 +753,19 @@ Item {
             }
         }
 
+        WallpaperTone {
+            id: hintTone
+
+            // Clear of the chevron's bob.
+            x: unlockHint.x
+            y: unlockHint.y - 2 * unlockHint.spacing
+            width: unlockHint.width
+            height: unlockHint.height + 3 * unlockHint.spacing
+        }
+
         Column {
+            id: unlockHint
+
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Silica.Theme.paddingLarge
@@ -746,7 +775,7 @@ Item {
             GlyphIcon {
                 name: "chevron-up"
                 size: Silica.Theme.iconSizeSmall
-                color: Silica.Theme.secondaryColor
+                color: hintTone.glyph
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 SequentialAnimation on y {
@@ -773,7 +802,9 @@ Item {
 
             Silica.Label {
                 text: qsTr("Swipe up to unlock")
-                color: Silica.Theme.secondaryColor
+                color: hintTone.glyph
+                style: Text.Outline
+                styleColor: hintTone.halo
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 anchors.horizontalCenter: parent.horizontalCenter
             }

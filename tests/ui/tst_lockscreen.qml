@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import QtTest
+import Sailfish.Silica 1.0 as Silica
 import MarathonOS.Shell
 import "../../shell/qml/components"
 
@@ -107,5 +108,14 @@ TestCase {
         mouseClick(lockScreen, 360, 400);
         compare(pad.clicks, 1);
         pad.z = 0;
+    }
+
+    function test_theClockTakesTheBackdropsTone() {
+        const tone = findChild(lockScreen, "lockClockTone");
+        const clock = findChild(lockScreen, "lockClock");
+        tone.light = true;
+        tryCompare(clock, "color", Silica.Theme.darkPrimaryColor);
+        tone.light = false;
+        tryCompare(clock, "color", Silica.Theme.lightPrimaryColor);
     }
 }
