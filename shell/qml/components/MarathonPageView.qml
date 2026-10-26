@@ -208,7 +208,35 @@ Item {
         synchronousDrag: dragging
         // 1 Hub + 1 Frames + N app-grid pages. Show at least the home
         // page (index 2) even before the app model has loaded.
-        model: sharedAppModel.count > 0 ? 2 + pageCount : 3
+        readonly property int pagesWanted: sharedAppModel.count > 0 ? 2 + pageCount : 3
+
+        function syncPages() {
+            while (pageModel.count < pagesWanted)
+                pageModel.append({
+                    "page": 0
+                });
+            while (pageModel.count > pagesWanted)
+                pageModel.remove(pageModel.count - 1);
+            if (currentIndex >= pageModel.count)
+                currentIndex = pageModel.count - 1;
+        }
+
+        onPagesWantedChanged: syncPages()
+        Component.onCompleted: syncPages()
+        // Grown and shrunk, never replaced: a new model sends currentIndex back to 0, the Hub.
+        model: ListModel {
+            id: pageModel
+
+            ListElement {
+                page: 0
+            }
+            ListElement {
+                page: 0
+            }
+            ListElement {
+                page: 0
+            }
+        }
         onCurrentIndexChanged: {
             Logger.debug("PageView", "Page changed to index: " + currentIndex + ", page: " + currentPage);
             pageViewContainer.hubVisible(currentIndex === 0);
