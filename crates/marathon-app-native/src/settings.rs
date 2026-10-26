@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
+use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
 use zbus::zvariant::{OwnedValue, Value};
 
 use crate::shell::{allowed, relay, Arg, Field, Service, State};
@@ -24,6 +24,8 @@ pub mod qobject {
         type QVariant = cxx_qt_lib::QVariant;
         include!("cxx-qt-lib/qmap.h");
         type QMap_QString_QVariant = cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant>;
+        include!("cxx-qt-lib/qlist.h");
+        type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
     }
 
     extern "RustQt" {
@@ -72,6 +74,8 @@ pub mod qobject {
         #[qproperty(QString, keyboard_haptic_strength, cxx_name = "keyboardHapticStrength", READ, WRITE = set_keyboard_haptic_strength, NOTIFY)]
         #[qproperty(QString, keyboard_language, cxx_name = "keyboardLanguage", READ, WRITE = set_keyboard_language, NOTIFY)]
         #[qproperty(bool, keyboard_auto_capitalize, cxx_name = "keyboardAutoCapitalize", READ, WRITE = set_keyboard_auto_capitalize, NOTIFY)]
+        #[qproperty(QString, language, READ, WRITE = set_language, NOTIFY)]
+        #[qproperty(QList_QVariant, available_languages, cxx_name = "availableLanguages", READ = available_languages, CONSTANT)]
         type Settings = super::SettingsRust;
 
         #[qsignal]
@@ -166,6 +170,10 @@ pub mod qobject {
         fn set_keyboard_language(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setKeyboardAutoCapitalize"]
         fn set_keyboard_auto_capitalize(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setLanguage"]
+        fn set_language(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "availableLanguages"]
+        fn available_languages(self: &Settings) -> QList_QVariant;
 
         #[qinvokable]
         #[cxx_name = "setSystemTime"]
@@ -290,6 +298,7 @@ properties! {
     keyboard_haptic_strength: QString = QString::from("medium"), "keyboardHapticStrength", keyboard_haptic_strength_changed, set_keyboard_haptic_strength(&QString);
     keyboard_language: QString = QString::from("en_US"), "keyboardLanguage", keyboard_language_changed, set_keyboard_language(&QString);
     keyboard_auto_capitalize: bool = true, "keyboardAutoCapitalize", keyboard_auto_capitalize_changed, set_keyboard_auto_capitalize(bool);
+    language: QString, "language", language_changed, set_language(&QString);
 }
 
 /// Writes a system setting; the shell answers with `PropertyChanged`.
@@ -379,6 +388,11 @@ impl Settings {
         SETTINGS.call("SetSystemTime", (msecs_since_epoch,));
     }
 
+    #[allow(clippy::unused_self, reason = "the property getter takes the object")]
+    fn available_languages(&self) -> QList<QVariant> {
+        variant::languages()
+    }
+
     fn format_sound_name(&self, path: &QString) -> QString {
         QString::from(&sound_name(&path.to_string()))
     }
@@ -427,6 +441,23 @@ fn sound_name(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use cxx_qt_lib::QList;
+
+    #[test]
+    fn the_language_starts_unset() {
+        assert!(super::SettingsRust::default().language.is_empty());
+    }
+
+    #[test]
+    fn the_language_list_carries_the_names_and_status() {
+        let list: QList<_> = marathon_qt::languages();
+        let first = list.get(0).and_then(marathon_qt::from_qt);
+        let text = format!("{first:?}");
+        for needle in ["code", "nativeName", "englishName", "status", "complete"] {
+            assert!(text.contains(needle), "{needle} missing from {text}");
+        }
+    }
+
     #[test]
     fn sound_names_read_as_words() {
         assert_eq!(

@@ -2557,6 +2557,7 @@ dependencies = [
  "libc",
  "lofty",
  "marathon-apps",
+ "marathon-i18n",
  "marathon-keel",
  "marathon-permissions",
  "marathon-qt",
@@ -2638,6 +2639,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-i18n"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "marathon-keel"
 version = "0.1.0"
 dependencies = [
@@ -2708,6 +2717,7 @@ name = "marathon-qt"
 version = "0.1.0"
 dependencies = [
  "cxx-qt-lib",
+ "marathon-i18n",
  "zbus",
 ]
 
@@ -2753,6 +2763,7 @@ dependencies = [
  "image",
  "libc",
  "marathon-apps",
+ "marathon-i18n",
  "marathon-permissions",
  "marathon-qt",
  "marathon-rt",

@@ -39,6 +39,8 @@ pub mod qobject {
         type QVariant = cxx_qt_lib::QVariant;
         include!("cxx-qt-lib/qmap.h");
         type QMap_QString_QVariant = cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant>;
+        include!("cxx-qt-lib/qlist.h");
+        type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
     }
 
     extern "RustQt" {
@@ -87,6 +89,8 @@ pub mod qobject {
         #[qproperty(bool, keyboard_predictive_text, cxx_name = "keyboardPredictiveText", READ, WRITE = set_keyboard_predictive_text, NOTIFY)]
         #[qproperty(QString, keyboard_haptic_strength, cxx_name = "keyboardHapticStrength", READ, WRITE = set_keyboard_haptic_strength, NOTIFY)]
         #[qproperty(QString, keyboard_language, cxx_name = "keyboardLanguage", READ, WRITE = set_keyboard_language, NOTIFY)]
+        #[qproperty(QString, language, READ, WRITE = set_language, NOTIFY)]
+        #[qproperty(QList_QVariant, available_languages, cxx_name = "availableLanguages", READ = available_languages, CONSTANT)]
         #[qproperty(bool, unified_push_fallback_enabled, cxx_name = "unifiedPushFallbackEnabled", READ, WRITE = set_unified_push_fallback_enabled, NOTIFY)]
         type Settings = super::SettingsRust;
 
@@ -183,6 +187,10 @@ pub mod qobject {
         fn set_keyboard_haptic_strength(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setKeyboardLanguage"]
         fn set_keyboard_language(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setLanguage"]
+        fn set_language(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "availableLanguages"]
+        fn available_languages(self: &Settings) -> QList_QVariant;
         #[cxx_name = "setUnifiedPushFallbackEnabled"]
         fn set_unified_push_fallback_enabled(self: Pin<&mut Settings>, value: bool);
 
@@ -443,7 +451,15 @@ properties! {
     keyboard_predictive_text: bool = true, "keyboard/predictiveText", "keyboardPredictiveText", keyboard_predictive_text_changed, on_keyboard_predictive_text_changed, set_keyboard_predictive_text(bool);
     keyboard_haptic_strength: QString = QString::from("medium"), "keyboard/hapticStrength", "keyboardHapticStrength", keyboard_haptic_strength_changed, on_keyboard_haptic_strength_changed, set_keyboard_haptic_strength(&QString);
     keyboard_language: QString = QString::from("en_US"), "keyboard/language", "keyboardLanguage", keyboard_language_changed, on_keyboard_language_changed, set_keyboard_language(&QString);
+    language: QString = QString::default(), "system/language", "language", language_changed, on_language_changed, set_language(&QString);
     unified_push_fallback_enabled: bool = false, "notifications/unifiedPushFallback", "unifiedPushFallbackEnabled", unified_push_fallback_enabled_changed, on_unified_push_fallback_enabled_changed, set_unified_push_fallback_enabled(bool);
+}
+
+impl Settings {
+    #[allow(clippy::unused_self, reason = "the property getter takes the object")]
+    fn available_languages(&self) -> QList<QVariant> {
+        qvariant::languages()
+    }
 }
 
 /// `MarathonQuickSettings.qml`'s tile ids.
@@ -1319,7 +1335,26 @@ impl Settings1 {
 
 #[cfg(test)]
 mod tests {
-    use super::{migrate, sound_name, Ini, Value};
+    use super::{migrate, sound_name, Field, Ini, SettingsRust, Value};
+    use cxx_qt_lib::QString;
+
+    #[test]
+    fn the_language_starts_unset_and_round_trips() {
+        assert!(SettingsRust::default().language.is_empty());
+        let stored = QString::from("de").value();
+        assert_eq!(
+            QString::read(&stored).map(|l| l.to_string()),
+            Some("de".to_owned())
+        );
+        let ini = Ini::parse("[system]\nlanguage=fr\n");
+        assert_eq!(
+            ini.0
+                .get("system/language")
+                .and_then(QString::read)
+                .map(|l| l.to_string()),
+            Some("fr".to_owned())
+        );
+    }
 
     #[test]
     fn the_old_auto_lock_switch_becomes_the_lock_delay() {

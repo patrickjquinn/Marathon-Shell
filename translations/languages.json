@@ -1,0 +1,8 @@
+[
+  {"code": "en", "nativeName": "English", "englishName": "English", "status": "complete"},
+  {"code": "de", "nativeName": "Deutsch", "englishName": "German", "status": "preview"},
+  {"code": "fr", "nativeName": "Français", "englishName": "French", "status": "preview"},
+  {"code": "es", "nativeName": "Español", "englishName": "Spanish", "status": "preview"},
+  {"code": "ga", "nativeName": "Gaeilge", "englishName": "Irish", "status": "preview"},
+  {"code": "en_XA", "nativeName": "[Ëñğļîšĥ]", "englishName": "Pseudo", "status": "pseudo"}
+]

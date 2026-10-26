@@ -119,3 +119,21 @@ pub fn map(entries: &QMap<QMapPair_QString_QVariant>) -> HashMap<String, Value<'
         .filter_map(|(k, v)| Some((k.to_string(), from_qt(v)?)))
         .collect()
 }
+
+/// The shipped languages as a `QVariantList` of `{ code, nativeName, englishName, status }`.
+pub fn languages() -> QList<QVariant> {
+    let mut list = QList::<QVariant>::default();
+    for language in marathon_i18n::languages() {
+        let mut map = QMap::<QMapPair_QString_QVariant>::default();
+        for (key, value) in [
+            ("code", language.code),
+            ("nativeName", language.native_name),
+            ("englishName", language.english_name),
+            ("status", language.status.as_str()),
+        ] {
+            map.insert(QString::from(key), QVariant::from(&QString::from(value)));
+        }
+        list.append(QVariant::from(&map));
+    }
+    list
+}
