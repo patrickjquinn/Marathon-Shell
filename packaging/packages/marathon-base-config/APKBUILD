@@ -273,7 +273,8 @@ EOF
 [Coredump]
 ProcessSizeMax=64M
 ExternalSizeMax=64M
-MaxUse=1G
+MaxUse=256M
+KeepFree=1G
 EOF
 	install -d "$pkgdir/usr/lib/systemd/system/systemd-coredump@.service.d"
 	cat > "$pkgdir/usr/lib/systemd/system/systemd-coredump@.service.d/50-marathon-idle.conf" <<'EOF'
