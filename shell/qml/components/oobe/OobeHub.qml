@@ -42,8 +42,12 @@ Item {
     }
 
     onVisibleChanged: {
-        if (visible)
+        if (visible) {
             enter();
+        } else {
+            glance.stop();
+            finish.stop();
+        }
     }
 
     Column {

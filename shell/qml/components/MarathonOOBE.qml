@@ -30,6 +30,11 @@ Item {
             ++beat;
     }
 
+    function next(from) {
+        if (beats[beat] === from)
+            advance();
+    }
+
     function back() {
         if (leaving)
             return;
@@ -242,7 +247,7 @@ Item {
                 objectName: "oobeOnline"
                 anchors.fill: parent
                 visible: oobeRoot.beat === 1
-                onDone: oobeRoot.advance()
+                onDone: oobeRoot.next(online)
             }
 
             OobePasscode {
@@ -251,7 +256,7 @@ Item {
                 objectName: "oobePasscode"
                 anchors.fill: parent
                 visible: oobeRoot.beat === 2
-                onDone: oobeRoot.advance()
+                onDone: oobeRoot.next(passcode)
             }
 
             OobeLook {
@@ -260,7 +265,7 @@ Item {
                 objectName: "oobeLook"
                 anchors.fill: parent
                 visible: oobeRoot.beat === 3
-                onDone: oobeRoot.advance()
+                onDone: oobeRoot.next(look)
                 onWallpaperChosen: (previous, chosen, scenePos) => {
                     const p = backdrop.mapFromItem(null, scenePos.x, scenePos.y);
                     backdrop.reveal(previous, chosen, p.x, p.y);
@@ -273,7 +278,7 @@ Item {
                 objectName: "oobeSize"
                 anchors.fill: parent
                 visible: oobeRoot.beat === 4
-                onDone: oobeRoot.advance()
+                onDone: oobeRoot.next(size)
             }
 
             OobeHub {
@@ -282,7 +287,7 @@ Item {
                 objectName: "oobeHub"
                 anchors.fill: parent
                 visible: oobeRoot.beat === 5
-                onDone: oobeRoot.advance()
+                onDone: oobeRoot.next(hub)
             }
 
             OobeFinish {
@@ -291,7 +296,10 @@ Item {
                 objectName: "oobeFinish"
                 anchors.fill: parent
                 visible: oobeRoot.beat === 6
-                onDone: oobeRoot.finish()
+                onDone: {
+                    if (oobeRoot.lastBeat)
+                        oobeRoot.finish();
+                }
             }
         }
     }

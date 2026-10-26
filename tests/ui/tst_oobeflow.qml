@@ -448,4 +448,21 @@ TestCase {
         oobe.back();
         compare(oobe.beat, 6);
     }
+
+    function test_doneFromABeatNotShownIsIgnored() {
+        oobe.beat = 3;
+        child("oobeHub").done();
+        child("oobeOnline").done();
+        compare(oobe.beat, 3);
+    }
+
+    function test_backDuringTheHubConfirmationStaysBack() {
+        oobe.beat = 5;
+        child("oobeHub").succeed();
+        swipeBack();
+        compare(oobe.beat, 4);
+        wait(1700);
+        compare(oobe.beat, 4);
+        verify(child("oobeSize").visible);
+    }
 }

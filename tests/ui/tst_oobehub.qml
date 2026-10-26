@@ -106,6 +106,14 @@ TestCase {
         tryCompare(doneSpy, "count", 1, 3000);
     }
 
+    function test_leavingBeforeTheConfirmationEndsDoesNotFinish() {
+        drag(peek().width * 0.25);
+        tryVerify(() => peek().iconsShown);
+        hub.visible = false;
+        wait(1700);
+        compare(doneSpy.count, 0);
+    }
+
     function test_openingFullyShutsTheHubBeforeMovingOn() {
         drag(peek().width * 0.6);
         tryVerify(() => peek().isFullyOpen);
