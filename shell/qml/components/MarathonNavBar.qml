@@ -20,6 +20,9 @@ Rectangle {
     property bool keyboardVisible: false
     property bool searchActive: false
     property bool pinScreenMode: false
+    // Setup's own bar: a swipe up reports gestureProgress with no app open,
+    // and search and the keyboard hide, leaving the whole bar to the pill.
+    property bool setupMode: false
     // Touch and hold asks Shipwright Pilot (pilotRequested) while true.
     property bool pilotEnabled: false
     // Held still: lit, and the charge rises until Pilot is asked.
@@ -66,6 +69,8 @@ Rectangle {
     signal toggleKeyboard
     signal toggleSearch
     signal pilotRequested
+    // A tap on the bar off the search and keyboard buttons.
+    signal pillTapped
 
     height: Constants.navBarHeight
     color: lightBackdrop ? MColors.barLight : MColors.barDark
@@ -221,7 +226,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(Silica.Theme.itemSizeExtraSmall, Silica.Theme.horizontalPageMargin + Silica.Theme.iconSizeExtraSmall + Silica.Theme.paddingMedium)
         height: parent.height
-        visible: !navBar.pinScreenMode
+        visible: !navBar.pinScreenMode && !navBar.setupMode
         opacity: navBar.pinScreenMode ? 0 : 1
 
         // On the page margin, in line with the status bar and the dock.
@@ -253,6 +258,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: searchButton.width
         height: parent.height
+        visible: !navBar.setupMode
 
         GlyphIcon {
             name: "keyboard"
@@ -433,7 +439,7 @@ Rectangle {
                     pullingQuickSettings = true;
                     UIStore.quickSettingsDragging = true;
                     UIStore.quickSettingsHeight = UIStore.maxQuickSettingsHeight * Math.max(0, Math.min(1, -diffY / Math.max(1, navBar.height * 0.4)));
-                } else if (navBar.isAppOpen) {
+                } else if (navBar.isAppOpen || navBar.setupMode) {
                     var oldProgress = navBar.gestureProgress;
                     navBar.minimizeThumbX = diffX;
                     minimizeDrag.move(Math.max(0, minimizeBase + diffY));
@@ -478,6 +484,8 @@ Rectangle {
                 } else if (pressedOn(keyboardButton)) {
                     HapticManager.light();
                     navBar.toggleKeyboard();
+                } else {
+                    navBar.pillTapped();
                 }
             }
             if (pullingQuickSettings) {
