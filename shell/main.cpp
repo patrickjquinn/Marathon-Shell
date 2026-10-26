@@ -124,6 +124,10 @@
 #include <QtGui/private/qinputdevicemanager_p_p.h>
 #include <QtInputSupport/private/qevdevtouchhandler_p.h>
 #include <QtInputSupport/private/qevdevutil_p.h>
+// Where Qt defines it; outside Qt's build the header declares a global one.
+namespace QtPrivateLogging {
+    const QLoggingCategory &qLcEvdevTouch();
+}
 #endif
 
 template <typename T, typename... Args>
@@ -202,6 +206,9 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
 // Qt's QEvdevTouchManager, except that a udev "add" for a node already read
 // doesn't open it again.
 static void startTouchInput(const QString &specification) {
+    if (qEnvironmentVariableIsSet("QT_QPA_EVDEV_DEBUG"))
+        const_cast<QLoggingCategory &>(QtPrivateLogging::qLcEvdevTouch())
+            .setEnabled(QtDebugMsg, true);
     QString spec = qEnvironmentVariable("QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS");
     if (spec.isEmpty())
         spec = specification;
