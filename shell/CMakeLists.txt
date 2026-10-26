@@ -139,6 +139,8 @@ set(QML_FILES
     qml/components/MarathonCellBroadcastOverlay.qml
     qml/components/MarathonLockScreenNetworkAgent.qml
     qml/components/MarathonOOBE.qml
+    qml/components/oobe/OobeOnline.qml
+    qml/components/oobe/OobePasscode.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/ErrorToast.qml
     qml/components/IncomingCallOverlay.qml

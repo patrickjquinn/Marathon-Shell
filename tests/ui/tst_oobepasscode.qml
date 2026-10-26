@@ -2,81 +2,129 @@ import QtQuick
 import QtQuick.Window
 import QtTest
 import MarathonOS.Shell
-import "../../shell/qml/components"
+import "../../shell/qml/components/oobe"
 
 TestCase {
     id: tc
 
-    property Item page: null
-
-    name: "OOBEPasscode"
+    name: "OobePasscode"
     when: windowShown
 
     Window {
         id: win
 
-        width: 720
-        height: 720
+        width: 540
+        height: 1140
         visible: true
 
-        MarathonOOBE {
-            id: oobe
+        OobePasscode {
+            id: beat
+
+            anchors.fill: parent
         }
+    }
+
+    SignalSpy {
+        id: doneSpy
+
+        target: beat
+        signalName: "done"
     }
 
     function init() {
         Security.firstRunPins = [];
-        oobe.currentPage = 0;
+        doneSpy.clear();
+        beat.reset();
         win.requestActivate();
         tryVerify(() => win.active);
-        oobe.currentPage = 5;
+        beat.forceActiveFocus();
     }
 
-    // The step that holds keyboard focus once the wizard reaches it.
-    function passcodePage() {
-        tryVerify(() => win.activeFocusItem !== null);
-        tc.page = win.activeFocusItem;
-        return tc.page;
+    function pad(digits) {
+        const keypad = findChild(beat, "oobeKeypad");
+        for (const d of digits)
+            keypad.clicked(d);
     }
 
-    function cleanup() {
-        if (!tc.page)
-            return;
-        tc.page.stage = "enter";
-        tc.page.enteredPin = "";
-        tc.page.confirmedPin = "";
+    function filledDots() {
+        let n = 0;
+        for (let i = 0; i < 6; i++)
+            if (findChild(beat, "oobeDot" + i).filled)
+                n++;
+        return n;
     }
 
-    function test_focusLandsOnPasscodeStep() {
-        const page = passcodePage();
-        compare(page.stage, "enter");
+    function test_keypadDigitsFillDotsAndDeleteRemoves() {
+        pad("123");
+        compare(filledDots(), 3);
+        mouseClick(findChild(beat, "oobeDelete"));
+        compare(filledDots(), 2);
+        compare(beat.enteredPin, "12");
     }
 
-    function test_digitsOnlyReachThePasscodeStep() {
-        const page = passcodePage();
-        oobe.currentPage = 4;
-        verify(!page.activeFocus);
-        keyClick(Qt.Key_1);
-        oobe.currentPage = 5;
-        compare(page.enteredPin, "");
-        verify(page.activeFocus);
+    function test_deleteKeySitsBesideZero() {
+        const keypad = findChild(beat, "oobeKeypad");
+        const del = findChild(beat, "oobeDelete");
+        verify(del.visible);
+        const p = del.mapToItem(keypad, del.width / 2, del.height / 2);
+        verify(p.y > keypad.height * 0.75 && p.y < keypad.height);
+        verify(p.x > keypad.width * 0.6);
     }
 
-    function test_typedDigitsSetPasscode() {
-        const page = passcodePage();
+    function test_mismatchShowsMessageAndClearsConfirm() {
+        pad("123456");
+        compare(beat.stage, "confirm");
+        pad("654321");
+        compare(beat.confirmedPin, "");
+        compare(findChild(beat, "oobeError").text, "Passcodes don't match. Try again.");
+        compare(Security.firstRunPins, []);
+        compare(doneSpy.count, 0);
+    }
+
+    function test_matchSavesAndAdvances() {
+        pad("123456");
+        pad("123456");
+        compare(Security.firstRunPins, ["123456"]);
+        compare(doneSpy.count, 1);
+    }
+
+    function test_backOnConfirmReturnsToEnterAndClears() {
+        pad("123456");
+        pad("12");
+        verify(beat.handleBack());
+        compare(beat.stage, "enter");
+        compare(beat.enteredPin, "");
+        compare(beat.confirmedPin, "");
+    }
+
+    function test_backMidEntryClearsDigitsAndLeaves() {
+        pad("123");
+        verify(!beat.handleBack());
+        compare(beat.enteredPin, "");
+    }
+
+    function test_leavingClearsDigits() {
+        pad("123456");
+        beat.visible = false;
+        beat.visible = true;
+        compare(beat.stage, "enter");
+        compare(beat.enteredPin, "");
+    }
+
+    function test_physicalKeys() {
         for (const d of "1234")
             keyClick(Qt.Key_0 + Number(d));
-        compare(page.enteredPin, "1234");
+        compare(beat.enteredPin, "1234");
         keyClick(Qt.Key_Backspace);
-        compare(page.enteredPin, "123");
+        compare(beat.enteredPin, "123");
         keyClick(Qt.Key_Return);
-        compare(page.stage, "enter");
+        compare(beat.stage, "enter");
         for (const d of "456")
             keyClick(Qt.Key_0 + Number(d));
-        compare(page.stage, "confirm");
+        compare(beat.stage, "confirm");
         for (const d of "123456")
             keyClick(Qt.Key_0 + Number(d));
         compare(Security.firstRunPins, ["123456"]);
-        compare(oobe.currentPage, 6);
+        compare(doneSpy.count, 1);
     }
 }
