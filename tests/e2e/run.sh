@@ -17,7 +17,8 @@ pill_back() { e2e_swipe 195 822 40 822 300; }
 pill_up() { e2e_swipe 195 822 195 450 300; }
 hub_peek() { e2e_swipe 1 420 260 420 400; }
 qs_pull() { e2e_swipe 195 2 195 640 450; }
-oobe_showing() { e2e_a11y | grep -q "indicator	Page [0-9] of 7"; }
+# Setup's bar names itself on the first and last beats; the ones between show progress.
+oobe_showing() { e2e_a11y | grep -qE "	(Begin setup|Go home|Step [0-9] of 5)\$"; }
 home_showing() { e2e_showing "Open apps" && ! oobe_showing; }
 locked() { ! e2e_showing "Open apps" && ! oobe_showing; }
 
@@ -105,26 +106,45 @@ app_mapped() { e2e_wait_since "Matched surfaceId [0-9]* to PID [0-9]* app \"$1\"
 
 # --- flows ---------------------------------------------------------------
 flow_firstrun() {
-    local f=firstrun i
+    local f=firstrun
     e2e_reset_profile
     e2e_session firstrun || { e2e_check $f "shell starts" false; return; }
-    e2e_shot oobe-welcome
-    e2e_check $f "setup wizard shows on first boot" e2e_showing "Page 1 of 7"
-    for i in $(seq 10); do e2e_tap_name Next 0.6 || break; done
+    e2e_shot oobe-hello
+    e2e_check $f "setup says hello on first boot" e2e_showing "Begin setup"
+    pill_up
+    e2e_shot oobe-online
+    e2e_check $f "a swipe up on the bar begins setup" e2e_showing "Step 1 of 5"
+    e2e_tap_name "Not now"
     e2e_shot oobe-passcode
-    e2e_check $f "Next reaches the passcode step" e2e_showing "Page 6 of 7"
+    e2e_check $f "Not now leaves getting online for later" e2e_showing "Step 2 of 5"
     enter_pin $E2E_PIN6
     e2e_shot oobe-confirm
     enter_pin 111111
     e2e_shot oobe-mismatch
-    e2e_check $f "a mismatched confirmation is refused" e2e_showing "Page 6 of 7"
+    e2e_check $f "a mismatched confirmation is refused" e2e_showing "Passcodes don't match. Try again."
     enter_pin $E2E_PIN6
-    e2e_shot oobe-done
-    e2e_check $f "matching passcode reaches the last step" e2e_showing "Page 7 of 7"
+    e2e_shot oobe-look
+    e2e_check $f "a matching passcode moves on" e2e_showing "Step 3 of 5"
     e2e_check $f "passcode stored" has_pin
-    e2e_tap_name "Get Started" 2
+    e2e_tap_name Continue
+    e2e_shot oobe-size
+    e2e_check $f "Continue keeps the wallpaper" e2e_showing "Step 4 of 5"
+    e2e_tap_name Continue
+    e2e_shot oobe-hub
+    e2e_check $f "Continue keeps the size" e2e_showing "Step 5 of 5"
+    hub_peek
+    e2e_shot oobe-hub-peeked
+    # The practice moves on 1.5 s after the peek; if the swipe missed, the
+    # demo plays after 8 s and then offers Not now.
+    if ! e2e_wait_showing "You're ready" "" 5; then
+        e2e_wait_showing "Not now" "" 20 && e2e_tap_name "Not now"
+    fi
+    e2e_shot oobe-ready
+    e2e_check $f "the Hub practice moves on" e2e_showing "Go home"
+    pill_up
+    e2e_wait_showing "Open apps" "" 5
     e2e_shot oobe-finished
-    e2e_check $f "Get Started lands on the home screen" home_showing
+    e2e_check $f "the flick up on the bar lands on the home screen" home_showing
 }
 
 flow_pin6() {

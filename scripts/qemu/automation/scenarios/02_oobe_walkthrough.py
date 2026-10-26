@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""OOBE walkthrough — drive through onboarding, screenshot every page.
+"""OOBE walkthrough — drive first-run setup to the home screen.
 
-Tests the user-reported chain:
-  - Qt.rgba(20, 184, 166, X) clipping → selected scale option is
-    actually visible (build 20's fix)
-  - PIN setup hit areas + press feedback
-  - OOBE → home transition with selected scale persisting
-  - back-swipe from OOBE pages pops in-stack (not "background app")
+Setup is six beats over the wallpaper, driven by the real nav bar:
+Hello (swipe up on the bar to begin), Get online ("Not now"), Keep it
+private (passcode twice), Make it yours and Easy to read ("Continue"),
+Your Hub (the left-edge peek, or "Not now" after the demo), then Off you
+go (flick the bar up). Each step takes a screenshot named NN-step.png.
 
-Each step takes a screenshot named NN-step-name.png. Goldens are not
-compared here any more: the previous ones were auto-bootstrapped from a
-run where OOBE never advanced, so they encoded the Welcome frame and
-"passed" it forever. What this scenario asserts now is that OOBE
-actually completes -- which is what unblocks scenarios 03/04/05.
+The guest has no accessibility client, so buttons are found by tapping
+upwards from the bar until the frame changes: on every beat that moves on
+by a button, that button is the lowest control. Taps that land on the bar
+itself do nothing between the first and last beats. The passcode goes in
+through the virtio keyboard, which the passcode beat reads. What this
+scenario asserts is that setup completes with the passcode stored, which
+is what unblocks scenarios 03/04/05.
 """
 
 from __future__ import annotations
@@ -26,9 +27,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from qemu_driver import QemuDriver  # noqa: E402
 
 
-# The passcode OOBE sets, and therefore the one the rest of the harness
+# The passcode setup stores, and therefore the one the rest of the harness
 # must use to unlock. Matches the PIN the project's device docs use.
 OOBE_PIN = os.environ.get("MARATHON_DEV_PIN", "027602")
+CONF = "/home/user/.config/marathon-os/Marathon Shell.conf"
+QUICKPIN = "/home/user/.config/marathon/quickpin.conf"
+SETTLE = 1.5
 
 
 def frame_delta(drv: QemuDriver, a: str, b: str) -> float:
@@ -51,90 +55,82 @@ def frame_delta(drv: QemuDriver, a: str, b: str) -> float:
 
 def run(drv: QemuDriver, since: str) -> int:
     fails = 0
+    shots = iter(range(1, 1000))
 
-    # Skip if firstRunComplete is already true — we're not in OOBE.
-    rc, out, _ = drv.ssh(
-        "grep -E '^firstRunComplete=' '/home/user/.config/marathon-os/"
-        "Marathon Shell.conf' 2>/dev/null || echo firstRunComplete=false")
-    if "true" in out.lower():
-        print("  SKIP  firstRunComplete=true — OOBE already done")
-        return 0
-
-    # 01. Welcome screen
-    drv.screenshot("01-welcome")
-
-    # Advance OOBE by tapping the primary button, which this design puts
-    # bottom-RIGHT, not bottom-centre. The old code centre-tapped the
-    # bottom band -- landing ~17 px left of the button's edge -- so OOBE
-    # never advanced past Welcome: all six "step" screenshots were the
-    # same frame, both visual_diffs compared Welcome against a golden
-    # bootstrapped from Welcome, and firstRunComplete stayed false, which
-    # silently skipped scenarios 03/04/05 on every fresh image.
-    NEXT = (int(drv.width * 0.733), int(drv.height * 0.868))
-    SKIP = (int(drv.width * 0.840), int(drv.height * 0.131))
+    def shot(name: str) -> str:
+        label = f"{next(shots):02d}-{name}"
+        drv.screenshot(label)
+        return label
 
     def oobe_done() -> bool:
-        rc, out, _ = drv.ssh(
-            "grep -E '^firstRunComplete=true' '/home/user/.config/"
-            "marathon-os/Marathon Shell.conf' 2>/dev/null && echo yes || echo no")
+        _, out, _ = drv.ssh(
+            f"grep -E '^firstRunComplete=true' '{CONF}' 2>/dev/null && echo yes || echo no")
         return "yes" in out
 
-    # "Create a passcode" keypad, measured on the 720x1440 canvas. This
-    # page has only Back/Next -- no Skip -- and Next does nothing until
-    # six digits are entered, which is where the walkthrough used to
-    # stall for good.
-    PAD = {"1": (208, 570), "2": (360, 570), "3": (511, 570),
-           "4": (208, 721), "5": (360, 721), "6": (511, 721),
-           "7": (208, 873), "8": (360, 873), "9": (511, 873),
-           "0": (360, 1024)}
+    def check(ok: bool, what: str):
+        nonlocal fails
+        print(f"  {'OK  ' if ok else 'FAIL'}  {what}")
+        if not ok:
+            fails += 1
+
+    def flick_bar():
+        drv.swipe(drv.width // 2, drv.height - 30, drv.width // 2, int(drv.height * 0.55),
+                  steps=20, duration_ms=300)
+        time.sleep(SETTLE)
+
+    def tap_lowest(x: int, name: str) -> bool:
+        before = shot(f"{name}-before")
+        y = drv.height - 30
+        while y > drv.height // 2:
+            drv.tap(x, y)
+            time.sleep(SETTLE)
+            if frame_delta(drv, before, shot(name)) >= 0.02:
+                return True
+            y -= int(drv.height * 0.015)
+        return False
 
     def type_pin():
         for ch in OOBE_PIN:
-            drv.tap(*PAD[ch])
-            time.sleep(0.35)
-        time.sleep(0.8)
+            drv.key(ch)
+            time.sleep(0.3)
+        time.sleep(1.0)
 
-    # Walk the pages. The page count is not fixed (seven dots at the time
-    # of writing) and some pages need input before Next does anything, so
-    # drive it adaptively: tap Next, and if the frame did not change,
-    # type the passcode before retrying. That avoids hard-coding which
-    # page index is the passcode page.
-    #
-    # Caveat, measured: under the software renderer a page can take
-    # longer than the 1.5 s settle to repaint, so "frame did not change"
-    # also fires on merely-slow pages and types digits into them
-    # harmlessly. OOBE does complete, but do NOT assume this leaves a
-    # passcode provisioned -- observed runs finish with no
-    # quickpin.conf. That is fine for automation (no lock prompt to
-    # satisfy); it is not a substitute for a real passcode-setup test.
-    for step in range(2, 16):
-        if oobe_done():
-            break
-        prev = f"{step:02d}-before-next"
-        drv.screenshot(prev)
-        drv.tap(*NEXT)
-        time.sleep(1.5)
-        cur = f"{step:02d}-oobe-step"
-        drv.screenshot(cur)
-        if frame_delta(drv, prev, cur) < 0.02:
-            type_pin()                       # passcode / confirm page
-            drv.screenshot(f"{step:02d}-pin-typed")
-            drv.tap(*NEXT)
-            time.sleep(1.5)
-            drv.screenshot(f"{step:02d}-after-pin-next")
+    if oobe_done():
+        print("  SKIP  firstRunComplete=true — OOBE already done")
+        return 0
 
-    # Late pages may still offer Skip (e.g. optional account setup).
+    shot("hello")
+    flick_bar()
+    # Get online scans for up to 6 s behind a busy indicator first.
+    time.sleep(7)
+    check(tap_lowest(int(drv.width * 0.27), "online-not-now"), "Not now leaves Get online")
+
+    shot("passcode")
+    type_pin()
+    shot("passcode-confirm")
+    type_pin()
+    shot("look")
+    rc, _, _ = drv.ssh(f"test -s '{QUICKPIN}'")
+    check(rc == 0, "the passcode twice is stored")
+
+    check(tap_lowest(drv.width // 2, "look-continue"), "Continue leaves Make it yours")
+    check(tap_lowest(drv.width // 2, "size-continue"), "Continue leaves Easy to read")
+
+    # The Hub practice moves on 1.5 s after the peek; a flick on the bar
+    # does nothing until then. If setup has not finished, the swipe missed:
+    # the demo plays after 8 s and then offers Not now, the lowest control.
+    shot("hub")
+    drv.swipe(2, drv.height // 2, int(drv.width * 0.7), drv.height // 2,
+              steps=24, duration_ms=400)
+    time.sleep(4)
+    shot("hub-peeked")
+    flick_bar()
     if not oobe_done():
-        drv.tap(*SKIP)
-        time.sleep(2.5)
-        drv.screenshot("90-after-skip")
-
-    if not oobe_done():
-        print("  FAIL  OOBE did not complete — 03/04/05 will skip")
-        fails += 1
-    else:
-        drv.screenshot("99-oobe-complete")
-        print("  OK    OOBE complete (firstRunComplete=true)")
+        time.sleep(16)
+        tap_lowest(drv.width // 2, "hub-not-now")
+        flick_bar()
+    check(oobe_done(), "the flick up on the bar completes setup (firstRunComplete=true)")
+    shot("home")
 
     print(f"==> OOBE walkthrough finished with {fails} failure(s)")
     return fails
