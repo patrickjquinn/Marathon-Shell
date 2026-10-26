@@ -8,32 +8,36 @@ Item {
     property alias backCounter: backCounter
     property alias homeCounter: homeCounter
     property int hintDuration: 6000
+    property int minVisible: 1500
     property bool homePending: false
-    readonly property bool ready: SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked
+    property var pendingCounter: null
+    readonly property bool appLike: UIStore.appWindowOpen || UIStore.settingsOpen
+    readonly property bool ready: SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked && Display.screenOn
     readonly property string text: backLabel.visible ? backLabel.text : homeLabel.text
     readonly property bool showing: backLabel.visible || homeLabel.visible
 
     function hide() {
         backLabel.visible = false;
         homeLabel.visible = false;
+        pendingCounter = null;
         timeout.stop();
+        seen.stop();
     }
 
     function show(label, counter) {
         if (!counter.active)
             return;
-        counter.exhaust();
+        pendingCounter = counter;
         label.visible = true;
         timeout.restart();
+        seen.restart();
     }
 
-    function appOpenChanged() {
-        if (!ready) {
-            hide();
-            return;
-        }
+    function stateChanged() {
         hide();
-        if (UIStore.appWindowOpen) {
+        if (!ready)
+            return;
+        if (appLike) {
             homePending = true;
             show(backLabel, backCounter);
         } else if (homePending) {
@@ -47,23 +51,29 @@ Item {
     anchors.bottom: parent.bottom
     anchors.bottomMargin: Constants.navBarHeight
     height: childrenRect.height
+    opacity: showing ? 1 : 0
     z: Constants.zIndexNavBarApp - 1
 
-    Connections {
-        function onAppWindowOpenChanged() {
-            root.appOpenChanged();
+    Behavior on opacity {
+        NumberAnimation {
+            duration: MMotion.reduceMotion ? 0 : 200
         }
-
-        target: UIStore
     }
 
-    Connections {
-        function onIsLockedChanged() {
-            if (SessionStore.isLocked)
-                root.hide();
-        }
+    onAppLikeChanged: stateChanged()
+    onReadyChanged: {
+        if (!ready)
+            hide();
+    }
 
-        target: SessionStore
+    Timer {
+        id: seen
+
+        interval: root.minVisible
+        onTriggered: {
+            if (root.ready && root.pendingCounter)
+                root.pendingCounter.exhaust();
+        }
     }
 
     Silica.FirstTimeUseCounter {
