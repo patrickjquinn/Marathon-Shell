@@ -7,6 +7,7 @@ ListModel {
     property var dismissed: []
     property bool dismissedAll: false
     property var triggered: []
+    property var replies: []
     signal notificationDismissed(int id)
     function markAsRead(id) { read = read.concat([id]); }
     function sources() {
@@ -28,6 +29,7 @@ ListModel {
     }
     function clickNotification(id) { clicked = clicked.concat([id]); }
     function triggerAction(id, key) { triggered = triggered.concat([id + ":" + key]); }
+    function reply(id, text) { replies = replies.concat([id + ":" + text]); }
     function dismissNotification(id) { dismissed = dismissed.concat([id]); }
     function dismissAllNotifications() { dismissedAll = true; }
 }

@@ -37,6 +37,7 @@ TestCase {
         NotificationService.dismissed = [];
         NotificationService.dismissedAll = false;
         NotificationService.triggered = [];
+        NotificationService.replies = [];
         AppModel.names = {};
         NavigationRouter.deepLinks = [];
         closedSpy.clear();
@@ -299,6 +300,7 @@ TestCase {
         mouseClick(send);
         compare(replied.count, 1);
         compare(replied.signalArguments[0][0], "On my way");
+        compare(NotificationService.replies, ["12:On my way"]);
         verify(!field.visible);
         compare(NotificationService.triggered, []);
         compare(NotificationService.clicked, []);
