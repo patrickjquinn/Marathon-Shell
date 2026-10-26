@@ -117,19 +117,25 @@ def run(drv: QemuDriver, since: str) -> int:
     check(tap_lowest(drv.width // 2, "size-continue"), "Continue leaves Easy to read")
 
     # The Hub practice moves on 1.5 s after the peek; a flick on the bar
-    # does nothing until then. If setup has not finished, the swipe missed:
-    # the demo plays after 8 s and then offers Not now, the lowest control.
+    # does nothing until then. If setup has not finished, either the edge
+    # swipe missed (the demo plays after 8 s, then Not now is the lowest
+    # control) or the flick did. Only a flick counts as finishing: if the
+    # fallback's taps end setup themselves, they hit the bar or the finish
+    # beat's own Not now, so the flick had failed.
     shot("hub")
     drv.swipe(2, drv.height // 2, int(drv.width * 0.7), drv.height // 2,
               steps=24, duration_ms=400)
     time.sleep(4)
     shot("hub-peeked")
     flick_bar()
-    if not oobe_done():
+    flicked = oobe_done()
+    if not flicked:
         time.sleep(16)
         tap_lowest(drv.width // 2, "hub-not-now")
-        flick_bar()
-    check(oobe_done(), "the flick up on the bar completes setup (firstRunComplete=true)")
+        if not oobe_done():
+            flick_bar()
+            flicked = oobe_done()
+    check(flicked, "the flick up on the bar completes setup (firstRunComplete=true)")
     shot("home")
 
     print(f"==> OOBE walkthrough finished with {fails} failure(s)")
