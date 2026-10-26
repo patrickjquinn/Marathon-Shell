@@ -11,12 +11,14 @@ Item {
     property real peekThreshold: 0.4
     property bool isPeeking: false
     property bool isFullyOpen: false
+    // As BB10's peek, a pull first rests on the apps with notifications.
+    property bool iconsShown: false
+    readonly property real iconsStop: Math.max(0.2 * peekDrag.to, Silica.Theme.iconSizeMedium + 2 * Silica.Theme.paddingLarge)
     // Where a running settle was caught when the finger came down.
     property real gestureBase: 0
 
     signal closed
     signal fullyOpened
-    signal notificationTapped(var notification)
 
     function startPeekGesture(x) {
         isPeeking = true;
@@ -36,24 +38,43 @@ Item {
             return;
 
         isPeeking = false;
-        var shouldOpen = peekDrag.release();
-        if (shouldOpen)
+        peekDrag.release();
+        settleAtStop();
+    }
+
+    // A fling goes all the way; otherwise the nearest of shut, the icons
+    // and the Hub, with the Hub from peekThreshold.
+    function settleAtStop() {
+        const v = peekDrag.velocity, x = peekDrag.value;
+        if (v >= peekDrag.flingVelocity || (v > -peekDrag.flingVelocity && x >= peekThreshold * peekDrag.to))
             openPeek();
+        else if (v > -peekDrag.flingVelocity && x >= iconsStop / 2)
+            showIcons();
         else
-            peekComponent.closePeek();
-        Logger.info("Peek", "Gesture ended - " + (shouldOpen ? "opening" : "closing") + " (velocity: " + peekDrag.velocity.toFixed(0) + "px/s, progress: " + (peekProgress * 100).toFixed(0) + "%)");
+            closePeek();
+    }
+
+    function showIcons() {
+        if (!iconsShown)
+            HapticManager.tick();
+        peekDrag.settleTo(iconsStop);
+        iconsShown = true;
+        isFullyOpen = false;
     }
 
     function openPeek() {
         if (!isFullyOpen)
             HapticManager.tick();
         peekDrag.settleTo(peekDrag.to);
+        iconsShown = false;
         isFullyOpen = true;
         fullyOpened();
     }
 
     function closePeek() {
         peekDrag.settleTo(0);
+        hubPanel.filterApp = "";
+        iconsShown = false;
         isFullyOpen = false;
         closed();
     }
@@ -113,108 +134,133 @@ Item {
             Logger.info("Peek", "hubPanelContainer initialized, width: " + width);
         }
 
-        Item {
-            id: notificationPreview
-
+        Rectangle {
             anchors.fill: parent
+            color: MColors.elev1
             visible: peekComponent.peekProgress < 0.35
-            opacity: peekComponent.peekProgress < 0.3 ? 1 : Math.max(0, (0.35 - peekComponent.peekProgress) / 0.05)
+            opacity: Math.max(0, Math.min(1, (0.35 - peekComponent.peekProgress) / 0.05))
+        }
+
+        // The apps with notifications, newest first, on the edge the pull
+        // reveals; a tap opens the Hub on that app.
+        Item {
+            id: iconStrip
+
+            objectName: "peekIcons"
+            anchors.right: parent.right
+            width: peekComponent.iconsStop
+            height: parent.height
+            visible: peekComponent.peekProgress < 0.35
+            opacity: Math.max(0, Math.min(1, (0.35 - peekComponent.peekProgress) / 0.05))
             z: 10
-            Component.onCompleted: {
-                Logger.info("Peek", "NotificationPreview initialized, count: " + NotificationService.count);
-            }
 
-            Rectangle {
-                anchors.fill: parent
-                color: Silica.Theme.rgba("black", 0.85)
+            Column {
+                anchors.centerIn: parent
+                spacing: Silica.Theme.paddingLarge
 
-                Column {
-                    anchors.left: parent.left
-                    anchors.leftMargin: Silica.Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: Silica.Theme.paddingMedium
+                Repeater {
+                    objectName: "peekSources"
+                    model: hubPanel.sources.slice(0, Math.max(1, Math.floor((iconStrip.height - 2 * Constants.navBarHeight) / (Silica.Theme.iconSizeMedium + Silica.Theme.paddingLarge))))
 
-                    Repeater {
-                        model: NotificationService
-                        onCountChanged: {
-                            Logger.info("Peek", "Repeater count changed: " + count + ", NotificationService.count: " + NotificationService.count);
+                    delegate: Item {
+                        id: source
+
+                        required property var modelData
+                        readonly property string icon: AppModel.count === 0 ? "" : (AppModel.findById(modelData.app).icon || "")
+
+                        objectName: "peekIcon"
+                        width: Silica.Theme.iconSizeMedium
+                        height: width
+                        opacity: sourceArea.pressed ? Silica.Theme.opacityHigh : 1
+
+                        MAppIcon {
+                            visible: source.icon !== ""
+                            source: source.icon
+                            size: parent.width
+                            anchors.centerIn: parent
                         }
-                        Component.onCompleted: {
-                            Logger.info("Peek", "Repeater initialized with count: " + count + ", NotificationService.count: " + NotificationService.count);
+
+                        Rectangle {
+                            visible: source.icon === ""
+                            anchors.fill: parent
+                            radius: width / 2
+                            color: MColors.elev4
+
+                            GlyphIcon {
+                                name: "bell"
+                                size: Silica.Theme.iconSizeSmall
+                                color: Silica.Theme.primaryColor
+                                anchors.centerIn: parent
+                            }
                         }
 
-                        delegate: Item {
-                            id: notifDelegate
+                        Rectangle {
+                            objectName: "peekBadge"
+                            visible: source.modelData.unread > 0
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.topMargin: -4
+                            anchors.rightMargin: -4
+                            height: badgeLabel.font.pixelSize + 8
+                            width: Math.max(height, badgeLabel.implicitWidth + 10)
+                            radius: height / 2
+                            color: MColors.marathonTealBright
+                            border.width: 2
+                            border.color: MColors.elev0
 
-                            required property int index
-                            required property var model
+                            Text {
+                                id: badgeLabel
 
-                            width: Silica.Theme.iconSizeMedium
-                            height: width
-                            visible: index < 5
-                            Component.onCompleted: {
-                                Logger.info("Peek", "Notification item created, index: " + index + ", icon: " + (model.icon || "bell") + ", title: " + (model.title || "none"));
+                                text: source.modelData.unread > 9 ? "9+" : source.modelData.unread.toString()
+                                color: MColors.textOnAccent
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeEyebrow
+                                font.weight: MTypography.weightDemiBold
+                                font.features: ({
+                                        "tnum": 1
+                                    })
+                                anchors.centerIn: parent
                             }
+                        }
 
-                            Rectangle {
-                                id: notifIcon
+                        MouseArea {
+                            id: sourceArea
 
-                                anchors.fill: parent
-                                radius: width / 2
-                                color: notifMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
-                                border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-                                border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
-
-                                GlyphIcon {
-                                    name: notifDelegate.model.icon || "bell"
-                                    size: Silica.Theme.iconSizeExtraSmall
-                                    color: notifMouseArea.pressed ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
-                                    anchors.centerIn: parent
-                                }
-
-                                Rectangle {
-                                    visible: !notifDelegate.model.isRead
-                                    anchors.right: parent.right
-                                    anchors.top: parent.top
-                                    width: Silica.Theme.paddingSmall
-                                    height: width
-                                    radius: width / 2
-                                    color: Silica.Theme.highlightColor
-                                }
-                            }
-
-                            MouseArea {
-                                id: notifMouseArea
-
-                                anchors.fill: parent
-                                onClicked: {
-                                    HapticManager.light();
-                                    Logger.info("Peek", "Notification tapped: " + notifDelegate.model.title);
-                                    peekComponent.notificationTapped({
-                                        "id": notifDelegate.model.id,
-                                        "title": notifDelegate.model.title,
-                                        "body": notifDelegate.model.body,
-                                        "icon": notifDelegate.model.icon,
-                                        "appId": notifDelegate.model.appId
-                                    });
-                                }
+                            anchors.fill: parent
+                            onClicked: {
+                                HapticManager.light();
+                                hubPanel.filterApp = source.modelData.app;
+                                peekComponent.openPeek();
                             }
                         }
                     }
+                }
 
-                    Silica.Label {
-                        visible: NotificationService.count === 0
-                        text: "No notifications"
-                        color: Silica.Theme.secondaryColor
-                        font.pixelSize: Silica.Theme.fontSizeMedium
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
+                Silica.Label {
+                    visible: hubPanel.sources.length === 0
+                    width: iconStrip.width - 2 * Silica.Theme.paddingSmall
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.Wrap
+                    text: qsTr("No notifications")
+                    color: Silica.Theme.secondaryColor
+                    font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 }
             }
 
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
+            // Resting on the icons, a drag carries on to the Hub or back shut.
+            DragHandler {
+                target: null
+                enabled: peekComponent.iconsShown
+                yAxis.enabled: false
+                onActiveChanged: {
+                    if (active)
+                        peekComponent.startPeekGesture(centroid.position.x);
+                    else
+                        peekComponent.endPeekGesture();
+                }
+                onTranslationChanged: {
+                    if (active)
+                        peekComponent.updatePeekGesture(activeTranslation.x);
                 }
             }
         }
@@ -222,6 +268,7 @@ Item {
         MarathonHub {
             id: hubPanel
 
+            objectName: "peekHub"
             anchors.fill: parent
             isInPeekMode: true
             visible: peekComponent.peekProgress >= 0.3
@@ -251,13 +298,7 @@ Item {
                         peekComponent.startPeekGesture(centroid.position.x);
                         return;
                     }
-                    peekComponent.isPeeking = false;
-                    // Closing runs the other way along the tracker's range.
-                    peekDrag.release();
-                    if (peekDrag.decide(peekDrag.to - peekDrag.value, -peekDrag.velocity))
-                        peekComponent.closePeek();
-                    else
-                        peekDrag.settleTo(peekDrag.to);
+                    peekComponent.endPeekGesture();
                 }
                 onTranslationChanged: {
                     if (active)

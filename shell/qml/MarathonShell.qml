@@ -1342,10 +1342,6 @@ Item {
                 UIStore.closeQuickSettings();
             }
         }
-        onNotificationTapped: notification => {
-            Logger.info("Shell", "Notification tapped from peek: " + notification.title);
-            notificationToast.showToast(notification);
-        }
     }
 
     MouseArea {
