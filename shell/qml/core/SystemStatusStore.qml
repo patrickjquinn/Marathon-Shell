@@ -24,7 +24,7 @@ QtObject {
 
     property date currentTime: new Date()
     readonly property string timeString: Qt.formatTime(currentTime, SettingsManagerCpp.timeFormat === "24h" ? "HH:mm" : "h:mm AP")
-    readonly property string dateString: Qt.formatDate(currentTime, "dddd, MMMM d")
+    readonly property string dateString: currentTime.toLocaleDateString(Qt.locale(), Locale.LongFormat)
 
     // Fires on each minute's turn, when the shown time changes.
     readonly property Timer clock: Timer {

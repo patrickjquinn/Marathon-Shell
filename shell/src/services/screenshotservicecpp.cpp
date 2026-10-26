@@ -38,12 +38,12 @@ void ScreenshotServiceCpp::takeScreenshot(QObject *windowItem) {
 void ScreenshotServiceCpp::captureScreen(QObject *windowItem) {
     QObject *target = windowItem ? windowItem : m_shellWindow;
     if (!target) {
-        notifyFailure("No window available");
+        notifyFailure(tr("No window available"));
         return;
     }
 
     if (secureContentShown()) {
-        notifyFailure("The app on screen doesn't allow screenshots");
+        notifyFailure(tr("The app on screen doesn't allow screenshots"));
         return;
     }
 
@@ -52,11 +52,11 @@ void ScreenshotServiceCpp::captureScreen(QObject *windowItem) {
     if (auto *window = qobject_cast<QQuickWindow *>(target)) {
         const QImage image = window->grabWindow();
         if (image.isNull()) {
-            notifyFailure("Failed to capture image");
+            notifyFailure(tr("Failed to capture image"));
             return;
         }
         if (!image.save(fullPath)) {
-            notifyFailure("Failed to save file");
+            notifyFailure(tr("Failed to save file"));
             return;
         }
         handleSavedScreenshot(fullPath);
@@ -65,20 +65,20 @@ void ScreenshotServiceCpp::captureScreen(QObject *windowItem) {
 
     auto *item = qobject_cast<QQuickItem *>(target);
     if (!item) {
-        notifyFailure("grabToImage not supported");
+        notifyFailure(tr("grabToImage not supported"));
         return;
     }
 
     QSharedPointer<QQuickItemGrabResult> grabResult = item->grabToImage();
     if (!grabResult) {
-        notifyFailure("Failed to capture image");
+        notifyFailure(tr("Failed to capture image"));
         return;
     }
 
     QObject::connect(grabResult.data(), &QQuickItemGrabResult::ready, this,
                      [this, grabResult, fullPath]() {
                          if (!grabResult->saveToFile(fullPath)) {
-                             notifyFailure("Failed to save file");
+                             notifyFailure(tr("Failed to save file"));
                              return;
                          }
                          handleSavedScreenshot(fullPath);
@@ -131,7 +131,7 @@ void ScreenshotServiceCpp::handleSavedScreenshot(const QString &filePath) {
         options["icon"]     = "camera";
         options["category"] = "system";
         options["priority"] = "low";
-        m_notificationService->sendNotification("system", "Screenshot captured",
+        m_notificationService->sendNotification("system", tr("Screenshot captured"),
                                                 QFileInfo(filePath).fileName(), options);
     }
 }

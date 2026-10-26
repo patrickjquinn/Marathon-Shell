@@ -931,7 +931,7 @@ Item {
             const threshold = BatteryWarning.check(warning, level, SystemStatusStore.isPluggedIn);
             if (threshold === 0)
                 return;
-            NotificationService.sendNotification("system", "Battery at " + level + "%", SystemControlStore.isLowPowerMode ? "Plug in your phone soon." : "Turn on Battery Saver in Quick Settings to make it last longer, or plug in.", {
+            NotificationService.sendNotification("system", qsTr("Battery at %1%").arg(level), SystemControlStore.isLowPowerMode ? qsTr("Plug in your phone soon.") : qsTr("Turn on Battery Saver in Quick Settings to make it last longer, or plug in."), {
                 "category": "system",
                 "priority": threshold <= 10 ? "high" : "normal",
                 "icon": "battery-low"
@@ -1906,12 +1906,12 @@ Item {
             Logger.info("LockScreen", "Camera quick action tapped");
             if (SessionStore.checkSession()) {
                 SessionStore.unlock();
-                UIStore.openApp("camera", "Camera", "");
+                UIStore.openApp("camera", qsTr("Camera"), "");
             } else {
                 Logger.info("LockScreen", "Session locked - requesting PIN for Camera");
                 shell.pendingLaunch = {
                     "appId": "camera",
-                    "appName": "Camera"
+                    "appName": qsTr("Camera")
                 };
                 shell.showPinScreen = true;
                 pinScreen.show();
@@ -1922,12 +1922,12 @@ Item {
             Logger.info("LockScreen", "Phone quick action tapped");
             if (SessionStore.checkSession()) {
                 SessionStore.unlock();
-                UIStore.openApp("phone", "Phone", "");
+                UIStore.openApp("phone", qsTr("Phone"), "");
             } else {
                 Logger.info("LockScreen", "Session locked - requesting PIN for Phone");
                 shell.pendingLaunch = {
                     "appId": "phone",
-                    "appName": "Phone"
+                    "appName": qsTr("Phone")
                 };
                 shell.showPinScreen = true;
                 pinScreen.show();
@@ -2227,9 +2227,9 @@ Item {
 
         function onEthernetConnectedChanged() {
             if (Network.ethernetConnected)
-                connectionToast.show("Connected to Ethernet", "plug-zap");
+                connectionToast.show(qsTr("Connected to Ethernet"), "plug-zap");
             else if (!Network.ethernetConnected && !Network.wifiConnected)
-                connectionToast.show("No network connection", "wifi-slash");
+                connectionToast.show(qsTr("No network connection"), "wifi-slash");
         }
 
         target: Network
@@ -2242,7 +2242,7 @@ Item {
         }
 
         function onHotspotFailed(message) {
-            errorToast.show("Hotspot didn't start", message, "broadcast");
+            errorToast.show(qsTr("Hotspot didn't start"), message, "broadcast");
         }
 
         target: SystemControlStore
@@ -2783,11 +2783,11 @@ Item {
         function onCallEnded(number, kind) {
             if (kind !== "missed")
                 return;
-            NotificationService.sendNotification("phone", "Missed Call", "From: " + nameOf(number), {
+            NotificationService.sendNotification("phone", qsTr("Missed Call"), qsTr("From: %1").arg(nameOf(number)), {
                 "icon": "phone-missed",
                 "category": "call",
                 "priority": "high",
-                "actions": [{ "id": "call_back", "label": "Call Back" }, { "id": "message", "label": "Message" }]
+                "actions": [{ "id": "call_back", "label": qsTr("Call Back") }, { "id": "message", "label": qsTr("Message") }]
             });
             HapticManager.heavy();
         }
@@ -2811,7 +2811,7 @@ Item {
                 "icon": "message-circle",
                 "category": "message",
                 "priority": "high",
-                "actions": [{ "id": "inline-reply", "label": "Reply" }, { "id": "mark_read", "label": "Mark Read" }],
+                "actions": [{ "id": "inline-reply", "label": qsTr("Reply") }, { "id": "mark_read", "label": qsTr("Mark Read") }],
                 "replyTarget": sender
             });
             HapticManager.medium();
@@ -2858,7 +2858,7 @@ Item {
             id: fpsLabel
 
             anchors.centerIn: parent
-            text: (typeof fpsMonitor !== "undefined" ? fpsMonitor.fps.toFixed(0) : "0") + " fps"
+            text: (typeof fpsMonitor !== "undefined" ? fpsMonitor.fps.toFixed(0) : "0") + " fps"  // i18n: not user-facing
             font.pixelSize: 15
             font.family: "monospace"
             color: {

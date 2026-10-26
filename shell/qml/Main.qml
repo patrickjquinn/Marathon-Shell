@@ -14,7 +14,7 @@ Window {
     width: 390
     height: 844
     visible: true
-    title: "Marathon OS - Bandit"
+    title: "Marathon OS - Bandit"  // i18n: not user-facing
     color: "#000000"
 
     MarathonShell {

@@ -40,7 +40,7 @@ MApp {
     signal surfaceSwitched
 
     appId: nativeAppId
-    appName: nativeTitle || "Native App"
+    appName: nativeTitle || qsTr("Native App")
     appIcon: nativeAppIcon || "layout-grid"
     onBackPressed: {
         return false;

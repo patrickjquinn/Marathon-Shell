@@ -165,7 +165,7 @@ Item {
                     }
 
                     Text {
-                        text: "Search emojis..."
+                        text: qsTr("Search emojis...")
                         color: "#888888"
                         visible: parent.text.length === 0
                         anchors.fill: parent
