@@ -38,17 +38,27 @@ TestCase {
     }
 
     SignalSpy {
+        id: chosen
+
+        target: look
+        signalName: "wallpaperChosen"
+    }
+
+    SignalSpy {
         id: sizeDone
 
         target: size
         signalName: "done"
     }
 
+    readonly property string old: AmbienceService.wallpapers[1].path.toString()
+
     function init() {
         SettingsManagerCpp.reduceMotion = false;
         SettingsManagerCpp.userScaleFactor = 1;
         SettingsManagerCpp.wallpaperPath = "";
         size.visible = false;
+        wait(50);
     }
 
     function test_thumbnailsListTheBuiltInWallpapers() {
@@ -63,6 +73,7 @@ TestCase {
         const w = AmbienceService.wallpapers[0];
         const thumb = findChild(look, "wallpaper-" + w.name);
         const preview = findChild(look, "lookPreview");
+        SettingsManagerCpp.wallpaperPath = old;
         mouseClick(thumb);
         compare(SettingsManagerCpp.wallpaperPath.toString(), w.path.toString());
         const c = thumb.mapToItem(preview, thumb.width / 2, thumb.height / 2);
@@ -71,9 +82,26 @@ TestCase {
         compare(reveal.centerY, c.y);
         compare(reveal.duration, 450);
         tryVerify(() => reveal.revealing);
+        compare(reveal.current.toString(), old);
+        compare(reveal.target.toString(), w.path.toString());
         tryVerify(() => !reveal.revealing, 3000);
         compare(reveal.current.toString(), w.path.toString());
         tryVerify(() => findChild(thumb, "ring").border.width > 0);
+    }
+
+    function test_tapEmitsWallpaperChosenOnce() {
+        SettingsManagerCpp.wallpaperPath = old;
+        chosen.clear();
+        const w = AmbienceService.wallpapers[1];
+        const thumb = findChild(look, "wallpaper-" + w.name);
+        mouseClick(thumb);
+        compare(chosen.count, 1);
+        const args = chosen.signalArguments[0];
+        compare(args[0].toString(), old);
+        compare(args[1].toString(), w.path.toString());
+        const c = thumb.mapToItem(null, thumb.width / 2, thumb.height / 2);
+        compare(args[2].x, c.x);
+        compare(args[2].y, c.y);
     }
 
     function test_reduceMotionCrossFades() {
@@ -106,9 +134,11 @@ TestCase {
         compare(slider.valueText, "150%");
         const grid = findChild(size, "sizePreview").grid;
         const before = grid.columns;
+        const ratio = Silica.Theme.pixelRatio;
         Ambience.applyForwarded("/desktop/sailfish/silica/theme_pixel_ratio=" + 1.5 * Silica.Theme.pixelRatio);
         verify(grid.columns < before);
         compare(grid.columns, LauncherGrid.columns(540, Silica.Theme.pixelRatio, 0));
+        Ambience.applyForwarded("/desktop/sailfish/silica/theme_pixel_ratio=" + ratio);
         mouseClick(findChild(size, "sizeContinue"));
         compare(sizeDone.count, 1);
     }

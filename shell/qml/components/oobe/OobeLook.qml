@@ -11,6 +11,7 @@ Item {
     id: root
 
     signal done
+    signal wallpaperChosen(url previous, url chosen, point scenePos)
 
     Column {
         anchors.fill: parent
@@ -61,9 +62,11 @@ Item {
                 readonly property bool selected: SettingsManagerCpp.wallpaperPath.toString() === modelData.path.toString()
 
                 function choose() {
+                    const previous = SettingsManagerCpp.wallpaperPath;
                     SettingsManagerCpp.wallpaperPath = modelData.path;
                     const p = thumb.mapToItem(preview, width / 2, height / 2);
-                    preview.wallpaper.reveal(modelData.path, p.x, p.y);
+                    preview.wallpaper.reveal(previous, modelData.path, p.x, p.y);
+                    root.wallpaperChosen(previous, modelData.path, thumb.mapToItem(null, width / 2, height / 2));
                 }
 
                 objectName: "wallpaper-" + modelData.name

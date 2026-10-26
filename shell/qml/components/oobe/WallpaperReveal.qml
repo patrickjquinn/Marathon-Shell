@@ -19,12 +19,11 @@ Item {
     readonly property int duration: SettingsManagerCpp.reduceMotion ? 200 : 450
     readonly property real maxRadius: Math.hypot(Math.max(centerX, width - centerX), Math.max(centerY, height - centerY))
 
-    function reveal(url, x, y) {
+    function reveal(previous, chosen, x, y) {
         anim.stop();
-        if (revealing)
-            finish();
-        current = current;
-        target = url;
+        // Assigning drops the binding to the setting, which has already moved on.
+        current = previous;
+        target = chosen;
         centerX = x;
         centerY = y;
         progress = 0;
