@@ -383,7 +383,7 @@ TestCase {
         const demo = demoOn("oobeFinish");
         verify(!demo.running);
         tryVerify(() => demo.running, 10000);
-        verify(!findChild(child("oobeFinish"), "practiceNotNow").visible);
+        verify(!child("finishGoHome").visible);
     }
 
     function test_finishTwoShortReleasesStartTheDemo() {
@@ -397,12 +397,13 @@ TestCase {
         compare(completeSpy.count, 0);
     }
 
-    function test_finishNotNowAfterTheDemoCompletes() {
+    function test_finishGoHomeAfterTheDemoCompletes() {
         oobe.beat = 6;
         tryVerify(() => demoOn("oobeFinish").running, 10000);
-        const notNow = findChild(child("oobeFinish"), "practiceNotNow");
-        tryVerify(() => notNow.visible, 15000);
-        mouseClick(notNow);
+        const goHome = child("finishGoHome");
+        tryVerify(() => goHome.visible, 15000);
+        verify(!findChild(child("oobeFinish"), "practiceNotNow").visible);
+        mouseClick(goHome);
         compare(completeSpy.count, 1);
         tryVerify(() => SettingsManagerCpp.firstRunComplete);
     }

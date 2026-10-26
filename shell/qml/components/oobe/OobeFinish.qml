@@ -58,7 +58,19 @@ Item {
         failedTries: root.failedTries
         interactionMode: Silica.TouchInteraction.Swipe
         direction: Silica.TouchInteraction.Up
+        offersNotNow: false
         hint.startY: coach.height - coach.hint.height / 2
-        onNotNow: root.done()
+    }
+
+    // Going home is not optional: after the demo, a button in place of Not now.
+    Silica.Button {
+        objectName: "finishGoHome"
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Silica.Theme.paddingLarge
+        visible: coach.showNotNow
+        //: Finishes setup; shown after the flick-up demo on the last setup screen
+        text: qsTr("Go home")
+        onClicked: root.done()
     }
 }
