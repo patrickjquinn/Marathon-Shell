@@ -10,8 +10,8 @@ use std::time::Duration;
 use async_io::Timer;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{
-    AspectRatioMode, QColor, QImage, QMap, QMapPair_QString_QVariant, QString, QUrl, QVariant,
-    TransformationMode,
+    AspectRatioMode, QColor, QImage, QList, QMap, QMapPair_QString_QVariant, QString, QUrl,
+    QVariant, TransformationMode,
 };
 use zbus::zvariant::OwnedValue;
 
@@ -29,6 +29,8 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
         include!("cxx-qt-lib/qmap.h");
         type QMap_QString_QVariant = cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant>;
+        include!("cxx-qt-lib/qlist.h");
+        type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
     }
 
     extern "RustQt" {
@@ -38,6 +40,7 @@ pub mod qobject {
         #[qproperty(QString, wallpaper_url, cxx_name = "wallpaperUrl", READ, NOTIFY = seed_changed)]
         #[qproperty(QMap_QString_QVariant, ambience, READ, NOTIFY)]
         #[qproperty(f64, pixel_ratio, cxx_name = "pixelRatio", READ, NOTIFY)]
+        #[qproperty(QList_QVariant, wallpapers, READ, CONSTANT)]
         type Ambience = super::AmbienceRust;
 
         #[qsignal]
@@ -70,6 +73,7 @@ pub struct AmbienceRust {
     wallpaper_url: QString,
     ambience: Map,
     pixel_ratio: f64,
+    wallpapers: QList<QVariant>,
     pending: Map,
     published: u64,
     wallpaper: u64,
@@ -244,6 +248,7 @@ fn highlight(seed: &Seed) -> QColor {
 
 impl cxx_qt::Initialize for Ambience {
     fn initialize(mut self: Pin<&mut Self>) {
+        self.as_mut().rust_mut().wallpapers = qvariant::qlist(&wallpapers());
         self.as_mut()
             .on_ambience_changed(|obj| {
                 ipc::signal("Ambience", "AmbienceChanged", (state(&obj.ambience),));
