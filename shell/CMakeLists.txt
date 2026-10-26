@@ -149,6 +149,11 @@ set(QML_FILES
     qml/components/oobe/OobeLook.qml
     qml/components/oobe/OobeSize.qml
     qml/components/oobe/WallpaperReveal.qml
+    qml/components/oobe/OobeProgress.qml
+    qml/components/oobe/OobeHello.qml
+    qml/components/oobe/OobeSheet.qml
+    qml/components/oobe/OobeAccessibilitySheet.qml
+    qml/components/oobe/OobeLanguageSheet.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/ErrorToast.qml
     qml/components/IncomingCallOverlay.qml

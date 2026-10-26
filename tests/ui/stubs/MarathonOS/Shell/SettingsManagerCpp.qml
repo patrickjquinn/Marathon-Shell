@@ -5,6 +5,15 @@ QtObject {
     property string wallpaperPath: ""
     property real userScaleFactor: 1
     property bool reduceMotion: false
+    property bool firstRunComplete: false
+    property string language: ""
+    readonly property var availableLanguages: [
+        { code: "en", nativeName: "English", englishName: "English", status: "complete" },
+        { code: "de", nativeName: "Deutsch", englishName: "German", status: "preview" },
+        { code: "fr", nativeName: "Français", englishName: "French", status: "preview" },
+        { code: "es", nativeName: "Español", englishName: "Spanish", status: "preview" },
+        { code: "ga", nativeName: "Gaeilge", englishName: "Irish", status: "preview" }
+    ]
     property int screenTimeout: 0
     property string timeZone: "Europe/Dublin"
     property bool automaticTimeZone: true
