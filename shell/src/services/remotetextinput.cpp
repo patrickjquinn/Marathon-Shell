@@ -77,7 +77,7 @@ Qt::InputMethodHints RemoteTextInputFilter::qtHints(uint purpose, uint hints) {
         out |= Qt::ImhNoAutoUppercase;
     if (hints & Lowercase)
         out |= Qt::ImhPreferLowercase;
-    if (hints & (Uppercase | Titlecase))
+    if (hints & uint(Uppercase | Titlecase))
         out |= Qt::ImhPreferUppercase;
     if (hints & HiddenText)
         out |= Qt::ImhHiddenText;
@@ -162,7 +162,7 @@ bool RemoteTextInputFilter::eventFilter(QObject *watched, QEvent *event) {
             if (!targets(watched))
                 break;
             auto *query = static_cast<QInputMethodQueryEvent *>(event);
-            for (uint bit = 1; bit && bit <= Qt::ImReadOnly; bit <<= 1) {
+            for (uint bit = 1; bit && bit <= Qt::ImReadOnly; bit <<= 1U) {
                 const auto q = Qt::InputMethodQuery(bit);
                 if (query->queries() & q)
                     query->setValue(q, this->query(q));

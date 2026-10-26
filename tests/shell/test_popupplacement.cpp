@@ -1,6 +1,6 @@
 #include "popupplacement.h"
 
-#include <QtTest>
+#include <QTest>
 
 class PopupPlacementTest : public QObject {
     Q_OBJECT

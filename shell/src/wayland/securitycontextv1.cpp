@@ -208,7 +208,7 @@ int SecurityContextManagerV1::acceptClient(int fd, uint32_t, void *data) {
 
 int SecurityContextManagerV1::closeFdEvent(int, uint32_t mask, void *data) {
     auto *listener = static_cast<Listener *>(data);
-    if (mask & (WL_EVENT_HANGUP | WL_EVENT_ERROR))
+    if (mask & (uint32_t(WL_EVENT_HANGUP) | uint32_t(WL_EVENT_ERROR)))
         listener->self->destroyListener(listener);
     return 0;
 }

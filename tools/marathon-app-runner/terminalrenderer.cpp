@@ -157,16 +157,16 @@ void TerminalRenderer::paint(QPainter *painter) {
         while (x < cols) {
             const uint32_t startFg    = m_terminal->cellFg(x, y);
             const uint32_t startBg    = m_terminal->cellBg(x, y);
-            const int      startFlags = m_terminal->cellFlags(x, y);
-            const bool     bold       = (startFlags & 1) != 0;
-            const bool     inverse    = (startFlags & 2) != 0;
+            const uint     startFlags = m_terminal->cellFlags(x, y);
+            const bool     bold       = (startFlags & 1U) != 0;
+            const bool     inverse    = (startFlags & 2U) != 0;
 
             int runEnd = x + 1;
             while (runEnd < cols) {
-                const int nextFlags = m_terminal->cellFlags(runEnd, y);
+                const uint nextFlags = m_terminal->cellFlags(runEnd, y);
                 if (m_terminal->cellFg(runEnd, y) != startFg ||
                     m_terminal->cellBg(runEnd, y) != startBg ||
-                    (nextFlags & 3) != (startFlags & 3)) {
+                    (nextFlags & 3U) != (startFlags & 3U)) {
                     break;
                 }
                 runEnd++;
@@ -186,9 +186,9 @@ void TerminalRenderer::paint(QPainter *painter) {
 
             int selStart = x;
             while (selStart < runEnd) {
-                if ((m_terminal->cellFlags(selStart, y) & 4) != 0) {
+                if ((uint(m_terminal->cellFlags(selStart, y)) & 4U) != 0) {
                     int selEnd = selStart + 1;
-                    while (selEnd < runEnd && (m_terminal->cellFlags(selEnd, y) & 4) != 0)
+                    while (selEnd < runEnd && (uint(m_terminal->cellFlags(selEnd, y)) & 4U) != 0)
                         selEnd++;
                     painter->fillRect(QRectF(selStart * m_charWidth, y * m_charHeight,
                                              (selEnd - selStart) * m_charWidth, m_charHeight),

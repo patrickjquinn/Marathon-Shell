@@ -11,10 +11,10 @@ int main(int argc, char *argv[]) {
         qCritical("usage: sailfish-qml APP");
         return 2;
     }
-    QGuiApplication *app = SailfishApp::application(argc, argv);
-    app->setApplicationName(QString::fromLocal8Bit(argv[1]));
+    SailfishApp::application(argc, argv);
+    QGuiApplication::setApplicationName(QString::fromLocal8Bit(argv[1]));
     QQuickView *view = SailfishApp::createView();
     view->setSource(SailfishApp::pathToMainQml());
     view->show();
-    return app->exec();
+    return QGuiApplication::exec();
 }

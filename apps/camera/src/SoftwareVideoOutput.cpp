@@ -44,7 +44,7 @@ void SoftwareVideoOutput::onVideoFrameChanged(const QVideoFrame &frame) {
 
     {
         QMutexLocker locker(&m_frameMutex);
-        m_currentFrame = image;
+        m_currentFrame = std::move(image);
         m_frameUpdated = true;
     }
 

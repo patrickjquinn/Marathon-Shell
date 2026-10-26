@@ -143,7 +143,7 @@ void CommitTimerV1::handleSetTimestamp(struct wl_client *, struct wl_resource *r
     }
     // wp_presentation clock is CLOCK_MONOTONIC; tv_sec is a 64-bit
     // unsigned packed into two 32-bit halves. Convert to ns.
-    const quint64 secs         = (static_cast<quint64>(tv_sec_hi) << 32) | tv_sec_lo;
+    const quint64 secs         = (static_cast<quint64>(tv_sec_hi) << 32U) | tv_sec_lo;
     self->m_pendingTimestampNs = static_cast<qint64>(secs) * 1'000'000'000LL + tv_nsec;
     self->m_pendingSet         = true;
 }

@@ -195,7 +195,7 @@ void MarathonSurfaceV1::setGestureExclusion(wl_resource *resource, wl_array *rec
         }
         pending << QRect(values[i], values[i + 1], values[i + 2], values[i + 3]);
     }
-    self->m_pendingExclusion = pending;
+    self->m_pendingExclusion = std::move(pending);
     self->m_exclusionPending = true;
 }
 
