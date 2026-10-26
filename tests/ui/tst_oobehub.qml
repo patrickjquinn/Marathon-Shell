@@ -89,6 +89,15 @@ TestCase {
         compare(welcomes(), 1);
     }
 
+    function test_savedFlagReadBackAsStringDoesNotPostAgain() {
+        NotificationService.clear();
+        SettingsManagerCpp.store = ({
+                "onboarding/welcomePosted": "true"
+            });
+        enter();
+        compare(welcomes(), 0);
+    }
+
     function test_dragToTheIconStopCompletes() {
         drag(peek().width * 0.25);
         tryVerify(() => peek().iconsShown);

@@ -25,7 +25,7 @@ Item {
         pullPeak = 0;
         peek.closePeek();
         // A flag rather than a store lookup: it holds across a setup restart.
-        if (SettingsManagerCpp.get("onboarding/welcomePosted", false) !== true) {
+        if (String(SettingsManagerCpp.get("onboarding/welcomePosted", false)) !== "true") {
             SettingsManagerCpp.set("onboarding/welcomePosted", true);
             NotificationService.addNotification("Marathon", qsTr("Welcome to Marathon"), qsTr("Swipe in from the left edge any time to see what's new."), "bell");
         }
