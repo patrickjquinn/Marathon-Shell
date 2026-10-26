@@ -163,34 +163,34 @@ Item {
 
     // Hardware tiles only when the hardware exists: without it they control nothing.
     readonly property var tiles: {
-        var t = [{ id: "wifi",      icon: "wifi-high",        label: "Wi-Fi",     on: SystemControlStore.isWifiOn }];
+        var t = [{ id: "wifi",      icon: "wifi-high",        label: qsTr("Wi-Fi"),     on: SystemControlStore.isWifiOn }];
         if (Modem.modemAvailable)
-            t.push({ id: "cellular",  icon: "cell-signal-high", label: "Mobile",    on: SystemControlStore.isCellularDataOn });
-        t.push({ id: "bluetooth", icon: "bluetooth",        label: "Bluetooth", on: SystemControlStore.isBluetoothOn },
-               { id: "airplane",  icon: "airplane-tilt",    label: "Flight",    on: SystemControlStore.isAirplaneModeOn },
-               { id: "dnd",       icon: "bell-slash",       label: "Silent",    on: SystemControlStore.isDndMode });
+            t.push({ id: "cellular",  icon: "cell-signal-high", label: qsTr("Mobile"),    on: SystemControlStore.isCellularDataOn });
+        t.push({ id: "bluetooth", icon: "bluetooth",        label: qsTr("Bluetooth"), on: SystemControlStore.isBluetoothOn },
+               { id: "airplane",  icon: "airplane-tilt",    label: qsTr("Flight"),    on: SystemControlStore.isAirplaneModeOn },
+               { id: "dnd",       icon: "bell-slash",       label: qsTr("Silent"),    on: SystemControlStore.isDndMode });
         if (FlashlightManagerCpp.available)
-            t.push({ id: "torch",     icon: "flashlight",       label: "Torch",     on: SystemControlStore.isFlashlightOn });
-        t.push({ id: "location",  icon: "map-pin",          label: "Location",  on: SystemControlStore.isLocationOn },
-               { id: "hotspot",   icon: "broadcast",        label: "Hotspot",   on: SystemControlStore.isHotspotOn },
-               { id: "nightlight", icon: "moon",            label: "Night",     on: SystemControlStore.isNightLightOn });
+            t.push({ id: "torch",     icon: "flashlight",       label: qsTr("Torch"),     on: SystemControlStore.isFlashlightOn });
+        t.push({ id: "location",  icon: "map-pin",          label: qsTr("Location"),  on: SystemControlStore.isLocationOn },
+               { id: "hotspot",   icon: "broadcast",        label: qsTr("Hotspot"),   on: SystemControlStore.isHotspotOn },
+               { id: "nightlight", icon: "moon",            label: qsTr("Night"),     on: SystemControlStore.isNightLightOn });
         if (Display.rotationAvailable)
-            t.push({ id: "rotation", icon: "device-rotate", label: "Rotation", on: SystemControlStore.isRotationLocked });
+            t.push({ id: "rotation", icon: "device-rotate", label: qsTr("Rotation"), on: SystemControlStore.isRotationLocked });
         if (Display.lightAvailable)
-            t.push({ id: "autobrightness", icon: "sun",     label: "Auto",    on: SystemControlStore.isAutoBrightnessOn });
-        t.push({ id: "lowpower",       icon: "battery-low", label: "Saver",   on: SystemControlStore.isLowPowerMode });
+            t.push({ id: "autobrightness", icon: "sun",     label: qsTr("Auto"),    on: SystemControlStore.isAutoBrightnessOn });
+        t.push({ id: "lowpower",       icon: "battery-low", label: qsTr("Saver"),   on: SystemControlStore.isLowPowerMode });
         if (HapticManager.available)
-            t.push({ id: "vibration",  icon: "vibrate",     label: "Vibrate", on: SystemControlStore.isVibrationOn });
+            t.push({ id: "vibration",  icon: "vibrate",     label: qsTr("Vibrate"), on: SystemControlStore.isVibrationOn });
         return enabledOnly(t);
     }
     readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0
 
     // ── Shortcuts row: one-shot actions and apps ──────────────
     readonly property var shortcuts: [
-        { id: "screenshot", icon: "camera-plus", label: "Screenshot" },
-        { id: "app:camera", icon: "camera",      label: "Camera" },
-        { id: "app:clock",  icon: "alarm",       label: "Alarm" },
-        { id: "app:notes",  icon: "note-pencil", label: "Note" }
+        { id: "screenshot", icon: "camera-plus", label: qsTr("Screenshot") },
+        { id: "app:camera", icon: "camera",      label: qsTr("Camera") },
+        { id: "app:clock",  icon: "alarm",       label: qsTr("Alarm") },
+        { id: "app:notes",  icon: "note-pencil", label: qsTr("Note") }
     ]
 
     component QSShortcut: Item {
@@ -339,7 +339,8 @@ Item {
                     anchors.right: headerButtons.left
                     anchors.verticalCenter: parent.verticalCenter
                     // As the Hub and lock screen write it; re-read at midnight.
-                    text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), "dddd, d MMMM")
+                    //: Weekday, day and month format for the quick settings date, e.g. Monday, 26 October
+                    text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), qsTr("dddd, d MMMM"))
                     truncationMode: Silica.TruncationMode.Fade
                     color: Silica.Theme.secondaryHighlightColor
                     font.pixelSize: Silica.Theme.fontSizeSmall
@@ -418,7 +419,7 @@ Item {
                     objectName: "brightnessSlider"
                     width: parent.width
                     iconName: "sun"
-                    a11yName: "Brightness"
+                    a11yName: qsTr("Brightness")
                     value: SystemControlStore.brightness
                     onMoved: v => SystemControlStore.setBrightnessFromUser(v)
                 }
@@ -426,7 +427,7 @@ Item {
                     objectName: "volumeSlider"
                     width: parent.width
                     iconName: "speaker-high"
-                    a11yName: "Volume"
+                    a11yName: qsTr("Volume")
                     value: SystemControlStore.volume
                     onMoved: v => SystemControlStore.setVolume(v)
                 }

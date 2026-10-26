@@ -43,17 +43,17 @@ Item {
     function categoryTitle(cat) {
         switch (cat) {
         case "presidential":
-            return "PRESIDENTIAL ALERT";
+            return qsTr("PRESIDENTIAL ALERT");
         case "imminent":
-            return "EMERGENCY ALERT";
+            return qsTr("EMERGENCY ALERT");
         case "amber":
-            return "AMBER ALERT";
+            return qsTr("AMBER ALERT");
         case "ETWS":
-            return "EARTHQUAKE / TSUNAMI";
+            return qsTr("EARTHQUAKE / TSUNAMI");
         case "test":
-            return "TEST ALERT";
+            return qsTr("TEST ALERT");
         default:
-            return "PUBLIC SAFETY ALERT";
+            return qsTr("PUBLIC SAFETY ALERT");
         }
     }
 
@@ -151,7 +151,7 @@ Item {
         Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: overlay.current && !overlay.current.nonDismissable
-            text: "Acknowledge"
+            text: qsTr("Acknowledge")
             onClicked: {
                 if (overlay.current)
                     Modem.acknowledge(overlay.current.path);
@@ -168,7 +168,8 @@ Item {
             Silica.Label {
                 anchors.centerIn: parent
                 width: parent.width
-                text: holdTimer.running ? "Hold to acknowledge — " + Math.ceil((3000 - holdTimer.elapsed) / 1000) + " s" : "Touch and hold for 3 seconds to acknowledge"
+                //: %1 is the seconds left to hold
+                text: holdTimer.running ? qsTr("Hold to acknowledge — %1 s").arg(Math.ceil((3000 - holdTimer.elapsed) / 1000)) : qsTr("Touch and hold for 3 seconds to acknowledge")
                 color: holdTimer.running ? Silica.Theme.highlightColor : Silica.Theme.secondaryColor
                 font.pixelSize: Silica.Theme.fontSizeSmall
                 wrapMode: Text.Wrap

@@ -58,7 +58,7 @@ Item {
             return;
         if (Security.isLockedOut) {
             var secs = Security.lockoutSecondsRemaining;
-            error = "Locked for " + secs + "s";
+            error = qsTr("Locked for %1s").arg(secs);
             HapticManager.heavy();
             return;
         }
@@ -75,12 +75,12 @@ Item {
     function verifyPasswordInput() {
         if (Security.isLockedOut) {
             var secs = Security.lockoutSecondsRemaining;
-            error = "Locked for " + secs + "s";
+            error = qsTr("Locked for %1s").arg(secs);
             HapticManager.heavy();
             return;
         }
         if (password.trim().length === 0) {
-            error = "Password cannot be empty";
+            error = qsTr("Password cannot be empty");
             HapticManager.light();
             return;
         }
@@ -92,17 +92,17 @@ Item {
     function startBiometric() {
         if (Security.isLockedOut) {
             var secs = Security.lockoutSecondsRemaining;
-            error = "Locked for " + secs + "s";
+            error = qsTr("Locked for %1s").arg(secs);
             HapticManager.heavy();
             return;
         }
         if (!Security.fingerprintAvailable) {
-            error = "Fingerprint not enrolled";
+            error = qsTr("Fingerprint not enrolled");
             HapticManager.light();
             return;
         }
         biometricInProgress = true;
-        error = "Place your finger...";
+        error = qsTr("Place your finger...");
         Security.authenticateBiometric(0);
     }
 
@@ -209,7 +209,7 @@ Item {
         function onLockoutStateChanged() {
             if (Security.isLockedOut) {
                 var secs = Security.lockoutSecondsRemaining;
-                pinScreen.error = "Locked for " + secs + "s";
+                pinScreen.error = qsTr("Locked for %1s").arg(secs);
                 Logger.warn("PinScreen", "Account locked for", secs, "seconds");
             } else {
                 pinScreen.error = "";
@@ -296,7 +296,7 @@ Item {
             Text {
                 objectName: "pinTitle"
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: pinScreen.passwordMode ? "Enter password" : "Enter PIN"
+                text: pinScreen.passwordMode ? qsTr("Enter password") : qsTr("Enter PIN")
                 color: Silica.Theme.highlightColor
                 font.family: Silica.Theme.fontFamily
                 font.pixelSize: Silica.Theme.fontSizeLarge
@@ -368,7 +368,8 @@ Item {
                 buttonSize: pinScreen.keyButtonSize
                 variant: "secondary"
                 iconColor: MColors.textSecondary
-                a11yName: "Delete"
+                //: Accessible name of the PIN pad delete key
+                a11yName: qsTr("Delete")
                 visible: pinScreen.pin.length > 0 && !pinScreen.authenticating
                 onClicked: {
                     HapticManager.light();
@@ -549,7 +550,7 @@ Item {
                         buttonSize: pinScreen.keyButtonSize
                         variant: disabled ? "secondary" : "primary"
                         disabled: pinScreen.pin.length < 4 || pinScreen.authenticating || Security.isLockedOut
-                        a11yName: "Unlock"
+                        a11yName: qsTr("Unlock")
                         onClicked: {
                             HapticManager.light();
                             pinScreen.submitPin();
@@ -595,7 +596,7 @@ Item {
                         anchors.left: parent.left
                         anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Enter password"
+                        text: qsTr("Enter password")
                         color: Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeMedium
                         font.family: Silica.Theme.fontFamily
@@ -649,7 +650,7 @@ Item {
 
                 Silica.Button {
                     width: (parent.width - parent.spacing) / 2
-                    text: "Use PIN"
+                    text: qsTr("Use PIN")
                     backgroundColor: "transparent"
                     border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, Silica.Theme.opacityFaint)
                     onClicked: pinScreen.switchToPINMode()
@@ -657,7 +658,7 @@ Item {
 
                 Silica.Button {
                     width: (parent.width - parent.spacing) / 2
-                    text: "Unlock"
+                    text: qsTr("Unlock")
                     enabled: !pinScreen.authenticating
                     onClicked: pinScreen.verifyPasswordInput()
                 }
@@ -680,7 +681,7 @@ Item {
 
         Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Cancel"
+            text: qsTr("Cancel")
             backgroundColor: "transparent"
             color: Silica.Theme.secondaryColor
             onClicked: {
@@ -695,7 +696,7 @@ Item {
         // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
         Silica.Button {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Emergency call"
+            text: qsTr("Emergency call")
             visible: typeof Modem === "undefined" || Modem.modemAvailable
             backgroundColor: "transparent"
             color: Silica.Theme.errorColor

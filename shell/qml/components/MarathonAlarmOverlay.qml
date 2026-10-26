@@ -108,7 +108,7 @@ Item {
         Silica.Label {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: alarmOverlay.currentAlarm ? alarmOverlay.currentAlarm.label : "Alarm"
+            text: alarmOverlay.currentAlarm ? alarmOverlay.currentAlarm.label : qsTr("Alarm")
             color: Silica.Theme.highlightColor
             font.pixelSize: Silica.Theme.fontSizeLarge
             truncationMode: Silica.TruncationMode.Fade

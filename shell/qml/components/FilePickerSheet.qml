@@ -224,7 +224,7 @@ Item {
                     if (picker.confirmReplace)
                         return qsTr("Replace");
                     const label = picker.request && picker.request.acceptLabel ? picker.plainActionLabel(picker.request.acceptLabel) : picker.folderPick ? qsTr("Select") : picker.saving ? qsTr("Save") : qsTr("Open");
-                    return picker.multiple && picker.selection.length > 0 ? label + " (" + picker.selection.length + ")" : label;
+                    return picker.multiple && picker.selection.length > 0 ? qsTr("%1 (%2)").arg(label).arg(picker.selection.length) : label;
                 }
 
                 objectName: "filePickerAccept"

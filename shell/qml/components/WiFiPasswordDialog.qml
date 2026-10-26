@@ -119,7 +119,7 @@ Item {
                     anchors.left: parent.left
                     anchors.leftMargin: Silica.Theme.horizontalPageMargin
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Cancel"
+                    text: qsTr("Cancel")
                     font.pixelSize: Silica.Theme.fontSizeLarge
                     color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
                 }
@@ -147,7 +147,7 @@ Item {
                     anchors.right: parent.right
                     anchors.rightMargin: Silica.Theme.horizontalPageMargin
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Connect"
+                    text: qsTr("Connect")
                     font.pixelSize: Silica.Theme.fontSizeLarge
                     color: Silica.Theme.highlightColor
                     opacity: connectButton.joinable ? 1 : Silica.Theme.opacityLow
@@ -185,11 +185,13 @@ Item {
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
                 text: {
-                    const security = wifiDialog.secured ? wifiDialog.securityType : "Open";
+                    const security = wifiDialog.secured ? wifiDialog.securityType : qsTr("Open");
+                    //: %1 is the security type, e.g. WPA2
                     if (wifiDialog.hiddenMode)
-                        return security + " · Hidden";
+                        return qsTr("%1 · Hidden").arg(security);
                     const s = wifiDialog.signalStrength;
-                    return security + " · " + (s >= 75 ? "Excellent" : s >= 50 ? "Good" : s >= 25 ? "Fair" : "Weak");
+                    //: %1 is the security type, %2 the signal quality
+                    return qsTr("%1 · %2").arg(security).arg(s >= 75 ? qsTr("Excellent") : s >= 50 ? qsTr("Good") : s >= 25 ? qsTr("Fair") : qsTr("Weak"));
                 }
                 color: Silica.Theme.secondaryHighlightColor
                 font.pixelSize: Silica.Theme.fontSizeSmall
@@ -205,8 +207,8 @@ Item {
 
                 width: parent.width
                 visible: wifiDialog.hiddenMode
-                label: "Network name"
-                placeholderText: "Network name"
+                label: qsTr("Network name")
+                placeholderText: qsTr("Network name")
                 inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
                 onTextChanged: if (wifiDialog.hiddenMode)
                     wifiDialog.networkSsid = text
@@ -219,8 +221,8 @@ Item {
                 objectName: "passwordField"
                 width: parent.width
                 visible: wifiDialog.secured
-                label: "Password"
-                placeholderText: "Enter password"
+                label: qsTr("Password")
+                placeholderText: qsTr("Enter password")
                 inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                 enabled: !wifiDialog.isConnecting
                 errorHighlight: wifiDialog.errorMessage !== ""
@@ -253,7 +255,8 @@ Item {
 
                 Silica.Label {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Connecting to " + wifiDialog.networkSsid + "..."
+                    //: %1 is the Wi-Fi network name
+                    text: qsTr("Connecting to %1...").arg(wifiDialog.networkSsid)
                     color: Silica.Theme.highlightColor
                 }
             }
@@ -262,7 +265,7 @@ Item {
                 x: Silica.Theme.horizontalPageMargin
                 width: parent.width - 2 * x
                 visible: !wifiDialog.isConnecting
-                text: wifiDialog.secured ? "Password must be at least 8 characters" : "This network is not secured"
+                text: wifiDialog.secured ? qsTr("Password must be at least 8 characters") : qsTr("This network is not secured")
                 wrapMode: Text.Wrap
                 color: Silica.Theme.secondaryColor
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall

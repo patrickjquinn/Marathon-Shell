@@ -99,13 +99,13 @@ Rectangle {
                 appWindow.isLoadingComponent = false;
                 Logger.error("AppWindow", "Failed to create native app instance: " + id);
                 appWindow.hasError = true;
-                appWindow.loadError = "Something went wrong while starting it.";
+                appWindow.loadError = qsTr("Something went wrong while starting it.");
             }
         } else if (component.status === Component.Error) {
             appWindow.isLoadingComponent = false;
             Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString());
             appWindow.hasError = true;
-            appWindow.loadError = "Something went wrong while starting it.";
+            appWindow.loadError = qsTr("Something went wrong while starting it.");
         }
     }
 
@@ -375,7 +375,7 @@ Rectangle {
             Logger.warn("AppWindow", "Launch timeout for " + appWindow.appId + " — no surface after 20 s");
             appWindow.isLoadingComponent = false;
             appWindow.hasError = true;
-            appWindow.loadError = "It didn't respond in time.";
+            appWindow.loadError = qsTr("It didn't respond in time.");
         }
     }
 
@@ -687,7 +687,7 @@ Rectangle {
             if (status === Loader.Error) {
                 Logger.error("AppWindow", "Failed to load app content for: " + appWindow.appId);
                 appWindow.hasError = true;
-                appWindow.loadError = "Its files couldn't be loaded.";
+                appWindow.loadError = qsTr("Its files couldn't be loaded.");
                 appWindow.isLoadingComponent = false;
             } else if (status === Loader.Ready) {
                 Logger.info("AppWindow", "App content loaded successfully for: " + appWindow.appId);

@@ -16,7 +16,7 @@ Item {
     signal dismissed
 
     function show(title, message, icon) {
-        errorTitle = title || "Error";
+        errorTitle = title || qsTr("Error");
         errorMessage = message;
         errorIcon = icon || "alert-circle";
         hideTimer.stop();
@@ -146,7 +146,7 @@ Item {
                     id: closeButton
 
                     icon.source: "image://theme/icon-m-close"
-                    Accessible.name: "Close"
+                    Accessible.name: qsTr("Close")
                     anchors.verticalCenter: parent.verticalCenter
                     onClicked: {
                         HapticManager.light();

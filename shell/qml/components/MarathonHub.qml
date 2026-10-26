@@ -43,7 +43,8 @@ Rectangle {
             return qsTr("Yesterday");
         if (days < 7)
             return Qt.locale().dayName(date.getDay(), Locale.LongFormat);
-        return Qt.formatDate(date, "d MMMM");
+        //: Day and month format for notification group headings, e.g. 26 October
+        return Qt.formatDate(date, qsTr("d MMMM"));
     }
     readonly property bool overlayOpen: weatherSheet.open
 
@@ -218,7 +219,8 @@ Rectangle {
             Silica.Label {
                 width: parent.width
                 // Re-read when the date string turns over at midnight.
-                text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), "dddd, d MMMM")
+                //: Weekday, day and month format for the date heading, e.g. Monday, 26 October
+                text: Qt.formatDate(SystemStatusStore.dateString ? new Date() : new Date(), qsTr("dddd, d MMMM"))
                 color: Silica.Theme.secondaryHighlightColor
                 font.pixelSize: Silica.Theme.fontSizeSmall
             }
@@ -460,13 +462,17 @@ Rectangle {
         const now = Date.now();
         const diff = now - ts;
         if (diff < 60 * 1000)
-            return "now";
+            //: Age of a notification under a minute
+            return qsTr("now");
         if (diff < 60 * 60 * 1000)
-            return Math.floor(diff / 60 / 1000) + "m";
+            //: Age of a notification in minutes, e.g. 5m
+            return qsTr("%1m").arg(Math.floor(diff / 60 / 1000));
         if (diff < 24 * 60 * 60 * 1000)
-            return Math.floor(diff / 60 / 60 / 1000) + "h";
+            //: Age of a notification in hours, e.g. 3h
+            return qsTr("%1h").arg(Math.floor(diff / 60 / 60 / 1000));
         if (diff < 7 * 24 * 60 * 60 * 1000)
-            return Math.floor(diff / 24 / 60 / 60 / 1000) + "d";
+            //: Age of a notification in days, e.g. 2d
+            return qsTr("%1d").arg(Math.floor(diff / 24 / 60 / 60 / 1000));
         return new Date(ts).toLocaleDateString();
     }
 }

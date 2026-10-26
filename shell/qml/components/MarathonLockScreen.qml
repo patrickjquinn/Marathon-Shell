@@ -61,12 +61,15 @@ Item {
         const now = Date.now();
         const diff = now - ts;
         if (diff < 60 * 1000)
-            return "now";
+            //: Age of a notification under a minute
+            return qsTr("now");
         if (diff < 60 * 60 * 1000)
-            return Math.floor(diff / 60000) + "m";
+            //: Age of a notification in minutes, e.g. 5m
+            return qsTr("%1m").arg(Math.floor(diff / 60000));
         if (diff < 24 * 60 * 60 * 1000)
-            return Math.floor(diff / 3600000) + "h";
-        return Qt.formatTime(new Date(ts), "h:mm AP");
+            //: Age of a notification in hours, e.g. 3h
+            return qsTr("%1h").arg(Math.floor(diff / 3600000));
+        return Qt.formatTime(new Date(ts), Locale.ShortFormat);
     }
 
     // Rebuilds the visible-notifications model from the global
@@ -325,7 +328,7 @@ Item {
             function callerLabel() {
                 const num = Modem.activeNumber || "";
                 if (!num)
-                    return "Unknown";
+                    return qsTr("Unknown");
                 const svc = (typeof ContactsManager !== "undefined" && ContactsManager) ? ContactsManager : null;
                 if (svc && svc.getContactByNumber) {
                     const c = svc.getContactByNumber(num);
@@ -411,7 +414,8 @@ Item {
                         truncationMode: Silica.TruncationMode.Fade
                     }
                     Silica.Label {
-                        text: "Call · " + lockNowBar.fmtElapsed()
+                        //: %1 is the elapsed call time, e.g. 02:15
+                        text: qsTr("Call · %1").arg(lockNowBar.fmtElapsed())
                         color: Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeExtraSmall
                         font.features: ({
@@ -432,7 +436,7 @@ Item {
                     iconSize: Silica.Theme.iconSizeSmall
                     iconColor: Silica.Theme.errorColor
                     variant: "secondary"
-                    a11yName: "End call"
+                    a11yName: qsTr("End call")
                     rotation: 135
                     onClicked: {
                         Modem.hangup();
@@ -493,7 +497,8 @@ Item {
                 color: Silica.Theme.primaryColor
             }
             Silica.Label {
-                text: Qt.formatDate(clockColumn.today, "d MMMM")
+                //: Day and month format for the lock screen date, e.g. 26 October
+                text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
                 color: Silica.Theme.primaryColor
@@ -666,7 +671,8 @@ Item {
 
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - moreIcon.width - parent.spacing
-                        text: lockScreen.moreCount + " more notification" + (lockScreen.moreCount === 1 ? "" : "s")
+                        //: Shown under the lock screen notifications; %n is how many more there are
+                        text: qsTr("%n more notification(s)", "", lockScreen.moreCount)
                         color: Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeSmall
                         truncationMode: Silica.TruncationMode.Fade
@@ -707,7 +713,7 @@ Item {
                 iconName: "phone"
                 iconSize: Silica.Theme.iconSizeSmall
                 variant: "secondary"
-                a11yName: "Phone"
+                a11yName: qsTr("Phone")
                 onClicked: {
                     Logger.info("LockScreen", "Phone quick action tapped");
                     lockScreen.phoneLaunched();
@@ -722,7 +728,7 @@ Item {
                 iconName: "camera"
                 iconSize: Silica.Theme.iconSizeSmall
                 variant: "secondary"
-                a11yName: "Camera"
+                a11yName: qsTr("Camera")
                 onClicked: {
                     Logger.info("LockScreen", "Camera quick action tapped");
                     lockScreen.cameraLaunched();
@@ -766,7 +772,7 @@ Item {
             }
 
             Silica.Label {
-                text: "Swipe up to unlock"
+                text: qsTr("Swipe up to unlock")
                 color: Silica.Theme.secondaryColor
                 font.pixelSize: Silica.Theme.fontSizeExtraSmall
                 anchors.horizontalCenter: parent.horizontalCenter

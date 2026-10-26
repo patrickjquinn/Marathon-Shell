@@ -181,7 +181,7 @@ Item {
                 }
 
                 Accessible.role: Accessible.Button
-                Accessible.name: "Clear search"
+                Accessible.name: qsTr("Clear search")
 
                 MouseArea {
                     anchors.fill: parent
@@ -261,7 +261,7 @@ Item {
                         font.family: Silica.Theme.fontFamily
 
                         Accessible.role: Accessible.Button
-                        Accessible.name: "Clear recent searches"
+                        Accessible.name: qsTr("Clear recent searches")
                         Accessible.onPressAction: UnifiedSearchService.clearRecentSearches()
 
                         MouseArea {
@@ -294,7 +294,8 @@ Item {
                         height: Silica.Theme.itemSizeSmall
 
                         Accessible.role: Accessible.Button
-                        Accessible.name: "Search for " + modelData
+                        //: %1 is a previous search query
+                        Accessible.name: qsTr("Search for %1").arg(modelData)
                         Accessible.onPressAction: searchInput.text = modelData
 
                         Row {

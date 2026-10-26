@@ -26,7 +26,7 @@ Item {
 
     property string appId: PermissionManager && PermissionManager.currentAppId ? PermissionManager.currentAppId : ""
     property var appData: appId ? AppModel.findById(appId) : ({})
-    property string appName: (appData && appData.name) ? appData.name : (appId || "Unknown App")
+    property string appName: (appData && appData.name) ? appData.name : (appId || qsTr("Unknown App"))
     property string appIconSource: (appData && appData.icon) ? appData.icon : ""
     // No publisher field in the manifest yet (see marathon-core/marathonappregistry.cpp).
     // For built-ins ("isProtected") the by-line is the OS itself; otherwise we fall back
@@ -85,8 +85,10 @@ Item {
     function phrase(list) {
         const titles = list.map(p => permissionTitle(p).toLowerCase());
         if (titles.length <= 2)
-            return titles.join(" and ");
-        return titles.slice(0, -1).join(", ") + ", and " + titles[titles.length - 1];
+            //: Joins two permission names, e.g. camera and microphone
+            return titles.length === 2 ? qsTr("%1 and %2").arg(titles[0]).arg(titles[1]) : titles.join("");
+        //: Joins three or more permission names; %1 is the comma-separated start, %2 the last
+        return qsTr("%1, and %2").arg(titles.slice(0, -1).join(", ")).arg(titles[titles.length - 1]);
     }
 
     function descriptionText() {

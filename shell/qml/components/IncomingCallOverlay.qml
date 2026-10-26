@@ -127,7 +127,7 @@ Item {
                 Silica.Label {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
-                    text: callOverlay.callerName || MPhoneNumber.format(callOverlay.callerNumber) || "Unknown caller"
+                    text: callOverlay.callerName || MPhoneNumber.format(callOverlay.callerNumber) || qsTr("Unknown caller")
                     font.family: Silica.Theme.fontFamilyHeading
                     font.pixelSize: Silica.Theme.fontSizeExtraLarge
                     font.weight: Font.Light
@@ -174,7 +174,7 @@ Item {
                     HapticManager.heavy();
                     callOverlay.answeredHere = true;
                     callOverlay.hide();
-                    UIStore.openApp("phone", "Phone", "");
+                    UIStore.openApp("phone", qsTr("Phone"), "");
                     // Last: the call state change can unload this overlay.
                     Modem.answer();
                 }

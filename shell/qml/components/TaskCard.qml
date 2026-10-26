@@ -607,7 +607,7 @@ Item {
                                         }
 
                                         Label {
-                                            text: "Preview unavailable"
+                                            text: qsTr("Preview unavailable")
                                             color: Theme.secondaryColor
                                             font.pixelSize: Theme.fontSizeExtraSmall
                                             anchors.horizontalCenter: parent.horizontalCenter
@@ -729,7 +729,8 @@ Item {
                         color: "transparent"
 
                         Accessible.role: Accessible.Button
-                        Accessible.name: "Close " + taskCard.title
+                        //: %1 is the app name
+                        Accessible.name: qsTr("Close %1").arg(taskCard.title)
 
                         HighlightImage {
                             anchors.centerIn: parent

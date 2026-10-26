@@ -80,7 +80,7 @@ Item {
                 anchors.left: parent.left
                 anchors.leftMargin: Silica.Theme.horizontalPageMargin
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Cancel"
+                text: qsTr("Cancel")
                 font.pixelSize: Silica.Theme.fontSizeLarge
                 color: parent.highlighted ? Silica.Theme.highlightColor : Silica.Theme.primaryColor
             }
@@ -99,7 +99,8 @@ Item {
                 anchors.right: parent.right
                 anchors.rightMargin: Silica.Theme.horizontalPageMargin
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Connect"
+                //: Button that joins the Wi-Fi network
+                text: qsTr("Connect")
                 font.pixelSize: Silica.Theme.fontSizeLarge
                 color: Silica.Theme.highlightColor
                 opacity: connectButton.enabled ? 1 : Silica.Theme.opacityLow
@@ -125,7 +126,8 @@ Item {
             x: Silica.Theme.horizontalPageMargin
             width: parent.width - 2 * x
             horizontalAlignment: Text.AlignHCenter
-            text: agent.targetSsid !== "" ? "Sign in to " + agent.targetSsid : "Sign in to WiFi"
+            //: %1 is the Wi-Fi network name
+            text: agent.targetSsid !== "" ? qsTr("Sign in to %1").arg(agent.targetSsid) : qsTr("Sign in to Wi-Fi")
             color: Silica.Theme.highlightColor
             font.pixelSize: Silica.Theme.fontSizeLarge
             truncationMode: Silica.TruncationMode.Fade
@@ -149,8 +151,8 @@ Item {
             id: passwordField
 
             width: parent.width
-            label: "Password"
-            placeholderText: "Password"
+            label: qsTr("Password")
+            placeholderText: qsTr("Password")
             errorHighlight: agent.statusText !== ""
             Keys.onReturnPressed: agent.submit()
         }
@@ -180,7 +182,7 @@ Item {
         }
         function onConnectionFailed(message) {
             if (agent.active)
-                agent.statusText = message !== "" ? message : "Connection failed";
+                agent.statusText = message !== "" ? message : qsTr("Connection failed");
         }
         target: Network
     }

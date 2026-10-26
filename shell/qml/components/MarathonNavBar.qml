@@ -256,7 +256,7 @@ Rectangle {
         }
 
         Accessible.role: Accessible.Button
-        Accessible.name: "Search"
+        Accessible.name: qsTr("Search")
         Accessible.onPressAction: navBar.toggleSearch()
     }
 
@@ -287,7 +287,7 @@ Rectangle {
         }
 
         Accessible.role: Accessible.Button
-        Accessible.name: "Keyboard"
+        Accessible.name: qsTr("Keyboard")
         Accessible.onPressAction: navBar.toggleKeyboard()
     }
 

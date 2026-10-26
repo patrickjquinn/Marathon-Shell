@@ -95,7 +95,7 @@ Item {
         iconName: "phone"
         app: ({
                 "id": "phone",
-                "name": "Phone",
+                "name": qsTr("Phone"),
                 "icon": "phone"
             })
     }
@@ -211,7 +211,7 @@ Item {
         iconName: "camera"
         app: ({
                 "id": "camera",
-                "name": "Camera",
+                "name": qsTr("Camera"),
                 "icon": "qrc:/images/camera.svg"
             })
     }

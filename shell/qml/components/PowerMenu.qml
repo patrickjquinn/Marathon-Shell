@@ -45,7 +45,7 @@ Item {
     z: Constants.zIndexModal + 100
 
     Accessible.role: Accessible.Dialog
-    Accessible.name: "Power"
+    Accessible.name: qsTr("Power")
 
     // A choice: a glass ring with its label beneath.
     component PowerAction: Item {

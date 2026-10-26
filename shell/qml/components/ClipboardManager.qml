@@ -80,7 +80,7 @@ Rectangle {
                     Silica.Label {
                         text: {
                             var date = new Date(clipItem.modelData.timestamp);
-                            return Qt.formatDateTime(date, "hh:mm AP");
+                            return Qt.formatTime(date, Locale.ShortFormat);
                         }
                         color: clipItem.highlighted ? Silica.Theme.secondaryHighlightColor : Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeExtraSmall
@@ -94,7 +94,8 @@ Rectangle {
                     anchors.rightMargin: Silica.Theme.paddingSmall
                     anchors.verticalCenter: parent.verticalCenter
                     icon.source: "image://theme/icon-m-delete"
-                    Accessible.name: "Delete"
+                    //: Accessible name of the button that deletes a clipboard entry
+                    Accessible.name: qsTr("Delete")
                     onClicked: {
                         ClipboardManagerCpp.deleteItem(clipItem.index);
                         HapticManager.light();
@@ -112,7 +113,7 @@ Rectangle {
     Silica.Label {
         visible: clipList.count === 0
         anchors.centerIn: parent
-        text: "No clipboard history"
+        text: qsTr("No clipboard history")
         color: Silica.Theme.secondaryHighlightColor
         font.pixelSize: Silica.Theme.fontSizeExtraLarge
         font.family: Silica.Theme.fontFamilyHeading
