@@ -41,9 +41,13 @@ Item {
             finish.restart();
     }
 
+    // With a keyboard and no touch, Return moves on as Not now does.
+    Keys.onReturnPressed: root.done()
+    Keys.onEnterPressed: root.done()
     onVisibleChanged: {
         if (visible) {
             enter();
+            forceActiveFocus();
         } else {
             glance.stop();
             finish.stop();

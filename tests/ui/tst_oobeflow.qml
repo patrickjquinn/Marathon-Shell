@@ -363,8 +363,8 @@ TestCase {
         tryVerify(() => SettingsManagerCpp.firstRunComplete);
     }
 
-    function test_returnContinuesTheSettingsBeats() {
-        for (const [beat, name] of [[1, "oobeOnline"], [3, "oobeLook"], [4, "oobeSize"]]) {
+    function test_returnContinuesTheBeatsAfterThePasscode() {
+        for (const [beat, name] of [[1, "oobeOnline"], [3, "oobeLook"], [4, "oobeSize"], [5, "oobeHub"]]) {
             oobe.beat = beat;
             tryVerify(() => child(name).activeFocus, 1000, name);
             keyClick(Qt.Key_Return);
