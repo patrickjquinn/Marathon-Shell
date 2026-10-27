@@ -560,9 +560,12 @@ Item {
 
                                     readonly property Item surfaceItem: taskCard.nativeSurfaceActive ? taskCard.nativeSurfaceItem : taskCard.taskSwitcherVisible && taskCard.useRegisteredSurface ? taskCard.registeredSurfaceItem : null
                                     readonly property bool drawsInSubsurfaces: surfaceItem !== null && surfaceItem.children.some(child => child.surface !== undefined && child.surface !== null) // qmllint disable missing-property
+                                    // The subsurfaces keep the client's coordinates, not the card-sized item's.
+                                    readonly property size clientSize: drawsInSubsurfaces && surfaceItem.surface ? surfaceItem.surface.destinationSize : Qt.size(0, 0) // qmllint disable missing-property
 
-                                    width: surfaceItem ? surfaceItem.width : 0
-                                    height: surfaceItem ? surfaceItem.height : 0
+                                    width: clientSize.width > 0 ? clientSize.width : surfaceItem ? surfaceItem.width : 0
+                                    height: clientSize.height > 0 ? clientSize.height : surfaceItem ? surfaceItem.height : 0
+                                    sourceRect: clientSize.width > 0 ? Qt.rect(0, 0, clientSize.width, clientSize.height) : Qt.rect(0, 0, 0, 0)
                                     sourceItem: drawsInSubsurfaces ? surfaceItem : null
                                     live: taskCard.taskSwitcherVisible
                                     hideSource: false
