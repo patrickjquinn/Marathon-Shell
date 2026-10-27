@@ -37,6 +37,7 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (6 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
 // Modified by Shipwright for Qt 6: the first PauseAnimation's duration is set only while the group is stopped (_startGroup), not bound to _interrupted, which the group's own ScriptActions change while it runs (Qt 6.4 crashed in QAnimationGroupJob::ungroupChild).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.2
 import Sailfish.Silica 1.0
@@ -102,14 +103,14 @@ Icon {
                         ? parent.verticalCenter : undefined
     }
 
-    function start() {
+    function start(): void { // Modified by Shipwright for Qt 6: typed
         _stopped = false
         _loopsRun = 0
         _startGroup() // Modified by Shipwright for Qt 6
     }
     // Modified by Shipwright for Qt 6: starts the group with the resume
     // pause set while it is stopped.
-    function _startGroup() {
+    function _startGroup(): void { // Modified by Shipwright for Qt 6: typed
         if (animationGroup.running) {
             animationGroup.restart()
             return
@@ -117,17 +118,17 @@ Icon {
         resumePause.duration = _interrupted ? 800 : 0
         animationGroup.start()
     }
-    function _restartGroup() {
+    function _restartGroup(): void { // Modified by Shipwright for Qt 6: typed
         _restartingGroup = true
         animationGroup.stop()
         _restartingGroup = false
         _startGroup()
     }
-    function restart() {
+    function restart(): void { // Modified by Shipwright for Qt 6: typed
         stop()
         start()
     }
-    function stop() {
+    function stop(): void { // Modified by Shipwright for Qt 6: typed
         _stopped = true
         animationGroup.stop()
     }
@@ -208,15 +209,15 @@ Icon {
 
         ScriptAction {
             script: {
-                _interrupted = true
-                switch (direction) {
+                root._interrupted = true // Modified by Shipwright for Qt 6: qualified
+                switch (root.direction) { // Modified by Shipwright for Qt 6: qualified
                 case TouchInteraction.Up:
                 case TouchInteraction.Down:
-                    root.y = startY
+                    root.y = root.startY // Modified by Shipwright for Qt 6: qualified
                     break
                 case TouchInteraction.Left:
                 case TouchInteraction.Right:
-                    root.x = startX
+                    root.x = root.startX // Modified by Shipwright for Qt 6: qualified
                     break
                 default:
                     break
@@ -230,54 +231,54 @@ Icon {
                 to: 1
             }
             SequentialAnimation {
-                PauseAnimation { duration: _testMode ? 10 : (800 * root._durationScale - 300) }
+                PauseAnimation { duration: root._testMode ? 10 : (800 * root._durationScale - 300) } // Modified by Shipwright for Qt 6: qualified
                 OpacityAnimator {
                     target: root
                     from: 1
-                    to: interactionMode === TouchInteraction.Pull ? 1 : 0
+                    to: root.interactionMode === TouchInteraction.Pull ? 1 : 0 // Modified by Shipwright for Qt 6: qualified
                     easing.type: Easing.InCubic
-                    duration: _testMode ? 10 : 300
+                    duration: root._testMode ? 10 : 300 // Modified by Shipwright for Qt 6: qualified
                 }
             }
             XAnimator {
                 target: root
                 from: {
-                    switch (direction) {
+                    switch (root.direction) { // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Up:
                     case TouchInteraction.Down:
                         return root.x
                     case TouchInteraction.Left:
                     case TouchInteraction.Right:
-                        return startX
+                        return root.startX // Modified by Shipwright for Qt 6: qualified
                     default:
                         console.log("Invalid TouchInteraction.Direction value defined")
                         return 0
                     }
                 }
                 to: {
-                    switch (direction) {
+                    switch (root.direction) { // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Up:
                     case TouchInteraction.Down:
                         return root.x
                     case TouchInteraction.Left:
-                        return startX - distance
+                        return root.startX - root.distance // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Right:
-                        return startX + distance
+                        return root.startX + root.distance // Modified by Shipwright for Qt 6: qualified
                     default:
                         console.log("Invalid TouchInteraction.Direction value defined")
                         return 0
                     }
                 }
-                easing.type: interactionMode === TouchInteraction.Pull ? Easing.Linear : Easing.InQuad
-                duration: _testMode ? 20 : (800 * root._durationScale)
+                easing.type: root.interactionMode === TouchInteraction.Pull ? Easing.Linear : Easing.InQuad // Modified by Shipwright for Qt 6: qualified
+                duration: root._testMode ? 20 : (800 * root._durationScale) // Modified by Shipwright for Qt 6: qualified
             }
             YAnimator {
                 target: root
                 from: {
-                    switch (direction) {
+                    switch (root.direction) { // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Up:
                     case TouchInteraction.Down:
-                        return startY
+                        return root.startY // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Left:
                     case TouchInteraction.Right:
                         return root.y
@@ -288,11 +289,11 @@ Icon {
                 }
 
                 to: {
-                    switch (direction) {
+                    switch (root.direction) { // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Up:
-                        return startY - distance
+                        return root.startY - root.distance // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Down:
-                        return startY + distance
+                        return root.startY + root.distance // Modified by Shipwright for Qt 6: qualified
                     case TouchInteraction.Left:
                     case TouchInteraction.Right:
                         return root.y
@@ -301,15 +302,15 @@ Icon {
                         return 0
                     }
                 }
-                easing.type: interactionMode === TouchInteraction.Pull ? Easing.Linear : Easing.InQuad
-                duration: _testMode ? 20 : (800 * root._durationScale)
+                easing.type: root.interactionMode === TouchInteraction.Pull ? Easing.Linear : Easing.InQuad // Modified by Shipwright for Qt 6: qualified
+                duration: root._testMode ? 20 : (800 * root._durationScale) // Modified by Shipwright for Qt 6: qualified
             }
         }
 
         SequentialAnimation {
             id: pullReleaseIndication
 
-            property bool enabled: interactionMode === TouchInteraction.Pull
+            property bool enabled: root.interactionMode === TouchInteraction.Pull // Modified by Shipwright for Qt 6: qualified
 
             SequentialAnimation {
                 loops: 2
@@ -334,7 +335,7 @@ Icon {
             }
         }
 
-        PauseAnimation { duration: _testMode ? 10 : 800 }
-        ScriptAction { script: { _interrupted = false; _loopsRun++ } }
+        PauseAnimation { duration: root._testMode ? 10 : 800 } // Modified by Shipwright for Qt 6: qualified
+        ScriptAction { script: { root._interrupted = false; root._loopsRun++ } } // Modified by Shipwright for Qt 6: qualified
     }
 }

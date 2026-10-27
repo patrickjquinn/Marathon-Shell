@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2013 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) RemoveAnimation.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 
@@ -42,7 +44,7 @@ SequentialAnimation {
     property Item target
     property int duration: 150
 
-    function _delayRemove(delay) {
+    function _delayRemove(delay: var): void { // Modified by Shipwright for Qt 6: typed
         if (target.ListView.view) {
             target.ListView.delayRemove = delay
         } else if (target.GridView.view) {

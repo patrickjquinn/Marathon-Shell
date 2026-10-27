@@ -37,6 +37,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/TabView.qml
 // Modified by Shipwright for Qt 6: onInitializeItem declares its signal parameter.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.4
 import Sailfish.Silica 1.0
@@ -136,7 +137,7 @@ PagedView {
         }
 
         BusyIndicator {
-            running: !delayBusy.running && loading
+            running: !delayBusy.running && tabLoader.loading // Modified by Shipwright for Qt 6: qualified
 
             // Avoid flicker when tab container gets repositioned
             parent: tabLoader.parent

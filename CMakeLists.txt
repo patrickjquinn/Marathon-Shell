@@ -23,6 +23,15 @@ option(KEEL_BUILD_SAILFISHAPP "Build the libsailfishapp shim" ON)
 option(KEEL_BUILD_PLATFORM "Build Keel's Sailfish platform modules (keel/platform)" ON)
 option(KEEL_BUILD_ACTIONS "Build Keel Actions (keel/actions: Keel.Actions 1.0, ADR-0018)" ON)
 option(BUILD_TESTING "Build and register tests" ON)
+# KEEL_QML_TYPES_ONLY: a build tree for the type information of Keel's QML
+# modules alone (qmldir files, the QML files and the .qmltypes of the C++
+# types), which apps compile their own QML against (keel/tools/qml-sdk.sh).
+# Its QML is not compiled and nothing needs the Rust part: only the .qmltypes
+# files are built from it (and the few plugins Qt builds before them).
+option(KEEL_QML_TYPES_ONLY "Configure for the QML modules' type information alone (keel/tools/qml-sdk.sh)" OFF)
+if(KEEL_QML_TYPES_ONLY)
+    set(QT_QML_NO_CACHEGEN ON)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 # GCC 16 warns (-Wsfinae-incomplete) inside Qt's own headers: qmetatype.h
@@ -68,6 +77,22 @@ if(NOT DEFINED KEEL_QML_INSTALL_DIR)
                     OUTPUT_VARIABLE _keel_qt_qml OUTPUT_STRIP_TRAILING_WHITESPACE)
     set(KEEL_QML_INSTALL_DIR "${_keel_qt_qml}" CACHE PATH "Qt6 QML import path to install into")
 endif()
+
+# Keel's QML is compiled ahead of time (qt_add_qml_module runs qmlcachegen),
+# and the engine loads the compiled units linked into each plugin; the source
+# text kept beside them in the plugin's resources is then never read. With
+# KEEL_QML_DISCARD_SOURCES (Qt 6.6+) each resource keeps an empty file in its
+# place, which makes the plugins smaller. A compiled unit is used only with
+# the Qt it was compiled by ("Qt version mismatch", down to the patch
+# release); under any other the engine would fall back to the empty source,
+# so packages built this way require that exact qt6-qtdeclarative.
+# keel_qml_discard_sources(<files>...): call before qt_add_qml_module.
+option(KEEL_QML_DISCARD_SOURCES "Ship QML compiled only, without its source text" ON)
+function(keel_qml_discard_sources)
+    if(KEEL_QML_DISCARD_SOURCES AND Qt6_VERSION VERSION_GREATER_EQUAL 6.6)
+        set_source_files_properties(${ARGN} PROPERTIES QT_DISCARD_FILE_CONTENTS TRUE)
+    endif()
+endfunction()
 
 # qmltestrunner from the Qt6 we build against (not the qtchooser shim).
 if(BUILD_TESTING)

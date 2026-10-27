@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/Cursor.qml
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (3 places).
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -70,19 +71,19 @@ Private.SilicaRectangle {
 
         repeat: true
         interval: 800 // TODO: use Qt.styleHints.cursorFlashTime ?
-        running: editor.activeFocus && editor.selectionStart === editor.selectionEnd
+        running: cursor.editor.activeFocus && cursor.editor.selectionStart === editor.selectionEnd // Modified by Shipwright for Qt 6: qualified
                  && Qt.application.active
         onTriggered: toggled = !toggled
     }
     Connections {
-        target: active ? editor : null
+        target: cursor.active ? cursor.editor : null // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onTextChanged() { reset() }
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onCursorPositionChanged() { reset() }
     }
     Connections {
-        target: active ? preedit : null
+        target: cursor.active ? cursor.preedit : null // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onTextChanged() { reset() }
     }

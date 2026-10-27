@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/YearMonthMenu.qml
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (1 places; the same object type, typed for qmlcachegen).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -106,7 +107,7 @@ ListView {
             Grid {
                 id: monthGrid
 
-                columns: screen.sizeCategory > KeelSilica.Screen.Medium || !isPortrait ? 6 : 3
+                columns: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium || !isPortrait ? 6 : 3 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
 
                 Repeater {
                     model: ListModel {

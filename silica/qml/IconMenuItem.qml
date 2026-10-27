@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2020 Open Mobile Platform LLC
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -32,6 +33,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) IconMenuItem.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.6
 import Sailfish.Silica 1.0
@@ -54,7 +56,7 @@ MenuItem {
         anchors.verticalCenter: parent.verticalCenter
         sourceSize.width: Theme.iconSizeMedium
         sourceSize.height: Theme.iconSizeMedium
-        highlighted: _highlighted
+        highlighted: iconMenuItem._highlighted // Modified by Shipwright for Qt 6: qualified
     }
 
     Label {
@@ -65,7 +67,7 @@ MenuItem {
             verticalCenterOffset: parent.implicitHeight + Theme.paddingSmall
         }
         width: parent.width
-        text: description
+        text: iconMenuItem.description // Modified by Shipwright for Qt 6: qualified
         leftPadding: parent.leftPadding
 
         horizontalAlignment: parent.horizontalAlignment

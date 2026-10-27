@@ -314,7 +314,7 @@ PageStackBase {
         }
     }
 
-    function _normalizeOperationType(input) {
+    function _normalizeOperationType(input: var): var { // Modified by Shipwright for Qt 6: typed
         if (input === undefined) {
             input = PageStackAction.Animated
         } else if (typeof(input) === 'boolean') {
@@ -951,7 +951,7 @@ PageStackBase {
                         }
                     }
                     ScriptAction {
-                        script: useAnimator = false
+                        script: container.useAnimator = false // Modified by Shipwright for Qt 6: qualified
                     }
                 }
             }
@@ -980,7 +980,7 @@ PageStackBase {
                         }
                     }
                     ScriptAction {
-                        script: useAnimator = false
+                        script: container.useAnimator = false // Modified by Shipwright for Qt 6: qualified
                     }
                 }
             }

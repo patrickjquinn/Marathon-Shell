@@ -39,8 +39,10 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (11 places).
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (9 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
 // Modified by Shipwright for Qt 6: the inline GLSL is a compiled Qt 6 shader (qml/shaders/pulley.frag); no layer on the software scene graph.
-// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour), `pragma ComponentBehavior: Bound` (its inner components are made only in this file).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (2 places; the same object type, typed for qmlcachegen).
 
+pragma ComponentBehavior: Bound // Modified by Shipwright for Qt 6: ids of outer objects used in inner components
 import QtQuick 2.0
 import QtQuick as KeelQuick // Modified by Shipwright for Qt 6: GraphicsInfo (newer than this file's QtQuick import)
 import Sailfish.Silica 1.0
@@ -122,7 +124,7 @@ SilicaMouseArea {
     property bool _atFinalPosition: Math.abs(flickable.contentY - _finalPosition) < 1.0 && active
     property real _contentEnd
     property real _menuIndicatorPosition // The position of the highlight when the menu is closed
-    property real _menuItemHeight: screen.sizeCategory <= KeelSilica.Screen.Medium ? Theme.itemSizeExtraSmall : Theme.itemSizeSmall
+    property real _menuItemHeight: KeelSilica.Screen.sizeCategory <= KeelSilica.Screen.Medium ? Theme.itemSizeExtraSmall : Theme.itemSizeSmall // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     property real _menuItemActivationThreshold: _menuItemHeight
                                                 + ((_isPullDownMenu && KeelSilica.Screen.hasCutouts && _page && _page.isPortrait)
                                                    ? KeelSilica.Screen.topCutout.height : 0)
@@ -167,7 +169,7 @@ SilicaMouseArea {
     // Modified by Shipwright for Qt 6: no flickable until Component.onCompleted (avoids TypeErrors)
     x: flickable ? flickable.contentX + (flickable.width - width)/2 : 0
     width: flickable && flickable.width ? Math.min(flickable.width,
-                                      screen.sizeCategory > KeelSilica.Screen.Medium ? KeelSilica.Screen.width*0.7 : KeelSilica.Screen.width)
+                                      KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? KeelSilica.Screen.width*0.7 : KeelSilica.Screen.width) // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
                            : KeelSilica.Screen.width
     height: _activeHeight + spacing
 

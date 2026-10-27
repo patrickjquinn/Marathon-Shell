@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2013 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) BusyIndicator.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.2
 import Sailfish.Silica 1.0
@@ -53,7 +55,7 @@ SilicaItem {
     HighlightImage {
         id: busyIndicator
 
-        function _updateSize() {
+        function _updateSize(): var { // Modified by Shipwright for Qt 6: typed
             var prefix = "image://theme/graphic-busyindicator-"
             var indicatorSize
             if (root.size == BusyIndicatorSize.ExtraSmall) {
@@ -80,7 +82,7 @@ SilicaItem {
         RotationAnimator on rotation {
             from: 0; to: 360
             duration: 2000
-            running: (root.running || opacity > 0) && (_forceAnimation || (root.visible && Qt.application.active))
+            running: (root.running || root.opacity > 0) && (root._forceAnimation || (root.visible && Qt.application.active)) // Modified by Shipwright for Qt 6: qualified
             loops: Animation.Infinite
         }
     }

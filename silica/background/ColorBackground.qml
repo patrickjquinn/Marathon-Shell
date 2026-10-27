@@ -7,6 +7,7 @@
 // Silica's own file is proprietary. Keel's clean-room stand-in: a rounded
 // rectangle with square patches over the corners that are not rounded,
 // with the SilicaItem `highlighted` and `palette` the BSD QML reads.
+pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica.private 1.0
 

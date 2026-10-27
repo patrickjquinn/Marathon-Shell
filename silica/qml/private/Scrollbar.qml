@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/Scrollbar.qml
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -97,7 +98,7 @@ VerticalScrollBase {
 
         z: 1000
         x: scrollbar.x
-        parent: flickable.parent
+        parent: scrollbar.flickable.parent // Modified by Shipwright for Qt 6: qualified
         states: State {
             when: !mouse.pressed
             PropertyChanges {
@@ -116,9 +117,9 @@ VerticalScrollBase {
         onPositionChanged: function(mouse) {
             var relative = (mouse.y + startY - scrollbar.height + scrollbar.topMargin)
                     / (scrollbar.parent.height - scrollbar.topMargin - scrollbar.bottomMargin - scrollbar.height/2)
-            var min = flickable.originY - _topMenuSpacing
+            var min = scrollbar.flickable.originY - scrollbar._topMenuSpacing // Modified by Shipwright for Qt 6: qualified
 
-            var absolute = relative * _range
+            var absolute = relative * scrollbar._range // Modified by Shipwright for Qt 6: qualified
             if (stepSize > 0) {
                 var topMargin = flickable.pullDownMenu ? flickable.pullDownMenu.bottomMargin : 0
                 absolute = topMargin - headerHeight + stepSize * (Math.round(relative * _range / stepSize))

@@ -9,5 +9,5 @@ QtObject {
     property url iconSource
     property bool __keel_coveraction: true
     signal triggered()
-    function trigger() { triggered() }
+    function trigger(): void { triggered() }
 }

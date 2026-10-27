@@ -64,7 +64,7 @@ Item {
     }
     readonly property bool _actionBackground: _actionList !== null && _actionList.iconBackground
     readonly property var _coverWindow: Window.window
-    function _publishActions() {
+    function _publishActions(): void {
         if (_lipstickDraws && _coverWindow)
             Shell.setCoverActions(_coverWindow, _actionIcons, _actionBackground)
     }
@@ -80,7 +80,7 @@ Item {
         }
     }
 
-    function _collectActionLists() {
+    function _collectActionLists(): void {
         var found = []
         var r = cover.resources
         for (var i = 0; i < r.length; ++i)

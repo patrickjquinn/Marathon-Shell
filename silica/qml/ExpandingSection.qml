@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) ExpandingSection.qml
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -127,8 +128,8 @@ Item {
         visible: contentHeight > 0
 
         onClicked: {
-            if (_group) {
-                var sectionIndex = _group.indexOfSection(root)
+            if (root._group) { // Modified by Shipwright for Qt 6: qualified
+                var sectionIndex = root._group.indexOfSection(root) // Modified by Shipwright for Qt 6: qualified
                 _group.currentIndex = (_group.currentIndex == sectionIndex ? -1 : sectionIndex)
             } else {
                 expanded = !expanded
@@ -198,7 +199,7 @@ Item {
                     AnchorChanges {
                         target: titleLabel
                         anchors.right: undefined
-                        anchors.left: parent.left
+                        anchors.left: root.parent.left // Modified by Shipwright for Qt 6: qualified
                     }
                 }
             ]

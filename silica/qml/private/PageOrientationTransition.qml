@@ -37,6 +37,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/PageOrientationTransition.qml
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.2
 import Sailfish.Silica 1.0
@@ -64,7 +65,7 @@ Transition {
             id: fadeOutAnimation
 
             target: {
-                if (targetPage._opaqueBackground) {
+                if (transition.targetPage._opaqueBackground) { // Modified by Shipwright for Qt 6: qualified
                     return targetPage
                 } else if (__silica_applicationwindow_instance._backgroundVisible) {
                     return  __silica_applicationwindow_instance

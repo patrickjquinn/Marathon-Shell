@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) TapInteractionHint.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.2
 import Sailfish.Silica 1.0
@@ -48,13 +50,13 @@ Icon {
     source: "image://theme/graphic-gesture-hint"
     opacity: 0.0
 
-    function start() {
+    function start(): void { // Modified by Shipwright for Qt 6: typed
         animationGroup.start()
     }
-    function restart() {
+    function restart(): void { // Modified by Shipwright for Qt 6: typed
         animationGroup.restart()
     }
-    function stop() {
+    function stop(): void { // Modified by Shipwright for Qt 6: typed
         animationGroup.stop()
     }
 

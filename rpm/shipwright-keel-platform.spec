@@ -12,9 +12,13 @@
 #   mb2 -t SailfishOS-5.2.0.15-aarch64 --snapshot=<you> \
 #       -s keel/rpm/shipwright-keel-platform.spec build
 
+# The Qt Declarative release the QML is compiled with (the Requires of the
+# packages whose QML ships compiled only).
+%global qt6_qml_version %(rpm -q --qf '%%{VERSION}' qt6-qtdeclarative-devel 2>/dev/null | grep -E '^[0-9.]+$' || echo 6.8)
+
 Name:       shipwright-keel-platform
 Version:    0.1.0
-Release:    21
+Release:    22
 Summary:    Sailfish platform QML modules for Qt6 apps (Keel)
 # Clean-room code is Shipwright's; sailfish-secrets, nemo-qml-plugin-accounts,
 # nemo-qml-plugin-thumbnailer, libmce-qt and sailfish-components-accounts
@@ -82,6 +86,9 @@ Requires:   qt6-qtbase-gui >= 6.8
 # Qt minor releases (see shipwright-keel-silica.spec).
 Requires:   qt6-qtbase-gui < 6.9
 Requires:   qt6-qtdeclarative >= 6.8
+# Its QML ships compiled only (keel/CMakeLists.txt, KEEL_QML_DISCARD_SOURCES):
+# for the Qt Declarative release that compiled it alone.
+Requires:   qt6-qtdeclarative = %{qt6_qml_version}
 Requires:   shipwright-keel-silica >= 0.1.0-29
 # MprisPlayerControls controls MPRIS players through Amber.Mpris (this
 # spec's -amber-mpris, or Chum's amber-qml-plugin-mpris-qt6).
@@ -96,6 +103,9 @@ MprisPlayerControls.
 %package gallery
 Summary:    Sailfish.Gallery 1.0 for Qt6 (ThumbnailImage, ImageViewer)
 Requires:   qt6-qtdeclarative >= 6.8
+# Its QML ships compiled only (keel/CMakeLists.txt, KEEL_QML_DISCARD_SOURCES):
+# for the Qt Declarative release that compiled it alone.
+Requires:   qt6-qtdeclarative = %{qt6_qml_version}
 Requires:   shipwright-keel-silica >= 0.1.0-29
 
 %description gallery
@@ -105,6 +115,9 @@ apps use outside the Gallery app.
 %package pickers
 Summary:    Sailfish.Pickers 1.0 for Qt6 (content, file and folder pickers)
 Requires:   qt6-qtdeclarative >= 6.8
+# Its QML ships compiled only (keel/CMakeLists.txt, KEEL_QML_DISCARD_SOURCES):
+# for the Qt Declarative release that compiled it alone.
+Requires:   qt6-qtdeclarative = %{qt6_qml_version}
 Requires:   shipwright-keel-silica >= 0.1.0-29
 # The pickers list media from Tracker's index when it answers on the session
 # bus, and scan the home directory otherwise.
@@ -117,6 +130,9 @@ videos, music, documents, downloads, files and folders) on Keel's Silica.
 %package webview
 Summary:    Sailfish.WebView and Sailfish.WebEngine 1.0 for Qt6
 Requires:   qt6-qtdeclarative >= 6.8
+# Its QML ships compiled only (keel/CMakeLists.txt, KEEL_QML_DISCARD_SOURCES):
+# for the Qt Declarative release that compiled it alone.
+Requires:   qt6-qtdeclarative = %{qt6_qml_version}
 Requires:   shipwright-keel-silica >= 0.1.0-29
 # Sailfish.WebView.Pickers opens Sailfish.Pickers' pages for file uploads.
 Requires:   %{name}-pickers = %{version}-%{release}
@@ -438,6 +454,9 @@ install -D -m 0644 keel/platform/policy/sailjail/KeelPolicy.permission \
 %{_libdir}/pkgconfig/accounts-qt6.pc
 
 %changelog
+* Tue Oct 20 2026 Shipwright - 0.1.0-22
+- Sailfish.Media, Sailfish.Pickers, Sailfish.Gallery and Sailfish.WebView are smaller and load a little faster: their components ship compiled only, and their plugins without the names of their internals.
+
 * Mon Oct 12 2026 Shipwright - 0.1.0-21
 - Sailfish.Media recommends Amber.Mpris from Keel or from Chum's amber-qml-plugin-mpris-qt6, so a phone with Chum's is not offered Keel's in its place.
 

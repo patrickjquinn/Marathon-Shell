@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/VirtualKeyboardObserver.qml
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.2
 import Sailfish.Silica 1.0
@@ -87,13 +88,13 @@ Item {
         id: imHideAnimation
 
         PauseAnimation {
-            duration: testMode ? 5 : 200
+            duration: virtualKeyboardObserver.testMode ? 5 : 200 // Modified by Shipwright for Qt 6: qualified
         }
         NumberAnimation {
             target: virtualKeyboardObserver
             property: 'panelSize'
             to: 0
-            duration: testMode ? 5 : 200
+            duration: virtualKeyboardObserver.testMode ? 5 : 200 // Modified by Shipwright for Qt 6: qualified
             easing.type: Easing.InOutQuad
         }
     }
@@ -103,7 +104,7 @@ Item {
 
         target: virtualKeyboardObserver
         property: 'panelSize'
-        duration: testMode ? 5 : 200
+        duration: virtualKeyboardObserver.testMode ? 5 : 200 // Modified by Shipwright for Qt 6: qualified
         easing.type: Easing.InOutQuad
     }
 }

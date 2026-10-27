@@ -37,6 +37,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/RemorseBase.qml
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6); `signal canceled` removed, MouseArea's is used (a redeclared superclass signal is an invalid override in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.6
 import Sailfish.Silica.private 1.0
@@ -100,7 +101,7 @@ SwipeItem {
         highlighted: root.highlighted
         height: parent.height - 2 * y
         x: margin + (root.leftMargin - Theme.horizontalPageMargin)
-        y: _narrowMode || parent.height > Theme.itemSizeMedium || _belowGridItem ? margin : 0
+        y: root._narrowMode || parent.height > Theme.itemSizeMedium || root._belowGridItem ? margin : 0 // Modified by Shipwright for Qt 6: qualified
         width: parent.width - 2 * margin
                - (root.leftMargin - Theme.horizontalPageMargin)
                - (root.rightMargin - Theme.horizontalPageMargin)
@@ -113,8 +114,8 @@ SwipeItem {
             }
 
             radius: background.radius
-            width: Math.round((_seconds - _secsRemaining)/_seconds * background.width)
-            roundedCorners: _secsRemaining === 0 ? Corners.All
+            width: Math.round((root._seconds - root._secsRemaining)/root._seconds * background.width) // Modified by Shipwright for Qt 6: qualified
+            roundedCorners: root._secsRemaining === 0 ? Corners.All // Modified by Shipwright for Qt 6: qualified
                                                  : Corners.TopRight | Corners.BottomRight
 
             opacity: root.palette.colorScheme === Theme.LightOnDark ? Theme.opacityLow : 1.0
@@ -139,16 +140,16 @@ SwipeItem {
             id: textLabel
 
             //% "Swipe to hide"
-            text: showSwipeHint && !_narrowMode ? qsTrId("components-la-swipe-to-hide")
-                                                : cancelText
+            text: root.showSwipeHint && !root._narrowMode ? qsTrId("components-la-swipe-to-hide") // Modified by Shipwright for Qt 6: qualified
+                                                : root.cancelText // Modified by Shipwright for Qt 6: qualified
 
-            width: _wideMode ? Math.min(implicitWidth, parent.width) // Modified by Shipwright for Qt 6: was contentWidth, which fading and eliding change with width (a binding loop)
+            width: root._wideMode ? Math.min(implicitWidth, parent.width) // Modified by Shipwright for Qt 6: was contentWidth, which fading and eliding change with width (a binding loop)
                              : parent.width
-            font.pixelSize: _twoLines ? Math.min(Theme.fontSizeSmall,
+            font.pixelSize: root._twoLines ? Math.min(Theme.fontSizeSmall, // Modified by Shipwright for Qt 6: qualified
                                                  Theme.fontSizeSmallBase * 1.12)
                                       : Theme.fontSizeMedium
             truncationMode: wrapMode !== Text.NoWrap ? TruncationMode.None : TruncationMode.Fade
-            wrapMode: _narrowMode ? Text.Wrap : Text.NoWrap
+            wrapMode: root._narrowMode ? Text.Wrap : Text.NoWrap // Modified by Shipwright for Qt 6: qualified
             textFormat: Text.PlainText
         }
 
@@ -156,12 +157,12 @@ SwipeItem {
             id: secondaryLabel
 
             text: root.text !== root._deletedText ? root.text : ""
-            visible: _twoLines
+            visible: root._twoLines // Modified by Shipwright for Qt 6: qualified
 
-            width: _wideMode ? Math.min(implicitWidth, parent.width) // Modified by Shipwright for Qt 6: was contentWidth, which fading and eliding change with width (a binding loop)
+            width: root._wideMode ? Math.min(implicitWidth, parent.width) // Modified by Shipwright for Qt 6: was contentWidth, which fading and eliding change with width (a binding loop)
                              : parent.width
             palette.primaryColor: root.palette.secondaryColor
-            font.pixelSize: _wideMode ? textLabel.font.pixelSize
+            font.pixelSize: root._wideMode ? textLabel.font.pixelSize // Modified by Shipwright for Qt 6: qualified
                                       : Math.min( Theme.fontSizeExtraSmall, Theme.fontSizeExtraSmallBase * 1.12)
             truncationMode: textLabel.truncationMode
             horizontalAlignment: textLabel.horizontalAlignment
@@ -221,12 +222,12 @@ SwipeItem {
 
         target: root
         property: "_msRemaining"
-        from: _timeout
+        from: root._timeout // Modified by Shipwright for Qt 6: qualified
         to: 0
         paused: running && (root.down || root.drag.active)
-        duration: _timeout
+        duration: root._timeout // Modified by Shipwright for Qt 6: qualified
         onRunningChanged: {
-            if (!running && _msRemaining == 0) {
+            if (!running && root._msRemaining == 0) { // Modified by Shipwright for Qt 6: qualified
                 if (swipeHint.active && !_narrowMode) {
                     hint.state = "swipeHint"
                     swipeHint.increase()

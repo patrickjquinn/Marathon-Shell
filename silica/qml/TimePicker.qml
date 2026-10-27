@@ -37,6 +37,8 @@
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
 // Modified by Shipwright for Qt 6: the inline GLSL is a compiled Qt 6 shader (qml/shaders/timepickerring.frag).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (1 places; the same object type, typed for qmlcachegen).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -63,7 +65,7 @@ SilicaItem {
     property int _mode: TimePickerMode.HoursAndMinutes
     readonly property bool _hoursAndMinutes: _mode === TimePickerMode.HoursAndMinutes
 
-    width: screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.itemSizeLarge*4 : Theme.itemSizeMedium*4
+    width: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.itemSizeLarge*4 : Theme.itemSizeMedium*4 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     height: width
 
     onHourChanged: {
@@ -89,7 +91,7 @@ SilicaItem {
         }
     }
 
-    function _updateHourIndicator() {
+    function _updateHourIndicator(): void { // Modified by Shipwright for Qt 6: typed
         if (mouse.changingProperty == 0 && _hoursAndMinutes) {
             var delta = (hour - innerIndicator.value) % 24
             if ((delta > 12) || (delta < -12)) {
@@ -106,7 +108,7 @@ SilicaItem {
         }
     }
 
-    function _updateMinuteIndicator() {
+    function _updateMinuteIndicator(): void { // Modified by Shipwright for Qt 6: typed
         if (mouse.changingProperty == 0) {
             var delta
             if (_hoursAndMinutes) {
@@ -119,14 +121,14 @@ SilicaItem {
         }
     }
 
-    function _updateSecondIndicator() {
+    function _updateSecondIndicator(): void { // Modified by Shipwright for Qt 6: typed
         if (mouse.changingProperty == 0 && !_hoursAndMinutes) {
             var delta = (_second - outerIndicator.value)
             outerIndicator.value += (delta % 60)
         }
     }
 
-    function _formatTime(hour, minute, _second) {
+    function _formatTime(hour: var, minute: var, _second: var): var { // Modified by Shipwright for Qt 6: typed
         if (_hoursAndMinutes) {
             var date = new Date()
             date.setSeconds(_second)
@@ -150,7 +152,7 @@ SilicaItem {
     ShaderEffect {
         anchors.fill: parent
         property size size: Qt.size(width, height)
-        property real border: _trackWidth / width
+        property real border: timePicker._trackWidth / width // Modified by Shipwright for Qt 6: qualified
         property color color: timePicker.palette.primaryColor
         // Modified by Shipwright for Qt 6: Qt 6 takes a compiled shader (qml/shaders/timepickerring.frag)
         fragmentShader: "qrc:/qt/qml/Sailfish/Silica/shaders/timepickerring.frag.qsb"
@@ -159,9 +161,9 @@ SilicaItem {
     TimePickerGlassItem {
         id: innerIndicator
 
-        stepCount: _hoursAndMinutes ? 12 : 60
-        rotationRadius: (timePicker.width - 3 * _trackWidth) / 2
-        velocity: _hoursAndMinutes ? 30 : 80
+        stepCount: timePicker._hoursAndMinutes ? 12 : 60 // Modified by Shipwright for Qt 6: qualified
+        rotationRadius: (timePicker.width - 3 * timePicker._trackWidth) / 2 // Modified by Shipwright for Qt 6: qualified
+        velocity: timePicker._hoursAndMinutes ? 30 : 80 // Modified by Shipwright for Qt 6: qualified
         highlighted: mouse.changingProperty == 1
         moving: !justPressedTimer.running && !mouse.isLagging
         anchors.centerIn: parent
@@ -171,7 +173,7 @@ SilicaItem {
         id: outerIndicator
 
         stepCount: 60
-        rotationRadius: (timePicker.width - _trackWidth) / 2
+        rotationRadius: (timePicker.width - timePicker._trackWidth) / 2 // Modified by Shipwright for Qt 6: qualified
         velocity: 80
         highlighted: mouse.changingProperty == 2
         moving: !justPressedTimer.running && !mouse.isLagging
@@ -187,12 +189,12 @@ SilicaItem {
         anchors.fill: parent
         preventStealing: true
 
-        function radiusForCoord(x, y) {
+        function radiusForCoord(x: var, y: var): var { // Modified by Shipwright for Qt 6: typed
             // Return the distance from the mouse position to the center
             return Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
         }
 
-        function angleForCoord(x, y) {
+        function angleForCoord(x: var, y: var): var { // Modified by Shipwright for Qt 6: typed
             // Return the angular position in degrees, rising anticlockwise from the positive X-axis
             var result = Math.atan(y / x) / (Math.PI * 2) * 360
 
@@ -205,20 +207,20 @@ SilicaItem {
             return result
         }
 
-        function remapAngle(value, bound) {
+        function remapAngle(value: var, bound: var): var { // Modified by Shipwright for Qt 6: typed
             // Return the angle in degrees mapped to the adjusted range 0 - (bound-1) and
             // translated to the clockwise from positive Y-axis orientation
             return Math.round(bound - (((value - 90) / 360) * bound)) % bound
         }
 
-        function remapMouse(mouseX, mouseY) {
+        function remapMouse(mouseX: var, mouseY: var): var { // Modified by Shipwright for Qt 6: typed
             // Return the mouse coordinates in cartesian coords relative to the circle center
             return { x: mouseX - (width / 2), y: 0 - (mouseY - (height / 2)) }
         }
 
-        function propertyForRadius(radius) {
+        function propertyForRadius(radius: var): var { // Modified by Shipwright for Qt 6: typed
             // Return the property associated with clicking at radius distance from the center
-            if (radius < width/2 - _trackWidth) {
+            if (radius < width/2 - timePicker._trackWidth) { // Modified by Shipwright for Qt 6: qualified
                 return 1 // Hours
             } else if (radius < width / 2) {
                 return 2 // Minutes
@@ -226,7 +228,7 @@ SilicaItem {
             return 0
         }
 
-        function updateForAngle(angle) {
+        function updateForAngle(angle: var): void { // Modified by Shipwright for Qt 6: typed
             // Update the selected property for the specified angular position
             var indicator = changingProperty == 1 ? innerIndicator : outerIndicator
             var stepCount = indicator.stepCount
@@ -253,13 +255,13 @@ SilicaItem {
             var target = (indicator.value + delta)
             indicator.value += delta
 
-            if (changingProperty == 1 && _hoursAndMinutes) {
+            if (changingProperty == 1 && timePicker._hoursAndMinutes) { // Modified by Shipwright for Qt 6: qualified
                 if (target < 0) {
                     var multiple = Math.ceil(target / 24)
                     target += ((-multiple + 1) * 24)
                 }
                 timePicker.hour = (target % 24)
-            } else if (changingProperty == 2 && !_hoursAndMinutes) {
+            } else if (changingProperty == 2 && !timePicker._hoursAndMinutes) { // Modified by Shipwright for Qt 6: qualified
                 timePicker._second = value
             } else {
                 timePicker.minute = value

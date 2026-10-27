@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2018-2020 Jolla Ltd
 // SPDX-FileCopyrightText: 2019-2020 Open Mobile Platform LLC
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -35,6 +36,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/SwipeItem.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.6
 import Sailfish.Silica.private 1.0
@@ -54,7 +56,7 @@ BackgroundItem {
     property bool _longPress
     property Item _page
 
-    function swipeAway() {
+    function swipeAway(): void { // Modified by Shipwright for Qt 6: typed
         dismissAnimation.dismiss(contentItem, _page ? _page.width : width)
     }
 
@@ -91,7 +93,7 @@ BackgroundItem {
 
         onCompleted: {
             root.swipedAway()
-            _triggeredWithGesture = false
+            root._triggeredWithGesture = false // Modified by Shipwright for Qt 6: qualified
         }
     }
 }

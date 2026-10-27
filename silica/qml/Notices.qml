@@ -30,7 +30,7 @@ QtObject {
         onTriggered: notices._dismissCurrent()
     }
 
-    function show(text, duration, anchor, horizontalOffset, verticalOffset) {
+    function show(text: var, duration: var, anchor: var, horizontalOffset: var, verticalOffset: var): var {
         var properties = { "text": text === undefined || text === null ? "" : String(text) }
         if (duration !== undefined)
             properties.duration = duration
@@ -47,7 +47,7 @@ QtObject {
         return notice
     }
 
-    function _show(notice) {
+    function _show(notice: var): var {
         if (!notice || notice === _current || _queue.indexOf(notice) >= 0)
             return
         _queue = _queue.concat([notice])
@@ -55,7 +55,7 @@ QtObject {
             _showNext()
     }
 
-    function _dismiss(notice) {
+    function _dismiss(notice: var): void {
         if (notice === _current) {
             _dismissCurrent()
             return
@@ -68,7 +68,7 @@ QtObject {
         }
     }
 
-    function _dismissCurrent() {
+    function _dismissCurrent(): void {
         _timer.stop()
         var done = _current
         if (_currentItem) {
@@ -83,7 +83,7 @@ QtObject {
         _showNext()
     }
 
-    function _showNext() {
+    function _showNext(): void {
         while (_queue.length > 0 && !_current) {
             var notice = _queue[0]
             _queue = _queue.slice(1)

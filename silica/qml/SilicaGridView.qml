@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) SilicaGridView.qml
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.5
 import Sailfish.Silica 1.0
@@ -85,23 +86,23 @@ GridView {
     property int __silica_gridview
     property int _menuOpenOffsetItemsIndex: { -1 }
 
-    function scrollToTop() {
+    function scrollToTop(): void { // Modified by Shipwright for Qt 6: typed
         FastScroll.scrollToTop(gridView, quickScrollItem)
     }
-    function scrollToBottom() {
+    function scrollToBottom(): void { // Modified by Shipwright for Qt 6: typed
         FastScroll.scrollToBottom(gridView, quickScrollItem)
     }
     // Modified by Shipwright for Qt 6: positionViewAt*() go through Util, which
     // defers them while the header or footer is being created (a call from the
     // header's own handlers otherwise corrupts Qt 6's header creation and
     // crashes when the view is destroyed; see Keel's private/misc.cpp).
-    function positionViewAtBeginning() {
+    function positionViewAtBeginning(): void { // Modified by Shipwright for Qt 6: typed
         Util._keelPositionView(gridView, "positionViewAtBeginning")
     }
-    function positionViewAtEnd() {
+    function positionViewAtEnd(): void { // Modified by Shipwright for Qt 6: typed
         Util._keelPositionView(gridView, "positionViewAtEnd")
     }
-    function positionViewAtIndex(index, mode) {
+    function positionViewAtIndex(index: var, mode: var): void { // Modified by Shipwright for Qt 6: typed
         Util._keelPositionView(gridView, "positionViewAtIndex", index, mode)
     }
 

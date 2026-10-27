@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) InteractionHintLabel.qml
 // Modified by Shipwright for Qt 6: `palette` is a read-only property for the label's palette (upstream: an alias, which cannot be marked override).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -58,8 +59,8 @@ Rectangle {
     implicitHeight: label.height + topMargin + bottomMargin
     width: parent.width
     gradient: Gradient {
-        GradientStop { position: invert ? 1.0 : 0.0; color: "transparent" }
-        GradientStop { position: invert ? 0.0 : 1.0; color: backgroundColor }
+        GradientStop { position: root.invert ? 1.0 : 0.0; color: "transparent" } // Modified by Shipwright for Qt 6: qualified
+        GradientStop { position: root.invert ? 0.0 : 1.0; color: root.backgroundColor } // Modified by Shipwright for Qt 6: qualified
     }
 
     InfoLabel {
@@ -67,8 +68,8 @@ Rectangle {
 
         color: palette.highlightColor
         anchors {
-            top: invert ? parent.top : undefined
-            bottom: invert ? undefined : parent.bottom
+            top: root.invert ? parent.top : undefined // Modified by Shipwright for Qt 6: qualified
+            bottom: root.invert ? undefined : parent.bottom // Modified by Shipwright for Qt 6: qualified
             bottomMargin: root.bottomMargin
             topMargin: root.topMargin
         }

@@ -37,6 +37,7 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (5 places).
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: the inline GLSL is a compiled Qt 6 shader (qml/shaders/opaque.frag); no layer on the software scene graph, where the window around the menu's item is shaded instead of dimmed.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import QtQuick as KeelQuick // Modified by Shipwright for Qt 6: GraphicsInfo (newer than this file's QtQuick import)
@@ -175,7 +176,7 @@ SilicaMouseArea {
         }
     }
 
-    function open(item) {
+    function open(item: var): void { // Modified by Shipwright for Qt 6: typed
         if (item) {
             parent = item
             if (hasContent) {
@@ -196,25 +197,25 @@ SilicaMouseArea {
         }
     }
 
-    function close() {
+    function close(): void { // Modified by Shipwright for Qt 6: typed
         active = false
         _parentMouseArea = null
     }
 
-    function show(item) {
+    function show(item: var): void { // Modified by Shipwright for Qt 6: typed
         console.warn("ContextMenu::show is deprecated in Sailfish Silica package 0.25.6 (Dec 2017), use ContextMenu::open instead.")
         console.trace()
         open(item)
     }
 
-    function hide() {
+    function hide(): void { // Modified by Shipwright for Qt 6: typed
         console.warn("ContextMenu::hide is deprecated in Sailfish Silica package 0.25.6 (Dec 2017), use ContextMenu::close instead.")
         console.trace()
         close()
     }
 
     // Called from number animation of _displayHeight behavior when animation has finished.
-    function _reset() {
+    function _reset(): void { // Modified by Shipwright for Qt 6: typed
         // The _contentHeight (and the animated _displayHeight following it) may be reduced to 0 if
         // active is false or all of the items in the menu are hidden which can happen as a
         // side effect of the menu or its window being hidden.
@@ -234,12 +235,12 @@ SilicaMouseArea {
         }
     }
 
-    function _parentDestroyed() {
+    function _parentDestroyed(): void { // Modified by Shipwright for Qt 6: typed
         parent = null
         _page = null
     }
 
-    function _findBackgroundItem(item) {
+    function _findBackgroundItem(item: var): var { // Modified by Shipwright for Qt 6: typed
         if (item.hasOwnProperty("preventStealing") && item.pressed) {
             return item
         }
@@ -263,7 +264,7 @@ SilicaMouseArea {
         return null
     }
 
-    function _highlightMenuItem(yPos) {
+    function _highlightMenuItem(yPos: var): void { // Modified by Shipwright for Qt 6: typed
         var xPos = width/2
         var child = Util.childAt(contentColumn, xPos, yPos)
         if (!child) {
@@ -282,7 +283,7 @@ SilicaMouseArea {
         }
     }
 
-    function _setHighlightedItem(item) {
+    function _setHighlightedItem(item: var): void { // Modified by Shipwright for Qt 6: typed
         if (item === _highlightedItem) {
             return
         }
@@ -298,7 +299,7 @@ SilicaMouseArea {
         }
     }
 
-    function _activatedMenuItem(item) {
+    function _activatedMenuItem(item: var): var { // Modified by Shipwright for Qt 6: typed
         _foreachMenuItem(function (menuItem, index) {
             if (menuItem === item && menuItem.enabled) {
                 menuItem.clicked()
@@ -313,7 +314,7 @@ SilicaMouseArea {
         })
     }
 
-    function _updatePosition(y) {
+    function _updatePosition(y: var): void { // Modified by Shipwright for Qt 6: typed
         if (_flickableMoved && _expanded) {
             if (_expandedPosition < 0.0) {
                 _expandedPosition = y
@@ -327,7 +328,7 @@ SilicaMouseArea {
         }
     }
 
-    function _getDisplayHeight() {
+    function _getDisplayHeight(): var { // Modified by Shipwright for Qt 6: typed
         var total = 0
         for (var i=0; i<children.length; i++) {
             var childItem = children[i]
@@ -346,7 +347,7 @@ SilicaMouseArea {
         return total
     }
 
-    function _foreachMenuItem(func) {
+    function _foreachMenuItem(func: var): void { // Modified by Shipwright for Qt 6: typed
         var menuItemIndex = 0
         for (var i=0; i<children.length; i++) {
             if (children[i].hasOwnProperty("__silica_menuitem")) {
@@ -360,7 +361,7 @@ SilicaMouseArea {
 
     Binding {
         // Modified by Shipwright for Qt 6: with shaders only (keelSoftwareDim below otherwise)
-        when: active && contextMenu._closeOnOutsideClick && contextMenu._keelShaders
+        when: contextMenu.active && contextMenu._closeOnOutsideClick && contextMenu._keelShaders // Modified by Shipwright for Qt 6: qualified
         target: __silica_applicationwindow_instance
         property: "_dimScreen"
         value: true
@@ -385,7 +386,7 @@ SilicaMouseArea {
                                                   ? __silica_applicationwindow_instance._backgroundColor
                                                   : Theme.overlayBackgroundColor, 1.0 - Theme.opacityLow)
 
-        function update() {
+        function update(): var { // Modified by Shipwright for Qt 6: typed
             if (!on)
                 return
             var p = contextMenu.parent
@@ -428,7 +429,7 @@ SilicaMouseArea {
     states: [
         State {
             // Modified by Shipwright for Qt 6: no layer on the software scene graph, which runs no shaders
-            when: contextMenu.parent && contextMenu._closeOnOutsideClick && (active || displayHeightAnimation.running)
+            when: contextMenu.parent && contextMenu._closeOnOutsideClick && (contextMenu.active || displayHeightAnimation.running) // Modified by Shipwright for Qt 6: qualified
                   && contextMenu._keelShaders
             PropertyChanges {
                 target: contextMenu.parent
@@ -444,17 +445,17 @@ SilicaMouseArea {
     ]
 
     Connections {
-        target: _flickable && _flickable.flickableDirection != Flickable.HorizontalFlick ? _flickable : null
+        target: contextMenu._flickable && contextMenu._flickable.flickableDirection != Flickable.HorizontalFlick ? contextMenu._flickable : null // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
-        function onContentYChanged() { _flickableMoved = true }
+        function onContentYChanged() { contextMenu._flickableMoved = true } // Modified by Shipwright for Qt 6: qualified
     }
 
     Connections {
         // TODO: replace with Connections.enabled binding (pending Qt 5.7+)
         ignoreUnknownSignals: true
-        target: _expanded ? _parentMouseArea : null
+        target: contextMenu._expanded ? contextMenu._parentMouseArea : null // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
-        function onPositionChanged(mouse) { _updatePosition(contentColumn.mapFromItem(_parentMouseArea, mouse.x, mouse.y).y) }
+        function onPositionChanged(mouse) { _updatePosition(contentColumn.mapFromItem(contextMenu._parentMouseArea, mouse.x, mouse.y).y) } // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onReleased(mouse) { contextMenu.released(mouse) }
     }
@@ -467,7 +468,7 @@ SilicaMouseArea {
         opacity: Theme.highlightBackgroundOpacity
         InverseMouseArea {
             anchors.fill: parent
-            enabled: active && _closeOnOutsideClick
+            enabled: contextMenu.active && contextMenu._closeOnOutsideClick // Modified by Shipwright for Qt 6: qualified
             stealPress: true
             onPressedOutside: close()
         }
@@ -476,7 +477,7 @@ SilicaMouseArea {
             when: contextMenu._open
                   && contextMenu.parent !== null
                   && contextMenu._flickable !== null
-                  && _flickable.flickableDirection === Flickable.HorizontalFlick
+                  && contextMenu._flickable.flickableDirection === Flickable.HorizontalFlick // Modified by Shipwright for Qt 6: qualified
             PropertyChanges {
                 target: contextMenu._flickable
                 interactive: contextMenu._closeOnOutsideClick
@@ -488,7 +489,7 @@ SilicaMouseArea {
 
     HighlightBar {
         id: highlightBar
-        height: _highlightedItem ? _highlightedItem.height : Theme.itemSizeSmall
+        height: contextMenu._highlightedItem ? contextMenu._highlightedItem.height : Theme.itemSizeSmall // Modified by Shipwright for Qt 6: qualified
     }
 
     Column {

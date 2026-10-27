@@ -35,7 +35,9 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) ProgressBar.qml
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (2 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, `pragma ComponentBehavior: Bound` (its inner components are made only in this file).
 
+pragma ComponentBehavior: Bound // Modified by Shipwright for Qt 6: ids of outer objects used in inner components
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Sailfish.Silica.private 1.0
@@ -79,7 +81,7 @@ SilicaItem {
             id: valueTextPlaceholder
 
             width: parent.width
-            height: _valueTextItem && _valueTextItem.visible ? _valueTextItem.height : 0
+            height: progressBar._valueTextItem && progressBar._valueTextItem.visible ? progressBar._valueTextItem.height : 0 // Modified by Shipwright for Qt 6: qualified
         }
 
         GlassItem {
@@ -88,7 +90,7 @@ SilicaItem {
             anchors {
                 // extra painting margins (Theme.paddingMedium on both sides) are needed,
                 // because glass item doesn't visibly paint across the full width of the item
-                leftMargin: progressBar.leftMargin - _glassItemPadding
+                leftMargin: progressBar.leftMargin - progressBar._glassItemPadding // Modified by Shipwright for Qt 6: qualified
                 left: parent.left
 
                 // compensate empty space in GlassItem
@@ -96,7 +98,7 @@ SilicaItem {
                 top: valueTextPlaceholder.bottom
             }
 
-            width: progressBar._grooveWidth + 2*_glassItemPadding
+            width: progressBar._grooveWidth + 2*progressBar._glassItemPadding // Modified by Shipwright for Qt 6: qualified
             height: (palette.colorScheme === Theme.LightOnDark ? 2 : 4) * Theme.paddingLarge
 
             dimmed: true
@@ -110,10 +112,10 @@ SilicaItem {
 
                 anchors.verticalCenter: background.verticalCenter
                 // height added as GlassItem will not display correctly with width < height
-                width: indeterminate ? background.width
-                                     : (progressValue - minimumValue) / (maximumValue - minimumValue) * (background.width - height) + height
+                width: progressBar.indeterminate ? background.width // Modified by Shipwright for Qt 6: qualified
+                                     : (progressBar.progressValue - progressBar.minimumValue) / (progressBar.maximumValue - progressBar.minimumValue) * (background.width - height) + height // Modified by Shipwright for Qt 6: qualified
                 height: background.height
-                visible: indeterminate || value > minimumValue
+                visible: progressBar.indeterminate || progressBar.value > progressBar.minimumValue // Modified by Shipwright for Qt 6: qualified
                 dimmed: false
                 radius: palette.colorScheme === Theme.LightOnDark ? 0.05 : 0.04
                 falloffRadius: palette.colorScheme === Theme.LightOnDark ? 0.14 : 0.10
@@ -122,14 +124,14 @@ SilicaItem {
                 ratio: 0.0
                 color: progressBar.highlighted ? palette.highlightColor : Theme.lightPrimaryColor
                 backgroundColor: palette.colorScheme === Theme.DarkOnLight ? palette.highlightDimmerColor : "transparent"
-                dashed: indeterminate
+                dashed: progressBar.indeterminate // Modified by Shipwright for Qt 6: qualified
 
                 Timer {
                     id: progressBarTimer
 
                     property bool isVisible: progressBar.visible && progressBar.opacity > 0.0
 
-                    running: indeterminate && isVisible && Qt.application.active
+                    running: progressBar.indeterminate && isVisible && Qt.application.active // Modified by Shipwright for Qt 6: qualified
                     repeat: true
                     interval: 16
                     onTriggered: {
@@ -151,7 +153,7 @@ SilicaItem {
                 topMargin: Theme.paddingMedium
                 horizontalCenter: background.horizontalCenter
             }
-            width: background.width - _glassItemPadding*2
+            width: background.width - progressBar._glassItemPadding*2 // Modified by Shipwright for Qt 6: qualified
             truncationMode: TruncationMode.Fade
             visible: text.length
             font.pixelSize: Theme.fontSizeSmall
@@ -166,8 +168,8 @@ SilicaItem {
 
         Text {
             color: progressBar.highlighted ? progressBar.palette.highlightColor : progressBar.palette.primaryColor
-            x: Math.min(Math.max(_glassItemPadding, background.x + highlight.width - width/2 - _glassItemPadding),
-                        parent.width - width - _glassItemPadding)
+            x: Math.min(Math.max(progressBar._glassItemPadding, background.x + highlight.width - width/2 - progressBar._glassItemPadding), // Modified by Shipwright for Qt 6: qualified
+                        parent.width - width - progressBar._glassItemPadding) // Modified by Shipwright for Qt 6: qualified
 
             font.pixelSize: Theme.fontSizeLarge
             font.family: Theme.fontFamily

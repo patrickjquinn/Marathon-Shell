@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) Drawer.qml
 // Modified by Shipwright for Qt 6: children go to the foreground through `_foregroundData` (upstream: `data`, which shadows Item.data).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -74,7 +75,7 @@ SilicaItem {
     property bool _immediate
 
     Behavior on _progress {
-        enabled: !_immediate
+        enabled: !root._immediate // Modified by Shipwright for Qt 6: qualified
         NumberAnimation {
             id: menuProgressAnimation
             duration: 300
@@ -84,18 +85,18 @@ SilicaItem {
 
     onDockChanged: _completeAnimations()
 
-    function _completeAnimations() {
+    function _completeAnimations(): void { // Modified by Shipwright for Qt 6: typed
         menuProgressAnimation.complete()
         backgroundOpacityAnimation.complete()
     }
 
-    function show(immediate) {
+    function show(immediate: var): void { // Modified by Shipwright for Qt 6: typed
         _immediate = !!immediate
         open = true
         _immediate = false
     }
 
-    function hide(immediate) {
+    function hide(immediate: var): void { // Modified by Shipwright for Qt 6: typed
         _immediate = !!immediate
         open = false
         _immediate = false
@@ -141,7 +142,7 @@ SilicaItem {
         // easing is cubic instead of the normal quad.
         opacity: root.open ? Theme.opacityHigh : 0.0
         Behavior on opacity {
-            enabled: !_immediate
+            enabled: !root._immediate // Modified by Shipwright for Qt 6: qualified
             NumberAnimation {
                 id: backgroundOpacityAnimation
                 duration: 300

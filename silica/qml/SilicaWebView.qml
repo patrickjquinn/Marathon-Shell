@@ -61,20 +61,20 @@ SilicaFlickable {
     signal navigationRequested(var request)
     signal linkHovered(url hoveredUrl, string hoveredTitle)
 
-    function _menuActive(menu) { return menu !== null && menu !== undefined && menu.active }
+    function _menuActive(menu: var): var { return menu !== null && menu !== undefined && menu.active }
 
-    function goBack() { if (_view) _view.goBack() }
-    function goForward() { if (_view) _view.goForward() }
-    function reload() { if (_view) _view.reload() }
-    function stop() { if (_view) _view.stop() }
-    function loadHtml(html, baseUrl, unreachableUrl) { if (_view) _view.loadHtml(html, baseUrl === undefined ? "" : baseUrl) }
+    function goBack(): void { if (_view) _view.goBack() }
+    function goForward(): void { if (_view) _view.goForward() }
+    function reload(): void { if (_view) _view.reload() }
+    function stop(): void { if (_view) _view.stop() }
+    function loadHtml(html: var, baseUrl: var, unreachableUrl: var): void { if (_view) _view.loadHtml(html, baseUrl === undefined ? "" : baseUrl) }
 
     readonly property SilicaPrivate.WebKitExperimental experimental: SilicaPrivate.WebKitExperimental {
         view: root
     }
 
-    function scrollToTop() { if (_view) _view.runJavaScript("window.scrollTo(0, 0); return true") }
-    function scrollToBottom() {
+    function scrollToTop(): void { if (_view) _view.runJavaScript("window.scrollTo(0, 0); return true") }
+    function scrollToBottom(): void {
         if (_view)
             _view.runJavaScript("window.scrollTo(0, document.documentElement.scrollHeight); return true")
     }

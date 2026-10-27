@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2013 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,11 +34,15 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) ViewPlaceholder.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, `pragma ComponentBehavior: Bound` (its inner components are made only in this file).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (1 places; the same object type, typed for qmlcachegen).
 // Modified by Shipwright: `y` kept clear of the flickable's header item (see below).
 
+pragma ComponentBehavior: Bound // Modified by Shipwright for Qt 6: ids of outer objects used in inner components
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import "private/Util.js" as Util
+import Sailfish.Silica 1.0 as KeelSilica // Modified by Shipwright for Qt 6: see Screen below
 
 SilicaItem {
     id: placeholder
@@ -62,7 +67,7 @@ SilicaItem {
                                           ? flickable.headerItem.y + flickable.headerItem.height + Theme.paddingLarge
                                           : -Infinity
 
-    width: flickable ? flickable.width : screen.width
+    width: flickable ? flickable.width : KeelSilica.Screen.width // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     height: mainLabel.height + (hintLabel.text.length > 0 ? hintLabel.height : 0)
     enabled: false
     opacity: enabled ? 1.0 : 0
@@ -83,7 +88,7 @@ SilicaItem {
     Text {
         id: hintLabel
 
-        x: leftMargin
+        x: placeholder.leftMargin // Modified by Shipwright for Qt 6: qualified
         anchors.top: mainLabel.bottom
         width: parent.width - parent.leftMargin - parent.rightMargin
         horizontalAlignment: Text.AlignHCenter
@@ -106,7 +111,7 @@ SilicaItem {
             width: parent.width - 2 * Theme.paddingLarge
             height: flickable ? flickable.height - 2 * Theme.paddingLarge : 0
             anchors.horizontalCenter: parent.horizontalCenter
-            y: -_yBase + Theme.paddingLarge
+            y: -placeholder._yBase + Theme.paddingLarge // Modified by Shipwright for Qt 6: qualified
         }
     }
 

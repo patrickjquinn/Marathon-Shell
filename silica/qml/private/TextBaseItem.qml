@@ -26,7 +26,7 @@ FocusScope {
 
     property bool _keelImplicitChange
 
-    function setImplicitHorizontalAlignment(alignment) {
+    function setImplicitHorizontalAlignment(alignment: var): var {
         if (explicitHorizontalAlignment || alignment === horizontalAlignment)
             return
         _keelImplicitChange = true

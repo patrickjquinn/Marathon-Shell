@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) ColumnView.qml
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -59,7 +60,7 @@ Item {
 
     property alias menuOpen: resultsView.menuOpen
 
-    function _listStartPosition() {
+    function _listStartPosition(): var { // Modified by Shipwright for Qt 6: typed
         return y + mapToItem(flickable.contentItem, 0, 0).y
     }
 
@@ -103,7 +104,7 @@ Item {
         // We have to calculate our own contentHeight, as changing contentY causes contentHeight
         // to change when the ListView is estimating contentHeight (which occurs when the context
         // menu is open) - binding to the real contentHeight causes binding loops
-        property real _contentHeight: (resultsView.count * itemHeight) + _menuHeight
+        property real _contentHeight: (resultsView.count * resultsList.itemHeight) + _menuHeight // Modified by Shipwright for Qt 6: qualified
         property real _displayHeight: Math.min(resultsList.height, resultsList.maximumVisibleHeight)
 
         width: parent.width

@@ -26,11 +26,11 @@ QtObject {
     // Keel: made by Notices.show(), destroyed once shown.
     property bool _transient: false
 
-    function show() {
+    function show(): void {
         Notices._show(notice)
     }
 
-    function dismiss() {
+    function dismiss(): void {
         Notices._dismiss(notice)
     }
 

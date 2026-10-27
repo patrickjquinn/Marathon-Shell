@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) SlideshowView.qml
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (3 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -83,15 +84,15 @@ PathView {
     path: Path {
         id: path
 
-        startX: orientation === Qt.Horizontal ? -(view.itemWidth * view._multiplier - view.width/2)
+        startX: view.orientation === Qt.Horizontal ? -(view.itemWidth * view._multiplier - view.width/2) // Modified by Shipwright for Qt 6: qualified
                                               : view.itemWidth / 2
-        startY: orientation === Qt.Horizontal ? view.itemHeight / 2
+        startY: view.orientation === Qt.Horizontal ? view.itemHeight / 2 // Modified by Shipwright for Qt 6: qualified
                                               : -(view.itemHeight * view._multiplier - view.height/2)
 
         PathLine {
-            x: orientation === Qt.Horizontal ? (view.pathItemCount * view.itemWidth) + path.startX
+            x: view.orientation === Qt.Horizontal ? (view.pathItemCount * view.itemWidth) + path.startX // Modified by Shipwright for Qt 6: qualified
                                              : view.itemWidth / 2
-            y: orientation === Qt.Horizontal ? view.itemHeight / 2
+            y: view.orientation === Qt.Horizontal ? view.itemHeight / 2 // Modified by Shipwright for Qt 6: qualified
                                              : (view.pathItemCount * view.itemHeight) + path.startY
         }
     }

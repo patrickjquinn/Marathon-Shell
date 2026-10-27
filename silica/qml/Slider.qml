@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2013 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) Slider.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.4
 import Sailfish.Silica 1.0
@@ -58,9 +60,9 @@ SliderBase {
 
         // extra painting margins (Theme.paddingMedium on both sides) are needed,
         // because glass item doesn't visibly paint across the full width of the item
-        x: slider.leftMargin - _glassItemPadding
-        width: slider._grooveWidth + 2*_glassItemPadding
-        y: slider._extraPadding + _backgroundTopPadding
+        x: slider.leftMargin - slider._glassItemPadding // Modified by Shipwright for Qt 6: qualified
+        width: slider._grooveWidth + 2*slider._glassItemPadding // Modified by Shipwright for Qt 6: qualified
+        y: slider._extraPadding + slider._backgroundTopPadding // Modified by Shipwright for Qt 6: qualified
         height: (slider.colorScheme === Theme.DarkOnLight ? 1.0 : 0.5) * Theme.itemSizeExtraSmall
 
         dimmed: true
@@ -77,7 +79,7 @@ SliderBase {
         anchors.verticalCenter: background.verticalCenter
         width: slider._progressBarWidth
         height: background.height
-        visible: sliderValue > minimumValue
+        visible: slider.sliderValue > slider.minimumValue // Modified by Shipwright for Qt 6: qualified
         dimmed: false
         radius: slider.colorScheme === Theme.DarkOnLight ? 0.05 : 0.04
         falloffRadius: slider.colorScheme === Theme.DarkOnLight ? 0.14 : 0.10
@@ -95,7 +97,7 @@ SliderBase {
         radius: 0.17
         falloffRadius: 0.17
         anchors.verticalCenter: background.verticalCenter
-        visible: handleVisible
+        visible: slider.handleVisible // Modified by Shipwright for Qt 6: qualified
         color: slider.highlighted ? slider.highlightColor : slider.color
         backgroundColor: slider.backgroundGlowColor
     }

@@ -39,6 +39,7 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -53,7 +54,7 @@ RemorseBase {
 
     property Item _item
 
-    function execute(item, text, callback, timeout) {
+    function execute(item: var, text: var, callback: var, timeout: var): void { // Modified by Shipwright for Qt 6: typed
         if (text === undefined) {
             remorseItem.text = ""
         } else {
@@ -76,7 +77,7 @@ RemorseBase {
         RemorseItemJs.remorseItemActivated(remorseItem)
     }
 
-    function cancel() {
+    function cancel(): void { // Modified by Shipwright for Qt 6: typed
         _close()
         if ('__silica_remorse_item' in parent) {
             parent.__silica_remorse_item = null
@@ -85,7 +86,7 @@ RemorseBase {
         RemorseItemJs.remorseItemCancel(remorseItem)
     }
 
-    function trigger() {
+    function trigger(): var { // Modified by Shipwright for Qt 6: typed
         if (_countdown.running) {
             _countdown.stop()
             return _execute(false)
@@ -93,17 +94,17 @@ RemorseBase {
         return false
     }
 
-    function _trigger() {
+    function _trigger(): void { // Modified by Shipwright for Qt 6: typed
         remorseItem.state = "activePending"
         _execute(true)
     }
 
-    function _close() {
+    function _close(): void { // Modified by Shipwright for Qt 6: typed
         _countdown.stop()
         state = ""
     }
 
-    function _execute(closeAfterExecute) {
+    function _execute(closeAfterExecute: var): var { // Modified by Shipwright for Qt 6: typed
         if (!_triggered) {
             _triggered = true
             RemorseItemJs.remorseItemTrigger(remorseItem, RemorseJs.callback, closeAfterExecute)
@@ -178,7 +179,7 @@ RemorseBase {
                 PropertyAction { target: remorseItem; property: "visible" }
                 ScriptAction { script: { RemorseItemJs.remorseItemDeactivated(remorseItem) }}
                 FadeAnimation {
-                    target: _item
+                    target: remorseItem._item // Modified by Shipwright for Qt 6: qualified
                     duration: 100
                 }
             }
@@ -186,10 +187,10 @@ RemorseBase {
     ]
 
     Connections {
-        target: _page
+        target: remorseItem._page // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onStatusChanged() {
-            if (_page && _page.status == PageStatus.Deactivating && _countdown.running) {
+            if (remorseItem._page && remorseItem._page.status == PageStatus.Deactivating && _countdown.running) { // Modified by Shipwright for Qt 6: qualified
                 // if the page is changed then execute immediately
                 _execute(false)
             }

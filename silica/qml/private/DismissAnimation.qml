@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/DismissAnimation.qml
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -47,7 +48,7 @@ SequentialAnimation {
     property real distance
     signal completed
 
-    function dismiss(target, distance) {
+    function dismiss(target: var, distance: var): void { // Modified by Shipwright for Qt 6: typed
         slideAnimation.target = target
         root.distance = distance
         slideAnimation.duration = 200
@@ -56,7 +57,7 @@ SequentialAnimation {
         start()
     }
 
-    function animate(target, startX, distance, force) {
+    function animate(target: var, startX: var, distance: var, force: var): var { // Modified by Shipwright for Qt 6: typed
         var active = false
         slideAnimation.target = target
         root.startX = startX
@@ -84,7 +85,7 @@ SequentialAnimation {
         return active
     }
 
-    function reset() {
+    function reset(): void { // Modified by Shipwright for Qt 6: typed
         if (slideAnimation.target) {
             slideAnimation.target.x = startX
         }
@@ -95,6 +96,6 @@ SequentialAnimation {
         property: "x"
     }
     ScriptAction {
-        script: if (Math.abs(slideAnimation.to) === distance) completed()
+        script: if (Math.abs(slideAnimation.to) === root.distance) completed() // Modified by Shipwright for Qt 6: qualified
     }
 }

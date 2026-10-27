@@ -37,6 +37,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) DetailItem.qml
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places); the label's colour qualified with the id.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.6
 import Sailfish.Silica 1.0
@@ -71,10 +72,10 @@ SilicaItem {
         anchors {
             left: parent.left
             leftMargin: detailItem.leftMargin
-            right: _center ? parent.horizontalCenter : parent.right
-            rightMargin: _center ? Theme.paddingSmall : detailItem.rightMargin
+            right: detailItem._center ? parent.horizontalCenter : parent.right // Modified by Shipwright for Qt 6: qualified
+            rightMargin: detailItem._center ? Theme.paddingSmall : detailItem.rightMargin // Modified by Shipwright for Qt 6: qualified
         }
-        horizontalAlignment: _center ? Text.AlignRight : Text.AlignLeft
+        horizontalAlignment: detailItem._center ? Text.AlignRight : Text.AlignLeft // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: qualified with the id, as the value's
         // colours are: unqualified, the lookup goes through the context
         // object, whose properties are already gone while the item is being
@@ -91,10 +92,10 @@ SilicaItem {
         property bool valueBelow: detailItem.forceValueBelow
                                   || ((labelText.implicitWidth + valueText.implicitWidth)
                                       > (detailItem.width - 2*Theme.horizontalPageMargin - 2*Theme.paddingSmall))
-        y: (!_center && valueBelow ? (labelText.y + labelText.height) : 0) + Theme.paddingSmall
+        y: (!detailItem._center && valueBelow ? (labelText.y + labelText.height) : 0) + Theme.paddingSmall // Modified by Shipwright for Qt 6: qualified
         anchors {
-            left: _center ? parent.horizontalCenter : parent.left
-            leftMargin: _center ? Theme.paddingSmall
+            left: detailItem._center ? parent.horizontalCenter : parent.left // Modified by Shipwright for Qt 6: qualified
+            leftMargin: detailItem._center ? Theme.paddingSmall // Modified by Shipwright for Qt 6: qualified
                                 : (valueBelow ? detailItem.leftMargin
                                               : (labelText.x + labelText.implicitWidth + 2*Theme.paddingSmall))
             right: parent.right

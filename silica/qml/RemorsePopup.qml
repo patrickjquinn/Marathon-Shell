@@ -39,6 +39,8 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (7 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (1 places; the same object type, typed for qmlcachegen).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -52,7 +54,7 @@ RemorseBase {
 
     readonly property bool active: state === "active"
 
-    function execute(text, callback, timeout) {
+    function execute(text: var, callback: var, timeout: var): void { // Modified by Shipwright for Qt 6: typed
         if (text === undefined) {
             remorsePopup.text = ""
         } else {
@@ -69,26 +71,26 @@ RemorseBase {
         state = "active"
     }
 
-    function cancel() {
+    function cancel(): void { // Modified by Shipwright for Qt 6: typed
         _close()
         canceled()
     }
 
-    function trigger() {
+    function trigger(): void { // Modified by Shipwright for Qt 6: typed
         _execute()
         _close()
     }
 
-    function _trigger() {
+    function _trigger(): void { // Modified by Shipwright for Qt 6: typed
         trigger()
     }
 
-    function _close() {
+    function _close(): void { // Modified by Shipwright for Qt 6: typed
         _countdown.stop()
         state = "inactive"
     }
 
-    function _execute() {
+    function _execute(): void { // Modified by Shipwright for Qt 6: typed
         if (!_triggered) {
             _triggered = true
             triggered()
@@ -101,7 +103,7 @@ RemorseBase {
     height: Math.max(Theme.itemSizeSmall, _labels.height + 2 * Theme.paddingMedium)
     y: -height
     z: 1
-    _wideMode: screen.sizeCategory > KeelSilica.Screen.Medium
+    _wideMode: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     _screenMargin: 0
     leftMargin: {
         if (_page && _page.orientation == Orientation.Portrait && KeelSilica.Screen.topCutout.height > Theme.paddingLarge) {
@@ -170,7 +172,7 @@ RemorseBase {
                         }
                     }
                     ScriptAction {
-                        script: _countdown.restart()
+                        script: remorsePopup._countdown.restart() // Modified by Shipwright for Qt 6: qualified
                     }
                 }
             }
@@ -192,10 +194,10 @@ RemorseBase {
     ]
 
     Connections {
-        target: _page
+        target: remorsePopup._page // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onStatusChanged() {
-            if (_page && _page.status == PageStatus.Deactivating && _countdown.running) {
+            if (remorsePopup._page && remorsePopup._page.status == PageStatus.Deactivating && _countdown.running) { // Modified by Shipwright for Qt 6: qualified
                 // if the page is changed then execute immediately
                 _execute()
                 _close()

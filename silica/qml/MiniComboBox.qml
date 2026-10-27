@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) MiniComboBox.qml
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.6
 import Sailfish.Silica 1.0
@@ -130,7 +131,7 @@ Private.SilicaMouseArea {
     }
 
     Connections {
-        target: _textField
+        target: miniComboBox._textField // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onHighlightedChanged() {
             if (controller.menuOpen) {
@@ -157,11 +158,11 @@ Private.SilicaMouseArea {
             anchors.verticalCenter: parent.verticalCenter
 
             color: miniComboBox._expanded
-                   ? (_showPress ? palette.highlightColor : palette.primaryColor)
+                   ? (miniComboBox._showPress ? palette.highlightColor : palette.primaryColor) // Modified by Shipwright for Qt 6: qualified
                    : palette.secondaryHighlightColor
 
             font.pixelSize: Theme.fontSizeSmall
-            text: (currentItem !== null) ? miniComboBox.value : label
+            text: (miniComboBox.currentItem !== null) ? miniComboBox.value : miniComboBox.label // Modified by Shipwright for Qt 6: qualified
             truncationMode: TruncationMode.Fade
             width: miniComboBox.width - (3 * Theme.paddingSmall) - Theme.iconSizeSmall
         }

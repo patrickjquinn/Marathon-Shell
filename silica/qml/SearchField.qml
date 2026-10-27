@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2013 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) SearchField.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -89,7 +91,7 @@ TextField {
         Behavior on opacity { FadeAnimation {} }
 
         onClicked: {
-            if (searchField.canHide && text.length === 0) {
+            if (searchField.canHide && searchField.text.length === 0) { // Modified by Shipwright for Qt 6: qualified
                 searchField.hideClicked()
             } else {
                 searchField.text = ""

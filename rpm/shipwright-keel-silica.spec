@@ -14,10 +14,12 @@
 # Under mb2 the build runs in the checkout (the repository root).
 
 %{!?keel_native_dir: %global keel_native_dir %{_builddir}/keel-native}
+# The Qt Declarative release the QML is compiled with (see Requires).
+%global qt6_qml_version %(rpm -q --qf '%%{VERSION}' qt6-qtdeclarative-devel 2>/dev/null | grep -E '^[0-9.]+$' || echo 6.8)
 
 Name:       shipwright-keel-silica
 Version:    0.1.0
-Release:    35
+Release:    36
 Summary:    Sailfish.Silica compatibility module for Qt6 apps (Keel)
 # Clean-room QML and C++ are Shipwright's; most QML files are Silica's own
 # BSD-3-Clause QML (Jolla Ltd), ported to Qt 6: keel/silica/PROVENANCE.md
@@ -67,6 +69,10 @@ Requires:       qt6-qtbase-gui >= 6.8
 Requires:       qt6-qtbase-gui < 6.9
 Requires:       qt6-qtdeclarative >= 6.8
 Requires:       qt6-qtdeclarative < 6.9
+# Silica's QML ships compiled only (KEEL_QML_DISCARD_SOURCES,
+# keel/CMakeLists.txt): the engine takes a compiled file only from the Qt
+# Declarative release that compiled it, down to the patch release.
+Requires:       qt6-qtdeclarative = %{qt6_qml_version}
 # Direct mode (ADR-0016): the app's windows are Lipstick windows through Qt 6's
 # Wayland client with the wl-shell integration; the ambience and the
 # display's cutouts are read through libdconf (in dconf). keel-shell is the
@@ -163,6 +169,8 @@ systemctl-user try-restart 'booster-keel@*.service' >/dev/null 2>&1 || :
 %license LICENSES/MIT.txt
 
 %changelog
+* Tue Oct 20 2026 Shipwright - 0.1.0-36
+- Keel apps start a little faster and Keel takes less room: its Silica components are about half the size, without the names of their internals and without a second, uncompiled copy of their interface.
 * Sun Oct 18 2026 Shipwright - 0.1.0-35
 - Keel apps use a little less memory once they have started.
 - For testing on slower phones: KEEL_FAST_CORES=1 keeps the threads that draw each frame on the phone's fastest cores (off by default).

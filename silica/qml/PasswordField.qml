@@ -38,6 +38,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) PasswordField.qml
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Sailfish.Silica 1.0 as KeelSilica // Modified by Shipwright for Qt 6: see Screen below
@@ -70,7 +71,7 @@ TextField {
     }
 
     rightItem: Row {
-        visible: root.errorHighlight || showEchoModeToggle
+        visible: root.errorHighlight || root.showEchoModeToggle // Modified by Shipwright for Qt 6: qualified
         height: Math.max(passwordVisibilityButton.height, errorIconContainer.height)
 
         Item {
@@ -87,13 +88,13 @@ TextField {
             width: icon.width + 2*Theme.paddingMedium
             height: icon.height
 
-            enabled: showEchoModeToggle
-            opacity: showEchoModeToggle ? 1.0 : 0.0
+            enabled: root.showEchoModeToggle // Modified by Shipwright for Qt 6: qualified
+            opacity: root.showEchoModeToggle ? 1.0 : 0.0 // Modified by Shipwright for Qt 6: qualified
             Behavior on opacity { FadeAnimation {}}
             visible: opacity > 0
 
             onClicked: {
-                if (_automaticEchoModeToggle) {
+                if (root._automaticEchoModeToggle) { // Modified by Shipwright for Qt 6: qualified
                     root._usePasswordEchoMode = !root._usePasswordEchoMode
                 }
                 _echoModeToggleClicked()

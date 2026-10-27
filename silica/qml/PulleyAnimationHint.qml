@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2013 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) PulleyAnimationHint.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -82,20 +84,20 @@ MouseArea {
     SequentialAnimation {
         id: menuPeek
         PropertyAction {
-            target: menu
+            target: root.menu // Modified by Shipwright for Qt 6: qualified
             property: "_hinting"
             value: true
         }
         PropertyAction {
-            target: menu
+            target: root.menu // Modified by Shipwright for Qt 6: qualified
             property: "active"
             value: true
         }
         NumberAnimation {
-            target: flickable
+            target: root.flickable // Modified by Shipwright for Qt 6: qualified
             property: "contentY"
-            to: _menuInactivePos + (pushUpHint ? pullDownDistance : -pullDownDistance)
-            duration: 400*Math.max(1.0, pullDownDistance/Theme.itemSizeLarge)
+            to: root._menuInactivePos + (root.pushUpHint ? root.pullDownDistance : -root.pullDownDistance) // Modified by Shipwright for Qt 6: qualified
+            duration: 400*Math.max(1.0, root.pullDownDistance/Theme.itemSizeLarge) // Modified by Shipwright for Qt 6: qualified
             easing.type: Easing.OutCubic
         }
         PropertyAction {
@@ -104,9 +106,9 @@ MouseArea {
             value: true
         }
         NumberAnimation {
-            target: flickable
+            target: root.flickable // Modified by Shipwright for Qt 6: qualified
             property: "contentY"
-            to: _menuInactivePos
+            to: root._menuInactivePos // Modified by Shipwright for Qt 6: qualified
             duration: 400 // Matches bounceback animation duration
             easing.type: Easing.InOutCubic
         }
@@ -116,12 +118,12 @@ MouseArea {
             value: false
         }
         PropertyAction {
-            target: menu
+            target: root.menu // Modified by Shipwright for Qt 6: qualified
             property: "active"
             value: false
         }
         PropertyAction {
-            target: menu
+            target: root.menu // Modified by Shipwright for Qt 6: qualified
             property: "_hinting"
             value: false
         }
@@ -130,8 +132,8 @@ MouseArea {
     Binding {
         id: bounceBackOverride
 
-        when: _bounceBack
-        target: menu
+        when: root._bounceBack // Modified by Shipwright for Qt 6: qualified
+        target: root.menu // Modified by Shipwright for Qt 6: qualified
         property: "_bounceBackRunning"
         value: menuPeek.running
     }

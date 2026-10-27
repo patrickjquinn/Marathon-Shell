@@ -28,7 +28,7 @@ QtObject {
     // Keel extension: what trigger() put on the clipboard ("" if nothing).
     signal _shared(string text)
 
-    function _textOf(resource) {
+    function _textOf(resource: var): var {
         if (resource === undefined || resource === null)
             return ""
         if (typeof resource === "string")
@@ -73,7 +73,7 @@ QtObject {
         }
     }
 
-    function _showNotice(text) {
+    function _showNotice(text: var): void {
         var window = typeof __silica_applicationwindow_instance !== "undefined"
                 ? __silica_applicationwindow_instance : null
         var parentItem = window && window.indicatorParentItem ? window.indicatorParentItem : null
@@ -84,7 +84,7 @@ QtObject {
         _noticeComponent.createObject(parentItem, { "text": text })
     }
 
-    function toConfiguration() {
+    function toConfiguration(): var {
         return {
             "resources": resources || [],
             "mimeType": mimeType,
@@ -93,7 +93,7 @@ QtObject {
         }
     }
 
-    function loadConfiguration(configuration) {
+    function loadConfiguration(configuration: var): var {
         if (!configuration)
             return
         if (configuration.resources !== undefined)
@@ -106,7 +106,7 @@ QtObject {
             selectedTransferMethodInfo = configuration.selectedTransferMethodInfo
     }
 
-    function trigger() {
+    function trigger(): var {
         if (KeelShareService.available() && KeelShareService.share(toConfiguration()))
             return
         var list = resources || []

@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/QuickScrollArea.qml
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -83,11 +84,11 @@ Rectangle {
         interval: 200
     }
     Connections {
-        target: flickable
+        target: root.flickable // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onFlickingVerticallyChanged() {
-            flicking = flickable.flickingVertically
-                                     && Math.abs(flickable.verticalVelocity) > KeelSilica.Screen.height
+            flicking = root.flickable.flickingVertically // Modified by Shipwright for Qt 6: qualified
+                                     && Math.abs(root.flickable.verticalVelocity) > KeelSilica.Screen.height // Modified by Shipwright for Qt 6: qualified
         }
     }
 

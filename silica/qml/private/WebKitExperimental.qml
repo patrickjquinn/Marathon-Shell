@@ -31,7 +31,7 @@ QtObject {
     signal messageReceived(var message)
 
     // The result of the script's last expression, as QtWebKit's.
-    function evaluateJavaScript(script, callback) {
+    function evaluateJavaScript(script: var, callback: var): void {
         if (page)
             page.runJavaScript("return eval(" + JSON.stringify(String(script)) + ")", callback, function() {
                 if (callback)
@@ -40,7 +40,7 @@ QtObject {
     }
 
     // To the page's navigator.qt.onmessage.
-    function postMessage(message) {
+    function postMessage(message: var): void {
         if (page)
             page.runJavaScript("if (navigator.qt && typeof navigator.qt.onmessage === 'function')"
                                + " navigator.qt.onmessage({ data: " + JSON.stringify(message) + " }); return true")

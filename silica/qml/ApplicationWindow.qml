@@ -17,6 +17,7 @@
 //     under keel-shell, keel-shell maps it to such a window. Cover.status
 //     follows Shell.coverStatus.
 //   * activate() calls Shell.activate().
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Window 2.15 as QtWindow
 import Keel 1.0
@@ -73,7 +74,7 @@ Item {
     // The orientation a page allowing `allowed` takes on a device in
     // `device` orientation (default: the current device orientation; Silica's
     // PageStack.qml calls it with `allowed` only).
-    function _selectOrientation(allowed, device) {
+    function _selectOrientation(allowed: var, device: var): var {
         if (device === undefined)
             device = deviceOrientation
         if (device & allowed)
@@ -94,7 +95,7 @@ Item {
 
     signal _activateRequested()
 
-    function activate() {
+    function activate(): void {
         _activateRequested()
         if (Shell.connected || Shell.direct) {
             Shell.activate()
@@ -104,7 +105,7 @@ Item {
         }
     }
 
-    function deactivate() {
+    function deactivate(): void {
         if (QtWindow.Window.window)
             QtWindow.Window.window.showMinimized()
     }
@@ -112,12 +113,12 @@ Item {
     // Pages loaded from URLs are created here so that their context chain is
     // page file -> this file -> the file declaring the ApplicationWindow,
     // which is how Silica pages see `pageStack` and ids from main.qml.
-    function _createComponent(url) {
+    function _createComponent(url: var): var {
         return Qt.createComponent(url)
     }
 
     // --- Orientation -----------------------------------------------------------
-    function _fromDegrees(d) {
+    function _fromDegrees(d: var): var {
         switch (((d % 360) + 360) % 360) {
         case 90: return Orientation.Landscape
         case 180: return Orientation.PortraitInverted
@@ -125,7 +126,7 @@ Item {
         default: return Orientation.Portrait
         }
     }
-    function _degrees(o) {
+    function _degrees(o: var): var {
         switch (o) {
         case Orientation.Landscape: return 90
         case Orientation.PortraitInverted: return 180
@@ -309,7 +310,7 @@ Item {
     QtObject {
         id: _coverHolder
         property Item coverItem: null
-        function load() {
+        function load(): var {
             if (coverItem || window.cover === undefined || window.cover === null || window.cover === "")
                 return coverItem
             var c = window.cover
@@ -329,7 +330,7 @@ Item {
             return item
         }
     }
-    function _loadCover() { return _coverHolder.load() }
+    function _loadCover(): var { return _coverHolder.load() }
 
     // The cover is made after the app's first frame, not with it: a second
     // window (its render thread, GL context and QML) competed with that

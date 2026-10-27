@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) FirstTimeUseCounter.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica.private 1.0
@@ -48,17 +50,17 @@ ConfigurationValue {
     property bool _initiated
     property bool ignoreSystemHints
 
-    function increase() {
+    function increase(): void { // Modified by Shipwright for Qt 6: typed
         if (active) {
             count = count + 1
             value = count
         }
     }
-    function reset() {
+    function reset(): void { // Modified by Shipwright for Qt 6: typed
         count = 0
         value = 0
     }
-    function exhaust() {
+    function exhaust(): void { // Modified by Shipwright for Qt 6: typed
         if (active) {
             count = limit +1
             value = count

@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) GridItem.qml
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (3 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -60,11 +61,11 @@ ViewItem {
         _flickable = Util.findFlickable(gridItem)
     }
 
-    function remorseDelete(action, timeout) {
+    function remorseDelete(action: var, timeout: var): var { // Modified by Shipwright for Qt 6: typed
         return remorseAction("", action, timeout)
     }
 
-    function remorseAction(text, action, timeout) {
+    function remorseAction(text: var, action: var, timeout: var): var { // Modified by Shipwright for Qt 6: typed
         var previousRemorse = _gridView ? _gridView.__silica_remorse_item : null
         if (previousRemorse && previousRemorse.state == "active") {
             _gridView.__silica_remorse_item._trigger()
@@ -82,7 +83,7 @@ ViewItem {
         }
     }
 
-    function _calculateMenuOffset() {
+    function _calculateMenuOffset(): void { // Modified by Shipwright for Qt 6: typed
         if (_gridView) {
             var columns = Math.round(_gridView.width / _gridView.cellWidth)
             _gridView._menuOpenOffsetItemsIndex = model.index - (model.index % columns) + columns
@@ -109,7 +110,7 @@ ViewItem {
             to: "menuOpen"
             ScriptAction {
                 script: {
-                    var previousRemorse = _gridView ? _gridView.__silica_remorse_item : null
+                    var previousRemorse = gridItem._gridView ? gridItem._gridView.__silica_remorse_item : null // Modified by Shipwright for Qt 6: qualified
                     if (previousRemorse && previousRemorse.state == "active") {
                         _gridView.__silica_remorse_item._trigger()
                     }
@@ -127,9 +128,9 @@ ViewItem {
     }
 
     Binding {
-        when: !!(_gridView && model.index >= _gridView._menuOpenOffsetItemsIndex)
+        when: !!(gridItem._gridView && model.index >= _gridView._menuOpenOffsetItemsIndex) // Modified by Shipwright for Qt 6: qualified
         target: gridItem.contentItem
         property: "y"
-        value: _gridView ? _gridView.__silica_menu_height : 0
+        value: gridItem._gridView ? gridItem._gridView.__silica_menu_height : 0 // Modified by Shipwright for Qt 6: qualified
     }
 }

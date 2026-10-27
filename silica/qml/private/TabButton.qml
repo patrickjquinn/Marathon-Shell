@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2019-2020 Open Mobile Platform LLC
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/TabButton.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.6
 import Sailfish.Silica 1.0
@@ -87,7 +89,7 @@ SilicaMouseArea {
         progress: {
             if (!root._tabView || !root._tabItem) {
                 return 0
-            } else if (isCurrentTab && !root._tabView.dragging) {
+            } else if (root.isCurrentTab && !root._tabView.dragging) { // Modified by Shipwright for Qt 6: qualified
                 return 1
             } else {
                 return 1 - Math.abs(root._tabItem.x / (root._tabView.width + root._tabView.horizontalSpacing))

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/QuickScrollButton.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -66,18 +68,18 @@ QuickScrollButtonBase {
         id: image
 
         y: {
-            if (directionsEnabled === direction) {
+            if (button.directionsEnabled === button.direction) { // Modified by Shipwright for Qt 6: qualified
                 return parent.height/2 - height/2
-            } else if (direction === QuickScrollDirection.Up) {
+            } else if (button.direction === QuickScrollDirection.Up) { // Modified by Shipwright for Qt 6: qualified
                 return parent.height - height - Theme.itemSizeExtraSmall/2
-            } else if (directionsEnabled === QuickScrollDirection.UpAndDown) {
+            } else if (button.directionsEnabled === QuickScrollDirection.UpAndDown) { // Modified by Shipwright for Qt 6: qualified
                 return Theme.itemSizeExtraSmall/2
             }
         }
 
         anchors.horizontalCenter: parent.horizontalCenter
         Behavior on opacity { FadeAnimator {} }
-        opacity: active && enabled ? 1.0 : 0.0
+        opacity: button.active && enabled ? 1.0 : 0.0 // Modified by Shipwright for Qt 6: qualified
     }
 
     Timer {

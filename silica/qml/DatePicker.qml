@@ -38,6 +38,8 @@
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (4 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
 // Modified by Shipwright for Qt 6: the day delegate's colour tolerates a null `model` or `datePicker` (Qt 6 re-evaluates it while the delegate is destroyed).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (3 places; the same object type, typed for qmlcachegen).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -55,15 +57,15 @@ SilicaControl {
     readonly property int year: date.getFullYear()
     readonly property int month: date.getMonth()+1
     readonly property int day: date.getDate()
-    property real leftMargin: screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.horizontalPageMargin : 0
-    property real rightMargin: screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.horizontalPageMargin : 0
+    property real leftMargin: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.horizontalPageMargin : 0 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
+    property real rightMargin: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.horizontalPageMargin : 0 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
 
     property date date: new Date()
     property string dateText: Qt.formatDate(date)
     property alias viewMoving: view.viewMovingImmediate
 
     property bool daysVisible
-    property bool weeksVisible: screen.sizeCategory > KeelSilica.Screen.Medium
+    property bool weeksVisible: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     property bool monthYearVisible: true
     readonly property int weekColumnWidth: weekLabel.width + Theme.paddingMedium
     readonly property int dayRowHeight: weekLabel.height + Theme.paddingMedium
@@ -95,7 +97,7 @@ SilicaControl {
                 }
             }
 
-            function updateHighlight() {
+            function updateHighlight(): void { // Modified by Shipwright for Qt 6: typed
                 datePicker._highlightedDate = pressed && containsMouse
                         ? new Date(model.year, model.month-1, model.day,12,0,0)
                         : undefined
@@ -119,7 +121,7 @@ SilicaControl {
 
     signal updateModel(variant modelObject, variant fromDate, variant toDate, int primaryMonth)
 
-    function showMonth(month, year) {
+    function showMonth(month: var, year: var): void { // Modified by Shipwright for Qt 6: typed
         if (month < 1 || month > 12) {
             console.log("DatePicker: showMonth() given invalid month:", month)
             return
@@ -130,7 +132,7 @@ SilicaControl {
         date = _validDate(year, month, day)
     }
 
-    function _showMonth(month, year) {
+    function _showMonth(month: var, year: var): void { // Modified by Shipwright for Qt 6: typed
         for (var i = 0; i < monthModel.count; i++) {
             var y = monthModel.get(i).year
             var m = monthModel.get(i).month
@@ -171,11 +173,11 @@ SilicaControl {
         monthModel.update(view.currentIndex, year, month)
     }
 
-    function _validDate(year, month, day) {
+    function _validDate(year: var, month: var, day: var): var { // Modified by Shipwright for Qt 6: typed
         return new Date(year, month - 1, Math.min(day, DatePickerScript._maxDaysForMonth(month, year)), 12, 0, 0)
     }
 
-    function _loadNonVisibleGrids() {
+    function _loadNonVisibleGrids(): void { // Modified by Shipwright for Qt 6: typed
         view.loadNonVisibleGrids()
     }
 
@@ -210,7 +212,7 @@ SilicaControl {
     ListModel {
         id: monthModel
 
-        function update(fromIndex, fromYear, fromMonth) {
+        function update(fromIndex: var, fromYear: var, fromMonth: var): void { // Modified by Shipwright for Qt 6: typed
             if (fromMonth < 1 || fromMonth > 12) {
                 console.warn("DatePicker: date is invalid")
                 return
@@ -238,7 +240,7 @@ SilicaControl {
             }
         }
 
-        function _updateMonth(index, y, m) {
+        function _updateMonth(index: var, y: var, m: var): void { // Modified by Shipwright for Qt 6: typed
             var data = get(index)
             if (data.year === y && data.month === m) {
                 return
@@ -260,7 +262,7 @@ SilicaControl {
         property bool viewMovingImmediate: view.moving || ((view.offset - Math.floor(view.offset)) != 0.)
         property bool noUpdateDelegate
 
-        function loadNonVisibleGrids() {
+        function loadNonVisibleGrids(): void { // Modified by Shipwright for Qt 6: typed
             if (pathItemCount == 1) {
                 // tell PathView to generate the rest of the grid delegates
                 pathItemCount = 3
@@ -297,12 +299,12 @@ SilicaControl {
 
         width: parent.width
         height: parent.height
-        itemWidth: view.width + (weeksVisible ? 0 : weekColumnWidth) - (leftMargin + rightMargin)/2 + Theme.paddingLarge
+        itemWidth: view.width + (datePicker.weeksVisible ? 0 : datePicker.weekColumnWidth) - (datePicker.leftMargin + datePicker.rightMargin)/2 + Theme.paddingLarge // Modified by Shipwright for Qt 6: qualified
         itemHeight: view.height
         model: monthModel
 
-        preferredHighlightBegin: pathItemCount == 1 ? (weeksVisible ? 0.9999 : 1.0 - weekColumnWidth / 2 / itemWidth)
-                                                    : (weeksVisible ? 0.5 : 0.5 - weekColumnWidth / 2 / (itemWidth * 3))
+        preferredHighlightBegin: pathItemCount == 1 ? (datePicker.weeksVisible ? 0.9999 : 1.0 - datePicker.weekColumnWidth / 2 / itemWidth) // Modified by Shipwright for Qt 6: qualified
+                                                    : (datePicker.weeksVisible ? 0.5 : 0.5 - datePicker.weekColumnWidth / 2 / (itemWidth * 3)) // Modified by Shipwright for Qt 6: qualified
         preferredHighlightEnd: preferredHighlightBegin
 
         Timer {
@@ -357,7 +359,7 @@ SilicaControl {
         onCurrentIndexChanged: {
             var data = monthModel.get(currentIndex)
             monthModel.update(currentIndex, data.year, data.month)
-            if (!_changingDate) {
+            if (!datePicker._changingDate) { // Modified by Shipwright for Qt 6: qualified
                 datePicker.date = _validDate(data.year, data.month, datePicker.day)
             }
         }

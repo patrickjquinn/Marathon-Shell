@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/FastScrollAnimation.qml
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -53,7 +54,7 @@ Item {
     property bool animating: scrollAnimation.running || leaveAnimation.running || returnAnimation.running
     property bool scrollingToTop
 
-    function scrollToTop() {
+    function scrollToTop(): void { // Modified by Shipwright for Qt 6: typed
         scrollingToTop = true
         if (overMinimumDistance(scrollToTopTarget())) {
             fadeOut.to = flickable.contentY - fadeDistance
@@ -64,7 +65,7 @@ Item {
             scrollAnimation.start()
         }
     }
-    function scrollToBottom() {
+    function scrollToBottom(): void { // Modified by Shipwright for Qt 6: typed
         scrollingToTop = false
         if (overMinimumDistance(scrollToBottomTarget())) {
             fadeOut.to = flickable.contentY + fadeDistance
@@ -75,17 +76,17 @@ Item {
             scrollAnimation.start()
         }
     }
-    function overMinimumDistance(to) {
+    function overMinimumDistance(to: var): var { // Modified by Shipwright for Qt 6: typed
         return (Math.abs(flickable.contentY - to) > 2*fadeDistance)
     }
-    function scrollToTopTarget() {
+    function scrollToTopTarget(): var { // Modified by Shipwright for Qt 6: typed
         return flickable.pullDownMenu ? flickable.pullDownMenu._inactivePosition : flickable.originY - flickable.topMargin
     }
-    function scrollToBottomTarget() {
+    function scrollToBottomTarget(): var { // Modified by Shipwright for Qt 6: typed
         return flickable.pushUpMenu ? flickable.pushUpMenu._inactivePosition
                                     : flickable.originY + flickable.contentHeight - flickable.height + flickable.bottomMargin
     }
-    function cancelBounceBack() {
+    function cancelBounceBack(): void { // Modified by Shipwright for Qt 6: typed
         if (flickable.pushUpMenu) {
             flickable.pushUpMenu.cancelBounceBack()
         }
@@ -95,9 +96,9 @@ Item {
     }
 
     Binding {
-        target: quickScroll
+        target: fastScrollAnimation.quickScroll // Modified by Shipwright for Qt 6: qualified
         property: "quickScrollAnimating"
-        value: animating
+        value: fastScrollAnimation.animating // Modified by Shipwright for Qt 6: qualified
     }
 
     MouseArea {
@@ -105,7 +106,7 @@ Item {
 
         z: 1000
         states: State {
-            when: flickable && animating
+            when: fastScrollAnimation.flickable && fastScrollAnimation.animating // Modified by Shipwright for Qt 6: qualified
             PropertyChanges {
                 target: mouseBlocker
                 parent: flickable
@@ -147,7 +148,7 @@ Item {
             NumberAnimation {
                 target: flickable
                 property: "opacity"
-                duration: _duration
+                duration: fastScrollAnimation._duration // Modified by Shipwright for Qt 6: qualified
                 to: 0.0
                 easing.type: Easing.InQuad
             }
@@ -156,14 +157,14 @@ Item {
 
                 target: flickable
                 property: "contentY"
-                duration: _duration
+                duration: fastScrollAnimation._duration // Modified by Shipwright for Qt 6: qualified
             }
         }
         ScriptAction {
             script: {
                 // preload the new delegates
-                if (scrollingToTop) {
-                    flickable.contentY = scrollToTopTarget()
+                if (fastScrollAnimation.scrollingToTop) { // Modified by Shipwright for Qt 6: qualified
+                    fastScrollAnimation.flickable.contentY = scrollToTopTarget() // Modified by Shipwright for Qt 6: qualified
                     flickable.contentY = flickable.contentY + fadeDistance
                 } else {
                     flickable.contentY = scrollToBottomTarget()
@@ -174,7 +175,7 @@ Item {
         PauseAnimation { duration: 100 }
         ScriptAction {
             script: {
-                if (scrollingToTop) {
+                if (fastScrollAnimation.scrollingToTop) { // Modified by Shipwright for Qt 6: qualified
                     fadeIn.to = scrollToTopTarget()
                     fadeIn.from = fadeIn.to + fadeDistance
                 } else {
@@ -192,7 +193,7 @@ Item {
             NumberAnimation {
                 target: flickable
                 property: "opacity"
-                duration: _duration
+                duration: fastScrollAnimation._duration // Modified by Shipwright for Qt 6: qualified
                 to: 1.0
                 easing.type: Easing.OutQuad
             }
@@ -201,7 +202,7 @@ Item {
 
                 target: flickable
                 property: "contentY"
-                duration: _duration
+                duration: fastScrollAnimation._duration // Modified by Shipwright for Qt 6: qualified
                 easing.type: Easing.OutQuad
             }
         }

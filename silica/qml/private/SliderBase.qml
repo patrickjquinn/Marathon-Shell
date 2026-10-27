@@ -38,6 +38,7 @@
 // Modified by Shipwright for Qt 6: _extraPadding is updated after height changes settle (binding loop under Qt 6).
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (2 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.4
 import Sailfish.Silica 1.0
@@ -80,7 +81,7 @@ SilicaMouseArea {
     property bool _componentComplete
     // Modified by Shipwright for Qt 6: evaluated after the geometry settles (Qt 6 reported a binding loop)
     property int _extraPadding
-    function _keelUpdateExtraPadding() { _extraPadding = Math.max(height - implicitHeight, 0) / 2 }
+    function _keelUpdateExtraPadding(): void { _extraPadding = Math.max(height - implicitHeight, 0) / 2 } // Modified by Shipwright for Qt 6: typed
     onHeightChanged: Qt.callLater(_keelUpdateExtraPadding)
     onImplicitHeightChanged: Qt.callLater(_keelUpdateExtraPadding)
 
@@ -102,7 +103,7 @@ SilicaMouseArea {
                                     * (_grooveWidth - 2 * _highlightPadding)
                                   : 0)
     Behavior on _highlightX {
-        enabled: !_widthChanged && animateValue
+        enabled: !slider._widthChanged && slider.animateValue // Modified by Shipwright for Qt 6: qualified
         SmoothedAnimation {
             duration: 300
             velocity: Theme.dp(1500)
@@ -113,7 +114,7 @@ SilicaMouseArea {
                                      / (maximumValue - minimumValue)
                                      * (_backgroundItem.width - _progressBarItem.height) + _progressBarItem.height
     Behavior on _progressBarWidth {
-        enabled: !_widthChanged && animateValue
+        enabled: !slider._widthChanged && slider.animateValue // Modified by Shipwright for Qt 6: qualified
         SmoothedAnimation {
             duration: 300
             velocity: Theme.dp(1500)
@@ -147,13 +148,13 @@ SilicaMouseArea {
     onRightMarginChanged: updateWidth()
 
     // changing the width of the slider shouldn't animate the slider bar/handle
-    function updateWidth() {
+    function updateWidth(): void { // Modified by Shipwright for Qt 6: typed
         _widthChanged = true
         _grooveWidth = Math.max(0, width - leftMargin - rightMargin)
         _widthChanged = false
     }
 
-    function cancel() {
+    function cancel(): void { // Modified by Shipwright for Qt 6: typed
         _cancel = true
         value = _oldValue
     }
@@ -166,14 +167,14 @@ SilicaMouseArea {
         onActiveChanged: if (drag.active && !slider.DragFilter.canceled) slider.DragFilter.end()
     }
 
-    function _updateValueToDraggable() {
+    function _updateValueToDraggable(): void { // Modified by Shipwright for Qt 6: typed
         if (width > (leftMargin + rightMargin)) {
             var pos = draggable.x + _highlightItem.width/2 - leftMargin
             value = _calcValue((pos / _grooveWidth) * (maximumValue - minimumValue) + minimumValue)
         }
     }
 
-    function _calcValue(newVal) {
+    function _calcValue(newVal: var): var { // Modified by Shipwright for Qt 6: typed
         if (newVal <= minimumValue) {
             return minimumValue
         }
@@ -231,10 +232,10 @@ SilicaMouseArea {
     Item {
         id: draggable
 
-        width: _highlightItem.width
-        height: _highlightItem.height
+        width: slider._highlightItem.width // Modified by Shipwright for Qt 6: qualified
+        height: slider._highlightItem.height // Modified by Shipwright for Qt 6: qualified
         onXChanged: {
-            if (_cancel || slider.DragFilter.canceled) {
+            if (slider._cancel || slider.DragFilter.canceled) { // Modified by Shipwright for Qt 6: qualified
                 return
             }
             if (slider.drag.active) {
@@ -250,7 +251,7 @@ SilicaMouseArea {
         font.pixelSize: Theme.fontSizeSmall
         color: slider.highlighted ? slider.secondaryHighlightColor : slider.backgroundColor
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: _backgroundItem.verticalCenter
+        anchors.top: slider._backgroundItem.verticalCenter // Modified by Shipwright for Qt 6: qualified
         anchors.topMargin: Theme.paddingMedium
         width: Math.min(implicitWidth, parent.width - 2*Theme.paddingMedium) // Modified by Shipwright for Qt 6: the natural width, not paintedWidth, which eliding (the software stand-in for the fade) changes in this binding (a binding loop)
         truncationMode: TruncationMode.Fade
@@ -258,7 +259,7 @@ SilicaMouseArea {
 
     states: State {
         name: "invalidRange"
-        when: _componentComplete && minimumValue >= maximumValue
+        when: slider._componentComplete && slider.minimumValue >= slider.maximumValue // Modified by Shipwright for Qt 6: qualified
         PropertyChanges {
             target: _progressBarItem
             width: _progressBarItem.height

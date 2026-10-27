@@ -38,6 +38,8 @@ find_package(Qt6 ${KEEL_QT_MIN_VERSION} REQUIRED COMPONENTS Core Gui Qml Quick D
 
 # Installs a staged QML module directory (plugin, qmldir, qmltypes).
 function(keel_platform_install target dir)
+    # Nothing links against a plugin (as keel/silica's).
+    set_target_properties(${target} PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
     install(TARGETS ${target} LIBRARY DESTINATION "${KEEL_QML_INSTALL_DIR}/${dir}")
     install(DIRECTORY "${KEEL_QML_OUTPUT_DIR}/${dir}/"
             DESTINATION "${KEEL_QML_INSTALL_DIR}/${dir}"
@@ -61,6 +63,10 @@ endforeach()
 # MprisPlayerControls loads its item (which imports Amber.Mpris) at run time,
 # so the module works without Amber.Mpris; the item is not a public type.
 set_source_files_properties(media/KeelMprisControls.qml PROPERTIES QT_QML_INTERNAL_TYPE TRUE)
+# The compiled ones only (keel_qml_discard_sources): the RESOURCES here and
+# below are loaded by URL and compiled at run time.
+keel_qml_discard_sources(media/MediaListItem.qml media/MediaPlayerControlsPanel.qml
+    media/MediaPlayerPanelBackground.qml media/MprisPlayerControls.qml)
 qt_add_qml_module(sailfishmediaplugin
     URI Sailfish.Media
     RESOURCE_PREFIX /
@@ -103,6 +109,7 @@ foreach(_t IN LISTS _pickers_internal)
     set_source_files_properties(pickers/qml/${_t}.qml PROPERTIES QT_QML_INTERNAL_TYPE TRUE)
 endforeach()
 if(KEEL_PLATFORM_PICKERS)
+    keel_qml_discard_sources(${_pickers_qml})
     qt_add_qml_module(sailfishpickersplugin
         URI Sailfish.Pickers
         RESOURCE_PREFIX /
@@ -130,6 +137,7 @@ if(KEEL_PLATFORM_GALLERY)
     foreach(_f ThumbnailImage.qml ImageViewer.qml)
         set_source_files_properties(gallery/${_f} PROPERTIES QT_RESOURCE_ALIAS ${_f})
     endforeach()
+    keel_qml_discard_sources(gallery/ThumbnailImage.qml gallery/ImageViewer.qml)
     qt_add_qml_module(sailfishgalleryplugin
         URI Sailfish.Gallery
         RESOURCE_PREFIX /
@@ -166,6 +174,7 @@ if(KEEL_PLATFORM_WEBVIEW)
     foreach(_f WebView.qml WebViewPage.qml WebViewFlickable.qml WebEngineBackend.qml ExternalBackend.qml)
         set_source_files_properties(webview/qml/${_f} PROPERTIES QT_RESOURCE_ALIAS ${_f})
     endforeach()
+    keel_qml_discard_sources(webview/qml/WebView.qml webview/qml/WebViewPage.qml webview/qml/WebViewFlickable.qml)
     # The backends are plain resources loaded by URL at run time: Qt WebEngine's
     # QML module may be missing, and WebView then falls back to the external one.
     qt_add_qml_module(sailfishwebviewplugin
@@ -197,6 +206,7 @@ if(KEEL_PLATFORM_WEBVIEW)
     # Not in upstream's qmldir files.
     set_source_files_properties(webview/popups/ContextMenuItem.qml webview/pickers/DownloadPicker.qml
         webview/pickers/WebTimePickerDialog.qml PROPERTIES QT_QML_INTERNAL_TYPE TRUE)
+    keel_qml_discard_sources(${_webview_popups} webview/popups/StringUtils.js ${_webview_pickers} ${_webview_controls})
     qt_add_qml_module(sailfishwebviewpopupsplugin
         URI Sailfish.WebView.Popups
         RESOURCE_PREFIX /

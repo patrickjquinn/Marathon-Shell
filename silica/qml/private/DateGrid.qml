@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2013 Jolla Ltd
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -33,6 +34,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) private/DateGrid.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -81,7 +83,7 @@ SilicaControl {
     onSelectedDateChanged: _resetSelectedDateBox(selectedDate, selectedDateBox)
     onHighlightedDateChanged: _resetSelectedDateBox(highlightedDate, highlightedDateBox)
 
-    function _resetSelectedDateBox(highlightDate, highlightItem) {
+    function _resetSelectedDateBox(highlightDate: var, highlightItem: var): void { // Modified by Shipwright for Qt 6: typed
         if (highlightDate !== undefined
                 && highlightDate.getFullYear() == displayedYear
                 && highlightDate.getMonth() + 1 == displayedMonth) {
@@ -103,12 +105,12 @@ SilicaControl {
 
         interval: 100
         onTriggered: {
-            _resetSelectedDateBox(selectedDate, selectedDateBox)
+            _resetSelectedDateBox(root.selectedDate, selectedDateBox) // Modified by Shipwright for Qt 6: qualified
             _resetSelectedDateBox(highlightedDate, highlightedDateBox)
         }
     }
 
-    function loadMonth(month, year) {
+    function loadMonth(month: var, year: var): void { // Modified by Shipwright for Qt 6: typed
         // set the dates in the calendar grid; display 6 weeks
         var fromDate = DatePickerScript._getStartDateForMonthView(year, month, root.weekStart)
         _loadDateGrid(fromDate, 7 * 6)       // we display 6 weeks
@@ -136,7 +138,7 @@ SilicaControl {
         monthYear.text = Qt.locale().toString(theMonth, "yyyy")
     }
 
-    function _loadDateGrid(fromDate, totalDays) {
+    function _loadDateGrid(fromDate: var, totalDays: var): void { // Modified by Shipwright for Qt 6: typed
         _gridStartDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate())
         if (modelComponent !== null && customModel === null) {
             customModel = modelComponent.createObject(root)
@@ -177,7 +179,7 @@ SilicaControl {
             top: weekColumn.top
             topMargin: root.cellHeight - font.pixelSize/2
         }
-        visible: monthYearVisible
+        visible: root.monthYearVisible // Modified by Shipwright for Qt 6: qualified
         color: palette.secondaryHighlightColor
     }
 
@@ -189,7 +191,7 @@ SilicaControl {
             top: weekColumn.top
             topMargin: root.cellHeight*2 - font.pixelSize/2
         }
-        visible: monthYearVisible
+        visible: root.monthYearVisible // Modified by Shipwright for Qt 6: qualified
         color: palette.secondaryHighlightColor
     }
 
@@ -205,7 +207,7 @@ SilicaControl {
                 id: weekNumberModel
             }
 
-            onCountChanged: _resetSelectedDateBox(selectedDate, selectedDateBox)
+            onCountChanged: _resetSelectedDateBox(root.selectedDate, selectedDateBox) // Modified by Shipwright for Qt 6: qualified
 
             Item {
                 width: weekColumn.width
@@ -236,10 +238,10 @@ SilicaControl {
 
         property Item target
 
-        x: target ? grid.x + target.x + (cellWidth - target.width)/2 : 0
-        y: target ? grid.y + target.y + (cellHeight - target.height)/2 : 0
-        width: cellWidth
-        height: cellHeight
+        x: target ? grid.x + target.x + (root.cellWidth - target.width)/2 : 0 // Modified by Shipwright for Qt 6: qualified
+        y: target ? grid.y + target.y + (root.cellHeight - target.height)/2 : 0 // Modified by Shipwright for Qt 6: qualified
+        width: root.cellWidth // Modified by Shipwright for Qt 6: qualified
+        height: root.cellHeight // Modified by Shipwright for Qt 6: qualified
         visible: !!target
         color: Theme.rgba(root.palette.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
         radius: 4
@@ -250,10 +252,10 @@ SilicaControl {
 
         property Item target
 
-        x: target ? grid.x + target.x + (cellWidth - target.width)/2 : 0
-        y: target ? grid.y + target.y + (cellHeight - target.height)/2 : 0
-        width: cellWidth
-        height: cellHeight
+        x: target ? grid.x + target.x + (root.cellWidth - target.width)/2 : 0 // Modified by Shipwright for Qt 6: qualified
+        y: target ? grid.y + target.y + (root.cellHeight - target.height)/2 : 0 // Modified by Shipwright for Qt 6: qualified
+        width: root.cellWidth // Modified by Shipwright for Qt 6: qualified
+        height: root.cellHeight // Modified by Shipwright for Qt 6: qualified
         visible: !!target
         color: Theme.rgba(root.palette.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
         radius: 4
@@ -285,8 +287,8 @@ SilicaControl {
         id: grid
 
         anchors {
-            top: daysVisible ? weekDays.bottom : parent.top
-            topMargin: daysVisible ? Theme.paddingMedium : 0
+            top: root.daysVisible ? weekDays.bottom : parent.top // Modified by Shipwright for Qt 6: qualified
+            topMargin: root.daysVisible ? Theme.paddingMedium : 0 // Modified by Shipwright for Qt 6: qualified
             left: weekColumn.right
             leftMargin: _gridLeftMargin
         }

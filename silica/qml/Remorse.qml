@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2016-2019 Jolla Ltd
 // SPDX-FileCopyrightText: 2019 Open Mobile Platform LLC
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -35,6 +36,7 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) Remorse.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: functions typed `var` (unchanged behaviour).
 
 pragma Singleton
 import QtQuick 2.2
@@ -47,7 +49,7 @@ QtObject {
     //% "Deleted"
     readonly property string deletedText: qsTrId("components-la-deleted")
 
-    function _create(component, parent) {
+    function _create(component: var, parent: var): var { // Modified by Shipwright for Qt 6: typed
         if (!parent.RemorseCache.item) {
             parent.RemorseCache.item = component.createObject(parent)
         }
@@ -55,7 +57,7 @@ QtObject {
         return parent.RemorseCache.item
     }
 
-    function itemAction(item, text, callback, timeout) {
+    function itemAction(item: var, text: var, callback: var, timeout: var): var { // Modified by Shipwright for Qt 6: typed
         if (!_itemComponent) {  // Including the components inline silently breaks all of Silica.  True story.
             _itemComponent = Qt.createComponent(Qt.resolvedUrl("RemorseItem.qml"))
         }
@@ -71,7 +73,7 @@ QtObject {
         return remorseItem
     }
 
-    function popupAction(page, text, callback, timeout) {
+    function popupAction(page: var, text: var, callback: var, timeout: var): var { // Modified by Shipwright for Qt 6: typed
         if (!_popupComponent) {
             _popupComponent = Qt.createComponent(Qt.resolvedUrl("RemorsePopup.qml"))
         }

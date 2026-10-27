@@ -35,7 +35,9 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) TextArea.qml
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: `pragma ComponentBehavior: Bound` (its inner components are made only in this file).
 
+pragma ComponentBehavior: Bound // Modified by Shipwright for Qt 6: ids of outer objects used in inner components
 import QtQuick 2.6
 import Sailfish.Silica 1.0
 import Sailfish.Silica.private 1.0

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2013-2019 Jolla Ltd
 // SPDX-FileCopyrightText: 2020 Open Mobile Platform LLC
+// SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: BSD-3-Clause
 /****************************************************************************************
 **
@@ -34,6 +35,8 @@
 **
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) ValueButton.qml
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, `pragma ComponentBehavior: Bound` (its inner components are made only in this file).
+pragma ComponentBehavior: Bound // Modified by Shipwright for Qt 6: ids of outer objects used in inner components
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 
@@ -108,7 +111,7 @@ BackgroundItem {
             height: text.length ? (implicitHeight + Theme.paddingMedium) : 0
             width: parent.width
             font.pixelSize: Theme.fontSizeExtraSmall
-            color: descriptionColor
+            color: root.descriptionColor // Modified by Shipwright for Qt 6: qualified
             wrapMode: Text.Wrap
         }
     }

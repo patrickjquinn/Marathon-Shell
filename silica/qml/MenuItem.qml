@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) MenuItem.qml
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (2 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
 // Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (1 places; the same object type, typed for qmlcachegen).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -60,7 +61,7 @@ Label {
     x: Theme.horizontalPageMargin
     width: parent ? parent.width - 2*Theme.horizontalPageMargin : KeelSilica.Screen.width
     // Reduce height if inside pulley menu content item on smaller screens
-    height: screen.sizeCategory <= KeelSilica.Screen.Medium && parent && parent.hasOwnProperty('__silica_pulleymenu_content')
+    height: KeelSilica.Screen.sizeCategory <= KeelSilica.Screen.Medium && parent && parent.hasOwnProperty('__silica_pulleymenu_content') // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
             ? Theme.itemSizeExtraSmall : Theme.itemSizeSmall
     horizontalAlignment: implicitWidth > width && truncationMode != TruncationMode.None
                          ? Text.AlignLeft : Text.AlignHCenter
@@ -76,7 +77,7 @@ Label {
     Behavior on color {
         SequentialAnimation {
             ColorAnimation { duration: menuItem._duration } // Modified by Shipwright for Qt 6: qualified
-            ScriptAction { script: _duration = 50 }
+            ScriptAction { script: menuItem._duration = 50 } // Modified by Shipwright for Qt 6: qualified
         }
     }
 }

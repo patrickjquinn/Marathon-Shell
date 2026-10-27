@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) HorizontalScrollDecorator.qml
 // Modified by Shipwright for Qt 6: `flickable` is bound to the nearest flickable so that bindings do not read null at creation.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id.
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -71,7 +72,7 @@ Private.SilicaRectangle {
     Timer {
         id: timer
 
-        property bool moving: flickable.movingHorizontally
+        property bool moving: horizontalScrollDecorator.flickable.movingHorizontally // Modified by Shipwright for Qt 6: qualified
         onMovingChanged: if (!moving) restart()
         interval: 300
     }

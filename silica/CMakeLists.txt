@@ -17,7 +17,12 @@
 set(KEEL_RUST_PREBUILT_DIR "" CACHE PATH "Prebuilt keel_silica_native (see keel/rpm/build-native.sh)")
 set(_rust_dir "${CMAKE_CURRENT_SOURCE_DIR}/plugin")
 
-if(KEEL_RUST_PREBUILT_DIR)
+if(KEEL_QML_TYPES_ONLY)
+    # No plugin is built (KEEL_QML_TYPES_ONLY): the paths are never used.
+    set(_cxxqt_export "${CMAKE_CURRENT_BINARY_DIR}/cxxqt-export")
+    set(KEEL_RUST_STATICLIB "${CMAKE_CURRENT_BINARY_DIR}/libkeel_silica_native.a")
+    add_custom_target(keel_silica_native_cargo)
+elseif(KEEL_RUST_PREBUILT_DIR)
     set(KEEL_RUST_STATICLIB "${KEEL_RUST_PREBUILT_DIR}/libkeel_silica_native.a")
     set(_cxxqt_export "${KEEL_RUST_PREBUILT_DIR}/cxxqt-export")
     foreach(_f "${KEEL_RUST_STATICLIB}" "${_cxxqt_export}/crates/keel_silica_native/initializers.o")
@@ -98,6 +103,20 @@ endfunction()
 # ---------------------------------------------------------------------------
 # Keel 1.0
 # ---------------------------------------------------------------------------
+set(_keel_plugin_sources
+    plugin/cpp/keelplugin.cpp
+    plugin/cpp/glyphwarning.cpp
+    plugin/cpp/shellclient.cpp plugin/cpp/shellclient.h
+    plugin/cpp/coveractions.cpp plugin/cpp/coveractions.h
+    plugin/cpp/dconfambience.cpp plugin/cpp/dconfambience.h
+    plugin/cpp/keeldconf.cpp plugin/cpp/keeldconf.h)
+if(KEEL_QML_TYPES_ONLY)
+    # Qt builds each module after the modules it depends on, so the other
+    # modules' .qmltypes wait for keelplugin: without the Rust part it is
+    # linked from no code (its types are in plugin/keel.qmltypes).
+    set(_keel_plugin_sources "${CMAKE_CURRENT_BINARY_DIR}/keelplugin-types-only.cpp")
+    file(WRITE "${_keel_plugin_sources}" "// KEEL_QML_TYPES_ONLY: no code.\n")
+endif()
 qt_add_qml_module(keelplugin
     URI Keel
     RESOURCE_PREFIX /
@@ -106,13 +125,7 @@ qt_add_qml_module(keelplugin
     NO_GENERATE_PLUGIN_SOURCE
     CLASS_NAME KeelPlugin
     OUTPUT_DIRECTORY "${KEEL_QML_OUTPUT_DIR}/Keel"
-    SOURCES
-        plugin/cpp/keelplugin.cpp
-        plugin/cpp/glyphwarning.cpp
-        plugin/cpp/shellclient.cpp plugin/cpp/shellclient.h
-        plugin/cpp/coveractions.cpp plugin/cpp/coveractions.h
-        plugin/cpp/dconfambience.cpp plugin/cpp/dconfambience.h
-        plugin/cpp/keeldconf.cpp plugin/cpp/keeldconf.h
+    SOURCES ${_keel_plugin_sources}
 )
 keel_use_dconf(keelplugin)
 add_dependencies(keelplugin keel_silica_native_cargo)
@@ -123,6 +136,9 @@ add_custom_command(TARGET keelplugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/plugin/keel.qmltypes"
             "${KEEL_QML_OUTPUT_DIR}/Keel/keelplugin.qmltypes"
     VERBATIM)
+if(KEEL_QML_TYPES_ONLY)
+    configure_file(plugin/keel.qmltypes "${KEEL_QML_OUTPUT_DIR}/Keel/keelplugin.qmltypes" COPYONLY)
+endif()
 # Direct mode tags the cover window through Qt's platform native interface
 # (qpa/qplatformnativeinterface.h, a private header: qt6-base-private-dev,
 # Chum's qt6-qtbase-private-devel). Without it the cover is an ordinary
@@ -145,9 +161,10 @@ else()
     message(WARNING "Qt6 GUI private headers not found: direct mode cannot tag covers CATEGORY=cover")
 endif()
 target_include_directories(keelplugin PRIVATE "${KEEL_RUST_INCLUDE}" plugin/cpp)
+if(NOT KEEL_QML_TYPES_ONLY)
+    target_link_libraries(keelplugin PRIVATE "${KEEL_RUST_INITIALIZERS}" "${KEEL_RUST_STATICLIB}")
+endif()
 target_link_libraries(keelplugin PRIVATE
-    "${KEEL_RUST_INITIALIZERS}"
-    "${KEEL_RUST_STATICLIB}"
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus
     Threads::Threads ${CMAKE_DL_LIBS} m)
 # Keep the Rust runtime's symbols private to the plugin, so that an app that
@@ -208,6 +225,7 @@ foreach(_f IN LISTS _silica_public_qml _silica_public_js _silica_private_qml _si
     get_filename_component(_name "${_f}" NAME)
     set_source_files_properties(${_f} PROPERTIES QT_RESOURCE_ALIAS "${_name}")
 endforeach()
+keel_qml_discard_sources(${_silica_public_qml} ${_silica_public_js} ${_silica_private_qml} ${_silica_private_js})
 
 # ---------------------------------------------------------------------------
 # Sailfish.Silica.private 1.0: the native (C++) types Silica's BSD QML uses,
@@ -351,6 +369,7 @@ foreach(_f IN LISTS _silica_background_qml)
     get_filename_component(_name "${_f}" NAME)
     set_source_files_properties(${_f} PROPERTIES QT_RESOURCE_ALIAS "${_name}")
 endforeach()
+keel_qml_discard_sources(${_silica_background_qml})
 qt_add_qml_module(silicabackgroundplugin
     URI Sailfish.Silica.Background
     VERSION 1.0
@@ -367,6 +386,7 @@ qt_add_qml_module(silicabackgroundplugin
 # ShareResource make the app a share target (share/keelshare.*).
 # ---------------------------------------------------------------------------
 set_source_files_properties(share/ShareAction.qml PROPERTIES QT_RESOURCE_ALIAS ShareAction.qml)
+keel_qml_discard_sources(share/ShareAction.qml)
 qt_add_qml_module(silicashareplugin
     URI Sailfish.Share
     RESOURCE_PREFIX /
@@ -388,6 +408,12 @@ foreach(_mod IN ITEMS "Keel:keelplugin" "Keel/SilicaScreen:silicascreenplugin" "
     string(REPLACE ":" ";" _parts "${_mod}")
     list(GET _parts 0 _dir)
     list(GET _parts 1 _tgt)
+    # Nothing links against a plugin: exporting only what Qt's plugin loader
+    # looks up leaves out the names of every class and of each compiled QML
+    # function (about 3 MB of symbol strings in silicaplugin and
+    # silicaprivateplugin), which the dynamic loader would process at every
+    # start.
+    set_target_properties(${_tgt} PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
     install(TARGETS ${_tgt} LIBRARY DESTINATION "${KEEL_QML_INSTALL_DIR}/${_dir}")
     install(DIRECTORY "${KEEL_QML_OUTPUT_DIR}/${_dir}/"
             DESTINATION "${KEEL_QML_INSTALL_DIR}/${_dir}"

@@ -37,7 +37,10 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (2 places).
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (2 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, `pragma ComponentBehavior: Bound` (its inner components are made only in this file), functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (1 places; the same object type, typed for qmlcachegen).
 
+pragma ComponentBehavior: Bound // Modified by Shipwright for Qt 6: ids of outer objects used in inner components
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Sailfish.Silica.private 1.0
@@ -72,7 +75,7 @@ Dialog {
     property bool _initialDateSet
     property QtObject _revealAnim
     property bool _delayedLoadNonVisibleGrids
-    property bool _largeScreen: screen.sizeCategory > KeelSilica.Screen.Medium
+    property bool _largeScreen: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
 
     canAccept: !isNaN(selectedDate.getTime())
     forwardNavigation: _showYearSelectionFirst ? false : !_belowTop
@@ -83,20 +86,20 @@ Dialog {
 
         width: parent.width
         height: parent.height
-        sourceComponent: _showYearSelectionFirst ? yearSelectionViewComponent : undefined
+        sourceComponent: datePickerDialog._showYearSelectionFirst ? yearSelectionViewComponent : undefined // Modified by Shipwright for Qt 6: qualified
     }
 
     Loader {
         id: datePickerLoader
 
-        x: _showYearSelectionFirst ? parent.width : 0
+        x: datePickerDialog._showYearSelectionFirst ? parent.width : 0 // Modified by Shipwright for Qt 6: qualified
         width: parent.width
         height: parent.height
-        asynchronous: _showYearSelectionFirst
+        asynchronous: datePickerDialog._showYearSelectionFirst // Modified by Shipwright for Qt 6: qualified
         sourceComponent: datePickerComponent
         onLoaded: {
-            if (_delayedLoadNonVisibleGrids) {
-                _delayedLoadNonVisibleGrids = false
+            if (datePickerDialog._delayedLoadNonVisibleGrids) { // Modified by Shipwright for Qt 6: qualified
+                datePickerDialog._delayedLoadNonVisibleGrids = false // Modified by Shipwright for Qt 6: qualified
                 item.loadNonVisibleGrids()
             }
         }
@@ -147,7 +150,7 @@ Dialog {
 
         YearMonthMenu {
             anchors.fill: parent
-            currentYear: _invalidDate ? new Date().getFullYear() : date.getFullYear()
+            currentYear: datePickerDialog._invalidDate ? new Date().getFullYear() : date.getFullYear() // Modified by Shipwright for Qt 6: qualified
             // Modified by Shipwright for Qt 6: signal parameter declared
             onMonthActivated: function(month, year) {
                 _initialDate = new Date(year, month - 1, 1, 12, 0, 0)
@@ -191,9 +194,9 @@ Dialog {
 
             property alias selectedDate: datePicker.date
             property alias selectedDateText: datePicker.dateText
-            property bool dateAboveGrid: _largeScreen || isPortrait
+            property bool dateAboveGrid: datePickerDialog._largeScreen || datePickerDialog.isPortrait // Modified by Shipwright for Qt 6: qualified
 
-            function loadNonVisibleGrids() {
+            function loadNonVisibleGrids(): void { // Modified by Shipwright for Qt 6: typed
                 datePicker._loadNonVisibleGrids()
             }
 
@@ -203,7 +206,7 @@ Dialog {
                 id: header
 
                 dialog: datePickerDialog
-                spacing: !_largeScreen && isLandscape ? 0 : Theme.paddingLarge
+                spacing: !datePickerDialog._largeScreen && datePickerDialog.isLandscape ? 0 : Theme.paddingLarge // Modified by Shipwright for Qt 6: qualified
             }
 
             BackgroundItem {
@@ -211,13 +214,13 @@ Dialog {
 
                 anchors {
                     top: header.bottom
-                    left: dateAboveGrid ? parent.left : datePicker.right
+                    left: contentFlickable.dateAboveGrid ? parent.left : datePicker.right // Modified by Shipwright for Qt 6: qualified
                     right: parent.right
                 }
                 height: dateLabel.height + 2*Theme.paddingSmall
 
                 onClicked: {
-                    if (_yearSelectionPage == null) {
+                    if (datePickerDialog._yearSelectionPage == null) { // Modified by Shipwright for Qt 6: qualified
                         _yearSelectionPage = yearSelectionPageComponent.createObject(datePickerDialog,
                                 {"currentYear": datePicker.year})
                         _yearSelectionPage.monthActivated.connect(function(month, year) {
@@ -236,14 +239,14 @@ Dialog {
                     anchors {
                         left: parent.left
                         right: parent.right
-                        leftMargin: dateAboveGrid ? Theme.horizontalPageMargin : Theme.paddingMedium
+                        leftMargin: contentFlickable.dateAboveGrid ? Theme.horizontalPageMargin : Theme.paddingMedium // Modified by Shipwright for Qt 6: qualified
                         rightMargin: Theme.horizontalPageMargin
                         verticalCenter: parent.verticalCenter
                     }
-                    font.pixelSize: _largeScreen ? Theme.fontSizeExtraLarge : Theme.fontSizeLarge
+                    font.pixelSize: datePickerDialog._largeScreen ? Theme.fontSizeExtraLarge : Theme.fontSizeLarge // Modified by Shipwright for Qt 6: qualified
                     text: Format.formatDate(datePicker.date, Format.DateLong)
                     wrapMode: Text.Wrap
-                    horizontalAlignment: dateAboveGrid ? Text.AlignHCenter : Text.AlignRight
+                    horizontalAlignment: contentFlickable.dateAboveGrid ? Text.AlignHCenter : Text.AlignRight // Modified by Shipwright for Qt 6: qualified
                 }
             }
 
@@ -251,22 +254,22 @@ Dialog {
                 id: datePicker
 
                 anchors {
-                    top: dateAboveGrid ? yearPicker.bottom : header.bottom
-                    topMargin: dateAboveGrid ? Theme.paddingLarge : 0
-                    horizontalCenter: dateAboveGrid ? parent.horizontalCenter : undefined
-                    left: dateAboveGrid ? undefined : parent.left
+                    top: contentFlickable.dateAboveGrid ? yearPicker.bottom : header.bottom // Modified by Shipwright for Qt 6: qualified
+                    topMargin: contentFlickable.dateAboveGrid ? Theme.paddingLarge : 0 // Modified by Shipwright for Qt 6: qualified
+                    horizontalCenter: contentFlickable.dateAboveGrid ? parent.horizontalCenter : undefined // Modified by Shipwright for Qt 6: qualified
+                    left: contentFlickable.dateAboveGrid ? undefined : parent.left // Modified by Shipwright for Qt 6: qualified
                 }
                 // Show week column on larger displays or smaller displays in landscape.
-                weeksVisible: _largeScreen || isLandscape
+                weeksVisible: datePickerDialog._largeScreen || datePickerDialog.isLandscape // Modified by Shipwright for Qt 6: qualified
                 daysVisible: true
                 monthYearVisible: false
-                width: Math.min(parent.width, KeelSilica.Screen.width + (_largeScreen
-                                                              ? (isLandscape ? -Theme.horizontalPageMargin*2 : 0)
-                                                              : (isLandscape ? weekColumnWidth : 0)))
-                cellHeight: !_largeScreen && isLandscape ? Theme.itemSizeExtraSmall : cellWidth
-                leftMargin: isLandscape ? Theme.horizontalPageMargin : (_largeScreen ? Theme.horizontalPageMargin*2 : 0)
-                rightMargin: isLandscape ? Theme.horizontalPageMargin : (_largeScreen ? Theme.horizontalPageMargin*2 : 0)
-                date: _initialDateSet
+                width: Math.min(parent.width, KeelSilica.Screen.width + (datePickerDialog._largeScreen // Modified by Shipwright for Qt 6: qualified
+                                                              ? (datePickerDialog.isLandscape ? -Theme.horizontalPageMargin*2 : 0) // Modified by Shipwright for Qt 6: qualified
+                                                              : (datePickerDialog.isLandscape ? weekColumnWidth : 0))) // Modified by Shipwright for Qt 6: qualified
+                cellHeight: !datePickerDialog._largeScreen && datePickerDialog.isLandscape ? Theme.itemSizeExtraSmall : cellWidth // Modified by Shipwright for Qt 6: qualified
+                leftMargin: datePickerDialog.isLandscape ? Theme.horizontalPageMargin : (datePickerDialog._largeScreen ? Theme.horizontalPageMargin*2 : 0) // Modified by Shipwright for Qt 6: qualified
+                rightMargin: datePickerDialog.isLandscape ? Theme.horizontalPageMargin : (datePickerDialog._largeScreen ? Theme.horizontalPageMargin*2 : 0) // Modified by Shipwright for Qt 6: qualified
+                date: datePickerDialog._initialDateSet // Modified by Shipwright for Qt 6: qualified
                       ? datePickerDialog._initialDate
                       : (datePickerDialog.date.toString() !== "Invalid Date") ? datePickerDialog.date : new Date()
 
@@ -280,8 +283,8 @@ Dialog {
 
             MouseArea {
                 anchors {
-                    top: dateAboveGrid ? datePicker.bottom : yearPicker.bottom
-                    left: dateAboveGrid ? parent.left : yearPicker.left
+                    top: contentFlickable.dateAboveGrid ? datePicker.bottom : yearPicker.bottom // Modified by Shipwright for Qt 6: qualified
+                    left: contentFlickable.dateAboveGrid ? parent.left : yearPicker.left // Modified by Shipwright for Qt 6: qualified
                     right: parent.right
                     bottom: parent.bottom
                 }

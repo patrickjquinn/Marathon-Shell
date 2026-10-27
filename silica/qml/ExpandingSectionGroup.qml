@@ -37,6 +37,7 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (1 places).
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -73,7 +74,7 @@ Column {
     property real _flickableContentYAtOpen
     property int __silica_expandingsectiongroup
 
-    function indexOfSection(section) {
+    function indexOfSection(section: var): var { // Modified by Shipwright for Qt 6: typed
         if (!section) {
             return -1
         }
@@ -90,7 +91,7 @@ Column {
         return -1
     }
 
-    function _findSection(item) {
+    function _findSection(item: var): var { // Modified by Shipwright for Qt 6: typed
         if (!item) {
             return null
         }
@@ -106,7 +107,7 @@ Column {
         return null
     }
 
-    function _updateActiveSection() {
+    function _updateActiveSection(): void { // Modified by Shipwright for Qt 6: typed
         if (_updating) {
             return
         }
@@ -141,7 +142,7 @@ Column {
         _updating = false
     }
 
-    function _updateFlickableContentY(oldSection, newSection) {
+    function _updateFlickableContentY(oldSection: var, newSection: var): void { // Modified by Shipwright for Qt 6: typed
         if (!_flickable) {
             _flickable = Util.findFlickable(root)
         }
@@ -181,7 +182,7 @@ Column {
         }
     }
 
-    function _initializeActiveSection() {
+    function _initializeActiveSection(): void { // Modified by Shipwright for Qt 6: typed
         if (!_initialized && currentIndex >= 0 && currentIndex < children.length) {
             _updateActiveSection()
         }
@@ -218,16 +219,16 @@ Column {
     NumberAnimation {
         id: contentYAnimation
 
-        target: _flickable
+        target: root._flickable // Modified by Shipwright for Qt 6: qualified
         property: "contentY"
         duration: root.animationDuration
     }
 
     Connections {
-        target: _flickable
+        target: root._flickable // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onMovingChanged() {
-            if (_flickable.moving) {
+            if (root._flickable.moving) { // Modified by Shipwright for Qt 6: qualified
                 root._revertFlickableContentY = false
             }
         }

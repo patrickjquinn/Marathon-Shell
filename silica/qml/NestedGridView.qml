@@ -35,6 +35,7 @@
 ****************************************************************************************/
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) NestedGridView.qml
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -60,7 +61,7 @@ Item {
     property alias cellWidth: resultsView.cellWidth
     property alias cellHeight: resultsView.cellHeight
 
-    function _listStartPosition() {
+    function _listStartPosition(): var { // Modified by Shipwright for Qt 6: typed
         return y + mapToItem(flickable.contentItem, 0, 0).y
     }
 

@@ -38,6 +38,8 @@
 // Modified by Shipwright for Qt 6: signal handlers in Connections written as functions, and handlers that use signal parameters declare them (3 places).
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for the module's native types.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (1 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (1 places; the same object type, typed for qmlcachegen).
 
 import QtQuick 2.6
 import Sailfish.Silica 1.0
@@ -92,13 +94,13 @@ Item {
         _completed = true
     }
 
-    function openMenu() {
+    function openMenu(): void { // Modified by Shipwright for Qt 6: typed
         if (!controller.menu) {
             return
         }
         var needSeparateDialog = false
         var menuChildrenCount = 0
-        var maximumInlineItems = screen.sizeCategory >= KeelSilica.Screen.Large ? 6 : 5
+        var maximumInlineItems = KeelSilica.Screen.sizeCategory >= KeelSilica.Screen.Large ? 6 : 5 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
 
         if (!_page) {
             _page = Util.findPage(controller.comboBox)
@@ -126,17 +128,17 @@ Item {
         }
     }
 
-    function _openSeparateDialog() {
+    function _openSeparateDialog(): void { // Modified by Shipwright for Qt 6: typed
         _menuDialogItem = pageStack.push(menuDialogComponent)
     }
 
-    function _clearCurrent() {
+    function _clearCurrent(): void { // Modified by Shipwright for Qt 6: typed
         currentIndex = -1
         currentItem = null
         controller.menu._setHighlightedItem(null)
     }
 
-    function _resetCurrent() {
+    function _resetCurrent(): void { // Modified by Shipwright for Qt 6: typed
         _updating = true
         currentIndex = 0
         _currentIndexSet = false
@@ -144,7 +146,7 @@ Item {
         _updating = false
     }
 
-    function _loadCurrent() {
+    function _loadCurrent(): void { // Modified by Shipwright for Qt 6: typed
         if (currentIndex == -1 && currentItem == null) {
             _clearCurrent()
         } else {
@@ -156,7 +158,7 @@ Item {
         }
     }
 
-    function _updateCurrent(newIndex, newItem) {
+    function _updateCurrent(newIndex: var, newItem: var): void { // Modified by Shipwright for Qt 6: typed
         if (!menu) {
             return
         }
@@ -195,7 +197,7 @@ Item {
         }
     }
 
-    function _highlightCurrent() {
+    function _highlightCurrent(): void { // Modified by Shipwright for Qt 6: typed
         controller.menu._setHighlightedItem(currentItem)
     }
 
@@ -215,20 +217,20 @@ Item {
         function onChildrenChanged() {
             // delay the reload in case there are more children changes to come
             if (!updateCurrentTimer.running) {
-                _updating = true
+                controller._updating = true // Modified by Shipwright for Qt 6: qualified
                 updateCurrentTimer.start()
             }
         }
     }
 
     Connections {
-        target: _page
+        target: controller._page // Modified by Shipwright for Qt 6: qualified
         // Modified by Shipwright for Qt 6: Connections handler as a function
         function onIsLandscapeChanged() {
             // When the menu is already open and the keyboard is shown, but the user
             // switches to landscape mode, the menu will no longer properly fit the screen.
             // So we have to close it and open the separate dialog after it is closed.
-            if (_page.isLandscape && controller.menuOpen && Qt.inputMethod.visible) {
+            if (controller._page.isLandscape && controller.menuOpen && Qt.inputMethod.visible) { // Modified by Shipwright for Qt 6: qualified
                 // NOTE: attempting pageStack.animatorPush while the menu is still open will bork the dialog.
                 menu.close()
                 menu.closed.connect(function menuClosed() {
@@ -244,7 +246,7 @@ Item {
 
         interval: 1
         onTriggered: {
-            _updating = false
+            controller._updating = false // Modified by Shipwright for Qt 6: qualified
             // ignore if no current index was set
             if (controller.currentItem === null && controller.currentIndex < 0) {
                 return
@@ -321,9 +323,9 @@ Item {
 
                             // If there is only one line of text, vertically center the icon.
                             // Otherwise, anchor it to the delegate's top, with a small padding.
-                            top: _isMultiLine ? parent.top : undefined
+                            top: delegateItem._isMultiLine ? parent.top : undefined // Modified by Shipwright for Qt 6: qualified
                             topMargin: Theme.paddingMedium + Theme.paddingSmall
-                            verticalCenter: _isMultiLine ? undefined : parent.verticalCenter
+                            verticalCenter: delegateItem._isMultiLine ? undefined : parent.verticalCenter // Modified by Shipwright for Qt 6: qualified
                         }
                         sourceSize.width: Theme.iconSizeMedium
                         sourceSize.height: Theme.iconSizeMedium

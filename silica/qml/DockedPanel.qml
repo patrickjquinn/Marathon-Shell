@@ -36,6 +36,7 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) DockedPanel.qml
 // Modified by Shipwright for Qt 6: imports Sailfish.Silica.private for InverseMouseArea, which Keel's Sailfish.Silica qmldir does not export.
 // Modified by Shipwright for Qt 6: the inline GLSL is a compiled Qt 6 shader (qml/shaders/opaque.frag); no layer on the software scene graph.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
 
 import QtQuick 2.0
 import QtQuick as KeelQuick // Modified by Shipwright for Qt 6: GraphicsInfo (newer than this file's QtQuick import)
@@ -53,7 +54,7 @@ SilicaFlickable {
     property int animationDuration: 500
     property bool _immediate
 
-    function _visibleSize() {
+    function _visibleSize(): var { // Modified by Shipwright for Qt 6: typed
         if (_managedDock == Dock.Left) {
             return panel.x + panel.width - contentX
         } else if (_managedDock == Dock.Top)  {
@@ -85,14 +86,14 @@ SilicaFlickable {
 
     visible: expanded
 
-    function show(immediate) {
+    function show(immediate: var): void { // Modified by Shipwright for Qt 6: typed
         _initialized = true
         _immediate = !!immediate
         open = true
         _immediate = false
     }
 
-    function hide(immediate) {
+    function hide(immediate: var): void { // Modified by Shipwright for Qt 6: typed
         _immediate = !!immediate
         open = false
         _immediate = false
@@ -115,7 +116,7 @@ SilicaFlickable {
         id: delayedInitialization
 
         interval: 16
-        onTriggered: _initialized = true
+        onTriggered: panel._initialized = true // Modified by Shipwright for Qt 6: qualified
     }
 
     onDockChanged: {
@@ -126,16 +127,16 @@ SilicaFlickable {
 
     InverseMouseArea {
         anchors.fill: parent
-        enabled: open && modal
+        enabled: panel.open && panel.modal // Modified by Shipwright for Qt 6: qualified
         stealPress: true
-        onPressedOutside: open = false
+        onPressedOutside: panel.open = false // Modified by Shipwright for Qt 6: qualified
     }
 
     Binding {
-        when: open && modal
+        when: panel.open && panel.modal // Modified by Shipwright for Qt 6: qualified
         target: __silica_applicationwindow_instance
         property: "_dimScreen"
-        value: open
+        value: panel.open // Modified by Shipwright for Qt 6: qualified
     }
 
     // Effect to eliminate the opacity applied by application window dimming
@@ -191,7 +192,7 @@ SilicaFlickable {
 
     states: State {
         name: "open"
-        when: open && _initialized
+        when: panel.open && panel._initialized // Modified by Shipwright for Qt 6: qualified
         PropertyChanges {
             target: panel
             targetX: {
@@ -221,7 +222,7 @@ SilicaFlickable {
         enabled: false
         NumberAnimation {
             id: horizontalAnimation
-            duration: animationDuration; easing.type: Easing.OutQuad
+            duration: panel.animationDuration; easing.type: Easing.OutQuad // Modified by Shipwright for Qt 6: qualified
         }
     }
 
@@ -231,12 +232,12 @@ SilicaFlickable {
         enabled: false
         NumberAnimation {
             id: verticalAnimation
-            duration: animationDuration; easing.type: Easing.OutQuad
+            duration: panel.animationDuration; easing.type: Easing.OutQuad // Modified by Shipwright for Qt 6: qualified
         }
     }
 
     Loader {
-        sourceComponent: background
+        sourceComponent: panel.background // Modified by Shipwright for Qt 6: qualified
         anchors.fill: mouseArea
     }
 
@@ -247,9 +248,9 @@ SilicaFlickable {
         drag {
             target: panel
             minimumX: !panel._isVertical ? mouseArea.drag.maximumX - panel.width : 0
-            maximumX: _managedDock == Dock.Right && panel.parent ? panel.parent.width : 0
+            maximumX: panel._managedDock == Dock.Right && panel.parent ? panel.parent.width : 0 // Modified by Shipwright for Qt 6: qualified
             minimumY: panel._isVertical ? mouseArea.drag.maximumY - panel.height : 0
-            maximumY: _managedDock == Dock.Bottom && panel.parent ? panel.parent.height : 0
+            maximumY: panel._managedDock == Dock.Bottom && panel.parent ? panel.parent.height : 0 // Modified by Shipwright for Qt 6: qualified
             axis: panel._isVertical ? Drag.YAxis : Drag.XAxis
             filterChildren: true
             onActiveChanged: {
@@ -260,14 +261,14 @@ SilicaFlickable {
                             || (panel._managedDock == Dock.Bottom && panel.y - drag.minimumY >  panel._threshold && panel._direction >= 0)) {
                         panel.open = false
                     } else {
-                        if (targetX !== panel.x) {
+                        if (panel.targetX !== panel.x) { // Modified by Shipwright for Qt 6: qualified
                             horizontalBehavior.enabled = true
-                            panel.x = targetX
+                            panel.x = panel.targetX // Modified by Shipwright for Qt 6: qualified
                             horizontalBehavior.enabled = false
                         }
-                        if (targetY !== panel.y) {
+                        if (panel.targetY !== panel.y) { // Modified by Shipwright for Qt 6: qualified
                             verticalBehavior.enabled = true
-                            panel.y = targetY
+                            panel.y = panel.targetY // Modified by Shipwright for Qt 6: qualified
                             verticalBehavior.enabled = false
                         }
                     }
@@ -281,7 +282,7 @@ SilicaFlickable {
         }
         onPositionChanged: {
             var pos = panel._isVertical ? panel.y : panel.x
-            panel._direction = (_direction + pos - _lastPos) / 2
+            panel._direction = (panel._direction + pos - panel._lastPos) / 2 // Modified by Shipwright for Qt 6: qualified
             panel._lastPos = panel.y
         }
     }

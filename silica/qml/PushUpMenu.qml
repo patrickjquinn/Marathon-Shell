@@ -36,7 +36,9 @@
 // Upstream: sailfishsilica-qt5-1.2.156 (Sailfish OS 5.2.0.15) PushUpMenu.qml
 // Modified by Shipwright for Qt 6: geometry bindings guarded while `flickable` is still null (set in Component.onCompleted), which warned at creation.
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, `pragma ComponentBehavior: Bound` (its inner components are made only in this file), functions typed `var` (unchanged behaviour).
 
+pragma ComponentBehavior: Bound // Modified by Shipwright for Qt 6: ids of outer objects used in inner components
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Sailfish.Silica.private 1.0 // Modified by Shipwright for Qt 6: was import "private"
@@ -79,7 +81,7 @@ PulleyMenuBase {
 
         anchors {
             fill: parent
-            topMargin: (pushUpMenu.spacing - _shadowHeight) * Math.min(1, _dragDistance/Theme.itemSizeSmall)
+            topMargin: (pushUpMenu.spacing - pushUpMenu._shadowHeight) * Math.min(1, pushUpMenu._dragDistance/Theme.itemSizeSmall) // Modified by Shipwright for Qt 6: qualified
         }
         opacity: pushUpMenu.active ? 1.0 : 0.0
         gradient: Gradient {
@@ -100,11 +102,11 @@ PulleyMenuBase {
 
         property int __silica_pulleymenu_content
 
-        property real menuContentY: pushUpMenu.active ? _dragDistance + pushUpMenu.spacing : -1
+        property real menuContentY: pushUpMenu.active ? pushUpMenu._dragDistance + pushUpMenu.spacing : -1 // Modified by Shipwright for Qt 6: qualified
         onMenuContentYChanged: {
             if (menuContentY >= 0) {
-                if (flickable.dragging && !_bounceBackRunning) {
-                    _highlightMenuItem(contentColumn, menuContentY - y - _menuItemHeight)
+                if (pushUpMenu.flickable.dragging && !pushUpMenu._bounceBackRunning) { // Modified by Shipwright for Qt 6: qualified
+                    _highlightMenuItem(contentColumn, menuContentY - y - pushUpMenu._menuItemHeight) // Modified by Shipwright for Qt 6: qualified
                 } else if (quickSelect) {
                     _quickSelectMenuItem(contentColumn, menuContentY - y - _menuItemHeight)
                 }
@@ -113,13 +115,13 @@ PulleyMenuBase {
 
         y: pushUpMenu.spacing + pushUpMenu.topMargin
         width: parent.width
-        visible: active
+        visible: pushUpMenu.active // Modified by Shipwright for Qt 6: qualified
     }
 
     Binding {
-        target: flickable
+        target: pushUpMenu.flickable // Modified by Shipwright for Qt 6: qualified
         property: "bottomMargin"
-        value: (active ? pushUpMenu.height : _inactiveHeight + spacing) + _contentDeficit
+        value: (pushUpMenu.active ? pushUpMenu.height : pushUpMenu._inactiveHeight + pushUpMenu.spacing) + pushUpMenu._contentDeficit // Modified by Shipwright for Qt 6: qualified
     }
 
     // Ensure that we are positioned at the bottom limit, even if the content does not fill the height
@@ -128,7 +130,7 @@ PulleyMenuBase {
                               ? (flickable.pullDownMenu._inactiveHeight + flickable.pullDownMenu.spacing)
                               : 0
 
-    function _addToFlickable(flickableItem) {
+    function _addToFlickable(flickableItem: var): void { // Modified by Shipwright for Qt 6: typed
         if (flickableItem.pushUpMenu !== undefined) {
             flickableItem.pushUpMenu = pushUpMenu
         } else {
@@ -137,7 +139,7 @@ PulleyMenuBase {
     }
 
     // for testing
-    function _menuContentY() {
+    function _menuContentY(): var { // Modified by Shipwright for Qt 6: typed
         return contentColumn.menuContentY
     }
 

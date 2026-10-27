@@ -37,6 +37,8 @@
 // Modified by Shipwright for Qt 6: optional modules (QtFeedback, Nemo.Ngf, Nemo.Configuration) may be missing: their objects are made by Util._keelOptionalObject() (C++, one compiled component per engine), which returns null when they are.
 // Modified by Shipwright for Qt 6: directory imports ("private", "..") import the module by name.
 // Modified by Shipwright for Qt 6: `Screen.` qualified as `KeelSilica.Screen.` (2 places; Qt Quick's attached Screen shadows Silica's in Qt 6).
+// Modified by Shipwright for Qt 6: compiled to C++ by qmlcachegen: names qualified with their object's id, functions typed `var` (unchanged behaviour).
+// Modified by Shipwright for Qt 6: the `screen` context property read as Silica's Screen singleton, `KeelSilica.Screen.` (2 places; the same object type, typed for qmlcachegen).
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
@@ -63,8 +65,8 @@ SilicaControl {
     property string _numbers: "0123456789"
     property QtObject _feedbackEffect
     property int _buttonWidth: (3*Theme.itemSizeHuge - 4*Theme.paddingLarge) / 3
-    property int _buttonHeight: screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.itemSizeExtraLarge : Theme.itemSizeLarge
-    property int _horizontalSpacing: screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.paddingLarge : 0
+    property int _buttonHeight: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.itemSizeExtraLarge : Theme.itemSizeLarge // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
+    property int _horizontalSpacing: KeelSilica.Screen.sizeCategory > KeelSilica.Screen.Medium ? Theme.paddingLarge : 0 // Modified by Shipwright for Qt 6: screen. read as KeelSilica.Screen.
     property int _horizontalPadding: Math.max((width - column.implicitWidth) / 2, 0)
 
     signal pressed(string number)
@@ -75,7 +77,7 @@ SilicaControl {
 
     signal voiceMailCalled
 
-    function _buttonPressed(item, number) {
+    function _buttonPressed(item: var, number: var): void { // Modified by Shipwright for Qt 6: typed
         if (_feedbackEffect) {
             _feedbackEffect.play()
         }
@@ -85,29 +87,29 @@ SilicaControl {
         dialer.pressed(number)
     }
 
-    function _buttonReleased(number) {
+    function _buttonReleased(number: var): void { // Modified by Shipwright for Qt 6: typed
         pressedButtonBackground.visible = false
         dialer.released(number)
     }
 
-    function _buttonCanceled(number) {
+    function _buttonCanceled(number: var): void { // Modified by Shipwright for Qt 6: typed
         pressedButtonBackground.visible = false
         dialer.canceled(number)
     }
 
-    function _buttonClicked(number) {
+    function _buttonClicked(number: var): void { // Modified by Shipwright for Qt 6: typed
         dialer.clicked(number)
     }
 
-    function _buttonEntered() {
+    function _buttonEntered(): void { // Modified by Shipwright for Qt 6: typed
         pressedButtonBackground.opacity = 1
     }
 
-    function _buttonExited() {
+    function _buttonExited(): void { // Modified by Shipwright for Qt 6: typed
         pressedButtonBackground.opacity = 0
     }
 
-    function _centerPressedButtonBackgroundOnItem(item) {
+    function _centerPressedButtonBackgroundOnItem(item: var): void { // Modified by Shipwright for Qt 6: typed
         pressedButtonBackground.x = 0
         pressedButtonBackground.y = 0
         var itemCenter = pressedButtonBackground.mapFromItem(item, item.width/2, item.height/2)
@@ -154,8 +156,8 @@ SilicaControl {
 
             KeypadButton {
                 key: Qt.Key_1
-                text: _numbers.charAt(1)
-                secondaryText: vanityDialNumbers[0]
+                text: dialer._numbers.charAt(1) // Modified by Shipwright for Qt 6: qualified
+                secondaryText: dialer.vanityDialNumbers[0] // Modified by Shipwright for Qt 6: qualified
                 onPressAndHold: dialer.voiceMailCalled()
                 Image {
                     id: voiceMailIcon
@@ -168,13 +170,13 @@ SilicaControl {
             }
             KeypadButton {
                 key: Qt.Key_2
-                text: _numbers.charAt(2)
-                secondaryText: vanityDialNumbers[1]
+                text: dialer._numbers.charAt(2) // Modified by Shipwright for Qt 6: qualified
+                secondaryText: dialer.vanityDialNumbers[1] // Modified by Shipwright for Qt 6: qualified
             }
             KeypadButton {
                 key: Qt.Key_3
-                text: _numbers.charAt(3)
-                secondaryText: vanityDialNumbers[2]
+                text: dialer._numbers.charAt(3) // Modified by Shipwright for Qt 6: qualified
+                secondaryText: dialer.vanityDialNumbers[2] // Modified by Shipwright for Qt 6: qualified
             }
         }
         Row {
@@ -215,16 +217,16 @@ SilicaControl {
                 KeypadButton {
                     id: asteriskButton
 
-                    visible: symbolsVisible
+                    visible: dialer.symbolsVisible // Modified by Shipwright for Qt 6: qualified
                     key: Qt.Key_Asterisk
                     text: "*"
-                    secondaryText: vanityDialNumbers[9]
+                    secondaryText: dialer.vanityDialNumbers[9] // Modified by Shipwright for Qt 6: qualified
                 }
             }
             KeypadButton {
                 key: Qt.Key_0
                 text: "0"
-                secondaryText: symbolsVisible ? vanityDialNumbers[10] : ""
+                secondaryText: dialer.symbolsVisible ? dialer.vanityDialNumbers[10] : "" // Modified by Shipwright for Qt 6: qualified
             }
             Item {
                 width: hashButton.width
@@ -233,10 +235,10 @@ SilicaControl {
                 KeypadButton {
                     id: hashButton
 
-                    visible: symbolsVisible
+                    visible: dialer.symbolsVisible // Modified by Shipwright for Qt 6: qualified
                     text: "#"
                     key: Qt.Key_NumberSign
-                    secondaryText: vanityDialNumbers[11]
+                    secondaryText: dialer.vanityDialNumbers[11] // Modified by Shipwright for Qt 6: qualified
                 }
             }
         }
