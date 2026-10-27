@@ -51,6 +51,7 @@
 #include "src/components/backdropprobe.h"
 #include "src/services/waketouchfilter.h"
 #include "marathon-shell-native/src/pressure.cxxqt.h"
+#include "marathon-shell-native/src/storage.cxxqt.h"
 #include "marathon-shell-native/src/notifications.cxxqt.h"
 #include "marathon-shell-native/src/push.cxxqt.h"
 #include "marathon-shell-native/src/timezone.cxxqt.h"
@@ -1340,6 +1341,9 @@ int main(int argc, char *argv[]) {
     QObject::connect(pressure, &marathon::MemoryPressure::high, tasks, &Tasks::broadcastLowMemory);
     QObject::connect(pressure, &marathon::MemoryPressure::critical, tasks,
                      [tasks] { tasks->killOldestFrozenApp(); });
+
+    qmlRegisterSingletonInstance<marathon::StorageMonitor>("MarathonOS.Shell", 1, 0, "StorageMonitor",
+                                                           new marathon::StorageMonitor());
 
     {
         QObject::connect(tasks, &Tasks::openAppRequested, uiStore,

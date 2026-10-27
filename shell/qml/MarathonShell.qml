@@ -941,6 +941,24 @@ Item {
         target: SystemStatusStore
     }
 
+    Connections {
+        function onLowStorage(freeBytes) {
+            NotificationService.sendNotification("settings", qsTr("Storage almost full"), qsTr("%1 free. Open Settings to free up space.").arg(Qt.locale().formattedDataSize(freeBytes, 1)), {
+                "category": "system",
+                "priority": "high",
+                "icon": "hard-drive",
+                "persistent": true,
+                "tag": "low-storage",
+                "route": "storage"
+            });
+        }
+        function onStorageRecovered() {
+            NotificationService.dismissTagged("settings", "low-storage");
+        }
+
+        target: StorageMonitor
+    }
+
     // A field in the previous app can't report losing focus, so switching apps drops the keyboard.
     Connections {
         function onCurrentAppIdChanged() {

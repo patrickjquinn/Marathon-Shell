@@ -57,6 +57,7 @@ pub mod security;
 pub mod session;
 pub mod settings;
 pub mod share;
+pub mod storage;
 mod stored;
 mod svg;
 mod systemd;

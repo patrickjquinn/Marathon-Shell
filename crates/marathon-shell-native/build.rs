@@ -43,6 +43,7 @@ fn main() {
         .file("src/session.rs")
         .file("src/share.rs")
         .file("src/settings.rs")
+        .file("src/storage.rs")
         .file("src/svg.rs")
         .file("src/tasks.rs")
         .file("src/telephonyd.rs")
