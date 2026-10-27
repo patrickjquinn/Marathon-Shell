@@ -9,6 +9,21 @@ OobeSheet {
     //: Title of the accessibility sheet on the first setup screen
     title: qsTr("Accessibility")
 
+    function applySize() {
+        settle.stop();
+        const factor = Math.round(sizeSlider.value) / 100;
+        if (Math.abs(factor - SettingsManagerCpp.userScaleFactor) > 0.001)
+            SettingsManagerCpp.userScaleFactor = factor;
+    }
+
+    // As on Easy to read: the shell re-sizes when the finger rests or lifts.
+    Timer {
+        id: settle
+
+        interval: 250
+        onTriggered: root.applySize()
+    }
+
     Silica.TextSwitch {
         objectName: "reduceMotionSwitch"
         width: parent.width
@@ -20,6 +35,8 @@ OobeSheet {
     }
 
     Silica.Slider {
+        id: sizeSlider
+
         objectName: "textSizeSlider"
         width: parent.width
         //: Slider that scales text and icons everywhere
@@ -30,8 +47,14 @@ OobeSheet {
         value: Math.round(SettingsManagerCpp.userScaleFactor * 100)
         valueText: Math.round(value) + "%"
         onValueChanged: {
-            if (Math.round(value) !== Math.round(SettingsManagerCpp.userScaleFactor * 100))
-                SettingsManagerCpp.userScaleFactor = Math.round(value) / 100;
+            if (down)
+                settle.restart();
+            else
+                root.applySize();
+        }
+        onDownChanged: {
+            if (!down)
+                root.applySize();
         }
     }
 }

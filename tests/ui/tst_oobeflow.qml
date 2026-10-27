@@ -198,6 +198,20 @@ TestCase {
         compare(SettingsManagerCpp.userScaleFactor, 1);
     }
 
+    function test_accessibilitySheetResizesWhenTheSliderIsReleased() {
+        mouseClick(child("helloAccessibility"));
+        tryCompare(child("accessibilitySheet"), "open", true);
+        const slider = child("textSizeSlider");
+        tryVerify(() => slider.visible);
+        mousePress(slider, slider.width / 2, slider.height / 2);
+        mouseMove(slider, slider.width / 2 + 20, slider.height / 2);
+        mouseMove(slider, slider.width - 1, slider.height / 2);
+        compare(SettingsManagerCpp.userScaleFactor, 1);
+        mouseRelease(slider, slider.width - 1, slider.height / 2);
+        compare(SettingsManagerCpp.userScaleFactor, 1.5);
+        SettingsManagerCpp.userScaleFactor = 1;
+    }
+
     function test_backClosesASheetFirst() {
         mouseClick(child("helloAccessibility"));
         const sheet = child("accessibilitySheet");
