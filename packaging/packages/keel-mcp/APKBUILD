@@ -32,9 +32,8 @@ package() {
 	install -Dm755 target/release/keel-mcp "$pkgdir"/usr/bin/keel-mcp
 	install -d "$pkgdir"/usr/share/keel/actions
 	install -Dm644 "$srcdir"/keel-mcp.service "$pkgdir"/usr/lib/systemd/user/keel-mcp.service
-	install -d "$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants
-	ln -s ../keel-mcp.service \
-		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/keel-mcp.service
+	# Not started with the session: Pilot runs its own keel-mcp, and the socket
+	# is for a developer's MCP client (systemctl --user enable keel-mcp).
 	install -Dm644 LICENSES/MIT.txt "$pkgdir"/usr/share/licenses/$pkgname/MIT.txt
 }
 
