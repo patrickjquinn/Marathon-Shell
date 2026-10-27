@@ -417,8 +417,13 @@ int main(int argc, char *argv[]) {
             else {
                 std::unique_ptr<QObject> warmed(warmComponent.create());
                 const QQmlListReference  types(warmed.get(), "silica");
+                // Made with no page or dialog around them, the controls' bindings
+                // fail; the warm-up wants their types compiled, not the warnings
+                // in the journal on every launch.
+                const QtMessageHandler logged = qInstallMessageHandler([](QtMsgType, const QMessageLogContext &, const QString &) {});
                 for (qsizetype i = 0; i < types.count(); ++i)
                     delete qobject_cast<QQmlComponent *>(types.at(i))->create();
+                qInstallMessageHandler(logged);
             }
         }
 
