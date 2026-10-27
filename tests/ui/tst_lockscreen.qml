@@ -118,4 +118,16 @@ TestCase {
         tone.light = false;
         tryCompare(clock, "color", Silica.Theme.lightPrimaryColor);
     }
+
+    function test_theDateTakesItsOwnBackdropsTone() {
+        const clockTone = findChild(lockScreen, "lockClockTone");
+        const dateTone = findChild(lockScreen, "lockDateTone");
+        const clock = findChild(lockScreen, "lockClock");
+        const day = findChild(lockScreen, "lockDay");
+        clockTone.light = true;
+        dateTone.light = false;
+        tryCompare(clock, "color", Silica.Theme.darkPrimaryColor);
+        tryCompare(day, "color", Silica.Theme.lightPrimaryColor);
+        verify(dateTone.y >= clockTone.y + clockTone.height - 1);
+    }
 }

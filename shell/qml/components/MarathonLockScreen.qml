@@ -446,6 +446,8 @@ Item {
             }
         }
 
+        // The time and the date below it each take the tone of their own
+        // backdrop: a clock over sky can sit above a date over land.
         WallpaperTone {
             id: clockTone
 
@@ -453,7 +455,17 @@ Item {
             x: clockColumn.x
             y: clockColumn.y - clockColumn.spacing
             width: clockColumn.width
-            height: clockColumn.height + 2 * clockColumn.spacing
+            height: lockClock.height + Math.round(1.5 * clockColumn.spacing)
+        }
+
+        WallpaperTone {
+            id: dateTone
+
+            objectName: "lockDateTone"
+            x: clockColumn.x
+            y: clockColumn.y + lockClock.height + Math.round(clockColumn.spacing / 2)
+            width: clockColumn.width
+            height: clockColumn.height - lockClock.height + Math.round(clockColumn.spacing / 2)
         }
 
         // ── Clock cluster ───────────────────────────────────
@@ -491,6 +503,8 @@ Item {
             // The lock clock: large and extra-light, the weekday and
             // the date beneath on their own lines, all in the primary colour.
             Silica.Label {
+                id: lockClock
+
                 objectName: "lockClock"
                 text: SystemStatusStore.timeString
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -505,21 +519,22 @@ Item {
             }
 
             Silica.Label {
+                objectName: "lockDay"
                 text: Qt.formatDate(clockColumn.today, "dddd")
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                color: clockTone.glyph
+                color: dateTone.glyph
                 style: Text.Outline
-                styleColor: clockTone.halo
+                styleColor: dateTone.halo
             }
             Silica.Label {
                 //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the lock screen date, e.g. 26 October
                 text: Qt.formatDate(clockColumn.today, qsTr("d MMMM"))
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.pixelSize: clockColumn.mediaActive ? Silica.Theme.fontSizeMedium : Silica.Theme.fontSizeLarge
-                color: clockTone.glyph
+                color: dateTone.glyph
                 style: Text.Outline
-                styleColor: clockTone.halo
+                styleColor: dateTone.halo
             }
         }
 

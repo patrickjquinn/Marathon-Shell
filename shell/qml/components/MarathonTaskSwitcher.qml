@@ -117,6 +117,7 @@ Item {
         }
     }
 
+    // The time and the date take the tone of their own backdrops, as on the lock screen.
     WallpaperTone {
         id: clockTone
 
@@ -124,7 +125,18 @@ Item {
         x: emptyClock.x
         y: emptyClock.y - emptyClock.spacing
         width: emptyClock.width
-        height: emptyClock.height + 2 * emptyClock.spacing
+        height: emptyTime.height + Math.round(1.5 * emptyClock.spacing)
+        visible: emptyClock.visible
+    }
+
+    WallpaperTone {
+        id: dateTone
+
+        objectName: "emptyDateTone"
+        x: emptyClock.x
+        y: emptyClock.y + emptyTime.height + Math.round(emptyClock.spacing / 2)
+        width: emptyClock.width
+        height: emptyClock.height - emptyTime.height + Math.round(emptyClock.spacing / 2)
         visible: emptyClock.visible
     }
 
@@ -142,6 +154,8 @@ Item {
         z: 1
 
         Silica.Label {
+            id: emptyTime
+
             width: parent.width
             text: SystemStatusStore.timeString
             horizontalAlignment: Text.AlignHCenter
@@ -156,18 +170,18 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDate(taskSwitcher.today, "dddd")
             font.pixelSize: Silica.Theme.fontSizeLarge
-            color: clockTone.glyph
+            color: dateTone.glyph
             style: Text.Outline
-            styleColor: clockTone.halo
+            styleColor: dateTone.halo
         }
         Silica.Label {
             anchors.horizontalCenter: parent.horizontalCenter
             //: Qt date format pattern: keep the letters d, M, y; reorder or add separators only. Day and month for the task switcher date, e.g. 26 October
             text: Qt.formatDate(taskSwitcher.today, qsTr("d MMMM"))
             font.pixelSize: Silica.Theme.fontSizeLarge
-            color: clockTone.glyph
+            color: dateTone.glyph
             style: Text.Outline
-            styleColor: clockTone.halo
+            styleColor: dateTone.halo
         }
     }
 
