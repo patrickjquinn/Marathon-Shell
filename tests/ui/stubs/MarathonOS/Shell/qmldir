@@ -69,3 +69,4 @@ TerminalLayout 1.0 ../../../../../shell/qml/keyboard/Layouts/TerminalLayout.qml
 MTabBar 1.0 ../../../../../shell/qml/ui/MTabBar.qml
 FileChooserModel 1.0 FileChooserModel.qml
 BackdropProbe 1.0 BackdropProbe.qml
+NativeSurfaceItem 1.0 NativeSurfaceItem.qml
