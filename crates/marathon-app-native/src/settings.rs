@@ -260,7 +260,7 @@ properties! {
     auto_lock: bool = true, "autoLock", auto_lock_changed, set_auto_lock(bool);
     auto_lock_timeout: i32, "autoLockTimeout", auto_lock_timeout_changed, set_auto_lock_timeout(i32);
     show_notification_previews: bool = true, "showNotificationPreviews", show_notification_previews_changed, set_show_notification_previews(bool);
-    time_format: QString = QString::from("24h"), "timeFormat", time_format_changed, set_time_format(&QString);
+    time_format: QString = QString::from(""), "timeFormat", time_format_changed, set_time_format(&QString);
     date_format: QString = QString::from("US"), "dateFormat", date_format_changed, set_date_format(&QString);
     ringtone: QString, "ringtone", ringtone_changed, set_ringtone(&QString);
     notification_sound: QString, "notificationSound", notification_sound_changed, set_notification_sound(&QString);

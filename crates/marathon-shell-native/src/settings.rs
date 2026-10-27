@@ -413,7 +413,7 @@ properties! {
     auto_lock: bool = true, "system/autoLock", "autoLock", auto_lock_changed, on_auto_lock_changed, set_auto_lock(bool);
     auto_lock_timeout: i32 = 0, "system/autoLockTimeout", "autoLockTimeout", auto_lock_timeout_changed, on_auto_lock_timeout_changed, set_auto_lock_timeout(i32);
     show_notification_previews: bool = true, "system/showNotificationPreviews", "showNotificationPreviews", show_notification_previews_changed, on_show_notification_previews_changed, set_show_notification_previews(bool);
-    time_format: QString = QString::from("12h"), "system/timeFormat", "timeFormat", time_format_changed, on_time_format_changed, set_time_format(&QString);
+    time_format: QString = QString::from(""), "system/timeFormat", "timeFormat", time_format_changed, on_time_format_changed, set_time_format(&QString);
     date_format: QString = QString::from("US"), "system/dateFormat", "dateFormat", date_format_changed, on_date_format_changed, set_date_format(&QString);
     ringtone: QString = QString::from(&asset_url("sounds/phone/bbpro1.wav")), "audio/ringtone", "ringtone", ringtone_changed, on_ringtone_changed, set_ringtone(&QString);
     notification_sound: QString = QString::from(&asset_url("sounds/text/chime.wav")), "audio/notificationSound", "notificationSound", notification_sound_changed, on_notification_sound_changed, set_notification_sound(&QString);

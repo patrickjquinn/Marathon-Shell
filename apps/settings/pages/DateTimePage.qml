@@ -8,6 +8,8 @@ Page {
     id: page
 
     property date now: new Date()
+    // "" follows the language's clock.
+    readonly property bool twentyFour: Settings.timeFormat === "24h" || (Settings.timeFormat !== "12h" && !/ap/i.test(Qt.locale().timeFormat(Locale.ShortFormat)))
 
     function setClock(date) {
         Settings.setSystemTime(date.getTime());
@@ -18,7 +20,7 @@ Page {
         const dialog = pageStack.push(timePickerComponent, {
             hour: now.getHours(),
             minute: now.getMinutes(),
-            hourMode: Settings.timeFormat === "24h" ? DateTime.TwentyFourHours : DateTime.TwelveHours
+            hourMode: page.twentyFour ? DateTime.TwentyFourHours : DateTime.TwelveHours
         });
         dialog.accepted.connect(() => {
             const d = new Date();
@@ -90,7 +92,7 @@ Page {
             ValueButton {
                 objectName: "timeButton"
                 label: qsTr("Time")
-                value: Qt.formatTime(page.now, Settings.timeFormat === "24h" ? "HH:mm" : "h:mm AP")
+                value: Qt.formatTime(page.now, page.twentyFour ? "HH:mm" : "h:mm AP")
                 enabled: !Settings.automaticTime
                 onClicked: page.pickTime()
             }
@@ -104,9 +106,9 @@ Page {
             TextSwitch {
                 objectName: "clockSwitch"
                 text: qsTr("24-hour clock")
-                description: Qt.formatTime(page.now, Settings.timeFormat === "24h" ? "HH:mm" : "h:mm AP")
+                description: Qt.formatTime(page.now, page.twentyFour ? "HH:mm" : "h:mm AP")  // i18n: not user-facing
                 automaticCheck: false
-                checked: Settings.timeFormat === "24h"
+                checked: page.twentyFour
                 onClicked: Settings.timeFormat = checked ? "12h" : "24h"
             }
             TextSwitch {

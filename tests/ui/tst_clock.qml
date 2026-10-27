@@ -23,4 +23,15 @@ TestCase {
     function test_germanTwelveHourUsesLocaleText() {
         verify(/^1:05 (PM|nachm\.)$/.test(Clock.format(afternoon, "12h", Qt.locale("de_DE")).replace(/\s/g, " ")));
     }
+
+    function test_unsetFollowsTheLocale() {
+        compare(Clock.format(afternoon, "", Qt.locale("de_DE")), "13:05");
+        compare(Clock.format(afternoon, "", Qt.locale("en_US")).replace(/\s/g, " "), "1:05 PM");
+        verify(!Clock.twelveHour("", Qt.locale("en_IE")));
+    }
+
+    function test_choiceOverridesTheLocale() {
+        verify(Clock.twelveHour("12h", Qt.locale("de_DE")));
+        verify(!Clock.twelveHour("24h", Qt.locale("en_US")));
+    }
 }

@@ -1,6 +1,7 @@
 import QtQuick
 import Keel 1.0
 import Nemo.Configuration 1.0
+import "Clock.js" as Clock
 
 // Turns the wallpaper seed into a Keel ambience with Keel's own palette rule,
 // applies it to the shell's engine and publishes it for apps.
@@ -36,7 +37,7 @@ QtObject {
     }
 
     function keelTimeFormat(format) {
-        return format === "12h" ? "12" : "24";
+        return Clock.twelveHour(format) ? "12" : "24";
     }
 
     function publishTimeFormat() {
