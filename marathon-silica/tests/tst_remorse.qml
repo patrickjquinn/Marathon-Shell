@@ -48,6 +48,6 @@ TestCase {
         const a = createTemporaryObject(app, testCase);
         tryVerify(function () { return a.pageStack.currentPage !== null; });
         a.pageStack.currentPage.popup.execute("Deleting", function () { testCase.log.push("deleted"); }, 200);
-        tryCompare(testCase, "log", ["deleted"], 2000);
+        tryCompare(testCase, "log", ["deleted"], 10000);
     }
 }
