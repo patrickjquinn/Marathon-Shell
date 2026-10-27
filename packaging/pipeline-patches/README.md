@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 47 patches. **There is no 0011**: it vendored a loose
+There are 50 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -62,5 +62,7 @@ There are 47 patches. **There is no 0011**: it vendored a loose
 | 0047 | feat(pi5): the Pi kernel is linux-rpi-marathon, with utilization clamping | `mkosi-configure.py` installs `linux-rpi-marathon` (Alpine v3.23's 6.12.85 plus `CONFIG_UCLAMP_TASK`/`_GROUP`) in place of the pinned `linux-rpi=6.12.85-r0`, so the shell's `cpu.uclamp.min` boost for the app in front works. |
 | 0048 | feat(base): mail is marathon-maild, QMF leaves the image | The base image no longer installs `qmf-libs`, `qmf-messageserver` or `marathon-mail-oauth`: Mail is marathon-maild, in the marathon-shell package. 0001 and 0002's mail pieces are inert since. |
 | 0049 | feat(hackberrypi): Deckard owns Android, Waydroid leaves the image | The HackberryPi image installs `deckard` and `deckard-images` in place of `waydroid` and `waydroid-systemd`: Android's images ship in `/usr/share/deckard/images`, and nothing downloads them on the device. The base postinst's Waydroid block (0043, 0045, 0046) goes, since Deckard's own LXC template has `cgroup:rw` and both hooks. |
+| 0050 | feat(ssh): remote login only in developer images, by key | No root password or baked key in images for other people; `MARATHON_DEV_SSH_KEY` gives the builder key-only access. |
+| 0051 | fix(resolved): no LLMNR | Shared networks cannot answer lookups through LLMNR; mDNS stays. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.

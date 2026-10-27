@@ -38,6 +38,9 @@
 #   MKOSI_SRC               mkosi checkout (default: bootstrap.sh's own)
 #   MARATHON_IMAGE_SRC      packaging tree (default: in-tree packaging/)
 #   FORCE_REBUILD           "1" → drop cached apks before rebuild
+#   MARATHON_DEV_SSH_KEY    public key allowed to log in over SSH (root and
+#                           user, key only). Defaults to ~/.ssh/id_ed25519.pub;
+#                           empty builds an image with no remote login.
 #   MARATHON_IMAGE_LAYOUT   "single" (default) or "ab": A/B /usr slots with
 #                           signed OTA updates and rollback (docs/OTA.md)
 #   MARATHON_OTA_URL        update feed root for A/B images
@@ -224,6 +227,9 @@ fi
 # feed at $MARATHON_OTA_URL and the keyring that verifies it go into the
 # image through mkosi.extra. Single-root images get neither.
 export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
+# Remote login for the builder's own phone, by their key; an image for other
+# people is built with MARATHON_DEV_SSH_KEY= (empty) and has none.
+export MARATHON_DEV_SSH_KEY="${MARATHON_DEV_SSH_KEY-$(cat "$HOME/.ssh/id_ed25519.pub" 2>/dev/null)}"
 OTA_TRANSFERS="$DURANIUM_DIR/mkosi.extra/usr/lib/sysupdate.d"
 OTA_KEYRING="$DURANIUM_DIR/mkosi.extra/usr/lib/systemd/import-pubring.pgp"
 # Raspberry Pi A/B (mkosi.repart.ab-pi): autoboot.txt for partition 1, the

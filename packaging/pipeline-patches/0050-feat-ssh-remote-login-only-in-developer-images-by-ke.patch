@@ -1,0 +1,145 @@
+From e23dbaee7a0c7bebdd2910959a7151d72c1a3b68 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 27 Oct 2026 22:50:22 +0000
+Subject: [PATCH 50/51] feat(ssh): remote login only in developer images, by
+ key
+
+Every image let root in over SSH with the password "marathon" and with
+the build host's key, on every interface: anyone with either had root on
+every phone running it. MARATHON_DEV_SSH_KEY now decides. With a public
+key, that key alone logs in as root and as the user (no passwords) and
+sshd runs; without one the image has no remote login and sshd stays
+off. Root keeps its password only on QEMU, for the serial harness.
+---
+ mkosi.conf                       |  2 +-
+ mkosi.images/base/mkosi.postinst | 82 +++++++++++---------------------
+ 2 files changed, 28 insertions(+), 56 deletions(-)
+
+diff --git a/mkosi.conf b/mkosi.conf
+index 9dc3eab..20779b0 100644
+--- a/mkosi.conf
++++ b/mkosi.conf
+@@ -11,7 +11,7 @@ RepositoryKeyCheck=no
+ [Config]
+ # Pass these PMOS_* variables so they are available in sub-images (e.g. initrd)
+ # Pass the CI var so scripts can detect if they are running in gitlab CI
+-PassEnvironment=PMOS_DEVICE PMOS_VARIANT CI MARATHON_IMAGE_LAYOUT
++PassEnvironment=PMOS_DEVICE PMOS_VARIANT CI MARATHON_IMAGE_LAYOUT MARATHON_DEV_SSH_KEY
+ Dependencies=
+ 	base
+ 	dev-tools-confext
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 36b16a4..e9638d2 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -110,61 +110,34 @@ auth required pam_nologin.so
+ auth required pam_env.so
+ EOF
+ 
+-# Factory tree: bake the build-host's SSH pub key (if present) so dev/QA
+-# can ssh into freshly-flashed devices without typing a password. The
+-# 'user' account has its password locked to '!' so password-based ssh
+-# never works regardless. tmpfiles' C+ copies factory → ~/.ssh on first
+-# boot. Skip silently when no host key exists; fallback to user adding
+-# their own.
+-FACTORY_SSH="$BUILDROOT/usr/share/factory/home/$USER_NAME/.ssh"
+-HOST_SSH_PUB=""
+-for cand in /home/patrickquinn/.ssh/id_ed25519.pub /home/patrickquinn/.ssh/id_rsa.pub /home/patrickquinn/.ssh/id_ecdsa.pub; do
+-    if [ -f "$cand" ]; then HOST_SSH_PUB="$cand"; break; fi
+-done
+-if [ -n "$HOST_SSH_PUB" ]; then
+-    mkdir -p "$FACTORY_SSH"
+-    cp "$HOST_SSH_PUB" "$FACTORY_SSH/authorized_keys"
+-    chmod 600 "$FACTORY_SSH/authorized_keys"
+-    echo "info: baked $HOST_SSH_PUB into factory authorized_keys for $USER_NAME"
+-fi
+-
+ printf '%s\n' "$USER_NAME" > "$BUILDROOT/etc/default_user"
+ 
+-# Enable a known root password on serial so headless validation can log in
+-# and run measurements. INSECURE — strictly for QEMU smoke. Real images
+-# keep RootPassword=hashed:! locked.
+-chroot "$BUILDROOT" sh -c 'echo "root:marathon" | chpasswd'
+-
+-# SSH access for dev/QA on real hardware (not just QEMU). Three pieces:
+-#   1. sshd config drop-in — ship via /usr/share/factory + tmpfiles, NOT
+-#      directly under /etc, because /etc is fresh on duranium first boot
+-#      and was wiping the drop-in. The factory copy survives.
+-#   2. authorized_keys for root with the dev host's ed25519 pubkey —
+-#      pubkey auth bypasses the password reliance entirely.
+-#   3. Explicit `enable sshd.service` in the marathon preset — pmOS's
+-#      default preset doesn't enable sshd, so without this it never
+-#      starts at boot regardless of what /etc/ssh contains.
+-mkdir -p "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d"
+-cat > "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf" <<'EOF'
+-# Marathon dev/QA: allow root login via password OR pubkey.
+-PermitRootLogin yes
+-PasswordAuthentication yes
++# Developer access is opt-in per build. MARATHON_DEV_SSH_KEY is a public key
++# whose holder may log in, as root and as the user, by key only; without it
++# the image has no remote login at all, so an image made for other people
++# trusts no one's key and no password. Root keeps a password only on QEMU,
++# whose serial harness logs in with it.
++if [ "${PMOS_DEVICE:-}" = qemu-aarch64 ] || [ "${PMOS_DEVICE:-}" = qemu-amd64 ]; then
++    chroot "$BUILDROOT" sh -c 'echo "root:marathon" | chpasswd'
++fi
++SSH_ACCESS=disable
++if [ -n "${MARATHON_DEV_SSH_KEY:-}" ]; then
++    SSH_ACCESS=enable
++    # Seeded through /usr/share/factory: /etc is fresh on duranium's first boot.
++    mkdir -p "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d" \
++        "$BUILDROOT/usr/share/factory/root/.ssh" \
++        "$BUILDROOT/usr/share/factory/home/$USER_NAME/.ssh"
++    cat > "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf" <<'EOF'
++# Marathon developer access: the build's key, never a password.
++PermitRootLogin prohibit-password
++PasswordAuthentication no
++KbdInteractiveAuthentication no
+ PubkeyAuthentication yes
+ EOF
+-
+-# Pre-stage authorized_keys via /usr/share/factory so the first-boot
+-# tmpfiles copy puts it at /root/.ssh/authorized_keys with the correct
+-# permissions (sshd refuses authorized_keys with group/world perms).
+-mkdir -p "$BUILDROOT/usr/share/factory/root/.ssh"
+-cat > "$BUILDROOT/usr/share/factory/root/.ssh/authorized_keys" <<'EOF'
+-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOY8hEMlQd6FY6CXOZcjMDwrHPKR9uk2+10InrraEqP3 patrickquinn@fedora
+-EOF
+-
+-# Ship SSH tmpfiles in their OWN file. Earlier this appended to
+-# marathon-hostname.conf, which gets `cat >` clobbered a few lines down —
+-# so the ssh entries silently vanished from the built image, and pubkey
+-# auth never worked on first boot. Separate file = no collision.
+-cat > "$BUILDROOT/usr/lib/tmpfiles.d/marathon-ssh.conf" <<'EOF'
++    printf '%s\n' "$MARATHON_DEV_SSH_KEY" > "$BUILDROOT/usr/share/factory/root/.ssh/authorized_keys"
++    printf '%s\n' "$MARATHON_DEV_SSH_KEY" > "$BUILDROOT/usr/share/factory/home/$USER_NAME/.ssh/authorized_keys"
++    # Its own file: marathon-hostname.conf is rewritten further down.
++    cat > "$BUILDROOT/usr/lib/tmpfiles.d/marathon-ssh.conf" <<'EOF'
+ d /etc/ssh 0755 root root -
+ d /etc/ssh/sshd_config.d 0755 root root -
+ C /etc/ssh/sshd_config.d/99-marathon-dev.conf 0644 root root - /usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf
+@@ -172,6 +145,7 @@ d /root 0700 root root -
+ d /root/.ssh 0700 root root -
+ C /root/.ssh/authorized_keys 0600 root root - /usr/share/factory/root/.ssh/authorized_keys
+ EOF
++fi
+ 
+ # Persistent journal so logs survive reboots and we can post-mortem.
+ mkdir -p "$BUILDROOT/var/log/journal"
+@@ -202,11 +176,9 @@ cat >> "$BUILDROOT/usr/lib/systemd/system-preset/10-marathon.preset" <<'EOF'
+ # Avahi: broadcast hostname.local on the LAN so dev/QA can ssh to the
+ # device without scraping DHCP leases.
+ enable avahi-daemon.service
+-# sshd: pmOS's preset doesn't enable it — explicitly do so here for
+-# dev/QA access on real hardware (alongside the authorized_keys +
+-# config drop-in seeded via factory above).
+-enable sshd.service
+ EOF
++# sshd only for a developer image (MARATHON_DEV_SSH_KEY above).
++printf '%s sshd.service\n' "$SSH_ACCESS" >> "$BUILDROOT/usr/lib/systemd/system-preset/10-marathon.preset"
+ 
+ # pmOS edge regression chain that broke Pi 5 Marathon builds mid-Jun 2026:
+ #   1. pmOS edge commented out `layout=bls` in /usr/lib/kernel/install.conf.
+-- 
+2.55.0
+
