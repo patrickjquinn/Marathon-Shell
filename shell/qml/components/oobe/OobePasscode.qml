@@ -182,6 +182,9 @@ Item {
             font.pixelSize: Silica.Theme.fontSizeSmall
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
+            Accessible.role: Accessible.AlertMessage
+            Accessible.name: text
+            Accessible.ignored: text.length === 0
         }
 
         Item {

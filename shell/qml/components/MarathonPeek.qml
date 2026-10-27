@@ -130,6 +130,9 @@ Item {
         }
         visible: peekComponent.peekProgress > 0 || peekComponent.isPeeking
         clip: true
+        Accessible.role: Accessible.Pane
+        //: Accessible name of the Hub panel while it is pulled out
+        Accessible.name: qsTr("Hub")
         Component.onCompleted: {
             Logger.info("Peek", "hubPanelContainer initialized, width: " + width);
         }

@@ -21,6 +21,14 @@ Item {
         slideOut.start();
     }
 
+    function openInGallery() {
+        Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + filePath);
+        hide();
+        NavigationRouter.navigateToDeepLink("gallery", "/image", {
+            "path": filePath
+        });
+    }
+
     anchors.fill: parent
     z: 2700
 
@@ -39,6 +47,11 @@ Item {
         border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.1)
         visible: screenshotPreview.showing
         opacity: 0
+        Accessible.role: Accessible.Button
+        Accessible.name: caption.text
+        //: Accessible description of the screenshot preview
+        Accessible.description: qsTr("Opens in Gallery")
+        Accessible.onPressAction: screenshotPreview.openInGallery()
 
         Column {
             anchors.fill: parent
@@ -79,13 +92,8 @@ Item {
 
             anchors.fill: parent
             onClicked: {
-                if (swiped)
-                    return;
-                Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + screenshotPreview.filePath);
-                screenshotPreview.hide();
-                NavigationRouter.navigateToDeepLink("gallery", "/image", {
-                    "path": screenshotPreview.filePath
-                });
+                if (!swiped)
+                    screenshotPreview.openInGallery();
             }
             onPressed: mouse => {
                 startX = mouse.x;

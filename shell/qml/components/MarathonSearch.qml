@@ -343,6 +343,9 @@ Item {
                 width: resultsList.width
                 height: Silica.Theme.itemSizeMedium
                 color: down ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+                Accessible.role: Accessible.Button
+                Accessible.name: modelData.title
+                Accessible.onPressAction: searchOverlay.selectResult(modelData)
 
                 MAppIcon {
                     id: resultIcon
