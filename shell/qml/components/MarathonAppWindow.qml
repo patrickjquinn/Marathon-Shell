@@ -110,6 +110,11 @@ Rectangle {
     }
 
     function show(id, name, icon, type, surface, sid) {
+        // A close still animating must not hide or close the app shown now.
+        if (slideOut.running) {
+            isClosing = false;
+            slideOut.stop();
+        }
         var hasSurface = (surface !== null && surface !== undefined && sid >= 0);
         if (appWindow.appId === id && hasSurface && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
             // A restore shows the app's own surface again; only another surface is a dialog.
