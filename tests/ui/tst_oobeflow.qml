@@ -353,6 +353,15 @@ TestCase {
         tryVerify(() => SettingsManagerCpp.firstRunComplete);
     }
 
+    function test_returnContinuesTheSettingsBeats() {
+        for (const [beat, name] of [[1, "oobeOnline"], [3, "oobeLook"], [4, "oobeSize"]]) {
+            oobe.beat = beat;
+            tryVerify(() => child(name).activeFocus, 1000, name);
+            keyClick(Qt.Key_Return);
+            verify(oobe.beat > beat, name);
+        }
+    }
+
     function test_finishingTwiceCompletesOnce() {
         oobe.beat = 6;
         const nav = child("oobeNavBar");

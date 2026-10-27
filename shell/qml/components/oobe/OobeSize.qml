@@ -9,6 +9,20 @@ Item {
 
     signal done
 
+    // Return continues, unless something inside the beat (a field) has the keys.
+    function continueOnReturn(event) {
+        event.accepted = activeFocus;
+        if (activeFocus)
+            done();
+    }
+
+    Keys.onReturnPressed: event => continueOnReturn(event)
+    Keys.onEnterPressed: event => continueOnReturn(event)
+    onVisibleChanged: {
+        if (visible)
+            forceActiveFocus();
+    }
+
     function applySize() {
         settle.stop();
         const factor = Math.round(slider.value) / 100;
