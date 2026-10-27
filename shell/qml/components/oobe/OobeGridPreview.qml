@@ -14,7 +14,10 @@ Item {
     readonly property real cellHeight: Silica.Theme.iconSizeLauncher + Math.round(10 * Constants.scaleFactor) + label.height
     readonly property real rowGap: Math.round(8 * Constants.scaleFactor)
     readonly property real gridTop: 10
-    readonly property real pillSpace: 2 * Silica.Theme.paddingMedium + pill.height
+    // One whole row with the pill under it; below that the pill gives way.
+    readonly property real oneRowHeight: gridTop + cellHeight + 2 * Silica.Theme.paddingMedium + pill.height
+    readonly property bool showPill: height >= oneRowHeight
+    readonly property real pillSpace: showPill ? 2 * Silica.Theme.paddingMedium + pill.height : 0
     readonly property int fitRows: Math.max(1, Math.floor((height - pillSpace - gridTop + rowGap) / (cellHeight + rowGap)))
 
     clip: true
@@ -63,6 +66,7 @@ Item {
         width: Silica.Theme.itemSizeLarge
         height: Math.max(2, Silica.Theme.paddingSmall / 2)
         radius: height / 2
+        visible: root.showPill
         color: Silica.Theme.primaryColor
         opacity: Silica.Theme.opacityHigh
     }

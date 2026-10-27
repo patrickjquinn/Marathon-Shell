@@ -163,4 +163,39 @@ TestCase {
         mouseClick(findChild(size, "sizeContinue"));
         compare(sizeDone.count, 1);
     }
+
+    property real shortRatio: 0
+
+    function cleanup() {
+        if (shortRatio > 0)
+            Ambience.applyForwarded("/desktop/sailfish/silica/theme_pixel_ratio=" + shortRatio);
+        shortRatio = 0;
+        size.anchors.fill = size.parent;
+        look.anchors.fill = look.parent;
+    }
+
+    function test_shortScreenStillShowsAWholeRow() {
+        shortRatio = Silica.Theme.pixelRatio;
+        size.anchors.fill = undefined;
+        size.width = 540;
+        size.height = 700;
+        size.visible = true;
+        Ambience.applyForwarded("/desktop/sailfish/silica/theme_pixel_ratio=" + 1.5 * shortRatio);
+        const preview = findChild(size, "sizePreview");
+        const button = findChild(size, "sizeContinue");
+        tryVerify(() => preview.height >= preview.gridTop + preview.cellHeight - 0.5);
+        tryVerify(() => button.mapToItem(size, 0, button.height).y <= size.height);
+    }
+
+    function test_shortScreenLookStillShowsAWholeRow() {
+        shortRatio = Silica.Theme.pixelRatio;
+        look.anchors.fill = undefined;
+        look.width = 540;
+        look.height = 700;
+        Ambience.applyForwarded("/desktop/sailfish/silica/theme_pixel_ratio=" + 1.5 * shortRatio);
+        const preview = findChild(look, "lookPreview");
+        tryVerify(() => preview.height >= preview.gridTop + preview.cellHeight - 0.5);
+        const button = findChild(look, "lookContinue");
+        tryVerify(() => button.mapToItem(look, 0, button.height).y <= look.height);
+    }
 }

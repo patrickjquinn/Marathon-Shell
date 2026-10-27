@@ -41,14 +41,22 @@ Item {
     }
 
     Column {
+        id: column
+
+        // On a short screen at a large size the hint and gaps give way so
+        // one whole row of the preview still shows.
+        readonly property bool roomy: height - heading.height - hint.implicitHeight - slider.height - button.height - 4 * Silica.Theme.paddingMedium >= preview.oneRowHeight
+
         anchors.fill: parent
         anchors.topMargin: Silica.Theme.paddingLarge
         anchors.bottomMargin: Silica.Theme.paddingMedium
         anchors.leftMargin: Silica.Theme.horizontalPageMargin
         anchors.rightMargin: Silica.Theme.horizontalPageMargin
-        spacing: Silica.Theme.paddingMedium
+        spacing: roomy ? Silica.Theme.paddingMedium : Silica.Theme.paddingSmall
 
         Silica.Label {
+            id: heading
+
             width: parent.width
             text: qsTr("Easy to read")
             color: Silica.Theme.highlightColor
@@ -57,7 +65,10 @@ Item {
         }
 
         Silica.Label {
+            id: hint
+
             width: parent.width
+            visible: column.roomy
             //: Setup, size step: what the slider does
             text: qsTr("Drag until your home screen feels right.")
             color: Silica.Theme.secondaryHighlightColor
