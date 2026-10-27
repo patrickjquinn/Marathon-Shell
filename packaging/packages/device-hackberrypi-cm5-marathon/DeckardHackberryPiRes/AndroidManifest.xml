@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.marathonos.deckard.overlay.hackberrypi"
+    android:versionCode="1"
+    android:versionName="0.1.0">
+
+    <uses-sdk android:minSdkVersion="33" android:targetSdkVersion="33" />
+
+    <overlay
+        android:targetPackage="android"
+        android:isStatic="true"
+        android:priority="910" />
+
+    <application android:hasCode="false" />
+</manifest>

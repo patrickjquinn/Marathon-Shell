@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The panel is near square: phone apps locked to portrait show at 3:4
+         rather than stretched across it. -->
+    <item name="config_fixedOrientationLetterboxAspectRatio" format="float" type="dimen">1.3333</item>
+</resources>
