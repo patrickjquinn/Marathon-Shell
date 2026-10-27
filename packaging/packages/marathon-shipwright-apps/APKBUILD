@@ -1,0 +1,19 @@
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+# Marathon's closed apps from Shipwright: Pacific, Pilot and keel-mcp. They
+# are published prebuilt (packaging/vendor/shipwright.lock); with them in the
+# repository apk installs this alongside the UI, and without them an image
+# builds and runs without them.
+pkgname=marathon-shipwright-apps
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Marathon's Shipwright apps: Pacific, Pilot and keel-mcp"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="noarch"
+license="Apache-2.0"
+depends="pacific shoal-pilot keel-mcp"
+install_if="postmarketos-ui-marathon"
+options="!check"
+
+package() {
+	mkdir -p "$pkgdir"
+}

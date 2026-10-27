@@ -1,0 +1,4 @@
+# Marathon's closed apps (Pacific, Pilot, keel-mcp), built from Shipwright and
+# published prebuilt on this repository's releases. Written by
+# scripts/vendor/sync-shipwright.sh; read by scripts/vendor/fetch-shipwright-apks.sh.
+# <apk> <sha512> <url>

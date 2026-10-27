@@ -170,17 +170,25 @@ build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$
 build_if_missing "keel-silica"               'keel-silica-*.apk'              "$LIB/build-keel-silica-apk.sh"               "$APORTS_DIR/keel-silica/APKBUILD"
 APORT=wpewebkit \
 build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/wpewebkit/APKBUILD"
-# A local Shipwright checkout, when there is one, builds in place of the
-# shipwright-open commit the APKBUILD pins.
-PACIFIC_SRC="${PACIFIC_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pacific" ] && echo "$HOME/Developer/Shipwright")}" \
+# Pacific, Pilot and keel-mcp are closed. With the Shipwright source here
+# they build from it; otherwise the prebuilt ones packaging/vendor/
+# shipwright.lock pins come in, or the image goes without them.
+if [ -d "${SHIPWRIGHT_SRC:=$HOME/Developer/Shipwright}/shoal/pacific" ]; then
+PACIFIC_SRC="${PACIFIC_SRC-$SHIPWRIGHT_SRC}" \
 build_if_missing "pacific"                   'pacific-*.apk'                  "$LIB/build-pacific-apk.sh"                   "$APORTS_DIR/pacific/APKBUILD"
-# Pilot the same way; one script builds the daemon and the app.
-PILOT_SRC="${PILOT_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pilot" ] && echo "$HOME/Developer/Shipwright")}" \
+# One script builds the daemon and the app; PILOT_REF builds the committed
+# tree even while Shipwright has work in progress.
+PILOT_SRC="${PILOT_SRC-$SHIPWRIGHT_SRC}" PILOT_REF="${PILOT_REF-$(git -C "$SHIPWRIGHT_SRC" rev-parse HEAD)}" \
 build_if_missing "shoal-pilotd"              'shoal-pilotd-*.apk'             "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilotd/APKBUILD"
-PILOT_SRC="${PILOT_SRC-$([ -d "$HOME/Developer/Shipwright/shoal/pilot" ] && echo "$HOME/Developer/Shipwright")}" \
+PILOT_SRC="${PILOT_SRC-$SHIPWRIGHT_SRC}" PILOT_REF="${PILOT_REF-$(git -C "$SHIPWRIGHT_SRC" rev-parse HEAD)}" \
 build_if_missing "shoal-pilot"               'shoal-pilot-[0-9]*.apk'         "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilot/APKBUILD"
-KEEL_MCP_SRC="${KEEL_MCP_SRC-$([ -d "$HOME/Developer/Shipwright/keel/actions/mcp" ] && echo "$HOME/Developer/Shipwright")}" \
+KEEL_MCP_SRC="${KEEL_MCP_SRC-$SHIPWRIGHT_SRC}" \
 build_if_missing "keel-mcp"                  'keel-mcp-*.apk'                 "$LIB/build-keel-mcp-apk.sh"                  "$APORTS_DIR/keel-mcp/APKBUILD"
+APORT=marathon-shipwright-apps \
+build_if_missing "marathon-shipwright-apps"  'marathon-shipwright-apps-*.apk' "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-shipwright-apps/APKBUILD"
+else
+bash "$SCRIPT_DIR/vendor/fetch-shipwright-apks.sh" "$MKOSI_PKG_DIR"
+fi
 # Deckard from a local Marathon-Deckard checkout when there is one.
 DECKARD_SRC="${DECKARD_SRC-$([ -d "$HOME/Developer/Marathon-Deckard/host/deckard-bridge" ] && echo "$HOME/Developer/Marathon-Deckard")}" \
 build_if_missing "deckard"                   'deckard-[0-9]*.apk'             "$LIB/build-deckard-apk.sh"                   "$APORTS_DIR/deckard/APKBUILD"
