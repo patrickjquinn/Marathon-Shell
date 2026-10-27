@@ -16,7 +16,7 @@ Item {
     property real progress: 0
     property bool pending: false
     readonly property bool revealing: pending || anim.running
-    readonly property int duration: SettingsManagerCpp.reduceMotion ? 200 : 450
+    readonly property int duration: MMotion.reduceMotion ? 200 : 450
     readonly property real maxRadius: Math.hypot(Math.max(centerX, width - centerX), Math.max(centerY, height - centerY))
 
     function reveal(previous, chosen, x, y) {
@@ -85,9 +85,9 @@ Item {
         anchors.fill: parent
         source: incoming
         visible: anim.running
-        maskEnabled: !SettingsManagerCpp.reduceMotion
+        maskEnabled: !MMotion.reduceMotion
         maskSource: circle
-        opacity: SettingsManagerCpp.reduceMotion ? root.progress : 1
+        opacity: MMotion.reduceMotion ? root.progress : 1
     }
 
     NumberAnimation {

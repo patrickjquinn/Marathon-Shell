@@ -23,7 +23,7 @@ Item {
     property bool leaving: false
     property real exitShrink: 0
     // 0 full screen, 1 at 45 %: the flick on the last beat, then the way out.
-    readonly property real shrink: leaving ? exitShrink : (lastBeat && !SettingsManagerCpp.reduceMotion ? navBar.gestureProgress : 0)
+    readonly property real shrink: leaving ? exitShrink : (lastBeat && !MMotion.reduceMotion ? navBar.gestureProgress : 0)
 
     signal setupComplete
 
@@ -142,7 +142,7 @@ Item {
             opacity: 0.6
 
             SequentialAnimation on opacity {
-                running: MMotion.gate(oobeRoot.visible && oobeRoot.beat === 0 && !SettingsManagerCpp.reduceMotion)
+                running: MMotion.gate(oobeRoot.visible && oobeRoot.beat === 0 && !MMotion.reduceMotion)
                 loops: Animation.Infinite
                 onRunningChanged: {
                     if (running)
@@ -362,14 +362,14 @@ Item {
     ParallelAnimation {
         id: exit
 
-        readonly property int length: SettingsManagerCpp.reduceMotion ? MMotion.normal : MMotion.moderate
+        readonly property int length: MMotion.reduceMotion ? MMotion.normal : MMotion.moderate
 
         onFinished: SettingsManagerCpp.firstRunComplete = true
 
         NumberAnimation {
             target: oobeRoot
             property: "exitShrink"
-            to: SettingsManagerCpp.reduceMotion ? 0 : 1
+            to: MMotion.reduceMotion ? 0 : 1
             duration: exit.length
             easing.type: Easing.OutCubic
         }

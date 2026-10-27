@@ -311,7 +311,7 @@ TestCase {
     }
 
     function test_reduceMotionFadesInsteadOfShrinking() {
-        SettingsManagerCpp.reduceMotion = true;
+        MMotion.reduceMotion = true;
         oobe.beat = 6;
         const tracker = child("oobeNavBar").minimizeTracker;
         tracker.value = tracker.to;
