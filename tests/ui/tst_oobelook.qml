@@ -54,7 +54,7 @@ TestCase {
     readonly property string old: AmbienceService.wallpapers[1].path.toString()
 
     function init() {
-        SettingsManagerCpp.reduceMotion = false;
+        MMotion.reduceMotion = false;
         SettingsManagerCpp.userScaleFactor = 1;
         SettingsManagerCpp.wallpaperPath = "";
         size.visible = false;
@@ -105,7 +105,7 @@ TestCase {
     }
 
     function test_reduceMotionCrossFades() {
-        SettingsManagerCpp.reduceMotion = true;
+        MMotion.reduceMotion = true;
         compare(findChild(look, "lookPreview").wallpaper.duration, 200);
     }
 
