@@ -27,7 +27,8 @@
 //!
 //! `#[keel::action]` keys: `name` and `description` (required), `title`,
 //! `read_only`, `destructive`, `idempotent`, `open_world`, `confirm`,
-//! `sensitive`, `timeout_ms`, `not_destructive_because`. `#[keel(...)]` on a
+//! `sensitive`, `untrusted` (the result holds text from outside the app,
+//! such as a web page's), `timeout_ms`, `not_destructive_because`. `#[keel(...)]` on a
 //! parameter or field: `max_length`, `min_length`, `max_items`, `minimum`,
 //! `maximum`, `pattern`, `format`, `description`, `title`, `entity`,
 //! `values`, `summarisable`, `indexable`.
@@ -38,6 +39,8 @@
 //! arguments against the generated schema. Synchronous actions run on the
 //! calling (GUI) thread; `async` ones on a worker thread, so their futures
 //! must be `Send`.
+
+#![warn(missing_docs)]
 
 use std::fmt;
 use std::future::Future;
@@ -64,15 +67,23 @@ pub mod __private {
 /// The error codes of `org.shipwright.Keel.Actions.Error.*`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ErrorCode {
+    /// No action of that name is registered.
     UnknownAction,
+    /// The arguments do not match the action's schema.
     InvalidArguments,
+    /// The action ran and failed.
     Failed,
+    /// The action did not answer in its `timeout_ms`.
     Timeout,
+    /// The action cannot run now (no network, nothing open, …).
     NotAvailable,
+    /// The caller or the user cancelled the action.
     Cancelled,
 }
 
 impl ErrorCode {
+    /// The code's name, as in the D-Bus error name's last part.
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::UnknownAction => "UnknownAction",
@@ -88,26 +99,33 @@ impl ErrorCode {
 /// An action's failure, as the caller sees it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Error {
+    /// What kind of failure.
     pub code: ErrorCode,
+    /// What went wrong, in words for the caller (and possibly the user).
     pub message: String,
 }
 
 impl Error {
+    /// An error of `code`, saying `message`.
     pub fn new(code: ErrorCode, message: impl fmt::Display) -> Self {
         Self {
             code,
             message: message.to_string(),
         }
     }
+    /// A [`ErrorCode::Failed`] error, saying `message`.
     pub fn failed(message: impl fmt::Display) -> Self {
         Self::new(ErrorCode::Failed, message)
     }
+    /// A [`ErrorCode::InvalidArguments`] error, saying `message`.
     pub fn invalid_arguments(message: impl fmt::Display) -> Self {
         Self::new(ErrorCode::InvalidArguments, message)
     }
+    /// A [`ErrorCode::NotAvailable`] error, saying `message`.
     pub fn not_available(message: impl fmt::Display) -> Self {
         Self::new(ErrorCode::NotAvailable, message)
     }
+    /// A [`ErrorCode::Cancelled`] error, saying `message`.
     pub fn cancelled(message: impl fmt::Display) -> Self {
         Self::new(ErrorCode::Cancelled, message)
     }
@@ -121,11 +139,13 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// An action's answer: its value, or the [`Error`] the caller sees.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// What an action function may return: `keel::Result<T>` with a
 /// serialisable `T`, or nothing.
 pub trait IntoReply {
+    /// The answer as JSON: the value serialised, an empty object for `()`.
     fn into_reply(self) -> Result<Value>;
 }
 
@@ -144,15 +164,20 @@ impl IntoReply for () {
 type BoxFuture = Pin<Box<dyn Future<Output = Result<Value>> + Send>>;
 
 /// A started call: answered already, or a future to drive to its answer.
+#[must_use = "an async action runs only when its invocation is waited on"]
 pub enum Invocation {
+    /// A synchronous action's answer.
     Ready(Result<Value>),
+    /// An `async` action, not yet run.
     Future(BoxFuture),
 }
 
 impl Invocation {
+    /// An answer already known.
     pub fn ready(result: Result<Value>) -> Self {
         Self::Ready(result)
     }
+    /// An answer still to come from `future`.
     pub fn future(future: impl Future<Output = Result<Value>> + Send + 'static) -> Self {
         Self::Future(Box::pin(future))
     }
@@ -169,20 +194,28 @@ impl Invocation {
     }
 }
 
-/// A function registered by `#[keel::action]`.
+/// A function registered by `#[keel::action]`. Public for the macros'
+/// generated code only.
+#[doc(hidden)]
 pub struct NativeAction {
     pub name: &'static str,
     pub invoke: fn(Value) -> Invocation,
 }
 
-/// An entity type registered by `#[keel::entity]`.
+/// An entity type registered by `#[keel::entity]`. Public for the macros'
+/// generated code only; [`entity_source`] finds one.
 pub struct NativeEntity {
+    /// `<app-id>/<type>`, as in the manifest.
     pub type_name: &'static str,
+    /// [`EntitySource::get`], answering JSON.
     pub get: fn(&str) -> Result<Option<Value>>,
+    /// [`EntitySource::find`], answering JSON.
     pub find: fn(&str, u32) -> Result<Vec<Value>>,
 }
 
-/// The generated manifest, registered by [`manifest!`].
+/// The generated manifest, registered by [`manifest!`]. Public for the
+/// macro's expansion only.
+#[doc(hidden)]
 pub struct Manifest(pub &'static str);
 
 inventory::collect!(NativeAction);
@@ -191,6 +224,7 @@ inventory::collect!(Manifest);
 
 /// Implemented by `#[keel::entity]`.
 pub trait Entity {
+    /// The type's name in the manifest (`#[keel::entity(type = ...)]`).
     const TYPE: &'static str;
 }
 
@@ -198,7 +232,9 @@ pub trait Entity {
 /// `#[keel::entity]` struct). `get` answers `None` for an unknown id; `find`
 /// returns at most `limit` entities, best matches first.
 pub trait EntitySource: Sized + Serialize {
+    /// The entity `id`, or `None` when there is none.
     fn get(id: &str) -> Result<Option<Self>>;
+    /// Up to `limit` entities matching `query`, best first.
     fn find(query: &str, limit: u32) -> Result<Vec<Self>>;
 }
 
@@ -228,12 +264,15 @@ impl<T: Entity> EntityRef<T> {
             id
         ))
     }
+    /// A reference from its `keel://` URI, taken as it is (deserialising
+    /// checks the scheme; the runtime has checked the rest).
     pub fn from_uri(uri: String) -> Self {
         Self {
             uri,
             marker: PhantomData,
         }
     }
+    /// The whole `keel://<app-id>/<type>/<id>` URI.
     pub fn uri(&self) -> &str {
         &self.uri
     }

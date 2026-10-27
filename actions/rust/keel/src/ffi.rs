@@ -60,7 +60,8 @@ fn guarded<T>(f: impl FnOnce() -> crate::Result<T>) -> crate::Result<T> {
 }
 
 /// # Safety
-/// `ptr` is NULL or a NUL-terminated string.
+/// `ptr` is NULL or a NUL-terminated string that stays valid, unchanged,
+/// for `'a` (in practice: the call it was passed to).
 unsafe fn text<'a>(ptr: *const c_char) -> Option<&'a str> {
     if ptr.is_null() {
         return None;
@@ -69,6 +70,8 @@ unsafe fn text<'a>(ptr: *const c_char) -> Option<&'a str> {
     unsafe { CStr::from_ptr(ptr) }.to_str().ok()
 }
 
+/// The registered manifest's JSON, NUL-terminated and static; NULL without
+/// `keel::manifest!()`.
 #[no_mangle]
 pub extern "C" fn keel_actions_manifest() -> *const c_char {
     inventory::iter::<crate::Manifest>
@@ -77,6 +80,8 @@ pub extern "C" fn keel_actions_manifest() -> *const c_char {
         .map_or(std::ptr::null(), |m| m.0.as_ptr().cast())
 }
 
+/// The registered action names and entity types, as static NUL-terminated
+/// JSON: `{"actions": [..], "entities": [..]}`.
 #[no_mangle]
 pub extern "C" fn keel_actions_native_list() -> *const c_char {
     static LIST: OnceLock<CString> = OnceLock::new();
@@ -92,9 +97,11 @@ pub extern "C" fn keel_actions_native_list() -> *const c_char {
     .as_ptr()
 }
 
+/// Starts the action `name` with `args_json`; `done` gets its answer.
+///
 /// # Safety
-/// `name` and `args_json` are NUL-terminated strings; `ctx` stays valid
-/// until `done` has been called.
+/// `name` and `args_json` are NUL-terminated strings, valid during the
+/// call; `ctx` stays valid until `done` has been called.
 #[no_mangle]
 pub unsafe extern "C" fn keel_actions_native_invoke(
     name: *const c_char,
@@ -136,6 +143,8 @@ pub unsafe extern "C" fn keel_actions_native_invoke(
     0
 }
 
+/// Reads the entity `id` of `type_name`; `done` gets it, or `null`.
+///
 /// # Safety
 /// As [`keel_actions_native_invoke`].
 #[no_mangle]
@@ -157,6 +166,9 @@ pub unsafe extern "C" fn keel_actions_native_entity_get(
     0
 }
 
+/// Finds up to `limit` entities of `type_name` matching `query`; `done`
+/// gets them, best first.
+///
 /// # Safety
 /// As [`keel_actions_native_invoke`].
 #[no_mangle]
