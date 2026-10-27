@@ -33,7 +33,7 @@ Item {
         seen.restart();
     }
 
-    function stateChanged() {
+    function refresh() {
         hide();
         if (!ready)
             return;
@@ -50,7 +50,7 @@ Item {
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     anchors.bottomMargin: Constants.navBarHeight
-    height: childrenRect.height
+    height: Math.max(backLabel.height, homeLabel.height)
     opacity: showing ? 1 : 0
     z: Constants.zIndexNavBarApp - 1
 
@@ -60,7 +60,7 @@ Item {
         }
     }
 
-    onAppLikeChanged: stateChanged()
+    onAppLikeChanged: refresh()
     onReadyChanged: {
         if (!ready)
             hide();
