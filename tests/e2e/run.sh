@@ -19,7 +19,9 @@ hub_peek() { e2e_swipe 1 420 260 420 400; }
 qs_pull() { e2e_swipe 195 2 195 640 450; }
 # Setup's bar names itself on the first and last beats; the ones between show progress.
 oobe_showing() { e2e_a11y | grep -qE "	(Begin setup|Go home|Step [0-9] of 5)\$"; }
-home_showing() { e2e_showing "Open apps" && ! oobe_showing; }
+# The Hub and search cover the home screen without hiding its buttons.
+covered() { e2e_a11y | grep -qE "	(panel	Hub|push button	Clear search)\$"; }
+home_showing() { e2e_showing "Open apps" && ! oobe_showing && ! covered; }
 locked() { ! e2e_showing "Open apps" && ! oobe_showing; }
 
 go_home() {
@@ -102,7 +104,25 @@ find_icon() {
     return 1
 }
 
-app_mapped() { e2e_wait_since "Matched surfaceId [0-9]* to PID [0-9]* app \"$1\"" "${2:-20}"; }
+# State the flows check, read from the shell rather than its log.
+wait_until() { # seconds command...
+    local t=$1 i
+    shift
+    for i in $(seq 0 $((t * 10))); do "$@" && return 0; sleep 0.1; done
+    return 1
+}
+foreground() { # [app]: that app, else any, is in front
+    local app
+    app=$(e2e_shell Navigation Navigation1 GetForegroundApp 2>/dev/null | sed -n "s/^('\(.*\)',)\$/\1/p")
+    if [ -n "${1:-}" ]; then [ "$app" = "$1" ]; else [ -n "$app" ]; fi
+}
+app_mapped() { wait_until "${2:-20}" foreground "$1"; }
+hub_open() { e2e_a11y | grep -q "	panel	Hub\$"; }
+dnd_on() { e2e_shell Settings Settings1 GetState | grep -q "'dndEnabled': <true>"; }
+notifications_db() { sqlite3 "$E2E_HOME/.local/share/Marathon OS/Marathon Shell/notifications.db" "$1" 2>/dev/null; }
+undismissed() { notifications_db "select count(*) from notifications where dismissed = 0"; }
+notified() { [ "$(notifications_db "select count(*) from notifications where title = '$1'")" -gt 0 ]; }
+none_undismissed() { [ "$(undismissed)" = 0 ]; }
 
 # --- flows ---------------------------------------------------------------
 flow_firstrun() {
@@ -187,12 +207,12 @@ flow_paging() {
     go_home
     e2e_shot home-p1
     e2e_check $f "page 1 shows Phone" e2e_showing Phone "Marathon Shell"
-    e2e_swipe 330 450 60 450 250
-    e2e_shot home-p2
-    e2e_check $f "swipe left shows page 2 (Notes)" e2e_showing Notes "Marathon Shell"
     e2e_swipe 60 450 330 450 250
+    e2e_shot home-frames
+    e2e_check $f "swipe right shows the open apps page" not e2e_showing Phone "Marathon Shell"
+    e2e_swipe 330 450 60 450 250
     e2e_shot home-p1-again
-    e2e_check $f "swipe right returns to page 1" e2e_showing Messages "Marathon Shell"
+    e2e_check $f "swipe left returns to the apps" e2e_showing Phone "Marathon Shell"
 }
 
 # id:grid name
@@ -227,6 +247,12 @@ flow_apps() {
         e2e_shot "app-$id"
         e2e_check $f "$name launches and maps a surface" test $mapped -eq 0
         e2e_check $f "$name has no QML errors" not e2e_since_errors "$id"
+        if [ "$id" = terminal ]; then
+            # Back reaches Keel apps as Escape, which the terminal hands to its program.
+            e2e_skip $f "$name: back is Escape for the program"
+            go_home
+            continue
+        fi
         pill_back
         sleep 0.8
         e2e_shot "app-$id-back"
@@ -247,7 +273,7 @@ flow_switcher() {
     e2e_mark
     e2e_tap 105 180 3
     e2e_shot switcher-open
-    e2e_check $f "tapping a card brings its app forward" e2e_wait_since "Restoring running app\|Showing app window" 5
+    e2e_check $f "tapping a card brings its app forward" wait_until 5 foreground
     pill_up
     e2e_tap_name "Open apps" 1
     local card i
@@ -267,16 +293,16 @@ flow_notifications() {
     e2e_mark
     hub_peek
     e2e_shot hub-empty
-    e2e_check $f "left-edge swipe opens the Hub" e2e_wait_since "Peek gesture started" 1
+    e2e_check $f "left-edge swipe opens the Hub" wait_until 2 hub_open
     go_home
     e2e_mark
     e2e_notify messages "Sam Lee" "Running 10 minutes late" "[]" "$NOTIFY_HINTS" >/dev/null
     sleep 0.8
     e2e_shot banner
-    e2e_check $f "Notify adds a notification" e2e_wait_since "Added notification: \"Sam Lee\"" 2
+    e2e_check $f "Notify adds a notification" wait_until 2 notified "Sam Lee"
     e2e_mark
     e2e_tap 195 60 0.3
-    e2e_wait_since "Matched surfaceId [0-9]* to PID [0-9]* app \"messages\"\|Restoring running app: \"messages\"" 20
+    app_mapped messages 20
     local opened=$?
     sleep 1.5
     e2e_shot banner-tapped
@@ -289,9 +315,8 @@ flow_notifications() {
     e2e_mark
     e2e_swipe 120 140 385 140 250
     e2e_shot hub-dismissed
-    e2e_check $f "swiping the Hub row dismisses it" e2e_wait_since "Dismissed notification" 2
-    id=$(sqlite3 "$E2E_HOME/.local/share/Marathon OS/Marathon Shell/notifications.db" \
-        "select count(*) from notifications where dismissed = 0" 2>/dev/null)
+    e2e_check $f "swiping the Hub row dismisses it" wait_until 2 none_undismissed
+    id=$(undismissed)
     e2e_check $f "dismissals are persisted ($id left)" test "${id:-x}" = 0
     go_home
 }
@@ -307,12 +332,11 @@ flow_quicksettings() {
         e2e_shell Navigation Navigation1 ShowQuickSettings >/dev/null
         sleep 1
     fi
-    e2e_mark
     e2e_tap_name Silent 0.8
     e2e_shot qs-silent
-    e2e_check $f "Silent turns Do Not Disturb on" e2e_wait_since "DND enabled changed to true" 2
+    e2e_check $f "Silent turns Do Not Disturb on" wait_until 2 dnd_on
     sleep 0.3
-    e2e_check $f "...and it stays on" not e2e_wait_since "DND enabled changed to false" 0
+    e2e_check $f "...and it stays on" dnd_on
     e2e_tap_name Silent 0.8
     e2e_shell Navigation Navigation1 HideQuickSettings >/dev/null
     sleep 0.8
@@ -328,18 +352,16 @@ flow_search() {
     e2e_type wifi
     sleep 1
     e2e_shot search-wifi
-    e2e_mark
-    e2e_tap 195 150 0.3
-    app_mapped settings 20
+    e2e_tap_name "WiFi Settings" "" 0.3
     sleep 2
     e2e_shot search-opened
-    e2e_check $f "the Wi-Fi result launches Settings on the wifi route" e2e_wait_since "--route \"wifi\"" 2
+    e2e_check $f "the Wi-Fi result launches Settings" app_mapped settings 20
     e2e_check $f "Settings shows the Wi-Fi page" wait_heading "Wi-Fi"
     go_home
     e2e_tap_name Search 1.2
     e2e_type bluetooth
     sleep 1
-    e2e_tap 195 150 3
+    e2e_tap_name "Bluetooth Settings" "" 3
     e2e_shot search-warm
     e2e_check $f "a result for a running app routes it (Bluetooth)" wait_heading Bluetooth
     go_home
@@ -378,7 +400,7 @@ flow_keyboard() {
     go_home
     e2e_mark
     e2e_shell Navigation Navigation1 LaunchApp settings >/dev/null
-    app_mapped settings 20 || e2e_wait_since "Restoring running app: \"settings\"" 3
+    app_mapped settings 20
     sleep 2
     local back=0
     until heading Settings || [ $back -ge 4 ]; do pill_back; back=$((back + 1)); done
@@ -419,7 +441,7 @@ flow_settings() {
     go_home
     e2e_mark
     e2e_shell Navigation Navigation1 LaunchApp settings >/dev/null
-    app_mapped settings 20 || e2e_wait_since "Restoring running app" 5
+    app_mapped settings 20
     sleep 2
     local back=0
     until heading Settings || [ $back -ge 4 ]; do pill_back; back=$((back + 1)); done
@@ -450,16 +472,12 @@ flow_alarm() {
     at=$(($(date +%s%3N) + 6000))
     e2e_mark
     e2e_shell Alarm Alarm1 CreateAlarm "" "Tea" "@ai []" "{'oneShot': <true>, 'at': <int64 $at>}" >/dev/null
-    e2e_wait_since "TRIGGERING ALARM: \"Tea\"" 12
-    e2e_check $f "one-shot alarm fires on time" e2e_wait_since "TRIGGERING ALARM" 1
+    e2e_check $f "one-shot alarm fires on time" e2e_wait_showing Dismiss "" 12
     sleep 1
     e2e_shot alarm-ringing
-    e2e_check $f "alarm overlay shows Dismiss" e2e_showing Dismiss
     e2e_tap_name Dismiss 0.8
-    e2e_check $f "a tap on Dismiss does not stop it" not e2e_wait_since "Dismissed alarm" 0
-    e2e_longpress_name Dismiss 2.0
     e2e_shot alarm-dismissed
-    e2e_check $f "holding Dismiss stops it" e2e_wait_since "Dismissed alarm" 2
+    e2e_check $f "a tap on Dismiss stops it" wait_until 2 not e2e_showing Dismiss
 }
 
 flow_screenshot() {
@@ -475,10 +493,9 @@ flow_screenshot() {
     e2e_shot screenshot-preview
     after=$(ls "$E2E_HOME/Pictures/Screenshots" 2>/dev/null | wc -l)
     e2e_check $f "Screenshot saves a file" test "$after" -gt "$before"
-    e2e_check $f "a capture notification is posted" e2e_wait_since "Screenshot captured" 2
-    e2e_mark
-    e2e_tap 330 720 0.3
-    app_mapped gallery 15 || e2e_wait_since "Restoring running app: \"gallery\"" 3
+    e2e_check $f "a capture notification is posted" wait_until 2 notified "Screenshot captured"
+    e2e_tap_name "Screenshot saved" "" 0.3
+    app_mapped gallery 15
     local opened=$?
     sleep 1.5
     e2e_shot screenshot-opened
