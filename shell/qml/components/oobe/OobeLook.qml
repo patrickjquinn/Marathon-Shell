@@ -78,6 +78,7 @@ Item {
                 Accessible.role: Accessible.RadioButton
                 Accessible.name: modelData.name
                 Accessible.checked: selected
+                Accessible.onPressAction: thumb.choose()
 
                 Item {
                     id: face
