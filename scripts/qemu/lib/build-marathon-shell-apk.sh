@@ -58,8 +58,9 @@ fi
 # at a disk-backed scratch directory and remove it after packaging.
 WORK_MOUNT_ARGS=(--tmpfs "/work:rw,exec,size=${MARATHON_APK_TMPFS_SIZE:-6g}")
 if [ -n "${MARATHON_APK_WORK_DIR:-}" ]; then
-    mkdir -p "$MARATHON_APK_WORK_DIR"
-    WORK_MOUNT_ARGS=(-v "$MARATHON_APK_WORK_DIR:/work:z")
+    mkdir -p "$MARATHON_APK_WORK_DIR/tmp"
+    # The compilers' temporary files go there too, not to the container's /tmp.
+    WORK_MOUNT_ARGS=(-v "$MARATHON_APK_WORK_DIR:/work:z" -e TMPDIR=/work/tmp)
 fi
 
 # Mail's OAuth client IDs, when this checkout has them (oauth-clients.env).
