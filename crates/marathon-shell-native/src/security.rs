@@ -428,7 +428,7 @@ impl Security {
         });
     }
 
-    fn set_quick_pin_first_run(mut self: Pin<&mut Self>, pin: &QString) -> bool {
+    fn set_quick_pin_first_run(self: Pin<&mut Self>, pin: &QString) -> bool {
         // Only while no PIN is set: later changes need the password.
         if self.has_quick_pin {
             log::warn("security", "first-run PIN refused: a PIN is set");
