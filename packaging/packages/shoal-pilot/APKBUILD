@@ -8,8 +8,8 @@
 # screen.
 pkgname=shoal-pilot
 pkgver=0.1.0
-pkgrel=2
-_commit=6e194e7e2a495e9b368dcc31e1b7cceac5ba7712
+pkgrel=3
+_commit=7a6c40a883d1cccdb74f258a0862b08da635c14c
 pkgdesc="Pilot assistant for Marathon"
 url="https://github.com/patrickjquinn/shipwright-open"
 arch="aarch64 x86_64"

@@ -7,8 +7,8 @@
 # scripts/qemu/lib/build-keel-mcp-apk.sh stages a local checkout.
 pkgname=keel-mcp
 pkgver=0.1.0
-pkgrel=3
-_commit=e37941bc53886ab9d584582003574b5293a5184e
+pkgrel=4
+_commit=7a6c40a883d1cccdb74f258a0862b08da635c14c
 pkgdesc="MCP server for the Keel Actions of Marathon apps"
 url="https://github.com/patrickjquinn/shipwright-open"
 arch="aarch64 x86_64"

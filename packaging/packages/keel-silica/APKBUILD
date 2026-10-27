@@ -1,8 +1,8 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
 pkgname=keel-silica
 pkgver=0.1.0
-pkgrel=11
-_commit=e37941bc53886ab9d584582003574b5293a5184e
+pkgrel=12
+_commit=0df499bf34e02cec7f571853cbf5a4323dc1609e
 _qtver=6.11.1
 pkgdesc="Keel: Sailfish Silica QML components for Qt 6"
 url="https://github.com/patrickjquinn/shipwright-open"
@@ -44,6 +44,7 @@ build() {
 		-DKEEL_BUILD_SAILFISHAPP=ON \
 		-DKEEL_BUILD_PLATFORM=ON \
 		-DKEEL_PLATFORM_WEBVIEW=OFF \
+		-DKEEL_QML_DISCARD_SOURCES=OFF \
 		-DKEEL_PLATFORM_SECRETS=OFF \
 		-DKEEL_PLATFORM_ACCOUNTS=OFF \
 		-DKEEL_PLATFORM_SAILFISH_ACCOUNTS=OFF \
