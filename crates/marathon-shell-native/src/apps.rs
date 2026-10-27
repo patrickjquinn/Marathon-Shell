@@ -95,8 +95,8 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "appIdsByType"]
         fn app_ids_by_type(self: &Apps, kind: &QString) -> QStringList;
-        /// The desktop's entries, as `desktop::scan` gives them; ids already
-        /// listed are kept as they are.
+        /// The desktop's entries, as `desktop::scan` gives them; an id already
+        /// listed is updated when it is of the same type, kept otherwise.
         #[qinvokable]
         #[cxx_name = "addApps"]
         fn add_apps(self: Pin<&mut Apps>, apps: &QList_QVariant);
@@ -404,8 +404,10 @@ impl Apps {
             .filter_map(map_of)
             .filter_map(|m| from_desktop(&m))
         {
-            if !next.iter().any(|a| a.id == app.id) {
-                next.push(app);
+            match next.iter_mut().find(|a| a.id == app.id) {
+                Some(old) if old.kind == app.kind => *old = app,
+                Some(_) => {}
+                None => next.push(app),
             }
         }
         self.replace(next);
