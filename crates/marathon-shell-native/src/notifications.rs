@@ -92,6 +92,10 @@ pub mod qobject {
             body: &QString,
             icon: &QString,
         );
+        /// Every notification of `app_id` posted with this `tag` hint.
+        #[qinvokable]
+        #[cxx_name = "dismissTagged"]
+        fn dismiss_tagged(self: Pin<&mut Notifications>, app_id: &QString, tag: &QString);
         #[qinvokable]
         #[cxx_name = "dismissNotification"]
         fn dismiss_notification(self: Pin<&mut Notifications>, id: i32);
@@ -774,6 +778,9 @@ impl Notifications {
         if n.hints.get("urgency").and_then(Json::as_i64).unwrap_or(1) >= 2 {
             power::hold_wakelock("notification", Duration::from_secs(5));
         }
+        if let Some(tag) = n.hints.get("tag").and_then(Json::as_str) {
+            self.as_mut().dismiss_tagged(&q(&n.app_id), &q(tag));
+        }
         let now = clock::now();
         let mut hints = n.hints;
         hints.insert("expire_timeout".into(), json!(n.expire_timeout));
@@ -855,6 +862,19 @@ impl Notifications {
             .notification_dismissed(i32::try_from(id).unwrap_or_default());
         if let (Some(reason), Ok(id)) = (reason, u32::try_from(id)) {
             emit("NotificationClosed", (id, reason));
+        }
+    }
+
+    fn dismiss_tagged(mut self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
+        let (app_id, tag) = (app_id.to_string(), tag.to_string());
+        let ids: Vec<i64> = self
+            .rows
+            .iter()
+            .filter(|r| r.app_id == app_id && r.hint("tag").as_str() == Some(&tag))
+            .map(|r| r.id)
+            .collect();
+        for id in ids {
+            self.as_mut().dismiss(id, Some(2));
         }
     }
 
@@ -970,6 +990,9 @@ fn deep_link(app_id: &str, route: &str, params: &Json) {
 
 /// The app it is from, at what it was about.
 fn open(row: &Row) {
+    if let Some(route) = row.hint("route").as_str() {
+        return deep_link(&row.app_id, route, &json!({}));
+    }
     match row.app_id.as_str() {
         "phone" => return deep_link("phone", "history", &json!({})),
         "messages" => {
