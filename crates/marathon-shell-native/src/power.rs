@@ -4,6 +4,7 @@
 //! power-profiles-daemon, systemd or sysfs runs in one actor on the I/O
 //! thread, and each power key is read on its own.
 
+use crate::i18n::fl;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::pin::Pin;
 use std::sync::{LazyLock, Mutex, OnceLock};
@@ -397,7 +398,7 @@ impl Power {
         };
         self.as_mut().rust_mut().warned_at = at;
         self.as_mut().battery_warning(
-            &QString::from(title),
+            &QString::from(&title),
             &QString::from(&body),
             &QString::from(icon),
             haptic,
@@ -470,7 +471,7 @@ impl Power {
 struct Warning {
     /// The level it warns at; it warns again only below it.
     at: i32,
-    title: &'static str,
+    title: String,
     body: String,
     icon: &'static str,
     haptic: i32,
@@ -483,7 +484,6 @@ fn battery_warning(
     warned_at: i32,
     critical_action: &str,
 ) -> Option<Warning> {
-    let remaining = format!("{level}% remaining");
     let warn = |at, title, body, icon, haptic| {
         Some(Warning {
             at,
@@ -496,27 +496,39 @@ fn battery_warning(
     match warning {
         4.. if warned_at > 3 => warn(
             level.min(3),
-            "Critical Battery",
-            format!("Device will {critical_action} in 10 seconds to prevent data loss"),
+            fl!("battery-critical-title"),
+            fl!("battery-critical-body", action = critical_action),
             "battery-warning",
             3,
         ),
-        3 if warned_at > 20 => warn(20, "Battery Low", remaining, "battery", 1),
+        3 if warned_at > 20 => warn(
+            20,
+            fl!("battery-low-title"),
+            fl!("battery-low-body", level = level),
+            "battery",
+            1,
+        ),
         0..=2 if level <= 5 && warned_at > 5 => warn(
             5,
-            "Very Low Battery",
-            format!("{remaining}. Connect charger immediately."),
+            fl!("battery-very-low-title"),
+            fl!("battery-very-low-body", level = level),
             "battery-warning",
             3,
         ),
         0..=2 if level <= 10 && warned_at > 10 => warn(
             10,
-            "Low Battery",
-            format!("{remaining}. Connect charger soon."),
+            fl!("battery-lower-title"),
+            fl!("battery-lower-body", level = level),
             "battery",
             2,
         ),
-        0..=2 if level <= 20 && warned_at > 20 => warn(20, "Battery Low", remaining, "battery", 1),
+        0..=2 if level <= 20 && warned_at > 20 => warn(
+            20,
+            fl!("battery-low-title"),
+            fl!("battery-low-body", level = level),
+            "battery",
+            1,
+        ),
         _ => None,
     }
 }
@@ -1072,7 +1084,7 @@ mod tests {
         let critical = super::battery_warning(2, 4, warned_at, "PowerOff").map(|w| w.body);
         assert_eq!(
             critical.as_deref(),
-            Some("Device will PowerOff in 10 seconds to prevent data loss")
+            Some("Device will turn off in 10 seconds to prevent data loss")
         );
         assert!(super::battery_warning(2, 4, 2, "PowerOff").is_none());
     }

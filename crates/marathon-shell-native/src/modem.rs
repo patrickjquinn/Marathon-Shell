@@ -4,6 +4,7 @@
 //! objects give every interface's properties at once, and the modem's
 //! `PropertiesChanged` carries each change, so nothing is read again.
 
+use crate::i18n::fl;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -302,7 +303,7 @@ impl Modem {
             return;
         }
         if !self.has_modem {
-            return self.call_failed(&QString::from("No modem available"));
+            return self.call_failed(&QString::from(fl!("modem-none")));
         }
         // The call screen opens at once; ModemManager's call states follow.
         self.as_mut().set_active_number(&number.to_string());

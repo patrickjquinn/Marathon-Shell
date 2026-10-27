@@ -2,6 +2,7 @@
 //! airplane mode. QML and the shell's C++ see the `QObject`; `NetworkManager`
 //! is only ever read and driven from one actor on the I/O thread.
 
+use crate::i18n::fl;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::time::Duration;
@@ -893,32 +894,32 @@ fn security(wpa_flags: u32, rsn_flags: u32) -> &'static str {
 /// What the person reads when `NetworkManager` refuses an activation.
 fn activation_error(name: &str, message: &str) -> String {
     if name.contains("InvalidArgs") || message.contains("not allowed") {
-        "Connection rejected by NetworkManager (bad config)".to_owned()
+        fl!("network-rejected")
     } else if ["secrets-required", "no-secrets", "not authorized"]
         .iter()
         .any(|m| message.contains(m))
     {
-        "Incorrect password".to_owned()
+        fl!("network-wrong-password")
     } else if message.contains("timeout") {
-        "Connection timeout".to_owned()
+        fl!("network-timeout")
     } else if message.contains("not-found") {
-        "Network not found".to_owned()
+        fl!("network-not-found")
     } else if !message.is_empty() {
-        format!("Failed: {message}")
+        fl!("network-failed-because", message = message)
     } else {
-        format!("Failed ({name})")
+        fl!("network-failed-named", name = name)
     }
 }
 
 /// An active connection's reason for going down, for the person.
-fn deactivation_error(reason: u32) -> &'static str {
+fn deactivation_error(reason: u32) -> String {
     const CONNECT_TIMEOUT: u32 = 6;
     const NO_SECRETS: u32 = 9;
     const LOGIN_FAILED: u32 = 10;
     match reason {
-        NO_SECRETS | LOGIN_FAILED => "Incorrect password",
-        CONNECT_TIMEOUT => "Connection timeout",
-        _ => "Couldn't connect",
+        NO_SECRETS | LOGIN_FAILED => fl!("network-wrong-password"),
+        CONNECT_TIMEOUT => fl!("network-timeout"),
+        _ => fl!("network-couldnt-connect"),
     }
 }
 
@@ -1111,12 +1112,12 @@ impl Actor {
                 let now = if let Err(e) = result {
                     log::warn("network", format_args!("WirelessEnabled: {e}"));
                     let message = if enabled {
-                        "Failed to enable WiFi"
+                        fl!("wifi-enable-failed")
                     } else {
-                        "Failed to disable WiFi"
+                        fl!("wifi-disable-failed")
                     };
                     self.qt
-                        .queue(move |obj| obj.network_error(&QString::from(message)))
+                        .queue(move |obj| obj.network_error(&QString::from(&message)))
                         .ok();
                     !enabled
                 } else {
@@ -1155,7 +1156,7 @@ impl Actor {
                     log::warn("network", format_args!("disconnect: {e}"));
                     self.qt
                         .queue(|obj| {
-                            obj.network_error(&QString::from("Failed to disconnect Wi-Fi"));
+                            obj.network_error(&QString::from(fl!("wifi-disconnect-failed")));
                         })
                         .ok();
                 }
@@ -1218,7 +1219,7 @@ impl Actor {
             Err(e) => {
                 log::warn("network", format_args!("scan: {e}"));
                 self.qt
-                    .queue(|obj| obj.network_error(&QString::from("Failed to scan for networks")))
+                    .queue(|obj| obj.network_error(&QString::from(fl!("wifi-scan-failed"))))
                     .ok();
                 Duration::from_millis(250)
             }
@@ -1409,9 +1410,9 @@ impl Actor {
             self.networks.iter().find(|n| n.ssid == ssid),
         ) else {
             let message = if self.wifi_device.is_none() {
-                "WiFi not available"
+                fl!("wifi-unavailable")
             } else {
-                "Network not found"
+                fl!("network-not-found")
             };
             self.qt
                 .queue(move |obj| obj.connection_failed(&QString::from(message)))
@@ -1580,9 +1581,7 @@ impl Actor {
                 if !was_active {
                     self.qt
                         .queue(|obj| {
-                            obj.hotspot_failed(&QString::from(
-                                "The Wi-Fi adapter could not start an access point",
-                            ));
+                            obj.hotspot_failed(&QString::from(fl!("hotspot-failed")));
                         })
                         .ok();
                 }

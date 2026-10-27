@@ -934,6 +934,9 @@ impl Settings {
         if matches!(name, "dndEnabled" | "audioProfile") {
             crate::audio::push_state();
         }
+        if name == "language" {
+            crate::i18n::select(&self.language().to_string());
+        }
         self.save_soon();
     }
 

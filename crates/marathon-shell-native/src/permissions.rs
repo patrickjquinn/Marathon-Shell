@@ -7,6 +7,7 @@
 //! together become one prompt per app. Apps whose grants another system keeps
 //! (Android's, for deckardd) get a "foreign" prompt that stores nothing.
 
+use crate::i18n::fl;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::PathBuf;
@@ -856,7 +857,7 @@ impl Permissions {
     fn permission_description(&self, permission: &QString) -> QString {
         QString::from(
             marathon_permissions::describe(&permission.to_string())
-                .map_or("Unknown permission", |d| d.description.as_str()),
+                .map_or_else(|| fl!("permission-unknown"), |d| d.description.clone()),
         )
     }
 }

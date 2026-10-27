@@ -4,6 +4,7 @@
 //! hands its messages to the app's `org.unifiedpush.Connector2`. The server is
 //! ntfy.sh unless `MARATHON_NTFY_SERVER` names another.
 
+use crate::i18n::fl;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
@@ -427,7 +428,7 @@ async fn deliver_message(conn: &Connection, token: &str, json: &str) {
                     0,
                     "",
                     title,
-                    "New push notification",
+                    &fl!("push-new"),
                     &[],
                     hints,
                     -1,

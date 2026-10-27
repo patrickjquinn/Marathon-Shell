@@ -2,6 +2,7 @@
 //! apps on the grid and the deep links their manifests declare, and the
 //! recent searches (Settings' `search/recent`).
 
+use crate::i18n::fl;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
@@ -100,11 +101,10 @@ fn items() -> Vec<Item> {
                 app.search_terms.join(" ")
             ),
             subtitle: if app.kind == "native" {
-                "Native App"
+                fl!("search-native-app")
             } else {
-                "Marathon App"
-            }
-            .into(),
+                fl!("search-marathon-app")
+            },
             data: vec![
                 ("id", app.id.clone()),
                 ("name", app.name.clone()),

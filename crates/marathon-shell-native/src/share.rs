@@ -5,6 +5,7 @@
 //! request on its org.marathonos.<id> name at /share/<method>. Android's
 //! activities join the sheet through deckardd.
 
+use crate::i18n::fl;
 use std::collections::HashMap;
 use std::fs::File;
 use std::os::fd::OwnedFd;
@@ -620,7 +621,7 @@ async fn deliver(
 ) {
     let service = format!("org.marathonos.{app_id}");
     let path = format!("/share/{method}");
-    let mut result = Err("The app did not take the share".to_owned());
+    let mut result = Err(fl!("share-not-taken"));
     for _ in 0..TRIES {
         let Ok(bus) = io::session_bus().await else {
             break;

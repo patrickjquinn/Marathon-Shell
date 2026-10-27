@@ -9,6 +9,7 @@
 //! The state machine is `Machine`; one actor on the I/O thread drives it,
 //! sysupdated and the notifications, and hands Qt a view of it.
 
+use crate::i18n::fl;
 use std::collections::HashMap;
 use std::path::Path;
 use std::pin::Pin;
@@ -1192,36 +1193,38 @@ impl Notifier {
     }
 
     async fn post(&mut self, m: &Machine, kind: Notice, version: &str) {
-        let mut actions = vec!["default", "Open"];
+        let mut actions = vec!["default".to_owned(), fl!("update-open")];
         let (summary, body) = match kind {
             Notice::Available => {
-                actions.extend(["download", "Download", "later", "Later"]);
-                ("Update available".to_owned(), format!("Marathon {version}"))
+                actions.extend(["download".to_owned(), fl!("update-download")]);
+                actions.extend(["later".to_owned(), fl!("update-later")]);
+                (
+                    fl!("update-available-title"),
+                    fl!("update-available-body", version = version),
+                )
             }
             Notice::Restart => {
-                actions.extend(["restart", "Restart now"]);
+                actions.extend(["restart".to_owned(), fl!("update-restart-now")]);
                 if !m.startup_pin {
-                    actions.extend(["tonight", "Tonight"]);
+                    actions.extend(["tonight".to_owned(), fl!("update-tonight")]);
                 }
                 let body = if m.restart_scheduled() {
-                    format!("Marathon {version} installs tonight while charging.")
+                    fl!("update-restart-tonight", version = version)
                 } else {
-                    format!("Marathon {version} is ready.")
+                    fl!("update-restart-ready", version = version)
                 };
-                ("Restart to finish updating".to_owned(), body)
+                (fl!("update-restart-title"), body)
             }
             Notice::RolledBack => (
-                format!("Marathon {version} didn't start"),
-                format!(
-                    "The update couldn't start, so Marathon went back to {}.",
-                    m.os_version
-                ),
+                fl!("update-rolled-back-title", version = version),
+                fl!("update-rolled-back-body", previous = m.os_version.as_str()),
             ),
             Notice::Updated => (
-                format!("Updated to Marathon {version}"),
-                "Tap to see what's new.".to_owned(),
+                fl!("update-updated-title", version = version),
+                fl!("update-updated-body"),
             ),
         };
+        let actions: Vec<&str> = actions.iter().map(String::as_str).collect();
         self.notify(&summary, &body, &actions, None).await;
     }
 
@@ -1249,12 +1252,17 @@ impl Notifier {
         }
         self.shown = Some(now);
         let summary = if m.installing {
-            "Installing update"
+            fl!("update-installing")
         } else {
-            "Downloading update"
+            fl!("update-downloading")
         };
-        let body = format!("Marathon OS {} · {}%", m.available, m.progress);
-        self.notify(summary, &body, &["default", "Open"], Some(m.progress))
+        let body = fl!(
+            "update-progress",
+            version = m.available.as_str(),
+            percent = m.progress
+        );
+        let open = fl!("update-open");
+        self.notify(&summary, &body, &["default", &open], Some(m.progress))
             .await;
     }
 
@@ -1267,7 +1275,7 @@ impl Notifier {
             NotificationsProxy::new(&io::session_bus().await?)
                 .await?
                 .notify(
-                    "Software update",
+                    &fl!("update-app"),
                     self.id,
                     "arrow-circle-up",
                     summary,

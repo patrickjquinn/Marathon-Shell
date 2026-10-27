@@ -33,7 +33,7 @@ image = { version = "0.25.10", default-features = false, features = ["png"] }
 mime_guess = "2.0.5"
 libc = "0.2.190"
 marathon-apps = { path = "../marathon-apps" }
-marathon-i18n = { path = "../marathon-i18n" }
+marathon-i18n = { version = "0.1.0", path = "../marathon-i18n" }
 marathon-permissions = { path = "../marathon-permissions" }
 marathon-qt = { path = "../marathon-qt" }
 marathon-rt = { path = "../marathon-rt" }
@@ -51,6 +51,9 @@ url = "2.5.4"
 ureq = "3.4.2"
 walkdir = "2.5.0"
 zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
+i18n-embed = { version = "0.16.0", features = ["fluent-system"] }
+i18n-embed-fl = "0.10.1"
+rust-embed = "8.13.0"
 
 [lints]
 workspace = true

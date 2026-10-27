@@ -2,6 +2,7 @@
 //! only read and driven from one actor on the I/O thread, its objects cached
 //! from `GetManagedObjects` and kept by their signals.
 
+use crate::i18n::fl;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::time::Duration;
@@ -365,7 +366,10 @@ impl Bluetooth {
 
     fn agent_request(mut self: Pin<&mut Self>, ask: Ask, path: &str) {
         let device = self.known.iter().find(|d| d.path == path);
-        let name = QString::from(device.map_or("Unknown Device", Device::shown_name));
+        let name = QString::from(device.map_or_else(
+            || fl!("bluetooth-unknown-device"),
+            |d| d.shown_name().to_owned(),
+        ));
         let address = QString::from(
             device
                 .map_or_else(|| address_of(path), |d| d.address.clone())

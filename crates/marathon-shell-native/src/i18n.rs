@@ -1,4 +1,10 @@
-//! The system language, handed to the session.
+//! The system language, handed to the session, and this crate's Fluent
+//! messages, `i18n/<lang>/marathon-shell-native.ftl`.
+
+use std::sync::LazyLock;
+
+use i18n_embed::fluent::{fluent_language_loader, FluentLanguageLoader};
+use rust_embed::RustEmbed;
 
 use crate::systemd::SystemdManagerProxy;
 use crate::{io, log};
@@ -31,3 +37,26 @@ fn export_to_session() {
         }
     });
 }
+
+#[derive(RustEmbed)]
+#[folder = "i18n"]
+struct Catalogs;
+
+pub static LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
+    let loader = fluent_language_loader!();
+    marathon_i18n::select(&loader, &Catalogs, marathon_i18n::current());
+    loader
+});
+
+/// Speaks `setting`, or the environment's language when it names none.
+pub fn select(setting: &str) {
+    let code = marathon_i18n::resolve(setting, Some(marathon_i18n::current()));
+    marathon_i18n::select(&LOADER, &Catalogs, code);
+}
+
+macro_rules! fl {
+    ($($args:tt)*) => {
+        i18n_embed_fl::fl!($crate::i18n::LOADER, $($args)*)
+    };
+}
+pub(crate) use fl;

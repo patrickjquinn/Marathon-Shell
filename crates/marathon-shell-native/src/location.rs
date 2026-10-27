@@ -5,6 +5,7 @@
 //! to come up without Wi-Fi or a SIM; nothing here waits on it on the GUI
 //! thread.
 
+use crate::i18n::fl;
 use std::collections::HashMap;
 use std::pin::Pin;
 
@@ -329,7 +330,7 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
         if want && client.is_none() {
             client = new_client(&bus, &new_fixes).await;
             if client.is_none() {
-                qt.queue(|obj| obj.error(&QString::from("Failed to create location client")))
+                qt.queue(|obj| obj.error(&QString::from(fl!("location-client-failed"))))
                     .ok();
             }
         }
@@ -349,7 +350,7 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
                     );
                     if want {
                         qt.queue(|obj| {
-                            obj.error(&QString::from("Failed to start location updates"));
+                            obj.error(&QString::from(fl!("location-start-failed")));
                         })
                         .ok();
                     }

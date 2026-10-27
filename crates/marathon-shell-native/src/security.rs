@@ -3,6 +3,7 @@
 //! Hashing, PAM and the data-key helper run on the blocking pool and fprintd
 //! on the I/O thread; the GUI thread only keeps the state QML binds to.
 
+use crate::i18n::fl;
 use std::fs;
 use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
@@ -256,14 +257,14 @@ impl Security {
     // Why the attempt can't start, if it can't.
     fn refuse(&self, secret: &str) -> Option<String> {
         if self.is_locked_out() {
-            Some(format!(
-                "Account locked. Try again in {} seconds.",
-                self.lockout_seconds_remaining()
+            Some(fl!(
+                "security-account-locked",
+                seconds = self.lockout_seconds_remaining()
             ))
         } else if secret.is_empty() {
-            Some("PIN cannot be empty".to_owned())
+            Some(fl!("security-pin-empty"))
         } else if self.checking {
-            Some("Authentication already in progress".to_owned())
+            Some(fl!("security-busy"))
         } else {
             None
         }
@@ -285,7 +286,7 @@ impl Security {
     fn authenticate_password(mut self: Pin<&mut Self>, password: &QString) {
         let password = password.to_string();
         if password.is_empty() {
-            return self.fail("Password cannot be empty");
+            return self.fail(&fl!("security-password-empty"));
         }
         if let Some(refusal) = self.refuse(&password) {
             return self.fail(&refusal);
@@ -336,19 +337,16 @@ impl Security {
                 Severity::Alert,
                 &format!("Account locked out: user={} duration={seconds}s", self.user),
             );
-            format!("Too many failed attempts. Locked for {seconds} seconds.")
+            fl!("security-locked-for", seconds = seconds)
         } else if matches!(secret, Secret::Fingerprint) {
-            "Fingerprint not recognized".to_owned()
+            fl!("fingerprint-not-recognised")
         } else {
-            let incorrect = if matches!(secret, Secret::Pin) {
-                "Incorrect PIN"
+            let remaining = MAX_ATTEMPTS - self.failed_attempts;
+            if matches!(secret, Secret::Pin) {
+                fl!("security-wrong-pin-left", remaining = remaining)
             } else {
-                "Incorrect password"
-            };
-            format!(
-                "{incorrect} ({} attempts remaining)",
-                MAX_ATTEMPTS - self.failed_attempts
-            )
+                fl!("security-wrong-password-left", remaining = remaining)
+            }
         })
     }
 
@@ -409,7 +407,7 @@ impl Security {
         );
         io::spawn(async move {
             if !password_ok(user, password).await {
-                qt.queue(|obj| obj.fail("System password incorrect. Cannot set Quick PIN."))
+                qt.queue(|obj| obj.fail(&fl!("security-set-pin-password")))
                     .ok();
                 return;
             }
@@ -418,7 +416,7 @@ impl Security {
             queue_encryption(&qt);
             if !helper_ok(helper) {
                 qt.queue(|obj| {
-                    obj.fail("Couldn't change the PIN that unlocks your data at startup");
+                    obj.fail(&fl!("security-startup-pin-change-failed"));
                 })
                 .ok();
                 return;
@@ -472,7 +470,7 @@ impl Security {
         );
         io::spawn(async move {
             if !password_ok(user, password).await {
-                qt.queue(|obj| obj.fail("System password incorrect. Cannot remove Quick PIN."))
+                qt.queue(|obj| obj.fail(&fl!("security-remove-pin-password")))
                     .ok();
                 return;
             }
@@ -480,7 +478,7 @@ impl Security {
             queue_encryption(&qt);
             if !helper_ok(helper) {
                 qt.queue(|obj| {
-                    obj.fail("Couldn't turn off the PIN that unlocks your data at startup");
+                    obj.fail(&fl!("security-startup-pin-off-failed"));
                 })
                 .ok();
                 return;
@@ -505,9 +503,9 @@ impl Security {
         answer: impl FnOnce(Pin<&mut Self>, String) + Send + 'static,
     ) {
         if self.is_locked_out() {
-            let refusal = format!(
-                "Too many failed attempts. Try again in {} seconds.",
-                self.lockout_seconds_remaining()
+            let refusal = fl!(
+                "security-try-again-in",
+                seconds = self.lockout_seconds_remaining()
             );
             return answer(self, refusal);
         }
@@ -525,13 +523,13 @@ impl Security {
                 let refusal = match obj.as_mut().settle(ok, secret) {
                     None => String::new(),
                     Some(_) if obj.is_locked_out() => {
-                        format!(
-                            "Too many failed attempts. Try again in {} seconds.",
-                            obj.lockout_seconds_remaining()
+                        fl!(
+                            "security-try-again-in",
+                            seconds = obj.lockout_seconds_remaining()
                         )
                     }
-                    Some(_) if pin => "Incorrect PIN".to_owned(),
-                    Some(_) => "Incorrect password".to_owned(),
+                    Some(_) if pin => fl!("security-wrong-pin"),
+                    Some(_) => fl!("security-wrong-password"),
                 };
                 answer(obj, refusal);
             })
@@ -541,17 +539,17 @@ impl Security {
 
     fn authenticate_biometric(mut self: Pin<&mut Self>, kind: i32) {
         if kind != 0 {
-            return self.fail("Biometric type not supported");
+            return self.fail(&fl!("security-biometric-unsupported"));
         }
         if self.is_locked_out() {
-            let refusal = format!(
-                "Account locked. Try again in {} seconds.",
-                self.lockout_seconds_remaining()
+            let refusal = fl!(
+                "security-account-locked",
+                seconds = self.lockout_seconds_remaining()
             );
             return self.fail(&refusal);
         }
         let Some(device) = self.fingerprint.clone() else {
-            return self.fail("Fingerprint not available");
+            return self.fail(&fl!("fingerprint-unavailable"));
         };
         if self.stop_fingerprint.is_some() {
             return;
@@ -613,7 +611,7 @@ fn state(security: &Security) -> State {
 /// restarts the device. Err says why not.
 async fn erase(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(), String> {
     if !Path::new(FACTORY_RESET).exists() {
-        return Err("This device can't erase itself".into());
+        return Err(fl!("security-cannot-erase"));
     }
     let (tx, rx) = async_channel::bounded(1);
     ipc::on_gui(qt, move |obj| {
@@ -635,10 +633,10 @@ async fn erase(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(),
         Ok::<_, std::io::Error>(reply)
     })
     .await
-    .map_err(|e| format!("Couldn't reach the erase service: {e}"))?;
+    .map_err(|e| fl!("security-erase-unreachable", error = e.to_string()))?;
     match reply.trim() {
         "ok" => Ok(()),
-        "" => Err("Couldn't reach the erase service: it closed the connection".into()),
+        "" => Err(fl!("security-erase-closed")),
         why => Err(why.to_owned()),
     }
 }
@@ -1142,13 +1140,13 @@ async fn verify_fingerprint(
         .map_err(|e| e.to_string())?;
     if let Err(e) = device.claim(user).await {
         log::warn("security", format_args!("fingerprint claim: {e}"));
-        return Err("Fingerprint device busy".to_owned());
+        return Err(fl!("fingerprint-busy"));
     }
     if device.verify_start("any").await.is_err() {
         device.release().await.ok();
-        return Err("Fingerprint verification failed to start".to_owned());
+        return Err(fl!("fingerprint-start-failed"));
     }
-    qt.queue(|obj| obj.biometric_prompt(&QString::from("Place your finger on the sensor")))
+    qt.queue(|obj| obj.biometric_prompt(&QString::from(fl!("fingerprint-place"))))
         .ok();
     let mut matched = None;
     while let Some(status) = statuses.next().await {
@@ -1162,10 +1160,10 @@ async fn verify_fingerprint(
                 matched = Some(false);
                 break;
             }
-            "verify-retry-scan" => "Scan quality poor, try again",
-            "verify-swipe-too-short" => "Swipe too short, try again",
-            "verify-finger-not-centered" => "Center your finger and try again",
-            "verify-remove-and-retry" => "Remove finger and try again",
+            "verify-retry-scan" => fl!("fingerprint-retry-scan"),
+            "verify-swipe-too-short" => fl!("fingerprint-too-short"),
+            "verify-finger-not-centered" => fl!("fingerprint-centre"),
+            "verify-remove-and-retry" => fl!("fingerprint-remove"),
             _ => continue,
         };
         qt.queue(move |obj| obj.biometric_prompt(&QString::from(prompt)))

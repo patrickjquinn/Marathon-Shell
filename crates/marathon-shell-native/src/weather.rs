@@ -1,5 +1,6 @@
 //! `WeatherClient`: marathon-weatherd's forecast, as the Hub shows it.
 
+use crate::i18n::fl;
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -225,7 +226,7 @@ impl WeatherClient {
                 },
                 async {
                     Timer::after(Duration::from_secs(15)).await;
-                    Err("Timed out".to_owned())
+                    Err(fl!("weather-timed-out"))
                 },
             );
             let found: Result<String, String> = found.await;
