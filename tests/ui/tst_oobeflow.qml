@@ -51,6 +51,7 @@ TestCase {
     }
 
     function cleanup() {
+        window.height = 1140;
         SessionStore.isLocked = false;
         SettingsManagerCpp.firstRunComplete = false;
     }
@@ -245,6 +246,15 @@ TestCase {
         compare(hello.greetings, ["Hello", "Hallo", "Bonjour", "Hola", "Dia dhuit"]);
         compare(hello.shown, 0);
         tryCompare(hello, "shown", 1, 3500);
+    }
+
+    function test_greetingClearsTheButtonsOnAShortScreen() {
+        window.height = 460;
+        const greeting = child("helloGreeting");
+        const buttons = child("helloButtons");
+        tryVerify(() => buttons.mapToItem(oobe, 0, buttons.height).y <= window.height);
+        verify(greeting.mapToItem(oobe, 0, greeting.height).y <= buttons.mapToItem(oobe, 0, 0).y);
+        verify(greeting.mapToItem(oobe, 0, 0).y >= 0);
     }
 
     function test_freshSetupStartsOnHello() {

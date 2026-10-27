@@ -65,9 +65,17 @@ Item {
         onTriggered: root.shown = (root.shown + 1) % root.greetings.length
     }
 
+    // On a short screen at a large size the greeting shrinks to clear the buttons.
     Column {
+        id: greeting
+
+        readonly property real fit: Math.min(1, (buttons.y - Silica.Theme.paddingMedium) / Math.max(1, height))
+
+        objectName: "helloGreeting"
         width: parent.width
-        y: Math.max(0, (buttons.y - height) / 2)
+        y: Math.max(0, (buttons.y - height * fit) / 2)
+        scale: fit
+        transformOrigin: Item.Top
         spacing: Silica.Theme.paddingMedium
 
         MMarathonMark {
@@ -131,6 +139,7 @@ Item {
     Row {
         id: buttons
 
+        objectName: "helloButtons"
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: hint.top
         anchors.bottomMargin: Silica.Theme.paddingLarge
