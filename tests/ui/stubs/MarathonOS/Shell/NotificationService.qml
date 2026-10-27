@@ -35,4 +35,5 @@ ListModel {
     function reply(id, text) { replies = replies.concat([id + ":" + text]); }
     function dismissNotification(id) { dismissed = dismissed.concat([id]); }
     function dismissAllNotifications() { dismissedAll = true; }
+    function roleId(name) { return -1; }
 }
