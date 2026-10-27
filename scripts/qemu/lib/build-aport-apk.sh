@@ -21,7 +21,16 @@ mkdir -p "$MKOSI_PKG_DIR"
 
 echo "+-- building $PKG --+"
 
+# Big aports (wpewebkit) outgrow the container's storage; MARATHON_APK_WORK_DIR
+# puts the build, its sources and the compilers' temporary files on a disk.
+WORK_MOUNT_ARGS=()
+if [ -n "${MARATHON_APK_WORK_DIR:-}" ]; then
+    mkdir -p "$MARATHON_APK_WORK_DIR/tmp" "$MARATHON_APK_WORK_DIR/distfiles"
+    WORK_MOUNT_ARGS=(-v "$MARATHON_APK_WORK_DIR:/work:z" -e TMPDIR=/work/tmp -e SRCDEST=/work/distfiles)
+fi
+
 podman run --rm -i \
+    "${WORK_MOUNT_ARGS[@]}" \
     -e PKG="$PKG" \
     -e WPE_BUILD_JOBS="${WPE_BUILD_JOBS:-}" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
