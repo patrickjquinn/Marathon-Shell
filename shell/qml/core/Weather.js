@@ -1,4 +1,5 @@
 .pragma library
+.import "Clock.js" as Clock
 
 // marathon-weatherd's forecast, for people: MET Norway's symbol codes as
 // words and glyphs, units, and the one-line outlook.
@@ -104,23 +105,23 @@ function atLocation(unixSeconds, offsetSeconds) {
     return new Date((unixSeconds + (offsetSeconds || 0)) * 1000);
 }
 
+// The location's wall-clock time as a local Date, for the locale's formats.
+function wallClock(unixSeconds, offsetSeconds) {
+    const d = atLocation(unixSeconds, offsetSeconds);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes());
+}
+
 function clock(unixSeconds, offsetSeconds, twelveHour) {
     if (!unixSeconds)
         return "–";
-    const d = atLocation(unixSeconds, offsetSeconds);
-    const h = d.getUTCHours();
-    const m = ("0" + d.getUTCMinutes()).slice(-2);
-    if (twelveHour)
-        return (h % 12 || 12) + ":" + m + " " + (h < 12 ? Qt.locale().amText : Qt.locale().pmText);
-    return ("0" + h).slice(-2) + ":" + m;
+    return Clock.format(wallClock(unixSeconds, offsetSeconds), twelveHour ? "12h" : "24h");
 }
 
 // The hour axis label: "14" or "2 PM".
 function hour(unixSeconds, offsetSeconds, twelveHour) {
-    const h = atLocation(unixSeconds, offsetSeconds).getUTCHours();
-    if (twelveHour)
-        return (h % 12 || 12) + " " + (h < 12 ? Qt.locale().amText : Qt.locale().pmText);
-    return ("0" + h).slice(-2);
+    const loc = Qt.locale();
+    const hours = Clock.pattern(twelveHour ? "12h" : "24h", loc).replace(/[:.]?mm/, "").trim();
+    return wallClock(unixSeconds, offsetSeconds).toLocaleTimeString(loc, hours);
 }
 
 // "2026-10-17" as a short weekday, via `names` (Sunday first).
