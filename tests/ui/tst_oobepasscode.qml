@@ -73,6 +73,18 @@ TestCase {
         verify(p.x > keypad.width * 0.6);
     }
 
+    function test_screenReaderNamesSitOverTheirKeys() {
+        for (const d of "0123456789") {
+            const name = findChild(beat, "oobeKeyName" + d);
+            verify(name, d);
+            mouseClick(name);
+        }
+        compare(beat.enteredPin, "012345");
+        beat.reset();
+        findChild(beat, "oobeKeyName7").press();
+        compare(beat.enteredPin, "7");
+    }
+
     function test_mismatchShowsMessageAndClearsConfirm() {
         pad("123456");
         compare(beat.stage, "confirm");

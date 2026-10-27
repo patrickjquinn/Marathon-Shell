@@ -216,6 +216,31 @@ Item {
                     }
                 }
 
+                // Keel's keys have no accessible names: these stand over them
+                // for screen readers and leave touches to the keys.
+                Repeater {
+                    model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0"]
+
+                    Item {
+                        required property string modelData
+                        required property int index
+
+                        function press() {
+                            root.appendDigit(modelData);
+                        }
+
+                        objectName: "oobeKeyName" + modelData
+                        x: keypad._horizontalPadding + (index % 3) * pad.step
+                        y: Math.floor(index / 3) * keypad._buttonHeight
+                        width: keypad._buttonWidth
+                        height: keypad._buttonHeight
+                        visible: modelData !== ""
+                        Accessible.role: Accessible.Button
+                        Accessible.name: modelData
+                        Accessible.onPressAction: press()
+                    }
+                }
+
                 Silica.IconButton {
                     objectName: "oobeDelete"
                     // Right-hand column of the bottom row, beside 0.
