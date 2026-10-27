@@ -122,6 +122,18 @@ TestCase {
         compare(SettingsManagerCpp.userScaleFactor, 1.03);
     }
 
+    function test_sliderStepsThroughSettingsSizes() {
+        size.visible = true;
+        const slider = findChild(size, "sizeSlider");
+        const labels = [];
+        for (let i = slider.minimumValue; i <= slider.maximumValue; i += slider.stepSize) {
+            slider.value = i;
+            labels.push(slider.valueText);
+        }
+        compare(labels, ["75%", "90%", "100%", "110%", "125%", "140%", "150%"]);
+        slider.value = 2;
+    }
+
     function test_continueEmitsDone() {
         const button = findChild(look, "lookContinue");
         verify(button);
@@ -133,9 +145,7 @@ TestCase {
         size.visible = true;
         const slider = findChild(size, "sizeSlider");
         verify(slider);
-        compare(slider.minimumValue, 75);
-        compare(slider.maximumValue, 150);
-        compare(slider.stepSize, 5);
+        compare(slider.valueText, "100%");
         mousePress(slider, slider.width / 2, slider.height / 2);
         mouseMove(slider, slider.width / 2 + 20, slider.height / 2);
         mouseMove(slider, slider.width - 1, slider.height / 2);

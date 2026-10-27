@@ -194,7 +194,7 @@ TestCase {
         tryVerify(() => toggle.visible);
         mouseClick(toggle);
         compare(SettingsManagerCpp.reduceMotion, true);
-        compare(child("textSizeSlider").value, 100);
+        compare(child("textSizeSlider").valueText, "100%");
         compare(SettingsManagerCpp.userScaleFactor, 1);
     }
 

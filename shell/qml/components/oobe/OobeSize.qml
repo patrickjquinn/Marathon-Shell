@@ -2,6 +2,7 @@ import MarathonOS.Shell 1.0
 import QtQuick
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
+import "../../core/Scales.js" as Scales
 
 // Easy to read: text and icon size, on the real home grid.
 Item {
@@ -25,7 +26,7 @@ Item {
 
     function applySize() {
         settle.stop();
-        const factor = Math.round(slider.value) / 100;
+        const factor = Scales.factors[Math.round(slider.value)];
         if (Math.abs(factor - SettingsManagerCpp.userScaleFactor) > 0.001)
             SettingsManagerCpp.userScaleFactor = factor;
     }
@@ -79,11 +80,11 @@ Item {
             objectName: "sizeSlider"
             width: parent.width
             label: qsTr("Text and icon size")
-            minimumValue: 75
-            maximumValue: 150
-            stepSize: 5
-            value: Math.round(SettingsManagerCpp.userScaleFactor * 100)
-            valueText: Math.round(value) + "%"
+            minimumValue: 0
+            maximumValue: Scales.factors.length - 1
+            stepSize: 1
+            value: Scales.nearest(SettingsManagerCpp.userScaleFactor)
+            valueText: Scales.label(value)
             onValueChanged: {
                 if (down)
                     settle.restart();
