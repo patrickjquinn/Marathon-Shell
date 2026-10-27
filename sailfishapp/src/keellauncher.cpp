@@ -271,6 +271,16 @@ void prepareApplicationDefaults()
     format.setSwapInterval(intervalSet && interval >= 0 ? interval : 1);
     format.setAlphaBufferSize(8);
     QSurfaceFormat::setDefaultFormat(format);
+    // Swap interval 1 the way Silica's Qt 5 has it on Lipstick: libhybris's
+    // EGL waits for the display's refresh. QtWayland 6 instead sets EGL's
+    // interval to 0 and waits for Lipstick's frame callback, which comes a
+    // refresh late about every other frame: on the Jolla Phone's 90 Hz
+    // panel a Keel app scrolled at a median 15 ms a frame with 15% of them
+    // over 20 ms, where Settings (Qt 5) and the same app with this set run
+    // at 11 ms and 4% (27 October 2026, Reef's home page). Minimised to its
+    // cover and back, nothing blocks. Set in the environment, it is kept.
+    if (!qEnvironmentVariableIsSet("QT_WAYLAND_FORCE_NONBLOCKING_SWAP_SUPPORT"))
+        qputenv("QT_WAYLAND_FORCE_NONBLOCKING_SWAP_SUPPORT", "0");
 }
 
 QQuickView *takeBoosterView()

@@ -12,7 +12,7 @@
 # Under mb2 the build runs in the checkout (the repository root).
 Name:       shipwright-keel-runtime-test
 Version:    0.1.0
-Release:    7
+Release:    8
 Summary:    Test apps for Keel's runtime on a phone (direct mode, booster, keel-shell)
 License:    MIT
 URL:        https://github.com/patrickjquinn/shipwright-open
@@ -99,6 +99,8 @@ install -D -m 0755 tools/phase0/keel-runtime-test.sh \
 %license LICENSES/MIT.txt
 
 %changelog
+* Tue Oct 27 2026 Shipwright - 0.1.0-8
+- Rebuilt with Keel's launcher pacing frames on the screen's refresh; no change in the test.
 * Sun Oct 18 2026 Shipwright - 0.1.0-7
 - Rebuilt with Keel's new start-up memory settings; no change in behaviour.
 * Wed Oct 14 2026 Shipwright - 0.1.0-6
