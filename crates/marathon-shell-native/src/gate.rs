@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -125,7 +125,18 @@ fn service(pid: u32, dir: &Path) -> Option<String> {
     let declared: serde_json::Value =
         serde_json::from_slice(&fs::read(dir.join(format!("{unit}.json"))).ok()?).ok()?;
     let exec = fs::canonicalize(declared["exec"].as_str()?).ok()?;
-    (fs::canonicalize(format!("/proc/{pid}/exe")).ok()? == exec).then(|| format!("{SERVICE}{unit}"))
+    (running_exe(pid)? == exec).then(|| format!("{SERVICE}{unit}"))
+}
+
+/// The executable `pid` runs, by the path it was started from even when an
+/// update has since replaced the file.
+fn running_exe(pid: u32) -> Option<PathBuf> {
+    let link = format!("/proc/{pid}/exe");
+    fs::canonicalize(&link).ok().or_else(|| {
+        let target = fs::read_link(&link).ok()?;
+        let target = target.to_str()?.strip_suffix(" (deleted)")?;
+        fs::canonicalize(target).ok()
+    })
 }
 
 /// The caller behind `pid`.
@@ -261,6 +272,21 @@ pub(crate) fn denied(app_id: &str, permission: &str) {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_service_updated_while_running_is_still_its_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let exe = dir.path().join("daemon");
+        fs::copy("/bin/sleep", &exe).unwrap();
+        let mut child = std::process::Command::new(&exe).arg("5").spawn().unwrap();
+        // An update unlinks the old file and puts a new one at the same path.
+        fs::remove_file(&exe).unwrap();
+        fs::copy("/bin/sleep", &exe).unwrap();
+        let running = running_exe(child.id());
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert_eq!(running, Some(fs::canonicalize(&exe).unwrap()));
+    }
 
     #[test]
     fn thirty_calls_a_second_per_sender_and_area() {
