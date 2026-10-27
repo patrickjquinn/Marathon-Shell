@@ -6,6 +6,7 @@ import QtQml.Models
 import Sailfish.Silica 1.0 as Silica
 import Marathon.Silica 1.0 as Silica
 import "../core/Agenda.js" as Agenda
+import "../core/Clock.js" as Clock
 
 // The Hub: today's date and calendar agenda,
 // then the notifications by day, on the lightly frosted ambience. Like
@@ -259,7 +260,7 @@ Rectangle {
                         x: Silica.Theme.paddingMedium
                         width: Silica.Theme.itemSizeLarge
                         anchors.verticalCenter: parent.verticalCenter
-                        text: entry.modelData.allDay ? qsTr("All day") : entry.modelData.time
+                        text: entry.modelData.allDay ? qsTr("All day") : hub.agendaTime(entry.modelData.time)
                         color: Silica.Theme.secondaryColor
                         font.pixelSize: Silica.Theme.fontSizeExtraSmall
                     }
@@ -456,6 +457,16 @@ Rectangle {
         if (name)
             return name;
         return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
+
+    // An event's "HH:mm" in the 12/24-hour setting.
+    function agendaTime(time) {
+        const m = /^(\d{1,2}):(\d{2})$/.exec(time || "");
+        if (!m)
+            return time || "";
+        const d = new Date();
+        d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+        return Clock.format(d, SettingsManagerCpp.timeFormat);
     }
 
     function relativeTime(ts) {
