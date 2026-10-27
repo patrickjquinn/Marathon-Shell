@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Pointer and mouse listeners do not hold up a touch scroll.
+#
+# ScrollingTreeCoordinated::eventTrackingTypeForTouchEvent() counted a
+# non-passive pointer or mouse listener under the finger (pointerdown,
+# pointermove, mousemove, ...) as one that may cancel the touch, so
+# EventDispatcher sent the touch to the main thread and the scroll waited for
+# its answer. Only a touch event's preventDefault() cancels a touch scroll
+# (EventHandler::handleTouchEvent; pointer events cannot, as in the Pointer
+# Events spec), so the wait bought nothing. On OSNews, which has such a
+# listener, a 95 ms repaint on the main thread froze a steady drag for
+# 95 ms. These listeners still get the touch, from the main thread, without
+# the scroll waiting; touch listeners are as before.
+# PACIFIC_POINTER_EVENTS_BLOCK_SCROLL=1 waits for them, as upstream.
+#
+--- a/Source/WebCore/page/scrolling/coordinated/ScrollingTreeCoordinated.cpp
++++ b/Source/WebCore/page/scrolling/coordinated/ScrollingTreeCoordinated.cpp
+@@ -42,6 +42,7 @@
+ #include "ScrollingTreeStickyNodeCoordinated.h"
+ #include <ranges>
+ #include <cstdlib>
++#include <cstring>
+ #include <cstdio>
+ #include <ctime>
+ 
+@@ -417,6 +418,27 @@ TrackingType ScrollingTreeCoordinated::eventTrackingTypeForTouchEvent(const Plat
+             auto trackingTypeForLocation = eventRegion.eventTrackingTypeForPoint(eventType, roundedIntPoint(layerAndPoint->second));
+             trackingType = mergeTrackingTypes(trackingType, trackingTypeForLocation);
+         };
++        // Pacific (patch 0028): pointer and mouse listeners cannot stop a
++        // touch scroll (only a touch event's preventDefault() does,
++        // EventHandler::handleTouchEvent), so they are told of the touch
++        // without the scroll waiting for them. A non-passive pointermove
++        // listener (analytics, ad scripts: OSNews has one) made every
++        // touch wait for the main thread, and a 95 ms repaint there froze
++        // the drag. PACIFIC_POINTER_EVENTS_BLOCK_SCROLL=1 waits, as upstream.
++        static const bool pointerEventsBlockScroll = [] {
++            const char* env = getenv("PACIFIC_POINTER_EVENTS_BLOCK_SCROLL");
++            return env && !strcmp(env, "1");
++        }();
++        auto updateWithoutWaiting = [&](TrackingType& trackingType, EventTrackingRegions::EventType eventType) {
++            if (pointerEventsBlockScroll) {
++                update(trackingType, eventType);
++                return;
++            }
++            if (trackingType != TrackingType::NotTracking)
++                return;
++            if (eventRegion.eventTrackingTypeForPoint(eventType, roundedIntPoint(layerAndPoint->second)) != TrackingType::NotTracking)
++                trackingType = TrackingType::Asynchronous;
++        };
+ 
+         auto& tracking = m_touchEventTracking;
+         using Type = EventTrackingRegions::EventType;
+@@ -425,16 +447,16 @@ TrackingType ScrollingTreeCoordinated::eventTrackingTypeForTouchEvent(const Plat
+         update(tracking.touchStartTracking, Type::Touchstart);
+         update(tracking.touchMoveTracking, Type::Touchmove);
+         update(tracking.touchEndTracking, Type::Touchend);
+-        update(tracking.touchStartTracking, Type::Pointerover);
+-        update(tracking.touchStartTracking, Type::Pointerenter);
+-        update(tracking.touchStartTracking, Type::Pointerdown);
+-        update(tracking.touchMoveTracking, Type::Pointermove);
+-        update(tracking.touchEndTracking, Type::Pointerup);
+-        update(tracking.touchEndTracking, Type::Pointerout);
+-        update(tracking.touchEndTracking, Type::Pointerleave);
+-        update(tracking.touchStartTracking, Type::Mousedown);
+-        update(tracking.touchMoveTracking, Type::Mousemove);
+-        update(tracking.touchEndTracking, Type::Mouseup);
++        updateWithoutWaiting(tracking.touchStartTracking, Type::Pointerover);
++        updateWithoutWaiting(tracking.touchStartTracking, Type::Pointerenter);
++        updateWithoutWaiting(tracking.touchStartTracking, Type::Pointerdown);
++        updateWithoutWaiting(tracking.touchMoveTracking, Type::Pointermove);
++        updateWithoutWaiting(tracking.touchEndTracking, Type::Pointerup);
++        updateWithoutWaiting(tracking.touchEndTracking, Type::Pointerout);
++        updateWithoutWaiting(tracking.touchEndTracking, Type::Pointerleave);
++        updateWithoutWaiting(tracking.touchStartTracking, Type::Mousedown);
++        updateWithoutWaiting(tracking.touchMoveTracking, Type::Mousemove);
++        updateWithoutWaiting(tracking.touchEndTracking, Type::Mouseup);
+         update(tracking.touchEndTracking, Type::Gestureend);
+         update(tracking.touchMoveTracking, Type::Gesturechange);
+         update(tracking.touchStartTracking, Type::Gesturestart);

@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A drag's steps do not wait for the main thread's layer flush.
+#
+# For each wheel event of a gesture (a drag's steps, on WPE), EventDispatcher
+# asked ScrollingTree::isUserScrollInProgressAtEventLocation() whether to keep
+# it off the main thread. That hit-tests the layers under
+# m_layerHitTestMutex, which the main thread holds across its whole layer
+# flush, tile painting included (RenderLayerCompositor::
+# flushPendingLayerChanges). With WEBKIT_FORCE_ASYNC_SCROLL the event is
+# never sent to the main thread anyway, but the question was still asked: on
+# OSNews a 90 ms repaint (a reflow that repainted 57 tiles on each of three
+# page-sized layers) froze a steady drag for 90 ms, the drag's steps queued
+# behind the lock (simpleperf --trace-offcpu: EventDispatcher in lockSlow
+# under ScrollingTreeCoordinated::scrollingNodeForPoint). It is now asked
+# only for an event that would go to the main thread.
+#
+--- a/Source/WebKit/WebProcess/WebPage/EventDispatcher.cpp
++++ b/Source/WebKit/WebProcess/WebPage/EventDispatcher.cpp
+@@ -206,7 +206,15 @@ void EventDispatcher::internalWheelEvent(PageIdentifier pageID, const WebWheelEv
+ 
+ #if !PLATFORM(COCOA)
+         // Deliver continuing scroll gestures directly to the scrolling thread until the end.
+-        if ((platformWheelEvent.phase() == PlatformWheelEventPhase::Changed || platformWheelEvent.phase() == PlatformWheelEventPhase::Ended)
++        // Pacific (patch 0031): only asked when the event would otherwise go to
++        // the main thread. The question hit-tests the layers under
++        // m_layerHitTestMutex, which the main thread holds across its whole
++        // layer flush, tile painting included (RenderLayerCompositor::
++        // flushPendingLayerChanges): each step of a drag that is already
++        // scrolled here (WEBKIT_FORCE_ASYNC_SCROLL) waited out the paint, and
++        // a 90 ms repaint on OSNews froze a steady drag for 90 ms.
++        if (useMainThreadForScrolling
++            && (platformWheelEvent.phase() == PlatformWheelEventPhase::Changed || platformWheelEvent.phase() == PlatformWheelEventPhase::Ended)
+             && scrollingTree->isUserScrollInProgressAtEventLocation(platformWheelEvent))
+             useMainThreadForScrolling = false;
+ #endif

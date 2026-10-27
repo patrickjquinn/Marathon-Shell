@@ -5,8 +5,8 @@
 # atlantic-wpe-features.cmake), with its patches: Atlantic's stack and
 # Pacific's own (shoal/pacific/engine/build/patches, as pacific-*.patch).
 pkgname=wpewebkit
-pkgver=2.54.0
-pkgrel=1
+pkgver=2.54.2
+pkgrel=0
 _atlantic=a91f8ecdea2e4fe8fa017d6a28503a4d01edf381
 pkgdesc="WebKit port optimized for embedded devices"
 url="https://wpewebkit.org/"
@@ -50,6 +50,9 @@ subpackages="$pkgname-dev"
 source="https://wpewebkit.org/releases/wpewebkit-$pkgver.tar.xz
 	atlantic-engine-$_atlantic.tar.gz::https://github.com/specsierra/atlantic-engine/archive/$_atlantic.tar.gz
 	gettext.patch
+	atlantic-webkit-gst-media.patch.rebased
+	atlantic-webkit-portability-wtf-pal.patch.rebased
+	atlantic-webkit-wpe-dark-mode-runtime.patch.rebased
 	pacific-0001-compositor-offscreen-animations-at-10hz.patch
 	pacific-0002-safe-area-insets-api.patch
 	pacific-0003-taps-never-press-the-scrollbar.patch
@@ -70,6 +73,25 @@ source="https://wpewebkit.org/releases/wpewebkit-$pkgver.tar.xz
 	pacific-0018-ios-fling-physics.patch
 	pacific-0019-fling-carry-and-catch.patch
 	pacific-0020-no-suspended-process-reuse.patch
+	pacific-0021-drag-steps-without-animation.patch
+	pacific-0022-legacy-vblank-timer.patch
+	pacific-0023-background-beyond-the-page.patch
+	pacific-0024-dynamic-toolbar-viewport-units.patch
+	pacific-0025-damage-tracking-legacy.patch
+	pacific-0026-composite-waits-for-scroll-tick.patch
+	pacific-0027-device-pixel-scroll-positions.patch
+	pacific-0028-pointer-listeners-do-not-block-touch-scroll.patch
+	pacific-0029-resting-drag-holds-its-place.patch
+	pacific-0030-scrolling-touchmoves-do-not-wait.patch
+	pacific-0031-drag-steps-skip-the-flush-lock.patch
+	pacific-0032-caught-fling-drags-at-once.patch
+	pacific-0033-drags-start-at-their-pace.patch
+	pacific-0034-webp-scaled-decode-config-lifetime.patch
+	pacific-0035-tiles-ahead-of-the-fling.patch
+	pacific-0036-shape-with-the-script.patch
+	pacific-0037-visible-tiles-first.patch
+	pacific-0038-frame-threads-preempt.patch
+	pacific-0039-scene-layers-lock-order.patch
 	"
 options="!check"
 
@@ -82,6 +104,12 @@ prepare() {
 		# ICU 73's runtime.
 		*/webkit-bubblewrap-sfos-sandbox.patch|*/webkit-icu-runtime-73.patch) continue ;;
 		esac
+		# Pacific's rebase of an Atlantic patch onto this WebKit replaces it.
+		if [ -e "$srcdir/atlantic-${p##*/}.rebased" ]; then
+			msg "atlantic: ${p##*/} (rebased)"
+			patch -p1 -N -i "$srcdir/atlantic-${p##*/}.rebased"
+			continue
+		fi
 		msg "atlantic: ${p##*/}"
 		patch -p1 -N -i "$srcdir/atlantic-engine-$_atlantic/$p"
 	done
@@ -147,14 +175,17 @@ package() {
 }
 
 sha512sums="
-844e6faad4b7fa3c62d76eee17f0f4681899a1d64b1e46d5d25cedfafd731e88248733a43c4c55e9e20f746927c284db0b9b0dca3cc40f6a32d90f963f1395af  wpewebkit-2.54.0.tar.xz
+9af0718a7306c8051a9751802c434c8d66441abc515d839b53b736752f7a9e711f24188f61933ec90bbb486c5fad0f73a35f8c67669c626c4cff6d7f87165cd1  wpewebkit-2.54.2.tar.xz
 86e4545df3335d7a7cb9ebc01938fc00661b208926bfbfd627e3afb8d63c27988c7206c1ea125c57c6b785bec22a9470f34aedd8973fd86760fe1dc064149934  atlantic-engine-a91f8ecdea2e4fe8fa017d6a28503a4d01edf381.tar.gz
 26f30d09037b11f1196273b0fcdb392d52d1f86dc8595ec8a6470198750b5915ead7f74a7e3bda5d6955237d49212e6d38fe98db427fbbd441bde6ee7bc85f3c  gettext.patch
+38a0f9bf9e4958c4a2de932aa8ea0eb4f00c6f4dc5903ee78ca62fea5bc7b74953fd2e69caa675da1a42212a84bfc56a4b2bdfaf80750d6cf8f20f985a19393e  atlantic-webkit-gst-media.patch.rebased
+699f04dd79fcf09176f19d671eba2c78007218b323ccbca9dfd5f7dde2b1a167827a6b80e40ecd1b4ed9eac24bdd71800a7945956115aaddb5d500305d0e2668  atlantic-webkit-portability-wtf-pal.patch.rebased
+cdcf5ff20fea8d62f32a3aafa0c1358e670a1023552067a894f04cf12936cb4ceffb6062836982f552c1f9202da89cb1c0efcc7989022fe68833741f307586f7  atlantic-webkit-wpe-dark-mode-runtime.patch.rebased
 2c5b913e8f1403a30dd4a5df2b966f2744d0723791269ab431ff0b6a6083e562b67149e79d03ed4d48c463f88d933ee2cba658f46d1a5d5e3ed93db7f1459d3c  pacific-0001-compositor-offscreen-animations-at-10hz.patch
 fac30965e4444d62db0e1197c19c8236250b4694cb05d3692c2e232a649eefff528728845ff0ce2857588eebb3f8f626397162eb29e937fd3a9eb68eb5686c2f  pacific-0002-safe-area-insets-api.patch
 d65b309a545c26ad98b51a140c155c77e4eec4e18339e40bed353aafcfa3f0a5380d6b6effca99a37a791a03883fdc48b8278b72e3ab693010b792988055d1f4  pacific-0003-taps-never-press-the-scrollbar.patch
 8c9b8d462cfb149c7f2be3bae52ac75903eb45f849c583b8fee8c7c67a521e0df74f39cec77f255d9573bbcd42b85723b87c769e00e62a74c3b4080ac83a88de  pacific-0004-flings-never-throttled.patch
-54ac8b6e3d5346e2c2b028fc398844c8d2e19d6bda32f568b9e3a46a2c080f7153ea6b9fc06ea5d06d0f1861fc06042e8780c273e673469b445cc88187b9e147  pacific-0005-compositor-thread-realtime.patch
+cbacca102021d2654521152c84f86fe22c4636be5a0655377955d7536dafdb806f7fb0ba2ca4fc58a347ae77369eb9d54cbe6a50b9d67ba7db7176b4a7d22c31  pacific-0005-compositor-thread-realtime.patch
 64739c131ff84c1d3904cfab48b4e0a3d7ecae985627f4fa1db1242647def395bf64ab7fc2a5d88d4f709fe8fabb21439c6f311abb4d8e627c40b147c8bdeb4b  pacific-0006-zero-copy-cpu-tiles.patch
 b32c1ce5b09a9684b67550b847e1c2ae296383370edf133539a6446f6b279ac6172dc762c0d7d045172d28a83f38ba446ab6aa03cdded4f2151a0096232c89d2  pacific-0007-frame-paced-scroll.patch
 b3c079cf32f832cee273a50496b3dbfb927d4787748ddf47b1d202fc4038eababc80a97b91e4730a8577b44bde33427a91e86f0178e61e024e3801bd5c70fde4  pacific-0008-recorded-css-filters.patch
@@ -170,4 +201,23 @@ eece525a0c66ec42d4a75f702a3322944a588a9dddc4a6246c5425e9cb9673e100415f7763a3dccb
 5c20d3da19fe64496a0f17ebd5731a9cb1bb8b5a58d4336a95bc363381af82bf12eb1a8a821fadd5fc7167cf6f1e79ade6b71ab10207b767bf7b8bab72f4cd00  pacific-0018-ios-fling-physics.patch
 0bd4b5db3f2bb4d6be1710ba338472957724e63a6e577a3f58bdd38c714dfd83d9fd6609dc8af6b28448e4e877e899ec9891fe278822ced2f4e5b7ec142e597a  pacific-0019-fling-carry-and-catch.patch
 969c8813db4c21f418c94310e4cc2563c11e4753a3810dc104efec15d546d774472de59af81abe5412aad24a42c0a68eb8c2ab2e69b16abc79d6c80db07e8cf7  pacific-0020-no-suspended-process-reuse.patch
+ce3e23631ba9375692558716d02bc870fe993721f85e50c27d9a2a262470b1925cc1bcb668555bf35e84a76d161d46a0653357391a3c14a47da04a190fb3272a  pacific-0021-drag-steps-without-animation.patch
+1c884f9180654173b25c7d6ccad1552368f58a2b3f47f9457671596b493f1273bdf02fa5b8a90c667979ce1565acf601bdceadcb7e833c3a9d5914acbe1465c1  pacific-0022-legacy-vblank-timer.patch
+4b2fbf21ecdd473f0903b3b473bcce988db3c5fd7055a64ff09f99a50939e4e3f7e489d226b6d5344fafd9d5f2b40e8d77f72901c05bb3fa771c3ceca9e11d90  pacific-0023-background-beyond-the-page.patch
+b74e58824df0cca8efe7bea496b2c7d99d3e9a5cc16c6e22afe6f08a19f5c4ab145ad30d256fc9c66d90c32aaa420c9764ca563efddb8154cd4d317299494b43  pacific-0024-dynamic-toolbar-viewport-units.patch
+24aa12b0e79d6686070d8c3e398cd697e51a81048b2b440fe4fadb45ff743c97b41a748df3178efbdf3498a91b035f673c3f38473c93ac23534bf3bec195fe76  pacific-0025-damage-tracking-legacy.patch
+abf4f0bb6cab6632f8b5dfad84cd1b91e8df68bb5ba42073282c3ccf0434ce7bf2427efd2a169d2e87a0390a7cfcf9559eda6961862af2d6dd0448e651613a68  pacific-0026-composite-waits-for-scroll-tick.patch
+3de338820dbc5a6f174ec102a1a6bee316a9d0df7c33e907a5d87f6b076b99d207a123e0c2be9072028f3ec51ca7e61d6bfebbae08199301a4537131c59b7187  pacific-0027-device-pixel-scroll-positions.patch
+9e09d31331e006e263d9390da0241bdc176b0bdf0c10bd293028fccf3d8291477cd737b3372128533455c8b93177289a90d5dd4bc925ed9d932efa8fbdee7c8a  pacific-0028-pointer-listeners-do-not-block-touch-scroll.patch
+999313f062822243ed8167c0882852e9c1d1697e16bbb5dd2af6a64bd94bd3608e98372cb100485eb5b1022ce8e4727a7f517ca3f3e7f422c0b347d92aa81545  pacific-0029-resting-drag-holds-its-place.patch
+ddd022655c273b8140f269b7854c94261ef27b2cdb7cb07a5ca18995f6725d2af66c2fb1530a71b8b4b6236479aa5e2353e9dd5e656a027c98666286d145c6bd  pacific-0030-scrolling-touchmoves-do-not-wait.patch
+e0635784f75ef669fbbe1eda5347862f0925eba996a26bde760a945f281dab5b25021154819bc2135bd987c8b78f2c68b5928697896a879ac65d42c3622ea1c2  pacific-0031-drag-steps-skip-the-flush-lock.patch
+a5a18c19b6b3a44934dc54e413d0f5e314ff74017fc849f59fad4251f24f4fdc3631dc098d60c94cb4a965a0d6bdf48ac6b2887ef5c998e5a34a5ce3ee24b093  pacific-0032-caught-fling-drags-at-once.patch
+732639bf853029ef3581984c943d15624302a13b7690b1696e8aff08c96796482b90f5e323bcf8c5b6f4b829ae4a0d0fcfb6c572c0ee1624da13cbfee62d23c1  pacific-0033-drags-start-at-their-pace.patch
+e3338793b721beeea006f2e31f48af0a049f24d69c72ef8c9b168c962a7c9f3527b9124e39414b9872ce86ddf232691d07028279365b62b60221f14c013d86cd  pacific-0034-webp-scaled-decode-config-lifetime.patch
+42f8a4615fd261dfb66c0d59a9a0fdea57f4e1da75e52566669dc69712daf40f15d226babab21d4fbda18b5b1e5a5f9c2d5b31d9ea00a3e934dd5ae4ffc08e36  pacific-0035-tiles-ahead-of-the-fling.patch
+a2dc4fd93fa99700f145b49e231a1781e46dbc091d4446b0a48a03292279859ef7de4855c7320cba4ead748bc6e815e3b4cc101a1fa7e0b3bc961c3bd5d7a552  pacific-0036-shape-with-the-script.patch
+003271ff7df2a183e8ca4dbd3da115a72ecda51d8da4ca4421f7962f09c422f1f56bb279967baef7b453d6d5fe442e7eec09870a4b1bd7f3df8150b9a4b23e2d  pacific-0037-visible-tiles-first.patch
+e44257e3faba924d2fab1392f11d5ae6934dd45ad4e3bb923225f61eb4a044c9fa5da00c6736867b7f5c299318925ac6b9f54b984d5fc499f282afbf519f4796  pacific-0038-frame-threads-preempt.patch
+5fc07809c9ede2a83751ee30400194983e52749e53b1902156a2dd3a7178daad34048a1230f0c27930cb67903204afe3e9a58b3b027f7576a847e8a73d88da07  pacific-0039-scene-layers-lock-order.patch
 "

@@ -1,0 +1,308 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The tiles on screen are painted first, and only they hold back a
+# rendering update's composite.
+#
+# A rendering update's composite waited until every tile the update
+# scheduled, on every layer, was painted, and the main thread's next update
+# waited for that composite. Dirty tiles went to the four painting threads in
+# hash order, so the visible ones queued behind tiles off screen. During a
+# fast fling on OSNews (three page-sized layers) a batch of 13-36 tiles held
+# the next update back up to 190 ms while the page coasted onto tiles nobody
+# had created yet: the screen went white. Painting itself was not slow
+# (median 0.4 ms a tile, the slowest 29 ms); the waiting was.
+#
+# Now:
+# - a layer's dirty tiles are painted in order: those on screen first (the
+#   visible rect, reaching 50 ms of travel ahead, as the main thread's
+#   visible rect trails a fling), then ahead of the scroll, nearest first,
+#   then the rest of the cover by distance;
+# - only the tiles on screen count for the composite of their update
+#   (CoordinatedSceneState's pending tiles); one painted off screen asks for
+#   a TileDrain composite, and SkiaBackingStore applies a tile's update once
+#   its buffer is painted, keeping a still-painting one (and those after it)
+#   for a later composite rather than showing it half-painted. The tile's
+#   list is taken before any update is applied: applied in place (the first
+#   version), a composite read an entry with no buffer and the compositor
+#   thread crashed on the first page; what changed the list under the loop
+#   was not found.
+#
+# Flinging fast down OSNews (Jolla Phone, with 0035): frames while coasting
+# with more than 5% of the screen unpainted 6-7% -> 1-2%, the worst 69-79% ->
+# 15-57%; rendering updates 26-32 -> 41-43 a second; the web compositor's
+# missed frames 3-4% -> 1%.
+#
+--- a/Source/WebCore/platform/graphics/skia/SkiaBackingStore.cpp
++++ b/Source/WebCore/platform/graphics/skia/SkiaBackingStore.cpp
+@@ -81,12 +81,13 @@ void SkiaBackingStore::processPendingTileUpdates()
+         return;
+ 
+     m_hasPaddedTiles = false;
++    bool stillPending = false;
+     for (auto& tile : m_tiles.values()) {
+-        tile.processPendingUpdateIfNeeded();
++        stillPending |= !tile.processPendingUpdateIfNeeded();
+         m_hasPaddedTiles |= tile.isPadded();
+     }
+ 
+-    m_hasPendingTileUpdates = false;
++    m_hasPendingTileUpdates = stillPending;
+ }
+ 
+ static inline bool allTileEdgesExposed(const FloatRect& totalRect, const FloatRect& tileRect)
+@@ -231,11 +232,25 @@ void SkiaBackingStore::Tile::scheduleUpdate(const IntRect& dirtyRect, const IntR
+     m_pendingUpdates.append({ tileRect, dirtyRect, Ref { buffer } });
+ }
+ 
+-void SkiaBackingStore::Tile::processPendingUpdateIfNeeded()
++bool SkiaBackingStore::Tile::processPendingUpdateIfNeeded()
+ {
+-    for (auto& pendingUpdate : m_pendingUpdates)
++    // Pacific (patch 0037): a tile painted ahead of a scroll can reach a
++    // composite before its buffer is painted (that composite waited only for
++    // the visible tiles); its update, and any after it, waits for a later
++    // composite instead of showing a half-painted buffer.
++    // The list is taken before any update is applied, so nothing update()
++    // does can change it under the loop.
++    auto pendingUpdates = std::exchange(m_pendingUpdates, { });
++    bool waiting = false;
++    for (auto& pendingUpdate : pendingUpdates) {
++        if (waiting || !pendingUpdate.buffer->isPaintingComplete()) {
++            waiting = true;
++            m_pendingUpdates.append(WTF::move(pendingUpdate));
++            continue;
++        }
+         update(pendingUpdate.dirtyRect, pendingUpdate.tileRect, pendingUpdate.buffer.get());
+-    m_pendingUpdates.clear();
++    }
++    return m_pendingUpdates.isEmpty();
+ }
+ 
+ void SkiaBackingStore::Tile::ensureTexture(const IntSize& size, CoordinatedTileBuffer& buffer)
+--- a/Source/WebCore/platform/graphics/skia/SkiaBackingStore.h
++++ b/Source/WebCore/platform/graphics/skia/SkiaBackingStore.h
+@@ -78,7 +78,8 @@ private:
+         ~Tile() = default;
+ 
+         void scheduleUpdate(const IntRect& dirtyRect, const IntRect& tileRect, CoordinatedTileBuffer&);
+-        void processPendingUpdateIfNeeded();
++        // Pacific (patch 0037): false while an update waits for its buffer.
++        bool processPendingUpdateIfNeeded();
+ 
+         const FloatRect& rect() const LIFETIME_BOUND { return m_rect; }
+         sk_sp<SkImage> image() const;
+--- a/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.cpp
++++ b/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.cpp
+@@ -566,11 +566,11 @@ Ref<SkiaRecordingResult> SkiaPaintingEngine::record(const GraphicsLayerCoordinat
+     return result;
+ }
+ 
+-Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordinated& layer, Ref<SkiaRecordingResult>&& recording, const IntRect& tileRect, const IntRect& dirtyRect, float lowResScale)
++Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordinated& layer, Ref<SkiaRecordingResult>&& recording, const IntRect& tileRect, const IntRect& dirtyRect, float lowResScale, bool gatesComposition)
+ {
+     // ### Asynchronous rendering on worker threads ###
+     Ref platformLayer = layer.coordinatedPlatformLayer();
+-    platformLayer->willPaintTile();
++    platformLayer->willPaintTile(gatesComposition);
+ 
+     sk_sp<GrContextThreadSafeProxy> threadSafeGrContext;
+     if (canUseDDL())
+@@ -589,7 +589,7 @@ Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordin
+     auto buffer = createBuffer(renderingMode, bufferSize, recording->contentsOpaque(), dirtyRect == tileRect && lowResScale >= 1.0f);
+     buffer->beginPainting();
+ 
+-    auto rasterTask = [platformLayer = WTF::move(platformLayer), buffer = Ref { buffer }, tileRect, dirtyRect, bufferSize, lowResScale, recording = WTF::move(recording), threadSafeGrContext = WTF::move(threadSafeGrContext)]() mutable {
++    auto rasterTask = [platformLayer = WTF::move(platformLayer), buffer = Ref { buffer }, tileRect, dirtyRect, bufferSize, lowResScale, recording = WTF::move(recording), threadSafeGrContext = WTF::move(threadSafeGrContext), gatesComposition]() mutable {
+         // WEBKIT_TILE_RESET_LOG>=2: log every whole-tile replay (a tile under a
+         // black band had exactly one, which came out black); >=3 also reads
+         // back three pixels right after playback. A missing canvas skips the
+@@ -671,7 +671,7 @@ Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordin
+         }
+ 
+         buffer->completePainting();
+-        platformLayer->didPaintTile();
++        platformLayer->didPaintTile(gatesComposition);
+     };
+ 
+     // Route GPU rasterization to the compositor thread when enabled (see header).
+--- a/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.h
++++ b/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.h
+@@ -102,7 +102,7 @@ public:
+     // scroll; the smaller tile texture is bilinear-upscaled to its full on-screen
+     // rect at composite time (see CoordinatedBackingStore). Quadratic raster/fill
+     // saving. Ignored for DDL buffers, which are always tile-sized.
+-    Ref<CoordinatedTileBuffer> replay(const GraphicsLayerCoordinated&, Ref<SkiaRecordingResult>&&, const IntRect& tileRect, const IntRect& dirtyRect, float lowResScale = 1.0f);
++    Ref<CoordinatedTileBuffer> replay(const GraphicsLayerCoordinated&, Ref<SkiaRecordingResult>&&, const IntRect& tileRect, const IntRect& dirtyRect, float lowResScale = 1.0f, bool gatesComposition = true);
+ 
+ private:
+     Ref<CoordinatedTileBuffer> createBuffer(RenderingMode, const IntSize&, bool contentsOpaque, bool wholeTile = false) const;
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.cpp
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.cpp
+@@ -788,11 +788,44 @@ OptionSet<CoordinatedBackingStoreProxy::UpdateResult> CoordinatedBackingStorePro
+         auto recording = paintingEngine.record(*layer.owner(), tileDirtyRectUnion, contentsOpaque, contentsScale, dirtyTilesCount);
+ #endif
+ 
+-        unsigned dirtyTileIndex = 0;
++        // Pacific (patch 0037): the tiles on screen are painted first and are
++        // the only ones the composite of this update waits for (the main
++        // thread's next rendering update waits for that composite). Before,
++        // every dirty tile of every layer gated it, in hash order: during a
++        // fast fling on OSNews a batch of 13-36 tiles held the next update
++        // back up to 190 ms while the screen ran onto unpainted tiles. A tile
++        // off screen (painted ahead of the scroll, or of the cover around a
++        // resting page) is applied by a later composite once painted
++        // (SkiaBackingStore). "On screen" reaches 50 ms of travel ahead, as
++        // the main thread's visible rect trails a fling.
++        IntRect urgentRect = m_visibleRect;
++        const float velocity = scrollVelocityY();
++        if (velocity) {
++            int lead = static_cast<int>(std::abs(velocity) * 0.05f);
++            urgentRect.setHeight(urgentRect.height() + lead);
++            if (velocity < 0)
++                urgentRect.move(0, -lead);
++        }
++        Vector<Tile*, 32> dirtyTiles;
+         for (auto& tile : m_tiles.values()) {
+-            if (!tile.isDirty())
+-                continue;
++            if (tile.isDirty())
++                dirtyTiles.append(&tile);
++        }
++        auto paintOrder = [&](const Tile& tile) -> int64_t {
++            if (tile.rect.intersects(urgentRect))
++                return 0;
++            int ahead = velocity >= 0 ? tile.rect.y() - urgentRect.maxY() : urgentRect.y() - tile.rect.maxY();
++            if (velocity && ahead >= 0)
++                return 1 + ahead;
++            return (int64_t { 1 } << 32) + std::abs(tile.rect.center().y() - m_visibleRect.center().y());
++        };
++        std::stable_sort(dirtyTiles.begin(), dirtyTiles.end(), [&](const Tile* a, const Tile* b) {
++            return paintOrder(*a) < paintOrder(*b);
++        });
+ 
++        unsigned dirtyTileIndex = 0;
++        for (auto* dirtyTile : dirtyTiles) {
++            auto& tile = *dirtyTile;
+             WTFBeginSignpost(this, UpdateTile, "%u/%u, id: %d, rect: %ix%i+%i+%i, dirty: %ix%i+%i+%i", ++dirtyTileIndex, dirtyTilesCount, tile.id,
+                 tile.rect.x(), tile.rect.y(), tile.rect.width(), tile.rect.height(), tile.dirtyRect.x(), tile.dirtyRect.y(), tile.dirtyRect.width(), tile.dirtyRect.height());
+ 
+@@ -811,7 +844,7 @@ OptionSet<CoordinatedBackingStoreProxy::UpdateResult> CoordinatedBackingStorePro
+                 : 1.0f;
+ 
+ #if USE(SKIA)
+-            auto buffer = paintingEngine.replay(*layer.owner(), recording.copyRef(), tile.rect, tile.dirtyRect, lowResScale);
++            auto buffer = paintingEngine.replay(*layer.owner(), recording.copyRef(), tile.rect, tile.dirtyRect, lowResScale, tile.rect.intersects(urgentRect));
+             // replay() ignores the scale for DDL buffers; track what was actually painted.
+             if (buffer->size() == tile.rect.size())
+                 lowResScale = 1.0f;
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedPlatformLayer.cpp
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedPlatformLayer.cpp
+@@ -973,18 +973,18 @@ int CoordinatedPlatformLayer::maxTextureSize() const
+     return m_client ? m_client->maxTextureSize() : 0;
+ }
+ 
+-void CoordinatedPlatformLayer::willPaintTile()
++void CoordinatedPlatformLayer::willPaintTile(bool gatesComposition)
+ {
+     ASSERT(isMainThread());
+     ASSERT(m_client);
+-    m_client->willPaintTile();
++    m_client->willPaintTile(gatesComposition);
+ }
+ 
+-void CoordinatedPlatformLayer::didPaintTile()
++void CoordinatedPlatformLayer::didPaintTile(bool gatesComposition)
+ {
+     // Could be called from painting threads.
+     if (m_client)
+-        m_client->didPaintTile();
++        m_client->didPaintTile(gatesComposition);
+ }
+ 
+ #if USE(SKIA)
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedPlatformLayer.h
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedPlatformLayer.h
+@@ -85,8 +85,11 @@ public:
+         virtual void requestComposition(CompositionReason) = 0;
+         virtual RunLoop* compositingRunLoop() const = 0;
+         virtual int maxTextureSize() const = 0;
+-        virtual void willPaintTile() = 0;
+-        virtual void didPaintTile() = 0;
++        // Pacific (patch 0037): gatesComposition is false for a tile off the
++        // screen (painted ahead of a scroll), which the composite of its
++        // rendering update does not wait for.
++        virtual void willPaintTile(bool gatesComposition) = 0;
++        virtual void didPaintTile(bool gatesComposition) = 0;
+     };
+ 
+     static Ref<CoordinatedPlatformLayer> create();
+@@ -209,8 +212,8 @@ public:
+     RunLoop* compositingRunLoop() const;
+     int maxTextureSize() const;
+ 
+-    void willPaintTile();
+-    void didPaintTile();
++    void willPaintTile(bool gatesComposition);
++    void didPaintTile(bool gatesComposition);
+     void waitUntilPaintingComplete();
+ 
+ private:
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
+@@ -553,15 +553,24 @@ int LayerTreeHost::maxTextureSize() const
+     return m_compositor->maxTextureSize();
+ }
+ 
+-void LayerTreeHost::willPaintTile()
++void LayerTreeHost::willPaintTile(bool gatesComposition)
+ {
+-    m_sceneState->willPaintTile();
++    if (gatesComposition)
++        m_sceneState->willPaintTile();
+ }
+ 
+-void LayerTreeHost::didPaintTile()
++void LayerTreeHost::didPaintTile(bool gatesComposition)
+ {
+-    m_sceneState->didPaintTile();
+-    m_compositor->pendingTilesDidChange();
++    if (gatesComposition) {
++        m_sceneState->didPaintTile();
++        m_compositor->pendingTilesDidChange();
++        return;
++    }
++    // Pacific (patch 0037): a tile painted ahead of a scroll is applied by
++    // the next composite of any kind (SkiaBackingStore keeps a still-painting
++    // update for later); ask for one, as nothing may be due while the page
++    // rests.
++    m_compositor->requestComposition(CompositionReason::TileDrain);
+ }
+ 
+ Ref<CoordinatedImageBackingStore> LayerTreeHost::imageBackingStore(Ref<NativeImage>&& nativeImage)
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.h
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.h
+@@ -103,8 +103,8 @@ private:
+     void requestComposition(WebCore::CompositionReason) override;
+     RunLoop* compositingRunLoop() const override;
+     int maxTextureSize() const override;
+-    void willPaintTile() override;
+-    void didPaintTile() override;
++    void willPaintTile(bool gatesComposition) override;
++    void didPaintTile(bool gatesComposition) override;
+ 
+     // GraphicsLayerFactory
+     Ref<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayer::Type, WebCore::GraphicsLayerClient&) override;
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHostPlayStation.h
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/LayerTreeHostPlayStation.h
+@@ -154,8 +154,8 @@ private:
+     void requestComposition(WebCore::CompositionReason) override;
+     RunLoop* compositingRunLoop() const override;
+     int maxTextureSize() const override;
+-    void willPaintTile() override { };
+-    void didPaintTile() override { };
++    void willPaintTile(bool) override { };
++    void didPaintTile(bool) override { };
+ 
+     // GraphicsLayerFactory
+     Ref<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayer::Type, WebCore::GraphicsLayerClient&) override;

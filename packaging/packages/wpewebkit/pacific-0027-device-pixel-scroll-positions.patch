@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Scroll positions snap to device pixels, not CSS pixels.
+#
+# ThreadedScrollingTreeScrollingNodeDelegate::adjustedScrollPosition()
+# rounded every position the scrolling thread gives (drags, flings) to a
+# whole CSS pixel. At the Jolla Phone's scale that is 2.5 of the panel's
+# pixels, so a slow drag stepped unevenly and a fling ended in visible
+# jumps (1 px, 1 px, none, 1 px). Positions now round to a device pixel
+# (ThreadedScrollingTree::devicePixelScale(), which ThreadedCompositor sets
+# from the page's device scale factor): every tile still lands on whole
+# pixels, so text stays sharp. PACIFIC_DEVICE_PIXEL_SCROLL=0 rounds to CSS
+# pixels, as upstream.
+#
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -1076,6 +1076,19 @@ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
+     }
+ }
+ 
++static std::atomic<float> s_devicePixelScale { 1 };
++
++void ThreadedScrollingTree::setDevicePixelScale(float scale)
++{
++    if (scale > 0)
++        s_devicePixelScale = scale;
++}
++
++float ThreadedScrollingTree::devicePixelScale()
++{
++    return s_devicePixelScale;
++}
++
+ bool ThreadedScrollingTree::frameDidComplete(Function<void()>&& tickDone)
+ {
+     m_lastFrameTick = MonotonicTime::now().secondsSinceEpoch().value();
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
+@@ -61,6 +61,12 @@ public:
+     // scrolling thread after it.
+     bool frameDidComplete(Function<void()>&& tickDone = { });
+ 
++    // Pacific (patch 0027): device pixels per CSS pixel, which scroll
++    // positions snap to (ThreadedScrollingTreeScrollingNodeDelegate::
++    // adjustedScrollPosition); the compositor sets it from the page's scale.
++    WEBCORE_EXPORT static void setDevicePixelScale(float);
++    static float devicePixelScale();
++
+     // Pacific (patch 0009): touch scrolling resampled to the display's
+     // frames. A drag's moves arrive at the touchscreen's rate (110-125 Hz)
+     // against a 90 Hz panel, so applying each as it came moved one frame by
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTreeScrollingNodeDelegate.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTreeScrollingNodeDelegate.cpp
+@@ -34,6 +34,9 @@
+ #include "ScrollingTree.h"
+ #include "ScrollingTreeFrameScrollingNode.h"
+ #include "ScrollingTreeScrollingNode.h"
++#include "ThreadedScrollingTree.h"
++#include <cstdlib>
++#include <cstring>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebCore {
+@@ -221,7 +224,19 @@ void ThreadedScrollingTreeScrollingNodeDelegate::removeWheelEventTestCompletionD
+ 
+ FloatPoint ThreadedScrollingTreeScrollingNodeDelegate::adjustedScrollPosition(const FloatPoint& position) const
+ {
+-    return { roundf(position.x()), roundf(position.y()) };
++    // Pacific (patch 0027): to device pixels, not CSS pixels. At the Jolla
++    // Phone's scale a CSS pixel is 2.5 of the panel's, so a slow drag and a
++    // fling's last frames moved in visible jumps (1 px, then 2, then none);
++    // a device pixel still lands each tile on whole pixels, so text stays
++    // sharp. PACIFIC_DEVICE_PIXEL_SCROLL=0 rounds to CSS pixels, as upstream.
++    static const bool devicePixels = [] {
++        const char* env = getenv("PACIFIC_DEVICE_PIXEL_SCROLL");
++        return !env || strcmp(env, "0");
++    }();
++    float scale = devicePixels ? ThreadedScrollingTree::devicePixelScale() : 1;
++    if (scale <= 1)
++        return { roundf(position.x()), roundf(position.y()) };
++    return { roundf(position.x() * scale) / scale, roundf(position.y() * scale) / scale };
+ }
+ 
+ void ThreadedScrollingTreeScrollingNodeDelegate::handleKeyboardScrollRequest(const RequestedKeyboardScrollData& scrollData)
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
+@@ -993,6 +993,10 @@ void ThreadedCompositor::updateSceneAttributes(const IntSize& size, float device
+ {
+     m_attributes.viewportSize = size;
+     m_attributes.deviceScaleFactor = deviceScaleFactor;
++#if ENABLE(SCROLLING_THREAD)
++    // Patch 0027: scroll positions snap to this page's device pixels.
++    WebCore::ThreadedScrollingTree::setDevicePixelScale(deviceScaleFactor);
++#endif
+     m_attributes.viewportSize.scale(m_attributes.deviceScaleFactor);
+ }
+ 

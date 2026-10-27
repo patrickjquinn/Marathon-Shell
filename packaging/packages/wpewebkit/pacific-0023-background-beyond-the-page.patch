@@ -1,0 +1,238 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The page's background goes on past the document, under the toolbar too.
+#
+# Pacific's toolbar floats over the bottom of the page and patch 0012
+# keeps the layout viewport above it. On the Jolla Phone the view is 882
+# CSS px tall and the layout viewport 817; on a short page with
+# body { background: #2f3337 } the 65 px under the toolbar were white, so
+# the frosted toolbar looked light grey on a dark site and a white band
+# showed as it slid away. The same white showed past the end of any page
+# scrolled to its end.
+#
+# WebKit already extends the root background beyond the document:
+# Settings::backgroundShouldExtendBeyondPage() is on by default
+# (WebPageProxy's m_backgroundExtendsBeyondPage starts true, on every
+# port), RenderView paints the document's background colour where the
+# base background would go, and RenderLayerCompositor keeps the colour as
+# m_rootExtendedBackgroundColor. But past the document only the Cocoa
+# ports show it: the Mac in its overhang areas layer (HAVE(RUBBER_BANDING))
+# and WKWebView under the page. On WPE nothing was there but the
+# compositor's clear colour. And LocalFrameView::insetClipLayerRect() cut
+# the bottom and right obscured insets out of the frame's clip wherever
+# they lay past the document, so nothing in the page could paint there.
+#
+# On WPE the clip now keeps those insets, and two layers with the extended
+# background colour as solid contents sit against the document's top and
+# bottom edges in the frame's scrolled contents layer, a view's height
+# deep and at least a view wide. They move with the document on the
+# scrolling thread, so the band is right during a fling too, and they
+# paint nothing the document covers (no overdraw on the Adreno, which has
+# no hidden-surface removal for it). The top one covers a scroll above the
+# document's start; WPE does not rubber-band, so today that only happens
+# with a top obscured inset. The colour is the page's
+# underPageBackgroundColorOverride when set, else the document's
+# background colour (the base background blended in), none for a
+# transparent view.
+#
+--- a/Source/WebCore/page/LocalFrameView.cpp
++++ b/Source/WebCore/page/LocalFrameView.cpp
+@@ -2746,6 +2746,15 @@ FloatRect LocalFrameView::insetClipLayerRect(const FloatPoint& scrollPosition, c
+     if (obscuredContentInset.top())
+         adjustedSize.setHeight(std::max(0.f, adjustedSize.height() - position.y()));
+ 
++    if (obscuredContentInset.left())
++        adjustedSize.setWidth(std::max(0.f, adjustedSize.width() - position.x()));
++
++    // Pacific (patch 0023): WPE keeps the bottom and right insets inside the
++    // clip, so the page's extended background shows under the embedder's
++    // controls past the end of the document (RenderLayerCompositor::
++    // updateExtendedBackgroundLayers()). The Mac clips it off and its view
++    // paints the colour there itself.
++#if !PLATFORM(WPE)
+     if (obscuredContentInset.bottom()) {
+         float visibleContentTop = std::max(0.f, scrollPosition.y());
+         float visibleContentBottom = visibleContentTop + sizeForVisibleContent.height();
+@@ -2755,9 +2764,6 @@ FloatRect LocalFrameView::insetClipLayerRect(const FloatPoint& scrollPosition, c
+         adjustedSize.setHeight(std::max(0.f, adjustedSize.height() - obscuredInsetOverlap));
+     }
+ 
+-    if (obscuredContentInset.left())
+-        adjustedSize.setWidth(std::max(0.f, adjustedSize.width() - position.x()));
+-
+     if (obscuredContentInset.right()) {
+         float visibleContentLeft = std::max(0.f, scrollPosition.x());
+         float visibleContentRight = visibleContentLeft + sizeForVisibleContent.width();
+@@ -2766,6 +2772,9 @@ FloatRect LocalFrameView::insetClipLayerRect(const FloatPoint& scrollPosition, c
+ 
+         adjustedSize.setWidth(std::max(0.f, adjustedSize.width() - obscureInsetOverlap));
+     }
++#else
++    UNUSED_PARAM(totalContentsSize);
++#endif
+ 
+     return { position, adjustedSize };
+ }
+--- a/Source/WebCore/rendering/RenderLayerCompositor.cpp
++++ b/Source/WebCore/rendering/RenderLayerCompositor.cpp
+@@ -570,6 +570,10 @@ RenderLayerCompositor::~RenderLayerCompositor()
+     
+     GraphicsLayer::unparentAndClear(m_clipLayer);
+     GraphicsLayer::unparentAndClear(m_scrollContainerLayer);
++#if PLATFORM(WPE)
++    GraphicsLayer::unparentAndClear(m_layerForExtendedBackgroundAbove);
++    GraphicsLayer::unparentAndClear(m_layerForExtendedBackgroundBelow);
++#endif
+     GraphicsLayer::unparentAndClear(m_scrolledContentsLayer);
+ 
+     GraphicsLayer::unparentAndClear(m_overflowControlsHostLayer);
+@@ -2835,6 +2839,9 @@ void RenderLayerCompositor::frameViewDidChangeSize()
+ 
+     if (m_scrolledContentsLayer) {
+         updateScrollLayerClipping();
++#if PLATFORM(WPE)
++        updateExtendedBackgroundLayers();
++#endif
+         frameViewDidScroll();
+         updateOverflowControlsLayers();
+ 
+@@ -2908,6 +2915,48 @@ void RenderLayerCompositor::updateScrollLayerClipping()
+ #endif
+ }
+ 
++#if PLATFORM(WPE)
++// Pacific (patch 0023): WebKit extends the page's background beyond the
++// document (Settings::backgroundShouldExtendBeyondPage(), which WebPageProxy
++// turns on by default) through m_rootExtendedBackgroundColor, but only the
++// Cocoa ports show it: the Mac paints it in its overhang areas layer and
++// WKWebView under the page. On WPE what the document did not cover was the
++// compositor's clear colour, white: the band under the embedder's toolbar
++// (the obscured content insets) at the end of a page, behind a short page,
++// and any overscroll. Two layers with the colour as solid contents sit
++// against the document's top and bottom edges in the scrolled contents, so
++// they move with it on the scrolling thread and paint nothing the document
++// covers. Each is a view's height deep, enough for any gap.
++void RenderLayerCompositor::updateExtendedBackgroundLayers()
++{
++    RefPtr above = m_layerForExtendedBackgroundAbove;
++    RefPtr below = m_layerForExtendedBackgroundBelow;
++    if (!above || !below || !m_rootContentsLayer)
++        return;
++
++    Color color;
++    if (m_renderView.settings().backgroundShouldExtendBeyondPage()) {
++        color = page().underPageBackgroundColorOverride();
++        if (!color.isValid())
++            color = m_rootExtendedBackgroundColor;
++    }
++
++    Ref frameView = m_renderView.frameView();
++    auto contentsSize = FloatSize(frameView->contentsSize());
++    auto viewSize = FloatSize(frameView->frameRect().size());
++    FloatSize bandSize { std::max(contentsSize.width(), viewSize.width()), viewSize.height() };
++    auto origin = RefPtr { m_rootContentsLayer }->position();
++
++    above->setPosition({ origin.x(), origin.y() - bandSize.height() });
++    below->setPosition({ origin.x(), origin.y() + contentsSize.height() });
++    for (RefPtr layer : { above, below }) {
++        layer->setSize(bandSize);
++        layer->setContentsRect({ { }, bandSize });
++        layer->setContentsToSolidColor(color.isVisible() ? color : Color());
++    }
++}
++#endif
++
+ FloatRect RenderLayerCompositor::insetClipLayerRect() const
+ {
+     Ref frameView = m_renderView.frameView();
+@@ -3252,6 +3301,9 @@ void RenderLayerCompositor::updateRootLayerPosition()
+     }
+ 
+     updateScrollLayerClipping();
++#if PLATFORM(WPE)
++    updateExtendedBackgroundLayers();
++#endif
+ 
+ #if HAVE(RUBBER_BANDING)
+     if (m_contentShadowLayer && m_rootContentsLayer) {
+@@ -5035,6 +5087,9 @@ void RenderLayerCompositor::rootBackgroundColorOrTransparencyChanged()
+         updateLayerForOverhangAreasBackgroundColor();
+ #endif
+         updateRootContentsLayerBackgroundColor();
++#if PLATFORM(WPE)
++        updateExtendedBackgroundLayers();
++#endif
+     }
+     
+     rootLayerConfigurationChanged();
+@@ -5232,6 +5287,21 @@ void RenderLayerCompositor::ensureRootLayer()
+ 
+             RefPtr { m_scrolledContentsLayer }->addChild(*m_rootContentsLayer);
+ 
++#if PLATFORM(WPE)
++            if (isMainFrameCompositor()) {
++                m_layerForExtendedBackgroundAbove = GraphicsLayer::create(graphicsLayerFactory(), *this);
++                m_layerForExtendedBackgroundAbove->setName(MAKE_STATIC_STRING_IMPL("extended background above"));
++                m_layerForExtendedBackgroundBelow = GraphicsLayer::create(graphicsLayerFactory(), *this);
++                m_layerForExtendedBackgroundBelow->setName(MAKE_STATIC_STRING_IMPL("extended background below"));
++                for (RefPtr layer : { m_layerForExtendedBackgroundAbove, m_layerForExtendedBackgroundBelow }) {
++                    layer->setDrawsContent(false);
++                    layer->setAnchorPoint({ });
++                    RefPtr { m_scrolledContentsLayer }->addChildBelow(*layer, m_rootContentsLayer.get());
++                }
++                updateExtendedBackgroundLayers();
++            }
++#endif
++
+             updateScrollLayerClipping();
+             updateOverflowControlsLayers();
+ 
+@@ -5245,6 +5315,10 @@ void RenderLayerCompositor::ensureRootLayer()
+             GraphicsLayer::unparentAndClear(m_overflowControlsHostLayer);
+             GraphicsLayer::unparentAndClear(m_clipLayer);
+             GraphicsLayer::unparentAndClear(m_scrollContainerLayer);
++#if PLATFORM(WPE)
++            GraphicsLayer::unparentAndClear(m_layerForExtendedBackgroundAbove);
++            GraphicsLayer::unparentAndClear(m_layerForExtendedBackgroundBelow);
++#endif
+             GraphicsLayer::unparentAndClear(m_scrolledContentsLayer);
+         }
+     }
+@@ -5294,6 +5368,10 @@ void RenderLayerCompositor::destroyRootLayer()
+         GraphicsLayer::unparentAndClear(m_overflowControlsHostLayer);
+         GraphicsLayer::unparentAndClear(m_clipLayer);
+         GraphicsLayer::unparentAndClear(m_scrollContainerLayer);
++#if PLATFORM(WPE)
++        GraphicsLayer::unparentAndClear(m_layerForExtendedBackgroundAbove);
++        GraphicsLayer::unparentAndClear(m_layerForExtendedBackgroundBelow);
++#endif
+         GraphicsLayer::unparentAndClear(m_scrolledContentsLayer);
+     }
+     ASSERT(!m_scrolledContentsLayer);
+--- a/Source/WebCore/rendering/RenderLayerCompositor.h
++++ b/Source/WebCore/rendering/RenderLayerCompositor.h
+@@ -520,6 +520,9 @@ private:
+ 
+     void updateScrollLayerPosition();
+     void updateScrollLayerClipping();
++#if PLATFORM(WPE)
++    void updateExtendedBackgroundLayers();
++#endif
+ 
+     FloatRect insetClipLayerRect() const;
+ 
+@@ -672,6 +675,13 @@ private:
+     // Enclosing layer for overflow controls and the clipping layer
+     RefPtr<GraphicsLayer> m_overflowControlsHostLayer;
+ 
++#if PLATFORM(WPE)
++    // Pacific (patch 0023): the page's background above and below the
++    // document, in the scrolled contents (see updateExtendedBackgroundLayers()).
++    RefPtr<GraphicsLayer> m_layerForExtendedBackgroundAbove;
++    RefPtr<GraphicsLayer> m_layerForExtendedBackgroundBelow;
++#endif
++
+     // Layers for overflow controls
+     RefPtr<GraphicsLayer> m_layerForHorizontalScrollbar;
+     RefPtr<GraphicsLayer> m_layerForVerticalScrollbar;

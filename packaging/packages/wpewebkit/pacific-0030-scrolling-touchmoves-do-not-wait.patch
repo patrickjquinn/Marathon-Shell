@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Once a touch scroll is under way, its touchmoves do not wait for the page.
+#
+# With a non-passive touch listener under the finger, EventDispatcher sent
+# every touchmove to the main thread and the drag waited for each answer. On
+# OSNews a 90 ms repaint on the main thread froze a steady drag 365 ms in
+# (patch 0028 took pointer listeners out of this; this is the touch listener
+# behind them). As in Chrome, where such touchmoves are no longer cancelable,
+# and Safari, the touchmoves of a sequence that is scrolling (one past a
+# 12 css px slop went unhandled) are answered at once and still reach the
+# page from the main thread. The first ones wait as before, so a carousel can
+# still claim the gesture. PACIFIC_TOUCHMOVE_ALWAYS_WAITS=1 waits for every
+# one, as upstream.
+#
+--- a/Source/WebKit/WebProcess/WebPage/EventDispatcher.cpp
++++ b/Source/WebKit/WebProcess/WebPage/EventDispatcher.cpp
+@@ -63,6 +63,9 @@
+ #include <WebCore/ThreadedScrollingTree.h>
+ #include <cstdlib>
+ #include <cstring>
++#include <cmath>
++#include <cstdio>
++#include <ctime>
+ #endif
+ 
+ namespace WebKit {
+@@ -392,16 +395,67 @@ void EventDispatcher::touchEvent(PageIdentifier pageID, FrameIdentifier frameID,
+ 
+     auto trackingType = scrollingTree->eventTrackingTypeForTouchEvent(platform(touchEvent));
+ 
++    // Pacific (patch 0030): once a touch scroll is under way, its touchmoves
++    // no longer wait for the page, as in Chrome (they cannot cancel it) and
++    // Safari. A page with a non-passive touch listener made every touchmove
++    // of a drag wait for the main thread's answer, and on OSNews a 90 ms
++    // repaint there froze a steady drag 365 ms in. The first touchmoves, up
++    // to the slop and past it until one goes unhandled, still wait, so a
++    // carousel can still claim the gesture; later ones reach the page all the
++    // same. PACIFIC_TOUCHMOVE_ALWAYS_WAITS=1 waits for every one, as upstream.
++    static const bool touchMoveAlwaysWaits = [] {
++        const char* env = getenv("PACIFIC_TOUCHMOVE_ALWAYS_WAITS");
++        return env && !strcmp(env, "1");
++    }();
++    bool pastSlop = false;
++    if (!touchEvent.touchPoints().isEmpty()) {
++        auto position = touchEvent.touchPoints()[0].position();
++        if (touchEvent.type() == WebEventType::TouchStart) {
++            m_touchScrolling = false;
++            m_touchStartX = position.x();
++            m_touchStartY = position.y();
++        } else {
++            constexpr double scrollSlop = 12; // css px, as WebEventFactory scales them
++            pastSlop = std::abs(position.x() - m_touchStartX) > scrollSlop || std::abs(position.y() - m_touchStartY) > scrollSlop;
++        }
++    }
++    bool isMove = touchEvent.type() == WebEventType::TouchMove;
++    if (isMove && trackingType == TrackingType::Synchronous && m_touchScrolling && !touchMoveAlwaysWaits)
++        trackingType = TrackingType::Asynchronous;
++    // ATLANTIC_FRAME_TRACE=1: each touch event's routing, and when the page
++    // answers one that waited ("touchack").
++    static const bool trace = [] {
++        const char* env = getenv("ATLANTIC_FRAME_TRACE");
++        return env && *env && *env != '0';
++    }();
++    auto traceNow = [] {
++        struct timespec ts;
++        clock_gettime(CLOCK_MONOTONIC, &ts);
++        return ts.tv_sec * 1000.0 + ts.tv_nsec / 1.0e6;
++    };
++    if (trace)
++        fprintf(stderr, "[ftrace] web touch type=%d track=%d slop=%d scrolling=%d t=%.1f\n", static_cast<int>(touchEvent.type()), static_cast<int>(trackingType), pastSlop ? 1 : 0, m_touchScrolling ? 1 : 0, traceNow());
++
+     if (trackingType == TrackingType::NotTracking) {
++        if (isMove && pastSlop)
++            m_touchScrolling = true;
+         completionHandler(touchEvent.type(), false);
+         return;
+     }
+     if (trackingType == TrackingType::Asynchronous) {
++        if (isMove && pastSlop)
++            m_touchScrolling = true;
+         completionHandler(touchEvent.type(), false);
+         dispatchTouchEventViaMainThread(pageID, touchEvent, nullptr);
+         return;
+     }
+-    dispatchTouchEventViaMainThread(pageID, touchEvent, WTF::move(completionHandler));
++    dispatchTouchEventViaMainThread(pageID, touchEvent, [protectedThis = Ref { *this }, isMove, pastSlop, traceNow, completionHandler = WTF::move(completionHandler)](WebEventType type, bool handled) mutable {
++        if (isMove && pastSlop && !handled)
++            protectedThis->m_touchScrolling = true;
++        if (trace)
++            fprintf(stderr, "[ftrace] web touchack handled=%d t=%.1f\n", handled ? 1 : 0, traceNow());
++        completionHandler(type, handled);
++    });
+ }
+ #endif
+ 
+--- a/Source/WebKit/WebProcess/WebPage/EventDispatcher.h
++++ b/Source/WebKit/WebProcess/WebPage/EventDispatcher.h
+@@ -35,6 +35,7 @@
+ #include <WebCore/RectEdges.h>
+ #include <WebCore/ScrollingCoordinatorTypes.h>
+ #include <WebCore/WheelEventDeltaFilter.h>
++#include <atomic>
+ #include <memory>
+ #include <wtf/CheckedRef.h>
+ #include <wtf/HashMap.h>
+@@ -128,6 +129,13 @@ private:
+ #elif ENABLE(COORDINATED_TOUCH_EVENTS)
+     void dispatchTouchEventViaMainThread(WebCore::PageIdentifier, const WebTouchEvent&, CompletionHandler<void(WebEventType, bool)>&&);
+     void touchEvent(WebCore::PageIdentifier, WebCore::FrameIdentifier, const WebTouchEvent&, CompletionHandler<void(WebEventType, bool)>&&);
++    // Pacific (patch 0030): the touch sequence is scrolling (a touchmove past
++    // the slop went unhandled): its later touchmoves do not wait for the page.
++    // The finger's position at its touchstart. EventDispatcher thread, but
++    // m_touchScrolling, which the main thread sets.
++    std::atomic<bool> m_touchScrolling { false };
++    double m_touchStartX { 0 };
++    double m_touchStartY { 0 };
+ #endif
+ #if ENABLE(MAC_GESTURE_EVENTS)
+     void gestureEvent(WebCore::FrameIdentifier, WebCore::PageIdentifier, const WebGestureEvent&, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<WebCore::RemoteUserInputEventData>)>&&);

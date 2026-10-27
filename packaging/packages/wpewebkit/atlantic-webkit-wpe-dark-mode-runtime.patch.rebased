@@ -1,0 +1,119 @@
+# SPDX-FileCopyrightText: 2026 SpecSierra (atlantic-engine)
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  webkit-wpe-dark-mode-runtime.patch: runtime prefers-color-scheme switch.
+#  The legacy libwpe build hardwires SystemSettings darkMode to false, so
+#  websites always saw prefers-color-scheme: light. Exports
+#  wpe_sfos_set_dark_mode(int) for the embedder (browser wires it to the
+#  color_scheme dconf setting / Sailfish ambience) and gives ViewLegacy the
+#  ViewPlatform SystemSettings observer so live pages re-evaluate their
+#  color scheme without a reload.
+#
+# Pacific (build/patches/atlantic/, replaces Atlantic's at a91f8ec for WPE
+# WebKit 2.54.2): 2.54.1 makes ViewLegacy call windowScreenDidChange(1)
+# right after createWebPage() (so the UI process creates a display link with
+# a vblank monitor), which made the observer hunk apply with fuzz 2. The
+# observer goes in after that call; nothing else changed.
+#
+# ---
+Runtime dark-mode (prefers-color-scheme) switch for the legacy WPE API.
+
+The legacy (libwpe/WPEBackend-fdo) build has no platform settings backend:
+SystemSettingsManagerProxy::darkMode() is hardwired to false, so
+PageClientImpl::effectiveAppearanceIsDark() is always false and every website
+sees prefers-color-scheme: light, whatever the Sailfish ambience looks like.
+(The upstream runtime path only exists for ENABLE(WPE_PLATFORM) via
+WPESettings, and for GTK via GtkSettings.)
+
+Three pieces:
+
+1. wpe_sfos_set_dark_mode(int) — exported C entry point the embedder (the
+   Atlantic browser UI process) calls when its color-scheme setting or the
+   ambience changes. It stores darkMode into the global WebCore::SystemSettings
+   (the source of truth for effectiveAppearanceIsDark() and for the
+   useDarkAppearance creation parameter of new/relaunched web processes) and
+   broadcasts the change to running web processes.
+
+2. WKWPE::ViewLegacy now registers the same SystemSettings observer
+   ViewPlatform already has, so live pages get
+   WebPageProxy::effectiveAppearanceDidChange() -> SetUseColorAppearance and
+   re-evaluate prefers-color-scheme immediately, without a reload.
+
+3. The fallback SystemSettingsManagerProxy::darkMode() reports the current
+   SystemSettings value instead of false, so the settingsDidChange() run when
+   the first web view initializes the proxy cannot clobber a dark mode the
+   embedder set before that.
+
+Browser side: apps/core/settingmanager.cpp wires this to the
+/apps/atlantic-browser/settings/color_scheme dconf key (light / dark /
+follow ambience) and the ambience state reported by the QML root.
+diff --git a/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp b/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp
+--- a/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp
++++ b/Source/WebKit/UIProcess/API/wpe/WPEWebViewLegacy.cpp
+@@ -36,6 +36,7 @@
+ #include "NativeWebWheelEvent.h"
+ #include "TouchGestureController.h"
+ #include "WebPreferences.h"
++#include <WebCore/SystemSettings.h>
+ #include <wpe/wpe.h>
+ #include <wtf/NeverDestroyed.h>
+ 
+@@ -70,6 +71,13 @@ ViewLegacy::ViewLegacy(struct wpe_view_backend* backend, const API::PageConfigur
+     static constexpr WebCore::PlatformDisplayID legacyDisplayID = 1;
+     m_pageProxy->windowScreenDidChange(legacyDisplayID);
+ 
++    // SFOS: mirror ViewPlatform — repropagate the color appearance to the page
++    // when the system dark mode flips at runtime (wpe_sfos_set_dark_mode).
++    WebCore::SystemSettings::singleton().addObserver([this](const auto& state) {
++        if (state.darkMode)
++            page().effectiveAppearanceDidChange();
++    }, this);
++
+     static struct wpe_view_backend_client s_backendClient = {
+         // set_size
+         [](void* data, uint32_t width, uint32_t height)
+@@ -300,6 +308,7 @@ ViewLegacy::ViewLegacy(struct wpe_view_backend* backend, const API::PageConfigur
+ 
+ ViewLegacy::~ViewLegacy()
+ {
++    WebCore::SystemSettings::singleton().removeObserver(this);
+     wpe_view_backend_set_backend_client(m_backend, nullptr, nullptr);
+     wpe_view_backend_set_input_client(m_backend, nullptr, nullptr);
+     // Although the fullscreen client is used for libwpe 1.11.1 and newer, we cannot
+diff --git a/Source/WebKit/UIProcess/glib/SystemSettingsManagerProxy.cpp b/Source/WebKit/UIProcess/glib/SystemSettingsManagerProxy.cpp
+--- a/Source/WebKit/UIProcess/glib/SystemSettingsManagerProxy.cpp
++++ b/Source/WebKit/UIProcess/glib/SystemSettingsManagerProxy.cpp
+@@ -47,7 +47,11 @@ String SystemSettingsManagerProxy::themeName() const
+ 
+ bool SystemSettingsManagerProxy::darkMode() const
+ {
+-    return false;
++    // SFOS: no platform settings backend here — the embedder drives dark mode
++    // via wpe_sfos_set_dark_mode() below. Report the current SystemSettings
++    // value so settingsDidChange() (run when the first web view initializes
++    // this proxy) does not clobber an embedder value set earlier.
++    return SystemSettings::singleton().darkMode().value_or(false);
+ }
+ 
+ String SystemSettingsManagerProxy::fontName() const
+@@ -201,3 +205,19 @@ void SystemSettingsManagerProxy::settingsDidChange()
+ }
+ 
+ } // namespace WebKit
++
++// SFOS: runtime dark-mode switch for the legacy (libwpe) WPE API, which has no
++// platform settings backend (darkMode() above is hardwired to false). The
++// embedder calls this from the UI-process main thread; it updates the global
++// SystemSettings (source of truth for PageClientImpl::effectiveAppearanceIsDark
++// and new web-process creation parameters), notifies the web processes, and the
++// per-view SystemSettings observers push the new appearance to live pages.
++extern "C" __attribute__((visibility("default")))
++void wpe_sfos_set_dark_mode(int darkMode)
++{
++    WebCore::SystemSettings::State changedState;
++    changedState.darkMode = !!darkMode;
++    for (auto& processPool : WebKit::WebProcessPool::allProcessPools())
++        processPool->sendToAllProcesses(Messages::SystemSettingsManager::DidChange(changedState));
++    WebCore::SystemSettings::singleton().updateSettings(changedState);
++}

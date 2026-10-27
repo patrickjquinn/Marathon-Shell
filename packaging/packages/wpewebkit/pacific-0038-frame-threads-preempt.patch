@@ -1,0 +1,141 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# The threads that move the page get a CPU at once; painting gives way.
+#
+# Patch 0026 has a frame's composite wait for its scroll tick, at most 3 ms.
+# The tick runs on the scrolling thread, which the phone's Linux 6.12 EEVDF
+# scheduler often woke onto a CPU busy with a painting thread and left
+# waiting 3-5 ms (scheduler traces of the scrolling thread), so the composite
+# went without its tick and showed the last frame's position, and the next
+# frame moved twice as far: a still frame in a fling.
+#
+# Upstream raises UserInteractive threads (scrolling, compositing, event
+# dispatch) through rtkit (nice -20). Sailfish OS has no rtkit, its user
+# session sets RLIMIT_NICE to 1, and WTF's utilization clamp is refused
+# without CAP_SYS_NICE, so they ran as ordinary threads. Now, with no
+# privilege:
+# - they ask sched_setattr() for a 0.5 ms slice, so that a woken one may
+#   preempt a thread still within its 2.8 ms slice (RUN_TO_PARITY,
+#   PREEMPT_SHORT); kernels before 6.12 ignore it;
+# - painting threads run at nice 5: a woken thread with a debt to its CPU's
+#   other threads (it ran a moment ago) is not eligible to preempt them, short
+#   slice or not, until the debt is repaid or the next scheduler tick (4 ms at
+#   HZ=250), and against nice 5 it is repaid three times as fast.
+#
+# Flicking GitHub's awesome list on the Jolla Phone, 12 runs of 10 flings
+# each way (the same build, both settings undone by hand for the baseline,
+# the user session's RLIMIT_NICE): coasting frames that stood still between
+# moving ones 8 of 4691 before, 1 of 4520 now; frames missed on screen
+# unchanged (11 and 12).
+#
+--- a/Source/WTF/wtf/posix/ThreadingPOSIX.cpp
++++ b/Source/WTF/wtf/posix/ThreadingPOSIX.cpp
+@@ -320,8 +320,25 @@ struct SchedulingAttributes {
+     int niceLevel;
+     // DVFS floor, see s_utilizationScale
+     uint32_t minUtil;
++    // Pacific (patch 0038): the EEVDF time slice asked for, in ns (0: the
++    // kernel's default).
++    uint64_t slice;
+ };
+ 
++// Pacific (patch 0038): a UserInteractive thread (scrolling, compositing, the
++// event dispatcher) wakes for well under a millisecond of work a frame. On
++// Linux 6.12's EEVDF scheduler a thread woken onto a CPU that is running
++// another one waits until that one has used its slice (sched_base_slice,
++// 2.8 ms on the Jolla Phone, ticks every 4 ms), unless the woken thread asked
++// for a shorter slice than it (PREEMPT_SHORT). Painting threads held the
++// scrolling thread off its CPU 3-4 ms that way, often enough that the frame's
++// scroll tick came too late for its composite, which showed the last frame's
++// position. Upstream raises these threads through rtkit (nice -20), which
++// Sailfish OS lacks, and its user session allows no lower nice level. A
++// shorter slice needs no privilege and does not give the thread more CPU,
++// only an earlier turn; kernels before 6.12 ignore it.
++static constexpr uint64_t s_userInteractiveSlice = 500'000;
++
+ // The kernel's utilization scale, on which 1024 means a fully utilized CPU.
+ static constexpr uint32_t s_utilizationScale = 1024;
+ 
+@@ -329,14 +346,15 @@ static SchedulingAttributes schedulingAttributesForQOS(Thread::QOS qos)
+ {
+     switch (qos) {
+     case Thread::QOS::UserInteractive:
++        return { SCHED_OTHER, 0, s_utilizationScale, s_userInteractiveSlice };
+     case Thread::QOS::UserInitiated:
+-        return { SCHED_OTHER, 0, s_utilizationScale };
++        return { SCHED_OTHER, 0, s_utilizationScale, 0 };
+     case Thread::QOS::Default:
+-        return { SCHED_OTHER, 0, s_utilizationScale * 20 / 100 };
++        return { SCHED_OTHER, 0, s_utilizationScale * 20 / 100, 0 };
+     case Thread::QOS::Utility:
+-        return { SCHED_BATCH, 10, 0 };
++        return { SCHED_BATCH, 10, 0, 0 };
+     case Thread::QOS::Background:
+-        return { SCHED_IDLE, 19, 0 };
++        return { SCHED_IDLE, 19, 0, 0 };
+     }
+     RELEASE_ASSERT_NOT_REACHED();
+ }
+@@ -412,6 +430,7 @@ void Thread::updateSchedulingAttributes(SchedulingState state) const
+     schedAttr.policy = attributes.policy;
+     schedAttr.flags = SCHED_FLAG_RESET_ON_FORK;
+     schedAttr.nice = attributes.niceLevel;
++    schedAttr.runtime = attributes.slice;
+ 
+     auto setAttributes = [&] {
+         return !syscall(SYS_sched_setattr, m_id, &schedAttr, 0);
+--- a/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.cpp
++++ b/Source/WebCore/platform/graphics/skia/SkiaPaintingEngine.cpp
+@@ -85,8 +85,36 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+ 
+ #include <atomic>
+ 
++#if OS(LINUX)
++#include <sys/resource.h>
++#include <sys/syscall.h>
++#include <unistd.h>
++#endif
++
+ namespace WebCore {
+ 
++// Pacific (patch 0038): painting threads run at nice 5. They paint for tens of
++// milliseconds at a time, and the scrolling and compositing threads, which
++// wake each frame for a fraction of a millisecond, share CPUs with them. On
++// EEVDF a thread woken with a debt to its CPU's other threads (a scroll tick
++// that ran a moment ago) may not preempt, short slice or not, until the debt
++// is repaid or the next scheduler tick (4 ms at HZ=250); against a painting
++// thread at nice 5 it is repaid three times as fast. Those threads cannot
++// lower their own nice level (Sailfish OS's user session sets RLIMIT_NICE to
++// 1 and has no rtkit), but raising one's own needs no privilege. Painting
++// still has the CPUs to itself when nothing else wants them.
++static void lowerPaintingThreadPriority()
++{
++#if OS(LINUX)
++    static constexpr int paintingThreadNice = 5;
++    static thread_local bool lowered = false;
++    if (lowered)
++        return;
++    lowered = true;
++    setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), paintingThreadNice);
++#endif
++}
++
+ // ── Tile raster cost tracking ────────────────────────────────────────────────
+ // The scroll-degradation ladder (low-res tiles / checkerboard) currently decides
+ // whether to degrade from scroll SPEED alone. Speed is a geometry term: it says
+@@ -681,8 +709,12 @@ Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordin
+     // that composites it — no cross-context fence required.
+     if (rasterOnCompositorThread() && m_compositorRunLoop)
+         m_compositorRunLoop->dispatch(WTF::move(rasterTask));
+-    else
+-        m_paintingWorkerPool->postTask(WTF::move(rasterTask));
++    else {
++        m_paintingWorkerPool->postTask([rasterTask = WTF::move(rasterTask)]() mutable {
++            lowerPaintingThreadPriority();
++            rasterTask();
++        });
++    }
+ 
+     return buffer;
+ }

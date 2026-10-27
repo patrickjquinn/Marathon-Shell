@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A scaled WebP decode keeps its decoder config alive (a memory-safety fix
+# to Atlantic's webkit-image-subsampling).
+#
+# The scaled path declared its WebPDecoderConfig inside an if block and
+# passed it to WebPIDecode(), which keeps pointers to config.options and
+# config.output (libwebp copies neither: decode.h says the config "must
+# outlive the WebPIDecoder"). WebPIUpdate() then read them from a stack
+# frame that had ended, while decoding an image from the page: any page
+# could reach it with a WebP image large enough to be subsampled. The
+# config now lives for the whole function, past WebPIDelete().
+#
+--- a/Source/WebCore/platform/image-decoders/webp/WEBPImageDecoder.cpp
++++ b/Source/WebCore/platform/image-decoders/webp/WEBPImageDecoder.cpp
+@@ -210,11 +210,16 @@ void WEBPImageDecoder::decodeFrame(size_t frameIndex, WebPDemuxer* demuxer)
+     }
+ 
+     WebPIDecoder* decoder;
++    // Pacific (patch 0034): the config outlives the decoder. WebPIDecode()
++    // keeps pointers to config.options and config.output, and libwebp copies
++    // neither ("must outlive the WebPIDecoder", decode.h); declared inside the
++    // block below, WebPIUpdate() read them from a dead stack frame while
++    // decoding the page's image.
++    WebPDecoderConfig config;
+     if (useScaling) {
+         // WebPINewDecoder() takes no options, so the scaled path goes through a
+         // full WebPDecoderConfig. config.output is copied by value but keeps our
+         // is_external_memory pointer, so pixels still land in decoderBuffer.
+-        WebPDecoderConfig config;
+         if (!WebPInitDecoderConfig(&config)) {
+             setFailed();
+             return;

@@ -1,0 +1,224 @@
+# SPDX-FileCopyrightText: 2026 SpecSierra (atlantic-engine)
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# GStreamer / audio integration with Sailfish.
+# Merged from 5 patches: webkit-gst-buffer-tuning, webkit-gst-media-role-env,
+# webkit-gst-soup-referer, webkit-volume-locked-env,
+# webkit-gst-audio-system-clock.
+#
+#  - Buffering: GstQueue2 high-watermark, urisourcebin ring-buffer-max-size and
+#    uridecodebin buffer-size via WEBKIT_GST_QUEUE_HIGH_WATERMARK /
+#    WEBKIT_GST_RING_BUFFER_MAX_SIZE / WEBKIT_GST_URIDECODEBIN_BUFFER_SIZE.
+#  - media.role: WebKit hardcodes "video"/"music" on its audio sinks, but SFOS's
+#    system media volume (module-meego-mainvolume, the hardware volume keys) only
+#    steps streams whose media.role is in its route table — "x-maemo" on
+#    Sailfish. With the upstream roles the volume keys cannot attenuate browser
+#    audio at all. WEBKIT_GST_MEDIA_ROLE=x-maemo puts every browser stream in the
+#    system media-volume group. Device-proven: an x-maemo pacat stream tracks the
+#    volume step, "music"/"video" do not. PULSE_PROP_OVERRIDE cannot do this — it
+#    only sets the context proplist and WebKit's explicit per-stream role wins.
+#  - WEBKIT_VOLUME_LOCKED=1 completes that fix (upstream m_volumeLocked, the
+#    iPhone model): each new <video> creates a new pulse stream and WebKit
+#    stamped el.volume (1.0; YouTube sets it per video) onto it as an explicit
+#    stream volume, so every next video reset loudness to 100% instead of
+#    inheriting the mainvolume step (device-proven with pacat). Locked, page JS
+#    cannot change the stream volume (mute still works), el.volume mirrors the
+#    system volume, and new streams inherit the current step.
+#  - HLS Referer: forward the player's Referer to the souphttpsrc elements the
+#    adaptive demuxer spawns for variant/segment fetches — CDNs that validate it
+#    (phncdn: 412 without) killed native HLS right after the master manifest.
+#    WEBKIT_GST_NO_SOUP_REFERER=1 disables.
+#  - WEBKIT_GST_AUDIO_SYSTEM_CLOCK forces provide-clock=FALSE on the PulseAudio
+#    sink so the pipeline runs off the monotonic system clock. Fixes "YouTube
+#    sound stops after ~0.25 s": the libhybris pulsesink clock intermittently
+#    freezes when its stream is (re)corked across a mute/unmute or MSE re-init,
+#    deadlocking the slaved pipeline (audio cuts out, picture freezes).
+#
+# Internal ordering is load-bearing: the audio-system-clock hook extends the same
+# autoaudiosink "child-added" hook the media-role change installs.
+#
+# Pacific (build/patches/atlantic/, replaces Atlantic's at a91f8ec for WPE
+# WebKit 2.54.2): 2.54.1 casts the blob ring-buffer size it passes to
+# g_object_set() to guint64 (a varargs type fix); the line this patch replaces
+# changed with it. The replacement already passes a guint64; nothing else
+# changed.
+#
+# ---
+diff --git a/Source/WebCore/html/HTMLMediaElement.cpp b/Source/WebCore/html/HTMLMediaElement.cpp
+--- a/Source/WebCore/html/HTMLMediaElement.cpp
++++ b/Source/WebCore/html/HTMLMediaElement.cpp
+@@ -155,6 +155,7 @@
+ #include "WebCoreJSClientData.h"
+ #include <JavaScriptCore/JSObjectInlines.h>
+ #include <JavaScriptCore/Uint8Array.h>
++#include <cstdlib>
+ #include <limits>
+ #include <pal/SessionID.h>
+ #include <ranges>
+@@ -504,7 +505,15 @@ SUPPRESS_NODELETE static bool NODELETE defaultVolumeLocked()
+ #if PLATFORM(IOS)
+     return PAL::currentUserInterfaceIdiomIsSmallScreen();
+ #else
+-    return false;
++    // SFOS: WEBKIT_VOLUME_LOCKED=1 hands loudness to the system volume (the
++    // hardware keys / module-meego-mainvolume), the iPhone model: page JS
++    // el.volume writes don't touch the PulseAudio stream volume, so a new
++    // stream per video can't reset it back to 100%. Unset = upstream.
++    static bool locked = []() {
++        const char* env = std::getenv("WEBKIT_VOLUME_LOCKED");
++        return env && *env && *env != '0';
++    }();
++    return locked;
+ #endif
+ }
+ 
+diff --git a/Source/WebCore/platform/graphics/gstreamer/GStreamerCommon.cpp b/Source/WebCore/platform/graphics/gstreamer/GStreamerCommon.cpp
+--- a/Source/WebCore/platform/graphics/gstreamer/GStreamerCommon.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/GStreamerCommon.cpp
+@@ -1195,6 +1195,16 @@ bool gstElementFactoryEquals(GstElement* element, ASCIILiteral name)
+ 
+ GstElement* /* (transfer floating) */ createAutoAudioSink(const String& role)
+ {
++    // SFOS: route browser audio into the system media-volume group. The Nemo
++    // mainvolume policy (module-meego-mainvolume, driven by the hardware volume
++    // keys) only steps streams whose media.role is in its route table — "x-maemo"
++    // on Sailfish. WebKit's default "video"/"music" roles are ignored by it, so
++    // the volume keys cannot attenuate browser audio. WEBKIT_GST_MEDIA_ROLE forces
++    // a single media.role onto every audio sink. Unset = upstream behaviour.
++    String effectiveRole = role;
++    if (const char* envRole = std::getenv("WEBKIT_GST_MEDIA_ROLE"); envRole && *envRole)
++        effectiveRole = String::fromUTF8(envRole);
++
+     auto* audioSink = makeGStreamerElement("autoaudiosink"_s);
+     g_signal_connect_data(audioSink, "child-added", G_CALLBACK(+[](GstChildProxy*, GObject* object, gchar*, gpointer userData) {
+         auto* role = reinterpret_cast<StringImpl*>(userData);
+@@ -1210,7 +1220,24 @@ IGNORE_WARNINGS_END
+             auto& clientName = getApplicationName();
+             g_object_set(object, "client-name", clientName.ascii().data(), nullptr);
+         }
+-    }), role.isolatedCopy().releaseImpl().leakRef(), static_cast<GClosureNotify>([](gpointer userData, GClosure*) {
++        // SFOS: do not let the PulseAudio sink provide the pipeline clock. On the
++        // Xperia 10 II (libhybris PulseAudio) the pulsesink clock intermittently
++        // freezes after its stream is (re)corked across a mute/unmute or an MSE
++        // re-init: the stream cannot uncork until the audio clock advances, but the
++        // clock cannot advance until the stream uncorks — a deadlock. The pipeline,
++        // slaved to that frozen clock, then stalls (audio cuts out ~250 ms in and
++        // the picture freezes; device-reproduced on YouTube, sink-input left CORKED
++        // while the element reports playing+unmuted). Forcing provide-clock=FALSE
++        // makes the pipeline run off the monotonic system clock, breaking the cycle;
++        // pulsesink resamples (slave-method=skew) to track the audio HW clock. Gated
++        // by WEBKIT_GST_AUDIO_SYSTEM_CLOCK (set in deploy/runtime-common.sh); unset =
++        // upstream behaviour.
++        if (g_object_class_find_property(objectClass, "provide-clock")) {
++            const char* sysClock = std::getenv("WEBKIT_GST_AUDIO_SYSTEM_CLOCK");
++            if (sysClock && *sysClock && g_strcmp0(sysClock, "0"))
++                g_object_set(object, "provide-clock", FALSE, nullptr);
++        }
++    }), effectiveRole.isolatedCopy().releaseImpl().leakRef(), static_cast<GClosureNotify>([](gpointer userData, GClosure*) {
+         if (auto* roleImpl = reinterpret_cast<StringImpl*>(userData))
+             roleImpl->deref();
+     }), static_cast<GConnectFlags>(0));
+diff --git a/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp
+--- a/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp
+@@ -2792,6 +2792,30 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
+     if (gst_check_version(1, 22, 0) && startsWith(name.span(), "urisourcebin"_s) && (isBlob || isMediaSource() || isMediaStreamPlayer()))
+         g_object_set(element, "use-buffering", FALSE, "parse-streams", !isMediaStreamPlayer(), nullptr);
+ 
++    // HLS/DASH child fetches (variant playlists, media segments) are done by
++    // souphttpsrc elements the adaptive demuxer creates internally, bypassing
++    // WebKitWebSrc — so they carry no Referer. Some CDNs validate it
++    // (device-proven on pornhub's *-h.phncdn.com edges: HTTP 412 without a
++    // Referer, 200 with one), which kills native HLS playback right after the
++    // master manifest. Forward the player's referrer to every souphttpsrc.
++    // WEBKIT_GST_NO_SOUP_REFERER=1 restores upstream behavior.
++    if (startsWith(name.span(), "souphttpsrc"_s) && !m_referrer.isEmpty()
++        && !g_getenv("WEBKIT_GST_NO_SOUP_REFERER")) {
++        GUniquePtr<GstStructure> headers(gst_structure_new("extra-headers",
++            "Referer", G_TYPE_STRING, m_referrer.utf8().data(), nullptr));
++        g_object_set(element, "extra-headers", headers.get(), nullptr);
++    }
++
++    // Same problem on the WebKitWebSrc path (which is what the adaptive
++    // demuxer actually uses in this port): child sources for variant
++    // playlists / segments never see sourceSetup, so their referrer stays
++    // empty and the demuxer's extra-headers Referer=<playlist URI> is what
++    // goes on the wire. Hand every WebKitWebSrc the player's referrer;
++    // webKitWebSrcMakeRequest re-asserts it over extra-headers.
++    if (WEBKIT_IS_WEB_SRC(element) && !m_referrer.isEmpty()
++        && !g_getenv("WEBKIT_GST_NO_SOUP_REFERER"))
++        webKitWebSrcSetReferrer(WEBKIT_WEB_SRC_CAST(element), m_referrer);
++
+     if (startsWith(name.span(), "parsebin"_s))
+         configureParsebin(element);
+ 
+@@ -2805,9 +2829,13 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
+     // configure urisourcebin to setup a ring buffer so that downstream demuxers operate in pull
+     // mode. Some demuxers (matroskademux) don't work as well in push mode.
+     if (startsWith(name.span(), "urisourcebin"_s) && !m_isLegacyPlaybin && m_preload == MediaPlayer::Preload::Auto) {
+-        if (isBlob)
+-            g_object_set(element, "ring-buffer-max-size", static_cast<guint64>(2 * MB), nullptr);
+-        else if (!isMediaSource() && !isMediaStreamPlayer())
++        if (isBlob) {
++            const char* rbEnv = g_getenv("WEBKIT_GST_RING_BUFFER_MAX_SIZE");
++            guint64 rbSize = rbEnv ? static_cast<guint64>(g_ascii_strtoull(rbEnv, nullptr, 10)) : (16ULL * 1024 * 1024);
++            if (rbSize < (512 * 1024))
++                rbSize = 16ULL * 1024 * 1024;
++            g_object_set(element, "ring-buffer-max-size", rbSize, nullptr);
++        } else if (!isMediaSource() && !isMediaStreamPlayer())
+             g_object_set(element, "download", TRUE, nullptr);
+     }
+ 
+@@ -2816,8 +2844,13 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
+         webkitGstTraceProcessingTimeForElement(element);
+ 
+     // This will set the multiqueue size to the default value.
+-    if (startsWith(name.span(), "uridecodebin"_s))
+-        g_object_set(element, "buffer-size", 2 * MB, nullptr);
++    if (startsWith(name.span(), "uridecodebin"_s)) {
++        const char* bsEnv = g_getenv("WEBKIT_GST_URIDECODEBIN_BUFFER_SIZE");
++        guint64 bufSize = bsEnv ? static_cast<guint64>(g_ascii_strtoull(bsEnv, nullptr, 10)) : (8ULL * 1024 * 1024);
++        if (bufSize < (512 * 1024))
++            bufSize = 8ULL * 1024 * 1024;
++        g_object_set(element, "buffer-size", static_cast<gint>(bufSize), nullptr);
++    }
+ 
+     if (classifiers.contains("Decoder"_s)) {
+         if (classifiers.contains("Video"_s))
+@@ -2835,8 +2868,13 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
+         return;
+     }
+ 
+-    if (equal(unsafeSpan(G_OBJECT_TYPE_NAME(G_OBJECT(element))), "GstQueue2"_s))
+-        g_object_set(G_OBJECT(element), "high-watermark", 0.10, nullptr);
++    if (equal(unsafeSpan(G_OBJECT_TYPE_NAME(G_OBJECT(element))), "GstQueue2"_s)) {
++        const char* hwEnv = g_getenv("WEBKIT_GST_QUEUE_HIGH_WATERMARK");
++        double highWatermark = hwEnv ? g_ascii_strtod(hwEnv, nullptr) : 0.05;
++        if (highWatermark <= 0.0 || highWatermark > 1.0)
++            highWatermark = 0.05;
++        g_object_set(G_OBJECT(element), "high-watermark", highWatermark, nullptr);
++    }
+ }
+ 
+ void MediaPlayerPrivateGStreamer::configureElementPlatformQuirks(GstElement* element)
+diff --git a/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
+--- a/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
+@@ -692,6 +692,16 @@ static void webKitWebSrcMakeRequest(WebKitWebSrc* src, DataMutexLocker<WebKitWeb
+         });
+     }
+ 
++    // Re-assert the player's referrer over the demuxer-provided extra-headers:
++    // the adaptive demuxer stamps Referer=<playlist URI> on its child sources,
++    // and CDNs that validate the page referer reject those requests
++    // (device-proven on phncdn HLS segments: 404 with the playlist referer,
++    // 200 with the page referer). members->referrer is the page referrer,
++    // pushed to every WebKitWebSrc by MediaPlayerPrivateGStreamer's
++    // element-setup handler. WEBKIT_GST_NO_SOUP_REFERER=1 disables.
++    if (!members->referrer.isEmpty() && !g_getenv("WEBKIT_GST_NO_SOUP_REFERER"))
++        request.setHTTPReferrer(members->referrer);
++
+     // We always request Icecast/Shoutcast metadata, just in case ...
+     request.setHTTPHeaderField(HTTPHeaderName::IcyMetadata, "1"_s);
+ 

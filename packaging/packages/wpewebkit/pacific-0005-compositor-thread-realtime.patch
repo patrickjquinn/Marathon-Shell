@@ -1,13 +1,17 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# The compositor thread runs at real-time priority, like the scrolling thread.
+# The compositor thread runs at the scrolling thread's priority.
 #
 # It puts every frame on screen, but ran as an ordinary thread, competing
-# with the four CPU painting threads and the page's own threads. WTF already
-# makes UserInteractive threads SCHED_RR (as for "Core: Scrolling") and
-# demotes them all on SIGXCPU, so a runaway thread cannot take a core.
-# PACIFIC_COMPOSITOR_REALTIME=0 leaves it ordinary.
+# with the four CPU painting threads and the page's own threads. It is now
+# UserInteractive, WTF's class for "Core: Scrolling". Up to 2.54.0 that was
+# SCHED_RR (RealtimeKit only as a fallback), demoted on SIGXCPU. Since 2.54.1
+# (HighPriorityThreads) it is SCHED_OTHER with a utilization clamp floor of
+# 1024 (the CPU runs it at full speed, and on a big.LITTLE phone it favours
+# the big cores) and the lowest nice level RealtimeKit grants, up to -20; it
+# is demoted while the WebProcess shows no page.
+# PACIFIC_COMPOSITOR_REALTIME=0 leaves it ordinary (Default: a floor of 20%).
 #
 --- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
 +++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
@@ -16,10 +20,10 @@
  }
  
 +// Shipwright: the compositor thread puts every frame on screen, so it is
-+// scheduled like the scrolling thread (real time, SCHED_RR; WTF demotes all
-+// real-time threads on SIGXCPU). With tiles painted on four CPU threads it
-+// otherwise competed with them and the page's own threads for a core.
-+// PACIFIC_COMPOSITOR_REALTIME=0 leaves it an ordinary thread.
++// scheduled like the scrolling thread: UserInteractive (since 2.54.1 a
++// utilization floor of 1024 and RealtimeKit's lowest nice level; SCHED_RR
++// before). With tiles painted on four CPU threads it otherwise competed
++// with them. PACIFIC_COMPOSITOR_REALTIME=0 leaves it an ordinary thread.
 +static WorkQueue::QOS compositorQOS()
 +{
 +    const char* env = getenv("PACIFIC_COMPOSITOR_REALTIME");

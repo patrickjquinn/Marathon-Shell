@@ -1,0 +1,227 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Damage tracking in the legacy-API (libwpe) build, off until it is
+# measured on the phones: WEBKIT_DAMAGE_COMPOSITING=1 turns it on.
+#
+# WTF defines ENABLE_DAMAGE_TRACKING only with ENABLE(WPE_PLATFORM) or on
+# GTK, so in ours (WPEPlatform off) all of it was compiled out, Atlantic's
+# WEBKIT_DAMAGE_COMPOSITING switch (webkit-damage-limited-composite-env)
+# with it, and patch 0001 throttles offscreen animations instead. Turning
+# WPEPlatform on for it would add the libWPEPlatform library and its
+# dependencies (epoxy, GIO and xkbcommon; the DRM backend libinput, udev
+# and GBM, the Wayland one wayland and wayland-protocols; both can be
+# switched off, ENABLE_WPE_PLATFORM_DRM/WAYLAND/HEADLESS) and every
+# WPEPlatform code path, for nothing Pacific uses. Nothing under
+# ENABLE(DAMAGE_TRACKING) needs WPEPlatform: the damage classes, the Skia
+# and TextureMapper compositors, LayerTreeHost, ThreadedCompositor and
+# AcceleratedSurface's tracker are the same code for every target. So it
+# is defined for PLATFORM(WPE) too.
+#
+# Two things change with it:
+#
+# - Defaults. WebKit's preferences turn damage propagation, unified
+#   regions and damage-limited compositing on for GTK and WPE once the
+#   feature is compiled in. Here they stay off unless WPEPlatform is on, so
+#   the engine composites as before; Atlantic's env vars
+#   (WEBKIT_DAMAGE_COMPOSITING=1, WEBKIT_DAMAGE_UNIFY,
+#   WEBKIT_DAMAGE_USE_FOR_COMPOSITING) turn it on for A/B tests.
+#
+# - Buffer age. The tracker assumes a target holds the frame last presented
+#   on it: true of the shareable-buffer swap chains (one target per
+#   buffer), not of the WPEBackend's EGL window, one target for every
+#   buffer its EGL rotates, each holding whatever frame it last held (two
+#   or three frames back with libhybris). Drawing only the last frame's
+#   damage into it would leave older frames' pixels on screen. The tracker
+#   now keeps what the last four frames presented to it changed and, before
+#   each frame, sets the target's record from EGL_EXT_buffer_age: the
+#   frames since that buffer was shown; a full repaint when the age is
+#   unknown (no extension, or 0) or older than the history.
+#
+# Untested: the engine has not been built with it (Atlantic's patches
+# under ENABLE(DAMAGE_TRACKING) were never compiled before either). Check
+# EGL_EXT_buffer_age in device-check.sh's EGL extensions first.
+#
+--- a/Source/WTF/Scripts/Preferences/UnifiedWebPreferences.yaml
++++ b/Source/WTF/Scripts/Preferences/UnifiedWebPreferences.yaml
+@@ -6940,7 +6940,7 @@ PropagateDamagingInformation:
+      WebKitLegacy:
+        default: false
+      WebKit:
+-       "PLATFORM(GTK) || PLATFORM(WPE)": true
++       "PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))": true
+        default: false
+      WebCore:
+        default: false
+@@ -9099,7 +9099,7 @@ UnifyDamagedRegions:
+      WebKitLegacy:
+        default: false
+      WebKit:
+-       "PLATFORM(GTK) || PLATFORM(WPE)": true
++       "PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))": true
+        default: false
+      WebCore:
+        default: false
+@@ -9199,7 +9199,7 @@ UseDamagingInformationForCompositing:
+     WebKitLegacy:
+       default: false
+     WebKit:
+-      "PLATFORM(GTK) || PLATFORM(WPE)": true
++      "PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))": true
+       default: false
+     WebCore:
+       default: false
+--- a/Source/WTF/wtf/PlatformEnableGlib.h
++++ b/Source/WTF/wtf/PlatformEnableGlib.h
+@@ -83,6 +83,10 @@
+ #define ENABLE_TOUCH_EVENT_REGIONS 1
+ #endif
+ 
+-#if ENABLE(WPE_PLATFORM) || PLATFORM(GTK)
++// Pacific (patch 0025): also for the legacy API (libwpe) alone. Nothing
++// under it needs WPEPlatform; the WPEBackend's EGL window, whose buffers
++// do not keep their contents, follows EGL_EXT_buffer_age
++// (AcceleratedSurface).
++#if ENABLE(WPE_PLATFORM) || PLATFORM(GTK) || PLATFORM(WPE)
+ #define ENABLE_DAMAGE_TRACKING 1
+ #endif
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/AcceleratedSurface.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/AcceleratedSurface.cpp
+@@ -68,6 +68,10 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+ #include <GLES2/gl2.h>
+ #endif
+ 
++#if ENABLE(DAMAGE_TRACKING) && USE(WPE_RENDERER) && !(PLATFORM(GTK) || ENABLE(WPE_PLATFORM))
++#include <epoxy/egl.h>
++#endif
++
+ #if USE(GBM)
+ #include <WebCore/DRMDeviceManager.h>
+ #include <WebCore/GBMVersioning.h>
+@@ -894,6 +898,56 @@ void AcceleratedSurface::SwapChainDamageTracker::recordFrameDamage(Damage&& dama
+     }
+ }
+ 
++#if USE(WPE_RENDERER)
++// Pacific (patch 0025): the record assumes the target holds the frame last
++// presented on it, true of the swap chains of shareable buffers, one
++// target per buffer. The WPEBackend's EGL window is one target for the
++// buffers its EGL implementation rotates, and a buffer's contents are
++// whatever frame it last held: drawing only the last frame's damage into
++// it left older frames on screen. With EGL_EXT_buffer_age the record
++// becomes what the frames since that one changed; without it, or older
++// than the history, the target is repainted in full.
++void AcceleratedSurface::SwapChainDamageTracker::applyBufferAge(RenderTarget& target, int bufferAge)
++{
++    if (bufferAge == 1)
++        return;
++
++    std::optional<Damage> record;
++    if (bufferAge > 1 && static_cast<size_t>(bufferAge - 1) <= m_presentedFrameDamage.size()) {
++        record = Damage(m_swapChain.size(), needsFineGrainedDamage() ? Damage::Mode::Rectangles : Damage::Mode::BoundingBox, Damage::NoMaxRectangles);
++        for (size_t i = m_presentedFrameDamage.size() - (bufferAge - 1); i < m_presentedFrameDamage.size(); ++i) {
++            if (!m_presentedFrameDamage[i]) {
++                record = std::nullopt;
++                break;
++            }
++            record->add(*m_presentedFrameDamage[i]);
++        }
++    }
++    target.setDamage(WTF::move(record));
++}
++
++static int currentEGLSurfaceBufferAge()
++{
++    EGLDisplay display = eglGetCurrentDisplay();
++    EGLSurface surface = eglGetCurrentSurface(EGL_DRAW);
++    if (display == EGL_NO_DISPLAY || surface == EGL_NO_SURFACE)
++        return 0;
++
++    static std::atomic<int> supported { -1 };
++    if (supported.load() < 0) {
++        const char* extensions = eglQueryString(display, EGL_EXTENSIONS);
++        supported = extensions && strstr(extensions, "EGL_EXT_buffer_age") ? 1 : 0;
++    }
++    if (!supported.load())
++        return 0;
++
++    EGLint age = 0;
++    if (!eglQuerySurface(display, surface, EGL_BUFFER_AGE_EXT, &age))
++        return 0;
++    return age;
++}
++#endif
++
+ Vector<IntRect, 1> AcceleratedSurface::SwapChainDamageTracker::takeFrameDamageRects()
+ {
+     if (!m_frameDamage)
+@@ -913,6 +967,18 @@ Vector<IntRect, 1> AcceleratedSurface::SwapChainDamageTracker::takeFrameDamageRe
+ 
+ void AcceleratedSurface::SwapChainDamageTracker::didPresent(RenderTarget& target, TargetContents targetContents)
+ {
++#if USE(WPE_RENDERER)
++    if (m_swapChain.type() == SwapChain::Type::WPEBackend) {
++        // No frame damage recorded means nothing changed (an empty damage is not recorded).
++        std::optional<Damage> presented;
++        if (targetContents != TargetContents::Invalid)
++            presented = m_frameDamage ? *m_frameDamage : Damage(m_swapChain.size(), Damage::Mode::Rectangles, Damage::NoMaxRectangles);
++        if (m_presentedFrameDamage.size() == s_presentedFrameDamageHistory)
++            m_presentedFrameDamage.removeAt(0);
++        m_presentedFrameDamage.append(WTF::move(presented));
++    }
++#endif
++
+     if (targetContents == TargetContents::Invalid) {
+         // Nothing was drawn, so drop the record and let the target's next use repaint it fully.
+         target.setDamage(std::nullopt);
+@@ -1099,6 +1165,13 @@ void AcceleratedSurface::willRenderFrame(const IntSize& size)
+     if (m_target)
+         m_target->willRenderFrame();
+ 
++#if ENABLE(DAMAGE_TRACKING) && USE(WPE_RENDERER)
++    // Pacific (patch 0025): see applyBufferAge(). Asked after the target's
++    // willRenderFrame(), with its context current.
++    if (m_target && m_swapChain.type() == SwapChain::Type::WPEBackend)
++        m_damageTracker.applyBufferAge(*m_target, currentEGLSurfaceBufferAge());
++#endif
++
+     if (sizeDidChange && !m_useSkia)
+         glViewport(0, 0, size.width(), size.height());
+ }
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/AcceleratedSurface.h
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/AcceleratedSurface.h
+@@ -451,6 +451,11 @@ private:
+ 
+         void didPresent(RenderTarget&, TargetContents);
+         const std::optional<WebCore::Damage>& damageSinceTargetWasLastCurrent(RenderTarget& target LIFETIME_BOUND) { return target.damage(); }
++#if USE(WPE_RENDERER)
++        // Pacific (patch 0025): the WPEBackend's one target is an EGL window,
++        // which hands out the buffer of bufferAge frames ago (0: unknown).
++        void applyBufferAge(RenderTarget&, int bufferAge);
++#endif
+ 
+         // Discards the pending frame damage and every target's record, e.g. when the swap chain is
+         // resized, which leaves the targets holding contents no record can describe.
+@@ -460,6 +465,9 @@ private:
+             m_swapChain.forEachTarget([](RenderTarget& target) {
+                 target.setDamage(std::nullopt);
+             });
++#if USE(WPE_RENDERER)
++            m_presentedFrameDamage.clear();
++#endif
+         }
+ 
+     private:
+@@ -474,6 +482,12 @@ private:
+         // smaller message to the platform. Only takeFrameDamageRects() is affected, so the per-target
+         // damage used for compositing stays fine-grained no matter how many rects the frame has.
+         unsigned m_rectangleThreshold { 4 };
++#if USE(WPE_RENDERER)
++        // What each of the last frames presented to the EGL window changed,
++        // oldest first; none where that is unknown.
++        static constexpr size_t s_presentedFrameDamageHistory = 4;
++        Vector<std::optional<WebCore::Damage>, s_presentedFrameDamageHistory> m_presentedFrameDamage;
++#endif
+     };
+ #endif
+ 

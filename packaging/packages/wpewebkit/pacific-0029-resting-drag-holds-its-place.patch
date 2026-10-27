@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A drag that stops leaves the page where it is shown.
+#
+# Patch 0017 draws a drag ahead of the finger and, while the finger rested,
+# eased that lead back towards the touch reports: the page moved against
+# the finger, 4-7 css px over three frames, every time a steady drag on the
+# Jolla Phone stopped (a visible wobble iOS does not have). The page now
+# stays put while the finger rests; the lead is given back only as the
+# finger moves on (a reversal, at 15% of its movement, patch 0017's ramp)
+# and goes at the lift, where the fling starts from the page as shown.
+# PACIFIC_SCROLL_PREDICT_EASE_BACK=1 eases back, as patch 0017 did.
+#
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -818,9 +818,22 @@ void ThreadedScrollingTree::flushTouchScroll()
+     }
+ }
+ 
++// Pacific (patch 0029): PACIFIC_SCROLL_PREDICT_EASE_BACK=1 brings the page
++// back to the reports while the finger rests, as patch 0017 first did.
++static bool touchScrollPredictionEasesBack()
++{
++    static const bool easesBack = [] {
++        const char* env = getenv("PACIFIC_SCROLL_PREDICT_EASE_BACK");
++        return env && !strcmp(env, "1");
++    }();
++    return easesBack;
++}
++
+ void ThreadedScrollingTree::applyTouchScroll(std::optional<MonotonicTime> until)
+ {
+-    if (m_touchScrollQueue.isEmpty() && (m_predictedOffset.isZero() || !m_lastTouchMove || !until))
++    // Patch 0029: with nothing queued, only easing the prediction back moved
++    // the page, and it no longer does (touchScrollPredictionStep).
++    if (m_touchScrollQueue.isEmpty() && (!touchScrollPredictionEasesBack() || m_predictedOffset.isZero() || !m_lastTouchMove || !until))
+         return;
+     // The finger's movement up to `until` (all of it without), as one event:
+     // each queued move covers the time since the one before it.
+@@ -988,7 +1001,12 @@ FloatSize ThreadedScrollingTree::touchScrollPredictionStep(const FloatSize& move
+             target = 0; // a reversal
+         float change = target - offset;
+         if (std::abs(moved) < 0.01f) {
+-            // Resting: back towards the reports, gently.
++            // Resting: the page stays where it is shown. Easing back towards
++            // the reports moved it against the finger, 4-7 css px over three
++            // frames each time a drag stopped (patch 0029); the lead is
++            // given back as the finger moves on (a reversal) or at the lift.
++            if (!touchScrollPredictionEasesBack())
++                return 0.0f;
+             return std::abs(target) < std::abs(offset) ? change * 0.25f : 0.0f;
+         }
+         // Ahead by at most a share of the frame's own movement more.

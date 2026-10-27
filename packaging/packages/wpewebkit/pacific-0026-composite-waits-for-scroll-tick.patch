@@ -1,0 +1,218 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A frame composites at the position its own scroll tick gives.
+#
+# Patch 0007 ticks the scrolling tree from ThreadedCompositor::
+# frameComplete(); the tick runs on the scrolling thread. A rendering update
+# that arrived while the last frame was in progress (ScheduledWhileInProgress)
+# started the render timer in frameComplete() itself, so that composite ran
+# ahead of the tick: the frame showed the last frame's scroll position, and
+# the next one moved twice as far. Flinging OSNews on the Jolla Phone, 16 of
+# 393 moving frames stood still and 20 jumped (ATLANTIC_FRAME_TRACE=1, the
+# "web composite y=" markers).
+#
+# While the frame's tick runs, the composite now waits for it: the tick's end
+# (or, at most 3 ms on, m_scrollTickTimer) starts the render timer, and a
+# composite asked for meanwhile goes with the tick's position. No tick (no
+# recent scrolling): nothing waits. PACIFIC_SCROLL_TICK_WAIT=0 composites at
+# once, as before.
+#
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.cpp
+@@ -1076,16 +1076,19 @@ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
+     }
+ }
+ 
+-void ThreadedScrollingTree::frameDidComplete()
++bool ThreadedScrollingTree::frameDidComplete(Function<void()>&& tickDone)
+ {
+     m_lastFrameTick = MonotonicTime::now().secondsSinceEpoch().value();
+     if (!hasRecentActivity())
+-        return;
+-    ScrollingThread::dispatch([protectedThis = Ref { *this }]() {
++        return false;
++    ScrollingThread::dispatch([protectedThis = Ref { *this }, tickDone = WTF::move(tickDone)]() mutable {
+         protectedThis->m_inFrameTick = true;
+         protectedThis->displayDidRefreshOnScrollingThread();
+         protectedThis->m_inFrameTick = false;
++        if (tickDone)
++            tickDone();
+     });
++    return true;
+ }
+ 
+ void ThreadedScrollingTree::displayDidRefresh(PlatformDisplayID displayID)
+--- a/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
++++ b/Source/WebCore/page/scrolling/ThreadedScrollingTree.h
+@@ -57,7 +57,9 @@ public:
+     // 0007), one per frame shown: ticks scroll animations. While these come,
+     // displayDidRefresh() from the display link is ignored, a second clock
+     // that ticked the animations again a few ms after each frame.
+-    void frameDidComplete();
++    // Patch 0026: true when a tick was dispatched; tickDone runs on the
++    // scrolling thread after it.
++    bool frameDidComplete(Function<void()>&& tickDone = { });
+ 
+     // Pacific (patch 0009): touch scrolling resampled to the display's
+     // frames. A drag's moves arrive at the touchscreen's rate (110-125 Hz)
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp
+@@ -122,6 +122,9 @@ ThreadedCompositor::ThreadedCompositor(WebPage& webPage, LayerTreeHost& layerTre
+     , m_invisibleAnimationTimer(m_workQueue->runLoop(), "ThreadedCompositor::InvisibleAnimationTimer"_s, [this] {
+         requestComposition(CompositionReason::Animation);
+     })
++#if ENABLE(SCROLLING_THREAD)
++    , m_scrollTickTimer(m_workQueue->runLoop(), "ThreadedCompositor::ScrollTickTimer"_s, this, &ThreadedCompositor::scrollTickDone)
++#endif
+ {
+     ASSERT(RunLoop::isMain());
+ 
+@@ -215,6 +218,9 @@ void ThreadedCompositor::invalidate()
+             return;
+ 
+         m_invisibleAnimationTimer.stop();
++#if ENABLE(SCROLLING_THREAD)
++        m_scrollTickTimer.stop();
++#endif
+         // Update the scene at this point ensures the layers state are correctly propagated.
+         flushCompositingState(CompositionReason::RenderingUpdate);
+ 
+@@ -852,11 +858,11 @@ void ThreadedCompositor::scheduleUpdateLocked()
+     switch (m_state.state) {
+     case State::Idle:
+         m_state.state = State::Scheduled;
+-        if (!m_state.isWaitingForTiles && !m_suspendedCount.load())
++        if (!m_state.isWaitingForTiles && !m_state.isWaitingForScrollTick && !m_suspendedCount.load())
+             startRenderTimer();
+         break;
+     case State::Scheduled:
+-        if (!m_state.isRenderTimerActive && !m_suspendedCount.load())
++        if (!m_state.isRenderTimerActive && !m_state.isWaitingForScrollTick && !m_suspendedCount.load())
+             startRenderTimer();
+         break;
+     case State::InProgress:
+@@ -881,20 +887,47 @@ void ThreadedCompositor::frameComplete()
+         const char* env = getenv("PACIFIC_FRAME_PACED_SCROLL");
+         return !env || strcmp(env, "0");
+     }();
++    // Shipwright (patch 0026): the next frame composites at the position
++    // that frame's tick gives. The tick runs on the scrolling thread; a
++    // rendering update that came while this frame was in progress composited
++    // at once, ahead of it, so the frame showed the last frame's position
++    // and the next one moved twice as far (one frame in 25 flinging OSNews).
++    // While a tick runs, the composite waits for it, at most
++    // kScrollTickWait. PACIFIC_SCROLL_TICK_WAIT=0 composites at once.
++    bool waitingForScrollTick = false;
+     if (framePacedScroll) {
+         RefPtr<WebCore::ScrollingTree> scrollingTree;
+         {
+             Locker locker { m_scrollingTreeLock };
+             scrollingTree = m_scrollingTree;
+         }
+-        if (RefPtr threaded = dynamicDowncast<WebCore::ThreadedScrollingTree>(scrollingTree.get()))
+-            threaded->frameDidComplete();
+-        else if (scrollingTree)
++        if (RefPtr threaded = dynamicDowncast<WebCore::ThreadedScrollingTree>(scrollingTree.get())) {
++            // Set before the tick can end, which may be before it returns.
++            if (waitForScrollTickEnabled()) {
++                Locker locker { m_state.lock };
++                m_state.isWaitingForScrollTick = true;
++            }
++            waitingForScrollTick = threaded->frameDidComplete([protectedThis = Ref { *this }] {
++                protectedThis->scrollTickDone();
++            }) && waitForScrollTickEnabled();
++            if (waitingForScrollTick) {
++                static constexpr Seconds kScrollTickWait = 3_ms;
++                m_scrollTickTimer.startOneShot(kScrollTickWait);
++            }
++        } else if (scrollingTree)
+             scrollingTree->displayDidRefresh(scrollingTree->displayID());
+     }
+ #endif
+ 
+     Locker locker { m_state.lock };
++#if ENABLE(SCROLLING_THREAD)
++    if (!waitingForScrollTick && m_state.isWaitingForScrollTick) {
++        // No tick after all: a composite asked for meanwhile goes now.
++        m_state.isWaitingForScrollTick = false;
++        if (m_state.state == State::Scheduled && !m_state.isRenderTimerActive && !isOnlyRenderingUpdatePendingAndWaitingForTiles() && !m_suspendedCount.load())
++            startRenderTimer();
++    }
++#endif
+     WTFEmitSignpost(this, FrameComplete, "reasons: %s, state: %s, waiting for tiles: %s", reasonsToString(m_state.reasons).ascii().data(), stateToString(m_state.state).characters(), m_state.isWaitingForTiles ? "yes" : "no");
+ 
+     switch (m_state.state) {
+@@ -910,12 +943,35 @@ void ThreadedCompositor::frameComplete()
+         break;
+     case State::ScheduledWhileInProgress:
+         m_state.state = State::Scheduled;
+-        if (!isOnlyRenderingUpdatePendingAndWaitingForTiles() && !m_suspendedCount.load())
++        if (!isOnlyRenderingUpdatePendingAndWaitingForTiles() && !m_state.isWaitingForScrollTick && !m_suspendedCount.load())
+             startRenderTimer();
+         break;
+     }
+ }
+ 
++#if ENABLE(SCROLLING_THREAD)
++bool ThreadedCompositor::waitForScrollTickEnabled()
++{
++    static const bool enabled = [] {
++        const char* env = getenv("PACIFIC_SCROLL_TICK_WAIT");
++        return !env || strcmp(env, "0");
++    }();
++    return enabled;
++}
++
++// Scrolling thread (the tick's end) or compositor thread (m_scrollTickTimer):
++// the composite that waited for the tick goes now.
++void ThreadedCompositor::scrollTickDone()
++{
++    Locker locker { m_state.lock };
++    if (!m_state.isWaitingForScrollTick)
++        return;
++    m_state.isWaitingForScrollTick = false;
++    if (m_state.state == State::Scheduled && !m_state.isRenderTimerActive && !isOnlyRenderingUpdatePendingAndWaitingForTiles() && !m_suspendedCount.load())
++        startRenderTimer();
++}
++#endif
++
+ RunLoop* ThreadedCompositor::runLoop()
+ {
+     return m_surface ? &m_workQueue->runLoop() : nullptr;
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.h
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.h
+@@ -136,6 +136,11 @@ private:
+     void paintToTextureMapper(const WebCore::TransformationMatrix&, const WebCore::IntSize&, const OptionSet<WebCore::CompositionReason>&);
+     TargetContents paintToSkiaCanvas(const WebCore::TransformationMatrix&, const WebCore::IntSize&, const OptionSet<WebCore::CompositionReason>&);
+     void frameComplete();
++#if ENABLE(SCROLLING_THREAD)
++    // Patch 0026: the frame's scroll tick ran (or its wait timed out).
++    void scrollTickDone();
++    static bool waitForScrollTickEnabled();
++#endif
+ 
+     void didCompositeRunLoopObserverFired();
+ 
+@@ -184,6 +189,9 @@ private:
+         State state WTF_GUARDED_BY_LOCK(lock) { State::Idle };
+         bool isRenderTimerActive WTF_GUARDED_BY_LOCK(lock) { false };
+         bool isWaitingForTiles WTF_GUARDED_BY_LOCK(lock) { false };
++        // Patch 0026: a frame's scroll tick is running on the scrolling
++        // thread; the next composite waits for its position.
++        bool isWaitingForScrollTick WTF_GUARDED_BY_LOCK(lock) { false };
+         OptionSet<WebCore::CompositionReason> reasons WTF_GUARDED_BY_LOCK(lock);
+         Function<void()> didCompositeRenderingUpdateFunction WTF_GUARDED_BY_LOCK(lock);
+     } m_state;
+@@ -200,6 +208,11 @@ private:
+     // every frame. Compositor thread only.
+     RunLoop::Timer m_invisibleAnimationTimer;
+     unsigned m_invisibleAnimationFrames { 0 };
++#if ENABLE(SCROLLING_THREAD)
++    // Patch 0026: ends the wait for a scroll tick that is late. Compositor
++    // thread only.
++    RunLoop::Timer m_scrollTickTimer;
++#endif
+     std::atomic<double> m_lastScrollingThreadScroll { 0 };
+     std::atomic<bool> m_throttlingInvisibleAnimations { false };
+     std::unique_ptr<WebCore::TextureMapper> m_textureMapper;

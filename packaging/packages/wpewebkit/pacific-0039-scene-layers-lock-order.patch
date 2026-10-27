@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A page that adds or drops a backdrop filter while it scrolls no longer
+# freezes.
+#
+# CoordinatedSceneState::flushPendingState() took m_layersLock and then each
+# layer's lock. The main thread takes them the other way round: when a layer
+# gains or loses a backdrop filter, GraphicsLayerCoordinated::
+# updateBackdropFilters() attaches or detaches the backdrop layer under its
+# own layer's lock, and addLayer()/removeLayer() take m_layersLock. The
+# scrolling thread runs flushPendingState() on every scroll step
+# (ScrollingTreeCoordinated::applyLayerPositionsInternal(), holding the
+# scrolling tree's lock), so when the two met, the main thread, the scrolling
+# thread and then the EventDispatcher (waiting for the scrolling tree's lock
+# to route a touch) stopped for good: the page froze and took no input. Seen
+# on a GitHub repository page on the Jolla Phone (backtraces of the hung
+# WebProcess, 26 October 2026). Upstream main has the same code.
+#
+# The layers are now copied under m_layersLock and their locks taken after
+# it is released; m_layersLock is never held while another lock is taken.
+#
+--- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/CoordinatedSceneState.cpp
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/CoordinatedSceneState.cpp
+@@ -107,8 +107,19 @@ bool CoordinatedSceneState::flush()
+ void CoordinatedSceneState::flushPendingState()
+ {
+     Locker stateLock { m_stateLock };
+-    Locker layersLock { m_layersLock };
+-    for (Ref layer : m_layers)
++    // Pacific (patch 0039): each layer's lock is taken with m_layersLock
++    // released. The main thread takes them in the other order: it attaches a
++    // backdrop layer (GraphicsLayerCoordinated::updateBackdropFilters, under
++    // its layer's lock) and addLayer() takes m_layersLock. The scrolling
++    // thread runs this on every scroll step, holding the scrolling tree's
++    // lock too, so the page, its scrolling and its touch events all stopped
++    // for good (a GitHub repository page on the Jolla Phone).
++    Vector<Ref<CoordinatedPlatformLayer>> layers;
++    {
++        Locker layersLock { m_layersLock };
++        layers = copyToVectorOf<Ref<CoordinatedPlatformLayer>>(m_layers);
++    }
++    for (auto& layer : layers)
+         layer->flushPendingState();
+ }
+ 
