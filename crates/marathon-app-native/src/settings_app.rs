@@ -491,6 +491,9 @@ fn stat_disk() -> (i64, i64) {
     const TMPFS_MAGIC: u64 = 0x0102_1994;
     let mut candidates = Vec::new();
     if let Some(dir) = dirs::data_local_dir() {
+        // In the sandbox the data folder is on a tmpfs home; the app's own
+        // folder under it is on the user's data disk.
+        candidates.push(dir.join("marathon-apps").join(crate::shell::app_id()));
         candidates.push(dir);
     }
     candidates.push(PathBuf::from("/usr"));
