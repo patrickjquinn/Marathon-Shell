@@ -79,6 +79,8 @@ pub fn select(loader: &FluentLanguageLoader, assets: &dyn I18nAssets, code: &str
     if let Err(e) = i18n_embed::select(loader, assets, &[wanted]) {
         eprintln!("[i18n] cannot load {code}: {e}");
     }
+    // Bidi isolation marks around arguments would show in Qt's text.
+    loader.set_use_isolating(false);
 }
 
 #[cfg(test)]
@@ -100,6 +102,14 @@ mod tests {
     #[test]
     fn a_shipped_catalog_is_selected() {
         assert_eq!(loader("de").get("hello"), "Hallo");
+    }
+
+    #[test]
+    fn arguments_carry_no_isolation_marks() {
+        assert_eq!(
+            loader("de").get_args("left", std::collections::HashMap::from([("n", 3)])),
+            "Noch 3"
+        );
     }
 
     #[test]
