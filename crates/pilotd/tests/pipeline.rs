@@ -294,8 +294,8 @@ async fn open_ended_goes_to_qwen_redacted_and_restored() {
     );
     assert_eq!(sent["model"], "qwen/qwen3.8-27b");
     assert_eq!(
-        sent["reasoning_effort"], "none",
-        "thinking off for conversation"
+        sent["reasoning_effort"], "low",
+        "a model in the cloud thinks before choosing a tool"
     );
     assert!(sent["tools"]
         .as_array()

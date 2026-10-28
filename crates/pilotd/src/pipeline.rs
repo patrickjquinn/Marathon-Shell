@@ -2671,9 +2671,18 @@ impl Pipeline {
         let mut nudged = false;
         let mut empty_retried = false;
         for round in 0..self.max_rounds {
+            // A model in the cloud thinks briefly every time: without it, after
+            // a few turns it answered from the conversation instead of
+            // calling the tool ("Minuteur de cinq minutes mis" with no timer).
             let effort = if deep {
                 Effort::Medium
-            } else if action_hint || app_chosen || round > 0 || tainted || composed {
+            } else if action_hint
+                || app_chosen
+                || round > 0
+                || tainted
+                || composed
+                || backends.llm.provider() != "local"
+            {
                 Effort::Low
             } else {
                 Effort::Off
