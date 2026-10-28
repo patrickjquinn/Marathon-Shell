@@ -277,22 +277,38 @@ impl Navigation {
     }
 }
 
+/// A process to name: sleeps when run with `PILOTD_TEST_SLEEP` set.
+#[test]
+fn sleeper() {
+    if let Some(secs) = std::env::var("PILOTD_TEST_SLEEP")
+        .ok()
+        .and_then(|s| s.parse().ok())
+    {
+        std::thread::sleep(std::time::Duration::from_secs(secs));
+    }
+}
+
 #[tokio::test]
 async fn the_shell_names_a_marathon_apps_process() {
     let dir = tempfile::tempdir().unwrap();
+    // This test binary under the runner's name, running only `sleeper`:
+    // a symlink to /bin/sleep exits at once where sleep is busybox, which
+    // picks its applet by the name it is run as.
     let runner = dir.path().join("marathon-app-runner");
-    std::os::unix::fs::symlink("/bin/sleep", &runner).unwrap();
+    std::os::unix::fs::symlink(std::env::current_exe().unwrap(), &runner).unwrap();
     let Some(bus) = PrivateBus::start() else {
         return;
     };
-    let mut app = std::process::Command::new(&runner)
-        .arg("30")
-        .spawn()
-        .unwrap();
-    let mut other = std::process::Command::new(&runner)
-        .arg("30")
-        .spawn()
-        .unwrap();
+    let sleeping = || {
+        std::process::Command::new(&runner)
+            .args(["sleeper", "--exact", "--quiet"])
+            .env("PILOTD_TEST_SLEEP", "30")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+    let mut app = sleeping();
+    let mut other = sleeping();
 
     let client = bus.connect().await.unwrap();
     let calls: Calls = Arc::default();
