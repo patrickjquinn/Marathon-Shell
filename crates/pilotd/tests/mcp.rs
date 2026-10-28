@@ -211,8 +211,9 @@ async fn an_app_action_through_two_stage_routing() {
             json!({"body": "milk, eggs", "title": "Shopping"})
         )]
     );
-    // Stage one in the first request, stage two in a second.
-    assert_eq!(srv.seen("/v1/jev").len(), 2);
+    // Stage one only: a model in the cloud reads the chosen app's actions
+    // and every system area's tools, without stage two narrowing them.
+    assert_eq!(srv.seen("/v1/jev").len(), 1);
     let offered = names(&srv.seen("/v1/llm/chat/completions")[0].body);
     assert!(
         offered.contains(&"org_example_notes_notes_create".to_owned()),
@@ -220,12 +221,8 @@ async fn an_app_action_through_two_stage_routing() {
     );
     assert!(offered.contains(&"keel_plan_run".to_owned()), "{offered:?}");
     assert!(
-        !offered.contains(&"timer_set".to_owned()),
-        "system tools are another domain: {offered:?}"
-    );
-    assert!(
-        offered.len() <= 4,
-        "three actions and the plan tool: {offered:?}"
+        offered.contains(&"timer_set".to_owned()),
+        "system tools come too: {offered:?}"
     );
     assert!(
         !offered.iter().any(|n| n.contains("validate")),

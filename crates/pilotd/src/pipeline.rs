@@ -3087,7 +3087,14 @@ impl Pipeline {
             .entries()
             .filter(|e| e.available && chosen.contains(&e.spec.domain))
             .collect();
-        if in_scope.len() > STAGE_TWO_ABOVE && in_scope.len() <= crate::jev::MAX_CHOICE_OPTIONS {
+        // Stage two keeps a slow model on the phone to a few tools; a model
+        // in the cloud reads them all in less time than stage two takes,
+        // and stage two dropped the weather tool from "Wie wird das Wetter
+        // morgen?".
+        if backends.llm.provider() == "local"
+            && in_scope.len() > STAGE_TWO_ABOVE
+            && in_scope.len() <= crate::jev::MAX_CHOICE_OPTIONS
+        {
             let mut q = std::collections::BTreeMap::new();
             q.insert(
                 "action".to_owned(),
