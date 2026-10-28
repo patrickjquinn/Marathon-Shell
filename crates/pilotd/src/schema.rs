@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! A small JSON Schema validator for tool-call arguments (spec section 6.1:
 //! "tool calls validated against JSON schemas in `pilotd` before

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // What Pilot remembers: a fact just kept (with Undo), the list of what is
 // kept (each with a way to forget it), or one just forgotten. All of it

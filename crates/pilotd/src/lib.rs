@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `pilotd`, the Pilot assistant daemon (docs/specs/pilot.md). The binary
 //! in `main.rs` is a thin shell over [`daemon`]; everything else is a

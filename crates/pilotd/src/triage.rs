@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Proactive triage (spec section 5.3). Opt-in: nothing here runs without
 //! the `triage` consent, and nothing runs while the privacy switch is on.

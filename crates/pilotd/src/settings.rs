@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! User settings (spec section 10, "Consent"): per-capability cloud
 //! consent and the backend choice, stored as JSON (0600) in the data

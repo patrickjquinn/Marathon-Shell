@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // A pill: a suggestion, a follow-up question or a source. One tap.
 // `monogram` puts a site's first letter in a small disc before the text.

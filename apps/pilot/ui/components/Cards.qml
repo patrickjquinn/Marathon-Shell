@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The delegate of a conversation view, for the main page and the overlay.
 // Pilot's typed cards (a timer, an alarm, a reminder, an agenda, an

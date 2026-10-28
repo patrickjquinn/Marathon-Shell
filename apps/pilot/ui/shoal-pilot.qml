@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Pilot, on Keel (Sailfish.Silica 1.0 under Qt 6). All state comes from the
 // `Pilot` singleton (Shipwright.Pilot 1.0, imported by the pages), a CXX-Qt object that talks to

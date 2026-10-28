@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Local wall-clock time from the C library (`localtime_r`), which follows
 //! the system time zone the way the Clock app does. The `time` crate's

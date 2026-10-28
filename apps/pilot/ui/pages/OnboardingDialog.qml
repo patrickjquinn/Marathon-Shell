@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // First run, as Silica does a sequence: four dialogs, each accepted with
 // the forward gesture (or the header) and backed out of with the back

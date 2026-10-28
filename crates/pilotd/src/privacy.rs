@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The privacy switch (spec section 8.3): when engaged, Pilot is offline
 //! and the microphone path is closed. No exceptions, no queued uploads.

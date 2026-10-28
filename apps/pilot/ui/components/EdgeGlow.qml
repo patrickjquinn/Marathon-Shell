@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The screen's edges lit by Pilot, in the ambience's highlight colours:
 // a soft bloom rising from the bottom edge, where the finger came from, when

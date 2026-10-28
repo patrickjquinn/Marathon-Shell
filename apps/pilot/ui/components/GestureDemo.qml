@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // How to bring Pilot up from anywhere, shown: a phone, and a finger onto
 // the glowing bar at its bottom edge, held, and Pilot's orb.

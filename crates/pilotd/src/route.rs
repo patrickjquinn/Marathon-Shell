@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Routing policy (spec section 5.2). Jev returns probabilities; this code
 //! decides. Thresholds are configuration with the spec's initial values.

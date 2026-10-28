@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The generation layer (spec section 6): an OpenAI-compatible chat
 //! completions client with tools, JSON mode and `reasoning_effort`.

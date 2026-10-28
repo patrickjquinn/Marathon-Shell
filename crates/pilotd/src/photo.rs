@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Camera frames before they leave the device (spec section 6.1: "camera
 //! frame downscaled and EXIF-stripped on the device before upload").

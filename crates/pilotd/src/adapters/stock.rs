@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Sailfish's own apps, through the D-Bus entry points they publish for the
 //! system (sharing, notifications, the lock screen): nothing is injected

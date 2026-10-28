@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The turn view: the conversation, and the sheet at the bottom edge with
 // the text field and the mic. Swiping up from the bottom edge opens the

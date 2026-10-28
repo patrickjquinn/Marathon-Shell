@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Cover (spec section 8.2): a running timer counting down in a ring, or
 // the next alarm or reminder, or else Pilot's state and the last

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The speech recognition models pilot-voice downloads on first use
 //! (shoal/pilot/voice/src/models.rs): 78 to 148 MB each, in

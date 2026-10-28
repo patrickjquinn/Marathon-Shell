@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The tool registry: system tools (spec section 6.2) now, Keel Actions
 //! from `keel-mcp` (section 9) later, under one set of rules:

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The UI's side of `org.shipwright.Pilot1` (shoal/pilot/README.md, "D-Bus
 //! interface"). Blocking zbus: each call runs on the caller's thread, which

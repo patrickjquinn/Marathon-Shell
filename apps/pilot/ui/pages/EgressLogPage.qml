@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Every remote call Pilot made: when, to whom, why, how much, how long,
 // and how it ended. Never what was said. One row per call, newest first,

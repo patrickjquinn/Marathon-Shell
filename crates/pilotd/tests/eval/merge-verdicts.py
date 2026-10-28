@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 """Applies a judge agent's verdicts to an evaluation run.
 
 usage: merge-verdicts.py JUDGE_FILE VERDICTS_FILE

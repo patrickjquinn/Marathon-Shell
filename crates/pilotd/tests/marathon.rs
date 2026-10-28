@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The Marathon adapters against a stand-in Marathon shell on a private
 //! session bus (the method shapes of Marathon's shell/src/ipc/shellservices.h).

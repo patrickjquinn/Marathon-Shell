@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Pilot's home, before anything is asked: a greeting and the date, what
 // is running (timers counting down, the next alarm, reminders), what is

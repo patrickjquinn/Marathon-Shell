@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Pilot's evaluation suite: realistic requests with checkable outcomes,
 //! run against the real models (Jev and Qwen on Groq) with the phone's

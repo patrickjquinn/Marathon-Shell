@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // One entry of the conversation: the user's words, or one card from
 // pilotd (response, clarify, confirm, camera, offline, error). Laid out as

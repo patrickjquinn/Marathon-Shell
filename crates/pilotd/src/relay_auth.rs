@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The relay's device token (services/pilot-relay): obtained by sending the
 //! Pilot licence from Reef (`org.shipwright.Reef.Licences`, the hand-off

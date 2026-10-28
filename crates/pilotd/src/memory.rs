@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! What Pilot remembers, as tools for the model. Kept on the phone
 //! (`Store`); the person sees it on a card and in Settings, and can say

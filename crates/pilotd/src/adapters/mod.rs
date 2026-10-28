@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Thin adapters over Sailfish services (spec section 14: "thin adapter
 //! layer per service; test against each OS release"). Each is a trait the

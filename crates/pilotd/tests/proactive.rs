@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Proactive triage (spec section 5.3) and camera turns (phase 4), against
 //! fake Jev and LLM servers; the notification monitor on a private bus

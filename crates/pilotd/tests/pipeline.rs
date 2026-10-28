@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The whole pipeline against fake Jev and LLM servers: routing by the
 //! section 5.2 thresholds, redaction on the wire, placeholder restore,

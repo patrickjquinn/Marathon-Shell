@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `pilotd.toml`. Every remote endpoint, the model ids and the routing
 //! thresholds are configuration, not code (spec section 6.1: preview

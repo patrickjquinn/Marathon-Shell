@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The viewfinder for a camera turn (spec section 6.2, camera.capture:
 // user-initiated only). Nothing is captured until the shutter is pressed;

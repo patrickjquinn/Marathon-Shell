@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 
 # shoal-pilot: the Pilot UI executable. Loads the QML in ../ui and exposes
 # the `Pilot` singleton (Shipwright.Pilot 1.0), a CXX-Qt QObject that talks
@@ -14,7 +14,7 @@ name = "shoal-pilot"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.87"
-license = "LicenseRef-Shipwright-Proprietary"
+license = "Apache-2.0"
 publish = false
 
 # A shared object that is also executable, as every Keel app

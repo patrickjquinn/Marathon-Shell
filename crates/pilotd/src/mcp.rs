@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Keel Actions as Pilot tools (spec section 9): a generic MCP client
 //! (JSON-RPC 2.0, one message per line, as MCP's stdio transport) and the

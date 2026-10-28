@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Learn Pilot: what it can do, how to reach it, and how it works, in the
 // person's words. A section per skill of the getting-started guide

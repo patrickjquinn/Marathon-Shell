@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // What Pilot can do: what it does by itself on the phone, what it does
 // with the web, and, read from pilotd (Capabilities), what it can do in

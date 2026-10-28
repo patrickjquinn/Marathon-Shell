@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Fixtures: a fake HTTP server standing in for Jev, Groq (via the relay)
 //! and the Lighthouse scorer, and recording fakes for the Sailfish

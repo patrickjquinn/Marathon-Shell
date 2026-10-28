@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `web.search`: the relay's `POST /v1/search` (Cloudflare's Web Search,
 //! a provider that keeps no data). Read-only and asked for by the model

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // The conversation, one for the app: the main page shows all of it, and
 // the overlay over other apps (Overlay.qml, a second window in the same

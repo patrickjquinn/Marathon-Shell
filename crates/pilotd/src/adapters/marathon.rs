@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Marathon OS: the shell's services on the session bus
 //! (`org.marathonos.Shell`, shell/src/ipc/shellservices.h in Marathon).

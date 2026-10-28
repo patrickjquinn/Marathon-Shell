@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+# SPDX-License-Identifier: Apache-2.0
 
 # systemd user unit for pilotd. Started on demand by D-Bus activation
 # (dbus/org.shipwright.Pilot.service names this unit), so Pilot costs

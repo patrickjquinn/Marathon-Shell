@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Direct mode: the phone's owner holds the Groq and Jev keys, in a 0600
 //! file, and pilotd calls the relay's upstreams itself (`[direct]` in

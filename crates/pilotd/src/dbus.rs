@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `org.shipwright.Pilot` on the session bus: interface
 //! `org.shipwright.Pilot1` at `/org/shipwright/Pilot`.

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // An alarm or a reminder: the time it rings in large type, how far away
 // that is ("in 2 h 5 min", "tomorrow"), what it is for, and Cancel.

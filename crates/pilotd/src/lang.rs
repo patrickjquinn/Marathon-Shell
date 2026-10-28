@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The person's language and region: what the Pilot app tells pilotd
 //! (`SetLocale`, from the app's own locale, which follows Settings >

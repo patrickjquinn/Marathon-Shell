@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! pilotd: the Pilot assistant daemon. Owns `org.shipwright.Pilot` on the
 //! session bus; see ../README.md.

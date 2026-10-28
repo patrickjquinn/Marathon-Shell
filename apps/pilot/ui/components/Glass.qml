@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Pilot's card surface: a soft glass panel inset by the page margins,
 // tinted by the ambience, with a hairline edge. `accent` warms it with the

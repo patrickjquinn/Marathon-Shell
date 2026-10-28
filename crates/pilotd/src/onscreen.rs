@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Which app the person opened Pilot over. Lipstick's gesture patch sends
 //! the process id of the window on top (`ShowSheetFor`); its executable is

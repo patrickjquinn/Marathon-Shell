@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The one way `pilotd` talks to the network: JSON POSTs that are logged in
 //! the egress log, refused while offline, and authenticated with the

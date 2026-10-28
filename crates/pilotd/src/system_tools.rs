@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The system tool registry of spec section 6.2: capabilities that are not
 //! Keel apps, backed by the Sailfish adapters. The deterministic handlers

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Radios and flight mode through ConnMan on the system bus: technology
 //! `Powered` for Wi-Fi, Bluetooth and mobile data, the manager's

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Direct mode against fake upstreams: each key to its own upstream, no
 //! token exchange, the region stamped from configuration (whatever the

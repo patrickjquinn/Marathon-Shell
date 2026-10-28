@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! The address book, read-only, from qtcontacts-sqlite's database
 //! (`~/.local/share/system/privileged/Contacts/qtcontacts-sqlite/contacts.db`,

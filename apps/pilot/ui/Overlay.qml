@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 // Pilot over any app: what the system-wide gesture (the gesture patch,
 // shoal/pilot/lipstick/patch) brings up. A second window of the app

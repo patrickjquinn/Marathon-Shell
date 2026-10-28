@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! `org.shipwright.Pilot1` on a private session bus, and the privacy
 //! switch followed through a stand-in `org.sailfishos.privacyswitch`

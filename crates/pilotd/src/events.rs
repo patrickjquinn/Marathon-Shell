@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Pilot in the Events view (spec section 8.2, "Events view tab"), through
 //! the one public extension point Lipstick has for it: notifications.

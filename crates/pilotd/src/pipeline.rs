@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! One turn, end to end (spec section 4): redact, decide with Jev, route
 //! by the section 5.2 thresholds, then a deterministic handler, a templated

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Minimal stderr logger. Under systemd, stderr goes to the journal, which
 //! adds its own timestamps; the level prefix follows sd-daemon(3) so

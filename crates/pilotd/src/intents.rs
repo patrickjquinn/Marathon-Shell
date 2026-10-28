@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+// SPDX-License-Identifier: Apache-2.0
 
 //! Local, deterministic understanding of the five spike intents (spec
 //! section 15, phase 0: timer, alarm, reminder, media, calendar query).
