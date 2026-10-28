@@ -537,6 +537,7 @@ pub fn output_of(r: &Value) -> Result<ToolOutput, ToolError> {
             data: json!({}),
             private: true,
             untrusted: false,
+            answers: false,
         });
     }
     let structured = r.get("structuredContent");
@@ -573,6 +574,7 @@ pub fn output_of(r: &Value) -> Result<ToolOutput, ToolError> {
             data,
             private: false,
             untrusted: true,
+            answers: false,
         });
     }
     Ok(ToolOutput {
@@ -584,6 +586,7 @@ pub fn output_of(r: &Value) -> Result<ToolOutput, ToolError> {
         data: structured.cloned().unwrap_or_else(|| json!({})),
         private: false,
         untrusted: false,
+        answers: false,
     })
 }
 

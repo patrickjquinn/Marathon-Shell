@@ -2958,7 +2958,7 @@ impl Pipeline {
                         {
                             action_cards.push(c);
                         }
-                        if single && entry.spec.read_only && !out.summary.trim().is_empty() {
+                        if single && entry.spec.read_only && out.answers {
                             lookup = Some(out.summary.clone());
                         }
                         json!({"ok": true, "summary": out.summary, "data": out.data})

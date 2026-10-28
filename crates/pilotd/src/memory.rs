@@ -128,6 +128,7 @@ impl ToolExecutor for MemoryTool {
                 data: json!({"exchanges": found}),
                 private: false,
                 untrusted: false,
+                answers: false,
             });
         }
         if tool != TOOL {
@@ -151,6 +152,7 @@ impl ToolExecutor for MemoryTool {
             data: json!({"id": id, "fact": fact}),
             private: false,
             untrusted: false,
+            answers: false,
         })
     }
 }

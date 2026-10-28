@@ -450,6 +450,7 @@ impl SystemTools {
         Ok(ToolOutput {
             private: false,
             untrusted: false,
+            answers: false,
             summary,
             data: json!({ "events": events }),
         })
@@ -472,6 +473,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: if cancelled {
                         "Cancelled.".into()
                     } else {
@@ -492,6 +494,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: match label {
                         Some(l) => format!("Timer set for {d} ({l})."),
                         None => format!("Timer set for {d}."),
@@ -507,6 +510,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!("Alarm set for {h:02}:{m:02}."),
                     data: json!({"cookie": cookie, "time": format!("{h:02}:{m:02}"),
                                  "at": next_local(&(self.now)(), h, m, 0)}),
@@ -541,6 +545,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!("I'll remind you to {text} {when}."),
                     data: json!({"cookie": cookie, "at": at}),
                 })
@@ -561,6 +566,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: summary.into(),
                     data: json!({"player": player, "action": action}),
                 })
@@ -572,6 +578,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!("Found {} contact(s).", hits.len()),
                     data: json!({"contacts": hits}),
                 })
@@ -582,6 +589,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!("Calling {n}."),
                     data: json!({}),
                 })
@@ -593,6 +601,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!("Message sent to {to}."),
                     data: json!({}),
                 })
@@ -607,6 +616,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: "The message is open in Messages for the person to send.".into(),
                     data: json!({}),
                 })
@@ -619,6 +629,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!(
                         "{} is {}.",
                         arg(args, "target").unwrap_or("").replace('_', " "),
@@ -635,6 +646,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: if ready && to.trim().is_empty() {
                         "The e-mail is open in Email with no recipient: the person adds who it \
                          goes to, checks it and sends it. Say so; do not say who it is addressed to."
@@ -653,6 +665,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: "The note is in Notes.".into(),
                     data: json!({}),
                 })
@@ -665,6 +678,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!("Settings is open at {}.", page.replace('_', " ")),
                     data: json!({}),
                 })
@@ -684,6 +698,7 @@ impl ToolExecutor for SystemTools {
                 Ok(ToolOutput {
                     private: false,
                     untrusted: false,
+                    answers: false,
                     summary: format!("{name} {}.", if on { "on" } else { "off" }),
                     data: json!({}),
                 })

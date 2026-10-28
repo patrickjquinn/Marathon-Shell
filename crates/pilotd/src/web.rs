@@ -142,6 +142,7 @@ impl ToolExecutor for WebSearch {
             data: json!({"query": query, "results": items}),
             private: false,
             untrusted: true,
+            answers: false,
         })
     }
 }

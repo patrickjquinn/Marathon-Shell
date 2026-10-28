@@ -1,55 +1,27 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-//! `weather.forecast`: current weather and the forecast from Open-Meteo
-//! (open data from national weather services, no key, no account). Web
-//! pages are no source for weather: their snippets are hours old, and
-//! Pilot told the person it was 6 °C and overcast in Dublin when it was
-//! 12.8 °C and clear, then made up "tomorrow" from them.
-//!
-//! Only a place name leaves the phone: the one asked about, or the time
-//! zone's city (Europe/Dublin: Dublin) when none is given. Both calls are
-//! logged as egress like any other.
+//! `weather.forecast`: the weather now and day by day from Marathon's
+//! weather service (marathon-weatherd, MET Norway), the one the Weather
+//! app shows: for where the phone is when no place is named, else for the
+//! place the service's search finds. Web pages are no source for weather:
+//! their snippets are hours old, and Pilot told the person it was 6 °C and
+//! overcast in Dublin when it was 12.8 °C and clear.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use crate::remote::Remote;
 use crate::schema::Validator;
 use crate::tools::{Confirm, Registry, ToolError, ToolExecutor, ToolOutput, ToolSpec};
 
 pub const TOOL: &str = "weather.forecast";
-const GEOCODE: &str = "https://geocoding-api.open-meteo.com/v1/search";
-const FORECAST: &str = "https://api.open-meteo.com/v1/forecast";
+const BUS: &str = "org.marathonos.Weather";
+const PATH: &str = "/org/marathonos/Weather";
+const INTERFACE: &str = "org.marathonos.Weather1";
 
-pub struct Weather {
-    pub remote: Remote,
-    /// What the person asked Pilot to remember: where they live ("I live
-    /// in Galway") is the place when none is named.
-    pub store: Option<Arc<crate::store::Store>>,
-}
-
-/// The town in a remembered fact about home ("I live in Galway", "we
-/// moved from Cork to Galway last month" -> "Galway").
-pub fn home_from_fact(fact: &str) -> Option<String> {
-    let l = fact.to_ascii_lowercase();
-    if !(l.contains("live") || l.contains("moved")) {
-        return None;
-    }
-    let at = ["live in ", "moved to ", " to "]
-        .iter()
-        .find_map(|k| l.rfind(k).map(|i| i + k.len()))?;
-    let place: String = fact[at..]
-        .split([',', '.', ';', '!'])
-        .next()?
-        .split_whitespace()
-        .take_while(|w| w.chars().next().is_some_and(char::is_uppercase))
-        .collect::<Vec<_>>()
-        .join(" ");
-    (place.chars().count() >= 2).then_some(place)
-}
+pub struct Weather;
 
 /// The tool's declaration.
 ///
@@ -85,45 +57,31 @@ pub fn spec() -> ToolSpec {
 }
 
 /// Adds `weather.forecast`.
-pub fn register(registry: &mut Registry, remote: Remote, store: Option<Arc<crate::store::Store>>) {
-    registry.add(spec(), true, Arc::new(Weather { remote, store }));
+pub fn register(registry: &mut Registry) {
+    registry.add(spec(), true, Arc::new(Weather));
 }
 
-/// WMO weather code, in words.
-pub fn describe(code: i64) -> &'static str {
-    match code {
-        0 => "clear",
-        1 => "mainly clear",
-        2 => "partly cloudy",
-        3 => "overcast",
-        45 | 48 => "fog",
-        51 | 53 | 55 => "drizzle",
-        56 | 57 => "freezing drizzle",
-        61 => "light rain",
-        63 => "rain",
-        65 => "heavy rain",
-        66 | 67 => "freezing rain",
-        71 | 73 | 75 | 77 => "snow",
-        80 => "light showers",
-        81 => "showers",
-        82 => "heavy showers",
-        85 | 86 => "snow showers",
-        95 => "thunderstorms",
-        96 | 99 => "thunderstorms with hail",
-        _ => "unknown",
+/// A MET Norway symbol in words: `lightrainshowers_day` -> "light rain
+/// showers".
+pub fn sky(symbol: &str) -> String {
+    const WORDS: [&str; 14] = [
+        "partly", "cloudy", "clear", "sky", "fair", "fog", "light", "heavy", "rain", "showers",
+        "sleet", "snow", "and", "thunder",
+    ];
+    let mut rest = symbol.split('_').next().unwrap_or(symbol);
+    let mut words = Vec::new();
+    while !rest.is_empty() {
+        let Some(word) = WORDS.iter().find(|w| rest.starts_with(**w)) else {
+            words.push(rest);
+            break;
+        };
+        words.push(word);
+        rest = &rest[word.len()..];
     }
-}
-
-/// Percent-encoding for a query value.
-fn enc(s: &str) -> String {
-    s.bytes()
-        .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                (b as char).to_string()
-            }
-            _ => format!("%{b:02X}"),
-        })
-        .collect()
+    match words.join(" ").as_str() {
+        "clear sky" => "clear".into(),
+        other => other.into(),
+    }
 }
 
 fn num(v: &Value, k: &str) -> Option<f64> {
@@ -153,9 +111,8 @@ fn weekday(date: &str) -> Option<&'static str> {
     )
 }
 
-/// The units a forecast is asked for and named in: metric, or (the
-/// United States, Liberia and Myanmar) Fahrenheit, mph and inches, so the
-/// model answers in the units the person uses.
+/// The units a forecast is given in: metric, or (the United States,
+/// Liberia and Myanmar) Fahrenheit, mph and inches.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Units {
     pub imperial: bool,
@@ -165,15 +122,6 @@ impl Units {
     pub fn for_locale(locale: &crate::lang::Locale) -> Units {
         Units {
             imperial: locale.imperial(),
-        }
-    }
-
-    /// Open-Meteo's unit parameters (none for its metric default).
-    fn query(self) -> &'static str {
-        if self.imperial {
-            "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch"
-        } else {
-            ""
         }
     }
 
@@ -189,80 +137,171 @@ impl Units {
         };
         format!("{name}_{unit}")
     }
+
+    fn temp(self, celsius: f64) -> f64 {
+        if self.imperial {
+            celsius * 1.8 + 32.0
+        } else {
+            celsius
+        }
+    }
+
+    /// From the service's metres per second.
+    fn wind(self, metres_per_second: f64) -> f64 {
+        metres_per_second * if self.imperial { 2.236_94 } else { 3.6 }
+    }
+
+    fn rain(self, millimetres: f64) -> f64 {
+        if self.imperial {
+            millimetres / 25.4
+        } else {
+            millimetres
+        }
+    }
+
+    fn degree(self) -> &'static str {
+        if self.imperial {
+            "°F"
+        } else {
+            "°C"
+        }
+    }
 }
 
-/// The model's view of a forecast reply: the place, now, the next 24 hours
-/// every 3 hours, and each day, in `units`.
-pub fn summarise(place: &str, f: &Value, units: Units) -> Value {
+fn round1(x: f64) -> f64 {
+    (x * 10.0).round() / 10.0
+}
+
+#[allow(clippy::cast_possible_truncation, reason = "a temperature")]
+fn whole(x: f64) -> i64 {
+    x.round() as i64
+}
+
+/// "13:00" in the place's own time.
+fn clock(epoch: i64, offset: i64) -> String {
+    let seconds = (epoch + offset).rem_euclid(86_400);
+    format!("{:02}:{:02}", seconds / 3600, seconds % 3600 / 60)
+}
+
+/// The model's view of the service's forecast (`f`, as `Forecast` gives it)
+/// and the forecast in words, for the first `days` days.
+pub fn summarise(place: &str, f: &Value, units: Units, days: usize) -> (Value, String) {
     let k = |name: &str| units.key(name);
+    let offset = f["timezone_offset"].as_i64().unwrap_or_default();
     let cur = &f["current"];
-    let round = |x: Option<f64>| x.map(|v| (v * 10.0).round() / 10.0);
-    let code = |v: Option<&Value>| v.and_then(Value::as_i64).map_or("unknown", describe);
-    let hourly = &f["hourly"];
-    let hours: Vec<Value> = hourly["time"]
-        .as_array()
-        .map(|t| {
-            t.iter()
-                .enumerate()
-                .step_by(3)
-                .map(|(i, time)| {
-                    let mut h = json!({
-                        "time": time,
-                        "rain_chance_pct": hourly["precipitation_probability"].get(i),
-                        "sky": code(hourly["weather_code"].get(i)),
-                    });
-                    h[k("temp")] = json!(round(
-                        hourly["temperature_2m"].get(i).and_then(Value::as_f64)
-                    ));
-                    h
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let daily = &f["daily"];
-    let days: Vec<Value> = daily["time"]
-        .as_array()
-        .map(|t| {
-            t.iter()
-                .enumerate()
-                .map(|(i, date)| {
-                    let mut d = json!({
-                        "date": date,
-                        "day": date.as_str().and_then(weekday),
-                        "weekend": date
-                            .as_str()
-                            .and_then(weekday)
-                            .is_some_and(|d| d == "Saturday" || d == "Sunday"),
-                        "rain_chance_pct": daily["precipitation_probability_max"].get(i),
-                        "sky": code(daily["weather_code"].get(i)),
-                    });
-                    d[k("min")] = json!(round(
-                        daily["temperature_2m_min"].get(i).and_then(Value::as_f64)
-                    ));
-                    d[k("max")] = json!(round(
-                        daily["temperature_2m_max"].get(i).and_then(Value::as_f64)
-                    ));
-                    d
-                })
-                .collect()
-        })
-        .unwrap_or_default();
     let mut now = json!({
-        "time": cur.get("time"),
-        "sky": code(cur.get("weather_code")),
-        "humidity_pct": cur.get("relative_humidity_2m"),
+        "time": cur["time"].as_i64().map(|t| clock(t, offset)),
+        "sky": cur["symbol"].as_str().map(sky),
+        "humidity_pct": cur.get("humidity"),
     });
-    now[k("temp")] = json!(round(num(cur, "temperature_2m")));
-    now[k("feels_like")] = json!(round(num(cur, "apparent_temperature")));
-    now[k("wind")] = json!(round(num(cur, "wind_speed_10m")));
-    now[k("rain")] = json!(cur.get("precipitation"));
-    json!({
+    now[k("temp")] = json!(num(cur, "temperature").map(|t| round1(units.temp(t))));
+    now[k("feels_like")] = json!(num(cur, "apparent").map(|t| round1(units.temp(t))));
+    now[k("wind")] = json!(num(cur, "wind_speed").map(|w| round1(units.wind(w))));
+    let hours: Vec<Value> = f["hourly"]
+        .as_array()
+        .map(|h| {
+            h.iter()
+                .step_by(3)
+                .take(8)
+                .map(|h| {
+                    let mut out = json!({
+                        "time": h["time"].as_i64().map(|t| clock(t, offset)),
+                        "sky": h["symbol"].as_str().map(sky),
+                        "rain_chance_pct": h.get("precipitation_probability"),
+                    });
+                    out[k("temp")] = json!(num(h, "temperature").map(|t| round1(units.temp(t))));
+                    out
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let daily: Vec<&Value> = f["daily"]
+        .as_array()
+        .map(|d| d.iter().take(days).collect())
+        .unwrap_or_default();
+    let day_rows: Vec<Value> = daily
+        .iter()
+        .map(|d| {
+            let date = d["date"].as_str().unwrap_or("");
+            let mut out = json!({
+                "date": date,
+                "day": weekday(date),
+                "sky": d["symbol"].as_str().map(sky),
+                "rain_chance_pct": d.get("precipitation_probability"),
+            });
+            out[k("min")] = json!(num(d, "low").map(|t| round1(units.temp(t))));
+            out[k("max")] = json!(num(d, "high").map(|t| round1(units.temp(t))));
+            out[k("rain")] = json!(num(d, "precipitation").map(|r| round1(units.rain(r))));
+            out
+        })
+        .collect();
+    let data = json!({
         "place": place,
-        "source": "Open-Meteo",
+        "source": "MET Norway",
         "now": now,
         "next_24_hours": hours,
-        "days": days,
-    })
+        "days": day_rows,
+    });
+    (data, answer(place, f, units, days))
+}
+
+/// The forecast in words: now, then each of the first `days` days.
+fn answer(place: &str, f: &Value, units: Units, days: usize) -> String {
+    let degree = units.degree();
+    let cur = &f["current"];
+    let mut sentences = Vec::new();
+    if let Some(t) = num(cur, "temperature") {
+        let mut now = vec![format!("{place}: {}{degree}", whole(units.temp(t)))];
+        if let Some(s) = cur["symbol"].as_str() {
+            now.push(format!("and {}", sky(s)));
+        }
+        now.push("now".into());
+        let mut sentence = now.join(" ");
+        if let Some(a) = num(cur, "apparent").filter(|a| (a - t).abs() >= 2.0) {
+            sentence = format!("{sentence}, feels like {}{degree}", whole(units.temp(a)));
+        }
+        sentences.push(format!("{sentence}."));
+    }
+    let daily = f["daily"].as_array().map_or(&[][..], Vec::as_slice);
+    for (i, d) in daily.iter().take(days).enumerate() {
+        let (Some(low), Some(high)) = (num(d, "low"), num(d, "high")) else {
+            continue;
+        };
+        let label = match i {
+            0 => "Today",
+            1 => "Tomorrow",
+            _ => d["date"].as_str().and_then(weekday).unwrap_or(""),
+        };
+        let mut parts = vec![match d["symbol"].as_str() {
+            Some(s) => format!("{label} {}", sky(s)),
+            None => label.to_owned(),
+        }];
+        parts.push(format!(
+            "{} to {}{degree}",
+            whole(units.temp(low)),
+            whole(units.temp(high))
+        ));
+        let rain = num(d, "precipitation").unwrap_or_default();
+        parts.push(match d["precipitation_probability"].as_i64() {
+            Some(p) if p >= 20 => format!("{p}% chance of rain"),
+            _ if rain >= 0.2 => format!(
+                "{} {} of rain",
+                round1(units.rain(rain)),
+                if units.imperial { "in" } else { "mm" }
+            ),
+            _ => "dry".into(),
+        });
+        sentences.push(format!("{}.", parts.join(", ")));
+    }
+    sentences.join(" ")
+}
+
+async fn service() -> Result<zbus::Proxy<'static>, ToolError> {
+    let unavailable = |e: zbus::Error| ToolError::Unavailable(format!("the weather service: {e}"));
+    let bus = zbus::Connection::session().await.map_err(unavailable)?;
+    zbus::Proxy::new(&bus, BUS, PATH, INTERFACE)
+        .await
+        .map_err(unavailable)
 }
 
 #[async_trait]
@@ -276,95 +315,57 @@ impl ToolExecutor for Weather {
             .and_then(Value::as_str)
             .map(crate::web::clean_query)
             .filter(|p| p.chars().count() >= 2);
-        // Where the person lives, if they told Pilot (the newest such fact),
-        // then the time zone's city.
-        let home = || {
-            self.store
-                .as_ref()?
-                .memories()
-                .ok()?
-                .iter()
-                .rev()
-                .find_map(|m| home_from_fact(&m.fact))
-        };
-        let place = match asked.or_else(home) {
-            Some(p) => p,
-            None => crate::localtime::zone_name()
-                .map(|z| crate::localtime::zone_city(&z))
-                .filter(|c| !c.is_empty())
-                .ok_or_else(|| {
-                    ToolError::Invalid("the phone's location is unknown; ask which town".into())
-                })?,
-        };
         let days = args
             .get("days")
             .and_then(Value::as_u64)
             .unwrap_or(3)
             .clamp(1, 10);
-        // Place names in the person's language ("München", "Helsingfors"
-        // in Swedish), units as they use them.
-        let locale = crate::lang::current();
-        let units = Units::for_locale(&locale);
-        let geo = self
-            .remote
-            .get_json(
-                "open-meteo",
-                "weather place",
-                &format!(
-                    "{GEOCODE}?name={}&count=1&language={}&format=json",
-                    enc(&place),
-                    enc(locale.service_language())
-                ),
-            )
-            .await
-            .map_err(|e| ToolError::Failed(format!("weather lookup failed: {e}")))?;
-        let Some(hit) = geo.body["results"].get(0) else {
-            return Err(ToolError::Invalid(format!(
-                "no place called \"{place}\" was found"
-            )));
+        let units = Units::for_locale(&crate::lang::current());
+        let weather = service().await?;
+        let failed = |e: zbus::Error| ToolError::Failed(format!("the weather service: {e}"));
+        let (place, forecast) = match asked {
+            None => {
+                let text: String = weather.get_property("Forecast").await.map_err(failed)?;
+                let forecast: Value = serde_json::from_str(&text).map_err(|_empty| {
+                    ToolError::Invalid("the phone's location is unknown; ask which town".into())
+                })?;
+                let name = forecast["location"]["name"]
+                    .as_str()
+                    .unwrap_or("Here")
+                    .to_owned();
+                (name, forecast)
+            }
+            Some(place) => {
+                let found: String = weather
+                    .call("Search", &(place.as_str(),))
+                    .await
+                    .map_err(failed)?;
+                let found: Value = serde_json::from_str(&found).unwrap_or_default();
+                let Some(hit) = found.get(0) else {
+                    return Err(ToolError::Invalid(format!(
+                        "no place called \"{place}\" was found"
+                    )));
+                };
+                let (Some(lat), Some(lon)) = (num(hit, "latitude"), num(hit, "longitude")) else {
+                    return Err(ToolError::Failed("the place has no coordinates".into()));
+                };
+                let text: String = weather
+                    .call("ForecastAt", &(lat, lon))
+                    .await
+                    .map_err(failed)?;
+                let forecast = serde_json::from_str(&text)
+                    .map_err(|e| ToolError::BadOutput(format!("the weather service: {e}")))?;
+                (hit["name"].as_str().unwrap_or(&place).to_owned(), forecast)
+            }
         };
-        let (Some(lat), Some(lon)) = (num(hit, "latitude"), num(hit, "longitude")) else {
-            return Err(ToolError::Failed(
-                "the weather service gave no coordinates".into(),
-            ));
-        };
-        let name = [hit["name"].as_str(), hit["country"].as_str()]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>()
-            .join(", ");
-        let url = format!(
-            "{FORECAST}?latitude={lat}&longitude={lon}\
-             &current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,precipitation\
-             &hourly=temperature_2m,precipitation_probability,weather_code&forecast_hours=24\
-             &daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code\
-             &forecast_days={days}&timezone=auto{}",
-            units.query()
-        );
-        // Once more after a moment: the service had brief outages, and "the
-        // weather service is down" is a poor answer to a passing one.
-        let first = self
-            .remote
-            .get_json("open-meteo", "weather forecast", &url)
-            .await;
-        let forecast = if let Ok(f) = first {
-            f
-        } else {
-            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
-            self.remote
-                .get_json("open-meteo", "weather forecast", &url)
-                .await
-                .map_err(|e| ToolError::Failed(format!("weather forecast failed: {e}")))?
-        };
-        let data = summarise(&name, &forecast.body, units);
+        let (data, summary) =
+            summarise(&place, &forecast, units, usize::try_from(days).unwrap_or(3));
         Ok(ToolOutput {
-            summary: format!(
-                "Weather for {name} from Open-Meteo, as of {}.",
-                data["now"]["time"].as_str().unwrap_or("now")
-            ),
+            summary,
             data,
             private: false,
             untrusted: false,
+            answers: true,
         })
     }
 }
@@ -375,79 +376,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_forecast_is_summarised_for_the_model() {
+    fn a_forecast_is_answered_in_words() {
         let f = json!({
-            "current": {"time": "2026-10-11T12:15", "temperature_2m": 12.84, "apparent_temperature": 9.9,
-                        "weather_code": 0, "wind_speed_10m": 13.0, "relative_humidity_2m": 70, "precipitation": 0.0},
-            "hourly": {"time": ["t0", "t1", "t2", "t3"], "temperature_2m": [12.8, 13.0, 13.4, 13.1],
-                       "precipitation_probability": [5, 10, 20, 60], "weather_code": [0, 1, 2, 61]},
-            "daily": {"time": ["2026-10-11", "2026-10-12"], "temperature_2m_min": [8.6, 14.5],
-                      "temperature_2m_max": [14.6, 19.9], "precipitation_probability_max": [84, 98],
-                      "weather_code": [3, 51]}
+            "timezone_offset": 0,
+            "current": {"time": 1_793_188_800, "temperature": 14.0, "apparent": 10.4,
+                        "symbol": "partlycloudy", "humidity": 73, "wind_speed": 4.9},
+            "hourly": [{"time": 1_793_192_400, "temperature": 14.6, "symbol": "lightrainshowers_day",
+                        "precipitation_probability": 40}],
+            "daily": [{"date": "2026-10-28", "high": 14.7, "low": 10.5, "precipitation": 0.0,
+                       "precipitation_probability": null, "symbol": "partlycloudy"},
+                      {"date": "2026-10-29", "high": 13.4, "low": 10.6, "precipitation": 2.4,
+                       "precipitation_probability": null, "symbol": "rainshowers_day"},
+                      {"date": "2026-10-31", "high": 14.2, "low": 7.9, "precipitation": 0.0,
+                       "precipitation_probability": 60, "symbol": "cloudy"}]
         });
-        let s = summarise("Dublin, Ireland", &f, Units { imperial: false });
-        assert_eq!(s["now"]["temp_c"], json!(12.8));
-        assert_eq!(s["now"]["sky"], "clear");
+        let (data, words) = summarise("Dublin", &f, Units { imperial: false }, 3);
         assert_eq!(
-            s["next_24_hours"].as_array().unwrap().len(),
-            2,
-            "every 3 hours"
+            words,
+            "Dublin: 14°C and partly cloudy now, feels like 10°C. Today partly cloudy, 11 to 15°C, \
+             dry. Tomorrow rain showers, 11 to 13°C, 2.4 mm of rain. Saturday cloudy, 8 to 14°C, \
+             60% chance of rain."
         );
-        assert_eq!(s["next_24_hours"][1]["sky"], "light rain");
-        assert_eq!(s["days"][1]["max_c"], json!(19.9));
-        assert_eq!(s["days"][1]["rain_chance_pct"], 98);
-        assert_eq!(s["days"][1]["sky"], "drizzle");
-        assert_eq!(s["days"][0]["day"], "Sunday");
-        assert_eq!(s["days"][0]["weekend"], true);
-        assert_eq!(s["days"][1]["weekend"], false);
-        assert_eq!(weekday("2026-10-17"), Some("Saturday"));
+        assert_eq!(data["now"]["wind_kmh"], json!(17.6));
+        assert_eq!(data["next_24_hours"][0]["sky"], "light rain showers");
+        assert_eq!(data["days"][2]["day"], "Saturday");
+        let (us, words) = summarise("Boston", &f, Units { imperial: true }, 1);
+        assert!(words.starts_with("Boston: 57°F"));
+        assert_eq!(us["now"]["wind_mph"], json!(11.0));
         assert_eq!(weekday("2024-02-29"), Some("Thursday"));
-    }
-
-    #[test]
-    fn imperial_units_are_named_as_such() {
-        let f = json!({
-            "current": {"time": "2026-10-11T12:15", "temperature_2m": 55.1, "apparent_temperature": 50.0,
-                        "weather_code": 0, "wind_speed_10m": 8.1, "relative_humidity_2m": 70, "precipitation": 0.01},
-            "hourly": {"time": ["t0"], "temperature_2m": [55.0], "precipitation_probability": [5], "weather_code": [0]},
-            "daily": {"time": ["2026-10-11"], "temperature_2m_min": [47.5], "temperature_2m_max": [58.3],
-                      "precipitation_probability_max": [10], "weather_code": [3]}
-        });
-        let us = Units::for_locale(&crate::lang::Locale::parse("en_US").unwrap());
-        assert!(us.imperial);
-        assert!(us.query().contains("temperature_unit=fahrenheit"));
-        let s = summarise("Boston, United States", &f, us);
-        assert_eq!(s["now"]["temp_f"], json!(55.1));
-        assert_eq!(s["now"]["wind_mph"], json!(8.1));
-        assert_eq!(s["now"]["rain_in"], json!(0.01));
-        assert!(s["now"].get("temp_c").is_none());
-        assert_eq!(s["next_24_hours"][0]["temp_f"], json!(55.0));
-        assert_eq!(s["days"][0]["max_f"], json!(58.3));
-        let ie = Units::for_locale(&crate::lang::Locale::parse("en_IE").unwrap());
-        assert_eq!(ie.query(), "");
-        assert_eq!(ie.key("wind"), "wind_kmh");
-    }
-
-    #[test]
-    fn home_comes_from_what_was_remembered() {
-        assert_eq!(
-            home_from_fact("I live in Galway").as_deref(),
-            Some("Galway")
-        );
-        assert_eq!(
-            home_from_fact("we moved from Cork to Dún Laoghaire last month").as_deref(),
-            Some("Dún Laoghaire")
-        );
-        assert_eq!(home_from_fact("my wife's name is Niamh"), None);
-        assert_eq!(home_from_fact("I live in a flat"), None);
-        assert_eq!(
-            home_from_fact("İzmir was lovely, but I live in Galway").as_deref(),
-            Some("Galway")
-        );
-    }
-
-    #[test]
-    fn place_names_are_encoded() {
-        assert_eq!(enc("Dún Laoghaire"), "D%C3%BAn%20Laoghaire");
     }
 }

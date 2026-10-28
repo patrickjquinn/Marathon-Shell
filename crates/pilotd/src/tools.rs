@@ -96,6 +96,10 @@ pub struct ToolOutput {
     /// that changes something needs the person's yes.
     #[serde(skip)]
     pub untrusted: bool,
+    /// `summary` answers the question by itself (a forecast in words, not
+    /// "Weather for Dublin"): one such lookup needs no model round after.
+    #[serde(skip)]
+    pub answers: bool,
 }
 
 /// What a tool says before a call runs.
@@ -379,6 +383,7 @@ mod tests {
                 data: args.clone(),
                 private: false,
                 untrusted: false,
+                answers: false,
             })
         }
     }

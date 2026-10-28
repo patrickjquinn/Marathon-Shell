@@ -441,7 +441,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
     let mut registry = Registry::new();
     system_tools::register(&mut registry, &tools);
     crate::web::register(&mut registry, remote.clone(), &config.web_search_url);
-    crate::weather::register(&mut registry, remote.clone(), Some(Arc::clone(&store)));
+    crate::weather::register(&mut registry);
     crate::memory::register(&mut registry, Arc::clone(&store));
 
     let chosen = settings_file.current.backend.clone();
