@@ -48,7 +48,7 @@ fn main() {
         qml: vec![repo.join("apps/reef/ui")],
         desktop: Some(repo.join("apps/reef/shipwright-reef.desktop")),
         // No [X-Sailjail] names (unsandboxed): the app ID is given.
-        app_id: Some("org.shipwright.reef".into()),
+        app_id: Some("org.marathonos.reef".into()),
         ..Default::default()
     }
     .build_script();

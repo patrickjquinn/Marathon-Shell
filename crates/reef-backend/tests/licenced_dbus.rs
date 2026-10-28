@@ -192,15 +192,15 @@ fn get_licence_in_process() {
     // ... and by the service when sent raw.
     let raw = conn.call_method(
         Some(BUS_NAME),
-        "/org/shipwright/Reef/Licences",
-        Some("org.shipwright.Reef.Licences1"),
+        "/org/marathonos/Reef/Licences",
+        Some("org.marathonos.Reef.Licences1"),
         "GetLicence",
         &("../../.ssh/id_rsa",),
     );
     match raw {
         Err(zbus::Error::MethodError(name, _, _)) => assert_eq!(
             name.as_str(),
-            "org.shipwright.Reef.Licences1.Error.InvalidAppId"
+            "org.marathonos.Reef.Licences1.Error.InvalidAppId"
         ),
         other => panic!("expected InvalidAppId, got {other:?}"),
     }
@@ -230,12 +230,12 @@ fn activated_binary_answers_then_exits_when_idle() {
     // The packaged activation file, pointed at the freshly built binary.
     let packaged = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/data/org.shipwright.Reef.Licences.service"
+        "/data/org.marathonos.Reef.Licences.service"
     ))
     .unwrap();
     assert!(packaged.contains("Exec=/usr/bin/shipwright-reef-licenced\n"));
     std::fs::write(
-        dir.join("bus/services/org.shipwright.Reef.Licences.service"),
+        dir.join("bus/services/org.marathonos.Reef.Licences.service"),
         packaged.replace(
             "/usr/bin/shipwright-reef-licenced",
             env!("CARGO_BIN_EXE_shipwright-reef-licenced"),

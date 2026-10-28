@@ -9,14 +9,14 @@
 //!
 //! | | |
 //! | --- | --- |
-//! | Bus name | [`BUS_NAME`] `org.shipwright.Reef.Licences` (D-Bus activated: `shipwright-reef-licenced`) |
-//! | Object | [`OBJECT_PATH`] `/org/shipwright/Reef/Licences` |
-//! | Interface | [`INTERFACE`] `org.shipwright.Reef.Licences1` |
+//! | Bus name | [`BUS_NAME`] `org.marathonos.Reef.Licences` (D-Bus activated: `shipwright-reef-licenced`) |
+//! | Object | [`OBJECT_PATH`] `/org/marathonos/Reef/Licences` |
+//! | Interface | [`INTERFACE`] `org.marathonos.Reef.Licences1` |
 //! | Method | `GetLicence(s app_id) -> (s token)` |
-//! | Errors | `org.shipwright.Reef.Licences1.Error.NotFound` (no token stored, or it was revoked), `...Error.InvalidAppId` |
+//! | Errors | `org.marathonos.Reef.Licences1.Error.NotFound` (no token stored, or it was revoked), `...Error.InvalidAppId` |
 //!
 //! Sandboxed apps reach it through the Sailjail permission
-//! `ShipwrightLicences` (`dbus-user.talk org.shipwright.Reef.Licences`),
+//! `ShipwrightLicences` (`dbus-user.talk org.marathonos.Reef.Licences`),
 //! which the Reef client package installs.
 //!
 //! # Why the caller is not authenticated
@@ -40,13 +40,13 @@
 //! back exactly as a pasted token, and keep paste-in as the fallback.
 
 /// Well-known bus name of the hand-off service.
-pub const BUS_NAME: &str = "org.shipwright.Reef.Licences";
+pub const BUS_NAME: &str = "org.marathonos.Reef.Licences";
 /// Object path of the hand-off service.
-pub const OBJECT_PATH: &str = "/org/shipwright/Reef/Licences";
+pub const OBJECT_PATH: &str = "/org/marathonos/Reef/Licences";
 /// Interface name, versioned.
-pub const INTERFACE: &str = "org.shipwright.Reef.Licences1";
+pub const INTERFACE: &str = "org.marathonos.Reef.Licences1";
 /// Error name prefix.
-pub const ERROR_PREFIX: &str = "org.shipwright.Reef.Licences1.Error";
+pub const ERROR_PREFIX: &str = "org.marathonos.Reef.Licences1.Error";
 /// The Sailjail permission (file `ShipwrightLicences.permission`) apps list
 /// in their desktop file.
 pub const SAILJAIL_PERMISSION: &str = "ShipwrightLicences";

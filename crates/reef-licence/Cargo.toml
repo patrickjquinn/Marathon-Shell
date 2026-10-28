@@ -14,7 +14,7 @@ publish.workspace = true
 # client verify only, so they never carry token-issuing code.
 sign = []
 # The client side of the licence hand-off: an app asks Reef's session-bus
-# service (org.shipwright.Reef.Licences) for its token instead of the user
+# service (org.marathonos.Reef.Licences) for its token instead of the user
 # pasting it. See src/handoff.rs.
 handoff-client = ["dep:zbus"]
 # The build-script helper (src/build.rs) that embeds the trusted keys from

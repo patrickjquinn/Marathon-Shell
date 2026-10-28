@@ -4,8 +4,8 @@
 //! shipwright-reef-licenced: Reef's licence hand-off service.
 //!
 //! Started by the session bus on the first call to
-//! `org.shipwright.Reef.Licences` (packaging:
-//! /usr/share/dbus-1/services/org.shipwright.Reef.Licences.service) and
+//! `org.marathonos.Reef.Licences` (packaging:
+//! /usr/share/dbus-1/services/org.marathonos.Reef.Licences.service) and
 //! exits after `SHIPWRIGHT_REEF_LICENCED_IDLE_SECS` (default 30) seconds
 //! without a call. See `reef_backend::licenced`.
 

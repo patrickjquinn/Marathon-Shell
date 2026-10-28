@@ -3,8 +3,8 @@
 
 //! The licence hand-off service: Reef's tokens for sandboxed apps.
 //!
-//! Interface `org.shipwright.Reef.Licences1` at `/org/shipwright/Reef/Licences`
-//! on the session bus, name `org.shipwright.Reef.Licences`; the constants and
+//! Interface `org.marathonos.Reef.Licences1` at `/org/marathonos/Reef/Licences`
+//! on the session bus, name `org.marathonos.Reef.Licences`; the constants and
 //! the client live in `reef_licence::handoff`, which also records why the
 //! caller is not authenticated (tokens are signed bearer credentials for one
 //! app, equivalent to pasting them).
@@ -31,9 +31,9 @@ use crate::licences::{LicenceStore, EMBEDDED_KEYS};
 
 pub use reef_licence::handoff::{BUS_NAME, INTERFACE, OBJECT_PATH};
 
-/// Errors on the bus, named `org.shipwright.Reef.Licences1.Error.<Variant>`.
+/// Errors on the bus, named `org.marathonos.Reef.Licences1.Error.<Variant>`.
 #[derive(Debug, zbus::DBusError)]
-#[zbus(prefix = "org.shipwright.Reef.Licences1.Error")]
+#[zbus(prefix = "org.marathonos.Reef.Licences1.Error")]
 pub enum LicencesError {
     #[zbus(error)]
     ZBus(zbus::Error),
@@ -119,7 +119,7 @@ fn elapsed_ms(start: Instant) -> u64 {
     u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
-#[zbus::interface(name = "org.shipwright.Reef.Licences1")]
+#[zbus::interface(name = "org.marathonos.Reef.Licences1")]
 impl LicenceService {
     /// The stored token for `app_id`.
     #[zbus(name = "GetLicence")]

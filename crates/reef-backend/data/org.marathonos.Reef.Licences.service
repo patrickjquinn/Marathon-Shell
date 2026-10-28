@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Session-bus activation of Reef's licence hand-off service, installed as
-# /usr/share/dbus-1/services/org.shipwright.Reef.Licences.service.
+# /usr/share/dbus-1/services/org.marathonos.Reef.Licences.service.
 [D-BUS Service]
-Name=org.shipwright.Reef.Licences
+Name=org.marathonos.Reef.Licences
 Exec=/usr/bin/shipwright-reef-licenced

@@ -73,12 +73,12 @@ Paid apps run under Sailjail and cannot read Reef's licence directory (`~/.local
 
 | | |
 | --- | --- |
-| Bus name | `org.shipwright.Reef.Licences`, D-Bus activated (`/usr/share/dbus-1/services/org.shipwright.Reef.Licences.service`) |
+| Bus name | `org.marathonos.Reef.Licences`, D-Bus activated (`/usr/share/dbus-1/services/org.marathonos.Reef.Licences.service`) |
 | Process | `shipwright-reef-licenced` (reef-backend `src/bin`, service in `src/licenced.rs`): exits after 30 s idle |
-| Object, interface | `/org/shipwright/Reef/Licences`, `org.shipwright.Reef.Licences1` |
+| Object, interface | `/org/marathonos/Reef/Licences`, `org.marathonos.Reef.Licences1` |
 | Method | `GetLicence(s app_id) -> (s token)` |
-| Errors | `org.shipwright.Reef.Licences1.Error.NotFound` (none stored, or revoked by the stored revocation list), `...Error.InvalidAppId` |
-| Sailjail | `/etc/sailjail/permissions/ShipwrightLicences.permission`: `dbus-user.talk org.shipwright.Reef.Licences`, shipped by the Reef client RPM; apps add `ShipwrightLicences` to `Permissions=` |
+| Errors | `org.marathonos.Reef.Licences1.Error.NotFound` (none stored, or revoked by the stored revocation list), `...Error.InvalidAppId` |
+| Sailjail | `/etc/sailjail/permissions/ShipwrightLicences.permission`: `dbus-user.talk org.marathonos.Reef.Licences`, shipped by the Reef client RPM; apps add `ShipwrightLicences` to `Permissions=` |
 | Client | `reef_licence::handoff::fetch(app_id)` (feature `handoff-client`, zbus blocking, 5 s timeout) |
 
 Users: Shoal Mail (`shipwright-shoal-mail`, `Engine::adopt_licence(licence::token_from_reef)`) and Shoal Keys (`shipwright-shoal-keys`, `licence::adopt_from_reef`). (The Shoal Bridge UI used it until it became free on 12 October 2026 and dropped its licence gate.) Each asks only when it holds no fully valid licence (none, or a subscription in grace), verifies the answer exactly like a pasted token, stores it in its own data directory, and keeps paste-in as the fallback (no Reef, no permission, or Reef holds nothing). The rules they follow are in "Licence policy for Shipwright apps" below.
@@ -129,7 +129,7 @@ Dependencies: `ed25519-dalek 3` (MSRV 1.85), `base64 0.23`, `serde`, `serde_json
 - Offline verification cost on the Jolla Phone: time `Licence::verify` at app start in a release build. It should take well under a millisecond; record the figure.
 - Clock behaviour: after a reboot without network, check that the phone's clock is inside the 5-minute skew, or that the licence shows as in grace rather than failing. Test by booting in flight mode.
 - Licence hand-off under Sailjail. Install Reef (with `shipwright-reef-licenced`, the activation file and `ShipwrightLicences.permission`) and save a Mail licence in Reef. Start Shoal Mail from the app grid with a fresh data directory: Settings should show it licensed without pasting. Then:
-  - `dbus-send --session --print-reply --dest=org.shipwright.Reef.Licences /org/shipwright/Reef/Licences org.shipwright.Reef.Licences1.GetLicence string:shipwright-shoal-mail` from a shell returns the token, and `ps` shows `shipwright-reef-licenced` exiting about 30 s later.
+  - `dbus-send --session --print-reply --dest=org.marathonos.Reef.Licences /org/marathonos/Reef/Licences org.marathonos.Reef.Licences1.GetLicence string:shipwright-shoal-mail` from a shell returns the token, and `ps` shows `shipwright-reef-licenced` exiting about 30 s later.
   - Remove `ShipwrightLicences` from Mail's desktop file: the call must fail quickly (no hang at start-up) and paste-in must still work.
   - Uninstall Reef while Mail still lists `ShipwrightLicences`: check that Sailjail still launches Mail with the permission file missing. If it refuses, the permission file must move to a small package that paid apps require.
   - Check that D-Bus activation works through Sailjail's D-Bus proxy (the first call starts the service).
