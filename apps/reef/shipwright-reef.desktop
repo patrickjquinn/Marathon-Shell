@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Reef client launcher, installed as /usr/share/applications/shipwright-reef.desktop
+# by reef/rpm/shipwright-reef.spec.
+#
+# Lipstick runs it as `invoker --type=keel`: through booster-keel when it
+# runs, else directly. The app's own windows are its Lipstick app and cover
+# windows (Keel's direct mode, ADR-0016); keel-shell is the opt-in fallback
+# (keel/shell/README.md).
+# Sandboxing=Disabled follows sailfishos-chum-gui's desktop file: package
+# management through PackageKit is not possible from a Sailjail sandbox
+# (no-new-privs, D-Bus filtering). Phase 0 probe 7 decides whether this stays
+# or moves to a privileged helper (reef/helper).
+[Desktop Entry]
+Type=Application
+Name=Reef
+Comment=Apps for Sailfish OS, tested on your release
+Icon=shipwright-reef
+Exec=/usr/bin/shipwright-reef
+X-Nemo-Application-Type=keel
+X-Nemo-Single-Instance=yes
+Categories=System;PackageManager;
+
+[X-Sailjail]
+Sandboxing=Disabled
+ExecDBus=/usr/bin/shipwright-reef --keel-actions

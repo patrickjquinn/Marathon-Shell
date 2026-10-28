@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "reef-backend"
+description = "Reef store client backend: catalogue, release pinning, PackageKit and licences"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "GPL-3.0-or-later"
+publish.workspace = true
+
+[[bin]]
+# The licence hand-off service, D-Bus activated (src/licenced.rs).
+name = "shipwright-reef-licenced"
+path = "src/bin/shipwright-reef-licenced.rs"
+
+[dependencies]
+# The transaction idle timeout; zbus's async-io feature uses the same crate.
+async-io = "2"
+futures-lite = "2"
+# Claim codes (src/claim_codes.rs): 128 bits from the OS random source.
+getrandom = "0.4"
+reef-licence = { path = "../../licence" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The store index lists each app's details file by SHA-256 (src/index.rs).
+sha2 = "0.11"
+zbus = { version = "5", default-features = false, features = ["async-io"] }
+
+[dev-dependencies]
+# Signs test licences; the shipped library only verifies.
+reef-licence = { path = "../../licence", features = ["sign", "handoff-client"] }
+# The metadata check test signs with a throwaway key in a temporary home.
+tempfile = "3"
+
+[build-dependencies]
+# Embeds SHIPWRIGHT_LICENCE_KEYS as EMBEDDED_KEYS (build.rs).
+reef-licence = { path = "../../licence", features = ["build"] }
+
+[lints]
+workspace = true

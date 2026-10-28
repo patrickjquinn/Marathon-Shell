@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# shipwright-reef: the Reef store client executable. Loads the QML in
+# ../ui/qml and exposes the `Reef` singleton (Shipwright.Reef 1.0), a CXX-Qt
+# QObject over reef-backend.
+#
+# Standalone Cargo workspace: the root workspace lists "reef/client/app" in
+# its `exclude`, and this [workspace] table keeps Cargo from walking up to
+# the root manifest (same pattern as tools/phase0/hello-qt6-rust).
+[workspace]
+
+[package]
+name = "shipwright-reef"
+version = "0.1.0"
+edition = "2021"
+# reef-backend (zbus 5) needs 1.87; cxx-qt 0.10 needs 1.85.
+rust-version = "1.87"
+license = "GPL-3.0-or-later"
+publish = false
+
+# The app is a library built as a shared object that is also executable
+# (target/<profile>/libshipwright_reef.so): the RPM installs it as
+# /usr/bin/shipwright-reef and booster-keel can load it
+# (tools/keel-launcher/link_sailfishapp.rs says why it is not a binary).
+# Only a cdylib: an rlib next to it would turn off release LTO.
+[lib]
+crate-type = ["cdylib"]
+
+[lints.rust]
+# Set by release builds (src/release_gate.rs).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(release_build)"] }
+
+[lints.clippy]
+# Pedantic everywhere; CI runs clippy with -D warnings. Three pedantic lints
+# are off, as in keel/silica/plugin: a #[must_use] on every getter and an
+# "# Errors" section on every fallible function add boilerplate, not safety,
+# and module_name_repetitions fights ordinary Rust naming.
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+
+[dependencies]
+# Keel Actions (ADR-0018): keel::manifest!() and the native action table.
+keel = { path = "../../../keel/actions/rust/keel" }
+# cxx-qt pinned exactly, as in tools/phase0/hello-qt6-rust: CXX-Qt's README
+# warns of frequent API changes. Cargo.lock pins cxx.
+cxx = "1.0.176"
+cxx-qt = "=0.10.0"
+cxx-qt-lib = { version = "=0.10.0", features = ["qt_gui", "qt_qml"] }
+
+reef-backend = { path = "../backend" }
+reef-licence = { path = "../../licence" }
+futures-lite = "2"
+# umask at start (src/lib.rs): the launcher's is 0.
+libc = "0.2"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Session bus for the background check's notification (reef-backend uses
+# the same zbus).
+zbus = { version = "5", default-features = false, features = ["async-io"] }
+# Catalogue, token and revocation downloads (reef-backend has no HTTP stack).
+# rustls with ring, as shoal/push/distributor uses: no OpenSSL to match on
+# the device. Roots are webpki-roots (bundled), see README.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+
+[dev-dependencies]
+reef-licence = { path = "../../licence", features = ["sign"] }
+# The store index test hashes a details file as gen-store.py does.
+sha2 = "0.11"
+
+[build-dependencies]
+# The Keel Actions build step (actions.json, D-Bus files) from the QML.
+keel-actions-codegen = { path = "../../../keel/actions/codegen" }
+cxx-qt-build = "=0.10.0"
+# Compiles libkeel-sailfishapp when no Keel build provides it
+# (tools/keel-launcher/link_sailfishapp.rs).
+cc = "1"
+
+[profile.release]
+lto = true
+strip = true

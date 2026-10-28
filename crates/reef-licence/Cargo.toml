@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "reef-licence"
+description = "Reef licence tokens: compact Ed25519-signed format and offline verification"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+publish.workspace = true
+
+[features]
+# Issuing tokens. Only the licence service enables this; apps and the Reef
+# client verify only, so they never carry token-issuing code.
+sign = []
+# The client side of the licence hand-off: an app asks Reef's session-bus
+# service (org.shipwright.Reef.Licences) for its token instead of the user
+# pasting it. See src/handoff.rs.
+handoff-client = ["dep:zbus"]
+# The build-script helper (src/build.rs) that embeds the trusted keys from
+# SHIPWRIGHT_LICENCE_KEYS; apps take it as a build-dependency.
+build = []
+
+[dependencies]
+base64 = "0.23"
+ed25519-dalek = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+zbus = { version = "5", optional = true, default-features = false, features = ["blocking-api", "async-io"] }
+
+[lints]
+workspace = true
