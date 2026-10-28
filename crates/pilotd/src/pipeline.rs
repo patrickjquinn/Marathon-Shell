@@ -1758,6 +1758,7 @@ impl Pipeline {
                 if *confidence < 0.6 {
                     d.extend(distribution.iter().skip(1).take(1).map(|(o, _)| o.clone()));
                 }
+                d.retain(|o| o != GENERAL);
                 Some(d)
             }
             _ => None,
@@ -3412,6 +3413,9 @@ pub fn domain_options(registry: &Registry) -> Vec<String> {
 
 /// Most actions named in a domain's description for stage one.
 const DOMAIN_TITLES: usize = 24;
+/// Stage one's answer for nothing on the phone: no app's tools, no
+/// insisting on a tool call.
+const GENERAL: &str = "general";
 
 fn domain_question(registry: &Registry, domains: &[String]) -> Question {
     // An app by its name and what it is for, then every action it has:
@@ -3440,11 +3444,19 @@ fn domain_question(registry: &Registry, domains: &[String]) -> Question {
         };
         format!("{app}Does: {}.", titles.join(", "))
     };
+    let mut options = domains.to_vec();
+    let mut descriptions: Vec<String> = domains.iter().map(describe).collect();
+    options.push(GENERAL.into());
+    descriptions.push(
+        "Nothing on the phone: a question answered from knowledge (facts, explanations, \
+         maths, advice, conversation), not by an app or a device action."
+            .into(),
+    );
     Question::Choice {
-        options: domains.to_vec(),
+        options,
         criteria: "Which part of the phone (a system area or an app) can do what `utterance` asks?"
             .into(),
-        descriptions: domains.iter().map(describe).collect(),
+        descriptions,
     }
 }
 
