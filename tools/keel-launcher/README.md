@@ -15,8 +15,9 @@ SailfishApp library (`keel/sailfishapp`). `createView()` returns a
 `QQuickView` that sizes the root item to itself. This is the same shape
 `keel new` generates (`tools/keel-dev/templates/app/cpp/launcher.cpp`).
 
-Apps: `reef/client/app`, `shoal/keys/app`, `shoal/mail/app`,
-`shoal/migrate/app`, `shoal/bridge-icloud/app`.
+In Marathon: `apps/pilot`. These helpers came from Shipwright with Pilot,
+where its other Keel apps use them too; the paths below that are not in this
+repository (Keel, `tools/keel-dev`, `tools/window-probe`) are Shipwright's.
 
 | Piece | Where |
 | --- | --- |
@@ -38,8 +39,10 @@ First match wins:
    compiled into the build-script output directory. It uses cc's compiler for
    the target and the Qt that `qmake` reports.
 
-Case 4 is what CI and the Sailfish SDK build use. Neither needs a Keel
-package installed at build time. In the SDK, `cxxqt-sailfish.sh` sets the
+This repository has no Keel source, so case 4 does not work here: Marathon
+builds with case 1, from `keel-silica-dev` (`packaging/packages/shoal-pilot`).
+In Shipwright, case 4 is what CI and the Sailfish SDK build use. Neither
+needs a Keel package installed at build time. In the SDK, `cxxqt-sailfish.sh` sets the
 cross compiler and a `qmake` stand-in for the target's Qt. That copy is only
 linked against. On the phone, the binary loads
 `/usr/lib64/libkeel-sailfishapp.so.1` from `shipwright-keel-sailfishapp`,

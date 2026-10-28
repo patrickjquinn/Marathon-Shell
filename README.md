@@ -76,8 +76,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for more.
 
 **Apps** (`apps/`): Browser, Calculator, Calendar, Camera, Clock, Email,
 Gallery, Maps, Messages, Music, Notes, Phone, Settings, Store, Terminal.
-Images also ship Pacific (Shipwright's WPE-based browser, the default for
-web links when installed) and the Pilot assistant. The Store installs
+Images also ship Pilot, Marathon's assistant (`apps/pilot`, `crates/pilotd`),
+and Pacific (Shipwright's WPE-based browser, the default for web links when
+installed). The Store installs
 Flatpaks from Flathub through `marathon-store-handler`.
 
 **App lifecycle**
@@ -148,10 +149,11 @@ Flatpaks from Flathub through `marathon-store-handler`.
 - Weather: `marathon-weatherd` (Rust) serves `org.marathonos.Weather` on the
   session bus, with forecasts from MET Norway, place names from OpenStreetMap
   Nominatim and the position from GeoClue.
-- Pilot: the shell's `PilotClient` talks to Shipwright Pilot's session
-  service (`org.shipwright.Pilot`, packaged as `shoal-pilotd`); the Pilot app
-  (`shoal-pilot`) opens over the app on screen. `keel-mcp` exposes the apps'
-  Keel Actions to it.
+- Pilot: the shell's `PilotClient` talks to pilotd (`crates/pilotd`), Pilot's
+  session service (`org.shipwright.Pilot`, packaged as `shoal-pilotd`), which
+  answers with a model on the phone (`marathon-llm`); the Pilot app
+  (`apps/pilot`, `shoal-pilot`) opens over the app on screen. `keel-mcp`
+  (`crates/keel-mcp`) exposes the apps' Keel Actions to it.
 - Push through UnifiedPush; doze turns the display off and cuts standby
   power.
 
@@ -192,11 +194,11 @@ In order, `build-image.sh`:
 3. Builds the local apks in rootless podman, skipping any whose cached
    version matches its APKBUILD: qmf, marathon-base-config,
    marathon-mail-oauth, marathon-plymouth-theme, keel-silica, wpewebkit,
-   pacific, shoal-pilotd, shoal-pilot, keel-mcp, marathon-shell,
+   keel-mcp, shoal-pilotd, shoal-pilot, pacific, marathon-shell,
    postmarketos-ui-marathon, then the device overlay and any kernel or
-   U-Boot fork it depends on. Pacific, Pilot and keel-mcp build from the
-   Shipwright commit their APKBUILD pins, or from `~/Developer/Shipwright`
-   when present.
+   U-Boot fork it depends on. Pilot and keel-mcp build from this tree;
+   Pacific from the Shipwright commit its APKBUILD pins, or from
+   `~/Developer/Shipwright` when present.
 4. Bakes the image with duranium's `scripts/build-image.py`. Output lands
    in `~/.cache/marathon-build/duranium/mkosi.output/<device>_marathon_edge/`.
 5. For QEMU only, `--boot` / `--verify` boot it.

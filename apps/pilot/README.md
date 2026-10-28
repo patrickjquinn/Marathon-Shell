@@ -3,32 +3,33 @@ SPDX-FileCopyrightText: 2026 Patrick Quinn
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Shoal Pilot
+# Pilot
 
-Pilot is Shipwright's assistant for Sailfish OS, built to [`docs/specs/pilot.md`](../../docs/specs/pilot.md). This tree holds the on-device parts; the hosted relay is [`services/pilot-relay/`](../../services/pilot-relay/). Keel Actions and `keel-mcp` (spec section 9) live in [`keel/actions/`](../../keel/actions/).
+Pilot is Marathon's assistant, built to Shipwright's Pilot spec (`docs/specs/pilot.md` in Shipwright, where Pilot began). It came into Marathon from Shipwright 7a6c40a8 with the Marathon adapters, direct mode, on-screen context and local mode; the Sailfish adapters are still in it.
 
-| Path | What | State |
-| --- | --- | --- |
-| `pilotd/` | `pilotd`, the session service `org.shipwright.Pilot` (Rust, zbus) | Spike done on host (spec phase 0) |
-| `app/`, `ui/` | `shoal-pilot`, the Pilot app (Keel QML, CXX-Qt) | Done on host, smoke-tested against the real pilotd |
-| `voice/` | `pilot-voice` (whisper.cpp ASR) and `pilot-tts` (Piper subprocess) | Done on host; real ASR checked with the tiny model |
-| `rpm/shoal-pilot.spec` | Full build for Reef: pilotd, the app, the speech processes | |
-| `lite/` | Pilot Lite (`harbour-shoal-pilot`), the Jolla Store edition: QML only on Sailfish's Qt 5, chat and Q&A | Done on host, tested on Qt 5 offscreen ([`lite/README.md`](lite/README.md)) |
-| `redaction-cases.json` | Redaction cases run by both pilotd's and Lite's tests | |
-| `../../services/pilot-relay/` | The relay (Cloudflare Worker) | Host and workerd done; staging deployed, production deploy target `services/cloudflare-production.sh pilot` |
+| Path | What |
+| --- | --- |
+| `crates/pilotd/` | `pilotd`, the session service `org.shipwright.Pilot` (Rust, zbus), packaged as `shoal-pilotd`; its unit, D-Bus activation file, Marathon configuration and shell admission in `data/` |
+| `apps/pilot/` | `shoal-pilot`, the Pilot app (Keel QML in `ui/`, CXX-Qt), packaged as `shoal-pilot` |
+| `crates/keel-mcp/`, `crates/keel-actions-schema/` | `keel-mcp`, the apps' Keel Actions as one MCP server (spec section 9), and the schema it validates with |
+| `tools/keel-launcher/` | The build helpers the app includes: linking Keel's SailfishApp, compiling the QML ahead of time |
+| `crates/pilotd/redaction-cases.json` | Redaction cases run by pilotd's tests |
 
-Everything here runs on the host against fakes. **Nothing has run on a phone**; see "Needs device verification".
+Speech (`voice/`, `piper/`), Pilot Lite, the Lipstick pieces and the RPM packaging stayed in Shipwright. On Marathon pilotd answers with the model on the phone (`[local]`: marathon-llm's llama-server, its embeddings to pick tools, marathon-websearch) unless direct mode (`[direct]`, the owner's own Groq and Jev keys) is set up; there is no relay and no licence.
 
 ## Build and test
 
+pilotd and keel-mcp are members of the workspace in `crates/`:
+
 ```
-export CARGO_TARGET_DIR=$PWD/target CARGO_INCREMENTAL=0
-cargo build -p shoal-pilotd
-cargo test -p shoal-pilotd          # unit tests, fake Jev/LLM servers, a private D-Bus
-cargo clippy -p shoal-pilotd --all-targets -- -D warnings
+cargo build --manifest-path crates/Cargo.toml -p pilotd -p keel-mcp
+QT_QPA_PLATFORM=offscreen cargo test --manifest-path crates/Cargo.toml -p pilotd -p keel-mcp -p keel-actions-schema
+cargo clippy --manifest-path crates/Cargo.toml --workspace --all-targets --locked -- -D warnings
 ```
 
-The tests need `dbus-daemon` (as Shoal Push's). They use no keys and no network: Jev, the relay's LLM endpoint and the Lighthouse scorer are a local fake HTTP server (`pilotd/tests/common/mod.rs`).
+The bus tests need `dbus-daemon` (each starts its own, marathon-rt's `testing::PrivateBus`) and are skipped without it unless `MARATHON_TEST_STRICT` is set. They use no keys and no network: Jev, the LLM endpoint and the Lighthouse scorer are a local fake HTTP server (`crates/pilotd/tests/common/mod.rs`). `spawns_the_keel_mcp_program` runs the real `keel-mcp` once `cargo build -p keel-mcp` has.
+
+The app is a Cargo workspace of its own (`apps/pilot/Cargo.toml`): it links Keel's SailfishApp (`KEEL_SAILFISHAPP_INCLUDEDIR`, `KEEL_SAILFISHAPP_LIBDIR`; see `tools/keel-launcher/link_sailfishapp.rs`). `scripts/qemu/lib/build-pilot-apk.sh` builds all three packages from this tree.
 
 One turn without D-Bus, against whatever the config points at:
 
@@ -59,14 +60,14 @@ Without the network (privacy switch, text consent off, or Jev unreachable), `int
 | `redact.rs` | PII redactor and placeholder map |
 | `jev.rs` | `JevClient`: `HttpJev` (hosted Jev) and `ScoreJev` (Lighthouse scorer over SGLang `/v1/score`) |
 | `llm.rs` | `LlmClient`: `OpenAiClient` with tools, JSON mode, `reasoning_effort`, region check |
-| `remote.rs` | The only HTTP path: device token, egress logging, offline refusal, abandon on privacy switch |
-| `relay_auth.rs` | Licence from Reef, exchanged at the relay for the device token |
+| `remote.rs` | The only HTTP path: direct mode's keys, egress logging, offline refusal, abandon on privacy switch |
+| `direct.rs` | Direct mode: the owner's Groq and Jev keys, requests shaped as the relay shaped them; local mode's region stamp |
 | `route.rs` | Section 5.2 thresholds |
 | `intents.rs` | Local slot parsers and offline intent recognition (English) |
 | `schema.rs` | JSON Schema subset validator; refuses schemas it cannot enforce |
 | `tools.rs` | Registry: model-safe names, validation, output schemas, confirmation policy |
 | `system_tools.rs` | Section 6.2 system tools over the adapters |
-| `adapters/` | timed, MPRIS, mkcal, qtcontacts-sqlite, oFono, ConnMan, systemd voice unit |
+| `adapters/` | Marathon's shell services (`marathon.rs`) when `org.marathonos.Shell` is on the bus; else timed, MPRIS, mkcal, qtcontacts-sqlite, oFono, ConnMan, systemd voice unit |
 | `privacy.rs` | Privacy switch sources and the offline state |
 | `settings.rs` | Per-capability consent and backend choice |
 | `store.rs` | Egress and decision logs and the triage list (SQLite, 0600) |
@@ -112,14 +113,14 @@ Sandboxed callers need the `ShoalPilot` Sailjail permission (`pilotd/sailjail/Sh
 
 ### Backends and processing region
 
-`pilotd` holds no API key. It sends a device token to the Pilot relay ([`services/pilot-relay/`](../../services/pilot-relay/README.md)), which holds the Groq and Jev keys, enforces quotas and forwards (spec section 10). The token comes from `POST /v1/token` in exchange for the Pilot licence, which `pilotd` asks Reef for over the hand-off every Shipwright app uses (`org.shipwright.Reef.Licences`, app id `shipwright-shoal-pilot`), with a random device id kept in the data directory (`relay_auth.rs`). The token is stored 0600 as `$XDG_DATA_HOME/shoal-pilot/device-token`, renewed five minutes before it expires, and dropped when the relay answers 401. The exchange is listed in the egress log as provider `relay`, purpose `token`. `token_exchange_url = ""` in the config disables the exchange and uses the token file as is.
+`pilotd` holds no API key of its own. In local mode the model and the embeddings are servers on the phone and nothing leaves it; in direct mode the owner's keys (`$XDG_CONFIG_HOME/shoal-pilot/keys.env`, refused unless 0600) go each to its own upstream, Groq's chat completions and Jev, with the requests shaped as Shipwright's relay shaped them (`direct.rs`).
 
 - **Jev wire format.** The request is section 5.1 verbatim. The reply format is not in the spec and Jev is waitlist-only, so `jev::parse_answers` accepts `{"answers": {...}}` or a bare map, a choice as `{"distribution": {option: p}}` or `[{"option", "p"}]` with optional `confidence`, a score as `value` or `position`, a noul as `p` or `probability`. Confirm against Jev's documentation on access.
 - **Processing region, fail closed.** Pilot uses Groq's public endpoint, which processes in the United States (decided 4 October 2026; Groq's EU region is an Enterprise option Pilot does not wait for). The relay, the only thing that talks to Groq, stamps every LLM reply with `x-pilot-processing-region` set to the region of its upstream (`us`). `pilotd` drops any reply without that header or with a region outside `allowed_regions` (default `["eu", "us"]`), logs `region-blocked`, and shows "The answer was blocked because Pilot could not confirm where it was processed." The header name and allowed values are config: `allowed_regions = ["eu"]` accepts EU processing only (an EU upstream or Lighthouse). The egress log names the provider `groq`.
-- **Default relay.** With no config file, `pilotd` uses the production relay, `https://pilot.reefstore.app` (`config::PRODUCTION_RELAY`). A staging phone build sets `PILOT_RELAY_URL` (an https origin, no path) at build time, read with `option_env!`, for example `PILOT_RELAY_URL=$(cat ~/.config/shipwright/cloudflare-staging/pilot-url)`; `tools/build/native/native.sh` and `tools/build/sdk/sdk.sh` pass it into the build container, and Pilot Lite's spec writes the same URL into its `Pilot.qml` (with `REEF_LICENCE_SERVER` for its licence service). Anything but an https origin fails the build. A release build (`--cfg release_build`) refuses a relay naming `staging`, `.workers.dev` or `.example`. Check: `cargo rustc -p shoal-pilotd --lib --profile check -- --cfg release_build` builds, and fails with "release build with a staging or placeholder Pilot relay" under `PILOT_RELAY_URL=https://shipwright-pilot-relay-staging.<sub>.workers.dev`.
+- **No relay.** Without a configuration the model on the phone answers. Marathon's `/etc/shoal-pilot/pilotd.toml` turns local mode on explicitly; `[local] enabled` wins over `[direct]`.
 - **Lighthouse.** `[backends.lighthouse]` with `jev.kind = "score"`: each question becomes one `/v1/score` request whose prompt lists the options with labels; SGLang returns the softmax restricted to the label tokens (`apply_softmax: true`). Noul uses the yes/no tokens, Score reports the probability-weighted legend position. Label token ids depend on the scorer's tokenizer and are config. `SetBackend("lighthouse")` switches both clients at once.
 
-Configuration: [`pilotd/pilotd.example.toml`](pilotd/pilotd.example.toml), read from `$XDG_CONFIG_HOME/shoal-pilot/pilotd.toml`. Endpoints, model ids, effort values and thresholds are all there; plain `http://` is refused except to the local machine.
+Configuration: [`crates/pilotd/pilotd.example.toml`](../../crates/pilotd/pilotd.example.toml), read from `$XDG_CONFIG_HOME/shoal-pilot/pilotd.toml`, else `/etc/shoal-pilot/pilotd.toml`. Endpoints, model ids, effort values and thresholds are all there; plain `http://` is refused except to the local machine.
 
 ### Privacy switch
 
@@ -220,17 +221,11 @@ Sailjail: `Permissions=ShoalPilot;Downloads;Camera` (`app/packaging/shoal-pilot.
 
 **Lipstick, not the app.** Two surfaces in spec section 8.2 belong to the home screen ([`lipstick/README.md`](lipstick/README.md)). The Events view gets a Pilot widget at its top, registered in Lipstick's widget registry as Jolla's Weather widget is, so no patch is needed: "1 to act on now, 2 for today", which opens the app's events page (`EventsSummary`, `OpenEvents`, `--events`). The system-wide gesture, a longer, quicker swipe up from the bottom edge (`ShowSheet`, `--sheet`), is a two-hunk change to the home screen's `compositor.qml` that the package `shoal-pilot-gesture-patch` applies itself, with no Patchmanager. It applies only where the change fits exactly (a dry run), and is put back on removal and around home-screen updates. The app also has the edge swipe inside its own window.
 
-Build and smoke test (needs Qt 6, a Keel build's `qml/`, `dbus-daemon`, python3):
-
-```
-cargo build -p shoal-pilotd
-(cd shoal/pilot/app && cargo build)
-KEEL_QML=<keel build>/qml sh shoal/pilot/app/tests/smoke-test.sh
-```
-
-The smoke test starts a private session bus, the real `pilotd` (relay replaced by `app/tests/fake-upstream.py`, privacy switch read from a file) and the real app offscreen with `app/tests/harness/smoke.qml.in`. It goes through onboarding, a question answered by the model (shown on the cover through `LastResponse`), a call that stops at a confirmation card and is declined, consent and backend settings, the egress log (no payloads), export (0600, no utterances), every page and the cover, a camera question that returns a camera card and a photo sent through `Pilot.look` (a 2048-pixel JPEG with EXIF from `app/tests/make-photo.py`; the fake relay checks it arrived scaled to 1280 and without metadata, and the script checks no photo file is left), delete, and then the privacy switch: `Offline`, the cover, the mic disabled, an offline card and nothing logged. Last, the real main QML must show a window (`tools/window-probe`).
+The app's Sailfish smoke test (`app/tests`) stayed in Shipwright.
 
 ## Speech (`voice/`)
+
+Not part of Marathon: `voice/` stayed in Shipwright, and Marathon builds neither executable. What follows is how it works there.
 
 Two executables from one standalone Cargo workspace (`shoal/pilot/voice`, excluded from the root workspace because whisper.cpp builds with CMake):
 

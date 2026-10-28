@@ -89,7 +89,7 @@ the other paths.
 
 ## 5. Pilot's overlay under a Keel host
 
-Pilot's overlay (`shoal/pilot/ui/Overlay.qml`) is made only in Keel's Direct
+Pilot's overlay (`apps/pilot/ui/Overlay.qml`) is made only in Keel's Direct
 mode (`createOverlay` in `app/cpp/launcher.cpp` returns null otherwise) and is
 marked for Lipstick with `Shell.setLipstickProperty(window, "CATEGORY",
 "dialog")`, a no-op outside Direct mode. Under `marathon-keel-host` (Shell

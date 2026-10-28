@@ -40,8 +40,8 @@ boots from the same duranium build as everything else.
 3. **Apks** — builds each Marathon aport into `mkosi.packages/` unless an
    apk with the aport's current `pkgver-pkgrel` is already there: `marathon-base-config`,
    `marathon-plymouth-theme`,
-   `keel-silica`, `wpewebkit`, `pacific`, `shoal-pilotd`, `shoal-pilot`,
-   `keel-mcp`, `marathon-shell`, `postmarketos-ui-marathon`, then the
+   `keel-silica`, `wpewebkit`, `keel-mcp`, `shoal-pilotd`, `shoal-pilot`,
+   `pacific`, `marathon-shell`, `postmarketos-ui-marathon`, then the
    target's `device-<target>-marathon` overlay and any `*-marathon` kernel
    or U-Boot fork it depends on. Pi targets also fetch the pinned
    `linux-rpi` 6.12.85 apks. `FORCE_REBUILD=1` drops the cache.

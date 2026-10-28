@@ -26,9 +26,10 @@ history.
 | Kernels and boot | `linux-purism-librem5-marathon`, `linux-postmarketos-allwinner-marathon`, `u-boot-pinephone-marathon`, `linux-marathon` (SDM845) |
 | Device support | `librem5-vivante-blobs`, `callaudiod`, `pinephone-callaudiod-marathon` |
 
-`pacific`, `shoal-pilot*` and `keel-mcp` build from a local Shipwright
-checkout (`PACIFIC_SRC`, `PILOT_SRC`, `KEEL_MCP_SRC`; default
-`~/Developer/Shipwright`).
+`shoal-pilot`, `shoal-pilotd` and `keel-mcp` build from this tree
+(`scripts/qemu/lib/build-pilot-apk.sh`). `pacific` builds from a local
+Shipwright checkout (`PACIFIC_SRC`; default `~/Developer/Shipwright`), or
+comes prebuilt through `packaging/vendor/shipwright.lock`.
 
 ## Building
 

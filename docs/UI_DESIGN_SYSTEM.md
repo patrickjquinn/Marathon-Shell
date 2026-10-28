@@ -296,7 +296,7 @@ for system navigation**. Its semantic surface area:
 | Gesture | Effect |
 |---|---|
 | Tap | (nothing — it's a status affordance, not a button) |
-| Touch and hold (still, ~0.55 s) | Ask Shipwright Pilot, when installed: the pill lights, the screen's edges glow, Pilot's overlay comes up over the app |
+| Touch and hold (still, ~0.55 s) | Ask Pilot, when installed: the pill lights, the screen's edges glow, Pilot's overlay comes up over the app |
 | Short swipe up | Minimize app / dismiss keyboard / dismiss search |
 | Long swipe up | Go home (app → app switcher → home) |
 | Long-press in left zone (< 15% from left) | Toggle search |
@@ -415,7 +415,7 @@ Both share the same animation token (`MMotion.stiffnessSpatialFor("tap")`).
 
 ### 7.4 Nav bar (`MarathonNavBar`)
 
-System bottom strip. The pill is Shipwright Pilot's bottom-edge notch:
+System bottom strip. The pill is Pilot's bottom-edge notch:
 a slim `pill`-radius bar in the ambience highlight colour
 (`Theme.paddingSmall` tall, 55% of `Theme.itemSizeExtraLarge` wide) in a
 halo of two wider, fainter ones. Held still it widens and brightens and
