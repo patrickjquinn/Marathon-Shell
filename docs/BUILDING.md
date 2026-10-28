@@ -262,12 +262,5 @@ git commit -m "chore(pipeline-patches): refresh against duranium <new-sha>"
 - **The cgroup_enable=memory kernel cmdline override** is mandatory for
   PSI memory pressure and Phase B freezer policy to work. It's set in
   the patch series (patch 0009). Don't drop it.
-- **`marathon-extras/StoreApp.qml`** is a deploy-time override of the
-  Store app's QML — it overrides the version compiled into
-  marathon-shell's libstoreplugin.so resource bundle via the install
-  in `mkosi.images/base/mkosi.postinst`. Lets you iterate Store
-  without rebuilding the (slow) marathon-shell APK. The canonical
-  pre-compile copy lives in `Marathon-Shell/apps/store/StoreApp.qml`;
-  when changes are stable, sync them back to that canonical path so
-  the next marathon-shell APK build embeds them. Eventually the
-  override block should be retired in favour of the canonical copy.
+- **The store is Reef** (`apps/reef`, package `shipwright-reef`); the old
+  QML Store app and its `marathon-extras/StoreApp.qml` override are gone.

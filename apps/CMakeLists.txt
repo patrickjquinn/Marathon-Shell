@@ -259,7 +259,6 @@ add_subdirectory(music)
 add_subdirectory(maps)
 add_subdirectory(terminal)
 add_subdirectory(test)
-add_subdirectory(store)
 add_subdirectory(email)
 
 message(STATUS "==========================================")

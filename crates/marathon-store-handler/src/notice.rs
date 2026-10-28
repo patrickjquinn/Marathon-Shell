@@ -11,7 +11,8 @@ use zbus::zvariant::Value;
 
 use crate::request::Verb;
 
-const STORE: &str = "store";
+// Reef, the store: tapping a running install opens it.
+const STORE: &str = "shipwright-reef";
 
 /// The running and the finished row's titles.
 pub fn titles(verb: Verb, name: &str) -> (String, String) {

@@ -1,2 +1,0 @@
-module Marathon.Platform
-singleton Settings 1.0 Settings.qml

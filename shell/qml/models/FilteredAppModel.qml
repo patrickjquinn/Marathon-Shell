@@ -19,7 +19,7 @@ Item {
     // app bundles yet.
     // The browser slot holds whichever browser is the default.
     readonly property string browserId: SettingsManagerCpp.defaultApps.browser || "browser"
-    property var pinnedAppIds: ["phone", "messages", "email", browserId, "store", "music", "camera", "gallery", "maps", "calendar", "clock", "calculator", "notes", "settings"]
+    property var pinnedAppIds: ["phone", "messages", "email", browserId, "shipwright-reef", "music", "camera", "gallery", "maps", "calendar", "clock", "calculator", "notes", "settings"]
     property bool pinnedMode: true
 
     signal dataChanged
