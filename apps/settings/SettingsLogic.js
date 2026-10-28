@@ -416,6 +416,9 @@ function apnError(text) {
 }
 
 // Android refuses to remove its own Deckard packages.
+// Android refuses to remove its system apps and Deckard's own; the shell's
+// home grid uses the same rule.
 function androidRemovable(pkg) {
-    return String(pkg || "").indexOf("org.marathonos.deckard.") !== 0;
+    const name = String(pkg || "");
+    return name !== "" && !["com.android.", "com.google.android.", "org.lineageos.", "org.marathonos."].some(p => name.indexOf(p) === 0);
 }

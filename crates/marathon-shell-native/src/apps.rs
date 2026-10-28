@@ -486,11 +486,47 @@ impl Apps {
         if manifest(&id).is_none() && marathon_apps::paths::receipt(&id).exists() {
             self.as_mut().rescan();
         }
-        marathon_apps::install::can_uninstall(&id)
+        marathon_apps::install::can_uninstall(&id) || self.store_target(&id).is_some()
+    }
+
+    /// What Marathon's store handler removes: an Android app the person
+    /// installed, or a Flatpak in their own installation.
+    fn store_target(&self, id: &str) -> Option<String> {
+        if let Some(package) = id.strip_prefix("deckard.") {
+            const BUILT_IN: [&str; 4] = [
+                "com.android.",
+                "com.google.android.",
+                "org.lineageos.",
+                "org.marathonos.",
+            ];
+            return (!BUILT_IN.iter().any(|p| package.starts_with(p)))
+                .then(|| format!("android:{package}"));
+        }
+        let app = self
+            .apps
+            .iter()
+            .find(|a| a.id == id && a.kind == "flatpak")?;
+        let installed = marathon_rt::dirs::home()
+            .join(".local/share/flatpak/app")
+            .join(&app.id);
+        installed.is_dir().then(|| app.id.clone())
     }
 
     pub(crate) fn uninstall(mut self: Pin<&mut Self>, app_id: &QString) -> bool {
         let id = app_id.to_string();
+        // Removed in the background; its launcher going takes it off the grid.
+        let target = (!marathon_apps::install::can_uninstall(&id))
+            .then(|| self.store_target(&id))
+            .flatten();
+        if let Some(target) = target {
+            return std::process::Command::new("/usr/bin/marathon-store-handler")
+                .arg(format!("marathon-store://uninstall/{target}"))
+                .spawn()
+                .map(|mut child| {
+                    std::thread::spawn(move || child.wait());
+                })
+                .is_ok();
+        }
         let done = if self.as_mut().can_uninstall(app_id) {
             marathon_apps::install::uninstall(&id)
         } else {
