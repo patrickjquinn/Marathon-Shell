@@ -1207,6 +1207,29 @@ impl Pipeline {
 
     /// The app on screen, if Pilot was opened over one in the last
     /// [`ON_SCREEN_TTL`]: (app id, name).
+    /// Fills the router's cache of option embeddings ahead of the first
+    /// question, which otherwise embedded every option first (0.9 s).
+    pub async fn warm(&self) {
+        let backends = self.backends();
+        if backends.jev.provider() != "local" {
+            return;
+        }
+        self.refresh_tools().await;
+        let registry = self.registry();
+        let mut questions = question_set();
+        let domains = domain_options(&registry);
+        if domains.len() > 1 {
+            questions.insert("domain".into(), domain_question(&registry, &domains));
+        }
+        let req = DecideRequest {
+            state: json!({"utterance": "", "local_time": ""}),
+            questions,
+        };
+        if let Err(e) = backends.jev.decide(&req, "decide").await {
+            log::debug!("warming the router: {e}");
+        }
+    }
+
     pub fn on_screen(&self) -> Option<(String, String)> {
         self.on_screen_now().map(|o| (o.app, o.name))
     }

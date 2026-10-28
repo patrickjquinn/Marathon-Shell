@@ -278,6 +278,11 @@ impl PilotService {
                 wake.send().await.ok();
             });
         }
+        // Only a router on the phone: an empty question never leaves it.
+        if !self.warm.is_empty() {
+            let pipeline = Arc::clone(&self.pipeline);
+            self.runtime.spawn(async move { pipeline.warm().await });
+        }
         let adapters = Arc::clone(&self.adapters);
         let store = Arc::clone(&self.store);
         let offline = self.offline.is_offline();
