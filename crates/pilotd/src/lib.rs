@@ -27,7 +27,6 @@ pub mod pipeline;
 pub mod privacy;
 pub mod privilege;
 pub mod redact;
-pub mod relay_auth;
 pub mod remote;
 pub mod route;
 pub mod schema;

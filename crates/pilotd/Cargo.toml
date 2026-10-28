@@ -20,12 +20,9 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1"
-base64 = "0.23"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
-# The licence for the relay's device token comes from Reef's hand-off.
-reef-licence = { path = "../../../reef/licence", features = ["handoff-client"] }
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat", "unicode-perl"] }
 # As shoal-push-distributor: HTTP/1.1, no system proxy, ring as the provider
 # (cross-compiles for aarch64 without cmake or clang).

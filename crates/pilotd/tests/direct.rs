@@ -17,7 +17,6 @@ fn config(base: &str, keys: &std::path::Path) -> pilotd::config::Config {
     pilotd::config::Config::parse(&format!(
         r#"
         timeout_secs = 5
-        token_exchange_url = "{base}/v1/token"
         web_search_url = "{base}/v1/search"
         [privacy]
         source = "none"
@@ -47,7 +46,6 @@ fn build(
         system: None,
         adapters: Some(fake_adapters(&Arc::new(Log::default()))),
         credential: None,
-        licence: None,
         now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
     })
 }

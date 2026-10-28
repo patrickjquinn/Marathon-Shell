@@ -118,7 +118,6 @@ async fn triage_has_an_hourly_ceiling() {
         system: None,
         adapters: Some(common::fake_adapters(&Arc::new(Log::default()))),
         credential: Some(pilotd::remote::Credential::None),
-        licence: None,
         now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
     })
     .unwrap();
@@ -430,7 +429,6 @@ async fn triage_results_keep_one_events_view_entry() {
             system: None,
             adapters: Some(common::fake_adapters(&log)),
             credential: Some(pilotd::remote::Credential::None),
-            licence: None,
             now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
         })
         .unwrap(),

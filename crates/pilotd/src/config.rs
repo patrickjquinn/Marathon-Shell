@@ -401,9 +401,6 @@ impl Default for LocalConfig {
 pub struct Config {
     /// The relay's device token. Default `$XDG_DATA_HOME/shoal-pilot/device-token`.
     pub token_file: Option<PathBuf>,
-    /// The relay's `POST /v1/token`, where the Reef licence is exchanged for
-    /// a device token. Empty: no exchange, the token file is used as is.
-    pub token_exchange_url: String,
     /// The relay's `POST /v1/search` for the `web.search` tool. Empty: the
     /// tool is not offered.
     pub web_search_url: String,
@@ -447,7 +444,6 @@ impl Default for Config {
         );
         Config {
             token_file: None,
-            token_exchange_url: format!("{DEFAULT_RELAY}/v1/token"),
             web_search_url: format!("{DEFAULT_RELAY}/v1/search"),
             timeout_secs: 20,
             max_tool_rounds: 5,
@@ -546,7 +542,6 @@ impl Config {
             }
         }
         for (name, x) in [
-            ("token_exchange_url", &self.token_exchange_url),
             ("web_search_url", &self.web_search_url),
             ("direct.jev_url", &self.direct.jev_url),
             ("direct.llm_url", &self.direct.llm_url),
@@ -618,7 +613,6 @@ mod tests {
             s.llm.url,
             format!("{DEFAULT_RELAY}/v1/llm/chat/completions")
         );
-        assert_eq!(c.token_exchange_url, format!("{DEFAULT_RELAY}/v1/token"));
         assert_eq!(c.web_search_url, format!("{DEFAULT_RELAY}/v1/search"));
         assert!(matches!(&s.jev, JevConfig::Jev { url, .. } if url.ends_with("/v1/jev")));
         assert!((c.thresholds.intent_confidence - 0.85).abs() < f64::EPSILON);

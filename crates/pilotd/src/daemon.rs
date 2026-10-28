@@ -17,7 +17,6 @@ use crate::localtime::{self, LocalNow};
 use crate::pipeline::{Backends, Pipeline, PipelineParts, TurnResult};
 use crate::privacy::{self, Offline, OfflineControl, PrivacySwitch};
 use crate::redact::Redactor;
-use crate::relay_auth::{LicenceSource, ReefHandoff, RelayAuth};
 use crate::remote::{Credential, Remote};
 use crate::settings::{Settings, SettingsFile};
 use crate::store::{EgressSink, Store, StoreError};
@@ -105,8 +104,6 @@ pub struct Options {
     pub adapters: Option<Adapters>,
     /// Replaces the HTTP credential (tests use none).
     pub credential: Option<Credential>,
-    /// Replaces Reef's licence hand-off (tests).
-    pub licence: Option<Arc<dyn LicenceSource>>,
     pub now: fn() -> LocalNow,
 }
 
@@ -344,7 +341,6 @@ pub fn local_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, Sta
     standard.llm.provider = "local".into();
     standard.llm.allowed_regions = vec!["device".into()];
     cfg.web_search_url.clone_from(&l.web_search_url);
-    cfg.token_exchange_url.clear();
     cfg.timeout_secs = cfg.timeout_secs.max(l.timeout_secs);
     log::info!("local mode: the model at {}", l.llm_url);
     Ok(Some(crate::direct::Direct {
@@ -386,7 +382,6 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
         system,
         adapters: injected,
         credential,
-        licence,
         now,
     } = opts;
     let store = Arc::new(match &data_dir {
@@ -404,20 +399,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
             .clone()
             .or_else(|| data_dir.as_ref().map(|d| d.join("device-token")))
             .unwrap_or_else(|| PathBuf::from("/nonexistent/device-token"));
-        if config.token_exchange_url.is_empty() {
-            return Credential::TokenFile(token_file);
-        }
-        let device_file = token_file.with_file_name("device-id");
-        Credential::Relay(Arc::new(RelayAuth::new(
-            token_file,
-            device_file,
-            config.token_exchange_url.clone(),
-            licence.unwrap_or_else(|| Arc::new(ReefHandoff)),
-            http.clone(),
-            egress.clone(),
-            offline.clone(),
-            Duration::from_secs(config.timeout_secs),
-        )))
+        Credential::TokenFile(token_file)
     });
     let remote = Remote::new(
         http,

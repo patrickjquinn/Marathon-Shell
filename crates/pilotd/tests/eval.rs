@@ -270,7 +270,6 @@ fn eval_config(base: &str) -> pilotd::config::Config {
     pilotd::config::Config::parse(&format!(
         r#"
         timeout_secs = 60
-        token_exchange_url = "{base}/v1/token"
         web_search_url = "{base}/v1/search"
         [privacy]
         source = "none"
@@ -389,7 +388,6 @@ async fn run_task(task: &Task, keys: &(String, String)) -> Outcome {
         system: None,
         adapters: Some(common::fake_adapters(&log)),
         credential: Some(pilotd::remote::Credential::None),
-        licence: None,
         now: pilotd::localtime::now,
     })
     .unwrap();

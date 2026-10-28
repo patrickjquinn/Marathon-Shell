@@ -413,7 +413,6 @@ pub fn config(base: &str) -> pilotd::config::Config {
     pilotd::config::Config::parse(&format!(
         r#"
         timeout_secs = 5
-        token_exchange_url = "{base}/v1/token"
         [privacy]
         source = "none"
         [backends.standard.jev]
@@ -455,7 +454,6 @@ pub fn daemon(
         system: None,
         adapters: Some(fake_adapters(log)),
         credential: Some(pilotd::remote::Credential::None),
-        licence: None,
         // Fixed: Friday 2 October 2026, 18:42:30 UTC.
         now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
     })

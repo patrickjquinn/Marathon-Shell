@@ -114,7 +114,6 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         system,
         adapters: None,
         credential: None,
-        licence: None,
         now: localtime::now,
     })?);
     // Keel Actions through keel-mcp (spec section 9), if installed.

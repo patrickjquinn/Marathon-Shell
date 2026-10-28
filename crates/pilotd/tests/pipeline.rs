@@ -669,7 +669,6 @@ async fn device_token_goes_in_the_authorization_header() {
         system: None,
         adapters: Some(common::fake_adapters(&log)),
         credential: None,
-        licence: None,
         now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
     })
     .unwrap();
@@ -680,70 +679,6 @@ async fn device_token_goes_in_the_authorization_header() {
         Some("Bearer dev-token-123")
     );
     assert!(dir.path().join("pilot.db").exists());
-}
-
-#[tokio::test]
-async fn device_token_is_exchanged_for_the_licence_and_renewed_after_401() {
-    use base64::Engine as _;
-    let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .encode(br#"{"lid":"lic_1","dev":"d","plan":"one_off","iat":0,"exp":4000000000}"#);
-    let relay_token = format!("pr1.{payload}.sig");
-    let token = relay_token.clone();
-    let srv = FakeHttp::start(move |req: &common::Seen, i| match req.path.as_str() {
-        "/v1/token" => {
-            assert_eq!(req.body["licence"], "reef-licence-token");
-            assert!(req.body["device"].as_str().unwrap().len() >= 8);
-            Reply::ok(json!({"token": token, "expires_at": 4_000_000_000_i64}))
-        }
-        "/v1/jev" if i == 1 => Reply {
-            status: 401,
-            headers: vec![],
-            body: json!({}),
-            delay: Duration::ZERO,
-        },
-        _ => Reply::ok(jev_reply(&[("media", 0.95)], 0.0, 0.0)),
-    })
-    .await;
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("settings.json"), r#"{"onboarded": true}"#).unwrap();
-    let log = Arc::new(Log::default());
-    let d = pilotd::daemon::build(pilotd::daemon::Options {
-        config: common::config(&srv.base),
-        data_dir: Some(dir.path().to_owned()),
-        session: None,
-        system: None,
-        adapters: Some(common::fake_adapters(&log)),
-        credential: None,
-        licence: Some(Arc::new("reef-licence-token".to_owned())),
-        now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
-    })
-    .unwrap();
-    d.pipeline.ask("pause", false).await;
-    assert_eq!(
-        srv.seen("/v1/jev")[0].auth.as_deref(),
-        Some(format!("Bearer {relay_token}").as_str())
-    );
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("device-token")).unwrap(),
-        relay_token
-    );
-    let device = std::fs::read_to_string(dir.path().join("device-id")).unwrap();
-    // The relay refuses the token: it is dropped, and the next turn
-    // exchanges the licence again with the same device id.
-    let r = d.pipeline.ask("pause", false).await;
-    assert_eq!(
-        r.route, "local",
-        "a timer-class intent still works while Jev refuses"
-    );
-    assert!(!dir.path().join("device-token").exists());
-    d.pipeline.ask("pause", false).await;
-    let ex = srv.seen("/v1/token");
-    assert_eq!(ex.len(), 2);
-    assert_eq!(ex[1].body["device"].as_str().unwrap(), device);
-    let eg = d.store.egress(0).unwrap();
-    assert!(eg
-        .iter()
-        .any(|e| e.provider == "relay" && e.purpose == "token" && e.result == "ok"));
 }
 
 #[tokio::test]
@@ -768,7 +703,6 @@ async fn spoken_turns_use_voice_consent_and_are_spoken_back() {
         system: None,
         adapters: Some(common::fake_adapters_hearing(&log, heard)),
         credential: Some(pilotd::remote::Credential::None),
-        licence: None,
         now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
     })
     .unwrap();

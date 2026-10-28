@@ -53,18 +53,8 @@ pub enum Credential {
     /// The relay's device token, read from this file on every request so a
     /// renewed token takes effect without a restart.
     TokenFile(PathBuf),
-    /// The relay's device token, exchanged for the Reef licence on demand.
-    Relay(Arc<crate::relay_auth::RelayAuth>),
     /// The owner's own keys, each sent only to its upstream (direct.rs).
     Direct(Arc<crate::direct::Direct>),
-}
-
-impl std::fmt::Debug for crate::relay_auth::RelayAuth {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RelayAuth")
-            .field("exchange_url", &self.exchange_url)
-            .finish_non_exhaustive()
-    }
 }
 
 /// A JSON reply and its headers.
@@ -103,7 +93,6 @@ impl Remote {
     async fn token(&self) -> Result<Option<String>, RemoteError> {
         match &self.credential {
             Credential::None | Credential::Direct(_) => Ok(None),
-            Credential::Relay(auth) => auth.token().await.map(Some),
             Credential::TokenFile(path) => {
                 let t = std::fs::read_to_string(path)
                     .map_err(|e| RemoteError::Token(format!("{}: {e}", path.display())))?;
@@ -217,12 +206,6 @@ impl Remote {
         let bytes_in = raw.len() as u64;
         let status = llm.map_or(status, |_| crate::direct::llm_status(status, &raw));
         if !status.is_success() {
-            if status.as_u16() == 401 {
-                if let Credential::Relay(auth) = &self.credential {
-                    // Expired or revoked: exchange the licence again next time.
-                    auth.invalidate();
-                }
-            }
             let e = RemoteError::Status {
                 provider: provider.to_owned(),
                 status: status.as_u16(),

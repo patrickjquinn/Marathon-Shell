@@ -3319,7 +3319,7 @@ fn user_error(e: &RemoteError) -> String {
             status: 401 | 403, ..
         }
         | RemoteError::Token(_) => {
-            "Pilot couldn't check your licence. Open Reef to renew or restore it.".into()
+            "Pilot's model service refused its key.".into()
         }
         _ => "Pilot can't reach its cloud service. Check your connection and try again.".into(),
     }
