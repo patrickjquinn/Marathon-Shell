@@ -1781,6 +1781,15 @@ impl Pipeline {
                 let sure_app = *confidence >= 0.6
                     && d.first().is_some_and(|o| o != GENERAL && o.contains('.'));
                 d.retain(|o| o != GENERAL);
+                // ... and every system area: the phone's own tools are few,
+                // and a missed one made the model invent a calendar entry.
+                if wide {
+                    for system in domains.iter().filter(|o| !o.contains('.')) {
+                        if !d.contains(system) {
+                            d.push(system.clone());
+                        }
+                    }
+                }
                 (Some(d), sure_app)
             }
             _ => (None, false),
@@ -2845,7 +2854,9 @@ impl Pipeline {
             // One read-only lookup ("what's the weather"): its own summary
             // is the answer, without a second model round to rephrase it.
             let mut lookup: Option<String> = None;
-            let single = resp.tool_calls.len() == 1;
+            // In the cloud the model answers in the person's language for
+            // half a second more; the tool's summary is in English.
+            let single = resp.tool_calls.len() == 1 && backends.llm.provider() == "local";
             for call in &resp.tool_calls {
                 let checked = registry.check(call);
                 let (entry, args) = match checked {
