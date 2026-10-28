@@ -197,7 +197,8 @@ pub fn specs() -> Vec<(ToolSpec, bool)> {
                 "Start a countdown timer.",
                 &json!({"type": "object", "properties": {
                     "seconds": {"type": "integer", "minimum": 1, "maximum": 604_800},
-                    "label": {"type": "string", "maxLength": 60}},
+                    "label": {"type": "string", "maxLength": 60,
+                        "description": "What the timer is for (\"pasta\"), only when the person says; never the time"}},
                     "required": ["seconds"], "additionalProperties": false}),
                 Confirm::Never,
                 false,
