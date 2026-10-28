@@ -8,7 +8,7 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=20
+pkgrel=21
 _commit=1e70d7ef3c2448cff225bac127a92727c8b32a85
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
@@ -135,8 +135,8 @@ package() {
 	chmod -R u=rwX,go=rX "$pkgdir"/usr/share/deckard/overlay
 	[ ! -f image/whiteouts ] ||
 		install -Dm644 image/whiteouts "$pkgdir"/usr/share/deckard/whiteouts
-	[ ! -f image/waydroid.prop ] ||
-		install -Dm644 image/waydroid.prop "$pkgdir"/usr/share/deckard/waydroid.prop
+	[ ! -f image/deckard.prop ] ||
+		install -Dm644 image/deckard.prop "$pkgdir"/usr/share/deckard/deckard.prop
 
 	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 

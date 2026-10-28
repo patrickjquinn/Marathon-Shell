@@ -4,7 +4,7 @@
 pkgname=device-hackberrypi-cm5-marathon
 pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
 pkgver=1.0.0
-pkgrel=32
+pkgrel=33
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="Apache-2.0"
 arch="aarch64"
@@ -28,7 +28,7 @@ source="
 	marathon-deckard.conf
 	marathon-deckard.tmpfiles
 	50-marathon-deckard.rules
-	waydroid.cfg
+	deckard.cfg
 	DeckardHackberryPiRes.apk
 	hackberrypi.modules
 	device-profile.conf
@@ -91,8 +91,8 @@ package() {
 
 	# Deckard: seed config (its Init keeps the properties), and the phone
 	# user may start Android's container.
-	install -Dm644 "$srcdir/waydroid.cfg" \
-		"$pkgdir/usr/share/marathon/waydroid.cfg"
+	install -Dm644 "$srcdir/deckard.cfg" \
+		"$pkgdir/usr/share/marathon/deckard.cfg"
 	install -Dm644 "$srcdir/marathon-deckard.tmpfiles" \
 		"$pkgdir/usr/lib/tmpfiles.d/marathon-deckard.conf"
 	install -Dm644 "$srcdir/50-marathon-deckard.rules" \
@@ -113,12 +113,12 @@ a457f7f97758b002ffb81cfc33774d6843f18ab6e7c2ccbed85bfecde799a7e5d2144527f66ac576
 89c51433ed181fd0bc2bbd482ded56151371a297420b714ea373f2ae8b4f93eb74234c87c47d79831d672b316e8b96a6d24d42d50aef6e01ce6e19313d669623  marathon-irq-dwc2
 c01c58dc77b79d63ed7994bd8c78bea44bf7060c49da91b2faef0fa46bcae989ea9c0b5f06c4ddee701c46f955a5fc406564ec917b09b54b1670c856c57386b2  marathon-cm5-fuelgauge.conf
 e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99e63c486882373de76f6433906e7a00c4c0774235b798981c  marathon-deckard.conf
-c1607b543df8cbb63a38e455a6edb91494b8764b0354329a0366831de82dd7115f18985d3fb394c66e7de79987a9febcf70da9b73361e588b5d736933a08b74a  marathon-deckard.tmpfiles
+f56b5f79e54d0fc78ac9c2b86f5da075117d1f15117ac5881f64d6ed6572681889b5354a45a22f4f3ff7d8c3e6a816b001bca4e2f5d71fd8aea1255e75d7daaa  marathon-deckard.tmpfiles
 SKIP  50-marathon-deckard.rules
-8f4836f4fcdd931f2d5bea611b330f6de4bb45b9fdf82e33efb9f01c84996a22b2d20c15710142eaca98ddb2c5708b713481e3cc5af495ddeedcc286934ad57c  waydroid.cfg
+460615e36e35eca1bd91948b817163ffb858c6a7b79b6c391af19fe599b79171fd3d78a54ef9fec1e38958876a4e20356b7a18e30d3a2046286940d3fc8ef742  deckard.cfg
 f3bc1e3559e72fb8f4eda465735f04541324bb5eb5b0f8431d360ec46a9873320dfb32c6ef16ef8f378fccbf4e241d08e589a56db4b0344f0fd903308086b1a4  DeckardHackberryPiRes.apk
 5d1df39b4c12e370e1d1c4069820a476d3a760a8186f36fcc409db086ae57e98a4623de646723ac1b4b689df7965597a5613f5dcf84058e213b67e858ae1791d  hackberrypi.modules
 3aa31c56dbb557e4c739172d9dbc25480a293d3df2ce657d97b277146823d0a691885622d53988665c24da8b8d1b84be349fedde169557735adc745eb3260c7d  device-profile.conf
-132e51e1f66ee58c22c43b4b06556ab1850ea494692a9929d4167ff0f554fc510d863f2d68c0ecde2050e0cbd42a4c174ad93e038e91d1b39dcadd5b5986b5c2  marathon-hackberry-speaker
+1dff96791d661e7f1131c9506cd08a030c13b24fbecb869fffffebad257eb474a19bca6d9589835818fb7d968ad285cc9796d02283447227cd43fe3c6d1076c2  marathon-hackberry-speaker
 b51b79433444f8b1e95a5237bc007d87856548a4510515520b87fbd0e51d98e2fca94e5655073b791360457d25ae5660e29d682bd52ad6e8ff986543a4d64c66  marathon-hackberry-speaker.service
 "
