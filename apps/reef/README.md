@@ -9,7 +9,7 @@ Reef is Marathon's app store. This is its client: a Keel app that loads the QML 
 
 It came from Shipwright's Reef for Sailfish OS. What stayed there: the RPM installer and spec, ssu repository pinning, PackageKit installs, the signed `repomd.xml` check, the background update check and its Lipstick notification, and every server (licence services, developer portal, reefstore.app and its publishing tools).
 
-**What works now.** Browsing: the catalogue (`<store>/catalogue.json`, cached for the next start), its icons and screenshots, featured apps, collections, categories, ranked search and each app's page. Licences: adding a token, refreshing it from the licence service, and buying through a claim code. **What does not, yet.** Installing, updating and removing apps: the Install button is disabled with a note saying so, and the Installed page stays empty. Reef has no catalogue for Marathon published yet, so the store says that it has none (`jobs::DEFAULT_STORE_URL`, `https://reefstore.app/marathon/<arch>/`).
+**What it does.** Marathon's store: Flathub's phone apps and F-Droid's Android apps (from the store handler, `marathon-store-handler`), and Reef's own catalogue (`<store>/catalogue.json`, `docs/reef/marathon-catalogue.md`), in one list with featured apps, collections, categories, ranked search and each app's page. Installing, updating, opening and removing go through the store handler (`src/handler.rs`), with progress on the rows. Licences: adding a token, refreshing it from the licence service, and buying through a claim code. Marathon packages (the index's `marathon` source) are not installable yet.
 
 This is a Cargo workspace of its own (its own `[workspace]` and `Cargo.lock`): it links Keel's SailfishApp from keel-silica-dev, which the shell's build and CI do not install, so `crates/` cannot hold it.
 
@@ -18,6 +18,7 @@ This is a Cargo workspace of its own (its own `[workspace]` and `Cargo.lock`): i
 | `src/lib.rs` | The app (a shared library that is also executable, installed as `/usr/bin/shipwright-reef`; `tools/keel-launcher/link_sailfishapp.rs`). Loads `/usr/share/shipwright-reef/qml/shipwright-reef.qml`, or `--qml FILE` / `$REEF_QML`. |
 | `src/bridge.rs` | The CXX-Qt bridge: the `Reef` singleton, and `ReefListModel` behind its models. |
 | `src/rows.rs` | Pure conversions from backend types to model rows, the `packageDetails` map and the keyed messages. No Qt. |
+| `src/handler.rs` | The store handler: `marathon-store://` requests, and its state files (what is installed, updates, each operation's progress, the Flathub and F-Droid catalogues). |
 | `src/jobs.rs` | Work off the GUI thread: catalogue, asset, token and revocation downloads (ureq with rustls, plus `file://`), the catalogue cache (written atomically), and where the store is (`store_url`). |
 | `src/settings.rs` | `refreshOnStart` and `licenceServer`, in `$XDG_CONFIG_HOME/shipwright-reef/settings.json`. |
 | `src/logging.rs` | A `log` backend on stderr; `REEF_LOG` sets the level. |

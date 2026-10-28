@@ -15,6 +15,7 @@
               generates, and CXX-Qt allows no lint attribute on the bridge itself"
 )]
 pub mod bridge;
+pub mod handler;
 pub mod jobs;
 pub mod logging;
 pub mod release_gate;

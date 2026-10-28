@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// Installed Reef packages and their updates; system updates stay in
-// Settings. Reef does not install on Marathon yet, so this stays empty.
+// Installed apps and their updates, from Flathub, F-Droid and Reef; system
+// updates stay in Settings.
 
 import QtQuick
 import Sailfish.Silica 1.0
@@ -20,7 +20,13 @@ Page {
         model: Reef.installedModel
 
         PullDownMenu {
-            busy: Reef.busy
+            busy: Reef.busy || Reef.jobsRunning
+            MenuItem {
+                objectName: "updateAllItem"
+                text: qsTr("Update all")
+                visible: Reef.updatesCount > 0 && !Reef.jobsRunning
+                onClicked: Reef.updateAll()
+            }
             MenuItem {
                 objectName: "checkItem"
                 text: qsTr("Refresh")
@@ -75,8 +81,8 @@ Page {
         // overlapped at large text sizes).
         ViewPlaceholder {
             enabled: list.count === 0 && !Reef.busy && Reef.lastError.length === 0
-            text: qsTr("Nothing installed from Reef")
-            hintText: qsTr("Installing apps from Reef is not available on Marathon yet")
+            text: qsTr("Nothing installed yet")
+            hintText: qsTr("Apps you install from the store show here")
         }
 
         VerticalScrollDecorator {}

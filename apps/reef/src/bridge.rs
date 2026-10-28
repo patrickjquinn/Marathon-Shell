@@ -169,6 +169,8 @@ pub mod qobject {
         #[qproperty(*mut ReefListModel, collections_model, cxx_name = "collectionsModel", READ, CONSTANT)]
         #[qproperty(*mut ReefListModel, browse_model, cxx_name = "browseModel", READ, CONSTANT)]
         #[qproperty(QString, details_loading, cxx_name = "detailsLoading", READ, NOTIFY)]
+        #[qproperty(bool, jobs_running, cxx_name = "jobsRunning", READ, NOTIFY)]
+        #[qproperty(i32, updates_count, cxx_name = "updatesCount", READ, NOTIFY)]
         type Reef = super::ReefRust;
 
         #[qinvokable]
@@ -231,6 +233,27 @@ pub mod qobject {
         #[cxx_name = "checkPurchases"]
         fn check_purchases(self: Pin<&mut Reef>);
 
+        /// Installs, updates, removes, stops installing or opens app
+        /// `name` through the store handler; its rows' `jobState` and
+        /// `jobPercent` follow, `pollHandler()` reading them.
+        #[qinvokable]
+        fn install(self: Pin<&mut Reef>, name: &QString);
+        #[qinvokable]
+        fn update(self: Pin<&mut Reef>, name: &QString);
+        #[qinvokable]
+        fn uninstall(self: Pin<&mut Reef>, name: &QString);
+        #[qinvokable]
+        fn cancel(self: Pin<&mut Reef>, name: &QString);
+        #[qinvokable]
+        fn open(self: Pin<&mut Reef>, name: &QString);
+        #[qinvokable]
+        #[cxx_name = "updateAll"]
+        fn update_all(self: Pin<&mut Reef>);
+        /// Reads what is installed and how running operations are going;
+        /// the window calls it every second while `jobsRunning`.
+        #[qinvokable]
+        #[cxx_name = "pollHandler"]
+        fn poll_handler(self: Pin<&mut Reef>);
     }
 
     impl cxx_qt::Threading for Reef {}
@@ -425,6 +448,14 @@ pub struct Core {
     package_rows: Vec<rows::PackageRow>,
     /// What `browseModel` shows: kind and id (`browse`).
     browse: (String, String),
+    /// Flathub's and F-Droid's apps from the store handler.
+    sources: Vec<reef_backend::catalogue::Package>,
+    /// What the handler says is installed and running.
+    status: crate::handler::Status,
+    /// Reef's catalogue with `sources` merged in, as the models show it.
+    merged: Option<Catalogue>,
+    /// When the handler's catalogue files last changed (`handler::sources_stamp`).
+    sources_stamp: u64,
 }
 
 pub struct ReefRust {
@@ -451,6 +482,10 @@ pub struct ReefRust {
     browse_model: *mut qobject::ReefListModel,
     /// The app whose details `loadDetails` is fetching; empty when none.
     details_loading: QString,
+    /// The store handler is working on an app (`pollHandler`).
+    jobs_running: bool,
+    /// Installed apps with an update.
+    updates_count: i32,
     refresh_on_start: bool,
     licence_server: QString,
     /// The catalogue page's search box; `catalogueModel` holds only the
@@ -478,6 +513,8 @@ impl Default for ReefRust {
             collections_model: std::ptr::null_mut(),
             browse_model: std::ptr::null_mut(),
             details_loading: QString::default(),
+            jobs_running: false,
+            updates_count: 0,
             refresh_on_start: settings.refresh_on_start,
             licence_server: QString::from(settings.licence_server.as_str()),
             search_text: QString::default(),
@@ -563,6 +600,15 @@ impl cxx_qt::Initialize for qobject::Reef {
             r.core.arch = arch;
             r.core.settings_path = settings_path;
             r.core.licence_dir = LicenceStore::default_dir();
+            if let Some(dir) = crate::handler::state_dir() {
+                r.core.sources = crate::handler::sources(&dir);
+                r.core.status = crate::handler::status(&dir);
+                r.core.sources_stamp = crate::handler::sources_stamp(&dir);
+            }
+        }
+        // What is installed now; the window's poll picks it up.
+        if let Err(e) = crate::handler::request("refresh-state", "all", "") {
+            log::warn!("store handler: {e}");
         }
 
         self.as_mut()
@@ -635,12 +681,32 @@ impl qobject::Reef {
         let licensed = |app: &str| usable.iter().any(|a| a == app);
         let asset = |rel: &str| self.asset(rel);
 
-        let package_rows = match &self.core.catalogue {
-            Some(c) => rows::package_rows(c, &[], &[], &licensed, &asset, rows::today(now)),
-            None => Vec::new(),
-        };
+        let merged = reef_backend::sources::merge(
+            &self
+                .core
+                .catalogue
+                .clone()
+                .unwrap_or_else(|| empty_catalogue(&self.core.arch)),
+            crate::handler::with_installed(&self.core.sources, &self.core.status),
+        );
+        let status = &self.core.status;
+        let mut package_rows = rows::package_rows(
+            &merged,
+            &status.installed,
+            &status.updates,
+            &licensed,
+            &asset,
+            rows::today(now),
+        );
+        rows::apply_jobs(&mut package_rows, &status.jobs);
         let installed_rows = rows::installed_rows(&package_rows);
-        let catalogue = self.core.catalogue.as_ref();
+        let updates = qt_count(
+            installed_rows
+                .iter()
+                .filter(|r| r.install_state == "update_available")
+                .count(),
+        );
+        let catalogue = Some(&merged);
         let featured_rows = catalogue
             .map(|c| rows::featured_rows(&package_rows, c))
             .unwrap_or_default();
@@ -661,6 +727,8 @@ impl qobject::Reef {
             .map(|s| rows::licence_row(s, &|app| rows::title_for_app(catalogue, app)).values())
             .collect();
         self.as_mut().rust_mut().core.package_rows = package_rows;
+        self.as_mut().rust_mut().core.merged = Some(merged);
+        set_notify!(self, updates_count, updates_count_changed, updates);
         // SAFETY: the models were created in `initialize` as QObject
         // children of `self` and live as long as it does; they are used only
         // here, on the GUI thread (model_mut's contract).
@@ -779,7 +847,7 @@ impl qobject::Reef {
 
     pub fn browse(mut self: Pin<&mut Self>, kind: &QString, id: &QString) {
         self.as_mut().rust_mut().core.browse = (kind.to_string(), id.to_string());
-        let shown = match &self.core.catalogue {
+        let shown = match &self.core.merged {
             Some(c) => rows::browse_rows(
                 c,
                 &self.core.package_rows,
@@ -884,14 +952,15 @@ impl qobject::Reef {
 
     pub fn package_details(&self, name: &QString) -> QMap<QMapPair_QString_QVariant> {
         let name = name.to_string();
-        let Some(catalogue) = &self.core.catalogue else {
+        let Some(catalogue) = &self.core.merged else {
             return QMap::default();
         };
         let Some(package) = catalogue.visible_package(&name) else {
             return QMap::default();
         };
-        let state =
-            rows::state_of(catalogue, &[], &[], &name).unwrap_or(InstallState::NotInstalled);
+        let status = &self.core.status;
+        let state = rows::state_of(catalogue, &status.installed, &status.updates, &name)
+            .unwrap_or(InstallState::NotInstalled);
         let now = jobs::unix_now();
         let licensed = package.licence.app_id().is_some_and(|app| {
             self.licence_store()
@@ -1052,6 +1121,106 @@ impl qobject::Reef {
 /// Posts `f` to the GUI thread. `queue` fails only when the Reef object is
 /// being destroyed (the app is quitting), so the result has nowhere to go:
 /// it is logged, not dropped silently.
+/// The store handler: installs and what is installed.
+impl qobject::Reef {
+    /// The handler's id and the title of the app the row `name` shows, when
+    /// Marathon can install it.
+    fn handler_target(&self, name: &QString) -> Option<(String, String)> {
+        let name = name.to_string();
+        self.core
+            .package_rows
+            .iter()
+            .find(|r| r.name == name && !r.handler_id.is_empty())
+            .map(|r| (r.handler_id.clone(), r.title.clone()))
+    }
+
+    /// Asks the handler for `verb`, showing `state` on the row until the
+    /// handler's own progress arrives.
+    fn start(mut self: Pin<&mut Self>, verb: &str, name: &QString, state: &str) {
+        let Some((id, title)) = self.handler_target(name) else {
+            return;
+        };
+        if let Err(e) = crate::handler::request(verb, &id, &title) {
+            self.as_mut().set_error(&e.to_string());
+            return;
+        }
+        let job = crate::handler::Job {
+            state: state.to_owned(),
+            percent: -1,
+            error: String::new(),
+        };
+        self.as_mut().rust_mut().core.status.jobs.insert(id, job);
+        set_notify!(self, jobs_running, jobs_running_changed, true);
+        self.as_mut().rebuild_models();
+    }
+
+    pub fn install(self: Pin<&mut Self>, name: &QString) {
+        self.start("install", name, "pending");
+    }
+
+    pub fn update(self: Pin<&mut Self>, name: &QString) {
+        self.start("update", name, "pending");
+    }
+
+    pub fn uninstall(self: Pin<&mut Self>, name: &QString) {
+        self.start("uninstall", name, "removing");
+    }
+
+    pub fn cancel(self: Pin<&mut Self>, name: &QString) {
+        self.start("cancel", name, "cancelling");
+    }
+
+    pub fn open(mut self: Pin<&mut Self>, name: &QString) {
+        let Some((id, _)) = self.handler_target(name) else {
+            return;
+        };
+        if let Err(e) = crate::handler::request("open", &crate::handler::open_id(&id), "") {
+            self.as_mut().set_error(&e.to_string());
+        }
+    }
+
+    pub fn update_all(mut self: Pin<&mut Self>) {
+        if let Err(e) = crate::handler::request("update-all", "x", "") {
+            self.as_mut().set_error(&e.to_string());
+            return;
+        }
+        set_notify!(self, jobs_running, jobs_running_changed, true);
+    }
+
+    pub fn poll_handler(mut self: Pin<&mut Self>) {
+        let Some(dir) = crate::handler::state_dir() else {
+            return;
+        };
+        let status = crate::handler::status(&dir);
+        let running = status.running();
+        // The catalogues change after a refresh or an F-Droid sync.
+        let stamp = crate::handler::sources_stamp(&dir);
+        if stamp != self.core.sources_stamp {
+            let mut r = self.as_mut().rust_mut();
+            r.core.sources = crate::handler::sources(&dir);
+            r.core.sources_stamp = stamp;
+        }
+        self.as_mut().rust_mut().core.status = status;
+        set_notify!(self, jobs_running, jobs_running_changed, running);
+        self.as_mut().rebuild_models();
+    }
+}
+
+/// A catalogue with no packages, until Reef's own arrives.
+fn empty_catalogue(arch: &str) -> Catalogue {
+    Catalogue {
+        schema: 1,
+        release: String::new(),
+        arch: arch.to_owned(),
+        generated_at: String::new(),
+        packages: Vec::new(),
+        featured: Vec::new(),
+        components: std::collections::BTreeMap::new(),
+        categories: Vec::new(),
+        collections: Vec::new(),
+    }
+}
+
 fn queue_or_log<F>(thread: &CxxQtThread<qobject::Reef>, f: F)
 where
     F: FnOnce(Pin<&mut qobject::Reef>) + Send + 'static,

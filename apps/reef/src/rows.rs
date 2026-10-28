@@ -9,7 +9,7 @@
 //! The role names and values are the contract in apps/reef/UI.md
 //! ("Backend object API").
 
-use reef_backend::catalogue::{parse_date, Catalogue, LicenceModel, Package};
+use reef_backend::catalogue::{parse_date, Catalogue, Install, LicenceModel, Package};
 use reef_backend::licences::StoredLicence;
 use reef_backend::store::{entries, InstallState, PackageVersion};
 use reef_licence::{Claims, Error as LicenceError, Plan, Standing};
@@ -59,6 +59,11 @@ pub const PACKAGE_ROLES: &[&str] = &[
     "updated",
     "heroPath",
     "categoryLabel",
+    "source",
+    "installable",
+    "jobState",
+    "jobPercent",
+    "jobError",
 ];
 
 /// How many apps the home page's "New and updated" row shows.
@@ -104,6 +109,17 @@ pub struct PackageRow {
     /// The category's name as the store shows it (`Music and audio` for
     /// `Audio`): the catalogue's category list, else the category itself.
     pub category_label: String,
+    /// `reef`, `flathub` or `fdroid`.
+    pub source: &'static str,
+    /// The store handler's id for it; empty when Marathon cannot install
+    /// it (not a role: installs go by it).
+    pub handler_id: String,
+    /// The running or last operation on it (`handler::Job`): empty, or
+    /// `pending`, `installing`, `removing`, `cancelling`, `done`,
+    /// `removed`, `failed`.
+    pub job_state: String,
+    pub job_percent: i32,
+    pub job_error: String,
 }
 
 impl PackageRow {
@@ -126,7 +142,44 @@ impl PackageRow {
             self.updated.as_str().into(),
             self.hero_path.as_str().into(),
             self.category_label.as_str().into(),
+            self.source.into(),
+            (!self.handler_id.is_empty()).into(),
+            self.job_state.as_str().into(),
+            Value::Int(i64::from(self.job_percent)),
+            self.job_error.as_str().into(),
         ]
+    }
+}
+
+/// Where an icon or screenshot is: Reef's are cached assets (`asset`);
+/// Flathub's are files in its catalogue; F-Droid's and Flathub's
+/// screenshots load from their own hosts, nowhere else.
+pub fn image_path(image: &str, asset: &dyn Fn(&str) -> String) -> String {
+    const HOSTS: [&str; 2] = ["https://f-droid.org/", "https://dl.flathub.org/"];
+    if image.starts_with('/') && !image.contains("/../") {
+        image.to_owned()
+    } else if image.starts_with("https://") {
+        if HOSTS.iter().any(|h| image.starts_with(h)) {
+            image.to_owned()
+        } else {
+            String::new()
+        }
+    } else {
+        asset(image)
+    }
+}
+
+/// Puts each app's running or last operation on its row.
+pub fn apply_jobs(
+    rows: &mut [PackageRow],
+    jobs: &std::collections::BTreeMap<String, crate::handler::Job>,
+) {
+    for row in rows {
+        if let Some(job) = jobs.get(&row.handler_id) {
+            row.job_state.clone_from(&job.state);
+            row.job_percent = job.percent;
+            row.job_error.clone_from(&job.error);
+        }
     }
 }
 
@@ -449,7 +502,12 @@ pub fn package_rows(
                 licence_model: licence_model(&e.package.licence),
                 licensed: is_licensed(e.package, licensed_app),
                 publisher: e.package.publisher.clone(),
-                icon_path: e.package.icon.as_deref().map(asset).unwrap_or_default(),
+                icon_path: e
+                    .package
+                    .icon
+                    .as_deref()
+                    .map(|icon| image_path(icon, asset))
+                    .unwrap_or_default(),
                 featured: catalogue.featured.contains(&e.package.name),
                 is_new: is_new(e.package.added.as_deref(), today),
                 updated: e
@@ -465,10 +523,20 @@ pub fn package_rows(
                     .hero
                     .iter()
                     .chain(e.package.screenshots.iter())
-                    .map(|s| asset(s))
+                    .map(|s| image_path(s, asset))
                     .find(|p| !p.is_empty())
                     .unwrap_or_default(),
                 keywords: e.package.keywords.clone(),
+                source: e.package.origin.key(),
+                handler_id: e
+                    .package
+                    .install
+                    .as_ref()
+                    .and_then(Install::handler_id)
+                    .unwrap_or_default(),
+                job_state: String::new(),
+                job_percent: -1,
+                job_error: String::new(),
             }
         })
         .collect();
@@ -532,7 +600,7 @@ pub fn package_details(
             package
                 .icon
                 .as_deref()
-                .map(asset)
+                .map(|i| image_path(i, asset))
                 .unwrap_or_default()
                 .into(),
         ),
@@ -542,10 +610,20 @@ pub fn package_details(
                 package
                     .screenshots
                     .iter()
-                    .map(|s| asset(s))
+                    .map(|s| image_path(s, asset))
                     .filter(|p| !p.is_empty())
                     .collect(),
             ),
+        ),
+        ("origin", package.origin.key().into()),
+        (
+            "installable",
+            package
+                .install
+                .as_ref()
+                .and_then(Install::handler_id)
+                .is_some()
+                .into(),
         ),
         ("added", package.added.clone().unwrap_or_default().into()),
         // The newest changelog entry's day, else the day it was published.
@@ -555,6 +633,7 @@ pub fn package_details(
                 .changelog
                 .first()
                 .map(|c| c.date.clone())
+                .or_else(|| package.updated.clone())
                 .or_else(|| package.added.clone())
                 .unwrap_or_default()
                 .into(),
@@ -839,7 +918,7 @@ mod tests {
         let rows = package_rows(&cat(), &[], &[], &|_| false, &no_asset, 0);
         assert_eq!(rows.len(), 3);
         assert!(rows.iter().all(|r| r.install_state == "not_installed"));
-        assert!(installed_rows(&rows).is_empty());
+        assert_eq!(installed_rows(&rows), []);
         assert_eq!(rows[1].licence_model, "subscription");
     }
 
@@ -890,7 +969,7 @@ mod tests {
         // back to the day it was added when there is no changelog.
         assert_eq!(keel.hero_path, "/cache/assets__shots__k1.jpg");
         assert_eq!(keel.updated, "2026-10-01");
-        assert!(bridge.hero_path.is_empty());
+        assert_eq!(bridge.hero_path, "");
         assert_eq!(keel.values().len(), PACKAGE_ROLES.len());
 
         // New for 30 days, not before the date and not after.
@@ -926,7 +1005,7 @@ mod tests {
             names(&filter_rows(&rows, "qt6 shipwright")),
             ["shipwright-keel-silica"]
         );
-        assert!(filter_rows(&rows, "zebra").is_empty());
+        assert_eq!(filter_rows(&rows, "zebra"), []);
 
         // Details carry the publisher, the icon and the cached screenshots only.
         let p = c.visible_package("shipwright-keel-silica").unwrap();
@@ -964,6 +1043,11 @@ mod tests {
             hero_path: String::new(),
             keywords: Vec::new(),
             category_label: String::new(),
+            source: "reef",
+            handler_id: String::new(),
+            job_state: String::new(),
+            job_percent: -1,
+            job_error: String::new(),
         };
         // Rows are what this phone is shown: "hidden" is not among them.
         let rows = [
@@ -1065,6 +1149,11 @@ mod tests {
             hero_path: String::new(),
             keywords: keywords.iter().map(|k| (*k).to_string()).collect(),
             category_label: String::new(),
+            source: "reef",
+            handler_id: String::new(),
+            job_state: String::new(),
+            job_percent: -1,
+            job_error: String::new(),
         };
         let rows = [
             row("notes", "Notes", "Write down a browser link", &[]),
@@ -1115,6 +1204,11 @@ mod tests {
             hero_path: String::new(),
             keywords: Vec::new(),
             category_label: String::new(),
+            source: "reef",
+            handler_id: String::new(),
+            job_state: String::new(),
+            job_percent: -1,
+            job_error: String::new(),
         };
         let rows = [
             row("Keys", "2026-10-08"),
@@ -1165,6 +1259,8 @@ mod tests {
                 "publisher",
                 "iconPath",
                 "screenshotPaths",
+                "origin",
+                "installable",
                 "added",
                 "updated",
                 "changelogJson",

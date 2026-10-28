@@ -34,9 +34,26 @@ ApplicationWindow {
 
     // Back from the browser after Buy: fetch the licence if it is paid
     // (only while a purchase's claim code is pending; at most every 10 s).
+    // Back from anywhere: what is installed may have changed.
     onApplicationActiveChanged: {
         if (applicationActive) {
             Reef.checkPurchases()
+            Reef.pollHandler()
+            settle.restart()
         }
+    }
+
+    // The store handler's progress while it works, and what it finds
+    // installed for a few seconds after the store opens or comes back.
+    Timer {
+        id: settle
+        interval: 8000
+        running: true
+    }
+    Timer {
+        interval: 1000
+        repeat: true
+        running: app.applicationActive && (Reef.jobsRunning || settle.running)
+        onTriggered: Reef.pollHandler()
     }
 }

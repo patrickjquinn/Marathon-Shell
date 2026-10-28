@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // One app: what it is, what is new in it, what it may access, and
-// install / update / buy (installing is not available on Marathon yet).
+// install, open, update, remove or buy.
 // Laid out as the Jolla Store lays out an
 // app (the name and publisher right-aligned beside the icon), then the one
 // thing to do, the facts at a glance, the screenshots, and the rest in
@@ -44,6 +44,10 @@ Page {
 
     readonly property bool installed: pkg.installState !== undefined && pkg.installState !== "not_installed"
     readonly property bool updatable: pkg.installState === "update_available"
+    // The row carries the store handler's progress on this app.
+    readonly property var row: (Reef.revision, Reef.appRow(packageName))
+    readonly property string job: row.jobState || ""
+    readonly property bool working: job === "pending" || job === "installing" || job === "removing" || job === "cancelling"
     readonly property bool canBuy: paid && !pkg.licensed && Texts.isHttps(pkg.purchaseUrl)
     // Set once Buy has opened the checkout in the browser.
     property bool buying
@@ -222,9 +226,16 @@ Page {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge * 2
 
-        // The links to the developer's pages.
+        // Removing it, and the links to the developer's pages.
         PullDownMenu {
-            visible: Texts.isHttps(page.pkg.source) || Texts.isHttps(page.pkg.homepage)
+            visible: removeItem.visible || Texts.isHttps(page.pkg.source) || Texts.isHttps(page.pkg.homepage)
+            MenuItem {
+                id: removeItem
+                objectName: "removeItem"
+                text: qsTr("Remove")
+                visible: page.installed && !page.working && page.pkg.installable === true
+                onClicked: remorse.execute(qsTr("Removing"), function() { Reef.uninstall(page.packageName) })
+            }
             MenuItem {
                 objectName: "sourceItem"
                 text: qsTr("Source code")
@@ -238,6 +249,8 @@ Page {
                 onClicked: Texts.openHttps(page.pkg.homepage)
             }
         }
+
+        RemorsePopup { id: remorse }
 
         Column {
             id: column
@@ -319,25 +332,44 @@ Page {
                 objectName: "actions"
                 readonly property bool buyNow: page.canBuy && page.pkg.installState === "installed"
                 width: parent.width
-                visible: !page.installed || page.updatable || page.canBuy
-                height: (!page.installed || page.updatable || page.canBuy) ? actionRow.height + Theme.paddingMedium : 0
+                visible: page.pkg.installable === true || page.canBuy
+                height: visible ? (page.working ? progress.height : actionRow.height) + Theme.paddingMedium : 0
 
                 Row {
                     id: actionRow
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: Theme.paddingLarge
-                    // Two buttons share the width; one takes the large size.
-                    readonly property real buttonWidth: installButton.visible && buyButton.visible
-                        ? (page.width - 2 * Theme.horizontalPageMargin - spacing) / 2
+                    visible: !page.working
+                    // Buttons share the width; one alone takes the large size.
+                    readonly property int shown: (installButton.visible ? 1 : 0) + (openButton.visible ? 1 : 0)
+                        + (updateButton.visible ? 1 : 0) + (buyButton.visible ? 1 : 0)
+                    readonly property real buttonWidth: shown > 1
+                        ? (page.width - 2 * Theme.horizontalPageMargin - (shown - 1) * spacing) / shown
                         : Theme.buttonWidthLarge
 
                     Button {
                         id: installButton
                         objectName: "installButton"
-                        visible: !page.installed || page.updatable
+                        visible: !page.installed && page.pkg.installable === true
                         preferredWidth: actionRow.buttonWidth
-                        enabled: false
-                        text: page.updatable ? qsTr("Update") : qsTr("Install")
+                        text: qsTr("Install")
+                        onClicked: Reef.install(page.packageName)
+                    }
+                    Button {
+                        id: openButton
+                        objectName: "openButton"
+                        visible: page.installed
+                        preferredWidth: actionRow.buttonWidth
+                        text: qsTr("Open")
+                        onClicked: Reef.open(page.packageName)
+                    }
+                    Button {
+                        id: updateButton
+                        objectName: "updateButton"
+                        visible: page.updatable
+                        preferredWidth: actionRow.buttonWidth
+                        text: qsTr("Update")
+                        onClicked: Reef.update(page.packageName)
                     }
                     Button {
                         id: buyButton
@@ -348,19 +380,67 @@ Page {
                         onClicked: page.buy()
                     }
                 }
+
+                // While the store handler works on it: how far, and a way out
+                // before it is installed.
+                Item {
+                    id: progress
+                    objectName: "progress"
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    height: Math.max(bar.height, cancelButton.height)
+                    visible: page.working
+
+                    ProgressBar {
+                        id: bar
+                        anchors.left: parent.left
+                        anchors.right: cancelButton.visible ? cancelButton.left : parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        indeterminate: (page.row.jobPercent || -1) < 0
+                        minimumValue: 0
+                        maximumValue: 100
+                        value: Math.max(0, page.row.jobPercent || 0)
+                        label: page.job === "removing" ? qsTr("Removing")
+                             : page.job === "cancelling" ? qsTr("Stopping")
+                             : page.job === "pending" ? qsTr("Waiting")
+                             : qsTr("Installing")
+                    }
+                    Button {
+                        id: cancelButton
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: page.job === "pending" || page.job === "installing"
+                        text: qsTr("Cancel")
+                        onClicked: Reef.cancel(page.packageName)
+                    }
+                }
             }
 
-            // Under the button: why it does nothing yet.
+            // Why the last install, update or removal did not happen.
             Label {
-                objectName: "installNotYet"
+                objectName: "jobError"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: installButton.visible
+                visible: page.job === "failed"
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                color: Theme.errorColor
+                font.pixelSize: Theme.fontSizeExtraSmall
+                text: page.row.jobError ? qsTr("Couldn't finish: %1").arg(page.row.jobError) : qsTr("Couldn't finish.")
+                bottomPadding: Theme.paddingMedium
+            }
+
+            // An app Marathon has no way to install (a Sailfish package).
+            Label {
+                objectName: "notInstallable"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: !page.installed && page.pkg.installable === false
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 color: Theme.secondaryHighlightColor
                 font.pixelSize: Theme.fontSizeExtraSmall
-                text: qsTr("Installing apps from Reef is not available on Marathon yet.")
+                text: qsTr("This app can't be installed on Marathon.")
                 bottomPadding: Theme.paddingMedium
             }
 

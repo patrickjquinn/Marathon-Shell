@@ -79,7 +79,7 @@ pub fn flathub(json: &[u8]) -> Vec<Package> {
         .map(|a| {
             let icon = (!a.icon.is_empty() && !a.icon.contains('/'))
                 .then(|| format!("{}/{}", listing.icons, a.icon));
-            let mut p = package(&a.id, a.name, Origin::Flathub);
+            let mut p = blank(&a.id, a.name, Origin::Flathub);
             p.install = Some(Install::Flatpak {
                 remote: "flathub".into(),
                 reference: a.id,
@@ -118,7 +118,7 @@ pub fn fdroid(json: &[u8]) -> Vec<Package> {
         .into_iter()
         .filter(|a| a.app_id == format!("android:{}", a.pkg))
         .map(|a| {
-            let mut p = package(&a.app_id, a.name, Origin::Fdroid);
+            let mut p = blank(&a.app_id, a.name, Origin::Fdroid);
             p.install = Some(Install::Android {
                 package: a.pkg,
                 store: "fdroid".into(),
@@ -160,7 +160,9 @@ pub fn merge(reef: &Catalogue, extra: Vec<Package>) -> Catalogue {
     merged
 }
 
-fn package(name: &str, title: String, origin: Origin) -> Package {
+/// A package with only a name, title and origin; free, sandboxed, no
+/// install target yet.
+pub fn blank(name: &str, title: String, origin: Origin) -> Package {
     Package {
         name: name.to_owned(),
         version: String::new(),
