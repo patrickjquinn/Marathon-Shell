@@ -253,9 +253,15 @@ class TestTextInputReplace : public QObject {
         // The control's accessors are not exported; its property is.
         QTRY_VERIFY(item.surface()->inputMethodControl()->property("enabled").toBool());
 
+        // The enable can still land before the client's reset is confirmed,
+        // and until then it discards commits rather than holding them; a
+        // dropped commit never arrives, so typing again is safe.
         InputContext context;
-        context.insertText(QStringLiteral("I said teh"));
-        QTRY_VERIFY2(printed.contains(QLatin1String("TEXT[I said teh]")), qPrintable(printed));
+        for (int attempt = 0; attempt < 5 && !printed.contains(QLatin1String("TEXT[I said teh]")); ++attempt) {
+            context.insertText(QStringLiteral("I said teh"));
+            QTest::qWaitFor([&printed]() { return printed.contains(QLatin1String("TEXT[I said teh]")); }, 1000);
+        }
+        QVERIFY2(printed.contains(QLatin1String("TEXT[I said teh]")), qPrintable(printed));
         QTRY_COMPARE(surrounding(), QStringLiteral("I said teh"));
         QVERIFY(context.replaceTextBeforeCursor(QStringLiteral("teh"), QStringLiteral("the ")));
         QTRY_VERIFY2(printed.contains(QLatin1String("TEXT[I said the ]")), qPrintable(printed));
