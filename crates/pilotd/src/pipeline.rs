@@ -656,6 +656,20 @@ pub fn reads_as_followup(text: &str) -> bool {
     words > 0 && (words <= 4 || (linked && words <= 7))
 }
 
+/// How an earlier answer in the history says which tools it came from.
+const HISTORY_NOTE: &str = "[From tool calls then: ";
+
+/// `text` without the history's notes, which the model copied into its
+/// answers ("C'est fait. [From tool calls then: Clock · Set a timer. ...]").
+fn without_history_notes(text: &str) -> String {
+    let mut out = text.to_owned();
+    while let Some(start) = out.find(HISTORY_NOTE) {
+        let end = out[start..].find(']').map_or(out.len(), |e| start + e + 1);
+        out.replace_range(start..end, "");
+    }
+    out.trim().to_owned()
+}
+
 /// A tool call written as the reply's text instead of as a call (a small
 /// model's `{"name": .., "arguments": {..}}` or `name{..}`, maybe inside
 /// `<tool_call>`), when it names a known tool; other text is an answer.
@@ -1553,7 +1567,7 @@ impl Pipeline {
                     e_answer.clone()
                 } else {
                     format!(
-                        "{}\n[From tool calls then: {}. Their results are not current.]",
+                        "{}\n{HISTORY_NOTE}{}. Their results are not current.]",
                         e_answer,
                         e.used.join("; ")
                     )
@@ -2781,8 +2795,9 @@ impl Pipeline {
             if resp.tool_calls.is_empty() {
                 *lock(&self.last_domains) =
                     Some((std::mem::take(&mut used_domains), Instant::now()));
-                let raw =
-                    map.restore(strip_reasoning(resp.content.as_deref().unwrap_or("")).trim());
+                let raw = map.restore(&without_history_notes(&strip_reasoning(
+                    resp.content.as_deref().unwrap_or(""),
+                )));
                 let (text, followups) = split_followups(&plain_punctuation(&raw.replace("**", "")));
                 self.outcome(turn, "done");
                 let mut cards = std::mem::take(&mut private_cards);
@@ -3585,6 +3600,12 @@ mod answer_tests {
             ]
         );
         assert_eq!(split_followups("Plain."), ("Plain.".into(), vec![]));
+        assert_eq!(
+            without_history_notes(
+                "C'est fait. [From tool calls then: Clock · Set a timer. Their results are not current.]"
+            ),
+            "C'est fait."
+        );
         let (t, f) = split_followups("It is 13°C. Follow-ups: And tomorrow? | What to wear?");
         assert_eq!(t, "It is 13°C.");
         assert_eq!(f, ["And tomorrow?", "What to wear?"]);
