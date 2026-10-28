@@ -2,3 +2,5 @@
 # prebuilt on this repository's releases. Written by
 # scripts/vendor/sync-shipwright.sh; read by scripts/vendor/fetch-shipwright-apks.sh.
 # <apk> <sha512> <url>
+pacific-0.1.0-r9.apk 3339b166effe06dcfb2f247f4d5b129890ec5f54cdaec4ac4d1dbd9d40ebd81575fc2b69b6e36de700b1526cc08e919d771767fd3e26702fa4def643620c8461 https://github.com/patrickjquinn/Marathon-Shell/releases/download/shipwright-7a6c40a883d1/pacific-0.1.0-r9.apk
+marathon-shipwright-apps-1.0.0-r1.apk 34749e93a0b0a1d45b05f3ddd62ccce5aa20a5f0fb54934e706e28f56d35a01e0166ec525d7b713c955b2563d0bf3c1d11633e9965c411a613dd8a71aa0102f4 https://github.com/patrickjquinn/Marathon-Shell/releases/download/shipwright-7a6c40a883d1/marathon-shipwright-apps-1.0.0-r1.apk
