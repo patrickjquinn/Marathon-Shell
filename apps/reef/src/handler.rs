@@ -195,7 +195,13 @@ pub fn request(verb: &str, id: &str, title: &str) -> std::io::Result<()> {
         url.push_str("?name=");
         url.push_str(&encode(title));
     }
-    Command::new("xdg-open").arg(url).spawn().map(drop)
+    // Run directly, as the shell does: xdg-open has no handler for the
+    // scheme on Marathon. Reaped off the GUI thread.
+    let mut child = Command::new("/usr/bin/marathon-store-handler")
+        .arg(url)
+        .spawn()?;
+    std::thread::spawn(move || child.wait());
+    Ok(())
 }
 
 fn encode(text: &str) -> String {

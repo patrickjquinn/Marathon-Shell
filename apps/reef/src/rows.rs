@@ -179,6 +179,13 @@ pub fn apply_jobs(
             row.job_state.clone_from(&job.state);
             row.job_percent = job.percent;
             row.job_error.clone_from(&job.error);
+            // A finished job is ahead of installed.json, which the handler
+            // writes again after it.
+            match job.state.as_str() {
+                "done" => row.install_state = "installed",
+                "removed" => row.install_state = "not_installed",
+                _ => {}
+            }
         }
     }
 }
@@ -352,7 +359,10 @@ pub fn category_rows(catalogue: &Catalogue, rows: &[PackageRow]) -> Vec<Vec<Valu
         let mut names: Vec<&str> = rows.iter().map(|r| r.category.as_str()).collect();
         names.sort_unstable();
         names.dedup();
-        return names.into_iter().map(|n| row(n, n, "", count(n))).collect();
+        return names
+            .into_iter()
+            .map(|n| row(n, n, reef_backend::sources::category_icon(n), count(n)))
+            .collect();
     }
     catalogue
         .categories
@@ -1056,16 +1066,13 @@ mod tests {
             row("c", "Utilities"),
         ];
         let mut cat = cat();
+        let own =
+            |id: &str, icon: &str, n: i64| vec![id.into(), id.into(), icon.into(), Value::Int(n)];
         assert_eq!(
             category_rows(&cat, &rows),
             [
-                vec!["Audio".into(), "Audio".into(), "".into(), Value::Int(1)],
-                vec![
-                    "Utilities".into(),
-                    "Utilities".into(),
-                    "".into(),
-                    Value::Int(2)
-                ],
+                own("Audio", "icon-m-other", 1),
+                own("Utilities", "icon-m-store-utilities", 2)
             ],
             "no list: the apps' own categories"
         );

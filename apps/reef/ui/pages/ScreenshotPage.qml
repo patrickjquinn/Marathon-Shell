@@ -10,6 +10,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Sailfish.Silica 1.0
+import "../components/Texts.js" as Texts
 
 Page {
     id: page
@@ -52,7 +53,7 @@ Page {
             Image {
                 anchors.fill: parent
                 anchors.margins: Theme.paddingSmall
-                source: "file://" + slide.modelData
+                source: Texts.imageUrl(slide.modelData)
                 sourceSize.width: page.width
                 sourceSize.height: page.height
                 fillMode: Image.PreserveAspectFit

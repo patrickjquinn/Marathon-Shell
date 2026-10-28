@@ -44,11 +44,20 @@ ApplicationWindow {
     }
 
     // The store handler's progress while it works, and what it finds
-    // installed for a few seconds after the store opens or comes back.
+    // (installed apps, a synced catalogue) for half a minute after the
+    // store opens or comes back.
     Timer {
         id: settle
-        interval: 8000
+        interval: 30000
         running: true
+    }
+    // After an install, update or removal, what the handler finds installed.
+    Connections {
+        target: Reef
+        function onJobsRunningChanged() {
+            if (!Reef.jobsRunning)
+                settle.restart()
+        }
     }
     Timer {
         interval: 1000

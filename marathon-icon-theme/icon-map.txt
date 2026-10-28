@@ -261,3 +261,11 @@ wlan-off wifi-slash
 world globe
 zoom-in magnifying-glass-plus
 zoom-out magnifying-glass-minus
+# Reef's store categories (reef_backend::sources::category_icon).
+store-money briefcase
+store-navigation compass
+store-reading file-text
+store-graphics palette
+store-security shield-check
+store-developer code
+store-utilities wrench

@@ -8,6 +8,7 @@
 
 import QtQuick
 import Sailfish.Silica 1.0
+import "Texts.js" as Texts
 
 Item {
     id: icon
@@ -39,7 +40,7 @@ Item {
     Image {
         id: image
         anchors.fill: parent
-        source: icon.iconPath.length > 0 ? "file://" + icon.iconPath : ""
+        source: Texts.imageUrl(icon.iconPath)
         sourceSize.width: width
         sourceSize.height: height
         fillMode: Image.PreserveAspectFit

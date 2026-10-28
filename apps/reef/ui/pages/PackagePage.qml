@@ -42,10 +42,12 @@ Page {
     // them into `pkg`.
     Component.onCompleted: Reef.loadDetails(packageName)
 
-    readonly property bool installed: pkg.installState !== undefined && pkg.installState !== "not_installed"
-    readonly property bool updatable: pkg.installState === "update_available"
-    // The row carries the store handler's progress on this app.
+    // The row carries the store handler's progress on this app, and knows
+    // a finished install before installed.json does.
     readonly property var row: (Reef.revision, Reef.appRow(packageName))
+    readonly property string installState: row.installState || pkg.installState || ""
+    readonly property bool installed: installState !== "" && installState !== "not_installed"
+    readonly property bool updatable: installState === "update_available"
     readonly property string job: row.jobState || ""
     readonly property bool working: job === "pending" || job === "installing" || job === "removing" || job === "cancelling"
     readonly property bool canBuy: paid && !pkg.licensed && Texts.isHttps(pkg.purchaseUrl)
@@ -256,7 +258,7 @@ Page {
             id: column
             width: page.width
 
-            // The name and who publishes it, right-aligned beside the icon,
+            // The icon, then the name and who publishes it beside it,
             // below the camera cut-out (as PageHeader keeps clear of it): the
             // heading is centred on the icon while it fits and grows down,
             // never up, when a larger text size makes it taller.
@@ -270,8 +272,8 @@ Page {
 
                 AppIcon {
                     id: appIcon
-                    anchors.right: parent.right
-                    anchors.rightMargin: Theme.horizontalPageMargin
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.horizontalPageMargin
                     y: headingRow.headingTop
                     iconPath: page.pkg.iconPath || ""
                     title: page.pkg.title || ""
@@ -280,16 +282,16 @@ Page {
 
                 Column {
                     id: heading
-                    anchors.left: parent.left
-                    anchors.leftMargin: Theme.horizontalPageMargin
-                    anchors.right: appIcon.left
-                    anchors.rightMargin: Theme.paddingLarge
+                    anchors.left: appIcon.right
+                    anchors.leftMargin: Theme.paddingLarge
+                    anchors.right: parent.right
+                    anchors.rightMargin: Theme.horizontalPageMargin
                     y: Math.max(headingRow.headingTop, appIcon.y + (appIcon.height - height) / 2)
 
                     Label {
                         objectName: "title"
                         width: parent.width
-                        horizontalAlignment: Text.AlignRight
+                        horizontalAlignment: Text.AlignLeft
                         text: page.pkg.title || ""
                         color: Theme.highlightColor
                         font.pixelSize: Theme.fontSizeExtraLarge
@@ -300,7 +302,7 @@ Page {
                     }
                     Label {
                         width: parent.width
-                        horizontalAlignment: Text.AlignRight
+                        horizontalAlignment: Text.AlignLeft
                         visible: !!page.pkg.summary
                         text: page.pkg.summary || ""
                         color: Theme.secondaryHighlightColor
@@ -312,7 +314,7 @@ Page {
                     Label {
                         objectName: "publisher"
                         width: parent.width
-                        horizontalAlignment: Text.AlignRight
+                        horizontalAlignment: Text.AlignLeft
                         topPadding: Theme.paddingSmall
                         text: [page.pkg.publisher || "", page.pkg.category || ""]
                               .filter(function(s) { return s.length > 0 }).join(" · ")
@@ -330,7 +332,7 @@ Page {
             Item {
                 id: actions
                 objectName: "actions"
-                readonly property bool buyNow: page.canBuy && page.pkg.installState === "installed"
+                readonly property bool buyNow: page.canBuy && page.installState === "installed"
                 width: parent.width
                 visible: page.pkg.installable === true || page.canBuy
                 height: visible ? (page.working ? progress.height : actionRow.height) + Theme.paddingMedium : 0
@@ -547,7 +549,7 @@ Page {
 
                             Image {
                                 anchors.fill: parent
-                                source: "file://" + shot.modelData
+                                source: Texts.imageUrl(shot.modelData)
                                 sourceSize.width: width
                                 fillMode: Image.PreserveAspectCrop
                                 verticalAlignment: Image.AlignTop

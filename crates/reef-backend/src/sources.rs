@@ -87,11 +87,7 @@ pub fn flathub(json: &[u8]) -> Vec<Package> {
             p.version = a.version;
             p.summary = a.summary;
             p.description = a.description;
-            p.category = a
-                .categories
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| "Other".into());
+            p.category = store_category(&a.categories);
             p.publisher = a.developer;
             p.spdx = (!a.license.is_empty()).then_some(a.license);
             p.homepage = https(a.homepage);
@@ -129,11 +125,7 @@ pub fn fdroid(json: &[u8]) -> Vec<Package> {
                 .clone_into(&mut p.version);
             p.summary = a.summary;
             p.description = plain_text(&a.description);
-            p.category = a
-                .categories
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| "Other".into());
+            p.category = store_category(&a.categories);
             p.publisher = a.author;
             p.spdx = (!a.license.is_empty()).then_some(a.license);
             p.homepage = https(a.website);
@@ -144,8 +136,206 @@ pub fn fdroid(json: &[u8]) -> Vec<Package> {
         .collect()
 }
 
+/// The store's categories, the specific ones first: each Flathub
+/// (freedesktop) and F-Droid category id an app names, mapped to one of
+/// them. F-Droid alone names 115.
+const CATEGORIES: [(&str, &[&str]); 13] = [
+    (
+        "Communication",
+        &[
+            "Phone & SMS",
+            "Messaging",
+            "Social Network",
+            "Email",
+            "Chat",
+            "InstantMessaging",
+            "Telephony",
+            "VideoConference",
+        ],
+    ),
+    (
+        "Health & Fitness",
+        &[
+            "Sports & Health",
+            "Health Manager",
+            "Workout",
+            "Habit Tracker",
+            "Medical",
+        ],
+    ),
+    (
+        "Money",
+        &[
+            "Money",
+            "Finance Manager",
+            "Wallet",
+            "Market & Price",
+            "Finance",
+        ],
+    ),
+    (
+        "Navigation & Travel",
+        &[
+            "Navigation",
+            "Location Tracker & Sharer",
+            "Weather",
+            "Maps",
+            "Travel",
+        ],
+    ),
+    (
+        "Reading",
+        &[
+            "Reading",
+            "Ebook Reader",
+            "Translation & Dictionary",
+            "News",
+            "Feed",
+            "Dictionary",
+            "Literature",
+        ],
+    ),
+    (
+        "Productivity",
+        &[
+            "Writing",
+            "Note",
+            "Task",
+            "Calendar & Agenda",
+            "Time Tracker",
+            "Schedule",
+            "Office",
+            "TextTools",
+            "WordProcessor",
+            "Spreadsheet",
+            "Calendar",
+            "ProjectManagement",
+        ],
+    ),
+    (
+        "Music & Video",
+        &[
+            "Multimedia",
+            "Local Media Player",
+            "Online Media Player",
+            "Recorder",
+            "Music Practice Tool",
+            "AudioVideo",
+            "Audio",
+            "Video",
+            "Music",
+            "Player",
+            "Podcast",
+        ],
+    ),
+    (
+        "Photo & Graphics",
+        &[
+            "Graphics",
+            "Camera",
+            "Wallpaper",
+            "2DGraphics",
+            "3DGraphics",
+            "Photography",
+            "Viewer",
+        ],
+    ),
+    (
+        "Education & Science",
+        &[
+            "Science & Education",
+            "Education",
+            "Science",
+            "Math",
+            "Astronomy",
+        ],
+    ),
+    (
+        "Security & Privacy",
+        &[
+            "Security",
+            "Password & 2FA",
+            "VPN & Proxy",
+            "File Encryption & Vault",
+        ],
+    ),
+    ("Developer Tools", &["Development", "IDE", "Debugger"]),
+    (
+        "Internet",
+        &[
+            "Internet",
+            "Browser",
+            "Download",
+            "Network",
+            "WebBrowser",
+            "FileTransfer",
+            "File Transfer",
+            "Cloud Storage & File Sync",
+        ],
+    ),
+    (
+        "Utilities",
+        &[
+            "System",
+            "Connectivity",
+            "Timer",
+            "Calculator",
+            "Clock",
+            "Alarm Clock",
+            "Keyboard & IME",
+            "Launcher",
+            "App Manager",
+            "Remote Controller",
+            "Notification",
+            "Utility",
+            "Settings",
+            "FileManager",
+            "Accessibility",
+        ],
+    ),
+];
+
+/// The theme icon of a store category (`icon-m-<base>`, in
+/// marathon-icon-theme's map).
+pub fn category_icon(category: &str) -> &'static str {
+    match category {
+        "Games" => "icon-m-game",
+        "Communication" => "icon-m-message",
+        "Health & Fitness" => "icon-m-health",
+        "Money" => "icon-m-store-money",
+        "Navigation & Travel" => "icon-m-store-navigation",
+        "Reading" => "icon-m-store-reading",
+        "Productivity" => "icon-m-note",
+        "Music & Video" => "icon-m-music",
+        "Photo & Graphics" => "icon-m-store-graphics",
+        "Education & Science" => "icon-m-education",
+        "Security & Privacy" => "icon-m-store-security",
+        "Developer Tools" => "icon-m-store-developer",
+        "Internet" => "icon-m-website",
+        "Utilities" => "icon-m-store-utilities",
+        _ => "icon-m-other",
+    }
+}
+
+/// How many apps the front page's banner turns through without a
+/// catalogue that names its own.
+const FEATURED_FALLBACK: usize = 6;
+
+/// The store category of an app from the categories it names: Games for
+/// any game, else the first of [`CATEGORIES`] one of them belongs to.
+fn store_category(names: &[String]) -> String {
+    if names.iter().any(|n| n.contains("Game")) {
+        return "Games".into();
+    }
+    CATEGORIES
+        .iter()
+        .find(|(_, members)| names.iter().any(|n| members.contains(&n.as_str())))
+        .map_or_else(|| "Other".into(), |(category, _)| (*category).to_owned())
+}
+
 /// Reef's catalogue with the handler's apps it does not list itself: an
-/// app in both is Reef's row.
+/// app in both is Reef's row. Until Reef's catalogue features apps, the
+/// newest Flathub apps with screenshots are the front page's banner.
 pub fn merge(reef: &Catalogue, extra: Vec<Package>) -> Catalogue {
     let covered: BTreeSet<String> = reef
         .packages
@@ -157,6 +347,23 @@ pub fn merge(reef: &Catalogue, extra: Vec<Package>) -> Catalogue {
     merged
         .packages
         .extend(extra.into_iter().filter(|p| !covered.contains(&p.name)));
+    if merged.featured.is_empty() {
+        let mut shown: Vec<&Package> = merged
+            .packages
+            .iter()
+            .filter(|p| p.origin == Origin::Flathub && !p.screenshots.is_empty())
+            .collect();
+        shown.sort_by(|a, b| {
+            b.updated
+                .cmp(&a.updated)
+                .then_with(|| a.title.cmp(&b.title))
+        });
+        merged.featured = shown
+            .into_iter()
+            .take(FEATURED_FALLBACK)
+            .map(|p| p.name.clone())
+            .collect();
+    }
     merged
 }
 
@@ -315,6 +522,17 @@ mod tests {
     }
 
     #[test]
+    fn categories_fold_into_the_stores() {
+        let cats = |names: &[&str]| {
+            store_category(&names.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>())
+        };
+        assert_eq!(cats(&["System", "Puzzle Game"]), "Games");
+        assert_eq!(cats(&["Internet", "Messaging"]), "Communication");
+        assert_eq!(cats(&["Utility", "AudioVideo"]), "Music & Video");
+        assert_eq!(cats(&["GNOME", "GTK"]), "Other");
+    }
+
+    #[test]
     fn reef_rows_win_over_the_handlers() {
         let reef = Catalogue::parse(
             br#"{"schema": 1, "release": "marathon", "arch": "aarch64", "packages": [
@@ -331,6 +549,21 @@ mod tests {
         let merged = merge(&reef, extra);
         let names: Vec<&str> = merged.packages.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, ["notes", "org.example.Other"]);
+        assert_eq!(
+            merged.featured,
+            Vec::<String>::new(),
+            "no screenshots, no banner"
+        );
+        let shots = flathub(
+            br#"{"apps": [{"id": "org.example.Old", "name": "Old",
+            "screenshots": ["https://dl.flathub.org/o.png"], "released": 1},
+            {"id": "org.example.New", "name": "New",
+            "screenshots": ["https://dl.flathub.org/n.png"], "released": 1700000000}]}"#,
+        );
+        assert_eq!(
+            merge(&reef, shots).featured,
+            ["org.example.New", "org.example.Old"]
+        );
     }
 
     #[test]

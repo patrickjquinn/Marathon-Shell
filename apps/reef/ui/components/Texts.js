@@ -197,3 +197,11 @@ function groupLines(lines) {
     })
     return out
 }
+
+// An image's URL: a local file's path, or an https URL that Reef's backend
+// has already restricted to Flathub's and F-Droid's hosts.
+function imageUrl(path) {
+    if (!path || path.length === 0)
+        return ""
+    return path.indexOf("https://") === 0 ? path : "file://" + path
+}

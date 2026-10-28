@@ -61,7 +61,7 @@ BackgroundItem {
             id: shot
             anchors.fill: parent
             anchors.margins: parent.border.width
-            source: card.heroPath.length > 0 ? "file://" + card.heroPath : ""
+            source: Texts.imageUrl(card.heroPath)
             // Decoded at the card's width; its height follows the picture.
             sourceSize.width: phone.cardWidth
             fillMode: Image.PreserveAspectFit

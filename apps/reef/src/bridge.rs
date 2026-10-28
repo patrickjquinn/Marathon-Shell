@@ -606,9 +606,12 @@ impl cxx_qt::Initialize for qobject::Reef {
                 r.core.sources_stamp = crate::handler::sources_stamp(&dir);
             }
         }
-        // What is installed now; the window's poll picks it up.
-        if let Err(e) = crate::handler::request("refresh-state", "all", "") {
-            log::warn!("store handler: {e}");
+        // What is installed now, and F-Droid's catalogue (fetched again
+        // only when its index changed); the window's poll picks them up.
+        for verb in ["refresh-state", "fdroid-sync"] {
+            if let Err(e) = crate::handler::request(verb, "all", "") {
+                log::warn!("store handler: {e}");
+            }
         }
 
         self.as_mut()
@@ -831,6 +834,11 @@ impl qobject::Reef {
     }
 
     pub fn refresh(mut self: Pin<&mut Self>) {
+        for verb in ["refresh-state", "fdroid-sync"] {
+            if let Err(e) = crate::handler::request(verb, "all", "") {
+                log::warn!("store handler: {e}");
+            }
+        }
         if self.busy {
             self.as_mut().rust_mut().core.pending_refresh = true;
             return;
@@ -1193,6 +1201,21 @@ impl qobject::Reef {
         };
         let status = crate::handler::status(&dir);
         let running = status.running();
+        // A job that finished since the last poll: what is installed now.
+        let finished = status.jobs.iter().any(|(id, job)| {
+            !job.running()
+                && self
+                    .core
+                    .status
+                    .jobs
+                    .get(id)
+                    .is_some_and(crate::handler::Job::running)
+        });
+        if finished {
+            if let Err(e) = crate::handler::request("refresh-state", "all", "") {
+                log::warn!("store handler: {e}");
+            }
+        }
         // The catalogues change after a refresh or an F-Droid sync.
         let stamp = crate::handler::sources_stamp(&dir);
         if stamp != self.core.sources_stamp {
