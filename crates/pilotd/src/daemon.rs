@@ -132,18 +132,21 @@ pub struct Daemon {
     pub http: reqwest::Client,
 }
 
-/// The health URLs of the chat and embedding servers when the standard
-/// backend is the model on this machine.
+/// The health URLs of the servers on this machine to warm: the router's
+/// embeddings in local mode, and the chat model when it answers too.
 fn local_health_urls(config: &Config) -> Vec<String> {
-    let local = config
+    if !config.local.enabled {
+        return Vec::new();
+    }
+    // The router runs on the phone even when a cloud model answers (Groq):
+    // started cold, it made the first question after boot take 10 s.
+    let chat = config
         .backends
         .get("standard")
         .is_some_and(|b| b.llm.provider == "local");
-    if !local {
-        return Vec::new();
-    }
-    [&config.local.llm_url, &config.local.embed_url]
+    chat.then_some(&config.local.llm_url)
         .into_iter()
+        .chain([&config.local.embed_url])
         .filter_map(|url| {
             let mut url = reqwest::Url::parse(url).ok()?;
             url.set_path("/health");
