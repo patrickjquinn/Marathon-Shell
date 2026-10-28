@@ -1765,7 +1765,7 @@ impl Pipeline {
         // "¿Qué tengo en el calendario mañana?" got made-up events.
         let wide = backends.llm.provider() != "local";
         // The area stage one is sure of; its tool answers, not the model.
-        let (scope, sure) = match answers.get("domain") {
+        let (scope, top, sure) = match answers.get("domain") {
             Some(crate::jev::Answer::Choice {
                 distribution,
                 confidence,
@@ -1780,10 +1780,9 @@ impl Pipeline {
                     .take(take)
                     .map(|(o, _)| o.clone())
                     .collect();
-                let sure = d
-                    .first()
-                    .filter(|o| *confidence >= 0.6 && *o != GENERAL)
-                    .cloned();
+                let top = d.first().cloned();
+                let sure = top.clone().filter(|o| *confidence >= 0.6 && o != GENERAL);
+                log::debug!("stage one: {top:?} at {confidence:.2}");
                 d.retain(|o| o != GENERAL);
                 // ... and every system area: the phone's own tools are few,
                 // and a missed one made the model invent a calendar entry.
@@ -1794,12 +1793,13 @@ impl Pipeline {
                         }
                     }
                 }
-                (Some(d), sure)
+                (Some(d), top, sure)
             }
-            _ => (None, None),
+            _ => (None, None, None),
         };
         let mut insist = sure.as_ref().is_some_and(|d| d.contains('.'));
-        let weather = sure.as_deref() == Some("weather");
+        // Weather comes from its own tool even when the router is unsure.
+        let weather = top.as_deref() == Some("weather");
         // A short follow-up ("and tomorrow?", "what about Cork?") is about
         // what the last turn used tools for: they are offered again, and an
         // answer without them goes back once (the model made tomorrow's
@@ -2325,6 +2325,8 @@ impl Pipeline {
              \n\
              Answering:\n\
              - Be brief: one to three sentences unless asked for more.\n\
+             - Reply in the language of the person's latest message, whatever earlier turns \
+             used.\n\
              - Put the answer in the first sentence. Use plain, everyday words and digits for \
              numbers. No em dashes: use a comma, a full stop or a colon. Don't comment on your own \
              answer (\"great question\", \"in summary\", \"it's worth noting\").\n\
@@ -2393,7 +2395,8 @@ impl Pipeline {
     fn local_system_prompt() -> String {
         let mut p = String::from(
             "You are Pilot, the assistant on the person's phone. Answer in one to three plain \
-             sentences, the answer first, no Markdown.\n\
+             sentences, the answer first, no Markdown, in the language of the person's latest \
+             message.\n\
              - Answer general knowledge, explanations, advice and writing yourself.\n\
              - Use a tool for anything on the phone or the person's own data (calendar, \
              contacts, messages, timers, settings, apps). Never say you did something without \
