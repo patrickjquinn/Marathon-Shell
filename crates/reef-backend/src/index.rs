@@ -267,12 +267,18 @@ pub fn sha256_matches(bytes: &[u8], hex: &str) -> bool {
     let digest = Sha256::digest(bytes);
     let mut s = String::with_capacity(64);
     for b in &digest {
-        let _ = write!(s, "{b:02x}");
+        write!(s, "{b:02x}").ok();
     }
     s == hex
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
 
@@ -281,7 +287,7 @@ mod tests {
         Sha256::digest(bytes)
             .iter()
             .fold(String::new(), |mut s, b| {
-                let _ = write!(s, "{b:02x}");
+                write!(s, "{b:02x}").ok();
                 s
             })
     }

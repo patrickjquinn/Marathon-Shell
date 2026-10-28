@@ -2,9 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 //! Golden tests: the generator's output for the QML test app
-//! (keel/actions/tests/app) and for the Rust declarations of the `keel`
+//! (tests/app) and for the Rust declarations of the `keel`
 //! crate's tests. `UPDATE_GOLDEN=1 cargo test -p keel-actions-codegen`
 //! rewrites the expected files; review the diff.
+
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,7 +19,7 @@ use std::path::{Path, PathBuf};
 use keel_actions_codegen::{stubs, Config};
 
 fn repo() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
 fn check(name: &str, config: &Config) {
@@ -52,7 +59,7 @@ fn check(name: &str, config: &Config) {
     }
 }
 
-// Paths relative to the repository root, so that messages and stubs do not
+// Paths relative to crates/, so that messages and stubs do not
 // depend on where the checkout is.
 fn in_repo() {
     std::env::set_current_dir(repo()).unwrap();
@@ -64,8 +71,8 @@ fn qml_notes() {
     check(
         "qml-notes",
         &Config {
-            qml: vec!["keel/actions/tests/app".into()],
-            desktop: Some("keel/actions/tests/app/org.example.notes.desktop".into()),
+            qml: vec!["keel-actions-codegen/tests/app".into()],
+            desktop: Some("keel-actions-codegen/tests/app/org.example.notes.desktop".into()),
             ..Config::default()
         },
     );
@@ -77,7 +84,7 @@ fn rust_notes() {
     check(
         "rust-notes",
         &Config {
-            rust: vec!["keel/actions/rust/keel/tests".into()],
+            rust: vec!["keel/tests".into()],
             app_id: Some("org.example.rustnotes".into()),
             executable: Some("/usr/bin/rustnotes".into()),
             ..Config::default()

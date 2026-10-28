@@ -68,6 +68,7 @@ pub use sign::Signer;
 pub use token::{Licence, Policy, Standing, MAX_TOKEN_LEN, VERSION_PREFIX};
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 pub(crate) mod testkeys {
     //! Fixed test keys. Never use these outside tests: their seeds are public.
     use crate::sign::Signer;

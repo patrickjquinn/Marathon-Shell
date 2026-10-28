@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use reef_backend::licenced::{serve, Activity, LicenceService};
 
+#[allow(clippy::print_stderr, reason = "journald collects stderr")]
 fn main() {
     let idle = std::env::var("SHIPWRIGHT_REEF_LICENCED_IDLE_SECS")
         .ok()
@@ -37,8 +38,11 @@ fn main() {
     }
     // Release the name before closing, so a call arriving now activates a
     // fresh instance instead of reaching one that is going away.
-    let _ = futures_lite::future::block_on(async {
-        let _ = conn.release_name(reef_backend::licenced::BUS_NAME).await;
+    futures_lite::future::block_on(async {
+        conn.release_name(reef_backend::licenced::BUS_NAME)
+            .await
+            .ok();
         conn.close().await
-    });
+    })
+    .ok();
 }

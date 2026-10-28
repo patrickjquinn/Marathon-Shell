@@ -21,6 +21,10 @@ pub const DETACHED_CONTEXT: &[u8] = b"shipwright-detached-signature-v1\n";
 impl KeySet {
     /// Verifies a detached signature header `v1.<kid>.<base64url sig>` over
     /// the exact response `body` bytes.
+    #[allow(
+        clippy::map_err_ignore,
+        reason = "a decoding or curve error says no more than the error returned"
+    )]
     pub fn verify_detached(&self, body: &[u8], header: &str) -> Result<(), Error> {
         let rest = header
             .trim()
@@ -75,6 +79,12 @@ impl RevocationList {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
     use crate::testkeys::{signer_a, signer_b};

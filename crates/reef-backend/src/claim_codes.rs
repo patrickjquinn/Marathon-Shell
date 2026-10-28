@@ -160,7 +160,7 @@ impl PendingClaims {
                     out.push(PendingClaim { code, ..r });
                 }
                 _ => {
-                    let _ = fs::remove_file(entry.path());
+                    fs::remove_file(entry.path()).ok();
                 }
             }
         }
@@ -189,6 +189,12 @@ impl PendingClaims {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
 
@@ -199,13 +205,13 @@ mod tests {
 
     impl Drop for Dir {
         fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
+            fs::remove_dir_all(&self.0).ok();
         }
     }
 
     fn scratch(name: &str) -> (Dir, PendingClaims) {
         let root = std::env::temp_dir().join(format!("reef-claims-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        fs::remove_dir_all(&root).ok();
         let claims = PendingClaims::beside(&root.join("licences"));
         (Dir(root), claims)
     }

@@ -8,6 +8,15 @@
 //! Needs `dbus-daemon` on PATH; the tests are skipped (with a message)
 //! when it is missing.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unwrap_in_result,
+    clippy::print_stderr,
+    reason = "tests, which say on stderr why they are skipped"
+)]
+
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -28,15 +37,15 @@ struct Bus {
 
 impl Drop for Bus {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-        let _ = std::fs::remove_dir_all(&self.dir);
+        self.child.kill().ok();
+        self.child.wait().ok();
+        std::fs::remove_dir_all(&self.dir).ok();
     }
 }
 
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("reef-licenced-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::remove_dir_all(&dir).ok();
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -79,11 +88,11 @@ fn bus(dir: &Path, data_home: &Path) -> Option<Bus> {
     {
         Ok(c) => c,
         Err(e) => {
-            // CI installs dbus-daemon: there a skip would hide that these
+            // Where dbus-daemon must be there, a skip would hide that these
             // tests assert nothing.
             assert!(
-                std::env::var_os("CI").is_none(),
-                "CI is set but dbus-daemon cannot start: {e}"
+                std::env::var_os("MARATHON_TEST_STRICT").is_none(),
+                "MARATHON_TEST_STRICT is set but dbus-daemon cannot start: {e}"
             );
             eprintln!("skipping: dbus-daemon not available ({e})");
             return None;
@@ -221,7 +230,7 @@ fn activated_binary_answers_then_exits_when_idle() {
     // The packaged activation file, pointed at the freshly built binary.
     let packaged = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../packaging/dbus/org.shipwright.Reef.Licences.service"
+        "/data/org.shipwright.Reef.Licences.service"
     ))
     .unwrap();
     assert!(packaged.contains("Exec=/usr/bin/shipwright-reef-licenced\n"));

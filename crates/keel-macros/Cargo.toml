@@ -6,7 +6,6 @@ name = "keel-macros"
 description = "Keel Actions: #[keel::action], #[keel::entity] and #[keel::object] (use them through the `keel` crate)"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license = "MIT"
 publish.workspace = true
 

@@ -245,7 +245,7 @@ impl LicenceStore {
         file.extend_from_slice(body);
         write_private(&self.dir.join(REVOCATIONS_FILE), &file)?;
         for legacy in [LEGACY_REVOCATIONS.0, LEGACY_REVOCATIONS.1] {
-            let _ = fs::remove_file(self.dir.join(legacy));
+            fs::remove_file(self.dir.join(legacy)).ok();
         }
         Ok(list)
     }
@@ -283,6 +283,12 @@ pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
     use reef_licence::{Claims, Signer};
@@ -298,13 +304,13 @@ mod tests {
 
     impl Drop for Fixture {
         fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.dir);
+            fs::remove_dir_all(&self.dir).ok();
         }
     }
 
     fn fixture(name: &str) -> Fixture {
         let dir = std::env::temp_dir().join(format!("reef-lic-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
+        fs::remove_dir_all(&dir).ok();
         let signer = Signer::from_seed("k1", [5; 32]).unwrap();
         let mut keys = KeySet::new();
         keys.insert_text(&signer.public_key_text()).unwrap();

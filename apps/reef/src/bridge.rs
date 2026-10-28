@@ -1062,7 +1062,7 @@ where
 }
 
 // Keel's launcher: launch_args() and keel_application().
-include!("../../../../tools/keel-launcher/launcher.rs");
+include!("../../../tools/keel-launcher/launcher.rs");
 
 #[cfg(test)]
 mod tests {

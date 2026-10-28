@@ -83,8 +83,7 @@ fn js(value: &Value) -> String {
 
 pub fn stubs(app: &App, manifest: &Value) -> Vec<Artefact> {
     let mut out = Vec::new();
-    let qml_actions: Vec<_> = app.actions.iter().filter(|a| !a.native).collect();
-    if !qml_actions.is_empty() || app.entities.iter().any(|e| !e.native) {
+    if app.actions.iter().any(|a| !a.native) || app.entities.iter().any(|e| !e.native) {
         out.push(qml_stub(app, manifest));
     }
     if app.actions.iter().any(|a| a.native) {
@@ -123,10 +122,11 @@ fn qml_stub(app: &App, manifest: &Value) -> Artefact {
         app_id = app.app_id
     );
     for (i, f) in files.iter().enumerate() {
-        let _ = writeln!(
+        writeln!(
             s,
             "    Loader {{ id: declarations{i}; source: \"@TESTS@/{f}\" }}"
-        );
+        )
+        .ok();
     }
     for a in app.actions.iter().filter(|a| !a.native) {
         let Some(t) = tool(manifest, &format!("{}/{}", app.app_id, a.name)) else {
@@ -135,58 +135,60 @@ fn qml_stub(app: &App, manifest: &Value) -> Artefact {
         let input = &t["inputSchema"];
         let (args, unsatisfied) = example(input);
         let id = ident(&a.name);
-        let _ = writeln!(s, "\n    function test_{id}_schema() {{");
+        writeln!(s, "\n    function test_{id}_schema() {{").ok();
         if input["required"].as_array().is_some_and(|r| !r.is_empty()) {
-            let _ = writeln!(
+            writeln!(
                 s,
                 "        compare(KeelActions.invoke(\"{}\", {{}}).errorCode, \"InvalidArguments\")",
                 a.name
-            );
+            )
+            .ok();
         }
         if let Some((name, max)) = long_string(input) {
             let mut long = args.as_object().cloned().unwrap_or_default();
             long.insert(name.clone(), Value::String(String::new()));
-            let _ = writeln!(
+            writeln!(
                 s,
                 "        const tooLong = {}\n        tooLong[\"{name}\"] = \"x\".repeat({})\n        compare(KeelActions.invoke(\"{}\", tooLong).errorCode, \"InvalidArguments\")",
                 js(&Value::Object(long)),
                 max + 1,
                 a.name
-            );
+            ).ok();
         }
         let mut extra = args.as_object().cloned().unwrap_or_default();
         extra.insert("unexpected".into(), Value::from(1));
-        let _ = writeln!(
+        writeln!(
             s,
             "        compare(KeelActions.invoke(\"{}\", {}).errorCode, \"InvalidArguments\")\n    }}",
             a.name,
             js(&Value::Object(extra))
-        );
-        let _ = writeln!(s, "\n    function test_{id}_invoke() {{");
+        ).ok();
+        writeln!(s, "\n    function test_{id}_invoke() {{").ok();
         if a.destructive || a.open_world || a.confirm {
-            let _ = writeln!(
+            writeln!(
                 s,
                 "        skip(\"{} acts on real data or the network: run it against test data\")",
                 a.name
-            );
+            )
+            .ok();
         }
         for p in &unsatisfied {
-            let _ = writeln!(s, "        // TODO: {p} must match its pattern.");
+            writeln!(s, "        // TODO: {p} must match its pattern.").ok();
         }
-        let _ = writeln!(
+        writeln!(
             s,
             "        const call = KeelActions.invoke(\"{}\", {})\n        tryCompare(call, \"finished\", true, {})\n        verify(call.errorCode !== \"InvalidArguments\", call.errorMessage)\n        // TODO: check call.result (or the effect of the action).\n    }}",
             a.name,
             js(&args),
             a.timeout_ms + 1000
-        );
+        ).ok();
     }
     for e in app.entities.iter().filter(|e| !e.native) {
-        let _ = writeln!(
+        writeln!(
             s,
             "\n    function test_{t}_find() {{\n        const call = KeelActions.findEntities(\"{t}\", \"\", 5)\n        tryCompare(call, \"finished\", true, 26000)\n        verify(call.succeeded, call.errorMessage)\n        // TODO: look one up: KeelActions.getEntity(\"{t}\", <id>)\n    }}",
             t = e.type_name
-        );
+        ).ok();
     }
     s.push_str("}\n");
     Artefact {
@@ -221,33 +223,34 @@ fn rust_stub(app: &App, manifest: &Value) -> Artefact {
         let input = &t["inputSchema"];
         let (args, _) = example(input);
         let id = ident(&a.name);
-        let _ = writeln!(
+        writeln!(
             s,
             "\n#[test]\nfn {id}_schema() {{\n    let input = &tool(\"{name}\")[\"inputSchema\"];\n    validate(input, &json!({args})).unwrap();",
             name = a.name,
             args = js(&args)
-        );
+        ).ok();
         if input["required"].as_array().is_some_and(|r| !r.is_empty()) {
-            let _ = writeln!(s, "    assert!(validate(input, &json!({{}})).is_err());");
+            writeln!(s, "    assert!(validate(input, &json!({{}})).is_err());").ok();
         }
         let mut extra = args.as_object().cloned().unwrap_or_else(Map::new);
         extra.insert("unexpected".into(), Value::from(1));
-        let _ = writeln!(
+        writeln!(
             s,
             "    assert!(validate(input, &json!({})).is_err());\n}}",
             js(&Value::Object(extra))
-        );
+        )
+        .ok();
         let ignore = if a.destructive || a.open_world || a.confirm {
             "#[ignore = \"acts on real data or the network: run it against test data\"]\n"
         } else {
             ""
         };
-        let _ = writeln!(
+        writeln!(
             s,
             "\n#[test]\n{ignore}fn {id}_invoke() {{\n    let result = keel::invoke(\"{name}\", json!({args})).expect(\"registered\").wait();\n    if let Err(e) = &result {{\n        assert_ne!(e.code, keel::ErrorCode::InvalidArguments, \"{{e}}\");\n    }}\n    // TODO: check the result (or the effect of the action).\n}}",
             name = a.name,
             args = js(&args)
-        );
+        ).ok();
     }
     Artefact {
         name: "keel_actions_tests.rs".into(),

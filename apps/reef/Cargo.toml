@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
 # SPDX-License-Identifier: Apache-2.0
 
-# shipwright-reef: the Reef store client executable. Loads the QML in
-# ../ui/qml and exposes the `Reef` singleton (Shipwright.Reef 1.0), a CXX-Qt
-# QObject over reef-backend.
+# shipwright-reef: the Reef store client executable. Loads the QML in ui/
+# and exposes the `Reef` singleton (Shipwright.Reef 1.0), a CXX-Qt QObject
+# over reef-backend.
 #
-# Standalone Cargo workspace: the root workspace lists "reef/client/app" in
-# its `exclude`, and this [workspace] table keeps Cargo from walking up to
-# the root manifest (same pattern as tools/phase0/hello-qt6-rust).
+# Its own Cargo workspace, outside crates/: it links Keel's SailfishApp
+# (keel-silica-dev), which the shell's build and CI do not have.
 [workspace]
 
 [package]
@@ -20,9 +19,9 @@ license = "Apache-2.0"
 publish = false
 
 # The app is a library built as a shared object that is also executable
-# (target/<profile>/libshipwright_reef.so): the RPM installs it as
-# /usr/bin/shipwright-reef and booster-keel can load it
-# (tools/keel-launcher/link_sailfishapp.rs says why it is not a binary).
+# (target/<profile>/libshipwright_reef.so): the package installs it as
+# /usr/bin/shipwright-reef (tools/keel-launcher/link_sailfishapp.rs says why
+# it is not a binary).
 # Only a cdylib: an rlib next to it would turn off release LTO.
 [lib]
 crate-type = ["cdylib"]
@@ -43,15 +42,15 @@ module_name_repetitions = "allow"
 
 [dependencies]
 # Keel Actions (ADR-0018): keel::manifest!() and the native action table.
-keel = { path = "../../../keel/actions/rust/keel" }
+keel = { path = "../../crates/keel" }
 # cxx-qt pinned exactly, as in tools/phase0/hello-qt6-rust: CXX-Qt's README
 # warns of frequent API changes. Cargo.lock pins cxx.
 cxx = "1.0.176"
 cxx-qt = "=0.10.0"
 cxx-qt-lib = { version = "=0.10.0", features = ["qt_gui", "qt_qml"] }
 
-reef-backend = { path = "../backend" }
-reef-licence = { path = "../../licence" }
+reef-backend = { path = "../../crates/reef-backend" }
+reef-licence = { path = "../../crates/reef-licence" }
 # umask at start (src/lib.rs): Sailfish's launcher's is 0.
 libc = "0.2"
 log = "0.4"
@@ -63,11 +62,11 @@ serde_json = "1"
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 
 [dev-dependencies]
-reef-licence = { path = "../../licence", features = ["sign"] }
+reef-licence = { path = "../../crates/reef-licence", features = ["sign"] }
 
 [build-dependencies]
 # The Keel Actions build step (actions.json, D-Bus files) from the QML.
-keel-actions-codegen = { path = "../../../keel/actions/codegen" }
+keel-actions-codegen = { path = "../../crates/keel-actions-codegen" }
 cxx-qt-build = "=0.10.0"
 # Compiles libkeel-sailfishapp when no Keel build provides it
 # (tools/keel-launcher/link_sailfishapp.rs).

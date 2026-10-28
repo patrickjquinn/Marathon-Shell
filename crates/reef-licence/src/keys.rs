@@ -27,6 +27,10 @@ impl KeySet {
     }
 
     /// Adds a raw 32-byte Ed25519 public key.
+    #[allow(
+        clippy::map_err_ignore,
+        reason = "a decoding or curve error says no more than the error returned"
+    )]
     pub fn insert(&mut self, kid: &str, public: [u8; 32]) -> Result<(), Error> {
         check_id("kid", kid).map_err(|e| Error::InvalidKey(format!("bad key id {kid:?}: {e}")))?;
         let key = VerifyingKey::from_bytes(&public)
@@ -77,6 +81,10 @@ impl KeySet {
     /// Verifies `sig` over `message` with key `kid`. Strict verification
     /// rejects non-canonical signatures, so a valid signature cannot be
     /// altered into a second valid one.
+    #[allow(
+        clippy::map_err_ignore,
+        reason = "a decoding or curve error says no more than the error returned"
+    )]
     pub(crate) fn verify(&self, kid: &str, message: &[u8], sig: &[u8]) -> Result<(), Error> {
         let key = self
             .keys
@@ -95,6 +103,12 @@ pub(crate) fn public_key_text(kid: &str, key: &VerifyingKey) -> String {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
     use crate::testkeys::signer_a;

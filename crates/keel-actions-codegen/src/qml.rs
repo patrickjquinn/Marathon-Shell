@@ -512,10 +512,10 @@ impl Parser {
                         text.push(' ');
                     }
                     Tok::Str(s) | Tok::Template(s) => {
-                        let _ = write!(text, "{s:?} ");
+                        write!(text, "{s:?} ").ok();
                     }
                     Tok::Num(n) => {
-                        let _ = write!(text, "{n} ");
+                        write!(text, "{n} ").ok();
                     }
                     Tok::Punct(c) => text.push(*c),
                 }
@@ -664,6 +664,12 @@ pub fn parse(src: &str) -> Result<Document, ParseError> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
 

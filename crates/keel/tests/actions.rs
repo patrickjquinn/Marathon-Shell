@@ -5,6 +5,14 @@
 //! sync and async dispatch, entities, and the C entry points the runtime
 //! uses.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::undocumented_unsafe_blocks,
+    reason = "tests, which call the C entry points with what they made"
+)]
+
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::sync::mpsc;
 
@@ -115,11 +123,11 @@ fn panics() -> keel::Result<u32> {
 // The manifest the generator writes for this file
 // (keel/actions/codegen/tests/golden/rust-notes), and the test stubs it
 // writes, which must compile and pass.
-keel::manifest!("../../../codegen/tests/golden/rust-notes/actions.json");
+keel::manifest!("../../keel-actions-codegen/tests/golden/rust-notes/actions.json");
 
 // Kept as generated: not reformatted.
 #[rustfmt::skip]
-#[path = "../../../codegen/tests/golden/rust-notes/keel_actions_tests.rs"]
+#[path = "../../keel-actions-codegen/tests/golden/rust-notes/keel_actions_tests.rs"]
 mod generated_stubs;
 
 #[test]

@@ -6,7 +6,6 @@ name = "reef-licence"
 description = "Reef licence tokens: compact Ed25519-signed format and offline verification"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license = "MIT OR Apache-2.0"
 publish.workspace = true
 

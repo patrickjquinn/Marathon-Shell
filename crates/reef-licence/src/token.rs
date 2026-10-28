@@ -123,6 +123,10 @@ fn verify_signed(token: &str, keys: &KeySet) -> Result<Claims, Error> {
 
 /// Splits a token into the signed prefix, the decoded payload and the
 /// decoded signature.
+#[allow(
+    clippy::map_err_ignore,
+    reason = "a decoding or curve error says no more than the error returned"
+)]
 fn split(token: &str) -> Result<(&str, Vec<u8>, Vec<u8>), Error> {
     if token.len() > MAX_TOKEN_LEN {
         return Err(Error::Malformed("too long"));
@@ -176,6 +180,12 @@ fn standing(claims: &Claims, policy: &Policy, now: i64) -> Result<Standing, Erro
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
     use crate::testkeys::{signer_a, signer_b};

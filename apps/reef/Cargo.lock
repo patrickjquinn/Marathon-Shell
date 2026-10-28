@@ -979,7 +979,6 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 name = "reef-backend"
 version = "0.1.0"
 dependencies = [
- "async-io",
  "futures-lite",
  "getrandom 0.4.3",
  "reef-licence",
@@ -1191,7 +1190,6 @@ dependencies = [
  "cxx-qt",
  "cxx-qt-build",
  "cxx-qt-lib",
- "futures-lite",
  "keel",
  "keel-actions-codegen",
  "libc",
@@ -1200,9 +1198,7 @@ dependencies = [
  "reef-licence",
  "serde",
  "serde_json",
- "sha2",
  "ureq",
- "zbus",
 ]
 
 [[package]]

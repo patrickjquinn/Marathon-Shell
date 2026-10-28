@@ -37,7 +37,7 @@ use serde_json::Value;
 pub use desktop::Desktop;
 
 /// The `org.shipwright.Keel.Actions` interface (no app annotations).
-pub const INTERFACE_XML: &str = include_str!("../../dbus/org.shipwright.Keel.Actions.xml");
+pub const INTERFACE_XML: &str = include_str!("../dbus/org.shipwright.Keel.Actions.xml");
 
 /// Errors and warnings, with where they come from.
 #[derive(Debug, Default)]
@@ -462,6 +462,12 @@ impl Config {
     ///
     /// On declaration errors or when `$OUT_DIR` cannot be written: a build
     /// script reports failure by panicking.
+    #[allow(
+        clippy::print_stdout,
+        clippy::panic,
+        clippy::expect_used,
+        reason = "a build-script step: cargo reads its stdout, and a panic fails the build"
+    )]
     pub fn build_script(&self) -> Output {
         for path in self.qml.iter().chain(&self.rust).chain(&self.desktop) {
             println!("cargo:rerun-if-changed={}", path.display());
@@ -558,20 +564,22 @@ fn introspection(app: &App) -> String {
                 flags.push(name);
             }
         }
-        let _ = writeln!(
+        writeln!(
             annotations,
             "    <annotation name=\"org.shipwright.Keel.Action.{}\" value=\"{}\"/>",
             xml_escape(&a.name),
             flags.join(" ")
-        );
+        )
+        .ok();
     }
     let mut types: Vec<_> = app.entities.iter().map(|e| e.type_name.as_str()).collect();
     types.sort_unstable();
     for t in types {
-        let _ = writeln!(
+        writeln!(
             annotations,
             "    <annotation name=\"org.shipwright.Keel.Entity.{t}\" value=\"\"/>"
-        );
+        )
+        .ok();
     }
     if app.context {
         annotations
@@ -626,7 +634,7 @@ fn c_adaptor(manifest: &Value) -> String {
                 b'\\' => literal.push_str("\\\\"),
                 0x20..=0x7e => literal.push(char::from(b)),
                 _ => {
-                    let _ = write!(literal, "\\{b:03o}");
+                    write!(literal, "\\{b:03o}").ok();
                 }
             }
         }

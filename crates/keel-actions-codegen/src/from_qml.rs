@@ -409,7 +409,7 @@ impl Reader<'_> {
                                     arguments: step
                                         .get("arguments")
                                         .cloned()
-                                        .unwrap_or(Value::Object(Map::new())),
+                                        .unwrap_or_else(|| Value::Object(Map::new())),
                                 }),
                                 None => self.error(
                                     line,

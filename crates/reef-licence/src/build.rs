@@ -75,7 +75,7 @@ pub fn render(keys: &[(String, String)]) -> String {
     let mut out = String::from("&[\n");
     for (kid, b64) in keys {
         // Both are plain ASCII from a restricted alphabet; Debug quotes them.
-        let _ = writeln!(out, "    ({kid:?}, {b64:?}),");
+        writeln!(out, "    ({kid:?}, {b64:?}),").ok();
     }
     out.push(']');
     out
@@ -99,6 +99,12 @@ pub fn generate(value: &str, release: bool) -> Result<String, String> {
 /// On a malformed `SHIPWRIGHT_LICENCE_KEYS`, a non-release key id in a
 /// release build, or when `OUT_DIR` cannot be written. Panicking is how a
 /// build script fails the build.
+#[allow(
+    clippy::print_stdout,
+    clippy::panic,
+    clippy::expect_used,
+    reason = "a build-script step: cargo reads its stdout, and a panic fails the build"
+)]
 pub fn embed_keys() {
     println!("cargo:rerun-if-env-changed={ENV_VAR}");
     let value = match std::env::var(ENV_VAR) {
@@ -115,6 +121,12 @@ pub fn embed_keys() {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
 

@@ -6,7 +6,6 @@ name = "reef-backend"
 description = "Reef store client backend: catalogue and licences"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license = "Apache-2.0"
 publish.workspace = true
 
@@ -19,7 +18,7 @@ path = "src/bin/shipwright-reef-licenced.rs"
 futures-lite = "2"
 # Claim codes (src/claim_codes.rs): 128 bits from the OS random source.
 getrandom = "0.4"
-reef-licence = { path = "../../licence" }
+reef-licence = { path = "../reef-licence" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # The store index lists each app's details file by SHA-256 (src/index.rs).
@@ -28,11 +27,11 @@ zbus = { version = "5", default-features = false, features = ["async-io"] }
 
 [dev-dependencies]
 # Signs test licences; the shipped library only verifies.
-reef-licence = { path = "../../licence", features = ["sign", "handoff-client"] }
+reef-licence = { path = "../reef-licence", features = ["sign", "handoff-client"] }
 
 [build-dependencies]
 # Embeds SHIPWRIGHT_LICENCE_KEYS as EMBEDDED_KEYS (build.rs).
-reef-licence = { path = "../../licence", features = ["build"] }
+reef-licence = { path = "../reef-licence", features = ["build"] }
 
 [lints]
 workspace = true

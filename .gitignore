@@ -50,6 +50,7 @@ crates/marathon-maild/oauth-clients.env
 tools/marathon-mail-oauth/target/
 crates/target/
 apps/pilot/target/
+apps/reef/target/
 
 # WiFi preset for dev/QA images — never commit credentials.
 scripts/qemu/wifi-preset.conf

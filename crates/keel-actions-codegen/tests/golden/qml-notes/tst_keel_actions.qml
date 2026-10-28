@@ -12,7 +12,7 @@ TestCase {
 
     // The files that declare the actions. Replace a Loader with your own
     // set-up if the file needs more (models, singletons) to load.
-    Loader { id: declarations0; source: "../../../../tests/app/NotesActions.qml" }
+    Loader { id: declarations0; source: "../../app/NotesActions.qml" }
 
     function test_notes_create_schema() {
         compare(KeelActions.invoke("notes.create", {}).errorCode, "InvalidArguments")

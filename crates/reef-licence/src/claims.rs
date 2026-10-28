@@ -53,7 +53,10 @@ impl Claims {
     /// Never in practice: serialising a struct of strings and integers
     /// cannot fail.
     pub fn to_canonical_json(&self) -> Vec<u8> {
-        // Serialising a struct of strings and integers cannot fail.
+        #[allow(
+            clippy::expect_used,
+            reason = "serialising a struct of strings and integers cannot fail"
+        )]
         serde_json::to_vec(self).expect("claims serialise")
     }
 
@@ -106,6 +109,12 @@ pub(crate) fn check_id(field: &str, value: &str) -> Result<(), Error> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
 

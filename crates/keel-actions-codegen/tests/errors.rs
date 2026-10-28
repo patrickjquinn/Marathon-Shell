@@ -3,6 +3,13 @@
 
 //! Declarations the generator must reject, with useful messages.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
+
 use std::fs;
 use std::path::PathBuf;
 

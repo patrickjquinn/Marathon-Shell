@@ -769,6 +769,12 @@ pub fn is_https_url(url: &str) -> bool {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
 pub(crate) mod tests {
     use super::*;
 

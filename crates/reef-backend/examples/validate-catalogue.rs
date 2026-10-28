@@ -7,6 +7,12 @@
 //!
 //! usage: validate-catalogue <catalogue.json> <arch>
 
+#![allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "a command-line tool"
+)]
+
 use std::process::ExitCode;
 
 use reef_backend::catalogue::Catalogue;
