@@ -656,12 +656,18 @@ pub fn reads_as_followup(text: &str) -> bool {
     words > 0 && (words <= 4 || (linked && words <= 7))
 }
 
-/// Splits Qwen's "FOLLOWUPS: a | b | c" last line off an answer.
+/// Splits Qwen's "FOLLOWUPS: a | b | c" last line off an answer; a small
+/// model also writes it "Follow-ups:" or "Follow ups:".
 pub fn split_followups(text: &str) -> (String, Vec<String>) {
-    let Some(i) = text.rfind("FOLLOWUPS:") else {
+    let lower = text.to_ascii_lowercase();
+    let Some((i, label)) = ["followups:", "follow-ups:", "follow ups:"]
+        .into_iter()
+        .filter_map(|label| Some((lower.rfind(label)?, label)))
+        .max()
+    else {
         return (text.trim().to_owned(), Vec::new());
     };
-    let follow = text[i + "FOLLOWUPS:".len()..]
+    let follow = text[i + label.len()..]
         .split(['|', '\n'])
         .map(|f| {
             f.trim()
@@ -3495,6 +3501,9 @@ mod answer_tests {
             ]
         );
         assert_eq!(split_followups("Plain."), ("Plain.".into(), vec![]));
+        let (t, f) = split_followups("It is 13°C. Follow-ups: And tomorrow? | What to wear?");
+        assert_eq!(t, "It is 13°C.");
+        assert_eq!(f, ["And tomorrow?", "What to wear?"]);
     }
 
     #[test]
