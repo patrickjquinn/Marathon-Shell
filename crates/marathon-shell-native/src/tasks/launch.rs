@@ -323,6 +323,13 @@ impl Tasks {
         route: &QString,
         params_json: &QString,
     ) -> bool {
+        let caller = self.foreground_app_id.to_string();
+        if !caller.is_empty() && caller != app_id.to_string() {
+            self.as_mut()
+                .rust_mut()
+                .callers
+                .insert(app_id.to_string(), caller);
+        }
         self.as_mut().rust_mut().pending_route = Some((route.to_string(), params_json.to_string()));
         let ok = self.as_mut().launch(&app_id.to_string());
         if !ok {

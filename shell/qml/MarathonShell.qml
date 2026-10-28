@@ -158,7 +158,11 @@ Item {
     function backOutOfApp() {
         if (!UIStore.appWindowOpen || backExit.running)
             return;
-        revealHomeUnderApp();
+        // An app another one opened (its permission page, a link) goes back
+        // to that app, as on Android; otherwise home.
+        backExit.returnTo = Tasks.takeCaller(UIStore.currentAppId);
+        if (!backExit.returnTo)
+            revealHomeUnderApp();
         backExit.start();
     }
 
@@ -2726,6 +2730,8 @@ Item {
     ParallelAnimation {
         id: backExit
 
+        property string returnTo: ""
+
         NumberAnimation {
             target: appWindow
             property: "opacity"
@@ -2745,6 +2751,9 @@ Item {
             UIStore.closeApp();
             appWindow.opacity = 1;
             appWindow.scale = 1;
+            if (returnTo)
+                Tasks.launchApp(returnTo);
+            returnTo = "";
         }
     }
 

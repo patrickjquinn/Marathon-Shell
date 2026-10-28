@@ -319,6 +319,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "handleSystemBack"]
         fn handle_system_back(self: Pin<&mut Tasks>) -> bool;
+        /// The app that opened `app_id` (a route launch from it), if it still
+        /// runs: backing out of `app_id` returns there. Asked once.
+        #[qinvokable]
+        #[cxx_name = "takeCaller"]
+        fn take_caller(self: Pin<&mut Tasks>, app_id: &QString) -> QString;
         #[qinvokable]
         #[cxx_name = "handleSystemForward"]
         fn handle_system_forward(self: Pin<&mut Tasks>) -> bool;
@@ -486,6 +491,8 @@ pub struct TasksRust {
     starting_in_background: bool,
     foreground_launches: launch::ForegroundLaunches,
     pending_route: Option<(String, String)>,
+    // An app → the app in front when a route launch opened it.
+    callers: HashMap<String, String>,
     pending_by_command: HashMap<String, Launch>,
     active_by_pid: HashMap<i64, Launch>,
     exited_launches: HashMap<String, Launch>,
@@ -657,6 +664,14 @@ impl Tasks {
         self.task_closed(&QString::from(&task.id));
     }
 
+    fn take_caller(mut self: Pin<&mut Self>, app_id: &QString) -> QString {
+        let caller = self.as_mut().rust_mut().callers.remove(&app_id.to_string());
+        caller
+            .filter(|c| self.task(c).is_some())
+            .map(|c| QString::from(&c))
+            .unwrap_or_default()
+    }
+
     fn move_to_front(mut self: Pin<&mut Self>, app_id: &str) {
         let Some(at) = self.tasks.iter().position(|t| t.app_id == app_id) else {
             return;
@@ -782,6 +797,9 @@ impl Tasks {
         if rust.current_app_id != current_app_id.to_string() || locked || !app_window_open {
             let previous = rust.current_app_id.clone();
             rust.android_handoffs.remove(&previous);
+        }
+        if !app_window_open || locked {
+            rust.callers.clear();
         }
         rust.quick_settings_open = quick_settings_open;
         rust.app_window_open = app_window_open;
