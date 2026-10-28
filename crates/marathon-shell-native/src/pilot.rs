@@ -38,6 +38,9 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "showSheetFor"]
         fn show_sheet_for(self: &PilotClient, pid: u32);
+        /// Starts Pilot and its models on this machine ahead of a question.
+        #[qinvokable]
+        fn warm(self: &PilotClient);
         /// Asks Pilot `question`; `answered` follows.
         #[qinvokable]
         fn ask(self: &PilotClient, question: &QString);
@@ -63,6 +66,7 @@ trait Pilot {
     fn show_sheet_for(&self, pid: u32) -> zbus::Result<()>;
     fn show_sheet(&self) -> zbus::Result<()>;
     fn ask(&self, question: &str, spoken: bool) -> zbus::Result<String>;
+    fn now(&self) -> zbus::Result<String>;
 }
 
 #[derive(Default)]
@@ -162,6 +166,19 @@ impl PilotClient {
             };
             if let Err(e) = shown.await {
                 log::warn("pilot", format_args!("ShowSheetFor: {e}"));
+            }
+        });
+    }
+
+    #[allow(clippy::unused_self, reason = "an invokable")]
+    fn warm(&self) {
+        io::spawn(async {
+            let warmed = async {
+                let pilot = PilotProxy::new(&io::session_bus().await?).await?;
+                pilot.now().await
+            };
+            if let Err(e) = warmed.await {
+                log::warn("pilot", format_args!("Now: {e}"));
             }
         });
     }

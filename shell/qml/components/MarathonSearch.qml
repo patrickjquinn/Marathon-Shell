@@ -110,6 +110,8 @@ Item {
     onActiveChanged: {
         if (active) {
             Logger.info("Search", "Search became active - focusing input");
+            if (PilotClient.available)
+                PilotClient.warm();
             ensureInputFocus();
         } else {
             searchInput.text = "";
