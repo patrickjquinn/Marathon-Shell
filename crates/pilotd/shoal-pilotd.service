@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+
+# systemd user unit for pilotd. Started on demand by D-Bus activation
+# (dbus/org.shipwright.Pilot.service names this unit), so Pilot costs
+# nothing until the UI or a trigger first calls it. No network dependency:
+# pilotd starts offline-capable and every remote call is per request.
+[Unit]
+Description=Shoal Pilot assistant daemon
+Documentation=file:///usr/share/doc/shoal-pilot/README.md
+# A daemon that keeps failing gives up after 5 starts in 5 minutes instead
+# of restarting forever (systemd 238 accepts these in [Unit]).
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=dbus
+BusName=org.shipwright.Pilot
+ExecStart=/usr/bin/pilotd
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=5

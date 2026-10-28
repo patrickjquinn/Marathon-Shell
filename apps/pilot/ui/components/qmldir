@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+singleton Conversation 1.0 Conversation.qml
+AgendaCard 1.0 AgendaCard.qml
+AnswerCard 1.0 AnswerCard.qml
+Cards 1.0 Cards.qml
+Chip 1.0 Chip.qml
+EdgeGlow 1.0 EdgeGlow.qml
+ClockCard 1.0 ClockCard.qml
+GestureDemo 1.0 GestureDemo.qml
+Glass 1.0 Glass.qml
+GuideCard 1.0 GuideCard.qml
+MemoryCard 1.0 MemoryCard.qml
+NowView 1.0 NowView.qml
+Orb 1.0 Orb.qml
+PlanCard 1.0 PlanCard.qml
+StageLine 1.0 StageLine.qml
+SuggestionTile 1.0 SuggestionTile.qml
+TimerCard 1.0 TimerCard.qml
+TurnCard 1.0 TurnCard.qml

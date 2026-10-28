@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+
+# shoal-pilot: the Pilot UI executable. Loads the QML in ../ui and exposes
+# the `Pilot` singleton (Shipwright.Pilot 1.0), a CXX-Qt QObject that talks
+# to pilotd (org.shipwright.Pilot1) on the session bus.
+#
+# Standalone Cargo workspace, as shoal/keys/app: the root workspace lists
+# "shoal/pilot/app" in its `exclude`.
+[workspace]
+
+[package]
+name = "shoal-pilot"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+license = "LicenseRef-Shipwright-Proprietary"
+publish = false
+
+# A shared object that is also executable, as every Keel app
+# (tools/keel-launcher/link_sailfishapp.rs): installed as /usr/bin/shoal-pilot.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cxx = "1.0.176"
+cxx-qt = "=0.10.0"
+cxx-qt-lib = { version = "=0.10.0", features = ["qt_gui", "qt_qml"] }
+serde = "1"
+serde_json = "1"
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+
+[build-dependencies]
+cxx-qt-build = "=0.10.0"
+cc = "1"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+
+[profile.release]
+lto = true
+strip = true

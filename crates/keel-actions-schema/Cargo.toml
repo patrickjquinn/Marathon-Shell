@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "keel-actions-schema"
+description = "Keel Actions (ADR-0018): declarations to actions.json, the JSON Schema subset and its validator, Reef's review rules, plan validation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+publish.workspace = true
+
+# No I/O and no platform code: reef/devportal-core builds it for wasm32.
+[dependencies]
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true

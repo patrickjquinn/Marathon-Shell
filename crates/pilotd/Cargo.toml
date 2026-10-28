@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+
+[package]
+name = "shoal-pilotd"
+description = "Pilot assistant daemon for Sailfish OS: redaction, Jev routing, deterministic handlers, Qwen tool loop, egress log"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "pilotd"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pilotd"
+path = "src/main.rs"
+
+[dependencies]
+async-trait = "0.1"
+base64 = "0.23"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+libc = "0.2"
+log = { version = "0.4", features = ["std"] }
+# The licence for the relay's device token comes from Reef's hand-off.
+reef-licence = { path = "../../../reef/licence", features = ["handoff-client"] }
+regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat", "unicode-perl"] }
+# As shoal-push-distributor: HTTP/1.1, no system proxy, ring as the provider
+# (cross-compiles for aarch64 without cmake or clang).
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
+tokio = { version = "1", features = ["rt", "macros", "time", "sync", "net", "io-util", "signal", "process"] }
+toml = { version = "1", default-features = false, features = ["std", "serde", "parse"] }
+# async-io, not zbus/tokio: see shoal/push/distributor/Cargo.toml (feature
+# unification across the workspace).
+zbus = { version = "5", default-features = false, features = ["async-io"] }
+
+[dev-dependencies]
+# The real keel-mcp server, in process over a pipe, for the MCP tests.
+keel-mcp = { path = "../../../keel/actions/mcp" }
+rmcp = { version = "3.5", default-features = false, features = ["server", "transport-io"] }
+shoal-push-client = { path = "../../push/client", features = ["test-bus"] }
+tempfile = "3"
+
+[lints]
+workspace = true

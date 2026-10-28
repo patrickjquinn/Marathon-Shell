@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LicenseRef-Shipwright-Proprietary
+
+# Example ~/.config/shoal-pilot/pilotd.toml. Without a file, pilotd uses the
+# Pilot relay for the standard backend and has no Lighthouse backend.
+
+# token_file = "/home/defaultuser/.local/share/shoal-pilot/device-token"
+timeout_secs = 20
+max_tool_rounds = 5
+
+[privacy]
+# "sailfish": org.sailfishos.privacyswitch on the session bus (default).
+# "file:/run/user/100000/pilot-privacy": contents 1 or 0 (tests, udev rule).
+# "none": no switch.
+source = "sailfish"
+
+[thresholds]
+# Spec section 5.2 initial values; calibrate from the decision log.
+intent_confidence = 0.85
+handler_max_generation = 0.3
+ambiguity = 1.0
+qwen_min_generation = 0.6
+
+[triage]
+# Proactive triage (spec section 5.3), only with the triage consent.
+per_hour = 60          # Jev requests in any hour; more events are not triaged
+nudge_at = 0.9         # worth_interrupting at which a nudge may be spoken
+ignore_apps = []       # notification app names never triaged
+calendar_poll_secs = 60
+
+[events]
+# Also a notification in the Events view's list (the Pilot widget shows the
+# same; this is the fallback). Off by default.
+notification = false
+# Run when Pilot's Events view entry or widget is tapped (lipstick/README.md).
+open_command = ["/usr/bin/invoker", "--type=keel", "--single-instance", "/usr/bin/shoal-pilot", "--events"]
+
+[sheet]
+# Run when the system-wide gesture (shoal-pilot-gesture-patch) calls ShowSheet.
+open_command = ["/usr/bin/invoker", "--type=keel", "--single-instance", "/usr/bin/shoal-pilot", "--sheet"]
+
+[backends.standard.jev]
+kind = "jev"
+url = "https://pilot.reefstore.app/v1/jev"
+model = "jev-latest"
+
+[backends.standard.llm]
+url = "https://pilot.reefstore.app/v1/llm/chat/completions"
+model = "qwen/qwen3.8-27b"
+provider = "groq"
+# The relay stamps where its upstream processes requests (Groq's public
+# endpoint: "us"); a reply without the stamp or with a region not listed
+# here is dropped before it is read. ["eu"] accepts EU processing only.
+region_header = "x-pilot-processing-region"
+allowed_regions = ["eu", "us"]
+max_completion_tokens = 1024
+# An empty value leaves reasoning_effort out of the request.
+effort = { off = "none", low = "low", medium = "medium" }
+
+# Lighthouse (spec section 10.1): an open scorer behind SGLang /v1/score and
+# Qwen on vLLM, both EU-hosted. Token ids depend on the scorer's tokenizer.
+# [backends.lighthouse.jev]
+# kind = "score"
+# url = "https://lighthouse.shipwright.example/v1/score"
+# model = "<scorer model>"
+# labels = [{ text = "A", token_id = 32 }, { text = "B", token_id = 33 }]
+# yes = { text = "yes", token_id = 9693 }
+# no = { text = "no", token_id = 2152 }
+# [backends.lighthouse.llm]
+# url = "https://lighthouse.shipwright.example/v1/chat/completions"
+# model = "Qwen/Qwen3.8-27B"
+# provider = "lighthouse-llm"
