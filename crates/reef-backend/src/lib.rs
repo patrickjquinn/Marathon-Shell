@@ -25,4 +25,5 @@ pub mod claim_codes;
 pub mod index;
 pub mod licenced;
 pub mod licences;
+pub mod sources;
 pub mod store;

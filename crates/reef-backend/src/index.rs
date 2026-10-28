@@ -23,8 +23,8 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use crate::catalogue::{
-    Catalogue, CatalogueError, Category, Change, Collection, Component, DetailsRef, LicenceModel,
-    Package, Service, SystemChange,
+    Catalogue, CatalogueError, Category, Change, Collection, Component, DetailsRef, Install,
+    LicenceModel, Origin, Package, Service, SystemChange,
 };
 
 /// The index schema this client reads.
@@ -57,9 +57,38 @@ enum Source {
     Rpm {
         package: String,
     },
-    /// Flatpak, Android, Marathon packages: not installable here.
+    Flatpak {
+        #[serde(default)]
+        remote: String,
+        #[serde(rename = "ref")]
+        reference: String,
+    },
+    Android {
+        package: String,
+        #[serde(default)]
+        store: String,
+    },
+    /// Marathon packages: not installable here yet.
     #[serde(other)]
     Other,
+}
+
+impl Source {
+    /// What the store handler installs it with, when it can.
+    fn install(&self) -> Option<Install> {
+        let install = match self {
+            Source::Flatpak { remote, reference } => Install::Flatpak {
+                remote: remote.clone(),
+                reference: reference.clone(),
+            },
+            Source::Android { package, store } => Install::Android {
+                package: package.clone(),
+                store: store.clone(),
+            },
+            Source::Rpm { .. } | Source::Other => return None,
+        };
+        install.handler_id().is_some().then_some(install)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,12 +164,15 @@ pub fn parse_index(bytes: &[u8], arch: &str) -> Result<(Catalogue, u64), Catalog
     let packages: Vec<Package> = index
         .apps
         .into_iter()
-        .filter(|a| {
-            a.sources
+        .filter_map(|a| {
+            let install = a.sources.iter().find_map(Source::install);
+            let rpm = a
+                .sources
                 .iter()
-                .any(|s| matches!(s, Source::Rpm { package } if *package == a.id))
+                .any(|s| matches!(s, Source::Rpm { package } if *package == a.id));
+            (rpm || install.is_some()).then_some((a, install))
         })
-        .map(|a| Package {
+        .map(|(a, install)| Package {
             name: a.id,
             version: a.version,
             title: a.title,
@@ -171,6 +203,8 @@ pub fn parse_index(bytes: &[u8], arch: &str) -> Result<(Catalogue, u64), Catalog
             updated: a.updated,
             hero: a.hero,
             details: Some(a.details),
+            install,
+            origin: Origin::Reef,
         })
         .collect();
     let components = index

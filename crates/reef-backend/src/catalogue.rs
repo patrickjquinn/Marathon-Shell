@@ -295,6 +295,84 @@ pub struct Package {
     /// every package of a `catalogue.json`, which has them all.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<DetailsRef>,
+    /// What installs it on Marathon, through the store handler. `None`:
+    /// nothing Marathon can install (an RPM for Sailfish).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub install: Option<Install>,
+    /// Which catalogue the row came from: Reef's own, or the Flathub and
+    /// F-Droid catalogues the store handler keeps.
+    #[serde(skip)]
+    pub origin: Origin,
+}
+
+/// How Marathon installs a package: one of the store index's source kinds
+/// (`docs/specs/reef-storefront.md`) that the store handler can install.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum Install {
+    /// A Flatpak app; `reference` is its id or full ref
+    /// (`app/org.gnome.Maps/aarch64/stable`).
+    Flatpak {
+        #[serde(default)]
+        remote: String,
+        #[serde(rename = "ref")]
+        reference: String,
+    },
+    /// An Android app, run by Deckard.
+    Android {
+        package: String,
+        #[serde(default)]
+        store: String,
+    },
+}
+
+impl Install {
+    /// The app id the store handler takes (`marathon-store://install/<id>`),
+    /// or `None` for a remote or store it does not install from.
+    pub fn handler_id(&self) -> Option<String> {
+        let id_shape = |id: &str| {
+            id.len() <= 255
+                && id.split('.').count() >= 2
+                && id.split('.').all(|part| {
+                    !part.is_empty()
+                        && part
+                            .bytes()
+                            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-'))
+                })
+        };
+        match self {
+            Install::Flatpak { remote, reference } if remote == "flathub" => {
+                let id = reference
+                    .strip_prefix("app/")
+                    .and_then(|r| r.split('/').next())
+                    .unwrap_or(reference);
+                id_shape(id).then(|| id.to_owned())
+            }
+            Install::Android { package, store } if store == "fdroid" => {
+                id_shape(package).then(|| format!("android:{package}"))
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Where a package's row came from.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Origin {
+    #[default]
+    Reef,
+    Flathub,
+    Fdroid,
+}
+
+impl Origin {
+    pub fn key(self) -> &'static str {
+        match self {
+            Origin::Reef => "reef",
+            Origin::Flathub => "flathub",
+            Origin::Fdroid => "fdroid",
+        }
+    }
 }
 
 /// How a package is paid for (docs/plan.md, "Pricing model").
@@ -482,6 +560,9 @@ pub(crate) fn sanitize_package(p: &mut Package) -> Result<(), CatalogueError> {
     }
     if p.icon.as_deref().is_some_and(|s| !is_asset_path(s)) {
         p.icon = None;
+    }
+    if p.install.as_ref().is_some_and(|i| i.handler_id().is_none()) {
+        p.install = None;
     }
     p.screenshots.retain(|s| is_asset_path(s));
     p.screenshots.truncate(MAX_SCREENSHOTS);

@@ -43,8 +43,14 @@ pub fn entries<'a>(
         .visible()
         .into_iter()
         .map(|package| {
-            let inst = installed.iter().find(|p| p.name == package.name);
-            let upd = updates.iter().find(|p| p.name == package.name);
+            // Installed apps are known by what installs them.
+            let key = package
+                .install
+                .as_ref()
+                .and_then(crate::catalogue::Install::handler_id)
+                .unwrap_or_else(|| package.name.clone());
+            let inst = installed.iter().find(|p| p.name == key);
+            let upd = updates.iter().find(|p| p.name == key);
             let state = match (inst, upd) {
                 (None, _) => InstallState::NotInstalled,
                 (Some(i), Some(u)) => InstallState::UpdateAvailable {
