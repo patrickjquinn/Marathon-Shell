@@ -248,7 +248,8 @@ async fn a_follow_up_is_asked_in_the_conversation_so_far() {
     );
     assert!(!said[1].1.contains("example.org"), "{said:?}");
     assert_eq!(said[2], ("assistant", "Sami Pienimäki runs Jolla."));
-    assert_eq!(said[3], ("user", "How old is he?"));
+    assert_eq!(said[3].0, "user");
+    assert!(said[3].1.ends_with("]\n\nHow old is he?"), "{said:?}");
 
     // A new conversation forgets it.
     d.pipeline.clear_history();
@@ -314,10 +315,12 @@ async fn hinted_route_passes_top_two_and_uses_low_effort() {
     let r = d.pipeline.ask("dentist thursday", false).await;
     assert_eq!(r.route, "qwen_hints");
     let sent = &srv.seen("/v1/llm/chat/completions")[0].body;
-    let system = sent["messages"][0]["content"].as_str().unwrap();
+    let turn = sent["messages"].as_array().unwrap().last().unwrap()["content"]
+        .as_str()
+        .unwrap();
     assert!(
-        system.contains("calendar_add (0.60), reminder (0.30)"),
-        "{system}"
+        turn.contains("calendar_add (0.60), reminder (0.30)"),
+        "{turn}"
     );
     assert_eq!(sent["reasoning_effort"], "low");
 }
@@ -787,8 +790,10 @@ async fn memory_is_kept_on_the_phone_and_used_as_context() {
     // Then part of what the model knows.
     d.pipeline.ask("what flowers should I buy?", false).await;
     let sent = &srv.seen("/v1/llm/chat/completions")[0].body;
-    let system = sent["messages"][0]["content"].as_str().unwrap();
-    assert!(system.contains("] my partner loves orchids"), "{system}");
+    let turn = sent["messages"].as_array().unwrap().last().unwrap()["content"]
+        .as_str()
+        .unwrap();
+    assert!(turn.contains("] my partner loves orchids"), "{turn}");
     // Listed, then forgotten by a word in it.
     let r = d
         .pipeline
