@@ -492,7 +492,7 @@ pub fn now() -> LocalNow {
 
 /// `epoch` in the system time zone.
 pub fn at(epoch: i64) -> LocalNow {
-    let t: libc::time_t = epoch as libc::time_t;
+    let t = epoch as _;
     // SAFETY: localtime_r writes only into `tm`, which we own; a zeroed
     // `struct tm` is a valid value for it to overwrite.
     let mut tm: libc::tm = unsafe { std::mem::zeroed() };
