@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // Asked once, at Reef's first start: may Reef check for updates in the
 // background? Until the person answers, nothing runs in the background

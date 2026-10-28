@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // One collection on the home page (collectionsModel): a section header and
 // its apps as a row of tiles, ending in a See all tile that opens the whole

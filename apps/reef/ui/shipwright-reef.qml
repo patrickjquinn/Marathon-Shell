@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // Reef store client, on Keel (Sailfish.Silica 1.0 under Qt6).
 // All state comes from the `Reef` singleton (Shipwright.Reef 1.0), a CXX-Qt

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // One category in the home page's grid (categoriesModel): its theme icon
 // and its name, on one line. How many apps it has is on its own page.

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // C++ glue the Qt object model requires (docs/plan.md, "Engineering
 // principles"): Rust cannot call `new` on a CXX-Qt QObject, so the Reef

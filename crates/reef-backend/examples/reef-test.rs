@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! Installs, updates or removes a package exactly the way the Reef app does
 //! (`Store` with the signed-metadata check and the install ledger), for the

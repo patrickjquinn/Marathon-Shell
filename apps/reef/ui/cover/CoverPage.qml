@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // Cover: the number of updates, or an install's progress, and a refresh
 // action. Rendered through keel-shell's cover window (docs/plan.md,

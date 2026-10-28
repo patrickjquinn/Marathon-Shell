@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // The store's home: updates waiting (when there are), the featured apps as
 // a banner, the collections as rows (or, from a repository without a store

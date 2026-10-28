@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // One app: what it is, what is new in it, what it may access, and
 // install / update / buy / remove. Laid out as the Jolla Store lays out an

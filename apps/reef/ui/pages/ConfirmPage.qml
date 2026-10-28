@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // The confirmation sheet: everything an install, update, Update all or
 // removal will do, before it does it (Reef asks before every one; the

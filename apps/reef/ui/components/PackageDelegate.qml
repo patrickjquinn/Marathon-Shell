@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // One app in a list (catalogueModel, installedModel): the icon, the title,
 // what it does in a line, its category (and who publishes it, when that is

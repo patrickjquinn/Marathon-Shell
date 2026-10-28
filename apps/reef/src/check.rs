@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! `shipwright-reef --check-updates`: the background update check behind
 //! the "Check in the background" setting. No window and no Qt: the systemd

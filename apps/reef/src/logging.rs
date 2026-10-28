@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! A minimal `log` backend: one line per record on stderr, which the
 //! journal (or the terminal) collects. `REEF_LOG` sets

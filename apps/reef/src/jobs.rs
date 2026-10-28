@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! Work that must not run on the GUI thread: downloads, `ssu`, `PackageKit`
 //! transactions and command runs. Each job is a plain function run on a

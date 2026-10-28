@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! Parses a catalogue exactly as the store client does and prints what a
 //! phone on `release` would see. Used by tools/build/reef/e2e-test.sh to

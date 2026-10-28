@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // An app's launcher icon from the repository's asset cache, or, until it is
 // cached, a placeholder with the app's initial. The path is a local file the

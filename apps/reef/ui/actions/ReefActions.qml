@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // Reef's Keel Actions (ADR-0018): search the store, and install, update or
 // remove an app. None of the three acts on a caller's word: each brings

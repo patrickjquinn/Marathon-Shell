@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! The licence hand-off over a private dbus-daemon: the service in-process,
 //! then the real `shipwright-reef-licenced` binary started by D-Bus

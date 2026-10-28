@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // One tile of a row of apps on the home page: the icon, the title, and
 // one line under it, the app's category, or "Update" (highlighted, the

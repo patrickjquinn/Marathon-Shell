@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // Paste a licence token (v1.<payload>.<signature>). The token is verified
 // offline as it is typed; Accept is only possible for a token that

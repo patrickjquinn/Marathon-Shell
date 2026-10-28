@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! Release gate for placeholder and staging hosts. A release build sets
 //! `--cfg release_build` (RUSTFLAGS), and then this module refuses to

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! shipwright-reef: the Reef store client. Loads the QML UI (installed to
 //! /usr/share/shipwright-reef/qml) on Keel, with the `Reef` singleton from

@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 
 # shipwright-reef: the Reef store client executable. Loads the QML in
 # ../ui/qml and exposes the `Reef` singleton (Shipwright.Reef 1.0), a CXX-Qt
@@ -16,7 +16,7 @@ version = "0.1.0"
 edition = "2021"
 # reef-backend (zbus 5) needs 1.87; cxx-qt 0.10 needs 1.85.
 rust-version = "1.87"
-license = "GPL-3.0-or-later"
+license = "Apache-2.0"
 publish = false
 
 # The app is a library built as a shared object that is also executable

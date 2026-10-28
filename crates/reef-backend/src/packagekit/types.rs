@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! `PackageKit`'s wire values. Numbers are from `PackageKit`'s `pk-enum.h`
 //! (1.x); bitfields put bit `1 << value` for each enum value.

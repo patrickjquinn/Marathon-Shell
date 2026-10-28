@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // The app window, the way a Sailfish SDK app gets it and as `keel new`'s
 // launcher does: SailfishApp::application() (the QGuiApplication the Rust

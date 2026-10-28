@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // An app's screenshots full screen, as the Gallery shows a photo: swipe
 // between them, tap to show or hide the close button and the count, and

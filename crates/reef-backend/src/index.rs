@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! The store index (catalogue v2, docs/specs/reef-storefront.md): one
 //! signed `store/index.json` per repository directory with what lists,

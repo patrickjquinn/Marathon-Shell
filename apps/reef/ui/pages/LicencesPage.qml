@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // Licences held on this phone. Each token is verified offline against the
 // embedded Reef key; subscriptions refresh from the licence service.

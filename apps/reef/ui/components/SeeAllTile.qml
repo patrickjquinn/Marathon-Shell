@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 // The last tile of a row of apps: opens the whole list. Sized and laid out
 // as an app tile (FeaturedDelegate), with an arrow where the icon is, so

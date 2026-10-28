@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 //! The CXX-Qt bridge: the `Reef` QML singleton (`Shipwright.Reef 1.0`) and
 //! the list model type behind `catalogueModel`, `installedModel` and
