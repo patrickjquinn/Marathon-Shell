@@ -109,7 +109,10 @@ fn phone_apps(source: impl BufRead) -> io::Result<Vec<String>> {
 }
 
 /// The apps in an `AppStream` catalogue that fit a phone, by id.
-#[allow(clippy::too_many_lines, reason = "one pass over the catalogue's events")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one pass over the catalogue's events"
+)]
 pub fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
     // Untrimmed: "&amp;" splits text, and trimming each piece lost the
     // spaces around it. Every value is trimmed where it is read.
