@@ -3,6 +3,8 @@
 # socket-activated proxy that exits when idle (marathon-llm*.socket):
 #   run chat    Qwen3 for tool calls and writing: 1.7B with 8 GB of RAM or
 #               more, else 0.6B (Apache-2.0, bartowski's llama.cpp quants).
+#               Q4_0, which llama.cpp repacks for Arm's dot-product kernels:
+#               on the CM5 twice Q4_K_M's prompt speed.
 #               A plain transformer, so the prompt cache holds across turns
 #               (llama.cpp cannot reuse Qwen3.5's hybrid state).
 #   run embed   multilingual-e5-small (MIT), which picks the tools
@@ -27,12 +29,15 @@ fetch() { # file url sha256
 case "${1:-}" in
 chat)
 	if [ "$(awk '/^MemTotal/ { print $2 }' /proc/meminfo)" -ge 7500000 ]; then
-		size=1.7B sha=72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb
+		size=1.7B sha=c470091d31c4ada174ee5c2547daa020e930593cbca5ca8ca385ce8ff59a2fdf
 	else
-		size=0.6B sha=9acfc1e001311f34b4252001b626f2e466d592a42065f66571bff3790d4e1b14
+		size=0.6B sha=4b78d8e3c61976cebb78ef5affe19d0eca75b1b47ec66f613a5a3245484758d5
 	fi
-	model=Qwen_Qwen3-$size-Q4_K_M.gguf
+	model=Qwen_Qwen3-$size-Q4_0.gguf
 	fetch "$model" "https://huggingface.co/bartowski/Qwen_Qwen3-$size-GGUF/resolve/main/$model" "$sha"
+	for old in "$DIR"/Qwen_Qwen3-*.gguf; do
+		[ "$old" = "$DIR/$model" ] || rm -f "$old"
+	done
 	exec llama-server --host 127.0.0.1 --port 8090 --model "$DIR/$model" --alias qwen3 \
 		--jinja --reasoning off --threads 4 --ctx-size 8192 --parallel 1 --flash-attn on \
 		--cache-reuse 256 --no-webui

@@ -7,7 +7,7 @@
 # ~/.local/share/marathon-llm on first use.
 pkgname=marathon-llm
 pkgver=0.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="On-device language model server for Pilot"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="noarch"
@@ -38,7 +38,7 @@ package() {
 }
 
 sha512sums="
-69c399ecea9e6dac0a902c7d07bb2ad297e129b43f3b6298ffd3199bdff6b6d522e018d5d1a5d0517a1234d3ea138c2a18f8336a7d559934bbfb29817cb3c06e  run
+006c0db42d79f3d5e62a07c78c61f252ec04f13001ea131d901f8df07aa076cf2053623f7a613a3032f3ddf7f52e4112718f26afc1a3fef0091765caa1e899ac  run
 404aee60a551380e716f71fb85ab4ad55316afded2e8b7a0d2620fbd9c5411f2b59b5c1e5b24a6dfbd0cf8780f60b8524ffd643162bbdcd64b2b4dff2dc7c7e7  marathon-llm-chat.socket
 7e7ee00bc380fe693a0d10717a103ba411f80a3e1dda642f165cf7c195218bae0317ec8c7b1ef989c21f7d6fc7c4aaadcb2bb1fbe2532fd53d02bcaf263fb43c  marathon-llm-chat-proxy.service
 5943eda6e5174dd922268348fdae2ed9d53fb3469d72d251f3bff020e027d71e325be6b3603b9fa1c34a21d9d3989fe3d1738bd155dc1ace46834748f5096d15  marathon-llm-chat.service
