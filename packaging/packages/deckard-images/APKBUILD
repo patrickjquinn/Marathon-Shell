@@ -1,38 +1,38 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
-# Android's system and vendor images for Deckard: Waydroid's LineageOS 20
-# VANILLA and MAINLINE builds, the ones Deckard's overlay is made for.
+# Android's system and vendor images for Deckard: LineageOS 23.2 built from
+# Marathon-Deckard's image/lineage-23.2 branch (image/build/BUILDING.md).
 # deckard-containerd's Init takes them from /usr/share/deckard/images, with
 # the build dates from images.cfg.
 pkgname=deckard-images
-pkgver=20.0.20260927
+pkgver=23.2.20261028
 pkgrel=0
-_system=1790477549
-_vendor=1790486210
+_date=1793176546
 pkgdesc="Android system and vendor images for Deckard"
-url="https://waydro.id"
+url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64"
+depends="deckard>=0.1.0-r22"
 license="Apache-2.0"
-makedepends="unzip"
+makedepends="zstd"
 options="!check !strip !tracedeps"
-_sf=https://sourceforge.net/projects/waydroid/files/images
-_sysz=lineage-20.0-20260927-VANILLA-waydroid_arm64-system.zip
-_venz=lineage-20.0-20260927-MAINLINE-waydroid_arm64-vendor.zip
-source="$_sysz::$_sf/system/lineage/waydroid_arm64/$_sysz/download
-	$_venz::$_sf/vendor/waydroid_arm64/$_venz/download
+_rel=https://github.com/patrickjquinn/Marathon-Shell/releases/download/deckard-images-23.2-20261028
+_sys=deckard-23.2-20261028-system.img.zst
+_ven=deckard-23.2-20261028-vendor.img.zst
+source="$_rel/$_sys
+	$_rel/$_ven
 	"
 
 package() {
 	local d="$pkgdir"/usr/share/deckard/images
 	install -d "$d"
-	unzip -p "$srcdir/$_sysz" system.img > "$d"/system.img
-	unzip -p "$srcdir/$_venz" vendor.img > "$d"/vendor.img
+	zstd -dq "$srcdir/$_sys" -o "$d"/system.img
+	zstd -dq "$srcdir/$_ven" -o "$d"/vendor.img
 	chmod 644 "$d"/system.img "$d"/vendor.img
-	printf '[waydroid]\nsystem_datetime = %s\nvendor_datetime = %s\n' \
-		$_system $_vendor > "$d"/images.cfg
+	printf '[deckard]\nsystem_datetime = %s\nvendor_datetime = %s\n' \
+		$_date $_date > "$d"/images.cfg
 	chmod 644 "$d"/images.cfg
 }
 
 sha512sums="
-2215fd7de205927680ab3db6f10ccc9ba884553fc8c31191be2f803855b17bf186499070c2e97966d87b29fd79aa16f655d53ade9a17d1743bebf807f4d181c3  lineage-20.0-20260927-VANILLA-waydroid_arm64-system.zip
-03dbb5c412f6932c54d4552b3a2a8918a190d8adb78d62c9622c6d43140096be39e7c1eb42f13a5ce0999d8eb6d3c250ebd45e2b1f6592286ebbc4d43205d879  lineage-20.0-20260927-MAINLINE-waydroid_arm64-vendor.zip
+230e95f8f2376576daf3f16fc210b9d6005b6b30dc27b7e9b991991729e7aa165cd88d9e017f91c78f22c802c8782b3cbd823d1125dbfa9331f8685da1b60720  deckard-23.2-20261028-system.img.zst
+cf7b28d038bd4d3c90b47d8680a79535f0d7ab069a3d8592dfc87415e45af27701558b35c83a2d1fa5da336c3d5e7f0e7736c9847076ffc2132f5686dfb2af19  deckard-23.2-20261028-vendor.img.zst
 "
