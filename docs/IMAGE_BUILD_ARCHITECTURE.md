@@ -41,7 +41,7 @@ boots from the same duranium build as everything else.
    apk with the aport's current `pkgver-pkgrel` is already there: `marathon-base-config`,
    `marathon-plymouth-theme`,
    `keel-silica`, `wpewebkit`, `keel-mcp`, `shoal-pilotd`, `shoal-pilot`,
-   `pacific`, `marathon-shell`, `postmarketos-ui-marathon`, then the
+   `shipwright-reef`, `pacific`, `marathon-shell`, `postmarketos-ui-marathon`, then the
    target's `device-<target>-marathon` overlay and any `*-marathon` kernel
    or U-Boot fork it depends on. Pi targets also fetch the pinned
    `linux-rpi` 6.12.85 apks. `FORCE_REBUILD=1` drops the cache.

@@ -21,12 +21,12 @@ history.
 |---|---|
 | Shell and system | `marathon-shell`, `postmarketos-ui-marathon`, `marathon-base-config`, `marathon-plymouth-theme`, `marathon-boot-logo` |
 | UI framework | `keel-silica` (Sailfish Silica components for Qt 6), `keel-mcp` (MCP server for apps' Keel Actions) |
-| Apps and services | `pacific` (browser), `wpewebkit`, `shoal-pilot` and `shoal-pilotd` (Pilot assistant), `marathon-mail-oauth`, `qmf` |
+| Apps and services | `pacific` (browser), `wpewebkit`, `shoal-pilot` and `shoal-pilotd` (Pilot assistant), `shipwright-reef` (Reef, the store), `marathon-mail-oauth`, `qmf` |
 | Device overlays | `device-purism-librem5-marathon`, `device-pine64-pinephone-marathon`, `device-raspberry-pi5-marathon`, `device-hackberrypi-cm5-marathon` (layers on the Pi 5 overlay), `device-oneplus-enchilada-marathon` (dormant) |
 | Kernels and boot | `linux-purism-librem5-marathon`, `linux-postmarketos-allwinner-marathon`, `u-boot-pinephone-marathon`, `linux-marathon` (SDM845) |
 | Device support | `librem5-vivante-blobs`, `callaudiod`, `pinephone-callaudiod-marathon` |
 
-`shoal-pilot`, `shoal-pilotd` and `keel-mcp` build from this tree
+`shoal-pilot`, `shoal-pilotd`, `shipwright-reef` and `keel-mcp` build from this tree
 (`scripts/qemu/lib/build-pilot-apk.sh`). `pacific` builds from a local
 Shipwright checkout (`PACIFIC_SRC`; default `~/Developer/Shipwright`), or
 comes prebuilt through `packaging/vendor/shipwright.lock`.

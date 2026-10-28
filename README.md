@@ -77,7 +77,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for more.
 **Apps** (`apps/`): Browser, Calculator, Calendar, Camera, Clock, Email,
 Gallery, Maps, Messages, Music, Notes, Phone, Settings, Store, Terminal.
 Images also ship Pilot, Marathon's assistant (`apps/pilot`, `crates/pilotd`),
-and Pacific (Shipwright's WPE-based browser, the default for web links when
+Reef, the store that will replace Store (`apps/reef`, `crates/reef-backend`;
+it browses Reef's catalogue and does not install yet), and Pacific (Shipwright's WPE-based browser, the default for web links when
 installed). The Store installs
 Flatpaks from Flathub through `marathon-store-handler`.
 
@@ -194,9 +195,9 @@ In order, `build-image.sh`:
 3. Builds the local apks in rootless podman, skipping any whose cached
    version matches its APKBUILD: qmf, marathon-base-config,
    marathon-mail-oauth, marathon-plymouth-theme, keel-silica, wpewebkit,
-   keel-mcp, shoal-pilotd, shoal-pilot, pacific, marathon-shell,
+   keel-mcp, shoal-pilotd, shoal-pilot, shipwright-reef, pacific, marathon-shell,
    postmarketos-ui-marathon, then the device overlay and any kernel or
-   U-Boot fork it depends on. Pilot and keel-mcp build from this tree;
+   U-Boot fork it depends on. Pilot, Reef and keel-mcp build from this tree;
    Pacific from the Shipwright commit its APKBUILD pins, or from
    `~/Developer/Shipwright` when present.
 4. Bakes the image with duranium's `scripts/build-image.py`. Output lands
