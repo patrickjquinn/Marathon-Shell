@@ -40,9 +40,14 @@ Glass {
         id: clock
         property real now: Date.now() / 1000
     }
+    // The clock ticks only while the card can be seen: each tick animates
+    // the ring for 250 ms, so a running timer keeps the window drawing every
+    // frame (see Orb.qml), also with Pilot behind another app. Back in view,
+    // the first tick catches up at once.
+    readonly property bool _onScreen: visible && Window.active
     Timer {
         interval: 250
-        running: card.live
+        running: card.live && card._onScreen
         repeat: true
         triggeredOnStart: true
         onTriggered: clock.now = Date.now() / 1000

@@ -31,6 +31,19 @@ Item {
 
     readonly property real _size: Math.min(width, height)
 
+    // The breath, the ripples and the arc run only while someone can see
+    // them: the orb shown, in the window Pilot is in front with (the
+    // active one: not a hidden window, not Pilot behind another app or the
+    // lock screen). An item's `visible` does not follow its window: the
+    // overlay's window (Overlay.qml) is made at start and stays hidden
+    // between uses, and its idle orb breathed for as long as Pilot ran.
+    // Under Qt 6's threaded render loop any running animation, even in a
+    // hidden window, makes the one exposed window present a frame every
+    // vsync, and Keel keeps the main window exposed in the background
+    // (keelwlshell.cpp), so Pilot drew at the display's rate, in front and
+    // behind other apps.
+    readonly property bool _animate: visible && Window.active
+
     // The glow: a radial gradient from the highlight colour to nothing.
     Shape {
         id: glow
@@ -74,7 +87,7 @@ Item {
             opacity: 0
             visible: orb.mode === "listening"
             SequentialAnimation {
-                running: ripple.visible
+                running: ripple.visible && orb._animate
                 loops: Animation.Infinite
                 PauseAnimation { duration: ripple.index * 450 }
                 ParallelAnimation {
@@ -159,7 +172,7 @@ Item {
             }
         }
         SequentialAnimation on scale {
-            running: orb.mode === "idle" && orb.enabled && orb.visible && !orb.glyph
+            running: orb.mode === "idle" && orb.enabled && orb._animate && !orb.glyph
             loops: Animation.Infinite
             NumberAnimation { to: 1.08; duration: 1600; easing.type: Easing.InOutSine }
             NumberAnimation { to: 1.0; duration: 1600; easing.type: Easing.InOutSine }
@@ -186,7 +199,7 @@ Item {
             }
         }
         RotationAnimation on rotation {
-            running: arc.visible
+            running: arc.visible && orb._animate
             from: 0; to: 360
             duration: 1100
             loops: Animation.Infinite

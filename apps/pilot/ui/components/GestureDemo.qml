@@ -30,10 +30,12 @@ Item {
         y: parent.height - height - Theme.paddingSmall
         // Down onto the bar, held: Pilot.
         property bool held: false
+        // Only while it can be seen (see Orb.qml).
+        readonly property bool animate: visible && Window.active
         opacity: 0
         SequentialAnimation on opacity {
             loops: Animation.Infinite
-            running: finger.visible
+            running: finger.animate
             ScriptAction { script: finger.held = false }
             PauseAnimation { duration: 500 }
             NumberAnimation { to: 1; duration: 200 }

@@ -14,6 +14,10 @@ Item {
     property string stage: "thinking"
     property string detail: ""
     property bool running: true
+    // Only while it can be seen: shown, in the active window (see Orb.qml:
+    // a running animation anywhere keeps the app drawing at the display's
+    // rate).
+    readonly property bool _animate: visible && Window.active
 
     width: parent ? parent.width : 0
     height: row.height + 2 * Theme.paddingMedium
@@ -53,7 +57,7 @@ Item {
                     color: Theme.highlightColor
                     opacity: 0.3
                     SequentialAnimation on opacity {
-                        running: line.running && line.visible
+                        running: line.running && line._animate
                         loops: Animation.Infinite
                         PauseAnimation { duration: dot.index * 160 }
                         NumberAnimation { to: 1; duration: 320; easing.type: Easing.InOutQuad }
