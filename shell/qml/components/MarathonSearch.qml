@@ -12,6 +12,9 @@ Item {
     property real pullProgress: 0
     property string searchQuery: ""
     property var searchResults: []
+    property string pilotAnswer: ""
+    property bool pilotBusy: false
+    readonly property bool pilotOffered: PilotClient.available && searchQuery.trim().length > 0
 
     signal closed
     signal resultSelected(var result)
@@ -57,6 +60,36 @@ Item {
         var results = UnifiedSearchService.search(searchQuery);
         searchResults = results.slice(0, 20);
         Logger.info("Search", "Search performed: '" + searchQuery + "' - " + searchResults.length + " results");
+    }
+
+    // Enter opens the app the query names the start of; anything else is a
+    // question for Pilot.
+    function accept() {
+        const query = searchQuery.trim().toLowerCase();
+        const top = searchResults.length > 0 ? searchResults[0] : null;
+        if (top && top.type === "app" && top.title.toLowerCase().startsWith(query))
+            selectResult(top);
+        else
+            askPilot();
+    }
+
+    function askPilot() {
+        if (!pilotOffered || pilotBusy)
+            return;
+        pilotAnswer = "";
+        pilotBusy = true;
+        PilotClient.ask(searchQuery.trim());
+    }
+
+    // An answer continues in Pilot's sheet, which keeps the conversation.
+    function activatePilot() {
+        if (pilotAnswer.length === 0) {
+            askPilot();
+            return;
+        }
+        UnifiedSearchService.addToRecentSearches(searchQuery);
+        close();
+        PilotClient.showSheetFor(0);
     }
 
     function selectResult(result) {
@@ -151,14 +184,18 @@ Item {
                 clip: true
                 Keys.onEscapePressed: searchOverlay.close()
                 Keys.onDownPressed: resultsList.forceActiveFocus()
+                Keys.onReturnPressed: searchOverlay.accept()
+                Keys.onEnterPressed: searchOverlay.accept()
                 onTextChanged: {
+                    searchOverlay.pilotAnswer = "";
+                    searchOverlay.pilotBusy = false;
                     searchOverlay.searchQuery = text;
                     searchOverlay.performSearch();
                 }
 
                 Text {
                     anchors.fill: parent
-                    text: qsTr("Search apps and settings")
+                    text: qsTr("Search apps, or ask Pilot")
                     color: Silica.Theme.secondaryColor
                     font: parent.font
                     elide: Text.ElideRight
@@ -238,7 +275,7 @@ Item {
                 width: parent.width - 2 * Silica.Theme.horizontalPageMargin
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                visible: resultsList.count === 0 && !recentColumn.visible
+                visible: resultsList.count === 0 && !recentColumn.visible && !searchOverlay.pilotOffered
             }
 
             Column {
@@ -332,6 +369,66 @@ Item {
                 }
             }
 
+            header: Item {
+                width: resultsList.width
+                height: searchOverlay.pilotOffered ? pilotContent.height + 2 * Silica.Theme.paddingLarge : 0
+                visible: searchOverlay.pilotOffered
+                Accessible.role: Accessible.Button
+                //: %1 is what the person typed into search
+                Accessible.name: qsTr("Ask Pilot: %1").arg(searchOverlay.searchQuery)
+                Accessible.onPressAction: searchOverlay.activatePilot()
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: pilotMouseArea.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : "transparent"
+                }
+
+                GlyphIcon {
+                    id: pilotGlyph
+
+                    x: Silica.Theme.horizontalPageMargin + (Silica.Theme.iconSizeMedium - width) / 2
+                    y: Silica.Theme.paddingLarge
+                    name: "message-circle"
+                    size: Silica.Theme.iconSizeSmall
+                    color: Silica.Theme.highlightColor
+                }
+
+                Column {
+                    id: pilotContent
+
+                    x: Silica.Theme.horizontalPageMargin + Silica.Theme.iconSizeMedium + Silica.Theme.paddingLarge
+                    y: Silica.Theme.paddingLarge
+                    width: parent.width - x - Silica.Theme.horizontalPageMargin
+                    spacing: Silica.Theme.paddingSmall
+
+                    Text {
+                        width: parent.width
+                        text: searchOverlay.pilotBusy ? qsTr("Asking Pilot\u2026") : searchOverlay.pilotAnswer.length > 0 ? qsTr("Pilot") : qsTr("Ask Pilot")
+                        color: Silica.Theme.highlightColor
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        font.family: Silica.Theme.fontFamily
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: searchOverlay.pilotAnswer.length > 0 ? searchOverlay.pilotAnswer : "\u201c" + searchOverlay.searchQuery.trim() + "\u201d" // i18n: literal
+                        color: Silica.Theme.primaryColor
+                        font.pixelSize: Silica.Theme.fontSizeMedium
+                        font.family: Silica.Theme.fontFamily
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 8
+                        elide: Text.ElideRight
+                    }
+                }
+
+                MouseArea {
+                    id: pilotMouseArea
+
+                    anchors.fill: parent
+                    onClicked: searchOverlay.activatePilot()
+                }
+            }
+
             delegate: Rectangle {
                 id: resultDelegate
 
@@ -408,6 +505,17 @@ Item {
         Silica.FlingStopper {
             view: resultsList
         }
+    }
+
+    Connections {
+        function onAnswered(question, text) {
+            if (question !== searchOverlay.searchQuery.trim())
+                return;
+            searchOverlay.pilotBusy = false;
+            searchOverlay.pilotAnswer = text.length > 0 ? text : qsTr("Pilot couldn\u2019t answer that.");
+        }
+
+        target: PilotClient
     }
 
     Behavior on opacity {

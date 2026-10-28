@@ -11,10 +11,18 @@ use futures_lite::{future, StreamExt};
 use zbus::fdo::DBusProxy;
 use zbus::names::BusName;
 
+use cxx_qt_lib::QString;
+
 use crate::{io, log};
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {
+    #[namespace = ""]
+    unsafe extern "C++" {
+        include!("cxx-qt-lib/qstring.h");
+        type QString = cxx_qt_lib::QString;
+    }
+
     extern "RustQt" {
         #[qobject]
         /// Pilot can be asked: its service is activatable or on the bus.
@@ -30,6 +38,12 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "showSheetFor"]
         fn show_sheet_for(self: &PilotClient, pid: u32);
+        /// Asks Pilot `question`; `answered` follows.
+        #[qinvokable]
+        fn ask(self: &PilotClient, question: &QString);
+        /// The answer's text, empty when Pilot had none.
+        #[qsignal]
+        fn answered(self: Pin<&mut PilotClient>, question: QString, text: QString);
     }
 
     impl cxx_qt::Threading for PilotClient {}
@@ -48,6 +62,7 @@ const NAME: &str = "org.shipwright.Pilot";
 trait Pilot {
     fn show_sheet_for(&self, pid: u32) -> zbus::Result<()>;
     fn show_sheet(&self) -> zbus::Result<()>;
+    fn ask(&self, question: &str, spoken: bool) -> zbus::Result<String>;
 }
 
 #[derive(Default)]
@@ -150,4 +165,39 @@ impl PilotClient {
             }
         });
     }
+
+    fn ask(&self, question: &QString) {
+        let question = question.to_string();
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            let reply = async {
+                let pilot = PilotProxy::new(&io::session_bus().await?).await?;
+                pilot.ask(&question, false).await
+            };
+            let text = match reply.await {
+                Ok(json) => answer_text(&json),
+                Err(e) => {
+                    log::warn("pilot", format_args!("Ask: {e}"));
+                    String::new()
+                }
+            };
+            qt.queue(move |obj| {
+                obj.answered(QString::from(&question), QString::from(&text));
+            })
+            .ok();
+        });
+    }
+}
+
+/// The text of the reply's cards (an answer, a set timer's line), one per line.
+fn answer_text(json: &str) -> String {
+    let reply: serde_json::Value = serde_json::from_str(json).unwrap_or_default();
+    reply["cards"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|card| card["text"].as_str().or_else(|| card["title"].as_str()))
+        .filter(|text| !text.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
