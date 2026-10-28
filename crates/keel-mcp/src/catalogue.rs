@@ -191,6 +191,7 @@ pub fn load(files: &[(PathBuf, SystemTime)]) -> Vec<Value> {
     files.iter().filter_map(|(path, _)| read(path)).collect()
 }
 
+#[allow(clippy::print_stderr, reason = "journald collects stderr")]
 fn read(path: &Path) -> Option<Value> {
     let text = std::fs::read_to_string(path).ok()?;
     match serde_json::from_str::<Value>(&text) {
@@ -203,6 +204,7 @@ fn read(path: &Path) -> Option<Value> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use serde_json::json;

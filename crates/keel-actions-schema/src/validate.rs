@@ -234,6 +234,7 @@ pub fn json_eq(a: &Value, b: &Value) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use serde_json::json;

@@ -5,18 +5,24 @@
 //! session bus (the method shapes of Marathon's shell/src/ipc/shellservices.h).
 
 // zbus interfaces take their arguments by value.
-#![allow(clippy::needless_pass_by_value, clippy::unused_self)]
+
+#![allow(clippy::unwrap_used, clippy::let_underscore_must_use, reason = "tests")]
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::unused_self,
+    reason = "the stand-in services' D-Bus methods"
+)]
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use marathon_rt::testing::PrivateBus;
 use pilotd::adapters::marathon::{
     self, ShellCalendar, ShellClock, ShellContacts, ShellTelephony, ShellToggles,
 };
 use pilotd::adapters::{
     Calendar as _, Clock as _, Contacts as _, DeviceToggles as _, Telephony as _, Toggle,
 };
-use marathon_rt::testing::PrivateBus;
 use zbus::zvariant::{OwnedValue, Value};
 
 type Calls = Arc<Mutex<Vec<String>>>;
@@ -173,7 +179,7 @@ async fn the_shells_services_back_the_adapters() {
     let o = shell.object_server();
     o.at(
         "/org/marathonos/Shell/Alarm",
-        Alarm(calls.clone(), Mutex::default()),
+        Alarm(Arc::clone(&calls), Mutex::default()),
     )
     .await
     .unwrap();
@@ -183,10 +189,13 @@ async fn the_shells_services_back_the_adapters() {
     o.at("/org/marathonos/Shell/Contacts", Contacts)
         .await
         .unwrap();
-    o.at("/org/marathonos/Shell/Telephony", Telephony(calls.clone()))
-        .await
-        .unwrap();
-    o.at("/org/marathonos/Shell/Network", Network(calls.clone()))
+    o.at(
+        "/org/marathonos/Shell/Telephony",
+        Telephony(Arc::clone(&calls)),
+    )
+    .await
+    .unwrap();
+    o.at("/org/marathonos/Shell/Network", Network(Arc::clone(&calls)))
         .await
         .unwrap();
     shell.request_name(marathon::SHELL).await.unwrap();
@@ -273,6 +282,9 @@ async fn the_shell_names_a_marathon_apps_process() {
     let dir = tempfile::tempdir().unwrap();
     let runner = dir.path().join("marathon-app-runner");
     std::os::unix::fs::symlink("/bin/sleep", &runner).unwrap();
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
     let mut app = std::process::Command::new(&runner)
         .arg("30")
         .spawn()
@@ -282,9 +294,6 @@ async fn the_shell_names_a_marathon_apps_process() {
         .spawn()
         .unwrap();
 
-    let Some(bus) = PrivateBus::start() else {
-        return;
-    };
     let client = bus.connect().await.unwrap();
     let calls: Calls = Arc::default();
     let shell = bus.connect().await.unwrap();
@@ -292,7 +301,7 @@ async fn the_shell_names_a_marathon_apps_process() {
         .object_server()
         .at(
             "/org/marathonos/Shell/Navigation",
-            Navigation(calls.clone(), app.id()),
+            Navigation(Arc::clone(&calls), app.id()),
         )
         .await
         .unwrap();
@@ -355,7 +364,7 @@ async fn the_shell_names_the_android_app_in_front() {
         .object_server()
         .at(
             "/org/marathonos/Shell/Navigation",
-            Foreground(front.clone()),
+            Foreground(Arc::clone(&front)),
         )
         .await
         .unwrap();
@@ -369,7 +378,13 @@ async fn the_shell_names_the_android_app_in_front() {
         ("deckard.org.example.chat", "Chat")
     );
 
-    for other in ["notes", "deckard.", "deckard.../x", "waydroid.org.example.chat", ""] {
+    for other in [
+        "notes",
+        "deckard.",
+        "deckard.../x",
+        "waydroid.org.example.chat",
+        "",
+    ] {
         *front.lock().unwrap() = other.to_owned();
         assert!(
             marathon::android_in_front(&client, data.path())

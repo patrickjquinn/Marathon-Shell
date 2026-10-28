@@ -90,7 +90,7 @@ const HISTORY_TURNS: usize = 10;
 /// the conversation sent with a question: what was said, not all of it.
 const OLD_ANSWER_CHARS: usize = 400;
 /// A conversation left this long is over: the next question starts afresh.
-const HISTORY_TTL: Duration = Duration::from_secs(30 * 60);
+const HISTORY_TTL: Duration = Duration::from_mins(30);
 
 /// A timer, alarm or reminder Pilot set in this conversation: what a later
 /// "cancel the timer" or "make it 10 minutes instead" refers to.
@@ -578,6 +578,7 @@ pub fn plain_punctuation(text: &str) -> String {
 /// # Panics
 ///
 /// Never: the pattern is static and valid.
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 pub fn claims_action(text: &str) -> bool {
     static RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     RE.get_or_init(|| {
@@ -1036,7 +1037,7 @@ impl Pipeline {
     async fn refresh_tools(&self) {
         let (tools, stale) = match lock(&self.mcp).as_ref() {
             Some(l) => (
-                l.tools.clone(),
+                Arc::clone(&l.tools),
                 l.listed.is_none_or(|t| t.elapsed() > MCP_REFRESH),
             ),
             None => return,
@@ -1109,7 +1110,7 @@ impl Pipeline {
     /// now is read (keel-mcp, as a request the person started) and is the
     /// context of their questions for the next few minutes.
     pub async fn capture_on_screen(&self, app_id: &str, name: &str) {
-        let client = lock(&self.mcp).as_ref().map(|l| l.tools.clone());
+        let client = lock(&self.mcp).as_ref().map(|l| Arc::clone(&l.tools));
         let context = match client {
             Some(t) => t.client.read_context(app_id).await.unwrap_or_else(|e| {
                 log::info!("on screen ({app_id}): {e}");
@@ -1222,7 +1223,8 @@ impl Pipeline {
 
     fn stage(&self, turn: &str, stage: &str, detail: &str) {
         if let Some(tx) = lock(&self.progress).as_ref() {
-            let _ = tx.send(json!({"turn": turn, "stage": stage, "detail": detail}).to_string());
+            tx.send(json!({"turn": turn, "stage": stage, "detail": detail}).to_string())
+                .ok();
         }
     }
 
@@ -1753,7 +1755,7 @@ impl Pipeline {
             {
                 let mut s = scope.unwrap_or_default();
                 if !s.contains(&o.app) {
-                    s.insert(0, o.app.clone());
+                    s.insert(0, o.app);
                 }
                 let route = match route {
                     Route::Clarify { .. } => Route::Qwen,
@@ -2139,7 +2141,7 @@ impl Pipeline {
                 match intents::best_memory(&what, &pairs) {
                     Some((id, _)) => {
                         let gone: Vec<_> = all.into_iter().filter(|m| m.id == *id).collect();
-                        let _ = self.store.forget(*id);
+                        self.store.forget(*id).ok();
                         card("Forgotten.", "forgotten", gone)
                     }
                     None => card(
@@ -2204,11 +2206,12 @@ impl Pipeline {
              photo they take; remembering what they ask you to.",
         );
         if !apps.is_empty() {
-            let _ = write!(
+            write!(
                 line,
                 " In their apps: {}. Opened over an app, you work with what it shows.",
                 apps.join(", ")
-            );
+            )
+            .ok();
         }
         line
     }
@@ -2231,11 +2234,12 @@ impl Pipeline {
              you ask me to.",
         );
         if !apps.is_empty() {
-            let _ = write!(
+            write!(
                 s,
                 " I also work in {}. Open me over one of them and I can see and use what it shows.",
                 list_and(&apps)
-            );
+            )
+            .ok();
         }
         s
     }
@@ -2244,7 +2248,7 @@ impl Pipeline {
     /// changes (the time, hints, memory) is in [`Self::turn_context`].
     fn system_prompt(&self) -> String {
         if self.backends().llm.provider() == "local" {
-            return self.local_system_prompt();
+            return Self::local_system_prompt();
         }
         let mut p = format!(
             "You are Pilot, the assistant on the person's phone.{}{}\n\
@@ -2310,13 +2314,13 @@ impl Pipeline {
             )),
             crate::lang::prompt_line(&crate::lang::current())
         );
-        let _ = write!(p, "\n\n{}", self.capabilities_line());
+        write!(p, "\n\n{}", self.capabilities_line()).ok();
         p
     }
 
     /// For a small model on the phone: short, so it reads quickly, and
     /// letting it answer from what it knows.
-    fn local_system_prompt(&self) -> String {
+    fn local_system_prompt() -> String {
         let mut p = String::from(
             "You are Pilot, the assistant on the person's phone. Answer in one to three plain \
              sentences, the answer first, no Markdown.\n\
@@ -2331,9 +2335,14 @@ impl Pipeline {
              the person might ask next, separated by |.",
         );
         if let Some(z) = crate::localtime::zone_name() {
-            let _ = write!(p, "\nThe phone's time zone is {z}; assume {} for places and weather.", crate::localtime::zone_city(&z));
+            write!(
+                p,
+                "\nThe phone's time zone is {z}; assume {} for places and weather.",
+                crate::localtime::zone_city(&z)
+            )
+            .ok();
         }
-        let _ = write!(p, "{}", crate::lang::prompt_line(&crate::lang::current()));
+        write!(p, "{}", crate::lang::prompt_line(&crate::lang::current())).ok();
         p
     }
 
@@ -2348,7 +2357,7 @@ impl Pipeline {
         );
         if !hints.is_empty() {
             let h: Vec<String> = hints.iter().map(|(i, p)| format!("{i} ({p:.2})")).collect();
-            let _ = write!(p, " The request is probably one of: {}.", h.join(", "));
+            write!(p, " The request is probably one of: {}.", h.join(", ")).ok();
         }
         p
     }
@@ -2513,9 +2522,9 @@ impl Pipeline {
                             tool_call_id: None,
                             images: Vec::new(),
                         });
-                        let content = json!({"ok": true, "summary": out.summary,
+                        let reply = json!({"ok": true, "summary": out.summary,
                             "untrusted_content": out.data, "note": UNTRUSTED_NOTE});
-                        let text = self.redactor.redact_with(&content.to_string(), &mut map);
+                        let text = self.redactor.redact_with(&reply.to_string(), &mut map);
                         messages.push(Message::tool_result(&id, text));
                         tainted = true;
                     }
@@ -2564,15 +2573,15 @@ impl Pipeline {
                 tool_call_id: None,
                 images: Vec::new(),
             });
-            let content = json!({"ok": true,
+            let reply = json!({"ok": true,
                 "summary": format!("What {} showed when the person opened Pilot over it; \"this\", \"it\" and \"this page\" mean this.", o.name),
                 "untrusted_content": {
                     "app": o.name,
-                    "context": serde_json::from_str::<Value>(&o.context).unwrap_or(Value::String(o.context.clone())),
+                    "context": serde_json::from_str::<Value>(&o.context).unwrap_or_else(|_| Value::String(o.context.clone())),
                     "page_text": page,
                 },
                 "note": UNTRUSTED_NOTE});
-            let text = self.redactor.redact_with(&content.to_string(), &mut map);
+            let text = self.redactor.redact_with(&reply.to_string(), &mut map);
             messages.push(Message::tool_result(&id, text));
             tainted = true;
         }
@@ -2916,7 +2925,7 @@ impl Pipeline {
                     tool_data.push_str(&out.data.to_string());
                     tool_data.push('\n');
                 }
-                let content = match ran {
+                let reply = match ran {
                     // For the person only: shown on a card, never to the model.
                     Ok(out) if out.private => {
                         private_cards.push(Card::Response {
@@ -2945,7 +2954,7 @@ impl Pipeline {
                 };
                 // Results leave the device again: redact them with the
                 // turn's map so known values keep their placeholders.
-                let text = self.redactor.redact_with(&content.to_string(), &mut map);
+                let text = self.redactor.redact_with(&reply.to_string(), &mut map);
                 messages.push(Message::tool_result(&call.id, text));
             }
         }
@@ -3127,7 +3136,7 @@ impl Pipeline {
         }
         let mut found = Vec::new();
         refs(args, &mut found);
-        let client = lock(&self.mcp).as_ref().map(|l| l.tools.clone());
+        let client = lock(&self.mcp).as_ref().map(|l| Arc::clone(&l.tools));
         let mut names = HashMap::new();
         let mut missing = Vec::new();
         if let Some(t) = client {
@@ -3318,9 +3327,7 @@ fn user_error(e: &RemoteError) -> String {
         RemoteError::Status {
             status: 401 | 403, ..
         }
-        | RemoteError::Token(_) => {
-            "Pilot's model service refused its key.".into()
-        }
+        | RemoteError::Token(_) => "Pilot's model service refused its key.".into(),
         _ => "Pilot can't reach its cloud service. Check your connection and try again.".into(),
     }
 }

@@ -5,6 +5,8 @@
 //! token exchange, the region stamped from configuration (whatever the
 //! upstream says), requests shaped as the relay shapes them.
 
+#![allow(clippy::unwrap_used, clippy::panic, reason = "tests")]
+
 mod common;
 
 use std::os::unix::fs::PermissionsExt as _;

@@ -35,6 +35,7 @@ struct Args {
     probe: u64,
 }
 
+#[allow(clippy::print_stdout, reason = "the command line's output")]
 fn parse() -> Result<Args, String> {
     let mut args = Args {
         socket: None,
@@ -78,6 +79,7 @@ fn parse() -> Result<Args, String> {
     Ok(args)
 }
 
+#[allow(clippy::print_stderr, reason = "journald collects stderr")]
 async fn serve_socket(server: KeelMcp, path: PathBuf) -> std::io::Result<()> {
     // Bound in a private directory and moved into place at 0600: there is
     // no moment when another user could connect.
@@ -98,7 +100,7 @@ async fn serve_socket(server: KeelMcp, path: PathBuf) -> std::io::Result<()> {
             let (read, write) = stream.into_split();
             match server.serve(keel_mcp::guard::guard(read, write)).await {
                 Ok(running) => {
-                    let _ = running.waiting().await;
+                    running.waiting().await.ok();
                 }
                 Err(e) => eprintln!("keel-mcp: connection: {e}"),
             }
@@ -107,6 +109,7 @@ async fn serve_socket(server: KeelMcp, path: PathBuf) -> std::io::Result<()> {
 }
 
 #[tokio::main]
+#[allow(clippy::print_stderr, reason = "journald collects stderr")]
 async fn main() -> ExitCode {
     let args = match parse() {
         Ok(a) => a,

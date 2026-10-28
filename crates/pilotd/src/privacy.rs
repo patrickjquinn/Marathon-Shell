@@ -161,9 +161,7 @@ pub struct FileSwitch {
 
 impl FileSwitch {
     fn read(&self) -> bool {
-        std::fs::read_to_string(&self.path)
-            .map(|s| matches!(s.trim(), "1" | "true" | "on"))
-            .unwrap_or(false)
+        std::fs::read_to_string(&self.path).is_ok_and(|s| matches!(s.trim(), "1" | "true" | "on"))
     }
 }
 
@@ -243,6 +241,12 @@ impl PrivacySwitch for SailfishSwitch {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::let_underscore_must_use,
+    reason = "tests"
+)]
 mod tests {
     use super::*;
 

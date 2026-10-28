@@ -191,6 +191,7 @@ impl EventsEntry {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

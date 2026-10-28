@@ -105,9 +105,10 @@ fn spawn(command: &[String], what: &str) {
         {
             // Reaped on its own thread: the app may run for hours.
             Ok(mut child) => {
-                let _ = std::thread::Builder::new()
+                std::thread::Builder::new()
                     .name("pilot-reap".into())
-                    .spawn(move || child.wait());
+                    .spawn(move || child.wait())
+                    .ok();
             }
             Err(e) => log::warn!("{what}: {e}"),
         }
@@ -171,7 +172,7 @@ impl PilotService {
                 "text longer than 4000 characters".into(),
             ));
         }
-        let pipeline = self.pipeline.clone();
+        let pipeline = Arc::clone(&self.pipeline);
         let r = self
             .runtime
             .spawn(async move { pipeline.ask(&text, spoken).await })
@@ -179,8 +180,8 @@ impl PilotService {
             .map_err(|e| fdo::Error::Failed(format!("turn aborted: {e}")))?;
         self.own_cards(&r, header.sender().map(ToString::to_string));
         let json = to_json(&r);
-        let _ = Self::turn_finished(&emitter, &json).await;
-        let _ = self.last_response_changed(&emitter).await;
+        Self::turn_finished(&emitter, &json).await.ok();
+        self.last_response_changed(&emitter).await.ok();
         Ok(json)
     }
 
@@ -200,7 +201,7 @@ impl PilotService {
             ));
         }
         lock(&self.card_owners).remove(&id);
-        let pipeline = self.pipeline.clone();
+        let pipeline = Arc::clone(&self.pipeline);
         let r = self
             .runtime
             .spawn(async move { pipeline.confirm(&id, approved).await })
@@ -208,8 +209,8 @@ impl PilotService {
             .map_err(|e| fdo::Error::Failed(format!("confirmation aborted: {e}")))?;
         self.own_cards(&r, sender);
         let json = to_json(&r);
-        let _ = Self::turn_finished(&emitter, &json).await;
-        let _ = self.last_response_changed(&emitter).await;
+        Self::turn_finished(&emitter, &json).await.ok();
+        self.last_response_changed(&emitter).await.ok();
         Ok(json)
     }
 
@@ -221,8 +222,8 @@ impl PilotService {
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<String> {
         let (pipeline, adapters, offline) = (
-            self.pipeline.clone(),
-            self.adapters.clone(),
+            Arc::clone(&self.pipeline),
+            Arc::clone(&self.adapters),
             self.offline.clone(),
         );
         let r = self
@@ -232,8 +233,8 @@ impl PilotService {
             .map_err(|e| fdo::Error::Failed(format!("turn aborted: {e}")))?;
         self.own_cards(&r, header.sender().map(ToString::to_string));
         let json = to_json(&r);
-        let _ = Self::turn_finished(&emitter, &json).await;
-        let _ = self.last_response_changed(&emitter).await;
+        Self::turn_finished(&emitter, &json).await.ok();
+        self.last_response_changed(&emitter).await.ok();
         Ok(json)
     }
 
@@ -251,7 +252,7 @@ impl PilotService {
                 "question longer than 4000 characters".into(),
             ));
         }
-        let pipeline = self.pipeline.clone();
+        let pipeline = Arc::clone(&self.pipeline);
         let r = self
             .runtime
             .spawn(async move { pipeline.look(&question, &jpeg).await })
@@ -259,15 +260,15 @@ impl PilotService {
             .map_err(|e| fdo::Error::Failed(format!("turn aborted: {e}")))?;
         self.own_cards(&r, header.sender().map(ToString::to_string));
         let json = to_json(&r);
-        let _ = Self::turn_finished(&emitter, &json).await;
-        let _ = self.last_response_changed(&emitter).await;
+        Self::turn_finished(&emitter, &json).await.ok();
+        self.last_response_changed(&emitter).await.ok();
         Ok(json)
     }
 
     /// The home, read on the phone.
     async fn now(&self) -> String {
-        let adapters = self.adapters.clone();
-        let store = self.store.clone();
+        let adapters = Arc::clone(&self.adapters);
+        let store = Arc::clone(&self.store);
         let offline = self.offline.is_offline();
         let name = lock(&self.live).name.clone();
         let now = self
@@ -288,7 +289,7 @@ impl PilotService {
     }
 
     async fn cancel_clock(&self, cookie: u32) -> fdo::Result<bool> {
-        let adapters = self.adapters.clone();
+        let adapters = Arc::clone(&self.adapters);
         self.runtime
             .spawn(async move { adapters.clock.cancel(cookie).await })
             .await
@@ -299,7 +300,7 @@ impl PilotService {
     /// A running timer `seconds` longer: a new timer for what was left
     /// plus `seconds`, the old one cancelled.
     async fn extend_timer(&self, cookie: u32, seconds: u32) -> fdo::Result<String> {
-        let adapters = self.adapters.clone();
+        let adapters = Arc::clone(&self.adapters);
         let card = self
             .runtime
             .spawn(async move {
@@ -350,15 +351,15 @@ impl PilotService {
         &self,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<()> {
-        let events = self.events.clone();
-        let _ = self
-            .runtime
+        let events = Arc::clone(&self.events);
+        self.runtime
             .spawn(async move { events.opened().await })
-            .await;
+            .await
+            .ok();
         *lock(&self.launch_request) = Some(("events".into(), std::time::Instant::now()));
         self.events_requested
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        let _ = self.events_requested_changed(&emitter).await;
+        self.events_requested_changed(&emitter).await.ok();
         spawn(&self.open_events, "opening the events page");
         Ok(())
     }
@@ -373,7 +374,7 @@ impl PilotService {
         *lock(&self.launch_request) = Some(("sheet".into(), std::time::Instant::now()));
         self.sheet_requested
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        let _ = self.sheet_requested_changed(&emitter).await;
+        self.sheet_requested_changed(&emitter).await.ok();
         // A running app shows its overlay on SheetRequested. Starting it
         // again would make invoker raise its main window, over the app the
         // person was in.
@@ -401,12 +402,12 @@ impl PilotService {
         .filter(|a| a.id != "org.shipwright.shoal-pilot");
         let name = if let Some(app) = app {
             // Read what it shows now, before Pilot comes to the front.
-            let pipeline = self.pipeline.clone();
+            let pipeline = Arc::clone(&self.pipeline);
             let (id, name) = (app.id.clone(), app.name.clone());
-            let _ = self
-                .runtime
+            self.runtime
                 .spawn(async move { pipeline.capture_on_screen(&id, &name).await })
-                .await;
+                .await
+                .ok();
             app.name
         } else {
             self.pipeline.clear_on_screen();
@@ -499,11 +500,11 @@ impl PilotService {
                 .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         }
         if name == "triage" {
-            let events = self.events.clone();
-            let _ = self
-                .runtime
+            let events = Arc::clone(&self.events);
+            self.runtime
                 .spawn(async move { events.refresh().await })
-                .await;
+                .await
+                .ok();
         }
         if known {
             Ok(())
@@ -621,12 +622,12 @@ impl PilotService {
         self.pipeline.drop_pending();
         self.pipeline.clear_last();
         self.pipeline.clear_history();
-        let events = self.events.clone();
-        let _ = self
-            .runtime
+        let events = Arc::clone(&self.events);
+        self.runtime
             .spawn(async move { events.refresh().await })
-            .await;
-        let _ = self.last_response_changed(&emitter).await;
+            .await
+            .ok();
+        self.last_response_changed(&emitter).await.ok();
         Ok(())
     }
 

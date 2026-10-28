@@ -7,6 +7,15 @@
 //! LLM servers. Covers two-stage routing, validation, the destructive
 //! card, and a two-step plan with one card.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::let_underscore_must_use,
+    clippy::print_stderr,
+    reason = "tests"
+)]
+
 mod common;
 
 use std::path::PathBuf;
@@ -80,8 +89,7 @@ impl Backend for Notes {
 }
 
 fn golden() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../keel/actions/codegen/tests/golden/qml-notes")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../keel-mcp/tests/fixtures/qml-notes")
 }
 
 /// keel-mcp on one end of a pipe, pilotd's client on the other.
@@ -174,7 +182,7 @@ async fn an_app_action_through_two_stage_routing() {
     })
     .await;
     let app = Arc::new(Notes::default());
-    let d = daemon_with(&srv, app.clone()).await;
+    let d = daemon_with(&srv, Arc::clone(&app)).await;
     let r = d
         .pipeline
         .ask("make a shopping note: milk, eggs", false)
@@ -249,7 +257,7 @@ async fn invalid_arguments_never_reach_the_app() {
     })
     .await;
     let app = Arc::new(Notes::default());
-    let d = daemon_with(&srv, app.clone()).await;
+    let d = daemon_with(&srv, Arc::clone(&app)).await;
     let r = d.pipeline.ask("a note", false).await;
     assert!(matches!(r.cards[0], Card::Error { .. }), "{r:?}");
     assert!(app.0.lock().unwrap().is_empty());
@@ -266,7 +274,7 @@ async fn a_destructive_action_waits_for_the_card() {
     })
     .await;
     let app = Arc::new(Notes::default());
-    let d = daemon_with(&srv, app.clone()).await;
+    let d = daemon_with(&srv, Arc::clone(&app)).await;
     let r = d.pipeline.ask("delete that note", false).await;
     let Card::Confirm {
         id,
@@ -302,7 +310,7 @@ async fn a_plan_is_checked_whole_and_confirmed_once() {
     })
     .await;
     let app = Arc::new(Notes::default());
-    let d = daemon_with(&srv, app.clone()).await;
+    let d = daemon_with(&srv, Arc::clone(&app)).await;
     let r = d
         .pipeline
         .ask("make a draft note then delete it", false)
@@ -344,7 +352,7 @@ async fn an_invalid_plan_goes_back_to_the_model_once() {
     })
     .await;
     let app = Arc::new(Notes::default());
-    let d = daemon_with(&srv, app.clone()).await;
+    let d = daemon_with(&srv, Arc::clone(&app)).await;
     let r = d.pipeline.ask("make my notes fly", false).await;
     let Some(Card::Answer { text, how, .. }) = r.cards.last() else {
         panic!("no answer: {:?}", r.cards)
@@ -375,7 +383,7 @@ async fn an_invalid_plan_goes_back_to_the_model_once() {
 /// (`target/debug/keel-actions`); skipped when they have not been built.
 fn shoal_manifests() -> Option<PathBuf> {
     let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../target"),
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../target"),
         PathBuf::from,
     );
     let dir = target.join("debug/keel-actions");
@@ -445,7 +453,7 @@ impl Backend for Keys {
 async fn the_shoal_apps_real_actions() {
     let Some(dir) = shoal_manifests() else { return };
     let app = Arc::new(Keys::default());
-    let server = KeelMcp::new(app.clone(), false);
+    let server = KeelMcp::new(Arc::<Keys>::clone(&app), false);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap()
         .flatten()
@@ -557,7 +565,7 @@ async fn the_shoal_apps_real_actions() {
 #[tokio::test]
 async fn spawns_the_keel_mcp_program() {
     let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../target"),
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../target"),
         PathBuf::from,
     );
     let bin = target.join("debug/keel-mcp");
@@ -611,7 +619,7 @@ async fn untrusted_content_is_data_and_cannot_act() {
     let app = Arc::new(Notes::default());
     let d = common::daemon(&srv.base, &Arc::new(Log::default()), None);
     d.pipeline
-        .attach_mcp(connect_marking(app.clone(), &["org.example.notes/notes.search"]).await)
+        .attach_mcp(connect_marking(Arc::clone(&app), &["org.example.notes/notes.search"]).await)
         .await;
     let r = d.pipeline.ask("find my harbour notes", false).await;
     // The result went to the model as quoted data with the note, in a tool
@@ -671,7 +679,7 @@ async fn a_guessed_reference_goes_back_to_the_model_before_any_card() {
     })
     .await;
     let app = Arc::new(Notes::default());
-    let d = daemon_with(&srv, app.clone()).await;
+    let d = daemon_with(&srv, Arc::clone(&app)).await;
     let r = d.pipeline.ask("delete that note", false).await;
     let Card::Confirm { steps, .. } = &r.cards[0] else {
         panic!("{r:?}")

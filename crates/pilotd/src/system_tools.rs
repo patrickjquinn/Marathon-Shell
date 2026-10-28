@@ -24,6 +24,7 @@ pub struct SystemTools {
     pub local_at: fn(i64) -> LocalNow,
 }
 
+#[allow(clippy::expect_used, reason = "compiled-in schemas")]
 fn schema(v: &Value) -> Validator {
     Validator::new(v.clone()).expect("system tool schemas are static and valid")
 }
@@ -353,7 +354,7 @@ pub fn specs() -> Vec<(ToolSpec, bool)> {
 /// Registers every system tool against `exec`.
 pub fn register(registry: &mut Registry, exec: &Arc<SystemTools>) {
     for (spec, available) in specs() {
-        registry.add(spec, available, exec.clone());
+        registry.add(spec, available, Arc::<SystemTools>::clone(exec));
     }
 }
 
@@ -714,6 +715,7 @@ pub fn card_detail(tool: &str, args: &Value) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

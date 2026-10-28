@@ -56,6 +56,7 @@ pub fn home_from_fact(fact: &str) -> Option<String> {
 /// # Panics
 ///
 /// Never: the schema is static and valid.
+#[allow(clippy::expect_used, reason = "compiled-in schemas")]
 pub fn spec() -> ToolSpec {
     ToolSpec {
         name: TOOL.into(),
@@ -369,6 +370,7 @@ impl ToolExecutor for Weather {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

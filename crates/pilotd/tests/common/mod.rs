@@ -5,7 +5,8 @@
 //! and the Lighthouse scorer, and recording fakes for the Sailfish
 //! adapters. No real keys, no network.
 
-#![allow(dead_code)]
+#![allow(clippy::unwrap_used, clippy::let_underscore_must_use, reason = "tests")]
+#![allow(dead_code, reason = "each test binary uses part of it")]
 
 use std::fmt::Write as _;
 use std::sync::{Arc, Mutex};
@@ -78,14 +79,14 @@ impl FakeHttp {
         let base = format!("http://{}", listener.local_addr().unwrap());
         let seen: Arc<Mutex<Vec<Seen>>> = Arc::default();
         let handler: Arc<Handler> = Arc::new(Box::new(handler));
-        let seen2 = seen.clone();
+        let seen2 = Arc::clone(&seen);
         tokio::spawn(async move {
             loop {
                 let Ok((mut sock, _)) = listener.accept().await else {
                     return;
                 };
-                let handler = handler.clone();
-                let seen = seen2.clone();
+                let handler = Arc::clone(&handler);
+                let seen = Arc::clone(&seen2);
                 tokio::spawn(async move {
                     let mut buf = Vec::new();
                     let mut tmp = [0u8; 4096];
@@ -395,16 +396,16 @@ pub fn fake_adapters(log: &Arc<Log>) -> Adapters {
 
 pub fn fake_adapters_hearing(log: &Arc<Log>, heard: Arc<Mutex<Vec<String>>>) -> Adapters {
     Adapters {
-        clock: Box::new(Fake(log.clone())),
-        media: Box::new(Fake(log.clone())),
-        calendar: Box::new(Fake(log.clone())),
+        clock: Box::new(Fake(Arc::clone(log))),
+        media: Box::new(Fake(Arc::clone(log))),
+        calendar: Box::new(Fake(Arc::clone(log))),
         contacts: Arc::new(FakeContacts),
-        telephony: Box::new(Fake(log.clone())),
-        toggles: Box::new(Fake(log.clone())),
-        voice: Box::new(FakeVoice(log.clone(), heard)),
-        speech: Box::new(Fake(log.clone())),
-        notifier: Box::new(Fake(log.clone())),
-        stock: Box::new(Fake(log.clone())),
+        telephony: Box::new(Fake(Arc::clone(log))),
+        toggles: Box::new(Fake(Arc::clone(log))),
+        voice: Box::new(FakeVoice(Arc::clone(log), heard)),
+        speech: Box::new(Fake(Arc::clone(log))),
+        notifier: Box::new(Fake(Arc::clone(log))),
+        stock: Box::new(Fake(Arc::clone(log))),
     }
 }
 

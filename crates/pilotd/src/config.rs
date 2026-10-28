@@ -515,8 +515,9 @@ impl Config {
         for (name, b) in &self.backends {
             let urls = [
                 match &b.jev {
-                    JevConfig::Jev { url, .. } | JevConfig::Score { url, .. } => url.as_str(),
-                    JevConfig::Local { url } => url.as_str(),
+                    JevConfig::Jev { url, .. }
+                    | JevConfig::Score { url, .. }
+                    | JevConfig::Local { url } => url.as_str(),
                 },
                 b.llm.url.as_str(),
             ];
@@ -556,7 +557,9 @@ impl Config {
             ("local.embed_url", &self.local.embed_url),
         ] {
             if self.local.enabled && !x.is_empty() && !is_local(x) {
-                return Err(ConfigError::Invalid(format!("{name} {x} is not on this machine")));
+                return Err(ConfigError::Invalid(format!(
+                    "{name} {x} is not on this machine"
+                )));
             }
         }
         if !self.backends.contains_key("standard") {
@@ -599,6 +602,7 @@ fn xdg(var: &str, fallback: &str) -> Option<PathBuf> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

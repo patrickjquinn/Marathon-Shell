@@ -225,9 +225,10 @@ pub async fn open_url(session: &zbus::Connection, url: &str) -> bool {
         .spawn()
     {
         Ok(mut child) => {
-            let _ = std::thread::Builder::new()
+            std::thread::Builder::new()
                 .name("pilot-reap".into())
-                .spawn(move || child.wait());
+                .spawn(move || child.wait())
+                .ok();
             true
         }
         Err(e) => {
@@ -266,6 +267,7 @@ pub fn process_running(exe: &str) -> bool {
 /// # Panics
 ///
 /// Never: the patterns are static and valid.
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 pub fn html_text(html: &str, max: usize) -> String {
     use std::sync::OnceLock;
     static DROP: OnceLock<regex::Regex> = OnceLock::new();
@@ -289,7 +291,7 @@ pub fn html_text(html: &str, max: usize) -> String {
     let body = main
         .captures(&cleaned)
         .and_then(|c| c.get(2))
-        .map_or(cleaned.as_ref(), |m| m.as_str())
+        .map_or_else(|| cleaned.as_ref(), |m| m.as_str())
         .to_owned();
     let blocks = block.replace_all(&body, "\n");
     let text = tag.replace_all(&blocks, " ");
@@ -328,6 +330,7 @@ pub fn page_url(context: &str) -> Option<String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
 
     #[test]

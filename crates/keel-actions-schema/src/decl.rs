@@ -315,11 +315,15 @@ impl Param {
                 s.insert("type".into(), json!("integer"));
                 s.insert(
                     "minimum".into(),
-                    self.minimum.as_ref().map_or(json!(DEFAULT_INT_MIN), number),
+                    self.minimum
+                        .as_ref()
+                        .map_or_else(|| json!(DEFAULT_INT_MIN), number),
                 );
                 s.insert(
                     "maximum".into(),
-                    self.maximum.as_ref().map_or(json!(DEFAULT_INT_MAX), number),
+                    self.maximum
+                        .as_ref()
+                        .map_or_else(|| json!(DEFAULT_INT_MAX), number),
                 );
             }
             "number" => {

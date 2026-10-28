@@ -186,6 +186,7 @@ fn normalise(kind: PiiKind, value: &str) -> String {
     }
 }
 
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 fn placeholder_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
@@ -194,6 +195,7 @@ fn placeholder_re() -> &'static Regex {
 }
 
 /// A placeholder with or without its brackets.
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 fn loose_placeholder_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
@@ -222,6 +224,7 @@ struct Patterns {
     date_like: Regex,
 }
 
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 fn patterns() -> &'static Patterns {
     static P: OnceLock<Patterns> = OnceLock::new();
     P.get_or_init(|| Patterns {
@@ -479,7 +482,7 @@ impl Redactor {
             if let Some(first) = full.split_whitespace().next() {
                 let e = firsts
                     .entry(first.to_lowercase())
-                    .or_insert((0, full.trim().to_owned()));
+                    .or_insert_with(|| (0, full.trim().to_owned()));
                 e.0 += 1;
             }
         }
@@ -623,6 +626,7 @@ pub const JEV_MAX_CHARS: usize = 400;
 /// # Panics
 ///
 /// Never: its regular expressions are fixed and valid.
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 pub fn for_jev(text: &str, own_name: &str) -> String {
     static RES: OnceLock<(Regex, Regex, Regex)> = OnceLock::new();
     let (link, number, word) = RES.get_or_init(|| {
@@ -680,6 +684,7 @@ fn inside_placeholder(text: &str, start: usize, end: usize) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 
@@ -825,7 +830,7 @@ mod tests {
     #[test]
     fn shared_cases() {
         let all: serde_json::Value =
-            serde_json::from_str(include_str!("../../redaction-cases.json")).unwrap();
+            serde_json::from_str(include_str!("../redaction-cases.json")).unwrap();
         for c in all["cases"].as_array().unwrap() {
             let names: Vec<String> = c["contacts"]
                 .as_array()

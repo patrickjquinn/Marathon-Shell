@@ -48,6 +48,8 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
     Ok(out)
 }
 
+#[allow(clippy::print_stderr, reason = "journald collects stderr")]
+#[allow(clippy::print_stdout, reason = "the command line's output")]
 fn main() -> ExitCode {
     // Before anything else, and before any thread: the privileged group is
     // held back except for the calendar and contacts reads (privilege.rs).
@@ -86,6 +88,7 @@ fn main() -> ExitCode {
     }
 }
 
+#[allow(clippy::print_stdout, reason = "the command line's output")]
 async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let config_path = args
         .config
@@ -149,8 +152,8 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         pilotd::dbus::BUS_NAME,
         d.pipeline.backend_name()
     );
-    tokio::spawn(d.clone().follow_switch(switch, Some(conn.clone())));
-    tokio::spawn(d.clone().follow_wake(conn.clone()));
+    tokio::spawn(Arc::clone(&d).follow_switch(switch, Some(conn.clone())));
+    tokio::spawn(Arc::clone(&d).follow_wake(conn.clone()));
     // Proactive triage (spec section 5.3): the notification monitor needs
     // a connection of its own, as a monitor can do nothing else.
     let monitor = zbus::Connection::session().await.ok();
@@ -166,6 +169,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

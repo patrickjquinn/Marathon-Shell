@@ -516,6 +516,7 @@ pub fn at(epoch: i64) -> LocalNow {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::print_stderr, reason = "tests")]
 mod tests {
     use super::*;
 

@@ -147,13 +147,14 @@ fn base64(data: &[u8], out: &mut String) {
             | (u32::from(*c.get(1).unwrap_or(&0)) << 8)
             | u32::from(*c.get(2).unwrap_or(&0));
         let idx = |s: u32| char::from(A[((n >> s) & 63) as usize]);
-        let _ = write!(out, "{}{}", idx(18), idx(12));
+        write!(out, "{}{}", idx(18), idx(12)).ok();
         out.push(if c.len() > 1 { idx(6) } else { '=' });
         out.push(if c.len() > 2 { idx(0) } else { '=' });
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 pub(crate) mod tests {
     use super::*;
 

@@ -82,7 +82,7 @@ fn build(
             (0..min)
                 .map(|i| {
                     let len = path.len();
-                    let _ = write!(path, "/{i}");
+                    write!(path, "/{i}").ok();
                     let v = build(&item, root, path, unsatisfied, depth + 1);
                     path.truncate(len);
                     v
@@ -130,6 +130,7 @@ fn build(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use crate::validate::validate;

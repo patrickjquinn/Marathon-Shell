@@ -238,7 +238,7 @@ impl KeelMcp {
             let differs = c.apps != catalogue.apps;
             *c = Arc::new(catalogue);
             if differs {
-                let _ = self.inner.changed.send(());
+                self.inner.changed.send(()).ok();
             }
         }
     }
@@ -728,6 +728,10 @@ fn substitute(value: &Value, arguments: &Map<String, Value>) -> Value {
     }
 }
 
+#[allow(
+    clippy::unused_async_trait_impl,
+    reason = "rmcp's ServerHandler methods are async"
+)]
 impl ServerHandler for KeelMcp {
     fn get_info(&self) -> ServerConfig {
         let capabilities: ServerCapabilities =
@@ -772,9 +776,9 @@ impl ServerHandler for KeelMcp {
                     let sink = context.sink();
                     // A category the client did not ask for is refused by
                     // the sink; that is no failure.
-                    let _ = sink.notify_tool_list_changed().await;
-                    let _ = sink.notify_prompt_list_changed().await;
-                    let _ = sink.notify_resource_list_changed().await;
+                    sink.notify_tool_list_changed().await.ok();
+                    sink.notify_prompt_list_changed().await.ok();
+                    sink.notify_resource_list_changed().await.ok();
                 }
             }
         }
@@ -793,8 +797,8 @@ impl ServerHandler for KeelMcp {
                 if peer.notify_tool_list_changed().await.is_err() {
                     return;
                 }
-                let _ = peer.notify_prompt_list_changed().await;
-                let _ = peer.notify_resource_list_changed().await;
+                peer.notify_prompt_list_changed().await.ok();
+                peer.notify_resource_list_changed().await.ok();
             }
         });
     }

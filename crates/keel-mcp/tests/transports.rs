@@ -6,6 +6,8 @@
 //! start-up), so it runs inside ctest `keel_mcp_conformance`
 //! (`KEEL_MCP_BUS_TEST=1`) and is skipped elsewhere.
 
+#![allow(clippy::unwrap_used, clippy::let_underscore_must_use, reason = "tests")]
+
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixStream;
@@ -16,7 +18,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 fn golden_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../codegen/tests/golden/qml-notes")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/qml-notes")
 }
 
 fn on_bus() -> bool {

@@ -119,7 +119,7 @@ impl EventIo {
 
 fn ticker(epoch: i64) -> Result<i32, AdapterError> {
     // timed's ticker is a signed 32-bit time_t on the wire.
-    i32::try_from(epoch).map_err(|_| AdapterError::Failed("time out of range".into()))
+    i32::try_from(epoch).map_err(|e| AdapterError::Failed(format!("time out of range: {e}")))
 }
 
 fn base(title: Option<&str>, created_ms: i64) -> EventIo {
@@ -325,6 +325,7 @@ pub fn upcoming_items<S: std::hash::BuildHasher, T: std::hash::BuildHasher>(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

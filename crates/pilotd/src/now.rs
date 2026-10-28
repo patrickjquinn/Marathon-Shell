@@ -127,7 +127,9 @@ pub async fn snapshot(
         .ok()
         .flatten()
         .and_then(|v| v.parse().ok());
-    let _ = store.set_meta("home.last_ms", &crate::store::now_ms().to_string());
+    store
+        .set_meta("home.last_ms", &crate::store::now_ms().to_string())
+        .ok();
     let away_days = last.map_or(0, |l| (crate::store::now_ms() - l) / 86_400_000);
     let clock = adapters.clock.upcoming().await.unwrap_or_default();
     let events = adapters

@@ -208,6 +208,7 @@ pub fn llm_status(status: reqwest::StatusCode, body: &[u8]) -> reqwest::StatusCo
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use serde_json::json;

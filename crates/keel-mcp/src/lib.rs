@@ -24,6 +24,7 @@ pub use server::KeelMcp;
 /// Keeps `server`'s catalogue current: rescans `dirs` every 2 s (rebuilding
 /// when a file appears, changes or goes) and asks running apps for their
 /// manifests every `probe` interval.
+#[allow(clippy::print_stderr, reason = "journald collects stderr")]
 pub async fn watch(
     server: KeelMcp,
     backend: Arc<dyn backend::Backend>,

@@ -304,19 +304,19 @@ fn proactive(
     now: fn() -> LocalNow,
 ) -> (Arc<Triage>, Arc<crate::events::EventsEntry>) {
     let triage = Arc::new(Triage::new(
-        pipeline.clone(),
-        store.clone(),
-        live.clone(),
+        Arc::clone(pipeline),
+        Arc::clone(store),
+        Arc::clone(live),
         offline.clone(),
-        adapters.clone(),
+        Arc::clone(adapters),
         cfg.triage.clone(),
         now,
     ));
     let events = Arc::new(crate::events::EventsEntry::new(
         cfg.events.notification,
-        store.clone(),
-        adapters.clone(),
-        live.clone(),
+        Arc::clone(store),
+        Arc::clone(adapters),
+        Arc::clone(live),
         offline.clone(),
     ));
     (triage, events)
@@ -391,7 +391,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
     let settings_file = SettingsFile::load(data_dir.as_ref().map(|d| d.join("settings.json")));
     let live = Arc::new(Mutex::new(settings_file.current.clone()));
     let (ctl, offline) = privacy::offline_state(false);
-    let egress: Arc<dyn EgressSink> = store.clone();
+    let egress: Arc<dyn EgressSink> = Arc::<Store>::clone(&store);
     let http = crate::remote::http_client()?;
     let credential = direct_credential(credential, &mut config)?.unwrap_or_else(|| {
         let token_file = config
@@ -412,33 +412,35 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
         injected.unwrap_or_else(|| sailfish_adapters(&config, session.as_ref(), system.as_ref())),
     );
     let tools = Arc::new(SystemTools {
-        adapters: adapters.clone(),
+        adapters: Arc::clone(&adapters),
         now,
         local_at: localtime::at,
     });
     let mut registry = Registry::new();
     system_tools::register(&mut registry, &tools);
     crate::web::register(&mut registry, remote.clone(), &config.web_search_url);
-    crate::weather::register(&mut registry, remote.clone(), Some(store.clone()));
-    crate::memory::register(&mut registry, store.clone());
+    crate::weather::register(&mut registry, remote.clone(), Some(Arc::clone(&store)));
+    crate::memory::register(&mut registry, Arc::clone(&store));
 
     let chosen = settings_file.current.backend.clone();
     let cfg = Arc::new(config);
     let factory: BackendFactory = {
-        let cfg = cfg.clone();
-        let remote = remote.clone();
+        let cfg = Arc::clone(&cfg);
+        let remote = remote;
         Arc::new(move |name: &str| make_backends(&cfg, name, &remote))
     };
     let backends = factory(&chosen)
         .or_else(|| factory("standard"))
         .ok_or_else(|| StartError::Backend(chosen.clone()))?;
     let pipeline = Arc::new(Pipeline::new(PipelineParts {
-        redactor: Redactor::new(Box::new(adapters::NamesFrom(adapters.contacts.clone()))),
+        redactor: Redactor::new(Box::new(adapters::NamesFrom(Arc::clone(
+            &adapters.contacts,
+        )))),
         backends,
         registry,
-        store: store.clone(),
+        store: Arc::clone(&store),
         thresholds: cfg.thresholds,
-        settings: live.clone(),
+        settings: Arc::clone(&live),
         offline: offline.clone(),
         max_rounds: cfg.max_tool_rounds.max(1),
         now,
@@ -468,20 +470,20 @@ impl Daemon {
     /// The D-Bus object for this daemon. Call from within the Tokio runtime.
     pub fn service(&self) -> PilotService {
         PilotService {
-            pipeline: self.pipeline.clone(),
-            settings: self.settings.clone(),
-            live: self.live.clone(),
-            store: self.store.clone(),
+            pipeline: Arc::clone(&self.pipeline),
+            settings: Arc::clone(&self.settings),
+            live: Arc::clone(&self.live),
+            store: Arc::clone(&self.store),
             offline: self.offline.clone(),
             backends: self.backend_names.clone(),
-            factory: self.factory.clone(),
-            adapters: self.adapters.clone(),
-            triage: self.triage.clone(),
-            events: self.events.clone(),
-            events_requested: self.events_requested.clone(),
+            factory: Arc::clone(&self.factory),
+            adapters: Arc::clone(&self.adapters),
+            triage: Arc::clone(&self.triage),
+            events: Arc::clone(&self.events),
+            events_requested: Arc::clone(&self.events_requested),
             open_events: self.open_events.clone(),
-            sheet_requested: self.sheet_requested.clone(),
-            launch_request: self.launch_request.clone(),
+            sheet_requested: Arc::clone(&self.sheet_requested),
+            launch_request: Arc::clone(&self.launch_request),
             open_sheet: self.open_sheet.clone(),
             runtime: tokio::runtime::Handle::current(),
             card_owners: Arc::default(),
@@ -512,11 +514,12 @@ impl Daemon {
                 .interface::<_, PilotService>(PATH)
                 .await
             {
-                let _ = iface
+                iface
                     .get()
                     .await
                     .offline_changed(iface.signal_emitter())
-                    .await;
+                    .await
+                    .ok();
             }
         }
     }
@@ -535,11 +538,11 @@ impl Daemon {
         self.apply_privacy(initial, conn.as_ref()).await;
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let watcher = {
-            let switch = switch.clone();
+            let switch = Arc::clone(&switch);
             tokio::spawn(async move {
                 switch
                     .watch(Box::new(move |v| {
-                        let _ = tx.send(v);
+                        tx.send(v).ok();
                     }))
                     .await;
             })
@@ -576,12 +579,15 @@ impl Daemon {
                 .await
             {
                 let json = serde_json::to_string(&r).unwrap_or_default();
-                let _ = PilotService::turn_finished(iface.signal_emitter(), &json).await;
-                let _ = iface
+                PilotService::turn_finished(iface.signal_emitter(), &json)
+                    .await
+                    .ok();
+                iface
                     .get()
                     .await
                     .last_response_changed(iface.signal_emitter())
-                    .await;
+                    .await
+                    .ok();
             }
         }
     }
@@ -607,7 +613,9 @@ impl Daemon {
                 .await
             {
                 let json = serde_json::to_string(&item).unwrap_or_default();
-                let _ = PilotService::triage_added(iface.signal_emitter(), &json).await;
+                PilotService::triage_added(iface.signal_emitter(), &json)
+                    .await
+                    .ok();
             }
         }
     }
@@ -629,11 +637,11 @@ impl Daemon {
             });
         }
         tokio::spawn(crate::triage::watch_calendar(
-            self.adapters.clone(),
-            self.triage.clone(),
+            Arc::clone(&self.adapters),
+            Arc::clone(&self.triage),
             tx,
         ));
-        tokio::spawn(self.clone().run_triage(rx, conn));
+        tokio::spawn(Arc::clone(self).run_triage(rx, conn));
     }
 }
 
@@ -653,7 +661,9 @@ pub async fn serve_on(d: &Daemon, conn: &zbus::Connection) -> zbus::Result<()> {
                 .interface::<_, PilotService>(PATH)
                 .await
             {
-                let _ = PilotService::turn_progress(iface.signal_emitter(), &stage).await;
+                PilotService::turn_progress(iface.signal_emitter(), &stage)
+                    .await
+                    .ok();
             }
         }
     });

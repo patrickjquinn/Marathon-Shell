@@ -166,7 +166,7 @@ impl StockApps for JollaApps {
         // Notes reads it when the call arrives (starting first if need be).
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_secs(30)).await;
-            let _ = std::fs::remove_file(&path);
+            std::fs::remove_file(&path).ok();
         });
         result?;
         Ok(())
@@ -237,6 +237,7 @@ impl StockApps for JollaApps {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

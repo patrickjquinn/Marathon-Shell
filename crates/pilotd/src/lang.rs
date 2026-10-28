@@ -156,6 +156,7 @@ pub fn prompt_line(l: &Locale) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

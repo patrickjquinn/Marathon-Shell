@@ -27,6 +27,15 @@
 //! and the live weather. Each run is written to `target/pilot-eval/` and
 //! compared with the previous one.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::let_underscore_must_use,
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "tests"
+)]
+
 mod common;
 
 use std::collections::BTreeMap;
@@ -379,7 +388,7 @@ fn groq_judge() -> bool {
 async fn run_task(task: &Task, keys: &(String, String)) -> Outcome {
     let web = Arc::new(Mutex::new(task.web.clone()));
     let up = Arc::new(Mutex::new(Upstream::default()));
-    let srv = FakeHttp::start(relay(keys.clone(), web, up.clone())).await;
+    let srv = FakeHttp::start(relay(keys.clone(), web, Arc::clone(&up))).await;
     let log = Arc::new(Log::default());
     let d = pilotd::daemon::build(pilotd::daemon::Options {
         config: eval_config(&srv.base),
@@ -659,7 +668,7 @@ async fn eval() {
         outcomes.iter().map(|o| o.tokens).sum::<u64>()
     );
     // Kept, and compared with the last run.
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../target/pilot-eval");
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/pilot-eval");
     let _ = std::fs::create_dir_all(&dir);
     let mut runs: Vec<_> = std::fs::read_dir(&dir)
         .map(|d| d.flatten().map(|e| e.path()).collect())

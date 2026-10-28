@@ -115,7 +115,7 @@ pub fn bind_private(path: &Path) -> io::Result<std::os::unix::net::UnixListener>
     ));
     // A directory left by a crashed process with the same pid. (mkdir below
     // fails if anything still sits there, so nobody else's file is used.)
-    let _ = std::fs::remove_dir_all(&staging);
+    std::fs::remove_dir_all(&staging).ok();
     std::fs::DirBuilder::new().mode(0o700).create(&staging)?;
     let inner = staging.join("socket");
     let bound = (|| {
@@ -129,12 +129,13 @@ pub fn bind_private(path: &Path) -> io::Result<std::os::unix::net::UnixListener>
         std::fs::rename(&inner, path)?;
         Ok(listener)
     })();
-    let _ = std::fs::remove_file(&inner);
-    let _ = std::fs::remove_dir(&staging);
+    std::fs::remove_file(&inner).ok();
+    std::fs::remove_dir(&staging).ok();
     bound
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::let_underscore_must_use, reason = "tests")]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;

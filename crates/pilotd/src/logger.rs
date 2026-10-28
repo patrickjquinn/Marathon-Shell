@@ -14,6 +14,7 @@ impl Log for Stderr {
         metadata.level() <= log::max_level()
     }
 
+    #[allow(clippy::print_stderr, reason = "journald collects stderr")]
     fn log(&self, record: &Record<'_>) {
         if !self.enabled(record.metadata()) {
             return;

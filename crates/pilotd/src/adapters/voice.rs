@@ -164,29 +164,30 @@ impl TtsSocket {
         let path = self.path.clone();
         let speaking = utterance.then(|| {
             self.speaking.fetch_add(1, Ordering::SeqCst);
-            self.speaking.clone()
+            Arc::clone(&self.speaking)
         });
-        let _ = std::thread::Builder::new()
+        std::thread::Builder::new()
             .name("pilot-tts-client".into())
             .spawn(move || {
                 match std::os::unix::net::UnixStream::connect(&path) {
                     Ok(mut s) => {
-                        let _ = s.set_write_timeout(Some(Duration::from_secs(2)));
+                        s.set_write_timeout(Some(Duration::from_secs(2))).ok();
                         if let Err(e) = writeln!(s, "{line}") {
                             log::debug!("pilot-tts: {e}");
                         }
                         // Wait for the reply so the speaker is not cut off
                         // by the connection closing.
-                        let _ = s.set_read_timeout(Some(Duration::from_secs(60)));
+                        s.set_read_timeout(Some(Duration::from_secs(60))).ok();
                         let mut buf = [0u8; 256];
-                        let _ = std::io::Read::read(&mut s, &mut buf);
+                        std::io::Read::read(&mut s, &mut buf).ok();
                     }
                     Err(e) => log::debug!("pilot-tts not reachable: {e}"),
                 }
                 if let Some(speaking) = speaking {
                     speaking.fetch_sub(1, Ordering::SeqCst);
                 }
-            });
+            })
+            .ok();
     }
 }
 
@@ -204,6 +205,7 @@ impl Speech for TtsSocket {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use std::io::{BufRead as _, BufReader};

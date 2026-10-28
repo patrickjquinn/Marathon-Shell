@@ -94,7 +94,7 @@ pub fn parse_plan(plan: &Value) -> Result<Vec<PlanStep>, PlanError> {
             let arguments = s
                 .get("arguments")
                 .cloned()
-                .unwrap_or(Value::Object(Map::new()));
+                .unwrap_or_else(|| Value::Object(Map::new()));
             if !arguments.is_object() {
                 return Err(PlanError {
                     step: Some(i),
@@ -184,7 +184,7 @@ fn references(value: &Value, pointer: &mut String, f: &mut dyn FnMut(&str, u64, 
         Value::Array(items) => {
             for (i, v) in items.iter().enumerate() {
                 let len = pointer.len();
-                let _ = write!(pointer, "/{i}");
+                write!(pointer, "/{i}").ok();
                 references(v, pointer, f);
                 pointer.truncate(len);
             }
@@ -218,7 +218,7 @@ fn substitute(
             let mut out = Vec::new();
             for (i, v) in items.iter().enumerate() {
                 let len = pointer.len();
-                let _ = write!(pointer, "/{i}");
+                write!(pointer, "/{i}").ok();
                 out.push(substitute(v, pointer, with)?);
                 pointer.truncate(len);
             }
@@ -359,6 +359,7 @@ pub fn resolve_arguments(arguments: &Value, outputs: &[Value]) -> Result<Value, 
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use crate::decl::{Action, App, Entity, Param};

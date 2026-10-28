@@ -90,7 +90,7 @@ impl Remote {
         }
     }
 
-    async fn token(&self) -> Result<Option<String>, RemoteError> {
+    fn token(&self) -> Result<Option<String>, RemoteError> {
         match &self.credential {
             Credential::None | Credential::Direct(_) => Ok(None),
             Credential::TokenFile(path) => {
@@ -121,7 +121,7 @@ impl Remote {
                 provider: provider.to_owned(),
                 message,
             })?;
-        Ok(Some((d.clone(), out)))
+        Ok(Some((Arc::clone(d), out)))
     }
 
     /// POSTs `body` as JSON and returns the JSON reply. Logged whatever the
@@ -156,7 +156,7 @@ impl Remote {
                 result,
             });
         };
-        let token = match self.token().await {
+        let token = match self.token() {
             Ok(t) => t,
             Err(e) => {
                 log(e.result_label(), 0);
@@ -320,7 +320,9 @@ impl Remote {
 
 /// Builds the shared HTTP client (rustls with ring, as Shoal Push).
 pub fn http_client() -> Result<reqwest::Client, reqwest::Error> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .ok();
     reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
         .user_agent(concat!("shoal-pilotd/", env!("CARGO_PKG_VERSION")))

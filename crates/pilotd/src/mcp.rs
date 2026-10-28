@@ -183,12 +183,13 @@ impl McpClient {
             {
                 // Tell the server to stop working on it (it may still answer;
                 // that reply is skipped as an unknown id).
-                let _ = Self::send(
+                Self::send(
                     writer,
                     &json!({"jsonrpc": "2.0", "method": "notifications/cancelled",
                             "params": {"requestId": id, "reason": "timed out"}}),
                 )
-                .await;
+                .await
+                .ok();
                 Err(McpError::Timeout)
             }
         }
@@ -362,7 +363,7 @@ pub fn spec(tool: &Value) -> Option<ToolSpec> {
     let input = match Validator::new(
         tool.get("inputSchema")
             .cloned()
-            .unwrap_or(json!({"type": "object"})),
+            .unwrap_or_else(|| json!({"type": "object"})),
     ) {
         Ok(v) => v,
         Err(e) => {
@@ -580,7 +581,7 @@ pub fn output_of(r: &Value) -> Result<ToolOutput, ToolError> {
         } else {
             text
         },
-        data: structured.cloned().unwrap_or(json!({})),
+        data: structured.cloned().unwrap_or_else(|| json!({})),
         private: false,
         untrusted: false,
     })
@@ -602,7 +603,7 @@ pub fn register(registry: &mut Registry, tools: &[Value], exec: &Arc<McpTools>) 
             continue;
         }
         if let Some(s) = spec(t) {
-            registry.add(s, true, exec.clone());
+            registry.add(s, true, Arc::<McpTools>::clone(exec));
             n += 1;
         }
     }
@@ -610,6 +611,7 @@ pub fn register(registry: &mut Registry, tools: &[Value], exec: &Arc<McpTools>) 
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::let_underscore_must_use, reason = "tests")]
 mod tests {
     use super::*;
 

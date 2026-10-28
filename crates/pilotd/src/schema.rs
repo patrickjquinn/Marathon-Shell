@@ -435,6 +435,7 @@ fn escape_pointer(k: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, reason = "tests")]
 mod tests {
     use super::*;
     use serde_json::json;

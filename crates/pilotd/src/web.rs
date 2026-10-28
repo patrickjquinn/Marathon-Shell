@@ -34,6 +34,7 @@ pub struct WebSearch {
 /// # Panics
 ///
 /// Never: the schema is static and valid.
+#[allow(clippy::expect_used, reason = "compiled-in schemas")]
 pub fn spec() -> ToolSpec {
     ToolSpec {
         name: TOOL.into(),
@@ -76,6 +77,7 @@ pub fn register(registry: &mut Registry, remote: Remote, url: &str) {
 /// # Panics
 ///
 /// Never: the pattern is static and valid.
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 pub fn clean_query(query: &str) -> String {
     static RE: OnceLock<Regex> = OnceLock::new();
     let re = RE.get_or_init(|| Regex::new(r"<[A-Z]+_\d+>").expect("static regex"));

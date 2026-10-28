@@ -489,7 +489,7 @@ impl CalendarPoller {
         adapters: &Adapters,
         triage: &Triage,
         tx: &tokio::sync::mpsc::Sender<Incoming>,
-    ) -> Result<CalendarPoll, ()> {
+    ) -> Result<CalendarPoll, tokio::sync::mpsc::error::SendError<Incoming>> {
         if !triage.active() {
             self.watch = CalendarWatch::default();
             self.stamp = None;
@@ -510,7 +510,7 @@ impl CalendarPoller {
         };
         self.stamp = stamp;
         for c in self.watch.changes(&events, window, short_when) {
-            tx.send(c).await.map_err(|_| ())?;
+            tx.send(c).await?;
         }
         Ok(CalendarPoll::Read)
     }

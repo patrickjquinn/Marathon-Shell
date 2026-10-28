@@ -118,6 +118,7 @@ impl Mkcal {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 pub(crate) mod tests {
     use super::*;
 

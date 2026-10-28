@@ -17,6 +17,13 @@
 //! (validation, confirmation, run), a stateless 2026-07-28 request without
 //! `initialize`, and an unknown method.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::let_underscore_must_use,
+    reason = "tests"
+)]
+
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -29,8 +36,8 @@ use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 fn manifest() -> Value {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../codegen/tests/golden/qml-notes/actions.json");
+    let path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/qml-notes/actions.json");
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
@@ -561,7 +568,7 @@ async fn a_paired_computer_cannot_speak_for_the_person() {
     }
     let notes = Arc::new(Notes::default());
     // Even on a connection that would otherwise be trusted.
-    let server = KeelMcp::new(notes.clone(), true).trusting_client(true);
+    let server = KeelMcp::new(Arc::<Notes>::clone(&notes), true).trusting_client(true);
     server.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
     let claims: serde_json::Map<String, Value> = serde_json::from_value(json!({
         "org.shipwright.keel/userInitiated": true,
@@ -612,7 +619,7 @@ async fn only_pilot_speaks_for_the_person() {
     // Any other process that starts keel-mcp or connects to its socket
     // (the binary decides this per client, keel_mcp::peer).
     let notes = Arc::new(Notes::default());
-    let other = KeelMcp::new(notes.clone(), false).trusting_client(false);
+    let other = KeelMcp::new(Arc::<Notes>::clone(&notes), false).trusting_client(false);
     other.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
     other
         .call_tool_json("org.example.notes__notes.create", create.clone(), &claims)
@@ -640,7 +647,7 @@ async fn only_pilot_speaks_for_the_person() {
     assert!(text_of(&refused).contains("only Pilot"), "{refused}");
     assert_eq!(notes.initiated.lock().unwrap().len(), 1, "nothing ran");
     // A paired computer, trusted process or not, cannot either.
-    let external = KeelMcp::new(notes.clone(), true).trusting_client(true);
+    let external = KeelMcp::new(Arc::<Notes>::clone(&notes), true).trusting_client(true);
     external.set_catalogue(Catalogue::build(vec![manifest()], Vec::new()));
     let refused = external
         .call_tool_json("org.example.notes__notes.delete", delete.clone(), &claims)

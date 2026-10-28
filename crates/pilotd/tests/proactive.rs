@@ -5,6 +5,8 @@
 //! fake Jev and LLM servers; the notification monitor on a private bus
 //! with a stand-in notification server.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "tests")]
+
 mod common;
 
 use std::sync::Arc;
@@ -12,10 +14,10 @@ use std::time::Duration;
 
 use common::{chat_text, chat_tool, jev_reply, FakeHttp, Log, Reply};
 use futures_util::StreamExt as _;
+use marathon_rt::testing::PrivateBus;
 use pilotd::pipeline::Card;
 use pilotd::triage::{Incoming, Skipped};
 use serde_json::{json, Value};
-use marathon_rt::testing::PrivateBus;
 
 fn triage_reply(interrupt: f64, bucket: &str, urgency: f64) -> Reply {
     Reply::ok(json!({"answers": {
@@ -182,7 +184,7 @@ async fn notifications_on_the_bus_reach_the_events_list() {
         .object_server()
         .at(
             "/org/freedesktop/Notifications",
-            Notifications(shown.clone()),
+            Notifications(Arc::clone(&shown)),
         )
         .await
         .unwrap();

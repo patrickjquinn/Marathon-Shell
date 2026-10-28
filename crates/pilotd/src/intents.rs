@@ -158,6 +158,7 @@ pub enum Missing {
     Unsupported,
 }
 
+#[allow(clippy::expect_used, reason = "compiled-in patterns")]
 fn re(cell: &'static OnceLock<Regex>, pattern: &str) -> &'static Regex {
     cell.get_or_init(|| Regex::new(pattern).expect("static regex"))
 }
@@ -1197,6 +1198,7 @@ pub fn best_memory<'a>(query: &str, facts: &'a [(i64, String)]) -> Option<&'a (i
 }
 
 #[cfg(test)]
+#[allow(clippy::panic, reason = "tests")]
 mod tests {
     use super::*;
 

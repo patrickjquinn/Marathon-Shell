@@ -62,6 +62,7 @@ pub fn remove(dir: &Path) -> std::io::Result<u64> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

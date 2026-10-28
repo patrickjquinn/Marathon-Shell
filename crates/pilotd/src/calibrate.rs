@@ -136,6 +136,7 @@ pub fn report(log: &[Decision], t: &Thresholds) -> Report {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

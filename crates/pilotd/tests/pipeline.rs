@@ -6,6 +6,13 @@
 //! region fail-closed, tool validation with one retry, confirmation cards,
 //! the privacy switch, the Lighthouse scorer and the egress log.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests"
+)]
+
 mod common;
 
 use std::sync::Arc;
@@ -526,7 +533,7 @@ async fn engaging_the_switch_abandons_a_request_in_flight() {
     .await;
     let log = Arc::new(Log::default());
     let d = Arc::new(daemon(&srv.base, &log, None));
-    let d2 = d.clone();
+    let d2 = Arc::clone(&d);
     let turn = tokio::spawn(async move {
         d2.pipeline
             .ask("what's the capital of Finland", false)

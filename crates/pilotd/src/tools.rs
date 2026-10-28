@@ -248,7 +248,7 @@ pub fn model_schema(schema: &Value) -> Value {
                     let desc = out
                         .get("description")
                         .and_then(Value::as_str)
-                        .map_or(said.clone(), |d| format!("{d} {said}"));
+                        .map_or_else(|| said.clone(), |d| format!("{d} {said}"));
                     out.insert("description".into(), Value::String(desc));
                 }
                 Value::Object(out)
@@ -364,6 +364,7 @@ impl Registry {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use serde_json::json;

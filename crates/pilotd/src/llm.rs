@@ -246,7 +246,7 @@ impl OpenAiClient {
         };
         let region = v
             .to_str()
-            .map_err(|_| RemoteError::Region("unreadable region header".into()))?
+            .map_err(|e| RemoteError::Region(format!("unreadable region header: {e}")))?
             .trim()
             .to_ascii_lowercase();
         if self
@@ -354,6 +354,7 @@ impl LlmClient for OpenAiClient {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

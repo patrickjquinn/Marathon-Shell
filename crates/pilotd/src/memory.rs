@@ -36,6 +36,7 @@ pub struct MemoryTool {
 /// # Panics
 ///
 /// Never: the schema is static and valid.
+#[allow(clippy::expect_used, reason = "compiled-in schemas")]
 pub fn spec() -> ToolSpec {
     ToolSpec {
         name: TOOL.into(),
@@ -68,6 +69,7 @@ pub fn spec() -> ToolSpec {
 /// # Panics
 ///
 /// Never: the schema is static and valid.
+#[allow(clippy::expect_used, reason = "compiled-in schemas")]
 pub fn search_spec() -> ToolSpec {
     ToolSpec {
         name: SEARCH.into(),
@@ -95,7 +97,7 @@ pub fn register(registry: &mut Registry, store: Arc<Store>) {
         spec(),
         true,
         Arc::new(MemoryTool {
-            store: store.clone(),
+            store: Arc::clone(&store),
         }),
     );
     registry.add(search_spec(), true, Arc::new(MemoryTool { store }));
@@ -138,7 +140,7 @@ impl ToolExecutor for MemoryTool {
             .filter(|f| !f.is_empty())
             .ok_or_else(|| ToolError::Invalid("fact is empty".into()))?;
         if let Some(old) = args.get("replaces").and_then(Value::as_i64) {
-            let _ = self.store.forget(old);
+            self.store.forget(old).ok();
         }
         let id = self
             .store

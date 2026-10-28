@@ -37,7 +37,7 @@ pub fn drop_at_start() -> bool {
     // preconditions.
     let (real, effective) = unsafe { (libc::getgid(), libc::getegid()) };
     if real == effective {
-        let _ = PRIVILEGED.set(None);
+        PRIVILEGED.set(None).ok();
         return false;
     }
     // SAFETY: as above.
@@ -47,10 +47,10 @@ pub fn drop_at_start() -> bool {
             "could not drop the privileged group: {}",
             std::io::Error::last_os_error()
         );
-        let _ = PRIVILEGED.set(None);
+        PRIVILEGED.set(None).ok();
         return false;
     }
-    let _ = PRIVILEGED.set(Some(effective));
+    PRIVILEGED.set(Some(effective)).ok();
     true
 }
 
@@ -131,6 +131,7 @@ fn passwd_home() -> Option<PathBuf> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 

@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [package]
-name = "shoal-pilotd"
-description = "Pilot assistant daemon for Sailfish OS: redaction, Jev routing, deterministic handlers, Qwen tool loop, egress log"
+name = "pilotd"
+description = "Pilot, the assistant's daemon: redaction, Jev routing, deterministic handlers, Qwen tool loop, egress log"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
@@ -24,7 +23,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat", "unicode-perl"] }
-# As shoal-push-distributor: HTTP/1.1, no system proxy, ring as the provider
+# HTTP/1.1, no system proxy, ring as the provider
 # (cross-compiles for aarch64 without cmake or clang).
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
@@ -35,13 +34,13 @@ thiserror = "2"
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 tokio = { version = "1", features = ["rt", "macros", "time", "sync", "net", "io-util", "signal", "process"] }
 toml = { version = "1", default-features = false, features = ["std", "serde", "parse"] }
-# async-io, not zbus/tokio: see shoal/push/distributor/Cargo.toml (feature
-# unification across the workspace).
+# async-io, as the rest of the workspace: zbus/tokio would unify into every
+# crate.
 zbus = { version = "5", default-features = false, features = ["async-io"] }
 
 [dev-dependencies]
 # The real keel-mcp server, in process over a pipe, for the MCP tests.
-keel-mcp = { path = "../../../keel/actions/mcp" }
+keel-mcp = { path = "../keel-mcp" }
 marathon-rt = { path = "../marathon-rt", features = ["testing"] }
 rmcp = { version = "3.5", default-features = false, features = ["server", "transport-io"] }
 tempfile = "3"

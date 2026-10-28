@@ -5,6 +5,8 @@
 //! switch followed through a stand-in `org.sailfishos.privacyswitch`
 //! service on the same bus.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "tests")]
+
 mod common;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,9 +15,9 @@ use std::time::Duration;
 
 use common::{chat_text, jev_reply, FakeHttp, Log, Reply};
 use futures_util::StreamExt as _;
+use marathon_rt::testing::PrivateBus;
 use pilotd::privacy::{SailfishSwitch, SWITCH_BUS_NAME, SWITCH_PATH};
 use serde_json::Value;
-use marathon_rt::testing::PrivateBus;
 use zbus::object_server::SignalEmitter;
 
 /// Stand-in for the Sailfish OS privacy switch service.
@@ -75,14 +77,14 @@ async fn service_round_trip_and_privacy_switch() {
     let switch_conn = bus.connect().await.unwrap();
     switch_conn
         .object_server()
-        .at(SWITCH_PATH, Switch(state.clone()))
+        .at(SWITCH_PATH, Switch(Arc::clone(&state)))
         .await
         .unwrap();
     switch_conn.request_name(SWITCH_BUS_NAME).await.unwrap();
     let sw = Arc::new(SailfishSwitch {
         conn: server.clone(),
     });
-    tokio::spawn(d.clone().follow_switch(sw, Some(server.clone())));
+    tokio::spawn(Arc::clone(&d).follow_switch(sw, Some(server.clone())));
 
     let client = bus.connect().await.unwrap();
     let p = pilot(&client).await;
