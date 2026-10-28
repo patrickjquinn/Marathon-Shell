@@ -2317,7 +2317,17 @@ Item {
         }
     }
 
+    // The network coming up as the shell starts is not news.
+    Timer {
+        id: networkSettle
+
+        interval: 10000
+        running: true
+    }
+
     Connections {
+        enabled: !networkSettle.running
+
         function onWifiConnectedChanged() {
             if (Network.wifiConnected)
                 connectionToast.show(qsTr("Connected to %1").arg(Network.wifiSsid), "wifi");
