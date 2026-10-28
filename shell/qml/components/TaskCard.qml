@@ -572,6 +572,14 @@ Item {
                                     opacity: 0
                                 }
 
+                                // Android leaves a letterboxed window's bars undrawn: black, as there.
+                                Rectangle {
+                                    anchors.fill: parent
+                                    visible: surfaceTree.drawsInSubsurfaces
+                                    color: "black"
+                                    radius: glass.radius
+                                }
+
                                 WindowTextureItem {
                                     id: liveTexture
 
