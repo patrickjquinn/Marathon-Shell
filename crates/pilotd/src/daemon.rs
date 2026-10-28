@@ -348,9 +348,16 @@ fn proactive(
 }
 
 /// The standard backend is the model on this machine, which stamps no
-/// processing region of its own.
+/// processing region of its own. With `[direct]` on too and a Groq key in
+/// its key file, tools are still picked on the phone and the model is
+/// Groq's (the configured cloud model).
 pub fn local_mode(cfg: &mut Config) -> Result<crate::direct::Direct, StartError> {
     let l = cfg.local.clone();
+    let d = cfg.direct.clone();
+    let groq = match d.key_path().filter(|p| d.enabled && p.exists()) {
+        Some(path) => Some(crate::direct::read_key(&path, "PILOT_RELAY_GROQ_KEY")?),
+        None => None,
+    };
     let standard = cfg
         .backends
         .get_mut("standard")
@@ -358,26 +365,46 @@ pub fn local_mode(cfg: &mut Config) -> Result<crate::direct::Direct, StartError>
     standard.jev = JevConfig::Local {
         url: l.embed_url.clone(),
     };
-    standard.llm.url.clone_from(&l.llm_url);
-    standard.llm.model.clone_from(&l.model);
-    standard.llm.provider = "local".into();
-    standard.llm.allowed_regions = vec!["device".into()];
+    let llm = if let Some(key) = groq {
+        standard.llm.url.clone_from(&d.llm_url);
+        standard.llm.provider = "groq".into();
+        standard.llm.allowed_regions = vec![d.llm_region.clone()];
+        log::info!(
+            "local mode with Groq: tools picked on the phone, {} answers",
+            standard.llm.model
+        );
+        crate::direct::Upstream {
+            url: d.llm_url,
+            key,
+            region: Some(d.llm_region),
+        }
+    } else {
+        standard.llm.url.clone_from(&l.llm_url);
+        standard.llm.model.clone_from(&l.model);
+        standard.llm.provider = "local".into();
+        standard.llm.allowed_regions = vec!["device".into()];
+        log::info!("local mode: the model at {}", l.llm_url);
+        crate::direct::Upstream {
+            url: l.llm_url,
+            key: String::new(),
+            region: Some("device".into()),
+        }
+    };
     cfg.web_search_url.clone_from(&l.web_search_url);
     cfg.timeout_secs = cfg.timeout_secs.max(l.timeout_secs);
-    log::info!("local mode: the model at {}", l.llm_url);
     Ok(crate::direct::Direct {
         jev: crate::direct::Upstream {
             url: String::new(),
             key: String::new(),
             region: None,
         },
-        llm: crate::direct::Upstream {
-            url: l.llm_url,
-            key: String::new(),
-            region: Some("device".into()),
+        max_completion_tokens: if llm.key.is_empty() {
+            l.max_completion_tokens
+        } else {
+            d.max_completion_tokens
         },
+        llm,
         region_header: standard.llm.region_header.to_ascii_lowercase(),
-        max_completion_tokens: l.max_completion_tokens,
     })
 }
 

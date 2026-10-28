@@ -118,23 +118,32 @@ impl Direct {
 /// (`NAME=value` lines, `#` comments, optional quotes and `export`). The
 /// file must be readable by its owner only.
 pub fn read_keys(path: &Path) -> Result<(String, String), KeyFileError> {
+    Ok((
+        read_key(path, "PILOT_RELAY_GROQ_KEY")?,
+        read_key(path, "PILOT_RELAY_JEV_KEY")?,
+    ))
+}
+
+/// One key from the owner's key file, which only its owner may read.
+///
+/// # Errors
+///
+/// The file is unreadable, readable by others, or has no such key.
+pub fn read_key(path: &Path, want: &'static str) -> Result<String, KeyFileError> {
     let name = path.display().to_string();
     let meta = std::fs::metadata(path).map_err(|e| KeyFileError::Read(name.clone(), e))?;
     if meta.permissions().mode() & 0o077 != 0 {
         return Err(KeyFileError::Exposed(name));
     }
     let text = std::fs::read_to_string(path).map_err(|e| KeyFileError::Read(name.clone(), e))?;
-    let get = |want: &'static str| {
-        text.lines()
-            .map(str::trim)
-            .filter(|l| !l.starts_with('#'))
-            .filter_map(|l| l.strip_prefix("export ").unwrap_or(l).split_once('='))
-            .filter(|(k, _)| k.trim() == want)
-            .map(|(_, v)| v.trim().trim_matches(|c| c == '"' || c == '\'').to_owned())
-            .rfind(|v| !v.is_empty())
-            .ok_or_else(|| KeyFileError::Missing(name.clone(), want))
-    };
-    Ok((get("PILOT_RELAY_GROQ_KEY")?, get("PILOT_RELAY_JEV_KEY")?))
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.starts_with('#'))
+        .filter_map(|l| l.strip_prefix("export ").unwrap_or(l).split_once('='))
+        .filter(|(k, _)| k.trim() == want)
+        .map(|(_, v)| v.trim().trim_matches(|c| c == '"' || c == '\'').to_owned())
+        .rfind(|v| !v.is_empty())
+        .ok_or(KeyFileError::Missing(name, want))
 }
 
 /// Jev's `state` as the relay forwards it: the redacted request and the
