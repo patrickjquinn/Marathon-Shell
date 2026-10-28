@@ -57,7 +57,7 @@ fi
 PACIFIC_SRC="$SHIPWRIGHT" PACIFIC_REF="$commit" bash "$lib/build-pacific-apk.sh"
 PILOT_SRC="$SHIPWRIGHT" PILOT_REF="$commit" bash "$lib/build-pilot-apk.sh"
 KEEL_MCP_SRC="$SHIPWRIGHT" KEEL_MCP_REF="$commit" bash "$lib/build-keel-mcp-apk.sh"
-APORT=marathon-shipwright-apps bash "$lib/build-aport-apk.sh"
+APORT=marathon-shipwright-apps NO_DEPS=1 bash "$lib/build-aport-apk.sh"
 
 # Publish and lock.
 apks=()

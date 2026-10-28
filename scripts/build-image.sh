@@ -188,7 +188,7 @@ PILOT_SRC="${PILOT_SRC-$SHIPWRIGHT_SRC}" PILOT_REF="${PILOT_REF-$SHIPWRIGHT_REF}
 build_if_missing "shoal-pilot"               'shoal-pilot-[0-9]*.apk'         "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilot/APKBUILD"
 KEEL_MCP_SRC="${KEEL_MCP_SRC-$SHIPWRIGHT_SRC}" KEEL_MCP_REF="${KEEL_MCP_REF-$SHIPWRIGHT_REF}" \
 build_if_missing "keel-mcp"                  'keel-mcp-*.apk'                 "$LIB/build-keel-mcp-apk.sh"                  "$APORTS_DIR/keel-mcp/APKBUILD"
-APORT=marathon-shipwright-apps \
+APORT=marathon-shipwright-apps NO_DEPS=1 \
 build_if_missing "marathon-shipwright-apps"  'marathon-shipwright-apps-*.apk' "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-shipwright-apps/APKBUILD"
 else
 bash "$SCRIPT_DIR/vendor/fetch-shipwright-apks.sh" "$MKOSI_PKG_DIR"

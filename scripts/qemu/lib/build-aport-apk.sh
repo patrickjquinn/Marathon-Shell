@@ -5,6 +5,7 @@
 # postmarketOS ships, so its signed repo is added next to Alpine's.
 #
 # Usage: build-aport-apk.sh <pkgname>, or APORT=<pkgname> in the env.
+# NO_DEPS=1 skips installing depends=, for meta-packages.
 set -euo pipefail
 
 PKG="${1:-${APORT:?usage: $0 <pkgname> (or APORT=<pkgname>)}}"
@@ -32,6 +33,7 @@ fi
 podman run --rm -i \
     "${WORK_MOUNT_ARGS[@]}" \
     -e PKG="$PKG" \
+    -e DEPS_FLAG="$([ "${NO_DEPS:-0}" = 1 ] && echo -d || echo -r)" \
     -e WPE_BUILD_JOBS="${WPE_BUILD_JOBS:-}" \
     -v "$APORTS_SRC:/aports-src:z,ro" \
     -v "$PMOS_KEY:/etc/apk/keys/build.postmarketos.org.rsa.pub:z,ro" \
@@ -51,7 +53,7 @@ mkdir -p /work/aports
 rsync -a --checksum --no-times "/aports-src/$PKG/" "/work/aports/$PKG/"
 cd "/work/aports/$PKG"
 abuild -F checksum >/dev/null
-abuild -r -F
+abuild "$DEPS_FLAG" -F
 
 cp /root/packages/aports/*/"$PKG"-*.apk /out/
 CSCRIPT
