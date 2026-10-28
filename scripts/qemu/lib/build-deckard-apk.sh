@@ -15,7 +15,7 @@ mkdir -p "$MKOSI_PKG_DIR"
 
 echo "+-- building deckard --+"
 
-WORK_DIR="$(mktemp -d "${HOME}/.cache/marathon-build/deckard-build.XXXXXX")"
+WORK_DIR="$(mktemp -d "${DECKARD_BUILD_DIR:-${HOME}/.cache/marathon-build}/deckard-build.XXXXXX")"
 trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
 LOCAL_COMMIT=""
