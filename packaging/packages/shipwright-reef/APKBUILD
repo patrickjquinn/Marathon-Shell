@@ -1,0 +1,53 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# Reef, Marathon's app store (apps/reef): a Keel app (CXX-Qt) run under
+# marathon-keel-host. It browses Reef's catalogue; installing comes later.
+# scripts/qemu/lib/build-pilot-apk.sh stages this repository's tree as the
+# source tarball, so the URL below is fetched only by a standalone abuild,
+# and it follows a branch.
+pkgname=shipwright-reef
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="Reef app store for Marathon"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64 x86_64"
+license="Apache-2.0 AND CC-BY-4.0"
+depends="
+	keel-silica
+	qt6-qtdeclarative
+	"
+makedepends="
+	cargo
+	clang
+	keel-silica-dev
+	qt6-qtbase-dev
+	qt6-qtbase-private-dev
+	qt6-qtdeclarative-dev
+	qt6-qtdeclarative-private-dev
+	"
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
+builddir="$srcdir/Marathon-Shell-main"
+options="!check net"
+
+build() {
+	export QMAKE=/usr/lib/qt6/bin/qmake
+	export KEEL_SAILFISHAPP_INCLUDEDIR=/usr/include/keel/sailfishapp
+	export KEEL_SAILFISHAPP_LIBDIR=/usr/lib
+	cargo build --release --locked --manifest-path apps/reef/Cargo.toml
+}
+
+package() {
+	local a=apps/reef
+	install -Dm755 $a/target/release/libshipwright_reef.so "$pkgdir"/usr/bin/shipwright-reef
+	install -d "$pkgdir"/usr/share/shipwright-reef/qml
+	cp -R $a/ui/. "$pkgdir"/usr/share/shipwright-reef/qml/
+	install -Dm644 $a/shipwright-reef.desktop "$pkgdir"/usr/share/applications/shipwright-reef.desktop
+	local s
+	for s in 86 108 128 172; do
+		install -Dm644 $a/icons/${s}x$s/shipwright-reef.png \
+			"$pkgdir"/usr/share/icons/hicolor/${s}x$s/apps/shipwright-reef.png
+	done
+}
+
+sha512sums="
+SKIP  shipwright-reef-0.1.0.tar.gz
+"

@@ -10,14 +10,15 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=12
+pkgrel=13
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="Apache-2.0"
 
 # Pacific is closed; marathon-shipwright-apps brings it in when the image
-# has it (packaging/vendor/shipwright.lock). Pilot is part of the UI.
+# has it (packaging/vendor/shipwright.lock). Pilot and Reef, the store,
+# are part of the UI.
 # Everything the shell needs to function as the system UI. Compositor +
 # session manager + low-level services that the shell consumes via D-Bus.
 depends="
@@ -25,6 +26,7 @@ depends="
 	marathon-base-config
 	shoal-pilot
 	keel-mcp
+	shipwright-reef
 	greetd
 	networkmanager
 	modemmanager
