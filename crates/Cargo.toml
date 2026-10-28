@@ -52,6 +52,13 @@ overflow-checks = true
 strip = "symbols"
 debug = false
 
+# pilotd and keel-mcp, which have no C++ and keep running when one request
+# panics: tokio hands the panic to whoever awaits the task (pilotd answers
+# "turn aborted"). Their aports build with --profile release-unwind.
+[profile.release-unwind]
+inherits = "release"
+panic = "unwind"
+
 # The device loop: release without its link-time work. Dependencies stay
 # optimised and cached; only changed crates rebuild, in parallel.
 [profile.dev-fast]

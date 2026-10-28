@@ -1,68 +1,50 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
-# pilotd, the session service of Shipwright's Pilot assistant
-# (shoal/pilot/pilotd), for Marathon. Built from a Shipwright commit like
-# pacific; scripts/qemu/lib/build-pilot-apk.sh stages a local checkout.
+# pilotd, the session service of Pilot, Marathon's assistant (crates/pilotd).
+# scripts/qemu/lib/build-pilot-apk.sh stages this repository's tree as the
+# source tarball, so the URL below is fetched only by a standalone abuild,
+# and it follows a branch.
 #
-# 0001 uses Marathon's shell services (clock, calendar, contacts, phone,
-# radios) when org.marathonos.Shell is on the bus; the shell admits pilotd
-# by its unit and executable (shoal-pilotd.service.json, installed to
+# With org.marathonos.Shell on the bus pilotd uses the shell's services
+# (clock, calendar, contacts, phone, radios); the shell admits it by its unit
+# and executable (shoal-pilotd.service.json, installed to
 # /usr/share/marathon-shell/services) with the permissions listed there.
-# 0002 adds direct mode (the owner's Groq and Jev keys instead of the relay).
-# 0003 asks the shell (Navigation1.AppIdForPid) which app a
-# marathon-app-runner is, for Pilot's on-screen context; for any other
-# process, Navigation1.GetForegroundApp, taken when it is an Android app
-# (deckard.<package>, Deckard's Keel provider for it).
-# 0004 adds local mode, which pilotd.toml (/etc/shoal-pilot) turns on: the
-# model is llama-server on the phone (marathon-llm), tools picked by an
-# embedding model, web search on the phone (marathon-websearch); no relay,
-# no Reef licence, no keys.
-#
-# The pinned commit is no longer in the public export: build it with
-# PILOT_SRC=<Shipwright checkout> PILOT_REF=<this commit>
-# scripts/qemu/lib/build-pilot-apk.sh. Speech (pilot-voice, pilot-tts) is
-# not built.
+# pilotd.toml (/etc/shoal-pilot) turns on local mode: the model is
+# llama-server on the phone (marathon-llm), tools picked by an embedding
+# model, web search on the phone (marathon-websearch). Speech (pilot-voice,
+# pilot-tts) is not built.
 pkgname=shoal-pilotd
 pkgver=0.1.0
-pkgrel=12
-_commit=7a6c40a883d1cccdb74f258a0862b08da635c14c
+pkgrel=13
 pkgdesc="Pilot assistant daemon for Marathon"
-url="https://github.com/patrickjquinn/shipwright-open"
+url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
-license="LicenseRef-Shipwright-Proprietary"
+license="Apache-2.0"
 depends="dbus systemd"
 makedepends="cargo clang"
-source="shoal-pilot-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
-	0001-pilotd-marathon-adapters.patch
-	0002-pilotd-direct-mode.patch
-	0003-pilotd-marathon-onscreen.patch
-	0004-pilotd-local-mode.patch
-	pilotd.toml
-	marathon-open
-	shoal-pilotd.service.json
-	"
-builddir="$srcdir/shipwright-open-$_commit"
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
+builddir="$srcdir/Marathon-Shell-main"
 # The tests need a session bus (dbus-daemon); they run on the build host.
 options="!check net"
 
 build() {
-	export CARGO_TARGET_DIR="$builddir/target"
-	cargo build --release --locked -p shoal-pilotd
+	cargo build --manifest-path crates/Cargo.toml --profile release-unwind --locked -p pilotd
 }
 
 package() {
-	local p=shoal/pilot/pilotd
-	install -Dm755 target/release/pilotd "$pkgdir"/usr/bin/pilotd
-	install -Dm644 $p/shoal-pilotd.service "$pkgdir"/usr/lib/systemd/user/shoal-pilotd.service
-	install -Dm644 $p/dbus/org.shipwright.Pilot.service \
+	local d=crates/pilotd/data
+	install -Dm755 crates/target/release-unwind/pilotd "$pkgdir"/usr/bin/pilotd
+	install -Dm644 $d/shoal-pilotd.service "$pkgdir"/usr/lib/systemd/user/shoal-pilotd.service
+	install -Dm644 $d/org.shipwright.Pilot.service \
 		"$pkgdir"/usr/share/dbus-1/services/org.shipwright.Pilot.service
-	install -Dm644 "$srcdir"/pilotd.toml "$pkgdir"/etc/shoal-pilot/pilotd.toml
-	install -Dm755 "$srcdir"/marathon-open "$pkgdir"/usr/libexec/shoal-pilot/marathon-open
-	install -Dm644 "$srcdir"/shoal-pilotd.service.json \
+	install -Dm644 $d/pilotd.toml "$pkgdir"/etc/shoal-pilot/pilotd.toml
+	install -Dm755 $d/marathon-open "$pkgdir"/usr/libexec/shoal-pilot/marathon-open
+	install -Dm644 $d/shoal-pilotd.service.json \
 		"$pkgdir"/usr/share/marathon-shell/services/shoal-pilotd.service.json
-	install -Dm644 $p/pilotd.example.toml "$pkgdir"/usr/share/doc/shoal-pilot/pilotd.example.toml
-	install -Dm644 shoal/pilot/README.md "$pkgdir"/usr/share/doc/shoal-pilot/README.md
+	install -Dm644 crates/pilotd/pilotd.example.toml \
+		"$pkgdir"/usr/share/doc/shoal-pilot/pilotd.example.toml
+	install -Dm644 apps/pilot/README.md "$pkgdir"/usr/share/doc/shoal-pilot/README.md
 }
 
 sha512sums="
-SKIP  shoal-pilot-$_commit.tar.gz
+SKIP  shoal-pilotd-0.1.0.tar.gz
 "

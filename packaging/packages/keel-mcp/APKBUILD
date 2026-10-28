@@ -1,43 +1,39 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
-# keel-mcp (Shipwright keel/actions/mcp): the MCP server for the Keel Actions
-# of the apps on the device. pilotd starts /usr/bin/keel-mcp --stdio when it
-# is installed; keel-mcp.service, started with the graphical session, serves
-# other clients on $XDG_RUNTIME_DIR/keel-mcp.sock. Built from a Shipwright
-# commit like shoal-pilotd;
-# scripts/qemu/lib/build-keel-mcp-apk.sh stages a local checkout.
+# keel-mcp (crates/keel-mcp): the MCP server for the Keel Actions of the apps
+# on the device. pilotd starts /usr/bin/keel-mcp --stdio when it is
+# installed; keel-mcp.service serves other clients on
+# $XDG_RUNTIME_DIR/keel-mcp.sock.
+# scripts/qemu/lib/build-pilot-apk.sh stages this repository's tree as the
+# source tarball, so the URL below is fetched only by a standalone abuild,
+# and it follows a branch.
 pkgname=keel-mcp
 pkgver=0.1.0
-pkgrel=4
-_commit=7a6c40a883d1cccdb74f258a0862b08da635c14c
+pkgrel=5
 pkgdesc="MCP server for the Keel Actions of Marathon apps"
-url="https://github.com/patrickjquinn/shipwright-open"
+url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
 license="MIT"
 depends="dbus"
 makedepends="cargo"
-source="keel-mcp-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
-	keel-mcp.service
-	"
-builddir="$srcdir/shipwright-open-$_commit"
-# The tests need a session bus and the Keel Actions test app; they run in
-# Shipwright's CI.
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
+builddir="$srcdir/Marathon-Shell-main"
+# The tests run with the workspace's (crates/), on the build host.
 options="!check net"
 
 build() {
-	export CARGO_TARGET_DIR="$builddir/target"
-	cargo build --release --locked -p keel-mcp
+	cargo build --manifest-path crates/Cargo.toml --profile release-unwind --locked -p keel-mcp
 }
 
 package() {
-	install -Dm755 target/release/keel-mcp "$pkgdir"/usr/bin/keel-mcp
+	install -Dm755 crates/target/release-unwind/keel-mcp "$pkgdir"/usr/bin/keel-mcp
 	install -d "$pkgdir"/usr/share/keel/actions
-	install -Dm644 "$srcdir"/keel-mcp.service "$pkgdir"/usr/lib/systemd/user/keel-mcp.service
 	# Not started with the session: Pilot runs its own keel-mcp, and the socket
 	# is for a developer's MCP client (systemctl --user enable keel-mcp).
-	install -Dm644 LICENSES/MIT.txt "$pkgdir"/usr/share/licenses/$pkgname/MIT.txt
+	install -Dm644 crates/keel-mcp/data/keel-mcp.service \
+		"$pkgdir"/usr/lib/systemd/user/keel-mcp.service
+	install -Dm644 crates/keel-mcp/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
 
 sha512sums="
-SKIP  keel-mcp-$_commit.tar.gz
-26718145cb02363285694de4222d77f23fd4e19564b4e901339461cf18a3b34b448623b6f6f886c2c13bb7feae124a10bb3aebd2cb975ff6c5e931665bfefaff  keel-mcp.service
+SKIP  keel-mcp-0.1.0.tar.gz
 "

@@ -1,19 +1,18 @@
 # Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
-# The Pilot app (shoal/pilot/app and ui), Shipwright's assistant, for
-# Marathon: a Keel app (CXX-Qt) run under marathon-keel-host, talking to
-# pilotd (shoal-pilotd). Built from a Shipwright commit like pacific;
-# scripts/qemu/lib/build-pilot-apk.sh stages a local checkout.
-# 0001 makes the overlay (ui/Overlay.qml) under Marathon's Keel host,
-# titled keel:dialog:pilot so the compositor shows it over the app on
-# screen.
+# The Pilot app (apps/pilot): a Keel app (CXX-Qt) run under
+# marathon-keel-host, talking to pilotd (shoal-pilotd). Started by the
+# shell, it makes its overlay (ui/Overlay.qml) titled keel:dialog:pilot, which
+# the compositor shows over the app on screen.
+# scripts/qemu/lib/build-pilot-apk.sh stages this repository's tree as the
+# source tarball, so the URL below is fetched only by a standalone abuild,
+# and it follows a branch.
 pkgname=shoal-pilot
 pkgver=0.1.0
-pkgrel=3
-_commit=7a6c40a883d1cccdb74f258a0862b08da635c14c
+pkgrel=4
 pkgdesc="Pilot assistant for Marathon"
-url="https://github.com/patrickjquinn/shipwright-open"
+url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
-license="LicenseRef-Shipwright-Proprietary"
+license="Apache-2.0"
 depends="
 	keel-silica
 	qt6-qtdeclarative
@@ -29,33 +28,30 @@ makedepends="
 	qt6-qtdeclarative-dev
 	qt6-qtdeclarative-private-dev
 	"
-source="shoal-pilot-$_commit.tar.gz::https://github.com/patrickjquinn/shipwright-open/archive/$_commit.tar.gz
-	0001-shoal-pilot-overlay-under-marathon-keel-host.patch
-	shoal-pilot.desktop
-	"
-builddir="$srcdir/shipwright-open-$_commit"
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
+builddir="$srcdir/Marathon-Shell-main"
 options="!check net"
 
 build() {
-	export CARGO_TARGET_DIR="$builddir/target"
 	export QMAKE=/usr/lib/qt6/bin/qmake
 	export KEEL_SAILFISHAPP_INCLUDEDIR=/usr/include/keel/sailfishapp
 	export KEEL_SAILFISHAPP_LIBDIR=/usr/lib
-	cargo build --release --locked --manifest-path shoal/pilot/app/Cargo.toml
+	cargo build --release --locked --manifest-path apps/pilot/Cargo.toml
 }
 
 package() {
-	install -Dm755 target/release/libshoal_pilot.so "$pkgdir"/usr/bin/shoal-pilot
+	local a=apps/pilot
+	install -Dm755 $a/target/release/libshoal_pilot.so "$pkgdir"/usr/bin/shoal-pilot
 	install -d "$pkgdir"/usr/share/shoal-pilot/qml
-	cp -R shoal/pilot/ui/. "$pkgdir"/usr/share/shoal-pilot/qml/
-	install -Dm644 "$srcdir"/shoal-pilot.desktop "$pkgdir"/usr/share/applications/shoal-pilot.desktop
+	cp -R $a/ui/. "$pkgdir"/usr/share/shoal-pilot/qml/
+	install -Dm644 $a/shoal-pilot.desktop "$pkgdir"/usr/share/applications/shoal-pilot.desktop
 	local s
 	for s in 86 108 128 172; do
-		install -Dm644 icons/hicolor/${s}x$s/apps/shoal-pilot.png \
+		install -Dm644 $a/icons/${s}x$s/shoal-pilot.png \
 			"$pkgdir"/usr/share/icons/hicolor/${s}x$s/apps/shoal-pilot.png
 	done
 }
 
 sha512sums="
-SKIP  shoal-pilot-$_commit.tar.gz
+SKIP  shoal-pilot-0.1.0.tar.gz
 "
