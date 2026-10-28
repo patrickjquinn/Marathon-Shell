@@ -584,7 +584,7 @@ async fn jev_down_still_sets_a_timer() {
     assert_eq!(text_of(&r.cards[0]), "Timer set for 1 minute 30 seconds.");
     assert_eq!(d.store.egress(0).unwrap()[0].result, "http-503");
     let r = d.pipeline.ask("tell me a joke", false).await;
-    assert!(text_of(&r.cards[0]).contains("can't reach its cloud service"));
+    assert!(text_of(&r.cards[0]).contains("couldn't get an answer from its model"));
 }
 
 #[tokio::test]

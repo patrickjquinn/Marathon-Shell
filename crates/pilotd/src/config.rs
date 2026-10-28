@@ -182,6 +182,9 @@ impl Default for McpConfig {
 }
 
 /// `[events]`: Pilot's entry in the Events view (`events.rs`).
+/// Starts an app through Marathon's shell, behind the app on screen.
+const MARATHON_OPEN: &str = "/usr/libexec/shoal-pilot/marathon-open";
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct EventsConfig {
@@ -190,9 +193,8 @@ pub struct EventsConfig {
     /// same summary there; this is the fallback if a release drops
     /// Lipstick's widget registry.
     pub notification: bool,
-    /// Run when the entry is tapped, to bring up the app's events page.
-    /// `invoker --single-instance` raises a running app instead (which
-    /// then follows `EventsRequested`). Empty: nothing is started.
+    /// Run when the entry is tapped, to bring up the app's events page; a
+    /// running app follows `EventsRequested`. Empty: nothing is started.
     pub open_command: Vec<String>,
 }
 
@@ -200,14 +202,9 @@ impl Default for EventsConfig {
     fn default() -> Self {
         EventsConfig {
             notification: false,
-            open_command: [
-                "/usr/bin/invoker",
-                "--type=keel",
-                "--single-instance",
-                "/usr/bin/shoal-pilot",
-            ]
-            .map(String::from)
-            .to_vec(),
+            open_command: [MARATHON_OPEN, "/usr/bin/shoal-pilot"]
+                .map(String::from)
+                .to_vec(),
         }
     }
 }
@@ -218,23 +215,17 @@ impl Default for EventsConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct SheetConfig {
     /// Brings up the app; empty: nothing is started (a running app still
-    /// follows `SheetRequested`). No arguments: Sailjail refuses a command
-    /// line its desktop entry does not template, so the app learns why it
-    /// started from `TakeLaunchRequest`.
+    /// follows `SheetRequested`). The app learns why it started from
+    /// `TakeLaunchRequest`.
     pub open_command: Vec<String>,
 }
 
 impl Default for SheetConfig {
     fn default() -> Self {
         SheetConfig {
-            open_command: [
-                "/usr/bin/invoker",
-                "--type=keel",
-                "--single-instance",
-                "/usr/bin/shoal-pilot",
-            ]
-            .map(String::from)
-            .to_vec(),
+            open_command: [MARATHON_OPEN, "/usr/bin/shoal-pilot"]
+                .map(String::from)
+                .to_vec(),
         }
     }
 }
