@@ -6,6 +6,9 @@
 //! a `display_length` admitting 360 px together with a touch `<control>`, in
 //! `requires`, `recommends` or `supports`. Anything else, including an app
 //! that says nothing, is left out.
+//!
+//! The fitting apps' details go to Reef as `flathub.json`, in the language
+//! the catalogue is written in.
 
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
@@ -14,6 +17,7 @@ use std::time::UNIX_EPOCH;
 
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
+use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::state::{now, StateDir};
@@ -26,13 +30,37 @@ const PHONE_MAX: u32 = 768;
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "one flag per AppStream hint")]
 struct Component {
-    id: String,
     app: bool,
     required_too_big: bool,
     fits: bool,
     touch: bool,
     mobile: bool,
+    details: App,
 }
+
+/// A Flathub app that fits a phone, as Reef lists it.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
+pub struct App {
+    pub id: String,
+    pub name: String,
+    pub summary: String,
+    /// Paragraphs separated by blank lines, list items as "• " lines.
+    pub description: String,
+    pub categories: Vec<String>,
+    pub developer: String,
+    pub license: String,
+    pub homepage: String,
+    /// The cached icon's file name in the catalogue's `icons/128x128`.
+    pub icon: String,
+    /// Source images, at most [`MAX_SCREENSHOTS`].
+    pub screenshots: Vec<String>,
+    /// The newest release's version and Unix time (0: unknown).
+    pub version: String,
+    pub released: u64,
+}
+
+const MAX_SCREENSHOTS: usize = 5;
+const MAX_DESCRIPTION: usize = 4000;
 
 impl Component {
     fn phone_ready(&self) -> bool {
@@ -75,15 +103,29 @@ fn attribute(e: &BytesStart, name: &str) -> String {
 }
 
 /// The ids of the apps in an `AppStream` catalogue that fit a phone, sorted.
-pub fn phone_apps(source: impl BufRead) -> io::Result<Vec<String>> {
+#[cfg(test)]
+fn phone_apps(source: impl BufRead) -> io::Result<Vec<String>> {
+    Ok(fitting(source)?.into_iter().map(|a| a.id).collect())
+}
+
+/// The apps in an `AppStream` catalogue that fit a phone, by id.
+#[allow(clippy::too_many_lines, reason = "one pass over the catalogue's events")]
+pub fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
+    // Untrimmed: "&amp;" splits text, and trimming each piece lost the
+    // spaces around it. Every value is trimmed where it is read.
     let mut reader = Reader::from_reader(source);
-    reader.config_mut().trim_text(true);
     let mut buf = Vec::new();
     let mut path: Vec<String> = Vec::new();
     let mut component = Component::default();
     let mut text = String::new();
     let mut length = (String::new(), String::new());
     let mut custom_key = String::new();
+    // Whether each open element is a translation (xml:lang other than the
+    // catalogue's own language): their text is left out.
+    let mut translated: Vec<bool> = Vec::new();
+    let mut image_type = String::new();
+    let mut url_type = String::new();
+    let mut icon = (String::new(), String::new());
     let mut out = Vec::new();
     loop {
         let event = reader.read_event_into(&mut buf).map_err(io::Error::other)?;
@@ -106,22 +148,62 @@ pub fn phone_apps(source: impl BufRead) -> io::Result<Vec<String>> {
                 if name == "value" {
                     custom_key = attribute(&e, "key");
                 }
+                match &*name {
+                    "image" => image_type = attribute(&e, "type"),
+                    "url" => url_type = attribute(&e, "type"),
+                    "icon" => icon = (attribute(&e, "type"), attribute(&e, "width")),
+                    "release" if component.details.version.is_empty() => {
+                        component.details.version = attribute(&e, "version");
+                        component.details.released =
+                            attribute(&e, "timestamp").parse().unwrap_or(0);
+                    }
+                    _ => {}
+                }
+                let lang = attribute(&e, "xml:lang");
+                translated.push(
+                    translated.last().copied().unwrap_or(false)
+                        || !(lang.is_empty() || lang == "en" || lang == "C"),
+                );
                 text.clear();
                 path.push(name);
             }
+            Event::Empty(e) if e.name().as_ref() == "release" => {
+                if path.len() >= 2 && component.details.version.is_empty() {
+                    component.details.version = attribute(&e, "version");
+                    component.details.released = attribute(&e, "timestamp").parse().unwrap_or(0);
+                }
+            }
             Event::Text(t) => text.push_str(&t),
+            // "&amp;" and the like come apart from the text around them.
+            Event::GeneralRef(r) => match r.resolve_char_ref() {
+                Ok(Some(c)) => text.push(c),
+                _ => text
+                    .push_str(quick_xml::escape::resolve_predefined_entity(&r).unwrap_or_default()),
+            },
             Event::End(_) => {
                 let name = path.pop().unwrap_or_default();
+                let foreign = translated.pop().unwrap_or(false);
                 let parent = path.last().map(String::as_str).unwrap_or_default();
                 let in_component = path.len() >= 2 && path[1] == "component";
                 if !in_component && name == "component" && path.len() == 1 {
-                    if component.phone_ready() && !component.id.is_empty() {
-                        out.push(std::mem::take(&mut component.id));
+                    if component.phone_ready() && !component.details.id.is_empty() {
+                        out.push(std::mem::take(&mut component.details));
                     }
-                } else if in_component && path.len() == 2 && name == "id" {
+                } else if in_component && !foreign {
+                    details(
+                        &mut component.details,
+                        &path,
+                        &name,
+                        text.trim(),
+                        &url_type,
+                        &image_type,
+                        &icon,
+                    );
+                }
+                if in_component && path.len() == 2 && name == "id" {
                     text.trim()
                         .trim_end_matches(".desktop")
-                        .clone_into(&mut component.id);
+                        .clone_into(&mut component.details.id);
                 } else if in_component && path.len() == 3 {
                     let relation = matches!(parent, "requires" | "recommends" | "supports");
                     if relation && name == "display_length" {
@@ -149,9 +231,65 @@ pub fn phone_apps(source: impl BufRead) -> io::Result<Vec<String>> {
         }
         buf.clear();
     }
-    out.sort();
-    out.dedup();
+    out.sort_by(|a, b| a.id.cmp(&b.id));
+    out.dedup_by(|a, b| a.id == b.id);
     Ok(out)
+}
+
+/// One element's text into the app's details; `path` holds its open
+/// ancestors (`components`, `component`, ...).
+fn details(
+    app: &mut App,
+    path: &[String],
+    name: &str,
+    text: &str,
+    url_type: &str,
+    image_type: &str,
+    icon: &(String, String),
+) {
+    if text.is_empty() {
+        return;
+    }
+    let parent = path.last().map_or("", String::as_str);
+    let in_description = path.get(2).is_some_and(|p| p == "description");
+    match (path.len(), name) {
+        (2, "name") if app.name.is_empty() => text.clone_into(&mut app.name),
+        (2, "summary") if app.summary.is_empty() => text.clone_into(&mut app.summary),
+        (2, "developer_name") if app.developer.is_empty() => text.clone_into(&mut app.developer),
+        (3, "name") if parent == "developer" && app.developer.is_empty() => {
+            text.clone_into(&mut app.developer);
+        }
+        (2, "project_license") => text.clone_into(&mut app.license),
+        (2, "url") if url_type == "homepage" => text.clone_into(&mut app.homepage),
+        (2, "icon") if icon.0 == "cached" && (icon.1 == "128" || app.icon.is_empty()) => {
+            text.clone_into(&mut app.icon);
+        }
+        (3, "category") if parent == "categories" => app.categories.push(text.to_owned()),
+        (4, "image") if image_type == "source" && app.screenshots.len() < MAX_SCREENSHOTS => {
+            app.screenshots.push(text.to_owned());
+        }
+        (3, "p") if in_description => paragraph(&mut app.description, text),
+        (4, "li") if in_description => paragraph(&mut app.description, &format!("• {text}")),
+        _ => {}
+    }
+}
+
+fn paragraph(description: &mut String, text: &str) {
+    if description.len() + text.len() > MAX_DESCRIPTION {
+        return;
+    }
+    if !description.is_empty() {
+        let after_item = description
+            .rsplit('\n')
+            .next()
+            .is_some_and(|line| line.starts_with('•'));
+        description.push_str(if after_item && text.starts_with('•') {
+            "\n"
+        } else {
+            "\n\n"
+        });
+    }
+    description.push_str(text);
 }
 
 /// Flathub's catalogue in the user installation, as `flatpak update
@@ -176,12 +314,12 @@ fn modified(path: &Path) -> u64 {
 }
 
 /// The phone apps of a catalogue file, gzip or plain.
-pub fn read_catalogue(path: &Path) -> io::Result<Vec<String>> {
+pub fn read_catalogue(path: &Path) -> io::Result<Vec<App>> {
     let file = BufReader::new(File::open(path)?);
     if path.extension().is_some_and(|e| e == "gz") {
-        phone_apps(BufReader::new(flate2::bufread::GzDecoder::new(file)))
+        fitting(BufReader::new(flate2::bufread::GzDecoder::new(file)))
     } else {
-        phone_apps(file)
+        fitting(file)
     }
 }
 
@@ -193,19 +331,27 @@ pub fn publish(state: &StateDir) -> io::Result<()> {
         return Ok(());
     };
     let cache = crate::fdroid::cache_dir().join("phone-apps.json");
+    let rows = crate::fdroid::cache_dir().join("flathub.json");
     let stamp = modified(&source);
     let cached: Option<Value> = fs::read(&cache)
         .ok()
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-        .filter(|v: &Value| v["source"].as_u64() == Some(stamp));
+        .filter(|v: &Value| v["source"].as_u64() == Some(stamp) && rows.is_file());
     let record = if let Some(record) = cached {
         record
     } else {
-        let record = json!({ "source": stamp, "apps": read_catalogue(&source)?, "ts": now() });
+        let apps = read_catalogue(&source)?;
+        let ids: Vec<&str> = apps.iter().map(|a| a.id.as_str()).collect();
+        let record = json!({ "source": stamp, "apps": ids, "ts": now() });
+        // Reef's Flathub rows, icons from the catalogue's own cache.
+        let icons = source.with_file_name("icons").join("128x128");
+        let listing = json!({ "source": stamp, "icons": icons, "apps": apps });
+        crate::fdroid::write_atomic(&rows, listing.to_string().as_bytes())?;
         crate::fdroid::write_atomic(&cache, record.to_string().as_bytes())?;
         record
     };
-    state.write_json("phone-apps.json", &record)
+    state.write_json("phone-apps.json", &record)?;
+    fs::copy(&rows, state.dir().join("flathub.json")).map(drop)
 }
 
 /// Fetches Flathub's catalogue when there is none or it is a week old,
@@ -303,6 +449,52 @@ mod tests {
         let apps = read_catalogue(&path).unwrap();
         eprintln!("{} phone apps in {:?}", apps.len(), start.elapsed());
         assert!(apps.len() > 100);
+    }
+
+    #[test]
+    fn keeps_the_details_reef_shows() {
+        let xml = r#"<components>
+          <component type="desktop-application">
+            <id>org.example.Notes.desktop</id>
+            <name>Notes</name>
+            <name xml:lang="de">Notizen</name>
+            <summary>Write things down</summary>
+            <description>
+              <p>Plain &amp; quick.</p>
+              <p xml:lang="de">Schlicht.</p>
+              <ul><li>Markdown</li><li>Sync</li></ul>
+            </description>
+            <developer><name>Example</name></developer>
+            <project_license>GPL-3.0-or-later</project_license>
+            <url type="bugtracker">https://example.org/bugs</url>
+            <url type="homepage">https://example.org</url>
+            <icon type="cached" width="64">org.example.Notes64.png</icon>
+            <icon type="cached" width="128">org.example.Notes.png</icon>
+            <categories><category>Office</category></categories>
+            <screenshots><screenshot><image type="thumbnail">https://t.png</image>
+              <image type="source">https://s.png</image></screenshot></screenshots>
+            <releases><release version="2.1" timestamp="1700000000"/><release version="2.0" timestamp="1"/></releases>
+            <custom><value key="Purism::form_factor">mobile</value></custom>
+          </component>
+        </components>"#;
+        let apps = fitting(xml.as_bytes()).unwrap();
+        assert_eq!(
+            apps,
+            [App {
+                id: "org.example.Notes".into(),
+                name: "Notes".into(),
+                summary: "Write things down".into(),
+                description: "Plain & quick.\n\n• Markdown\n• Sync".into(),
+                categories: vec!["Office".into()],
+                developer: "Example".into(),
+                license: "GPL-3.0-or-later".into(),
+                homepage: "https://example.org".into(),
+                icon: "org.example.Notes.png".into(),
+                screenshots: vec!["https://s.png".into()],
+                version: "2.1".into(),
+                released: 1_700_000_000,
+            }]
+        );
     }
 
     #[test]
