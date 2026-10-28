@@ -110,7 +110,7 @@ async fn a_key_file_others_can_read_is_refused() {
 }
 
 #[test]
-fn without_the_key_file_the_relay_is_used() {
+fn without_the_key_file_direct_mode_is_off() {
     let dir = tempfile::tempdir().unwrap();
     let mut cfg = config("http://127.0.0.1:9", &dir.path().join("keys.env"));
     let before = cfg.clone();

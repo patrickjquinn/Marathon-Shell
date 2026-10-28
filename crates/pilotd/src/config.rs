@@ -4,7 +4,7 @@
 //! `pilotd.toml`. Every remote endpoint, the model ids and the routing
 //! thresholds are configuration, not code (spec section 6.1: preview
 //! models get replaced). A missing file means the built-in defaults: the
-//! Pilot relay for the standard backend, no Lighthouse.
+//! model on the phone (`[local]`), no Lighthouse.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -14,92 +14,6 @@ use serde::Deserialize;
 use crate::jev::LabelToken;
 use crate::llm::EffortValues;
 use crate::route::Thresholds;
-
-/// The production Pilot relay (services/pilot-relay, deployed by
-/// services/cloudflare-production.sh).
-pub const PRODUCTION_RELAY: &str = "https://pilot.reefstore.app";
-
-/// The relay a missing config uses: `$PILOT_RELAY_URL` at build time when
-/// set and not empty (a staging phone build points it at the staging
-/// relay), else [`PRODUCTION_RELAY`]. Cargo rebuilds the crate when the
-/// variable changes.
-pub const DEFAULT_RELAY: &str = match option_env!("PILOT_RELAY_URL") {
-    Some(v) if !v.is_empty() => v,
-    _ => PRODUCTION_RELAY,
-};
-
-// A build-time override that is not a plain https origin fails the build.
-const _: () = assert!(
-    is_valid_relay(DEFAULT_RELAY),
-    "PILOT_RELAY_URL must be an https:// URL with a host and no path, spaces, query or fragment"
-);
-
-/// Whether `value` can be the built-in relay: `https://`, then a host of
-/// `[A-Za-z0-9.-]` with an optional `:port`, nothing after it (the routes
-/// `/v1/...` are appended).
-pub const fn is_valid_relay(value: &str) -> bool {
-    const SCHEME: &[u8] = b"https://";
-    let b = value.as_bytes();
-    if b.len() <= SCHEME.len() {
-        return false;
-    }
-    let mut i = 0;
-    while i < SCHEME.len() {
-        if b[i] != SCHEME[i] {
-            return false;
-        }
-        i += 1;
-    }
-    let mut port = false;
-    while i < b.len() {
-        let c = b[i];
-        let ok = if port {
-            c.is_ascii_digit()
-        } else {
-            c.is_ascii_alphanumeric() || c == b'.' || c == b'-' || c == b':'
-        };
-        if !ok {
-            return false;
-        }
-        if c == b':' {
-            port = true;
-        }
-        i += 1;
-    }
-    let first = b[SCHEME.len()];
-    first != b'.' && first != b'-' && first != b':'
-}
-
-/// Whether a relay URL names a staging or placeholder host, which a
-/// release build refuses (`--cfg release_build`).
-pub const fn is_non_production_relay(value: &str) -> bool {
-    contains(value, "staging") || contains(value, ".example") || contains(value, ".workers.dev")
-}
-
-const fn contains(haystack: &str, needle: &str) -> bool {
-    let (h, n) = (haystack.as_bytes(), needle.as_bytes());
-    if n.len() > h.len() {
-        return false;
-    }
-    let mut i = 0;
-    while i + n.len() <= h.len() {
-        let mut j = 0;
-        while j < n.len() && h[i + j] == n[j] {
-            j += 1;
-        }
-        if j == n.len() {
-            return true;
-        }
-        i += 1;
-    }
-    false
-}
-
-#[cfg(release_build)]
-const _: () = assert!(
-    !is_non_production_relay(DEFAULT_RELAY),
-    "release build with a staging or placeholder Pilot relay: unset PILOT_RELAY_URL"
-);
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
@@ -325,15 +239,15 @@ impl Default for SheetConfig {
     }
 }
 
-/// `[direct]`: the owner's Groq and Jev keys on the phone instead of the
-/// relay (direct.rs). Used only when `enabled` and the key file exists.
+/// `[direct]`: the owner's Groq and Jev keys on the phone (direct.rs). Used
+/// only when `enabled`, the key file exists and `[local]` is not enabled.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct DirectConfig {
     pub enabled: bool,
     /// Default `$XDG_CONFIG_HOME/shoal-pilot/keys.env`.
     pub key_file: Option<PathBuf>,
-    /// The relay's upstreams (services/cloudflare-production.sh).
+    /// Jev's and Groq's own endpoints.
     pub jev_url: String,
     pub llm_url: String,
     /// Where `llm_url` processes requests: Groq's public endpoint, `us`.
@@ -363,8 +277,8 @@ impl DirectConfig {
 }
 
 /// `[local]`: the model runs on the phone (llama.cpp's llama-server): no
-/// relay, no licence, no keys. Wins over
-/// `[direct]`.
+/// keys, nothing leaves the phone. Used unless `[direct]` is on with its key
+/// file; `enabled` makes it win over `[direct]` too.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LocalConfig {
@@ -375,7 +289,7 @@ pub struct LocalConfig {
     pub max_completion_tokens: u64,
     /// A phone's CPU answers slower than a hosted model.
     pub timeout_secs: u64,
-    /// The `web.search` tool, the relay's contract, on this machine.
+    /// The `web.search` tool (`POST /v1/search`, marathon-websearch).
     /// Empty: not offered.
     pub web_search_url: String,
     /// OpenAI-compatible embeddings on this machine, which pick the tools.
@@ -399,10 +313,8 @@ impl Default for LocalConfig {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
-    /// The relay's device token. Default `$XDG_DATA_HOME/shoal-pilot/device-token`.
-    pub token_file: Option<PathBuf>,
-    /// The relay's `POST /v1/search` for the `web.search` tool. Empty: the
-    /// tool is not offered.
+    /// `POST /v1/search` for the `web.search` tool: local mode's, else empty,
+    /// and then the tool is not offered.
     pub web_search_url: String,
     /// Per-request timeout.
     pub timeout_secs: u64,
@@ -426,13 +338,14 @@ impl Default for Config {
         backends.insert(
             "standard".to_owned(),
             Backend {
+                // Local or direct mode fills in the endpoints (daemon.rs).
                 jev: JevConfig::Jev {
-                    url: format!("{DEFAULT_RELAY}/v1/jev"),
+                    url: String::new(),
                     model: default_jev_model(),
                     provider: default_jev_provider(),
                 },
                 llm: LlmConfig {
-                    url: format!("{DEFAULT_RELAY}/v1/llm/chat/completions"),
+                    url: String::new(),
                     model: default_llm_model(),
                     provider: default_llm_provider(),
                     region_header: default_region_header(),
@@ -443,8 +356,7 @@ impl Default for Config {
             },
         );
         Config {
-            token_file: None,
-            web_search_url: format!("{DEFAULT_RELAY}/v1/search"),
+            web_search_url: String::new(),
             timeout_secs: 20,
             max_tool_rounds: 5,
             thresholds: Thresholds::default(),
@@ -556,7 +468,7 @@ impl Config {
             ("local.web_search_url", &self.local.web_search_url),
             ("local.embed_url", &self.local.embed_url),
         ] {
-            if self.local.enabled && !x.is_empty() && !is_local(x) {
+            if !x.is_empty() && !is_local(x) {
                 return Err(ConfigError::Invalid(format!(
                     "{name} {x} is not on this machine"
                 )));
@@ -607,18 +519,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_point_at_the_relay() {
+    fn defaults_leave_the_endpoints_to_the_mode() {
         let c = Config::parse("").unwrap();
         let s = &c.backends["standard"];
         assert_eq!(s.llm.model, "qwen/qwen3.8-27b");
         assert_eq!(s.llm.allowed_regions, ["eu", "us"]);
         assert_eq!(s.llm.provider, "groq");
-        assert_eq!(
-            s.llm.url,
-            format!("{DEFAULT_RELAY}/v1/llm/chat/completions")
-        );
-        assert_eq!(c.web_search_url, format!("{DEFAULT_RELAY}/v1/search"));
-        assert!(matches!(&s.jev, JevConfig::Jev { url, .. } if url.ends_with("/v1/jev")));
+        assert!(s.llm.url.is_empty());
+        assert!(c.web_search_url.is_empty());
+        assert!(matches!(&s.jev, JevConfig::Jev { url, .. } if url.is_empty()));
+        assert!(c.local.llm_url.starts_with("http://127.0.0.1:"));
         assert!((c.thresholds.intent_confidence - 0.85).abs() < f64::EPSILON);
     }
 
@@ -666,10 +576,8 @@ mod tests {
     #[test]
     fn example_file_parses() {
         let c = Config::parse(include_str!("../pilotd.example.toml")).unwrap();
-        let s = &c.backends["standard"];
-        assert_eq!(s.llm.provider, "groq");
-        assert_eq!(s.llm.allowed_regions, ["eu", "us"]);
-        assert!(s.llm.url.starts_with(PRODUCTION_RELAY));
+        assert!(c.local.enabled);
+        assert!(!c.direct.enabled);
     }
 
     #[test]
@@ -680,49 +588,6 @@ mod tests {
         .is_err());
         assert!(Config::parse("bogus = 1").is_err());
         assert!(Config::parse("[backends.other.jev]\nkind=\"jev\"\nurl=\"https://a\"\n[backends.other.llm]\nurl=\"https://b\"\n").is_err());
-    }
-
-    #[test]
-    fn default_relay_follows_the_build() {
-        match option_env!("PILOT_RELAY_URL") {
-            Some(v) if !v.is_empty() => assert_eq!(DEFAULT_RELAY, v),
-            _ => {
-                assert_eq!(DEFAULT_RELAY, "https://pilot.reefstore.app");
-                assert!(!is_non_production_relay(DEFAULT_RELAY));
-            }
-        }
-    }
-
-    #[test]
-    fn relay_urls() {
-        for ok in [
-            "https://pilot.reefstore.app",
-            "https://shipwright-pilot-relay-staging.someone.workers.dev",
-            "https://localhost:8787",
-        ] {
-            assert!(is_valid_relay(ok), "{ok:?}");
-        }
-        for bad in [
-            "",
-            "https://",
-            "http://pilot.reefstore.app",
-            "https://pilot.reefstore.app/",
-            "https://pilot.reefstore.app/v1",
-            "https://pilot.reefstore.app?x=1",
-            "https://pilot reefstore.app",
-            "https://.reefstore.app",
-            "https://pilot.reefstore.app:80a",
-        ] {
-            assert!(!is_valid_relay(bad), "{bad:?}");
-        }
-        assert!(is_non_production_relay(
-            "https://shipwright-pilot-relay-staging.someone.workers.dev"
-        ));
-        assert!(is_non_production_relay("https://pilot.shipwright.example"));
-        assert!(is_non_production_relay(
-            "https://pilot-staging.reefstore.app"
-        ));
-        assert!(!is_non_production_relay("https://pilot.reefstore.app"));
     }
 
     #[test]

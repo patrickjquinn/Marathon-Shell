@@ -3326,8 +3326,7 @@ fn user_error(e: &RemoteError) -> String {
         }
         RemoteError::Status {
             status: 401 | 403, ..
-        }
-        | RemoteError::Token(_) => "Pilot's model service refused its key.".into(),
+        } => "Pilot's model service refused its key.".into(),
         _ => "Pilot can't reach its cloud service. Check your connection and try again.".into(),
     }
 }

@@ -39,15 +39,15 @@ pub enum StartError {
 }
 
 /// `[direct]` with its key file present: the standard backend goes
-/// straight to Groq and Jev with the owner's keys, and the relay-only web
-/// search is not offered. `None`: the relay, as configured.
+/// straight to Groq and Jev with the owner's keys, and web search is not
+/// offered. `None`: not set up.
 pub fn direct_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, StartError> {
     let d = cfg.direct.clone();
     let Some(path) = d.key_path().filter(|_| d.enabled) else {
         return Ok(None);
     };
     if !path.exists() {
-        log::info!("no {}: using the Pilot relay", path.display());
+        log::info!("no {}: the model on the phone instead", path.display());
         return Ok(None);
     }
     let (groq, jev) = crate::direct::read_keys(&path)?;
@@ -322,13 +322,10 @@ fn proactive(
     (triage, events)
 }
 
-/// `[local]`: the standard backend is the model on this machine, with no
-/// relay to exchange a licence or stamp the processing region.
-pub fn local_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, StartError> {
+/// The standard backend is the model on this machine, which stamps no
+/// processing region of its own.
+pub fn local_mode(cfg: &mut Config) -> Result<crate::direct::Direct, StartError> {
     let l = cfg.local.clone();
-    if !l.enabled {
-        return Ok(None);
-    }
     let standard = cfg
         .backends
         .get_mut("standard")
@@ -343,7 +340,7 @@ pub fn local_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, Sta
     cfg.web_search_url.clone_from(&l.web_search_url);
     cfg.timeout_secs = cfg.timeout_secs.max(l.timeout_secs);
     log::info!("local mode: the model at {}", l.llm_url);
-    Ok(Some(crate::direct::Direct {
+    Ok(crate::direct::Direct {
         jev: crate::direct::Upstream {
             url: String::new(),
             key: String::new(),
@@ -356,22 +353,28 @@ pub fn local_mode(cfg: &mut Config) -> Result<Option<crate::direct::Direct>, Sta
         },
         region_header: standard.llm.region_header.to_ascii_lowercase(),
         max_completion_tokens: l.max_completion_tokens,
-    }))
+    })
 }
 
-/// The given credential, else local mode, else direct mode's keys.
-fn direct_credential(
+/// The given credential, else direct mode's keys when `[direct]` is set up
+/// and `[local]` is not on, else the model on this machine.
+fn choose_credential(
     given: Option<Credential>,
     config: &mut Config,
-) -> Result<Option<Credential>, StartError> {
-    if given.is_some() {
-        return Ok(given);
+) -> Result<Credential, StartError> {
+    if let Some(c) = given {
+        return Ok(c);
     }
-    let direct = match local_mode(config)? {
-        Some(local) => Some(local),
-        None => direct_mode(config)?,
+    let direct = if config.local.enabled {
+        None
+    } else {
+        direct_mode(config)?
     };
-    Ok(direct.map(|d| Credential::Direct(Arc::new(d))))
+    let d = match direct {
+        Some(d) => d,
+        None => local_mode(config)?,
+    };
+    Ok(Credential::Direct(Arc::new(d)))
 }
 
 pub fn build(opts: Options) -> Result<Daemon, StartError> {
@@ -393,14 +396,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
     let (ctl, offline) = privacy::offline_state(false);
     let egress: Arc<dyn EgressSink> = Arc::<Store>::clone(&store);
     let http = crate::remote::http_client()?;
-    let credential = direct_credential(credential, &mut config)?.unwrap_or_else(|| {
-        let token_file = config
-            .token_file
-            .clone()
-            .or_else(|| data_dir.as_ref().map(|d| d.join("device-token")))
-            .unwrap_or_else(|| PathBuf::from("/nonexistent/device-token"));
-        Credential::TokenFile(token_file)
-    });
+    let credential = choose_credential(credential, &mut config)?;
     let remote = Remote::new(
         http,
         credential,

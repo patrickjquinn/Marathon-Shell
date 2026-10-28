@@ -658,40 +658,6 @@ async fn cancel_marks_the_previous_turn_corrected() {
 }
 
 #[tokio::test]
-async fn device_token_goes_in_the_authorization_header() {
-    let srv = FakeHttp::start(route_server(
-        jev_reply(&[("media", 0.95)], 0.0, 0.0),
-        |_| panic!(),
-    ))
-    .await;
-    let dir = tempfile::tempdir().unwrap();
-    let token = dir.path().join("device-token");
-    std::fs::write(&token, "dev-token-123\n").unwrap();
-    // A user who made the first-run choice: nothing goes out before it.
-    std::fs::write(dir.path().join("settings.json"), r#"{"onboarded": true}"#).unwrap();
-    let mut cfg = common::config(&srv.base);
-    cfg.token_file = Some(token);
-    let log = Arc::new(Log::default());
-    let d = pilotd::daemon::build(pilotd::daemon::Options {
-        config: cfg,
-        data_dir: Some(dir.path().to_owned()),
-        session: None,
-        system: None,
-        adapters: Some(common::fake_adapters(&log)),
-        credential: None,
-        now: || pilotd::localtime::LocalNow::fixed_utc(1_790_966_550),
-    })
-    .unwrap();
-    let r = d.pipeline.ask("next track", false).await;
-    assert_eq!(text_of(&r.cards[0]), "Next track.");
-    assert_eq!(
-        srv.seen("/v1/jev")[0].auth.as_deref(),
-        Some("Bearer dev-token-123")
-    );
-    assert!(dir.path().join("pilot.db").exists());
-}
-
-#[tokio::test]
 async fn spoken_turns_use_voice_consent_and_are_spoken_back() {
     let srv = FakeHttp::start(route_server(
         jev_reply(&[("open_ended", 0.9)], 0.9, 0.0),

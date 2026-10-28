@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The one way `pilotd` talks to the network: JSON POSTs that are logged in
-//! the egress log, refused while offline, and authenticated with the
-//! device token the Pilot relay issued (spec section 10: API keys live in
-//! the relay, never on the device).
+//! the egress log, refused while offline, and in direct mode authenticated
+//! with the owner's key for that upstream.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -28,8 +26,6 @@ pub enum RemoteError {
     Decode { provider: String, message: String },
     #[error("processing region not confirmed as allowed ({0}); request dropped")]
     Region(String),
-    #[error("no device token: {0}")]
-    Token(String),
 }
 
 impl RemoteError {
@@ -40,7 +36,6 @@ impl RemoteError {
             RemoteError::Transport { .. } => "transport".into(),
             RemoteError::Decode { .. } => "decode".into(),
             RemoteError::Region(_) => "region-blocked".into(),
-            RemoteError::Token(_) => "no-token".into(),
         }
     }
 }
@@ -50,9 +45,6 @@ impl RemoteError {
 pub enum Credential {
     /// No `Authorization` header (a local test server).
     None,
-    /// The relay's device token, read from this file on every request so a
-    /// renewed token takes effect without a restart.
-    TokenFile(PathBuf),
     /// The owner's own keys, each sent only to its upstream (direct.rs).
     Direct(Arc<crate::direct::Direct>),
 }
@@ -87,21 +79,6 @@ impl Remote {
             egress,
             offline,
             timeout,
-        }
-    }
-
-    fn token(&self) -> Result<Option<String>, RemoteError> {
-        match &self.credential {
-            Credential::None | Credential::Direct(_) => Ok(None),
-            Credential::TokenFile(path) => {
-                let t = std::fs::read_to_string(path)
-                    .map_err(|e| RemoteError::Token(format!("{}: {e}", path.display())))?;
-                let t = t.trim();
-                if t.is_empty() {
-                    return Err(RemoteError::Token(format!("{} is empty", path.display())));
-                }
-                Ok(Some(t.to_owned()))
-            }
         }
     }
 
@@ -156,22 +133,12 @@ impl Remote {
                 result,
             });
         };
-        let token = match self.token() {
-            Ok(t) => t,
-            Err(e) => {
-                log(e.result_label(), 0);
-                return Err(e);
-            }
-        };
         let mut req = self
             .client
             .post(url)
             .timeout(self.timeout)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .body(bytes);
-        if let Some(t) = token {
-            req = req.bearer_auth(t);
-        }
         if let Some(k) = direct.as_ref().and_then(|(_, out)| out.key.as_ref()) {
             req = req.bearer_auth(k);
         }
