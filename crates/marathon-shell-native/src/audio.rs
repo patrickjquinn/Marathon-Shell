@@ -99,6 +99,10 @@ pub struct AudioRust {
     streams: QList<QVariant>,
     sink: Sink,
     actor: Option<Sender<Command>>,
+    /// Until then a level change is the new default sink settling (a
+    /// speaker syncing its own volume as it connects), not the person: the
+    /// volume HUD came up at every boot.
+    settling_until: Option<std::time::Instant>,
 }
 
 /// Volume and mute of whichever sink is the default now. A report that
@@ -553,7 +557,9 @@ impl Audio {
     fn apply(mut self: Pin<&mut Self>, report: Report) {
         let mut writes = (None, None);
         if let Some(name) = report.default.filter(|n| *n != self.sink.name) {
-            writes = self.as_mut().rust_mut().sink.set_default(&name);
+            let mut rust = self.as_mut().rust_mut();
+            writes = rust.sink.set_default(&name);
+            rust.settling_until = Some(std::time::Instant::now() + SINK_SETTLES);
         }
         let mut level = false;
         if let Some((volume, muted)) = report.level {
@@ -562,7 +568,10 @@ impl Audio {
             level = rust.sink.report(&name, volume, muted);
         }
         self.as_mut().write(writes.0, writes.1);
-        if level {
+        let settled = self
+            .settling_until
+            .is_none_or(|t| std::time::Instant::now() >= t);
+        if level && settled {
             self.as_mut().level_changed();
         }
         if let Some(streams) = report.streams {
@@ -592,6 +601,7 @@ impl Audio {
     }
 }
 
+const SINK_SETTLES: std::time::Duration = std::time::Duration::from_secs(3);
 const SERVICE: &str = "org.marathonos.Audio";
 const PATH: &str = "/org/marathonos/Audio";
 const INTERFACE: &str = "org.marathonos.Audio1";
