@@ -85,7 +85,7 @@ echo "==> target: $HOST"
 echo "==> push apps/* → /usr/share/marathon-apps"
 for app_dir in "$SRC"/apps/*/; do
     app="$(basename "$app_dir")"
-    [ -d "$app_dir" ] || continue
+    [ -f "$app_dir/manifest.json" ] || continue
     push_tree "$app_dir" "/usr/share/marathon-apps/$app" 2>/dev/null || \
         echo "    (skipped $app)"
 done
