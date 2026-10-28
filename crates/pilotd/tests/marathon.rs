@@ -296,7 +296,7 @@ async fn the_shell_names_a_marathon_apps_process() {
         )
         .await
         .unwrap();
-    shell.request_name(marathon::SESSION).await.unwrap();
+    shell.request_name(marathon::SHELL).await.unwrap();
 
     let found = marathon::app_for_pid(&client, app.id()).await.unwrap();
     assert_eq!(
@@ -359,7 +359,7 @@ async fn the_shell_names_the_android_app_in_front() {
         )
         .await
         .unwrap();
-    shell.request_name(marathon::SESSION).await.unwrap();
+    shell.request_name(marathon::SHELL).await.unwrap();
 
     let found = marathon::android_in_front(&client, data.path())
         .await
