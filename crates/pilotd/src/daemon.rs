@@ -126,6 +126,31 @@ pub struct Daemon {
     /// "events") and when, for an app just started to take.
     pub launch_request: Arc<std::sync::Mutex<Option<(String, std::time::Instant)>>>,
     pub open_sheet: Vec<String>,
+    /// Health URLs of the models on this machine, asked when the app
+    /// opens so their socket-activated servers load before the question.
+    pub warm: Vec<String>,
+    pub http: reqwest::Client,
+}
+
+/// The health URLs of the chat and embedding servers when the standard
+/// backend is the model on this machine.
+fn local_health_urls(config: &Config) -> Vec<String> {
+    let local = config
+        .backends
+        .get("standard")
+        .is_some_and(|b| b.llm.provider == "local");
+    if !local {
+        return Vec::new();
+    }
+    [&config.local.llm_url, &config.local.embed_url]
+        .into_iter()
+        .filter_map(|url| {
+            let mut url = reqwest::Url::parse(url).ok()?;
+            url.set_path("/health");
+            url.set_query(None);
+            Some(url.into())
+        })
+        .collect()
 }
 
 fn sailfish_adapters(
@@ -397,8 +422,9 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
     let egress: Arc<dyn EgressSink> = Arc::<Store>::clone(&store);
     let http = crate::remote::http_client()?;
     let credential = choose_credential(credential, &mut config)?;
+    let warm = local_health_urls(&config);
     let remote = Remote::new(
-        http,
+        http.clone(),
         credential,
         egress,
         offline.clone(),
@@ -459,6 +485,8 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
         factory,
         backend_names: cfg.backends.keys().cloned().collect(),
         adapters,
+        warm,
+        http,
     })
 }
 
@@ -483,6 +511,8 @@ impl Daemon {
             open_sheet: self.open_sheet.clone(),
             runtime: tokio::runtime::Handle::current(),
             card_owners: Arc::default(),
+            warm: self.warm.clone(),
+            http: self.http.clone(),
         }
     }
 

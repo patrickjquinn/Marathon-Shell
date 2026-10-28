@@ -90,6 +90,9 @@ pub struct PilotService {
     /// so without this any process of the person's could watch for a card
     /// and say yes to a text or a call itself.
     pub card_owners: Arc<Mutex<std::collections::HashMap<String, String>>>,
+    /// `Daemon::warm`.
+    pub warm: Vec<String>,
+    pub http: reqwest::Client,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -265,8 +268,16 @@ impl PilotService {
         Ok(json)
     }
 
-    /// The home, read on the phone.
+    /// The home, read on the phone. The app reads it as it opens, which
+    /// also starts the models loading.
     async fn now(&self) -> String {
+        for url in self.warm.clone() {
+            let http = self.http.clone();
+            self.runtime.spawn(async move {
+                let wake = http.get(url).timeout(std::time::Duration::from_secs(2));
+                wake.send().await.ok();
+            });
+        }
         let adapters = Arc::clone(&self.adapters);
         let store = Arc::clone(&self.store);
         let offline = self.offline.is_offline();
