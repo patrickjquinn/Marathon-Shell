@@ -215,26 +215,23 @@ impl OpenAiClient {
             body["presence_penalty"] = json!(1.5);
         }
         if !req.tools.is_empty() {
-            // A required tool is offered alone with "required": llama.cpp
-            // takes only a string tool_choice and ignored the named form.
+            // The tools stay the same across a turn's rounds: chat templates
+            // put them before the conversation, so changing them makes a
+            // local model reread the whole prompt. A required tool makes a
+            // call "required"; llama.cpp ignored the named-function form.
             let required = req
                 .require
                 .as_ref()
-                .filter(|name| req.tools.iter().any(|t| &t.name == *name));
+                .is_some_and(|name| req.tools.iter().any(|t| &t.name == name));
             body["tools"] = req
                 .tools
                 .iter()
-                .filter(|t| required.is_none_or(|name| &t.name == name))
                 .map(|t| {
                     json!({"type": "function", "function": {
                         "name": t.name, "description": t.description, "parameters": t.parameters}})
                 })
                 .collect();
-            body["tool_choice"] = json!(if required.is_some() {
-                "required"
-            } else {
-                "auto"
-            });
+            body["tool_choice"] = json!(if required { "required" } else { "auto" });
         }
         if req.json_mode {
             body["response_format"] = json!({"type": "json_object"});
