@@ -671,4 +671,4 @@ fn write_private(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
 }
 
 // Keel's launcher: launch_args() and keel_application().
-include!("../../../../tools/keel-launcher/launcher.rs");
+include!("../../../tools/keel-launcher/launcher.rs");

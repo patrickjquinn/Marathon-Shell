@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Patrick Quinn
 # SPDX-License-Identifier: Apache-2.0
 
-# shoal-pilot: the Pilot UI executable. Loads the QML in ../ui and exposes
+# shoal-pilot: the Pilot UI executable. Loads the QML in ui/ and exposes
 # the `Pilot` singleton (Shipwright.Pilot 1.0), a CXX-Qt QObject that talks
 # to pilotd (org.shipwright.Pilot1) on the session bus.
 #
-# Standalone Cargo workspace, as shoal/keys/app: the root workspace lists
-# "shoal/pilot/app" in its `exclude`.
+# Its own Cargo workspace, outside crates/: it links Keel's SailfishApp
+# (keel-silica-dev), which the shell's build and CI do not have.
 [workspace]
 
 [package]

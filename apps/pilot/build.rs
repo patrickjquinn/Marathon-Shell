@@ -5,12 +5,12 @@ use cxx_qt_build::{CxxQtBuilder, QmlModule};
 
 // Links Keel's SailfishApp library (libkeel-sailfishapp) for cpp/launcher.cpp;
 // brings `Path` and `PathBuf` into scope.
-include!("../../../tools/keel-launcher/link_sailfishapp.rs");
+include!("../../tools/keel-launcher/link_sailfishapp.rs");
 // Compiles the UI's QML into the app (tools/keel-launcher/precompile_qml.rs).
-include!("../../../tools/keel-launcher/precompile_qml.rs");
+include!("../../tools/keel-launcher/precompile_qml.rs");
 
 fn main() {
-    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let sailfishapp_include = link_keel_sailfishapp(&repo);
     // `Shipwright.Pilot 1.0` holds only the Rust `Pilot` singleton; the
     // .qml files are installed to /usr/share/shoal-pilot/qml and loaded
@@ -34,7 +34,7 @@ fn main() {
     // The UI's QML and JavaScript, compiled ahead of time for where the
     // package installs them.
     precompile_app_qml(
-        &repo.join("shoal/pilot/ui"),
+        &repo.join("apps/pilot/ui"),
         "/usr/share/shoal-pilot/qml",
         &[],
     );
