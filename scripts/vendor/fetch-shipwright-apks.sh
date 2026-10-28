@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Puts the prebuilt Shipwright apps that packaging/vendor/shipwright.lock
-# names into <dir>, each checked against its sha512. All or none: on any
+# Puts the prebuilt Shipwright packages (Pacific) that
+# packaging/vendor/shipwright.lock names into <dir>, each checked against its
+# sha512. All or none: on any
 # failure none are left, and the image builds without them.
 # Usage: fetch-shipwright-apks.sh <mkosi.packages dir>
 set -euo pipefail

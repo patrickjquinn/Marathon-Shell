@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# For whoever holds the Shipwright source: builds Marathon's closed apps from
-# a Shipwright commit, publishes them as a release of this repository, and
-# pins them in packaging/vendor/shipwright.lock so anyone's image build can
-# use them. Also brings Pacific's engine patches (WebKit is LGPL; they are
-# public in packaging/packages/wpewebkit) up to that commit.
+# For whoever holds the Shipwright source: builds Marathon's closed app,
+# Pacific, from a Shipwright commit, publishes it as a release of this
+# repository, and pins it in packaging/vendor/shipwright.lock so anyone's
+# image build can use it. Also brings Pacific's engine patches (WebKit is
+# LGPL; they are public in packaging/packages/wpewebkit) up to that commit.
 #
 # SHIPWRIGHT=<checkout> (default ~/Developer/Shipwright), REF=<commit>
 # (default HEAD), REPO=<owner/name> (default patrickjquinn/Marathon-Shell).
@@ -20,7 +20,7 @@ pkgs="$root/packaging/packages"
 out=${MKOSI_PKG_DIR:-$HOME/.cache/marathon-build/duranium/mkosi.packages}
 
 # Pin, bumping pkgrel when the commit moves.
-for p in pacific shoal-pilot shoal-pilotd keel-mcp; do
+for p in pacific; do
     f="$pkgs/$p/APKBUILD"
     if ! grep -q "^_commit=$commit$" "$f"; then
         rel=$(grep -m1 '^pkgrel=' "$f" | cut -d= -f2)
@@ -51,17 +51,14 @@ lib="$root/scripts/qemu/lib"
 export MARATHON_IMAGE_DIR="$root/packaging" MKOSI_PKG_DIR="$out"
 if [ -n "${BUILD_SCRATCH:-}" ]; then
     mkdir -p "$BUILD_SCRATCH"
-    export PACIFIC_BUILD_DIR="$BUILD_SCRATCH" PILOT_BUILD_DIR="$BUILD_SCRATCH" \
-        KEEL_MCP_BUILD_DIR="$BUILD_SCRATCH" MARATHON_APK_WORK_DIR="$BUILD_SCRATCH/aport"
+    export PACIFIC_BUILD_DIR="$BUILD_SCRATCH" MARATHON_APK_WORK_DIR="$BUILD_SCRATCH/aport"
 fi
 PACIFIC_SRC="$SHIPWRIGHT" PACIFIC_REF="$commit" bash "$lib/build-pacific-apk.sh"
-PILOT_SRC="$SHIPWRIGHT" PILOT_REF="$commit" bash "$lib/build-pilot-apk.sh"
-KEEL_MCP_SRC="$SHIPWRIGHT" KEEL_MCP_REF="$commit" bash "$lib/build-keel-mcp-apk.sh"
 APORT=marathon-shipwright-apps NO_DEPS=1 bash "$lib/build-aport-apk.sh"
 
 # Publish and lock.
 apks=()
-for p in pacific shoal-pilot shoal-pilotd keel-mcp marathon-shipwright-apps; do
+for p in pacific marathon-shipwright-apps; do
     v=$(set +u; . "$pkgs/$p/APKBUILD" >/dev/null 2>&1; echo "$pkgname-$pkgver-r$pkgrel")
     [ -f "$out/$v.apk" ] || { echo "error: $v.apk was not built" >&2; exit 1; }
     apks+=("$out/$v.apk")
@@ -70,7 +67,7 @@ tag="shipwright-$short"
 if [ "${NO_PUBLISH:-0}" != 1 ]; then
     gh release view "$tag" --repo "$REPO" >/dev/null 2>&1 ||
         gh release create "$tag" --repo "$REPO" --title "Shipwright apps $short" \
-            --notes "Pacific, Pilot and keel-mcp prebuilt from Shipwright $commit for Marathon images (packaging/vendor/shipwright.lock)."
+            --notes "Pacific prebuilt from Shipwright $commit for Marathon images (packaging/vendor/shipwright.lock)."
     gh release upload "$tag" --repo "$REPO" --clobber "${apks[@]}"
 fi
 lock="$root/packaging/vendor/shipwright.lock"
