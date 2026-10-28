@@ -34,6 +34,15 @@ add_test(NAME Script_UpdateSplash COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging
 # The startup PIN's keyslot helper against a LUKS2 image (skips without cryptsetup)
 add_test(NAME Script_DataKey COMMAND sh ${CMAKE_SOURCE_DIR}/tests/packaging/test-data-key.sh ${CMAKE_SOURCE_DIR}/tools/marathon-data-key/marathon-data-key)
 
+# Reef links Keel's SailfishApp, which only keel-silica-dev provides.
+find_path(_KEEL_SAILFISHAPP sailfishapp.h PATHS /usr/include/keel/sailfishapp NO_DEFAULT_PATH)
+if(_KEEL_SAILFISHAPP)
+    add_test(NAME Rust_Reef COMMAND cargo test --workspace --locked
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/apps/reef)
+    set_tests_properties(Rust_Reef PROPERTIES ENVIRONMENT
+        "KEEL_SAILFISHAPP_INCLUDEDIR=${_KEEL_SAILFISHAPP};KEEL_SAILFISHAPP_LIBDIR=/usr/lib")
+endif()
+
 # QML suites that need Keel's Silica: set KEEL_QML to a Keel build's qml dir,
 # or install keel-silica.
 set(KEEL_QML "$ENV{KEEL_QML}" CACHE PATH "Keel build qml directory for the Silica QML tests")

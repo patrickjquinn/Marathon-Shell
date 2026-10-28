@@ -22,7 +22,8 @@ import sys
 import tomllib
 from pathlib import Path
 
-PRUNE = {"third-party", "thirdparty", "target", "node_modules"}
+# golden/: generators' expected output, compared as text, not run.
+PRUNE = {"third-party", "thirdparty", "target", "node_modules", "golden"}
 QTEST_MAIN = re.compile(r"\b(QTEST_(GUILESS_|APPLESS_)?MAIN|QUICK_TEST_MAIN(_WITH_SETUP)?)\s*\(")
 RUST_TEST = re.compile(r"#\[(\w+::)?test\]")
 QML_SKIPPED_FN = re.compile(r"\bfunction\s+(test(?!_)\w*)\s*\(")
@@ -237,7 +238,10 @@ def check(root):
     for ws in cargo_runs:
         manifest = ws / "Cargo.toml"
         if manifest.is_file():
-            members = tomllib.loads(manifest.read_text()).get("workspace", {}).get("members", [])
+            parsed = tomllib.loads(manifest.read_text())
+            if "package" in parsed:
+                workspace_members.add(ws.resolve())
+            members = parsed.get("workspace", {}).get("members", [])
             for pattern in members:
                 workspace_members |= {p.resolve() for p in ws.glob(pattern) if (p / "Cargo.toml").is_file()}
 

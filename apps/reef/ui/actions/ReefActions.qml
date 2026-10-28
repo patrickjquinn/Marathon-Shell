@@ -43,7 +43,7 @@ Item {
     KeelEntity {
         id: appEntity
         type: "app"
-        title: "Store app"
+        title: qsTr("Store app")
         description: "An app in the Reef store: its name, summary, category, version and whether it is installed."
         KeelParam { name: "summary"; type: "string"; maxLength: 200; summarisable: true; indexable: true }
         KeelParam { name: "category"; type: "string"; maxLength: 64; summarisable: true; indexable: true }
