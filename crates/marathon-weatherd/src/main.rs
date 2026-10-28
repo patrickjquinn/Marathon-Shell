@@ -67,6 +67,17 @@ struct Weather {
     commands: mpsc::Sender<Command>,
     published: Arc<Mutex<Published>>,
     nominatim: Arc<Nominatim>,
+    agent: ureq::Agent,
+    zones: Arc<Zones>,
+}
+
+fn check_coordinates(latitude: f64, longitude: f64) -> fdo::Result<()> {
+    if !(-90.0..=90.0).contains(&latitude) || !(-180.0..=180.0).contains(&longitude) {
+        return Err(fdo::Error::InvalidArgs(
+            "latitude/longitude out of range".into(),
+        ));
+    }
+    Ok(())
 }
 
 impl Weather {
@@ -100,11 +111,7 @@ impl Weather {
         latitude: f64,
         longitude: f64,
     ) -> fdo::Result<()> {
-        if !(-90.0..=90.0).contains(&latitude) || !(-180.0..=180.0).contains(&longitude) {
-            return Err(fdo::Error::InvalidArgs(
-                "latitude/longitude out of range".into(),
-            ));
-        }
+        check_coordinates(latitude, longitude)?;
         self.send(Command::SetLocation(Location {
             name,
             region,
@@ -115,6 +122,34 @@ impl Weather {
 
     fn set_automatic(&self) -> fdo::Result<()> {
         self.send(Command::SetAutomatic)
+    }
+
+    /// Any place's forecast, shaped as `Forecast` is for the phone's.
+    async fn forecast_at(&self, latitude: f64, longitude: f64) -> fdo::Result<String> {
+        check_coordinates(latitude, longitude)?;
+        let (agent, zones) = (self.agent.clone(), Arc::clone(&self.zones));
+        blocking::unblock(move || {
+            let body = match http::fetch_met(&agent, None, latitude, longitude, now()) {
+                Ok(Fetched::New { body, .. }) => body,
+                Ok(Fetched::NotModified { .. }) => return Err("no forecast".to_owned()),
+                Err(Failure::Offline) => return Err("offline".to_owned()),
+                Err(Failure::Status(code)) => return Err(format!("HTTP {code}")),
+                Err(Failure::Other(message)) => return Err(message),
+            };
+            let met: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+            let place = Location {
+                name: String::new(),
+                region: String::new(),
+                latitude,
+                longitude,
+            };
+            let tz = zones.at(latitude, longitude);
+            met::forecast(&met, &place, false, &tz, now())
+                .map(|f| f.to_string())
+                .ok_or_else(|| "no forecast".to_owned())
+        })
+        .await
+        .map_err(fdo::Error::Failed)
     }
 
     async fn search(&self, query: String) -> fdo::Result<String> {
@@ -131,7 +166,7 @@ struct Daemon {
     store: Store,
     agent: ureq::Agent,
     nominatim: Arc<Nominatim>,
-    zones: Zones,
+    zones: Arc<Zones>,
     published: Arc<Mutex<Published>>,
     settings: Settings,
     last_fix: Option<Location>,
@@ -352,7 +387,7 @@ fn main() -> ExitCode {
         store,
         agent,
         nominatim: Arc::clone(&nominatim),
-        zones: Zones::new(),
+        zones: Arc::new(Zones::new()),
         published: Arc::new(Mutex::new(Published {
             forecast: String::new(),
             state: "idle".into(),
@@ -367,6 +402,8 @@ fn main() -> ExitCode {
         commands,
         published: Arc::clone(&daemon.published),
         nominatim,
+        agent: daemon.agent.clone(),
+        zones: Arc::clone(&daemon.zones),
     };
     let conn = match zbus::blocking::connection::Builder::session()
         .and_then(|b| b.serve_at(PATH, weather))
@@ -400,7 +437,7 @@ mod tests {
             store: Store::at(dir),
             nominatim: Arc::new(Nominatim::new(agent.clone())),
             agent,
-            zones: Zones::new(),
+            zones: Arc::new(Zones::new()),
             published: Arc::new(Mutex::new(Published {
                 forecast: String::new(),
                 state: String::new(),
