@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // One app: what it is, what is new in it, what it may access, and
-// install / update / buy / remove. Laid out as the Jolla Store lays out an
+// install / update / buy (installing is not available on Marathon yet).
+// Laid out as the Jolla Store lays out an
 // app (the name and publisher right-aligned beside the icon), then the one
 // thing to do, the facts at a glance, the screenshots, and the rest in
 // sections. Everything shown comes from the developer's catalogue entry:
@@ -32,9 +33,8 @@ Page {
     // (the catalogue's disclosures, over everything it pulls in).
     readonly property var services: pkg.servicesJson ? JSON.parse(pkg.servicesJson) : []
     readonly property var systemChanges: pkg.systemChangesJson ? JSON.parse(pkg.systemChangesJson) : []
-    readonly property bool working: Reef.busy && Reef.busyPackage === packageName
     readonly property bool paid: pkg.licenceModel === "one_off" || pkg.licenceModel === "subscription"
-    // Why the last install, update or remove of this package failed.
+    // Why the last purchase could not start.
     property string error
 
     // From the store index the details (description, screenshots, what is
@@ -42,25 +42,9 @@ Page {
     // them into `pkg`.
     Component.onCompleted: Reef.loadDetails(packageName)
 
-    Connections {
-        target: Reef
-        function onOperationFinished(name, ok, message) {
-            if (name === page.packageName)
-                page.error = ok ? "" : Texts.message(message)
-        }
-    }
-
-
     readonly property bool installed: pkg.installState !== undefined && pkg.installState !== "not_installed"
     readonly property bool updatable: pkg.installState === "update_available"
     readonly property bool canBuy: paid && !pkg.licensed && Texts.isHttps(pkg.purchaseUrl)
-    // Installed with a launcher entry: an Open button (asks rpm once per
-    // install state, not on every model rebuild).
-    readonly property bool openable: installed && openableFor(pkg.installState, pkg.installedVersion)
-    function openableFor(state, version) {
-        return state !== undefined && Reef.canOpen(packageName)
-    }
-
     // Set once Buy has opened the checkout in the browser.
     property bool buying
 
@@ -75,14 +59,6 @@ Page {
         page.error = ""
         page.buying = true
         Texts.openHttps(url)
-    }
-
-    function install() {
-        page.error = ""
-        if (page.updatable)
-            Reef.update(page.packageName)
-        else
-            Reef.install(page.packageName)
     }
 
     // A changelog entry: its version and day, then its notes as a list.
@@ -246,13 +222,9 @@ Page {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge * 2
 
-        // Removing is a pull-down action, as in the Jolla Store, offered
-        // only for what Reef installed; the confirmation sheet then lists
-        // everything that goes. The links to the developer's pages sit
-        // with it.
+        // The links to the developer's pages.
         PullDownMenu {
-            busy: page.working
-            visible: page.installed || Texts.isHttps(page.pkg.source) || Texts.isHttps(page.pkg.homepage)
+            visible: Texts.isHttps(page.pkg.source) || Texts.isHttps(page.pkg.homepage)
             MenuItem {
                 objectName: "sourceItem"
                 text: qsTr("Source code")
@@ -264,16 +236,6 @@ Page {
                 text: qsTr("Website")
                 visible: Texts.isHttps(page.pkg.homepage)
                 onClicked: Texts.openHttps(page.pkg.homepage)
-            }
-            MenuItem {
-                objectName: "removeItem"
-                text: qsTr("Remove")
-                visible: page.installed && page.pkg.removable === true
-                enabled: !Reef.busy
-                onClicked: {
-                    page.error = ""
-                    Reef.remove(page.packageName)
-                }
             }
         }
 
@@ -357,40 +319,25 @@ Page {
                 objectName: "actions"
                 readonly property bool buyNow: page.canBuy && page.pkg.installState === "installed"
                 width: parent.width
-                visible: !page.working && (!page.installed || page.updatable || page.canBuy || page.openable)
-                height: (!page.working && (!page.installed || page.updatable || page.canBuy || page.openable)) ? actionRow.height + Theme.paddingMedium : 0
+                visible: !page.installed || page.updatable || page.canBuy
+                height: (!page.installed || page.updatable || page.canBuy) ? actionRow.height + Theme.paddingMedium : 0
 
                 Row {
                     id: actionRow
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: Theme.paddingLarge
                     // Two buttons share the width; one takes the large size.
-                    readonly property real buttonWidth: openButton.visible && (installButton.visible || buyButton.visible)
+                    readonly property real buttonWidth: installButton.visible && buyButton.visible
                         ? (page.width - 2 * Theme.horizontalPageMargin - spacing) / 2
                         : Theme.buttonWidthLarge
 
-                    // The app itself, as the launcher opens it (launch.rs);
-                    // first, and secondary, when there is an update or a
-                    // licence to get.
-                    Button {
-                        id: openButton
-                        objectName: "openButton"
-                        visible: page.openable
-                        preferredWidth: actionRow.buttonWidth
-                        backgroundColor: installButton.visible || buyButton.visible
-                                         ? "transparent" : Theme.rgba(color, Theme.opacityFaint)
-                        text: qsTr("Open")
-                        onClicked: if (!Reef.open(page.packageName)) page.error = qsTr("Couldn't open the app")
-                    }
                     Button {
                         id: installButton
                         objectName: "installButton"
                         visible: !page.installed || page.updatable
                         preferredWidth: actionRow.buttonWidth
-                        enabled: !Reef.busy
-                        text: page.updatable ? qsTr("Update")
-                            : page.error.length > 0 ? qsTr("Try again") : qsTr("Install")
-                        onClicked: page.install()
+                        enabled: false
+                        text: page.updatable ? qsTr("Update") : qsTr("Install")
                     }
                     Button {
                         id: buyButton
@@ -403,13 +350,27 @@ Page {
                 }
             }
 
-            // Under the button: the versions an update moves between, or
-            // that it is installed and current.
+            // Under the button: why it does nothing yet.
+            Label {
+                objectName: "installNotYet"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: installButton.visible
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                color: Theme.secondaryHighlightColor
+                font.pixelSize: Theme.fontSizeExtraSmall
+                text: qsTr("Installing apps from Reef is not available on Marathon yet.")
+                bottomPadding: Theme.paddingMedium
+            }
+
+            // The versions an update moves between, or that it is installed
+            // and current.
             Label {
                 objectName: "installedNote"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: !page.working && page.installed
+                visible: page.installed
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 // Full strength only when there is something to do: the
@@ -419,21 +380,6 @@ Page {
                 text: page.updatable
                       ? qsTr("%1 installed, %2 available").arg(page.pkg.installedVersion).arg(page.pkg.updateVersion || page.pkg.version)
                       : qsTr("Up to date · %1").arg(page.pkg.installedVersion)
-                bottomPadding: Theme.paddingMedium
-            }
-
-            // Installed, but not by Reef (another store, or before Reef kept
-            // a record): Reef leaves its removal to where it came from.
-            Label {
-                objectName: "notReefsNote"
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: !page.working && page.installed && page.pkg.removable === false
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.Wrap
-                color: Theme.secondaryHighlightColor
-                font.pixelSize: Theme.fontSizeExtraSmall
-                text: qsTr("Reef did not install this copy, so it does not remove it.")
                 bottomPadding: Theme.paddingMedium
             }
 
@@ -451,23 +397,11 @@ Page {
                 bottomPadding: Theme.paddingMedium
             }
 
-            ProgressBar {
-                objectName: "progress"
-                width: parent.width
-                visible: page.working
-                minimumValue: 0
-                maximumValue: 100
-                indeterminate: Reef.progress < 0
-                value: Math.max(0, Reef.progress)
-                valueText: Reef.progress >= 0 ? qsTr("%1%").arg(Reef.progress) : ""
-                label: Texts.busyText(Reef.busyText)
-            }
-
             Label {
                 objectName: "operationError"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: page.error.length > 0 && !page.working
+                visible: page.error.length > 0
                 wrapMode: Text.Wrap
                 color: Theme.errorColor
                 font.pixelSize: Theme.fontSizeSmall
@@ -711,10 +645,10 @@ Page {
                         IconLine {
                             source: page.pkg.sandboxed === false ? "image://theme/icon-s-warning" : "image://theme/icon-s-secure"
                             text: page.pkg.sandboxed === false
-                                  ? qsTr("Parts of it run outside the Sailfish OS sandbox, with your access to files and data.")
+                                  ? qsTr("Parts of it run outside the app sandbox, with your access to files and data.")
                                   : (page.pkg.permissions || []).length > 0
-                                    ? qsTr("Runs in the Sailfish OS sandbox, and may use:")
-                                    : qsTr("Runs in the Sailfish OS sandbox, and asks for no extra permissions.")
+                                    ? qsTr("Runs in the app sandbox, and may use:")
+                                    : qsTr("Runs in the app sandbox, and asks for no extra permissions.")
                             color: page.pkg.sandboxed === false ? Theme.highlightColor : Theme.secondaryHighlightColor
                         }
                         Repeater {
@@ -743,27 +677,6 @@ Page {
                             color: morePermissions.highlighted ? Theme.highlightColor : Theme.primaryColor
                             font.pixelSize: Theme.fontSizeSmall
                         }
-                    }
-
-                    SectionHeader { text: qsTr("Compatibility") }
-                    IconLine {
-                        objectName: "testedOn"
-                        source: page.pkg.deviceTested === false ? "image://theme/icon-s-warning" : "image://theme/icon-s-accept"
-                        text: page.pkg.deviceTested === false
-                              ? qsTr("Built for Sailfish OS %1, the version on this phone, but not yet tested on a phone running it. "
-                                     + "If something doesn't work, please report it.").arg(Reef.installedRelease)
-                              : qsTr("Tested on Sailfish OS %1, the version on this phone.").arg(Reef.installedRelease)
-                    }
-                    Label {
-                        x: Theme.horizontalPageMargin
-                        width: parent.width - 2 * Theme.horizontalPageMargin
-                        readonly property var others: (page.pkg.testedOn || []).filter(function(r) { return r !== Reef.installedRelease })
-                        visible: page.pkg.deviceTested !== false && others.length > 0
-                        text: qsTr("Also tested on %1").arg(others.join(", "))
-                        wrapMode: Text.Wrap
-                        color: Theme.secondaryHighlightColor
-                        font.pixelSize: Theme.fontSizeExtraSmall
-                        leftPadding: Theme.iconSizeSmallPlus + Theme.paddingMedium
                     }
 
                     SectionHeader { text: qsTr("Information") }

@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-//! The three user settings behind `refreshOnStart`, `backgroundCheckDays`
-//! and `licenceServer`, kept in `$XDG_CONFIG_HOME/shipwright-reef/settings.json`.
+//! The user settings behind `refreshOnStart` and `licenceServer`, kept in
+//! `$XDG_CONFIG_HOME/shipwright-reef/settings.json`.
 
 use std::path::{Path, PathBuf};
 
@@ -56,22 +56,8 @@ pub const fn is_valid_licence_server(value: &str) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-#[allow(
-    clippy::struct_excessive_bools,
-    reason = "independent settings, stored as they are"
-)]
 pub struct Settings {
     pub refresh_on_start: bool,
-    /// 0 (never), 1 or 7. Acted on only once `background_check_asked`.
-    pub background_check_days: i32,
-    /// The person has answered Reef's question about checking in the
-    /// background, or picked a setting. Until then the check's timer is not
-    /// enabled and nothing is checked in the background (M3: Reef started
-    /// a 4-hourly timer at install without asking).
-    pub background_check_asked: bool,
-    /// Background checks only on Wi-Fi or a wired connection, never on
-    /// mobile data.
-    pub background_wifi_only: bool,
     pub licence_server: String,
 }
 
@@ -79,19 +65,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             refresh_on_start: true,
-            background_check_days: 1,
-            background_check_asked: false,
-            background_wifi_only: false,
             licence_server: DEFAULT_LICENCE_SERVER.into(),
         }
-    }
-}
-
-impl Settings {
-    /// Whether the background check's timer should run: the person said
-    /// yes, to a setting other than "Never".
-    pub fn background_checks_on(&self) -> bool {
-        self.background_check_asked && self.background_check_days > 0
     }
 }
 
@@ -111,15 +86,7 @@ impl Settings {
         std::fs::read(path)
             .ok()
             .and_then(|b| serde_json::from_slice::<Settings>(&b).ok())
-            .map(Settings::normalised)
             .unwrap_or_default()
-    }
-
-    /// Clamps values the UI cannot produce back to something it shows.
-    #[must_use]
-    pub fn normalised(mut self) -> Self {
-        self.background_check_days = normalise_days(self.background_check_days);
-        self
     }
 
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
@@ -130,15 +97,6 @@ impl Settings {
         let json = serde_json::to_vec_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(&tmp, json)?;
         std::fs::rename(tmp, path)
-    }
-}
-
-/// 0, 1 or 7; anything else becomes the nearest of those.
-pub fn normalise_days(days: i32) -> i32 {
-    match days {
-        i32::MIN..=0 => 0,
-        1..=3 => 1,
-        _ => 7,
     }
 }
 
@@ -155,30 +113,15 @@ mod tests {
         assert_eq!(Settings::load(&path), Settings::default());
         let s = Settings {
             refresh_on_start: false,
-            background_check_days: 7,
-            background_check_asked: true,
-            background_wifi_only: true,
             licence_server: "https://l.example.invalid".into(),
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);
-        assert!(s.background_checks_on());
         // Unknown and missing keys: defaults fill in.
         std::fs::write(&path, br#"{"refresh_on_start": false, "extra": 1}"#).unwrap();
         let loaded = Settings::load(&path);
         assert!(!loaded.refresh_on_start);
         assert_eq!(loaded.licence_server, DEFAULT_LICENCE_SERVER);
-        // A Reef 27 settings file: the person has not been asked yet, so
-        // nothing runs in the background, whatever it said.
-        std::fs::write(&path, br#"{"background_check_days": 1}"#).unwrap();
-        let old = Settings::load(&path);
-        assert!(!old.background_check_asked && !old.background_checks_on());
-        assert!(!Settings::default().background_checks_on());
-        let never = Settings {
-            background_check_days: 0,
-            ..s
-        };
-        assert!(!never.background_checks_on());
         std::fs::write(&path, b"not json").unwrap();
         assert_eq!(Settings::load(&path), Settings::default());
         std::fs::remove_dir_all(dir).unwrap();
@@ -217,15 +160,5 @@ mod tests {
             Some(v) if !v.is_empty() => assert_eq!(DEFAULT_LICENCE_SERVER, v),
             _ => assert_eq!(DEFAULT_LICENCE_SERVER, "https://licences.reefstore.app"),
         }
-    }
-
-    #[test]
-    fn days_are_normalised() {
-        assert_eq!(normalise_days(-3), 0);
-        assert_eq!(normalise_days(0), 0);
-        assert_eq!(normalise_days(1), 1);
-        assert_eq!(normalise_days(2), 1);
-        assert_eq!(normalise_days(7), 7);
-        assert_eq!(normalise_days(30), 7);
     }
 }

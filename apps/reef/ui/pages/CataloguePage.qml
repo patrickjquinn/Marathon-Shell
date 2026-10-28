@@ -1,13 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-// The store's home: updates waiting (when there are), the featured apps as
-// a banner, the collections as rows (or, from a repository without a store
-// index, the newest and most recently updated apps), the categories, and
-// every app. Search is in the pull-down menu, as in the Jolla Store, on a
-// page of its own. Lists of many apps (a category, all of them, search
-// results) are pages built as they scroll; this page holds only rows.
-// Untested packages never reach these models (reef-backend hides them).
+// The store's home: the featured apps as a banner, the collections as rows
+// (or, from a store without an index, the newest and most recently updated
+// apps), the categories, and every app. Search is in the pull-down menu,
+// as in the Jolla Store, on a page of its own. Lists of many apps (a
+// category, all of them, search results) are pages built as they scroll;
+// this page holds only rows.
 
 pragma ComponentBehavior: Bound
 
@@ -34,8 +33,8 @@ Page {
 
     // A flickable with one column (as Silica's own mixed pages): the page
     // header, then the banners and rows, then every app. When something near
-    // the top appears or grows (the updates banner arrives after the page),
-    // what is below moves down and the view stays where the person left it.
+    // the top appears or grows, what is below moves down and the view stays
+    // where the person left it.
     // A ListView header grows upwards instead (Qt keeps the first row in
     // place), which slid the title and the banner under the camera cut-out.
     SilicaFlickable {
@@ -53,9 +52,7 @@ Page {
                 onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
             }
             MenuItem {
-                text: Reef.updateCount > 0
-                      ? qsTr("Installed (%n update(s))", "", Reef.updateCount)
-                      : qsTr("Installed")
+                text: qsTr("Installed")
                 onClicked: pageStack.push(Qt.resolvedUrl("InstalledPage.qml"))
             }
             MenuItem {
@@ -76,85 +73,6 @@ Page {
 
             PageHeader {
                 title: qsTr("Reef")
-            }
-
-            // The repository no longer matches the installed release (an OS
-            // update happened) or was disabled: offer the fix up front.
-            Column {
-                width: parent.width
-                visible: Reef.repoState !== "pinned"
-                spacing: Theme.paddingSmall
-                bottomPadding: Theme.paddingLarge
-
-                Label {
-                    x: Theme.horizontalPageMargin
-                    width: parent.width - 2 * Theme.horizontalPageMargin
-                    wrapMode: Text.Wrap
-                    color: Theme.highlightColor
-                    text: Reef.repoState === "drifted"
-                          ? qsTr("Reef is set up for another Sailfish OS version. Repair it to get apps tested on %1.").arg(Reef.installedRelease)
-                          : Reef.repoState === "disabled"
-                            ? qsTr("Reef's app source is turned off.")
-                            : qsTr("Reef's app source is missing.")
-                }
-                Button {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Repair repository")
-                    enabled: !Reef.busy
-                    onClicked: Reef.repairRepository()
-                }
-            }
-
-            // Updates waiting: first, with the one button that does them all.
-            // One line says how many; the line under it says what the tap
-            // shows, or that some are libraries and services (Update all
-            // lists everything before it applies anything).
-            BackgroundItem {
-                id: updatesCard
-                objectName: "updatesCard"
-                width: parent.width
-                height: (Reef.updateCount > 0) ? Math.max(Theme.itemSizeLarge, updatesText.height + 2 * Theme.paddingMedium) : 0
-                visible: Reef.updateCount > 0
-                onClicked: pageStack.push(Qt.resolvedUrl("InstalledPage.qml"))
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity * 0.6)
-                }
-                Column {
-                    id: updatesText
-                    anchors.left: parent.left
-                    anchors.leftMargin: Theme.horizontalPageMargin
-                    anchors.right: updateAll.left
-                    anchors.rightMargin: Theme.paddingLarge
-                    anchors.verticalCenter: parent.verticalCenter
-                    Label {
-                        width: parent.width
-                        text: qsTr("%n update(s)", "", Reef.updateCount)
-                        color: Theme.highlightColor
-                        truncationMode: TruncationMode.Fade
-                    }
-                    Label {
-                        width: parent.width
-                        text: Reef.appUpdateCount === Reef.updateCount
-                              ? qsTr("Tap to see what's new")
-                              : qsTr("%n for libraries and services", "", Reef.updateCount - Reef.appUpdateCount)
-                        color: Theme.secondaryHighlightColor
-                        font.pixelSize: Theme.fontSizeExtraSmall
-                        wrapMode: Text.Wrap
-                    }
-                }
-                SecondaryButton {
-                    id: updateAll
-                    objectName: "updateAllButton"
-                    anchors.right: parent.right
-                    anchors.rightMargin: Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-                    preferredWidth: Theme.buttonWidthExtraSmall
-                    text: qsTr("Update all")
-                    enabled: !Reef.busy
-                    onClicked: Reef.updateAll()
-                }
             }
 
             // The featured apps, one banner at a time, turning every few
@@ -299,7 +217,7 @@ Page {
                                              : qsTr("No apps yet")
             hintText: Reef.lastError.length > 0
                       ? Texts.message(Reef.lastError)
-                      : qsTr("No apps are tested on Sailfish OS %1 yet. Pull down to refresh.").arg(Reef.installedRelease)
+                      : qsTr("Reef's catalogue has no apps for this phone yet. Pull down to refresh.")
         }
 
         VerticalScrollDecorator {}

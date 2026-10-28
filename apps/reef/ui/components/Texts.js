@@ -4,45 +4,23 @@
 // Text and link helpers shared by the pages.
 //
 // The Rust side sends keys, not English, for everything it says itself
-// (reef/client/app/src/rows.rs: status_text and message), so the text is
-// translated here with qsTr. Errors that come from PackageKit, the network
-// or the licence library are shown as they are.
+// (apps/reef/src/rows.rs: message, and the bridge's busyText), so the text
+// is translated here with qsTr. Errors that come from the network or the
+// licence library are shown as they are.
 //
 // Links in the catalogue are developer-controlled: only https:// URLs are
 // ever opened.
 
 .pragma library
 
-// busyText: "checking", "downloading", ...
+// busyText: "refreshing", "refreshing_licences".
 function busyText(code) {
     switch (code) {
     case "": return ""
-    case "checking": return qsTr("Checking")
-    case "checking_plan": return qsTr("Checking what this needs")
-    case "starting": return qsTr("Starting")
     case "refreshing": return qsTr("Refreshing")
-    case "repairing": return qsTr("Repairing")
     case "refreshing_licences": return qsTr("Refreshing licences")
-    case "waiting": return qsTr("Waiting")
-    case "running": return qsTr("Running")
-    case "querying": return qsTr("Querying")
-    case "removing": return qsTr("Removing")
-    case "downloading": return qsTr("Downloading")
-    case "installing": return qsTr("Installing")
-    case "updating": return qsTr("Updating")
-    case "cleaning_up": return qsTr("Cleaning up")
-    case "resolving": return qsTr("Resolving dependencies")
-    case "checking_signatures": return qsTr("Checking signatures")
-    case "committing": return qsTr("Committing")
-    case "finished": return qsTr("Finished")
     default: return qsTr("Working")
     }
-}
-
-// busyText with the percentage when PackageKit reports one.
-function progressText(code, progress) {
-    var text = busyText(code)
-    return progress >= 0 ? qsTr("%1 %2%").arg(text).arg(progress) : text
 }
 
 function messageLine(line) {
@@ -50,33 +28,17 @@ function messageLine(line) {
         return line
     var p = line.substring(1).split("\u001f")
     switch (p[0]) {
-    case "busy": return qsTr("Another operation is running.")
-    case "no_release": return qsTr("Cannot determine the installed Sailfish OS release.")
     case "no_licence_store": return qsTr("No place to store licences (HOME is not set).")
     case "licence_remove_failed": return qsTr("Could not remove the licence: %1").arg(p[1])
     case "catalogue_missing":
-        return qsTr("Reef has no catalogue for Sailfish OS %1 (%2).").arg(p[1]).arg(p[2])
+        return qsTr("Reef has no catalogue for Marathon (%1) yet.").arg(p[1])
     case "catalogue_download_failed": return qsTr("Could not download the catalogue: %1").arg(p[1])
     case "no_licence_server": return qsTr("No licence service is configured.")
     case "revocations_unsigned": return qsTr("The list of refunded licences is not signed.")
-    case "updated": return qsTr("%n package(s) updated", "", parseInt(p[1], 10))
-    case "up_to_date": return qsTr("%1 is up to date").arg(p[1])
-    case "all_up_to_date": return qsTr("Everything is up to date")
     case "licence_add_failed": return qsTr("The licence was not added: %1").arg(p[1])
     case "claim_failed": return qsTr("Could not start the purchase: %1").arg(p[1])
     case "worker_failed": return qsTr("Could not start the background work: %1").arg(p[1])
     default: return p.join(" ")
-    }
-}
-
-// What a package in a plan is (reef-backend's plan::Kind).
-function kindText(kind) {
-    switch (kind) {
-    case "app": return qsTr("App")
-    case "add_on": return qsTr("Add-on")
-    case "library": return qsTr("Library")
-    case "background_service": return qsTr("Background service")
-    default: return ""
     }
 }
 
@@ -91,45 +53,7 @@ function startsText(starts) {
     }
 }
 
-// A byte count, binary units, as the store shows sizes.
-function size(bytes) {
-    if (!bytes)
-        return ""
-    var units = ["kB", "MB", "GB"]
-    var v = bytes, u = -1
-    while (v >= 1024 && u < units.length - 1) {
-        v /= 1024
-        u++
-    }
-    if (u < 0)
-        return qsTr("%1 B").arg(bytes)
-    return (v < 10 ? v.toFixed(1) : Math.round(v)) + " " + units[u]
-}
-
-// The confirmation sheet's question: the app asked for, or Update all's
-// count of everything it touches.
-function planTitle(plan, asked) {
-    var name = asked.length === 1 ? asked[0].title : ""
-    switch (plan.action) {
-    case "install": return qsTr("Install %1?").arg(name)
-    case "update": return qsTr("Update %1?").arg(name)
-    case "remove": return qsTr("Remove %1?").arg(name)
-    default: return qsTr("Update %n package(s)?", "", (plan.items || []).length)
-    }
-}
-
-// The updates waiting: the apps, and the libraries and services they use,
-// which Update all applies too.
-function updatesText(apps, all) {
-    if (apps === all)
-        return qsTr("%n app update(s) ready", "", all)
-    if (apps === 0)
-        return qsTr("%n update(s) for libraries and services", "", all)
-    return qsTr("%1 app updates, %2 for libraries and services").arg(apps).arg(all - apps)
-}
-
-// lastError and operationFinished messages; lastError may hold several
-// lines.
+// lastError messages; lastError may hold several lines.
 function message(text) {
     if (!text)
         return ""
@@ -231,20 +155,6 @@ function price(model, licensed) {
     if (model === "subscription")
         return licensed ? qsTr("Subscribed") : qsTr("Subscription")
     return qsTr("Free")
-}
-
-// What removing package `name` does beyond the app, said before it goes:
-// data it keeps outside its package, which only the app itself can remove
-// (Reef cannot reach it from its sandbox), or data that goes with it.
-// Empty for most apps.
-function removalNote(name) {
-    switch (name) {
-    case "shipwright-shoal-bridge-icloud-app":
-        return qsTr("Your iCloud accounts are removed with the app, and their contacts and events leave the phone. Nothing is deleted at iCloud.")
-    case "shoal-pilot":
-        return qsTr("The voice models Pilot downloaded (often several hundred MB) are not removed with the app. To remove them, open Pilot's settings first and choose \"Remove downloaded voice models\".")
-    }
-    return ""
 }
 
 // The catalogue's changelog JSON (packageDetails' changelogJson), or [].

@@ -3,7 +3,7 @@
 
 [package]
 name = "reef-backend"
-description = "Reef store client backend: catalogue, release pinning, PackageKit and licences"
+description = "Reef store client backend: catalogue and licences"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,8 +16,6 @@ name = "shipwright-reef-licenced"
 path = "src/bin/shipwright-reef-licenced.rs"
 
 [dependencies]
-# The transaction idle timeout; zbus's async-io feature uses the same crate.
-async-io = "2"
 futures-lite = "2"
 # Claim codes (src/claim_codes.rs): 128 bits from the OS random source.
 getrandom = "0.4"
@@ -31,8 +29,6 @@ zbus = { version = "5", default-features = false, features = ["async-io"] }
 [dev-dependencies]
 # Signs test licences; the shipped library only verifies.
 reef-licence = { path = "../../licence", features = ["sign", "handoff-client"] }
-# The metadata check test signs with a throwaway key in a temporary home.
-tempfile = "3"
 
 [build-dependencies]
 # Embeds SHIPWRIGHT_LICENCE_KEYS as EMBEDDED_KEYS (build.rs).

@@ -1,28 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-//! Work that must not run on the GUI thread: downloads, `ssu`, `PackageKit`
-//! transactions and command runs. Each job is a plain function run on a
-//! worker thread; the bridge posts its result back to the Qt thread with
-//! CXX-Qt's `CxxQtThread::queue`. Nothing here touches Qt.
+//! Work that must not run on the GUI thread: downloads. Each job is a plain
+//! function run on a worker thread; the bridge posts its result back to the
+//! Qt thread with CXX-Qt's `CxxQtThread::queue`. Nothing here touches Qt.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command as Process;
 use std::time::Duration;
 
-use futures_lite::future::block_on;
 use reef_backend::catalogue::Catalogue;
 use reef_backend::claim_codes::{PendingClaim, PendingClaims};
-use reef_backend::index::parse_index;
 use reef_backend::licences::{LicenceStore, EMBEDDED_KEYS};
-use reef_backend::metadata::MetadataCheck;
-use reef_backend::packagekit::dbus::PackageKitClient;
-use reef_backend::packagekit::{PackageInfo, PackageManager, Progress};
-use reef_backend::plan::Plan;
-use reef_backend::release::SailfishRelease;
-use reef_backend::repo::{parse_ssu_lr, Command, PinState, RepoConfig, SsuRepo};
-use reef_backend::store::Store;
 use reef_licence::{KeySet, Policy};
 
 use crate::rows::{display_claims, message};
@@ -56,7 +45,7 @@ impl std::fmt::Display for FetchError {
 }
 
 /// Fetches `https://`, `http://` or `file://` URLs. `file://` exists for
-/// local repositories and tests; a phone uses https.
+/// local stores and tests; a phone uses https.
 pub fn fetch(url: &str) -> Result<Fetched, FetchError> {
     if let Some(path) = url.strip_prefix("file://") {
         return fetch_file(Path::new(path));
@@ -217,50 +206,10 @@ pub fn fetch_assets(base: &str, dir: &Path, rels: &[String]) -> Vec<String> {
 /// only the featured apps', and the others' when needed.
 pub const EAGER_DETAILS: usize = 200;
 
-/// Where the downloaded index and its signature are kept for `gpgv`:
-/// beside the catalogue cache.
-pub fn index_dir(cache_path: &Path) -> PathBuf {
-    cache_path.with_file_name("store")
-}
-
 /// Where apps' details files are cached, by SHA-256: beside the catalogue
 /// cache.
 pub fn details_dir(cache_path: &Path) -> PathBuf {
     cache_path.with_file_name("details")
-}
-
-/// The store index of the repository directory `base` (ending in `/`):
-/// downloaded with its signature into `dir`, checked with `check` (the
-/// signature, then the revision), parsed. `Ok(None)` when the repository
-/// has no index (published before it existed).
-pub fn fetch_index(
-    base: &str,
-    arch: &str,
-    check: &MetadataCheck,
-    dir: &Path,
-) -> Result<Option<Catalogue>, String> {
-    let body = match fetch(&format!("{base}store/index.json")) {
-        Ok(f) => f.body,
-        Err(FetchError::Status(404)) => return Ok(None),
-        Err(e) => return Err(e.to_string()),
-    };
-    let sig = fetch(&format!("{base}store/index.json.asc"))
-        .map_err(|e| format!("index.json.asc: {e}"))?
-        .body;
-    std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let index = dir.join("index.json");
-    let asc = dir.join("index.json.asc");
-    std::fs::write(&index, &body)
-        .and_then(|()| std::fs::write(&asc, &sig))
-        .map_err(|e| format!("{}: {e}", dir.display()))?;
-    check
-        .verify_index(&index, &asc)
-        .map_err(|e| e.to_string())?;
-    let (catalogue, revision) = parse_index(&body, arch).map_err(|e| e.to_string())?;
-    check
-        .accept_index_revision(revision)
-        .map_err(|e| e.to_string())?;
-    Ok(Some(catalogue))
 }
 
 /// One app's details file: from the cache in `dir` (by SHA-256), else
@@ -344,102 +293,29 @@ pub fn load_details(
     errors
 }
 
-/// `ssu lr`, parsed, in the C locale: `parse_ssu_lr` reads its English
-/// section headers ("Enabled repositories").
-pub fn ssu_repos() -> Result<Vec<SsuRepo>, String> {
-    let out = reef_backend::c_locale(&mut Process::new("ssu"))
-        .arg("lr")
-        .output()
-        .map_err(|e| format!("cannot run ssu: {e}"))?;
-    if !out.status.success() {
-        return Err(format!(
-            "ssu lr failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-    Ok(parse_ssu_lr(&String::from_utf8_lossy(&out.stdout)))
-}
-
-/// Runs repair or registration commands in order, stopping at the first
-/// failure. Returns the error text for the UI.
-pub fn run_commands(commands: &[Command]) -> Result<(), String> {
-    for cmd in commands {
-        log::info!("running {}", cmd.to_shell());
-        let out = Process::new(cmd.program)
-            .args(&cmd.args)
-            .output()
-            .map_err(|e| format!("{}: {e}", cmd.to_shell()))?;
-        if !out.status.success() {
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            return Err(format!(
-                "{} failed ({}): {}",
-                cmd.to_shell(),
-                out.status,
-                stderr.trim()
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// What `PackageKit` says about Reef's packages.
-#[derive(Debug, Clone, Default)]
-pub struct PkState {
-    pub installed: Vec<PackageInfo>,
-    pub updates: Vec<PackageInfo>,
-    /// The names among `installed` Reef may remove (it installed them):
-    /// the others are shown as installed, without Remove.
-    pub removable: Vec<String>,
-}
-
-async fn pk_state<P: PackageManager>(
-    store: &Store<P>,
-    catalogue: Option<&Catalogue>,
-) -> reef_backend::packagekit::Result<PkState> {
-    let installed = match catalogue {
-        Some(c) => store.installed(c).await?,
-        None => Vec::new(),
-    };
-    let updates = store.updates().await?;
-    Ok(PkState {
-        removable: store.removable(&installed),
-        installed,
-        updates,
-    })
-}
-
 /// Inputs to a refresh, copied off the GUI thread's state.
 #[derive(Debug, Clone)]
 pub struct RefreshInput {
-    pub config: RepoConfig,
-    pub release: Option<SailfishRelease>,
+    /// The store directory (`store_url`), ending in `/`.
+    pub store_url: String,
     pub arch: String,
-    /// The catalogue already shown, used for install state if the download
-    /// fails.
-    pub previous: Option<Catalogue>,
     pub licence_dir: Option<PathBuf>,
     pub licence_server: String,
     /// Where a downloaded catalogue is cached for the next start.
     pub cache_path: Option<PathBuf>,
-    /// How the store index's signature is checked (`MetadataCheck::device`
-    /// on a phone). `None`: the index is not used, only `catalogue.json`.
-    pub index_check: Option<MetadataCheck>,
 }
 
-/// Result of a refresh. Each part is independent: a failed download still
-/// updates the repository state, and so on.
+/// Result of a refresh.
 #[derive(Debug, Default)]
 pub struct RefreshOutput {
     pub catalogue: Option<Catalogue>,
-    pub repos: Option<Vec<SsuRepo>>,
-    pub pk: Option<PkState>,
     pub errors: Vec<String>,
 }
 
 /// With a cache: the catalogue's details (every app's when there are
 /// few, so each page and the install plans then work offline; else the
 /// featured apps', the rest when their page opens), then the catalogue
-/// itself and its images, from this repository directory and nowhere
+/// itself and its images, from this store directory and nowhere
 /// else (a failure is a blank image). On the worker, not the GUI thread.
 fn cache_catalogue(input: &RefreshInput, base: &str, c: &mut Catalogue) {
     let Some(path) = &input.cache_path else {
@@ -461,104 +337,24 @@ fn cache_catalogue(input: &RefreshInput, base: &str, c: &mut Catalogue) {
     }
 }
 
-/// `refresh()`: catalogue, `ssu lr`, installed and updates, licences.
+/// `refresh()`: the catalogue, then licences.
 pub fn refresh(input: &RefreshInput) -> RefreshOutput {
     let mut out = RefreshOutput::default();
-    let Some(release) = &input.release else {
-        out.errors.push(message("no_release", &[]));
-        return out;
-    };
-
-    // The signed store index first; a repository published before it
-    // existed, or an index that does not verify, falls back to
-    // catalogue.json (unsigned, as every client read it until then).
-    let base = input.config.resolved_url(release, &input.arch);
-    let mut from_index = None;
-    if let Some(check) = &input.index_check {
-        let dir = input
-            .cache_path
-            .as_deref()
-            .map_or_else(std::env::temp_dir, index_dir);
-        match fetch_index(&base, &input.arch, check, &dir) {
-            Ok(found) => from_index = found,
-            Err(e) => log::warn!("store index: {e}; reading catalogue.json"),
-        }
-    }
-    let fetched = match from_index {
-        Some(c) => Ok(c),
-        None => match fetch(&input.config.catalogue_url(release, &input.arch)) {
-            Ok(f) => Catalogue::parse(&f.body, &input.arch).map_err(|e| e.to_string()),
-            Err(FetchError::Status(404)) => Err(message(
-                "catalogue_missing",
-                &[&release.full(), &input.arch],
-            )),
-            Err(e) => Err(message("catalogue_download_failed", &[&e.to_string()])),
+    let base = &input.store_url;
+    match fetch(&format!("{base}catalogue.json")) {
+        Ok(f) => match Catalogue::parse(&f.body, &input.arch) {
+            Ok(mut c) => {
+                cache_catalogue(input, base, &mut c);
+                out.catalogue = Some(c);
+            }
+            Err(e) => out.errors.push(e.to_string()),
         },
-    };
-    match fetched {
-        Ok(mut c) => {
-            cache_catalogue(input, &base, &mut c);
-            out.catalogue = Some(c);
-        }
-        Err(e) => out.errors.push(e),
-    }
-
-    let mut pinned = false;
-    match ssu_repos() {
-        Ok(mut repos) => {
-            let mut state = input.config.pin_state(&repos, release, &input.arch);
-            if reenable_due(
-                &state,
-                &std::fs::read_to_string(NO_REPOSITORY_MARKER).unwrap_or_default(),
-                release,
-                out.catalogue.is_some(),
-                &reenabled_note().map_or_else(String::new, |p| {
-                    std::fs::read_to_string(p).unwrap_or_default()
-                }),
-            ) {
-                // The package turned the repository off because this
-                // release had none; it has one now.
-                log::info!(
-                    "Reef's repository for {} is published: turning it on",
-                    release.full()
-                );
-                match run_commands(&input.config.repair_commands(&state, release)) {
-                    Ok(()) => {
-                        if let Some(p) = reenabled_note() {
-                            let _ = std::fs::write(p, release.full());
-                        }
-                        if let Ok(r) = ssu_repos() {
-                            repos = r;
-                            state = input.config.pin_state(&repos, release, &input.arch);
-                        }
-                    }
-                    Err(e) => out.errors.push(e),
-                }
-            }
-            pinned = state == PinState::Pinned;
-            out.repos = Some(repos);
-        }
-        Err(e) => out.errors.push(e),
-    }
-
-    let catalogue = out.catalogue.as_ref().or(input.previous.as_ref());
-    let alias = input.config.alias.clone();
-    let pk = block_on(async {
-        let pm = PackageKitClient::system().await?;
-        if pinned {
-            // New metadata, so updates published since the last refresh
-            // show up. A failure here is not fatal: the cached metadata
-            // still answers the queries below.
-            if let Err(e) = pm.refresh_repo(&alias).await {
-                log::warn!("refreshing {alias}: {e}");
-            }
-        }
-        let store = Store::new(pm, alias).with_ledger(ledger());
-        pk_state(&store, catalogue).await
-    });
-    match pk {
-        Ok(state) => out.pk = Some(state),
-        Err(e) => out.errors.push(e.to_string()),
+        Err(FetchError::Status(404)) => out
+            .errors
+            .push(message("catalogue_missing", &[&input.arch])),
+        Err(e) => out
+            .errors
+            .push(message("catalogue_download_failed", &[&e.to_string()])),
     }
 
     // Licences are best effort during a catalogue refresh: an unreachable
@@ -572,39 +368,11 @@ pub fn refresh(input: &RefreshInput) -> RefreshOutput {
     out
 }
 
-/// Written by the package's `%triggerin` (reef/rpm/shipwright-reef.spec):
-/// the release for which it turned Reef's repository off, because Reef
-/// published nothing for it; empty or absent otherwise.
-pub const NO_REPOSITORY_MARKER: &str = "/var/lib/shipwright-reef/no-repository";
-
-/// Where Reef notes the release it turned the repository back on for, so
-/// that it does so once: a person who turns it off again later is obeyed.
-fn reenabled_note() -> Option<PathBuf> {
-    cache_dir().map(|d| d.join("repository-reenabled"))
-}
-
-/// Whether a refresh turns Reef's repository back on: it is disabled, the
-/// package turned it off for this very release (`marker`), the release's
-/// catalogue now downloads, and Reef has not done this for the release
-/// before (`done_for`).
-pub fn reenable_due(
-    state: &PinState,
-    marker: &str,
-    release: &SailfishRelease,
-    catalogue_ok: bool,
-    done_for: &str,
-) -> bool {
-    *state == PinState::Disabled
-        && catalogue_ok
-        && marker.trim() == release.full()
-        && done_for.trim() != release.full()
-}
-
 /// Writes the catalogue cache atomically (a temporary file, then rename),
 /// so a crash never leaves a truncated cache, and reports serialisation
 /// errors instead of writing an empty file. The temporary name is unique to
-/// the process and the call: the app and `--check-updates` may write at the
-/// same time, and each must rename only its own complete file.
+/// the process and the call: two writers may run at the same time, and
+/// each must rename only its own complete file.
 pub fn write_cache(path: &Path, catalogue: &Catalogue) -> std::io::Result<()> {
     use std::sync::atomic::{AtomicU64, Ordering};
     static SEQ: AtomicU64 = AtomicU64::new(0);
@@ -622,21 +390,6 @@ pub fn write_cache(path: &Path, catalogue: &Catalogue) -> std::io::Result<()> {
         return Err(e);
     }
     std::fs::rename(tmp, path)
-}
-
-/// The record of what Reef installed (reef-backend's `InstallLedger`).
-fn ledger() -> Option<reef_backend::store::InstallLedger> {
-    reef_backend::store::InstallLedger::default_path().map(reef_backend::store::InstallLedger::new)
-}
-
-/// Makes the install ledger and its directory the owner's only, as Reef 27
-/// and earlier left them world-writable on a phone (fix at every start).
-pub fn secure_ledger() {
-    if let Some(ledger) = ledger() {
-        if let Err(e) = ledger.repair_permissions() {
-            log::warn!("making the install record private: {e}");
-        }
-    }
 }
 
 /// Errors for `lastError`, one per line: the UI translates keyed messages
@@ -781,171 +534,23 @@ fn redeem_claims(
     redeemed
 }
 
-/// A package operation the person asked for in the UI (or through a Keel
-/// Action), before they have seen what it does.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Ask {
-    Install(String),
-    Update(String),
-    UpdateAll,
-    Remove(String),
-}
+/// Where the store is: `{arch}` is the phone's architecture. Not yet
+/// served: Reef has no catalogue for Marathon.
+pub const DEFAULT_STORE_URL: &str = "https://reefstore.app/marathon/{arch}/";
 
-impl Ask {
-    /// The RPM name for `busyPackage` and `operationFinished`, or empty.
-    pub fn package(&self) -> &str {
-        match self {
-            Ask::Install(n) | Ask::Update(n) | Ask::Remove(n) => n,
-            Ask::UpdateAll => "",
-        }
-    }
-}
-
-/// An operation the person agreed to: what they asked for, and the plan
-/// they saw on the confirmation sheet and tapped.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Op {
-    pub ask: Ask,
-    pub plan: Plan,
-}
-
-impl Op {
-    pub fn package(&self) -> &str {
-        self.ask.package()
-    }
-}
-
-/// The store as the app uses it: the install ledger, and installs and
-/// updates only on the repository's signed metadata
-/// (`reef_backend::metadata`: zypp itself does not check it on Sailfish).
-fn store(pm: PackageKitClient, alias: &str) -> Store<PackageKitClient> {
-    Store::new(pm, alias)
-        .with_ledger(ledger())
-        .with_metadata_check(reef_backend::metadata::MetadataCheck::device(alias))
-}
-
-/// What `ask` would do: the plan the confirmation sheet shows. Nothing is
-/// installed, updated or removed.
-pub fn preview(ask: &Ask, alias: &str, catalogue: Option<&Catalogue>) -> Result<Plan, String> {
-    block_on(async {
-        let store = store(PackageKitClient::system().await?, alias);
-        match ask {
-            Ask::Install(name) => store.preview_install(name, catalogue).await.map(Some),
-            Ask::Update(name) => store.preview_update(name, catalogue).await,
-            Ask::UpdateAll => store
-                .preview_update_all(catalogue)
-                .await
-                .map(|p| Some(p).filter(|p| !p.items.is_empty())),
-            Ask::Remove(name) => store.preview_remove(name, catalogue).await.map(Some),
-        }
-    })
-    .map_err(|e: reef_backend::packagekit::Error| e.to_string())?
-    .ok_or_else(|| match ask {
-        Ask::UpdateAll => message("all_up_to_date", &[]),
-        other => message("up_to_date", &[other.package()]),
-    })
-}
-
-/// Runs one operation the person agreed to, then re-reads install state so
-/// the models follow. Returns the operation's outcome (message on success,
-/// error text on failure) and the new state when it could be read.
-pub fn run_op(
-    op: &Op,
-    alias: &str,
-    catalogue: Option<&Catalogue>,
-    progress: &mut dyn FnMut(Progress),
-) -> (Result<String, String>, Option<PkState>) {
-    block_on(async {
-        let store = match PackageKitClient::system().await {
-            Ok(pm) => store(pm, alias),
-            Err(e) => return (Err(e.to_string()), None),
-        };
-        let plan = &op.plan;
-        let result = match &op.ask {
-            Ask::Install(name) => store
-                .install(name, plan, progress)
-                .await
-                .map(|()| String::new()),
-            Ask::Remove(name) => store
-                .remove(name, plan, progress)
-                .await
-                .map(|()| String::new()),
-            Ask::UpdateAll => store
-                .update_all(plan, progress)
-                .await
-                .map(|n| message("updated", &[&n.to_string()])),
-            // Store::update applies Reef's update only (A-06).
-            Ask::Update(name) => store.update(name, plan, progress).await.map(|done| {
-                if done {
-                    String::new()
-                } else {
-                    message("up_to_date", &[name])
-                }
-            }),
-        };
-        let state = pk_state(&store, catalogue).await.ok();
-        (result.map_err(|e| e.to_string()), state)
-    })
-}
-
-/// Install state only (start-up check): no transaction, no network.
-pub fn local_state(alias: &str, catalogue: Option<&Catalogue>) -> Result<PkState, String> {
-    block_on(async {
-        let pm = PackageKitClient::system().await?;
-        pk_state(&Store::new(pm, alias).with_ledger(ledger()), catalogue).await
-    })
-    .map_err(|e| e.to_string())
-}
-
-/// How the store index's signature is checked on this phone
-/// (`MetadataCheck::device`), with Reef's key read under [`sysroot`], so a
-/// test root carries its own.
-pub fn index_check(alias: &str) -> Option<MetadataCheck> {
-    let mut check = MetadataCheck::device(alias)?;
-    let key = check
-        .key
-        .strip_prefix("/")
-        .unwrap_or(&check.key)
-        .to_path_buf();
-    check.key = sysroot().join(key);
-    Some(check)
-}
-
-/// The root the release files are read from: `/`, or `$REEF_SYSROOT`
-/// (tests and development only; never set on a phone).
-pub fn sysroot() -> PathBuf {
-    std::env::var_os("REEF_SYSROOT")
-        .filter(|v| !v.is_empty())
-        .map_or_else(|| PathBuf::from("/"), PathBuf::from)
-}
-
-/// The repository configuration: the installed `repo.conf` (the one the
-/// installer registered with, so granularity and URL agree), under
-/// `root`, else the built-in defaults. `$REEF_URL_TEMPLATE` overrides the
-/// URL (tests and development only).
-pub fn repo_config(root: &Path) -> RepoConfig {
-    let conf = root.join(
-        reef_backend::repo::CLIENT_REPO_CONF
-            .strip_prefix('/')
-            .unwrap_or(reef_backend::repo::CLIENT_REPO_CONF),
-    );
-    let mut config = match std::fs::read_to_string(&conf) {
-        Ok(text) => RepoConfig::from_repo_conf(&text).unwrap_or_else(|e| {
-            log::warn!(
-                "{}: {e}; using the built-in repository settings",
-                conf.display()
-            );
-            RepoConfig::default()
-        }),
-        Err(_) => RepoConfig::default(),
-    };
-    if let Some(template) = std::env::var("REEF_URL_TEMPLATE")
+/// The store directory for `arch`, ending in `/`: `$REEF_STORE_URL` when
+/// set (development and tests), else [`DEFAULT_STORE_URL`].
+pub fn store_url(arch: &str) -> String {
+    let url = std::env::var("REEF_STORE_URL")
         .ok()
-        .filter(|t| !t.is_empty())
-    {
-        config.url_template = template;
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| DEFAULT_STORE_URL.to_string())
+        .replace("{arch}", arch);
+    if url.ends_with('/') {
+        url
+    } else {
+        url + "/"
     }
-    config
 }
 
 /// `$XDG_CACHE_HOME/shipwright-reef`, or under `~/.cache`.
@@ -1011,19 +616,32 @@ mod tests {
     }
 
     #[test]
-    fn refresh_reports_missing_release_without_touching_anything() {
+    fn refresh_reports_a_missing_catalogue() {
+        let dir = scratch("missing");
         let out = refresh(&RefreshInput {
-            config: RepoConfig::default(),
-            release: None,
+            store_url: format!("file://{}/", dir.display()),
             arch: "aarch64".into(),
-            previous: None,
             licence_dir: None,
             licence_server: String::new(),
             cache_path: None,
-            index_check: None,
         });
-        assert!(out.catalogue.is_none() && out.repos.is_none() && out.pk.is_none());
-        assert_eq!(out.errors.len(), 1);
+        assert!(out.catalogue.is_none());
+        assert_eq!(out.errors, [message("catalogue_missing", &["aarch64"])]);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn store_urls() {
+        assert_eq!(
+            DEFAULT_STORE_URL.replace("{arch}", "aarch64"),
+            "https://reefstore.app/marathon/aarch64/"
+        );
+        if std::env::var_os("REEF_STORE_URL").is_none() {
+            assert_eq!(
+                store_url("x86_64"),
+                "https://reefstore.app/marathon/x86_64/"
+            );
+        }
     }
 
     #[test]
@@ -1214,7 +832,7 @@ mod tests {
     fn refresh_downloads_and_caches_atomically() {
         // A-03: the worker writes the cache, through a temporary file.
         let dir = scratch("cache");
-        let repo = dir.join("repo/sailfishos/5.2.0.17/aarch64");
+        let repo = dir.join("store/aarch64");
         std::fs::create_dir_all(&repo).unwrap();
         std::fs::write(
             repo.join("catalogue.json"),
@@ -1222,22 +840,12 @@ mod tests {
         )
         .unwrap();
         let cache = dir.join("cache/shipwright-reef/catalogue.json");
-        let config = RepoConfig {
-            url_template: format!(
-                "file://{}/repo/sailfishos/{{release}}/{{arch}}/",
-                dir.display()
-            ),
-            ..RepoConfig::default()
-        };
         let out = refresh(&RefreshInput {
-            config,
-            release: SailfishRelease::parse("5.2.0.17"),
+            store_url: format!("file://{}/", repo.display()),
             arch: "aarch64".into(),
-            previous: None,
             licence_dir: None,
             licence_server: String::new(),
             cache_path: Some(cache.clone()),
-            index_check: None,
         });
         assert!(out.catalogue.is_some(), "{:?}", out.errors);
         let cached = std::fs::read(&cache).unwrap();
@@ -1254,7 +862,7 @@ mod tests {
     #[test]
     fn assets_are_fetched_checked_and_pruned() {
         let dir = scratch("assets");
-        let repo = dir.join("repo/sailfishos/5.2.0.17/aarch64");
+        let repo = dir.join("store/aarch64");
         std::fs::create_dir_all(repo.join("assets/shots")).unwrap();
         std::fs::write(
             repo.join("catalogue.json"),
@@ -1276,22 +884,12 @@ mod tests {
         std::fs::create_dir_all(&assets).unwrap();
         std::fs::write(assets.join("assets__stale.png"), b"old").unwrap();
 
-        let config = RepoConfig {
-            url_template: format!(
-                "file://{}/repo/sailfishos/{{release}}/{{arch}}/",
-                dir.display()
-            ),
-            ..RepoConfig::default()
-        };
         let out = refresh(&RefreshInput {
-            config,
-            release: SailfishRelease::parse("5.2.0.17"),
+            store_url: format!("file://{}/", repo.display()),
             arch: "aarch64".into(),
-            previous: None,
             licence_dir: None,
             licence_server: String::new(),
             cache_path: Some(cache.clone()),
-            index_check: None,
         });
         let c = out.catalogue.expect("catalogue");
         assert_eq!(
@@ -1337,7 +935,6 @@ mod tests {
 
     #[test]
     fn concurrent_cache_writers_never_leave_a_torn_file() {
-        // The app and --check-updates may write the cache at once.
         let dir = scratch("cache-race");
         let path = dir.join("catalogue.json");
         let small = Catalogue::parse(
@@ -1376,194 +973,5 @@ mod tests {
             assert!(line.starts_with(crate::rows::MESSAGE_MARK), "{line:?}");
         }
         assert!(!joined.contains("; \u{1e}"));
-    }
-
-    #[test]
-    fn the_repository_comes_back_once_the_release_has_one() {
-        let r = SailfishRelease::parse("5.2.0.19").unwrap();
-        let due = |state: &PinState, marker: &str, ok: bool, done: &str| {
-            reenable_due(state, marker, &r, ok, done)
-        };
-        assert!(due(&PinState::Disabled, "5.2.0.19\n", true, ""));
-        // Not published yet, or turned off by the person (no marker, or a
-        // marker for another release), or already turned on once.
-        assert!(!due(&PinState::Disabled, "5.2.0.19", false, ""));
-        assert!(!due(&PinState::Disabled, "", true, ""));
-        assert!(!due(&PinState::Disabled, "5.2.0.18", true, ""));
-        assert!(!due(&PinState::Disabled, "5.2.0.19", true, "5.2.0.19"));
-        assert!(!due(&PinState::Pinned, "5.2.0.19", true, ""));
-    }
-
-    #[test]
-    fn op_names() {
-        assert_eq!(Ask::Install("a".into()).package(), "a");
-        assert_eq!(Ask::UpdateAll.package(), "");
-        let plan = Plan {
-            action: reef_backend::plan::Action::Remove,
-            target: "b".into(),
-            items: Vec::new(),
-            download_size: None,
-            alongside: Vec::new(),
-        };
-        let op = Op {
-            ask: Ask::Remove("b".into()),
-            plan,
-        };
-        assert_eq!(op.package(), "b");
-    }
-
-    /// The signed store index is read first, its details merged and cached;
-    /// an index that does not verify, or goes backwards, falls back to
-    /// catalogue.json.
-    #[test]
-    #[allow(
-        clippy::too_many_lines,
-        reason = "one scenario: a signed index, then forged, rolled back, newer"
-    )]
-    fn store_index_signed_details_and_fallback() {
-        use sha2::{Digest, Sha256};
-        let gpg = ["gpg2", "gpg"].into_iter().find(|g| {
-            std::process::Command::new(g)
-                .arg("--version")
-                .output()
-                .is_ok()
-        });
-        let gpgv = ["gpgv2", "gpgv"].into_iter().find(|g| {
-            std::process::Command::new(g)
-                .arg("--version")
-                .output()
-                .is_ok()
-        });
-        let (Some(gpg), Some(gpgv)) = (gpg, gpgv) else {
-            eprintln!("no gpg; skipped");
-            return;
-        };
-        let dir = scratch("index");
-        let home = dir.join("gnupg");
-        std::fs::create_dir_all(&home).unwrap();
-        let g = |args: &[&str]| {
-            let out = std::process::Command::new(gpg)
-                .arg("--batch")
-                .arg("--homedir")
-                .arg(&home)
-                .args(args)
-                .output()
-                .unwrap();
-            assert!(
-                out.status.success(),
-                "{}",
-                String::from_utf8_lossy(&out.stderr)
-            );
-            out.stdout
-        };
-        g(&[
-            "--passphrase",
-            "",
-            "--quick-gen-key",
-            "Reef Test <t@example.com>",
-            "rsa2048",
-            "sign",
-            "never",
-        ]);
-        let key = dir.join("key.asc");
-        std::fs::write(&key, g(&["--armor", "--export", "t@example.com"])).unwrap();
-
-        let repo = dir.join("repo/sailfishos/5.2.0.22/aarch64");
-        std::fs::create_dir_all(repo.join("store/apps")).unwrap();
-        std::fs::write(
-            repo.join("catalogue.json"),
-            br#"{"schema":1,"release":"5.2.0.22","arch":"aarch64","packages":[
-                {"name":"fx","version":"1-1","title":"From v1","summary":"s",
-                 "tested_on":["5.2.0.22"],"licence":{"model":"free"}}]}"#,
-        )
-        .unwrap();
-        let details = br#"{"name":"fx","version":"1-1","title":"From index","summary":"s","description":"Long","tested_on":["5.2.0.22"],"licence":{"model":"free"}}"#;
-        std::fs::write(repo.join("store/apps/fx.abc.json"), details).unwrap();
-        let sha = Sha256::digest(details)
-            .iter()
-            .fold(String::new(), |mut s, b| {
-                use std::fmt::Write as _;
-                let _ = write!(s, "{b:02x}");
-                s
-            });
-        let publish = |title: &str, revision: u64, sign: bool| {
-            let index = format!(
-                r#"{{"schema":2,"release":"5.2.0.22","arch":"aarch64","revision":{revision},
-                "categories":[{{"id":"Utilities","label":"Utilities","icon":"icon-m-flashlight","count":1}}],
-                "collections":[{{"id":"picks","title":"Picks","apps":["fx"]}}],
-                "apps":[{{"id":"fx","title":"{title}","summary":"s","version":"1-1",
-                  "licence":{{"model":"free"}},"tested_on":["5.2.0.22"],"keywords":["torch"],
-                  "sources":[{{"kind":"rpm","package":"fx"}}],
-                  "details":{{"path":"apps/fx.abc.json","sha256":"{sha}","size":{}}}}}]}}"#,
-                details.len()
-            );
-            let path = repo.join("store/index.json");
-            std::fs::write(&path, index).unwrap();
-            if sign {
-                let asc = repo.join("store/index.json.asc");
-                let _ = std::fs::remove_file(&asc);
-                g(&[
-                    "--local-user",
-                    "t@example.com",
-                    "--armor",
-                    "--detach-sign",
-                    "--output",
-                    asc.to_str().unwrap(),
-                    path.to_str().unwrap(),
-                ]);
-            }
-        };
-        let cache = dir.join("cache/shipwright-reef/catalogue.json");
-        let check = MetadataCheck {
-            zypp_conf: dir.join("zypp.conf"),
-            alias: "shipwright-reef".into(),
-            key,
-            state: dir.join("state/metadata-revision"),
-            gpg: gpg.into(),
-            gpgv: gpgv.into(),
-        };
-        let run = || {
-            refresh(&RefreshInput {
-                config: RepoConfig {
-                    url_template: format!(
-                        "file://{}/repo/sailfishos/{{release}}/{{arch}}/",
-                        dir.display()
-                    ),
-                    ..RepoConfig::default()
-                },
-                release: SailfishRelease::parse("5.2.0.22"),
-                arch: "aarch64".into(),
-                previous: None,
-                licence_dir: None,
-                licence_server: String::new(),
-                cache_path: Some(cache.clone()),
-                index_check: Some(check.clone()),
-            })
-            .catalogue
-            .expect("catalogue")
-        };
-
-        publish("From index", 200, true);
-        let c = run();
-        let p = &c.packages[0];
-        assert_eq!(p.title, "From index");
-        assert_eq!(p.description, "Long", "details merged");
-        assert_eq!(p.keywords, ["torch"]);
-        assert!(p.details.is_none());
-        assert_eq!(c.collections[0].apps, ["fx"]);
-        assert!(details_dir(&cache).join(format!("{sha}.json")).is_file());
-        let cached = Catalogue::parse(&std::fs::read(&cache).unwrap(), "aarch64").unwrap();
-        assert_eq!(cached.categories.len(), 1);
-
-        // Changed after signing: catalogue.json instead.
-        publish("Forged", 300, false);
-        assert_eq!(run().packages[0].title, "From v1");
-        // Signed, but older than what was accepted: the same.
-        publish("Old", 100, true);
-        assert_eq!(run().packages[0].title, "From v1");
-        // Newer and signed: the index again (the title its details give).
-        publish("Newer", 300, true);
-        assert_eq!(run().packages[0].title, "From index");
-        std::fs::remove_dir_all(dir).unwrap();
     }
 }

@@ -44,7 +44,7 @@ pub const fn is_placeholder(value: &str) -> bool {
 /// The defaults that reach a phone when nothing overrides them.
 pub const SHIPPED_DEFAULTS: &[&str] = &[
     crate::settings::DEFAULT_LICENCE_SERVER,
-    reef_backend::repo::DEFAULT_URL_TEMPLATE,
+    crate::jobs::DEFAULT_STORE_URL,
 ];
 
 const fn any_placeholder(values: &[&str]) -> bool {
@@ -73,7 +73,7 @@ const _: () = assert!(
 const _: () = assert!(
     !any_placeholder(SHIPPED_DEFAULTS),
     "release build with a placeholder .example host in settings::DEFAULT_LICENCE_SERVER \
-     or reef_backend::repo::DEFAULT_URL_TEMPLATE: set the real hosts first"
+     or jobs::DEFAULT_STORE_URL: set the real hosts first"
 );
 
 #[cfg(test)]

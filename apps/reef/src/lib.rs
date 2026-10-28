@@ -3,12 +3,11 @@
 
 //! shipwright-reef: the Reef store client. Loads the QML UI (installed to
 //! /usr/share/shipwright-reef/qml) on Keel, with the `Reef` singleton from
-//! [`bridge`]. On a phone Lipstick starts it
-//! with `invoker --type=keel` (booster-keel, else directly), in Keel's direct mode.
+//! [`bridge`]. The shell starts it under marathon-keel-host.
 //!
-//! Built as a shared object that is also executable: the RPM installs it as
-//! /usr/bin/shipwright-reef, and booster-keel loads it and calls its C [`main`]
-//! (tools/keel-launcher/link_sailfishapp.rs says why).
+//! Built as a shared object that is also executable: the package installs
+//! it as /usr/bin/shipwright-reef (tools/keel-launcher/link_sailfishapp.rs
+//! says why).
 
 #[allow(
     clippy::missing_safety_doc,
@@ -16,9 +15,7 @@
               generates, and CXX-Qt allows no lint attribute on the bridge itself"
 )]
 pub mod bridge;
-pub mod check;
 pub mod jobs;
-pub mod launch;
 pub mod logging;
 pub mod release_gate;
 pub mod rows;
@@ -33,21 +30,18 @@ use std::path::PathBuf;
 
 use cxx_qt_lib::QString;
 
-/// Where the RPM installs the UI.
+/// Where the package installs the UI.
 const DEFAULT_QML: &str = "/usr/share/shipwright-reef/qml/shipwright-reef.qml";
 
 fn usage() -> ! {
     eprintln!(
         "usage: shipwright-reef [--qml FILE]\n\
-         \x20      shipwright-reef --check-updates\n\
          \n\
          --qml FILE       main QML file (default {DEFAULT_QML}, or $REEF_QML)\n\
-         --check-updates  the background check (no window), run by the\n\
-         \x20                shipwright-reef-check.timer user unit; does nothing\n\
-         \x20                unless the \"Check in the background\" setting is due\n\
          \n\
          Extra QML import paths come from QML_IMPORT_PATH, as for any Qt6 app.\n\
-         REEF_LOG sets the log level (error, warn, info, debug)."
+         REEF_LOG sets the log level (error, warn, info, debug).\n\
+         REEF_STORE_URL sets the store directory (development and tests)."
     );
     std::process::exit(2)
 }
@@ -61,10 +55,9 @@ pub extern "C" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
 }
 
 fn run() {
-    // The phone's launcher starts Reef with umask 0, so every file it wrote
-    // (the install record, settings, licences) was world-writable. Files
-    // Reef writes are readable by others at most; the install record is the
-    // owner's only (reef-backend's InstallLedger).
+    // Sailfish's launcher started Reef with umask 0, so every file it wrote
+    // (settings, licences) was world-writable. Files Reef writes are
+    // readable by others at most.
     // SAFETY: umask only sets the process's file mode mask; it cannot fail.
     unsafe {
         libc::umask(0o022);
@@ -74,9 +67,6 @@ fn run() {
         .and_then(|l| logging::parse_level(&l))
         .unwrap_or(log::LevelFilter::Info);
     logging::init(level);
-    if bridge::launch_args().get(1).map(String::as_str) == Some("--check-updates") {
-        std::process::exit(check::run());
-    }
     let mut qml = std::env::var_os("REEF_QML")
         .filter(|v| !v.is_empty())
         .map_or_else(|| PathBuf::from(DEFAULT_QML), PathBuf::from);

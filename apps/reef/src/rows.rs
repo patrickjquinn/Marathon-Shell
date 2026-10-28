@@ -2,20 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Pure conversions from reef-backend types to what the QML sees: list
-//! model rows, the `packageDetails()` map, and the small strings behind the
-//! `Reef` properties (`repoState`, `busyText`, `progress`). Nothing here
-//! touches Qt, so every rule is unit-tested without a QML engine; the bridge
-//! turns [`Value`]s into `QVariant`s.
+//! model rows, the `packageDetails()` map and the messages behind
+//! `lastError`. Nothing here touches Qt, so every rule is unit-tested
+//! without a QML engine; the bridge turns [`Value`]s into `QVariant`s.
 //!
-//! The role names and values are the contract in reef/client/ui/README.md
+//! The role names and values are the contract in apps/reef/UI.md
 //! ("Backend object API").
 
 use reef_backend::catalogue::{parse_date, Catalogue, LicenceModel, Package};
 use reef_backend::licences::StoredLicence;
-use reef_backend::packagekit::{PackageInfo, Status};
-use reef_backend::release::SailfishRelease;
-use reef_backend::repo::{PinState, SsuRepo};
-use reef_backend::store::{entries, InstallState};
+use reef_backend::store::{entries, InstallState, PackageVersion};
 use reef_licence::{Claims, Error as LicenceError, Plan, Standing};
 
 /// One cell of a row, or one value of the details map.
@@ -387,7 +383,7 @@ pub fn install_state(state: &InstallState) -> (&'static str, String) {
     }
 }
 
-/// `updateVersion`: the version `PackageKit` would update to, which a cached
+/// `updateVersion`: the version an update would bring, which a cached
 /// catalogue can lag behind (it may even list an older build than the one
 /// installed); empty unless an update is available.
 pub fn update_version(state: &InstallState) -> String {
@@ -427,14 +423,13 @@ pub fn is_licensed(package: &Package, licensed_app: &dyn Fn(&str) -> bool) -> bo
 /// empty); `today` is [`today`]'s value.
 pub fn package_rows(
     catalogue: &Catalogue,
-    release: &SailfishRelease,
-    installed: &[PackageInfo],
-    updates: &[PackageInfo],
+    installed: &[PackageVersion],
+    updates: &[PackageVersion],
     licensed_app: &dyn Fn(&str) -> bool,
     asset: &dyn Fn(&str) -> String,
     today: i64,
 ) -> Vec<PackageRow> {
-    let mut rows: Vec<PackageRow> = entries(catalogue, release, installed, updates)
+    let mut rows: Vec<PackageRow> = entries(catalogue, installed, updates)
         .into_iter()
         .map(|e| {
             let (state, installed_version) = install_state(&e.state);
@@ -593,12 +588,11 @@ pub fn package_details(
 /// Install state of one visible package, for `packageDetails`.
 pub fn state_of(
     catalogue: &Catalogue,
-    release: &SailfishRelease,
-    installed: &[PackageInfo],
-    updates: &[PackageInfo],
+    installed: &[PackageVersion],
+    updates: &[PackageVersion],
     name: &str,
 ) -> Option<InstallState> {
-    entries(catalogue, release, installed, updates)
+    entries(catalogue, installed, updates)
         .into_iter()
         .find(|e| e.package.name == name)
         .map(|e| e.state)
@@ -631,42 +625,17 @@ pub fn size_text(bytes: Option<u64>) -> String {
     }
 }
 
-/// `busyText` for a `PackageKit` status: a key the UI translates
-/// (reef/client/ui/qml/components/Texts.js, `busyText`). The jobs the
-/// bridge starts use the keys `checking`, `starting`, `refreshing`,
-/// `repairing` and `refreshing_licences`.
-pub fn status_text(status: Status) -> &'static str {
-    match status {
-        Status::Wait => "waiting",
-        Status::Setup => "starting",
-        Status::Running => "running",
-        Status::Query => "querying",
-        Status::Remove => "removing",
-        Status::RefreshCache => "refreshing",
-        Status::Download => "downloading",
-        Status::Install => "installing",
-        Status::Update => "updating",
-        Status::Cleanup => "cleaning_up",
-        Status::DepResolve => "resolving",
-        Status::SigCheck => "checking_signatures",
-        Status::Commit => "committing",
-        Status::Finished => "finished",
-        Status::Other(_) => "working",
-    }
-}
-
 /// Marks a message the UI translates: `\u{1e}<key>` followed by its
-/// arguments, each after a `\u{1f}`. reef/client/ui/qml/components/Texts.js
-/// maps each key to a `qsTr` string; text without the marker (errors from
-/// `PackageKit`, the network or reef-licence) is shown as it is.
+/// arguments, each after a `\u{1f}`. apps/reef/ui/components/Texts.js maps
+/// each key to a `qsTr` string; text without the marker (errors from the
+/// network or reef-licence) is shown as it is.
 pub const MESSAGE_MARK: char = '\u{1e}';
 const MESSAGE_ARG: char = '\u{1f}';
 
-/// A translatable message (see [`MESSAGE_MARK`]). Keys: `busy`,
-/// `no_release`, `no_licence_store`, `licence_remove_failed` (error),
-/// `catalogue_missing` (release, arch), `catalogue_download_failed`
-/// (error), `no_licence_server`, `revocations_unsigned`, `updated` (count),
-/// `up_to_date` (package), `worker_failed` (error), `licence_add_failed`
+/// A translatable message (see [`MESSAGE_MARK`]). Keys:
+/// `no_licence_store`, `licence_remove_failed` (error), `catalogue_missing`
+/// (arch), `catalogue_download_failed` (error), `no_licence_server`,
+/// `revocations_unsigned`, `worker_failed` (error), `licence_add_failed`
 /// (error), `claim_failed` (error).
 pub fn message(key: &str, args: &[&str]) -> String {
     let mut s = String::from(MESSAGE_MARK);
@@ -680,30 +649,6 @@ pub fn message(key: &str, args: &[&str]) -> String {
         );
     }
     s
-}
-
-/// `progress`: 0 to 100, or -1 when `PackageKit` does not know.
-pub fn progress_value(percentage: Option<u32>) -> i32 {
-    percentage.map_or(-1, |p| i32::try_from(p.min(100)).unwrap_or(100))
-}
-
-/// `repoState` string.
-pub fn repo_state(state: &PinState) -> &'static str {
-    match state {
-        PinState::Pinned => "pinned",
-        PinState::Missing => "missing",
-        PinState::Disabled => "disabled",
-        PinState::Drifted { .. } => "drifted",
-    }
-}
-
-/// `registeredRepoUrl`: whatever ssu has under our alias, or empty.
-pub fn registered_url(repos: &[SsuRepo], alias: &str) -> String {
-    repos
-        .iter()
-        .find(|r| r.alias == alias)
-        .map(|r| r.url.clone())
-        .unwrap_or_default()
 }
 
 /// One row of `licenceModel`.
@@ -818,7 +763,6 @@ pub fn date_text(unix: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reef_backend::packagekit::{Info, PackageId};
     use reef_licence::{KeySet, Licence, Policy, Signer};
 
     const CATALOGUE: &str = r#"{
@@ -846,15 +790,10 @@ mod tests {
         Catalogue::parse(CATALOGUE.as_bytes(), "aarch64").unwrap()
     }
 
-    fn rel(s: &str) -> SailfishRelease {
-        SailfishRelease::parse(s).unwrap()
-    }
-
-    fn pkg(id: &str) -> PackageInfo {
-        PackageInfo {
-            info: Info::Normal,
-            id: PackageId::parse(id).unwrap(),
-            summary: String::new(),
+    fn pkg(name: &str, version: &str) -> PackageVersion {
+        PackageVersion {
+            name: name.into(),
+            version: version.into(),
         }
     }
 
@@ -865,38 +804,29 @@ mod tests {
     #[test]
     fn rows_follow_visibility_install_state_and_licences() {
         let installed = [
-            pkg("shipwright-keel-silica;0.1.0-1;aarch64;installed"),
-            pkg("shipwright-shoal-bridge-airpods-ui;0.9.0-1;aarch64;installed:shipwright-reef"),
+            pkg("shipwright-keel-silica", "0.1.0-1"),
+            pkg("shipwright-shoal-bridge-airpods-ui", "0.9.0-1"),
         ];
-        let updates = [pkg(
-            "shipwright-shoal-bridge-airpods-ui;1.0.0-1;aarch64;shipwright-reef",
-        )];
+        let updates = [pkg("shipwright-shoal-bridge-airpods-ui", "1.0.0-1")];
         let licensed = |app: &str| app == "shoal-bridge";
-        let rows = package_rows(
-            &cat(),
-            &rel("5.2.0.17"),
-            &installed,
-            &updates,
-            &licensed,
-            &no_asset,
-            0,
-        );
-        // Messages is not tested on 5.2.0.17: hidden. Sorted by title.
+        let rows = package_rows(&cat(), &installed, &updates, &licensed, &no_asset, 0);
+        // Sorted by title.
         assert_eq!(
             rows.iter().map(|r| r.title.as_str()).collect::<Vec<_>>(),
-            ["Keel", "Shoal Bridge"]
+            ["Keel", "Messages", "Shoal Bridge"]
         );
         assert_eq!(rows[0].install_state, "installed");
         assert_eq!(rows[0].installed_version, "0.1.0-1");
         assert_eq!(rows[0].licence_model, "free");
         assert!(!rows[0].licensed, "free packages carry no licence");
-        assert_eq!(rows[1].install_state, "update_available");
-        assert_eq!(rows[1].installed_version, "0.9.0-1");
-        assert_eq!(rows[1].version, "1.0.0-1");
-        assert_eq!(rows[1].licence_model, "one_off");
-        assert!(rows[1].licensed);
+        assert_eq!(rows[1].install_state, "not_installed");
+        assert_eq!(rows[2].install_state, "update_available");
+        assert_eq!(rows[2].installed_version, "0.9.0-1");
+        assert_eq!(rows[2].version, "1.0.0-1");
+        assert_eq!(rows[2].licence_model, "one_off");
+        assert!(rows[2].licensed);
 
-        let values = rows[1].values();
+        let values = rows[2].values();
         assert_eq!(values.len(), PACKAGE_ROLES.len());
         assert_eq!(
             values[0],
@@ -905,27 +835,18 @@ mod tests {
         assert_eq!(values[5], Value::Str("update_available".into()));
         assert_eq!(values[8], Value::Bool(true));
 
-        // On 5.2.0.18 only Shoal Bridge and Messages show, nothing installed.
-        let rows = package_rows(&cat(), &rel("5.2.0.18"), &[], &[], &|_| false, &no_asset, 0);
-        assert_eq!(rows.len(), 2);
+        // Nothing installed.
+        let rows = package_rows(&cat(), &[], &[], &|_| false, &no_asset, 0);
+        assert_eq!(rows.len(), 3);
         assert!(rows.iter().all(|r| r.install_state == "not_installed"));
         assert!(installed_rows(&rows).is_empty());
-        // By title: Messages, then Shoal Bridge.
-        assert_eq!(rows[0].licence_model, "subscription");
+        assert_eq!(rows[1].licence_model, "subscription");
     }
 
     #[test]
     fn installed_model_keeps_installed_and_upgradable() {
-        let installed = [pkg("shipwright-keel-silica;0.1.0-1;aarch64;installed")];
-        let rows = package_rows(
-            &cat(),
-            &rel("5.2.0.17"),
-            &installed,
-            &[],
-            &|_| false,
-            &no_asset,
-            0,
-        );
+        let installed = [pkg("shipwright-keel-silica", "0.1.0-1")];
+        let rows = package_rows(&cat(), &installed, &[], &|_| false, &no_asset, 0);
         let inst = installed_rows(&rows);
         assert_eq!(inst.len(), 1);
         assert_eq!(inst[0].name, "shipwright-keel-silica");
@@ -952,7 +873,7 @@ mod tests {
             _ => String::new(),
         };
         let day = parse_date("2026-10-03").unwrap();
-        let rows = package_rows(&c, &rel("5.2.0.17"), &[], &[], &|_| false, &asset, day);
+        let rows = package_rows(&c, &[], &[], &|_| false, &asset, day);
         let keel = rows
             .iter()
             .find(|r| r.name == "shipwright-keel-silica")
@@ -1008,9 +929,7 @@ mod tests {
         assert!(filter_rows(&rows, "zebra").is_empty());
 
         // Details carry the publisher, the icon and the cached screenshots only.
-        let p = c
-            .visible_package("shipwright-keel-silica", &rel("5.2.0.17"))
-            .unwrap();
+        let p = c.visible_package("shipwright-keel-silica").unwrap();
         let d = package_details(p, &InstallState::NotInstalled, false, &asset);
         let get = |k: &str| d.iter().find(|(key, _)| *key == k).unwrap().1.clone();
         assert_eq!(get("publisher"), Value::Str("Shipwright".into()));
@@ -1215,7 +1134,7 @@ mod tests {
     fn details_map_has_every_documented_key() {
         let c = cat();
         let p = c
-            .visible_package("shipwright-shoal-bridge-airpods-ui", &rel("5.2.0.17"))
+            .visible_package("shipwright-shoal-bridge-airpods-ui")
             .unwrap();
         let d = package_details(p, &InstallState::NotInstalled, false, &no_asset);
         let keys: Vec<&str> = d.iter().map(|(k, _)| *k).collect();
@@ -1270,9 +1189,7 @@ mod tests {
         assert_eq!(get("installState"), Value::Str("not_installed".into()));
         assert_eq!(get("sizeText"), Value::Str(String::new()));
 
-        let keel = c
-            .visible_package("shipwright-keel-silica", &rel("5.2.0.17"))
-            .unwrap();
+        let keel = c.visible_package("shipwright-keel-silica").unwrap();
         let d = package_details(
             keel,
             &InstallState::Installed {
@@ -1306,59 +1223,39 @@ mod tests {
 
     #[test]
     fn state_of_matches_rows() {
-        let installed = [pkg("shipwright-keel-silica;0.1.0-1;aarch64;installed")];
+        let installed = [pkg("shipwright-keel-silica", "0.1.0-1")];
         let c = cat();
-        let r = rel("5.2.0.17");
         assert_eq!(
-            state_of(&c, &r, &installed, &[], "shipwright-keel-silica"),
+            state_of(&c, &installed, &[], "shipwright-keel-silica"),
             Some(InstallState::Installed {
                 version: "0.1.0-1".into()
             })
         );
-        // Hidden on this release, so no details.
         assert_eq!(
-            state_of(&c, &r, &[], &[], "shipwright-shoal-messages"),
-            None
+            state_of(&c, &installed, &[], "shipwright-shoal-messages"),
+            Some(InstallState::NotInstalled)
         );
+        // Not in the catalogue, so no details.
+        assert_eq!(state_of(&c, &[], &[], "unlisted"), None);
     }
 
     #[test]
-    fn sizes_statuses_progress_and_repo_state() {
+    fn sizes_and_messages() {
         assert_eq!(size_text(None), "");
         assert_eq!(size_text(Some(512)), "512 B");
         assert_eq!(size_text(Some(2048)), "2.0 kB");
         assert_eq!(size_text(Some(200 * 1024)), "200 kB");
         assert_eq!(size_text(Some(3 * 1024 * 1024 * 1024)), "3.0 GB");
-        assert_eq!(status_text(Status::Download), "downloading");
-        assert_eq!(status_text(Status::Other(99)), "working");
-        assert_eq!(message("busy", &[]), "\u{1e}busy");
+        assert_eq!(message("no_licence_server", &[]), "\u{1e}no_licence_server");
         assert_eq!(
-            message("catalogue_missing", &["5.2.0.17", "aarch64"]),
-            "\u{1e}catalogue_missing\u{1f}5.2.0.17\u{1f}aarch64"
+            message("catalogue_missing", &["aarch64"]),
+            "\u{1e}catalogue_missing\u{1f}aarch64"
         );
         // Arguments cannot smuggle in separators.
         assert_eq!(
-            message("up_to_date", &["a\u{1f}b\u{1e}c"]),
-            "\u{1e}up_to_date\u{1f}abc"
+            message("claim_failed", &["a\u{1f}b\u{1e}c"]),
+            "\u{1e}claim_failed\u{1f}abc"
         );
-        assert_eq!(progress_value(None), -1);
-        assert_eq!(progress_value(Some(42)), 42);
-        assert_eq!(repo_state(&PinState::Pinned), "pinned");
-        assert_eq!(repo_state(&PinState::Missing), "missing");
-        assert_eq!(repo_state(&PinState::Disabled), "disabled");
-        assert_eq!(
-            repo_state(&PinState::Drifted {
-                registered: "x".into()
-            }),
-            "drifted"
-        );
-        let repos = [SsuRepo {
-            alias: "shipwright-reef".into(),
-            url: "https://h/sailfishos/5.2.0.15/%(arch)/".into(),
-            enabled: true,
-        }];
-        assert_eq!(registered_url(&repos, "shipwright-reef"), repos[0].url);
-        assert_eq!(registered_url(&repos, "other"), "");
     }
 
     #[test]
@@ -1439,7 +1336,6 @@ mod tests {
     #[test]
     fn catalogue_titles_for_licences() {
         let c = cat();
-        // Found even when the package is hidden on this release.
         assert_eq!(
             title_for_app(Some(&c), "shoal-messages").as_deref(),
             Some("Messages")

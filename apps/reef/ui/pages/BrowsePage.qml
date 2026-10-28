@@ -50,7 +50,7 @@ Page {
         ViewPlaceholder {
             enabled: list.count === 0 && !Reef.busy
             text: qsTr("Nothing here yet")
-            hintText: qsTr("No apps here are tested on Sailfish OS %1 yet.").arg(Reef.installedRelease)
+            hintText: qsTr("Reef's catalogue has no apps here for this phone yet.")
         }
 
         VerticalScrollDecorator {}

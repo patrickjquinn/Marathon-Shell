@@ -1,25 +1,20 @@
 // SPDX-FileCopyrightText: 2026 Patrick Quinn
 // SPDX-License-Identifier: Apache-2.0
 
-//! Parses a catalogue exactly as the store client does and prints what a
-//! phone on `release` would see. Used by tools/build/reef/e2e-test.sh to
-//! prove the publish scripts and the client agree on the format.
+//! Parses a catalogue exactly as the store client does and prints what
+//! this machine would see, to prove a publisher and the client agree on
+//! the format.
 //!
-//! usage: validate-catalogue <catalogue.json> <arch> <release>
+//! usage: validate-catalogue <catalogue.json> <arch>
 
 use std::process::ExitCode;
 
 use reef_backend::catalogue::Catalogue;
-use reef_backend::release::SailfishRelease;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let [path, arch, release] = args.as_slice() else {
-        eprintln!("usage: validate-catalogue <catalogue.json> <arch> <release>");
-        return ExitCode::from(2);
-    };
-    let Some(release) = SailfishRelease::parse(release) else {
-        eprintln!("not a four-part Sailfish release: {release}");
+    let [path, arch] = args.as_slice() else {
+        eprintln!("usage: validate-catalogue <catalogue.json> <arch>");
         return ExitCode::from(2);
     };
     let bytes = match std::fs::read(path) {
@@ -36,9 +31,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let visible = cat.visible(&release);
+    let visible = cat.visible();
     println!(
-        "{path}: {} packages, {} visible on {release}",
+        "{path}: {} packages, {} visible here",
         cat.packages.len(),
         visible.len()
     );

@@ -9,10 +9,9 @@
 //! [`parse_index`] turns the index into the same [`Catalogue`] a
 //! `catalogue.json` gives, every package carrying its
 //! [`DetailsRef`](crate::catalogue::DetailsRef) until
-//! [`Catalogue::merge_details`] fills it in. The index's signature is
-//! checked before it is parsed (`metadata::verify_index`); each details
-//! file is checked against the SHA-256 the signed index gives for it, so
-//! nothing the store shows or acts on is unsigned.
+//! [`Catalogue::merge_details`] fills it in. Each details file is checked
+//! against the SHA-256 the index gives for it. The index's own signature
+//! is not checked here, so the app does not read an index yet.
 //!
 //! An app is listed only when it has a source this client installs (an
 //! RPM); the index may describe others (Flatpak, Android, Marathon
@@ -276,7 +275,6 @@ pub fn sha256_matches(bytes: &[u8], hex: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::release::SailfishRelease;
 
     fn sha(bytes: &[u8]) -> String {
         use std::fmt::Write as _;
@@ -348,10 +346,9 @@ mod tests {
         assert_eq!(cat.categories[1].icon, "", "not a theme icon");
         // The variant builds' processor needs, so the app is shown or hidden
         // before its details come.
-        let release = SailfishRelease::parse("5.2.0.22").unwrap();
         let v80: std::collections::BTreeSet<String> = ["asimd".to_string()].into();
         assert_eq!(cat.variant_picks("fx", Some(&v80)).unwrap(), ["engine-v80"]);
-        assert_eq!(cat.visible_on(&release, Some(&v80)).len(), 1);
+        assert_eq!(cat.visible_on(Some(&v80)).len(), 1);
         assert_eq!(cat.pending_details().len(), 1);
     }
 
