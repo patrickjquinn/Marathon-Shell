@@ -908,64 +908,6 @@ pub fn trip_query(text: &str) -> String {
     query
 }
 
-/// Whether `text` asks about the weather, however it is put ("how warm is
-/// it outside?", "do I need an umbrella", "what's the weekend looking
-/// like weather wise"): a word only weather has, or a word weather often
-/// has with a when or where ("cold" with "outside", "coat" with "today").
-/// Such a question is answered from the weather tool, never from memory.
-pub fn about_weather(text: &str) -> bool {
-    let l = text.to_lowercase();
-    let words: Vec<&str> = l
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|w| !w.is_empty())
-        .collect();
-    let has = |list: &[&str]| words.iter().any(|w| list.contains(w));
-    let strong = [
-        "weather", "forecast", "rain", "raining", "rainy", "umbrella", "snow", "snowing", "sunny",
-        "windy", "drizzle", "showers", "frost", "frosty", "foggy", "humid", "humidity",
-    ];
-    let weak = [
-        "warm",
-        "hot",
-        "cold",
-        "chilly",
-        "freezing",
-        "coat",
-        "jacket",
-        "wind",
-        "degrees",
-        "temperature",
-        "sunshine",
-        "sun",
-        "storm",
-        "wet",
-        "dry",
-        "mild",
-    ];
-    let when_where = [
-        "outside",
-        "out",
-        "today",
-        "tonight",
-        "tomorrow",
-        "now",
-        "morning",
-        "afternoon",
-        "evening",
-        "weekend",
-        "week",
-        "later",
-        "saturday",
-        "sunday",
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-    ];
-    has(&strong) || (has(&weak) && has(&when_where))
-}
-
 /// A correction to the clock just set, as a request for the new one:
 /// after a timer, "make it 12" is "set a timer for 12 minutes" (a bare
 /// number keeps minutes) and "actually 20 seconds" keeps its unit; after an
@@ -1575,24 +1517,7 @@ mod tests {
     }
 
     #[test]
-    fn weather_questions_and_memory_phrasings() {
-        for q in [
-            "how warm is it outside?",
-            "do I need an umbrella this afternoon?",
-            "what's the weekend looking like weather wise",
-            "will I need a coat today?",
-            "is it cold out?",
-        ] {
-            assert!(about_weather(q), "{q}");
-        }
-        for q in [
-            "what colour coat should I buy",
-            "how hot is the sun",
-            "brainstorm names for a dog",
-            "set a timer for 5 minutes",
-        ] {
-            assert!(!about_weather(q), "{q}");
-        }
+    fn memory_phrasings() {
         assert_eq!(
             memory_command("my wife's name is Niamh by the way, keep that in mind"),
             Some(MemoryCommand::Remember("my wife's name is Niamh".into()))

@@ -128,9 +128,9 @@ pub struct ChatRequest {
     pub json_mode: bool,
     pub effort: Effort,
     pub purpose: String,
-    /// A tool the model must call this round (its name in `tools`): a
-    /// question only a tool can answer truthfully (the weather).
-    pub require: Option<String>,
+    /// The model must call one of `tools` this round: a question only a
+    /// tool can answer truthfully (the weather, the calendar).
+    pub require: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -219,10 +219,6 @@ impl OpenAiClient {
             // put them before the conversation, so changing them makes a
             // local model reread the whole prompt. A required tool makes a
             // call "required"; llama.cpp ignored the named-function form.
-            let required = req
-                .require
-                .as_ref()
-                .is_some_and(|name| req.tools.iter().any(|t| &t.name == name));
             body["tools"] = req
                 .tools
                 .iter()
@@ -231,7 +227,7 @@ impl OpenAiClient {
                         "name": t.name, "description": t.description, "parameters": t.parameters}})
                 })
                 .collect();
-            body["tool_choice"] = json!(if required { "required" } else { "auto" });
+            body["tool_choice"] = json!(if req.require { "required" } else { "auto" });
         }
         if req.json_mode {
             body["response_format"] = json!({"type": "json_object"});

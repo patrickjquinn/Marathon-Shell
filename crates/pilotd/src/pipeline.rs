@@ -1761,9 +1761,11 @@ impl Pipeline {
         self.log_decision(turn, &decision, &route);
         // A model in the cloud gets the three likeliest domains: a wrong
         // first guess costs it a few tool definitions, not seconds. The
-        // answer insists on a tool call only when an app was chosen surely.
+        // first round must call a tool when stage one is sure of an area:
+        // "¿Qué tengo en el calendario mañana?" got made-up events.
         let wide = backends.llm.provider() != "local";
-        let (scope, mut insist) = match answers.get("domain") {
+        // The area stage one is sure of; its tool answers, not the model.
+        let (scope, sure) = match answers.get("domain") {
             Some(crate::jev::Answer::Choice {
                 distribution,
                 confidence,
@@ -1778,8 +1780,10 @@ impl Pipeline {
                     .take(take)
                     .map(|(o, _)| o.clone())
                     .collect();
-                let sure_app = *confidence >= 0.6
-                    && d.first().is_some_and(|o| o != GENERAL && o.contains('.'));
+                let sure = d
+                    .first()
+                    .filter(|o| *confidence >= 0.6 && *o != GENERAL)
+                    .cloned();
                 d.retain(|o| o != GENERAL);
                 // ... and every system area: the phone's own tools are few,
                 // and a missed one made the model invent a calendar entry.
@@ -1790,10 +1794,12 @@ impl Pipeline {
                         }
                     }
                 }
-                (Some(d), sure_app)
+                (Some(d), sure)
             }
-            _ => (None, false),
+            _ => (None, None),
         };
+        let mut insist = sure.as_ref().is_some_and(|d| d.contains('.'));
+        let weather = sure.as_deref() == Some("weather");
         // A short follow-up ("and tomorrow?", "what about Cork?") is about
         // what the last turn used tools for: they are offered again, and an
         // answer without them goes back once (the model made tomorrow's
@@ -1834,22 +1840,10 @@ impl Pipeline {
             }
             _ => (route, scope),
         };
-        // A weather question however it is put ("how warm is it
-        // outside?"): the weather tool is offered and must be called; the
-        // model answered it from nothing ("16 degrees and sunny").
-        let weather = intents::about_weather(text);
         // Several things at once: every tool is offered (the domain picked
         // one, and "check the weather and make a note" lost the note).
         let scope = if intents::needs_model(text) {
             None
-        } else if weather {
-            // Added to a narrowed scope; no scope already offers it.
-            scope.map(|mut s| {
-                if !s.iter().any(|d| d == "weather") {
-                    s.push("weather".into());
-                }
-                s
-            })
         } else {
             scope
         };
@@ -1886,6 +1880,7 @@ impl Pipeline {
                                 scope,
                                 false,
                                 insist,
+                                sure.is_some(),
                             )
                             .await,
                         )
@@ -1914,6 +1909,7 @@ impl Pipeline {
                         scope,
                         web_first,
                         insist,
+                        sure.is_some(),
                     )
                     .await,
                 )
@@ -1935,6 +1931,7 @@ impl Pipeline {
                     scope,
                     web_first,
                     insist,
+                    sure.is_some(),
                 )
                 .await,
             ),
@@ -1949,6 +1946,7 @@ impl Pipeline {
                     scope,
                     web_first,
                     insist,
+                    sure.is_some(),
                 )
                 .await,
             ),
@@ -2450,6 +2448,7 @@ impl Pipeline {
         scope: Option<&[String]>,
         web_first: bool,
         insist: bool,
+        ground: bool,
     ) -> Vec<Card> {
         let deep = [
             "work this out",
@@ -2696,10 +2695,7 @@ impl Pipeline {
                 } else {
                     "tool-loop".into()
                 },
-                require: (round == 0 && intents::about_weather(redacted))
-                    .then(|| registry.get(crate::weather::TOOL))
-                    .flatten()
-                    .map(|e| e.model_name.clone()),
+                require: round == 0 && ground,
             };
             self.stage(
                 turn,
@@ -3209,7 +3205,7 @@ impl Pipeline {
             json_mode: false,
             effort: Effort::Off,
             purpose: "vision".into(),
-            require: None,
+            require: false,
         };
         let card = match self.backends().llm.chat(&req).await {
             Ok(r) => {
