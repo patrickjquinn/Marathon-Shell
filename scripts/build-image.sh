@@ -177,15 +177,16 @@ build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$
 # they build from it; otherwise the prebuilt ones packaging/vendor/
 # shipwright.lock pins come in, or the image goes without them.
 if [ -d "${SHIPWRIGHT_SRC:=$HOME/Developer/Shipwright}/shoal/pacific" ]; then
-PACIFIC_SRC="${PACIFIC_SRC-$SHIPWRIGHT_SRC}" \
+# The committed tree, even while Shipwright has work in progress.
+SHIPWRIGHT_REF="${SHIPWRIGHT_REF-$(git -C "$SHIPWRIGHT_SRC" rev-parse HEAD)}"
+PACIFIC_SRC="${PACIFIC_SRC-$SHIPWRIGHT_SRC}" PACIFIC_REF="${PACIFIC_REF-$SHIPWRIGHT_REF}" \
 build_if_missing "pacific"                   'pacific-*.apk'                  "$LIB/build-pacific-apk.sh"                   "$APORTS_DIR/pacific/APKBUILD"
-# One script builds the daemon and the app; PILOT_REF builds the committed
-# tree even while Shipwright has work in progress.
-PILOT_SRC="${PILOT_SRC-$SHIPWRIGHT_SRC}" PILOT_REF="${PILOT_REF-$(git -C "$SHIPWRIGHT_SRC" rev-parse HEAD)}" \
+# One script builds the daemon and the app.
+PILOT_SRC="${PILOT_SRC-$SHIPWRIGHT_SRC}" PILOT_REF="${PILOT_REF-$SHIPWRIGHT_REF}" \
 build_if_missing "shoal-pilotd"              'shoal-pilotd-*.apk'             "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilotd/APKBUILD"
-PILOT_SRC="${PILOT_SRC-$SHIPWRIGHT_SRC}" PILOT_REF="${PILOT_REF-$(git -C "$SHIPWRIGHT_SRC" rev-parse HEAD)}" \
+PILOT_SRC="${PILOT_SRC-$SHIPWRIGHT_SRC}" PILOT_REF="${PILOT_REF-$SHIPWRIGHT_REF}" \
 build_if_missing "shoal-pilot"               'shoal-pilot-[0-9]*.apk'         "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/shoal-pilot/APKBUILD"
-KEEL_MCP_SRC="${KEEL_MCP_SRC-$SHIPWRIGHT_SRC}" \
+KEEL_MCP_SRC="${KEEL_MCP_SRC-$SHIPWRIGHT_SRC}" KEEL_MCP_REF="${KEEL_MCP_REF-$SHIPWRIGHT_REF}" \
 build_if_missing "keel-mcp"                  'keel-mcp-*.apk'                 "$LIB/build-keel-mcp-apk.sh"                  "$APORTS_DIR/keel-mcp/APKBUILD"
 APORT=marathon-shipwright-apps \
 build_if_missing "marathon-shipwright-apps"  'marathon-shipwright-apps-*.apk' "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/marathon-shipwright-apps/APKBUILD"

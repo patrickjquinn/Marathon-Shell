@@ -7,7 +7,8 @@
 #
 # SHIPWRIGHT=<checkout> (default ~/Developer/Shipwright), REF=<commit>
 # (default HEAD), REPO=<owner/name> (default patrickjquinn/Marathon-Shell).
-# NO_PUBLISH=1 builds and pins locally without a release.
+# NO_PUBLISH=1 builds and pins locally without a release. BUILD_SCRATCH=<dir>
+# holds the builds' work trees (default ~/.cache/marathon-build).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 SHIPWRIGHT=${SHIPWRIGHT:-$HOME/Developer/Shipwright}
@@ -48,9 +49,14 @@ echo "==> engine patches: $(ls "$wpe"/pacific-0*.patch | wc -l) at $short (new o
 # Build from the source, at that commit.
 lib="$root/scripts/qemu/lib"
 export MARATHON_IMAGE_DIR="$root/packaging" MKOSI_PKG_DIR="$out"
-PACIFIC_SRC="$SHIPWRIGHT" bash "$lib/build-pacific-apk.sh"
+if [ -n "${BUILD_SCRATCH:-}" ]; then
+    mkdir -p "$BUILD_SCRATCH"
+    export PACIFIC_BUILD_DIR="$BUILD_SCRATCH" PILOT_BUILD_DIR="$BUILD_SCRATCH" \
+        KEEL_MCP_BUILD_DIR="$BUILD_SCRATCH" MARATHON_APK_WORK_DIR="$BUILD_SCRATCH/aport"
+fi
+PACIFIC_SRC="$SHIPWRIGHT" PACIFIC_REF="$commit" bash "$lib/build-pacific-apk.sh"
 PILOT_SRC="$SHIPWRIGHT" PILOT_REF="$commit" bash "$lib/build-pilot-apk.sh"
-KEEL_MCP_SRC="$SHIPWRIGHT" bash "$lib/build-keel-mcp-apk.sh"
+KEEL_MCP_SRC="$SHIPWRIGHT" KEEL_MCP_REF="$commit" bash "$lib/build-keel-mcp-apk.sh"
 APORT=marathon-shipwright-apps bash "$lib/build-aport-apk.sh"
 
 # Publish and lock.

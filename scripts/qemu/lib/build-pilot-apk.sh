@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DURANIUM_DIR="${DURANIUM_DIR:-${HOME}/.cache/marathon-build/duranium}"
 MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-$(cd "$SCRIPT_DIR/../../.." && pwd)/packaging}"
 APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
-MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
+MKOSI_PKG_DIR="${MKOSI_PKG_DIR:-$DURANIUM_DIR/mkosi.packages}"
 
 for dep in keel-silica keel-silica-dev; do
     ls "$MKOSI_PKG_DIR/$dep"-[0-9]*.apk >/dev/null 2>&1 || {
@@ -22,7 +22,7 @@ done
 
 echo "+-- building shoal-pilotd and shoal-pilot --+"
 
-WORK_DIR="$(mktemp -d "${HOME}/.cache/marathon-build/pilot-build.XXXXXX")"
+WORK_DIR="$(mktemp -d "${PILOT_BUILD_DIR:-${HOME}/.cache/marathon-build}/pilot-build.XXXXXX")"
 trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
 LOCAL_COMMIT=""

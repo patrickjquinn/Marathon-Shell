@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds Shipwright's keel-mcp (keel/actions/mcp) into mkosi.packages/.
-# KEEL_MCP_SRC=<Shipwright checkout> builds that checkout's HEAD instead of
+# KEEL_MCP_SRC=<Shipwright checkout> builds that checkout's KEEL_MCP_REF (default HEAD) instead of
 # the public shipwright-open export the APKBUILD pins.
 set -euo pipefail
 
@@ -9,22 +9,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DURANIUM_DIR="${DURANIUM_DIR:-${HOME}/.cache/marathon-build/duranium}"
 MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-$(cd "$SCRIPT_DIR/../../.." && pwd)/packaging}"
 APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
-MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
+MKOSI_PKG_DIR="${MKOSI_PKG_DIR:-$DURANIUM_DIR/mkosi.packages}"
 mkdir -p "$MKOSI_PKG_DIR"
 
 echo "+-- building keel-mcp --+"
 
-WORK_DIR="$(mktemp -d "${HOME}/.cache/marathon-build/keel-mcp-build.XXXXXX")"
+WORK_DIR="$(mktemp -d "${KEEL_MCP_BUILD_DIR:-${HOME}/.cache/marathon-build}/keel-mcp-build.XXXXXX")"
 trap 'podman unshare rm -rf "$WORK_DIR"' EXIT
 
 LOCAL_COMMIT=""
 if [ -n "${KEEL_MCP_SRC:-}" ]; then
-    require_clean "$KEEL_MCP_SRC"
-    LOCAL_COMMIT="$(git -C "$KEEL_MCP_SRC" rev-parse HEAD)"
+    [ -n "${KEEL_MCP_REF:-}" ] || require_clean "$KEEL_MCP_SRC"
+    LOCAL_COMMIT="$(git -C "$KEEL_MCP_SRC" rev-parse "${KEEL_MCP_REF:-HEAD}")"
     mkdir -p "$WORK_DIR/distfiles"
     # Whole tree: keel-mcp is a member of the root workspace.
     git -C "$KEEL_MCP_SRC" archive --format=tar.gz --prefix="shipwright-open-$LOCAL_COMMIT/" \
-        -o "$WORK_DIR/distfiles/keel-mcp-$LOCAL_COMMIT.tar.gz" HEAD
+        -o "$WORK_DIR/distfiles/keel-mcp-$LOCAL_COMMIT.tar.gz" "$LOCAL_COMMIT"
     echo "keel-mcp source: $KEEL_MCP_SRC @ $LOCAL_COMMIT"
 fi
 
