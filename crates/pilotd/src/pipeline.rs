@@ -2775,6 +2775,10 @@ impl Pipeline {
                 tool_call_id: None,
                 images: Vec::new(),
             });
+            // One read-only lookup ("what's the weather"): its own summary
+            // is the answer, without a second model round to rephrase it.
+            let mut lookup: Option<String> = None;
+            let single = resp.tool_calls.len() == 1;
             for call in &resp.tool_calls {
                 let checked = registry.check(call);
                 let (entry, args) = match checked {
@@ -2954,6 +2958,9 @@ impl Pipeline {
                         {
                             action_cards.push(c);
                         }
+                        if single && entry.spec.read_only && !out.summary.trim().is_empty() {
+                            lookup = Some(out.summary.clone());
+                        }
                         json!({"ok": true, "summary": out.summary, "data": out.data})
                     }
                     Err(e) => json!({"ok": false, "error": e.to_string()}),
@@ -2962,6 +2969,20 @@ impl Pipeline {
                 // turn's map so known values keep their placeholders.
                 let text = self.redactor.redact_with(&reply.to_string(), &mut map);
                 messages.push(Message::tool_result(&call.id, text));
+            }
+            if let Some(text) = lookup {
+                *lock(&self.last_domains) =
+                    Some((std::mem::take(&mut used_domains), Instant::now()));
+                self.outcome(turn, "done");
+                let mut cards = std::mem::take(&mut private_cards);
+                cards.append(&mut action_cards);
+                cards.push(Card::Answer {
+                    how: steps,
+                    sources: Vec::new(),
+                    text,
+                    followups: Vec::new(),
+                });
+                return cards;
             }
         }
         self.outcome(turn, "failed");
