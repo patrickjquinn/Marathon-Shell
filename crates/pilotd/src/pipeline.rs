@@ -1745,23 +1745,31 @@ impl Pipeline {
             r => r,
         };
         self.log_decision(turn, &decision, &route);
-        let scope = match answers.get("domain") {
+        // A model in the cloud gets the three likeliest domains: a wrong
+        // first guess costs it a few tool definitions, not seconds. The
+        // answer insists on a tool call only when an app was chosen surely.
+        let wide = backends.llm.provider() != "local";
+        let (scope, mut insist) = match answers.get("domain") {
             Some(crate::jev::Answer::Choice {
                 distribution,
                 confidence,
             }) => {
+                let take = if wide || *confidence < 0.6 {
+                    2 + usize::from(wide)
+                } else {
+                    1
+                };
                 let mut d: Vec<String> = distribution
                     .iter()
-                    .take(1)
+                    .take(take)
                     .map(|(o, _)| o.clone())
                     .collect();
-                if *confidence < 0.6 {
-                    d.extend(distribution.iter().skip(1).take(1).map(|(o, _)| o.clone()));
-                }
+                let sure_app = *confidence >= 0.6
+                    && d.first().is_some_and(|o| o != GENERAL && o.contains('.'));
                 d.retain(|o| o != GENERAL);
-                Some(d)
+                (Some(d), sure_app)
             }
-            _ => None,
+            _ => (None, false),
         };
         // A short follow-up ("and tomorrow?", "what about Cork?") is about
         // what the last turn used tools for: they are offered again, and an
@@ -1793,6 +1801,7 @@ impl Pipeline {
                 if !s.contains(&o.app) {
                     s.insert(0, o.app);
                 }
+                insist = true;
                 let route = match route {
                     Route::Clarify { .. } => Route::Qwen,
                     Route::Handler { intent } if intent == "camera_vision" => Route::Qwen,
@@ -1853,6 +1862,7 @@ impl Pipeline {
                                 &backends,
                                 scope,
                                 false,
+                                insist,
                             )
                             .await,
                         )
@@ -1880,6 +1890,7 @@ impl Pipeline {
                         &backends,
                         scope,
                         web_first,
+                        insist,
                     )
                     .await,
                 )
@@ -1900,6 +1911,7 @@ impl Pipeline {
                     &backends,
                     scope,
                     web_first,
+                    insist,
                 )
                 .await,
             ),
@@ -1913,6 +1925,7 @@ impl Pipeline {
                     &backends,
                     scope,
                     web_first,
+                    insist,
                 )
                 .await,
             ),
@@ -2413,6 +2426,7 @@ impl Pipeline {
         backends: &Backends,
         scope: Option<&[String]>,
         web_first: bool,
+        insist: bool,
     ) -> Vec<Card> {
         let deep = [
             "work this out",
@@ -2626,7 +2640,8 @@ impl Pipeline {
         // top" after earlier turns). It goes back to the model once.
         // A request an app or a phone tool answers (not the web, not chat):
         // an answer with no tool call to it is made up.
-        let app_chosen = scope.is_some_and(|d| d.iter().any(|x| x != "web" && x != "keel"));
+        let app_chosen =
+            insist && scope.is_some_and(|d| d.iter().any(|x| x != "web" && x != "keel"));
         let mut used_domains: Vec<String> = Vec::new();
         let mut nudged = false;
         let mut empty_retried = false;
