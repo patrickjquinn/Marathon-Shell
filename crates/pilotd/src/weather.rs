@@ -183,8 +183,11 @@ fn clock(epoch: i64, offset: i64) -> String {
     format!("{:02}:{:02}", seconds / 3600, seconds % 3600 / 60)
 }
 
+const WEEK: usize = 7;
+
 /// The model's view of the service's forecast (`f`, as `Forecast` gives it)
-/// and the forecast in words, for the first `days` days.
+/// and the forecast in words, for the first `days` days. The model sees a
+/// week at least: it counted four days to "this weekend" from a Wednesday.
 pub fn summarise(place: &str, f: &Value, units: Units, days: usize) -> (Value, String) {
     let k = |name: &str| units.key(name);
     let offset = f["timezone_offset"].as_i64().unwrap_or_default();
@@ -217,7 +220,7 @@ pub fn summarise(place: &str, f: &Value, units: Units, days: usize) -> (Value, S
         .unwrap_or_default();
     let daily: Vec<&Value> = f["daily"]
         .as_array()
-        .map(|d| d.iter().take(days).collect())
+        .map(|d| d.iter().take(days.max(WEEK)).collect())
         .unwrap_or_default();
     let day_rows: Vec<Value> = daily
         .iter()
