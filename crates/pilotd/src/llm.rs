@@ -215,20 +215,26 @@ impl OpenAiClient {
             body["presence_penalty"] = json!(1.5);
         }
         if !req.tools.is_empty() {
+            // A required tool is offered alone with "required": llama.cpp
+            // takes only a string tool_choice and ignored the named form.
+            let required = req
+                .require
+                .as_ref()
+                .filter(|name| req.tools.iter().any(|t| &t.name == *name));
             body["tools"] = req
                 .tools
                 .iter()
+                .filter(|t| required.is_none_or(|name| &t.name == name))
                 .map(|t| {
                     json!({"type": "function", "function": {
                         "name": t.name, "description": t.description, "parameters": t.parameters}})
                 })
                 .collect();
-            body["tool_choice"] = match &req.require {
-                Some(name) if req.tools.iter().any(|t| &t.name == name) => {
-                    json!({"type": "function", "function": {"name": name}})
-                }
-                _ => Value::String("auto".into()),
-            };
+            body["tool_choice"] = json!(if required.is_some() {
+                "required"
+            } else {
+                "auto"
+            });
         }
         if req.json_mode {
             body["response_format"] = json!({"type": "json_object"});
