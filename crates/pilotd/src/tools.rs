@@ -306,6 +306,11 @@ impl Registry {
         });
     }
 
+    /// Whether `name` is a tool's model-facing name.
+    pub fn knows(&self, name: &str) -> bool {
+        self.by_model.contains_key(name)
+    }
+
     pub fn get(&self, name: &str) -> Option<&Entry> {
         self.by_name.get(name).map(|&i| &self.entries[i])
     }

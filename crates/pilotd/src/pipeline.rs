@@ -656,6 +656,35 @@ pub fn reads_as_followup(text: &str) -> bool {
     words > 0 && (words <= 4 || (linked && words <= 7))
 }
 
+/// A tool call written as the reply's text instead of as a call (a small
+/// model's `{"name": .., "arguments": {..}}` or `name{..}`, maybe inside
+/// `<tool_call>`), when it names a known tool; other text is an answer.
+fn stray_call(text: &str, registry: &Registry) -> Option<crate::llm::ToolCall> {
+    let text = text.trim();
+    let text = text
+        .strip_prefix("<tool_call>")
+        .and_then(|t| t.strip_suffix("</tool_call>"))
+        .unwrap_or(text)
+        .trim();
+    let (name, arguments) = if let Ok(Value::Object(call)) = serde_json::from_str::<Value>(text) {
+        (
+            call.get("name")?.as_str()?.to_owned(),
+            call.get("arguments").cloned().unwrap_or_else(|| json!({})),
+        )
+    } else {
+        let (name, rest) = text.split_at(text.find('{')?);
+        (
+            name.trim().to_owned(),
+            serde_json::from_str::<Value>(rest).ok()?,
+        )
+    };
+    (registry.knows(&name) && arguments.is_object()).then(|| crate::llm::ToolCall {
+        id: "stray".into(),
+        name,
+        arguments: arguments.to_string(),
+    })
+}
+
 /// Splits Qwen's "FOLLOWUPS: a | b | c" last line off an answer; a small
 /// model also writes it "Follow-ups:" or "Follow ups:".
 pub fn split_followups(text: &str) -> (String, Vec<String>) {
@@ -2650,7 +2679,7 @@ impl Pipeline {
                 Err(RemoteError::Status { status: 422, .. }) => backends.llm.chat(&req).await,
                 other => other,
             };
-            let resp = match answered {
+            let mut resp = match answered {
                 Ok(r) => r,
                 Err(e) => {
                     self.outcome(turn, "failed");
@@ -2659,6 +2688,13 @@ impl Pipeline {
                     }];
                 }
             };
+            if resp.tool_calls.is_empty() {
+                let text = strip_reasoning(resp.content.as_deref().unwrap_or(""));
+                if let Some(call) = stray_call(&text, &registry) {
+                    resp.tool_calls.push(call);
+                    resp.content = None;
+                }
+            }
             log::debug!(
                 "round {round}: {} message(s); reply {:?}; calls [{}]",
                 messages.len(),
