@@ -12,5 +12,6 @@ TimeoutStartSec=infinity
 # Behind the shell and the app in front, ahead of frozen apps under OOM.
 Nice=5
 CPUWeight=50
-IOSchedulingClass=idle
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
 OOMScoreAdjust=300
