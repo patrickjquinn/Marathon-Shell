@@ -43,9 +43,12 @@ chat)
 		--cache-reuse 256 --no-webui
 	;;
 embed)
-	model=multilingual-e5-small-Q8_0.gguf
-	fetch "$model" "https://huggingface.co/keisuke-miyako/multilingual-e5-small-gguf-q8_0/resolve/main/$model" \
-		0d5a5a0b0ad84faad6357a6145e769b0661f0efbf53acf74598afc34dab454f4
+	# convert-e5.py's conversion, with the model's own XLM-R vocabulary: the
+	# published GGUFs embedded every sentence alike.
+	model=multilingual-e5-small-xlmr-q8_0.gguf
+	fetch "$model" "https://github.com/patrickjquinn/Marathon-Shell/releases/download/marathon-llm-models-1/$model" \
+		37f2924392582027abaf43a0b2cc82726a1a3dae3da610f67ae61e89e3a4af54
+	rm -f "$DIR/multilingual-e5-small-Q8_0.gguf"
 	exec llama-server --host 127.0.0.1 --port 8091 --model "$DIR/$model" --alias e5-small \
 		--embedding --pooling mean --threads 2 --ctx-size 512 --batch-size 512 --ubatch-size 512 \
 		--parallel 1 --no-webui
