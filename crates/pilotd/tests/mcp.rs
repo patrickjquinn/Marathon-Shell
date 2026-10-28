@@ -566,11 +566,13 @@ async fn spawns_the_keel_mcp_program() {
         return;
     }
     // keel-mcp connects to a session bus at start: a private one.
-    let bus = shoal_push_client::testbus::TestBus::start();
+    let Some(bus) = marathon_rt::testing::PrivateBus::start() else {
+        return;
+    };
     let mut cmd = tokio::process::Command::new(&bin);
     cmd.args(["--stdio", "--probe-seconds", "0", "--actions-dir"])
         .arg(golden())
-        .env("DBUS_SESSION_BUS_ADDRESS", bus.address());
+        .env("DBUS_SESSION_BUS_ADDRESS", &bus.address);
     let client =
         Arc::new(pilotd::mcp::McpClient::spawn_command(cmd, Duration::from_secs(20)).unwrap());
     client.initialize().await.unwrap();

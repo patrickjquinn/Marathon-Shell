@@ -15,7 +15,7 @@ use common::{chat_text, jev_reply, FakeHttp, Log, Reply};
 use futures_util::StreamExt as _;
 use pilotd::privacy::{SailfishSwitch, SWITCH_BUS_NAME, SWITCH_PATH};
 use serde_json::Value;
-use shoal_push_client::testbus::TestBus;
+use marathon_rt::testing::PrivateBus;
 use zbus::object_server::SignalEmitter;
 
 /// Stand-in for the Sailfish OS privacy switch service.
@@ -46,7 +46,9 @@ async fn pilot(conn: &zbus::Connection) -> zbus::Proxy<'static> {
 #[tokio::test]
 #[allow(clippy::too_many_lines, reason = "one end-to-end scenario")]
 async fn service_round_trip_and_privacy_switch() {
-    let bus = TestBus::start();
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
     let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
         "/v1/jev" => {
             if req.body["state"]["utterance"]
@@ -65,12 +67,12 @@ async fn service_round_trip_and_privacy_switch() {
     let dir = tempfile::tempdir().unwrap();
     let log = Arc::new(Log::default());
     let d = Arc::new(common::daemon(&srv.base, &log, Some(dir.path().to_owned())));
-    let server = bus.connect().await;
+    let server = bus.connect().await.unwrap();
     pilotd::daemon::serve_on(&d, &server).await.unwrap();
 
     // The switch service, released to start with.
     let state = Arc::new(AtomicBool::new(false));
-    let switch_conn = bus.connect().await;
+    let switch_conn = bus.connect().await.unwrap();
     switch_conn
         .object_server()
         .at(SWITCH_PATH, Switch(state.clone()))
@@ -82,7 +84,7 @@ async fn service_round_trip_and_privacy_switch() {
     });
     tokio::spawn(d.clone().follow_switch(sw, Some(server.clone())));
 
-    let client = bus.connect().await;
+    let client = bus.connect().await.unwrap();
     let p = pilot(&client).await;
     let mut finished = p.receive_signal("TurnFinished").await.unwrap();
     // The first-run choice: nothing goes to the cloud before it.
@@ -209,7 +211,9 @@ async fn service_round_trip_and_privacy_switch() {
 /// ids, cannot say yes to a call on their behalf.
 #[tokio::test]
 async fn only_the_asking_app_can_answer_its_card() {
-    let bus = TestBus::start();
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
     let srv = FakeHttp::start(|req: &common::Seen, _| match req.path.as_str() {
         "/v1/jev" => Reply::ok(jev_reply(&[("call", 0.95)], 0.1, 0.1)),
         _ => Reply::us(common::chat_tool("call_dial", r#"{"number": "112"}"#)),
@@ -217,10 +221,10 @@ async fn only_the_asking_app_can_answer_its_card() {
     .await;
     let log = Arc::new(Log::default());
     let d = Arc::new(common::daemon(&srv.base, &log, None));
-    let server = bus.connect().await;
+    let server = bus.connect().await.unwrap();
     pilotd::daemon::serve_on(&d, &server).await.unwrap();
-    let app = bus.connect().await;
-    let other = bus.connect().await;
+    let app = bus.connect().await.unwrap();
+    let other = bus.connect().await.unwrap();
     let p = pilot(&app).await;
     let () = p.call("SetConsent", &("text_qa", true)).await.unwrap();
     let json: String = p.call("Ask", &("call 112", false)).await.unwrap();

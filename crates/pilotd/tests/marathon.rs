@@ -16,7 +16,7 @@ use pilotd::adapters::marathon::{
 use pilotd::adapters::{
     Calendar as _, Clock as _, Contacts as _, DeviceToggles as _, Telephony as _, Toggle,
 };
-use shoal_push_client::testbus::TestBus;
+use marathon_rt::testing::PrivateBus;
 use zbus::zvariant::{OwnedValue, Value};
 
 type Calls = Arc<Mutex<Vec<String>>>;
@@ -162,12 +162,14 @@ impl Network {
 
 #[tokio::test]
 async fn the_shells_services_back_the_adapters() {
-    let bus = TestBus::start();
-    let client = bus.connect().await;
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
+    let client = bus.connect().await.unwrap();
     assert!(!marathon::present(&client), "no shell yet");
 
     let calls: Calls = Arc::default();
-    let shell = bus.connect().await;
+    let shell = bus.connect().await.unwrap();
     let o = shell.object_server();
     o.at(
         "/org/marathonos/Shell/Alarm",
@@ -280,10 +282,12 @@ async fn the_shell_names_a_marathon_apps_process() {
         .spawn()
         .unwrap();
 
-    let bus = TestBus::start();
-    let client = bus.connect().await;
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
+    let client = bus.connect().await.unwrap();
     let calls: Calls = Arc::default();
-    let shell = bus.connect().await;
+    let shell = bus.connect().await.unwrap();
     shell
         .object_server()
         .at(
@@ -341,9 +345,11 @@ async fn the_shell_names_the_android_app_in_front() {
     )
     .unwrap();
 
-    let bus = TestBus::start();
-    let client = bus.connect().await;
-    let shell = bus.connect().await;
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
+    let client = bus.connect().await.unwrap();
+    let shell = bus.connect().await.unwrap();
     let front = Arc::new(Mutex::new("deckard.org.example.chat".to_owned()));
     shell
         .object_server()

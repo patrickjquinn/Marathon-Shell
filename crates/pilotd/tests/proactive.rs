@@ -15,7 +15,7 @@ use futures_util::StreamExt as _;
 use pilotd::pipeline::Card;
 use pilotd::triage::{Incoming, Skipped};
 use serde_json::{json, Value};
-use shoal_push_client::testbus::TestBus;
+use marathon_rt::testing::PrivateBus;
 
 fn triage_reply(interrupt: f64, bucket: &str, urgency: f64) -> Reply {
     Reply::ok(json!({"answers": {
@@ -168,14 +168,16 @@ impl Notifications {
 
 #[tokio::test]
 async fn notifications_on_the_bus_reach_the_events_list() {
-    let bus = TestBus::start();
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
     let srv = FakeHttp::start(|_: &common::Seen, _| triage_reply(0.4, "today", 1.0)).await;
     let d = Arc::new(common::daemon(&srv.base, &Arc::new(Log::default()), None));
     d.live.lock().unwrap().consent.triage = true;
-    let server = bus.connect().await;
+    let server = bus.connect().await.unwrap();
     pilotd::daemon::serve_on(&d, &server).await.unwrap();
     let shown = Arc::new(std::sync::Mutex::new(Vec::new()));
-    let notif = bus.connect().await;
+    let notif = bus.connect().await.unwrap();
     notif
         .object_server()
         .at(
@@ -188,9 +190,9 @@ async fn notifications_on_the_bus_reach_the_events_list() {
         .request_name("org.freedesktop.Notifications")
         .await
         .unwrap();
-    d.start_triage(Some(bus.connect().await), Some(server.clone()));
+    d.start_triage(Some(bus.connect().await.unwrap()), Some(server.clone()));
 
-    let client = bus.connect().await;
+    let client = bus.connect().await.unwrap();
     let pilot = zbus::Proxy::new(
         &client,
         "org.shipwright.Pilot",
@@ -404,7 +406,9 @@ async fn triage_results_keep_one_events_view_entry() {
         }
     })
     .await;
-    let bus = TestBus::start();
+    let Some(bus) = PrivateBus::start() else {
+        return;
+    };
     let dir = tempfile::tempdir().unwrap();
     let opened = dir.path().join("opened");
     let mut cfg = common::config(&srv.base);
@@ -482,9 +486,9 @@ async fn triage_results_keep_one_events_view_entry() {
     );
 
     // Tapped: Lipstick calls OpenEvents on the bus.
-    let server = bus.connect().await;
+    let server = bus.connect().await.unwrap();
     pilotd::daemon::serve_on(&d, &server).await.unwrap();
-    let client = bus.connect().await;
+    let client = bus.connect().await.unwrap();
     // Uncached: the property is read back right after the call, before the
     // PropertiesChanged signal would refresh a cache.
     let p: zbus::Proxy<'_> = zbus::proxy::Builder::new(&client)
