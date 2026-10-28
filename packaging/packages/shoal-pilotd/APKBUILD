@@ -14,12 +14,12 @@
 # pilot-tts) is not built.
 pkgname=shoal-pilotd
 pkgver=0.1.0
-pkgrel=13
+pkgrel=14
 pkgdesc="Pilot assistant daemon for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
 license="Apache-2.0"
-depends="dbus systemd"
+depends="dbus marathon-llm systemd"
 makedepends="cargo clang"
 source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
 builddir="$srcdir/Marathon-Shell-main"
