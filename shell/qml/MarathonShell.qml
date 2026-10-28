@@ -38,7 +38,10 @@ Item {
     // Closes the topmost shell overlay; false when none was open.
     function closeOverlay() {
         var overlayClosed = false;
-        if (showPinScreen) {
+        if (pageView.appEditing && !confirmDialog.shown) {
+            pageView.appEditing = false;
+            overlayClosed = true;
+        } else if (showPinScreen) {
             showPinScreen = false;
             lockScreen.swipeProgress = 0;
             pinScreen.reset();
@@ -116,6 +119,10 @@ Item {
 
     function handleHomeKey() {
         dismissPermissionPrompt();
+        if (pageView.appEditing) {
+            pageView.appEditing = false;
+            return;
+        }
         if (virtualKeyboard.active) {
             HapticManager.light();
             virtualKeyboard.active = false;
@@ -1041,6 +1048,24 @@ Item {
         target: Tasks
     }
 
+    // Management ends when an app comes up or the phone locks.
+    Connections {
+        function onAppWindowOpenChanged() {
+            if (UIStore.appWindowOpen)
+                pageView.appEditing = false;
+        }
+
+        target: UIStore
+    }
+
+    Connections {
+        function onIsLockedChanged() {
+            pageView.appEditing = false;
+        }
+
+        target: SessionStore
+    }
+
     Comp.ShellInitialization {
         id: shellInitialization
     }
@@ -1127,7 +1152,7 @@ Item {
                 onAppLaunched: app => {
                     Tasks.launchApp(typeof app === "string" ? app : app.id);
                 }
-                onAppLongPressed: (app, sceneRect) => appContextMenu.show(app, appContextMenu.mapFromItem(null, sceneRect))
+                onUninstallFailed: name => errorToast.show(qsTr("%1 wasn't uninstalled").arg(name), qsTr("Try again from its app info."), "x")
                 Component.onCompleted: {
                     shell.totalPages = pageView.pageCount;
                 }
@@ -1150,6 +1175,14 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
+                    opacity: pageView.appEditing ? 0 : 1
+                    enabled: !pageView.appEditing
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                        }
+                    }
                     currentPage: shell.currentPage
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
@@ -1160,6 +1193,57 @@ Item {
                         Logger.info("BottomBar", "Navigation requested to page: " + page);
                         pageView.navigateToPage(page);
                     }
+                }
+
+                // Management's way out, where the thumb already is.
+                Rectangle {
+                    objectName: "appEditDone"
+                    anchors.centerIn: bottomBar
+                    width: doneLabel.implicitWidth + 2 * Silica.Theme.paddingLarge
+                    height: Silica.Theme.itemSizeExtraSmall
+                    radius: height / 2
+                    color: doneArea.pressed ? MColors.marathonTeal : MColors.marathonTealBright
+                    opacity: pageView.appEditing ? 1 : 0
+                    scale: pageView.appEditing ? 1 : 0.8
+                    visible: opacity > 0
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                        }
+                    }
+                    Behavior on scale {
+                        NumberAnimation {
+                            duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                            easing.type: Easing.OutBack
+                        }
+                    }
+
+                    Text {
+                        id: doneLabel
+
+                        anchors.centerIn: parent
+                        text: qsTr("Done")
+                        color: MColors.textOnAccent
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.weight: MTypography.weightDemiBold
+                    }
+
+                    MouseArea {
+                        id: doneArea
+
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticManager.light();
+                            pageView.appEditing = false;
+                        }
+                    }
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: doneLabel.text
+                    Accessible.ignored: !visible
+                    Accessible.onPressAction: pageView.appEditing = false
                 }
             }
         }
@@ -1277,6 +1361,10 @@ Item {
                 Logger.info("NavBar", "Dismissing keyboard with short swipe up");
                 HapticManager.light();
                 virtualKeyboard.active = false;
+                return;
+            }
+            if (pageView.appEditing) {
+                pageView.appEditing = false;
                 return;
             }
             Logger.gesture("NavBar", "shortSwipeUp", {
@@ -2127,10 +2215,6 @@ Item {
         }
 
         target: ScreenshotService
-    }
-
-    AppContextMenu {
-        id: appContextMenu
     }
 
     ClipboardManager {

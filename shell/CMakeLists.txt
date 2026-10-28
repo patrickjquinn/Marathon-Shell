@@ -131,7 +131,6 @@ set(QML_FILES
     qml/components/NotificationToast.qml
     qml/components/SystemHUD.qml
     qml/components/ScreenshotPreview.qml
-    qml/components/AppContextMenu.qml
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
     qml/components/AppToast.qml

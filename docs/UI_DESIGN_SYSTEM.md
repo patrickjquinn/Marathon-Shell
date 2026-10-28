@@ -439,7 +439,26 @@ full-page chips + media controls below. Inspired by OneUI 7's
 split-shade pattern — premium feel without the chrome cost of two
 separate panels.
 
-### 7.6 NowBar (planned)
+### 7.6 Home grid: app management
+
+Long-press an icon. The grid settles: one wave across it (`modal`,
+OutBack, `staggerMicro` per icon) eases each icon to 0.9 on a glass tile,
+dims the wallpaper under it and pops an ✕ on every app that can be removed:
+Marathon apps the person installed, Android apps that are not built in
+(`com.android.`, `com.google.android.`, `org.lineageos.`, `org.marathonos.`)
+and Flatpaks in the person's own install. Then it is still: no idle motion,
+so the mode costs nothing to leave open. Reduce motion skips the wave.
+
+- ✕ → a confirmation card beside the icon (its icon, "Uninstall <name>?",
+  what kind of app, Keep / Uninstall in `error`), so the grid stays in view;
+  a tap elsewhere keeps the app. On Uninstall the icon shrinks out at once
+  and the launcher's removal takes it off the grid; one still there after
+  60 s comes back with a "wasn't uninstalled" toast.
+- A tap on an icon opens its app info.
+- Done (the pill in place of the dock), a tap off the icons, back, home, an
+  app opening or the lock end it.
+
+### 7.7 NowBar (planned)
 
 A live-activity surface that promotes itself when the shell has an
 active call, playing media, navigation in progress, or a running timer.

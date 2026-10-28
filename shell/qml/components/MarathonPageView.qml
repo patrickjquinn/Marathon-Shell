@@ -19,11 +19,50 @@ Item {
     property var compositor: null
     property bool initialPageSet: false
     property bool hubOverlayOpen: false
+    // App management mode, across every grid page.
+    property bool appEditing: false
+    // Apps being uninstalled: id → {name, since}.
+    property var removingApps: ({})
 
     signal hubVisible(bool visible)
     signal framesVisible(bool visible)
     signal appLaunched(var app)
-    signal appLongPressed(var app, rect sceneRect)
+    signal uninstallFailed(string name)
+
+    function uninstall(app) {
+        if (!AppModel.uninstall(app.id)) {
+            pageViewContainer.uninstallFailed(app.name);
+            return;
+        }
+        HapticManager.medium();
+        const next = Object.assign({}, pageViewContainer.removingApps);
+        next[app.id] = {
+            "name": app.name,
+            "since": Date.now()
+        };
+        pageViewContainer.removingApps = next;
+    }
+
+    // An uninstall that has not taken the app away after a while failed.
+    Timer {
+        interval: 1000
+        repeat: true
+        running: Object.keys(pageViewContainer.removingApps).length > 0
+        onTriggered: {
+            const next = {};
+            for (const id in pageViewContainer.removingApps) {
+                const entry = pageViewContainer.removingApps[id];
+                if (!AppModel.findById(id).id)
+                    continue;
+                if (Date.now() - entry.since > 60000) {
+                    pageViewContainer.uninstallFailed(entry.name);
+                    continue;
+                }
+                next[id] = entry;
+            }
+            pageViewContainer.removingApps = next;
+        }
+    }
 
     // Back over the Hub: true when the Hub closed something of its own.
     function closeHubOverlay() {
@@ -238,6 +277,8 @@ Item {
             }
         }
         onCurrentIndexChanged: {
+            if (currentIndex < 2)
+                pageViewContainer.appEditing = false;
             Logger.debug("PageView", "Page changed to index: " + currentIndex + ", page: " + currentPage);
             pageViewContainer.hubVisible(currentIndex === 0);
             pageViewContainer.framesVisible(currentIndex === 1);
@@ -305,7 +346,11 @@ Item {
                     Logger.info("PageView", "App launched: " + app.name);
                     pageViewContainer.appLaunched(app);
                 }
-                onLongPress: (app, sceneRect) => pageViewContainer.appLongPressed(app, sceneRect)
+                editing: pageViewContainer.appEditing
+                removing: pageViewContainer.removingApps
+                onEditRequested: pageViewContainer.appEditing = true
+                onEditDone: pageViewContainer.appEditing = false
+                onUninstallConfirmed: app => pageViewContainer.uninstall(app)
             }
         }
 

@@ -20,6 +20,11 @@ Item {
     property bool searchGestureActive: false
     // Icons wait hidden for playEntrance().
     property bool entranceHeld: false
+    // App management: icons settle into tiles, removable ones carry an ✕, a
+    // tap opens the app's info. The page view owns it, so it spans every page.
+    property bool editing: false
+    // Apps being uninstalled, by id; their icons stay hidden until they go.
+    property var removing: ({})
     readonly property int startIndex: pageIndex * itemsPerPage
     readonly property int pageItemCount: {
         if (!appModel)
@@ -48,7 +53,9 @@ Item {
     }
 
     signal appLaunched(var app)
-    signal longPress(var app, rect sceneRect)
+    signal editRequested
+    signal editDone
+    signal uninstallConfirmed(var app)
 
     // The icons rise in one after another, as setup hands over.
     function playEntrance() {
@@ -84,8 +91,16 @@ Item {
         // Read by IconOverlay to place this icon's decorations.
         readonly property Item contentColumn: contentColumn
         readonly property Item iconBox: iconBox
+        readonly property bool removable: appGrid.editing && appData !== null && AppModel.canUninstall(appData.id)
+        readonly property bool leaving: appData !== null && appGrid.removing[appData.id] !== undefined
         // 0 hidden and lowered, 1 in place.
         property real entrance: appGrid.entranceHeld ? 0 : 1
+
+        function showInfo() {
+            Tasks.launchAppWithRoute("settings", "appmanager/" + appData.id, JSON.stringify({
+                "appId": appData.id
+            }), null, null);
+        }
 
         // The window grows out of this icon.
         function launch() {
@@ -97,15 +112,46 @@ Item {
             entranceAnim.restart();
         }
 
+        // 0 on the home screen, 1 settled into its management tile: a wave
+        // across the grid, then still.
+        property real edit: 0
+
+        SequentialAnimation {
+            id: settle
+
+            PauseAnimation {
+                duration: MMotion.reduceMotion || !appGrid.editing ? 0 : iconCell.index * MMotion.staggerMicro
+            }
+            NumberAnimation {
+                target: iconCell
+                property: "edit"
+                to: appGrid.editing ? 1 : 0
+                duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                easing.type: appGrid.editing ? Easing.OutBack : Easing.OutCubic
+            }
+        }
+
+        Connections {
+            function onEditingChanged() {
+                settle.restart();
+            }
+
+            target: appGrid
+        }
+        // Made while managing (the grid rebuilt after an uninstall): settled.
+        Component.onCompleted: if (appGrid.editing)
+            edit = 1
+
         objectName: "appIcon-" + index
         width: iconGrid.width / appGrid.columns
         height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.rowSpacing) / appGrid.rows
 
         Accessible.role: Accessible.Button
         Accessible.name: appData ? appData.name : ""
+        Accessible.description: appGrid.editing ? qsTr("Opens app info") : ""
         Accessible.ignored: !appData
         Accessible.onPressAction: if (appData)
-            iconCell.launch()
+            appGrid.editing ? iconCell.showInfo() : iconCell.launch()
 
         // Staggered entrance — every home grid icon fades up in a
         // light wave on first paint. Index-based delay means the
@@ -139,6 +185,20 @@ Item {
             }
         }
 
+        // The management tile, under the icon and its label.
+        Rectangle {
+            visible: iconCell.edit > 0 && iconCell.appData !== null
+            opacity: iconCell.leaving ? 0 : iconCell.edit
+            anchors.centerIn: contentColumn
+            width: Math.min(iconCell.width - Silica.Theme.paddingSmall, contentColumn.width + 2 * Silica.Theme.paddingMedium)
+            height: contentColumn.height + 2 * Silica.Theme.paddingMedium
+            radius: Silica.Theme.paddingLarge
+            color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
+            border.width: 1
+            border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.14)
+            scale: 0.9 + 0.1 * Math.min(iconCell.edit, 1)
+        }
+
         // Press feedback scales and lifts this column, not the cell:
         // a transform list on every cell (even at scale 1) gives
         // each icon a non-translate matrix, which stops Qt Quick
@@ -152,8 +212,17 @@ Item {
 
             anchors.centerIn: parent
             anchors.verticalCenterOffset: (iconMouseArea.pressShown ? -2 : 0) + (1 - iconCell.entrance) * (MMotion.reduceMotion ? 0 : Silica.Theme.paddingLarge)
-            scale: iconMouseArea.pressShown ? 0.95 : 1
-            opacity: iconCell.entrance
+            scale: iconCell.leaving ? 0.2 : (iconMouseArea.pressShown ? 0.95 : 1) - 0.1 * iconCell.edit
+            opacity: iconCell.leaving ? 0 : iconCell.entrance
+
+            Behavior on opacity {
+                enabled: Constants.enableAnimations && !entranceAnim.running
+
+                NumberAnimation {
+                    duration: MMotion.durationFor("nav")
+                    easing.type: Easing.InCubic
+                }
+            }
 
             Behavior on scale {
                 enabled: Constants.enableAnimations
@@ -283,7 +352,10 @@ Item {
                 }
                 // A tap: a swipe the pager did not take still moved the finger.
                 if (!isSearchGesture && !held && Math.abs(dragDistance) < 15 && Math.abs(mouse.x - pressX) < 15) {
-                    if (iconCell.appData) {
+                    if (iconCell.appData && appGrid.editing) {
+                        iconCell.showInfo();
+                        HapticManager.light();
+                    } else if (iconCell.appData) {
                         iconCell.launch();
                         HapticManager.medium();
                     }
@@ -292,8 +364,8 @@ Item {
             }
             onPressAndHold: {
                 held = true;
-                if (iconCell.appData) {
-                    appGrid.longPress(iconCell.appData, iconCell.mapToItem(null, 0, 0, iconCell.width, iconCell.height));
+                if (iconCell.appData && !appGrid.editing) {
+                    appGrid.editRequested();
                     HapticManager.medium();
                 }
             }
@@ -402,6 +474,265 @@ Item {
                             })
                         anchors.centerIn: parent
                     }
+                }
+            }
+        }
+    }
+
+    // Management: an ✕ on each icon that can go.
+    Item {
+        anchors.fill: iconGrid
+
+        Repeater {
+            model: appGrid.editing ? appGrid.pageItemCount : 0
+
+            IconOverlay {
+                id: removeOverlay
+
+                required property int index
+
+                cellIndex: index
+
+                Item {
+                    readonly property IconCell cell: removeOverlay.cell
+
+                    objectName: "removeApp-" + removeOverlay.index
+                    visible: cell !== null && cell.removable && !cell.leaving
+                    // A finger-sized target around a small mark on the corner.
+                    width: Math.round(Silica.Theme.iconSizeMedium * 0.9)
+                    height: width
+                    x: -width / 2 + Silica.Theme.paddingSmall
+                    y: -height / 2 + Silica.Theme.paddingSmall
+                    scale: cell ? Math.max(0, cell.edit) : 0
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: Math.round(Silica.Theme.iconSizeSmall * 0.85)
+                        height: width
+                        radius: width / 2
+                        color: removeArea.pressed ? Silica.Theme.rgba(Silica.Theme.primaryColor, 0.7) : Silica.Theme.primaryColor
+
+                        GlyphIcon {
+                            anchors.centerIn: parent
+                            name: "x"
+                            size: Math.round(parent.width * 0.62)
+                            color: MColors.textOnAccent
+                        }
+                    }
+
+                    MouseArea {
+                        id: removeArea
+
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticManager.light();
+                            confirmCard.open(parent.cell);
+                        }
+                    }
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: cell && cell.appData ? qsTr("Uninstall %1").arg(cell.appData.name) : ""
+                    Accessible.ignored: !visible
+                    Accessible.onPressAction: confirmCard.open(cell)
+                }
+            }
+        }
+    }
+
+    // The ✕'s question, asked in place beside the icon: the grid stays in view.
+    Item {
+        id: confirmCard
+
+        property bool shown: false
+        property Item cell: null
+        readonly property var app: cell ? cell.appData : null
+        readonly property real cellY: cell ? cell.mapToItem(confirmCard, 0, 0).y : 0
+        readonly property string kind: !app ? "" : app.id.indexOf("deckard.") === 0 ? qsTr("Android app") : app.type === "flatpak" ? qsTr("Flatpak app") : qsTr("Marathon app")
+
+        function open(target) {
+            cell = target;
+            shown = true;
+        }
+
+        function close() {
+            shown = false;
+        }
+
+        anchors.fill: parent
+        z: 300
+        visible: card.opacity > 0
+
+        Connections {
+            function onEditingChanged() {
+                confirmCard.close();
+            }
+
+            target: appGrid
+        }
+
+        // A tap anywhere else keeps the app.
+        MouseArea {
+            anchors.fill: parent
+            enabled: confirmCard.shown
+            onClicked: confirmCard.close()
+        }
+
+        Rectangle {
+            id: card
+
+            readonly property bool below: confirmCard.cellY + (confirmCard.cell ? confirmCard.cell.height : 0) + height + Silica.Theme.paddingSmall <= confirmCard.height
+
+            x: Silica.Theme.horizontalPageMargin
+            y: below ? confirmCard.cellY + (confirmCard.cell ? confirmCard.cell.height : 0) + Silica.Theme.paddingSmall : confirmCard.cellY - height - Silica.Theme.paddingSmall
+            width: confirmCard.width - 2 * Silica.Theme.horizontalPageMargin
+            height: content.height + 2 * Silica.Theme.paddingLarge
+            radius: Silica.Theme.paddingLarge
+            color: MColors.elev2
+            border.width: 1
+            border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.14)
+            opacity: confirmCard.shown ? 1 : 0
+            scale: confirmCard.shown ? 1 : 0.94
+            transformOrigin: below ? Item.Top : Item.Bottom
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                }
+            }
+            Behavior on scale {
+                NumberAnimation {
+                    duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
+                    easing.type: Easing.OutBack
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+            }
+
+            Column {
+                id: content
+
+                x: Silica.Theme.paddingLarge
+                y: Silica.Theme.paddingLarge
+                width: parent.width - 2 * Silica.Theme.paddingLarge
+                spacing: Silica.Theme.paddingLarge
+
+                Row {
+                    width: parent.width
+                    spacing: Silica.Theme.paddingMedium
+
+                    MAppIcon {
+                        source: confirmCard.app ? confirmCard.app.icon : ""
+                        size: Silica.Theme.iconSizeMedium
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Column {
+                        width: parent.width - Silica.Theme.iconSizeMedium - parent.spacing
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            width: parent.width
+                            text: confirmCard.app ? qsTr("Uninstall %1?").arg(confirmCard.app.name) : ""
+                            color: Silica.Theme.primaryColor
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeBody
+                            font.weight: MTypography.weightDemiBold
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            width: parent.width
+                            text: qsTr("%1 · its data goes with it").arg(confirmCard.kind)
+                            color: Silica.Theme.secondaryColor
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: Silica.Theme.fontSizeExtraSmall
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+
+                Row {
+                    anchors.right: parent.right
+                    spacing: Silica.Theme.paddingMedium
+
+                    CardButton {
+                        text: qsTr("Keep")
+                        onActivated: confirmCard.close()
+                    }
+
+                    CardButton {
+                        objectName: "confirmUninstall"
+                        text: qsTr("Uninstall")
+                        destructive: true
+                        onActivated: {
+                            const app = confirmCard.app;
+                            confirmCard.close();
+                            appGrid.uninstallConfirmed(app);
+                        }
+                    }
+                }
+            }
+
+            Accessible.role: Accessible.Dialog
+            Accessible.name: confirmCard.app ? qsTr("Uninstall %1?").arg(confirmCard.app.name) : ""
+        }
+    }
+
+    component CardButton: Rectangle {
+        id: button
+
+        property alias text: buttonLabel.text
+        property bool destructive: false
+        signal activated
+
+        width: buttonLabel.implicitWidth + 2 * Silica.Theme.paddingLarge
+        height: Silica.Theme.itemSizeExtraSmall
+        radius: height / 2
+        color: destructive ? Silica.Theme.rgba(MColors.error, buttonArea.pressed ? 0.35 : 0.2) : Silica.Theme.rgba(Silica.Theme.primaryColor, buttonArea.pressed ? 0.16 : 0.08)
+
+        Text {
+            id: buttonLabel
+
+            anchors.centerIn: parent
+            color: button.destructive ? MColors.error : Silica.Theme.primaryColor
+            font.family: MTypography.fontFamily
+            font.pixelSize: MTypography.sizeBody
+            font.weight: MTypography.weightDemiBold
+        }
+
+        MouseArea {
+            id: buttonArea
+
+            anchors.fill: parent
+            onClicked: {
+                HapticManager.light();
+                button.activated();
+            }
+        }
+
+        Accessible.role: Accessible.Button
+        Accessible.name: buttonLabel.text
+        Accessible.onPressAction: button.activated()
+    }
+
+    // Management ends on a tap off the icons; the wallpaper dims under them.
+    MouseArea {
+        anchors.fill: parent
+        z: -1
+        enabled: appGrid.editing
+        onClicked: appGrid.editDone()
+
+        Rectangle {
+            anchors.fill: parent
+            color: "black"
+            opacity: appGrid.editing ? 0.28 : 0
+            visible: opacity > 0
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: MMotion.reduceMotion ? 0 : MMotion.durationFor("modal")
                 }
             }
         }
