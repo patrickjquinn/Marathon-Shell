@@ -204,15 +204,25 @@ impl Client {
     }
 
     /// Calls `on_change` for every `Offline` or `LastResponse` change until
-    /// the bus connection ends or `on_change` returns false.
+    /// the bus connection ends or `on_change` returns false. Not tied to
+    /// one sender: a restarted pilotd is a new one.
     pub fn watch(&self, mut on_change: impl FnMut(Change) -> bool) -> Result<(), String> {
-        let props = zbus::blocking::fdo::PropertiesProxy::builder(&self.conn)
-            .destination(BUS_NAME)
+        let rule = zbus::MatchRule::builder()
+            .msg_type(zbus::message::Type::Signal)
+            .interface("org.freedesktop.DBus.Properties")
+            .and_then(|b| b.member("PropertiesChanged"))
             .and_then(|b| b.path(PATH))
-            .and_then(zbus::blocking::proxy::Builder::build)
+            .map_err(|e| err(&e))?
+            .build();
+        let changes = zbus::blocking::MessageIterator::for_match_rule(rule, &self.conn, None)
             .map_err(|e| err(&e))?;
-        let changes = props.receive_properties_changed().map_err(|e| err(&e))?;
-        for signal in changes {
+        for message in changes {
+            let Some(signal) = message
+                .ok()
+                .and_then(zbus::fdo::PropertiesChanged::from_message)
+            else {
+                continue;
+            };
             let Ok(args) = signal.args() else { continue };
             if args.interface_name().as_str() != INTERFACE {
                 continue;
