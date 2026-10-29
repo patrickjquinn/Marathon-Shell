@@ -1,0 +1,84 @@
+{
+  "before": {
+    "time": 71751.184808216,
+    "processes": {
+      "193344": {
+        "name": "system_server",
+        "minor_faults": 124968,
+        "major_faults": 33155,
+        "cpu_ticks": 1496,
+        "rchar": 30499979,
+        "wchar": 18418321,
+        "syscr": 35285,
+        "syscw": 29589,
+        "read_bytes": 426749952,
+        "write_bytes": 17330176,
+        "cancelled_write_bytes": 1433600
+      },
+      "194799": {
+        "name": "com.zhiliaoapp.musically",
+        "minor_faults": 615477,
+        "major_faults": 137493,
+        "cpu_ticks": 6277,
+        "rchar": 135569563,
+        "wchar": 107072183,
+        "syscr": 343934,
+        "syscw": 89070,
+        "read_bytes": 865488896,
+        "write_bytes": 147701760,
+        "cancelled_write_bytes": 11649024
+      }
+    },
+    "vm": {
+      "pswpin": 1297536,
+      "pswpout": 2301669,
+      "pgmajfault": 1584196
+    },
+    "pressure": {
+      "io": "some avg10=0.22 avg60=0.23 avg300=0.85 total=1905105253\nfull avg10=0.00 avg60=0.17 avg300=0.83 total=1755954081\n",
+      "memory": "some avg10=0.00 avg60=0.00 avg300=0.00 total=12456780\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=11474460\n",
+      "cpu": "some avg10=6.90 avg60=1.58 avg300=0.34 total=594848923\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n"
+    }
+  },
+  "after": {
+    "time": 71761.401347596,
+    "processes": {
+      "193344": {
+        "name": "system_server",
+        "minor_faults": 125149,
+        "major_faults": 33317,
+        "cpu_ticks": 1518,
+        "rchar": 30526085,
+        "wchar": 18429824,
+        "syscr": 36056,
+        "syscw": 30304,
+        "read_bytes": 428023808,
+        "write_bytes": 17330176,
+        "cancelled_write_bytes": 1433600
+      },
+      "194799": {
+        "name": "com.zhiliaoapp.musically",
+        "minor_faults": 669626,
+        "major_faults": 142045,
+        "cpu_ticks": 6807,
+        "rchar": 141134744,
+        "wchar": 112921135,
+        "syscr": 348900,
+        "syscw": 94732,
+        "read_bytes": 897269760,
+        "write_bytes": 153448448,
+        "cancelled_write_bytes": 11673600
+      }
+    },
+    "vm": {
+      "pswpin": 1302633,
+      "pswpout": 2301669,
+      "pgmajfault": 1589582
+    },
+    "pressure": {
+      "io": "some avg10=0.22 avg60=0.23 avg300=0.83 total=1905174622\nfull avg10=0.00 avg60=0.14 avg300=0.80 total=1755954614\n",
+      "memory": "some avg10=0.00 avg60=0.00 avg300=0.00 total=12456995\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=11474668\n",
+      "cpu": "some avg10=30.44 avg60=8.14 avg300=1.83 total=599227024\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n"
+    }
+  }
+}

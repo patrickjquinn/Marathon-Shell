@@ -1,0 +1,8 @@
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu0/stats:overrun: 0
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu0/stats:commit overrun: 0
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu1/stats:overrun: 0
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu1/stats:commit overrun: 0
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu2/stats:overrun: 0
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu2/stats:commit overrun: 0
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu3/stats:overrun: 0
+/sys/kernel/tracing/instances/marathon-gates/per_cpu/cpu3/stats:commit overrun: 0

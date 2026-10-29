@@ -1,0 +1,43 @@
+[
+  {
+    "file": "marathon-shell-1.0.0-r516.apk",
+    "bytes": 106632099,
+    "sha256": "b00e41dd154ea4db40c4c32707408c022ebfdad05475ac7231283078f975102e"
+  },
+  {
+    "file": "marathon-icon-theme-1.0.0-r516.apk",
+    "bytes": 4493999,
+    "sha256": "3192228641f2fd843314ff8456e1ae2720fa9d50e160b466d2ed90ba6d99884b"
+  },
+  {
+    "file": "deckard-0.1.0-r26.apk",
+    "bytes": 132736493,
+    "sha256": "678fd9aca287286906587acf15c3122101034e568abeb1024b750efd2d2351d8"
+  },
+  {
+    "file": "shoal-pilot-0.1.0-r5.apk",
+    "bytes": 991707,
+    "sha256": "664250a7978ba0ac726b1eba7bdd2a024a8f664ca0f584e9fc0b4fe66b1e6826"
+  },
+  {
+    "file": "shoal-pilotd-0.1.0-r15.apk",
+    "bytes": 3575641,
+    "sha256": "ec94c13c13fcde7b82f4145274a1d0a09c3dab11e92bbc62dac80aed865ac927"
+  },
+  {
+    "file": "shipwright-reef-0.1.0-r2.apk",
+    "bytes": 1498533,
+    "sha256": "325200dbfdc1cf7eb8a763e2ce78519531849bae1cd4f8b5f680cd5ab8aa034d"
+  },
+  {
+    "file": "keel-mcp-0.1.0-r6.apk",
+    "bytes": 1320951,
+    "sha256": "c37f0c592e58c227f57257901af3f2fd373e88f4ded2583beacd5bf3265777f7"
+  },
+  {
+    "file": "marathon-base-config-1.0.0-r60.apk",
+    "bytes": 17120,
+    "sha256": "8886544c8d088d47e2287e6bbe8ec44b41d031f5056ec23142729334acba9d93",
+    "deployment_scope": "I/O delegation drop-in only"
+  }
+]

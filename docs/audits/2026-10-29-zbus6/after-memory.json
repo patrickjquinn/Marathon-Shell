@@ -1,0 +1,130 @@
+{
+  "label": "after-r515-r25",
+  "utc": "2026-10-29T13:43:43.568644+00:00",
+  "window_seconds": 30.02037035000103,
+  "model": "Raspberry Pi Compute Module 5 Lite Rev 1.0",
+  "kernel": "6.12.85-0-rpi",
+  "cpu_count": 4,
+  "governor": "schedutil",
+  "loadavg": "0.36 0.51 0.70 1/1143 189540",
+  "temperatures": {
+    "thermal_zone0": {
+      "type": "cpu-thermal",
+      "millidegrees_C": "50700"
+    },
+    "thermal_zone1": {
+      "type": "battery",
+      "millidegrees_C": null
+    }
+  },
+  "processes": {
+    "156295": {
+      "executable": "deckard-containerd",
+      "path": "/usr/libexec/deckard-containerd",
+      "threads": 6,
+      "file_descriptors": 17,
+      "Rss_KiB": 2384,
+      "Pss_KiB": 1753,
+      "Private_Clean_KiB": 1432,
+      "Private_Dirty_KiB": 308,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "dff33bab3805bd7fb1bd64ad3d9ad0e91a1aa9b90f7e262f102c83d2fee54dd4"
+    },
+    "160989": {
+      "executable": "marathon-audiod",
+      "path": "/usr/bin/marathon-audiod",
+      "threads": 4,
+      "file_descriptors": 20,
+      "Rss_KiB": 5156,
+      "Pss_KiB": 2402,
+      "Private_Clean_KiB": 1084,
+      "Private_Dirty_KiB": 836,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "fd158966e85ccd1e7493eb60c697db1fdc55f469e8a1fce1fce1d01881fb82df"
+    },
+    "160992": {
+      "executable": "marathon-maild",
+      "path": "/usr/bin/marathon-maild",
+      "threads": 4,
+      "file_descriptors": 14,
+      "Rss_KiB": 5704,
+      "Pss_KiB": 3982,
+      "Private_Clean_KiB": 3080,
+      "Private_Dirty_KiB": 548,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "1ce47a9a14e2e96c6d1e770c0964b1ffa71a485b217b3064c5ded6a0d11ad627"
+    },
+    "160995": {
+      "executable": "marathon-telephonyd",
+      "path": "/usr/bin/marathon-telephonyd",
+      "threads": 4,
+      "file_descriptors": 18,
+      "Rss_KiB": 4504,
+      "Pss_KiB": 2793,
+      "Private_Clean_KiB": 1680,
+      "Private_Dirty_KiB": 748,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "78573c2cecdb3b45ab58152ae678886daafa5573d6566430a0563e55f2ed46c6"
+    },
+    "160997": {
+      "executable": "marathon-weatherd",
+      "path": "/usr/bin/marathon-weatherd",
+      "threads": 3,
+      "file_descriptors": 12,
+      "Rss_KiB": 33772,
+      "Pss_KiB": 33063,
+      "Private_Clean_KiB": 6144,
+      "Private_Dirty_KiB": 26904,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "4c7dc164a7a6071a6ca642063f0d87aec9b9806b8cbca97a5faded6f584195f7"
+    },
+    "169381": {
+      "executable": "pilotd",
+      "path": "/usr/bin/pilotd",
+      "threads": 2,
+      "file_descriptors": 21,
+      "Rss_KiB": 20852,
+      "Pss_KiB": 20205,
+      "Private_Clean_KiB": 5856,
+      "Private_Dirty_KiB": 14336,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "a1bc0fa439b7220442b79b8ec3711c01e8356935c9ce5759236d606605797304"
+    },
+    "186656": {
+      "executable": "marathon-shell-bin",
+      "path": "/usr/bin/marathon-shell-bin",
+      "threads": 27,
+      "file_descriptors": 90,
+      "Rss_KiB": 307688,
+      "Pss_KiB": 238459,
+      "Private_Clean_KiB": 31592,
+      "Private_Dirty_KiB": 176800,
+      "cpu_pct_one_core": 0.1998642898154584,
+      "sha256": "77811985a4b38904cc0e17f2127989d890522e7d4647decf01feb9905936add6"
+    },
+    "186951": {
+      "executable": "deckard-bridge",
+      "path": "/usr/libexec/deckard-bridge",
+      "threads": 28,
+      "file_descriptors": 44,
+      "Rss_KiB": 5996,
+      "Pss_KiB": 5349,
+      "Private_Clean_KiB": 3408,
+      "Private_Dirty_KiB": 1928,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "4e511a263154f99113ae79c57f458b17eb9e95563d902420c5765c517cd2bf8e"
+    },
+    "186952": {
+      "executable": "deckard-runtime",
+      "path": "/usr/libexec/deckard-runtime",
+      "threads": 10,
+      "file_descriptors": 28,
+      "Rss_KiB": 2292,
+      "Pss_KiB": 1671,
+      "Private_Clean_KiB": 1244,
+      "Private_Dirty_KiB": 416,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "74e17d87e0bf72f08819d0766f9d1a1c3a5e93072dd42f1064433842930af311"
+    }
+  }
+}

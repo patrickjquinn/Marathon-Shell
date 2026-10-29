@@ -1,0 +1,55 @@
+{
+  "shell-normal": {
+    "targets": 64,
+    "passed": 679,
+    "failed": 0,
+    "ignored": 4
+  },
+  "shell-loaded": {
+    "targets": 64,
+    "passed": 679,
+    "failed": 0,
+    "ignored": 4,
+    "measured_cpu": "Measured CPU busy: 99.98% over 256.64s",
+    "includes_cargo_recompilation": true
+  },
+  "apps-normal": {
+    "targets": 2,
+    "passed": 38,
+    "failed": 0,
+    "ignored": 0
+  },
+  "apps-loaded": {
+    "targets": 2,
+    "passed": 38,
+    "failed": 0,
+    "ignored": 0
+  },
+  "deckard-normal": {
+    "targets": 55,
+    "passed": 181,
+    "failed": 0,
+    "ignored": 0
+  },
+  "deckard-loaded": {
+    "targets": 55,
+    "passed": 181,
+    "failed": 0,
+    "ignored": 0,
+    "measured_cpu": "Measured CPU busy: 100.00% over 12.40s"
+  },
+  "deckard-apk-release": {
+    "targets": 51,
+    "passed": 172,
+    "failed": 0,
+    "ignored": 0
+  },
+  "hub-qml": {
+    "passed": 28,
+    "failed": 0,
+    "skipped": 0,
+    "real_silica": true,
+    "qt": "6.11.1",
+    "elapsed_ms": 1826
+  }
+}

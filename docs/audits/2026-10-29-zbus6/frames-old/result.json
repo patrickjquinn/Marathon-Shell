@@ -1,0 +1,55 @@
+{
+  "gate": "g4",
+  "steps": {
+    "ok": 3,
+    "skip": 0,
+    "fail": 0,
+    "list": [
+      {
+        "step": "android",
+        "status": "ok",
+        "detail": "session started for the run, booted in 16s"
+      },
+      {
+        "step": "tracefs",
+        "status": "ok",
+        "detail": "gui=165089 render=165260"
+      },
+      {
+        "step": "gate4",
+        "status": "ok",
+        "detail": ""
+      }
+    ]
+  },
+  "metrics": {
+    "baseline": {
+      "reps": 10,
+      "missed_mean": 0,
+      "frames_mean": 38.8,
+      "reps_with_gui_stall": 1,
+      "reps_with_render_stall": 0,
+      "gui_longest_ms": 22.18,
+      "render_longest_ms": 11.29,
+      "longest_gap_ms": 16.68
+    },
+    "launch": {
+      "reps": 10,
+      "missed_mean": 0,
+      "frames_mean": 48.3,
+      "reps_with_gui_stall": 10,
+      "reps_with_render_stall": 0,
+      "gui_longest_ms": 43.75,
+      "render_longest_ms": 13.64,
+      "longest_gap_ms": 16.69
+    },
+    "sched_events": 33294
+  },
+  "verdict": "PROCEED",
+  "reasons": [
+    "GUI thread busy > 16 ms in 10/10 launch peeks",
+    "gui thread busy > 16 ms in 10/10 launch peeks (baseline 1/10)"
+  ],
+  "measured_verdict": "PROCEED",
+  "trace_overrun_events": 0
+}

@@ -1,0 +1,154 @@
+{
+  "label": "before",
+  "utc": "2026-10-29T11:21:18.248700+00:00",
+  "window_seconds": 30.018969837998156,
+  "model": "Raspberry Pi Compute Module 5 Lite Rev 1.0",
+  "kernel": "6.12.85-0-rpi",
+  "cpu_count": 4,
+  "governor": "schedutil",
+  "loadavg": "0.08 0.09 0.09 1/1254 151358",
+  "temperatures": {
+    "thermal_zone0": {
+      "type": "cpu-thermal",
+      "millidegrees_C": "48500"
+    },
+    "thermal_zone1": {
+      "type": "battery",
+      "millidegrees_C": null
+    }
+  },
+  "processes": {
+    "35242": {
+      "executable": "marathon-shell-bin",
+      "path": "/usr/bin/marathon-shell-bin",
+      "threads": 30,
+      "file_descriptors": 116,
+      "Rss_KiB": 322144,
+      "Pss_KiB": 234384,
+      "Private_Clean_KiB": 24656,
+      "Private_Dirty_KiB": 190976,
+      "cpu_pct_one_core": 0.16656134527544567,
+      "sha256": "e0e26e0f63cbbe1a98e3a53b816e43880a751eea46de585c4f1d3dd21a3cad4e"
+    },
+    "46510": {
+      "executable": "marathon-keel-host",
+      "path": "/usr/bin/marathon-keel-host",
+      "threads": 7,
+      "file_descriptors": 14,
+      "Rss_KiB": 5556,
+      "Pss_KiB": 4010,
+      "Private_Clean_KiB": 0,
+      "Private_Dirty_KiB": 3256,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "d87e3f2bc6d7ffcb01da03de9faca669f157a05a4d59d378de3be7110175ce3b"
+    },
+    "59317": {
+      "executable": "marathon-keel-host",
+      "path": "/usr/bin/marathon-keel-host",
+      "threads": 7,
+      "file_descriptors": 14,
+      "Rss_KiB": 5548,
+      "Pss_KiB": 4008,
+      "Private_Clean_KiB": 0,
+      "Private_Dirty_KiB": 3256,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "d87e3f2bc6d7ffcb01da03de9faca669f157a05a4d59d378de3be7110175ce3b"
+    },
+    "59404": {
+      "executable": "pilotd",
+      "path": "/usr/bin/pilotd",
+      "threads": 5,
+      "file_descriptors": 20,
+      "Rss_KiB": 26304,
+      "Pss_KiB": 25652,
+      "Private_Clean_KiB": 6304,
+      "Private_Dirty_KiB": 19336,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "b5051b5ba132d54ffb7f86e420cfad5439a990032af277c68e591e979eabc28b"
+    },
+    "140807": {
+      "executable": "marathon-audiod",
+      "path": "/usr/bin/marathon-audiod",
+      "threads": 6,
+      "file_descriptors": 19,
+      "Rss_KiB": 5216,
+      "Pss_KiB": 2563,
+      "Private_Clean_KiB": 1200,
+      "Private_Dirty_KiB": 936,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "409a86635de6bd132b43fb7a2243a698c79d3ab5fe7980667a04807bbffe6126"
+    },
+    "140811": {
+      "executable": "marathon-telephonyd",
+      "path": "/usr/bin/marathon-telephonyd",
+      "threads": 6,
+      "file_descriptors": 14,
+      "Rss_KiB": 4724,
+      "Pss_KiB": 2999,
+      "Private_Clean_KiB": 1824,
+      "Private_Dirty_KiB": 824,
+      "cpu_pct_one_core": 0.03331226905508913,
+      "sha256": "6544e6e229b442225dc43081c3bf2fc09c315e96ef7788ab7cb4ed49ed3f1639"
+    },
+    "140822": {
+      "executable": "marathon-maild",
+      "path": "/usr/bin/marathon-maild",
+      "threads": 4,
+      "file_descriptors": 10,
+      "Rss_KiB": 5156,
+      "Pss_KiB": 3404,
+      "Private_Clean_KiB": 2432,
+      "Private_Dirty_KiB": 604,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "63efc8cb328de4986c72ef216903be7b0d140d63069b37e86200e8059086dbeb"
+    },
+    "140825": {
+      "executable": "marathon-weatherd",
+      "path": "/usr/bin/marathon-weatherd",
+      "threads": 4,
+      "file_descriptors": 8,
+      "Rss_KiB": 33856,
+      "Pss_KiB": 33149,
+      "Private_Clean_KiB": 6264,
+      "Private_Dirty_KiB": 26872,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "342ae17b72722ec2987b4a95f6795e4fcb6d40d0f5c3f6a94894468715fdbf9a"
+    },
+    "143107": {
+      "executable": "deckard-bridge",
+      "path": "/usr/libexec/deckard-bridge",
+      "threads": 28,
+      "file_descriptors": 36,
+      "Rss_KiB": 6256,
+      "Pss_KiB": 5545,
+      "Private_Clean_KiB": 3536,
+      "Private_Dirty_KiB": 1996,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "6b882384e0338d7dea7d68998e70008773c3b8bcbfa47db279b0b2553c2f76e4"
+    },
+    "143363": {
+      "executable": "deckard-runtime",
+      "path": "/usr/libexec/deckard-runtime",
+      "threads": 13,
+      "file_descriptors": 19,
+      "Rss_KiB": 2500,
+      "Pss_KiB": 1856,
+      "Private_Clean_KiB": 1304,
+      "Private_Dirty_KiB": 540,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "959ef7d6a36bea47c4e36693e48f0fb172d15fd1aef20b1d6e5543b7d02af81f"
+    },
+    "143380": {
+      "executable": "deckard-containerd",
+      "path": "/usr/libexec/deckard-containerd",
+      "threads": 6,
+      "file_descriptors": 13,
+      "Rss_KiB": 2496,
+      "Pss_KiB": 1848,
+      "Private_Clean_KiB": 1532,
+      "Private_Dirty_KiB": 304,
+      "cpu_pct_one_core": 0.0,
+      "sha256": "4917eccc106ae9ddff843a95de3f1fa483e0031283aa36caed88cb93f79afe3f"
+    }
+  }
+}

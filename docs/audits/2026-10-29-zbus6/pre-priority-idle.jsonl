@@ -1,0 +1,15 @@
+{"endpoint":"bus-control","samples":1000,"errors":0,"mean_us":44.997,"p50_us":48.147,"p95_us":58.055,"p99_us":66.110}
+{"endpoint":"deckard-runtime","samples":1000,"errors":0,"mean_us":116.481,"p50_us":107.685,"p95_us":135.202,"p99_us":149.147}
+{"endpoint":"audio-properties","samples":1000,"errors":0,"mean_us":119.312,"p50_us":117.073,"p95_us":128.962,"p99_us":146.832}
+{"endpoint":"weather-properties","samples":1000,"errors":0,"mean_us":144.392,"p50_us":136.351,"p95_us":182.036,"p99_us":205.536}
+{"endpoint":"pilot-settings","samples":1000,"errors":0,"mean_us":84.764,"p50_us":76.499,"p95_us":106.721,"p99_us":116.184}
+{"endpoint":"bus-control","samples":1000,"errors":0,"mean_us":38.716,"p50_us":40.203,"p95_us":41.370,"p99_us":59.203}
+{"endpoint":"deckard-runtime","samples":1000,"errors":0,"mean_us":127.525,"p50_us":127.166,"p95_us":129.573,"p99_us":138.128}
+{"endpoint":"audio-properties","samples":1000,"errors":0,"mean_us":100.522,"p50_us":97.795,"p95_us":107.592,"p99_us":133.222}
+{"endpoint":"weather-properties","samples":1000,"errors":0,"mean_us":120.760,"p50_us":112.333,"p95_us":150.684,"p99_us":194.887}
+{"endpoint":"pilot-settings","samples":1000,"errors":0,"mean_us":76.924,"p50_us":76.000,"p95_us":83.240,"p99_us":91.684}
+{"endpoint":"bus-control","samples":1000,"errors":0,"mean_us":33.699,"p50_us":33.185,"p95_us":33.796,"p99_us":45.130}
+{"endpoint":"deckard-runtime","samples":1000,"errors":0,"mean_us":131.460,"p50_us":126.147,"p95_us":136.888,"p99_us":168.147}
+{"endpoint":"audio-properties","samples":1000,"errors":0,"mean_us":98.711,"p50_us":97.462,"p95_us":106.740,"p99_us":114.758}
+{"endpoint":"weather-properties","samples":1000,"errors":0,"mean_us":118.253,"p50_us":111.573,"p95_us":150.443,"p99_us":174.665}
+{"endpoint":"pilot-settings","samples":1000,"errors":0,"mean_us":77.872,"p50_us":75.740,"p95_us":82.462,"p99_us":104.258}

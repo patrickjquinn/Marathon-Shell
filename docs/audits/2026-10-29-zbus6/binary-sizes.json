@@ -1,0 +1,66 @@
+[
+  {
+    "path": "/usr/bin/marathon-shell-bin",
+    "apk": "marathon-shell-1.0.0-r516.apk",
+    "before_bytes": 28342984,
+    "after_bytes": 28930880,
+    "change_pct": 2.0742205548999357,
+    "after_sha256": "959e499134ca704df945ee818c1073cfccde05acae44bc5e66b93d029be2178f"
+  },
+  {
+    "path": "/usr/libexec/deckard-bridge",
+    "apk": "deckard-0.1.0-r26.apk",
+    "before_bytes": 4069744,
+    "after_bytes": 4004072,
+    "change_pct": -1.6136641518483719,
+    "after_sha256": "4e511a263154f99113ae79c57f458b17eb9e95563d902420c5765c517cd2bf8e"
+  },
+  {
+    "path": "/usr/libexec/deckard-runtime",
+    "apk": "deckard-0.1.0-r26.apk",
+    "before_bytes": 1514104,
+    "after_bytes": 1381872,
+    "change_pct": -8.733349888779106,
+    "after_sha256": "6899c4df86e01957453dbf9a6f0fba4b1aa035b7cdab9c000cea804600847469"
+  },
+  {
+    "path": "/usr/libexec/deckard-containerd",
+    "apk": "deckard-0.1.0-r26.apk",
+    "before_bytes": 1645176,
+    "after_bytes": 1513976,
+    "change_pct": -7.974830656416092,
+    "after_sha256": "f8fd35eb609b584c271f5b512e11b4d51ededed322b8282f67a694119378f3a1"
+  },
+  {
+    "path": "/usr/bin/shoal-pilot",
+    "apk": "shoal-pilot-0.1.0-r5.apk",
+    "before_bytes": 2961840,
+    "after_bytes": 2674360,
+    "change_pct": -9.706128622748022,
+    "after_sha256": "46bcfde11562d5e84dc0095c38e4eb5b947d01495fc2950278f790b4d2c413af"
+  },
+  {
+    "path": "/usr/bin/shipwright-reef",
+    "apk": "shipwright-reef-0.1.0-r2.apk",
+    "before_bytes": 3223136,
+    "after_bytes": 3203480,
+    "change_pct": -0.609840850649802,
+    "after_sha256": "c2317e88f24ea4ea2488b4a3b60f3ce995f0ab71a65597071c4392c550a0716e"
+  },
+  {
+    "path": "/usr/bin/pilotd",
+    "apk": "shoal-pilotd-0.1.0-r15.apk",
+    "before_bytes": 7166560,
+    "after_bytes": 6969688,
+    "change_pct": -2.7470920497421356,
+    "after_sha256": "a1bc0fa439b7220442b79b8ec3711c01e8356935c9ce5759236d606605797304"
+  },
+  {
+    "path": "/usr/bin/keel-mcp",
+    "apk": "keel-mcp-0.1.0-r6.apk",
+    "before_bytes": 3152128,
+    "after_bytes": 2757752,
+    "change_pct": -12.511420856005847,
+    "after_sha256": "7fa4bf8049ace712efc0da835e4917e6ff4a5a15febbc058b7556db117f2c8c1"
+  }
+]

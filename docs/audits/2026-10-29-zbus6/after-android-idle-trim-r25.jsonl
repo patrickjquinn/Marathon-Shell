@@ -1,0 +1,19 @@
+s "{}"
+
+{"phase": "home-start", "epoch": 1793280209.2040675, "memory_bytes": 1393782784, "pss_kib": 1437859, "pids": 63}
+{"phase": "home-5s", "epoch": 1793280214.2969856, "memory_bytes": 1397575680, "pss_kib": 1440539, "pids": 63}
+{"phase": "home-10s", "epoch": 1793280219.3883805, "memory_bytes": 1397321728, "pss_kib": 1440571, "pids": 63}
+{"phase": "home-15s", "epoch": 1793280224.479969, "memory_bytes": 1397100544, "pss_kib": 1440607, "pids": 63}
+{"phase": "home-20s", "epoch": 1793280229.5714335, "memory_bytes": 1397338112, "pss_kib": 1440611, "pids": 63}
+{"phase": "home-25s", "epoch": 1793280234.6625783, "memory_bytes": 1397272576, "pss_kib": 1440583, "pids": 63}
+{"phase": "home-30s", "epoch": 1793280239.753989, "memory_bytes": 1398116352, "pss_kib": 1441427, "pids": 63}
+{"phase": "home-35s", "epoch": 1793280244.8452985, "memory_bytes": 1398624256, "pss_kib": 1441883, "pids": 63}
+{"phase": "home-40s", "epoch": 1793280249.9366224, "memory_bytes": 1398853632, "pss_kib": 1442059, "pids": 63}
+{"phase": "home-45s", "epoch": 1793280255.029802, "memory_bytes": 1399324672, "pss_kib": 1442182, "pids": 63}
+{"phase": "home-50s", "epoch": 1793280260.1211987, "memory_bytes": 1399111680, "pss_kib": 1442300, "pids": 63}
+{"phase": "home-55s", "epoch": 1793280265.212734, "memory_bytes": 1398886400, "pss_kib": 1442320, "pids": 63}
+{"phase": "home-60s", "epoch": 1793280270.3033009, "memory_bytes": 994844672, "pss_kib": 1200059, "pids": 63}
+{"phase": "home-65s", "epoch": 1793280275.3795657, "memory_bytes": 458661888, "pss_kib": 687267, "pids": 63}
+{"phase": "home-70s", "epoch": 1793280280.4498808, "memory_bytes": 351465472, "pss_kib": 595911, "pids": 63}
+{"phase": "home-75s", "epoch": 1793280285.5202622, "memory_bytes": 385081344, "pss_kib": 613367, "pids": 63}
+{"phase": "home-80s", "epoch": 1793280290.5905502, "memory_bytes": 392904704, "pss_kib": 617292, "pids": 63}

@@ -1,0 +1,15 @@
+{"phase": "foreground-start", "epoch": 1793279952.057231, "memory_bytes": 1506496512}
+{"phase": "foreground-70s", "epoch": 1793280022.0858195, "memory_bytes": 1506951168, "foreground": "s \"deckard.com.zhiliaoapp.musically\""}
+{"phase": "home-start", "epoch": 1793280022.1451406, "memory_bytes": 1506951168}
+{"phase": "reclaim-detected", "epoch": 1793280082.296787, "memory_bytes": 1414463488, "idle_seconds": 60.15189712999563}
+{"phase": "foreground-return", "epoch": 1793280082.392121, "memory_bytes": 1359896576, "bus_reply": "b true", "launch_call_ms": 57.48266300361138, "foreground": "s \"deckard.com.zhiliaoapp.musically\""}
+{"phase": "returned-1s", "epoch": 1793280083.394629, "memory_bytes": 1367719936}
+{"phase": "returned-2s", "epoch": 1793280084.395016, "memory_bytes": 1385709568}
+{"phase": "returned-3s", "epoch": 1793280085.3953817, "memory_bytes": 1410109440}
+{"phase": "returned-4s", "epoch": 1793280086.3957758, "memory_bytes": 1399193600}
+{"phase": "returned-5s", "epoch": 1793280087.3961196, "memory_bytes": 1398661120}
+{"phase": "returned-6s", "epoch": 1793280088.3964937, "memory_bytes": 1398853632}
+{"phase": "returned-7s", "epoch": 1793280089.3968618, "memory_bytes": 1398595584}
+{"phase": "returned-8s", "epoch": 1793280090.3972282, "memory_bytes": 1398595584}
+{"phase": "returned-9s", "epoch": 1793280091.3975873, "memory_bytes": 1398599680}
+{"phase": "returned-10s", "epoch": 1793280092.3979466, "memory_bytes": 1394769920}

@@ -1,0 +1,14 @@
+{
+  "shell_runtime_commit": "685652165071f2b5849bef636d47d9bd349bbc09",
+  "runtime_files_compared": 1373,
+  "mismatches": [],
+  "verification_exit_code": 0,
+  "stderr": "",
+  "deckard_runtime_commit": "d5c317833bbe0844eb2809a8ecf873e09379cafe",
+  "deckard_source_verification": {
+    "runtime_files_compared": 363,
+    "mismatches": [],
+    "verification_exit_code": 0,
+    "stderr": ""
+  }
+}

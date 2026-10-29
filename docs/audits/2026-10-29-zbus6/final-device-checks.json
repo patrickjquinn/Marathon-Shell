@@ -1,0 +1,30 @@
+{
+  "kernel": {
+    "lines_checked": 2241,
+    "matches": []
+  },
+  "journal": {
+    "lines_checked": 2622,
+    "matches": []
+  },
+  "since_utc": "2026-10-29 15:17:00",
+  "stale_deployed_mappings": [],
+  "system_failed_units": 0,
+  "user_failed_units": 0,
+  "backlight_power": 0,
+  "backlight_brightness": 8,
+  "governor_restored": "schedutil",
+  "android_last_anr": "none since boot",
+  "android_crash_buffer": "empty",
+  "android_foreground_cpu_weight": 200,
+  "android_foreground_bfq_weight": 200,
+  "memory_high_max_oom_events": 0,
+  "kernel_log_sources": [
+    "journalctl -k since 15:17 UTC",
+    "last 400 dmesg lines"
+  ],
+  "temporary_staging_removed_KiB": 1369332,
+  "rollback_backups_retained": true,
+  "android_on_home_cpu_weight": 50,
+  "android_on_home_bfq_weight": 25
+}

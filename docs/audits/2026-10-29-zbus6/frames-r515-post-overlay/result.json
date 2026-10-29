@@ -1,0 +1,50 @@
+{
+  "gate": "g4",
+  "steps": {
+    "ok": 2,
+    "skip": 0,
+    "fail": 0,
+    "list": [
+      {
+        "step": "tracefs",
+        "status": "ok",
+        "detail": "gui=186656 render=186878"
+      },
+      {
+        "step": "gate4",
+        "status": "ok",
+        "detail": ""
+      }
+    ]
+  },
+  "metrics": {
+    "baseline": {
+      "reps": 10,
+      "missed_mean": 0,
+      "frames_mean": 38.8,
+      "reps_with_gui_stall": 1,
+      "reps_with_render_stall": 0,
+      "gui_longest_ms": 27.22,
+      "render_longest_ms": 9.16,
+      "longest_gap_ms": 16.68
+    },
+    "launch": {
+      "reps": 10,
+      "missed_mean": 0.4,
+      "frames_mean": 48,
+      "reps_with_gui_stall": 10,
+      "reps_with_render_stall": 0,
+      "gui_longest_ms": 45.31,
+      "render_longest_ms": 15.58,
+      "longest_gap_ms": 33.36
+    },
+    "sched_events": 28962
+  },
+  "verdict": "PROCEED",
+  "reasons": [
+    "GUI thread busy > 16 ms in 10/10 launch peeks",
+    "gui thread busy > 16 ms in 10/10 launch peeks (baseline 1/10)"
+  ],
+  "measured_verdict": "PROCEED",
+  "trace_overrun_events": 0
+}

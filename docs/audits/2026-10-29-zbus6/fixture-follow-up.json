@@ -1,0 +1,14 @@
+{
+  "stalled_extra_full_run": {
+    "test": "the_shell_names_a_marathon_apps_process",
+    "terminated": true,
+    "mock_bus_introspection_responded": true,
+    "cause_established": false
+  },
+  "isolated_repeats": 100,
+  "parallel_fixture_groups": 100,
+  "tests_per_fixture_group": 4,
+  "repeat_failures": 0,
+  "diagnostic_source_edits_restored": true,
+  "fresh_normal_full_run": "passed"
+}

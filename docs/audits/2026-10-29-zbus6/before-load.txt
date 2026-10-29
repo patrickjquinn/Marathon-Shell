@@ -1,0 +1,4 @@
+mode=load governor=performance previous=schedutil frequency_kHz=2400000
+Starting 4 CPU workers; settling for two seconds
+Measured CPU busy: 98.07% over 2.33s
+CPU workers stopped after 4.3s

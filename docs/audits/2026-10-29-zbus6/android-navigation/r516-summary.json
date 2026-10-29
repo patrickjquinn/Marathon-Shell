@@ -1,0 +1,66 @@
+[
+  {
+    "trial": "1",
+    "frames": 290,
+    "janky": 29,
+    "cpu_percentile_ms": {
+      "50": 5,
+      "95": 40,
+      "99": 61
+    },
+    "gpu_percentile_ms": {
+      "50": 2,
+      "95": 4,
+      "99": 7
+    },
+    "jank_pct": 10.0
+  },
+  {
+    "trial": "2",
+    "frames": 283,
+    "janky": 21,
+    "cpu_percentile_ms": {
+      "50": 5,
+      "95": 29,
+      "99": 81
+    },
+    "gpu_percentile_ms": {
+      "50": 2,
+      "95": 4,
+      "99": 7
+    },
+    "jank_pct": 7.420494699646643
+  },
+  {
+    "trial": "3",
+    "frames": 250,
+    "janky": 23,
+    "cpu_percentile_ms": {
+      "50": 5,
+      "95": 31,
+      "99": 57
+    },
+    "gpu_percentile_ms": {
+      "50": 2,
+      "95": 3,
+      "99": 6
+    },
+    "jank_pct": 9.2
+  },
+  {
+    "trial": "load",
+    "frames": 272,
+    "janky": 30,
+    "cpu_percentile_ms": {
+      "50": 5,
+      "95": 40,
+      "99": 61
+    },
+    "gpu_percentile_ms": {
+      "50": 2,
+      "95": 4,
+      "99": 6
+    },
+    "jank_pct": 11.029411764705882
+  }
+]

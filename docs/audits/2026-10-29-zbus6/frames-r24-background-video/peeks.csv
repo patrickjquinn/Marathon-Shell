@@ -1,0 +1,7 @@
+window,kind,gui_spans_over_16ms,gui_longest_ms,render_spans_over_16ms,render_longest_ms,frames,missed,animating_s,period_ms,longest_gap_ms
+peek-baseline-1,baseline,0,2.97,0,3.27,46,0,0.75,16.667,16.67
+peek-baseline-2,baseline,2,39.64,0,12.49,45,1,0.75,16.667,33.33
+peek-baseline-3,baseline,0,1.0,0,1.92,37,0,0.6,16.667,16.67
+peek-launch-1,launch,3,46.56,1,16.87,44,4,0.783,16.668,50.0
+peek-launch-2,launch,2,24.34,0,8.15,48,1,0.8,16.666,33.34
+peek-launch-3,launch,7,37.96,0,9.93,44,4,0.783,16.668,33.34

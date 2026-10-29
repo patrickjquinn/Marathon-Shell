@@ -1,0 +1,61 @@
+{
+  "saved": {
+    "cpu.weight": "50",
+    "io.bfq.weight": "default 25"
+  },
+  "governor_restored": "schedutil",
+  "trials": [
+    {
+      "trial": 1,
+      "profile": "old",
+      "cpu_weight": 50,
+      "bfq_weight": 25,
+      "elapsed_s": 10.736478096994688,
+      "cpu_busy_pct": 99.18300653594771,
+      "android_cpu_seconds": 7.673836,
+      "temperature_millidegrees_C": 58950,
+      "returncode": 0,
+      "output": "Total frames rendered: 255\nJanky frames: 59 (23.14%)\n50th percentile: 9ms\n90th percentile: 44ms\n95th percentile: 77ms\n99th percentile: 150ms\nNumber Missed Vsync: 14\nNumber Slow UI thread: 33\nNumber Frame deadline missed: 59\nNumber Frame deadline missed (legacy): 39\n50th gpu percentile: 2ms\n90th gpu percentile: 3ms\n95th gpu percentile: 4ms\n99th gpu percentile: 6ms\nTotal frames rendered: 255\nJanky frames: 59 (23.14%)\n50th percentile: 9ms\n90th percentile: 44ms\n95th percentile: 77ms\n99th percentile: 150ms\nNumber Missed Vsync: 14\nNumber Slow UI thread: 33\nNumber Frame deadline missed: 59\nNumber Frame deadline missed (legacy): 39\n50th gpu percentile: 2ms\n90th gpu percentile: 3ms\n95th gpu percentile: 4ms\n99th gpu percentile: 6ms\nelapsed_s 10.216539379995083\nsystem_server {'major_faults': 162, 'minor_faults': 181, 'cpu_ticks': 22, 'read_bytes': 1273856, 'write_bytes': 0}\ncom.zhiliaoapp.musically {'major_faults': 4552, 'minor_faults': 54149, 'cpu_ticks': 530, 'read_bytes': 31780864, 'write_bytes': 5746688}\nvm delta {'pswpin': 5097, 'pswpout': 0, 'pgmajfault': 5386}\n",
+      "stderr": ""
+    },
+    {
+      "trial": 2,
+      "profile": "foreground",
+      "cpu_weight": 200,
+      "bfq_weight": 200,
+      "elapsed_s": 10.549547506001545,
+      "cpu_busy_pct": 99.50177935943061,
+      "android_cpu_seconds": 6.504418,
+      "temperature_millidegrees_C": 60600,
+      "returncode": 0,
+      "output": "Total frames rendered: 270\nJanky frames: 27 (10.00%)\n50th percentile: 5ms\n90th percentile: 13ms\n95th percentile: 38ms\n99th percentile: 69ms\nNumber Missed Vsync: 10\nNumber Slow UI thread: 18\nNumber Frame deadline missed: 27\nNumber Frame deadline missed (legacy): 16\n50th gpu percentile: 2ms\n90th gpu percentile: 3ms\n95th gpu percentile: 4ms\n99th gpu percentile: 8ms\nTotal frames rendered: 270\nJanky frames: 27 (10.00%)\n50th percentile: 5ms\n90th percentile: 13ms\n95th percentile: 38ms\n99th percentile: 69ms\nNumber Missed Vsync: 10\nNumber Slow UI thread: 18\nNumber Frame deadline missed: 27\nNumber Frame deadline missed (legacy): 16\n50th gpu percentile: 2ms\n90th gpu percentile: 3ms\n95th gpu percentile: 4ms\n99th gpu percentile: 8ms\nelapsed_s 10.201632575000986\nsystem_server {'major_faults': 18, 'minor_faults': 69, 'cpu_ticks': 21, 'read_bytes': 73728, 'write_bytes': 0}\ncom.zhiliaoapp.musically {'major_faults': 229, 'minor_faults': 33865, 'cpu_ticks': 466, 'read_bytes': 1048576, 'write_bytes': 4321280}\nvm delta {'pswpin': 287, 'pswpout': 0, 'pgmajfault': 295}\n",
+      "stderr": ""
+    },
+    {
+      "trial": 3,
+      "profile": "old",
+      "cpu_weight": 50,
+      "bfq_weight": 25,
+      "elapsed_s": 10.696101192996139,
+      "cpu_busy_pct": 99.20337394564199,
+      "android_cpu_seconds": 7.778846,
+      "temperature_millidegrees_C": 62800,
+      "returncode": 0,
+      "output": "Total frames rendered: 250\nJanky frames: 51 (20.40%)\n50th percentile: 8ms\n90th percentile: 34ms\n95th percentile: 69ms\n99th percentile: 105ms\nNumber Missed Vsync: 12\nNumber Slow UI thread: 26\nNumber Frame deadline missed: 51\nNumber Frame deadline missed (legacy): 31\n50th gpu percentile: 2ms\n90th gpu percentile: 3ms\n95th gpu percentile: 4ms\n99th gpu percentile: 6ms\nTotal frames rendered: 250\nJanky frames: 51 (20.40%)\n50th percentile: 8ms\n90th percentile: 34ms\n95th percentile: 69ms\n99th percentile: 105ms\nNumber Missed Vsync: 12\nNumber Slow UI thread: 26\nNumber Frame deadline missed: 51\nNumber Frame deadline missed (legacy): 31\n50th gpu percentile: 2ms\n90th gpu percentile: 3ms\n95th gpu percentile: 4ms\n99th gpu percentile: 6ms\nelapsed_s 10.221819558006246\nsystem_server {'major_faults': 25, 'minor_faults': 137, 'cpu_ticks': 20, 'read_bytes': 98304, 'write_bytes': 0}\ncom.zhiliaoapp.musically {'major_faults': 210, 'minor_faults': 57403, 'cpu_ticks': 528, 'read_bytes': 987136, 'write_bytes': 5009408}\nvm delta {'pswpin': 248, 'pswpout': 0, 'pgmajfault': 253}\n",
+      "stderr": ""
+    },
+    {
+      "trial": 4,
+      "profile": "foreground",
+      "cpu_weight": 200,
+      "bfq_weight": 200,
+      "elapsed_s": 10.677715306999744,
+      "cpu_busy_pct": 99.36842105263159,
+      "android_cpu_seconds": 6.182459,
+      "temperature_millidegrees_C": 63900,
+      "returncode": 0,
+      "output": "Total frames rendered: 273\nJanky frames: 28 (10.26%)\n50th percentile: 6ms\n90th percentile: 16ms\n95th percentile: 42ms\n99th percentile: 69ms\nNumber Missed Vsync: 13\nNumber Slow UI thread: 16\nNumber Frame deadline missed: 28\nNumber Frame deadline missed (legacy): 22\n50th gpu percentile: 2ms\n90th gpu percentile: 4ms\n95th gpu percentile: 5ms\n99th gpu percentile: 7ms\nTotal frames rendered: 273\nJanky frames: 28 (10.26%)\n50th percentile: 6ms\n90th percentile: 16ms\n95th percentile: 42ms\n99th percentile: 69ms\nNumber Missed Vsync: 13\nNumber Slow UI thread: 16\nNumber Frame deadline missed: 28\nNumber Frame deadline missed (legacy): 22\n50th gpu percentile: 2ms\n90th gpu percentile: 4ms\n95th gpu percentile: 5ms\n99th gpu percentile: 7ms\nelapsed_s 10.239628281997284\nsystem_server {'major_faults': 15, 'minor_faults': 84, 'cpu_ticks': 20, 'read_bytes': 61440, 'write_bytes': 0}\ncom.zhiliaoapp.musically {'major_faults': 136, 'minor_faults': 29622, 'cpu_ticks': 432, 'read_bytes': 626688, 'write_bytes': 3629056}\nvm delta {'pswpin': 112, 'pswpout': 0, 'pgmajfault': 186}\n",
+      "stderr": ""
+    }
+  ]
+}

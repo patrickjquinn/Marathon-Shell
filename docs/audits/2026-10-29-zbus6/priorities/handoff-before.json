@@ -1,0 +1,81 @@
+[
+  {
+    "requested": "shoal-pilot",
+    "foreground": "s \"shoal-pilot\"",
+    "profiles": {
+      "lxc.payload.deckard": {
+        "cpu.weight": "50",
+        "io.bfq.weight": "default 25",
+        "cgroup.freeze": "0"
+      },
+      "user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-shoal-pilot": {
+        "cpu.weight": "200",
+        "io.bfq.weight": "default 200",
+        "cgroup.freeze": "0"
+      }
+    }
+  },
+  {
+    "requested": "shipwright-reef",
+    "foreground": "s \"shipwright-reef\"",
+    "profiles": {
+      "lxc.payload.deckard": {
+        "cpu.weight": "50",
+        "io.bfq.weight": "default 25",
+        "cgroup.freeze": "0"
+      },
+      "user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-shipwright-reef": {
+        "cpu.weight": "200",
+        "io.bfq.weight": "default 200",
+        "cgroup.freeze": "0"
+      },
+      "user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-shoal-pilot": {
+        "cpu.weight": "50",
+        "io.bfq.weight": "default 25",
+        "cgroup.freeze": "0"
+      }
+    }
+  },
+  {
+    "requested": "deckard.com.zhiliaoapp.musically",
+    "foreground": "s \"deckard.com.zhiliaoapp.musically\"",
+    "profiles": {
+      "lxc.payload.deckard": {
+        "cpu.weight": "200",
+        "io.bfq.weight": "default 200",
+        "cgroup.freeze": "0"
+      },
+      "user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-shipwright-reef": {
+        "cpu.weight": "200",
+        "io.bfq.weight": "default 200",
+        "cgroup.freeze": "0"
+      },
+      "user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-shoal-pilot": {
+        "cpu.weight": "50",
+        "io.bfq.weight": "default 25",
+        "cgroup.freeze": "1"
+      }
+    }
+  },
+  {
+    "requested": "shoal-pilot",
+    "foreground": "s \"shoal-pilot\"",
+    "profiles": {
+      "lxc.payload.deckard": {
+        "cpu.weight": "50",
+        "io.bfq.weight": "default 25",
+        "cgroup.freeze": "0"
+      },
+      "user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-shipwright-reef": {
+        "cpu.weight": "50",
+        "io.bfq.weight": "default 25",
+        "cgroup.freeze": "0"
+      },
+      "user.slice/user-1000.slice/user@1000.service/marathon.slice/marathon-apps/marathon-app-shoal-pilot": {
+        "cpu.weight": "200",
+        "io.bfq.weight": "default 200",
+        "cgroup.freeze": "0"
+      }
+    }
+  }
+]
