@@ -14,7 +14,7 @@
 # pilot-tts) is not built.
 pkgname=shoal-pilotd
 pkgver=0.1.0
-pkgrel=14
+pkgrel=15
 pkgdesc="Pilot assistant daemon for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"

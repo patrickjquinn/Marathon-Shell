@@ -6,7 +6,7 @@
 # and it follows a branch.
 pkgname=shipwright-reef
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Reef app store for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
