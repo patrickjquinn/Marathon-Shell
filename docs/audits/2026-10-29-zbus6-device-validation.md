@@ -322,7 +322,7 @@ See [final Android results](2026-10-29-zbus6/android-navigation/r516-summary.jso
 
 ## Foreground CPU and physical I/O scheduling
 
-The physical eMMC already used BFQ (`none mq-deadline kyber [bfq]`). Android
+The physical SD card already used BFQ (`none mq-deadline kyber [bfq]`). Android
 shares the host kernel and physical block queue; there is no separate Android
 physical scheduler to select. Loop devices retaining `none` does not bypass
 physical BFQ. `CONFIG_UCLAMP_TASK` is absent on this kernel, so the previous
@@ -397,7 +397,7 @@ one inside the Android cgroup and a background peer at BFQ weight 100.
 | 200 | 6.459 | 4.253 |
 
 Physical-device `io.stat` advanced, confirming that the cgroup shares reach
-the eMMC queue. Android read p95 remained approximately 0.56 ms; the evidence
+the SD-card queue. Android read p95 remained approximately 0.56 ms; the evidence
 supports a bandwidth-share improvement, not a tail-latency improvement.
 Temporary workers/cgroups were removed and the previous governor restored.
 Raw [priority A/B results](2026-10-29-zbus6/priorities/) retain all four trials
@@ -539,3 +539,22 @@ does not close the cold-launch or warm-feed findings above.
 
 Recorded text/CSV exports normalize line endings and trailing whitespace;
 measurement values are unchanged.
+
+## Storage clarification
+
+A subsequent sysfs check identified `mmcblk0/device/type=SD` and
+`mmcblk0/device/name=SD32G`. The earlier eMMC description was incorrect.
+The encrypted `/var` mapping is backed by `mmcblk0p6`, so Android's image/data
+and the host share that SD card. `/proc/swaps` lists only `/dev/zram0`;
+swap is compressed RAM, not an SD-backed swap file.
+
+In the final three feed trials, TikTok recorded 11,149 / 774 / 286 major
+faults; system-wide swap-ins were 11,963 / 791 / 316 pages. Those are
+process-local versus system-wide counters, so individual faults cannot be
+paired, but the swap-ins make it inappropriate to attribute all major faults
+to SD reads. System-wide I/O PSI `some` totals increased approximately
+29 / 70 / 45 ms during the respective ten-second trials. Short storage stalls
+can still miss a frame deadline; these counters do not isolate their share
+of the measured jank. Cold startup, file/database access and returning after
+reclaim remain plausible storage-sensitive cases. An identical-image/data
+A/B on faster storage is needed to quantify the card's contribution.
