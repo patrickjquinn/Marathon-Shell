@@ -24,3 +24,9 @@ of running executables. CPU percentages use one core as 100%. PSS is in KiB.
 Restarts and application caches affect memory: snapshots of a long-running old
 process and a freshly restarted new process are observations, not an isolated
 measurement of the dependency update's memory cost.
+
+Run `python3 foreground-priorities.py` as root on the BFQ device to check the
+applied kernel CPU/I/O weights while switching Pilot → Reef → TikTok → Pilot.
+It requires those apps installed and leaves Pilot visible. It checks both the
+foreground budget (200/200) and background budgets (50/25), including the
+native-to-Android handoff. Output contains cgroup readbacks, not app content.
