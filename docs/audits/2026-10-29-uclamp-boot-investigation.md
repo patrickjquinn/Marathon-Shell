@@ -125,9 +125,12 @@ initialization race, a display/unlock problem or something else. No October
 warm reboot does not prove that an unconditional selection or full cold boot
 will always succeed.
 
-At completion, the running kernel is `6.12.85-1-rpi`; the original stock boot
-configuration and original A/B selector have been restored. **The next normal
-reboot selects stock.** The custom image was not made the permanent default.
+At the conclusion of the diagnostic phase, the running kernel was
+`6.12.85-1-rpi`; the original stock boot
+configuration and original A/B selector had been restored. The next normal
+reboot selected stock at that point. The user subsequently requested permanent
+activation; see [default kernel activation](2026-10-29-uclamp-default.md) for
+the superseding configuration and ordinary-boot verification.
 The temporary diagnostic initramfs/command-line files were removed after
 saving the logs. Original kernel images, initramfs files and module trees
 were preserved. Earlier zbus/performance measurements were made on stock

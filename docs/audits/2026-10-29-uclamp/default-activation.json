@@ -1,0 +1,34 @@
+{
+  "utc": "2026-10-29T17:15:55.983181+00:00",
+  "stock_config_sha256": "8f19a6e2c9662e3590376a41363a8ee557949cc790b98ae622ba111ff6bad725",
+  "default_config_sha256": "d32c372a62d9ead575d95db6badb628565f6d1694f184b37967fc12248850ad5",
+  "kernel_files": {
+    "kernel_2712_uclamp.img": "7d6eaae98637287af2765fa0f023afc8046350519e69117b46410fb826d07173",
+    "initramfs_2712_uclamp": "d078e11138186f11c1a29984baf91e2e96251802e534bf5ed0442be00f6d1c44"
+  },
+  "default": "uclamp",
+  "stock_images_preserved": true,
+  "boot_id_before": "8f47d783-feab-4562-b1e6-839774de0e27",
+  "normal_boot": {
+    "kernel": "6.12.85-1-rpi",
+    "boot_id": "7e7f88c8-cb7d-47c9-9996-dc7ac9324a27",
+    "tryboot": false,
+    "ssh_return_seconds": 40.5
+  },
+  "power_on_check": {
+    "method": "clean systemctl poweroff followed by physical power-on and PIN entry",
+    "kernel": "6.12.85-1-rpi",
+    "boot_id": "43c727a0-cd5c-499b-86f4-c65196532403",
+    "tryboot": false,
+    "system_failed_units": 0,
+    "user_failed_units": 0,
+    "backlight_power": 0,
+    "backlight_brightness": 8,
+    "foreground_native_clamp": "30.00",
+    "ui_visually_verified": "Pilot settled main page",
+    "ntp_synchronized": true,
+    "kernel_critical_matches": [],
+    "background_native_clamp": "0.00"
+  },
+  "running_shell_sha256": "959e499134ca704df945ee818c1073cfccde05acae44bc5e66b93d029be2178f"
+}

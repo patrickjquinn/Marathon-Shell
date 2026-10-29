@@ -1,0 +1,19 @@
+# Marathon / Duranium Pi 5 boot config.
+# Default: verified linux-rpi-marathon with utilization clamping.
+# Stock recovery: sh /boot/restore-stock-kernel.sh --restore
+auto_initramfs=0
+arm_64bit=1
+# arm_boost=1 is a no-op on Pi 5 (Pi 4 only); usercfg.txt sets arm_freq=2600 + over_voltage_delta=10000 instead.
+
+# Display
+disable_fw_kms_setup=1
+display_auto_detect=1
+max_framebuffers=2
+
+# Marathon-overlay usercfg.txt loads HyperPixel + dwc2 host-mode etc.
+include usercfg.txt
+
+[all]
+# Select the matching, verified kernel/initramfs pair on every normal boot.
+kernel=kernel_2712_uclamp.img
+initramfs initramfs_2712_uclamp followkernel

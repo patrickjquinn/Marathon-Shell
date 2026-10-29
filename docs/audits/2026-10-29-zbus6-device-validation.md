@@ -580,3 +580,8 @@ with its original initramfs, and verified a native foreground clamp of 30.00.
 The original black-screen trigger remains unproven. The device was left
 running that trial kernel with stock restored as the next normal boot; all
 performance figures in this migration report predate those kernel trials.
+
+The user's subsequent [default-kernel activation](2026-10-29-uclamp-default.md)
+selected uclamp permanently and verified both an ordinary reboot and clean
+shutdown/physical power-on with `tryboot=0`. This supersedes the diagnostic
+phase's restored-stock boot selection.
