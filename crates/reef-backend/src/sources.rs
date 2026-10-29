@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
-use crate::catalogue::{Catalogue, Install, LicenceModel, Origin, Package};
+use crate::catalogue::{AndroidNeeds, Catalogue, Install, LicenceModel, Origin, Package};
 
 #[derive(Deserialize)]
 struct Listing<T> {
@@ -66,6 +66,8 @@ struct FdroidApp {
     last_updated: u64,
     #[serde(default)]
     version: serde_json::Value,
+    #[serde(default, rename = "antiFeatures")]
+    anti_features: Vec<String>,
 }
 
 /// Flathub's phone-fit apps; icons are files in the listing's `icons`.
@@ -123,6 +125,24 @@ pub fn fdroid(json: &[u8]) -> Vec<Package> {
                 .as_str()
                 .unwrap_or_default()
                 .clone_into(&mut p.version);
+            let strings = |key: &str| -> Vec<String> {
+                a.version[key]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect()
+            };
+            p.size = a.version["size"].as_u64();
+            p.android = Some(AndroidNeeds {
+                min_sdk: a.version["minSdk"]
+                    .as_u64()
+                    .and_then(|v| u32::try_from(v).ok())
+                    .unwrap_or(0),
+                features: strings("features"),
+                permissions: strings("permissions"),
+                anti_features: a.anti_features,
+            });
             p.summary = a.summary;
             p.description = plain_text(&a.description);
             p.category = store_category(&a.categories);
@@ -295,6 +315,67 @@ const CATEGORIES: [(&str, &[&str]); 13] = [
     ),
 ];
 
+/// The Android this phone runs, from the store handler's
+/// `android-device.json`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+pub struct AndroidDevice {
+    #[serde(default)]
+    pub sdk: u32,
+    #[serde(default)]
+    pub abis: Vec<String>,
+    #[serde(default)]
+    pub features: Vec<String>,
+    #[serde(default)]
+    pub libraries: Vec<String>,
+    #[serde(default)]
+    pub gms: bool,
+}
+
+/// What stands between an Android app and this phone, worst first, as keys
+/// the UI words: `block:sdk:<n>` (it cannot run), then `warn:feature:<name>`
+/// and `warn:gms` (it may not work). Without a device profile only the
+/// Android version is checked, against Deckard's Android 16 (SDK 36).
+pub fn android_issues(needs: &AndroidNeeds, device: Option<&AndroidDevice>) -> Vec<String> {
+    let sdk = device.map_or(36, |d| d.sdk).max(1);
+    let mut issues = Vec::new();
+    if needs.min_sdk > sdk {
+        issues.push(format!("block:sdk:{}", needs.min_sdk));
+    }
+    if let Some(device) = device {
+        let mut said = BTreeSet::new();
+        for feature in &needs.features {
+            if !device.features.contains(feature) && said.insert(feature_key(feature)) {
+                issues.push(format!("warn:feature:{}", feature_key(feature)));
+            }
+        }
+        if needs.anti_features.iter().any(|a| a == "NonFreeDep") && !device.gms {
+            issues.push("warn:gms".into());
+        }
+    }
+    issues
+}
+
+/// The family a `uses-feature` belongs to, as the UI words it
+/// (`android.hardware.camera.autofocus` is the camera).
+fn feature_key(feature: &str) -> &'static str {
+    const FAMILIES: [(&str, &str); 10] = [
+        ("android.hardware.telephony", "telephony"),
+        ("android.hardware.camera", "camera"),
+        ("android.hardware.bluetooth", "bluetooth"),
+        ("android.hardware.nfc", "nfc"),
+        ("android.hardware.location.gps", "gps"),
+        ("android.hardware.location", "location"),
+        ("android.hardware.usb", "usb"),
+        ("android.hardware.sensor", "sensor"),
+        ("android.software.leanback", "tv"),
+        ("android.hardware.type.watch", "watch"),
+    ];
+    FAMILIES
+        .iter()
+        .find(|(prefix, _)| feature.starts_with(prefix))
+        .map_or("other", |(_, key)| key)
+}
+
 /// The theme icon of a store category (`icon-m-<base>`, in
 /// marathon-icon-theme's map).
 pub fn category_icon(category: &str) -> &'static str {
@@ -403,6 +484,7 @@ pub fn blank(name: &str, title: String, origin: Origin) -> Package {
         details: None,
         install: None,
         origin,
+        android: None,
     }
 }
 
@@ -519,6 +601,35 @@ mod tests {
             p.install.as_ref().and_then(Install::handler_id).as_deref(),
             Some("android:org.example.todo")
         );
+    }
+
+    #[test]
+    fn android_apps_this_phone_cannot_or_may_not_run() {
+        let needs = AndroidNeeds {
+            min_sdk: 37,
+            features: vec![
+                "android.hardware.camera".into(),
+                "android.hardware.camera.autofocus".into(),
+                "android.hardware.nfc".into(),
+            ],
+            permissions: Vec::new(),
+            anti_features: vec!["NonFreeDep".into()],
+        };
+        let phone = AndroidDevice {
+            sdk: 36,
+            features: vec!["android.hardware.camera".into()],
+            ..AndroidDevice::default()
+        };
+        assert_eq!(
+            android_issues(&needs, Some(&phone)),
+            [
+                "block:sdk:37",
+                "warn:feature:camera",
+                "warn:feature:nfc",
+                "warn:gms"
+            ]
+        );
+        assert_eq!(android_issues(&needs, None), ["block:sdk:37"]);
     }
 
     #[test]

@@ -303,6 +303,21 @@ pub struct Package {
     /// F-Droid catalogues the store handler keeps.
     #[serde(skip)]
     pub origin: Origin,
+    /// What an Android app asks of the phone (F-Droid's rows).
+    #[serde(skip)]
+    pub android: Option<AndroidNeeds>,
+}
+
+/// What an Android app needs and does, from F-Droid's catalogue.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AndroidNeeds {
+    pub min_sdk: u32,
+    /// `uses-feature` names it requires (`android.hardware.camera`).
+    pub features: Vec<String>,
+    /// Android permissions it asks for (`android.permission.CAMERA`).
+    pub permissions: Vec<String>,
+    /// F-Droid's anti-features (`Ads`, `Tracking`, `NonFreeDep`).
+    pub anti_features: Vec<String>,
 }
 
 /// How Marathon installs a package: one of the store index's source kinds
