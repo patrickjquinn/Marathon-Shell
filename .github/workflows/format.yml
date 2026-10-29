@@ -30,7 +30,7 @@ jobs:
           clang-format -i $(git ls-files '*.cpp' '*.h')
 
           echo "=== Running qmlformat ==="
-          /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml')
+          /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml' ':!crates/keel-actions-codegen/tests/golden')
 
           echo "=== Checking Rust formatting ==="
           cargo fmt --manifest-path crates/Cargo.toml --all -- --check
@@ -57,7 +57,7 @@ jobs:
             Commit the updated files and push again.
 
       - name: Fail job
-        if: steps.format.outputs.needs_formatting == 'true'
+        if: steps.format.outcome == 'failure' || steps.format.outputs.needs_formatting == 'true'
         run: |
           echo "Formatting required. Failing."
           exit 1
