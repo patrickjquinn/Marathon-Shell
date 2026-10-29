@@ -328,6 +328,20 @@ physical scheduler to select. Loop devices retaining `none` does not bypass
 physical BFQ. `CONFIG_UCLAMP_TASK` is absent on this kernel, so the previous
 uclamp-only foreground boost had no effect.
 
+A follow-up checked why: the running stock Alpine `6.12.85-0-rpi` config at
+`/boot/config-6.12.85-0-rpi` explicitly has `CONFIG_UCLAMP_TASK` unset.
+Marathon's `linux-rpi-marathon/common-changes.config` already enables both
+`CONFIG_UCLAMP_TASK=y` and `CONFIG_UCLAMP_TASK_GROUP=y`. Custom `-1-rpi`
+modules and separate uclamp kernel/initramfs files remain on the device, but
+the active boot config selects the stock boot path. The October 24 deployment
+transcript records a black screen after selecting the custom kernel, followed
+by recovery through restoring the boot config using a card reader. The cause
+of that failed boot attempt was not established, and the custom kernel was
+shelved. The October 29 application deployment did not replace the kernel or
+change that boot selection. Enabling uclamp therefore requires validating and
+booting the custom kernel with a recovery path; it cannot be enabled in the
+running stock kernel by a sysctl.
+
 Deckard now follows Marathon's current foreground and subsequent changes,
 subscribing before the initial snapshot. Its root service applies these
 relative shares to the complete Android runtime:
