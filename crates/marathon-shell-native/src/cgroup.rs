@@ -7,6 +7,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -23,6 +24,7 @@ pub struct AppCgroups {
     placed: HashSet<String>,
     // Apps in a systemd scope of their own, to its unit.
     scopes: HashMap<String, String>,
+    scope_priorities: Arc<ScopePriorities>,
 }
 
 #[derive(Clone, Copy)]
@@ -48,6 +50,7 @@ pub(crate) fn app_cgroups() -> AppCgroups {
         shell,
         placed: HashSet::new(),
         scopes: HashMap::new(),
+        scope_priorities: Arc::default(),
     };
     cgroups.reap_stale();
     cgroups
@@ -154,7 +157,12 @@ impl AppCgroups {
             let bfq_only = self.root.as_ref().is_some_and(|root| {
                 root.join("io.bfq.weight").exists() && !root.join("io.weight").exists()
             });
+            self.scope_priorities.set(&unit, front);
+            let priorities = Arc::clone(&self.scope_priorities);
             io::spawn(async move {
+                let Some((_guard, front)) = priorities.latest(&unit).await else {
+                    return;
+                };
                 let (cpu, disk) = resource_weights(front);
                 let disk = systemd_io_weight(disk, bfq_only);
                 let properties = [
@@ -183,7 +191,9 @@ impl AppCgroups {
     /// would never exit.
     pub(crate) fn forget(&mut self, app_id: &str) {
         self.set_frozen(app_id, false);
-        self.scopes.remove(app_id);
+        if let Some(unit) = self.scopes.remove(app_id) {
+            self.scope_priorities.forget(&unit);
+        }
         if self.placed.remove(app_id) {
             self.dir(app_id).map(fs::remove_dir);
         }
@@ -235,6 +245,35 @@ impl AppCgroups {
                 dirs.len()
             ),
         );
+    }
+}
+
+// Serialize external-scope updates and read the newest request after taking
+// the gate. Rapid focus changes must not let a late background job overwrite
+// a newer foreground budget. Removed scopes discard queued requests.
+#[derive(Default)]
+struct ScopePriorities {
+    updates: async_lock::Mutex<()>,
+    desired: Mutex<HashMap<String, bool>>,
+}
+
+impl ScopePriorities {
+    fn set(&self, unit: &str, front: bool) {
+        if let Ok(mut desired) = self.desired.lock() {
+            desired.insert(unit.to_owned(), front);
+        }
+    }
+
+    fn forget(&self, unit: &str) {
+        if let Ok(mut desired) = self.desired.lock() {
+            desired.remove(unit);
+        }
+    }
+
+    async fn latest(&self, unit: &str) -> Option<(async_lock::MutexGuard<'_, ()>, bool)> {
+        let gate = self.updates.lock().await;
+        let front = self.desired.lock().ok()?.get(unit).copied()?;
+        Some((gate, front))
     }
 }
 
@@ -369,6 +408,29 @@ mod tests {
     use super::*;
 
     const APPS: &str = "/user.slice/user-1000.slice/user@1000.service/app.slice";
+
+    #[test]
+    fn queued_scope_update_uses_latest_focus_and_skips_closed_scopes() {
+        let executor = async_executor::Executor::new();
+        let priorities = Arc::new(ScopePriorities::default());
+        async_io::block_on(executor.run(async {
+            let gate = priorities.updates.lock().await;
+            priorities.set("app-example.scope", false);
+            let (started, ready) = async_channel::bounded(1);
+            let worker = Arc::clone(&priorities);
+            let job = executor.spawn(async move {
+                started.send(()).await.unwrap();
+                let (_gate, front) = worker.latest("app-example.scope").await.unwrap();
+                front
+            });
+            ready.recv().await.unwrap();
+            priorities.set("app-example.scope", true);
+            drop(gate);
+            assert!(job.await);
+            priorities.forget("app-example.scope");
+            assert!(priorities.latest("app-example.scope").await.is_none());
+        }));
+    }
 
     #[test]
     fn external_scopes_receive_the_same_effective_bfq_weight() {
