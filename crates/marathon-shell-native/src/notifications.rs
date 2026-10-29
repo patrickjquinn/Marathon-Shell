@@ -19,7 +19,8 @@ use futures_lite::StreamExt as _;
 use serde_json::{json, Value as Json};
 use zbus::fdo;
 use zbus::message::Header;
-use zbus::zvariant::{OwnedValue, StructureBuilder, Value};
+use zbus::wire::StructureBuilder;
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::{
     apps, audio, clock, gate, haptics, io, ipc, log, modem, power, settings, tasks, variant,
@@ -357,7 +358,7 @@ fn to_json(value: &Value<'_>) -> Json {
         Value::Str(s) => Json::String(s.to_string()),
         Value::ObjectPath(p) => Json::String(p.to_string()),
         Value::F64(f) => json!(f),
-        Value::Value(inner) => to_json(inner),
+        Value::Variant(inner) => to_json(inner),
         Value::Array(a) => Json::Array(a.iter().map(to_json).collect()),
         Value::Dict(d) => Json::Object(
             d.iter()
@@ -1029,7 +1030,7 @@ fn open(row: &Row) {
 
 fn emit<B>(member: &'static str, body: B)
 where
-    B: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static,
+    B: serde::Serialize + zbus::DynamicType + Send + Sync + 'static,
 {
     io::spawn(async move {
         let Some(bus) = SERVER_BUS.get() else {
@@ -1255,7 +1256,7 @@ fn serve(qt: Qt) {
 mod proxy {
     use std::collections::HashMap;
 
-    use zbus::zvariant::Value;
+    use zbus::Variant as Value;
 
     /// The server, as the shell's other Rust posts to it.
     #[zbus::proxy(

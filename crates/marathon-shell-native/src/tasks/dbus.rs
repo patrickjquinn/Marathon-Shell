@@ -12,7 +12,7 @@ use serde::Serialize;
 use zbus::fdo;
 use zbus::message::Header;
 use zbus::proxy::{CacheProperties, MethodFlags};
-use zbus::zvariant::{DynamicType, OwnedValue, Value};
+use zbus::{DynamicType, OwnedVariant as OwnedValue, Variant as Value};
 
 use super::{q, Qt, Tasks};
 use crate::{apps, gate, io, ipc, log};
@@ -434,16 +434,16 @@ pub(super) async fn activate(app_id: &str) -> bool {
     let call = async {
         let bus = io::session_bus().await?;
         let proxy = zbus::proxy::Builder::<zbus::Proxy<'_>>::new(&bus)
-            .destination(app_id)?
-            .path(path.as_str())?
-            .interface("org.freedesktop.Application")?
+            .destination(app_id)
+            .path(path.as_str())
+            .interface("org.freedesktop.Application")
             .cache_properties(CacheProperties::No)
             .build()
             .await?;
         proxy
             .call_with_flags::<_, _, ()>(
                 "Activate",
-                MethodFlags::NoAutoStart.into(),
+                MethodFlags::NO_AUTO_START,
                 &(HashMap::<String, Value<'_>>::new(),),
             )
             .await

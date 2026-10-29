@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
+use zbus::{ObjectPath, OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 #[zbus::proxy(
     interface = "org.freedesktop.Secret.Service",
@@ -98,7 +98,7 @@ pub async fn store(
         "text/plain".to_owned(),
     );
     let collection = CollectionProxy::builder(bus)
-        .path(collection)?
+        .path(collection)
         .build()
         .await?;
     let (_, prompt) = collection.create_item(properties, &secret, true).await?;
@@ -121,7 +121,7 @@ pub async fn load(bus: &zbus::Connection, id: &str) -> Result<Option<String>, Un
         };
     };
     let session = session(&service).await?;
-    let item = ItemProxy::builder(bus).path(item)?.build().await?;
+    let item = ItemProxy::builder(bus).path(item).build().await?;
     let (_, _, value, _) = item.get_secret(&session).await?;
     Ok(Some(String::from_utf8_lossy(&value).into_owned()))
 }
@@ -134,7 +134,7 @@ pub async fn remove(bus: &zbus::Connection, id: &str) -> Result<(), Unavailable>
     }
     for item in unlocked {
         let prompt = ItemProxy::builder(bus)
-            .path(item)?
+            .path(item)
             .build()
             .await?
             .delete()

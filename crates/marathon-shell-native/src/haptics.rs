@@ -13,7 +13,7 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QVariant};
 use evdev::{FFEffect, FFEffectCode, FFEffectData, FFEffectKind, FFReplay};
 use zbus::fdo;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 use crate::{io, ipc, log, variant};
 

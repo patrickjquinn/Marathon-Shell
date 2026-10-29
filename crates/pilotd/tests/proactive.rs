@@ -155,7 +155,7 @@ impl Notifications {
         summary: String,
         body: String,
         actions: Vec<String>,
-        hints: std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
+        hints: std::collections::HashMap<String, zbus::OwnedVariant>,
         timeout: i32,
     ) -> u32 {
         let mut shown = self.0.lock().unwrap();
@@ -213,7 +213,7 @@ async fn notifications_on_the_bus_reach_the_events_list() {
     .await
     .unwrap();
     let hints = |cat: &'static str, extra: Option<(&'static str, &'static str)>| {
-        let mut h: std::collections::HashMap<&'static str, zbus::zvariant::Value<'static>> =
+        let mut h: std::collections::HashMap<&'static str, zbus::Variant<'static>> =
             std::collections::HashMap::new();
         h.insert("category", cat.to_owned().into());
         if let Some((k, v)) = extra {
@@ -495,11 +495,8 @@ async fn triage_results_keep_one_events_view_entry() {
     // PropertiesChanged signal would refresh a cache.
     let p: zbus::Proxy<'_> = zbus::proxy::Builder::new(&client)
         .destination("org.shipwright.Pilot")
-        .unwrap()
         .path("/org/shipwright/Pilot")
-        .unwrap()
         .interface("org.shipwright.Pilot1")
-        .unwrap()
         .cache_properties(zbus::proxy::CacheProperties::No)
         .build()
         .await

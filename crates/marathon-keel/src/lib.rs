@@ -16,7 +16,7 @@ use futures_lite::StreamExt as _;
 use marathon_rt::{io, log};
 use zbus::message::Header;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 pub type Ambience = HashMap<String, OwnedValue>;
 
@@ -82,10 +82,10 @@ impl Host {
                 io::spawn(async move {
                     let served = async {
                         let stream = stream.into_inner()?;
-                        zbus::connection::Builder::async_io_unix_stream(stream)
-                            .server(zbus::Guid::generate())?
+                        zbus::connection::Builder::unix_stream(stream)
+                            .server(zbus::Guid::generate())
                             .p2p()
-                            .serve_at(PATH, Shell1(host.clone()))?
+                            .serve_at(PATH, Shell1(host.clone()))
                             .build()
                             .await
                     };
@@ -175,7 +175,7 @@ impl Host {
         self.emit("CloseRequested", ());
     }
 
-    fn change<T: Body + zbus::zvariant::Type>(
+    fn change<T: Body + zbus::Type>(
         &self,
         apply: impl FnOnce(&mut State) -> bool,
         member: &'static str,
@@ -202,11 +202,11 @@ impl Host {
         let bus = io::session_bus().await?;
         let rule = zbus::MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
-            .sender(SHELL)?
-            .interface("org.marathonos.Shell.Ambience1")?
-            .member("AmbienceChanged")?
+            .sender(SHELL)
+            .interface("org.marathonos.Shell.Ambience1")
+            .member("AmbienceChanged")
             .build();
-        let mut changes = zbus::MessageStream::for_match_rule(rule, &bus, None).await?;
+        let mut changes = zbus::MessageStream::for_match_rule(rule?, &bus, None).await?;
         let mut owners = zbus::fdo::DBusProxy::new(&bus)
             .await?
             .receive_name_owner_changed_with_args(&[(0, SHELL)])
@@ -244,8 +244,8 @@ impl Host {
 }
 
 /// A signal's arguments.
-trait Body: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static {}
-impl<T: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static> Body for T {}
+trait Body: serde::Serialize + zbus::DynamicType + Send + Sync + 'static {}
+impl<T: serde::Serialize + zbus::DynamicType + Send + Sync + 'static> Body for T {}
 
 async fn read_ambience() -> Option<Ambience> {
     let bus = io::session_bus().await.ok()?;
@@ -264,7 +264,7 @@ async fn read_ambience() -> Option<Ambience> {
 
 /// As `QVariant::toString` gives it.
 fn text(value: &OwnedValue) -> String {
-    use zbus::zvariant::Value;
+    use zbus::Variant as Value;
     match &**value {
         Value::Str(s) => s.to_string(),
         Value::Bool(b) => b.to_string(),

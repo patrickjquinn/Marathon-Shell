@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use mail_parser::{MessageParser, MimeHeaders};
+use mail_parser::MessageParser;
 use rusqlite::{params, Connection, OptionalExtension};
-use zbus::zvariant::Value;
+use zbus::Variant as Value;
 
 pub type Row = HashMap<&'static str, Value<'static>>;
 
@@ -69,13 +69,14 @@ pub fn summarise(raw: &[u8]) -> Summary {
         .chars()
         .take(200)
         .collect();
+    let attachment = m.attachments().next().is_some();
     Summary {
         subject: m.subject().unwrap_or_default().to_owned(),
         sender,
         address,
         date: m.date().map_or(0, |d| d.to_timestamp() * 1000),
         snippet,
-        attachment: m.attachment_count() > 0,
+        attachment,
     }
 }
 
@@ -512,12 +513,12 @@ impl Store {
 /// attachments (its `location`).
 pub fn attachment(raw: &[u8], location: usize) -> Option<(String, Vec<u8>)> {
     let m = MessageParser::default().parse(raw)?;
-    let part = m.attachment(u32::try_from(location).ok()?)?;
+    let part = m.attachments().nth(location)?;
     let name = part
         .attachment_name()
         .unwrap_or("attachment")
         .replace(['/', '\\'], "_");
-    Some((name, part.contents().to_vec()))
+    Some((name, part.decoded().into_owned()))
 }
 
 /// A message as `MailService.openMessage` gives it.
@@ -525,9 +526,9 @@ pub fn open(raw: &[u8]) -> Row {
     let Some(m) = MessageParser::default().parse(raw) else {
         return Row::new();
     };
-    let addresses = |a: Option<&mail_parser::Address<'_>>| -> Vec<String> {
+    let addresses = |a: Option<mail_parser::AddressList<'_>>| -> Vec<String> {
         a.map(|a| {
-            a.iter()
+            a.mailboxes()
                 .map(|x| match (x.name(), x.address()) {
                     (Some(n), Some(e)) => format!("{n} <{e}>"),
                     (n, e) => n.or(e).unwrap_or_default().to_owned(),
@@ -544,7 +545,7 @@ pub fn open(raw: &[u8]) -> Row {
                 ("name", text(p.attachment_name().unwrap_or("attachment"))),
                 (
                     "size",
-                    Value::from(u64::try_from(p.contents().len()).unwrap_or(0)),
+                    Value::from(u64::try_from(p.decoded_len()).unwrap_or(0)),
                 ),
                 (
                     "mime",
@@ -574,8 +575,9 @@ pub fn open(raw: &[u8]) -> Row {
         ("bodyPlain", text(m.body_text(0).unwrap_or_default())),
         ("attachments", Value::from(attachments)),
     ]);
-    if m.html_part(0)
-        .is_some_and(mail_parser::MessagePart::is_text_html)
+    if m.html_body()
+        .next()
+        .is_some_and(|part| matches!(part.kind(), mail_parser::PartKind::Html))
     {
         row.insert("bodyHtml", text(m.body_html(0).unwrap_or_default()));
     }
@@ -586,6 +588,39 @@ pub fn open(raw: &[u8]) -> Row {
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mime_views_preserve_addresses_html_and_decoded_attachments() {
+        let raw = b"From: Alice <alice@example.com>\r\n\
+To: team: Bob <bob@example.com>, Carol <carol@example.com>;\r\n\
+Subject: MIME test\r\nMIME-Version: 1.0\r\n\
+Content-Type: multipart/mixed; boundary=root\r\n\r\n\
+--root\r\nContent-Type: text/html; charset=utf-8\r\n\
+Content-Transfer-Encoding: quoted-printable\r\n\r\n\
+<p>Hello =C3=A9</p>\r\n\
+--root\r\nContent-Type: application/octet-stream\r\n\
+Content-Disposition: attachment; filename=\"a/b.bin\"\r\n\
+Content-Transfer-Encoding: base64\r\n\r\nAAEC/w==\r\n--root--\r\n";
+        let summary = summarise(raw);
+        assert_eq!(summary.sender, "Alice");
+        assert_eq!(summary.address, "alice@example.com");
+        assert!(summary.attachment);
+        assert!(summary.snippet.contains("Hello é"));
+        assert_eq!(
+            attachment(raw, 0),
+            Some(("a_b.bin".into(), vec![0, 1, 2, 255]))
+        );
+        assert!(attachment(raw, 1).is_none());
+        let row = open(raw);
+        assert!(<&str>::try_from(&row["bodyHtml"])
+            .unwrap()
+            .contains("<p>Hello é</p>"));
+        let recipients = Vec::<String>::try_from(row["to"].clone()).unwrap();
+        assert_eq!(
+            recipients,
+            ["Bob <bob@example.com>", "Carol <carol@example.com>"]
+        );
+    }
 
     #[test]
     fn optional_lookups_distinguish_absence_from_database_errors() {

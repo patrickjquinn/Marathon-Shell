@@ -20,8 +20,8 @@ use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use zbus::blocking::{Connection, MessageIterator};
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
+use zbus::{Connection, MessageStream};
 
 use crate::jar;
 use crate::notice::Notice;
@@ -331,16 +331,15 @@ fn http() -> ureq::Agent {
 }
 
 fn system_property(dest: &str, path: &str, iface: &str, name: &str) -> Option<OwnedValue> {
-    let conn = Connection::system().ok()?;
-    let reply = conn
-        .call_method(
-            Some(dest),
-            path,
-            Some("org.freedesktop.DBus.Properties"),
-            "Get",
-            &(iface, name),
-        )
-        .ok()?;
+    let conn = zbus::block_on(Connection::system()).ok()?;
+    let reply = zbus::block_on(conn.call_method(
+        Some(dest),
+        path,
+        Some("org.freedesktop.DBus.Properties"),
+        "Get",
+        &(iface, name),
+    ))
+    .ok()?;
     reply.body().deserialize::<OwnedValue>().ok()
 }
 
@@ -450,20 +449,20 @@ fn catalogue_entry(pkg: &str) -> Option<Value> {
 }
 
 fn bus() -> io::Result<Connection> {
-    Connection::session().map_err(io::Error::other)
+    zbus::block_on(Connection::session()).map_err(io::Error::other)
 }
 
 fn packages_call<B>(conn: &Connection, method: &str, body: &B) -> io::Result<zbus::message::Message>
 where
-    B: serde::ser::Serialize + zbus::zvariant::DynamicType,
+    B: serde::ser::Serialize + zbus::DynamicType,
 {
-    conn.call_method(
+    zbus::block_on(conn.call_method(
         Some(DECKARD),
         PACKAGES_PATH,
         Some(PACKAGES_IFACE),
         method,
         body,
-    )
+    ))
     .map_err(io::Error::other)
 }
 
@@ -477,12 +476,17 @@ fn run_job(
     let rule = zbus::MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .interface(PACKAGES_IFACE)
-        .map_err(io::Error::other)?
         .path(PACKAGES_PATH)
-        .map_err(io::Error::other)?
-        .build();
-    let signals =
-        MessageIterator::for_match_rule(rule, &conn, Some(64)).map_err(io::Error::other)?;
+        .build()
+        .map_err(io::Error::other)?;
+    let signals = futures_lite::stream::block_on(
+        zbus::block_on(MessageStream::for_match_rule(
+            rule,
+            &conn,
+            std::num::NonZeroUsize::new(64),
+        ))
+        .map_err(io::Error::other)?,
+    );
     let job: String = packages_call(&conn, method, &(arg,))?
         .body()
         .deserialize()
@@ -718,7 +722,7 @@ pub fn inspect(state: &StateDir, path: &str) -> io::Result<()> {
         .unwrap_or_else(|e| {
             HashMap::from([(
                 "message".to_owned(),
-                OwnedValue::from(zbus::zvariant::Str::from(e.to_string())),
+                OwnedValue::from(zbus::Str::from(e.to_string())),
             )])
         });
     let get_str = |k: &str| {

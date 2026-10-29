@@ -22,7 +22,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use zbus::blocking::{Connection, Proxy};
+use zbus::{Connection, Proxy};
 
 mod fake_device;
 
@@ -199,10 +199,8 @@ impl Session {
             ("DBUS_SYSTEM_BUS_ADDRESS".into(), address.clone()),
             ("WIREPLUMBER_DEBUG".into(), "3".into()),
         ];
-        let bus = zbus::blocking::connection::Builder::address(address.as_str())
-            .unwrap()
-            .build()
-            .unwrap();
+        let bus =
+            zbus::block_on(zbus::connection::Builder::address(address.as_str()).build()).unwrap();
         let s = Session {
             dir: dir.clone(),
             env,
@@ -227,17 +225,17 @@ impl Session {
     /// A proxy whose property cache follows `PropertiesChanged`, made once the
     /// service owns its name.
     fn audio(&self) -> Proxy<'_> {
-        let dbus = zbus::blocking::fdo::DBusProxy::new(&self.bus).unwrap();
+        let dbus = zbus::block_on(zbus::fdo::DBusProxy::new(&self.bus)).unwrap();
         eventually("org.marathonos.Audio", || {
-            dbus.name_has_owner("org.marathonos.Audio".try_into().unwrap())
+            zbus::block_on(dbus.name_has_owner("org.marathonos.Audio".try_into().unwrap()))
                 .unwrap_or(false)
         });
-        Proxy::new(
+        zbus::block_on(Proxy::new(
             &self.bus,
             "org.marathonos.Audio",
             "/org/marathonos/Audio",
             "org.marathonos.Audio1",
-        )
+        ))
         .unwrap()
     }
 
@@ -288,10 +286,9 @@ impl Session {
 
 fn property<T>(audio: &Proxy<'_>, name: &str) -> T
 where
-    T: TryFrom<zbus::zvariant::OwnedValue>,
-    T::Error: Into<zbus::Error>,
+    T: zbus::export::serde::de::DeserializeOwned + zbus::Type,
 {
-    audio.get_property::<T>(name).unwrap()
+    zbus::block_on(audio.get_property::<T>(name)).unwrap()
 }
 
 /// A WAV header for `seconds` of 8 kHz mono silence.
@@ -328,13 +325,13 @@ fn controls_a_private_pipewire_session() {
     assert!((property::<f64>(&audio, "Volume") - 1.0).abs() < 1e-3);
 
     // Volume is the level wpctl shows, and PropertiesChanged carries it.
-    audio.call_method("SetVolume", &(0.5f64)).unwrap();
+    zbus::block_on(audio.call_method("SetVolume", &(0.5f64))).unwrap();
     assert_eq!(session.wpctl_volume("@DEFAULT_AUDIO_SINK@"), "Volume: 0.50");
     eventually("Volume to follow", || {
         (property::<f64>(&audio, "Volume") - 0.5).abs() < 1e-3
     });
 
-    audio.call_method("SetMuted", &(true)).unwrap();
+    zbus::block_on(audio.call_method("SetMuted", &(true))).unwrap();
     assert_eq!(
         session.wpctl_volume("@DEFAULT_AUDIO_SINK@"),
         "Volume: 0.50 [MUTED]"
@@ -342,23 +339,19 @@ fn controls_a_private_pipewire_session() {
     eventually("Muted to follow", || property::<bool>(&audio, "Muted"));
 
     // A new default is WirePlumber's to apply; the levels follow it.
-    audio
-        .call_method("SetDefaultSink", &("test-sink-b"))
-        .unwrap();
+    zbus::block_on(audio.call_method("SetDefaultSink", &("test-sink-b"))).unwrap();
     eventually("the default sink to move", || {
         property::<String>(&audio, "DefaultSink") == "test-sink-b"
     });
     assert!(!property::<bool>(&audio, "Muted"));
-    assert!(audio
-        .call_method("SetDefaultSink", &("no-such-sink"))
-        .is_ok());
+    assert!(zbus::block_on(audio.call_method("SetDefaultSink", &("no-such-sink"))).is_ok());
     assert_eq!(property::<String>(&audio, "DefaultSink"), "test-sink-b");
 
     // Microphone mute, for calls.
     eventually("a default source", || {
         property::<String>(&audio, "DefaultSource") == "test-mic"
     });
-    audio.call_method("SetInputMuted", &(true)).unwrap();
+    zbus::block_on(audio.call_method("SetInputMuted", &(true))).unwrap();
     assert_eq!(
         session.wpctl_volume("@DEFAULT_AUDIO_SOURCE@"),
         "Volume: 1.00 [MUTED]"
@@ -368,7 +361,7 @@ fn controls_a_private_pipewire_session() {
     });
 
     // The speakerphone choice is a WirePlumber setting for its call policy.
-    audio.call_method("SetSpeakerphone", &(true)).unwrap();
+    zbus::block_on(audio.call_method("SetSpeakerphone", &(true))).unwrap();
     eventually("Speakerphone to follow", || {
         property::<bool>(&audio, "Speakerphone")
     });
@@ -388,7 +381,7 @@ fn controls_a_private_pipewire_session() {
         !streams.is_empty()
     });
     let id = streams[0].0;
-    audio.call_method("SetStreamVolume", &(id, 0.5f64)).unwrap();
+    zbus::block_on(audio.call_method("SetStreamVolume", &(id, 0.5f64))).unwrap();
     assert_eq!(session.wpctl_volume(&id.to_string()), "Volume: 0.50");
     eventually("the stream's volume to follow", || {
         let s: Vec<(u32, String, f64, bool)> = property(&audio, "Streams");
@@ -410,9 +403,7 @@ fn controls_a_device_route_sink() {
     };
     let card = fake_device::start(&session.dir.join("run/pipewire-0"), 0.125);
     let audio = session.audio();
-    audio
-        .call_method("SetDefaultSink", &(fake_device::NODE_NAME))
-        .unwrap();
+    zbus::block_on(audio.call_method("SetDefaultSink", &(fake_device::NODE_NAME))).unwrap();
     eventually("the card's node to be the default", || {
         property::<String>(&audio, "DefaultSink") == fake_device::NODE_NAME
     });
@@ -436,7 +427,7 @@ fn controls_a_device_route_sink() {
         close_to(property(&audio, "Volume"), 0.3)
     });
 
-    audio.call_method("SetVolume", &(0.6f64)).unwrap();
+    zbus::block_on(audio.call_method("SetVolume", &(0.6f64))).unwrap();
     eventually("the route's volume to be set", || {
         session.wpctl_volume("@DEFAULT_AUDIO_SINK@") == "Volume: 0.60"
     });
@@ -444,7 +435,7 @@ fn controls_a_device_route_sink() {
         close_to(property(&audio, "Volume"), 0.6)
     });
 
-    audio.call_method("SetMuted", &(true)).unwrap();
+    zbus::block_on(audio.call_method("SetMuted", &(true))).unwrap();
     eventually("the route to be muted", || {
         session.wpctl_volume("@DEFAULT_AUDIO_SINK@") == "Volume: 0.60 [MUTED]"
     });
@@ -484,8 +475,8 @@ fn media_volume_leaves_alarms_alone() {
     });
 
     // The shell's volume and mute are the media role's.
-    audio.call_method("SetVolume", &(0.0f64)).unwrap();
-    audio.call_method("SetMuted", &(true)).unwrap();
+    zbus::block_on(audio.call_method("SetVolume", &(0.0f64))).unwrap();
+    zbus::block_on(audio.call_method("SetMuted", &(true))).unwrap();
     eventually("media at 0, muted", || {
         session.volume_of(MEDIA) == "Volume: 0.00 [MUTED]"
     });

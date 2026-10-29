@@ -18,8 +18,8 @@ use std::time::Duration;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use zbus::message::Header;
-use zbus::zvariant::{Fd, OwnedValue, Value};
 use zbus::{fdo, interface};
+use zbus::{Fd, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::{app_ids, io, log};
 
@@ -118,7 +118,7 @@ fn owned(v: Value<'_>) -> OwnedValue {
 /// A variant's own value, however deep the variants go.
 fn bare<'a>(v: &'a Value<'a>) -> &'a Value<'a> {
     match v {
-        Value::Value(inner) => bare(inner),
+        Value::Variant(inner) => bare(inner),
         v => v,
     }
 }
@@ -650,6 +650,18 @@ async fn deliver(
                 ) =>
             {
                 result = Err(name.to_string());
+                break;
+            }
+            Err(zbus::Error::FDO(error))
+                if !matches!(
+                    error.as_ref(),
+                    zbus::fdo::Error::UnknownObject(_)
+                        | zbus::fdo::Error::UnknownMethod(_)
+                        | zbus::fdo::Error::ServiceUnknown(_)
+                        | zbus::fdo::Error::NameHasNoOwner(_)
+                ) =>
+            {
+                result = Err(zbus::DBusError::name(error.as_ref()).to_string());
                 break;
             }
             Err(_) => {

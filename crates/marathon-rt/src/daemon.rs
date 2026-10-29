@@ -30,10 +30,13 @@ pub async fn admit(
         .await;
     match asked {
         Ok(_) => Ok(()),
-        Err(zbus::Error::MethodError(name, text, _))
-            if name.as_str() == "org.freedesktop.DBus.Error.LimitsExceeded" =>
+        Err(zbus::Error::FDO(error))
+            if matches!(
+                *error,
+                fdo::Error::AccessDenied(_) | fdo::Error::LimitsExceeded(_)
+            ) =>
         {
-            Err(fdo::Error::LimitsExceeded(text.unwrap_or_default()))
+            Err(*error)
         }
         Err(zbus::Error::MethodError(_, Some(text), _)) => denied(&text),
         Err(e) => {

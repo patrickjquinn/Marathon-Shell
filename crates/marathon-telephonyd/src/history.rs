@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use rusqlite::{params, Connection, OptionalExtension};
-use zbus::zvariant::Value;
+use zbus::Variant as Value;
 
 use crate::store::Row;
 

@@ -21,7 +21,7 @@ use marathon_qt as qvariant;
 use marathon_rt::dirs;
 use zbus::fdo;
 use zbus::message::Header;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 use crate::ipc::{self, State};
 use crate::qsettings::{Ini, Value};
@@ -1160,7 +1160,7 @@ async fn storage(h: &Header<'_>) -> fdo::Result<()> {
         .map(drop)
 }
 
-fn owned(value: &zbus::zvariant::Value<'_>) -> fdo::Result<OwnedValue> {
+fn owned(value: &zbus::Variant<'_>) -> fdo::Result<OwnedValue> {
     value
         .try_to_owned()
         .map_err(|e| fdo::Error::Failed(e.to_string()))

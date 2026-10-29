@@ -61,10 +61,11 @@ impl cxx_qt::Initialize for Telephonyd {
             let rule = MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
                 .sender(BUS)
-                .and_then(|r| r.interface("org.marathonos.Shell.Sms1"))
-                .and_then(|r| r.member("MessageReceived"));
+                .interface("org.marathonos.Shell.Sms1")
+                .member("MessageReceived")
+                .build();
             let received = match rule {
-                Ok(rule) => MessageStream::for_match_rule(rule.build(), &bus, None).await,
+                Ok(rule) => MessageStream::for_match_rule(rule, &bus, None).await,
                 Err(e) => Err(e),
             };
             let Ok(received) = received else {
@@ -99,7 +100,7 @@ async fn start(bus: &zbus::Connection) -> zbus::Result<()> {
 
 fn call<B>(path: &'static str, interface: &'static str, method: &'static str, body: B)
 where
-    B: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static,
+    B: serde::Serialize + zbus::DynamicType + Send + Sync + 'static,
 {
     io::spawn(async move {
         let sent = match io::session_bus().await {

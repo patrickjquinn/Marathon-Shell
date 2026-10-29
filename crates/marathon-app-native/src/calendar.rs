@@ -9,7 +9,7 @@ use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use jiff::civil::Date;
 use jiff::{Span, Zoned};
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::shell::{allowed, Service};
 use crate::{notifications, variant};

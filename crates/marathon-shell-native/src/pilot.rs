@@ -156,8 +156,8 @@ impl PilotClient {
             let shown = async {
                 let pilot = PilotProxy::new(&io::session_bus().await?).await?;
                 match pilot.show_sheet_for(pid).await {
-                    Err(zbus::Error::MethodError(name, ..))
-                        if name.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" =>
+                    Err(zbus::Error::FDO(error))
+                        if matches!(*error, zbus::fdo::Error::UnknownMethod(_)) =>
                     {
                         pilot.show_sheet().await
                     }

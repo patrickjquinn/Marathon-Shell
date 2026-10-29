@@ -33,13 +33,13 @@ fn fail(message: &str, code: u8) -> ExitCode {
 }
 
 fn call_shell(path: &str, interface: &str, method: &str, arg: &str) -> zbus::Result<()> {
-    zbus::blocking::Connection::session()?.call_method(
+    zbus::block_on(zbus::block_on(zbus::Connection::session())?.call_method(
         Some("org.marathonos.Shell"),
         path,
         Some(interface),
         method,
         &(arg,),
-    )?;
+    ))?;
     Ok(())
 }
 

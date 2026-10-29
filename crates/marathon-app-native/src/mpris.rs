@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 use lofty::prelude::TaggedFileExt as _;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
+use zbus::{ObjectPath, OwnedObjectPath, Variant as Value};
 
 use marathon_rt::{io, log};
 

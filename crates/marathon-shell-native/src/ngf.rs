@@ -12,7 +12,7 @@ use cxx_qt::{CxxQtThread, Threading};
 use cxx_qt_lib::QList;
 use futures_lite::future;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 use crate::{io, log};
 

@@ -9,7 +9,7 @@ use std::time::UNIX_EPOCH;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use rusqlite::{params, Connection, OptionalExtension};
-use zbus::zvariant::Value;
+use zbus::Variant as Value;
 
 pub type Row = std::collections::HashMap<&'static str, Value<'static>>;
 

@@ -18,8 +18,8 @@ use marathon_rt::daemon::{admit, shell_data, Shared};
 use marathon_rt::{io, log};
 use zbus::message::Header;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::{ObjectPath, OwnedValue, Value};
 use zbus::{fdo, interface, Connection};
+use zbus::{ObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use accounts::{Account, Accounts, SecretOp};
 use contacts::{Book, Contact, Row};

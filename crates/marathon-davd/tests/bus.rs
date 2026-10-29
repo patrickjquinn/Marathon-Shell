@@ -5,16 +5,16 @@
 use std::collections::HashMap;
 
 use marathon_rt::testing::PrivateBus;
-use zbus::zvariant::OwnedValue;
 use zbus::Connection;
+use zbus::OwnedVariant as OwnedValue;
 
 const BUS: &str = "org.marathonos.Dav";
 
-async fn call<R: serde::de::DeserializeOwned + zbus::zvariant::Type>(
+async fn call<R: serde::de::DeserializeOwned + zbus::Type>(
     bus: &Connection,
     object: &str,
     method: &str,
-    body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
+    body: &(impl serde::Serialize + zbus::DynamicType),
 ) -> zbus::Result<R> {
     let path = format!("/org/marathonos/Shell/{object}");
     let interface = format!("org.marathonos.Shell.{object}1");
@@ -75,9 +75,7 @@ fn the_address_book_answers_permitted_callers() {
             .exists());
 
         let refused = call::<Vec<OwnedValue>>(&app, "Dav", "ListAccounts", &()).await;
-        assert!(
-            matches!(refused, Err(zbus::Error::MethodError(name, Some(text), _))
-            if name.as_str() == "org.freedesktop.DBus.Error.AccessDenied" && text == "Missing permission: system")
-        );
+        assert!(matches!(refused, Err(zbus::Error::FDO(error))
+            if matches!(error.as_ref(), zbus::fdo::Error::AccessDenied(text) if text == "Missing permission: system")));
     });
 }

@@ -10,11 +10,11 @@ description = "The Keel host contract on Marathon: Shell1 for Keel apps, and mar
 async-io = "2.6.0"
 clap = { version = "4.6.7", features = ["derive"] }
 futures-lite = "2.6.1"
-libc = "0.2.190"
+libc = "0.2.191"
 marathon-rt = { path = "../marathon-rt" }
 serde = "1.0.229"
-signal-hook = { version = "0.3", default-features = false, features = ["iterator"] }
-zbus = { version = "5.19.0", default-features = false, features = ["async-io", "p2p"] }
+signal-hook = { version = "0.4.5", default-features = false, features = ["iterator"] }
+zbus = { version = "=6.1.0", default-features = false, features = ["default-rt", "proxy", "service", "p2p"] }
 
 [lints]
 workspace = true

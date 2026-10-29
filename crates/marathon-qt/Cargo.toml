@@ -14,7 +14,7 @@ doctest = false
 [dependencies]
 cxx-qt-lib = { version = "=0.10.0", default-features = false }
 marathon-i18n = { path = "../marathon-i18n" }
-zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
+zbus = { version = "=6.1.0", default-features = false, features = [] }
 
 [lints]
 workspace = true

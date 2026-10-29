@@ -23,7 +23,7 @@ use pilotd::adapters::marathon::{
 use pilotd::adapters::{
     Calendar as _, Clock as _, Contacts as _, DeviceToggles as _, Telephony as _, Toggle,
 };
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 type Calls = Arc<Mutex<Vec<String>>>;
 
@@ -98,7 +98,7 @@ struct Settings;
 impl Settings {
     #[zbus(name = "Get")]
     fn get(&self, key: String, default: OwnedValue) -> OwnedValue {
-        assert_eq!(default, OwnedValue::from(zbus::zvariant::Str::from("")));
+        assert_eq!(default, OwnedValue::from(zbus::Str::from("")));
         assert_eq!(key, "calendar/events");
         let events = vec![map(&[
             ("title", Value::from("Dentist")),

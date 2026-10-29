@@ -16,8 +16,8 @@ use futures_lite::{future, stream, StreamExt};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy, PropertiesProxy};
 use zbus::message::Header;
 use zbus::message::Type as MessageType;
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 use zbus::{fdo, MatchRule, MessageStream};
+use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value, State};
 use crate::{io, log};
@@ -1035,7 +1035,7 @@ trait ManagedModem {
 )]
 trait Simple {
     fn connect(&self, properties: HashMap<&str, Value<'_>>) -> zbus::Result<OwnedObjectPath>;
-    fn disconnect(&self, bearer: &zbus::zvariant::ObjectPath<'_>) -> zbus::Result<()>;
+    fn disconnect(&self, bearer: &zbus::ObjectPath<'_>) -> zbus::Result<()>;
 }
 
 type Qt = cxx_qt::CxxQtThread<Modem>;
@@ -1057,11 +1057,10 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     };
     let Ok(manager) = ObjectManagerProxy::builder(&bus)
         .destination(MM)
-        .and_then(|b| b.path("/org/freedesktop/ModemManager1"))
+        .path("/org/freedesktop/ModemManager1")
+        .build()
+        .await
     else {
-        return;
-    };
-    let Ok(manager) = manager.build().await else {
         return;
     };
     // The modem coming or going, or ModemManager starting: look again.
@@ -1087,7 +1086,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     let mut shared = std::pin::pin!(shared);
     let mut state = Snapshot::default();
     let mut modem_events: Option<stream::Boxed<Event>> = None;
-    let mut call_inhibit: Option<zbus::zvariant::OwnedFd> = None;
+    let mut call_inhibit: Option<zbus::OwnedFd> = None;
     let mut daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
     loop {
         let event = match &mut modem_events {
@@ -1201,32 +1200,30 @@ async fn modem_events(bus: &zbus::Connection, path: OwnedObjectPath) -> stream::
     let mut events = stream::empty().boxed();
     if let Ok(props) = PropertiesProxy::builder(bus)
         .destination(MM)
-        .and_then(|b| b.path(path.clone()))
+        .path(path.clone())
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await
     {
-        if let Ok(props) = props
-            .cache_properties(zbus::proxy::CacheProperties::No)
-            .build()
-            .await
-        {
-            if let Ok(changes) = props.receive_properties_changed().await {
-                events = changes
-                    .filter_map(|signal| {
-                        let args = signal.args().ok()?;
-                        let changed = args
-                            .changed_properties()
-                            .iter()
-                            .filter_map(|(k, v)| Some(((*k).to_owned(), v.try_to_owned().ok()?)))
-                            .collect();
-                        Some(Event::Changed(changed))
-                    })
-                    .boxed();
-            }
+        if let Ok(changes) = props.receive_properties_changed().await {
+            events = changes
+                .filter_map(|signal| {
+                    let args = signal.args().ok()?;
+                    let changed = args
+                        .changed_properties()
+                        .iter()
+                        .filter_map(|(k, v)| Some(((*k).to_owned(), v.try_to_owned().ok()?)))
+                        .collect();
+                    Some(Event::Changed(changed))
+                })
+                .boxed();
         }
     }
     let rule = MatchRule::builder()
         .msg_type(MessageType::Signal)
         .sender(MM)
-        .and_then(|b| b.interface(CELL_BROADCAST)?.path(path.clone()));
+        .interface(CELL_BROADCAST)
+        .path(path.clone());
     if let Some(signals) = signals(bus, rule).await {
         let broadcasts = signals.filter_map(|m| {
             let m = m.ok()?;
@@ -1250,7 +1247,8 @@ async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::
     let voice = MatchRule::builder()
         .msg_type(MessageType::Signal)
         .sender(MM)
-        .and_then(|b| b.interface(VOICE)?.path(modem));
+        .interface(VOICE)
+        .path(modem);
     if let Some(voice) = signals(bus, voice).await {
         events = voice
             .filter_map(|m| {
@@ -1267,10 +1265,8 @@ async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::
     let states = MatchRule::builder()
         .msg_type(MessageType::Signal)
         .sender(MM)
-        .and_then(|b| {
-            b.interface("org.freedesktop.DBus.Properties")?
-                .path_namespace("/org/freedesktop/ModemManager1/Call")
-        });
+        .interface("org.freedesktop.DBus.Properties")
+        .path_namespace("/org/freedesktop/ModemManager1/Call");
     if let Some(states) = signals(bus, states).await {
         let states = states.filter_map(|m| {
             let m = m.ok()?;
@@ -1287,9 +1283,9 @@ async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::
 
 async fn signals(
     bus: &zbus::Connection,
-    rule: zbus::Result<zbus::match_rule::Builder<'static>>,
+    rule: zbus::match_rule::Builder<'static>,
 ) -> Option<MessageStream> {
-    MessageStream::for_match_rule(rule.ok()?.build(), bus, Some(16))
+    MessageStream::for_match_rule(rule.build().ok()?, bus, std::num::NonZeroUsize::new(16))
         .await
         .ok()
 }
@@ -1302,9 +1298,7 @@ async fn properties(
     let props = async {
         let props = PropertiesProxy::builder(bus)
             .destination(MM)
-            .ok()?
-            .path(path.clone())
-            .ok()?;
+            .path(path.clone());
         let props = props
             .cache_properties(zbus::proxy::CacheProperties::No)
             .build()
@@ -1368,7 +1362,7 @@ async fn act(
     match command {
         Command::Enable(on) => {
             ManagedModemProxy::builder(bus)
-                .path(path)?
+                .path(path)
                 .build()
                 .await?
                 .enable(on)
@@ -1377,7 +1371,7 @@ async fn act(
         Command::Modes(allowed) => match state.preferred(allowed) {
             Some(preferred) => {
                 ManagedModemProxy::builder(bus)
-                    .path(path)?
+                    .path(path)
                     .build()
                     .await?
                     .set_current_modes(&(allowed, preferred))
@@ -1387,7 +1381,7 @@ async fn act(
         },
         // Dialling a bearer takes seconds; the I/O thread waits, not the GUI.
         Command::Data(true, roaming) => {
-            let simple = SimpleProxy::builder(bus).path(path)?.build().await?;
+            let simple = SimpleProxy::builder(bus).path(path).build().await?;
             simple
                 .connect(HashMap::from([
                     ("apn", Value::from("")),
@@ -1398,14 +1392,14 @@ async fn act(
         }
         Command::Data(false, _) => {
             SimpleProxy::builder(bus)
-                .path(path)?
+                .path(path)
                 .build()
                 .await?
-                .disconnect(&zbus::zvariant::ObjectPath::from_static_str_unchecked("/"))
+                .disconnect(&zbus::ObjectPath::from_static_str_unchecked("/"))
                 .await
         }
         Command::Dial(number) => {
-            let voice = VoiceProxy::builder(bus).path(path)?.build().await?;
+            let voice = VoiceProxy::builder(bus).path(path).build().await?;
             let created = voice
                 .create_call(HashMap::from([("number", Value::from(number.as_str()))]))
                 .await;
@@ -1422,14 +1416,14 @@ async fn act(
             qt.queue(move |obj| obj.call_added(added, false, &number))
                 .ok();
             CallProxy::builder(bus)
-                .path(call)?
+                .path(call)
                 .build()
                 .await?
                 .start()
                 .await
         }
         Command::Call(call, action) => {
-            let call = CallProxy::builder(bus).path(call)?.build().await?;
+            let call = CallProxy::builder(bus).path(call).build().await?;
             match action {
                 CallAction::Accept => call.accept().await,
                 CallAction::Hangup => call.hangup().await,
@@ -1440,7 +1434,7 @@ async fn act(
     }
 }
 
-async fn inhibit_calls(bus: &zbus::Connection) -> Option<zbus::zvariant::OwnedFd> {
+async fn inhibit_calls(bus: &zbus::Connection) -> Option<zbus::OwnedFd> {
     let logind = crate::power::LogindProxy::new(bus).await.ok()?;
     match logind
         .inhibit(

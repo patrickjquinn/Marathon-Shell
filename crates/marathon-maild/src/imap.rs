@@ -16,11 +16,12 @@ use futures_rustls::rustls::{ClientConfig, RootCertStore};
 use futures_rustls::TlsConnector;
 use futures_util::future::Either;
 use marathon_rt::daemon::Shared;
+use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 
 use crate::store::{self, Account, Server, Store};
 
 pub type Stream = Either<Async<TcpStream>, TlsStream<Async<TcpStream>>>;
-pub type Imap = Session<Stream>;
+pub type Imap = Session<Compat<Stream>>;
 
 /// The newest messages of a folder the phone keeps.
 const WINDOW: u32 = 200;
@@ -125,7 +126,7 @@ async fn line(s: &mut Async<TcpStream>) -> Result<String, Failure> {
 
 /// A connection, encrypted as the account says: from the start (1) or
 /// after STARTTLS (2) for IMAP; SMTP's are lettre's.
-pub async fn connect(server: &Server) -> Result<Client<Stream>, Failure> {
+pub async fn connect(server: &Server) -> Result<Client<Compat<Stream>>, Failure> {
     let mut plain = tcp(&server.host, server.port).await?;
     let stream = match server.security {
         1 => wrap(&server.host, plain).await?,
@@ -144,12 +145,12 @@ pub async fn connect(server: &Server) -> Result<Client<Stream>, Failure> {
                     break;
                 }
             }
-            let client = Client::new(wrap(&server.host, plain).await?);
+            let client = Client::new(wrap(&server.host, plain).await?.compat());
             return Ok(client);
         }
         _ => Either::Left(plain),
     };
-    let mut client = Client::new(stream);
+    let mut client = Client::new(stream.compat());
     client.read_response().await?;
     Ok(client)
 }
@@ -361,4 +362,51 @@ pub async fn move_to(s: &mut Imap, folder: &str, uid: u32, to: &str) -> Result<(
 
 pub async fn append(s: &mut Imap, folder: &str, raw: &[u8]) -> Result<(), Failure> {
     Ok(s.append(folder, Some("(\\Seen)"), None, raw).await?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{self, BufRead, BufReader, Write};
+    use std::net::TcpListener;
+
+    #[test]
+    fn tokio_io_adapter_signs_in_on_the_existing_executor() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let listener = TcpListener::bind(("127.0.0.1", 0))?;
+        let port = listener.local_addr()?.port();
+        let server = std::thread::spawn(move || -> io::Result<()> {
+            let (mut socket, _) = listener.accept()?;
+            socket.set_read_timeout(Some(Duration::from_secs(30)))?;
+            socket.write_all(b"* OK test server\r\n")?;
+            let mut reader = BufReader::new(socket.try_clone()?);
+            for command in ["LOGIN", "NOOP"] {
+                let mut line = String::new();
+                reader.read_line(&mut line)?;
+                let mut fields = line.split_whitespace();
+                let tag = fields
+                    .next()
+                    .ok_or_else(|| io::Error::other("missing IMAP tag"))?;
+                assert_eq!(fields.next(), Some(command));
+                write!(socket, "{tag} OK complete\r\n")?;
+            }
+            Ok(())
+        });
+        let result = async_io::block_on(async {
+            let client = connect(&Server {
+                host: "127.0.0.1".into(),
+                port,
+                security: 0,
+            })
+            .await
+            .map_err(|e| io::Error::other(e.message().to_owned()))?;
+            let mut session = client.login("test", "test").await.map_err(|(e, _)| e)?;
+            session.noop().await?;
+            Ok::<_, Box<dyn std::error::Error>>(())
+        });
+        server
+            .join()
+            .map_err(|_panic| io::Error::other("IMAP test server panicked"))??;
+        result
+    }
 }

@@ -11,10 +11,10 @@ blocking = "1.7.0"
 futures-lite = "2.6.1"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
 marathon-rt = { path = "../marathon-rt" }
-rusqlite = "0.40.2"
+rusqlite = "0.41.1"
 serde = "1.0.229"
 tz-rs = "0.7.3"
-zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
+zbus = { version = "=6.1.0", default-features = false, features = ["default-rt", "proxy", "service"] }
 
 [dev-dependencies]
 marathon-rt = { path = "../marathon-rt", features = ["testing"] }

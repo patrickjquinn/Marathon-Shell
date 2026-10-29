@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use futures_lite::{future, StreamExt};
-use zbus::zvariant::OwnedObjectPath;
+use zbus::OwnedObjectPath;
 use zbus::{Connection, Proxy};
 
 const SERVICE: &str = "org.freedesktop.GeoClue2";

@@ -94,30 +94,30 @@ mod client {
     /// Reef holds none. The token is **not** verified here: verify it as a
     /// pasted one before using or storing it.
     pub fn fetch(app_id: &str) -> Result<Option<String>, HandoffError> {
-        let conn = zbus::blocking::connection::Builder::session()
-            .map(|b| b.method_timeout(TIMEOUT))
-            .and_then(zbus::blocking::connection::Builder::build)
-            .map_err(|e| HandoffError::Unavailable(e.to_string()))?;
+        let conn = zbus::block_on(
+            zbus::connection::Builder::session()
+                .method_timeout(TIMEOUT)
+                .build(),
+        )
+        .map_err(|e| HandoffError::Unavailable(e.to_string()))?;
         fetch_on(&conn, app_id)
     }
 
     /// [`fetch`] over an existing bus connection (tests, or an app that
     /// already has one).
-    pub fn fetch_on(
-        conn: &zbus::blocking::Connection,
-        app_id: &str,
-    ) -> Result<Option<String>, HandoffError> {
+    pub fn fetch_on(conn: &zbus::Connection, app_id: &str) -> Result<Option<String>, HandoffError> {
         if !valid_app_id(app_id) {
             return Err(HandoffError::Failed(format!("invalid app id {app_id:?}")));
         }
+        let body = (app_id,);
         let reply = conn.call_method(
             Some(BUS_NAME),
             OBJECT_PATH,
             Some(INTERFACE),
             "GetLicence",
-            &(app_id,),
+            &body,
         );
-        match reply {
+        match zbus::block_on(reply) {
             Ok(m) => {
                 let token: String = m
                     .body()

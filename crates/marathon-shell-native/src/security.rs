@@ -24,7 +24,7 @@ use futures_lite::{future, StreamExt};
 use sha2::{Digest, Sha256};
 use zbus::fdo;
 use zbus::message::Header;
-use zbus::zvariant::OwnedObjectPath;
+use zbus::OwnedObjectPath;
 
 use crate::audit::{self, Severity};
 use crate::ipc::{self, value, State};
@@ -1094,7 +1094,7 @@ trait FprintDevice {
 
 async fn fprint_device(path: OwnedObjectPath) -> zbus::Result<FprintDeviceProxy<'static>> {
     FprintDeviceProxy::builder(&io::system_bus().await?)
-        .path(path)?
+        .path(path)
         .build()
         .await
 }

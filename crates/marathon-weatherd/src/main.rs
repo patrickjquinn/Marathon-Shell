@@ -307,7 +307,7 @@ impl Daemon {
         })
     }
 
-    fn refresh(&mut self, conn: &zbus::blocking::Connection, relocate: bool) {
+    fn refresh(&mut self, conn: &zbus::Connection, relocate: bool) {
         let automatic = self.settings.manual.is_none();
         let expired = self
             .location()
@@ -339,7 +339,7 @@ impl Daemon {
 
 /// Updates the properties and emits `PropertiesChanged` for those that changed.
 fn publish(
-    conn: &zbus::blocking::Connection,
+    conn: &zbus::Connection,
     published: &Mutex<Published>,
     forecast: Option<String>,
     state: Option<&str>,
@@ -361,8 +361,8 @@ fn publish(
         (forecast_changed, state_changed)
     };
     let emit = || -> zbus::Result<()> {
-        let iface = conn.object_server().interface::<_, Weather>(PATH)?;
-        let weather = iface.get();
+        let iface = zbus::block_on(conn.object_server().interface::<_, Weather>(PATH))?;
+        let weather = zbus::block_on(iface.get());
         if forecast_changed {
             zbus::block_on(weather.forecast_changed(iface.signal_emitter()))?;
         }
@@ -405,11 +405,12 @@ fn main() -> ExitCode {
         agent: daemon.agent.clone(),
         zones: Arc::clone(&daemon.zones),
     };
-    let conn = match zbus::blocking::connection::Builder::session()
-        .and_then(|b| b.serve_at(PATH, weather))
-        .and_then(|b| b.name(BUS_NAME))
-        .and_then(zbus::blocking::connection::Builder::build)
-    {
+    let conn = match zbus::block_on(
+        zbus::connection::Builder::session()
+            .serve_at(PATH, weather)
+            .name(BUS_NAME)
+            .build(),
+    ) {
         Ok(conn) => conn,
         Err(e) => {
             log(&format!("cannot serve {BUS_NAME}: {e}"));

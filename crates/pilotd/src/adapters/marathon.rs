@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use serde_json::Value as Json;
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use super::{
     AdapterError, Calendar, CalendarEvent, Clock, ClockItem, Contact, Contacts, DeviceToggles,
@@ -129,8 +129,8 @@ async fn call<B, R>(
     body: &B,
 ) -> Result<R, AdapterError>
 where
-    B: serde::Serialize + zbus::zvariant::DynamicType,
-    R: for<'d> zbus::zvariant::DynamicDeserialize<'d>,
+    B: serde::Serialize + zbus::DynamicType,
+    R: for<'d> zbus::wire::DynamicDeserialize<'d>,
 {
     let reply = session
         .call_method(
@@ -159,7 +159,7 @@ pub fn json(v: &Value<'_>) -> Json {
         Value::F64(n) => Json::from(*n),
         Value::Str(s) => Json::from(s.as_str()),
         Value::ObjectPath(p) => Json::from(p.as_str()),
-        Value::Value(inner) => json(inner),
+        Value::Variant(inner) => json(inner),
         Value::Array(a) => Json::Array(a.iter().map(json).collect()),
         Value::Dict(d) => Json::Object(
             d.iter()
@@ -649,7 +649,7 @@ mod tests {
         let mut d: HashMap<&str, Value<'_>> = HashMap::new();
         d.insert("name", Value::from("Anna"));
         d.insert("id", Value::from(3i32));
-        let v = Value::from(vec![Value::Value(Box::new(Value::from(d)))]);
+        let v = Value::from(vec![Value::Variant(Box::new(Value::from(d)))]);
         assert_eq!(json(&v), j!([{"name": "Anna", "id": 3}]));
     }
 

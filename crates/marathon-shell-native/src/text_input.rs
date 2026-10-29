@@ -220,7 +220,7 @@ impl RemoteTextInput {
     /// A signal for the registered service alone.
     fn send<B>(&self, member: &'static str, body: B)
     where
-        B: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static,
+        B: serde::Serialize + zbus::DynamicType + Send + Sync + 'static,
     {
         if self.owner.is_empty() {
             return;

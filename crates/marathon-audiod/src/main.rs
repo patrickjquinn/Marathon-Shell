@@ -163,9 +163,9 @@ impl Audio {
 }
 
 /// Emits `PropertiesChanged` for what differs between two snapshots.
-fn emit(conn: &zbus::blocking::Connection, old: &Snapshot, new: &Snapshot) -> zbus::Result<()> {
-    let iface = conn.object_server().interface::<_, Audio>(PATH)?;
-    let audio = iface.get();
+fn emit(conn: &zbus::Connection, old: &Snapshot, new: &Snapshot) -> zbus::Result<()> {
+    let iface = zbus::block_on(conn.object_server().interface::<_, Audio>(PATH))?;
+    let audio = zbus::block_on(iface.get());
     let e = iface.signal_emitter();
     if old.volume.to_bits() != new.volume.to_bits() {
         zbus::block_on(audio.volume_changed(e))?;
@@ -202,7 +202,7 @@ fn emit(conn: &zbus::blocking::Connection, old: &Snapshot, new: &Snapshot) -> zb
 
 /// Publishes the latest snapshot of each burst.
 fn publisher(
-    conn: &zbus::blocking::Connection,
+    conn: &zbus::Connection,
     shared: &Mutex<Snapshot>,
     snapshots: &mpsc::Receiver<Snapshot>,
 ) {
@@ -223,10 +223,11 @@ fn main() -> ExitCode {
         requests,
         snapshot: Arc::clone(&snapshot),
     };
-    let conn = match zbus::blocking::connection::Builder::session()
-        .and_then(|b| b.serve_at(PATH, audio))
-        .and_then(zbus::blocking::connection::Builder::build)
-    {
+    let conn = match zbus::block_on(
+        zbus::connection::Builder::session()
+            .serve_at(PATH, audio)
+            .build(),
+    ) {
         Ok(conn) => conn,
         Err(e) => {
             log(&format!("cannot serve {PATH}: {e}"));
@@ -248,7 +249,7 @@ fn main() -> ExitCode {
             snapshots.send(s).ok();
         },
         move || {
-            if let Err(e) = conn.request_name(BUS_NAME) {
+            if let Err(e) = zbus::block_on(conn.request_name(BUS_NAME)) {
                 log(&format!("cannot own {BUS_NAME}: {e}"));
                 std::process::exit(1);
             }

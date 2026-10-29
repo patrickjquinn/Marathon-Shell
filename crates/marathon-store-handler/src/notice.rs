@@ -6,8 +6,8 @@
 
 use std::collections::HashMap;
 
-use zbus::blocking::Connection;
-use zbus::zvariant::Value;
+use zbus::Connection;
+use zbus::Variant as Value;
 
 use crate::request::Verb;
 
@@ -38,7 +38,7 @@ impl Notice {
             return Notice::none();
         }
         let (running, done) = titles(verb, name);
-        let bus = Connection::session()
+        let bus = zbus::block_on(Connection::session())
             .inspect_err(|e| warn(&format!("no session bus: {e}")))
             .ok();
         Notice {
@@ -91,37 +91,36 @@ impl Notice {
         if self.id == 0 {
             return;
         }
-        if let Err(e) = bus.call_method(
+        if let Err(e) = zbus::block_on(bus.call_method(
             Some("org.freedesktop.Notifications"),
             "/org/freedesktop/Notifications",
             Some("org.freedesktop.Notifications"),
             "CloseNotification",
             &(self.id,),
-        ) {
+        )) {
             warn(&format!("CloseNotification: {e}"));
         }
     }
 
     fn notify(&mut self, icon: &str, summary: &str, body: &str, hints: HashMap<&str, Value>) {
         let Some(bus) = &self.bus else { return };
-        let reply = bus
-            .call_method(
-                Some("org.freedesktop.Notifications"),
-                "/org/freedesktop/Notifications",
-                Some("org.freedesktop.Notifications"),
-                "Notify",
-                &(
-                    STORE,
-                    self.id,
-                    icon,
-                    summary,
-                    body,
-                    vec!["default", "Open"],
-                    hints,
-                    -1i32,
-                ),
-            )
-            .and_then(|reply| reply.body().deserialize::<u32>());
+        let reply = zbus::block_on(bus.call_method(
+            Some("org.freedesktop.Notifications"),
+            "/org/freedesktop/Notifications",
+            Some("org.freedesktop.Notifications"),
+            "Notify",
+            &(
+                STORE,
+                self.id,
+                icon,
+                summary,
+                body,
+                vec!["default", "Open"],
+                hints,
+                -1i32,
+            ),
+        ))
+        .and_then(|reply| reply.body().deserialize::<u32>());
         match reply {
             Ok(id) => self.id = id,
             // One warning, not one per redraw.

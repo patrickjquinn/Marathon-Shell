@@ -7,17 +7,17 @@ use std::time::Duration;
 
 use futures_lite::StreamExt;
 use marathon_rt::testing::PrivateBus;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 use zbus::{Connection, MatchRule, MessageStream};
 
 const BUS: &str = "org.marathonos.MediaLibrary";
 const PATH: &str = "/org/marathonos/Shell/MediaLibrary";
 const INTERFACE: &str = "org.marathonos.Shell.MediaLibrary1";
 
-async fn call<R: serde::de::DeserializeOwned + zbus::zvariant::Type>(
+async fn call<R: serde::de::DeserializeOwned + zbus::Type>(
     bus: &Connection,
     method: &str,
-    body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
+    body: &(impl serde::Serialize + zbus::DynamicType),
 ) -> zbus::Result<R> {
     bus.call_method(Some(BUS), PATH, Some(INTERFACE), method, body)
         .await?
@@ -45,11 +45,9 @@ fn a_scan_finds_the_pictures() {
         let rule = MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
             .interface(INTERFACE)
-            .unwrap()
             .member("ScanComplete")
-            .unwrap()
             .build();
-        let mut done = MessageStream::for_match_rule(rule, &app, None)
+        let mut done = MessageStream::for_match_rule(rule.unwrap(), &app, None)
             .await
             .unwrap();
         call::<()>(&app, "ScanLibraryAsync", &()).await.unwrap();

@@ -2,7 +2,7 @@
 //! marathon-background arm-wake reads before a suspend so the system wakes
 //! for it (`docs/BACKGROUND_WORK.md`).
 
-use zbus::zvariant::Value;
+use zbus::Variant as Value;
 
 use crate::systemd::SystemdManagerProxy;
 

@@ -1,6 +1,6 @@
 //! The systemd user manager, as the shell calls it.
 
-use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::{OwnedObjectPath, Variant as Value};
 
 #[zbus::proxy(
     interface = "org.freedesktop.systemd1.Manager",

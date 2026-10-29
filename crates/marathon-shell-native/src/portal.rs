@@ -20,8 +20,11 @@ use std::sync::{LazyLock, Mutex, OnceLock};
 use cxx_qt::Threading;
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList};
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::{DeserializeDict, ObjectPath, OwnedObjectPath, OwnedValue, Type, Value};
 use zbus::{fdo, interface};
+use zbus::{
+    DeserializeDict, ObjectPath, OwnedObjectPath, OwnedVariant as OwnedValue, Type,
+    Variant as Value,
+};
 
 use crate::theme::{self, Color};
 use crate::{io, log};
@@ -332,7 +335,7 @@ type Filter = (String, Vec<(u32, String)>);
 type Choice = (String, String, Vec<(String, String)>, String);
 
 #[derive(DeserializeDict, Type, Default)]
-#[zvariant(signature = "dict")]
+#[zbus(signature = "dict")]
 struct Options {
     accept_label: Option<String>,
     multiple: Option<bool>,

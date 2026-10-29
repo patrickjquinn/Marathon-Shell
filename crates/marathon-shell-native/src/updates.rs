@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use zbus::fdo::{self, PropertiesProxy};
 use zbus::message::Header;
 use zbus::names::InterfaceName;
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
+use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value};
 use crate::notifications::NotificationsProxy;
@@ -823,6 +823,8 @@ fn spawn(
 fn text(e: zbus::Error) -> String {
     match e {
         zbus::Error::MethodError(_, Some(message), _) => message,
+        zbus::Error::FDO(error) => zbus::DBusError::description(error.as_ref())
+            .map_or_else(|| error.to_string(), str::to_owned),
         e => e.to_string(),
     }
 }
@@ -870,7 +872,6 @@ async fn sysupdate(target: &OwnedObjectPath) -> Result<TargetProxy<'static>, Str
     let bus = io::system_bus().await.map_err(text)?;
     TargetProxy::builder(&bus)
         .path(target.clone())
-        .map_err(text)?
         .build()
         .await
         .map_err(text)
@@ -930,7 +931,6 @@ async fn job(tx: &Sender<Msg>, target: &OwnedObjectPath, install: bool) -> Resul
     tx.send(Msg::Job(path.clone())).await.ok();
     let job = JobProxy::builder(&bus)
         .path(path)
-        .map_err(text)?
         .build()
         .await
         .map_err(text)?;
@@ -968,7 +968,7 @@ async fn job(tx: &Sender<Msg>, target: &OwnedObjectPath, install: bool) -> Resul
 
 async fn cancel(path: OwnedObjectPath) -> zbus::Result<()> {
     JobProxy::builder(&io::system_bus().await?)
-        .path(path)?
+        .path(path)
         .build()
         .await?
         .cancel()
@@ -1085,9 +1085,7 @@ async fn property(
 ) -> Option<OwnedValue> {
     let props = PropertiesProxy::builder(bus)
         .destination(service)
-        .ok()?
         .path(path)
-        .ok()?
         .build()
         .await
         .ok()?;

@@ -8,7 +8,7 @@ use async_lock::OnceCell;
 use cxx_qt::Threading;
 use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString, QVariant};
 use futures_lite::StreamExt;
-use zbus::zvariant::Value;
+use zbus::Variant as Value;
 use zbus::{MatchRule, MessageStream};
 
 use crate::shell::allowed;
@@ -89,7 +89,7 @@ async fn server() -> &'static str {
 
 pub(crate) async fn call<B>(method: &str, body: &B) -> zbus::Result<zbus::Message>
 where
-    B: serde::Serialize + zbus::zvariant::DynamicType,
+    B: serde::Serialize + zbus::DynamicType,
 {
     io::session_bus()
         .await?
@@ -102,12 +102,12 @@ impl cxx_qt::Initialize for Notifications {
         let qt = self.qt_thread();
         io::spawn(async move {
             let rule = |member| -> zbus::Result<MatchRule<'static>> {
-                Ok(MatchRule::builder()
+                MatchRule::builder()
                     .msg_type(zbus::message::Type::Signal)
-                    .path(PATH)?
-                    .interface(INTERFACE)?
-                    .member(member)?
-                    .build())
+                    .path(PATH)
+                    .interface(INTERFACE)
+                    .member(member)
+                    .build()
             };
             let streams = async {
                 let bus = io::session_bus().await?;

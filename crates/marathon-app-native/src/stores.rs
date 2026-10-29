@@ -6,7 +6,7 @@ use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 use crate::shell::{get, relay, watch, Field, Service, Update};
 use marathon_rt::io;
@@ -236,10 +236,7 @@ impl SystemControlStore {
 
     fn toggle_dnd_mode(&self) {
         let on = !self.is_dnd_mode;
-        SETTINGS.call(
-            "SetProperty",
-            ("dndEnabled", zbus::zvariant::Value::from(on)),
-        );
+        SETTINGS.call("SetProperty", ("dndEnabled", zbus::Variant::from(on)));
         AUDIO.call("SetDoNotDisturb", (on,));
     }
 

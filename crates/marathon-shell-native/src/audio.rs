@@ -15,7 +15,7 @@ use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use futures_lite::{stream, StreamExt};
 use zbus::fdo::{self, DBusProxy};
 use zbus::message::Header;
-use zbus::zvariant::{DynamicType, OwnedValue};
+use zbus::{DynamicType, OwnedVariant as OwnedValue};
 
 use crate::ipc::{self, value, State};
 use crate::{haptics, io, log, settings};
@@ -671,29 +671,24 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     let mut events = stream::empty().boxed();
     if let Ok(props) = zbus::fdo::PropertiesProxy::builder(&bus)
         .destination(SERVICE)
-        .and_then(|b| b.path(PATH))
+        .path(PATH)
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await
     {
-        if let Ok(props) = props
-            .cache_properties(zbus::proxy::CacheProperties::No)
-            .build()
-            .await
-        {
-            if let Ok(changes) = props.receive_properties_changed().await {
-                let changes = changes.filter_map(|s| {
-                    let args = s.args().ok()?;
-                    (args.interface_name().as_str() == INTERFACE).then(|| {
-                        Event::Changed(
-                            args.changed_properties()
-                                .iter()
-                                .filter_map(|(k, v)| {
-                                    Some(((*k).to_owned(), v.try_to_owned().ok()?))
-                                })
-                                .collect(),
-                        )
-                    })
-                });
-                events = events.or(changes).boxed();
-            }
+        if let Ok(changes) = props.receive_properties_changed().await {
+            let changes = changes.filter_map(|s| {
+                let args = s.args().ok()?;
+                (args.interface_name().as_str() == INTERFACE).then(|| {
+                    Event::Changed(
+                        args.changed_properties()
+                            .iter()
+                            .filter_map(|(k, v)| Some(((*k).to_owned(), v.try_to_owned().ok()?)))
+                            .collect(),
+                    )
+                })
+            });
+            events = events.or(changes).boxed();
         }
     }
     if let Ok(dbus) = DBusProxy::new(&bus).await {

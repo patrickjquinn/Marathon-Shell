@@ -16,8 +16,8 @@ use zbus::fdo::PropertiesProxy;
 use zbus::message::Header;
 use zbus::message::Type as MessageType;
 use zbus::names::InterfaceName;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
 use zbus::{fdo, MatchRule, MessageStream};
+use zbus::{ObjectPath, OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value, State};
 use crate::{io, log};
@@ -1050,9 +1050,8 @@ impl Actor {
     async fn props(&self, path: &OwnedObjectPath) -> Option<PropertiesProxy<'static>> {
         PropertiesProxy::builder(&self.bus)
             .destination(NM)
-            .and_then(|b| b.path(path.clone()))
-            .map(|b| b.cache_properties(zbus::proxy::CacheProperties::No))
-            .ok()?
+            .path(path.clone())
+            .cache_properties(zbus::proxy::CacheProperties::No)
             .build()
             .await
             .ok()
@@ -1079,10 +1078,8 @@ impl Actor {
         };
         let (mut wifi, mut bluetooth) = (false, false);
         for path in devices {
-            let Ok(device) = DeviceProxy::builder(&self.bus).path(path.clone()) else {
-                continue;
-            };
-            let Ok(device) = device
+            let Ok(device) = DeviceProxy::builder(&self.bus)
+                .path(path.clone())
                 .cache_properties(zbus::proxy::CacheProperties::No)
                 .build()
                 .await
@@ -1141,15 +1138,13 @@ impl Actor {
                 let Some(path) = self.wifi_device.clone() else {
                     return;
                 };
-                let disconnected = match DeviceProxy::builder(&self.bus).path(path) {
-                    Ok(b) => match b
-                        .cache_properties(zbus::proxy::CacheProperties::No)
-                        .build()
-                        .await
-                    {
-                        Ok(device) => device.disconnect().await,
-                        Err(e) => Err(e),
-                    },
+                let disconnected = match DeviceProxy::builder(&self.bus)
+                    .path(path)
+                    .cache_properties(zbus::proxy::CacheProperties::No)
+                    .build()
+                    .await
+                {
+                    Ok(device) => device.disconnect().await,
                     Err(e) => Err(e),
                 };
                 if let Err(e) = disconnected {
@@ -1202,7 +1197,6 @@ impl Actor {
         let path = self.wifi_device.clone()?;
         WirelessProxy::builder(&self.bus)
             .path(path)
-            .ok()?
             .cache_properties(zbus::proxy::CacheProperties::No)
             .build()
             .await
@@ -1325,10 +1319,8 @@ impl Actor {
             self.active_ap = None;
             return;
         };
-        let Ok(builder) = WirelessProxy::builder(&self.bus).path(device) else {
-            return;
-        };
-        let Ok(wireless) = builder
+        let Ok(wireless) = WirelessProxy::builder(&self.bus)
+            .path(device)
             .cache_properties(zbus::proxy::CacheProperties::No)
             .build()
             .await
@@ -1357,10 +1349,11 @@ impl Actor {
         };
         let mut saved: HashMap<String, Vec<OwnedObjectPath>> = HashMap::new();
         for path in paths {
-            let Ok(builder) = SavedConnectionProxy::builder(&self.bus).path(path.clone()) else {
-                continue;
-            };
-            let Ok(connection) = builder.build().await else {
+            let Ok(connection) = SavedConnectionProxy::builder(&self.bus)
+                .path(path.clone())
+                .build()
+                .await
+            else {
                 continue;
             };
             let Ok(all) = connection.get_settings().await else {
@@ -1393,10 +1386,11 @@ impl Actor {
 
     async fn forget(&mut self, ssid: &str) {
         for path in self.saved.remove(ssid).unwrap_or_default() {
-            let Ok(builder) = SavedConnectionProxy::builder(&self.bus).path(path) else {
-                continue;
-            };
-            if let Ok(connection) = builder.build().await {
+            if let Ok(connection) = SavedConnectionProxy::builder(&self.bus)
+                .path(path)
+                .build()
+                .await
+            {
                 if let Err(e) = connection.delete().await {
                     log::warn("network", format_args!("forget {ssid}: {e}"));
                 }
@@ -1533,11 +1527,12 @@ impl Actor {
         };
         let activated = match profile {
             Some(profile) => {
-                let updated = match SavedConnectionProxy::builder(&self.bus).path(profile.clone()) {
-                    Ok(b) => match b.build().await {
-                        Ok(saved) => saved.update(hotspot_settings(ssid, password)).await,
-                        Err(e) => Err(e),
-                    },
+                let updated = match SavedConnectionProxy::builder(&self.bus)
+                    .path(profile.clone())
+                    .build()
+                    .await
+                {
+                    Ok(saved) => saved.update(hotspot_settings(ssid, password)).await,
                     Err(e) => Err(e),
                 };
                 match updated {
@@ -1618,10 +1613,10 @@ impl Actor {
             MatchRule::builder()
                 .msg_type(MessageType::Signal)
                 .sender(NM)
-                .and_then(|b| b.interface(interface))
-                .and_then(|b| b.member(member))
-                .and_then(|b| b.path_namespace(namespace))
-                .map(zbus::match_rule::Builder::build)
+                .interface(interface)
+                .member(member)
+                .path_namespace(namespace)
+                .build()
         };
         let mut merged = stream::empty().boxed();
         if let Ok(rule) = rule(
@@ -1629,7 +1624,10 @@ impl Actor {
             "StateChanged",
             "/org/freedesktop/NetworkManager/ActiveConnection",
         ) {
-            if let Ok(s) = MessageStream::for_match_rule(rule, &self.bus, Some(64)).await {
+            if let Ok(s) =
+                MessageStream::for_match_rule(rule, &self.bus, std::num::NonZeroUsize::new(64))
+                    .await
+            {
                 let states = s.filter_map(|m| {
                     let m = m.ok()?;
                     let path = OwnedObjectPath::from(m.header().path()?.clone());
@@ -1648,7 +1646,10 @@ impl Actor {
             "PropertiesChanged",
             "/org/freedesktop/NetworkManager/AccessPoint",
         ) {
-            if let Ok(s) = MessageStream::for_match_rule(rule, &self.bus, Some(64)).await {
+            if let Ok(s) =
+                MessageStream::for_match_rule(rule, &self.bus, std::num::NonZeroUsize::new(64))
+                    .await
+            {
                 let strengths = s.filter_map(|m| {
                     let m = m.ok()?;
                     let path = OwnedObjectPath::from(m.header().path()?.clone());

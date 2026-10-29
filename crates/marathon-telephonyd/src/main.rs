@@ -17,8 +17,8 @@ use marathon_rt::daemon::{admit, shell_data, Shared};
 use marathon_rt::{io, log};
 use zbus::message::Header;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::{ObjectPath, OwnedFd, OwnedValue, Value};
 use zbus::{fdo, interface, Connection};
+use zbus::{ObjectPath, OwnedFd, OwnedVariant as OwnedValue, Variant as Value};
 
 use history::CallLog;
 use store::{Message, Store};
@@ -41,6 +41,8 @@ fn now_ms() -> i64 {
 pub fn reason(e: &zbus::Error) -> String {
     match e {
         zbus::Error::MethodError(_, Some(text), _) => text.clone(),
+        zbus::Error::FDO(error) => zbus::DBusError::description(error.as_ref())
+            .map_or_else(|| error.to_string(), str::to_owned),
         other => other.to_string(),
     }
 }

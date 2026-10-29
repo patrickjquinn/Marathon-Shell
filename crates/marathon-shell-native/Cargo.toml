@@ -20,37 +20,37 @@ base64 = "0.23.1"
 cxx = "1.0.205"
 cxx-qt = { version = "=0.10.0", default-features = false }
 cxx-qt-lib = { version = "=0.10.0", default-features = false, features = ["qt_gui"] }
-dirs = "6.0.0"
+dirs = "7.0.0"
 dotenvy = "0.15.7"
-drm = "0.14.1"
+drm = "0.15.0"
 drm-ffi = "0.9.1"
 evdev = { version = "0.13.2", default-features = false }
 freedesktop_entry_parser = "2.0.1"
 fuzzy-matcher = "0.3.7"
 futures-lite = "2.6.1"
-globset = "0.4.16"
+globset = "0.4.21"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 mime_guess = "2.0.5"
-libc = "0.2.190"
+libc = "0.2.191"
 marathon-apps = { path = "../marathon-apps" }
 marathon-i18n = { version = "0.1.0", path = "../marathon-i18n" }
 marathon-permissions = { path = "../marathon-permissions" }
 marathon-qt = { path = "../marathon-qt" }
 marathon-rt = { path = "../marathon-rt" }
-palette = { version = "0.7.6", default-features = false, features = ["std"] }
+palette = { version = "0.7.7", default-features = false, features = ["std"] }
 quick-xml = "0.42.0"
-rusqlite = "0.40.2"
-resvg = { version = "0.45.1", default-features = false, features = ["text", "system-fonts", "memmap-fonts"] }
+rusqlite = "0.41.1"
+resvg = { version = "0.49.0", default-features = false, features = ["text", "system-fonts", "memmap-fonts"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = { version = "0.11.1", default-features = false }
 spellbook = "0.4.2"
 tempfile = "3.27.0"
 tz-rs = "0.7.3"
-url = "2.5.4"
-ureq = "3.4.2"
+url = "2.5.8"
+ureq = "3.5.0"
 walkdir = "2.5.0"
-zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
+zbus = { version = "=6.1.0", default-features = false, features = ["default-rt", "proxy", "service"] }
 i18n-embed = { version = "0.16.0", features = ["fluent-system"] }
 i18n-embed-fl = "0.10.1"
 rust-embed = "8.13.0"

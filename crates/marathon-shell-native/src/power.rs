@@ -18,7 +18,7 @@ use futures_lite::{stream, StreamExt};
 use zbus::fdo::{self, DBusProxy, PropertiesProxy};
 use zbus::message::Header;
 use zbus::names::InterfaceName;
-use zbus::zvariant::{OwnedFd, OwnedValue, Value};
+use zbus::{OwnedFd, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value, State};
 use crate::wake_timer::WakeTimer;
@@ -914,10 +914,12 @@ impl Actor {
     ) -> Option<PropertiesProxy<'static>> {
         let built = PropertiesProxy::builder(&self.bus)
             .destination(service)
-            .and_then(|b| b.path(path))
-            .map(|b| b.cache_properties(zbus::proxy::CacheProperties::No));
+            .path(path)
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await;
         match built {
-            Ok(b) => b.build().await.ok(),
+            Ok(props) => Some(props),
             Err(e) => {
                 log::warn("power", e);
                 None
@@ -968,7 +970,7 @@ impl Actor {
         };
         // A profile switch runs the daemon's tuning; the I/O thread waits, not the GUI.
         match props
-            .set(interface, "ActiveProfile", Value::from(name.as_str()))
+            .set(interface, "ActiveProfile", &Value::from(name.as_str()))
             .await
         {
             Ok(()) => queue_profile(qt, name),

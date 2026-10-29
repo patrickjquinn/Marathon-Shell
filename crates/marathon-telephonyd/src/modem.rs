@@ -9,8 +9,8 @@ use async_io::Timer;
 use futures_lite::StreamExt;
 use marathon_rt::{io, log};
 use zbus::fdo::{ObjectManagerProxy, PropertiesProxy};
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 use zbus::{MatchRule, MessageStream};
+use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::store::Message;
 use crate::{now_ms, Core, SmsService};
@@ -69,14 +69,14 @@ pub fn iso_ms(text: &str) -> Option<i64> {
 
 async fn modems(bus: &zbus::Connection) -> zbus::Result<Vec<MessagingProxy<'static>>> {
     let manager = ObjectManagerProxy::builder(bus)
-        .destination(MM)?
-        .path("/org/freedesktop/ModemManager1")?
+        .destination(MM)
+        .path("/org/freedesktop/ModemManager1")
         .build()
         .await?;
     let mut found = Vec::new();
     for (path, interfaces) in manager.get_managed_objects().await? {
         if interfaces.keys().any(|i| i.as_str() == MESSAGING) {
-            found.push(MessagingProxy::builder(bus).path(path)?.build().await?);
+            found.push(MessagingProxy::builder(bus).path(path).build().await?);
         }
     }
     Ok(found)
@@ -95,8 +95,8 @@ async fn drain(core: &Core, bus: &zbus::Connection) -> zbus::Result<()> {
     for modem in modems(bus).await? {
         for path in modem.list().await? {
             let props = PropertiesProxy::builder(bus)
-                .destination(MM)?
-                .path(&path)?
+                .destination(MM)
+                .path(&path)
                 .build()
                 .await?;
             let props = props.get_all(SMS.try_into()?).await?;
@@ -150,10 +150,11 @@ pub async fn watch(core: &Core) {
     let rule = MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .sender(MM)
-        .and_then(|r| r.interface(MESSAGING))
-        .and_then(|r| r.member("Added"));
+        .interface(MESSAGING)
+        .member("Added")
+        .build();
     let added = match rule {
-        Ok(rule) => MessageStream::for_match_rule(rule.build(), &bus, None).await,
+        Ok(rule) => MessageStream::for_match_rule(rule, &bus, None).await,
         Err(e) => Err(e),
     };
     let mut added = match added {
@@ -195,7 +196,6 @@ async fn send_through_modem(recipient: &str, text: &str) -> Result<(), String> {
         .map_err(|e| format!("Failed to create SMS: {e}"))?;
     let sms = SmsProxy::builder(&bus)
         .path(path)
-        .map_err(|e| e.to_string())?
         .build()
         .await
         .map_err(|e| e.to_string())?;

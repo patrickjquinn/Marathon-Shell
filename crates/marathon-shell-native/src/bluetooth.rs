@@ -15,8 +15,8 @@ use futures_lite::{stream, StreamExt};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy};
 use zbus::message::Header;
 use zbus::message::Type as MessageType;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
 use zbus::{fdo, MatchRule, MessageStream};
+use zbus::{ObjectPath, OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value, State};
 use crate::{io, log};
@@ -817,12 +817,11 @@ impl Actor {
         self.devices.clear();
         let objects = match ObjectManagerProxy::builder(&self.bus)
             .destination(BLUEZ)
-            .and_then(|b| b.path("/"))
+            .path("/")
+            .build()
+            .await
         {
-            Ok(b) => match b.build().await {
-                Ok(manager) => manager.get_managed_objects().await,
-                Err(e) => Err(e.into()),
-            },
+            Ok(manager) => manager.get_managed_objects().await,
             Err(e) => Err(e.into()),
         };
         let objects = objects.unwrap_or_default();
@@ -870,7 +869,6 @@ impl Actor {
         let path = self.adapter.clone()?;
         Adapter1Proxy::builder(&self.bus)
             .path(path)
-            .ok()?
             .cache_properties(zbus::proxy::CacheProperties::No)
             .build()
             .await
@@ -905,7 +903,7 @@ impl Actor {
             }
             Command::Remove(path) => match ObjectPath::try_from(path.as_str()) {
                 Ok(path) => adapter.remove_device(&path).await,
-                Err(e) => Err(e.into()),
+                Err(e) => Err(e),
             },
             // These wait on the device, and pairing on the person.
             Command::Pair { path, address } => {
@@ -946,12 +944,12 @@ impl Actor {
             MatchRule::builder()
                 .msg_type(MessageType::Signal)
                 .sender(BLUEZ)
-                .and_then(|b| b.interface(interface))
-                .and_then(|b| b.member(member))
-                .map(zbus::match_rule::Builder::build)
+                .interface(interface)
+                .member(member)
+                .build()
         };
         let stream = |rule: zbus::Result<MatchRule<'static>>| async {
-            MessageStream::for_match_rule(rule.ok()?, &self.bus, Some(64))
+            MessageStream::for_match_rule(rule.ok()?, &self.bus, std::num::NonZeroUsize::new(64))
                 .await
                 .ok()
         };
@@ -1032,7 +1030,7 @@ fn pairing_error(e: &zbus::Error) -> String {
 )]
 mod agent {
     use async_channel::{Receiver, Sender};
-    use zbus::zvariant::ObjectPath;
+    use zbus::ObjectPath;
 
     use super::{Answer, Ask, Qt};
 
@@ -1115,7 +1113,7 @@ use agent::Agent;
 
 #[cfg(test)]
 mod tests {
-    use zbus::zvariant::Value;
+    use zbus::Variant as Value;
 
     use super::{address_of, icon, Device};
 

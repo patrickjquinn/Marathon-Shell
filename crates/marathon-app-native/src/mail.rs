@@ -15,7 +15,7 @@ use cxx_qt_lib::{
     QByteArray, QDateTime, QHash, QHashPair_i32_QByteArray, QList, QMap, QMapPair_QString_QVariant,
     QModelIndex, QString, QStringList, QTimeZone, QVariant,
 };
-use zbus::zvariant::{Fd, OwnedValue};
+use zbus::{Fd, OwnedVariant as OwnedValue};
 
 use crate::shell::{calls, relay, Service};
 use crate::variant;

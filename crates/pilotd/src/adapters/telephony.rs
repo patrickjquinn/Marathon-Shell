@@ -10,7 +10,7 @@
 //! until then `messages.send` reports itself unavailable.
 
 use async_trait::async_trait;
-use zbus::zvariant::OwnedObjectPath;
+use zbus::OwnedObjectPath;
 
 use super::{AdapterError, Telephony};
 
@@ -121,7 +121,7 @@ impl Modems for Ofono {
             .await?;
         let modems: Vec<(
             OwnedObjectPath,
-            std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
+            std::collections::HashMap<String, zbus::OwnedVariant>,
         )> = reply.body().deserialize()?;
         Ok(modems
             .into_iter()

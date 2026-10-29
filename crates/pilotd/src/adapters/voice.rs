@@ -65,10 +65,7 @@ impl VoiceControl for SystemdVoice {
             }
         };
         let json: String = answered.map_err(|e| match e {
-            zbus::Error::MethodError(name, msg, _)
-                if name.as_str() == "org.freedesktop.DBus.Error.ServiceUnknown" =>
-            {
-                let _ = msg;
+            zbus::Error::FDO(error) if matches!(*error, zbus::fdo::Error::ServiceUnknown(_)) => {
                 AdapterError::Unavailable("voice recognition (pilot-voice)".into())
             }
             zbus::Error::MethodError(_, Some(msg), _) => AdapterError::Failed(msg),
@@ -105,8 +102,8 @@ impl VoiceControl for SystemdVoice {
             // pilot-voice. Cancel a running one (which closes the
             // microphone); one that is not running has nothing to stop,
             // and must not be activated by asking it.
-            Err(zbus::Error::MethodError(name, _, _))
-                if name.as_str() == "org.freedesktop.DBus.Error.ServiceUnknown" =>
+            Err(zbus::Error::FDO(error))
+                if matches!(*error, zbus::fdo::Error::ServiceUnknown(_)) =>
             {
                 self.cancel_running().await
             }

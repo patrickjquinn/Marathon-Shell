@@ -5,16 +5,16 @@
 use std::collections::HashMap;
 
 use marathon_rt::testing::PrivateBus;
-use zbus::zvariant::OwnedValue;
 use zbus::Connection;
+use zbus::OwnedVariant as OwnedValue;
 
 const BUS: &str = "org.marathonos.Telephony";
 
-async fn call<R: serde::de::DeserializeOwned + zbus::zvariant::Type>(
+async fn call<R: serde::de::DeserializeOwned + zbus::Type>(
     bus: &Connection,
     object: &str,
     method: &str,
-    body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
+    body: &(impl serde::Serialize + zbus::DynamicType),
 ) -> zbus::Result<R> {
     let path = format!("/org/marathonos/Shell/{object}");
     let interface = format!("org.marathonos.Shell.{object}1");
@@ -92,7 +92,7 @@ fn texts_and_calls_are_kept_for_permitted_apps() {
 
         let refused = call::<HashMap<String, OwnedValue>>(&app, "Sms", "GetMmsSettings", &()).await;
         assert!(
-            matches!(refused, Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == "org.freedesktop.DBus.Error.AccessDenied")
+            matches!(refused, Err(zbus::Error::FDO(error)) if matches!(*error, zbus::fdo::Error::AccessDenied(_)))
         );
         assert!(!call::<bool>(&app, "Sms", "IsMmsAvailable", &())
             .await

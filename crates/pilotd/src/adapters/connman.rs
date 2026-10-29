@@ -6,7 +6,7 @@
 //! `OfflineMode` for flight mode (confirmation card, spec section 6.2).
 
 use async_trait::async_trait;
-use zbus::zvariant::Value;
+use zbus::Variant as Value;
 
 use super::{AdapterError, DeviceToggles, Toggle};
 
@@ -58,7 +58,7 @@ impl DeviceToggles for ConnMan {
             .system
             .call_method(Some("net.connman"), path, Some(iface), "GetProperties", &())
             .await?;
-        let props: std::collections::HashMap<String, zbus::zvariant::OwnedValue> =
+        let props: std::collections::HashMap<String, zbus::OwnedVariant> =
             reply.body().deserialize()?;
         props
             .get(prop)

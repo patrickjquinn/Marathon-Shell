@@ -73,14 +73,17 @@ pub fn network_ok(state: u32, metered: u32, need: Network) -> bool {
 }
 
 fn network_manager() -> zbus::Result<(u32, u32)> {
-    let conn = zbus::blocking::Connection::system()?;
-    let nm = zbus::blocking::Proxy::new(
+    let conn = zbus::block_on(zbus::Connection::system())?;
+    let nm = zbus::block_on(zbus::Proxy::new(
         &conn,
         "org.freedesktop.NetworkManager",
         "/org/freedesktop/NetworkManager",
         "org.freedesktop.NetworkManager",
-    )?;
-    Ok((nm.get_property("State")?, nm.get_property("Metered")?))
+    ))?;
+    Ok((
+        zbus::block_on(nm.get_property("State"))?,
+        zbus::block_on(nm.get_property("Metered"))?,
+    ))
 }
 
 /// Why the constraints are not met, or `None` when the task may run.

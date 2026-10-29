@@ -13,8 +13,8 @@ use image::imageops::FilterType;
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use marathon_rt::log;
 use zbus::fdo;
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 use zbus::{MatchRule, MessageStream};
+use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::{modem, Core, SmsService};
 
@@ -66,10 +66,10 @@ async fn call<R>(
     path: &str,
     interface: &str,
     method: &str,
-    body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
+    body: &(impl serde::Serialize + zbus::DynamicType),
 ) -> zbus::Result<R>
 where
-    R: serde::de::DeserializeOwned + zbus::zvariant::Type,
+    R: serde::de::DeserializeOwned + zbus::Type,
 {
     core.bus
         .call_method(Some(BUS), path, Some(interface), method, body)
@@ -181,13 +181,13 @@ pub async fn watch(core: &Core) {
     let rule = MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .sender(BUS)
-        .map(zbus::match_rule::Builder::build);
+        .build();
     let owner = MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .sender("org.freedesktop.DBus")
-        .and_then(|r| r.member("NameOwnerChanged"))
-        .and_then(|r| r.arg(0, BUS))
-        .map(zbus::match_rule::Builder::build);
+        .member("NameOwnerChanged")
+        .arg(0, BUS)
+        .build();
     let (Ok(rule), Ok(owner)) = (rule, owner) else {
         return;
     };
@@ -240,17 +240,14 @@ pub async fn watch(core: &Core) {
             (MODEM_MANAGER, "SettingsChanged") => {
                 if let Ok((apn, mmsc, proxy)) = body.deserialize::<(String, String, String)>() {
                     let settings = HashMap::from([
-                        (
-                            "MMS_APN".to_owned(),
-                            OwnedValue::from(zbus::zvariant::Str::from(apn)),
-                        ),
+                        ("MMS_APN".to_owned(), OwnedValue::from(zbus::Str::from(apn))),
                         (
                             "CarrierMMSC".to_owned(),
-                            OwnedValue::from(zbus::zvariant::Str::from(mmsc)),
+                            OwnedValue::from(zbus::Str::from(mmsc)),
                         ),
                         (
                             "CarrierMMSProxy".to_owned(),
-                            OwnedValue::from(zbus::zvariant::Str::from(proxy)),
+                            OwnedValue::from(zbus::Str::from(proxy)),
                         ),
                     ]);
                     SmsService::mms_settings_changed(&core.sms(), settings)

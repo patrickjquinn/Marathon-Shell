@@ -8,7 +8,7 @@ use std::pin::Pin;
 use cxx_qt::{CxxQtThread, CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 use futures_lite::StreamExt;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 use crate::variant;
 use marathon_rt::{io, log};
@@ -365,17 +365,14 @@ impl AndroidApps {
             .map(|p| {
                 let (pkg, label) = (text(&p, "pkg"), text(&p, "label"));
                 let mut app = Map::new();
-                app.insert(
-                    "pkg".into(),
-                    OwnedValue::from(zbus::zvariant::Str::from(pkg.clone())),
-                );
+                app.insert("pkg".into(), OwnedValue::from(zbus::Str::from(pkg.clone())));
                 app.insert(
                     "id".into(),
-                    OwnedValue::from(zbus::zvariant::Str::from(format!("deckard.{pkg}"))),
+                    OwnedValue::from(zbus::Str::from(format!("deckard.{pkg}"))),
                 );
                 app.insert(
                     "name".into(),
-                    OwnedValue::from(zbus::zvariant::Str::from(if label.is_empty() {
+                    OwnedValue::from(zbus::Str::from(if label.is_empty() {
                         pkg.clone()
                     } else {
                         label
@@ -457,7 +454,7 @@ impl AndroidApps {
     /// `method` on Deckard1 with `body`, then `done` or `failed` for `action`.
     fn act<B>(&self, action: &'static str, pkg: &QString, method: &'static str, body: B)
     where
-        B: serde::Serialize + zbus::zvariant::DynamicType + Send + Sync + 'static,
+        B: serde::Serialize + zbus::DynamicType + Send + Sync + 'static,
     {
         let (qt, pkg) = (self.qt_thread(), pkg.to_string());
         io::spawn(async move {

@@ -16,7 +16,7 @@ use futures_lite::{stream, StreamExt};
 use zbus::fdo::{self, DBusProxy};
 use zbus::message::Header;
 use zbus::names::BusName;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue};
+use zbus::{ObjectPath, OwnedObjectPath, OwnedVariant as OwnedValue};
 
 use crate::ipc::{self, value, State};
 use crate::{io, log, permissions};
@@ -382,7 +382,7 @@ async fn new_client(
     let made = async {
         let path = ManagerProxy::new(bus).await?.get_client().await?;
         let client = ClientProxy::builder(bus)
-            .path(path)?
+            .path(path)
             .cache_properties(zbus::proxy::CacheProperties::No)
             .build()
             .await?;
@@ -458,7 +458,7 @@ impl Agent {
 mod tests {
     use std::collections::HashMap;
 
-    use zbus::zvariant::{OwnedValue, Value};
+    use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
     use super::Fix;
 

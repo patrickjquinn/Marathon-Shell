@@ -231,9 +231,9 @@ impl Notifier for FdoNotifier {
         body: &str,
         hints: &[(&str, String)],
     ) -> Result<u32, AdapterError> {
-        let hints: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> = hints
+        let hints: std::collections::HashMap<&str, zbus::Variant<'_>> = hints
             .iter()
-            .map(|(k, v)| (*k, zbus::zvariant::Value::from(v.as_str())))
+            .map(|(k, v)| (*k, zbus::Variant::from(v.as_str())))
             .collect();
         let reply = self
             .session

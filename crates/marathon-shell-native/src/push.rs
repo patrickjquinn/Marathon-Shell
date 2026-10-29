@@ -17,8 +17,8 @@ use async_tungstenite::tungstenite::Message;
 use futures_lite::{future, StreamExt};
 use serde::{Deserialize, Serialize};
 use zbus::fdo::{RequestNameFlags, RequestNameReply};
-use zbus::zvariant::{OwnedValue, Value};
 use zbus::Connection;
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::notifications::NotificationsProxy;
 use crate::{io, log, stored};
@@ -62,7 +62,7 @@ async fn start() -> zbus::Result<()> {
     };
     conn.object_server().at(PATH, distributor).await?;
     let reply = conn
-        .request_name_with_flags(NAME, RequestNameFlags::DoNotQueue.into())
+        .request_name_with_flags(NAME, RequestNameFlags::DO_NOT_QUEUE)
         .await?;
     if !matches!(
         reply,

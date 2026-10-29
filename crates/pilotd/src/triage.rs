@@ -320,7 +320,7 @@ pub fn source_of(category: &str) -> Option<&'static str> {
 /// Reads a `Notify` call's arguments. `None` for calls not worth
 /// triaging (transient, system categories, progress updates).
 pub fn from_notify(msg: &zbus::Message) -> Option<Incoming> {
-    use zbus::zvariant::OwnedValue;
+    use zbus::OwnedVariant as OwnedValue;
     type Notify = (
         String,
         u32,
@@ -368,12 +368,12 @@ pub async fn watch_notifications(
     use futures_util::StreamExt as _;
     let rule = zbus::MatchRule::builder()
         .msg_type(zbus::message::Type::MethodCall)
-        .interface("org.freedesktop.Notifications")?
-        .member("Notify")?
+        .interface("org.freedesktop.Notifications")
+        .member("Notify")
         .build();
     zbus::fdo::MonitoringProxy::new(&conn)
         .await?
-        .become_monitor(&[rule], 0)
+        .become_monitor(&[rule?], 0)
         .await?;
     let mut stream = zbus::MessageStream::from(conn);
     while let Some(msg) = stream.next().await {

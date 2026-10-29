@@ -9,8 +9,8 @@ use std::pin::Pin;
 use cxx_qt::{CxxQtThread, CxxQtType, Threading};
 use serde::Serialize;
 use zbus::message::Header;
-use zbus::zvariant::{DynamicType, OwnedValue};
 use zbus::{fdo, object_server::Interface};
+use zbus::{DynamicType, OwnedVariant as OwnedValue};
 
 use crate::{gate, io, log};
 
@@ -154,6 +154,6 @@ where
 }
 
 /// A `State` entry.
-pub fn value(v: impl Into<zbus::zvariant::Value<'static>>) -> OwnedValue {
+pub fn value(v: impl Into<zbus::Variant<'static>>) -> OwnedValue {
     OwnedValue::try_from(v.into()).unwrap_or_else(|_| OwnedValue::from(false))
 }

@@ -15,7 +15,7 @@ use cxx_qt_lib::{
 };
 use palette::color_difference::Wcag21RelativeContrast as _;
 use palette::Srgb;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 use crate::io;
 use crate::ipc::{self, value, State};

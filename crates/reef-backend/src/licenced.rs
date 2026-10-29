@@ -141,12 +141,12 @@ pub async fn serve(
     address: Option<&str>,
 ) -> zbus::Result<zbus::Connection> {
     let builder = match address {
-        Some(a) => zbus::connection::Builder::address(a)?,
-        None => zbus::connection::Builder::session()?,
+        Some(a) => zbus::connection::Builder::address(a),
+        None => zbus::connection::Builder::session(),
     };
     builder
-        .serve_at(OBJECT_PATH, service)?
-        .name(BUS_NAME)?
+        .serve_at(OBJECT_PATH, service)
+        .name(BUS_NAME)
         .build()
         .await
 }

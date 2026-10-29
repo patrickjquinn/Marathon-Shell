@@ -122,7 +122,7 @@ impl Bus {
 
     async fn call<B>(&self, app: &str, method: &str, body: &B, timeout: Duration) -> CallResult
     where
-        B: serde::Serialize + zbus::zvariant::DynamicType + Sync,
+        B: serde::Serialize + zbus::DynamicType + Sync,
     {
         let call = self
             .connection
@@ -141,6 +141,9 @@ impl Bus {
                         CallError::Unreachable(format!("{name}: {}", message.unwrap_or_default()))
                     }
                 });
+            }
+            Ok(Err(zbus::Error::FDO(error))) if matches!(*error, zbus::fdo::Error::NoReply(_)) => {
+                return Err(CallError::Timeout);
             }
             Ok(Err(e)) => return Err(CallError::Unreachable(e.to_string())),
             Ok(Ok(reply)) => reply,
@@ -272,7 +275,7 @@ impl Backend for Bus {
                 return Err(e);
             }
             let mut options = std::collections::HashMap::new();
-            options.insert("userInitiated", zbus::zvariant::Value::from(user_initiated));
+            options.insert("userInitiated", zbus::Variant::from(user_initiated));
             self.call(
                 app,
                 "Invoke",

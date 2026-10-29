@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The UI's side of `org.shipwright.Pilot1` (shoal/pilot/README.md, "D-Bus
-//! interface"). Blocking zbus: each call runs on the caller's thread, which
+//! interface"). Each call runs on the caller's thread, which
 //! for turns is a worker (see `bridge`). Structured values stay JSON
 //! strings end to end; QML parses them.
 
 use std::time::Duration;
 
-use zbus::blocking::{Connection, Proxy};
+use zbus::{Connection, Proxy};
 
 pub const BUS_NAME: &str = "org.shipwright.Pilot";
 pub const PATH: &str = "/org/shipwright/Pilot";
@@ -36,6 +36,8 @@ pub enum Change {
 fn err(e: &zbus::Error) -> String {
     match e {
         zbus::Error::MethodError(_, Some(msg), _) => msg.clone(),
+        zbus::Error::FDO(error) => zbus::DBusError::description(error.as_ref())
+            .map_or_else(|| error.to_string(), str::to_owned),
         other => other.to_string(),
     }
 }
@@ -44,23 +46,25 @@ impl Client {
     /// Connects to the session bus. Calls activate pilotd if it is not
     /// running.
     pub fn connect() -> Result<Client, String> {
-        let conn = zbus::blocking::connection::Builder::session()
-            .map(|b| b.method_timeout(TURN_TIMEOUT))
-            .and_then(zbus::blocking::connection::Builder::build)
-            .map_err(|e| err(&e))?;
+        let conn = zbus::block_on(
+            zbus::connection::Builder::session()
+                .method_timeout(TURN_TIMEOUT)
+                .build(),
+        )
+        .map_err(|e| err(&e))?;
         Ok(Client { conn })
     }
 
     fn proxy(&self) -> Result<Proxy<'static>, String> {
-        Proxy::new(&self.conn, BUS_NAME, PATH, INTERFACE).map_err(|e| err(&e))
+        zbus::block_on(Proxy::new(&self.conn, BUS_NAME, PATH, INTERFACE)).map_err(|e| err(&e))
     }
 
     fn call<B, R>(&self, method: &str, body: &B) -> Result<R, String>
     where
-        B: serde::Serialize + zbus::zvariant::DynamicType,
-        R: for<'d> zbus::zvariant::DynamicDeserialize<'d>,
+        B: serde::Serialize + zbus::DynamicType,
+        R: for<'d> zbus::wire::DynamicDeserialize<'d>,
     {
-        self.proxy()?.call(method, body).map_err(|e| err(&e))
+        zbus::block_on(self.proxy()?.call(method, body)).map_err(|e| err(&e))
     }
 
     pub fn ask(&self, text: &str, spoken: bool) -> Result<String, String> {
@@ -164,13 +168,11 @@ impl Client {
     }
 
     pub fn offline(&self) -> Result<bool, String> {
-        self.proxy()?.get_property("Offline").map_err(|e| err(&e))
+        zbus::block_on(self.proxy()?.get_property("Offline")).map_err(|e| err(&e))
     }
 
     pub fn last_response(&self) -> Result<String, String> {
-        self.proxy()?
-            .get_property("LastResponse")
-            .map_err(|e| err(&e))
+        zbus::block_on(self.proxy()?.get_property("LastResponse")).map_err(|e| err(&e))
     }
 
     pub fn now(&self) -> Result<String, String> {
@@ -188,10 +190,10 @@ impl Client {
     /// Calls `on_stage` with each `TurnProgress` JSON until the bus
     /// connection ends or `on_stage` returns false.
     pub fn watch_progress(&self, mut on_stage: impl FnMut(String) -> bool) -> Result<(), String> {
-        let stages = self
-            .proxy()?
-            .receive_signal("TurnProgress")
-            .map_err(|e| err(&e))?;
+        let proxy = self.proxy()?;
+        let stages = futures_lite::stream::block_on(
+            zbus::block_on(proxy.receive_signal("TurnProgress")).map_err(|e| err(&e))?,
+        );
         for m in stages {
             let Ok(stage) = m.body().deserialize::<String>() else {
                 continue;
@@ -210,12 +212,14 @@ impl Client {
         let rule = zbus::MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
             .interface("org.freedesktop.DBus.Properties")
-            .and_then(|b| b.member("PropertiesChanged"))
-            .and_then(|b| b.path(PATH))
-            .map_err(|e| err(&e))?
-            .build();
-        let changes = zbus::blocking::MessageIterator::for_match_rule(rule, &self.conn, None)
+            .member("PropertiesChanged")
+            .path(PATH)
+            .build()
             .map_err(|e| err(&e))?;
+        let changes = futures_lite::stream::block_on(
+            zbus::block_on(zbus::MessageStream::for_match_rule(rule, &self.conn, None))
+                .map_err(|e| err(&e))?,
+        );
         for message in changes {
             let Some(signal) = message
                 .ok()

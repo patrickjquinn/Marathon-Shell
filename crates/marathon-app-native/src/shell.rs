@@ -12,7 +12,7 @@ use cxx_qt::{CxxQtThread, CxxQtType, Threading};
 use futures_lite::{Stream, StreamExt};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use zbus::zvariant::{DynamicType, OwnedValue, Type};
+use zbus::{DynamicType, OwnedVariant as OwnedValue, Type};
 use zbus::{MatchRule, MessageStream};
 
 use marathon_rt::{io, log};
@@ -136,12 +136,12 @@ impl Service {
     {
         let rule = MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
-            .sender(self.bus)?
-            .path(self.path())?
-            .interface(self.interface())?
-            .member(member)?
+            .sender(self.bus)
+            .path(self.path())
+            .interface(self.interface())
+            .member(member)
             .build();
-        let stream = MessageStream::for_match_rule(rule, &io::session_bus().await?, None).await?;
+        let stream = MessageStream::for_match_rule(rule?, &io::session_bus().await?, None).await?;
         Ok(stream.filter_map(|m| m.ok()?.body().deserialize().ok()))
     }
 }
@@ -163,12 +163,14 @@ pub async fn answers(
 pub fn message(e: &zbus::Error) -> String {
     match e {
         zbus::Error::MethodError(_, Some(text), _) => text.clone(),
+        zbus::Error::FDO(error) => zbus::DBusError::description(error.as_ref())
+            .map_or_else(|| error.to_string(), str::to_owned),
         other => other.to_string(),
     }
 }
 
 fn is_access_denied(e: &zbus::Error) -> bool {
-    matches!(e, zbus::Error::MethodError(name, _, _) if name.as_str() == "org.freedesktop.DBus.Error.AccessDenied")
+    matches!(e, zbus::Error::FDO(error) if matches!(error.as_ref(), zbus::fdo::Error::AccessDenied(_)))
 }
 
 /// What a client shows: the shell's state, or that it refused the app.
@@ -388,12 +390,7 @@ impl Field for cxx_qt_lib::QList<cxx_qt_lib::QVariant> {
 
 /// A QML argument as D-Bus sends it.
 pub trait Arg {
-    type Wire: Serialize
-        + DynamicType
-        + Into<zbus::zvariant::Value<'static>>
-        + Send
-        + Sync
-        + 'static;
+    type Wire: Serialize + DynamicType + Into<zbus::Variant<'static>> + Send + Sync + 'static;
     fn wire(self) -> Self::Wire;
 }
 
@@ -408,7 +405,7 @@ impl Arg for &cxx_qt_lib::QStringList {
 }
 
 impl Arg for &cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant> {
-    type Wire = HashMap<String, zbus::zvariant::Value<'static>>;
+    type Wire = HashMap<String, zbus::Variant<'static>>;
     fn wire(self) -> Self::Wire {
         crate::variant::map(self)
     }

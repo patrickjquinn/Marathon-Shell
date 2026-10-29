@@ -13,8 +13,8 @@
 name = "shipwright-reef"
 version = "0.1.0"
 edition = "2021"
-# reef-backend (zbus 5) needs 1.87; cxx-qt 0.10 needs 1.85.
-rust-version = "1.87"
+# zbus 6 needs Rust 1.89.
+rust-version = "1.89"
 license = "Apache-2.0"
 publish = false
 
@@ -45,7 +45,7 @@ module_name_repetitions = "allow"
 keel = { path = "../../crates/keel" }
 # cxx-qt pinned exactly, as in tools/phase0/hello-qt6-rust: CXX-Qt's README
 # warns of frequent API changes. Cargo.lock pins cxx.
-cxx = "1.0.176"
+cxx = "1.0.205"
 cxx-qt = "=0.10.0"
 cxx-qt-lib = { version = "=0.10.0", features = ["qt_gui", "qt_qml"] }
 

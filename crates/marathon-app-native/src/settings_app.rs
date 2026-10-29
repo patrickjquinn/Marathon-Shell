@@ -12,8 +12,8 @@ use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, Q
 use futures_lite::StreamExt;
 use jiff::tz::TimeZone;
 use jiff::Timestamp;
-use zbus::zvariant::{OwnedValue, Value};
 use zbus::{MatchRule, MessageStream};
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::shell::{get, mirror, relay, Field, Service, State, Update};
 use marathon_apps::apps;
@@ -331,7 +331,7 @@ impl Default for MmsSettingsRust {
     }
 }
 
-async fn mms_call<B: serde::Serialize + zbus::zvariant::DynamicType>(
+async fn mms_call<B: serde::Serialize + zbus::DynamicType>(
     method: &str,
     body: &B,
 ) -> zbus::Result<zbus::Message> {
@@ -351,10 +351,10 @@ impl cxx_qt::Initialize for MmsSettings {
             let Ok(rule) = MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
                 .sender(MMS_SERVICE)
-                .and_then(|b| b.path(MMS_PATH))
-                .and_then(|b| b.interface(MMS_IFACE))
-                .and_then(|b| b.member("SettingsChanged"))
-                .map(zbus::match_rule::Builder::build)
+                .path(MMS_PATH)
+                .interface(MMS_IFACE)
+                .member("SettingsChanged")
+                .build()
             else {
                 return;
             };

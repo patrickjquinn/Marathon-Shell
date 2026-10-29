@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use marathon_qt as qvariant;
-use zbus::zvariant;
+use zbus::Variant;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -75,14 +75,14 @@ impl Value {
 
 impl Value {
     /// What a D-Bus caller (or QML, through `qvariant`) stores.
-    pub fn from_dbus(value: &zvariant::Value<'_>) -> Self {
-        use zvariant::Value as V;
+    pub fn from_dbus(value: &Variant<'_>) -> Self {
+        use Variant as V;
         match value {
             V::Bool(b) => Self::Bool(*b),
             V::F64(f) => Self::Double(*f),
             V::Str(s) => Self::Text(s.as_str().to_owned()),
             V::ObjectPath(p) => Self::Text(p.as_str().to_owned()),
-            V::Value(inner) => Self::from_dbus(inner),
+            V::Variant(inner) => Self::from_dbus(inner),
             V::Array(items) if items.element_signature() == "s" => Self::List(
                 items
                     .iter()
@@ -105,8 +105,8 @@ impl Value {
     }
 
     /// What D-Bus carries back; an invalid value is an empty string.
-    pub fn to_dbus(&self) -> zvariant::Value<'static> {
-        use zvariant::Value as V;
+    pub fn to_dbus(&self) -> Variant<'static> {
+        use Variant as V;
         match self {
             Self::Invalid => V::from(String::new()),
             Self::Text(s) => V::from(s.clone()),
@@ -116,12 +116,12 @@ impl Value {
             Self::Double(d) => V::from(*d),
             Self::Seq(s) => V::from(
                 s.iter()
-                    .map(|v| V::Value(Box::new(v.to_dbus())))
+                    .map(|v| V::Variant(Box::new(v.to_dbus())))
                     .collect::<Vec<_>>(),
             ),
             Self::Map(m) => V::from(
                 m.iter()
-                    .map(|(k, v)| (k.clone(), V::Value(Box::new(v.to_dbus()))))
+                    .map(|(k, v)| (k.clone(), V::Variant(Box::new(v.to_dbus()))))
                     .collect::<std::collections::HashMap<_, _>>(),
             ),
         }

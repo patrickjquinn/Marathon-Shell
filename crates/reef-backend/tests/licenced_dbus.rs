@@ -109,12 +109,13 @@ fn bus(dir: &Path, data_home: &Path) -> Option<Bus> {
     })
 }
 
-fn client(bus: &Bus) -> zbus::blocking::Connection {
-    zbus::blocking::connection::Builder::address(bus.address.as_str())
-        .unwrap()
-        .method_timeout(Duration::from_secs(10))
-        .build()
-        .unwrap()
+fn client(bus: &Bus) -> zbus::Connection {
+    zbus::block_on(
+        zbus::connection::Builder::address(bus.address.as_str())
+            .method_timeout(Duration::from_secs(10))
+            .build(),
+    )
+    .unwrap()
 }
 
 fn signer() -> Signer {
@@ -197,7 +198,7 @@ fn get_licence_in_process() {
         "GetLicence",
         &("../../.ssh/id_rsa",),
     );
-    match raw {
+    match zbus::block_on(raw) {
         Err(zbus::Error::MethodError(name, _, _)) => assert_eq!(
             name.as_str(),
             "org.marathonos.Reef.Licences1.Error.InvalidAppId"
@@ -250,9 +251,9 @@ fn activated_binary_answers_then_exits_when_idle() {
     );
 
     // Idle timeout is 1 s in this bus's environment: the name goes away.
-    let dbus = zbus::blocking::fdo::DBusProxy::new(&conn).unwrap();
+    let dbus = zbus::block_on(zbus::fdo::DBusProxy::new(&conn)).unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
-    while dbus.name_has_owner(BUS_NAME.try_into().unwrap()).unwrap() {
+    while zbus::block_on(dbus.name_has_owner(BUS_NAME.try_into().unwrap())).unwrap() {
         assert!(Instant::now() < deadline, "service did not exit when idle");
         std::thread::sleep(Duration::from_millis(100));
     }

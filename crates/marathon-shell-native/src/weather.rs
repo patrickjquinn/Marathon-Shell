@@ -10,7 +10,7 @@ use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString};
 use futures_lite::{future, StreamExt};
 use zbus::fdo::PropertiesProxy;
 use zbus::names::InterfaceName;
-use zbus::zvariant::Value;
+use zbus::Variant as Value;
 
 use crate::{io, log, variant};
 
@@ -140,8 +140,8 @@ impl cxx_qt::Initialize for WeatherClient {
 
 async fn properties() -> zbus::Result<PropertiesProxy<'static>> {
     PropertiesProxy::builder(&io::session_bus().await?)
-        .destination(SERVICE)?
-        .path(PATH)?
+        .destination(SERVICE)
+        .path(PATH)
         .build()
         .await
 }

@@ -241,7 +241,7 @@ async fn only_the_asking_app_can_answer_its_card() {
         .call("Confirm", &(id.as_str(), true))
         .await;
     assert!(
-        matches!(&refused, Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == "org.freedesktop.DBus.Error.AccessDenied"),
+        matches!(&refused, Err(zbus::Error::FDO(error)) if matches!(error.as_ref(), zbus::fdo::Error::AccessDenied(_))),
         "{refused:?}"
     );
     assert!(

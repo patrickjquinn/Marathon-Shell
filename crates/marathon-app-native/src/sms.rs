@@ -8,7 +8,7 @@ use std::pin::Pin;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
 use futures_lite::StreamExt;
-use zbus::zvariant::{Fd, OwnedFd, OwnedValue};
+use zbus::{Fd, OwnedFd, OwnedVariant as OwnedValue};
 
 use crate::shell::{allowed, answers, cache_dir, relay, Arg, Service};
 use crate::variant;

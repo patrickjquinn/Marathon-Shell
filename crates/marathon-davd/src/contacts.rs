@@ -7,7 +7,7 @@ use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use marathon_rt::daemon::same_number;
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 pub type Row = HashMap<&'static str, Value<'static>>;
 
@@ -312,7 +312,7 @@ mod tests {
         let update = HashMap::from([
             (
                 "organization".to_owned(),
-                OwnedValue::from(zbus::zvariant::Str::from("Acme")),
+                OwnedValue::from(zbus::Str::from("Acme")),
             ),
             ("favorite".to_owned(), OwnedValue::from(true)),
         ]);
@@ -333,7 +333,7 @@ mod tests {
             id,
             &HashMap::from([(
                 "name".to_owned(),
-                OwnedValue::from(zbus::zvariant::Str::from("Maya Lee")),
+                OwnedValue::from(zbus::Str::from("Maya Lee")),
             )]),
         )
         .unwrap();
@@ -379,7 +379,7 @@ mod tests {
         fs::create_dir(book.file(id).unwrap().unwrap().with_extension("tmp")).unwrap();
         let update = HashMap::from([(
             "name".to_owned(),
-            OwnedValue::from(zbus::zvariant::Str::from("Maya Lee")),
+            OwnedValue::from(zbus::Str::from("Maya Lee")),
         )]);
 
         assert!(book.update(id, &update).is_err());

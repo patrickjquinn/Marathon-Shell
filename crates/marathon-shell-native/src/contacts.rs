@@ -7,7 +7,7 @@ use std::pin::Pin;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QMap, QMapPair_QString_QVariant, QString, QVariant};
 use futures_lite::StreamExt;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 use zbus::{MatchRule, MessageStream};
 
 use crate::{io, log};
@@ -88,10 +88,11 @@ impl cxx_qt::Initialize for Contacts {
             let rule = MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
                 .sender(BUS)
-                .and_then(|r| r.interface(INTERFACE))
-                .and_then(|r| r.member("ContactsChanged"));
+                .interface(INTERFACE)
+                .member("ContactsChanged")
+                .build();
             let changes = match rule {
-                Ok(rule) => MessageStream::for_match_rule(rule.build(), &bus, None).await,
+                Ok(rule) => MessageStream::for_match_rule(rule, &bus, None).await,
                 Err(e) => Err(e),
             };
             let Ok(changes) = changes else {

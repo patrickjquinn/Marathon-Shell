@@ -43,7 +43,7 @@ impl PrivateBus {
     }
 
     pub async fn connect(&self) -> zbus::Result<Connection> {
-        zbus::connection::Builder::address(self.address.as_str())?
+        zbus::connection::Builder::address(self.address.as_str())
             .build()
             .await
     }
@@ -51,9 +51,9 @@ impl PrivateBus {
     /// The shell's `Permissions1`, admitting every caller but for `refused`.
     pub async fn shell(&self, refused: &[&str]) -> zbus::Result<Connection> {
         let shell = Shell(refused.iter().map(|&p| p.to_owned()).collect());
-        zbus::connection::Builder::address(self.address.as_str())?
-            .name("org.marathonos.Shell")?
-            .serve_at("/org/marathonos/Shell/Permissions", shell)?
+        zbus::connection::Builder::address(self.address.as_str())
+            .name("org.marathonos.Shell")
+            .serve_at("/org/marathonos/Shell/Permissions", shell)
             .build()
             .await
     }

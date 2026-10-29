@@ -19,7 +19,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use serde::Serialize;
-use zbus::zvariant::Type;
+use zbus::Type;
 
 use super::{AdapterError, Clock, ClockItem};
 use crate::localtime::LocalNow;
@@ -200,8 +200,8 @@ pub struct TimedClock {
 impl TimedClock {
     async fn call<B, R>(&self, method: &str, body: &B) -> Result<R, AdapterError>
     where
-        B: serde::Serialize + zbus::zvariant::DynamicType,
-        R: for<'d> serde::Deserialize<'d> + zbus::zvariant::Type,
+        B: serde::Serialize + zbus::DynamicType,
+        R: for<'d> serde::Deserialize<'d> + zbus::Type,
     {
         let reply = self
             .system

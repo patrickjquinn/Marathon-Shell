@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 
 use serde_json::{json, Map, Value};
 use zbus::message::Header;
-use zbus::zvariant::OwnedValue;
+use zbus::OwnedVariant as OwnedValue;
 
 use super::{launch::descends_from, q, Qt};
 use crate::{apps, display, io, ipc, log};

@@ -14,7 +14,7 @@ use cxx_qt_lib::QString;
 use futures_lite::{stream, StreamExt};
 use zbus::fdo::DBusProxy;
 use zbus::message::Type as MessageType;
-use zbus::zvariant::{DynamicType, OwnedObjectPath, OwnedValue, Value};
+use zbus::{DynamicType, OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 use zbus::{MatchRule, MessageStream};
 
 use crate::{io, log};
@@ -332,7 +332,7 @@ impl Player {
                 if let Value::Dict(dict) = value {
                     self.track = Track::default();
                     for (k, v) in dict.iter() {
-                        let v = if let Value::Value(inner) = v {
+                        let v = if let Value::Variant(inner) = v {
                             inner
                         } else {
                             v
@@ -613,11 +613,14 @@ impl Actor {
         let rule = MatchRule::builder()
             .msg_type(MessageType::Signal)
             .path(PATH)
-            .and_then(|b| b.interface(PROPERTIES))
-            .and_then(|b| b.member("PropertiesChanged"))
-            .map(zbus::match_rule::Builder::build);
+            .interface(PROPERTIES)
+            .member("PropertiesChanged")
+            .build();
         if let Ok(rule) = rule {
-            if let Ok(s) = MessageStream::for_match_rule(rule, &self.bus, Some(64)).await {
+            if let Ok(s) =
+                MessageStream::for_match_rule(rule, &self.bus, std::num::NonZeroUsize::new(64))
+                    .await
+            {
                 merged = merged
                     .or(s.filter_map(|m| {
                         let m = m.ok()?;
@@ -657,7 +660,7 @@ impl Actor {
 mod tests {
     use std::collections::HashMap;
 
-    use zbus::zvariant::Value;
+    use zbus::Variant as Value;
 
     use super::Player;
 

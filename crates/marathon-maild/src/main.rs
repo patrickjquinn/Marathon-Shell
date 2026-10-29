@@ -21,8 +21,8 @@ use marathon_rt::daemon::{admit, Shared};
 use marathon_rt::{io, log};
 use zbus::message::Header;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::{ObjectPath, OwnedFd, Value};
 use zbus::{fdo, interface, Connection};
+use zbus::{ObjectPath, OwnedFd, Variant as Value};
 
 use imap::Failure;
 use store::{Account, Server, Store};
@@ -476,7 +476,7 @@ impl MailService {
             .unwrap_or_default();
         if mail_parser::MessageParser::default()
             .parse(&raw)
-            .is_some_and(|m| m.text_body_count() + m.html_body_count() == 0)
+            .is_some_and(|m| m.text_body().len() + m.html_body().len() == 0)
         {
             if let Some(mut s) = self.0.session(&a).await {
                 if let Ok(whole) = imap::whole(&mut s, &folder, uid).await {

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use tz::{DateTime, TimeZone, TimeZoneRef, UtcDateTime};
 use zbus::fdo;
 use zbus::message::Header;
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value, State};
 use crate::{io, log, variant};
@@ -348,7 +348,7 @@ impl Changes {
     fn from_dbus(options: &State) -> Self {
         let get = |k: &str| {
             options.get(k).map(|v| match &**v {
-                Value::Value(inner) => inner.as_ref(),
+                Value::Variant(inner) => inner.as_ref(),
                 v => v,
             })
         };

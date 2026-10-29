@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use cxx_qt_lib::{
     QList, QMap, QMapPair_QString_QVariant, QMetaTypeType, QString, QStringList, QVariant,
 };
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 /// Any of D-Bus's integers.
 pub fn number(value: &Value<'_>) -> Option<i64> {
@@ -18,7 +18,7 @@ pub fn number(value: &Value<'_>) -> Option<i64> {
         Value::U32(n) => Some(i64::from(*n)),
         Value::I64(n) => Some(*n),
         Value::U64(n) => i64::try_from(*n).ok(),
-        Value::Value(inner) => number(inner),
+        Value::Variant(inner) => number(inner),
         _ => None,
     }
 }
@@ -29,7 +29,7 @@ pub fn to_qt(value: &Value<'_>) -> QVariant {
         Value::F64(f) => QVariant::from(f),
         Value::Str(s) => QVariant::from(&QString::from(s.as_str())),
         Value::ObjectPath(p) => QVariant::from(&QString::from(p.as_str())),
-        Value::Value(inner) => to_qt(inner),
+        Value::Variant(inner) => to_qt(inner),
         Value::Array(items) => {
             let mut list = QList::<QVariant>::default();
             for item in items.iter() {
