@@ -628,6 +628,16 @@ impl Tasks {
         if android == self.lifecycle.front_android {
             return;
         }
+        // Android surfaces do not pass through bring_forward(), which normally
+        // backgrounds the previous native app. Follow the authoritative shell
+        // foreground here so that app releases its budget and can idle/freeze.
+        if !android.is_empty() {
+            let previous = self.lifecycle.foreground.clone();
+            if !previous.is_empty() && previous != android {
+                self.as_mut().rust_mut().lifecycle.foreground.clear();
+                self.as_mut().foreground_exit(&previous);
+            }
+        }
         if !self.lifecycle.front_android.is_empty() {
             self.lifecycle
                 .cgroups
