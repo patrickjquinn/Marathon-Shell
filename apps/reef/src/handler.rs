@@ -12,6 +12,7 @@ use std::process::Command;
 
 use reef_backend::catalogue::{Install, Origin, Package};
 use reef_backend::sources;
+use reef_backend::sources::AndroidDevice;
 use reef_backend::store::PackageVersion;
 use serde_json::Value;
 
@@ -24,7 +25,13 @@ pub struct Job {
     /// -1 while unknown.
     pub percent: i32,
     pub error: String,
+    /// When Reef asked for it, until the handler's own progress file
+    /// appears (a request the handler never took expires).
+    pub requested: Option<std::time::Instant>,
 }
+
+/// How long Reef shows a request the handler has not reported on.
+const REQUEST_EXPIRES: std::time::Duration = std::time::Duration::from_secs(10);
 
 impl Job {
     pub fn running(&self) -> bool {
@@ -37,7 +44,7 @@ impl Job {
 
 /// What is installed and running, from the handler's small files (read on
 /// every poll; the catalogues are read by [`sources`]).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Status {
     pub installed: Vec<PackageVersion>,
     pub updates: Vec<PackageVersion>,
@@ -45,11 +52,105 @@ pub struct Status {
     pub jobs: BTreeMap<String, Job>,
     /// `installed.json` as listed (names and icons of installed apps).
     listing: Value,
+    /// This phone's Android, once Deckard has said (`android-device.json`).
+    pub device: Option<AndroidDevice>,
+    /// The store's settings (`settings.json`).
+    pub settings: Settings,
+}
+
+/// The store's settings, kept by the handler.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "the handler's settings.json, one switch each"
+)]
+pub struct Settings {
+    pub flathub: bool,
+    pub fdroid: bool,
+    /// Show F-Droid apps that have anti-features.
+    pub anti_features: bool,
+    pub auto_update: bool,
+    pub update_on_metered: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            flathub: true,
+            fdroid: true,
+            anti_features: true,
+            auto_update: true,
+            update_on_metered: false,
+        }
+    }
+}
+
+impl Settings {
+    /// A setting by the handler's name for it (`autoUpdate`).
+    pub fn get(&self, key: &str) -> Option<bool> {
+        match key {
+            "flathub" => Some(self.flathub),
+            "fdroid" => Some(self.fdroid),
+            "antiFeatures" => Some(self.anti_features),
+            "autoUpdate" => Some(self.auto_update),
+            "updateOnMetered" => Some(self.update_on_metered),
+            _ => None,
+        }
+    }
+
+    /// Sets one by the handler's name for it; false for an unknown name.
+    pub fn set(&mut self, key: &str, on: bool) -> bool {
+        let field = match key {
+            "flathub" => &mut self.flathub,
+            "fdroid" => &mut self.fdroid,
+            "antiFeatures" => &mut self.anti_features,
+            "autoUpdate" => &mut self.auto_update,
+            "updateOnMetered" => &mut self.update_on_metered,
+            _ => return false,
+        };
+        *field = on;
+        true
+    }
+
+    /// Whether the store shows a row from the handler's catalogues.
+    fn shows(&self, package: &Package) -> bool {
+        match package.origin {
+            Origin::Flathub => self.flathub,
+            Origin::Fdroid => {
+                self.fdroid
+                    && (self.anti_features
+                        || package
+                            .android
+                            .as_ref()
+                            .is_none_or(|a| a.anti_features.is_empty()))
+            }
+            Origin::Reef => true,
+        }
+    }
 }
 
 impl Status {
     pub fn running(&self) -> bool {
         self.jobs.values().any(Job::running)
+    }
+
+    /// The installed apps' ids: what an installed-only row depends on.
+    pub fn installed_ids(&self) -> Vec<String> {
+        self.installed.iter().map(|p| p.name.clone()).collect()
+    }
+
+    /// Keeps Reef's own requests the handler has not reported on yet, so a
+    /// row does not flick back to Install before its progress arrives.
+    pub fn keep_requests(&mut self, previous: &Status) {
+        for (id, job) in &previous.jobs {
+            let fresh = job
+                .requested
+                .is_some_and(|at| at.elapsed() < REQUEST_EXPIRES);
+            if fresh && !self.jobs.contains_key(id) {
+                self.jobs.insert(id.clone(), job.clone());
+            }
+        }
     }
 }
 
@@ -84,9 +185,15 @@ pub fn sources_stamp(dir: &Path) -> u64 {
         .sum()
 }
 
-/// `sources` and the installed apps no catalogue lists, to update or remove.
+/// The `sources` the settings show, and every installed app, to update or
+/// remove whatever the settings hide.
 pub fn with_installed(sources: &[Package], status: &Status) -> Vec<Package> {
-    let mut all = sources.to_vec();
+    let installed = |name: &str| status.installed.iter().any(|p| p.name == name);
+    let mut all: Vec<Package> = sources
+        .iter()
+        .filter(|p| status.settings.shows(p) || installed(&p.name))
+        .cloned()
+        .collect();
     for a in status.listing["installed"].as_array().into_iter().flatten() {
         let Some(id) = a["app_id"].as_str() else {
             continue;
@@ -141,6 +248,7 @@ pub fn status(dir: &Path) -> Status {
                     .and_then(|p| i32::try_from(p).ok())
                     .unwrap_or(-1),
                 error: record["error"].as_str().unwrap_or_default().to_owned(),
+                requested: None,
             };
             Some((id, job))
         })
@@ -150,6 +258,10 @@ pub fn status(dir: &Path) -> Status {
         updates,
         jobs,
         listing: listed,
+        device: serde_json::from_value(json(dir, "android-device.json"))
+            .ok()
+            .filter(|d: &AndroidDevice| d.sdk > 0),
+        settings: serde_json::from_value(json(dir, "settings.json")).unwrap_or_default(),
     }
 }
 

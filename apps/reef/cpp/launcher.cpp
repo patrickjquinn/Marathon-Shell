@@ -29,11 +29,16 @@
 #include <QtCore/QPointF>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
+#include <QtCore/QStandardPaths>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QImage>
+#include <QtNetwork/QNetworkAccessManager>
+#include <QtNetwork/QNetworkDiskCache>
+#include <QtNetwork/QNetworkRequest>
 #include <QtQml/QQmlComponent>
 #include <QtQml/QQmlEngine>
 #include <QtQml/QQmlError>
+#include <QtQml/QQmlNetworkAccessManagerFactory>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickView>
 
@@ -41,6 +46,41 @@
 #include <sailfishapp.h>
 
 namespace {
+
+// Flathub's and F-Droid's icons and screenshots load over https: kept on
+// disk and taken from there first, so a list scrolled twice, or a store
+// opened again, does not fetch them again.
+class CachedNetworkAccessManager : public QNetworkAccessManager {
+public:
+    using QNetworkAccessManager::QNetworkAccessManager;
+
+protected:
+    QNetworkReply* createRequest(Operation op, const QNetworkRequest& request,
+                                 QIODevice* data) override
+    {
+        QNetworkRequest cached(request);
+        cached.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
+                            QNetworkRequest::PreferCache);
+        return QNetworkAccessManager::createRequest(op, cached, data);
+    }
+};
+
+class ImageCacheFactory : public QQmlNetworkAccessManagerFactory {
+public:
+    QNetworkAccessManager* create(QObject* parent) override
+    {
+        auto* manager = new CachedNetworkAccessManager(parent);
+        auto* cache = new QNetworkDiskCache(manager);
+        cache->setCacheDirectory(
+            QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation)
+            + QStringLiteral("/shipwright-reef/images"));
+        cache->setMaximumCacheSize(64 * 1024 * 1024);
+        manager->setCache(cache);
+        return manager;
+    }
+};
+
+ImageCacheFactory imageCacheFactory;
 
 QSize windowSize()
 {
@@ -236,6 +276,7 @@ bool keel_show_main_view(const QString& qmlPath)
     mainView = view;
     QObject::connect(view->engine(), &QQmlEngine::quit, app, &QCoreApplication::quit);
     QObject::connect(view->engine(), &QQmlEngine::exit, app, &QCoreApplication::exit);
+    view->engine()->setNetworkAccessManagerFactory(&imageCacheFactory);
 
     // Created here rather than with setSource() so that a root that is not
     // an Item (a test harness's QtObject, a Window) still loads: QQuickView

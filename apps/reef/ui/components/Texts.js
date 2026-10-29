@@ -81,6 +81,14 @@ function isServiceUrl(url) {
 // file) in words, with a theme icon: {label, icon}. Names not listed are
 // split at their capitals ("ShoalPush" is "Shoal push").
 function permission(name) {
+    if (name.indexOf("perm:") === 0) {
+        const icons = [["INTERNET", "website"], ["LOCATION", "location"], ["CAMERA", "camera"],
+                       ["RECORD_AUDIO", "mic"], ["CONTACTS", "contact"], ["CALENDAR", "calendar"],
+                       ["SMS", "message"], ["CALL", "phone"], ["STORAGE", "folder"], ["MEDIA", "image"],
+                       ["NOTIFICATIONS", "alarm"], ["BLUETOOTH", "bluetooth"]]
+        const hit = icons.find(function(pair) { return name.indexOf(pair[0]) >= 0 })
+        return { label: ability(name), icon: "image://theme/icon-m-" + (hit ? hit[1] : "other") }
+    }
     switch (name) {
     case "Internet": return { label: qsTr("Internet"), icon: "image://theme/icon-m-website" }
     case "Bluetooth": return { label: qsTr("Bluetooth"), icon: "image://theme/icon-m-bluetooth" }
@@ -204,4 +212,79 @@ function imageUrl(path) {
     if (!path || path.length === 0)
         return ""
     return path.indexOf("https://") === 0 ? path : "file://" + path
+}
+
+// What stands between an Android app and this phone, and its
+// anti-features (reef_backend::sources::android_issues keys).
+function notice(key) {
+    const parts = key.split(":")
+    if (parts[0] === "block" && parts[1] === "sdk") {
+        const release = ({ "34": "14", "35": "15", "36": "16", "37": "17" })[parts[2]]
+        return release ? qsTr("Needs Android %1 or newer").arg(release) : qsTr("Needs a newer Android")
+    }
+    if (parts[0] === "warn" && parts[1] === "gms")
+        return qsTr("Needs Google Play services, so it may not work")
+    if (parts[0] === "warn" && parts[1] === "feature") {
+        return ({
+            "telephony": qsTr("Needs a phone radio"),
+            "camera": qsTr("Needs a camera"),
+            "bluetooth": qsTr("Needs Bluetooth"),
+            "nfc": qsTr("Needs NFC"),
+            "gps": qsTr("Needs GPS"),
+            "location": qsTr("Needs location"),
+            "usb": qsTr("Needs USB accessories"),
+            "sensor": qsTr("Needs a sensor this phone doesn't have"),
+            "tv": qsTr("Made for TVs"),
+            "watch": qsTr("Made for watches")
+        })[parts[2]] || qsTr("Needs hardware this phone doesn't have")
+    }
+    if (parts[0] === "anti") {
+        return ({
+            "Ads": qsTr("Shows advertising"),
+            "Tracking": qsTr("Tracks or reports your activity"),
+            "NonFreeNet": qsTr("Relies on a service that isn't free software"),
+            "NonFreeAdd": qsTr("Promotes add-ons that aren't free software"),
+            "NonFreeDep": qsTr("Needs software that isn't free, which may include Google services"),
+            "NonFreeAssets": qsTr("Contains media that isn't free"),
+            "NoSourceSince": qsTr("Its source code is no longer available"),
+            "KnownVuln": qsTr("Has a known security problem"),
+            "TetheredNet": qsTr("Only works with its developer's own server"),
+            "DisabledAlgorithm": qsTr("Signed with a weak algorithm")
+        })[parts[1]] || parts[1]
+    }
+    return ""
+}
+
+// An Android permission in plain words; empty for the trivial ones.
+function ability(key) {
+    return ({
+        "perm:android.permission.INTERNET": qsTr("Use the internet"),
+        "perm:android.permission.ACCESS_FINE_LOCATION": qsTr("Know your precise location"),
+        "perm:android.permission.ACCESS_COARSE_LOCATION": qsTr("Know your approximate location"),
+        "perm:android.permission.ACCESS_BACKGROUND_LOCATION": qsTr("Know your location while you're not using it"),
+        "perm:android.permission.CAMERA": qsTr("Use the camera"),
+        "perm:android.permission.RECORD_AUDIO": qsTr("Use the microphone"),
+        "perm:android.permission.READ_CONTACTS": qsTr("Read your contacts"),
+        "perm:android.permission.WRITE_CONTACTS": qsTr("Change your contacts"),
+        "perm:android.permission.READ_CALENDAR": qsTr("Read your calendar"),
+        "perm:android.permission.WRITE_CALENDAR": qsTr("Change your calendar"),
+        "perm:android.permission.READ_SMS": qsTr("Read your text messages"),
+        "perm:android.permission.SEND_SMS": qsTr("Send text messages"),
+        "perm:android.permission.CALL_PHONE": qsTr("Make phone calls"),
+        "perm:android.permission.READ_CALL_LOG": qsTr("Read your call history"),
+        "perm:android.permission.READ_EXTERNAL_STORAGE": qsTr("Read files on this phone"),
+        "perm:android.permission.WRITE_EXTERNAL_STORAGE": qsTr("Change files on this phone"),
+        "perm:android.permission.MANAGE_EXTERNAL_STORAGE": qsTr("Read and change all files on this phone"),
+        "perm:android.permission.READ_MEDIA_IMAGES": qsTr("Read your photos"),
+        "perm:android.permission.READ_MEDIA_VIDEO": qsTr("Read your videos"),
+        "perm:android.permission.READ_MEDIA_AUDIO": qsTr("Read your music and audio"),
+        "perm:android.permission.POST_NOTIFICATIONS": qsTr("Show notifications"),
+        "perm:android.permission.BLUETOOTH_CONNECT": qsTr("Connect to Bluetooth devices"),
+        "perm:android.permission.BODY_SENSORS": qsTr("Read body sensors"),
+        "perm:android.permission.ACTIVITY_RECOGNITION": qsTr("Recognise your physical activity"),
+        "perm:android.permission.SYSTEM_ALERT_WINDOW": qsTr("Draw over other apps"),
+        "perm:android.permission.REQUEST_INSTALL_PACKAGES": qsTr("Install other apps"),
+        "perm:android.permission.RECEIVE_BOOT_COMPLETED": qsTr("Start when the phone starts"),
+        "perm:android.permission.FOREGROUND_SERVICE": qsTr("Keep running in the background")
+    })[key] || ""
 }

@@ -353,8 +353,9 @@ Page {
                         id: installButton
                         objectName: "installButton"
                         visible: !page.installed && page.pkg.installable === true
+                        enabled: !page.row.blocked
                         preferredWidth: actionRow.buttonWidth
-                        text: qsTr("Install")
+                        text: page.row.blocked ? qsTr("Can't install") : qsTr("Install")
                         onClicked: Reef.install(page.packageName)
                     }
                     Button {
@@ -577,6 +578,23 @@ Page {
                 sourceComponent: Column {
                     width: details.width
 
+                    // What this phone can't give it, and F-Droid's
+                    // anti-features: before the description, so before Install
+                    // is a decision.
+                    SectionHeader {
+                        text: qsTr("Before you install")
+                        visible: (page.pkg.notices || []).length > 0
+                    }
+                    Repeater {
+                        model: page.pkg.notices || []
+                        IconLine {
+                            required property string modelData
+                            source: "image://theme/icon-s-warning"
+                            text: Texts.notice(modelData)
+                            color: modelData.indexOf("block:") === 0 ? Theme.errorColor : Theme.highlightColor
+                        }
+                    }
+
                     // The description, five lines until asked for more.
                     SectionHeader { text: qsTr("About"); visible: !!page.pkg.description }
                     Label {
@@ -718,7 +736,11 @@ Page {
                         objectName: "permissions"
                         // The first few, the rest a tap away: twenty lines of
                         // permissions buried the rest of the page.
-                        readonly property var all: page.pkg.permissions || []
+                        // An Android app's, in words; the trivial ones left out.
+                        readonly property var all: {
+                            const android = (page.pkg.abilities || []).filter(function(k) { return Texts.ability(k).length > 0 })
+                            return android.length > 0 ? android : (page.pkg.permissions || [])
+                        }
                         readonly property int firstFew: 5
                         property bool showAll
                         width: parent.width
@@ -728,7 +750,7 @@ Page {
                             source: page.pkg.sandboxed === false ? "image://theme/icon-s-warning" : "image://theme/icon-s-secure"
                             text: page.pkg.sandboxed === false
                                   ? qsTr("Parts of it run outside the app sandbox, with your access to files and data.")
-                                  : (page.pkg.permissions || []).length > 0
+                                  : permissionList.all.length > 0
                                     ? qsTr("Runs in the app sandbox, and may use:")
                                     : qsTr("Runs in the app sandbox, and asks for no extra permissions.")
                             color: page.pkg.sandboxed === false ? Theme.highlightColor : Theme.secondaryHighlightColor

@@ -11,11 +11,12 @@
 
 use reef_backend::catalogue::{parse_date, Catalogue, Install, LicenceModel, Package};
 use reef_backend::licences::StoredLicence;
+use reef_backend::sources::{android_issues, AndroidDevice};
 use reef_backend::store::{entries, InstallState, PackageVersion};
 use reef_licence::{Claims, Error as LicenceError, Plan, Standing};
 
 /// One cell of a row, or one value of the details map.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Value {
     Str(String),
     Bool(bool),
@@ -64,6 +65,7 @@ pub const PACKAGE_ROLES: &[&str] = &[
     "jobState",
     "jobPercent",
     "jobError",
+    "blocked",
 ];
 
 /// How many apps the home page's "New and updated" row shows.
@@ -84,6 +86,7 @@ pub const LICENCE_ROLES: &[&str] = &[
 
 /// One row of `catalogueModel` / `installedModel`.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools, reason = "one field per model role")]
 pub struct PackageRow {
     pub name: String,
     pub title: String,
@@ -120,6 +123,8 @@ pub struct PackageRow {
     pub job_state: String,
     pub job_percent: i32,
     pub job_error: String,
+    /// This phone cannot run it (`sources::android_issues` blocks).
+    pub blocked: bool,
 }
 
 impl PackageRow {
@@ -147,6 +152,7 @@ impl PackageRow {
             self.job_state.as_str().into(),
             Value::Int(i64::from(self.job_percent)),
             self.job_error.as_str().into(),
+            self.blocked.into(),
         ]
     }
 }
@@ -166,6 +172,26 @@ pub fn image_path(image: &str, asset: &dyn Fn(&str) -> String) -> String {
         }
     } else {
         asset(image)
+    }
+}
+
+/// Marks the Android apps this phone cannot run.
+pub fn apply_android(
+    rows: &mut [PackageRow],
+    catalogue: &Catalogue,
+    device: Option<&AndroidDevice>,
+) {
+    let needs: std::collections::HashMap<&str, &reef_backend::catalogue::AndroidNeeds> = catalogue
+        .packages
+        .iter()
+        .filter_map(|p| Some((p.name.as_str(), p.android.as_ref()?)))
+        .collect();
+    for row in rows {
+        if let Some(needs) = needs.get(row.name.as_str()) {
+            row.blocked = android_issues(needs, device)
+                .iter()
+                .any(|i| i.starts_with("block:"));
+        }
     }
 }
 
@@ -312,10 +338,18 @@ pub fn recent_rows(rows: &[PackageRow]) -> Vec<PackageRow> {
         .filter(|r| !r.updated.is_empty())
         .cloned()
         .collect();
+    // Hundreds of F-Droid's apps share a day: by title, the row was all
+    // "0x" and "A". A stable hash of the id mixes them instead.
+    let mix = |name: &str| {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        name.hash(&mut h);
+        h.finish()
+    };
     recent.sort_by(|a, b| {
         b.updated
             .cmp(&a.updated)
-            .then_with(|| a.title.cmp(&b.title))
+            .then_with(|| mix(&a.name).cmp(&mix(&b.name)))
     });
     recent.truncate(RECENT_COUNT);
     recent
@@ -547,6 +581,7 @@ pub fn package_rows(
                 job_state: String::new(),
                 job_percent: -1,
                 job_error: String::new(),
+                blocked: false,
             }
         })
         .collect();
@@ -574,9 +609,20 @@ pub fn package_details(
     state: &InstallState,
     licensed: bool,
     asset: &dyn Fn(&str) -> String,
+    device: Option<&AndroidDevice>,
 ) -> Vec<(&'static str, Value)> {
     let (install_state, installed_version) = install_state(state);
+    // What stands between it and this phone, then what it does that people
+    // would want to know: keys Texts.notice() and Texts.ability() word.
+    let (notices, abilities) = package.android.as_ref().map_or_else(Default::default, |a| {
+        let mut notices = android_issues(a, device);
+        notices.extend(a.anti_features.iter().map(|f| format!("anti:{f}")));
+        let abilities = a.permissions.iter().map(|p| format!("perm:{p}")).collect();
+        (notices, abilities)
+    });
     vec![
+        ("notices", Value::List(notices)),
+        ("abilities", Value::List(abilities)),
         ("name", package.name.as_str().into()),
         ("title", package.title.as_str().into()),
         ("summary", package.summary.as_str().into()),
@@ -1019,7 +1065,7 @@ mod tests {
 
         // Details carry the publisher, the icon and the cached screenshots only.
         let p = c.visible_package("shipwright-keel-silica").unwrap();
-        let d = package_details(p, &InstallState::NotInstalled, false, &asset);
+        let d = package_details(p, &InstallState::NotInstalled, false, &asset, None);
         let get = |k: &str| d.iter().find(|(key, _)| *key == k).unwrap().1.clone();
         assert_eq!(get("publisher"), Value::Str("Shipwright".into()));
         assert_eq!(
@@ -1058,6 +1104,7 @@ mod tests {
             job_state: String::new(),
             job_percent: -1,
             job_error: String::new(),
+            blocked: false,
         };
         // Rows are what this phone is shown: "hidden" is not among them.
         let rows = [
@@ -1161,6 +1208,7 @@ mod tests {
             job_state: String::new(),
             job_percent: -1,
             job_error: String::new(),
+            blocked: false,
         };
         let rows = [
             row("notes", "Notes", "Write down a browser link", &[]),
@@ -1216,6 +1264,7 @@ mod tests {
             job_state: String::new(),
             job_percent: -1,
             job_error: String::new(),
+            blocked: false,
         };
         let rows = [
             row("Keys", "2026-10-08"),
@@ -1224,7 +1273,13 @@ mod tests {
             row("Migrate", "2026-10-11"),
         ];
         let titles: Vec<String> = recent_rows(&rows).into_iter().map(|r| r.title).collect();
-        assert_eq!(titles, ["Migrate", "Pilot", "Keys"]);
+        // Newest day first; within a day, mixed (not by title).
+        let mut newest = titles[..2].to_vec();
+        newest.sort();
+        assert_eq!(
+            (newest.as_slice(), titles[2].as_str()),
+            (&["Migrate".to_owned(), "Pilot".to_owned()][..], "Keys")
+        );
         let many: Vec<PackageRow> = (0..15)
             .map(|i| row(&format!("A{i:02}"), "2026-10-01"))
             .collect();
@@ -1237,11 +1292,13 @@ mod tests {
         let p = c
             .visible_package("shipwright-shoal-bridge-airpods-ui")
             .unwrap();
-        let d = package_details(p, &InstallState::NotInstalled, false, &no_asset);
+        let d = package_details(p, &InstallState::NotInstalled, false, &no_asset, None);
         let keys: Vec<&str> = d.iter().map(|(k, _)| *k).collect();
         assert_eq!(
             keys,
             [
+                "notices",
+                "abilities",
                 "name",
                 "title",
                 "summary",
@@ -1300,6 +1357,7 @@ mod tests {
             },
             false,
             &no_asset,
+            None,
         );
         let get = |k: &str| d.iter().find(|(key, _)| *key == k).unwrap().1.clone();
         assert_eq!(get("sandboxed"), Value::Bool(false));
@@ -1319,6 +1377,7 @@ mod tests {
             },
             false,
             &no_asset,
+            None,
         );
         let get = |k: &str| d.iter().find(|(key, _)| *key == k).unwrap().1.clone();
         assert_eq!(get("updateVersion"), Value::Str("0.1.0-10".into()));
@@ -1460,42 +1519,54 @@ pub enum RowEdit {
 /// The removals, insertions and in-place changes that turn `old` into
 /// `new`, a row being the same row when its first value (the package name)
 /// is; `None` when a reset is the honest answer (rows kept in a different
-/// order, or a name twice).
+/// order, a name twice, or so many edits that one reset is cheaper: a
+/// search narrowing five thousand apps to ten).
 pub fn edits(old: &[Vec<Value>], new: &[Vec<Value>]) -> Option<Vec<RowEdit>> {
-    let key = |r: &Vec<Value>| r.first().cloned();
-    let old_keys: Vec<_> = old.iter().map(key).collect();
-    let new_keys: Vec<_> = new.iter().map(key).collect();
-    let unique =
-        |keys: &[Option<Value>]| keys.iter().enumerate().all(|(i, k)| !keys[..i].contains(k));
-    if !unique(&old_keys) || !unique(&new_keys) {
-        return None;
+    use std::collections::HashMap;
+    // Where each name is; None when a row has none or a name is twice.
+    fn positions(rows: &[Vec<Value>]) -> Option<HashMap<&Value, usize>> {
+        let mut at = HashMap::with_capacity(rows.len());
+        for (i, row) in rows.iter().enumerate() {
+            if at.insert(row.first()?, i).is_some() {
+                return None;
+            }
+        }
+        Some(at)
     }
-    let kept_old = old_keys.iter().filter(|k| new_keys.contains(k));
-    let kept_new = new_keys.iter().filter(|k| old_keys.contains(k));
+    let old_at = positions(old)?;
+    let new_at = positions(new)?;
+    let kept_old = old
+        .iter()
+        .filter_map(|r| r.first())
+        .filter(|k| new_at.contains_key(k));
+    let kept_new = new
+        .iter()
+        .filter_map(|r| r.first())
+        .filter(|k| old_at.contains_key(k));
     if !kept_old.eq(kept_new) {
         return None;
     }
     let mut out = Vec::new();
-    let mut current: Vec<Option<Value>> = old_keys.clone();
-    for i in (0..old_keys.len()).rev() {
-        if !new_keys.contains(&old_keys[i]) {
+    // Back to front, so each index is still right when it is removed.
+    for (i, row) in old.iter().enumerate().rev() {
+        if !new_at.contains_key(row.first()?) {
             out.push(RowEdit::Remove(i));
-            current.remove(i);
         }
     }
-    for (i, k) in new_keys.iter().enumerate() {
-        if current.get(i) == Some(k) {
-            let was = old_keys.iter().position(|o| o == k).map(|j| &old[j]);
-            if was != Some(&new[i]) {
-                out.push(RowEdit::Change(i));
-            }
-        } else {
-            out.push(RowEdit::Insert(i));
-            current.insert(i, k.clone());
+    // With the removals done the kept rows are in order, so walking `new`
+    // a kept row is already at its index and a new one goes in there.
+    for (i, row) in new.iter().enumerate() {
+        match old_at.get(row.first()?) {
+            Some(&j) if old[j] != *row => out.push(RowEdit::Change(i)),
+            Some(_) => {}
+            None => out.push(RowEdit::Insert(i)),
         }
     }
-    Some(out)
+    (out.len() <= MAX_EDITS.max(new.len() / 4)).then_some(out)
 }
+
+/// Edits a model takes one by one; more is a reset (see [`edits`]).
+const MAX_EDITS: usize = 16;
 
 #[cfg(test)]
 mod edit_tests {
@@ -1545,6 +1616,23 @@ mod edit_tests {
         let full = rows(&[("a", "1"), ("b", "1")]);
         assert_eq!(apply(&[], &full), full);
         assert_eq!(apply(&full, &[]), Vec::<Vec<Value>>::new());
+    }
+
+    #[test]
+    fn a_big_list_takes_one_change_and_resets_when_narrowed() {
+        let names: Vec<String> = (0..5000).map(|i| format!("app{i:04}")).collect();
+        let old: Vec<Vec<Value>> = names
+            .iter()
+            .map(|n| vec![Value::from(n.as_str()), Value::from("")])
+            .collect();
+        let mut one = old.clone();
+        one[2500][1] = Value::from("installing");
+        assert_eq!(edits(&old, &one), Some(vec![RowEdit::Change(2500)]));
+        assert_eq!(
+            edits(&old, &old[..10]),
+            None,
+            "a search keeping ten is a reset"
+        );
     }
 
     #[test]

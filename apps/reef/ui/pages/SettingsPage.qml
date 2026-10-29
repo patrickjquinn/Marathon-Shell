@@ -38,6 +38,31 @@ Page {
                 onCheckedChanged: Reef.refreshOnStart = checked
             }
 
+            // The store handler's settings: how apps update, and which
+            // catalogues the store shows.
+            SectionHeader { text: qsTr("Updates") }
+            Repeater {
+                model: [
+                    { key: "autoUpdate", text: qsTr("Update apps automatically"),
+                      description: qsTr("In the background, on Wi-Fi and with enough battery") },
+                    { key: "updateOnMetered", text: qsTr("Also on mobile data"),
+                      description: qsTr("Updates can use a lot of data") }
+                ]
+                delegate: HandlerSwitch { }
+            }
+            SectionHeader { text: qsTr("Apps from") }
+            Repeater {
+                model: [
+                    { key: "flathub", text: qsTr("Flathub"),
+                      description: qsTr("Linux apps made to fit a phone") },
+                    { key: "fdroid", text: qsTr("F-Droid"),
+                      description: qsTr("Free Android apps, run by Android on this phone") },
+                    { key: "antiFeatures", text: qsTr("Android apps with anti-features"),
+                      description: qsTr("Apps F-Droid flags for ads, tracking or software that isn't free") }
+                ]
+                delegate: HandlerSwitch { }
+            }
+
             SectionHeader { text: qsTr("Licences") }
             // Here, not in the store's pulley, which keeps to four items.
             BackgroundItem {
@@ -88,4 +113,13 @@ Page {
     // Leaving with Back does not always take the focus first: keep a valid
     // edit then too.
     onStatusChanged: if (status === PageStatus.Deactivating) serverField.commit()
+
+    component HandlerSwitch: TextSwitch {
+        required property var modelData
+        automaticCheck: false
+        text: modelData.text
+        description: modelData.description
+        checked: (Reef.revision, Reef.handlerSetting(modelData.key))
+        onClicked: Reef.setHandlerSetting(modelData.key, !checked)
+    }
 }

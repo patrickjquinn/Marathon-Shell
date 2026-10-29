@@ -6,7 +6,7 @@
 # and it follows a branch.
 pkgname=shipwright-reef
 pkgver=0.1.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Reef app store for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64 x86_64"
@@ -46,6 +46,15 @@ package() {
 		install -Dm644 $a/icons/${s}x$s/shipwright-reef.png \
 			"$pkgdir"/usr/share/icons/hicolor/${s}x$s/apps/shipwright-reef.png
 	done
+
+	# Keel Actions (ADR-0018): Pilot's search, open, install and updates.
+	local actions=$a/target/release/keel-actions/org.marathonos.reef
+	install -Dm644 "$actions/actions.json" "$pkgdir"/usr/share/keel/actions/org.marathonos.reef.json
+	install -Dm644 "$actions/org.marathonos.reef.actions.xml" \
+		"$pkgdir"/usr/share/dbus-1/interfaces/org.marathonos.reef.actions.xml
+	install -d "$pkgdir"/usr/share/dbus-1/services
+	sed -e '/^#/d' -e "s|^Exec=.*|Exec=/usr/libexec/marathon-activate shipwright-reef org.marathonos.reef|" \
+		"$actions/org.marathonos.reef.service" > "$pkgdir"/usr/share/dbus-1/services/org.marathonos.reef.service
 }
 
 sha512sums="
