@@ -1,0 +1,108 @@
+{
+  "device_before_trial": {
+    "kernel": "6.12.85-0-rpi",
+    "boot_partition": 3,
+    "tryboot": false
+  },
+  "custom_kernel": "6.12.85-1-rpi",
+  "config_differences": [
+    "CONFIG_UCLAMP_TASK=y",
+    "CONFIG_UCLAMP_BUCKETS_COUNT=5",
+    "CONFIG_UCLAMP_TASK_GROUP=y"
+  ],
+  "initramfs_modules": {
+    "stock_count": 46,
+    "custom_count": 46,
+    "all_vermagic_match_release": true
+  },
+  "qemu": {
+    "stock": {
+      "boot_pass": true,
+      "uclamp_present": false,
+      "uclamp_30_readback": false,
+      "successful_module_probes": 12,
+      "limitation": "QEMU virt with KVM, not CM5/RP1 hardware emulation"
+    },
+    "stock-16g": {
+      "boot_pass": true,
+      "uclamp_present": false,
+      "uclamp_30_readback": false,
+      "successful_module_probes": 12,
+      "limitation": "QEMU virt with KVM, not CM5/RP1 hardware emulation"
+    },
+    "uclamp": {
+      "boot_pass": true,
+      "uclamp_present": true,
+      "uclamp_30_readback": true,
+      "successful_module_probes": 12,
+      "limitation": "QEMU virt with KVM, not CM5/RP1 hardware emulation"
+    },
+    "uclamp-16g": {
+      "boot_pass": true,
+      "uclamp_present": true,
+      "uclamp_30_readback": true,
+      "successful_module_probes": 12,
+      "limitation": "QEMU virt with KVM, not CM5/RP1 hardware emulation"
+    }
+  },
+  "artifacts": {
+    "kernel_2712.img": {
+      "bytes": 23007744,
+      "sha256": "e1a9c2d31eebd4a55557af418fcd3d1fcc99047dfd0eeb0437990068d61ce853"
+    },
+    "kernel_2712_uclamp.img": {
+      "bytes": 23007744,
+      "sha256": "7d6eaae98637287af2765fa0f023afc8046350519e69117b46410fb826d07173"
+    },
+    "initramfs_2712": {
+      "bytes": 37508232,
+      "sha256": "f0b314764d3a699ef0faf849f92f3a2b2260ad3e5f22fbdb847d18cfb39815fb"
+    },
+    "initramfs_2712_uclamp": {
+      "bytes": 34955264,
+      "sha256": "d078e11138186f11c1a29984baf91e2e96251802e534bf5ed0442be00f6d1c44"
+    },
+    "initramfs_2712_uclamp_diagnostic": {
+      "bytes": 34957316,
+      "sha256": "28ae296e6a1a16d17167710a9cca3abeea0830e2b05a7be4b1106fa7a3d1de2f"
+    }
+  },
+  "early_guard_vm_test": "rebooted at 3.218 seconds before udev",
+  "hardware_trials": [
+    {
+      "variant": "diagnostic initramfs and verbose command line",
+      "kernel": "6.12.85-1-rpi",
+      "ssh_return_seconds": 67.0,
+      "boot_id": "01b3f5bb-4e8e-4278-8085-d0e39827b040",
+      "failed_system_units": 0,
+      "failed_user_units": 0,
+      "pin_display_confirmed_by_user": true
+    },
+    {
+      "variant": "original initramfs and original quiet command line",
+      "kernel": "6.12.85-1-rpi",
+      "ssh_return_seconds": 54.0,
+      "boot_id": "8f47d783-feab-4562-b1e6-839774de0e27",
+      "failed_system_units": 0,
+      "failed_user_units": 0,
+      "foreground_pilot_uclamp_min": "30.00",
+      "pilot_and_tiktok_visually_checked": true,
+      "android_boot_completed": true,
+      "android_last_anr": "none since boot"
+    }
+  ],
+  "restoration": {
+    "stock_config_sha256": "8f19a6e2c9662e3590376a41363a8ee557949cc790b98ae622ba111ff6bad725",
+    "autoboot_default_partition": 3,
+    "autoboot_trial_partition_restored": 2,
+    "normal_boot": "stock kernel",
+    "running_kernel": "6.12.85-1-rpi"
+  },
+  "conclusion": {
+    "historical_failure_reproduced": false,
+    "historical_trigger_proven": false,
+    "cold_power_on_tested_today": false,
+    "old_failure_journals_available": false,
+    "pstore_records_available": false
+  }
+}

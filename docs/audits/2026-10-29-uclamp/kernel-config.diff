@@ -1,0 +1,20 @@
+--- stock config recovered from configs.ko
++++ uclamp config recovered from configs.ko
+@@ -163,7 +163,8 @@
+ #
+ # Scheduler features
+ #
+-# CONFIG_UCLAMP_TASK is not set
++CONFIG_UCLAMP_TASK=y
++CONFIG_UCLAMP_BUCKETS_COUNT=5
+ # end of Scheduler features
+
+ CONFIG_ARCH_SUPPORTS_NUMA_BALANCING=y
+@@ -190,6 +191,7 @@
+ CONFIG_CFS_BANDWIDTH=y
+ # CONFIG_RT_GROUP_SCHED is not set
+ CONFIG_SCHED_MM_CID=y
++CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_PIDS=y
+ # CONFIG_CGROUP_RDMA is not set
+ CONFIG_CGROUP_FREEZER=y

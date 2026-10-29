@@ -572,3 +572,11 @@ can still miss a frame deadline; these counters do not isolate their share
 of the measured jank. Cold startup, file/database access and returning after
 reclaim remain plausible storage-sensitive cases. An identical-image/data
 A/B on faster storage is needed to quantify the card's contribution.
+
+
+A later [uclamp boot investigation](2026-10-29-uclamp-boot-investigation.md)
+booted the saved custom kernel successfully twice on the device, including
+with its original initramfs, and verified a native foreground clamp of 30.00.
+The original black-screen trigger remains unproven. The device was left
+running that trial kernel with stock restored as the next normal boot; all
+performance figures in this migration report predate those kernel trials.

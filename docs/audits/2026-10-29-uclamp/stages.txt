@@ -1,0 +1,16 @@
+12.76 init started; early guard armed
+12.77 before udev
+14.36 after udev
+14.37 before framebuffer
+14.45 after framebuffer
+14.46 before splash
+14.47 after splash
+14.64 before hooks
+14.65 after hooks
+15.66 before root discovery
+15.67 after root discovery
+15.81 before root mount
+15.98 after root mount
+16.09 before data unlock and cleanup
+23.11 after data unlock and cleanup
+23.15 initramfs complete; switching to real root
