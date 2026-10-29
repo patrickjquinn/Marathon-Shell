@@ -1,0 +1,36 @@
+main_cost
+{'id': 70851, 'name': 'Choreographer#doFrame 233301', 'ms': 39.46, 'ts': 7669006243731, 'depth': 0}
+{'id': 15680, 'name': 'Choreographer#doFrame 232154', 'ms': 39.4, 'ts': 7663857278298, 'depth': 0}
+{'id': 15684, 'name': 'traversal', 'ms': 39.09, 'ts': 7663857583902, 'depth': 1}
+{'id': 43461, 'name': 'Choreographer#doFrame 232734', 'ms': 38.66, 'ts': 7666440187741, 'depth': 0}
+{'id': 70887, 'name': 'traversal', 'ms': 38.65, 'ts': 7669007054348, 'depth': 1}
+{'id': 43472, 'name': 'traversal', 'ms': 38.36, 'ts': 7666440477979, 'depth': 1}
+{'id': 127010, 'name': 'Choreographer#doFrame 234516', 'ms': 36.04, 'ts': 7674122969159, 'depth': 0}
+{'id': 127051, 'name': 'traversal', 'ms': 35.2, 'ts': 7674123803970, 'depth': 1}
+{'id': 43473, 'name': 'measure', 'ms': 30.68, 'ts': 7666440502824, 'depth': 2}
+{'id': 15685, 'name': 'measure', 'ms': 30.66, 'ts': 7663857608951, 'depth': 2}
+{'id': 98383, 'name': 'Choreographer#doFrame 233900', 'ms': 30.48, 'ts': 7671555518627, 'depth': 0}
+{'id': 98394, 'name': 'traversal', 'ms': 30.15, 'ts': 7671555840911, 'depth': 1}
+{'id': 70888, 'name': 'measure', 'ms': 29.91, 'ts': 7669007075805, 'depth': 2}
+{'id': 11899, 'name': 'Choreographer#doFrame 231994', 'ms': 29.3, 'ts': 7663657721976, 'depth': 0}
+{'id': 127052, 'name': 'measure', 'ms': 26.67, 'ts': 7674123827297, 'depth': 2}
+{'id': 123008, 'name': 'Choreographer#doFrame 234369', 'ms': 25.16, 'ts': 7673921432252, 'depth': 0}
+{'id': 98395, 'name': 'measure', 'ms': 24.22, 'ts': 7671555863016, 'depth': 2}
+{'id': 39596, 'name': 'Choreographer#doFrame 232584', 'ms': 16.82, 'ts': 7666250987733, 'depth': 0}
+{'id': 12101, 'name': 'commit', 'ms': 16.43, 'ts': 7663670585150, 'depth': 1}
+{'id': 94582, 'name': 'Choreographer#doFrame 233747', 'ms': 14.98, 'ts': 7671370311461, 'depth': 0}
+main_states
+{'state': 'D', 'ms': 24.26, 'max_ms': 21.767326}
+{'state': 'R', 'ms': 315.67, 'max_ms': 3.415504}
+{'state': 'R+', 'ms': 50.64, 'max_ms': 2.04493}
+{'state': 'Running', 'ms': 1230.01, 'max_ms': 11.060449}
+{'state': 'S', 'ms': 15949.68, 'max_ms': 301.691946}
+slow_frames
+{'id': 70851, 'ts': 7669006243731, 'frame_ms': 39.463333, 'running_ms': 32.224164, 'runnable_ms': 6.877377}
+{'id': 15680, 'ts': 7663857278298, 'frame_ms': 39.397827, 'running_ms': 32.259745, 'runnable_ms': 6.311246}
+{'id': 43461, 'ts': 7666440187741, 'frame_ms': 38.656969, 'running_ms': 31.991509, 'runnable_ms': 5.84222}
+{'id': 127010, 'ts': 7674122969159, 'frame_ms': 36.043939, 'running_ms': 29.514334, 'runnable_ms': 5.453341}
+{'id': 98383, 'ts': 7671555518627, 'frame_ms': 30.476375, 'running_ms': 26.491369, 'runnable_ms': 3.366375}
+{'id': 11899, 'ts': 7663657721976, 'frame_ms': 29.301898, 'running_ms': 18.645802, 'runnable_ms': 9.525544}
+{'id': 123008, 'ts': 7673921432252, 'frame_ms': 25.164709, 'running_ms': 17.974132, 'runnable_ms': 6.66296}
+{'id': 39596, 'ts': 7666250987733, 'frame_ms': 16.816645, 'running_ms': 9.952421, 'runnable_ms': 6.042962}

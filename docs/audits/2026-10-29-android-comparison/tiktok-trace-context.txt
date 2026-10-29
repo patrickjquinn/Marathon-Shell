@@ -1,0 +1,11 @@
+app_frames
+{'name': 'com.zhiliaoapp.musically', 'jank_type': 'Unknown Jank', 'present_type': 'Dropped Frame', 'n': 4, 'max_ms': 21.42}
+{'name': 'com.zhiliaoapp.musically', 'jank_type': 'Unknown Jank', 'present_type': 'Unspecified Present', 'n': 892, 'max_ms': 42.63}
+frame_threads
+{'utid': 1153, 'tid': 12996, 'name': 'com.zhiliaoapp.musically', 'pid': 3224, 'n': 312, 'max_ms': 39.463333}
+{'utid': 1712, 'tid': 7618, 'name': 'com.android.systemui', 'pid': 707, 'n': 3, 'max_ms': 23.752405}
+main_named
+{'utid': 1153, 'tid': 12996, 'name': 'com.zhiliaoapp.musically', 'pid': 3224}
+{'utid': 1546, 'tid': 21841, 'name': None, 'pid': None}
+{'utid': 1548, 'tid': 21843, 'name': None, 'pid': None}
+SF_slices

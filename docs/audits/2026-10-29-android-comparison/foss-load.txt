@@ -1,0 +1,38 @@
+sudo: preserving the entire environment is not supported, '-E' is ignored
+Starting 4 CPU workers; settling for two seconds
+{
+  "package": "de.baumann.browser",
+  "steps": 120,
+  "elapsed_s": 12.993784137000148,
+  "drag_intervals": 190,
+  "intervals_over_25ms": 1,
+  "interval_ms_p50": 16.662999999425665,
+  "interval_ms_p95": 16.665000000102737,
+  "interval_ms_p99": 16.666000000441272,
+  "interval_ms_max": 166.63400000015827,
+  "gfx_summary": [
+    "Total frames rendered: 214",
+    "Janky frames: 2 (0.93%)",
+    "50th percentile: 5ms",
+    "90th percentile: 8ms",
+    "95th percentile: 9ms",
+    "99th percentile: 13ms",
+    "50th gpu percentile: 1ms",
+    "90th gpu percentile: 1ms",
+    "95th gpu percentile: 4ms",
+    "99th gpu percentile: 5ms",
+    "Total frames rendered: 214",
+    "Janky frames: 2 (0.93%)",
+    "50th percentile: 5ms",
+    "90th percentile: 8ms",
+    "95th percentile: 9ms",
+    "99th percentile: 13ms",
+    "50th gpu percentile: 1ms",
+    "90th gpu percentile: 1ms",
+    "95th gpu percentile: 4ms",
+    "99th gpu percentile: 5ms"
+  ]
+}
+Measured CPU busy: 99.89% over 13.61s
+CPU workers stopped after 15.6s
+captured: /run/foss-loaded-after.png

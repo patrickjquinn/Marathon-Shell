@@ -1,0 +1,10 @@
+bytes 3526260 seconds 0.439 sha256 3cb274f869f777c8b420fd55a822eca72e11e22906161b07accd19b5c8be7b36
+Oct 29 19:26:53 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input23
+Oct 29 19:26:55 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input24
+Oct 29 19:26:58 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input25
+Oct 29 19:27:00 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input26
+Oct 29 19:27:03 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input27
+Oct 29 19:27:06 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input28
+Oct 29 19:27:09 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input29
+Oct 29 19:27:11 marathon kernel: input: marathon-touchctl as /devices/virtual/input/input30
+0

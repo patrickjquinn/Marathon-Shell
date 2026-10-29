@@ -1,5 +1,7 @@
 # Uclamp kernel: initial performance and TikTok reopen failure
 
+Follow-up: [device access recovered; browser/TikTok comparison](2026-10-29-android-comparison.md).
+
 Measured on 2026-10-29 after the normal power-on verification, kernel
 6.12.85-1-rpi, Shell r516 and Deckard r26. No experimental Android clamp
 floor was applied. Android retained CPU weight 200 and BFQ weight 200 in
