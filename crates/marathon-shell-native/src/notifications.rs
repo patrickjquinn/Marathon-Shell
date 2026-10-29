@@ -164,6 +164,7 @@ type Map = QMap<QMapPair_QString_QVariant>;
 
 const PATH: &str = "/org/freedesktop/Notifications";
 const NAME: &str = "org.freedesktop.Notifications";
+const SOURCE_NAME: &str = "x-marathon-app-name";
 /// NAME's own connection, so a sender's image-data never stalls the shell's.
 static SERVER_BUS: OnceLock<zbus::Connection> = OnceLock::new();
 /// The Hub's history, bounded.
@@ -494,6 +495,39 @@ fn app_of(provided: &str, entry: &str, sender_app: Option<&str>) -> String {
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
+/// A source's display name survives removing its desktop entry. A later
+/// notification without a name can still use one retained in its history.
+fn source_summaries(rows: &[Row]) -> Vec<(&str, i32, &str)> {
+    let mut order: Vec<(&str, i32, &str)> = Vec::new();
+    for row in rows {
+        let name = row.hint(SOURCE_NAME).as_str().unwrap_or_default();
+        match order.iter_mut().find(|(app, _, _)| *app == row.app_id) {
+            Some((_, unread, known_name)) => {
+                *unread += i32::from(!row.read);
+                if known_name.is_empty() {
+                    *known_name = name;
+                }
+            }
+            None => order.push((&row.app_id, i32::from(!row.read), name)),
+        }
+    }
+    order
+}
+
+/// Copy the source name before a replacement removes its only stored row.
+fn retain_source_name(app: &str, hints: &mut serde_json::Map<String, Json>, rows: &[Row]) {
+    if hints.contains_key(SOURCE_NAME) {
+        return;
+    }
+    if let Some(name) = rows.iter().filter(|row| row.app_id == app).find_map(|row| {
+        row.hint(SOURCE_NAME)
+            .as_str()
+            .filter(|name| !name.is_empty())
+    }) {
+        hints.insert(SOURCE_NAME.into(), json!(name));
+    }
+}
+
 /// What the D-Bus side hands the GUI thread.
 struct Incoming {
     app_id: String,
@@ -617,17 +651,10 @@ impl Notifications {
     }
 
     fn sources(&self) -> QList<QVariant> {
-        let mut order: Vec<(&str, i32)> = Vec::new();
-        for row in &self.rows {
-            match order.iter_mut().find(|(a, _)| *a == row.app_id) {
-                Some((_, unread)) => *unread += i32::from(!row.read),
-                None => order.push((&row.app_id, i32::from(!row.read))),
-            }
-        }
         let mut list = QList::<QVariant>::default();
-        for (app, unread) in order {
+        for (app, unread, name) in source_summaries(&self.rows) {
             list.append(QVariant::from(&variant::map(
-                &json!({"appId": app, "unread": unread}),
+                &json!({"appId": app, "unread": unread, "name": name}),
             )));
         }
         list
@@ -723,7 +750,8 @@ impl Notifications {
         clippy::too_many_lines,
         reason = "notification normalization and replacement must remain one atomic state update"
     )]
-    fn receive(mut self: Pin<&mut Self>, n: Incoming) -> u32 {
+    fn receive(mut self: Pin<&mut Self>, mut n: Incoming) -> u32 {
+        retain_source_name(&n.app_id, &mut n.hints, &self.rows);
         let actions = Json::Array(
             n.actions
                 .iter()
@@ -1166,6 +1194,12 @@ impl Server {
         let icon = image
             .or_else(|| (!path.is_empty()).then_some(path))
             .unwrap_or(app_icon);
+        let mut metadata: serde_json::Map<String, Json> =
+            hints.iter().map(|(k, v)| (k.clone(), to_json(v))).collect();
+        metadata.remove(SOURCE_NAME);
+        if !app_name.trim().is_empty() {
+            metadata.insert(SOURCE_NAME.into(), Json::String(app_name));
+        }
         let incoming = Incoming {
             app_id,
             replaces_id,
@@ -1178,7 +1212,7 @@ impl Server {
                 .iter()
                 .map(|[k, l]| (k.clone(), l.clone()))
                 .collect(),
-            hints: hints.iter().map(|(k, v)| (k.clone(), to_json(v))).collect(),
+            hints: metadata,
             expire_timeout,
             sender,
             keep: true,
@@ -1285,7 +1319,45 @@ mod proxy {
 
 #[cfg(test)]
 mod tests {
-    use super::app_from_cgroup;
+    use super::{app_from_cgroup, retain_source_name, source_summaries, Row, SOURCE_NAME};
+    use serde_json::json;
+
+    #[test]
+    fn source_names_survive_later_updates_without_a_name() {
+        let row = |id, app: &str, read, name: &str| Row {
+            id,
+            app_id: app.into(),
+            title: String::new(),
+            body: String::new(),
+            icon: String::new(),
+            timestamp_ms: id,
+            read,
+            actions: json!([]),
+            hints: if name.is_empty() {
+                serde_json::Map::new()
+            } else {
+                serde_json::Map::from_iter([(SOURCE_NAME.into(), json!(name))])
+            },
+        };
+        let rows = [
+            row(3, "org.example.client", true, ""),
+            row(2, "org.example.other", false, "Other"),
+            row(1, "org.example.client", false, "Pocket Reader"),
+        ];
+        let mut replacement = serde_json::Map::new();
+        retain_source_name("org.example.client", &mut replacement, &rows);
+        assert_eq!(replacement[SOURCE_NAME], "Pocket Reader");
+        replacement.insert(SOURCE_NAME.into(), json!("Renamed Reader"));
+        retain_source_name("org.example.client", &mut replacement, &rows);
+        assert_eq!(replacement[SOURCE_NAME], "Renamed Reader");
+        assert_eq!(
+            source_summaries(&rows),
+            [
+                ("org.example.client", 1, "Pocket Reader"),
+                ("org.example.other", 1, "Other"),
+            ]
+        );
+    }
 
     #[test]
     fn a_process_is_the_app_its_cgroup_says() {

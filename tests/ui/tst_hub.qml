@@ -38,6 +38,7 @@ TestCase {
         NotificationService.dismissedAll = false;
         NotificationService.triggered = [];
         NotificationService.replies = [];
+        NotificationService.sourceNames = {};
         AppModel.names = {};
         NavigationRouter.deepLinks = [];
         closedSpy.clear();
@@ -177,6 +178,49 @@ TestCase {
         tryVerify(() => row(1));
         compare(row(0).account, "Mail");
         compare(row(1).account, "Signal");
+    }
+
+    function test_historyUsesReadableNamesWithoutInstalledApps() {
+        addNotification(1, "deckard.com.nononsenseapps.feeder");
+        addNotification(2, "org.kde.itinerary");
+        tryVerify(() => row(1));
+        compare(row(0).account, "Feeder");
+        compare(row(1).account, "Itinerary");
+        compare(hub.sources.map(s => s.label), ["Feeder", "Itinerary"]);
+    }
+
+    function test_androidAndDesktopAliasesUseRegistryNames() {
+        AppModel.names = {
+            "deckard.com.zhiliaoapp.musically": "TikTok",
+            "org.gnome.Maps": "Maps"
+        };
+        compare(hub.sourceLabel("com.zhiliaoapp.musically", ""), "TikTok");
+        compare(hub.sourceLabel("waydroid.com.zhiliaoapp.musically", ""), "TikTok");
+        compare(hub.sourceLabel("org.gnome.Maps.desktop", ""), "Maps");
+    }
+
+    function test_senderDisplayNameSurvivesAppRemoval() {
+        NotificationService.sourceNames = {
+            "org.example.client": "Pocket Reader"
+        };
+        addNotification(1, "org.example.client");
+        tryVerify(() => row(0));
+        compare(row(0).account, "Pocket Reader");
+    }
+
+    function test_registryReloadUpdatesNamesWithoutCountChange() {
+        AppModel.names = {
+            "org.example.other": "Other"
+        };
+        addNotification(1, "org.example.client");
+        tryVerify(() => row(0));
+        compare(row(0).account, "Client");
+        AppModel.names = {
+            "org.example.client": "Reader"
+        };
+        AppModel.modelReset();
+        tryCompare(row(0), "account", "Reader");
+        compare(hub.sources[0].label, "Reader");
     }
 
     function test_swipeRightDismisses() {

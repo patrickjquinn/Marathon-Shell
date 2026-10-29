@@ -9,6 +9,7 @@ ListModel {
     property bool dismissedAll: false
     property var triggered: []
     property var replies: []
+    property var sourceNames: ({})
     signal notificationDismissed(int id)
     function addNotification(appId, title, body, icon) {
         append({
@@ -35,6 +36,7 @@ ListModel {
             if (!s) {
                 s = {
                     appId: n.appId,
+                    name: sourceNames[n.appId] || "",
                     unread: 0
                 };
                 out.push(s);

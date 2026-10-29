@@ -25,7 +25,7 @@ Rectangle {
         const apps = NotificationService.sources();
         sources = apps.map(s => ({
                     "app": s.appId,
-                    "label": s.appId ? accountFor(s.appId) : qsTr("System"),
+                    "label": sourceLabel(s.appId, s.name || ""),
                     "unread": s.unread
                 }));
         if (filterApp !== "" && !apps.some(s => s.appId === filterApp))
@@ -102,6 +102,12 @@ Rectangle {
     Connections {
         target: AppModel
         function onCountChanged() {
+            Qt.callLater(hub.refreshSources);
+        }
+        function onModelReset() {
+            Qt.callLater(hub.refreshSources);
+        }
+        function onDataChanged() {
             Qt.callLater(hub.refreshSources);
         }
     }
@@ -446,17 +452,32 @@ Rectangle {
         return parts[0][0] + parts[parts.length - 1][0];
     }
 
-    // The sending app's name from the registry; otherwise the sender's own
-    // app_name, with a leading lower-case letter capitalised.
+    // Source labels stay reactive when a registry reload keeps the same count.
     function accountFor(rawAppId) {
         const raw = String(rawAppId || "");
-        // Read again once the registry has loaded.
-        if (AppModel.count === 0)
-            return raw.charAt(0).toUpperCase() + raw.slice(1);
-        const name = AppModel.findById(raw).name;
-        if (name)
-            return name;
-        return raw.charAt(0).toUpperCase() + raw.slice(1);
+        const source = sources.find(s => s.app === raw);
+        return source ? source.label : sourceLabel(raw, "");
+    }
+
+    function sourceLabel(rawAppId, senderName) {
+        const raw = String(rawAppId || "");
+        const desktop = raw.replace(/\.desktop$/, "");
+        const candidates = [desktop, desktop.replace(/^waydroid\./, "deckard."), "deckard." + desktop];
+        if (AppModel.count > 0) {
+            for (const id of candidates) {
+                const name = AppModel.findById(id).name;
+                if (name)
+                    return name;
+            }
+        }
+        if (senderName)
+            return senderName;
+        if (!desktop)
+            return qsTr("System");
+        // History can outlive its app. Never expose a reverse-domain package id.
+        const shortName = /^[\w-]+(?:\.[\w-]+)+$/.test(desktop) ? desktop.split(".").pop() : desktop;
+        const words = shortName.replace(/[_-]+/g, " ");
+        return words.charAt(0).toUpperCase() + words.slice(1);
     }
 
     // An event's "HH:mm" in the 12/24-hour setting.
