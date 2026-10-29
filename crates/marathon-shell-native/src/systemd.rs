@@ -18,6 +18,13 @@ pub trait SystemdManager {
 
     fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
 
+    fn set_unit_properties(
+        &self,
+        name: &str,
+        runtime: bool,
+        properties: &[(&str, Value<'_>)],
+    ) -> zbus::Result<()>;
+
     fn freeze_unit(&self, name: &str) -> zbus::Result<()>;
 
     fn thaw_unit(&self, name: &str) -> zbus::Result<()>;

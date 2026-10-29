@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=59
+pkgrel=60
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -292,6 +292,15 @@ EOF
 Nice=19
 CPUSchedulingPolicy=idle
 IOSchedulingClass=idle
+EOF
+
+    # Delegate the host's real I/O controller to the user manager. Without
+    # this, native app scopes have cpu.weight but no BFQ weight interface.
+    install -d "$pkgdir/usr/lib/systemd/system/user@.service.d"
+    cat > "$pkgdir/usr/lib/systemd/system/user@.service.d/60-marathon-io.conf" <<'EOF'
+[Service]
+Delegate=cpu cpuset io memory pids
+IOAccounting=yes
 EOF
 
 	# A memory floor for the shell: reclaim takes from apps first. Each

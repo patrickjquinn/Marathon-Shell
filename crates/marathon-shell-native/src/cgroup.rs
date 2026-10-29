@@ -12,9 +12,9 @@ use std::time::{Duration, Instant};
 
 use crate::systemd::SystemdManagerProxy;
 use crate::{app_ids, io, log};
+use zbus::Variant;
 
 const FRONT_UCLAMP_MIN: u8 = 30;
-const ANDROID_CGROUP: &str = "/sys/fs/cgroup/lxc.payload.deckard";
 
 pub struct AppCgroups {
     // marathon.slice/marathon-apps, when the shell may write under it.
@@ -79,7 +79,9 @@ fn apps_root(shell: &str) -> Option<PathBuf> {
     }
     // cpu.uclamp.min needs the cpu controller on the slice too.
     write(&slice.join("cgroup.subtree_control"), "+cpu");
+    write(&slice.join("cgroup.subtree_control"), "+io");
     write(&root.join("cgroup.subtree_control"), "+cpu +memory +pids");
+    write(&root.join("cgroup.subtree_control"), "+io");
     Some(root)
 }
 
@@ -93,6 +95,7 @@ impl AppCgroups {
     pub(crate) fn adopt(&mut self, app_id: &str, pid: i64, pid_cgroup: &str, placement: Placement) {
         if let Some(unit) = scope_unit(pid_cgroup, &self.shell) {
             self.scopes.insert(app_id.to_owned(), unit);
+            self.set_front(app_id, placement.foreground);
             return;
         }
         let Some(dir) = self.dir(app_id).filter(|_| pid > 0 && !app_id.is_empty()) else {
@@ -115,7 +118,7 @@ impl AppCgroups {
                 if placement.frozen { "1" } else { "0" },
             );
             self.placed.insert(app_id.to_owned());
-            write_uclamp(&dir, placement.foreground);
+            write_resource_profile(&dir, placement.foreground);
         }
     }
 
@@ -140,14 +143,38 @@ impl AppCgroups {
         }
     }
 
-    /// The app in front gets a CPU-frequency floor (`cpu.uclamp.min`); an
-    /// Android app's is Deckard's container. The pid's cgroup can come
-    /// after the app is in front, so the path is tried before it is placed.
+    /// Foreground apps receive CPU and I/O shares under contention. Uclamp
+    /// supplements them on kernels that implement it. Deckard's authenticated
+    /// session watcher asks its root manager to apply the same host policy.
     pub(crate) fn set_front(&self, app_id: &str, front: bool) {
         if app_ids::android_package(app_id).is_some() {
-            write_uclamp(Path::new(ANDROID_CGROUP), front);
+            return;
+        }
+        if let Some(unit) = self.scopes.get(app_id).cloned() {
+            let bfq_only = self.root.as_ref().is_some_and(|root| {
+                root.join("io.bfq.weight").exists() && !root.join("io.weight").exists()
+            });
+            io::spawn(async move {
+                let (cpu, disk) = resource_weights(front);
+                let disk = systemd_io_weight(disk, bfq_only);
+                let properties = [
+                    ("CPUWeight", Variant::from(cpu)),
+                    ("IOWeight", Variant::from(disk)),
+                ];
+                let result = async {
+                    let manager = SystemdManagerProxy::new(&io::session_bus().await?).await?;
+                    manager.set_unit_properties(&unit, true, &properties).await
+                }
+                .await;
+                if let Err(error) = result {
+                    log::warn(
+                        "cgroup",
+                        format_args!("foreground shares for {unit}: {error}"),
+                    );
+                }
+            });
         } else if let Some(dir) = self.dir(app_id) {
-            write_uclamp(&dir, front);
+            write_resource_profile(&dir, front);
         }
     }
 
@@ -282,11 +309,41 @@ fn descendants(pid: i64) -> Vec<i64> {
     found
 }
 
-fn write_uclamp(dir: &Path, front: bool) {
-    write(
-        &dir.join("cpu.uclamp.min"),
-        &if front { FRONT_UCLAMP_MIN } else { 0 }.to_string(),
-    );
+fn resource_weights(front: bool) -> (u64, u64) {
+    if front {
+        (200, 200)
+    } else {
+        (50, 25)
+    }
+}
+
+// systemd normalizes IOWeight's 1..10000 range to BFQ's 1..1000.
+// Above the default, its mapping is 100 + (weight - 100) / 11.
+fn systemd_io_weight(weight: u64, bfq_only: bool) -> u64 {
+    if bfq_only && weight > 100 {
+        100 + (weight - 100) * 11
+    } else {
+        weight
+    }
+}
+
+fn write_resource_profile(dir: &Path, front: bool) {
+    let (cpu, disk) = resource_weights(front);
+    write(&dir.join("cpu.weight"), &cpu.to_string());
+    let bfq = dir.join("io.bfq.weight");
+    let generic = dir.join("io.weight");
+    if bfq.exists() {
+        write(&bfq, &format!("default {disk}"));
+    } else if generic.exists() {
+        write(&generic, &format!("default {disk}"));
+    }
+    let clamp = dir.join("cpu.uclamp.min");
+    if clamp.exists() {
+        write(
+            &clamp,
+            &if front { FRONT_UCLAMP_MIN } else { 0 }.to_string(),
+        );
+    }
 }
 
 fn pids(dir: &Path) -> Vec<i32> {
@@ -312,6 +369,41 @@ mod tests {
     use super::*;
 
     const APPS: &str = "/user.slice/user-1000.slice/user@1000.service/app.slice";
+
+    #[test]
+    fn external_scopes_receive_the_same_effective_bfq_weight() {
+        let property = systemd_io_weight(200, true);
+        let effective_bfq = 100 + (property - 100) * 900 / 9900;
+        assert_eq!(effective_bfq, 200);
+        assert_eq!(systemd_io_weight(25, true), 25);
+        assert_eq!(systemd_io_weight(200, false), 200);
+    }
+
+    #[test]
+    fn foreground_and_background_shares_work_on_a_kernel_without_uclamp() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("cpu.weight"), "100").unwrap();
+        fs::write(dir.path().join("io.bfq.weight"), "default 100").unwrap();
+        write_resource_profile(dir.path(), true);
+        assert_eq!(
+            fs::read_to_string(dir.path().join("cpu.weight")).unwrap(),
+            "200"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("io.bfq.weight")).unwrap(),
+            "default 200"
+        );
+        write_resource_profile(dir.path(), false);
+        assert_eq!(
+            fs::read_to_string(dir.path().join("cpu.weight")).unwrap(),
+            "50"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("io.bfq.weight")).unwrap(),
+            "default 25"
+        );
+        assert!(!dir.path().join("cpu.uclamp.min").exists());
+    }
 
     #[test]
     fn a_launchers_scope_is_the_apps() {
