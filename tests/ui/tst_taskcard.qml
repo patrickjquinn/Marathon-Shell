@@ -42,7 +42,7 @@ TestCase {
         tasks.clear();
         for (const name of ["Feeder", "Settings"])
             tasks.append({
-                id: name,
+                taskId: name,
                 appId: name.toLowerCase(),
                 title: name,
                 icon: "",

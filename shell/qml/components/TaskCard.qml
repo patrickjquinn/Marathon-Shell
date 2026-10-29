@@ -8,7 +8,7 @@ Item {
     id: taskCard
 
     required property int index
-    required property string id
+    required property string taskId
     required property string appId
     required property string title
     required property string icon
@@ -109,7 +109,7 @@ Item {
                 if (Tasks.closeAppWindows(taskCard.appId) === 0)
                     taskCard.compositor.closeWindow(taskCard.surfaceId);
             }
-            Tasks.closeTask(taskCard.id);
+            Tasks.closeTask(taskCard.taskId);
         } else {
             Tasks.closeApp(taskCard.appId, false);
         }
