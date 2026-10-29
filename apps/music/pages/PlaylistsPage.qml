@@ -15,13 +15,17 @@ Page {
 
         objectName: "playlistsView"
         anchors.fill: parent
-        header: PageHeader { title: qsTr("Playlists") }
+        header: PageHeader {
+            title: qsTr("Playlists")
+        }
         model: page.music.playlists
 
         PullDownMenu {
             MenuItem {
                 text: qsTr("New playlist")
-                onClicked: pageStack.push(Qt.resolvedUrl("NewPlaylistDialog.qml"), { music: page.music })
+                onClicked: pageStack.push(Qt.resolvedUrl("NewPlaylistDialog.qml"), {
+                    music: page.music
+                })
             }
         }
 

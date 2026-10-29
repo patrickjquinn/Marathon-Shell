@@ -14,7 +14,9 @@ TestCase {
         property real pixelRatio: 1.25
         property var published: null
         signal seedChanged
-        function publish(map) { published = map; }
+        function publish(map) {
+            published = map;
+        }
     }
 
     QtObject {

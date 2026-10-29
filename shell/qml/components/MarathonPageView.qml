@@ -228,7 +228,8 @@ Item {
         // speed: the snap carries on from it, as Android's ViewPager does.
         // Qt raises a slower one to reach the page at flickDeceleration.
         property var _motion: []
-        onContentXChanged: if (dragging) Silica.Velocity.add(_motion, contentX, contentY)
+        onContentXChanged: if (dragging)
+            Silica.Velocity.add(_motion, contentX, contentY)
         onDraggingChanged: {
             if (dragging) {
                 _motion = [];

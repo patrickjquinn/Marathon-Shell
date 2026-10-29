@@ -8,22 +8,45 @@ TestCase {
     // Three points ~111 m apart going north.
     readonly property var coords: [[0, 0], [0, 0.001], [0, 0.002]]
     readonly property var maneuvers: [
-        { type: 1, beginShapeIndex: 0, instruction: "Head north." },
-        { type: 10, beginShapeIndex: 1, instruction: "Turn right." },
-        { type: 4, beginShapeIndex: 2, instruction: "You have arrived." }
+        {
+            type: 1,
+            beginShapeIndex: 0,
+            instruction: "Head north."
+        },
+        {
+            type: 10,
+            beginShapeIndex: 1,
+            instruction: "Turn right."
+        },
+        {
+            type: 4,
+            beginShapeIndex: 2,
+            instruction: "You have arrived."
+        }
     ]
 
     function test_routeQuery() {
         compare(Logic.routeQuery('{"query":" Trinity College "}'), "Trinity College");
         compare(Logic.routeQuery("{}"), "");
         compare(Logic.routeQuery("{bad"), "");
-        compare(Logic.routeQuery(JSON.stringify({ query: "x".repeat(300) })).length, 256);
+        compare(Logic.routeQuery(JSON.stringify({
+            query: "x".repeat(300)
+        })).length, 256);
     }
 
     function test_parseResults() {
         const r = Logic.parseResults(JSON.stringify([
-            { display_name: "Tower Bridge, London, UK", lat: "51.5055", lon: "-0.0754", type: "bridge_x" },
-            { display_name: "Nowhere", lat: "x", lon: "1" }
+            {
+                display_name: "Tower Bridge, London, UK",
+                lat: "51.5055",
+                lon: "-0.0754",
+                type: "bridge_x"
+            },
+            {
+                display_name: "Nowhere",
+                lat: "x",
+                lon: "1"
+            }
         ]));
         compare(r.length, 1);
         compare(r[0].name, "Tower Bridge");
@@ -56,13 +79,28 @@ TestCase {
         compare(Logic.maneuverIcon(15), "image://theme/icon-m-maneuver-left");
         compare(Logic.maneuverIcon(4), "image://theme/icon-m-maneuver-arrive");
         compare(Logic.maneuverIcon(8), "image://theme/icon-m-maneuver-straight");
-        verify(Logic.isArrival({ type: 5 }));
-        verify(!Logic.isArrival({ type: 10 }));
+        verify(Logic.isArrival({
+            type: 5
+        }));
+        verify(!Logic.isArrival({
+            type: 10
+        }));
         verify(!Logic.isArrival(null));
     }
 
     function test_routeCoords() {
-        const fc = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: coords } }] };
+        const fc = {
+            type: "FeatureCollection",
+            features: [
+                {
+                    type: "Feature",
+                    geometry: {
+                        type: "LineString",
+                        coordinates: coords
+                    }
+                }
+            ]
+        };
         compare(Logic.routeCoords(JSON.stringify(fc)), coords);
         compare(Logic.routeCoords(fc), coords);
         compare(Logic.routeCoords("nope"), []);
@@ -92,43 +130,105 @@ TestCase {
     }
 
     function test_via() {
-        compare(Logic.via([{}, { streetNames: ["High St", "A1"] }]), "High St, A1");
-        compare(Logic.via([{}]), "");
+        compare(Logic.via([
+            {},
+            {
+                streetNames: ["High St", "A1"]
+            }
+        ]), "High St, A1");
+        compare(Logic.via([
+            {}
+        ]), "");
         compare(Logic.via(null), "");
     }
 
     function test_remaining() {
-        const ms = [{ length: 1, time: 100 }, { length: 0.5, time: 50 }, { length: 0, time: 0 }];
-        compare(Logic.remaining(ms, 0, -1), { distance: 1500, time: 150 });
-        compare(Logic.remaining(ms, 0, 500), { distance: 1000, time: 100 });
-        compare(Logic.remaining(ms, 2, -1), { distance: 0, time: 0 });
-        compare(Logic.remaining(null, 0, -1), { distance: 0, time: 0 });
+        const ms = [
+            {
+                length: 1,
+                time: 100
+            },
+            {
+                length: 0.5,
+                time: 50
+            },
+            {
+                length: 0,
+                time: 0
+            }
+        ];
+        compare(Logic.remaining(ms, 0, -1), {
+            distance: 1500,
+            time: 150
+        });
+        compare(Logic.remaining(ms, 0, 500), {
+            distance: 1000,
+            time: 100
+        });
+        compare(Logic.remaining(ms, 2, -1), {
+            distance: 0,
+            time: 0
+        });
+        compare(Logic.remaining(null, 0, -1), {
+            distance: 0,
+            time: 0
+        });
     }
 
     function test_placeKindAndLine() {
         compare(Logic.placeKind("bridge"), "Bridge");
         compare(Logic.placeKind("yes"), "");
         compare(Logic.placeKind(""), "");
-        compare(Logic.placeLine({ name: "Tower Bridge", address: "Tower Bridge, London, UK", type: "bridge" }), "Bridge · London, UK");
-        compare(Logic.placeLine({ name: "Home", address: "Home, 1 Road", type: "yes" }), "1 Road");
-        compare(Logic.placeLine({ name: "X", address: "", type: "cafe" }), "Café");
+        compare(Logic.placeLine({
+            name: "Tower Bridge",
+            address: "Tower Bridge, London, UK",
+            type: "bridge"
+        }), "Bridge · London, UK");
+        compare(Logic.placeLine({
+            name: "Home",
+            address: "Home, 1 Road",
+            type: "yes"
+        }), "1 Road");
+        compare(Logic.placeLine({
+            name: "X",
+            address: "",
+            type: "cafe"
+        }), "Café");
     }
 
     function test_addRecent() {
-        const a = { name: "A", address: "A, X", lat: 1, lon: 1 };
-        const b = { name: "B", address: "B, X", lat: 2, lon: 2 };
+        const a = {
+            name: "A",
+            address: "A, X",
+            lat: 1,
+            lon: 1
+        };
+        const b = {
+            name: "B",
+            address: "B, X",
+            lat: 2,
+            lon: 2
+        };
         let r = Logic.addRecent([], a);
         r = Logic.addRecent(r, b);
         r = Logic.addRecent(r, a);
         compare(r.map(p => p.name), ["A", "B"]);
         for (let i = 0; i < 20; i++)
-            r = Logic.addRecent(r, { name: "P" + i, address: "", lat: i, lon: 0 });
+            r = Logic.addRecent(r, {
+                name: "P" + i,
+                address: "",
+                lat: i,
+                lon: 0
+            });
         compare(r.length, 10);
         compare(Logic.parseList("nope"), []);
     }
 
     function test_parseFix() {
-        compare(Logic.parseFix('{"lat":1,"lon":2}'), { lat: 1, lon: 2 });
+        compare(Logic.parseFix('{"lat":1,"lon":2}'), {
+            lat: 1,
+            lon: 2
+        });
         compare(Logic.parseFix(""), null);
         compare(Logic.parseFix('{"lat":"x"}'), null);
     }

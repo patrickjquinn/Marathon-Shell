@@ -19,7 +19,9 @@ Page {
     }
 
     function pickSound(type) {
-        pageStack.push(Qt.resolvedUrl("SoundPickerPage.qml"), { soundType: type });
+        pageStack.push(Qt.resolvedUrl("SoundPickerPage.qml"), {
+            soundType: type
+        });
     }
 
     SilicaFlickable {

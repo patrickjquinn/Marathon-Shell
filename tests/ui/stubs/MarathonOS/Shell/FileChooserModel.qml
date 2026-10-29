@@ -12,14 +12,59 @@ ListModel {
     property string search: ""
     property bool recent: false
     readonly property var tree: ({
-            "/home/u": [{ "name": "Documents", "isDir": true }, { "name": "Pictures", "isDir": true }, { "name": "todo.txt" }],
-            "/home/u/Documents": [{ "name": "Old", "isDir": true }, { "name": "report.pdf" }],
+            "/home/u": [
+                {
+                    "name": "Documents",
+                    "isDir": true
+                },
+                {
+                    "name": "Pictures",
+                    "isDir": true
+                },
+                {
+                    "name": "todo.txt"
+                }
+            ],
+            "/home/u/Documents": [
+                {
+                    "name": "Old",
+                    "isDir": true
+                },
+                {
+                    "name": "report.pdf"
+                }
+            ],
             "/home/u/Documents/Old": [],
-            "/home/u/Pictures": [{ "name": "beach.png", "isImage": true }, { "name": "sea.png", "isImage": true }, { "name": "notes.txt" }]
+            "/home/u/Pictures": [
+                {
+                    "name": "beach.png",
+                    "isImage": true
+                },
+                {
+                    "name": "sea.png",
+                    "isImage": true
+                },
+                {
+                    "name": "notes.txt"
+                }
+            ]
         })
 
     function places() {
-        return [{ "name": "Home", "path": "/home/u" }, { "name": "Documents", "path": "/home/u/Documents" }, { "name": "Pictures", "path": "/home/u/Pictures" }];
+        return [
+            {
+                "name": "Home",
+                "path": "/home/u"
+            },
+            {
+                "name": "Documents",
+                "path": "/home/u/Documents"
+            },
+            {
+                "name": "Pictures",
+                "path": "/home/u/Pictures"
+            }
+        ];
     }
 
     function exists(path) {
@@ -40,7 +85,14 @@ ListModel {
                 continue;
             if (!e.isDir && mimeFilters.length > 0 && !e.isImage)
                 continue;
-            append({ "name": e.name, "path": folder + "/" + e.name, "isDir": !!e.isDir, "isImage": !!e.isImage, "size": 1024, "url": "" });
+            append({
+                "name": e.name,
+                "path": folder + "/" + e.name,
+                "isDir": !!e.isDir,
+                "isImage": !!e.isImage,
+                "size": 1024,
+                "url": ""
+            });
         }
     }
 

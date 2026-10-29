@@ -16,7 +16,9 @@ Page {
 
             width: parent.width
 
-            PageHeader { title: qsTr("Details") }
+            PageHeader {
+                title: qsTr("Details")
+            }
             DetailItem {
                 objectName: "pathDetail"
                 label: qsTr("File path")
@@ -35,8 +37,7 @@ Page {
                 objectName: "dateDetail"
                 visible: root.photo.timestamp > 0
                 label: qsTr("Date")
-                value: qsTr("%1, %2").arg(Format.formatDate(new Date(root.photo.timestamp), Formatter.TimeValue))
-                                     .arg(Qt.formatDate(new Date(root.photo.timestamp), Locale.ShortFormat))
+                value: qsTr("%1, %2").arg(Format.formatDate(new Date(root.photo.timestamp), Formatter.TimeValue)).arg(Qt.formatDate(new Date(root.photo.timestamp), Locale.ShortFormat))
                 alignment: Qt.AlignLeft
             }
             DetailItem {

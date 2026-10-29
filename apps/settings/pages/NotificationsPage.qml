@@ -43,7 +43,9 @@ Page {
                 objectName: "soundButton"
                 label: qsTr("Notification sound")
                 value: Settings.formatSoundName(Settings.notificationSound)
-                onClicked: pageStack.push(Qt.resolvedUrl("SoundPickerPage.qml"), { soundType: "notification" })
+                onClicked: pageStack.push(Qt.resolvedUrl("SoundPickerPage.qml"), {
+                    soundType: "notification"
+                })
             }
 
             SectionHeader {

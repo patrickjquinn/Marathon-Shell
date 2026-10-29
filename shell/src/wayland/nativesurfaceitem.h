@@ -27,15 +27,15 @@ class NativeSurfaceItem : public QWaylandQuickShellSurfaceItem {
     void touchUngrabEvent() override;
 
   private:
-    void        releasePointer();
-    void        setupShellSurface();
-    void        createPopup(QWaylandXdgPopup *popup, QWaylandXdgSurface *xdgSurface);
-    void        attachPopup(QWaylandXdgPopup *popup);
-    void        updatePopupGeometry();
+    void                       releasePointer();
+    void                       setupShellSurface();
+    void                       createPopup(QWaylandXdgPopup *popup, QWaylandXdgSurface *xdgSurface);
+    void                       attachPopup(QWaylandXdgPopup *popup);
+    void                       updatePopupGeometry();
 
-    QStringList m_applicationTerms;
-    bool        m_pointerFallback = false;
-    int         m_pointerTouchId  = -1;
+    QStringList                m_applicationTerms;
+    bool                       m_pointerFallback = false;
+    int                        m_pointerTouchId  = -1;
     QPointer<QWaylandXdgPopup> m_popup;
     QMetaObject::Connection    m_popupCreatedConnection;
 };

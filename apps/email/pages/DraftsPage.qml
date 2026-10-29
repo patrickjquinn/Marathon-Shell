@@ -32,7 +32,9 @@ Page {
             objectName: "draft-" + modelData.key
             contentHeight: Theme.itemSizeMedium
             Accessible.name: (modelData.subject || qsTr("(No subject)")) + ", " + (modelData.to || qsTr("No recipient"))
-            onClicked: page.app.compose({ draftKey: modelData.key })
+            onClicked: page.app.compose({
+                draftKey: modelData.key
+            })
             menu: ContextMenu {
                 MenuItem {
                     objectName: "deleteItem"

@@ -10,7 +10,15 @@ QtObject {
         nextId = 100;
     }
     function addContact(name, phone, email) {
-        contacts = contacts.concat([{ id: nextId++, name: name, phone: phone, email: email, favorite: false }]);
+        contacts = contacts.concat([
+            {
+                id: nextId++,
+                name: name,
+                phone: phone,
+                email: email,
+                favorite: false
+            }
+        ]);
     }
     function updateContact(id, data) {
         contacts = contacts.map(c => c.id === id ? Object.assign({}, c, data) : c);

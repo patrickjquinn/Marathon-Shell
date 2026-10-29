@@ -26,7 +26,8 @@ S.DatePickerDialog {
     }
 
     Component.onCompleted: _reachGrid()
-    onStatusChanged: if (status === S.PageStatus.Activating) _reachGrid()
+    onStatusChanged: if (status === S.PageStatus.Activating)
+        _reachGrid()
 
     DialogHeaderBackdrop {
         header: root._dialogHeader

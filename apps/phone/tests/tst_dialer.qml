@@ -44,7 +44,9 @@ TestCase {
     }
 
     function makeApp(props, component) {
-        const app = createTemporaryObject(component || appComponent, testCase, Object.assign({ callLogSeen: seenStub }, props || {}));
+        const app = createTemporaryObject(component || appComponent, testCase, Object.assign({
+            callLogSeen: seenStub
+        }, props || {}));
         tryVerify(() => app.pageStack.currentPage !== null);
         return app;
     }
@@ -80,7 +82,13 @@ TestCase {
     }
 
     function test_callDialsAndShowsCallPage() {
-        Contacts.contacts = [{ id: 1, name: "Ada", phone: "+1 555 123 4567" }];
+        Contacts.contacts = [
+            {
+                id: 1,
+                name: "Ada",
+                phone: "+1 555 123 4567"
+            }
+        ];
         const app = makeApp();
         type(app, "5551234567");
         compare(findChild(app.pageStack.currentPage, "matchLabel").text, "Ada");
@@ -98,9 +106,24 @@ TestCase {
 
     function test_emptyCallRecallsLastDialled() {
         CallHistory.history = [
-            { id: 1, number: "0871111111", type: "outgoing", timestamp: 1700000000 },
-            { id: 2, number: "0872222222", type: "incoming", timestamp: 1700000300 },
-            { id: 3, number: "0873333333", type: "outgoing", timestamp: 1700000200 }
+            {
+                id: 1,
+                number: "0871111111",
+                type: "outgoing",
+                timestamp: 1700000000
+            },
+            {
+                id: 2,
+                number: "0872222222",
+                type: "incoming",
+                timestamp: 1700000300
+            },
+            {
+                id: 3,
+                number: "0873333333",
+                type: "outgoing",
+                timestamp: 1700000200
+            }
         ];
         const app = makeApp();
         dialer(app);
@@ -115,7 +138,14 @@ TestCase {
 
     function test_noRecallWithoutModem() {
         Telephony.hasModem = false;
-        CallHistory.history = [{ id: 1, number: "0871111111", type: "outgoing", timestamp: 1700000000 }];
+        CallHistory.history = [
+            {
+                id: 1,
+                number: "0871111111",
+                type: "outgoing",
+                timestamp: 1700000000
+            }
+        ];
         const app = makeApp();
         dialer(app);
         verify(!findChild(app.pageStack.currentPage, "callButton").enabled);
@@ -144,7 +174,9 @@ TestCase {
     }
 
     function test_emergencyRouteShowsOnlyDialer() {
-        const app = makeApp({ route: "/emergency" });
+        const app = makeApp({
+            route: "/emergency"
+        });
         verify(app.emergencyOnly);
         dialer(app);
         verify(findChild(app.pageStack.currentPage, "dialer") !== null);
@@ -155,7 +187,9 @@ TestCase {
     }
 
     function test_emergencyRouteAlwaysDialsEmergency() {
-        const app = makeApp({ route: "/emergency" });
+        const app = makeApp({
+            route: "/emergency"
+        });
         type(app, "5551234");
         findChild(app.pageStack.currentPage, "callButton").clicked(null);
         compare(Telephony.log, ["emergency:5551234"]);
@@ -205,20 +239,29 @@ TestCase {
 
     function test_noModemEmergencyRouteStaysEnabled() {
         Telephony.hasModem = false;
-        const app = makeApp({ route: "/emergency" });
+        const app = makeApp({
+            route: "/emergency"
+        });
         type(app, "5551234");
         verify(findChild(app.pageStack.currentPage, "callButton").enabled);
     }
 
     function test_callRouteOpensDialerWithNumberWithoutDialling() {
-        const app = makeApp({ route: "/call", routeParams: JSON.stringify({ number: "+353 87 123 4567" }) });
+        const app = makeApp({
+            route: "/call",
+            routeParams: JSON.stringify({
+                number: "+353 87 123 4567"
+            })
+        });
         tryCompare(app, "dialedNumber", "+353 87 123 4567");
         compare(Telephony.log.filter(e => e.indexOf("dial") === 0).length, 0);
     }
 
     function test_liveCallRouteFillsDialer() {
         const app = makeApp();
-        app.handleRoute("/call", { number: "0871234567" });
+        app.handleRoute("/call", {
+            number: "0871234567"
+        });
         compare(app.dialedNumber, "0871234567");
         compare(Telephony.log.filter(e => e.indexOf("dial") === 0).length, 0);
     }

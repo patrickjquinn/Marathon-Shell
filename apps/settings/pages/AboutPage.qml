@@ -10,7 +10,9 @@ Page {
     id: page
 
     function rename() {
-        const dialog = pageStack.push(Qt.resolvedUrl("DeviceNameDialog.qml"), { name: Settings.deviceName });
+        const dialog = pageStack.push(Qt.resolvedUrl("DeviceNameDialog.qml"), {
+            name: Settings.deviceName
+        });
         dialog.accepted.connect(() => Settings.deviceName = dialog.name.trim());
     }
 

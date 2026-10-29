@@ -14,8 +14,8 @@ Item {
     property bool firstScanDone: Network.availableNetworks.length > 0
     // The scan can predate the connection, so mark the joined network here.
     readonly property var networks: Network.availableNetworks.map(n => Object.assign({}, n, {
-                "connected": Network.wifiConnected && n.ssid === Network.wifiSsid
-            })).sort((a, b) => b.connected - a.connected)
+            "connected": Network.wifiConnected && n.ssid === Network.wifiSsid
+        })).sort((a, b) => b.connected - a.connected)
     readonly property bool compact: Constants.isSquareScreen || Constants.screenHeight < 800
     readonly property bool pageActive: visible && SystemStatusStore.isWifiOn
     readonly property real rowHeight: compact ? Silica.Theme.itemSizeExtraSmall : Silica.Theme.itemSizeSmall

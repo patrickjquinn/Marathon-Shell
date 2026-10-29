@@ -11,7 +11,10 @@ TestCase {
     width: 540
     height: 960
 
-    Component { id: cover; CameraCover {} }
+    Component {
+        id: cover
+        CameraCover {}
+    }
 
     function test_placeholderWithoutPhoto() {
         const c = createTemporaryObject(cover, this);
@@ -21,7 +24,9 @@ TestCase {
 
     function test_showsLastPhoto() {
         const photo = Qt.resolvedUrl("data/photo.png").toString();
-        const c = createTemporaryObject(cover, this, { photo: photo });
+        const c = createTemporaryObject(cover, this, {
+            photo: photo
+        });
         verify(!findChild(c, "coverPlaceholder").visible);
         verify(findChild(c, "coverImage").visible);
         compare(String(findChild(c, "coverImage").source), photo);

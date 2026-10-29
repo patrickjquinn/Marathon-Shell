@@ -8,23 +8,53 @@ TestCase {
     name: "CalculatorPage"
     when: windowShown
     visible: true
-    width: 720; height: 1440
+    width: 720
+    height: 1440
 
-    Component { id: appComponent; CalculatorApp { width: 720; height: 1440 } }
-    Component { id: squareAppComponent; CalculatorApp { width: 720; height: 658 } }
-    Component { id: valueStub; QtObject { property var value } }
+    Component {
+        id: appComponent
+        CalculatorApp {
+            width: 720
+            height: 1440
+        }
+    }
+    Component {
+        id: squareAppComponent
+        CalculatorApp {
+            width: 720
+            height: 658
+        }
+    }
+    Component {
+        id: valueStub
+        QtObject {
+            property var value
+        }
+    }
 
     function make(component) {
         const app = createTemporaryObject(component || appComponent, this, {
-            modeStore: createTemporaryObject(valueStub, this, { value: true }),
-            historyStore: createTemporaryObject(valueStub, this, { value: "[]" })
+            modeStore: createTemporaryObject(valueStub, this, {
+                value: true
+            }),
+            historyStore: createTemporaryObject(valueStub, this, {
+                value: "[]"
+            })
         });
-        tryVerify(function () { return app.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return app.pageStack.currentPage !== null;
+        });
         const page = app.pageStack.currentPage;
-        tryVerify(function () { return page.activeFocus; });
+        tryVerify(function () {
+            return page.activeFocus;
+        });
         tryCompare(page, "status", PageStatus.Active);
         waitForRendering(page);
-        return { calc: app.calc, page: page, app: app };
+        return {
+            calc: app.calc,
+            page: page,
+            app: app
+        };
     }
 
     function key(page, name) {
@@ -135,7 +165,10 @@ TestCase {
         verify(t.calc.isClear);
     }
 
-    SignalSpy { id: minimizeSpy; signalName: "minimizeRequested" }
+    SignalSpy {
+        id: minimizeSpy
+        signalName: "minimizeRequested"
+    }
 
     function test_escapeWhenClearIsBack() {
         const t = make();

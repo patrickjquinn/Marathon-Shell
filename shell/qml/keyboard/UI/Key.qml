@@ -39,8 +39,7 @@ Rectangle {
         anchors.margins: Math.round(Silica.Theme.paddingSmall / 2)
         radius: Silica.Theme.paddingSmall
         visible: key.pressed || key.isSpecial
-        color: key.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
-                           : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
+        color: key.pressed ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.08)
     }
 
     Item {

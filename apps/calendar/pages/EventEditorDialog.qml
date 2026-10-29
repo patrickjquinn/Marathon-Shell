@@ -111,7 +111,9 @@ Dialog {
                 label: qsTr("Date")
                 value: Format.formatDate(dialog.date, Formatter.DateLong)
                 onClicked: {
-                    const picker = pageStack.push(datePickerComponent, { date: dialog.date });
+                    const picker = pageStack.push(datePickerComponent, {
+                        date: dialog.date
+                    });
                     picker.accepted.connect(function () {
                         dialog.date = picker.date;
                     });
@@ -129,7 +131,10 @@ Dialog {
                 visible: !dialog.allDay
                 value: Format.formatDate(new Date(2000, 0, 1, dialog.hour, dialog.minute), Formatter.TimeValue)
                 onClicked: {
-                    const picker = pageStack.push(timePickerComponent, { hour: dialog.hour, minute: dialog.minute });
+                    const picker = pageStack.push(timePickerComponent, {
+                        hour: dialog.hour,
+                        minute: dialog.minute
+                    });
                     picker.accepted.connect(function () {
                         dialog.hour = picker.hour;
                         dialog.minute = picker.minute;
@@ -142,10 +147,16 @@ Dialog {
                 visible: !dialog.allDay
                 value: {
                     const time = Format.formatDate(new Date(2000, 0, 1, dialog.endHour, dialog.endMinute), Formatter.TimeValue);
-                    return Logic.endsNextDay({ time: Logic.timeString(dialog.hour, dialog.minute), endTime: dialog.endTime }) ? qsTr("%1, next day").arg(time) : time;
+                    return Logic.endsNextDay({
+                        time: Logic.timeString(dialog.hour, dialog.minute),
+                        endTime: dialog.endTime
+                    }) ? qsTr("%1, next day").arg(time) : time;
                 }
                 onClicked: {
-                    const picker = pageStack.push(timePickerComponent, { hour: dialog.endHour, minute: dialog.endMinute });
+                    const picker = pageStack.push(timePickerComponent, {
+                        hour: dialog.endHour,
+                        minute: dialog.endMinute
+                    });
                     picker.accepted.connect(function () {
                         dialog.setEnd(picker.hour, picker.minute);
                     });

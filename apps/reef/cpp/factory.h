@@ -10,4 +10,4 @@
 
 class ReefListModel;
 
-ReefListModel* reef_new_list_model(QObject* parent);
+ReefListModel *reef_new_list_model(QObject *parent);

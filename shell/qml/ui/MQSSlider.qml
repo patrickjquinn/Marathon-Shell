@@ -17,7 +17,7 @@ import Sailfish.Silica 1.0 as Silica
 //   Value pill          right edge, 28 px wide, Body tnum
 Item {
     id: root
-    
+
     // The track and thumb are deliberately NOT scaled: they sit inside a
     // fixed-height card, and scaling them by ~2.5 at userScaleFactor 1.50
     // produced thumbs that swallowed the row. Only the value column scales,
@@ -62,8 +62,7 @@ Item {
         // the value pill on the right.
         Item {
             id: trackHost
-            width: parent.width - root.iconSize - root.rowSpacing
-                   - root.valueWidth - root.rowSpacing
+            width: parent.width - root.iconSize - root.rowSpacing - root.valueWidth - root.rowSpacing
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
 

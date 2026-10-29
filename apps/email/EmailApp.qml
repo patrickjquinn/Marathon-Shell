@@ -74,7 +74,11 @@ ApplicationWindow {
     }
 
     function compose(properties) {
-        return pageStack.push(Qt.resolvedUrl("pages/MailComposePage.qml"), Object.assign({ mail: mail, draftStore: draftStore, draftKey: "new-" + Date.now() }, properties || {}));
+        return pageStack.push(Qt.resolvedUrl("pages/MailComposePage.qml"), Object.assign({
+            mail: mail,
+            draftStore: draftStore,
+            draftKey: "new-" + Date.now()
+        }, properties || {}));
     }
 
     // From the share sheet: a new message with the shared files attached and
@@ -83,17 +87,30 @@ ApplicationWindow {
         const files = resources.filter(r => r.filePath).map(r => r.filePath);
         const body = resources.filter(r => !r.filePath && r.data).map(r => r.name && r.name !== r.data ? r.name + "\n" + r.data : r.data).join("\n\n");
         activate();
-        return compose({ attachments: files, defaultBody: body });
+        return compose({
+            attachments: files,
+            defaultBody: body
+        });
     }
 
     function continueDraft() {
         if (drafts.length === 1)
-            return compose({ draftKey: drafts[0].key });
-        return pageStack.push(Qt.resolvedUrl("pages/DraftsPage.qml"), { app: app });
+            return compose({
+                draftKey: drafts[0].key
+            });
+        return pageStack.push(Qt.resolvedUrl("pages/DraftsPage.qml"), {
+            app: app
+        });
     }
 
     function deleteDraft(key) {
-        draftStore.value = Logic.withDraft(draftStore.value, key, { to: "", cc: "", bcc: "", subject: "", body: "" }, 0);
+        draftStore.value = Logic.withDraft(draftStore.value, key, {
+            to: "",
+            cc: "",
+            bcc: "",
+            subject: "",
+            body: ""
+        }, 0);
     }
 
     function openFolder(accountId, folderId, kind) {
@@ -107,7 +124,10 @@ ApplicationWindow {
 
     function openMessage(id) {
         mail.markAsRead(id, true);
-        return pageStack.push(Qt.resolvedUrl("pages/MailMessagePage.qml"), { app: app, messageId: id });
+        return pageStack.push(Qt.resolvedUrl("pages/MailMessagePage.qml"), {
+            app: app,
+            messageId: id
+        });
     }
 
     function updateLatest() {
@@ -130,7 +150,13 @@ ApplicationWindow {
     Component.onCompleted: {
         const legacy = Logic.parseDrafts(legacyDraft.value);
         if (legacy.to !== undefined) {
-            draftStore.value = Logic.withDraft(draftStore.value, "new-0", Object.assign({ to: "", cc: "", bcc: "", subject: "", body: "" }, legacy), 0);
+            draftStore.value = Logic.withDraft(draftStore.value, "new-0", Object.assign({
+                to: "",
+                cc: "",
+                bcc: "",
+                subject: "",
+                body: ""
+            }, legacy), 0);
             legacyDraft.value = "";
         }
         if (hasAccount)

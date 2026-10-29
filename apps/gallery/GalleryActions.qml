@@ -37,19 +37,61 @@ Item {
         readOnly: true
         idempotent: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "id"; type: "integer"; minimum: 1; required: true }
-            KeelParam { name: "name"; type: "string"; maxLength: 256; required: true }
-            KeelParam { name: "album"; type: "string"; maxLength: 256; required: true }
-            KeelParam { name: "taken"; type: "string"; format: "date-time"; maxLength: 32; required: true }
-            KeelParam { name: "width"; type: "integer"; minimum: 0; required: true }
-            KeelParam { name: "height"; type: "integer"; minimum: 0; required: true }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 1
+                required: true
+            }
+            KeelParam {
+                name: "name"
+                type: "string"
+                maxLength: 256
+                required: true
+            }
+            KeelParam {
+                name: "album"
+                type: "string"
+                maxLength: 256
+                required: true
+            }
+            KeelParam {
+                name: "taken"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+                required: true
+            }
+            KeelParam {
+                name: "width"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
+            KeelParam {
+                name: "height"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const found = Model.filter(root.photos(), args.query);
@@ -62,7 +104,13 @@ Item {
         title: qsTr("Show photo")
         description: "Open a photo full screen in Marathon Gallery for the person, by its id from photos.find, and bring Gallery to the front. Swiping moves through the other photos, newest first."
         parameters: [
-            KeelParam { name: "id"; type: "integer"; minimum: 1; required: true; description: "A photo id from photos.find" }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 1
+                required: true
+                description: "A photo id from photos.find"
+            }
         ]
         onInvoked: (args, call) => {
             const photos = root.photos();
@@ -71,8 +119,11 @@ Item {
                 call.fail("Failed", "no photo has id " + args.id);
                 return;
             }
-            root.store.pageStack.push(Qt.resolvedUrl("pages/PhotoViewerPage.qml"),
-                                      { store: root.store, photos: photos, currentIndex: index });
+            root.store.pageStack.push(Qt.resolvedUrl("pages/PhotoViewerPage.qml"), {
+                store: root.store,
+                photos: photos,
+                currentIndex: index
+            });
             root.store.activate();
         }
     }

@@ -26,7 +26,15 @@ TestCase {
     readonly property string todayKey: Logic.dateKey(new Date())
 
     function ev(id, extra) {
-        return Object.assign({ id: id, title: "Event " + id, date: todayKey, time: "10:00", allDay: false, recurring: "none", description: "" }, extra || {});
+        return Object.assign({
+            id: id,
+            title: "Event " + id,
+            date: todayKey,
+            time: "10:00",
+            allDay: false,
+            recurring: "none",
+            description: ""
+        }, extra || {});
     }
 
     function makeApp(events) {
@@ -49,7 +57,13 @@ TestCase {
     }
 
     function test_monthListsTheDaysEvents() {
-        const app = makeApp([ev(1, { time: "15:00" }), ev(2, { allDay: true }), ev(3, { date: "2001-01-01" })]);
+        const app = makeApp([ev(1, {
+                time: "15:00"
+            }), ev(2, {
+                allDay: true
+            }), ev(3, {
+                date: "2001-01-01"
+            })]);
         const page = app.pageStack.currentPage;
         compare(page.dayEvents.map(e => e.id), [2, 1]);
         compare(child(page, "dayEvents").count, 2);
@@ -59,7 +73,9 @@ TestCase {
     }
 
     function test_selectingADay() {
-        const app = makeApp([ev(1, { date: "2026-03-14" })]);
+        const app = makeApp([ev(1, {
+                date: "2026-03-14"
+            })]);
         const page = app.pageStack.currentPage;
         page.showDate(new Date(2026, 2, 14));
         compare(page.dayEvents.length, 1);
@@ -125,8 +141,16 @@ TestCase {
     }
 
     function test_editedEventTitleIsNotFocused() {
-        const app = makeApp([ev(1, { title: "Dentist" })]);
-        const dialog = app.pageStack.push(Qt.resolvedUrl("../pages/EventEditorDialog.qml"), { app: app, original: ev(1, { title: "Dentist" }), title: "Dentist" }, PageStackAction.Immediate);
+        const app = makeApp([ev(1, {
+                title: "Dentist"
+            })]);
+        const dialog = app.pageStack.push(Qt.resolvedUrl("../pages/EventEditorDialog.qml"), {
+            app: app,
+            original: ev(1, {
+                title: "Dentist"
+            }),
+            title: "Dentist"
+        }, PageStackAction.Immediate);
         tryCompare(dialog, "status", PageStatus.Active);
         verify(!child(dialog, "titleField").activeFocus);
     }
@@ -193,7 +217,11 @@ TestCase {
     }
 
     function test_editEventLoadsEndAndLocation() {
-        const app = makeApp([ev(7, { time: "07:30", endTime: "08:15", location: "Gym" })]);
+        const app = makeApp([ev(7, {
+                time: "07:30",
+                endTime: "08:15",
+                location: "Gym"
+            })]);
         const dialog = app.editEvent(Calendar.events[0]);
         tryCompare(dialog, "status", PageStatus.Active);
         compare(dialog.endHour, 8);
@@ -211,7 +239,13 @@ TestCase {
     }
 
     function test_editEventKeepsIdAndFields() {
-        const app = makeApp([ev(7, { title: "Gym", time: "07:30", reminder: 15, description: "Legs", extra: "kept" })]);
+        const app = makeApp([ev(7, {
+                title: "Gym",
+                time: "07:30",
+                reminder: 15,
+                description: "Legs",
+                extra: "kept"
+            })]);
         const dialog = app.editEvent(Calendar.events[0]);
         tryCompare(dialog, "status", PageStatus.Active);
         compare(dialog.title, "Gym");
@@ -248,14 +282,24 @@ TestCase {
     function test_saveFailureKeepsEvents() {
         const app = makeApp([ev(1)]);
         Calendar.fail = true;
-        verify(!app.saveEvent({ title: "x", date: todayKey }));
-        verify(!app.saveEvent(ev(1, { title: "y" })));
+        verify(!app.saveEvent({
+            title: "x",
+            date: todayKey
+        }));
+        verify(!app.saveEvent(ev(1, {
+            title: "y"
+        })));
         verify(!app.deleteEvent(1));
         compare(Calendar.events.length, 1);
     }
 
     function test_eventPage() {
-        const app = makeApp([ev(4, { title: "Review", recurring: "daily", reminder: 60, description: "Bring notes" })]);
+        const app = makeApp([ev(4, {
+                title: "Review",
+                recurring: "daily",
+                reminder: 60,
+                description: "Bring notes"
+            })]);
         const page = app.openEvent(Calendar.events[0]);
         pushed(app, 2);
         compare(child(page, "eventHeader").title, "Review");
@@ -265,7 +309,9 @@ TestCase {
         compare(child(page, "repeatDetail").value, "Every day");
         compare(child(page, "reminderDetail").value, "1 hour before");
         compare(child(page, "description").text, "Bring notes");
-        Calendar.updateEvent(ev(4, { title: "Renamed" }));
+        Calendar.updateEvent(ev(4, {
+            title: "Renamed"
+        }));
         compare(child(page, "eventHeader").title, "Renamed");
         verify(!child(page, "repeatDetail").visible);
     }
@@ -312,8 +358,17 @@ TestCase {
     }
 
     function test_agendaPage() {
-        const app = makeApp([ev(1, { date: "2026-12-01" }), ev(2, { date: "2026-01-01" }), ev(3, { date: "2026-01-01", time: "08:00" })]);
-        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), { app: app }, PageStackAction.Immediate);
+        const app = makeApp([ev(1, {
+                date: "2026-12-01"
+            }), ev(2, {
+                date: "2026-01-01"
+            }), ev(3, {
+                date: "2026-01-01",
+                time: "08:00"
+            })]);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         compare(page.shown.map(e => e.id), [3, 2, 1]);
         const view = child(page, "agendaView");
         tryCompare(view, "count", 3);
@@ -325,9 +380,13 @@ TestCase {
     function test_agendaOpensAtToday() {
         const past = [];
         for (let i = 1; i <= 15; i++)
-            past.push(ev(i, { date: Logic.dateKey(new Date(2001, 0, i)) }));
+            past.push(ev(i, {
+                date: Logic.dateKey(new Date(2001, 0, i))
+            }));
         const app = makeApp(past.concat([ev(99)]));
-        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), { app: app }, PageStackAction.Immediate);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         const view = child(page, "agendaView");
         tryVerify(() => view.itemAtIndex(15) !== null);
         const today = view.itemAtIndex(15);
@@ -347,22 +406,34 @@ TestCase {
 
     function test_searchFromAllEvents() {
         const app = makeApp([]);
-        app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), { app: app }, PageStackAction.Immediate);
+        app.pageStack.push(Qt.resolvedUrl("../pages/AgendaPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         child(app.pageStack.currentPage, "searchItem").clicked(null);
         compare(pushed(app, 3).objectName, "searchPage");
     }
 
     function test_searchTakesKeysAtOnce() {
-        const app = makeApp([ev(1, { title: "Dentist" })]);
-        const page = app.pageStack.push(Qt.resolvedUrl("../pages/SearchPage.qml"), { app: app }, PageStackAction.Immediate);
+        const app = makeApp([ev(1, {
+                title: "Dentist"
+            })]);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/SearchPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         tryCompare(page, "status", PageStatus.Active);
         keyClick(Qt.Key_D);
         compare(page.query, "d");
     }
 
     function test_searchPage() {
-        const app = makeApp([ev(1, { title: "Dentist" }), ev(2, { title: "Lunch" })]);
-        const page = app.pageStack.push(Qt.resolvedUrl("../pages/SearchPage.qml"), { app: app }, PageStackAction.Immediate);
+        const app = makeApp([ev(1, {
+                title: "Dentist"
+            }), ev(2, {
+                title: "Lunch"
+            })]);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/SearchPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         const view = child(page, "searchView");
         compare(view.count, 0);
         compare(child(page, "placeholder").text, "Search your events");
@@ -374,7 +445,11 @@ TestCase {
     }
 
     function test_eventItemShowsEndAndLocation() {
-        const app = makeApp([ev(1, { endTime: "11:30", location: "Room 4", recurring: "weekly" })]);
+        const app = makeApp([ev(1, {
+                endTime: "11:30",
+                location: "Room 4",
+                recurring: "weekly"
+            })]);
         const item = child(app.pageStack.currentPage, "eventItem");
         compare(item.details, "Every week · Room 4");
         verify(child(item, "endTimeLabel").visible);

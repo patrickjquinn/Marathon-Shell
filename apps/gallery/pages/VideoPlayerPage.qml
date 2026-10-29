@@ -25,7 +25,8 @@ FullscreenContentPage {
     // Vertical drags open the pulley, so the page goes back sideways.
     navigationStyle: PageNavigation.Horizontal
     palette.colorScheme: Theme.LightOnDark
-    onStatusChanged: if (status === PageStatus.Active) forceActiveFocus()
+    onStatusChanged: if (status === PageStatus.Active)
+        forceActiveFocus()
     Keys.onSpacePressed: toggle()
     Keys.onEscapePressed: pageStack.pop()
 
@@ -58,7 +59,9 @@ FullscreenContentPage {
             MenuItem {
                 objectName: "detailsAction"
                 text: qsTr("Details")
-                onClicked: pageStack.push(Qt.resolvedUrl("PhotoDetailsPage.qml"), { photo: root.video })
+                onClicked: pageStack.push(Qt.resolvedUrl("PhotoDetailsPage.qml"), {
+                    photo: root.video
+                })
             }
         }
 
@@ -84,8 +87,7 @@ FullscreenContentPage {
         y: Theme.paddingLarge
         width: parent.width - 2 * Theme.horizontalPageMargin
         visible: root.controlsShown && !menu.active
-        text: root.video && root.video.timestamp
-              ? Format.formatDate(new Date(root.video.timestamp), Formatter.DateLong) : Model.fileName(root.video)
+        text: root.video && root.video.timestamp ? Format.formatDate(new Date(root.video.timestamp), Formatter.DateLong) : Model.fileName(root.video)
         truncationMode: TruncationMode.Fade
     }
 
@@ -115,7 +117,8 @@ FullscreenContentPage {
         valueText: Format.formatDuration(value / 1000, Formatter.DurationShort)
         label: Format.formatDuration(player.duration / 1000, Formatter.DurationShort)
         // Playback moves the value only while the slider is not held.
-        onValueChanged: if (!down && Math.abs(value - player.position) > 500) player.seek(value)
+        onValueChanged: if (!down && Math.abs(value - player.position) > 500)
+            player.seek(value)
 
         Binding on value {
             when: !slider.down

@@ -34,8 +34,17 @@ TestCase {
     function make(alarms) {
         const s = stopwatch.createObject(testCase);
         const c = countdown.createObject(testCase);
-        const v = createTemporaryObject(cover, testCase, { alarms: alarms, stopwatch: s, countdown: c, now: new Date(2026, 9, 14, 8, 0) });
-        return { cover: v, stopwatch: s, countdown: c };
+        const v = createTemporaryObject(cover, testCase, {
+            alarms: alarms,
+            stopwatch: s,
+            countdown: c,
+            now: new Date(2026, 9, 14, 8, 0)
+        });
+        return {
+            cover: v,
+            stopwatch: s,
+            countdown: c
+        };
     }
 
     function test_placeholderWithoutAlarms() {
@@ -45,7 +54,20 @@ TestCase {
     }
 
     function test_nextAlarm() {
-        const t = make([{ id: "a", time: "07:00", label: "Early", enabled: true }, { id: "b", time: "09:30", label: "Standup", enabled: true }]);
+        const t = make([
+            {
+                id: "a",
+                time: "07:00",
+                label: "Early",
+                enabled: true
+            },
+            {
+                id: "b",
+                time: "09:30",
+                label: "Standup",
+                enabled: true
+            }
+        ]);
         compare(t.cover.mode, "alarm");
         verify(!findChild(t.cover, "coverPlaceholder").visible);
         compare(t.cover.next.alarm.id, "b");
@@ -53,7 +75,14 @@ TestCase {
     }
 
     function test_runningTimerWins() {
-        const t = make([{ id: "a", time: "09:00", label: "", enabled: true }]);
+        const t = make([
+            {
+                id: "a",
+                time: "09:00",
+                label: "",
+                enabled: true
+            }
+        ]);
         t.countdown.set(90);
         t.countdown.start();
         compare(t.cover.mode, "timer");
@@ -65,7 +94,14 @@ TestCase {
     }
 
     function test_pausedTimerStaysAndResumes() {
-        const t = make([{ id: "a", time: "09:00", label: "", enabled: true }]);
+        const t = make([
+            {
+                id: "a",
+                time: "09:00",
+                label: "",
+                enabled: true
+            }
+        ]);
         t.countdown.set(90);
         t.countdown.start();
         t.countdown.pause();

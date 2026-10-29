@@ -46,24 +46,60 @@ Item {
         readOnly: true
         idempotent: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 20 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 20
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "id"; type: "integer"; minimum: 1; required: true }
-            KeelParam { name: "title"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "artist"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "album"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "duration"; type: "integer"; minimum: 0; required: true }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 1
+                required: true
+            }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "artist"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "album"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "duration"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
         }
         onInvoked: (args, call) => root.whenLoaded(() => {
-            const tracks = root.music.tracks;
-            const found = args.query.trim() === "" ? Library.songs(tracks) : Library.search(tracks, args.query);
-            call.reply(found.slice(0, args.limit || 20).map(root.summary));
-        })
+                const tracks = root.music.tracks;
+                const found = args.query.trim() === "" ? Library.songs(tracks) : Library.search(tracks, args.query);
+                call.reply(found.slice(0, args.limit || 20).map(root.summary));
+            })
     }
 
     KeelAction {
@@ -71,40 +107,76 @@ Item {
         title: qsTr("Play music")
         description: "Play music from the Marathon Music library: the song `trackId` (an id from library.search) followed by the rest of the library, or every song whose title, artist or album contains `query`. Give one of the two. Returns the song now playing."
         parameters: [
-            KeelParam { name: "trackId"; type: "integer"; minimum: 1; description: "A song id from library.search" },
-            KeelParam { name: "query"; type: "string"; minLength: 1; maxLength: 256; description: "Text in a song's title, artist or album" }
+            KeelParam {
+                name: "trackId"
+                type: "integer"
+                minimum: 1
+                description: "A song id from library.search"
+            },
+            KeelParam {
+                name: "query"
+                type: "string"
+                minLength: 1
+                maxLength: 256
+                description: "Text in a song's title, artist or album"
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "id"; type: "integer"; minimum: 1; required: true }
-            KeelParam { name: "title"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "artist"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "album"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "duration"; type: "integer"; minimum: 0; required: true }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 1
+                required: true
+            }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "artist"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "album"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "duration"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
         }
         onInvoked: (args, call) => root.whenLoaded(() => {
-            const player = root.music.player;
-            if (args.trackId !== undefined) {
-                const songs = Library.songs(root.music.tracks);
-                const i = songs.findIndex(t => t.id === args.trackId);
-                if (i < 0) {
-                    call.fail("Failed", "no song has id " + args.trackId);
+                const player = root.music.player;
+                if (args.trackId !== undefined) {
+                    const songs = Library.songs(root.music.tracks);
+                    const i = songs.findIndex(t => t.id === args.trackId);
+                    if (i < 0) {
+                        call.fail("Failed", "no song has id " + args.trackId);
+                        return;
+                    }
+                    player.playTracks(songs, i);
+                } else if (args.query !== undefined) {
+                    const found = Library.search(root.music.tracks, args.query);
+                    if (found.length === 0) {
+                        call.fail("Failed", "no song matches “" + args.query + "”");
+                        return;
+                    }
+                    player.playTracks(found, 0);
+                } else {
+                    call.fail("InvalidArguments", "give trackId or query");
                     return;
                 }
-                player.playTracks(songs, i);
-            } else if (args.query !== undefined) {
-                const found = Library.search(root.music.tracks, args.query);
-                if (found.length === 0) {
-                    call.fail("Failed", "no song matches “" + args.query + "”");
-                    return;
-                }
-                player.playTracks(found, 0);
-            } else {
-                call.fail("InvalidArguments", "give trackId or query");
-                return;
-            }
-            call.reply(root.summary(player.currentTrack));
-        })
+                call.reply(root.summary(player.currentTrack));
+            })
     }
 
     KeelAction {
@@ -112,12 +184,26 @@ Item {
         title: qsTr("Control playback")
         description: "Pause or resume Marathon Music, or skip to the next or previous song in its queue. Fails with NotAvailable when no song is loaded. Returns whether music is playing and the current song's title."
         parameters: [
-            KeelParam { name: "command"; type: "string"; required: true; values: ["pause", "resume", "next", "previous"] }
+            KeelParam {
+                name: "command"
+                type: "string"
+                required: true
+                values: ["pause", "resume", "next", "previous"]
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "playing"; type: "boolean"; required: true }
-            KeelParam { name: "title"; type: "string"; maxLength: 200; required: true }
+            KeelParam {
+                name: "playing"
+                type: "boolean"
+                required: true
+            }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const player = root.music.player;
@@ -131,7 +217,10 @@ Item {
                 player.previous();
             else if ((args.command === "pause") === player.playing)
                 player.toggle();
-            call.reply({ playing: player.playing, title: String(player.currentTrack.title).substring(0, 200) });
+            call.reply({
+                playing: player.playing,
+                title: String(player.currentTrack.title).substring(0, 200)
+            });
         }
     }
 }

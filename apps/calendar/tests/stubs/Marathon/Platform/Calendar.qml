@@ -15,7 +15,9 @@ QtObject {
     function createEvent(event) {
         if (fail)
             return {};
-        const created = Object.assign({}, event, { id: nextId++ });
+        const created = Object.assign({}, event, {
+            id: nextId++
+        });
         events = events.concat([created]);
         return created;
     }

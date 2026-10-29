@@ -15,18 +15,20 @@ class FpsMonitor : public QObject {
     Q_OBJECT
     Q_PROPERTY(qreal fps READ fps NOTIFY fpsChanged)
 
-public:
+  public:
     explicit FpsMonitor(QObject *parent = nullptr);
 
     // Connect to a window's frame-swap signal and start sampling.
     void  attach(QQuickWindow *window);
-    qreal fps() const { return m_fps; }
+    qreal fps() const {
+        return m_fps;
+    }
 
-signals:
+  signals:
     void fpsChanged();
 
-private:
-    void sample();
+  private:
+    void          sample();
 
     qreal         m_fps    = 0.0;
     int           m_frames = 0;

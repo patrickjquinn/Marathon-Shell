@@ -106,7 +106,11 @@ Page {
 
             origin.x: viewfinder.width / 2
             origin.y: viewfinder.height / 2
-            axis { x: 0; y: 1; z: 0 }
+            axis {
+                x: 0
+                y: 1
+                z: 0
+            }
         }
     }
 
@@ -332,8 +336,16 @@ Page {
                 running: page.camera.isRecording
                 loops: Animation.Infinite
 
-                NumberAnimation { from: 1; to: 0.2; duration: 500 }
-                NumberAnimation { from: 0.2; to: 1; duration: 500 }
+                NumberAnimation {
+                    from: 1
+                    to: 0.2
+                    duration: 500
+                }
+                NumberAnimation {
+                    from: 0.2
+                    to: 1
+                    duration: 500
+                }
             }
         }
 
@@ -442,7 +454,10 @@ Page {
         onClicked: page.camera.flipCamera()
 
         Behavior on rotation {
-            NumberAnimation { duration: 300; easing.type: Easing.InOutQuad }
+            NumberAnimation {
+                duration: 300
+                easing.type: Easing.InOutQuad
+            }
         }
     }
 
@@ -481,9 +496,7 @@ Page {
             objectName: "placeholder"
             enabled: true
             text: page.camera.cameraCount === 0 ? qsTr("Camera unavailable") : qsTr("Camera stopped working")
-            hintText: page.camera.cameraCount === 0
-                      ? qsTr("No working camera found. If this device has one, pull down to give Camera access to it.")
-                      : qsTr("Another app may be using the camera. Pull down to try again.")
+            hintText: page.camera.cameraCount === 0 ? qsTr("No working camera found. If this device has one, pull down to give Camera access to it.") : qsTr("Another app may be using the camera. Pull down to try again.")
         }
     }
 

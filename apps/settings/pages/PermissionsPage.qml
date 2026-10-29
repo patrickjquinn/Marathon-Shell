@@ -13,7 +13,9 @@ Page {
     property string focusAppId
 
     function show(name) {
-        pageStack.push(Qt.resolvedUrl("PermissionAppsPage.qml"), { permission: name });
+        pageStack.push(Qt.resolvedUrl("PermissionAppsPage.qml"), {
+            permission: name
+        });
     }
 
     objectName: "permissionsPage"

@@ -14,7 +14,12 @@ TestCase {
         property var pageStack: QtObject {
             property var pushed: []
             function push(page, props) {
-                pushed = pushed.concat([{ page: page.toString(), props: props }]);
+                pushed = pushed.concat([
+                    {
+                        page: page.toString(),
+                        props: props
+                    }
+                ]);
             }
         }
         function refresh() {
@@ -30,8 +35,15 @@ TestCase {
     }
 
     function photo(id, album, day) {
-        return { id: id, path: "file:///p/IMG_" + id + ".jpg", thumbnailPath: "", album: album,
-                 width: 40, height: 30, timestamp: Date.UTC(2026, 2, day) };
+        return {
+            id: id,
+            path: "file:///p/IMG_" + id + ".jpg",
+            thumbnailPath: "",
+            album: album,
+            width: 40,
+            height: 30,
+            timestamp: Date.UTC(2026, 2, day)
+        };
     }
 
     function init() {
@@ -42,29 +54,52 @@ TestCase {
     }
 
     function test_find() {
-        const call = KeelActions.invoke("photos.find", { query: "trip" });
+        const call = KeelActions.invoke("photos.find", {
+            query: "trip"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result, [
-            { id: 3, name: "IMG_3.jpg", album: "Trip", taken: "2026-03-14T00:00:00.000Z", width: 40, height: 30 },
-            { id: 1, name: "IMG_1.jpg", album: "Trip", taken: "2026-03-10T00:00:00.000Z", width: 40, height: 30 }
+            {
+                id: 3,
+                name: "IMG_3.jpg",
+                album: "Trip",
+                taken: "2026-03-14T00:00:00.000Z",
+                width: 40,
+                height: 30
+            },
+            {
+                id: 1,
+                name: "IMG_1.jpg",
+                album: "Trip",
+                taken: "2026-03-10T00:00:00.000Z",
+                width: 40,
+                height: 30
+            }
         ]);
     }
 
     function test_findRecent() {
-        const call = KeelActions.invoke("photos.find", { query: "", limit: 2 });
+        const call = KeelActions.invoke("photos.find", {
+            query: "",
+            limit: 2
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result.map(p => p.id), [3, 2]);
     }
 
     function test_findBeforeFirstRefresh() {
         store.photos = [];
-        const call = KeelActions.invoke("photos.find", { query: "IMG_2" });
+        const call = KeelActions.invoke("photos.find", {
+            query: "IMG_2"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result.map(p => p.id), [2]);
     }
 
     function test_show() {
-        const call = KeelActions.invoke("photos.show", { id: 2 });
+        const call = KeelActions.invoke("photos.show", {
+            id: 2
+        });
         verify(call.succeeded, call.errorMessage);
         compare(store.pageStack.pushed.length, 1);
         verify(store.pageStack.pushed[0].page.endsWith("pages/PhotoViewerPage.qml"));
@@ -74,7 +109,9 @@ TestCase {
     }
 
     function test_showUnknown() {
-        const call = KeelActions.invoke("photos.show", { id: 9 });
+        const call = KeelActions.invoke("photos.show", {
+            id: 9
+        });
         compare(call.errorCode, "Failed");
         compare(store.pageStack.pushed.length, 0);
         compare(store.activations, 0);
@@ -90,7 +127,9 @@ TestCase {
         compare(manifest.appId, "org.marathonos.gallery");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.gallery/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.gallery/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

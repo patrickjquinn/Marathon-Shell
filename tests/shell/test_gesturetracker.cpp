@@ -127,7 +127,8 @@ class TestGestureTracker : public QObject {
     void underdampedSpringOvershoots() {
         qreal maxOffset = -1;
         for (int ms = 0; ms <= 800; ms += 4)
-            maxOffset = qMax(maxOffset, GestureTracker::spring(-200, 0, 22, 0.5, ms / 1000.0).offset);
+            maxOffset =
+                qMax(maxOffset, GestureTracker::spring(-200, 0, 22, 0.5, ms / 1000.0).offset);
         QVERIFY(maxOffset > 5);
     }
 

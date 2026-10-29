@@ -48,7 +48,18 @@ TestCase {
     // Every role the delegate reads, since a ListView sees only the roles
     // its first row had.
     function addNotification(id, appId, icon) {
-        NotificationService.append({ id: id, appId: appId, title: "Ada", body: "Hi", icon: icon || "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
+        NotificationService.append({
+            id: id,
+            appId: appId,
+            title: "Ada",
+            body: "Hi",
+            icon: icon || "",
+            timestamp: Date.now(),
+            isRead: false,
+            ongoing: false,
+            progress: -1,
+            day: isoDay(0)
+        });
         hub.refreshSources();
     }
 
@@ -158,7 +169,9 @@ TestCase {
     }
 
     function test_accountIsTheSendersAppName() {
-        AppModel.names = { "email": "Mail" };
+        AppModel.names = {
+            "email": "Mail"
+        };
         addNotification(1, "email");
         addNotification(2, "signal");
         tryVerify(() => row(1));
@@ -196,7 +209,15 @@ TestCase {
     // A system notice names no sender, so its glyph stands in, as on the
     // lock screen; a message keeps its sender's monogram.
     function test_systemNotificationShowsItsGlyph() {
-        NotificationService.append({ id: 3, appId: "Software update", title: "Restart to finish updating", body: "", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false });
+        NotificationService.append({
+            id: 3,
+            appId: "Software update",
+            title: "Restart to finish updating",
+            body: "",
+            icon: "arrow-circle-up",
+            timestamp: Date.now(),
+            isRead: false
+        });
         addNotification(4, "messages", "message-circle");
         tryVerify(() => row(1));
         verify(findChild(row(0), "hubRowImage").visible);
@@ -209,13 +230,16 @@ TestCase {
     function test_rowActionButtons() {
         addNotification(5, "messages");
         tryVerify(() => row(0));
-        row(0).actions = [{
+        row(0).actions = [
+            {
                 "key": "default",
                 "label": "Open"
-            }, {
+            },
+            {
                 "key": "snooze",
                 "label": "Snooze"
-            }];
+            }
+        ];
         const actions = findChild(row(0), "hubRowActions");
         compare(actions.buttons.map(b => b.key), ["snooze"]);
         waitForPolish(actions);
@@ -230,18 +254,42 @@ TestCase {
     // below it clear of them, also when its app brings the filter chips.
     function test_aNewRowMakesRoomForItsButtons() {
         const list = findChild(hub, "hubList");
-        const snooze = [{
+        const snooze = [
+            {
                 "key": "snooze",
                 "label": "Snooze"
-            }];
+            }
+        ];
         // Yesterday's row: the new ones open a "Today" section above it.
-        NotificationService.append({ id: 1, appId: "messages", title: "Ada", body: "Hi", icon: "", timestamp: Date.now() - 86400000, isRead: false, ongoing: false, progress: -1, day: isoDay(1) });
+        NotificationService.append({
+            id: 1,
+            appId: "messages",
+            title: "Ada",
+            body: "Hi",
+            icon: "",
+            timestamp: Date.now() - 86400000,
+            isRead: false,
+            ongoing: false,
+            progress: -1,
+            day: isoDay(1)
+        });
         hub.refreshSources();
         tryVerify(() => row(0));
         row(0).actions = snooze;
         wait(400);
         for (let id = 2; id <= 6; id++) {
-            NotificationService.insert(0, { id: id, appId: id === 2 ? "mail" : "messages", title: "Bob" + id, body: "Yo", icon: "", timestamp: Date.now(), isRead: false, ongoing: false, progress: -1, day: isoDay(0) });
+            NotificationService.insert(0, {
+                id: id,
+                appId: id === 2 ? "mail" : "messages",
+                title: "Bob" + id,
+                body: "Yo",
+                icon: "",
+                timestamp: Date.now(),
+                isRead: false,
+                ongoing: false,
+                progress: -1,
+                day: isoDay(0)
+            });
             hub.refreshSources();
             // The real model has the actions when the row is made.
             list.forceLayout();
@@ -263,13 +311,16 @@ TestCase {
     function test_rowRepliesInlineFromAnySequence() {
         addNotification(13, "messages");
         tryVerify(() => row(0));
-        row(0).actions = new Set([{
+        row(0).actions = new Set([
+            {
                 "key": "mark-read",
                 "label": "Mark read"
-            }, {
+            },
+            {
                 "key": "inline-reply",
                 "label": "Reply"
-            }]);
+            }
+        ]);
         verify(row(0).canReply);
         compare(findChild(row(0), "hubRowActions").buttons.map(b => b.key), ["inline-reply", "mark-read"]);
     }
@@ -278,16 +329,22 @@ TestCase {
     function test_rowRepliesInline() {
         addNotification(12, "messages");
         tryVerify(() => row(0));
-        row(0).actions = [{
+        row(0).actions = [
+            {
                 "key": "inline-reply",
                 "label": "Reply"
-            }, {
+            },
+            {
                 "key": "mark-read",
                 "label": "Mark read"
-            }];
+            }
+        ];
         const actions = findChild(row(0), "hubRowActions");
         compare(actions.buttons.map(b => b.key), ["inline-reply", "mark-read"]);
-        const replied = createTemporaryObject(spyComponent, tc, { target: row(0), signalName: "replied" });
+        const replied = createTemporaryObject(spyComponent, tc, {
+            target: row(0),
+            signalName: "replied"
+        });
         waitForPolish(actions);
         mouseClick(findChild(actions, "notificationAction-inline-reply"));
         const field = findChild(row(0), "hubRowReplyField");
@@ -311,14 +368,19 @@ TestCase {
     function test_replyFieldTakesTyping() {
         addNotification(14, "messages");
         tryVerify(() => row(0));
-        row(0).actions = [{
+        row(0).actions = [
+            {
                 "key": "inline-reply",
                 "label": "Reply"
-            }];
+            }
+        ];
         hub.Window.window.requestActivate();
         tryVerify(() => hub.Window.window.active);
         const actions = findChild(row(0), "hubRowActions");
-        const activated = createTemporaryObject(spyComponent, tc, { target: row(0), signalName: "activated" });
+        const activated = createTemporaryObject(spyComponent, tc, {
+            target: row(0),
+            signalName: "activated"
+        });
         waitForPolish(actions);
         mouseClick(findChild(actions, "notificationAction-inline-reply"));
         const field = findChild(row(0), "hubRowReplyField");
@@ -344,7 +406,17 @@ TestCase {
     }
 
     function addProgress(id, progress) {
-        NotificationService.append({ id: id, appId: "Software update", title: "Downloading Marathon OS 26101801", body: "42%", icon: "arrow-circle-up", timestamp: Date.now(), isRead: false, ongoing: true, progress: progress });
+        NotificationService.append({
+            id: id,
+            appId: "Software update",
+            title: "Downloading Marathon OS 26101801",
+            body: "42%",
+            icon: "arrow-circle-up",
+            timestamp: Date.now(),
+            isRead: false,
+            ongoing: true,
+            progress: progress
+        });
     }
 
     // An ongoing row draws its progress, stays put under a swipe and

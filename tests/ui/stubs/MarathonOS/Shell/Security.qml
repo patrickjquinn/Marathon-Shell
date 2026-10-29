@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQml
+
 QtObject {
     property bool hasQuickPIN: false
     property bool isLockedOut: false
@@ -15,9 +16,14 @@ QtObject {
     signal biometricPrompt(string message)
     signal lockoutStateChanged
 
-    function authenticateQuickPIN(pin) { attempts = attempts.concat([pin]); }
-    function authenticatePassword(password) { attempts = attempts.concat([password]); }
-    function authenticateBiometric(type) {}
+    function authenticateQuickPIN(pin) {
+        attempts = attempts.concat([pin]);
+    }
+    function authenticatePassword(password) {
+        attempts = attempts.concat([password]);
+    }
+    function authenticateBiometric(type) {
+    }
     function setQuickPINFirstRun(pin) {
         if (hasQuickPIN)
             return false;

@@ -14,7 +14,13 @@ Item {
 
     function place(args) {
         const name = String(args.name || "").trim() || args.lat.toFixed(5) + ", " + args.lon.toFixed(5);
-        return { name: name, address: name, lat: args.lat, lon: args.lon, type: "" };
+        return {
+            name: name,
+            address: name,
+            lat: args.lat,
+            lon: args.lon,
+            type: ""
+        };
     }
 
     function summary(place) {
@@ -35,18 +41,57 @@ Item {
         idempotent: true
         openWorld: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; minLength: 1; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 10; defaultValue: 5 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                minLength: 1
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 10
+                defaultValue: 5
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 10
-            KeelParam { name: "name"; type: "string"; maxLength: 256; required: true }
-            KeelParam { name: "address"; type: "string"; maxLength: 1024; required: true }
-            KeelParam { name: "lat"; type: "number"; minimum: -90; maximum: 90; required: true }
-            KeelParam { name: "lon"; type: "number"; minimum: -180; maximum: 180; required: true }
-            KeelParam { name: "type"; type: "string"; maxLength: 64; required: true }
+            KeelParam {
+                name: "name"
+                type: "string"
+                maxLength: 256
+                required: true
+            }
+            KeelParam {
+                name: "address"
+                type: "string"
+                maxLength: 1024
+                required: true
+            }
+            KeelParam {
+                name: "lat"
+                type: "number"
+                minimum: -90
+                maximum: 90
+                required: true
+            }
+            KeelParam {
+                name: "lon"
+                type: "number"
+                minimum: -180
+                maximum: 180
+                required: true
+            }
+            KeelParam {
+                name: "type"
+                type: "string"
+                maxLength: 64
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const app = root.app;
@@ -67,7 +112,13 @@ Item {
         idempotent: true
         openWorld: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; minLength: 1; maxLength: 256 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                minLength: 1
+                maxLength: 256
+            }
         ]
         onInvoked: (args, call) => {
             root.app.showSearch(args.query.trim());
@@ -81,9 +132,26 @@ Item {
         description: "Show a place to the person in Marathon Maps: brings Maps to the front with the map centred on the latitude and longitude and a pin there, named `name` (for example a place from places.search). The place is added to Maps' recent places."
         idempotent: true
         parameters: [
-            KeelParam { name: "lat"; type: "number"; required: true; minimum: -90; maximum: 90 },
-            KeelParam { name: "lon"; type: "number"; required: true; minimum: -180; maximum: 180 },
-            KeelParam { name: "name"; type: "string"; maxLength: 256; description: "What the place is called" }
+            KeelParam {
+                name: "lat"
+                type: "number"
+                required: true
+                minimum: -90
+                maximum: 90
+            },
+            KeelParam {
+                name: "lon"
+                type: "number"
+                required: true
+                minimum: -180
+                maximum: 180
+            },
+            KeelParam {
+                name: "name"
+                type: "string"
+                maxLength: 256
+                description: "What the place is called"
+            }
         ]
         onInvoked: (args, call) => {
             root.app.selectPlace(root.place(args));
@@ -98,10 +166,33 @@ Item {
         description: "Plan a route in Marathon Maps from the person's location to the latitude and longitude, by car, on foot or by bicycle, and bring Maps to the front showing it; the person starts turn-by-turn navigation from there. Without a location fix Maps asks the person to tap a starting point."
         idempotent: true
         parameters: [
-            KeelParam { name: "lat"; type: "number"; required: true; minimum: -90; maximum: 90 },
-            KeelParam { name: "lon"; type: "number"; required: true; minimum: -180; maximum: 180 },
-            KeelParam { name: "name"; type: "string"; maxLength: 256; description: "What the destination is called" },
-            KeelParam { name: "mode"; type: "string"; values: ["auto", "pedestrian", "bicycle"]; defaultValue: "auto"; description: "auto drives, pedestrian walks, bicycle cycles" }
+            KeelParam {
+                name: "lat"
+                type: "number"
+                required: true
+                minimum: -90
+                maximum: 90
+            },
+            KeelParam {
+                name: "lon"
+                type: "number"
+                required: true
+                minimum: -180
+                maximum: 180
+            },
+            KeelParam {
+                name: "name"
+                type: "string"
+                maxLength: 256
+                description: "What the destination is called"
+            },
+            KeelParam {
+                name: "mode"
+                type: "string"
+                values: ["auto", "pedestrian", "bicycle"]
+                defaultValue: "auto"
+                description: "auto drives, pedestrian walks, bicycle cycles"
+            }
         ]
         onInvoked: (args, call) => {
             const app = root.app;

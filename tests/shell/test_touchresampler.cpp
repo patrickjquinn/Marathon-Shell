@@ -69,9 +69,13 @@ namespace {
 class TestTouchResampler : public QObject {
     Q_OBJECT
 
-    QPointingDevice m_device{"panel", 1, QInputDevice::DeviceType::TouchScreen,
+    QPointingDevice m_device{"panel",
+                             1,
+                             QInputDevice::DeviceType::TouchScreen,
                              QPointingDevice::PointerType::Finger,
-                             QInputDevice::Capability::Position, 1, 0};
+                             QInputDevice::Capability::Position,
+                             1,
+                             0};
 
     void send(QWindow &w, QEvent::Type type, QEventPoint::State state, qreal y, ulong t) {
         QEventPoint p(1, state, QPointF(100, y), QPointF(100, y));
@@ -119,13 +123,15 @@ class TestTouchResampler : public QObject {
                 if (t < 60)
                     continue;
                 ++frames;
-                if (w.positions.size() == before || w.positions.last().y() <= w.positions.at(before - 1).y())
+                if (w.positions.size() == before ||
+                    w.positions.last().y() <= w.positions.at(before - 1).y())
                     ++still;
                 else
                     QVERIFY2(w.positions.last().y() <= clock.elapsed(), "ahead of the finger");
             }
         }
-        QVERIFY2(still <= frames / 10, qPrintable(QStringLiteral("%1 of %2 frames still").arg(still).arg(frames)));
+        QVERIFY2(still <= frames / 10,
+                 qPrintable(QStringLiteral("%1 of %2 frames still").arg(still).arg(frames)));
     }
 
     // Frames polish early and late by turns; the content still moves evenly,
@@ -137,8 +143,8 @@ class TestTouchResampler : public QObject {
         clock.start();
         const ulong t0 = 1000;
         send(w, QEvent::TouchBegin, QEventPoint::State::Pressed, 0, t0);
-        qint64 nextReport = 10, nextFrame = 17;
-        bool   early = true;
+        qint64       nextReport = 10, nextFrame = 17;
+        bool         early = true;
         QList<qreal> steps;
         while (clock.elapsed() < 500) {
             QTest::qWait(1);
@@ -232,7 +238,7 @@ class TestTouchResampler : public QObject {
         shell->setSize({720, 720});
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
-        TouchResampler resampler(&window, window.contentItem());
+        TouchResampler                   resampler(&window, window.contentItem());
         std::unique_ptr<QPointingDevice> device(QTest::createTouchDevice());
 
         QTest::touchEvent(&window, device.get()).press(0, QPoint(100, 300), &window);
@@ -287,11 +293,11 @@ class TestTouchResampler : public QObject {
         auto *window = qobject_cast<QQuickWindow *>(root.get());
         QVERIFY(QTest::qWaitForWindowExposed(window));
         TouchResampler resampler(window, window->contentItem());
-        auto *list = root->property("pages").value<QQuickItem *>();
+        auto          *list = root->property("pages").value<QQuickItem *>();
         QTRY_COMPARE(list->property("contentX").toReal(), 720.0);
 
         std::unique_ptr<QPointingDevice> device(QTest::createTouchDevice());
-        int x = 100;
+        int                              x = 100;
         QTest::touchEvent(window, device.get()).press(0, QPoint(x, 360), window);
         while (x < 100 + 450) {
             QTest::qWait(10);
@@ -306,7 +312,7 @@ class TestTouchResampler : public QObject {
 int main(int argc, char **argv) {
     QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
     QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
-    QGuiApplication app(argc, argv);
+    QGuiApplication    app(argc, argv);
     TestTouchResampler test;
     return QTest::qExec(&test, argc, argv);
 }

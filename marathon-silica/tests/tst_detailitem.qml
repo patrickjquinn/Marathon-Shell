@@ -8,9 +8,16 @@ TestCase {
     name: "DetailItem"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
-    Component { id: detail; DetailItem { label: "Battery"; value: "99%" } }
+    Component {
+        id: detail
+        DetailItem {
+            label: "Battery"
+            value: "99%"
+        }
+    }
 
     function test_labelAndValueStartFromTheLeft() {
         const d = createTemporaryObject(detail, testCase);

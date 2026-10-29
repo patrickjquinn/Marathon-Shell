@@ -152,14 +152,18 @@ Page {
                 visible: root.contactName === ""
                 text: qsTr("Add to contacts")
                 onClicked: {
-                    const dialog = pageStack.push(Qt.resolvedUrl("AddContactDialog.qml"), { number: root.recipientNumber });
+                    const dialog = pageStack.push(Qt.resolvedUrl("AddContactDialog.qml"), {
+                        number: root.recipientNumber
+                    });
                     dialog.accepted.connect(() => root.contactName = dialog.name);
                 }
             }
             MenuItem {
                 objectName: "callItem"
                 text: qsTr("Call")
-                onClicked: Navigation.launchAppWithRoute("phone", "/call", JSON.stringify({ number: root.recipientNumber }))
+                onClicked: Navigation.launchAppWithRoute("phone", "/call", JSON.stringify({
+                    number: root.recipientNumber
+                }))
             }
         }
 
@@ -179,7 +183,9 @@ Page {
                 root.load();
             }
             onRetryRequested: root.retry(modelData)
-            onPictureOpened: path => pageStack.push(pictureComponent, { source: "file://" + path })
+            onPictureOpened: path => pageStack.push(pictureComponent, {
+                    source: "file://" + path
+                })
         }
 
         VerticalScrollDecorator {}
@@ -319,11 +325,13 @@ Page {
         ImagePickerPage {
             onSelectedContentPropertiesChanged: {
                 const picked = selectedContentProperties;
-                root.attachments = root.attachments.concat([{
+                root.attachments = root.attachments.concat([
+                    {
                         contentType: picked.mimeType,
                         filePath: picked.filePath,
                         name: picked.fileName
-                    }]);
+                    }
+                ]);
             }
         }
     }

@@ -37,7 +37,8 @@ Page {
         });
     }
 
-    onStatusChanged: if (status === PageStatus.Deactivating) commit()
+    onStatusChanged: if (status === PageStatus.Deactivating)
+        commit()
     // Loaded once: rebinding to the saved note would rewrite the text mid-typing.
     Component.onCompleted: {
         if (note) {

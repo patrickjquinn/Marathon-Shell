@@ -23,12 +23,18 @@ Page {
     readonly property int categoryColumns: isLandscape ? 3 : 2
 
     function openApp(name) {
-        pageStack.push(Qt.resolvedUrl("PackagePage.qml"), { packageName: name })
+        pageStack.push(Qt.resolvedUrl("PackagePage.qml"), {
+            packageName: name
+        });
     }
 
     function browse(kind, browseId, title, subtitle) {
-        pageStack.push(Qt.resolvedUrl("BrowsePage.qml"),
-                       { kind: kind, browseId: browseId, title: title, subtitle: subtitle || "" })
+        pageStack.push(Qt.resolvedUrl("BrowsePage.qml"), {
+            kind: kind,
+            browseId: browseId,
+            title: title,
+            subtitle: subtitle || ""
+        });
     }
 
     // A flickable with one column (as Silica's own mixed pages): the page
@@ -110,15 +116,15 @@ Page {
                 Timer {
                     id: turn
                     property int steps
-                    readonly property bool shown: page.status === PageStatus.Active
-                                                  && Qt.application.state === Qt.ApplicationActive
+                    readonly property bool shown: page.status === PageStatus.Active && Qt.application.state === Qt.ApplicationActive
                     interval: 6000
                     repeat: true
                     running: hero.count > 1 && shown && !hero.moving && steps < hero.count
-                    onShownChanged: if (shown) steps = 0
+                    onShownChanged: if (shown)
+                        steps = 0
                     onTriggered: {
-                        steps++
-                        hero.incrementCurrentIndex()
+                        steps++;
+                        hero.incrementCurrentIndex();
                     }
                 }
                 Row {
@@ -152,7 +158,7 @@ Page {
                     required property string collectionId
                     required property string subtitle
                     width: content.width
-                    onOpenApp: (name) => page.openApp(name)
+                    onOpenApp: name => page.openApp(name)
                     onOpenAll: page.browse("collection", collectionId, title, subtitle)
                 }
             }
@@ -171,7 +177,10 @@ Page {
                 orientation: ListView.Horizontal
                 clip: true
                 model: Reef.recentModel
-                header: Item { width: Theme.horizontalPageMargin - Theme.paddingLarge; height: 1 }
+                header: Item {
+                    width: Theme.horizontalPageMargin - Theme.paddingLarge
+                    height: 1
+                }
                 delegate: FeaturedDelegate {
                     onClicked: page.openApp(name)
                 }
@@ -213,11 +222,8 @@ Page {
 
         ViewPlaceholder {
             enabled: list.count === 0 && !Reef.busy
-            text: Reef.lastError.length > 0 ? qsTr("Couldn't load the apps")
-                                             : qsTr("No apps yet")
-            hintText: Reef.lastError.length > 0
-                      ? Texts.message(Reef.lastError)
-                      : qsTr("Reef's catalogue has no apps for this phone yet. Pull down to refresh.")
+            text: Reef.lastError.length > 0 ? qsTr("Couldn't load the apps") : qsTr("No apps yet")
+            hintText: Reef.lastError.length > 0 ? Texts.message(Reef.lastError) : qsTr("Reef's catalogue has no apps for this phone yet. Pull down to refresh.")
         }
 
         VerticalScrollDecorator {}

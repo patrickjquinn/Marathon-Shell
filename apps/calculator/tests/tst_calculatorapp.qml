@@ -8,20 +8,42 @@ TestCase {
     name: "CalculatorApp"
     when: windowShown
 
-    Component { id: appComponent; CalculatorApp { width: 720; height: 1440 } }
-    Component { id: valueStub; QtObject { property var value } }
+    Component {
+        id: appComponent
+        CalculatorApp {
+            width: 720
+            height: 1440
+        }
+    }
+    Component {
+        id: valueStub
+        QtObject {
+            property var value
+        }
+    }
 
     function makeApp(scientific, history) {
         const app = createTemporaryObject(appComponent, this, {
-            modeStore: createTemporaryObject(valueStub, this, { value: scientific }),
-            historyStore: createTemporaryObject(valueStub, this, { value: history })
+            modeStore: createTemporaryObject(valueStub, this, {
+                value: scientific
+            }),
+            historyStore: createTemporaryObject(valueStub, this, {
+                value: history
+            })
         });
-        tryVerify(function () { return app.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return app.pageStack.currentPage !== null;
+        });
         return app;
     }
 
     function test_restoresModeAndHistory() {
-        const app = makeApp(false, JSON.stringify([{ expression: "1 + 1", result: "= 2" }]));
+        const app = makeApp(false, JSON.stringify([
+            {
+                expression: "1 + 1",
+                result: "= 2"
+            }
+        ]));
         verify(!app.pageStack.currentPage.scientific);
         compare(app.calc.history.length, 1);
         compare(app.calc.history[0].result, "= 2");

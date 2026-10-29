@@ -40,7 +40,9 @@ Page {
             }
         }
         delegate: PackageDelegate {
-            onClicked: pageStack.push(Qt.resolvedUrl("PackagePage.qml"), { packageName: name })
+            onClicked: pageStack.push(Qt.resolvedUrl("PackagePage.qml"), {
+                packageName: name
+            })
         }
 
         ViewPlaceholder {

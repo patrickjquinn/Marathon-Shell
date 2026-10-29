@@ -212,9 +212,7 @@ NativeSurfaceItem {
     // next commit, so a scrolling double-buffered client isn't starved by
     // etnaviv's implicit fence. Never on preview views or a locked (minimized)
     // view -- those intentionally retain their last frame.
-    allowDiscardFrontBuffer: !isPreview && !bufferLocked
-                             && surfaceItem.launchCompositor
-                             && surfaceItem.launchCompositor.discardFrontBuffer
+    allowDiscardFrontBuffer: !isPreview && !bufferLocked && surfaceItem.launchCompositor && surfaceItem.launchCompositor.discardFrontBuffer
     shellSurface: {
         var xdg = _xdgSurfaceFromObj(surfaceObj);
         if (xdg && xdg.surface)
@@ -293,8 +291,7 @@ NativeSurfaceItem {
         id: contentNudge
         interval: 150
         repeat: true
-        running: !surfaceItem.isPreview && !surfaceItem.isMinimized && surfaceItem.surfaceId !== -1
-                 && surfaceItem.shellSurface && !surfaceItem.hasFirstFrame
+        running: !surfaceItem.isPreview && !surfaceItem.isMinimized && surfaceItem.surfaceId !== -1 && surfaceItem.shellSurface && !surfaceItem.hasFirstFrame
         onTriggered: surfaceItem._nudge()
     }
     // Deferred one tick: preview items get isMinimized set just after creation.

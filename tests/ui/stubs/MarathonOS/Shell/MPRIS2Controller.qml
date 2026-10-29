@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQml
+
 QtObject {
     property bool hasActivePlayer: false
     property bool isPlaying: false
@@ -14,8 +15,17 @@ QtObject {
     property bool canGoNext: false
     property var calls: []
 
-    function playPause() { calls.push("playPause"); isPlaying = !isPlaying; }
-    function previous() { calls.push("previous"); }
-    function next() { calls.push("next"); }
-    function setPosition(p) { calls.push("setPosition"); }
+    function playPause() {
+        calls.push("playPause");
+        isPlaying = !isPlaying;
+    }
+    function previous() {
+        calls.push("previous");
+    }
+    function next() {
+        calls.push("next");
+    }
+    function setPosition(p) {
+        calls.push("setPosition");
+    }
 }

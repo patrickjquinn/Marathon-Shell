@@ -8,11 +8,26 @@ TestCase {
     name: "Indicators"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
-    Component { id: indicator; PageIndicator { count: 4; currentIndex: 1 } }
-    Component { id: chip; FilterChip { text: "Unread" } }
-    SignalSpy { id: spy; signalName: "clicked" }
+    Component {
+        id: indicator
+        PageIndicator {
+            count: 4
+            currentIndex: 1
+        }
+    }
+    Component {
+        id: chip
+        FilterChip {
+            text: "Unread"
+        }
+    }
+    SignalSpy {
+        id: spy
+        signalName: "clicked"
+    }
 
     function test_pageIndicatorDescribesPosition() {
         const p = createTemporaryObject(indicator, testCase);
@@ -22,7 +37,9 @@ TestCase {
     }
 
     function test_pageIndicatorKeysAndTaps() {
-        const p = createTemporaryObject(indicator, testCase, { interactive: true });
+        const p = createTemporaryObject(indicator, testCase, {
+            interactive: true
+        });
         verify(p.activeFocusOnTab);
         p.forceActiveFocus();
         keyClick(Qt.Key_Right);

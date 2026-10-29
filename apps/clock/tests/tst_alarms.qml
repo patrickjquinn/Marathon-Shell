@@ -28,41 +28,73 @@ TestCase {
                 Page {
                     TabView {
                         anchors.fill: parent
-                        model: ListModel { Component.onCompleted: append({ title: "Alarms", page: alarmsTab }) }
+                        model: ListModel {
+                            Component.onCompleted: append({
+                                title: "Alarms",
+                                page: alarmsTab
+                            })
+                        }
                         sourceProperty: "page"
                     }
                     Component {
                         id: alarmsTab
-                        AlarmsTab { app: win.app }
+                        AlarmsTab {
+                            app: win.app
+                        }
                     }
                 }
             }
         }
     }
 
-
     function makeTab(alarms) {
-        const app = appStub.createObject(testCase, { alarms: alarms });
-        const w = createTemporaryObject(window, testCase, { app: app });
+        const app = appStub.createObject(testCase, {
+            alarms: alarms
+        });
+        const w = createTemporaryObject(window, testCase, {
+            app: app
+        });
         let list = null;
         tryVerify(() => w.pageStack.currentPage !== null);
         tryVerify(() => (list = findChild(w, "alarmList")) !== null, 3000);
-        return { app: app, list: list };
+        return {
+            app: app,
+            list: list
+        };
     }
 
     function makeDialog(props) {
         const app = appStub.createObject(testCase);
-        const w = createTemporaryObject(window, testCase, { app: app });
+        const w = createTemporaryObject(window, testCase, {
+            app: app
+        });
         tryVerify(() => w.pageStack.currentPage !== null);
         props.app = app;
         const dialog = w.pageStack.push(Qt.resolvedUrl("../pages/AlarmDialog.qml"), props, PageStackAction.Immediate);
         tryCompare(dialog, "status", PageStatus.Active);
-        return { app: app, dialog: dialog };
+        return {
+            app: app,
+            dialog: dialog
+        };
     }
 
     function test_listsAlarms() {
-        const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [1, 3] },
-                           { id: "b", time: "22:00", label: "", enabled: false, repeat: [] }]);
+        const t = makeTab([
+            {
+                id: "a",
+                time: "07:30",
+                label: "Gym",
+                enabled: true,
+                repeat: [1, 3]
+            },
+            {
+                id: "b",
+                time: "22:00",
+                label: "",
+                enabled: false,
+                repeat: []
+            }
+        ]);
         tryCompare(t.list, "count", 2);
     }
 
@@ -80,7 +112,15 @@ TestCase {
     }
 
     function test_switchToggles() {
-        const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [] }]);
+        const t = makeTab([
+            {
+                id: "a",
+                time: "07:30",
+                label: "Gym",
+                enabled: true,
+                repeat: []
+            }
+        ]);
         tryCompare(t.list, "count", 1);
         let sw = null;
         tryVerify(() => (sw = findChild(t.list, "alarmSwitch")) !== null);
@@ -91,7 +131,15 @@ TestCase {
     }
 
     function test_clickToggles() {
-        const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [] }]);
+        const t = makeTab([
+            {
+                id: "a",
+                time: "07:30",
+                label: "Gym",
+                enabled: true,
+                repeat: []
+            }
+        ]);
         tryCompare(t.list, "count", 1);
         let item = null;
         tryVerify(() => (item = findChild(t.list, "alarmItem")) !== null);
@@ -100,7 +148,15 @@ TestCase {
     }
 
     function test_menuEdits() {
-        const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [] }]);
+        const t = makeTab([
+            {
+                id: "a",
+                time: "07:30",
+                label: "Gym",
+                enabled: true,
+                repeat: []
+            }
+        ]);
         tryCompare(t.list, "count", 1);
         let item = null;
         tryVerify(() => (item = findChild(t.list, "alarmItem")) !== null);
@@ -112,7 +168,15 @@ TestCase {
     }
 
     function test_deleteGoesThroughRemorse() {
-        const t = makeTab([{ id: "a", time: "07:30", label: "Gym", enabled: true, repeat: [] }]);
+        const t = makeTab([
+            {
+                id: "a",
+                time: "07:30",
+                label: "Gym",
+                enabled: true,
+                repeat: []
+            }
+        ]);
         tryCompare(t.list, "count", 1);
         let item = null;
         tryVerify(() => (item = findChild(t.list, "alarmItem")) !== null);
@@ -122,7 +186,10 @@ TestCase {
     }
 
     function test_dialogSavesNewAlarm() {
-        const t = makeDialog({ hour: 6, minute: 45 });
+        const t = makeDialog({
+            hour: 6,
+            minute: 45
+        });
         findChild(t.dialog, "labelField").text = "  Run ";
         const days = findChild(t.dialog, "weekdays");
         days.itemAt(0).clicked(null);
@@ -133,7 +200,13 @@ TestCase {
     }
 
     function test_dialogEditsExisting() {
-        const t = makeDialog({ alarmId: "a", hour: 7, minute: 30, label: "Gym", repeat: [3] });
+        const t = makeDialog({
+            alarmId: "a",
+            hour: 7,
+            minute: 30,
+            label: "Gym",
+            repeat: [3]
+        });
         compare(findChild(t.dialog, "timePicker").hour, 7);
         findChild(t.dialog, "weekdays").itemAt(2).clicked(null);
         compare(t.dialog.repeat, []);
@@ -142,7 +215,10 @@ TestCase {
     }
 
     function test_dialogRejectDoesNotSave() {
-        const t = makeDialog({ hour: 6, minute: 0 });
+        const t = makeDialog({
+            hour: 6,
+            minute: 0
+        });
         t.dialog.reject();
         tryCompare(t.dialog, "status", PageStatus.Inactive);
         compare(t.app.calls, []);

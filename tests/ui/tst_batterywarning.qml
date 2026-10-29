@@ -6,7 +6,10 @@ TestCase {
     name: "BatteryWarning"
 
     function run(levels, pluggedIn) {
-        const state = { warnedAt: 101, last: -1 };
+        const state = {
+            warnedAt: 101,
+            last: -1
+        };
         return levels.map(l => BatteryWarning.check(state, l, pluggedIn)).filter(b => b > 0);
     }
 

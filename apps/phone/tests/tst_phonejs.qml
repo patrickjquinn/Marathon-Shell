@@ -39,7 +39,16 @@ TestCase {
     }
 
     function test_filterContacts() {
-        const c = [{ name: "Ada Lovelace", phone: "+44 20 7946 0000" }, { name: "Alan Turing", phone: "555 0101" }];
+        const c = [
+            {
+                name: "Ada Lovelace",
+                phone: "+44 20 7946 0000"
+            },
+            {
+                name: "Alan Turing",
+                phone: "555 0101"
+            }
+        ];
         compare(Phone.filterContacts(c, "").length, 2);
         compare(Phone.filterContacts(c, "ada")[0].name, "Ada Lovelace");
         compare(Phone.filterContacts(c, "0101")[0].name, "Alan Turing");
@@ -47,18 +56,51 @@ TestCase {
     }
 
     function test_missedSince() {
-        const h = [{ type: "missed", timestamp: 200 }, { type: "missed", timestamp: 50 }, { type: "incoming", timestamp: 300 }];
+        const h = [
+            {
+                type: "missed",
+                timestamp: 200
+            },
+            {
+                type: "missed",
+                timestamp: 50
+            },
+            {
+                type: "incoming",
+                timestamp: 300
+            }
+        ];
         compare(Phone.missedSince(h, 100000), 1);
         compare(Phone.missedSince(h, 0), 2);
     }
 
     function test_groupCalls() {
         const rows = Phone.groupCalls([
-            { id: 1, number: "+353 87 123 4567", type: "missed" },
-            { id: 2, number: "0871234567", type: "missed" },
-            { id: 3, number: "0871234567", type: "incoming" },
-            { id: 4, number: "112", type: "outgoing" },
-            { id: 5, number: "0871234567", type: "incoming" }
+            {
+                id: 1,
+                number: "+353 87 123 4567",
+                type: "missed"
+            },
+            {
+                id: 2,
+                number: "0871234567",
+                type: "missed"
+            },
+            {
+                id: 3,
+                number: "0871234567",
+                type: "incoming"
+            },
+            {
+                id: 4,
+                number: "112",
+                type: "outgoing"
+            },
+            {
+                id: 5,
+                number: "0871234567",
+                type: "incoming"
+            }
         ]);
         compare(rows.map(r => r.ids), [[1, 2], [3], [4], [5]]);
         compare(rows[0].number, "+353 87 123 4567");
@@ -67,14 +109,36 @@ TestCase {
 
     function test_peopleRows() {
         const rows = Phone.peopleRows([
-            { id: 1, name: "grace Hopper" },
-            { id: 2, name: "Ada Lovelace", favorite: true },
-            { id: 3, name: "Alan Turing" },
-            { id: 4, name: "+353 87 123" }
+            {
+                id: 1,
+                name: "grace Hopper"
+            },
+            {
+                id: 2,
+                name: "Ada Lovelace",
+                favorite: true
+            },
+            {
+                id: 3,
+                name: "Alan Turing"
+            },
+            {
+                id: 4,
+                name: "+353 87 123"
+            }
         ], "");
         compare(rows.map(r => r.id), [2, 4, 3, 1]);
         compare(rows.map(r => r.section), ["*", "#", "A", "G"]);
-        compare(Phone.peopleRows([{ id: 1, name: "Ada" }, { id: 2, name: "Bob" }], "bo").map(r => r.id), [2]);
+        compare(Phone.peopleRows([
+            {
+                id: 1,
+                name: "Ada"
+            },
+            {
+                id: 2,
+                name: "Bob"
+            }
+        ], "bo").map(r => r.id), [2]);
     }
 
     function test_dialable() {

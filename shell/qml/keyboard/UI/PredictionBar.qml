@@ -71,7 +71,6 @@ Rectangle {
                         easing.type: Easing.OutCubic
                     }
                 }
-
             }
         }
     }

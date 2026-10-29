@@ -61,9 +61,7 @@ Page {
             objectName: "placeholder"
             enabled: root.shown.length === 0
             text: root.browser.bookmarks.length === 0 ? qsTr("No bookmarks yet") : qsTr("No matching bookmarks")
-            hintText: root.browser.bookmarks.length > 0 ? qsTr("Try a different word")
-                    : root.browser.isPrivateMode ? qsTr("Bookmarks are off in private browsing")
-                    : qsTr("Pull down to bookmark the page you're on")
+            hintText: root.browser.bookmarks.length > 0 ? qsTr("Try a different word") : root.browser.isPrivateMode ? qsTr("Bookmarks are off in private browsing") : qsTr("Pull down to bookmark the page you're on")
         }
 
         delegate: ListItem {

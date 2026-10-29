@@ -51,7 +51,8 @@ TestCase {
             delegate: ListItem {
                 width: 540
                 contentHeight: 80
-                onHighlightedChanged: if (highlighted) ListView.view.rowHighlighted = true
+                onHighlightedChanged: if (highlighted)
+                    ListView.view.rowHighlighted = true
                 onClicked: ListView.view.rowClicked = true
             }
         }
@@ -93,16 +94,20 @@ TestCase {
     }
 
     function views_data() {
-        return [{
+        return [
+            {
                 tag: "flickable",
                 view: flickable
-            }, {
+            },
+            {
                 tag: "list",
                 view: list
-            }, {
+            },
+            {
                 tag: "grid",
                 view: grid
-            }];
+            }
+        ];
     }
 
     function test_androidPhysics_data() {
@@ -215,7 +220,9 @@ TestCase {
 
     // Nor while it springs back from past its end.
     function test_aPressDuringTheReboundDoesNotClick() {
-        const v = createTemporaryObject(pressList, testCase, {boundsBehavior: Flickable.DragAndOvershootBounds});
+        const v = createTemporaryObject(pressList, testCase, {
+            boundsBehavior: Flickable.DragAndOvershootBounds
+        });
         v.flick(0, 4000);
         tryVerify(() => v.verticalOvershoot < 0);
         tryVerify(() => v.verticalOvershoot > -2 && v.moving, 3000, "rebounding");
@@ -400,19 +407,24 @@ TestCase {
 
     // ...and pulley menus still open, at either end, in every view.
     function test_aPulleyMenuOpens_data() {
-        return [{
+        return [
+            {
                 tag: "flickable",
                 view: pulleyFlickable
-            }, {
+            },
+            {
                 tag: "list",
                 view: pulleyList
-            }, {
+            },
+            {
                 tag: "grid",
                 view: pulleyGrid
-            }, {
+            },
+            {
                 tag: "around a horizontal view",
                 view: pulleyAroundSlides
-            }];
+            }
+        ];
     }
 
     function test_aPulleyMenuOpens(data) {
@@ -440,7 +452,9 @@ TestCase {
     // Pacific's carry: a fling caught and flung again the same way adds the
     // speed it was caught at.
     function test_aRepeatedFlingSpeedsUp() {
-        const v = createTemporaryObject(list, testCase, {model: 2000});
+        const v = createTemporaryObject(list, testCase, {
+            model: 2000
+        });
         // How fast the content goes over the 50 ms after the lift.
         function swipe() {
             touchEvent(v).press(0, v, 270, 900).commit();

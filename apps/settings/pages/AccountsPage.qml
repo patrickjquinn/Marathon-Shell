@@ -20,7 +20,12 @@ Page {
     }
 
     function addAccount(displayName, baseUrl, username, secret) {
-        entered = { displayName: displayName, baseUrl: baseUrl, username: username, secret: secret };
+        entered = {
+            displayName: displayName,
+            baseUrl: baseUrl,
+            username: username,
+            secret: secret
+        };
         const name = displayName.trim() !== "" ? displayName.trim() : username.trim();
         const id = dav.addAccount(name, normalizedUrl(baseUrl), username.trim(), secret, "basic");
         if (id === "")
@@ -32,7 +37,9 @@ Page {
     onCheckingIdChanged: checkingId !== "" ? checkTimeout.restart() : checkTimeout.stop()
 
     function openAddDialog(error) {
-        const dialog = pageStack.push(Qt.resolvedUrl("AddAccountDialog.qml"), Object.assign({ error: error || "" }, error ? entered : {}));
+        const dialog = pageStack.push(Qt.resolvedUrl("AddAccountDialog.qml"), Object.assign({
+            error: error || ""
+        }, error ? entered : {}));
         dialog.accepted.connect(() => page.addAccount(dialog.displayName, dialog.baseUrl, dialog.username, dialog.secret));
     }
 

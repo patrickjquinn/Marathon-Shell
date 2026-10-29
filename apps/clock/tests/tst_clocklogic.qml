@@ -8,8 +8,14 @@ TestCase {
     function test_timeStrings() {
         compare(Logic.timeString(7, 5), "07:05");
         compare(Logic.timeString(23, 59), "23:59");
-        compare(Logic.parseTime("07:30"), { hour: 7, minute: 30 });
-        compare(Logic.parseTime(""), { hour: 0, minute: 0 });
+        compare(Logic.parseTime("07:30"), {
+            hour: 7,
+            minute: 30
+        });
+        compare(Logic.parseTime(""), {
+            hour: 0,
+            minute: 0
+        });
     }
 
     function test_toggleDay() {
@@ -31,26 +37,62 @@ TestCase {
     readonly property var wed: new Date(2026, 9, 14, 8, 0, 0)
 
     function test_nextOccurrenceOneShot() {
-        compare(Logic.nextOccurrence({ time: "09:15", enabled: true }, wed), new Date(2026, 9, 14, 9, 15));
-        compare(Logic.nextOccurrence({ time: "07:00", enabled: true }, wed), new Date(2026, 9, 15, 7, 0));
-        compare(Logic.nextOccurrence({ time: "08:00", enabled: true }, wed), new Date(2026, 9, 15, 8, 0));
-        compare(Logic.nextOccurrence({ time: "09:15", enabled: false }, wed), null);
+        compare(Logic.nextOccurrence({
+            time: "09:15",
+            enabled: true
+        }, wed), new Date(2026, 9, 14, 9, 15));
+        compare(Logic.nextOccurrence({
+            time: "07:00",
+            enabled: true
+        }, wed), new Date(2026, 9, 15, 7, 0));
+        compare(Logic.nextOccurrence({
+            time: "08:00",
+            enabled: true
+        }, wed), new Date(2026, 9, 15, 8, 0));
+        compare(Logic.nextOccurrence({
+            time: "09:15",
+            enabled: false
+        }, wed), null);
     }
 
     function test_nextOccurrenceRepeating() {
         // Mondays only: next is Mon 19th.
-        compare(Logic.nextOccurrence({ time: "06:30", enabled: true, repeat: [1] }, wed), new Date(2026, 9, 19, 6, 30));
+        compare(Logic.nextOccurrence({
+            time: "06:30",
+            enabled: true,
+            repeat: [1]
+        }, wed), new Date(2026, 9, 19, 6, 30));
         // Wednesday, later today.
-        compare(Logic.nextOccurrence({ time: "20:00", enabled: true, repeat: [3] }, wed), new Date(2026, 9, 14, 20, 0));
+        compare(Logic.nextOccurrence({
+            time: "20:00",
+            enabled: true,
+            repeat: [3]
+        }, wed), new Date(2026, 9, 14, 20, 0));
         // Wednesday, already passed: a week later.
-        compare(Logic.nextOccurrence({ time: "07:00", enabled: true, repeat: [3] }, wed), new Date(2026, 9, 21, 7, 0));
+        compare(Logic.nextOccurrence({
+            time: "07:00",
+            enabled: true,
+            repeat: [3]
+        }, wed), new Date(2026, 9, 21, 7, 0));
     }
 
     function test_nextAlarm() {
         const alarms = [
-            { id: "a", time: "07:00", enabled: true },
-            { id: "b", time: "09:00", enabled: true },
-            { id: "c", time: "08:30", enabled: false }
+            {
+                id: "a",
+                time: "07:00",
+                enabled: true
+            },
+            {
+                id: "b",
+                time: "09:00",
+                enabled: true
+            },
+            {
+                id: "c",
+                time: "08:30",
+                enabled: false
+            }
         ];
         const next = Logic.nextAlarm(alarms, wed);
         compare(next.alarm.id, "b");
@@ -71,7 +113,13 @@ TestCase {
         compare(Logic.formatCountdown(3725), "1:02:05");
     }
 
-    readonly property var known: [{ name: "Tokyo", tz: "Asia/Tokyo", offset: 9 }]
+    readonly property var known: [
+        {
+            name: "Tokyo",
+            tz: "Asia/Tokyo",
+            offset: 9
+        }
+    ]
 
     function test_parseCities() {
         compare(Logic.parseCities("", known), known);
@@ -82,9 +130,18 @@ TestCase {
     }
 
     function test_zoneFor() {
-        compare(Logic.zoneFor({ name: "Rome", tz: "Europe/Rome" }, known), "Europe/Rome");
-        compare(Logic.zoneFor({ name: "Tokyo", offset: 9 }, known), "Asia/Tokyo");
-        compare(Logic.zoneFor({ name: "Nowhere", offset: 2 }, known), "");
+        compare(Logic.zoneFor({
+            name: "Rome",
+            tz: "Europe/Rome"
+        }, known), "Europe/Rome");
+        compare(Logic.zoneFor({
+            name: "Tokyo",
+            offset: 9
+        }, known), "Asia/Tokyo");
+        compare(Logic.zoneFor({
+            name: "Nowhere",
+            offset: 2
+        }, known), "");
     }
 
     function test_offsetDate() {
@@ -95,7 +152,17 @@ TestCase {
     }
 
     function test_moveCity() {
-        const c = [{ name: "a" }, { name: "b" }, { name: "c" }];
+        const c = [
+            {
+                name: "a"
+            },
+            {
+                name: "b"
+            },
+            {
+                name: "c"
+            }
+        ];
         compare(Logic.moveCity(c, 2, 0).map(x => x.name), ["c", "a", "b"]);
         compare(Logic.moveCity(c, 0, 1).map(x => x.name), ["b", "a", "c"]);
         compare(Logic.moveCity(c, 0, 5), c);
@@ -103,20 +170,46 @@ TestCase {
     }
 
     function test_filterCities() {
-        const all = [{ name: "Paris" }, { name: "São Paulo" }, { name: "Tokyo" }];
+        const all = [
+            {
+                name: "Paris"
+            },
+            {
+                name: "São Paulo"
+            },
+            {
+                name: "Tokyo"
+            }
+        ];
         compare(Logic.filterCities(all, "").length, 3);
         compare(Logic.filterCities(all, "pa").map(x => x.name), ["Paris", "São Paulo"]);
         compare(Logic.filterCities(all, "zz").length, 0);
     }
 
     function test_filterCitiesByCountryAfterName() {
-        const all = [{ name: "Cork", country: "Ireland" }, { name: "Irkutsk", country: "Russia" }, { name: "Paris", country: "France" }];
+        const all = [
+            {
+                name: "Cork",
+                country: "Ireland"
+            },
+            {
+                name: "Irkutsk",
+                country: "Russia"
+            },
+            {
+                name: "Paris",
+                country: "France"
+            }
+        ];
         compare(Logic.filterCities(all, "ir").map(x => x.name), ["Irkutsk", "Cork"]);
         compare(Logic.filterCities(all, "  ireland ").map(x => x.name), ["Cork"]);
     }
 
     function test_knownCitiesComeFromTzdata_data() {
-        return ["Dublin", "Lisbon", "Cairo", "Lagos", "Jakarta", "New York", "Beijing", "Mumbai"].map(n => ({ tag: n, name: n }));
+        return ["Dublin", "Lisbon", "Cairo", "Lagos", "Jakarta", "New York", "Beijing", "Mumbai"].map(n => ({
+                    tag: n,
+                    name: n
+                }));
     }
 
     function test_knownCitiesComeFromTzdata(data) {
@@ -134,11 +227,36 @@ TestCase {
         const now = new Date(2026, 0, 5, 23, 40, 10);
         const at = (d, h, m) => new Date(2026, 0, d, h, m);
         return [
-            { tag: "hours and minutes", when: at(6, 7, 0), now: now, out: "Alarm in 7 h 20 min" },
-            { tag: "minutes", when: at(6, 0, 5), now: now, out: "Alarm in 25 min" },
-            { tag: "exact hours", when: at(6, 1, 40), now: new Date(2026, 0, 5, 23, 40), out: "Alarm in 2 h" },
-            { tag: "under a minute", when: at(5, 23, 41), now: now, out: "Alarm in less than a minute" },
-            { tag: "days", when: at(8, 7, 0), now: now, out: "Alarm in 2 d 7 h" }
+            {
+                tag: "hours and minutes",
+                when: at(6, 7, 0),
+                now: now,
+                out: "Alarm in 7 h 20 min"
+            },
+            {
+                tag: "minutes",
+                when: at(6, 0, 5),
+                now: now,
+                out: "Alarm in 25 min"
+            },
+            {
+                tag: "exact hours",
+                when: at(6, 1, 40),
+                now: new Date(2026, 0, 5, 23, 40),
+                out: "Alarm in 2 h"
+            },
+            {
+                tag: "under a minute",
+                when: at(5, 23, 41),
+                now: now,
+                out: "Alarm in less than a minute"
+            },
+            {
+                tag: "days",
+                when: at(8, 7, 0),
+                now: now,
+                out: "Alarm in 2 d 7 h"
+            }
         ];
     }
 

@@ -105,7 +105,8 @@ Rectangle {
         Silica.RemorsePopup {
             id: clearRemorse
 
-            objectName: "clearRemorse"        }
+            objectName: "clearRemorse"
+        }
     }
 
     Silica.Label {

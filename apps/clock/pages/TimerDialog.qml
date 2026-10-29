@@ -49,7 +49,9 @@ Dialog {
                     anchors.centerIn: parent
                     text: Logic.formatCountdown(root.seconds)
                     font.pixelSize: Theme.fontSizeExtraLarge
-                    font.features: ({ "tnum": 1 })
+                    font.features: ({
+                            "tnum": 1
+                        })
                     color: Theme.highlightColor
                 }
             }

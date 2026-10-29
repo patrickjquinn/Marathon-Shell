@@ -34,19 +34,19 @@ ListItem {
     function stateText() {
         // While the store handler works on it, how far it has got.
         if (jobState === "pending")
-            return qsTr("Waiting")
+            return qsTr("Waiting");
         if (jobState === "installing")
-            return jobPercent >= 0 ? qsTr("%1%").arg(jobPercent) : qsTr("Installing")
+            return jobPercent >= 0 ? qsTr("%1%").arg(jobPercent) : qsTr("Installing");
         if (jobState === "removing")
-            return qsTr("Removing")
+            return qsTr("Removing");
         if (jobState === "failed")
-            return qsTr("Failed")
+            return qsTr("Failed");
         // Versions are on the app's page; the list says what matters.
         if (installState === "update_available")
-            return qsTr("Update")
+            return qsTr("Update");
         if (installState === "installed")
-            return qsTr("Installed")
-        return Texts.price(licenceModel, licensed)
+            return qsTr("Installed");
+        return Texts.price(licenceModel, licensed);
     }
 
     AppIcon {
@@ -88,11 +88,9 @@ ListItem {
         }
         Label {
             width: parent.width
-            text: [row.isNew && row.installState === "not_installed" ? qsTr("New") : "",
-                   row.source === "fdroid" ? qsTr("Android") : "",
-                   row.categoryLabel,
-                   row.publisher !== "Shipwright" ? row.publisher : ""]
-                  .filter(function(s) { return s.length > 0 }).join(" · ")
+            text: [row.isNew && row.installState === "not_installed" ? qsTr("New") : "", row.source === "fdroid" ? qsTr("Android") : "", row.categoryLabel, row.publisher !== "Shipwright" ? row.publisher : ""].filter(function (s) {
+                return s.length > 0;
+            }).join(" · ")
             // Plain like the rest of the row: an update waiting (on the
             // right) is the one thing a row highlights.
             color: row.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
@@ -108,9 +106,7 @@ ListItem {
         anchors.rightMargin: Theme.horizontalPageMargin
         anchors.verticalCenter: parent.verticalCenter
         text: row.stateText()
-        color: row.jobState === "failed" ? Theme.errorColor
-             : row.installState === "update_available" || row.jobState !== "" ? Theme.highlightColor
-             : Theme.secondaryColor
+        color: row.jobState === "failed" ? Theme.errorColor : row.installState === "update_available" || row.jobState !== "" ? Theme.highlightColor : Theme.secondaryColor
         font.pixelSize: Theme.fontSizeSmall
         font.bold: row.installState === "update_available"
     }

@@ -8,20 +8,60 @@ TestCase {
     name: "Switches"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
-    Component { id: textSwitch; TextSwitch { text: "Wi-Fi"; description: "Connect automatically" } }
-    Component { id: plainSwitch; Switch { icon.source: "image://theme/icon-m-wlan" } }
-    Component { id: iconTextSwitch; IconTextSwitch { text: "Bluetooth"; icon.source: "image://theme/icon-m-bluetooth" } }
-    Component { id: manualSwitch; TextSwitch { text: "Manual"; automaticCheck: false } }
-
-    function switches() {
-        return [{ tag: "TextSwitch", c: textSwitch, name: "Wi-Fi" },
-                { tag: "Switch", c: plainSwitch, name: "wlan" },
-                { tag: "IconTextSwitch", c: iconTextSwitch, name: "Bluetooth" }];
+    Component {
+        id: textSwitch
+        TextSwitch {
+            text: "Wi-Fi"
+            description: "Connect automatically"
+        }
+    }
+    Component {
+        id: plainSwitch
+        Switch {
+            icon.source: "image://theme/icon-m-wlan"
+        }
+    }
+    Component {
+        id: iconTextSwitch
+        IconTextSwitch {
+            text: "Bluetooth"
+            icon.source: "image://theme/icon-m-bluetooth"
+        }
+    }
+    Component {
+        id: manualSwitch
+        TextSwitch {
+            text: "Manual"
+            automaticCheck: false
+        }
     }
 
-    function test_roleNameAndState_data() { return switches(); }
+    function switches() {
+        return [
+            {
+                tag: "TextSwitch",
+                c: textSwitch,
+                name: "Wi-Fi"
+            },
+            {
+                tag: "Switch",
+                c: plainSwitch,
+                name: "wlan"
+            },
+            {
+                tag: "IconTextSwitch",
+                c: iconTextSwitch,
+                name: "Bluetooth"
+            }
+        ];
+    }
+
+    function test_roleNameAndState_data() {
+        return switches();
+    }
     function test_roleNameAndState(data) {
         const s = createTemporaryObject(data.c, testCase);
         compare(s.Accessible.role, Accessible.CheckBox);
@@ -32,7 +72,9 @@ TestCase {
         compare(s.Accessible.checked, true);
     }
 
-    function test_spaceToggles_data() { return switches(); }
+    function test_spaceToggles_data() {
+        return switches();
+    }
     function test_spaceToggles(data) {
         const s = createTemporaryObject(data.c, testCase);
         s.forceActiveFocus();

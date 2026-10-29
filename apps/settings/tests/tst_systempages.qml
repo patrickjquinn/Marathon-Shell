@@ -38,7 +38,10 @@ TestCase {
         verify(app.openPage(name, PageStackAction.Immediate));
         const page = app.pageStack.currentPage;
         tryCompare(page, "status", PageStatus.Active);
-        return { app: app, page: page };
+        return {
+            app: app,
+            page: page
+        };
     }
 
     function child(parent, name) {
@@ -254,7 +257,14 @@ TestCase {
     }
 
     function test_removeAccount() {
-        DavSync.accounts = [{ id: "a1", displayName: "Nextcloud", baseUrl: "https://c", username: "pat" }];
+        DavSync.accounts = [
+            {
+                id: "a1",
+                displayName: "Nextcloud",
+                baseUrl: "https://c",
+                username: "pat"
+            }
+        ];
         const s = open("accounts");
         const item = child(s.page, "account-a1");
         item.remorseDelete(() => DavSync.removeAccount("a1"), 1);
@@ -263,7 +273,15 @@ TestCase {
     }
 
     function test_toggleAccountSync() {
-        DavSync.accounts = [{ id: "a1", displayName: "Nextcloud", baseUrl: "https://c", username: "pat", enabled: true }];
+        DavSync.accounts = [
+            {
+                id: "a1",
+                displayName: "Nextcloud",
+                baseUrl: "https://c",
+                username: "pat",
+                enabled: true
+            }
+        ];
         const s = open("accounts");
         const item = child(s.page, "account-a1");
         const menu = item.openMenu();

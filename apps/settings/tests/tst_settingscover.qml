@@ -44,8 +44,14 @@ TestCase {
 
     function test_actions() {
         const cover = createTemporaryObject(coverComponent, testCase);
-        const wifi = signalSpy.createObject(testCase, { target: cover, signalName: "wifiToggled" });
-        const bt = signalSpy.createObject(testCase, { target: cover, signalName: "bluetoothToggled" });
+        const wifi = signalSpy.createObject(testCase, {
+            target: cover,
+            signalName: "wifiToggled"
+        });
+        const bt = signalSpy.createObject(testCase, {
+            target: cover,
+            signalName: "bluetoothToggled"
+        });
         compare(findChild(cover, "wifiAction").iconSource, "image://theme/icon-cover-wlan-off");
         findChild(cover, "wifiAction").triggered();
         findChild(cover, "bluetoothAction").triggered();

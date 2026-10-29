@@ -7,7 +7,7 @@
 
 extern "C" {
 #include "fifo-v1-server.h"
-#include <utility>   // std::as_const
+#include <utility> // std::as_const
 }
 
 // ── Manager ────────────────────────────────────────────────────────────

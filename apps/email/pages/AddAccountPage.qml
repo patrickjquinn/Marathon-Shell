@@ -80,9 +80,18 @@ Page {
             Repeater {
                 // Google and Microsoft only when this build has their OAuth client.
                 model: [
-                    { id: "gmail", name: qsTr("Google") },
-                    { id: "outlook", name: qsTr("Microsoft") },
-                    { id: "imap", name: qsTr("Other (IMAP)") }
+                    {
+                        id: "gmail",
+                        name: qsTr("Google")
+                    },
+                    {
+                        id: "outlook",
+                        name: qsTr("Microsoft")
+                    },
+                    {
+                        id: "imap",
+                        name: qsTr("Other (IMAP)")
+                    }
                 ].filter(p => p.id === "imap" || page.mail.oauthProviders.indexOf(p.id) >= 0)
 
                 ListItem {
@@ -96,7 +105,9 @@ Page {
                     enabled: !needsNetwork && !page.waiting
                     onClicked: {
                         if (modelData.id === "imap")
-                            pageStack.push(Qt.resolvedUrl("MailAccountSetupPage.qml"), { app: page.app });
+                            pageStack.push(Qt.resolvedUrl("MailAccountSetupPage.qml"), {
+                                app: page.app
+                            });
                         else
                             page.signIn(modelData.id);
                     }

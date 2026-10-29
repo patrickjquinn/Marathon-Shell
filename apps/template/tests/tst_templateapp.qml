@@ -10,7 +10,8 @@ TestCase {
     name: "TemplateApp"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
     Component {
         id: valueStub
@@ -20,17 +21,27 @@ TestCase {
     }
     Component {
         id: appComponent
-        TemplateApp { width: 540; height: 1140 }
+        TemplateApp {
+            width: 540
+            height: 1140
+        }
     }
     Component {
         id: coverComponent
         TemplateCover {}
     }
-    SignalSpy { id: addSpy; signalName: "addRequested" }
+    SignalSpy {
+        id: addSpy
+        signalName: "addRequested"
+    }
 
     function makeApp(items) {
-        const store = createTemporaryObject(valueStub, testCase, { value: JSON.stringify(items || []) });
-        const app = createTemporaryObject(appComponent, testCase, { store: store });
+        const store = createTemporaryObject(valueStub, testCase, {
+            value: JSON.stringify(items || [])
+        });
+        const app = createTemporaryObject(appComponent, testCase, {
+            store: store
+        });
         tryVerify(() => app.pageStack.currentPage !== null && !app.pageStack.busy);
         return app;
     }
@@ -45,8 +56,12 @@ TestCase {
     }
 
     function test_corruptStoreStartsEmpty() {
-        const store = createTemporaryObject(valueStub, testCase, { value: "{nope" });
-        compare(createTemporaryObject(appComponent, testCase, { store: store }).items.length, 0);
+        const store = createTemporaryObject(valueStub, testCase, {
+            value: "{nope"
+        });
+        compare(createTemporaryObject(appComponent, testCase, {
+            store: store
+        }).items.length, 0);
     }
 
     function test_emptyShowsPlaceholder() {
@@ -66,7 +81,16 @@ TestCase {
     }
 
     function test_contextMenuRemorseDelete() {
-        const app = makeApp([{ id: 1, text: "A" }, { id: 2, text: "B" }]);
+        const app = makeApp([
+            {
+                id: 1,
+                text: "A"
+            },
+            {
+                id: 2,
+                text: "B"
+            }
+        ]);
         openDelete(app, 0);
         compare(app.items.length, 2);
         tryVerify(() => app.items.length === 1, 10000);
@@ -74,7 +98,20 @@ TestCase {
     }
 
     function test_remorseDeletesTheRightItemWhenTheListChanges() {
-        const app = makeApp([{ id: 1, text: "A" }, { id: 2, text: "B" }, { id: 3, text: "C" }]);
+        const app = makeApp([
+            {
+                id: 1,
+                text: "A"
+            },
+            {
+                id: 2,
+                text: "B"
+            },
+            {
+                id: 3,
+                text: "C"
+            }
+        ]);
         openDelete(app, 1);
         app.removeItem(1);
         tryVerify(() => app.items.length === 1, 10000);
@@ -95,7 +132,9 @@ TestCase {
     }
 
     function test_coverShowsCountAndAdds() {
-        const c = createTemporaryObject(coverComponent, testCase, { count: 0 });
+        const c = createTemporaryObject(coverComponent, testCase, {
+            count: 0
+        });
         verify(findChild(c, "coverPlaceholder").visible);
         c.count = 2;
         verify(!findChild(c, "coverPlaceholder").visible);

@@ -36,7 +36,9 @@ Page {
             MenuItem {
                 objectName: "editMenuItem"
                 text: qsTr("Edit")
-                onClicked: root.phone.pageStack.push(Qt.resolvedUrl("ContactEditorDialog.qml"), { contact: root.contact })
+                onClicked: root.phone.pageStack.push(Qt.resolvedUrl("ContactEditorDialog.qml"), {
+                    contact: root.contact
+                })
             }
         }
 
@@ -61,7 +63,9 @@ Page {
                     Accessible.name: qsTr("Favorite")
                     Accessible.checkable: true
                     Accessible.checked: root.favorite
-                    onClicked: Contacts.updateContact(root.contactId, { favorite: !root.favorite })
+                    onClicked: Contacts.updateContact(root.contactId, {
+                        favorite: !root.favorite
+                    })
                 }
             }
 

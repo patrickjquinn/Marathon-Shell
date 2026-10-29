@@ -8,16 +8,19 @@
 
 QT_BEGIN_NAMESPACE
 
-class QWaylandDmabufClientBufferIntegrationPlugin : public QtWayland::ClientBufferIntegrationPlugin
-{
+class QWaylandDmabufClientBufferIntegrationPlugin
+    : public QtWayland::ClientBufferIntegrationPlugin {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID QtWaylandClientBufferIntegrationFactoryInterface_iid FILE "linux-dmabuf-v1.json")
-public:
-    QtWayland::ClientBufferIntegration *create(const QString& key, const QStringList& paramList) override;
+    Q_PLUGIN_METADATA(IID QtWaylandClientBufferIntegrationFactoryInterface_iid FILE
+                      "linux-dmabuf-v1.json")
+  public:
+    QtWayland::ClientBufferIntegration *create(const QString     &key,
+                                               const QStringList &paramList) override;
 };
 
-QtWayland::ClientBufferIntegration *QWaylandDmabufClientBufferIntegrationPlugin::create(const QString& key, const QStringList& paramList)
-{
+QtWayland::ClientBufferIntegration *
+QWaylandDmabufClientBufferIntegrationPlugin::create(const QString     &key,
+                                                    const QStringList &paramList) {
     Q_UNUSED(paramList);
     Q_UNUSED(key);
     return new LinuxDmabufClientBufferIntegration();

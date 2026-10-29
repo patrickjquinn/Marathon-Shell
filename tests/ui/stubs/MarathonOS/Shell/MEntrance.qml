@@ -1,4 +1,5 @@
 import QtQml
+
 QtObject {
     property var target
     property int index

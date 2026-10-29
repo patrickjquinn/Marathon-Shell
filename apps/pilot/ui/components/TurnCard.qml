@@ -31,11 +31,10 @@ Item {
     property bool approved: false
     signal answer(bool approved)
     signal look(string question)
-    signal openSettings()
+    signal openSettings
     // A reply that points to a setting (spoken or typed questions are
     // off) takes you there.
-    readonly property bool pointsToSettings: !mine && (kind === "offline" || kind === "error")
-                                             && text.indexOf("Pilot's settings") >= 0
+    readonly property bool pointsToSettings: !mine && (kind === "offline" || kind === "error") && text.indexOf("Pilot's settings") >= 0
 
     width: parent ? parent.width : 0
     height: bubble.height + Theme.paddingMedium
@@ -50,14 +49,8 @@ Item {
         objectName: "bubble"
 
         // The opposite side always keeps a free strip, as in Messages.
-        readonly property real maximumWidth: Math.min(card.width - Theme.horizontalPageMargin - Theme.paddingLarge,
-                                                      6 * Theme.itemSizeLarge)
-        readonly property real naturalWidth: Math.max(titleLabel.visible ? titleLabel.implicitWidth : 0,
-                                                      textWidth.advanceWidth,
-                                                      stampLabel.implicitWidth,
-                                                      cameraButton.visible ? cameraButton.implicitWidth : 0,
-                                                      card.pointsToSettings ? Theme.buttonWidthSmall : 0,
-                                                      buttonRow.visible ? 2 * Theme.buttonWidthExtraSmall + Theme.paddingMedium : 0)
+        readonly property real maximumWidth: Math.min(card.width - Theme.horizontalPageMargin - Theme.paddingLarge, 6 * Theme.itemSizeLarge)
+        readonly property real naturalWidth: Math.max(titleLabel.visible ? titleLabel.implicitWidth : 0, textWidth.advanceWidth, stampLabel.implicitWidth, cameraButton.visible ? cameraButton.implicitWidth : 0, card.pointsToSettings ? Theme.buttonWidthSmall : 0, buttonRow.visible ? 2 * Theme.buttonWidthExtraSmall + Theme.paddingMedium : 0)
         width: Math.min(maximumWidth, naturalWidth + Theme.horizontalPageMargin + Theme.paddingLarge)
 
         // The text's unwrapped width (a wrapping label's own implicit width
@@ -78,10 +71,7 @@ Item {
             width: parent.width + radius
             height: parent.height
             radius: Theme.paddingLarge
-            color: card.kind === "confirm" && card.pending
-                   ? Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity)
-                   : card.mine ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint)
-                   : Theme.rgba(Theme.primaryColor, 0.08)
+            color: card.kind === "confirm" && card.pending ? Theme.rgba(Theme.highlightBackgroundColor, Theme.highlightBackgroundOpacity) : card.mine ? Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint) : Theme.rgba(Theme.primaryColor, 0.08)
         }
 
         Column {
@@ -108,9 +98,7 @@ Item {
                 wrapMode: Text.Wrap
                 textFormat: Text.PlainText
                 horizontalAlignment: card.mine ? Text.AlignRight : Text.AlignLeft
-                color: card.kind === "error" ? Theme.errorColor
-                     : card.kind === "offline" ? Theme.highlightColor
-                     : Theme.primaryColor
+                color: card.kind === "error" ? Theme.errorColor : card.kind === "offline" ? Theme.highlightColor : Theme.primaryColor
                 text: card.kind === "confirm" ? card.detail : card.text
             }
             Label {
@@ -163,10 +151,7 @@ Item {
                 font.pixelSize: Theme.fontSizeExtraSmall
                 color: card.mine ? Theme.secondaryHighlightColor : Theme.secondaryColor
                 visible: text.length > 0
-                text: card.kind === "confirm" && card.answered
-                      ? (card.approved ? qsTr("Allowed") : qsTr("Cancelled"))
-                        + (card.stamp.length > 0 ? " · " + card.stamp : "")
-                      : card.stamp
+                text: card.kind === "confirm" && card.answered ? (card.approved ? qsTr("Allowed") : qsTr("Cancelled")) + (card.stamp.length > 0 ? " · " + card.stamp : "") : card.stamp
             }
         }
     }

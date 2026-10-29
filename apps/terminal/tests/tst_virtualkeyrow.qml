@@ -10,13 +10,19 @@ TestCase {
     name: "VirtualKeyRow"
     when: windowShown
     visible: true
-    width: 540; height: 200
+    width: 540
+    height: 200
 
     Component {
         id: rowComponent
-        VirtualKeyRow { width: 540 }
+        VirtualKeyRow {
+            width: 540
+        }
     }
-    SignalSpy { id: keySpy; signalName: "keyTriggered" }
+    SignalSpy {
+        id: keySpy
+        signalName: "keyTriggered"
+    }
 
     function makeRow() {
         const row = createTemporaryObject(rowComponent, test);

@@ -8,21 +8,32 @@ TestCase {
     name: "Menus"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     property var log: []
 
     Component {
         id: pulleyPage
         SilicaFlickable {
-            width: 540; height: 960
+            width: 540
+            height: 960
             contentHeight: 2000
             PullDownMenu {
-                MenuItem { text: "Settings"; onClicked: testCase.log.push("settings") }
-                MenuItem { text: "New note"; onClicked: testCase.log.push("new") }
+                MenuItem {
+                    text: "Settings"
+                    onClicked: testCase.log.push("settings")
+                }
+                MenuItem {
+                    text: "New note"
+                    onClicked: testCase.log.push("new")
+                }
             }
             PushUpMenu {
-                MenuItem { text: "Back to top"; onClicked: testCase.log.push("top") }
+                MenuItem {
+                    text: "Back to top"
+                    onClicked: testCase.log.push("top")
+                }
             }
         }
     }
@@ -30,18 +41,28 @@ TestCase {
     Component {
         id: listWithMenu
         SilicaListView {
-            width: 540; height: 960
+            width: 540
+            height: 960
             model: 5
             PullDownMenu {
-                MenuItem { text: "New"; onClicked: testCase.log.push("new") }
+                MenuItem {
+                    text: "New"
+                    onClicked: testCase.log.push("new")
+                }
             }
             delegate: ListItem {
                 id: delegate
                 required property int index
                 Accessible.name: "Note " + index
                 menu: ContextMenu {
-                    MenuItem { text: "Delete"; onClicked: testCase.log.push("delete " + delegate.index) }
-                    MenuItem { text: "Share"; onClicked: testCase.log.push("share " + delegate.index) }
+                    MenuItem {
+                        text: "Delete"
+                        onClicked: testCase.log.push("delete " + delegate.index)
+                    }
+                    MenuItem {
+                        text: "Share"
+                        onClicked: testCase.log.push("share " + delegate.index)
+                    }
                 }
                 onClicked: testCase.log.push("open " + index)
             }
@@ -54,24 +75,37 @@ TestCase {
             width: 540
             property alias button: button
             property alias item: item
-            Button { id: button; text: "Toggle"; onClicked: testCase.log.push("button") }
+            Button {
+                id: button
+                text: "Toggle"
+                onClicked: testCase.log.push("button")
+            }
             ListItem {
                 id: item
                 menu: ContextMenu {
-                    MenuItem { text: "Forget"; onClicked: testCase.log.push("forget") }
+                    MenuItem {
+                        text: "Forget"
+                        onClicked: testCase.log.push("forget")
+                    }
                 }
             }
         }
     }
 
-    function init() { log = []; }
+    function init() {
+        log = [];
+    }
 
     function test_tapOutsideContextMenuOnlyCloses() {
         const c = createTemporaryObject(controlAboveMenu, testCase);
         c.item.openMenu();
-        tryVerify(function () { return c.item.menuOpen; });
+        tryVerify(function () {
+            return c.item.menuOpen;
+        });
         mouseClick(c.button);
-        tryVerify(function () { return !c.item.menuOpen; });
+        tryVerify(function () {
+            return !c.item.menuOpen;
+        });
         wait(50);
         compare(log, []);
         mouseClick(c.button);
@@ -83,13 +117,26 @@ TestCase {
     }
 
     function test_pullDownOpensFromKeyboard_data() {
-        return [{ tag: "ctrl+m", key: Qt.Key_M, mod: Qt.ControlModifier }, { tag: "menu", key: Qt.Key_Menu, mod: Qt.NoModifier }];
+        return [
+            {
+                tag: "ctrl+m",
+                key: Qt.Key_M,
+                mod: Qt.ControlModifier
+            },
+            {
+                tag: "menu",
+                key: Qt.Key_Menu,
+                mod: Qt.NoModifier
+            }
+        ];
     }
     function test_pullDownOpensFromKeyboard(data) {
         const f = createTemporaryObject(pulleyPage, testCase);
         f.forceActiveFocus();
         keyClick(data.key, data.mod);
-        tryVerify(function () { return f.pullDownMenu.active; });
+        tryVerify(function () {
+            return f.pullDownMenu.active;
+        });
         compare(f.pullDownMenu.Accessible.role, Accessible.PopupMenu);
     }
 
@@ -97,14 +144,18 @@ TestCase {
         const f = createTemporaryObject(pulleyPage, testCase);
         f.forceActiveFocus();
         keyClick(Qt.Key_M, Qt.ControlModifier);
-        tryVerify(function () { return f.pullDownMenu.active; });
+        tryVerify(function () {
+            return f.pullDownMenu.active;
+        });
         keyClick(Qt.Key_Down);
         compare(f.pullDownMenu.menuItem.text, "Settings");
         keyClick(Qt.Key_Down);
         compare(f.pullDownMenu.menuItem.text, "New note");
         keyClick(Qt.Key_Return);
         tryCompare(testCase, "log", ["new"]);
-        tryVerify(function () { return !f.pullDownMenu.active; });
+        tryVerify(function () {
+            return !f.pullDownMenu.active;
+        });
         verify(f.activeFocus);
     }
 
@@ -112,9 +163,13 @@ TestCase {
         const f = createTemporaryObject(pulleyPage, testCase);
         f.forceActiveFocus();
         keyClick(Qt.Key_M, Qt.ControlModifier);
-        tryVerify(function () { return f.pullDownMenu.active; });
+        tryVerify(function () {
+            return f.pullDownMenu.active;
+        });
         keyClick(Qt.Key_Escape);
-        tryVerify(function () { return !f.pullDownMenu.active; });
+        tryVerify(function () {
+            return !f.pullDownMenu.active;
+        });
         compare(log, []);
         verify(f.activeFocus);
     }
@@ -123,16 +178,31 @@ TestCase {
         const f = createTemporaryObject(pulleyPage, testCase);
         f.forceActiveFocus();
         keyClick(Qt.Key_End);
-        tryVerify(function () { return f.atYEnd; });
+        tryVerify(function () {
+            return f.atYEnd;
+        });
         keyClick(Qt.Key_M, Qt.ControlModifier);
-        tryVerify(function () { return f.pushUpMenu.active; });
+        tryVerify(function () {
+            return f.pushUpMenu.active;
+        });
         keyClick(Qt.Key_Up);
         keyClick(Qt.Key_Return);
         tryCompare(testCase, "log", ["top"]);
     }
 
     function test_listItemMenuKey_data() {
-        return [{ tag: "menu", key: Qt.Key_Menu, mod: Qt.NoModifier }, { tag: "shift+f10", key: Qt.Key_F10, mod: Qt.ShiftModifier }];
+        return [
+            {
+                tag: "menu",
+                key: Qt.Key_Menu,
+                mod: Qt.NoModifier
+            },
+            {
+                tag: "shift+f10",
+                key: Qt.Key_F10,
+                mod: Qt.ShiftModifier
+            }
+        ];
     }
     function test_listItemMenuKey(data) {
         const v = createTemporaryObject(listWithMenu, testCase);
@@ -142,12 +212,16 @@ TestCase {
         compare(v.currentIndex, 1);
         verify(item.activeFocus);
         keyClick(data.key, data.mod);
-        tryVerify(function () { return item.menuOpen; });
+        tryVerify(function () {
+            return item.menuOpen;
+        });
         keyClick(Qt.Key_Down);
         keyClick(Qt.Key_Down);
         keyClick(Qt.Key_Return);
         tryCompare(testCase, "log", ["share 1"]);
-        tryVerify(function () { return !item.menuOpen; });
+        tryVerify(function () {
+            return !item.menuOpen;
+        });
         verify(item.activeFocus);
     }
 
@@ -156,9 +230,13 @@ TestCase {
         v.forceActiveFocus();
         const item = v.currentItem;
         keyClick(Qt.Key_Menu);
-        tryVerify(function () { return item.menuOpen; });
+        tryVerify(function () {
+            return item.menuOpen;
+        });
         keyClick(Qt.Key_Escape);
-        tryVerify(function () { return !item.menuOpen; });
+        tryVerify(function () {
+            return !item.menuOpen;
+        });
         compare(log, []);
         verify(item.activeFocus);
     }
@@ -168,9 +246,13 @@ TestCase {
         v.forceActiveFocus();
         const item = v.currentItem;
         keyClick(Qt.Key_Menu);
-        tryVerify(function () { return item.menuOpen; });
+        tryVerify(function () {
+            return item.menuOpen;
+        });
         v.itemAtIndex(3).forceActiveFocus();
-        tryVerify(function () { return !item.menuOpen; });
+        tryVerify(function () {
+            return !item.menuOpen;
+        });
     }
 
     function test_ctrlMOnListItemOpensPulley() {
@@ -179,7 +261,9 @@ TestCase {
         const item = v.currentItem;
         verify(item.activeFocus);
         keyClick(Qt.Key_M, Qt.ControlModifier);
-        tryVerify(function () { return v.pullDownMenu.active; });
+        tryVerify(function () {
+            return v.pullDownMenu.active;
+        });
         verify(!item.menuOpen);
     }
 

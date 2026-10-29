@@ -27,7 +27,11 @@ ApplicationWindow {
 
     function save() {
         draftTimer.stop();
-        store.value = JSON.stringify({ pinned: pinnedIds, archived: archivedIds, drafts: drafts });
+        store.value = JSON.stringify({
+            pinned: pinnedIds,
+            archived: archivedIds,
+            drafts: drafts
+        });
     }
 
     function toggled(ids, id, on) {
@@ -70,11 +74,16 @@ ApplicationWindow {
     }
 
     function openConversation(conversation) {
-        pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversation });
+        pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), {
+            app: root,
+            conversation: conversation
+        });
     }
 
     function newMessage() {
-        pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root });
+        pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), {
+            app: root
+        });
     }
 
     function conversationFor(number, name) {
@@ -103,14 +112,22 @@ ApplicationWindow {
         const list = pageStack.find(p => !pageStack.previousPage(p));
         if (pageStack.currentPage !== list)
             pageStack.pop(list, PageStackAction.Immediate);
-        pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root, sharedText: text, sharedAttachments: pictures });
+        pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), {
+            app: root,
+            sharedText: text,
+            sharedAttachments: pictures
+        });
     }
 
     // Replaces the recipient picker with the thread, existing or new.
     function startConversation(number, name, text, attachments) {
         if (text)
             setDraft(conversationFor(number, name).id, text);
-        pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversationFor(number, name), attachments: attachments || [] });
+        pageStack.replace(Qt.resolvedUrl("pages/ConversationPage.qml"), {
+            app: root,
+            conversation: conversationFor(number, name),
+            attachments: attachments || []
+        });
     }
 
     // "conversation" or "compose", with a number and/or a body to start from.
@@ -125,14 +142,20 @@ ApplicationWindow {
         if (pageStack.currentPage !== list)
             pageStack.pop(list, PageStackAction.Immediate);
         if (number === "") {
-            pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), { app: root, sharedText: body }, operation);
+            pageStack.push(Qt.resolvedUrl("pages/NewMessagePage.qml"), {
+                app: root,
+                sharedText: body
+            }, operation);
             return;
         }
         const contact = (Contacts.contacts || []).find(c => Logic.sameNumber(c.phone, number));
         const conversation = conversationFor(number, contact ? contact.name : "");
         if (body !== "")
             setDraft(conversation.id, body);
-        pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), { app: root, conversation: conversation }, operation);
+        pageStack.push(Qt.resolvedUrl("pages/ConversationPage.qml"), {
+            app: root,
+            conversation: conversation
+        }, operation);
     }
 
     appId: "messages"

@@ -12,7 +12,10 @@ Page {
     property string focusAppId
 
     function show(kind, pkg) {
-        pageStack.push(Qt.resolvedUrl("AndroidAccessPage.qml"), { kind: kind, focusPkg: pkg || "" });
+        pageStack.push(Qt.resolvedUrl("AndroidAccessPage.qml"), {
+            kind: kind,
+            focusPkg: pkg || ""
+        });
     }
 
     objectName: "androidAccessListPage"

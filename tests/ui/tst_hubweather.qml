@@ -106,7 +106,14 @@ TestCase {
         WeatherClient.forecast = WeatherClient.sample();
         sheet().open = true;
         sheet().choosing = true;
-        WeatherClient.searchFinished([{ name: "Oulu", region: "North Ostrobothnia, Finland", latitude: 65.01, longitude: 25.47 }], "");
+        WeatherClient.searchFinished([
+            {
+                name: "Oulu",
+                region: "North Ostrobothnia, Finland",
+                latitude: 65.01,
+                longitude: 25.47
+            }
+        ], "");
         const field = findChild(hub, "weatherSearch");
         verify(field.visible);
         // Back leaves the search first, then the sheet.

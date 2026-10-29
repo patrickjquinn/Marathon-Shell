@@ -8,5 +8,7 @@ QtObject {
         calls = calls.concat([args]);
     }
 
-    function simulateIncomingSMS(sender, text) { log("simulateIncomingSMS", sender, text); }
+    function simulateIncomingSMS(sender, text) {
+        log("simulateIncomingSMS", sender, text);
+    }
 }

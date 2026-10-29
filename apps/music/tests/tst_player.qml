@@ -8,18 +8,50 @@ TestCase {
     name: "Player"
 
     readonly property var tracks: [
-        { id: 1, path: "file:///m/1.mp3", title: "One", artist: "A", album: "X", duration: 100 },
-        { id: 2, path: "file:///m/2.mp3", title: "Two", artist: "A", album: "X", duration: 100 },
-        { id: 3, path: "file:///m/3.mp3", title: "Three", artist: "A", album: "X", duration: 100 }
+        {
+            id: 1,
+            path: "file:///m/1.mp3",
+            title: "One",
+            artist: "A",
+            album: "X",
+            duration: 100
+        },
+        {
+            id: 2,
+            path: "file:///m/2.mp3",
+            title: "Two",
+            artist: "A",
+            album: "X",
+            duration: 100
+        },
+        {
+            id: 3,
+            path: "file:///m/3.mp3",
+            title: "Three",
+            artist: "A",
+            album: "X",
+            duration: 100
+        }
     ]
 
-    Component { id: mediaStub; MediaStub {} }
-    Component { id: playerComponent; Player {} }
-    SignalSpy { id: failedSpy; signalName: "failed" }
+    Component {
+        id: mediaStub
+        MediaStub {}
+    }
+    Component {
+        id: playerComponent
+        Player {}
+    }
+    SignalSpy {
+        id: failedSpy
+        signalName: "failed"
+    }
 
     function makePlayer() {
         const media = createTemporaryObject(mediaStub, this);
-        return createTemporaryObject(playerComponent, this, { media: media });
+        return createTemporaryObject(playerComponent, this, {
+            media: media
+        });
     }
 
     function test_idle() {
@@ -185,7 +217,11 @@ TestCase {
 
     function test_errorInARestoredQueueStaysPaused() {
         const p = makePlayer();
-        p.restore({ paths: tracks.map(t => t.path), index: 0, position: 0 }, tracks);
+        p.restore({
+            paths: tracks.map(t => t.path),
+            index: 0,
+            position: 0
+        }, tracks);
         p.media.errorOccurred(1, "boom");
         compare(p.currentTrack.title, "One");
         verify(!p.playing);
@@ -215,17 +251,26 @@ TestCase {
 
     function test_restoreSkipsMissingTracks() {
         const p = makePlayer();
-        verify(p.restore({ paths: ["file:///gone.mp3", "file:///m/3.mp3"], index: 1, position: 0 }, tracks));
+        verify(p.restore({
+            paths: ["file:///gone.mp3", "file:///m/3.mp3"],
+            index: 1,
+            position: 0
+        }, tracks));
         compare(p.queue.length, 1);
         compare(p.currentTrack.title, "Three");
-        verify(!p.restore({ paths: ["file:///gone.mp3"], index: 0 }, tracks));
+        verify(!p.restore({
+            paths: ["file:///gone.mp3"],
+            index: 0
+        }, tracks));
         verify(!makePlayer().restore({}, tracks));
     }
 
     function test_artFromTheFolder() {
         const p = makePlayer();
         compare(p.artUrl, "");
-        Artwork.folders = { "file:///m/2.mp3": "file:///m/cover.jpg" };
+        Artwork.folders = {
+            "file:///m/2.mp3": "file:///m/cover.jpg"
+        };
         p.playTracks(tracks, 1);
         compare(p.artUrl, "file:///m/cover.jpg");
         p.next();

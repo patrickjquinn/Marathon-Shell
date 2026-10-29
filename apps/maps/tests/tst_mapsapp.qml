@@ -14,14 +14,56 @@ TestCase {
     width: 540
     height: 1140
 
-    readonly property var place: ({ name: "Tower Bridge", address: "Tower Bridge, London, UK", lat: 10.002, lon: 1, type: "bridge" })
+    readonly property var place: ({
+            name: "Tower Bridge",
+            address: "Tower Bridge, London, UK",
+            lat: 10.002,
+            lon: 1,
+            type: "bridge"
+        })
     readonly property var maneuvers: [
-        { type: 1, beginShapeIndex: 0, instruction: "Head north.", verbalPre: "Head north.", verbalPost: "", length: 0.111, time: 20 },
-        { type: 10, beginShapeIndex: 1, instruction: "Turn right onto High Street.", verbalPre: "Turn right onto High Street.", verbalPost: "Continue for 100 meters.", length: 0.111, time: 20, streetNames: ["High Street"] },
-        { type: 4, beginShapeIndex: 2, instruction: "You have arrived.", verbalPre: "You have arrived.", verbalPost: "", length: 0, time: 0 }
+        {
+            type: 1,
+            beginShapeIndex: 0,
+            instruction: "Head north.",
+            verbalPre: "Head north.",
+            verbalPost: "",
+            length: 0.111,
+            time: 20
+        },
+        {
+            type: 10,
+            beginShapeIndex: 1,
+            instruction: "Turn right onto High Street.",
+            verbalPre: "Turn right onto High Street.",
+            verbalPost: "Continue for 100 meters.",
+            length: 0.111,
+            time: 20,
+            streetNames: ["High Street"]
+        },
+        {
+            type: 4,
+            beginShapeIndex: 2,
+            instruction: "You have arrived.",
+            verbalPre: "You have arrived.",
+            verbalPost: "",
+            length: 0,
+            time: 0
+        }
     ]
     property string savedRoute: ""
-    readonly property string geojson: JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[1, 10], [1, 10.001], [1, 10.002]] } }] })
+    readonly property string geojson: JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+            {
+                type: "Feature",
+                geometry: {
+                    type: "LineString",
+                    coordinates: [[1, 10], [1, 10.001], [1, 10.002]]
+                }
+            }
+        ]
+    })
 
     Component {
         id: appComponent
@@ -69,7 +111,12 @@ TestCase {
     function routed(app) {
         app.selectPlace(place);
         app.router.routing = false;
-        app.router.routeReady(geojson, maneuvers, 40, 222, { minLat: 10, minLon: 1, maxLat: 10.002, maxLon: 1 });
+        app.router.routeReady(geojson, maneuvers, 40, 222, {
+            minLat: 10,
+            minLon: 1,
+            maxLat: 10.002,
+            maxLon: 1
+        });
         settle(app);
     }
 
@@ -113,7 +160,14 @@ TestCase {
         let asked = "";
         app.fetch = (url, done) => {
             asked = url;
-            done(200, JSON.stringify([{ display_name: "Tower Bridge, London", lat: "51.5", lon: "-0.07", type: "bridge" }]));
+            done(200, JSON.stringify([
+                {
+                    display_name: "Tower Bridge, London",
+                    lat: "51.5",
+                    lon: "-0.07",
+                    type: "bridge"
+                }
+            ]));
         };
         app.openSearch();
         settle(app);
@@ -135,7 +189,14 @@ TestCase {
     // Results arriving must not take the keys from the search field.
     function test_typingContinuesAfterResults() {
         const app = makeApp();
-        app.fetch = (url, done) => done(200, JSON.stringify([{ display_name: "Dublin, Ireland", lat: "53.3", lon: "-6.2", type: "city" }]));
+        app.fetch = (url, done) => done(200, JSON.stringify([
+                {
+                    display_name: "Dublin, Ireland",
+                    lat: "53.3",
+                    lon: "-6.2",
+                    type: "city"
+                }
+            ]));
         app.openSearch();
         settle(app);
         const field = findChild(current(app), "searchField");
@@ -155,7 +216,14 @@ TestCase {
         let asked = "";
         app.fetch = (url, done) => {
             asked = url;
-            done(200, JSON.stringify([{ display_name: "Ur, Iraq", lat: "30.9", lon: "46.1", type: "city" }]));
+            done(200, JSON.stringify([
+                {
+                    display_name: "Ur, Iraq",
+                    lat: "30.9",
+                    lon: "46.1",
+                    type: "city"
+                }
+            ]));
         };
         Location.moveTo(10, 1);
         app.openSearch();
@@ -172,7 +240,13 @@ TestCase {
     function test_recentPlaces() {
         const app = makeApp();
         app.selectPlace(place);
-        app.selectPlace({ name: "Elsewhere", address: "Elsewhere, Town", lat: 1, lon: 2, type: "town" });
+        app.selectPlace({
+            name: "Elsewhere",
+            address: "Elsewhere, Town",
+            lat: 1,
+            lon: 2,
+            type: "town"
+        });
         app.selectPlace(place);
         compare(app.recentPlaces.map(p => p.name), ["Tower Bridge", "Elsewhere"]);
         app.openSearch();
@@ -209,7 +283,13 @@ TestCase {
         verify(app.searching);
         tryCompare(app, "searching", false, 10000);
         verify(app.searchError.indexOf("didn't answer") > 0);
-        late(200, JSON.stringify([{ display_name: "Late", lat: "1", lon: "1" }]));
+        late(200, JSON.stringify([
+            {
+                display_name: "Late",
+                lat: "1",
+                lon: "1"
+            }
+        ]));
         compare(app.searchResults, []);
     }
 
@@ -238,7 +318,10 @@ TestCase {
     }
 
     function test_endedNavigationIsNotOffered() {
-        savedRoute = JSON.stringify({ place: place, mode: "auto" });
+        savedRoute = JSON.stringify({
+            place: place,
+            mode: "auto"
+        });
         const app = makeApp();
         verify(app.resumable !== null);
         app.dismissResume();
@@ -268,7 +351,13 @@ TestCase {
         app.search("first");
         const stale = pending;
         app.search("second");
-        stale(200, JSON.stringify([{ display_name: "First", lat: "1", lon: "1" }]));
+        stale(200, JSON.stringify([
+            {
+                display_name: "First",
+                lat: "1",
+                lon: "1"
+            }
+        ]));
         compare(app.searchResults, []);
         verify(app.searching);
         pending(200, "[]");
@@ -279,7 +368,9 @@ TestCase {
         const app = makeApp();
         Location.moveTo(10, 1);
         app.selectPlace(place);
-        app.pageStack.push(Qt.resolvedUrl("../pages/PlacePage.qml"), { app: app });
+        app.pageStack.push(Qt.resolvedUrl("../pages/PlacePage.qml"), {
+            app: app
+        });
         settle(app);
         compare(findChild(current(app), "addressItem").value, place.address);
         compare(findChild(current(app), "navigateButton").text, "Directions");
@@ -293,7 +384,9 @@ TestCase {
     function test_noFixAsksForStartPoint() {
         const app = makeApp();
         app.selectPlace(place);
-        app.pageStack.push(Qt.resolvedUrl("../pages/PlacePage.qml"), { app: app });
+        app.pageStack.push(Qt.resolvedUrl("../pages/PlacePage.qml"), {
+            app: app
+        });
         settle(app);
         app.requestDirections();
         settle(app);

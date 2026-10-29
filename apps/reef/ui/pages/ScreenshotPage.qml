@@ -67,7 +67,9 @@ Page {
         anchors.fill: parent
         opacity: page.chrome ? 1.0 : 0.0
         visible: opacity > 0
-        Behavior on opacity { FadeAnimation {} }
+        Behavior on opacity {
+            FadeAnimation {}
+        }
 
         IconButton {
             id: close

@@ -12,7 +12,9 @@ Page {
     SilicaListView {
         objectName: "foldersView"
         anchors.fill: parent
-        header: PageHeader { title: qsTr("Folders") }
+        header: PageHeader {
+            title: qsTr("Folders")
+        }
         model: Store.folders(page.store.notes)
 
         ViewPlaceholder {
@@ -28,7 +30,10 @@ Page {
 
             contentHeight: Theme.itemSizeMedium
             Accessible.name: nameLabel.text + ", " + countLabel.text
-            onClicked: pageStack.push(Qt.resolvedUrl("NotesPage.qml"), { store: page.store, folder: item.modelData.tag })
+            onClicked: pageStack.push(Qt.resolvedUrl("NotesPage.qml"), {
+                store: page.store,
+                folder: item.modelData.tag
+            })
 
             Icon {
                 id: icon

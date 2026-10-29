@@ -24,10 +24,12 @@ TestCase {
 
     function init() {
         ClipboardManagerCpp.cleared = false;
-        ClipboardManagerCpp.history = [{
+        ClipboardManagerCpp.history = [
+            {
                 "text": "hello",
                 "timestamp": 0
-            }];
+            }
+        ];
         UIStore.clipboardManagerOpen = true;
         wait(50);
     }

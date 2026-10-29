@@ -10,12 +10,18 @@ QtObject {
     signal permissionDenied(string appId, string permission)
 
     function reset() {
-        granted = { "weather/network": true };
+        granted = {
+            "weather/network": true
+        };
         fail = false;
         calls = [];
     }
     function describe(permission) {
-        return { label: "Label " + permission, description: "Description " + permission, restricted: permission === "system" };
+        return {
+            label: "Label " + permission,
+            description: "Description " + permission,
+            restricted: permission === "system"
+        };
     }
     function hasPermission(appId, permission) {
         return !!granted[appId + "/" + permission];

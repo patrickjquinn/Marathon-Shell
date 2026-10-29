@@ -15,7 +15,11 @@ Dialog {
         const name = nameField.text.trim();
         const email = emailField.text.trim();
         if (contact)
-            Contacts.updateContact(contact.id, { name: name, phone: phoneField.text, email: email });
+            Contacts.updateContact(contact.id, {
+                name: name,
+                phone: phoneField.text,
+                email: email
+            });
         else
             Contacts.addContact(name, phoneField.text, email);
     }
@@ -66,7 +70,8 @@ Dialog {
                 text: root.contact ? root.contact.email || "" : ""
                 inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"
-                EnterKey.onClicked: if (root.canAccept) root.accept()
+                EnterKey.onClicked: if (root.canAccept)
+                    root.accept()
             }
         }
 

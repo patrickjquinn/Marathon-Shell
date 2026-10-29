@@ -69,14 +69,30 @@ Page {
             Repeater {
                 objectName: "categories"
                 model: page.searching || page.empty ? [] : [
-                    { name: qsTr("Playlists"), icon: "media-playlists", page: "PlaylistsPage.qml",
-                      detail: page.countText(page.music.playlists.length, qsTr("1 playlist"), qsTr("%1 playlists")) },
-                    { name: qsTr("All songs"), icon: "media-songs", page: "SongsPage.qml",
-                      detail: page.countText(page.music.tracks.length, qsTr("1 song"), qsTr("%1 songs")) },
-                    { name: qsTr("Albums"), icon: "media-albums", page: "AlbumsPage.qml",
-                      detail: page.countText(page.music.albumCount, qsTr("1 album"), qsTr("%1 albums")) },
-                    { name: qsTr("Artists"), icon: "media-artists", page: "ArtistsPage.qml",
-                      detail: page.countText(page.music.artistCount, qsTr("1 artist"), qsTr("%1 artists")) }
+                    {
+                        name: qsTr("Playlists"),
+                        icon: "media-playlists",
+                        page: "PlaylistsPage.qml",
+                        detail: page.countText(page.music.playlists.length, qsTr("1 playlist"), qsTr("%1 playlists"))
+                    },
+                    {
+                        name: qsTr("All songs"),
+                        icon: "media-songs",
+                        page: "SongsPage.qml",
+                        detail: page.countText(page.music.tracks.length, qsTr("1 song"), qsTr("%1 songs"))
+                    },
+                    {
+                        name: qsTr("Albums"),
+                        icon: "media-albums",
+                        page: "AlbumsPage.qml",
+                        detail: page.countText(page.music.albumCount, qsTr("1 album"), qsTr("%1 albums"))
+                    },
+                    {
+                        name: qsTr("Artists"),
+                        icon: "media-artists",
+                        page: "ArtistsPage.qml",
+                        detail: page.countText(page.music.artistCount, qsTr("1 artist"), qsTr("%1 artists"))
+                    }
                 ]
 
                 ListItem {
@@ -86,9 +102,13 @@ Page {
 
                     contentHeight: Theme.itemSizeMedium
                     Accessible.name: qsTr("%1, %2").arg(modelData.name).arg(modelData.detail)
-                    onClicked: pageStack.push(Qt.resolvedUrl(modelData.page), modelData.page === "SongsPage.qml"
-                                              ? { music: page.music, title: modelData.name, tracks: Library.songs(page.music.tracks) }
-                                              : { music: page.music })
+                    onClicked: pageStack.push(Qt.resolvedUrl(modelData.page), modelData.page === "SongsPage.qml" ? {
+                        music: page.music,
+                        title: modelData.name,
+                        tracks: Library.songs(page.music.tracks)
+                    } : {
+                        music: page.music
+                    })
 
                     Icon {
                         id: categoryIcon
@@ -144,11 +164,8 @@ Page {
         ViewPlaceholder {
             objectName: "placeholder"
             enabled: page.music.loaded && !page.music.scanning && (page.empty || (page.searching && view.count === 0))
-            text: page.searching && !page.empty ? qsTr("No matches")
-                : page.music.library ? qsTr("No music yet") : qsTr("Music library unavailable")
-            hintText: page.searching && !page.empty ? ""
-                : page.music.library ? qsTr("Copy audio files (MP3, FLAC, OGG and more) into the Music folder in your home folder. They appear here automatically.")
-                : qsTr("Music couldn't connect to the music library, so your songs can't be listed.")
+            text: page.searching && !page.empty ? qsTr("No matches") : page.music.library ? qsTr("No music yet") : qsTr("Music library unavailable")
+            hintText: page.searching && !page.empty ? "" : page.music.library ? qsTr("Copy audio files (MP3, FLAC, OGG and more) into the Music folder in your home folder. They appear here automatically.") : qsTr("Music couldn't connect to the music library, so your songs can't be listed.")
         }
 
         VerticalScrollDecorator {}

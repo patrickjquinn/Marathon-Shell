@@ -38,7 +38,9 @@ TabItem {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: Format.formatDate(root.now, Formatter.TimeValue)
                 font.pixelSize: Theme.fontSizeHuge
-                font.features: ({ "tnum": 1 })
+                font.features: ({
+                        "tnum": 1
+                    })
                 color: Theme.highlightColor
             }
             Label {

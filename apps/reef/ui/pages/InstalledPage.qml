@@ -41,13 +41,18 @@ Page {
         }
 
         delegate: PackageDelegate {
-            onClicked: pageStack.push(Qt.resolvedUrl("PackagePage.qml"), { packageName: name })
+            onClicked: pageStack.push(Qt.resolvedUrl("PackagePage.qml"), {
+                packageName: name
+            })
         }
 
         footer: Column {
             width: list.width
             spacing: Theme.paddingMedium
-            Item { width: 1; height: Theme.paddingLarge }
+            Item {
+                width: 1
+                height: Theme.paddingLarge
+            }
             ProgressBar {
                 width: parent.width
                 visible: Reef.busy

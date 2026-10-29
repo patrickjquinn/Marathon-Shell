@@ -27,6 +27,8 @@ ShaderEffect {
     fragmentShader: "qrc:/marathon/shaders/glassplatter.frag.qsb"
 
     Behavior on tint {
-        ColorAnimation { duration: 120 }
+        ColorAnimation {
+            duration: 120
+        }
     }
 }

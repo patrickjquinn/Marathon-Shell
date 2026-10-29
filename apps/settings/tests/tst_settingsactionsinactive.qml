@@ -33,7 +33,9 @@ TestCase {
     }
 
     function show(page) {
-        const call = KeelActions.invoke("app.show", { page: page });
+        const call = KeelActions.invoke("app.show", {
+            page: page
+        });
         tryCompare(call, "finished", true);
         verify(call.succeeded, call.errorMessage);
     }

@@ -86,7 +86,7 @@ namespace {
         }
 
         int registerSocket(wl_display *display) {
-            const int   listenFd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+            const int listenFd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
             if (listenFd < 0)
                 return -1;
             sockaddr_un address{};

@@ -46,7 +46,10 @@ Item {
         border.color: root.lit ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
         Behavior on scale {
-            NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
+            NumberAnimation {
+                duration: MMotion.quick
+                easing.type: Easing.OutCubic
+            }
         }
 
         GlyphIcon {

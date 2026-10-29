@@ -21,7 +21,14 @@ QtObject {
     }
     function addAccount(name, url, user, secret, auth) {
         const id = "acc" + (accounts.length + 1);
-        accounts = accounts.concat([{ id: id, displayName: name, baseUrl: url, username: user }]);
+        accounts = accounts.concat([
+            {
+                id: id,
+                displayName: name,
+                baseUrl: url,
+                username: user
+            }
+        ]);
         calls = calls.concat([["add", name, url, user, secret, auth]]);
         return id;
     }
@@ -31,7 +38,9 @@ QtObject {
         return true;
     }
     function enableAccount(id, enabled) {
-        accounts = accounts.map(a => a.id === id ? Object.assign({}, a, { enabled: enabled }) : a);
+        accounts = accounts.map(a => a.id === id ? Object.assign({}, a, {
+                enabled: enabled
+            }) : a);
         calls = calls.concat([["enable", id, enabled]]);
     }
     function syncNow() {

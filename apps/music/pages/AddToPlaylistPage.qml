@@ -25,7 +25,10 @@ Page {
         PullDownMenu {
             MenuItem {
                 text: qsTr("New playlist")
-                onClicked: pageStack.replace(Qt.resolvedUrl("NewPlaylistDialog.qml"), { music: page.music, track: page.track })
+                onClicked: pageStack.replace(Qt.resolvedUrl("NewPlaylistDialog.qml"), {
+                    music: page.music,
+                    track: page.track
+                })
             }
         }
 

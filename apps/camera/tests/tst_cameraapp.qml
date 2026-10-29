@@ -17,7 +17,9 @@ TestCase {
 
     Component {
         id: storeStub
-        QtObject { property var value: true }
+        QtObject {
+            property var value: true
+        }
     }
 
     Component {
@@ -27,15 +29,24 @@ TestCase {
 
     Component {
         id: appComponent
-        CameraApp { width: 720; height: 1440 }
+        CameraApp {
+            width: 720
+            height: 1440
+        }
     }
 
     function makeApp() {
         Navigation.reset();
         Permissions.reset();
-        const app = createTemporaryObject(appComponent, testCase, { gridStore: createTemporaryObject(storeStub, testCase) });
-        tryVerify(function () { return app.pageStack.currentPage !== null && !app.pageStack.busy; });
-        tryVerify(function () { return app.camera.active; });
+        const app = createTemporaryObject(appComponent, testCase, {
+            gridStore: createTemporaryObject(storeStub, testCase)
+        });
+        tryVerify(function () {
+            return app.pageStack.currentPage !== null && !app.pageStack.busy;
+        });
+        tryVerify(function () {
+            return app.camera.active;
+        });
         return app;
     }
 
@@ -57,7 +68,9 @@ TestCase {
         Navigation.reset();
         const app = createTemporaryObject(appComponent, testCase);
         compare(app.camera.calls.indexOf("start"), -1);
-        tryVerify(function () { return app.camera.calls.indexOf("start") >= 0; });
+        tryVerify(function () {
+            return app.camera.calls.indexOf("start") >= 0;
+        });
     }
 
     function test_showsStartingUntilCamerasAreFound() {
@@ -119,7 +132,9 @@ TestCase {
         compare(child(app, "photoModeLabel").color, Theme.highlightColor);
         verify(child(app, "modeSwitch").color === undefined);
         mouseClick(video);
-        tryVerify(function () { return !photo.icon.highlighted; });
+        tryVerify(function () {
+            return !photo.icon.highlighted;
+        });
         verify(video.icon.highlighted);
         compare(child(app, "videoModeLabel").color, Theme.highlightColor);
     }
@@ -140,26 +155,37 @@ TestCase {
         app.camera.latestCapture = capture;
         app.camera.latestPreview = Qt.resolvedUrl("data/photo.png");
         mouseClick(child(app, "thumbnail"));
-        tryVerify(function () { return app.pageStack.depth === 2 && !app.pageStack.busy; });
+        tryVerify(function () {
+            return app.pageStack.depth === 2 && !app.pageStack.busy;
+        });
         return app.pageStack.currentPage;
     }
 
     function test_openActionReturnsToTheViewfinder() {
         const app = makeApp();
         openReview(app, Qt.resolvedUrl("data/photo.png").toString());
-        const call = KeelActions.invoke("camera.open", { mode: "video" });
+        const call = KeelActions.invoke("camera.open", {
+            mode: "video"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.mode, "video");
-        tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
+        tryVerify(function () {
+            return app.pageStack.depth === 1 && !app.pageStack.busy;
+        });
         verify(app.camera.active);
     }
 
     // camera.capture: the person's next photo comes back to the caller, and the camera goes.
     function test_captureReturnsThePhoto() {
         const app = makeApp();
-        const minimized = createTemporaryObject(spyComponent, testCase, { target: app, signalName: "minimizeRequested" });
+        const minimized = createTemporaryObject(spyComponent, testCase, {
+            target: app,
+            signalName: "minimizeRequested"
+        });
         openReview(app, Qt.resolvedUrl("data/photo.png").toString());
-        const call = KeelActions.invoke("camera.capture", { mode: "photo" });
+        const call = KeelActions.invoke("camera.capture", {
+            mode: "photo"
+        });
         verify(!call.finished);
         tryVerify(() => app.pageStack.depth === 1 && !app.pageStack.busy);
         verify(app.capturing);
@@ -170,7 +196,10 @@ TestCase {
         compare(app.mode, "photo");
         app.camera.photoSaved("file:///home/user/Pictures/Marathon/IMG%201.jpg");
         verify(call.succeeded, call.errorMessage);
-        compare(call.result, { path: "/home/user/Pictures/Marathon/IMG 1.jpg", mode: "photo" });
+        compare(call.result, {
+            path: "/home/user/Pictures/Marathon/IMG 1.jpg",
+            mode: "photo"
+        });
         verify(!app.capturing);
         compare(minimized.count, 1);
         verify(!child(app, "captureHint").visible);
@@ -178,7 +207,9 @@ TestCase {
 
     function test_captureReturnsTheVideo() {
         const app = makeApp();
-        const call = KeelActions.invoke("camera.capture", { mode: "video" });
+        const call = KeelActions.invoke("camera.capture", {
+            mode: "video"
+        });
         compare(app.mode, "video");
         compare(child(app, "captureHint").text, "Record a video to send it back");
         app.camera.photoSaved("file:///pictures/IMG_9.jpg");
@@ -187,7 +218,10 @@ TestCase {
         verify(app.camera.isRecording);
         app.shoot();
         verify(call.succeeded, call.errorMessage);
-        compare(call.result, { path: "/pictures/VID_1.mp4", mode: "video" });
+        compare(call.result, {
+            path: "/pictures/VID_1.mp4",
+            mode: "video"
+        });
     }
 
     // Leaving the camera, or a second request, cancels the first.
@@ -198,8 +232,12 @@ TestCase {
         compare(call.errorCode, "Cancelled");
         verify(!app.capturing);
 
-        call = KeelActions.invoke("camera.capture", { mode: "photo" });
-        const second = KeelActions.invoke("camera.capture", { mode: "video" });
+        call = KeelActions.invoke("camera.capture", {
+            mode: "photo"
+        });
+        const second = KeelActions.invoke("camera.capture", {
+            mode: "video"
+        });
         compare(call.errorCode, "Cancelled");
         verify(!second.finished);
         compare(app.mode, "video");
@@ -219,7 +257,9 @@ TestCase {
         verify(!app.camera.active);
         compare(Navigation.launches, []);
         app.handleBack();
-        tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
+        tryVerify(function () {
+            return app.pageStack.depth === 1 && !app.pageStack.busy;
+        });
         verify(app.camera.active);
     }
 
@@ -238,11 +278,17 @@ TestCase {
         const playback = findChild(page, "videoPlayback");
         const play = findChild(playback, "playButton");
         mouseClick(play);
-        tryVerify(function () { return playback.playing; }, 5000);
-        tryVerify(function () { return findChild(playback, "video").position > 0; }, 5000);
+        tryVerify(function () {
+            return playback.playing;
+        }, 5000);
+        tryVerify(function () {
+            return findChild(playback, "video").position > 0;
+        }, 5000);
         compare(play.Accessible.name, "Pause");
         mouseClick(play);
-        tryVerify(function () { return !playback.playing; });
+        tryVerify(function () {
+            return !playback.playing;
+        });
     }
 
     function test_reviewOpensGallery() {
@@ -255,12 +301,19 @@ TestCase {
     function test_reviewDeletesTheCapture() {
         MediaLibrary.reset();
         const path = Qt.resolvedUrl("data/photo.png").toString();
-        MediaLibrary.photos = [{ id: 7, path: path }];
+        MediaLibrary.photos = [
+            {
+                id: 7,
+                path: path
+            }
+        ];
         const app = makeApp();
         const page = openReview(app, path);
         page.deleteCapture();
         compare(MediaLibrary.deleted, [7]);
-        tryVerify(function () { return app.pageStack.depth === 1 && !app.pageStack.busy; });
+        tryVerify(function () {
+            return app.pageStack.depth === 1 && !app.pageStack.busy;
+        });
         compare(app.camera.latestCapture, "");
     }
 
@@ -281,7 +334,9 @@ TestCase {
         const app = makeApp();
         const area = child(app, "gestureArea");
         mouseDrag(area, area.width / 2, area.height / 3, 0, area.height / 4);
-        tryVerify(function () { return app.pageStack.currentPage.settingsOpen; });
+        tryVerify(function () {
+            return app.pageStack.currentPage.settingsOpen;
+        });
     }
 
     function test_flashSwitch() {
@@ -340,7 +395,9 @@ TestCase {
         app.setMode("video");
         app.shoot();
         verify(app.camera.isRecording);
-        app.pageStack.push(Qt.resolvedUrl("../pages/CaptureReviewPage.qml"), { app: app });
+        app.pageStack.push(Qt.resolvedUrl("../pages/CaptureReviewPage.qml"), {
+            app: app
+        });
         tryCompare(app.pageStack, "depth", 2);
         verify(!app.camera.isRecording);
         const calls = app.camera.calls;

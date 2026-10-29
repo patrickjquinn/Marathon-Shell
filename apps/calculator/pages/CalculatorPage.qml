@@ -12,9 +12,7 @@ Page {
     property Calculator calc
     property bool scientific: true
     // Keys shrink on short screens so the display always fits above them.
-    readonly property real keyScale: Math.min(1, (height - 2 * Theme.paddingMedium - Theme.itemSizeLarge
-                                                  - 2.8 * Theme.fontSizeMedium - Theme.paddingLarge)
-                                                 / (5 * Theme.itemSizeLarge + (scientific ? 2 * Theme.itemSizeSmall : 0)))
+    readonly property real keyScale: Math.min(1, (height - 2 * Theme.paddingMedium - Theme.itemSizeLarge - 2.8 * Theme.fontSizeMedium - Theme.paddingLarge) / (5 * Theme.itemSizeLarge + (scientific ? 2 * Theme.itemSizeSmall : 0)))
 
     function tap(k) {
         feedback.play();
@@ -269,11 +267,86 @@ Page {
 
             Repeater {
                 model: [
-                    { key: "C", kind: "soft" }, { key: "⌫", kind: "soft" }, { key: "%", kind: "soft" }, { key: "÷", kind: "op" },
-                    { key: "7", kind: "digit" }, { key: "8", kind: "digit" }, { key: "9", kind: "digit" }, { key: "×", kind: "op" },
-                    { key: "4", kind: "digit" }, { key: "5", kind: "digit" }, { key: "6", kind: "digit" }, { key: "−", kind: "op" },
-                    { key: "1", kind: "digit" }, { key: "2", kind: "digit" }, { key: "3", kind: "digit" }, { key: "+", kind: "op" },
-                    { key: "+/−", kind: "soft" }, { key: "0", kind: "digit" }, { key: ".", kind: "digit" }, { key: "=", kind: "equals" }
+                    {
+                        key: "C",
+                        kind: "soft"
+                    },
+                    {
+                        key: "⌫",
+                        kind: "soft"
+                    },
+                    {
+                        key: "%",
+                        kind: "soft"
+                    },
+                    {
+                        key: "÷",
+                        kind: "op"
+                    },
+                    {
+                        key: "7",
+                        kind: "digit"
+                    },
+                    {
+                        key: "8",
+                        kind: "digit"
+                    },
+                    {
+                        key: "9",
+                        kind: "digit"
+                    },
+                    {
+                        key: "×",
+                        kind: "op"
+                    },
+                    {
+                        key: "4",
+                        kind: "digit"
+                    },
+                    {
+                        key: "5",
+                        kind: "digit"
+                    },
+                    {
+                        key: "6",
+                        kind: "digit"
+                    },
+                    {
+                        key: "−",
+                        kind: "op"
+                    },
+                    {
+                        key: "1",
+                        kind: "digit"
+                    },
+                    {
+                        key: "2",
+                        kind: "digit"
+                    },
+                    {
+                        key: "3",
+                        kind: "digit"
+                    },
+                    {
+                        key: "+",
+                        kind: "op"
+                    },
+                    {
+                        key: "+/−",
+                        kind: "soft"
+                    },
+                    {
+                        key: "0",
+                        kind: "digit"
+                    },
+                    {
+                        key: ".",
+                        kind: "digit"
+                    },
+                    {
+                        key: "=",
+                        kind: "equals"
+                    }
                 ]
 
                 CalcKey {

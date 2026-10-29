@@ -12,10 +12,7 @@ CoverBackground {
     required property CountdownTimer countdown
     property date now: new Date()
     readonly property var next: Logic.nextAlarm(alarms, now)
-    readonly property string mode: countdown.running ? "timer"
-        : stopwatch.running ? "stopwatch"
-        : countdown.remaining > 0 ? "timer"
-        : next ? "alarm" : "idle"
+    readonly property string mode: countdown.running ? "timer" : stopwatch.running ? "stopwatch" : countdown.remaining > 0 ? "timer" : next ? "alarm" : "idle"
 
     signal newAlarmRequested
 
@@ -57,21 +54,15 @@ CoverBackground {
         CoverHeadline {
             objectName: "coverHeadline"
             width: parent.width
-            value: root.mode === "timer" ? Logic.formatCountdown(root.countdown.remaining)
-                : root.mode === "stopwatch" ? Logic.formatCountdown(Math.floor(root.stopwatch.elapsed / 1000))
-                : root.next ? Format.formatDate(root.next.when, Formatter.TimeValue) : ""
+            value: root.mode === "timer" ? Logic.formatCountdown(root.countdown.remaining) : root.mode === "stopwatch" ? Logic.formatCountdown(Math.floor(root.stopwatch.elapsed / 1000)) : root.next ? Format.formatDate(root.next.when, Formatter.TimeValue) : ""
             valueColor: root.mode === "timer" && !root.countdown.running ? Theme.secondaryHighlightColor : Theme.highlightColor
-            label: root.mode === "timer" ? qsTr("Timer")
-                : root.mode === "stopwatch" ? qsTr("Stopwatch")
-                : root.next ? root.next.alarm.label || qsTr("Alarm") : ""
+            label: root.mode === "timer" ? qsTr("Timer") : root.mode === "stopwatch" ? qsTr("Stopwatch") : root.next ? root.next.alarm.label || qsTr("Alarm") : ""
         }
         Label {
             objectName: "coverDetail"
             width: parent.width
             visible: text !== ""
-            text: root.mode === "alarm" && root.next ? root.dayText(root.next.when)
-                : root.mode === "timer" && !root.countdown.running ? qsTr("Paused")
-                : ""
+            text: root.mode === "alarm" && root.next ? root.dayText(root.next.when) : root.mode === "timer" && !root.countdown.running ? qsTr("Paused") : ""
             truncationMode: TruncationMode.Fade
             font.pixelSize: Theme.fontSizeExtraSmall
             color: Theme.secondaryColor

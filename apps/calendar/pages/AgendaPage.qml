@@ -31,7 +31,9 @@ Page {
             MenuItem {
                 objectName: "searchItem"
                 text: qsTr("Search")
-                onClicked: pageStack.push(Qt.resolvedUrl("SearchPage.qml"), { app: page.app })
+                onClicked: pageStack.push(Qt.resolvedUrl("SearchPage.qml"), {
+                    app: page.app
+                })
             }
             MenuItem {
                 objectName: "newEventItem"

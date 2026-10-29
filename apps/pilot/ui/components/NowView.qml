@@ -17,13 +17,17 @@ Column {
     // pilotd's `Now` JSON, parsed.
     property var snapshot: ({})
     signal ask(string question)
-    signal openTriage()
+    signal openTriage
     signal openLesson(string step)
-    signal openCapabilities()
+    signal openCapabilities
 
     readonly property var clock: snapshot.clock || []
-    readonly property var timers: clock.filter(function(c) { return c.kind === "timer" })
-    readonly property var alarms: clock.filter(function(c) { return c.kind !== "timer" })
+    readonly property var timers: clock.filter(function (c) {
+        return c.kind === "timer";
+    })
+    readonly property var alarms: clock.filter(function (c) {
+        return c.kind !== "timer";
+    })
     readonly property var events: snapshot.events || []
     readonly property var attention: snapshot.attention || []
     readonly property var suggestions: snapshot.suggestions || []
@@ -58,9 +62,10 @@ Column {
     // Getting to know Pilot, until every skill has been tried or the
     // guide is put away.
     GuideCard {
-        visible: Conversation.guide.indexOf("hidden") < 0
-                 && Conversation.guideDone < Conversation.guideSteps.length
-        onOpenLesson: function(step) { now.openLesson(step) }
+        visible: Conversation.guide.indexOf("hidden") < 0 && Conversation.guideDone < Conversation.guideSteps.length
+        onOpenLesson: function (step) {
+            now.openLesson(step);
+        }
         onOpenCapabilities: now.openCapabilities()
     }
 
@@ -120,8 +125,7 @@ Column {
                 id: attentionRow
                 required property var modelData
                 width: parent ? parent.width : 0
-                text: (attentionRow.modelData.app ? attentionRow.modelData.app + ": " : "")
-                      + attentionRow.modelData.title
+                text: (attentionRow.modelData.app ? attentionRow.modelData.app + ": " : "") + attentionRow.modelData.title
                 truncationMode: TruncationMode.Fade
                 color: Theme.highlightColor
             }

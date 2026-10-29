@@ -12,10 +12,12 @@ class TestKeyRouting : public QObject {
     void escapeGoesToKeelApps() {
         // Keel apps close menus and dialogs on Escape and turn an unused
         // one into back themselves.
-        QCOMPARE(KeyRouting::systemAction(Qt::Key_Escape, QStringLiteral("keel")), KeyRouting::None);
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_Escape, QStringLiteral("keel")),
+                 KeyRouting::None);
     }
     void superIsHomeForEveryApp() {
-        QCOMPARE(KeyRouting::systemAction(Qt::Key_Super_L, QStringLiteral("keel")), KeyRouting::Home);
+        QCOMPARE(KeyRouting::systemAction(Qt::Key_Super_L, QStringLiteral("keel")),
+                 KeyRouting::Home);
         QCOMPARE(KeyRouting::systemAction(Qt::Key_Meta, QString()), KeyRouting::Home);
     }
     void otherKeysPassThrough() {

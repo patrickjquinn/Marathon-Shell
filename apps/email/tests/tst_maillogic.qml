@@ -14,7 +14,11 @@ TestCase {
     }
 
     function test_matchesMessage() {
-        const m = { from: "Ann <ann@x.org>", subject: "Lunch", snippet: "at noon" };
+        const m = {
+            from: "Ann <ann@x.org>",
+            subject: "Lunch",
+            snippet: "at noon"
+        };
         verify(Logic.matchesMessage(m, ""));
         verify(Logic.matchesMessage(m, " ANN "));
         verify(Logic.matchesMessage(m, "lunch"));
@@ -32,19 +36,32 @@ TestCase {
     }
 
     function test_replyPrefill() {
-        const p = Logic.replyPrefill({ from: "Ann <ann@x.org>", subject: "Lunch", bodyPlain: "one\ntwo" });
+        const p = Logic.replyPrefill({
+            from: "Ann <ann@x.org>",
+            subject: "Lunch",
+            bodyPlain: "one\ntwo"
+        });
         compare(p.defaultTo, "Ann <ann@x.org>");
         compare(p.defaultSubject, "Re: Lunch");
         compare(p.defaultBody, "\n\n> one\n> two");
-        compare(Logic.replyPrefill({ subject: "RE: Lunch" }).defaultSubject, "RE: Lunch");
+        compare(Logic.replyPrefill({
+            subject: "RE: Lunch"
+        }).defaultSubject, "RE: Lunch");
     }
 
     function test_forwardPrefill() {
-        const p = Logic.forwardPrefill({ from: "ann@x.org", subject: "Plan", to: ["me@x.org"], bodyPlain: "body" }, "1/2/26 10:00");
+        const p = Logic.forwardPrefill({
+            from: "ann@x.org",
+            subject: "Plan",
+            to: ["me@x.org"],
+            bodyPlain: "body"
+        }, "1/2/26 10:00");
         compare(p.defaultSubject, "Fwd: Plan");
         verify(p.defaultTo === undefined);
         compare(p.defaultBody, "\n\n---------- Forwarded message ----------\nFrom: ann@x.org\nDate: 1/2/26 10:00\nSubject: Plan\nTo: me@x.org\n\nbody");
-        compare(Logic.forwardPrefill({ subject: "fwd: Plan" }, "").defaultSubject, "fwd: Plan");
+        compare(Logic.forwardPrefill({
+            subject: "fwd: Plan"
+        }, "").defaultSubject, "fwd: Plan");
     }
 
     function test_oauthErrorText() {
@@ -63,7 +80,10 @@ TestCase {
     }
 
     function test_parseRecipients() {
-        compare(Logic.parseRecipients("a@b.co; c@d.org,e@f.net"), { recipients: ["a@b.co", "c@d.org", "e@f.net"], invalid: "" });
+        compare(Logic.parseRecipients("a@b.co; c@d.org,e@f.net"), {
+            recipients: ["a@b.co", "c@d.org", "e@f.net"],
+            invalid: ""
+        });
         compare(Logic.parseRecipients(" a@b.co  c@d.org ").recipients, ["a@b.co", "c@d.org"]);
         compare(Logic.parseRecipients("Ann Lee <ann@x.org>, <b@x.org>").recipients, ["Ann Lee <ann@x.org>", "b@x.org"]);
         compare(Logic.parseRecipients('"Lee, Ann" <ann@x.org>').recipients, ['"Lee, Ann" <ann@x.org>']);
@@ -81,10 +101,28 @@ TestCase {
     }
 
     function test_drafts() {
-        const empty = { to: " ", cc: "", bcc: "", subject: "", body: "\n" };
+        const empty = {
+            to: " ",
+            cc: "",
+            bcc: "",
+            subject: "",
+            body: "\n"
+        };
         compare(Logic.withDraft("{}", "new-1", empty, 5), "{}");
-        let json = Logic.withDraft("", "new-1", { to: "a@b.co", cc: "", bcc: "", subject: "Hi", body: "x" }, 5);
-        json = Logic.withDraft(json, "reply-7", { to: "c@d.co", cc: "", bcc: "", subject: "Re: Yo", body: "" }, 9);
+        let json = Logic.withDraft("", "new-1", {
+            to: "a@b.co",
+            cc: "",
+            bcc: "",
+            subject: "Hi",
+            body: "x"
+        }, 5);
+        json = Logic.withDraft(json, "reply-7", {
+            to: "c@d.co",
+            cc: "",
+            bcc: "",
+            subject: "Re: Yo",
+            body: ""
+        }, 9);
         const list = Logic.draftList(Logic.parseDrafts(json));
         compare(list.map(d => d.key), ["reply-7", "new-1"]);
         compare(list[1].subject, "Hi");

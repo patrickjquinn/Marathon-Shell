@@ -257,9 +257,11 @@ class TestTextInputReplace : public QObject {
         // and until then it discards commits rather than holding them; a
         // dropped commit never arrives, so typing again is safe.
         InputContext context;
-        for (int attempt = 0; attempt < 5 && !printed.contains(QLatin1String("TEXT[I said teh]")); ++attempt) {
+        for (int attempt = 0; attempt < 5 && !printed.contains(QLatin1String("TEXT[I said teh]"));
+             ++attempt) {
             context.insertText(QStringLiteral("I said teh"));
-            QTest::qWaitFor([&printed]() { return printed.contains(QLatin1String("TEXT[I said teh]")); }, 1000);
+            QTest::qWaitFor(
+                [&printed]() { return printed.contains(QLatin1String("TEXT[I said teh]")); }, 1000);
         }
         QVERIFY2(printed.contains(QLatin1String("TEXT[I said teh]")), qPrintable(printed));
         QTRY_COMPARE(surrounding(), QStringLiteral("I said teh"));

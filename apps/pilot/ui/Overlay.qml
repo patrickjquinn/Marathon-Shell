@@ -41,83 +41,91 @@ Item {
     readonly property string onScreen: now.on_screen || ""
     readonly property bool busy: Pilot.busy || Conversation.listening
     // The main page carries on: Open Pilot.
-    signal expandRequested()
+    signal expandRequested
 
     // Lipstick reads the category when the window is first mapped, so it
     // is set as soon as the window is known, before the first show() (the
     // launcher created the platform window first).
     onWindowChanged: {
         if (window)
-            Shell.setLipstickProperty(window, "CATEGORY", "dialog")
+            Shell.setLipstickProperty(window, "CATEGORY", "dialog");
     }
     Component.onCompleted: Conversation.overlay = overlay
 
     function show() {
-        Conversation.markGuide("gesture")
-        input.text = ""
-        since = Conversation.model.count
-        session.refilter()
-        shown = true
+        Conversation.markGuide("gesture");
+        input.text = "";
+        since = Conversation.model.count;
+        session.refilter();
+        shown = true;
         if (window) {
-            window.showFullScreen()
-            window.requestActivate()
+            window.showFullScreen();
+            window.requestActivate();
         }
-        input.forceActiveFocus()
-        Pilot.refreshNow()
+        input.forceActiveFocus();
+        Pilot.refreshNow();
     }
 
     function hide() {
         if (!shown)
-            return
-        shown = false
-        input.focus = false
-        hideLater.restart()
+            return;
+        shown = false;
+        input.focus = false;
+        hideLater.restart();
     }
 
     function expand() {
-        hide()
-        expandRequested()
+        hide();
+        expandRequested();
     }
 
     // The keyboard goes down so that the answer has the room; a tap on
     // the field brings it back for the next question.
     function send(text) {
         if (text.trim().length === 0)
-            return
-        input.focus = false
-        Conversation.send(text)
-        input.text = ""
+            return;
+        input.focus = false;
+        Conversation.send(text);
+        input.text = "";
     }
 
     function listen() {
-        input.focus = false
-        Conversation.listen()
+        input.focus = false;
+        Conversation.listen();
     }
 
     // The window goes once the veil has faded.
     Timer {
         id: hideLater
         interval: 220
-        onTriggered: if (!overlay.shown && overlay.window) overlay.window.hide()
+        onTriggered: if (!overlay.shown && overlay.window)
+            overlay.window.hide()
     }
 
     // Lipstick took the window away (an edge swipe to the home screen or
     // to another app): the overlay is done.
     Connections {
         target: overlay.window
-        function onActiveChanged() { if (overlay.window && !overlay.window.active) leftTimer.restart() }
+        function onActiveChanged() {
+            if (overlay.window && !overlay.window.active)
+                leftTimer.restart();
+        }
     }
     Timer {
         id: leftTimer
         interval: 400
-        onTriggered: if (overlay.shown && overlay.window && !overlay.window.active && !Qt.inputMethod.visible) overlay.hide()
+        onTriggered: if (overlay.shown && overlay.window && !overlay.window.active && !Qt.inputMethod.visible)
+            overlay.hide()
     }
 
     // The turns since the overlay opened.
     DelegateModel {
         id: session
         model: Conversation.model
-        groups: DelegateModelGroup { id: recent; name: "recent" }
+        groups: DelegateModelGroup {
+            id: recent
+            name: "recent"
+        }
         filterOnGroup: "recent"
         delegate: Cards {
             onLook: overlay.expand()
@@ -126,16 +134,18 @@ Item {
         // The turns since `since`: earlier ones leave the group when the
         // overlay opens again.
         function refilter() {
-            var n = items.count
+            var n = items.count;
             if (recent.count > 0 && overlay.since > 0)
-                items.removeGroups(0, Math.min(overlay.since, n), "recent")
+                items.removeGroups(0, Math.min(overlay.since, n), "recent");
             if (n > overlay.since)
-                items.addGroups(overlay.since, n - overlay.since, "recent")
+                items.addGroups(overlay.since, n - overlay.since, "recent");
         }
     }
     Connections {
         target: Conversation.model
-        function onCountChanged() { session.refilter() }
+        function onCountChanged() {
+            session.refilter();
+        }
     }
 
     // The overlay is laid out the way the app under it is held: Keel tells
@@ -150,12 +160,13 @@ Item {
         height: landscape ? overlay.width : overlay.height
         rotation: degrees
         opacity: overlay.shown ? 1 : 0
-        Behavior on opacity { FadeAnimator { duration: 200 } }
+        Behavior on opacity {
+            FadeAnimator {
+                duration: 200
+            }
+        }
 
-        readonly property real keyboard: Qt.inputMethod.visible
-                                         ? (landscape ? Qt.inputMethod.keyboardRectangle.width
-                                                      : Qt.inputMethod.keyboardRectangle.height)
-                                         : 0
+        readonly property real keyboard: Qt.inputMethod.visible ? (landscape ? Qt.inputMethod.keyboardRectangle.width : Qt.inputMethod.keyboardRectangle.height) : 0
 
         // The app stays in view, dimmed; deeper behind the answers and
         // the field so they read over any page.
@@ -164,14 +175,32 @@ Item {
             color: Theme.rgba(Theme.overlayBackgroundColor, 0.3)
         }
         Rectangle {
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            anchors {
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+            }
             height: parent.height - stack.y + Theme.itemSizeLarge
             gradient: Gradient {
-                GradientStop { position: 0.0; color: Theme.rgba(Theme.overlayBackgroundColor, 0) }
-                GradientStop { position: 0.12; color: Theme.rgba(Theme.overlayBackgroundColor, 0.82) }
-                GradientStop { position: 1.0; color: Theme.rgba(Theme.overlayBackgroundColor, 0.94) }
+                GradientStop {
+                    position: 0.0
+                    color: Theme.rgba(Theme.overlayBackgroundColor, 0)
+                }
+                GradientStop {
+                    position: 0.12
+                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.82)
+                }
+                GradientStop {
+                    position: 1.0
+                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.94)
+                }
             }
-            Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on height {
+                NumberAnimation {
+                    duration: 180
+                    easing.type: Easing.OutCubic
+                }
+            }
         }
         // A tap on the app's part puts the person back in it.
         MouseArea {
@@ -190,8 +219,10 @@ Item {
         Column {
             id: stack
             anchors {
-                left: parent.left; right: parent.right
-                bottom: parent.bottom; bottomMargin: content.keyboard + Theme.paddingMedium
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+                bottomMargin: content.keyboard + Theme.paddingMedium
             }
             spacing: Theme.paddingMedium
 
@@ -202,23 +233,22 @@ Item {
             SilicaFlickable {
                 id: turnsView
                 width: parent.width
-                height: Math.min(turnsColumn.height,
-                                 content.height * 0.72 - content.keyboard - bar.height - Theme.paddingLarge)
+                height: Math.min(turnsColumn.height, content.height * 0.72 - content.keyboard - bar.height - Theme.paddingLarge)
                 visible: turns.count > 0
                 clip: true
                 contentHeight: turnsColumn.height
                 // From the latest question: it and the start of its answer.
                 function showNewest() {
-                    var top = 0
+                    var top = 0;
                     for (var i = turns.count - 1; i >= 0; --i) {
-                        var item = turns.itemAt(i)
+                        var item = turns.itemAt(i);
                         if (!item)
-                            continue
-                        top = item.y
+                            continue;
+                        top = item.y;
                         if (Conversation.model.get(overlay.since + i).who === "you")
-                            break
+                            break;
                     }
-                    contentY = Math.max(0, Math.min(top, contentHeight - height))
+                    contentY = Math.max(0, Math.min(top, contentHeight - height));
                 }
                 onContentHeightChanged: showNewest()
                 onHeightChanged: showNewest()
@@ -299,7 +329,8 @@ Item {
                     target: null
                     yAxis.enabled: true
                     xAxis.enabled: false
-                    onActiveChanged: if (!active && translation.y > Theme.itemSizeMedium) overlay.hide()
+                    onActiveChanged: if (!active && translation.y > Theme.itemSizeMedium)
+                        overlay.hide()
                 }
 
                 Column {
@@ -325,8 +356,7 @@ Item {
                             truncationMode: TruncationMode.Fade
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.highlightColor
-                            text: overlay.onScreen.length > 0 ? qsTr("Pilot · sees %1").arg(overlay.onScreen)
-                                                              : qsTr("Pilot")
+                            text: overlay.onScreen.length > 0 ? qsTr("Pilot · sees %1").arg(overlay.onScreen) : qsTr("Pilot")
                         }
                         IconButton {
                             objectName: "overlayExpand"
@@ -352,8 +382,7 @@ Item {
                             id: input
                             objectName: "overlayInput"
                             width: parent.width - (sendButton.visible ? sendButton.width : 0) - mic.width - Theme.paddingSmall
-                            placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything")
-                                                                         : qsTr("Ask Pilot")
+                            placeholderText: overlay.onScreen.length > 0 ? qsTr("Ask about this, or anything") : qsTr("Ask Pilot")
                             label: qsTr("Ask Pilot")
                             enabled: !Pilot.busy
                             EnterKey.iconSource: "image://theme/icon-m-enter-accept"
@@ -374,8 +403,7 @@ Item {
                             anchors.verticalCenter: input.verticalCenter
                             enabled: !Pilot.offline
                             glyph: true
-                            mode: Conversation.listening && !Conversation.transcribing ? "listening"
-                                  : Pilot.busy ? "thinking" : "idle"
+                            mode: Conversation.listening && !Conversation.transcribing ? "listening" : Pilot.busy ? "thinking" : "idle"
                             level: Conversation.level
                             onClicked: overlay.listen()
                         }
@@ -387,13 +415,15 @@ Item {
 
     // One-tap questions: about the app on screen, or the home's.
     function quickAsks() {
-        var app = onScreen.toLowerCase()
+        var app = onScreen.toLowerCase();
         if (app.length === 0)
-            return (now.suggestions || []).slice(0, 3).map(function(s) { return s.text })
+            return (now.suggestions || []).slice(0, 3).map(function (s) {
+                return s.text;
+            });
         if (app.indexOf("messages") >= 0 || app.indexOf("mail") >= 0)
-            return [qsTr("Reply to this"), qsTr("Summarise this")]
+            return [qsTr("Reply to this"), qsTr("Summarise this")];
         if (app.indexOf("pacific") >= 0 || app.indexOf("browser") >= 0)
-            return [qsTr("Summarise this"), qsTr("Explain this simply"), qsTr("What are the key points?")]
-        return [qsTr("Summarise this"), qsTr("What can I do here?")]
+            return [qsTr("Summarise this"), qsTr("Explain this simply"), qsTr("What are the key points?")];
+        return [qsTr("Summarise this"), qsTr("What can I do here?")];
     }
 }

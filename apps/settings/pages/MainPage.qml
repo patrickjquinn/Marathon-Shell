@@ -32,10 +32,11 @@ Page {
             return !Modem.available ? "" : !Modem.simPresent ? qsTr("No SIM card") : Modem.registered && Modem.operatorName !== "" ? Modem.operatorName : qsTr("No service");
         case "display":
             return qsTr("Brightness %1%").arg(Logic.percent(Display.brightness));
-        case "ambience": {
-            const current = page.wallpapers ? page.wallpapers.wallpapers.find(w => w.path === Settings.wallpaperPath) : undefined;
-            return current ? current.name : "";
-        }
+        case "ambience":
+            {
+                const current = page.wallpapers ? page.wallpapers.wallpapers.find(w => w.path === Settings.wallpaperPath) : undefined;
+                return current ? current.name : "";
+            }
         case "sound":
             return Audio.muted ? qsTr("Muted") : qsTr("Volume %1%").arg(Logic.percent(Audio.volume));
         case "datetime":

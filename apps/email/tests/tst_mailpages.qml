@@ -11,7 +11,8 @@ TestCase {
     name: "MailPages"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
     Component {
         id: valueStub
@@ -21,7 +22,10 @@ TestCase {
     }
     Component {
         id: appComponent
-        EmailApp { width: 540; height: 1140 }
+        EmailApp {
+            width: 540
+            height: 1140
+        }
     }
 
     function init() {
@@ -32,7 +36,9 @@ TestCase {
         if (account !== false)
             MailService.setAccount("Work");
         const store = createTemporaryObject(valueStub, testCase);
-        const app = createTemporaryObject(appComponent, testCase, { draftStore: store });
+        const app = createTemporaryObject(appComponent, testCase, {
+            draftStore: store
+        });
         tryVerify(() => app.pageStack.currentPage !== null && !app.pageStack.busy);
         return app;
     }
@@ -44,7 +50,9 @@ TestCase {
     }
 
     function push(app, file, depth) {
-        app.pageStack.push(Qt.resolvedUrl("../pages/" + file), { app: app });
+        app.pageStack.push(Qt.resolvedUrl("../pages/" + file), {
+            app: app
+        });
         return pushed(app, depth);
     }
 
@@ -55,7 +63,9 @@ TestCase {
 
     function openMessage(app, body) {
         MailService.addMessage(7, "Ann", body.subject || "", true);
-        MailService.bodies = { "7": body };
+        MailService.bodies = {
+            "7": body
+        };
         app.openMessage("7");
         return pushed(app, 2);
     }
@@ -64,7 +74,14 @@ TestCase {
 
     function test_messageHeaderAndPlainBody() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Plan", from: "Ann <ann@x.org>", to: ["me@x.org", "b@x.org"], cc: ["c@x.org"], date: new Date(2026, 0, 2, 10, 0), bodyPlain: "Hello" });
+        const msg = openMessage(app, {
+            subject: "Plan",
+            from: "Ann <ann@x.org>",
+            to: ["me@x.org", "b@x.org"],
+            cc: ["c@x.org"],
+            date: new Date(2026, 0, 2, 10, 0),
+            bodyPlain: "Hello"
+        });
         compare(findChild(msg, "fromLabel").text, "Ann <ann@x.org>");
         compare(findChild(msg, "toLabel").text, "To: me@x.org, b@x.org");
         compare(findChild(msg, "ccLabel").text, "Cc: c@x.org");
@@ -75,14 +92,31 @@ TestCase {
 
     function test_messageWithoutBody() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Empty", from: "Ann" });
+        const msg = openMessage(app, {
+            subject: "Empty",
+            from: "Ann"
+        });
         compare(findChild(msg, "plainBody").text, "This message has no text.");
         verify(!findChild(msg, "ccLabel").visible);
     }
 
     function test_messageAttachments() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Files", from: "Ann", bodyPlain: "x", attachments: [{ name: "a.pdf", size: 2048 }, { name: "b.png", size: 3145728 }] });
+        const msg = openMessage(app, {
+            subject: "Files",
+            from: "Ann",
+            bodyPlain: "x",
+            attachments: [
+                {
+                    name: "a.pdf",
+                    size: 2048
+                },
+                {
+                    name: "b.png",
+                    size: 3145728
+                }
+            ]
+        });
         verify(findChild(msg, "attachments").visible);
         compare(msg.size(2048), "2 kB");
         compare(msg.size(3145728), "3.0 MB");
@@ -90,14 +124,24 @@ TestCase {
 
     function test_messageHtmlUsesWebView() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "News", from: "Ann", bodyHtml: "<p>Hi</p>", bodyPlain: "Hi" });
+        const msg = openMessage(app, {
+            subject: "News",
+            from: "Ann",
+            bodyHtml: "<p>Hi</p>",
+            bodyPlain: "Hi"
+        });
         verify(findChild(msg, "htmlBody").active);
         verify(!findChild(msg, "plainBody").visible);
     }
 
     function test_showImagesForThisMessage() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "News", from: "Ann", bodyHtml: "<p>Hi</p>", bodyPlain: "Hi" });
+        const msg = openMessage(app, {
+            subject: "News",
+            from: "Ann",
+            bodyHtml: "<p>Hi</p>",
+            bodyPlain: "Hi"
+        });
         const body = findChild(msg, "htmlBody");
         tryVerify(() => body.item !== null);
         verify(!body.item.loadImages);
@@ -109,13 +153,21 @@ TestCase {
 
     function test_plainMessageHasNoShowImages() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Plan", from: "Ann", bodyPlain: "Hello" });
+        const msg = openMessage(app, {
+            subject: "Plan",
+            from: "Ann",
+            bodyPlain: "Hello"
+        });
         verify(!msg.canShowImages);
     }
 
     function test_reply() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Plan", from: "ann@x.org", bodyPlain: "a\nb" });
+        const msg = openMessage(app, {
+            subject: "Plan",
+            from: "ann@x.org",
+            bodyPlain: "a\nb"
+        });
         findChild(msg, "replyItem").clicked();
         const compose = pushed(app, 3);
         compare(findChild(compose, "toField").text, "ann@x.org");
@@ -126,7 +178,11 @@ TestCase {
 
     function test_forward() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Plan", from: "ann@x.org", bodyPlain: "body" });
+        const msg = openMessage(app, {
+            subject: "Plan",
+            from: "ann@x.org",
+            bodyPlain: "body"
+        });
         findChild(msg, "forwardItem").clicked();
         const compose = pushed(app, 3);
         compare(findChild(compose, "toField").text, "");
@@ -137,8 +193,18 @@ TestCase {
 
     function test_replyDraftDoesNotOverwriteNewDraft() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Plan", from: "ann@x.org", bodyPlain: "a" });
-        app.draftStore.value = JSON.stringify({ "new-1": { to: "x@y.co", subject: "Mine", savedAt: 1 } });
+        const msg = openMessage(app, {
+            subject: "Plan",
+            from: "ann@x.org",
+            bodyPlain: "a"
+        });
+        app.draftStore.value = JSON.stringify({
+            "new-1": {
+                to: "x@y.co",
+                subject: "Mine",
+                savedAt: 1
+            }
+        });
         findChild(msg, "replyItem").clicked();
         const compose = pushed(app, 3);
         findChild(compose, "bodyArea").text = "Sure";
@@ -153,7 +219,18 @@ TestCase {
 
     function test_attachmentSaveAndFailure() {
         const app = makeApp();
-        const msg = openMessage(app, { subject: "Files", from: "Ann", bodyPlain: "x", attachments: [{ name: "a.pdf", size: 2048, location: "7-1" }] });
+        const msg = openMessage(app, {
+            subject: "Files",
+            from: "Ann",
+            bodyPlain: "x",
+            attachments: [
+                {
+                    name: "a.pdf",
+                    size: 2048,
+                    location: "7-1"
+                }
+            ]
+        });
         const row = findChild(msg, "attachment-a.pdf");
         verify(row.enabled);
         msg.saveAttachment("7-1", false);
@@ -224,7 +301,11 @@ TestCase {
 
     function test_composeSend() {
         const app = makeApp();
-        const compose = app.compose({ defaultTo: "a@b.co", defaultSubject: "Hi", draftKey: "new-1" });
+        const compose = app.compose({
+            defaultTo: "a@b.co",
+            defaultSubject: "Hi",
+            draftKey: "new-1"
+        });
         pushed(app, 2);
         findChild(compose, "ccField").text = "c@b.co";
         findChild(compose, "bodyArea").text = "Body";
@@ -237,7 +318,18 @@ TestCase {
 
     function test_aShareComposesWithItsFiles() {
         const app = makeApp();
-        app.receiveShare([{ name: "beach.png", data: "", filePath: "/c/sailfish-share_1/beach.png" }, { name: "", data: "Look", filePath: "" }]);
+        app.receiveShare([
+            {
+                name: "beach.png",
+                data: "",
+                filePath: "/c/sailfish-share_1/beach.png"
+            },
+            {
+                name: "",
+                data: "Look",
+                filePath: ""
+            }
+        ]);
         const compose = pushed(app, 2);
         compare(findChild(compose, "bodyArea").text, "Look");
         verify(findChild(compose, "composeAttachment-beach.png").visible);
@@ -249,7 +341,18 @@ TestCase {
 
     function test_aSharedFileCanBeTakenOff() {
         const app = makeApp();
-        app.receiveShare([{ name: "a.png", data: "", filePath: "/c/a.png" }, { name: "b.png", data: "", filePath: "/c/b.png" }]);
+        app.receiveShare([
+            {
+                name: "a.png",
+                data: "",
+                filePath: "/c/a.png"
+            },
+            {
+                name: "b.png",
+                data: "",
+                filePath: "/c/b.png"
+            }
+        ]);
         const compose = pushed(app, 2);
         tap(findChild(findChild(compose, "composeAttachment-a.png"), "removeAttachment"));
         compare(compose.attachments, ["/c/b.png"]);
@@ -258,7 +361,11 @@ TestCase {
     function test_composeSendFailureKeepsDraft() {
         MailService.fail = true;
         const app = makeApp();
-        const compose = app.compose({ defaultTo: "a@b.co", defaultSubject: "Hi", draftKey: "new-1" });
+        const compose = app.compose({
+            defaultTo: "a@b.co",
+            defaultSubject: "Hi",
+            draftKey: "new-1"
+        });
         pushed(app, 2);
         compose.accept();
         pushed(app, 1);
@@ -278,9 +385,19 @@ TestCase {
 
     function test_unchangedReplyKeepsDraft() {
         const app = makeApp();
-        const saved = JSON.stringify({ "new-1": { to: "x@y.co", subject: "Draft", savedAt: 1 } });
+        const saved = JSON.stringify({
+            "new-1": {
+                to: "x@y.co",
+                subject: "Draft",
+                savedAt: 1
+            }
+        });
         app.draftStore.value = saved;
-        const compose = app.compose({ defaultTo: "a@b.co", defaultSubject: "Re: Hi", draftKey: "reply-3" });
+        const compose = app.compose({
+            defaultTo: "a@b.co",
+            defaultSubject: "Re: Hi",
+            draftKey: "reply-3"
+        });
         pushed(app, 2);
         compose.reject();
         pushed(app, 1);
@@ -289,7 +406,13 @@ TestCase {
 
     function test_newMessageStartsBlank() {
         const app = makeApp();
-        app.draftStore.value = JSON.stringify({ "new-1": { to: "x@y.co", subject: "Draft", savedAt: 1 } });
+        app.draftStore.value = JSON.stringify({
+            "new-1": {
+                to: "x@y.co",
+                subject: "Draft",
+                savedAt: 1
+            }
+        });
         const compose = app.compose();
         pushed(app, 2);
         compare(findChild(compose, "toField").text, "");
@@ -297,8 +420,19 @@ TestCase {
 
     function test_composeRestoresDraft() {
         const app = makeApp();
-        app.draftStore.value = JSON.stringify({ "new-1": { to: "x@y.co", cc: "z@y.co", bcc: "q@y.co", subject: "Draft", body: "Text", savedAt: 1 } });
-        const compose = app.compose({ draftKey: "new-1" });
+        app.draftStore.value = JSON.stringify({
+            "new-1": {
+                to: "x@y.co",
+                cc: "z@y.co",
+                bcc: "q@y.co",
+                subject: "Draft",
+                body: "Text",
+                savedAt: 1
+            }
+        });
+        const compose = app.compose({
+            draftKey: "new-1"
+        });
         pushed(app, 2);
         compare(findChild(compose, "toField").text, "x@y.co");
         compare(findChild(compose, "ccField").text, "z@y.co");

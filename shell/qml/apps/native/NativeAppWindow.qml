@@ -85,9 +85,7 @@ MApp {
                     nativeAppWindow.waylandSurface = WaylandCompositorManager.compositor.shellSurfaceById(task.surfaceId);
                     nativeAppWindow.surfaceId = task.surfaceId;
                     nativeAppWindow.surfaceSwitched();
-                } else if (!task || (++tries > 12 &&
-                           !(nativeAppWindow.nativeAppId.startsWith("deckard.") &&
-                             Tasks.isAppLaunching(nativeAppWindow.nativeAppId)))) {
+                } else if (!task || (++tries > 12 && !(nativeAppWindow.nativeAppId.startsWith("deckard.") && Tasks.isAppLaunching(nativeAppWindow.nativeAppId)))) {
                     stop();
                     Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
                     nativeAppWindow.requestClose(true);

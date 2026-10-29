@@ -85,7 +85,7 @@ namespace {
                 },
             };
             xdg_surface_add_listener(xdgSurface, &surfaceListener, this);
-            xdg_toplevel *toplevel = xdg_surface_get_toplevel(xdgSurface);
+            xdg_toplevel                      *toplevel = xdg_surface_get_toplevel(xdgSurface);
             static const xdg_toplevel_listener toplevelListener = {
                 [](void *data, xdg_toplevel *, int32_t width, int32_t height, wl_array *states) {
                     auto                 *self = static_cast<Client *>(data);
@@ -124,13 +124,13 @@ namespace {
 class TestToplevelConfigure : public QObject {
     Q_OBJECT
 
-    QTemporaryDir                  runtime;
-    QWaylandCompositor            *compositor = nullptr;
-    QWindow                       *window     = nullptr;
-    QWaylandOutput                *output     = nullptr;
-    QPointer<QWaylandXdgToplevel>  toplevel;
-    Client                        *client = nullptr;
-    std::thread                    thread;
+    QTemporaryDir                 runtime;
+    QWaylandCompositor           *compositor = nullptr;
+    QWindow                      *window     = nullptr;
+    QWaylandOutput               *output     = nullptr;
+    QPointer<QWaylandXdgToplevel> toplevel;
+    Client                       *client = nullptr;
+    std::thread                   thread;
 
     using State = QWaylandXdgToplevel::State;
 

@@ -11,7 +11,13 @@ QtObject {
         videos = [];
         deleted = [];
     }
-    function getAllPhotos() { return photos; }
-    function getVideos() { return videos; }
-    function deleteMedia(id) { deleted = deleted.concat([id]); }
+    function getAllPhotos() {
+        return photos;
+    }
+    function getVideos() {
+        return videos;
+    }
+    function deleteMedia(id) {
+        deleted = deleted.concat([id]);
+    }
 }

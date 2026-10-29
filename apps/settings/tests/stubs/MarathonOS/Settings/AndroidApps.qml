@@ -22,53 +22,147 @@ QtObject {
 
     function reset() {
         available = true;
-        runtime = { state: "running", memoryBytes: 734003200, androidVersion: "13", uptimeSeconds: 7500, startAtLogin: true, hasApps: true };
-        apps = [{ pkg: "org.fdroid.fdroid", id: "deckard.org.fdroid.fdroid", name: "F-Droid", version: "1.20", icon: "" }];
+        runtime = {
+            state: "running",
+            memoryBytes: 734003200,
+            androidVersion: "13",
+            uptimeSeconds: 7500,
+            startAtLogin: true,
+            hasApps: true
+        };
+        apps = [
+            {
+                pkg: "org.fdroid.fdroid",
+                id: "deckard.org.fdroid.fdroid",
+                name: "F-Droid",
+                version: "1.20",
+                icon: ""
+            }
+        ];
         calls = [];
         details = {
             "org.fdroid.fdroid": {
-                pkg: "org.fdroid.fdroid", label: "F-Droid", versionName: "1.20", appBytes: 12582912, dataBytes: 5242880, cacheBytes: 1048576,
-                notifications: true, links: false, domains: ["f-droid.org"], battery: "optimized",
-                permissions: [{ name: "bluetooth", granted: true, fixed: false }, { name: "camera", granted: false, fixed: true }]
+                pkg: "org.fdroid.fdroid",
+                label: "F-Droid",
+                versionName: "1.20",
+                appBytes: 12582912,
+                dataBytes: 5242880,
+                cacheBytes: 1048576,
+                notifications: true,
+                links: false,
+                domains: ["f-droid.org"],
+                battery: "optimized",
+                permissions: [
+                    {
+                        name: "bluetooth",
+                        granted: true,
+                        fixed: false
+                    },
+                    {
+                        name: "camera",
+                        granted: false,
+                        fixed: true
+                    }
+                ]
             }
         };
-        access = { install_apps: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: true }] };
-        googleServices = { installed: true, enabled: true, push: true, accounts: [] };
-        permissionApps = { camera: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: false, fixed: false }] };
+        access = {
+            install_apps: [
+                {
+                    pkg: "org.fdroid.fdroid",
+                    label: "F-Droid",
+                    granted: true
+                }
+            ]
+        };
+        googleServices = {
+            installed: true,
+            enabled: true,
+            push: true,
+            accounts: []
+        };
+        permissionApps = {
+            camera: [
+                {
+                    pkg: "org.fdroid.fdroid",
+                    label: "F-Droid",
+                    granted: false,
+                    fixed: false
+                }
+            ]
+        };
     }
     function record(name, args) {
         calls = calls.concat([[name].concat(args)]);
     }
-    function refresh() { record("refresh", []); }
-    function refreshRuntime() { record("refreshRuntime", []); }
-    function start() { record("start", []); }
-    function stop() { record("stop", []); }
-    function restart() { record("restart", []); }
-    function setStartAtLogin(enabled) { record("setStartAtLogin", [enabled]); }
-    function resetAndroid() { record("resetAndroid", []); }
+    function refresh() {
+        record("refresh", []);
+    }
+    function refreshRuntime() {
+        record("refreshRuntime", []);
+    }
+    function start() {
+        record("start", []);
+    }
+    function stop() {
+        record("stop", []);
+    }
+    function restart() {
+        record("restart", []);
+    }
+    function setStartAtLogin(enabled) {
+        record("setStartAtLogin", [enabled]);
+    }
+    function resetAndroid() {
+        record("resetAndroid", []);
+    }
     function loadApp(pkg) {
         record("loadApp", [pkg]);
         if (details[pkg])
             appLoaded(pkg, details[pkg]);
     }
-    function setPermission(pkg, permission, granted) { record("setPermission", [pkg, permission, granted]); }
+    function setPermission(pkg, permission, granted) {
+        record("setPermission", [pkg, permission, granted]);
+    }
     function loadPermissionApps(permission) {
         record("loadPermissionApps", [permission]);
         permissionAppsLoaded(permission, permissionApps[permission] || []);
     }
-    function setNotifications(pkg, enabled) { record("setNotifications", [pkg, enabled]); }
-    function setOpenLinks(pkg, enabled) { record("setOpenLinks", [pkg, enabled]); }
-    function setBattery(pkg, mode) { record("setBattery", [pkg, mode]); }
-    function forceStop(pkg) { record("forceStop", [pkg]); }
-    function clearCache(pkg) { record("clearCache", [pkg]); }
-    function clearData(pkg) { record("clearData", [pkg]); }
-    function uninstall(pkg) { record("uninstall", [pkg]); }
+    function setNotifications(pkg, enabled) {
+        record("setNotifications", [pkg, enabled]);
+    }
+    function setOpenLinks(pkg, enabled) {
+        record("setOpenLinks", [pkg, enabled]);
+    }
+    function setBattery(pkg, mode) {
+        record("setBattery", [pkg, mode]);
+    }
+    function forceStop(pkg) {
+        record("forceStop", [pkg]);
+    }
+    function clearCache(pkg) {
+        record("clearCache", [pkg]);
+    }
+    function clearData(pkg) {
+        record("clearData", [pkg]);
+    }
+    function uninstall(pkg) {
+        record("uninstall", [pkg]);
+    }
     function loadSpecialAccess(kind) {
         record("loadSpecialAccess", [kind]);
         specialAccessLoaded(kind, access[kind] || []);
     }
-    function setSpecialAccess(kind, pkg, granted) { record("setSpecialAccess", [kind, pkg, granted]); }
-    function loadGoogleServices() { record("loadGoogleServices", []); }
-    function setGoogleServices(key, enabled) { record("setGoogleServices", [key, enabled]); }
-    function openGoogleServices(page) { record("openGoogleServices", [page]); }
+    function setSpecialAccess(kind, pkg, granted) {
+        record("setSpecialAccess", [kind, pkg, granted]);
+    }
+    function loadGoogleServices() {
+        record("loadGoogleServices", []);
+    }
+    function setGoogleServices(key, enabled) {
+        record("setGoogleServices", [key, enabled]);
+    }
+    function openGoogleServices(page) {
+        record("openGoogleServices", [page]);
+    }
 }

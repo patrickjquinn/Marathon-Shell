@@ -16,10 +16,14 @@ Glass {
 
     function heading() {
         switch (range) {
-        case "tomorrow": return qsTr("Tomorrow")
-        case "week": return qsTr("Next 7 days")
-        case "next": return qsTr("Coming up")
-        default: return qsTr("Today")
+        case "tomorrow":
+            return qsTr("Tomorrow");
+        case "week":
+            return qsTr("Next 7 days");
+        case "next":
+            return qsTr("Coming up");
+        default:
+            return qsTr("Today");
         }
     }
 
@@ -44,10 +48,7 @@ Glass {
         visible: card.events.length === 0
         width: parent.width
         wrapMode: Text.Wrap
-        text: card.range === "tomorrow" ? qsTr("Nothing planned for tomorrow.")
-              : card.range === "week" ? qsTr("Nothing planned this week.")
-              : card.range === "next" ? qsTr("Nothing coming up.")
-              : qsTr("Nothing planned for today.")
+        text: card.range === "tomorrow" ? qsTr("Nothing planned for tomorrow.") : card.range === "week" ? qsTr("Nothing planned this week.") : card.range === "next" ? qsTr("Nothing coming up.") : qsTr("Nothing planned for today.")
         font.pixelSize: Theme.fontSizeMedium
         color: Theme.secondaryHighlightColor
     }
@@ -61,8 +62,7 @@ Glass {
             spacing: Theme.paddingLarge
             Label {
                 width: Theme.itemSizeMedium
-                text: eventRow.modelData.all_day ? qsTr("All day")
-                      : Format.formatDate(new Date(eventRow.modelData.start * 1000), Formatter.TimeValue)
+                text: eventRow.modelData.all_day ? qsTr("All day") : Format.formatDate(new Date(eventRow.modelData.start * 1000), Formatter.TimeValue)
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.highlightColor
             }

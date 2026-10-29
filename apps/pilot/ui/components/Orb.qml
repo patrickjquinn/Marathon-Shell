@@ -18,16 +18,22 @@ Item {
     property real level: 0
     // A mic drawn on the core, for the small orb in the bar.
     property bool glyph: false
-    signal clicked()
+    signal clicked
 
     implicitWidth: Theme.itemSizeMedium
     implicitHeight: implicitWidth
 
     // The voice, smoothed so the sphere moves like breath, not like a meter.
     property real _level: 0
-    Behavior on _level { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+    Behavior on _level {
+        NumberAnimation {
+            duration: 90
+            easing.type: Easing.OutQuad
+        }
+    }
     onLevelChanged: _level = mode === "listening" ? level : 0
-    onModeChanged: if (mode !== "listening") _level = 0
+    onModeChanged: if (mode !== "listening")
+        _level = 0
 
     readonly property real _size: Math.min(width, height)
 
@@ -51,22 +57,38 @@ Item {
         width: orb._size * (0.95 + 0.35 * orb._level)
         height: width
         opacity: orb.enabled ? (orb.mode === "idle" ? 0.55 : 0.85) : 0.25
-        Behavior on opacity { FadeAnimator {} }
+        Behavior on opacity {
+            FadeAnimator {}
+        }
         preferredRendererType: Shape.CurveRenderer
         ShapePath {
             strokeWidth: -1
             fillGradient: RadialGradient {
-                centerX: glow.width / 2; centerY: glow.height / 2
+                centerX: glow.width / 2
+                centerY: glow.height / 2
                 centerRadius: glow.width / 2
-                focalX: centerX; focalY: centerY
-                GradientStop { position: 0.0; color: Theme.rgba(Theme.highlightColor, 0.75) }
-                GradientStop { position: 0.45; color: Theme.rgba(Theme.highlightColor, 0.30) }
-                GradientStop { position: 1.0; color: "transparent" }
+                focalX: centerX
+                focalY: centerY
+                GradientStop {
+                    position: 0.0
+                    color: Theme.rgba(Theme.highlightColor, 0.75)
+                }
+                GradientStop {
+                    position: 0.45
+                    color: Theme.rgba(Theme.highlightColor, 0.30)
+                }
+                GradientStop {
+                    position: 1.0
+                    color: "transparent"
+                }
             }
             PathAngleArc {
-                centerX: glow.width / 2; centerY: glow.height / 2
-                radiusX: glow.width / 2; radiusY: glow.height / 2
-                startAngle: 0; sweepAngle: 360
+                centerX: glow.width / 2
+                centerY: glow.height / 2
+                radiusX: glow.width / 2
+                radiusY: glow.height / 2
+                startAngle: 0
+                sweepAngle: 360
             }
         }
     }
@@ -89,12 +111,30 @@ Item {
             SequentialAnimation {
                 running: ripple.visible && orb._animate
                 loops: Animation.Infinite
-                PauseAnimation { duration: ripple.index * 450 }
-                ParallelAnimation {
-                    NumberAnimation { target: ripple; property: "scale"; from: 1; to: 2.1; duration: 1350; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: ripple; property: "opacity"; from: 0.55; to: 0; duration: 1350; easing.type: Easing.OutCubic }
+                PauseAnimation {
+                    duration: ripple.index * 450
                 }
-                PauseAnimation { duration: (2 - ripple.index) * 450 }
+                ParallelAnimation {
+                    NumberAnimation {
+                        target: ripple
+                        property: "scale"
+                        from: 1
+                        to: 2.1
+                        duration: 1350
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: ripple
+                        property: "opacity"
+                        from: 0.55
+                        to: 0
+                        duration: 1350
+                        easing.type: Easing.OutCubic
+                    }
+                }
+                PauseAnimation {
+                    duration: (2 - ripple.index) * 450
+                }
             }
         }
     }
@@ -114,17 +154,31 @@ Item {
                 strokeWidth: 1
                 strokeColor: Theme.rgba(Qt.lighter(Theme.highlightColor, 1.4), 0.6)
                 fillGradient: RadialGradient {
-                    centerX: sphere.width * 0.5; centerY: sphere.height * 0.5
+                    centerX: sphere.width * 0.5
+                    centerY: sphere.height * 0.5
                     centerRadius: sphere.width * 0.5
-                    focalX: sphere.width * 0.38; focalY: sphere.height * 0.30
-                    GradientStop { position: 0.0; color: Qt.lighter(Theme.highlightColor, 1.45) }
-                    GradientStop { position: 0.55; color: Theme.highlightColor }
-                    GradientStop { position: 1.0; color: Qt.darker(Theme.highlightColor, 1.6) }
+                    focalX: sphere.width * 0.38
+                    focalY: sphere.height * 0.30
+                    GradientStop {
+                        position: 0.0
+                        color: Qt.lighter(Theme.highlightColor, 1.45)
+                    }
+                    GradientStop {
+                        position: 0.55
+                        color: Theme.highlightColor
+                    }
+                    GradientStop {
+                        position: 1.0
+                        color: Qt.darker(Theme.highlightColor, 1.6)
+                    }
                 }
                 PathAngleArc {
-                    centerX: sphere.width / 2; centerY: sphere.height / 2
-                    radiusX: sphere.width / 2 - 0.5; radiusY: sphere.height / 2 - 0.5
-                    startAngle: 0; sweepAngle: 360
+                    centerX: sphere.width / 2
+                    centerY: sphere.height / 2
+                    radiusX: sphere.width / 2 - 0.5
+                    radiusY: sphere.height / 2 - 0.5
+                    startAngle: 0
+                    sweepAngle: 360
                 }
             }
         }
@@ -155,10 +209,13 @@ Item {
                     strokeColor: mic.tone
                     fillColor: "transparent"
                     capStyle: ShapePath.RoundCap
-                    startX: mic.width * 0.1; startY: mic.height * 0.4
+                    startX: mic.width * 0.1
+                    startY: mic.height * 0.4
                     PathArc {
-                        x: mic.width * 0.9; y: mic.height * 0.4
-                        radiusX: mic.width * 0.4; radiusY: mic.height * 0.36
+                        x: mic.width * 0.9
+                        y: mic.height * 0.4
+                        radiusX: mic.width * 0.4
+                        radiusY: mic.height * 0.36
                         direction: PathArc.Counterclockwise
                     }
                 }
@@ -166,16 +223,28 @@ Item {
                     strokeWidth: mic.line
                     strokeColor: mic.tone
                     capStyle: ShapePath.RoundCap
-                    startX: mic.width / 2; startY: mic.height * 0.76
-                    PathLine { x: mic.width / 2; y: mic.height - mic.line / 2 }
+                    startX: mic.width / 2
+                    startY: mic.height * 0.76
+                    PathLine {
+                        x: mic.width / 2
+                        y: mic.height - mic.line / 2
+                    }
                 }
             }
         }
         SequentialAnimation on scale {
             running: orb.mode === "idle" && orb.enabled && orb._animate && !orb.glyph
             loops: Animation.Infinite
-            NumberAnimation { to: 1.08; duration: 1600; easing.type: Easing.InOutSine }
-            NumberAnimation { to: 1.0; duration: 1600; easing.type: Easing.InOutSine }
+            NumberAnimation {
+                to: 1.08
+                duration: 1600
+                easing.type: Easing.InOutSine
+            }
+            NumberAnimation {
+                to: 1.0
+                duration: 1600
+                easing.type: Easing.InOutSine
+            }
         }
     }
 
@@ -193,14 +262,18 @@ Item {
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
             PathAngleArc {
-                centerX: arc.width / 2; centerY: arc.height / 2
-                radiusX: arc.width / 2 - 2; radiusY: arc.height / 2 - 2
-                startAngle: 0; sweepAngle: 100
+                centerX: arc.width / 2
+                centerY: arc.height / 2
+                radiusX: arc.width / 2 - 2
+                radiusY: arc.height / 2 - 2
+                startAngle: 0
+                sweepAngle: 100
             }
         }
         RotationAnimation on rotation {
             running: arc.visible && orb._animate
-            from: 0; to: 360
+            from: 0
+            to: 360
             duration: 1100
             loops: Animation.Infinite
         }

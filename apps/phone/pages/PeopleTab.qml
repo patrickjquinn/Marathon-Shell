@@ -14,7 +14,9 @@ TabItem {
     readonly property var people: Phone.peopleRows(phone.contacts, query)
 
     function newContact() {
-        phone.pageStack.push(Qt.resolvedUrl("ContactEditorDialog.qml"), { contact: null });
+        phone.pageStack.push(Qt.resolvedUrl("ContactEditorDialog.qml"), {
+            contact: null
+        });
     }
 
     flickable: list
@@ -92,10 +94,15 @@ TabItem {
                 }
                 MenuItem {
                     text: item.modelData.favorite ? qsTr("Remove from favorites") : qsTr("Add to favorites")
-                    onClicked: Contacts.updateContact(item.modelData.id, { favorite: !item.modelData.favorite })
+                    onClicked: Contacts.updateContact(item.modelData.id, {
+                        favorite: !item.modelData.favorite
+                    })
                 }
             }
-            onClicked: root.phone.pageStack.push(Qt.resolvedUrl("ContactPage.qml"), { phone: root.phone, contactId: modelData.id })
+            onClicked: root.phone.pageStack.push(Qt.resolvedUrl("ContactPage.qml"), {
+                phone: root.phone,
+                contactId: modelData.id
+            })
 
             Label {
                 x: Theme.horizontalPageMargin

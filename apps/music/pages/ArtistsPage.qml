@@ -14,7 +14,9 @@ Page {
         id: view
 
         anchors.fill: parent
-        header: PageHeader { title: qsTr("Artists") }
+        header: PageHeader {
+            title: qsTr("Artists")
+        }
         model: Library.artists(page.music.tracks)
 
         delegate: ListItem {
@@ -25,7 +27,10 @@ Page {
             width: view.width
             contentHeight: Theme.itemSizeMedium
             Accessible.name: item.modelData.name
-            onClicked: pageStack.push(Qt.resolvedUrl("AlbumsPage.qml"), { music: page.music, artist: item.modelData.name })
+            onClicked: pageStack.push(Qt.resolvedUrl("AlbumsPage.qml"), {
+                music: page.music,
+                artist: item.modelData.name
+            })
 
             Column {
                 x: Theme.horizontalPageMargin

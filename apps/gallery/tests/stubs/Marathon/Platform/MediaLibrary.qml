@@ -12,9 +12,15 @@ QtObject {
     signal scanComplete(int photoCount, int videoCount)
     signal libraryChanged
 
-    function scanLibraryAsync() { scans++; }
-    function getAllPhotos() { return photos; }
-    function getVideos() { return videos; }
+    function scanLibraryAsync() {
+        scans++;
+    }
+    function getAllPhotos() {
+        return photos;
+    }
+    function getVideos() {
+        return videos;
+    }
     function deleteMedia(id) {
         deleted = deleted.concat([id]);
         photos = photos.filter(p => p.id !== id);

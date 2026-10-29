@@ -93,8 +93,16 @@ Column {
         id: batteryCombo
 
         readonly property var modes: [
-            { value: "optimized", title: qsTr("Optimized"), description: qsTr("Android limits the app in the background") },
-            { value: "unrestricted", title: qsTr("Unrestricted"), description: qsTr("The app runs in the background without limits") }
+            {
+                value: "optimized",
+                title: qsTr("Optimized"),
+                description: qsTr("Android limits the app in the background")
+            },
+            {
+                value: "unrestricted",
+                title: qsTr("Unrestricted"),
+                description: qsTr("The app runs in the background without limits")
+            }
         ]
 
         objectName: "batteryCombo"

@@ -50,7 +50,9 @@ TestCase {
 
     function value(v) {
         // Not temporary: the app outlives temporaries made before it.
-        return valueStub.createObject(testCase, { value: v });
+        return valueStub.createObject(testCase, {
+            value: v
+        });
     }
 
     function makeApp(options) {
@@ -84,7 +86,20 @@ TestCase {
     }
 
     function test_restoresSavedTabs() {
-        const app = makeApp({ tabs: JSON.stringify([{ id: 3, url: "https://a.org", title: "A" }, { id: 7, url: "about:blank", title: "" }]) });
+        const app = makeApp({
+            tabs: JSON.stringify([
+                {
+                    id: 3,
+                    url: "https://a.org",
+                    title: "A"
+                },
+                {
+                    id: 7,
+                    url: "about:blank",
+                    title: ""
+                }
+            ])
+        });
         compare(app.tabs.count, 2);
         compare(app.tabs.get(1).url, "https://duckduckgo.com");
         compare(app.nextTabId, 8);
@@ -92,7 +107,9 @@ TestCase {
     }
 
     function test_newTabFocusesAddressAndRespectsLimit() {
-        const app = makeApp({ maxTabs: 2 });
+        const app = makeApp({
+            maxTabs: 2
+        });
         compare(app.createNewTab("https://b.org"), 2);
         compare(app.currentTabIndex, 1);
         verify(app.editingAddress);
@@ -191,7 +208,9 @@ TestCase {
     function test_backGoesThroughPagesOverlaysThenHistory() {
         const app = makeApp();
         const main = app.pageStack.currentPage;
-        app.pageStack.push(Qt.resolvedUrl("../pages/SettingsPage.qml"), { browser: app }, PageStackAction.Immediate);
+        app.pageStack.push(Qt.resolvedUrl("../pages/SettingsPage.qml"), {
+            browser: app
+        }, PageStackAction.Immediate);
         verify(app.handleBack());
         tryCompare(app.pageStack, "depth", 1);
         main.startEditing();
@@ -217,30 +236,61 @@ TestCase {
 
     function test_deepLinkOpensUrl() {
         const app = makeApp();
-        Navigation.deepLinkRequested("browser", "", { url: "kde.org" });
+        Navigation.deepLinkRequested("browser", "", {
+            url: "kde.org"
+        });
         compare(app.currentTab.url, "https://kde.org");
-        Navigation.deepLinkRequested("notes", "", { url: "qt.io" });
+        Navigation.deepLinkRequested("notes", "", {
+            url: "qt.io"
+        });
         compare(app.currentTab.url, "https://kde.org");
     }
 
     function test_thumbnailIsStoredOnTheTab() {
         const app = makeApp();
-        app.setThumbnail(app.currentTab.tabId, { url: "file:///thumb.png" });
+        app.setThumbnail(app.currentTab.tabId, {
+            url: "file:///thumb.png"
+        });
         compare(app.currentTab.thumbnail, "file:///thumb.png");
     }
 
     function test_importsLegacyDataOnce() {
-        const legacy = legacyStub.createObject(testCase, { data: {
-            "browser/bookmarks": JSON.stringify([{ url: "https://old.org", title: "Old", timestamp: 1 }]),
-            "browser/history": JSON.stringify([{ url: "https://h.org", title: "H", timestamp: 1, visitCount: 2 }]),
-            "browser/tabs": JSON.stringify([{ id: 5, url: "https://t.org", title: "T" }]),
-            "browser/searchEngine": "Ecosia",
-            "browser/searchEngineUrl": "https://www.ecosia.org/search?q=",
-            "browser/homepage": "https://home.org",
-            "browser/maxTabs": "4"
-        } });
+        const legacy = legacyStub.createObject(testCase, {
+            data: {
+                "browser/bookmarks": JSON.stringify([
+                    {
+                        url: "https://old.org",
+                        title: "Old",
+                        timestamp: 1
+                    }
+                ]),
+                "browser/history": JSON.stringify([
+                    {
+                        url: "https://h.org",
+                        title: "H",
+                        timestamp: 1,
+                        visitCount: 2
+                    }
+                ]),
+                "browser/tabs": JSON.stringify([
+                    {
+                        id: 5,
+                        url: "https://t.org",
+                        title: "T"
+                    }
+                ]),
+                "browser/searchEngine": "Ecosia",
+                "browser/searchEngineUrl": "https://www.ecosia.org/search?q=",
+                "browser/homepage": "https://home.org",
+                "browser/maxTabs": "4"
+            }
+        });
         const permissions = permissionsStub.createObject(testCase);
-        const app = makeApp({ imported: false, legacy: legacy, permissions: permissions });
+        const app = makeApp({
+            imported: false,
+            legacy: legacy,
+            permissions: permissions
+        });
         compare(app.bookmarks[0].url, "https://old.org");
         compare(app.history[0].visitCount, 2);
         compare(app.tabs.get(0).url, "https://t.org");
@@ -254,15 +304,33 @@ TestCase {
     }
 
     function test_noImportWithoutStorageGrant() {
-        const legacy = legacyStub.createObject(testCase, { data: { "browser/bookmarks": JSON.stringify([{ url: "https://old.org" }]) } });
-        const permissions = permissionsStub.createObject(testCase, { granted: false });
-        const app = makeApp({ imported: false, legacy: legacy, permissions: permissions });
+        const legacy = legacyStub.createObject(testCase, {
+            data: {
+                "browser/bookmarks": JSON.stringify([
+                    {
+                        url: "https://old.org"
+                    }
+                ])
+            }
+        });
+        const permissions = permissionsStub.createObject(testCase, {
+            granted: false
+        });
+        const app = makeApp({
+            imported: false,
+            legacy: legacy,
+            permissions: permissions
+        });
         compare(legacy.reads, 0);
         compare(app.bookmarks.length, 0);
     }
 
     function test_storesAreConfigurationValues() {
-        const app = createTemporaryObject(appComponent, testCase, { webLayerSource: Qt.resolvedUrl("WebLayerStub.qml"), tabStore: value("[]"), imported: value(true) });
+        const app = createTemporaryObject(appComponent, testCase, {
+            webLayerSource: Qt.resolvedUrl("WebLayerStub.qml"),
+            tabStore: value("[]"),
+            imported: value(true)
+        });
         compare(app.bookmarkStore.key, "/apps/browser/bookmarks");
         compare(app.historyStore.key, "/apps/browser/history");
         compare(app.homepageStore.key, "/apps/browser/homepage");

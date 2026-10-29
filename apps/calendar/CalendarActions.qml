@@ -41,21 +41,72 @@ Item {
         idempotent: true
         untrusted: true
         parameters: [
-            KeelParam { name: "from"; type: "string"; format: "date"; pattern: "^\\d{4}-\\d{2}-\\d{2}$"; maxLength: 10; description: "First day, YYYY-MM-DD" },
-            KeelParam { name: "days"; type: "integer"; minimum: 1; maximum: 31; defaultValue: 1 }
+            KeelParam {
+                name: "from"
+                type: "string"
+                format: "date"
+                pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+                maxLength: 10
+                description: "First day, YYYY-MM-DD"
+            },
+            KeelParam {
+                name: "days"
+                type: "integer"
+                minimum: 1
+                maximum: 31
+                defaultValue: 1
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 200
-            KeelParam { name: "id"; type: "integer"; minimum: 0; required: true }
-            KeelParam { name: "title"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "date"; type: "string"; format: "date"; maxLength: 10; required: true }
-            KeelParam { name: "start"; type: "string"; maxLength: 5 }
-            KeelParam { name: "end"; type: "string"; maxLength: 5 }
-            KeelParam { name: "allDay"; type: "boolean"; required: true }
-            KeelParam { name: "location"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "notes"; type: "string"; maxLength: 2000; required: true }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "date"
+                type: "string"
+                format: "date"
+                maxLength: 10
+                required: true
+            }
+            KeelParam {
+                name: "start"
+                type: "string"
+                maxLength: 5
+            }
+            KeelParam {
+                name: "end"
+                type: "string"
+                maxLength: 5
+            }
+            KeelParam {
+                name: "allDay"
+                type: "boolean"
+                required: true
+            }
+            KeelParam {
+                name: "location"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "notes"
+                type: "string"
+                maxLength: 2000
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const first = args.from === undefined ? new Date() : root.day(args.from);
@@ -79,16 +130,55 @@ Item {
         description: "Add an event to Marathon Calendar. Times are local and 24-hour (HH:MM); without a start it is an all-day event. The end defaults to an hour after the start, and an end at or before the start is on the next day. Timed events remind at their start, all-day ones not at all. Returns the new event's id."
         idempotent: false
         parameters: [
-            KeelParam { name: "title"; type: "string"; required: true; pattern: "\\S"; maxLength: 200 },
-            KeelParam { name: "date"; type: "string"; required: true; format: "date"; pattern: "^\\d{4}-\\d{2}-\\d{2}$"; maxLength: 10; description: "Day, YYYY-MM-DD" },
-            KeelParam { name: "start"; type: "string"; pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"; maxLength: 5; description: "Start time, HH:MM" },
-            KeelParam { name: "end"; type: "string"; pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"; maxLength: 5; description: "End time, HH:MM" },
-            KeelParam { name: "location"; type: "string"; maxLength: 200 },
-            KeelParam { name: "notes"; type: "string"; maxLength: 4000 }
+            KeelParam {
+                name: "title"
+                type: "string"
+                required: true
+                pattern: "\\S"
+                maxLength: 200
+            },
+            KeelParam {
+                name: "date"
+                type: "string"
+                required: true
+                format: "date"
+                pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+                maxLength: 10
+                description: "Day, YYYY-MM-DD"
+            },
+            KeelParam {
+                name: "start"
+                type: "string"
+                pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                maxLength: 5
+                description: "Start time, HH:MM"
+            },
+            KeelParam {
+                name: "end"
+                type: "string"
+                pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                maxLength: 5
+                description: "End time, HH:MM"
+            },
+            KeelParam {
+                name: "location"
+                type: "string"
+                maxLength: 200
+            },
+            KeelParam {
+                name: "notes"
+                type: "string"
+                maxLength: 4000
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "id"; type: "integer"; minimum: 0; required: true }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             if (root.day(args.date) === null) {
@@ -111,7 +201,9 @@ Item {
             if (created.id === undefined)
                 call.fail("Failed", "The calendar could not save the event");
             else
-                call.reply({ id: created.id });
+                call.reply({
+                    id: created.id
+                });
         }
     }
 }

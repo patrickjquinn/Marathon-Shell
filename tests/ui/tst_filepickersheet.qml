@@ -23,7 +23,11 @@ TestCase {
         FilePickerSheet {
             id: picker
 
-            onAccepted: (paths, filterIndex, choices) => tc.answers.push({ "paths": paths, "filterIndex": filterIndex, "choices": choices })
+            onAccepted: (paths, filterIndex, choices) => tc.answers.push({
+                    "paths": paths,
+                    "filterIndex": filterIndex,
+                    "choices": choices
+                })
             onCancelled: tc.cancels++
         }
     }
@@ -38,7 +42,18 @@ TestCase {
     }
 
     function request(extra) {
-        return Object.assign({ "mode": "open", "title": "", "multiple": false, "directory": false, "filters": [], "filterIndex": -1, "folder": "", "name": "", "files": [], "choices": [] }, extra);
+        return Object.assign({
+            "mode": "open",
+            "title": "",
+            "multiple": false,
+            "directory": false,
+            "filters": [],
+            "filterIndex": -1,
+            "folder": "",
+            "name": "",
+            "files": [],
+            "choices": []
+        }, extra);
     }
 
     function tapEntry(name) {
@@ -48,7 +63,9 @@ TestCase {
     }
 
     function test_aFileTapOpensIt() {
-        picker.open(request({ "folder": "/home/u/Pictures" }));
+        picker.open(request({
+            "folder": "/home/u/Pictures"
+        }));
         tapEntry("beach.png");
         compare(answers.length, 1);
         compare(answers[0].paths, ["/home/u/Pictures/beach.png"]);
@@ -56,7 +73,10 @@ TestCase {
     }
 
     function test_severalFilesOpenTogether() {
-        picker.open(request({ "folder": "/home/u/Pictures", "multiple": true }));
+        picker.open(request({
+            "folder": "/home/u/Pictures",
+            "multiple": true
+        }));
         tapEntry("beach.png");
         tapEntry("notes.txt");
         const accept = findChild(picker, "filePickerAccept");
@@ -75,7 +95,11 @@ TestCase {
     }
 
     function test_savingOverAFileAsksFirst() {
-        picker.open(request({ "mode": "save", "folder": "/home/u/Documents", "name": "report.pdf" }));
+        picker.open(request({
+            "mode": "save",
+            "folder": "/home/u/Documents",
+            "name": "report.pdf"
+        }));
         const accept = findChild(picker, "filePickerAccept");
         mouseClick(accept);
         compare(answers.length, 0);
@@ -86,7 +110,10 @@ TestCase {
     }
 
     function test_aFolderPickShowsFoldersAndAnswersTheFolder() {
-        picker.open(request({ "directory": true, "folder": "/home/u/Documents" }));
+        picker.open(request({
+            "directory": true,
+            "folder": "/home/u/Documents"
+        }));
         tapEntry("Old");
         verify(findChild(picker, "fileEntry-report.pdf") === null || !findChild(picker, "fileEntry-report.pdf").visible);
         mouseClick(findChild(picker, "filePickerAccept"));
@@ -101,14 +128,25 @@ TestCase {
     }
 
     function test_portalMnemonicIsNotShown() {
-        picker.open(request({ "acceptLabel": "_Open" }));
+        picker.open(request({
+            "acceptLabel": "_Open"
+        }));
         compare(findChild(picker, "filePickerAccept").text, "Open");
         compare(picker.plainActionLabel("Save _As"), "Save As");
         compare(picker.plainActionLabel("Rock && Roll"), "Rock & Roll");
     }
 
     function test_picturesShowAsAGrid() {
-        picker.open(request({ "filters": [{ "name": "Images", "globs": [], "mimes": ["image/*"] }], "filterIndex": 0 }));
+        picker.open(request({
+            "filters": [
+                {
+                    "name": "Images",
+                    "globs": [],
+                    "mimes": ["image/*"]
+                }
+            ],
+            "filterIndex": 0
+        }));
         tryVerify(() => findChild(picker, "filePickerGrid") !== null);
         tapEntry("sea.png");
         compare(answers[0].paths, ["/home/u/Pictures/sea.png"]);
@@ -116,7 +154,27 @@ TestCase {
     }
 
     function test_choicesComeBack() {
-        picker.open(request({ "folder": "/home/u/Pictures", "multiple": true, "choices": [{ "id": "encoding", "label": "Encoding", "options": [{ "id": "utf8", "label": "UTF-8" }, { "id": "latin1", "label": "Latin-1" }], "value": "utf8" }] }));
+        picker.open(request({
+            "folder": "/home/u/Pictures",
+            "multiple": true,
+            "choices": [
+                {
+                    "id": "encoding",
+                    "label": "Encoding",
+                    "options": [
+                        {
+                            "id": "utf8",
+                            "label": "UTF-8"
+                        },
+                        {
+                            "id": "latin1",
+                            "label": "Latin-1"
+                        }
+                    ],
+                    "value": "utf8"
+                }
+            ]
+        }));
         mouseClick(findChild(picker, "fileChoice-encoding-latin1"));
         tapEntry("beach.png");
         mouseClick(findChild(picker, "filePickerAccept"));

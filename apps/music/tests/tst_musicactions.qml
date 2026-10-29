@@ -6,13 +6,17 @@ import ".."
 TestCase {
     name: "MusicActions"
 
-    MediaStub { id: media }
+    MediaStub {
+        id: media
+    }
 
     QtObject {
         id: music
         property var tracks: []
         property bool loaded: true
-        property Player player: Player { media: media }
+        property Player player: Player {
+            media: media
+        }
     }
 
     MusicActions {
@@ -21,9 +25,33 @@ TestCase {
 
     function init() {
         music.tracks = [
-            { id: 1, path: "file:///m/1.mp3", title: "Blue", artist: "Ava", album: "Sky", duration: 200, trackNumber: 1 },
-            { id: 2, path: "file:///m/2.mp3", title: "Cold", artist: "Bo", album: "Ice", duration: 61, trackNumber: 1 },
-            { id: 3, path: "file:///m/3.mp3", title: "Dawn", artist: "Bo", album: "Ice", duration: 30, trackNumber: 2 }
+            {
+                id: 1,
+                path: "file:///m/1.mp3",
+                title: "Blue",
+                artist: "Ava",
+                album: "Sky",
+                duration: 200,
+                trackNumber: 1
+            },
+            {
+                id: 2,
+                path: "file:///m/2.mp3",
+                title: "Cold",
+                artist: "Bo",
+                album: "Ice",
+                duration: 61,
+                trackNumber: 1
+            },
+            {
+                id: 3,
+                path: "file:///m/3.mp3",
+                title: "Dawn",
+                artist: "Bo",
+                album: "Ice",
+                duration: 30,
+                trackNumber: 2
+            }
         ];
         music.player.queue = [];
         music.player.index = -1;
@@ -31,23 +59,42 @@ TestCase {
     }
 
     function test_search() {
-        const call = KeelActions.invoke("library.search", { query: "bo" });
+        const call = KeelActions.invoke("library.search", {
+            query: "bo"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result, [
-            { id: 2, title: "Cold", artist: "Bo", album: "Ice", duration: 61 },
-            { id: 3, title: "Dawn", artist: "Bo", album: "Ice", duration: 30 }
+            {
+                id: 2,
+                title: "Cold",
+                artist: "Bo",
+                album: "Ice",
+                duration: 61
+            },
+            {
+                id: 3,
+                title: "Dawn",
+                artist: "Bo",
+                album: "Ice",
+                duration: 30
+            }
         ]);
     }
 
     function test_searchEmptyQueryListsAll() {
-        const call = KeelActions.invoke("library.search", { query: " ", limit: 2 });
+        const call = KeelActions.invoke("library.search", {
+            query: " ",
+            limit: 2
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result.map(t => t.id), [1, 2]);
     }
 
     function test_waitsForLibrary() {
         music.loaded = false;
-        const call = KeelActions.invoke("playback.play", { query: "blue" });
+        const call = KeelActions.invoke("playback.play", {
+            query: "blue"
+        });
         verify(!call.finished);
         music.loaded = true;
         verify(call.succeeded, call.errorMessage);
@@ -55,7 +102,9 @@ TestCase {
     }
 
     function test_playTrack() {
-        const call = KeelActions.invoke("playback.play", { trackId: 2 });
+        const call = KeelActions.invoke("playback.play", {
+            trackId: 2
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.title, "Cold");
         compare(music.player.queue.map(t => t.id), [1, 2, 3]);
@@ -64,35 +113,63 @@ TestCase {
     }
 
     function test_playQuery() {
-        const call = KeelActions.invoke("playback.play", { query: "ice" });
+        const call = KeelActions.invoke("playback.play", {
+            query: "ice"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.id, 2);
         compare(music.player.queue.map(t => t.id), [2, 3]);
     }
 
     function test_playFailures() {
-        compare(KeelActions.invoke("playback.play", { trackId: 9 }).errorCode, "Failed");
-        compare(KeelActions.invoke("playback.play", { query: "zzz" }).errorCode, "Failed");
+        compare(KeelActions.invoke("playback.play", {
+            trackId: 9
+        }).errorCode, "Failed");
+        compare(KeelActions.invoke("playback.play", {
+            query: "zzz"
+        }).errorCode, "Failed");
         compare(KeelActions.invoke("playback.play", {}).errorCode, "InvalidArguments");
         verify(!music.player.playing);
     }
 
     function test_control() {
-        compare(KeelActions.invoke("playback.control", { command: "pause" }).errorCode, "NotAvailable");
-        KeelActions.invoke("playback.play", { trackId: 1 });
+        compare(KeelActions.invoke("playback.control", {
+            command: "pause"
+        }).errorCode, "NotAvailable");
+        KeelActions.invoke("playback.play", {
+            trackId: 1
+        });
 
-        let call = KeelActions.invoke("playback.control", { command: "pause" });
+        let call = KeelActions.invoke("playback.control", {
+            command: "pause"
+        });
         verify(call.succeeded, call.errorMessage);
-        compare(call.result, { playing: false, title: "Blue" });
-        call = KeelActions.invoke("playback.control", { command: "resume" });
-        compare(call.result, { playing: true, title: "Blue" });
-        call = KeelActions.invoke("playback.control", { command: "resume" });
+        compare(call.result, {
+            playing: false,
+            title: "Blue"
+        });
+        call = KeelActions.invoke("playback.control", {
+            command: "resume"
+        });
+        compare(call.result, {
+            playing: true,
+            title: "Blue"
+        });
+        call = KeelActions.invoke("playback.control", {
+            command: "resume"
+        });
         compare(call.result.playing, true);
-        call = KeelActions.invoke("playback.control", { command: "next" });
+        call = KeelActions.invoke("playback.control", {
+            command: "next"
+        });
         compare(call.result.title, "Cold");
-        call = KeelActions.invoke("playback.control", { command: "previous" });
+        call = KeelActions.invoke("playback.control", {
+            command: "previous"
+        });
         compare(call.result.title, "Blue");
-        compare(KeelActions.invoke("playback.control", { command: "stop" }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("playback.control", {
+            command: "stop"
+        }).errorCode, "InvalidArguments");
     }
 
     // keel-actions.json is generated by `keel actions`; it must match the
@@ -105,7 +182,9 @@ TestCase {
         compare(manifest.appId, "org.marathonos.music");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.music/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.music/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

@@ -25,13 +25,13 @@ Item {
     function words() {
         switch (stage) {
         case "searching":
-            return detail.length > 0 ? qsTr("Searching the web for “%1”").arg(detail) : qsTr("Searching the web")
+            return detail.length > 0 ? qsTr("Searching the web for “%1”").arg(detail) : qsTr("Searching the web");
         case "reading":
-            return detail.length > 0 ? qsTr("Reading %1").arg(detail) : qsTr("Reading")
+            return detail.length > 0 ? qsTr("Reading %1").arg(detail) : qsTr("Reading");
         case "writing":
-            return qsTr("Writing the answer")
+            return qsTr("Writing the answer");
         default:
-            return qsTr("Thinking")
+            return qsTr("Thinking");
         }
     }
 
@@ -59,10 +59,22 @@ Item {
                     SequentialAnimation on opacity {
                         running: line.running && line._animate
                         loops: Animation.Infinite
-                        PauseAnimation { duration: dot.index * 160 }
-                        NumberAnimation { to: 1; duration: 320; easing.type: Easing.InOutQuad }
-                        NumberAnimation { to: 0.3; duration: 320; easing.type: Easing.InOutQuad }
-                        PauseAnimation { duration: (2 - dot.index) * 160 }
+                        PauseAnimation {
+                            duration: dot.index * 160
+                        }
+                        NumberAnimation {
+                            to: 1
+                            duration: 320
+                            easing.type: Easing.InOutQuad
+                        }
+                        NumberAnimation {
+                            to: 0.3
+                            duration: 320
+                            easing.type: Easing.InOutQuad
+                        }
+                        PauseAnimation {
+                            duration: (2 - dot.index) * 160
+                        }
                     }
                 }
             }

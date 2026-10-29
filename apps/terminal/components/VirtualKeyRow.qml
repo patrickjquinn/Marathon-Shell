@@ -15,20 +15,75 @@ Row {
 
     property int ctrlState: VirtualKeyRow.Idle
     property int altState: VirtualKeyRow.Idle
-    readonly property int modifiers: (ctrlState !== VirtualKeyRow.Idle ? Qt.ControlModifier : 0)
-                                     | (altState !== VirtualKeyRow.Idle ? Qt.AltModifier : 0)
+    readonly property int modifiers: (ctrlState !== VirtualKeyRow.Idle ? Qt.ControlModifier : 0) | (altState !== VirtualKeyRow.Idle ? Qt.AltModifier : 0)
 
     readonly property var keys: [
-        { label: "Esc", name: qsTr("Escape"), key: Qt.Key_Escape, text: "" }, // i18n: not user-facing
-        { label: "Tab", name: qsTr("Tab"), key: Qt.Key_Tab, text: "" }, // i18n: not user-facing
-        { label: "Ctrl", name: qsTr("Control"), kind: "ctrl" }, // i18n: not user-facing
-        { label: "Alt", name: qsTr("Alt"), kind: "alt" }, // i18n: not user-facing
-        { label: "|", name: qsTr("Pipe"), key: Qt.Key_Bar, text: "|", alt: "\\", altName: qsTr("backslash") },
-        { label: "~", name: qsTr("Tilde"), key: Qt.Key_AsciiTilde, text: "~", alt: "`", altName: qsTr("backtick") },
-        { icon: "left", name: qsTr("Left"), key: Qt.Key_Left, text: "" },
-        { icon: "down", name: qsTr("Down"), key: Qt.Key_Down, text: "" },
-        { icon: "up", name: qsTr("Up"), key: Qt.Key_Up, text: "" },
-        { icon: "right", name: qsTr("Right"), key: Qt.Key_Right, text: "" }
+        {
+            label: "Esc",
+            name: qsTr("Escape"),
+            key: Qt.Key_Escape,
+            text: ""
+        } // i18n: not user-facing
+        ,
+        {
+            label: "Tab",
+            name: qsTr("Tab"),
+            key: Qt.Key_Tab,
+            text: ""
+        } // i18n: not user-facing
+        ,
+        {
+            label: "Ctrl",
+            name: qsTr("Control"),
+            kind: "ctrl"
+        } // i18n: not user-facing
+        ,
+        {
+            label: "Alt",
+            name: qsTr("Alt"),
+            kind: "alt"
+        } // i18n: not user-facing
+        ,
+        {
+            label: "|",
+            name: qsTr("Pipe"),
+            key: Qt.Key_Bar,
+            text: "|",
+            alt: "\\",
+            altName: qsTr("backslash")
+        },
+        {
+            label: "~",
+            name: qsTr("Tilde"),
+            key: Qt.Key_AsciiTilde,
+            text: "~",
+            alt: "`",
+            altName: qsTr("backtick")
+        },
+        {
+            icon: "left",
+            name: qsTr("Left"),
+            key: Qt.Key_Left,
+            text: ""
+        },
+        {
+            icon: "down",
+            name: qsTr("Down"),
+            key: Qt.Key_Down,
+            text: ""
+        },
+        {
+            icon: "up",
+            name: qsTr("Up"),
+            key: Qt.Key_Up,
+            text: ""
+        },
+        {
+            icon: "right",
+            name: qsTr("Right"),
+            key: Qt.Key_Right,
+            text: ""
+        }
     ]
 
     signal keyTriggered(int key, string text, int modifiers)
@@ -67,16 +122,14 @@ Row {
             required property int index
 
             readonly property bool isModifier: !!modelData.kind
-            readonly property int modState: modelData.kind === "ctrl" ? root.ctrlState
-                                           : modelData.kind === "alt" ? root.altState : VirtualKeyRow.Idle
+            readonly property int modState: modelData.kind === "ctrl" ? root.ctrlState : modelData.kind === "alt" ? root.altState : VirtualKeyRow.Idle
 
             objectName: "key_" + (modelData.label || modelData.icon)
             width: root.width / root.keys.length
             height: root.height
             highlighted: down
             Accessible.name: modelData.name
-            Accessible.description: modelData.alt ? qsTr("Hold for %1").arg(modelData.altName)
-                                  : isModifier ? qsTr("Tap for the next key, hold to lock") : ""
+            Accessible.description: modelData.alt ? qsTr("Hold for %1").arg(modelData.altName) : isModifier ? qsTr("Tap for the next key, hold to lock") : ""
             Accessible.checkable: isModifier
             Accessible.checked: modState !== VirtualKeyRow.Idle
 

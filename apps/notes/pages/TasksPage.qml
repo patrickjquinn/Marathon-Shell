@@ -15,7 +15,9 @@ Page {
 
         objectName: "tasksView"
         anchors.fill: parent
-        header: PageHeader { title: qsTr("Tasks") }
+        header: PageHeader {
+            title: qsTr("Tasks")
+        }
         model: Store.tasks(page.store.notes)
 
         ViewPlaceholder {
@@ -34,7 +36,10 @@ Page {
                 MenuItem {
                     objectName: "openNoteItem"
                     text: qsTr("Open note")
-                    onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), { store: page.store, noteId: item.modelData.noteId })
+                    onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), {
+                        store: page.store,
+                        noteId: item.modelData.noteId
+                    })
                 }
             }
 

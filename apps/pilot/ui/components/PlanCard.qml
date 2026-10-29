@@ -34,14 +34,20 @@ Glass {
         }
         Label {
             anchors.verticalCenter: parent.verticalCenter
-            text: card.answered ? (card.approved ? qsTr("Done") : qsTr("Cancelled"))
-                  : card.steps.length > 1 ? qsTr("Pilot will do this") : qsTr("Pilot wants to")
+            text: card.answered ? (card.approved ? qsTr("Done") : qsTr("Cancelled")) : card.steps.length > 1 ? qsTr("Pilot will do this") : qsTr("Pilot wants to")
             color: Theme.highlightColor
         }
     }
 
     Repeater {
-        model: card.steps.length > 0 ? card.steps : [{ title: card.title, app: "", detail: card.detail, needs_yes: true }]
+        model: card.steps.length > 0 ? card.steps : [
+            {
+                title: card.title,
+                app: "",
+                detail: card.detail,
+                needs_yes: true
+            }
+        ]
         delegate: Row {
             id: step
             required property var modelData
@@ -52,8 +58,7 @@ Glass {
                 width: Theme.iconSizeSmall
                 height: width
                 radius: width / 2
-                color: step.modelData.needs_yes ? Theme.rgba(Theme.highlightColor, 0.35)
-                                                : Theme.rgba(Theme.primaryColor, 0.12)
+                color: step.modelData.needs_yes ? Theme.rgba(Theme.highlightColor, 0.35) : Theme.rgba(Theme.primaryColor, 0.12)
                 Label {
                     anchors.centerIn: parent
                     text: step.index + 1

@@ -95,12 +95,12 @@ void NativeSurfaceItem::setupShellSurface() {
     QWaylandXdgShell *shell = xdgSurface->shell();
     if (!shell)
         return;
-    m_popupCreatedConnection = connect(
-        shell, &QWaylandXdgShell::popupCreated, this,
-        [this, xdgSurface](QWaylandXdgPopup *popup, QWaylandXdgSurface *child) {
-            if (popup && popup->parentXdgSurface() == xdgSurface)
-                createPopup(popup, child);
-        });
+    m_popupCreatedConnection =
+        connect(shell, &QWaylandXdgShell::popupCreated, this,
+                [this, xdgSurface](QWaylandXdgPopup *popup, QWaylandXdgSurface *child) {
+                    if (popup && popup->parentXdgSurface() == xdgSurface)
+                        createPopup(popup, child);
+                });
 }
 
 void NativeSurfaceItem::createPopup(QWaylandXdgPopup *popup, QWaylandXdgSurface *xdgSurface) {
@@ -128,8 +128,7 @@ void NativeSurfaceItem::attachPopup(QWaylandXdgPopup *popup) {
         connect(surface, &QWaylandXdgSurface::windowGeometryChanged, this,
                 &NativeSurfaceItem::updatePopupGeometry, Qt::QueuedConnection);
     }
-    QMetaObject::invokeMethod(this, &NativeSurfaceItem::updatePopupGeometry,
-                              Qt::QueuedConnection);
+    QMetaObject::invokeMethod(this, &NativeSurfaceItem::updatePopupGeometry, Qt::QueuedConnection);
     raise();
 }
 
@@ -139,13 +138,13 @@ void NativeSurfaceItem::updatePopupGeometry() {
     QRect geometry = m_popup->configuredGeometry();
     if (!geometry.isValid())
         geometry = QRect(m_popup->unconstrainedPosition(), m_popup->positionerSize());
-    QWaylandXdgSurface *parent = m_popup->parentXdgSurface();
+    QWaylandXdgSurface *parent       = m_popup->parentXdgSurface();
     QWaylandXdgSurface *popupSurface = m_popup->xdgSurface();
     if (!parent || !popupSurface)
         return;
-    const QPoint surfacePosition = parent->windowGeometry().topLeft() + geometry.topLeft()
-        - popupSurface->windowGeometry().topLeft();
+    const QPoint surfacePosition = parent->windowGeometry().topLeft() + geometry.topLeft() -
+        popupSurface->windowGeometry().topLeft();
     auto *parentSurfaceItem = qobject_cast<QWaylandQuickItem *>(parentItem());
-    setPosition(parentSurfaceItem ? parentSurfaceItem->mapFromSurface(surfacePosition)
-                                  : mapFromSurface(surfacePosition));
+    setPosition(parentSurfaceItem ? parentSurfaceItem->mapFromSurface(surfacePosition) :
+                                    mapFromSurface(surfacePosition));
 }

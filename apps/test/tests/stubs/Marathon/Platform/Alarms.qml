@@ -14,8 +14,17 @@ QtObject {
 
     function createAlarm(time, label, repeat, options) {
         log("createAlarm", time, label);
-        alarms = alarms.concat([{ id: "a" + alarms.length, time: time, label: label, enabled: true }]);
+        alarms = alarms.concat([
+            {
+                id: "a" + alarms.length,
+                time: time,
+                label: label,
+                enabled: true
+            }
+        ]);
         return "a" + (alarms.length - 1);
     }
-    function triggerAlarmNow(label) { log("triggerAlarmNow", label); }
+    function triggerAlarmNow(label) {
+        log("triggerAlarmNow", label);
+    }
 }

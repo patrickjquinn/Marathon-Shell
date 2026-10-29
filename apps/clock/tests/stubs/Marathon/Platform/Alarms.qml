@@ -21,10 +21,21 @@ QtObject {
             return "";
         const id = "a" + nextId++;
         if (options && options.hidden) {
-            hidden = hidden.concat([Object.assign({ id: id, label: label }, options)]);
+            hidden = hidden.concat([Object.assign({
+                    id: id,
+                    label: label
+                }, options)]);
             return id;
         }
-        alarms = alarms.concat([{ id: id, time: time, label: label, repeat: repeat, enabled: true }]);
+        alarms = alarms.concat([
+            {
+                id: id,
+                time: time,
+                label: label,
+                repeat: repeat,
+                enabled: true
+            }
+        ]);
         return id;
     }
 

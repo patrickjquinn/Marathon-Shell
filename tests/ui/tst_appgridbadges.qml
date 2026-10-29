@@ -22,19 +22,23 @@ TestCase {
 
             anchors.fill: parent
             appModel: QtObject {
-                readonly property var apps: [{
+                readonly property var apps: [
+                    {
                         "id": "phone",
                         "name": "Phone",
                         "icon": ""
-                    }, {
+                    },
+                    {
                         "id": "mail",
                         "name": "Mail",
                         "icon": ""
-                    }, {
+                    },
+                    {
                         "id": "clock",
                         "name": "Clock",
                         "icon": ""
-                    }]
+                    }
+                ]
                 readonly property int count: apps.length
                 function getAppAtIndex(i) {
                     return apps[i] || null;
@@ -53,29 +57,36 @@ TestCase {
     }
 
     function test_badgeFollowsNewNotifications() {
-        NotificationService.notifications = [{
+        NotificationService.notifications = [
+            {
                 "appId": "mail",
                 "read": false
-            }, {
+            },
+            {
                 "appId": "mail",
                 "read": false
-            }];
+            }
+        ];
         compare(grid.badges.length, 1);
         compare(grid.badges[0].index, 1);
         compare(grid.badges[0].count, 2);
 
-        NotificationService.notifications = [{
+        NotificationService.notifications = [
+            {
                 "appId": "mail",
                 "read": true
-            }];
+            }
+        ];
         compare(grid.badges.length, 0);
     }
 
     function test_badgesOffInSettings() {
-        NotificationService.notifications = [{
+        NotificationService.notifications = [
+            {
                 "appId": "clock",
                 "read": false
-            }];
+            }
+        ];
         SettingsManagerCpp.showNotificationBadges = false;
         compare(grid.badges.length, 0);
     }

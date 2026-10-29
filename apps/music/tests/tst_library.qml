@@ -6,11 +6,51 @@ TestCase {
     name: "Library"
 
     readonly property var tracks: [
-        { id: 1, path: "file:///m/a1.mp3", title: "Blue", artist: "Ava", album: "Sky", duration: 200, trackNumber: 2 },
-        { id: 2, path: "file:///m/a2.mp3", title: "Azure", artist: "Ava", album: "Sky", duration: 61, trackNumber: 1 },
-        { id: 3, path: "file:///m/b1.mp3", title: "Cold", artist: "Bo", album: "Ice", duration: 9, trackNumber: 1 },
-        { id: 4, path: "file:///m/b2.mp3", title: "Dawn", artist: "Bo", album: "Hits", duration: 30, trackNumber: 1 },
-        { id: 5, path: "file:///m/c1.mp3", title: "Echo", artist: "Cy", album: "Hits", duration: 30, trackNumber: 2 }
+        {
+            id: 1,
+            path: "file:///m/a1.mp3",
+            title: "Blue",
+            artist: "Ava",
+            album: "Sky",
+            duration: 200,
+            trackNumber: 2
+        },
+        {
+            id: 2,
+            path: "file:///m/a2.mp3",
+            title: "Azure",
+            artist: "Ava",
+            album: "Sky",
+            duration: 61,
+            trackNumber: 1
+        },
+        {
+            id: 3,
+            path: "file:///m/b1.mp3",
+            title: "Cold",
+            artist: "Bo",
+            album: "Ice",
+            duration: 9,
+            trackNumber: 1
+        },
+        {
+            id: 4,
+            path: "file:///m/b2.mp3",
+            title: "Dawn",
+            artist: "Bo",
+            album: "Hits",
+            duration: 30,
+            trackNumber: 1
+        },
+        {
+            id: 5,
+            path: "file:///m/c1.mp3",
+            title: "Echo",
+            artist: "Cy",
+            album: "Hits",
+            duration: 30,
+            trackNumber: 2
+        }
     ]
 
     function test_formatTime() {

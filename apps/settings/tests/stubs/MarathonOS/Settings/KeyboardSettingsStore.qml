@@ -17,6 +17,10 @@ QtObject {
         predictionsEnabled = true;
     }
     function getLanguageName(id) {
-        return { en_US: "English (US)", de_DE: "Deutsch", fr_FR: "Français" }[id] || id;
+        return {
+            en_US: "English (US)",
+            de_DE: "Deutsch",
+            fr_FR: "Français"
+        }[id] || id;
     }
 }

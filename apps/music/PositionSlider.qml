@@ -15,7 +15,8 @@ Slider {
     label: qsTr("%1 of %2").arg(Library.formatTime(value / 1000)).arg(Library.formatTime(player.duration / 1000))
     // Playback moves the value only while the slider is not held, so any
     // other change is the user's: a drag ending or a key press.
-    onValueChanged: if (!down && Math.abs(value - player.position) > 500) player.seek(value)
+    onValueChanged: if (!down && Math.abs(value - player.position) > 500)
+        player.seek(value)
 
     Binding on value {
         when: !slider.down

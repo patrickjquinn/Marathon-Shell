@@ -10,11 +10,15 @@ TestCase {
     name: "TestPages"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
     Component {
         id: appComponent
-        TestApp { width: 540; height: 1140 }
+        TestApp {
+            width: 540
+            height: 1140
+        }
     }
     Component {
         id: notificationStub
@@ -29,8 +33,12 @@ TestCase {
             property var remoteActions
             property bool published
             property bool closed
-            function publish() { published = true; }
-            function close() { closed = true; }
+            function publish() {
+                published = true;
+            }
+            function close() {
+                closed = true;
+            }
         }
     }
 
@@ -45,7 +53,9 @@ TestCase {
     }
 
     function open(file) {
-        app.pageStack.push(Qt.resolvedUrl("../pages/" + file), { app: app }, PageStackAction.Immediate);
+        app.pageStack.push(Qt.resolvedUrl("../pages/" + file), {
+            app: app
+        }, PageStackAction.Immediate);
         tryCompare(app.pageStack, "depth", 2);
         return app.pageStack.currentPage;
     }
@@ -106,7 +116,14 @@ TestCase {
     }
 
     function test_alarms() {
-        Alarms.alarms = [{ id: "rang", time: "07:00", label: "Rang", enabled: false }];
+        Alarms.alarms = [
+            {
+                id: "rang",
+                time: "07:00",
+                label: "Rang",
+                enabled: false
+            }
+        ];
         const page = open("AlarmTestsPage.qml");
         compare(findChild(page, "alarmCount").value, "0");
         tap(page, "triggerAlarm");

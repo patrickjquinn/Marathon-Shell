@@ -13,7 +13,8 @@ Page {
 
     objectName: "routePage"
     // Ending the route leaves nothing to show.
-    onRouteChanged: if (!route && status === PageStatus.Active) pageStack.pop()
+    onRouteChanged: if (!route && status === PageStatus.Active)
+        pageStack.pop()
 
     SilicaListView {
         id: view
@@ -25,7 +26,8 @@ Page {
         header: Column {
             width: view.width
             // Long values wrap after the first layout; keep the header in view.
-            onHeightChanged: if (!view.moving && view.contentY < view.originY + height) view.positionViewAtBeginning()
+            onHeightChanged: if (!view.moving && view.contentY < view.originY + height)
+                view.positionViewAtBeginning()
 
             PageHeader {
                 title: root.active ? qsTr("Directions") : qsTr("Route")

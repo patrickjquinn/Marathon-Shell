@@ -269,11 +269,13 @@ Item {
             id: placeList
 
             readonly property var entries: {
-                const out = picker.folderPick ? [] : [{
+                const out = picker.folderPick ? [] : [
+                    {
                         "name": qsTr("Recent"),
                         "path": "",
                         "glyph": "clock-counter-clockwise"
-                    }];
+                    }
+                ];
                 for (const place of picker.shown ? files.places() : [])
                     out.push({
                         "name": place.name,
@@ -427,10 +429,12 @@ Item {
                 }
 
                 Repeater {
-                    model: choiceRow.modelData.options.length > 0 ? choiceRow.modelData.options : [{
+                    model: choiceRow.modelData.options.length > 0 ? choiceRow.modelData.options : [
+                        {
                             "id": "true",
                             "label": qsTr("On")
-                        }]
+                        }
+                    ]
 
                     delegate: Silica.FilterChip {
                         required property var modelData

@@ -16,32 +16,64 @@ TestCase {
 
     function test_times() {
         compare(Logic.timeString(7, 5), "07:05");
-        compare(Logic.parseTime("09:30"), { hour: 9, minute: 30 });
-        compare(Logic.parseTime(""), { hour: 12, minute: 0 });
+        compare(Logic.parseTime("09:30"), {
+            hour: 9,
+            minute: 30
+        });
+        compare(Logic.parseTime(""), {
+            hour: 12,
+            minute: 0
+        });
     }
 
     function test_recurrence() {
-        const base = { date: "2026-10-12", recurring: "none" };
+        const base = {
+            date: "2026-10-12",
+            recurring: "none"
+        };
         verify(Logic.occursOn(base, new Date(2026, 9, 12)));
         verify(!Logic.occursOn(base, new Date(2026, 9, 13)));
-        const daily = Object.assign({}, base, { recurring: "daily" });
+        const daily = Object.assign({}, base, {
+            recurring: "daily"
+        });
         verify(Logic.occursOn(daily, new Date(2027, 0, 1)));
         verify(!Logic.occursOn(daily, new Date(2026, 9, 11)));
-        const weekly = Object.assign({}, base, { recurring: "weekly" });
+        const weekly = Object.assign({}, base, {
+            recurring: "weekly"
+        });
         verify(Logic.occursOn(weekly, new Date(2026, 9, 26)));
         verify(Logic.occursOn(weekly, new Date(2026, 10, 2)));
         verify(!Logic.occursOn(weekly, new Date(2026, 9, 27)));
-        const monthly = Object.assign({}, base, { recurring: "monthly" });
+        const monthly = Object.assign({}, base, {
+            recurring: "monthly"
+        });
         verify(Logic.occursOn(monthly, new Date(2027, 2, 12)));
         verify(!Logic.occursOn(monthly, new Date(2026, 10, 13)));
     }
 
     function test_eventsOnSortsAllDayFirst() {
         const events = [
-            { id: 1, date: "2026-10-12", time: "14:00" },
-            { id: 2, date: "2026-10-12", time: "09:00" },
-            { id: 3, date: "2026-10-12", time: "18:00", allDay: true },
-            { id: 4, date: "2026-10-13", time: "08:00" }
+            {
+                id: 1,
+                date: "2026-10-12",
+                time: "14:00"
+            },
+            {
+                id: 2,
+                date: "2026-10-12",
+                time: "09:00"
+            },
+            {
+                id: 3,
+                date: "2026-10-12",
+                time: "18:00",
+                allDay: true
+            },
+            {
+                id: 4,
+                date: "2026-10-13",
+                time: "08:00"
+            }
         ];
         compare(Logic.eventsOn(events, new Date(2026, 9, 12)).map(e => e.id), [3, 2, 1]);
         compare(Logic.eventsOn(undefined, new Date()), []);
@@ -49,9 +81,25 @@ TestCase {
 
     function test_sortedAndSearch() {
         const events = [
-            { id: 1, date: "2026-11-01", time: "10:00", title: "Dentist" },
-            { id: 2, date: "2026-10-01", time: "10:00", title: "Team lunch", description: "Pizza" },
-            { id: 3, date: "2026-10-01", time: "08:00", title: "Gym" }
+            {
+                id: 1,
+                date: "2026-11-01",
+                time: "10:00",
+                title: "Dentist"
+            },
+            {
+                id: 2,
+                date: "2026-10-01",
+                time: "10:00",
+                title: "Team lunch",
+                description: "Pizza"
+            },
+            {
+                id: 3,
+                date: "2026-10-01",
+                time: "08:00",
+                title: "Gym"
+            }
         ];
         compare(Logic.sorted(events).map(e => e.id), [3, 2, 1]);
         compare(Logic.search(events, "pizza").map(e => e.id), [2]);
@@ -61,10 +109,27 @@ TestCase {
 
     function test_upcoming() {
         const events = [
-            { id: 1, date: "2026-10-12", time: "09:00" },
-            { id: 2, date: "2026-10-12", time: "15:00" },
-            { id: 3, date: "2026-10-12", time: "08:00", allDay: true },
-            { id: 4, date: "2026-10-13", time: "15:00" }
+            {
+                id: 1,
+                date: "2026-10-12",
+                time: "09:00"
+            },
+            {
+                id: 2,
+                date: "2026-10-12",
+                time: "15:00"
+            },
+            {
+                id: 3,
+                date: "2026-10-12",
+                time: "08:00",
+                allDay: true
+            },
+            {
+                id: 4,
+                date: "2026-10-13",
+                time: "15:00"
+            }
         ];
         compare(Logic.upcoming(events, new Date(2026, 9, 12, 12, 0)).map(e => e.id), [3, 2]);
     }
@@ -75,23 +140,63 @@ TestCase {
         compare(Logic.addMinutes("00:15", -30), "23:45");
         compare(Logic.duration("09:00", "10:30"), 90);
         compare(Logic.duration("23:00", "01:00"), 120);
-        verify(Logic.endsNextDay({ time: "23:00", endTime: "01:00" }));
-        verify(!Logic.endsNextDay({ time: "09:00", endTime: "10:00" }));
-        verify(!Logic.endsNextDay({ time: "09:00" }));
+        verify(Logic.endsNextDay({
+            time: "23:00",
+            endTime: "01:00"
+        }));
+        verify(!Logic.endsNextDay({
+            time: "09:00",
+            endTime: "10:00"
+        }));
+        verify(!Logic.endsNextDay({
+            time: "09:00"
+        }));
     }
 
     function test_upcomingKeepsEventsInProgress() {
         const events = [
-            { id: 1, date: "2026-10-12", time: "11:00", endTime: "13:00" },
-            { id: 2, date: "2026-10-12", time: "09:00", endTime: "10:00" },
-            { id: 3, date: "2026-10-12", time: "23:00", endTime: "01:00" },
-            { id: 4, date: "2026-10-12", time: "11:00" }
+            {
+                id: 1,
+                date: "2026-10-12",
+                time: "11:00",
+                endTime: "13:00"
+            },
+            {
+                id: 2,
+                date: "2026-10-12",
+                time: "09:00",
+                endTime: "10:00"
+            },
+            {
+                id: 3,
+                date: "2026-10-12",
+                time: "23:00",
+                endTime: "01:00"
+            },
+            {
+                id: 4,
+                date: "2026-10-12",
+                time: "11:00"
+            }
         ];
         compare(Logic.upcoming(events, new Date(2026, 9, 12, 12, 0)).map(e => e.id), [1, 3]);
     }
 
     function test_firstFrom() {
-        const list = [{ date: "2026-01-01" }, { date: "2026-03-01" }, { date: "2026-03-01" }, { date: "2026-05-01" }];
+        const list = [
+            {
+                date: "2026-01-01"
+            },
+            {
+                date: "2026-03-01"
+            },
+            {
+                date: "2026-03-01"
+            },
+            {
+                date: "2026-05-01"
+            }
+        ];
         compare(Logic.firstFrom(list, "2025-12-01"), 0);
         compare(Logic.firstFrom(list, "2026-03-01"), 1);
         compare(Logic.firstFrom(list, "2026-04-01"), 3);
@@ -100,7 +205,15 @@ TestCase {
     }
 
     function test_searchMatchesLocation() {
-        const events = [{ id: 1, date: "2026-10-01", time: "10:00", title: "Lunch", location: "Café Nero" }];
+        const events = [
+            {
+                id: 1,
+                date: "2026-10-01",
+                time: "10:00",
+                title: "Lunch",
+                location: "Café Nero"
+            }
+        ];
         compare(Logic.search(events, "nero").map(e => e.id), [1]);
     }
 }

@@ -30,7 +30,8 @@ Item {
 
     // Long-press on Hotspot shows what a client needs to join.
     property bool hotspotDetailsShown: false
-    onVisibleChanged: if (!visible) hotspotDetailsShown = false
+    onVisibleChanged: if (!visible)
+        hotspotDetailsShown = false
 
     // How far the shade is open, 0..1; drives the content reveal so it
     // follows the finger.
@@ -163,34 +164,113 @@ Item {
 
     // Hardware tiles only when the hardware exists: without it they control nothing.
     readonly property var tiles: {
-        var t = [{ id: "wifi",      icon: "wifi-high",        label: qsTr("Wi-Fi"),     on: SystemControlStore.isWifiOn }];
+        var t = [
+            {
+                id: "wifi",
+                icon: "wifi-high",
+                label: qsTr("Wi-Fi"),
+                on: SystemControlStore.isWifiOn
+            }
+        ];
         if (Modem.modemAvailable)
-            t.push({ id: "cellular",  icon: "cell-signal-high", label: qsTr("Mobile"),    on: SystemControlStore.isCellularDataOn });
-        t.push({ id: "bluetooth", icon: "bluetooth",        label: qsTr("Bluetooth"), on: SystemControlStore.isBluetoothOn },
-               { id: "airplane",  icon: "airplane-tilt",    label: qsTr("Flight"),    on: SystemControlStore.isAirplaneModeOn },
-               { id: "dnd",       icon: "bell-slash",       label: qsTr("Silent"),    on: SystemControlStore.isDndMode });
+            t.push({
+                id: "cellular",
+                icon: "cell-signal-high",
+                label: qsTr("Mobile"),
+                on: SystemControlStore.isCellularDataOn
+            });
+        t.push({
+            id: "bluetooth",
+            icon: "bluetooth",
+            label: qsTr("Bluetooth"),
+            on: SystemControlStore.isBluetoothOn
+        }, {
+            id: "airplane",
+            icon: "airplane-tilt",
+            label: qsTr("Flight"),
+            on: SystemControlStore.isAirplaneModeOn
+        }, {
+            id: "dnd",
+            icon: "bell-slash",
+            label: qsTr("Silent"),
+            on: SystemControlStore.isDndMode
+        });
         if (FlashlightManagerCpp.available)
-            t.push({ id: "torch",     icon: "flashlight",       label: qsTr("Torch"),     on: SystemControlStore.isFlashlightOn });
-        t.push({ id: "location",  icon: "map-pin",          label: qsTr("Location"),  on: SystemControlStore.isLocationOn },
-               { id: "hotspot",   icon: "broadcast",        label: qsTr("Hotspot"),   on: SystemControlStore.isHotspotOn },
-               { id: "nightlight", icon: "moon",            label: qsTr("Night"),     on: SystemControlStore.isNightLightOn });
+            t.push({
+                id: "torch",
+                icon: "flashlight",
+                label: qsTr("Torch"),
+                on: SystemControlStore.isFlashlightOn
+            });
+        t.push({
+            id: "location",
+            icon: "map-pin",
+            label: qsTr("Location"),
+            on: SystemControlStore.isLocationOn
+        }, {
+            id: "hotspot",
+            icon: "broadcast",
+            label: qsTr("Hotspot"),
+            on: SystemControlStore.isHotspotOn
+        }, {
+            id: "nightlight",
+            icon: "moon",
+            label: qsTr("Night"),
+            on: SystemControlStore.isNightLightOn
+        });
         if (Display.rotationAvailable)
-            t.push({ id: "rotation", icon: "device-rotate", label: qsTr("Rotation"), on: SystemControlStore.isRotationLocked });
+            t.push({
+                id: "rotation",
+                icon: "device-rotate",
+                label: qsTr("Rotation"),
+                on: SystemControlStore.isRotationLocked
+            });
         if (Display.lightAvailable)
-            t.push({ id: "autobrightness", icon: "sun",     label: qsTr("Auto"),    on: SystemControlStore.isAutoBrightnessOn });
-        t.push({ id: "lowpower",       icon: "battery-low", label: qsTr("Saver"),   on: SystemControlStore.isLowPowerMode });
+            t.push({
+                id: "autobrightness",
+                icon: "sun",
+                label: qsTr("Auto"),
+                on: SystemControlStore.isAutoBrightnessOn
+            });
+        t.push({
+            id: "lowpower",
+            icon: "battery-low",
+            label: qsTr("Saver"),
+            on: SystemControlStore.isLowPowerMode
+        });
         if (HapticManager.available)
-            t.push({ id: "vibration",  icon: "vibrate",     label: qsTr("Vibrate"), on: SystemControlStore.isVibrationOn });
+            t.push({
+                id: "vibration",
+                icon: "vibrate",
+                label: qsTr("Vibrate"),
+                on: SystemControlStore.isVibrationOn
+            });
         return enabledOnly(t);
     }
     readonly property bool powerShown: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf("power") >= 0
 
     // ── Shortcuts row: one-shot actions and apps ──────────────
     readonly property var shortcuts: [
-        { id: "screenshot", icon: "camera-plus", label: qsTr("Screenshot") },
-        { id: "app:camera", icon: "camera",      label: qsTr("Camera") },
-        { id: "app:clock",  icon: "alarm",       label: qsTr("Alarm") },
-        { id: "app:notes",  icon: "note-pencil", label: qsTr("Note") }
+        {
+            id: "screenshot",
+            icon: "camera-plus",
+            label: qsTr("Screenshot")
+        },
+        {
+            id: "app:camera",
+            icon: "camera",
+            label: qsTr("Camera")
+        },
+        {
+            id: "app:clock",
+            icon: "alarm",
+            label: qsTr("Alarm")
+        },
+        {
+            id: "app:notes",
+            icon: "note-pencil",
+            label: qsTr("Note")
+        }
     ]
 
     component QSShortcut: Item {
@@ -301,7 +381,8 @@ Item {
         interactive: quickSettings.maxHeight > 0 && contentHeight > quickSettings.maxHeight
 
         // The shade is hidden, not destroyed: reopen at the top.
-        onVisibleChanged: if (!visible) contentY = 0
+        onVisibleChanged: if (!visible)
+            contentY = 0
 
         // A tap off the controls dismisses. An item beneath them, not a
         // handler over them: a control that takes the press keeps the tap.
@@ -450,7 +531,9 @@ Item {
                 artworkSource: active ? MPRIS2Controller.albumArtUrl : ""
                 onActivated: {
                     quickSettings.closed();
-                    quickSettings.launchApp({ "id": active && MPRIS2Controller.desktopEntry ? MPRIS2Controller.desktopEntry : "music" });
+                    quickSettings.launchApp({
+                        "id": active && MPRIS2Controller.desktopEntry ? MPRIS2Controller.desktopEntry : "music"
+                    });
                 }
                 onPreviousClicked: {
                     MHaptics.light();
@@ -485,22 +568,51 @@ Item {
     // ── Behaviour hooks ─────────────────────────────────────
     function toggle(id) {
         switch (id) {
-        case "wifi":           SystemControlStore.toggleWifi(); break;
-        case "bluetooth":      SystemControlStore.toggleBluetooth(); break;
-        case "cellular":       SystemControlStore.toggleCellularData(); break;
-        case "airplane":       SystemControlStore.toggleAirplaneMode(); break;
-        case "dnd":            SystemControlStore.toggleDndMode(); break;
-        case "torch":          SystemControlStore.toggleFlashlight(); break;
-        case "autobrightness": SystemControlStore.toggleAutoBrightness(); break;
-        case "rotation":       SystemControlStore.toggleRotationLock(); break;
-        case "nightlight":     SystemControlStore.toggleNightLight(); break;
-        case "location":       SystemControlStore.toggleLocation(); break;
-        case "hotspot":        SystemControlStore.toggleHotspot(); break;
-        case "lowpower":       SystemControlStore.toggleLowPowerMode(); break;
-        case "vibration":      SystemControlStore.toggleVibration(); break;
+        case "wifi":
+            SystemControlStore.toggleWifi();
+            break;
+        case "bluetooth":
+            SystemControlStore.toggleBluetooth();
+            break;
+        case "cellular":
+            SystemControlStore.toggleCellularData();
+            break;
+        case "airplane":
+            SystemControlStore.toggleAirplaneMode();
+            break;
+        case "dnd":
+            SystemControlStore.toggleDndMode();
+            break;
+        case "torch":
+            SystemControlStore.toggleFlashlight();
+            break;
+        case "autobrightness":
+            SystemControlStore.toggleAutoBrightness();
+            break;
+        case "rotation":
+            SystemControlStore.toggleRotationLock();
+            break;
+        case "nightlight":
+            SystemControlStore.toggleNightLight();
+            break;
+        case "location":
+            SystemControlStore.toggleLocation();
+            break;
+        case "hotspot":
+            SystemControlStore.toggleHotspot();
+            break;
+        case "lowpower":
+            SystemControlStore.toggleLowPowerMode();
+            break;
+        case "vibration":
+            SystemControlStore.toggleVibration();
+            break;
         case "settings":
             quickSettings.closed();
-            quickSettings.launchApp({ "id": "settings", "name": "Settings" });
+            quickSettings.launchApp({
+                "id": "settings",
+                "name": "Settings"
+            });
             break;
         }
     }
@@ -516,7 +628,9 @@ Item {
     function doAction(id) {
         if (id.startsWith("app:")) {
             quickSettings.closed();
-            quickSettings.launchApp({ "id": id.slice(4) });
+            quickSettings.launchApp({
+                "id": id.slice(4)
+            });
             return;
         }
         switch (id) {

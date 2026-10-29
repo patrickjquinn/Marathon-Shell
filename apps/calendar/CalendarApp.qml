@@ -81,7 +81,10 @@ ApplicationWindow {
     }
 
     function openEvent(event) {
-        return pageStack.push(Qt.resolvedUrl("pages/EventPage.qml"), { app: root, eventId: event.id });
+        return pageStack.push(Qt.resolvedUrl("pages/EventPage.qml"), {
+            app: root,
+            eventId: event.id
+        });
     }
 
     function newEvent(date) {

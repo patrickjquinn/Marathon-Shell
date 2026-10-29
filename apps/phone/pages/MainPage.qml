@@ -79,9 +79,16 @@ Page {
         header: TabBar {
             objectName: "tabBar"
             model: [
-                { title: qsTr("Dialer") },
-                { title: qsTr("Call log"), count: root.phone.missedCount },
-                { title: qsTr("People") }
+                {
+                    title: qsTr("Dialer")
+                },
+                {
+                    title: qsTr("Call log"),
+                    count: root.phone.missedCount
+                },
+                {
+                    title: qsTr("People")
+                }
             ]
         }
         onCurrentIndexChanged: {

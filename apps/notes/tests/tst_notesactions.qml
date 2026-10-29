@@ -20,14 +20,33 @@ TestCase {
 
     function init() {
         store.notes = [
-            { id: 1, title: "Shopping", content: "Shopping\nmilk, bread", timestamp: 1000 },
-            { id: 2, title: "Trip", content: "Trip\nbook the ferry", timestamp: 3000 },
-            { id: 3, title: "Old", content: "ferry times", timestamp: 2000, pinned: true }
+            {
+                id: 1,
+                title: "Shopping",
+                content: "Shopping\nmilk, bread",
+                timestamp: 1000
+            },
+            {
+                id: 2,
+                title: "Trip",
+                content: "Trip\nbook the ferry",
+                timestamp: 3000
+            },
+            {
+                id: 3,
+                title: "Old",
+                content: "ferry times",
+                timestamp: 2000,
+                pinned: true
+            }
         ];
     }
 
     function test_create() {
-        const call = KeelActions.invoke("notes.create", { title: "Ideas", body: "a\nb" });
+        const call = KeelActions.invoke("notes.create", {
+            title: "Ideas",
+            body: "a\nb"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.id, 4);
         compare(store.notes.length, 4);
@@ -37,20 +56,26 @@ TestCase {
     }
 
     function test_createWithoutTitle() {
-        const call = KeelActions.invoke("notes.create", { body: "Call Ann\nabout Friday" });
+        const call = KeelActions.invoke("notes.create", {
+            body: "Call Ann\nabout Friday"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(store.notes[0].title, "Call Ann");
         compare(store.notes[0].content, "Call Ann\nabout Friday");
     }
 
     function test_createNeedsBody() {
-        const call = KeelActions.invoke("notes.create", { title: "x" });
+        const call = KeelActions.invoke("notes.create", {
+            title: "x"
+        });
         compare(call.errorCode, "InvalidArguments");
         compare(store.notes.length, 3);
     }
 
     function test_search() {
-        const call = KeelActions.invoke("notes.search", { query: "FERRY" });
+        const call = KeelActions.invoke("notes.search", {
+            query: "FERRY"
+        });
         verify(call.succeeded, call.errorMessage);
         const found = call.result.result;
         compare(found.map(n => n.id), [3, 2]);
@@ -60,14 +85,26 @@ TestCase {
     }
 
     function test_searchLimitAndEmptyQuery() {
-        const call = KeelActions.invoke("notes.search", { query: "", limit: 2 });
+        const call = KeelActions.invoke("notes.search", {
+            query: "",
+            limit: 2
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result.map(n => n.id), [3, 2]);
     }
 
     function test_searchTruncatesLongNotes() {
-        store.notes = [{ id: 1, title: "x".repeat(300), content: "x".repeat(5000), timestamp: 0 }];
-        const call = KeelActions.invoke("notes.search", { query: "x" });
+        store.notes = [
+            {
+                id: 1,
+                title: "x".repeat(300),
+                content: "x".repeat(5000),
+                timestamp: 0
+            }
+        ];
+        const call = KeelActions.invoke("notes.search", {
+            query: "x"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result[0].title.length, 200);
         compare(call.result.result[0].body.length, 2000);
@@ -84,7 +121,9 @@ TestCase {
         compare(manifest.context.uri, "keel://org.marathonos.notes/context");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.notes/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.notes/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

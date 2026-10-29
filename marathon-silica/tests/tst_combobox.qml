@@ -8,7 +8,8 @@ TestCase {
     name: "ComboBox"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     Component {
         id: combo
@@ -17,9 +18,15 @@ TestCase {
             label: "Theme"
             currentIndex: 0
             menu: ContextMenu {
-                MenuItem { text: "Light" }
-                MenuItem { text: "Dark" }
-                MenuItem { text: "Auto" }
+                MenuItem {
+                    text: "Light"
+                }
+                MenuItem {
+                    text: "Dark"
+                }
+                MenuItem {
+                    text: "Auto"
+                }
             }
         }
     }
@@ -28,20 +35,30 @@ TestCase {
         id: comboAtBottom
         SilicaFlickable {
             property alias combo: bottomCombo
-            width: 540; height: 960
+            width: 540
+            height: 960
             contentHeight: column.height
             Column {
                 id: column
                 width: parent.width
-                Item { width: 1; height: 900 }
+                Item {
+                    width: 1
+                    height: 900
+                }
                 ComboBox {
                     id: bottomCombo
                     width: 540
                     label: "Encryption"
                     menu: ContextMenu {
-                        MenuItem { text: "SSL" }
-                        MenuItem { text: "STARTTLS" }
-                        MenuItem { text: "None" }
+                        MenuItem {
+                            text: "SSL"
+                        }
+                        MenuItem {
+                            text: "STARTTLS"
+                        }
+                        MenuItem {
+                            text: "None"
+                        }
                     }
                 }
             }
@@ -82,12 +99,16 @@ TestCase {
         const c = createTemporaryObject(combo, testCase);
         c.forceActiveFocus();
         keyClick(Qt.Key_Return);
-        tryVerify(function () { return c._controller.menuOpen; });
+        tryVerify(function () {
+            return c._controller.menuOpen;
+        });
         keyClick(Qt.Key_Down);
         keyClick(Qt.Key_Down);
         keyClick(Qt.Key_Return);
         tryCompare(c, "currentIndex", 2);
-        tryVerify(function () { return !c._controller.menuOpen; });
+        tryVerify(function () {
+            return !c._controller.menuOpen;
+        });
         verify(c.activeFocus);
     }
 
@@ -95,10 +116,14 @@ TestCase {
         const c = createTemporaryObject(combo, testCase);
         c.forceActiveFocus();
         keyClick(Qt.Key_Space);
-        tryVerify(function () { return c._controller.menuOpen; });
+        tryVerify(function () {
+            return c._controller.menuOpen;
+        });
         keyClick(Qt.Key_Down);
         keyClick(Qt.Key_Escape);
-        tryVerify(function () { return !c._controller.menuOpen; });
+        tryVerify(function () {
+            return !c._controller.menuOpen;
+        });
         compare(c.currentIndex, 0);
         verify(c.activeFocus);
     }

@@ -18,16 +18,18 @@ class SvgImageProvider : public QQuickImageProvider {
         QFile         file(QFile::exists(path) ? path : QLatin1Char(':') + path);
         if (!file.open(QIODevice::ReadOnly))
             return {};
-        const QByteArray svg = file.readAll();
-        const int        w   = requested.width() > 0 ? requested.width() : 128;
-        const int        h   = requested.height() > 0 ? requested.height() : 128;
-        const rust::Vec<uint8_t> pixels =
-            marathon::svg::render(rust::Slice<const uint8_t>(reinterpret_cast<const uint8_t *>(svg.constData()),
-                                                             static_cast<size_t>(svg.size())),
-                                  w, h);
+        const QByteArray         svg    = file.readAll();
+        const int                w      = requested.width() > 0 ? requested.width() : 128;
+        const int                h      = requested.height() > 0 ? requested.height() : 128;
+        const rust::Vec<uint8_t> pixels = marathon::svg::render(
+            rust::Slice<const uint8_t>(reinterpret_cast<const uint8_t *>(svg.constData()),
+                                       static_cast<size_t>(svg.size())),
+            w, h);
         if (pixels.empty())
             return {};
-        QImage image = QImage(pixels.data(), w, h, qsizetype(w) * 4, QImage::Format_RGBA8888_Premultiplied).copy();
+        QImage image =
+            QImage(pixels.data(), w, h, qsizetype(w) * 4, QImage::Format_RGBA8888_Premultiplied)
+                .copy();
         if (size)
             *size = image.size();
         return image;

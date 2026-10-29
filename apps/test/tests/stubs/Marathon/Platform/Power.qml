@@ -13,7 +13,16 @@ QtObject {
     property bool isCharging: true
     property bool isPowerSaveMode: false
 
-    function setPowerSaveMode(on) { log("setPowerSaveMode", on); isPowerSaveMode = on; }
-    function wake(reason) { log("wake", reason); return true; }
-    function scheduleWake(when, reason) { log("scheduleWake", when, reason); return true; }
+    function setPowerSaveMode(on) {
+        log("setPowerSaveMode", on);
+        isPowerSaveMode = on;
+    }
+    function wake(reason) {
+        log("wake", reason);
+        return true;
+    }
+    function scheduleWake(when, reason) {
+        log("scheduleWake", when, reason);
+        return true;
+    }
 }

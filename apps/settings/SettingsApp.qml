@@ -21,7 +21,9 @@ ApplicationWindow {
         if (file === "")
             return false;
         const arg = Logic.routeArgument(name);
-        const props = arg !== "" ? { focusAppId: arg } : {};
+        const props = arg !== "" ? {
+            focusAppId: arg
+        } : {};
         const main = replace ? pageStack.find(p => p.objectName === "mainPage") : null;
         // replaceAbove throws when nothing is above the main page.
         let page;

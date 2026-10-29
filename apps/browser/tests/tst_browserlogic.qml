@@ -55,8 +55,22 @@ TestCase {
     }
 
     function test_suggestions() {
-        const bookmarks = [{ url: "https://kde.org", title: "KDE" }];
-        const history = [{ url: "https://kde.org", title: "KDE" }, { url: "https://qt.io", title: "Qt docs" }];
+        const bookmarks = [
+            {
+                url: "https://kde.org",
+                title: "KDE"
+            }
+        ];
+        const history = [
+            {
+                url: "https://kde.org",
+                title: "KDE"
+            },
+            {
+                url: "https://qt.io",
+                title: "Qt docs"
+            }
+        ];
         compare(Logic.suggestions("", [], [], "Bing"), []);
         const s = Logic.suggestions("kde.org", bookmarks, history, "Bing");
         compare(s.map(e => e.kind), ["go", "search", "bookmark"]);
@@ -69,10 +83,30 @@ TestCase {
     }
 
     function test_emptyQuerySuggestsBookmarksThenRecent() {
-        const bookmarks = [{ url: "https://kde.org", title: "KDE" }];
-        const history = [{ url: "https://old.org", title: "Old", timestamp: 1 }, { url: "https://kde.org", title: "KDE", timestamp: 9 }];
+        const bookmarks = [
+            {
+                url: "https://kde.org",
+                title: "KDE"
+            }
+        ];
+        const history = [
+            {
+                url: "https://old.org",
+                title: "Old",
+                timestamp: 1
+            },
+            {
+                url: "https://kde.org",
+                title: "KDE",
+                timestamp: 9
+            }
+        ];
         for (let i = 0; i < 10; i++)
-            history.push({ url: "https://n" + i + ".org", title: "", timestamp: 10 + i });
+            history.push({
+                url: "https://n" + i + ".org",
+                title: "",
+                timestamp: 10 + i
+            });
         const s = Logic.suggestions("  ", bookmarks, history, "Bing");
         compare(s[0].kind, "bookmark");
         compare(s[0].value, "https://kde.org");
@@ -83,12 +117,24 @@ TestCase {
     function test_suggestionsCapAtEight() {
         const history = [];
         for (let i = 0; i < 20; i++)
-            history.push({ url: "https://site" + i + ".org", title: "" });
+            history.push({
+                url: "https://site" + i + ".org",
+                title: ""
+            });
         compare(Logic.suggestions("site", [], history, "X").length, 8);
     }
 
     function test_matches() {
-        const list = [{ url: "https://a.org", title: "Alpha" }, { url: "https://b.org", title: "Beta" }];
+        const list = [
+            {
+                url: "https://a.org",
+                title: "Alpha"
+            },
+            {
+                url: "https://b.org",
+                title: "Beta"
+            }
+        ];
         compare(Logic.matches(list, "").length, 2);
         compare(Logic.matches(list, "BETA")[0].url, "https://b.org");
         compare(Logic.matches(list, "a.org").length, 1);
@@ -96,7 +142,13 @@ TestCase {
 
     function test_bookmarks() {
         let b = Logic.addBookmark([], "https://a.org", "", 5);
-        compare(b, [{ url: "https://a.org", title: "https://a.org", timestamp: 5 }]);
+        compare(b, [
+            {
+                url: "https://a.org",
+                title: "https://a.org",
+                timestamp: 5
+            }
+        ]);
         verify(Logic.isBookmarked(b, "https://a.org"));
         compare(Logic.addBookmark(b, "https://a.org", "Again", 6), b);
         b = Logic.removeBookmark(b, "https://a.org");
@@ -123,7 +175,12 @@ TestCase {
     }
 
     function test_retitleAndRemoveHistory() {
-        const h = [{ url: "https://a.org", title: "a" }];
+        const h = [
+            {
+                url: "https://a.org",
+                title: "a"
+            }
+        ];
         compare(Logic.retitleHistory(h, "https://a.org", "a"), h);
         compare(Logic.retitleHistory(h, "https://a.org", ""), h);
         compare(Logic.retitleHistory(h, "https://a.org", "New")[0].title, "New");
@@ -140,14 +197,36 @@ TestCase {
     }
 
     function test_tabs() {
-        const rows = Logic.restoreTabs(JSON.stringify([{ id: 4, url: "about:blank", title: "" }, { id: 2, url: "https://a.org", title: "A" }]), "https://home");
+        const rows = Logic.restoreTabs(JSON.stringify([
+            {
+                id: 4,
+                url: "about:blank",
+                title: ""
+            },
+            {
+                id: 2,
+                url: "https://a.org",
+                title: "A"
+            }
+        ]), "https://home");
         compare(rows.length, 2);
         compare(rows[0].url, "https://home");
         compare(rows[0].title, "New tab");
         verify(!rows[0].isLoading);
         compare(Logic.nextTabId(rows), 5);
         compare(Logic.nextTabId([]), 1);
-        compare(JSON.parse(Logic.saveTabs(rows)), [{ id: 4, url: "https://home", title: "New tab" }, { id: 2, url: "https://a.org", title: "A" }]);
+        compare(JSON.parse(Logic.saveTabs(rows)), [
+            {
+                id: 4,
+                url: "https://home",
+                title: "New tab"
+            },
+            {
+                id: 2,
+                url: "https://a.org",
+                title: "A"
+            }
+        ]);
         compare(Logic.restoreTabs("nope", "x"), []);
         const fresh = Logic.tabRow(1, "https://a.org", "", true);
         verify(fresh.isLoading && fresh.isNewTab);

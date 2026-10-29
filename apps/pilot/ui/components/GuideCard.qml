@@ -17,19 +17,34 @@ Glass {
     objectName: "guideCard"
 
     signal openLesson(string step)
-    signal openCapabilities()
+    signal openCapabilities
 
     readonly property var lessons: [
-        { step: "gesture", title: qsTr("Bring Pilot up from any app"),
-          hint: qsTr("Touch and hold the glowing bar at the bottom") },
-        { step: "screen", title: qsTr("Ask about what's on screen"),
-          hint: qsTr("“Summarise this” over a page or a message") },
-        { step: "voice", title: qsTr("Talk to Pilot"),
-          hint: qsTr("Tap the orb and speak") },
-        { step: "action", title: qsTr("Let Pilot do things for you"),
-          hint: qsTr("Timers, reminders, and actions in your apps") },
-        { step: "how", title: qsTr("See how Pilot answered"),
-          hint: qsTr("Under an answer: what it looked at, and what left the phone") }
+        {
+            step: "gesture",
+            title: qsTr("Bring Pilot up from any app"),
+            hint: qsTr("Touch and hold the glowing bar at the bottom")
+        },
+        {
+            step: "screen",
+            title: qsTr("Ask about what's on screen"),
+            hint: qsTr("“Summarise this” over a page or a message")
+        },
+        {
+            step: "voice",
+            title: qsTr("Talk to Pilot"),
+            hint: qsTr("Tap the orb and speak")
+        },
+        {
+            step: "action",
+            title: qsTr("Let Pilot do things for you"),
+            hint: qsTr("Timers, reminders, and actions in your apps")
+        },
+        {
+            step: "how",
+            title: qsTr("See how Pilot answered"),
+            hint: qsTr("Under an answer: what it looked at, and what left the phone")
+        }
     ]
 
     accent: true
@@ -49,7 +64,10 @@ Glass {
         IconButton {
             id: hide
             objectName: "guideHide"
-            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+            anchors {
+                right: parent.right
+                verticalCenter: parent.verticalCenter
+            }
             width: Theme.itemSizeSmall
             height: Theme.itemSizeSmall
             icon.source: "image://theme/icon-m-clear"
@@ -94,7 +112,13 @@ Glass {
                 id: texts
                 // Clear of the arrow by the same gap as the tick, however
                 // the lines wrap.
-                anchors { left: mark.right; leftMargin: Theme.paddingMedium; right: arrow.left; rightMargin: Theme.paddingMedium; verticalCenter: parent.verticalCenter }
+                anchors {
+                    left: mark.right
+                    leftMargin: Theme.paddingMedium
+                    right: arrow.left
+                    rightMargin: Theme.paddingMedium
+                    verticalCenter: parent.verticalCenter
+                }
                 Label {
                     width: parent.width
                     wrapMode: Text.Wrap
@@ -112,7 +136,10 @@ Glass {
             }
             Icon {
                 id: arrow
-                anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                anchors {
+                    right: parent.right
+                    verticalCenter: parent.verticalCenter
+                }
                 source: "image://theme/icon-m-right"
                 color: Theme.highlightColor
             }

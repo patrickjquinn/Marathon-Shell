@@ -41,14 +41,34 @@ TestCase {
         Permissions.reset();
         Navigation.reset();
         Contacts.contacts = [
-            { id: 1, name: "Ada Lovelace", phone: "+44 20 7946 0001", email: "ada@example.com", favorite: false },
-            { id: 2, name: "Alan Turing", phone: "555 0101", email: "", favorite: true },
-            { id: 3, name: "Grace Hopper", phone: "+1 555 123 4567", email: "", favorite: false }
+            {
+                id: 1,
+                name: "Ada Lovelace",
+                phone: "+44 20 7946 0001",
+                email: "ada@example.com",
+                favorite: false
+            },
+            {
+                id: 2,
+                name: "Alan Turing",
+                phone: "555 0101",
+                email: "",
+                favorite: true
+            },
+            {
+                id: 3,
+                name: "Grace Hopper",
+                phone: "+1 555 123 4567",
+                email: "",
+                favorite: false
+            }
         ];
     }
 
     function makeApp() {
-        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        const app = createTemporaryObject(appComponent, testCase, {
+            callLogSeen: seenStub
+        });
         tryVerify(() => app.pageStack.currentPage !== null);
         return app;
     }
@@ -130,7 +150,10 @@ TestCase {
 
     function test_contactPageFavoriteAndDelete() {
         const app = makeApp();
-        app.pageStack.push(Qt.resolvedUrl("../pages/ContactPage.qml"), { phone: app, contactId: 3 });
+        app.pageStack.push(Qt.resolvedUrl("../pages/ContactPage.qml"), {
+            phone: app,
+            contactId: 3
+        });
         waitIdle(app);
         const page = app.pageStack.currentPage;
         const star = findChild(page, "favoriteButton");
@@ -146,7 +169,9 @@ TestCase {
 
     function test_newContactDialogAdds() {
         const app = makeApp();
-        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), { contact: null });
+        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), {
+            contact: null
+        });
         waitIdle(app);
         const dialog = app.pageStack.currentPage;
         verify(!dialog.canAccept);
@@ -167,7 +192,9 @@ TestCase {
 
     function test_editContactDialogUpdates() {
         const app = makeApp();
-        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), { contact: Contacts.contacts[0] });
+        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), {
+            contact: Contacts.contacts[0]
+        });
         waitIdle(app);
         const dialog = app.pageStack.currentPage;
         compare(findChild(dialog, "nameField").text, "Ada Lovelace");
@@ -179,7 +206,9 @@ TestCase {
 
     function test_rejectedDialogDiscards() {
         const app = makeApp();
-        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), { contact: Contacts.contacts[0] });
+        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), {
+            contact: Contacts.contacts[0]
+        });
         waitIdle(app);
         const dialog = app.pageStack.currentPage;
         findChild(dialog, "nameField").text = "Changed";

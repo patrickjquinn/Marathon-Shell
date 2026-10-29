@@ -9,9 +9,17 @@ Page {
 
     // "ringtone", "notification" or "alarm".
     property string soundType: "ringtone"
-    readonly property string key: ({ ringtone: "ringtone", notification: "notificationSound", alarm: "alarmSound" })[soundType]
+    readonly property string key: ({
+            ringtone: "ringtone",
+            notification: "notificationSound",
+            alarm: "alarmSound"
+        })[soundType]
     readonly property string current: Settings[key]
-    readonly property string title: ({ ringtone: qsTr("Ringtone"), notification: qsTr("Notification sound"), alarm: qsTr("Alarm sound") })[soundType]
+    readonly property string title: ({
+            ringtone: qsTr("Ringtone"),
+            notification: qsTr("Notification sound"),
+            alarm: qsTr("Alarm sound")
+        })[soundType]
 
     function choose(path) {
         Settings[key] = path;

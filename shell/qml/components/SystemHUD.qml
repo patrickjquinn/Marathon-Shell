@@ -83,7 +83,10 @@ Item {
                     color: Silica.Theme.highlightColor
 
                     Behavior on width {
-                        NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
+                        NumberAnimation {
+                            duration: MMotion.quick
+                            easing.type: Easing.OutCubic
+                        }
                     }
                 }
             }

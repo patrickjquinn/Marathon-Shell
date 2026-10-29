@@ -19,8 +19,7 @@ class ScreenshotServiceCpp : public QObject {
 
   public:
     explicit ScreenshotServiceCpp(marathon::Audio *audioPolicy, Haptics *haptics,
-                                  Notifications *notificationService,
-                                  QObject                *parent = nullptr);
+                                  Notifications *notificationService, QObject *parent = nullptr);
 
     QString screenshotsPath() const {
         return m_screenshotsPath;
@@ -47,18 +46,18 @@ class ScreenshotServiceCpp : public QObject {
     void screenshotFailed(const QString &error);
 
   private:
-    QString                 resolveScreenshotsPath() const;
-    QString                 buildScreenshotPath() const;
-    void                    handleSavedScreenshot(const QString &filePath);
-    void                    notifyFailure(const QString &message);
-    bool                    secureContentShown() const;
+    QString          resolveScreenshotsPath() const;
+    QString          buildScreenshotPath() const;
+    void             handleSavedScreenshot(const QString &filePath);
+    void             notifyFailure(const QString &message);
+    bool             secureContentShown() const;
 
-    marathon::Audio  *m_audioPolicy         = nullptr;
-    Haptics                *m_haptics             = nullptr;
-    Notifications *m_notificationService = nullptr;
-    QObject                *m_shellWindow         = nullptr;
-    QObject                *m_compositor          = nullptr;
-    QString                 m_screenshotsPath;
+    marathon::Audio *m_audioPolicy         = nullptr;
+    Haptics         *m_haptics             = nullptr;
+    Notifications   *m_notificationService = nullptr;
+    QObject         *m_shellWindow         = nullptr;
+    QObject         *m_compositor          = nullptr;
+    QString          m_screenshotsPath;
 };
 
 #endif

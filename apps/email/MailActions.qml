@@ -22,19 +22,59 @@ Item {
         idempotent: true
         untrusted: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "id"; type: "string"; maxLength: 32; required: true }
-            KeelParam { name: "from"; type: "string"; maxLength: 512; required: true }
-            KeelParam { name: "subject"; type: "string"; maxLength: 1000; required: true }
-            KeelParam { name: "preview"; type: "string"; maxLength: 1000; required: true }
-            KeelParam { name: "received"; type: "string"; maxLength: 64; required: true }
-            KeelParam { name: "unread"; type: "boolean"; required: true }
+            KeelParam {
+                name: "id"
+                type: "string"
+                maxLength: 32
+                required: true
+            }
+            KeelParam {
+                name: "from"
+                type: "string"
+                maxLength: 512
+                required: true
+            }
+            KeelParam {
+                name: "subject"
+                type: "string"
+                maxLength: 1000
+                required: true
+            }
+            KeelParam {
+                name: "preview"
+                type: "string"
+                maxLength: 1000
+                required: true
+            }
+            KeelParam {
+                name: "received"
+                type: "string"
+                maxLength: 64
+                required: true
+            }
+            KeelParam {
+                name: "unread"
+                type: "boolean"
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             if (!root.app.hasAccount) {
@@ -67,15 +107,48 @@ Item {
         idempotent: true
         untrusted: true
         parameters: [
-            KeelParam { name: "id"; type: "string"; required: true; maxLength: 32; pattern: "^[0-9]+$" }
+            KeelParam {
+                name: "id"
+                type: "string"
+                required: true
+                maxLength: 32
+                pattern: "^[0-9]+$"
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "from"; type: "string"; maxLength: 512; required: true }
-            KeelParam { name: "to"; type: "array"; itemType: "string"; maxItems: 100; maxLength: 512; required: true }
-            KeelParam { name: "subject"; type: "string"; maxLength: 1000; required: true }
-            KeelParam { name: "date"; type: "string"; format: "date-time"; maxLength: 32 }
-            KeelParam { name: "body"; type: "string"; maxLength: 20000; required: true }
+            KeelParam {
+                name: "from"
+                type: "string"
+                maxLength: 512
+                required: true
+            }
+            KeelParam {
+                name: "to"
+                type: "array"
+                itemType: "string"
+                maxItems: 100
+                maxLength: 512
+                required: true
+            }
+            KeelParam {
+                name: "subject"
+                type: "string"
+                maxLength: 1000
+                required: true
+            }
+            KeelParam {
+                name: "date"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+            }
+            KeelParam {
+                name: "body"
+                type: "string"
+                maxLength: 20000
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const msg = root.app.mail.openMessage(args.id);
@@ -103,10 +176,28 @@ Item {
         description: "Open a new email in Marathon Mail with the recipients, subject and text filled in, for the person to check and send."
         notDestructiveBecause: "it only opens a draft; nothing leaves the phone until the person sends it"
         parameters: [
-            KeelParam { name: "to"; type: "string"; maxLength: 2000; description: "Recipients' addresses, separated by commas" },
-            KeelParam { name: "cc"; type: "string"; maxLength: 2000; description: "Addresses to copy, separated by commas" },
-            KeelParam { name: "subject"; type: "string"; maxLength: 1000 },
-            KeelParam { name: "body"; type: "string"; maxLength: 100000 }
+            KeelParam {
+                name: "to"
+                type: "string"
+                maxLength: 2000
+                description: "Recipients' addresses, separated by commas"
+            },
+            KeelParam {
+                name: "cc"
+                type: "string"
+                maxLength: 2000
+                description: "Addresses to copy, separated by commas"
+            },
+            KeelParam {
+                name: "subject"
+                type: "string"
+                maxLength: 1000
+            },
+            KeelParam {
+                name: "body"
+                type: "string"
+                maxLength: 100000
+            }
         ]
         onInvoked: (args, call) => {
             root.app.activate();

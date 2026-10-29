@@ -144,8 +144,16 @@ TestCase {
     function test_citiesPersist() {
         const app = makeApp();
         compare(app.cities.map(c => c.name), ["New York", "London", "Tokyo", "Sydney"]);
-        app.addCity({ name: "Rome", tz: "Europe/Rome", offset: 1 });
-        app.addCity({ name: "Rome", tz: "Europe/Rome", offset: 1 });
+        app.addCity({
+            name: "Rome",
+            tz: "Europe/Rome",
+            offset: 1
+        });
+        app.addCity({
+            name: "Rome",
+            tz: "Europe/Rome",
+            offset: 1
+        });
         compare(app.cities.length, 5);
         app.moveCity(4, 0);
         app.removeCity("London");
@@ -155,7 +163,9 @@ TestCase {
 
     function test_addCityPage() {
         const app = makeApp();
-        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), { app: app }, PageStackAction.Immediate);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         let list = null;
         tryVerify(() => (list = findChild(page, "addCityList")) !== null);
         const all = list.count;
@@ -174,7 +184,9 @@ TestCase {
 
     function test_addCitySearchTakesKeys() {
         const app = makeApp();
-        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), { app: app }, PageStackAction.Immediate);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         let field = null;
         tryVerify(() => (field = findChild(page, "citySearch")) !== null && field.visible);
         mouseClick(field);
@@ -186,7 +198,9 @@ TestCase {
 
     function test_addCitySearchTakesKeysAtOnce() {
         const app = makeApp();
-        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), { app: app }, PageStackAction.Immediate);
+        const page = app.pageStack.push(Qt.resolvedUrl("../pages/AddCityPage.qml"), {
+            app: app
+        }, PageStackAction.Immediate);
         tryCompare(page, "status", PageStatus.Active);
         keyClick(Qt.Key_R);
         compare(page.query, "r");
@@ -194,8 +208,14 @@ TestCase {
 
     function test_cityTime() {
         const app = makeApp();
-        compare(app.cityTime({ name: "London", tz: "Europe/London" }, new Date()).diff, "Local");
-        const legacy = app.cityTime({ name: "Atlantis", offset: -3 }, new Date(Date.UTC(2026, 0, 1, 12, 0)));
+        compare(app.cityTime({
+            name: "London",
+            tz: "Europe/London"
+        }, new Date()).diff, "Local");
+        const legacy = app.cityTime({
+            name: "Atlantis",
+            offset: -3
+        }, new Date(Date.UTC(2026, 0, 1, 12, 0)));
         compare(legacy.time, Format.formatDate(new Date(2026, 0, 1, 9, 0), Formatter.TimeValue));
         compare(legacy.diff, "-3h");
     }
@@ -260,7 +280,11 @@ TestCase {
 
     function test_timerThatEndedWhileClosedIsReported() {
         clearNotices();
-        Settings.set("clock/timer", JSON.stringify({ endsAt: Date.now() - 60000, total: 300, remaining: 0 }));
+        Settings.set("clock/timer", JSON.stringify({
+            endsAt: Date.now() - 60000,
+            total: 300,
+            remaining: 0
+        }));
         const app = makeApp();
         verify(!app.countdown.running);
         compare(app.countdown.remaining, 0);
@@ -323,7 +347,10 @@ TestCase {
 
     function test_zeroTimerCannotBeSet() {
         const app = makeApp();
-        const dialog = app.pageStack.push(Qt.resolvedUrl("../pages/TimerDialog.qml"), { app: app, seconds: 0 }, PageStackAction.Immediate);
+        const dialog = app.pageStack.push(Qt.resolvedUrl("../pages/TimerDialog.qml"), {
+            app: app,
+            seconds: 0
+        }, PageStackAction.Immediate);
         verify(!dialog.canAccept);
         dialog.second = 5;
         verify(dialog.canAccept);

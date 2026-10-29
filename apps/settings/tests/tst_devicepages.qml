@@ -41,7 +41,10 @@ TestCase {
         verify(app.openPage(name, PageStackAction.Immediate));
         const page = app.pageStack.currentPage;
         tryCompare(page, "status", PageStatus.Active);
-        return { app: app, page: page };
+        return {
+            app: app,
+            page: page
+        };
     }
 
     function child(parent, name) {
@@ -166,7 +169,12 @@ TestCase {
         verify(!Settings.vibrationEnabled);
         verify(!vibration.checked);
 
-        Audio.streams.append({ streamId: 7, appName: "Music", volume: 0.5, muted: false });
+        Audio.streams.append({
+            streamId: 7,
+            appName: "Music",
+            volume: 0.5,
+            muted: false
+        });
         const mute = child(s.page, "muteButton");
         mute.clicked(null);
         verify(Audio.streams.get(0).muted);

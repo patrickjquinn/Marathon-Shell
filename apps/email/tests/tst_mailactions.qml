@@ -36,41 +36,90 @@ TestCase {
         MailService.reset();
         MailService.setAccount("Work");
         MailService.addMessage(12, "Ann <ann@example.org>", "Ferry times", true);
-        MailService.addMessage(11, "Bob <bob@example.org>", "Invoice", false, { timestamp: "Yesterday" });
+        MailService.addMessage(11, "Bob <bob@example.org>", "Invoice", false, {
+            timestamp: "Yesterday"
+        });
         app.hasAccount = true;
         app.composed = [];
         app.activations = 0;
     }
 
     function test_search() {
-        let call = KeelActions.invoke("mail.search", { query: "" });
+        let call = KeelActions.invoke("mail.search", {
+            query: ""
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result, [
-            { id: "12", from: "Ann <ann@example.org>", subject: "Ferry times", preview: "Preview of Ferry times", received: "09:30", unread: true },
-            { id: "11", from: "Bob <bob@example.org>", subject: "Invoice", preview: "Preview of Invoice", received: "Yesterday", unread: false }
+            {
+                id: "12",
+                from: "Ann <ann@example.org>",
+                subject: "Ferry times",
+                preview: "Preview of Ferry times",
+                received: "09:30",
+                unread: true
+            },
+            {
+                id: "11",
+                from: "Bob <bob@example.org>",
+                subject: "Invoice",
+                preview: "Preview of Invoice",
+                received: "Yesterday",
+                unread: false
+            }
         ]);
-        call = KeelActions.invoke("mail.search", { query: "BOB" });
+        call = KeelActions.invoke("mail.search", {
+            query: "BOB"
+        });
         compare(call.result.result.map(m => m.id), ["11"]);
-        call = KeelActions.invoke("mail.search", { query: "", limit: 1 });
+        call = KeelActions.invoke("mail.search", {
+            query: "",
+            limit: 1
+        });
         compare(call.result.result.map(m => m.id), ["12"]);
     }
 
     function test_searchNeedsAccount() {
         app.hasAccount = false;
-        compare(KeelActions.invoke("mail.search", { query: "" }).errorCode, "NotAvailable");
+        compare(KeelActions.invoke("mail.search", {
+            query: ""
+        }).errorCode, "NotAvailable");
     }
 
     function test_read() {
-        MailService.bodies = { "12": { from: "Ann <ann@example.org>", to: ["me@example.org"], subject: "Ferry times", date: new Date(Date.UTC(2026, 9, 18, 9, 30)), bodyPlain: "The 9:30 is cancelled." } };
-        const call = KeelActions.invoke("mail.read", { id: "12" });
+        MailService.bodies = {
+            "12": {
+                from: "Ann <ann@example.org>",
+                to: ["me@example.org"],
+                subject: "Ferry times",
+                date: new Date(Date.UTC(2026, 9, 18, 9, 30)),
+                bodyPlain: "The 9:30 is cancelled."
+            }
+        };
+        const call = KeelActions.invoke("mail.read", {
+            id: "12"
+        });
         verify(call.succeeded, call.errorMessage);
-        compare(call.result, { from: "Ann <ann@example.org>", to: ["me@example.org"], subject: "Ferry times", body: "The 9:30 is cancelled.", date: "2026-10-18T09:30:00.000Z" });
+        compare(call.result, {
+            from: "Ann <ann@example.org>",
+            to: ["me@example.org"],
+            subject: "Ferry times",
+            body: "The 9:30 is cancelled.",
+            date: "2026-10-18T09:30:00.000Z"
+        });
         compare(MailService.called("markAsRead").length, 0);
     }
 
     function test_readHtmlOnly() {
-        MailService.bodies = { "12": { from: "Ann", subject: "Hi", bodyHtml: "<html><style>p { color: red }</style><p>Hello <b>there</b></p></html>" } };
-        const call = KeelActions.invoke("mail.read", { id: "12" });
+        MailService.bodies = {
+            "12": {
+                from: "Ann",
+                subject: "Hi",
+                bodyHtml: "<html><style>p { color: red }</style><p>Hello <b>there</b></p></html>"
+            }
+        };
+        const call = KeelActions.invoke("mail.read", {
+            id: "12"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.body, "Hello there");
         compare(call.result.to, []);
@@ -78,14 +127,29 @@ TestCase {
     }
 
     function test_readUnknown() {
-        compare(KeelActions.invoke("mail.read", { id: "99" }).errorCode, "Failed");
-        compare(KeelActions.invoke("mail.read", { id: "abc" }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("mail.read", {
+            id: "99"
+        }).errorCode, "Failed");
+        compare(KeelActions.invoke("mail.read", {
+            id: "abc"
+        }).errorCode, "InvalidArguments");
     }
 
     function test_compose() {
-        const call = KeelActions.invoke("mail.compose", { to: "ann@example.org", subject: "Ferry", body: "See you at 10" });
+        const call = KeelActions.invoke("mail.compose", {
+            to: "ann@example.org",
+            subject: "Ferry",
+            body: "See you at 10"
+        });
         verify(call.succeeded, call.errorMessage);
-        compare(app.composed, [{ defaultTo: "ann@example.org", defaultCc: "", defaultSubject: "Ferry", defaultBody: "See you at 10" }]);
+        compare(app.composed, [
+            {
+                defaultTo: "ann@example.org",
+                defaultCc: "",
+                defaultSubject: "Ferry",
+                defaultBody: "See you at 10"
+            }
+        ]);
         compare(app.activations, 1);
         compare(MailService.called("send").length, 0);
     }
@@ -100,7 +164,9 @@ TestCase {
         compare(manifest.appId, "org.marathonos.email");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.email/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.email/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

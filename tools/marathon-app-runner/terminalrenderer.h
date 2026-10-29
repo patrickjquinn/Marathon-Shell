@@ -6,7 +6,7 @@
 #include <QQuickPaintedItem>
 
 namespace marathon::terminal {
-class TerminalEngine;
+    class TerminalEngine;
 }
 
 class TerminalRenderer : public QQuickPaintedItem {
@@ -21,7 +21,8 @@ class TerminalRenderer : public QQuickPaintedItem {
                    backgroundColorChanged)
     Q_PROPERTY(QColor selectionColor READ selectionColor WRITE setSelectionColor NOTIFY
                    selectionColorChanged)
-    Q_PROPERTY(qreal scrollOffset READ scrollOffset WRITE setScrollOffset NOTIFY scrollOffsetChanged)
+    Q_PROPERTY(
+        qreal scrollOffset READ scrollOffset WRITE setScrollOffset NOTIFY scrollOffsetChanged)
     Q_PROPERTY(int historyLines READ historyLines NOTIFY historyLinesChanged)
 
   public:
@@ -32,35 +33,35 @@ class TerminalRenderer : public QQuickPaintedItem {
     Q_INVOKABLE QString selectedText() const;
     Q_INVOKABLE QPoint  positionToGrid(qreal x, qreal y) const;
 
-    QObject *terminal() const;
-    void     setTerminal(QObject *terminal);
+    QObject            *terminal() const;
+    void                setTerminal(QObject *terminal);
 
-    QFont font() const {
+    QFont               font() const {
         return m_font;
     }
-    void setFont(const QFont &font);
+    void   setFont(const QFont &font);
 
     QColor textColor() const {
         return m_textColor;
     }
-    void setTextColor(const QColor &color);
+    void   setTextColor(const QColor &color);
 
     QColor backgroundColor() const {
         return m_backgroundColor;
     }
-    void setBackgroundColor(const QColor &color);
+    void   setBackgroundColor(const QColor &color);
 
     QColor selectionColor() const {
         return m_selectionColor;
     }
-    void setSelectionColor(const QColor &color);
+    void  setSelectionColor(const QColor &color);
 
     qreal scrollOffset() const {
         return m_scrollOffset;
     }
     void setScrollOffset(qreal offset);
 
-    int historyLines() const {
+    int  historyLines() const {
         return m_historyLines;
     }
 
@@ -91,7 +92,7 @@ class TerminalRenderer : public QQuickPaintedItem {
     void onScreenChanged();
 
   private:
-    void updateCharSize();
+    void                                updateCharSize();
 
     marathon::terminal::TerminalEngine *m_terminal = nullptr;
     QFont                               m_font;

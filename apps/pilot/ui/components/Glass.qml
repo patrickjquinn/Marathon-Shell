@@ -25,11 +25,9 @@ Item {
         width: parent.width - 2 * Theme.horizontalPageMargin
         height: parent.height
         radius: Theme.paddingLarge
-        color: glass.accent ? Theme.rgba(Theme.highlightBackgroundColor, 0.16)
-                            : Theme.rgba(Theme.primaryColor, 0.06)
+        color: glass.accent ? Theme.rgba(Theme.highlightBackgroundColor, 0.16) : Theme.rgba(Theme.primaryColor, 0.06)
         border.width: 1
-        border.color: glass.accent ? Theme.rgba(Theme.highlightColor, 0.28)
-                                   : Theme.rgba(Theme.primaryColor, 0.10)
+        border.color: glass.accent ? Theme.rgba(Theme.highlightColor, 0.28) : Theme.rgba(Theme.primaryColor, 0.10)
     }
 
     Column {

@@ -51,7 +51,11 @@ ApplicationWindow {
 
     Connections {
         target: MediaLibrary
-        function onScanComplete() { root.refresh(); }
-        function onLibraryChanged() { root.refresh(); }
+        function onScanComplete() {
+            root.refresh();
+        }
+        function onLibraryChanged() {
+            root.refresh();
+        }
     }
 }

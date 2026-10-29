@@ -31,9 +31,22 @@ TestCase {
     }
 
     function conversationWith(messages) {
-        Sms.reset([{ id: "a", contactName: "Alice", contactNumber: "+15551234567", lastMessage: "", lastTimestamp: now, unreadCount: 0 }], { a: messages });
+        Sms.reset([
+            {
+                id: "a",
+                contactName: "Alice",
+                contactNumber: "+15551234567",
+                lastMessage: "",
+                lastTimestamp: now,
+                unreadCount: 0
+            }
+        ], {
+            a: messages
+        });
         Telephony.hasModem = true;
-        const app = createTemporaryObject(appComponent, test, { store: storeStub.createObject(test) });
+        const app = createTemporaryObject(appComponent, test, {
+            store: storeStub.createObject(test)
+        });
         tryVerify(() => app.pageStack.currentPage && !app.pageStack.busy);
         app.openConversation(Sms.conversations[0]);
         tryVerify(() => app.pageStack.currentPage.hasOwnProperty("conversation") && !app.pageStack.busy);
@@ -42,7 +55,13 @@ TestCase {
 
     function test_aPictureGoesAsMms() {
         const page = conversationWith([]);
-        page.attachments = [{ contentType: "image/jpeg", filePath: "/home/u/Pictures/a.jpg", name: "a.jpg" }];
+        page.attachments = [
+            {
+                contentType: "image/jpeg",
+                filePath: "/home/u/Pictures/a.jpg",
+                name: "a.jpg"
+            }
+        ];
         verify(findChild(page, "composerAttachment-a.jpg").visible);
         findChild(page, "messageField").text = "Look";
         verify(page.canSend);
@@ -58,7 +77,18 @@ TestCase {
 
     function test_aPictureCanBeTakenOff() {
         const page = conversationWith([]);
-        page.attachments = [{ contentType: "image/jpeg", filePath: "/p/a.jpg", name: "a.jpg" }, { contentType: "image/png", filePath: "/p/b.png", name: "b.png" }];
+        page.attachments = [
+            {
+                contentType: "image/jpeg",
+                filePath: "/p/a.jpg",
+                name: "a.jpg"
+            },
+            {
+                contentType: "image/png",
+                filePath: "/p/b.png",
+                name: "b.png"
+            }
+        ];
         tryVerify(() => findChild(page, "composerAttachments").height > 0);
         const remove = findChild(findChild(page, "composerAttachment-a.jpg"), "removeAttachment");
         mouseClick(remove);
@@ -77,7 +107,22 @@ TestCase {
 
     function test_aFailedMessageSaysSoAndRetries() {
         const page = conversationWith([
-            { id: 9, text: "Here", timestamp: now - 1000, isOutgoing: true, sender: "me", status: "failed", attachments: [{ id: 3, contentType: "image/jpeg", name: "a.jpg", size: 10 }] }
+            {
+                id: 9,
+                text: "Here",
+                timestamp: now - 1000,
+                isOutgoing: true,
+                sender: "me",
+                status: "failed",
+                attachments: [
+                    {
+                        id: 3,
+                        contentType: "image/jpeg",
+                        name: "a.jpg",
+                        size: 10
+                    }
+                ]
+            }
         ]);
         const bubble = findChild(page, "bubbleStatus");
         tryVerify(() => bubble && bubble.visible);
@@ -90,7 +135,15 @@ TestCase {
 
     function test_aSendingMessageSaysSo() {
         const page = conversationWith([
-            { id: 9, text: "Here", timestamp: now - 1000, isOutgoing: true, sender: "me", status: "sending", attachments: [] }
+            {
+                id: 9,
+                text: "Here",
+                timestamp: now - 1000,
+                isOutgoing: true,
+                sender: "me",
+                status: "sending",
+                attachments: []
+            }
         ]);
         tryVerify(() => findChild(page, "bubbleStatus") && findChild(page, "bubbleStatus").visible);
         verify(findChild(page, "bubbleStatus").text.indexOf("Sending") >= 0);
@@ -98,7 +151,22 @@ TestCase {
 
     function test_aReceivedPictureShows() {
         const page = conversationWith([
-            { id: 9, text: "", timestamp: now - 1000, isOutgoing: false, sender: "+15551234567", status: "received", attachments: [{ id: 4, contentType: "image/png", name: "b.png", size: 10 }] }
+            {
+                id: 9,
+                text: "",
+                timestamp: now - 1000,
+                isOutgoing: false,
+                sender: "+15551234567",
+                status: "received",
+                attachments: [
+                    {
+                        id: 4,
+                        contentType: "image/png",
+                        name: "b.png",
+                        size: 10
+                    }
+                ]
+            }
         ]);
         let picture = null;
         tryVerify(() => (picture = findChild(page, "bubblePicture-b.png")) !== null && picture.visible);
@@ -110,10 +178,23 @@ TestCase {
     function test_aSharedPictureStartsAnMms() {
         Sms.reset([], {});
         Telephony.hasModem = true;
-        Contacts.contacts = [{ name: "Bob Smith", phone: "+15559876543" }];
-        const app = createTemporaryObject(appComponent, test, { store: storeStub.createObject(test) });
+        Contacts.contacts = [
+            {
+                name: "Bob Smith",
+                phone: "+15559876543"
+            }
+        ];
+        const app = createTemporaryObject(appComponent, test, {
+            store: storeStub.createObject(test)
+        });
         tryVerify(() => app.pageStack.currentPage && !app.pageStack.busy);
-        app.receiveShare([{ name: "beach.JPG", data: "", filePath: "/c/sailfish-share_1/beach.JPG" }]);
+        app.receiveShare([
+            {
+                name: "beach.JPG",
+                data: "",
+                filePath: "/c/sailfish-share_1/beach.JPG"
+            }
+        ]);
         tryVerify(() => app.pageStack.currentPage.hasOwnProperty("matches") && !app.pageStack.busy);
         mouseClick(findChild(app.pageStack.currentPage, "contact-+15559876543"));
         tryVerify(() => app.pageStack.currentPage.hasOwnProperty("conversation") && !app.pageStack.busy);

@@ -9,7 +9,10 @@ Page {
         anchors.fill: parent
         model: 0
         PullDownMenu {
-            MenuItem { text: "New"; onClicked: log.push("new") }
+            MenuItem {
+                text: "New"
+                onClicked: log.push("new")
+            }
         }
     }
 }

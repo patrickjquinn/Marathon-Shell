@@ -22,14 +22,27 @@ S.Slider {
         const page = (root.maximumValue - root.minimumValue) / 10;
         switch (event.key) {
         case Qt.Key_Right:
-        case Qt.Key_Up: root._moveTo(root.value + root._keyStep); break;
+        case Qt.Key_Up:
+            root._moveTo(root.value + root._keyStep);
+            break;
         case Qt.Key_Left:
-        case Qt.Key_Down: root._moveTo(root.value - root._keyStep); break;
-        case Qt.Key_PageUp: root._moveTo(root.value + page); break;
-        case Qt.Key_PageDown: root._moveTo(root.value - page); break;
-        case Qt.Key_Home: root._moveTo(root.minimumValue); break;
-        case Qt.Key_End: root._moveTo(root.maximumValue); break;
-        default: return;
+        case Qt.Key_Down:
+            root._moveTo(root.value - root._keyStep);
+            break;
+        case Qt.Key_PageUp:
+            root._moveTo(root.value + page);
+            break;
+        case Qt.Key_PageDown:
+            root._moveTo(root.value - page);
+            break;
+        case Qt.Key_Home:
+            root._moveTo(root.minimumValue);
+            break;
+        case Qt.Key_End:
+            root._moveTo(root.maximumValue);
+            break;
+        default:
+            return;
         }
         event.accepted = true;
     }

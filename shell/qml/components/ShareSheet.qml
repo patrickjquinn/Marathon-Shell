@@ -28,7 +28,9 @@ Item {
     // Android's targets, when deckardd has answered.
     function addTargets(more) {
         if (request)
-            request = Object.assign({}, request, { "targets": targets.concat(more) });
+            request = Object.assign({}, request, {
+                "targets": targets.concat(more)
+            });
     }
 
     function close(cancelled) {

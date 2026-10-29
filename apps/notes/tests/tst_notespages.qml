@@ -9,7 +9,8 @@ TestCase {
     name: "NotesPages"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
     Component {
         id: valueStub
@@ -19,17 +20,34 @@ TestCase {
     }
     Component {
         id: appComponent
-        NotesApp { width: 540; height: 1140 }
+        NotesApp {
+            width: 540
+            height: 1140
+        }
     }
 
     function note(id, extra) {
-        return Object.assign({ id: id, title: "Note " + id, content: "", timestamp: id * 1000 }, extra || {});
+        return Object.assign({
+            id: id,
+            title: "Note " + id,
+            content: "",
+            timestamp: id * 1000
+        }, extra || {});
     }
 
     function makeApp(notes, route) {
-        const store = createTemporaryObject(valueStub, testCase, { value: JSON.stringify(notes || []) });
-        const flag = createTemporaryObject(valueStub, testCase, { value: true });
-        const app = createTemporaryObject(appComponent, testCase, { store: store, imported: flag, legacySettings: null, route: route || "" });
+        const store = createTemporaryObject(valueStub, testCase, {
+            value: JSON.stringify(notes || [])
+        });
+        const flag = createTemporaryObject(valueStub, testCase, {
+            value: true
+        });
+        const app = createTemporaryObject(appComponent, testCase, {
+            store: store,
+            imported: flag,
+            legacySettings: null,
+            route: route || ""
+        });
         tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.busy === false);
         return app;
     }
@@ -91,7 +109,9 @@ TestCase {
     }
 
     function test_listPinnedFirstThenNewest() {
-        const app = makeApp([note(1), note(3), note(2, { pinned: true })]);
+        const app = makeApp([note(1), note(3), note(2, {
+                pinned: true
+            })]);
         compare(app.pageStack.currentPage.shown.map(n => n.id), [2, 3, 1]);
         compare(view(app, "notesView").count, 3);
     }
@@ -104,7 +124,12 @@ TestCase {
     }
 
     function test_searchFilters() {
-        const app = makeApp([note(1, { title: "Groceries", content: "milk" }), note(2, { title: "Ideas" })]);
+        const app = makeApp([note(1, {
+                title: "Groceries",
+                content: "milk"
+            }), note(2, {
+                title: "Ideas"
+            })]);
         const field = findChild(view(app, "notesView").headerItem, "searchField");
         field.text = "MILK";
         compare(app.pageStack.currentPage.shown.map(n => n.id), [1]);
@@ -115,7 +140,12 @@ TestCase {
     }
 
     function test_searchTakesKeys() {
-        const app = makeApp([note(1, { title: "Groceries", content: "milk" }), note(2, { title: "Ideas" })]);
+        const app = makeApp([note(1, {
+                title: "Groceries",
+                content: "milk"
+            }), note(2, {
+                title: "Ideas"
+            })]);
         const field = findChild(view(app, "notesView").headerItem, "searchField");
         mouseClick(field);
         keyClick(Qt.Key_M);
@@ -157,7 +187,11 @@ TestCase {
     }
 
     function test_foldersFromTagsAndHashtags() {
-        const app = makeApp([note(1, { tag: "work" }), note(2, { content: "see #home" }), note(3)], "/folders");
+        const app = makeApp([note(1, {
+                tag: "work"
+            }), note(2, {
+                content: "see #home"
+            }), note(3)], "/folders");
         const folders = pushed(app, 2);
         const v = findChild(folders, "foldersView");
         compare(v.count, 3);
@@ -168,7 +202,9 @@ TestCase {
     }
 
     function test_tasksToggle() {
-        const app = makeApp([note(4, { content: "list\n- [ ] milk" })], "/tasks");
+        const app = makeApp([note(4, {
+                content: "list\n- [ ] milk"
+            })], "/tasks");
         const tasks = pushed(app, 2);
         const sw = findChild(delegateAt(findChild(tasks, "tasksView"), 0), "taskSwitch");
         verify(!sw.checked);
@@ -178,7 +214,9 @@ TestCase {
     }
 
     function test_taskRowTapToggles() {
-        const app = makeApp([note(4, { content: "list\n- [ ] milk" })], "/tasks");
+        const app = makeApp([note(4, {
+                content: "list\n- [ ] milk"
+            })], "/tasks");
         const tasks = pushed(app, 2);
         mouseClick(delegateAt(findChild(tasks, "tasksView"), 0), 400, 20);
         tryVerify(() => app.notes[0].content === "list\n- [x] milk");
@@ -186,7 +224,9 @@ TestCase {
     }
 
     function test_taskMenuOpensNote() {
-        const app = makeApp([note(4, { content: "- [ ] milk" })], "/tasks");
+        const app = makeApp([note(4, {
+                content: "- [ ] milk"
+            })], "/tasks");
         const tasks = pushed(app, 2);
         const menu = delegateAt(findChild(tasks, "tasksView"), 0).openMenu();
         tapMenuItem(menu, "openNoteItem");

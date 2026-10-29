@@ -3,7 +3,18 @@ import QtQml
 
 // Mirrors src/SettingsController's dialog state and text helpers.
 QtObject {
-    property var notificationApps: [{ id: "notes", name: "Notes", enabled: true }, { id: "weather", name: "Weather", enabled: false }]
+    property var notificationApps: [
+        {
+            id: "notes",
+            name: "Notes",
+            enabled: true
+        },
+        {
+            id: "weather",
+            name: "Weather",
+            enabled: false
+        }
+    ]
     property string osVersion: "postmarketOS edge"
     property string kernelVersion: "linux 6.12"
     property string deviceModel: "Purism Librem 5"
@@ -11,7 +22,18 @@ QtObject {
     property string displayRefreshRate: "60 Hz"
     property string displayDpi: "268 dpi"
     property string displayScale: "2.00"
-    property var openSourceLicenses: [{ title: "Marathon OS", items: [{ title: "Marathon Shell", subtitle: "Core shell and system apps", value: "Apache-2.0" }] }]
+    property var openSourceLicenses: [
+        {
+            title: "Marathon OS",
+            items: [
+                {
+                    title: "Marathon Shell",
+                    subtitle: "Core shell and system apps",
+                    value: "Apache-2.0"
+                }
+            ]
+        }
+    ]
 
     property bool wifiDialogVisible: false
     property string wifiDialogSsid: ""
@@ -153,10 +175,18 @@ QtObject {
         bluetoothDialogError = message;
     }
     function bluetoothPairingModeText(mode) {
-        return { pin: "Enter PIN to pair", passkey: "Enter passkey displayed on device", confirm: "Confirm pairing code" }[mode] || "Ready to pair";
+        return {
+            pin: "Enter PIN to pair",
+            passkey: "Enter passkey displayed on device",
+            confirm: "Confirm pairing code"
+        }[mode] || "Ready to pair";
     }
     function bluetoothHelpText(mode) {
-        return { pin: "Enter the PIN shown on your device (usually 0000 or 1234)", passkey: "Type the 6-digit passkey displayed on the device", confirm: "Make sure the code above matches what's shown on your device" }[mode] || "No PIN required for this device";
+        return {
+            pin: "Enter the PIN shown on your device (usually 0000 or 1234)",
+            passkey: "Type the 6-digit passkey displayed on the device",
+            confirm: "Make sure the code above matches what's shown on your device"
+        }[mode] || "No PIN required for this device";
     }
     function bluetoothCanPair(mode, pin, passkey) {
         if (mode === "confirm" || mode === "justworks")
@@ -179,6 +209,8 @@ QtObject {
 
     function setNotificationEnabled(appId, enabled) {
         record(["notify", appId, enabled]);
-        notificationApps = notificationApps.map(a => a.id === appId ? Object.assign({}, a, { enabled: enabled }) : a);
+        notificationApps = notificationApps.map(a => a.id === appId ? Object.assign({}, a, {
+                enabled: enabled
+            }) : a);
     }
 }

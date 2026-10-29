@@ -31,7 +31,12 @@ TestCase {
     }
 
     function test_place() {
-        const cover = createTemporaryObject(coverComponent, tc, { place: { name: "Tower Bridge", address: "London" } });
+        const cover = createTemporaryObject(coverComponent, tc, {
+            place: {
+                name: "Tower Bridge",
+                address: "London"
+            }
+        });
         verify(!findChild(cover, "coverPlaceholder").visible);
         verify(findChild(cover, "coverPlace").visible);
         compare(findChild(cover, "coverPlaceName").text, "Tower Bridge");
@@ -45,8 +50,14 @@ TestCase {
         const cover = createTemporaryObject(coverComponent, tc, {
             navigating: true,
             distance: 1234,
-            maneuver: { type: 10, instruction: "Turn right onto High Street." },
-            place: { name: "Tower Bridge", address: "London" }
+            maneuver: {
+                type: 10,
+                instruction: "Turn right onto High Street."
+            },
+            place: {
+                name: "Tower Bridge",
+                address: "London"
+            }
         });
         verify(findChild(cover, "coverNavigation").visible);
         verify(!findChild(cover, "coverPlace").visible);

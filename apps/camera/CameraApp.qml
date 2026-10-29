@@ -62,8 +62,7 @@ ApplicationWindow {
             if (app.camera.cameraCount === 0)
                 return;
             if (app.camera.active)
-                Notices.show(app.mode === "video" ? qsTr("Couldn't record video. Check free storage and try again.")
-                                                  : qsTr("Couldn't take the photo. Check free storage and try again."));
+                Notices.show(app.mode === "video" ? qsTr("Couldn't record video. Check free storage and try again.") : qsTr("Couldn't take the photo. Check free storage and try again."));
             else
                 app.cameraFailed = true;
         }
@@ -150,7 +149,10 @@ ApplicationWindow {
         captureCall = null;
         if (!call || call.finished)
             return;
-        call.reply({ path: decodeURIComponent(String(url).replace(/^file:\/\//, "")), mode: mode });
+        call.reply({
+            path: decodeURIComponent(String(url).replace(/^file:\/\//, "")),
+            mode: mode
+        });
         minimizeRequested();
     }
 
@@ -165,7 +167,9 @@ ApplicationWindow {
         if (camera.latestCapture === "")
             Navigation.launchApp("gallery");
         else
-            pageStack.push(Qt.resolvedUrl("pages/CaptureReviewPage.qml"), { app: app });
+            pageStack.push(Qt.resolvedUrl("pages/CaptureReviewPage.qml"), {
+                app: app
+            });
     }
 
     function handleBack() {

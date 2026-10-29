@@ -13,11 +13,15 @@ Page {
     readonly property color panelColor: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay)
 
     function openRoute() {
-        pageStack.push(Qt.resolvedUrl("RoutePage.qml"), { app: root.app });
+        pageStack.push(Qt.resolvedUrl("RoutePage.qml"), {
+            app: root.app
+        });
     }
 
     function openPlace() {
-        pageStack.push(Qt.resolvedUrl("PlacePage.qml"), { app: root.app });
+        pageStack.push(Qt.resolvedUrl("PlacePage.qml"), {
+            app: root.app
+        });
     }
 
     objectName: "mapPage"
@@ -393,9 +397,24 @@ Page {
 
                     Repeater {
                         model: [
-                            { name: "directionsAction", icon: "navigate", text: qsTr("Directions"), primary: true },
-                            { name: "detailsAction", icon: "about", text: qsTr("Details"), primary: false },
-                            { name: "clearAction", icon: "clear", text: qsTr("Clear"), primary: false }
+                            {
+                                name: "directionsAction",
+                                icon: "navigate",
+                                text: qsTr("Directions"),
+                                primary: true
+                            },
+                            {
+                                name: "detailsAction",
+                                icon: "about",
+                                text: qsTr("Details"),
+                                primary: false
+                            },
+                            {
+                                name: "clearAction",
+                                icon: "clear",
+                                text: qsTr("Clear"),
+                                primary: false
+                            }
                         ]
 
                         BackgroundItem {

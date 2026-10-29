@@ -25,7 +25,9 @@ Page {
 
         objectName: "songsView"
         anchors.fill: parent
-        header: PageHeader { title: page.title }
+        header: PageHeader {
+            title: page.title
+        }
         model: page.shown
 
         PullDownMenu {

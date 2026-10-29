@@ -16,8 +16,7 @@ FullscreenContentPage {
     readonly property bool video: app.latestIsVideo
 
     function deleteCapture() {
-        const indexed = (video ? MediaLibrary.getVideos() : MediaLibrary.getAllPhotos())
-            .find(m => m.path === capture);
+        const indexed = (video ? MediaLibrary.getVideos() : MediaLibrary.getAllPhotos()).find(m => m.path === capture);
         if (indexed)
             MediaLibrary.deleteMedia(indexed.id);
         app.camera.deleteLatestCapture();
@@ -42,7 +41,9 @@ FullscreenContentPage {
             MenuItem {
                 objectName: "deleteAction"
                 text: qsTr("Delete")
-                onClicked: remorse.execute(qsTr("Deleted"), function () { page.deleteCapture(); })
+                onClicked: remorse.execute(qsTr("Deleted"), function () {
+                    page.deleteCapture();
+                })
             }
             MenuItem {
                 objectName: "shareAction"

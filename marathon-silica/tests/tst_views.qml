@@ -8,14 +8,21 @@ TestCase {
     name: "Views"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     Component {
         id: list
         SilicaListView {
-            width: 540; height: 960
+            width: 540
+            height: 960
             model: 30
-            delegate: ListItem { required property int index; Label { text: "Row " + parent.index } }
+            delegate: ListItem {
+                required property int index
+                Label {
+                    text: "Row " + parent.index
+                }
+            }
         }
     }
     Component {
@@ -24,10 +31,19 @@ TestCase {
             id: v
             property string query: ""
             readonly property Item field: headerItem
-            width: 540; height: 960
+            width: 540
+            height: 960
             model: ["apple", "apricot", "banana", "blueberry"].filter(w => w.indexOf(query) >= 0)
-            header: SearchField { width: 540; onTextChanged: v.query = text }
-            delegate: ListItem { required property string modelData; Label { text: parent.modelData } }
+            header: SearchField {
+                width: 540
+                onTextChanged: v.query = text
+            }
+            delegate: ListItem {
+                required property string modelData
+                Label {
+                    text: parent.modelData
+                }
+            }
         }
     }
 
@@ -49,11 +65,23 @@ TestCase {
             id: g
             property string query: ""
             readonly property Item field: headerItem
-            width: 540; height: 960
-            cellWidth: 270; cellHeight: 180
+            width: 540
+            height: 960
+            cellWidth: 270
+            cellHeight: 180
             model: ["apple", "apricot", "banana", "blueberry"].filter(w => w.indexOf(query) >= 0)
-            header: SearchField { width: 540; onTextChanged: g.query = text }
-            delegate: BackgroundItem { required property string modelData; width: 270; height: 180; Label { text: parent.modelData } }
+            header: SearchField {
+                width: 540
+                onTextChanged: g.query = text
+            }
+            delegate: BackgroundItem {
+                required property string modelData
+                width: 270
+                height: 180
+                Label {
+                    text: parent.modelData
+                }
+            }
         }
     }
 
@@ -72,7 +100,11 @@ TestCase {
 
     Component {
         id: flick
-        SilicaFlickable { width: 540; height: 960; contentHeight: 3000 }
+        SilicaFlickable {
+            width: 540
+            height: 960
+            contentHeight: 3000
+        }
     }
 
     function test_listArrowsMoveFocus() {
@@ -92,53 +124,80 @@ TestCase {
         v.forceActiveFocus();
         keyClick(Qt.Key_End);
         compare(v.currentIndex, 29);
-        tryVerify(function () { return v.atYEnd; });
+        tryVerify(function () {
+            return v.atYEnd;
+        });
         keyClick(Qt.Key_Home);
         compare(v.currentIndex, 0);
-        tryVerify(function () { return v.atYBeginning; });
+        tryVerify(function () {
+            return v.atYBeginning;
+        });
     }
 
     Component {
         id: form
         Item {
-            width: 540; height: 960
+            width: 540
+            height: 960
             property alias flick: flick
             property alias field: field
             property alias before: before
-            Button { id: before; text: "Before" }
+            Button {
+                id: before
+                text: "Before"
+            }
             SilicaFlickable {
                 id: flick
-                y: 100; width: 540; height: 800; contentHeight: 3000
-                TextField { id: field; width: 500; label: "Title" }
+                y: 100
+                width: 540
+                height: 800
+                contentHeight: 3000
+                TextField {
+                    id: field
+                    width: 500
+                    label: "Title"
+                }
             }
         }
     }
 
     function test_flickableWithControlsIsNotATabStop() {
         const f = createTemporaryObject(form, testCase);
-        tryVerify(function () { return !f.flick.activeFocusOnTab; });
+        tryVerify(function () {
+            return !f.flick.activeFocusOnTab;
+        });
         f.before.forceActiveFocus();
         keyClick(Qt.Key_Tab);
         verify(f.field.activeFocus);
         keyClick(Qt.Key_PageDown);
-        tryVerify(function () { return f.flick.contentY > 0; });
+        tryVerify(function () {
+            return f.flick.contentY > 0;
+        });
     }
 
     function test_flickableArrowsScroll() {
         const f = createTemporaryObject(flick, testCase);
         f.forceActiveFocus();
         keyClick(Qt.Key_Down);
-        tryVerify(function () { return f.contentY > 0; });
+        tryVerify(function () {
+            return f.contentY > 0;
+        });
         keyClick(Qt.Key_End);
-        tryVerify(function () { return f.atYEnd; });
+        tryVerify(function () {
+            return f.atYEnd;
+        });
         keyClick(Qt.Key_Home);
-        tryVerify(function () { return f.atYBeginning; });
+        tryVerify(function () {
+            return f.atYBeginning;
+        });
     }
 
     function test_flickablePageDown() {
         const f = createTemporaryObject(flick, testCase);
         f.forceActiveFocus();
         keyClick(Qt.Key_PageDown);
-        tryVerify(function () { return f.contentY >= f.height * 0.8; });
+        tryVerify(function () {
+            return f.contentY >= f.height * 0.8;
+        });
     }
 }

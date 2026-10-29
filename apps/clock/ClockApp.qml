@@ -87,7 +87,10 @@ ApplicationWindow {
 
     function editAlarm(alarm) {
         const now = new Date();
-        const t = alarm ? Logic.parseTime(alarm.time) : { hour: now.getHours(), minute: now.getMinutes() };
+        const t = alarm ? Logic.parseTime(alarm.time) : {
+            hour: now.getHours(),
+            minute: now.getMinutes()
+        };
         pageStack.push(Qt.resolvedUrl("pages/AlarmDialog.qml"), {
             app: root,
             alarmId: alarm ? alarm.id : "",
@@ -100,7 +103,11 @@ ApplicationWindow {
 
     function _announce(time, repeat) {
         const now = new Date();
-        const when = Logic.nextOccurrence({ enabled: true, time: time, repeat: repeat }, now);
+        const when = Logic.nextOccurrence({
+            enabled: true,
+            time: time,
+            repeat: repeat
+        }, now);
         if (when)
             Notices.show(Logic.alarmIn(when, now));
     }
@@ -108,9 +115,16 @@ ApplicationWindow {
     // The alarm's id; "" if it couldn't be saved.
     function saveAlarm(id, hour, minute, label, repeat) {
         const time = Logic.timeString(hour, minute);
-        const saved = id === ""
-                ? Alarms.createAlarm(time, label || qsTr("Alarm"), repeat, { vibrate: true, snoozeEnabled: true, snoozeDuration: 10 })
-                : Alarms.updateAlarm(id, { time: time, label: label || qsTr("Alarm"), enabled: true, repeat: repeat }) ? id : "";
+        const saved = id === "" ? Alarms.createAlarm(time, label || qsTr("Alarm"), repeat, {
+            vibrate: true,
+            snoozeEnabled: true,
+            snoozeDuration: 10
+        }) : Alarms.updateAlarm(id, {
+            time: time,
+            label: label || qsTr("Alarm"),
+            enabled: true,
+            repeat: repeat
+        }) ? id : "";
         if (_check(saved !== ""))
             _announce(time, repeat);
         return saved;
@@ -118,7 +132,9 @@ ApplicationWindow {
 
     function toggleAlarm(id) {
         const alarm = alarms.find(a => a.id === id);
-        if (!alarm || !_check(Alarms.updateAlarm(id, { enabled: !alarm.enabled })))
+        if (!alarm || !_check(Alarms.updateAlarm(id, {
+            enabled: !alarm.enabled
+        })))
             return false;
         if (!alarm.enabled)
             _announce(alarm.time, alarm.repeat || []);
@@ -157,9 +173,17 @@ ApplicationWindow {
         const tz = Logic.zoneFor(city, Logic.knownCities);
         if (tz) {
             const r = WorldClock.timeIn(tz);
-            return { time: r.time, diff: r.offsetLabel, weekday: r.weekday };
+            return {
+                time: r.time,
+                diff: r.offsetLabel,
+                weekday: r.weekday
+            };
         }
-        return { time: Format.formatDate(Logic.offsetDate(city.offset, now), Formatter.TimeValue), diff: (city.offset >= 0 ? "+" : "") + city.offset + "h", weekday: "" };
+        return {
+            time: Format.formatDate(Logic.offsetDate(city.offset, now), Formatter.TimeValue),
+            diff: (city.offset >= 0 ? "+" : "") + city.offset + "h",
+            weekday: ""
+        };
     }
 
     appId: "clock"

@@ -43,7 +43,19 @@ TestCase {
             title: "",
             text: "Buy milk",
             count: 1,
-            targets: [{ id: "notes/text", name: "Notes", action: "New note", icon: "" }, { id: "clipboard", name: "Copy", glyph: "copy" }]
+            targets: [
+                {
+                    id: "notes/text",
+                    name: "Notes",
+                    action: "New note",
+                    icon: ""
+                },
+                {
+                    id: "clipboard",
+                    name: "Copy",
+                    glyph: "copy"
+                }
+            ]
         });
         wait(50);
         compare(findChild(sheet, "sharePreviewText").text, "Buy milk");
@@ -58,7 +70,11 @@ TestCase {
     }
 
     function test_aTapOutsideCancels() {
-        sheet.open({ title: "Share image", count: 1, targets: [] });
+        sheet.open({
+            title: "Share image",
+            count: 1,
+            targets: []
+        });
         wait(50);
         verify(findChild(sheet, "shareNoTargets").visible);
         mouseClick(findChild(sheet, "shareScrim"), 10, 10);
@@ -68,14 +84,36 @@ TestCase {
     }
 
     function test_aPictureIsPreviewed() {
-        sheet.open({ title: "", image: "file:///nonexistent/beach.png", count: 1, targets: [] });
+        sheet.open({
+            title: "",
+            image: "file:///nonexistent/beach.png",
+            count: 1,
+            targets: []
+        });
         wait(50);
         verify(findChild(sheet, "sharePreviewImage").visible);
     }
 
     function test_androidAppsArriveAfter() {
-        sheet.open({ title: "", text: "x", count: 1, targets: [{ id: "clipboard", name: "Copy", glyph: "copy" }] });
-        sheet.addTargets([{ id: "android:org.signal/.Share", name: "Signal", icon: "data:image/png;base64,iVBORw0KGgo=" }]);
+        sheet.open({
+            title: "",
+            text: "x",
+            count: 1,
+            targets: [
+                {
+                    id: "clipboard",
+                    name: "Copy",
+                    glyph: "copy"
+                }
+            ]
+        });
+        sheet.addTargets([
+            {
+                id: "android:org.signal/.Share",
+                name: "Signal",
+                icon: "data:image/png;base64,iVBORw0KGgo="
+            }
+        ]);
         wait(50);
         const signal = findChild(sheet, "shareTarget-android:org.signal/.Share");
         verify(signal && signal.visible);
@@ -87,8 +125,16 @@ TestCase {
     function test_targetsFitFourAcross() {
         const many = [];
         for (let i = 0; i < 6; ++i)
-            many.push({ id: "app" + i + "/m", name: "App " + i, icon: "" });
-        sheet.open({ title: "", count: 2, targets: many });
+            many.push({
+                id: "app" + i + "/m",
+                name: "App " + i,
+                icon: ""
+            });
+        sheet.open({
+            title: "",
+            count: 2,
+            targets: many
+        });
         wait(50);
         const first = findChild(sheet, "shareTarget-app0/m");
         const fifth = findChild(sheet, "shareTarget-app4/m");

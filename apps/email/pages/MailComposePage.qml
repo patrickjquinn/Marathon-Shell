@@ -57,7 +57,13 @@ Dialog {
     onAccepted: {
         autosave.stop();
         if (mail.send(to.recipients.join(", "), cc.recipients.join(", "), bcc.recipients.join(", "), subjectField.text, bodyArea.text, attachments)) {
-            draftStore.value = Logic.withDraft(draftStore.value, draftKey, { to: "", cc: "", bcc: "", subject: "", body: "" }, 0);
+            draftStore.value = Logic.withDraft(draftStore.value, draftKey, {
+                to: "",
+                cc: "",
+                bcc: "",
+                subject: "",
+                body: ""
+            }, 0);
             Notices.show(qsTr("Sending message"));
         } else {
             persistDraft();

@@ -38,5 +38,4 @@ S.ApplicationWindow {
         root.minimizeRequested();
         return true;
     }
-
 }

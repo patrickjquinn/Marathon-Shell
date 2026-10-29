@@ -49,7 +49,9 @@ TestCase {
     }
 
     function test_capture() {
-        const call = KeelActions.invoke("camera.capture", { mode: "video" });
+        const call = KeelActions.invoke("camera.capture", {
+            mode: "video"
+        });
         verify(!call.finished);
         compare(app.captures, ["video"]);
         KeelActions.invoke("camera.capture", {});
@@ -58,16 +60,22 @@ TestCase {
 
     function test_captureWithoutCamera() {
         app.camera.cameraCount = 0;
-        const call = KeelActions.invoke("camera.capture", { mode: "photo" });
+        const call = KeelActions.invoke("camera.capture", {
+            mode: "photo"
+        });
         compare(call.errorCode, "NotAvailable");
         compare(app.captures, []);
     }
 
     function test_openVideo() {
         app.pageStack.depth = 2;
-        const call = KeelActions.invoke("camera.open", { mode: "video" });
+        const call = KeelActions.invoke("camera.open", {
+            mode: "video"
+        });
         verify(call.succeeded, call.errorMessage);
-        compare(call.result, { mode: "video" });
+        compare(call.result, {
+            mode: "video"
+        });
         compare(app.pageStack.depth, 1);
         compare(app.activations, 1);
     }
@@ -82,13 +90,17 @@ TestCase {
     function test_recordingKeepsTheMode() {
         app.mode = "video";
         app.camera.isRecording = true;
-        const call = KeelActions.invoke("camera.open", { mode: "photo" });
+        const call = KeelActions.invoke("camera.open", {
+            mode: "photo"
+        });
         compare(call.result.mode, "video");
     }
 
     function test_noCamera() {
         app.camera.cameraCount = 0;
-        const call = KeelActions.invoke("camera.open", { mode: "photo" });
+        const call = KeelActions.invoke("camera.open", {
+            mode: "photo"
+        });
         compare(call.errorCode, "NotAvailable");
         compare(app.activations, 0);
     }
@@ -111,7 +123,9 @@ TestCase {
         compare(manifest.appId, "org.marathonos.camera");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.camera/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.camera/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

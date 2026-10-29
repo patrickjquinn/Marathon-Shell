@@ -55,7 +55,9 @@ Page {
             if (messageId !== page.messageId || location !== page.fetching)
                 return;
             page.fetching = "";
-            page.savedPaths = Object.assign({}, page.savedPaths, { [location]: path });
+            page.savedPaths = Object.assign({}, page.savedPaths, {
+                [location]: path
+            });
             if (page.openWhenSaved)
                 Qt.openUrlExternally("file://" + path);
             else
@@ -87,12 +89,16 @@ Page {
             MenuItem {
                 objectName: "forwardItem"
                 text: qsTr("Forward")
-                onClicked: page.app.compose(Object.assign(Logic.forwardPrefill(page.msg, page.dateText), { draftKey: "forward-" + page.messageId }))
+                onClicked: page.app.compose(Object.assign(Logic.forwardPrefill(page.msg, page.dateText), {
+                    draftKey: "forward-" + page.messageId
+                }))
             }
             MenuItem {
                 objectName: "replyItem"
                 text: qsTr("Reply")
-                onClicked: page.app.compose(Object.assign(Logic.replyPrefill(page.msg), { draftKey: "reply-" + page.messageId }))
+                onClicked: page.app.compose(Object.assign(Logic.replyPrefill(page.msg), {
+                    draftKey: "reply-" + page.messageId
+                }))
             }
         }
         PushUpMenu {

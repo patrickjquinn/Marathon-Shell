@@ -29,7 +29,8 @@ Item {
     visible: available
     onShownChanged: _report()
     onAvailableChanged: _report()
-    Component.onDestruction: if (shown && available) Tasks.setCoverVisible(appId, false)
+    Component.onDestruction: if (shown && available)
+        Tasks.setCoverVisible(appId, false)
 
     Connections {
         target: root.compositor

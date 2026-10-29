@@ -36,14 +36,46 @@ TestCase {
         }
     }
 
-    SignalSpy { id: homeSpy; target: nav; signalName: "shortSwipeUp" }
-    SignalSpy { id: searchSpy; target: nav; signalName: "toggleSearch" }
-    SignalSpy { id: keyboardSpy; target: nav; signalName: "toggleKeyboard" }
-    SignalSpy { id: leftSpy; target: nav; signalName: "swipeLeft" }
-    SignalSpy { id: rightSpy; target: nav; signalName: "swipeRight" }
-    SignalSpy { id: pilotSpy; target: nav; signalName: "pilotRequested" }
-    SignalSpy { id: backSpy; target: nav; signalName: "swipeBack" }
-    SignalSpy { id: switcherSpy; target: nav; signalName: "longSwipeUp" }
+    SignalSpy {
+        id: homeSpy
+        target: nav
+        signalName: "shortSwipeUp"
+    }
+    SignalSpy {
+        id: searchSpy
+        target: nav
+        signalName: "toggleSearch"
+    }
+    SignalSpy {
+        id: keyboardSpy
+        target: nav
+        signalName: "toggleKeyboard"
+    }
+    SignalSpy {
+        id: leftSpy
+        target: nav
+        signalName: "swipeLeft"
+    }
+    SignalSpy {
+        id: rightSpy
+        target: nav
+        signalName: "swipeRight"
+    }
+    SignalSpy {
+        id: pilotSpy
+        target: nav
+        signalName: "pilotRequested"
+    }
+    SignalSpy {
+        id: backSpy
+        target: nav
+        signalName: "swipeBack"
+    }
+    SignalSpy {
+        id: switcherSpy
+        target: nav
+        signalName: "longSwipeUp"
+    }
 
     function init() {
         UIStore.closeQuickSettings();
@@ -313,7 +345,16 @@ TestCase {
     // The shade drag this touch started ends with the touch, even if the
     // shade was shut under it or the touch was taken away.
     function test_shadeDragEndsWithTheTouch_data() {
-        return [{ tag: "shut meanwhile", cancel: false }, { tag: "cancelled", cancel: true }];
+        return [
+            {
+                tag: "shut meanwhile",
+                cancel: false
+            },
+            {
+                tag: "cancelled",
+                cancel: true
+            }
+        ];
     }
     function test_shadeDragEndsWithTheTouch(data) {
         UIStore.openQuickSettings();

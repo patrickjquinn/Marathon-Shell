@@ -68,7 +68,7 @@ class WaylandCompositor : public QWaylandCompositor {
     qint64        lastVblankUs();
     // When this interval's frame latches: the last vblank, plus the phase
     // when frames wait for it (-1: none known).
-    qint64        frameLatchUs();
+    qint64 frameLatchUs();
 
     explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
@@ -87,29 +87,29 @@ class WaylandCompositor : public QWaylandCompositor {
     QSize appViewportSize() const {
         return m_appViewportSize;
     }
-    void setAppViewportSize(const QSize &size);
+    void  setAppViewportSize(const QSize &size);
     QSize coverSize() const {
         return m_coverSize;
     }
-    void setCoverSize(const QSize &size);
-    qreal                nativeScale() const;
-    QVariantMap          marathonSurfaces() const;
-    void                 setNativeScale(qreal scale);
+    void             setCoverSize(const QSize &size);
+    qreal            nativeScale() const;
+    QVariantMap      marathonSurfaces() const;
+    void             setNativeScale(qreal scale);
 
-    Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
-    Q_INVOKABLE void     closeWindow(int surfaceId);
-    Q_INVOKABLE void     activateSurface(int surfaceId);
+    Q_INVOKABLE void launchApp(const QString &command, const QVariantMap &env = {});
+    Q_INVOKABLE void closeWindow(int surfaceId);
+    Q_INVOKABLE void activateSurface(int surfaceId);
     // Takes the keyboard from a window the shell did not launch (Waydroid's),
     // so keys reach the shell.
-    void                 releaseForeignKeyboard();
-    Q_INVOKABLE void     nudgeSurface(int surfaceId);
+    void             releaseForeignKeyboard();
+    Q_INVOKABLE void nudgeSurface(int surfaceId);
     // A new size for the toplevel, its states kept; nothing is sent if unchanged.
-    Q_INVOKABLE void     resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size);
+    Q_INVOKABLE void resizeToplevel(QWaylandXdgToplevel *toplevel, const QSize &size);
     // The client has acked every configure its toplevel was sent.
-    Q_INVOKABLE bool     configureSettled(int surfaceId) const;
+    Q_INVOKABLE bool configureSettled(int surfaceId) const;
     // The user touched or typed in the last ms milliseconds.
-    bool                 recentUserInput(int ms) const;
-    Q_INVOKABLE bool     usesNativeScale(QWaylandSurface *surface) const;
+    bool             recentUserInput(int ms) const;
+    Q_INVOKABLE bool usesNativeScale(QWaylandSurface *surface) const;
     // The shell took a gesture from item mid-touch: its client gets wl_touch.cancel.
     Q_INVOKABLE void     cancelTouch(QQuickItem *item);
     Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
@@ -121,18 +121,17 @@ class WaylandCompositor : public QWaylandCompositor {
     // System back for a native app's window: dismisses its popup, closes its
     // dialog or sends its toolkit's back key, then emits nativeBackUnhandled
     // if the app showed no change (docs/NATIVE_APP_LIFECYCLE.md).
-    Q_INVOKABLE void     sendNativeBack(int surfaceId, bool keelHosted);
-    Q_INVOKABLE void     sendNativeForward(int surfaceId, bool keelHosted);
+    Q_INVOKABLE void sendNativeBack(int surfaceId, bool keelHosted);
+    Q_INVOKABLE void sendNativeForward(int surfaceId, bool keelHosted);
     // The pill's back drag over a marathon_surface_v1 window, at a point in
     // scene coordinates; endBackGesture cancels it unless back went out.
-    Q_INVOKABLE void     sendBackProgress(int surfaceId, qreal progress,
-                                          const QPointF &scenePosition);
-    Q_INVOKABLE void     endBackGesture(int surfaceId);
-    Q_INVOKABLE bool     checkIdleInhibitors();
+    Q_INVOKABLE void sendBackProgress(int surfaceId, qreal progress, const QPointF &scenePosition);
+    Q_INVOKABLE void endBackGesture(int surfaceId);
+    Q_INVOKABLE bool checkIdleInhibitors();
     // A marathon_surface_v1 secure window is on screen.
-    Q_INVOKABLE bool     showsSecureContent() const;
+    Q_INVOKABLE bool showsSecureContent() const;
     // Apps whose every window is secure (Navigation1.SetAppWindowSecure).
-    void                 setSecureApps(const QStringList &appIds);
+    void setSecureApps(const QStringList &appIds);
 
     // A sandbox the shell starts connects on a socket of its own, whose
     // clients carry the app's security context. Returns the path, or empty.
@@ -153,7 +152,7 @@ class WaylandCompositor : public QWaylandCompositor {
         return m_hasIdleInhibitor;
     }
 
-    bool             discardFrontBuffer() const {
+    bool discardFrontBuffer() const {
         return m_discardFrontBuffer;
     }
 
@@ -196,15 +195,14 @@ class WaylandCompositor : public QWaylandCompositor {
     void    watchNativeBack(QWaylandSurface *surface, int surfaceId,
                             const std::function<void()> &fallback = {});
     // sent runs once the key has gone out, which can be after the call returns.
-    void    sendKeyTo(QWaylandSurface *surface, int key, Qt::KeyboardModifiers modifiers,
-                      const std::function<void()> &sent = {});
-    void    mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
-    void    configureToplevelState(QWaylandXdgToplevel *toplevel, bool maximized,
-                                   bool fullscreen);
-    void    adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
-    void    configureCover(QWaylandXdgToplevel *toplevel) const;
-    void    mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
-    void    handleActivation(QWaylandSurface *surface, QObject *launch);
+    void sendKeyTo(QWaylandSurface *surface, int key, Qt::KeyboardModifiers modifiers,
+                   const std::function<void()> &sent = {});
+    void mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void configureToplevelState(QWaylandXdgToplevel *toplevel, bool maximized, bool fullscreen);
+    void adoptCover(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void configureCover(QWaylandXdgToplevel *toplevel) const;
+    void mapDialog(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void handleActivation(QWaylandSurface *surface, QObject *launch);
 
   private slots:
     void handleSurfaceCreated(QWaylandSurface *surface);
@@ -221,9 +219,9 @@ class WaylandCompositor : public QWaylandCompositor {
 
   private:
     static bool filterGlobal(const wl_client *client, const struct wl_global *global, void *data);
-    void watchTextInputBinds();
-    void setCompositorRealtimePriority();
-    void calculateAndSetPhysicalSize();
+    void        watchTextInputBinds();
+    void        setCompositorRealtimePriority();
+    void        calculateAndSetPhysicalSize();
     // DPMS-off/on the primary output (opt-in via MARATHON_DOZE_DPMS).
     // Called from setCompositorActive with render already paused/resumed.
     // Drives the CRTC's ACTIVE property directly via a libdrm atomic
@@ -238,24 +236,24 @@ class WaylandCompositor : public QWaylandCompositor {
     bool                                    m_atomicDisplayReady  = false;
     bool                                    m_atomicDisplayFailed = false;
 
-    QWaylandXdgShell                       *m_xdgShell                 = nullptr;
-    QWaylandWlShell                        *m_wlShell                  = nullptr;
-    QWaylandViewporter                     *m_viewporter               = nullptr;
-    QWaylandTextInputManager               *m_textInputManager         = nullptr;
-    QWaylandTextInputManagerV3             *m_textInputManagerV3       = nullptr;
+    QWaylandXdgShell                       *m_xdgShell           = nullptr;
+    QWaylandWlShell                        *m_wlShell            = nullptr;
+    QWaylandViewporter                     *m_viewporter         = nullptr;
+    QWaylandTextInputManager               *m_textInputManager   = nullptr;
+    QWaylandTextInputManagerV3             *m_textInputManagerV3 = nullptr;
     QSet<QWaylandSurface *>                 m_textInputSurfaces;
-    SecurityContextManagerV1               *m_securityContextManager   = nullptr;
-    FifoManagerV1                          *m_fifoManager              = nullptr;
-    CommitTimingManagerV1                  *m_commitTimingManager      = nullptr;
-    LinuxDmabufManagerV1                   *m_linuxDmabufManager       = nullptr;
-    WlDrmManager                           *m_wlDrmManager             = nullptr;
-    NativeClientScale                      *m_nativeClientScale        = nullptr;
-    XdgActivationV1                        *m_xdgActivation            = nullptr;
-    MarathonSurfaceManagerV1               *m_marathonSurfaceManager   = nullptr;
-    QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
-    QWaylandPresentationTime               *m_presentationTime         = nullptr;
-    QWaylandQuickOutput                    *m_output                   = nullptr;
-    QQuickWindow                           *m_window                   = nullptr;
+    SecurityContextManagerV1               *m_securityContextManager = nullptr;
+    FifoManagerV1                          *m_fifoManager            = nullptr;
+    CommitTimingManagerV1                  *m_commitTimingManager    = nullptr;
+    LinuxDmabufManagerV1                   *m_linuxDmabufManager     = nullptr;
+    WlDrmManager                           *m_wlDrmManager           = nullptr;
+    NativeClientScale                      *m_nativeClientScale      = nullptr;
+    XdgActivationV1                        *m_xdgActivation          = nullptr;
+    MarathonSurfaceManagerV1               *m_marathonSurfaceManager = nullptr;
+    QWaylandIdleInhibitManagerV1           *m_idleInhibitManager     = nullptr;
+    QWaylandPresentationTime               *m_presentationTime       = nullptr;
+    QWaylandQuickOutput                    *m_output                 = nullptr;
+    QQuickWindow                           *m_window                 = nullptr;
 
     QList<QObject *>                        m_surfaces;
     QMap<int, QPointer<QWaylandSurface>>    m_surfaceMap;
@@ -275,54 +273,54 @@ class WaylandCompositor : public QWaylandCompositor {
     // on) also
     // free-runs the compositor at vsync while a client is actively committing
     // so its buffer lands next vblank.
-    bool                                    m_presentPipeline = false;
-    bool                                    m_presentFreeRun  = false;
-    QSize                                   m_appViewportSize;
-    QSize                                   m_coverSize;
-    QList<QPointer<QWaylandXdgToplevel>>    m_coverToplevels;
+    bool                                 m_presentPipeline = false;
+    bool                                 m_presentFreeRun  = false;
+    QSize                                m_appViewportSize;
+    QSize                                m_coverSize;
+    QList<QPointer<QWaylandXdgToplevel>> m_coverToplevels;
     struct TrackedPopup {
         QPointer<QWaylandXdgPopup> popup;
         QPointer<QWaylandSurface>  surface;
     };
-    QList<TrackedPopup>                     m_popups;
-    QSize                                   appConfigureSize(QWaylandSurface *surface) const;
-    QSize                                   fullOutputConfigureSize(QWaylandSurface *surface) const;
+    QList<TrackedPopup> m_popups;
+    QSize               appConfigureSize(QWaylandSurface *surface) const;
+    QSize               fullOutputConfigureSize(QWaylandSurface *surface) const;
     // Frames of vsync free-run remaining before the compositor idles back to
     // 0fps. Refreshed on every client commit (QWaylandSurface::redraw),
     // decremented each frameSwapped. Touched from render + GUI threads.
-    QAtomicInt                              m_activeFrameCredits{0};
+    QAtomicInt m_activeFrameCredits{0};
 
     // Frame callbacks in the present pipeline: shown surfaces every frame,
     // hidden ones (MARATHON_HIDDEN_THROTTLE, default on) about once a
     // second, from the timer when the compositor itself is idle.
-    void                                    sendPacedFrameCallbacks(bool idleTick);
+    void sendPacedFrameCallbacks(bool idleTick);
     // Frames latch MARATHON_FRAME_PHASE_MS (0 by default) after the previous
     // vblank. Positive values retain the experimental late-latch path.
-    int                                     m_framePhaseMs = 0;
-    bool                                    m_passUpdate   = false;
-    QTimer                                  m_gateTimer;
-    QTimer                                  m_callbackTimer;
-    qint64                                  nextVblankUs();
-    bool                                    m_hiddenThrottle = true;
-    HiddenFrameThrottle                     m_frameThrottle;
-    QElapsedTimer                           m_frameClock;
-    QElapsedTimer                           m_lastUserInput;
-    QElapsedTimer                           m_activityEmitted;
-    QElapsedTimer                           m_keyboardFocusSince;
-    QStringList                             m_secureApps;
-    QTimer                                  m_hiddenFrameTimer;
-    QSet<QWaylandSurface *>                 m_enteredSurfaces;
+    int                     m_framePhaseMs = 0;
+    bool                    m_passUpdate   = false;
+    QTimer                  m_gateTimer;
+    QTimer                  m_callbackTimer;
+    qint64                  nextVblankUs();
+    bool                    m_hiddenThrottle = true;
+    HiddenFrameThrottle     m_frameThrottle;
+    QElapsedTimer           m_frameClock;
+    QElapsedTimer           m_lastUserInput;
+    QElapsedTimer           m_activityEmitted;
+    QElapsedTimer           m_keyboardFocusSince;
+    QStringList             m_secureApps;
+    QTimer                  m_hiddenFrameTimer;
+    QSet<QWaylandSurface *> m_enteredSurfaces;
 
-    bool                                    m_discardFrontBuffer = false;
+    bool                    m_discardFrontBuffer = false;
 
     // MARATHON_PRESENT_STATS: low-volume (one line/sec) present meter --
     // compositor frames swapped and client buffer commits per second, so
     // scroll rate can be measured without the per-frame QSG_RENDER_TIMING
     // flood that backpressures the log pipe and stalls the GUI thread.
-    QAtomicInt                              m_frameSwapCount{0};
-    QAtomicInt                              m_clientCommitCount{0};
-    quint64                                 m_presentSequence = 0;
-    Apps *m_apps = nullptr;
+    QAtomicInt                                m_frameSwapCount{0};
+    QAtomicInt                                m_clientCommitCount{0};
+    quint64                                   m_presentSequence = 0;
+    Apps                                     *m_apps            = nullptr;
     QHash<QString, QPointer<QWaylandSurface>> m_covers;
 };
 

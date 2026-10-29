@@ -45,11 +45,19 @@ TestCase {
         CallHistory.reset();
         Permissions.reset();
         seenStub.value = 0;
-        Contacts.contacts = [{ id: 1, name: "Grace Hopper", phone: "+1 555 123 4567" }];
+        Contacts.contacts = [
+            {
+                id: 1,
+                name: "Grace Hopper",
+                phone: "+1 555 123 4567"
+            }
+        ];
     }
 
     function makeApp() {
-        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        const app = createTemporaryObject(appComponent, testCase, {
+            callLogSeen: seenStub
+        });
         tryVerify(() => app.pageStack.currentPage !== null);
         return app;
     }
@@ -206,7 +214,9 @@ TestCase {
         app.call("5551234567");
         Telephony.setState("active");
         app.callStartedAt = Date.now() - 125000;
-        const cover = createTemporaryObject(coverComponent, testCase, { phone: app });
+        const cover = createTemporaryObject(coverComponent, testCase, {
+            phone: app
+        });
         cover.now = Date.now();
         compare(findChild(cover, "coverHeadline").value, "2:05");
         compare(findChild(cover, "coverHeadline").label, "Grace Hopper");
@@ -218,9 +228,24 @@ TestCase {
     }
 
     function test_coverShowsMissedCalls() {
-        CallHistory.history = [{ id: 1, number: "1", type: "missed", timestamp: 1700000000 }, { id: 2, number: "2", type: "missed", timestamp: 1700000001 }];
+        CallHistory.history = [
+            {
+                id: 1,
+                number: "1",
+                type: "missed",
+                timestamp: 1700000000
+            },
+            {
+                id: 2,
+                number: "2",
+                type: "missed",
+                timestamp: 1700000001
+            }
+        ];
         const app = makeApp();
-        const cover = createTemporaryObject(coverComponent, testCase, { phone: app });
+        const cover = createTemporaryObject(coverComponent, testCase, {
+            phone: app
+        });
         compare(findChild(cover, "coverHeadline").value, "2");
         compare(findChild(cover, "coverHeadline").label, "missed calls");
         seenStub.value = Date.now();

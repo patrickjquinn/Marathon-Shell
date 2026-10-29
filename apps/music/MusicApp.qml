@@ -61,8 +61,7 @@ ApplicationWindow {
     }
 
     property Player player: Player {
-        onFailed: track => Notices.show(qsTr("Can't play “%1”. The file may be missing or in an unsupported format.")
-                                        .arg(track ? track.title : ""))
+        onFailed: track => Notices.show(qsTr("Can't play “%1”. The file may be missing or in an unsupported format.").arg(track ? track.title : ""))
     }
 
     property Native.MprisPlayer mpris: Native.MprisPlayer {
@@ -109,7 +108,9 @@ ApplicationWindow {
 
     function openPlayer() {
         if (!playerPageActive)
-            pageStack.push(Qt.resolvedUrl("pages/PlayerPage.qml"), { music: app });
+            pageStack.push(Qt.resolvedUrl("pages/PlayerPage.qml"), {
+                music: app
+            });
     }
 
     appId: "music"

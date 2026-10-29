@@ -32,7 +32,9 @@ Page {
     // Folders sit one page forward, as Jolla Email's folder view does.
     function attachAccounts() {
         if (status === PageStatus.Active && app.hasAccount && !pageStack.nextPage(page))
-            pageStack.pushAttached(Qt.resolvedUrl("AccountsPage.qml"), { app: app });
+            pageStack.pushAttached(Qt.resolvedUrl("AccountsPage.qml"), {
+                app: app
+            });
     }
 
     function remorseMove(kind) {
@@ -262,7 +264,9 @@ Page {
                 objectName: "accountsItem"
                 visible: !page.app.hasAccount
                 text: qsTr("Add account")
-                onClicked: pageStack.push(Qt.resolvedUrl("AddAccountPage.qml"), { app: page.app })
+                onClicked: pageStack.push(Qt.resolvedUrl("AddAccountPage.qml"), {
+                    app: page.app
+                })
             }
             MenuItem {
                 objectName: "searchItem"

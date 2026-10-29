@@ -24,7 +24,11 @@ TestCase {
         }
     }
 
-    SignalSpy { id: clicks; target: under; signalName: "clicked" }
+    SignalSpy {
+        id: clicks
+        target: under
+        signalName: "clicked"
+    }
 
     function init() {
         glow.lit = false;

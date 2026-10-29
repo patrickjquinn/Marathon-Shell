@@ -18,7 +18,7 @@ DelegateChooser {
 
     // "Look with the camera" on a question back, and the Settings link.
     signal look(string question)
-    signal openSettings()
+    signal openSettings
 
     role: "kind"
     DelegateChoice {
@@ -68,7 +68,9 @@ DelegateChooser {
             outbound: !!c.outbound
             destructive: !!c.destructive
             approved: allowed
-            onAnswer: function(approved) { Conversation.answer(index, approved) }
+            onAnswer: function (approved) {
+                Conversation.answer(index, approved);
+            }
         }
     }
     DelegateChoice {
@@ -111,7 +113,9 @@ DelegateChooser {
             sources: c.sources || []
             how: c.how || []
             followups: c.followups || []
-            onAsk: function(question) { Conversation.send(question) }
+            onAsk: function (question) {
+                Conversation.send(question);
+            }
         }
     }
     DelegateChoice {
@@ -121,10 +125,12 @@ DelegateChooser {
             required property bool allowed
             stamp: time
             approved: allowed
-            onAnswer: function(approved) { Conversation.answer(index, approved) }
-            onLook: function(question) {
-                Conversation.model.setProperty(index, "answered", true)
-                cards.look(question)
+            onAnswer: function (approved) {
+                Conversation.answer(index, approved);
+            }
+            onLook: function (question) {
+                Conversation.model.setProperty(index, "answered", true);
+                cards.look(question);
             }
             onOpenSettings: cards.openSettings()
         }

@@ -33,8 +33,7 @@ QtObject {
     }
 
     function _carried(v, p) {
-        return Math.sign(v) === Math.sign(p) && Math.abs(p) >= Fling.carryFloor * S.Theme.pixelRatio
-            && Math.abs(v) >= Fling.carryMin * Math.abs(p) ? v + p : v;
+        return Math.sign(v) === Math.sign(p) && Math.abs(p) >= Fling.carryFloor * S.Theme.pixelRatio && Math.abs(v) >= Fling.carryMin * Math.abs(p) ? v + p : v;
     }
 
     property Connections _connections: Connections {

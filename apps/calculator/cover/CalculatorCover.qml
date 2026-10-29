@@ -32,7 +32,9 @@ CoverBackground {
             text: cover.calc.displayText
             font.pixelSize: cover.calc.errorText !== "" ? Theme.fontSizeMedium : Theme.fontSizeHuge
             font.weight: Font.Light
-            font.features: ({ "tnum": 1 })
+            font.features: ({
+                    "tnum": 1
+                })
             color: cover.calc.errorText !== "" ? Theme.errorColor : Theme.highlightColor
         }
     }

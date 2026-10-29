@@ -43,13 +43,46 @@ Item {
         idempotent: true
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "wifiEnabled"; type: "boolean"; required: true }
-            KeelParam { name: "wifiNetwork"; type: "string"; maxLength: 64; required: true; description: "Empty when not connected" }
-            KeelParam { name: "airplaneMode"; type: "boolean"; required: true }
-            KeelParam { name: "bluetoothEnabled"; type: "boolean"; required: true }
-            KeelParam { name: "bluetoothDevice"; type: "string"; maxLength: 248; required: true; description: "Empty when none is connected" }
-            KeelParam { name: "batteryLevel"; type: "integer"; minimum: 0; maximum: 100 }
-            KeelParam { name: "charging"; type: "boolean"; required: true }
+            KeelParam {
+                name: "wifiEnabled"
+                type: "boolean"
+                required: true
+            }
+            KeelParam {
+                name: "wifiNetwork"
+                type: "string"
+                maxLength: 64
+                required: true
+                description: "Empty when not connected"
+            }
+            KeelParam {
+                name: "airplaneMode"
+                type: "boolean"
+                required: true
+            }
+            KeelParam {
+                name: "bluetoothEnabled"
+                type: "boolean"
+                required: true
+            }
+            KeelParam {
+                name: "bluetoothDevice"
+                type: "string"
+                maxLength: 248
+                required: true
+                description: "Empty when none is connected"
+            }
+            KeelParam {
+                name: "batteryLevel"
+                type: "integer"
+                minimum: 0
+                maximum: 100
+            }
+            KeelParam {
+                name: "charging"
+                type: "boolean"
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const device = Bluetooth.enabled ? (Bluetooth.pairedDevices || []).find(d => d && d.connected) : null;
@@ -74,7 +107,11 @@ Item {
         idempotent: true
         confirm: true
         parameters: [
-            KeelParam { name: "enabled"; type: "boolean"; required: true }
+            KeelParam {
+                name: "enabled"
+                type: "boolean"
+                required: true
+            }
         ]
         onInvoked: (args, call) => {
             if (!Network.wifiAvailable)
@@ -91,7 +128,11 @@ Item {
         idempotent: true
         confirm: true
         parameters: [
-            KeelParam { name: "enabled"; type: "boolean"; required: true }
+            KeelParam {
+                name: "enabled"
+                type: "boolean"
+                required: true
+            }
         ]
         onInvoked: (args, call) => {
             if (Bluetooth.enabled !== args.enabled)
@@ -99,22 +140,112 @@ Item {
         }
     }
 
-    KeelPage { name: "wifi"; title: qsTr("Wi-Fi"); description: "Networks nearby, joining one and the saved ones."; onShow: root.open(name) }
-    KeelPage { name: "bluetooth"; title: qsTr("Bluetooth"); description: "Pairing and connecting devices."; onShow: root.open(name) }
-    KeelPage { name: "display"; title: qsTr("Display"); description: "Brightness, screen timeout, text size and rotation."; onShow: root.open(name) }
-    KeelPage { name: "ambience"; title: qsTr("Ambience"); description: "Wallpaper and theme."; onShow: root.open(name) }
-    KeelPage { name: "sound"; title: qsTr("Sounds"); description: "Volume, ringtone, alarm and notification sounds."; onShow: root.open(name) }
-    KeelPage { name: "notifications"; title: qsTr("Notifications"); description: "On the lock screen and for each app."; onShow: root.open(name) }
-    KeelPage { name: "datetime"; title: qsTr("Date and time"); description: "Time zone and the 12- or 24-hour clock."; onShow: root.open(name) }
-    KeelPage { name: "battery"; title: qsTr("Battery"); description: "Charge, power saving and the power profile."; onShow: root.open(name) }
-    KeelPage { name: "storage"; title: qsTr("Storage"); description: "How much is used and how much is free."; onShow: root.open(name) }
-    KeelPage { name: "keyboard"; title: qsTr("Keyboard"); description: "Languages, autocorrect and predictions."; onShow: root.open(name) }
-    KeelPage { name: "security"; title: qsTr("Security"); description: "The device lock and its quick PIN."; onShow: root.open(name) }
-    KeelPage { name: "accounts"; title: qsTr("Accounts"); description: "The accounts that sync contacts and calendars."; onShow: root.open(name) }
-    KeelPage { name: "appmanager"; title: qsTr("Installed apps"); description: "Each installed app's details."; onShow: root.open(name) }
-    KeelPage { name: "android"; title: qsTr("Android apps"); description: "Whether Android is running, starting it at login, and resetting it."; onShow: root.open(name) }
-    KeelPage { name: "androidapps"; title: qsTr("Android apps list"); description: "Each Android app's permissions, notifications, battery use and storage."; onShow: root.open(name) }
-    KeelPage { name: "androidaccess"; title: qsTr("Special access"); description: "What Android apps may do beyond their permissions: all files, installing apps, alarms and more."; onShow: root.open(name) }
-    KeelPage { name: "updates"; title: qsTr("Software updates"); description: "Checking for and installing system updates."; onShow: root.open(name) }
-    KeelPage { name: "about"; title: qsTr("About device"); description: "Device name, model, software version and legal notices."; onShow: root.open(name) }
+    KeelPage {
+        name: "wifi"
+        title: qsTr("Wi-Fi")
+        description: "Networks nearby, joining one and the saved ones."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "bluetooth"
+        title: qsTr("Bluetooth")
+        description: "Pairing and connecting devices."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "display"
+        title: qsTr("Display")
+        description: "Brightness, screen timeout, text size and rotation."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "ambience"
+        title: qsTr("Ambience")
+        description: "Wallpaper and theme."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "sound"
+        title: qsTr("Sounds")
+        description: "Volume, ringtone, alarm and notification sounds."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "notifications"
+        title: qsTr("Notifications")
+        description: "On the lock screen and for each app."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "datetime"
+        title: qsTr("Date and time")
+        description: "Time zone and the 12- or 24-hour clock."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "battery"
+        title: qsTr("Battery")
+        description: "Charge, power saving and the power profile."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "storage"
+        title: qsTr("Storage")
+        description: "How much is used and how much is free."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "keyboard"
+        title: qsTr("Keyboard")
+        description: "Languages, autocorrect and predictions."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "security"
+        title: qsTr("Security")
+        description: "The device lock and its quick PIN."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "accounts"
+        title: qsTr("Accounts")
+        description: "The accounts that sync contacts and calendars."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "appmanager"
+        title: qsTr("Installed apps")
+        description: "Each installed app's details."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "android"
+        title: qsTr("Android apps")
+        description: "Whether Android is running, starting it at login, and resetting it."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "androidapps"
+        title: qsTr("Android apps list")
+        description: "Each Android app's permissions, notifications, battery use and storage."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "androidaccess"
+        title: qsTr("Special access")
+        description: "What Android apps may do beyond their permissions: all files, installing apps, alarms and more."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "updates"
+        title: qsTr("Software updates")
+        description: "Checking for and installing system updates."
+        onShow: root.open(name)
+    }
+    KeelPage {
+        name: "about"
+        title: qsTr("About device")
+        description: "Device name, model, software version and legal notices."
+        onShow: root.open(name)
+    }
 }

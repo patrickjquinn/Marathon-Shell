@@ -18,7 +18,9 @@ Page {
     }
 
     function openYear() {
-        const year = pageStack.push(Qt.resolvedUrl("YearPage.qml"), { year: date.getFullYear() });
+        const year = pageStack.push(Qt.resolvedUrl("YearPage.qml"), {
+            year: date.getFullYear()
+        });
         year.monthChosen.connect(function (y, m) {
             page.showDate(new Date(y, m, 1));
             pageStack.pop(page);
@@ -37,7 +39,9 @@ Page {
             MenuItem {
                 objectName: "agendaItem"
                 text: qsTr("All events")
-                onClicked: pageStack.push(Qt.resolvedUrl("AgendaPage.qml"), { app: page.app })
+                onClicked: pageStack.push(Qt.resolvedUrl("AgendaPage.qml"), {
+                    app: page.app
+                })
             }
             MenuItem {
                 objectName: "yearItem"

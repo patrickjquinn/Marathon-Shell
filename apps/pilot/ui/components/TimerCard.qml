@@ -28,12 +28,14 @@ Glass {
 
     accent: live
     opacity: cancelled ? 0.6 : 1
-    Behavior on opacity { FadeAnimator {} }
+    Behavior on opacity {
+        FadeAnimator {}
+    }
 
     function hms(s) {
-        var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60
-        var mm = (h > 0 && m < 10 ? "0" : "") + m
-        return (h > 0 ? h + ":" : "") + mm + ":" + (x < 10 ? "0" : "") + x
+        var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+        var mm = (h > 0 && m < 10 ? "0" : "") + m;
+        return (h > 0 ? h + ":" : "") + mm + ":" + (x < 10 ? "0" : "") + x;
     }
 
     QtObject {
@@ -66,7 +68,12 @@ Glass {
                 value: card.cancelled || card.seconds <= 0 ? 0 : card.remaining / card.seconds
                 progressColor: card.live ? Theme.highlightColor : Theme.secondaryColor
                 backgroundColor: Theme.rgba(Theme.primaryColor, 0.10)
-                Behavior on value { enabled: card.live; NumberAnimation { duration: 250 } }
+                Behavior on value {
+                    enabled: card.live
+                    NumberAnimation {
+                        duration: 250
+                    }
+                }
             }
             Label {
                 objectName: "timerLeft"
@@ -95,9 +102,7 @@ Glass {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: card.cancelled ? qsTr("Cancelled")
-                    : card.done ? qsTr("Finished")
-                    : qsTr("Ends at %1").arg(Format.formatDate(new Date(card.endsAt * 1000), Formatter.TimeValue))
+                text: card.cancelled ? qsTr("Cancelled") : card.done ? qsTr("Finished") : qsTr("Ends at %1").arg(Format.formatDate(new Date(card.endsAt * 1000), Formatter.TimeValue))
             }
             Row {
                 visible: card.live
@@ -123,16 +128,16 @@ Glass {
         target: Pilot
         function onClockCancelled(cookie) {
             if (cookie === card.cookie)
-                card.cancelled = true
+                card.cancelled = true;
         }
         function onTimerExtended(oldCookie, json) {
             if (oldCookie !== card.cookie)
-                return
-            var t = JSON.parse(json)
-            card.cookie = t.cookie
-            card.endsAt = t.ends_at
-            card.seconds = t.seconds
-            card.extended(oldCookie)
+                return;
+            var t = JSON.parse(json);
+            card.cookie = t.cookie;
+            card.endsAt = t.ends_at;
+            card.seconds = t.seconds;
+            card.extended(oldCookie);
         }
     }
 }

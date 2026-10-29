@@ -14,8 +14,7 @@ namespace AndroidAppId {
 
     // The shell's id for a window's app id.
     inline QString canonical(const QString &appId) {
-        return appId.startsWith(composerPrefix) ? prefix + appId.mid(composerPrefix.size())
-                                                : appId;
+        return appId.startsWith(composerPrefix) ? prefix + appId.mid(composerPrefix.size()) : appId;
     }
 
     // A window of Android's: an app's or Android's own.

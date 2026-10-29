@@ -17,27 +17,56 @@ TestCase {
 
     Component {
         id: appComponent
-        GalleryApp { width: 720; height: 1440 }
+        GalleryApp {
+            width: 720
+            height: 1440
+        }
     }
 
     function photo(id, album) {
-        return { id: id, path: Qt.resolvedUrl("data/photo" + (id % 3 + 1) + ".png").toString(), thumbnailPath: "",
-                 album: album, width: 48, height: 36, timestamp: new Date(2026, 0, id).getTime() };
+        return {
+            id: id,
+            path: Qt.resolvedUrl("data/photo" + (id % 3 + 1) + ".png").toString(),
+            thumbnailPath: "",
+            album: album,
+            width: 48,
+            height: 36,
+            timestamp: new Date(2026, 0, id).getTime()
+        };
     }
 
     function video(id) {
-        return { id: id, path: "file:///videos/VID_" + id + ".mp4", thumbnailPath: "",
-                 timestamp: new Date(2026, 0, id).getTime() };
+        return {
+            id: id,
+            path: "file:///videos/VID_" + id + ".mp4",
+            thumbnailPath: "",
+            timestamp: new Date(2026, 0, id).getTime()
+        };
     }
 
     function makeApp(photos, videos) {
         MediaLibrary.photos = photos;
         MediaLibrary.videos = videos || [];
-        MediaLibrary.albums = [{ id: "Trip", name: "Trip", photoCount: 2 }, { id: "Camera Roll", name: "Camera Roll", photoCount: 1 }];
+        MediaLibrary.albums = [
+            {
+                id: "Trip",
+                name: "Trip",
+                photoCount: 2
+            },
+            {
+                id: "Camera Roll",
+                name: "Camera Roll",
+                photoCount: 1
+            }
+        ];
         MediaLibrary.deleted = [];
         const app = createTemporaryObject(appComponent, testCase);
-        tryVerify(function () { return app.photos.length === photos.length; });
-        tryVerify(function () { return app.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return app.photos.length === photos.length;
+        });
+        tryVerify(function () {
+            return app.pageStack.currentPage !== null;
+        });
         return app;
     }
 
@@ -97,7 +126,11 @@ TestCase {
 
     function test_openingAlbumShowsItsPhotos() {
         const app = makeApp(threePhotos());
-        app.pageStack.currentPage.open({ kind: "album", albumId: "Trip", name: "Trip" });
+        app.pageStack.currentPage.open({
+            kind: "album",
+            albumId: "Trip",
+            name: "Trip"
+        });
         tryCompare(app.pageStack, "busy", false);
         const page = app.pageStack.currentPage;
         compare(page.title, "Trip");
@@ -107,7 +140,9 @@ TestCase {
 
     function test_searchFiltersAllPhotos() {
         const app = makeApp(threePhotos());
-        app.pageStack.currentPage.open({ kind: "all" });
+        app.pageStack.currentPage.open({
+            kind: "all"
+        });
         tryCompare(app.pageStack, "busy", false);
         const page = app.pageStack.currentPage;
         findChild(page, "searchAction").clicked();
@@ -123,7 +158,9 @@ TestCase {
 
     function test_tappingThumbnailOpensViewerAtIt() {
         const app = makeApp(threePhotos());
-        app.pageStack.currentPage.open({ kind: "all" });
+        app.pageStack.currentPage.open({
+            kind: "all"
+        });
         tryCompare(app.pageStack, "busy", false);
         const grid = findChild(app.pageStack.currentPage, "grid");
         tryCompare(grid, "count", 3);
@@ -139,7 +176,9 @@ TestCase {
     function test_showActionOpensViewer() {
         const app = makeApp(threePhotos());
         tryCompare(app.pageStack, "busy", false);
-        const call = KeelActions.invoke("photos.show", { id: 3 });
+        const call = KeelActions.invoke("photos.show", {
+            id: 3
+        });
         verify(call.succeeded, call.errorMessage);
         tryCompare(app.pageStack, "busy", false);
         compare(app.pageStack.depth, 2);
@@ -148,7 +187,11 @@ TestCase {
 
     function test_closingViewerClearsCoverPhoto() {
         const app = makeApp(threePhotos());
-        app.pageStack.push(Qt.resolvedUrl("../pages/PhotoViewerPage.qml"), { store: app, photos: app.photos, currentIndex: 0 });
+        app.pageStack.push(Qt.resolvedUrl("../pages/PhotoViewerPage.qml"), {
+            store: app,
+            photos: app.photos,
+            currentIndex: 0
+        });
         tryCompare(app.pageStack, "busy", false);
         compare(app.viewerPhoto.id, 1);
         app.pageStack.pop();
@@ -158,7 +201,11 @@ TestCase {
 
     function test_deletingLastAlbumPhotoReturnsToMain() {
         const app = makeApp([photo(1, "Trip"), photo(2, "Camera Roll")]);
-        app.pageStack.currentPage.open({ kind: "album", albumId: "Camera Roll", name: "Camera Roll" });
+        app.pageStack.currentPage.open({
+            kind: "album",
+            albumId: "Camera Roll",
+            name: "Camera Roll"
+        });
         tryCompare(app.pageStack, "busy", false);
         compare(app.pageStack.depth, 2);
         app.deletePhoto(2);
@@ -167,7 +214,9 @@ TestCase {
     }
 
     function openGrid(app, kind) {
-        app.pageStack.currentPage.open({ kind: kind });
+        app.pageStack.currentPage.open({
+            kind: kind
+        });
         tryCompare(app.pageStack, "busy", false);
         return app.pageStack.currentPage;
     }
@@ -248,7 +297,10 @@ TestCase {
 
     function test_deletingAVideoFromThePlayer() {
         const app = makeApp(threePhotos(), [video(9)]);
-        app.pageStack.push(Qt.resolvedUrl("../pages/VideoPlayerPage.qml"), { store: app, video: app.videos[0] });
+        app.pageStack.push(Qt.resolvedUrl("../pages/VideoPlayerPage.qml"), {
+            store: app,
+            video: app.videos[0]
+        });
         tryCompare(app.pageStack, "busy", false);
         const player = app.pageStack.currentPage;
         findChild(player, "deleteAction").clicked();
@@ -260,15 +312,28 @@ TestCase {
 
     function test_playerPlaysAndPauses() {
         const app = makeApp(threePhotos());
-        const clip = { id: 1, path: Qt.resolvedUrl("data/clip.mp4").toString(), timestamp: 0 };
-        app.pageStack.push(Qt.resolvedUrl("../pages/VideoPlayerPage.qml"), { store: app, video: clip });
+        const clip = {
+            id: 1,
+            path: Qt.resolvedUrl("data/clip.mp4").toString(),
+            timestamp: 0
+        };
+        app.pageStack.push(Qt.resolvedUrl("../pages/VideoPlayerPage.qml"), {
+            store: app,
+            video: clip
+        });
         tryCompare(app.pageStack, "busy", false);
         const page = app.pageStack.currentPage;
         mouseClick(findChild(page, "playButton"));
-        tryVerify(function () { return page.playing; }, 5000);
-        tryVerify(function () { return findChild(page, "player").position > 0; }, 5000);
+        tryVerify(function () {
+            return page.playing;
+        }, 5000);
+        tryVerify(function () {
+            return findChild(page, "player").position > 0;
+        }, 5000);
         compare(findChild(page, "player").duration, 2000);
         mouseClick(findChild(page, "playButton"));
-        tryVerify(function () { return !page.playing; });
+        tryVerify(function () {
+            return !page.playing;
+        });
     }
 }

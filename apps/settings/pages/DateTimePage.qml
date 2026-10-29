@@ -30,7 +30,9 @@ Page {
     }
 
     function pickDate() {
-        const dialog = pageStack.push(datePickerComponent, { date: now });
+        const dialog = pageStack.push(datePickerComponent, {
+            date: now
+        });
         dialog.accepted.connect(() => {
             const d = new Date();
             d.setFullYear(dialog.year, dialog.month - 1, dialog.day);

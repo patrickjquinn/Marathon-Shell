@@ -12,7 +12,11 @@ Page {
     id: page
     objectName: "settingsPage"
 
-    property var settings: ({ consent: {}, backends: [], backend: "standard" })
+    property var settings: ({
+            consent: {},
+            backends: [],
+            backend: "standard"
+        })
     property string message: ""
     // What Export or Delete did, shown under their buttons.
     property string dataMessage: ""
@@ -24,55 +28,74 @@ Page {
     property real voiceModelsBytes: -1
 
     function megabytes(b) {
-        return Math.max(1, Math.round(b / 1000000))
+        return Math.max(1, Math.round(b / 1000000));
     }
 
     // Pilot's voice (the Piper voice it ships) is English; speech
     // recognition follows the phone's language.
-    readonly property string englishVoiceNote: Qt.locale().name.indexOf("en") === 0 ? ""
-        : " " + qsTr("Pilot speaks its answers in English for now.")
+    readonly property string englishVoiceNote: Qt.locale().name.indexOf("en") === 0 ? "" : " " + qsTr("Pilot speaks its answers in English for now.")
 
     readonly property var capabilities: [
-        { name: "text_qa", label: qsTr("Typed questions"),
-          description: qsTr("Your questions are sent to Jev and Groq, with personal details replaced.") },
-        { name: "voice_cloud", label: qsTr("Spoken questions"),
-          description: qsTr("Transcripts of spoken questions are handled like typed ones. Audio never leaves the phone.")
-                       + englishVoiceNote },
-        { name: "vision", label: qsTr("Camera questions"),
-          description: qsTr("A smaller copy of your photo is sent with the question, without its location.") },
-        { name: "triage", label: qsTr("Notification sorting"),
-          description: qsTr("New notifications, messages and calendar changes are sorted into Pilot events.") },
-        { name: "cloud_asr", label: qsTr("Cloud speech recognition"),
-          description: qsTr("If the phone can't understand you, the audio is sent to be recognised. Off by default.") },
-        { name: "spoken_nudges", label: qsTr("Spoken nudges"),
-          description: qsTr("Pilot may speak when something urgent arrives.") + englishVoiceNote },
-        { name: "history", label: qsTr("Conversation history"),
-          description: qsTr("Your conversations stay on this phone for 30 days, so you can ask Pilot about them later. Nothing extra is sent. Turning this off deletes them.") }
+        {
+            name: "text_qa",
+            label: qsTr("Typed questions"),
+            description: qsTr("Your questions are sent to Jev and Groq, with personal details replaced.")
+        },
+        {
+            name: "voice_cloud",
+            label: qsTr("Spoken questions"),
+            description: qsTr("Transcripts of spoken questions are handled like typed ones. Audio never leaves the phone.") + englishVoiceNote
+        },
+        {
+            name: "vision",
+            label: qsTr("Camera questions"),
+            description: qsTr("A smaller copy of your photo is sent with the question, without its location.")
+        },
+        {
+            name: "triage",
+            label: qsTr("Notification sorting"),
+            description: qsTr("New notifications, messages and calendar changes are sorted into Pilot events.")
+        },
+        {
+            name: "cloud_asr",
+            label: qsTr("Cloud speech recognition"),
+            description: qsTr("If the phone can't understand you, the audio is sent to be recognised. Off by default.")
+        },
+        {
+            name: "spoken_nudges",
+            label: qsTr("Spoken nudges"),
+            description: qsTr("Pilot may speak when something urgent arrives.") + englishVoiceNote
+        },
+        {
+            name: "history",
+            label: qsTr("Conversation history"),
+            description: qsTr("Your conversations stay on this phone for 30 days, so you can ask Pilot about them later. Nothing extra is sent. Turning this off deletes them.")
+        }
     ]
 
     function reload() {
-        var s = JSON.parse(Pilot.settings())
+        var s = JSON.parse(Pilot.settings());
         if (s.error !== undefined) {
-            message = s.error
-            return
+            message = s.error;
+            return;
         }
-        settings = s
+        settings = s;
     }
 
     // Errors stay on the page; a confirmation is a notice (Silica's
     // transient feedback).
     function report(err, done) {
-        message = err
+        message = err;
         if (!err.length && done.length)
-            Notices.show(done, Notice.Short)
-        reload()
+            Notices.show(done, Notice.Short);
+        reload();
     }
 
     Component.onCompleted: {
-        reload()
-        memories = JSON.parse(Pilot.memories())
-        voiceModelsBytes = Pilot.voiceModelsBytes()
-        ready = true
+        reload();
+        memories = JSON.parse(Pilot.memories());
+        voiceModelsBytes = Pilot.voiceModelsBytes();
+        ready = true;
     }
 
     SilicaFlickable {
@@ -83,7 +106,9 @@ Page {
             id: column
             width: parent.width
 
-            PageHeader { title: qsTr("Pilot settings") }
+            PageHeader {
+                title: qsTr("Pilot settings")
+            }
 
             Label {
                 objectName: "settingsMessage"
@@ -97,7 +122,9 @@ Page {
                 text: page.message
             }
 
-            SectionHeader { text: qsTr("You") }
+            SectionHeader {
+                text: qsTr("You")
+            }
             TextField {
                 objectName: "nameField"
                 width: parent.width
@@ -107,16 +134,20 @@ Page {
                 EnterKey.iconSource: "image://theme/icon-m-enter-close"
                 EnterKey.onClicked: focus = false
                 onActiveFocusChanged: if (!activeFocus && page.ready && text !== (page.settings.name || ""))
-                                          page.report(Pilot.setName(text), qsTr("Saved."))
+                    page.report(Pilot.setName(text), qsTr("Saved."))
             }
             Button {
                 objectName: "introButton"
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: qsTr("Show the introduction")
-                onClicked: pageStack.push(Qt.resolvedUrl("OnboardingDialog.qml"), { again: true })
+                onClicked: pageStack.push(Qt.resolvedUrl("OnboardingDialog.qml"), {
+                    again: true
+                })
             }
 
-            SectionHeader { text: qsTr("What Pilot remembers") }
+            SectionHeader {
+                text: qsTr("What Pilot remembers")
+            }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * x
@@ -136,8 +167,8 @@ Page {
                         MenuItem {
                             text: qsTr("Forget")
                             onClicked: {
-                                Pilot.forget(memoryItem.modelData.id)
-                                page.memories = JSON.parse(Pilot.memories())
+                                Pilot.forget(memoryItem.modelData.id);
+                                page.memories = JSON.parse(Pilot.memories());
                             }
                         }
                     }
@@ -152,7 +183,9 @@ Page {
                 }
             }
 
-            SectionHeader { text: qsTr("Cloud use, per capability") }
+            SectionHeader {
+                text: qsTr("Cloud use, per capability")
+            }
             Repeater {
                 model: page.capabilities
                 TextSwitch {
@@ -163,43 +196,43 @@ Page {
                     description: consentSwitch.modelData.description
                     checked: page.settings.consent[consentSwitch.modelData.name] === true
                     onCheckedChanged: {
-                        var name = consentSwitch.modelData.name
+                        var name = consentSwitch.modelData.name;
                         if (!page.ready || checked === (page.settings.consent[name] === true))
-                            return
-                        page.report(Pilot.setConsent(name, checked), "")
+                            return;
+                        page.report(Pilot.setConsent(name, checked), "");
                     }
                 }
             }
 
-            SectionHeader { text: qsTr("Service") }
+            SectionHeader {
+                text: qsTr("Service")
+            }
             ComboBox {
                 id: backend
                 objectName: "backendCombo"
                 label: qsTr("Service")
-                description: page.settings.backend === "lighthouse"
-                             ? qsTr("Every step stays on EU-hosted, EU-operated servers.")
-                             : qsTr("Deciding what you asked (Jev) and writing answers (Groq) both run in the United States. Lighthouse keeps every step in the EU.")
+                description: page.settings.backend === "lighthouse" ? qsTr("Every step stays on EU-hosted, EU-operated servers.") : qsTr("Deciding what you asked (Jev) and writing answers (Groq) both run in the United States. Lighthouse keeps every step in the EU.")
                 currentIndex: Math.max(0, page.settings.backends.indexOf(page.settings.backend))
                 menu: ContextMenu {
                     Repeater {
                         model: page.settings.backends
                         MenuItem {
                             required property string modelData
-                            text: modelData === "standard" ? qsTr("Standard (Jev and Groq, US)")
-                                : modelData === "lighthouse" ? qsTr("Lighthouse (EU only)")
-                                : modelData
+                            text: modelData === "standard" ? qsTr("Standard (Jev and Groq, US)") : modelData === "lighthouse" ? qsTr("Lighthouse (EU only)") : modelData
                         }
                     }
                 }
                 onCurrentIndexChanged: {
-                    var name = page.settings.backends[currentIndex]
+                    var name = page.settings.backends[currentIndex];
                     if (!page.ready || name === undefined || name === page.settings.backend)
-                        return
-                    page.report(Pilot.setBackend(name), "")
+                        return;
+                    page.report(Pilot.setBackend(name), "");
                 }
             }
 
-            SectionHeader { text: qsTr("Your data") }
+            SectionHeader {
+                text: qsTr("Your data")
+            }
             BackgroundItem {
                 id: egressLink
                 objectName: "egressLink"
@@ -210,8 +243,10 @@ Page {
                 Column {
                     id: rowText
                     anchors {
-                        left: parent.left; leftMargin: Theme.horizontalPageMargin
-                        right: parent.right; rightMargin: Theme.horizontalPageMargin
+                        left: parent.left
+                        leftMargin: Theme.horizontalPageMargin
+                        right: parent.right
+                        rightMargin: Theme.horizontalPageMargin
                         verticalCenter: parent.verticalCenter
                     }
                     Label {
@@ -229,7 +264,10 @@ Page {
                     }
                 }
             }
-            Item { width: 1; height: Theme.paddingLarge }
+            Item {
+                width: 1
+                height: Theme.paddingLarge
+            }
             // Stacked, as Jolla Settings stacks its page actions.
             Column {
                 width: parent.width
@@ -240,9 +278,9 @@ Page {
                     preferredWidth: Theme.buttonWidthMedium
                     text: qsTr("Export")
                     onClicked: {
-                        var path = Pilot.defaultExportPath()
-                        var err = Pilot.exportTo(path)
-                        page.dataMessage = err.length ? err : qsTr("Saved to %1").arg(path)
+                        var path = Pilot.defaultExportPath();
+                        var err = Pilot.exportTo(path);
+                        page.dataMessage = err.length ? err : qsTr("Saved to %1").arg(path);
                     }
                 }
                 Button {
@@ -250,11 +288,11 @@ Page {
                     anchors.horizontalCenter: parent.horizontalCenter
                     preferredWidth: Theme.buttonWidthMedium
                     text: qsTr("Delete records")
-                    onClicked: remorse.execute(qsTr("Deleting Pilot's records"), function() {
-                        var err = Pilot.wipe()
-                        page.dataMessage = err
+                    onClicked: remorse.execute(qsTr("Deleting Pilot's records"), function () {
+                        var err = Pilot.wipe();
+                        page.dataMessage = err;
                         if (!err.length)
-                            Notices.show(qsTr("Pilot's records deleted"), Notice.Short)
+                            Notices.show(qsTr("Pilot's records deleted"), Notice.Short);
                     })
                 }
             }
@@ -279,12 +317,12 @@ Page {
                     anchors.horizontalCenter: parent.horizontalCenter
                     preferredWidth: Theme.buttonWidthMedium
                     text: qsTr("Remove downloaded voice models")
-                    onClicked: remorse.execute(qsTr("Removing voice models"), function() {
-                        var err = Pilot.removeVoiceModels()
-                        page.dataMessage = err
-                        page.voiceModelsBytes = Pilot.voiceModelsBytes()
+                    onClicked: remorse.execute(qsTr("Removing voice models"), function () {
+                        var err = Pilot.removeVoiceModels();
+                        page.dataMessage = err;
+                        page.voiceModelsBytes = Pilot.voiceModelsBytes();
                         if (!err.length)
-                            Notices.show(qsTr("Voice models removed"), Notice.Short)
+                            Notices.show(qsTr("Voice models removed"), Notice.Short);
                     })
                 }
             }
@@ -296,12 +334,13 @@ Page {
                 wrapMode: Text.Wrap
                 font.pixelSize: page.dataMessage.length > 0 ? Theme.fontSizeSmall : Theme.fontSizeExtraSmall
                 color: page.dataMessage.length > 0 ? Theme.highlightColor : Theme.secondaryHighlightColor
-                text: page.dataMessage.length > 0 ? page.dataMessage
-                    : qsTr("Export saves the log of what left this phone to Downloads. Delete removes the log and the conversation.")
+                text: page.dataMessage.length > 0 ? page.dataMessage : qsTr("Export saves the log of what left this phone to Downloads. Delete removes the log and the conversation.")
             }
         }
         VerticalScrollDecorator {}
     }
 
-    RemorsePopup { id: remorse }
+    RemorsePopup {
+        id: remorse
+    }
 }

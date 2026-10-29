@@ -38,11 +38,11 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-
 // A Rust client of the shell under `name`: a context property and, when apps
 // compiled against the shell module look it up as one, a MarathonOS.Shell
 // singleton.
-template <typename T> T *exposeClient(QQmlContext *ctx, const char *name, bool singleton = true) {
+template <typename T>
+T *exposeClient(QQmlContext *ctx, const char *name, bool singleton = true) {
     auto *client = new T();
     client->setParent(QCoreApplication::instance());
     ctx->setContextProperty(QLatin1String(name), client);
@@ -197,9 +197,10 @@ static bool subtreeHasFocus(const QQuickItem *item) {
 
 // MarathonOS.Shell roots, ahead of Qt's defaults. App-independent, so a pool
 // spare sets them up before it is adopted.
-static int sharedImportPathCount = 0;
+static int  sharedImportPathCount = 0;
 static void addSharedImportPaths(QQmlEngine *engine) {
-    const QStringList roots = marathon::runner::shell_import_roots(QCoreApplication::applicationDirPath());
+    const QStringList roots =
+        marathon::runner::shell_import_roots(QCoreApplication::applicationDirPath());
     engine->setImportPathList(roots + engine->importPathList());
     sharedImportPathCount = roots.size();
 }
@@ -215,7 +216,7 @@ int main(int argc, char *argv[]) {
 
     // Pool mode (--pool): no app id yet; WebEngine apps never adopt from
     // the pool, so STAGE 1 is skipped entirely.
-    marathon::runner::Launch launch = marathon::runner::launch();
+    marathon::runner::Launch launch   = marathon::runner::launch();
     const bool               poolMode = launch.pool;
 
     // STAGE 1: Pre-QGuiApplication. We peek at the manifest to learn
@@ -226,79 +227,79 @@ int main(int argc, char *argv[]) {
         const QString earlyAppId = launch.app_id;
         if (marathon::apps::requiresQtModule(earlyAppId, QStringLiteral("webengine"))) {
 #ifdef HAVE_WEBENGINE
-                    // Keep Chromium's own sandbox enabled — the parent
-                    // bwrap recipe omits --unshare-user-try for webengine
-                    // apps (see AppLaunchService::launchMarathonApp) so
-                    // Chromium can nest its own user-namespace unshare.
-                    // We still pass --disable-dev-shm-usage because the
-                    // sandboxed /dev/shm is tmpfs-sized to defaults and
-                    // Chromium's larger buffer pages can hit ENOSPC.
-                    {
-                        // Force Qt's scene-graph onto the OpenGL RHI backend.
-                        // Without this Qt's RHI auto-detect on Pi 5 V3D + bwrap
-                        // tmpfs /home picks QSGSoftwareRenderer because the
-                        // initial EGL probe fails (the bwrap-mounted /home is
-                        // tmpfs and the default-device EGL fd lookup misses).
-                        // Software renderer then SIGSEGVs inside
-                        // RenderWidgetHostViewQtDelegateItem::updatePaintNode
-                        // the first time WebEngine tries to paint -- because
-                        // WebEngine produces a GL-backed QSGNode the software
-                        // renderer can't walk. Forcing OpenGL up-front makes
-                        // Qt use the v3d EGL+GBM path that actually works.
-                        QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
-                        qputenv("QSG_RHI_BACKEND", "opengl");
+            // Keep Chromium's own sandbox enabled — the parent
+            // bwrap recipe omits --unshare-user-try for webengine
+            // apps (see AppLaunchService::launchMarathonApp) so
+            // Chromium can nest its own user-namespace unshare.
+            // We still pass --disable-dev-shm-usage because the
+            // sandboxed /dev/shm is tmpfs-sized to defaults and
+            // Chromium's larger buffer pages can hit ENOSPC.
+            {
+                // Force Qt's scene-graph onto the OpenGL RHI backend.
+                // Without this Qt's RHI auto-detect on Pi 5 V3D + bwrap
+                // tmpfs /home picks QSGSoftwareRenderer because the
+                // initial EGL probe fails (the bwrap-mounted /home is
+                // tmpfs and the default-device EGL fd lookup misses).
+                // Software renderer then SIGSEGVs inside
+                // RenderWidgetHostViewQtDelegateItem::updatePaintNode
+                // the first time WebEngine tries to paint -- because
+                // WebEngine produces a GL-backed QSGNode the software
+                // renderer can't walk. Forcing OpenGL up-front makes
+                // Qt use the v3d EGL+GBM path that actually works.
+                QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+                qputenv("QSG_RHI_BACKEND", "opengl");
 
-                        // Qt WebEngine REQUIRES Qt::AA_ShareOpenGLContexts so
-                        // the GPU process's GL context can share textures
-                        // with the Qt scene-graph context. Without it the
-                        // render thread calls QOpenGLContext::functions() on
-                        // a null/non-current context and SIGSEGVs the moment
-                        // WebEngine tries to schedule its first paint -- the
-                        // crash trace is identical to "no scene-graph
-                        // context" upstream filed bugs.
-                        QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+                // Qt WebEngine REQUIRES Qt::AA_ShareOpenGLContexts so
+                // the GPU process's GL context can share textures
+                // with the Qt scene-graph context. Without it the
+                // render thread calls QOpenGLContext::functions() on
+                // a null/non-current context and SIGSEGVs the moment
+                // WebEngine tries to schedule its first paint -- the
+                // crash trace is identical to "no scene-graph
+                // context" upstream filed bugs.
+                QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 
-                        QByteArray flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
-                        // Qt's Chromium build does NOT include the Wayland Ozone
-                        // backend -- passing --ozone-platform=wayland triggers
-                        // FATAL "Invalid ozone platform: wayland" at startup
-                        // (verified on Pi 5 / postmarketOS edge, 2026-06-15).
-                        // Qt WebEngine uses Qt's QPA integration for window
-                        // surface plumbing; dmabuf passthrough still works
-                        // because Qt's wayland QPA exports buffer handles via
-                        // the QWindow itself, not through Chromium's Ozone.
-                        // --ignore-gpu-blocklist + --enable-gpu-rasterization
-                        //   + --enable-zero-copy: Chromium's default blocklist
-                        //   disables the GPU on most embedded GL ES drivers
-                        //   (V3D, Adreno, Mali) treating them as
-                        //   not-good-enough; on this hardware they are.
-                        // --disable-dev-shm-usage: sandboxed /dev/shm is tmpfs-
-                        //   sized to defaults; Chromium's larger buffer pages
-                        //   hit ENOSPC.
-                        // NOTE: --use-gl=egl deliberately omitted. With Qt
-                        // 6.10 the RHI scene-graph backend is selected via
-                        // QQuickWindow::setGraphicsApi above; forcing
-                        // Chromium's GL implementation on top of that
-                        // triggers Qt's "--use-gl=egl is set with unsupported
-                        // SceneGraph Backend. Expect troubles!" warning and
-                        // the GL context init fails. Chromium auto-picks the
-                        // platform-correct GL implementation when left alone.
-                        const QByteArray needed = "--disable-dev-shm-usage "
-                                                  "--ignore-gpu-blocklist "
-                                                  "--enable-gpu-rasterization "
-                                                  "--enable-zero-copy";
-                        if (flags.isEmpty())
-                            flags = needed;
-                        else
-                            flags = flags + " " + needed;
-                        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags);
-                    }
-                    QtWebEngineQuick::initialize();
+                QByteArray flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+                // Qt's Chromium build does NOT include the Wayland Ozone
+                // backend -- passing --ozone-platform=wayland triggers
+                // FATAL "Invalid ozone platform: wayland" at startup
+                // (verified on Pi 5 / postmarketOS edge, 2026-06-15).
+                // Qt WebEngine uses Qt's QPA integration for window
+                // surface plumbing; dmabuf passthrough still works
+                // because Qt's wayland QPA exports buffer handles via
+                // the QWindow itself, not through Chromium's Ozone.
+                // --ignore-gpu-blocklist + --enable-gpu-rasterization
+                //   + --enable-zero-copy: Chromium's default blocklist
+                //   disables the GPU on most embedded GL ES drivers
+                //   (V3D, Adreno, Mali) treating them as
+                //   not-good-enough; on this hardware they are.
+                // --disable-dev-shm-usage: sandboxed /dev/shm is tmpfs-
+                //   sized to defaults; Chromium's larger buffer pages
+                //   hit ENOSPC.
+                // NOTE: --use-gl=egl deliberately omitted. With Qt
+                // 6.10 the RHI scene-graph backend is selected via
+                // QQuickWindow::setGraphicsApi above; forcing
+                // Chromium's GL implementation on top of that
+                // triggers Qt's "--use-gl=egl is set with unsupported
+                // SceneGraph Backend. Expect troubles!" warning and
+                // the GL context init fails. Chromium auto-picks the
+                // platform-correct GL implementation when left alone.
+                const QByteArray needed = "--disable-dev-shm-usage "
+                                          "--ignore-gpu-blocklist "
+                                          "--enable-gpu-rasterization "
+                                          "--enable-zero-copy";
+                if (flags.isEmpty())
+                    flags = needed;
+                else
+                    flags = flags + " " + needed;
+                qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags);
+            }
+            QtWebEngineQuick::initialize();
 #else
-                    qWarning() << "[marathon-app-runner] App" << earlyAppId
-                               << "declares requiresQtModules=[webengine] but this"
-                                  " build of marathon-app-runner was compiled without"
-                                  " HAVE_WEBENGINE -- WebEngineView will fail to load.";
+            qWarning() << "[marathon-app-runner] App" << earlyAppId
+                       << "declares requiresQtModules=[webengine] but this"
+                          " build of marathon-app-runner was compiled without"
+                          " HAVE_WEBENGINE -- WebEngineView will fail to load.";
 #endif
         }
     }
@@ -389,25 +390,30 @@ int main(int argc, char *argv[]) {
                         "import Nemo.Configuration 1.0 as NC\n";
             warm += "QtObject {\n";
             if (silica)
-                warm += "    property list<Component> silica: [\n"
-                        "        Component { MS.ApplicationWindow {} }, Component { MS.Page {} },\n"
-                        "        Component { MS.SilicaFlickable {} }, Component { MS.SilicaListView {} },\n"
-                        "        Component { MS.PullDownMenu {} }, Component { MS.MenuItem {} },\n"
-                        "        Component { MS.PageHeader {} }, Component { MS.ListItem {} },\n"
-                        "        Component { MS.ContextMenu {} }, Component { MS.RemorseItem {} },\n"
-                        "        Component { Silica.Label {} }, Component { MS.Button {} },\n"
-                        "        Component { MS.TextField {} }, Component { MS.TextArea {} },\n"
-                        "        Component { MS.TextSwitch {} }, Component { MS.Slider {} },\n"
-                        "        Component { MS.SectionHeader {} }, Component { Silica.ViewPlaceholder {} },\n"
-                        "        Component { Silica.VerticalScrollDecorator {} }, Component { MS.Dialog {} },\n"
-                        "        Component { MS.TabView {} }, Component { MS.ComboBox {} },\n"
-                        "        Component { MS.IconButton {} }, Component { MS.BackgroundItem {} },\n"
-                        "        Component { MS.SearchField {} }, Component { MS.ValueButton {} },\n"
-                        "        Component { MS.DialogHeader {} }, Component { MS.RemorsePopup {} },\n"
-                        "        Component { Silica.DetailItem {} }, Component { Silica.Icon {} },\n"
-                        "        Component { Silica.InfoLabel {} }, Component { Silica.BusyIndicator {} },\n"
-                        "        Component { NC.ConfigurationValue {} }\n"
-                        "    ]\n";
+                warm +=
+                    "    property list<Component> silica: [\n"
+                    "        Component { MS.ApplicationWindow {} }, Component { MS.Page {} },\n"
+                    "        Component { MS.SilicaFlickable {} }, Component { MS.SilicaListView {} "
+                    "},\n"
+                    "        Component { MS.PullDownMenu {} }, Component { MS.MenuItem {} },\n"
+                    "        Component { MS.PageHeader {} }, Component { MS.ListItem {} },\n"
+                    "        Component { MS.ContextMenu {} }, Component { MS.RemorseItem {} },\n"
+                    "        Component { Silica.Label {} }, Component { MS.Button {} },\n"
+                    "        Component { MS.TextField {} }, Component { MS.TextArea {} },\n"
+                    "        Component { MS.TextSwitch {} }, Component { MS.Slider {} },\n"
+                    "        Component { MS.SectionHeader {} }, Component { Silica.ViewPlaceholder "
+                    "{} },\n"
+                    "        Component { Silica.VerticalScrollDecorator {} }, Component { "
+                    "MS.Dialog {} },\n"
+                    "        Component { MS.TabView {} }, Component { MS.ComboBox {} },\n"
+                    "        Component { MS.IconButton {} }, Component { MS.BackgroundItem {} },\n"
+                    "        Component { MS.SearchField {} }, Component { MS.ValueButton {} },\n"
+                    "        Component { MS.DialogHeader {} }, Component { MS.RemorsePopup {} },\n"
+                    "        Component { Silica.DetailItem {} }, Component { Silica.Icon {} },\n"
+                    "        Component { Silica.InfoLabel {} }, Component { Silica.BusyIndicator "
+                    "{} },\n"
+                    "        Component { NC.ConfigurationValue {} }\n"
+                    "    ]\n";
             warm += "}\n";
             QQmlComponent warmComponent(pooledView->engine());
             warmComponent.setData(warm, QUrl());
@@ -420,7 +426,8 @@ int main(int argc, char *argv[]) {
                 // Made with no page or dialog around them, the controls' bindings
                 // fail; the warm-up wants their types compiled, not the warnings
                 // in the journal on every launch.
-                const QtMessageHandler logged = qInstallMessageHandler([](QtMsgType, const QMessageLogContext &, const QString &) {});
+                const QtMessageHandler logged = qInstallMessageHandler(
+                    [](QtMsgType, const QMessageLogContext &, const QString &) {});
                 for (qsizetype i = 0; i < types.count(); ++i)
                     delete qobject_cast<QQmlComponent *>(types.at(i))->create();
                 qInstallMessageHandler(logged);
@@ -437,14 +444,16 @@ int main(int argc, char *argv[]) {
         // to periodically touching the full resident set instead.
         const bool poolLocked = (::mlockall(MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT) == 0);
         if (!poolLocked)
-            qWarning() << "[marathon-app-runner] pool: mlockall failed ("
-                       << ::strerror(errno) << ") - using page-touch keepalive";
+            qWarning() << "[marathon-app-runner] pool: mlockall failed (" << ::strerror(errno)
+                       << ") - using page-touch keepalive";
 
         // Wait on the event loop, not a blocking read, so Wayland events
         // pump normally while the spare idles.
         QByteArray line;
         {
-            ::fcntl(0, F_SETFL, ::fcntl(0, F_GETFL) | O_NONBLOCK); // NOLINT(bugprone-signed-bitwise) fcntl flags are int
+            ::fcntl(0, F_SETFL,
+                    ::fcntl(0, F_GETFL) |
+                        O_NONBLOCK); // NOLINT(bugprone-signed-bitwise) fcntl flags are int
             QEventLoop      wait;
             QSocketNotifier notifier(0, QSocketNotifier::Read);
             QObject::connect(&notifier, &QSocketNotifier::activated, &wait, [&line, &wait]() {
@@ -507,9 +516,9 @@ int main(int argc, char *argv[]) {
     // Read once, when the app's QML first imports Keel.Actions.
     {
         const QString keelAppId = QStringLiteral("org.marathonos.") + appId;
-        const QString manifest  = QStandardPaths::locate(
-            QStandardPaths::GenericDataLocation,
-            QStringLiteral("keel/actions/%1.json").arg(keelAppId));
+        const QString manifest =
+            QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+                                   QStringLiteral("keel/actions/%1.json").arg(keelAppId));
         if (!manifest.isEmpty()) {
             qputenv("KEEL_ACTIONS_MANIFEST", manifest.toUtf8());
             qputenv("KEEL_ACTIONS_APP_ID", keelAppId.toUtf8());
@@ -531,7 +540,7 @@ int main(int argc, char *argv[]) {
     const QString     entryPoint  = info.value(QStringLiteral("entryPoint")).toString();
     const QStringList permissions = info.value(QStringLiteral("permissions")).toStringList();
 
-    const bool viewPrewarmed = pooledView != nullptr;
+    const bool        viewPrewarmed = pooledView != nullptr;
     std::unique_ptr<QQuickView> ownedView =
         pooledView ? std::move(pooledView) : std::make_unique<QQuickView>();
     QQuickView &view = *ownedView;
@@ -539,8 +548,9 @@ int main(int argc, char *argv[]) {
     view.setTitle(appName);
 
     if (permissions.contains(QStringLiteral("system"))) {
-        QObject::connect(&view, &QQuickWindow::frameSwapped, registry,
-                         [registry]() { registry->loadAll(); }, Qt::SingleShotConnection);
+        QObject::connect(
+            &view, &QQuickWindow::frameSwapped, registry, [registry]() { registry->loadAll(); },
+            Qt::SingleShotConnection);
     }
 
     view.setColor(Qt::transparent);
@@ -690,8 +700,7 @@ int main(int argc, char *argv[]) {
     }
 
     const auto hasPerm = [&](const QString &perm) -> bool {
-        return std::find(permissions.begin(), permissions.end(), perm) !=
-            permissions.end();
+        return std::find(permissions.begin(), permissions.end(), perm) != permissions.end();
     };
 
     // Construct only the IPC clients whose permissions the app actually
@@ -726,8 +735,8 @@ int main(int argc, char *argv[]) {
     // Two names: "AppLifecycle" for code that uses the runner-friendly
     // alias, "AppLifecycleManager" for MApp and anything else that reaches
     // it through the MarathonOS.Shell singleton.
-    ctx->setContextProperty("AppLifecycle",
-                            exposeClient<marathon::platform::Lifecycle>(ctx, "AppLifecycleManager"));
+    ctx->setContextProperty(
+        "AppLifecycle", exposeClient<marathon::platform::Lifecycle>(ctx, "AppLifecycleManager"));
 
     // Same singleton-mirror pattern as SettingsManagerCpp / Display /
     // Bluetooth below: apps compiled against the shell module see these
@@ -761,10 +770,9 @@ int main(int argc, char *argv[]) {
 
     // The Music app's MPRIS player and album art.
     qmlRegisterType<marathon::platform::MprisPlayer>("MarathonOS.Music", 1, 0, "MprisPlayer");
-    qmlRegisterSingletonType<marathon::platform::Artwork>("MarathonOS.Music", 1, 0, "Artwork",
-                                                          [](QQmlEngine *, QJSEngine *) -> QObject * {
-                                                              return new marathon::platform::Artwork();
-                                                          });
+    qmlRegisterSingletonType<marathon::platform::Artwork>(
+        "MarathonOS.Music", 1, 0, "Artwork",
+        [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::Artwork(); });
 
     // The Maps app's routing and voice cues.
     qmlRegisterType<marathon::maps::Routing>("MarathonOS.Maps", 1, 0, "Routing");
@@ -772,11 +780,13 @@ int main(int argc, char *argv[]) {
 
     // The Settings app's native types.
     qmlRegisterSingletonType<marathon::platform::AndroidApps>(
-        "MarathonOS.Settings", 1, 0, "AndroidApps",
-        [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::AndroidApps(); });
+        "MarathonOS.Settings", 1, 0, "AndroidApps", [](QQmlEngine *, QJSEngine *) -> QObject * {
+            return new marathon::platform::AndroidApps();
+        });
     qmlRegisterSingletonType<marathon::platform::MmsSettings>(
-        "MarathonOS.Settings", 1, 0, "MmsSettings",
-        [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::MmsSettings(); });
+        "MarathonOS.Settings", 1, 0, "MmsSettings", [](QQmlEngine *, QJSEngine *) -> QObject * {
+            return new marathon::platform::MmsSettings();
+        });
     qmlRegisterSingletonType<marathon::platform::KeyboardSettingsStore>(
         "MarathonOS.Settings", 1, 0, "KeyboardSettingsStore",
         [](QQmlEngine *, QJSEngine *) -> QObject * {
@@ -821,7 +831,9 @@ int main(int argc, char *argv[]) {
                                                                    "MediaLibraryManager", media);
         qmlRegisterSingletonType<marathon::platform::MusicLibrary>(
             "MarathonOS.Shell", 1, 0, "MusicLibraryManager",
-            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::platform::MusicLibrary(); });
+            [](QQmlEngine *, QJSEngine *) -> QObject * {
+                return new marathon::platform::MusicLibrary();
+            });
     }
 
     // Qt 6.10+ qmlcache compiles singleton lookups into bytecode at app build
@@ -865,8 +877,8 @@ int main(int argc, char *argv[]) {
 
     marathon::platform::Notifications *notifications = nullptr;
     if (hasPerm("notifications")) {
-        notifications =
-            exposeClient<marathon::platform::Notifications>(ctx, "NativeNotificationService", false);
+        notifications = exposeClient<marathon::platform::Notifications>(
+            ctx, "NativeNotificationService", false);
         // Apps and the test suite consume this under the shorter name.
         ctx->setContextProperty("NotificationService", notifications);
     }
@@ -919,7 +931,8 @@ int main(int argc, char *argv[]) {
                              fired = true;
                              qWarning().noquote() << "[startup]" << appId << "first-frame"
                                                   << startupTimer.elapsed() << "ms";
-                             marathon::runner::log_startup(appId, "first-frame", startupTimer.elapsed());
+                             marathon::runner::log_startup(appId, "first-frame",
+                                                           startupTimer.elapsed());
                          });
     }
 
@@ -927,15 +940,17 @@ int main(int argc, char *argv[]) {
     QPointer<QObject>                 appRoot;
     QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::backRequested, &lifecycle,
                      [&]() { lifecycle.answer(invokeRoot(appRoot, "handleBack", "backPressed")); });
-    QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::forwardRequested, &lifecycle,
-                     [&]() { lifecycle.answer(invokeRoot(appRoot, "handleForward", "forwardPressed")); });
+    QObject::connect(
+        &lifecycle, &marathon::runner::RunnerLifecycle::forwardRequested, &lifecycle,
+        [&]() { lifecycle.answer(invokeRoot(appRoot, "handleForward", "forwardPressed")); });
     // Keel.Actions owns its name on Qt's session-bus connection.
     auto actionsReleased = std::make_shared<bool>(false);
     QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::prepareFreezeRequested,
                      &lifecycle, [actionsReleased]() {
                          const QString name = qEnvironmentVariable("KEEL_ACTIONS_APP_ID");
                          if (!name.isEmpty())
-                             *actionsReleased = QDBusConnection::sessionBus().unregisterService(name);
+                             *actionsReleased =
+                                 QDBusConnection::sessionBus().unregisterService(name);
                      });
     QObject::connect(&lifecycle, &marathon::runner::RunnerLifecycle::thawed, &lifecycle,
                      [actionsReleased]() {
@@ -969,9 +984,9 @@ int main(int argc, char *argv[]) {
                 // in the app's directory: a file URL imports its directory, and
                 // the loose files there would shadow the app's module.
                 component = new QQmlComponent(engine, &view);
-                component->setData(wrapper.toUtf8(),
-                                   QUrl::fromLocalFile(
-                                       QStringLiteral("/marathon-app/%1/Wrapper.qml").arg(appId)));
+                component->setData(
+                    wrapper.toUtf8(),
+                    QUrl::fromLocalFile(QStringLiteral("/marathon-app/%1/Wrapper.qml").arg(appId)));
             }
 
             auto createAndAttach = [component, &view, ctx, appId, appPath, &lifecycle, &appRoot,
@@ -997,8 +1012,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 // The app's catalog is in its library, loaded by now with its module.
-                auto *translations = new Translations(
-                    {QDir(appPath).dirName(), QStringLiteral("silica")}, QCoreApplication::instance());
+                auto *translations =
+                    new Translations({QDir(appPath).dirName(), QStringLiteral("silica")},
+                                     QCoreApplication::instance());
                 translations->install(qEnvironmentVariable("LANGUAGE"));
 
                 if (logStartup)
@@ -1037,9 +1053,10 @@ int main(int argc, char *argv[]) {
                 appRoot       = rootObj;
                 const int sig = rootObj->metaObject()->indexOfSignal("minimizeRequested()");
                 if (sig >= 0)
-                    QObject::connect(rootObj, rootObj->metaObject()->method(sig), &lifecycle,
-                                     lifecycle.metaObject()->method(
-                                         lifecycle.metaObject()->indexOfMethod("minimizeRequested()")));
+                    QObject::connect(
+                        rootObj, rootObj->metaObject()->method(sig), &lifecycle,
+                        lifecycle.metaObject()->method(
+                            lifecycle.metaObject()->indexOfMethod("minimizeRequested()")));
 
                 if (logStartup)
                     marathon::runner::log_startup(appId, "created", startupTimer.elapsed());
@@ -1063,5 +1080,3 @@ int main(int argc, char *argv[]) {
 
     return QGuiApplication::exec();
 }
-
-

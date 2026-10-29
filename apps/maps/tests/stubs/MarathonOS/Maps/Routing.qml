@@ -8,7 +8,13 @@ QtObject {
     signal routeFailed(string error)
 
     function requestRoute(startLat, startLon, endLat, endLon, mode) {
-        requests = requests.concat([{ from: [startLat, startLon], to: [endLat, endLon], mode: mode }]);
+        requests = requests.concat([
+            {
+                from: [startLat, startLon],
+                to: [endLat, endLon],
+                mode: mode
+            }
+        ]);
         routing = true;
     }
 

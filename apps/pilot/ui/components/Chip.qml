@@ -17,8 +17,7 @@ BackgroundItem {
 
     // The chip's natural width from its parts' natural widths (not their
     // laid-out widths, which depend on the chip's).
-    readonly property real _lead: (monogram.length > 0 ? Theme.iconSizeExtraSmall + Theme.paddingSmall : 0)
-                                  + (iconSource.length > 0 ? Theme.iconSizeSmall + Theme.paddingSmall : 0)
+    readonly property real _lead: (monogram.length > 0 ? Theme.iconSizeExtraSmall + Theme.paddingSmall : 0) + (iconSource.length > 0 ? Theme.iconSizeSmall + Theme.paddingSmall : 0)
     // At most as wide as its parent, when the parent has a width of its
     // own (a Row sized by its chips has none to give).
     readonly property real _natural: _lead + label.implicitWidth + 2 * Theme.paddingLarge
@@ -33,11 +32,9 @@ BackgroundItem {
         width: parent.width
         height: Theme.itemSizeExtraSmall
         radius: height / 2
-        color: chip.down ? Theme.rgba(Theme.highlightBackgroundColor, 0.35)
-                         : Theme.rgba(Theme.primaryColor, chip.secondary ? 0.04 : 0.08)
+        color: chip.down ? Theme.rgba(Theme.highlightBackgroundColor, 0.35) : Theme.rgba(Theme.primaryColor, chip.secondary ? 0.04 : 0.08)
         border.width: 1
-        border.color: Theme.rgba(chip.secondary ? Theme.primaryColor : Theme.highlightColor,
-                                 chip.secondary ? 0.10 : 0.30)
+        border.color: Theme.rgba(chip.secondary ? Theme.primaryColor : Theme.highlightColor, chip.secondary ? 0.10 : 0.30)
     }
 
     Row {
@@ -75,8 +72,7 @@ BackgroundItem {
             text: chip.text
             truncationMode: TruncationMode.Fade
             font.pixelSize: Theme.fontSizeSmall
-            color: chip.down ? Theme.highlightColor
-                             : chip.secondary ? Theme.secondaryColor : Theme.primaryColor
+            color: chip.down ? Theme.highlightColor : chip.secondary ? Theme.secondaryColor : Theme.primaryColor
         }
     }
 }

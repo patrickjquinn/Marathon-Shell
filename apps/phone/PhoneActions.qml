@@ -22,28 +22,64 @@ Item {
         // The lock screen's emergency dialer offers none of these.
         enabled: !root.phone.emergencyOnly
         parameters: [
-            KeelParam { name: "type"; type: "string"; values: ["incoming", "outgoing", "missed", "rejected"] },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "type"
+                type: "string"
+                values: ["incoming", "outgoing", "missed", "rejected"]
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "number"; type: "string"; maxLength: 64; required: true }
-            KeelParam { name: "name"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "type"; type: "string"; maxLength: 16; required: true }
-            KeelParam { name: "time"; type: "string"; format: "date-time"; maxLength: 32; required: true }
-            KeelParam { name: "duration"; type: "integer"; minimum: 0; required: true }
+            KeelParam {
+                name: "number"
+                type: "string"
+                maxLength: 64
+                required: true
+            }
+            KeelParam {
+                name: "name"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "type"
+                type: "string"
+                maxLength: 16
+                required: true
+            }
+            KeelParam {
+                name: "time"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+                required: true
+            }
+            KeelParam {
+                name: "duration"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const calls = root.phone.callHistory.filter(c => !args.type || c.type === args.type);
             call.reply(calls.slice(0, args.limit || 10).map(c => ({
-                number: String(c.number || ""),
-                name: String(c.contactName || root.phone.contactName(c.number)),
-                type: String(c.type),
-                time: new Date(Phone.timestampMs(c.timestamp)).toISOString(),
-                duration: Math.max(0, Math.floor(Number(c.duration) || 0))
-            })));
+                        number: String(c.number || ""),
+                        name: String(c.contactName || root.phone.contactName(c.number)),
+                        type: String(c.type),
+                        time: new Date(Phone.timestampMs(c.timestamp)).toISOString(),
+                        duration: Math.max(0, Math.floor(Number(c.duration) || 0))
+                    })));
         }
     }
 
@@ -55,16 +91,42 @@ Item {
         idempotent: true
         enabled: !root.phone.emergencyOnly
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "name"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "phone"; type: "string"; maxLength: 64; required: true }
-            KeelParam { name: "email"; type: "string"; maxLength: 256; required: true }
+            KeelParam {
+                name: "name"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "phone"
+                type: "string"
+                maxLength: 64
+                required: true
+            }
+            KeelParam {
+                name: "email"
+                type: "string"
+                maxLength: 256
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             if (!root.phone.hasContactsPermission) {
@@ -72,10 +134,10 @@ Item {
                 return;
             }
             call.reply(Phone.peopleRows(root.phone.contacts, args.query).slice(0, args.limit || 10).map(c => ({
-                name: String(c.name || ""),
-                phone: String(c.phone || ""),
-                email: String(c.email || "")
-            })));
+                        name: String(c.name || ""),
+                        phone: String(c.phone || ""),
+                        email: String(c.email || "")
+                    })));
         }
     }
 
@@ -87,7 +149,13 @@ Item {
         openWorld: true
         enabled: !root.phone.emergencyOnly
         parameters: [
-            KeelParam { name: "number"; type: "string"; required: true; maxLength: 64; description: "Phone number to call" }
+            KeelParam {
+                name: "number"
+                type: "string"
+                required: true
+                maxLength: 64
+                description: "Phone number to call"
+            }
         ]
         onInvoked: (args, call) => {
             const number = Phone.dialable(args.number);

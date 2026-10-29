@@ -19,8 +19,16 @@ TestCase {
         }
     }
 
-    SignalSpy { id: heldSpy; target: tile; signalName: "held" }
-    SignalSpy { id: toggledSpy; target: tile; signalName: "toggled" }
+    SignalSpy {
+        id: heldSpy
+        target: tile
+        signalName: "held"
+    }
+    SignalSpy {
+        id: toggledSpy
+        target: tile
+        signalName: "toggled"
+    }
 
     function init() {
         heldSpy.clear();

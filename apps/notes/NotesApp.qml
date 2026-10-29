@@ -49,11 +49,17 @@ ApplicationWindow {
         const next = Store.create(notes, text, Date.now());
         save(next);
         activate();
-        pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), { store: app, noteId: next[0].id });
+        pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), {
+            store: app,
+            noteId: next[0].id
+        });
     }
 
     function newNote() {
-        pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), { store: app, noteId: -1 });
+        pageStack.push(Qt.resolvedUrl("pages/NoteEditorPage.qml"), {
+            store: app,
+            noteId: -1
+        });
     }
 
     appId: "notes"
@@ -65,7 +71,9 @@ ApplicationWindow {
     Component.onCompleted: {
         importLegacy();
         if (route === "/folders" || route === "/tasks")
-            pageStack.push(Qt.resolvedUrl(route === "/folders" ? "pages/FoldersPage.qml" : "pages/TasksPage.qml"), { store: app }, PageStackAction.Immediate);
+            pageStack.push(Qt.resolvedUrl(route === "/folders" ? "pages/FoldersPage.qml" : "pages/TasksPage.qml"), {
+                store: app
+            }, PageStackAction.Immediate);
     }
 
     NotesActions {

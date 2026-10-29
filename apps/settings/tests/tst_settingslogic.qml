@@ -20,9 +20,9 @@ TestCase {
 
     function test_everyEntryHasAPage() {
         Logic.sections.forEach(section => section.entries.forEach(entry => {
-            verify(entry.app || Logic.pageFile(entry.page) !== "", entry.title);
-            verify(entry.icon.indexOf("image://theme/icon-m-") === 0, entry.title);
-        }));
+                verify(entry.app || Logic.pageFile(entry.page) !== "", entry.title);
+                verify(entry.icon.indexOf("image://theme/icon-m-") === 0, entry.title);
+            }));
     }
 
     function test_search() {
@@ -65,9 +65,24 @@ TestCase {
     }
 
     function test_networkSubtitle() {
-        compare(Logic.networkSubtitle({ ssid: "Cafe", strength: 55, security: "Open", secured: false }), "Open · Good signal");
-        compare(Logic.networkSubtitle({ ssid: "Home", strength: 80, security: "WPA2", secured: true, known: true }), "Saved · Secured · Excellent signal");
-        compare(Logic.networkSubtitle({ ssid: "Lab", strength: 10, security: "WPA3" }), "Secured · Weak signal");
+        compare(Logic.networkSubtitle({
+            ssid: "Cafe",
+            strength: 55,
+            security: "Open",
+            secured: false
+        }), "Open · Good signal");
+        compare(Logic.networkSubtitle({
+            ssid: "Home",
+            strength: 80,
+            security: "WPA2",
+            secured: true,
+            known: true
+        }), "Saved · Secured · Excellent signal");
+        compare(Logic.networkSubtitle({
+            ssid: "Lab",
+            strength: 10,
+            security: "WPA3"
+        }), "Secured · Weak signal");
     }
 
     function test_deviceIcon() {
@@ -82,9 +97,23 @@ TestCase {
         compare(Logic.wifiSummary(false, false, ""), "Off");
         compare(Logic.wifiSummary(true, false, ""), "On");
         compare(Logic.wifiSummary(true, true, "Home"), "Home");
-        compare(Logic.bluetoothSummary(false, [{ name: "Buds", connected: true }]), "Off");
+        compare(Logic.bluetoothSummary(false, [
+            {
+                name: "Buds",
+                connected: true
+            }
+        ]), "Off");
         compare(Logic.bluetoothSummary(true, []), "On");
-        compare(Logic.bluetoothSummary(true, [{ name: "A" }, { alias: "Buds", name: "x", connected: true }]), "Buds");
+        compare(Logic.bluetoothSummary(true, [
+            {
+                name: "A"
+            },
+            {
+                alias: "Buds",
+                name: "x",
+                connected: true
+            }
+        ]), "Buds");
         compare(Logic.batterySummary(55, false), "55%");
         compare(Logic.batterySummary(55, true), "55% · charging");
         compare(Logic.batterySummary(-1, false), "");

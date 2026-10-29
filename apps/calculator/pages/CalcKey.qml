@@ -41,8 +41,7 @@ BackgroundItem {
         visible: root.key !== "⌫"
         text: root.key === "." ? Qt.locale().decimalPoint : root.key
         font.pixelSize: root.kind === "function" ? Theme.fontSizeMedium : Theme.fontSizeExtraLarge
-        color: root.highlighted || root.kind === "op" || root.kind === "equals" ? Theme.highlightColor
-               : root.kind === "soft" || root.kind === "function" ? Theme.secondaryColor : Theme.primaryColor
+        color: root.highlighted || root.kind === "op" || root.kind === "equals" ? Theme.highlightColor : root.kind === "soft" || root.kind === "function" ? Theme.secondaryColor : Theme.primaryColor
     }
 
     Icon {

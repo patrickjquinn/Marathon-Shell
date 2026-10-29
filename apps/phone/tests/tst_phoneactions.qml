@@ -35,13 +35,42 @@ TestCase {
     function init() {
         Telephony.reset();
         phone.callHistory = [
-            { id: 3, number: "+15551234567", type: "missed", timestamp: 1700000200, duration: 0 },
-            { id: 2, number: "0871234567", contactName: "Bob", type: "outgoing", timestamp: 1700000100000, duration: 65.4 },
-            { id: 1, number: "0861111111", type: "incoming", timestamp: 1700000000, duration: 30 }
+            {
+                id: 3,
+                number: "+15551234567",
+                type: "missed",
+                timestamp: 1700000200,
+                duration: 0
+            },
+            {
+                id: 2,
+                number: "0871234567",
+                contactName: "Bob",
+                type: "outgoing",
+                timestamp: 1700000100000,
+                duration: 65.4
+            },
+            {
+                id: 1,
+                number: "0861111111",
+                type: "incoming",
+                timestamp: 1700000000,
+                duration: 30
+            }
         ];
         phone.contacts = [
-            { id: 1, name: "Grace Hopper", phone: "+15551234567", email: "grace@example.org" },
-            { id: 2, name: "Ada Lovelace", phone: "0861111111", favorite: true }
+            {
+                id: 1,
+                name: "Grace Hopper",
+                phone: "+15551234567",
+                email: "grace@example.org"
+            },
+            {
+                id: 2,
+                name: "Ada Lovelace",
+                phone: "0861111111",
+                favorite: true
+            }
         ];
         phone.hasContactsPermission = true;
         phone.inCall = false;
@@ -65,58 +94,92 @@ TestCase {
     }
 
     function test_recentByTypeAndLimit() {
-        let call = KeelActions.invoke("calls.recent", { type: "missed" });
+        let call = KeelActions.invoke("calls.recent", {
+            type: "missed"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result.map(c => c.number), ["+15551234567"]);
-        call = KeelActions.invoke("calls.recent", { limit: 1 });
+        call = KeelActions.invoke("calls.recent", {
+            limit: 1
+        });
         compare(call.result.result.length, 1);
-        compare(KeelActions.invoke("calls.recent", { type: "voicemail" }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("calls.recent", {
+            type: "voicemail"
+        }).errorCode, "InvalidArguments");
     }
 
     function test_noneFromEmergencyDialer() {
         phone.emergencyOnly = true;
         compare(KeelActions.invoke("calls.recent", {}).errorCode, "NotAvailable");
-        compare(KeelActions.invoke("contacts.find", { query: "" }).errorCode, "NotAvailable");
-        compare(KeelActions.invoke("call.dial", { number: "0871234567" }).errorCode, "NotAvailable");
+        compare(KeelActions.invoke("contacts.find", {
+            query: ""
+        }).errorCode, "NotAvailable");
+        compare(KeelActions.invoke("call.dial", {
+            number: "0871234567"
+        }).errorCode, "NotAvailable");
         compare(phone.dialled, []);
     }
 
     function test_findContacts() {
-        let call = KeelActions.invoke("contacts.find", { query: "" });
+        let call = KeelActions.invoke("contacts.find", {
+            query: ""
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result, [
-            { name: "Ada Lovelace", phone: "0861111111", email: "" },
-            { name: "Grace Hopper", phone: "+15551234567", email: "grace@example.org" }
+            {
+                name: "Ada Lovelace",
+                phone: "0861111111",
+                email: ""
+            },
+            {
+                name: "Grace Hopper",
+                phone: "+15551234567",
+                email: "grace@example.org"
+            }
         ]);
-        call = KeelActions.invoke("contacts.find", { query: "555 123" });
+        call = KeelActions.invoke("contacts.find", {
+            query: "555 123"
+        });
         compare(call.result.result.map(c => c.name), ["Grace Hopper"]);
     }
 
     function test_findContactsNeedsPermission() {
         phone.hasContactsPermission = false;
-        compare(KeelActions.invoke("contacts.find", { query: "a" }).errorCode, "NotAvailable");
+        compare(KeelActions.invoke("contacts.find", {
+            query: "a"
+        }).errorCode, "NotAvailable");
     }
 
     function test_dial() {
-        const call = KeelActions.invoke("call.dial", { number: "+1 (555) 123-4567" });
+        const call = KeelActions.invoke("call.dial", {
+            number: "+1 (555) 123-4567"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(phone.dialled, ["+15551234567"]);
         compare(phone.activations, 1);
     }
 
     function test_dialRefused() {
-        compare(KeelActions.invoke("call.dial", { number: "call me" }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("call.dial", {
+            number: "call me"
+        }).errorCode, "InvalidArguments");
         phone.inCall = true;
-        compare(KeelActions.invoke("call.dial", { number: "0871234567" }).errorCode, "NotAvailable");
+        compare(KeelActions.invoke("call.dial", {
+            number: "0871234567"
+        }).errorCode, "NotAvailable");
         phone.inCall = false;
         Telephony.hasModem = false;
-        compare(KeelActions.invoke("call.dial", { number: "0871234567" }).errorCode, "NotAvailable");
+        compare(KeelActions.invoke("call.dial", {
+            number: "0871234567"
+        }).errorCode, "NotAvailable");
         compare(phone.dialled, []);
     }
 
     function test_dialEmergencyWithoutModem() {
         Telephony.hasModem = false;
-        verify(KeelActions.invoke("call.dial", { number: "112" }).succeeded);
+        verify(KeelActions.invoke("call.dial", {
+            number: "112"
+        }).succeeded);
         compare(phone.dialled, ["112"]);
     }
 
@@ -130,7 +193,9 @@ TestCase {
         compare(manifest.appId, "org.marathonos.phone");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.phone/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.phone/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

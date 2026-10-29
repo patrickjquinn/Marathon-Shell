@@ -16,15 +16,22 @@ BackgroundItem {
     function source() {
         // The ambience decides which of a weather icon's two drawings
         // shows against it.
-        var scheme = Theme.colorScheme === Theme.LightOnDark ? "dark" : "light"
+        var scheme = Theme.colorScheme === Theme.LightOnDark ? "dark" : "light";
         switch (icon) {
-        case "calendar": return "image://theme/icon-m-date"
-        case "news": return "image://theme/icon-m-website"
-        case "weather-day": return "image://theme/icon-m-weather-d200-" + scheme
-        case "weather-night": return "image://theme/icon-m-weather-n200-" + scheme
-        case "alarm": return "image://theme/icon-m-alarm"
-        case "reminder": return "image://theme/icon-m-note"
-        default: return "image://theme/icon-m-timer"
+        case "calendar":
+            return "image://theme/icon-m-date";
+        case "news":
+            return "image://theme/icon-m-website";
+        case "weather-day":
+            return "image://theme/icon-m-weather-d200-" + scheme;
+        case "weather-night":
+            return "image://theme/icon-m-weather-n200-" + scheme;
+        case "alarm":
+            return "image://theme/icon-m-alarm";
+        case "reminder":
+            return "image://theme/icon-m-note";
+        default:
+            return "image://theme/icon-m-timer";
         }
     }
 
@@ -44,8 +51,7 @@ BackgroundItem {
     Rectangle {
         anchors.fill: parent
         radius: Theme.paddingLarge
-        color: tile.down ? Theme.rgba(Theme.highlightBackgroundColor, 0.30)
-                         : Theme.rgba(Theme.primaryColor, 0.06)
+        color: tile.down ? Theme.rgba(Theme.highlightBackgroundColor, 0.30) : Theme.rgba(Theme.primaryColor, 0.06)
         border.width: 1
         border.color: Theme.rgba(Theme.primaryColor, 0.10)
     }

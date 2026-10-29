@@ -11,11 +11,15 @@ TestCase {
     name: "TestApp"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
     Component {
         id: appComponent
-        TestApp { width: 540; height: 1140 }
+        TestApp {
+            width: 540
+            height: 1140
+        }
     }
     Component {
         id: coverComponent
@@ -77,7 +81,11 @@ TestCase {
     }
 
     function test_coverShowsCounts() {
-        const c = createTemporaryObject(coverComponent, testCase, { passed: 4, failed: 1, triggered: 2 });
+        const c = createTemporaryObject(coverComponent, testCase, {
+            passed: 4,
+            failed: 1,
+            triggered: 2
+        });
         compare(findChild(c, "passedLabel").text, "4 passed");
         compare(findChild(c, "failedLabel").text, "1 failed");
         compare(findChild(c, "triggeredLabel").text, "2 triggered");

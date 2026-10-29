@@ -24,23 +24,28 @@ TestCase {
         MarathonAppGrid {
             anchors.fill: parent
             appModel: QtObject {
-                readonly property var apps: [{
+                readonly property var apps: [
+                    {
                         "id": "phone",
                         "name": "Phone",
                         "icon": ""
-                    }, {
+                    },
+                    {
                         "id": "mail",
                         "name": "Mail",
                         "icon": ""
-                    }, {
+                    },
+                    {
                         "id": "clock",
                         "name": "Clock",
                         "icon": ""
-                    }, {
+                    },
+                    {
                         "id": "maps",
                         "name": "Maps",
                         "icon": ""
-                    }]
+                    }
+                ]
                 readonly property int count: apps.length
                 function getAppAtIndex(i) {
                     return apps[i] || null;

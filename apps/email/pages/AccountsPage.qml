@@ -22,7 +22,9 @@ Page {
             MenuItem {
                 objectName: "addAccountItem"
                 text: qsTr("Add account")
-                onClicked: pageStack.push(Qt.resolvedUrl("AddAccountPage.qml"), { app: page.app })
+                onClicked: pageStack.push(Qt.resolvedUrl("AddAccountPage.qml"), {
+                    app: page.app
+                })
             }
         }
 

@@ -2,7 +2,8 @@
 
 #include <QQuickWindow>
 
-FpsMonitor::FpsMonitor(QObject *parent) : QObject(parent) {
+FpsMonitor::FpsMonitor(QObject *parent)
+    : QObject(parent) {
     m_sampleTimer.setInterval(500);
     connect(&m_sampleTimer, &QTimer::timeout, this, &FpsMonitor::sample);
 }

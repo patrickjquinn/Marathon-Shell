@@ -80,7 +80,9 @@ TabItem {
                     anchors.centerIn: parent
                     text: Logic.formatCountdown(root.countdown.remaining)
                     font.pixelSize: Theme.fontSizeHuge
-                    font.features: ({ "tnum": 1 })
+                    font.features: ({
+                            "tnum": 1
+                        })
                     color: dial.pressed || root.countdown.running ? Theme.highlightColor : Theme.primaryColor
                 }
             }
@@ -90,9 +92,7 @@ TabItem {
                 width: parent.width - 2 * x
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                text: root.countdown.running ? qsTr("Tap to pause")
-                    : root.countdown.remaining > 0 ? qsTr("Tap to start")
-                    : qsTr("Pull down to set a timer")
+                text: root.countdown.running ? qsTr("Tap to pause") : root.countdown.remaining > 0 ? qsTr("Tap to start") : qsTr("Pull down to set a timer")
                 color: Theme.secondaryHighlightColor
             }
             SectionHeader {

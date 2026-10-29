@@ -23,8 +23,16 @@ TestCase {
         }
     }
 
-    SignalSpy { id: launchSpy; target: bar; signalName: "appLaunched" }
-    SignalSpy { id: pageSpy; target: bar; signalName: "pageNavigationRequested" }
+    SignalSpy {
+        id: launchSpy
+        target: bar
+        signalName: "appLaunched"
+    }
+    SignalSpy {
+        id: pageSpy
+        target: bar
+        signalName: "pageNavigationRequested"
+    }
 
     function init() {
         launchSpy.clear();

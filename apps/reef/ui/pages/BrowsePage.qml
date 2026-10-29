@@ -24,7 +24,8 @@ Page {
 
     // browseModel is shared: show this page's list again when coming back
     // to it from another browse page.
-    onStatusChanged: if (status === PageStatus.Activating) Reef.browse(kind, browseId)
+    onStatusChanged: if (status === PageStatus.Activating)
+        Reef.browse(kind, browseId)
     Component.onCompleted: Reef.browse(kind, browseId)
 
     SilicaListView {
@@ -37,7 +38,9 @@ Page {
             description: page.subtitle.length > 0 ? page.subtitle : qsTr("%n app(s)", "", list.count)
         }
         delegate: PackageDelegate {
-            onClicked: pageStack.push(Qt.resolvedUrl("PackagePage.qml"), { packageName: name })
+            onClicked: pageStack.push(Qt.resolvedUrl("PackagePage.qml"), {
+                packageName: name
+            })
         }
 
         PullDownMenu {

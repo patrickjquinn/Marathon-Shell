@@ -55,7 +55,8 @@ namespace {
     }
 } // namespace
 
-RemoteTextInputFilter::RemoteTextInputFilter(RemoteTextInput *input, AppIdOf appIdOf, QObject *parent)
+RemoteTextInputFilter::RemoteTextInputFilter(RemoteTextInput *input, AppIdOf appIdOf,
+                                             QObject *parent)
     : QObject(parent)
     , m_input(input)
     , m_appIdOf(std::move(appIdOf)) {
@@ -111,10 +112,11 @@ bool RemoteTextInputFilter::targets(QObject *object) const {
     if (!object || editor.isEmpty())
         return false;
     const QString appId = m_appIdOf ? m_appIdOf(object) : QString();
-    auto *item = qobject_cast<QQuickItem *>(object);
-    const bool acceptsInputMethod = item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod);
-    return marathon::text_input::should_target_editor(
-        editor, appId, acceptsInputMethod, m_input->getFrontAppId());
+    auto         *item  = qobject_cast<QQuickItem *>(object);
+    const bool    acceptsInputMethod =
+        item && item->flags().testFlag(QQuickItem::ItemAcceptsInputMethod);
+    return marathon::text_input::should_target_editor(editor, appId, acceptsInputMethod,
+                                                      m_input->getFrontAppId());
 }
 
 bool RemoteTextInputFilter::targetsFocus() const {

@@ -12,8 +12,13 @@ Dialog {
         Column {
             id: column
             width: parent.width
-            DialogHeader { acceptText: "Save" }
-            Item { width: 1; height: 3000 }
+            DialogHeader {
+                acceptText: "Save"
+            }
+            Item {
+                width: 1
+                height: 3000
+            }
         }
     }
 }

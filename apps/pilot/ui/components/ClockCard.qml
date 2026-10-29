@@ -19,25 +19,26 @@ Glass {
 
     readonly property date when: new Date(at * 1000)
     opacity: cancelled ? 0.6 : 1
-    Behavior on opacity { FadeAnimator {} }
+    Behavior on opacity {
+        FadeAnimator {}
+    }
 
     // "in 25 min", "in 2 h 5 min", "tomorrow", "Friday".
     function relative(nowMs) {
-        var mins = Math.round((at * 1000 - nowMs) / 60000)
+        var mins = Math.round((at * 1000 - nowMs) / 60000);
         if (mins <= 0)
-            return qsTr("now")
+            return qsTr("now");
         if (mins < 60)
-            return qsTr("in %1 min").arg(mins)
-        var today = new Date(nowMs)
-        var days = Math.round((new Date(when.getFullYear(), when.getMonth(), when.getDate())
-                               - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000)
+            return qsTr("in %1 min").arg(mins);
+        var today = new Date(nowMs);
+        var days = Math.round((new Date(when.getFullYear(), when.getMonth(), when.getDate()) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
         if (days === 0 || mins < 12 * 60) {
-            var h = Math.floor(mins / 60), m = mins % 60
-            return m > 0 ? qsTr("in %1 h %2 min").arg(h).arg(m) : qsTr("in %1 h").arg(h)
+            var h = Math.floor(mins / 60), m = mins % 60;
+            return m > 0 ? qsTr("in %1 h %2 min").arg(h).arg(m) : qsTr("in %1 h").arg(h);
         }
         if (days === 1)
-            return qsTr("tomorrow")
-        return Format.formatDate(when, Formatter.WeekdayNameStandalone)
+            return qsTr("tomorrow");
+        return Format.formatDate(when, Formatter.WeekdayNameStandalone);
     }
 
     property real nowMs: Date.now()
@@ -82,8 +83,7 @@ Glass {
             Label {
                 width: parent.width
                 visible: text.length > 0
-                text: card.title.length > 0 ? card.title.charAt(0).toUpperCase() + card.title.slice(1)
-                      : card.kind === "alarm" ? qsTr("Alarm") : ""
+                text: card.title.length > 0 ? card.title.charAt(0).toUpperCase() + card.title.slice(1) : card.kind === "alarm" ? qsTr("Alarm") : ""
                 wrapMode: Text.Wrap
                 maximumLineCount: 2
                 truncationMode: TruncationMode.Fade
@@ -107,7 +107,7 @@ Glass {
         target: Pilot
         function onClockCancelled(cookie) {
             if (cookie === card.cookie)
-                card.cancelled = true
+                card.cancelled = true;
         }
     }
 }

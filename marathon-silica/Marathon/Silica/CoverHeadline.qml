@@ -19,7 +19,9 @@ Column {
         color: S.Theme.highlightColor
         font.pixelSize: S.Theme.fontSizeHuge
         font.weight: Font.Light
-        font.features: ({ "tnum": 1 })
+        font.features: ({
+                "tnum": 1
+            })
         fontSizeMode: Text.HorizontalFit
         minimumPixelSize: S.Theme.fontSizeLarge
     }

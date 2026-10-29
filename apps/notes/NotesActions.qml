@@ -28,18 +28,36 @@ Item {
         description: "Create a note in Marathon Notes. The title becomes the note's first line, followed by the body. Returns the new note's id."
         idempotent: false
         parameters: [
-            KeelParam { name: "title"; type: "string"; maxLength: 200; description: "Title of the note" },
-            KeelParam { name: "body"; type: "string"; required: true; maxLength: 20000; description: "Text of the note" }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 200
+                description: "Title of the note"
+            },
+            KeelParam {
+                name: "body"
+                type: "string"
+                required: true
+                maxLength: 20000
+                description: "Text of the note"
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "id"; type: "integer"; minimum: 1; required: true }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 1
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const title = String(args.title || "").trim();
             const next = Store.create(root.store.notes, title ? title + "\n" + args.body : args.body, Date.now());
             root.store.save(next);
-            call.reply({ id: next[0].id });
+            call.reply({
+                id: next[0].id
+            });
         }
     }
 
@@ -50,17 +68,49 @@ Item {
         readOnly: true
         idempotent: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "id"; type: "integer"; minimum: 1; required: true }
-            KeelParam { name: "title"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "body"; type: "string"; maxLength: 2000; required: true }
-            KeelParam { name: "modified"; type: "string"; format: "date-time"; maxLength: 32; required: true }
+            KeelParam {
+                name: "id"
+                type: "integer"
+                minimum: 1
+                required: true
+            }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "body"
+                type: "string"
+                maxLength: 2000
+                required: true
+            }
+            KeelParam {
+                name: "modified"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const found = Store.sorted(Store.search(root.store.notes, args.query));

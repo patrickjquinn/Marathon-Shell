@@ -19,16 +19,20 @@ ApplicationWindow {
     // and rich text would load remote images and open any link.
     _defaultLabelFormat: Text.PlainText
 
-    initialPage: Component { CataloguePage { } }
+    initialPage: Component {
+        CataloguePage {}
+    }
     cover: Qt.resolvedUrl("cover/CoverPage.qml")
     allowedOrientations: defaultAllowedOrientations
 
     // Keel Actions for Pilot and other MCP clients (actions/ReefActions.qml).
-    ReefActions { window: app }
+    ReefActions {
+        window: app
+    }
 
     Component.onCompleted: {
         if (Reef.refreshOnStart) {
-            Reef.refresh()
+            Reef.refresh();
         }
     }
 
@@ -37,9 +41,9 @@ ApplicationWindow {
     // Back from anywhere: what is installed may have changed.
     onApplicationActiveChanged: {
         if (applicationActive) {
-            Reef.checkPurchases()
-            Reef.pollHandler()
-            settle.restart()
+            Reef.checkPurchases();
+            Reef.pollHandler();
+            settle.restart();
         }
     }
 
@@ -56,7 +60,7 @@ ApplicationWindow {
         target: Reef
         function onJobsRunningChanged() {
             if (!Reef.jobsRunning)
-                settle.restart()
+                settle.restart();
         }
     }
     Timer {

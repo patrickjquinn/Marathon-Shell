@@ -11,7 +11,11 @@ Page {
     property var store
 
     function open(row) {
-        const props = { store: root.store, kind: row.kind, title: rowTitle(row) };
+        const props = {
+            store: root.store,
+            kind: row.kind,
+            title: rowTitle(row)
+        };
         if (row.kind === "album")
             props.albumId = row.albumId;
         else if (row.kind === "memory")
@@ -39,7 +43,9 @@ Page {
         objectName: "collections"
         anchors.fill: parent
         model: Model.collections(root.store.photos, root.store.videos, root.store.albums, root.store.memories)
-        header: PageHeader { title: qsTr("Gallery") }
+        header: PageHeader {
+            title: qsTr("Gallery")
+        }
         section.property: "section"
         section.delegate: SectionHeader {
             required property string section

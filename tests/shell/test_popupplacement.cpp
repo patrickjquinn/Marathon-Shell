@@ -9,8 +9,8 @@ class PopupPlacementTest : public QObject {
     void flipsAnEdgeMenuIntoTheViewport() {
         const QRect result = PopupPlacement::constrain(
             QRect(470, 40, 180, 220), QRect(450, 20, 20, 20), Qt::RightEdge,
-            Qt::RightEdge | Qt::BottomEdge, QPoint(), QRect(0, 0, 480, 419),
-            Qt::Horizontal, Qt::Orientations(), Qt::Orientations());
+            Qt::RightEdge | Qt::BottomEdge, QPoint(), QRect(0, 0, 480, 419), Qt::Horizontal,
+            Qt::Orientations(), Qt::Orientations());
         QCOMPARE(result, QRect(270, 40, 180, 220));
     }
 
@@ -25,8 +25,8 @@ class PopupPlacementTest : public QObject {
     void slidesWhenFlippingWouldStillOverflow() {
         const QRect result = PopupPlacement::constrain(
             QRect(410, 300, 160, 180), QRect(400, 280, 10, 20), Qt::RightEdge,
-            Qt::RightEdge | Qt::BottomEdge, QPoint(), QRect(0, 0, 480, 419),
-            Qt::Orientations(), Qt::Horizontal | Qt::Vertical, Qt::Orientations());
+            Qt::RightEdge | Qt::BottomEdge, QPoint(), QRect(0, 0, 480, 419), Qt::Orientations(),
+            Qt::Horizontal | Qt::Vertical, Qt::Orientations());
         QCOMPARE(result, QRect(320, 239, 160, 180));
     }
 

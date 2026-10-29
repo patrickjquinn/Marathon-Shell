@@ -46,7 +46,9 @@ ListItem {
             width: parent.width
             text: item.app.timeText(item.modelData)
             font.pixelSize: Theme.fontSizeSmall
-            font.features: ({ "tnum": 1 })
+            font.features: ({
+                    "tnum": 1
+                })
             truncationMode: TruncationMode.Fade
             color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
         }
@@ -61,7 +63,9 @@ ListItem {
                 return Format.formatDate(new Date(2000, 0, 1, t.hour, t.minute), Formatter.TimeValue);
             }
             font.pixelSize: Theme.fontSizeExtraSmall
-            font.features: ({ "tnum": 1 })
+            font.features: ({
+                    "tnum": 1
+                })
             truncationMode: TruncationMode.Fade
             color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
         }

@@ -11,7 +11,8 @@ TestCase {
     name: "TerminalView"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     Component {
         id: engineComponent
@@ -19,9 +20,15 @@ TestCase {
     }
     Component {
         id: viewComponent
-        TerminalView { width: 540; height: 960 }
+        TerminalView {
+            width: 540
+            height: 960
+        }
     }
-    SignalSpy { id: usedSpy; signalName: "modifiersUsed" }
+    SignalSpy {
+        id: usedSpy
+        signalName: "modifiersUsed"
+    }
 
     function makeView(props) {
         const view = createTemporaryObject(viewComponent, test, props || {});
@@ -49,8 +56,10 @@ TestCase {
     }
 
     function test_specialKeys_data() {
-        return [Qt.Key_Escape, Qt.Key_Tab, Qt.Key_Return, Qt.Key_Backspace, Qt.Key_Up, Qt.Key_Left, Qt.Key_Home, Qt.Key_PageDown]
-            .map(k => ({ tag: String(k), key: k }));
+        return [Qt.Key_Escape, Qt.Key_Tab, Qt.Key_Return, Qt.Key_Backspace, Qt.Key_Up, Qt.Key_Left, Qt.Key_Home, Qt.Key_PageDown].map(k => ({
+                    tag: String(k),
+                    key: k
+                }));
     }
     function test_specialKeys(data) {
         const view = makeView();
@@ -80,7 +89,9 @@ TestCase {
 
     // An armed Ctrl on the extra-keys row turns a typed letter into a control code.
     function test_extraCtrlAppliesToTypedText() {
-        const view = makeView({ extraModifiers: Qt.ControlModifier });
+        const view = makeView({
+            extraModifiers: Qt.ControlModifier
+        });
         usedSpy.target = view;
         usedSpy.clear();
         keyClick("c");
@@ -90,14 +101,18 @@ TestCase {
     }
 
     function test_extraAltSendsMeta() {
-        const view = makeView({ extraModifiers: Qt.AltModifier });
+        const view = makeView({
+            extraModifiers: Qt.AltModifier
+        });
         keyClick("b");
         compare(last(view).text, "b");
         compare(last(view).modifiers, Qt.AltModifier);
     }
 
     function test_ctrlDroppedFromSpecialKeys() {
-        const view = makeView({ extraModifiers: Qt.ControlModifier });
+        const view = makeView({
+            extraModifiers: Qt.ControlModifier
+        });
         keyClick(Qt.Key_Up);
         compare(last(view).key, Qt.Key_Up);
         compare(last(view).modifiers & Qt.ControlModifier, 0);
@@ -136,7 +151,9 @@ TestCase {
     }
 
     function test_colorSchemes() {
-        const view = makeView({ colorScheme: "light" });
+        const view = makeView({
+            colorScheme: "light"
+        });
         const r = findChild(view, "renderer");
         compare(r.backgroundColor, Qt.color("white"));
         view.colorScheme = "dark";
@@ -146,7 +163,9 @@ TestCase {
     }
 
     function test_fontSize() {
-        const view = makeView({ fontSize: 31 });
+        const view = makeView({
+            fontSize: 31
+        });
         compare(findChild(view, "renderer").font.pixelSize, 31);
     }
 }

@@ -58,13 +58,17 @@ Page {
 
     function showPage(name) {
         menuPanel.hide();
-        pageStack.push(Qt.resolvedUrl(name), { browser: browser });
+        pageStack.push(Qt.resolvedUrl(name), {
+            browser: browser
+        });
     }
 
     function showTabs() {
         if (browser.webLayer)
             browser.webLayer.capture();
-        pageStack.push(Qt.resolvedUrl("TabsPage.qml"), { browser: browser });
+        pageStack.push(Qt.resolvedUrl("TabsPage.qml"), {
+            browser: browser
+        });
     }
 
     function followScroll(y) {
@@ -100,7 +104,9 @@ Page {
             fill: parent
             bottomMargin: root.toolbarOpen ? toolbar.height : 0
         }
-        Component.onCompleted: setSource(root.browser.webLayerSource, { browser: root.browser })
+        Component.onCompleted: setSource(root.browser.webLayerSource, {
+            browser: root.browser
+        })
         onLoaded: root.browser.webLayer = item
     }
 
@@ -266,8 +272,7 @@ Page {
                         objectName: "schemeIcon"
                         anchors.verticalCenter: parent.verticalCenter
                         visible: root.browser.isPrivateMode || addressButton.badge !== "none"
-                        source: root.browser.isPrivateMode ? "image://theme/icon-s-privacy"
-                              : addressButton.badge === "secure" ? "image://theme/icon-s-lock" : "image://theme/icon-s-warning"
+                        source: root.browser.isPrivateMode ? "image://theme/icon-s-privacy" : addressButton.badge === "secure" ? "image://theme/icon-s-lock" : "image://theme/icon-s-warning"
                         color: addressButton.badge === "insecure" ? Theme.errorColor : Theme.secondaryColor
                     }
                     Label {

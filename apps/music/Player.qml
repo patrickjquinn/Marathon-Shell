@@ -80,7 +80,13 @@ QtObject {
     }
 
     function snapshot() {
-        return { paths: queue.map(t => t.path), index: index, position: media.position, shuffle: shuffle, repeatMode: repeatMode };
+        return {
+            paths: queue.map(t => t.path),
+            index: index,
+            position: media.position,
+            shuffle: shuffle,
+            repeatMode: repeatMode
+        };
     }
 
     // Loads a saved queue paused; returns false when none of it is in the library.
@@ -144,9 +150,7 @@ QtObject {
             player.failed(player.currentTrack);
             if (!player._autoplay)
                 return;
-            const i = ++player._failures < player.queue.length
-                    ? Queue.next(player.queue.length, player.index, player.shuffle, player.repeatMode === "all", Math.random())
-                    : -1;
+            const i = ++player._failures < player.queue.length ? Queue.next(player.queue.length, player.index, player.shuffle, player.repeatMode === "all", Math.random()) : -1;
             if (i < 0)
                 player.media.stop();
             else

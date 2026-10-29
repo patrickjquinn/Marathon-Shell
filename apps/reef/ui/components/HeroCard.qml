@@ -31,9 +31,18 @@ BackgroundItem {
         anchors.fill: parent
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: Theme.rgba(Theme.highlightBackgroundColor, 0.55) }
-            GradientStop { position: 0.6; color: Theme.rgba(Theme.highlightBackgroundColor, 0.2) }
-            GradientStop { position: 1.0; color: Theme.rgba(Theme.highlightDimmerColor, 0.35) }
+            GradientStop {
+                position: 0.0
+                color: Theme.rgba(Theme.highlightBackgroundColor, 0.55)
+            }
+            GradientStop {
+                position: 0.6
+                color: Theme.rgba(Theme.highlightBackgroundColor, 0.2)
+            }
+            GradientStop {
+                position: 1.0
+                color: Theme.rgba(Theme.highlightDimmerColor, 0.35)
+            }
         }
     }
 
@@ -70,7 +79,7 @@ BackgroundItem {
             smooth: true
             onStatusChanged: {
                 if (status === Image.Ready && implicitWidth > 0)
-                    phone.aspect = implicitHeight / implicitWidth
+                    phone.aspect = implicitHeight / implicitWidth;
             }
         }
     }
@@ -120,9 +129,7 @@ BackgroundItem {
         Label {
             width: parent.width
             topPadding: Theme.paddingSmall
-            text: card.installState === "update_available" ? qsTr("Update ready")
-                : card.installState === "installed" ? qsTr("Installed")
-                : Texts.price(card.licenceModel, card.licensed)
+            text: card.installState === "update_available" ? qsTr("Update ready") : card.installState === "installed" ? qsTr("Installed") : Texts.price(card.licenceModel, card.licensed)
             color: Theme.highlightColor
             font.pixelSize: Theme.fontSizeSmall
             truncationMode: TruncationMode.Fade

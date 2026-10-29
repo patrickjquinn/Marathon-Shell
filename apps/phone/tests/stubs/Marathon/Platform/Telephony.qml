@@ -16,13 +16,33 @@ QtObject {
         hasModem = true;
         log = [];
     }
-    function record(entry) { log = log.concat([entry]); }
-    function setState(s) { callState = s; }
-    function dial(number) { record("dial:" + number); activeNumber = number; }
-    function dialEmergency(number) { record("emergency:" + number); activeNumber = number; }
-    function answer() { record("answer"); }
-    function hangup() { record("hangup"); }
-    function sendDTMF(digit) { record("dtmf:" + digit); }
-    function setCallMuted(muted) { record("mute:" + muted); }
-    function setSpeakerphone(on) { record("speaker:" + on); }
+    function record(entry) {
+        log = log.concat([entry]);
+    }
+    function setState(s) {
+        callState = s;
+    }
+    function dial(number) {
+        record("dial:" + number);
+        activeNumber = number;
+    }
+    function dialEmergency(number) {
+        record("emergency:" + number);
+        activeNumber = number;
+    }
+    function answer() {
+        record("answer");
+    }
+    function hangup() {
+        record("hangup");
+    }
+    function sendDTMF(digit) {
+        record("dtmf:" + digit);
+    }
+    function setCallMuted(muted) {
+        record("mute:" + muted);
+    }
+    function setSpeakerphone(on) {
+        record("speaker:" + on);
+    }
 }

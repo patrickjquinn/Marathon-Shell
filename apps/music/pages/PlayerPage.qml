@@ -120,8 +120,7 @@ Page {
                     anchors.verticalCenter: parent.verticalCenter
                     icon.source: page.player.repeatMode === "one" ? "image://theme/icon-m-repeat-single" : "image://theme/icon-m-repeat"
                     highlighted: page.player.repeatMode !== "off"
-                    Accessible.name: page.player.repeatMode === "off" ? qsTr("Repeat off")
-                                   : page.player.repeatMode === "all" ? qsTr("Repeat all") : qsTr("Repeat one")
+                    Accessible.name: page.player.repeatMode === "off" ? qsTr("Repeat off") : page.player.repeatMode === "all" ? qsTr("Repeat all") : qsTr("Repeat one")
                     onClicked: page.player.cycleRepeat()
                 }
             }

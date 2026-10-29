@@ -6,14 +6,14 @@
 // the host passes in KEEL_SHELL_COVER_TITLE (keel/shell/PROTOCOL.md).
 namespace KeelCover {
 
-inline const QString &marker() {
-    static const QString kMarker = QStringLiteral("keel:cover");
-    return kMarker;
-}
+    inline const QString &marker() {
+        static const QString kMarker = QStringLiteral("keel:cover");
+        return kMarker;
+    }
 
-inline bool isCoverTitle(const QString &title) {
-    return title == marker() || title.startsWith(marker() + QLatin1Char(':'));
-}
+    inline bool isCoverTitle(const QString &title) {
+        return title == marker() || title.startsWith(marker() + QLatin1Char(':'));
+    }
 
 } // namespace KeelCover
 
@@ -22,9 +22,9 @@ inline bool isCoverTitle(const QString &title) {
 // screen. Not in keel/shell/PROTOCOL.md v1 yet.
 namespace KeelDialog {
 
-inline bool isDialogTitle(const QString &title) {
-    static const QString kMarker = QStringLiteral("keel:dialog");
-    return title == kMarker || title.startsWith(kMarker + QLatin1Char(':'));
-}
+    inline bool isDialogTitle(const QString &title) {
+        static const QString kMarker = QStringLiteral("keel:dialog");
+        return title == kMarker || title.startsWith(kMarker + QLatin1Char(':'));
+    }
 
 } // namespace KeelDialog

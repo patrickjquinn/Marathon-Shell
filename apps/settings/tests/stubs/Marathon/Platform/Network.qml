@@ -35,7 +35,9 @@ QtObject {
     }
     function forgetNetwork(ssid) {
         record(["forget", ssid]);
-        availableNetworks = availableNetworks.map(n => n.ssid === ssid ? Object.assign({}, n, { known: false }) : n);
+        availableNetworks = availableNetworks.map(n => n.ssid === ssid ? Object.assign({}, n, {
+                known: false
+            }) : n);
     }
     function scanWifi() {
         record(["scanWifi"]);

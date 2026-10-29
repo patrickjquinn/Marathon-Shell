@@ -22,7 +22,12 @@ Page {
         const now = Date.now();
         entries.clear();
         for (const h of shown)
-            entries.append({ url: h.url, title: h.title || h.url, visits: h.visitCount || 1, group: Logic.dateGroup(h.timestamp, now) });
+            entries.append({
+                url: h.url,
+                title: h.title || h.url,
+                visits: h.visitCount || 1,
+                group: Logic.dateGroup(h.timestamp, now)
+            });
     }
 
     objectName: "historyPage"
@@ -47,7 +52,11 @@ Page {
         section.delegate: SectionHeader {
             required property string section
 
-            text: ({ "Today": qsTr("Today"), "Yesterday": qsTr("Yesterday"), "This week": qsTr("This week") })[section] || qsTr("Older")
+            text: ({
+                    "Today": qsTr("Today"),
+                    "Yesterday": qsTr("Yesterday"),
+                    "This week": qsTr("This week")
+                })[section] || qsTr("Older")
         }
 
         header: Column {

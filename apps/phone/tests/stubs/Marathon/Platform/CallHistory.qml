@@ -13,5 +13,7 @@ QtObject {
         deleted = deleted.concat([id]);
         history = history.filter(c => c.id !== id);
     }
-    function clearHistory() { history = []; }
+    function clearHistory() {
+        history = [];
+    }
 }

@@ -16,7 +16,10 @@ Item {
 
     Behavior on height {
         enabled: !MMotion.reduceMotion
-        NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
+        NumberAnimation {
+            duration: MMotion.quick
+            easing.type: Easing.OutCubic
+        }
     }
 
     Silica.SectionHeader {

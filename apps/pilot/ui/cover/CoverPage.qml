@@ -19,26 +19,33 @@ CoverBackground {
     readonly property alias offlineActions: offlineActions
 
     function bringUp() {
-        __silica_applicationwindow_instance.activate()
+        __silica_applicationwindow_instance.activate();
     }
 
     // pilotd's home snapshot: what is running.
     property var now: ({})
     readonly property var clock: now.clock || []
-    readonly property var timer: clock.filter(function(c) { return c.kind === "timer" })[0]
-    readonly property var next: clock.filter(function(c) { return c.kind !== "timer" })[0]
+    readonly property var timer: clock.filter(function (c) {
+        return c.kind === "timer";
+    })[0]
+    readonly property var next: clock.filter(function (c) {
+        return c.kind !== "timer";
+    })[0]
     property real nowSecs: Date.now() / 1000
     readonly property int remaining: timer ? Math.max(0, Math.round(timer.at - nowSecs)) : 0
 
     function hms(s) {
-        var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60
-        return (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (x < 10 ? "0" : "") + x
+        var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+        return (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (x < 10 ? "0" : "") + x;
     }
 
-    onStatusChanged: if (status === Cover.Active) Pilot.refreshNow()
+    onStatusChanged: if (status === Cover.Active)
+        Pilot.refreshNow()
     Connections {
         target: Pilot
-        function onNowChanged(json) { cover.now = JSON.parse(json) }
+        function onNowChanged(json) {
+            cover.now = JSON.parse(json);
+        }
     }
     Timer {
         interval: 1000
@@ -46,9 +53,9 @@ CoverBackground {
         triggeredOnStart: true
         running: cover.status === Cover.Active && !!cover.timer
         onTriggered: {
-            cover.nowSecs = Date.now() / 1000
+            cover.nowSecs = Date.now() / 1000;
             if (cover.remaining === 0)
-                Pilot.refreshNow()
+                Pilot.refreshNow();
         }
     }
 
@@ -56,7 +63,11 @@ CoverBackground {
     Item {
         objectName: "coverTimer"
         visible: !!cover.timer
-        anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: Theme.paddingLarge * 2 }
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            top: parent.top
+            topMargin: Theme.paddingLarge * 2
+        }
         width: parent.width * 0.72
         height: width
         ProgressCircleBase {
@@ -78,8 +89,7 @@ CoverBackground {
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Math.min(implicitWidth, cover.width * 0.5)
-                text: cover.timer && cover.timer.title.indexOf(" timer") < 0 && cover.timer.title.length > 0
-                      ? cover.timer.title : qsTr("Timer")
+                text: cover.timer && cover.timer.title.indexOf(" timer") < 0 && cover.timer.title.length > 0 ? cover.timer.title : qsTr("Timer")
                 truncationMode: TruncationMode.Fade
                 font.pixelSize: Theme.fontSizeMedium
                 color: Theme.secondaryColor
@@ -104,9 +114,7 @@ CoverBackground {
             truncationMode: TruncationMode.Fade
             font.pixelSize: Theme.fontSizeMedium
             color: Theme.secondaryColor
-            text: Pilot.offline ? qsTr("Pilot · offline")
-                : Pilot.busy ? qsTr("Pilot · thinking")
-                : qsTr("Pilot")
+            text: Pilot.offline ? qsTr("Pilot · offline") : Pilot.busy ? qsTr("Pilot · thinking") : qsTr("Pilot")
         }
         // The next alarm or reminder.
         Row {
@@ -136,9 +144,7 @@ CoverBackground {
             font.pixelSize: Theme.fontSizeMedium
             color: Theme.primaryColor
             // Offline is said above; here what still works.
-            text: Pilot.offline ? qsTr("Timers, alarms and reminders still work")
-                : Pilot.lastResponse.length > 0 ? Pilot.lastResponse
-                : qsTr("Ask anything")
+            text: Pilot.offline ? qsTr("Timers, alarms and reminders still work") : Pilot.lastResponse.length > 0 ? Pilot.lastResponse : qsTr("Ask anything")
         }
     }
 
@@ -158,8 +164,8 @@ CoverBackground {
             // pilot-voice; the answer is spoken and shown here, and the app
             // is brought up so the turn is visible.
             onTriggered: {
-                Pilot.listen()
-                cover.bringUp()
+                Pilot.listen();
+                cover.bringUp();
             }
         }
     }

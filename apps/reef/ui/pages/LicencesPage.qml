@@ -14,12 +14,16 @@ Page {
 
     function statusText(status, expiresText) {
         switch (status) {
-        case "active": return expiresText.length > 0 ? qsTr("Active until %1").arg(expiresText)
-                                                     : qsTr("Active")
-        case "grace": return qsTr("Expired %1. Renew, or connect to check").arg(expiresText)
-        case "expired": return qsTr("Expired %1").arg(expiresText)
-        case "revoked": return qsTr("Revoked (refunded)")
-        default: return qsTr("Not valid")
+        case "active":
+            return expiresText.length > 0 ? qsTr("Active until %1").arg(expiresText) : qsTr("Active");
+        case "grace":
+            return qsTr("Expired %1. Renew, or connect to check").arg(expiresText);
+        case "expired":
+            return qsTr("Expired %1").arg(expiresText);
+        case "revoked":
+            return qsTr("Revoked (refunded)");
+        default:
+            return qsTr("Not valid");
         }
     }
 
@@ -77,7 +81,9 @@ Page {
             menu: ContextMenu {
                 MenuItem {
                     text: qsTr("Forget")
-                    onClicked: row.remorseDelete(function() { Reef.removeLicence(row.appId) })
+                    onClicked: row.remorseDelete(function () {
+                        Reef.removeLicence(row.appId);
+                    })
                 }
             }
 
@@ -111,8 +117,7 @@ Page {
         // text size makes them (it sits a third of the way down otherwise).
         ViewPlaceholder {
             id: placeholder
-            verticalOffset: Math.max(0, (list.headerItem ? list.headerItem.height : 0) + Theme.paddingLarge
-                                        - (list.height / 3 - placeholder.height / 2))
+            verticalOffset: Math.max(0, (list.headerItem ? list.headerItem.height : 0) + Theme.paddingLarge - (list.height / 3 - placeholder.height / 2))
             enabled: list.count === 0
             text: qsTr("No licences")
             hintText: qsTr("Apps you buy on reefstore.app come with a licence. Pull down to add one.")

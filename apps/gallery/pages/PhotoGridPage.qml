@@ -18,26 +18,29 @@ Page {
     property bool searching: false
     property string query
 
-    readonly property var photos: kind === "album" ? Model.albumPhotos(store.photos, albumId)
-                                : kind === "memory" ? Model.memoryPhotos(store.memories, memoryYears)
-                                : kind === "videos" ? store.videos
-                                : Model.merged(store.photos, store.videos)
+    readonly property var photos: kind === "album" ? Model.albumPhotos(store.photos, albumId) : kind === "memory" ? Model.memoryPhotos(store.memories, memoryYears) : kind === "videos" ? store.videos : Model.merged(store.photos, store.videos)
     readonly property var shown: searching ? Model.filter(photos, query) : photos
 
     function openPhoto(index) {
         const item = shown[index];
         if (Model.isVideo(item)) {
-            pageStack.push(Qt.resolvedUrl("VideoPlayerPage.qml"), { store: root.store, video: item });
+            pageStack.push(Qt.resolvedUrl("VideoPlayerPage.qml"), {
+                store: root.store,
+                video: item
+            });
             return;
         }
         const stills = shown.filter(p => !Model.isVideo(p));
-        pageStack.push(Qt.resolvedUrl("PhotoViewerPage.qml"),
-                       { store: root.store, photos: stills, currentIndex: stills.indexOf(item) });
+        pageStack.push(Qt.resolvedUrl("PhotoViewerPage.qml"), {
+            store: root.store,
+            photos: stills,
+            currentIndex: stills.indexOf(item)
+        });
     }
 
-
     // Deleting the last photo of an album or memory leaves nothing to show.
-    onPhotosChanged: if (photos.length === 0 && kind !== "all" && status === PageStatus.Active) pageStack.pop()
+    onPhotosChanged: if (photos.length === 0 && kind !== "all" && status === PageStatus.Active)
+        pageStack.pop()
 
     SilicaGridView {
         id: grid
@@ -67,7 +70,8 @@ Page {
                 visible: root.searching
                 placeholderText: qsTr("Search by name, album or date")
                 onTextChanged: root.query = text
-                onVisibleChanged: if (visible) forceActiveFocus()
+                onVisibleChanged: if (visible)
+                    forceActiveFocus()
             }
         }
 
@@ -112,7 +116,9 @@ Page {
                     onClicked: {
                         const store = root.store;
                         const id = thumb.modelData.id;
-                        thumb.remorseDelete(function () { store.deletePhoto(id); });
+                        thumb.remorseDelete(function () {
+                            store.deletePhoto(id);
+                        });
                     }
                 }
             }
@@ -130,13 +136,14 @@ Page {
                 color: Theme.lightPrimaryColor
             }
 
-            FocusFrame { parent: thumb }
+            FocusFrame {
+                parent: thumb
+            }
         }
 
         ViewPlaceholder {
             enabled: grid.count === 0
-            text: root.searching && root.photos.length > 0 ? qsTr("No matching photos")
-                : root.kind === "videos" ? qsTr("No videos") : qsTr("No photos")
+            text: root.searching && root.photos.length > 0 ? qsTr("No matching photos") : root.kind === "videos" ? qsTr("No videos") : qsTr("No photos")
             hintText: root.searching && root.photos.length > 0 ? qsTr("Try a different name, album or date") : ""
         }
 

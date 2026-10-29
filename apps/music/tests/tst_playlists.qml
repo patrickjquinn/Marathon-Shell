@@ -36,8 +36,21 @@ TestCase {
     }
 
     function test_tracksOfKeepsOrderAndDropsMissing() {
-        const tracks = [{ path: "file:///a.mp3", title: "A" }, { path: "file:///b.mp3", title: "B" }];
-        const list = { id: 1, name: "x", paths: ["file:///b.mp3", "file:///gone.mp3", "file:///a.mp3"] };
+        const tracks = [
+            {
+                path: "file:///a.mp3",
+                title: "A"
+            },
+            {
+                path: "file:///b.mp3",
+                title: "B"
+            }
+        ];
+        const list = {
+            id: 1,
+            name: "x",
+            paths: ["file:///b.mp3", "file:///gone.mp3", "file:///a.mp3"]
+        };
         compare(Playlists.tracksOf(list, tracks).map(t => t.title), ["B", "A"]);
     }
 

@@ -60,7 +60,8 @@ Item {
         valueText: Format.formatDuration(value / 1000, Formatter.DurationShort)
         label: Format.formatDuration(video.duration / 1000, Formatter.DurationShort)
         // Playback moves the value only while the slider is not held.
-        onValueChanged: if (!down && Math.abs(value - video.position) > 500) video.seek(value)
+        onValueChanged: if (!down && Math.abs(value - video.position) > 500)
+            video.seek(value)
 
         Binding on value {
             when: !slider.down

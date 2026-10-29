@@ -15,21 +15,17 @@ Page {
     objectName: "egressLogPage"
 
     property var rows: []
-    function reload() { rows = JSON.parse(Pilot.egressLog(500)) }
+    function reload() {
+        rows = JSON.parse(Pilot.egressLog(500));
+    }
     Component.onCompleted: reload()
 
     function purposeText(p) {
-        return p === "decide" ? qsTr("Deciding what you asked")
-             : p === "chat" ? qsTr("Answer")
-             : p === "tool-loop" ? qsTr("Answer, using a tool")
-             : p === "token" ? qsTr("Licence check")
-             : p === "triage" ? qsTr("Notification sorting")
-             : p === "vision" ? qsTr("Camera question")
-             : p
+        return p === "decide" ? qsTr("Deciding what you asked") : p === "chat" ? qsTr("Answer") : p === "tool-loop" ? qsTr("Answer, using a tool") : p === "token" ? qsTr("Licence check") : p === "triage" ? qsTr("Notification sorting") : p === "vision" ? qsTr("Camera question") : p;
     }
 
     function sizeText(bytes) {
-        return bytes >= 1024 ? qsTr("%1 kB").arg((bytes / 1024).toLocaleString(Qt.locale(), "f", 1)) : qsTr("%1 B").arg(bytes)
+        return bytes >= 1024 ? qsTr("%1 kB").arg((bytes / 1024).toLocaleString(Qt.locale(), "f", 1)) : qsTr("%1 B").arg(bytes);
     }
 
     SilicaListView {
@@ -58,8 +54,10 @@ Page {
             Label {
                 id: purpose
                 anchors {
-                    left: parent.left; leftMargin: Theme.horizontalPageMargin
-                    right: time.left; rightMargin: Theme.paddingMedium
+                    left: parent.left
+                    leftMargin: Theme.horizontalPageMargin
+                    right: time.left
+                    rightMargin: Theme.paddingMedium
                     bottom: parent.verticalCenter
                 }
                 truncationMode: TruncationMode.Fade
@@ -69,7 +67,8 @@ Page {
             Label {
                 id: time
                 anchors {
-                    right: parent.right; rightMargin: Theme.horizontalPageMargin
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
                     baseline: purpose.baseline
                 }
                 font.pixelSize: Theme.fontSizeExtraSmall
@@ -79,17 +78,14 @@ Page {
             Label {
                 anchors {
                     left: purpose.left
-                    right: parent.right; rightMargin: Theme.horizontalPageMargin
+                    right: parent.right
+                    rightMargin: Theme.horizontalPageMargin
                     top: parent.verticalCenter
                 }
                 truncationMode: TruncationMode.Fade
                 font.pixelSize: Theme.fontSizeExtraSmall
-                color: row.failed ? Theme.errorColor
-                     : row.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-                text: row.modelData.provider
-                      + " · " + qsTr("%1 out, %2 in").arg(page.sizeText(row.modelData.bytes_out)).arg(page.sizeText(row.modelData.bytes_in))
-                      + " · " + qsTr("%1 ms").arg(row.modelData.latency_ms)
-                      + (row.failed ? " · " + row.modelData.result : "")
+                color: row.failed ? Theme.errorColor : row.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                text: row.modelData.provider + " · " + qsTr("%1 out, %2 in").arg(page.sizeText(row.modelData.bytes_out)).arg(page.sizeText(row.modelData.bytes_in)) + " · " + qsTr("%1 ms").arg(row.modelData.latency_ms) + (row.failed ? " · " + row.modelData.result : "")
             }
         }
 

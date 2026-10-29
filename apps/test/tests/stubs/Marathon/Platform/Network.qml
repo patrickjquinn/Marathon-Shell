@@ -13,6 +13,11 @@ QtObject {
     property int wifiSignalStrength: 72
     property bool airplaneModeEnabled: false
 
-    function scanWifi() { log("scanWifi"); }
-    function setAirplaneMode(on) { log("setAirplaneMode", on); airplaneModeEnabled = on; }
+    function scanWifi() {
+        log("scanWifi");
+    }
+    function setAirplaneMode(on) {
+        log("setAirplaneMode", on);
+        airplaneModeEnabled = on;
+    }
 }

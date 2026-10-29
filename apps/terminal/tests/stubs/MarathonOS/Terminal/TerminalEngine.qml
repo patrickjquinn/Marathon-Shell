@@ -20,10 +20,20 @@ QtObject {
         running = false;
     }
     function sendInput(text) {
-        sent = sent.concat([{ input: text }]);
+        sent = sent.concat([
+            {
+                input: text
+            }
+        ]);
     }
     function sendKey(key, text, modifiers) {
-        sent = sent.concat([{ key: key, text: text, modifiers: modifiers }]);
+        sent = sent.concat([
+            {
+                key: key,
+                text: text,
+                modifiers: modifiers
+            }
+        ]);
     }
     function resize(cols, rows) {
         size = [cols, rows];

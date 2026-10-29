@@ -14,7 +14,7 @@ class QGuiApplication;
 // (a smoke-test harness) is created in the view's engine and not shown.
 // False, with the errors printed, if it does not load. The QGuiApplication
 // must exist.
-bool keel_show_main_view(const QString& qmlPath);
+bool keel_show_main_view(const QString &qmlPath);
 
 // Deletes the main view (its engine and the QML objects in it) after the
 // event loop has ended, so that their threads stop before the process exits.
@@ -23,7 +23,7 @@ void keel_destroy_main_view();
 // Keel::application(): the QGuiApplication, booster-keel's when boosted
 // (ADR-0016), otherwise created from the command line. The Rust main uses
 // it instead of creating its own.
-QGuiApplication* keel_application();
+QGuiApplication *keel_application();
 
 // Keel::launchArguments(): the app's command line, also when boosted (where
 // Rust's std::env::args() is the booster's).

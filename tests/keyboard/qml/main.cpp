@@ -74,7 +74,9 @@ class Setup : public QObject {
             [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::Dictionary(); });
         qmlRegisterSingletonType<marathon::DomainSuggestions>(
             "MarathonOS.Shell", 1, 0, "DomainSuggestions",
-            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::DomainSuggestions(); });
+            [](QQmlEngine *, QJSEngine *) -> QObject * {
+                return new marathon::DomainSuggestions();
+            });
         qmlRegisterType<LaggingField>("KeyboardTest", 1, 0, "LaggingField");
     }
 };

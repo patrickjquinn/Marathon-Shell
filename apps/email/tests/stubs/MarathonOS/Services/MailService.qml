@@ -26,7 +26,7 @@ QtObject {
     signal oauthAuthUrlReady(string url)
     signal oauthLoginSucceeded(string accountId)
     signal oauthLoginFailed(string code, string message)
-    signal sendSucceeded()
+    signal sendSucceeded
     signal sendFailed(string reason)
     signal accountSetupSucceeded(string accountId)
     signal accountSetupFailed(string reason)
@@ -34,7 +34,12 @@ QtObject {
     signal attachmentFailed(string messageId, string location)
 
     function log(name, args) {
-        calls = calls.concat([{ name: name, args: args }]);
+        calls = calls.concat([
+            {
+                name: name,
+                args: args
+            }
+        ]);
     }
 
     function called(name) {
@@ -62,7 +67,9 @@ QtObject {
     }
 
     function setAccount(name) {
-        accountModel.append({ display: name });
+        accountModel.append({
+            display: name
+        });
         currentAccountName = name;
         currentFolderId = "10";
         currentFolderName = "Inbox";
@@ -70,7 +77,16 @@ QtObject {
     }
 
     function addMessage(id, from, subject, unread, extra) {
-        messageModel.append(Object.assign({ messageId: id, from: from, subject: subject, snippet: "Preview of " + subject, timestamp: "09:30", unread: unread, hasAttachment: false, tint: "" }, extra || {}));
+        messageModel.append(Object.assign({
+            messageId: id,
+            from: from,
+            subject: subject,
+            snippet: "Preview of " + subject,
+            timestamp: "09:30",
+            unread: unread,
+            hasAttachment: false,
+            tint: ""
+        }, extra || {}));
         recount();
     }
 

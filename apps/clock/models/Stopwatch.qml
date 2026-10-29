@@ -57,7 +57,11 @@ QtObject {
     }
 
     function snapshot() {
-        return { startedAt: startedAt, before: before, laps: laps };
+        return {
+            startedAt: startedAt,
+            before: before,
+            laps: laps
+        };
     }
 
     function restore(s) {

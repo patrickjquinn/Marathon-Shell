@@ -160,8 +160,10 @@ class TestKeyboardTextInput : public QObject {
             [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::Dictionary(); });
         qmlRegisterSingletonType<marathon::DomainSuggestions>(
             "MarathonOS.Shell", 1, 0, "DomainSuggestions",
-            [](QQmlEngine *, QJSEngine *) -> QObject * { return new marathon::DomainSuggestions(); });
-        m_engine = new QQmlEngine(this);
+            [](QQmlEngine *, QJSEngine *) -> QObject * {
+                return new marathon::DomainSuggestions();
+            });
+        m_engine                  = new QQmlEngine(this);
         const QStringList imports = qEnvironmentVariable("MARATHON_TEST_QML_IMPORTS").split(u':');
         for (const QString &path : imports)
             m_engine->addImportPath(path);

@@ -11,7 +11,8 @@ TestCase {
     name: "TerminalCover"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     Component {
         id: engineComponent
@@ -21,11 +22,18 @@ TestCase {
         id: coverComponent
         TerminalCover {}
     }
-    SignalSpy { id: newSpy; signalName: "newSessionRequested" }
+    SignalSpy {
+        id: newSpy
+        signalName: "newSessionRequested"
+    }
 
     function makeCover(lines) {
-        const session = createTemporaryObject(engineComponent, test, { lines: lines });
-        return createTemporaryObject(coverComponent, test, { session: session });
+        const session = createTemporaryObject(engineComponent, test, {
+            lines: lines
+        });
+        return createTemporaryObject(coverComponent, test, {
+            session: session
+        });
     }
 
     function test_showsTheLastSixLines() {

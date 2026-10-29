@@ -19,7 +19,7 @@ Column {
     required property var apps
 
     signal openApp(string name)
-    signal openAll()
+    signal openAll
 
     width: parent ? parent.width : 0
 
@@ -34,7 +34,10 @@ Column {
         orientation: ListView.Horizontal
         clip: true
         model: collection.apps
-        header: Item { width: Theme.horizontalPageMargin - Theme.paddingLarge; height: 1 }
+        header: Item {
+            width: Theme.horizontalPageMargin - Theme.paddingLarge
+            height: 1
+        }
         footer: SeeAllTile {
             onClicked: collection.openAll()
         }
@@ -42,8 +45,8 @@ Column {
             id: tile
             required property string modelData
             readonly property var info: {
-                const revision = Reef.revision
-                return revision >= 0 ? Reef.appRow(modelData) : ({})
+                const revision = Reef.revision;
+                return revision >= 0 ? Reef.appRow(modelData) : ({});
             }
             name: modelData
             title: info.title || ""

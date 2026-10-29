@@ -36,18 +36,36 @@ TestCase {
         Navigation.reset();
         seenStub.value = 0;
         CallHistory.history = [
-            { id: 7, number: "+15551234567", type: "missed", timestamp: 1700000000, duration: 0 },
-            { id: 8, number: "0871234567", contactName: "Bob", type: "outgoing", timestamp: 1700000100, duration: 65 }
+            {
+                id: 7,
+                number: "+15551234567",
+                type: "missed",
+                timestamp: 1700000000,
+                duration: 0
+            },
+            {
+                id: 8,
+                number: "0871234567",
+                contactName: "Bob",
+                type: "outgoing",
+                timestamp: 1700000100,
+                duration: 65
+            }
         ];
     }
 
     function openLog() {
-        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        const app = createTemporaryObject(appComponent, testCase, {
+            callLogSeen: seenStub
+        });
         tryVerify(() => app.pageStack.currentPage !== null);
         app.pageStack.currentPage.tabs.moveTo(1);
         let list = null;
         tryVerify(() => (list = findChild(app.pageStack.currentPage, "callLog")) !== null && list.count === 2);
-        return { app: app, list: list };
+        return {
+            app: app,
+            list: list
+        };
     }
 
     function itemAt(list, index) {
@@ -69,15 +87,27 @@ TestCase {
     }
 
     function test_missedCountUntilSeen() {
-        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        const app = createTemporaryObject(appComponent, testCase, {
+            callLogSeen: seenStub
+        });
         compare(app.missedCount, 1);
         tryVerify(() => app.pageStack.currentPage !== null);
         compare(findChild(app.pageStack.currentPage, "tabBar").model[1].count, 1);
     }
 
     function test_declinedCallIsShownAsDeclinedNotMissed() {
-        CallHistory.history = [{ id: 9, number: "+15551234567", type: "rejected", timestamp: 1700000200, duration: 0 }];
-        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        CallHistory.history = [
+            {
+                id: 9,
+                number: "+15551234567",
+                type: "rejected",
+                timestamp: 1700000200,
+                duration: 0
+            }
+        ];
+        const app = createTemporaryObject(appComponent, testCase, {
+            callLogSeen: seenStub
+        });
         compare(app.missedCount, 0);
         app.pageStack.currentPage.tabs.moveTo(1);
         let list = null;
@@ -102,13 +132,22 @@ TestCase {
     }
 
     function test_menuSendMessage() {
-        Contacts.contacts = [{ id: 1, name: "Bob Byrne", phone: "087 123 4567" }];
+        Contacts.contacts = [
+            {
+                id: 1,
+                name: "Bob Byrne",
+                phone: "087 123 4567"
+            }
+        ];
         const t = openLog();
         menuItem(itemAt(t.list, 1), "messageMenuItem").clicked();
         compare(Navigation.launches.length, 1);
         compare(Navigation.launches[0].appId, "messages");
         compare(Navigation.launches[0].route, "conversation");
-        compare(JSON.parse(Navigation.launches[0].params), { number: "0871234567", name: "Bob Byrne" });
+        compare(JSON.parse(Navigation.launches[0].params), {
+            number: "0871234567",
+            name: "Bob Byrne"
+        });
     }
 
     function test_menuDeleteAfterRemorse() {
@@ -123,11 +162,31 @@ TestCase {
 
     function test_repeatedCallsShareOneRow() {
         CallHistory.history = [
-            { id: 7, number: "+15551234567", type: "missed", timestamp: 1700000200, duration: 0 },
-            { id: 8, number: "5551234567", type: "missed", timestamp: 1700000100, duration: 0 },
-            { id: 9, number: "0871234567", type: "outgoing", timestamp: 1700000000, duration: 5 }
+            {
+                id: 7,
+                number: "+15551234567",
+                type: "missed",
+                timestamp: 1700000200,
+                duration: 0
+            },
+            {
+                id: 8,
+                number: "5551234567",
+                type: "missed",
+                timestamp: 1700000100,
+                duration: 0
+            },
+            {
+                id: 9,
+                number: "0871234567",
+                type: "outgoing",
+                timestamp: 1700000000,
+                duration: 5
+            }
         ];
-        const app = createTemporaryObject(appComponent, testCase, { callLogSeen: seenStub });
+        const app = createTemporaryObject(appComponent, testCase, {
+            callLogSeen: seenStub
+        });
         app.pageStack.currentPage.tabs.moveTo(1);
         let list = null;
         tryVerify(() => (list = findChild(app.pageStack.currentPage, "callLog")) !== null && list.count === 2);

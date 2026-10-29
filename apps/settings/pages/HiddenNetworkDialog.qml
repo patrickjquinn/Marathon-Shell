@@ -8,9 +8,18 @@ Dialog {
     id: dialog
 
     readonly property var securities: [
-        { value: "wpa-psk", title: qsTr("WPA/WPA2 Personal") },
-        { value: "sae", title: qsTr("WPA3 Personal") },
-        { value: "none", title: qsTr("None") }
+        {
+            value: "wpa-psk",
+            title: qsTr("WPA/WPA2 Personal")
+        },
+        {
+            value: "sae",
+            title: qsTr("WPA3 Personal")
+        },
+        {
+            value: "none",
+            title: qsTr("None")
+        }
     ]
     property alias ssid: ssidField.text
     property alias password: passwordField.text

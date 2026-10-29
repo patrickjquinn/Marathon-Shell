@@ -59,7 +59,11 @@ QtObject {
     }
 
     function snapshot() {
-        return { endsAt: endsAt, total: total, remaining: remaining };
+        return {
+            endsAt: endsAt,
+            total: total,
+            remaining: remaining
+        };
     }
 
     // Returns when the timer ended if that was while the app was closed, else -1.

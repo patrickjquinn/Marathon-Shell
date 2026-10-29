@@ -8,7 +8,13 @@ Page {
     id: root
 
     property var app
-    readonly property var place: app.selectedPlace || ({ name: "", address: "", type: "", lat: 0, lon: 0 })
+    readonly property var place: app.selectedPlace || ({
+            name: "",
+            address: "",
+            type: "",
+            lat: 0,
+            lon: 0
+        })
     readonly property bool routing: app.router.routing
 
     objectName: "placePage"
@@ -20,7 +26,9 @@ Page {
         PullDownMenu {
             MenuItem {
                 text: qsTr("Search again")
-                onClicked: pageStack.replace(Qt.resolvedUrl("SearchPage.qml"), { app: root.app })
+                onClicked: pageStack.replace(Qt.resolvedUrl("SearchPage.qml"), {
+                    app: root.app
+                })
             }
             MenuItem {
                 objectName: "showOnMap"

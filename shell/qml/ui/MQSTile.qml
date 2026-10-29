@@ -38,23 +38,29 @@ Item {
         radius: width / 2
         scale: tileMouse.pressed ? 0.92 : 1.0
         // A glass ring, filled with the highlight when on.
-        color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity)
-                       : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
+        color: tile.on ? Silica.Theme.rgba(Silica.Theme.highlightBackgroundColor, Silica.Theme.highlightBackgroundOpacity) : Silica.Theme.rgba(Silica.Theme.primaryColor, tileMouse.pressed ? 0.12 : 0)
         border.width: Math.max(1, Math.round(Silica.Theme.paddingSmall / 4))
-        border.color: tile.busy ? Silica.Theme.rgba(Silica.Theme.highlightColor, busyPulse.bright ? 1 : Silica.Theme.opacityLow)
-                    : tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
+        border.color: tile.busy ? Silica.Theme.rgba(Silica.Theme.highlightColor, busyPulse.bright ? 1 : Silica.Theme.opacityLow) : tile.on ? Silica.Theme.highlightColor : Silica.Theme.rgba(Silica.Theme.primaryColor, 0.35)
 
         Behavior on border.color {
             enabled: tile.busy && !MMotion.reduceMotion
-            ColorAnimation { duration: busyPulse.interval - 50; easing.type: Easing.InOutQuad }
+            ColorAnimation {
+                duration: busyPulse.interval - 50
+                easing.type: Easing.InOutQuad
+            }
         }
         Behavior on color {
             enabled: !MMotion.reduceMotion
-            ColorAnimation { duration: MMotion.quick }
+            ColorAnimation {
+                duration: MMotion.quick
+            }
         }
         Behavior on scale {
             enabled: !MMotion.reduceMotion
-            NumberAnimation { duration: MMotion.quick; easing.type: Easing.OutQuad }
+            NumberAnimation {
+                duration: MMotion.quick
+                easing.type: Easing.OutQuad
+            }
         }
 
         GlyphIcon {

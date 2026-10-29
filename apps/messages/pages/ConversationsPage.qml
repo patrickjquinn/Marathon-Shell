@@ -70,7 +70,10 @@ Page {
             MenuItem {
                 visible: !root.archive
                 text: qsTr("Archived")
-                onClicked: root.app.pageStack.push(Qt.resolvedUrl("ConversationsPage.qml"), { app: root.app, archive: true })
+                onClicked: root.app.pageStack.push(Qt.resolvedUrl("ConversationsPage.qml"), {
+                    app: root.app,
+                    archive: true
+                })
             }
             MenuItem {
                 text: root.searching ? qsTr("Hide search") : qsTr("Search")

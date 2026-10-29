@@ -20,10 +20,17 @@ Page {
             id: column
             width: page.width
 
-            PageHeader { title: qsTr("Settings") }
+            PageHeader {
+                title: qsTr("Settings")
+            }
 
-            SectionHeader { text: qsTr("Store") }
-            DetailItem { label: qsTr("Architecture"); value: Reef.arch }
+            SectionHeader {
+                text: qsTr("Store")
+            }
+            DetailItem {
+                label: qsTr("Architecture")
+                value: Reef.arch
+            }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
@@ -40,30 +47,51 @@ Page {
 
             // The store handler's settings: how apps update, and which
             // catalogues the store shows.
-            SectionHeader { text: qsTr("Updates") }
-            Repeater {
-                model: [
-                    { key: "autoUpdate", text: qsTr("Update apps automatically"),
-                      description: qsTr("In the background, on Wi-Fi and with enough battery") },
-                    { key: "updateOnMetered", text: qsTr("Also on mobile data"),
-                      description: qsTr("Updates can use a lot of data") }
-                ]
-                delegate: HandlerSwitch { }
+            SectionHeader {
+                text: qsTr("Updates")
             }
-            SectionHeader { text: qsTr("Apps from") }
             Repeater {
                 model: [
-                    { key: "flathub", text: qsTr("Flathub"),
-                      description: qsTr("Linux apps made to fit a phone") },
-                    { key: "fdroid", text: qsTr("F-Droid"),
-                      description: qsTr("Free Android apps, run by Android on this phone") },
-                    { key: "antiFeatures", text: qsTr("Android apps with anti-features"),
-                      description: qsTr("Apps F-Droid flags for ads, tracking or software that isn't free") }
+                    {
+                        key: "autoUpdate",
+                        text: qsTr("Update apps automatically"),
+                        description: qsTr("In the background, on Wi-Fi and with enough battery")
+                    },
+                    {
+                        key: "updateOnMetered",
+                        text: qsTr("Also on mobile data"),
+                        description: qsTr("Updates can use a lot of data")
+                    }
                 ]
-                delegate: HandlerSwitch { }
+                delegate: HandlerSwitch {}
+            }
+            SectionHeader {
+                text: qsTr("Apps from")
+            }
+            Repeater {
+                model: [
+                    {
+                        key: "flathub",
+                        text: qsTr("Flathub"),
+                        description: qsTr("Linux apps made to fit a phone")
+                    },
+                    {
+                        key: "fdroid",
+                        text: qsTr("F-Droid"),
+                        description: qsTr("Free Android apps, run by Android on this phone")
+                    },
+                    {
+                        key: "antiFeatures",
+                        text: qsTr("Android apps with anti-features"),
+                        description: qsTr("Apps F-Droid flags for ads, tracking or software that isn't free")
+                    }
+                ]
+                delegate: HandlerSwitch {}
             }
 
-            SectionHeader { text: qsTr("Licences") }
+            SectionHeader {
+                text: qsTr("Licences")
+            }
             // Here, not in the store's pulley, which keeps to four items.
             BackgroundItem {
                 objectName: "licencesItem"
@@ -88,14 +116,18 @@ Page {
                 description: errorHighlight ? qsTr("Enter an https:// address") : ""
 
                 function commit() {
-                    var url = text.trim()
+                    var url = text.trim();
                     if (Texts.isServiceUrl(url))
-                        Reef.licenceServer = url
+                        Reef.licenceServer = url;
                 }
 
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"
-                EnterKey.onClicked: { commit(); focus = false }
-                onActiveFocusChanged: if (!activeFocus) commit()
+                EnterKey.onClicked: {
+                    commit();
+                    focus = false;
+                }
+                onActiveFocusChanged: if (!activeFocus)
+                    commit()
             }
             Label {
                 x: Theme.horizontalPageMargin
@@ -112,7 +144,8 @@ Page {
 
     // Leaving with Back does not always take the focus first: keep a valid
     // edit then too.
-    onStatusChanged: if (status === PageStatus.Deactivating) serverField.commit()
+    onStatusChanged: if (status === PageStatus.Deactivating)
+        serverField.commit()
 
     component HandlerSwitch: TextSwitch {
         required property var modelData

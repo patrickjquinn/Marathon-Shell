@@ -56,31 +56,65 @@ TestCase {
         app.fetch = (u, done) => {
             url = u;
             done(200, JSON.stringify([
-                { display_name: "Tower Bridge, London, UK", lat: "51.5055", lon: "-0.0754", type: "bridge" },
-                { display_name: "Tower of London, London, UK", lat: "51.5081", lon: "-0.0759", type: "castle" }
+                {
+                    display_name: "Tower Bridge, London, UK",
+                    lat: "51.5055",
+                    lon: "-0.0754",
+                    type: "bridge"
+                },
+                {
+                    display_name: "Tower of London, London, UK",
+                    lat: "51.5081",
+                    lon: "-0.0759",
+                    type: "castle"
+                }
             ]));
         };
-        const call = KeelActions.invoke("places.search", { query: "tower", limit: 1 });
+        const call = KeelActions.invoke("places.search", {
+            query: "tower",
+            limit: 1
+        });
         verify(call.succeeded, call.errorMessage);
         verify(url.indexOf("q=tower") > 0);
-        compare(call.result.result, [{ name: "Tower Bridge", address: "Tower Bridge, London, UK", lat: 51.5055, lon: -0.0754, type: "bridge" }]);
+        compare(call.result.result, [
+            {
+                name: "Tower Bridge",
+                address: "Tower Bridge, London, UK",
+                lat: 51.5055,
+                lon: -0.0754,
+                type: "bridge"
+            }
+        ]);
         compare(app.searchResults, []);
     }
 
     function test_searchFailure() {
         const app = makeApp();
         app.fetch = (u, done) => done(0, "");
-        compare(KeelActions.invoke("places.search", { query: "x" }).errorCode, "Failed");
+        compare(KeelActions.invoke("places.search", {
+            query: "x"
+        }).errorCode, "Failed");
         app.fetch = (u, done) => done(200, "{oops");
-        compare(KeelActions.invoke("places.search", { query: "x" }).errorCode, "Failed");
-        compare(KeelActions.invoke("places.search", { query: "" }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("places.search", {
+            query: "x"
+        }).errorCode, "Failed");
+        compare(KeelActions.invoke("places.search", {
+            query: ""
+        }).errorCode, "InvalidArguments");
     }
 
     function tower(app) {
         let url = "";
         app.fetch = (u, done) => {
             url = u;
-            done(200, JSON.stringify([{ display_name: "Tower Bridge, London, UK", lat: "51.5055", lon: "-0.0754", type: "bridge" }]));
+            done(200, JSON.stringify([
+                {
+                    display_name: "Tower Bridge, London, UK",
+                    lat: "51.5055",
+                    lon: "-0.0754",
+                    type: "bridge"
+                }
+            ]));
         };
         return () => url;
     }
@@ -89,7 +123,9 @@ TestCase {
     function test_searchShow() {
         const app = makeApp();
         const url = tower(app);
-        const call = KeelActions.invoke("search.show", { query: "tower bridge" });
+        const call = KeelActions.invoke("search.show", {
+            query: "tower bridge"
+        });
         verify(call.succeeded, call.errorMessage);
         settle(app);
         compare(app.pageStack.currentPage.objectName, "searchPage");
@@ -99,17 +135,23 @@ TestCase {
         compare(app.pageStack.depth, 2);
 
         // Again from the search page: one search page, the new query.
-        KeelActions.invoke("search.show", { query: "tower" });
+        KeelActions.invoke("search.show", {
+            query: "tower"
+        });
         settle(app);
         compare(app.pageStack.depth, 2);
         compare(findChild(app.pageStack.currentPage, "searchField").text, "tower");
-        compare(KeelActions.invoke("search.show", { query: "" }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("search.show", {
+            query: ""
+        }).errorCode, "InvalidArguments");
     }
 
     function test_searchRoute() {
         const app = createTemporaryObject(appComponent, tc, {
             route: "search",
-            routeParams: JSON.stringify({ query: "tower bridge" }),
+            routeParams: JSON.stringify({
+                query: "tower bridge"
+            }),
             fetch: (u, done) => done(200, "[]")
         });
         tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.objectName === "searchPage");
@@ -121,7 +163,11 @@ TestCase {
         const app = makeApp();
         app.openSearch();
         settle(app);
-        const call = KeelActions.invoke("map.show", { lat: 51.5, lon: -0.07, name: "Tower Bridge" });
+        const call = KeelActions.invoke("map.show", {
+            lat: 51.5,
+            lon: -0.07,
+            name: "Tower Bridge"
+        });
         verify(call.succeeded, call.errorMessage);
         settle(app);
         compare(app.pageStack.currentPage.objectName, "mapPage");
@@ -133,14 +179,22 @@ TestCase {
 
     function test_showWithoutName() {
         const app = makeApp();
-        KeelActions.invoke("map.show", { lat: 1.5, lon: 2 });
+        KeelActions.invoke("map.show", {
+            lat: 1.5,
+            lon: 2
+        });
         compare(app.selectedPlace.name, "1.50000, 2.00000");
     }
 
     function test_directions() {
         const app = makeApp();
         Location.moveTo(10, 1);
-        const call = KeelActions.invoke("directions.show", { lat: 10.002, lon: 1, name: "Café", mode: "pedestrian" });
+        const call = KeelActions.invoke("directions.show", {
+            lat: 10.002,
+            lon: 1,
+            name: "Café",
+            mode: "pedestrian"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(app.selectedPlace.name, "Café");
         compare(app.router.requests.length, 1);
@@ -160,7 +214,9 @@ TestCase {
         compare(manifest.appId, "org.marathonos.maps");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.maps/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.maps/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

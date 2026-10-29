@@ -14,7 +14,14 @@ Item {
 
     // "12.5 + sqrt" -> ["1", "2", ".", "5", "+", "√"]; null if a token is not a key.
     function keysOf(expression) {
-        const aliases = { "-": "−", "*": "×", "/": "÷", "sqrt": "√", "pi": "π", "²": "x²" };
+        const aliases = {
+            "-": "−",
+            "*": "×",
+            "/": "÷",
+            "sqrt": "√",
+            "pi": "π",
+            "²": "x²"
+        };
         const allowed = scratch.keys.filter(k => ["C", "⌫", "ans"].indexOf(k) === -1);
         const token = /(\d+(?:\.\d*)?|\.\d+|mod|sin|cos|tan|log|ln|sqrt|pi|x²|\S)\s*/y;
         const text = expression.trim();
@@ -39,12 +46,29 @@ Item {
         readOnly: true
         idempotent: true
         parameters: [
-            KeelParam { name: "expression"; type: "string"; required: true; minLength: 1; maxLength: 200; description: "For example 12.5 * 4 - 3" }
+            KeelParam {
+                name: "expression"
+                type: "string"
+                required: true
+                minLength: 1
+                maxLength: 200
+                description: "For example 12.5 * 4 - 3"
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "value"; type: "number"; required: true }
-            KeelParam { name: "text"; type: "string"; maxLength: 64; required: true; description: "The result as the app shows it" }
+            KeelParam {
+                name: "value"
+                type: "number"
+                required: true
+            }
+            KeelParam {
+                name: "text"
+                type: "string"
+                maxLength: 64
+                required: true
+                description: "The result as the app shows it"
+            }
         }
         onInvoked: (args, call) => {
             const keys = root.keysOf(args.expression);
@@ -58,7 +82,10 @@ Item {
             if (root.scratch.errorText !== "")
                 call.fail("Failed", root.scratch.errorText);
             else
-                call.reply({ value: parseFloat(root.scratch.display), text: root.scratch.displayText });
+                call.reply({
+                    value: parseFloat(root.scratch.display),
+                    text: root.scratch.displayText
+                });
         }
     }
 
@@ -72,9 +99,21 @@ Item {
             type: "array"
             itemType: "object"
             maxItems: 8
-            KeelParam { name: "expression"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "value"; type: "number"; required: true }
+            KeelParam {
+                name: "expression"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "value"
+                type: "number"
+                required: true
+            }
         }
-        onInvoked: (args, call) => call.reply(root.calc.history.map(h => ({ expression: String(h.expression), value: Number(h.value) })))
+        onInvoked: (args, call) => call.reply(root.calc.history.map(h => ({
+                        expression: String(h.expression),
+                        value: Number(h.value)
+                    })))
     }
 }

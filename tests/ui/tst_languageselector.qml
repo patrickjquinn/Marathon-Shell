@@ -21,7 +21,11 @@ TestCase {
         }
     }
 
-    SignalSpy { id: selectedSpy; target: selector; signalName: "languageSelected" }
+    SignalSpy {
+        id: selectedSpy
+        target: selector
+        signalName: "languageSelected"
+    }
 
     function row(id) {
         return findChild(selector, "language_" + id);

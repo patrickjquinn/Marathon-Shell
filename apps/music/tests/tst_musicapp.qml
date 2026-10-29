@@ -9,25 +9,44 @@ TestCase {
     name: "MusicApp"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
-    Component { id: libraryStub; LibraryStub {} }
-    Component { id: mediaStub; MediaStub {} }
-    Component { id: playerComponent; Player {} }
+    Component {
+        id: libraryStub
+        LibraryStub {}
+    }
+    Component {
+        id: mediaStub
+        MediaStub {}
+    }
+    Component {
+        id: playerComponent
+        Player {}
+    }
     Component {
         id: storeStub
-        QtObject { property var value: "[]" }
+        QtObject {
+            property var value: "[]"
+        }
     }
     Component {
         id: appComponent
-        MusicApp { width: 540; height: 1140 }
+        MusicApp {
+            width: 540
+            height: 1140
+        }
     }
 
     function makeApp(library) {
         const props = {
             playlistStore: createTemporaryObject(storeStub, this),
-            sessionStore: createTemporaryObject(storeStub, this, { value: "" }),
-            player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
+            sessionStore: createTemporaryObject(storeStub, this, {
+                value: ""
+            }),
+            player: createTemporaryObject(playerComponent, this, {
+                media: createTemporaryObject(mediaStub, this)
+            })
         };
         if (library !== null)
             props.library = library === undefined ? createTemporaryObject(libraryStub, this) : library;
@@ -59,12 +78,18 @@ TestCase {
     }
 
     function test_nothingClaimedBeforeTracksLoad() {
-        const library = createTemporaryObject(libraryStub, this, { deliver: false });
+        const library = createTemporaryObject(libraryStub, this, {
+            deliver: false
+        });
         const app = createTemporaryObject(appComponent, this, {
             library: library,
             playlistStore: createTemporaryObject(storeStub, this),
-            sessionStore: createTemporaryObject(storeStub, this, { value: "" }),
-            player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
+            sessionStore: createTemporaryObject(storeStub, this, {
+                value: ""
+            }),
+            player: createTemporaryObject(playerComponent, this, {
+                media: createTemporaryObject(mediaStub, this)
+            })
         });
         tryVerify(() => app.pageStack.currentPage !== null && app.pageStack.currentPage.status === PageStatus.Active);
         compare(library.loads, 1);
@@ -77,12 +102,26 @@ TestCase {
     }
 
     function test_firstScanShowsProgress() {
-        const library = createTemporaryObject(libraryStub, this, { tracks: [], isScanning: true, scanProgress: 40 });
+        const library = createTemporaryObject(libraryStub, this, {
+            tracks: [],
+            isScanning: true,
+            scanProgress: 40
+        });
         const app = makeApp(library);
         const busy = findChild(app.pageStack.currentPage, "busyLabel");
         verify(busy.running);
         compare(busy.text, "Looking for music… 40%");
-        library.tracks = [{ id: 1, path: "file:///m/1.mp3", title: "Blue", artist: "Ava", album: "Sky", duration: 200, trackNumber: 1 }];
+        library.tracks = [
+            {
+                id: 1,
+                path: "file:///m/1.mp3",
+                title: "Blue",
+                artist: "Ava",
+                album: "Sky",
+                duration: 200,
+                trackNumber: 1
+            }
+        ];
         library.scanProgress = 60;
         library.libraryChanged();
         tryVerify(() => app.tracks.length === 1);
@@ -135,7 +174,9 @@ TestCase {
     }
 
     function test_emptyLibrary() {
-        const library = createTemporaryObject(libraryStub, this, { tracks: [] });
+        const library = createTemporaryObject(libraryStub, this, {
+            tracks: []
+        });
         const app = makeApp(library);
         const placeholder = findChild(app.pageStack.currentPage, "placeholder");
         verify(placeholder.enabled);
@@ -266,19 +307,29 @@ TestCase {
 
     function test_playlistsPersist() {
         const app = makeApp();
-        app.savePlaylists([{ id: 1, name: "Run", paths: ["file:///m/2.mp3"] }]);
+        app.savePlaylists([
+            {
+                id: 1,
+                name: "Run",
+                paths: ["file:///m/2.mp3"]
+            }
+        ]);
         compare(JSON.parse(app.playlistStore.value)[0].name, "Run");
         compare(app.playlists.length, 1);
         compare(findChild(app.pageStack.currentPage, "categories").itemAt(0).modelData.detail, "1 playlist");
     }
 
     function test_queueAndPositionSurviveRestart() {
-        const session = createTemporaryObject(storeStub, this, { value: "" });
+        const session = createTemporaryObject(storeStub, this, {
+            value: ""
+        });
         const first = createTemporaryObject(appComponent, this, {
             library: createTemporaryObject(libraryStub, this),
             playlistStore: createTemporaryObject(storeStub, this),
             sessionStore: session,
-            player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
+            player: createTemporaryObject(playerComponent, this, {
+                media: createTemporaryObject(mediaStub, this)
+            })
         });
         tryVerify(() => first.loaded);
         first.player.playTracks(first.tracks, 2);
@@ -291,7 +342,9 @@ TestCase {
             library: createTemporaryObject(libraryStub, this),
             playlistStore: createTemporaryObject(storeStub, this),
             sessionStore: session,
-            player: createTemporaryObject(playerComponent, this, { media: createTemporaryObject(mediaStub, this) })
+            player: createTemporaryObject(playerComponent, this, {
+                media: createTemporaryObject(mediaStub, this)
+            })
         });
         tryVerify(() => next.loaded);
         compare(next.player.currentTrack.title, "Dawn");

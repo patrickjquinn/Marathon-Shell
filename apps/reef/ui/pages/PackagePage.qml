@@ -25,8 +25,8 @@ Page {
     // Re-read whenever the models are rebuilt (a refresh, an operation, a
     // licence change): reading Reef.revision makes the binding depend on it.
     readonly property var pkg: {
-        const revision = Reef.revision
-        return revision >= 0 ? Reef.packageDetails(packageName) : ({})
+        const revision = Reef.revision;
+        return revision >= 0 ? Reef.packageDetails(packageName) : ({});
     }
     readonly property var changes: Texts.changelog(pkg.changelogJson)
     // What it brings that runs by itself, and what it changes on the phone
@@ -57,14 +57,14 @@ Page {
     // Opens the checkout with a new claim code in its URL; Reef fetches
     // the licence with that code once the purchase is paid.
     function buy() {
-        const url = Reef.buyUrl(page.packageName)
+        const url = Reef.buyUrl(page.packageName);
         if (url.length === 0) {
-            page.error = Texts.message(Reef.lastError)
-            return
+            page.error = Texts.message(Reef.lastError);
+            return;
         }
-        page.error = ""
-        page.buying = true
-        Texts.openHttps(url)
+        page.error = "";
+        page.buying = true;
+        Texts.openHttps(url);
     }
 
     // A changelog entry: its version and day, then its notes as a list.
@@ -236,7 +236,9 @@ Page {
                 objectName: "removeItem"
                 text: qsTr("Remove")
                 visible: page.installed && !page.working && page.pkg.installable === true
-                onClicked: remorse.execute(qsTr("Removing"), function() { Reef.uninstall(page.packageName) })
+                onClicked: remorse.execute(qsTr("Removing"), function () {
+                    Reef.uninstall(page.packageName);
+                })
             }
             MenuItem {
                 objectName: "sourceItem"
@@ -252,7 +254,9 @@ Page {
             }
         }
 
-        RemorsePopup { id: remorse }
+        RemorsePopup {
+            id: remorse
+        }
 
         Column {
             id: column
@@ -265,8 +269,7 @@ Page {
             Item {
                 id: headingRow
                 objectName: "headingRow"
-                readonly property real headingTop: Math.max(Theme.paddingLarge * 2,
-                                                     (page.isPortrait ? Screen.topCutout.height : 0) + Theme.paddingMedium)
+                readonly property real headingTop: Math.max(Theme.paddingLarge * 2, (page.isPortrait ? Screen.topCutout.height : 0) + Theme.paddingMedium)
                 width: parent.width
                 height: Math.max(appIcon.y + appIcon.height, heading.y + heading.height) + Theme.paddingLarge
 
@@ -316,8 +319,9 @@ Page {
                         width: parent.width
                         horizontalAlignment: Text.AlignLeft
                         topPadding: Theme.paddingSmall
-                        text: [page.pkg.publisher || "", page.pkg.category || ""]
-                              .filter(function(s) { return s.length > 0 }).join(" · ")
+                        text: [page.pkg.publisher || "", page.pkg.category || ""].filter(function (s) {
+                            return s.length > 0;
+                        }).join(" · ")
                         color: Theme.secondaryHighlightColor
                         font.pixelSize: Theme.fontSizeExtraSmall
                         truncationMode: TruncationMode.Fade
@@ -343,11 +347,8 @@ Page {
                     spacing: Theme.paddingLarge
                     visible: !page.working
                     // Buttons share the width; one alone takes the large size.
-                    readonly property int shown: (installButton.visible ? 1 : 0) + (openButton.visible ? 1 : 0)
-                        + (updateButton.visible ? 1 : 0) + (buyButton.visible ? 1 : 0)
-                    readonly property real buttonWidth: shown > 1
-                        ? (page.width - 2 * Theme.horizontalPageMargin - (shown - 1) * spacing) / shown
-                        : Theme.buttonWidthLarge
+                    readonly property int shown: (installButton.visible ? 1 : 0) + (openButton.visible ? 1 : 0) + (updateButton.visible ? 1 : 0) + (buyButton.visible ? 1 : 0)
+                    readonly property real buttonWidth: shown > 1 ? (page.width - 2 * Theme.horizontalPageMargin - (shown - 1) * spacing) / shown : Theme.buttonWidthLarge
 
                     Button {
                         id: installButton
@@ -403,10 +404,7 @@ Page {
                         minimumValue: 0
                         maximumValue: 100
                         value: Math.max(0, page.row.jobPercent || 0)
-                        label: page.job === "removing" ? qsTr("Removing")
-                             : page.job === "cancelling" ? qsTr("Stopping")
-                             : page.job === "pending" ? qsTr("Waiting")
-                             : qsTr("Installing")
+                        label: page.job === "removing" ? qsTr("Removing") : page.job === "cancelling" ? qsTr("Stopping") : page.job === "pending" ? qsTr("Waiting") : qsTr("Installing")
                     }
                     Button {
                         id: cancelButton
@@ -460,9 +458,7 @@ Page {
                 // button above already says the app is installed.
                 color: page.updatable ? Theme.highlightColor : Theme.secondaryHighlightColor
                 font.pixelSize: Theme.fontSizeExtraSmall
-                text: page.updatable
-                      ? qsTr("%1 installed, %2 available").arg(page.pkg.installedVersion).arg(page.pkg.updateVersion || page.pkg.version)
-                      : qsTr("Up to date · %1").arg(page.pkg.installedVersion)
+                text: page.updatable ? qsTr("%1 installed, %2 available").arg(page.pkg.installedVersion).arg(page.pkg.updateVersion || page.pkg.version) : qsTr("Up to date · %1").arg(page.pkg.installedVersion)
                 bottomPadding: Theme.paddingMedium
             }
 
@@ -501,8 +497,14 @@ Page {
                 topPadding: Theme.paddingLarge
                 bottomPadding: Theme.paddingLarge
 
-                Fact { value: Texts.price(page.pkg.licenceModel, page.pkg.licensed); name: qsTr("Price") }
-                Fact { value: page.pkg.sizeText || "–"; name: qsTr("Installed size") }
+                Fact {
+                    value: Texts.price(page.pkg.licenceModel, page.pkg.licensed)
+                    name: qsTr("Price")
+                }
+                Fact {
+                    value: page.pkg.sizeText || "–"
+                    name: qsTr("Installed size")
+                }
                 Fact {
                     value: Texts.date(page.pkg.updated) || "–"
                     name: page.changes.length > 0 ? qsTr("Updated") : qsTr("Published")
@@ -517,8 +519,7 @@ Page {
             Flickable {
                 id: shotStrip
                 objectName: "screenshots"
-                readonly property real shotWidth:
-                    Math.round((page.width - Theme.horizontalPageMargin - 2 * Theme.paddingMedium) / 2.5)
+                readonly property real shotWidth: Math.round((page.width - Theme.horizontalPageMargin - 2 * Theme.paddingMedium) / 2.5)
                 width: parent.width
                 height: (shots.count > 0) ? Math.round(shotWidth * 2.1) + Theme.paddingLarge : 0
                 visible: shots.count > 0
@@ -532,7 +533,11 @@ Page {
                     height: shotStrip.height - Theme.paddingLarge
                     spacing: Theme.paddingMedium
 
-                    Item { width: Theme.horizontalPageMargin - shotRow.spacing; height: 1; visible: shots.count > 1 }
+                    Item {
+                        width: Theme.horizontalPageMargin - shotRow.spacing
+                        height: 1
+                        visible: shots.count > 1
+                    }
                     Repeater {
                         id: shots
                         model: page.pkg.screenshotPaths || []
@@ -559,7 +564,11 @@ Page {
                             }
                         }
                     }
-                    Item { width: Theme.horizontalPageMargin - shotRow.spacing; height: 1; visible: shots.count > 1 }
+                    Item {
+                        width: Theme.horizontalPageMargin - shotRow.spacing
+                        height: 1
+                        visible: shots.count > 1
+                    }
                 }
 
                 HorizontalScrollDecorator {}
@@ -596,7 +605,10 @@ Page {
                     }
 
                     // The description, five lines until asked for more.
-                    SectionHeader { text: qsTr("About"); visible: !!page.pkg.description }
+                    SectionHeader {
+                        text: qsTr("About")
+                        visible: !!page.pkg.description
+                    }
                     Label {
                         id: description
                         property bool expanded
@@ -628,13 +640,20 @@ Page {
 
                     // What changed in the newest version; the earlier ones folded
                     // away under "Version history".
-                    SectionHeader { text: qsTr("What's new"); visible: page.changes.length > 0 }
+                    SectionHeader {
+                        text: qsTr("What's new")
+                        visible: page.changes.length > 0
+                    }
                     ChangeEntry {
                         objectName: "whatsNew"
                         visible: page.changes.length > 0
                         change: page.changes.length > 0 ? page.changes[0] : ({})
                     }
-                    Item { width: 1; height: Theme.paddingMedium; visible: page.changes.length > 1 }
+                    Item {
+                        width: 1
+                        height: Theme.paddingMedium
+                        visible: page.changes.length > 1
+                    }
                     ExpandingSection {
                         objectName: "versionHistory"
                         width: parent.width
@@ -670,8 +689,7 @@ Page {
                                 required property var modelData
                                 objectName: "serviceLine"
                                 source: "image://theme/icon-s-warning"
-                                text: qsTr("%1 (%2)").arg(modelData.description || modelData.name)
-                                                     .arg(Texts.startsText(modelData.starts))
+                                text: qsTr("%1 (%2)").arg(modelData.description || modelData.name).arg(Texts.startsText(modelData.starts))
                             }
                         }
                     }
@@ -686,7 +704,9 @@ Page {
                         width: parent.width
                         spacing: Theme.paddingSmall
                         Repeater {
-                            model: Texts.groupLines(page.systemChanges.map(function(c) { return c.description }))
+                            model: Texts.groupLines(page.systemChanges.map(function (c) {
+                                return c.description;
+                            }))
                             Column {
                                 id: changeGroup
                                 required property var modelData
@@ -694,8 +714,7 @@ Page {
                                 IconLine {
                                     objectName: "systemChangeLine"
                                     source: "image://theme/icon-s-warning"
-                                    text: changeGroup.modelData.items.length > 0
-                                          ? qsTr("%1:").arg(changeGroup.modelData.text) : changeGroup.modelData.text
+                                    text: changeGroup.modelData.items.length > 0 ? qsTr("%1:").arg(changeGroup.modelData.text) : changeGroup.modelData.text
                                 }
                                 Repeater {
                                     model: changeGroup.modelData.items
@@ -730,7 +749,9 @@ Page {
 
                     // What it may reach on the phone, from the app's own desktop
                     // file: before install, in words.
-                    SectionHeader { text: qsTr("Permissions") }
+                    SectionHeader {
+                        text: qsTr("Permissions")
+                    }
                     Column {
                         id: permissionList
                         objectName: "permissions"
@@ -738,8 +759,10 @@ Page {
                         // permissions buried the rest of the page.
                         // An Android app's, in words; the trivial ones left out.
                         readonly property var all: {
-                            const android = (page.pkg.abilities || []).filter(function(k) { return Texts.ability(k).length > 0 })
-                            return android.length > 0 ? android : (page.pkg.permissions || [])
+                            const android = (page.pkg.abilities || []).filter(function (k) {
+                                return Texts.ability(k).length > 0;
+                            });
+                            return android.length > 0 ? android : (page.pkg.permissions || []);
                         }
                         readonly property int firstFew: 5
                         property bool showAll
@@ -748,16 +771,11 @@ Page {
 
                         IconLine {
                             source: page.pkg.sandboxed === false ? "image://theme/icon-s-warning" : "image://theme/icon-s-secure"
-                            text: page.pkg.sandboxed === false
-                                  ? qsTr("Parts of it run outside the app sandbox, with your access to files and data.")
-                                  : permissionList.all.length > 0
-                                    ? qsTr("Runs in the app sandbox, and may use:")
-                                    : qsTr("Runs in the app sandbox, and asks for no extra permissions.")
+                            text: page.pkg.sandboxed === false ? qsTr("Parts of it run outside the app sandbox, with your access to files and data.") : permissionList.all.length > 0 ? qsTr("Runs in the app sandbox, and may use:") : qsTr("Runs in the app sandbox, and asks for no extra permissions.")
                             color: page.pkg.sandboxed === false ? Theme.highlightColor : Theme.secondaryHighlightColor
                         }
                         Repeater {
-                            model: permissionList.showAll ? permissionList.all
-                                                          : permissionList.all.slice(0, permissionList.firstFew)
+                            model: permissionList.showAll ? permissionList.all : permissionList.all.slice(0, permissionList.firstFew)
                             IconLine {
                                 required property string modelData
                                 source: Texts.permission(modelData).icon
@@ -776,23 +794,35 @@ Page {
                             anchors.right: parent.right
                             anchors.rightMargin: Theme.horizontalPageMargin
                             anchors.verticalCenter: parent.verticalCenter
-                            text: permissionList.showAll ? qsTr("Show fewer")
-                                                         : qsTr("Show all %n permission(s)", "", permissionList.all.length)
+                            text: permissionList.showAll ? qsTr("Show fewer") : qsTr("Show all %n permission(s)", "", permissionList.all.length)
                             color: morePermissions.highlighted ? Theme.highlightColor : Theme.primaryColor
                             font.pixelSize: Theme.fontSizeSmall
                         }
                     }
 
-                    SectionHeader { text: qsTr("Information") }
-                    DetailItem { label: qsTr("Version"); value: page.pkg.version || "" }
+                    SectionHeader {
+                        text: qsTr("Information")
+                    }
+                    DetailItem {
+                        label: qsTr("Version")
+                        value: page.pkg.version || ""
+                    }
                     DetailItem {
                         label: qsTr("Installed")
                         value: page.pkg.installedVersion || ""
                         // Only when it is not the version above (an update waits).
                         visible: page.installed && page.pkg.installedVersion !== page.pkg.version
                     }
-                    DetailItem { label: qsTr("Publisher"); value: page.pkg.publisher || ""; visible: !!page.pkg.publisher }
-                    DetailItem { label: qsTr("Licence"); value: Texts.licence(page.pkg.spdx); visible: !!page.pkg.spdx }
+                    DetailItem {
+                        label: qsTr("Publisher")
+                        value: page.pkg.publisher || ""
+                        visible: !!page.pkg.publisher
+                    }
+                    DetailItem {
+                        label: qsTr("Licence")
+                        value: Texts.licence(page.pkg.spdx)
+                        visible: !!page.pkg.spdx
+                    }
                     DetailItem {
                         label: qsTr("First published")
                         value: Texts.date(page.pkg.added)
@@ -803,15 +833,14 @@ Page {
                         // (docs/plan.md, "Compatibility target", where B is the
                         // higher): how much of the app runs on Keel, Sailfish's Qt 6.
                         label: qsTr("Qt 6 (Keel)")
-                        value: page.pkg.keelTier === "B" ? qsTr("Fully supported")
-                             : page.pkg.keelTier === "A" ? qsTr("Mostly supported")
-                             : page.pkg.keelTier === "none" ? qsTr("Not supported yet")
-                             : page.pkg.keelTier === "not-applicable" ? qsTr("Not needed")
-                             : (page.pkg.keelTier || "")
+                        value: page.pkg.keelTier === "B" ? qsTr("Fully supported") : page.pkg.keelTier === "A" ? qsTr("Mostly supported") : page.pkg.keelTier === "none" ? qsTr("Not supported yet") : page.pkg.keelTier === "not-applicable" ? qsTr("Not needed") : (page.pkg.keelTier || "")
                         visible: !!page.pkg.keelTier
                     }
 
-                    Item { width: 1; height: Theme.paddingLarge }
+                    Item {
+                        width: 1
+                        height: Theme.paddingLarge
+                    }
                     LinkItem {
                         objectName: "homepageLink"
                         iconSource: "image://theme/icon-m-website"

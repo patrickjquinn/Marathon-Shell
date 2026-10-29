@@ -43,14 +43,14 @@ static void drmAuthenticate(struct wl_client *, struct wl_resource *resource, ui
     wl_drm_send_authenticated(resource);
 }
 
-static void drmCreateBuffer(struct wl_client *client, struct wl_resource * /*resource*/, uint32_t id,
-                            uint32_t /*name*/, int32_t /*width*/, int32_t /*height*/,
+static void drmCreateBuffer(struct wl_client *client, struct wl_resource * /*resource*/,
+                            uint32_t id, uint32_t /*name*/, int32_t /*width*/, int32_t /*height*/,
                             uint32_t /*stride*/, uint32_t /*format*/) {
     createInertBuffer(client, id);
 }
 
 static void drmCreatePlanarBuffer(struct wl_client *client, struct wl_resource * /*resource*/,
-                                  uint32_t id, uint32_t /*name*/, int32_t /*width*/,
+                                  uint32_t          id, uint32_t /*name*/, int32_t /*width*/,
                                   int32_t /*height*/, uint32_t /*format*/, int32_t /*offset0*/,
                                   int32_t /*stride0*/, int32_t /*offset1*/, int32_t /*stride1*/,
                                   int32_t /*offset2*/, int32_t /*stride2*/) {
@@ -108,7 +108,7 @@ WlDrmManager::WlDrmManager(QWaylandCompositor *compositor)
     }
 
     auto *display = static_cast<struct wl_display *>(m_compositor->display());
-    m_global      = wl_global_create(display, &wl_drm_interface, 2, this, &WlDrmManager::bindManager);
+    m_global = wl_global_create(display, &wl_drm_interface, 2, this, &WlDrmManager::bindManager);
     if (!m_global)
         qWarning() << "[WlDrm] wl_global_create failed — wayland clients fall back to software";
     else
@@ -120,9 +120,10 @@ WlDrmManager::~WlDrmManager() {
         wl_global_destroy(m_global);
 }
 
-void WlDrmManager::bindManager(struct wl_client *client, void *data, uint32_t version, uint32_t id) {
-    auto          *self    = static_cast<WlDrmManager *>(data);
-    const uint32_t bindVer = qMin(version, 2u);
+void WlDrmManager::bindManager(struct wl_client *client, void *data, uint32_t version,
+                               uint32_t id) {
+    auto               *self    = static_cast<WlDrmManager *>(data);
+    const uint32_t      bindVer = qMin(version, 2u);
 
     struct wl_resource *resource =
         wl_resource_create(client, &wl_drm_interface, static_cast<int>(bindVer), id);

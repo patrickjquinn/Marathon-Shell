@@ -19,7 +19,9 @@ class Translations : public QObject {
     // Also sets the default QLocale, LANG and LANGUAGE; an empty code restores
     // the image's. False when no catalog loaded.
     bool    install(const QString &code);
-    QString code() const { return m_code; }
+    QString code() const {
+        return m_code;
+    }
 
   signals:
     void installed(const QString &code);

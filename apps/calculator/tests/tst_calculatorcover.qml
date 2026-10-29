@@ -9,13 +9,22 @@ TestCase {
     name: "CalculatorCover"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
-    Component { id: coverComponent; CalculatorCover { calc: Calculator {} } }
+    Component {
+        id: coverComponent
+        CalculatorCover {
+            calc: Calculator {}
+        }
+    }
 
     function make() {
         const cover = createTemporaryObject(coverComponent, this);
-        return { calc: cover.calc, cover: cover };
+        return {
+            calc: cover.calc,
+            cover: cover
+        };
     }
 
     function test_showsResultAndExpression() {

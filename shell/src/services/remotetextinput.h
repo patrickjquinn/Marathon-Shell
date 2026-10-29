@@ -35,9 +35,9 @@ class RemoteTextInputFilter : public QObject {
     bool eventFilter(QObject *watched, QEvent *event) override;
 
   private:
-    bool     targets(QObject *object) const;
-    QVariant query(Qt::InputMethodQuery query) const;
-    void     commit(const QInputMethodEvent &event);
+    bool             targets(QObject *object) const;
+    QVariant         query(Qt::InputMethodQuery query) const;
+    void             commit(const QInputMethodEvent &event);
 
     RemoteTextInput *m_input;
     AppIdOf          m_appIdOf;

@@ -32,7 +32,12 @@ QtObject {
         return messages[id] || [];
     }
     function sendMessage(recipient, text) {
-        sent = sent.concat([{ recipient: recipient, text: text }]);
+        sent = sent.concat([
+            {
+                recipient: recipient,
+                text: text
+            }
+        ]);
     }
     function deleteConversation(id) {
         deleted = deleted.concat([id]);
@@ -48,7 +53,13 @@ QtObject {
         read = read.concat([id]);
     }
     function sendMms(recipients, text, attachments) {
-        sentMms = sentMms.concat([{ recipients: recipients, text: text, attachments: attachments }]);
+        sentMms = sentMms.concat([
+            {
+                recipients: recipients,
+                text: text,
+                attachments: attachments
+            }
+        ]);
         return 100 + sentMms.length;
     }
     function openAttachment(id, name) {

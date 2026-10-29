@@ -26,11 +26,20 @@ Item {
     Keys.enabled: interactive
     Keys.onPressed: function (event) {
         switch (event.key) {
-        case Qt.Key_Right: root._select(root.currentIndex + 1); break;
-        case Qt.Key_Left: root._select(root.currentIndex - 1); break;
-        case Qt.Key_Home: root._select(0); break;
-        case Qt.Key_End: root._select(root.count - 1); break;
-        default: return;
+        case Qt.Key_Right:
+            root._select(root.currentIndex + 1);
+            break;
+        case Qt.Key_Left:
+            root._select(root.currentIndex - 1);
+            break;
+        case Qt.Key_Home:
+            root._select(0);
+            break;
+        case Qt.Key_End:
+            root._select(root.count - 1);
+            break;
+        default:
+            return;
         }
         event.accepted = true;
     }

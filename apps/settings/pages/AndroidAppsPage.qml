@@ -54,7 +54,9 @@ Page {
             subtitle: modelData.version ? qsTr("Version %1").arg(modelData.version) : ""
             canUninstall: Logic.androidRemovable(modelData.pkg)
             onUninstallRequested: page.uninstall(modelData.pkg, modelData.name)
-            onClicked: pageStack.push(Qt.resolvedUrl("AppInfoPage.qml"), { appId: modelData.id })
+            onClicked: pageStack.push(Qt.resolvedUrl("AppInfoPage.qml"), {
+                appId: modelData.id
+            })
         }
 
         ViewPlaceholder {

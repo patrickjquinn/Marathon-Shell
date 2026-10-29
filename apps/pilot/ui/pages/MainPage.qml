@@ -23,61 +23,72 @@ Page {
     readonly property bool transcribing: Conversation.transcribing
     property bool onboardingShown: false
 
-    function send(text) { Conversation.send(text) }
-    function answer(index, approved) { Conversation.answer(index, approved) }
+    function send(text) {
+        Conversation.send(text);
+    }
+    function answer(index, approved) {
+        Conversation.answer(index, approved);
+    }
 
     // The viewfinder is its own page, loaded only when used (it needs
     // QtMultimedia and the camera).
     function openCamera(question) {
-        pageStack.push(Qt.resolvedUrl("CameraPage.qml"), { question: question })
+        pageStack.push(Qt.resolvedUrl("CameraPage.qml"), {
+            question: question
+        });
     }
 
     // The system-wide gesture: the sheet up, ready to type.
     function openSheet() {
-        sheet.open = true
-        input.forceActiveFocus()
+        sheet.open = true;
+        input.forceActiveFocus();
         // Opened over another app: say which, from pilotd's Now.
-        Pilot.refreshNow()
+        Pilot.refreshNow();
     }
 
     // Carried on from the overlay: the newest turn in view.
     function showLatest() {
-        sheet.open = true
-        list.toEnd()
+        sheet.open = true;
+        list.toEnd();
     }
 
     function listen() {
         if (Pilot.busy)
-            return
-        sheet.open = true
-        input.focus = false
-        Conversation.listen()
+            return;
+        sheet.open = true;
+        input.focus = false;
+        Conversation.listen();
     }
 
     Connections {
         target: Pilot
-        function onConnectedChanged() { page.maybeOnboard(); Pilot.refreshNow() }
+        function onConnectedChanged() {
+            page.maybeOnboard();
+            Pilot.refreshNow();
+        }
     }
     Connections {
         target: Conversation
-        function onGrew() { list.toEnd() }
+        function onGrew() {
+            list.toEnd();
+        }
     }
 
     // First run: the opt-in screen (spec section 10, "Consent"), once
     // pilotd answers.
     function maybeOnboard() {
         if (onboardingShown || status !== PageStatus.Active || !Pilot.connected)
-            return
-        var s = JSON.parse(Pilot.settings())
+            return;
+        var s = JSON.parse(Pilot.settings());
         if (s.onboarded === false) {
-            onboardingShown = true
-            pageStack.push(Qt.resolvedUrl("OnboardingDialog.qml"))
+            onboardingShown = true;
+            pageStack.push(Qt.resolvedUrl("OnboardingDialog.qml"));
         }
     }
     onStatusChanged: {
-        maybeOnboard()
+        maybeOnboard();
         if (status === PageStatus.Active)
-            Pilot.refreshNow()
+            Pilot.refreshNow();
     }
     // Keep the home current while it is shown (an alarm that rang, the
     // next event changing).
@@ -91,7 +102,12 @@ Page {
     SilicaListView {
         id: list
         objectName: "conversation"
-        anchors { left: parent.left; right: parent.right; top: parent.top; bottom: sheet.top }
+        anchors {
+            left: parent.left
+            right: parent.right
+            top: parent.top
+            bottom: sheet.top
+        }
         clip: true
         model: page.model
         spacing: Theme.paddingMedium
@@ -114,23 +130,30 @@ Page {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.highlightColor
-                text: Pilot.error.length > 0 ? Pilot.error
-                    : qsTr("The privacy switch is on. Timers, alarms, reminders, media and the calendar still work.")
+                text: Pilot.error.length > 0 ? Pilot.error : qsTr("The privacy switch is on. Timers, alarms, reminders, media and the calendar still work.")
             }
             NowView {
                 objectName: "nowView"
                 visible: list.count === 0
                 snapshot: page.now
-                onAsk: function(question) { page.send(question) }
+                onAsk: function (question) {
+                    page.send(question);
+                }
                 onOpenTriage: pageStack.push(Qt.resolvedUrl("TriagePage.qml"))
-                onOpenLesson: function(step) { pageStack.push(Qt.resolvedUrl("GuidePage.qml"), { focusStep: step }) }
+                onOpenLesson: function (step) {
+                    pageStack.push(Qt.resolvedUrl("GuidePage.qml"), {
+                        focusStep: step
+                    });
+                }
                 onOpenCapabilities: pageStack.push(Qt.resolvedUrl("CapabilitiesPage.qml"))
             }
         }
 
         // The cards (Cards.qml).
         delegate: Cards {
-            onLook: function(question) { page.openCamera(question) }
+            onLook: function (question) {
+                page.openCamera(question);
+            }
             onOpenSettings: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
         }
 
@@ -153,12 +176,14 @@ Page {
         // the following until the person is back at the end.
         property bool follow: true
         function toEnd() {
-            follow = true
-            Qt.callLater(positionViewAtEnd)
+            follow = true;
+            Qt.callLater(positionViewAtEnd);
         }
         onCountChanged: toEnd()
-        onContentHeightChanged: if (follow) Qt.callLater(positionViewAtEnd)
-        onHeightChanged: if (follow) Qt.callLater(positionViewAtEnd)
+        onContentHeightChanged: if (follow)
+            Qt.callLater(positionViewAtEnd)
+        onHeightChanged: if (follow)
+            Qt.callLater(positionViewAtEnd)
         onMovementEnded: follow = atYEnd
 
         PullDownMenu {
@@ -179,33 +204,41 @@ Page {
                 objectName: "clearMenuItem"
                 text: qsTr("Clear conversation")
                 visible: page.model.count > 0
-                onClicked: clearRemorse.execute(qsTr("Clearing conversation"), function() { Conversation.clear() })
+                onClicked: clearRemorse.execute(qsTr("Clearing conversation"), function () {
+                    Conversation.clear();
+                })
             }
         }
 
         ViewPlaceholder {
             enabled: page.model.count === 0 && !Pilot.busy && !page.now.greeting
             text: Pilot.offline ? qsTr("Pilot is offline") : qsTr("Ask Pilot")
-            hintText: Pilot.offline
-                      ? qsTr("Timers, alarms, reminders, media and the calendar still work from text")
-                      : qsTr("Timers, alarms, reminders, music, your calendar, or any question")
+            hintText: Pilot.offline ? qsTr("Timers, alarms, reminders, media and the calendar still work from text") : qsTr("Timers, alarms, reminders, music, your calendar, or any question")
         }
         VerticalScrollDecorator {}
     }
 
-    RemorsePopup { id: clearRemorse }
+    RemorsePopup {
+        id: clearRemorse
+    }
 
     // Swipe up from the bottom edge to open a closed sheet.
     MouseArea {
         objectName: "edgeSwipe"
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+        }
         height: Theme.paddingLarge
         enabled: !sheet.open
         property real startY: 0
-        onPressed: function(mouse) { startY = mouse.y }
-        onPositionChanged: function(mouse) {
+        onPressed: function (mouse) {
+            startY = mouse.y;
+        }
+        onPositionChanged: function (mouse) {
             if (startY - mouse.y > Theme.paddingMedium)
-                sheet.open = true
+                sheet.open = true;
         }
     }
 
@@ -214,25 +247,49 @@ Page {
     Item {
         id: listeningPanel
         objectName: "listeningPanel"
-        anchors { left: parent.left; right: parent.right; top: parent.top; bottom: sheet.top }
+        anchors {
+            left: parent.left
+            right: parent.right
+            top: parent.top
+            bottom: sheet.top
+        }
         opacity: page.listening ? 1 : 0
         visible: opacity > 0
         // An animation, not an animator: `visible` follows the opacity as
         // it changes.
-        Behavior on opacity { FadeAnimation { duration: 250 } }
+        Behavior on opacity {
+            FadeAnimation {
+                duration: 250
+            }
+        }
 
         Rectangle {
             anchors.fill: parent
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 0.45; color: Theme.rgba(Theme.overlayBackgroundColor, 0.55) }
-                GradientStop { position: 1.0; color: Theme.rgba(Theme.overlayBackgroundColor, 0.85) }
+                GradientStop {
+                    position: 0.0
+                    color: "transparent"
+                }
+                GradientStop {
+                    position: 0.45
+                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.55)
+                }
+                GradientStop {
+                    position: 1.0
+                    color: Theme.rgba(Theme.overlayBackgroundColor, 0.85)
+                }
             }
         }
-        MouseArea { anchors.fill: parent }   // the conversation waits
+        MouseArea {
+            anchors.fill: parent
+        }   // the conversation waits
 
         Column {
-            anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: Theme.itemSizeLarge }
+            anchors {
+                horizontalCenter: parent.horizontalCenter
+                bottom: parent.bottom
+                bottomMargin: Theme.itemSizeLarge
+            }
             spacing: Theme.paddingLarge
             Orb {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -251,8 +308,7 @@ Page {
             }
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: page.transcribing ? qsTr("Working out what you said, on this phone")
-                                        : qsTr("Speak now. Pilot stops when you pause.")
+                text: page.transcribing ? qsTr("Working out what you said, on this phone") : qsTr("Speak now. Pilot stops when you pause.")
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
             }
@@ -282,8 +338,8 @@ Page {
                 iconSource: "image://theme/icon-m-clear"
                 text: qsTr("Using what %1 shows").arg(page.now.on_screen || "")
                 onClicked: {
-                    Pilot.clearOnScreen()
-                    Pilot.refreshNow()
+                    Pilot.clearOnScreen();
+                    Pilot.refreshNow();
                 }
             }
             Row {
@@ -297,8 +353,8 @@ Page {
                     enabled: !Pilot.busy
                     EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                     EnterKey.onClicked: {
-                        page.send(text)
-                        text = ""
+                        page.send(text);
+                        text = "";
                     }
                 }
                 IconButton {
@@ -308,8 +364,8 @@ Page {
                     icon.source: "image://theme/icon-m-send"
                     enabled: !Pilot.busy
                     onClicked: {
-                        page.send(input.text)
-                        input.text = ""
+                        page.send(input.text);
+                        input.text = "";
                     }
                 }
                 // Tap to talk.
@@ -321,8 +377,7 @@ Page {
                     anchors.verticalCenter: input.verticalCenter
                     enabled: !Pilot.offline
                     glyph: true
-                    mode: page.listening && !page.transcribing ? "listening"
-                          : Pilot.busy ? "thinking" : "idle"
+                    mode: page.listening && !page.transcribing ? "listening" : Pilot.busy ? "thinking" : "idle"
                     level: Conversation.level
                     onClicked: page.listen()
                 }

@@ -13,6 +13,12 @@ QtObject {
     property real longitude: -6.26031
     property real accuracy: 12
 
-    function start() { log("start"); active = true; }
-    function stop() { log("stop"); active = false; }
+    function start() {
+        log("start");
+        active = true;
+    }
+    function stop() {
+        log("stop");
+        active = false;
+    }
 }

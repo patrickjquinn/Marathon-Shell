@@ -32,20 +32,21 @@ Dialog {
     // Answer spoken questions too (the last step's switch).
     property bool spoken: true
 
-    onStatusChanged: if (status === PageStatus.Active && !returnTo) returnTo = pageStack.previousPage(first)
+    onStatusChanged: if (status === PageStatus.Active && !returnTo)
+        returnTo = pageStack.previousPage(first)
 
     acceptDestination: abilitiesStep
     onAccepted: {
-        var name = nameField.text.trim()
+        var name = nameField.text.trim();
         if (name !== (settings.name || ""))
-            Pilot.setName(name)
+            Pilot.setName(name);
     }
 
     // The choice, at the end of the sequence.
     function decide(useCloud) {
         if (!again) {
-            Pilot.setConsent("text_qa", useCloud)
-            Pilot.setConsent("voice_cloud", useCloud && spoken)
+            Pilot.setConsent("text_qa", useCloud);
+            Pilot.setConsent("voice_cloud", useCloud && spoken);
         }
     }
 
@@ -117,11 +118,31 @@ Dialog {
                     }
                     Repeater {
                         model: [
-                            { icon: "image://theme/icon-m-timer", say: qsTr("“Timer for 10 minutes”"), what: qsTr("Timers, alarms and reminders, right away, on the phone") },
-                            { icon: "image://theme/icon-m-website", say: qsTr("“Who won the hurling?”"), what: qsTr("Answers from today's web, with the sources") },
-                            { icon: "image://theme/icon-m-note", say: qsTr("“Remember that my partner loves orchids”"), what: qsTr("I keep what you tell me, on this phone, and use it") },
-                            { icon: "image://theme/icon-m-search-on-page", say: qsTr("“Summarise this”"), what: qsTr("Over a page or an e-mail: I see what you see") },
-                            { icon: "image://theme/icon-m-cloud-download", say: qsTr("“Find a notes app in Reef and install it”"), what: qsTr("I act in your apps, and ask before I send, buy or delete") }
+                            {
+                                icon: "image://theme/icon-m-timer",
+                                say: qsTr("“Timer for 10 minutes”"),
+                                what: qsTr("Timers, alarms and reminders, right away, on the phone")
+                            },
+                            {
+                                icon: "image://theme/icon-m-website",
+                                say: qsTr("“Who won the hurling?”"),
+                                what: qsTr("Answers from today's web, with the sources")
+                            },
+                            {
+                                icon: "image://theme/icon-m-note",
+                                say: qsTr("“Remember that my partner loves orchids”"),
+                                what: qsTr("I keep what you tell me, on this phone, and use it")
+                            },
+                            {
+                                icon: "image://theme/icon-m-search-on-page",
+                                say: qsTr("“Summarise this”"),
+                                what: qsTr("Over a page or an e-mail: I see what you see")
+                            },
+                            {
+                                icon: "image://theme/icon-m-cloud-download",
+                                say: qsTr("“Find a notes app in Reef and install it”"),
+                                what: qsTr("I act in your apps, and ask before I send, buy or delete")
+                            }
                         ]
                         delegate: Row {
                             id: ability
@@ -185,9 +206,7 @@ Dialog {
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
                         horizontalAlignment: Text.AlignHCenter
-                        text: first.gesture
-                              ? qsTr("Touch and hold the glowing bar at the bottom. A swipe up still opens your apps.")
-                              : qsTr("Install “Pilot gesture” from Reef. It adds a glowing bar you touch and hold, in any app.")
+                        text: first.gesture ? qsTr("Touch and hold the glowing bar at the bottom. A swipe up still opens your apps.") : qsTr("Install “Pilot gesture” from Reef. It adds a glowing bar you touch and hold, in any app.")
                         color: Theme.highlightColor
                     }
                     Label {
@@ -238,8 +257,7 @@ Dialog {
                         width: parent.width - 2 * x
                         wrapMode: Text.Wrap
                         color: Theme.highlightColor
-                        text: qsTr("Other questions are answered in the cloud, with what I remember about you when it helps. "
-                                 + "Names, numbers and addresses are replaced before anything is sent.")
+                        text: qsTr("Other questions are answered in the cloud, with what I remember about you when it helps. " + "Names, numbers and addresses are replaced before anything is sent.")
                     }
                     Label {
                         x: Theme.horizontalPageMargin
@@ -247,21 +265,17 @@ Dialog {
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.secondaryHighlightColor
-                        text: qsTr("Jev, in the US, works out what you asked from the gist alone: no names, long numbers, links "
-                                 + "or anything that identifies you or this phone. Groq, also in the US, writes the answer. "
-                                 + "Settings lists every request under “What left this phone”.")
+                        text: qsTr("Jev, in the US, works out what you asked from the gist alone: no names, long numbers, links " + "or anything that identifies you or this phone. Groq, also in the US, writes the answer. " + "Settings lists every request under “What left this phone”.")
                     }
                     TextSwitch {
                         objectName: "spokenSwitch"
                         visible: !first.again
                         checked: first.spoken
                         text: qsTr("Answer spoken questions too")
-                        description: qsTr("Your speech is turned into text on this phone. "
-                                        + "Only the text is sent, never the audio.")
-                                     // Pilot's voice is English; recognition
-                                     // follows the phone's language.
-                                     + (Qt.locale().name.indexOf("en") === 0 ? ""
-                                        : " " + qsTr("Pilot speaks its answers in English for now."))
+                        description: qsTr("Your speech is turned into text on this phone. " + "Only the text is sent, never the audio.") +
+                        // Pilot's voice is English; recognition
+                        // follows the phone's language.
+                        (Qt.locale().name.indexOf("en") === 0 ? "" : " " + qsTr("Pilot speaks its answers in English for now."))
                         onCheckedChanged: first.spoken = checked
                     }
                     Label {
@@ -270,8 +284,7 @@ Dialog {
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.secondaryHighlightColor
-                        text: qsTr("Camera and notification features are off until you turn them on in Settings. "
-                                 + "The privacy switch takes Pilot offline at any time.")
+                        text: qsTr("Camera and notification features are off until you turn them on in Settings. " + "The privacy switch takes Pilot offline at any time.")
                     }
                     // The other choice: nothing to the cloud.
                     Button {
@@ -281,8 +294,8 @@ Dialog {
                         preferredWidth: Theme.buttonWidthLarge
                         text: qsTr("Keep Pilot on this phone")
                         onClicked: {
-                            first.decide(false)
-                            pageStack.pop(first.returnTo)
+                            first.decide(false);
+                            pageStack.pop(first.returnTo);
                         }
                     }
                 }

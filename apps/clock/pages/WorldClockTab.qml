@@ -31,7 +31,9 @@ TabItem {
         PullDownMenu {
             MenuItem {
                 text: qsTr("Add city")
-                onClicked: pageStack.push(Qt.resolvedUrl("AddCityPage.qml"), { app: root.app })
+                onClicked: pageStack.push(Qt.resolvedUrl("AddCityPage.qml"), {
+                    app: root.app
+                })
             }
         }
 
@@ -44,7 +46,9 @@ TabItem {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: Format.formatDate(root.now, Formatter.TimeValue)
                 font.pixelSize: Theme.fontSizeHuge
-                font.features: ({ "tnum": 1 })
+                font.features: ({
+                        "tnum": 1
+                    })
                 color: Theme.highlightColor
             }
             Label {
@@ -125,7 +129,9 @@ TabItem {
                     anchors.right: parent.right
                     text: item.info.time
                     font.pixelSize: Theme.fontSizeLarge
-                    font.features: ({ "tnum": 1 })
+                    font.features: ({
+                            "tnum": 1
+                        })
                     color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
                 }
                 Label {

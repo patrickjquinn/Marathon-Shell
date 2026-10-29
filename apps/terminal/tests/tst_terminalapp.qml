@@ -10,7 +10,8 @@ TestCase {
     name: "TerminalApp"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
     Component {
         id: valueStub
@@ -21,16 +22,28 @@ TestCase {
     }
     Component {
         id: appComponent
-        TerminalApp { width: 540; height: 1140 }
+        TerminalApp {
+            width: 540
+            height: 1140
+        }
     }
-    SignalSpy { id: minimizeSpy; signalName: "minimizeRequested" }
+    SignalSpy {
+        id: minimizeSpy
+        signalName: "minimizeRequested"
+    }
 
     // The stubs are the app's children so they outlive its bindings.
     function makeApp() {
         const app = createTemporaryObject(appComponent, test);
-        app.fontSize = valueStub.createObject(app, { value: 20 });
-        app.colorScheme = valueStub.createObject(app, { value: "ambience" });
-        app.extraKeys = valueStub.createObject(app, { value: true });
+        app.fontSize = valueStub.createObject(app, {
+            value: 20
+        });
+        app.colorScheme = valueStub.createObject(app, {
+            value: "ambience"
+        });
+        app.extraKeys = valueStub.createObject(app, {
+            value: true
+        });
         return app;
     }
 

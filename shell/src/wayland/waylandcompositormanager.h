@@ -23,7 +23,7 @@ class WaylandCompositorManager : public QObject {
 
     Q_INVOKABLE WaylandCompositor *createCompositor(QQuickWindow *window);
 
-    void setApps(Apps *apps) {
+    void                           setApps(Apps *apps) {
         m_apps = apps;
     }
     // Held until the compositor exists, which QML creates later.
@@ -38,8 +38,8 @@ class WaylandCompositorManager : public QObject {
 #endif
 
   private:
-    Apps *m_apps = nullptr;
-    qreal                m_nativeScale = 1.0;
+    Apps *m_apps        = nullptr;
+    qreal m_nativeScale = 1.0;
 #ifdef HAVE_WAYLAND
     WaylandCompositor *m_compositor = nullptr;
 #endif

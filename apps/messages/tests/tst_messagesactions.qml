@@ -14,7 +14,9 @@ TestCase {
         property var pinnedIds: []
         property var archivedIds: []
         function conversationFor(number, name) {
-            return conversations.find(c => Logic.sameNumber(c.contactNumber, number)) || { id: Sms.generateConversationId(number) };
+            return conversations.find(c => Logic.sameNumber(c.contactNumber, number)) || {
+                id: Sms.generateConversationId(number)
+            };
         }
     }
 
@@ -24,48 +26,123 @@ TestCase {
 
     function init() {
         Sms.reset([
-            { id: "a", contactName: "Alice", contactNumber: "+15551234567", lastMessage: "Lunch?", lastTimestamp: 1700000100000, unreadCount: 2 },
-            { id: "b", contactName: "", contactNumber: "+447700900123", lastMessage: "Your code is 1234", lastTimestamp: 1700000000000, unreadCount: 0 },
-            { id: "c", contactName: "Carol", contactNumber: "+15550000000", lastMessage: "Old news", lastTimestamp: 1600000000000, unreadCount: 0 }
-        ], { a: [
-            { id: 1, text: "Hi", timestamp: 1700000000000, isOutgoing: true },
-            { id: 2, text: "Lunch?", timestamp: 1700000100000, isOutgoing: false }
-        ] });
+            {
+                id: "a",
+                contactName: "Alice",
+                contactNumber: "+15551234567",
+                lastMessage: "Lunch?",
+                lastTimestamp: 1700000100000,
+                unreadCount: 2
+            },
+            {
+                id: "b",
+                contactName: "",
+                contactNumber: "+447700900123",
+                lastMessage: "Your code is 1234",
+                lastTimestamp: 1700000000000,
+                unreadCount: 0
+            },
+            {
+                id: "c",
+                contactName: "Carol",
+                contactNumber: "+15550000000",
+                lastMessage: "Old news",
+                lastTimestamp: 1600000000000,
+                unreadCount: 0
+            }
+        ], {
+            a: [
+                {
+                    id: 1,
+                    text: "Hi",
+                    timestamp: 1700000000000,
+                    isOutgoing: true
+                },
+                {
+                    id: 2,
+                    text: "Lunch?",
+                    timestamp: 1700000100000,
+                    isOutgoing: false
+                }
+            ]
+        });
         app.pinnedIds = ["b"];
         app.archivedIds = ["c"];
         Telephony.hasModem = true;
     }
 
     function test_search() {
-        let call = KeelActions.invoke("conversations.search", { query: "" });
+        let call = KeelActions.invoke("conversations.search", {
+            query: ""
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result, [
-            { name: "", number: "+447700900123", lastMessage: "Your code is 1234", time: "2023-11-14T22:13:20.000Z", unread: 0 },
-            { name: "Alice", number: "+15551234567", lastMessage: "Lunch?", time: "2023-11-14T22:15:00.000Z", unread: 2 }
+            {
+                name: "",
+                number: "+447700900123",
+                lastMessage: "Your code is 1234",
+                time: "2023-11-14T22:13:20.000Z",
+                unread: 0
+            },
+            {
+                name: "Alice",
+                number: "+15551234567",
+                lastMessage: "Lunch?",
+                time: "2023-11-14T22:15:00.000Z",
+                unread: 2
+            }
         ]);
-        call = KeelActions.invoke("conversations.search", { query: "alice" });
+        call = KeelActions.invoke("conversations.search", {
+            query: "alice"
+        });
         compare(call.result.result.map(c => c.number), ["+15551234567"]);
-        call = KeelActions.invoke("conversations.search", { query: "", limit: 1 });
+        call = KeelActions.invoke("conversations.search", {
+            query: "",
+            limit: 1
+        });
         compare(call.result.result.length, 1);
     }
 
     function test_read() {
-        let call = KeelActions.invoke("messages.read", { number: "555 123 4567" });
+        let call = KeelActions.invoke("messages.read", {
+            number: "555 123 4567"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.result, [
-            { text: "Hi", outgoing: true, time: "2023-11-14T22:13:20.000Z" },
-            { text: "Lunch?", outgoing: false, time: "2023-11-14T22:15:00.000Z" }
+            {
+                text: "Hi",
+                outgoing: true,
+                time: "2023-11-14T22:13:20.000Z"
+            },
+            {
+                text: "Lunch?",
+                outgoing: false,
+                time: "2023-11-14T22:15:00.000Z"
+            }
         ]);
-        call = KeelActions.invoke("messages.read", { number: "+15551234567", limit: 1 });
+        call = KeelActions.invoke("messages.read", {
+            number: "+15551234567",
+            limit: 1
+        });
         compare(call.result.result.map(m => m.text), ["Lunch?"]);
         compare(Sms.read, []);
-        call = KeelActions.invoke("messages.read", { number: "+3531234567" });
+        call = KeelActions.invoke("messages.read", {
+            number: "+3531234567"
+        });
         compare(call.result.result, []);
     }
 
     function test_sendAnswersWhenSent() {
-        const call = KeelActions.invoke("messages.send", { to: "+1 555 123-4567", text: "On my way" });
-        compare(Sms.sent, [{ recipient: "+15551234567", text: "On my way" }]);
+        const call = KeelActions.invoke("messages.send", {
+            to: "+1 555 123-4567",
+            text: "On my way"
+        });
+        compare(Sms.sent, [
+            {
+                recipient: "+15551234567",
+                text: "On my way"
+            }
+        ]);
         verify(!call.finished);
         Sms.messageSent("+447700900123", 1700000200000);
         verify(!call.finished);
@@ -75,17 +152,29 @@ TestCase {
     }
 
     function test_sendFailure() {
-        const call = KeelActions.invoke("messages.send", { to: "0871234567", text: "x" });
+        const call = KeelActions.invoke("messages.send", {
+            to: "0871234567",
+            text: "x"
+        });
         Sms.sendFailed("", "No modem available");
         compare(call.errorCode, "Failed");
         compare(call.errorMessage, "No modem available");
     }
 
     function test_sendRefused() {
-        compare(KeelActions.invoke("messages.send", { to: "Alice", text: "x" }).errorCode, "InvalidArguments");
-        compare(KeelActions.invoke("messages.send", { to: "0871234567", text: "" }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("messages.send", {
+            to: "Alice",
+            text: "x"
+        }).errorCode, "InvalidArguments");
+        compare(KeelActions.invoke("messages.send", {
+            to: "0871234567",
+            text: ""
+        }).errorCode, "InvalidArguments");
         Telephony.hasModem = false;
-        compare(KeelActions.invoke("messages.send", { to: "0871234567", text: "x" }).errorCode, "NotAvailable");
+        compare(KeelActions.invoke("messages.send", {
+            to: "0871234567",
+            text: "x"
+        }).errorCode, "NotAvailable");
         compare(Sms.sent, []);
     }
 
@@ -99,7 +188,9 @@ TestCase {
         compare(manifest.appId, "org.marathonos.messages");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.messages/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.messages/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

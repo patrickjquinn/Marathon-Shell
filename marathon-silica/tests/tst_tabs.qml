@@ -8,12 +8,14 @@ TestCase {
     name: "Tabs"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     Component {
         id: app
         ApplicationWindow {
-            width: 540; height: 960
+            width: 540
+            height: 960
             initialPage: Component {
                 Page {
                     property alias tabs: tabs
@@ -22,11 +24,22 @@ TestCase {
                         anchors.fill: parent
                         sourceProperty: "page"
                         model: [
-                            { title: "Alarms", page: Qt.resolvedUrl("data/TabPage.qml") },
-                            { title: "Clock", page: Qt.resolvedUrl("data/TabPage.qml") },
-                            { title: "Timer", page: Qt.resolvedUrl("data/TabPage.qml") }
+                            {
+                                title: "Alarms",
+                                page: Qt.resolvedUrl("data/TabPage.qml")
+                            },
+                            {
+                                title: "Clock",
+                                page: Qt.resolvedUrl("data/TabPage.qml")
+                            },
+                            {
+                                title: "Timer",
+                                page: Qt.resolvedUrl("data/TabPage.qml")
+                            }
                         ]
-                        header: TabBar { model: tabs.model }
+                        header: TabBar {
+                            model: tabs.model
+                        }
                     }
                 }
             }
@@ -34,9 +47,13 @@ TestCase {
     }
 
     function tabsOf(a) {
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const t = a.pageStack.currentPage.tabs;
-        tryVerify(function () { return t.tabBarItem !== null && buttons(t.tabBarItem).length === 3; });
+        tryVerify(function () {
+            return t.tabBarItem !== null && buttons(t.tabBarItem).length === 3;
+        });
         return t;
     }
 
@@ -52,14 +69,17 @@ TestCase {
             }
         }
         walk(bar);
-        found.sort(function (x, y) { return x.tabIndex - y.tabIndex; });
+        found.sort(function (x, y) {
+            return x.tabIndex - y.tabIndex;
+        });
         return found;
     }
 
     Component {
         id: fourTabApp
         ApplicationWindow {
-            width: 540; height: 960
+            width: 540
+            height: 960
             initialPage: Component {
                 Page {
                     property alias tabs: tabs
@@ -68,12 +88,26 @@ TestCase {
                         anchors.fill: parent
                         sourceProperty: "page"
                         model: [
-                            { title: "Alarms", page: Qt.resolvedUrl("data/TabPage.qml") },
-                            { title: "World", page: Qt.resolvedUrl("data/TabPage.qml") },
-                            { title: "Stopwatch", page: Qt.resolvedUrl("data/TabPage.qml") },
-                            { title: "Timer", page: Qt.resolvedUrl("data/TabPage.qml") }
+                            {
+                                title: "Alarms",
+                                page: Qt.resolvedUrl("data/TabPage.qml")
+                            },
+                            {
+                                title: "World",
+                                page: Qt.resolvedUrl("data/TabPage.qml")
+                            },
+                            {
+                                title: "Stopwatch",
+                                page: Qt.resolvedUrl("data/TabPage.qml")
+                            },
+                            {
+                                title: "Timer",
+                                page: Qt.resolvedUrl("data/TabPage.qml")
+                            }
                         ]
-                        header: TabBar { model: tabs.model }
+                        header: TabBar {
+                            model: tabs.model
+                        }
                     }
                 }
             }
@@ -82,12 +116,18 @@ TestCase {
 
     function test_titlesShrinkToFitBeforeScrolling() {
         const a = createTemporaryObject(fourTabApp, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const t = a.pageStack.currentPage.tabs;
-        tryVerify(function () { return t.tabBarItem !== null && buttons(t.tabBarItem).length === 4; });
+        tryVerify(function () {
+            return t.tabBarItem !== null && buttons(t.tabBarItem).length === 4;
+        });
         const b = buttons(t.tabBarItem);
         verify(b[0].titleFontSize < Theme.fontSizeMedium);
-        tryVerify(function () { return !t.tabBarItem._oversize; }, 1000, "tabs overflow the bar");
+        tryVerify(function () {
+            return !t.tabBarItem._oversize;
+        }, 1000, "tabs overflow the bar");
     }
 
     function test_barAndButtonsAreAccessible() {
@@ -127,7 +167,9 @@ TestCase {
         b[0].forceActiveFocus();
         keyClick(Qt.Key_Right);
         tryCompare(t, "currentIndex", 1);
-        tryVerify(function () { return b[1].activeFocus; });
+        tryVerify(function () {
+            return b[1].activeFocus;
+        });
         keyClick(Qt.Key_Left);
         keyClick(Qt.Key_Left);
         tryCompare(t, "currentIndex", 2);

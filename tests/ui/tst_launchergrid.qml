@@ -10,11 +10,31 @@ TestCase {
     // HackberryPi and Zinwa Q25 at 254 dpi, PinePhone, Librem 5 at 287 dpi,
     // QEMU at 296 dpi, OnePlus 6.
     readonly property var devices: [
-        { "name": "HackberryPi", "width": 720, "ratio": 254 / 160 * 390 / 540 },
-        { "name": "PinePhone", "width": 720, "ratio": 1.2 },
-        { "name": "Librem 5", "width": 720, "ratio": 287 / 160 * 390 / 540 },
-        { "name": "QEMU", "width": 720, "ratio": 296 / 160 * 390 / 540 },
-        { "name": "OnePlus 6", "width": 1080, "ratio": 1.8 }
+        {
+            "name": "HackberryPi",
+            "width": 720,
+            "ratio": 254 / 160 * 390 / 540
+        },
+        {
+            "name": "PinePhone",
+            "width": 720,
+            "ratio": 1.2
+        },
+        {
+            "name": "Librem 5",
+            "width": 720,
+            "ratio": 287 / 160 * 390 / 540
+        },
+        {
+            "name": "QEMU",
+            "width": 720,
+            "ratio": 296 / 160 * 390 / 540
+        },
+        {
+            "name": "OnePlus 6",
+            "width": 1080,
+            "ratio": 1.8
+        }
     ]
     readonly property var scales: [0.9, 1.0, 1.1, 1.2, 1.3]
     readonly property var names: ["Calendar", "Calculator", "App Store", "Messages", "Settings", "Terminal"]

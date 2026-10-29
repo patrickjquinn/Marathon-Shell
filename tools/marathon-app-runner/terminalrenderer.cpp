@@ -161,7 +161,7 @@ void TerminalRenderer::paint(QPainter *painter) {
             const bool     bold       = (startFlags & 1U) != 0;
             const bool     inverse    = (startFlags & 2U) != 0;
 
-            int runEnd = x + 1;
+            int            runEnd = x + 1;
             while (runEnd < cols) {
                 const uint nextFlags = m_terminal->cellFlags(runEnd, y);
                 if (m_terminal->cellFg(runEnd, y) != startFg ||

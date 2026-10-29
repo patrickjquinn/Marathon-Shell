@@ -23,7 +23,10 @@ Page {
             category: o.category || "",
             urgency: o.urgent ? Notification.Critical : Notification.Normal,
             expireTimeout: o.persistent ? 0 : 5000,
-            remoteActions: (o.actions || []).map(a => ({ name: a, displayName: a }))
+            remoteActions: (o.actions || []).map(a => ({
+                        name: a,
+                        displayName: a
+                    }))
         });
         // Tests swap in a stub component, so n is not always a Notification.
         n.publish(); // qmllint disable missing-property
@@ -62,17 +65,28 @@ Page {
                 TestItem {
                     objectName: "withIcon"
                     text: qsTr("With icon")
-                    onClicked: page.app.run("Notification with icon", () => page.post("test", "Marathon Test", "Notification with custom icon", { icon: "star", category: "test" }))
+                    onClicked: page.app.run("Notification with icon", () => page.post("test", "Marathon Test", "Notification with custom icon", {
+                            icon: "star",
+                            category: "test"
+                        }))
                 }
                 TestItem {
                     objectName: "highPriority"
                     text: qsTr("High priority")
-                    onClicked: page.app.run("High priority notification", () => page.post("test", "Important", "This is a high priority notification", { urgent: true, persistent: true, icon: "alert-triangle" }))
+                    onClicked: page.app.run("High priority notification", () => page.post("test", "Important", "This is a high priority notification", {
+                            urgent: true,
+                            persistent: true,
+                            icon: "alert-triangle"
+                        }))
                 }
                 TestItem {
                     objectName: "withActions"
                     text: qsTr("With actions")
-                    onClicked: page.app.run("Notification with actions", () => page.post("test", "Interactive", "Tap an action below", { actions: ["reply", "dismiss", "snooze"], category: "message", icon: "message-circle" }))
+                    onClicked: page.app.run("Notification with actions", () => page.post("test", "Interactive", "Tap an action below", {
+                            actions: ["reply", "dismiss", "snooze"],
+                            category: "message",
+                            icon: "message-circle"
+                        }))
                 }
             }
 
@@ -83,22 +97,34 @@ Page {
                 TestItem {
                     objectName: "message"
                     text: qsTr("Message")
-                    onClicked: page.app.run("Message notification", () => page.post("messages", "John Doe", "Hey, how are you doing?", { category: "message", icon: "message-circle" }))
+                    onClicked: page.app.run("Message notification", () => page.post("messages", "John Doe", "Hey, how are you doing?", {
+                            category: "message",
+                            icon: "message-circle"
+                        }))
                 }
                 TestItem {
                     objectName: "email"
                     text: qsTr("Email")
-                    onClicked: page.app.run("Email notification", () => page.post("mail", "New Email", "You have 3 new emails", { category: "email", icon: "mail" }))
+                    onClicked: page.app.run("Email notification", () => page.post("mail", "New Email", "You have 3 new emails", {
+                            category: "email",
+                            icon: "mail"
+                        }))
                 }
                 TestItem {
                     objectName: "social"
                     text: qsTr("Social")
-                    onClicked: page.app.run("Social notification", () => page.post("social", "Friend Request", "Jane wants to connect with you", { category: "social", icon: "users" }))
+                    onClicked: page.app.run("Social notification", () => page.post("social", "Friend Request", "Jane wants to connect with you", {
+                            category: "social",
+                            icon: "users"
+                        }))
                 }
                 TestItem {
                     objectName: "system"
                     text: qsTr("System")
-                    onClicked: page.app.run("System notification", () => page.post("system", "System Update", "A new system update is available", { category: "system", icon: "download" }))
+                    onClicked: page.app.run("System notification", () => page.post("system", "System Update", "A new system update is available", {
+                            category: "system",
+                            icon: "download"
+                        }))
                 }
             }
 
@@ -111,7 +137,9 @@ Page {
                     text: qsTr("Burst (10)")
                     onClicked: page.app.run("10 burst notifications", () => {
                         for (let i = 0; i < 10; i++)
-                            page.post("test", "Burst Test " + (i + 1), "Testing notification system under load", { icon: "lightning" });
+                            page.post("test", "Burst Test " + (i + 1), "Testing notification system under load", {
+                                icon: "lightning"
+                            });
                     })
                 }
                 TestItem {

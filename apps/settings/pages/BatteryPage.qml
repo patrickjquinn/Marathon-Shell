@@ -9,9 +9,21 @@ Page {
     id: page
 
     readonly property var profiles: [
-        { value: "performance", title: qsTr("Performance"), description: qsTr("Fastest, uses more battery") },
-        { value: "balanced", title: qsTr("Balanced"), description: qsTr("Balances speed and battery life") },
-        { value: "power-saver", title: qsTr("Power saver"), description: qsTr("Slower, makes the battery last longer") }
+        {
+            value: "performance",
+            title: qsTr("Performance"),
+            description: qsTr("Fastest, uses more battery")
+        },
+        {
+            value: "balanced",
+            title: qsTr("Balanced"),
+            description: qsTr("Balances speed and battery life")
+        },
+        {
+            value: "power-saver",
+            title: qsTr("Power saver"),
+            description: qsTr("Slower, makes the battery last longer")
+        }
     ]
     readonly property bool hasBattery: Power.batteryLevel >= 0
 

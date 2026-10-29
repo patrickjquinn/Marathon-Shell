@@ -9,8 +9,8 @@
 namespace {
     QtMessageHandler originalHandler = nullptr;
 
-    void cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
-                              const QString &msg) {
+    void             cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                                          const QString &msg) {
         if (msg.contains("V4L2_MEMORY_USERPTR") || msg.contains("memorytransfer")) {
             return;
         }
@@ -56,8 +56,8 @@ void CameraController::initialize() {
 
     m_cameras    = QMediaDevices::videoInputs();
     m_discovered = true;
-    qWarning() << "[CameraController] Found" << m_cameras.size() << "cameras in"
-               << clock.elapsed() << "ms";
+    qWarning() << "[CameraController] Found" << m_cameras.size() << "cameras in" << clock.elapsed()
+               << "ms";
 
     emit cameraCountChanged();
     emit currentCameraIndexChanged();
@@ -132,7 +132,7 @@ void CameraController::flipCamera() {
 
     emit cameraFlipStarted();
 
-    int nextIndex = (m_currentCameraIndex + 1) % m_cameras.size();
+    int  nextIndex = (m_currentCameraIndex + 1) % m_cameras.size();
 
     QTimer::singleShot(150, this, [this, nextIndex]() {
         setupCamera(nextIndex);

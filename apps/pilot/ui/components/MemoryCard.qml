@@ -20,9 +20,9 @@ Glass {
 
     function forget(id) {
         if (Pilot.forget(id)) {
-            var g = Object.assign({}, gone)
-            g[id] = true
-            gone = g
+            var g = Object.assign({}, gone);
+            g[id] = true;
+            gone = g;
         }
     }
 
@@ -63,7 +63,10 @@ Glass {
             }
             Chip {
                 id: undo
-                anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                anchors {
+                    right: parent.right
+                    verticalCenter: parent.verticalCenter
+                }
                 visible: !fact.forgotten
                 secondary: true
                 text: card.action === "remembered" ? qsTr("Undo") : qsTr("Forget")

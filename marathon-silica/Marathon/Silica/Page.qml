@@ -69,8 +69,7 @@ S.Page {
         if (stack && stack.depth > 1) {
             if (root.backNavigation)
                 stack.navigateBack();
-        } else if (typeof __silica_applicationwindow_instance !== "undefined" && __silica_applicationwindow_instance
-                   && __silica_applicationwindow_instance.handleBack) {
+        } else if (typeof __silica_applicationwindow_instance !== "undefined" && __silica_applicationwindow_instance && __silica_applicationwindow_instance.handleBack) {
             __silica_applicationwindow_instance.handleBack();
         }
         event.accepted = true;

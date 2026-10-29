@@ -44,17 +44,24 @@ Page {
             MenuItem {
                 text: qsTr("Folders")
                 visible: !page.inFolder
-                onClicked: pageStack.push(Qt.resolvedUrl("FoldersPage.qml"), { store: page.store })
+                onClicked: pageStack.push(Qt.resolvedUrl("FoldersPage.qml"), {
+                    store: page.store
+                })
             }
             MenuItem {
                 text: qsTr("Tasks")
                 visible: !page.inFolder
-                onClicked: pageStack.push(Qt.resolvedUrl("TasksPage.qml"), { store: page.store })
+                onClicked: pageStack.push(Qt.resolvedUrl("TasksPage.qml"), {
+                    store: page.store
+                })
             }
             MenuItem {
                 objectName: "newNoteItem"
                 text: qsTr("New note")
-                onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), { store: page.store, noteId: -1 })
+                onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), {
+                    store: page.store,
+                    noteId: -1
+                })
             }
         }
 
@@ -86,7 +93,10 @@ Page {
                     })
                 }
             }
-            onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), { store: page.store, noteId: item.modelData.id })
+            onClicked: pageStack.push(Qt.resolvedUrl("NoteEditorPage.qml"), {
+                store: page.store,
+                noteId: item.modelData.id
+            })
 
             Icon {
                 id: pin

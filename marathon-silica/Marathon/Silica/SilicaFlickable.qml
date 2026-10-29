@@ -21,7 +21,11 @@ S.SilicaFlickable {
     // not the distance behind, from the drag's second move: on the first the
     // content rests where it was, so a pulley menu sees its drag begin there.
     // Silica predates the property, so by name.
-    Binding { target: root; property: "synchronousDrag"; value: root.dragging }
+    Binding {
+        target: root
+        property: "synchronousDrag"
+        value: root.dragging
+    }
 
     // A flickable holding controls is not a tab stop itself: Tab goes to the
     // controls, and keys they leave unused scroll it.
@@ -43,7 +47,11 @@ S.SilicaFlickable {
 
     // Silica declares this view against QtQuick 2.0, which predates
     // activeFocusOnTab, so it can only be set by name.
-    Binding { target: root; property: "activeFocusOnTab"; value: !root._hasTabStops }
+    Binding {
+        target: root
+        property: "activeFocusOnTab"
+        value: !root._hasTabStops
+    }
 
     Accessible.role: Accessible.Pane
     Keys.onPressed: function (event) {
@@ -51,13 +59,26 @@ S.SilicaFlickable {
             return;
         const line = S.Theme.itemSizeSmall;
         switch (event.key) {
-        case Qt.Key_Down: ViewKeys.scrollTo(root, root.contentY + line); break;
-        case Qt.Key_Up: ViewKeys.scrollTo(root, root.contentY - line); break;
-        case Qt.Key_PageDown: ViewKeys.scrollTo(root, root.contentY + root.height * 0.9); break;
-        case Qt.Key_PageUp: ViewKeys.scrollTo(root, root.contentY - root.height * 0.9); break;
-        case Qt.Key_Home: ViewKeys.scrollTo(root, root.originY); break;
-        case Qt.Key_End: ViewKeys.scrollTo(root, root.originY + root.contentHeight); break;
-        default: return;
+        case Qt.Key_Down:
+            ViewKeys.scrollTo(root, root.contentY + line);
+            break;
+        case Qt.Key_Up:
+            ViewKeys.scrollTo(root, root.contentY - line);
+            break;
+        case Qt.Key_PageDown:
+            ViewKeys.scrollTo(root, root.contentY + root.height * 0.9);
+            break;
+        case Qt.Key_PageUp:
+            ViewKeys.scrollTo(root, root.contentY - root.height * 0.9);
+            break;
+        case Qt.Key_Home:
+            ViewKeys.scrollTo(root, root.originY);
+            break;
+        case Qt.Key_End:
+            ViewKeys.scrollTo(root, root.originY + root.contentHeight);
+            break;
+        default:
+            return;
         }
         event.accepted = true;
     }

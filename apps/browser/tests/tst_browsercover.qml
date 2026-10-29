@@ -29,7 +29,11 @@ TestCase {
     }
 
     function test_showsTitleHostAndThumbnail() {
-        const cover = createTemporaryObject(coverComponent, testCase, { title: "KDE", url: "https://www.kde.org/a", thumbnail: "image://theme/icon-l-browser" });
+        const cover = createTemporaryObject(coverComponent, testCase, {
+            title: "KDE",
+            url: "https://www.kde.org/a",
+            thumbnail: "image://theme/icon-l-browser"
+        });
         verify(!findChild(cover, "coverPlaceholder").visible);
         compare(findChild(cover, "coverTitle").text, "KDE");
         compare(findChild(cover, "coverHost").text, "kde.org");

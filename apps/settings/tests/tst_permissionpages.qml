@@ -39,7 +39,10 @@ TestCase {
         verify(app.openPage(name, PageStackAction.Immediate));
         const page = app.pageStack.currentPage;
         tryCompare(page, "status", PageStatus.Active);
-        return { app: app, page: page };
+        return {
+            app: app,
+            page: page
+        };
     }
 
     function child(parent, name) {
@@ -72,7 +75,13 @@ TestCase {
 
     // One list of every app with the permission, Marathon's and Android's.
     function test_appsWithAPermission() {
-        Apps.append({ id: "snap", name: "Snap", icon: "", version: "1", isProtected: false });
+        Apps.append({
+            id: "snap",
+            name: "Snap",
+            icon: "",
+            version: "1",
+            isProtected: false
+        });
         const s = open("permissions/camera");
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("PermissionAppsPage") === 0 && !s.app.pageStack.busy);
         const page = s.app.pageStack.currentPage;

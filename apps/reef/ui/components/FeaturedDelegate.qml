@@ -54,8 +54,7 @@ ListItem {
         // tiles keeps one alignment.
         horizontalAlignment: Text.AlignHCenter
         text: tile.installState === "update_available" ? qsTr("Update") : tile.categoryLabel
-        color: tile.installState === "update_available" ? Theme.highlightColor
-             : tile.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+        color: tile.installState === "update_available" ? Theme.highlightColor : tile.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
         font.pixelSize: Theme.fontSizeTiny
         elide: Text.ElideRight
     }

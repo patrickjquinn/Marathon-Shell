@@ -19,7 +19,9 @@ Item {
         }
         browser.navigateTo(url);
         browser.activate();
-        call.reply({ url: url });
+        call.reply({
+            url: url
+        });
     }
 
     function page(entry) {
@@ -43,12 +45,29 @@ Item {
         openWorld: true
         notDestructiveBecause: "It only shows a page; nothing is sent beyond the request for it."
         parameters: [
-            KeelParam { name: "url"; type: "string"; format: "uri"; required: true; maxLength: 2048; description: "Web address" },
-            KeelParam { name: "newTab"; type: "boolean"; defaultValue: true; description: "Open in a new tab (default) or in the tab in front" }
+            KeelParam {
+                name: "url"
+                type: "string"
+                format: "uri"
+                required: true
+                maxLength: 2048
+                description: "Web address"
+            },
+            KeelParam {
+                name: "newTab"
+                type: "boolean"
+                defaultValue: true
+                description: "Open in a new tab (default) or in the tab in front"
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "url"; type: "string"; maxLength: 2048; required: true }
+            KeelParam {
+                name: "url"
+                type: "string"
+                maxLength: 2048
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             if (!/^https?:\/\/\S+$/i.test(args.url)) {
@@ -66,11 +85,22 @@ Item {
         openWorld: true
         notDestructiveBecause: "It only shows search results."
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 500; description: "What to search for" }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 500
+                description: "What to search for"
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "url"; type: "string"; maxLength: 4096; required: true }
+            KeelParam {
+                name: "url"
+                type: "string"
+                maxLength: 4096
+                required: true
+            }
         }
         onInvoked: (args, call) => root.show(root.browser.searchEngineUrl + encodeURIComponent(args.query), true, call)
     }
@@ -86,9 +116,23 @@ Item {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "title"; type: "string"; maxLength: 300; required: true }
-            KeelParam { name: "url"; type: "string"; maxLength: 2048; required: true }
-            KeelParam { name: "active"; type: "boolean"; required: true }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 300
+                required: true
+            }
+            KeelParam {
+                name: "url"
+                type: "string"
+                maxLength: 2048
+                required: true
+            }
+            KeelParam {
+                name: "active"
+                type: "boolean"
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             if (root.browser.isPrivateMode) {
@@ -97,7 +141,9 @@ Item {
             }
             const out = [];
             for (let i = 0; i < root.browser.tabs.count && i < 50; i++)
-                out.push(Object.assign(root.page(root.browser.tabs.get(i)), { active: i === root.browser.currentTabIndex }));
+                out.push(Object.assign(root.page(root.browser.tabs.get(i)), {
+                    active: i === root.browser.currentTabIndex
+                }));
             call.reply(out);
         }
     }
@@ -110,15 +156,36 @@ Item {
         readOnly: true
         idempotent: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 200 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 200
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "title"; type: "string"; maxLength: 300; required: true }
-            KeelParam { name: "url"; type: "string"; maxLength: 2048; required: true }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 300
+                required: true
+            }
+            KeelParam {
+                name: "url"
+                type: "string"
+                maxLength: 2048
+                required: true
+            }
         }
         onInvoked: (args, call) => call.reply(Logic.matches(root.browser.bookmarks, args.query).slice(0, args.limit || 10).map(root.page))
     }
@@ -131,20 +198,49 @@ Item {
         readOnly: true
         idempotent: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 200 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 20 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 200
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 20
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "title"; type: "string"; maxLength: 300; required: true }
-            KeelParam { name: "url"; type: "string"; maxLength: 2048; required: true }
-            KeelParam { name: "lastVisit"; type: "string"; format: "date-time"; maxLength: 32; required: true }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 300
+                required: true
+            }
+            KeelParam {
+                name: "url"
+                type: "string"
+                maxLength: 2048
+                required: true
+            }
+            KeelParam {
+                name: "lastVisit"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const found = Logic.matches(root.browser.history, args.query).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-            call.reply(found.slice(0, args.limit || 20).map(h => Object.assign(root.page(h), { lastVisit: new Date(Number(h.timestamp) || 0).toISOString() })));
+            call.reply(found.slice(0, args.limit || 20).map(h => Object.assign(root.page(h), {
+                    lastVisit: new Date(Number(h.timestamp) || 0).toISOString()
+                })));
         }
     }
 }

@@ -89,7 +89,16 @@ ApplicationWindow {
     readonly property bool geoclueValid: location !== null && location.available === true && location.latitude !== 0 && location.longitude !== 0
     readonly property bool fixValid: geoclueValid || positionSource.position.coordinate.isValid
     // Without a fix: where the phone last was, else the whole world.
-    readonly property var fix: geoclueValid ? { lat: location.latitude, lon: location.longitude } : positionSource.position.coordinate.isValid ? { lat: positionSource.position.coordinate.latitude, lon: positionSource.position.coordinate.longitude } : savedFix || { lat: 20, lon: 0 }
+    readonly property var fix: geoclueValid ? {
+        lat: location.latitude,
+        lon: location.longitude
+    } : positionSource.position.coordinate.isValid ? {
+        lat: positionSource.position.coordinate.latitude,
+        lon: positionSource.position.coordinate.longitude
+    } : savedFix || {
+        lat: 20,
+        lon: 0
+    }
 
     property var router: Routing {
         onRouteReady: (geojson, maneuvers, durationSec, distanceM, summary) => root._routeReady(geojson, maneuvers, durationSec, distanceM, summary)
@@ -205,7 +214,10 @@ ApplicationWindow {
     }
 
     function routeFrom(lat, lon) {
-        routeStart = { lat: lat, lon: lon };
+        routeStart = {
+            lat: lat,
+            lon: lon
+        };
         router.requestRoute(lat, lon, selectedPlace.lat, selectedPlace.lon, currentMode);
     }
 
@@ -245,7 +257,13 @@ ApplicationWindow {
     }
 
     function _routeReady(geojson, maneuvers, durationSec, distanceM, summary) {
-        currentRoute = { geojson: geojson, maneuvers: maneuvers, duration: durationSec, distance: distanceM, summary: summary };
+        currentRoute = {
+            geojson: geojson,
+            maneuvers: maneuvers,
+            duration: durationSec,
+            distance: distanceM,
+            summary: summary
+        };
         _coords = Logic.routeCoords(geojson);
         currentManeuverIndex = 0;
         nextDistance = -1;
@@ -256,7 +274,9 @@ ApplicationWindow {
         if (summary)
             mapCall("fitBounds", summary.minLon, summary.minLat, summary.maxLon, summary.maxLat, 80);
         if (routingMode === "preview" && (!pageStack.currentPage || pageStack.currentPage.objectName !== "routePage"))
-            pageStack.push(Qt.resolvedUrl("pages/RoutePage.qml"), { app: root });
+            pageStack.push(Qt.resolvedUrl("pages/RoutePage.qml"), {
+                app: root
+            });
     }
 
     function say(maneuver, post) {
@@ -272,7 +292,10 @@ ApplicationWindow {
             return;
         requireLocation(() => {
             routingMode = "active";
-            activeRouteStore.value = JSON.stringify({ place: selectedPlace, mode: currentMode });
+            activeRouteStore.value = JSON.stringify({
+                place: selectedPlace,
+                mode: currentMode
+            });
             currentManeuverIndex = 0;
             nextDistance = -1;
             _cued = false;
@@ -291,14 +314,20 @@ ApplicationWindow {
         _coords = [];
         currentManeuverIndex = 0;
         nextDistance = -1;
-        mapCall("setRouteGeoJSON", { type: "FeatureCollection", features: [] });
+        mapCall("setRouteGeoJSON", {
+            type: "FeatureCollection",
+            features: []
+        });
         if (voice && voice.available)
             voice.stop();
     }
 
     function handleFix(lat, lon) {
         if (!savedFix || Logic.distanceMeters(savedFix.lat, savedFix.lon, lat, lon) > 500)
-            lastFixStore.value = JSON.stringify({ lat: lat, lon: lon });
+            lastFixStore.value = JSON.stringify({
+                lat: lat,
+                lon: lon
+            });
         mapCall("setUserLocation", lat, lon);
         if (routingMode === "active") {
             mapCall("setCenter", lat, lon, 17);
@@ -353,7 +382,9 @@ ApplicationWindow {
     }
 
     function openSearch() {
-        pageStack.push(Qt.resolvedUrl("pages/SearchPage.qml"), { app: root });
+        pageStack.push(Qt.resolvedUrl("pages/SearchPage.qml"), {
+            app: root
+        });
     }
 
     // Search for query on a fresh search page over the map.
@@ -361,7 +392,10 @@ ApplicationWindow {
         const map = pageStack.find(p => !pageStack.previousPage(p));
         if (pageStack.currentPage !== map)
             pageStack.pop(map, PageStackAction.Immediate);
-        pageStack.push(Qt.resolvedUrl("pages/SearchPage.qml"), { app: root, query: query }, operation);
+        pageStack.push(Qt.resolvedUrl("pages/SearchPage.qml"), {
+            app: root,
+            query: query
+        }, operation);
     }
 
     // "search" with a query (geo:0,0?q=…).

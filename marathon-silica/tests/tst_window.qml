@@ -8,22 +8,47 @@ TestCase {
     name: "Window"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     property var log: []
 
     Component {
         id: app
         ApplicationWindow {
-            width: 540; height: 960
-            initialPage: Component { Page { PageHeader { title: "Notes" } SectionHeader { text: "Today" } Button { objectName: "focusTarget"; y: 300; text: "Go" } } }
+            width: 540
+            height: 960
+            initialPage: Component {
+                Page {
+                    PageHeader {
+                        title: "Notes"
+                    }
+                    SectionHeader {
+                        text: "Today"
+                    }
+                    Button {
+                        objectName: "focusTarget"
+                        y: 300
+                        text: "Go"
+                    }
+                }
+            }
         }
     }
     Component {
         id: shortApp
-        ApplicationWindow { width: 540; height: 400; initialPage: Component { Page {} } }
+        ApplicationWindow {
+            width: 540
+            height: 400
+            initialPage: Component {
+                Page {}
+            }
+        }
     }
-    Component { id: page; Page {} }
+    Component {
+        id: page
+        Page {}
+    }
     Component {
         id: comboPage
         Page {
@@ -32,31 +57,57 @@ TestCase {
                 id: combo
                 width: parent.width
                 label: "Repeat"
-                menu: ContextMenu { MenuItem { text: "Never" } MenuItem { text: "Daily" } }
+                menu: ContextMenu {
+                    MenuItem {
+                        text: "Never"
+                    }
+                    MenuItem {
+                        text: "Daily"
+                    }
+                }
             }
         }
     }
     Component {
         id: pulleyApp
         ApplicationWindow {
-            width: 540; height: 960
+            width: 540
+            height: 960
             initialPage: Component {
                 Page {
                     SilicaFlickable {
                         objectName: "flick"
                         anchors.fill: parent
                         contentHeight: height
-                        PullDownMenu { MenuItem { text: "Refresh" } MenuItem { text: "Settings" } }
+                        PullDownMenu {
+                            MenuItem {
+                                text: "Refresh"
+                            }
+                            MenuItem {
+                                text: "Settings"
+                            }
+                        }
                     }
                 }
             }
         }
     }
-    SignalSpy { id: minimizeSpy; signalName: "minimizeRequested" }
-    SignalSpy { id: acceptedSpy; signalName: "accepted" }
-    SignalSpy { id: rejectedSpy; signalName: "rejected" }
+    SignalSpy {
+        id: minimizeSpy
+        signalName: "minimizeRequested"
+    }
+    SignalSpy {
+        id: acceptedSpy
+        signalName: "accepted"
+    }
+    SignalSpy {
+        id: rejectedSpy
+        signalName: "rejected"
+    }
 
-    function init() { log = []; }
+    function init() {
+        log = [];
+    }
 
     function test_backPopsPage() {
         const a = createTemporaryObject(app, testCase);
@@ -71,25 +122,37 @@ TestCase {
         const p = a.pageStack.push(comboPage, {}, PageStackAction.Immediate);
         p.combo.forceActiveFocus();
         keyClick(Qt.Key_Return);
-        tryVerify(function () { return p.combo.menu.active; });
+        tryVerify(function () {
+            return p.combo.menu.active;
+        });
         verify(a.handleBack());
-        tryVerify(function () { return !p.combo.menu.active; });
+        tryVerify(function () {
+            return !p.combo.menu.active;
+        });
         compare(a.pageStack.depth, 2);
     }
 
     function test_backClosesAPulledDownMenu() {
         const a = createTemporaryObject(pulleyApp, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         tryCompare(a.pageStack.currentPage, "status", PageStatus.Active);
         const flick = findChild(a.pageStack.currentPage, "flick");
         const menu = flick.pullDownMenu;
-        tryVerify(function () { return a.pageStack.currentPage.activeFocus; });
+        tryVerify(function () {
+            return a.pageStack.currentPage.activeFocus;
+        });
         keyClick(Qt.Key_M, Qt.ControlModifier);
-        tryVerify(function () { return menu.active; });
+        tryVerify(function () {
+            return menu.active;
+        });
         minimizeSpy.target = a;
         minimizeSpy.clear();
         verify(a.handleBack());
-        tryVerify(function () { return !menu.active; });
+        tryVerify(function () {
+            return !menu.active;
+        });
         compare(minimizeSpy.count, 0);
     }
 
@@ -103,8 +166,12 @@ TestCase {
 
     function test_escapeOnFirstPageIsBack() {
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
-        tryVerify(function () { return a.pageStack.currentPage.activeFocus; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
+        tryVerify(function () {
+            return a.pageStack.currentPage.activeFocus;
+        });
         minimizeSpy.target = a;
         minimizeSpy.clear();
         keyClick(Qt.Key_Escape);
@@ -113,7 +180,9 @@ TestCase {
 
     function test_pageRestoresFocusWhenReturnedTo() {
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const first = a.pageStack.currentPage;
         const target = findChild(first, "focusTarget");
         target.forceActiveFocus();
@@ -121,18 +190,24 @@ TestCase {
         tryCompare(p, "status", PageStatus.Active);
         a.pageStack.pop(undefined, PageStackAction.Immediate);
         tryCompare(first, "status", PageStatus.Active);
-        tryVerify(function () { return target.activeFocus; });
+        tryVerify(function () {
+            return target.activeFocus;
+        });
     }
 
     function test_ctrlMOnPageOpensItsPulley() {
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const p = a.pageStack.push(Qt.resolvedUrl("data/PulleyPage.qml"), {}, PageStackAction.Immediate);
         tryCompare(p, "status", PageStatus.Active);
         verify(p.activeFocus);
         keyClick(Qt.Key_M, Qt.ControlModifier);
         const view = findChild(p, "view");
-        tryVerify(function () { return view.pullDownMenu.active; });
+        tryVerify(function () {
+            return view.pullDownMenu.active;
+        });
         keyClick(Qt.Key_Down);
         keyClick(Qt.Key_Return);
         tryCompare(p, "log", ["new"]);
@@ -140,7 +215,9 @@ TestCase {
 
     function test_headersAreHeadings() {
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const header = findChild(a.pageStack.currentPage, "pageHeader");
         verify(header);
         compare(header.Accessible.role, Accessible.Heading);
@@ -152,14 +229,19 @@ TestCase {
 
     function openDialog(props) {
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const d = a.pageStack.push(Qt.resolvedUrl("data/TestDialog.qml"), props || {}, PageStackAction.Immediate);
         tryCompare(d, "status", PageStatus.Active);
         acceptedSpy.target = d;
         acceptedSpy.clear();
         rejectedSpy.target = d;
         rejectedSpy.clear();
-        return { app: a, dialog: d };
+        return {
+            app: a,
+            dialog: d
+        };
     }
 
     function test_enterAcceptsDialog() {
@@ -170,7 +252,9 @@ TestCase {
     }
 
     function test_enterIgnoredWhenCannotAccept() {
-        const s = openDialog({ ok: false });
+        const s = openDialog({
+            ok: false
+        });
         keyClick(Qt.Key_Return);
         wait(50);
         compare(acceptedSpy.count, 0);
@@ -178,13 +262,17 @@ TestCase {
 
     function test_pinnedDialogHeaderHidesScrolledContent() {
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const d = a.pageStack.push(Qt.resolvedUrl("data/ScrollingDialog.qml"), {}, PageStackAction.Immediate);
         tryCompare(d, "status", PageStatus.Active);
         d.flickable.contentY = 400;
         const backdrop = findChild(d.flickable.contentItem, "dialogHeaderBackdrop");
         verify(backdrop, "no backdrop behind the pinned header");
-        tryVerify(function () { return backdrop.visible; });
+        tryVerify(function () {
+            return backdrop.visible;
+        });
         compare(backdrop.color.a, 1);
         compare(backdrop.mapToItem(d, 0, 0).y, 0);
         d.flickable.contentY = 0;
@@ -194,12 +282,16 @@ TestCase {
     function test_pinnedDialogHeaderFrostsTheAmbience() {
         const wallpaper = Qt.resolvedUrl("../../shell/resources/wallpapers/dawn.svg");
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const d = a.pageStack.push(Qt.resolvedUrl("data/ScrollingDialog.qml"), {}, PageStackAction.Immediate);
         tryCompare(d, "status", PageStatus.Active);
         d.flickable.contentY = 400;
         const backdrop = findChild(d.flickable.contentItem, "dialogHeaderBackdrop");
-        tryVerify(function () { return backdrop.visible; });
+        tryVerify(function () {
+            return backdrop.visible;
+        });
         backdrop.wallpaper = wallpaper;
         const image = findChild(backdrop, "dialogHeaderWallpaper");
         verify(backdrop.clip);
@@ -225,13 +317,21 @@ TestCase {
 
     function test_datePickerScrollsToTheLastWeek() {
         const a = createTemporaryObject(shortApp, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const d = a.pageStack.push(Qt.resolvedUrl("data/DatePicker.qml"), {}, PageStackAction.Immediate);
         tryCompare(d, "status", PageStatus.Active);
-        const flick = find(d, function (i) { return i.selectedDateText !== undefined; });
-        const grid = find(flick.contentItem, function (i) { return i.cellHeight !== undefined && i.weeksVisible !== undefined; });
+        const flick = find(d, function (i) {
+            return i.selectedDateText !== undefined;
+        });
+        const grid = find(flick.contentItem, function (i) {
+            return i.cellHeight !== undefined && i.weeksVisible !== undefined;
+        });
         verify(grid.y + grid.height > flick.height, "grid fits: the test can't show the bug");
-        tryVerify(function () { return flick.contentHeight >= grid.y + grid.height; }, 1000, "last week out of reach");
+        tryVerify(function () {
+            return flick.contentHeight >= grid.y + grid.height;
+        }, 1000, "last week out of reach");
         flick.contentY = flick.contentHeight - flick.height;
         const backdrop = findChild(flick.contentItem, "dialogHeaderBackdrop");
         verify(backdrop && backdrop.visible, "header band not backed");
@@ -245,7 +345,9 @@ TestCase {
 
     function test_escapeOnPagePops() {
         const a = createTemporaryObject(app, testCase);
-        tryVerify(function () { return a.pageStack.currentPage !== null; });
+        tryVerify(function () {
+            return a.pageStack.currentPage !== null;
+        });
         const p = a.pageStack.push(Qt.resolvedUrl("data/TestPage.qml"), {}, PageStackAction.Immediate);
         tryCompare(p, "status", PageStatus.Active);
         verify(p.activeFocus);

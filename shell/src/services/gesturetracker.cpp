@@ -6,12 +6,12 @@
 #include <cmath>
 
 namespace {
-constexpr qreal kEpsilon         = 0.5;  // px
-constexpr qreal kEpsilonVelocity = 10.0; // px/s
-// (1 + x)e^-x = 0.01: a critically damped spring at rest is within 1% of its
-// target after settleDuration.
-constexpr qreal kSettleFactor = 6.64;
-constexpr qreal kMaxOmegaGain = 4.0;
+    constexpr qreal kEpsilon         = 0.5;  // px
+    constexpr qreal kEpsilonVelocity = 10.0; // px/s
+    // (1 + x)e^-x = 0.01: a critically damped spring at rest is within 1% of its
+    // target after settleDuration.
+    constexpr qreal kSettleFactor = 6.64;
+    constexpr qreal kMaxOmegaGain = 4.0;
 } // namespace
 
 GestureSettleAnimation::GestureSettleAnimation(GestureTracker *tracker)
@@ -199,7 +199,8 @@ void GestureTracker::settleTo(qreal target, qreal velocity) {
     m_target      = target;
     m_startOffset = m_value - target;
     m_startVel    = velocity;
-    if (std::abs(m_startOffset) < kEpsilon && (m_zeta >= 1 || std::abs(velocity) < kEpsilonVelocity)) {
+    if (std::abs(m_startOffset) < kEpsilon &&
+        (m_zeta >= 1 || std::abs(velocity) < kEpsilonVelocity)) {
         writeValue(target);
         writeVelocity(0);
         emit settled();
@@ -207,8 +208,8 @@ void GestureTracker::settleTo(qreal target, qreal velocity) {
     }
     const qreal omega0 = kSettleFactor * 1000 / std::max(1, m_settleDuration);
     m_omega            = settleOmega(m_startOffset, velocity, omega0, m_zeta);
-    m_stopAtCross      = m_zeta >= 1 && m_startOffset * velocity < 0 &&
-                    std::abs(velocity / m_startOffset) > m_omega;
+    m_stopAtCross =
+        m_zeta >= 1 && m_startOffset * velocity < 0 && std::abs(velocity / m_startOffset) > m_omega;
     m_settle.start();
 }
 
@@ -220,10 +221,9 @@ void GestureTracker::stop() {
 }
 
 void GestureTracker::step(int msecs) {
-    const SpringState s =
-        spring(m_startOffset, m_startVel, m_omega, m_zeta, msecs / 1000.0);
-    const bool crossed = m_stopAtCross && s.offset * m_startOffset <= 0;
-    const bool rested  = std::abs(s.offset) < kEpsilon && std::abs(s.velocity) < kEpsilonVelocity;
+    const SpringState s       = spring(m_startOffset, m_startVel, m_omega, m_zeta, msecs / 1000.0);
+    const bool        crossed = m_stopAtCross && s.offset * m_startOffset <= 0;
+    const bool rested = std::abs(s.offset) < kEpsilon && std::abs(s.velocity) < kEpsilonVelocity;
     if (crossed || rested || msecs > 4 * m_settleDuration + 500) {
         m_settle.stop();
         writeValue(m_target);

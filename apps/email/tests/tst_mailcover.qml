@@ -8,13 +8,25 @@ TestCase {
     name: "MailCover"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
-    Component { id: cover; MailCover {} }
-    SignalSpy { id: newSpy; signalName: "newMessageRequested" }
+    Component {
+        id: cover
+        MailCover {}
+    }
+    SignalSpy {
+        id: newSpy
+        signalName: "newMessageRequested"
+    }
 
     function test_unreadAndSender() {
-        const c = createTemporaryObject(cover, this, { available: true, unread: 4, sender: "Ann", subject: "Plans" });
+        const c = createTemporaryObject(cover, this, {
+            available: true,
+            unread: 4,
+            sender: "Ann",
+            subject: "Plans"
+        });
         compare(findChild(c, "unreadCount").value, "4");
         compare(findChild(c, "latestSubject").text, "Plans");
         verify(!findChild(c, "noUnread").visible);
@@ -24,20 +36,28 @@ TestCase {
     }
 
     function test_placeholderWithoutAccount() {
-        const c = createTemporaryObject(cover, this, { available: false });
+        const c = createTemporaryObject(cover, this, {
+            available: false
+        });
         verify(findChild(c, "coverPlaceholder").visible);
         verify(!findChild(c, "coverContent").visible);
     }
 
     function test_noSenderHidesLine() {
-        const c = createTemporaryObject(cover, this, { available: true, unread: 0, sender: "" });
+        const c = createTemporaryObject(cover, this, {
+            available: true,
+            unread: 0,
+            sender: ""
+        });
         verify(!findChild(c, "latestSender").visible);
         verify(!findChild(c, "unreadCount").visible);
         verify(findChild(c, "noUnread").visible);
     }
 
     function test_newMessageAction() {
-        const c = createTemporaryObject(cover, this, { available: true });
+        const c = createTemporaryObject(cover, this, {
+            available: true
+        });
         newSpy.target = c;
         newSpy.clear();
         findChild(c, "newMessageAction").triggered();

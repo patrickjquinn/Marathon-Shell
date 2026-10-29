@@ -20,13 +20,33 @@ TestCase {
         app.setPrivateMode(false);
         app.maxTabsStore.value = 12;
         app.bookmarkStore.value = JSON.stringify([
-            { url: "https://example.com/ferry", title: "Ferry times", timestamp: 1000 },
-            { url: "https://example.org/", title: "Example", timestamp: 2000 }
+            {
+                url: "https://example.com/ferry",
+                title: "Ferry times",
+                timestamp: 1000
+            },
+            {
+                url: "https://example.org/",
+                title: "Example",
+                timestamp: 2000
+            }
         ]);
         app.historyStore.value = JSON.stringify([
-            { url: "https://news.example/a", title: "Ferry strike", timestamp: 1000 },
-            { url: "https://ferry.example/", title: "Book", timestamp: 3000 },
-            { url: "https://other.example/", title: "Other", timestamp: 2000 }
+            {
+                url: "https://news.example/a",
+                title: "Ferry strike",
+                timestamp: 1000
+            },
+            {
+                url: "https://ferry.example/",
+                title: "Book",
+                timestamp: 3000
+            },
+            {
+                url: "https://other.example/",
+                title: "Other",
+                timestamp: 2000
+            }
         ]);
         app.tabStore.value = "[]";
         app.restoreTabs();
@@ -35,7 +55,9 @@ TestCase {
     }
 
     function test_openInNewTab() {
-        const call = KeelActions.invoke("browser.open", { url: "https://example.com/page" });
+        const call = KeelActions.invoke("browser.open", {
+            url: "https://example.com/page"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.url, "https://example.com/page");
         compare(app.tabs.count, 2);
@@ -45,7 +67,10 @@ TestCase {
     }
 
     function test_openInFront() {
-        const call = KeelActions.invoke("browser.open", { url: "http://example.com/", newTab: false });
+        const call = KeelActions.invoke("browser.open", {
+            url: "http://example.com/",
+            newTab: false
+        });
         verify(call.succeeded, call.errorMessage);
         compare(app.tabs.count, 1);
         compare(app.currentTab.url, "http://example.com/");
@@ -53,7 +78,9 @@ TestCase {
 
     function test_openOnlyWebAddresses() {
         for (const url of ["javascript:alert(1)", "file:///etc/passwd", "example.com"]) {
-            const call = KeelActions.invoke("browser.open", { url: url });
+            const call = KeelActions.invoke("browser.open", {
+                url: url
+            });
             compare(call.errorCode, "InvalidArguments", url);
         }
         compare(app.tabs.count, 1);
@@ -61,13 +88,17 @@ TestCase {
 
     function test_openAtTabLimit() {
         app.maxTabsStore.value = 1;
-        const call = KeelActions.invoke("browser.open", { url: "https://example.com/" });
+        const call = KeelActions.invoke("browser.open", {
+            url: "https://example.com/"
+        });
         compare(call.errorCode, "Failed");
         compare(app.tabs.count, 1);
     }
 
     function test_search() {
-        const call = KeelActions.invoke("browser.search", { query: "ferry & bus" });
+        const call = KeelActions.invoke("browser.search", {
+            query: "ferry & bus"
+        });
         verify(call.succeeded, call.errorMessage);
         compare(call.result.url, "https://duckduckgo.com/?q=ferry%20%26%20bus");
         compare(app.tabs.count, 2);
@@ -75,7 +106,9 @@ TestCase {
     }
 
     function test_tabsList() {
-        KeelActions.invoke("browser.open", { url: "https://example.com/" });
+        KeelActions.invoke("browser.open", {
+            url: "https://example.com/"
+        });
         app.switchToTab(app.tabs.get(0).tabId);
         const call = KeelActions.invoke("tabs.list", {});
         verify(call.succeeded, call.errorMessage);
@@ -89,23 +122,40 @@ TestCase {
     }
 
     function test_bookmarksFind() {
-        const call = KeelActions.invoke("bookmarks.find", { query: "FERRY" });
+        const call = KeelActions.invoke("bookmarks.find", {
+            query: "FERRY"
+        });
         verify(call.succeeded, call.errorMessage);
-        compare(call.result.result, [{ title: "Ferry times", url: "https://example.com/ferry" }]);
-        compare(KeelActions.invoke("bookmarks.find", { query: "", limit: 1 }).result.result.length, 1);
+        compare(call.result.result, [
+            {
+                title: "Ferry times",
+                url: "https://example.com/ferry"
+            }
+        ]);
+        compare(KeelActions.invoke("bookmarks.find", {
+            query: "",
+            limit: 1
+        }).result.result.length, 1);
     }
 
     function test_historySearchNewestFirst() {
-        const call = KeelActions.invoke("history.search", { query: "ferry" });
+        const call = KeelActions.invoke("history.search", {
+            query: "ferry"
+        });
         verify(call.succeeded, call.errorMessage);
         const found = call.result.result;
         compare(found.map(h => h.url), ["https://ferry.example/", "https://news.example/a"]);
         compare(found[0].lastVisit, "1970-01-01T00:00:03.000Z");
-        compare(KeelActions.invoke("history.search", { query: "", limit: 2 }).result.result.map(h => h.title), ["Book", "Other"]);
+        compare(KeelActions.invoke("history.search", {
+            query: "",
+            limit: 2
+        }).result.result.map(h => h.title), ["Book", "Other"]);
     }
 
     function test_contextIsThePageInFront() {
-        KeelActions.invoke("browser.open", { url: "https://example.com/" });
+        KeelActions.invoke("browser.open", {
+            url: "https://example.com/"
+        });
         app.tabs.setProperty(app.currentTabIndex, "title", "Example");
         compare(KeelActions.context().purpose, "reading a web page");
         compare(KeelActions.context().text, "Example\nhttps://example.com/");
@@ -124,7 +174,9 @@ TestCase {
         compare(manifest.context.uri, "keel://org.marathonos.browser/context");
         const live = KeelActions.describe();
         const prefix = live.appId + "/";
-        const tools = live.tools.map(t => Object.assign({}, t, { name: "org.marathonos.browser/" + t.name.substring(prefix.length) }));
+        const tools = live.tools.map(t => Object.assign({}, t, {
+                name: "org.marathonos.browser/" + t.name.substring(prefix.length)
+            }));
         compare(JSON.stringify(tools), JSON.stringify(manifest.tools));
     }
 }

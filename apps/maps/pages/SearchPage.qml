@@ -11,7 +11,9 @@ Page {
 
     function choose(place) {
         app.selectPlace(place);
-        pageStack.replace(Qt.resolvedUrl("PlacePage.qml"), { app: root.app });
+        pageStack.replace(Qt.resolvedUrl("PlacePage.qml"), {
+            app: root.app
+        });
     }
 
     objectName: "searchPage"

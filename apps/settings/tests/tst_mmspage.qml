@@ -37,7 +37,10 @@ TestCase {
         verify(app.openPage(name, PageStackAction.Immediate));
         const page = app.pageStack.currentPage;
         tryCompare(page, "status", PageStatus.Active);
-        return { app: app, page: page };
+        return {
+            app: app,
+            page: page
+        };
     }
 
     function child(parent, name) {

@@ -1747,7 +1747,6 @@ Item {
             }
         }
 
-
         Behavior on anchors.margins {
             NumberAnimation {
                 duration: 200
@@ -2255,8 +2254,7 @@ Item {
         function onRequested(request) {
             if (request.appId && UIStore.currentAppId !== request.appId) {
                 const owner = AppModel.findById ? AppModel.findById(request.appId) : null;
-                UIStore.openApp(request.appId, owner && owner.name ? owner.name : request.appId,
-                                owner && owner.icon ? owner.icon : "");
+                UIStore.openApp(request.appId, owner && owner.name ? owner.name : request.appId, owner && owner.icon ? owner.icon : "");
             }
             filePicker.open(request);
         }
@@ -2908,7 +2906,16 @@ Item {
                 "icon": "phone-missed",
                 "category": "call",
                 "priority": "high",
-                "actions": [{ "id": "call_back", "label": qsTr("Call Back") }, { "id": "message", "label": qsTr("Message") }]
+                "actions": [
+                    {
+                        "id": "call_back",
+                        "label": qsTr("Call Back")
+                    },
+                    {
+                        "id": "message",
+                        "label": qsTr("Message")
+                    }
+                ]
             });
             HapticManager.heavy();
         }
@@ -2932,7 +2939,16 @@ Item {
                 "icon": "message-circle",
                 "category": "message",
                 "priority": "high",
-                "actions": [{ "id": "inline-reply", "label": qsTr("Reply") }, { "id": "mark_read", "label": qsTr("Mark Read") }],
+                "actions": [
+                    {
+                        "id": "inline-reply",
+                        "label": qsTr("Reply")
+                    },
+                    {
+                        "id": "mark_read",
+                        "label": qsTr("Mark Read")
+                    }
+                ],
                 "replyTarget": sender
             });
             HapticManager.medium();

@@ -19,12 +19,36 @@ Page {
         }
         model: ListModel {
             Component.onCompleted: {
-                append({ title: qsTr("Telephony & SMS"), icon: "phone", file: "TelephonyTestsPage.qml" });
-                append({ title: qsTr("Notifications"), icon: "events", file: "NotificationTestsPage.qml" });
-                append({ title: qsTr("Alarms & wake"), icon: "alarm", file: "AlarmTestsPage.qml" });
-                append({ title: qsTr("Media & audio"), icon: "music", file: "MediaTestsPage.qml" });
-                append({ title: qsTr("System services"), icon: "developer-mode", file: "SystemTestsPage.qml" });
-                append({ title: qsTr("Sensors & location"), icon: "gps", file: "SensorTestsPage.qml" });
+                append({
+                    title: qsTr("Telephony & SMS"),
+                    icon: "phone",
+                    file: "TelephonyTestsPage.qml"
+                });
+                append({
+                    title: qsTr("Notifications"),
+                    icon: "events",
+                    file: "NotificationTestsPage.qml"
+                });
+                append({
+                    title: qsTr("Alarms & wake"),
+                    icon: "alarm",
+                    file: "AlarmTestsPage.qml"
+                });
+                append({
+                    title: qsTr("Media & audio"),
+                    icon: "music",
+                    file: "MediaTestsPage.qml"
+                });
+                append({
+                    title: qsTr("System services"),
+                    icon: "developer-mode",
+                    file: "SystemTestsPage.qml"
+                });
+                append({
+                    title: qsTr("Sensors & location"),
+                    icon: "gps",
+                    file: "SensorTestsPage.qml"
+                });
             }
         }
 
@@ -36,7 +60,9 @@ Page {
             required property string file
 
             Accessible.name: title
-            onClicked: pageStack.push(Qt.resolvedUrl(item.file), { app: page.app })
+            onClicked: pageStack.push(Qt.resolvedUrl(item.file), {
+                app: page.app
+            })
 
             Icon {
                 id: glyph

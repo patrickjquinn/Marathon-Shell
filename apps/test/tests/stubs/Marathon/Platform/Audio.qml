@@ -11,11 +11,26 @@ QtObject {
     property real volume: 0.4
     property string audioProfile: "normal"
 
-    function setAudioProfile(p) { log("setAudioProfile", p); audioProfile = p; }
-    function playRingtone() { log("playRingtone"); }
-    function stopRingtone() { log("stopRingtone"); }
-    function playNotificationSound() { log("playNotificationSound"); }
-    function playAlarmSound() { log("playAlarmSound"); }
-    function stopAlarmSound() { log("stopAlarmSound"); }
-    function vibratePattern(pattern) { log("vibratePattern", pattern); }
+    function setAudioProfile(p) {
+        log("setAudioProfile", p);
+        audioProfile = p;
+    }
+    function playRingtone() {
+        log("playRingtone");
+    }
+    function stopRingtone() {
+        log("stopRingtone");
+    }
+    function playNotificationSound() {
+        log("playNotificationSound");
+    }
+    function playAlarmSound() {
+        log("playAlarmSound");
+    }
+    function stopAlarmSound() {
+        log("stopAlarmSound");
+    }
+    function vibratePattern(pattern) {
+        log("vibratePattern", pattern);
+    }
 }

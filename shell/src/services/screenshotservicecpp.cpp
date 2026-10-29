@@ -13,10 +13,8 @@
 #include <QQuickWindow>
 #include <QStandardPaths>
 
-ScreenshotServiceCpp::ScreenshotServiceCpp(marathon::Audio  *audioPolicy,
-                                           Haptics                *haptics,
-                                           Notifications *notificationService,
-                                           QObject                *parent)
+ScreenshotServiceCpp::ScreenshotServiceCpp(marathon::Audio *audioPolicy, Haptics *haptics,
+                                           Notifications *notificationService, QObject *parent)
     : QObject(parent)
     , m_audioPolicy(audioPolicy)
     , m_haptics(haptics)

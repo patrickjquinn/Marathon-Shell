@@ -11,10 +11,22 @@ QtObject {
     property bool muted: false
     property bool speaker: false
 
-    function simulateIncomingCall(number) { log("simulateIncomingCall", number); }
-    function simulateCallStateChange(state) { log("simulateCallStateChange", state); }
-    function setCallMuted(on) { muted = on; }
-    function setSpeakerphone(on) { speaker = on; }
-    function isCallMuted() { return muted; }
-    function isSpeakerphoneOn() { return speaker; }
+    function simulateIncomingCall(number) {
+        log("simulateIncomingCall", number);
+    }
+    function simulateCallStateChange(state) {
+        log("simulateCallStateChange", state);
+    }
+    function setCallMuted(on) {
+        muted = on;
+    }
+    function setSpeakerphone(on) {
+        speaker = on;
+    }
+    function isCallMuted() {
+        return muted;
+    }
+    function isSpeakerphoneOn() {
+        return speaker;
+    }
 }

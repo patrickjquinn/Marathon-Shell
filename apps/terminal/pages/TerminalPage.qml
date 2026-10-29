@@ -69,13 +69,17 @@ Page {
             MenuItem {
                 objectName: "settingsItem"
                 text: qsTr("Settings")
-                onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"), { app: page.app })
+                onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"), {
+                    app: page.app
+                })
             }
             MenuItem {
                 objectName: "sessionsItem"
                 visible: page.app.sessions.length > 1
                 text: qsTr("Sessions (%1)").arg(page.app.sessions.length)
-                onClicked: pageStack.push(Qt.resolvedUrl("SessionsPage.qml"), { app: page.app })
+                onClicked: pageStack.push(Qt.resolvedUrl("SessionsPage.qml"), {
+                    app: page.app
+                })
             }
             MenuItem {
                 objectName: "newSessionItem"

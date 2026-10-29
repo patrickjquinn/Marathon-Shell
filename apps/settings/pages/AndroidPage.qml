@@ -57,7 +57,8 @@ Page {
         AndroidApps.refresh();
         AndroidApps.loadGoogleServices();
     }
-    onRunStateChanged: if (runState === "running") AndroidApps.loadGoogleServices()
+    onRunStateChanged: if (runState === "running")
+        AndroidApps.loadGoogleServices()
 
     // microG's sign-in is an Android window; the account shows on return.
     Connections {

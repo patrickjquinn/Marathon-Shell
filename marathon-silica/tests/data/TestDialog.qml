@@ -5,5 +5,7 @@ import Marathon.Silica 1.0
 Dialog {
     property bool ok: true
     canAccept: ok
-    DialogHeader { title: "Rename" }
+    DialogHeader {
+        title: "Rename"
+    }
 }

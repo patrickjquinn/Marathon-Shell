@@ -21,12 +21,12 @@ ApplicationWindow {
     // start (`--events`) or, when the app already runs, through pilotd's
     // EventsRequested (see shoal/pilot/lipstick/README.md).
     function showEvents() {
-        activate()
-        var top = pageStack.currentPage
+        activate();
+        var top = pageStack.currentPage;
         if (!top || top.objectName !== "triagePage")
-            pageStack.push(Qt.resolvedUrl("pages/TriagePage.qml"))
+            pageStack.push(Qt.resolvedUrl("pages/TriagePage.qml"));
         else
-            top.reload()
+            top.reload();
     }
 
     // The system-wide bottom-edge gesture (the gesture patch,
@@ -37,48 +37,54 @@ ApplicationWindow {
     readonly property var mainView: overlay ? overlay.mainView : null
     function showSheet() {
         if (overlay && !(mainView && mainView.visible && mainView.active)) {
-            overlay.show()
-            return
+            overlay.show();
+            return;
         }
-        openMain()
-        var main = mainPage()
+        openMain();
+        var main = mainPage();
         if (main)
-            main.openSheet()
+            main.openSheet();
     }
 
     // The main window, also when it was kept hidden for the overlay.
     function openMain() {
         if (mainView && !mainView.visible)
-            mainView.showFullScreen()
-        activate()
+            mainView.showFullScreen();
+        activate();
     }
     function mainPage() {
-        var main = pageStack.find(function(p) { return p.objectName === "mainPage" })
+        var main = pageStack.find(function (p) {
+            return p.objectName === "mainPage";
+        });
         if (main)
-            pageStack.pop(main, PageStackAction.Immediate)
-        return main
+            pageStack.pop(main, PageStackAction.Immediate);
+        return main;
     }
 
     Connections {
         target: app.overlay
         function onExpandRequested() {
-            app.openMain()
-            var main = app.mainPage()
+            app.openMain();
+            var main = app.mainPage();
             if (main)
-                main.showLatest()
+                main.showLatest();
         }
     }
 
     Connections {
         target: Pilot
-        function onEventsRequested() { app.showEvents() }
-        function onSheetRequested() { app.showSheet() }
+        function onEventsRequested() {
+            app.showEvents();
+        }
+        function onSheetRequested() {
+            app.showSheet();
+        }
     }
 
     Component.onCompleted: {
         if (Pilot.startOnEvents())
-            pageStack.push(Qt.resolvedUrl("pages/TriagePage.qml"), {}, PageStackAction.Immediate)
+            pageStack.push(Qt.resolvedUrl("pages/TriagePage.qml"), {}, PageStackAction.Immediate);
         else if (Pilot.startOnSheet())
-            Qt.callLater(app.showSheet)
+            Qt.callLater(app.showSheet);
     }
 }

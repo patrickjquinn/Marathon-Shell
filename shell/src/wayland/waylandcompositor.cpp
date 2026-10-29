@@ -56,7 +56,7 @@
 #include "androidappid.h"
 #include "marathon-shell-native/src/rt.cxxqt.h"
 #include <algorithm>
-#include <utility>   // std::as_const
+#include <utility> // std::as_const
 
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
@@ -109,7 +109,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
     create();
 
-    m_xdgShell               = new QWaylandXdgShell(this);
+    m_xdgShell = new QWaylandXdgShell(this);
 #ifdef HAVE_WAYLAND_PRIVATE
     // Qt's xdg-shell activates the toplevel with keyboard focus (and resends
     // on every focus loss). A client the shell did not launch keeps the state
@@ -213,16 +213,22 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
 #ifdef HAVE_PRESENTATION_TIME
     m_presentationTime = new QWaylandPresentationTime(this);
-    connect(m_window, &QQuickWindow::frameSwapped, this, [this]() {
-        // Queue behind QtWayland's afterFrameEnd bookkeeping so feedback for
-        // the commit in this swap is armed before the presented event fires.
-        QMetaObject::invokeMethod(this, [this]() {
-            timespec ts{};
-            clock_gettime(CLOCK_MONOTONIC, &ts);
-            m_presentationTime->sendFeedback(m_window, ++m_presentSequence,
-                                             quint64(ts.tv_sec), quint32(ts.tv_nsec));
-        }, Qt::QueuedConnection);
-    }, Qt::DirectConnection);
+    connect(
+        m_window, &QQuickWindow::frameSwapped, this,
+        [this]() {
+            // Queue behind QtWayland's afterFrameEnd bookkeeping so feedback for
+            // the commit in this swap is armed before the presented event fires.
+            QMetaObject::invokeMethod(
+                this,
+                [this]() {
+                    timespec ts{};
+                    clock_gettime(CLOCK_MONOTONIC, &ts);
+                    m_presentationTime->sendFeedback(m_window, ++m_presentSequence,
+                                                     quint64(ts.tv_sec), quint32(ts.tv_nsec));
+                },
+                Qt::QueuedConnection);
+        },
+        Qt::DirectConnection);
     qInfo() << "[WaylandCompositor] wp_presentation enabled";
 #endif
 
@@ -360,7 +366,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
             });
             m_callbackTimer.setSingleShot(true);
             m_callbackTimer.setTimerType(Qt::PreciseTimer);
-            connect(&m_callbackTimer, &QTimer::timeout, this, [this]() { sendPacedFrameCallbacks(false); });
+            connect(&m_callbackTimer, &QTimer::timeout, this,
+                    [this]() { sendPacedFrameCallbacks(false); });
             connect(
                 m_window, &QQuickWindow::beforeSynchronizing, this,
                 [this]() {
@@ -368,7 +375,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                         this,
                         [this]() {
                             const qint64 next = nextVblankUs();
-                            m_callbackTimer.start(next < 0 ? 0 : int(qMax<qint64>(0, next - monotonicUs()) / 1000));
+                            m_callbackTimer.start(
+                                next < 0 ? 0 : int(qMax<qint64>(0, next - monotonicUs()) / 1000));
                         },
                         Qt::QueuedConnection);
                 },
@@ -378,7 +386,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                 m_window, &QQuickWindow::beforeSynchronizing, this,
                 [this]() { sendPacedFrameCallbacks(false); }, Qt::DirectConnection);
         }
-        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame callbacks), phase" << m_framePhaseMs;
+        qInfo() << "[WaylandCompositor] Present pipeline ENABLED (early frame callbacks), phase"
+                << m_framePhaseMs;
     }
 
     // Commit-gated free-run (opt out with MARATHON_PRESENT_FREERUN=0): keep
@@ -745,7 +754,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     if (!isFlatpak && !isSnap)
         env.insert("QT_MEDIA_BACKEND", "ffmpeg");
 
-    if (actualCommand.contains("marathon-app-runner") || marathon::desktop::is_keel_hosted(actualCommand)) {
+    if (actualCommand.contains("marathon-app-runner") ||
+        marathon::desktop::is_keel_hosted(actualCommand)) {
         env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
     }
 
@@ -884,8 +894,8 @@ void WaylandCompositor::closeWindow(int surfaceId) {
     const qint64 clientPid = m_surfaceIdToPid.value(surfaceId, -1);
     for (auto it = m_processes.cbegin(); it != m_processes.cend(); ++it) {
         QPointer<QProcess> host(it.key());
-        if (!marathon::desktop::is_keel_hosted(it.value()) || host->state() == QProcess::NotRunning ||
-            !isDescendantPid(clientPid, host->processId()))
+        if (!marathon::desktop::is_keel_hosted(it.value()) ||
+            host->state() == QProcess::NotRunning || !isDescendantPid(clientPid, host->processId()))
             continue;
         qInfo() << "[WaylandCompositor] Closing hosted app via its Keel host, PID"
                 << host->processId();
@@ -1019,9 +1029,9 @@ void WaylandCompositor::setSecureApps(const QStringList &appIds) {
 // Runs on the render thread in beforeSynchronizing (GUI thread blocked), or
 // on the GUI thread from the idle timer: never both at once.
 void WaylandCompositor::sendPacedFrameCallbacks(bool idleTick) {
-    const qint64 now  = m_frameClock.elapsed();
-    bool         held = false;
-    const QList<QWaylandSurface *> all = QWaylandCompositor::surfaces();
+    const qint64                   now  = m_frameClock.elapsed();
+    bool                           held = false;
+    const QList<QWaylandSurface *> all  = QWaylandCompositor::surfaces();
     for (QWaylandSurface *surface : all) {
         if (!surface->hasContent() || !surface->primaryView())
             continue;
@@ -1106,7 +1116,7 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 }
 
 void WaylandCompositor::activateSurface(int surfaceId) {
-    QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
+    QWaylandSurface         *surface  = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
     const MarathonSurfaceV1 *marathon = m_marathonSurfaceManager->forSurface(surface);
     if (marathon && !marathon->focusable())
         return;
@@ -1114,8 +1124,8 @@ void WaylandCompositor::activateSurface(int surfaceId) {
         // Android moves its focus only on wl_keyboard.enter: a raise re-enters
         // a window that kept the keyboard, once.
         const bool held = defaultSeat()->keyboardFocus() == surface;
-        if (held && surface->property("foreignClient").toBool() &&
-            m_keyboardFocusSince.isValid() && m_keyboardFocusSince.elapsed() > 1000)
+        if (held && surface->property("foreignClient").toBool() && m_keyboardFocusSince.isValid() &&
+            m_keyboardFocusSince.elapsed() > 1000)
             defaultSeat()->setKeyboardFocus(nullptr);
         defaultSeat()->setKeyboardFocus(surface);
         if (wlVerbose())
@@ -1173,8 +1183,8 @@ QSize WaylandCompositor::appConfigureSize(QWaylandSurface *surface) const {
 
 QSize WaylandCompositor::fullOutputConfigureSize(QWaylandSurface *surface) const {
     const qreal scale = m_nativeClientScale->scaleFor(surface->client()->client());
-    const QSize physical = (m_output && m_output->window()) ? m_output->window()->size()
-                                                            : m_window->size();
+    const QSize physical =
+        (m_output && m_output->window()) ? m_output->window()->size() : m_window->size();
     return NativeClientScale::toLogical(physical, scale);
 }
 
@@ -1270,10 +1280,10 @@ void WaylandCompositor::connectTextInputs() {
         const QByteArray cls = ext->metaObject()->className();
         if (cls != "QWaylandTextInput" && cls != "QWaylandTextInputV3")
             continue;
-        connect(ext, SIGNAL(surfaceEnabled(QWaylandSurface*)), this,
-                SLOT(handleTextInputSurfaceEnabled(QWaylandSurface*)), Qt::UniqueConnection);
-        connect(ext, SIGNAL(surfaceDisabled(QWaylandSurface*)), this,
-                SLOT(handleTextInputSurfaceDisabled(QWaylandSurface*)), Qt::UniqueConnection);
+        connect(ext, SIGNAL(surfaceEnabled(QWaylandSurface *)), this,
+                SLOT(handleTextInputSurfaceEnabled(QWaylandSurface *)), Qt::UniqueConnection);
+        connect(ext, SIGNAL(surfaceDisabled(QWaylandSurface *)), this,
+                SLOT(handleTextInputSurfaceDisabled(QWaylandSurface *)), Qt::UniqueConnection);
         connect(ext, SIGNAL(updateInputMethod(Qt::InputMethodQueries)), this,
                 SLOT(handleTextInputUpdate(Qt::InputMethodQueries)), Qt::UniqueConnection);
     }
@@ -1485,16 +1495,20 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
         if (safeToplevel)
             configureToplevelState(safeToplevel, maximized, fullscreen);
     };
-    connect(toplevel, &QWaylandXdgToplevel::setMaximized, this,
-            [configure]() { configure(true, false); }, Qt::QueuedConnection);
-    connect(toplevel, &QWaylandXdgToplevel::unsetMaximized, this,
-            [configure]() { configure(false, false); }, Qt::QueuedConnection);
-    connect(toplevel, &QWaylandXdgToplevel::setFullscreen, this,
-            [configure]() { configure(false, true); }, Qt::QueuedConnection);
-    connect(toplevel, &QWaylandXdgToplevel::unsetFullscreen, this,
-            [configure]() { configure(false, false); }, Qt::QueuedConnection);
+    connect(
+        toplevel, &QWaylandXdgToplevel::setMaximized, this,
+        [configure]() { configure(true, false); }, Qt::QueuedConnection);
+    connect(
+        toplevel, &QWaylandXdgToplevel::unsetMaximized, this,
+        [configure]() { configure(false, false); }, Qt::QueuedConnection);
+    connect(
+        toplevel, &QWaylandXdgToplevel::setFullscreen, this,
+        [configure]() { configure(false, true); }, Qt::QueuedConnection);
+    connect(
+        toplevel, &QWaylandXdgToplevel::unsetFullscreen, this,
+        [configure]() { configure(false, false); }, Qt::QueuedConnection);
 
-    QPointer<QWaylandSurface>     safeSurface(surface);
+    QPointer<QWaylandSurface> safeSurface(surface);
 
     connect(toplevel, &QWaylandXdgToplevel::titleChanged, this,
             [this, safeToplevel, safeSurface]() {
@@ -1539,10 +1553,10 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
 }
 
 void WaylandCompositor::configureToplevelState(QWaylandXdgToplevel *toplevel, bool maximized,
-                                                bool fullscreen) {
+                                               bool fullscreen) {
     if (!toplevel || !toplevel->xdgSurface() || !toplevel->xdgSurface()->surface())
         return;
-    QWaylandSurface *surface = toplevel->xdgSurface()->surface();
+    QWaylandSurface                  *surface = toplevel->xdgSurface()->surface();
     QList<QWaylandXdgToplevel::State> states;
     if (maximized)
         states << QWaylandXdgToplevel::MaximizedState;
@@ -1550,9 +1564,9 @@ void WaylandCompositor::configureToplevelState(QWaylandXdgToplevel *toplevel, bo
         states << QWaylandXdgToplevel::FullscreenState;
     if (toplevel->activated())
         states << QWaylandXdgToplevel::ActivatedState;
-    const QSize size = sizesItself(toplevel)
-        ? QSize(0, 0)
-        : fullscreen ? fullOutputConfigureSize(surface) : appConfigureSize(surface);
+    const QSize size = sizesItself(toplevel) ? QSize(0, 0) :
+        fullscreen                           ? fullOutputConfigureSize(surface) :
+                                               appConfigureSize(surface);
     ToplevelConfigure::send(toplevel, size, states);
 }
 
@@ -1653,20 +1667,20 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
     // popupCreated. Apply Marathon's work-area policy immediately, before the
     // first buffer is mapped. Nested popup coordinates are relative to their
     // direct parent's window geometry, so translate the root app viewport.
-    QPoint               parentOffset;
-    QWaylandXdgSurface  *root = popup->parentXdgSurface();
+    QPoint              parentOffset;
+    QWaylandXdgSurface *root = popup->parentXdgSurface();
     while (root && root->popup()) {
-        QWaylandXdgPopup *parentPopup = root->popup();
-        const QRect parentGeometry = parentPopup->configuredGeometry().isValid()
-            ? parentPopup->configuredGeometry()
-            : QRect(parentPopup->unconstrainedPosition(), parentPopup->positionerSize());
+        QWaylandXdgPopup *parentPopup    = root->popup();
+        const QRect       parentGeometry = parentPopup->configuredGeometry().isValid() ?
+            parentPopup->configuredGeometry() :
+            QRect(parentPopup->unconstrainedPosition(), parentPopup->positionerSize());
         parentOffset += parentGeometry.topLeft();
         root = parentPopup->parentXdgSurface();
     }
     QWaylandSurface *rootSurface = root ? root->surface() : popup->parentXdgSurface()->surface();
-    const QRect bounds(-parentOffset, appConfigureSize(rootSurface));
-    const QRect unconstrained(popup->unconstrainedPosition(), popup->positionerSize());
-    const QRect configured = PopupPlacement::constrain(
+    const QRect      bounds(-parentOffset, appConfigureSize(rootSurface));
+    const QRect      unconstrained(popup->unconstrainedPosition(), popup->positionerSize());
+    const QRect      configured = PopupPlacement::constrain(
         unconstrained, popup->anchorRect(), popup->anchorEdges(), popup->gravityEdges(),
         popup->offset(), bounds, popup->flipConstraints(), popup->slideConstraints(),
         popup->resizeConstraints());
@@ -2271,14 +2285,13 @@ void WaylandCompositor::sendNativeBack(int surfaceId, bool keelHosted) {
                                                        NativeBack::Unknown);
         surface->setProperty("nativeToolkit", toolkit);
     }
-    const auto nativeToolkit = NativeBack::Toolkit(toolkit.toInt());
+    const auto                nativeToolkit = NativeBack::Toolkit(toolkit.toInt());
     QPointer<QWaylandSurface> target(surface);
-    const auto fallback = [this, target, surfaceId, nativeToolkit]() {
+    const auto                fallback = [this, target, surfaceId, nativeToolkit]() {
         if (!target)
             return;
         sendKeyTo(target, NativeBack::fallbackBackKey(nativeToolkit),
-                  NativeBack::fallbackBackModifiers(nativeToolkit),
-                  [this, target, surfaceId]() {
+                  NativeBack::fallbackBackModifiers(nativeToolkit), [this, target, surfaceId]() {
                       if (target)
                           watchNativeBack(target, surfaceId);
                   });
@@ -2377,21 +2390,21 @@ void WaylandCompositor::watchNativeBack(QWaylandSurface *surface, int surfaceId,
             });
     QTimer::singleShot(fallback ? std::min(watchMs, 180) : watchMs, watch,
                        [this, watch, settled, surfaceId, fallback]() {
-        if (!*settled) {
-            if (fallback)
-                fallback();
-            else
-                emit nativeBackUnhandled(surfaceId);
-        }
-        watch->deleteLater();
-    });
+                           if (!*settled) {
+                               if (fallback)
+                                   fallback();
+                               else
+                                   emit nativeBackUnhandled(surfaceId);
+                           }
+                           watch->deleteLater();
+                       });
 }
 
 // The key reaches the app's window even when another holds keyboard focus.
 // Another window of the same client (Waydroid's Android tasks) takes it only
 // once it has acted on the enter: at its next commit, or after 300 ms.
 void WaylandCompositor::sendKeyTo(QWaylandSurface *surface, int key,
-                                  Qt::KeyboardModifiers modifiers,
+                                  Qt::KeyboardModifiers        modifiers,
                                   const std::function<void()> &sent) {
     const auto send = [this, key, modifiers, sent]() {
         injectKey(key, int(modifiers), true);
@@ -2498,9 +2511,9 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         }
         if (m_gateTimer.isActive())
             return true;
-        const qint64 now    = monotonicUs();
-        const qint64 last   = lastVblankUs();
-        const qint64 at     = last + qint64(m_framePhaseMs) * 1000;
+        const qint64 now  = monotonicUs();
+        const qint64 last = lastVblankUs();
+        const qint64 at   = last + qint64(m_framePhaseMs) * 1000;
         if (last >= 0 && now < at - 500) {
             m_gateTimer.start(int((at - now) / 1000));
             return true;
@@ -2530,9 +2543,9 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
                 scenePosition = static_cast<QMouseEvent *>(event)->scenePosition();
             }
             for (auto it = m_popups.crbegin(); it != m_popups.crend(); ++it) {
-                QWaylandXdgPopup *popup = it->popup.data();
+                QWaylandXdgPopup *popup        = it->popup.data();
                 QWaylandSurface  *popupSurface = it->surface.data();
-                QWaylandView *view = popupSurface ? popupSurface->primaryView() : nullptr;
+                QWaylandView     *view = popupSurface ? popupSurface->primaryView() : nullptr;
                 auto *item = view ? qobject_cast<QQuickItem *>(view->renderObject()) : nullptr;
                 if (!item || !popupSurface->hasContent())
                     continue;
@@ -2556,7 +2569,8 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
             type == QEvent::KeyPress || type == QEvent::KeyRelease;
         const bool move =
             type == QEvent::TouchUpdate || type == QEvent::MouseMove || type == QEvent::Wheel;
-        if (edge || (move && (!m_activityEmitted.isValid() || m_activityEmitted.elapsed() >= 250))) {
+        if (edge ||
+            (move && (!m_activityEmitted.isValid() || m_activityEmitted.elapsed() >= 250))) {
             m_activityEmitted.start();
             emit userActivity();
         }
@@ -2567,7 +2581,7 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         }
 
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
-            const auto *keyEvent = static_cast<QKeyEvent *>(event);
+            const auto              *keyEvent = static_cast<QKeyEvent *>(event);
             const KeyRouting::Action action =
                 KeyRouting::systemAction(keyEvent->key(), focusedToolkit());
             if (action != KeyRouting::None) {

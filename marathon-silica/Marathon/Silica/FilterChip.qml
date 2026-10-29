@@ -14,7 +14,8 @@ S.BackgroundItem {
     width: indicator.width + label.implicitWidth + S.Theme.paddingLarge
     height: S.Theme.itemSizeExtraSmall
     activeFocusOnTab: true
-    onClicked: if (automaticCheck) checked = !checked
+    onClicked: if (automaticCheck)
+        checked = !checked
     Accessible.role: Accessible.CheckBox
     Accessible.name: text
     Accessible.checkable: true

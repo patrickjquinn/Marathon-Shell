@@ -46,7 +46,10 @@ TestCase {
         verify(app.openPage(name, PageStackAction.Immediate));
         const page = app.pageStack.currentPage;
         tryCompare(page, "status", PageStatus.Active);
-        return { app: app, page: page };
+        return {
+            app: app,
+            page: page
+        };
     }
 
     function child(parent, name) {
@@ -99,10 +102,15 @@ TestCase {
         tap(login);
         compare(called("setStartAtLogin"), [["setStartAtLogin", false]]);
         verify(child(s.page, "resetEntry").enabled);
-        AndroidApps.runtime = { state: "starting" };
+        AndroidApps.runtime = {
+            state: "starting"
+        };
         verify(!child(s.page, "resetEntry").enabled);
 
-        AndroidApps.runtime = { state: "stopped", startAtLogin: false };
+        AndroidApps.runtime = {
+            state: "stopped",
+            startAtLogin: false
+        };
         compare(child(s.page, "stateItem").value, "Stopped");
         verify(!child(s.page, "memoryItem").visible);
         verify(!child(s.page, "uptimeItem").visible);
@@ -129,13 +137,23 @@ TestCase {
         compare(account.title, "Sign in to Google");
         tap(account);
         compare(called("openGoogleServices"), [["openGoogleServices", "account"]]);
-        AndroidApps.googleServices = { installed: true, enabled: true, push: false, accounts: ["someone@gmail.com"] };
+        AndroidApps.googleServices = {
+            installed: true,
+            enabled: true,
+            push: false,
+            accounts: ["someone@gmail.com"]
+        };
         compare(account.title, "someone@gmail.com");
         verify(!push.checked);
         tap(child(s.page, "googleCheckEntry"));
         compare(called("openGoogleServices")[1], ["openGoogleServices", "selfcheck"]);
 
-        AndroidApps.googleServices = { installed: true, enabled: false, push: false, accounts: [] };
+        AndroidApps.googleServices = {
+            installed: true,
+            enabled: false,
+            push: false,
+            accounts: []
+        };
         verify(sw.visible && !sw.checked);
         verify(!push.visible);
         verify(!account.visible);
@@ -240,7 +258,20 @@ TestCase {
 
     // An app's own request (Android's per-app access page) shows just its switch.
     function test_accessForOneApp() {
-        AndroidApps.access = { all_files: [{ pkg: "org.fdroid.fdroid", label: "F-Droid", granted: false }, { pkg: "me.zhanghai.android.files", label: "Material Files", granted: false }] };
+        AndroidApps.access = {
+            all_files: [
+                {
+                    pkg: "org.fdroid.fdroid",
+                    label: "F-Droid",
+                    granted: false
+                },
+                {
+                    pkg: "me.zhanghai.android.files",
+                    label: "Material Files",
+                    granted: false
+                }
+            ]
+        };
         const s = open("androidaccess/all_files/me.zhanghai.android.files");
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !s.app.pageStack.busy);
         const page = s.app.pageStack.currentPage;
@@ -257,8 +288,19 @@ TestCase {
 
     // Android won't remove Deckard's own packages: Settings doesn't offer it.
     function test_deckardPackagesStay() {
-        AndroidApps.apps = AndroidApps.apps.concat([{ pkg: "org.marathonos.deckard.notifytest", id: "deckard.org.marathonos.deckard.notifytest", name: "Notify Test", version: "0.1.0", icon: "" }]);
-        AndroidApps.details["org.marathonos.deckard.notifytest"] = Object.assign({}, AndroidApps.details["org.fdroid.fdroid"], { pkg: "org.marathonos.deckard.notifytest", label: "Notify Test" });
+        AndroidApps.apps = AndroidApps.apps.concat([
+            {
+                pkg: "org.marathonos.deckard.notifytest",
+                id: "deckard.org.marathonos.deckard.notifytest",
+                name: "Notify Test",
+                version: "0.1.0",
+                icon: ""
+            }
+        ]);
+        AndroidApps.details["org.marathonos.deckard.notifytest"] = Object.assign({}, AndroidApps.details["org.fdroid.fdroid"], {
+            pkg: "org.marathonos.deckard.notifytest",
+            label: "Notify Test"
+        });
         const s = open("appmanager");
         verify(child(s.page, "app-deckard.org.marathonos.deckard.notifytest").menu === null);
         verify(child(s.page, "app-deckard.org.fdroid.fdroid").menu !== null);
@@ -276,7 +318,10 @@ TestCase {
     function test_backReturnsToTheLinkingApp() {
         const app = createTemporaryObject(appComponent, testCase);
         tryVerify(() => app.pageStack.currentPage !== null);
-        const minimized = createTemporaryObject(spyComponent, testCase, { target: app, signalName: "minimizeRequested" });
+        const minimized = createTemporaryObject(spyComponent, testCase, {
+            target: app,
+            signalName: "minimizeRequested"
+        });
         verify(app.openPage("androidaccess/all_files/org.fdroid.fdroid", PageStackAction.Immediate, true, true));
         tryVerify(() => String(app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !app.pageStack.busy);
         app.handleBack();

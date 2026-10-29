@@ -17,41 +17,48 @@ Page {
     property var items: []
     readonly property var bucketOrder: ["act_now", "today", "later", "ignore"]
 
-    ListModel { id: sorted }
+    ListModel {
+        id: sorted
+    }
 
     function reload() {
-        items = JSON.parse(Pilot.triage())
-        var rows = items.slice(0)
-        rows.sort(function(a, b) {
-            var d = page.rank(a.bucket) - page.rank(b.bucket)
-            return d !== 0 ? d : (b.ts_ms || 0) - (a.ts_ms || 0)
-        })
-        sorted.clear()
+        items = JSON.parse(Pilot.triage());
+        var rows = items.slice(0);
+        rows.sort(function (a, b) {
+            var d = page.rank(a.bucket) - page.rank(b.bucket);
+            return d !== 0 ? d : (b.ts_ms || 0) - (a.ts_ms || 0);
+        });
+        sorted.clear();
         for (var i = 0; i < rows.length; ++i) {
-            var r = rows[i]
-            sorted.append({ section: page.bucketText(r.bucket), title: r.title || "", body: r.body || "",
-                            source: r.app || r.source || "", ts: r.ts_ms || 0, urgent: (r.urgency || 0) >= 1.5 })
+            var r = rows[i];
+            sorted.append({
+                section: page.bucketText(r.bucket),
+                title: r.title || "",
+                body: r.body || "",
+                source: r.app || r.source || "",
+                ts: r.ts_ms || 0,
+                urgent: (r.urgency || 0) >= 1.5
+            });
         }
     }
     Component.onCompleted: reload()
 
     function rank(b) {
-        var i = bucketOrder.indexOf(b)
-        return i < 0 ? bucketOrder.length : i
+        var i = bucketOrder.indexOf(b);
+        return i < 0 ? bucketOrder.length : i;
     }
 
     function bucketText(b) {
-        return b === "act_now" ? qsTr("Now")
-             : b === "today" ? qsTr("Today")
-             : b === "later" ? qsTr("Later")
-             : qsTr("Set aside")
+        return b === "act_now" ? qsTr("Now") : b === "today" ? qsTr("Today") : b === "later" ? qsTr("Later") : qsTr("Set aside");
     }
 
     SilicaListView {
         objectName: "triageList"
         anchors.fill: parent
         model: sorted
-        header: PageHeader { title: qsTr("Pilot events") }
+        header: PageHeader {
+            title: qsTr("Pilot events")
+        }
         section.property: "section"
         section.delegate: SectionHeader {
             required property string section
@@ -105,8 +112,7 @@ Page {
                     truncationMode: TruncationMode.Fade
                     font.pixelSize: Theme.fontSizeExtraSmall
                     color: row.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-                    text: (row.source.length > 0 ? row.source + " · " : "")
-                          + (row.ts > 0 ? Format.formatDate(new Date(row.ts), Formatter.TimepointRelative) : "")
+                    text: (row.source.length > 0 ? row.source + " · " : "") + (row.ts > 0 ? Format.formatDate(new Date(row.ts), Formatter.TimepointRelative) : "")
                 }
             }
         }

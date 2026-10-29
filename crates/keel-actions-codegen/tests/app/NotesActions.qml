@@ -12,8 +12,20 @@ Item {
     id: root
 
     property var notes: [
-        { id: "n1", title: "Shopping", body: "Milk, bread", tags: ["home"], created: "2026-10-01T09:00:00Z" },
-        { id: "n2", title: "Trattoria Anna", body: "Via Roma 1, booked for Friday", tags: ["food"], created: "2026-09-25T19:30:00Z" }
+        {
+            id: "n1",
+            title: "Shopping",
+            body: "Milk, bread",
+            tags: ["home"],
+            created: "2026-10-01T09:00:00Z"
+        },
+        {
+            id: "n2",
+            title: "Trattoria Anna",
+            body: "Via Roma 1, booked for Friday",
+            tags: ["food"],
+            created: "2026-09-25T19:30:00Z"
+        }
     ]
     property alias contextText: pageContext.text
     property alias contextActive: pageContext.active
@@ -27,9 +39,9 @@ Item {
     function findNote(id) {
         for (let i = 0; i < notes.length; ++i) {
             if (notes[i].id === id)
-                return notes[i]
+                return notes[i];
         }
-        return null
+        return null;
     }
 
     KeelAction {
@@ -39,18 +51,45 @@ Item {
         description: "Create a new note with an optional title and a body. Returns the new note's id and its keel:// reference."
         idempotent: false
         parameters: [
-            KeelParam { name: "title"; type: "string"; maxLength: 200; description: "Title of the note" },
-            KeelParam { name: "body"; type: "string"; required: true; maxLength: 20000; description: "Text of the note" }
+            KeelParam {
+                name: "title"
+                type: "string"
+                maxLength: 200
+                description: "Title of the note"
+            },
+            KeelParam {
+                name: "body"
+                type: "string"
+                required: true
+                maxLength: 20000
+                description: "Text of the note"
+            }
         ]
         returns: KeelResult {
             type: "object"
             fields: ["id"]
-            KeelParam { name: "note"; type: "entity"; entity: "note"; required: true }
+            KeelParam {
+                name: "note"
+                type: "entity"
+                entity: "note"
+                required: true
+            }
         }
         onInvoked: (args, call) => {
-            const id = "n" + root.nextId++
-            root.notes = root.notes.concat([{ id: id, title: args.title || "", body: args.body, tags: [], created: "2026-10-02T12:00:00Z" }])
-            call.reply({ id: id, note: noteEntity.uri(id) })
+            const id = "n" + root.nextId++;
+            root.notes = root.notes.concat([
+                {
+                    id: id,
+                    title: args.title || "",
+                    body: args.body,
+                    tags: [],
+                    created: "2026-10-02T12:00:00Z"
+                }
+            ]);
+            call.reply({
+                id: id,
+                note: noteEntity.uri(id)
+            });
         }
     }
 
@@ -61,8 +100,19 @@ Item {
         readOnly: true
         idempotent: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
@@ -71,13 +121,13 @@ Item {
             maxItems: 50
         }
         onInvoked: (args, call) => {
-            const q = args.query.toLowerCase()
-            const out = []
+            const q = args.query.toLowerCase();
+            const out = [];
             for (const n of root.notes) {
                 if ((n.title + " " + n.body).toLowerCase().indexOf(q) >= 0 && out.length < (args.limit || 10))
-                    out.push(noteEntity.uri(n.id))
+                    out.push(noteEntity.uri(n.id));
             }
-            call.reply(out)
+            call.reply(out);
         }
     }
 
@@ -87,15 +137,20 @@ Item {
         description: "Delete a note permanently. The note cannot be restored afterwards."
         destructive: true
         parameters: [
-            KeelParam { name: "note"; type: "entity"; entity: "note"; required: true }
+            KeelParam {
+                name: "note"
+                type: "entity"
+                entity: "note"
+                required: true
+            }
         ]
         onInvoked: (args, call) => {
-            const id = args.note.substring(args.note.lastIndexOf("/") + 1)
+            const id = args.note.substring(args.note.lastIndexOf("/") + 1);
             if (!root.findNote(id)) {
-                call.fail("Failed", "no such note")
-                return
+                call.fail("Failed", "no such note");
+                return;
             }
-            root.notes = root.notes.filter(n => n.id !== id)
+            root.notes = root.notes.filter(n => n.id !== id);
         }
     }
 
@@ -108,10 +163,23 @@ Item {
         notDestructiveBecause: "It sends a copy; the note itself is unchanged."
         timeout: 200
         parameters: [
-            KeelParam { name: "note"; type: "entity"; entity: "note"; required: true },
-            KeelParam { name: "to"; type: "entity"; entity: "org.example.contacts/contact"; required: true }
+            KeelParam {
+                name: "note"
+                type: "entity"
+                entity: "note"
+                required: true
+            },
+            KeelParam {
+                name: "to"
+                type: "entity"
+                entity: "org.example.contacts/contact"
+                required: true
+            }
         ]
-        returns: KeelResult { type: "string"; maxLength: 64 }
+        returns: KeelResult {
+            type: "string"
+            maxLength: 64
+        }
         // Never answers: the timeout test.
         onInvoked: (args, call) => {}
     }
@@ -120,7 +188,11 @@ Item {
         name: "notes.broken"
         description: "Test action whose handler answers with a value that does not match its schema."
         readOnly: true
-        returns: KeelResult { type: "integer"; minimum: 0; maximum: 10 }
+        returns: KeelResult {
+            type: "integer"
+            minimum: 0
+            maximum: 10
+        }
         onInvoked: (args, call) => call.reply("eleven")
     }
 
@@ -128,11 +200,21 @@ Item {
         name: "notes.later"
         description: "Test action that answers asynchronously, after a short timer, with the text it was given."
         readOnly: true
-        parameters: [ KeelParam { name: "text"; type: "string"; required: true; maxLength: 32 } ]
-        returns: KeelResult { type: "string"; maxLength: 32 }
+        parameters: [
+            KeelParam {
+                name: "text"
+                type: "string"
+                required: true
+                maxLength: 32
+            }
+        ]
+        returns: KeelResult {
+            type: "string"
+            maxLength: 32
+        }
         onInvoked: (args, call) => {
-            laterTimer.call = call
-            laterTimer.start()
+            laterTimer.call = call;
+            laterTimer.start();
         }
     }
 
@@ -148,13 +230,31 @@ Item {
         type: "note"
         title: "Note"
         description: "A note: a title and a body of text, with tags."
-        KeelParam { name: "created"; type: "string"; format: "date-time"; maxLength: 32; summarisable: true; indexable: true }
-        KeelParam { name: "tags"; type: "array"; maxItems: 20; maxLength: 40; summarisable: true; indexable: true }
-        KeelParam { name: "body"; type: "string"; maxLength: 20000 }
+        KeelParam {
+            name: "created"
+            type: "string"
+            format: "date-time"
+            maxLength: 32
+            summarisable: true
+            indexable: true
+        }
+        KeelParam {
+            name: "tags"
+            type: "array"
+            maxItems: 20
+            maxLength: 40
+            summarisable: true
+            indexable: true
+        }
+        KeelParam {
+            name: "body"
+            type: "string"
+            maxLength: 20000
+        }
         onResolve: (id, call) => call.reply(root.findNote(id))
         onFind: (query, limit, call) => {
-            const q = query.toLowerCase()
-            call.reply(root.notes.filter(n => (n.title + " " + n.body).toLowerCase().indexOf(q) >= 0))
+            const q = query.toLowerCase();
+            call.reply(root.notes.filter(n => (n.title + " " + n.body).toLowerCase().indexOf(q) >= 0));
         }
     }
 
@@ -170,8 +270,23 @@ Item {
         name: "shopping-list"
         title: qsTr("New shopping list")
         description: "Create a note titled Shopping with the items given."
-        arguments: [ KeelParam { name: "items"; type: "string"; required: true; description: "What to buy" } ]
-        steps: [ { action: "notes.create", arguments: { title: "Shopping", body: "{{items}}" } } ]
+        arguments: [
+            KeelParam {
+                name: "items"
+                type: "string"
+                required: true
+                description: "What to buy"
+            }
+        ]
+        steps: [
+            {
+                action: "notes.create",
+                arguments: {
+                    title: "Shopping",
+                    body: "{{items}}"
+                }
+            }
+        ]
     }
 
     KeelPage {

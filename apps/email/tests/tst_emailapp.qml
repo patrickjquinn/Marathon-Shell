@@ -10,7 +10,8 @@ TestCase {
     name: "EmailApp"
     when: windowShown
     visible: true
-    width: 540; height: 1140
+    width: 540
+    height: 1140
 
     Component {
         id: valueStub
@@ -20,7 +21,10 @@ TestCase {
     }
     Component {
         id: appComponent
-        EmailApp { width: 540; height: 1140 }
+        EmailApp {
+            width: 540
+            height: 1140
+        }
     }
 
     function init() {
@@ -29,14 +33,18 @@ TestCase {
 
     function makeApp(props) {
         const store = createTemporaryObject(valueStub, testCase);
-        const app = createTemporaryObject(appComponent, testCase, Object.assign({ draftStore: store }, props || {}));
+        const app = createTemporaryObject(appComponent, testCase, Object.assign({
+            draftStore: store
+        }, props || {}));
         tryVerify(() => app.pageStack.currentPage !== null && !app.pageStack.busy);
         return app;
     }
 
     function withMessages() {
         MailService.setAccount("Work");
-        MailService.addMessage(3, "Ann", "Lunch", true, { hasAttachment: true });
+        MailService.addMessage(3, "Ann", "Lunch", true, {
+            hasAttachment: true
+        });
         MailService.addMessage(2, "Bob", "Report", false);
         MailService.addMessage(1, "Cy", "Old news", false);
     }
@@ -234,7 +242,14 @@ TestCase {
         withMessages();
         const app = makeApp();
         verify(!findChild(inbox(app), "draftItem").visible);
-        app.draftStore.value = JSON.stringify({ "reply-2": { to: "bob@x.org", subject: "Re: Report", body: "ok", savedAt: 5 } });
+        app.draftStore.value = JSON.stringify({
+            "reply-2": {
+                to: "bob@x.org",
+                subject: "Re: Report",
+                body: "ok",
+                savedAt: 5
+            }
+        });
         const item = findChild(inbox(app), "draftItem");
         compare(item.text, "Continue draft");
         item.clicked();
@@ -246,7 +261,16 @@ TestCase {
     function test_severalDraftsOpenList() {
         withMessages();
         const app = makeApp();
-        app.draftStore.value = JSON.stringify({ "new-1": { subject: "One", savedAt: 1 }, "new-2": { subject: "Two", savedAt: 2 } });
+        app.draftStore.value = JSON.stringify({
+            "new-1": {
+                subject: "One",
+                savedAt: 1
+            },
+            "new-2": {
+                subject: "Two",
+                savedAt: 2
+            }
+        });
         compare(findChild(inbox(app), "draftItem").text, "Drafts");
         app.continueDraft();
         const drafts = pushed(app, 2);
@@ -257,9 +281,21 @@ TestCase {
 
     function test_legacyDraftMigrates() {
         withMessages();
-        const store = createTemporaryObject(valueStub, testCase, { value: "{}" });
-        const legacy = createTemporaryObject(valueStub, testCase, { value: JSON.stringify({ to: "a@b.co", cc: "", subject: "Old", body: "" }) });
-        const app = createTemporaryObject(appComponent, testCase, { draftStore: store, legacyDraft: legacy });
+        const store = createTemporaryObject(valueStub, testCase, {
+            value: "{}"
+        });
+        const legacy = createTemporaryObject(valueStub, testCase, {
+            value: JSON.stringify({
+                to: "a@b.co",
+                cc: "",
+                subject: "Old",
+                body: ""
+            })
+        });
+        const app = createTemporaryObject(appComponent, testCase, {
+            draftStore: store,
+            legacyDraft: legacy
+        });
         compare(app.drafts.length, 1);
         compare(app.drafts[0].subject, "Old");
         compare(legacy.value, "");
@@ -267,7 +303,13 @@ TestCase {
 
     function test_tapOpensAndMarksRead() {
         withMessages();
-        MailService.bodies = { "3": { subject: "Lunch", from: "Ann", bodyPlain: "Noon?" } };
+        MailService.bodies = {
+            "3": {
+                subject: "Lunch",
+                from: "Ann",
+                bodyPlain: "Noon?"
+            }
+        };
         const app = makeApp();
         mouseClick(delegateAt(view(app), 0));
         const msg = pushed(app, 2);
@@ -393,15 +435,57 @@ TestCase {
 
     function accountList() {
         return [
-            { id: "1", name: "Work", address: "me@work.org", unread: 1, folders: [
-                { id: "10", name: "Inbox", kind: "inbox", unread: 1, count: 3 },
-                { id: "11", name: "Sent", kind: "sent", unread: 0, count: 4 },
-                { id: "outbox", name: "Outbox", kind: "outbox", unread: 0, count: 1 },
-                { id: "12", name: "Trash", kind: "trash", unread: 0, count: 0 }
-            ] },
-            { id: "2", name: "Home", address: "me@home.org", unread: 0, folders: [
-                { id: "20", name: "Inbox", kind: "inbox", unread: 0, count: 0 }
-            ] }
+            {
+                id: "1",
+                name: "Work",
+                address: "me@work.org",
+                unread: 1,
+                folders: [
+                    {
+                        id: "10",
+                        name: "Inbox",
+                        kind: "inbox",
+                        unread: 1,
+                        count: 3
+                    },
+                    {
+                        id: "11",
+                        name: "Sent",
+                        kind: "sent",
+                        unread: 0,
+                        count: 4
+                    },
+                    {
+                        id: "outbox",
+                        name: "Outbox",
+                        kind: "outbox",
+                        unread: 0,
+                        count: 1
+                    },
+                    {
+                        id: "12",
+                        name: "Trash",
+                        kind: "trash",
+                        unread: 0,
+                        count: 0
+                    }
+                ]
+            },
+            {
+                id: "2",
+                name: "Home",
+                address: "me@home.org",
+                unread: 0,
+                folders: [
+                    {
+                        id: "20",
+                        name: "Inbox",
+                        kind: "inbox",
+                        unread: 0,
+                        count: 0
+                    }
+                ]
+            }
         ];
     }
 
@@ -445,7 +529,9 @@ TestCase {
         withMessages();
         MailService.accountList = accountList();
         const app = makeApp();
-        app.pageStack.push(Qt.resolvedUrl("../pages/AccountsPage.qml"), { app: app });
+        app.pageStack.push(Qt.resolvedUrl("../pages/AccountsPage.qml"), {
+            app: app
+        });
         const accounts = pushed(app, 2);
         tryVerify(() => MailService.called("refresh").length === 1);
         findChild(accounts, "folder-Home-inbox").clicked(null);

@@ -12,21 +12,62 @@ TestCase {
 
     function sample() {
         return [
-            { id: "a", contactName: "Alice", contactNumber: "+15551234567", lastMessage: "Lunch?", lastTimestamp: now - 60000, unreadCount: 2 },
-            { id: "b", contactName: "", contactNumber: "+447700900123", lastMessage: "Your code is 1234", lastTimestamp: now - 3600000, unreadCount: 0 }
+            {
+                id: "a",
+                contactName: "Alice",
+                contactNumber: "+15551234567",
+                lastMessage: "Lunch?",
+                lastTimestamp: now - 60000,
+                unreadCount: 2
+            },
+            {
+                id: "b",
+                contactName: "",
+                contactNumber: "+447700900123",
+                lastMessage: "Your code is 1234",
+                lastTimestamp: now - 3600000,
+                unreadCount: 0
+            }
         ];
     }
 
     function makeApp(state) {
-        Sms.reset(sample(), { a: [
-            { id: 1, text: "Hi", timestamp: now - 120000, isOutgoing: false, sender: "+15551234567" },
-            { id: 2, text: "Lunch?", timestamp: now - 60000, isOutgoing: false, sender: "+15551234567" }
-        ] });
-        Contacts.contacts = [{ name: "Bob Smith", phone: "+15559876543" }, { name: "Alice", phone: "+15551234567" }];
+        Sms.reset(sample(), {
+            a: [
+                {
+                    id: 1,
+                    text: "Hi",
+                    timestamp: now - 120000,
+                    isOutgoing: false,
+                    sender: "+15551234567"
+                },
+                {
+                    id: 2,
+                    text: "Lunch?",
+                    timestamp: now - 60000,
+                    isOutgoing: false,
+                    sender: "+15551234567"
+                }
+            ]
+        });
+        Contacts.contacts = [
+            {
+                name: "Bob Smith",
+                phone: "+15559876543"
+            },
+            {
+                name: "Alice",
+                phone: "+15551234567"
+            }
+        ];
         Contacts.added = [];
         Telephony.hasModem = true;
-        const store = storeStub.createObject(test, { value: state || "{}" });
-        const app = createTemporaryObject(appComponent, test, { store: store });
+        const store = storeStub.createObject(test, {
+            value: state || "{}"
+        });
+        const app = createTemporaryObject(appComponent, test, {
+            store: store
+        });
         tryVerify(() => app.pageStack.currentPage && !app.pageStack.busy && findChild(app.pageStack.currentPage, "conversationList"));
         return app;
     }
@@ -105,7 +146,11 @@ TestCase {
     }
 
     function test_pinnedFirstAndArchivedHidden() {
-        const app = makeApp(JSON.stringify({ pinned: ["b"], archived: [], drafts: {} }));
+        const app = makeApp(JSON.stringify({
+            pinned: ["b"],
+            archived: [],
+            drafts: {}
+        }));
         compare(page(app).visibleConversations[0].id, "b");
         app.setArchived("b", true);
         compare(page(app).visibleConversations.map(c => c.id), ["a"]);
@@ -113,7 +158,9 @@ TestCase {
     }
 
     function test_incomingMessageUnarchives() {
-        const app = makeApp(JSON.stringify({ archived: ["a"] }));
+        const app = makeApp(JSON.stringify({
+            archived: ["a"]
+        }));
         Sms.messageReceived("5551234567", "hey", now);
         compare(app.archivedIds, []);
     }
@@ -137,7 +184,12 @@ TestCase {
         field.text = "On my way";
         verify(button.enabled);
         mouseClick(button);
-        compare(Sms.sent, [{ recipient: "+15551234567", text: "On my way" }]);
+        compare(Sms.sent, [
+            {
+                recipient: "+15551234567",
+                text: "On my way"
+            }
+        ]);
         compare(findChild(conv, "sendStatus").text, "Sending…");
         verify(!button.enabled);
         Sms.messageSent("+15551234567", now);
@@ -154,7 +206,12 @@ TestCase {
         keyClick(Qt.Key_O);
         keyClick(Qt.Key_K);
         keyClick(Qt.Key_Return);
-        compare(Sms.sent, [{ recipient: "+15551234567", text: "ok" }]);
+        compare(Sms.sent, [
+            {
+                recipient: "+15551234567",
+                text: "ok"
+            }
+        ]);
     }
 
     function test_sendFailureKeepsText() {
@@ -186,9 +243,22 @@ TestCase {
 
     function test_routeOpensNewConversation() {
         Sms.reset(sample(), {});
-        Contacts.contacts = [{ name: "Bob Smith", phone: "+15559876543" }];
-        const store = storeStub.createObject(test, { value: "{}" });
-        const app = createTemporaryObject(appComponent, test, { store: store, route: "conversation", routeParams: JSON.stringify({ number: "+1 555 987 6543" }) });
+        Contacts.contacts = [
+            {
+                name: "Bob Smith",
+                phone: "+15559876543"
+            }
+        ];
+        const store = storeStub.createObject(test, {
+            value: "{}"
+        });
+        const app = createTemporaryObject(appComponent, test, {
+            store: store,
+            route: "conversation",
+            routeParams: JSON.stringify({
+                number: "+1 555 987 6543"
+            })
+        });
         const conv = waitForPage(app, "conversation");
         compare(conv.conversation.contactNumber, "+1 555 987 6543");
         compare(conv.contactName, "Bob Smith");
@@ -197,16 +267,33 @@ TestCase {
 
     function test_routeOpensExistingThread() {
         Sms.reset(sample(), {});
-        const store = storeStub.createObject(test, { value: "{}" });
-        const app = createTemporaryObject(appComponent, test, { store: store, route: "conversation", routeParams: JSON.stringify({ number: "5551234567" }) });
+        const store = storeStub.createObject(test, {
+            value: "{}"
+        });
+        const app = createTemporaryObject(appComponent, test, {
+            store: store,
+            route: "conversation",
+            routeParams: JSON.stringify({
+                number: "5551234567"
+            })
+        });
         compare(waitForPage(app, "conversation").conversation.id, "a");
     }
 
     // sms:<number>?body=… from another app: the thread, the body as its draft.
     function test_routeWithBodyStartsADraft() {
         Sms.reset(sample(), {});
-        const store = storeStub.createObject(test, { value: "{}" });
-        const app = createTemporaryObject(appComponent, test, { store: store, route: "conversation", routeParams: JSON.stringify({ number: "5551234567", body: "See you at 8" }) });
+        const store = storeStub.createObject(test, {
+            value: "{}"
+        });
+        const app = createTemporaryObject(appComponent, test, {
+            store: store,
+            route: "conversation",
+            routeParams: JSON.stringify({
+                number: "5551234567",
+                body: "See you at 8"
+            })
+        });
         const conv = waitForPage(app, "conversation");
         compare(conv.conversation.id, "a");
         compare(findChild(conv, "messageField").text, "See you at 8");
@@ -216,8 +303,16 @@ TestCase {
     // sms:?body=… names no one: a new message with the body, the recipient to pick.
     function test_composeRouteWithoutANumber() {
         Sms.reset(sample(), {});
-        const store = storeStub.createObject(test, { value: "{}" });
-        const app = createTemporaryObject(appComponent, test, { store: store, route: "compose", routeParams: JSON.stringify({ body: "Look at this" }) });
+        const store = storeStub.createObject(test, {
+            value: "{}"
+        });
+        const app = createTemporaryObject(appComponent, test, {
+            store: store,
+            route: "compose",
+            routeParams: JSON.stringify({
+                body: "Look at this"
+            })
+        });
         const compose = waitForPage(app, "sharedText");
         compare(compose.sharedText, "Look at this");
         compare(app.pageStack.depth, 2);
@@ -225,16 +320,31 @@ TestCase {
 
     function test_composeRouteWithANumber() {
         Sms.reset(sample(), {});
-        const store = storeStub.createObject(test, { value: "{}" });
-        const app = createTemporaryObject(appComponent, test, { store: store, route: "compose", routeParams: JSON.stringify({ number: "+447700900123", body: "Hi" }) });
+        const store = storeStub.createObject(test, {
+            value: "{}"
+        });
+        const app = createTemporaryObject(appComponent, test, {
+            store: store,
+            route: "compose",
+            routeParams: JSON.stringify({
+                number: "+447700900123",
+                body: "Hi"
+            })
+        });
         compare(waitForPage(app, "conversation").conversation.id, "b");
         compare(app.drafts.b, "Hi");
     }
 
     function test_composeRouteWithNothing() {
         Sms.reset(sample(), {});
-        const store = storeStub.createObject(test, { value: "{}" });
-        const app = createTemporaryObject(appComponent, test, { store: store, route: "compose", routeParams: "{}" });
+        const store = storeStub.createObject(test, {
+            value: "{}"
+        });
+        const app = createTemporaryObject(appComponent, test, {
+            store: store,
+            route: "compose",
+            routeParams: "{}"
+        });
         tryVerify(() => app.pageStack.currentPage && !app.pageStack.busy);
         compare(app.pageStack.depth, 1);
     }
@@ -263,7 +373,15 @@ TestCase {
         const conv = waitForPage(app, "conversation");
         compare(conv.contactName, "Alice");
         findChild(conv, "callItem").clicked();
-        compare(Navigation.launches, [{ appId: "phone", route: "/call", params: JSON.stringify({ number: "+15551234567" }) }]);
+        compare(Navigation.launches, [
+            {
+                appId: "phone",
+                route: "/call",
+                params: JSON.stringify({
+                    number: "+15551234567"
+                })
+            }
+        ]);
     }
 
     function test_addUnknownNumberToContacts() {
@@ -278,7 +396,12 @@ TestCase {
         findChild(dialog, "nameField").text = "Dana";
         dialog.accept();
         tryVerify(() => page(app) === conv && !app.pageStack.busy);
-        compare(Contacts.added, [{ name: "Dana", phone: "+447700900123" }]);
+        compare(Contacts.added, [
+            {
+                name: "Dana",
+                phone: "+447700900123"
+            }
+        ]);
         compare(conv.contactName, "Dana");
     }
 
@@ -294,10 +417,24 @@ TestCase {
 
     function test_bubblesHaveNoFillAndCanBeCopied() {
         const app = makeApp();
-        Sms.messages = { a: [
-            { id: 1, text: "Hi", timestamp: now - 120000, isOutgoing: false, sender: "+15551234567" },
-            { id: 2, text: "Hello", timestamp: now - 60000, isOutgoing: true, sender: "" }
-        ] };
+        Sms.messages = {
+            a: [
+                {
+                    id: 1,
+                    text: "Hi",
+                    timestamp: now - 120000,
+                    isOutgoing: false,
+                    sender: "+15551234567"
+                },
+                {
+                    id: 2,
+                    text: "Hello",
+                    timestamp: now - 60000,
+                    isOutgoing: true,
+                    sender: ""
+                }
+            ]
+        };
         app.openConversation(sample()[0]);
         const conv = waitForPage(app, "conversation");
         const view = findChild(conv, "messageList");
@@ -335,7 +472,12 @@ TestCase {
 
     function test_aShareStartsAMessage() {
         const app = makeApp();
-        app.receiveShare([{ name: "Marathon", data: "https://marathonos.org" }]);
+        app.receiveShare([
+            {
+                name: "Marathon",
+                data: "https://marathonos.org"
+            }
+        ]);
         const picker = waitForPage(app, "matches");
         mouseClick(findChild(picker, "contact-+15559876543"));
         const conv = waitForPage(app, "conversation");
@@ -393,14 +535,25 @@ TestCase {
     }
 
     function test_searchFiltersList() {
-        const app = makeApp(JSON.stringify({ pinned: ["b"] }));
+        const app = makeApp(JSON.stringify({
+            pinned: ["b"]
+        }));
         const list = page(app);
         list.searching = true;
         const field = findChild(list, "searchField");
         tryVerify(() => field._editor.activeFocus);
         keyClick(Qt.Key_C);
         keyClick(Qt.Key_O);
-        Sms.conversations = Sms.conversations.concat([{ id: "n", contactName: "New", contactNumber: "1", lastMessage: "promo code", lastTimestamp: now, unreadCount: 1 }]);
+        Sms.conversations = Sms.conversations.concat([
+            {
+                id: "n",
+                contactName: "New",
+                contactNumber: "1",
+                lastMessage: "promo code",
+                lastTimestamp: now,
+                unreadCount: 1
+            }
+        ]);
         keyClick(Qt.Key_D);
         compare(field.text, "cod");
         compare(list.visibleConversations.map(c => c.id), ["b", "n"]);
@@ -420,7 +573,12 @@ TestCase {
     }
 
     function test_deleteWithRemorse() {
-        const app = makeApp(JSON.stringify({ pinned: ["a"], drafts: { a: "x" } }));
+        const app = makeApp(JSON.stringify({
+            pinned: ["a"],
+            drafts: {
+                a: "x"
+            }
+        }));
         const item = findChild(page(app), "conversation-a");
         item.openMenu();
         tryVerify(() => item.menuOpen && item._menuItem._expanded && !item._menuItem._displayHeightAnimating);

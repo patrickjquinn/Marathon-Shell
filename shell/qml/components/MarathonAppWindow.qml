@@ -118,8 +118,7 @@ Rectangle {
         var hasSurface = (surface !== null && surface !== undefined && sid >= 0);
         if (appWindow.appId === id && hasSurface && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
             // A restore shows the app's own surface again; only another surface is a dialog.
-            if (appWindow.waylandSurface !== null && sid !== appWindow.surfaceId &&
-                    WaylandCompositorManager.compositor.shellSurfaceById(appWindow.surfaceId)) {
+            if (appWindow.waylandSurface !== null && sid !== appWindow.surfaceId && WaylandCompositorManager.compositor.shellSurfaceById(appWindow.surfaceId)) {
                 Logger.warn("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " surfaceId " + sid + " (window " + appWindow.surfaceId + ") - creating overlay");
                 var dialog = dialogOverlayComponent.createObject(appWindow, {
                     "dialogSurface": surface,
@@ -388,10 +387,7 @@ Rectangle {
     Rectangle {
         id: loadingSplash
 
-        readonly property bool showing: appWindow.isLoadingComponent && !appWindow.hasError
-                                        && !(appWindow.waylandSurface && appContentLoader.status === Loader.Ready
-                                             && appWindow.appContainer && appWindow.appContainer["appInstance"]
-                                             && appWindow.appContainer["appInstance"].revealReady === true)
+        readonly property bool showing: appWindow.isLoadingComponent && !appWindow.hasError && !(appWindow.waylandSurface && appContentLoader.status === Loader.Ready && appWindow.appContainer && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].revealReady === true)
 
         anchors.fill: parent
         color: "black"

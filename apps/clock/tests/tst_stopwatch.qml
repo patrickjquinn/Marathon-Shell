@@ -9,7 +9,9 @@ TestCase {
 
     Component {
         id: stopwatch
-        Stopwatch { now: () => t }
+        Stopwatch {
+            now: () => t
+        }
     }
 
     function test_startStopAccumulates() {
@@ -53,7 +55,9 @@ TestCase {
     }
 
     function test_ticksWhileRunning() {
-        const s = createTemporaryObject(stopwatch, this, { now: () => Date.now() });
+        const s = createTemporaryObject(stopwatch, this, {
+            now: () => Date.now()
+        });
         s.start();
         tryVerify(() => s.elapsed > 0, 1000);
     }
@@ -76,7 +80,10 @@ TestCase {
         compare(r.elapsed, 0);
     }
 
-    SignalSpy { id: editedSpy; signalName: "edited" }
+    SignalSpy {
+        id: editedSpy
+        signalName: "edited"
+    }
 
     function test_editsAreSignalled() {
         const s = createTemporaryObject(stopwatch, this);

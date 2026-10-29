@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQml
+
 QtObject {
     property int cancelledConnects: 0
     property var availableNetworks: []
@@ -7,8 +8,13 @@ QtObject {
     property string wifiSsid: ""
     signal connectionSuccess
     signal connectionFailed(string message)
-    function cancelPendingConnection() { cancelledConnects++; }
+    function cancelPendingConnection() {
+        cancelledConnects++;
+    }
     property int scanCount: 0
-    function scanWifi() { scanCount++; }
-    function connectToNetwork(ssid, password) {}
+    function scanWifi() {
+        scanCount++;
+    }
+    function connectToNetwork(ssid, password) {
+    }
 }

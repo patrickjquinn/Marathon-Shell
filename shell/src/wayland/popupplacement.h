@@ -8,9 +8,8 @@
 class PopupPlacement {
   public:
     static QRect constrain(const QRect &unconstrained, const QRect &anchorRect,
-                           Qt::Edges anchorEdges, Qt::Edges gravityEdges,
-                           const QPoint &offset, const QRect &bounds,
-                           Qt::Orientations flip, Qt::Orientations slide,
+                           Qt::Edges anchorEdges, Qt::Edges gravityEdges, const QPoint &offset,
+                           const QRect &bounds, Qt::Orientations flip, Qt::Orientations slide,
                            Qt::Orientations resize) {
         QRect placed = unconstrained;
 
@@ -30,9 +29,11 @@ class PopupPlacement {
         }
 
         if (slide.testFlag(Qt::Horizontal) && placed.width() <= bounds.width())
-            placed.moveLeft(qBound(bounds.left(), placed.left(), bounds.left() + bounds.width() - placed.width()));
+            placed.moveLeft(qBound(bounds.left(), placed.left(),
+                                   bounds.left() + bounds.width() - placed.width()));
         if (slide.testFlag(Qt::Vertical) && placed.height() <= bounds.height())
-            placed.moveTop(qBound(bounds.top(), placed.top(), bounds.top() + bounds.height() - placed.height()));
+            placed.moveTop(qBound(bounds.top(), placed.top(),
+                                  bounds.top() + bounds.height() - placed.height()));
 
         if (resize.testFlag(Qt::Horizontal) && !fitsX(placed, bounds)) {
             const int left  = qMax(placed.left(), bounds.left());
@@ -50,8 +51,8 @@ class PopupPlacement {
     }
 
   private:
-    static QPoint position(const QRect &anchor, Qt::Edges anchorEdges,
-                           Qt::Edges gravity, const QSize &size, const QPoint &offset) {
+    static QPoint position(const QRect &anchor, Qt::Edges anchorEdges, Qt::Edges gravity,
+                           const QSize &size, const QPoint &offset) {
         int x = anchor.left() + anchor.width() / 2;
         int y = anchor.top() + anchor.height() / 2;
         if (anchorEdges.testFlag(Qt::LeftEdge))

@@ -15,7 +15,9 @@ Page {
     property string focusAppId
 
     function showApp(appId) {
-        pageStack.push(Qt.resolvedUrl("AppInfoPage.qml"), { appId: appId });
+        pageStack.push(Qt.resolvedUrl("AppInfoPage.qml"), {
+            appId: appId
+        });
     }
 
     onStatusChanged: {

@@ -66,7 +66,12 @@ TestCase {
         const bt = entry(app, "bluetooth");
         compare(valueOf(bt), "Bluetooth, Off");
         Bluetooth.enabled = true;
-        Bluetooth.pairedDevices = [{ name: "Buds", connected: true }];
+        Bluetooth.pairedDevices = [
+            {
+                name: "Buds",
+                connected: true
+            }
+        ];
         compare(valueOf(bt), "Bluetooth, Buds");
         compare(valueOf(entry(app, "battery")), "Battery, 80%");
         Power.isCharging = true;
@@ -142,8 +147,7 @@ TestCase {
         wait(50);
         const placeholder = findChild(page, "noResults");
         const fieldBottom = field.mapToItem(page, 0, field.height).y;
-        verify(placeholder.mapToItem(page, 0, 0).y >= fieldBottom,
-               "placeholder top " + placeholder.mapToItem(page, 0, 0).y + " overlaps search field bottom " + fieldBottom);
+        verify(placeholder.mapToItem(page, 0, 0).y >= fieldBottom, "placeholder top " + placeholder.mapToItem(page, 0, 0).y + " overlaps search field bottom " + fieldBottom);
     }
 
     function test_terminalLaunchesApp() {
@@ -159,13 +163,13 @@ TestCase {
         const app = makeApp();
         const main = app.pageStack.currentPage;
         Logic.sections.forEach(section => section.entries.filter(e => e.page).forEach(e => {
-            entry(app, e.page).clicked(null);
-            tryVerify(() => app.pageStack.currentPage !== main && app.pageStack.currentPage.status === PageStatus.Active, 3000, e.page);
-            const name = String(app.pageStack.currentPage);
-            verify(name.indexOf(Logic.pageFile(e.page).replace(".qml", "")) === 0, e.page + " opened " + name);
-            app.pageStack.pop(undefined, PageStackAction.Immediate);
-            tryVerify(() => app.pageStack.currentPage === main && main.status === PageStatus.Active);
-        }));
+                entry(app, e.page).clicked(null);
+                tryVerify(() => app.pageStack.currentPage !== main && app.pageStack.currentPage.status === PageStatus.Active, 3000, e.page);
+                const name = String(app.pageStack.currentPage);
+                verify(name.indexOf(Logic.pageFile(e.page).replace(".qml", "")) === 0, e.page + " opened " + name);
+                app.pageStack.pop(undefined, PageStackAction.Immediate);
+                tryVerify(() => app.pageStack.currentPage === main && main.status === PageStatus.Active);
+            }));
     }
 
     function test_everyRouteOpens() {

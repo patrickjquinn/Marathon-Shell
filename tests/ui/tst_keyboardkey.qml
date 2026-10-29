@@ -33,9 +33,21 @@ TestCase {
         }
     }
 
-    SignalSpy { id: clickedSpy; target: key; signalName: "clicked" }
-    SignalSpy { id: alternateSpy; target: key; signalName: "alternateSelected" }
-    SignalSpy { id: holdSpy; target: key; signalName: "pressAndHold" }
+    SignalSpy {
+        id: clickedSpy
+        target: key
+        signalName: "clicked"
+    }
+    SignalSpy {
+        id: alternateSpy
+        target: key
+        signalName: "alternateSelected"
+    }
+    SignalSpy {
+        id: holdSpy
+        target: key
+        signalName: "pressAndHold"
+    }
 
     function init() {
         key.alternateChars = ["à", "á", "â"];

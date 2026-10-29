@@ -85,10 +85,14 @@ ApplicationWindow {
         if (callPage)
             return;
         if (incomingPage && pageStack.currentPage === incomingPage) {
-            callPage = pageStack.replace(Qt.resolvedUrl("pages/ActiveCallPage.qml"), { phone: root });
+            callPage = pageStack.replace(Qt.resolvedUrl("pages/ActiveCallPage.qml"), {
+                phone: root
+            });
             incomingPage = null;
         } else {
-            callPage = pageStack.push(Qt.resolvedUrl("pages/ActiveCallPage.qml"), { phone: root });
+            callPage = pageStack.push(Qt.resolvedUrl("pages/ActiveCallPage.qml"), {
+                phone: root
+            });
         }
     }
 
@@ -101,7 +105,9 @@ ApplicationWindow {
         callName = contactName(number);
         callStartedAt = 0;
         if (!incomingPage && !callPage)
-            incomingPage = pageStack.push(Qt.resolvedUrl("pages/IncomingCallPage.qml"), { phone: root });
+            incomingPage = pageStack.push(Qt.resolvedUrl("pages/IncomingCallPage.qml"), {
+                phone: root
+            });
     }
 
     function finishCall() {
@@ -132,7 +138,10 @@ ApplicationWindow {
     }
 
     function sendMessage(number) {
-        Navigation.launchAppWithRoute("messages", "conversation", JSON.stringify({ number: number, name: contactName(number) }));
+        Navigation.launchAppWithRoute("messages", "conversation", JSON.stringify({
+            number: number,
+            name: contactName(number)
+        }));
     }
 
     appId: "phone"

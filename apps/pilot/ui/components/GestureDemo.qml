@@ -36,29 +36,59 @@ Item {
         SequentialAnimation on opacity {
             loops: Animation.Infinite
             running: finger.animate
-            ScriptAction { script: finger.held = false }
-            PauseAnimation { duration: 500 }
-            NumberAnimation { to: 1; duration: 200 }
-            PauseAnimation { duration: 800 }
-            ScriptAction { script: finger.held = true }
-            PauseAnimation { duration: 1400 }
-            NumberAnimation { to: 0; duration: 200 }
+            ScriptAction {
+                script: finger.held = false
+            }
+            PauseAnimation {
+                duration: 500
+            }
+            NumberAnimation {
+                to: 1
+                duration: 200
+            }
+            PauseAnimation {
+                duration: 800
+            }
+            ScriptAction {
+                script: finger.held = true
+            }
+            PauseAnimation {
+                duration: 1400
+            }
+            NumberAnimation {
+                to: 0
+                duration: 200
+            }
         }
     }
     // The glowing bar at the bottom edge.
     Rectangle {
-        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: Theme.paddingSmall }
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            bottom: parent.bottom
+            bottomMargin: Theme.paddingSmall
+        }
         width: parent.width * (finger.held ? 0.45 : 0.3)
         height: Theme.paddingSmall
         radius: height / 2
         color: Theme.highlightColor
-        Behavior on width { NumberAnimation { duration: 300 } }
+        Behavior on width {
+            NumberAnimation {
+                duration: 300
+            }
+        }
     }
     Orb {
-        anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: parent.height * 0.18 }
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            top: parent.top
+            topMargin: parent.height * 0.18
+        }
         width: Theme.itemSizeMedium
         height: width
         opacity: finger.held ? 1 : 0
-        Behavior on opacity { FadeAnimator {} }
+        Behavior on opacity {
+            FadeAnimator {}
+        }
     }
 }

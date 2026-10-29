@@ -12,6 +12,10 @@ QtObject {
         granted = true;
         requests = [];
     }
-    function hasPermission(appId, permission) { return granted; }
-    function requestPermission(appId, permission) { requests = requests.concat([permission]); }
+    function hasPermission(appId, permission) {
+        return granted;
+    }
+    function requestPermission(appId, permission) {
+        requests = requests.concat([permission]);
+    }
 }

@@ -17,23 +17,41 @@ TestCase {
 
     Component {
         id: appComponent
-        GalleryApp { width: 720; height: 1440 }
+        GalleryApp {
+            width: 720
+            height: 1440
+        }
     }
 
     function photo(id) {
-        return { id: id, path: Qt.resolvedUrl("data/photo" + id + ".png").toString(), thumbnailPath: "",
-                 album: "Trip", width: 48, height: 36, timestamp: new Date(2026, 0, id).getTime() };
+        return {
+            id: id,
+            path: Qt.resolvedUrl("data/photo" + id + ".png").toString(),
+            thumbnailPath: "",
+            album: "Trip",
+            width: 48,
+            height: 36,
+            timestamp: new Date(2026, 0, id).getTime()
+        };
     }
 
     function openViewer(index) {
         MediaLibrary.photos = [photo(1), photo(2), photo(3)];
         MediaLibrary.deleted = [];
         const app = createTemporaryObject(appComponent, testCase);
-        tryVerify(function () { return app.photos.length === 3 && app.pageStack.currentPage !== null; });
-        app.pageStack.push(Qt.resolvedUrl("../pages/PhotoViewerPage.qml"),
-                           { store: app, photos: app.photos, currentIndex: index });
+        tryVerify(function () {
+            return app.photos.length === 3 && app.pageStack.currentPage !== null;
+        });
+        app.pageStack.push(Qt.resolvedUrl("../pages/PhotoViewerPage.qml"), {
+            store: app,
+            photos: app.photos,
+            currentIndex: index
+        });
         tryCompare(app.pageStack, "busy", false);
-        return { app: app, page: app.pageStack.currentPage };
+        return {
+            app: app,
+            page: app.pageStack.currentPage
+        };
     }
 
     function test_startsAtGivenPhoto() {
@@ -45,7 +63,9 @@ TestCase {
 
     function test_keysStepThroughPhotos() {
         const t = openViewer(0);
-        tryVerify(function () { return t.page.activeFocus; });
+        tryVerify(function () {
+            return t.page.activeFocus;
+        });
         keyClick(Qt.Key_Right);
         compare(t.page.photo.id, 2);
         compare(t.app.viewerPhoto.id, 2);
@@ -78,7 +98,9 @@ TestCase {
         const t = openViewer(0);
         verify(t.page.overlayShown);
         mouseClick(t.page, t.page.width / 2, t.page.height / 2);
-        tryVerify(function () { return !t.page.overlayShown; }, 2000);
+        tryVerify(function () {
+            return !t.page.overlayShown;
+        }, 2000);
     }
 
     function test_deleteWaitsForRemorseThenRemoves() {
@@ -108,8 +130,14 @@ TestCase {
         MediaLibrary.photos = [photo(1)];
         MediaLibrary.deleted = [];
         const app = createTemporaryObject(appComponent, testCase);
-        tryVerify(function () { return app.photos.length === 1 && app.pageStack.currentPage !== null; });
-        app.pageStack.push(Qt.resolvedUrl("../pages/PhotoViewerPage.qml"), { store: app, photos: app.photos, currentIndex: 0 });
+        tryVerify(function () {
+            return app.photos.length === 1 && app.pageStack.currentPage !== null;
+        });
+        app.pageStack.push(Qt.resolvedUrl("../pages/PhotoViewerPage.qml"), {
+            store: app,
+            photos: app.photos,
+            currentIndex: 0
+        });
         tryCompare(app.pageStack, "busy", false);
         findChild(app.pageStack.currentPage, "deleteAction").clicked();
         findChild(app.pageStack.currentPage, "remorse").trigger();

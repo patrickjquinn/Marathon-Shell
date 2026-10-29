@@ -17,16 +17,20 @@ TestCase {
     }
 
     function curves() {
-        const list = [{
+        const list = [
+            {
                 tag: "easingStandardCurve",
                 curve: Real.MMotion.easingStandardCurve
-            }, {
+            },
+            {
                 tag: "easingDecelerateCurve",
                 curve: Real.MMotion.easingDecelerateCurve
-            }, {
+            },
+            {
                 tag: "predictiveBackCurve",
                 curve: Real.MMotion.predictiveBackCurve
-            }];
+            }
+        ];
         for (const role in Real.MMotion.roles)
             list.push({
                 tag: role,

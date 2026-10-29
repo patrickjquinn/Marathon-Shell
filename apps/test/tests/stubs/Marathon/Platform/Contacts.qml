@@ -8,5 +8,7 @@ QtObject {
         calls = calls.concat([args]);
     }
 
-    function addContact(name, phone, email) { log("addContact", name, phone, email); }
+    function addContact(name, phone, email) {
+        log("addContact", name, phone, email);
+    }
 }

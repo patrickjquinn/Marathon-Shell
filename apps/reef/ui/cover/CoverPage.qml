@@ -48,8 +48,7 @@ CoverBackground {
             // As tall as its text needs at full size (one line or two),
             // at most what is left: only then does it shrink.
             readonly property real needed: (stateMetrics.advanceWidth > width ? 2 : 1) * stateLine.lineSpacing
-            height: Math.max(0, Math.min(needed, content.height - badge.height - content.spacing
-                                                 - (name.visible ? name.height + content.spacing : 0)))
+            height: Math.max(0, Math.min(needed, content.height - badge.height - content.spacing - (name.visible ? name.height + content.spacing : 0)))
             horizontalAlignment: Text.AlignHCenter
             // Between words only: a word too wide shrinks the text instead.
             wrapMode: Text.WordWrap

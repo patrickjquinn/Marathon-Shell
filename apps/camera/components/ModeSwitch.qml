@@ -14,8 +14,16 @@ Row {
 
     Repeater {
         model: ListModel {
-            ListElement { mode: "photo"; glyph: "image://theme/icon-m-camera"; label: qsTr("Photo") }
-            ListElement { mode: "video"; glyph: "image://theme/icon-m-video"; label: qsTr("Video") }
+            ListElement {
+                mode: "photo"
+                glyph: "image://theme/icon-m-camera"
+                label: qsTr("Photo")
+            }
+            ListElement {
+                mode: "video"
+                glyph: "image://theme/icon-m-video"
+                label: qsTr("Video")
+            }
         }
 
         delegate: Column {

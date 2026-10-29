@@ -37,7 +37,10 @@ TestCase {
         verify(app.openPage(name, PageStackAction.Immediate));
         const page = app.pageStack.currentPage;
         tryCompare(page, "status", PageStatus.Active);
-        return { app: app, page: page };
+        return {
+            app: app,
+            page: page
+        };
     }
 
     function child(parent, name) {
@@ -80,7 +83,15 @@ TestCase {
     }
 
     function test_savedNetworkConnectsWithoutPassword() {
-        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true, known: true }];
+        Network.availableNetworks = [
+            {
+                ssid: "Home",
+                strength: 80,
+                security: "WPA2",
+                secured: true,
+                known: true
+            }
+        ];
         const s = open("wifi");
         child(s.page, "network-Home").clicked(null);
         compare(SettingsController.calls, [["wifiPassword", "Home", ""]]);
@@ -92,7 +103,14 @@ TestCase {
     }
 
     function test_retryKeepsThePassword() {
-        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true }];
+        Network.availableNetworks = [
+            {
+                ssid: "Home",
+                strength: 80,
+                security: "WPA2",
+                secured: true
+            }
+        ];
         const s = open("wifi");
         child(s.page, "network-Home").clicked(null);
         const dialog = activeDialog(s.app);
@@ -105,7 +123,20 @@ TestCase {
     }
 
     function test_forgetSavedNetwork() {
-        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true, known: true }, { ssid: "Cafe", strength: 30, secured: false }];
+        Network.availableNetworks = [
+            {
+                ssid: "Home",
+                strength: 80,
+                security: "WPA2",
+                secured: true,
+                known: true
+            },
+            {
+                ssid: "Cafe",
+                strength: 30,
+                secured: false
+            }
+        ];
         const s = open("wifi");
         verify(child(s.page, "network-Cafe").menu === null);
         const menu = child(s.page, "network-Home").openMenu();
@@ -151,7 +182,20 @@ TestCase {
     }
 
     function test_wifiListsNetworksAndCurrent() {
-        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true }, { ssid: "Cafe", strength: 30, security: "", secured: false }];
+        Network.availableNetworks = [
+            {
+                ssid: "Home",
+                strength: 80,
+                security: "WPA2",
+                secured: true
+            },
+            {
+                ssid: "Cafe",
+                strength: 30,
+                security: "",
+                secured: false
+            }
+        ];
         Network.wifiConnected = true;
         Network.wifiSsid = "Home";
         Network.wifiSignalStrength = 80;
@@ -165,7 +209,14 @@ TestCase {
     }
 
     function test_wifiPasswordDialog() {
-        Network.availableNetworks = [{ ssid: "Home", strength: 80, security: "WPA2", secured: true }];
+        Network.availableNetworks = [
+            {
+                ssid: "Home",
+                strength: 80,
+                security: "WPA2",
+                secured: true
+            }
+        ];
         const s = open("wifi");
         child(s.page, "network-Home").clicked(null);
         const dialog = activeDialog(s.app);
@@ -188,7 +239,14 @@ TestCase {
     }
 
     function test_openNetworkNeedsNoPassword() {
-        Network.availableNetworks = [{ ssid: "Cafe", strength: 30, security: "", secured: false }];
+        Network.availableNetworks = [
+            {
+                ssid: "Cafe",
+                strength: 30,
+                security: "",
+                secured: false
+            }
+        ];
         const s = open("wifi");
         child(s.page, "network-Cafe").clicked(null);
         const dialog = activeDialog(s.app);
@@ -208,7 +266,20 @@ TestCase {
         compare(child(s.page, "pairedDevices").count, 0);
         child(s.page, "bluetoothSwitch").clicked(null);
         verify(Bluetooth.enabled);
-        Bluetooth.pairedDevices = [{ name: "Buds", address: "AA", connected: true, paired: true }, { name: "Keys", address: "BB", connected: false, paired: true }];
+        Bluetooth.pairedDevices = [
+            {
+                name: "Buds",
+                address: "AA",
+                connected: true,
+                paired: true
+            },
+            {
+                name: "Keys",
+                address: "BB",
+                connected: false,
+                paired: true
+            }
+        ];
         compare(child(s.page, "pairedDevices").count, 2);
         verify(Bluetooth.scanning);
         Bluetooth.calls = [];
@@ -218,7 +289,20 @@ TestCase {
         compare(child(s.page, "paired-BB").subtitle, "Connecting…");
         verify(!child(s.page, "paired-BB").enabled);
         compare(child(s.page, "paired-AA").subtitle, "Connected");
-        Bluetooth.pairedDevices = [{ name: "Buds", address: "AA", connected: true, paired: true }, { name: "Keys", address: "BB", connected: true, paired: true }];
+        Bluetooth.pairedDevices = [
+            {
+                name: "Buds",
+                address: "AA",
+                connected: true,
+                paired: true
+            },
+            {
+                name: "Keys",
+                address: "BB",
+                connected: true,
+                paired: true
+            }
+        ];
         compare(child(s.page, "paired-BB").subtitle, "Connected");
         verify(child(s.page, "paired-BB").enabled);
         verify(child(s.page, "noDevices").visible);
@@ -238,7 +322,14 @@ TestCase {
 
     function test_bluetoothRemovePaired() {
         Bluetooth.enabled = true;
-        Bluetooth.pairedDevices = [{ name: "Buds", address: "AA", connected: false, paired: true }];
+        Bluetooth.pairedDevices = [
+            {
+                name: "Buds",
+                address: "AA",
+                connected: false,
+                paired: true
+            }
+        ];
         const s = open("bluetooth");
         const menu = child(s.page, "paired-AA").openMenu();
         tryVerify(() => menu._open && menu.height > 0);
@@ -251,7 +342,19 @@ TestCase {
 
     function test_bluetoothPairJustWorks() {
         Bluetooth.enabled = true;
-        Bluetooth.devices = [{ name: "Speaker", address: "CC", paired: false, rssi: -60 }, { name: "Buds", address: "AA", paired: true }];
+        Bluetooth.devices = [
+            {
+                name: "Speaker",
+                address: "CC",
+                paired: false,
+                rssi: -60
+            },
+            {
+                name: "Buds",
+                address: "AA",
+                paired: true
+            }
+        ];
         const s = open("bluetooth");
         compare(child(s.page, "availableDevices").count, 1);
         child(s.page, "device-CC").clicked(null);

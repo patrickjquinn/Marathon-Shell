@@ -43,11 +43,13 @@ TestCase {
         underneath.taps = 0;
         AlarmManagerCpp.dismissed = [];
         AlarmManagerCpp.snoozed = [];
-        AlarmManagerCpp.activeAlarms = [{
+        AlarmManagerCpp.activeAlarms = [
+            {
                 "id": "a1",
                 "snoozeEnabled": true,
                 "snoozeDuration": 5
-            }];
+            }
+        ];
         Modem.activeBroadcasts = [];
         Modem.callState = "idle";
         SessionStore.isLocked = false;
@@ -99,10 +101,12 @@ TestCase {
     }
 
     function test_alarmHidesSnoozeWhenDisabled() {
-        AlarmManagerCpp.activeAlarms = [{
+        AlarmManagerCpp.activeAlarms = [
+            {
                 "id": "a1",
                 "snoozeEnabled": false
-            }];
+            }
+        ];
         alarm.show({
             "id": "a1",
             "label": "Wake"
@@ -111,12 +115,14 @@ TestCase {
     }
 
     function test_broadcastSwallowsTaps() {
-        Modem.activeBroadcasts = [{
+        Modem.activeBroadcasts = [
+            {
                 "path": "/cb/1",
                 "category": "amber",
                 "text": "Alert",
                 "nonDismissable": false
-            }];
+            }
+        ];
         verify(broadcast.visible);
         mouseClick(win.contentItem, 20, 40);
         compare(underneath.taps, 0);

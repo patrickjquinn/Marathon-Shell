@@ -59,5 +59,7 @@ QtObject {
         recordingChanged();
         videoSaved("file:///pictures/VID_1.mp4");
     }
-    function focusOnPoint(x, y) { record("focusOnPoint"); }
+    function focusOnPoint(x, y) {
+        record("focusOnPoint");
+    }
 }

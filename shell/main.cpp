@@ -152,20 +152,27 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
     };
     viewport();
     QObject::connect(wc, &WaylandCompositor::appViewportSizeChanged, tasks, viewport);
-    QObject::connect(tasks, &Tasks::spawnRequested, wc,
-                     [=](const QString &command, const QVariantMap &env) { wc->launchApp(command, env); });
+    QObject::connect(
+        tasks, &Tasks::spawnRequested, wc,
+        [=](const QString &command, const QVariantMap &env) { wc->launchApp(command, env); });
     QObject::connect(tasks, &Tasks::closeWindowRequested, wc, &WaylandCompositor::closeWindow);
     QObject::connect(tasks, &Tasks::sandboxSocketRequested, wc,
-                     [=](const QString &appId, const QString &instance) { wc->openSandboxSocket(appId, instance); });
-    QObject::connect(tasks, &Tasks::sandboxSocketClosed, wc, &WaylandCompositor::closeSandboxSocket);
+                     [=](const QString &appId, const QString &instance) {
+                         wc->openSandboxSocket(appId, instance);
+                     });
+    QObject::connect(tasks, &Tasks::sandboxSocketClosed, wc,
+                     &WaylandCompositor::closeSandboxSocket);
     QObject::connect(tasks, &Tasks::sandboxAppAssigned, wc, &WaylandCompositor::assignSandboxApp);
     QObject::connect(tasks, &Tasks::nativeBackRequested, wc, &WaylandCompositor::sendNativeBack);
-    QObject::connect(tasks, &Tasks::nativeForwardRequested, wc, &WaylandCompositor::sendNativeForward);
+    QObject::connect(tasks, &Tasks::nativeForwardRequested, wc,
+                     &WaylandCompositor::sendNativeForward);
 
     QObject::connect(wc, &WaylandCompositor::appLaunched, tasks,
                      [=](const QString &command, int pid) { tasks->appLaunched(command, pid); });
-    QObject::connect(wc, &WaylandCompositor::appClosed, tasks, [=](int pid) { tasks->appClosed(pid); });
-    QObject::connect(wc, &WaylandCompositor::nativeBackUnhandled, tasks, &Tasks::nativeBackUnhandled);
+    QObject::connect(wc, &WaylandCompositor::appClosed, tasks,
+                     [=](int pid) { tasks->appClosed(pid); });
+    QObject::connect(wc, &WaylandCompositor::nativeBackUnhandled, tasks,
+                     &Tasks::nativeBackUnhandled);
     QObject::connect(wc, &WaylandCompositor::surfaceDestroyed, tasks,
                      [=](QWaylandSurface *, int surfaceId) { tasks->windowDestroyed(surfaceId); });
     QObject::connect(wc, &WaylandCompositor::surfaceActivated, tasks,
@@ -177,29 +184,33 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
     };
     QObject::connect(wc, &WaylandCompositor::dialogCreated, tasks,
                      [=](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *) {
-                         tasks->dialogMapped(clientPid(surface), wc->sandboxAppId(surface->client()->client()), surfaceId);
+                         tasks->dialogMapped(clientPid(surface),
+                                             wc->sandboxAppId(surface->client()->client()),
+                                             surfaceId);
                      });
-    QObject::connect(
-        wc, &WaylandCompositor::surfaceCreated, tasks,
-        [=](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdg) {
-            if (!surface)
-                return;
-            const qint64  pid       = clientPid(surface);
-            const QString sandboxId = surface->client() ? wc->sandboxAppId(surface->client()->client()) : QString();
-            QString       xdgAppId, title;
-            if (xdg && xdg->toplevel()) {
-                xdgAppId = xdg->toplevel()->appId();
-                title    = xdg->toplevel()->title();
-            }
-            const bool shown = tasks->windowMapped(pid, pid, xdgAppId, title, sandboxId, surfaceId,
-                                                   wc->recentUserInput(2000));
-            // Read by the compositor: the window's first configure, and
-            // whether it may be configured only to change something.
-            surface->setProperty("mappedInBackground", !shown);
-            surface->setProperty("foreignClient", tasks->isForeignWindow(surfaceId));
-            if (!shown)
-                ForeignFocus::keepFront(wc->defaultSeat(), surface);
-        });
+    QObject::connect(wc, &WaylandCompositor::surfaceCreated, tasks,
+                     [=](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdg) {
+                         if (!surface)
+                             return;
+                         const qint64  pid       = clientPid(surface);
+                         const QString sandboxId = surface->client() ?
+                             wc->sandboxAppId(surface->client()->client()) :
+                             QString();
+                         QString       xdgAppId, title;
+                         if (xdg && xdg->toplevel()) {
+                             xdgAppId = xdg->toplevel()->appId();
+                             title    = xdg->toplevel()->title();
+                         }
+                         const bool shown =
+                             tasks->windowMapped(pid, pid, xdgAppId, title, sandboxId, surfaceId,
+                                                 wc->recentUserInput(2000));
+                         // Read by the compositor: the window's first configure, and
+                         // whether it may be configured only to change something.
+                         surface->setProperty("mappedInBackground", !shown);
+                         surface->setProperty("foreignClient", tasks->isForeignWindow(surfaceId));
+                         if (!shown)
+                             ForeignFocus::keepFront(wc->defaultSeat(), surface);
+                     });
 }
 #endif
 
@@ -261,9 +272,9 @@ static QMutex &logMutex() {
     static QMutex m;
     return m;
 }
-static bool         g_debugEnabled = false;
-static void         marathonMessageHandler(QtMsgType type, const QMessageLogContext &context,
-                                           const QString &msg) {
+static bool g_debugEnabled = false;
+static void marathonMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                                   const QString &msg) {
 
     QMutexLocker locker(&logMutex());
 
@@ -327,7 +338,7 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
     }
 }
 
-#include <utility>   // std::as_const
+#include <utility> // std::as_const
 #include <QtPlugin>
 
 Q_IMPORT_PLUGIN(MarathonInputContextPlugin)
@@ -338,7 +349,11 @@ static void startupMark(const char *phase) {
     static const bool on = qEnvironmentVariableIntValue("MARATHON_STARTUP_TIMING") != 0;
     if (!on)
         return;
-    static QElapsedTimer t = [] { QElapsedTimer e; e.start(); return e; }();
+    static QElapsedTimer t = [] {
+        QElapsedTimer e;
+        e.start();
+        return e;
+    }();
     fprintf(stderr, "[Startup] %lld ms %s\n", static_cast<long long>(t.elapsed()), phase);
 }
 
@@ -359,7 +374,6 @@ int main(int argc, char *argv[]) {
     // this code path. See doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph-renderer.html.
     if (!qEnvironmentVariableIsSet("QSG_ANTIALIASING_METHOD"))
         qputenv("QSG_ANTIALIASING_METHOD", "vertex");
-
 
     QString debugEnv     = qgetenv("MARATHON_DEBUG");
     bool    debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
@@ -458,7 +472,8 @@ int main(int argc, char *argv[]) {
     if (qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs"))) {
         const int waited = marathon::device::wait_for_drm_master(5000);
         if (waited < 0)
-            qCritical() << "[MarathonShell] DRM master still held after 5 s; the display will not update";
+            qCritical()
+                << "[MarathonShell] DRM master still held after 5 s; the display will not update";
         else if (waited > 0)
             qWarning() << "[MarathonShell] waited" << waited << "ms for DRM master";
     }
@@ -466,7 +481,8 @@ int main(int argc, char *argv[]) {
     // Touch comes from Qt's evdevtouch, read on its own thread with the
     // device's parameters; 71-marathon-touch.rules hides touchscreens from
     // libinput, which eglfs reads on the GUI thread.
-    const bool evdevTouch = qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs")) &&
+    const bool evdevTouch =
+        qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs")) &&
         !qEnvironmentVariableIsSet("QT_QPA_GENERIC_PLUGINS");
     QStringList touchSpec;
     if (evdevTouch) {
@@ -743,9 +759,10 @@ int main(int argc, char *argv[]) {
     settingsManager->setParent(&app);
     settingsManager->load(device.screen_timeout_ms);
     qmlRegisterSingletonInstance<marathon::Settings>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
-                                                  settingsManager);
+                                                     settingsManager);
 
-    auto *translations = new Translations({QStringLiteral("shell"), QStringLiteral("silica")}, &app);
+    auto *translations =
+        new Translations({QStringLiteral("shell"), QStringLiteral("silica")}, &app);
     const auto speak = [translations, settingsManager] {
         translations->install(settingsManager->getLanguage());
         marathon::i18n::export_to_session();
@@ -762,13 +779,13 @@ int main(int argc, char *argv[]) {
                          ambienceService->setWallpaper(settingsManager->getWallpaperPath());
                      });
     qmlRegisterSingletonInstance<marathon::Ambience>("MarathonOS.Shell", 1, 0, "AmbienceService",
-                                                  ambienceService);
+                                                     ambienceService);
     // Keel picks phone or tablet metrics (page margins, ...) from the panel's
     // physical size; a DT that misreports it (the HackberryPi's doubled
     // width-mm) gives a phone tablet margins. The profile's true DPI wins.
     if (!qEnvironmentVariableIsSet("KEEL_SCREEN_DIAGONAL") && device.panel_dpi > 0) {
         if (const QScreen *screen = QGuiApplication::primaryScreen()) {
-            const QSize px = screen->size() * screen->devicePixelRatio();
+            const QSize px     = screen->size() * screen->devicePixelRatio();
             const qreal inches = std::hypot(px.width(), px.height()) / device.panel_dpi;
             qputenv("KEEL_SCREEN_DIAGONAL", QByteArray::number(inches, 'f', 2));
         }
@@ -788,7 +805,8 @@ int main(int argc, char *argv[]) {
             }
         };
         update();
-        QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged, ambienceService, update);
+        QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged,
+                         ambienceService, update);
         QObject::connect(screenMetrics, &ScreenMetrics::metricsChanged, ambienceService, update);
     }
 
@@ -800,10 +818,10 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_WAYLAND
     // Native apps follow the interface size too, from the DPI the shell scales by.
     {
-        auto update = [compositorManager, settingsManager, screenMetrics, scale = device.native_scale]() {
-            compositorManager->setNativeScale(
-                NativeClientScale::fromDpi(screenMetrics->dpi(), settingsManager->getUserScaleFactor(),
-                                           scale));
+        auto update = [compositorManager, settingsManager, screenMetrics,
+                       scale = device.native_scale]() {
+            compositorManager->setNativeScale(NativeClientScale::fromDpi(
+                screenMetrics->dpi(), settingsManager->getUserScaleFactor(), scale));
         };
         update();
         QObject::connect(settingsManager, &marathon::Settings::userScaleFactorChanged,
@@ -903,12 +921,10 @@ int main(int argc, char *argv[]) {
     startupMark("models");
     auto *network = new Network();
     network->setParent(&app);
-    qmlRegisterSingletonInstance<Network>("MarathonOS.Shell", 1, 0, "Network",
-                                                    network);
+    qmlRegisterSingletonInstance<Network>("MarathonOS.Shell", 1, 0, "Network", network);
     auto *power = new Power();
     power->setParent(&app);
-    qmlRegisterSingletonInstance<Power>("MarathonOS.Shell", 1, 0, "Power",
-                                                  power);
+    qmlRegisterSingletonInstance<Power>("MarathonOS.Shell", 1, 0, "Power", power);
     auto *display = new marathon::Display();
     display->setParent(&app);
     display->start(QStringLiteral("/sys/class/backlight"), QStringLiteral("/sys/bus/iio/devices"),
@@ -985,8 +1001,8 @@ int main(int argc, char *argv[]) {
     };
     QObject::connect(locationManager, &Location::locationChanged, settingsManager,
                      automaticTimeZone);
-    QObject::connect(settingsManager, &marathon::Settings::automaticTimeZoneChanged, settingsManager,
-                     automaticTimeZone);
+    QObject::connect(settingsManager, &marathon::Settings::automaticTimeZoneChanged,
+                     settingsManager, automaticTimeZone);
     auto *hapticManager = new Haptics();
     hapticManager->setParent(&app);
     qmlRegisterSingletonInstance<Haptics>("MarathonOS.Shell", 1, 0, "HapticManager", hapticManager);
@@ -997,9 +1013,10 @@ int main(int argc, char *argv[]) {
                      });
     auto *ngf = new marathon::Ngf();
     ngf->setParent(&app);
-    QObject::connect(ngf, &marathon::Ngf::vibrate, hapticManager, [hapticManager](const QList<int> &pattern) {
-        hapticManager->vibratePattern(QVariantList(pattern.begin(), pattern.end()));
-    });
+    QObject::connect(
+        ngf, &marathon::Ngf::vibrate, hapticManager, [hapticManager](const QList<int> &pattern) {
+            hapticManager->vibratePattern(QVariantList(pattern.begin(), pattern.end()));
+        });
     QObject::connect(ngf, &marathon::Ngf::stopVibration, hapticManager, &Haptics::cancelVibration);
     auto *clipboard = new Clipboard();
     clipboard->setParent(&app);
@@ -1020,16 +1037,16 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("FlashlightManagerCpp", flashlightManager);
     auto *security = new Security();
     security->setParent(&app);
-    qmlRegisterSingletonInstance<Security>("MarathonOS.Shell", 1, 0, "Security",
-                                                  security);
+    qmlRegisterSingletonInstance<Security>("MarathonOS.Shell", 1, 0, "Security", security);
 
     startupMark("sensors, location, security");
     {
         QScreen    *screen = QGuiApplication::primaryScreen();
         const qreal dpi    = ScreenMetrics::computeDpi(screen);
         tasks->setDevice({
-            {QStringLiteral("thumbnails"), QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
-                                               QStringLiteral("/marathon/thumbnails")},
+            {QStringLiteral("thumbnails"),
+             QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+                 QStringLiteral("/marathon/thumbnails")},
             {QStringLiteral("dpi"), dpi > 0 ? dpi : 160.0},
             {QStringLiteral("screenWidth"), screen ? screen->geometry().width() : 0},
             {QStringLiteral("screenHeight"), screen ? screen->geometry().height() : 0},
@@ -1056,7 +1073,7 @@ int main(int argc, char *argv[]) {
     {
         static int termPipe[2] = {-1, -1};
         if (::pipe2(termPipe, O_CLOEXEC | O_NONBLOCK) == 0) {
-            struct sigaction sa {};
+            struct sigaction sa{};
             sa.sa_handler = [](int) {
                 const int  savedErrno = errno;
                 const char b          = 1;
@@ -1068,21 +1085,19 @@ int main(int argc, char *argv[]) {
             for (const int sig : {SIGTERM, SIGINT, SIGHUP})
                 ::sigaction(sig, &sa, nullptr);
             auto *sn = new QSocketNotifier(termPipe[0], QSocketNotifier::Read, &app);
-            QObject::connect(sn, &QSocketNotifier::activated, tasks,
-                             [tasks]() {
-                                 char drain[16];
-                                 (void)::read(termPipe[0], drain, sizeof(drain));
-                                 qInfo() << "[MarathonShell] session stop: closing apps";
-                                 tasks->stopAllApps(3000);
-                             });
+            QObject::connect(sn, &QSocketNotifier::activated, tasks, [tasks]() {
+                char drain[16];
+                (void)::read(termPipe[0], drain, sizeof(drain));
+                qInfo() << "[MarathonShell] session stop: closing apps";
+                tasks->stopAllApps(3000);
+            });
             // Skip Qt teardown: the next shell waits on our exit for DRM master.
-            QObject::connect(tasks, &Tasks::allAppsStopped,
-                             settingsManager, [settingsManager]() {
-                                 settingsManager->sync();
-                                 qInfo() << "[MarathonShell] session stop: apps closed, exiting";
-                                 std::fflush(nullptr);
-                                 ::_exit(0);
-                             });
+            QObject::connect(tasks, &Tasks::allAppsStopped, settingsManager, [settingsManager]() {
+                settingsManager->sync();
+                qInfo() << "[MarathonShell] session stop: apps closed, exiting";
+                std::fflush(nullptr);
+                ::_exit(0);
+            });
         }
     }
 
@@ -1151,14 +1166,13 @@ int main(int argc, char *argv[]) {
         app.installEventFilter(new WakeOnKeyFilter([display]() { return !display->getScreenOn(); },
                                                    [display]() { display->turnScreenOn(); }, &app));
     }
-    QObject::connect(alarmManager, &Alarms::ringing, audioManager,
-                     [=](bool sound, bool vibrate) {
-                         power->acquireWakelock(QStringLiteral("alarm_ringing"));
-                         if (sound)
-                             audioManager->playAlarmSound();
-                         if (vibrate)
-                             hapticManager->vibratePattern({500, 500});
-                     });
+    QObject::connect(alarmManager, &Alarms::ringing, audioManager, [=](bool sound, bool vibrate) {
+        power->acquireWakelock(QStringLiteral("alarm_ringing"));
+        if (sound)
+            audioManager->playAlarmSound();
+        if (vibrate)
+            hapticManager->vibratePattern({500, 500});
+    });
     QObject::connect(alarmManager, &Alarms::silenced, audioManager, [=] {
         audioManager->stopAlarmSound();
         hapticManager->cancelVibration();
@@ -1215,18 +1229,16 @@ int main(int argc, char *argv[]) {
         qInfo() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
     }
 
-    QObject::connect(audioManager, &marathon::Audio::isPlayingChanged, power,
-                     [power, audioManager]() {
-                         if (audioManager->getIsPlaying()) {
-                             power->acquireWakelock("audio_playback");
-                             qInfo()
-                                 << "[MarathonShell] Audio playback started - acquired wakelock";
-                         } else {
-                             power->releaseWakelock("audio_playback");
-                             qInfo()
-                                 << "[MarathonShell] Audio playback stopped - released wakelock";
-                         }
-                     });
+    QObject::connect(
+        audioManager, &marathon::Audio::isPlayingChanged, power, [power, audioManager]() {
+            if (audioManager->getIsPlaying()) {
+                power->acquireWakelock("audio_playback");
+                qInfo() << "[MarathonShell] Audio playback started - acquired wakelock";
+            } else {
+                power->releaseWakelock("audio_playback");
+                qInfo() << "[MarathonShell] Audio playback stopped - released wakelock";
+            }
+        });
     qInfo() << "[MarathonShell] Audio playback wakelock integration enabled";
 
     qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
@@ -1238,8 +1250,8 @@ int main(int argc, char *argv[]) {
                                                        dictionary);
     auto *domainSuggestions = new marathon::DomainSuggestions();
     domainSuggestions->setParent(&app);
-    qmlRegisterSingletonInstance<marathon::DomainSuggestions>("MarathonOS.Shell", 1, 0,
-                                                              "DomainSuggestions", domainSuggestions);
+    qmlRegisterSingletonInstance<marathon::DomainSuggestions>(
+        "MarathonOS.Shell", 1, 0, "DomainSuggestions", domainSuggestions);
     auto *layouts = new KeyboardLayouts();
     layouts->setParent(&app);
     QObject::connect(layouts, &KeyboardLayouts::languageChanged, dictionary,
@@ -1253,17 +1265,19 @@ int main(int argc, char *argv[]) {
     });
     layouts->loadLanguage(settingsManager->getKeyboardLanguage());
     startupMark("keyboard engine");
-    qmlRegisterSingletonInstance<KeyboardLayouts>("MarathonOS.Shell", 1, 0, "LanguageManager", layouts);
+    qmlRegisterSingletonInstance<KeyboardLayouts>("MarathonOS.Shell", 1, 0, "LanguageManager",
+                                                  layouts);
 
     qInfo() << "[MarathonShell] Initializing Marathon Service Bus (D-Bus)...";
-    QDBusConnection           bus              = QDBusConnection::sessionBus();
+    QDBusConnection bus = QDBusConnection::sessionBus();
     if (!bus.isConnected()) {
         qCritical() << "[MarathonShell] Failed to connect to D-Bus session bus!";
     } else {
         qInfo() << "[MarathonShell] Connected to D-Bus session bus";
 
         const auto pushFallback = [settingsManager] {
-            marathon::push::set_fallback_notifications(settingsManager->getUnifiedPushFallbackEnabled());
+            marathon::push::set_fallback_notifications(
+                settingsManager->getUnifiedPushFallbackEnabled());
         };
         pushFallback();
         QObject::connect(settingsManager, &marathon::Settings::unifiedPushFallbackEnabledChanged,
@@ -1287,11 +1301,10 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<marathon::Permissions>("MarathonOS.Shell", 1, 0,
                                                         "PermissionManager", permissionManager);
 
-
-    auto *contacts           = new Contacts();
+    auto *contacts = new Contacts();
     contacts->setParent(&app);
     ctx->setContextProperty("ContactsManager", contacts);
-    auto *telephonyd         = new Telephonyd();
+    auto *telephonyd = new Telephonyd();
     telephonyd->setParent(&app);
     auto *updateService = new marathon::Updates();
     updateService->setParent(&app);
@@ -1313,25 +1326,24 @@ int main(int argc, char *argv[]) {
     QObject::connect(power, &Power::isPluggedInChanged, updateService, reconsider);
     QObject::connect(power, &Power::resumedFromSuspend, updateService, reconsider);
     QObject::connect(network, &Network::wifiConnectedChanged, updateService, reconsider);
-    QObject::connect(alarmManager, &Alarms::activeAlarmsChanged, updateService,
-                     reconsider);
+    QObject::connect(alarmManager, &Alarms::activeAlarmsChanged, updateService, reconsider);
     reconsider();
     // A suspended device wakes for the restart window, as for an alarm.
-    QObject::connect(updateService, &marathon::Updates::restartWindowChanged, power,
-                     [power](qint64 at) { power->setWakeTimer(QStringLiteral("update-restart"), at); });
+    QObject::connect(
+        updateService, &marathon::Updates::restartWindowChanged, power,
+        [power](qint64 at) { power->setWakeTimer(QStringLiteral("update-restart"), at); });
     ctx->setContextProperty("Telephonyd", telephonyd);
     // A message notification's Reply goes to its sender.
-    QObject::connect(notificationService, &Notifications::replied, telephonyd,
-                         [=](int id, const QString &text) {
-                             const QVariantMap n  = notificationService->getNotification(int(id));
-                             const QString     to = n.value(QStringLiteral("replyTarget")).toString();
-                             if (text.trimmed().isEmpty() || to.isEmpty() ||
-                                 n.value(QStringLiteral("appId")).toString() != QLatin1String("messages"))
-                                 return;
-                             telephonyd->sendMessage(to, text);
-                             notificationService->markAsRead(int(id));
-                         });
-
+    QObject::connect(
+        notificationService, &Notifications::replied, telephonyd, [=](int id, const QString &text) {
+            const QVariantMap n  = notificationService->getNotification(int(id));
+            const QString     to = n.value(QStringLiteral("replyTarget")).toString();
+            if (text.trimmed().isEmpty() || to.isEmpty() ||
+                n.value(QStringLiteral("appId")).toString() != QLatin1String("messages"))
+                return;
+            telephonyd->sendMessage(to, text);
+            notificationService->markAsRead(int(id));
+        });
 
     // PSI some-avg10: High (≥ 20%) sends apps a low-memory hint, Critical
     // (≥ 40%) kills the longest-frozen app. systemd-oomd on the slice is the
@@ -1342,12 +1354,13 @@ int main(int argc, char *argv[]) {
     QObject::connect(pressure, &marathon::MemoryPressure::critical, tasks,
                      [tasks] { tasks->killOldestFrozenApp(); });
 
-    qmlRegisterSingletonInstance<marathon::StorageMonitor>("MarathonOS.Shell", 1, 0, "StorageMonitor",
-                                                           new marathon::StorageMonitor());
+    qmlRegisterSingletonInstance<marathon::StorageMonitor>(
+        "MarathonOS.Shell", 1, 0, "StorageMonitor", new marathon::StorageMonitor());
 
     {
         QObject::connect(tasks, &Tasks::openAppRequested, uiStore,
-                         [uiStore](const QString &appId, const QString &name, const QString &icon, bool restore) {
+                         [uiStore](const QString &appId, const QString &name, const QString &icon,
+                                   bool restore) {
                              if (restore)
                                  uiStore->restoreApp(appId, name, icon);
                              else
@@ -1358,13 +1371,15 @@ int main(int argc, char *argv[]) {
         settle->setSingleShot(true);
         settle->setInterval(0);
         QObject::connect(settle, &QTimer::timeout, tasks, [=] {
-            tasks->setShellState(uiStore->getAppWindowOpen(), uiStore->getCurrentAppId(), sessionStore->getIsLocked(),
-                                 uiStore->getQuickSettingsOpen());
+            tasks->setShellState(uiStore->getAppWindowOpen(), uiStore->getCurrentAppId(),
+                                 sessionStore->getIsLocked(), uiStore->getQuickSettingsOpen());
         });
         QObject::connect(uiStore, &Ui::appWindowOpenChanged, settle, qOverload<>(&QTimer::start));
         QObject::connect(uiStore, &Ui::currentAppIdChanged, settle, qOverload<>(&QTimer::start));
-        QObject::connect(uiStore, &Ui::quickSettingsOpenChanged, settle, qOverload<>(&QTimer::start));
-        QObject::connect(sessionStore, &Session::isLockedChanged, settle, qOverload<>(&QTimer::start));
+        QObject::connect(uiStore, &Ui::quickSettingsOpenChanged, settle,
+                         qOverload<>(&QTimer::start));
+        QObject::connect(sessionStore, &Session::isLockedChanged, settle,
+                         qOverload<>(&QTimer::start));
         settle->start();
 #ifdef HAVE_WAYLAND
         QObject::connect(tasks, &Tasks::foregroundAppIdChanged, &app, [=] {
@@ -1381,7 +1396,6 @@ int main(int argc, char *argv[]) {
 
     QObject::connect(modem, &Modem::callEnded, telephonyd, &Telephonyd::logCall);
     qInfo() << "[MarathonShell] Call history wired to telephony";
-
 
     engine.addImportPath("qrc:/");
     engine.addImportPath(QStringLiteral("/usr/lib/qt6/qml"));
@@ -1472,135 +1486,135 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    QTimer::singleShot(
-        0, &app, [&app, settingsManager, appModel]() {
-            const QStringList searchPaths = {
-                "/usr/share/applications", "/usr/local/share/applications",
-                QDir::homePath() + "/.local/share/applications",
-                "/var/lib/flatpak/exports/share/applications",
-                QDir::homePath() + "/.local/share/flatpak/exports/share/applications"};
+    QTimer::singleShot(0, &app, [&app, settingsManager, appModel]() {
+        const QStringList searchPaths = {"/usr/share/applications", "/usr/local/share/applications",
+                                         QDir::homePath() + "/.local/share/applications",
+                                         "/var/lib/flatpak/exports/share/applications",
+                                         QDir::homePath() +
+                                             "/.local/share/flatpak/exports/share/applications"};
 
-            const bool filterMobile = settingsManager->getFilterMobileFriendlyApps();
+        const bool        filterMobile = settingsManager->getFilterMobileFriendlyApps();
 
 #ifdef HAVE_QT_CONCURRENT
-            auto *watcher = new QFutureWatcher<QVariantList>(&app);
-            QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, &app,
-                             [watcher, appModel]() {
-                                 const QVariantList nativeApps = watcher->result();
-                                 appModel->addApps(nativeApps);
-                                 watcher->deleteLater();
-                             });
+        auto *watcher = new QFutureWatcher<QVariantList>(&app);
+        QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, &app,
+                         [watcher, appModel]() {
+                             const QVariantList nativeApps = watcher->result();
+                             appModel->addApps(nativeApps);
+                             watcher->deleteLater();
+                         });
 
-            QFuture<QVariantList> future = QtConcurrent::run(
-                [searchPaths, filterMobile]() { return marathon::desktop::scan(searchPaths, filterMobile); });
-            watcher->setFuture(future);
+        QFuture<QVariantList> future = QtConcurrent::run([searchPaths, filterMobile]() {
+            return marathon::desktop::scan(searchPaths, filterMobile);
+        });
+        watcher->setFuture(future);
 #else
         const QVariantList nativeApps = marathon::desktop::scan(searchPaths, filterMobile);
         appModel->addApps(nativeApps);
 #endif
 
-            // Rescans parse every entry on the pool (Waydroid rewrites its
-            // entries while it runs) and apply the newest result here.
-            const auto scanDesktopApps =
-                [appPtr = &app](const std::shared_ptr<int> &scanGeneration, const QStringList &paths,
-                                bool filterMobile,
-                                const std::function<void(const QVariantList &)> &apply) {
-                    const int generation = ++*scanGeneration;
-                    auto     *watcher    = new QFutureWatcher<QVariantList>(appPtr);
-                    QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, appPtr,
-                                     [watcher, apply, generation, scanGeneration]() {
-                                         if (generation == *scanGeneration)
-                                             apply(watcher->result());
-                                         watcher->deleteLater();
-                                     });
-                    watcher->setFuture(QtConcurrent::run(
-                        [paths, filterMobile]() { return marathon::desktop::scan(paths, filterMobile); }));
-                };
-            const auto replaceApps = [appModel](const QVariantList &apps, const QStringList &types) {
-                QSet<QString> seen;
-                for (const QVariant &v : apps)
-                    seen.insert(v.toMap().value(QStringLiteral("id")).toString());
-                for (const QString &type : types) {
-                    const QStringList existing = appModel->appIdsByType(type);
-                    for (const QString &id : existing) {
-                        if (!seen.contains(id))
-                            appModel->removeApp(id);
-                    }
-                }
-                appModel->addApps(apps);
-            };
-            const auto rescanDesktopApps = [scanDesktopApps, replaceApps, settingsManager,
-                                            searchPaths, generation = std::make_shared<int>(0)]() {
-                scanDesktopApps(generation, searchPaths, settingsManager->getFilterMobileFriendlyApps(),
-                                [replaceApps](const QVariantList &apps) {
-                                    replaceApps(apps, {QStringLiteral("native"),
-                                                       QStringLiteral("flatpak")});
-                                });
-            };
-            // "Hide desktop apps" applies as soon as it is switched.
-            QObject::connect(settingsManager, &marathon::Settings::filterMobileFriendlyAppsChanged,
-                             &app, rescanDesktopApps);
-
-            // Waydroid writes and removes its apps' entries here while it runs.
-            const QString userApps =
-                QDir::homePath() + QStringLiteral("/.local/share/applications");
-            QDir().mkpath(userApps);
-            auto *userAppsWatcher  = new QFileSystemWatcher({userApps}, &app);
-            auto *userAppsDebounce = new QTimer(&app);
-            userAppsDebounce->setSingleShot(true);
-            userAppsDebounce->setInterval(500);
-            QObject::connect(userAppsWatcher, &QFileSystemWatcher::directoryChanged,
-                             userAppsDebounce, qOverload<>(&QTimer::start));
-            QObject::connect(userAppsDebounce, &QTimer::timeout, &app, rescanDesktopApps);
-
-            // The Store writes which Flathub apps fit a phone here (replaced
-            // whole, so the directory is watched).
-            const QString storeCache = QFileInfo(marathon::desktop::phone_apps_path()).absolutePath();
-            QDir().mkpath(storeCache);
-            auto *storeCacheWatcher = new QFileSystemWatcher({storeCache}, &app);
-            QObject::connect(storeCacheWatcher, &QFileSystemWatcher::directoryChanged,
-                             userAppsDebounce,
-                             [userAppsDebounce,
-                              seen = QFileInfo(marathon::desktop::phone_apps_path()).lastModified()]() mutable {
-                                 const QDateTime now =
-                                     QFileInfo(marathon::desktop::phone_apps_path()).lastModified();
-                                 if (now != seen) {
-                                     seen = now;
-                                     userAppsDebounce->start();
-                                 }
-                             });
-
-            // The user directory only appears with the first flatpak install,
-            // which is exactly the change this watch exists to catch, so
-            // create it rather than skip it.
-            const QString userFlatpakApps = QDir::homePath() +
-                QStringLiteral("/.local/share/flatpak/exports/share/applications");
-            QDir().mkpath(userFlatpakApps);
-            QStringList flatpakDirs{userFlatpakApps};
-            if (QDir(QStringLiteral("/var/lib/flatpak/exports/share/applications")).exists())
-                flatpakDirs.append(QStringLiteral("/var/lib/flatpak/exports/share/applications"));
-            if (!flatpakDirs.isEmpty()) {
-                auto *flatpakWatcher = new QFileSystemWatcher(&app);
-                flatpakWatcher->addPaths(flatpakDirs);
-
-                auto *debounce = new QTimer(&app);
-                debounce->setSingleShot(true);
-                debounce->setInterval(500);
-
-                QObject::connect(flatpakWatcher, &QFileSystemWatcher::directoryChanged, debounce,
-                                 qOverload<>(&QTimer::start));
-
-                QObject::connect(debounce, &QTimer::timeout, &app,
-                                 [scanDesktopApps, replaceApps, flatpakDirs, settingsManager,
-                                  generation = std::make_shared<int>(0)]() {
-                                     scanDesktopApps(generation, flatpakDirs,
-                                                     settingsManager->getFilterMobileFriendlyApps(),
-                                                     [replaceApps](const QVariantList &apps) {
-                                                         replaceApps(apps, {QStringLiteral("flatpak")});
-                                                     });
+        // Rescans parse every entry on the pool (Waydroid rewrites its
+        // entries while it runs) and apply the newest result here.
+        const auto scanDesktopApps =
+            [appPtr = &app](const std::shared_ptr<int> &scanGeneration, const QStringList &paths,
+                            bool                                             filterMobile,
+                            const std::function<void(const QVariantList &)> &apply) {
+                const int generation = ++*scanGeneration;
+                auto     *watcher    = new QFutureWatcher<QVariantList>(appPtr);
+                QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, appPtr,
+                                 [watcher, apply, generation, scanGeneration]() {
+                                     if (generation == *scanGeneration)
+                                         apply(watcher->result());
+                                     watcher->deleteLater();
                                  });
+                watcher->setFuture(QtConcurrent::run([paths, filterMobile]() {
+                    return marathon::desktop::scan(paths, filterMobile);
+                }));
+            };
+        const auto replaceApps = [appModel](const QVariantList &apps, const QStringList &types) {
+            QSet<QString> seen;
+            for (const QVariant &v : apps)
+                seen.insert(v.toMap().value(QStringLiteral("id")).toString());
+            for (const QString &type : types) {
+                const QStringList existing = appModel->appIdsByType(type);
+                for (const QString &id : existing) {
+                    if (!seen.contains(id))
+                        appModel->removeApp(id);
+                }
             }
-        });
+            appModel->addApps(apps);
+        };
+        const auto rescanDesktopApps = [scanDesktopApps, replaceApps, settingsManager, searchPaths,
+                                        generation = std::make_shared<int>(0)]() {
+            scanDesktopApps(generation, searchPaths, settingsManager->getFilterMobileFriendlyApps(),
+                            [replaceApps](const QVariantList &apps) {
+                                replaceApps(apps,
+                                            {QStringLiteral("native"), QStringLiteral("flatpak")});
+                            });
+        };
+        // "Hide desktop apps" applies as soon as it is switched.
+        QObject::connect(settingsManager, &marathon::Settings::filterMobileFriendlyAppsChanged,
+                         &app, rescanDesktopApps);
+
+        // Waydroid writes and removes its apps' entries here while it runs.
+        const QString userApps = QDir::homePath() + QStringLiteral("/.local/share/applications");
+        QDir().mkpath(userApps);
+        auto *userAppsWatcher  = new QFileSystemWatcher({userApps}, &app);
+        auto *userAppsDebounce = new QTimer(&app);
+        userAppsDebounce->setSingleShot(true);
+        userAppsDebounce->setInterval(500);
+        QObject::connect(userAppsWatcher, &QFileSystemWatcher::directoryChanged, userAppsDebounce,
+                         qOverload<>(&QTimer::start));
+        QObject::connect(userAppsDebounce, &QTimer::timeout, &app, rescanDesktopApps);
+
+        // The Store writes which Flathub apps fit a phone here (replaced
+        // whole, so the directory is watched).
+        const QString storeCache = QFileInfo(marathon::desktop::phone_apps_path()).absolutePath();
+        QDir().mkpath(storeCache);
+        auto *storeCacheWatcher = new QFileSystemWatcher({storeCache}, &app);
+        QObject::connect(
+            storeCacheWatcher, &QFileSystemWatcher::directoryChanged, userAppsDebounce,
+            [userAppsDebounce,
+             seen = QFileInfo(marathon::desktop::phone_apps_path()).lastModified()]() mutable {
+                const QDateTime now =
+                    QFileInfo(marathon::desktop::phone_apps_path()).lastModified();
+                if (now != seen) {
+                    seen = now;
+                    userAppsDebounce->start();
+                }
+            });
+
+        // The user directory only appears with the first flatpak install,
+        // which is exactly the change this watch exists to catch, so
+        // create it rather than skip it.
+        const QString userFlatpakApps =
+            QDir::homePath() + QStringLiteral("/.local/share/flatpak/exports/share/applications");
+        QDir().mkpath(userFlatpakApps);
+        QStringList flatpakDirs{userFlatpakApps};
+        if (QDir(QStringLiteral("/var/lib/flatpak/exports/share/applications")).exists())
+            flatpakDirs.append(QStringLiteral("/var/lib/flatpak/exports/share/applications"));
+        if (!flatpakDirs.isEmpty()) {
+            auto *flatpakWatcher = new QFileSystemWatcher(&app);
+            flatpakWatcher->addPaths(flatpakDirs);
+
+            auto *debounce = new QTimer(&app);
+            debounce->setSingleShot(true);
+            debounce->setInterval(500);
+
+            QObject::connect(flatpakWatcher, &QFileSystemWatcher::directoryChanged, debounce,
+                             qOverload<>(&QTimer::start));
+
+            QObject::connect(debounce, &QTimer::timeout, &app,
+                             [scanDesktopApps, replaceApps, flatpakDirs, settingsManager,
+                              generation = std::make_shared<int>(0)]() {
+                                 scanDesktopApps(generation, flatpakDirs,
+                                                 settingsManager->getFilterMobileFriendlyApps(),
+                                                 [replaceApps](const QVariantList &apps) {
+                                                     replaceApps(apps, {QStringLiteral("flatpak")});
+                                                 });
+                             });
+        }
+    });
 
     qDebug() << "Marathon OS Shell started";
     return QGuiApplication::exec();

@@ -623,7 +623,6 @@ Item {
                             pinScreen.error = "";
                         }
                     }
-
                 }
 
                 Silica.BusyIndicator {

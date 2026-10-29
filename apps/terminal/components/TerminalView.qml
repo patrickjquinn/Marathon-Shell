@@ -73,8 +73,7 @@ Item {
             if (mods & Qt.ControlModifier) {
                 if (key < Qt.Key_A || key > Qt.Key_Z)
                     key = _letterKey(event.text) || key;
-                if ((key >= Qt.Key_A && key <= Qt.Key_Z) || key === Qt.Key_BracketLeft
-                        || key === Qt.Key_Backslash || key === Qt.Key_BracketRight) {
+                if ((key >= Qt.Key_A && key <= Qt.Key_Z) || key === Qt.Key_BracketLeft || key === Qt.Key_Backslash || key === Qt.Key_BracketRight) {
                     session.sendKey(key, event.text, mods);
                     break;
                 }

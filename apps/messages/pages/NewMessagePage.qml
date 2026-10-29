@@ -44,9 +44,7 @@ Page {
             label: qsTr("To")
             placeholderText: qsTr("Name or phone number")
             inputMethodHints: Qt.ImhNoPredictiveText
-            description: root.typed === "" || root.isNumber ? ""
-                       : root.hasLetters ? (root.matches.length > 0 ? qsTr("Choose a contact below, or enter a phone number") : qsTr("No contact matches; enter a phone number"))
-                       : root.submitted ? qsTr("Enter at least 3 digits") : ""
+            description: root.typed === "" || root.isNumber ? "" : root.hasLetters ? (root.matches.length > 0 ? qsTr("Choose a contact below, or enter a phone number") : qsTr("No contact matches; enter a phone number")) : root.submitted ? qsTr("Enter at least 3 digits") : ""
             EnterKey.enabled: root.typed !== ""
             EnterKey.iconSource: "image://theme/icon-m-enter-next"
             EnterKey.onClicked: root.startWithTyped()

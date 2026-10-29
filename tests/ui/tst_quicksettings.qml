@@ -82,12 +82,36 @@ TestCase {
 
     function test_swipeUpScrollsOverflowingContent_data() {
         return [
-            { tag: "touch margin", touch: true, x: 4 },
-            { tag: "mouse margin", touch: false, x: 4 },
-            { tag: "touch tiles", touch: true, x: 90 },
-            { tag: "mouse tiles", touch: false, x: 90 },
-            { tag: "touch centre", touch: true, x: 360 },
-            { tag: "mouse centre", touch: false, x: 360 }
+            {
+                tag: "touch margin",
+                touch: true,
+                x: 4
+            },
+            {
+                tag: "mouse margin",
+                touch: false,
+                x: 4
+            },
+            {
+                tag: "touch tiles",
+                touch: true,
+                x: 90
+            },
+            {
+                tag: "mouse tiles",
+                touch: false,
+                x: 90
+            },
+            {
+                tag: "touch centre",
+                touch: true,
+                x: 360
+            },
+            {
+                tag: "mouse centre",
+                touch: false,
+                x: 360
+            }
         ];
     }
 
@@ -193,7 +217,13 @@ TestCase {
             for (const wobble of [0, 12, 30])
                 for (const fits of ["overflows", "end", "fits"])
                     for (const steps of [20, 4])
-                        rows.push({ tag: (touch ? "touch" : "mouse") + " wobble " + wobble + " " + fits + " steps " + steps, touch: touch, wobble: wobble, fits: fits, steps: steps });
+                        rows.push({
+                            tag: (touch ? "touch" : "mouse") + " wobble " + wobble + " " + fits + " steps " + steps,
+                            touch: touch,
+                            wobble: wobble,
+                            fits: fits,
+                            steps: steps
+                        });
         return rows;
     }
 
@@ -228,7 +258,16 @@ TestCase {
     }
 
     function test_verticalSwipeOnSliderScrolls_data() {
-        return [{ tag: "touch", touch: true }, { tag: "mouse", touch: false }];
+        return [
+            {
+                tag: "touch",
+                touch: true
+            },
+            {
+                tag: "mouse",
+                touch: false
+            }
+        ];
     }
 
     function test_verticalSwipeOnSliderScrolls(data) {
@@ -243,7 +282,11 @@ TestCase {
         verify(Math.abs(SystemControlStore.brightness - before) < 10, "barely moved: " + SystemControlStore.brightness);
     }
 
-    SignalSpy { id: launchSpy; target: qs; signalName: "launchApp" }
+    SignalSpy {
+        id: launchSpy
+        target: qs
+        signalName: "launchApp"
+    }
 
     function nowPlaying() {
         return findChild(qs, "nowPlaying");
@@ -305,7 +348,16 @@ TestCase {
     // Whoever dragged the shade and let go without deciding, it rests shut
     // or fully open, never part-way.
     function test_unfinishedDragComesToRest_data() {
-        return [{ tag: "closing", open: false }, { tag: "open", open: true }];
+        return [
+            {
+                tag: "closing",
+                open: false
+            },
+            {
+                tag: "open",
+                open: true
+            }
+        ];
     }
     function test_unfinishedDragComesToRest(data) {
         UIStore.quickSettingsOpen = data.open;
@@ -337,10 +389,23 @@ TestCase {
         tryCompare(qs, "drawnHeight", UIStore.quickSettingsHeight);
     }
 
-    SignalSpy { id: closedSpy; target: qs; signalName: "closed" }
+    SignalSpy {
+        id: closedSpy
+        target: qs
+        signalName: "closed"
+    }
 
     function test_tapOffTheControlsCloses_data() {
-        return [{ tag: "mouse", touch: false }, { tag: "touch", touch: true }];
+        return [
+            {
+                tag: "mouse",
+                touch: false
+            },
+            {
+                tag: "touch",
+                touch: true
+            }
+        ];
     }
     function test_tapOffTheControlsCloses(data) {
         closedSpy.clear();
@@ -355,8 +420,27 @@ TestCase {
 
     // A media control is not a tap on the shade.
     function test_transportTapLeavesShadeOpen_data() {
-        return [{ tag: "mouse", touch: false }, { tag: "touch", touch: true, jitter: 0 },
-                { tag: "touch jitter", touch: true, jitter: 4 }, { tag: "touch slide", touch: true, jitter: 14 }];
+        return [
+            {
+                tag: "mouse",
+                touch: false
+            },
+            {
+                tag: "touch",
+                touch: true,
+                jitter: 0
+            },
+            {
+                tag: "touch jitter",
+                touch: true,
+                jitter: 4
+            },
+            {
+                tag: "touch slide",
+                touch: true,
+                jitter: 14
+            }
+        ];
     }
     function test_transportTapLeavesShadeOpen(data) {
         resetPlayer(true);

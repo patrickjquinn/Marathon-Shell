@@ -19,14 +19,19 @@ Page {
     property string question: ""
 
     CaptureSession {
-        camera: Camera { id: camera; active: page.status === PageStatus.Active }
+        camera: Camera {
+            id: camera
+            active: page.status === PageStatus.Active
+        }
         imageCapture: ImageCapture {
             id: capture
-            onImageSaved: function(requestId, path) {
-                Pilot.look(questionField.text, path)
-                pageStack.pop()
+            onImageSaved: function (requestId, path) {
+                Pilot.look(questionField.text, path);
+                pageStack.pop();
             }
-            onErrorOccurred: function(requestId, error, message) { status.text = message }
+            onErrorOccurred: function (requestId, error, message) {
+                status.text = message;
+            }
         }
         videoOutput: viewfinder
     }
@@ -38,7 +43,11 @@ Page {
     }
 
     Column {
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+        }
         anchors.bottomMargin: Theme.paddingLarge
         spacing: Theme.paddingMedium
 

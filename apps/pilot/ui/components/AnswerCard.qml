@@ -26,16 +26,19 @@ Glass {
     signal ask(string question)
 
     function provenance() {
-        var t = ms > 0 ? (ms < 1000 ? ms + " ms" : (ms / 1000).toLocaleString(Qt.locale(), "f", 1) + " s") : ""
-        var where = via === "web" ? qsTr("Web search")
-                  : via === "cloud" ? qsTr("Pilot cloud")
-                  : via === "phone" ? qsTr("On this phone") : ""
-        return [where, t].filter(function(s) { return s.length > 0 }).join(" · ")
+        var t = ms > 0 ? (ms < 1000 ? ms + " ms" : (ms / 1000).toLocaleString(Qt.locale(), "f", 1) + " s") : "";
+        var where = via === "web" ? qsTr("Web search") : via === "cloud" ? qsTr("Pilot cloud") : via === "phone" ? qsTr("On this phone") : "";
+        return [where, t].filter(function (s) {
+            return s.length > 0;
+        }).join(" · ");
     }
 
     // Paragraphs, and lines starting "- " as a list with real bullets.
-    readonly property var lines: text.split("\n").map(function(l) { return l.trim() })
-                                     .filter(function(l) { return l.length > 0 })
+    readonly property var lines: text.split("\n").map(function (l) {
+        return l.trim();
+    }).filter(function (l) {
+        return l.length > 0;
+    })
     Column {
         objectName: "answerText"
         width: parent.width
@@ -48,8 +51,8 @@ Glass {
             z: -1
             onPressAndHold: {
                 if (!card._menu)
-                    card._menu = menuComponent.createObject(menuHolder) as ContextMenu
-                card._menu.open(menuHolder)
+                    card._menu = menuComponent.createObject(menuHolder) as ContextMenu;
+                card._menu.open(menuHolder);
             }
         }
         Repeater {
@@ -96,8 +99,8 @@ Glass {
             MenuItem {
                 text: qsTr("Copy")
                 onClicked: {
-                    Clipboard.text = card.text
-                    Notices.show(qsTr("Copied"), Notice.Short)
+                    Clipboard.text = card.text;
+                    Notices.show(qsTr("Copied"), Notice.Short);
                 }
             }
         }
@@ -129,8 +132,8 @@ Glass {
         enabled: card.how.length > 0
         highlightedColor: Theme.rgba(Theme.highlightBackgroundColor, 0.2)
         onClicked: {
-            card.showHow = !card.showHow
-            Conversation.markGuide("how")
+            card.showHow = !card.showHow;
+            Conversation.markGuide("how");
         }
         Label {
             id: provenanceLabel
@@ -143,7 +146,10 @@ Glass {
         }
         Label {
             id: howLabel
-            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+            anchors {
+                right: parent.right
+                verticalCenter: parent.verticalCenter
+            }
             visible: card.how.length > 0
             text: card.showHow ? qsTr("Hide how") : qsTr("How Pilot answered")
             font.pixelSize: Theme.fontSizeExtraSmall
@@ -218,7 +224,10 @@ Glass {
                 }
                 Icon {
                     id: arrow
-                    anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                    anchors {
+                        right: parent.right
+                        verticalCenter: parent.verticalCenter
+                    }
                     source: "image://theme/icon-m-right"
                     color: Theme.highlightColor
                 }

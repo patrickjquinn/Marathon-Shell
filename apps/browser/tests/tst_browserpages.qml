@@ -37,7 +37,9 @@ TestCase {
     }
 
     function push(app, name) {
-        app.pageStack.push(Qt.resolvedUrl("../pages/" + name), { browser: app }, PageStackAction.Immediate);
+        app.pageStack.push(Qt.resolvedUrl("../pages/" + name), {
+            browser: app
+        }, PageStackAction.Immediate);
         return settle(app, 2);
     }
 
@@ -71,7 +73,12 @@ TestCase {
     }
 
     function test_editingTheAddressSuggestsAndNavigates() {
-        const app = makeApp([{ url: "https://kde.org/", title: "KDE" }]);
+        const app = makeApp([
+            {
+                url: "https://kde.org/",
+                title: "KDE"
+            }
+        ]);
         const page = app.pageStack.currentPage;
         mouseClick(findChild(page, "addressButton"));
         verify(app.editingAddress);
@@ -102,7 +109,18 @@ TestCase {
     }
 
     function test_focusedEmptyAddressOffersBookmarksAndRecent() {
-        const app = makeApp([{ url: "https://kde.org/", title: "KDE" }], [{ url: "https://qt.io/", title: "Qt", timestamp: 2 }]);
+        const app = makeApp([
+            {
+                url: "https://kde.org/",
+                title: "KDE"
+            }
+        ], [
+            {
+                url: "https://qt.io/",
+                title: "Qt",
+                timestamp: 2
+            }
+        ]);
         const page = app.pageStack.currentPage;
         page.startEditing();
         const list = findChild(page, "suggestionView");
@@ -245,7 +263,16 @@ TestCase {
     }
 
     function test_bookmarksPage() {
-        const app = makeApp([{ url: "https://kde.org", title: "KDE" }, { url: "https://qt.io", title: "Qt" }]);
+        const app = makeApp([
+            {
+                url: "https://kde.org",
+                title: "KDE"
+            },
+            {
+                url: "https://qt.io",
+                title: "Qt"
+            }
+        ]);
         const page = push(app, "BookmarksPage.qml");
         const view = findChild(page, "bookmarksView");
         compare(view.count, 2);
@@ -276,7 +303,12 @@ TestCase {
     }
 
     function test_bookmarkDeleteUsesRemorse() {
-        const app = makeApp([{ url: "https://kde.org", title: "KDE" }]);
+        const app = makeApp([
+            {
+                url: "https://kde.org",
+                title: "KDE"
+            }
+        ]);
         const page = push(app, "BookmarksPage.qml");
         const view = findChild(page, "bookmarksView");
         const item = view.itemAtIndex(0);
@@ -291,8 +323,18 @@ TestCase {
     function test_historyPage() {
         const now = Date.now();
         const app = makeApp(null, [
-            { url: "https://a.org", title: "A", timestamp: now, visitCount: 3 },
-            { url: "https://b.org", title: "B", timestamp: now - 3 * 86400000, visitCount: 1 }
+            {
+                url: "https://a.org",
+                title: "A",
+                timestamp: now,
+                visitCount: 3
+            },
+            {
+                url: "https://b.org",
+                title: "B",
+                timestamp: now - 3 * 86400000,
+                visitCount: 1
+            }
         ]);
         const page = push(app, "HistoryPage.qml");
         const view = findChild(page, "historyView");
@@ -352,7 +394,13 @@ TestCase {
     }
 
     function test_settingsClearBrowsingData() {
-        const app = makeApp(null, [{ url: "https://a.org", title: "A", timestamp: 1 }]);
+        const app = makeApp(null, [
+            {
+                url: "https://a.org",
+                title: "A",
+                timestamp: 1
+            }
+        ]);
         const page = push(app, "SettingsPage.qml");
         mouseClick(findChild(page, "clearDataItem"));
         const dialog = settle(app, 3);

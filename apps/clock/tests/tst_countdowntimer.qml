@@ -9,9 +9,14 @@ TestCase {
 
     Component {
         id: countdown
-        CountdownTimer { now: () => t }
+        CountdownTimer {
+            now: () => t
+        }
     }
-    SignalSpy { id: finishedSpy; signalName: "finished" }
+    SignalSpy {
+        id: finishedSpy
+        signalName: "finished"
+    }
 
     function test_setThenStart() {
         const c = createTemporaryObject(countdown, this);
@@ -129,7 +134,10 @@ TestCase {
         compare(finishedSpy.count, 0);
     }
 
-    SignalSpy { id: editedSpy; signalName: "edited" }
+    SignalSpy {
+        id: editedSpy
+        signalName: "edited"
+    }
 
     function test_editsAreSignalled() {
         const c = createTemporaryObject(countdown, this);

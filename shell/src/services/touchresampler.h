@@ -38,7 +38,7 @@ class TouchResampler : public QObject {
     // The display's last vblank, CLOCK_MONOTONIC microseconds, or -1: frames
     // then sample the finger for the vblank that will show them, however
     // early or late in the interval they polish.
-    void setVblankClock(std::function<qint64()> lastVblankUs);
+    void                    setVblankClock(std::function<qint64()> lastVblankUs);
 
     static constexpr qint64 kMinLatencyMs = 5;
     static constexpr qint64 kMaxLatencyMs = 40;
@@ -62,16 +62,16 @@ class TouchResampler : public QObject {
         bool          hasSent = false;
     };
 
-    void   record(const QTouchEvent &event);
-    void   sendResampled(qint64 at);
-    qint64 latency() const;
-    qint64 horizon(const Track &track) const;
-    static QPointF notBack(const Track &track, QPointF scene);
-    static void moveTo(QEventPoint &p, QPointF scene);
-    qint64 now() const;
+    void                    record(const QTouchEvent &event);
+    void                    sendResampled(qint64 at);
+    qint64                  latency() const;
+    qint64                  horizon(const Track &track) const;
+    static QPointF          notBack(const Track &track, QPointF scene);
+    static void             moveTo(QEventPoint &p, QPointF scene);
+    qint64                  now() const;
 
     QPointer<QWindow>       m_window;
-    QQuickItem             *m_polisher  = nullptr;
+    QQuickItem             *m_polisher    = nullptr;
     bool                    m_passthrough = false;
     bool                    m_decided     = false;
     QHash<int, Track>       m_tracks;

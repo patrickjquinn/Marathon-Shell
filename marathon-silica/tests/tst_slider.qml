@@ -8,10 +8,30 @@ TestCase {
     name: "Slider"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
-    Component { id: stepped; Slider { width: 500; label: "Volume"; minimumValue: 0; maximumValue: 10; stepSize: 1; value: 5 } }
-    Component { id: continuous; Slider { width: 500; label: "Brightness"; minimumValue: 0; maximumValue: 1; value: 0.5 } }
+    Component {
+        id: stepped
+        Slider {
+            width: 500
+            label: "Volume"
+            minimumValue: 0
+            maximumValue: 10
+            stepSize: 1
+            value: 5
+        }
+    }
+    Component {
+        id: continuous
+        Slider {
+            width: 500
+            label: "Brightness"
+            minimumValue: 0
+            maximumValue: 1
+            value: 0.5
+        }
+    }
 
     function test_roleNameAndValue() {
         const s = createTemporaryObject(stepped, testCase);
@@ -41,7 +61,9 @@ TestCase {
     }
 
     function test_clampedToRange() {
-        const s = createTemporaryObject(stepped, testCase, { value: 10 });
+        const s = createTemporaryObject(stepped, testCase, {
+            value: 10
+        });
         s.forceActiveFocus();
         keyClick(Qt.Key_Right);
         compare(s.value, 10);

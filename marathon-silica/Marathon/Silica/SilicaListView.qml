@@ -21,12 +21,24 @@ S.SilicaListView {
     // not the distance behind, from the drag's second move: on the first the
     // content rests where it was, so a pulley menu sees its drag begin there.
     // Silica predates the property, so by name.
-    Binding { target: root; property: "synchronousDrag"; value: root.dragging }
+    Binding {
+        target: root
+        property: "synchronousDrag"
+        value: root.dragging
+    }
 
     // Silica declares these views against QtQuick 2.0, which predates
     // these properties, so they can only be set by name.
-    Binding { target: root; property: "activeFocusOnTab"; value: true }
-    Binding { target: root; property: "keyNavigationEnabled"; value: true }
+    Binding {
+        target: root
+        property: "activeFocusOnTab"
+        value: true
+    }
+    Binding {
+        target: root
+        property: "keyNavigationEnabled"
+        value: true
+    }
 
     Accessible.role: Accessible.List
     // Typing in a header search field replaces the model, and Qt then gives the
@@ -54,7 +66,8 @@ S.SilicaListView {
         }
     }
 
-    onActiveFocusChanged: if (activeFocus && currentItem && !_inHeaderOrFooter(Window.activeFocusItem)) currentItem.forceActiveFocus()
+    onActiveFocusChanged: if (activeFocus && currentItem && !_inHeaderOrFooter(Window.activeFocusItem))
+        currentItem.forceActiveFocus()
     onCurrentItemChanged: {
         if (_headerFocus && _headerFocus.visible && Window.activeFocusItem === currentItem)
             _headerFocus.forceActiveFocus();
@@ -67,9 +80,16 @@ S.SilicaListView {
         if (ViewKeys.openPulley(root, event))
             return;
         switch (event.key) {
-        case Qt.Key_Home: root.currentIndex = 0; root.positionViewAtBeginning(); break;
-        case Qt.Key_End: root.currentIndex = root.count - 1; root.positionViewAtEnd(); break;
-        default: return;
+        case Qt.Key_Home:
+            root.currentIndex = 0;
+            root.positionViewAtBeginning();
+            break;
+        case Qt.Key_End:
+            root.currentIndex = root.count - 1;
+            root.positionViewAtEnd();
+            break;
+        default:
+            return;
         }
         event.accepted = true;
     }

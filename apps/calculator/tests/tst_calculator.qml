@@ -5,7 +5,10 @@ import ".."
 TestCase {
     name: "Calculator"
 
-    Component { id: calcComponent; Calculator {} }
+    Component {
+        id: calcComponent
+        Calculator {}
+    }
 
     function make() {
         return createTemporaryObject(calcComponent, this);
@@ -32,26 +35,106 @@ TestCase {
 
     function test_operators_data() {
         return [
-            { tag: "minus", seq: ["9", "−", "4", "="], out: "5" },
-            { tag: "times", seq: ["6", "×", "7", "="], out: "42" },
-            { tag: "divide", seq: ["7", "÷", "2", "="], out: "3.5" },
-            { tag: "mod", seq: ["7", "mod", "3", "="], out: "1" },
-            { tag: "precedence", seq: ["2", "+", "3", "×", "4", "="], out: "14" },
-            { tag: "times then plus", seq: ["2", "×", "3", "+", "4", "="], out: "10" },
-            { tag: "two products", seq: ["2", "+", "3", "×", "4", "×", "5", "="], out: "62" },
-            { tag: "product then minus", seq: ["2", "+", "3", "×", "4", "−", "1", "="], out: "13" },
-            { tag: "minus then divide", seq: ["1", "0", "−", "6", "÷", "3", "="], out: "8" },
-            { tag: "sqrt inside a product", seq: ["2", "+", "3", "×", "1", "6", "√", "="], out: "14" },
-            { tag: "percent", seq: ["5", "0", "%"], out: "0.5" },
-            { tag: "add percent", seq: ["5", "0", "+", "1", "0", "%", "="], out: "55" },
-            { tag: "subtract percent", seq: ["8", "0", "−", "2", "5", "%", "="], out: "60" },
-            { tag: "times percent", seq: ["5", "0", "×", "1", "0", "%", "="], out: "5" },
-            { tag: "sign", seq: ["5", "+/−"], out: "-5" },
-            { tag: "sqrt", seq: ["9", "√"], out: "3" },
-            { tag: "square", seq: ["1", "2", "x²"], out: "144" },
-            { tag: "factorial", seq: ["5", "!"], out: "120" },
-            { tag: "sin", seq: ["9", "0", "sin"], out: "1" },
-            { tag: "log", seq: ["1", "0", "0", "log"], out: "2" }
+            {
+                tag: "minus",
+                seq: ["9", "−", "4", "="],
+                out: "5"
+            },
+            {
+                tag: "times",
+                seq: ["6", "×", "7", "="],
+                out: "42"
+            },
+            {
+                tag: "divide",
+                seq: ["7", "÷", "2", "="],
+                out: "3.5"
+            },
+            {
+                tag: "mod",
+                seq: ["7", "mod", "3", "="],
+                out: "1"
+            },
+            {
+                tag: "precedence",
+                seq: ["2", "+", "3", "×", "4", "="],
+                out: "14"
+            },
+            {
+                tag: "times then plus",
+                seq: ["2", "×", "3", "+", "4", "="],
+                out: "10"
+            },
+            {
+                tag: "two products",
+                seq: ["2", "+", "3", "×", "4", "×", "5", "="],
+                out: "62"
+            },
+            {
+                tag: "product then minus",
+                seq: ["2", "+", "3", "×", "4", "−", "1", "="],
+                out: "13"
+            },
+            {
+                tag: "minus then divide",
+                seq: ["1", "0", "−", "6", "÷", "3", "="],
+                out: "8"
+            },
+            {
+                tag: "sqrt inside a product",
+                seq: ["2", "+", "3", "×", "1", "6", "√", "="],
+                out: "14"
+            },
+            {
+                tag: "percent",
+                seq: ["5", "0", "%"],
+                out: "0.5"
+            },
+            {
+                tag: "add percent",
+                seq: ["5", "0", "+", "1", "0", "%", "="],
+                out: "55"
+            },
+            {
+                tag: "subtract percent",
+                seq: ["8", "0", "−", "2", "5", "%", "="],
+                out: "60"
+            },
+            {
+                tag: "times percent",
+                seq: ["5", "0", "×", "1", "0", "%", "="],
+                out: "5"
+            },
+            {
+                tag: "sign",
+                seq: ["5", "+/−"],
+                out: "-5"
+            },
+            {
+                tag: "sqrt",
+                seq: ["9", "√"],
+                out: "3"
+            },
+            {
+                tag: "square",
+                seq: ["1", "2", "x²"],
+                out: "144"
+            },
+            {
+                tag: "factorial",
+                seq: ["5", "!"],
+                out: "120"
+            },
+            {
+                tag: "sin",
+                seq: ["9", "0", "sin"],
+                out: "1"
+            },
+            {
+                tag: "log",
+                seq: ["1", "0", "0", "log"],
+                out: "2"
+            }
         ];
     }
 
@@ -221,14 +304,46 @@ TestCase {
 
     function test_paste_data() {
         return [
-            { tag: "plain", text: "42", out: "42" },
-            { tag: "trimmed", text: "  12.5\n", out: "12.5" },
-            { tag: "grouped", text: "1,234,567", out: "1,234,567" },
-            { tag: "spaces", text: "1 234 567", out: "1,234,567" },
-            { tag: "decimal comma", text: "3,5", out: "3.5" },
-            { tag: "european", text: "1.234,5", out: "1,234.5" },
-            { tag: "english", text: "1,234.5", out: "1,234.5" },
-            { tag: "negative", text: "-7", out: "-7" }
+            {
+                tag: "plain",
+                text: "42",
+                out: "42"
+            },
+            {
+                tag: "trimmed",
+                text: "  12.5\n",
+                out: "12.5"
+            },
+            {
+                tag: "grouped",
+                text: "1,234,567",
+                out: "1,234,567"
+            },
+            {
+                tag: "spaces",
+                text: "1 234 567",
+                out: "1,234,567"
+            },
+            {
+                tag: "decimal comma",
+                text: "3,5",
+                out: "3.5"
+            },
+            {
+                tag: "european",
+                text: "1.234,5",
+                out: "1,234.5"
+            },
+            {
+                tag: "english",
+                text: "1,234.5",
+                out: "1,234.5"
+            },
+            {
+                tag: "negative",
+                text: "-7",
+                out: "-7"
+            }
         ];
     }
 

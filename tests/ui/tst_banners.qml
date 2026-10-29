@@ -91,10 +91,12 @@ TestCase {
     }
 
     function test_replyOnlyWhenAdvertised() {
-        notificationToast.showToast(message([{
+        notificationToast.showToast(message([
+            {
                 "key": "inline-reply",
                 "label": "Reply"
-            }]));
+            }
+        ]));
         wait(50);
         verify(notificationToast.canReply);
         mouseClick(win.contentItem, 40, bannerY);
@@ -185,22 +187,28 @@ TestCase {
 
     // Up to three buttons; "default" is the body tap, not a button.
     function test_actionButtons() {
-        notificationToast.showToast(message([{
+        notificationToast.showToast(message([
+            {
                 "key": "default",
                 "label": "Open"
-            }, {
+            },
+            {
                 "key": "reply",
                 "label": "Reply"
-            }, {
+            },
+            {
                 "key": "dismiss",
                 "label": "Dismiss"
-            }, {
+            },
+            {
                 "key": "snooze",
                 "label": "Snooze"
-            }, {
+            },
+            {
                 "key": "later",
                 "label": "Later"
-            }]));
+            }
+        ]));
         const row = findChild(notificationToast, "bannerActions");
         compare(row.buttons.map(b => b.key), ["reply", "dismiss", "snooze"]);
         verify(row.visible);
@@ -212,25 +220,31 @@ TestCase {
 
     // A missed call's actions, as the shell names them.
     function test_shellNotificationActionsById() {
-        notificationToast.showToast(message([{
+        notificationToast.showToast(message([
+            {
                 "id": "call_back",
                 "label": "Call Back"
-            }, {
+            },
+            {
                 "id": "message",
                 "label": "Message"
-            }]));
+            }
+        ]));
         mouseClick(bannerButton("call_back"));
         compare(NotificationService.triggered, ["7:call_back"]);
     }
 
     function test_replyLeadsTheButtonsAndOpensTheField() {
-        notificationToast.showToast(message([{
+        notificationToast.showToast(message([
+            {
                 "key": "inline-reply",
                 "label": "Reply"
-            }, {
+            },
+            {
                 "key": "mark-read",
                 "label": "Mark read"
-            }]));
+            }
+        ]));
         const row = findChild(notificationToast, "bannerActions");
         compare(row.buttons.map(b => b.key), ["inline-reply", "mark-read"]);
         mouseClick(bannerButton("inline-reply"));
@@ -242,13 +256,16 @@ TestCase {
     // With action-icons the key names the icon; a name with no icon keeps
     // its label.
     function test_actionIconsOnlyWhenHinted() {
-        const n = message([{
+        const n = message([
+            {
                 "key": "phone",
                 "label": "Call back"
-            }, {
+            },
+            {
                 "key": "frobnicate",
                 "label": "Frobnicate"
-            }]);
+            }
+        ]);
         notificationToast.showToast(n);
         const row = findChild(notificationToast, "bannerActions");
         verify(!findChild(row, "notificationAction-phone").iconOnly);

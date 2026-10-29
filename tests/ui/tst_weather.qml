@@ -9,7 +9,11 @@ TestCase {
     readonly property int noon: 1760616000
 
     function hours(precipitation) {
-        return precipitation.map((p, i) => ({ time: noon + i * 3600, symbol: p > 0 ? "lightrain" : "cloudy", precipitation: p }));
+        return precipitation.map((p, i) => ({
+                    time: noon + i * 3600,
+                    symbol: p > 0 ? "lightrain" : "cloudy",
+                    precipitation: p
+                }));
     }
 
     function test_conditionNamesMetSymbols() {
@@ -68,8 +72,23 @@ TestCase {
     }
 
     function test_spanOnTheWeeksScale() {
-        const days = [{ low: -2, high: 4 }, { low: 0, high: 8 }];
-        compare(Weather.span(days[0], days), { from: 0, to: 0.6 });
-        compare(Weather.span(days[1], days), { from: 0.2, to: 1 });
+        const days = [
+            {
+                low: -2,
+                high: 4
+            },
+            {
+                low: 0,
+                high: 8
+            }
+        ];
+        compare(Weather.span(days[0], days), {
+            from: 0,
+            to: 0.6
+        });
+        compare(Weather.span(days[1], days), {
+            from: 0.2,
+            to: 1
+        });
     }
 }

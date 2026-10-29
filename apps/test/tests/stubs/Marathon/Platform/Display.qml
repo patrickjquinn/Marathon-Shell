@@ -14,5 +14,7 @@ QtObject {
     property bool lightSensorAvailable: true
     property bool torchAvailable: false
 
-    function setScreenState(on) { log("setScreenState", on); }
+    function setScreenState(on) {
+        log("setScreenState", on);
+    }
 }

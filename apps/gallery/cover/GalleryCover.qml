@@ -15,7 +15,8 @@ CoverBackground {
         randomPhoto = Model.pickRandom(photos, randomPhoto, Math.random());
     }
 
-    onPhotosChanged: if (!randomPhoto || !photos.some(p => p.id === randomPhoto.id)) advance()
+    onPhotosChanged: if (!randomPhoto || !photos.some(p => p.id === randomPhoto.id))
+        advance()
 
     Timer {
         objectName: "advanceTimer"

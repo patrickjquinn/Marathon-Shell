@@ -26,7 +26,9 @@ Item {
         target: Sms
 
         function onMessageSent(recipient, timestamp) {
-            root.settle(recipient, call => call.reply({ sent: new Date(timestamp).toISOString() }));
+            root.settle(recipient, call => call.reply({
+                    sent: new Date(timestamp).toISOString()
+                }));
         }
         function onSendFailed(recipient, reason) {
             root.settle(recipient, call => call.fail("Failed", reason));
@@ -41,28 +43,65 @@ Item {
         idempotent: true
         untrusted: true
         parameters: [
-            KeelParam { name: "query"; type: "string"; required: true; maxLength: 256 },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 50; defaultValue: 10 }
+            KeelParam {
+                name: "query"
+                type: "string"
+                required: true
+                maxLength: 256
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 50
+                defaultValue: 10
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 50
-            KeelParam { name: "name"; type: "string"; maxLength: 200; required: true }
-            KeelParam { name: "number"; type: "string"; maxLength: 64; required: true }
-            KeelParam { name: "lastMessage"; type: "string"; maxLength: 2000; required: true }
-            KeelParam { name: "time"; type: "string"; format: "date-time"; maxLength: 32; required: true }
-            KeelParam { name: "unread"; type: "integer"; minimum: 0; required: true }
+            KeelParam {
+                name: "name"
+                type: "string"
+                maxLength: 200
+                required: true
+            }
+            KeelParam {
+                name: "number"
+                type: "string"
+                maxLength: 64
+                required: true
+            }
+            KeelParam {
+                name: "lastMessage"
+                type: "string"
+                maxLength: 2000
+                required: true
+            }
+            KeelParam {
+                name: "time"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+                required: true
+            }
+            KeelParam {
+                name: "unread"
+                type: "integer"
+                minimum: 0
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const found = Logic.visibleConversations(root.app.conversations, root.app.pinnedIds, root.app.archivedIds, false, args.query);
             call.reply(found.slice(0, args.limit || 10).map(c => ({
-                name: String(c.contactName || "").substring(0, 200),
-                number: String(c.contactNumber || ""),
-                lastMessage: String(c.lastMessage || "").substring(0, 2000),
-                time: new Date(c.lastTimestamp || 0).toISOString(),
-                unread: c.unreadCount || 0
-            })));
+                        name: String(c.contactName || "").substring(0, 200),
+                        number: String(c.contactNumber || ""),
+                        lastMessage: String(c.lastMessage || "").substring(0, 2000),
+                        time: new Date(c.lastTimestamp || 0).toISOString(),
+                        unread: c.unreadCount || 0
+                    })));
         }
     }
 
@@ -74,24 +113,51 @@ Item {
         idempotent: true
         untrusted: true
         parameters: [
-            KeelParam { name: "number"; type: "string"; required: true; maxLength: 64; description: "The other person's phone number" },
-            KeelParam { name: "limit"; type: "integer"; minimum: 1; maximum: 100; defaultValue: 20 }
+            KeelParam {
+                name: "number"
+                type: "string"
+                required: true
+                maxLength: 64
+                description: "The other person's phone number"
+            },
+            KeelParam {
+                name: "limit"
+                type: "integer"
+                minimum: 1
+                maximum: 100
+                defaultValue: 20
+            }
         ]
         returns: KeelResult {
             type: "array"
             itemType: "object"
             maxItems: 100
-            KeelParam { name: "text"; type: "string"; maxLength: 2000; required: true }
-            KeelParam { name: "outgoing"; type: "boolean"; required: true }
-            KeelParam { name: "time"; type: "string"; format: "date-time"; maxLength: 32; required: true }
+            KeelParam {
+                name: "text"
+                type: "string"
+                maxLength: 2000
+                required: true
+            }
+            KeelParam {
+                name: "outgoing"
+                type: "boolean"
+                required: true
+            }
+            KeelParam {
+                name: "time"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             const messages = Sms.getMessages(root.app.conversationFor(args.number, "").id);
             call.reply(messages.slice(-(args.limit || 20)).map(m => ({
-                text: String(m.text || "").substring(0, 2000),
-                outgoing: m.isOutgoing === true,
-                time: new Date(m.timestamp || 0).toISOString()
-            })));
+                        text: String(m.text || "").substring(0, 2000),
+                        outgoing: m.isOutgoing === true,
+                        time: new Date(m.timestamp || 0).toISOString()
+                    })));
         }
     }
 
@@ -103,12 +169,31 @@ Item {
         confirm: true
         openWorld: true
         parameters: [
-            KeelParam { name: "to"; type: "string"; required: true; maxLength: 64; description: "Phone number to send to" },
-            KeelParam { name: "text"; type: "string"; required: true; minLength: 1; maxLength: 2000; description: "The message" }
+            KeelParam {
+                name: "to"
+                type: "string"
+                required: true
+                maxLength: 64
+                description: "Phone number to send to"
+            },
+            KeelParam {
+                name: "text"
+                type: "string"
+                required: true
+                minLength: 1
+                maxLength: 2000
+                description: "The message"
+            }
         ]
         returns: KeelResult {
             type: "object"
-            KeelParam { name: "sent"; type: "string"; format: "date-time"; maxLength: 32; required: true }
+            KeelParam {
+                name: "sent"
+                type: "string"
+                format: "date-time"
+                maxLength: 32
+                required: true
+            }
         }
         onInvoked: (args, call) => {
             if (!Logic.isPhoneNumber(args.to)) {
@@ -117,7 +202,12 @@ Item {
                 call.fail("NotAvailable", "No SIM or modem");
             } else {
                 const number = Logic.normaliseNumber(args.to);
-                root.sending = root.sending.concat([{ number: number, call: call }]);
+                root.sending = root.sending.concat([
+                    {
+                        number: number,
+                        call: call
+                    }
+                ]);
                 Sms.sendMessage(number, args.text);
             }
         }

@@ -669,7 +669,7 @@ Item {
 
                 property real pressX: 0
                 property real pressY: 0
-    
+
                 anchors.fill: parent
                 z: 50
                 preventStealing: false
@@ -689,7 +689,7 @@ Item {
                     }
                     pressX = mouse.x;
                     pressY = mouse.y;
-                        mouse.accepted = true;
+                    mouse.accepted = true;
                 }
                 onReleased: mouse => {
                     var deltaX = Math.abs(mouse.x - pressX);

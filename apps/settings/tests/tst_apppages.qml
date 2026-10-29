@@ -42,7 +42,10 @@ TestCase {
         verify(app.openPage(name, PageStackAction.Immediate));
         const page = app.pageStack.currentPage;
         tryCompare(page, "status", PageStatus.Active);
-        return { app: app, page: page };
+        return {
+            app: app,
+            page: page
+        };
     }
 
     function child(parent, name) {
@@ -68,7 +71,13 @@ TestCase {
         const settings = child(s.page, "app-settings");
         verify(settings.menu === null);
         compare(findChild(settings, "subtitle").text, "Version 1.0.0 · System app");
-        Apps.append({ id: "plain", name: "Plain", icon: "", version: "", isProtected: false });
+        Apps.append({
+            id: "plain",
+            name: "Plain",
+            icon: "",
+            version: "",
+            isProtected: false
+        });
         verify(!findChild(child(s.page, "app-plain"), "subtitle").visible);
         const notes = child(s.page, "app-notes");
         verify(notes.menu !== null);
@@ -80,7 +89,13 @@ TestCase {
 
     // Built into the OS image but not protected, like Test Suite.
     function test_builtInAppsOfferNoUninstall() {
-        Apps.append({ id: "testapp", name: "Test Suite", icon: "", version: "1.0.0", isProtected: false });
+        Apps.append({
+            id: "testapp",
+            name: "Test Suite",
+            icon: "",
+            version: "1.0.0",
+            isProtected: false
+        });
         const s = open("appmanager");
         verify(child(s.page, "app-testapp").menu === null);
         verify(child(s.page, "app-weather").menu !== null);
@@ -107,7 +122,9 @@ TestCase {
     }
 
     function test_appInfoRoute() {
-        const app = createTemporaryObject(appComponent, testCase, { route: "appmanager/notes" });
+        const app = createTemporaryObject(appComponent, testCase, {
+            route: "appmanager/notes"
+        });
         tryVerify(() => app.pageStack.currentPage && app.pageStack.currentPage.appId === "notes" && app.pageStack.currentPage.status === PageStatus.Active, 5000);
         const info = app.pageStack.currentPage;
         compare(app.pageStack.depth, 3);
@@ -120,7 +137,9 @@ TestCase {
     }
 
     function openInfo(appId) {
-        const app = createTemporaryObject(appComponent, testCase, { route: "appmanager/" + appId });
+        const app = createTemporaryObject(appComponent, testCase, {
+            route: "appmanager/" + appId
+        });
         tryVerify(() => app.pageStack.currentPage && app.pageStack.currentPage.appId === appId && app.pageStack.currentPage.status === PageStatus.Active, 5000);
         return app.pageStack.currentPage;
     }
@@ -169,7 +188,9 @@ TestCase {
     }
 
     function test_systemAppPermissionsAreFixed() {
-        Permissions.granted = { "settings/system": true };
+        Permissions.granted = {
+            "settings/system": true
+        };
         const info = openInfo("settings");
         const system = child(info, "permission-system");
         verify(!system.enabled);

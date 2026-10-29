@@ -16,7 +16,9 @@ Page {
         id: view
 
         anchors.fill: parent
-        header: PageHeader { title: page.artist !== undefined ? page.artist : qsTr("Albums") }
+        header: PageHeader {
+            title: page.artist !== undefined ? page.artist : qsTr("Albums")
+        }
         model: Library.albums(page.music.tracks, page.artist)
 
         delegate: ListItem {
@@ -46,8 +48,7 @@ Page {
                 }
                 Label {
                     width: parent.width
-                    text: (item.modelData.artist !== "" ? item.modelData.artist : qsTr("Various artists"))
-                          + " · " + (item.modelData.trackCount === 1 ? qsTr("1 song") : qsTr("%1 songs").arg(item.modelData.trackCount))
+                    text: (item.modelData.artist !== "" ? item.modelData.artist : qsTr("Various artists")) + " · " + (item.modelData.trackCount === 1 ? qsTr("1 song") : qsTr("%1 songs").arg(item.modelData.trackCount))
                     truncationMode: TruncationMode.Fade
                     font.pixelSize: Theme.fontSizeSmall
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor

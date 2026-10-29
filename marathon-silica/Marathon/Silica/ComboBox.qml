@@ -8,7 +8,10 @@ S.ComboBox {
     function _itemCount() {
         let n = 0;
         if (root.menu)
-            root.menu._foreachMenuItem(function () { n++; return true; });
+            root.menu._foreachMenuItem(function () {
+                n++;
+                return true;
+            });
         return n;
     }
 

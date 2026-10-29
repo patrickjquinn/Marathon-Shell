@@ -64,22 +64,34 @@ S.ContextMenu {
         }
     }
     // A menu opened from the keyboard closes when focus moves elsewhere.
-    onActiveFocusChanged: if (!activeFocus && active && _keyboardReturnFocus) close()
+    onActiveFocusChanged: if (!activeFocus && active && _keyboardReturnFocus)
+        close()
 
     Keys.onPressed: function (event) {
         switch (event.key) {
-        case Qt.Key_Down: root._step(1); break;
-        case Qt.Key_Up: root._step(-1); break;
-        case Qt.Key_Home: root._step(-1000); break;
-        case Qt.Key_End: root._step(1000); break;
+        case Qt.Key_Down:
+            root._step(1);
+            break;
+        case Qt.Key_Up:
+            root._step(-1);
+            break;
+        case Qt.Key_Home:
+            root._step(-1000);
+            break;
+        case Qt.Key_End:
+            root._step(1000);
+            break;
         case Qt.Key_Return:
         case Qt.Key_Enter:
         case Qt.Key_Space:
             if (root._highlightedItem)
                 root._activatedMenuItem(root._highlightedItem);
             break;
-        case Qt.Key_Escape: root.close(); break;
-        default: return;
+        case Qt.Key_Escape:
+            root.close();
+            break;
+        default:
+            return;
         }
         event.accepted = true;
     }

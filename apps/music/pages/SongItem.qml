@@ -21,7 +21,10 @@ ListItem {
     menu: ContextMenu {
         MenuItem {
             text: qsTr("Add to playlist")
-            onClicked: pageStack.push(Qt.resolvedUrl("AddToPlaylistPage.qml"), { music: item.music, track: item.track })
+            onClicked: pageStack.push(Qt.resolvedUrl("AddToPlaylistPage.qml"), {
+                music: item.music,
+                track: item.track
+            })
         }
         MenuItem {
             objectName: "enqueueAction"

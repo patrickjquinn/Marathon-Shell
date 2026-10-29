@@ -8,10 +8,26 @@ Page {
     id: page
 
     readonly property var columns: [
-        { value: 0, title: qsTr("Automatic"), description: qsTr("Fits the screen size") },
-        { value: 3, title: qsTr("3"), description: qsTr("Larger icons") },
-        { value: 4, title: qsTr("4"), description: qsTr("Balanced layout") },
-        { value: 5, title: qsTr("5"), description: qsTr("Compact") }
+        {
+            value: 0,
+            title: qsTr("Automatic"),
+            description: qsTr("Fits the screen size")
+        },
+        {
+            value: 3,
+            title: qsTr("3"),
+            description: qsTr("Larger icons")
+        },
+        {
+            value: 4,
+            title: qsTr("4"),
+            description: qsTr("Balanced layout")
+        },
+        {
+            value: 5,
+            title: qsTr("5"),
+            description: qsTr("Compact")
+        }
     ]
 
     SilicaFlickable {

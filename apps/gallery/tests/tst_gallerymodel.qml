@@ -8,11 +8,21 @@ TestCase {
     readonly property var now: new Date(2026, 9, 12, 12, 0)
 
     function photo(id, album, date) {
-        return { id: id, path: "file:///p/" + album + "/IMG%20" + id + ".jpg", album: album, timestamp: date.getTime() };
+        return {
+            id: id,
+            path: "file:///p/" + album + "/IMG%20" + id + ".jpg",
+            album: album,
+            timestamp: date.getTime()
+        };
     }
 
     function video(id, date) {
-        return { id: id, path: "file:///p/VID_" + id + ".mp4", thumbnailPath: "", timestamp: date.getTime() };
+        return {
+            id: id,
+            path: "file:///p/VID_" + id + ".mp4",
+            thumbnailPath: "",
+            timestamp: date.getTime()
+        };
     }
 
     function test_fileNameDecodes() {
@@ -35,14 +45,14 @@ TestCase {
     }
 
     function test_memoriesClusterByYearWithinThreeDays() {
-        const ps = [
-            photo(1, "A", new Date(2025, 9, 10)),
-            photo(2, "A", new Date(2024, 9, 14)),
-            photo(3, "A", new Date(2025, 9, 1)),
-            photo(4, "A", new Date(2026, 9, 12)),
-            photo(5, "A", new Date(2025, 9, 15))
+        const ps = [photo(1, "A", new Date(2025, 9, 10)), photo(2, "A", new Date(2024, 9, 14)), photo(3, "A", new Date(2025, 9, 1)), photo(4, "A", new Date(2026, 9, 12)), photo(5, "A", new Date(2025, 9, 15))];
+        const videos = [
+            {
+                id: 9,
+                path: "file:///v.mp4",
+                timestamp: new Date(2024, 9, 12).getTime()
+            }
         ];
-        const videos = [{ id: 9, path: "file:///v.mp4", timestamp: new Date(2024, 9, 12).getTime() }];
         const m = Model.memoryClusters(ps, videos, now);
         compare(m.length, 2);
         compare(m[0].years, 1);
@@ -57,7 +67,18 @@ TestCase {
 
     function test_collectionsOrderAndCovers() {
         const ps = [photo(1, "B", new Date(2025, 9, 12)), photo(2, "A", now)];
-        const albums = [{ id: "A", name: "A", photoCount: 1 }, { id: "B", name: "B", photoCount: 1 }];
+        const albums = [
+            {
+                id: "A",
+                name: "A",
+                photoCount: 1
+            },
+            {
+                id: "B",
+                name: "B",
+                photoCount: 1
+            }
+        ];
         const rows = Model.collections(ps, [], albums, Model.memoryClusters(ps, [], now));
         compare(rows.map(r => r.kind), ["all", "memory", "album", "album"]);
         compare(rows[0].count, 2);
@@ -69,7 +90,13 @@ TestCase {
     }
 
     function test_noCollectionsWithoutPhotos() {
-        compare(Model.collections([], [], [{ id: "A", name: "A", photoCount: 0 }], []), []);
+        compare(Model.collections([], [], [
+            {
+                id: "A",
+                name: "A",
+                photoCount: 0
+            }
+        ], []), []);
     }
 
     function test_videosGetARowAndCountInAll() {

@@ -102,7 +102,9 @@ TabItem {
         Label {
             text: Logic.formatStopwatch(lapTime.time)
             font.pixelSize: Theme.fontSizeExtraLarge
-            font.features: ({ "tnum": 1 })
+            font.features: ({
+                    "tnum": 1
+                })
             color: lapTime.color
         }
         Label {

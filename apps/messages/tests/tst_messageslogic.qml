@@ -6,9 +6,30 @@ TestCase {
     name: "MessagesLogic"
 
     readonly property var convs: [
-        { id: "a", contactName: "Alice", contactNumber: "+15551234567", lastMessage: "Lunch?", lastTimestamp: 30, unreadCount: 2 },
-        { id: "b", contactName: "", contactNumber: "+447700900123", lastMessage: "Code 1234", lastTimestamp: 20, unreadCount: 0 },
-        { id: "c", contactName: "Carol", contactNumber: "555", lastMessage: "ok", lastTimestamp: 10, unreadCount: 1 }
+        {
+            id: "a",
+            contactName: "Alice",
+            contactNumber: "+15551234567",
+            lastMessage: "Lunch?",
+            lastTimestamp: 30,
+            unreadCount: 2
+        },
+        {
+            id: "b",
+            contactName: "",
+            contactNumber: "+447700900123",
+            lastMessage: "Code 1234",
+            lastTimestamp: 20,
+            unreadCount: 0
+        },
+        {
+            id: "c",
+            contactName: "Carol",
+            contactNumber: "555",
+            lastMessage: "ok",
+            lastTimestamp: 10,
+            unreadCount: 1
+        }
     ]
 
     function test_formatNumber() {
@@ -31,7 +52,10 @@ TestCase {
     function test_inboxHidesArchivedAndPinsFirst() {
         const list = Logic.visibleConversations(convs, ["c"], ["b"], false, "");
         compare(list.map(c => c.id), ["c", "a"]);
-        const many = ["p", "q", "r", "s", "t"].map((id, i) => ({ id: id, lastTimestamp: 10 - i }));
+        const many = ["p", "q", "r", "s", "t"].map((id, i) => ({
+                    id: id,
+                    lastTimestamp: 10 - i
+                }));
         compare(Logic.visibleConversations(many, ["s"], [], false, "").map(c => c.id), ["s", "p", "q", "r", "t"]);
     }
 
@@ -46,9 +70,19 @@ TestCase {
     }
 
     function test_parseState() {
-        compare(Logic.parseState("{oops"), { pinned: [], archived: [], drafts: {} });
+        compare(Logic.parseState("{oops"), {
+            pinned: [],
+            archived: [],
+            drafts: {}
+        });
         compare(Logic.parseState("[1]").pinned, []);
-        const s = Logic.parseState(JSON.stringify({ pinned: ["a"], archived: ["b"], drafts: { a: "hey" } }));
+        const s = Logic.parseState(JSON.stringify({
+            pinned: ["a"],
+            archived: ["b"],
+            drafts: {
+                a: "hey"
+            }
+        }));
         compare(s.pinned, ["a"]);
         compare(s.archived, ["b"]);
         compare(s.drafts.a, "hey");
@@ -63,7 +97,9 @@ TestCase {
         compare(Logic.routeBody('{"body":"See you at 8"}'), "See you at 8");
         compare(Logic.routeBody('{"number":"1"}'), "");
         compare(Logic.routeBody("{bad"), "");
-        compare(Logic.routeBody(JSON.stringify({ body: "x".repeat(20000) })).length, 10000);
+        compare(Logic.routeBody(JSON.stringify({
+            body: "x".repeat(20000)
+        })).length, 10000);
     }
 
     function test_routeNumber() {
@@ -84,10 +120,30 @@ TestCase {
         const day = 24 * 3600 * 1000;
         const base = new Date(2026, 9, 10, 12, 0).getTime();
         const rows = Logic.messageRows([
-            { id: 1, text: "hi", timestamp: base, isOutgoing: false },
-            { id: 2, text: "there", timestamp: base + 60000, isOutgoing: false },
-            { id: 3, text: "yo", timestamp: base + 120000, isOutgoing: true },
-            { id: 4, text: "next day", timestamp: base + day, isOutgoing: true }
+            {
+                id: 1,
+                text: "hi",
+                timestamp: base,
+                isOutgoing: false
+            },
+            {
+                id: 2,
+                text: "there",
+                timestamp: base + 60000,
+                isOutgoing: false
+            },
+            {
+                id: 3,
+                text: "yo",
+                timestamp: base + 120000,
+                isOutgoing: true
+            },
+            {
+                id: 4,
+                text: "next day",
+                timestamp: base + day,
+                isOutgoing: true
+            }
         ]);
         compare(rows.map(r => r.showDay), [true, false, false, true]);
         compare(rows.map(r => r.showTime), [false, true, true, true]);
@@ -97,9 +153,18 @@ TestCase {
         const now = new Date(2026, 9, 12, 15, 0).getTime();
         const yesterday = new Date(2026, 9, 11, 9, 0).getTime();
         const list = [
-            { id: "p", lastTimestamp: new Date(2026, 9, 1).getTime() },
-            { id: "t", lastTimestamp: new Date(2026, 9, 12, 8, 0).getTime() },
-            { id: "y", lastTimestamp: yesterday }
+            {
+                id: "p",
+                lastTimestamp: new Date(2026, 9, 1).getTime()
+            },
+            {
+                id: "t",
+                lastTimestamp: new Date(2026, 9, 12, 8, 0).getTime()
+            },
+            {
+                id: "y",
+                lastTimestamp: yesterday
+            }
         ];
         compare(Logic.withSections(list.slice(1), [], now).map(c => c.section), ["today", String(new Date(2026, 9, 11).getTime())]);
         compare(Logic.withSections(list, ["p"], now).map(c => c.section), ["pinned", String(new Date(2026, 9, 12).getTime()), String(new Date(2026, 9, 11).getTime())]);
@@ -107,12 +172,32 @@ TestCase {
     }
 
     function test_smsLength() {
-        compare(Logic.smsLength(""), { used: 0, limit: 160, parts: 1 });
-        compare(Logic.smsLength("Hello, world"), { used: 12, limit: 160, parts: 1 });
+        compare(Logic.smsLength(""), {
+            used: 0,
+            limit: 160,
+            parts: 1
+        });
+        compare(Logic.smsLength("Hello, world"), {
+            used: 12,
+            limit: 160,
+            parts: 1
+        });
         compare(Logic.smsLength("x".repeat(160)).parts, 1);
-        compare(Logic.smsLength("x".repeat(161)), { used: 161, limit: 306, parts: 2 });
+        compare(Logic.smsLength("x".repeat(161)), {
+            used: 161,
+            limit: 306,
+            parts: 2
+        });
         compare(Logic.smsLength("€5").used, 3);
-        compare(Logic.smsLength("Cześć"), { used: 5, limit: 70, parts: 1 });
-        compare(Logic.smsLength("ż".repeat(71)), { used: 71, limit: 134, parts: 2 });
+        compare(Logic.smsLength("Cześć"), {
+            used: 5,
+            limit: 70,
+            parts: 1
+        });
+        compare(Logic.smsLength("ż".repeat(71)), {
+            used: 71,
+            limit: 134,
+            parts: 2
+        });
     }
 }

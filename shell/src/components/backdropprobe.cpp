@@ -293,10 +293,11 @@ class BackdropSampler : public QObject {
             for (Target &t : m_issued) {
                 m_strip.clear();
                 for (const int y : {glY(t.rect.top()), glY(t.rect.bottom())}) {
-                    const Row          &r     = rowAt(y);
+                    const Row          &r = rowAt(y);
                     const std::uint8_t *start =
                         pixels + r.offset + std::ptrdiff_t(t.rect.left() - r.x0) * 4;
-                    m_strip.insert(m_strip.end(), start, start + std::ptrdiff_t(t.rect.width()) * 4);
+                    m_strip.insert(m_strip.end(), start,
+                                   start + std::ptrdiff_t(t.rect.width()) * 4);
                 }
                 const bool light = marathon::backdrop::is_light(
                     rust::Slice<const std::uint8_t>(m_strip.data(), m_strip.size()), t.light);

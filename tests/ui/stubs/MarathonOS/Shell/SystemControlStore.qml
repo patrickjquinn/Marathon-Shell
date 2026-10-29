@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQml
+
 QtObject {
     property bool isWifiOn: true
     property bool isCellularDataOn: false
@@ -19,6 +20,10 @@ QtObject {
     property real volume: 50
     property string hotspotSsid: ""
     property string hotspotPassword: ""
-    function setBrightnessFromUser(v) { brightness = v; }
-    function setVolume(v) { volume = v; }
+    function setBrightnessFromUser(v) {
+        brightness = v;
+    }
+    function setVolume(v) {
+        volume = v;
+    }
 }

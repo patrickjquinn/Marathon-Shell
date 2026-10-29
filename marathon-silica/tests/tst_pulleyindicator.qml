@@ -9,23 +9,34 @@ TestCase {
     name: "PulleyIndicator"
     when: windowShown
     visible: true
-    width: 540; height: 960
+    width: 540
+    height: 960
 
     readonly property color background: "#0c2623"
 
-    Rectangle { anchors.fill: parent; color: testCase.background }
+    Rectangle {
+        anchors.fill: parent
+        color: testCase.background
+    }
 
     Component {
         id: pulleyPage
         SilicaFlickable {
-            width: 540; height: 960
+            width: 540
+            height: 960
             contentHeight: 2000
             PullDownMenu {
-                MenuItem { text: "Settings" }
-                MenuItem { text: "New note" }
+                MenuItem {
+                    text: "Settings"
+                }
+                MenuItem {
+                    text: "New note"
+                }
             }
             PushUpMenu {
-                MenuItem { text: "Back to top" }
+                MenuItem {
+                    text: "Back to top"
+                }
             }
         }
     }
@@ -50,7 +61,9 @@ TestCase {
     function test_closedPushUpIndicatorIsFaint() {
         const f = createTemporaryObject(pulleyPage, testCase);
         f.contentY = f.contentHeight - f.height;
-        tryVerify(function () { return f.atYEnd; });
+        tryVerify(function () {
+            return f.atYEnd;
+        });
         wait(600);
         const img = grabImage(testCase);
         const solid = f.pullDownMenu.palette.highlightBackgroundColor;
@@ -67,7 +80,9 @@ TestCase {
         const f = createTemporaryObject(pulleyPage, testCase);
         f.forceActiveFocus();
         keyClick(Qt.Key_M, Qt.ControlModifier);
-        tryVerify(function () { return f.pullDownMenu.active; });
+        tryVerify(function () {
+            return f.pullDownMenu.active;
+        });
         keyClick(Qt.Key_Down);
         const item = f.pullDownMenu.menuItem;
         compare(item.text, "Settings");

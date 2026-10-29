@@ -35,12 +35,12 @@ class GestureTracker : public QObject {
     Q_PROPERTY(qreal progress READ progress NOTIFY progressChanged)
     Q_PROPERTY(qreal commitDistance READ commitDistance WRITE setCommitDistance NOTIFY
                    commitDistanceChanged)
-    Q_PROPERTY(qreal flingVelocity READ flingVelocity WRITE setFlingVelocity NOTIFY
-                   flingVelocityChanged)
-    Q_PROPERTY(int settleDuration READ settleDuration WRITE setSettleDuration NOTIFY
-                   settleDurationChanged)
-    Q_PROPERTY(qreal dampingRatio READ dampingRatio WRITE setDampingRatio NOTIFY
-                   dampingRatioChanged)
+    Q_PROPERTY(
+        qreal flingVelocity READ flingVelocity WRITE setFlingVelocity NOTIFY flingVelocityChanged)
+    Q_PROPERTY(
+        int settleDuration READ settleDuration WRITE setSettleDuration NOTIFY settleDurationChanged)
+    Q_PROPERTY(
+        qreal dampingRatio READ dampingRatio WRITE setDampingRatio NOTIFY dampingRatioChanged)
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
     Q_PROPERTY(bool settling READ settling NOTIFY settlingChanged)
     Q_PROPERTY(bool willCommit READ willCommit NOTIFY willCommitChanged)
@@ -59,11 +59,11 @@ class GestureTracker : public QObject {
     static constexpr qreal kStaleMs          = 80;
     static constexpr qreal kProjectionSec    = 0.1;
 
-    static qreal       estimateVelocity(const QList<Sample> &samples, qreal nowMs);
-    static bool        shouldCommit(qreal distance, qreal velocity, qreal commitDistance,
-                                    qreal flingVelocity);
-    static qreal       settleOmega(qreal offset, qreal velocity, qreal omega0, qreal zeta);
-    static SpringState spring(qreal offset, qreal velocity, qreal omega, qreal zeta, qreal t);
+    static qreal           estimateVelocity(const QList<Sample> &samples, qreal nowMs);
+    static bool            shouldCommit(qreal distance, qreal velocity, qreal commitDistance,
+                                        qreal flingVelocity);
+    static qreal           settleOmega(qreal offset, qreal velocity, qreal omega0, qreal zeta);
+    static SpringState     spring(qreal offset, qreal velocity, qreal omega, qreal zeta, qreal t);
 
     explicit GestureTracker(QObject *parent = nullptr);
 
@@ -146,11 +146,11 @@ class GestureTracker : public QObject {
     qreal direction() const {
         return m_to >= m_from ? 1 : -1;
     }
-    void writeValue(qreal value);
-    void writeVelocity(qreal velocity);
-    void setActive(bool active);
-    void updateWillCommit();
-    void step(int msecs);
+    void                   writeValue(qreal value);
+    void                   writeVelocity(qreal velocity);
+    void                   setActive(bool active);
+    void                   updateWillCommit();
+    void                   step(int msecs);
 
     QElapsedTimer          m_clock;
     QList<Sample>          m_samples;
@@ -166,9 +166,9 @@ class GestureTracker : public QObject {
     bool                   m_active         = false;
     bool                   m_willCommit     = false;
 
-    qreal m_target      = 0;
-    qreal m_startOffset = 0;
-    qreal m_startVel    = 0;
-    qreal m_omega       = 0;
-    bool  m_stopAtCross = false;
+    qreal                  m_target      = 0;
+    qreal                  m_startOffset = 0;
+    qreal                  m_startVel    = 0;
+    qreal                  m_omega       = 0;
+    bool                   m_stopAtCross = false;
 };

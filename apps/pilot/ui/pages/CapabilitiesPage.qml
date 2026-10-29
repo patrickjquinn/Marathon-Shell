@@ -19,35 +19,67 @@ Page {
     // The apps' actions as a person reads them: without the lookups Pilot
     // uses between steps (an entity's find tool), and each described by
     // its first sentence (the rest is written for the model).
-    readonly property var apps: JSON.parse(Pilot.capabilities() || "[]").map(function(app) {
+    readonly property var apps: JSON.parse(Pilot.capabilities() || "[]").map(function (app) {
         return {
             name: app.name,
-            actions: app.actions.filter(function(a) {
-                return a.description.indexOf("Returns references") < 0
-            }).map(function(a) {
-                var end = a.description.search(/[.!?](\s|$)/)
-                var first = end >= 0 ? a.description.substring(0, end + 1) : a.description
-                return { title: a.title, description: first, asks: a.asks }
+            actions: app.actions.filter(function (a) {
+                return a.description.indexOf("Returns references") < 0;
+            }).map(function (a) {
+                var end = a.description.search(/[.!?](\s|$)/);
+                var first = end >= 0 ? a.description.substring(0, end + 1) : a.description;
+                return {
+                    title: a.title,
+                    description: first,
+                    asks: a.asks
+                };
             })
-        }
-    }).filter(function(app) { return app.actions.length > 0 })
+        };
+    }).filter(function (app) {
+        return app.actions.length > 0;
+    })
 
     readonly property var builtIn: [
-        { icon: "image://theme/icon-m-timer", title: qsTr("Timers, alarms and reminders"), ask: qsTr("Timer for 10 minutes") },
-        { icon: "image://theme/icon-m-date", title: qsTr("Your calendar"), ask: qsTr("What's on today?") },
-        { icon: "image://theme/icon-m-note", title: qsTr("Remembering things for you"), ask: qsTr("What do you remember about me?") },
-        { icon: "image://theme/icon-m-device", title: qsTr("What's on screen, over any app"), ask: "" },
-        { icon: "image://theme/icon-m-website", title: qsTr("Today's web, with its sources"), ask: qsTr("What's in the news?") },
-        { icon: "image://theme/icon-m-search-on-page", title: qsTr("Photos you take"), ask: "" }
+        {
+            icon: "image://theme/icon-m-timer",
+            title: qsTr("Timers, alarms and reminders"),
+            ask: qsTr("Timer for 10 minutes")
+        },
+        {
+            icon: "image://theme/icon-m-date",
+            title: qsTr("Your calendar"),
+            ask: qsTr("What's on today?")
+        },
+        {
+            icon: "image://theme/icon-m-note",
+            title: qsTr("Remembering things for you"),
+            ask: qsTr("What do you remember about me?")
+        },
+        {
+            icon: "image://theme/icon-m-device",
+            title: qsTr("What's on screen, over any app"),
+            ask: ""
+        },
+        {
+            icon: "image://theme/icon-m-website",
+            title: qsTr("Today's web, with its sources"),
+            ask: qsTr("What's in the news?")
+        },
+        {
+            icon: "image://theme/icon-m-search-on-page",
+            title: qsTr("Photos you take"),
+            ask: ""
+        }
     ]
 
     // Back on the main page with a question.
     function ask(question) {
-        var main = pageStack.find(function(p) { return p.objectName === "mainPage" })
+        var main = pageStack.find(function (p) {
+            return p.objectName === "mainPage";
+        });
         if (!main)
-            return
-        pageStack.pop(main)
-        main.send(question)
+            return;
+        pageStack.pop(main);
+        main.send(question);
     }
 
     SilicaFlickable {
@@ -62,7 +94,9 @@ Page {
                 title: qsTr("What Pilot can do")
             }
 
-            SectionHeader { text: qsTr("By itself") }
+            SectionHeader {
+                text: qsTr("By itself")
+            }
             Repeater {
                 model: page.builtIn
                 delegate: BackgroundItem {
@@ -83,8 +117,10 @@ Page {
                     Column {
                         id: skillText
                         anchors {
-                            left: skillIcon.right; leftMargin: Theme.paddingLarge
-                            right: parent.right; rightMargin: Theme.horizontalPageMargin
+                            left: skillIcon.right
+                            leftMargin: Theme.paddingLarge
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin
                             verticalCenter: parent.verticalCenter
                         }
                         Label {
@@ -105,7 +141,9 @@ Page {
                 }
             }
 
-            SectionHeader { text: qsTr("In your apps") }
+            SectionHeader {
+                text: qsTr("In your apps")
+            }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * x
@@ -113,9 +151,7 @@ Page {
                 bottomPadding: Theme.paddingMedium
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: page.apps.length > 0
-                      ? qsTr("Apps tell Pilot what they can do. Pilot asks before anything marked “asks first”.")
-                      : qsTr("None of your apps offer Pilot actions yet.")
+                text: page.apps.length > 0 ? qsTr("Apps tell Pilot what they can do. Pilot asks before anything marked “asks first”.") : qsTr("None of your apps offer Pilot actions yet.")
             }
             Repeater {
                 model: page.apps
@@ -145,8 +181,7 @@ Page {
                             Label {
                                 width: parent.width
                                 wrapMode: Text.Wrap
-                                text: action.modelData.asks ? qsTr("%1 · asks first").arg(action.modelData.title)
-                                                            : action.modelData.title
+                                text: action.modelData.asks ? qsTr("%1 · asks first").arg(action.modelData.title) : action.modelData.title
                                 color: Theme.highlightColor
                             }
                             Label {

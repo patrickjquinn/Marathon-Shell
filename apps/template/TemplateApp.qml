@@ -24,7 +24,12 @@ ApplicationWindow {
 
     function addItem() {
         const id = items.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-        store.value = JSON.stringify(items.concat([{ id: id, text: qsTr("Item %1").arg(items.length + 1) }]));
+        store.value = JSON.stringify(items.concat([
+            {
+                id: id,
+                text: qsTr("Item %1").arg(items.length + 1)
+            }
+        ]));
     }
 
     function removeItem(id) {

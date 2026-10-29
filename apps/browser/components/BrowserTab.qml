@@ -122,8 +122,7 @@ Item {
             }
             // -3 is net::ERR_ABORTED: superseded by another navigation, not a failure.
             // An HTTP error status is the site's own page, already on screen.
-            if (loadRequest.status === WebEngineView.LoadFailedStatus && loadRequest.errorCode !== -3
-                    && loadRequest.errorDomain !== WebEngineLoadingInfo.HttpStatusCodeDomain) {
+            if (loadRequest.status === WebEngineView.LoadFailedStatus && loadRequest.errorCode !== -3 && loadRequest.errorDomain !== WebEngineLoadingInfo.HttpStatusCodeDomain) {
                 console.warn("Browser: load failed for " + loadRequest.url + ": " + loadRequest.errorString + " (" + loadRequest.errorCode + ")");
                 root.setTab("failedUrl", loadRequest.url.toString());
                 root.setTab("loadError", root.loadErrorMessage(loadRequest));

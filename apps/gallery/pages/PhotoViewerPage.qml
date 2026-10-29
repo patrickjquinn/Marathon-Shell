@@ -32,7 +32,8 @@ FullscreenContentPage {
     // Vertical drags open the pulley, so the page goes back sideways.
     navigationStyle: PageNavigation.Horizontal
     onPhotoChanged: store.viewerPhoto = photo
-    onStatusChanged: if (status === PageStatus.Active) forceActiveFocus()
+    onStatusChanged: if (status === PageStatus.Active)
+        forceActiveFocus()
     Keys.onLeftPressed: slideshow.decrementCurrentIndex()
     Keys.onRightPressed: slideshow.incrementCurrentIndex()
     Keys.onEscapePressed: pageStack.pop()
@@ -56,7 +57,9 @@ FullscreenContentPage {
             MenuItem {
                 objectName: "deleteAction"
                 text: qsTr("Delete")
-                onClicked: remorse.execute(qsTr("Deleted"), function () { root.deleteCurrent(); })
+                onClicked: remorse.execute(qsTr("Deleted"), function () {
+                    root.deleteCurrent();
+                })
             }
             MenuItem {
                 objectName: "shareAction"
@@ -67,7 +70,9 @@ FullscreenContentPage {
             MenuItem {
                 objectName: "detailsAction"
                 text: qsTr("Details")
-                onClicked: pageStack.push(Qt.resolvedUrl("PhotoDetailsPage.qml"), { photo: root.photo })
+                onClicked: pageStack.push(Qt.resolvedUrl("PhotoDetailsPage.qml"), {
+                    photo: root.photo
+                })
             }
         }
 
@@ -100,11 +105,19 @@ FullscreenContentPage {
         visible: opacity > 0
         opacity: root.overlayShown && !menu.active ? 1 : 0
         gradient: Gradient {
-            GradientStop { position: 0; color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay) }
-            GradientStop { position: 1; color: "transparent" }
+            GradientStop {
+                position: 0
+                color: Theme.rgba(Theme.overlayBackgroundColor, Theme.opacityOverlay)
+            }
+            GradientStop {
+                position: 1
+                color: "transparent"
+            }
         }
 
-        Behavior on opacity { FadeAnimator {} }
+        Behavior on opacity {
+            FadeAnimator {}
+        }
 
         Label {
             id: titleLabel
@@ -112,8 +125,7 @@ FullscreenContentPage {
             x: Theme.horizontalPageMargin
             y: Theme.paddingLarge
             width: parent.width - 2 * Theme.horizontalPageMargin
-            text: root.photo && root.photo.timestamp
-                  ? Format.formatDate(new Date(root.photo.timestamp), Formatter.DateLong) : Model.fileName(root.photo)
+            text: root.photo && root.photo.timestamp ? Format.formatDate(new Date(root.photo.timestamp), Formatter.DateLong) : Model.fileName(root.photo)
             truncationMode: TruncationMode.Fade
             color: Theme.lightPrimaryColor
         }

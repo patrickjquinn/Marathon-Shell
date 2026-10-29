@@ -19,17 +19,12 @@ QtObject {
     property var locale: Qt.locale()
 
     readonly property bool canUndo: undoStack.length > 0
-    readonly property bool isClear: display === "0" && newNumber && lastExpression === "" && errorText === ""
-                                    && currentOperator === "" && pendingOperator === "" && history.length === 0
-    readonly property string displayText: errorText !== "" ? errorText
-                                          : newNumber ? fmt(parseFloat(display)) : fmtEntry(display)
+    readonly property bool isClear: display === "0" && newNumber && lastExpression === "" && errorText === "" && currentOperator === "" && pendingOperator === "" && history.length === 0
+    readonly property string displayText: errorText !== "" ? errorText : newNumber ? fmt(parseFloat(display)) : fmtEntry(display)
     readonly property string pendingText: pendingOperator !== "" ? fmt(pendingValue) + " " + pendingOperator + " " : ""
-    readonly property string expressionText: currentOperator !== "" ? pendingText + fmt(currentValue) + " " + currentOperator
-                                             : lastExpression
+    readonly property string expressionText: currentOperator !== "" ? pendingText + fmt(currentValue) + " " + currentOperator : lastExpression
 
-    readonly property var keys: ["C", "⌫", "%", "÷", "×", "−", "+", "+/−", ".", "=",
-        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-        "mod", "π", "e", "√", "x²", "sin", "cos", "tan", "log", "ln", "!", "ans"]
+    readonly property var keys: ["C", "⌫", "%", "÷", "×", "−", "+", "+/−", ".", "=", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "mod", "π", "e", "√", "x²", "sin", "cos", "tan", "log", "ln", "!", "ans"]
 
     function group(intPart) {
         return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, locale.groupSeparator);
@@ -62,8 +57,7 @@ QtObject {
         const last = Math.max(body.lastIndexOf("."), body.lastIndexOf(","));
         const sep = body.charAt(last);
         const other = sep === "." ? "," : ".";
-        const decimal = last >= 0 && (body.indexOf(other) >= 0
-                                      || (body.indexOf(sep) === last && body.length - last - 1 !== 3));
+        const decimal = last >= 0 && (body.indexOf(other) >= 0 || (body.indexOf(sep) === last && body.length - last - 1 !== 3));
         const whole = decimal ? body.substring(0, last) : body;
         const frac = decimal ? body.substring(last + 1) : "";
         const group = decimal ? other : sep;
@@ -214,7 +208,10 @@ QtObject {
                 pendingValue = currentValue;
                 pendingOperator = currentOperator;
             } else if (binds(op) && pendingOperator !== "") {
-                const keep = { "value": pendingValue, "op": pendingOperator };
+                const keep = {
+                    "value": pendingValue,
+                    "op": pendingOperator
+                };
                 pendingOperator = "";
                 calculate(true);
                 if (errorText !== "")
@@ -238,11 +235,16 @@ QtObject {
 
     function apply(a, op, b) {
         switch (op) {
-        case "+":   return a + b;
-        case "−":   return a - b;
-        case "×":   return a * b;
-        case "÷":   return a / b;
-        case "mod": return a % b;
+        case "+":
+            return a + b;
+        case "−":
+            return a - b;
+        case "×":
+            return a * b;
+        case "÷":
+            return a / b;
+        case "mod":
+            return a % b;
         }
         return b;
     }
@@ -255,8 +257,7 @@ QtObject {
         const divideByZero = value === 0 && (currentOperator === "÷" || currentOperator === "mod");
         if (pendingOperator !== "" && !inner) {
             const r = apply(pendingValue, pendingOperator, apply(currentValue, currentOperator, value));
-            const full = fmt(pendingValue) + " " + pendingOperator + " " + fmt(currentValue) + " "
-                + currentOperator + " " + fmt(value);
+            const full = fmt(pendingValue) + " " + pendingOperator + " " + fmt(currentValue) + " " + currentOperator + " " + fmt(value);
             setResult(full, r, divideByZero);
             record(r);
             return;
@@ -333,16 +334,44 @@ QtObject {
         let r = x;
         let expr = "";
         switch (name) {
-        case "sqrt":    r = Math.sqrt(x);                expr = "√(" + fmt(x) + ")"; break;
-        case "sq":      r = x * x;                       expr = fmt(x) + "²"; break;
-        case "sin":     r = Math.sin(x * Math.PI / 180); expr = "sin(" + fmt(x) + "°)"; break;
-        case "cos":     r = Math.cos(x * Math.PI / 180); expr = "cos(" + fmt(x) + "°)"; break;
-        case "tan":     r = Math.tan(x * Math.PI / 180); expr = "tan(" + fmt(x) + "°)"; break;
-        case "log":     r = Math.log(x) / Math.LN10;     expr = "log(" + fmt(x) + ")"; break;
-        case "ln":      r = Math.log(x);                 expr = "ln(" + fmt(x) + ")"; break;
-        case "fact":    r = factorial(x);                expr = fmt(x) + "!"; break;
-        case "percent": r = percentOf(x);                expr = fmt(x) + "%"; break;
-        default: return;
+        case "sqrt":
+            r = Math.sqrt(x);
+            expr = "√(" + fmt(x) + ")";
+            break;
+        case "sq":
+            r = x * x;
+            expr = fmt(x) + "²";
+            break;
+        case "sin":
+            r = Math.sin(x * Math.PI / 180);
+            expr = "sin(" + fmt(x) + "°)";
+            break;
+        case "cos":
+            r = Math.cos(x * Math.PI / 180);
+            expr = "cos(" + fmt(x) + "°)";
+            break;
+        case "tan":
+            r = Math.tan(x * Math.PI / 180);
+            expr = "tan(" + fmt(x) + "°)";
+            break;
+        case "log":
+            r = Math.log(x) / Math.LN10;
+            expr = "log(" + fmt(x) + ")";
+            break;
+        case "ln":
+            r = Math.log(x);
+            expr = "ln(" + fmt(x) + ")";
+            break;
+        case "fact":
+            r = factorial(x);
+            expr = fmt(x) + "!";
+            break;
+        case "percent":
+            r = percentOf(x);
+            expr = fmt(x) + "%";
+            break;
+        default:
+            return;
         }
         const pending = currentOperator;
         const outer = pendingOperator;

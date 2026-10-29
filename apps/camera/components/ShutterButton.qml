@@ -42,10 +42,16 @@ MouseArea {
         opacity: root.pressed ? Theme.opacityHigh : 1
 
         Behavior on width {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+            NumberAnimation {
+                duration: 200
+                easing.type: Easing.InOutQuad
+            }
         }
         Behavior on radius {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+            NumberAnimation {
+                duration: 200
+                easing.type: Easing.InOutQuad
+            }
         }
     }
 
