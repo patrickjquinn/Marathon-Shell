@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=515
+pkgrel=516
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -355,7 +355,7 @@ icontheme() {
 
 sha512sums="
 1c66550c57c95c688fa8a91b41fbdd6ee7c9f085c949c61de9f647f526bd9c36bdb6b24d2cb472509c619f1842a60679b3bb736c99827de9f178623f39e29837  marathon-shell-1.0.0.tar.gz
-d5a3bb9202e13b097d70c9ae376d3860df288070c53c8de12f5e44cd64a43f02c8d1404b6fc506c6aa92e49df5a17f010cf06ec1874f8e5164be8f630ef8c6fc  marathon-shell-session
+7729bf1150bea346b49438698af2c8255e8abbbf3423ab963e0bb75da52ec7c0b98ec92643bfab39af6a3a53f579dffc9a431681e37f653f8c597a5ddc3f7b61  marathon-shell-session
 8290f5c45f3ba269ae7c17c3204c569386eb0aac88dcff8a480bdca09c73fe6ea9f4007d9d01de54a2ce8844acca87601a1722581d5d8f5c65a0356ea978b055  99-marathon-rtprio.conf
 30813482a4c89137dfd85cd8ad9fd108c8b6bb44e1138a5d8c3a0d49143f11105f7e65e8a0f99d8e651409b5ff21e4830420e992d495e9b2e6ebeded817a516f  marathon-shell-tmpfiles.conf
 "

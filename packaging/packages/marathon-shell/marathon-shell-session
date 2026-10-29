@@ -644,6 +644,8 @@ if command -v systemd-run >/dev/null 2>&1 && \
         --slice=marathon.slice \
         --unit="marathon-shell-$$" \
         --property=TimeoutStopSec=5 \
+        --property=IOAccounting=yes \
+        --property=IOWeight=100 \
         --setenv=DBUS_SESSION_BUS_ADDRESS \
         --setenv=XDG_RUNTIME_DIR \
         --setenv=LANG \
