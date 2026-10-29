@@ -726,7 +726,7 @@ pub fn card_detail(tool: &str, args: &Value) -> String {
             }
         ),
         "memory.remember" => format!("Remember \u{201c}{}\u{201d}", s("fact")),
-        _ => serde_json::to_string(args).unwrap_or_default(),
+        _ => crate::pipeline::args_line(args),
     }
 }
 

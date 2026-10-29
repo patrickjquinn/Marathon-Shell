@@ -38,6 +38,12 @@ Item {
         return row.name ? row : null;
     }
 
+    // The app an app entity names, or null.
+    function appAt(uri) {
+        const s = String(uri || "");
+        return app(s.substring(s.lastIndexOf("/") + 1));
+    }
+
     KeelEntity {
         id: appEntity
         type: "app"
@@ -142,19 +148,19 @@ Item {
         parameters: [
             KeelParam {
                 name: "app"
-                type: "string"
+                type: "entity"
+                entity: "app"
                 required: true
-                maxLength: 256
-                description: "The app's id, from reef.search"
             }
         ]
         onInvoked: (args, call) => {
-            if (!actions.app(args.app)) {
+            const row = actions.appAt(args.app);
+            if (!row) {
                 call.fail("NotFound", "No such app in the store");
                 return;
             }
             actions.showPage("PackagePage.qml", "", {
-                packageName: args.app
+                packageName: row.name
             });
             actions.window.activate();
             call.reply();
@@ -170,14 +176,13 @@ Item {
         parameters: [
             KeelParam {
                 name: "app"
-                type: "string"
+                type: "entity"
+                entity: "app"
                 required: true
-                maxLength: 256
-                description: "The app's id, from reef.search"
             }
         ]
         onInvoked: (args, call) => {
-            const row = actions.app(args.app);
+            const row = actions.appAt(args.app);
             if (!row)
                 call.fail("NotFound", "No such app in the store");
             else if (!row.installable)
@@ -187,7 +192,7 @@ Item {
             else if (row.installState !== "not_installed")
                 call.fail("NotAvailable", "Already installed");
             else {
-                Reef.install(args.app);
+                Reef.install(row.name);
                 call.reply();
             }
         }

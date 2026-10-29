@@ -3320,15 +3320,16 @@ impl Pipeline {
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
+        let one = if entry.spec.name.contains('/') {
+            args_line_named(&args, names)
+        } else {
+            card_detail(&entry.spec.name, &args)
+        };
         let steps: Vec<Step> = if plan.is_empty() {
             vec![Step {
                 title: entry.spec.title.clone(),
                 app: app_of(&entry.spec.name),
-                detail: if entry.spec.name.contains('/') {
-                    args_line_named(&args, names)
-                } else {
-                    card_detail(&entry.spec.name, &args)
-                },
+                detail: one.clone(),
                 needs_yes: true,
             }]
         } else {
@@ -3355,7 +3356,7 @@ impl Pipeline {
         let card = Card::Confirm {
             id: id.clone(),
             title: entry.spec.title.clone(),
-            detail: detail.unwrap_or_else(|| card_detail(&entry.spec.name, &args)),
+            detail: detail.unwrap_or(one),
             tool: entry.spec.name.clone(),
             destructive: entry.spec.destructive,
             outbound: entry.spec.open_world,
