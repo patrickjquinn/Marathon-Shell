@@ -1,0 +1,42 @@
+{
+  "kernel": "6.12.85-1-rpi",
+  "cpu": {
+    "scaling_governor": "schedutil",
+    "scaling_min_freq": "1500000",
+    "scaling_max_freq": "2400000",
+    "scaling_cur_freq": "2400000"
+  },
+  "temperature_millidegrees_C": 58950,
+  "android_cgroup": {
+    "cpu.weight": "200",
+    "io.bfq.weight": "default 200",
+    "cpu.uclamp.min": "0.00",
+    "cpu.uclamp.max": "max",
+    "memory.current": "2157297664",
+    "memory.swap.current": "238354432"
+  },
+  "app_threads": [
+    {
+      "pid": 9088,
+      "tid": 9088,
+      "comm": "aoapp.musically",
+      "clamps": [
+        "uclamp.min                                   :                    0",
+        "uclamp.max                                   :                 1024",
+        "effective uclamp.min                         :                    0",
+        "effective uclamp.max                         :                 1024"
+      ]
+    },
+    {
+      "pid": 9088,
+      "tid": 9196,
+      "comm": "RenderThread",
+      "clamps": [
+        "uclamp.min                                   :                    0",
+        "uclamp.max                                   :                 1024",
+        "effective uclamp.min                         :                    0",
+        "effective uclamp.max                         :                 1024"
+      ]
+    }
+  ]
+}
