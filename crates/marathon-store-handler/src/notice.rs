@@ -111,7 +111,7 @@ impl Notice {
                 Some("org.freedesktop.Notifications"),
                 "Notify",
                 &(
-                    "App Store",
+                    STORE,
                     self.id,
                     icon,
                     summary,
