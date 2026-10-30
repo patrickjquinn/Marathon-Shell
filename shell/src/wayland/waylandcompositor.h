@@ -22,6 +22,7 @@
 #include <QElapsedTimer>
 #include <QSet>
 #include <QTimer>
+#include <QVector>
 
 #include <functional>
 
@@ -322,6 +323,22 @@ class WaylandCompositor : public QWaylandCompositor {
     quint64                                   m_presentSequence = 0;
     Apps                                     *m_apps            = nullptr;
     QHash<QString, QPointer<QWaylandSurface>> m_covers;
+    struct DozeProperty {
+        uint32_t object;
+        uint32_t property;
+        uint64_t value;
+    };
+    struct SimpleDozeState {
+        QVector<DozeProperty> off;
+        QVector<DozeProperty> restore;
+        QVector<uint32_t>     framebuffers;
+        uint32_t              modeBlob = 0;
+    };
+    SimpleDozeState m_simpleDoze;
+    bool            m_simpleDozeDetached = false;
+    bool            m_simpleDrmQualified = false;
+    bool            setSimpleDrmPowerState(bool on);
+    void            releaseSimpleDozeState(SimpleDozeState &state);
 };
 
 #endif

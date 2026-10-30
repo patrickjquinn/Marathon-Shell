@@ -62,3 +62,51 @@ alone is not nominal 100% SOC. No charge-limit increase was made.
 
 Accurate state of charge, dynamic GPU power, full RAM enablement, native display,
 modem/SIM/data/calls, suspend and battery life remain separate qualification work.
+
+## Later battery and display qualification
+
+The deployed Shell advanced to `48fa0938c677c308d52d08d9a0b4f966fdf012bc135baf5d62e2fc6faa33ecd5`.
+The provisional native gauge now exposes measured current, signed hardware charge
+counter and temperature on the existing fuel-gauge supply. Its stock-profile
+model seeded an estimated 82%; UPower and Settings agreed. This is not calibrated
+SOC. A redundant charger configuration supply is explicitly ignored by a patched
+UPower; one battery reports 13.32 Wh rather than counting it twice. Shell's
+experimental-model guard and UPower's `Ignore` critical action remain necessary.
+An actual 12.5-second producer pause removed capacity and displayed “Battery level
+unavailable”; resumption and an ordinary service restart both reseeded correctly.
+Battery-only boot and physical battery-life qualification remain incomplete.
+
+Sleep appeared to freeze the GPU session because the generic ACTIVE-only DRM
+commit left SimpleDRM's plane attached. A Q25/SimpleDRM-specific transaction now
+retains a framebuffer and mode blob, tests and atomically detaches the plane,
+connector and mode, then restores them before Qt resumes. Other drivers retain
+their existing path. Deployed candidate
+`a71655b371dae61cdbf477550ebe87db6247304cedea6fb27f09da81f9edc323`
+passed 20 power-key detach/wake cycles with one Shell process and no new kernel
+log entries. Five seconds blanked used approximately 0.20% of one CPU core.
+Wake-to-frameSwapped notifications were approximately 3.7–4.7 ms; these are
+software notifications, not measured panel or photon latency. One retained
+framebuffer is expected; framebuffer count did not grow with every cycle.
+
+**Physical illumination is not fixed:** the operator confirmed that both the
+screen backlight and keyboard light remain on. Clearing the retained picture is
+only a partial fix, not proof of display power-off, usable standby or battery
+life. A controlled software-renderer comparison is recorded on USB; no physical
+result is assumed without an operator observation. The known OCP2131 bias-voltage
+registers are not treated as brightness controls. The keyboard's verified
+brightness register reads 255; a standard LED driver is being qualified
+separately. No blind AW99706/RT4831 binding or guessed panel-voltage write was made.
+
+All three system power profiles were exercised on both CPU clusters: saver used
+`powersave`, balanced used `ondemand`, and performance used `performance`.
+Balanced was restored. GPU runtime PM and its temporary fixed-frequency/rail
+workaround remain separate unresolved power-saving limits.
+
+Connectivity priority is Wi-Fi, then Bluetooth, then cellular. A same-SoC source
+port produced matched-tree WMT, BTIF and adapter modules with joint modpost and
+40 focused host tests passing, without fake exports or unused SDIO imports.
+They have not been loaded: CONSYS power/EMI ownership and native firmware
+bootstrap remain unqualified, and the AXI WLAN backend is still required.
+No native Wi-Fi interface, Bluetooth controller or functional cellular radio is
+claimed. Prototype sources, module hashes and logs are under USB
+`q25/wifi-bringup/joint-linux7-port/`; this is not a canonical package delivery.
