@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000052 Mon Sep 17 00:00:00 2001
+From: Marathon Pipeline <pipeline@marathon.local>
+Date: Fri, 30 Oct 2026 15:30:00 +0000
+Subject: [PATCH] fix(base): preserve migrated user settings and authorized keys
+
+The marker can be absent on a migrated home. Do not replace existing settings
+or permissions while creating it. Tmpfiles must also seed files only when
+missing, so every later boot preserves user state and authorized keys.
+
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index e9638d2..ff5f890 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -54,9 +54,9 @@ d /home/$USER_NAME/.config 0700 $USER_NAME $USER_NAME -
+ d /home/$USER_NAME/.config/marathon-os 0700 $USER_NAME $USER_NAME -
+ d /home/$USER_NAME/.config/marathon 0700 $USER_NAME $USER_NAME -
+ d /home/$USER_NAME/.ssh 0700 $USER_NAME $USER_NAME -
+-C+ "/home/$USER_NAME/.config/marathon-os/Marathon Shell.conf" 0600 $USER_NAME $USER_NAME - -
+-C+ "/home/$USER_NAME/.config/marathon/app-permissions.json" 0600 $USER_NAME $USER_NAME - -
+-C+ /home/$USER_NAME/.ssh/authorized_keys 0600 $USER_NAME $USER_NAME - -
++C "/home/$USER_NAME/.config/marathon-os/Marathon Shell.conf" 0600 $USER_NAME $USER_NAME - -
++C "/home/$USER_NAME/.config/marathon/app-permissions.json" 0600 $USER_NAME $USER_NAME - -
++C /home/$USER_NAME/.ssh/authorized_keys 0600 $USER_NAME $USER_NAME - -
+ EOF
+
+ FACTORY="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon-os"
+@@ -332,12 +332,17 @@ install -d -m 0700 -o $USER_NAME -g $USER_NAME "$HOME_DIR/.config"
+ install -d -m 0700 -o $USER_NAME -g $USER_NAME "$HOME_DIR/.config/marathon-os"
+ install -d -m 0700 -o $USER_NAME -g $USER_NAME "$HOME_DIR/.config/marathon"
+
+-install -m 0600 -o $USER_NAME -g $USER_NAME \
+-    "$FACTORY/.config/marathon-os/Marathon Shell.conf" \
+-    "$HOME_DIR/.config/marathon-os/Marathon Shell.conf"
+-install -m 0600 -o $USER_NAME -g $USER_NAME \
+-    "$FACTORY/.config/marathon/app-permissions.json" \
+-    "$HOME_DIR/.config/marathon/app-permissions.json"
++# A migrated home may predate the sentinel. Seed only missing entries, and
++# preserve existing files (including empty files and dangling symlinks).
++seed_missing() {
++    source="$FACTORY/$1"
++    destination="$HOME_DIR/$1"
++    if [ ! -e "$destination" ] && [ ! -L "$destination" ]; then
++        install -m 0600 -o $USER_NAME -g $USER_NAME "$source" "$destination"
++    fi
++}
++seed_missing ".config/marathon-os/Marathon Shell.conf"
++seed_missing ".config/marathon/app-permissions.json"
+
+ touch "$HOME_DIR/.config/marathon/.seeded"
+ chown $USER_NAME:$USER_NAME "$HOME_DIR/.config/marathon/.seeded"
