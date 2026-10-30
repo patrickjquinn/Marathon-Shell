@@ -1,0 +1,57 @@
+# Exact accepted Q25 closure; this package never compiles kernel/GPU code.
+pkgname=q25-gpu-render
+pkgver=7.0.0
+pkgrel=1
+pkgdesc="Q25 accepted guarded Panfrost390MHz PM-on render path"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="GPL-2.0-only AND MIT"
+options="!check !strip !tracedeps"
+depends="kmod linux-postmarketos-mediatek-g99=7.0-r1000 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
+makedepends="zstd"
+install="$pkgname.post-install $pkgname.post-upgrade"
+source="q25-mfg-only-v2.ko.zst panfrost.ko.zst gpu-sched.ko.zst
+ q25-gpu-prepare q25-gpu-prepare.service 80-q25-gpu-prepare.conf
+ q25-shell-session.gpu GPU-SHA256SUMS eglfs-kms.json simpledrm_dri.so simpledrm_dri.c
+ q25-render-only-blacklist.conf GPU-SOURCE-PROVENANCE.json
+ q25-mfg-only-v2.c q25-mfg-data.h mtk-pm-domains.h"
+package() {
+    local private="$pkgdir/usr/lib/q25-gpu"
+    install -d "$private"
+    local module
+    for module in q25-mfg-only-v2 gpu-sched panfrost; do
+        zstd -q -d -c "$srcdir/$module.ko.zst" > "$private/$module.ko"
+        chmod 0644 "$private/$module.ko"
+    done
+    install -Dm644 "$srcdir/GPU-SHA256SUMS" "$private/SHA256SUMS"
+    install -Dm755 "$srcdir/q25-gpu-prepare" "$pkgdir/usr/libexec/marathon/q25-gpu-prepare"
+    install -Dm755 "$srcdir/q25-shell-session.gpu" "$pkgdir/usr/libexec/marathon/q25-shell-session.gpu"
+    install -Dm644 "$srcdir/q25-gpu-prepare.service" "$pkgdir/usr/lib/systemd/system/q25-gpu-prepare.service"
+    install -Dm644 "$srcdir/80-q25-gpu-prepare.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/80-q25-gpu-prepare.conf"
+    install -Dm644 "$srcdir/eglfs-kms.json" "$pkgdir/etc/q25/eglfs-kms.json"
+    # Keep the accepted shim byte-exact in a package-owned private path.
+    install -Dm755 "$srcdir/simpledrm_dri.so" "$pkgdir/usr/lib/q25-gpu/dri/simpledrm_dri.so"
+    install -Dm644 "$srcdir/q25-render-only-blacklist.conf" "$pkgdir/usr/lib/modprobe.d/q25-render-only.conf"
+    local doc="$pkgdir/usr/share/doc/$pkgname"
+    install -d "$doc/source"
+    install -m644 "$srcdir/"*.c "$srcdir/"*.h "$doc/source/"
+    install -m644 "$srcdir/GPU-SOURCE-PROVENANCE.json" "$doc/"
+}
+sha512sums="
+6abd876a9ae37c45e252aad43f5d60a8b417a510fc94ac033f91f7a2530f0ff04961cfe567e258442f2010a34019ff74ec6f5528011a2a9cc57d46f553c4d900  q25-mfg-only-v2.ko.zst
+a41fd261c3dd8a1c02993104e0bcc63d0c21a21833b6ddaefd7a3a2322694975d50eb6aa47b2475b36df1bfc2f28b12f156ff8ded348c6171af9e42f67723dfc  panfrost.ko.zst
+e469e1e776ac1cb1ba0f6c115ec0effa21dbc1c66ebd51e87916b53140a650f0c2c7e504d58588282b9f4a0238d74df38c845276d7f787d8de8355492c99365a  gpu-sched.ko.zst
+9aa255543c8df6897afd98424c5c142b53b411e7b555ca187af4cbfdc85d52da299042673050bce3bb755e8533cd9aeea3bbc511801225cf7f8609ebe8057ec7  q25-gpu-prepare
+e10c853645bc8f2af481b2936c0aad4e60e214460e685deae8a39fc96882da2927097eb07941fbf06909eb72bd95543c529bb431c61d378722770097d609ea8d  q25-gpu-prepare.service
+1e8c28c7b0353b3af4f8085d9e28064fa3e8eae8ebe93ea3db33c19fb6102de7a990343906846dbc13d833ad94153b396941e0585f378acec70554a691118152  80-q25-gpu-prepare.conf
+2b72853bbb51edd1a765cbc1a7fae6372aafac5bae84a5554b99d91d5456f20eedc669d503552414ac5bd5739e2d3d2af876a1058b717922119102a544301681  q25-shell-session.gpu
+8fad3a0f8c9b6679e175a5f3456e5c5a6c7b42c4bd4cd4434287d65f23c216525dbc8670d0923dabba8ec6fbb25bcc809f5fe7a6f7c1f3f5d0870d1a3797b0a6  GPU-SHA256SUMS
+226e3eac9efa0b532f851ef7d15a6973c44fc36508d022101655e5057013c431c9073e27976d5d7be7d9cd2bae1f26ae395ba982c9a4342f66807cdbfba620fd  eglfs-kms.json
+8e72f0f973fbe3b0636842454919c583bcd570716a757e0c999e0106638b3be6f786f6160ea1da1832686ac717ef2cbc5ad06a1aa29a30a6ae3001f9f31f5e02  simpledrm_dri.so
+cb2e1c1b810069d9f1d7314280367103bbfe8f04532d7a79cc9dd8078e3c788579627bee97f28619908750e215323bbe081be1a53dc2b102084cd4608360452f  simpledrm_dri.c
+3cdf72e79fd7d82b72f54a2d2ef266b9b8bb3d1e822f090338060e98435ab2ca8021afe425ed96e3d3d6ad0e40a93711b248f03c84a633f8c23fa731c91301d4  q25-render-only-blacklist.conf
+82e28355b9a0a45d705232686537bd0097abd6f6ec450edb84a7ba0b90da06f30eae4d9e06a7fbc7157bc4896955cd70dfed81aa295a8789c4ecef9b6e2f6667  GPU-SOURCE-PROVENANCE.json
+33abe8429b611c61a4efde37c63f6b62d26a99b15569dad59f44ba0fd339ecd99965c8a5452d07f207816487009bcd6cd7fac0123348840a9ecec82c7ccad9f8  q25-mfg-only-v2.c
+dc4717aabc4376949e80781cfdc00222831f4474c79efb39b82103c442f5d9b90d9bcf5b0f2be7c1377c9e22469f6fd7417f3008e3e076a034bacfb733d4a46e  q25-mfg-data.h
+d50f33d3b9b2ac6b43c37120e888d1d1e1deb032d38b613adaf1acd26b970b1cfdeb3e203e065b237bcb95873d1d92fe05783d12c63bced1c09b3b99840c4757  mtk-pm-domains.h
+"

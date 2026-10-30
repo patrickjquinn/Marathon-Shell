@@ -1,26 +1,28 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=2
-pkgdesc="Zinwa Q25 Marathon software session and UI device profile"
+pkgrel=3
+pkgdesc="Zinwa Q25 Marathon guarded GPU/software session and UI device profile"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="Apache-2.0"
 options="!check"
-depends="device-mediatek-g99 marathon-base-config marathon-shell greetd"
+depends="device-mediatek-g99 marathon-base-config marathon-shell greetd q25-gpu-render"
 # The private generic-G99 trial overlay also owned this same generated profile.
 replaces="device-mediatek-g99-marathon"
-source="device-profile.conf q25-shell-session greetd-q25.toml 50-q25-session.conf q25-session.conf.example"
+source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example"
 package() {
     install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
     install -Dm755 "$srcdir/q25-shell-session" "$pkgdir/usr/libexec/marathon/q25-shell-session"
+    install -Dm755 "$srcdir/q25-shell-session.software" "$pkgdir/usr/libexec/marathon/q25-shell-session.software"
     install -Dm644 "$srcdir/greetd-q25.toml" "$pkgdir/etc/greetd/q25-config.toml"
     install -Dm644 "$srcdir/50-q25-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-q25-session.conf"
     install -Dm644 "$srcdir/q25-session.conf.example" "$pkgdir/usr/share/doc/$pkgname/q25-session.conf.example"
 }
 sha512sums="
 df68e8b7ce32d5f0d09b629c5795fecb998a5b3609e1afad216ab8e3e5dbc6511a967be3f7c092ce6830405587d7c2c3f52f732c6654cf6756d9a1042b80c11e  device-profile.conf
-9145be66bd97eafba08151c8636095709266b53cf177334e136083a1cb36ca69e031b1b775067db292b9571aaa1853d55db25ed8e7258b90b88939cf65d0c666  q25-shell-session
+78c26322d48600bc722915ab347d27c52f9a2701bd63ada226669efe42a3aac92e6614158036f7d37b0a641d35d07a88f8eef3b21f6945d3c1292957d7dd667a  q25-shell-session
+7c023ffa760ee6aff53e6a628a3bd673b169daf6462a358a269ec80ef807054517e0038e8ddbba54f7ff50fad28e30d2934faf52b9ae02e40b7989f4ccbb4ea1  q25-shell-session.software
 56babfe06ed3da7ff72569304d9984adba8d77878cacf27435cb0a83d025bacae203e544e366c4d0490880bcdb7425ac67122b40ae3d46534a1104b76ba7157d  greetd-q25.toml
 221913275648d3c6f09a5da643d8c16922cfe305a4630f1d08dc5cabf98e85f7a105dab8daa1d426ca7ea7cff6ba1fed0c8ba4acac506e6be7103df7785ac3ad  50-q25-session.conf
 358ebe8f456cad78ad4d53c3721835cf79026cb233c43f1428f7a4001cf3825e3fbe2db9777d5ca2ced41acc9590ad5508c40307dca9c341859c90aa83f93d6f  q25-session.conf.example
