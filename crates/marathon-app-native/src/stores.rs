@@ -64,6 +64,7 @@ pub mod qobject {
     }
 
     impl cxx_qt::Threading for SystemStatusStore {}
+
     impl cxx_qt::Initialize for SystemStatusStore {}
     impl cxx_qt::Threading for SystemControlStore {}
     impl cxx_qt::Initialize for SystemControlStore {}
@@ -78,11 +79,20 @@ const DISPLAY: Service = Service::shell("Display");
 const SETTINGS: Service = Service::shell("Settings");
 const AUDIO: Service = Service::shell("Audio");
 
-#[derive(Default)]
 pub struct SystemStatusStoreRust {
     battery_level: i32,
     wifi_connected: bool,
     wifi_network: QString,
+}
+
+impl Default for SystemStatusStoreRust {
+    fn default() -> Self {
+        Self {
+            battery_level: -1,
+            wifi_connected: false,
+            wifi_network: QString::default(),
+        }
+    }
 }
 
 impl cxx_qt::Initialize for SystemStatusStore {
@@ -94,7 +104,9 @@ impl cxx_qt::Initialize for SystemStatusStore {
                     obj,
                     battery_level,
                     battery_level_changed,
-                    get(&s, "batteryLevel")
+                    s.get("batteryLevel")
+                        .and_then(i32::from_value)
+                        .unwrap_or(-1)
                 );
             }
         });

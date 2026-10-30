@@ -317,11 +317,11 @@ TestCase {
         verify(!profile.visible);
     }
 
-    function test_noBattery() {
+    function test_unknownBatteryLevel() {
         Power.batteryLevel = -1;
         const s = open("battery");
-        compare(child(s.page, "levelLabel").text, "No battery");
-        verify(!child(s.page, "statusLabel").visible);
+        compare(child(s.page, "levelLabel").text, "Battery level unavailable");
+        compare(child(s.page, "statusLabel").visible, Power.isCharging || Power.isPluggedIn);
     }
 
     function test_storage() {

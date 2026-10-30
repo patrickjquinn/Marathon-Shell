@@ -5,7 +5,7 @@ use std::pin::Pin;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QDateTime, QString};
 
-use crate::shell::{get, mirror, Service, Update};
+use crate::shell::{get, mirror, Field, Service, Update};
 
 #[cxx_qt::bridge(namespace = "marathon::platform")]
 pub mod qobject {
@@ -56,6 +56,7 @@ pub mod qobject {
     }
 
     impl cxx_qt::Threading for Power {}
+
     impl cxx_qt::Initialize for Power {}
 }
 
@@ -63,7 +64,6 @@ use qobject::Power;
 
 const POWER: Service = Service::shell("Power");
 
-#[derive(Default)]
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
 pub struct PowerRust {
     battery_level: i32,
@@ -76,6 +76,21 @@ pub struct PowerRust {
     permitted: bool,
 }
 
+impl Default for PowerRust {
+    fn default() -> Self {
+        Self {
+            battery_level: -1,
+            is_charging: false,
+            is_plugged_in: false,
+            is_power_save_mode: false,
+            estimated_battery_time: -1,
+            power_profile: QString::default(),
+            power_profiles_supported: false,
+            permitted: false,
+        }
+    }
+}
+
 impl cxx_qt::Initialize for Power {
     fn initialize(mut self: Pin<&mut Self>) {
         self.as_mut().rust_mut().permitted = true;
@@ -85,7 +100,10 @@ impl cxx_qt::Initialize for Power {
                 Update::Refused => p.permitted = false,
                 Update::State(s) => {
                     p.permitted = true;
-                    p.battery_level = get(&s, "batteryLevel");
+                    p.battery_level = s
+                        .get("batteryLevel")
+                        .and_then(i32::from_value)
+                        .unwrap_or(-1);
                     p.is_charging = get(&s, "isCharging");
                     p.is_plugged_in = get(&s, "isPluggedIn");
                     p.is_power_save_mode = get(&s, "isPowerSaveMode");

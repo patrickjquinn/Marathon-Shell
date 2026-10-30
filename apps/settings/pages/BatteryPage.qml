@@ -25,7 +25,7 @@ Page {
             description: qsTr("Slower, makes the battery last longer")
         }
     ]
-    readonly property bool hasBattery: Power.batteryLevel >= 0
+    readonly property bool hasBatteryLevel: Power.batteryLevel >= 0
 
     function setProfile(value) {
         if (value === "power-saver") {
@@ -53,14 +53,14 @@ Page {
                 objectName: "levelLabel"
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
-                text: page.hasBattery ? qsTr("%1%").arg(Power.batteryLevel) : qsTr("No battery")
-                font.pixelSize: page.hasBattery ? Theme.fontSizeHuge : Theme.fontSizeLarge
-                color: Theme.highlightColor
+                text: page.hasBatteryLevel ? qsTr("%1%").arg(Power.batteryLevel) : qsTr("Battery level unavailable")
+                font.pixelSize: page.hasBatteryLevel ? Theme.fontSizeHuge : Theme.fontSizeLarge
+                color: page.hasBatteryLevel ? Theme.highlightColor : Theme.secondaryHighlightColor
             }
             Label {
                 objectName: "statusLabel"
                 width: parent.width
-                visible: page.hasBattery
+                visible: page.hasBatteryLevel || Power.isCharging || Power.isPluggedIn
                 horizontalAlignment: Text.AlignHCenter
                 text: Logic.batteryStatus(Power.isCharging, Power.isPluggedIn, Power.estimatedBatteryTime)
                 color: Theme.secondaryHighlightColor

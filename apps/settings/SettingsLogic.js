@@ -182,8 +182,8 @@ function wifiSummary(enabled, connected, ssid) {
 }
 
 function batterySummary(level, charging) {
-    if (typeof level !== "number" || level < 0)
-        return "";
+    if (typeof level !== "number" || !Number.isFinite(level) || level < 0)
+        return qsTr("Battery level unavailable");
     return charging ? qsTr("%1% · charging").arg(level) : qsTr("%1%").arg(level);
 }
 

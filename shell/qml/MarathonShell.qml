@@ -2376,6 +2376,8 @@ Item {
         }
 
         function onEmergencyShutdownArmed(secondsUntilShutdown) {
+            if (Power.batteryLevel < 0)
+                return;
             criticalBatteryShutdownTimer.interval = Math.max(0, secondsUntilShutdown * 1000);
             criticalBatteryShutdownTimer.start();
         }
@@ -2393,6 +2395,8 @@ Item {
         interval: 10000
         repeat: false
         onTriggered: {
+            if (Power.batteryLevel < 0)
+                return;
             Logger.error("Battery", "Emergency critical power action due to battery");
             Power.performCriticalPowerAction();
         }

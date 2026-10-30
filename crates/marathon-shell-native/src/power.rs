@@ -157,6 +157,9 @@ pub mod qobject {
 
 use qobject::Power;
 
+#[path = "battery_measurement.rs"]
+mod measurement;
+
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
 pub struct PowerRust {
     battery_level: i32,
@@ -182,7 +185,7 @@ pub struct PowerRust {
 impl Default for PowerRust {
     fn default() -> Self {
         Self {
-            battery_level: 100,
+            battery_level: -1,
             warning_level: 0,
             is_charging: false,
             is_plugged_in: true,
@@ -357,6 +360,12 @@ impl Power {
     }
 
     fn perform_critical_power_action(&self) {
+        if !measurement::known(self.battery_level) {
+            return log::warn(
+                "power",
+                "critical action refused: battery percentage unavailable",
+            );
+        }
         let action = self.critical_action.to_string().to_ascii_lowercase();
         log::warn("power", format_args!("critical battery: {action}"));
         self.act(match action.as_str() {
@@ -371,6 +380,14 @@ impl Power {
     /// action at `UPower`'s critical level; a charger resets both.
     fn warn_battery(mut self: Pin<&mut Self>) {
         let (level, warning) = (self.battery_level, self.warning_level);
+        if !measurement::known(level) {
+            self.as_mut().rust_mut().warned_at = 100;
+            if self.shutdown_armed {
+                self.as_mut().rust_mut().shutdown_armed = false;
+                self.emergency_shutdown_disarmed();
+            }
+            return;
+        }
         if self.is_charging || warning < 4 {
             if self.shutdown_armed {
                 self.as_mut().rust_mut().shutdown_armed = false;
@@ -403,7 +420,7 @@ impl Power {
             &QString::from(icon),
             haptic,
         );
-        if warning >= 4 && !self.shutdown_armed {
+        if measurement::can_arm_shutdown(level, warning, self.is_charging) && !self.shutdown_armed {
             self.as_mut().rust_mut().shutdown_armed = true;
             self.emergency_shutdown_armed(10);
         }
@@ -484,6 +501,9 @@ fn battery_warning(
     warned_at: i32,
     critical_action: &str,
 ) -> Option<Warning> {
+    if !measurement::known(level) {
+        return None;
+    }
     let warn = |at, title, body, icon, haptic| {
         Some(Warning {
             at,
@@ -508,21 +528,21 @@ fn battery_warning(
             "battery",
             1,
         ),
-        0..=2 if level <= 5 && warned_at > 5 => warn(
+        0..=2 if level >= 0 && level <= 5 && warned_at > 5 => warn(
             5,
             fl!("battery-very-low-title"),
             fl!("battery-very-low-body", level = level),
             "battery-warning",
             3,
         ),
-        0..=2 if level <= 10 && warned_at > 10 => warn(
+        0..=2 if level >= 0 && level <= 10 && warned_at > 10 => warn(
             10,
             fl!("battery-lower-title"),
             fl!("battery-lower-body", level = level),
             "battery",
             2,
         ),
-        0..=2 if level <= 20 && warned_at > 20 => warn(
+        0..=2 if level >= 0 && level <= 20 && warned_at > 20 => warn(
             20,
             fl!("battery-low-title"),
             fl!("battery-low-body", level = level),
@@ -578,7 +598,8 @@ fn watch_power_keys(qt: Qt) {
 /// `UPower`'s `DisplayDevice`, as its properties last said.
 #[derive(Clone, Copy, Default)]
 struct Battery {
-    percentage: f64,
+    percentage: Option<f64>,
+    percentage_available: bool,
     state: u32,
     warning: u32,
     time_to_empty: i64,
@@ -589,10 +610,7 @@ impl Battery {
     // UPower's states: 1 charging, 2 discharging, 4 fully charged,
     // 5 pending charge, 6 pending discharge.
     fn level(self) -> i32 {
-        // A percentage is 0 to 100, so the cast cannot truncate.
-        #[allow(clippy::cast_possible_truncation, reason = "a percentage, 0 to 100")]
-        let level = self.percentage.round().clamp(0.0, 100.0) as i32;
-        level
+        measurement::level(self.percentage, self.percentage_available)
     }
 
     fn is_charging(self) -> bool {
@@ -604,6 +622,9 @@ impl Battery {
     }
 
     fn estimated_minutes(self) -> i32 {
+        if !measurement::known(self.level()) {
+            return -1;
+        }
         let seconds = match self.state {
             2 | 6 => self.time_to_empty,
             1 | 5 => self.time_to_full,
@@ -618,7 +639,7 @@ impl Battery {
 
     fn set(&mut self, name: &str, value: &Value<'_>) {
         match name {
-            "Percentage" => self.percentage = value.downcast_ref().unwrap_or(self.percentage),
+            "Percentage" => self.percentage = value.downcast_ref().ok(),
             "State" => self.state = value.downcast_ref().unwrap_or(self.state),
             "WarningLevel" => self.warning = value.downcast_ref().unwrap_or(self.warning),
             "TimeToEmpty" => {
@@ -746,6 +767,8 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 for (name, value) in &changed {
                     actor.battery.set(name, value);
                 }
+                actor.battery.percentage_available =
+                    measurement::available(std::path::Path::new("/sys/class/power_supply"));
                 let battery = actor.battery;
                 qt.queue(move |obj| obj.apply_battery(battery)).ok();
             }
@@ -927,7 +950,7 @@ impl Actor {
         }
     }
 
-    // A host without a battery reads as plugged in at 100%.
+    // An unavailable percentage stays unknown; charging state remains independent.
     async fn read_battery(&mut self, qt: &Qt) {
         let Some(props) = self.properties(UPOWER, DISPLAY_DEVICE).await else {
             return;
@@ -940,6 +963,8 @@ impl Actor {
                 for (name, value) in &all {
                     self.battery.set(name, value);
                 }
+                self.battery.percentage_available =
+                    measurement::available(std::path::Path::new("/sys/class/power_supply"));
                 let battery = self.battery;
                 qt.queue(move |obj| obj.apply_battery(battery)).ok();
             }
@@ -1137,7 +1162,8 @@ mod tests {
     #[test]
     fn the_battery_reads_as_upower_states() {
         let charging = Battery {
-            percentage: 54.6,
+            percentage: Some(54.6),
+            percentage_available: true,
             state: 1,
             warning: 1,
             time_to_empty: 0,
@@ -1159,6 +1185,12 @@ mod tests {
         };
         assert!(!draining.is_plugged_in());
         assert_eq!(draining.estimated_minutes(), 120);
+    }
+    #[test]
+    fn unknown_percentage_never_warns_even_at_upower_critical() {
+        for warning in 0..=10 {
+            assert!(battery_warning(-1, warning, 100, "PowerOff").is_none());
+        }
     }
 }
 
