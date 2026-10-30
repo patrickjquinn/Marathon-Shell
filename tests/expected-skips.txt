@@ -1,2 +1,14 @@
 cargo: phone::tests::whole_catalogue
 TestWindowTextureItem::drawsTheSourceRounded
+
+# Generated Rust-notes invocation stub acts on real data/network; schema tests run.
+# crates/keel-actions-codegen/tests/golden/rust-notes/keel_actions_tests.rs
+cargo: generated_stubs::notes_delete_invoke
+
+# Schematic API documentation with ellipsis bodies, explicitly fenced ignore.
+# crates/keel/src/lib.rs:6
+cargo: keel/src/lib.rs - (line 6)
+
+# Ignored helper is run by midnight_and_times_across_dst_changes in a TZ child.
+# crates/pilotd/src/localtime.rs (TZ=Europe/Helsinki, --exact --ignored)
+cargo: localtime::tests::dst_in_helsinki

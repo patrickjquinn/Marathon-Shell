@@ -58,6 +58,14 @@ Page {
                 color: page.hasBatteryLevel ? Theme.highlightColor : Theme.secondaryHighlightColor
             }
             Label {
+                width: parent.width
+                visible: page.hasBatteryLevel
+                horizontalAlignment: Text.AlignHCenter
+                text: qsTr("Estimated remaining charge")
+                color: Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            Label {
                 objectName: "statusLabel"
                 width: parent.width
                 visible: page.hasBatteryLevel || Power.isCharging || Power.isPluggedIn
