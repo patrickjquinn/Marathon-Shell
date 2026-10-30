@@ -1,0 +1,152 @@
+From bad48847ddb61e80ad534151f1177dcdf0033147 Mon Sep 17 00:00:00 2001
+From: Q25 Native Bring-up <q25-native@localhost>
+Date: Fri, 30 Oct 2026 18:25:26 +0000
+Subject: [PATCH] net: wwan: add bounded Q25 CCCI RPC metadata validator
+
+Validate Q25 RPC envelope lengths, channels, response markers and
+complete aligned arguments before a future owner dispatches a request.
+Return opcode and argument lengths only; retain no payload or identifiers.
+
+The MD6295 reference caps RPC at 2048 bytes and six arguments. Keep this
+pure helper unconnected to Kbuild and hardware until the native modem
+firmware, memory and transport owner exists. No replies or device access.
+
+Signed-off-by: Q25 Native Bring-up <q25-native@localhost>
+---
+ drivers/net/wwan/q25_ccci_rpc_meta.c | 88 ++++++++++++++++++++++++++++
+ drivers/net/wwan/q25_ccci_rpc_meta.h | 28 +++++++++
+ 2 files changed, 116 insertions(+)
+ create mode 100644 drivers/net/wwan/q25_ccci_rpc_meta.c
+ create mode 100644 drivers/net/wwan/q25_ccci_rpc_meta.h
+
+diff --git a/drivers/net/wwan/q25_ccci_rpc_meta.c b/drivers/net/wwan/q25_ccci_rpc_meta.c
+new file mode 100644
+index 0000000..8929ff1
+--- /dev/null
++++ b/drivers/net/wwan/q25_ccci_rpc_meta.c
+@@ -0,0 +1,88 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/* Q25 RPC wire validation. ABI reference: LineageOS/android_kernel_xelex_mt6789
++ * 2a873a3511ee0eeead1442e60145093192a4535d: port_rpc.h, rpc_msg_handler(),
++ * port_rpc_recv_match(), ccci_header and CCCI_RPC_RX/TX in ccci_core.h.
++ * Reuse boundary: MT6895 native owner f6147b10cf7ef95932674506fbdfb7f3d67a1067
++ * supplies a useful RPC framing design, but its parser permits missing final
++ * alignment and trailing data. This independent parser admits metadata only.
++ */
++#include <linux/errno.h>
++#include <linux/string.h>
++#include <linux/unaligned.h>
++
++#include "q25_ccci_rpc_meta.h"
++
++#define RPC_RX 32
++#define RPC_TX 33
++#define RPC_RESPONSE_MASK 0xffff0000U
++#define RPC_PROPERTY_QUERY 0x400f
++#define RPC_SAR_QUERY 0x4010
++
++int q25_rpc_parse_meta(const void *frame, size_t bytes,
++		       enum q25_rpc_direction direction, struct q25_rpc_meta *out)
++{
++	struct q25_rpc_meta meta = {};
++	const u8 *h = frame;
++	size_t pos = 24;
++	u32 channel, raw_op, i;
++
++	if (!out)
++		return -EINVAL;
++	memset(out, 0, sizeof(*out));
++	if (!h || bytes < 24 || bytes > Q25_RPC_MAX_FRAME_BYTES ||
++	    (direction != Q25_RPC_FROM_MD && direction != Q25_RPC_TO_MD))
++		return -EINVAL;
++	if (get_unaligned_le32(h + 4) != bytes)
++		return -EBADMSG;
++	channel = get_unaligned_le32(h + 8) & 0xffff;
++	if (channel != (direction == Q25_RPC_FROM_MD ? RPC_RX : RPC_TX))
++		return -EBADMSG;
++	/* Follow the vendor check (> 2), without guessing an array index. */
++	if (get_unaligned_le32(h + 12) > 2)
++		return -EBADMSG;
++	raw_op = get_unaligned_le32(h + 16);
++	meta.response = direction == Q25_RPC_TO_MD;
++	if ((raw_op & RPC_RESPONSE_MASK) != (meta.response ? RPC_RESPONSE_MASK : 0))
++		return -EBADMSG;
++	meta.opcode = raw_op & 0xffff;
++	meta.argument_count = get_unaligned_le32(h + 20);
++	if (meta.argument_count > Q25_RPC_MAX_ARGS)
++		return -EBADMSG;
++	for (i = 0; i < meta.argument_count; i++) {
++		u32 length, padding;
++
++		if (bytes - pos < 4)
++			return -EBADMSG;
++		length = get_unaligned_le32(h + pos);
++		pos += 4;
++		if (length > bytes - pos)
++			return -EBADMSG;
++		padding = (-length) & 3;
++		if (padding > bytes - pos - length)
++			return -EBADMSG;
++		meta.argument_bytes[i] = length;
++		pos += length + padding;
++	}
++	/* Narrow admission policy: complete argument list, no trailing bytes.
++	 * Alignment bytes need not be zero: vendor does not promise their value.
++	 */
++	if (pos != bytes)
++		return -EBADMSG;
++	*out = meta;
++	return 0;
++}
++
++int q25_rpc_check_userspace_shape(const struct q25_rpc_meta *meta)
++{
++	if (!meta || meta->response)
++		return -EINVAL;
++	/* These two opcodes route to userspace in Q25 port_rpc_recv_match().
++	 * Shapes follow the native owner's explicit single-argument handlers.
++	 * No SAR default, property table or synthetic response is supplied here.
++	 */
++	if (meta->opcode == RPC_PROPERTY_QUERY)
++		return meta->argument_count == 1 && meta->argument_bytes[0] ? 0 : -EBADMSG;
++	if (meta->opcode == RPC_SAR_QUERY)
++		return meta->argument_count == 1 && meta->argument_bytes[0] == 4 ? 0 : -EBADMSG;
++	return -EOPNOTSUPP;
++}
+diff --git a/drivers/net/wwan/q25_ccci_rpc_meta.h b/drivers/net/wwan/q25_ccci_rpc_meta.h
+new file mode 100644
+index 0000000..52af6a3
+--- /dev/null
++++ b/drivers/net/wwan/q25_ccci_rpc_meta.h
+@@ -0,0 +1,28 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef _Q25_CCCI_RPC_META_H
++#define _Q25_CCCI_RPC_META_H
++
++#include <linux/types.h>
++
++#define Q25_RPC_MAX_FRAME_BYTES 2048
++#define Q25_RPC_MAX_ARGS 6
++
++enum q25_rpc_direction {
++	Q25_RPC_FROM_MD,
++	Q25_RPC_TO_MD,
++};
++
++/* No payload, property values, packet identifiers or addresses are retained. */
++struct q25_rpc_meta {
++	u32 opcode;
++	u32 response;
++	u32 argument_count;
++	u32 argument_bytes[Q25_RPC_MAX_ARGS];
++};
++
++int q25_rpc_parse_meta(const void *frame, size_t bytes,
++		       enum q25_rpc_direction direction, struct q25_rpc_meta *out);
++/* A matching shape does not authorize a reply or supply board-specific data. */
++int q25_rpc_check_userspace_shape(const struct q25_rpc_meta *meta);
++
++#endif
+-- 
+2.55.0
+

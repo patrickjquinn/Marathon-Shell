@@ -21,3 +21,20 @@ available as the working fallback.
 This patch records the tested bring-up change. It is not yet applied by the
 canonical kernel APK recipe; the existing `7.0-r1000` package must not be assumed
 to contain it.
+
+`0002-q25-private-mt6358-current-car-snapshot.patch` preserves the separate
+external diagnostic source and host fault/encoding tests. Its temporary PMIC
+child performs no hardware I/O at probe, exposes two root-only latch/release
+transactions, and then remains stopped. It is not an autoloaded fuel-gauge
+driver and does not report capacity. The Q25 device trial passed with module
+SHA256 `8bb3f59bfbd77f2758eb65ba7604fb38d74a522f5cebaf9f0ad80d41628006d1`:
+two samples five seconds apart reported 0 and 50087 µA, with zero errors and
+`poisoned=0 stopped=1`. No reset, RTC, charger or rail writes occurred. Stock
+configuration supplies 1 mΩ/1.01 scaling; physical calibration remains unverified.
+
+`0003-net-wwan-q25-rpc-metadata-validator.patch` is an independent, inactive
+RPC metadata helper. Its source commit is
+`bad48847ddb61e80ad534151f1177dcdf0033147`. Host ASan/UBSan checks, public ABI
+assertions and ARM64 W=1 compilation passed. No Kbuild activation, module
+entrypoint, device access, modem firmware load or radio functionality is implied.
+See the modem prior-art document for its missing firmware/memory owner.
