@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the generated pipeline payload, with only deployment paths/IDs relocated.
-Run after bootstrap: python3 test_userconfig_seed.py --postinst BUILD/duranium/mkosi.images/base/mkosi.postinst
+Defaults to replaying checked-in postinst patches only (no bootstrap/network/build).
+Optionally validate a generated pipeline: --postinst BUILD/duranium/mkosi.images/base/mkosi.postinst
 """
 import argparse
 import os
@@ -122,9 +123,23 @@ class UserConfigSeed(unittest.TestCase):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--postinst', required=True, type=Path)
+    parser.add_argument('--postinst', type=Path)
     args, rest = parser.parse_known_args()
     POSTINST = args.postinst
+    generated = None
+    if POSTINST is None:
+        # Reconstruct the actual pipeline file from its checked-in patch series.
+        # This runs git apply only, never bootstrap or postinst itself.
+        generated = tempfile.TemporaryDirectory()
+        root = Path(__file__).resolve().parents[2]
+        target = 'mkosi.images/base/mkosi.postinst'
+        for patch in sorted((root / 'packaging/pipeline-patches').glob('*.patch')):
+            if f'diff --git a/{target} b/{target}' in patch.read_text():
+                subprocess.run(['git', 'apply', '--unsafe-paths', '--include=' + target,
+                                str(patch)], cwd=generated.name, check=True, capture_output=True)
+        POSTINST = Path(generated.name) / target
+        if not POSTINST.is_file():
+            parser.error('pipeline patches did not create the base postinst')
     if not shutil.which('systemd-tmpfiles'):
         parser.error('systemd-tmpfiles is required for the actual repeated-boot copy test')
     unittest.main(argv=[__file__, *rest])

@@ -91,6 +91,13 @@ if(Python3_FOUND)
     # devices/ and socs/ manifests (needs the jsonschema module)
     add_test(NAME Devices_Check COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/devices/devices.py check)
     add_test(NAME Devices_Tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/devices/test_devices.py)
+    add_test(NAME Q25_SessionProfile COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/qemu/test_q25_session_profile.py)
+    add_test(NAME Q25_GpuPackaging COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/qemu/test_q25_gpu_packaging.py)
+    # Alpine has no systemd-tmpfiles; CI runs this on its Ubuntu host as well.
+    find_program(SYSTEMD_TMPFILES_EXECUTABLE systemd-tmpfiles)
+    if(SYSTEMD_TMPFILES_EXECUTABLE)
+        add_test(NAME Image_UserConfigSeed COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/qemu/test_userconfig_seed.py)
+    endif()
 endif()
 
 # OTA feed publisher, and the image's sysupdate transfers run against its feed
