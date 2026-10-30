@@ -753,6 +753,8 @@ trait Nm {
     fn set_wireless_enabled(&self, enabled: bool) -> zbus::Result<()>;
     #[zbus(property)]
     fn active_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    #[zbus(property)]
+    fn devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
 }
 
 #[zbus::proxy(
@@ -942,6 +944,8 @@ enum Event {
     Closed,
     WirelessEnabled(bool),
     ActiveChanged,
+    // Adapters can appear after start: firmware loads late, USB is replugged.
+    DevicesChanged,
     ActiveState {
         path: OwnedObjectPath,
         state: u32,
@@ -1030,6 +1034,10 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     .ok();
             }
             Event::ActiveChanged => actor.refresh_links().await,
+            Event::DevicesChanged => {
+                actor.detect_hardware().await;
+                actor.scan().await;
+            }
             Event::ActiveState {
                 path,
                 state,
@@ -1077,6 +1085,7 @@ impl Actor {
             Err(e) => return log::warn("network", format_args!("no devices: {e}")),
         };
         let (mut wifi, mut bluetooth) = (false, false);
+        self.wifi_device = None;
         for path in devices {
             let Ok(device) = DeviceProxy::builder(&self.bus)
                 .path(path.clone())
@@ -1603,7 +1612,12 @@ impl Actor {
             .receive_active_connections_changed()
             .await
             .map(|_| Event::ActiveChanged);
-        enabled.or(active).boxed()
+        let devices = self
+            .nm
+            .receive_devices_changed()
+            .await
+            .map(|_| Event::DevicesChanged);
+        enabled.or(active).or(devices).boxed()
     }
 
     // Signals from objects that come and go: every active connection's
