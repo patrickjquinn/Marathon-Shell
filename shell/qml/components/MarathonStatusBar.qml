@@ -13,7 +13,7 @@ Item {
     property Component activityChip: null
 
     function batteryIcon(level, charging) {
-        return charging ? "battery-charging" : level < 0 ? "question" : level <= 10 ? "battery-warning" : level <= 25 ? "battery-low" : level <= 50 ? "battery-medium" : "battery-full";
+        return charging ? "battery-charging" : level < 0 ? "battery-empty" : level <= 10 ? "battery-warning" : level <= 25 ? "battery-low" : level <= 50 ? "battery-medium" : "battery-full";
     }
 
     // Strength is carried by the glyph, never by opacity: dimmed icons fall
@@ -73,13 +73,15 @@ Item {
 
         GlyphIcon {
             name: statusBar.batteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
+            Accessible.name: SystemStatusStore.batteryLevel < 0 ? qsTr("Battery level unavailable") : qsTr("Battery %1%").arg(SystemStatusStore.batteryLevel)
             color: leftTone.glyph
             size: Silica.Theme.iconSizeExtraSmall
             anchors.verticalCenter: parent.verticalCenter
         }
 
         Text {
-            text: SystemStatusStore.batteryLevel < 0 ? "?" : SystemStatusStore.batteryLevel + "%"
+            visible: SystemStatusStore.batteryLevel >= 0
+            text: visible ? SystemStatusStore.batteryLevel + "%" : ""
             color: leftTone.glyph
             font.family: Silica.Theme.fontFamily
             font.pixelSize: Silica.Theme.fontSizeExtraSmall
