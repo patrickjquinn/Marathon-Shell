@@ -480,9 +480,11 @@ int main(int argc, char *argv[]) {
 
     // Touch comes from Qt's evdevtouch, read on its own thread with the
     // device's parameters; 71-marathon-touch.rules hides touchscreens from
-    // libinput, which eglfs reads on the GUI thread.
+    // libinput, which the EGLFS and LinuxFB backends read on the GUI thread.
+    const QString qpaPlatform = qEnvironmentVariable("QT_QPA_PLATFORM");
     const bool evdevTouch =
-        qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs")) &&
+        (qpaPlatform.startsWith(QLatin1String("eglfs")) ||
+         qpaPlatform.startsWith(QLatin1String("linuxfb"))) &&
         !qEnvironmentVariableIsSet("QT_QPA_GENERIC_PLUGINS");
     QStringList touchSpec;
     if (evdevTouch) {
