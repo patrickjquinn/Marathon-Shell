@@ -1,0 +1,41 @@
+# Q25 bring-up device policy. This manifest does not add an image-build wrapper.
+schema = 1
+vendor = "zinwa"
+codename = "q25"
+id = "zinwa-q25"
+name = "Zinwa Q25 Pro"
+manufacturer = "Zinwa"
+soc = "mt6789"
+status = "bring-up"
+package = "device-zinwa-q25-marathon"
+
+[build]
+# Reserved bring-up target; no automated installer or flash wrapper is provided.
+target = "zinwa-q25"
+bootloader = "systemd-boot"
+
+[boot]
+method = "uefi"
+partition_table = "gpt"
+
+[display]
+interface = "dsi"
+width = 720
+height = 720
+# UI policy (1.5x), not a measurement of the panel's physical density.
+scale_dpi = 240
+
+[input]
+touch = "unvalidated by this profile"
+keyboard = "RP2040 I2C QWERTY"
+
+[hardware]
+modem = "unvalidated by this profile"
+gps = "unvalidated by this profile"
+wifi = "unvalidated by this profile"
+sensors = []
+
+[profile]
+# Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
+# Leave panel_dpi unset until the physical panel dimensions are measured.
+force_dpi = 240

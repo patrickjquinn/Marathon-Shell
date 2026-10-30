@@ -140,9 +140,12 @@ Item {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -parent.height / 8
             opacity: 0.6
+            // Software rendering repaints this large gradient for every opacity tick.
+            // Keep its resting appearance without a perpetual CPU paint workload.
+            readonly property bool motionEnabled: GraphicsInfo.api !== GraphicsInfo.Software && !MMotion.reduceMotion
 
             SequentialAnimation on opacity {
-                running: MMotion.gate(oobeRoot.visible && oobeRoot.beat === 0 && !MMotion.reduceMotion)
+                running: glow.motionEnabled && MMotion.gate(oobeRoot.visible && oobeRoot.beat === 0 && !MMotion.reduceMotion)
                 loops: Animation.Infinite
                 onRunningChanged: {
                     if (running)
@@ -169,7 +172,7 @@ Item {
                 target: glow
                 property: "opacity"
                 to: 0.6
-                duration: MMotion.durationFor("hero")
+                duration: glow.motionEnabled ? MMotion.durationFor("hero") : 0
                 easing.type: Easing.InOutSine
             }
 

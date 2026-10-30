@@ -1,0 +1,4 @@
+#!/bin/sh
+# Match Marathon's other device overlays; base-config owns config.toml.
+ln -sf marathon-config.toml /etc/greetd/config.toml
+exit 0

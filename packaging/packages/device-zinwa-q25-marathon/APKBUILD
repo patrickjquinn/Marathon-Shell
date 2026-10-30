@@ -1,0 +1,22 @@
+# Q25 UI overlay only; parent image owns kernel/module/CPU0/graphics policies.
+pkgname=device-zinwa-q25-marathon
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Zinwa Q25 Marathon UI device profile and greetd session"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+options="!check"
+depends="device-mediatek-g99 marathon-shell marathon-base-config greetd"
+install="$pkgname.post-install $pkgname.post-upgrade"
+source="device-profile.conf greetd-marathon.toml"
+
+package() {
+    install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
+    install -Dm644 "$srcdir/greetd-marathon.toml" "$pkgdir/etc/greetd/marathon-config.toml"
+}
+
+sha512sums="
+df68e8b7ce32d5f0d09b629c5795fecb998a5b3609e1afad216ab8e3e5dbc6511a967be3f7c092ce6830405587d7c2c3f52f732c6654cf6756d9a1042b80c11e  device-profile.conf
+87cd379d6fdcbceea0e860043890139a4d01ec88845d4dd4370167e6069b73a0a703c9b1d270bc758d33bc089a830d4321e0ecc5e8c01f7f03a1ecfa39ec4422  greetd-marathon.toml
+"
