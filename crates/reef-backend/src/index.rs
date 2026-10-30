@@ -380,7 +380,7 @@ mod tests {
         let p = &cat.packages[0];
         assert_eq!(p.keywords, ["torch"]);
         assert!(p.details.is_some());
-        assert!(p.description.is_empty());
+        assert!(p.description.is_empty(), "{:?}", p.description);
         assert_eq!(cat.collections.len(), 1);
         assert_eq!(cat.collections[0].apps, ["fx"]);
         assert_eq!(cat.categories[0].icon, "icon-m-flashlight");
@@ -412,7 +412,8 @@ mod tests {
         assert_eq!(p.keywords, ["torch"], "kept from the index");
         assert_eq!(p.requires, ["fx-lib"]);
         assert_eq!(cat.components["fx-lib"].summary, "the library");
-        assert!(cat.pending_details().is_empty());
+        let pending = cat.pending_details();
+        assert!(pending.is_empty(), "{pending:?}");
         // Merged once; again is a no-op.
         cat.merge_details("fx", b"anything").unwrap();
     }

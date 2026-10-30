@@ -121,6 +121,7 @@ fn available_except(root: &std::path::Path, ignored: &[String]) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     #[test]
@@ -151,7 +152,7 @@ mod tests {
     #[test]
     fn capability_evidence_is_conservative() {
         let root = std::env::temp_dir().join(format!("q25-soc-unit-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
+        std::fs::remove_dir_all(&root).ok();
         std::fs::create_dir_all(&root).unwrap();
         let available = |path| available_except(path, &[]);
         assert!(!available(&root));

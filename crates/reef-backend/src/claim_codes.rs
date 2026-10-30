@@ -262,7 +262,8 @@ mod tests {
     #[test]
     fn create_list_and_remove() {
         let (root, claims) = scratch("basic");
-        assert!(claims.list(T0).is_empty());
+        let listed = claims.list(T0);
+        assert!(listed.is_empty(), "{listed:?}");
         assert!(!claims.any(T0));
         let a = claims.create("shoal-bridge", T0).unwrap();
         let b = claims.create("shoal-keys", T0 + 1).unwrap();

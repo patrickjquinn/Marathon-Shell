@@ -565,9 +565,8 @@ mod tests {
         let mut w = CalendarWatch::default();
         let when = |s: i64| format!("@{s}");
         let week = (0, 1000);
-        assert!(w
-            .changes(&[e("Dentist", 100), e("Standup", 200)], week, when)
-            .is_empty());
+        let empty = w.changes(&[e("Dentist", 100), e("Standup", 200)], week, when);
+        assert!(empty.is_empty(), "{empty:?}");
         let c = w.changes(&[e("Dentist", 150), e("Lunch", 300)], week, when);
         let got: Vec<(String, String)> = c.into_iter().map(|i| (i.title, i.body)).collect();
         assert_eq!(
@@ -578,9 +577,8 @@ mod tests {
                 ("Standup".to_owned(), "removed; was @200".to_owned()),
             ]
         );
-        assert!(w
-            .changes(&[e("Dentist", 150), e("Lunch", 300)], week, when)
-            .is_empty());
+        let empty = w.changes(&[e("Dentist", 150), e("Lunch", 300)], week, when);
+        assert!(empty.is_empty(), "{empty:?}");
     }
 
     #[test]
@@ -594,14 +592,12 @@ mod tests {
         };
         let when = |s: i64| format!("@{s}");
         let mut w = CalendarWatch::default();
-        assert!(w
-            .changes(&[e("Standup", 100), e("Lunch", 500)], (0, 1000), when)
-            .is_empty());
+        let empty = w.changes(&[e("Standup", 100), e("Lunch", 500)], (0, 1000), when);
+        assert!(empty.is_empty(), "{empty:?}");
         // An hour later: Standup has ended and Review came into the week
         // ahead. Neither is news.
-        assert!(w
-            .changes(&[e("Lunch", 500), e("Review", 1500)], (200, 1600), when)
-            .is_empty());
+        let empty = w.changes(&[e("Lunch", 500), e("Review", 1500)], (200, 1600), when);
+        assert!(empty.is_empty(), "{empty:?}");
         // A real addition inside both windows still is.
         let c = w.changes(
             &[e("Lunch", 500), e("Call", 700), e("Review", 1500)],

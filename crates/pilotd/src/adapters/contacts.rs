@@ -181,13 +181,16 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].phones, ["+358401234567"]);
         assert_eq!(hits[0].emails, ["anna@example.org"]);
-        assert!(c.lookup("gone", 5).unwrap().is_empty());
+        let empty = c.lookup("gone", 5).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
         let mut none = SqliteContacts::new(dir.path().join("missing.db"));
-        assert!(none.names().is_empty());
+        let empty = none.names();
+        assert!(empty.is_empty(), "{empty:?}");
         // The miss is cached like a read: a database that appears is read
         // once the cache time is over.
         fixture(&dir.path().join("missing.db"));
-        assert!(none.names().is_empty());
+        let empty = none.names();
+        assert!(empty.is_empty(), "{empty:?}");
         none.ttl = Duration::ZERO;
         assert_eq!(none.names().len(), 3);
     }

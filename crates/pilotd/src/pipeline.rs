@@ -3691,12 +3691,13 @@ mod answer_tests {
         // Pilot's real answer on the Jolla Phone (curly apostrophe).
         let answer = "Here's a full-day plan for Helsinki. My web search didn\u{2019}t turn up \
                       anything useful for this, so the plan is from general knowledge.";
-        assert!(pick_sources(answer, &found).is_empty());
-        assert!(pick_sources(
+        let empty = pick_sources(answer, &found);
+        assert!(empty.is_empty(), "{empty:?}");
+        let empty = pick_sources(
             "The search found nothing useful, but here's what I know.",
-            &found
-        )
-        .is_empty());
+            &found,
+        );
+        assert!(empty.is_empty(), "{empty:?}");
         assert_eq!(
             pick_sources(
                 "There's nothing useful in Handball results for this.",
@@ -3727,6 +3728,7 @@ mod answer_tests {
         let picked = pick_sources(answer, &found);
         let sites: Vec<&str> = picked.iter().map(|s| s.site.as_str()).collect();
         assert_eq!(sites, ["myhelsinki.fi"]);
-        assert!(pick_sources("Start early. October is dark.", &found).is_empty());
+        let empty = pick_sources("Start early. October is dark.", &found);
+        assert!(empty.is_empty(), "{empty:?}");
     }
 }
