@@ -2792,14 +2792,18 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
 
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto              *keyEvent = static_cast<QKeyEvent *>(event);
-            const KeyRouting::Action action =
-                KeyRouting::systemAction(keyEvent->key(), focusedToolkit());
+            const KeyRouting::Action action   = KeyRouting::systemAction(
+                keyEvent->key(), focusedToolkit(), keyEvent->nativeScanCode());
             if (action != KeyRouting::None) {
                 if (type == QEvent::KeyRelease) {
-                    if (action == KeyRouting::Back)
-                        emit systemBackTriggered();
-                    else
-                        emit systemHomeTriggered();
+                    switch (action) {
+                        case KeyRouting::Back: emit systemBackTriggered(); break;
+                        case KeyRouting::Home: emit systemHomeTriggered(); break;
+                        case KeyRouting::Call: emit systemCallTriggered(); break;
+                        case KeyRouting::End: emit systemEndTriggered(); break;
+                        case KeyRouting::Switcher: emit systemSwitcherTriggered(); break;
+                        case KeyRouting::None: break;
+                    }
                 }
                 return true;
             }

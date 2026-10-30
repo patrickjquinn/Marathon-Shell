@@ -145,6 +145,42 @@ Item {
         pageView.currentIndex = 1;
     }
 
+    // A phone keyboard's green key: answers a ringing call, else opens Phone.
+    function handleCallKey() {
+        if (incomingCallOverlay && incomingCallOverlay.isRinging) {
+            incomingCallOverlay.answer();
+            return;
+        }
+        if (SessionStore.isLocked)
+            return;
+        UIStore.openApp("phone", qsTr("Phone"), "");
+    }
+
+    // The red key: declines or ends a call, else goes home.
+    function handleEndKey() {
+        if (incomingCallOverlay && incomingCallOverlay.isRinging) {
+            incomingCallOverlay.decline();
+            return;
+        }
+        if (Modem.callState !== "idle" && Modem.callState !== "terminated") {
+            HapticManager.medium();
+            Modem.hangup();
+            return;
+        }
+        if (!SessionStore.isLocked)
+            handleHomeKey();
+    }
+
+    // The menu key: Active Frames from an app, and between them and the grid.
+    function handleSwitcherKey() {
+        if (SessionStore.isLocked)
+            return;
+        if (UIStore.appWindowOpen)
+            handleHomeKey();
+        else
+            pageView.currentIndex = pageView.currentIndex === 1 ? 2 : 1;
+    }
+
     // Back lands on home when the foreground app has no page to pop.
     function revealHomeUnderApp() {
         if (pageView.currentIndex < 2) {
@@ -211,6 +247,9 @@ Item {
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
+            compositor.systemCallTriggered.connect(handleCallKey);
+            compositor.systemEndTriggered.connect(handleEndKey);
+            compositor.systemSwitcherTriggered.connect(handleSwitcherKey);
             // Also reset the idle-screen-off timer when the compositor
             // sees ANY input — without this the timer only resets on
             // events that bubble up to the shell's own cursorTracker

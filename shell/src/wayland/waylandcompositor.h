@@ -172,6 +172,9 @@ class WaylandCompositor : public QWaylandCompositor {
     void systemBackTriggered();
     void nativeBackUnhandled(int surfaceId);
     void systemHomeTriggered();
+    void systemCallTriggered();
+    void systemEndTriggered();
+    void systemSwitcherTriggered();
     void userActivity();
     void nativeTextInputPanelRequested(bool show);
     void textInputHintsChanged();
