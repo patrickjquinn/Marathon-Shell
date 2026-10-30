@@ -1678,8 +1678,15 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
     }
 
     surface->setProperty("isPopup", true);
-    surface->setProperty("xdgPopup", QVariant::fromValue(popup));
     surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
+    QPointer<QWaylandSurface> safeSurface(surface);
+    connect(xdgSurface, &QObject::destroyed, this, [this, safeSurface, xdgSurface, surfaceId]() {
+        if (safeSurface &&
+            safeSurface->property("xdgSurface").value<QWaylandXdgSurface *>() == xdgSurface)
+            safeSurface->setProperty("xdgSurface", QVariant());
+        if (m_xdgSurfaceMap.value(surfaceId).isNull())
+            m_xdgSurfaceMap.remove(surfaceId);
+    });
 
     // Qt's xdg-shell object sends the unconstrained initial configure before
     // popupCreated. Apply Marathon's work-area policy immediately, before the
