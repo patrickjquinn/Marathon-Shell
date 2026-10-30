@@ -329,8 +329,8 @@ export QT_QUICK_CONTROLS_STYLE=Basic
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 export QT_ENABLE_HIGHDPI_SCALING=0
 
-# Threaded scenegraph (uses additional cores for paint/upload).
-export QSG_RENDER_LOOP=threaded
+# Default to threaded; a device session may require the software/basic loop.
+export QSG_RENDER_LOOP="${QSG_RENDER_LOOP:-threaded}"
 
 # QML disk cache for fast cold-start.
 # Cache is keyed by qmlcache's internal hashes — but they do NOT include

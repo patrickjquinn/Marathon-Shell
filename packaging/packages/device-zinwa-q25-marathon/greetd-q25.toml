@@ -1,0 +1,9 @@
+# Use the Q25 session process for BOTH first login and subsequent logins.
+[terminal]
+vt = 1
+[default_session]
+command = "/usr/libexec/marathon/q25-shell-session"
+user = "user"
+[initial_session]
+command = "/usr/libexec/marathon/q25-shell-session"
+user = "user"

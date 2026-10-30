@@ -1,0 +1,28 @@
+#!/bin/sh
+# greetd starts a new PAM session and does not forward its service environment.
+# Set Q25 bring-up policy in the session process itself, before the normal
+# launcher establishes D-Bus, profile settings, application paths and cgroups.
+set -eu
+# Q25 AFBC-path corruption: repeated strict native offscreen PASS with noafbc.
+# Keep process-scoped for Shell and children; this does not load GPU drivers.
+export PAN_MESA_DEBUG=noafbc
+export QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
+export QT_QUICK_BACKEND=software
+export QSG_RENDER_LOOP=basic
+export QT_QPA_FB_FORCE_FULLSCREEN=1
+export MARATHON_FORCE_DPI=240
+unset QT_SCALE_FACTOR QT_FONT_DPI QT_SCALE_FACTOR_ROUNDING_POLICY
+
+# Explicit temporary diagnostics, independent of greetd's discarded environment.
+# No eval/source: permit only these boolean switches in the root-owned file.
+if [ -r /etc/marathon/q25-session.conf ]; then
+    while IFS='=' read -r name value; do
+        case "$name:$value" in
+            MARATHON_STARTUP_TIMING:0|MARATHON_STARTUP_TIMING:1|\
+            MARATHON_PRESENT_STATS:0|MARATHON_PRESENT_STATS:1|\
+            MARATHON_FRAME_TIMING:0|MARATHON_FRAME_TIMING:1)
+                export "$name=$value" ;;
+        esac
+    done < /etc/marathon/q25-session.conf
+fi
+exec /usr/bin/marathon-shell-session "$@"
