@@ -637,6 +637,18 @@ impl Battery {
         }
     }
 
+    // Invalidated values are unavailable until UPower sends a fresh value.
+    fn invalidate(&mut self, name: &str) {
+        match name {
+            "Percentage" => self.percentage = None,
+            "TimeToEmpty" => self.time_to_empty = 0,
+            "TimeToFull" => self.time_to_full = 0,
+            "State" => self.state = 0,
+            "WarningLevel" => self.warning = 0,
+            _ => {}
+        }
+    }
+
     fn set(&mut self, name: &str, value: &Value<'_>) {
         match name {
             "Percentage" => self.percentage = value.downcast_ref().ok(),
@@ -702,7 +714,7 @@ enum Event {
     Command(Command),
     Closed,
     Sleep(bool),
-    Battery(Vec<(String, OwnedValue)>),
+    Battery(Vec<(String, OwnedValue)>, Vec<String>),
     Profile(Option<String>),
 }
 
@@ -763,9 +775,12 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             Event::Command(command) => actor.handle(&qt, command).await,
             Event::Closed => break,
             Event::Sleep(before) => actor.on_sleep(&qt, before).await,
-            Event::Battery(changed) => {
+            Event::Battery(changed, invalidated) => {
                 for (name, value) in &changed {
                     actor.battery.set(name, value);
+                }
+                for name in &invalidated {
+                    actor.battery.invalidate(name);
                 }
                 actor.battery.percentage_available =
                     measurement::available(std::path::Path::new("/sys/class/power_supply"));
@@ -1023,12 +1038,20 @@ impl Actor {
             Ok(s) => s
                 .filter_map(|signal| {
                     let args = signal.args().ok()?;
+                    if args.interface_name().as_str() != DEVICE {
+                        return None;
+                    }
                     let changed = args
                         .changed_properties()
                         .iter()
                         .filter_map(|(k, v)| Some(((*k).to_owned(), v.try_to_owned().ok()?)))
                         .collect();
-                    Some(Event::Battery(changed))
+                    let invalidated = args
+                        .invalidated_properties()
+                        .iter()
+                        .map(|name| (*name).to_owned())
+                        .collect();
+                    Some(Event::Battery(changed, invalidated))
                 })
                 .boxed(),
             Err(_) => stream::empty().boxed(),
@@ -1095,7 +1118,7 @@ fn write(path: &str, value: &str) -> bool {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
-    use super::{is_background_wake, Battery};
+    use super::{battery_warning, is_background_wake, measurement, Battery, Value};
 
     #[test]
     fn each_battery_threshold_warns_once_on_the_way_down() {
@@ -1186,6 +1209,87 @@ mod tests {
         assert!(!draining.is_plugged_in());
         assert_eq!(draining.estimated_minutes(), 120);
     }
+    #[test]
+    fn invalidated_percentage_disarms_until_a_fresh_measurement() {
+        let mut battery = Battery {
+            percentage: Some(0.0),
+            percentage_available: true,
+            state: 2,
+            warning: 4,
+            time_to_empty: 600,
+            ..Battery::default()
+        };
+        assert!(measurement::can_arm_shutdown(
+            battery.level(),
+            battery.warning,
+            false
+        ));
+        battery.invalidate("Percentage");
+        assert_eq!(battery.level(), -1);
+        assert_eq!(battery.estimated_minutes(), -1);
+        assert!(!measurement::can_arm_shutdown(
+            battery.level(),
+            battery.warning,
+            false
+        ));
+        for percentage in [0.0, 100.0] {
+            battery.set("Percentage", &Value::from(percentage));
+            assert_eq!(battery.level(), if percentage == 0.0 { 0 } else { 100 });
+        }
+        battery.percentage_available = false;
+        assert_eq!(battery.level(), -1);
+    }
+
+    #[test]
+    fn invalidated_times_do_not_reappear_after_state_changes() {
+        let mut battery = Battery {
+            percentage: Some(50.0),
+            percentage_available: true,
+            state: 2,
+            time_to_empty: 3600,
+            time_to_full: 1800,
+            ..Battery::default()
+        };
+        assert_eq!(battery.estimated_minutes(), 60);
+        battery.invalidate("TimeToEmpty");
+        assert_eq!(battery.estimated_minutes(), -1);
+        battery.state = 1;
+        assert_eq!(battery.estimated_minutes(), 30);
+        battery.invalidate("TimeToFull");
+        assert_eq!(battery.estimated_minutes(), -1);
+        battery.state = 2;
+        assert_eq!(battery.estimated_minutes(), -1);
+        battery.set("TimeToEmpty", &Value::from(120_i64));
+        assert_eq!(battery.estimated_minutes(), 2);
+        assert_eq!(battery.level(), 50);
+    }
+
+    #[test]
+    fn invalidated_state_and_warning_clear_cached_decisions() {
+        let mut battery = Battery {
+            percentage: Some(50.0),
+            percentage_available: true,
+            state: 1,
+            warning: 4,
+            time_to_full: 1800,
+            ..Battery::default()
+        };
+        battery.invalidate("UnrelatedProperty");
+        assert_eq!(battery.level(), 50);
+        assert!(battery.is_charging());
+        battery.invalidate("State");
+        battery.invalidate("WarningLevel");
+        assert!(!battery.is_charging());
+        assert!(!battery.is_plugged_in());
+        assert_eq!(battery.estimated_minutes(), -1);
+        assert_eq!(battery.warning, 0);
+        assert!(!measurement::can_arm_shutdown(
+            battery.level(),
+            battery.warning,
+            false
+        ));
+    }
+
     #[test]
     fn unknown_percentage_never_warns_even_at_upower_critical() {
         for warning in 0..=10 {
