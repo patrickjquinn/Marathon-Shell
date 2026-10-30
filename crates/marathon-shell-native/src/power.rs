@@ -528,21 +528,21 @@ fn battery_warning(
             "battery",
             1,
         ),
-        0..=2 if level >= 0 && level <= 5 && warned_at > 5 => warn(
+        0..=2 if level <= 5 && warned_at > 5 => warn(
             5,
             fl!("battery-very-low-title"),
             fl!("battery-very-low-body", level = level),
             "battery-warning",
             3,
         ),
-        0..=2 if level >= 0 && level <= 10 && warned_at > 10 => warn(
+        0..=2 if level <= 10 && warned_at > 10 => warn(
             10,
             fl!("battery-lower-title"),
             fl!("battery-lower-body", level = level),
             "battery",
             2,
         ),
-        0..=2 if level >= 0 && level <= 20 && warned_at > 20 => warn(
+        0..=2 if level <= 20 && warned_at > 20 => warn(
             20,
             fl!("battery-low-title"),
             fl!("battery-low-body", level = level),
