@@ -1409,6 +1409,24 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     int surfaceId              = surface->property("surfaceId").toInt();
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
 
+    // xdg roles can die while wl_surface remains alive. Its cached role pointers
+    // are read by screenshot security checks, native back and suspended state.
+    QPointer<QWaylandSurface> safeSurface(surface);
+    connect(toplevel, &QObject::destroyed, surface, [safeSurface, toplevel]() {
+        if (safeSurface &&
+            safeSurface->property("xdgToplevel").value<QWaylandXdgToplevel *>() == toplevel)
+            safeSurface->setProperty("xdgToplevel", QVariant());
+    });
+    connect(xdgSurface, &QObject::destroyed, this, [this, safeSurface, xdgSurface, surfaceId]() {
+        if (safeSurface &&
+            safeSurface->property("xdgSurface").value<QWaylandXdgSurface *>() == xdgSurface)
+            safeSurface->setProperty("xdgSurface", QVariant());
+        // QPointer is already null when destroyed() is emitted. A newer
+        // role for this id must keep its live map entry.
+        if (m_xdgSurfaceMap.value(surfaceId).isNull())
+            m_xdgSurfaceMap.remove(surfaceId);
+    });
+
     qInfo() << "[WaylandCompositor] New toplevel:" << surfaceId << toplevel->appId() << "-"
             << toplevel->title();
 
