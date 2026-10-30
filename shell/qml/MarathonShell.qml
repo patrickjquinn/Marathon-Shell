@@ -1572,7 +1572,7 @@ Item {
             }
             Logger.warn("Shell", "Showing " + UIStore.currentAppId + " (" + reason + ")");
             if (task && task.appType === "native" && shell.compositor) {
-                var surface = shell.compositor.getSurfaceById(task.surfaceId);
+                var surface = shell.compositor.shellSurfaceById(task.surfaceId);
                 if (surface) {
                     appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId);
                     return;

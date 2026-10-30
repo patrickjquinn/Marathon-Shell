@@ -663,7 +663,7 @@ Rectangle {
                     if (appInstance.closed) {
                         closedConnection = function () {
                             Logger.info("AppWindow", "MApp closed: " + capturedAppName);
-                            if (capturedWindow)
+                            if (capturedWindow && capturedWindow.appId === capturedAppId)
                                 capturedWindow.hide();
                         };
                         appInstance.closed.connect(containerRoot, closedConnection);

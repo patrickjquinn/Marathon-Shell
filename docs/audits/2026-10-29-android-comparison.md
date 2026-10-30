@@ -127,3 +127,35 @@ The exact measurement script, static page, private presentation traces and
 18 MiB Perfetto capture are retained on the build USB at
 `artifacts/2026-10-29-android-comparison/`. Personal feed screenshots and
 the full Android trace were not added to the public repository.
+
+## Close/reopen fix and subsequent candidate rollback
+
+The accepted Shell binary SHA-256 is
+`2dff705e36de2caf8d0471f2a9e30a48bef0cef4d358771bf5583a2d115dd6dc`.
+Its two source changes restore native windows through `shellSurfaceById`
+(the Shell surface wrapper) and guard the shared window's delayed `closed`
+callback by the captured app ID. Saved traces showed an old app's callback
+hiding the replacement app. The app-ID guard does not distinguish successive
+instances of the same app.
+
+Visual QA passed three TikTok close/reopen cycles with Settings switching
+and one direct close/reopen, with zero blank reopens. Android reported
+Displayed times of 354, 422, 434 and 418 ms; these are not input-to-photon
+measurements. A five-swipe sample recorded 22/284 janky app frames (7.75%),
+CPU frame p95 28 ms and GPU frame p95 4 ms. General TikTok jank and the
+separate cold-runtime/asleep launch timeout remain unresolved.
+
+A subsequent stronger instance-identity guard was built and temporarily
+tested, but combined QA failed with Android loaders, a focus ANR and
+system-server watchdog failures. It was rolled back to the accepted binary;
+the stronger guard is excluded from this delivery. Captured watchdog stacks
+show framework window-manager locking blocked on synchronous task capture
+and the Wayland composer. An older related lock failure predates this
+candidate and the slim image. These observations do not establish that
+the stronger guard caused the watchdog failures.
+
+The accepted binary and slim image were retained after rollback. Isolated
+patches, screenshots and private logs remain on the build USB under
+`tiktok-build/`, including `recovery-handoff.json` and
+`identity-qa/final-audit.json`. No new device tests were performed for this
+source delivery; package pins and Deckard sources were not changed.
