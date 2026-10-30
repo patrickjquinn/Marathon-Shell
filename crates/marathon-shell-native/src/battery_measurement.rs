@@ -18,12 +18,54 @@ pub fn known(level: i32) -> bool {
 }
 
 pub fn can_arm_shutdown(level: i32, warning: u32, charging: bool) -> bool {
-    known(level) && warning >= 4 && !charging
+    known(level) && warning >= 4 && !charging && critical_actions_allowed()
 }
 
-/// Metadata only. Unreadable entries are skipped but keep the final decision
-/// unknown, even if another entry appears valid. No ADC is sampled.
+/// Experimental board models may display an estimate without powering off
+/// the device based on that estimate. Absence preserves ordinary gauge policy.
+pub fn critical_actions_allowed() -> bool {
+    !std::path::Path::new("/etc/marathon/battery-model-experimental")
+        .try_exists()
+        .unwrap_or(true)
+}
+
+/// Board policy lists redundant configuration supplies, one exact name per line.
+/// Missing policy preserves normal enumeration; invalid policy keeps SOC unknown.
 pub fn available(root: &std::path::Path) -> bool {
+    available_with_policy(
+        root,
+        std::path::Path::new("/etc/marathon/power-supply-ignore"),
+    )
+}
+
+fn available_with_policy(root: &std::path::Path, policy: &std::path::Path) -> bool {
+    let ignored = match std::fs::read_to_string(policy) {
+        Ok(text) => {
+            let mut names = Vec::new();
+            for line in text.lines().map(str::trim) {
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                if line.starts_with('.')
+                    || !line
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
+                {
+                    return false;
+                }
+                names.push(line.to_owned());
+            }
+            names
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(_) => return false,
+    };
+    available_except(root, &ignored)
+}
+
+/// Use standard power-supply measurements. A declared but unreadable capacity
+/// remains unknown, including a model whose initial seed has not been qualified.
+fn available_except(root: &std::path::Path, ignored: &[String]) -> bool {
     let Ok(entries) = std::fs::read_dir(root) else {
         return false;
     };
@@ -35,6 +77,12 @@ pub fn available(root: &std::path::Path) -> bool {
             uncertain = true;
             continue;
         };
+        if ignored
+            .iter()
+            .any(|name| entry.file_name() == name.as_str())
+        {
+            continue;
+        }
         let supply = entry.path();
         let Ok(kind) = std::fs::read_to_string(supply.join("type")) else {
             uncertain = true;
@@ -54,13 +102,20 @@ pub fn available(root: &std::path::Path) -> bool {
             }
         }
         found = true;
-        all_measured &= supply.join("capacity").exists()
-            || (supply.join("energy_now").exists()
-                && (supply.join("energy_full").exists()
-                    || supply.join("energy_full_design").exists()))
-            || (supply.join("charge_now").exists()
-                && (supply.join("charge_full").exists()
-                    || supply.join("charge_full_design").exists()));
+        let read = |name| {
+            std::fs::read_to_string(supply.join(name))
+                .ok()
+                .and_then(|value| value.trim().parse::<u64>().ok())
+        };
+        all_measured &= read("capacity").is_some_and(|value| value <= 100)
+            || (read("energy_now").is_some()
+                && read("energy_full")
+                    .or_else(|| read("energy_full_design"))
+                    .is_some_and(|value| value > 0))
+            || (read("charge_now").is_some()
+                && read("charge_full")
+                    .or_else(|| read("charge_full_design"))
+                    .is_some_and(|value| value > 0));
     }
     found && all_measured && !uncertain
 }
@@ -98,6 +153,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("q25-soc-unit-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
+        let available = |path| available_except(path, &[]);
         assert!(!available(&root));
         let gauge = root.join("fuel-gauge");
         std::fs::create_dir(&gauge).unwrap();
@@ -106,6 +162,11 @@ mod tests {
         assert!(!available(&root));
         std::fs::write(gauge.join("capacity"), "0").unwrap();
         assert!(available(&root));
+        std::fs::write(gauge.join("capacity"), "invalid").unwrap();
+        assert!(!available(&root));
+        std::fs::write(gauge.join("capacity"), "101").unwrap();
+        assert!(!available(&root));
+        std::fs::write(gauge.join("capacity"), "0").unwrap();
         let unreadable = root.join("broken");
         std::fs::create_dir(&unreadable).unwrap();
         assert!(!available(&root)); // no type; no permission-dependent test
@@ -115,6 +176,13 @@ mod tests {
         std::fs::create_dir(&duplicate).unwrap();
         std::fs::write(duplicate.join("type"), "Battery").unwrap();
         assert!(!available(&root)); // mixed known/unknown aggregate is unknown
+                                    // Policy lives outside the power_supply directory on real systems.
+        let policy = root.with_extension("policy");
+        std::fs::write(&policy, "# Q25 configuration proxy\nbq256xx-battery\n").unwrap();
+        assert!(available_with_policy(&root, &policy));
+        std::fs::write(&policy, "../fuel-gauge\n").unwrap();
+        assert!(!available_with_policy(&root, &policy));
+        std::fs::remove_file(&policy).unwrap();
         std::fs::write(duplicate.join("scope"), "Device").unwrap();
         assert!(available(&root)); // peripheral excluded
         std::fs::remove_file(gauge.join("capacity")).unwrap();

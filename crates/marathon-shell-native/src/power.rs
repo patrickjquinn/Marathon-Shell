@@ -360,10 +360,10 @@ impl Power {
     }
 
     fn perform_critical_power_action(&self) {
-        if !measurement::known(self.battery_level) {
+        if !measurement::known(self.battery_level) || !measurement::critical_actions_allowed() {
             return log::warn(
                 "power",
-                "critical action refused: battery percentage unavailable",
+                "critical action refused: battery percentage unavailable or experimental",
             );
         }
         let action = self.critical_action.to_string().to_ascii_lowercase();
