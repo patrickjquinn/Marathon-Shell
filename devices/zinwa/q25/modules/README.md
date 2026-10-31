@@ -9,6 +9,7 @@ Sources of the modules that `packaging/packages/q25-kernel-modules` ships.
 | `bt` | `q25-btmtk-stp` | Marathon |
 | `audio` | `snd-timer`, `snd-pcm`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-audio-pd`, `q25-oca72390`, `q25-mt6366-card` | the kernel's `sound/` files (`mt6358` plus patches `0002`–`0006`), linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, and Marathon's `q25/` drivers |
 | `panel` | `q25-panel-doze` | Marathon |
+| `display` | `q25-vsyncdrm` | the kernel's `drivers/gpu/drm/sysfb/simpledrm.c` plus Marathon's scan-locked vblank |
 | `mag` | `mmc5633` | the kernel's `drivers/iio/magnetometer/mmc5633.c` plus `mmc5633-q25.patch` |
 | `light` | `hx32062se` | Marathon |
 | (kernel tree) | `spi-mt65xx`, `rfkill`, `cfg80211`, `bluetooth` | the kernel's own source; the APK's config leaves them unbuilt or unshipped |

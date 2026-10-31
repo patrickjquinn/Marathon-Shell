@@ -33,7 +33,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio panel mag light; do
+for d in keyboard md1 conn-pd imu bt audio panel display mag light; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -79,7 +79,7 @@ mkdir -p "$out/src/modem"
 (cd "$donor" && tar cf - -T "$here/modem/eccci-files.txt") | tar xf - -C "$out/src/modem"
 (cd "$out/src/modem" && patch -p1 -s < "$here/modem/0001-eccci-q25-linux-7.0.patch")
 
-for d in keyboard md1 conn-pd imu audio panel mag light; do
+for d in keyboard md1 conn-pd imu audio panel display mag light; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$ksrc/net/rfkill" "$out/obj/rfkill"
