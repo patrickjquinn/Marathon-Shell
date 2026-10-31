@@ -1,14 +1,15 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=26
+pkgrel=27
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="Apache-2.0"
 options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
- q25-kernel-modules q25-connsys-firmware wpa_supplicant bluez-btmgmt alsa-ucm-conf"
+ q25-kernel-modules q25-connsys-firmware wpa_supplicant bluez-btmgmt alsa-ucm-conf
+ upower-q25"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
@@ -23,7 +24,8 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless
  q25-wifi-radio q25-wifi-radio.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules
- q25-usb-recovery.nm.conf 90-q25-recovery-console.rules"
+ q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
+ q25-power-supply-ignore 99-q25-upower-duplicate.rules"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -78,6 +80,11 @@ package() {
     install -Dm644 "$srcdir/q25-mt6366.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/q25-mt6366/q25-mt6366.conf"
     install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Zinwa/Q25/HiFi.conf"
     install -Dm644 "$srcdir/VoiceCall.conf" "$pkgdir/usr/share/alsa/ucm2/Zinwa/Q25/VoiceCall.conf"
+
+    # bq256xx-battery is the charger's configuration proxy, not a battery:
+    # hide it from UPower and from the shell's own gauge reader.
+    install -Dm644 "$srcdir/99-q25-upower-duplicate.rules" "$pkgdir/usr/lib/udev/rules.d/99-q25-upower-duplicate.rules"
+    install -Dm644 "$srcdir/q25-power-supply-ignore" "$pkgdir/etc/marathon/power-supply-ignore"
 
     # The IMU is mounted rotated 180 degrees about Z.
     install -Dm644 "$srcdir/61-q25-sensor-local.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-sensor-local.rules"
@@ -204,4 +211,6 @@ c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3c
 898ecb22f6ec7a466987b80baaa55fbd3dfc964444b5ca34f378b091d6b4d0b511312b45eeeb40b5af2e1fd434e72a826a8e1dc7603385428b5bacb17152fa4b  99-q25-native-keyboard.rules
 98357776e02b8aff3b585280bf9d4a3082ae8ad694ac880616ca66fec423ee2a645bf65840194e51d0345c6a60fa4c426f183a955ac0233e77c1fa476fb90499  q25-usb-recovery.nm.conf
 95f3a7f976e410ed0eebe473a815ecad5a8cba847bbe9f065163c9bc0f4ac165550cf7feb889f80192d23493dc4ad0cd259099bbfea90c08864e216c400e8e4f  90-q25-recovery-console.rules
+20a56732a4a8fbc22b461dc35886c3cacbb02bfbb17359ea08a7ec8f464c7499a9d7c453b1cb4d0117a424ade0fbbc670b83d22cd43a3a50316b0aa48c5143f8  q25-power-supply-ignore
+318f0b585d5f7d12e8e7de3a6fa360ca1dc3abeec8af9411541937dac2f97c3d15e695698d6c07b4485dfc141e8badffc0267db5adb5550958e47e401c02ce39  99-q25-upower-duplicate.rules
 "
