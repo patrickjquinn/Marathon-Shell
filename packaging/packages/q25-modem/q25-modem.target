@@ -2,6 +2,7 @@
 Description=Q25 MD1 cellular modem stack
 ConditionPathExists=/proc/device-tree/soc/mddriver
 Requires=q25-modem-owner.service q25-modem-stack.service q25-modem-nv.service q25-ccci-rpcd.service q25-ccci-fsd.service q25-ccci-mdinit.service q25-modem-init.service
+Wants=q25-modem-reset.path
 After=q25-modem-init.service
 
 [Install]
