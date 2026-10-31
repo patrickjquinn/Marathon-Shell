@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=17
+pkgrel=18
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -109,7 +109,7 @@ package() {
 }
 sha512sums="
 782888d14d84256edac27b9a2ac45a7596bbedbdc2b29ad7bbd4e75ebd939b61aa476c8868e22154ba8785b9d7b7c236b62ba49bcbdaba19dd7bd68ea5bad7f8  device-profile.conf
-78c26322d48600bc722915ab347d27c52f9a2701bd63ada226669efe42a3aac92e6614158036f7d37b0a641d35d07a88f8eef3b21f6945d3c1292957d7dd667a  q25-shell-session
+cbf76ecc7e9959c880ad6478fd9a0278ed9b461fafbd41dcd7b6352889b7ff156ed6de8fc7d4871c2a2f32bf9fd18cf82ab9da59afd74c94de729710baa50517  q25-shell-session
 7c023ffa760ee6aff53e6a628a3bd673b169daf6462a358a269ec80ef807054517e0038e8ddbba54f7ff50fad28e30d2934faf52b9ae02e40b7989f4ccbb4ea1  q25-shell-session.software
 56babfe06ed3da7ff72569304d9984adba8d77878cacf27435cb0a83d025bacae203e544e366c4d0490880bcdb7425ac67122b40ae3d46534a1104b76ba7157d  greetd-q25.toml
 221913275648d3c6f09a5da643d8c16922cfe305a4630f1d08dc5cabf98e85f7a105dab8daa1d426ca7ea7cff6ba1fed0c8ba4acac506e6be7103df7785ac3ad  50-q25-session.conf

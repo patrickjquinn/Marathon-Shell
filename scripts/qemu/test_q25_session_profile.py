@@ -50,7 +50,7 @@ class Q25Session(unittest.TestCase):
     def ready(self):
         (self.dir / 'ready').write_text('ready\n')
         (self.dir / 'power').write_text('on\n')
-        (self.dir / 'frequency').write_text('390000000\n')
+        (self.dir / 'frequency').write_text('700000000\n')
 
     def test_gpu_ready_selects_accepted_environment_and_preserves_arguments(self):
         self.ready()

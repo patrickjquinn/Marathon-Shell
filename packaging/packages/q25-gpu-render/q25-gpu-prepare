@@ -25,11 +25,18 @@ fi
 [ "$(basename "$(readlink /sys/class/drm/card0/device/driver)")" = simple-framebuffer ] || fail 'display is not SimpleDRM'
 # Keep genpd suppliers enabled: a later SRAM first-enable can reset coupling.
 echo on > "$gpu/power/control"
+# Pinned (min = max): MT6789 has no MFG mux notifier, so never hop between PLL OPPs.
+pin_hz=700000000
+pin_vgpu=700000
+pin_vsram=800000
 restore_cap() {
-    echo 390000000 > "$df/min_freq"
     echo 390000000 > "$df/max_freq"
+    echo 390000000 > "$df/min_freq"
 }
 trap restore_cap EXIT
+# On a re-run the GPU may already be pinned: go back through 390 so every step is a mux switch.
+restore_cap
+sleep 0.2
 echo 467000000 > "$df/max_freq"
 echo 467000000 > "$df/min_freq"
 sleep 0.2
@@ -38,15 +45,26 @@ restore_cap
 sleep 0.2
 [ "$(cat "$df/cur_freq")" = 390000000 ] || fail '390 MHz not restored'
 [ "$(cat "$gpu/power/runtime_status")" = active ] || fail 'GPU is not active'
-vgpu=
-vsram=
-for r in /sys/class/regulator/regulator.*; do
-    case "$(cat "$r/name")" in
-        vgpu) vgpu=$(cat "$r/microvolts");;
-        vsram_gpu) vsram=$(cat "$r/microvolts");;
-    esac
-done
+rails() {
+    vgpu=
+    vsram=
+    for r in /sys/class/regulator/regulator.*; do
+        case "$(cat "$r/name")" in
+            vgpu) vgpu=$(cat "$r/microvolts");;
+            vsram_gpu) vsram=$(cat "$r/microvolts");;
+        esac
+    done
+}
+rails
 [ "$vgpu" = 675000 ] && [ "$vsram" = 775000 ] || fail "coupling readback $vgpu/$vsram"
-printf '%s\n' 'MFGv2/Panfrost 390MHz PM-on VGPU675000 SRAM775000 noafbc KMSRO' > "$state/ready"
+# One jump 390 -> pin: min first while max is still 390.
+echo "$pin_hz" > "$df/min_freq"
+echo "$pin_hz" > "$df/max_freq"
+sleep 0.3
+[ "$(cat "$df/cur_freq")" = "$pin_hz" ] || fail "$pin_hz not reached"
+rails
+[ "$vgpu" = "$pin_vgpu" ] && [ "$vsram" = "$pin_vsram" ] || fail "pinned readback $vgpu/$vsram"
+trap - EXIT
+printf '%s\n' "MFGv2/Panfrost $((pin_hz / 1000000))MHz PM-on VGPU$pin_vgpu SRAM$pin_vsram noafbc KMSRO" > "$state/ready"
 chmod 0644 "$state/ready"
 echo 'q25-gpu: accepted power state ready; GPU render path enabled'
