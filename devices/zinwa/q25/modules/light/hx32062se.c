@@ -11,6 +11,7 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
@@ -36,8 +37,12 @@
 #define HX_REG_LATCH		0x83
 #define HX_LATCH_HOLD		BIT(1)
 
-#define HX_DEFAULT_NEAR		3800	/* stock ps_threshold_high */
-#define HX_DEFAULT_FAR		3300	/* stock ps_threshold_low */
+/* Measured on a Q25: 0 with nothing near, ~1000-1400 with a finger over the top. */
+#define HX_DEFAULT_NEAR		600
+#define HX_FAR_PERCENT		65	/* chip far threshold, as a share of near */
+
+/* Stock gain-index-1 ALS dark offset: efuse 0x95 (signed) * 1024 + 245800. */
+#define HX_ALS_OFFSET_BASE	245800
 
 /* Stock SCP firmware probe table, written in this order. */
 static const u8 hx32062se_init[][2] = {
@@ -64,14 +69,20 @@ static const u8 hx32062se_init[][2] = {
 	{ 0x8a, 0xd0 }, { 0x8c, 0xd0 }, { 0xe7, 0x00 }, { 0xef, 0xbf },
 };
 
-static unsigned int lux_scale_micro = 1000;
+/* Stock lux = counts * 20 * 1000 / (light-type divisor * 25600); divisor 29. */
+static unsigned int lux_scale_micro = 26940;
 module_param(lux_scale_micro, uint, 0644);
-MODULE_PARM_DESC(lux_scale_micro, "lux per ALS count in millionths; rough, ~270k counts indoors");
+MODULE_PARM_DESC(lux_scale_micro, "lux per offset-corrected ALS count, in millionths");
+
+static unsigned int near_level;
+module_param(near_level, uint, 0644);
+MODULE_PARM_DESC(near_level, "proximity near level; 0 = DT proximity-near-level or 600");
 
 struct hx32062se {
 	struct regmap *regmap;
 	struct mutex lock;	/* serialises latch + burst read */
 	u32 near_level;
+	int als_offset;
 };
 
 static int hx32062se_read_latched(struct hx32062se *hx, unsigned int reg,
@@ -103,7 +114,7 @@ static int hx32062se_read_raw(struct iio_dev *indio_dev,
 			ret = hx32062se_read_latched(hx, HX_REG_ALS_DATA, buf, 9);
 			if (ret)
 				return ret;
-			*val = get_unaligned_le24(buf);
+			*val = max_t(int, get_unaligned_le24(buf) - hx->als_offset, 0);
 		} else {
 			ret = hx32062se_read_latched(hx, HX_REG_PS_DATA, buf, 2);
 			if (ret)
@@ -127,7 +138,7 @@ static ssize_t hx32062se_read_near_level(struct iio_dev *indio_dev,
 {
 	struct hx32062se *hx = iio_priv(indio_dev);
 
-	return sysfs_emit(buf, "%u\n", hx->near_level);
+	return sysfs_emit(buf, "%u\n", near_level ?: hx->near_level);
 }
 
 static const struct iio_chan_spec_ext_info hx32062se_ps_ext_info[] = {
@@ -173,8 +184,13 @@ static bool hx32062se_writeable(struct device *dev, unsigned int reg)
  */
 static int hx32062se_ps_gain(struct hx32062se *hx, struct device *dev)
 {
-	unsigned int e92, e97;
+	unsigned int e92, e95, e97;
 	int ret;
+
+	ret = regmap_read(hx->regmap, 0x95, &e95);
+	if (ret)
+		return ret;
+	hx->als_offset = (s8)e95 * 1024 + HX_ALS_OFFSET_BASE;
 
 	ret = regmap_read(hx->regmap, 0x92, &e92);
 	if (ret)
@@ -182,7 +198,8 @@ static int hx32062se_ps_gain(struct hx32062se *hx, struct device *dev)
 	ret = regmap_read(hx->regmap, 0x97, &e97);
 	if (ret)
 		return ret;
-	dev_info(dev, "efuse 0x92=%02x 0x97=%02x\n", e92, e97);
+	dev_info(dev, "efuse 0x92=%02x 0x95=%02x 0x97=%02x, ALS offset %d\n",
+		 e92, e95, e97, hx->als_offset);
 	if (!e97 || (e97 & BIT(6)))
 		return 0;
 	return regmap_write(hx->regmap, 0x67, 0x10 | ((e92 >> 6) + 5));
@@ -292,12 +309,15 @@ static int hx32062se_probe(struct i2c_client *client)
 
 	hx->near_level = HX_DEFAULT_NEAR;
 	device_property_read_u32(dev, "proximity-near-level", &hx->near_level);
+	if (near_level)
+		hx->near_level = near_level;
 
 	/* The stock firmware writes these one byte at a time. */
 	ret = hx32062se_write_le16(hx, HX_REG_PS_THR_HI, hx->near_level);
 	if (ret)
 		return ret;
-	ret = hx32062se_write_le16(hx, HX_REG_PS_THR_LO, HX_DEFAULT_FAR);
+	ret = hx32062se_write_le16(hx, HX_REG_PS_THR_LO,
+				   hx->near_level * HX_FAR_PERCENT / 100);
 	if (ret)
 		return ret;
 
