@@ -1,0 +1,10 @@
+[Unit]
+Description=Q25 MD1: copy the modem image from the stock md1img partition
+ConditionPathExists=!/var/lib/q25-md1/md1img.img
+Requires=dev-disk-by\x2dpartlabel-md1img_a.device
+After=dev-disk-by\x2dpartlabel-md1img_a.device local-fs.target
+Before=q25-modem-owner.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/q25-modem/q25-md1-firmware
