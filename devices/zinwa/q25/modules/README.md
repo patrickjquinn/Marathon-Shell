@@ -7,6 +7,7 @@ Sources of the modules that `packaging/packages/q25-kernel-modules` ships.
 | `conn-pd` | `q25-conn-pd` | Marathon |
 | `imu` | `inv-icm42607`, `inv-icm42607-spi` | torvalds/linux `abf8c334` `drivers/iio/imu/inv_icm42607`, unmodified |
 | `bt` | `q25-btmtk-stp` | Marathon |
+| `audio` | `snd-timer`, `snd-pcm`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-audio-pd`, `q25-oca72390`, `q25-mt6366-card` | the kernel's `sound/` files (`mt6358` plus patches `0002`–`0006`), linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, and Marathon's `q25/` drivers |
 | (kernel tree) | `spi-mt65xx`, `rfkill`, `cfg80211`, `bluetooth` | the kernel's own source; the APK's config leaves them unbuilt or unshipped |
 | `wifi` | `connadp`, `btif_drv`, `wmt_drv`, `wmt_chrdev_wifi`, `wlan_drv_gen4m_6789` | iasnezhkov/android_kernel_ikko_mindone `9cd73c15` `mindone/modules`, plus the two patches |
 
@@ -14,7 +15,7 @@ Sources of the modules that `packaging/packages/q25-kernel-modules` ships.
 tree before `0001`; `0002` applies to the donor's `wlan_drv_gen4m_6789` and
 `wmt_chrdev_wifi` directories.
 
-`build.sh KSRC KOBJ DONOR OUT [SHIPPED]` builds all of them
+`MT6789_SOUND=DIR build.sh KSRC KOBJ DONOR OUT [SHIPPED]` builds all of them
 against the prepared kernel tree and, given the shipped modules, compares
 each. ThinLTO derives promoted symbol names from the build path, so
 the bytes differ from the shipped ones; `kocmp.py` checks that code, data

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0
+# Out-of-tree ALSA/ASoC stack for the running 7.0.0-q25-cfi-test kernel,
+# whose .config has CONFIG_SND_SOC unset. CONFIG_SND_PCM/TIMER are =m there.
+subdir-ccflags-y += -DCONFIG_SND_SOC_MODULE=1
+obj-m += core/ soc/ codecs/ mediatek/ q25/

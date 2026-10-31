@@ -1,0 +1,267 @@
+--- a/sound/soc/mediatek/mt6789/mt6789-afe-pcm.c
++++ b/sound/soc/mediatek/mt6789/mt6789-afe-pcm.c
+@@ -2096,6 +2096,21 @@
+ 	mt6789_dai_memif_register,
+ };
+ 
++static int mt6789_afe_component_probe(struct snd_soc_component *component)
++{
++	mtk_afe_add_sub_dai_control(component);
++	mt6789_add_misc_control(component);
++
++	return 0;
++}
++
++static const struct snd_soc_component_driver mt6789_afe_component = {
++	.name = AFE_PCM_NAME,
++	.pcm_construct = mtk_afe_pcm_new,
++	.pointer = mtk_afe_pcm_pointer,
++	.probe = mt6789_afe_component_probe,
++};
++
+ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
+ {
+ 	int ret, i;
+@@ -2138,9 +2153,9 @@
+ 		afe->preallocate_buffers = true;
+ 	}
+ 
+-	pm_runtime_enable(&pdev->dev);
+-	if (!pm_runtime_enabled(&pdev->dev))
+-		goto err_pm_disable;
++	ret = devm_pm_runtime_enable(&pdev->dev);
++	if (ret)
++		return ret;
+ 
+ 	/* Audio device is part of genpd.
+ 	 * Set audio as syscore device to prevent
+@@ -2149,21 +2164,32 @@
+ 	 */
+ 	dev_pm_syscore_device(&pdev->dev, true);
+ 
+-	/* regmap init */
+-	/* regmap init */
+-	afe->regmap = syscon_node_to_regmap(dev->parent->of_node);
+-	if (IS_ERR(afe->regmap))
+-		return dev_err_probe(dev, PTR_ERR(afe->regmap),
+-				     "could not get regmap from parent");
++	/*
++	 * Own MMIO regmap: the audsys syscon regmap is 4 KiB and shared with
++	 * clk-mt6789-audiosys, so cache-only mode on it would drop clock writes.
++	 * devm_ioremap, not devm_ioremap_resource: the syscon node already
++	 * claims the first 4 KiB of this window.
++	 */
++	{
++		struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 
+-	ret = regmap_attach_dev(dev, afe->regmap, &mt6789_afe_regmap_config);
+-	if (ret)
+-		return dev_err_probe(dev, ret, "regmap_attach_dev fail\n");
++		if (!res)
++			return dev_err_probe(dev, -EINVAL, "no reg\n");
++		afe->base_addr = devm_ioremap(dev, res->start, resource_size(res));
++		if (!afe->base_addr)
++			return -ENOMEM;
++	}
+ 
+-	/* enable clock for regcache get default value from hw */
+-	pm_runtime_get_sync(&pdev->dev);
++	/* domain and clocks must be on while regcache reads hw defaults */
++	ret = pm_runtime_resume_and_get(&pdev->dev);
++	if (ret)
++		return dev_err_probe(dev, ret, "runtime resume failed\n");
+ 
++	afe->regmap = devm_regmap_init_mmio(dev, afe->base_addr,
++					    &mt6789_afe_regmap_config);
+ 	pm_runtime_put_sync(&pdev->dev);
++	if (IS_ERR(afe->regmap))
++		return dev_err_probe(dev, PTR_ERR(afe->regmap), "regmap init fail\n");
+ 
+ 	regcache_cache_only(afe->regmap, true);
+ 	regcache_mark_dirty(afe->regmap);
+@@ -2256,7 +2282,7 @@
+ 
+ 	/* register platform */
+ 	ret = devm_snd_soc_register_component(&pdev->dev,
+-					      &mtk_afe_pcm_platform,
++					      &mt6789_afe_component,
+ 					      afe->dai_drivers,
+ 					      afe->num_dai_drivers);
+ 
+@@ -2268,8 +2294,6 @@
+ 	return 0;
+ 
+ err_pm_disable:
+-	pm_runtime_disable(&pdev->dev);
+-
+ 	return ret;
+ }
+ 
+--- a/sound/soc/mediatek/mt6789/mt6789-dai-adda.c
++++ b/sound/soc/mediatek/mt6789/mt6789-dai-adda.c
+@@ -437,7 +437,7 @@
+ static int stf_positive_gain_get(struct snd_kcontrol *kcontrol,
+ 				 struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 
+@@ -448,7 +448,7 @@
+ static int stf_positive_gain_set(struct snd_kcontrol *kcontrol,
+ 				 struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	int gain_db = ucontrol->value.integer.value[0];
+@@ -480,7 +480,7 @@
+ static int mt6789_adda_dmic_get(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 
+@@ -491,7 +491,7 @@
+ static int mt6789_adda_dmic_set(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+--- a/sound/soc/mediatek/mt6789/mt6789-dai-i2s.c
++++ b/sound/soc/mediatek/mt6789/mt6789-dai-i2s.c
+@@ -150,7 +150,7 @@
+ static int mt6789_i2s_hd_get(struct snd_kcontrol *kcontrol,
+ 			     struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mtk_afe_i2s_priv *i2s_priv;
+ 
+@@ -168,7 +168,7 @@
+ static int mt6789_i2s_hd_set(struct snd_kcontrol *kcontrol,
+ 			     struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mtk_afe_i2s_priv *i2s_priv;
+ 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+--- a/sound/soc/mediatek/mt6789/mt6789-misc-control.c
++++ b/sound/soc/mediatek/mt6789/mt6789-misc-control.c
+@@ -82,7 +82,7 @@
+ static int mt6789_sgen_get(struct snd_kcontrol *kcontrol,
+ 			   struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 
+@@ -93,7 +93,7 @@
+ static int mt6789_sgen_set(struct snd_kcontrol *kcontrol,
+ 			   struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+@@ -127,7 +127,7 @@
+ static int mt6789_sgen_rate_get(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 
+@@ -138,7 +138,7 @@
+ static int mt6789_sgen_rate_set(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+@@ -166,7 +166,7 @@
+ static int mt6789_sgen_amplitude_get(struct snd_kcontrol *kcontrol,
+ 				     struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 
+@@ -177,7 +177,7 @@
+ static int mt6789_sgen_amplitude_set(struct snd_kcontrol *kcontrol,
+ 				     struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+@@ -210,7 +210,7 @@
+ static int mt6789_sgen_mute_get(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	int mute = 0;
+ 
+@@ -225,7 +225,7 @@
+ static int mt6789_sgen_mute_set(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+ 	int mute;
+@@ -283,7 +283,7 @@
+ static int mt6789_usb_echo_ref_get(struct snd_kcontrol *kcontrol,
+ 				   struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 
+@@ -294,7 +294,7 @@
+ static int mt6789_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
+ 				   struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	int dl_id = MT6789_MEMIF_DL1;
+@@ -462,7 +462,7 @@
+ static int speech_property_get(struct snd_kcontrol *kcontrol,
+ 			       struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	int *sph_property;
+@@ -481,7 +481,7 @@
+ static int speech_property_set(struct snd_kcontrol *kcontrol,
+ 			       struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
++	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
+ 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+ 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+ 	int *sph_property;

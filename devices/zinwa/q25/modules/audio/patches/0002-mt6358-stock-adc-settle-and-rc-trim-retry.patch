@@ -1,0 +1,60 @@
+--- a/sound/soc/codecs/mt6358.c
++++ b/sound/soc/codecs/mt6358.c
+@@ -1542,6 +1542,7 @@
+ 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE];
+ 	unsigned int mux_pga_l = priv->mux_select[MUX_PGA_L];
+ 	unsigned int mux_pga_r = priv->mux_select[MUX_PGA_R];
++	unsigned int rc = 0, rc2 = 0, con0 = 0, con9 = 0;
+ 
+ 	dev_info(priv->dev, "%s(), mux, mic %u, pga l %u, pga r %u\n",
+ 		 __func__, mic_type, mux_pga_l, mux_pga_r);
+@@ -1625,6 +1626,8 @@
+ 				   RG_AUDADCLINPUTSEL_MASK_SFT,
+ 				   ADC_MUX_PREAMPLIFIER <<
+ 				   RG_AUDADCLINPUTSEL_SFT);
++		/* stock MT6366 driver: settle 1 ms before ADC power-up */
++		usleep_range(1000, 1050);
+ 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+ 				   RG_AUDADCLPWRUP_MASK_SFT,
+ 				   0x1 << RG_AUDADCLPWRUP_SFT);
+@@ -1653,6 +1656,7 @@
+ 				   RG_AUDADCRINPUTSEL_MASK_SFT,
+ 				   ADC_MUX_PREAMPLIFIER <<
+ 				   RG_AUDADCRINPUTSEL_SFT);
++		usleep_range(1000, 1050);
+ 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+ 				   RG_AUDADCRPWRUP_MASK_SFT,
+ 				   0x1 << RG_AUDADCRPWRUP_SFT);
+@@ -1672,6 +1676,32 @@
+ 				   0x1 << 12, 0x0);
+ 	}
+ 
++	/*
++	 * Stock MT6366 driver: if the ADC RC trim (AUDENC_ANA_CON12) did not
++	 * converge, power-cycle both ADCs once.
++	 */
++	usleep_range(500, 520);
++	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc);
++	if ((rc & 0x1f) == 0 || (rc & 0x1f) == 0x1f ||
++	    ((rc >> 8) & 0x1f) == 0 || ((rc >> 8) & 0x1f) == 0x1f) {
++		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
++				   RG_AUDADCLPWRUP_MASK_SFT, 0);
++		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
++				   RG_AUDADCRPWRUP_MASK_SFT, 0);
++		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
++				   RG_AUDADCLPWRUP_MASK_SFT,
++				   0x1 << RG_AUDADCLPWRUP_SFT);
++		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
++				   RG_AUDADCRPWRUP_MASK_SFT,
++				   0x1 << RG_AUDADCRPWRUP_SFT);
++		usleep_range(500, 520);
++		regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc2);
++	}
++	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON0, &con0);
++	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON9, &con9);
++	dev_info(priv->dev, "%s(), CON12 rc %#x retry %#x, ENC_CON0 %#x, ENC_CON9 %#x\n",
++		 __func__, rc, rc2, con0, con9);
++
+ 	/* here to set digital part */
+ 	mt6358_mtkaif_tx_enable(priv);
+ 

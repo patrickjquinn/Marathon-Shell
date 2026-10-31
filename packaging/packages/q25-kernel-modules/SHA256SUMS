@@ -14,3 +14,12 @@ bd8b8c789922293f238b48d759d416ded01a9c9480ef96dbf9f12f5e42cefd33  /usr/lib/modul
 3fa5b1b3fc0bd9e904ab6050d4059f2188b8e6011d5a763b8662f36f684b394f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wlan_drv_gen4m_6789.ko
 fe5c3435f2b8adcc23731692b51cea3dfd02268548d923af0ae9d82eff7aef93  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/bluetooth.ko
 32aba70b7becf80f76dd194c9e682f0caec78406592715acd7f90c4a7123584f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/q25-btmtk-stp.ko
+31ec5c8518d577e7aaa595beac4c661db9a4d86775bb6d7e4c279116e43af54f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-timer.ko
+5374522f3541971f34a55951e6233a59fa3fbb48dd51bb29b9d293bce34e1404  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-pcm.ko
+db3cb067a88e45b92769aa3f9e565982f056435cedaca1d60077505287ca202b  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-soc-core.ko
+6b745904bb5d406ca2189b35733d0716d24fe73a309a2552d26725a91a071aed  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-soc-mt6358.ko
+a58eb18aa0c515fa6a46cf7f6e71a3b168a5fd93ac580aef72bcc0693b2fbe17  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-soc-mtk-common.ko
+05c89134816100af92c586ba287b0d26159acbe190b06122595148f5a66e9ef8  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-soc-mt6789-afe.ko
+2deb73fb5d10e50e659bb58f988f29ab56e6e5f7a84ee3ecdbbaaed2459af751  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-audio-pd.ko
+4cde82aee9ef3b7b73aee228c50432fd48af2d05ed9301f7f9053b2009f8f9ef  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-oca72390.ko
+383a25d4bb15882244b39908f56e3b4db854c14578fa30561ec26dcb87a69795  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-mt6366-card.ko

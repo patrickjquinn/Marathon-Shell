@@ -3,16 +3,20 @@
 # kernel tree and, given SHIPPED (a directory of the packaged .ko files),
 # check each against it with kocmp.py.
 #
-#   build.sh KSRC KOBJ DONOR OUT [SHIPPED]
+#   MT6789_SOUND=DIR build.sh KSRC KOBJ DONOR OUT [SHIPPED]
 #
 # KSRC/KOBJ: the kernel source and object trees the kernel APK was built
 # from (make -C KSRC O=KOBJ). DONOR: a checkout of
 # github.com/iasnezhkov/android_kernel_ikko_mindone at
 # 9cd73c15f312cfd1e40a22d871de65a2fb2c5791 (only mindone/modules is read).
+# MT6789_SOUND: a checkout of github.com/linux-mediatek/linux at
+# 996ec48145f6746ecc664e92c6e5892b6978e3ae (branch adomerle/mt6789-sound;
+# only sound/soc/mediatek/mt6789 is read).
 # OUT is created; nothing else is written.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 ksrc=$1 kobj=$2 donor=$3/mindone/modules out=$4 shipped=${5:-}
+mt6789=${MT6789_SOUND:?set MT6789_SOUND to the linux-mediatek checkout}/sound/soc/mediatek/mt6789
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 
@@ -28,11 +32,34 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt; do
+for d in keyboard md1 conn-pd imu bt audio; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
 cp "$ksrc/drivers/spi/spi-mt65xx.c" "$out/src/imu/"
+
+a=$out/src/audio
+mkdir -p "$a/core" "$a/soc" "$a/codecs" "$a/mediatek/common" "$a/mediatek/mt6789"
+for f in timer.c timer_compat.c pcm.c pcm_native.c pcm_lib.c pcm_misc.c pcm_memory.c \
+	memalloc.c pcm_timer.c pcm_compat.c pcm_local.h pcm_param_trace.h pcm_trace.h; do
+	cp "$ksrc/sound/core/$f" "$a/core/"
+done
+for f in soc-core.c soc-dapm.c soc-jack.c soc-utils.c soc-dai.c soc-component.c soc-pcm.c \
+	soc-devres.c soc-ops.c soc-link.c soc-card.c; do
+	cp "$ksrc/sound/soc/$f" "$a/soc/"
+done
+cp "$ksrc/sound/soc/codecs/mt6358.c" "$ksrc/sound/soc/codecs/mt6358.h" "$a/codecs/"
+for f in mtk-afe-fe-dai.c mtk-afe-fe-dai.h mtk-afe-platform-driver.c mtk-afe-platform-driver.h \
+	mtk-base-afe.h mtk-dai-adda-common.c mtk-dai-adda-common.h mtk-soc-card.h \
+	mtk-soundcard-driver.c mtk-soundcard-driver.h mtk-dsp-sof-common.c mtk-dsp-sof-common.h; do
+	cp "$ksrc/sound/soc/mediatek/common/$f" "$a/mediatek/common/"
+done
+cp "$mt6789"/*.c "$mt6789"/*.h "$a/mediatek/mt6789/"
+rm "$a/mediatek/mt6789/mt6789-mt6366.c"
+(cd "$a/mediatek/mt6789" && patch -p5 -s < "$a/patches/0001-mt6789-afe-q25-fixups.patch")
+for p in "$a"/patches/000[2-6]-*.patch; do
+	(cd "$a/codecs" && patch -p4 -s < "$p")
+done
 
 rm -rf "$out/src/wmt" "$out/src/wlan"
 mkdir -p "$out/src/wmt" "$out/src/wlan"
@@ -44,7 +71,7 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 
-for d in keyboard md1 conn-pd imu; do
+for d in keyboard md1 conn-pd imu audio; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$ksrc/net/rfkill" "$out/obj/rfkill"

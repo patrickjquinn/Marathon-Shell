@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -14,25 +14,29 @@ makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
+_audio="snd-timer snd-pcm snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card"
 source="SHA256SUMS"
-for _m in $_extra $_connsys; do
+for _m in $_extra $_connsys $_audio; do
     source="$source $_m.ko.zst"
 done
 package() {
     local extra="$pkgdir/usr/lib/modules/7.0.0-q25-cfi-test/extra" m
-    install -d "$extra/q25-connsys"
+    install -d "$extra/q25-connsys" "$extra/q25-audio"
     for m in $_extra; do
         zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/$m.ko"
     done
     for m in $_connsys; do
         zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/q25-connsys/$m.ko"
     done
-    chmod 0644 "$extra"/*.ko "$extra"/q25-connsys/*.ko
+    for m in $_audio; do
+        zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/q25-audio/$m.ko"
+    done
+    chmod 0644 "$extra"/*.ko "$extra"/q25-connsys/*.ko "$extra"/q25-audio/*.ko
     (cd "$pkgdir" && sed 's#  /#  #' "$srcdir/SHA256SUMS" | sha256sum -c >/dev/null)
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-93c043a230d56dc474b7529f3f4af7c56af5cddfa05ee2cb62ccfc6b09db4fbe7afdc85ce2471731bcf887707d9e8d486e6d5a4a78f018e0b8f396c15775f02b  SHA256SUMS
+497fa7f20a6ec7ac48260bb09c5d56a1b2118561b46a90c37282123f292b5ab924d63a62e42b9e91348b5df5e4e15dd68b94527a37243ac4d5c02ecdb4e73d0d  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 d33d60492b4c201b4f866fdc9f626ef4673fefaa5f1d43ee956da8522461dee4c1993fecee050da5b0a2916bfe2d49c5e7e4841db12f9ed62552f2516cef6f4e  q25-md1-owner.ko.zst
@@ -49,4 +53,13 @@ ab87b99cc6f2417553e30f55de0e9976efed3da7aa9bb33f2a5008c7cb010a754345ac6aabaf911d
 378d01d8e6e331f680dbfe2b59f2352abda051b63d93fd5af49a0fb3d61921c8b8cb47c2bafbb07cd918e15e77f71dab77df9c5053b1c701f30aedd7006904d7  wlan_drv_gen4m_6789.ko.zst
 348f8233daeabee9168698c32f7b69a7cf4ef2ef66f872cffd97b3071f99fe6a17d61598ba3ee7ddbb51f21f5b8b550ac2658918f9f5d4b7b68813f01ddd7c08  bluetooth.ko.zst
 f7e55839f552bda3724fd57c9d7e73aeb3a4acde98ceea1d971874ffdefb4b99be89ac07558ac3c7d23f44d33b6b2095f0237d153e947cbadd71da1d726aea70  q25-btmtk-stp.ko.zst
+c592fabfaa9551183f96b29a9286d86131235f34db9711529cf905f2a7c6017601b27827a249d6d4b16851cd10a4395900f9bf99b39a9e153a8259a9c0bdaf1c  snd-timer.ko.zst
+4db0014aaa9d7f4b225bb10b473ca22b54ed1abf6043c538961df6db4bbcc54c9a76a36c36c1d586fd3188c37995aa2392f84626b221000113d241521b2a1cba  snd-pcm.ko.zst
+129c533e13ed7e07957862b6d5f5d87f9bec35c03a8463891aa2b0e0c8545c8ff8c5dc71a9b75affc4992284254bc5462c78a705b992c0f1abc6a550e7869436  snd-soc-core.ko.zst
+8a150b3ffaba56b5289a3b9f35c5f11e8a47157a8a05a6b0e2909c322606bd91c30810153406498fe1211ca72dfa515a43b1becc1fd76ff39612ac8fee5b268b  snd-soc-mt6358.ko.zst
+c0df316223aedc0ee9d2e3ca7aa7751ed49591bf411ec2fd6aadabe382824c6bae6f3a24f3c49d35bfd9835eb3b42a10e29e7194cadc8082d40f2e98dbdae178  snd-soc-mtk-common.ko.zst
+e95b507edae711ce37cd797857c8c85e384e85a4834cabe21c31ee92802f73191e4ee6875d839466851e578868eb62f6d082ade146baa3c683848927707bc493  snd-soc-mt6789-afe.ko.zst
+8a7f39a524f06a523346ed3913eb0126528c4b05a8f7af50c93d603dac271a38e6e9735ea35de5b00b3534e6747c4c4eeb1751f048c1426b1b2b8a2766c40c60  q25-audio-pd.ko.zst
+ba96d101aae4b1b352cc54db58ccef67832635aba940aa222f190b37527e7cce944389d491bb3add9723d542b7134967eea125fb4b4b161598b473808fa44aae  q25-oca72390.ko.zst
+cf0c2e91f21c1a0d87f587c8b4724592aff12bfc3555591dccf6ce4afc98cc69a315991c0c88cff5521a13063c23b19c17ed2ec910990f46e3d0353e73842ee8  q25-mt6366-card.ko.zst
 "
