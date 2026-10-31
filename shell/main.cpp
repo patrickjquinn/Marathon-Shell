@@ -1463,10 +1463,15 @@ int main(int argc, char *argv[]) {
             if (auto *win = qobject_cast<QQuickWindow *>(root)) {
                 auto *resampler = new TouchResampler(win, win->contentItem());
 #ifdef HAVE_WAYLAND
-                resampler->setVblankClock([compositorManager]() -> qint64 {
-                    WaylandCompositor *compositor = compositorManager->compositor();
-                    return compositor ? compositor->frameLatchUs() : -1;
-                });
+                resampler->setVblankClock(
+                    [compositorManager]() -> qint64 {
+                        WaylandCompositor *compositor = compositorManager->compositor();
+                        return compositor ? compositor->frameLatchUs() : -1;
+                    },
+                    [compositorManager]() -> qreal {
+                        WaylandCompositor *compositor = compositorManager->compositor();
+                        return compositor ? compositor->outputRefreshHz() : 0;
+                    });
 #else
                 Q_UNUSED(resampler);
 #endif

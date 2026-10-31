@@ -50,17 +50,17 @@ TouchResampler::TouchResampler(QWindow *window, QQuickItem *content)
     window->installEventFilter(this);
 }
 
-void TouchResampler::setVblankClock(std::function<qint64()> lastVblankUs) {
+void TouchResampler::setVblankClock(std::function<qint64()> lastVblankUs,
+                                    std::function<qreal()>  refreshHz) {
     m_lastVblankUs = std::move(lastVblankUs);
+    m_refreshHz    = std::move(refreshHz);
 }
 
 bool TouchResampler::flush() {
     if (!m_pending)
         return false;
-    const qreal frame = 1000.0 /
-        (m_window && m_window->screen() && m_window->screen()->refreshRate() > 0 ?
-             m_window->screen()->refreshRate() :
-             60.0);
+    const qreal  hz      = m_refreshHz ? m_refreshHz() : 0;
+    const qreal  frame   = 1000.0 / (hz > 0 ? hz : m_window->screen()->refreshRate());
     const qint64 elapsed = m_clock.elapsed();
     const qint64 vblank  = m_lastVblankUs ? m_lastVblankUs() : -1;
     timespec     ts{};
