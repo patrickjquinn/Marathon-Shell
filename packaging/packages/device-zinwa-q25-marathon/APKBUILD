@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=21
+pkgrel=22
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -18,7 +18,8 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-connsys.modprobe.conf q25-wifi.system-sleep wpa_supplicant.service
  q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
  unudhcpd-usb0.conf q25.preset
- q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service"
+ q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service
+ q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -93,6 +94,22 @@ package() {
     ln -s ../q25-root-dio.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-dio.service"
     ln -s ../q25-root-grow.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-grow.service"
 
+    # CPU0's PSCI CPU_ON fails, so it must stay offline; the GPU guard
+    # refuses to start while it is online.
+    install -Dm755 "$srcdir/q25-platform-prepare" "$pkgdir/usr/libexec/marathon/q25-platform-prepare"
+    install -Dm644 "$srcdir/q25-platform-prepare.service" "$pkgdir/usr/lib/systemd/system/q25-platform-prepare.service"
+    ln -s ../q25-platform-prepare.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-platform-prepare.service"
+    install -Dm644 "$srcdir/q25-user-manager-cpu.conf" "$pkgdir/usr/lib/systemd/system/user@.service.d/40-q25-cpu.conf"
+    install -Dm644 "$srcdir/q25-user-slice-cpu.conf" "$pkgdir/usr/lib/systemd/system/user-1000.slice.d/40-q25-cpu.conf"
+    install -Dm644 "$srcdir/q25-carrier-root" "$pkgdir/etc/marathon/q25-carrier-root"
+    # The root is an ext4 file inside userdata, behind an ESP that the
+    # stock layout shares: nothing may repartition, or touch the ESP's
+    # loader, and /etc is not a confext.
+    install -d "$pkgdir/etc/systemd/system"
+    for unit in systemd-repart.service systemd-repart.socket systemd-repart@.service systemd-boot-update.service systemd-confext.service; do
+        ln -s /dev/null "$pkgdir/etc/systemd/system/$unit"
+    done
+
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
@@ -139,4 +156,9 @@ b16efb63bdafea45a6d3cca92822bb0eabbf137e27d070895f5d19aae7cf88cff797f16576a1a00d
 f2e391802eb3ed5eed9ea22e856ef87a272582583bcce689f591f880408d77ac5dff5fc51b1b3adfd6d8c949141cc87afc283507124c12d2f93491da5d50493c  q25-backlight.service
 dc89cdcbbf044d06c1ba18cffd2bebdc86f0015591cde276cd57fb4a82457c89b2a408f927b4662f13f8a52df5a26fbcd580dc7cc882660af36011e638ac5cff  q25-root-grow
 42a5d63e17226632be80493adca33f25bd5dcd5645d96d8d2819051355f53da6823eb04c57aac5fff774c4b963efd92a10bea623943b268612c417cd3cf09b89  q25-root-grow.service
+8bc65514cfafe1c4291390109f2f4814b1681850c20ae1aea24ba497cefd6dbc82f4948cbef796c1c184bb25fe55cf1b7f7177912e6b1be7c56301edb9af145b  q25-platform-prepare
+e456f3bf3a5babc8e7052fe41020ea8ea92d5cefdb1736554455d391fcae0e53ac43cdc3246e7a81aa72ed780e59f778e3f6f3f8a56bc0f6703597763ee9702e  q25-platform-prepare.service
+01c93dc1c2fbcbe7d4c3df5f1e282549f2507204a4a4157051e62f48bc98b65b49a4a915d0ed4fe745723d29fbc7d390baddd7b65859e78739cae84a099014b5  q25-user-manager-cpu.conf
+692a0a87d3de9cf23d81d91278bb34dac1367f9aa827e09f001b7985b368aa8dcca00f94ef22eb6cd5fecea44af31e2c9f958b33579448586c08f73a2761e181  q25-user-slice-cpu.conf
+c95e3e6281e0a842a1102b617e8cbe9be4a44be91193190bc9565fd2b064c2a52fb494b1d72ae4f2d50af666f6aa83d20be9e3d8c92f36d4caf8b94c015dde5d  q25-carrier-root
 "
