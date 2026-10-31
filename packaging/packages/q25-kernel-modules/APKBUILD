@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=9
+pkgrel=10
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -14,7 +14,7 @@ makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
-_audio="snd-timer snd-pcm snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card"
+_audio="snd-timer snd-pcm snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card q25-mt6366-irqfix"
 source="SHA256SUMS"
 for _m in $_extra $_connsys $_audio; do
     source="$source $_m.ko.zst"
@@ -36,7 +36,7 @@ package() {
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-22571e7c4745ba9331678020bccb736c17e8922ebefacbfef44e0fc57a4279e78d060e974107df8c42fd8907fd7e68e511c0574e14003e8eee772ee53b0d6ca6  SHA256SUMS
+119d26367e4cd841ee44da194938dc26d3b32711c6e40b01ac36134457f1b337bd4f3a603c2b2dd74526ed1a484ae1cfca6882213c573c7717b0b8a6b3ddd5d7  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 a1bc222102bf04eb7cd7c2b9efc6d019bf1cf09dbdcbc28de008c707e2a6a962543d9b2f2ff7b6619d970fe407897e9f242c92757a42d210bb10ca4a1e0ee873  q25-md1-owner.ko.zst
@@ -67,4 +67,5 @@ f7a0e0af34d78494afc7074d199e78e3d80440125547b638a62f0fc6e1ca514d2093c73560953714
 8a7f39a524f06a523346ed3913eb0126528c4b05a8f7af50c93d603dac271a38e6e9735ea35de5b00b3534e6747c4c4eeb1751f048c1426b1b2b8a2766c40c60  q25-audio-pd.ko.zst
 ba96d101aae4b1b352cc54db58ccef67832635aba940aa222f190b37527e7cce944389d491bb3add9723d542b7134967eea125fb4b4b161598b473808fa44aae  q25-oca72390.ko.zst
 b74215d055b5e4b2af0d3ca4888565c7c0fde581eb08340ce7897833d50182e186b541ddf499d176455848993f0a1dd1aeb5cf5d75f34baebab2dfa915636c58  q25-mt6366-card.ko.zst
+d27735e5f76f8aaf877d6d43d2b8844c52e49d7fd48e8f1d175609e66e059f1cf4138aa0673af839b0d4b806b1ec2b0f8fec9d7b295889aa152e8426ea7e29ab  q25-mt6366-irqfix.ko.zst
 "

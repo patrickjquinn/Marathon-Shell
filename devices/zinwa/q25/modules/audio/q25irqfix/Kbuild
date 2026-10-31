@@ -1,0 +1,2 @@
+# SPDX-License-Identifier: GPL-2.0
+obj-m += q25-mt6366-irqfix.o
