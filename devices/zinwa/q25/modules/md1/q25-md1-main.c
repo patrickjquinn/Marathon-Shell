@@ -29,9 +29,11 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
+#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
@@ -140,6 +142,7 @@ struct md1_owner {
 	struct device_node *mddriver;
 	struct generic_pm_domain pd;
 	bool pd_registered;
+	bool rt_released;
 	u8 chk[Q25_CHK_V6_SIZE];
 	const char *fw_name;
 	u32 state;
@@ -805,6 +808,8 @@ static const struct {
 	{ "handoff", cmd_handoff },
 };
 
+static int cmd_release(struct md1_owner *md);
+
 static ssize_t command_store(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
@@ -825,6 +830,10 @@ static ssize_t command_store(struct device *dev, struct device_attribute *attr,
 	} else if (sysfs_streq(buf, "mpu-scan")) {
 		cmd_mpu_scan(md);
 		ret = 0;
+	} else if (sysfs_streq(buf, "release")) {
+		ret = cmd_release(md);
+		if (ret)
+			dev_err(dev, "release failed: %d\n", ret);
 	} else if (md->state & ST_HANDOFF) {
 		ret = -EBUSY;	/* ECCCI owns MD1 power now */
 	} else {
@@ -882,7 +891,45 @@ static int md1_pd_on(struct generic_pm_domain *pd)
 
 static int md1_pd_off(struct generic_pm_domain *pd)
 {
-	return mtcmos_off(container_of(pd, struct md1_owner, pd), false);
+	return mtcmos_off(container_of(pd, struct md1_owner, pd), true);
+}
+
+/*
+ * ECCCI's probe takes a runtime-PM reference on mddriver to mirror LK leaving
+ * MD1 on; its start/stop then get/put on top of it, so a stopped stack still
+ * holds the domain on. Once only that reference is left (modem stopped), drop
+ * it: genpd then powers MD1 off through md1_pd_off(). A later stack start
+ * re-powers it through md1_pd_on().
+ */
+static int cmd_release(struct md1_owner *md)
+{
+	struct platform_device *pdev;
+	int ret = 0;
+
+	if (!(md->state & ST_HANDOFF) || !md->mddriver)
+		return -EINVAL;
+	if (md->rt_released)
+		return -EALREADY;
+	pdev = of_find_device_by_node(md->mddriver);
+	if (!pdev)
+		return -ENODEV;
+	if (!pm_runtime_enabled(&pdev->dev) ||
+	    atomic_read(&pdev->dev.power.usage_count) != 1) {
+		dev_err(md->dev, "release: mddriver usage %d, modem not stopped\n",
+			atomic_read(&pdev->dev.power.usage_count));
+		ret = -EBUSY;
+		goto out;
+	}
+	ret = pm_runtime_put_sync(&pdev->dev);
+	if (ret < 0)
+		goto out;
+	ret = 0;
+	md->rt_released = true;
+	md->state &= ~(ST_POWERED | ST_BOOTED | ST_HS1 | ST_CCIF);
+	cmd_report(md);
+out:
+	put_device(&pdev->dev);
+	return ret;
 }
 
 static void md1_pd_remove(void *data)

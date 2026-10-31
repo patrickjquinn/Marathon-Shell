@@ -1,6 +1,6 @@
 4676544c8a8cd4e54b7ab8e38814a29e79994231365e59e67529b59c2331f8ca  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-bbq-keys.ko
 13e4e97f0886be32d35d4ed770b10bfbb7e68aec3554b270bb406c669d1beb8d  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-keyboard-led.ko
-16c85b5a71c37858ae87c5f0a570db877fa82ab8c4e811c12e6c3d2fbd2fcd31  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-md1-owner.ko
+820531e2cb8610d19e8e48b52e539a65af2c21966061a252115164369b0ba1c4  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-md1-owner.ko
 45df5769ad667e8dcdee4dccba3217252266b9565ebd7ac65aa3b8105047e762  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607.ko
 08dd386a0f80c492bebe7baca18542ccd8fc3b71a4409b48e1f5409af25a1f6e  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607-spi.ko
 1965f3affa0cebc5c31d6813f783e53a6f08b83a3ba2ef2a811b4b662c4090a7  /usr/lib/modules/7.0.0-q25-cfi-test/extra/spi-mt65xx.ko
