@@ -732,7 +732,7 @@ const BLUETOOTH: u32 = 5;
     default_service = "org.freedesktop.NetworkManager",
     default_path = "/org/freedesktop/NetworkManager"
 )]
-trait Nm {
+pub(crate) trait Nm {
     fn get_devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn activate_connection(
         &self,
@@ -761,10 +761,16 @@ trait Nm {
     interface = "org.freedesktop.NetworkManager.Device",
     default_service = "org.freedesktop.NetworkManager"
 )]
-trait Device {
+pub(crate) trait Device {
     fn disconnect(&self) -> zbus::Result<()>;
     #[zbus(property)]
     fn device_type(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
+    fn udi(&self) -> zbus::Result<String>;
+    #[zbus(property)]
+    fn state(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
+    fn active_connection(&self) -> zbus::Result<OwnedObjectPath>;
 }
 
 #[zbus::proxy(
@@ -783,7 +789,7 @@ trait Wireless {
     default_service = "org.freedesktop.NetworkManager",
     default_path = "/org/freedesktop/NetworkManager/Settings"
 )]
-trait NmSettings {
+pub(crate) trait NmSettings {
     fn list_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn get_connection_by_uuid(&self, uuid: &str) -> zbus::Result<OwnedObjectPath>;
     #[zbus(signal)]
@@ -796,14 +802,18 @@ trait NmSettings {
     interface = "org.freedesktop.NetworkManager.Settings.Connection",
     default_service = "org.freedesktop.NetworkManager"
 )]
-trait SavedConnection {
+pub(crate) trait SavedConnection {
     fn get_settings(&self) -> zbus::Result<HashMap<String, HashMap<String, OwnedValue>>>;
+    fn get_secrets(
+        &self,
+        setting: &str,
+    ) -> zbus::Result<HashMap<String, HashMap<String, OwnedValue>>>;
     fn update(&self, settings: Settings<'_>) -> zbus::Result<()>;
     fn delete(&self) -> zbus::Result<()>;
 }
 
 /// `NetworkManager`'s connection settings, `a{sa{sv}}`.
-type Settings<'a> = HashMap<&'a str, HashMap<&'a str, Value<'a>>>;
+pub(crate) type Settings<'a> = HashMap<&'a str, HashMap<&'a str, Value<'a>>>;
 
 fn wifi_settings<'a>(
     ssid: &'a str,
@@ -879,7 +889,7 @@ fn hotspot_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
 }
 
 /// The kernel makes UUIDs; no crate needed for one per new profile.
-fn new_uuid() -> String {
+pub(crate) fn new_uuid() -> String {
     io::read("/proc/sys/kernel/random/uuid").unwrap_or_default()
 }
 
