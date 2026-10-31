@@ -154,6 +154,26 @@ SND_SOC_DAILINK_DEFS(capture1,
 	DAILINK_COMP_ARRAY(COMP_CPU("UL1")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(playback2,
+	DAILINK_COMP_ARRAY(COMP_CPU("DL2")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(capture2,
+	DAILINK_COMP_ARRAY(COMP_CPU("UL2")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(hostless_speech,
+	DAILINK_COMP_ARRAY(COMP_CPU("Hostless Speech DAI")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(hostless_sph_echo_ref,
+	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_Sph_Echo_Ref_DAI")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(pcm2,
+	DAILINK_COMP_ARRAY(COMP_CPU("PCM 2")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(adda,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("mt6358-sound", "mt6358-snd-codec-aif1")),
@@ -182,6 +202,45 @@ static struct snd_soc_dai_link q25_links[] = {
 		.ignore_suspend = 1,
 		.init = q25_adda_init,
 		SND_SOC_DAILINK_REG(adda),
+	},
+	/* Voice-call plumbing (stock link names). pcm 3/4 = DL2/UL2 for PCM2 tests. */
+	{
+		.name = "Playback_2",
+		.stream_name = "Playback_2",
+		.trigger = { SND_SOC_DPCM_TRIGGER_PRE, SND_SOC_DPCM_TRIGGER_PRE },
+		.dynamic = 1,
+		.playback_only = 1,
+		SND_SOC_DAILINK_REG(playback2),
+	},
+	{
+		.name = "Capture_2",
+		.stream_name = "Capture_2",
+		.trigger = { SND_SOC_DPCM_TRIGGER_PRE, SND_SOC_DPCM_TRIGGER_PRE },
+		.dynamic = 1,
+		.capture_only = 1,
+		SND_SOC_DAILINK_REG(capture2),
+	},
+	{
+		.name = "Hostless_Speech",
+		.stream_name = "Hostless_Speech",
+		.trigger = { SND_SOC_DPCM_TRIGGER_PRE, SND_SOC_DPCM_TRIGGER_PRE },
+		.dynamic = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(hostless_speech),
+	},
+	{
+		.name = "Hostless_Sph_Echo_Ref",
+		.stream_name = "Hostless_Sph_Echo_Ref",
+		.trigger = { SND_SOC_DPCM_TRIGGER_PRE, SND_SOC_DPCM_TRIGGER_PRE },
+		.dynamic = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(hostless_sph_echo_ref),
+	},
+	{
+		.name = "PCM 2",
+		.no_pcm = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(pcm2),
 	},
 };
 

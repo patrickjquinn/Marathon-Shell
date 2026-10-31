@@ -1,9 +1,21 @@
 --- a/sound/soc/mediatek/mt6789/mt6789-afe-pcm.c
 +++ b/sound/soc/mediatek/mt6789/mt6789-afe-pcm.c
-@@ -2096,6 +2096,21 @@
+@@ -2096,6 +2096,33 @@
  	mt6789_dai_memif_register,
  };
  
++/* Hostless front ends (speech, echo ref) have no memif behind their DAI id. */
++static snd_pcm_uframes_t mt6789_afe_pcm_pointer(struct snd_soc_component *component,
++						struct snd_pcm_substream *substream)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
++
++	if (snd_soc_rtd_to_cpu(rtd, 0)->id >= afe->memif_size)
++		return 0;
++	return mtk_afe_pcm_pointer(component, substream);
++}
++
 +static int mt6789_afe_component_probe(struct snd_soc_component *component)
 +{
 +	mtk_afe_add_sub_dai_control(component);
@@ -15,14 +27,14 @@
 +static const struct snd_soc_component_driver mt6789_afe_component = {
 +	.name = AFE_PCM_NAME,
 +	.pcm_construct = mtk_afe_pcm_new,
-+	.pointer = mtk_afe_pcm_pointer,
++	.pointer = mt6789_afe_pcm_pointer,
 +	.probe = mt6789_afe_component_probe,
 +};
 +
  static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
  {
  	int ret, i;
-@@ -2138,9 +2153,9 @@
+@@ -2138,9 +2165,9 @@
  		afe->preallocate_buffers = true;
  	}
  
@@ -35,7 +47,7 @@
  
  	/* Audio device is part of genpd.
  	 * Set audio as syscore device to prevent
-@@ -2149,21 +2164,32 @@
+@@ -2149,21 +2176,32 @@
  	 */
  	dev_pm_syscore_device(&pdev->dev, true);
  
@@ -79,7 +91,7 @@
  
  	regcache_cache_only(afe->regmap, true);
  	regcache_mark_dirty(afe->regmap);
-@@ -2256,7 +2282,7 @@
+@@ -2256,7 +2294,7 @@
  
  	/* register platform */
  	ret = devm_snd_soc_register_component(&pdev->dev,
@@ -88,7 +100,7 @@
  					      afe->dai_drivers,
  					      afe->num_dai_drivers);
  
-@@ -2268,8 +2294,6 @@
+@@ -2268,8 +2306,6 @@
  	return 0;
  
  err_pm_disable:
@@ -155,6 +167,69 @@
  	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
  	struct mtk_afe_i2s_priv *i2s_priv;
  	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+--- a/sound/soc/mediatek/mt6789/mt6789-dai-pcm.c
++++ b/sound/soc/mediatek/mt6789/mt6789-dai-pcm.c
+@@ -200,6 +200,52 @@
+ 	{"PCM_2_PB_CH5", "I2S2_CH2", "I2S2"},
+ };
+ 
++/* Q25 bring-up: PCM2 internal loopbacks for testing the modem path without the modem */
++static const char * const q25_pcm2_lpbk_str[] = {
++	"Off", "Buffer", "Parallel", "Serial", "DAI_PCM", "I2S_PCM",
++};
++static const unsigned int q25_pcm2_lpbk_bit[] = {
++	0, PCM2_BUFFER_LOOPBACK_SFT, PCM2_PARALLEL_LOOPBACK_SFT,
++	PCM2_SERIAL_LOOPBACK_SFT, PCM2_DAI_PCM_LOOPBACK_SFT, PCM2_I2S_PCM_LOOPBACK_SFT,
++};
++#define Q25_PCM2_LPBK_MASK (GENMASK(22, 18))
++
++static int q25_pcm2_lpbk_get(struct snd_kcontrol *kc, struct snd_ctl_elem_value *uc)
++{
++	struct snd_soc_component *c = snd_kcontrol_chip(kc);
++	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(c);
++	unsigned int v = 0, i;
++
++	regmap_read(afe->regmap, PCM2_INTF_CON, &v);
++	uc->value.enumerated.item[0] = 0;
++	for (i = 1; i < ARRAY_SIZE(q25_pcm2_lpbk_bit); i++)
++		if (v & BIT(q25_pcm2_lpbk_bit[i]))
++			uc->value.enumerated.item[0] = i;
++	return 0;
++}
++
++static int q25_pcm2_lpbk_put(struct snd_kcontrol *kc, struct snd_ctl_elem_value *uc)
++{
++	struct snd_soc_component *c = snd_kcontrol_chip(kc);
++	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(c);
++	unsigned int i = uc->value.enumerated.item[0];
++
++	if (i >= ARRAY_SIZE(q25_pcm2_lpbk_bit))
++		return -EINVAL;
++	regmap_update_bits(afe->regmap, PCM2_INTF_CON, Q25_PCM2_LPBK_MASK,
++			   i ? BIT(q25_pcm2_lpbk_bit[i]) : 0);
++	dev_info(afe->dev, "q25 PCM2 loopback -> %s\n", q25_pcm2_lpbk_str[i]);
++	return 1;
++}
++
++static const struct soc_enum q25_pcm2_lpbk_enum =
++	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(q25_pcm2_lpbk_str), q25_pcm2_lpbk_str);
++
++static const struct snd_kcontrol_new mtk_dai_pcm_controls[] = {
++	SOC_ENUM_EXT("Q25 PCM2 Loopback", q25_pcm2_lpbk_enum,
++		     q25_pcm2_lpbk_get, q25_pcm2_lpbk_put),
++};
++
+ /* dai ops */
+ static int mtk_dai_pcm_hw_params(struct snd_pcm_substream *substream,
+ 				 struct snd_pcm_hw_params *params,
+@@ -303,5 +349,7 @@
+ 	dai->num_dapm_widgets = ARRAY_SIZE(mtk_dai_pcm_widgets);
+ 	dai->dapm_routes = mtk_dai_pcm_routes;
+ 	dai->num_dapm_routes = ARRAY_SIZE(mtk_dai_pcm_routes);
++	dai->controls = mtk_dai_pcm_controls;
++	dai->num_controls = ARRAY_SIZE(mtk_dai_pcm_controls);
+ 	return 0;
+ }
 --- a/sound/soc/mediatek/mt6789/mt6789-misc-control.c
 +++ b/sound/soc/mediatek/mt6789/mt6789-misc-control.c
 @@ -82,7 +82,7 @@
