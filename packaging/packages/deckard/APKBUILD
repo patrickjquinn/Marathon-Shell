@@ -8,16 +8,17 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=27
+pkgrel=28
 _commit=83e46e57fe71787e722150b48ca6825a50d4d01f
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later AND GPL-3.0-only"
-# deckard-containerd runs lxc-*, dnsmasq, iptables and modprobe (kmod);
+# deckard-containerd runs lxc-*, dnsmasq, iptables, modprobe (kmod) and
+# iproute2's ip (its bridge; busybox ip has no link add);
 # deckard-boot-evidence runs ss and nsenter; deckard-migrate runs
 # marathon-shell-bin --rename-app-ids.
-depends="lxc dnsmasq iptables kmod iproute2-ss util-linux-misc libgcc marathon-shell>=1.0.0-r492"
+depends="lxc dnsmasq iptables kmod iproute2 util-linux-misc libgcc marathon-shell>=1.0.0-r492"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so the Rust binaries' libgcc_s is listed above instead.
 # Cargo strips the binaries; abuild's strip would rewrite them after package()
