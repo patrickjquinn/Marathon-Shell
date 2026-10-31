@@ -1,0 +1,10 @@
+[Unit]
+Description=Q25 MD1: load the ECCCI modules (util, ccmni, md_all, ccif, dpmaif)
+Requires=q25-modem-owner.service
+After=q25-modem-owner.service
+PartOf=q25-modem.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/q25-modem/q25-modem-up stack

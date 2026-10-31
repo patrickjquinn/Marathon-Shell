@@ -1,0 +1,2 @@
+#!/bin/sh
+exec depmod -a 7.0.0-q25-cfi-test

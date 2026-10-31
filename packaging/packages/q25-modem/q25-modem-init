@@ -1,0 +1,77 @@
+#!/bin/sh
+# q25-modem-init: SIM power-up and LTE attach APN on ttyC0, once md1 is READY
+# and before ModemManager takes the port. These are commands the stock MTK RIL
+# sends and ModemManager does not. The AT sequence and its timing constraints
+# follow the Moto G06 (lagos, MT6768) postmarketOS port (NikuzoKO
+# pmos-moto-g06-lagos 0d678342), and were confirmed on the Q25:
+#   - AT+EFUN=1 powers SIM 1; without it ModemManager reports sim-missing.
+#   - AT+CGDCONT=1 and AT+EIAAPN set the default bearer and MTK's LTE
+#     initial-attach APN before EFUN=1, or the network refuses EPS attach.
+#   - EFUN=1 sent while boot URCs (+EIND ...) are still arriving hangs the
+#     SIM task and the modem asserts; any byte sent during EFUN aborts it.
+# The APN comes from /etc/q25-modem/modem.conf (IA_APN, IA_PROTOCOL).
+IA_APN=
+IA_PROTOCOL=IPV4V6
+[ -r /etc/q25-modem/modem.conf ] && . /etc/q25-modem/modem.conf
+
+exec 3<>/dev/ttyC0 || exit 1
+
+# cmd LINE [SECONDS]: send, echo the replies, succeed on OK. The timeout
+# applies to each reply line.
+cmd() {
+	printf '%s\r' "$1" >&3
+	while IFS= read -r -t "${2:-5}" reply <&3; do
+		reply=$(printf %s "$reply" | tr -d '\r')
+		[ -z "$reply" ] && continue
+		echo "$1 -> $reply"
+		case $reply in
+		OK) return 0 ;;
+		ERROR | "+CME ERROR"*) return 1 ;;
+		esac
+	done
+	echo "$1 -> no reply"
+	return 1
+}
+
+# Drain unsolicited lines until the port is quiet for 3 s (at most 20 lines).
+settle() {
+	n=0
+	while [ $n -lt 20 ] && IFS= read -r -t 3 urc <&3; do
+		n=$((n + 1))
+		urc=$(printf %s "$urc" | tr -d '\r')
+		[ -n "$urc" ] && echo "urc: $urc"
+	done
+}
+
+sim_ready() {
+	tries=0
+	while [ $tries -lt 30 ]; do
+		cmd 'AT+CPIN?' | grep -q '+CPIN: ' && return 0
+		tries=$((tries + 1))
+		sleep 2
+	done
+	return 1
+}
+
+tries=0
+until cmd AT >/dev/null; do
+	tries=$((tries + 1))
+	[ $tries -ge 20 ] && exit 1
+	sleep 0.5
+done
+settle
+
+if [ -n "$IA_APN" ]; then
+	cmd "AT+CGDCONT=1,\"$IA_PROTOCOL\",\"$IA_APN\""
+	cmd "AT+EIAAPN=\"$IA_APN\",0,\"$IA_PROTOCOL\",\"$IA_PROTOCOL\",1,\"\",\"\""
+fi
+
+for attempt in 1 2; do
+	cmd 'AT+EFUN=1' 60
+	if cmd 'AT+ESIMS?' | grep -q '+ESIMS: 1'; then
+		sim_ready && break
+	fi
+	sleep 2
+done
+cmd 'AT+CPIN?'
+exit 0

@@ -1,0 +1,5 @@
+cda03a128a39d0b4b22a8af78750e7a1da576927bd5b641bd49c716e71b2d69b  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-modem/ccci_util_lib.ko
+d0a2f940dc95f0780aa6ab9de5f764df583b5504dd1f92fb9143d864f8a0bf6b  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-modem/ccmni.ko
+dbf1607b0505814fff126f7a1408fcae30ffe208bcd030f8d1e6b8ce63bd9927  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-modem/ccci_md_all.ko
+9f04223f855353cf93c482c510e8e3ac36ecd17930020f2a6a1c405999644eef  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-modem/ccci_ccif.ko
+7b15730be5bf51203c0851416ad7d8ff8e2bbb10d35773a152e92c0a6223ae09  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-modem/ccci_dpmaif.ko

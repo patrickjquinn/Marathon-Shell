@@ -1,0 +1,9 @@
+# Q25 MD1. With the modem DTB the owner autoloads; power MD1 off at probe (the
+# preloader leaves it on, unbooted). q25-modem.target powers it back on.
+options q25_md1_owner md_off_at_boot=1
+# ECCCI starts only after the owner's handoff, through q25-modem.target.
+blacklist ccci_util_lib
+blacklist ccmni
+blacklist ccci_md_all
+blacklist ccci_ccif
+blacklist ccci_dpmaif

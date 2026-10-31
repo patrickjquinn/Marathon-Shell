@@ -1,0 +1,79 @@
+#!/bin/sh
+# q25-modem-up <stage>  -- staged Q25 MD1 bring-up (orchestrator-run).
+#   owner     load q25-md1-owner (DT mode, genpd), load, handoff
+#   stack     insmod ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif
+#   services  NV overlay, ccci_rpcd, ccci_fsd, ccci_mdinit; wait for md1:4
+#   wait      wait for md1:4
+#   down      stop the daemons, power MD1 off (owner release)
+#   init      AT SIM power-up / attach APN (ModemManager must be stopped)
+#   status    read-only summary
+set -eu
+# Q25_MODEM_MODDIR: a flat directory of candidate modules (owner + stack).
+M=${Q25_MODEM_MODDIR:-}
+KM=/usr/lib/modules/$(uname -r)/extra/q25-modem
+X=/usr/libexec/q25-modem
+OWNER=/sys/devices/platform/soc/soc:md1-owner/command
+log() { printf '[q25-modem] %s\n' "$*"; }
+wait_boot() {
+	for i in $(seq ${1:-120}); do
+		grep -q "md1:4" /sys/kernel/ccci/boot 2>/dev/null && { log "md1:4 (READY)"; return 0; }
+		sleep 0.5
+	done
+	log "no md1:4; boot=$(cat /sys/kernel/ccci/boot 2>/dev/null)"; return 1
+}
+case "${1:-status}" in
+owner)
+	if ! grep -q "^q25_md1_owner " /proc/modules; then
+		if [ -n "$M" ]; then insmod $M/q25-md1-owner.ko; else modprobe q25_md1_owner; fi
+	fi
+	[ -e "$OWNER" ] || { log "owner device missing (DT node?)"; exit 1; }
+	echo report > $OWNER
+	echo load > $OWNER
+	echo handoff > $OWNER
+	dmesg | grep -E "q25-md1-owner|md1-owner" | tail -8
+	;;
+stack)
+	for m in ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif; do
+		grep -q "^$m " /proc/modules || insmod ${M:-$KM}/$m.ko
+		log "loaded $m"
+	done
+	cat /sys/kernel/ccci/lk_md /sys/kernel/ccci/md_en 2>/dev/null || true
+	ls /dev/ccci_monitor /dev/ccci_ioctl0 /dev/ccci_fs /dev/ccci_rpc /dev/ttyC0
+	;;
+services)
+	$X/q25-modem-nv mount
+	mkdir -p /run/q25-modem/props
+	systemd-run -q --unit=q25-ccci-rpcd --collect $X/ccci_rpcd 0
+	systemd-run -q --unit=q25-ccci-fsd --collect $X/ccci_fsd 0
+	sleep 1
+	systemd-run -q --unit=q25-ccci-mdinit --collect $X/ccci_mdinit 0
+	wait_boot 120
+	;;
+wait)
+	wait_boot 240
+	;;
+down)
+	# mdinit exit stops MD1 (ECCCI runtime-PM put); then drop ECCCI's probe-time
+	# reference so genpd powers MD1 off through the owner.
+	systemctl stop q25-ccci-mdinit q25-ccci-fsd q25-ccci-rpcd 2>/dev/null || true
+	for i in $(seq 40); do
+		grep -q "md1:4" /sys/kernel/ccci/boot 2>/dev/null || break
+		sleep 0.25
+	done
+	for i in $(seq 20); do echo release > $OWNER 2>/dev/null && break; sleep 0.5; done
+	echo report > $OWNER
+	dmesg | grep -E "q25-md1-owner" | tail -2
+	;;
+init)
+	systemctl is-active -q ModemManager && { log "stop ModemManager first"; exit 1; }
+	$X/q25-modem-init
+	;;
+status)
+	cat /sys/kernel/ccci/boot 2>/dev/null || true
+	for u in q25-ccci-rpcd q25-ccci-fsd q25-ccci-mdinit; do
+		printf '%s %s\n' $u "$(systemctl is-active $u 2>/dev/null)"
+	done
+	ip -br link | grep ccmni | head -3 || true
+	;;
+*) echo "usage: $0 owner|stack|services|wait|down|init|status"; exit 2 ;;
+esac

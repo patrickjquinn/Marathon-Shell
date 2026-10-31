@@ -1,0 +1,18 @@
+# Q25 MD1 (MT6789 ECCCI): AT on the ttyC0 CCCI character device, data on ccmni.
+# Requires ModemManager with the Moto G06 0100 (CCCI AT ports) and 0101
+# (mtk-ccci plugin) patches. Never tag ccci_fs/ccci_rpc/ccci_monitor/ccci_aud.
+# The physdev must be the bound driver_modem device (/soc/mddriver, reg 0xd0cf000):
+# with no driver on the physdev, MM filters the mtk-ccci plugin and falls back to generic.
+SUBSYSTEM=="ccci_node", KERNEL=="ttyC0", \
+	ENV{ID_MM_CANDIDATE}="1", \
+	ENV{ID_MM_CCCI_AT_PORT}="1", \
+	ENV{ID_MM_MTK_CCCI}="1", \
+	ENV{ID_MM_PORT_TYPE_AT_PRIMARY}="1", \
+	ENV{ID_MM_PHYSDEV_SYSFS_PATH}="/sys/devices/platform/soc/d0cf000.mddriver", \
+	ENV{ID_MM_PHYSDEV_UID}="q25-md1"
+
+SUBSYSTEM=="net", ACTION=="add|change|move", KERNEL=="ccmni[0-9]", \
+	ENV{ID_MM_CANDIDATE}="1", \
+	ENV{ID_MM_MTK_CCCI}="1", \
+	ENV{ID_MM_PHYSDEV_SYSFS_PATH}="/sys/devices/platform/soc/d0cf000.mddriver", \
+	ENV{ID_MM_PHYSDEV_UID}="q25-md1"

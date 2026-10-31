@@ -1,0 +1,89 @@
+# Q25 MD1 cellular modem, opt-in: systemctl enable --now q25-modem.target on a
+# boot entry whose DTB carries the modem nodes (q25-modem.dtbo, from
+# devices/zinwa/q25/modem/dt). The daemons build from userspace/ here; the
+# ECCCI modules are prebuilt like q25-kernel-modules (sources and rebuild:
+# devices/zinwa/q25/modules, modem/), pinned to the prebuilt kernel.
+pkgname=q25-modem
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Zinwa Q25 MD1 modem stack: ECCCI modules, CCCI daemons, services"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="GPL-2.0-only AND Apache-2.0"
+options="!check !strip !tracedeps"
+depends="kmod util-linux q25-kernel-modules>=7.0.0-r6 linux-postmarketos-mediatek-g99=7.0-r1000
+ modemmanager-mtk-ccci"
+makedepends="gcc make musl-dev linux-headers zstd"
+install="$pkgname.post-install $pkgname.post-upgrade"
+_modules="ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif"
+_units="q25-modem.target q25-modem-owner.service q25-modem-stack.service q25-modem-nv.service
+ q25-ccci-rpcd.service q25-ccci-fsd.service q25-ccci-mdinit.service q25-modem-init.service"
+source="SHA256SUMS q25-modem-up q25-modem-nv q25-modem-init properties modem.conf
+ 78-q25-modem.rules q25-modem.conf.modprobe q25-modem.dtbo $_units"
+for _m in $_modules; do
+    source="$source $_m.ko.zst"
+done
+
+prepare() {
+    default_prepare
+    mkdir -p "$builddir"
+    cp -r "$startdir/userspace/." "$builddir/"
+}
+
+build() {
+    make -C "$builddir" CC="${CC:-gcc}"
+}
+
+package() {
+    local extra="$pkgdir/usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-modem"
+    local x="$pkgdir/usr/libexec/q25-modem" m u
+    install -d "$extra"
+    for m in $_modules; do
+        zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/$m.ko"
+    done
+    chmod 0644 "$extra"/*.ko
+    (cd "$pkgdir" && sed 's#  /#  #' "$srcdir/SHA256SUMS" | sha256sum -c >/dev/null)
+    install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
+
+    for m in ccci_mdinit ccci_fsd ccci_rpcd q25-speech; do
+        install -Dm755 "$builddir/out/$m" "$x/$m"
+    done
+    install -d "$pkgdir/usr/bin"
+    ln -s ../libexec/q25-modem/q25-speech "$pkgdir/usr/bin/q25-speech"
+    for m in q25-modem-up q25-modem-nv q25-modem-init; do
+        install -Dm755 "$srcdir/$m" "$x/$m"
+    done
+    install -Dm644 "$srcdir/properties" "$pkgdir/etc/q25-modem/properties"
+    install -Dm644 "$srcdir/modem.conf" "$pkgdir/etc/q25-modem/modem.conf"
+    install -Dm644 "$srcdir/78-q25-modem.rules" "$pkgdir/usr/lib/udev/rules.d/78-q25-modem.rules"
+    install -Dm644 "$srcdir/q25-modem.conf.modprobe" "$pkgdir/usr/lib/modprobe.d/q25-modem.conf"
+    install -Dm644 "$srcdir/q25-modem.dtbo" "$pkgdir/usr/share/$pkgname/q25-modem.dtbo"
+    # Opt-in: nothing is enabled. The owner unit's ExecStop powers MD1 off.
+    for u in $_units; do
+        install -Dm644 "$srcdir/$u" "$pkgdir/usr/lib/systemd/system/$u"
+    done
+}
+sha512sums="
+f2ce3b7ca05f7c38e9e8d5c32e43f9b479d3dc0b516943721f1f10cb8645c14fe81566ab22feab868189949a689f6b826603b61fda3728537736b61e85873dcb  SHA256SUMS
+d9b8241f1135d110fdcfce09c02c980fdcac4df41ebfb986284194a793e89debb05c784f1a31c68e159f77ecd7cbe4dc3f673000d29bab0291d61322164f0b25  q25-modem-up
+feafd0fb05726d0106a576721521de5a8cff6ad9c4b2dd98ed4da965cbc8d9acc585285b8cc5bf1954b8ac17d8ba4cd583ef8d882ab1ec805e0f4a86cd63998d  q25-modem-nv
+d4b526435b2447e61391df6f9adc3b99572932829b9ee3a13391b63a93217504710dd2aa52c053df229e1972f13f3ab5be4c300d7d2704492dbe1b80943c0707  q25-modem-init
+9ff481adbffd3c92ebbc911e754a5cf753c572a8fbebf7bb2cf96b6d74fdf623e69ae91d8e67471948db9765c4aa8e9b400308b8cb46c3de8c261ddf025d62fe  properties
+66d60916c3461d18d7f19c5893219e840fe7b0ac6a9cc89f47cb726a2343c38824e41700f9aa8889c57ccd4ac61a2c45ce9218e2faea1dfcab0f8c6f04fb8f33  modem.conf
+095627d1612dab1dcecffe1b29392f8e179d35fe0788d7a193eaae439ced906ff46ecd89745e6508d7080141f1e91cee7ec1389261fcb78aa775a11a9758aab1  78-q25-modem.rules
+8ef3d056d8509e4f871fe2b7833a5e15ee7097517e6ac8e5a7c6c7a40c3f2494da3578fec7c471dad46376394f32f2eb56818090ffbcefee5bfc6ca42013f4d2  q25-modem.conf.modprobe
+150fa4492634645845a7961575d8d96838fc7cde3624613dcfc26eb075d85f95a0a52fc9053341fac05a010762597bc172afa763a1341ae1b8f61c3563842a29  q25-modem.dtbo
+840a610109f02cc3fe593e14b2fe4cf82feca4f5eed421af95fa4aac961f381cce06592d8a17367283cd1f850713e6b5e60a3692b85c2442ed068254ef022e06  q25-modem.target
+0ac945d540fed844b75df271a25c09412c9b7c0d8bb526c44e469a7d3368b05ecfb4a7b64b91c4e94b9b6404c48eaa0c1329905924d11c4c22c56bd81f543a44  q25-modem-owner.service
+afdd4e415e32789b557e32993cddedd64ae45c564a4c311b5097cde83ab3168019a78359eb94cae6e95136634636cd6ff90aef8cdc174f8fa6459efc5d108ee1  q25-modem-stack.service
+e2be82e88817e9cbe16b738f24668085d84100bc92eeb6265e14b9bbc0b7d98c187b25915bf25246f07b7c13117a3668d83281e40d258b8bdbd22c3c69b76f63  q25-modem-nv.service
+a04b2854a0769a11bea2599ebc14fc4de91161de805dd720c815743ec9f45dfdfd984df2573c6a785b7d9d978c0dfed7469a2fb687ae47bfb613c8db072ae34f  q25-ccci-rpcd.service
+5d74e8f68760eeb9e6da576e7da3abd5500b439d512175da1561a28d43e5b853ff133ed5fc60cf9ec1c5b3cde2a6d9e7adbec00cea6b71eadabb0670e8fae3e2  q25-ccci-fsd.service
+da9ac5095ddb170fbb3f0d12491de3eb12046dc7fa0a0f3f6b00132c9f1798f379193b93d757f46c8dd3cebed9dd2e6746813cf510b114218430a781dbe58eeb  q25-ccci-mdinit.service
+37dd7e3f0fa20a0bfb788f3c7c54d9ea4b4b9a7a6fca1f7c563d10d11ad1ff5c63776b18fdc27d609b296cea136bc0feff686ca1d425a0a4aa88b07b46bc469f  q25-modem-init.service
+b7eb27f2e964d8595f22f5364326a48c1d476e1c36c45c1184b20ae5587586028a744221f5d8fe8e1979fb8b482a6920aa9ca9d2c91cf58e04d6872efab7ef56  ccci_util_lib.ko.zst
+480632e1a8e2e82a3440434ace5e7243dee43be9a5dd424cfccf4619300aefccee7f15b32bddfa0f104eb34214748d38453ba0b33f0348a816ca71118b5b09cf  ccmni.ko.zst
+96c80d96e96069b13250310d9ac99a54355481c19db215899727656a61c675b39162efc0a254794b6fe95403afc96abe52f9176ea1c491f5210f98bd2e0311d1  ccci_md_all.ko.zst
+e3f0823a01e9d1c24e1375e09d8ad946d352c119288403a64145e6ed86e18366d23729b0bf37ceacd0cc0fdbcd47bc4a5493843b77e5e9e54881e847efa2f44c  ccci_ccif.ko.zst
+0ab8d7bb1260e945580747b57684157d19daabf144dd3225a952ba5fbc91908dda0f7e40880852161538550b661f71ed5fc07f0171d43294b16c49a8907f8346  ccci_dpmaif.ko.zst
+"

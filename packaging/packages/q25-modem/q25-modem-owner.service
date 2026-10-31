@@ -1,0 +1,11 @@
+[Unit]
+Description=Q25 MD1: load the modem image and hand off to the CCCI stack
+ConditionPathExists=/proc/device-tree/soc/mddriver
+After=local-fs.target systemd-udev-settle.service
+PartOf=q25-modem.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/q25-modem/q25-modem-up owner
+ExecStop=/usr/libexec/q25-modem/q25-modem-up down
