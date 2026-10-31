@@ -1,0 +1,22 @@
+#!/bin/sh
+# systemd-bless-boot finds the booted entry through LoaderBootCountPath, an
+# EFI variable this firmware cannot provide (runtime services are off), so
+# find the counted entry whose options are this boot's command line, less
+# the initrd= words systemd-boot adds.
+set -eu
+words() { tr -s '[:space:]' '\n' | sed '/^$/d'; }
+want=$(words < /proc/cmdline | sed '/^initrd=/d')
+booted=
+for entry in /boot/loader/entries/*+*.conf; do
+	[ -e "$entry" ] || continue
+	[ "$(sed -n 's/^options[[:space:]]//p' "$entry" | words)" = "$want" ] || continue
+	[ -z "$booted" ] || { echo "q25-boot-bless: $booted and $entry both match" >&2; exit 1; }
+	booted=$entry
+done
+[ -n "$booted" ] || exit 0
+good=$(printf '%s\n' "$booted" | sed 's/+[0-9]*\(-[0-9]*\)\{0,1\}\.conf$/.conf/')
+mount -o remount,rw /boot
+trap 'mount -o remount,ro /boot' EXIT
+mv "$booted" "$good"
+sync
+echo "q25-boot-bless: ${booted##*/} is good"
