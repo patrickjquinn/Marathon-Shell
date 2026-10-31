@@ -1,0 +1,22 @@
+# Reference: <https://postmarketos.org/deviceinfo>
+# Please use double quotes only. You can source this file in shell
+# scripts.
+
+deviceinfo_format_version="0"
+deviceinfo_name="Zinwa Q25 Pro"
+deviceinfo_codename="zinwa-q25"
+deviceinfo_manufacturer="Zinwa"
+deviceinfo_year="2025"
+deviceinfo_arch="aarch64"
+deviceinfo_chassis="handset"
+
+# Device related
+deviceinfo_drm="true"
+deviceinfo_external_storage="true"
+deviceinfo_rootfs_image_sector_size="4096"
+
+# U-Boot is the BL33 and boots systemd-boot through its EFI implementation.
+deviceinfo_boot_filesystem="fat32"
+deviceinfo_flash_method="mtkclient"
+deviceinfo_flash_pagesize="4096"
+deviceinfo_flash_sparse="true"

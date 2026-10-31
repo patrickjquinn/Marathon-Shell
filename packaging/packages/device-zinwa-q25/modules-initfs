@@ -1,0 +1,17 @@
+evdev
+ufshcd-core
+ufshcd-pltfrm
+ufs-mediatek
+rmi-core
+rmi-i2c
+libcomposite
+u-ether
+usb-f-ncm
+usb-f-rndis
+usb-f-acm
+u-serial
+erofs
+netfs
+overlay
+dm-verity
+dm-bufio
