@@ -591,8 +591,9 @@ fi
 if command -v systemctl >/dev/null 2>&1; then
     (
         socket="${MARATHON_WL_SOCKET_NAME:-marathon-wayland-0}"
-        for _ in $(seq 1 60); do
-            [ -S "$XDG_RUNTIME_DIR/$socket" ] && break
+        # $$ is the shell once the launch below execs it.
+        while [ ! -S "$XDG_RUNTIME_DIR/$socket" ]; do
+            kill -0 $$ 2>/dev/null || exit 0
             sleep 0.5
         done
         systemctl --user set-environment WAYLAND_DISPLAY="$socket" \
