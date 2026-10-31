@@ -1,0 +1,2 @@
+obj-m += q25-md1-owner.o
+q25-md1-owner-y := q25-md1-main.o q25-md1-lkinfo.o

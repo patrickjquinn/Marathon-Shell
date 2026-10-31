@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+obj-m += inv-icm42607.o inv-icm42607-spi.o spi-mt65xx.o
+inv-icm42607-y += inv_icm42607_core.o inv_icm42607_gyro.o inv_icm42607_accel.o inv_icm42607_temp.o
+inv-icm42607-spi-y += inv_icm42607_spi.o

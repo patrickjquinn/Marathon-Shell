@@ -1,0 +1,50 @@
+--- a/sound/soc/codecs/mt6358.c
++++ b/sound/soc/codecs/mt6358.c
+@@ -508,7 +508,37 @@
+ static const DECLARE_TLV_DB_SCALE(playback_tlv, -1000, 100, 0);
+ static const DECLARE_TLV_DB_SCALE(pga_tlv, 0, 600, 0);
+ 
++/* Q25 bring-up diagnostics: digital loopbacks inside the PMIC, applied immediately */
++static int q25_dbg_get(struct snd_kcontrol *kc, struct snd_ctl_elem_value *uc)
++{
++	struct snd_soc_component *c = snd_kcontrol_chip(kc);
++	struct mt6358_priv *priv = snd_soc_component_get_drvdata(c);
++	struct soc_mixer_control *mc = (struct soc_mixer_control *)kc->private_value;
++	unsigned int v = 0;
++
++	regmap_read(priv->regmap, mc->reg, &v);
++	uc->value.integer.value[0] = (v >> mc->shift) & 1;
++	return 0;
++}
++
++static int q25_dbg_put(struct snd_kcontrol *kc, struct snd_ctl_elem_value *uc)
++{
++	struct snd_soc_component *c = snd_kcontrol_chip(kc);
++	struct mt6358_priv *priv = snd_soc_component_get_drvdata(c);
++	struct soc_mixer_control *mc = (struct soc_mixer_control *)kc->private_value;
++	bool on = uc->value.integer.value[0];
++
++	regmap_update_bits(priv->regmap, mc->reg, BIT(mc->shift),
++			   on ? BIT(mc->shift) : 0);
++	dev_info(priv->dev, "q25 debug reg %#x bit %u -> %d\n", mc->reg, mc->shift, on);
++	return 1;
++}
++
+ static const struct snd_kcontrol_new mt6358_snd_controls[] = {
++	SOC_SINGLE_EXT("Q25 UL Loopback Switch", MT6358_AFE_UL_SRC_CON0_L,
++		       UL_LOOP_BACK_MODE_CTL_SFT, 1, 0, q25_dbg_get, q25_dbg_put),
++	SOC_SINGLE_EXT("Q25 MISO Pad Loopback Switch", MT6358_AUDIO_DIG_CFG,
++		       RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_SFT, 1, 0, q25_dbg_get, q25_dbg_put),
+ 	/* dl pga gain */
+ 	SOC_DOUBLE_EXT_TLV("Headphone Volume",
+ 			   MT6358_ZCD_CON2, 0, 7, 0x12, 1,
+@@ -2355,6 +2385,9 @@
+ 	/* gpio miso driving set to 4mA */
+ 	regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888);
+ 
++	/* stock MT6366 driver: schmitt trigger on the audio pads (SMT_CON1 0x30) */
++	regmap_update_bits(priv->regmap, 0x30, 0xff0, 0xff0);
++
+ 	/* set gpio */
+ 	playback_gpio_reset(priv);
+ 	capture_gpio_reset(priv);

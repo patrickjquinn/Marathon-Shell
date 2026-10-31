@@ -1,0 +1,16 @@
+[Unit]
+Description=Q25 CONNSYS (WMT) bring-up and A-die probe
+ConditionPathExists=/lib/firmware/WMT_SOC.cfg
+ConditionPathExists=/lib/firmware/soc2_2_ram_mcu_1d_1_hdr.bin
+After=systemd-udevd.service systemd-modules-load.service
+Before=q25-wmt-launcher.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/modprobe -a wmt_drv wmt_chrdev_wifi
+ExecStart=/usr/libexec/marathon/q25-wmt init
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target

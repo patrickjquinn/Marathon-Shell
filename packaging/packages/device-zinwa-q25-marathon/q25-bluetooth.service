@@ -1,0 +1,13 @@
+[Unit]
+Description=Q25 Bluetooth HCI (CONNSYS over WMT/STP)
+Requires=q25-wmt-launcher.service
+After=q25-wmt-launcher.service
+Before=bluetooth.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/modprobe q25-btmtk-stp
+
+[Install]
+WantedBy=bluetooth.target multi-user.target

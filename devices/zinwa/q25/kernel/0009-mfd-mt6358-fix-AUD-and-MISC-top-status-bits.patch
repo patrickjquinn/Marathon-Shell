@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 31 Oct 2026 16:00:00 +0000
+Subject: [PATCH] mfd: mt6358: Fix AUD and MISC top interrupt status bits
+
+In TOP_INT_STATUS0 the MT6358 and MT6366 report the AUD group at bit 7
+and the MISC group at bit 8. Bit 6 is unused. MediaTek's downstream
+headers say so (MT6358_AUD_TOP = 7). The mainline enum gives them 6 and
+7, so mt6358_irq_handler() takes a pending AUD interrupt for MISC. It
+reads an empty MISC status, does not dispatch or acknowledge the AUD
+source, and the level-triggered PMIC line fires again at once.
+
+On an MT6366 (Zinwa Q25), enabling ACCDET_EINT0 with a headset plugged
+in left TOP_INT_STATUS0 at 0x0080 and AUD_TOP_INT_STATUS0 at 0x0040,
+with MISC_TOP_INT_STATUS0 at 0. The PMIC interrupt then ran at about
+24000/s while the ACCDET handlers never ran.
+---
+ include/linux/mfd/mt6358/core.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/mfd/mt6358/core.h b/include/linux/mfd/mt6358/core.h
+--- a/include/linux/mfd/mt6358/core.h
++++ b/include/linux/mfd/mt6358/core.h
+@@ -32,7 +32,7 @@
+ 	MT6358_SCK_TOP,
+ 	MT6358_BM_TOP,
+ 	MT6358_HK_TOP,
+-	MT6358_AUD_TOP,
++	MT6358_AUD_TOP = 7,
+ 	MT6358_MISC_TOP,
+ };
+ 

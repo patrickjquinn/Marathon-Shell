@@ -1,0 +1,859 @@
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..ae2bbe9
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,154 @@
++# SPDX-License-Identifier: GPL-2.0
++# Q25 (MT6789) SOC2_1X1 AXI gen4m WLAN + /dev/wmtWifi, built against the
++# joint WMT/BTIF/connadp port. WMT headers are read from JOINT (read-only);
++# WMT exports are resolved through KBUILD_EXTRA_SYMBOLS.
++JOINT ?= $(src)/../wmt
++WMTINC := -I$(JOINT)/include -I$(JOINT)/include/include \
++	-I$(JOINT)/include/drivers/misc/mediatek/include/mt-plat \
++	-I$(JOINT)/include/drivers/misc/mediatek/connectivity/common \
++	-I$(JOINT)/include/drivers/misc/mediatek/connectivity/common/common_main/include \
++	-I$(JOINT)/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include \
++	-I$(JOINT)/include/drivers/misc/mediatek/connectivity/common/debug_utility
++
++obj-m += wmt_chrdev_wifi.o
++wmt_chrdev_wifi-y := wmt_chrdev_wifi/wmt_cdev_wifi.o wmt_chrdev_wifi/fw_log_wifi.o \
++	wmt_chrdev_wifi/fw_log_ics.o wmt_chrdev_wifi/wlan_ring.o
++chrdev-cflags := -I$(src)/wmt_chrdev_wifi -I$(src)/wmt_chrdev_wifi/include $(WMTINC) \
++	-DCONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH -DWMT_IDC_SUPPORT=0 \
++	-DCFG_ANDORID_CONNINFRA_SUPPORT=0 -DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=0 \
++	-DMTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT -DCREATE_NODE_DYNAMIC=1
++$(foreach o,$(wmt_chrdev_wifi-y),$(eval CFLAGS_$(o) += $(chrdev-cflags)))
++
++obj-m += wlan_drv_gen4m_6789.o
++wlan_drv_gen4m_6789-y := \
++	wlan_drv_gen4m_6789/os/linux/plat/mt6789/plat_priv.o \
++	wlan_drv_gen4m_6789/wlan_service/agent/agent.o \
++	wlan_drv_gen4m_6789/wlan_service/service/service_test.o \
++	wlan_drv_gen4m_6789/wlan_service/service/test_engine.o \
++	wlan_drv_gen4m_6789/wlan_service/glue/osal/gen4m/sys_adaption_gen4m.o \
++	wlan_drv_gen4m_6789/wlan_service/glue/osal/gen4m/net_adaption_gen4m.o \
++	wlan_drv_gen4m_6789/wlan_service/glue/hal/gen4m/operation_gen4m.o \
++	wlan_drv_gen4m_6789/common/dump.o \
++	wlan_drv_gen4m_6789/common/wlan_lib.o \
++	wlan_drv_gen4m_6789/common/wlan_oid.o \
++	wlan_drv_gen4m_6789/common/rxfilter_driver.o \
++	wlan_drv_gen4m_6789/common/wlan_bow.o \
++	wlan_drv_gen4m_6789/common/debug.o \
++	wlan_drv_gen4m_6789/common/wlan_p2p.o \
++	wlan_drv_gen4m_6789/common/wlan_he.o \
++	wlan_drv_gen4m_6789/nic/nic.o \
++	wlan_drv_gen4m_6789/nic/nic_tx.o \
++	wlan_drv_gen4m_6789/nic/nic_txd_v1.o \
++	wlan_drv_gen4m_6789/nic/nic_rxd_v1.o \
++	wlan_drv_gen4m_6789/nic/nic_rx.o \
++	wlan_drv_gen4m_6789/nic/nic_pwr_mgt.o \
++	wlan_drv_gen4m_6789/nic/nic_rate.o \
++	wlan_drv_gen4m_6789/nic/cmd_buf.o \
++	wlan_drv_gen4m_6789/nic/que_mgt.o \
++	wlan_drv_gen4m_6789/nic/nic_cmd_event.o \
++	wlan_drv_gen4m_6789/nic/nic_umac.o \
++	wlan_drv_gen4m_6789/nic/radiotap.o \
++	wlan_drv_gen4m_6789/nic/p2p_nic.o \
++	wlan_drv_gen4m_6789/os/linux/gl_init.o \
++	wlan_drv_gen4m_6789/os/linux/gl_kal.o \
++	wlan_drv_gen4m_6789/os/linux/gl_bow.o \
++	wlan_drv_gen4m_6789/os/linux/gl_wext.o \
++	wlan_drv_gen4m_6789/os/linux/gl_wext_priv.o \
++	wlan_drv_gen4m_6789/os/linux/gl_ate_agent.o \
++	wlan_drv_gen4m_6789/os/linux/gl_qa_agent.o \
++	wlan_drv_gen4m_6789/os/linux/gl_hook_api.o \
++	wlan_drv_gen4m_6789/os/linux/gl_rst.o \
++	wlan_drv_gen4m_6789/os/linux/gl_cfg80211.o \
++	wlan_drv_gen4m_6789/os/linux/gl_proc.o \
++	wlan_drv_gen4m_6789/os/linux/gl_sys.o \
++	wlan_drv_gen4m_6789/os/linux/gl_vendor.o \
++	wlan_drv_gen4m_6789/os/linux/platform.o \
++	wlan_drv_gen4m_6789/os/linux/gl_p2p.o \
++	wlan_drv_gen4m_6789/os/linux/gl_p2p_cfg80211.o \
++	wlan_drv_gen4m_6789/os/linux/gl_p2p_init.o \
++	wlan_drv_gen4m_6789/os/linux/gl_p2p_kal.o \
++	wlan_drv_gen4m_6789/os/linux/hif/common/hal_pdma.o \
++	wlan_drv_gen4m_6789/os/linux/hif/common/kal_pdma.o \
++	wlan_drv_gen4m_6789/os/linux/hif/common/dbg_pdma.o \
++	wlan_drv_gen4m_6789/os/linux/hif/common/sw_wfdma.o \
++	wlan_drv_gen4m_6789/os/linux/hif/axi/axi.o \
++	wlan_drv_gen4m_6789/mgmt/ais_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/aaa_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/assoc.o \
++	wlan_drv_gen4m_6789/mgmt/auth.o \
++	wlan_drv_gen4m_6789/mgmt/bss.o \
++	wlan_drv_gen4m_6789/mgmt/cnm.o \
++	wlan_drv_gen4m_6789/mgmt/cnm_timer.o \
++	wlan_drv_gen4m_6789/mgmt/cnm_mem.o \
++	wlan_drv_gen4m_6789/mgmt/hem_mbox.o \
++	wlan_drv_gen4m_6789/mgmt/mib.o \
++	wlan_drv_gen4m_6789/mgmt/privacy.o \
++	wlan_drv_gen4m_6789/mgmt/rate.o \
++	wlan_drv_gen4m_6789/mgmt/rlm.o \
++	wlan_drv_gen4m_6789/mgmt/rlm_domain.o \
++	wlan_drv_gen4m_6789/mgmt/reg_rule.o \
++	wlan_drv_gen4m_6789/mgmt/rlm_obss.o \
++	wlan_drv_gen4m_6789/mgmt/rlm_protection.o \
++	wlan_drv_gen4m_6789/mgmt/rrm.o \
++	wlan_drv_gen4m_6789/mgmt/rsn.o \
++	wlan_drv_gen4m_6789/mgmt/saa_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/scan.o \
++	wlan_drv_gen4m_6789/mgmt/scan_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/scan_cache.o \
++	wlan_drv_gen4m_6789/mgmt/swcr.o \
++	wlan_drv_gen4m_6789/mgmt/roaming_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/tkip_mic.o \
++	wlan_drv_gen4m_6789/mgmt/hs20.o \
++	wlan_drv_gen4m_6789/mgmt/tdls.o \
++	wlan_drv_gen4m_6789/mgmt/wnm.o \
++	wlan_drv_gen4m_6789/mgmt/qosmap.o \
++	wlan_drv_gen4m_6789/mgmt/ap_selection.o \
++	wlan_drv_gen4m_6789/mgmt/wmm.o \
++	wlan_drv_gen4m_6789/mgmt/thrm.o \
++	wlan_drv_gen4m_6789/mgmt/mscs.o \
++	wlan_drv_gen4m_6789/mgmt/ie_sort.o \
++	wlan_drv_gen4m_6789/mgmt/stats.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_dev_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_dev_state.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_role_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_role_state.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_func.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_scan.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_ie.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_rlm.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_assoc.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_bss.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_rlm_obss.o \
++	wlan_drv_gen4m_6789/mgmt/p2p_fsm.o \
++	wlan_drv_gen4m_6789/mgmt/wapi.o \
++	wlan_drv_gen4m_6789/chips/common/cmm_asic_connac.o \
++	wlan_drv_gen4m_6789/chips/common/dbg_connac.o \
++	wlan_drv_gen4m_6789/chips/common/fw_dl.o \
++	wlan_drv_gen4m_6789/chips/soc2_1x1/soc2_1x1.o
++G4 := $(src)/wlan_drv_gen4m_6789
++wlan-cflags := -I$(G4)/os -I$(G4)/os/linux/include -I$(G4)/include -I$(G4)/include/nic \
++	-I$(G4)/include/mgmt -I$(G4)/include/chips -I$(G4)/os/linux/hif/common/include \
++	-I$(G4)/os/linux/hif/axi/include -I$(G4)/wlan_service/include \
++	-I$(G4)/wlan_service/service/include -I$(G4)/wlan_service/glue/osal/include \
++	-I$(G4)/wlan_service/glue/hal/include $(WMTINC) \
++	-DDYNAMIC_DEBUG_MODULE -DCFG_ANDROID_AOSP_PRIV_CMD -DCFG_SUPPORT_DEBUG_FS=0 \
++	-DWLAN_INCLUDE_PROC -DCFG_SUPPORT_AGPS_ASSIST=0 -DCFG_SUPPORT_TSF_USING_BOOTTIME=1 \
++	-DARP_MONITER_ENABLE=1 -DLINUX -DSOC2_1X1 -DCONFIG_MTK_WIFI_VHT80 \
++	-DCFG_ENABLE_HOST_BUS_TIMEOUT=0 -DCFG_SUPPORT_SET_IPV6_NETWORK=1 \
++	-DCFG_SUPPORT_MDDP_AOR=0 -DCFG_TRI_TX_RING=0 -DCFG_ANDORID_CONNINFRA_SUPPORT=0 \
++	-DCFG_SUPPORT_CONNAC2X=0 -DCFG_SUPPORT_CONNAC2X_2x2=0 -DCFG_SUPPORT_802_11AX=0 \
++	-DCFG_SUPPORT_802_11BE=0 -DCFG_SUPPORT_WIFI_6G=0 -DCFG_SUPPORT_TWT=0 \
++	-DCFG_TWT_SMART_STA=0 -DCFG_DRIVER_INITIAL_RUNNING_MODE=3 -DCFG_SUPPORT_DUAL_STA=0 \
++	-DCFG_MTK_ANDROID_WMT=1 -DCFG_SUPPORT_CONNINFRA=0 \
++	-DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=0 -DCFG_SUPPORT_PRE_ON_PHY_ACTION=0 \
++	-DWMT_IDC_SUPPORT=0 -DMTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT \
++	-DCFG_SUPPORT_POWER_THROTTLING=0 -DCFG_TMAC_POWER_LEGACY=1 -DCFG_TXPOWR_SUPPORT_DBDC=0 \
++	-DCFG_MTK_ANDROID_EMI=1 -DCFG_WIFI_IP_SET=1 -DCFG_BUILT_IN_DRIVER=0 \
++	-DCFG_SUPPORT_CHNL_CONFLICT_REVISE=0 -DCFG_SUPPORT_AEE=0 -DBUILD_QA_DBG=1 -D_HIF_AXI=1 \
++	-DCFG_DOWNLOAD_DYN_MEMORY_MAP=0 -DCFG_SUPPORT_PASSPOINT=1 -DCFG_HS20_DEBUG=0 \
++	-DCFG_MET_PACKET_TRACE_SUPPORT=0 -DCFG_MET_TAG_SUPPORT=0 -DCFG_TC3_FEATURE=0 \
++	-DCFG_TC10_FEATURE=0 -DCONFIG_MTK_MD_SUPPORT=0 -DCFG_TC1_FEATURE=0 -DCFG_SUPPORT_NAN=0 \
++	-DDBG=0 -DCFG_MTK_MDDP_SUPPORT=0 -DCONFIG_WLAN_DRV_BUILD_IN=0 -DCFG_SUPPORT_PKT_OFLD=1 \
++	-DCFG_SUPPORT_APF=1 -DCONFIG_WLAN_SERVICE=1 -DCONFIG_TEST_ENGINE_OFFLOAD=1 \
++	-DCFG_SUPPORT_MTK_DISP_NOTIFY=0 -DCFG_MODIFY_TX_POWER_BY_BAT_VOLT=0
++$(foreach o,$(wlan_drv_gen4m_6789-y),$(eval CFLAGS_$(o) += $(wlan-cflags)))
+diff --git a/wlan_drv_gen4m_6789/common/wlan_lib.c b/wlan_drv_gen4m_6789/common/wlan_lib.c
+index 9cdd31e..992c5d0 100644
+--- a/wlan_drv_gen4m_6789/common/wlan_lib.c
++++ b/wlan_drv_gen4m_6789/common/wlan_lib.c
+@@ -12941,8 +12941,8 @@ uint32_t wlanLinkQualityMonitor(struct GLUE_INFO *prGlueInfo, bool bFgIsOid)
+ 	if (kalGetMediaStateIndicated(prGlueInfo,
+ 		ucBssIndex) !=
+ 	    MEDIA_STATE_CONNECTED) {
+-		/* not connected */
+-		DBGLOG(SW4, ERROR, "not yet connected\n");
++		/* not connected: periodic poll, not an error */
++		DBGLOG(SW4, TRACE, "not yet connected\n");
+ 		return u4Status;
+ 	}
+ 
+@@ -13677,7 +13677,7 @@ void wlanTpeFlush(struct GLUE_INFO *prGlueInfo)
+ 
+ void wlanTpeTimeoutHandler(struct timer_list *timer)
+ {
+-	struct GLUE_INFO *prGlueInfo = from_timer(prGlueInfo, timer, rTpeTimer);
++	struct GLUE_INFO *prGlueInfo = timer_container_of(prGlueInfo, timer, rTpeTimer);
+ 
+ 	ASSERT(prGlueInfo);
+ 
+@@ -13734,7 +13734,7 @@ void wlanTpeUninit(struct GLUE_INFO *prGlueInfo)
+ 	if (!prAdapter->rWifiVar.ucTpEnhanceEnable)
+ 		return;
+ 
+-	del_timer_sync(&(prGlueInfo->rTpeTimer));
++	timer_delete_sync(&(prGlueInfo->rTpeTimer));
+ }
+ 
+ int wlanTpeProcess(struct GLUE_INFO *prGlueInfo,
+@@ -13819,7 +13819,7 @@ int wlanTpeProcess(struct GLUE_INFO *prGlueInfo,
+ 			prGlueInfo->u4TpeTimeout) {
+ 			/* Timeout already, flush out directly. */
+ 			if (timer_pending(&prGlueInfo->rTpeTimer))
+-				del_timer(&prGlueInfo->rTpeTimer);
++				timer_delete(&prGlueInfo->rTpeTimer);
+ 			wlanTpeFlush(prGlueInfo);
+ 			kalSetEvent(prGlueInfo);
+ 		} else {
+diff --git a/wlan_drv_gen4m_6789/include/config.h b/wlan_drv_gen4m_6789/include/config.h
+index 1248418..c4ac56d 100644
+--- a/wlan_drv_gen4m_6789/include/config.h
++++ b/wlan_drv_gen4m_6789/include/config.h
+@@ -582,7 +582,13 @@
+ 
+ /* debug which packet wake up host */
+ #define CFG_SUPPORT_WAKEUP_REASON_DEBUG         1
++#ifndef CFG_MODIFY_TX_POWER_BY_BAT_VOLT
+ #define CFG_MODIFY_TX_POWER_BY_BAT_VOLT         1
++#endif
++
++#ifndef CFG_SUPPORT_MTK_DISP_NOTIFY
++#define CFG_SUPPORT_MTK_DISP_NOTIFY             1
++#endif
+ 
+ #define CFG_INIT_POWER_SAVE_PROF		ENUM_PSP_FAST_SWITCH
+ 
+diff --git a/wlan_drv_gen4m_6789/nic/nic_tx.c b/wlan_drv_gen4m_6789/nic/nic_tx.c
+index 40ac5e9..a534f7e 100644
+--- a/wlan_drv_gen4m_6789/nic/nic_tx.c
++++ b/wlan_drv_gen4m_6789/nic/nic_tx.c
+@@ -5253,7 +5253,7 @@ void nicTxDirectTimerCheckSkbQ(struct timer_list *timer)
+ 
+ {
+ 	struct ADAPTER *prAdapter =
+-		from_timer(prAdapter, timer, rTxDirectSkbTimer);
++		timer_container_of(prAdapter, timer, rTxDirectSkbTimer);
+ 	struct GLUE_INFO *prGlueInfo = prAdapter->prGlueInfo;
+ 	if (skb_queue_len(&prAdapter->rTxDirectSkbQueue))
+ 		nicTxDirectStartXmit(NULL, prGlueInfo);
+@@ -5275,7 +5275,7 @@ void nicTxDirectTimerCheckSkbQ(struct timer_list *timer)
+ void nicTxDirectTimerCheckHifQ(struct timer_list *timer)
+ {
+ 	struct ADAPTER *prAdapter =
+-		from_timer(prAdapter, timer, rTxDirectHifTimer);
++		timer_container_of(prAdapter, timer, rTxDirectHifTimer);
+ 	struct GLUE_INFO *prGlueInfo = prAdapter->prGlueInfo;
+ 	uint8_t ucHifTc = 0;
+ 	uint32_t u4StaPsBitmap, u4BssAbsentBitmap;
+diff --git a/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c b/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c
+index 1aa6d08..a443ec6 100644
+--- a/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c
++++ b/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c
+@@ -7192,7 +7192,7 @@ int mtk_cfg_stop_ap(struct wiphy *wiphy,
+ 	return mtk_p2p_cfg80211_stop_ap(wiphy, dev);
+ }
+ 
+-int mtk_cfg_set_wiphy_params(struct wiphy *wiphy,
++int mtk_cfg_set_wiphy_params(struct wiphy *wiphy, int radio_idx,
+ 			     u32 changed)
+ {
+ 	struct GLUE_INFO *prGlueInfo = NULL;
+@@ -7234,7 +7234,7 @@ int mtk_cfg_set_bitrate_mask(struct wiphy *wiphy,
+ }
+ 
+ int mtk_cfg_set_txpower(struct wiphy *wiphy,
+-			struct wireless_dev *wdev,
++			struct wireless_dev *wdev, int radio_idx,
+ 			enum nl80211_tx_power_setting type, int mbm)
+ {
+ 	struct GLUE_INFO *prGlueInfo = NULL;
+@@ -7255,8 +7255,8 @@ int mtk_cfg_set_txpower(struct wiphy *wiphy,
+ }
+ 
+ int mtk_cfg_get_txpower(struct wiphy *wiphy,
+-			struct wireless_dev *wdev,
+-			int *dbm)
++			struct wireless_dev *wdev, int radio_idx,
++			unsigned int link_id, int *dbm)
+ {
+ 	struct GLUE_INFO *prGlueInfo = NULL;
+ 
+diff --git a/wlan_drv_gen4m_6789/os/linux/gl_init.c b/wlan_drv_gen4m_6789/os/linux/gl_init.c
+index c50d711..a721bd4 100644
+--- a/wlan_drv_gen4m_6789/os/linux/gl_init.c
++++ b/wlan_drv_gen4m_6789/os/linux/gl_init.c
+@@ -5725,7 +5725,9 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
+ 		switch (eFailReason) {
+ 		case FAIL_BY_RESET:
+ 		case FAIL_MET_INIT_PROCFS:
++#if (CFG_MET_PACKET_TRACE_SUPPORT == 1)
+ 			kalMetRemoveProcfs();
++#endif
+ 			fallthrough;
+ 		case PROC_INIT_FAIL:
+ 			wlanNetUnregister(prWdev);
+@@ -5963,8 +5965,8 @@ static void wlanRemove(void)
+ 
+ 	if (HAL_IS_TX_DIRECT(prAdapter)) {
+ 		if (prAdapter->fgTxDirectInited) {
+-			del_timer_sync(&prAdapter->rTxDirectSkbTimer);
+-			del_timer_sync(&prAdapter->rTxDirectHifTimer);
++			timer_delete_sync(&prAdapter->rTxDirectSkbTimer);
++			timer_delete_sync(&prAdapter->rTxDirectHifTimer);
+ 		}
+ 	}
+ 
+@@ -6153,8 +6155,10 @@ static int initWlan(void)
+ #endif
+ 
+ 	wlanCreateWirelessDevice();
+-	if (gprWdev[0] == NULL)
+-		return -ENOMEM;
++	if (gprWdev[0] == NULL) {
++		ret = -ENOMEM;
++		goto err_fs;
++	}
+ 
+ 	WIPHY_PRIV(wlanGetWiphy(), prGlueInfo);
+ 	if (gprWdev[0])
+@@ -6175,10 +6179,8 @@ static int initWlan(void)
+ 	mtk_wcn_wmt_mpu_lock_release();
+ #endif
+ 
+-	if (ret == -EIO) {
+-		kalUninitIOBuffer();
+-		return ret;
+-	}
++	if (ret == -EIO)
++		goto err_wdev;
+ #if (CFG_CHIP_RESET_SUPPORT)
+ 	glResetInit(prGlueInfo);
+ #endif
+@@ -6205,6 +6207,23 @@ static int initWlan(void)
+ 	DBGLOG(INIT, INFO, "initWlan::End\n");
+ 
+ 	return ret;
++
++	/* No module unload here: nothing may outlive a failed init. */
++err_wdev:
++#if CFG_WLAN_ASSISTANT_NVRAM
++	register_file_buf_handler(NULL, NULL, ENUM_BUF_TYPE_NVRAM);
++#endif
++	wlanDestroyAllWdev();
++err_fs:
++#if WLAN_INCLUDE_PROC
++	procUninitProcFs();
++#endif
++#if WLAN_INCLUDE_SYS
++	sysUninitSysFs();
++#endif
++	kalUninitIOBuffer();
++	DBGLOG(INIT, ERROR, "initWlan failed: %d\n", ret);
++	return ret;
+ }				/* end of initWlan() */
+ 
+ /*----------------------------------------------------------------------------*/
+diff --git a/wlan_drv_gen4m_6789/os/linux/gl_kal.c b/wlan_drv_gen4m_6789/os/linux/gl_kal.c
+index cb6e6df..ff70f44 100644
+--- a/wlan_drv_gen4m_6789/os/linux/gl_kal.c
++++ b/wlan_drv_gen4m_6789/os/linux/gl_kal.c
+@@ -81,6 +81,7 @@
+ #include "gl_wext.h"
+ #include "precomp.h"
+ #include <linux/stdarg.h>
++#include <net/gro.h>
+ 
+ #if CFG_SUPPORT_AGPS_ASSIST
+ #include <net/netlink.h>
+@@ -227,13 +228,15 @@ u_int8_t wlan_perf_monitor_force_enable = TRUE;
+ u_int8_t wlan_perf_monitor_force_enable = FALSE;
+ #endif
+ 
++void *wlan_fb_notifier_priv_data;
++#if CFG_SUPPORT_MTK_DISP_NOTIFY
+ static int wlan_fb_notifier_callback(struct notifier_block
+ 				*self, unsigned long event, void *data);
+ 
+-void *wlan_fb_notifier_priv_data;
+ static struct notifier_block wlan_fb_notifier = {
+ 	.notifier_call = wlan_fb_notifier_callback
+ };
++#endif
+ 
+ static struct miscdevice wlan_object;
+ 
+@@ -1110,7 +1113,7 @@ uint32_t kalRxIndicatePkts(IN struct GLUE_INFO *prGlueInfo,
+ void kalGROTimerFunc(struct timer_list *timer)
+ {
+ 	struct ADAPTER *prAdapter =
+-		from_timer(prAdapter, timer, rRxGROTimer);
++		timer_container_of(prAdapter, timer, rRxGROTimer);
+ 	struct GLUE_INFO *prGlueInfo = prAdapter->prGlueInfo;
+ 	kalSetGROEvent2Rx(prGlueInfo);
+ }
+@@ -1125,7 +1128,7 @@ static inline void kalGROTimerStart(
+ 
+ static inline void kalGROTimerStop(struct ADAPTER *prAdapter)
+ {
+-	del_timer_sync(&prAdapter->rRxGROTimer);
++	timer_delete_sync(&prAdapter->rRxGROTimer);
+ }
+ 
+ void kalGROTimerInit(struct ADAPTER *prAdapter)
+@@ -1177,10 +1180,10 @@ uint32_t kal_is_udp_enable_gro(struct ADAPTER *prAdapter, uint8_t ucBssIdx)
+ static inline void napi_gro_flush_list(struct napi_struct *napi)
+ {
+ 	napi_gro_flush(napi, false);
+-	if (napi->rx_count) {
+-		netif_receive_skb_list(&napi->rx_list);
+-		INIT_LIST_HEAD(&napi->rx_list);
+-		napi->rx_count = 0;
++	if (napi->gro.rx_count) {
++		netif_receive_skb_list(&napi->gro.rx_list);
++		INIT_LIST_HEAD(&napi->gro.rx_list);
++		napi->gro.rx_count = 0;
+ 	}
+ }
+ 
+@@ -5684,7 +5687,7 @@ u_int8_t kalSetTimer(IN struct GLUE_INFO *prGlueInfo,
+ 		mod_timer(&prGlueInfo->tickfn,
+ 			  jiffies + u4Interval * HZ / MSEC_PER_SEC);
+ 	} else {
+-		del_timer_sync(&(prGlueInfo->tickfn));
++		timer_delete_sync(&(prGlueInfo->tickfn));
+ 
+ 		prGlueInfo->tickfn.expires = jiffies + u4Interval * HZ /
+ 					     MSEC_PER_SEC;
+@@ -5710,7 +5713,7 @@ u_int8_t kalCancelTimer(IN struct GLUE_INFO *prGlueInfo)
+ 
+ 	clear_bit(GLUE_FLAG_TIMEOUT_BIT, &prGlueInfo->ulFlag);
+ 
+-	if (del_timer_sync(&(prGlueInfo->tickfn)) >= 0)
++	if (timer_delete_sync(&(prGlueInfo->tickfn)) >= 0)
+ 		return TRUE;
+ 	else
+ 		return FALSE;
+@@ -5826,7 +5829,7 @@ uint32_t kalRandomNumber(void)
+ void kalTimeoutHandler(struct timer_list *timer)
+ {
+ 	struct GLUE_INFO *prGlueInfo =
+-		from_timer(prGlueInfo, timer, tickfn);
++		timer_container_of(prGlueInfo, timer, tickfn);
+ 
+ 	ASSERT(prGlueInfo);
+ 
+@@ -9036,6 +9039,7 @@ int32_t kalPerMonSetForceEnableFlag(uint8_t uFlag)
+ 	return 0;
+ }
+ 
++#if CFG_SUPPORT_MTK_DISP_NOTIFY
+ static int wlan_fb_notifier_callback(struct notifier_block
+ 				     *self, unsigned long event, void *data)
+ {
+@@ -9110,6 +9114,18 @@ void kalFbNotifierUnReg(void)
+ 	mtk_disp_notifier_unregister(&wlan_fb_notifier);
+ 	wlan_fb_notifier_priv_data = NULL;
+ }
++#else
++int32_t kalFbNotifierReg(IN struct GLUE_INFO *prGlueInfo)
++{
++	wlan_fb_notifier_priv_data = prGlueInfo;
++	return 0;
++}
++
++void kalFbNotifierUnReg(void)
++{
++	wlan_fb_notifier_priv_data = NULL;
++}
++#endif
+ 
+ #if CFG_SUPPORT_DFS
+ struct KAL_CSA_NOTIFY_WORK {
+@@ -10789,4 +10805,3 @@ void kalBatNotifierUnReg(void)
+ 
+ #endif
+ 
+-MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
+diff --git a/wlan_drv_gen4m_6789/os/linux/hif/axi/axi.c b/wlan_drv_gen4m_6789/os/linux/hif/axi/axi.c
+index 5926932..05d6025 100644
+--- a/wlan_drv_gen4m_6789/os/linux/hif/axi/axi.c
++++ b/wlan_drv_gen4m_6789/os/linux/hif/axi/axi.c
+@@ -195,6 +195,7 @@ static struct wifi_rsrv_mem wifi_rsrv_mems[32];
+  */
+ #if AXI_CFG_PREALLOC_MEMORY_BUFFER
+ static int _init_resv_mem(struct platform_device *pdev);
++static void axiFreeHifMem(struct platform_device *pdev);
+ 
+ static void axiAllocTxDesc(struct GL_HIF_INFO *prHifInfo,
+ 			   struct RTMP_DMABUF *prDescRing,
+@@ -572,6 +573,12 @@ static bool axiGetRsvMemSizeRsvedByKernel(struct platform_device *pdev)
+ 		return false;
+ 	}
+ 
++	/* A static "reg" pool (LK carve-out) has no "size": use emi-size. */
++	if (!of_property_present(np, "size")) {
++		of_node_put(np);
++		return false;
++	}
++
+ 	ret = of_property_read_u64_array(np, "size", &gWifiRsvMemSize, 1);
+ 	if (ret != 0)
+ 		DBGLOG(INIT, ERROR, "get rsrv mem size failed(%d).\n", ret);
+@@ -610,6 +617,8 @@ static int axiAllocHifMem(struct platform_device *pdev,
+ 	struct mt66xx_chip_info *prChipInfo;
+ 	uint32_t u4Idx, u4Size;
+ 	uint32_t i = sizeof(wifi_rsrv_mems) / sizeof(struct wifi_rsrv_mem);
++	phys_addr_t rNextPa = 0;
++	void *pvNextVa = NULL;
+ 
+ 	prChipInfo = prDriverData->chip_info;
+ 
+@@ -627,16 +636,25 @@ static int axiAllocHifMem(struct platform_device *pdev,
+ 			DBGLOG(INIT, ERROR,
+ 				"[%d] DMA_ALLOC_COHERENT failed, size: 0x%x\n",
+ 				i, wifi_rsrv_mems[i].size);
+-			return -1;
++			goto err_free;
+ 		}
+ 		if (!grMem.pucRsvMemBase) {
+ 			grMem.pucRsvMemBase = wifi_rsrv_mems[i].phy_base;
+ 			grMem.pucRsvMemVirBase = wifi_rsrv_mems[i].vir_base;
+ 			grMem.u4RsvMemSize = (uint64_t) gWifiRsvMemSize;
++		} else if (wifi_rsrv_mems[i].phy_base != rNextPa ||
++			   wifi_rsrv_mems[i].vir_base != pvNextVa) {
++			/* axiAllocRsvMem() carves one linear range */
++			DBGLOG(INIT, ERROR,
++				"[%d] reserved chunk not contiguous\n", i);
++			goto err_free;
+ 		}
++		rNextPa = wifi_rsrv_mems[i].phy_base + wifi_rsrv_mems[i].size;
++		pvNextVa = (uint8_t *)wifi_rsrv_mems[i].vir_base +
++			   wifi_rsrv_mems[i].size;
+ 	}
+ 	if (!grMem.pucRsvMemBase)
+-		return -1;
++		goto err_free;
+ 	DBGLOG(INIT, INFO, "pucRsvMemBase[%pa], pucRsvMemVirBase[%pa]\n",
+ 	       &grMem.pucRsvMemBase,
+ 	       &grMem.pucRsvMemVirBase);
+@@ -653,8 +671,10 @@ static int axiAllocHifMem(struct platform_device *pdev,
+ 				!prChipInfo->bus_info->tx_ring2_data_idx)
+ 			continue;
+ 		if (!axiAllocRsvMem(TX_RING_SIZE * TXD_SIZE,
+-				    &grMem.rTxDesc[u4Idx]))
++				    &grMem.rTxDesc[u4Idx])) {
+ 			DBGLOG(INIT, ERROR, "TxDesc[%u] alloc fail\n", u4Idx);
++			goto err_free;
++		}
+ 	}
+ 
+ 	for (u4Idx = 0; u4Idx < NUM_OF_RX_RING; u4Idx++) {
+@@ -662,28 +682,36 @@ static int axiAllocHifMem(struct platform_device *pdev,
+ 			u4Size = RX_RING0_SIZE;
+ 		else
+ 			u4Size = RX_RING1_SIZE;
+-		if (!axiAllocRsvMem(u4Size * RXD_SIZE, &grMem.rRxDesc[u4Idx]))
++		if (!axiAllocRsvMem(u4Size * RXD_SIZE, &grMem.rRxDesc[u4Idx])) {
+ 			DBGLOG(INIT, ERROR, "RxDesc[%u] alloc fail\n", u4Idx);
++			goto err_free;
++		}
+ 	}
+ 
+ 	for (u4Idx = 0; u4Idx < TX_RING_SIZE; u4Idx++) {
+ 		if (!axiAllocRsvMem(AXI_TX_CMD_BUFF_SIZE,
+-				    &grMem.rTxCmdBuf[u4Idx]))
++				    &grMem.rTxCmdBuf[u4Idx])) {
+ 			DBGLOG(INIT, ERROR, "TxCmdBuf[%u] alloc fail\n", u4Idx);
++			goto err_free;
++		}
+ 	}
+ 
+ 	for (u4Idx = 0; u4Idx < RX_RING0_SIZE; u4Idx++) {
+ 		if (!axiAllocRsvMem(CFG_RX_MAX_PKT_SIZE,
+-				    &grMem.rRxDataBuf[u4Idx]))
++				    &grMem.rRxDataBuf[u4Idx])) {
+ 			DBGLOG(INIT, ERROR,
+ 			       "RxDataBuf[%u] alloc fail\n", u4Idx);
++			goto err_free;
++		}
+ 	}
+ 
+ 	for (u4Idx = 0; u4Idx < RX_RING1_SIZE; u4Idx++) {
+ 		if (!axiAllocRsvMem(RX_BUFFER_AGGRESIZE,
+-				    &grMem.rRxEventBuf[u4Idx]))
++				    &grMem.rRxEventBuf[u4Idx])) {
+ 			DBGLOG(INIT, ERROR,
+ 			       "RxEventBuf[%u] alloc fail\n", u4Idx);
++			goto err_free;
++		}
+ 	}
+ 
+ #if (CFG_SUPPORT_CONNAC2X == 1)
+@@ -713,14 +741,20 @@ static int axiAllocHifMem(struct platform_device *pdev,
+ 	for (u4Idx = 0; u4Idx < HIF_TX_MSDU_TOKEN_NUM; u4Idx++) {
+ 		if (!axiAllocRsvMem(AXI_TX_MAX_SIZE_PER_FRAME +
+ 				    prChipInfo->txd_append_size,
+-				    &grMem.rMsduBuf[u4Idx]))
++				    &grMem.rMsduBuf[u4Idx])) {
+ 			DBGLOG(INIT, ERROR, "MsduBuf[%u] alloc fail\n", u4Idx);
++			goto err_free;
++		}
+ 	}
+ #endif
+ 
+ 	DBGLOG(INIT, INFO, "grMem.u4Offset[0x%x]\n", grMem.u4Offset);
+ 
+ 	return 0;
++
++err_free:
++	axiFreeHifMem(pdev);
++	return -ENOMEM;
+ }
+ 
+ static void axiFreeHifMem(struct platform_device *pdev)
+@@ -735,7 +769,9 @@ static void axiFreeHifMem(struct platform_device *pdev)
+ 			wifi_rsrv_mems[i].size,
+ 			wifi_rsrv_mems[i].vir_base,
+ 			(dma_addr_t) wifi_rsrv_mems[i].phy_base);
++		wifi_rsrv_mems[i].vir_base = NULL;
+ 	}
++	memset(&grMem, 0, sizeof(grMem));
+ }
+ 
+ static int _init_resv_mem(struct platform_device *pdev)
+@@ -905,17 +941,19 @@ static int mtk_axi_probe(IN struct platform_device *pdev)
+ 
+ 	axiSetupFwFlavor(pdev, prDriverData);
+ 
+-	if (!axiCsrIoremap(pdev))
+-		goto exit;
++	if (!axiCsrIoremap(pdev)) {
++		ret = -ENOMEM;
++		goto err_drvdata;
++	}
+ 
+ 	ret = axiDmaSetup(pdev, prDriverData);
+ 	if (ret)
+-		goto exit;
++		goto err_unmap;
+ 
+ #if AXI_CFG_PREALLOC_MEMORY_BUFFER
+ 	ret = axiAllocHifMem(pdev, prDriverData);
+ 	if (ret)
+-		goto exit;
++		goto err_rmem;
+ #endif
+ 
+ #if CFG_MTK_ANDROID_WMT
+@@ -928,9 +966,21 @@ static int mtk_axi_probe(IN struct platform_device *pdev)
+ 	hifAxiProbe();
+ #endif
+ 
+-exit:
+ 	DBGLOG(INIT, INFO, "mtk_axi_probe() done, ret: %d\n", ret);
+ 	return ret;
++
++#if AXI_CFG_PREALLOC_MEMORY_BUFFER
++err_rmem:
++	of_reserved_mem_device_release(&pdev->dev);
++#endif
++err_unmap:
++	axiCsrIounmap(pdev);
++err_drvdata:
++	platform_set_drvdata(pdev, NULL);
++	prChipInfo->pdev = NULL;
++	g_prPlatDev = NULL;
++	DBGLOG(INIT, ERROR, "mtk_axi_probe() failed, ret: %d\n", ret);
++	return ret;
+ }
+ 
+ static void mtk_axi_remove(IN struct platform_device *pdev)
+@@ -943,6 +993,7 @@ static void mtk_axi_remove(IN struct platform_device *pdev)
+ 
+ #if AXI_CFG_PREALLOC_MEMORY_BUFFER
+ 	axiFreeHifMem(pdev);
++	of_reserved_mem_device_release(&pdev->dev);
+ #endif
+ 
+ #if CFG_MTK_ANDROID_WMT
+@@ -990,7 +1041,7 @@ uint32_t glRegisterBus(probe_card pfProbe, remove_card pfRemove)
+ 	pfWlanRemove = pfRemove;
+ 
+ 	mtk_axi_driver.probe = mtk_axi_probe;
+-	mtk_axi_driver.remove_new = mtk_axi_remove;
++	mtk_axi_driver.remove = mtk_axi_remove;
+ 
+ 	mtk_axi_driver.suspend = mtk_axi_suspend;
+ 	mtk_axi_driver.resume = mtk_axi_resume;
+diff --git a/wlan_drv_gen4m_6789/os/linux/hif/common/hal_pdma.c b/wlan_drv_gen4m_6789/os/linux/hif/common/hal_pdma.c
+index 4c830e0..d6e7731 100644
+--- a/wlan_drv_gen4m_6789/os/linux/hif/common/hal_pdma.c
++++ b/wlan_drv_gen4m_6789/os/linux/hif/common/hal_pdma.c
+@@ -1236,7 +1236,7 @@ void halHifSwInfoUnInit(IN struct GLUE_INFO *prGlueInfo)
+ 	prBusInfo = prChipInfo->bus_info;
+ 	prSwWfdmaInfo = &prBusInfo->rSwWfdmaInfo;
+ 
+-	del_timer_sync(&prHifInfo->rSerTimer);
++	timer_delete_sync(&prHifInfo->rSerTimer);
+ 
+ 	halUninitMsduTokenInfo(prGlueInfo->prAdapter);
+ 	halWpdmaFreeRing(prGlueInfo);
+@@ -3146,7 +3146,7 @@ void halProcessSoftwareInterrupt(IN struct ADAPTER *prAdapter)
+ }
+ void halHwRecoveryTimeout(struct timer_list *timer)
+ {
+-	struct GL_HIF_INFO *prHif = from_timer(prHif, timer, rSerTimer);
++	struct GL_HIF_INFO *prHif = timer_container_of(prHif, timer, rSerTimer);
+ 	struct GLUE_INFO *prGlueInfo = (struct GLUE_INFO *)prHif->rSerTimerData;
+ 	struct ADAPTER *prAdapter = NULL;
+ 	struct GL_HIF_INFO *prHifInfo;
+@@ -3338,7 +3338,7 @@ void halHwRecoveryFromError(IN struct ADAPTER *prAdapter)
+ 
+ 	case ERR_RECOV_WAIT_MCU_NORMAL:
+ 		if (u4Status & ERROR_DETECT_MCU_NORMAL_STATE) {
+-			del_timer_sync(&prHifInfo->rSerTimer);
++			timer_delete_sync(&prHifInfo->rSerTimer);
+ 
+ 			/* update Beacon frame if operating in AP mode. */
+ 			DBGLOG(HAL, INFO, "SER(T) Host re-initialize BCN\n");
+diff --git a/wlan_drv_gen4m_6789/os/linux/include/gl_cfg80211.h b/wlan_drv_gen4m_6789/os/linux/include/gl_cfg80211.h
+index 3afe109..97a5ec5 100644
+--- a/wlan_drv_gen4m_6789/os/linux/include/gl_cfg80211.h
++++ b/wlan_drv_gen4m_6789/os/linux/include/gl_cfg80211.h
+@@ -576,7 +576,7 @@ int mtk_cfg_change_beacon(struct wiphy *wiphy,
+ 			  struct cfg80211_ap_update *info);
+ int mtk_cfg_stop_ap(struct wiphy *wiphy,
+ 		    struct net_device *dev, unsigned int link_id);
+-int mtk_cfg_set_wiphy_params(struct wiphy *wiphy,
++int mtk_cfg_set_wiphy_params(struct wiphy *wiphy, int radio_idx,
+ 			     u32 changed);
+ int mtk_cfg_set_bitrate_mask(struct wiphy *wiphy,
+ 			     struct net_device *dev,
+@@ -584,11 +584,11 @@ int mtk_cfg_set_bitrate_mask(struct wiphy *wiphy,
+ 			     const u8 *peer,
+ 			     const struct cfg80211_bitrate_mask *mask);
+ int mtk_cfg_set_txpower(struct wiphy *wiphy,
+-			struct wireless_dev *wdev,
++			struct wireless_dev *wdev, int radio_idx,
+ 			enum nl80211_tx_power_setting type, int mbm);
+ int mtk_cfg_get_txpower(struct wiphy *wiphy,
+-			struct wireless_dev *wdev,
+-			int *dbm);
++			struct wireless_dev *wdev, int radio_idx,
++			unsigned int link_id, int *dbm);
+ #endif /* (CFG_ENABLE_WIFI_DIRECT_CFG_80211 != 0) */
+ 
+ #endif	/* CFG_ENABLE_UNIFY_WIPHY */
+diff --git a/wlan_drv_gen4m_6789/os/linux/include/gl_os.h b/wlan_drv_gen4m_6789/os/linux/include/gl_os.h
+index 9c334fd..da76824 100644
+--- a/wlan_drv_gen4m_6789/os/linux/include/gl_os.h
++++ b/wlan_drv_gen4m_6789/os/linux/include/gl_os.h
+@@ -263,7 +263,9 @@
+ #endif
+ #include <linux/time.h>
+ #include <linux/fb.h>
++#if CFG_SUPPORT_MTK_DISP_NOTIFY
+ #include "mtk_disp_notify.h"
++#endif
+ 
+ #if CFG_SUPPORT_NAN
+ #include "nan_base.h"
+diff --git a/wlan_drv_gen4m_6789/os/linux/include/gl_wext.h b/wlan_drv_gen4m_6789/os/linux/include/gl_wext.h
+index 2e85d00..612d687 100644
+--- a/wlan_drv_gen4m_6789/os/linux/include/gl_wext.h
++++ b/wlan_drv_gen4m_6789/os/linux/include/gl_wext.h
+@@ -63,6 +63,17 @@
+ #ifndef _GL_WEXT_H
+ #define _GL_WEXT_H
+ 
++#include <net/iw_handler.h>
++
++#if !IS_ENABLED(CONFIG_WEXT_CORE)
++/* No WEXT core in this kernel: legacy wireless events have no receiver. */
++static inline void kalWextSendEvent(struct net_device *dev, unsigned int cmd,
++				    union iwreq_data *wrqu, const char *extra)
++{
++}
++#define wireless_send_event kalWextSendEvent
++#endif
++
+ #ifdef WIRELESS_EXT
+ /*******************************************************************************
+  *                         C O M P I L E R   F L A G S
+diff --git a/wlan_drv_gen4m_6789/os/linux/plat/mt6789/plat_priv.c b/wlan_drv_gen4m_6789/os/linux/plat/mt6789/plat_priv.c
+index 56d7373..a4e0ae4 100644
+--- a/wlan_drv_gen4m_6789/os/linux/plat/mt6789/plat_priv.c
++++ b/wlan_drv_gen4m_6789/os/linux/plat/mt6789/plat_priv.c
+@@ -71,6 +71,7 @@ void kalSetTaskUtilMinPct(IN int pid, IN unsigned int min)
+ 	int ret = 0;
+ 	unsigned int blc_1024;
+ 	struct task_struct *p;
++	struct pid *pid_ref;
+ 	struct sched_attr attr = {};
+ 
+ 	if (pid < 0)
+@@ -93,17 +94,15 @@ void kalSetTaskUtilMinPct(IN int pid, IN unsigned int min)
+ 		attr.sched_util_max = (blc_1024 << 10) / 1280;
+ 	}
+ 
+-	/* get task_struct */
+-	rcu_read_lock();
+-	p = find_task_by_vpid(pid);
+-	if (likely(p))
+-		get_task_struct(p);
+-	rcu_read_unlock();
++	pid_ref = find_get_pid(pid);
++	p = get_pid_task(pid_ref, PIDTYPE_PID);
++	put_pid(pid_ref);
+ 
+-	/* sched_setattr */
+ 	if (likely(p)) {
+-		ret = sched_setattr(p, &attr);
++		ret = sched_setattr_nocheck(p, &attr);
+ 		put_task_struct(p);
++		if (ret)
++			DBGLOG(SW4, WARN, "uclamp pid %d: %d\n", pid, ret);
+ 	}
+ }
+ 
+diff --git a/wmt_chrdev_wifi/wmt_cdev_wifi.c b/wmt_chrdev_wifi/wmt_cdev_wifi.c
+index 87e6909..c9a1e19 100644
+--- a/wmt_chrdev_wifi/wmt_cdev_wifi.c
++++ b/wmt_chrdev_wifi/wmt_cdev_wifi.c
+@@ -42,6 +42,7 @@
+ #include "stp_exp.h"
+ #endif
+ MODULE_LICENSE("Dual BSD/GPL");
++MODULE_DESCRIPTION("MediaTek WMT Wi-Fi control character device");
+ 
+ #define WIFI_DRIVER_NAME "mtk_wmt_wifi_chrdev"
+ #define WIFI_DEV_MAJOR 0
+@@ -550,6 +551,16 @@ ssize_t WIFI_write(struct file *filp, const char __user *buf, size_t count, loff
+ 			file_buf_handler handler = NULL;
+ 			void *ctx = NULL;
+ 
++			if ((!strncmp(&local[7], "NVRAM", 5) ||
++			     !strncmp(&local[7], "FWCFG", 5)) && count <= 12) {
++				retval = -EINVAL;
++				goto done;
++			}
++			if (!strncmp(&local[7], "DRVCFG", 6) && count <= 13) {
++				retval = -EINVAL;
++				goto done;
++			}
++
+ 			if (!strncmp(&local[7], "NVRAM", 5)) {
+ 				copy_size = count - 12;
+ 				buf += 12;
+@@ -804,6 +815,7 @@ static int WIFI_init(void)
+ 	}
+ 	if (fw_log_ics_init() < 0) {
+ 		WIFI_INFO_FUNC("ics log node init failed!!\n");
++		fw_log_wifi_deinit();
+ 		goto error;
+ 	}
+ #endif
+@@ -826,7 +838,7 @@ error:
+ 	if (alloc_ret == 0)
+ 		unregister_chrdev_region(wifi_devno, WIFI_devs);
+ 
+-	return -1;
++	return cdev_err ? cdev_err : -ENODEV;
+ }
+ 
+ static void WIFI_exit(void)

@@ -20,6 +20,9 @@ use zbus::{fdo, MatchRule, MessageStream};
 use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::ipc::{self, value, State};
+use crate::network::{
+    new_uuid, DeviceProxy, NmProxy, NmSettingsProxy, SavedConnectionProxy, Settings,
+};
 use crate::{io, log};
 
 #[cxx_qt::bridge]
@@ -837,6 +840,8 @@ struct Snapshot {
     emergency_numbers: Vec<String>,
     supported: Vec<(u32, u32)>,
     current: u32,
+    nm_device: Option<OwnedObjectPath>,
+    nm_state: u32,
 }
 
 // ModemManager's MM_MODEM_MODE_CS: calls, not a choice of data mode.
@@ -884,6 +889,12 @@ impl Snapshot {
         }
     }
 
+    fn nm_changed(&mut self, device: &OwnedObjectPath, state: u32) {
+        if self.nm_device.as_ref() == Some(device) {
+            self.nm_state = state;
+        }
+    }
+
     // Each allowed mask once, widest first.
     fn modes(&self) -> Vec<u32> {
         let mut modes: Vec<u32> = self
@@ -916,9 +927,10 @@ impl Snapshot {
     }
 
     fn view(&self, daemon: bool) -> View {
-        // ModemManager's states: 3 enabled and up; 10 connecting, 11 connected.
-        // 3GPP registration: 1 home, 5 roaming. Signal.Rssi, when something
-        // set it up, beats the coarser SignalQuality.
+        // ModemManager's states: 3 enabled and up. Data is NetworkManager's
+        // device state from prepare (40) to activated (100). 3GPP
+        // registration: 1 home, 5 roaming. Signal.Rssi, when something set
+        // it up, beats the coarser SignalQuality.
         let strength = if self.rssi == 0.0 {
             i32::try_from(self.quality.min(100)).unwrap_or(0)
         } else {
@@ -930,7 +942,7 @@ impl Snapshot {
             daemon,
             modem: self.path.is_some(),
             enabled: self.state >= 3,
-            data: self.state >= 10,
+            data: (40..=100).contains(&self.nm_state),
             strength,
             registered: matches!(self.registration, 1 | 5),
             roaming: self.registration == 5,
@@ -1019,6 +1031,7 @@ const MODEM: &str = "org.freedesktop.ModemManager1.Modem";
 const CELL_BROADCAST: &str = "org.freedesktop.ModemManager1.Modem.CellBroadcast";
 const VOICE: &str = "org.freedesktop.ModemManager1.Modem.Voice";
 const CALL: &str = "org.freedesktop.ModemManager1.Call";
+const NM: &str = "org.freedesktop.NetworkManager";
 
 #[zbus::proxy(
     interface = "org.freedesktop.ModemManager1.Modem",
@@ -1027,15 +1040,6 @@ const CALL: &str = "org.freedesktop.ModemManager1.Call";
 trait ManagedModem {
     fn enable(&self, enable: bool) -> zbus::Result<()>;
     fn set_current_modes(&self, modes: &(u32, u32)) -> zbus::Result<()>;
-}
-
-#[zbus::proxy(
-    interface = "org.freedesktop.ModemManager1.Modem.Simple",
-    default_service = "org.freedesktop.ModemManager1"
-)]
-trait Simple {
-    fn connect(&self, properties: HashMap<&str, Value<'_>>) -> zbus::Result<OwnedObjectPath>;
-    fn disconnect(&self, bearer: &zbus::ObjectPath<'_>) -> zbus::Result<()>;
 }
 
 type Qt = cxx_qt::CxxQtThread<Modem>;
@@ -1049,6 +1053,8 @@ enum Event {
     BroadcastGone(OwnedObjectPath),
     CallAdded(OwnedObjectPath),
     CallChanged(String, Option<u32>),
+    NmDevices,
+    NmState(OwnedObjectPath, u32),
 }
 
 async fn run(qt: Qt, commands: Receiver<Command>) {
@@ -1079,6 +1085,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             objects = objects.or(owners.map(|_| Event::Objects)).boxed();
         }
     }
+    objects = objects.or(nm_events(&bus).await).boxed();
     let shared = commands
         .map(Event::Command)
         .chain(stream::once(Event::Closed))
@@ -1103,6 +1110,14 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     call_inhibit = inhibit_calls(&bus).await;
                 }
             }
+            Some(Event::Command(Command::Data(on, roaming))) => {
+                // NetworkManager's device state confirms the toggle as it
+                // changes; only a refusal resets it here.
+                match mobile_data(&bus, &state, on, roaming).await {
+                    Ok(()) => continue,
+                    Err(e) => log::warn("modem", e),
+                }
+            }
             Some(Event::Command(command)) => {
                 if let Err(e) = act(&bus, &state, command, &qt).await {
                     log::warn("modem", e);
@@ -1111,6 +1126,8 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             Some(Event::Objects) => {
                 daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
             }
+            Some(Event::NmDevices) => follow_nm(&bus, &mut state).await,
+            Some(Event::NmState(path, nm_state)) => state.nm_changed(&path, nm_state),
             Some(Event::Changed(changed)) => {
                 let sim = state.sim.clone();
                 for (name, value) in &changed {
@@ -1182,6 +1199,7 @@ async fn discover(
         }
     }
     state.emergency_numbers = emergency_numbers(bus, state.sim.as_ref()).await;
+    follow_nm(bus, state).await;
     let broadcasts = interfaces
         .iter()
         .find(|(i, _)| i.as_str() == CELL_BROADCAST)
@@ -1193,6 +1211,58 @@ async fn discover(
     }
     *events = Some(modem_events(bus, path).await);
     true
+}
+
+// NetworkManager's devices coming and going, and each one's state.
+async fn nm_events(bus: &zbus::Connection) -> stream::Boxed<Event> {
+    let mut events = stream::empty().boxed();
+    if let Ok(nm) = NmProxy::new(bus).await {
+        events = nm
+            .receive_devices_changed()
+            .await
+            .map(|_| Event::NmDevices)
+            .boxed();
+    }
+    let states = MatchRule::builder()
+        .msg_type(MessageType::Signal)
+        .sender(NM)
+        .interface("org.freedesktop.NetworkManager.Device")
+        .member("StateChanged")
+        .path_namespace("/org/freedesktop/NetworkManager/Devices");
+    if let Some(states) = signals(bus, states).await {
+        let states = states.filter_map(|m| {
+            let m = m.ok()?;
+            let path = OwnedObjectPath::from(m.header().path()?.clone());
+            let (state, _, _): (u32, u32, u32) = m.body().deserialize().ok()?;
+            Some(Event::NmState(path, state))
+        });
+        events = events.or(states).boxed();
+    }
+    events
+}
+
+// NetworkManager's device for the modem, whose udi is the modem's path.
+async fn follow_nm(bus: &zbus::Connection, state: &mut Snapshot) {
+    state.nm_device = None;
+    state.nm_state = 0;
+    let (Some(modem), Ok(nm)) = (&state.path, NmProxy::new(bus).await) else {
+        return;
+    };
+    for path in nm.get_devices().await.unwrap_or_default() {
+        let Ok(device) = DeviceProxy::builder(bus)
+            .path(path.clone())
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+        else {
+            continue;
+        };
+        if device.udi().await.is_ok_and(|udi| udi == modem.as_str()) {
+            state.nm_state = device.state().await.unwrap_or(0);
+            state.nm_device = Some(path);
+            return;
+        }
+    }
 }
 
 // The modem's property changes and its cell broadcasts arriving and going.
@@ -1379,25 +1449,6 @@ async fn act(
             }
             None => Ok(()),
         },
-        // Dialling a bearer takes seconds; the I/O thread waits, not the GUI.
-        Command::Data(true, roaming) => {
-            let simple = SimpleProxy::builder(bus).path(path).build().await?;
-            simple
-                .connect(HashMap::from([
-                    ("apn", Value::from("")),
-                    ("allow-roaming", Value::from(roaming)),
-                ]))
-                .await
-                .map(drop)
-        }
-        Command::Data(false, _) => {
-            SimpleProxy::builder(bus)
-                .path(path)
-                .build()
-                .await?
-                .disconnect(&zbus::ObjectPath::from_static_str_unchecked("/"))
-                .await
-        }
         Command::Dial(number) => {
             let voice = VoiceProxy::builder(bus).path(path).build().await?;
             let created = voice
@@ -1430,7 +1481,135 @@ async fn act(
                 CallAction::Dtmf(digit) => call.send_dtmf(&digit).await,
             }
         }
-        Command::Inhibit(_) => Ok(()),
+        Command::Data(..) | Command::Inhibit(_) => Ok(()),
+    }
+}
+
+// NetworkManager brings the bearer up through ModemManager and puts its
+// addresses and DNS on the ccmni interface. The profile's autoconnect is the
+// toggle, so it holds across reboots and modem resets.
+async fn mobile_data(
+    bus: &zbus::Connection,
+    state: &Snapshot,
+    on: bool,
+    roaming: bool,
+) -> zbus::Result<()> {
+    let Some(device) = state.nm_device.clone() else {
+        return Err(zbus::Error::Failure(
+            "NetworkManager has no device for the modem".to_owned(),
+        ));
+    };
+    let nm = NmProxy::new(bus).await?;
+    let none = zbus::ObjectPath::from_static_str_unchecked("/");
+    if let Some((path, mut settings)) = gsm_profile(bus).await {
+        set_data(&mut settings, on, roaming);
+        let settings: Settings<'_> = settings
+            .iter()
+            .map(|(group, props)| {
+                let props = props
+                    .iter()
+                    .filter_map(|(k, v)| Some((k.as_str(), Value::try_from(v).ok()?)))
+                    .collect();
+                (group.as_str(), props)
+            })
+            .collect();
+        SavedConnectionProxy::builder(bus)
+            .path(path.clone())
+            .build()
+            .await?
+            .update(settings)
+            .await?;
+        if on {
+            return nm
+                .activate_connection(&path, &device, &none)
+                .await
+                .map(drop);
+        }
+    } else if on {
+        let uuid = new_uuid();
+        return nm
+            .add_and_activate_connection(gsm_settings(&uuid, roaming), &device, &none)
+            .await
+            .map(drop);
+    }
+    let active = DeviceProxy::builder(bus)
+        .path(device)
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await?
+        .active_connection()
+        .await?;
+    if active.as_str() == "/" {
+        return Ok(());
+    }
+    nm.deactivate_connection(&active).await
+}
+
+type SavedSettings = HashMap<String, HashMap<String, OwnedValue>>;
+
+// The first saved gsm profile: Marathon's, or one the person made.
+async fn gsm_profile(bus: &zbus::Connection) -> Option<(OwnedObjectPath, SavedSettings)> {
+    let paths = NmSettingsProxy::new(bus)
+        .await
+        .ok()?
+        .list_connections()
+        .await
+        .ok()?;
+    for path in paths {
+        let Ok(connection) = SavedConnectionProxy::builder(bus)
+            .path(path.clone())
+            .build()
+            .await
+        else {
+            continue;
+        };
+        let Ok(mut settings) = connection.get_settings().await else {
+            continue;
+        };
+        let kind = settings
+            .get("connection")
+            .and_then(|c| c.get("type"))
+            .and_then(|t| String::try_from(t.try_clone().ok()?).ok());
+        if kind.as_deref() == Some("gsm") {
+            // Update replaces the whole profile, secrets too.
+            for (group, secrets) in connection.get_secrets("gsm").await.unwrap_or_default() {
+                settings.entry(group).or_default().extend(secrets);
+            }
+            return Some((path, settings));
+        }
+    }
+    None
+}
+
+// No APN: ModemManager's mtk-ccci plugin then reuses the LTE attach PDN. An
+// APN set on the profile later takes its place.
+fn gsm_settings(uuid: &str, roaming: bool) -> Settings<'_> {
+    HashMap::from([
+        (
+            "connection",
+            HashMap::from([
+                ("type", Value::from("gsm")),
+                ("uuid", Value::from(uuid)),
+                ("id", Value::from("Mobile data")),
+                ("autoconnect", Value::from(true)),
+            ]),
+        ),
+        ("gsm", HashMap::from([("home-only", Value::from(!roaming))])),
+        ("ipv4", HashMap::from([("method", Value::from("auto"))])),
+        ("ipv6", HashMap::from([("method", Value::from("auto"))])),
+    ])
+}
+
+fn set_data(settings: &mut SavedSettings, on: bool, roaming: bool) {
+    settings
+        .entry("connection".to_owned())
+        .or_default()
+        .insert("autoconnect".to_owned(), OwnedValue::from(on));
+    if on {
+        settings
+            .entry("gsm".to_owned())
+            .or_default()
+            .insert("home-only".to_owned(), OwnedValue::from(!roaming));
     }
 }
 
@@ -1474,7 +1653,8 @@ trait Call {
 
 #[cfg(test)]
 mod tests {
-    use super::{network_type, Snapshot};
+    use super::{gsm_settings, network_type, set_data, SavedSettings, Snapshot};
+    use zbus::Variant as Value;
 
     #[test]
     fn the_fastest_access_technology_names_the_network() {
@@ -1505,5 +1685,41 @@ mod tests {
         assert_eq!(state.view(true).strength, 40);
         state.rssi = -70.0;
         assert_eq!(state.view(true).strength, 60);
+    }
+
+    #[test]
+    fn mobile_data_is_on_from_prepare_to_activated() {
+        let data = |nm_state| {
+            Snapshot {
+                nm_state,
+                ..Snapshot::default()
+            }
+            .view(true)
+            .data
+        };
+        assert!(!data(30));
+        assert!(data(40));
+        assert!(data(100));
+        assert!(!data(110));
+    }
+
+    #[test]
+    fn the_toggle_is_the_profiles_autoconnect() {
+        let mut settings = SavedSettings::new();
+        let get = |s: &SavedSettings, group: &str, key: &str| bool::try_from(&s[group][key]).ok();
+        set_data(&mut settings, true, false);
+        assert_eq!(get(&settings, "connection", "autoconnect"), Some(true));
+        assert_eq!(get(&settings, "gsm", "home-only"), Some(true));
+        set_data(&mut settings, false, false);
+        assert_eq!(get(&settings, "connection", "autoconnect"), Some(false));
+        assert_eq!(get(&settings, "gsm", "home-only"), Some(true));
+    }
+
+    #[test]
+    fn a_new_profile_leaves_the_apn_to_the_modem() {
+        let settings = gsm_settings("uuid", true);
+        assert_eq!(settings["connection"]["type"], Value::from("gsm"));
+        assert_eq!(settings["gsm"]["home-only"], Value::from(false));
+        assert!(!settings["gsm"].contains_key("apn"));
     }
 }

@@ -229,7 +229,8 @@ async fn the_shells_services_back_the_adapters() {
     assert_eq!(contacts.names(), ["Anna Virtanen"]);
     let found = contacts.lookup("anna", 5).unwrap();
     assert_eq!(found[0].phones, ["+358401234567"]);
-    assert!(found[0].emails.is_empty());
+    let empty = &found[0].emails;
+    assert!(empty.is_empty(), "{empty:?}");
 
     let phone = ShellTelephony {
         session: client.clone(),

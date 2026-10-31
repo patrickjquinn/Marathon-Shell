@@ -22,6 +22,7 @@
 #include <QElapsedTimer>
 #include <QSet>
 #include <QTimer>
+#include <QVector>
 
 #include <functional>
 
@@ -69,6 +70,12 @@ class WaylandCompositor : public QWaylandCompositor {
     // When this interval's frame latches: the last vblank, plus the phase
     // when frames wait for it (-1: none known).
     qint64 frameLatchUs();
+    // The output's refresh rate, Hz: the scanned-out KMS mode's exact rate
+    // (or MARATHON_OUTPUT_HZ behind a made-up mode) once the first frame has
+    // set the mode, Qt's whole-Hz figure before.
+    qreal outputRefreshHz() const {
+        return m_refreshHz;
+    }
 
     explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
@@ -171,6 +178,9 @@ class WaylandCompositor : public QWaylandCompositor {
     void systemBackTriggered();
     void nativeBackUnhandled(int surfaceId);
     void systemHomeTriggered();
+    void systemCallTriggered();
+    void systemEndTriggered();
+    void systemSwitcherTriggered();
     void userActivity();
     void nativeTextInputPanelRequested(bool show);
     void textInputHintsChanged();
@@ -301,6 +311,11 @@ class WaylandCompositor : public QWaylandCompositor {
     QTimer                  m_gateTimer;
     QTimer                  m_callbackTimer;
     qint64                  nextVblankUs();
+    void                    resolveOutputRefresh();
+    void                    advertiseRefresh();
+    qreal                   m_refreshHz      = 0;
+    qint64                  m_softPeriodUs   = 0; // Without a vblank, frames start this apart.
+    qint64                  m_softFrameUs    = 0;
     bool                    m_hiddenThrottle = true;
     HiddenFrameThrottle     m_frameThrottle;
     QElapsedTimer           m_frameClock;
@@ -322,6 +337,22 @@ class WaylandCompositor : public QWaylandCompositor {
     quint64                                   m_presentSequence = 0;
     Apps                                     *m_apps            = nullptr;
     QHash<QString, QPointer<QWaylandSurface>> m_covers;
+    struct DozeProperty {
+        uint32_t object;
+        uint32_t property;
+        uint64_t value;
+    };
+    struct SimpleDozeState {
+        QVector<DozeProperty> off;
+        QVector<DozeProperty> restore;
+        QVector<uint32_t>     framebuffers;
+        uint32_t              modeBlob = 0;
+    };
+    SimpleDozeState m_simpleDoze;
+    bool            m_simpleDozeDetached = false;
+    bool            m_simpleDrmQualified = false;
+    bool            setSimpleDrmPowerState(bool on);
+    void            releaseSimpleDozeState(SimpleDozeState &state);
 };
 
 #endif

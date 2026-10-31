@@ -1,0 +1,140 @@
+Send each uplink packet to MD1 as one PD on the DPMAIF smem TX path
+(MT6789's "TX sw solution": the AP copies UL packets into
+SMEM_USER_MD_DATA). One PD per skb piece made every paged TCP segment a
+multi-PD packet, which asserts MD1 in lhif_dev_data.c line 1675.
+
+Applies with -p1 on top of 0001.
+---
+--- a/ccci_dpmaif/ccci_hif_dpmaif_v1.c
++++ b/ccci_dpmaif/ccci_hif_dpmaif_v1.c
+@@ -4786,7 +4786,7 @@
+ static inline int dpmaif_set_skb_data_to_smem_drb(struct dpmaif_tx_queue *txq,
+ 	struct sk_buff *skb, int qno, unsigned int send_cnt)
+ {
+-	unsigned int cur_idx = 0, is_frag = 0, c_bit = 0, wt_cnt = 0, data_len = 0, payload_cnt = 0;
++	unsigned int cur_idx = 0, data_len = 0;
+ 	struct drb_queue_info *drb_qinfo = NULL;
+ 	struct dpmaif_drb_pd  *smem_drb_base = NULL;
+ 	struct dpmaif_drb_skb *smem_drb_skb  = NULL;
+@@ -4797,8 +4797,8 @@
+ 
+ 	struct skb_shared_info *shinfo = NULL;
+ 	struct ccci_header ccci_h;
+-	void *data_addr = NULL;
+ 	void *smem_data_addr = NULL;
++	int i;
+ 	phys_addr_t phy_addr;
+ 	unsigned short prio_count = 0;
+ 
+@@ -4857,57 +4857,45 @@
+ 
+ 	cur_idx = ringbuf_get_next_idx(drb_qinfo->sz, cur_idx, 1);
+ 
+-	payload_cnt = send_cnt - 1;
++	smem_data_addr = dpmaif_ctrl->smem_drb_qbuf_vir[qno] +
++					(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr);
++	phy_addr = (phys_addr_t)((void *)dpmaif_ctrl->smem_drb_qbuf_phy[qno] +
++					(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr));
++
++	/* MD LHIF asserts on a packet split over several PDs: send one */
++	data_len = skb_headlen(skb);
++	memcpy_toio(smem_data_addr, skb->data, data_len);
+ 	shinfo = skb_shinfo(skb);
++	for (i = 0; i < shinfo->nr_frags; i++) {
++		skb_frag_t *frag = &shinfo->frags[i];
+ 
+-	for (wt_cnt = 0; wt_cnt < payload_cnt; wt_cnt++) {
+-		if (wt_cnt == 0) {
+-			data_len = skb_headlen(skb);
+-			data_addr = skb->data;
+-			is_frag = 0;
+-
+-		} else {
+-			skb_frag_t *frag = shinfo->frags + (wt_cnt - 1);
+-
+-			data_len = skb_frag_size(frag);
+-			data_addr = skb_frag_address(frag);
+-			is_frag = 1;
+-		}
+-
+-		if (wt_cnt == payload_cnt - 1)
+-			c_bit = 0;
+-		else
+-			c_bit = 1;
+-
+-		smem_data_addr = dpmaif_ctrl->smem_drb_qbuf_vir[qno] +
+-						(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr);
+-		phy_addr = (phys_addr_t)((void *)dpmaif_ctrl->smem_drb_qbuf_phy[qno] +
+-						(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr));
+-		memcpy_toio(smem_data_addr, data_addr, data_len);
+-
+-		drb_qbuf_inf->wr = ringbuf_get_next_idx(drb_qbuf_inf->sz, drb_qbuf_inf->wr, 1);
+-
+-		drb_pd = &smem_drb_base[cur_idx];
+-		drb_pd->dtyp = DES_DTYP_PD;
+-		drb_pd->c_bit = c_bit;
+-		drb_pd->data_len = data_len;
+-		drb_pd->p_data_addr = phy_addr & 0xFFFFFFFF;
++		memcpy_toio(smem_data_addr + data_len, skb_frag_address(frag),
++			    skb_frag_size(frag));
++		data_len += skb_frag_size(frag);
++	}
++
++	drb_qbuf_inf->wr = ringbuf_get_next_idx(drb_qbuf_inf->sz, drb_qbuf_inf->wr, 1);
++
++	drb_pd = &smem_drb_base[cur_idx];
++	drb_pd->dtyp = DES_DTYP_PD;
++	drb_pd->c_bit = 0;
++	drb_pd->data_len = data_len;
++	drb_pd->p_data_addr = phy_addr & 0xFFFFFFFF;
+ #if IS_ENABLED(CONFIG_ARM64)
+-		drb_pd->data_addr_ext = (phy_addr >> 32) & 0xFF;
++	drb_pd->data_addr_ext = (phy_addr >> 32) & 0xFF;
+ #else
+-		drb_pd->data_addr_ext = 0;
++	drb_pd->data_addr_ext = 0;
+ #endif
+-		drb_skb = &smem_drb_skb[cur_idx];
+-		drb_skb->skb = skb;
+-		drb_skb->phy_addr = phy_addr;
+-		drb_skb->data_len = data_len;
+-		drb_skb->drb_idx = cur_idx;
+-		drb_skb->is_msg = 0;
+-		drb_skb->is_frag = is_frag;
+-		drb_skb->is_last_one = (c_bit == 0 ? 1 : 0);
++	drb_skb = &smem_drb_skb[cur_idx];
++	drb_skb->skb = skb;
++	drb_skb->phy_addr = phy_addr;
++	drb_skb->data_len = data_len;
++	drb_skb->drb_idx = cur_idx;
++	drb_skb->is_msg = 0;
++	drb_skb->is_frag = 0;
++	drb_skb->is_last_one = 1;
+ 
+-		cur_idx = ringbuf_get_next_idx(drb_qinfo->sz, cur_idx, 1);
+-	}
++	cur_idx = ringbuf_get_next_idx(drb_qinfo->sz, cur_idx, 1);
+ 
+ 	/* debug: tx on ccci_channel && HW Q */
+ 	ccci_channel_update_packet_counter(
+@@ -4929,7 +4917,7 @@
+ {
+ 	struct drb_queue_info *drb_qinfo = NULL;
+ 	struct skb_shared_info *info = NULL;
+-	unsigned int remain_cnt = 0, send_cnt = 0, payload_cnt = 0;
++	unsigned int remain_cnt = 0, send_cnt = 0;
+ 	unsigned long flags = 0;
+ 	int ret = 0;
+ 
+@@ -4943,9 +4931,8 @@
+ 	if (info->frag_list != NULL)
+ 		CCCI_ERROR_LOG(0, TAG, "[%s] error: skb frag_list not supported!\n", __func__);
+ 
+-	payload_cnt = info->nr_frags + 1;
+-	/* nr_frags: frag cnt, 1: skb->data, 1: msg drb */
+-	send_cnt = payload_cnt + 1;
++	/* 1 msg drb + 1 pd drb */
++	send_cnt = 2;
+ 
+ 	spin_lock_irqsave(&txq->tx_lock, flags);
+ 

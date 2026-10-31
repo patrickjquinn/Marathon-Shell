@@ -529,6 +529,7 @@ mod tests {
     #[test]
     fn self_reference_terminates() {
         let s = v(json!({"$ref": "#"}));
-        assert!(!s.validate(&json!(1)).is_empty());
+        let found = s.validate(&json!(1));
+        assert!(!found.is_empty(), "{found:?}");
     }
 }

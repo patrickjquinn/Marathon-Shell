@@ -161,6 +161,9 @@ pub struct DisplayRust {
     proximity_near: bool,
     ambient_light: i32,
     panel: Option<Panel>,
+    leds_dir: PathBuf,
+    /// Keyboard lights the screen-off put out, with the level each had.
+    dimmed_keyboards: Vec<(PathBuf, String)>,
     sensors: Option<Sender<(bool, bool)>>,
     accelerometer: Option<Sender<bool>>,
     proximity_wanted: bool,
@@ -192,6 +195,8 @@ impl Default for DisplayRust {
             proximity_near: false,
             ambient_light: 500,
             panel: None,
+            leds_dir: PathBuf::from("/sys/class/leds"),
+            dimmed_keyboards: Vec::new(),
             sensors: None,
             accelerometer: None,
             proximity_wanted: false,
@@ -235,6 +240,9 @@ impl Panel {
 impl Display {
     fn start(mut self: Pin<&mut Self>, backlight_dir: &QString, iio_dir: &QString, floor: f64) {
         DISPLAY.set(self.qt_thread()).ok();
+        if let Some(class) = Path::new(&backlight_dir.to_string()).parent() {
+            self.as_mut().rust_mut().leds_dir = class.join("leds");
+        }
         if let Some((dir, max, level)) = find_backlight(Path::new(&backlight_dir.to_string())) {
             let (tx, rx) = async_channel::bounded(64);
             io::spawn(backlight(dir.clone(), rx));
@@ -423,6 +431,17 @@ impl Display {
     // backlight write while the display's power domain is gated is dropped:
     // so the LED goes down before the CRTC, and comes up after it.
     fn set_screen(mut self: Pin<&mut Self>, on: bool) {
+        if on {
+            for (brightness, level) in self.as_mut().rust_mut().dimmed_keyboards.drain(..) {
+                if let Err(e) = fs::write(&brightness, &level) {
+                    log::warn("display", format_args!("{}: {e}", brightness.display()));
+                }
+            }
+        } else if self.dimmed_keyboards.is_empty() {
+            // A repeated off keeps the levels the first one saved.
+            let dimmed = dim_keyboards(&self.leds_dir);
+            self.as_mut().rust_mut().dimmed_keyboards = dimmed;
+        }
         if let (false, Some(panel)) = (on, &self.panel) {
             if let Err(e) = fs::write(panel.dir.join("bl_power"), "4\n") {
                 log::warn("display", format_args!("bl_power: {e}"));
@@ -477,6 +496,33 @@ impl Display {
                 .ok();
         }
     }
+}
+
+/// Puts out every keyboard light, returning each one's `brightness` file and
+/// its level before.
+fn dim_keyboards(leds: &Path) -> Vec<(PathBuf, String)> {
+    let Ok(entries) = fs::read_dir(leds) else {
+        return Vec::new();
+    };
+    let mut dimmed = Vec::new();
+    for entry in entries.flatten() {
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .ends_with("::kbd_backlight")
+        {
+            continue;
+        }
+        let brightness = entry.path().join("brightness");
+        let Ok(level) = fs::read_to_string(&brightness) else {
+            continue;
+        };
+        match fs::write(&brightness, "0") {
+            Ok(()) => dimmed.push((brightness, level.trim().to_owned())),
+            Err(e) => log::warn("display", format_args!("{}: {e}", brightness.display())),
+        }
+    }
+    dimmed
 }
 
 /// The panel's backlight, its `max_brightness` and its level now.

@@ -1,0 +1,148 @@
+# Q25 session/profile policy; kernel, firmware and image layout are separate.
+pkgname=device-zinwa-q25-marathon
+pkgver=1.0.0
+pkgrel=20
+pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+options="!check"
+depends="device-mediatek-g99 marathon-base-config marathon-shell greetd q25-gpu-render
+ q25-kernel-modules q25-connsys-firmware wpa_supplicant bluez-btmgmt alsa-ucm-conf"
+makedepends="gcc musl-dev"
+install="$pkgname.post-install"
+# The private generic-G99 trial overlay also owned this same generated profile.
+replaces="device-mediatek-g99-marathon"
+source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example q25-keyboard.modprobe.conf q25-keyboard.modules-load.conf
+ q25-md1-off.service q25-wmt.c q25-connsys.service q25-wmt-launcher.service q25-wifi.service
+ q25-connsys.modprobe.conf q25-wifi.system-sleep wpa_supplicant.service
+ q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
+ q25-kernel-cmdline.conf unudhcpd-usb0.conf q25.preset
+ q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service"
+build() {
+    mkdir -p "$builddir"
+    ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
+}
+package() {
+    install -Dm644 "$srcdir/device-profile.conf" "$pkgdir/etc/marathon/device-profile.conf"
+    install -Dm755 "$srcdir/q25-shell-session" "$pkgdir/usr/libexec/marathon/q25-shell-session"
+    install -Dm755 "$srcdir/q25-shell-session.software" "$pkgdir/usr/libexec/marathon/q25-shell-session.software"
+    install -Dm644 "$srcdir/greetd-q25.toml" "$pkgdir/etc/greetd/q25-config.toml"
+    install -Dm644 "$srcdir/50-q25-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-q25-session.conf"
+    install -Dm644 "$srcdir/q25-session.conf.example" "$pkgdir/usr/share/doc/$pkgname/q25-session.conf.example"
+    install -Dm644 "$srcdir/q25-keyboard.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-keyboard.conf"
+    install -Dm644 "$srcdir/q25-keyboard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-keyboard.conf"
+    # Doze puts the keyboard light out, so a level saved at shutdown is usually 0.
+    install -d "$pkgdir/usr/lib/systemd/system"
+    ln -s /dev/null "$pkgdir/usr/lib/systemd/system/systemd-backlight@leds:q25::kbd_backlight.service"
+
+    # The preloader leaves the unbooted MD1 modem domain powered.
+    install -Dm644 "$srcdir/q25-md1-off.service" "$pkgdir/usr/lib/systemd/system/q25-md1-off.service"
+
+    # Wi-Fi: CONNSYS bring-up, the WMT firmware patch server, then WLAN power.
+    install -Dm755 "$builddir/q25-wmt" "$pkgdir/usr/libexec/marathon/q25-wmt"
+    local unit
+    for unit in q25-connsys q25-wmt-launcher q25-wifi; do
+        install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
+    done
+    install -Dm644 "$srcdir/q25-connsys.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-connsys.conf"
+    install -Dm755 "$srcdir/q25-wifi.system-sleep" "$pkgdir/usr/lib/systemd/system-sleep/q25-wifi"
+    # The image's wpa_supplicant ships no unit, and dbus-broker can only
+    # activate NetworkManager's supplicant through one.
+    install -Dm644 "$srcdir/wpa_supplicant.service" "$pkgdir/usr/lib/systemd/system/wpa_supplicant.service"
+
+    # Bluetooth: the HCI driver over WMT/STP, once the patch server runs.
+    install -Dm644 "$srcdir/q25-bluetooth.service" "$pkgdir/usr/lib/systemd/system/q25-bluetooth.service"
+    install -Dm755 "$srcdir/q25-bt-address" "$pkgdir/usr/libexec/marathon/q25-bt-address"
+    install -Dm644 "$srcdir/q25-bt-address.service" "$pkgdir/usr/lib/systemd/system/q25-bt-address.service"
+
+    # Audio: the codec has no OF match, and the AFE needs its power domain first.
+    install -Dm644 "$srcdir/q25-audio.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-audio.conf"
+    install -Dm644 "$srcdir/q25-audio.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-audio.conf"
+    install -Dm644 "$srcdir/q25-mt6366.conf" "$pkgdir/usr/share/alsa/ucm2/conf.d/q25-mt6366/q25-mt6366.conf"
+    install -Dm644 "$srcdir/HiFi.conf" "$pkgdir/usr/share/alsa/ucm2/Zinwa/Q25/HiFi.conf"
+    install -Dm644 "$srcdir/VoiceCall.conf" "$pkgdir/usr/share/alsa/ucm2/Zinwa/Q25/VoiceCall.conf"
+
+    # The IMU is mounted rotated 180 degrees about Z.
+    install -Dm644 "$srcdir/61-q25-sensor-local.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-sensor-local.rules"
+
+    # Masks device-mediatek-g99's bring-up options by name. Without
+    # keep_bootcon the efifb boot console stops once tty0 registers, so it no
+    # longer scrolls kernel messages through the framebuffer simpledrm scans out.
+    install -Dm644 "$srcdir/q25-kernel-cmdline.conf" "$pkgdir/etc/kernel-cmdline.d/50-device-mediatek-g99.conf"
+
+    # USB networking starts when the gadget's usb0 appears and stops when it
+    # goes, instead of retrying a missing interface every second while no
+    # cable is attached. The preset keeps it out of multi-user.target, which
+    # would otherwise wait for the device at boot.
+    install -Dm644 "$srcdir/unudhcpd-usb0.conf" "$pkgdir/usr/lib/systemd/system/unudhcpd@usb0.service.d/50-q25-usb0.conf"
+    install -Dm644 "$srcdir/q25.preset" "$pkgdir/usr/lib/systemd/system-preset/80-q25.preset"
+    install -d "$pkgdir/usr/lib/systemd/system/sys-subsystem-net-devices-usb0.device.wants"
+    ln -s ../unudhcpd@.service "$pkgdir/usr/lib/systemd/system/sys-subsystem-net-devices-usb0.device.wants/unudhcpd@usb0.service"
+    # The initramfs makes the USB network gadget only if a UDC exists when it
+    # looks, which a boot without the cable has missed; make it here once the
+    # UDC exists, and unudhcpd then follows usb0.
+    install -Dm755 "$srcdir/q25-usb-gadget" "$pkgdir/usr/libexec/marathon/q25-usb-gadget"
+    install -Dm644 "$srcdir/q25-usb-gadget.service" "$pkgdir/usr/lib/systemd/system/q25-usb-gadget.service"
+    install -d "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants"
+    ln -s ../q25-usb-gadget.service "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants/q25-usb-gadget.service"
+
+    install -Dm644 "$srcdir/q25-root-dio.service" "$pkgdir/usr/lib/systemd/system/q25-root-dio.service"
+    install -Dm755 "$srcdir/q25-vsyncdrm" "$pkgdir/usr/libexec/marathon/q25-vsyncdrm"
+    install -Dm755 "$srcdir/q25-backlight" "$pkgdir/usr/libexec/marathon/q25-backlight"
+    install -Dm755 "$srcdir/q25-root-grow" "$pkgdir/usr/libexec/marathon/q25-root-grow"
+    install -Dm644 "$srcdir/q25-vsyncdrm.service" "$pkgdir/usr/lib/systemd/system/q25-vsyncdrm.service"
+    install -Dm644 "$srcdir/q25-backlight.service" "$pkgdir/usr/lib/systemd/system/q25-backlight.service"
+    install -Dm644 "$srcdir/q25-root-grow.service" "$pkgdir/usr/lib/systemd/system/q25-root-grow.service"
+    install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
+    ln -s ../q25-root-dio.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-dio.service"
+    ln -s ../q25-root-grow.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-grow.service"
+
+    install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
+        ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
+    done
+    install -d "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
+    for unit in q25-bluetooth q25-bt-address; do
+        ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants/$unit.service"
+    done
+}
+sha512sums="
+782888d14d84256edac27b9a2ac45a7596bbedbdc2b29ad7bbd4e75ebd939b61aa476c8868e22154ba8785b9d7b7c236b62ba49bcbdaba19dd7bd68ea5bad7f8  device-profile.conf
+cbf76ecc7e9959c880ad6478fd9a0278ed9b461fafbd41dcd7b6352889b7ff156ed6de8fc7d4871c2a2f32bf9fd18cf82ab9da59afd74c94de729710baa50517  q25-shell-session
+7c023ffa760ee6aff53e6a628a3bd673b169daf6462a358a269ec80ef807054517e0038e8ddbba54f7ff50fad28e30d2934faf52b9ae02e40b7989f4ccbb4ea1  q25-shell-session.software
+56babfe06ed3da7ff72569304d9984adba8d77878cacf27435cb0a83d025bacae203e544e366c4d0490880bcdb7425ac67122b40ae3d46534a1104b76ba7157d  greetd-q25.toml
+221913275648d3c6f09a5da643d8c16922cfe305a4630f1d08dc5cabf98e85f7a105dab8daa1d426ca7ea7cff6ba1fed0c8ba4acac506e6be7103df7785ac3ad  50-q25-session.conf
+358ebe8f456cad78ad4d53c3721835cf79026cb233c43f1428f7a4001cf3825e3fbe2db9777d5ca2ced41acc9590ad5508c40307dca9c341859c90aa83f93d6f  q25-session.conf.example
+01a5d44c6c4da99ab36aac068c57d8b9279315b66d05a04eb0c5919551d98e290038612e13c0047b58e68bc97b50781131829573cf33f90b9a5cbce560d360f4  q25-keyboard.modprobe.conf
+03af4f0a3a4e222cae635c4a69d5bc26d00dd070bf1b58d9488c05fae0891009d2ba8c92311e45f66b877711f1175cd23c7bf699d986bed23c7f5a0dc8e69763  q25-keyboard.modules-load.conf
+56c1c51a0a587b0071e87cd9cff60896f3cc9bd277252cf84ff161f4d66a87eab998a6c51aa3f91576fb4026799d5d5ba282ffbdc06373e172fe98128934c9bd  q25-md1-off.service
+11d05acf58b9cdf0a6976209939fb268e8e114dac6bb00b66edf95c5f6bfc6c51350ca5e9cdc1c247ba7866939a724d6634d7a3f463dd5dfeafe51ecc0f9e554  q25-wmt.c
+447865489add96c55e51e054a7b16a4970fdab7f7b0c338ff143d35fbc4b921b688389506fb2052fe722e56efd332c0dd148f24cd28b6f05557ac6790d456d44  q25-connsys.service
+6c41623b2d8fc1c4aab153f67e1b50f14c858aebbd89f7d8a562286ca80fb328b704cd12b691f947dbc18562fe72b51a726e12785da3de56ca2cceb64d144d32  q25-wmt-launcher.service
+b6bb3fe14406fdde166708cf55e71d81146513560ca56ab53e3a06049c74434544d5a48e47fe951d328c0dda9acbd46333bca3a3fb4c0ecdf965012aaef8912b  q25-wifi.service
+826e387971ca88287220f9febed7fde4b604772e4fb3cd34ec49a20ddf63dcc0834071be9476773ae75a004c663edcf6f48fba32d6db0545a1aba3bc80635bfd  q25-connsys.modprobe.conf
+25a6183746c980b35f5c2e3074417e6e27b051e78af308de9312585a748f090b96db729dcf34714aac884839936f0447489b2d37ff04dc2781fe661d6b793dea  q25-wifi.system-sleep
+f9fbaaf80fa5fcd713a7f5acac17de8ada5a708f9d22e979ef243500989815dba5ffc2f722e3e593832164afe567bad4b0720e17a300165ea0eb851228acb274  wpa_supplicant.service
+9b59ad8e6b4a3a1625b45d80889b8aab7fbd5dc234c7016ba33be910d510bba7df2cb6fd0cbd8bfcfac2a67ed91a02216a5c9de69377beb412f53cc3c727841b  q25-bluetooth.service
+b2a59abc6169bdcb7e945ab48ebb4133d986cef7a757a044463b14c47bf82f5c5e6dc259d2ae3e2ab9b013c6a11ef84be6e009d006be812316a1f00aa28df9ed  q25-bt-address
+9756affb60b5289e2144f1a2a54afec7072a2ba3230465bf19710cc5b0308a2d67d238592451fd972e7399279c0da5cecca30e95612a067e72b7f27825762671  q25-bt-address.service
+ee15a31ae7d5e8094db73f4b2b0e1f4b19763e7561a1d04d0accc5a8fddc133c77c7d32ee69636fee2fcf1d4ad76c4716faad19efa222cdda78522fa16676143  q25-audio.modules-load.conf
+ac30d4f6db68a55cddd5ef6b88951b6e8e55a7cd73a349da3e239e83b0a6e24ce5a9c9e000b5fd3f4cbe0030a3d5cee5137f42e1e34866521e155099bb3be6fe  q25-audio.modprobe.conf
+2eb6f513f7335a9a9ac28131acfef0795c00a44703613199d89515290bb3a16484cbb0a5b3275c2dfd8893a853f02581b0176d02fd2e34f338fe2240f4a93aa8  q25-mt6366.conf
+f21a54d04eb82281555e89df898b5da68b8c6b8d3e3755f972d7610e7e56a672383bf3de1fcb9fca45b3a69d14ddb4c3ad999a7120ce67c1dade5a0816ff961a  HiFi.conf
+db9ebb4d0b288f6c0d5e16b27fcaa4e4c6ded6bc7c24100eb5de10f2b56d5552e8c9e26f26db73f76927d3b0d2ae4d2031ab8f742c309ce6eec9ec3e72a6a977  VoiceCall.conf
+1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
+918d035bf38cbeb640393a075d60c2b7e783389b206c34ab7bcb0b61f45ecf5956fd975fd74bf835c4e013d8ffba905e97d8c02838337154ea3c46e6e44ace94  q25-kernel-cmdline.conf
+9e77ff4f12873407255fcbde236299678e238315b27f57401fcdd50b04c5427f2aacb5836bd5ce7c0aa177106e32085ac2e3505ec486d33f1f583dc7cd0f8d01  unudhcpd-usb0.conf
+f1e9538dbffbe77c5b83d294f7b163de4e5ddbe2c5f0b5c7d10aea961bc4447ca56dcf9b8bd7746b6d51970091db3eb93a9f1e950ad3fdb656d189db93f0173b  q25.preset
+1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  q25-usb-gadget
+6c275f539f32b2746db9da50d83b7c3f0de9ceb4db4068c4d0ba3e11f70d164dd6ed369884c37bd8c902448bd26c5bba07822bd6465f6796190fafa7ed277433  q25-usb-gadget.service
+dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695cd2bd2f2ca06153f38617fb605279038f52db61746df6f57  q25-root-dio.service
+0c7e0f8a01808bbe91e94c5654a7b36170e4674e665da76338f4cbc0815ec3271e7575297fdfc7ac86d56ca34e892fa8c2b78e549fab91113bdebaf679914950  q25-vsyncdrm
+d70008a89ab9d28aadfaf78d28a6a742c625e2e438089fb8a0adeea60267e45d60ead9ebe9fcf5ab5df6034d3f4bdbb3b6dc55ad0db5ec3935e3706c2f55486c  q25-vsyncdrm.service
+b16efb63bdafea45a6d3cca92822bb0eabbf137e27d070895f5d19aae7cf88cff797f16576a1a00d7f39553ced1d591d771cd197324d6ece57e2c32df2c00741  q25-backlight
+f2e391802eb3ed5eed9ea22e856ef87a272582583bcce689f591f880408d77ac5dff5fc51b1b3adfd6d8c949141cc87afc283507124c12d2f93491da5d50493c  q25-backlight.service
+dc89cdcbbf044d06c1ba18cffd2bebdc86f0015591cde276cd57fb4a82457c89b2a408f927b4662f13f8a52df5a26fbcd580dc7cc882660af36011e638ac5cff  q25-root-grow
+42a5d63e17226632be80493adca33f25bd5dcd5645d96d8d2819051355f53da6823eb04c57aac5fff774c4b963efd92a10bea623943b268612c417cd3cf09b89  q25-root-grow.service
+"

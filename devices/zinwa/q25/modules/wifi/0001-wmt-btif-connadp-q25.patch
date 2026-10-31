@@ -1,0 +1,2045 @@
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..4c2b70e
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,16 @@
++# SPDX-License-Identifier: GPL-2.0
++# Q25 integrated AXI WLAN / BTIF WMT: no SDIO, no Android power-throttling backend.
++obj-m += wmt_drv.o
++wmt_drv-y := wmt_drv/common_detect/wmt_detect_pwr.o wmt_drv/common_detect/wmt_detect.o wmt_drv/common_detect/mtk_wcn_stub_alps.o wmt_drv/common_detect/wmt_gpio.o wmt_drv/common_detect/drv_init/fm_drv_init.o wmt_drv/common_detect/drv_init/conn_drv_init.o wmt_drv/common_detect/drv_init/bluetooth_drv_init.o wmt_drv/common_detect/drv_init/wlan_drv_init.o wmt_drv/common_detect/drv_init/common_drv_init.o wmt_drv/common_detect/drv_init/gps_drv_init.o wmt_drv/common_main/platform/mt6789.o wmt_drv/common_main/platform/mt6789_dbg.o wmt_drv/common_main/platform/mt6789_pos_gen.o wmt_drv/common_main/platform/wmt_plat_alps.o wmt_drv/common_main/platform/mtk_wcn_consys_hw.o wmt_drv/common_main/platform/mtk_wcn_dump_util.o wmt_drv/common_main/platform/mtk_wcn_cmb_hw.o wmt_drv/common_main/core/wmt_ic_6628.o wmt_drv/common_main/core/wmt_conf.o wmt_drv/common_main/core/stp_core.o wmt_drv/common_main/core/wmt_ctrl.o wmt_drv/common_main/core/wmt_func.o wmt_drv/common_main/core/wmt_core.o wmt_drv/common_main/core/psm_core.o wmt_drv/common_main/core/wmt_ic_soc.o wmt_drv/common_main/core/wmt_lib.o wmt_drv/common_main/core/wmt_ic_6620.o wmt_drv/common_main/core/stp_exp.o wmt_drv/common_main/core/wmt_exp.o wmt_drv/common_main/core/btm_core.o wmt_drv/common_main/core/wmt_ic_6630.o wmt_drv/common_main/linux/stp_dbg_soc.o wmt_drv/common_main/linux/stp_dbg_combo.o wmt_drv/common_main/linux/osal.o wmt_drv/common_main/linux/wmt_dev.o wmt_drv/common_main/linux/bgw_desense.o wmt_drv/common_main/linux/wmt_idc.o wmt_drv/common_main/linux/stp_uart.o wmt_drv/common_main/linux/wmt_dbg.o wmt_drv/common_main/linux/stp_dbg.o wmt_drv/common_main/linux/wmt_user_proc.o wmt_drv/common_main/linux/wmt_proc_dbg.o wmt_drv/common_main/linux/wmt_alarm.o wmt_drv/common_main/linux/stp_btif.o wmt_drv/debug_utility/ring.o wmt_drv/debug_utility/ring_emi.o wmt_drv/debug_utility/connsys_debug_utility.o
++wmt_drv-cflags := -DDYNAMIC_DEBUG_MODULE -DCONFIG_MTK_WCN_ARM64 -DCONFIG_MTK_COMBO_GPS=1 -DWMT_IDC_SUPPORT=0 -DMTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT -DCONSYS_PMIC_CTRL_6635=1 -DWMT_PLAT_ALPS=1 -DWMT_UART_RX_MODE_WORK=0 -DWMT_SDIO_MODE=0 -DWMT_CREATE_NODE_DYNAMIC=1 -DWMT_DBG_SUPPORT=1 -DWMT_DEVAPC_DBG_SUPPORT=0
++$(foreach o,$(wmt_drv-y),$(eval CFLAGS_$(o) += $(wmt_drv-cflags)))
++obj-m += btif_drv.o
++btif_drv-y := btif_drv/mtk_btif.o btif_drv/mtk_btif_exp.o btif_drv/btif_dma_plat.o btif_drv/btif_plat.o
++btif_drv-cflags := -DCONFIG_ARCH_MT6580=1 -DCONFIG_ARCH_MT6735=1 -DCONFIG_ARCH_MT6735M=1 -DCONFIG_ARCH_MT6753=1 -DCONFIG_MTK_GMO_RAM_OPTIMIZE=1
++$(foreach o,$(btif_drv-y),$(eval CFLAGS_$(o) += $(btif_drv-cflags)))
++obj-m += connadp.o
++connadp-y := connadp/common/connectivity_build_in_adapter.o connadp/common/wmt_build_in_adapter.o
++connadp-cflags := 
++$(foreach o,$(connadp-y),$(eval CFLAGS_$(o) += $(connadp-cflags)))
++ccflags-y += -I$(src)/btif_drv -I$(src)/connadp -I$(src)/connadp/vendor-headers -I$(src)/connadp/vendor-headers/drivers/misc/mediatek/clkbuf/src -I$(src)/connadp/vendor-headers/drivers/misc/mediatek/cpufreq_v2/inc -I$(src)/connadp/vendor-headers/drivers/misc/mediatek/eccci -I$(src)/connadp/vendor-headers/drivers/misc/mediatek/include -I$(src)/connadp/vendor-headers/drivers/misc/mediatek/include/mt-plat -I$(src)/connadp/vendor-headers/drivers/misc/mediatek/power_throttling -I$(src)/connadp/vendor-headers/drivers/mmc/core -I$(src)/include -I$(src)/include/drivers/gpu/drm/mediatek/mediatek_v2 -I$(src)/include/drivers/misc/mediatek/btif/common/inc -I$(src)/include/drivers/misc/mediatek/connectivity/common -I$(src)/include/drivers/misc/mediatek/include -I$(src)/include/drivers/misc/mediatek/include/mt-plat -I$(src)/include/include -I$(src)/wmt_drv/common_detect -I$(src)/wmt_drv/common_detect/drv_init/inc -I$(src)/wmt_drv/common_main/core/include -I$(src)/wmt_drv/common_main/include -I$(src)/wmt_drv/common_main/linux/include -I$(src)/wmt_drv/common_main/platform/include -I$(src)/wmt_drv/debug_utility
++ccflags-y += -DWMT_SDIO_SUPPORT=0 -DWMT_VENDOR_DISPLAY_NOTIFIER_SUPPORT=0 -DWMT_VENDOR_DEVAPC_SUPPORT=0 -include $(src)/include/wmt_transport_config.h
+diff --git a/btif_drv/mtk_btif.c b/btif_drv/mtk_btif.c
+index 2e04470..9aad970 100644
+--- a/btif_drv/mtk_btif.c
++++ b/btif_drv/mtk_btif.c
+@@ -227,7 +227,7 @@ const struct dev_pm_ops mtk_btif_drv_pm_ops = {
+ 
+ struct platform_driver mtk_btif_dev_drv = {
+ 	.probe = mtk_btif_probe,
+-	.remove_new = mtk_btif_remove,
++	.remove = mtk_btif_remove,
+ #ifdef CONFIG_PM
+ 	.suspend = mtk_btif_suspend,
+ 	.resume = mtk_btif_resume,
+@@ -245,6 +245,8 @@ struct platform_driver mtk_btif_dev_drv = {
+ };
+ 
+ static int btif_probed;
++/* 5 s in 100 ms steps for a deferred probe */
++#define BTIF_PROBE_WAIT_STEPS 50
+ static DEFINE_SPINLOCK(g_bbs_lock);
+ 
+ #define BTIF_STATE_RELEASE(x) _btif_state_release(x)
+@@ -262,7 +264,15 @@ static int mtk_btif_probe(struct platform_device *pdev)
+ 	g_btif[0].private_data = (struct device *)&pdev->dev;
+ 
+ #if !defined(CONFIG_MTK_CLKMGR)
+-	hal_btif_clk_get_and_prepare(pdev);
++	{
++		int ret = hal_btif_clk_get_and_prepare(pdev);
++
++		if (ret) {
++			platform_set_drvdata(pdev, NULL);
++			g_btif[0].private_data = NULL;
++			return ret;
++		}
++	}
+ #endif
+ 
+ 	btif_probed = 1;
+@@ -3308,16 +3318,26 @@ static int BTIF_init(void)
+ 		BTIF_ERR_FUNC("BTIF pdriver_create_file failed, ret(%d)\n",
+ 				i_ret);
+ 
+-	/* we keep waiting because KE happens if probe function is not called. */
+-	while (btif_probed == 0)
+-		msleep(500);
++	/*
++	 * Probe runs synchronously for an existing node; allow a bounded
++	 * window for a deferred probe, then fail closed. Without a probed
++	 * device nothing below may touch BTIF.
++	 */
++	for (index = 0; index < BTIF_PROBE_WAIT_STEPS && !btif_probed; index++)
++		msleep(100);
++	if (!btif_probed) {
++		BTIF_ERR_FUNC("no BTIF device probed (mediatek,btif node missing or probe failed)\n");
++		i_ret = -ENODEV;
++		goto err_unregister;
++	}
+ 
+ /*SW init*/
+ 	for (index = 0; index < BTIF_PORT_NR; index++) {
+ 		p_btif_buffer = kmalloc(BTIF_RX_BUFFER_SIZE, GFP_ATOMIC);
+ 		if (!p_btif_buffer) {
+ 			BTIF_ERR_FUNC("p_btif_buffer kmalloc memory fail\n");
+-			return -1;
++			i_ret = -ENOMEM;
++			goto err_exit2;
+ 		}
+ 		BTIF_INFO_FUNC("p_btif_buffer get memory 0x%p\n",
+ 				p_btif_buffer);
+@@ -3327,7 +3347,8 @@ static int BTIF_init(void)
+ 		if (!p_tx_queue) {
+ 			BTIF_ERR_FUNC("p_tx_queue kmalloc memory fail\n");
+ 			kfree(p_btif_buffer);
+-			return -1;
++			i_ret = -ENOMEM;
++			goto err_exit2;
+ 		}
+ 		BTIF_INFO_FUNC("p_tx_queue get memory 0x%p\n", p_tx_queue);
+ 		p_rx_queue = kmalloc_array(BTIF_LOG_ENTRY_NUM,
+@@ -3337,7 +3358,8 @@ static int BTIF_init(void)
+ 			BTIF_ERR_FUNC("p_rx_queue kmalloc memory fail\n");
+ 			kfree(p_btif_buffer);
+ 			kfree(p_tx_queue);
+-			return -1;
++			i_ret = -ENOMEM;
++			goto err_exit2;
+ 		}
+ 		BTIF_INFO_FUNC("p_rx_queue get memory 0x%p\n", p_rx_queue);
+ 
+@@ -3504,12 +3526,20 @@ err_exit2:
+ #endif
+ 		g_btif[index].open_counter = 0;
+ 		g_btif[index].enable = false;
+-	}
++		kfree(g_btif[index].btif_buf.p_buf);
++		g_btif[index].btif_buf.p_buf = NULL;
++		kfree(g_btif[index].tx_log.p_queue);
++		g_btif[index].tx_log.p_queue = NULL;
++		kfree(g_btif[index].rx_log.p_queue);
++		g_btif[index].rx_log.p_queue = NULL;
++	}
++err_unregister:
+ 	driver_remove_file(&mtk_btif_dev_drv.driver, &driver_attr_flag);
+ 	platform_driver_unregister(&mtk_btif_dev_drv);
+ 
+ err_exit1:
+-	i_ret = -1;
++	if (i_ret >= 0)
++		i_ret = -EIO;
+ 	BTIF_DBG_FUNC("--\n");
+ 	return i_ret;
+ }
+diff --git a/connadp/common/connectivity_build_in_adapter.c b/connadp/common/connectivity_build_in_adapter.c
+index 514f940..f9a2dce 100644
+--- a/connadp/common/connectivity_build_in_adapter.c
++++ b/connadp/common/connectivity_build_in_adapter.c
+@@ -1,241 +1,53 @@
+ // SPDX-License-Identifier: GPL-2.0
+-/*
+- * Copyright (c) 2019 MediaTek Inc.
++/* Q25 native subset of MediaTek connadp; original (c) 2019 MediaTek Inc.
++ * Only actual WMT consumers are provided. No unsupported MMC/GPIO/clock
++ * success wrappers or Android power-throttling providers are exported.
+  */
+-
+-#ifdef DFT_TAG
+-#undef DFT_TAG
+-#endif
+-#define DFT_TAG "[CONNADP]"
++#include <linux/module.h>
++#include <linux/sched.h>
++#include <linux/sched/debug.h>
++#include <linux/sched/signal.h>
++#include <linux/sched/task.h>
++#include <linux/rcupdate.h>
++#include <linux/string.h>
+ #include <drivers/misc/mediatek/connectivity/common/connectivity_build_in_adapter.h>
+ 
+-#include <linux/sched/cputime.h>
+-
+-/*device tree mode*/
+-#ifdef CONFIG_OF
+-#include <linux/of.h>
+-#include <linux/of_irq.h>
+-#include <linux/irqreturn.h>
+-#include <linux/of_address.h>
+-#endif
+-
+-#include <linux/platform_device.h>
+-#include <linux/pm_runtime.h>
+-#include <linux/of_reserved_mem.h>
+-#include <linux/trace_events.h>
+-#include <linux/notifier.h>
+-
+-#include <linux/interrupt.h>
+-#ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
+-#include <mtk_6306_gpio.h>
+-#endif
+-
+-#ifdef CONNADP_HAS_CLOCK_BUF_CTRL
+-#include <mtk_clkbuf_ctl.h>
+-#endif
+-
+-/* MMC */
+-#include <linux/mmc/card.h>
+-#include <linux/mmc/host.h>
+-
+-
+-#ifdef CONFIG_ARCH_MT6570
+-#define CPU_BOOST y
+-#endif
+-#ifdef CONFIG_ARCH_MT6755
+-#define CPU_BOOST y
+-#endif
+-#ifdef CONFIG_MACH_MT6757
+-#define CPU_BOOST y
+-#endif
+-#ifdef CONFIG_MACH_MT6763
+-#define CPU_BOOST y
+-#endif
+-
+-#ifdef CPU_BOOST
+-#include "mtk_ppm_api.h"
+-#endif
+-
+-
+-/* conninfra init/deinit notifier */
+-static BLOCKING_NOTIFIER_HEAD(conn_state_notifier_list);
+-static DEFINE_MUTEX(conn_state_notify_mutex);
+-struct connsys_state_info g_connsys_state_info;
+-
+ void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
+ {
+-	pr_info("%s not support in connadp.ko\n", __func__);
+-}
+-EXPORT_SYMBOL(connectivity_export_show_stack);
+-
+-void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
+-{
+-#ifdef CONFIG_TRACING
+-	pr_info("%s not support in connadp.ko\n", __func__);
+-#endif
+-}
+-EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
+-
+-void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
+-{
+-	pr_info("[%s] [%x][%llx] [%x][%llx]", __func__,
+-				chip_info, emi_phy_addr,
+-				g_connsys_state_info.chip_info, g_connsys_state_info.emi_phy_addr);
+-
+-	mutex_lock(&conn_state_notify_mutex);
+-	g_connsys_state_info.chip_info = chip_info;
+-	g_connsys_state_info.emi_phy_addr = emi_phy_addr;
+-
+-	blocking_notifier_call_chain(&conn_state_notifier_list, 1, &g_connsys_state_info);
+-
+-	mutex_unlock(&conn_state_notify_mutex);
+-}
+-EXPORT_SYMBOL(connectivity_export_conap_scp_init);
+-
+-
+-void connectivity_export_conap_scp_deinit(void)
+-{
+-
+-	mutex_lock(&conn_state_notify_mutex);
+-	blocking_notifier_call_chain(&conn_state_notifier_list, 0, NULL);
+-	mutex_unlock(&conn_state_notify_mutex);
+-}
+-EXPORT_SYMBOL(connectivity_export_conap_scp_deinit);
+-
+-
+-void connectivity_register_state_notifier(struct notifier_block *nb)
+-{
+-	mutex_lock(&conn_state_notify_mutex);
+-	blocking_notifier_chain_register(&conn_state_notifier_list, nb);
+-
+-	pr_debug("[CONNADP] register conn_state notify callback..chip=[%x]\n",
+-				g_connsys_state_info.chip_info);
+-
+-	if (g_connsys_state_info.chip_info != 0)
+-		nb->notifier_call(nb, 1, NULL);
+-	mutex_unlock(&conn_state_notify_mutex);
+-}
+-EXPORT_SYMBOL(connectivity_register_state_notifier);
+-
+-void connectivity_unregister_state_notifier(struct notifier_block *nb)
+-{
+-	mutex_lock(&conn_state_notify_mutex);
+-	blocking_notifier_chain_unregister(&conn_state_notifier_list, nb);
+-	mutex_unlock(&conn_state_notify_mutex);
+-}
+-EXPORT_SYMBOL(connectivity_unregister_state_notifier);
+-
+-#ifdef CPU_BOOST
+-bool connectivity_export_spm_resource_req(unsigned int user,
+-					  unsigned int req_mask)
+-{
+-	return spm_resource_req(user, req_mask);
+-}
+-EXPORT_SYMBOL(connectivity_export_spm_resource_req);
+-
+-void connectivity_export_mt_ppm_sysboost_freq(enum ppm_sysboost_user user,
+-					      unsigned int freq)
+-{
+-	mt_ppm_sysboost_freq(user, freq);
+-}
+-EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_freq);
+-
+-void connectivity_export_mt_ppm_sysboost_core(enum ppm_sysboost_user user,
+-					      unsigned int core_num)
+-{
+-	mt_ppm_sysboost_core(user, core_num);
+-}
+-EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_core);
+-
+-void connectivity_export_mt_ppm_sysboost_set_core_limit(
+-				enum ppm_sysboost_user user,
+-				unsigned int cluster,
+-				int min_core, int max_core)
+-{
+-	mt_ppm_sysboost_set_core_limit(user, cluster, min_core, max_core);
+-}
+-EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_set_core_limit);
+-
+-void connectivity_export_mt_ppm_sysboost_set_freq_limit(
+-				enum ppm_sysboost_user user,
+-				unsigned int cluster,
+-				int min_freq, int max_freq)
+-{
+-	mt_ppm_sysboost_set_freq_limit(user, cluster, min_freq, max_freq);
+-}
+-EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_set_freq_limit);
+-#endif
+-
+-/*******************************************************************************
+- * Clock Buffer Control
+- ******************************************************************************/
+-#ifdef CONNADP_HAS_CLOCK_BUF_CTRL
+-void connectivity_export_clk_buf_ctrl(enum clk_buf_id id, bool onoff)
+-{
+-	clk_buf_ctrl(id, onoff);
+-}
+-EXPORT_SYMBOL(connectivity_export_clk_buf_ctrl);
+-#endif
+-
+-/*******************************************************************************
+- * MT6306 I2C-based GPIO Expander
+- ******************************************************************************/
+-#ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
+-void connectivity_export_mt6306_set_gpio_out(unsigned long pin,
+-					unsigned long output)
+-{
+-	mt6306_set_gpio_out(MT6306_GPIO_01, MT6306_GPIO_OUT_LOW);
+-}
+-EXPORT_SYMBOL(connectivity_export_mt6306_set_gpio_out);
+-
+-void connectivity_export_mt6306_set_gpio_dir(unsigned long pin,
+-					unsigned long dir)
+-{
+-	mt6306_set_gpio_dir(MT6306_GPIO_01, MT6306_GPIO_DIR_OUT);
+-}
+-EXPORT_SYMBOL(connectivity_export_mt6306_set_gpio_dir);
+-#endif
+-
+-/*******************************************************************************
+- * MMC
+- ******************************************************************************/
+-int connectivity_export_mmc_io_rw_direct(struct mmc_card *card,
+-				int write, unsigned int fn,
+-				unsigned int addr, u8 in, u8 *out)
+-{
+-	/* TODO: porting this function if sdio is used */
+-	/* return mmc_io_rw_direct(card, write, fn, addr, in, out); */
+-	return 0;
+-}
+-EXPORT_SYMBOL(connectivity_export_mmc_io_rw_direct);
+-
+-/******************************************************************************
+- * GPIO dump information
+- ******************************************************************************/
+-#ifndef CONFIG_MTK_GPIO
+-void __weak gpio_dump_regs_range(int start, int end)
+-{
+-	pr_info(DFT_TAG "[W]%s: is not define!\n", __func__);
++	/* Native exported scheduler API owns safe task-stack access. The old
++	 * raw stack pointer is not accepted by that API.
++	 */
++	(void)sp;
++	sched_show_task(tsk ? tsk : current);
+ }
+-#endif
+-#ifndef CONFIG_MTK_GPIO
+-void connectivity_export_dump_gpio_info(int start, int end)
+-{
+-	gpio_dump_regs_range(start, end);
+-}
+-EXPORT_SYMBOL(connectivity_export_dump_gpio_info);
+-#endif
++EXPORT_SYMBOL_GPL(connectivity_export_show_stack);
+ 
+ void connectivity_export_dump_thread_state(const char *name)
+ {
+-	pr_info("%s not support in connadp.ko\n", __func__);
+-}
+-EXPORT_SYMBOL(connectivity_export_dump_thread_state);
+-
+-int connectivity_export_gpio_get_tristate_input(unsigned int pin)
+-{
+-	return 0;
+-}
+-EXPORT_SYMBOL(connectivity_export_gpio_get_tristate_input);
+-
++	struct task_struct *group, *task, *found = NULL;
++	char comm[TASK_COMM_LEN];
++
++	if (!name)
++		return;
++	rcu_read_lock();
++	for_each_process_thread(group, task) {
++		get_task_comm(comm, task);
++		if (!strncmp(comm, name, TASK_COMM_LEN)) {
++			get_task_struct(task);
++			found = task;
++			goto unlock;
++		}
++	}
++unlock:
++	rcu_read_unlock();
++	if (found) {
++		sched_show_task(found);
++		put_task_struct(found);
++	} else {
++		pr_debug("WMT task %s not present\n", name);
++	}
++}
++EXPORT_SYMBOL_GPL(connectivity_export_dump_thread_state);
++
++MODULE_DESCRIPTION("Q25 native WMT platform bridge adapters");
+ MODULE_LICENSE("GPL");
+diff --git a/connadp/common/wmt_build_in_adapter.c b/connadp/common/wmt_build_in_adapter.c
+index e781bad..f64cbe4 100644
+--- a/connadp/common/wmt_build_in_adapter.c
++++ b/connadp/common/wmt_build_in_adapter.c
+@@ -257,6 +257,7 @@ int mtk_wcn_conninfra_is_bus_hang(void)
+ 		return bridge.conninfra_reg_is_bus_hang_cb();
+ }
+ 
++#if WMT_SDIO_SUPPORT
+ /*******************************************************************************
+  * SDIO integration with platform MMC driver
+  ******************************************************************************/
+@@ -390,3 +391,5 @@ void wmt_export_mtk_wcn_cmb_sdio_disable_eirq(void)
+ 	mtk_wcn_cmb_sdio_disable_eirq();
+ }
+ EXPORT_SYMBOL(wmt_export_mtk_wcn_cmb_sdio_disable_eirq);
++
++#endif /* WMT_SDIO_SUPPORT */
+diff --git a/include/drivers/misc/mediatek/connectivity/common/common_main/core/include/wmt_core.h b/include/drivers/misc/mediatek/connectivity/common/common_main/core/include/wmt_core.h
+index 5eb4f03..50ff053 100644
+--- a/include/drivers/misc/mediatek/connectivity/common/common_main/core/include/wmt_core.h
++++ b/include/drivers/misc/mediatek/connectivity/common/common_main/core/include/wmt_core.h
+@@ -50,9 +50,9 @@
+ #endif
+ 
+ #if defined(MT6632)
+-#define CFG_CORE_MT6632_SUPPORT 1	/* whether MT6632 is supported or not */
++#define CFG_CORE_MT6632_SUPPORT WMT_SDIO_SUPPORT	/* whether MT6632 is supported or not */
+ #else
+-#define CFG_CORE_MT6632_SUPPORT 1	/* whether MT6632 is supported or not */
++#define CFG_CORE_MT6632_SUPPORT WMT_SDIO_SUPPORT	/* whether MT6632 is supported or not */
+ #endif
+ 
+ #define CFG_CORE_SOC_SUPPORT 1
+diff --git a/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include/osal.h b/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include/osal.h
+index ab074f5..59213e2 100644
+--- a/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include/osal.h
++++ b/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include/osal.h
+@@ -139,7 +139,7 @@ typedef VOID(*P_TIMEOUT_HANDLER) (struct timer_list *t);
+ typedef struct timer_list *timer_handler_arg;
+ #define GET_HANDLER_DATA(arg, data) \
+ do { \
+-	P_OSAL_TIMER osal_timer = from_timer(osal_timer, arg, timer); \
++	P_OSAL_TIMER osal_timer = timer_container_of(osal_timer, arg, timer); \
+ 	data = osal_timer->timeroutHandlerData; \
+ } while (0)
+ 
+diff --git a/include/wmt_transport_config.h b/include/wmt_transport_config.h
+new file mode 100644
+index 0000000..18da97c
+--- /dev/null
++++ b/include/wmt_transport_config.h
+@@ -0,0 +1,14 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef WMT_TRANSPORT_CONFIG_H
++#define WMT_TRANSPORT_CONFIG_H
++/* Local source-build selection; no target kernel Kconfig changes. */
++#ifndef WMT_SDIO_SUPPORT
++#define WMT_SDIO_SUPPORT 1
++#endif
++#ifndef WMT_VENDOR_DISPLAY_NOTIFIER_SUPPORT
++#define WMT_VENDOR_DISPLAY_NOTIFIER_SUPPORT 1
++#endif
++#ifndef WMT_VENDOR_DEVAPC_SUPPORT
++#define WMT_VENDOR_DEVAPC_SUPPORT 1
++#endif
++#endif
+diff --git a/wmt_drv/common_detect/mtk_wcn_stub_alps.c b/wmt_drv/common_detect/mtk_wcn_stub_alps.c
+index 0e046dc..eb8f719 100644
+--- a/wmt_drv/common_detect/mtk_wcn_stub_alps.c
++++ b/wmt_drv/common_detect/mtk_wcn_stub_alps.c
+@@ -529,6 +529,7 @@ static void mtk_wcn_cmb_sdio_register_pm(pm_callback_t pm_cb, void *data)
+ }
+ #endif /* MTK_WCN_REMOVE_KERNEL_MODULE */
+ 
++#if WMT_SDIO_SUPPORT
+ static void mtk_wcn_cmb_sdio_on(int sdio_port_num)
+ {
+ 	pm_message_t state = {.event = PM_EVENT_USER_RESUME };
+@@ -551,7 +552,9 @@ static void mtk_wcn_cmb_sdio_on(int sdio_port_num)
+ 	} else
+ 		CMB_STUB_LOG_PR_WARN("mtk_wcn_cmb_sdio_on no sd callback!!\n");
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
++#if WMT_SDIO_SUPPORT
+ static void mtk_wcn_cmb_sdio_off(int sdio_port_num)
+ {
+ 	pm_message_t state = {.event = PM_EVENT_USER_SUSPEND };
+@@ -574,7 +577,9 @@ static void mtk_wcn_cmb_sdio_off(int sdio_port_num)
+ 	wmt_export_mtk_wcn_cmb_sdio_disable_eirq();
+ #endif
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
++#if WMT_SDIO_SUPPORT
+ int board_sdio_ctrl(unsigned int sdio_port_num, unsigned int on)
+ {
+ 	CMB_STUB_LOG_PR_DBG("mt_mtk_wcn_cmb_sdio_ctrl (%d, %d)\n",
+@@ -604,6 +609,7 @@ int board_sdio_ctrl(unsigned int sdio_port_num, unsigned int on)
+ 	return 0;
+ }
+ EXPORT_SYMBOL(board_sdio_ctrl);
++#endif /* WMT_SDIO_SUPPORT */
+ 
+ #ifdef MTK_WCN_REMOVE_KERNEL_MODULE
+ int mtk_wcn_sdio_irq_flag_set(int flag)
+diff --git a/wmt_drv/common_detect/wmt_detect.c b/wmt_drv/common_detect/wmt_detect.c
+index 63781ef..967936d 100644
+--- a/wmt_drv/common_detect/wmt_detect.c
++++ b/wmt_drv/common_detect/wmt_detect.c
+@@ -108,7 +108,11 @@ static long wmt_detect_unlocked_ioctl(struct file *filp, unsigned int cmd, unsig
+ 		break;
+ 
+ 	case COMBO_IOCTL_DO_SDIO_AUDOK:
++#if WMT_SDIO_SUPPORT
+ 		retval = sdio_detect_do_autok(arg);
++#else
++		retval = -EOPNOTSUPP;
++#endif
+ 		break;
+ 
+ 	case COMBO_IOCTL_CONNSYS_SOC_HW_INIT:
+@@ -125,7 +129,11 @@ static long wmt_detect_unlocked_ioctl(struct file *filp, unsigned int cmd, unsig
+ 		break;
+ 
+ 	case COMBO_IOCTL_MODULE_CLEANUP:
++#if WMT_SDIO_SUPPORT
+ 		retval = sdio_detect_exit();
++#else
++		retval = -EOPNOTSUPP;
++#endif
+ 		break;
+ 
+ 	case COMBO_IOCTL_DO_MODULE_INIT:
+@@ -171,7 +179,7 @@ int wmt_detect_ext_chip_pwr_on(void)
+ {
+ 	/*pre power on external chip */
+ 	/* wmt_plat_pwr_ctrl(FUNC_ON); */
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ 	WMT_DETECT_PR_INFO("++\n");
+ 	if (wmt_detect_chip_pwr_ctrl(1) != 0)
+ 		return -2;
+@@ -188,7 +196,7 @@ int wmt_detect_ext_chip_pwr_off(void)
+ {
+ 	/*pre power off external chip */
+ 	/* wmt_plat_pwr_ctrl(FUNC_OFF); */
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ 	WMT_DETECT_PR_INFO("--\n");
+ 	wmt_detect_sdio_pwr_ctrl(0);
+ 	return wmt_detect_chip_pwr_ctrl(0);
+@@ -201,7 +209,7 @@ int wmt_detect_ext_chip_pwr_off(void)
+ int wmt_detect_ext_chip_detect(void)
+ {
+ 	int iRet = -1;
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ 	unsigned int chipId = -1;
+ 	/*if there is no external combo chip, return -1 */
+ 	int bgfEintStatus = -1;
+@@ -240,7 +248,7 @@ int wmt_detect_ext_chip_detect(void)
+ 	/*todo: if there is external combo chip, power on chip return 0 */
+ }
+ 
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ static int wmt_detect_probe(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+@@ -282,7 +290,7 @@ ENUM_WMT_CHIP_TYPE wmt_detect_get_chip_type(void)
+ }
+ 
+ 
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ static const struct of_device_id wmt_detect_match[] = {
+ 	{ .compatible = "mediatek,connectivity-combo", },
+ 	{}
+@@ -308,9 +316,11 @@ static int wmt_detect_driver_init(void)
+ 	int ret = -1;
+ 
+ 	/*init SDIO-DETECT module */
++#if WMT_SDIO_SUPPORT
+ 	sdio_detect_init();
++#endif
+ 
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ 	ret = platform_driver_register(&wmt_detect_driver);
+ 	if (ret)
+ 		WMT_DETECT_PR_ERR("platform driver register fail ret:%d\n", ret);
+@@ -365,9 +375,11 @@ err1:
+ 	}
+ 
+ err0:
++#if WMT_SDIO_SUPPORT
+ 	sdio_detect_exit();
++#endif
+ 
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ 	platform_driver_unregister(&wmt_detect_driver);
+ #endif
+ 
+@@ -393,9 +405,11 @@ static void wmt_detect_driver_exit(void)
+ 	cdev_del(&gWmtDetectCdev);
+ 	unregister_chrdev_region(dev, WMT_DETECT_DEV_NUM);
+ 
++#if WMT_SDIO_SUPPORT
+ 	sdio_detect_exit();
++#endif
+ 
+-#ifdef MTK_WCN_COMBO_CHIP_SUPPORT
++#if defined(MTK_WCN_COMBO_CHIP_SUPPORT) && WMT_SDIO_SUPPORT
+ 	if (wmt_detect_driver.driver.p)
+ 		platform_driver_unregister(&wmt_detect_driver);
+ #endif
+diff --git a/wmt_drv/common_main/core/include/wmt_lib.h b/wmt_drv/common_main/core/include/wmt_lib.h
+old mode 100755
+new mode 100644
+diff --git a/wmt_drv/common_main/core/stp_core.c b/wmt_drv/common_main/core/stp_core.c
+index 19a114b..b057c18 100644
+--- a/wmt_drv/common_main/core/stp_core.c
++++ b/wmt_drv/common_main/core/stp_core.c
+@@ -2462,7 +2462,7 @@ INT32 mtk_wcn_stp_dbg_dump_package(VOID)
+ 
+ 		if (mtk_wcn_stp_coredump_start_get() == 0 &&
+ 		    mtk_wcn_stp_get_wmt_trg_assert() == 0) {
+-			if (mtk_wcn_stp_is_sdio_mode()) {
++			if (WMT_SDIO_SUPPORT && mtk_wcn_stp_is_sdio_mode()) {
+ 				stp_dbg_dmp_print(g_mtkstp_dbg);
+ 				STP_INFO_FUNC("STP_SDIO TX data dump start\n");
+ 				stp_sdio_txdbg_dump();
+@@ -2952,6 +2952,12 @@ EXPORT_SYMBOL(mtk_wcn_stp_is_rxqueue_empty);
+ 
+ void mtk_wcn_stp_set_mode(UINT32 mode)
+ {
++#if !WMT_SDIO_SUPPORT
++	if (mode & MTKSTP_SDIO_MODE) {
++		STP_ERR_FUNC("SDIO transport was excluded from this build\n");
++		return;
++	}
++#endif
+ 	STP_SET_SUPPORT_PROTOCOL(stp_core_ctx, mode);
+ 	STP_DBG_FUNC("STP_SUPPORT_PROTOCOL = %08x\n", STP_SUPPORT_PROTOCOL(stp_core_ctx));
+ }
+@@ -3393,10 +3399,7 @@ INT32 mtk_wcn_stp_wakeup_consys(VOID)
+ *****************************************************************************/
+ INT32 mtk_wcn_stp_dpidle_ctrl(UINT32 en_flag)
+ {
+-#ifdef CONFIG_MTK_BTIF
+-	mtk_wcn_consys_stp_btif_dpidle_ctrl(en_flag);
+-#endif
+-	return 0;
++	return mtk_wcn_consys_stp_btif_dpidle_ctrl(en_flag);
+ }
+ 
+ INT32 mtk_wcn_stp_notify_sleep_for_thermal(VOID)
+@@ -3540,6 +3543,7 @@ VOID mtk_wcn_stp_dbg_pkt_log(INT32 type, INT32 dir)
+ 	stp_dbg_pkt_log(type, 0, 0, 0, dir, NULL, 0);
+ }
+ 
++#if WMT_SDIO_SUPPORT
+ VOID mtk_stp_sdio_retry_flag_ctrl(INT32 flag)
+ {
+ 	if (flag) {
+@@ -3548,21 +3552,28 @@ VOID mtk_stp_sdio_retry_flag_ctrl(INT32 flag)
+ 	}
+ 	stp_sdio_retry_flag_ctrl(flag == 0 ? 0 : 1);
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
++#if WMT_SDIO_SUPPORT
+ VOID mtk_stp_dbg_sdio_retry_flag_ctrl(INT32 flag)
+ {
+ 	wmt_dbg_sdio_retry_ctrl = flag == 0 ? 0 : 1;
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
++#if WMT_SDIO_SUPPORT
+ INT32 mtk_stp_sdio_retry_flag_get(VOID)
+ {
+ 	return stp_sdio_retry_flag_get();
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
++#if WMT_SDIO_SUPPORT
+ VOID mtk_stp_dump_sdio_register(VOID)
+ {
+ 	stp_sdio_dump_register();
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
+ INT32 mtk_stp_dbg_dmp_append(PUINT8 buf, INT32 max_len)
+ {
+diff --git a/wmt_drv/common_main/core/stp_exp.c b/wmt_drv/common_main/core/stp_exp.c
+index a6f036f..9bab315 100644
+--- a/wmt_drv/common_main/core/stp_exp.c
++++ b/wmt_drv/common_main/core/stp_exp.c
+@@ -361,10 +361,12 @@ VOID stp_drv_exit(VOID)
+ #endif
+ }
+ 
++#if WMT_SDIO_SUPPORT
+ INT32 mtk_wcn_stp_sdio_wake_up_ctrl(MTK_WCN_HIF_SDIO_CLTCTX ctx)
+ {
+ 	stp_sdio_wake_up_ctrl(ctx);
+ 	return 0;
+ }
+ EXPORT_SYMBOL(mtk_wcn_stp_sdio_wake_up_ctrl);
++#endif /* WMT_SDIO_SUPPORT */
+ 
+diff --git a/wmt_drv/common_main/core/wmt_ctrl.c b/wmt_drv/common_main/core/wmt_ctrl.c
+old mode 100755
+new mode 100644
+index 12a1eda..78a3268
+--- a/wmt_drv/common_main/core/wmt_ctrl.c
++++ b/wmt_drv/common_main/core/wmt_ctrl.c
+@@ -75,8 +75,12 @@ static INT32 wmt_ctrl_stp_conf(P_WMT_CTRL_DATA);
+ static INT32 wmt_ctrl_free_patch(P_WMT_CTRL_DATA);
+ static INT32 wmt_ctrl_get_patch(P_WMT_CTRL_DATA);
+ static INT32 wmt_ctrl_host_baudrate_set(P_WMT_CTRL_DATA);
++#if WMT_SDIO_SUPPORT
+ static INT32 wmt_ctrl_sdio_hw(P_WMT_CTRL_DATA);
++#endif
++#if WMT_SDIO_SUPPORT
+ static INT32 wmt_ctrl_sdio_func(P_WMT_CTRL_DATA);
++#endif
+ static INT32 wmt_ctrl_hwidver_set(P_WMT_CTRL_DATA);
+ static INT32 wmt_ctrl_stp_rst(P_WMT_CTRL_DATA);
+ static INT32 wmt_ctrl_get_wmt_conf(P_WMT_CTRL_DATA);
+@@ -137,8 +141,10 @@ static const WMT_CTRL_FUNC wmt_ctrl_func[] = {
+ 	[WMT_CTRL_GET_PATCH] = wmt_ctrl_get_patch,
+ 	[WMT_CTRL_GET_PATCH_NAME] = wmt_ctrl_get_patch_name,
+ 	[WMT_CTRL_HOST_BAUDRATE_SET] = wmt_ctrl_host_baudrate_set,
++#if WMT_SDIO_SUPPORT
+ 	[WMT_CTRL_SDIO_HW] = wmt_ctrl_sdio_hw,
+ 	[WMT_CTRL_SDIO_FUNC] = wmt_ctrl_sdio_func,
++#endif
+ 	[WMT_CTRL_HWIDVER_SET] = wmt_ctrl_hwidver_set,
+ 	[WMT_CTRL_HWVER_GET] = NULL,	/* TODO: [FixMe][GeorgeKuo]: remove unused function. */
+ 	[WMT_CTRL_STP_RST] = wmt_ctrl_stp_rst,
+@@ -200,6 +206,10 @@ INT32 wmt_ctrl(P_WMT_CTRL_DATA pWmtCtrlData)
+ 		/* osal_assert(ctrlId >= WMT_CTRL_HW_PWR_OFF); [FixMe][GeorgeKuo]: useless comparison */
+ 		return -2;
+ 	}
++#if !WMT_SDIO_SUPPORT
++	if (ctrlId == WMT_CTRL_SDIO_HW || ctrlId == WMT_CTRL_SDIO_FUNC)
++		return -EOPNOTSUPP;
++#endif
+ 	/* TODO: [FixMe][GeorgeKuo] do sanity check to const function table when init and skip checking here */
+ 	if (wmt_ctrl_func[ctrlId]) {
+ 		/*call servicd handling API */
+@@ -994,6 +1004,7 @@ INT32 wmt_ctrl_host_baudrate_set(P_WMT_CTRL_DATA pWmtCtrlData)
+ 	return iRet;
+ }
+ 
++#if WMT_SDIO_SUPPORT
+ INT32 wmt_ctrl_sdio_hw(P_WMT_CTRL_DATA pWmtCtrlData)
+ {
+ 	INT32 iRet = 0;
+@@ -1033,7 +1044,9 @@ INT32 wmt_ctrl_sdio_hw(P_WMT_CTRL_DATA pWmtCtrlData)
+ 
+ 	return iRet;
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
++#if WMT_SDIO_SUPPORT
+ INT32 wmt_ctrl_sdio_func(P_WMT_CTRL_DATA pWmtCtrlData)
+ {
+ 	INT32 iRet = -1;
+@@ -1099,6 +1112,7 @@ INT32 wmt_ctrl_sdio_func(P_WMT_CTRL_DATA pWmtCtrlData)
+ 
+ 	return iRet;
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
+ #if 0
+ /* TODO: [FixMe][GeorgeKuo]: remove unused function. get hwver from core is not needed. */
+diff --git a/wmt_drv/common_main/core/wmt_exp.c b/wmt_drv/common_main/core/wmt_exp.c
+old mode 100755
+new mode 100644
+diff --git a/wmt_drv/common_main/core/wmt_func.c b/wmt_drv/common_main/core/wmt_func.c
+old mode 100755
+new mode 100644
+diff --git a/wmt_drv/common_main/core/wmt_lib.c b/wmt_drv/common_main/core/wmt_lib.c
+old mode 100755
+new mode 100644
+diff --git a/wmt_drv/common_main/include/wmt.h b/wmt_drv/common_main/include/wmt.h
+old mode 100755
+new mode 100644
+diff --git a/wmt_drv/common_main/linux/osal.c b/wmt_drv/common_main/linux/osal.c
+index 4ac2259..fd59dc3 100644
+--- a/wmt_drv/common_main/linux/osal.c
++++ b/wmt_drv/common_main/linux/osal.c
+@@ -849,7 +849,7 @@ INT32 osal_timer_stop(P_OSAL_TIMER pTimer)
+ {
+ 	struct timer_list *timer = &pTimer->timer;
+ 
+-	del_timer(timer);
++	timer_delete(timer);
+ 	return 0;
+ }
+ 
+@@ -857,7 +857,7 @@ INT32 osal_timer_stop_sync(P_OSAL_TIMER pTimer)
+ {
+ 	struct timer_list *timer = &pTimer->timer;
+ 
+-	del_timer_sync(timer);
++	timer_delete_sync(timer);
+ 	return 0;
+ }
+ 
+diff --git a/wmt_drv/common_main/linux/stp_btif.c b/wmt_drv/common_main/linux/stp_btif.c
+index c09cd33..1564aba 100644
+--- a/wmt_drv/common_main/linux/stp_btif.c
++++ b/wmt_drv/common_main/linux/stp_btif.c
+@@ -235,7 +235,7 @@ INT32 mtk_wcn_consys_stp_btif_dpidle_ctrl(UINT32 en_flag)
+ 		WMT_WARN_FUNC("NULL BTIF ID reference!\n");
+ 		iRet = -1;
+ 	} else {
+-		mtk_wcn_btif_dpidle_ctrl(g_stp_btif.stpBtifId, (enum _ENUM_BTIF_DPIDLE_) en_flag);
++		iRet = mtk_wcn_btif_dpidle_ctrl(g_stp_btif.stpBtifId, (enum _ENUM_BTIF_DPIDLE_) en_flag);
+ 		WMT_DBG_FUNC("stp btif dpidle ctrl done,en_flag(%d)\n", en_flag);
+ 	}
+ 
+diff --git a/wmt_drv/common_main/linux/stp_dbg.c b/wmt_drv/common_main/linux/stp_dbg.c
+index 8ed12ae..be824ba 100644
+--- a/wmt_drv/common_main/linux/stp_dbg.c
++++ b/wmt_drv/common_main/linux/stp_dbg.c
+@@ -2076,7 +2076,11 @@ INT32 stp_dbg_poll_cpupcr(UINT32 times, UINT32 sleep, UINT32 cmd)
+ 
+ 	switch (chip_type) {
+ 	case WMT_CHIP_TYPE_COMBO:
++#if WMT_SDIO_SUPPORT
+ 		stp_dbg_combo_poll_cpupcr(times, sleep, cmd);
++#else
++		return -EOPNOTSUPP;
++#endif
+ 		break;
+ 	case WMT_CHIP_TYPE_SOC:
+ 		stp_dbg_soc_poll_cpupcr(times, sleep, cmd);
+diff --git a/wmt_drv/common_main/linux/stp_dbg_combo.c b/wmt_drv/common_main/linux/stp_dbg_combo.c
+index c33a33e..00c2935 100644
+--- a/wmt_drv/common_main/linux/stp_dbg_combo.c
++++ b/wmt_drv/common_main/linux/stp_dbg_combo.c
+@@ -198,6 +198,7 @@ PUINT8 stp_dbg_combo_id_to_task(UINT32 id)
+ 	return combo_task_str[temp_id];
+ }
+ 
++#if WMT_SDIO_SUPPORT
+ INT32 stp_dbg_combo_poll_cpupcr(UINT32 times, UINT32 sleep, UINT32 cmd)
+ {
+ 	INT32 i = 0;
+@@ -271,3 +272,4 @@ INT32 stp_dbg_combo_poll_cpupcr(UINT32 times, UINT32 sleep, UINT32 cmd)
+ 
+ 	return 0;
+ }
++#endif /* WMT_SDIO_SUPPORT */
+diff --git a/wmt_drv/common_main/linux/wmt_alarm.c b/wmt_drv/common_main/linux/wmt_alarm.c
+index 1ad1c26..7167b29 100644
+--- a/wmt_drv/common_main/linux/wmt_alarm.c
++++ b/wmt_drv/common_main/linux/wmt_alarm.c
+@@ -64,7 +64,7 @@ static void wmt_alarm_dmp_info_handler(struct work_struct *work)
+ 	}
+ }
+ 
+-static enum alarmtimer_restart alarm_timer_handler(struct alarm *alarm,
++static void alarm_timer_handler(struct alarm *alarm,
+ 	ktime_t now)
+ {
+ 	ktime_t kt;
+@@ -77,7 +77,7 @@ static enum alarmtimer_restart alarm_timer_handler(struct alarm *alarm,
+ 
+ 	spin_unlock_irqrestore(&g_wmt_alarm.alarm_lock, g_wmt_alarm.flags);
+ 
+-	return ALARMTIMER_NORESTART;
++	return;
+ }
+ 
+ static int _wmt_alarm_start_timer_nolock(unsigned int sec)
+diff --git a/wmt_drv/common_main/linux/wmt_dbg.c b/wmt_drv/common_main/linux/wmt_dbg.c
+index 79a0417..d4eb455 100644
+--- a/wmt_drv/common_main/linux/wmt_dbg.c
++++ b/wmt_drv/common_main/linux/wmt_dbg.c
+@@ -816,11 +816,15 @@ static INT32 wmt_dbg_deep_sleep_ctrl(INT32 par1, INT32 par2, INT32 par3)
+ 
+ static INT32 wmt_dbg_sdio_retry_ctrl(INT32 par1, INT32 par2, INT32 par3)
+ {
++#if !WMT_SDIO_SUPPORT
++	return -EOPNOTSUPP;
++#else
+ 	WMT_INFO_FUNC("%s sdio retry!!\n", par2 == 0 ? "disable" : "enable");
+ 
+ 	mtk_stp_dbg_sdio_retry_flag_ctrl(par2 == 0 ? 0 : 1);
+ 
+ 	return 0;
++#endif
+ }
+ 
+ INT32 wmt_dbg_coex_test(INT32 par1, INT32 par2, INT32 par3)
+diff --git a/wmt_drv/common_main/linux/wmt_dev.c b/wmt_drv/common_main/linux/wmt_dev.c
+index f91d3d4..206b918 100644
+--- a/wmt_drv/common_main/linux/wmt_dev.c
++++ b/wmt_drv/common_main/linux/wmt_dev.c
+@@ -1562,6 +1562,7 @@ static INT32 WMT_init(VOID)
+ 	dev_t devID = MKDEV(gWmtMajor, 0);
+ 	INT32 cdevErr = -1;
+ 	INT32 ret = -1;
++	bool region = false;
+ 	ENUM_WMT_CHIP_TYPE chip_type;
+ 
+ 	WMT_DBG_FUNC("WMT Version= %s DATE=%s\n", MTK_WMT_VERSION, MTK_WMT_DATE);
+@@ -1577,7 +1578,9 @@ static INT32 WMT_init(VOID)
+ #if (MTK_WCN_REMOVE_KO)
+ 	/* called in do_common_drv_init() */
+ #else
++#if WMT_SDIO_SUPPORT
+ 	mtk_wcn_hif_sdio_drv_init();
++#endif
+ #endif
+ 	stp_drv_init();
+ 
+@@ -1585,8 +1588,10 @@ static INT32 WMT_init(VOID)
+ 	if (ret) {
+ 		WMT_ERR_FUNC("fail to register chrdev\n");
+ 		gWmtInitStatus = WMT_INIT_NOT_START;
++		stp_drv_exit();
+ 		return ret;
+ 	}
++	region = true;
+ 
+ 	cdev_init(&gWmtCdev, &gWmtFops);
+ 	gWmtCdev.owner = THIS_MODULE;
+@@ -1600,11 +1605,15 @@ static INT32 WMT_init(VOID)
+ 
+ #if WMT_CREATE_NODE_DYNAMIC
+ 	wmt_class = class_create("stpwmt");
+-	if (IS_ERR(wmt_class))
++	if (IS_ERR(wmt_class)) {
++		ret = PTR_ERR(wmt_class);
+ 		goto error;
++	}
+ 	wmt_dev = device_create(wmt_class, NULL, devID, NULL, "stpwmt");
+-	if (IS_ERR(wmt_dev))
++	if (IS_ERR(wmt_dev)) {
++		ret = PTR_ERR(wmt_dev);
+ 		goto error;
++	}
+ #endif
+ 
+ #if 0
+@@ -1645,8 +1654,10 @@ static INT32 WMT_init(VOID)
+ 	WMT_STEP_INIT_FUNC();
+ 
+ 	chip_type = wmt_detect_get_chip_type();
++#if WMT_SDIO_SUPPORT
+ 	if (chip_type == WMT_CHIP_TYPE_COMBO)
+ 		mtk_wcn_hif_sdio_update_cb_reg(wmt_dev_tra_sdio_update);
++#endif
+ 
+ 	wmt_lib_register_thermal_ctrl_cb(wmt_dev_tm_temp_query);
+ 	wmt_lib_register_trigger_assert_cb(wmt_lib_trigger_assert);
+@@ -1662,14 +1673,14 @@ static INT32 WMT_init(VOID)
+ 	register_early_suspend(&wmt_early_suspend_handler);
+ 	WMT_INFO_FUNC("register_early_suspend finished\n");
+ #else
++#if IS_ENABLED(CONFIG_DRM_MEDIATEK) && WMT_VENDOR_DISPLAY_NOTIFIER_SUPPORT
+ 	wmt_fb_notifier.notifier_call = wmt_fb_notifier_callback;
+-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+ 	ret = mtk_disp_notifier_register("wmt_driver", &wmt_fb_notifier);
+-#endif
+ 	if (ret)
+ 		WMT_ERR_FUNC("wmt register fb_notifier failed! ret(%d)\n", ret);
+ 	else
+ 		WMT_DBG_FUNC("wmt register fb_notifier OK!\n");
++#endif
+ #endif /* CONFIG_EARLYSUSPEND */
+ 	WMT_DBG_FUNC("success\n");
+ 
+@@ -1677,7 +1688,9 @@ static INT32 WMT_init(VOID)
+ 	/* called in do_common_drv_init() */
+ #else
+ 	mtk_wcn_stp_uart_drv_init();
++#if WMT_SDIO_SUPPORT
+ 	mtk_wcn_stp_sdio_drv_init();
++#endif
+ #endif
+ 
+ 	return 0;
+@@ -1689,26 +1702,26 @@ error:
+ #endif
+ 	wmt_dev_user_proc_remove();
+ #if WMT_CREATE_NODE_DYNAMIC
+-	if (!(IS_ERR(wmt_dev)))
++	if (!IS_ERR_OR_NULL(wmt_dev) && !IS_ERR_OR_NULL(wmt_class))
+ 		device_destroy(wmt_class, devID);
+-	if (!(IS_ERR(wmt_class))) {
++	wmt_dev = NULL;
++	if (!IS_ERR_OR_NULL(wmt_class))
+ 		class_destroy(wmt_class);
+-		wmt_class = NULL;
+-	}
++	wmt_class = NULL;
+ #endif
+ 
+ 	if (cdevErr == 0)
+ 		cdev_del(&gWmtCdev);
+ 
+-	if (ret == 0) {
++	/* Release the region on every failure so a retry can register it. */
++	if (region)
+ 		unregister_chrdev_region(devID, WMT_DEV_NUM);
+-		gWmtMajor = -1;
+-	}
++	stp_drv_exit();
+ 
+ 	gWmtInitStatus = WMT_INIT_NOT_START;
+-	WMT_ERR_FUNC("fail\n");
++	WMT_ERR_FUNC("fail(%d)\n", ret);
+ 
+-	return -1;
++	return ret ? ret : -EIO;
+ }
+ 
+ static VOID WMT_exit(VOID)
+@@ -1723,14 +1736,16 @@ static VOID WMT_exit(VOID)
+ 	unregister_early_suspend(&wmt_early_suspend_handler);
+ 	WMT_INFO_FUNC("unregister_early_suspend finished\n");
+ #else
+-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
++#if IS_ENABLED(CONFIG_DRM_MEDIATEK) && WMT_VENDOR_DISPLAY_NOTIFIER_SUPPORT
+ 	mtk_disp_notifier_unregister(&wmt_fb_notifier);
+ #endif
+ #endif /* CONFIG_EARLYSUSPEND */
+ 
+ 	wmt_dev_patch_info_free();
+ 	mtk_wcn_stp_uart_drv_exit();
++#if WMT_SDIO_SUPPORT
+ 	mtk_wcn_stp_sdio_drv_exit();
++#endif
+ 
+ 	wmt_dev_bgw_desense_deinit();
+ 
+@@ -1761,7 +1776,9 @@ static VOID WMT_exit(VOID)
+ 	gWmtMajor = -1;
+ 
+ 	stp_drv_exit();
++#if WMT_SDIO_SUPPORT
+ 	mtk_wcn_hif_sdio_driver_exit();
++#endif
+ 	gWmtInitStatus = WMT_INIT_NOT_START;
+ 	WMT_INFO_FUNC("done\n");
+ }
+diff --git a/wmt_drv/common_main/platform/mt6789.c b/wmt_drv/common_main/platform/mt6789.c
+index 7a99ed8..b5c11ce 100644
+--- a/wmt_drv/common_main/platform/mt6789.c
++++ b/wmt_drv/common_main/platform/mt6789.c
+@@ -31,6 +31,8 @@
+ #include <linux/regmap.h>
+ #include <linux/irq.h>
+ #include <linux/irqdomain.h>
++#include <linux/pinctrl/consumer.h>
++#include <linux/reset.h>
+ #include "connsys_debug_utility.h"
+ #ifdef CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH
+ #include "fw_log_wmt.h"
+@@ -60,7 +62,7 @@
+ /* Direct path */
+ #include <mtk_ccci_common.h>
+ #include <linux/gpio.h>
+-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
++#if IS_ENABLED(CONFIG_MTK_DEVAPC) && WMT_VENDOR_DEVAPC_SUPPORT
+ #include <linux/soc/mediatek/devapc_public.h>
+ #endif
+ 
+@@ -128,7 +130,7 @@ static VOID consys_set_mcif_emi_mpu_protection(MTK_WCN_BOOL enable);
+  * otherwise: 0
+  */
+ static INT32 consys_calibration_backup_restore_support(VOID);
+-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
++#if IS_ENABLED(CONFIG_MTK_DEVAPC) && WMT_VENDOR_DEVAPC_SUPPORT
+ static VOID consys_devapc_violation_cb(VOID);
+ #endif
+ static VOID consyc_register_devapc_cb(VOID);
+@@ -176,6 +178,10 @@ static struct regulator *reg_VCN18;
+ static struct regulator *reg_VCN28;
+ static struct regulator *reg_VCN33_BT;
+ static struct regulator *reg_VCN33_WIFI;
++/* Q25: CONN MCU reset line and A-die interface pins come from kernel providers. */
++static struct reset_control *conn_mcu_rst;
++static struct pinctrl *conn_pinctrl;
++static struct pinctrl_state *conn_pins_on, *conn_pins_off;
+ #endif
+ 
+ static void __iomem *g_conn_mcu_btif_0_base;
+@@ -258,7 +264,9 @@ WMT_CONSYS_IC_OPS consys_ic_ops_mt6789 = {
+ 	.consys_ic_set_pdma_axi_rready_force_high = consys_set_pdma_axi_rready_force_high,
+ 	.consys_ic_set_mcif_emi_mpu_protection = consys_set_mcif_emi_mpu_protection,
+ 	.consys_ic_calibration_backup_restore = consys_calibration_backup_restore_support,
++#if WMT_VENDOR_DEVAPC_SUPPORT
+ 	.consys_ic_register_devapc_cb = consyc_register_devapc_cb,
++#endif
+ 	.consys_ic_emi_entry_address = consys_emi_entry_address,
+ 	.consys_ic_set_xo_osc_ctrl = consys_set_xo_osc_ctrl,
+ 	.consys_ic_identify_adie = consys_identify_adie,
+@@ -319,13 +327,8 @@ static INT32 rom_patch_dl_flag = 1;
+ static UINT32 gJtagCtrl;
+ UINT32 g_vcn33_1_voltage_mt6789 = 3300000;
+ 
+-#if CONSYS_PMIC_CTRL_ENABLE
+-static UINT32 vs2_voter_vosel;
+-static UINT32 vs2_vosel;
+-static UINT32 vs2_vosel_sleep;
+-#endif
+ 
+-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
++#if IS_ENABLED(CONFIG_MTK_DEVAPC) && WMT_VENDOR_DEVAPC_SUPPORT
+ static struct devapc_vio_callbacks devapc_handle = {
+ 	.id = INFRA_SUBSYS_CONN,
+ 	.debug_dump = consys_devapc_violation_cb,
+@@ -475,7 +478,12 @@ static UINT32 consys_wakeup_btif_irq_pull_low(VOID)
+ 
+ static INT32 consys_clk_get_from_dts(struct platform_device *pdev)
+ {
+-	pm_runtime_enable(&pdev->dev);
++	INT32 ret;
++
++	/* devm: undone on probe failure/unbind, so a re-probe stays balanced */
++	ret = devm_pm_runtime_enable(&pdev->dev);
++	if (ret)
++		return ret;
+ 	dev_pm_syscore_device(&pdev->dev, true);
+ 
+ 	clk_infracfg_ao_ccif4_ap_cg_mt6789 = devm_clk_get(&pdev->dev, "ccif");
+@@ -491,21 +499,56 @@ static INT32 consys_clk_get_from_dts(struct platform_device *pdev)
+ 
+ static INT32 consys_pmic_get_from_dts(struct platform_device *pdev)
+ {
+-#if CONSYS_PMIC_CTRL_ENABLE
+-	reg_VCN18 = regulator_get(&pdev->dev, "vcn18");
+-	if (!reg_VCN18)
+-		WMT_PLAT_PR_INFO("Regulator_get VCN_1V8 fail\n");
+-	reg_VCN28 = regulator_get(&pdev->dev, "vcn28");
+-	if (!reg_VCN28)
+-		WMT_PLAT_PR_INFO("Regulator_get VCN_2V8 fail\n");
+-	reg_VCN33_BT = regulator_get(&pdev->dev, "vcn33_bt");
+-	if (!reg_VCN33_BT)
+-		WMT_PLAT_PR_INFO("Regulator_get VCN33_BT fail\n");
+-	reg_VCN33_WIFI = regulator_get(&pdev->dev, "vcn33_wifi");
+-	if (!reg_VCN33_WIFI)
+-		WMT_PLAT_PR_INFO("Regulator_get VCN33_WIFI fail\n");
+-#endif
++	struct device *dev = &pdev->dev;
++	struct regulator *vcn18, *vcn28, *vcn33_bt, *vcn33_wifi;
++	struct reset_control *rst;
++	struct pinctrl *pinctrl;
++	struct pinctrl_state *on, *off;
+ 
++	/*
++	 * Every supplier must be a real provider before any CONN access: no
++	 * dummy regulators, no raw PMIC/GPIO/TOPRGU/SPM fallbacks.
++	 */
++	if (!dev->pm_domain)
++		return dev_err_probe(dev, -ENODEV, "no CONN power domain attached\n");
++
++	vcn18 = devm_regulator_get_optional(dev, "vcn18");
++	if (IS_ERR(vcn18))
++		return dev_err_probe(dev, PTR_ERR(vcn18), "VCN18 unavailable\n");
++	vcn28 = devm_regulator_get_optional(dev, "vcn28");
++	if (IS_ERR(vcn28))
++		return dev_err_probe(dev, PTR_ERR(vcn28), "VCN28 unavailable\n");
++	/* MT6366 has one VCN33 regulator; BT and Wi-Fi each hold a consumer. */
++	vcn33_bt = devm_regulator_get_optional(dev, "vcn33");
++	if (IS_ERR(vcn33_bt))
++		return dev_err_probe(dev, PTR_ERR(vcn33_bt), "VCN33 unavailable\n");
++	vcn33_wifi = devm_regulator_get_optional(dev, "vcn33");
++	if (IS_ERR(vcn33_wifi))
++		return dev_err_probe(dev, PTR_ERR(vcn33_wifi), "VCN33 unavailable\n");
++
++	rst = devm_reset_control_get_exclusive(dev, NULL);
++	if (IS_ERR(rst))
++		return dev_err_probe(dev, PTR_ERR(rst), "CONN MCU reset unavailable\n");
++
++	pinctrl = devm_pinctrl_get(dev);
++	if (IS_ERR(pinctrl))
++		return dev_err_probe(dev, PTR_ERR(pinctrl), "pinctrl unavailable\n");
++	on = pinctrl_lookup_state(pinctrl, "on");
++	if (IS_ERR(on))
++		return dev_err_probe(dev, PTR_ERR(on), "pinctrl state \"on\" missing\n");
++	off = pinctrl_lookup_state(pinctrl, "off");
++	if (IS_ERR(off))
++		return dev_err_probe(dev, PTR_ERR(off), "pinctrl state \"off\" missing\n");
++
++	/* Publish only a complete supplier set. devres unwinds failed probe. */
++	reg_VCN18 = vcn18;
++	reg_VCN28 = vcn28;
++	reg_VCN33_BT = vcn33_bt;
++	reg_VCN33_WIFI = vcn33_wifi;
++	conn_mcu_rst = rst;
++	conn_pinctrl = pinctrl;
++	conn_pins_on = on;
++	conn_pins_off = off;
+ 	return 0;
+ }
+ 
+@@ -521,12 +564,30 @@ static INT32 consys_clock_buffer_ctrl(MTK_WCN_BOOL enable)
+ 
+ static VOID consys_set_if_pinmux(MTK_WCN_BOOL enable)
+ {
+-	consys_set_if_pinmux_mt6789_gen(enable);
++	int ret;
++
++	ret = pinctrl_select_state(conn_pinctrl, enable ? conn_pins_on : conn_pins_off);
++	if (ret)
++		WMT_PLAT_PR_ERR("A-die interface pinctrl %s failed(%d)\n",
++				enable ? "on" : "off", ret);
+ }
+ 
+ static VOID consys_hw_reset_bit_set(MTK_WCN_BOOL enable)
+ {
+-	consys_hw_reset_bit_set_mt6789_gen(enable);
++	int ret;
++
++	if (enable) {
++		ret = reset_control_assert(conn_mcu_rst);
++	} else {
++		ret = reset_control_deassert(conn_mcu_rst);
++		/* de-assert CONNSYS CPU SW reset (locate at host csr) */
++		if (!ret && conn_reg.mcu_conn_hif_on_base)
++			CONSYS_SET_BIT(conn_reg.mcu_conn_hif_on_base +
++				CONSYS_GEN_CONN_HIF_ON_CFG_RSV_OFFSET_ADDR, (0x1 << 7));
++	}
++	if (ret)
++		WMT_PLAT_PR_ERR("CONN MCU reset %s failed(%d)\n",
++				enable ? "assert" : "deassert", ret);
+ }
+ 
+ static INT32 consys_polling_goto_idle(VOID)
+@@ -555,45 +616,36 @@ static INT32 consys_polling_goto_idle(VOID)
+ 
+ static VOID consys_hw_spm_clk_gating_enable(VOID)
+ {
+-	consys_hw_spm_clk_gating_enable_mt6789_gen();
++	/* SPM register access belongs to the SPM genpd provider (q25-conn-pd). */
+ }
+ 
+ int consys_platform_spm_conn_ctrl_mt6789(unsigned int enable)
+ {
+-	int ret = 0;
+ 	struct platform_device *pdev = get_consys_device();
++	int ret, pm_ret;
+ 
+-	if (!pdev) {
+-		WMT_PLAT_PR_INFO("get_consys_device fail.\n");
+-		return -1;
+-	}
++	if (!pdev)
++		return -ENODEV;
+ 
+ 	if (enable) {
+-		ret = pm_runtime_get_sync(&(pdev->dev));
+-		if (ret)
+-			WMT_PLAT_PR_INFO("pm_runtime_get_sync() fail(%d)\n", ret);
+-		else
+-			WMT_PLAT_PR_INFO("pm_runtime_get_sync() CONSYS ok\n");
+-
+-		ret = device_init_wakeup(&(pdev->dev), true);
+-		if (ret)
+-			WMT_PLAT_PR_INFO("device_init_wakeup(true) fail.\n");
+-		else
+-			WMT_PLAT_PR_INFO("device_init_wakeup(true) CONSYS ok\n");
+-	} else {
+-		ret = device_init_wakeup(&(pdev->dev), false);
+-		if (ret)
+-			WMT_PLAT_PR_INFO("device_init_wakeup(false) fail.\n");
+-		else
+-			WMT_PLAT_PR_INFO("device_init_wakeup(false) CONSYS ok\n");
+-
+-		ret = pm_runtime_put_sync(&(pdev->dev));
+-		if (ret)
+-			WMT_PLAT_PR_INFO("pm_runtime_put_sync() fail.\n");
+-		else
+-			WMT_PLAT_PR_INFO("pm_runtime_put_sync() CONSYS ok\n");
++		ret = pm_runtime_resume_and_get(&pdev->dev);
++		if (ret < 0)
++			return ret;
++
++		ret = device_init_wakeup(&pdev->dev, true);
++		if (ret) {
++			pm_ret = pm_runtime_put_sync(&pdev->dev);
++			if (pm_ret < 0)
++				WMT_PLAT_PR_INFO("runtime PM unwind failed(%d)\n", pm_ret);
++		}
++		return ret;
+ 	}
+-	return ret;
++
++	ret = device_init_wakeup(&pdev->dev, false);
++	pm_ret = pm_runtime_put_sync(&pdev->dev);
++	if (ret)
++		return ret;
++	return pm_ret < 0 ? pm_ret : 0;
+ }
+ 
+ static INT32 consys_hw_power_ctrl(MTK_WCN_BOOL enable)
+@@ -619,6 +671,7 @@ static INT32 consys_hw_power_ctrl(MTK_WCN_BOOL enable)
+ 		iRet = consys_platform_spm_conn_ctrl_mt6789(1);
+ 		if (iRet) {
+ 			WMT_PLAT_PR_INFO("consys_platform_spm_conn_ctrl_mt6789 fail(%d)\n", iRet);
++			clk_disable_unprepare(clk_infracfg_ao_ccif4_ap_cg_mt6789);
+ 			return iRet;
+ 		}
+ 
+@@ -781,284 +834,109 @@ static VOID consys_set_mcu_mem_pdn_delay(VOID)
+ 
+ static INT32 consys_hw_vcn33_ctrl(MTK_WCN_BOOL enable)
+ {
+-#if CONSYS_PMIC_CTRL_ENABLE
+-	if (enable) {
+-		WMT_PLAT_PR_INFO("Turn on reg_VCN33_1_BT in legacy mode\n");
+-		/*Set VCN33_1_SW_EN as 1 and set votage as 3V3*/
+-		if (reg_VCN33_BT) {
+-			regulator_set_voltage(reg_VCN33_BT, g_vcn33_1_voltage_mt6789,
+-					g_vcn33_1_voltage_mt6789);
+-			if (regulator_enable(reg_VCN33_BT))
+-				WMT_PLAT_PR_INFO("WMT do WIFI PMIC on fail!\n");
+-		}
+-		if (g_regmap) {
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN33_EN_0_ADDR, 1);/* b0=1, b1= 0 */
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN33_SW_OP_EN_ADDR, 3); /* b0=1, b1=1 */
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN33_HW0_OP_CFG_ADDR, 2); /* bit1=1 */
+-		}
+-	} else {
+-		if (reg_VCN33_BT)
+-			if (regulator_disable(reg_VCN33_BT))
+-				WMT_PLAT_PR_INFO("disable VCN33 fail!\n");
+-	}
+-#endif
+-	return 0;
++	INT32 ret;
++
++	if (!enable)
++		return regulator_disable(reg_VCN33_BT);
++
++	WMT_PLAT_PR_INFO("Turn on VCN33 (%u uV)\n", g_vcn33_1_voltage_mt6789);
++	ret = regulator_set_voltage(reg_VCN33_BT, g_vcn33_1_voltage_mt6789,
++				    g_vcn33_1_voltage_mt6789);
++	if (!ret)
++		ret = regulator_enable(reg_VCN33_BT);
++	if (ret)
++		WMT_PLAT_PR_ERR("VCN33 on failed(%d)\n", ret);
++	return ret;
+ }
+ 
+ static INT32 consys_hw_vcn13_ctrl(MTK_WCN_BOOL enable)
+ {
+-#if CONSYS_PMIC_CTRL_ENABLE
+-	/* vcn13 ext ctrl GPIO 68
+-	 * mode : 0 GPIO_BASE(0x10005000)+0x380[19:16]
+-	 * DIR  : 1 GPIO_BASE(0x10005000)+0x20[4]
+-	 * DOUT : 1/0 (high/low) GPIO_BASE(0x10005000)+0x120[4]
++	/*
++	 * MT6635 A-die: stock drives GPIO68 and raises the shared VS2 buck by
++	 * raw PMIC voter writes. Neither is modelled by the kernel providers
++	 * here, so this path is refused.
+ 	 */
+-
+-	UINT8 *consys_vcn13_reg_base = NULL;
+-
+-	consys_vcn13_reg_base = ioremap(CONSYS_VCN13_REG_BASE, 0x1000);
+-	if (!consys_vcn13_reg_base) {
+-		WMT_PLAT_PR_INFO("consys_vcn13_reg_base(%x) ioremap fail\n",
+-				CONSYS_VCN13_REG_BASE);
+-		return 0;
+-	}
+-
+-	CONSYS_REG_WRITE(consys_vcn13_reg_base + CONSYS_VCN13_MODE_OFFSET,
+-			(CONSYS_REG_READ(consys_vcn13_reg_base +
+-			CONSYS_VCN13_MODE_OFFSET) &
+-			CONSYS_VCN13_MODE_MASK) | CONSYS_VCN13_MODE_VALUE);
+-
+-	CONSYS_SET_BIT(consys_vcn13_reg_base + CONSYS_VCN13_DIR_OFFSET,
+-				CONSYS_VCN13_DIR_BIT);
+-
+-	if (enable) {
+-		if (g_regmap) {
+-			/* backup vs2 vosel value */
+-			if (vs2_voter_vosel == 0) {
+-				regmap_read(g_regmap, PMIC_RG_BUCK_VS2_VOTER_VOSEL,
+-						&vs2_voter_vosel);
+-				WMT_PLAT_PR_INFO("Backup default value of vs2_voter_vosel = 0x%x\n",
+-						vs2_voter_vosel);
+-			}
+-			if (vs2_vosel == 0) {
+-				regmap_read(g_regmap, PMIC_RG_BUCK_VS2_VOSEL, &vs2_vosel);
+-				WMT_PLAT_PR_INFO("Backup default value of vs2_vosel = 0x%x\n",
+-						vs2_vosel);
+-			}
+-			if (vs2_vosel_sleep == 0) {
+-				regmap_read(g_regmap, PMIC_RG_BUCK_VS2_VOSEL_SLEEP,
+-						&vs2_vosel_sleep);
+-				WMT_PLAT_PR_INFO("Backup default value of vs2_vosel_sleep = 0x%x\n",
+-						vs2_vosel_sleep);
+-			}
+-
+-			/* Set VS2 base to 1.375V */
+-			regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOTER_VOSEL, 0x46);
+-			/* Set VS2 to 1.4625V */
+-			regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOSEL, 0x4D);
+-			/* request VS2 to 1.4625V by VS2 VOTER (use bit 4) */
+-			regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOTER_EN_SET, 0x10);
+-			/* Set VS2 sleep to 1.375V */
+-			regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOSEL_SLEEP, 0x46);
+-		}
+-
+-		CONSYS_SET_BIT(consys_vcn13_reg_base + CONSYS_VCN13_DOUT_OFFSET,
+-				CONSYS_VCN13_DOUT_BIT);
+-	} else {
+-		CONSYS_CLR_BIT(consys_vcn13_reg_base + CONSYS_VCN13_DOUT_OFFSET,
+-				CONSYS_VCN13_DOUT_BIT);
+-
+-		if (g_regmap) {
+-			/* clear vote, then VS2 can restore to VS2_VOTER_VOSEL */
+-			regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOTER_EN_CLR, 0x10);
+-			/* Set VS2 to VS2_VOTER_VOSEL */
+-			if (vs2_vosel > 0) {
+-				regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOSEL, vs2_vosel);
+-				WMT_PLAT_PR_INFO("Set vs2_vosel = 0x%x\n", vs2_vosel);
+-			}
+-			/* Set VS2 sleep to vs2_vosel_sleep */
+-			if (vs2_vosel_sleep > 0) {
+-				regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOSEL_SLEEP,
+-						vs2_vosel_sleep);
+-				WMT_PLAT_PR_INFO("Set vs2_vosel_sleep = 0x%x\n", vs2_vosel_sleep);
+-			}
+-			/* Set VS2 base to backup voltage */
+-			if (vs2_voter_vosel > 0) {
+-				regmap_write(g_regmap, PMIC_RG_BUCK_VS2_VOTER_VOSEL,
+-						vs2_voter_vosel);
+-				WMT_PLAT_PR_INFO("Set vs2_voter_vosel = 0x%x\n", vs2_voter_vosel);
+-			}
+-		}
+-	}
+-
+-	iounmap(consys_vcn13_reg_base);
+-#endif
+-	return 0;
++	if (enable)
++		WMT_PLAT_PR_ERR("VCN13 (MT6635 A-die) path disabled\n");
++	return enable ? -EOPNOTSUPP : 0;
+ }
+ 
+ static INT32 consys_hw_vcn18_ctrl(MTK_WCN_BOOL enable)
+ {
+-	if (enable) {
+-#if CONSYS_PMIC_CTRL_ENABLE
+-		WMT_PLAT_PR_INFO("Turn on VCN18 in legacy mode\n");
+-		if (g_regmap) {
+-			/* SW_OP_EN =1, SW_EN = 1, SW_LP =0 */
+-			/* HW_OP_EN = 1, HW_OP_CFG = 1 */
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN18_EN_ADDR,  1); /* b0=1, b1=0 */
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN18_SW_OP_EN_ADDR, 3); /* b0=1, b1=1 */
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN18_HW0_OP_CFG_ADDR, 2); /* bit1=1 */
+-		}
++	UINT32 adie = mtk_wcn_consys_get_adie_chipid();
++	INT32 ret;
+ 
+-		/*Set VCN18_SW_EN as 1 and set votage as 1V8*/
+-		if (reg_VCN18) {
+-			regulator_set_voltage(reg_VCN18, 1800000, 1800000);
+-			if (regulator_enable(reg_VCN18))
+-				WMT_PLAT_PR_INFO("enable VCN18 fail\n");
+-			else
+-				WMT_PLAT_PR_DBG("enable VCN18 ok\n");
+-		}
+-#endif
+-		if (mtk_wcn_consys_get_adie_chipid() == PRIMARY_ADIE)
+-			consys_hw_vcn33_ctrl(enable);
+-		else if (mtk_wcn_consys_get_adie_chipid() == SECONDARY_ADIE)
+-			consys_hw_vcn13_ctrl(enable);
+-	} else {
+-		if (mtk_wcn_consys_get_adie_chipid() == PRIMARY_ADIE) {
+-			WMT_PLAT_PR_INFO("Turn off VCN33\n");
+-			consys_hw_vcn33_ctrl(enable);
+-		} else if (mtk_wcn_consys_get_adie_chipid() == SECONDARY_ADIE) {
+-			WMT_PLAT_PR_INFO("Turn off VCN13\n");
+-			consys_hw_vcn13_ctrl(enable);
++	if (enable) {
++		WMT_PLAT_PR_INFO("Turn on VCN18\n");
++		ret = regulator_set_voltage(reg_VCN18, 1800000, 1800000);
++		if (!ret)
++			ret = regulator_enable(reg_VCN18);
++		if (ret) {
++			WMT_PLAT_PR_ERR("VCN18 on failed(%d)\n", ret);
++			return ret;
+ 		}
+-#if CONSYS_PMIC_CTRL_ENABLE
+-		/* delay 300us */
+-		udelay(300);
++		if (adie == PRIMARY_ADIE)
++			ret = consys_hw_vcn33_ctrl(enable);
++		else if (adie == SECONDARY_ADIE)
++			ret = consys_hw_vcn13_ctrl(enable);
++		if (ret)
++			regulator_disable(reg_VCN18);
++		return ret;
++	}
+ 
+-		WMT_PLAT_PR_INFO("Turn off VCN18\n");
+-		if (reg_VCN18) {
+-			if (regulator_disable(reg_VCN18))
+-				WMT_PLAT_PR_INFO("disable VCN18 fail!\n");
+-		}
+-#endif
++	if (adie == PRIMARY_ADIE) {
++		WMT_PLAT_PR_INFO("Turn off VCN33\n");
++		consys_hw_vcn33_ctrl(enable);
+ 	}
+-	return 0;
++	/* delay 300us */
++	udelay(300);
++	WMT_PLAT_PR_INFO("Turn off VCN18\n");
++	ret = regulator_disable(reg_VCN18);
++	if (ret)
++		WMT_PLAT_PR_INFO("disable VCN18 fail(%d)\n", ret);
++	return ret;
+ }
+ 
+ static VOID consys_vcn28_hw_mode_ctrl(UINT32 enable)
+ {
+-	if (mtk_wcn_consys_get_adie_chipid() == SECONDARY_ADIE)
+-		/* 6635 not supported */
+-		return;
+-
+-#if CONSYS_PMIC_CTRL_ENABLE
+-	if (!g_regmap)
+-		return;
+-
+-	if (enable) {
+-		if (g_regmap) {
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_OP_EN_SET, 1);
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_HW0_OP_CFG_ADDR, 0);
+-		}
+-	} else {
+-		if (g_regmap) {
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_OP_EN_CLR,  1);
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_HW0_OP_CFG_ADDR, 0);
+-		}
+-	}
+-#endif
++	/* PMIC HW-mode (SRCLKEN) hand-off is not modelled by the regulator API. */
+ }
+ 
+ static INT32 consys_hw_vcn28_ctrl(UINT32 enable)
+ {
+-#if CONSYS_PMIC_CTRL_ENABLE
++	INT32 ret;
++
+ 	if (mtk_wcn_consys_get_adie_chipid() == SECONDARY_ADIE)
+ 		/* 6635 not supported */
+ 		return 0;
+ 
+-	if (enable) {
+-		WMT_PLAT_PR_INFO("Turn on reg_VCN28 in legacy mode\n");
+-		if (g_regmap) {
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_HW0_OP_EN_ADDR, 3); /* b0=1,b1=1 */
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_HW0_OP_CFG_ADDR, 0);
+-		}
+-		if (reg_VCN28) {
+-			regulator_set_voltage(reg_VCN28, 2800000, 2800000);
+-			if (regulator_enable(reg_VCN28))
+-				WMT_PLAT_PR_INFO("WMT do VCN28 PMIC on fail!\n");
+-		}
+-	} else {
+-		if (g_regmap) {
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_HW0_OP_EN_ADDR, 0); /* b0=0,b1=0 */
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN28_HW0_OP_CFG_ADDR, 0);
+-		}
+-		if (reg_VCN28)
+-			regulator_disable(reg_VCN28);
++	if (!enable) {
+ 		WMT_PLAT_PR_INFO("turn off vcn28\n");
++		return regulator_disable(reg_VCN28);
+ 	}
+-#endif
+-	return 0;
++	WMT_PLAT_PR_INFO("Turn on VCN28\n");
++	ret = regulator_set_voltage(reg_VCN28, 2800000, 2800000);
++	if (!ret)
++		ret = regulator_enable(reg_VCN28);
++	if (ret)
++		WMT_PLAT_PR_ERR("VCN28 on failed(%d)\n", ret);
++	return ret;
+ }
+ 
+ static INT32 consys_hw_bt_vcn33_ctrl(UINT32 enable)
+ {
+-#if CONSYS_PMIC_CTRL_ENABLE
++	/* Only the MT6635 A-die uses this rail split; that path is disabled. */
+ 	if (mtk_wcn_consys_get_adie_chipid() != SECONDARY_ADIE)
+-		/* 6631 not supported */
+ 		return 0;
+-	if (enable) {
+-		WMT_PLAT_PR_INFO("Turn on reg_VCN33_1_BT in legacy mode\n");
+-
+-		/*Set VCN33_BT enable and set votage as 3V3*/
+-		if (reg_VCN33_BT) {
+-			regulator_set_voltage(reg_VCN33_BT, g_vcn33_1_voltage_mt6789,
+-					g_vcn33_1_voltage_mt6789);
+-			if (regulator_enable(reg_VCN33_BT))
+-				WMT_PLAT_PR_INFO("WMT do BT PMIC on fail!\n");
+-		}
+-		if (g_regmap)
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN33_HW0_OP_CFG_ADDR, 0); /* bit1=0 */
+-		WMT_PLAT_PR_DBG("WMT do BT PMIC on\n");
+-	} else {
+-		/*do BT PMIC off */
+-		if (g_regmap)
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN33_HW0_OP_CFG_ADDR, 0); /* bit1=0 */
+-		if (reg_VCN33_BT)
+-			regulator_disable(reg_VCN33_BT);
+-		WMT_PLAT_PR_DBG("WMT do BT PMIC off\n");
+-	}
+-#endif
+-	return 0;
++	return enable ? -EOPNOTSUPP : 0;
+ }
+ 
+ static INT32 consys_hw_wifi_vcn33_ctrl(UINT32 enable)
+ {
+-#if CONSYS_PMIC_CTRL_ENABLE
++	/* Only the MT6635 A-die uses this rail split; that path is disabled. */
+ 	if (mtk_wcn_consys_get_adie_chipid() != SECONDARY_ADIE)
+-		/* 6631 not supported */
+ 		return 0;
+-	if (enable) {
+-		WMT_PLAT_PR_INFO("Turn on reg_VCN33_WIFI in legacy mode\n");
+-
+-		/*Set VCN33_WIFI enable and set votage as 3V3*/
+-		if (reg_VCN33_WIFI) {
+-			regulator_set_voltage(reg_VCN33_WIFI, g_vcn33_1_voltage_mt6789,
+-					g_vcn33_1_voltage_mt6789);
+-			if (regulator_enable(reg_VCN33_WIFI))
+-				WMT_PLAT_PR_INFO("WMT do WIFI PMIC on fail!\n");
+-		}
+-		if (g_regmap)
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN33_HW0_OP_CFG_ADDR, 0); /* bit1=0 */
+-		WMT_PLAT_PR_DBG("WMT do WIFI PMIC on\n");
+-	} else {
+-		/*do WIFI PMIC off */
+-		if (g_regmap)
+-			regmap_write(g_regmap, PMIC_RG_LDO_VCN33_HW0_OP_CFG_ADDR, 0); /* bit1=0 */
+-		if (reg_VCN33_WIFI)
+-			regulator_disable(reg_VCN33_WIFI);
+-		WMT_PLAT_PR_DBG("WMT do WIFI PMIC off\n");
+-	}
+-#endif
+-	return 0;
++	return enable ? -EOPNOTSUPP : 0;
+ }
+ 
+ static INT32 consys_hw_vcn_ctrl_after_idle(VOID)
+@@ -1281,6 +1159,13 @@ static UINT32 consys_adie_chipid_checking_flow(UINT32 adie)
+ 	UINT8 *conn_rf_spi_base = NULL;
+ 	UINT32 chipid = 0;
+ 	INT32 retry = 10;
++	INT32 vcn28 = (wmt_plat_soc_co_clock_flag_get() == 0);
++
++	/* The MT6635 probe needs VCN13 (GPIO68 + VS2 voter): not modelled. */
++	if (adie != PRIMARY_ADIE) {
++		WMT_PLAT_PR_INFO("A-die 0x%x probe skipped: VCN13/VS2 path disabled\n", adie);
++		return 0;
++	}
+ 
+ 	conn_rf_spi_base = ioremap(CONN_RF_SPI_BASE, 0x100);
+ 	if (!conn_rf_spi_base) {
+@@ -1288,45 +1173,31 @@ static UINT32 consys_adie_chipid_checking_flow(UINT32 adie)
+ 		return 0;
+ 	}
+ 
+-#if CONSYS_PMIC_CTRL_ENABLE
+-	if (reg_VCN18) {
+-		regulator_set_voltage(reg_VCN18, 1800000, 1800000);
+-		if (regulator_enable(reg_VCN18))
+-			WMT_PLAT_PR_INFO("enable VCN18 fail\n");
+-		else
+-			WMT_PLAT_PR_DBG("enable VCN18 ok\n");
++	if (regulator_set_voltage(reg_VCN18, 1800000, 1800000) ||
++	    regulator_enable(reg_VCN18)) {
++		WMT_PLAT_PR_ERR("enable VCN18 fail\n");
++		goto out_unmap;
+ 	}
+ 	udelay(300);
+ 
+-	if (adie == SECONDARY_ADIE) {
+-		if (consys_hw_vcn13_ctrl(ENABLE))
+-			WMT_PLAT_PR_INFO("enable VCN13 fail\n");
+-		else
+-			WMT_PLAT_PR_DBG("enable VCN13 ok\n");
+-	}
++	if (vcn28 && consys_hw_vcn28_ctrl(ENABLE))
++		goto out_vcn18;
+ 
+-	if (wmt_plat_soc_co_clock_flag_get() == 0)
+-		consys_hw_vcn28_ctrl(ENABLE);
+-#endif
+ 	consys_set_if_pinmux(ENABLE);
+-	WMT_PLAT_PR_DBG("consys_set_if_pinmux ok\n");
+ 	udelay(150);
+ 	consys_hw_reset_bit_set(ENABLE);
+-	WMT_PLAT_PR_DBG("consys_hw_reset_bit_set ok\n");
+-	consys_hw_spm_clk_gating_enable();
+-	WMT_PLAT_PR_DBG("consys_hw_spm_clk_gating_enable ok\n");
+-	consys_hw_power_ctrl(ENABLE);
+-	WMT_PLAT_PR_DBG("consys_hw_power_ctrl ok\n");
++	if (consys_hw_power_ctrl(ENABLE)) {
++		WMT_PLAT_PR_ERR("CONN power on failed, no A-die probe\n");
++		goto out_pins;
++	}
+ 	udelay(10);
+ 	if (polling_consys_chipid() < 0) {
+ 		WMT_PLAT_PR_INFO("polling_consys_chipid failed\n");
+-		return 0;
++		goto out_power;
+ 	}
+ 	WMT_PLAT_PR_DBG("polling_consys_chipid ok\n");
+ 	consys_set_access_emi_hw_mode();
+-	WMT_PLAT_PR_DBG("consys_set_access_emi_hw_mode ok\n");
+ 	consys_afe_reg_setting();
+-	WMT_PLAT_PR_DBG("consys_afe_reg_setting ok\n");
+ 	consys_set_xo_osc_ctrl();
+ 	WMT_PLAT_PR_DBG("polling_consys_chipid ok, ready to detect a-die\n");
+ 
+@@ -1359,24 +1230,18 @@ static UINT32 consys_adie_chipid_checking_flow(UINT32 adie)
+ 			CONSYS_REG_READ(conn_reg.mcu_top_misc_on_base + CONN_ON_ADIE_CTL_OFFSET)
+ 			& ~(0x1));
+ 
+-	iounmap(conn_rf_spi_base);
+-
++out_power:
+ 	consys_hw_power_ctrl(DISABLE);
++out_pins:
+ 	consys_set_if_pinmux(DISABLE);
+-
+-#if CONSYS_PMIC_CTRL_ENABLE
+-	if (wmt_plat_soc_co_clock_flag_get() == 0)
++	if (vcn28)
+ 		consys_hw_vcn28_ctrl(DISABLE);
+-
+-	if (adie == SECONDARY_ADIE)
+-		if (consys_hw_vcn13_ctrl(DISABLE))
+-			WMT_PLAT_PR_INFO("disable VCN13 fail!\n");
++out_vcn18:
+ 	udelay(300);
+-	if (reg_VCN18) {
+-		if (regulator_disable(reg_VCN18))
+-			WMT_PLAT_PR_INFO("disable VCN18 fail!\n");
+-	}
+-#endif
++	if (regulator_disable(reg_VCN18))
++		WMT_PLAT_PR_INFO("disable VCN18 fail!\n");
++out_unmap:
++	iounmap(conn_rf_spi_base);
+ 	return chipid;
+ }
+ 
+@@ -1796,7 +1661,7 @@ static INT32 consys_calibration_backup_restore_support(VOID)
+ }
+ 
+ 
+-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
++#if IS_ENABLED(CONFIG_MTK_DEVAPC) && WMT_VENDOR_DEVAPC_SUPPORT
+ static VOID consys_devapc_dump_debug_info(VOID)
+ {
+ 	if (osal_trylock_unsleepable_lock(&g_pwr_off_lock) == 0) {
+@@ -1829,7 +1694,7 @@ static VOID consys_devapc_dump_debug_info(VOID)
+ }
+ #endif
+ 
+-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
++#if IS_ENABLED(CONFIG_MTK_DEVAPC) && WMT_VENDOR_DEVAPC_SUPPORT
+ static VOID consys_devapc_violation_cb(VOID)
+ {
+ 	consys_devapc_dump_debug_info();
+@@ -1842,12 +1707,14 @@ static VOID consys_devapc_violation_cb(VOID)
+ }
+ #endif
+ 
++#if WMT_VENDOR_DEVAPC_SUPPORT
+ static VOID consyc_register_devapc_cb(VOID)
+ {
+-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
++#if IS_ENABLED(CONFIG_MTK_DEVAPC) && WMT_VENDOR_DEVAPC_SUPPORT
+ 	register_devapc_vio_callback(&devapc_handle);
+ #endif
+ }
++#endif
+ 
+ INT32 consys_is_rc_mode_enable_mt6789(VOID)
+ {
+diff --git a/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c b/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c
+old mode 100755
+new mode 100644
+index 42a91ac..7b73b5a
+--- a/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c
++++ b/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c
+@@ -156,7 +156,7 @@ struct CONSYS_BASE_ADDRESS conn_reg;
+ 
+ static struct platform_driver mtk_wmt_dev_drv = {
+ 	.probe = mtk_wmt_probe,
+-	.remove_new = mtk_wmt_remove,
++	.remove = mtk_wmt_remove,
+ 	.driver = {
+ 		   .name = "mtk_wmt",
+ 		   .owner = THIS_MODULE,
+@@ -234,37 +234,6 @@ P_WMT_CONSYS_IC_OPS mtk_wcn_get_consys_ic_ops(VOID)
+ 	return (P_WMT_CONSYS_IC_OPS)of_id->data;
+ }
+ 
+-static VOID mtk_wcn_get_regmap(struct platform_device *pdev)
+-{
+-	struct device_node *pmic_node;
+-	struct platform_device *pmic_pdev;
+-	struct mt6397_chip *chip;
+-
+-	pmic_node = of_parse_phandle(pdev->dev.of_node, "pmic", 0);
+-	if (!pmic_node) {
+-		WMT_PLAT_PR_INFO("get pmic_node fail\n");
+-		return;
+-	}
+-
+-	pmic_pdev = of_find_device_by_node(pmic_node);
+-	if (!pmic_pdev) {
+-		WMT_PLAT_PR_INFO("get pmic_pdev fail\n");
+-		return;
+-	}
+-
+-	chip = dev_get_drvdata(&(pmic_pdev->dev));
+-	if (!chip) {
+-		WMT_PLAT_PR_INFO("get chip fail\n");
+-		return;
+-	}
+-
+-	g_regmap = chip->regmap;
+-	if (IS_ERR_VALUE(g_regmap)) {
+-		g_regmap = NULL;
+-		WMT_PLAT_PR_INFO("get regmap fail\n");
+-	}
+-}
+-
+ static INT32 wmt_allocate_connsys_emi(struct platform_device *pdev)
+ {
+ #ifdef ALLOCATE_CONNSYS_EMI_FROM_KO
+@@ -380,6 +349,13 @@ static INT32 mtk_wmt_probe(struct platform_device *pdev)
+ 		return -1;
+ 	}
+ 
++	/* Resolve supplies before EMI clearing/remapping or runtime-PM setup. */
++	if (wmt_consys_ic_ops->consys_ic_pmic_get_from_dts) {
++		iRet = wmt_consys_ic_ops->consys_ic_pmic_get_from_dts(pdev);
++		if (iRet)
++			return iRet;
++	}
++
+ 	if (wmt_allocate_connsys_emi(pdev) < 0)
+ 		wmt_allocate_connsys_emi_by_lk2(pdev);
+ 
+@@ -452,10 +428,6 @@ static INT32 mtk_wmt_probe(struct platform_device *pdev)
+ 	if (wmt_consys_ic_ops->ic_bt_wifi_share_v33_spin_lock_init)
+ 		wmt_consys_ic_ops->ic_bt_wifi_share_v33_spin_lock_init();
+ 
+-	mtk_wcn_get_regmap(pdev);
+-	if (wmt_consys_ic_ops->consys_ic_pmic_get_from_dts)
+-		wmt_consys_ic_ops->consys_ic_pmic_get_from_dts(pdev);
+-
+ 	consys_pinctrl = devm_pinctrl_get(&pdev->dev);
+ 	if (IS_ERR(consys_pinctrl)) {
+ 		WMT_PLAT_PR_ERR("cannot find consys pinctrl.\n");
+@@ -729,8 +701,11 @@ INT32 mtk_wcn_consys_hw_reg_ctrl(UINT32 on, UINT32 co_clock_type)
+ 		if (wmt_consys_ic_ops->consys_ic_reset_emi_coredump)
+ 			wmt_consys_ic_ops->consys_ic_reset_emi_coredump(pEmibaseaddr);
+ 
+-		if (wmt_consys_ic_ops->consys_ic_hw_vcn18_ctrl)
+-			wmt_consys_ic_ops->consys_ic_hw_vcn18_ctrl(ENABLE);
++		if (wmt_consys_ic_ops->consys_ic_hw_vcn18_ctrl) {
++			iRet = wmt_consys_ic_ops->consys_ic_hw_vcn18_ctrl(ENABLE);
++			if (iRet)
++				goto err_cr;
++		}
+ 
+ 		if (wmt_consys_ic_ops->consys_ic_set_if_pinmux)
+ 			wmt_consys_ic_ops->consys_ic_set_if_pinmux(ENABLE);
+@@ -765,8 +740,13 @@ INT32 mtk_wcn_consys_hw_reg_ctrl(UINT32 on, UINT32 co_clock_type)
+ 			wmt_consys_ic_ops->consys_ic_hw_reset_bit_set(ENABLE);
+ 		if (wmt_consys_ic_ops->consys_ic_hw_spm_clk_gating_enable)
+ 			wmt_consys_ic_ops->consys_ic_hw_spm_clk_gating_enable();
+-		if (wmt_consys_ic_ops->consys_ic_hw_power_ctrl)
+-			wmt_consys_ic_ops->consys_ic_hw_power_ctrl(ENABLE);
++		if (wmt_consys_ic_ops->consys_ic_hw_power_ctrl) {
++			iRet = wmt_consys_ic_ops->consys_ic_hw_power_ctrl(ENABLE);
++			if (iRet) {
++				WMT_PLAT_PR_ERR("CONN power on failed(%d), no CONN access\n", iRet);
++				goto err_rails;
++			}
++		}
+ 
+ 		udelay(10);
+ 
+@@ -774,8 +754,10 @@ INT32 mtk_wcn_consys_hw_reg_ctrl(UINT32 on, UINT32 co_clock_type)
+ 			wmt_consys_ic_ops->consys_ic_ahb_clock_ctrl(ENABLE);
+ 
+ 		if (wmt_consys_ic_ops->polling_consys_ic_chipid &&
+-			wmt_consys_ic_ops->polling_consys_ic_chipid() < 0)
+-			return -WMT_ERRCODE_POLL_CHIPID_FAIL;
++			wmt_consys_ic_ops->polling_consys_ic_chipid() < 0) {
++			iRet = -WMT_ERRCODE_POLL_CHIPID_FAIL;
++			goto err_power;
++		}
+ 
+ 		if (wmt_consys_ic_ops->consys_ic_set_access_emi_hw_mode)
+ 			wmt_consys_ic_ops->consys_ic_set_access_emi_hw_mode();
+@@ -803,8 +785,10 @@ INT32 mtk_wcn_consys_hw_reg_ctrl(UINT32 on, UINT32 co_clock_type)
+ 			wmt_consys_ic_ops->consys_ic_hw_reset_bit_set(DISABLE);
+ 
+ 		if (wmt_consys_ic_ops->consys_ic_polling_goto_idle &&
+-			wmt_consys_ic_ops->consys_ic_polling_goto_idle())
+-			return -WMT_ERRCODE_POLL_NOT_GOTO_IDLE;
++			wmt_consys_ic_ops->consys_ic_polling_goto_idle()) {
++			iRet = -WMT_ERRCODE_POLL_NOT_GOTO_IDLE;
++			goto err_power;
++		}
+ 
+ 		if (wmt_consys_ic_ops->consys_ic_wifi_ctrl_switch_conn_mode)
+ 			wmt_consys_ic_ops->consys_ic_wifi_ctrl_switch_conn_mode();
+@@ -841,6 +825,34 @@ INT32 mtk_wcn_consys_hw_reg_ctrl(UINT32 on, UINT32 co_clock_type)
+ 	}
+ 	WMT_PLAT_PR_INFO("CONSYS-HW-REG-CTRL(0x%08x),finish\n", on);
+ 	return iRet;
++
++err_power:
++	if (wmt_consys_ic_ops->consys_ic_hw_reset_bit_set)
++		wmt_consys_ic_ops->consys_ic_hw_reset_bit_set(ENABLE);
++	if (wmt_consys_ic_ops->consys_ic_ahb_clock_ctrl)
++		wmt_consys_ic_ops->consys_ic_ahb_clock_ctrl(DISABLE);
++	if (wmt_consys_ic_ops->consys_ic_hw_power_ctrl)
++		wmt_consys_ic_ops->consys_ic_hw_power_ctrl(DISABLE);
++err_rails:
++	mtk_wcn_consys_hw_efuse_paldo_ctrl(DISABLE, co_clock_type);
++	if (co_clock_type) {
++		if (wmt_consys_ic_ops->consys_ic_clock_buffer_ctrl)
++			wmt_consys_ic_ops->consys_ic_clock_buffer_ctrl(DISABLE);
++	} else {
++		if (wmt_consys_ic_ops->consys_ic_vcn28_hw_mode_ctrl)
++			wmt_consys_ic_ops->consys_ic_vcn28_hw_mode_ctrl(DISABLE);
++		if (wmt_consys_ic_ops->consys_ic_hw_vcn28_ctrl)
++			wmt_consys_ic_ops->consys_ic_hw_vcn28_ctrl(DISABLE);
++	}
++	if (wmt_consys_ic_ops->consys_ic_set_if_pinmux)
++		wmt_consys_ic_ops->consys_ic_set_if_pinmux(DISABLE);
++	if (wmt_consys_ic_ops->consys_ic_hw_vcn18_ctrl)
++		wmt_consys_ic_ops->consys_ic_hw_vcn18_ctrl(DISABLE);
++err_cr:
++	if (wmt_consys_ic_ops->consys_ic_cr_remapping)
++		wmt_consys_ic_ops->consys_ic_cr_remapping(0);
++	WMT_PLAT_PR_ERR("CONSYS-HW-REG-CTRL(0x%08x) failed(%d), powered down\n", on, iRet);
++	return iRet;
+ }
+ /*tag4 wujun api big difference end*/
+ 
+diff --git a/wmt_drv/common_main/platform/wmt_plat_alps.c b/wmt_drv/common_main/platform/wmt_plat_alps.c
+old mode 100755
+new mode 100644
+index 56b29ee..8e0001b
+--- a/wmt_drv/common_main/platform/wmt_plat_alps.c
++++ b/wmt_drv/common_main/platform/wmt_plat_alps.c
+@@ -411,10 +411,12 @@ INT32 wmt_plat_deinit(VOID)
+ 	return 0;
+ }
+ 
++#if WMT_SDIO_SUPPORT
+ INT32 wmt_plat_sdio_ctrl(WMT_SDIO_SLOT_NUM sdioPortType, ENUM_FUNC_STATE on)
+ {
+ 	return board_sdio_ctrl(sdioPortType, (on == FUNC_OFF) ? 0 : 1);
+ }
++#endif /* WMT_SDIO_SUPPORT */
+ 
+ INT32 wmt_plat_irq_ctrl(ENUM_FUNC_STATE state)
+ {
+diff --git a/wmt_drv/debug_utility/connsys_debug_utility.c b/wmt_drv/debug_utility/connsys_debug_utility.c
+index 796adb2..69b692e 100644
+--- a/wmt_drv/debug_utility/connsys_debug_utility.c
++++ b/wmt_drv/debug_utility/connsys_debug_utility.c
+@@ -128,7 +128,7 @@ static void connlog_emi_status_dump(void);
+ 
+ /* connlog when suspend */
+ static int connlog_alarm_init(void);
+-static enum alarmtimer_restart alarm_timer_handler(struct alarm *alarm, ktime_t);
++static void alarm_timer_handler(struct alarm *alarm, ktime_t);
+ static inline bool connlog_is_alarm_enable(void);
+ static int connlog_set_alarm_timer(void);
+ static int connlog_cancel_alarm_timer(void);
+@@ -648,7 +648,7 @@ EXPORT_SYMBOL(connsys_log_blank_state_changed);
+ * RETURNS
+ *  void
+ *****************************************************************************/
+-static enum alarmtimer_restart alarm_timer_handler(struct alarm *alarm,
++static void alarm_timer_handler(struct alarm *alarm,
+ 	ktime_t now)
+ {
+ 	unsigned long flags;
+@@ -660,7 +660,7 @@ static enum alarmtimer_restart alarm_timer_handler(struct alarm *alarm,
+ 		alarm_start_relative(&gDev.log_alarm.alarm_timer,
+ 			ktime_set(gDev.log_alarm.alarm_sec, 0));
+ 	spin_unlock_irqrestore(&gDev.log_alarm.alarm_lock, flags);
+-	return ALARMTIMER_NORESTART;
++	return;
+ }
+ 
+ /*****************************************************************************

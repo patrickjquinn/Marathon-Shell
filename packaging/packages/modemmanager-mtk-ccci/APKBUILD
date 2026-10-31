@@ -1,0 +1,73 @@
+# ModemManager with MediaTek CCCI support, for the Zinwa Q25 only: Alpine's
+# community/modemmanager at the same snapshot plus the Moto G06 (lagos)
+# postmarketOS port's 0100 (ccci_node AT ports) and 0101 (mtk-ccci plugin),
+# and Marathon's 0102 (mtk-ccci attach-PDN reuse).
+# It provides modemmanager, so installing it (q25-modem depends on it)
+# replaces Alpine's daemon; nothing else pulls it in. libmm-glib stays
+# Alpine's. Keep pkgver and _commit in sync with Alpine's modemmanager.
+pkgname=modemmanager-mtk-ccci
+pkgver=1.25.95_git20261005
+pkgrel=1
+_commit=7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a
+pkgdesc="ModemManager with MediaTek CCCI (SoC modem) support"
+url="https://www.freedesktop.org/wiki/Software/ModemManager"
+arch="aarch64"
+license="GPL-2.0-or-later AND LGPL-2.1-or-later"
+depends="dbus libmm-glib mobile-broadband-provider-info polkit"
+makedepends="
+	dbus-dev
+	elogind-dev
+	glib-dev
+	libgudev-dev
+	libmbim-dev
+	libqmi-dev
+	linux-headers
+	meson
+	polkit-dev
+	"
+provides="modemmanager=$pkgver-r$pkgrel"
+replaces="modemmanager modemmanager-systemd modemmanager-udev"
+options="!check"
+source="https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/$_commit/ModemManager-$_commit.tar.gz
+	modemmanager.rules
+	0001-intel-XMM7360-fix-big-endian-handling-of-ASN-integer.patch
+	0100-support-mediatek-ccci-at-ports.patch
+	0101-plugins-new-mtk-ccci-plugin.patch
+	0102-mtk-ccci-reuse-attach-pdn.patch
+	"
+builddir="$srcdir"/ModemManager-$_commit
+
+build() {
+	abuild-meson \
+		-Db_lto=true \
+		-Dsystemdsystemunitdir=/usr/lib/systemd/system \
+		-Ddbus_policy_dir=/usr/share/dbus-1/system.d \
+		-Dgtk_doc=false \
+		-Dpolkit=permissive \
+		-Dsystemd_journal=false \
+		-Dsystemd_suspend_resume=true \
+		-Dintrospection=false \
+		-Dvapi=false \
+		-Dbash_completion=false \
+		-Dplugin_mtk_ccci=enabled \
+		. output
+	meson compile -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+	install -m644 -D "$srcdir/modemmanager.rules" \
+		"$pkgdir/usr/share/polkit-1/rules.d/01-org.freedesktop.ModemManager.rules"
+	# Alpine's libmm-glib, -dev, -doc and -lang packages keep providing these.
+	rm -rf "$pkgdir"/usr/lib/libmm-glib.so* "$pkgdir"/usr/lib/pkgconfig \
+		"$pkgdir"/usr/include "$pkgdir"/usr/share/man "$pkgdir"/usr/share/locale \
+		"$pkgdir"/usr/share/doc
+}
+sha512sums="
+e049eecc104c989f516402ca7c21e3374c152e3840cf05c34ac91bc8e3305c83b53693bc0964f657664d4156baaac1a4e0fa35dd577733623dd669b67f1675f6  ModemManager-7f0bf17ab518cd78925cf7e53cc0d5c42f88b41a.tar.gz
+6fab86c27502b29be0c6610d835a3249a4a81993eb986cff2c3ea9393fadd3f693ba4bb0532ae0e50a83d359559511859dd05f7ea2f0cb52839f535a7e49f8a0  modemmanager.rules
+f06e9b89acab5b61c5965658d62551b0f168066384674f7c4dd56feb6f811c82c640470e634e32d8c4ef62290588cf974aa5f213e5c67e797a06d33e61fa24ec  0001-intel-XMM7360-fix-big-endian-handling-of-ASN-integer.patch
+feb658c7ab1c03e4d9048f9f684a027a699cfd4326a0af3884149d759e4a03bb16f182e8de0df969c7b315a832331b6778df9988532facc35272f4fa653ff55c  0100-support-mediatek-ccci-at-ports.patch
+a819cb4eb8d21fdbf7e393cdfea05d2d71958933d43eac3d4413ae16368f7bd06e4c4c3a6218fca42fd355e770cc162891b58ef49c3f576fc113d15834d8bcd4  0101-plugins-new-mtk-ccci-plugin.patch
+38217ae80822774fa6dfe657672e42b20c0896261bff48f966e79b83cd4944a7473e8ce63d557aec3baaf584a84f49fe3441d2aa5a69e163e9ed8939fc61a500  0102-mtk-ccci-reuse-attach-pdn.patch
+"

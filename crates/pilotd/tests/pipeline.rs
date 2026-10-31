@@ -169,7 +169,8 @@ async fn an_answer_that_does_not_complete_the_request_continues_it() {
         srv.seen("/v1/jev")[1].body["state"]["utterance"],
         "set a timer a long one"
     );
-    assert!(log.all().is_empty());
+    let empty = log.all();
+    assert!(empty.is_empty(), "{empty:?}");
 }
 
 #[tokio::test]
@@ -519,7 +520,8 @@ async fn privacy_switch_offline_keeps_local_intents_and_sends_nothing() {
     assert_eq!(text_of(&r.cards[0]), "Paused.");
     let r = d.pipeline.ask("why is the sky blue", false).await;
     assert!(matches!(r.cards[0], Card::Offline { .. }));
-    assert!(d.store.egress(0).unwrap().is_empty());
+    let empty = d.store.egress(0).unwrap();
+    assert!(empty.is_empty(), "{empty:?}");
     assert!(srv.seen.lock().unwrap().is_empty());
 }
 
@@ -777,7 +779,8 @@ async fn memory_is_kept_on_the_phone_and_used_as_context() {
     );
     let r = d.pipeline.ask("forget about the orchids", false).await;
     assert!(matches!(&r.cards[0], Card::Memory { action, .. } if action == "forgotten"));
-    assert!(d.store.memories().unwrap().is_empty());
+    let empty = d.store.memories().unwrap();
+    assert!(empty.is_empty(), "{empty:?}");
 }
 
 #[test]

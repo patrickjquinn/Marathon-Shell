@@ -37,8 +37,9 @@ class TouchResampler : public QObject {
 
     // The display's last vblank, CLOCK_MONOTONIC microseconds, or -1: frames
     // then sample the finger for the vblank that will show them, however
-    // early or late in the interval they polish.
-    void                    setVblankClock(std::function<qint64()> lastVblankUs);
+    // early or late in the interval they polish. refreshHz is the display's
+    // rate, or 0 for the window's screen's.
+    void setVblankClock(std::function<qint64()> lastVblankUs, std::function<qreal()> refreshHz);
 
     static constexpr qint64 kMinLatencyMs = 5;
     static constexpr qint64 kMaxLatencyMs = 40;
@@ -83,6 +84,7 @@ class TouchResampler : public QObject {
     qreal                   m_frameAt   = -1;
     qreal                   m_slopAt    = -1;
     std::function<qint64()> m_lastVblankUs;
+    std::function<qreal()>  m_refreshHz;
     qint64                  m_flushedAt = 0;
     bool                    m_sending   = false;
     QElapsedTimer           m_clock;

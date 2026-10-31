@@ -1,0 +1,1399 @@
+From da4bafb29646756a4f4ff75fb1b66c8c1fb45e63 Mon Sep 17 00:00:00 2001
+From: nikuzo <buelaniki@gmail.com>
+Date: Tue, 29 Sep 2026 22:29:05 -0300
+Subject: [PATCH] plugins: new mtk-ccci plugin for MediaTek SoC modems
+
+MediaTek SoC modems (MT6768 and friends) talk AT over CCCI character
+devices and carry data on the ccmni network interfaces, but +CGACT
+contexts are never bound to those interfaces. Follow the stock RIL
+instead: allow data with AT+EDALLOW=1, activate the PDN with
+AT+EAPNACT=1,"<apn>","default",0, take the ccmni the modem picked from
+the +EIF: <id>, ifup URC (<id> % 100), confirm it with
+AT+EIF=<id>,"ifst","up",<type>, find the PDN id and DNS servers with
++CGCONTRDP and its addresses with AT+EPDN=<id>,"addr" (static IPv4, IPv6
+link-local for SLAAC), and deactivate it with AT+EAPNACT=0,<id>,0.
+
+Every +EIF: <id>, ifdown must be confirmed with
+AT+EIF=<id>,"ifst","down",0 as the stock NetAgent does, or the modem
+keeps the interface reserved and runs out of them (+CME ERROR: 3843).
+
+Ports are selected with the ID_MM_MTK_CCCI udev tag.
+---
+ meson.build                                   |   1 +
+ meson_options.txt                             |   1 +
+ src/plugins/meson.build                       |  14 +
+ src/plugins/mm-builtin-plugins.c              |   6 +
+ .../mtk-ccci/mm-broadband-bearer-mtk-ccci.c   | 875 ++++++++++++++++++
+ .../mtk-ccci/mm-broadband-bearer-mtk-ccci.h   |  59 ++
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.c    | 189 ++++
+ .../mtk-ccci/mm-broadband-modem-mtk-ccci.h    |  51 +
+ src/plugins/mtk-ccci/mm-plugin-mtk-ccci.c     |  82 ++
+ 9 files changed, 1278 insertions(+)
+ create mode 100644 src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+ create mode 100644 src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h
+ create mode 100644 src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+ create mode 100644 src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h
+ create mode 100644 src/plugins/mtk-ccci/mm-plugin-mtk-ccci.c
+
+diff --git a/meson.build b/meson.build
+index 3cf29e8..ad80ba1 100644
+--- a/meson.build
++++ b/meson.build
+@@ -381,6 +381,7 @@ plugins_options_reqs = {
+   'option': {'available': true, 'shared': ['option']},
+   'option-hso': {'available': true, 'shared': ['option']},
+   'pantech': {'available': true, 'shared': []},
++  'mtk-ccci': {'available': true, 'shared': []},
+   'qcom-soc': {'available': enable_qmi, 'shared': []},
+   'quectel': {'available': true, 'shared': ['quectel']},
+   'rolling': {'available': true, 'shared': ['fibocom', 'mtk']},
+diff --git a/meson_options.txt b/meson_options.txt
+index 6fbc066..57a2e9f 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -56,6 +56,7 @@ option('plugin_novatel_lte', type: 'feature', value: 'auto', description: 'enabl
+ option('plugin_option', type: 'feature', value: 'auto', description: 'enable option plugin support')
+ option('plugin_option_hso', type: 'feature', value: 'auto', description: 'enable option hso plugin support')
+ option('plugin_pantech', type: 'feature', value: 'auto', description: 'enable pantech plugin support')
++option('plugin_mtk_ccci', type: 'feature', value: 'auto', description: 'enable mediatek ccci soc plugin support')
+ option('plugin_qcom_soc', type: 'feature', value: 'auto', description: 'enable qcom soc plugin support')
+ option('plugin_quectel', type: 'feature', value: 'auto', description: 'enable quectel plugin support')
+ option('plugin_rolling', type: 'feature', value: 'auto', description: 'enable rolling plugin support')
+diff --git a/src/plugins/meson.build b/src/plugins/meson.build
+index 5a79bb1..33c965a 100644
+--- a/src/plugins/meson.build
++++ b/src/plugins/meson.build
+@@ -869,6 +869,20 @@ if plugins_options['pantech']
+   plugins_udev_rules += files('pantech/77-mm-pantech.rules')
+ endif
+ 
++# plugin: mtk-ccci
++if plugins_options['mtk-ccci']
++  sources = files(
++    'mtk-ccci/mm-broadband-bearer-mtk-ccci.c',
++    'mtk-ccci/mm-broadband-modem-mtk-ccci.c',
++    'mtk-ccci/mm-plugin-mtk-ccci.c',
++  )
++
++  plugins += {'plugin-mtk-ccci': {
++    'plugin': true,
++    'module': {'sources': sources, 'include_directories': plugins_incs, 'c_args': '-DMM_MODULE_NAME="mtk-ccci"'},
++  }}
++endif
++
+ # plugin: qcom-soc
+ if plugins_options['qcom-soc']
+   test_udev_rules_dir_c_args = ['-DTESTUDEVRULESDIR_QCOM_SOC="@0@"'.format(plugins_dir / 'qcom-soc')]
+diff --git a/src/plugins/mm-builtin-plugins.c b/src/plugins/mm-builtin-plugins.c
+index c7f9163..1f65018 100644
+--- a/src/plugins/mm-builtin-plugins.c
++++ b/src/plugins/mm-builtin-plugins.c
+@@ -22,6 +22,9 @@
+ #if defined ENABLE_PLUGIN_ALTAIR_LTE
+ MMPlugin *mm_plugin_create_altair_lte (void);
+ #endif
++#if defined ENABLE_PLUGIN_MTK_CCCI
++MMPlugin *mm_plugin_create_mtk_ccci (void);
++#endif
+ #if defined ENABLE_PLUGIN_ANYDATA
+ MMPlugin *mm_plugin_create_anydata (void);
+ #endif
+@@ -160,6 +163,9 @@ mm_builtin_plugins_load (void)
+ #if defined ENABLE_PLUGIN_ALTAIR_LTE
+     PREPEND_PLUGIN (altair_lte);
+ #endif
++#if defined ENABLE_PLUGIN_MTK_CCCI
++    PREPEND_PLUGIN (mtk_ccci);
++#endif
+ #if defined ENABLE_PLUGIN_ANYDATA
+     PREPEND_PLUGIN (anydata);
+ #endif
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+new file mode 100644
+index 0000000..148b7ab
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+@@ -0,0 +1,875 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 nikuzo <buelaniki@gmail.com>
++ */
++
++#include <config.h>
++
++#include <stdlib.h>
++#include <string.h>
++#include <arpa/inet.h>
++
++#include <ModemManager.h>
++#define _LIBMM_INSIDE_MM
++#include <libmm-glib.h>
++
++#include "mm-base-modem-at.h"
++#include "mm-broadband-bearer-mtk-ccci.h"
++#include "mm-log.h"
++#include "mm-modem-helpers.h"
++#include "mm-bind.h"
++
++/*
++ * MediaTek SoC modems (MT6768 and friends) don't bind +CGACT contexts to the
++ * ccmni network interfaces. The stock RIL (libmtk-ril.so) activates PDNs
++ * with MediaTek's own commands, which this bearer follows:
++ *
++ *   AT+EDALLOW=1                        allow data on this SIM
++ *   AT+EAPNACT=1,"<apn>","default",0    activate a PDN; the modem picks the
++ *                                       interface and reports it in
++ *                                       +EIF: <id>, ifup, ... where
++ *                                       <id> % 100 is the ccmni index
++ *   AT+EIF=<id>, "ifst", "up", <type>  confirm the interface is up (the
++ *                                       modem module confirms "down")
++ *   AT+CGCONTRDP                        find the activated id (aid) and DNS
++ *   AT+EPDN=<aid>,"addr"                IPv4 address / IPv6 link-local
++ *   AT+EAPNACT=0,<aid>,0                deactivate
++ *
++ * On LTE the network already set up the default bearer on attach (APN from
++ * AT+EIAAPN), so activating the same APN just binds it to the interface.
++ */
++
++#define UNKNOWN_AID G_MAXUINT
++
++G_DEFINE_TYPE (MMBroadbandBearerMtkCcci, mm_broadband_bearer_mtk_ccci, MM_TYPE_BROADBAND_BEARER)
++
++struct _MMBroadbandBearerMtkCcciPrivate {
++    guint aid;
++};
++
++/*****************************************************************************/
++/* Helpers */
++
++/* Split an AT response line into its comma separated fields, unquoted */
++static GPtrArray *
++split_fields (const gchar *str)
++{
++    GPtrArray *fields;
++    GString   *field;
++    gboolean   quoted = FALSE;
++
++    fields = g_ptr_array_new_with_free_func (g_free);
++    field = g_string_new (NULL);
++    for (; *str; str++) {
++        if (*str == '"')
++            quoted = !quoted;
++        else if (*str == ',' && !quoted) {
++            g_ptr_array_add (fields, g_strstrip (g_string_free (field, FALSE)));
++            field = g_string_new (NULL);
++        } else
++            g_string_append_c (field, *str);
++    }
++    g_ptr_array_add (fields, g_strstrip (g_string_free (field, FALSE)));
++    return fields;
++}
++
++/* The modem prints IPv6 addresses as 16 dotted decimal bytes, with an
++ * optional "/prefix". Returns a printable address, or NULL. */
++static gchar *
++parse_address (const gchar *str,
++               guint       *out_prefix,
++               gboolean    *out_ipv6)
++{
++    g_auto(GStrv)  parts = NULL;
++    g_autofree gchar *addr = NULL;
++    const gchar   *slash;
++    guint8         bytes[16];
++    gchar          buf[INET6_ADDRSTRLEN];
++    guint          n, i;
++
++    if (!str || !str[0])
++        return NULL;
++
++    slash = strchr (str, '/');
++    addr = slash ? g_strndup (str, slash - str) : g_strdup (str);
++    if (out_prefix)
++        *out_prefix = slash ? (guint) atoi (slash + 1) : 0;
++
++    parts = g_strsplit (addr, ".", -1);
++    n = g_strv_length (parts);
++    if (n != 4 && n != 16)
++        return NULL;
++    for (i = 0; i < n; i++) {
++        guint v;
++
++        if (!mm_get_uint_from_str (parts[i], &v) || v > 255)
++            return NULL;
++        bytes[i] = v;
++    }
++    if (!inet_ntop (n == 4 ? AF_INET : AF_INET6, bytes, buf, sizeof (buf)))
++        return NULL;
++    if (out_ipv6)
++        *out_ipv6 = (n == 16);
++    return g_strdup (buf);
++}
++
++/*****************************************************************************/
++/* 3GPP Connect sequence */
++
++typedef enum {
++    CONNECT_STEP_FIRST,
++    CONNECT_STEP_EDALLOW,
++    CONNECT_STEP_STALE_CHECK,
++    CONNECT_STEP_STALE_DEACTIVATE,
++    CONNECT_STEP_EAPNACT,
++    CONNECT_STEP_CONFIRM_UP,
++    CONNECT_STEP_CGCONTRDP,
++    CONNECT_STEP_EPDN_ADDR,
++    CONNECT_STEP_LAST,
++} ConnectStep;
++
++typedef struct {
++    MMBaseModem      *modem;
++    MMPortSerialAt   *primary;
++    MMPort           *data;
++    ConnectStep       step;
++    gchar            *apn;
++    gint              ifid;
++    guint             eif_id;
++    guint             eif_type;
++    guint             stale_aid;
++    guint             aid;
++    MMBearerIpConfig *ipv4_config;
++    MMBearerIpConfig *ipv6_config;
++    GPtrArray        *dns4;
++    GPtrArray        *dns6;
++} ConnectContext;
++
++static void
++connect_context_free (ConnectContext *ctx)
++{
++    g_clear_object (&ctx->ipv4_config);
++    g_clear_object (&ctx->ipv6_config);
++    g_ptr_array_unref (ctx->dns4);
++    g_ptr_array_unref (ctx->dns6);
++    g_free (ctx->apn);
++    g_clear_object (&ctx->data);
++    g_object_unref (ctx->primary);
++    g_object_unref (ctx->modem);
++    g_slice_free (ConnectContext, ctx);
++}
++
++static MMBearerConnectResult *
++connect_3gpp_finish (MMBroadbandBearer  *self,
++                     GAsyncResult       *res,
++                     GError            **error)
++{
++    return g_task_propagate_pointer (G_TASK (res), error);
++}
++
++static void connect_step (GTask *task);
++
++static void
++edallow_ready (MMBaseModem  *modem,
++               GAsyncResult *res,
++               GTask        *task)
++{
++    ConnectContext   *ctx;
++    g_autoptr(GError) error = NULL;
++
++    ctx = g_task_get_task_data (task);
++    /* Not fatal: data may already be allowed */
++    if (!mm_base_modem_at_command_full_finish (modem, res, &error))
++        mm_obj_dbg (g_task_get_source_object (task), "couldn't allow data: %s", error->message);
++    ctx->step++;
++    connect_step (task);
++}
++
++static void
++eapnact_ready (MMBaseModem  *modem,
++               GAsyncResult *res,
++               GTask        *task)
++{
++    ConnectContext *ctx;
++    const gchar    *response;
++    const gchar    *eif;
++    GError         *error = NULL;
++
++    ctx = g_task_get_task_data (task);
++    response = mm_base_modem_at_command_full_finish (modem, res, &error);
++    if (!response) {
++        g_prefix_error (&error, "PDN activation failed: ");
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++
++    /* The +EIF URC comes before the OK, so it is part of the response */
++    for (eif = strstr (response, "+EIF:"); eif; eif = strstr (eif + 1, "+EIF:")) {
++        g_autofree gchar     *line = NULL;
++        g_autoptr(GPtrArray)  fields = NULL;
++        guint                 id;
++
++        line = g_strndup (eif + strlen ("+EIF:"), strcspn (eif, "\r\n") - strlen ("+EIF:"));
++        fields = split_fields (line);
++        if (fields->len >= 2 &&
++            !g_strcmp0 (g_ptr_array_index (fields, 1), "ifup") &&
++            mm_get_uint_from_str (g_ptr_array_index (fields, 0), &id)) {
++            ctx->eif_id = id;
++            ctx->ifid = id % 100;
++            if (fields->len < 3 || !mm_get_uint_from_str (g_ptr_array_index (fields, 2), &ctx->eif_type))
++                ctx->eif_type = 3;
++            break;
++        }
++    }
++    if (ctx->ifid < 0) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                                 "PDN activated but the modem reported no interface");
++        g_object_unref (task);
++        return;
++    }
++
++    ctx->step++;
++    connect_step (task);
++}
++
++/* +CGCONTRDP: <aid>,<bearer id>,<apn>,<local addr>,<gw>,<dns1>,<dns2>,...
++ * lists the PDNs bound to an interface. The network reports the APN with its
++ * operator suffix, e.g. "antel.lte.MNC001.MCC748.GPRS"; a dual stack PDN has
++ * one line per family. Returns the aid of the PDN for APN, or UNKNOWN_AID. */
++static guint
++parse_cgcontrdp (const gchar *response,
++                 const gchar *apn,
++                 GPtrArray   *dns4,
++                 GPtrArray   *dns6)
++{
++    g_auto(GStrv) lines = NULL;
++    guint         found = UNKNOWN_AID;
++    guint         i;
++
++    lines = g_strsplit (response, "\n", -1);
++    for (i = 0; lines[i]; i++) {
++        g_autoptr(GPtrArray) fields = NULL;
++        const gchar         *line;
++        guint                aid;
++        guint                j;
++
++        line = g_strstrip (lines[i]);
++        if (!g_str_has_prefix (line, "+CGCONTRDP:"))
++            continue;
++        fields = split_fields (line + strlen ("+CGCONTRDP:"));
++        if (fields->len < 3 || !mm_get_uint_from_str (g_ptr_array_index (fields, 0), &aid))
++            continue;
++        if (g_ascii_strncasecmp (g_ptr_array_index (fields, 2), apn, strlen (apn)) != 0)
++            continue;
++        if (found != UNKNOWN_AID && found != aid)
++            continue;
++        found = aid;
++
++        for (j = 5; dns4 && dns6 && j < 7 && j < fields->len; j++) {
++            gchar    *dns;
++            gboolean  ipv6 = FALSE;
++
++            dns = parse_address (g_ptr_array_index (fields, j), NULL, &ipv6);
++            if (dns)
++                g_ptr_array_add (ipv6 ? dns6 : dns4, dns);
++        }
++    }
++    return found;
++}
++
++static void
++stale_check_ready (MMBaseModem  *modem,
++                   GAsyncResult *res,
++                   GTask        *task)
++{
++    ConnectContext *ctx;
++    const gchar    *response;
++
++    ctx = g_task_get_task_data (task);
++    response = mm_base_modem_at_command_full_finish (modem, res, NULL);
++    if (response)
++        ctx->stale_aid = parse_cgcontrdp (response, ctx->apn, NULL, NULL);
++    /* A PDN still bound from before (e.g. the daemon restarted while
++     * connected) must be released first, or the activation fails */
++    ctx->step = (ctx->stale_aid != UNKNOWN_AID) ? CONNECT_STEP_STALE_DEACTIVATE : CONNECT_STEP_EAPNACT;
++    connect_step (task);
++}
++
++static void
++stale_deactivate_ready (MMBaseModem  *modem,
++                        GAsyncResult *res,
++                        GTask        *task)
++{
++    ConnectContext   *ctx;
++    g_autoptr(GError) error = NULL;
++
++    ctx = g_task_get_task_data (task);
++    if (!mm_base_modem_at_command_full_finish (modem, res, &error))
++        mm_obj_dbg (g_task_get_source_object (task), "couldn't release stale PDN %u: %s",
++                    ctx->stale_aid, error->message);
++    ctx->step++;
++    connect_step (task);
++}
++
++static void
++confirm_up_ready (MMBaseModem  *modem,
++                  GAsyncResult *res,
++                  GTask        *task)
++{
++    ConnectContext   *ctx;
++    g_autoptr(GError) error = NULL;
++
++    ctx = g_task_get_task_data (task);
++    if (!mm_base_modem_at_command_full_finish (modem, res, &error))
++        mm_obj_dbg (g_task_get_source_object (task), "couldn't confirm interface %u up: %s",
++                    ctx->eif_id, error->message);
++    ctx->step++;
++    connect_step (task);
++}
++
++static void
++cgcontrdp_ready (MMBaseModem  *modem,
++                 GAsyncResult *res,
++                 GTask        *task)
++{
++    MMBroadbandBearerMtkCcci *self;
++    ConnectContext           *ctx;
++    const gchar              *response;
++    GError                   *error = NULL;
++
++    self = g_task_get_source_object (task);
++    ctx = g_task_get_task_data (task);
++
++    response = mm_base_modem_at_command_full_finish (modem, res, &error);
++    if (!response) {
++        g_prefix_error (&error, "couldn't read PDN parameters: ");
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++
++    ctx->aid = parse_cgcontrdp (response, ctx->apn, ctx->dns4, ctx->dns6);
++
++    if (ctx->aid == UNKNOWN_AID) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                                 "no active PDN for APN '%s'", ctx->apn);
++        g_object_unref (task);
++        return;
++    }
++
++    mm_obj_dbg (self, "PDN for APN '%s' is aid %u", ctx->apn, ctx->aid);
++    ctx->step++;
++    connect_step (task);
++}
++
++static void
++epdn_addr_ready (MMBaseModem  *modem,
++                 GAsyncResult *res,
++                 GTask        *task)
++{
++    ConnectContext *ctx;
++    const gchar    *response;
++    g_auto(GStrv)   lines = NULL;
++    GError         *error = NULL;
++    guint           i;
++
++    ctx = g_task_get_task_data (task);
++
++    response = mm_base_modem_at_command_full_finish (modem, res, &error);
++    if (!response) {
++        g_prefix_error (&error, "couldn't read PDN addresses: ");
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++
++    /* +EPDN: <aid>, "addr", <type>, "<address>" (one line per address) */
++    lines = g_strsplit (response, "\n", -1);
++    for (i = 0; lines[i]; i++) {
++        g_autoptr(GPtrArray) fields = NULL;
++        g_autofree gchar    *address = NULL;
++        const gchar         *line;
++        gboolean             ipv6 = FALSE;
++        guint                prefix = 0;
++
++        line = g_strstrip (lines[i]);
++        if (!g_str_has_prefix (line, "+EPDN:"))
++            continue;
++        fields = split_fields (line + strlen ("+EPDN:"));
++        if (fields->len < 4 || g_strcmp0 (g_ptr_array_index (fields, 1), "addr") != 0)
++            continue;
++        address = parse_address (g_ptr_array_index (fields, 3), &prefix, &ipv6);
++        if (!address)
++            continue;
++
++        if (!ipv6 && !ctx->ipv4_config) {
++            ctx->ipv4_config = mm_bearer_ip_config_new ();
++            mm_bearer_ip_config_set_method (ctx->ipv4_config, MM_BEARER_IP_METHOD_STATIC);
++            mm_bearer_ip_config_set_address (ctx->ipv4_config, address);
++            mm_bearer_ip_config_set_prefix (ctx->ipv4_config, 32);
++            if (ctx->dns4->len) {
++                g_ptr_array_add (ctx->dns4, NULL);
++                mm_bearer_ip_config_set_dns (ctx->ipv4_config, (const gchar **) ctx->dns4->pdata);
++                g_ptr_array_remove_index (ctx->dns4, ctx->dns4->len - 1);
++            }
++        } else if (ipv6 && !ctx->ipv6_config) {
++            /* A link-local address carries the interface identifier the
++             * network expects; the global address comes from SLAAC */
++            ctx->ipv6_config = mm_bearer_ip_config_new ();
++            mm_bearer_ip_config_set_method (ctx->ipv6_config, MM_BEARER_IP_METHOD_STATIC);
++            mm_bearer_ip_config_set_address (ctx->ipv6_config, address);
++            mm_bearer_ip_config_set_prefix (ctx->ipv6_config, prefix ? prefix : 64);
++            /* The modem reports no gateway, NetworkManager requires one.
++             * ccmni is a raw IP NOARP link, so any other link-local next
++             * hop reaches the network */
++            mm_bearer_ip_config_set_gateway (ctx->ipv6_config,
++                                             g_strcmp0 (address, "fe80::1") ? "fe80::1" : "fe80::2");
++            if (ctx->dns6->len) {
++                g_ptr_array_add (ctx->dns6, NULL);
++                mm_bearer_ip_config_set_dns (ctx->ipv6_config, (const gchar **) ctx->dns6->pdata);
++                g_ptr_array_remove_index (ctx->dns6, ctx->dns6->len - 1);
++            }
++        }
++    }
++
++    if (!ctx->ipv4_config && !ctx->ipv6_config) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                                 "no address for PDN aid %u", ctx->aid);
++        g_object_unref (task);
++        return;
++    }
++
++    ctx->step++;
++    connect_step (task);
++}
++
++static void
++connect_step (GTask *task)
++{
++    MMBroadbandBearerMtkCcci *self;
++    ConnectContext           *ctx;
++    g_autofree gchar         *command = NULL;
++
++    self = g_task_get_source_object (task);
++    ctx = g_task_get_task_data (task);
++
++    if (g_task_return_error_if_cancelled (task)) {
++        g_object_unref (task);
++        return;
++    }
++
++    switch (ctx->step) {
++    case CONNECT_STEP_FIRST:
++        ctx->step++;
++        /* fall through */
++
++    case CONNECT_STEP_EDALLOW:
++        mm_base_modem_at_command_full (ctx->modem,
++                                       MM_IFACE_PORT_AT (ctx->primary),
++                                       "+EDALLOW=1",
++                                       10,
++                                       FALSE, FALSE,
++                                       g_task_get_cancellable (task),
++                                       (GAsyncReadyCallback) edallow_ready,
++                                       task);
++        return;
++
++    case CONNECT_STEP_STALE_CHECK:
++        mm_base_modem_at_command_full (ctx->modem,
++                                       MM_IFACE_PORT_AT (ctx->primary),
++                                       "+CGCONTRDP",
++                                       10,
++                                       FALSE, FALSE,
++                                       g_task_get_cancellable (task),
++                                       (GAsyncReadyCallback) stale_check_ready,
++                                       task);
++        return;
++
++    case CONNECT_STEP_STALE_DEACTIVATE:
++        command = g_strdup_printf ("+EAPNACT=0,%u,0", ctx->stale_aid);
++        mm_base_modem_at_command_full (ctx->modem,
++                                       MM_IFACE_PORT_AT (ctx->primary),
++                                       command,
++                                       MM_BASE_BEARER_DEFAULT_DISCONNECTION_TIMEOUT,
++                                       FALSE, FALSE,
++                                       g_task_get_cancellable (task),
++                                       (GAsyncReadyCallback) stale_deactivate_ready,
++                                       task);
++        return;
++
++    case CONNECT_STEP_EAPNACT: {
++        g_autofree gchar *apn = NULL;
++
++        apn = mm_at_quote_string (ctx->apn);
++        command = g_strdup_printf ("+EAPNACT=1,%s,\"default\",0", apn);
++        mm_base_modem_at_command_full (ctx->modem,
++                                       MM_IFACE_PORT_AT (ctx->primary),
++                                       command,
++                                       MM_BASE_BEARER_DEFAULT_CONNECTION_TIMEOUT,
++                                       FALSE, FALSE,
++                                       g_task_get_cancellable (task),
++                                       (GAsyncReadyCallback) eapnact_ready,
++                                       task);
++        return;
++    }
++
++    case CONNECT_STEP_CONFIRM_UP:
++        command = g_strdup_printf ("+EIF=%u, \"ifst\", \"up\", %u", ctx->eif_id, ctx->eif_type);
++        mm_base_modem_at_command_full (ctx->modem,
++                                       MM_IFACE_PORT_AT (ctx->primary),
++                                       command,
++                                       10,
++                                       FALSE, FALSE,
++                                       g_task_get_cancellable (task),
++                                       (GAsyncReadyCallback) confirm_up_ready,
++                                       task);
++        return;
++
++    case CONNECT_STEP_CGCONTRDP:
++        mm_base_modem_at_command_full (ctx->modem,
++                                       MM_IFACE_PORT_AT (ctx->primary),
++                                       "+CGCONTRDP",
++                                       10,
++                                       FALSE, FALSE,
++                                       g_task_get_cancellable (task),
++                                       (GAsyncReadyCallback) cgcontrdp_ready,
++                                       task);
++        return;
++
++    case CONNECT_STEP_EPDN_ADDR:
++        command = g_strdup_printf ("+EPDN=%u,\"addr\"", ctx->aid);
++        mm_base_modem_at_command_full (ctx->modem,
++                                       MM_IFACE_PORT_AT (ctx->primary),
++                                       command,
++                                       10,
++                                       FALSE, FALSE,
++                                       g_task_get_cancellable (task),
++                                       (GAsyncReadyCallback) epdn_addr_ready,
++                                       task);
++        return;
++
++    case CONNECT_STEP_LAST: {
++        g_autofree gchar *ifname = NULL;
++
++        ifname = g_strdup_printf ("ccmni%d", ctx->ifid);
++        ctx->data = mm_base_modem_get_port (ctx->modem, ifname);
++        if (!ctx->data || mm_port_get_port_type (ctx->data) != MM_PORT_TYPE_NET) {
++            g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                                     "PDN aid %u is on %s, which isn't a port of this modem",
++                                     ctx->aid, ifname);
++            g_object_unref (task);
++            return;
++        }
++        self->priv->aid = ctx->aid;
++        mm_obj_msg (self, "PDN aid %u connected on %s", ctx->aid, mm_port_get_device (ctx->data));
++        g_task_return_pointer (task,
++                               mm_bearer_connect_result_new (ctx->data, ctx->ipv4_config, ctx->ipv6_config),
++                               (GDestroyNotify) mm_bearer_connect_result_unref);
++        g_object_unref (task);
++        return;
++    }
++
++    default:
++        g_assert_not_reached ();
++    }
++}
++
++static void
++connect_3gpp (MMBroadbandBearer   *self,
++              MMBroadbandModem    *modem,
++              MMPortSerialAt      *primary,
++              MMPortSerialAt      *secondary,
++              GCancellable        *cancellable,
++              GAsyncReadyCallback  callback,
++              gpointer             user_data)
++{
++    ConnectContext *ctx;
++    GTask          *task;
++    const gchar    *apn;
++
++    task = g_task_new (self, cancellable, callback, user_data);
++
++    apn = mm_bearer_properties_get_apn (mm_base_bearer_peek_config (MM_BASE_BEARER (self)));
++    if (!apn || !apn[0]) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_INVALID_ARGS,
++                                 "an APN is required");
++        g_object_unref (task);
++        return;
++    }
++
++    if (!mm_base_modem_peek_best_data_port (MM_BASE_MODEM (modem), MM_PORT_TYPE_NET)) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_CONNECTED,
++                                 "couldn't connect: no net port available");
++        g_object_unref (task);
++        return;
++    }
++
++    ctx = g_slice_new0 (ConnectContext);
++    ctx->modem = MM_BASE_MODEM (g_object_ref (modem));
++    ctx->primary = g_object_ref (primary);
++    ctx->step = CONNECT_STEP_FIRST;
++    ctx->apn = g_strdup (apn);
++    ctx->ifid = -1;
++    ctx->stale_aid = UNKNOWN_AID;
++    ctx->aid = UNKNOWN_AID;
++    ctx->dns4 = g_ptr_array_new_with_free_func (g_free);
++    ctx->dns6 = g_ptr_array_new_with_free_func (g_free);
++
++    g_task_set_task_data (task, ctx, (GDestroyNotify) connect_context_free);
++    connect_step (task);
++}
++
++/*****************************************************************************/
++/* 3GPP Disconnect sequence */
++
++static gboolean
++disconnect_3gpp_finish (MMBroadbandBearer  *self,
++                        GAsyncResult       *res,
++                        GError            **error)
++{
++    return g_task_propagate_boolean (G_TASK (res), error);
++}
++
++static void
++eapnact_deactivate_ready (MMBaseModem  *modem,
++                          GAsyncResult *res,
++                          GTask        *task)
++{
++    MMBroadbandBearerMtkCcci *self;
++    GError                   *error = NULL;
++
++    self = g_task_get_source_object (task);
++    if (!mm_base_modem_at_command_full_finish (modem, res, &error)) {
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++    self->priv->aid = UNKNOWN_AID;
++    g_task_return_boolean (task, TRUE);
++    g_object_unref (task);
++}
++
++static void
++disconnect_3gpp (MMBroadbandBearer   *_self,
++                 MMBroadbandModem    *modem,
++                 MMPortSerialAt      *primary,
++                 MMPortSerialAt      *secondary,
++                 MMPort              *data,
++                 guint                cid,
++                 GAsyncReadyCallback  callback,
++                 gpointer             user_data)
++{
++    MMBroadbandBearerMtkCcci *self = MM_BROADBAND_BEARER_MTK_CCCI (_self);
++    g_autofree gchar         *command = NULL;
++    GTask                    *task;
++
++    task = g_task_new (self, NULL, callback, user_data);
++
++    if (self->priv->aid == UNKNOWN_AID) {
++        g_task_return_boolean (task, TRUE);
++        g_object_unref (task);
++        return;
++    }
++
++    command = g_strdup_printf ("+EAPNACT=0,%u,0", self->priv->aid);
++    mm_base_modem_at_command_full (MM_BASE_MODEM (modem),
++                                   MM_IFACE_PORT_AT (primary),
++                                   command,
++                                   MM_BASE_BEARER_DEFAULT_DISCONNECTION_TIMEOUT,
++                                   FALSE, FALSE,
++                                   NULL,
++                                   (GAsyncReadyCallback) eapnact_deactivate_ready,
++                                   task);
++}
++
++/*****************************************************************************/
++/* Connection status monitoring */
++
++static MMBearerConnectionStatus
++load_connection_status_finish (MMBaseBearer  *self,
++                               GAsyncResult  *res,
++                               GError       **error)
++{
++    GError *inner_error = NULL;
++    gssize  value;
++
++    value = g_task_propagate_int (G_TASK (res), &inner_error);
++    if (inner_error) {
++        g_propagate_error (error, inner_error);
++        return MM_BEARER_CONNECTION_STATUS_UNKNOWN;
++    }
++    return (MMBearerConnectionStatus) value;
++}
++
++static void
++cgact_query_ready (MMBaseModem  *modem,
++                   GAsyncResult *res,
++                   GTask        *task)
++{
++    MMBroadbandBearerMtkCcci *self;
++    const gchar              *response;
++    GError                   *error = NULL;
++    GList                    *list = NULL;
++    GList                    *l;
++    MMBearerConnectionStatus  status = MM_BEARER_CONNECTION_STATUS_DISCONNECTED;
++
++    self = g_task_get_source_object (task);
++
++    response = mm_base_modem_at_command_finish (modem, res, &error);
++    if (response)
++        list = mm_3gpp_parse_cgact_read_response (response, &error);
++    if (error) {
++        g_task_return_error (task, error);
++        g_object_unref (task);
++        return;
++    }
++
++    for (l = list; l; l = g_list_next (l)) {
++        MM3gppPdpContextActive *pdp = l->data;
++
++        if (pdp->cid == self->priv->aid && pdp->active) {
++            status = MM_BEARER_CONNECTION_STATUS_CONNECTED;
++            break;
++        }
++    }
++    mm_3gpp_pdp_context_active_list_free (list);
++
++    g_task_return_int (task, (gssize) status);
++    g_object_unref (task);
++}
++
++static void
++load_connection_status (MMBaseBearer        *_self,
++                        GAsyncReadyCallback  callback,
++                        gpointer             user_data)
++{
++    MMBroadbandBearerMtkCcci *self = MM_BROADBAND_BEARER_MTK_CCCI (_self);
++    g_autoptr(MMBaseModem)    modem = NULL;
++    MMIfacePortAt            *port;
++    GTask                    *task;
++
++    task = g_task_new (self, NULL, callback, user_data);
++
++    if (self->priv->aid == UNKNOWN_AID) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                                 "couldn't load connection status: no active PDN");
++        g_object_unref (task);
++        return;
++    }
++
++    g_object_get (self, MM_BASE_BEARER_MODEM, &modem, NULL);
++    port = mm_base_modem_peek_best_at_port (modem, NULL);
++    if (!port) {
++        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_UNSUPPORTED,
++                                 "couldn't load connection status: no control port available");
++        g_object_unref (task);
++        return;
++    }
++
++    mm_base_modem_at_command_full (modem,
++                                   port,
++                                   "+CGACT?",
++                                   3,
++                                   FALSE, FALSE,
++                                   NULL,
++                                   (GAsyncReadyCallback) cgact_query_ready,
++                                   task);
++}
++
++/*****************************************************************************/
++
++static void
++report_connection_status (MMBaseBearer             *self,
++                          MMBearerConnectionStatus  status,
++                          const GError             *connection_error)
++{
++    if (status == MM_BEARER_CONNECTION_STATUS_DISCONNECTED)
++        MM_BROADBAND_BEARER_MTK_CCCI (self)->priv->aid = UNKNOWN_AID;
++
++    MM_BASE_BEARER_CLASS (mm_broadband_bearer_mtk_ccci_parent_class)->report_connection_status (
++        self, status, connection_error);
++}
++
++/*****************************************************************************/
++
++MMBaseBearer *
++mm_broadband_bearer_mtk_ccci_new_finish (GAsyncResult  *res,
++                                         GError       **error)
++{
++    GObject *bearer;
++    GObject *source;
++
++    source = g_async_result_get_source_object (res);
++    bearer = g_async_initable_new_finish (G_ASYNC_INITABLE (source), res, error);
++    g_object_unref (source);
++
++    if (!bearer)
++        return NULL;
++
++    /* Only export valid bearers */
++    mm_base_bearer_export (MM_BASE_BEARER (bearer));
++
++    return MM_BASE_BEARER (bearer);
++}
++
++void
++mm_broadband_bearer_mtk_ccci_new (MMBroadbandModemMtkCcci *modem,
++                                  MMBearerProperties      *config,
++                                  GCancellable            *cancellable,
++                                  GAsyncReadyCallback      callback,
++                                  gpointer                 user_data)
++{
++    g_async_initable_new_async (
++        MM_TYPE_BROADBAND_BEARER_MTK_CCCI,
++        G_PRIORITY_DEFAULT,
++        cancellable,
++        callback,
++        user_data,
++        MM_BASE_BEARER_MODEM,  modem,
++        MM_BIND_TO,            G_OBJECT (modem),
++        MM_BASE_BEARER_CONFIG, config,
++        NULL);
++}
++
++static void
++mm_broadband_bearer_mtk_ccci_init (MMBroadbandBearerMtkCcci *self)
++{
++    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
++                                              MM_TYPE_BROADBAND_BEARER_MTK_CCCI,
++                                              MMBroadbandBearerMtkCcciPrivate);
++    self->priv->aid = UNKNOWN_AID;
++}
++
++static void
++mm_broadband_bearer_mtk_ccci_class_init (MMBroadbandBearerMtkCcciClass *klass)
++{
++    GObjectClass           *object_class           = G_OBJECT_CLASS (klass);
++    MMBaseBearerClass      *base_bearer_class      = MM_BASE_BEARER_CLASS (klass);
++    MMBroadbandBearerClass *broadband_bearer_class = MM_BROADBAND_BEARER_CLASS (klass);
++
++    g_type_class_add_private (object_class, sizeof (MMBroadbandBearerMtkCcciPrivate));
++
++    base_bearer_class->load_connection_status = load_connection_status;
++    base_bearer_class->load_connection_status_finish = load_connection_status_finish;
++    base_bearer_class->report_connection_status = report_connection_status;
++#if defined WITH_SUSPEND_RESUME
++    base_bearer_class->reload_connection_status = load_connection_status;
++    base_bearer_class->reload_connection_status_finish = load_connection_status_finish;
++#endif
++
++    broadband_bearer_class->connect_3gpp = connect_3gpp;
++    broadband_bearer_class->connect_3gpp_finish = connect_3gpp_finish;
++    broadband_bearer_class->disconnect_3gpp = disconnect_3gpp;
++    broadband_bearer_class->disconnect_3gpp_finish = disconnect_3gpp_finish;
++}
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h
+new file mode 100644
+index 0000000..6fee534
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.h
+@@ -0,0 +1,59 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 nikuzo <buelaniki@gmail.com>
++ */
++
++#ifndef MM_BROADBAND_BEARER_MTK_CCCI_H
++#define MM_BROADBAND_BEARER_MTK_CCCI_H
++
++#include <glib.h>
++#include <glib-object.h>
++
++#define _LIBMM_INSIDE_MM
++#include <libmm-glib.h>
++
++#include "mm-broadband-bearer.h"
++#include "mm-broadband-modem-mtk-ccci.h"
++
++#define MM_TYPE_BROADBAND_BEARER_MTK_CCCI            (mm_broadband_bearer_mtk_ccci_get_type ())
++#define MM_BROADBAND_BEARER_MTK_CCCI(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), MM_TYPE_BROADBAND_BEARER_MTK_CCCI, MMBroadbandBearerMtkCcci))
++#define MM_BROADBAND_BEARER_MTK_CCCI_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass),  MM_TYPE_BROADBAND_BEARER_MTK_CCCI, MMBroadbandBearerMtkCcciClass))
++#define MM_IS_BROADBAND_BEARER_MTK_CCCI(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), MM_TYPE_BROADBAND_BEARER_MTK_CCCI))
++#define MM_IS_BROADBAND_BEARER_MTK_CCCI_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass),  MM_TYPE_BROADBAND_BEARER_MTK_CCCI))
++#define MM_BROADBAND_BEARER_MTK_CCCI_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj),  MM_TYPE_BROADBAND_BEARER_MTK_CCCI, MMBroadbandBearerMtkCcciClass))
++
++typedef struct _MMBroadbandBearerMtkCcci MMBroadbandBearerMtkCcci;
++typedef struct _MMBroadbandBearerMtkCcciClass MMBroadbandBearerMtkCcciClass;
++typedef struct _MMBroadbandBearerMtkCcciPrivate MMBroadbandBearerMtkCcciPrivate;
++
++struct _MMBroadbandBearerMtkCcci {
++    MMBroadbandBearer parent;
++    MMBroadbandBearerMtkCcciPrivate *priv;
++};
++
++struct _MMBroadbandBearerMtkCcciClass {
++    MMBroadbandBearerClass parent;
++};
++
++GType mm_broadband_bearer_mtk_ccci_get_type (void);
++G_DEFINE_AUTOPTR_CLEANUP_FUNC (MMBroadbandBearerMtkCcci, g_object_unref)
++
++void          mm_broadband_bearer_mtk_ccci_new        (MMBroadbandModemMtkCcci *modem,
++                                                       MMBearerProperties      *config,
++                                                       GCancellable            *cancellable,
++                                                       GAsyncReadyCallback      callback,
++                                                       gpointer                 user_data);
++MMBaseBearer *mm_broadband_bearer_mtk_ccci_new_finish (GAsyncResult            *res,
++                                                       GError                 **error);
++
++#endif /* MM_BROADBAND_BEARER_MTK_CCCI_H */
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+new file mode 100644
+index 0000000..c6b0e62
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -0,0 +1,189 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 nikuzo <buelaniki@gmail.com>
++ */
++
++#include <config.h>
++
++#include <ModemManager.h>
++#define _LIBMM_INSIDE_MM
++#include <libmm-glib.h>
++
++#include "mm-base-modem-at.h"
++#include "mm-iface-modem.h"
++#include "mm-log.h"
++#include "mm-broadband-modem-mtk-ccci.h"
++#include "mm-broadband-bearer-mtk-ccci.h"
++
++static void iface_modem_init (MMIfaceModemInterface *iface);
++
++G_DEFINE_TYPE_EXTENDED (MMBroadbandModemMtkCcci, mm_broadband_modem_mtk_ccci, MM_TYPE_BROADBAND_MODEM, 0,
++                        G_IMPLEMENT_INTERFACE (MM_TYPE_IFACE_MODEM, iface_modem_init))
++
++struct _MMBroadbandModemMtkCcciPrivate {
++    GRegex *eif_ifdown_regex;
++};
++
++/*****************************************************************************/
++/* Interface state confirmation
++ *
++ * The modem reports each PDN interface going down with
++ * +EIF: <id>, ifdown, ... and keeps that interface reserved until the host
++ * confirms it (the stock NetAgent does), whoever brought it down. Without the
++ * confirmation every activation takes a new ccmni, and after ccmni19 they
++ * fail with +CME ERROR: 3843 until the radio is power cycled. */
++
++static void
++eif_ifdown_received (MMPortSerialAt          *port,
++                     GMatchInfo              *match_info,
++                     MMBroadbandModemMtkCcci *self)
++{
++    g_autofree gchar *command = NULL;
++    guint             id;
++
++    if (!mm_get_uint_from_match_info (match_info, 1, &id))
++        return;
++
++    mm_obj_dbg (self, "PDN interface %u (ccmni%u) down, confirming", id, id % 100);
++    command = g_strdup_printf ("+EIF=%u, \"ifst\", \"down\", 0", id);
++    mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
++}
++
++static void
++setup_ports (MMBroadbandModem *_self)
++{
++    MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (_self);
++    MMPortSerialAt          *ports[2];
++    guint                    i;
++
++    MM_BROADBAND_MODEM_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->setup_ports (_self);
++
++    ports[0] = mm_base_modem_peek_port_primary (MM_BASE_MODEM (self));
++    ports[1] = mm_base_modem_peek_port_secondary (MM_BASE_MODEM (self));
++    for (i = 0; i < G_N_ELEMENTS (ports); i++) {
++        if (!ports[i])
++            continue;
++        mm_port_serial_at_add_unsolicited_msg_handler (
++            ports[i],
++            self->priv->eif_ifdown_regex,
++            (MMPortSerialAtUnsolicitedMsgFn) eif_ifdown_received,
++            self,
++            NULL);
++    }
++}
++
++/*****************************************************************************/
++/* Create bearer (Modem interface) */
++
++static MMBaseBearer *
++modem_create_bearer_finish (MMIfaceModem  *self,
++                            GAsyncResult  *res,
++                            GError       **error)
++{
++    return g_task_propagate_pointer (G_TASK (res), error);
++}
++
++static void
++broadband_bearer_mtk_ccci_new_ready (GObject      *source,
++                                     GAsyncResult *res,
++                                     GTask        *task)
++{
++    MMBaseBearer *bearer;
++    GError       *error = NULL;
++
++    bearer = mm_broadband_bearer_mtk_ccci_new_finish (res, &error);
++    if (!bearer)
++        g_task_return_error (task, error);
++    else
++        g_task_return_pointer (task, bearer, g_object_unref);
++    g_object_unref (task);
++}
++
++static void
++modem_create_bearer (MMIfaceModem        *self,
++                     MMBearerProperties  *properties,
++                     GAsyncReadyCallback  callback,
++                     gpointer             user_data)
++{
++    GTask *task;
++
++    task = g_task_new (self, NULL, callback, user_data);
++    mm_broadband_bearer_mtk_ccci_new (MM_BROADBAND_MODEM_MTK_CCCI (self),
++                                      properties,
++                                      NULL, /* cancellable */
++                                      (GAsyncReadyCallback) broadband_bearer_mtk_ccci_new_ready,
++                                      task);
++}
++
++/*****************************************************************************/
++
++MMBroadbandModemMtkCcci *
++mm_broadband_modem_mtk_ccci_new (const gchar  *device,
++                                 const gchar  *physdev,
++                                 const gchar **drivers,
++                                 const gchar  *plugin,
++                                 guint16       vendor_id,
++                                 guint16       product_id)
++{
++    return g_object_new (MM_TYPE_BROADBAND_MODEM_MTK_CCCI,
++                         MM_BASE_MODEM_DEVICE,     device,
++                         MM_BASE_MODEM_PHYSDEV,    physdev,
++                         MM_BASE_MODEM_DRIVERS,    drivers,
++                         MM_BASE_MODEM_PLUGIN,     plugin,
++                         MM_BASE_MODEM_VENDOR_ID,  vendor_id,
++                         MM_BASE_MODEM_PRODUCT_ID, product_id,
++                         /* Data goes over the ccmni net interfaces only, never
++                          * PPP on the AT channel */
++                         MM_BASE_MODEM_DATA_NET_SUPPORTED, TRUE,
++                         MM_BASE_MODEM_DATA_TTY_SUPPORTED, FALSE,
++                         NULL);
++}
++
++static void
++mm_broadband_modem_mtk_ccci_init (MMBroadbandModemMtkCcci *self)
++{
++    self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
++                                              MM_TYPE_BROADBAND_MODEM_MTK_CCCI,
++                                              MMBroadbandModemMtkCcciPrivate);
++    self->priv->eif_ifdown_regex = g_regex_new ("\\r\\n\\+EIF:\\s*(\\d+)\\s*,\\s*ifdown[^\\r\\n]*\\r\\n",
++                                                G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++}
++
++static void
++finalize (GObject *object)
++{
++    MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (object);
++
++    g_regex_unref (self->priv->eif_ifdown_regex);
++
++    G_OBJECT_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->finalize (object);
++}
++
++static void
++iface_modem_init (MMIfaceModemInterface *iface)
++{
++    iface->create_bearer = modem_create_bearer;
++    iface->create_bearer_finish = modem_create_bearer_finish;
++}
++
++static void
++mm_broadband_modem_mtk_ccci_class_init (MMBroadbandModemMtkCcciClass *klass)
++{
++    GObjectClass          *object_class = G_OBJECT_CLASS (klass);
++    MMBroadbandModemClass *broadband_modem_class = MM_BROADBAND_MODEM_CLASS (klass);
++
++    g_type_class_add_private (object_class, sizeof (MMBroadbandModemMtkCcciPrivate));
++
++    object_class->finalize = finalize;
++    broadband_modem_class->setup_ports = setup_ports;
++}
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h
+new file mode 100644
+index 0000000..d666b22
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.h
+@@ -0,0 +1,51 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 nikuzo <buelaniki@gmail.com>
++ */
++
++#ifndef MM_BROADBAND_MODEM_MTK_CCCI_H
++#define MM_BROADBAND_MODEM_MTK_CCCI_H
++
++#include "mm-broadband-modem.h"
++
++#define MM_TYPE_BROADBAND_MODEM_MTK_CCCI            (mm_broadband_modem_mtk_ccci_get_type ())
++#define MM_BROADBAND_MODEM_MTK_CCCI(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), MM_TYPE_BROADBAND_MODEM_MTK_CCCI, MMBroadbandModemMtkCcci))
++#define MM_BROADBAND_MODEM_MTK_CCCI_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass),  MM_TYPE_BROADBAND_MODEM_MTK_CCCI, MMBroadbandModemMtkCcciClass))
++#define MM_IS_BROADBAND_MODEM_MTK_CCCI(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), MM_TYPE_BROADBAND_MODEM_MTK_CCCI))
++#define MM_IS_BROADBAND_MODEM_MTK_CCCI_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass),  MM_TYPE_BROADBAND_MODEM_MTK_CCCI))
++#define MM_BROADBAND_MODEM_MTK_CCCI_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj),  MM_TYPE_BROADBAND_MODEM_MTK_CCCI, MMBroadbandModemMtkCcciClass))
++
++typedef struct _MMBroadbandModemMtkCcci MMBroadbandModemMtkCcci;
++typedef struct _MMBroadbandModemMtkCcciClass MMBroadbandModemMtkCcciClass;
++typedef struct _MMBroadbandModemMtkCcciPrivate MMBroadbandModemMtkCcciPrivate;
++
++struct _MMBroadbandModemMtkCcci {
++    MMBroadbandModem parent;
++    MMBroadbandModemMtkCcciPrivate *priv;
++};
++
++struct _MMBroadbandModemMtkCcciClass {
++    MMBroadbandModemClass parent;
++};
++
++GType mm_broadband_modem_mtk_ccci_get_type (void);
++G_DEFINE_AUTOPTR_CLEANUP_FUNC (MMBroadbandModemMtkCcci, g_object_unref)
++
++MMBroadbandModemMtkCcci *mm_broadband_modem_mtk_ccci_new (const gchar  *device,
++                                                          const gchar  *physdev,
++                                                          const gchar **drivers,
++                                                          const gchar  *plugin,
++                                                          guint16       vendor_id,
++                                                          guint16       product_id);
++
++#endif /* MM_BROADBAND_MODEM_MTK_CCCI_H */
+diff --git a/src/plugins/mtk-ccci/mm-plugin-mtk-ccci.c b/src/plugins/mtk-ccci/mm-plugin-mtk-ccci.c
+new file mode 100644
+index 0000000..b7eb048
+--- /dev/null
++++ b/src/plugins/mtk-ccci/mm-plugin-mtk-ccci.c
+@@ -0,0 +1,82 @@
++/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details:
++ *
++ * Copyright (C) 2026 nikuzo <buelaniki@gmail.com>
++ */
++
++#include <string.h>
++#include <gmodule.h>
++
++#include "mm-plugin-common.h"
++#include "mm-broadband-modem-mtk-ccci.h"
++#include "mm-log.h"
++
++#define MM_TYPE_PLUGIN_MTK_CCCI mm_plugin_mtk_ccci_get_type ()
++MM_DEFINE_PLUGIN (MTK_CCCI, mtk_ccci, MtkCcci)
++
++/*****************************************************************************/
++
++static MMBaseModem *
++create_modem (MMPlugin     *self,
++              const gchar  *uid,
++              const gchar  *physdev,
++              const gchar **drivers,
++              guint16       vendor,
++              guint16       product,
++              guint16       subsystem_vendor,
++              guint16       subsystem_device,
++              GList        *probes,
++              GError      **error)
++{
++    mm_obj_dbg (self, "MediaTek CCCI SoC modem found...");
++    return MM_BASE_MODEM (mm_broadband_modem_mtk_ccci_new (uid,
++                                                           physdev,
++                                                           drivers,
++                                                           mm_plugin_get_name (self),
++                                                           vendor,
++                                                           product));
++}
++
++/*****************************************************************************/
++
++MM_PLUGIN_NAMED_CREATOR_SCOPE MMPlugin *
++mm_plugin_create_mtk_ccci (void)
++{
++    /* CCCI AT ports are reported in the wwan subsystem (see the udev kernel
++     * device), the ccmni data interfaces are net devices */
++    static const gchar *subsystems[] = { "wwan", "net", NULL };
++    static const gchar *udev_tags[] = {
++        "ID_MM_MTK_CCCI",
++        NULL
++    };
++
++    return MM_PLUGIN (
++        g_object_new (MM_TYPE_PLUGIN_MTK_CCCI,
++                      MM_PLUGIN_NAME,               MM_MODULE_NAME,
++                      MM_PLUGIN_ALLOWED_SUBSYSTEMS, subsystems,
++                      MM_PLUGIN_ALLOWED_UDEV_TAGS,  udev_tags,
++                      MM_PLUGIN_ALLOWED_AT,         TRUE,
++                      NULL));
++}
++
++static void
++mm_plugin_mtk_ccci_init (MMPluginMtkCcci *self)
++{
++}
++
++static void
++mm_plugin_mtk_ccci_class_init (MMPluginMtkCcciClass *klass)
++{
++    MMPluginClass *plugin_class = MM_PLUGIN_CLASS (klass);
++
++    plugin_class->create_modem = create_modem;
++}
+-- 
+2.55.0
+

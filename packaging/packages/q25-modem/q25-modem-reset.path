@@ -1,0 +1,7 @@
+[Unit]
+Description=Q25 MD1: watch ccci_mdinit's modem status for resets
+After=q25-modem-init.service
+PartOf=q25-modem.target
+
+[Path]
+PathChanged=/run/q25-modem/props/vendor.mtk.md1.status

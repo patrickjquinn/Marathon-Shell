@@ -1,0 +1,6 @@
+42f3df20af07659c692d0f50770bd506e9ac0af7a5be5b1c1a3276923ada6780  /usr/lib/q25-gpu/q25-mfg-only-v2.ko
+f0c1812fd4d787289f29c53bc92a8f1c6f71430c5d701c6562846e32b1767557  /usr/lib/q25-gpu/gpu-sched.ko
+d503c66e4d62f089a4a5faeecef25290f03a7f2f15b36a38efd5c899aa6c6373  /usr/lib/q25-gpu/panfrost.ko
+7d06cd6f75138e3222e7af1b57e79b4f1dbcadef10a5120072e122c824af36cb  /boot/linux-q25-cfi-test.efi
+68fa4b2a5d0b795a1fa273531eff68a27d8c88895df328b10fcc20a9f64e069b  /usr/lib/q25-gpu/dri/simpledrm_dri.so
+ed32c467bcf591194d23ea136510b558abbc95f61a83b0881b59f06d69a2802d  /etc/q25/eglfs-kms.json

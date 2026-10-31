@@ -1,0 +1,33 @@
+# MediaTek CONNSYS firmware for the Q25 (MT6789 SOC2_1X1, A-die MT6631 "d"
+# and MT6635 "e" flavours). These are proprietary and never committed:
+# copy them from the phone's own stock /vendor/firmware into this directory
+# before building (packaging/packages/q25-connsys-firmware/.gitignore).
+pkgname=q25-connsys-firmware
+pkgver=20261030
+pkgrel=0
+pkgdesc="Q25 Wi-Fi/Bluetooth CONNSYS firmware from the stock vendor partition"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="noarch"
+license="custom:proprietary"
+options="!check !strip !tracedeps"
+source="WIFI_RAM_CODE_soc2_2_1d_1.bin WIFI_RAM_CODE_soc2_2_1e_1.bin
+ soc2_2_ram_mcu_1d_1_hdr.bin soc2_2_ram_mcu_1e_1_hdr.bin
+ soc2_2_ram_wifi_1d_1_hdr.bin soc2_2_ram_wifi_1e_1_hdr.bin
+ soc2_2_ram_bt_1d_1_hdr.bin soc2_2_ram_bt_1e_1_hdr.bin WMT_SOC.cfg"
+package() {
+    local f
+    for f in $source; do
+        install -Dm644 "$srcdir/$f" "$pkgdir/usr/lib/firmware/$f"
+    done
+}
+sha512sums="
+aef3dec93c9d7aac52b09a108588ef2a3377f8ca52802a83b008b59aa000957e09797c7422b07f3965c46150d8cda6aa685c9a153b61168d16a3d56254271636  WIFI_RAM_CODE_soc2_2_1d_1.bin
+ca026b2248ab07453fb8b6ea62ef1b300374c17f46483d47ad56cba86426347584239923a9251d2d5aa42e2bcf3249e1d7ddd5215cc745ed5021245c1a72f4da  WIFI_RAM_CODE_soc2_2_1e_1.bin
+29aff9717bfcb4e488853c09a6f4fc455d198b779606ddaf038dff3309d0057b961fb991e0edf54308f52d2fd97dcdefbf26460ed107f7e594b14985491e4918  soc2_2_ram_mcu_1d_1_hdr.bin
+f53063daa1224b3aea147ea6c1c690e176a6c2a97d86acb9e7c710c206e4bebc3a645981e5933b2ac96646a59025d637aa1bf72215aaa5fd918e0fa3b32eb405  soc2_2_ram_mcu_1e_1_hdr.bin
+a53b707cbc426a0af913bae9377472fdf9f08037e1ae774930d3492ac4a585b4ac2062398aa6f5f30c867beaf3eab87fab842abc0f0cedd777478cfa2c968b61  soc2_2_ram_wifi_1d_1_hdr.bin
+1018269ca90d749bb4033ecc5b9a329f00b0c47119ed0f57c2017c82a86cc295b060e4f88816c20dd3d9ebc78b9aee686c09d4989bc370eb63e8b07987b855c8  soc2_2_ram_wifi_1e_1_hdr.bin
+8ce0ed46ba2be1c464273a5e8b7ba09dd2eb7c582c0d546b92f7c569f9eaff670d4d7dc94950a492cb64e6c3a8eab8a51073aba6b2ad888387e46ab30a5d22bc  soc2_2_ram_bt_1d_1_hdr.bin
+5b476b36a316d8a354231a38bb29ec547aaf591459890b981a3be8325a207f5a901c8894dbe8abed843bcb050a113edb93ddbd38604563f332e9638ed7467e80  soc2_2_ram_bt_1e_1_hdr.bin
+b5298e78ba3d9ffa67c83d0959bf40d37e1331185f8a48fe6a230fee30d55ef90d641e5cba354002a91c99707a26db7ad14f9a86ec8656295c159f7a50a4a5c3  WMT_SOC.cfg
+"

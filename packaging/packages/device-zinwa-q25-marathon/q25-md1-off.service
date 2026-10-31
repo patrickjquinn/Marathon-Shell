@@ -1,0 +1,17 @@
+[Unit]
+Description=Q25: power off the unbooted MD1 modem domain left on by the preloader
+ConditionKernelVersion=7.0.0-q25-cfi-test
+ConditionPathExists=/var/lib/q25-modem/md-off.armed
+ConditionPathExists=!/proc/device-tree/soc/mddriver
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Disarm before touching hardware: a hang here means the next boot skips this unit.
+ExecStartPre=/bin/sh -c 'rm -f /var/lib/q25-modem/md-off.armed && sync'
+ExecStart=/usr/sbin/insmod /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-md1-owner.ko standalone=1 md_off_at_boot=1
+ExecStartPost=/bin/sh -c 'touch /var/lib/q25-modem/md-off.armed && sync'
+
+[Install]
+WantedBy=multi-user.target

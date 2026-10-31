@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 31 Oct 2026 01:00:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: zinwa-q25: let the panel sleep in Doze
+
+The always-on panel-bias regulator kept the panel lit through Doze.
+Hand GPIO84 to q25-panel-doze instead: it puts the panel to sleep over
+the DSI host the bootloader configured, then drops the bias, and wakes
+it in reverse. It also takes the panel reset, GPIO85.
+
+The result equals the device-tested DTB (edc93beb... plus the panel-doze
+overlay, 8c282e5d...) node by node, apart from the BMP390 node already
+left out.
+---
+ arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts |   14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+index 8ba574b..a06ea52 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+@@ -939,9 +939,8 @@
+ 
+ 	/*
+ 	 * ocp2131 DSI panel bias (+/-AVDD/AVEE). The bootloader already programs
+-	 * its I2C registers; hold its enable (GPIO84) high so the rails stay up
+-	 * across the mtk-drm panel re-init. (A full ocp2131 i2c driver can replace
+-	 * this later for runtime power management.)
++	 * its I2C registers. GPIO84 belongs to panel-doze below, which drops the
++	 * bias only after putting the panel to sleep.
+ 	 */
+ 	panel_bias_en: panel-bias-enable {
+ 		compatible = "regulator-fixed";
+@@ -950,6 +949,15 @@
+ 		enable-active-high;
+ 		regulator-boot-on;
+ 		regulator-always-on;
++		status = "disabled";
++	};
++
++	/* Doze: sleep the panel over the firmware-configured DSI host (q25-panel-doze). */
++	panel-doze@14013000 {
++		compatible = "zinwa,q25-panel-doze";
++		reg = <0 0x14013000 0 0x1000>;
++		bias-gpios = <&pio 84 GPIO_ACTIVE_HIGH>;
++		reset-gpios = <&pio 85 GPIO_ACTIVE_HIGH>;
+ 	};
+ 
+ 	afe_pcm: audio-controller@11210000 {
+-- 
+2.47.0
+

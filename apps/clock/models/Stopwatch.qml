@@ -14,9 +14,7 @@ QtObject {
 
     signal edited
 
-    property Timer _tick: Timer {
-        interval: 16
-        repeat: true
+    property FrameAnimation _tick: FrameAnimation {
         running: root.running && root.ticking
         onTriggered: root.update()
     }

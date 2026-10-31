@@ -203,7 +203,10 @@ elif [ "$IS_VIRTIO_GPU" = 1 ]; then
     # check is the more direct signal — that file existing IS the virgl
     # Gallium driver being installed — with the libgallium scan kept as a
     # fallback for layouts that name it differently.
-    GALLIUM_SO="$(ls /usr/lib/libgallium*.so* 2>/dev/null | head -1)"
+    GALLIUM_SO=
+    for so in /usr/lib/libgallium*.so*; do
+        [ -e "$so" ] && GALLIUM_SO=$so && break
+    done
     if [ -e /usr/lib/dri/virtio_gpu_dri.so ]; then
         : # virgl Gallium driver present — hardware GL is possible
     elif [ -z "$GALLIUM_SO" ] || ! grep -qa virgl "$GALLIUM_SO" 2>/dev/null; then
@@ -329,8 +332,8 @@ export QT_QUICK_CONTROLS_STYLE=Basic
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 export QT_ENABLE_HIGHDPI_SCALING=0
 
-# Threaded scenegraph (uses additional cores for paint/upload).
-export QSG_RENDER_LOOP=threaded
+# Default to threaded; a device session may require the software/basic loop.
+export QSG_RENDER_LOOP="${QSG_RENDER_LOOP:-threaded}"
 
 # QML disk cache for fast cold-start.
 # Cache is keyed by qmlcache's internal hashes — but they do NOT include
@@ -591,8 +594,9 @@ fi
 if command -v systemctl >/dev/null 2>&1; then
     (
         socket="${MARATHON_WL_SOCKET_NAME:-marathon-wayland-0}"
-        for _ in $(seq 1 60); do
-            [ -S "$XDG_RUNTIME_DIR/$socket" ] && break
+        # $$ is the shell once the launch below execs it.
+        while [ ! -S "$XDG_RUNTIME_DIR/$socket" ]; do
+            kill -0 $$ 2>/dev/null || exit 0
             sleep 0.5
         done
         systemctl --user set-environment WAYLAND_DISPLAY="$socket" \

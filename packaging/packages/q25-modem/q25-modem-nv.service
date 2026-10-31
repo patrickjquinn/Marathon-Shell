@@ -1,0 +1,10 @@
+[Unit]
+Description=Q25 MD1: NVRAM overlays over the read-only vendor partitions
+After=local-fs.target
+PartOf=q25-modem.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/q25-modem/q25-modem-nv mount
+ExecStop=/usr/libexec/q25-modem/q25-modem-nv umount
