@@ -1,0 +1,9 @@
+#!/bin/sh
+# The controller reports a placeholder address, and the nvdata copy is
+# multicast. Derive a stable one from this install's machine-id: a locally
+# administered unicast address, set before bluetoothd powers hci0.
+set -eu
+h=$(printf 'q25-bluetooth:%s' "$(cat /etc/machine-id)" | sha256sum | cut -c1-12)
+first=$(printf '%02X' $(( (0x$(printf '%s' "$h" | cut -c1-2) & 0xfc) | 0x02 )))
+rest=$(printf '%s' "$h" | cut -c3-12 | sed 's/../:&/g' | tr a-f A-F)
+exec btmgmt --index hci0 public-addr "$first$rest"

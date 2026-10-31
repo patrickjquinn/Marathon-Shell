@@ -1,0 +1,13 @@
+[Unit]
+Description=Q25 Bluetooth address
+Requires=q25-bluetooth.service
+After=q25-bluetooth.service
+Before=bluetooth.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/q25-bt-address
+
+[Install]
+WantedBy=bluetooth.target multi-user.target

@@ -1,14 +1,14 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=7
+pkgrel=8
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="Apache-2.0"
 options="!check"
 depends="device-mediatek-g99 marathon-base-config marathon-shell greetd q25-gpu-render
- q25-kernel-modules q25-connsys-firmware wpa_supplicant"
+ q25-kernel-modules q25-connsys-firmware wpa_supplicant bluez-btmgmt"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
@@ -16,7 +16,7 @@ replaces="device-mediatek-g99-marathon"
 source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example q25-keyboard.modprobe.conf q25-keyboard.modules-load.conf
  q25-md1-off.service q25-wmt.c q25-connsys.service q25-wmt-launcher.service q25-wifi.service
  q25-connsys.modprobe.conf q25-wifi.system-sleep wpa_supplicant.service
- q25-bluetooth.service"
+ q25-bluetooth.service q25-bt-address q25-bt-address.service"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -51,13 +51,15 @@ package() {
 
     # Bluetooth: the HCI driver over WMT/STP, once the patch server runs.
     install -Dm644 "$srcdir/q25-bluetooth.service" "$pkgdir/usr/lib/systemd/system/q25-bluetooth.service"
+    install -Dm755 "$srcdir/q25-bt-address" "$pkgdir/usr/libexec/marathon/q25-bt-address"
+    install -Dm644 "$srcdir/q25-bt-address.service" "$pkgdir/usr/lib/systemd/system/q25-bt-address.service"
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth; do
+    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
     done
     install -d "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
-    for unit in q25-bluetooth; do
+    for unit in q25-bluetooth q25-bt-address; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants/$unit.service"
     done
 }
@@ -79,4 +81,6 @@ b6bb3fe14406fdde166708cf55e71d81146513560ca56ab53e3a06049c74434544d5a48e47fe951d
 25a6183746c980b35f5c2e3074417e6e27b051e78af308de9312585a748f090b96db729dcf34714aac884839936f0447489b2d37ff04dc2781fe661d6b793dea  q25-wifi.system-sleep
 f9fbaaf80fa5fcd713a7f5acac17de8ada5a708f9d22e979ef243500989815dba5ffc2f722e3e593832164afe567bad4b0720e17a300165ea0eb851228acb274  wpa_supplicant.service
 9b59ad8e6b4a3a1625b45d80889b8aab7fbd5dc234c7016ba33be910d510bba7df2cb6fd0cbd8bfcfac2a67ed91a02216a5c9de69377beb412f53cc3c727841b  q25-bluetooth.service
+fb38c1cd394a4813309f81f8364146b96e533cfea3d69f70e6fe699f3afb98e398c80fa3ec2c76e0ccb315ec6965eec7c73a355a88c571df4b5b381e70e032f1  q25-bt-address
+9756affb60b5289e2144f1a2a54afec7072a2ba3230465bf19710cc5b0308a2d67d238592451fd972e7399279c0da5cecca30e95612a067e72b7f27825762671  q25-bt-address.service
 "

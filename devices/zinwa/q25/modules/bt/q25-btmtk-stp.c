@@ -314,6 +314,13 @@ static int __init q25_bt_init(void)
 	hdev->flush = q25_bt_flush;
 	hdev->send = q25_bt_send;
 	hdev->set_bdaddr = q25_bt_set_bdaddr;
+	/*
+	 * The controller reports a placeholder address and close() powers the
+	 * BT core off, so stay unconfigured until userspace sets an address
+	 * and program it again on every power-on.
+	 */
+	hci_set_quirk(hdev, HCI_QUIRK_INVALID_BDADDR);
+	hci_set_quirk(hdev, HCI_QUIRK_NON_PERSISTENT_SETUP);
 
 	ret = hci_register_dev(hdev);
 	if (ret < 0)
