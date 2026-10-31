@@ -32,11 +32,13 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio panel; do
+for d in keyboard md1 conn-pd imu bt audio panel mag light; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
 cp "$ksrc/drivers/spi/spi-mt65xx.c" "$out/src/imu/"
+cp "$ksrc/drivers/iio/magnetometer/mmc5633.c" "$out/src/mag/"
+(cd "$out/src/mag" && patch -p1 -s < mmc5633-q25.patch)
 
 a=$out/src/audio
 mkdir -p "$a/core" "$a/soc" "$a/codecs" "$a/mediatek/common" "$a/mediatek/mt6789"
@@ -71,7 +73,7 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 
-for d in keyboard md1 conn-pd imu audio panel; do
+for d in keyboard md1 conn-pd imu audio panel mag light; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$ksrc/net/rfkill" "$out/obj/rfkill"
