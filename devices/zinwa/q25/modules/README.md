@@ -7,7 +7,7 @@ Sources of the modules that `packaging/packages/q25-kernel-modules` ships.
 | `conn-pd` | `q25-conn-pd` | Marathon |
 | `imu` | `inv-icm42607`, `inv-icm42607-spi` | torvalds/linux `abf8c334` `drivers/iio/imu/inv_icm42607`, unmodified |
 | `bt` | `q25-btmtk-stp` | Marathon |
-| `audio` | `snd-timer`, `snd-pcm`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-audio-pd`, `q25-oca72390`, `q25-mt6366-card`, `q25-mt6366-irqfix` | the kernel's `sound/` files (`mt6358` plus patches `0002`–`0006`), linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, and Marathon's `q25/` and `q25irqfix/` drivers |
+| `audio` | `snd-timer`, `snd-pcm`, `snd-jack`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-audio-pd`, `q25-oca72390`, `q25-mt6366-card`, `q25-mt6366-irqfix` | the kernel's `sound/` files (`mt6358` plus patches `0002`–`0006`), linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, and Marathon's `q25/` and `q25irqfix/` drivers |
 | `panel` | `q25-panel-doze` | Marathon |
 | `display` | `q25-vsyncdrm` | the kernel's `drivers/gpu/drm/sysfb/simpledrm.c` plus Marathon's scan-locked vblank |
 | `clk` | `q25-i2c-clk` | Marathon |

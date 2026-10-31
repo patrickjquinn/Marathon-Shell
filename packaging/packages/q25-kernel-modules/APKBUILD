@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=10
+pkgrel=11
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -14,7 +14,7 @@ makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
-_audio="snd-timer snd-pcm snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card q25-mt6366-irqfix"
+_audio="snd-timer snd-pcm snd-jack snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card q25-mt6366-irqfix"
 source="SHA256SUMS"
 for _m in $_extra $_connsys $_audio; do
     source="$source $_m.ko.zst"
@@ -36,7 +36,7 @@ package() {
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-119d26367e4cd841ee44da194938dc26d3b32711c6e40b01ac36134457f1b337bd4f3a603c2b2dd74526ed1a484ae1cfca6882213c573c7717b0b8a6b3ddd5d7  SHA256SUMS
+3f795dc2695c1140c3e6aac2db4494beff6d353be5cc24803e9ac15938cc121a3d1b1a97b9992eaa03e2889e3ccd2c82277661ca61b02e3b69d6abb5c2614c83  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 a1bc222102bf04eb7cd7c2b9efc6d019bf1cf09dbdcbc28de008c707e2a6a962543d9b2f2ff7b6619d970fe407897e9f242c92757a42d210bb10ca4a1e0ee873  q25-md1-owner.ko.zst
@@ -60,7 +60,8 @@ ab87b99cc6f2417553e30f55de0e9976efed3da7aa9bb33f2a5008c7cb010a754345ac6aabaf911d
 f7e55839f552bda3724fd57c9d7e73aeb3a4acde98ceea1d971874ffdefb4b99be89ac07558ac3c7d23f44d33b6b2095f0237d153e947cbadd71da1d726aea70  q25-btmtk-stp.ko.zst
 c592fabfaa9551183f96b29a9286d86131235f34db9711529cf905f2a7c6017601b27827a249d6d4b16851cd10a4395900f9bf99b39a9e153a8259a9c0bdaf1c  snd-timer.ko.zst
 4db0014aaa9d7f4b225bb10b473ca22b54ed1abf6043c538961df6db4bbcc54c9a76a36c36c1d586fd3188c37995aa2392f84626b221000113d241521b2a1cba  snd-pcm.ko.zst
-129c533e13ed7e07957862b6d5f5d87f9bec35c03a8463891aa2b0e0c8545c8ff8c5dc71a9b75affc4992284254bc5462c78a705b992c0f1abc6a550e7869436  snd-soc-core.ko.zst
+c5b8ce812d9d0532fc3df1c17ddb83891f5189324a23b8e6e1b57cabce28c5ca8d066d082db80894b1dd37dc335ca22e638c7eed04ac9e3dcf20b87e60989675  snd-jack.ko.zst
+760afdc1f89e249fc8e1b971e6b2604d854c6e86a3e62b05cb9e3c84855c3e2f2958e7c4eec21260677068f0d4fa586ada0364339e58bfbd86de4fba9f033bce  snd-soc-core.ko.zst
 8a150b3ffaba56b5289a3b9f35c5f11e8a47157a8a05a6b0e2909c322606bd91c30810153406498fe1211ca72dfa515a43b1becc1fd76ff39612ac8fee5b268b  snd-soc-mt6358.ko.zst
 c0df316223aedc0ee9d2e3ca7aa7751ed49591bf411ec2fd6aadabe382824c6bae6f3a24f3c49d35bfd9835eb3b42a10e29e7194cadc8082d40f2e98dbdae178  snd-soc-mtk-common.ko.zst
 f7a0e0af34d78494afc7074d199e78e3d80440125547b638a62f0fc6e1ca514d2093c73560953714ec394356dbfb9a44b2a4c7f504bbd806abd8b4f65093d8f4  snd-soc-mt6789-afe.ko.zst

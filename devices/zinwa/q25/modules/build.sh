@@ -44,7 +44,8 @@ cp "$ksrc/drivers/iio/magnetometer/mmc5633.c" "$out/src/mag/"
 a=$out/src/audio
 mkdir -p "$a/core" "$a/soc" "$a/codecs" "$a/mediatek/common" "$a/mediatek/mt6789"
 for f in timer.c timer_compat.c pcm.c pcm_native.c pcm_lib.c pcm_misc.c pcm_memory.c \
-	memalloc.c pcm_timer.c pcm_compat.c pcm_local.h pcm_param_trace.h pcm_trace.h; do
+	memalloc.c pcm_timer.c pcm_compat.c pcm_local.h pcm_param_trace.h pcm_trace.h \
+	jack.c ctljack.c; do
 	cp "$ksrc/sound/core/$f" "$a/core/"
 done
 for f in soc-core.c soc-dapm.c soc-jack.c soc-utils.c soc-dai.c soc-component.c soc-pcm.c \

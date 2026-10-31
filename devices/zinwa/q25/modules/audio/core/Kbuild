@@ -3,4 +3,5 @@ snd-timer-y := timer.o
 snd-pcm-y := pcm.o pcm_native.o pcm_lib.o pcm_misc.o pcm_memory.o memalloc.o pcm_timer.o
 CFLAGS_pcm_lib.o := -I$(src)
 CFLAGS_pcm_native.o := -I$(src)
-obj-m += snd-timer.o snd-pcm.o
+snd-jack-y := jack.o ctljack.o jack-mod.o
+obj-m += snd-timer.o snd-pcm.o snd-jack.o
