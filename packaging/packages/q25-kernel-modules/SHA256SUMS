@@ -4,6 +4,7 @@
 45df5769ad667e8dcdee4dccba3217252266b9565ebd7ac65aa3b8105047e762  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607.ko
 08dd386a0f80c492bebe7baca18542ccd8fc3b71a4409b48e1f5409af25a1f6e  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607-spi.ko
 1965f3affa0cebc5c31d6813f783e53a6f08b83a3ba2ef2a811b4b662c4090a7  /usr/lib/modules/7.0.0-q25-cfi-test/extra/spi-mt65xx.ko
+116dfd1059aba9e9c48eb2415e3ec9e45849d42288cd7a1fcb797ae29ce0ed11  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-panel-doze.ko
 044a392151d925277d07e141ec33f6e04f94228659fb832a3fedf964552967d1  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/q25-conn-pd.ko
 49e46ff1d2416073f23c43029311b909cef824b9dd5cdf3018cabfc00f6ec130  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/rfkill.ko
 a2d31b2be1fd7e1aef17a2d10089fd5dd57d5715114fea91807ee943f9ce27fe  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/cfg80211.ko

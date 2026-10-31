@@ -48,3 +48,10 @@ must stop copying its own. `0006` brings it to the DT the Q25 booted from
 `edc93beb…`. Compiled against the 978b8b67 `mt6789.dtsi`, the result equals
 `edc93beb…` node by node with phandles resolved, except that the BMP390 node
 is dropped: both of its addresses NACK on the device. No gpio-backlight.
+
+`0008` hands GPIO84 (panel bias) and GPIO85 (panel reset) from the
+always-on regulator to `q25-panel-doze`, which sleeps the panel in Doze. The
+result equals the device-tested `8c282e5d…` (edc93beb plus the panel-doze
+overlay) except for the BMP390 node. The board DTS carries no modem nodes:
+with them, `q25-md1-owner` would autoload and `q25-md1-off.service` would
+skip, leaving MD1 powered.

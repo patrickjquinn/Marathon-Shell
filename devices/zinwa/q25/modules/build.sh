@@ -32,7 +32,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio; do
+for d in keyboard md1 conn-pd imu bt audio panel; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -71,7 +71,7 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 
-for d in keyboard md1 conn-pd imu audio; do
+for d in keyboard md1 conn-pd imu audio panel; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$ksrc/net/rfkill" "$out/obj/rfkill"
