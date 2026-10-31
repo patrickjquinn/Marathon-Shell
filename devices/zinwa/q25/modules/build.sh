@@ -77,7 +77,9 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 rm -rf "$out/src/modem"
 mkdir -p "$out/src/modem"
 (cd "$donor" && tar cf - -T "$here/modem/eccci-files.txt") | tar xf - -C "$out/src/modem"
-(cd "$out/src/modem" && patch -p1 -s < "$here/modem/0001-eccci-q25-linux-7.0.patch")
+for p in "$here"/modem/*.patch; do
+	(cd "$out/src/modem" && patch -p1 -s < "$p")
+done
 
 for d in keyboard md1 conn-pd imu audio panel display mag light; do
 	kmake "$out/src/$d" "$out/obj/$d"
