@@ -39,3 +39,5 @@ sensors = []
 # Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
 # Leave panel_dpi unset until the physical panel dimensions are measured.
 force_dpi = 240
+# ondemand ramps only past 95% load; schedutil follows the foreground uclamp.
+cpu_governor = "schedutil"
