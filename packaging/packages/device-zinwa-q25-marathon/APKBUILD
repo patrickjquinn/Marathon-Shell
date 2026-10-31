@@ -18,7 +18,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-connsys.modprobe.conf q25-wifi.system-sleep wpa_supplicant.service
  q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
  q25-kernel-cmdline.conf unudhcpd-usb0.conf q25.preset
- q25-usb-gadget q25-usb-gadget.service"
+ q25-usb-gadget q25-usb-gadget.service q25-root-dio.service"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -87,6 +87,10 @@ package() {
     install -d "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants"
     ln -s ../q25-usb-gadget.service "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants/q25-usb-gadget.service"
 
+    install -Dm644 "$srcdir/q25-root-dio.service" "$pkgdir/usr/lib/systemd/system/q25-root-dio.service"
+    install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
+    ln -s ../q25-root-dio.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-dio.service"
+
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
@@ -127,4 +131,5 @@ aed8f85dc47c2eb7ef833e35d5bd68f8a83a81f613d062a97f1839771a781c70492fe5dfbea7cd63
 f1e9538dbffbe77c5b83d294f7b163de4e5ddbe2c5f0b5c7d10aea961bc4447ca56dcf9b8bd7746b6d51970091db3eb93a9f1e950ad3fdb656d189db93f0173b  q25.preset
 1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  q25-usb-gadget
 6c275f539f32b2746db9da50d83b7c3f0de9ceb4db4068c4d0ba3e11f70d164dd6ed369884c37bd8c902448bd26c5bba07822bd6465f6796190fafa7ed277433  q25-usb-gadget.service
+dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695cd2bd2f2ca06153f38617fb605279038f52db61746df6f57  q25-root-dio.service
 "
