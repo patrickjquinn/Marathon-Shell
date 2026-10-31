@@ -55,3 +55,12 @@ result equals the device-tested `8c282e5d…` (edc93beb plus the panel-doze
 overlay) except for the BMP390 node. The board DTS carries no modem nodes:
 with them, `q25-md1-owner` would autoload and `q25-md1-off.service` would
 skip, leaving MD1 powered.
+
+`0009` fixes the MT6358/MT6366 PMIC interrupt handler's AUD and MISC group
+bits (7 and 8 in TOP_INT_STATUS0, as in MediaTek's headers; mainline has 6
+and 7). Without it an ACCDET interrupt is read as MISC, never dispatched or
+acknowledged, and the PMIC line storms at about 24000/s. The constants feed
+only `.top_offset` in `mt6358_irq_handler`; MT6357 and MT6359 have their own
+enums. `MFD_MT6397` is built in, so it takes effect only with the next kernel
+build; until then `q25-mt6366-irqfix` (modules/audio) patches the table at
+runtime and does nothing on a fixed kernel.
