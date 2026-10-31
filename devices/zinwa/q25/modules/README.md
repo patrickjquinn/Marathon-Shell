@@ -14,7 +14,8 @@ Sources of the modules that `packaging/packages/q25-kernel-modules` ships.
 | `mag` | `mmc5633` | the kernel's `drivers/iio/magnetometer/mmc5633.c` plus `mmc5633-q25.patch` |
 | `light` | `hx32062se` | Marathon |
 | `gauge` | `q25-mt6358-live` | Marathon |
-| (kernel tree) | `spi-mt65xx`, `rfkill`, `cfg80211`, `bluetooth` | the kernel's own source; the APK's config leaves them unbuilt or unshipped |
+| (kernel tree) | `spi-mt65xx`, `rfkill`, `cfg80211`, `bluetooth`, `llc`, `stp`, `bridge` | the kernel's own source; the APK's config leaves them unbuilt or unshipped |
+| `net` | `tun`, `veth`, `nfnetlink`, `x_tables`, `xt_tcpudp`, `xt_CHECKSUM`, `xt_MASQUERADE`, `nf_defrag_ipv4`, `nf_defrag_ipv6`, `nf_conntrack`, `nf_nat`, `nf_tables`, `nft_compat`, `nft_chain_nat`, `nft_masq`, `nft_ct` | the kernel's `drivers/net/tun.c` and `veth.c` and its `net/netfilter`, `net/ipv4/netfilter` and `net/ipv6/netfilter`, built as one set; only what Deckard's bridge and iptables-nft NAT need ships |
 | `modem` | `ccci_util_lib`, `ccmni`, `ccci_md_all`, `ccci_ccif`, `ccci_dpmaif` (shipped by `q25-modem`) | iasnezhkov/android_kernel_ikko_mindone `9cd73c15` `mindone/modules`, the files in `eccci-files.txt`, plus `0001` and `0002` |
 | `wifi` | `connadp`, `btif_drv`, `wmt_drv`, `wmt_chrdev_wifi`, `wlan_drv_gen4m_6789` | iasnezhkov/android_kernel_ikko_mindone `9cd73c15` `mindone/modules`, plus the two patches |
 

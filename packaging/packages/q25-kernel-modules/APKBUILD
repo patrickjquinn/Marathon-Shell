@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=13
+pkgrel=14
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -15,13 +15,14 @@ install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se q25-mt6358-live"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
 _audio="snd-timer snd-pcm snd-jack snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card q25-mt6366-irqfix q25-mt6358-accdet"
+_net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat nft_masq nft_ct"
 source="SHA256SUMS"
-for _m in $_extra $_connsys $_audio; do
+for _m in $_extra $_connsys $_audio $_net; do
     source="$source $_m.ko.zst"
 done
 package() {
     local extra="$pkgdir/usr/lib/modules/7.0.0-q25-cfi-test/extra" m
-    install -d "$extra/q25-connsys" "$extra/q25-audio"
+    install -d "$extra/q25-connsys" "$extra/q25-audio" "$extra/q25-net"
     for m in $_extra; do
         zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/$m.ko"
     done
@@ -31,12 +32,15 @@ package() {
     for m in $_audio; do
         zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/q25-audio/$m.ko"
     done
-    chmod 0644 "$extra"/*.ko "$extra"/q25-connsys/*.ko "$extra"/q25-audio/*.ko
+    for m in $_net; do
+        zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/q25-net/$m.ko"
+    done
+    chmod 0644 "$extra"/*.ko "$extra"/q25-connsys/*.ko "$extra"/q25-audio/*.ko "$extra"/q25-net/*.ko
     (cd "$pkgdir" && sed 's#  /#  #' "$srcdir/SHA256SUMS" | sha256sum -c >/dev/null)
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-006df414d3684fce3376cc5fe68992bc5c007894cc2b9b7afac748ca2a1dbe2a2ae88088dbf209ac9b3c6269e4baed40f917beea305360400d2090ffeccaf25b  SHA256SUMS
+52ec9a53638cff418ee069bbb80d404e3f738c57f674fe1cf218a5993291a03e3b1b87f5d39b84c9e7ddfe14b472fb54e2696c3a3e6c1a54823612c79249dc70  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 a1bc222102bf04eb7cd7c2b9efc6d019bf1cf09dbdcbc28de008c707e2a6a962543d9b2f2ff7b6619d970fe407897e9f242c92757a42d210bb10ca4a1e0ee873  q25-md1-owner.ko.zst
@@ -71,4 +75,23 @@ ba96d101aae4b1b352cc54db58ccef67832635aba940aa222f190b37527e7cce944389d491bb3add
 cffb0d88745a4ec08c2b1a18ed89176e0ccda588c3687db60c9d1d106c25104909994c0790db57a4404ae0941eafd596cefc933ea4a6150d592222b53d819293  q25-mt6366-card.ko.zst
 d27735e5f76f8aaf877d6d43d2b8844c52e49d7fd48e8f1d175609e66e059f1cf4138aa0673af839b0d4b806b1ec2b0f8fec9d7b295889aa152e8426ea7e29ab  q25-mt6366-irqfix.ko.zst
 34143904c3d8be0280033c5f59c81a8e5e7c3409d3cf2561ce0377a91479e7dd0dfac8f2b0293480bd75fe943f22fe6dca5734fe60b375998f802902331e0609  q25-mt6358-accdet.ko.zst
+509149e605638513844f334ce0ab1d05aa598ac0ac1fc088b945203aa7f26aa043b5a2fd2dc96938e25c5785815f474e4195b956315ae496386925aaaaf3c3a7  llc.ko.zst
+e32452065020680accabc75eecab443be193011ae66e72afd9220c4f10dbeb617985e538cf7656aea5945a034d50a6e90f45a2f9c24c9abf18622048d912e078  stp.ko.zst
+b6c10940a67c1e070b841032da61f21915497ec6b8a0e60a79929847e308f79bac9d7bda460e2c4a9b67601c0ed2bfce7277bc76aa9497067e98c6945641333c  bridge.ko.zst
+9fd3eaa40046df030c92592c4349e01c6156620d8eb92dddb083026547cd4b7c433b000f98da06e4d2fb3723a6e2bd30623110dd9e9a9718cb0e68395aee67be  veth.ko.zst
+eeb3b5b730df187c9bb8d2f3d5937bfca8cd7a167de40b48c67817cb63e9782880582bfe308635a494e801584fc8989fe95541878eedd13ee5b6f0ff406363f3  tun.ko.zst
+aa162cb316e72847a5c59d3d5b48331803fa0406ccd8af621a8b9dd0408ed63f3ce447b3244babf505a5a07645c54d374302f144e9cd9db338f898c8810236c8  nfnetlink.ko.zst
+a12714f9045a056bff71b09c84fef682f81279c54746004a66d476479c057f4993d46fa0334dd61762b462fefa9427608c40e73213a0b8dcb63479e30ac51695  x_tables.ko.zst
+b6d28d2ca0d4907335e381ad4247d39736dfcfdce6c8a254814223cc70576d3e3e509c8a454794513d4061b90cc9060254fc0a91cb7b32a028010a764c270890  xt_tcpudp.ko.zst
+ea9504f055450ab52ea9540a9166ec462e8b0ed30c1f1438733b3c3a484833ad6c99678f8faa565e67b7012981051625ba9f5d02085275051c4b6b1d6150a9c5  xt_CHECKSUM.ko.zst
+176fcdc0917d39dff7575912016c8b8bab5b72c5ac93a55b13e61aa8aca6a8bffd3f7bdeb1baea40deebe6355fa4970b4be0ea335e760d97727a758dd8d9a37b  xt_MASQUERADE.ko.zst
+53a31e301ce3cc640faff7e5fd437bac1e15d7f93eb398c127eb854c44d418425e41f6b9ec3b3d0fc5e26405489cd8a3c88ea6310471b1246a106c890a3c8562  nf_defrag_ipv4.ko.zst
+7eea209798ade86daab5964fd634dc64e63dcacfde42215c6d32e00764cf5c52c9902c88f582102effa556f47ce07a0a06d5e4d4dc01e0eb4dd70103b65ca9b0  nf_defrag_ipv6.ko.zst
+47ea3e2ddb7a3a47840607b41ccffedf18ab0fd589223389eb6d8c8f0d0323a05ebe6f7db4e518dca76ca1fb8ac362155b231db1bb97b506580de237b28e57ed  nf_conntrack.ko.zst
+6239dd0b291ce3c087ed1114599a3d1b56900ad2cecbe4582d1bfe5c0c635e6c57a41eea46e93e21589bc6c44387fd45fbe6115f2385397259cc60587e03a6db  nf_nat.ko.zst
+882ec115abe26be1b16982e2d559ef9a3061599bdc17b02b56db02242ecc58bc13e3a7f8bea828cc2e7d22ba8aa9918cb419865d141b9b6ff12429015d4939fa  nf_tables.ko.zst
+8de85a965091464eb626f94616baf3e47d31712622097b94ac5ad46cde04cd7eca23bd8667830036c460415338bd58a11a51e4ff7eba6e5252e445b2a3e70009  nft_compat.ko.zst
+793f3ae81a1ce602a126ba6d8a80c22c0d49f0a18a839df1d268d7aa1f9bb650b6bd470b285845091a2324d72ba3c883b49afc68e216a51bf9c14137030aedb0  nft_chain_nat.ko.zst
+f869d18afea7df419271911f5b9616628120855823bcc4d4076c8db2c5791feb3af35ab6bdfc4f6724e23548b296b55b6b57baad9c67f6752224619d0055e41a  nft_masq.ko.zst
+6c77979db20ea400e276b76348edb3500a64ee2bcf60d7c5f525b1d108e0670174cb466843466f6d32c07c77c7e7eff148ace28013fb300993f6956e9a647b5c  nft_ct.ko.zst
 "
