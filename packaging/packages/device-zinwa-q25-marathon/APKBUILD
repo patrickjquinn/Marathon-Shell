@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=13
+pkgrel=14
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -17,7 +17,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-md1-off.service q25-wmt.c q25-connsys.service q25-wmt-launcher.service q25-wifi.service
  q25-connsys.modprobe.conf q25-wifi.system-sleep wpa_supplicant.service
  q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
- q25-kernel-cmdline.conf"
+ q25-kernel-cmdline.conf unudhcpd-usb0.conf q25.preset"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -70,6 +70,15 @@ package() {
     # longer scrolls kernel messages through the framebuffer simpledrm scans out.
     install -Dm644 "$srcdir/q25-kernel-cmdline.conf" "$pkgdir/etc/kernel-cmdline.d/50-device-mediatek-g99.conf"
 
+    # USB networking starts when the gadget's usb0 appears and stops when it
+    # goes, instead of retrying a missing interface every second while no
+    # cable is attached. The preset keeps it out of multi-user.target, which
+    # would otherwise wait for the device at boot.
+    install -Dm644 "$srcdir/unudhcpd-usb0.conf" "$pkgdir/usr/lib/systemd/system/unudhcpd@usb0.service.d/50-q25-usb0.conf"
+    install -Dm644 "$srcdir/q25.preset" "$pkgdir/usr/lib/systemd/system-preset/80-q25.preset"
+    install -d "$pkgdir/usr/lib/systemd/system/sys-subsystem-net-devices-usb0.device.wants"
+    ln -s ../unudhcpd@.service "$pkgdir/usr/lib/systemd/system/sys-subsystem-net-devices-usb0.device.wants/unudhcpd@usb0.service"
+
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
@@ -106,4 +115,6 @@ aed8f85dc47c2eb7ef833e35d5bd68f8a83a81f613d062a97f1839771a781c70492fe5dfbea7cd63
 95e8671e21138ec2304323c9774c2042214c88b4cf42b0bde0ff801e5e0c40972cbfca823c327b3a82611666c5140a0da29012dd72e35c7dcf0e2d463db35efc  VoiceCall.conf
 1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
 918d035bf38cbeb640393a075d60c2b7e783389b206c34ab7bcb0b61f45ecf5956fd975fd74bf835c4e013d8ffba905e97d8c02838337154ea3c46e6e44ace94  q25-kernel-cmdline.conf
+6ce08a706a469d239245c45f23ee6098df3b83114e1275d86a31c2ec1f1560109749736669c74e50aba2888b734d35fd8717dd25b44f8c49bc6b5b0022bc0e93  unudhcpd-usb0.conf
+f1e9538dbffbe77c5b83d294f7b163de4e5ddbe2c5f0b5c7d10aea961bc4447ca56dcf9b8bd7746b6d51970091db3eb93a9f1e950ad3fdb656d189db93f0173b  q25.preset
 "
