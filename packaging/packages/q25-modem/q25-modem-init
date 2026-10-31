@@ -46,7 +46,7 @@ settle() {
 sim_ready() {
 	tries=0
 	while [ $tries -lt 30 ]; do
-		cmd 'AT+CPIN?' | grep -q '+CPIN: ' && return 0
+		cmd 'AT+CPIN?' | grep '+CPIN: ' >/dev/null && return 0
 		tries=$((tries + 1))
 		sleep 2
 	done
@@ -66,9 +66,9 @@ if [ -n "$IA_APN" ]; then
 	cmd "AT+EIAAPN=\"$IA_APN\",0,\"$IA_PROTOCOL\",\"$IA_PROTOCOL\",1,\"\",\"\""
 fi
 
-for attempt in 1 2; do
+for _ in 1 2; do
 	cmd 'AT+EFUN=1' 60
-	if cmd 'AT+ESIMS?' | grep -q '+ESIMS: 1'; then
+	if cmd 'AT+ESIMS?' | grep '+ESIMS: 1' >/dev/null; then
 		sim_ready && break
 	fi
 	sleep 2
