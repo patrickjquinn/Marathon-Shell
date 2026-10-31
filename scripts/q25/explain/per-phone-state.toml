@@ -1,0 +1,34 @@
+# Differences every new root shows against a lived-in phone: per-phone
+# identity and runtime state (Q25-IMAGE-PLAN §1.4c). A fresh setup
+# regenerates these; they are never packaged.
+
+[[rule]]
+check = "files"
+match = ["/etc/ssh/ssh_host_*", "/etc/machine-id", "/etc/hostname", "/etc/shadow", "/etc/adjtime", "/etc/localtime"]
+reason = "per-phone identity, clock and timezone"
+
+[[rule]]
+check = "files"
+match = ["/etc/NetworkManager/system-connections/*"]
+reason = "per-phone Wi-Fi and mobile-data connections"
+
+[[rule]]
+check = "files"
+kind = "changed"
+match = ["/etc/q25-modem/modem.conf", "/etc/q25-modem/properties"]
+reason = "per-phone APN on top of the q25-modem defaults"
+
+[[rule]]
+check = "files"
+match = ["/etc/.pwd.lock", "/etc/.updated", "/etc/tuned/active_profile", "/etc/tuned/ppd_base_profile", "/etc/tuned/profile_mode"]
+reason = "runtime state written by shadow tools, systemd-update-done and TuneD"
+
+[[rule]]
+check = "files"
+match = ["*/__pycache__/*.pyc"]
+reason = "bytecode written at runtime by root Python services"
+
+[[rule]]
+check = "units"
+match = ["system multi-user.target.wants/sshd.service"]
+reason = "sshd enablement is per-phone (dev SSH opt-in)"
