@@ -158,6 +158,19 @@ index 0000000..ae2bbe9
 +	-DCFG_SUPPORT_APF=1 -DCONFIG_WLAN_SERVICE=1 -DCONFIG_TEST_ENGINE_OFFLOAD=1 \
 +	-DCFG_SUPPORT_MTK_DISP_NOTIFY=0 -DCFG_MODIFY_TX_POWER_BY_BAT_VOLT=0
 +$(foreach o,$(wlan_drv_gen4m_6789-y),$(eval CFLAGS_$(o) += $(wlan-cflags)))
+diff --git a/wlan_drv_gen4m_6789/chips/common/cmm_asic_connac.c b/wlan_drv_gen4m_6789/chips/common/cmm_asic_connac.c
+index bfd9114..540c146 100644
+--- a/wlan_drv_gen4m_6789/chips/common/cmm_asic_connac.c
++++ b/wlan_drv_gen4m_6789/chips/common/cmm_asic_connac.c
+@@ -728,7 +728,7 @@ void asicPdmaConfig(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable,
+ 	if (fgEnable == TRUE) {
+ 		GloCfg.field_conn.tx_dma_en = 1;
+ 		GloCfg.field_conn.rx_dma_en = 1;
+-		GloCfg.field_conn.pdma_bt_size = 3;
++		GloCfg.field_conn.pdma_bt_size = min(q25_pdma_bt_size, 3U);
+ 		GloCfg.field_conn.pdma_addr_ext_en =
+ 			(prBusInfo->u4DmaMask > 32) ? 1 : 0;
+ 		GloCfg.field_conn.tx_wb_ddone = 1;
 diff --git a/wlan_drv_gen4m_6789/common/wlan_lib.c b/wlan_drv_gen4m_6789/common/wlan_lib.c
 index 9cdd31e..992c5d0 100644
 --- a/wlan_drv_gen4m_6789/common/wlan_lib.c
@@ -241,10 +254,24 @@ index 40ac5e9..a534f7e 100644
  	uint8_t ucHifTc = 0;
  	uint32_t u4StaPsBitmap, u4BssAbsentBitmap;
 diff --git a/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c b/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c
-index 1aa6d08..a443ec6 100644
+index 1aa6d08..3fbd331 100644
 --- a/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c
 +++ b/wlan_drv_gen4m_6789/os/linux/gl_cfg80211.c
-@@ -7192,7 +7192,7 @@ int mtk_cfg_stop_ap(struct wiphy *wiphy,
+@@ -893,6 +893,13 @@ int mtk_cfg80211_scan(struct wiphy *wiphy,
+ 		return -EBUSY;
+ 	}
+ 
++	if (!q25_online_scan &&
++	    kalGetMediaStateIndicated(prGlueInfo, ucBssIndex) ==
++	    MEDIA_STATE_CONNECTED) {
++		DBGLOG(REQ, INFO, "q25_online_scan=0: scan rejected while connected\n");
++		return -EBUSY;
++	}
++
+ #if CFG_SUPPORT_LOWLATENCY_MODE
+ 	if (!prGlueInfo->prAdapter->fgEnCfg80211Scan
+ 	    && MEDIA_STATE_CONNECTED
+@@ -7192,7 +7199,7 @@ int mtk_cfg_stop_ap(struct wiphy *wiphy,
  	return mtk_p2p_cfg80211_stop_ap(wiphy, dev);
  }
  
@@ -253,7 +280,7 @@ index 1aa6d08..a443ec6 100644
  			     u32 changed)
  {
  	struct GLUE_INFO *prGlueInfo = NULL;
-@@ -7234,7 +7234,7 @@ int mtk_cfg_set_bitrate_mask(struct wiphy *wiphy,
+@@ -7234,7 +7241,7 @@ int mtk_cfg_set_bitrate_mask(struct wiphy *wiphy,
  }
  
  int mtk_cfg_set_txpower(struct wiphy *wiphy,
@@ -262,7 +289,7 @@ index 1aa6d08..a443ec6 100644
  			enum nl80211_tx_power_setting type, int mbm)
  {
  	struct GLUE_INFO *prGlueInfo = NULL;
-@@ -7255,8 +7255,8 @@ int mtk_cfg_set_txpower(struct wiphy *wiphy,
+@@ -7255,8 +7262,8 @@ int mtk_cfg_set_txpower(struct wiphy *wiphy,
  }
  
  int mtk_cfg_get_txpower(struct wiphy *wiphy,
@@ -274,10 +301,25 @@ index 1aa6d08..a443ec6 100644
  	struct GLUE_INFO *prGlueInfo = NULL;
  
 diff --git a/wlan_drv_gen4m_6789/os/linux/gl_init.c b/wlan_drv_gen4m_6789/os/linux/gl_init.c
-index c50d711..a721bd4 100644
+index c50d711..76c6c08 100644
 --- a/wlan_drv_gen4m_6789/os/linux/gl_init.c
 +++ b/wlan_drv_gen4m_6789/os/linux/gl_init.c
-@@ -5725,7 +5725,9 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
+@@ -107,6 +107,14 @@ int g_u4HaltFlag;
+ int g_u4WlanInitFlag;
+ enum ENUM_NVRAM_STATE g_NvramFsm = NVRAM_STATE_INIT;
+ 
++/* Q25 test knobs (display-interference investigation) */
++bool q25_online_scan = true;
++module_param(q25_online_scan, bool, 0644);
++MODULE_PARM_DESC(q25_online_scan, "allow cfg80211 scans while connected (0: reject with -EBUSY)");
++unsigned int q25_pdma_bt_size = 3;
++module_param(q25_pdma_bt_size, uint, 0444);
++MODULE_PARM_DESC(q25_pdma_bt_size, "WFDMA burst size code 0..3 (stock 3 = largest)");
++
+ uint8_t g_aucNvram[MAX_CFG_FILE_WIFI_REC_SIZE];
+ uint8_t g_aucNvram_OnlyPreCal[MAX_CFG_FILE_WIFI_RECAL_SIZE];
+ struct wireless_dev *gprWdev[KAL_AIS_NUM];
+@@ -5725,7 +5733,9 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
  		switch (eFailReason) {
  		case FAIL_BY_RESET:
  		case FAIL_MET_INIT_PROCFS:
@@ -287,7 +329,7 @@ index c50d711..a721bd4 100644
  			fallthrough;
  		case PROC_INIT_FAIL:
  			wlanNetUnregister(prWdev);
-@@ -5963,8 +5965,8 @@ static void wlanRemove(void)
+@@ -5963,8 +5973,8 @@ static void wlanRemove(void)
  
  	if (HAL_IS_TX_DIRECT(prAdapter)) {
  		if (prAdapter->fgTxDirectInited) {
@@ -298,7 +340,7 @@ index c50d711..a721bd4 100644
  		}
  	}
  
-@@ -6153,8 +6155,10 @@ static int initWlan(void)
+@@ -6153,8 +6163,10 @@ static int initWlan(void)
  #endif
  
  	wlanCreateWirelessDevice();
@@ -311,7 +353,7 @@ index c50d711..a721bd4 100644
  
  	WIPHY_PRIV(wlanGetWiphy(), prGlueInfo);
  	if (gprWdev[0])
-@@ -6175,10 +6179,8 @@ static int initWlan(void)
+@@ -6175,10 +6187,8 @@ static int initWlan(void)
  	mtk_wcn_wmt_mpu_lock_release();
  #endif
  
@@ -324,7 +366,7 @@ index c50d711..a721bd4 100644
  #if (CFG_CHIP_RESET_SUPPORT)
  	glResetInit(prGlueInfo);
  #endif
-@@ -6205,6 +6207,23 @@ static int initWlan(void)
+@@ -6205,6 +6215,23 @@ static int initWlan(void)
  	DBGLOG(INIT, INFO, "initWlan::End\n");
  
  	return ret;
@@ -740,13 +782,16 @@ index 3afe109..97a5ec5 100644
  
  #endif	/* CFG_ENABLE_UNIFY_WIPHY */
 diff --git a/wlan_drv_gen4m_6789/os/linux/include/gl_os.h b/wlan_drv_gen4m_6789/os/linux/include/gl_os.h
-index 9c334fd..da76824 100644
+index 9c334fd..c831fc8 100644
 --- a/wlan_drv_gen4m_6789/os/linux/include/gl_os.h
 +++ b/wlan_drv_gen4m_6789/os/linux/include/gl_os.h
-@@ -263,7 +263,9 @@
+@@ -263,7 +263,12 @@
  #endif
  #include <linux/time.h>
  #include <linux/fb.h>
++extern bool q25_online_scan;
++extern unsigned int q25_pdma_bt_size;
++
 +#if CFG_SUPPORT_MTK_DISP_NOTIFY
  #include "mtk_disp_notify.h"
 +#endif

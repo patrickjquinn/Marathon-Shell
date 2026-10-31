@@ -17,7 +17,7 @@ a8016552e1bc2e1021f91684fa110f912b061c8909663dc905639b2122947e14  /usr/lib/modul
 1262b47896b3b17ab35c1fd77f485b11affbb1a83ea3dc5eba8456bfddd887cf  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/btif_drv.ko
 cfe36fc0018c4c5a31d1b4e54472e61dc88b599f035ba9566a314de9269436ac  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wmt_drv.ko
 bd8b8c789922293f238b48d759d416ded01a9c9480ef96dbf9f12f5e42cefd33  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wmt_chrdev_wifi.ko
-3fa5b1b3fc0bd9e904ab6050d4059f2188b8e6011d5a763b8662f36f684b394f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wlan_drv_gen4m_6789.ko
+1390ea660f8b7df78028bd0c587e40e5911d6d8e42dd3b28bf2039ac28db4ae3  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wlan_drv_gen4m_6789.ko
 fe5c3435f2b8adcc23731692b51cea3dfd02268548d923af0ae9d82eff7aef93  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/bluetooth.ko
 32aba70b7becf80f76dd194c9e682f0caec78406592715acd7f90c4a7123584f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/q25-btmtk-stp.ko
 31ec5c8518d577e7aaa595beac4c661db9a4d86775bb6d7e4c279116e43af54f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-timer.ko
