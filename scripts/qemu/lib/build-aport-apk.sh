@@ -54,10 +54,9 @@ mkdir -p /work/aports
 rsync -a --checksum --no-times "/aports-src/$PKG/" "/work/aports/$PKG/"
 cd "/work/aports/$PKG"
 abuild -F checksum >/dev/null
-# abuild -d installs nothing; makedepends still have to be there.
+# abuild -d installs nothing; the compilers and makedepends still have to be there.
 if [ "$DEPS_FLAG" = -d ]; then
-    mk=$(srcdir=/; . ./APKBUILD; echo ${makedepends:-})
-    [ -z "$mk" ] || apk add --no-cache --quiet $mk
+    apk add --no-cache --quiet build-base $(srcdir=/; . ./APKBUILD; echo ${makedepends:-})
 fi
 abuild "$DEPS_FLAG" -F
 
