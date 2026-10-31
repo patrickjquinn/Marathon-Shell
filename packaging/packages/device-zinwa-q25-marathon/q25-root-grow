@@ -1,0 +1,14 @@
+#!/bin/sh
+# The root image ships at 5 GiB; grow it to 32 GiB on the carrier
+# filesystem, which holds the rest of the disk.
+set -eu
+dev=$(findmnt -no SOURCE "${1:-/}")
+case "$dev" in /dev/loop*) ;; *) exit 0 ;; esac
+img=$(cat "/sys/block/${dev#/dev/}/loop/backing_file")
+want=$((32 << 30))
+[ "$(stat -c %s "$img")" -lt "$want" ] || exit 0
+dir=$(dirname "$img")
+[ "$(($(stat -f -c %a "$dir") * $(stat -f -c %S "$dir")))" -gt "$want" ] || exit 0
+truncate -s "$want" "$img"
+losetup -c "$dev"
+resize2fs "$dev"

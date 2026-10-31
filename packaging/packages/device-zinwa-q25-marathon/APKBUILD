@@ -18,7 +18,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-connsys.modprobe.conf q25-wifi.system-sleep wpa_supplicant.service
  q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
  q25-kernel-cmdline.conf unudhcpd-usb0.conf q25.preset
- q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service"
+ q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -90,10 +90,13 @@ package() {
     install -Dm644 "$srcdir/q25-root-dio.service" "$pkgdir/usr/lib/systemd/system/q25-root-dio.service"
     install -Dm755 "$srcdir/q25-vsyncdrm" "$pkgdir/usr/libexec/marathon/q25-vsyncdrm"
     install -Dm755 "$srcdir/q25-backlight" "$pkgdir/usr/libexec/marathon/q25-backlight"
+    install -Dm755 "$srcdir/q25-root-grow" "$pkgdir/usr/libexec/marathon/q25-root-grow"
     install -Dm644 "$srcdir/q25-vsyncdrm.service" "$pkgdir/usr/lib/systemd/system/q25-vsyncdrm.service"
     install -Dm644 "$srcdir/q25-backlight.service" "$pkgdir/usr/lib/systemd/system/q25-backlight.service"
+    install -Dm644 "$srcdir/q25-root-grow.service" "$pkgdir/usr/lib/systemd/system/q25-root-grow.service"
     install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
     ln -s ../q25-root-dio.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-dio.service"
+    ln -s ../q25-root-grow.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-grow.service"
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
@@ -140,4 +143,6 @@ dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695
 d70008a89ab9d28aadfaf78d28a6a742c625e2e438089fb8a0adeea60267e45d60ead9ebe9fcf5ab5df6034d3f4bdbb3b6dc55ad0db5ec3935e3706c2f55486c  q25-vsyncdrm.service
 b16efb63bdafea45a6d3cca92822bb0eabbf137e27d070895f5d19aae7cf88cff797f16576a1a00d7f39553ced1d591d771cd197324d6ece57e2c32df2c00741  q25-backlight
 f2e391802eb3ed5eed9ea22e856ef87a272582583bcce689f591f880408d77ac5dff5fc51b1b3adfd6d8c949141cc87afc283507124c12d2f93491da5d50493c  q25-backlight.service
+dc89cdcbbf044d06c1ba18cffd2bebdc86f0015591cde276cd57fb4a82457c89b2a408f927b4662f13f8a52df5a26fbcd580dc7cc882660af36011e638ac5cff  q25-root-grow
+42a5d63e17226632be80493adca33f25bd5dcd5645d96d8d2819051355f53da6823eb04c57aac5fff774c4b963efd92a10bea623943b268612c417cd3cf09b89  q25-root-grow.service
 "
