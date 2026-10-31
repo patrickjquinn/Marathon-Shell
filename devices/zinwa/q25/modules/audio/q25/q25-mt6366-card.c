@@ -15,6 +15,7 @@
 #include <sound/soc.h>
 
 #include "../codecs/mt6358.h"
+#include "../q25accdet/q25-accdet.h"
 #include "../mediatek/common/mtk-afe-platform-driver.h"
 #include "../mediatek/mt6789/mt6789-afe-common.h"
 #include "../mediatek/mt6789/mt6789-afe-clk.h"
@@ -299,12 +300,29 @@ static struct snd_soc_card q25_card = {
 static int q25_late_routes(struct snd_soc_card *card)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_card_to_dapm(card);
+	int (*attach)(struct snd_soc_card *card);
+	int ret;
 
 	if (card->num_aux_devs)
-		return snd_soc_dapm_add_routes(dapm, q25_amp_routes,
-					       ARRAY_SIZE(q25_amp_routes));
-	return snd_soc_dapm_add_routes(dapm, q25_noamp_routes,
-				       ARRAY_SIZE(q25_noamp_routes));
+		ret = snd_soc_dapm_add_routes(dapm, q25_amp_routes,
+					      ARRAY_SIZE(q25_amp_routes));
+	else
+		ret = snd_soc_dapm_add_routes(dapm, q25_noamp_routes,
+					      ARRAY_SIZE(q25_noamp_routes));
+	if (ret)
+		return ret;
+
+	/* ACCDET is optional: without it the card keeps working, jackless. */
+	attach = symbol_get(q25_accdet_attach);
+	if (!attach) {
+		dev_info(card->dev, "no ACCDET module, no jack detection\n");
+		return 0;
+	}
+	ret = attach(card);
+	symbol_put(q25_accdet_attach);
+	if (ret)
+		dev_warn(card->dev, "ACCDET jack attach failed: %d\n", ret);
+	return 0;
 }
 
 static int q25_card_probe(struct platform_device *pdev)

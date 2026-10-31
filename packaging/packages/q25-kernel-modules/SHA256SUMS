@@ -28,5 +28,6 @@ a58eb18aa0c515fa6a46cf7f6e71a3b168a5fd93ac580aef72bcc0693b2fbe17  /usr/lib/modul
 5c6b8f52e924adadeee674d3f5df858af95f49ce8033b446b9da22c3fb871524  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/snd-soc-mt6789-afe.ko
 2deb73fb5d10e50e659bb58f988f29ab56e6e5f7a84ee3ecdbbaaed2459af751  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-audio-pd.ko
 4cde82aee9ef3b7b73aee228c50432fd48af2d05ed9301f7f9053b2009f8f9ef  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-oca72390.ko
-8a4aad4c6ee8ede92d74ea561c9954457f8bec6d6b0669cd26badd5f3cfcbdf6  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-mt6366-card.ko
+8e4048721c5fb59c03e39a831772b31fe09bd1340f366235026d3b896a773c06  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-mt6366-card.ko
 98ae00715587990b8e2feac41661e1fd46cc3804d011f3344fd869a31e54e616  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-mt6366-irqfix.ko
+b874dca7efe1d7c88140e754e6afd65338189e7284e74a437c59e1f7c008031d  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-audio/q25-mt6358-accdet.ko
