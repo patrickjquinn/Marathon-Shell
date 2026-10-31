@@ -2726,11 +2726,17 @@ qint64 WaylandCompositor::nextVblankUs() {
     return next;
 }
 
-// Qt rounds the mode to whole Hz: 60 for a 59.94 Hz panel, 71 for 70.98.
+// Qt rounds the mode to whole Hz: 60 for a 59.94 Hz panel, 71 for 70.98. A
+// mode without blanking is made up (simpledrm's 60 Hz); MARATHON_OUTPUT_HZ
+// then gives the panel's real rate.
 void WaylandCompositor::resolveOutputRefresh() {
-    drmModeCrtcPtr crtc = initAtomicDisplay() ? drmModeGetCrtc(m_driFd, m_crtcId) : nullptr;
-    if (crtc && crtc->mode_valid)
-        m_refreshHz = crtc->mode.clock * 1000.0 / (qreal(crtc->mode.htotal) * crtc->mode.vtotal);
+    drmModeCrtcPtr         crtc = initAtomicDisplay() ? drmModeGetCrtc(m_driFd, m_crtcId) : nullptr;
+    const drmModeModeInfo *mode = crtc && crtc->mode_valid ? &crtc->mode : nullptr;
+    const qreal            panelHz = qEnvironmentVariable("MARATHON_OUTPUT_HZ").toDouble();
+    if (mode && (mode->htotal > mode->hdisplay || mode->vtotal > mode->vdisplay))
+        m_refreshHz = mode->clock * 1000.0 / (qreal(mode->htotal) * mode->vtotal);
+    else if (panelHz > 0)
+        m_refreshHz = panelHz;
     drmModeFreeCrtc(crtc);
     qInfo() << "[WaylandCompositor] output refresh" << m_refreshHz << "Hz";
     advertiseRefresh();

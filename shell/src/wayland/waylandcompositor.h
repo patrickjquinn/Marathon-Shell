@@ -71,7 +71,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // when frames wait for it (-1: none known).
     qint64 frameLatchUs();
     // The output's refresh rate, Hz: the scanned-out KMS mode's exact rate
-    // once the first frame has set the mode, Qt's whole-Hz figure before.
+    // (or MARATHON_OUTPUT_HZ behind a made-up mode) once the first frame has
+    // set the mode, Qt's whole-Hz figure before.
     qreal outputRefreshHz() const {
         return m_refreshHz;
     }

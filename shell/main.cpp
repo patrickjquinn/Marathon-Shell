@@ -507,6 +507,12 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
     startupMark("application");
     qunsetenv("QT_IM_MODULES");
+    // Qt Quick steps animations by a frame of the screen's rate each frame.
+    // Where that rate is made up and the panel's is given, step by the clock.
+    if (const qreal panelHz = qEnvironmentVariable("MARATHON_OUTPUT_HZ").toDouble(); panelHz > 0 &&
+        qAbs(panelHz - QGuiApplication::primaryScreen()->refreshRate()) > 0.5 &&
+        !qEnvironmentVariableIsSet("QSG_USE_SIMPLE_ANIMATION_DRIVER"))
+        qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
     if (evdevTouch) {
 #ifdef MARATHON_HAVE_INPUT_SUPPORT
         startTouchInput(touchSpec.join(QLatin1Char(':')));
