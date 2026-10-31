@@ -311,6 +311,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QTimer                  m_callbackTimer;
     qint64                  nextVblankUs();
     void                    resolveOutputRefresh();
+    void                    advertiseRefresh();
     qreal                   m_refreshHz      = 0;
     bool                    m_hiddenThrottle = true;
     HiddenFrameThrottle     m_frameThrottle;

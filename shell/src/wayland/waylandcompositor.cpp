@@ -223,8 +223,9 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
                 [this]() {
                     timespec ts{};
                     clock_gettime(CLOCK_MONOTONIC, &ts);
-                    m_presentationTime->sendFeedback(m_window, ++m_presentSequence,
-                                                     quint64(ts.tv_sec), quint32(ts.tv_nsec));
+                    emit m_presentationTime->presented(++m_presentSequence, quint64(ts.tv_sec),
+                                                       quint32(ts.tv_nsec),
+                                                       quint32(1e9 / m_refreshHz));
                 },
                 Qt::QueuedConnection);
         },
@@ -318,6 +319,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     m_refreshHz = window->screen()->refreshRate();
     connect(window, &QQuickWindow::frameSwapped, this, &WaylandCompositor::resolveOutputRefresh,
             Qt::SingleShotConnection);
+    connect(m_output, &QWaylandOutput::currentModeChanged, this,
+            &WaylandCompositor::advertiseRefresh);
 
     setDefaultOutput(m_output);
 
@@ -2730,6 +2733,17 @@ void WaylandCompositor::resolveOutputRefresh() {
         m_refreshHz = crtc->mode.clock * 1000.0 / (qreal(crtc->mode.htotal) * crtc->mode.vtotal);
     drmModeFreeCrtc(crtc);
     qInfo() << "[WaylandCompositor] output refresh" << m_refreshHz << "Hz";
+    advertiseRefresh();
+}
+
+// QtWayland gives wl_output Qt's rounded rate, which clients animate by.
+void WaylandCompositor::advertiseRefresh() {
+    const QWaylandOutputMode current = m_output->currentMode();
+    const QWaylandOutputMode exact(current.size(), qRound(m_refreshHz * 1000));
+    if (!current.isValid() || exact == current)
+        return;
+    m_output->addMode(exact, true);
+    m_output->setCurrentMode(exact);
 }
 
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
