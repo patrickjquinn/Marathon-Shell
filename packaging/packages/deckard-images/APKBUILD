@@ -5,7 +5,7 @@
 # the build dates from images.cfg.
 pkgname=deckard-images
 pkgver=23.2.20261028
-pkgrel=0
+pkgrel=1
 _date=1793176546
 pkgdesc="Android system and vendor images for Deckard"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
@@ -24,8 +24,8 @@ source="$_rel/$_sys
 package() {
 	local d="$pkgdir"/usr/share/deckard/images
 	install -d "$d"
-	zstd -dq "$srcdir/$_sys" -o "$d"/system.img
-	zstd -dq "$srcdir/$_ven" -o "$d"/vendor.img
+	zstd -dq < "$srcdir/$_sys" > "$d"/system.img
+	zstd -dq < "$srcdir/$_ven" > "$d"/vendor.img
 	chmod 644 "$d"/system.img "$d"/vendor.img
 	printf '[deckard]\nsystem_datetime = %s\nvendor_datetime = %s\n' \
 		$_date $_date > "$d"/images.cfg
