@@ -70,6 +70,11 @@ class WaylandCompositor : public QWaylandCompositor {
     // When this interval's frame latches: the last vblank, plus the phase
     // when frames wait for it (-1: none known).
     qint64 frameLatchUs();
+    // The output's refresh rate, Hz: the scanned-out KMS mode's exact rate
+    // once the first frame has set the mode, Qt's whole-Hz figure before.
+    qreal outputRefreshHz() const {
+        return m_refreshHz;
+    }
 
     explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
@@ -305,6 +310,8 @@ class WaylandCompositor : public QWaylandCompositor {
     QTimer                  m_gateTimer;
     QTimer                  m_callbackTimer;
     qint64                  nextVblankUs();
+    void                    resolveOutputRefresh();
+    qreal                   m_refreshHz      = 0;
     bool                    m_hiddenThrottle = true;
     HiddenFrameThrottle     m_frameThrottle;
     QElapsedTimer           m_frameClock;

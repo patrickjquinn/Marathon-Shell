@@ -314,6 +314,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
 
     m_output = new QWaylandQuickOutput(this, window);
     m_output->setSizeFollowsWindow(true);
+    // eglfs sets a configured mode on its first flip: read the mode after it.
+    m_refreshHz = window->screen()->refreshRate();
+    connect(window, &QQuickWindow::frameSwapped, this, &WaylandCompositor::resolveOutputRefresh,
+            Qt::SingleShotConnection);
 
     setDefaultOutput(m_output);
 
@@ -2712,12 +2716,20 @@ qint64 WaylandCompositor::nextVblankUs() {
     const qint64 last = lastVblankUs();
     if (last < 0)
         return -1;
-    const qreal  hz     = m_window && m_window->screen() ? m_window->screen()->refreshRate() : 60.0;
-    const qint64 period = qint64(1000000.0 / (hz > 0 ? hz : 60.0));
+    const qint64 period = qint64(1000000.0 / m_refreshHz);
     qint64       next   = last + period;
     while (next < monotonicUs())
         next += period;
     return next;
+}
+
+// Qt rounds the mode to whole Hz: 60 for a 59.94 Hz panel, 71 for 70.98.
+void WaylandCompositor::resolveOutputRefresh() {
+    drmModeCrtcPtr crtc = initAtomicDisplay() ? drmModeGetCrtc(m_driFd, m_crtcId) : nullptr;
+    if (crtc && crtc->mode_valid)
+        m_refreshHz = crtc->mode.clock * 1000.0 / (qreal(crtc->mode.htotal) * crtc->mode.vtotal);
+    drmModeFreeCrtc(crtc);
+    qInfo() << "[WaylandCompositor] output refresh" << m_refreshHz << "Hz";
 }
 
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
