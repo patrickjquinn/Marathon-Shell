@@ -1,11 +1,11 @@
-# Q25 MD1 cellular modem, opt-in: systemctl enable --now q25-modem.target on a
-# boot entry whose DTB carries the modem nodes (q25-modem.dtbo, from
+# Q25 MD1 cellular modem. udev starts q25-modem.target at boot on an entry
+# whose DTB carries the modem nodes (q25-modem.dtbo, from
 # devices/zinwa/q25/modem/dt). The daemons build from userspace/ here; the
 # ECCCI modules are prebuilt like q25-kernel-modules (sources and rebuild:
 # devices/zinwa/q25/modules, modem/), pinned to the prebuilt kernel.
 pkgname=q25-modem
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Zinwa Q25 MD1 modem stack: ECCCI modules, CCCI daemons, services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -58,7 +58,8 @@ package() {
     install -Dm644 "$srcdir/78-q25-modem.rules" "$pkgdir/usr/lib/udev/rules.d/78-q25-modem.rules"
     install -Dm644 "$srcdir/q25-modem.conf.modprobe" "$pkgdir/usr/lib/modprobe.d/q25-modem.conf"
     install -Dm644 "$srcdir/q25-modem.dtbo" "$pkgdir/usr/share/$pkgname/q25-modem.dtbo"
-    # Opt-in: nothing is enabled. The owner unit's ExecStop powers MD1 off.
+    # 78-q25-modem.rules pulls the target in. The owner unit's ExecStop
+    # powers MD1 off.
     for u in $_units; do
         install -Dm644 "$srcdir/$u" "$pkgdir/usr/lib/systemd/system/$u"
     done
@@ -70,10 +71,10 @@ feafd0fb05726d0106a576721521de5a8cff6ad9c4b2dd98ed4da965cbc8d9acc585285b8cc5bf19
 d4b526435b2447e61391df6f9adc3b99572932829b9ee3a13391b63a93217504710dd2aa52c053df229e1972f13f3ab5be4c300d7d2704492dbe1b80943c0707  q25-modem-init
 9ff481adbffd3c92ebbc911e754a5cf753c572a8fbebf7bb2cf96b6d74fdf623e69ae91d8e67471948db9765c4aa8e9b400308b8cb46c3de8c261ddf025d62fe  properties
 66d60916c3461d18d7f19c5893219e840fe7b0ac6a9cc89f47cb726a2343c38824e41700f9aa8889c57ccd4ac61a2c45ce9218e2faea1dfcab0f8c6f04fb8f33  modem.conf
-095627d1612dab1dcecffe1b29392f8e179d35fe0788d7a193eaae439ced906ff46ecd89745e6508d7080141f1e91cee7ec1389261fcb78aa775a11a9758aab1  78-q25-modem.rules
+ad80d0bf1c04ee3207c24fb4e809b639c7ee22ea6125737cb315ce7ef054eb3fb1a37aebdbc5fcfa5e0a3de185f07f884063ec02380a8588d018301e6eb44d79  78-q25-modem.rules
 8ef3d056d8509e4f871fe2b7833a5e15ee7097517e6ac8e5a7c6c7a40c3f2494da3578fec7c471dad46376394f32f2eb56818090ffbcefee5bfc6ca42013f4d2  q25-modem.conf.modprobe
 150fa4492634645845a7961575d8d96838fc7cde3624613dcfc26eb075d85f95a0a52fc9053341fac05a010762597bc172afa763a1341ae1b8f61c3563842a29  q25-modem.dtbo
-840a610109f02cc3fe593e14b2fe4cf82feca4f5eed421af95fa4aac961f381cce06592d8a17367283cd1f850713e6b5e60a3692b85c2442ed068254ef022e06  q25-modem.target
+db912795ae6aa8e92522352eb8a47ad98d413e67367a23106d3854184572865b0c5b79341691219ea2b5d829345c5998112a52b4143aa35fb20b3e33571466b2  q25-modem.target
 0ac945d540fed844b75df271a25c09412c9b7c0d8bb526c44e469a7d3368b05ecfb4a7b64b91c4e94b9b6404c48eaa0c1329905924d11c4c22c56bd81f543a44  q25-modem-owner.service
 afdd4e415e32789b557e32993cddedd64ae45c564a4c311b5097cde83ab3168019a78359eb94cae6e95136634636cd6ff90aef8cdc174f8fa6459efc5d108ee1  q25-modem-stack.service
 e2be82e88817e9cbe16b738f24668085d84100bc92eeb6265e14b9bbc0b7d98c187b25915bf25246f07b7c13117a3668d83281e40d258b8bdbd22c3c69b76f63  q25-modem-nv.service

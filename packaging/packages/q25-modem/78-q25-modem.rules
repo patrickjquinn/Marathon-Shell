@@ -16,3 +16,7 @@ SUBSYSTEM=="net", ACTION=="add|change|move", KERNEL=="ccmni[0-9]", \
 	ENV{ID_MM_MTK_CCCI}="1", \
 	ENV{ID_MM_PHYSDEV_SYSFS_PATH}="/sys/devices/platform/soc/d0cf000.mddriver", \
 	ENV{ID_MM_PHYSDEV_UID}="q25-md1"
+
+# The modem DTB's driver_modem node: bring the stack up at boot.
+SUBSYSTEM=="platform", ACTION=="add", ENV{OF_FULLNAME}=="/soc/mddriver", \
+	TAG+="systemd", ENV{SYSTEMD_WANTS}+="q25-modem.target"
