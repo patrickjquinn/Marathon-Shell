@@ -166,6 +166,12 @@ build_if_missing() {
         bash "$script"
 }
 
+# The fork builders below trust postmarketOS's key from pmaports, which
+# build-image.py would otherwise clone only at stage 4.
+if [ ! -d "$DURANIUM_DIR/pmaports" ]; then
+    (cd "$DURANIUM_DIR/scripts" && python3 -c 'from pmaports import prepare_pmaports; prepare_pmaports("edge")')
+fi
+
 echo "==> stage 3: build apks"
 APORTS_DIR="$MARATHON_IMAGE_DIR/packages"
 build_if_missing "marathon-base-config"      'marathon-base-config-*.apk'     "$LIB/build-marathon-base-config-apk.sh"      "$APORTS_DIR/marathon-base-config/APKBUILD"
