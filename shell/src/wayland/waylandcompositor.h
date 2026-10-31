@@ -314,6 +314,8 @@ class WaylandCompositor : public QWaylandCompositor {
     void                    resolveOutputRefresh();
     void                    advertiseRefresh();
     qreal                   m_refreshHz      = 0;
+    qint64                  m_softPeriodUs   = 0; // Without a vblank, frames start this apart.
+    qint64                  m_softFrameUs    = 0;
     bool                    m_hiddenThrottle = true;
     HiddenFrameThrottle     m_frameThrottle;
     QElapsedTimer           m_frameClock;

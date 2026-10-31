@@ -362,15 +362,15 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         // environment override for device-specific experiments.
         if (!phaseSet)
             m_framePhaseMs = 0;
+        m_gateTimer.setSingleShot(true);
+        m_gateTimer.setTimerType(Qt::PreciseTimer);
+        connect(&m_gateTimer, &QTimer::timeout, this, [this]() {
+            m_passUpdate = true;
+            QCoreApplication::postEvent(m_window, new QEvent(QEvent::UpdateRequest));
+        });
         if (m_framePhaseMs > 0) {
             // Frames latch late in the vblank interval and clients hear at the
             // vblank, so a client's frame lands in the next composite.
-            m_gateTimer.setSingleShot(true);
-            m_gateTimer.setTimerType(Qt::PreciseTimer);
-            connect(&m_gateTimer, &QTimer::timeout, this, [this]() {
-                m_passUpdate = true;
-                QCoreApplication::postEvent(m_window, new QEvent(QEvent::UpdateRequest));
-            });
             m_callbackTimer.setSingleShot(true);
             m_callbackTimer.setTimerType(Qt::PreciseTimer);
             connect(&m_callbackTimer, &QTimer::timeout, this,
@@ -2733,12 +2733,21 @@ void WaylandCompositor::resolveOutputRefresh() {
     drmModeCrtcPtr         crtc = initAtomicDisplay() ? drmModeGetCrtc(m_driFd, m_crtcId) : nullptr;
     const drmModeModeInfo *mode = crtc && crtc->mode_valid ? &crtc->mode : nullptr;
     const qreal            panelHz = qEnvironmentVariable("MARATHON_OUTPUT_HZ").toDouble();
+    bool                   known   = true;
     if (mode && (mode->htotal > mode->hdisplay || mode->vtotal > mode->vdisplay))
         m_refreshHz = mode->clock * 1000.0 / (qreal(mode->htotal) * mode->vtotal);
     else if (panelHz > 0)
         m_refreshHz = panelHz;
+    else
+        known = false;
+    // A CRTC without vblank (simpledrm) completes flips at once, so frames
+    // would free-run: start them a period apart (MARATHON_SOFT_VSYNC=0: don't).
+    if (known && mode && m_presentPipeline && m_framePhaseMs == 0 && lastVblankUs() < 0 &&
+        envBool("MARATHON_SOFT_VSYNC", true))
+        m_softPeriodUs = qint64(1000000.0 / m_refreshHz);
     drmModeFreeCrtc(crtc);
-    qInfo() << "[WaylandCompositor] output refresh" << m_refreshHz << "Hz";
+    qInfo() << "[WaylandCompositor] output refresh" << m_refreshHz << "Hz, soft vsync"
+            << (m_softPeriodUs > 0);
     advertiseRefresh();
 }
 
@@ -2753,6 +2762,24 @@ void WaylandCompositor::advertiseRefresh() {
 }
 
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
+    if (watched == m_window && m_softPeriodUs > 0 && event->type() == QEvent::UpdateRequest) {
+        if (m_passUpdate) {
+            m_passUpdate = false;
+            return false;
+        }
+        if (m_gateTimer.isActive())
+            return true;
+        // Frames keep a beat of one period; the first after an idle starts it.
+        const qint64 now  = monotonicUs();
+        const qint64 next = m_softFrameUs + m_softPeriodUs;
+        if (now >= next) {
+            m_softFrameUs = now - next < m_softPeriodUs ? next : now;
+            return false;
+        }
+        m_softFrameUs = next;
+        m_gateTimer.start(int((next - now + 999) / 1000));
+        return true;
+    }
     if (watched == m_window && m_framePhaseMs > 0 && event->type() == QEvent::UpdateRequest) {
         if (m_passUpdate) {
             m_passUpdate = false;
