@@ -1,7 +1,7 @@
 # Exact accepted Q25 closure; this package never compiles kernel/GPU code.
 pkgname=q25-gpu-render
 pkgver=7.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Q25 accepted guarded Panfrost390MHz PM-on render path"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -20,7 +20,7 @@ package() {
     install -d "$private"
     local module
     for module in q25-mfg-only-v2 gpu-sched panfrost; do
-        zstd -q -d -c "$srcdir/$module.ko.zst" > "$private/$module.ko"
+        zstd -q -d < "$srcdir/$module.ko.zst" > "$private/$module.ko"
         chmod 0644 "$private/$module.ko"
     done
     install -Dm644 "$srcdir/GPU-SHA256SUMS" "$private/SHA256SUMS"
