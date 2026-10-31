@@ -1,0 +1,12 @@
+[Unit]
+Description=Map NetworkManager WirelessEnabled onto Q25 Wi-Fi power
+After=NetworkManager.service q25-wmt-launcher.service
+Requires=NetworkManager.service
+
+[Service]
+ExecStart=/usr/libexec/marathon/q25-wifi-radio
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
