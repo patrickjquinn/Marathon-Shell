@@ -33,13 +33,18 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio panel display clk mag light; do
+for d in keyboard md1 conn-pd imu bt audio panel display clk mag light net; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
 cp "$ksrc/drivers/spi/spi-mt65xx.c" "$out/src/imu/"
 cp "$ksrc/drivers/iio/magnetometer/mmc5633.c" "$out/src/mag/"
 (cd "$out/src/mag" && patch -p1 -s < mmc5633-q25.patch)
+cp "$ksrc/drivers/net/tun.c" "$ksrc/drivers/net/tun_vnet.h" "$ksrc/drivers/net/veth.c" "$out/src/net/"
+cp -r "$ksrc/net/netfilter" "$out/src/net/netfilter"
+mkdir -p "$out/src/net/ipv4" "$out/src/net/ipv6"
+cp -r "$ksrc/net/ipv4/netfilter" "$out/src/net/ipv4/netfilter"
+cp -r "$ksrc/net/ipv6/netfilter" "$out/src/net/ipv6/netfilter"
 
 a=$out/src/audio
 mkdir -p "$a/core" "$a/soc" "$a/codecs" "$a/mediatek/common" "$a/mediatek/mt6789"
@@ -85,6 +90,12 @@ done
 for d in keyboard md1 conn-pd imu audio panel display clk mag light; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
+kmake "$out/src/net" "$out/obj/net/core"
+kmake "$ksrc/net/llc" "$out/obj/net/llc"
+kmake "$ksrc/net/802" "$out/obj/net/802" \
+	KBUILD_EXTRA_SYMBOLS="$out/obj/net/llc/Module.symvers"
+kmake "$ksrc/net/bridge" "$out/obj/net/bridge" \
+	KBUILD_EXTRA_SYMBOLS="$out/obj/net/core/Module.symvers $out/obj/net/llc/Module.symvers $out/obj/net/802/Module.symvers"
 kmake "$ksrc/net/rfkill" "$out/obj/rfkill"
 kmake "$ksrc/net/wireless" "$out/obj/cfg80211" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/rfkill/Module.symvers"
@@ -102,9 +113,16 @@ for m in ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif; do
 done
 
 # The first set ships as built; everything else without debug info. Of
-# net/bluetooth only the core is shipped.
+# net/bluetooth only the core is shipped, and of the networking builds what
+# Deckard's bridge, veth and iptables-nft NAT need.
 mkdir -p "$out/modules"
-find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
+net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE
+	nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat
+	nft_masq nft_ct"
+for m in $net; do
+	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
+done
+find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" ! -path "$out/obj/net/*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
 while read -r ko; do
 	case "$(basename "$ko")" in
 	q25-bbq-keys.ko | q25-keyboard-led.ko | q25-md1-owner.ko | inv-icm42607*.ko | spi-mt65xx.ko)
