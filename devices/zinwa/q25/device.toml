@@ -41,3 +41,5 @@ sensors = []
 force_dpi = 240
 # ondemand ramps only past 95% load; schedutil follows the foreground uclamp.
 cpu_governor = "schedutil"
+# Level 4 of 20 (4.4 V bias) is the lowest that stays clean.
+brightness_floor = 0.2

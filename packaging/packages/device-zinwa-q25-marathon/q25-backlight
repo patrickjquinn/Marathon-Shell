@@ -1,0 +1,14 @@
+#!/bin/sh
+# Panel brightness is the OCP2131 bias supply on i2c7, whose I2C clock the
+# kernel leaves orphaned: give it its parent, re-probe the bus with real
+# timing, then hand the chip to the panel driver.
+set -eu
+modprobe q25-i2c-clk
+modprobe -b q25-panel-doze
+i2c=11f00000.i2c
+drv=/sys/bus/platform/drivers/i2c-mt65xx
+[ -e "$drv/$i2c" ] && echo "$i2c" > "$drv/unbind"
+echo "$i2c" > "$drv/bind"
+for bus in "/sys/bus/platform/devices/$i2c"/i2c-*; do
+	echo "${bus##*/i2c-}" > /sys/bus/platform/devices/14013000.panel-doze/ocp_attach
+done

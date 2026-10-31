@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=8
+pkgrel=9
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -12,7 +12,7 @@ options="!check !strip !tracedeps"
 depends="kmod linux-postmarketos-mediatek-g99=7.0-r1000"
 makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
-_extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm mmc5633 hx32062se"
+_extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
 _audio="snd-timer snd-pcm snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card"
 source="SHA256SUMS"
@@ -36,15 +36,16 @@ package() {
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-f2dcd3af72031a61a08f6f074665262ea7694c27faea5c3ad24358f4f04e20dfdf4c2cd206c7314d05136753bfd233eff8d7c4143e573ba9f77579bfb5bfa4d1  SHA256SUMS
+22571e7c4745ba9331678020bccb736c17e8922ebefacbfef44e0fc57a4279e78d060e974107df8c42fd8907fd7e68e511c0574e14003e8eee772ee53b0d6ca6  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 a1bc222102bf04eb7cd7c2b9efc6d019bf1cf09dbdcbc28de008c707e2a6a962543d9b2f2ff7b6619d970fe407897e9f242c92757a42d210bb10ca4a1e0ee873  q25-md1-owner.ko.zst
 e569356d1e20b4ebc0444b34c499bda4a635f800b147325e36924f607eb00f19717ea90f34a7e68d672fb8ad5de7c4860ec0fd308ea076726b7981de5c38acc9  inv-icm42607.ko.zst
 719365be06590b15a40c407adca9da54d7df06b02835128f49c4ddcf2c8f98955a9c31d75dc3320201aef5a6090afac54116da0cf916574d8d81b4772bbc9344  inv-icm42607-spi.ko.zst
 70d1b53502f23552f10e73b4c07d13597e6335c273a56d122864ebe13fcdee248c64a520af3bbcd85ed39f3de58aee5430a0fc52f30b1775ed46f553364c3b7f  spi-mt65xx.ko.zst
-26f79ca1b452e42d38f4e12bdbf5c149151665a646a8a3cc2d223a2d733ac842485416cbd34f179d895c7478c964d3f5878d5326cfaf2324c956703019e38367  q25-panel-doze.ko.zst
+2a97407c32a36f88960693baded923565c76df3fd947faceb87a96ab9579f2c33a7938c2b9fa292dc7ed468570f97a34fce33fd3a2229c114a5e82c8ebf46a51  q25-panel-doze.ko.zst
 8a0a79de5fc2fadd1287c9cdfadc45e27ed3169306bb3f5df1039c590f3d7bfdf39824c819e19da3e4e53beca4318c3f495bae887a4ab1a233c031d7c8feed26  q25-vsyncdrm.ko.zst
+612ae7a084edf618a4b7833d824617e237be78752df6aee71b29bf3f78b8ff5eea486430c337ff38ff2671ff23b63623c5a623fd01b212232c0de8761efb3bbb  q25-i2c-clk.ko.zst
 f4a71baae208e8ef9235c80f45884712af88ba50c4777514108b0afe29a60c8e3f8f711a4bd3ed742b3abac6ebb53ba0a062ffcdd5a7425ecaf86ad7a9ebff80  mmc5633.ko.zst
 0d099ad022862c74aee6f56897191a53f5aaae7b928d45d26aa4fd39ebd924b3e1b68465949f1e2648312fb9f447d43c9130fb9a7c713acca12217b8e2c17c09  hx32062se.ko.zst
 3f0ad193143c6b560bcb7112f8eb7138af8cd524601a0fadc4c8d15d7fbbb93b36a45a2a46afe88636b9d36f01566c0b194ed1e148ed4e08da27ba6175ff22cd  q25-conn-pd.ko.zst

@@ -4,8 +4,9 @@
 45df5769ad667e8dcdee4dccba3217252266b9565ebd7ac65aa3b8105047e762  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607.ko
 08dd386a0f80c492bebe7baca18542ccd8fc3b71a4409b48e1f5409af25a1f6e  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607-spi.ko
 1965f3affa0cebc5c31d6813f783e53a6f08b83a3ba2ef2a811b4b662c4090a7  /usr/lib/modules/7.0.0-q25-cfi-test/extra/spi-mt65xx.ko
-116dfd1059aba9e9c48eb2415e3ec9e45849d42288cd7a1fcb797ae29ce0ed11  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-panel-doze.ko
+c9398da364abfdf5bab6b7082971351d78976e233d8d9ac2749a16fe27d6408d  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-panel-doze.ko
 a4292f3171facdf2727a4d7af4e810bf3428e9b448474f6645c573e6586cd72f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-vsyncdrm.ko
+5b86eebc9844c33c2611715f54ea80b7a6774a93efd868ce50d7633a15ea8693  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-i2c-clk.ko
 1b10c7d8b3c372ebf4fd09c6960817e92c986a687b32c7709163a33d2c87f9fc  /usr/lib/modules/7.0.0-q25-cfi-test/extra/mmc5633.ko
 1eaf82bae49d59ffbb0c2c7641bf605b41ba1a1564cf0ac2e0b939c8700202e5  /usr/lib/modules/7.0.0-q25-cfi-test/extra/hx32062se.ko
 044a392151d925277d07e141ec33f6e04f94228659fb832a3fedf964552967d1  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/q25-conn-pd.ko

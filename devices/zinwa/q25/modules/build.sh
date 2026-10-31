@@ -33,7 +33,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio panel display mag light; do
+for d in keyboard md1 conn-pd imu bt audio panel display clk mag light; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -81,7 +81,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in keyboard md1 conn-pd imu audio panel display mag light; do
+for d in keyboard md1 conn-pd imu audio panel display clk mag light; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$ksrc/net/rfkill" "$out/obj/rfkill"

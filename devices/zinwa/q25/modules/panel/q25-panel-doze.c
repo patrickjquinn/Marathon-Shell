@@ -8,10 +8,15 @@
  * on a bad check, the stock reset + sleep-out + display-on.
  * Writes go as video-mode commands (VM_CMD, stock mtk_dsi_host_send_vm_cmd);
  * reads stop video for one transfer and restart it (mainline mtk_dsi_host_transfer).
+ *
+ * Brightness, once root writes an I2C bus number to ocp_attach and the OCP2131
+ * answers there: its AVDD/AVEE code (4.0 V + n * 100 mV, datasheet max 0x14), as
+ * stock _gate_ic_backlight_set. Nothing I2C happens at probe.
  */
 #include <linux/backlight.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
+#include <linux/i2c.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/mod_devicetable.h>
@@ -44,19 +49,45 @@
 #define RX_DCS_1BYTE		0x21
 #define CFG_BTA			BIT(2)
 
-#define PM_AWAKE		0x9c	/* booster, sleep out, normal, display on (stock esd table) */
+#define PM_AWAKE		0x9c	/* booster, sleep out, normal, display on (stock) */
 #define PM_SLEEP_OUT		BIT(4)
 #define PM_DISPLAY_ON		BIT(2)
+
+#define OCP_ADDR		0x3e
+#define OCP_AVDD		0x00
+#define OCP_AVEE		0x01
+#define OCP_ID			0x04
+#define OCP_ID_VALUE		0x0d	/* datasheet */
+#define OCP_ID_VALUE_Q25	0x02	/* this unit's part */
+#define OCP_MAX			0x14
 
 struct q25_panel {
 	struct device *dev;
 	void __iomem *dsi;
 	struct gpio_desc *bias;
 	struct gpio_desc *reset;
-	struct mutex lock;
+	struct mutex lock;	/* serialises DSI and OCP2131 access */
+	struct backlight_device *bd;
+	struct i2c_client *ocp;
 	bool on;
+	int code;
 	int last_pm;
 };
+
+static int q25_ocp_set(struct q25_panel *p, int code)
+{
+	int ret;
+
+	ret = i2c_smbus_write_byte_data(p->ocp, OCP_AVDD, code);
+	if (!ret)
+		ret = i2c_smbus_write_byte_data(p->ocp, OCP_AVEE, code);
+	if (ret) {
+		dev_err(p->dev, "OCP2131 code %#x: %d\n", code, ret);
+		return ret;
+	}
+	p->code = code;
+	return 0;
+}
 
 static void q25_clear(struct q25_panel *p, u32 bits)
 {
@@ -172,12 +203,14 @@ static int q25_wake(struct q25_panel *p)
 	int pm;
 
 	gpiod_set_value_cansleep(p->bias, 1);
+	if (p->ocp)
+		q25_ocp_set(p, p->code);
 	msleep(20);
 	pm = q25_wake_once(p);
 	if (pm != PM_AWAKE && p->reset) {
 		dev_warn(p->dev, "power mode %d after wake; resetting panel\n", pm);
 		gpiod_direction_output(p->reset, 0);
-		msleep(10);
+		usleep_range(10000, 11000);
 		gpiod_set_value_cansleep(p->reset, 1);
 		msleep(120);
 		pm = q25_wake_once(p);
@@ -194,14 +227,19 @@ static int q25_wake(struct q25_panel *p)
 static int q25_update_status(struct backlight_device *bd)
 {
 	struct q25_panel *p = bl_get_data(bd);
-	bool on = backlight_get_brightness(bd) > 0;
+	int level = backlight_get_brightness(bd);
+	bool on = level > 0;
 	int ret = 0;
 
 	mutex_lock(&p->lock);
+	if (on && p->ocp && level != p->code)
+		p->code = level;
 	if (on != p->on) {
 		ret = on ? q25_wake(p) : q25_sleep(p);
 		if (!ret || on)
 			p->on = on;
+	} else if (on && p->ocp) {
+		ret = q25_ocp_set(p, p->code);
 	}
 	mutex_unlock(&p->lock);
 	return ret;
@@ -262,6 +300,63 @@ static ssize_t dcs_store(struct device *dev, struct device_attribute *a,
 }
 static DEVICE_ATTR_WO(dcs);
 
+static void q25_ocp_release(void *ocp)
+{
+	i2c_unregister_device(ocp);
+}
+
+static int q25_ocp_attach(struct q25_panel *p, unsigned int bus)
+{
+	struct i2c_adapter *adap;
+	struct i2c_client *ocp;
+	int id, avdd, avee;
+
+	adap = i2c_get_adapter(bus);
+	if (!adap)
+		return -ENODEV;
+	ocp = i2c_new_dummy_device(adap, OCP_ADDR);
+	i2c_put_adapter(adap);
+	if (IS_ERR(ocp))
+		return PTR_ERR(ocp);
+	/* The first transfer after the bus re-probes can NAK. */
+	id = i2c_smbus_read_byte_data(ocp, OCP_ID);
+	if (id < 0)
+		id = i2c_smbus_read_byte_data(ocp, OCP_ID);
+	avdd = i2c_smbus_read_byte_data(ocp, OCP_AVDD);
+	avee = i2c_smbus_read_byte_data(ocp, OCP_AVEE);
+	if ((id != OCP_ID_VALUE && id != OCP_ID_VALUE_Q25) || avdd < 0 || avdd != avee ||
+	    avdd > OCP_MAX) {
+		dev_warn(p->dev, "OCP2131 not usable (id %d, outputs %d/%d)\n", id, avdd, avee);
+		i2c_unregister_device(ocp);
+		return id < 0 ? id : -ENODEV;
+	}
+	if (devm_add_action_or_reset(p->dev, q25_ocp_release, ocp))
+		return -ENOMEM;
+	p->ocp = ocp;
+	p->code = avdd ? avdd : 1;
+	/* Readers re-read max_brightness; Marathon picks it up on its next start. */
+	WRITE_ONCE(p->bd->props.brightness, p->code);
+	WRITE_ONCE(p->bd->props.max_brightness, OCP_MAX);
+	dev_info(p->dev, "OCP2131 brightness on i2c-%u, code %#x\n", bus, avdd);
+	return 0;
+}
+
+static ssize_t ocp_attach_store(struct device *dev, struct device_attribute *a,
+				const char *buf, size_t len)
+{
+	struct q25_panel *p = dev_get_drvdata(dev);
+	unsigned int bus;
+	int ret;
+
+	if (kstrtouint(buf, 0, &bus))
+		return -EINVAL;
+	mutex_lock(&p->lock);
+	ret = p->ocp ? -EBUSY : q25_ocp_attach(p, bus);
+	mutex_unlock(&p->lock);
+	return ret ? ret : len;
+}
+static DEVICE_ATTR_WO(ocp_attach);
+
 static struct attribute *q25_attrs[] = {
 	&dev_attr_power_mode.attr,
 	&dev_attr_signal_mode.attr,
@@ -270,6 +365,7 @@ static struct attribute *q25_attrs[] = {
 	&dev_attr_ctrl_display.attr,
 	&dev_attr_last_power_mode.attr,
 	&dev_attr_dcs.attr,
+	&dev_attr_ocp_attach.attr,
 	NULL
 };
 ATTRIBUTE_GROUPS(q25);
@@ -319,6 +415,7 @@ static int q25_probe(struct platform_device *pdev)
 	bd = devm_backlight_device_register(dev, "q25-panel", dev, p, &q25_ops, &props);
 	if (IS_ERR(bd))
 		return dev_err_probe(dev, PTR_ERR(bd), "register\n");
+	p->bd = bd;
 	dev_info(dev, "panel on, DSI mode %#x\n", readl(p->dsi + DSI_MODE_CTRL));
 	return 0;
 }
