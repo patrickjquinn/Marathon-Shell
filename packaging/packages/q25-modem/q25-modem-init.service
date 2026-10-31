@@ -2,6 +2,7 @@
 Description=Q25 MD1: SIM power-up and LTE attach APN, before ModemManager takes ttyC0
 Requires=q25-ccci-mdinit.service
 After=q25-ccci-mdinit.service
+Before=ModemManager.service
 PartOf=q25-modem.target
 
 [Service]
