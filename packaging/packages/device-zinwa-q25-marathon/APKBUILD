@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=25
+pkgrel=26
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -22,7 +22,8 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
  q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless
  q25-wifi-radio q25-wifi-radio.service
- q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules"
+ q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules
+ q25-usb-recovery.nm.conf 90-q25-recovery-console.rules"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -92,6 +93,10 @@ package() {
     # The initramfs makes the USB network gadget only if a UDC exists when it
     # looks, which a boot without the cable has missed; make it here once the
     # UDC exists, and unudhcpd then follows usb0.
+    # unudhcpd serves usb0, and ttyGS0 is the recovery console when the
+    # gadget has an ACM function: keep NetworkManager and ModemManager off.
+    install -Dm644 "$srcdir/q25-usb-recovery.nm.conf" "$pkgdir/usr/lib/NetworkManager/conf.d/90-q25-usb-recovery.conf"
+    install -Dm644 "$srcdir/90-q25-recovery-console.rules" "$pkgdir/usr/lib/udev/rules.d/90-q25-recovery-console.rules"
     install -Dm755 "$srcdir/q25-usb-gadget" "$pkgdir/usr/libexec/marathon/q25-usb-gadget"
     install -Dm644 "$srcdir/q25-usb-gadget.service" "$pkgdir/usr/lib/systemd/system/q25-usb-gadget.service"
     install -d "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants"
@@ -197,4 +202,6 @@ bad657133c3ba9524b1b15687c8b5b7260cc8c376021e42be1c8e2e0ce8c08aece71a0d85eaeb59c
 ddd69eb57bef58a76f3b0bd965cadbef340efa6cbc4a7b11a0f1d7d700704a27f80f06d7f50e314c31e93a0bd62d92d2c070013b2015528cb624b9c5d5e25288  q25.xkb-symbols
 c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3ccbe57e24776e11ad02ab5d7457f0bc444a4b2b891f442605  q25-keyboard-layout.env
 898ecb22f6ec7a466987b80baaa55fbd3dfc964444b5ca34f378b091d6b4d0b511312b45eeeb40b5af2e1fd434e72a826a8e1dc7603385428b5bacb17152fa4b  99-q25-native-keyboard.rules
+98357776e02b8aff3b585280bf9d4a3082ae8ad694ac880616ca66fec423ee2a645bf65840194e51d0345c6a60fa4c426f183a955ac0233e77c1fa476fb90499  q25-usb-recovery.nm.conf
+95f3a7f976e410ed0eebe473a815ecad5a8cba847bbe9f065163c9bc0f4ac165550cf7feb889f80192d23493dc4ad0cd259099bbfea90c08864e216c400e8e4f  90-q25-recovery-console.rules
 "

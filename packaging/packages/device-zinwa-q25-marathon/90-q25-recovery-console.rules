@@ -1,0 +1,1 @@
+SUBSYSTEM=="tty", KERNEL=="ttyGS0", ENV{ID_MM_PORT_IGNORE}="1"
