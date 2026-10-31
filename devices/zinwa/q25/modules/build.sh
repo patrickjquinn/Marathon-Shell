@@ -27,9 +27,9 @@ kmake() {
 		LD="$out/ld" W=1 -j"${JOBS:-2}" "$@" modules
 }
 
-for d in keyboard md1 conn-pd imu; do
+mkdir -p "$out/src"
+for d in keyboard md1 conn-pd imu bt; do
 	rm -rf "$out/src/$d"
-	mkdir -p "$out/src"
 	cp -r "$here/$d" "$out/src/$d"
 done
 cp "$ksrc/drivers/spi/spi-mt65xx.c" "$out/src/imu/"
@@ -50,13 +50,19 @@ done
 kmake "$ksrc/net/rfkill" "$out/obj/rfkill"
 kmake "$ksrc/net/wireless" "$out/obj/cfg80211" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/rfkill/Module.symvers"
+kmake "$ksrc/net/bluetooth" "$out/obj/bluetooth" \
+	KBUILD_EXTRA_SYMBOLS="$out/obj/rfkill/Module.symvers"
 kmake "$out/src/wmt" "$out/obj/wmt"
 kmake "$out/src/wlan" "$out/obj/wlan" JOINT="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/cfg80211/Module.symvers"
+kmake "$out/src/bt" "$out/obj/bt" WMTSRC="$out/src/wmt" \
+	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/bluetooth/Module.symvers"
 
-# The Wi-Fi stack ships without debug info; the other modules ship as built.
+# The first set ships as built; everything else without debug info. Of
+# net/bluetooth only the core is shipped.
 mkdir -p "$out/modules"
-for ko in "$out"/obj/*/*.ko; do
+find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
+while read -r ko; do
 	case "$(basename "$ko")" in
 	q25-bbq-keys.ko | q25-keyboard-led.ko | q25-md1-owner.ko | inv-icm42607*.ko | spi-mt65xx.ko)
 		cp "$ko" "$out/modules/" ;;

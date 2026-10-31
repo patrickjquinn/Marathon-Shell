@@ -3,8 +3,8 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=0
-pkgdesc="Zinwa Q25 keyboard, keyboard light, MD1 power-off, IMU and Wi-Fi modules"
+pkgrel=1
+pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND GPL-2.0-or-later AND (BSD-3-Clause OR GPL-2.0-only)"
@@ -13,7 +13,7 @@ depends="kmod linux-postmarketos-mediatek-g99=7.0-r1000"
 makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx"
-_connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789"
+_connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
 source="SHA256SUMS"
 for _m in $_extra $_connsys; do
     source="$source $_m.ko.zst"
@@ -32,7 +32,7 @@ package() {
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-6578e1a91b1961793960c707616d822b8e92e8c821cdeb36bc0f737e4f244ee0bb9f374520537deb654002f0e1a2e959430de60b80da8c5fe733d02e58f9d878  SHA256SUMS
+7fdf0018958aeb6703ba6d0d3d43327c0d7dd3da26d99b4b34ee290438d7d996a6eb8adcf8286337150a3dd726983423a310d818594e397b85aa3d4aca6be8b1  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 d33d60492b4c201b4f866fdc9f626ef4673fefaa5f1d43ee956da8522461dee4c1993fecee050da5b0a2916bfe2d49c5e7e4841db12f9ed62552f2516cef6f4e  q25-md1-owner.ko.zst
@@ -47,4 +47,6 @@ ab87b99cc6f2417553e30f55de0e9976efed3da7aa9bb33f2a5008c7cb010a754345ac6aabaf911d
 28f8ee80c3f28c4a659a67c65145ccb0d23946bfdb52b6bc8a7630f0815f8d96c4ec28082360c3eb9a3f71457e26d85f28fa5759bf6b5f8842a4d0b7160b1f13  wmt_drv.ko.zst
 6ba3d2db41b54e4cc11adff1d45b5fb4387c3465064724d3752cde8b0b2504a2883fafa536bc17bf9411dc25d80bc4723671ae92d89566f2de70eb85c29525ca  wmt_chrdev_wifi.ko.zst
 378d01d8e6e331f680dbfe2b59f2352abda051b63d93fd5af49a0fb3d61921c8b8cb47c2bafbb07cd918e15e77f71dab77df9c5053b1c701f30aedd7006904d7  wlan_drv_gen4m_6789.ko.zst
+348f8233daeabee9168698c32f7b69a7cf4ef2ef66f872cffd97b3071f99fe6a17d61598ba3ee7ddbb51f21f5b8b550ac2658918f9f5d4b7b68813f01ddd7c08  bluetooth.ko.zst
+43544dadb6eaef85693323491a27de691a350a23b273f2570a681abc349a0251c395d8557fae671dc27bd4b15edf3a1bd82de33af392e915e607456ba424c5af  q25-btmtk-stp.ko.zst
 "

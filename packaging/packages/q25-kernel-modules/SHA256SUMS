@@ -12,3 +12,5 @@ a8016552e1bc2e1021f91684fa110f912b061c8909663dc905639b2122947e14  /usr/lib/modul
 cfe36fc0018c4c5a31d1b4e54472e61dc88b599f035ba9566a314de9269436ac  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wmt_drv.ko
 bd8b8c789922293f238b48d759d416ded01a9c9480ef96dbf9f12f5e42cefd33  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wmt_chrdev_wifi.ko
 3fa5b1b3fc0bd9e904ab6050d4059f2188b8e6011d5a763b8662f36f684b394f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wlan_drv_gen4m_6789.ko
+fe5c3435f2b8adcc23731692b51cea3dfd02268548d923af0ae9d82eff7aef93  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/bluetooth.ko
+3d82ccb462e8838e717ebfafc3b5a81ed5e04e62c500689fea4fd5851df9d19b  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/q25-btmtk-stp.ko
