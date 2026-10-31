@@ -12,6 +12,7 @@ Sources of the modules that `packaging/packages/q25-kernel-modules` ships.
 | `mag` | `mmc5633` | the kernel's `drivers/iio/magnetometer/mmc5633.c` plus `mmc5633-q25.patch` |
 | `light` | `hx32062se` | Marathon |
 | (kernel tree) | `spi-mt65xx`, `rfkill`, `cfg80211`, `bluetooth` | the kernel's own source; the APK's config leaves them unbuilt or unshipped |
+| `modem` | `ccci_util_lib`, `ccmni`, `ccci_md_all`, `ccci_ccif`, `ccci_dpmaif` (shipped by `q25-modem`) | iasnezhkov/android_kernel_ikko_mindone `9cd73c15` `mindone/modules`, the files in `eccci-files.txt`, plus `0001` |
 | `wifi` | `connadp`, `btif_drv`, `wmt_drv`, `wmt_chrdev_wifi`, `wlan_drv_gen4m_6789` | iasnezhkov/android_kernel_ikko_mindone `9cd73c15` `mindone/modules`, plus the two patches |
 
 `wifi/wmt-files.txt` lists the donor files that form the WMT/BTIF/connadp

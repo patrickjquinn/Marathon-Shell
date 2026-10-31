@@ -12,6 +12,7 @@
 # MT6789_SOUND: a checkout of github.com/linux-mediatek/linux at
 # 996ec48145f6746ecc664e92c6e5892b6978e3ae (branch adomerle/mt6789-sound;
 # only sound/soc/mediatek/mt6789 is read).
+# The modem modules (modem/) ship in q25-modem, so SHIPPED must hold them too.
 # OUT is created; nothing else is written.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
@@ -73,6 +74,11 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 
+rm -rf "$out/src/modem"
+mkdir -p "$out/src/modem"
+(cd "$donor" && tar cf - -T "$here/modem/eccci-files.txt") | tar xf - -C "$out/src/modem"
+(cd "$out/src/modem" && patch -p1 -s < "$here/modem/0001-eccci-q25-linux-7.0.patch")
+
 for d in keyboard md1 conn-pd imu audio panel mag light; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
@@ -86,6 +92,11 @@ kmake "$out/src/wlan" "$out/obj/wlan" JOINT="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/cfg80211/Module.symvers"
 kmake "$out/src/bt" "$out/obj/bt" WMTSRC="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/bluetooth/Module.symvers"
+syms=""
+for m in ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif; do
+	kmake "$out/src/modem/$m" "$out/obj/modem/$m" KBUILD_EXTRA_SYMBOLS="$syms"
+	syms="$syms $out/obj/modem/$m/Module.symvers"
+done
 
 # The first set ships as built; everything else without debug info. Of
 # net/bluetooth only the core is shipped.
