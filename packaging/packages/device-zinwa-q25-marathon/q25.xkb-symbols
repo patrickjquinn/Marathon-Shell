@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: Apache-2.0
+// ALT letter outputs derived from pinned LineageOS Q25_keyboard.kcm.
+// Sym navigation derived from pinned vendor bbqX0kbd_get_altgr_keycode().
+// No claim of photographic verification of this handset's printed legends.
+default partial alphanumeric_keys modifier_keys
+xkb_symbols "printed" {
+    include "us(basic)"
+    include "level3(lalt_switch)"
+    include "level5(ralt_switch)"
+    name[Group1] = "Q25 source-matched raw keyboard";
+    key <AC01> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ a, A, asterisk, asterisk, a, A, a, A ] };
+    key <AB05> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ b, B, exclam, exclam, Down, Down, Down, Down ] };
+    key <AB03> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ c, C, 9, 9, c, C, c, C ] };
+    key <AC03> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ d, D, 5, 5, d, D, d, D ] };
+    key <AD03> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ e, E, 2, 2, Next, Next, Next, Next ] };
+    key <AC04> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ f, F, 6, 6, f, F, f, F ] };
+    key <AC05> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ g, G, slash, slash, Left, Left, Left, Left ] };
+    key <AC06> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ h, H, colon, colon, Home, Home, Home, Home ] };
+    key <AD08> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ i, I, minus, minus, i, I, i, I ] };
+    key <AC07> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ j, J, semicolon, semicolon, Right, Right, Right, Right ] };
+    key <AC08> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ k, K, apostrophe, apostrophe, XF86AudioRaiseVolume, XF86AudioRaiseVolume, XF86AudioRaiseVolume, XF86AudioRaiseVolume ] };
+    key <AC09> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ l, L, quotedbl, quotedbl, XF86AudioLowerVolume, XF86AudioLowerVolume, XF86AudioLowerVolume, XF86AudioLowerVolume ] };
+    key <AB07> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ m, M, period, period, Menu, Menu, Menu, Menu ] };
+    key <AB06> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ n, N, comma, comma, n, N, n, N ] };
+    key <AD09> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ o, O, plus, plus, o, O, o, O ] };
+    key <AD10> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ p, P, at, at, p, P, p, P ] };
+    key <AD01> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ q, Q, numbersign, numbersign, q, Q, q, Q ] };
+    key <AD04> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ r, R, 3, 3, Prior, Prior, Prior, Prior ] };
+    key <AC02> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ s, S, 4, 4, s, S, s, S ] };
+    key <AD05> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ t, T, parenleft, parenleft, t, T, t, T ] };
+    key <AD07> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ u, U, underscore, underscore, u, U, u, U ] };
+    key <AB04> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ v, V, question, question, v, V, v, V ] };
+    key <AD02> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ w, W, 1, 1, w, W, w, W ] };
+    key <AB02> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ x, X, 8, 8, x, X, x, X ] };
+    key <AD06> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ y, Y, parenright, parenright, Up, Up, Up, Up ] };
+    key <AB01> { type[Group1]="EIGHT_LEVEL_SEMIALPHABETIC", [ z, Z, 7, 7, z, Z, z, Z ] };
+    // Raw '~' maps to Linux KEY_0; Q25 KCM keeps zero under Shift/Alt.
+    key <AE10> { type[Group1]="EIGHT_LEVEL", [ 0,0,0,0,0,0,0,0 ] };
+    // Raw '$' maps to KEY_GRAVE; generic vendor layout labels its ALT as grave.
+    key <TLDE> { type[Group1]="EIGHT_LEVEL", [ dollar,dollar,grave,grave,
+                  XF86AudioMute,XF86AudioMute,XF86AudioMute,XF86AudioMute ] };
+    // Sym+Backspace Delete is explicit in vendor get_altgr_keycode().
+    key <BKSP> { type[Group1]="EIGHT_LEVEL", [ BackSpace,BackSpace,BackSpace,BackSpace,
+                  Delete,Delete,Delete,Delete ] };
+    key <RTRN> { type[Group1]="EIGHT_LEVEL", [ Return,Return,Return,Return,
+                  Return,Return,Return,Return ] };
+    // Android ALT+SPACE is private U+EF01; no native action is inferred here.
+    key <SPCE> { type[Group1]="EIGHT_LEVEL", [ space,space,space,space,
+                  space,space,space,space ] };
+};
