@@ -207,10 +207,23 @@ fi
 # Deckard from a local Marathon-Deckard checkout when there is one.
 DECKARD_SRC="${DECKARD_SRC-$([ -d "$HOME/Developer/Marathon-Deckard/host/deckard-bridge" ] && echo "$HOME/Developer/Marathon-Deckard")}" \
 build_if_missing "deckard"                   'deckard-[0-9]*.apk'             "$LIB/build-deckard-apk.sh"                   "$APORTS_DIR/deckard/APKBUILD"
-# Android's images, for the HackberryPi overlay on the Pi 5 (mkosi-configure.py).
-if [ "$DEVICE" = raspberry-pi5 ]; then
-APORT=deckard-images \
+# Android's images, for the HackberryPi overlay on the Pi 5 and for the Q25
+# (mkosi-configure.py).
+if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ]; then
+APORT=deckard-images NO_DEPS=1 \
 build_if_missing "deckard-images"            'deckard-images-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/deckard-images/APKBUILD"
+fi
+# Zinwa Q25: the prebuilt kernel the phone boots (Q25_KERNEL_APK, from
+# scripts/build-zinwa-q25-image.sh), its device package and every q25-*,
+# *-q25 and modem aport.
+if [ "$DEVICE" = zinwa-q25 ]; then
+    cp "${Q25_KERNEL_APK:?zinwa-q25 needs Q25_KERNEL_APK, the prebuilt kernel package}" "$MKOSI_PKG_DIR/"
+    for aport in "$APORTS_DIR"/device-zinwa-q25 "$APORTS_DIR"/q25-* "$APORTS_DIR"/*-q25 "$APORTS_DIR"/modemmanager-mtk-ccci; do
+        [ -f "$aport/APKBUILD" ] || continue
+        name="$(basename "$aport")"
+        APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
+            "$LIB/build-aport-apk.sh" "$aport/APKBUILD"
+    done
 fi
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
