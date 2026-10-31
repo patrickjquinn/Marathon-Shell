@@ -1,0 +1,14 @@
+[Unit]
+Description=Q25 WMT firmware patch server
+Requires=q25-connsys.service
+After=q25-connsys.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/libexec/marathon/q25-wmt launch -p /lib/firmware
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

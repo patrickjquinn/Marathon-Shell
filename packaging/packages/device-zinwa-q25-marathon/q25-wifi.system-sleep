@@ -1,0 +1,15 @@
+#!/bin/sh
+# Conservative suspend policy until CONNSYS suspend is validated: gen4m's
+# AXI suspend/resume are stubs, so power Wi-Fi off across sleep and restore.
+case "$1" in
+pre)
+	if systemctl -q is-active q25-wifi.service; then
+		touch /run/q25-wifi.resume
+		systemctl stop q25-wifi.service
+	fi ;;
+post)
+	if [ -e /run/q25-wifi.resume ]; then
+		rm -f /run/q25-wifi.resume
+		systemctl start --no-block q25-wifi.service
+	fi ;;
+esac

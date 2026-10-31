@@ -1,0 +1,16 @@
+[Unit]
+Description=Q25 Wi-Fi power (gen4m over WMT)
+Requires=q25-wmt-launcher.service
+After=q25-wmt-launcher.service
+Before=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/modprobe wlan_drv_gen4m_6789
+ExecStart=/usr/libexec/marathon/q25-wmt wifi-on
+ExecStop=/usr/libexec/marathon/q25-wmt wifi-off
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
