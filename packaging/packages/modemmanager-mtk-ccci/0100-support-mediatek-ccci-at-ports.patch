@@ -1,0 +1,121 @@
+From a3f507f7e2bb4067354ff96af231fa0696c97b59 Mon Sep 17 00:00:00 2001
+From: nikuzo <buelaniki@gmail.com>
+Date: Sat, 26 Sep 2026 14:25:10 -0300
+Subject: [PATCH] kerneldevice,plugin-manager: support MediaTek CCCI AT ports
+
+MediaTek SoC modems (e.g. MT6768) expose their AT channels as character
+devices in the "ccci_node" class (/dev/ttyC0), under /sys/devices/virtual,
+not as ttys. Handle ports tagged ID_MM_CCCI_AT_PORT=1 by udev like wwan AT
+ports (no termios needed), let udev name the owning platform device with
+ID_MM_PHYSDEV_SYSFS_PATH so the ports aren't filtered as virtual, and listen
+to the ccci_node subsystem when a plugin handles wwan ports.
+---
+ src/kerneldevice/mm-kernel-device-udev.c | 41 ++++++++++++++++++++++++
+ src/mm-plugin-manager.c                  |  5 +++
+ 2 files changed, 46 insertions(+)
+
+diff --git a/src/kerneldevice/mm-kernel-device-udev.c b/src/kerneldevice/mm-kernel-device-udev.c
+index 7fede02..e1ec0d4 100644
+--- a/src/kerneldevice/mm-kernel-device-udev.c
++++ b/src/kerneldevice/mm-kernel-device-udev.c
+@@ -266,12 +266,33 @@ find_device_bus_subsystem (MMKernelDeviceUdev *self)
+     return NULL;
+ }
+ 
++/* SoC-internal modem ports (e.g. MediaTek CCCI) live under /sys/devices/virtual,
++ * so udev rules may name the platform device that owns them. */
++static void
++preload_contents_physdev_override (MMKernelDeviceUdev *self)
++{
++    const gchar *sysfs_path;
++
++    sysfs_path = g_udev_device_get_property (self->priv->device, "ID_MM_PHYSDEV_SYSFS_PATH");
++    if (!sysfs_path)
++        return;
++
++    self->priv->physdev = g_udev_client_query_by_sysfs_path (self->priv->client, sysfs_path);
++    if (self->priv->physdev && !self->priv->driver)
++        self->priv->driver = g_strdup (g_udev_device_get_driver (self->priv->physdev));
++}
++
+ static void
+ preload_contents (MMKernelDeviceUdev *self)
+ {
+     g_autofree gchar *bus_subsys = NULL;
+ 
+     bus_subsys = find_device_bus_subsystem (self);
++    if (!bus_subsys) {
++        preload_contents_physdev_override (self);
++        if (self->priv->physdev)
++            return;
++    }
+     if (g_strcmp0 (bus_subsys, "usb") == 0)
+         preload_contents_usb (self);
+     else if (g_strcmp0 (bus_subsys, "pcmcia") == 0)
+@@ -310,6 +331,17 @@ preload_contents (MMKernelDeviceUdev *self)
+ 
+ /*****************************************************************************/
+ 
++/* MediaTek CCCI AT ports are plain character devices in the "ccci_node"
++ * class; udev rules tag the ones to use and they're handled like wwan AT
++ * ports, which don't need a tty either. */
++static gboolean
++is_ccci_at_port (MMKernelDeviceUdev *self)
++{
++    return (self->priv->device &&
++            !g_strcmp0 (g_udev_device_get_subsystem (self->priv->device), "ccci_node") &&
++            g_udev_device_get_property_as_boolean (self->priv->device, "ID_MM_CCCI_AT_PORT"));
++}
++
+ static const gchar *
+ kernel_device_get_subsystem (MMKernelDevice *_self)
+ {
+@@ -317,6 +349,9 @@ kernel_device_get_subsystem (MMKernelDevice *_self)
+ 
+     self = MM_KERNEL_DEVICE_UDEV (_self);
+ 
++    if (is_ccci_at_port (self))
++        return "wwan";
++
+     if (self->priv->device)
+         return g_udev_device_get_subsystem (self->priv->device);
+ 
+@@ -613,6 +648,9 @@ kernel_device_has_attribute (MMKernelDevice *_self,
+     if (!self->priv->device)
+         return FALSE;
+ 
++    if (is_ccci_at_port (self) && !g_strcmp0 (attribute, "type"))
++        return TRUE;
++
+     return g_udev_device_has_sysfs_attr (self->priv->device, attribute);
+ }
+ 
+@@ -626,6 +664,9 @@ kernel_device_get_attribute (MMKernelDevice *_self,
+     if (!self->priv->device)
+         return NULL;
+ 
++    if (is_ccci_at_port (self) && !g_strcmp0 (attribute, "type"))
++        return "AT";
++
+     return g_udev_device_get_sysfs_attr (self->priv->device, attribute);
+ }
+ 
+diff --git a/src/mm-plugin-manager.c b/src/mm-plugin-manager.c
+index f8cf009..23bb281 100644
+--- a/src/mm-plugin-manager.c
++++ b/src/mm-plugin-manager.c
+@@ -1792,6 +1792,11 @@ validate_tracked_plugins (MMPluginManager  *self,
+         return FALSE;
+     }
+ 
++    /* MediaTek CCCI AT ports come from the "ccci_node" class but are handled
++     * as wwan ports (see the udev kernel device), so listen to it as well */
++    if (g_ptr_array_find_with_equal_func (subsystems_take, "wwan", g_str_equal, NULL))
++        g_ptr_array_add (subsystems_take, g_strdup ("ccci_node"));
++
+     /* Add trailing NULL and store as GStrv */
+     g_ptr_array_add (subsystems_take, NULL);
+     self->priv->subsystems = (gchar **) g_ptr_array_free (subsystems_take, FALSE);
+-- 
+2.55.0
+
