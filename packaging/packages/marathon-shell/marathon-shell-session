@@ -203,7 +203,10 @@ elif [ "$IS_VIRTIO_GPU" = 1 ]; then
     # check is the more direct signal — that file existing IS the virgl
     # Gallium driver being installed — with the libgallium scan kept as a
     # fallback for layouts that name it differently.
-    GALLIUM_SO="$(ls /usr/lib/libgallium*.so* 2>/dev/null | head -1)"
+    GALLIUM_SO=
+    for so in /usr/lib/libgallium*.so*; do
+        [ -e "$so" ] && GALLIUM_SO=$so && break
+    done
     if [ -e /usr/lib/dri/virtio_gpu_dri.so ]; then
         : # virgl Gallium driver present — hardware GL is possible
     elif [ -z "$GALLIUM_SO" ] || ! grep -qa virgl "$GALLIUM_SO" 2>/dev/null; then
