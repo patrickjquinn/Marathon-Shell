@@ -1,4 +1,4 @@
-# Q25 bring-up device policy. This manifest does not add an image-build wrapper.
+# Q25 bring-up device policy.
 schema = 1
 vendor = "zinwa"
 codename = "q25"
@@ -9,14 +9,22 @@ soc = "mt6789"
 status = "bring-up"
 package = "device-zinwa-q25-marathon"
 
+# No wrapper or flash script yet. The image is a root file on the
+# userdata carrier plus new ESP files, and U-Boot is left alone.
 [build]
-# Reserved bring-up target; no automated installer or flash wrapper is provided.
 target = "zinwa-q25"
-bootloader = "systemd-boot"
+bootloader = "uki"
 
+# U-Boot (lk_a) boots systemd-boot from the nested-GPT ESP inside userdata.
 [boot]
 method = "uefi"
 partition_table = "gpt"
+
+# The prebuilt 7.0.0-q25-cfi-test kernel the phone boots; every module
+# package is pinned to it.
+[kernel]
+package = "linux-postmarketos-mediatek-g99"
+version = "7.0-r1000"
 
 [display]
 interface = "dsi"
@@ -34,6 +42,12 @@ modem = "unvalidated by this profile"
 gps = "unvalidated by this profile"
 wifi = "unvalidated by this profile"
 sensors = []
+
+# Copied from the phone's stock vendor partition at build time. The modem
+# image is copied from its md1img partition on first boot (q25-modem).
+[[firmware]]
+package = "q25-connsys-firmware"
+version = "20261030"
 
 [profile]
 # Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
