@@ -1,0 +1,13 @@
+[Unit]
+Description=Q25: mark the booted boot-counted entry good
+Requires=boot-complete.target
+After=boot-complete.target q25-esp-readonly.service
+ConditionPathIsMountPoint=/boot
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/q25-boot-bless
+
+[Install]
+WantedBy=graphical.target

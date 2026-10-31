@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=22
+pkgrel=23
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -19,7 +19,8 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
  unudhcpd-usb0.conf q25.preset
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service
- q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root"
+ q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
+ q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -110,6 +111,19 @@ package() {
         ln -s /dev/null "$pkgdir/etc/systemd/system/$unit"
     done
 
+    # The ESP holds the stock and fallback entries too: keep it read-only
+    # except while q25-boot-bless renames the booted counted entry, after
+    # q25-boot-check has passed.
+    install -Dm644 "$srcdir/q25-esp-readonly.service" "$pkgdir/usr/lib/systemd/system/q25-esp-readonly.service"
+    ln -s ../q25-esp-readonly.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-esp-readonly.service"
+    install -Dm755 "$srcdir/q25-boot-bless" "$pkgdir/usr/libexec/marathon/q25-boot-bless"
+    for unit in q25-boot-check q25-boot-bless; do
+        install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
+    done
+    install -d "$pkgdir/usr/lib/systemd/system/boot-complete.target.requires" "$pkgdir/usr/lib/systemd/system/graphical.target.wants"
+    ln -s ../q25-boot-check.service "$pkgdir/usr/lib/systemd/system/boot-complete.target.requires/q25-boot-check.service"
+    ln -s ../q25-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/q25-boot-bless.service"
+
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
@@ -161,4 +175,8 @@ e456f3bf3a5babc8e7052fe41020ea8ea92d5cefdb1736554455d391fcae0e53ac43cdc3246e7a81
 01c93dc1c2fbcbe7d4c3df5f1e282549f2507204a4a4157051e62f48bc98b65b49a4a915d0ed4fe745723d29fbc7d390baddd7b65859e78739cae84a099014b5  q25-user-manager-cpu.conf
 692a0a87d3de9cf23d81d91278bb34dac1367f9aa827e09f001b7985b368aa8dcca00f94ef22eb6cd5fecea44af31e2c9f958b33579448586c08f73a2761e181  q25-user-slice-cpu.conf
 c95e3e6281e0a842a1102b617e8cbe9be4a44be91193190bc9565fd2b064c2a52fb494b1d72ae4f2d50af666f6aa83d20be9e3d8c92f36d4caf8b94c015dde5d  q25-carrier-root
+ac6802cd8209d3890212f3402777bf3756decb9a1154f5934917611c36512d9136d2bd3eb61852891aedc72de91333e6f515674c6fcedb3186f3616c07facca3  q25-esp-readonly.service
+153ba51e315aba7ebbd5c35ebc60e6717602c156107db702e074df24ee07b32b54138f5fb3f638b1904410bdafa414c0bbd571bf0cc4f61d509e8a80ba8ce7c9  q25-boot-check.service
+48f3e1f77e861aabce440ed4101a4ac05ac1b01d2b7ba4251f61935db6adf2b4d85902614afea662482b83f6ffd3998e4a230789d8112b9ba43d499d2a98c588  q25-boot-bless.service
+33c25690010d2d4812b58e52356f85ccdec29e798446722c5b45e686f3104c8eb9aadbc61e59950994500b21f12d733736f76f423c0a517a9fab8f9c72a7e413  q25-boot-bless
 "
