@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=12
+pkgrel=13
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -16,7 +16,8 @@ replaces="device-mediatek-g99-marathon"
 source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example q25-keyboard.modprobe.conf q25-keyboard.modules-load.conf
  q25-md1-off.service q25-wmt.c q25-connsys.service q25-wmt-launcher.service q25-wifi.service
  q25-connsys.modprobe.conf q25-wifi.system-sleep wpa_supplicant.service
- q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules"
+ q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
+ q25-kernel-cmdline.conf"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -64,6 +65,11 @@ package() {
     # The IMU is mounted rotated 180 degrees about Z.
     install -Dm644 "$srcdir/61-q25-sensor-local.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-sensor-local.rules"
 
+    # Masks device-mediatek-g99's bring-up options by name. Without
+    # keep_bootcon the efifb boot console stops once tty0 registers, so it no
+    # longer scrolls kernel messages through the framebuffer simpledrm scans out.
+    install -Dm644 "$srcdir/q25-kernel-cmdline.conf" "$pkgdir/etc/kernel-cmdline.d/50-device-mediatek-g99.conf"
+
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
@@ -99,4 +105,5 @@ ee15a31ae7d5e8094db73f4b2b0e1f4b19763e7561a1d04d0accc5a8fddc133c77c7d32ee69636fe
 aed8f85dc47c2eb7ef833e35d5bd68f8a83a81f613d062a97f1839771a781c70492fe5dfbea7cd6348ac60f4b08378e42e4ed7b2618e569e25b83cffe80ac839  HiFi.conf
 95e8671e21138ec2304323c9774c2042214c88b4cf42b0bde0ff801e5e0c40972cbfca823c327b3a82611666c5140a0da29012dd72e35c7dcf0e2d463db35efc  VoiceCall.conf
 1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
+918d035bf38cbeb640393a075d60c2b7e783389b206c34ab7bcb0b61f45ecf5956fd975fd74bf835c4e013d8ffba905e97d8c02838337154ea3c46e6e44ace94  q25-kernel-cmdline.conf
 "
