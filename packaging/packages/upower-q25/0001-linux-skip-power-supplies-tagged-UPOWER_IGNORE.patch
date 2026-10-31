@@ -1,0 +1,13 @@
+--- a/src/linux/up-enumerator-udev.c
++++ b/src/linux/up-enumerator-udev.c
+@@ -111,6 +111,10 @@
+ 	if (g_strcmp0 (subsys, "power_supply") == 0) {
+ 		UpDevice *device;
+ 
++		/* Optional distro rule for redundant, non-gauge supply children. */
++		if (g_udev_device_get_property_as_boolean (native, "UPOWER_IGNORE"))
++			return NULL;
++
+ 		device = g_initable_new (UP_TYPE_DEVICE_SUPPLY_BATTERY, NULL, NULL,
+ 		                       "daemon", daemon,
+ 		                       "native", native,
