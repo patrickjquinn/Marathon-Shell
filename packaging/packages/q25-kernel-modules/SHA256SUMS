@@ -1,0 +1,14 @@
+4676544c8a8cd4e54b7ab8e38814a29e79994231365e59e67529b59c2331f8ca  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-bbq-keys.ko
+13e4e97f0886be32d35d4ed770b10bfbb7e68aec3554b270bb406c669d1beb8d  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-keyboard-led.ko
+16c85b5a71c37858ae87c5f0a570db877fa82ab8c4e811c12e6c3d2fbd2fcd31  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-md1-owner.ko
+45df5769ad667e8dcdee4dccba3217252266b9565ebd7ac65aa3b8105047e762  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607.ko
+08dd386a0f80c492bebe7baca18542ccd8fc3b71a4409b48e1f5409af25a1f6e  /usr/lib/modules/7.0.0-q25-cfi-test/extra/inv-icm42607-spi.ko
+1965f3affa0cebc5c31d6813f783e53a6f08b83a3ba2ef2a811b4b662c4090a7  /usr/lib/modules/7.0.0-q25-cfi-test/extra/spi-mt65xx.ko
+044a392151d925277d07e141ec33f6e04f94228659fb832a3fedf964552967d1  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/q25-conn-pd.ko
+49e46ff1d2416073f23c43029311b909cef824b9dd5cdf3018cabfc00f6ec130  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/rfkill.ko
+a2d31b2be1fd7e1aef17a2d10089fd5dd57d5715114fea91807ee943f9ce27fe  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/cfg80211.ko
+a8016552e1bc2e1021f91684fa110f912b061c8909663dc905639b2122947e14  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/connadp.ko
+1262b47896b3b17ab35c1fd77f485b11affbb1a83ea3dc5eba8456bfddd887cf  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/btif_drv.ko
+cfe36fc0018c4c5a31d1b4e54472e61dc88b599f035ba9566a314de9269436ac  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wmt_drv.ko
+bd8b8c789922293f238b48d759d416ded01a9c9480ef96dbf9f12f5e42cefd33  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wmt_chrdev_wifi.ko
+3fa5b1b3fc0bd9e904ab6050d4059f2188b8e6011d5a763b8662f36f684b394f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-connsys/wlan_drv_gen4m_6789.ko
