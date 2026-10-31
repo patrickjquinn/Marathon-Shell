@@ -38,3 +38,13 @@ RPC metadata helper. Its source commit is
 assertions and ARM64 W=1 compilation passed. No Kbuild activation, module
 entrypoint, device access, modem firmware load or radio functionality is implied.
 See the modem prior-art document for its missing firmware/memory owner.
+
+`0005`–`0007` carry the board DT. `0005` adds the DTS that the
+linux-postmarketos-mediatek-g99 recipe copies into the tree (pmaports
+`mt6789-zinwa-q25.dts`, sha512 `a242ca0b…`); a recipe applying this series
+must stop copying its own. `0006` brings it to the DT the Q25 booted from
+(`f668fc23…`: framebuffer pitch, touch reset, keyboard on i2c6, no ramoops).
+`0007` adds audio, the AP-side sensor buses, CONNSYS, Wi-Fi and BTIF, as in
+`edc93beb…`. Compiled against the 978b8b67 `mt6789.dtsi`, the result equals
+`edc93beb…` node by node with phandles resolved, except that the BMP390 node
+is dropped: both of its addresses NACK on the device. No gpio-backlight.

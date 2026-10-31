@@ -1,0 +1,449 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 30 Oct 2026 23:59:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: zinwa-q25: describe audio, sensors and CONNSYS
+
+Add what the Q25 now boots with (edc93beb..., the DTB staged as
+q25-native-input-audio-sensors-connsys-btif-nobl.dtb):
+
+- the AFE, its I2S pin states, the OCA72390 speaker amplifier on i2c3
+  and the sound card;
+- the stock SCP sensor buses handed to AP controllers: MMC5603 on i2c1,
+  HX32062SE on i2c9 and the ICM-42607-P IMU on spi2;
+- CONNSYS, the AXI Wi-Fi core and BTIF, with the CONSYS EMI moved to
+  0x7e000000 where LK reserves it, the Wi-Fi pool made a DMA pool and
+  the watchdog providing the CONN MCU reset;
+- the old 0x7d000000 carveout kept reserved as q25-held.
+
+The BMP390 node of the staged DTB is left out: both of its addresses
+NACK on the device, so the barometer is not fitted. Apart from that
+node the result equals edc93beb node by node. No gpio-backlight.
+---
+ arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts |  376 +++++++++++++++++++++
+ 1 file changed, 374 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+index 911721c..8ba574b 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+@@ -19,6 +19,9 @@
+ #include <dt-bindings/input/input.h>
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/clock/mediatek,mt6789-clk.h>
++#include <dt-bindings/power/mediatek,mt6789-power.h>
+ #include <dt-bindings/regulator/mediatek,mt6397-regulator.h>
+ #include <dt-bindings/pinctrl/mediatek,mt6789-pinfunc.h>
+ #include <dt-bindings/iio/adc/mediatek,mt6358-auxadc.h>
+@@ -65,8 +68,10 @@
+ 		#size-cells = <2>;
+ 		ranges;
+ 
+-		wifi_mem:     wifi@bf000000        { reg = <0 0xbf000000 0 0x600000>;  no-map; };
+-		consys_emi:   consys_emi@7d000000  { reg = <0 0x7d000000 0 0x500000>;  no-map; };
++		wifi_mem:     wifi@bf000000        { reg = <0 0xbf000000 0 0x600000>;  no-map; compatible = "shared-dma-pool"; };
++		/* LK reserves the CONSYS EMI at 0x7e000000; 0x7d000000 was the vicky value. */
++		consys_emi:   consys_emi@7e000000  { reg = <0 0x7e000000 0 0x500000>;  no-map; };
++		q25_held:     q25-held@7d000000    { reg = <0 0x7d000000 0 0x500000>;  no-map; };
+ 		sspm_ap_mem:  sspm_ap@9f560000     { reg = <0 0x9f560000 0 0x110000>;  no-map; };
+ 		apmdc_mem:    ap_md_c_smem@8c000000  { reg = <0 0x8c000000 0 0x16a0000>; no-map; };
+ 		apmdnc_mem:   ap_md_nc_smem@8e000000 { reg = <0 0x8e000000 0 0xe00000>;  no-map; };
+@@ -135,6 +140,13 @@
+ 	 * The voltage gauge polls the ADC independently, so it needs no supply
+ 	 * notifications. Do not re-add the link.
+ 	 */
++	sound {
++		compatible = "zinwa,q25-mt6366-sound";
++		model = "Zinwa Q25";
++		mediatek,platform = <&afe_pcm>;
++		mediatek,speaker-amp = <&speaker_amp>;
++	};
++
+ 	fuel_gauge: fuel-gauge {
+ 		compatible = "adc-battery";
+ 		io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
+@@ -615,6 +627,17 @@
+ 	};
+ };
+ 
++/* Speaker amplifier: OCA72390 (AW87390 register clone). */
++&i2c3 {
++	status = "okay";
++
++	speaker_amp: amplifier@58 {
++		compatible = "ocs,oca72390";
++		reg = <0x58>;
++		sound-name-prefix = "Speaker";
++	};
++};
++
+ /* RP2040 QWERTY keyboard and its light (q25-bbq-keys, q25-keyboard-led). */
+ &i2c6 {
+ 	status = "okay";
+@@ -634,6 +657,196 @@
+ 	status = "okay";
+ };
+ 
++#define Q25_PINMUX(pin, func)	(((pin) << 8) | (func))
++
++&pio {
++	aud_clk_mosi_off: aud-clk-mosi-off {
++		pins-cmd0-dat {
++			pinmux = <Q25_PINMUX(169, 0)>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_clk_mosi_on: aud-clk-mosi-on {
++		pins-cmd0-dat {
++			pinmux = <Q25_PINMUX(169, 1)>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	aud_clk_miso_off: aud-clk-miso-off {
++		pins-cmd0-dat {
++			pinmux = <Q25_PINMUX(173, 0)>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_clk_miso_on: aud-clk-miso-on {
++		pins-cmd0-dat {
++			pinmux = <Q25_PINMUX(173, 1)>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	aud_dat_mosi_off: aud-dat-mosi-off {
++		pins-cmd0-dat {
++			pinmux = <Q25_PINMUX(171, 0)>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd1-dat {
++			pinmux = <Q25_PINMUX(172, 0)>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_dat_mosi_on: aud-dat-mosi-on {
++		pins-cmd0-dat {
++			pinmux = <Q25_PINMUX(171, 1)>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++
++		pins-cmd1-dat {
++			pinmux = <Q25_PINMUX(172, 1)>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	aud_dat_miso0_off: aud-dat-miso0-off {
++		pins-cmd1-dat {
++			pinmux = <Q25_PINMUX(175, 0)>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_dat_miso0_on: aud-dat-miso0-on {
++		pins-cmd1-dat {
++			pinmux = <Q25_PINMUX(175, 1)>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	aud_dat_miso1_off: aud-dat-miso1-off {
++		pins-cmd1-dat {
++			pinmux = <Q25_PINMUX(176, 0)>;
++			input-enable;
++			bias-disable;
++		};
++	};
++
++	aud_dat_miso1_on: aud-dat-miso1-on {
++		pins-cmd1-dat {
++			pinmux = <Q25_PINMUX(176, 1)>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	/* The SCP sensor buses, handed to AP controllers (mode 2 -> 1). */
++	i2c1_sensor_pins: i2c1-sensor-default-state {
++		pins-bus {
++			pinmux = <Q25_PINMUX(132, 1)>, <Q25_PINMUX(133, 1)>;
++			bias-pull-up;
++		};
++	};
++
++	i2c9_sensor_pins: i2c9-sensor-default-state {
++		pins-bus {
++			pinmux = <Q25_PINMUX(148, 1)>, <Q25_PINMUX(149, 1)>;
++			bias-pull-up;
++		};
++	};
++
++	spi2_sensor_pins: spi2-sensor-default-state {
++		pins-spi {
++			pinmux = <Q25_PINMUX(38, 1)>, <Q25_PINMUX(39, 1)>,
++				 <Q25_PINMUX(40, 1)>;
++			bias-disable;
++		};
++
++		pins-spi-mi {
++			pinmux = <Q25_PINMUX(41, 1)>;
++			bias-pull-down;
++		};
++	};
++
++	/* GPIO177-185: CONN_TOP_CLK/DATA, BT_CLK/DATA, HRST_B, WB_PTA, WF_CTRL0-2. */
++	conn_adie_on_pins: conn-adie-on-pins {
++		pins {
++			pinmux = <Q25_PINMUX(177, 1)>, <Q25_PINMUX(178, 1)>,
++				 <Q25_PINMUX(179, 1)>, <Q25_PINMUX(180, 1)>,
++				 <Q25_PINMUX(181, 1)>, <Q25_PINMUX(182, 1)>,
++				 <Q25_PINMUX(183, 1)>, <Q25_PINMUX(184, 1)>,
++				 <Q25_PINMUX(185, 1)>;
++		};
++	};
++
++	conn_adie_off_pins: conn-adie-off-pins {
++		pins {
++			pinmux = <Q25_PINMUX(177, 0)>, <Q25_PINMUX(178, 0)>,
++				 <Q25_PINMUX(179, 0)>, <Q25_PINMUX(180, 0)>,
++				 <Q25_PINMUX(181, 0)>, <Q25_PINMUX(182, 0)>,
++				 <Q25_PINMUX(183, 0)>, <Q25_PINMUX(184, 0)>,
++				 <Q25_PINMUX(185, 0)>;
++		};
++	};
++};
++
++/* Magnetometer: MMC5603 (stock SCP bus 0). */
++&i2c1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c1_sensor_pins>;
++	clock-frequency = <100000>;
++	status = "okay";
++
++	magnetometer@30 {
++		compatible = "memsic,mmc5603";
++		reg = <0x30>;
++	};
++};
++
++/* Ambient light and proximity: HX32062SE (stock SCP bus 2). */
++&i2c9 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c9_sensor_pins>;
++	clock-frequency = <100000>;
++	status = "okay";
++
++	light-sensor@2b {
++		compatible = "tyhx,hx32062se";
++		reg = <0x2b>;
++		proximity-near-level = <3800>;
++	};
++};
++
++/* IMU: ICM-42607-P (stock SCP SPI1); the drivers poll, GPIO2 is not wired. */
++&spi2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&spi2_sensor_pins>;
++	status = "okay";
++
++	imu@0 {
++		compatible = "invensense,icm42607p";
++		reg = <0>;
++		spi-max-frequency = <10000000>;
++	};
++};
++
++/* CONN MCU reset (WDT_SWSYSRST, bit 12) is provided by q25-conn-pd. */
++&toprgu {
++	#reset-cells = <1>;
++};
++
+ /* ------------------------------------------------------------------ *
+  * Charger — Unisemipower UPM6922 on I2C5 @ 0x6B (stock DTBO fragment@36).
+  * Register-compatible BQ25601 clone (REG0B PN=2), driven by the mainline
+@@ -738,6 +951,165 @@
+ 		regulator-boot-on;
+ 		regulator-always-on;
+ 	};
++
++	afe_pcm: audio-controller@11210000 {
++		compatible = "mediatek,mt6789-sound";
++		reg = <0 0x11210000 0 0x2000>;
++		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH 0>;
++		mediatek,apmixedsys = <&apmixedsys>;
++		mediatek,infracfg = <&infracfg_ao>;
++		mediatek,topckgen = <&topckgen>;
++		power-domains = <&spm MT6789_POWER_DOMAIN_AUDIO>;
++		clocks = <&afe CLK_AFE_AFE>,
++			 <&afe CLK_AFE_DAC>,
++			 <&afe CLK_AFE_DAC_PREDIS>,
++			 <&afe CLK_AFE_ADC>,
++			 <&afe CLK_AFE_22M>,
++			 <&afe CLK_AFE_24M>,
++			 <&afe CLK_AFE_APLL_TUNER>,
++			 <&afe CLK_AFE_APLL2_TUNER>,
++			 <&afe CLK_AFE_TML>,
++			 <&afe CLK_AFE_NLE>,
++			 <&afe CLK_AFE_DAC_HIRES>,
++			 <&afe CLK_AFE_ADC_HIRES>,
++			 <&afe CLK_AFE_ADC_HIRES_TML>,
++			 <&afe CLK_AFE_I2S1_BCLK>,
++			 <&afe CLK_AFE_I2S2_BCLK>,
++			 <&afe CLK_AFE_I2S3_BCLK>,
++			 <&afe CLK_AFE_I2S4_BCLK>,
++			 <&afe CLK_AFE_GENERAL3_ASRC>,
++			 <&afe CLK_AFE_CONNSYS_I2S_ASRC>,
++			 <&afe CLK_AFE_GENERAL1_ASRC>,
++			 <&afe CLK_AFE_GENERAL2_ASRC>,
++			 <&infracfg_ao CLK_IFRAO_AUDIO>,
++			 <&infracfg_ao CLK_IFRAO_AUDIO_26M_BCLK>,
++			 <&apmixedsys CLK_APMIXED_APLL1>,
++			 <&apmixedsys CLK_APMIXED_APLL2>,
++			 <&topckgen CLK_TOP_AUDIO_SEL>,
++			 <&topckgen CLK_TOP_AUD_INTBUS_SEL>,
++			 <&topckgen CLK_TOP_MAINPLL_D4_D4>,
++			 <&topckgen CLK_TOP_AUD_1_SEL>,
++			 <&topckgen CLK_TOP_APLL1>,
++			 <&topckgen CLK_TOP_AUD_2_SEL>,
++			 <&topckgen CLK_TOP_APLL2>,
++			 <&topckgen CLK_TOP_AUD_ENGEN1_SEL>,
++			 <&topckgen CLK_TOP_APLL1_D4>,
++			 <&topckgen CLK_TOP_APLL1_D8>,
++			 <&topckgen CLK_TOP_AUD_ENGEN2_SEL>,
++			 <&topckgen CLK_TOP_APLL2_D4>,
++			 <&topckgen CLK_TOP_APLL2_D8>,
++			 <&topckgen CLK_TOP_APLL_I2S0_MCK_SEL>,
++			 <&topckgen CLK_TOP_APLL_I2S1_MCK_SEL>,
++			 <&topckgen CLK_TOP_APLL_I2S2_MCK_SEL>,
++			 <&topckgen CLK_TOP_APLL_I2S3_MCK_SEL>,
++			 <&topckgen CLK_TOP_APLL_I2S4_MCK_SEL>,
++			 <&topckgen CLK_TOP_APLL_I2S5_MCK_SEL>,
++			 <&topckgen CLK_TOP_APLL12_CK_DIV0>,
++			 <&topckgen CLK_TOP_APLL12_CK_DIV1>,
++			 <&topckgen CLK_TOP_APLL12_CK_DIV2>,
++			 <&topckgen CLK_TOP_APLL12_CK_DIV3>,
++			 <&topckgen CLK_TOP_APLL12_CK_DIV4>,
++			 <&topckgen CLK_TOP_APLL12_CK_DIVB>,
++			 <&topckgen CLK_TOP_APLL12_CK_DIV5>,
++			 <&topckgen CLK_TOP_AUDIO_H_SEL>,
++			 <&topckgen CLK_TOP_TCK_26M_MX9>;
++		clock-names = "aud_afe_clk", "aud_dac_clk", "aud_dac_predis_clk",
++			      "aud_adc_clk", "aud_apll22m_clk", "aud_apll24m_clk",
++			      "aud_apll1_tuner_clk", "aud_apll2_tuner_clk",
++			      "aud_tml_clk", "aud_nle", "aud_dac_hires_clk",
++			      "aud_adc_hires_clk", "aud_adc_hires_tml",
++			      "aud_i2s1_bclk", "aud_i2s2_bclk", "aud_i2s3_bclk",
++			      "aud_i2s4_bclk", "aud_general3_asrc",
++			      "aud_connsys_i2s_asrc", "aud_general1_asrc",
++			      "aud_general2_asrc", "aud_infra_clk",
++			      "aud_infra_26m_clk", "aud_clk_apmixed_apll1",
++			      "aud_clk_apmixed_apll2", "top_mux_audio",
++			      "top_mux_audio_int", "top_mainpll_d4_d4",
++			      "top_mux_aud_1", "top_apll1_ck", "top_mux_aud_2",
++			      "top_apll2_ck", "top_mux_aud_eng1", "top_apll1_d4",
++			      "top_apll1_d8", "top_mux_aud_eng2", "top_apll2_d4",
++			      "top_apll2_d8", "top_i2s0_m_sel", "top_i2s1_m_sel",
++			      "top_i2s2_m_sel", "top_i2s3_m_sel", "top_i2s4_m_sel",
++			      "top_i2s5_m_sel", "top_apll12_div0", "top_apll12_div1",
++			      "top_apll12_div2", "top_apll12_div3", "top_apll12_div4",
++			      "top_apll12_divb", "top_apll12_div5", "top_mux_audio_h",
++			      "top_clk26m_clk";
++		pinctrl-names = "aud_clk_mosi_off", "aud_clk_mosi_on",
++				"aud_clk_miso_off", "aud_clk_miso_on",
++				"aud_dat_mosi_off", "aud_dat_mosi_on",
++				"aud_dat_miso0_off", "aud_dat_miso0_on",
++				"aud_dat_miso1_off", "aud_dat_miso1_on";
++		pinctrl-0 = <&aud_clk_mosi_off>;
++		pinctrl-1 = <&aud_clk_mosi_on>;
++		pinctrl-2 = <&aud_clk_miso_off>;
++		pinctrl-3 = <&aud_clk_miso_on>;
++		pinctrl-4 = <&aud_dat_mosi_off>;
++		pinctrl-5 = <&aud_dat_mosi_on>;
++		pinctrl-6 = <&aud_dat_miso0_off>;
++		pinctrl-7 = <&aud_dat_miso0_on>;
++		pinctrl-8 = <&aud_dat_miso1_off>;
++		pinctrl-9 = <&aud_dat_miso1_on>;
++	};
++
++	/* CONNSYS (WMT) and the AXI Wi-Fi core, values from the stock vendor DT. */
++	consys: consys@18002000 {
++		compatible = "mediatek,mt6789-consys";
++		/* Order is CONSYS_BASE_ADDRESS_INDEX in mtk_wcn_consys_hw.h. */
++		reg = <0 0x18002000 0 0x1000>,
++		      <0 0x10007000 0 0x100>,
++		      <0 0x10001000 0 0x1000>,
++		      <0 0x10006000 0 0x1000>,
++		      <0 0x18007000 0 0x1000>,
++		      <0 0x180b1000 0 0x1000>,
++		      <0 0x180a3000 0 0x1000>,
++		      <0 0x180a5000 0 0x800>,
++		      <0 0x180c1000 0 0x1000>,
++		      <0 0x18004000 0 0x1000>,
++		      <0 0x1024c000 0 0x40>,
++		      <0 0x10003000 0 0x1000>;
++		interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH 0>;
++		power-domains = <&spm MT6789_POWER_DOMAIN_CONN>;
++		clocks = <&infracfg_ao CLK_IFRAO_CCIF4_AP>;
++		clock-names = "ccif";
++		resets = <&toprgu 12>;
++		vcn18-supply = <&mt6366_vcn18_reg>;
++		vcn28-supply = <&mt6366_vcn28_reg>;
++		vcn33-supply = <&mt6366_vcn33_reg>;
++		pmic = <&pmic>;
++		memory-region = <&consys_emi>;
++		emi-addr = <0x7e000000>;
++		emi-size = <0x500000>;
++		emi-alignment = <0x1000000>;
++		emi-max-addr = <0x80000000>;
++		/* No "default" state: the pins stay GPIO until WMT powers the A-die. */
++		pinctrl-names = "on", "off";
++		pinctrl-0 = <&conn_adie_on_pins>;
++		pinctrl-1 = <&conn_adie_off_pins>;
++		#thermal-sensor-cells = <0>;
++	};
++
++	wifi@18000000 {
++		compatible = "mediatek,wifi";
++		reg = <0 0x18000000 0 0x100000>;
++		interrupts = <GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH 0>;
++		memory-region = <&wifi_mem>;
++		emi-size = <0x600000>;
++	};
++
++	/* WMT/STP transport to CONNSYS. */
++	btif@1100c000 {
++		compatible = "mediatek,btif";
++		reg = <0 0x1100c000 0 0x1000>,
++		      <0 0x10217b00 0 0x80>,
++		      <0 0x10217b80 0 0x80>;
++		interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH 0>;
++		clocks = <&infracfg_ao CLK_IFRAO_BTIF>, <&infracfg_ao CLK_IFRAO_AP_DMA>;
++		clock-names = "btifc", "apdmac";
++	};
+ };
+ 
+ /* Enable the pipeline components already present in mt6789.dtsi and give the
+-- 
+2.47.0
+
