@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QImageWriter>
 #include <QMediaDevices>
+#include <QMediaFormat>
 #include <QPointer>
 #include <QThreadPool>
 #include <QTimer>
@@ -46,6 +47,10 @@ void CameraController::initialize() {
     m_captureSession = new QMediaCaptureSession(this);
     m_imageCapture   = new QImageCapture(this);
     m_mediaRecorder  = new QMediaRecorder(this);
+    // H.264 keeps up with the camera on a phone's CPU; Qt's default, HEVC, does not.
+    QMediaFormat format(QMediaFormat::MPEG4);
+    format.setVideoCodec(QMediaFormat::VideoCodec::H264);
+    m_mediaRecorder->setMediaFormat(format);
     m_captureSession->setImageCapture(m_imageCapture);
     m_captureSession->setRecorder(m_mediaRecorder);
     m_captureSession->setVideoOutput(m_videoSink);
