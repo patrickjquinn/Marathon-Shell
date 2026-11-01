@@ -1,0 +1,140 @@
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+# libcamera for Marathon's camera apps. Follows Alpine's community/libcamera
+# recipe (0.7.2-r1) at a newer release, without qcam, the Python bindings
+# and the docs, and with the patches the Zinwa Q25's MediaTek camera needs
+# (software ISP for its 14-bit unpacked RAW, the simple pipeline on
+# mtk-seninf); each is written for upstream.
+pkgname=libcamera
+pkgver=0.8.0
+pkgrel=0
+pkgdesc="Linux camera framework"
+url="https://libcamera.org/"
+arch="aarch64 x86_64"
+license="LGPL-2.1-or-later AND GPL-2.0-or-later"
+# upstream calls 'date' with a non-POSIX option so we pull in coreutils
+makedepends="
+	coreutils
+	eudev-dev
+	glib-dev
+	gnutls-dev
+	gst-plugins-base-dev
+	libevent-dev
+	libpisp-dev
+	libunwind-dev
+	linux-headers
+	mesa-dev
+	meson
+	py3-jinja2
+	py3-ply
+	py3-yaml
+	yaml-dev
+	"
+subpackages="
+	$pkgname-dbg
+	$pkgname-dev
+	$pkgname-gstreamer
+	$pkgname-v4l2
+	$pkgname-tools
+	"
+source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$pkgver/libcamera-v$pkgver.tar.gz
+	0001-libcamera-software_isp-Support-unpacked-14-bit-Bayer.patch
+	0002-libcamera-shaders-Sample-the-texel-the-Bayer-phase-i.patch
+	0003-pipeline-simple-Allow-the-software-ISP-on-mtk-seninf.patch
+	0004-libipa-camera_sensor_helper-Add-IMX111-helper.patch
+	0005-pipeline-simple-Skip-capture-sizes-the-video-node-do.patch
+	0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
+	"
+builddir="$srcdir/$pkgname-v$pkgver"
+# gstreamer tests fail
+# manual strip because ipa .sign files depend on the file contents- have to re-sign after strip
+options="!strip !check"
+
+case "$CARCH" in
+aarch64)
+	subpackages="$subpackages $pkgname-raspberrypi"
+	;;
+esac
+
+depends="$pkgname-ipa=$pkgver-r$pkgrel"
+subpackages="$subpackages $pkgname-ipa"
+
+# What "auto" picks, less the virtual test camera: it needs libyuv, which
+# Alpine ships as headers only.
+case "$CARCH" in
+aarch64) _pipelines="imx8-isi,mali-c55,rkisp1,rpi/pisp,rpi/vc4,simple,uvcvideo" ;;
+x86_64) _pipelines="ipu3,simple,uvcvideo" ;;
+esac
+
+build() {
+	abuild-meson \
+		-Dpipelines="$_pipelines" \
+		-Dandroid=disabled \
+		-Dv4l2=enabled \
+		-Dwerror=false \
+		-Ddocumentation=disabled \
+		-Dqcam=disabled \
+		-Dpycamera=disabled \
+		-Dtest=false \
+		. output
+	meson compile -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+
+	# manual strip first..
+	scanelf --recursive \
+		--nobanner \
+		--etype "ET_DYN,ET_EXEC" \
+		--format "%F" \
+		"$pkgdir" \
+		| while read -r file; do
+			strip "$file"
+	done
+}
+
+ipa() {
+	depends=""
+	amove usr/lib/libcamera
+	# then sign ipa's
+	local ipa
+	for ipa in "$subpkgdir"/usr/lib/libcamera/ipa/ipa*.so; do
+		msg "signing $ipa"
+		"$builddir"/src/ipa/ipa-sign.sh \
+			"$(find "$builddir"/output -type f -iname "*ipa-priv-key.pem")" \
+			"$ipa" \
+			"$ipa".sign
+	done
+}
+
+gstreamer() {
+	depends=""
+	amove usr/lib/gstreamer-1.0
+}
+
+v4l2() {
+	depends=""
+	amove usr/libexec/libcamera/v4l2-compat.so
+}
+
+raspberrypi() {
+	depends=""
+	amove usr/share/libcamera/ipa/rpi
+	amove usr/libexec/libcamera/raspberrypi_ipa_proxy
+	amove usr/share/libcamera/pipeline/rpi/vc4
+}
+
+tools() {
+	depends=""
+	amove usr/bin/cam
+}
+
+sha512sums="
+21ada092a1944c3476e0a254fe82d2775d2eb833d931dd051bd551a9f12ae596b3cd57f3792335d4ad86479e2247d23056d30e2631aa620897d067002c88e060  libcamera-v0.8.0.tar.gz
+466e72819909cbe4f7de98990bb5ccf55bd5304f046381733033b0b0e7dd8772e161f0244fbd39e54b01eb6f8d1c937664492d9c6ca7eaa3eadb3f5a488fead7  0001-libcamera-software_isp-Support-unpacked-14-bit-Bayer.patch
+c6a5f07753214998ab064e109d8f7741a5ff98ef3b82a7f19bbecb5ea87453b76dbb6a696c8b18f6f8f1dcc64cab6f1ac17fabeb6ec6292f07bda1098f4bd5b0  0002-libcamera-shaders-Sample-the-texel-the-Bayer-phase-i.patch
+46ecf125145879b4a0b03fc364b2cf645c6012279e805291de91c6227ee595e4e020fd436e26ae0cad609e1522e55c141622cea167d53e375fb278eee7dc2069  0003-pipeline-simple-Allow-the-software-ISP-on-mtk-seninf.patch
+f1f12e17d2fe78c7ac2d72419e50eaf40ee4c3ac1996977bd5a2145fb4b1cd8d1fa5327424d2ac1b2f1e34cea5e95b49484d1035b883bc366b9c5db2f015a9d5  0004-libipa-camera_sensor_helper-Add-IMX111-helper.patch
+27e6a3364e137eff94412ba0ce888edc60ba8c99ab98ff476adf7a02261d8d03b65f197b8c8f05629e6b4b07a41f55cdce8754c93dc414219ca4313ef5d1de7c  0005-pipeline-simple-Skip-capture-sizes-the-video-node-do.patch
+b9c7fc2a99c33f8ed57781edd3011a145801e6bae675d4f2ca1479085b1198a3e36d7f7aa38a7fe28db89e66da68808f4d0636c0677a655310b0976fa9e0ee65  0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
+"

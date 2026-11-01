@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 1 Nov 2026 13:38:25 +0000
+Subject: [PATCH 6/6] pipeline: simple: Complete requests on stop when the IPA
+ owes metadata
+
+With the software ISP, a request also waits for the IPA's metadata. On
+stop, SoftwareIsp::stop() stops the IPA and cancels the in-flight output
+buffers, but tryCompleteRequest() keeps those requests waiting for
+metadata that can no longer arrive, and frameInfo_ is then cleared, so
+PipelineHandler::stop() asserts that queuedRequests_ is empty. Stopping a
+libcamerasrc pipeline mid-stream hit it.
+
+Stop requiring metadata before stopping the ISP, and complete the
+requests whose buffers are done before clearing the frame information.
+
+Tested on a Zinwa Q25 (MT6789, IMX111): five libcamerasrc start/stop
+cycles and the cam raw and viewfinder captures all stop cleanly.
+---
+ src/libcamera/pipeline/simple/simple.cpp | 29 +++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
+
+diff --git a/src/libcamera/pipeline/simple/simple.cpp b/src/libcamera/pipeline/simple/simple.cpp
+index 62ac67e8..6b4e1dbc 100644
+--- a/src/libcamera/pipeline/simple/simple.cpp
++++ b/src/libcamera/pipeline/simple/simple.cpp
+@@ -207,6 +207,8 @@ public:
+ 	void create(Request *request, bool metadataRequested);
+ 	void destroy(uint32_t frame);
+ 	void clear();
++	void clearMetadataRequired();
++	std::vector<Request *> requests() const;
+ 
+ 	SimpleFrameInfo *find(uint32_t frame);
+ 
+@@ -231,6 +233,20 @@ void SimpleFrames::clear()
+ 	frameInfo_.clear();
+ }
+ 
++void SimpleFrames::clearMetadataRequired()
++{
++	for (auto &[frame, info] : frameInfo_)
++		info.metadataRequired = false;
++}
++
++std::vector<Request *> SimpleFrames::requests() const
++{
++	std::vector<Request *> requests;
++	for (const auto &[frame, info] : frameInfo_)
++		requests.push_back(info.request);
++	return requests;
++}
++
+ SimpleFrameInfo *SimpleFrames::find(uint32_t frame)
+ {
+ 	auto info = frameInfo_.find(frame);
+@@ -992,6 +1008,10 @@ void SimpleCameraData::imageBufferReady(FrameBuffer *buffer)
+ 
+ void SimpleCameraData::clearIncompleteRequests()
+ {
++	/* Complete the requests whose buffers were done before the stop. */
++	for (Request *request : frameInfo_.requests())
++		tryCompleteRequest(request);
++
+ 	while (!conversionQueue_.empty()) {
+ 		pipe()->cancelRequest(conversionQueue_.front().request);
+ 		conversionQueue_.pop();
+@@ -1775,10 +1795,13 @@ void SimplePipelineHandler::stopDevice(Camera *camera)
+ 	}
+ 
+ 	if (data->useConversion_) {
+-		if (data->converter_)
++		if (data->converter_) {
+ 			data->converter_->stop();
+-		else if (data->swIsp_)
++		} else if (data->swIsp_) {
++			/* The IPA stops with the ISP: no more metadata will come. */
++			data->frameInfo_.clearMetadataRequired();
+ 			data->swIsp_->stop();
++		}
+ 	}
+ 
+ 	video->streamOff();
+@@ -1786,8 +1809,8 @@ void SimplePipelineHandler::stopDevice(Camera *camera)
+ 
+ 	video->bufferReady.disconnect(data, &SimpleCameraData::imageBufferReady);
+ 
+-	data->frameInfo_.clear();
+ 	data->clearIncompleteRequests();
++	data->frameInfo_.clear();
+ 	data->conversionBuffers_.clear();
+ 
+ 	releasePipeline(data);

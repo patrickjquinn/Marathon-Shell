@@ -1,0 +1,244 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 1 Nov 2026 12:56:09 +0000
+Subject: [PATCH 1/6] libcamera: software_isp: Support unpacked 14-bit Bayer
+
+MediaTek's CAMSV writes unpacked RAW10 shifted into 14 bits per 16-bit
+word, so a sensor behind it can only be described as 14-bit Bayer. Add
+the unpacked 14-bit formats to the CPU debayer, the CPU statistics and
+the GPU debayer, scaling by 64 to 8 bits as the 10- and 12-bit paths
+scale by 4 and 16.
+
+Tested on a Zinwa Q25 (MT6789, IMX111): 1600x1200 at 30 fps on both
+the CPU and the GPU path.
+---
+ .../internal/software_isp/swstats_cpu.h       |  1 +
+ src/libcamera/shaders/bayer_unpacked.frag     |  3 ++
+ src/libcamera/software_isp/debayer_cpu.cpp    | 33 +++++++++++++++++--
+ src/libcamera/software_isp/debayer_cpu.h      |  5 +++
+ src/libcamera/software_isp/debayer_egl.cpp    | 24 ++++++++++++++
+ src/libcamera/software_isp/swstats_cpu.cpp    | 30 +++++++++++++++++
+ 6 files changed, 94 insertions(+), 2 deletions(-)
+
+diff --git a/include/libcamera/internal/software_isp/swstats_cpu.h b/include/libcamera/internal/software_isp/swstats_cpu.h
+index 55187092..9695e772 100644
+--- a/include/libcamera/internal/software_isp/swstats_cpu.h
++++ b/include/libcamera/internal/software_isp/swstats_cpu.h
+@@ -95,6 +95,7 @@ private:
+ 	void statsBGGR10Line0(const uint8_t *src[], SwIspStats &stats);
+ 	/* Bayer 12 bpp unpacked */
+ 	void statsBGGR12Line0(const uint8_t *src[], SwIspStats &stats);
++	void statsBGGR14Line0(const uint8_t *src[], SwIspStats &stats);
+ 	/* Bayer 10 bpp packed */
+ 	void statsBGGR10PLine0(const uint8_t *src[], SwIspStats &stats);
+ 	void statsGBRG10PLine0(const uint8_t *src[], SwIspStats &stats);
+diff --git a/src/libcamera/shaders/bayer_unpacked.frag b/src/libcamera/shaders/bayer_unpacked.frag
+index be2f89dd..fb9b28d7 100644
+--- a/src/libcamera/shaders/bayer_unpacked.frag
++++ b/src/libcamera/shaders/bayer_unpacked.frag
+@@ -52,6 +52,9 @@ void main(void) {
+     #elif defined(RAW12P)
+     #define pixel(p) p.r / 16.0 + p.g * 16.0
+     #define fetch(x, y) pixel(texture2D(tex_y, vec2(x, y)))
++    #elif defined(RAW14)
++    #define pixel(p) p.r / 64.0 + p.g * 4.0
++    #define fetch(x, y) pixel(texture2D(tex_y, vec2(x, y)))
+     #else
+     #define fetch(x, y) texture2D(tex_y, vec2(x, y)).r
+     #endif
+diff --git a/src/libcamera/software_isp/debayer_cpu.cpp b/src/libcamera/software_isp/debayer_cpu.cpp
+index 91867baa..dd53cc17 100644
+--- a/src/libcamera/software_isp/debayer_cpu.cpp
++++ b/src/libcamera/software_isp/debayer_cpu.cpp
+@@ -263,6 +263,30 @@ void DebayerCpu::debayer12_GRGR_BGR888(uint8_t *dst, const uint8_t *src[])
+ 	}
+ }
+ 
++template<bool addAlphaByte, bool ccmEnabled>
++void DebayerCpu::debayer14_BGBG_BGR888(uint8_t *dst, const uint8_t *src[])
++{
++	DECLARE_SRC_POINTERS(uint16_t)
++
++	for (int x = 0; x < (int)window_.width;) {
++		/* divide values by 64 for 14 -> 8 bpp value */
++		BGGR_BGR888(1, 1, 64)
++		GBRG_BGR888(1, 1, 64)
++	}
++}
++
++template<bool addAlphaByte, bool ccmEnabled>
++void DebayerCpu::debayer14_GRGR_BGR888(uint8_t *dst, const uint8_t *src[])
++{
++	DECLARE_SRC_POINTERS(uint16_t)
++
++	for (int x = 0; x < (int)window_.width;) {
++		/* divide values by 64 for 14 -> 8 bpp value */
++		GRBG_BGR888(1, 1, 64)
++		RGGB_BGR888(1, 1, 64)
++	}
++}
++
+ template<bool addAlphaByte, bool ccmEnabled>
+ void DebayerCpu::debayer10P_BGBG_BGR888(uint8_t *dst, const uint8_t *src[])
+ {
+@@ -440,7 +464,8 @@ int DebayerCpu::getInputConfig(PixelFormat inputFormat, DebayerInputConfig &conf
+ 						   formats::XBGR8888,
+ 						   formats::ABGR8888 };
+ 
+-	if ((bayerFormat.bitDepth == 8 || bayerFormat.bitDepth == 10 || bayerFormat.bitDepth == 12) &&
++	if ((bayerFormat.bitDepth == 8 || bayerFormat.bitDepth == 10 ||
++	     bayerFormat.bitDepth == 12 || bayerFormat.bitDepth == 14) &&
+ 	    bayerFormat.packing == BayerFormat::Packing::None &&
+ 	    isStandardBayerOrder(bayerFormat.order)) {
+ 		config.bpp = (bayerFormat.bitDepth + 7) & ~7;
+@@ -561,7 +586,8 @@ int DebayerCpu::setDebayerFunctions(PixelFormat inputFormat,
+ 		return invalidFmt();
+ 	}
+ 
+-	if ((bayerFormat.bitDepth == 8 || bayerFormat.bitDepth == 10 || bayerFormat.bitDepth == 12) &&
++	if ((bayerFormat.bitDepth == 8 || bayerFormat.bitDepth == 10 ||
++	     bayerFormat.bitDepth == 12 || bayerFormat.bitDepth == 14) &&
+ 	    bayerFormat.packing == BayerFormat::Packing::None &&
+ 	    isStandardBayerOrder(bayerFormat.order)) {
+ 		switch (bayerFormat.bitDepth) {
+@@ -574,6 +600,9 @@ int DebayerCpu::setDebayerFunctions(PixelFormat inputFormat,
+ 		case 12:
+ 			SET_DEBAYER_METHODS(debayer12_BGBG_BGR888, debayer12_GRGR_BGR888)
+ 			break;
++		case 14:
++			SET_DEBAYER_METHODS(debayer14_BGBG_BGR888, debayer14_GRGR_BGR888)
++			break;
+ 		}
+ 		setupStandardBayerOrder(bayerFormat.order);
+ 		return 0;
+diff --git a/src/libcamera/software_isp/debayer_cpu.h b/src/libcamera/software_isp/debayer_cpu.h
+index ae570893..f02f992e 100644
+--- a/src/libcamera/software_isp/debayer_cpu.h
++++ b/src/libcamera/software_isp/debayer_cpu.h
+@@ -102,6 +102,11 @@ private:
+ 	void debayer12_BGBG_BGR888(uint8_t *dst, const uint8_t *src[]);
+ 	template<bool addAlphaByte, bool ccmEnabled>
+ 	void debayer12_GRGR_BGR888(uint8_t *dst, const uint8_t *src[]);
++	/* unpacked 14-bit raw bayer format */
++	template<bool addAlphaByte, bool ccmEnabled>
++	void debayer14_BGBG_BGR888(uint8_t *dst, const uint8_t *src[]);
++	template<bool addAlphaByte, bool ccmEnabled>
++	void debayer14_GRGR_BGR888(uint8_t *dst, const uint8_t *src[]);
+ 	/* CSI-2 packed 10-bit raw bayer format (all the 4 orders) */
+ 	template<bool addAlphaByte, bool ccmEnabled>
+ 	void debayer10P_BGBG_BGR888(uint8_t *dst, const uint8_t *src[]);
+diff --git a/src/libcamera/software_isp/debayer_egl.cpp b/src/libcamera/software_isp/debayer_egl.cpp
+index 33933b11..4866b1c7 100644
+--- a/src/libcamera/software_isp/debayer_egl.cpp
++++ b/src/libcamera/software_isp/debayer_egl.cpp
+@@ -71,6 +71,16 @@ int DebayerEGL::getInputConfig(PixelFormat inputFormat, DebayerInputConfig &conf
+ 		return 0;
+ 	}
+ 
++	if (bayerFormat.bitDepth == 14 &&
++	    bayerFormat.packing == BayerFormat::Packing::None &&
++	    isStandardBayerOrder(bayerFormat.order)) {
++		config.bpp = 16;
++		config.patternSize.width = 2;
++		config.patternSize.height = 2;
++		config.outputFormats = outputFormats;
++		return 0;
++	}
++
+ 	if (bayerFormat.bitDepth == 10 &&
+ 	    bayerFormat.packing == BayerFormat::Packing::CSI2 &&
+ 	    isStandardBayerOrder(bayerFormat.order)) {
+@@ -175,24 +185,28 @@ int DebayerEGL::initBayerShaders(PixelFormat inputFormat, PixelFormat outputForm
+ 	case libcamera::formats::SBGGR8:
+ 	case libcamera::formats::SBGGR10_CSI2P:
+ 	case libcamera::formats::SBGGR12_CSI2P:
++	case libcamera::formats::SBGGR14:
+ 		firstRed_x_ = 1.0;
+ 		firstRed_y_ = 1.0;
+ 		break;
+ 	case libcamera::formats::SGBRG8:
+ 	case libcamera::formats::SGBRG10_CSI2P:
+ 	case libcamera::formats::SGBRG12_CSI2P:
++	case libcamera::formats::SGBRG14:
+ 		firstRed_x_ = 0.0;
+ 		firstRed_y_ = 1.0;
+ 		break;
+ 	case libcamera::formats::SGRBG8:
+ 	case libcamera::formats::SGRBG10_CSI2P:
+ 	case libcamera::formats::SGRBG12_CSI2P:
++	case libcamera::formats::SGRBG14:
+ 		firstRed_x_ = 1.0;
+ 		firstRed_y_ = 0.0;
+ 		break;
+ 	case libcamera::formats::SRGGB8:
+ 	case libcamera::formats::SRGGB10_CSI2P:
+ 	case libcamera::formats::SRGGB12_CSI2P:
++	case libcamera::formats::SRGGB14:
+ 		firstRed_x_ = 0.0;
+ 		firstRed_y_ = 0.0;
+ 		break;
+@@ -242,6 +256,16 @@ int DebayerEGL::initBayerShaders(PixelFormat inputFormat, PixelFormat outputForm
+ 			shaderStridePixels_ = width_;
+ 		}
+ 		break;
++	case libcamera::formats::SBGGR14:
++	case libcamera::formats::SGBRG14:
++	case libcamera::formats::SGRBG14:
++	case libcamera::formats::SRGGB14:
++		egl_.pushEnv(shaderEnv, "#define RAW14");
++		fragmentShaderData = bayer_unpacked_frag;
++		vertexShaderData = bayer_unpacked_vert;
++		glFormat_ = GL_RG;
++		bytesPerPixel_ = 2;
++		break;
+ 	};
+ 
+ 	if (egl_.compileVertexShader(vertexShaderId_, vertexShaderData,
+diff --git a/src/libcamera/software_isp/swstats_cpu.cpp b/src/libcamera/software_isp/swstats_cpu.cpp
+index 74633815..d512377d 100644
+--- a/src/libcamera/software_isp/swstats_cpu.cpp
++++ b/src/libcamera/software_isp/swstats_cpu.cpp
+@@ -286,6 +286,32 @@ void SwStatsCpu::statsBGGR12Line0(const uint8_t *src[], SwIspStats &stats)
+ 	SWSTATS_FINISH_LINE_STATS()
+ }
+ 
++void SwStatsCpu::statsBGGR14Line0(const uint8_t *src[], SwIspStats &stats)
++{
++	const uint16_t *src0 = (const uint16_t *)src[1] + window_.x;
++	const uint16_t *src1 = (const uint16_t *)src[2] + window_.x;
++
++	SWSTATS_START_LINE_STATS(uint16_t)
++
++	if (swapLines_)
++		std::swap(src0, src1);
++
++	/* x += 4 sample every other 2x2 block */
++	for (unsigned int x = 0; x < window_.width; x += 4) {
++		b = src0[x];
++		g = src0[x + 1];
++		g2 = src1[x];
++		r = src1[x + 1];
++
++		g = (g + g2) / 2;
++
++		/* divide Y by 64 for 14 -> 8 bpp value */
++		SWSTATS_ACCUMULATE_LINE_STATS(64)
++	}
++
++	SWSTATS_FINISH_LINE_STATS()
++}
++
+ void SwStatsCpu::statsBGGR10PLine0(const uint8_t *src[], SwIspStats &stats)
+ {
+ 	const uint8_t *src0 = src[1] + window_.x * 5 / 4;
+@@ -507,6 +533,10 @@ int SwStatsCpu::configure(const StreamConfiguration &inputCfg, unsigned int stat
+ 			stats0_ = &SwStatsCpu::statsBGGR12Line0;
+ 			sumShift_ = 4;
+ 			return 0;
++		case 14:
++			stats0_ = &SwStatsCpu::statsBGGR14Line0;
++			sumShift_ = 6;
++			return 0;
+ 		}
+ 	}
+ 
