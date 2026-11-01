@@ -9,8 +9,6 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/sbin/modprobe wlan_drv_gen4m_6789
 ExecStart=/usr/libexec/marathon/q25-wmt wifi-on
-# Re-attach the supplicant to the re-attached netdev (no-op at boot).
-ExecStartPost=-/usr/bin/systemctl --no-block try-restart wpa_supplicant.service
 ExecStop=/usr/libexec/marathon/q25-wmt wifi-off
 TimeoutStartSec=60
 

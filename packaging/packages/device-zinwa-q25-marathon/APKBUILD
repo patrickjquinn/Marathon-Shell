@@ -24,7 +24,6 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
  q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless
- q25-wifi-radio q25-wifi-radio.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
@@ -64,10 +63,6 @@ package() {
     for unit in q25-connsys q25-wmt-launcher q25-wifi; do
         install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
     done
-    # Marathon's Wi-Fi toggle (NetworkManager WirelessEnabled) powers the
-    # WLAN function off and on through q25-wifi.service.
-    install -Dm755 "$srcdir/q25-wifi-radio" "$pkgdir/usr/libexec/marathon/q25-wifi-radio"
-    install -Dm644 "$srcdir/q25-wifi-radio.service" "$pkgdir/usr/lib/systemd/system/q25-wifi-radio.service"
     install -Dm644 "$srcdir/q25-connsys.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-connsys.conf"
     install -Dm755 "$srcdir/q25-wifi.system-sleep" "$pkgdir/usr/lib/systemd/system-sleep/q25-wifi"
     # wpa_cli and q25-wifi need the control socket; log to syslog.
@@ -170,7 +165,7 @@ package() {
     ln -s ../q25-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/q25-boot-bless.service"
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-wifi-radio q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
+    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
     done
     install -d "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
@@ -191,7 +186,7 @@ cbf76ecc7e9959c880ad6478fd9a0278ed9b461fafbd41dcd7b6352889b7ff156ed6de8fc7d4871c
 11d05acf58b9cdf0a6976209939fb268e8e114dac6bb00b66edf95c5f6bfc6c51350ca5e9cdc1c247ba7866939a724d6634d7a3f463dd5dfeafe51ecc0f9e554  q25-wmt.c
 447865489add96c55e51e054a7b16a4970fdab7f7b0c338ff143d35fbc4b921b688389506fb2052fe722e56efd332c0dd148f24cd28b6f05557ac6790d456d44  q25-connsys.service
 6c41623b2d8fc1c4aab153f67e1b50f14c858aebbd89f7d8a562286ca80fb328b704cd12b691f947dbc18562fe72b51a726e12785da3de56ca2cceb64d144d32  q25-wmt-launcher.service
-567a77215b602eda6d51cdf5c5415aaf1595424a2b89f42b7fc3dd59465d58684ade6cee8909f617288b6c5ea3687ef5422b61812ff8eab2cd9840ac05760752  q25-wifi.service
+b6bb3fe14406fdde166708cf55e71d81146513560ca56ab53e3a06049c74434544d5a48e47fe951d328c0dda9acbd46333bca3a3fb4c0ecdf965012aaef8912b  q25-wifi.service
 826e387971ca88287220f9febed7fde4b604772e4fb3cd34ec49a20ddf63dcc0834071be9476773ae75a004c663edcf6f48fba32d6db0545a1aba3bc80635bfd  q25-connsys.modprobe.conf
 25a6183746c980b35f5c2e3074417e6e27b051e78af308de9312585a748f090b96db729dcf34714aac884839936f0447489b2d37ff04dc2781fe661d6b793dea  q25-wifi.system-sleep
 710a3091c847e444935152924eb7fc738798b32eaa55d8e0acf77e6c6332e58d161eb9774410551e2d5b4b8b69e2d1bba4c06f5ad739c1530326ac7854857fd5  50-q25-wpa_supplicant.conf
@@ -225,8 +220,6 @@ ac6802cd8209d3890212f3402777bf3756decb9a1154f5934917611c36512d9136d2bd3eb6185289
 153ba51e315aba7ebbd5c35ebc60e6717602c156107db702e074df24ee07b32b54138f5fb3f638b1904410bdafa414c0bbd571bf0cc4f61d509e8a80ba8ce7c9  q25-boot-check.service
 48f3e1f77e861aabce440ed4101a4ac05ac1b01d2b7ba4251f61935db6adf2b4d85902614afea662482b83f6ffd3998e4a230789d8112b9ba43d499d2a98c588  q25-boot-bless.service
 33c25690010d2d4812b58e52356f85ccdec29e798446722c5b45e686f3104c8eb9aadbc61e59950994500b21f12d733736f76f423c0a517a9fab8f9c72a7e413  q25-boot-bless
-bad657133c3ba9524b1b15687c8b5b7260cc8c376021e42be1c8e2e0ce8c08aece71a0d85eaeb59c8add3be2a347b3e0aa804d34325372d8d0580c7a891e7085  q25-wifi-radio
-0df41a89f8703cc2853b2d913249818274c11c248f7804a0d0596b7d6c4b88ba0599e001993fc0902b58b65f6c76a9e55245a2fb7ece77eed3f8d3b73e754798  q25-wifi-radio.service
 ddd69eb57bef58a76f3b0bd965cadbef340efa6cbc4a7b11a0f1d7d700704a27f80f06d7f50e314c31e93a0bd62d92d2c070013b2015528cb624b9c5d5e25288  q25.xkb-symbols
 c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3ccbe57e24776e11ad02ab5d7457f0bc444a4b2b891f442605  q25-keyboard-layout.env
 898ecb22f6ec7a466987b80baaa55fbd3dfc964444b5ca34f378b091d6b4d0b511312b45eeeb40b5af2e1fd434e72a826a8e1dc7603385428b5bacb17152fa4b  99-q25-native-keyboard.rules
