@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 1 Nov 2026 18:15:08 +0000
+Subject: [PATCH] gstreamer: Disconnect requestCompleted when closing the
+ camera
+
+gst_libcamera_src_open() connects the camera's requestCompleted signal
+to the element's state, and gst_libcamera_src_close() releases the
+camera without disconnecting it. The Camera outlives the element, held
+by the CameraManager, so:
+
+- reopening the same element (NULL to READY again) connects a second
+  slot, every request completes twice, and the second call pops another
+  request: "assertion 'wrap->request_.get() == request' failed";
+- a new element for the same camera leaves the old, freed state
+  connected, and the next completed request crashes in
+  GstLibcameraSrcState::requestCompleted().
+
+Disconnect the state's slot before releasing the camera.
+
+Tested on a Zinwa Q25 (MT6789, S5KJN1 and IMX111): a Qt Multimedia app
+that stops and starts its camera, and one that recreates it, both kept
+streaming where each crashed on the first restart.
+---
+ src/gstreamer/gstlibcamerasrc.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/gstreamer/gstlibcamerasrc.cpp b/src/gstreamer/gstlibcamerasrc.cpp
+index 9541aa3f..791099ec 100644
+--- a/src/gstreamer/gstlibcamerasrc.cpp
++++ b/src/gstreamer/gstlibcamerasrc.cpp
+@@ -974,6 +974,8 @@ gst_libcamera_src_close(GstLibcameraSrc *self)
+ 
+ 	state->config_.reset();
+ 
++	state->cam_->requestCompleted.disconnect(state);
++
+ 	ret = state->cam_->release();
+ 	if (ret) {
+ 		GST_ELEMENT_WARNING(self, RESOURCE, BUSY,
+-- 
+2.55.0
+
