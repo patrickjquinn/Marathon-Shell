@@ -1,0 +1,17 @@
+[Unit]
+Description=Q25: open the encrypted /home
+DefaultDependencies=no
+Wants=systemd-udev-trigger.service
+After=systemd-modules-load.service systemd-udev-trigger.service systemd-remount-fs.service plymouth-start.service q25-root-grow.service
+Before=local-fs.target systemd-user-sessions.service
+ConditionPathIsMountPoint=!/home
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# A PIN prompt waits for the person.
+TimeoutStartSec=infinity
+ExecStart=/usr/libexec/marathon/q25-home-crypt
+
+[Install]
+WantedBy=local-fs.target

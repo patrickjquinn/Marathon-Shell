@@ -1,0 +1,116 @@
+#!/bin/sh
+# Opens the encrypted /home (docs/ENCRYPTION.md): a LUKS2 container in a file
+# beside the root image on the carrier, so the person's data outlives a new
+# root. It opens with the empty passphrase until a PIN is set; then Plymouth
+# asks for the PIN, typed on the keyboard (unl0kr's on-screen keyboard
+# without one). The first boot makes the container and copies /home in.
+set -u
+name=q25-home
+mapper=/dev/mapper/$name
+
+log() {
+	echo "q25-home-crypt: $*" > /dev/kmsg
+}
+
+dev=$(findmnt -no SOURCE /)
+case "$dev" in /dev/loop*) ;; *) exit 0 ;; esac
+img=$(cat "/sys/block/${dev#/dev/}/loop/backing_file")
+dir=$(dirname "$img")
+container=$dir/home.luks
+open="cryptsetup open --allow-discards --perf-no_read_workqueue --perf-no_write_workqueue $container $name"
+
+# Something with letter keys (KEY_A and KEY_Z), not just power or volume.
+has_keyboard() {
+	for caps in /sys/class/input/input*/capabilities/key; do
+		[ -r "$caps" ] || continue
+		read -r bits < "$caps"
+		low=${bits##* }
+		[ $((0x$low >> 30 & 1)) = 1 ] && [ $((0x$low >> 44 & 1)) = 1 ] && return 0
+	done
+	return 1
+}
+
+unlock() {
+	echo | $open 2> /dev/null && return 0
+	# The keyboard's module may still be probing.
+	n=0
+	while ! has_keyboard && [ $n -lt 20 ]; do
+		sleep 0.5
+		n=$((n + 1))
+	done
+	if ! has_keyboard && command -v unl0kr > /dev/null; then
+		plymouth quit 2> /dev/null
+	fi
+	prompt="Enter PIN"
+	while :; do
+		if plymouth --ping 2> /dev/null; then
+			plymouth ask-for-password --prompt="$prompt" --number-of-tries=1 --command="$open" && pin_typed=1 && return 0
+		elif command -v unl0kr > /dev/null; then
+			unl0kr | $open && pin_typed=1 && return 0
+		else
+			return 1
+		fi
+		prompt="Wrong PIN. Try again"
+		sleep 1
+	done
+}
+
+# On the phone, so each one gets its own volume key. The file is sparse and
+# leaves the carrier room for two root images.
+create() {
+	umask 077
+	free=$(($(stat -f -c %a "$dir") * $(stat -f -c %S "$dir")))
+	size=$((free - (72 << 30)))
+	[ "$size" -ge $((8 << 30)) ] || size=$((8 << 30))
+	[ "$free" -gt "$size" ] || return 1
+	log "making $container, $((size >> 30)) GiB"
+	rm -f "$container.new"
+	truncate -s "$size" "$container.new" &&
+		echo | cryptsetup -q --force-password luksFormat --type luks2 \
+			--pbkdf pbkdf2 --pbkdf-force-iterations 1000 "$container.new" &&
+		mv "$container.new" "$container" &&
+		echo | $open && mke2fs -q -t ext4 "$mapper"
+}
+
+if [ -e "$container" ]; then
+	unlock || {
+		log "no way to ask for the PIN; /home stays on the root"
+		exit 1
+	}
+elif ! create; then
+	log "cannot make $container; /home stays on the root"
+	cryptsetup close "$name" 2> /dev/null
+	rm -f "$container.new"
+	exit 1
+fi
+
+e2fsck -p "$mapper"
+[ $? -lt 4 ] || {
+	log "$mapper has errors"
+	exit 1
+}
+mount -t ext4 -o noatime "$mapper" /home || exit 1
+if [ ! -e /home/.marathon-seeded ]; then
+	log "copying /home in"
+	# The root's own /home, under the new mount.
+	mnt=/run/q25-root
+	mkdir -p "$mnt"
+	mount --bind / "$mnt" &&
+		cp -a "$mnt/home/." /home/ && touch /home/.marathon-seeded
+	seeded=$?
+	umount "$mnt"
+	[ "$seeded" = 0 ] || {
+		log "cannot copy /home in"
+		umount /home
+		exit 1
+	}
+fi
+# marathon-data-key keeps its device key on the encrypted volume. The PIN
+# was typed here: the shell starts unlocked this once
+# (marathon-data-key consume-boot-unlock).
+mkdir -p /home/.marathon-data-key /var/lib/marathon-data-key
+chmod 755 /home/.marathon-data-key
+mount --bind /home/.marathon-data-key /var/lib/marathon-data-key
+if [ -n "${pin_typed:-}" ]; then
+	(umask 077 && cat /proc/sys/kernel/random/boot_id > /var/lib/marathon-data-key/boot-unlocked)
+fi

@@ -38,7 +38,10 @@ data_device() {
 		return
 	fi
 	# By device number: systemd may have mounted it by a by-uuid path.
-	majmin=$(findmnt -n -o MAJ:MIN --target "${dir%/*}" | tr -d ' ') || return
+	# $dir itself where it is a mount (the Q25's, from the encrypted /home).
+	target=$dir
+	[ -d "$target" ] || target=${dir%/*}
+	majmin=$(findmnt -n -o MAJ:MIN --target "$target" | tr -d ' ') || return
 	name=$(cat "/sys/dev/block/$majmin/dm/name" 2> /dev/null) || return
 	cryptsetup status "$name" | sed -n 's/^ *device: *//p'
 }

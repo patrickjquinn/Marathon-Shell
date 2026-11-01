@@ -9,6 +9,7 @@ the updater writes, and they hold no personal data.
 | Image | Encrypted partition | Holds | Created |
 |---|---|---|---|
 | Raspberry Pi 5 / HackberryPi CM5, A/B layout | `marathon_data` | `/var`, `/home` (as `/var/home`), the `/etc` overlay's upper layer | by the initramfs on first boot ([below](#first-boot-pi)) |
+| Zinwa Q25 | `home.luks`, a file beside the root images on the userdata carrier | `/home`; `/var/lib/marathon-data-key` is bound from `/home/.marathon-data-key` | by `q25-home-crypt.service` on first boot ([below](#first-boot-q25)) |
 | QEMU dev-sim, A/B layout | `pmOS_root` | the whole root, `/var` and `/home` included | by duranium's systemd-repart on first boot |
 | Single-root images (Librem 5, PinePhone, OnePlus 6, QEMU single) | none | | |
 
@@ -51,6 +52,16 @@ reads only keyboards; it has no touch input, so a Plymouth digit pad for
 touch-only phones is not possible. unl0kr, which pmOS already puts in the
 initramfs, has an on-screen keyboard (full layout, not a digit pad) and is the
 prompt a touch-only phone would use.
+
+**Q25 (systemd, before `local-fs.target`).** The Q25's root is itself an
+ext4 file on the carrier, so the container is another file there, opened from
+the real root by `q25-home-crypt.service` (`device-zinwa-q25-marathon`) and
+mounted on `/home`. It asks the same way as the Pi: the empty passphrase, then
+`plymouth ask-for-password` with the Marathon splash (`splash` on the command
+line), typed on the QWERTY keyboard with its digits on Alt (`/etc/vconsole.conf`
+gives Plymouth the Q25 layout); unl0kr without Plymouth. It writes the
+same boot-unlocked note. If the container cannot be opened or made, `/home`
+stays the root's own, unencrypted.
 
 **QEMU (systemd in the initrd).** duranium's crypttab, `root
 PARTLABEL=pmOS_root /dev/null luks,keyfile-timeout=0`, tries the empty
@@ -122,6 +133,17 @@ but `lost+found`, then runs `luksFormat` (empty passphrase), makes a fresh
 ext4 inside and seeds it from the slot's `/var` and `/home`. If encryption
 fails it formats the partition plain and boots unencrypted. A partition that
 holds anything is never reformatted.
+
+## First boot (Q25)
+
+With no `home.luks` beside the root image, `q25-home-crypt` makes one (sparse,
+the carrier's free space less 72 GiB for two root images, at least 8 GiB),
+formats it with the empty passphrase, makes ext4 inside and copies the root's
+`/home` in, marked by `.marathon-seeded`. A new root image from an update
+finds the same container. The root's own `/home` stays under the mount, so
+anything written there before the first boot is still on the plain root.
+Factory reset on the Q25 is deleting `home.luks`: the next boot makes a new
+one.
 
 ## Factory reset contract
 
