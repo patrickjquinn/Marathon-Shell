@@ -6,7 +6,7 @@
 # mtk-seninf); each is written for upstream.
 pkgname=libcamera
 pkgver=0.8.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -43,6 +43,7 @@ source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$pkgver/libca
 	0004-libipa-camera_sensor_helper-Add-IMX111-helper.patch
 	0005-pipeline-simple-Skip-capture-sizes-the-video-node-do.patch
 	0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
+	0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
 	"
 builddir="$srcdir/$pkgname-v$pkgver"
 # gstreamer tests fail
@@ -137,4 +138,5 @@ c6a5f07753214998ab064e109d8f7741a5ff98ef3b82a7f19bbecb5ea87453b76dbb6a696c8b18f6
 f1f12e17d2fe78c7ac2d72419e50eaf40ee4c3ac1996977bd5a2145fb4b1cd8d1fa5327424d2ac1b2f1e34cea5e95b49484d1035b883bc366b9c5db2f015a9d5  0004-libipa-camera_sensor_helper-Add-IMX111-helper.patch
 27e6a3364e137eff94412ba0ce888edc60ba8c99ab98ff476adf7a02261d8d03b65f197b8c8f05629e6b4b07a41f55cdce8754c93dc414219ca4313ef5d1de7c  0005-pipeline-simple-Skip-capture-sizes-the-video-node-do.patch
 b9c7fc2a99c33f8ed57781edd3011a145801e6bae675d4f2ca1479085b1198a3e36d7f7aa38a7fe28db89e66da68808f4d0636c0677a655310b0976fa9e0ee65  0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
+178c7f3f629bc7c627bf93919f8fbb438590a7e036e35023dda3e4a0c81bec3b53266c72f4301489a9a4b64a1451260c3c9d93cc670bf7136793257e42a4167f  0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
 "
