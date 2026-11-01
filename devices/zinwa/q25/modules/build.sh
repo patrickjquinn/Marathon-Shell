@@ -167,27 +167,23 @@ net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUER
 for m in $net; do
 	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
 done
-# The camera modules are loaded by hand and stay in obj/ until they ship.
 find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" ! -path "$out/obj/net/*" \
-	! -path "$out/obj/media/*" ! -path "$out/obj/cam-*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
+	-o -path "$out/obj/bluetooth/bluetooth.ko" |
 while read -r ko; do
 	case "$(basename "$ko")" in
 	q25-bbq-keys.ko | q25-keyboard-led.ko | q25-md1-owner.ko | inv-icm42607*.ko | spi-mt65xx.ko)
 		cp "$ko" "$out/modules/" ;;
+	v4l2-dv-timings.ko) ;;
 	*)
 		llvm-strip --strip-debug -o "$out/modules/$(basename "$ko")" "$ko" ;;
 	esac
 done
-# The camera stack is not packaged yet; it is staged apart from the shipped set.
-mkdir -p "$out/camera"
-find "$out/obj/media" -name '*.ko' | while read -r ko; do
-	llvm-strip --strip-debug -o "$out/camera/$(basename "$ko")" "$ko"
-done
+mkdir -p "$out/firmware"
 cpp -nostdinc -undef -x assembler-with-cpp -P -I "$ksrc/include" \
 	"$here/camera/q25-camera.dtso" > "$out/obj/q25-camera.dts"
 # Its providers are base phandles dtc cannot see.
 "$kobj/scripts/dtc/dtc" -@ -Wno-clocks_property -Wno-power_domains_property \
-	-Wno-interrupts_property -Wno-gpios_property -I dts -O dtb -o "$out/camera/q25-camera.dtbo" "$out/obj/q25-camera.dts"
+	-Wno-interrupts_property -Wno-gpios_property -I dts -O dtb -o "$out/firmware/q25-camera.dtbo" "$out/obj/q25-camera.dts"
 [ -n "$shipped" ] || exit 0
 mkdir -p "$out/cmp"
 status=0

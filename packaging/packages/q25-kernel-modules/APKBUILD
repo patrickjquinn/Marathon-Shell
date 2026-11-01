@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=19
+pkgrel=20
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -15,14 +15,15 @@ install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se q25-mt6358-live q25-haptic regulator-haptic"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
 _audio="snd-timer snd-pcm snd-jack snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card q25-mt6366-irqfix q25-mt6358-accdet"
+_camera="q25-cam-pd q25-cam-dt wl2868c-regulator mc videodev v4l2-async v4l2-fwnode v4l2-cci videobuf2-common videobuf2-memops videobuf2-v4l2 videobuf2-dma-contig phy-mtk-mipi-csi-2-1 mtk-seninf6s mtk-camsv6s imx111"
 _net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat nft_masq nft_ct nf_reject_ipv4 nf_reject_ipv6 ip_tables ip6_tables iptable_filter iptable_nat iptable_mangle iptable_raw ip6table_filter ip6table_nat ip6table_mangle ip6table_raw ipt_REJECT ip6t_REJECT xt_mark xt_conntrack xt_comment xt_multiport xt_tcpmss xt_TCPMSS xt_addrtype xt_REDIRECT xt_connmark xt_bpf xt_owner xt_u32 xt_state xt_pkttype xt_limit xt_quota xt_hashlimit xt_iprange xt_length xt_IDLETIMER xt_NFLOG nfnetlink_log xt_CT dummy"
-source="SHA256SUMS"
-for _m in $_extra $_connsys $_audio $_net; do
+source="SHA256SUMS q25-camera.dtbo"
+for _m in $_extra $_connsys $_audio $_camera $_net; do
     source="$source $_m.ko.zst"
 done
 package() {
     local extra="$pkgdir/usr/lib/modules/7.0.0-q25-cfi-test/extra" m
-    install -d "$extra/q25-connsys" "$extra/q25-audio" "$extra/q25-net"
+    install -d "$extra/q25-connsys" "$extra/q25-audio" "$extra/q25-camera" "$extra/q25-net"
     for m in $_extra; do
         zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/$m.ko"
     done
@@ -32,15 +33,20 @@ package() {
     for m in $_audio; do
         zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/q25-audio/$m.ko"
     done
+    for m in $_camera; do
+        zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/q25-camera/$m.ko"
+    done
     for m in $_net; do
         zstd -q -d < "$srcdir/$m.ko.zst" > "$extra/q25-net/$m.ko"
     done
-    chmod 0644 "$extra"/*.ko "$extra"/q25-connsys/*.ko "$extra"/q25-audio/*.ko "$extra"/q25-net/*.ko
+    chmod 0644 "$extra"/*.ko "$extra"/q25-connsys/*.ko "$extra"/q25-audio/*.ko "$extra"/q25-camera/*.ko "$extra"/q25-net/*.ko
+    install -Dm644 "$srcdir/q25-camera.dtbo" "$pkgdir/usr/lib/firmware/q25-camera.dtbo"
     (cd "$pkgdir" && sed 's#  /#  #' "$srcdir/SHA256SUMS" | sha256sum -c >/dev/null)
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-f05081dab6d780dd2df16cb422fb0cb932e67169d94958d485aca76acb3a414e72e94a67ecc83570cc22117540dbd31ed67e50f7f8d1499aaf4e4f64a04a7e7e  SHA256SUMS
+7173f908583a89acf9488813c8a9cb10237c1fea913a08bea32b1b01036308a842a218b3bcfe62818421e7763fb91df296fcf55ed38c652e078ba9783831e966  SHA256SUMS
+7ac23018f2e910d7962816bab30b1a5b160e5432f286c71a6f64f23f1b80867ef35bba4c3437855a0ce6b0f84ac840793195f7b593ad23b63171c66c6544b48c  q25-camera.dtbo
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 a1bc222102bf04eb7cd7c2b9efc6d019bf1cf09dbdcbc28de008c707e2a6a962543d9b2f2ff7b6619d970fe407897e9f242c92757a42d210bb10ca4a1e0ee873  q25-md1-owner.ko.zst
@@ -77,6 +83,22 @@ ba96d101aae4b1b352cc54db58ccef67832635aba940aa222f190b37527e7cce944389d491bb3add
 cffb0d88745a4ec08c2b1a18ed89176e0ccda588c3687db60c9d1d106c25104909994c0790db57a4404ae0941eafd596cefc933ea4a6150d592222b53d819293  q25-mt6366-card.ko.zst
 d27735e5f76f8aaf877d6d43d2b8844c52e49d7fd48e8f1d175609e66e059f1cf4138aa0673af839b0d4b806b1ec2b0f8fec9d7b295889aa152e8426ea7e29ab  q25-mt6366-irqfix.ko.zst
 34143904c3d8be0280033c5f59c81a8e5e7c3409d3cf2561ce0377a91479e7dd0dfac8f2b0293480bd75fe943f22fe6dca5734fe60b375998f802902331e0609  q25-mt6358-accdet.ko.zst
+06a6ec0978d37537efdb8183f3ad7f32e6a57cde8c30ecf10f1ed500ea9a6d372488bb7e10ea0b5e62c432e78f6ccccb02b52d539f3672c7184b0b932468cd07  q25-cam-pd.ko.zst
+7ea337e6323e6a37a0bdaea33eb1dc043fe4535010b7743098c58babd507abff819deef3cdd09994b1909835b70a95e6be4bdff2cc53bbe9cf30032e7faf8622  q25-cam-dt.ko.zst
+baba0169d12e5b7d03528340bcb75ec8a4ff9970ff7ec8191d455df3aa2a87b68e6903588c5122b7a455c354fec5fa6b7d6150523a65bc7229dfed86ef662aa5  wl2868c-regulator.ko.zst
+a544e9d884ea2b600e41b58ec1bae940251aa5fb18fab122d4c214dc1456e1e963333404b10ee54ed4ee26b25558c2822e3de86d18d12bee6afeacca87da6e88  mc.ko.zst
+c05616f5fe79cce56bcb9f9c6896d10a04e5c22c3458602d1c43309630fb67859e4b3c1a15f9a05582fb28fdeca41604895be9734fc02c5c0c9a7ae1f59ab7aa  videodev.ko.zst
+f52c8cea482381b5902104716347359a0a6325f73aa50d722af0cbdaf54064ce52e48ff355e1181ad7d11143c7061e5805daf8edae27281c41fef83b17255b13  v4l2-async.ko.zst
+827d57e201ca326dbfc9d5af3a550de4af86ae122d907a40c5cf8fcb698891cf79de58271566bc1eef30114fa89ec06140f1b1ff78a0570f98ee77170258f1bb  v4l2-fwnode.ko.zst
+e9a3bf1f527639d352478f5f6d4a91b17efd7fa112cde4ad009d1f34d2c89012eeb0a222f950a6efa5447731d167b6d9f1c2cd3c2a705764d85fb4adc4a0f915  v4l2-cci.ko.zst
+4a81aa7dbb8cb869c60e9cf9e4cf1d80499ba197058bdd10a74cd0d833cdca3ae28eebdff658f44293541805bce7b8a431eee6cd99aab42b3e29ce97f43921b9  videobuf2-common.ko.zst
+3f3dc8da47f09941f0df800e9403c4c5f688b523f9f7c131768fe9a27ba2db9b82daf4ada384f85f5f985d053946cb05b16cf5c3be22145eb7744b5f8cb08585  videobuf2-memops.ko.zst
+fc3f20fbd1556275c92a6da665f09d9e1efa2eb059d7d44770aa8ac80b3180a0db686bd10a5ed2e2d0546ecddff3f8b7fe64f0316818382c5a3a9e44ea5555c3  videobuf2-v4l2.ko.zst
+12bb4f5f2c5d3be44cad1ba58b61b3abe79974a4882e4171e34a24d2b7f42e11d214a485b5a84b6a87e7223fd94292d30867f729b0a4f1fbdf6a3390e91d5043  videobuf2-dma-contig.ko.zst
+f85d8a9ebdbb4932204e7d0d2864be64bcee671b3372bc4ea01bb9dca21a7dd5f790a446f26d32b550ef3cec8aee6246d0d6509d2f64af5af1860a23de17aebc  phy-mtk-mipi-csi-2-1.ko.zst
+46badfb155b61f9a45aab8070b55cc89414199beb5b1fe9c778cca9c7f58b8a363082d19e77cdfb05ec636bb0cf2f6190b8c89961c432a1d0559ce0abaf9bbb9  mtk-seninf6s.ko.zst
+a6faa34c3e94717e76cd54c90c7117d83189078def5f0fcb57d0d5bef4e3986fba7b8b5674bae29cb6bfe3698f36d68bcf7afbcbb1fb82f018fb9ae1a28c8adc  mtk-camsv6s.ko.zst
+6cfa1d58decd1f72db647952fbf911c66e422596668626ad10c76a3c0aa70f468ad51d56e46098a4c29165335b0fdba3e615c36399b9ce9ac357193837dfbb66  imx111.ko.zst
 509149e605638513844f334ce0ab1d05aa598ac0ac1fc088b945203aa7f26aa043b5a2fd2dc96938e25c5785815f474e4195b956315ae496386925aaaaf3c3a7  llc.ko.zst
 e32452065020680accabc75eecab443be193011ae66e72afd9220c4f10dbeb617985e538cf7656aea5945a034d50a6e90f45a2f9c24c9abf18622048d912e078  stp.ko.zst
 b6c10940a67c1e070b841032da61f21915497ec6b8a0e60a79929847e308f79bac9d7bda460e2c4a9b67601c0ed2bfce7277bc76aa9497067e98c6945641333c  bridge.ko.zst
