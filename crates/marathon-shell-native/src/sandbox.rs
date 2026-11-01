@@ -393,6 +393,12 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
         }
         // libudev's view of those nodes.
         args.bind("--ro-bind-try", "/run/udev");
+        // Qt lists GStreamer's hidden V4L2 devices too, which offers a
+        // media-controller capture node as a second, unusable camera.
+        let v4l2 = "/usr/lib/gstreamer-1.0/libgstvideo4linux2.so";
+        if Path::new(v4l2).exists() {
+            args.flags(&["--ro-bind", "/dev/null", v4l2]);
+        }
     }
     // Mesa finds its driver through these sysfs links; resolv.conf links into
     // systemd-resolved's state.
