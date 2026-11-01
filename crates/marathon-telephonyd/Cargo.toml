@@ -11,6 +11,8 @@ blocking = "1.7.0"
 futures-lite = "2.6.1"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
 marathon-rt = { path = "../marathon-rt" }
+phonenumber = "0.3.10"
+roxmltree = "0.21.2"
 rusqlite = "0.41.1"
 serde = "1.0.229"
 tz-rs = "0.7.3"

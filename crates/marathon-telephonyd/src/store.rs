@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use phonenumber::country;
 use rusqlite::{params, Connection, OptionalExtension};
 use zbus::Variant as Value;
 
@@ -31,11 +32,23 @@ pub struct Attachment {
 pub struct Store {
     db: Connection,
     files: PathBuf,
+    region: Option<country::Id>,
 }
 
-/// A thread's id: the number's digits and `+`.
-pub fn conversation_id(number: &str) -> String {
-    marathon_rt::daemon::dialable(number)
+/// A thread's id: each number in E.164, read as dialled in `region`; a
+/// short code as dialled; a named sender as given.
+pub fn conversation_id(numbers: &str, region: Option<country::Id>) -> String {
+    let one = |number: &str| {
+        let number = number.trim();
+        if number.chars().any(char::is_alphabetic) {
+            return number.to_owned();
+        }
+        match phonenumber::parse(region, number) {
+            Ok(n) if n.is_valid() => n.format().mode(phonenumber::Mode::E164).to_string(),
+            _ => marathon_rt::daemon::dialable(number),
+        }
+    };
+    numbers.split(',').map(one).collect::<Vec<_>>().join(",")
 }
 
 impl Store {
@@ -46,6 +59,7 @@ impl Store {
         let store = Self {
             db: Connection::open(db)?,
             files,
+            region: None,
         };
         store.migrate()?;
         Ok(store)
@@ -82,6 +96,42 @@ impl Store {
                  size INTEGER NOT NULL, path TEXT NOT NULL);
              CREATE INDEX IF NOT EXISTS idx_attachment_message ON attachments(messageId);",
         )
+    }
+
+    pub fn conversation_id(&self, number: &str) -> String {
+        conversation_id(number, self.region)
+    }
+
+    /// Reads national numbers as dialled in `region` from now on, and
+    /// rekeys the threads not yet keyed in E.164, merging those it had split.
+    pub fn set_region(&mut self, region: country::Id) -> rusqlite::Result<bool> {
+        if self.region == Some(region) {
+            return Ok(false);
+        }
+        let tx = self.db.transaction()?;
+        let threads: Vec<(String, String)> = tx
+            .prepare(
+                "SELECT DISTINCT conversationId,
+                     CASE WHEN isOutgoing = 1 THEN recipient ELSE sender END
+                 FROM messages WHERE conversationId NOT LIKE '+%'",
+            )?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut changed = false;
+        for (old, number) in threads {
+            let new = conversation_id(&number, Some(region));
+            if new != old {
+                changed = true;
+                tx.execute(
+                    "UPDATE messages SET conversationId = ? WHERE conversationId = ?
+                         AND CASE WHEN isOutgoing = 1 THEN recipient ELSE sender END = ?",
+                    params![new, old, number],
+                )?;
+            }
+        }
+        tx.commit()?;
+        self.region = Some(region);
+        Ok(changed)
     }
 
     /// The threads, newest first.
@@ -160,7 +210,7 @@ impl Store {
             "INSERT INTO messages (conversationId, sender, recipient, text, timestamp, isRead,
                  isOutgoing, status, mmsPath) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params![
-                conversation_id(thread),
+                self.conversation_id(thread),
                 m.sender,
                 m.recipient,
                 m.text,
@@ -354,6 +404,54 @@ mod tests {
             "second"
         );
         assert!(!s.delete_message(999_999).unwrap());
+    }
+
+    fn sent<'a>(recipient: &'a str, text: &'a str, timestamp: i64) -> Message<'a> {
+        Message {
+            sender: "me",
+            recipient,
+            text,
+            timestamp,
+            outgoing: true,
+            status: "sent",
+            mms_path: "",
+        }
+    }
+
+    #[test]
+    fn numbers_key_their_thread_in_e164() {
+        let ie = Some(country::Id::IE);
+        assert_eq!(conversation_id("087 123 4567", ie), "+353871234567");
+        assert_eq!(conversation_id("+353871234567", None), "+353871234567");
+        assert_eq!(conversation_id("0871234567", None), "0871234567");
+        assert_eq!(conversation_id("50123", ie), "50123");
+        assert_eq!(conversation_id("Vodafone", ie), "Vodafone");
+        assert_eq!(
+            conversation_id("0871234567,+447700900123", ie),
+            "+353871234567,+447700900123"
+        );
+    }
+
+    #[test]
+    fn a_reply_in_international_form_joins_the_national_thread() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = store(dir.path());
+        s.insert(&sent("0871234567", "before", 1)).unwrap();
+        s.insert(&received("+353871234567", "split", 2)).unwrap();
+        s.insert(&received("Vodafone", "offer", 3)).unwrap();
+        assert_eq!(s.conversations().unwrap().len(), 3);
+
+        assert!(s.set_region(country::Id::IE).unwrap());
+        assert!(!s.set_region(country::Id::IE).unwrap());
+        s.insert(&sent("087 123 4567", "after", 4)).unwrap();
+        let threads = s.conversations().unwrap();
+        assert_eq!(threads.len(), 2);
+        assert_eq!(s.messages("+353871234567").unwrap().len(), 3);
+        assert_eq!(s.messages("Vodafone").unwrap().len(), 1);
+        assert_eq!(s.conversation_id("0871234567"), "+353871234567");
+
+        assert!(!s.set_region(country::Id::GB).unwrap());
+        assert_eq!(s.messages("+353871234567").unwrap().len(), 3);
     }
 
     #[test]

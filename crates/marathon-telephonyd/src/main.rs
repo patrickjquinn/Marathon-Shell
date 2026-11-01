@@ -225,7 +225,7 @@ impl SmsService {
         number: String,
     ) -> fdo::Result<String> {
         admit(&self.0.bus, &h, "Sms", SMS).await?;
-        Ok(store::conversation_id(&number))
+        Ok(self.0.store.with(move |s| s.conversation_id(&number)).await)
     }
 
     #[zbus(name = "SimulateIncomingSMS")]

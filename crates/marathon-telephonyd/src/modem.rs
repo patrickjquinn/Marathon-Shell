@@ -8,6 +8,7 @@ use std::time::Duration;
 use async_io::Timer;
 use futures_lite::StreamExt;
 use marathon_rt::{io, log};
+use phonenumber::country;
 use zbus::fdo::{ObjectManagerProxy, PropertiesProxy};
 use zbus::{MatchRule, MessageStream};
 use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
@@ -18,6 +19,9 @@ use crate::{now_ms, Core, SmsService};
 const MM: &str = "org.freedesktop.ModemManager1";
 const MESSAGING: &str = "org.freedesktop.ModemManager1.Modem.Messaging";
 const SMS: &str = "org.freedesktop.ModemManager1.Sms";
+const MODEM: &str = "org.freedesktop.ModemManager1.Modem";
+const SIM: &str = "org.freedesktop.ModemManager1.Sim";
+const PROVIDERS: &str = "/usr/share/mobile-broadband-provider-info/serviceproviders.xml";
 /// `MMSmsState`.
 const RECEIVED: u32 = 3;
 const SENT: u32 = 5;
@@ -80,6 +84,80 @@ async fn modems(bus: &zbus::Connection) -> zbus::Result<Vec<MessagingProxy<'stat
         }
     }
     Ok(found)
+}
+
+/// The country of the carrier database's networks with `mcc`.
+fn country_of(providers: &str, mcc: &str) -> Option<country::Id> {
+    let options = roxmltree::ParsingOptions {
+        allow_dtd: true,
+        ..roxmltree::ParsingOptions::default()
+    };
+    roxmltree::Document::parse_with_options(providers, options)
+        .ok()?
+        .descendants()
+        .find(|n| n.has_tag_name("network-id") && n.attribute("mcc") == Some(mcc))?
+        .ancestors()
+        .find(|n| n.has_tag_name("country"))?
+        .attribute("code")?
+        .to_uppercase()
+        .parse()
+        .ok()
+}
+
+/// The MCC of the first modem's SIM's home network.
+async fn home_mcc(bus: &zbus::Connection) -> Option<String> {
+    let props = |path: OwnedObjectPath| async move {
+        PropertiesProxy::builder(bus)
+            .destination(MM)
+            .path(path)
+            .build()
+            .await
+            .ok()
+    };
+    let modem = modems(bus).await.ok()?.into_iter().next()?;
+    let sim = props(modem.inner().path().to_owned().into())
+        .await?
+        .get(MODEM.try_into().ok()?, "Sim")
+        .await
+        .ok()?;
+    let sim = OwnedObjectPath::try_from(sim).ok()?;
+    if sim.as_str() == "/" {
+        return None;
+    }
+    let operator = props(sim)
+        .await?
+        .get(SIM.try_into().ok()?, "OperatorIdentifier")
+        .await
+        .ok()?;
+    String::try_from(operator).ok()?.get(..3).map(str::to_owned)
+}
+
+/// Rekeys the threads when the SIM's country is first known or changes.
+async fn follow_region(core: &Core, bus: &zbus::Connection, known: &mut Option<String>) {
+    let Some(mcc) = home_mcc(bus).await else {
+        return;
+    };
+    if known.as_ref() == Some(&mcc) {
+        return;
+    }
+    *known = Some(mcc.clone());
+    let lookup = mcc.clone();
+    let region =
+        blocking::unblock(move || country_of(&std::fs::read_to_string(PROVIDERS).ok()?, &lookup))
+            .await;
+    let Some(region) = region else {
+        return log::warn("Sms", format_args!("no country for MCC {mcc}"));
+    };
+    match core.store.with(move |s| s.set_region(region)).await {
+        Ok(true) => {
+            SmsService::conversations_changed(&core.sms()).await.ok();
+        }
+        Ok(false) => {}
+        Err(e) => {
+            *known = None;
+            log::warn("Sms", format_args!("cannot rekey the threads: {e}"));
+        }
+    }
 }
 
 fn field<T: TryFrom<OwnedValue>>(props: &HashMap<String, OwnedValue>, key: &str) -> Option<T> {
@@ -164,7 +242,9 @@ pub async fn watch(core: &Core) {
             futures_lite::stream::pending().boxed()
         }
     };
+    let mut mcc = None;
     loop {
+        follow_region(core, &bus, &mut mcc).await;
         if let Err(e) = drain(core, &bus).await {
             log::warn("Sms", format_args!("cannot read the modem's texts: {e}"));
         }
@@ -251,7 +331,19 @@ pub async fn send(core: &Core, recipient: String, text: String) {
 
 #[cfg(test)]
 mod tests {
-    use super::iso_ms;
+    use super::{country, country_of, iso_ms};
+
+    #[test]
+    fn an_mcc_names_its_carriers_country() {
+        let providers = r#"<?xml version="1.0"?>
+<!DOCTYPE serviceproviders SYSTEM "serviceproviders.2.dtd">
+<serviceproviders format="2.0">
+<country code="gb"><provider><gsm><network-id mcc="234" mnc="15"/></gsm></provider></country>
+<country code="ie"><provider><gsm><network-id mcc="272" mnc="01"/></gsm></provider></country>
+</serviceproviders>"#;
+        assert_eq!(country_of(providers, "272"), Some(country::Id::IE));
+        assert_eq!(country_of(providers, "999"), None);
+    }
 
     #[test]
     fn modem_times_keep_their_zone() {
