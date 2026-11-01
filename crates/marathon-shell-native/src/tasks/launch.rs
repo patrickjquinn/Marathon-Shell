@@ -646,10 +646,11 @@ impl Tasks {
         }
         let mut runner = self.runner(&app.id, &app.permissions, false);
         let webengine = sandbox::uses_webengine(&runner);
+        let camera = sandbox::uses_camera(&runner);
         let mut env = sandbox::environment(&runner);
         // A spare can write every app's data: it takes only Marathon's own,
-        // and not WebEngine's, whose environment is per app.
-        if !sandbox::is_user_installed(&app.id) && !webengine {
+        // and not WebEngine's or the camera's, whose environment is per app.
+        if !sandbox::is_user_installed(&app.id) && !webengine && !camera {
             let storage = app.permissions.iter().any(|p| p == "storage");
             let launch = Launch {
                 app_id: app.id.clone(),
