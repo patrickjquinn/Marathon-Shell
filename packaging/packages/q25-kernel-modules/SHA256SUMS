@@ -105,6 +105,7 @@ df2fbb551383372a8ef3ec1fba6a6b339972f94ba7a7e21a0bf6c475c89f1d4a  /usr/lib/modul
 85acf1fc7d05969f155c25612b0fc68e635c319e040a7f5c037e62cfd853697a  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-camera/videobuf2-dma-contig.ko
 aeee11124bcfd77479c675c16a937a9568468ffc009ff9109407dfd1b59d253d  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-camera/phy-mtk-mipi-csi-2-1.ko
 16987957813e7696c629f6527608059016f011ca2ff2ba47c9db6e1030dffb8e  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-camera/mtk-seninf6s.ko
-e8b926b0b2c78b04ebb88aa780f91ba1d29e6ab5465b9c6fa1e38495a6c8e43f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-camera/mtk-camsv6s.ko
+a3e3a58136b064a6f0693f2274341050bdb262a9892ef32da172bc41f7855345  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-camera/mtk-camsv6s.ko
 4405315a227a66ce9f0334ab0a443b77ae69ce555ec7e98920d84ed28e234c1f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-camera/imx111.ko
-e36426aac723a0f70fddabfa813ff01d93fbe848ca3ea9d3ef07614439ec68a2  /usr/lib/firmware/q25-camera.dtbo
+89b64bfc03048369e505607c09c9108019e630a263e9890a8b01f41204d127cc  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-camera/s5kjn1.ko
+646dd5695ac49d414d40515dcafdb89940094d45ffd1a347447828beeb7fe3ad  /usr/lib/firmware/q25-camera.dtbo
