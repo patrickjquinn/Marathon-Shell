@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=34
+pkgrel=35
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -9,7 +9,7 @@ license="Apache-2.0"
 options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
  q25-kernel-modules q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
- upower-q25 q25-native-gauge q25-modem"
+ upower-q25 q25-native-gauge q25-modem libcamera libcamera-gstreamer"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
@@ -25,7 +25,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-wifi-radio q25-wifi-radio.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
- q25-power-supply-ignore 99-q25-upower-duplicate.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
+ q25-power-supply-ignore 99-q25-upower-duplicate.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -91,6 +91,8 @@ package() {
 
     install -Dm644 "$srcdir/q25-deckard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-deckard.conf"
     install -Dm644 "$srcdir/q25-haptic.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-haptic.conf"
+    install -Dm644 "$srcdir/q25-camera.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-camera.conf"
+    install -Dm644 "$srcdir/q25-camera.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-camera.conf"
     install -Dm644 "$srcdir/deckard.cfg" "$pkgdir/usr/share/marathon/deckard.cfg"
     install -Dm644 "$srcdir/marathon-deckard.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/marathon-deckard.conf"
     install -Dm644 "$srcdir/50-marathon-deckard.rules" "$pkgdir/usr/share/polkit-1/rules.d/50-marathon-deckard.rules"
@@ -222,6 +224,8 @@ c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3c
 318f0b585d5f7d12e8e7de3a6fa360ca1dc3abeec8af9411541937dac2f97c3d15e695698d6c07b4485dfc141e8badffc0267db5adb5550958e47e401c02ce39  99-q25-upower-duplicate.rules
 e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99e63c486882373de76f6433906e7a00c4c0774235b798981c  q25-deckard.modules-load.conf
 05f4d8b5dbbdd8e97dd09e778d822b19861bde1cee13c43bb6f1a4fcf2e9c685904f2318c58c51dc252bd4ffa84e46511faab404795f499e0e4b402fbd2b0736  q25-haptic.modules-load.conf
+9ee69e7d82d50aac472c304d8a7b5762ef36e97b2f6909b8767a17dd1a467b31241528d91b712487edbe90cb8e2576314c15fd6aae565490714500725338a5ab  q25-camera.modules-load.conf
+8fe2cf5aaea3a560f4677f79579f15b01db9d362e37f67fc1876cf5bffa5572662f0a1a34ced70ded91a7908c8e6a568d14856155022f5face9c0f9e66f71067  q25-camera.modprobe.conf
 a6169dbe11ff4a5687d0319847bdecdf55a241fa57be6086d42530072f1570eabb455a4bad9c842e5f55f3d84e4f4c4f56a436abccf14e3a52e864fde4b86b60  deckard.cfg
 f56b5f79e54d0fc78ac9c2b86f5da075117d1f15117ac5881f64d6ed6572681889b5354a45a22f4f3ff7d8c3e6a816b001bca4e2f5d71fd8aea1255e75d7daaa  marathon-deckard.tmpfiles
 e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f5928c93e42d4e9d216648c445af265db2a8620bf355d034ce1  50-marathon-deckard.rules
