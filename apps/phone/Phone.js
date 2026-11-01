@@ -3,7 +3,7 @@
 const twoDigitCountryCodes = ["20", "27", "30", "31", "32", "33", "34", "36", "39", "40", "41", "43", "44", "45", "46", "47", "48", "49", "51", "52", "53", "54", "55", "56", "57", "58", "60", "61", "62", "63", "64", "65", "66", "81", "82", "84", "86", "90", "91", "92", "93", "94", "95", "98"];
 
 // Short codes networks route to emergency services, with or without a SIM.
-const emergencyNumbers = ["112", "911", "999", "000", "110", "119", "118", "08"];
+const emergencyNumbers = ["112", "911", "999", "000", "110", "119", "118"];
 
 function dialable(text) {
     return String(text || "").replace(/[^0-9+*#]/g, "");

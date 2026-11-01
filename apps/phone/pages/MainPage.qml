@@ -16,8 +16,9 @@ Page {
     }
 
     // Page children can't hold focus: key presses reach the dialer only when it has it.
+    // At launch the page activates before its window does, with no focus item yet.
     function _focusDialer() {
-        if (tabs.currentIndex === 0 && Window.activeFocusItem === root)
+        if (tabs.currentIndex === 0 && (!Window.activeFocusItem || Window.activeFocusItem === root))
             dialerPanel.forceActiveFocus();
     }
 
