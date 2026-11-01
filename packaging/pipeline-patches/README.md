@@ -66,6 +66,7 @@ There are 52 patches. **There is no 0011**: it vendored a loose
 | 0051 | fix(resolved): no LLMNR | Shared networks cannot answer lookups through LLMNR; mDNS stays. |
 | 0052 | fix(base): preserve migrated user settings and authorized keys | See below. |
 | 0053 | feat(zinwa-q25): build the Q25 root as one ext4 partition | `zinwa-q25` is not bootable and lays out `mkosi.repart.root-only`, a 5 GiB ext4 root the phone's carrier boots as a file (`q25.rootfs_file=`); `/etc` stays populated; the base adds `deckard` and `deckard-images`; `build-image.py` syncs every `device-*` aport, so `device-zinwa-q25`'s deviceinfo resolves. Built by `scripts/build-zinwa-q25-image.sh`. |
+| 0054 | fix(build): developer images get their SSH key | `build-image.py` passes `MARATHON_DEV_SSH_KEY` with `--environment`, as 0039 does for the layout; through `PassEnvironment` alone it never reached the postinst, so 0050's key and sshd were missing. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.
 
