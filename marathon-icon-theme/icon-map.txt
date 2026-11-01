@@ -36,6 +36,8 @@ camera-switch camera-rotate
 cancel x
 capslock arrow-fat-up
 cellular cell-signal-full
+certificates certificate
+chat chat-circle
 checkmark check
 clear x-circle
 clear-opaque-cross x-circle
@@ -198,8 +200,10 @@ rotate arrows-clockwise
 save floppy-disk
 scale arrows-out
 science flask
+sd-card hard-drive
 search magnifying-glass
 search-on-page file-magnifying-glass
+secure lock
 select-all checks
 send paper-plane-tilt
 setting gear
@@ -209,6 +213,7 @@ show-password eye
 shuffle shuffle
 sim sim-card
 sms chat-text
+sounds speaker-high
 speaker speaker-high
 speaker-mute speaker-slash
 sport person-simple-run
