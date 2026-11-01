@@ -88,5 +88,6 @@ e63bc19b45b953c563a714ddce9ce5dd63dd155aa89646aed0e592aa0b5abb98  /usr/lib/modul
 a01d1f27806ca5f7a9c7e4f336c42126acc14b4b37ab8a71ddd31c653ad13abf  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-net/xt_NFLOG.ko
 8e4762b02d2dce0dc77c6a80ff0d9ba165fc41341a4e490afda7c3f520a297f0  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-net/nfnetlink_log.ko
 f3765fb3ca9c83bb3c5e54c95a40a03b2eb463186786dfa4a6b5142a5dc7758e  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-net/xt_CT.ko
+28a66bd47bf5948f9d0f11a9db2adc36a349d6e99dcbf9415a0f0bd40570db19  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-net/dummy.ko
 41d3cdfcd1f6b7252f590c23459b70f0c46f35829ecb107a5b6e139841708ae1  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-haptic.ko
 ea887bd99d1755a8d928c0615c8f1a28795c1913aa2713cd06b38e61850cb9b8  /usr/lib/modules/7.0.0-q25-cfi-test/extra/regulator-haptic.ko

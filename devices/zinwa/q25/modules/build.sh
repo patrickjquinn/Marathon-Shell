@@ -41,7 +41,8 @@ cp "$ksrc/drivers/spi/spi-mt65xx.c" "$out/src/imu/"
 cp "$ksrc/drivers/iio/magnetometer/mmc5633.c" "$out/src/mag/"
 (cd "$out/src/mag" && patch -p1 -s < mmc5633-q25.patch)
 cp "$ksrc/drivers/input/misc/regulator-haptic.c" "$out/src/haptic/"
-cp "$ksrc/drivers/net/tun.c" "$ksrc/drivers/net/tun_vnet.h" "$ksrc/drivers/net/veth.c" "$out/src/net/"
+cp "$ksrc/drivers/net/tun.c" "$ksrc/drivers/net/tun_vnet.h" "$ksrc/drivers/net/veth.c" \
+	"$ksrc/drivers/net/dummy.c" "$out/src/net/"
 cp -r "$ksrc/net/netfilter" "$out/src/net/netfilter"
 mkdir -p "$out/src/net/ipv4" "$out/src/net/ipv6" "$out/src/net/bridge"
 cp "$ksrc/net/bridge/br_private.h" "$out/src/net/bridge/"
@@ -135,7 +136,7 @@ net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUER
 	ipt_REJECT ip6t_REJECT xt_mark xt_conntrack xt_comment xt_multiport xt_tcpmss
 	xt_TCPMSS xt_addrtype xt_REDIRECT
 	xt_connmark xt_bpf xt_owner xt_u32 xt_state xt_pkttype xt_limit xt_quota
-	xt_hashlimit xt_iprange xt_length xt_IDLETIMER xt_NFLOG nfnetlink_log xt_CT"
+	xt_hashlimit xt_iprange xt_length xt_IDLETIMER xt_NFLOG nfnetlink_log xt_CT dummy"
 for m in $net; do
 	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
 done
