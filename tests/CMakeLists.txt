@@ -93,6 +93,8 @@ if(Python3_FOUND)
     add_test(NAME Devices_Tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/devices/test_devices.py)
     add_test(NAME Q25_SessionProfile COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/qemu/test_q25_session_profile.py)
     add_test(NAME Q25_GpuPackaging COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/qemu/test_q25_gpu_packaging.py)
+    add_test(NAME Q25_RootDiff COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/q25/test_q25_root_diff.py)
+    add_test(NAME Q25_RootInstall COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/q25/test_q25_root_install.py)
     # Alpine has no systemd-tmpfiles; CI runs this on its Ubuntu host as well.
     find_program(SYSTEMD_TMPFILES_EXECUTABLE systemd-tmpfiles)
     if(SYSTEMD_TMPFILES_EXECUTABLE)
