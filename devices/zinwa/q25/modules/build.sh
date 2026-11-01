@@ -83,6 +83,13 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 
+m=$out/src/media
+rm -rf "$m"
+mkdir -p "$m"
+cp "$here/media/Kbuild" "$m/"
+cp -r "$ksrc/drivers/media/mc" "$ksrc/drivers/media/v4l2-core" "$m/"
+cp -r "$ksrc/drivers/media/common/videobuf2" "$m/"
+
 rm -rf "$out/src/modem"
 mkdir -p "$out/src/modem"
 (cd "$donor" && tar cf - -T "$here/modem/eccci-files.txt") | tar xf - -C "$out/src/modem"
@@ -118,6 +125,12 @@ kmake "$out/src/wlan" "$out/obj/wlan" JOINT="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/cfg80211/Module.symvers"
 kmake "$out/src/bt" "$out/obj/bt" WMTSRC="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/bluetooth/Module.symvers"
+# The V4L2 media core, unset in the kernel config, as one set (media/Kbuild).
+kmake "$out/src/media" "$out/obj/media" \
+	CONFIG_MEDIA_SUPPORT=m CONFIG_MEDIA_CONTROLLER=y CONFIG_VIDEO_DEV=m \
+	CONFIG_VIDEO_V4L2_I2C=y CONFIG_V4L2_ASYNC=m CONFIG_V4L2_FWNODE=m \
+	CONFIG_V4L2_CCI=m CONFIG_V4L2_CCI_I2C=m CONFIG_VIDEOBUF2_CORE=m \
+	CONFIG_VIDEOBUF2_V4L2=m CONFIG_VIDEOBUF2_MEMOPS=m CONFIG_VIDEOBUF2_DMA_CONTIG=m
 syms=""
 for m in ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif; do
 	kmake "$out/src/modem/$m" "$out/obj/modem/$m" KBUILD_EXTRA_SYMBOLS="$syms"
@@ -140,7 +153,8 @@ net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUER
 for m in $net; do
 	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
 done
-find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" ! -path "$out/obj/net/*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
+find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" ! -path "$out/obj/net/*" \
+	! -path "$out/obj/media/*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
 while read -r ko; do
 	case "$(basename "$ko")" in
 	q25-bbq-keys.ko | q25-keyboard-led.ko | q25-md1-owner.ko | inv-icm42607*.ko | spi-mt65xx.ko)
@@ -148,6 +162,11 @@ while read -r ko; do
 	*)
 		llvm-strip --strip-debug -o "$out/modules/$(basename "$ko")" "$ko" ;;
 	esac
+done
+# The camera stack is not packaged yet; it is staged apart from the shipped set.
+mkdir -p "$out/camera"
+find "$out/obj/media" -name '*.ko' | while read -r ko; do
+	llvm-strip --strip-debug -o "$out/camera/$(basename "$ko")" "$ko"
 done
 [ -n "$shipped" ] || exit 0
 mkdir -p "$out/cmp"
