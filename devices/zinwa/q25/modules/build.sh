@@ -33,13 +33,14 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio panel display clk mag light net; do
+for d in keyboard md1 conn-pd imu bt audio panel display clk mag light haptic net; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
 cp "$ksrc/drivers/spi/spi-mt65xx.c" "$out/src/imu/"
 cp "$ksrc/drivers/iio/magnetometer/mmc5633.c" "$out/src/mag/"
 (cd "$out/src/mag" && patch -p1 -s < mmc5633-q25.patch)
+cp "$ksrc/drivers/input/misc/regulator-haptic.c" "$out/src/haptic/"
 cp "$ksrc/drivers/net/tun.c" "$ksrc/drivers/net/tun_vnet.h" "$ksrc/drivers/net/veth.c" "$out/src/net/"
 cp -r "$ksrc/net/netfilter" "$out/src/net/netfilter"
 mkdir -p "$out/src/net/ipv4" "$out/src/net/ipv6"
@@ -87,7 +88,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in keyboard md1 conn-pd imu audio panel display clk mag light; do
+for d in keyboard md1 conn-pd imu audio panel display clk mag light haptic; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$out/src/net" "$out/obj/net/core"
