@@ -332,7 +332,7 @@ index c2de30a..9f3e68f 100644
  static struct platform_driver mtk_camsv_driver = {
  	.probe = mtk_camsv_probe,
 diff --git a/camsv/mtk_camsv_video.c b/camsv/mtk_camsv_video.c
-index 9e99d80..141e116 100644
+index 9e99d80..ebb0e57 100644
 --- a/camsv/mtk_camsv_video.c
 +++ b/camsv/mtk_camsv_video.c
 @@ -34,47 +34,52 @@ to_mtk_cam_dev_buffer(struct vb2_buffer *buf)
@@ -420,6 +420,17 @@ index 9e99d80..141e116 100644
  	}, {
  		.fourcc = V4L2_PIX_FMT_SBGGR8,
  		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+@@ -280,8 +285,8 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
+ 		vb2_set_plane_payload(vb, i, size);
+ 	}
+ 
+-	if (buf->daddr == 0ULL)
+-		buf->daddr = vb2_dma_contig_plane_dma_addr(vb, 0);
++	/* an imported DMABUF can change at every QBUF */
++	buf->daddr = vb2_dma_contig_plane_dma_addr(vb, 0);
+ 
+ 	return 0;
+ }
 @@ -289,7 +294,6 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
  static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
  {
@@ -517,16 +528,20 @@ index 9e99d80..141e116 100644
  
  	vbq->type = cam_vdev->desc->buf_type;
  	vbq->io_modes = VB2_MMAP | VB2_DMABUF;
-@@ -718,7 +725,7 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+@@ -718,7 +725,11 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
  			     | V4L2_BUF_FLAG_TSTAMP_SRC_EOF;
  
  	/* No minimum buffers limitation */
 -	vbq->min_buffers_needed = 0;
-+	vbq->min_queued_buffers = 0;
++	/*
++	 * Buffers are only taken on PASS1_DON, which needs one programmed before
++	 * the TG starts: hold start_streaming until the first QBUF.
++	 */
++	vbq->min_queued_buffers = 1;
  	vbq->drv_priv = cam;
  
  	vbq->lock = &cam_vdev->vdev_lock;
-@@ -785,5 +792,5 @@ void mtk_isp6s_camsv_video_unregister(struct mtk_cam_video_device *vdev)
+@@ -785,5 +796,5 @@ void mtk_isp6s_camsv_video_unregister(struct mtk_cam_video_device *vdev)
  	vb2_queue_release(&vdev->vbq);
  	media_entity_cleanup(&vdev->vdev.entity);
  	mutex_destroy(&vdev->vdev_lock);
