@@ -95,7 +95,9 @@ cp -r "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" "$m/mediatek
 cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/mediatek/phy/"
 mkdir -p "$m/i2c"
 cp "$here/camera/i2c/Kbuild" "$ksrc/drivers/media/i2c/imx111.c" "$m/i2c/"
-(cd "$m/i2c" && patch -p1 -s < "$here/camera/i2c/0001-imx111-bayer-order.patch")
+for p in "$here"/camera/i2c/*.patch; do
+	(cd "$m/i2c" && patch -p1 -s < "$p")
+done
 (cd "$m/mediatek" && patch -p1 -s < "$here/camera/0001-mt6789-port.patch")
 
 rm -rf "$out/src/modem"
