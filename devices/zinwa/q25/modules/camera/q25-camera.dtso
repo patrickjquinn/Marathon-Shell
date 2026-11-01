@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Zinwa Q25 camera overlay, applied at runtime: the WL2868C camera PMIC, the
- * front IMX111 on CSI port 0, SENINF, CAMSV2 and the CSI0/CSI1 D-PHYs.
+ * front IMX111 on CSI port 0 and the rear S5KJN1 on CSI port 1, SENINF, CAMSV2
+ * (fed by both ports, one camera at a time) and the CSI0/CSI1 D-PHYs.
  * Node layout follows Genio's mt8189.dtsi (a246e0c6) with MT6789 addresses
  * and mainline clock indices. The base DTB has no __symbols__ for these
  * providers, so they are referenced by their phandles in the running DTB
@@ -37,7 +38,7 @@
 		dphy_settle_delay_dt = <0x20>;
 	};
 
-	/* port 1 at +0x4000: the MT8189 stride, not yet confirmed on MT6789 */
+	/* four 0x4000 ports (A, B, D-PHY and C-PHY tops) fill the vendor's 0x10000 window */
 	mipi_csi1: mipi-csi1@11c84000 {
 		compatible = "mediatek,mt6789-csi-rx";
 		reg = <0 0x11c84000 0 0x4000>;
@@ -45,7 +46,8 @@
 		num-lanes = <4>;
 		#phy-cells = <1>;
 		mediatek,csi-port = "1";
-		status = "disabled";
+		settle_delay_ck = <0x20>;
+		dphy_settle_delay_dt = <0x20>;
 	};
 
 	seninf-top@1a004000 {
@@ -105,6 +107,35 @@
 				};
 			};
 		};
+
+		seninf-csi-port-1 {
+			compatible = "mediatek,mt6789-seninf";
+			mediatek,csi-port = "1";
+			phys = <&mipi_csi1 PHY_TYPE_DPHY>;
+			phy-names = "csi1";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					seninf1_s5kjn1: endpoint {
+						data-lanes = <1 2 3 4>;
+						remote-endpoint = <&s5kjn1_seninf1>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					seninf1_camsv2: endpoint {
+						remote-endpoint = <&camsv2_seninf1>;
+					};
+				};
+			};
+		};
 	};
 
 	camsv2@1a092000 {
@@ -115,6 +146,8 @@
 		interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH 0>;
 		/* the only cam-mux that fed camsv2 on the Q25 bench (0..12 tried) */
 		mediatek,cammux-id = <5>;
+		/* the boot DTB's q25-cam-pool; frames over 4 MiB need it */
+		memory-region = <0x93>;
 		power-domains = <SPM_PC_PH PD_CAM>;
 		clocks = <CAMSYS_PH CLK_CAM_M_CAM>,
 			 <CAMSYS_PH CLK_CAM_M_CAMTG>,
@@ -132,10 +165,18 @@
 			#size-cells = <0>;
 
 			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
 				reg = <0>;
 
-				camsv2_seninf0: endpoint {
+				camsv2_seninf0: endpoint@0 {
+					reg = <0>;
 					remote-endpoint = <&seninf0_camsv2>;
+				};
+
+				camsv2_seninf1: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&seninf1_camsv2>;
 				};
 			};
 		};
@@ -153,10 +194,28 @@
 		reset-gpios = <PIO_PH 15 GPIO_ACTIVE_LOW>;
 
 		regulators {
+			cam0_dvdd: ldo1 {
+				regulator-name = "cam0-dvdd";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1000000>;
+			};
+
 			cam1_dvdd: ldo2 {
 				regulator-name = "cam1-dvdd";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <1200000>;
+			};
+
+			cam0_avdd1: ldo3 {
+				regulator-name = "cam0-avdd1";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
+
+			cam0_avdd: ldo4 {
+				regulator-name = "cam0-avdd";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
 			};
 
 			cam1_avdd: ldo5 {
@@ -175,6 +234,17 @@
 };
 
 &{/} {
+	/* the rear module's PDN and its 1.8 V AVDD1, which s5kjn1 does not model */
+	cam0_pdn: regulator-cam0-pdn {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0-pdn";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <PIO_PH 20 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&cam0_avdd1>;
+	};
+
 	/* the module's PDN pin, which imx111 does not model (as Genio's cam0_pdn) */
 	cam1_pdn: regulator-cam1-pdn {
 		compatible = "regulator-fixed";
@@ -211,6 +281,37 @@
 				data-lanes = <1 2>;
 				link-frequencies = /bits/ 64 <542400000>;
 				remote-endpoint = <&seninf0_imx111>;
+			};
+		};
+	};
+};
+
+&{/soc/i2c@11eb2000} {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	camera@10 {
+		compatible = "samsung,s5kjn1";
+		reg = <0x10>;
+		/* CAMTG2 drives CMMCLK1 (GPIO127) */
+		clocks = <TOPCKGEN_PH CLK_TOP_CAMTG2_SEL>;
+		assigned-clocks = <TOPCKGEN_PH CLK_TOP_CAMTG2_SEL>;
+		assigned-clock-parents = <TOPCKGEN_PH CLK_TOP_UNIVPLL_192M_D8>;
+		vddd-supply = <&cam0_dvdd>;
+		vdda-supply = <&cam0_avdd>;
+		vddio-supply = <&cam_iovdd>;
+		/* enabled last, as the stock sequence raises AVDD1 and PDN */
+		afvdd-supply = <&cam0_pdn>;
+		reset-gpios = <PIO_PH 18 GPIO_ACTIVE_LOW>;
+		orientation = <1>;
+		rotation = <90>;
+
+		port {
+			s5kjn1_seninf1: endpoint {
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <700000000>;
+				remote-endpoint = <&seninf1_s5kjn1>;
 			};
 		};
 	};

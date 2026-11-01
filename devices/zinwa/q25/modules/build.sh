@@ -94,7 +94,8 @@ cp "$here/camera/Kbuild" "$m/mediatek/"
 cp -r "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" "$m/mediatek/"
 cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/mediatek/phy/"
 mkdir -p "$m/i2c"
-cp "$here/camera/i2c/Kbuild" "$ksrc/drivers/media/i2c/imx111.c" "$m/i2c/"
+cp "$here/camera/i2c/Kbuild" "$ksrc/drivers/media/i2c/imx111.c" \
+	"$ksrc/drivers/media/i2c/s5kjn1.c" "$m/i2c/"
 for p in "$here"/camera/i2c/*.patch; do
 	(cd "$m/i2c" && patch -p1 -s < "$p")
 done
@@ -143,7 +144,7 @@ kmake "$out/src/media" "$out/obj/media" \
 	CONFIG_V4L2_CCI=m CONFIG_V4L2_CCI_I2C=m CONFIG_VIDEOBUF2_CORE=m \
 	CONFIG_VIDEOBUF2_V4L2=m CONFIG_VIDEOBUF2_MEMOPS=m CONFIG_VIDEOBUF2_DMA_CONTIG=m \
 	CONFIG_MTK_SENINF6S=m CONFIG_MTK_CAMSV6S=m CONFIG_PHY_MTK_MIPI_CSI_2_1=m \
-	CONFIG_VIDEO_IMX111=m
+	CONFIG_VIDEO_IMX111=m CONFIG_VIDEO_S5KJN1=m
 syms=""
 for m in ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif; do
 	kmake "$out/src/modem/$m" "$out/obj/modem/$m" KBUILD_EXTRA_SYMBOLS="$syms"
