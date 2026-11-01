@@ -29,6 +29,13 @@ import q25_soc as model  # noqa: E402 - only after the bundle check above
 
 ENDPOINT = Path("/sys/bus/platform/devices/q25-mt6358-live")
 ADC_SUFFIX = "/soc/pmic-wrapper@10026000/pmic/adc"
+CHARGER = Path("/sys/class/power_supply/bq256xx-charger")
+# The loaded curves carry IR compensation, so a seed needn't wait for rest:
+# a booting, busy or charging phone seeds within seconds, and the width
+# checks reject what the curves can't place.
+SEED_SAMPLES = 10
+SEED_SPAN_NS = 9000000000
+SEED_CURRENT_UA = 2500000
 STOP = False
 
 
@@ -97,7 +104,7 @@ def point_estimate(sample, margin_bp):
                age_ms=math.ceil((boottime_ns() - g["mono_ns"]) / 1000000),
                skew_ms=sample["skew_ms"])
     policy = dict(voltage_error_uv=math.ceil(sample["voltage_lsb_uv"]),
-                  current_error_ua=current_error, seed_current_limit_ua=180000,
+                  current_error_ua=current_error, seed_current_limit_ua=SEED_CURRENT_UA,
                   max_age_ms=3000, max_skew_ms=250, model_margin_bp=margin_bp,
                   max_width_bp=1500)
     estimate = model.estimate(obs, policy)
@@ -109,19 +116,17 @@ def point_estimate(sample, margin_bp):
 def validate_history(history, *, complete=False):
     if not history:
         raise model.InvalidMeasurement("empty seed history")
-    if any(abs(row["gauge"]["current_ua"]) + 3853 > 50000 for row in history):
-        raise model.InvalidMeasurement("seed current+quantization exceeds50mA")
-    voltages = [row["voltage_uv"] for row in history]
+    if any(abs(row["gauge"]["current_ua"]) + 3853 > SEED_CURRENT_UA for row in history):
+        raise model.InvalidMeasurement("seed current+quantization exceeds2.5A")
     temps = [row["temp_mc"] for row in history]
-    if max(voltages) - min(voltages) > 5000:
-        raise model.InvalidMeasurement("seed voltage span exceeds5mV")
     if max(temps) - min(temps) > 1000:
         raise model.InvalidMeasurement("seed temperature span exceeds1C")
     for before, after in zip(history, history[1:]):
         if not 0 < after["gauge"]["mono_ns"] - before["gauge"]["mono_ns"] <= 1500000000:
             raise model.InvalidMeasurement("seed gap exceeds1.5s")
-    if complete and (len(history) != 30 or history[-1]["gauge"]["mono_ns"] - history[0]["gauge"]["mono_ns"] < 25000000000):
-        raise model.InvalidMeasurement("need30 stable samples spanning at least25s")
+    if complete and (len(history) != SEED_SAMPLES or
+                     history[-1]["gauge"]["mono_ns"] - history[0]["gauge"]["mono_ns"] < SEED_SPAN_NS):
+        raise model.InvalidMeasurement("need10 samples spanning at least9s")
 
 
 def make_tracker(history, margin_bp):
@@ -144,6 +149,8 @@ def make_tracker(history, margin_bp):
                 qmax_high_uah=max(e["qmax_high_uah"] for e in estimates))
     if seed["percentage_high"] - seed["percentage_low"] > 15:
         raise model.InvalidMeasurement("seed history sensitivity exceeds15points")
+    if max(points) - min(points) > 5:
+        raise model.InvalidMeasurement("seed points disagree by more than5points")
     tracker = model.CounterTrack(seed, first["car0"], first["car1"], first["mono_ns"] // 1000000)
     result = dict(seed)
     for sample in history[1:]:
@@ -161,6 +168,23 @@ def advance(tracker, sample):
     qmid = (tracker.seed["qmax_low_uah"] + tracker.seed["qmax_high_uah"]) / 2
     result["percentage"] = max(0, min(100, tracker.seed["percentage"] + result["delta_uah"] * 100 / qmid))
     return result
+
+
+def charger_full():
+    try:
+        return ((CHARGER / "online").read_text().strip() == "1" and
+                (CHARGER / "status").read_text().strip() == "Full")
+    except OSError:
+        return False
+
+
+def full_tracker(tracker, sample):
+    """Charge terminated at the battery's own regulation voltage: 100%."""
+    g = sample["gauge"]
+    seed = dict(tracker.seed, percentage=100.0, percentage_low=100.0, percentage_high=100.0)
+    full = model.CounterTrack(seed, g["car0"], g["car1"], g["mono_ns"] // 1000000)
+    full.seed_temp_mc = sample["temp_mc"]
+    return full
 
 
 def commit(endpoint, sample, result=None):
@@ -203,7 +227,7 @@ def run(endpoint, margin_bp, runtime_seconds):
                         history.clear()
                     history.append(sample)
                     validate_history(history)
-                    if len(history) == 30:
+                    if len(history) == SEED_SAMPLES:
                         tracker, result = make_tracker(history, margin_bp)
                         tracker.seed_temp_mc = statistics.median(s["temp_mc"] for s in history)
                 else:
@@ -211,6 +235,9 @@ def run(endpoint, margin_bp, runtime_seconds):
                     if abs(sample["temp_mc"] - tracker.seed_temp_mc) > 5000:
                         raise model.InvalidMeasurement("temperature moved5C; new model seed needed")
                     result = advance(tracker, sample)
+                    if result["percentage"] < 100 and charger_full():
+                        tracker = full_tracker(tracker, sample)
+                        result = dict(tracker.seed, delta_uah=0.0)
                 commit(endpoint, sample, result)
                 if result is not None and (not reported_seed or round(result["percentage"]) != last_percent):
                     print(json.dumps({"state": "estimated", "seed_samples": len(history),
