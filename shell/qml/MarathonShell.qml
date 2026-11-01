@@ -918,6 +918,10 @@ Item {
         function onUserActivity() {
             dimState.restore();
         }
+
+        function onKeyPressed() {
+            Display.keyboardUsed();
+        }
     }
 
     // Power-key + system-level screen-on must ALSO restore the dim.

@@ -2855,6 +2855,8 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
             m_xdgActivation->noteUserInput();
             m_lastUserInput.start();
         }
+        if (type == QEvent::KeyPress)
+            emit keyPressed();
 
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto              *keyEvent = static_cast<QKeyEvent *>(event);

@@ -127,6 +127,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "setProximityWanted"]
         fn set_proximity_wanted(self: Pin<&mut Display>, wanted: bool);
+        /// A key was pressed: the keyboard lights while the screen is on.
+        #[qinvokable]
+        #[cxx_name = "keyboardUsed"]
+        fn keyboard_used(self: Pin<&mut Display>);
     }
 
     impl cxx_qt::Threading for Display {}
@@ -137,6 +141,9 @@ use qobject::Display;
 /// The display, for the I/O thread's services.
 pub(crate) static DISPLAY: OnceLock<cxx_qt::CxxQtThread<Display>> = OnceLock::new();
 static SCREEN_ON: AtomicBool = AtomicBool::new(true);
+
+/// How long the keyboard stays lit after the last key or screen wake.
+const KEYBOARD_LIGHT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Whether the screen is on, from any thread.
 pub(crate) fn screen_on() -> bool {
@@ -162,6 +169,8 @@ pub struct DisplayRust {
     ambient_light: i32,
     panel: Option<Panel>,
     leds_dir: PathBuf,
+    keyboards_lit: bool,
+    keyboard_presses: u64,
     sensors: Option<Sender<(bool, bool)>>,
     accelerometer: Option<Sender<bool>>,
     proximity_wanted: bool,
@@ -194,6 +203,8 @@ impl Default for DisplayRust {
             ambient_light: 500,
             panel: None,
             leds_dir: PathBuf::from("/sys/class/leds"),
+            keyboards_lit: false,
+            keyboard_presses: 0,
             sensors: None,
             accelerometer: None,
             proximity_wanted: false,
@@ -241,7 +252,7 @@ impl Display {
             self.as_mut().rust_mut().leds_dir = class.join("leds");
         }
         // A shell that went away while the screen was off left them out.
-        light_keyboards(&self.leds_dir, true);
+        self.as_mut().keyboard_used();
         if let Some((dir, max, level)) = find_backlight(Path::new(&backlight_dir.to_string())) {
             let (tx, rx) = async_channel::bounded(64);
             io::spawn(backlight(dir.clone(), rx));
@@ -430,7 +441,9 @@ impl Display {
     // backlight write while the display's power domain is gated is dropped:
     // so the LED goes down before the CRTC, and comes up after it.
     fn set_screen(mut self: Pin<&mut Self>, on: bool) {
-        light_keyboards(&self.leds_dir, on);
+        if !on {
+            self.as_mut().set_keyboards_lit(false);
+        }
         if let (false, Some(panel)) = (on, &self.panel) {
             if let Err(e) = fs::write(panel.dir.join("bl_power"), "4\n") {
                 log::warn("display", format_args!("bl_power: {e}"));
@@ -439,6 +452,9 @@ impl Display {
         }
         set!(self, screen_on, screen_on_changed, on);
         SCREEN_ON.store(on, Ordering::Relaxed);
+        if on {
+            self.as_mut().keyboard_used();
+        }
         crate::power::state_changed();
         self.as_mut().screen_state_changed(on);
         if let (true, Some(panel)) = (on, &self.panel) {
@@ -466,6 +482,35 @@ impl Display {
             set!(self, proximity_near, proximity_near_changed, false);
         }
         self.want_sensors();
+    }
+
+    fn keyboard_used(mut self: Pin<&mut Self>) {
+        if !self.screen_on {
+            return;
+        }
+        self.as_mut().set_keyboards_lit(true);
+        let press = {
+            let mut rust = self.as_mut().rust_mut();
+            rust.keyboard_presses += 1;
+            rust.keyboard_presses
+        };
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            Timer::after(KEYBOARD_LIGHT_TIMEOUT).await;
+            qt.queue(move |mut obj| {
+                if obj.keyboard_presses == press {
+                    obj.as_mut().set_keyboards_lit(false);
+                }
+            })
+            .ok();
+        });
+    }
+
+    fn set_keyboards_lit(mut self: Pin<&mut Self>, on: bool) {
+        if self.keyboards_lit != on {
+            self.as_mut().rust_mut().keyboards_lit = on;
+            light_keyboards(&self.leds_dir, on);
+        }
     }
 
     /// Light while auto-brightness has a lit screen to set; proximity while
