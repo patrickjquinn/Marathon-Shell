@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Zinwa Q25 camera overlay, applied at runtime: SENINF (CSI port 0 with the
- * test-pattern generator, no sensor yet), CAMSV2 and the CSI0/CSI1 D-PHYs.
+ * Zinwa Q25 camera overlay, applied at runtime: the WL2868C camera PMIC, the
+ * front IMX111 on CSI port 0, SENINF, CAMSV2 and the CSI0/CSI1 D-PHYs.
  * Node layout follows Genio's mt8189.dtsi (a246e0c6) with MT6789 addresses
  * and mainline clock indices. The base DTB has no __symbols__ for these
  * providers, so they are referenced by their phandles in the running DTB
@@ -11,6 +11,7 @@
 /plugin/;
 
 #include <dt-bindings/clock/mediatek,mt6789-clk.h>
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/phy/phy.h>
 
@@ -18,6 +19,7 @@
 #define SPM_PC_PH	0x1e	/* q25-cam-pd serves domain 12 on this node */
 #define CAMSYS_PH	0x1a
 #define PD_CAM		12
+#define PIO_PH		0x2a
 
 &{/soc} {
 	/* as in the base, so dtc can check the reg cells */
@@ -85,9 +87,13 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				/* the sensor endpoint is added with the IMX111 */
 				port@0 {
 					reg = <0>;
+
+					seninf0_imx111: endpoint {
+						data-lanes = <1 2>;
+						remote-endpoint = <&imx111_seninf0>;
+					};
 				};
 
 				port@1 {
@@ -131,6 +137,80 @@
 				camsv2_seninf0: endpoint {
 					remote-endpoint = <&seninf0_camsv2>;
 				};
+			};
+		};
+	};
+};
+
+/* rails from the stock cust_mt6789_camera.dtsi and imgsensor_pwr_seq.c */
+&{/soc/i2c@11017000} {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pmic@2f {
+		compatible = "willsemi,wl2868c";
+		reg = <0x2f>;
+		reset-gpios = <PIO_PH 15 GPIO_ACTIVE_LOW>;
+
+		regulators {
+			cam1_dvdd: ldo2 {
+				regulator-name = "cam1-dvdd";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+			};
+
+			cam1_avdd: ldo5 {
+				regulator-name = "cam1-avdd";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+			};
+
+			cam_iovdd: ldo7 {
+				regulator-name = "cam-iovdd";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
+		};
+	};
+};
+
+&{/} {
+	/* the module's PDN pin, which imx111 does not model (as Genio's cam0_pdn) */
+	cam1_pdn: regulator-cam1-pdn {
+		compatible = "regulator-fixed";
+		regulator-name = "cam1-pdn";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <PIO_PH 17 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&cam_iovdd>;
+	};
+};
+
+&{/soc/i2c@11eb1000} {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	camera@1a {
+		compatible = "sony,imx111";
+		reg = <0x1a>;
+		/* CAMTG drives CMMCLK0 (GPIO126), as CAMTG0 does on MT8189 */
+		clocks = <TOPCKGEN_PH CLK_TOP_CAMTG_SEL>;
+		assigned-clocks = <TOPCKGEN_PH CLK_TOP_CAMTG_SEL>;
+		assigned-clock-parents = <TOPCKGEN_PH CLK_TOP_UNIVPLL_192M_D8>;
+		iovdd-supply = <&cam1_pdn>;
+		dvdd-supply = <&cam1_dvdd>;
+		avdd-supply = <&cam1_avdd>;
+		reset-gpios = <PIO_PH 16 GPIO_ACTIVE_LOW>;
+		orientation = <0>;
+		rotation = <270>;
+
+		port {
+			imx111_seninf0: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <542400000>;
+				remote-endpoint = <&seninf0_imx111>;
 			};
 		};
 	};
