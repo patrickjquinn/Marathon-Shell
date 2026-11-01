@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=36
+pkgrel=37
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -9,7 +9,8 @@ license="Apache-2.0"
 options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
  q25-kernel-modules q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
- upower-q25 q25-native-gauge q25-modem libcamera libcamera-gstreamer"
+ upower-q25 q25-native-gauge q25-modem libcamera libcamera-gstreamer
+ plymouth marathon-plymouth-theme"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
@@ -199,7 +200,7 @@ f1e9538dbffbe77c5b83d294f7b163de4e5ddbe2c5f0b5c7d10aea961bc4447ca56dcf9b8bd7746b
 6c275f539f32b2746db9da50d83b7c3f0de9ceb4db4068c4d0ba3e11f70d164dd6ed369884c37bd8c902448bd26c5bba07822bd6465f6796190fafa7ed277433  q25-usb-gadget.service
 dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695cd2bd2f2ca06153f38617fb605279038f52db61746df6f57  q25-root-dio.service
 0c7e0f8a01808bbe91e94c5654a7b36170e4674e665da76338f4cbc0815ec3271e7575297fdfc7ac86d56ca34e892fa8c2b78e549fab91113bdebaf679914950  q25-vsyncdrm
-d70008a89ab9d28aadfaf78d28a6a742c625e2e438089fb8a0adeea60267e45d60ead9ebe9fcf5ab5df6034d3f4bdbb3b6dc55ad0db5ec3935e3706c2f55486c  q25-vsyncdrm.service
+a20f28898445881165874796e008069888ed1522252ddcbc744f996617eff6acd7cb809718cc9e88f7fc03ff91848ef34d809dbe6f497e699a3e992bc76135ba  q25-vsyncdrm.service
 b16efb63bdafea45a6d3cca92822bb0eabbf137e27d070895f5d19aae7cf88cff797f16576a1a00d7f39553ced1d591d771cd197324d6ece57e2c32df2c00741  q25-backlight
 f2e391802eb3ed5eed9ea22e856ef87a272582583bcce689f591f880408d77ac5dff5fc51b1b3adfd6d8c949141cc87afc283507124c12d2f93491da5d50493c  q25-backlight.service
 dc89cdcbbf044d06c1ba18cffd2bebdc86f0015591cde276cd57fb4a82457c89b2a408f927b4662f13f8a52df5a26fbcd580dc7cc882660af36011e638ac5cff  q25-root-grow
