@@ -105,7 +105,7 @@ index 3544b91..19399ef 100644
  	void (*mtk_cam_update_buffers_add)(struct mtk_cam_dev *cam_dev,
  					   struct mtk_cam_dev_buffer *buf);
 diff --git a/camsv/mtk_camsv_hw.c b/camsv/mtk_camsv_hw.c
-index c2de30a..9f3e68f 100644
+index c2de30a..584e914 100644
 --- a/camsv/mtk_camsv_hw.c
 +++ b/camsv/mtk_camsv_hw.c
 @@ -4,8 +4,8 @@
@@ -313,7 +313,7 @@ index c2de30a..9f3e68f 100644
  }
  
  static const struct dev_pm_ops mtk_camsv_pm_ops = {
-@@ -551,13 +600,16 @@ static const struct dev_pm_ops mtk_camsv_pm_ops = {
+@@ -551,6 +600,10 @@ static const struct dev_pm_ops mtk_camsv_pm_ops = {
  };
  
  static const struct of_device_id mtk_camsv_of_ids[] = {
@@ -324,13 +324,6 @@ index c2de30a..9f3e68f 100644
  	{
  		.compatible = "mediatek,mt8189-camsv",
  		.data = &camsv_conf,
- 	},
- 	{}
- };
--MODULE_DEVICE_TABLE(of, mtk_camsv_of_ids);
- 
- static struct platform_driver mtk_camsv_driver = {
- 	.probe = mtk_camsv_probe,
 diff --git a/camsv/mtk_camsv_video.c b/camsv/mtk_camsv_video.c
 index 9e99d80..7c4371a 100644
 --- a/camsv/mtk_camsv_video.c
@@ -577,7 +570,7 @@ index 9e99d80..7c4371a 100644
 +	vb2_dma_contig_clear_max_seg_size(cam->dev);
  }
 diff --git a/phy/phy-mtk-mipi-csi-2-1.c b/phy/phy-mtk-mipi-csi-2-1.c
-index a0ec9d1..16cf984 100644
+index a0ec9d1..f58ecb5 100644
 --- a/phy/phy-mtk-mipi-csi-2-1.c
 +++ b/phy/phy-mtk-mipi-csi-2-1.c
 @@ -16,6 +16,7 @@
@@ -659,7 +652,7 @@ index a0ec9d1..16cf984 100644
  	else
  		port_num = port;
  
-@@ -942,10 +903,10 @@ static int mtk_mipi_cdphy_probe(struct platform_device *pdev)
+@@ -942,6 +903,7 @@ static int mtk_mipi_cdphy_probe(struct platform_device *pdev)
  }
  
  static const struct of_device_id mtk_mipi_cdphy_of_match[] = {
@@ -667,10 +660,6 @@ index a0ec9d1..16cf984 100644
  	{ .compatible = "mediatek,mt8189-csi-rx" },
  	{ /* sentinel */},
  };
--MODULE_DEVICE_TABLE(of, mtk_mipi_cdphy_of_match);
- 
- static struct platform_driver mipi_cdphy_pdrv = {
- 	.probe = mtk_mipi_cdphy_probe,
 diff --git a/phy/phy-mtk-mipi-csi-2-1.h b/phy/phy-mtk-mipi-csi-2-1.h
 new file mode 100644
 index 0000000..ef67713
@@ -733,7 +722,7 @@ index 0000000..ef67713
 +
 +#endif
 diff --git a/seninf/mtk_seninf.c b/seninf/mtk_seninf.c
-index d696d87..9f94ffc 100644
+index d696d87..db60689 100644
 --- a/seninf/mtk_seninf.c
 +++ b/seninf/mtk_seninf.c
 @@ -12,11 +12,14 @@
@@ -977,7 +966,7 @@ index d696d87..9f94ffc 100644
  {
  	struct device *dev = &pdev->dev;
  	struct seninf_ctx *ctx = dev_get_drvdata(dev);
-@@ -2203,15 +2228,13 @@ static int seninf_remove(struct platform_device *pdev)
+@@ -2203,11 +2228,10 @@ static int seninf_remove(struct platform_device *pdev)
  	mutex_destroy(&ctx->mutex);
  
  	dev_dbg(dev, "camsys | start %s\n", __func__);
@@ -990,11 +979,7 @@ index d696d87..9f94ffc 100644
  	{ .compatible = "mediatek,mt8189-seninf" },
  	{},
  };
--MODULE_DEVICE_TABLE(of, seninf_of_match);
- 
- static int seninf_suspend(struct platform_device *pdev, pm_message_t mesg)
- {
-@@ -2236,10 +2259,10 @@ struct platform_driver seninf_pdrv = {
+@@ -2236,6 +2260,7 @@ struct platform_driver seninf_pdrv = {
  };
  
  static const struct of_device_id mtk_seninf_of_match[] = {
@@ -1002,10 +987,6 @@ index d696d87..9f94ffc 100644
  	{ .compatible = "mediatek,mt8189-seninf-core", .data = &mt8189_data },
  	{ /* sentinel */ },
  };
--MODULE_DEVICE_TABLE(of, mtk_seninf_of_match);
- 
- static struct platform_driver mtk_seninf_driver = {
- 	.probe	= seninf_core_probe,
 diff --git a/seninf/mtk_seninf.h b/seninf/mtk_seninf.h
 index 2d20ff0..f04fc2e 100644
 --- a/seninf/mtk_seninf.h
