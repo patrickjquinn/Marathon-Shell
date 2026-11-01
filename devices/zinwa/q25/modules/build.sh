@@ -33,7 +33,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd cam-dt imu bt audio panel display clk mag light haptic net; do
+for d in keyboard md1 conn-pd cam-dt cam-pmic imu bt audio panel display clk mag light haptic net; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -102,7 +102,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in keyboard md1 conn-pd cam-dt imu audio panel display clk mag light haptic; do
+for d in keyboard md1 conn-pd cam-dt cam-pmic imu audio panel display clk mag light haptic; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 # Android netd's matches and targets, unset in the kernel config.
