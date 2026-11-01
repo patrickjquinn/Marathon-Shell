@@ -3,13 +3,14 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QFileInfo>
 #include <QImageWriter>
 #include <QMediaDevices>
 #include <QMediaFormat>
 #include <QPointer>
 #include <QThreadPool>
-#include <QTimer>
+#include <QtEndian>
 
 namespace {
     QtMessageHandler originalHandler = nullptr;
@@ -30,9 +31,14 @@ CameraController::CameraController(QObject *parent)
     if (!originalHandler) {
         originalHandler = qInstallMessageHandler(cameraMessageHandler);
     }
+    m_frameWatch.setSingleShot(true);
+    m_frameWatch.setInterval(4000);
+    connect(&m_frameWatch, &QTimer::timeout, this, &CameraController::checkFrames);
 }
 
 CameraController::~CameraController() {
+    if (m_videoSink)
+        disconnect(m_videoSink, nullptr, this, nullptr);
     stop();
 }
 
@@ -89,6 +95,7 @@ void CameraController::setupCamera(int index) {
 
     connect(m_camera, &QCamera::activeChanged, this, &CameraController::onCameraActiveChanged);
     connect(m_camera, &QCamera::errorOccurred, this, &CameraController::onCameraErrorOccurred);
+    m_camera->setFlashMode(m_flashEnabled ? QCamera::FlashOn : QCamera::FlashOff);
 
     m_currentCameraIndex = index;
     emit currentCameraIndexChanged();
@@ -106,8 +113,13 @@ void CameraController::setupCamera(int index) {
         emit photoResolutionChanged();
     }
     m_imageCapture->setResolution(m_photoResolution);
+    applyViewfinderResolution();
 
     qWarning() << "[CameraController] Using camera:" << m_cameras.at(index).description();
+}
+
+void CameraController::discover() {
+    initialize();
 }
 
 void CameraController::start() {
@@ -119,7 +131,7 @@ void CameraController::start() {
     }
 
     if (!m_camera) {
-        setupCamera(0);
+        setupCamera(std::max(0, indexOfCamera(m_cameraId)));
     }
 
     if (m_camera) {
@@ -133,27 +145,7 @@ void CameraController::stop() {
     }
 }
 
-void CameraController::flipCamera() {
-    if (m_cameras.size() < 2) {
-        emit cameraFlipStarted();
-        QTimer::singleShot(150, this, [this]() { emit cameraFlipCompleted(); });
-        return;
-    }
-
-    emit cameraFlipStarted();
-
-    int  nextIndex = (m_currentCameraIndex + 1) % m_cameras.size();
-
-    QTimer::singleShot(150, this, [this, nextIndex]() {
-        setupCamera(nextIndex);
-        if (m_camera) {
-            m_camera->start();
-        }
-        emit cameraFlipCompleted();
-    });
-}
-
-void CameraController::capturePhoto(const QString &path) {
+void CameraController::capturePhoto(const QString &path, int rotation) {
     if (!m_imageCapture || !m_camera || !m_camera->isActive()) {
         m_errorMessage = "Camera not ready";
         emit errorOccurred(m_errorMessage);
@@ -163,7 +155,7 @@ void CameraController::capturePhoto(const QString &path) {
     // Qt 6.11's GStreamer captureToFile() writes the frame before jpegenc: raw pixels.
     const int id = m_imageCapture->capture();
     if (id >= 0)
-        m_photoPaths.insert(id, path);
+        m_photoPaths.insert(id, {path, rotation});
 }
 
 void CameraController::startRecording(const QString &path, const QString &posterPath) {
@@ -204,7 +196,13 @@ void CameraController::setVideoSink(QObject *sink) {
     if (m_videoSink == videoSink)
         return;
 
+    if (m_videoSink)
+        disconnect(m_videoSink, nullptr, this, nullptr);
     m_videoSink = videoSink;
+    if (m_videoSink)
+        connect(
+            m_videoSink, &QVideoSink::videoFrameChanged, this, [this] { ++m_frames; },
+            Qt::DirectConnection);
     if (m_captureSession)
         m_captureSession->setVideoOutput(m_videoSink);
     emit videoSinkChanged();
@@ -212,10 +210,6 @@ void CameraController::setVideoSink(QObject *sink) {
 
 bool CameraController::isDiscovered() const {
     return m_discovered;
-}
-
-bool CameraController::isReady() const {
-    return !m_cameras.isEmpty();
 }
 
 bool CameraController::isActive() const {
@@ -226,22 +220,141 @@ int CameraController::cameraCount() const {
     return m_cameras.size();
 }
 
-int CameraController::currentCameraIndex() const {
-    return m_currentCameraIndex;
+// Qt's GStreamer backend numbers libcamera's cameras in the order they turn up
+// and leaves them unplaced. It describes each by libcamera's own id, a device
+// tree path: a stable id, and the sensor node's orientation says which side.
+static bool isDeviceTreeCamera(const QCameraDevice &device) {
+    return device.description().startsWith("/base/");
 }
 
-QString CameraController::currentCameraName() const {
-    if (m_currentCameraIndex >= 0 && m_currentCameraIndex < m_cameras.size()) {
-        return m_cameras.at(m_currentCameraIndex).description();
-    }
-    return QString();
+static QString idOf(const QCameraDevice &device) {
+    return isDeviceTreeCamera(device) ? device.description() : QString::fromUtf8(device.id());
 }
 
-bool CameraController::isFrontCamera() const {
-    if (m_currentCameraIndex >= 0 && m_currentCameraIndex < m_cameras.size()) {
-        return m_cameras.at(m_currentCameraIndex).position() == QCameraDevice::FrontFace;
+// A cell of the sensor's device tree node, -1 without one.
+static qint64 deviceTreeCell(const QCameraDevice &device, const char *property) {
+    if (!isDeviceTreeCamera(device))
+        return -1;
+    QFile file("/sys/firmware/devicetree" + device.description() + "/" + property);
+    if (!file.open(QIODevice::ReadOnly))
+        return -1;
+    const QByteArray value = file.read(4);
+    return value.size() == 4 ? qFromBigEndian<quint32>(value.constData()) : -1;
+}
+
+static QCameraDevice::Position positionOf(const QCameraDevice &device) {
+    if (device.position() != QCameraDevice::UnspecifiedPosition)
+        return device.position();
+    switch (deviceTreeCell(device, "orientation")) {
+        case 0: return QCameraDevice::FrontFace;
+        case 1: return QCameraDevice::BackFace;
+        default: return QCameraDevice::UnspecifiedPosition;
     }
-    return false;
+}
+
+// How far its frames turn clockwise to stand upright on the screen.
+static int rotationOf(const QCameraDevice &device) {
+    if (device.correctionAngle() != QtVideo::Rotation::None)
+        return int(device.correctionAngle());
+    const qint64 rotation = deviceTreeCell(device, "rotation");
+    return rotation > 0 ? int(rotation % 360) : 0;
+}
+
+QVariantList CameraController::cameras() const {
+    QVariantList list;
+    for (const QCameraDevice &device : m_cameras)
+        list.append(QVariantMap{{"id", idOf(device)},
+                                {"description", device.description()},
+                                {"position", int(positionOf(device))},
+                                {"rotation", rotationOf(device)}});
+    return list;
+}
+
+QString CameraController::defaultCameraId() const {
+    if (!m_discovered)
+        return QString();
+    return idOf(QMediaDevices::defaultVideoInput());
+}
+
+QString CameraController::cameraId() const {
+    if (m_camera)
+        return idOf(m_cameras.at(m_currentCameraIndex));
+    return m_cameraId;
+}
+
+int CameraController::indexOfCamera(const QString &id) const {
+    for (int i = 0; i < m_cameras.size(); ++i) {
+        if (idOf(m_cameras.at(i)) == id)
+            return i;
+    }
+    return -1;
+}
+
+// Before discovery the id waits for start(); after, a running camera switches.
+void CameraController::setCameraId(const QString &id) {
+    if (id == cameraId())
+        return;
+    m_cameraId      = id;
+    const int index = indexOfCamera(id);
+    if (!m_camera || index < 0) {
+        emit currentCameraIndexChanged();
+        return;
+    }
+    const bool running = m_camera->isActive();
+    setupCamera(index);
+    if (running && m_camera)
+        m_camera->start();
+}
+
+QVariantList CameraController::previewResolutions() const {
+    QList<QSize> sizes;
+    if (m_currentCameraIndex >= 0 && m_currentCameraIndex < m_cameras.size()) {
+        for (const QCameraFormat &format : m_cameras.at(m_currentCameraIndex).videoFormats()) {
+            if (!sizes.contains(format.resolution()))
+                sizes.append(format.resolution());
+        }
+    }
+    std::sort(sizes.begin(), sizes.end(), [](const QSize &a, const QSize &b) {
+        return a.width() * a.height() > b.width() * b.height();
+    });
+    QVariantList list;
+    for (const QSize &size : sizes)
+        list.append(size);
+    return list;
+}
+
+QSize CameraController::viewfinderResolution() const {
+    return m_viewfinderResolution;
+}
+
+void CameraController::setViewfinderResolution(const QSize &size) {
+    if (m_viewfinderResolution == size)
+        return;
+    m_viewfinderResolution = size;
+    applyViewfinderResolution();
+    emit viewfinderResolutionChanged();
+}
+
+// The fastest format at the resolution asked for. libcamerasrc cannot
+// renegotiate a running stream ("not-negotiated"), so a running camera stops
+// for the change.
+void CameraController::applyViewfinderResolution() {
+    if (!m_camera)
+        return;
+    QCameraFormat best;
+    for (const QCameraFormat &format : m_camera->cameraDevice().videoFormats()) {
+        if (format.resolution() == m_viewfinderResolution &&
+            (best.isNull() || format.maxFrameRate() > best.maxFrameRate()))
+            best = format;
+    }
+    if (best == m_camera->cameraFormat())
+        return;
+    const bool running = m_camera->isActive();
+    if (running)
+        m_camera->stop();
+    m_camera->setCameraFormat(best);
+    if (running)
+        m_camera->start();
 }
 
 qreal CameraController::zoomLevel() const {
@@ -260,10 +373,6 @@ void CameraController::setZoomLevel(qreal level) {
     emit zoomLevelChanged();
 }
 
-qreal CameraController::minZoom() const {
-    return m_minZoom;
-}
-
 qreal CameraController::maxZoom() const {
     return m_maxZoom;
 }
@@ -273,6 +382,7 @@ void CameraController::updateZoomRange() {
         m_minZoom   = m_camera->minimumZoomFactor();
         m_maxZoom   = m_camera->maximumZoomFactor();
         m_zoomLevel = qBound(m_minZoom, m_zoomLevel, m_maxZoom);
+        m_camera->setZoomFactor(m_zoomLevel);
         emit zoomRangeChanged();
         emit zoomLevelChanged();
     }
@@ -323,16 +433,39 @@ bool CameraController::isRecording() const {
     return m_mediaRecorder && m_mediaRecorder->recorderState() == QMediaRecorder::RecordingState;
 }
 
-QString CameraController::errorMessage() const {
-    return m_errorMessage;
-}
-
 void CameraController::onCameraActiveChanged(bool active) {
     emit activeChanged();
     if (active) {
         updateZoomRange();
         emit flashAvailableChanged();
+        m_framesAtStart = m_frames;
+        m_frameWatch.start();
+    } else {
+        m_frameWatch.stop();
     }
+}
+
+// A camera that is active but sends nothing starts again, a few times. When
+// libcamera's first frame is slow, Qt can give up taking the stream to
+// PLAYING ("Could not finish change state"), and none ever comes.
+void CameraController::checkFrames() {
+    if (!m_camera || !m_camera->isActive())
+        return;
+    if (m_frames != m_framesAtStart) {
+        m_restarts = 0;
+        return;
+    }
+    if (++m_restarts > 3)
+        return;
+    qWarning() << "[CameraController] No frames: restarting the camera";
+    m_camera->stop();
+    QMetaObject::invokeMethod(
+        this,
+        [this] {
+            if (m_camera)
+                m_camera->start();
+        },
+        Qt::QueuedConnection);
 }
 
 void CameraController::onCameraErrorOccurred(QCamera::Error error, const QString &errorString) {
@@ -343,15 +476,24 @@ void CameraController::onCameraErrorOccurred(QCamera::Error error, const QString
 }
 
 void CameraController::onImageCaptured(int id, const QImage &image) {
-    const QString fileName = m_photoPaths.take(id);
+    const auto    photo    = m_photoPaths.take(id);
+    const QString fileName = photo.first;
+    const int     rotation = photo.second;
     if (fileName.isEmpty())
         return;
     QPointer<CameraController> self(this);
-    QThreadPool::globalInstance()->start([self, image, fileName] {
-        QImageWriter writer(fileName, "jpeg");
+    QThreadPool::globalInstance()->start([self, image, fileName, rotation] {
+        // Under another name until whole: the camera roll shows the folder.
+        const QString part = fileName + ".part";
+        QImageWriter  writer(part, "jpeg");
         writer.setQuality(92);
-        const bool    saved = writer.write(image);
+        bool saved =
+            writer.write(rotation ? image.transformed(QTransform().rotate(rotation)) : image);
         const QString error = writer.errorString();
+        if (saved)
+            saved = QFile::rename(part, fileName);
+        else
+            QFile::remove(part);
         QMetaObject::invokeMethod(QCoreApplication::instance(), [self, saved, fileName, error] {
             if (!self)
                 return;

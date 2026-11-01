@@ -36,6 +36,8 @@ camera-switch camera-rotate
 cancel x
 capslock arrow-fat-up
 cellular cell-signal-full
+certificates certificate
+chat chat-circle
 checkmark check
 clear x-circle
 clear-opaque-cross x-circle
@@ -119,8 +121,45 @@ hidden eye-slash
 hide-password eye-slash
 history clock-counter-clockwise
 home house
+icon-camera-camera-mode camera 64
+icon-camera-exposure-compensation plus-minus 64
+icon-camera-filter-off drop 64
+icon-camera-filter-on drop-half 64
+icon-camera-flash-automatic lightning-a 64
+icon-camera-flash-off lightning-slash 64
+icon-camera-flash-on lightning 64
+icon-camera-flash-redeye eye 64
+icon-camera-grid-none square 64
+icon-camera-grid-thirds grid-nine 64
+icon-camera-iso aperture 64
+icon-camera-metering-matrix grid-four 64
+icon-camera-metering-spot crosshair-simple 64
+icon-camera-metering-weighted circle-half 64
+icon-camera-mode-automatic aperture 64
+icon-camera-mode-hdr circle-half 64
+icon-camera-mode-night moon 64
+icon-camera-mode-portrait user 64
+icon-camera-mode-sports person-simple-run 64
+icon-camera-qr qr-code 64
+icon-camera-reset arrow-counter-clockwise 64
 icon-camera-shutter record 96
+icon-camera-switch camera-rotate 64
+icon-camera-timer timer 64
+icon-camera-timer-10s timer 64
+icon-camera-timer-15s timer 64
+icon-camera-timer-3s timer 64
+icon-camera-video video-camera 64
+icon-camera-video-shutter-off stop 96
+icon-camera-video-shutter-on record 96
+icon-camera-wb-automatic thermometer 64
+icon-camera-wb-cloudy cloud 64
+icon-camera-wb-fluorecent lightbulb-filament 64
+icon-camera-wb-shade tree 64
+icon-camera-wb-sunny sun 64
+icon-camera-wb-sunset sun-horizon 64
+icon-camera-wb-tungsten lightbulb 64
 image image
+imaging aperture
 incognito detective
 incognito-new detective
 incognito-selected detective
@@ -184,6 +223,7 @@ power power
 previous skip-back
 print printer
 privacy shield-check
+qr qr-code
 question question
 redo arrow-clockwise
 refresh arrows-clockwise
@@ -198,8 +238,10 @@ rotate arrows-clockwise
 save floppy-disk
 scale arrows-out
 science flask
+sd-card hard-drive
 search magnifying-glass
 search-on-page file-magnifying-glass
+secure lock
 select-all checks
 send paper-plane-tilt
 setting gear
@@ -209,6 +251,7 @@ show-password eye
 shuffle shuffle
 sim sim-card
 sms chat-text
+sounds speaker-high
 speaker speaker-high
 speaker-mute speaker-slash
 sport person-simple-run

@@ -35,6 +35,9 @@ for old in out.glob("*.svg"):
     if old.stem not in wanted:
         old.unlink()
 for name in sorted(wanted):
+    # Drawn by hand, not a Thin glyph (star-fill).
+    if name not in codepoints:
+        continue
     pen = SVGPathPen(glyph_set, ntos=lambda v: str(round(v)))
     glyph_set[cmap[codepoints[name]]].draw(pen)
     (out / f"{name}.svg").write_text(
