@@ -189,6 +189,10 @@ mkdir -p "$out/cmp"
 status=0
 for ko in "$out"/modules/*.ko; do
 	m=$(basename "$ko")
+	if [ ! -f "$shipped/$m" ]; then
+		echo "$m: new"
+		continue
+	fi
 	llvm-strip --strip-debug -o "$out/cmp/new-$m" "$ko"
 	llvm-strip --strip-debug -o "$out/cmp/shipped-$m" "$shipped/$m"
 	printf '%s: ' "$m"
