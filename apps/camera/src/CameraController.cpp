@@ -1,9 +1,13 @@
 #include "CameraController.h"
 #include <algorithm>
+#include <QCoreApplication>
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QFileInfo>
+#include <QImageWriter>
 #include <QMediaDevices>
+#include <QPointer>
+#include <QThreadPool>
 #include <QTimer>
 
 namespace {
@@ -47,7 +51,8 @@ void CameraController::initialize() {
     m_captureSession->setVideoOutput(m_videoSink);
 
     connect(m_imageCapture, &QImageCapture::imageExposed, this, &CameraController::photoExposed);
-    connect(m_imageCapture, &QImageCapture::imageSaved, this, &CameraController::onImageSaved);
+    connect(m_imageCapture, &QImageCapture::imageCaptured, this,
+            &CameraController::onImageCaptured);
     connect(m_imageCapture, &QImageCapture::errorOccurred, this, &CameraController::onImageError);
     connect(m_mediaRecorder, &QMediaRecorder::recorderStateChanged, this,
             &CameraController::onRecorderStateChanged);
@@ -150,7 +155,10 @@ void CameraController::capturePhoto(const QString &path) {
         return;
     }
 
-    m_imageCapture->captureToFile(path);
+    // Qt 6.11's GStreamer captureToFile() writes the frame before jpegenc: raw pixels.
+    const int id = m_imageCapture->capture();
+    if (id >= 0)
+        m_photoPaths.insert(id, path);
 }
 
 void CameraController::startRecording(const QString &path, const QString &posterPath) {
@@ -329,10 +337,27 @@ void CameraController::onCameraErrorOccurred(QCamera::Error error, const QString
     qWarning() << "[CameraController] Camera error:" << errorString;
 }
 
-void CameraController::onImageSaved(int id, const QString &fileName) {
-    Q_UNUSED(id)
-    qWarning() << "[CameraController] Photo saved:" << fileName;
-    emit photoSaved(QUrl::fromLocalFile(fileName).toString());
+void CameraController::onImageCaptured(int id, const QImage &image) {
+    const QString fileName = m_photoPaths.take(id);
+    if (fileName.isEmpty())
+        return;
+    QPointer<CameraController> self(this);
+    QThreadPool::globalInstance()->start([self, image, fileName] {
+        QImageWriter writer(fileName, "jpeg");
+        writer.setQuality(92);
+        const bool    saved = writer.write(image);
+        const QString error = writer.errorString();
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, saved, fileName, error] {
+            if (!self)
+                return;
+            if (!saved) {
+                self->onImageError(-1, QImageCapture::ResourceError, error);
+                return;
+            }
+            qWarning() << "[CameraController] Photo saved:" << fileName;
+            emit self->photoSaved(QUrl::fromLocalFile(fileName).toString());
+        });
+    });
 }
 
 void CameraController::onImageError(int id, QImageCapture::Error error,

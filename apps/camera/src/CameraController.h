@@ -6,6 +6,7 @@
 #include <QImageCapture>
 #include <QMediaRecorder>
 #include <QVideoSink>
+#include <QHash>
 #include <QImage>
 #include <QSize>
 #include <QUrl>
@@ -102,7 +103,7 @@ class CameraController : public QObject {
   private slots:
     void onCameraActiveChanged(bool active);
     void onCameraErrorOccurred(QCamera::Error error, const QString &errorString);
-    void onImageSaved(int id, const QString &fileName);
+    void onImageCaptured(int id, const QImage &image);
     void onImageError(int id, QImageCapture::Error error, const QString &errorString);
     void onRecorderStateChanged(QMediaRecorder::RecorderState state);
     void onRecorderError(QMediaRecorder::Error error, const QString &errorString);
@@ -130,6 +131,8 @@ class CameraController : public QObject {
 
     QList<QSize>          m_photoResolutions;
     QSize                 m_photoResolution;
+
+    QHash<int, QString>   m_photoPaths;
 
     QImage                m_recordingPoster;
     QString               m_posterPath;
