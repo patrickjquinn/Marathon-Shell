@@ -332,75 +332,42 @@ index c2de30a..9f3e68f 100644
  static struct platform_driver mtk_camsv_driver = {
  	.probe = mtk_camsv_probe,
 diff --git a/camsv/mtk_camsv_video.c b/camsv/mtk_camsv_video.c
-index 9e99d80..948b4f0 100644
+index 9e99d80..141e116 100644
 --- a/camsv/mtk_camsv_video.c
 +++ b/camsv/mtk_camsv_video.c
-@@ -34,47 +34,73 @@ to_mtk_cam_dev_buffer(struct vb2_buffer *buf)
+@@ -34,47 +34,52 @@ to_mtk_cam_dev_buffer(struct vb2_buffer *buf)
   * Format Information
   */
  
 +/*
-+ * Unpacked RAW10 is offered as 14-bit and as 10-bit fourccs: on MT6789 the
-+ * SENINF test pattern arrives 14-bit LSB-aligned in each 16-bit word, so the
-+ * 14-bit ones come first; S_FMT the 10-bit one if a sensor's data is not
-+ * shifted. Both program the same unpacked mode.
++ * The unpacked mode writes RAW10 shifted left by 4 into each 16-bit word (seen
++ * with the SENINF test pattern and the IMX111 on MT6789), so RAW10 is offered
++ * as the 14-bit fourccs only.
 + */
  static const struct mtk_cam_format_info mtk_cam_format_info[] = {
  	{
 -		.fourcc = V4L2_PIX_FMT_MTISP_SBGGR12,
-+		.fourcc = V4L2_PIX_FMT_SBGGR14,
-+		.code = MEDIA_BUS_FMT_SBGGR10_1X10,
-+		.packed = false,
-+		.bpp = 16,
-+	}, {
-+		.fourcc = V4L2_PIX_FMT_SGBRG14,
-+		.code = MEDIA_BUS_FMT_SGBRG10_1X10,
-+		.packed = false,
-+		.bpp = 16,
-+	}, {
-+		.fourcc = V4L2_PIX_FMT_SGRBG14,
-+		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
-+		.packed = false,
-+		.bpp = 16,
-+	}, {
-+		.fourcc = V4L2_PIX_FMT_SRGGB14,
-+		.code = MEDIA_BUS_FMT_SRGGB10_1X10,
-+		.packed = false,
-+		.bpp = 16,
-+	}, {
-+		.fourcc = V4L2_PIX_FMT_SBGGR12,
- 		.code = MEDIA_BUS_FMT_SBGGR12_1X12,
+-		.code = MEDIA_BUS_FMT_SBGGR12_1X12,
 -		.packed = true,
 -		.bpp = 12,
-+		.packed = false,
-+		.bpp = 16,
- 	}, {
+-	}, {
 -		.fourcc = V4L2_PIX_FMT_MTISP_SGBRG12,
-+		.fourcc = V4L2_PIX_FMT_SGBRG12,
- 		.code = MEDIA_BUS_FMT_SGBRG12_1X12,
+-		.code = MEDIA_BUS_FMT_SGBRG12_1X12,
 -		.packed = true,
 -		.bpp = 12,
-+		.packed = false,
-+		.bpp = 16,
- 	}, {
+-	}, {
 -		.fourcc = V4L2_PIX_FMT_MTISP_SGRBG12,
-+		.fourcc = V4L2_PIX_FMT_SGRBG12,
- 		.code = MEDIA_BUS_FMT_SGRBG12_1X12,
+-		.code = MEDIA_BUS_FMT_SGRBG12_1X12,
 -		.packed = true,
 -		.bpp = 12,
-+		.packed = false,
-+		.bpp = 16,
- 	}, {
+-	}, {
 -		.fourcc = V4L2_PIX_FMT_MTISP_SRGGB12,
-+		.fourcc = V4L2_PIX_FMT_SRGGB12,
- 		.code = MEDIA_BUS_FMT_SRGGB12_1X12,
+-		.code = MEDIA_BUS_FMT_SRGGB12_1X12,
 -		.packed = true,
 -		.bpp = 12,
-+		.packed = false,
-+		.bpp = 16,
- 	}, {
+-	}, {
 -		.fourcc = V4L2_PIX_FMT_MTISP_SBGGR10,
-+		.fourcc = V4L2_PIX_FMT_SBGGR10,
++		.fourcc = V4L2_PIX_FMT_SBGGR14,
  		.code = MEDIA_BUS_FMT_SBGGR10_1X10,
 -		.packed = true,
 -		.bpp = 10,
@@ -408,7 +375,7 @@ index 9e99d80..948b4f0 100644
 +		.bpp = 16,
  	}, {
 -		.fourcc = V4L2_PIX_FMT_MTISP_SGBRG10,
-+		.fourcc = V4L2_PIX_FMT_SGBRG10,
++		.fourcc = V4L2_PIX_FMT_SGBRG14,
  		.code = MEDIA_BUS_FMT_SGBRG10_1X10,
 -		.packed = true,
 -		.bpp = 10,
@@ -416,7 +383,7 @@ index 9e99d80..948b4f0 100644
 +		.bpp = 16,
  	}, {
 -		.fourcc = V4L2_PIX_FMT_MTISP_SGRBG10,
-+		.fourcc = V4L2_PIX_FMT_SGRBG10,
++		.fourcc = V4L2_PIX_FMT_SGRBG14,
  		.code = MEDIA_BUS_FMT_SGRBG10_1X10,
 -		.packed = true,
 -		.bpp = 10,
@@ -424,16 +391,36 @@ index 9e99d80..948b4f0 100644
 +		.bpp = 16,
  	}, {
 -		.fourcc = V4L2_PIX_FMT_MTISP_SRGGB10,
-+		.fourcc = V4L2_PIX_FMT_SRGGB10,
++		.fourcc = V4L2_PIX_FMT_SRGGB14,
  		.code = MEDIA_BUS_FMT_SRGGB10_1X10,
 -		.packed = true,
 -		.bpp = 10,
 +		.packed = false,
 +		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SBGGR12,
++		.code = MEDIA_BUS_FMT_SBGGR12_1X12,
++		.packed = false,
++		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SGBRG12,
++		.code = MEDIA_BUS_FMT_SGBRG12_1X12,
++		.packed = false,
++		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SGRBG12,
++		.code = MEDIA_BUS_FMT_SGRBG12_1X12,
++		.packed = false,
++		.bpp = 16,
++	}, {
++		.fourcc = V4L2_PIX_FMT_SRGGB12,
++		.code = MEDIA_BUS_FMT_SRGGB12_1X12,
++		.packed = false,
++		.bpp = 16,
  	}, {
  		.fourcc = V4L2_PIX_FMT_SBGGR8,
  		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
-@@ -289,7 +315,6 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
+@@ -289,7 +294,6 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
  static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
  {
  	struct mtk_cam_dev *cam = vb2_get_drv_priv(vb->vb2_queue);
@@ -441,7 +428,7 @@ index 9e99d80..948b4f0 100644
  	struct mtk_cam_dev_buffer *buf = to_mtk_cam_dev_buffer(vb);
  	unsigned long flags = 0;
  
-@@ -363,14 +388,20 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
+@@ -363,14 +367,20 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
  
  	dev_info(dev, "%s: start streaming\n", __func__);
  
@@ -466,7 +453,7 @@ index 9e99d80..948b4f0 100644
  
  	/* update first buffer address */
  	/* added the buffer into the tracking list */
-@@ -421,12 +452,11 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
+@@ -421,12 +431,11 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
  	int ret;
  
  	mutex_lock(&cam->op_lock);
@@ -482,7 +469,7 @@ index 9e99d80..948b4f0 100644
  
  	mtk_cam_vb2_return_all_buffers(cam, VB2_BUF_STATE_ERROR);
  	mutex_unlock(&cam->op_lock);
-@@ -440,8 +470,6 @@ static const struct vb2_ops mtk_cam_vb2_ops = {
+@@ -440,8 +449,6 @@ static const struct vb2_ops mtk_cam_vb2_ops = {
  	.buf_queue = mtk_cam_vb2_buf_queue,
  	.start_streaming = mtk_cam_vb2_start_streaming,
  	.stop_streaming = mtk_cam_vb2_stop_streaming,
@@ -491,7 +478,7 @@ index 9e99d80..948b4f0 100644
  };
  
  /* -----------------------------------------------------------------------------
-@@ -631,14 +659,18 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
+@@ -631,14 +638,14 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
  
  static const u32 stream_out_fmts[] = {
  	/* The 1st entry is the default image format */
@@ -507,10 +494,6 @@ index 9e99d80..948b4f0 100644
 +	V4L2_PIX_FMT_SBGGR14,
 +	V4L2_PIX_FMT_SGBRG14,
 +	V4L2_PIX_FMT_SRGGB14,
-+	V4L2_PIX_FMT_SGRBG10,
-+	V4L2_PIX_FMT_SBGGR10,
-+	V4L2_PIX_FMT_SGBRG10,
-+	V4L2_PIX_FMT_SRGGB10,
 +	V4L2_PIX_FMT_SGRBG12,
 +	V4L2_PIX_FMT_SBGGR12,
 +	V4L2_PIX_FMT_SGBRG12,
@@ -518,7 +501,7 @@ index 9e99d80..948b4f0 100644
  	V4L2_PIX_FMT_SBGGR8,
  	V4L2_PIX_FMT_SGBRG8,
  	V4L2_PIX_FMT_SGRBG8,
-@@ -695,13 +727,13 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+@@ -695,13 +702,13 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
  
  	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
  
@@ -534,7 +517,7 @@ index 9e99d80..948b4f0 100644
  
  	vbq->type = cam_vdev->desc->buf_type;
  	vbq->io_modes = VB2_MMAP | VB2_DMABUF;
-@@ -718,7 +750,7 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+@@ -718,7 +725,7 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
  			     | V4L2_BUF_FLAG_TSTAMP_SRC_EOF;
  
  	/* No minimum buffers limitation */
@@ -543,7 +526,7 @@ index 9e99d80..948b4f0 100644
  	vbq->drv_priv = cam;
  
  	vbq->lock = &cam_vdev->vdev_lock;
-@@ -785,5 +817,5 @@ void mtk_isp6s_camsv_video_unregister(struct mtk_cam_video_device *vdev)
+@@ -785,5 +792,5 @@ void mtk_isp6s_camsv_video_unregister(struct mtk_cam_video_device *vdev)
  	vb2_queue_release(&vdev->vbq);
  	media_entity_cleanup(&vdev->vdev.entity);
  	mutex_destroy(&vdev->vdev_lock);
