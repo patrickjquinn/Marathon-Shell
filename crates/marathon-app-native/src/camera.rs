@@ -1,6 +1,6 @@
 //! `Captures` (QML `MarathonOS.Services`): the Camera app's photos and
 //! videos on disk. The newest one and an image of it (the photo itself, a
-//! video's poster frame), where the next one goes, and deleting it.
+//! video's poster frame), where the next one goes, and deleting one.
 //! Capturing stays in the app's Qt Multimedia controller.
 
 use std::fs;
@@ -40,9 +40,9 @@ pub mod qobject {
         /// A capture the controller saved, as a URL or a path.
         #[qinvokable]
         fn add(self: Pin<&mut Captures>, capture: &QString);
+        /// Deletes a capture, given as a URL or a path, and a video's poster.
         #[qinvokable]
-        #[cxx_name = "deleteLatest"]
-        fn delete_latest(self: Pin<&mut Captures>);
+        fn remove(self: Pin<&mut Captures>, capture: &QString);
     }
 
     impl cxx_qt::Threading for Captures {}
@@ -184,8 +184,8 @@ impl Captures {
         }
     }
 
-    fn delete_latest(self: Pin<&mut Self>) {
-        let file = local(&self.latest);
+    fn remove(self: Pin<&mut Self>, capture: &QString) {
+        let file = local(capture);
         if file.as_os_str().is_empty() {
             return;
         }
@@ -193,7 +193,9 @@ impl Captures {
         if is_video(&file) {
             fs::remove_file(poster_path(&file)).ok();
         }
-        let next = newest(&folder());
-        self.show(next.as_deref());
+        if file == local(&self.latest) {
+            let next = newest(&folder());
+            self.show(next.as_deref());
+        }
     }
 }

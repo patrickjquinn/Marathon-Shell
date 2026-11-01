@@ -8,7 +8,7 @@ import Keel.Actions 1.0
 Item {
     id: root
 
-    // The app: camera, mode, setMode(), beginCapture(), pageStack and activate().
+    // The app: noCamera, mode, setMode(), beginCapture(), cameraPage, pageStack and activate().
     property var app
 
     KeelAction {
@@ -42,7 +42,7 @@ Item {
         }
         onInvoked: (args, call) => {
             const app = root.app;
-            if (app.camera.discovered && app.camera.cameraCount === 0) {
+            if (app.noCamera) {
                 call.fail("NotAvailable", "this device has no camera");
                 return;
             }
@@ -74,14 +74,14 @@ Item {
         }
         onInvoked: (args, call) => {
             const app = root.app;
-            // Cameras are only enumerated once the camera first starts.
-            if (app.camera.discovered && app.camera.cameraCount === 0) {
+            if (app.noCamera) {
                 call.fail("NotAvailable", "this device has no camera");
                 return;
             }
             app.setMode(args.mode || "photo");
             if (app.pageStack.depth > 1)
                 app.pageStack.pop();
+            app.cameraPage.returnToCaptureMode();
             app.activate();
             call.reply({
                 mode: app.mode
