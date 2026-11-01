@@ -33,7 +33,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio panel display clk mag light haptic net; do
+for d in keyboard md1 conn-pd cam-dt imu bt audio panel display clk mag light haptic net; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -102,7 +102,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in keyboard md1 conn-pd imu audio panel display clk mag light haptic; do
+for d in keyboard md1 conn-pd cam-dt imu audio panel display clk mag light haptic; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 # Android netd's matches and targets, unset in the kernel config.
@@ -160,8 +160,9 @@ net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUER
 for m in $net; do
 	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
 done
+# The camera modules are loaded by hand and stay in obj/ until they ship.
 find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" ! -path "$out/obj/net/*" \
-	! -path "$out/obj/media/*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
+	! -path "$out/obj/media/*" ! -path "$out/obj/cam-*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
 while read -r ko; do
 	case "$(basename "$ko")" in
 	q25-bbq-keys.ko | q25-keyboard-led.ko | q25-md1-owner.ko | inv-icm42607*.ko | spi-mt65xx.ko)
