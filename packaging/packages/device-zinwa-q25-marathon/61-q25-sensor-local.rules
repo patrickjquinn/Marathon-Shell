@@ -1,0 +1,4 @@
+# Zinwa Q25: ICM-4N607 accelerometer frame -> iio-sensor-proxy frame
+# (portrait upright reads y < 0). Install only after the selftest's
+# imu.orientation check reports raw y > 0 while upright.
+SUBSYSTEM=="iio", ATTR{name}=="icm42607p-accel", ENV{ACCEL_MOUNT_MATRIX}="-1, 0, 0; 0, -1, 0; 0, 0, 1"

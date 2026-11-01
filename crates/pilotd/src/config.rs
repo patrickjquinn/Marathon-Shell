@@ -516,8 +516,10 @@ mod tests {
         assert_eq!(s.llm.model, "qwen/qwen3.8-27b");
         assert_eq!(s.llm.allowed_regions, ["eu", "us"]);
         assert_eq!(s.llm.provider, "groq");
-        assert!(s.llm.url.is_empty());
-        assert!(c.web_search_url.is_empty());
+        let empty = &s.llm.url;
+        assert!(empty.is_empty(), "{empty:?}");
+        let empty = &c.web_search_url;
+        assert!(empty.is_empty(), "{empty:?}");
         assert!(matches!(&s.jev, JevConfig::Jev { url, .. } if url.is_empty()));
         assert!(c.local.llm_url.starts_with("http://127.0.0.1:"));
         assert!((c.thresholds.intent_confidence - 0.85).abs() < f64::EPSILON);

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+obj-m += q25-btmtk-stp.o
+ccflags-y += -I$(WMTSRC)/include \
+	-I$(WMTSRC)/include/drivers/misc/mediatek/connectivity/common/common_main/include \
+	-I$(WMTSRC)/include/drivers/misc/mediatek/connectivity/common/common_main/linux/include \
+	-I$(WMTSRC)/include/drivers/misc/mediatek/include/mt-plat \
+	-DMTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT -DWMT_IDC_SUPPORT=0

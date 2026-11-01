@@ -1,0 +1,53 @@
+# postmarketOS's systemd build of UPower plus one patch: power_supply
+# devices that udev tags UPOWER_IGNORE=1 are not enumerated. The Q25's
+# bq256xx charger registers a second, unusable battery next to the gauge;
+# device-zinwa-q25-marathon tags it. Untagged systems behave as before.
+# It replaces upower and upower-systemd; keep pkgver with postmarketOS's.
+pkgname=upower-q25
+pkgver=1.91.0
+pkgrel=0
+pkgdesc="Power Management Services, with udev UPOWER_IGNORE support"
+url="https://upower.freedesktop.org"
+arch="aarch64"
+license="GPL-2.0-or-later"
+provides="upower=9999$pkgver-r99 upower-systemd=9999$pkgver-r99"
+provider_priority=200
+replaces="upower upower-systemd"
+makedepends="
+	docbook-xsl
+	glib-dev
+	gobject-introspection-dev
+	gtk-doc
+	libgudev-dev
+	libxslt
+	meson
+	udev-dev
+	polkit-dev
+	"
+subpackages="$pkgname-dev $pkgname-doc $pkgname-lang"
+options="!check"
+source="https://gitlab.freedesktop.org/upower/upower/-/archive/v$pkgver/upower-v$pkgver.tar.gz
+	0001-linux-skip-power-supplies-tagged-UPOWER_IGNORE.patch
+	"
+builddir="$srcdir/upower-v$pkgver"
+
+build() {
+	abuild-meson \
+		-Dudevhwdbdir=/usr/lib/udev/hwdb.d/ \
+		-Dudevrulesdir=/usr/lib/udev/rules.d \
+		-Dsystemdsystemunitdir=/usr/lib/systemd/system \
+		-Dman=true \
+		. output
+	meson compile -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+	rm -rf "$pkgdir/usr/libexec/upower/" \
+		"$pkgdir/usr/share/installed-tests/"
+}
+
+sha512sums="
+477c392251f1a72917f5a89e151a0ba2b0ffae6e13fa2728cd9878f51113eda8c66b4a706591ac1e836bf44ffa55f4060540c3d0efd8da9df0f31b1ab4518623  upower-v1.91.0.tar.gz
+6d740304978f9e74c669beb6e6aef28e796e79ad804959dd32b398500333596417de33085d1cb905a5b8e4a97aec42676aa53a961d80d4201edb10bd467d2734  0001-linux-skip-power-supplies-tagged-UPOWER_IGNORE.patch
+"

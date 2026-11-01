@@ -1,0 +1,15 @@
+# Q25/Helio G99 traits; no GPU enablement or kernel policy is installed here.
+schema = 1
+id = "mt6789"
+name = "MediaTek Helio G99 (MT6789)"
+arch = "aarch64"
+cpu = "6x Cortex-A55 + 2x Cortex-A76"
+
+[gpu]
+name = "Mali-G57 MC2 (hardware rendering unvalidated)"
+
+# Only the bring-up software stack is declared; this does not enable Panfrost.
+[gpu.stacks.llvmpipe]
+driver = "Mesa software rendering (bring-up)"
+gles_max = "3.0"
+msaa = false

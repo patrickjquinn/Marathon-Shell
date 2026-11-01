@@ -4,9 +4,9 @@
 # deckard-containerd's Init takes them from /usr/share/deckard/images, with
 # the build dates from images.cfg.
 pkgname=deckard-images
-pkgver=23.2.20261028
-pkgrel=0
-_date=1793176546
+pkgver=23.2.20261101
+pkgrel=1
+_date=1793529300
 pkgdesc="Android system and vendor images for Deckard"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64"
@@ -14,9 +14,9 @@ depends="deckard>=0.1.0-r22"
 license="Apache-2.0"
 makedepends="zstd"
 options="!check !strip !tracedeps"
-_rel=https://github.com/patrickjquinn/Marathon-Shell/releases/download/deckard-images-23.2-20261028
-_sys=deckard-23.2-20261028-system.img.zst
-_ven=deckard-23.2-20261028-vendor.img.zst
+_rel=https://github.com/patrickjquinn/Marathon-Shell/releases/download/deckard-images-23.2-20261101
+_sys=deckard-23.2-20261101-system.img.zst
+_ven=deckard-23.2-20261101-vendor.img.zst
 source="$_rel/$_sys
 	$_rel/$_ven
 	"
@@ -24,8 +24,8 @@ source="$_rel/$_sys
 package() {
 	local d="$pkgdir"/usr/share/deckard/images
 	install -d "$d"
-	zstd -dq "$srcdir/$_sys" -o "$d"/system.img
-	zstd -dq "$srcdir/$_ven" -o "$d"/vendor.img
+	zstd -dq < "$srcdir/$_sys" > "$d"/system.img
+	zstd -dq < "$srcdir/$_ven" > "$d"/vendor.img
 	chmod 644 "$d"/system.img "$d"/vendor.img
 	printf '[deckard]\nsystem_datetime = %s\nvendor_datetime = %s\n' \
 		$_date $_date > "$d"/images.cfg
@@ -33,6 +33,6 @@ package() {
 }
 
 sha512sums="
-230e95f8f2376576daf3f16fc210b9d6005b6b30dc27b7e9b991991729e7aa165cd88d9e017f91c78f22c802c8782b3cbd823d1125dbfa9331f8685da1b60720  deckard-23.2-20261028-system.img.zst
-cf7b28d038bd4d3c90b47d8680a79535f0d7ab069a3d8592dfc87415e45af27701558b35c83a2d1fa5da336c3d5e7f0e7736c9847076ffc2132f5686dfb2af19  deckard-23.2-20261028-vendor.img.zst
+951932a3e33c1fd27dbfa32165566448f0a6ba596f5b97403183d43d60e17aa29c632bfdfcb4a8fae935a2567b89515f0ea494c556170bdb97f7f0eb0e9fb3c0  deckard-23.2-20261101-system.img.zst
+cf7b28d038bd4d3c90b47d8680a79535f0d7ab069a3d8592dfc87415e45af27701558b35c83a2d1fa5da336c3d5e7f0e7736c9847076ffc2132f5686dfb2af19  deckard-23.2-20261101-vendor.img.zst
 "

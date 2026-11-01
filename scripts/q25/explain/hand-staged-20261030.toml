@@ -1,0 +1,109 @@
+# What was staged by hand on the live phone on top of the frozen
+# q25-duranium-20261030-eff639e.ext4 (Q25-IMAGE-PLAN §1.4). Use only when
+# diffing that image against the live root; a pipeline image must carry
+# the (a) and (b) items itself.
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/etc/q25-modem/modem.conf", "/etc/q25-modem/properties", "/usr/libexec/q25-modem/*"]
+reason = "§1.4a q25-modem, installed by hand"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/etc/q25/eglfs-kms.json", "/etc/systemd/system/greetd.service.d/80-q25-gpu-prepare.conf", "/etc/systemd/system/q25-gpu-prepare.service", "/usr/libexec/marathon/q25-gpu-prepare", "/usr/libexec/marathon/q25-shell-session.gpu"]
+reason = "§1.4a q25-gpu-render, installed by hand"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = [
+  "/etc/modprobe.d/q25-connsys.conf", "/etc/modules-load.d/q25-keyboard.conf", "/etc/q25/keyboard-layout-preview.env",
+  "/etc/systemd/system/q25-backlight.service", "/etc/systemd/system/q25-md1-off.service", "/etc/systemd/system/q25-root-dio.service",
+  "/etc/systemd/system/q25-vsyncdrm.service", "/etc/systemd/system/wpa_supplicant.service", "/etc/udev/rules.d/61-q25-sensor-local.rules",
+  "/usr/libexec/marathon/q25-backlight", "/usr/libexec/marathon/q25-bt-address", "/usr/libexec/marathon/q25-shell-session",
+  "/usr/libexec/marathon/q25-shell-session.software", "/usr/libexec/marathon/q25-usb-gadget", "/usr/libexec/marathon/q25-vsyncdrm",
+  "/usr/libexec/q25-wmt",
+]
+reason = "§1.4a device-zinwa-q25-marathon files, copied by hand"
+
+[[rule]]
+check = "files"
+kind = "changed"
+match = ["/etc/greetd/config.toml", "/etc/marathon/device-profile.conf"]
+reason = "§1.4a device-zinwa-q25-marathon session and profile, copied by hand"
+
+[[rule]]
+check = "files"
+match = [
+  "/usr/libexec/q25-native-gauge/*", "/etc/systemd/system/q25-native-gauge.service", "/etc/marathon/q25-gauge-model.conf",
+  "/etc/marathon/battery-model-experimental", "/etc/marathon/power-supply-ignore",
+]
+reason = "§1.4b native gauge, not packaged yet"
+
+[[rule]]
+check = "files"
+match = ["/usr/libexec/upowerd", "/etc/UPower/UPower.conf", "/etc/udev/rules.d/99-q25-upower-duplicate.rules"]
+reason = "§1.4b patched UPower, not packaged yet"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/usr/libexec/q25-wifi-radio"]
+reason = "§1.4b Wi-Fi radio helper, not packaged yet"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/etc/systemd/system/q25-esp-readonly.service"]
+reason = "§1.4b ESP read-only guard, not packaged yet"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/etc/udev/rules.d/99-q25-native-keyboard.rules"]
+reason = "§1.4b keyboard rule, not packaged yet"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/etc/modprobe.d/q25-hx.conf", "/etc/udev/rules.d/90-q25-recovery-console.rules", "/etc/NetworkManager/conf.d/90-q25-usb-recovery.conf"]
+reason = "§1.4b light-sensor option and recovery console/USB rules, keep-or-drop pending"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/etc/systemd/user/deckard-bridge.service.d/60-q25-provisioned.conf", "/etc/tmpfiles.d/marathon-home.conf"]
+reason = "§1.4b Deckard drop-in and carrier home tmpfiles, owner pending"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["/etc/systemd/system/greetd.service.d/50-q25-validated-cpus.conf", "/etc/systemd/system/greetd.service.d/90-q25-bringup-metrics.conf"]
+reason = "§1.4d bring-up greetd drop-ins, not shipped"
+
+[[rule]]
+check = "files"
+kind = "removed"
+match = ["*.390", "*.before-*", "*.orig", "*.tested", "*.legacy", "*.software-only", "*.software-confirmed", "*.pre-schedutil"]
+reason = "§1.4d hand backups and test copies, not shipped"
+
+[[rule]]
+check = "units"
+kind = "removed"
+match = [
+  "system bluetooth.target.wants/q25-bluetooth.service", "system bluetooth.target.wants/q25-bt-address.service",
+  "system multi-user.target.wants/q25-backlight.service", "system multi-user.target.wants/q25-bluetooth.service",
+  "system multi-user.target.wants/q25-bt-address.service", "system multi-user.target.wants/q25-connsys.service",
+  "system multi-user.target.wants/q25-md1-off.service", "system multi-user.target.wants/q25-vsyncdrm.service",
+  "system multi-user.target.wants/q25-wifi.service", "system multi-user.target.wants/q25-wmt-launcher.service",
+  "system sysinit.target.wants/q25-root-dio.service",
+]
+reason = "§1.4a packaged Q25 units, enabled by hand"
+
+[[rule]]
+check = "units"
+kind = "removed"
+match = ["system multi-user.target.wants/q25-native-gauge.service", "system multi-user.target.wants/q25-wifi-radio.service", "system sysinit.target.wants/q25-esp-readonly.service"]
+reason = "§1.4b unpackaged Q25 units, enabled by hand"

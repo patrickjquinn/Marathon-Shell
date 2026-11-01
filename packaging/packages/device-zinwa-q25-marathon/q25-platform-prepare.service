@@ -1,0 +1,12 @@
+[Unit]
+Description=Q25 CPU0 bring-up stability workaround
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=sysinit.target greetd.service
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon/q25-platform-prepare
+RemainAfterExit=yes
+TimeoutStartSec=15
+[Install]
+WantedBy=sysinit.target

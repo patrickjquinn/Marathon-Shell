@@ -52,7 +52,8 @@ set -euo pipefail
 
 # Resolve repo root (this script lives at $repo/scripts/).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export MARATHON_SHELL_SRC="$(dirname "$SCRIPT_DIR")"
+MARATHON_SHELL_SRC="$(dirname "$SCRIPT_DIR")"
+export MARATHON_SHELL_SRC
 LIB="$SCRIPT_DIR/qemu/lib"
 
 # Pluck the target device off the front of the arg list. Everything
@@ -138,6 +139,7 @@ build_if_missing() {
         local pkgver pkgrel pkgname expected
         # Sourced, not grepped: pkgname can be built from other variables
         # (linux-$_flavor-marathon).
+        # shellcheck source=/dev/null
         read -r pkgname pkgver pkgrel < <(set +u; . "$aport_apkbuild" >/dev/null 2>&1
                                           echo "$pkgname $pkgver $pkgrel")
         if [ -n "$pkgver" ] && [ -n "$pkgrel" ] && [ -n "$pkgname" ]; then
@@ -148,7 +150,7 @@ build_if_missing() {
             fi
             if compgen -G "$MKOSI_PKG_DIR/$glob" >/dev/null; then
                 local stale
-                stale=$(ls -1 "$MKOSI_PKG_DIR"/$glob | xargs -n1 basename | tr '\n' ' ')
+                stale=$(for f in "$MKOSI_PKG_DIR"/$glob; do printf '%s ' "${f##*/}"; done)
                 echo "==> $label: cache STALE (want $expected, have $stale) — rebuilding"
                 rm -f "$MKOSI_PKG_DIR"/$glob
             fi
@@ -165,6 +167,12 @@ build_if_missing() {
     MKOSI_PKG_DIR="$MKOSI_PKG_DIR" \
         bash "$script"
 }
+
+# The fork builders below trust postmarketOS's key from pmaports, which
+# build-image.py would otherwise clone only at stage 4.
+if [ ! -d "$DURANIUM_DIR/pmaports" ]; then
+    (cd "$DURANIUM_DIR/scripts" && python3 -c 'from pmaports import prepare_pmaports; prepare_pmaports("edge")')
+fi
 
 echo "==> stage 3: build apks"
 APORTS_DIR="$MARATHON_IMAGE_DIR/packages"
@@ -201,10 +209,26 @@ fi
 # Deckard from a local Marathon-Deckard checkout when there is one.
 DECKARD_SRC="${DECKARD_SRC-$([ -d "$HOME/Developer/Marathon-Deckard/host/deckard-bridge" ] && echo "$HOME/Developer/Marathon-Deckard")}" \
 build_if_missing "deckard"                   'deckard-[0-9]*.apk'             "$LIB/build-deckard-apk.sh"                   "$APORTS_DIR/deckard/APKBUILD"
-# Android's images, for the HackberryPi overlay on the Pi 5 (mkosi-configure.py).
-if [ "$DEVICE" = raspberry-pi5 ]; then
-APORT=deckard-images \
+# Android's images, for the HackberryPi overlay on the Pi 5 and for the Q25
+# (mkosi-configure.py).
+if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ]; then
+APORT=deckard-images NO_DEPS=1 \
 build_if_missing "deckard-images"            'deckard-images-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/deckard-images/APKBUILD"
+fi
+# Zinwa Q25: the prebuilt kernel the phone boots (Q25_KERNEL_APK, from
+# scripts/build-zinwa-q25-image.sh), its device package and every q25-* and
+# *-q25 aport, which depend on each other; the modem's ModemManager depends
+# only on Alpine packages, which abuild needs installed to trace libmm-glib.
+if [ "$DEVICE" = zinwa-q25 ]; then
+    cp "${Q25_KERNEL_APK:?zinwa-q25 needs Q25_KERNEL_APK, the prebuilt kernel package}" "$MKOSI_PKG_DIR/"
+    for aport in "$APORTS_DIR"/device-zinwa-q25 "$APORTS_DIR"/q25-* "$APORTS_DIR"/*-q25; do
+        [ -f "$aport/APKBUILD" ] || continue
+        name="$(basename "$aport")"
+        APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
+            "$LIB/build-aport-apk.sh" "$aport/APKBUILD"
+    done
+    APORT=modemmanager-mtk-ccci build_if_missing "modemmanager-mtk-ccci" 'modemmanager-mtk-ccci-[0-9]*.apk' \
+        "$LIB/build-aport-apk.sh" "$APORTS_DIR/modemmanager-mtk-ccci/APKBUILD"
 fi
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
@@ -217,6 +241,7 @@ DEVICE_OVERLAY_APORT="$APORTS_DIR/device-$MARATHON_TARGET_DEVICE-marathon"
 if [ -d "$DEVICE_OVERLAY_APORT" ]; then
     # Forks the overlay depends on (kernel, U-Boot, ...); apk takes them
     # from mkosi.packages in place of the pmaports packages they replace.
+    # shellcheck source=/dev/null disable=SC2154 # depends comes from the APKBUILD
     for fork in $(set +u; . "$DEVICE_OVERLAY_APORT/APKBUILD"; echo $depends); do
         # A device overlay it depends on (CM5 on Pi 5) has its own builder.
         case "$fork" in device-*) continue ;; *-marathon) [ -d "$APORTS_DIR/$fork" ] || continue ;; *) continue ;; esac
@@ -297,6 +322,7 @@ PATH="$(dirname "$MKOSI_BIN"):$PATH" \
 # mkosi names its output dir + raw artifacts by the device + ui
 # pair. Find the freshly written one.
 OUT_DIR_GLOB="$DURANIUM_DIR/mkosi.output/${MARATHON_TARGET_DEVICE}_marathon_edge"
+# shellcheck disable=SC2010 # newest by mtime; mkosi's names have no spaces
 LATEST_IMG=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.raw 2>/dev/null \
     | grep -E "/${MARATHON_TARGET_DEVICE}_marathon_edge_[0-9]+\.raw$" | head -1)
 [ -z "$LATEST_IMG" ] && { echo "no image produced for device-$MARATHON_TARGET_DEVICE" >&2; exit 1; }
@@ -315,12 +341,13 @@ echo "==> image ready: $LATEST_IMG"
 # the live split. Newest-per-family has no such race — whatever this bake
 # just wrote is by definition the newest.
 prune_splits() {
-    local dir="$1" fam base kept=0 pruned=0
+    local dir="$1" fam kept=0 pruned=0
     # Family = filename with the hash segment removed, e.g.
     # qemu-aarch64_marathon_edge_26083101.root-arm64
     for fam in $(ls -1 "$dir"/*.*-*.*.raw "$dir"/*.boot.*.raw "$dir"/*.root.*.raw 2>/dev/null \
                  | sed -E 's|.*/||; s|\.[0-9a-f]{32}\.raw$||' | sort -u); do
         local first=1
+        # shellcheck disable=SC2045 # newest first by mtime; mkosi's names have no spaces
         for f in $(ls -1t "$dir/$fam".*.raw 2>/dev/null); do
             if [ "$first" = 1 ]; then first=0; kept=$((kept + 1)); continue; fi
             rm -f "$f"; pruned=$((pruned + 1))

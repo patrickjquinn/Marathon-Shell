@@ -153,7 +153,8 @@ mod tests {
             "$defs": { "a.note": { "type": "string", "pattern": "^keel://a/note/[^/?#\\s]{1,256}$", "x-keel-entity": "a/note" } }
         });
         let (value, unsatisfied) = example(&schema);
-        assert!(unsatisfied.is_empty());
+        let empty = &unsatisfied;
+        assert!(empty.is_empty(), "{empty:?}");
         assert_eq!(value["r"], "keel://a/note/example");
         assert_eq!(value["neg"], -1);
         validate(&schema, &value).unwrap();

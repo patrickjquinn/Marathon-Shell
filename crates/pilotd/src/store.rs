@@ -617,8 +617,10 @@ mod tests {
             .search_conversation("the restaurant in Galway", 5)
             .unwrap();
         assert!(hits[0].question.contains("Thai"));
-        assert!(s.search_conversation("the", 5).unwrap().is_empty());
-        assert!(s.search_conversation("\"\" OR *", 5).unwrap().is_empty());
+        let empty = s.search_conversation("the", 5).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
+        let empty = s.search_conversation("\"\" OR *", 5).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
         // Older than 30 days goes at the next write.
         s.conn()
             .execute(
@@ -627,16 +629,19 @@ mod tests {
             )
             .unwrap();
         s.log_exchange("thanks", "You're welcome.").unwrap();
-        assert!(s.search_conversation("Australia", 5).unwrap().is_empty());
+        let empty = s.search_conversation("Australia", 5).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
         assert_eq!(s.conversation_since(0).unwrap().len(), 3);
         // The export holds no utterances (README, smoke test): the
         // conversation stays out of it.
         assert!(!s.export().unwrap().to_string().contains("Thai"));
         s.clear_conversation().unwrap();
-        assert!(s.search_conversation("Thai", 5).unwrap().is_empty());
+        let empty = s.search_conversation("Thai", 5).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
         s.log_exchange("x y z", "Thai again").unwrap();
         s.wipe().unwrap();
-        assert!(s.conversation_since(0).unwrap().is_empty());
+        let empty = s.conversation_since(0).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
     }
 
     #[test]
@@ -687,8 +692,10 @@ mod tests {
             ]
         );
         s.wipe().unwrap();
-        assert!(s.egress(0).unwrap().is_empty());
-        assert!(s.decisions(0).unwrap().is_empty());
+        let empty = s.egress(0).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
+        let empty = s.decisions(0).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
     }
 
     #[test]
@@ -769,6 +776,7 @@ mod tests {
             all.len()
         );
         s.wipe().unwrap();
-        assert!(s.triage(0).unwrap().is_empty());
+        let empty = s.triage(0).unwrap();
+        assert!(empty.is_empty(), "{empty:?}");
     }
 }

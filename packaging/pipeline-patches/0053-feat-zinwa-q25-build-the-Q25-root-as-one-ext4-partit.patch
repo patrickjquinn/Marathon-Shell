@@ -1,0 +1,101 @@
+From cac9bdafc8be22dcb53f9c74a6d356a626508bca Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 31 Oct 2026 17:54:53 +0000
+Subject: [PATCH 53/53] feat(zinwa-q25): build the Q25 root as one ext4 partition
+
+The Q25 boots its root from an ext4 file on the carrier partition,
+selected by q25.rootfs_file= on a kernel, initramfs and ESP that stay on
+the phone. The image for it is the root alone:
+
+- mkosi-configure.py: zinwa-q25 is not bootable (no ESP, UKI or initrd)
+  and lays out mkosi.repart.root-only, the 5 GiB ext4 root; its base
+  image adds deckard and deckard-images, as the HackberryPi's does.
+- mkosi.finalize: the carrier initramfs has no confext stage, so /etc
+  stays populated, as on the Pi.
+- build-image.py: syncs every Marathon device-* aport into pmaports,
+  so the resolver finds device-zinwa-q25's deviceinfo.
+---
+ mkosi.finalize                      |  1 +
+ mkosi.repart.root-only/11-root.conf |  8 ++++++++
+ scripts/build-image.py              |  7 +++----
+ scripts/mkosi-configure.py          | 12 ++++++++++++
+ 4 files changed, 24 insertions(+), 4 deletions(-)
+ create mode 100644 mkosi.repart.root-only/11-root.conf
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 04c09d3..07d11ea 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -139,6 +139,7 @@ case "$PMOS_DEVICE" in
+ esac
+ 
+ NEED_ETC_STASH=""
++[ "$PMOS_DEVICE" = zinwa-q25 ] && NEED_ETC_STASH=1
+ [ -n "$PI_BASE_FIRMWARE_BOOT" ] && NEED_ETC_STASH=1
+ [ -n "$UBOOT_SCRIPT_BOOT" ] && NEED_ETC_STASH=1
+ 
+diff --git a/mkosi.repart.root-only/11-root.conf b/mkosi.repart.root-only/11-root.conf
+new file mode 100644
+index 0000000..b165c5b
+--- /dev/null
++++ b/mkosi.repart.root-only/11-root.conf
+@@ -0,0 +1,8 @@
++[Partition]
++Type=root
++Label=pmOS_root
++Format=ext4
++CopyFiles=/
++SizeMinBytes=5G
++SizeMaxBytes=5G
++SplitName=%t.%U
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index 5546b36..e4c5123 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -102,10 +102,9 @@ def build_image(components: List[str], extra_args: List[str]):
+                 # device-* covers per-board overlay; linux-* covers our patched
+                 # kernels (e.g. linux-purism-librem5-marathon carries the kCFI
+                 # fix for the out-of-tree Silicon Labs RS9116 redpine driver).
+-                is_device = (
+-                    marathon_aport.startswith("device-")
+-                    and marathon_aport.endswith("-marathon")
+-                )
++                # Marathon-owned base device packages (device-zinwa-q25)
++                # carry the deviceinfo the resolver looks for.
++                is_device = marathon_aport.startswith("device-")
+                 is_kernel = (
+                     marathon_aport.startswith("linux-")
+                     and marathon_aport.endswith("-marathon")
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index 0d8d419..88dbd14 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -102,6 +102,16 @@ def main() -> int:
+         # The root, the second /usr slot and its verity partition are
+         # created by systemd-repart from postmarketos-duranium's repart.d
+         # on first boot.
++        # Zinwa Q25: the root is an ext4 file on the phone's carrier
++        # partition, booted by the kernel, initramfs and ESP already there.
++        # The image is that root partition alone.
++        if device == "zinwa-q25":
++            config["Bootable"] = "disabled"
++            repart = config.get("RepartDirectories") or []
++            if len(repart) != 1:
++                print(f"Error: expected one repart directory, got {repart}", file=sys.stderr)
++                return 1
++            config["RepartDirectories"] = [os.path.join(os.path.dirname(repart[0]), "mkosi.repart.root-only")]
+         layout = os.environ.get("MARATHON_IMAGE_LAYOUT") or "single"
+         if layout == "ab":
+             if device not in AB_DEVICES:
+@@ -164,6 +174,8 @@ def main() -> int:
+                 extra_overlays.append(hbp)
+                 # Deckard: Android apps in Marathon, and Android's images.
+                 extra_overlays.extend(["deckard", "deckard-images"])
++        if device == "zinwa-q25":
++            extra_overlays.extend(["deckard", "deckard-images"])
+         config["Packages"] = list(dict.fromkeys(existing + dynamic + extra_overlays))
+     elif image == "default-initrd":
+         # pmaports emits InitrdPackages to distinguish base-image pkgs from
+-- 
+2.55.0
+

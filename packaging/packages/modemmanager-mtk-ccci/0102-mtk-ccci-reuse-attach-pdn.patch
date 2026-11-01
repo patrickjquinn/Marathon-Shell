@@ -1,0 +1,193 @@
+From 46240af320b0ec75686d02efdea87a3dbaf1f083 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 31 Oct 2026 10:52:00 +0000
+Subject: [PATCH] mtk-ccci: reuse the attach PDN and survive network-replaced
+ APNs
+
+- Activating the LTE attach APN binds the attach PDN, but the network
+  may give that PDN another APN (eir 272/03 assigns wap.mymeteor.ie
+  whatever is requested). +CGCONTRDP then had no line for the requested
+  APN and the connect failed after the modem had already bound a ccmni,
+  so the next attempt got +CME ERROR: 5847. Use the only active PDN when
+  no line matches.
+- Without an APN, reuse the attach PDN by activating its own APN, as the
+  stock RIL does for the default data call, instead of refusing.
+- Never release aid 0 (the attach PDN) as a stale PDN before connecting.
+- Match the APN exactly, up to the ".mncNNN.mccNNN.gprs" suffix, instead
+  of any prefix.
+- While the modem is in exception and reset the CCCI AT port fails
+  writes; report the bearer disconnected instead of failing the status
+  check until ModemManager gives up.
+---
+ .../mtk-ccci/mm-broadband-bearer-mtk-ccci.c   | 104 +++++++++++++++---
+ 1 file changed, 89 insertions(+), 15 deletions(-)
+
+diff --git a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+index 148b7ab..0185d38 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-bearer-mtk-ccci.c
+@@ -243,10 +243,22 @@ eapnact_ready (MMBaseModem  *modem,
+     connect_step (task);
+ }
+ 
++/* The network reports the APN with its operator suffix, e.g.
++ * "antel.lte.MNC001.MCC748.GPRS" */
++static gboolean
++apn_matches (const gchar *reported,
++             const gchar *apn)
++{
++    gsize len = strlen (apn);
++
++    return (g_ascii_strncasecmp (reported, apn, len) == 0 &&
++            (reported[len] == '\0' || g_ascii_strncasecmp (reported + len, ".mnc", 4) == 0));
++}
++
+ /* +CGCONTRDP: <aid>,<bearer id>,<apn>,<local addr>,<gw>,<dns1>,<dns2>,...
+- * lists the PDNs bound to an interface. The network reports the APN with its
+- * operator suffix, e.g. "antel.lte.MNC001.MCC748.GPRS"; a dual stack PDN has
+- * one line per family. Returns the aid of the PDN for APN, or UNKNOWN_AID. */
++ * lists the active PDNs; a dual stack PDN has one line per family. Returns
++ * the aid of the PDN for APN (any APN if NULL, as long as only one PDN is
++ * active), or UNKNOWN_AID. */
+ static guint
+ parse_cgcontrdp (const gchar *response,
+                  const gchar *apn,
+@@ -270,10 +282,17 @@ parse_cgcontrdp (const gchar *response,
+         fields = split_fields (line + strlen ("+CGCONTRDP:"));
+         if (fields->len < 3 || !mm_get_uint_from_str (g_ptr_array_index (fields, 0), &aid))
+             continue;
+-        if (g_ascii_strncasecmp (g_ptr_array_index (fields, 2), apn, strlen (apn)) != 0)
+-            continue;
+-        if (found != UNKNOWN_AID && found != aid)
++        if (apn && !apn_matches (g_ptr_array_index (fields, 2), apn))
+             continue;
++        if (found != UNKNOWN_AID && found != aid) {
++            if (apn)
++                continue;
++            if (dns4 && dns6) {
++                g_ptr_array_set_size (dns4, 0);
++                g_ptr_array_set_size (dns6, 0);
++            }
++            return UNKNOWN_AID;
++        }
+         found = aid;
+ 
+         for (j = 5; dns4 && dns6 && j < 7 && j < fields->len; j++) {
+@@ -288,6 +307,30 @@ parse_cgcontrdp (const gchar *response,
+     return found;
+ }
+ 
++/* The APN of the only active PDN, without the operator suffix */
++static gchar *
++single_pdn_apn (const gchar *response)
++{
++    g_autoptr(GPtrArray)  fields = NULL;
++    g_autofree gchar     *line = NULL;
++    const gchar          *apn;
++    const gchar          *p;
++
++    if (parse_cgcontrdp (response, NULL, NULL, NULL) == UNKNOWN_AID)
++        return NULL;
++    p = strstr (response, "+CGCONTRDP:") + strlen ("+CGCONTRDP:");
++    line = g_strndup (p, strcspn (p, "\r\n"));
++    fields = split_fields (line);
++    if (fields->len < 3)
++        return NULL;
++    apn = g_ptr_array_index (fields, 2);
++    for (p = apn; *p; p++) {
++        if (*p == '.' && g_ascii_strncasecmp (p, ".mnc", 4) == 0)
++            break;
++    }
++    return (p > apn) ? g_strndup (apn, p - apn) : NULL;
++}
++
+ static void
+ stale_check_ready (MMBaseModem  *modem,
+                    GAsyncResult *res,
+@@ -298,11 +341,30 @@ stale_check_ready (MMBaseModem  *modem,
+ 
+     ctx = g_task_get_task_data (task);
+     response = mm_base_modem_at_command_full_finish (modem, res, NULL);
++
++    /* Without an APN, reuse the attach PDN, as the stock RIL does for the
++     * default data call */
++    if (!ctx->apn) {
++        ctx->apn = response ? single_pdn_apn (response) : NULL;
++        if (!ctx->apn) {
++            g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
++                                     "no APN given and no attach PDN to reuse");
++            g_object_unref (task);
++            return;
++        }
++        mm_obj_msg (g_task_get_source_object (task), "no APN given, reusing the attach PDN (APN '%s')", ctx->apn);
++        ctx->step = CONNECT_STEP_EAPNACT;
++        connect_step (task);
++        return;
++    }
++
+     if (response)
+         ctx->stale_aid = parse_cgcontrdp (response, ctx->apn, NULL, NULL);
+     /* A PDN still bound from before (e.g. the daemon restarted while
+-     * connected) must be released first, or the activation fails */
+-    ctx->step = (ctx->stale_aid != UNKNOWN_AID) ? CONNECT_STEP_STALE_DEACTIVATE : CONNECT_STEP_EAPNACT;
++     * connected) must be released first, or the activation fails. aid 0 is
++     * the LTE attach PDN: never release it, activating its APN reuses it */
++    ctx->step = (ctx->stale_aid != UNKNOWN_AID && ctx->stale_aid != 0) ?
++                CONNECT_STEP_STALE_DEACTIVATE : CONNECT_STEP_EAPNACT;
+     connect_step (task);
+ }
+ 
+@@ -360,6 +422,14 @@ cgcontrdp_ready (MMBaseModem  *modem,
+     }
+ 
+     ctx->aid = parse_cgcontrdp (response, ctx->apn, ctx->dns4, ctx->dns6);
++    if (ctx->aid == UNKNOWN_AID) {
++        /* The network may give the attach PDN another APN than the one
++         * requested (its default for the subscription); the modem then
++         * binds that PDN, the only one active */
++        ctx->aid = parse_cgcontrdp (response, NULL, ctx->dns4, ctx->dns6);
++        if (ctx->aid != UNKNOWN_AID)
++            mm_obj_msg (self, "network replaced APN '%s', using its PDN aid %u", ctx->apn, ctx->aid);
++    }
+ 
+     if (ctx->aid == UNKNOWN_AID) {
+         g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_FAILED,
+@@ -601,12 +671,6 @@ connect_3gpp (MMBroadbandBearer   *self,
+     task = g_task_new (self, cancellable, callback, user_data);
+ 
+     apn = mm_bearer_properties_get_apn (mm_base_bearer_peek_config (MM_BASE_BEARER (self)));
+-    if (!apn || !apn[0]) {
+-        g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_INVALID_ARGS,
+-                                 "an APN is required");
+-        g_object_unref (task);
+-        return;
+-    }
+ 
+     if (!mm_base_modem_peek_best_data_port (MM_BASE_MODEM (modem), MM_PORT_TYPE_NET)) {
+         g_task_return_new_error (task, MM_CORE_ERROR, MM_CORE_ERROR_CONNECTED,
+@@ -619,7 +683,7 @@ connect_3gpp (MMBroadbandBearer   *self,
+     ctx->modem = MM_BASE_MODEM (g_object_ref (modem));
+     ctx->primary = g_object_ref (primary);
+     ctx->step = CONNECT_STEP_FIRST;
+-    ctx->apn = g_strdup (apn);
++    ctx->apn = (apn && apn[0]) ? g_strdup (apn) : NULL;
+     ctx->ifid = -1;
+     ctx->stale_aid = UNKNOWN_AID;
+     ctx->aid = UNKNOWN_AID;
+@@ -727,6 +791,16 @@ cgact_query_ready (MMBaseModem  *modem,
+     self = g_task_get_source_object (task);
+ 
+     response = mm_base_modem_at_command_finish (modem, res, &error);
++    /* The CCCI port fails writes (ENODEV) while the modem is in exception
++     * and reset; its PDNs are gone */
++    if (!response && (error->domain == G_IO_CHANNEL_ERROR ||
++                      g_error_matches (error, MM_SERIAL_ERROR, MM_SERIAL_ERROR_SEND_FAILED))) {
++        mm_obj_warn (self, "modem unreachable, PDN aid %u lost: %s", self->priv->aid, error->message);
++        g_clear_error (&error);
++        g_task_return_int (task, (gssize) MM_BEARER_CONNECTION_STATUS_DISCONNECTED);
++        g_object_unref (task);
++        return;
++    }
+     if (response)
+         list = mm_3gpp_parse_cgact_read_response (response, &error);
+     if (error) {

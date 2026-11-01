@@ -1,0 +1,10 @@
+#!/bin/sh
+# Root prepares the GPU before greetd; PAM sessions select only validated state.
+set -eu
+if [ -x /usr/libexec/marathon/q25-shell-session.gpu ] && [ -r /run/q25-gpu/ready ] && [ ! -e /etc/q25/gpu-disabled ] &&
+   [ "$(cat /sys/devices/platform/soc/13000000.gpu/power/control)" = on ] &&
+   [ "$(cat /sys/class/devfreq/13000000.gpu/cur_freq)" = 700000000 ]; then
+    exec /usr/libexec/marathon/q25-shell-session.gpu "$@"
+fi
+echo 'q25-session: GPU validation unavailable; starting software framebuffer' >&2
+exec /usr/libexec/marathon/q25-shell-session.software "$@"

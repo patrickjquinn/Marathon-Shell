@@ -1,0 +1,11 @@
+[Unit]
+Description=Q25 MD1: ccci_rpcd
+Requires=q25-modem-stack.service q25-modem-nv.service
+After=q25-modem-stack.service q25-modem-nv.service
+PartOf=q25-modem.target
+
+[Service]
+ExecStartPre=/bin/mkdir -p /run/q25-modem/props
+ExecStart=/usr/libexec/q25-modem/ccci_rpcd 0
+Restart=on-failure
+RestartSec=2

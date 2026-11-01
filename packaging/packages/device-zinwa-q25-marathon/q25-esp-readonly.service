@@ -1,0 +1,16 @@
+[Unit]
+Description=Keep the shared Q25 ESP read-only during a file-root trial
+DefaultDependencies=no
+ConditionKernelCommandLine=q25.rootfs_file
+ConditionPathIsMountPoint=/boot
+RequiresMountsFor=/boot
+After=local-fs.target systemd-remount-fs.service
+Before=sysinit.target greetd.service systemd-boot-random-seed.service systemd-bless-boot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mount -o remount,ro,nodev,nosuid,noexec /boot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

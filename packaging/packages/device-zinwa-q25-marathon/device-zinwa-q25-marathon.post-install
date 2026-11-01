@@ -1,0 +1,9 @@
+#!/bin/sh
+# Arm the MD1 power-off once, on first install. q25-md1-off.service disarms
+# before it touches the modem and re-arms only after success, so a hang
+# there is never retried on the next boot.
+if [ ! -d /var/lib/q25-modem ]; then
+    mkdir -p /var/lib/q25-modem
+    : > /var/lib/q25-modem/md-off.armed
+fi
+exit 0

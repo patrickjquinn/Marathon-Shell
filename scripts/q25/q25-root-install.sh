@@ -1,0 +1,176 @@
+#!/bin/sh
+# Install a new Q25 root image next to the running one and boot it by
+# default, keeping the current entry as the fallback (Q25-IMAGE-PLAN §3.4).
+# Kernel, initramfs and DTB stay exactly as the current default entry has
+# them; only q25.rootfs_file changes. Runs on the phone as root.
+#
+#   q25-root-install.sh [opts] install IMAGE.ext4 [SHA256]
+#   q25-root-install.sh [opts] rollback NAME
+#
+#   --dry-run     print what would change, change nothing
+#   --counted     boot-counted entry marathon-q25-b-NAME+3.conf, a fallback
+#                 copy of the current entry, and `default marathon-q25-*`.
+#                 Needs boot counting and a bless unit proven first (T2/T3);
+#                 without --counted the new entry is the plain default.
+#   --esp DIR     ESP mount (default /boot)
+#   --carrier DIR carrier root (default /.q25-carrier/root)
+#   --no-remount  leave the ESP mount as it is (tests)
+#
+# IMAGE should already be on the carrier filesystem so the move is a rename.
+# NAME is the image basename without .ext4. Rollback restores loader.conf
+# and removes the entries; the image file is left for inspection.
+set -eu
+
+ESP=/boot
+CARRIER=/.q25-carrier/root
+DRY=0
+COUNTED=0
+REMOUNT=1
+IMAGES_REL=/var/lib/marathon/images
+
+die() { echo "q25-root-install: $*" >&2; exit 1; }
+say() { echo "q25-root-install: $*"; }
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	--dry-run) DRY=1 ;;
+	--counted) COUNTED=1 ;;
+	--esp) ESP=$2; shift ;;
+	--carrier) CARRIER=$2; shift ;;
+	--no-remount) REMOUNT=0 ;;
+	-*) die "unknown option $1" ;;
+	*) break ;;
+	esac
+	shift
+done
+[ $# -ge 2 ] || die "usage: $0 [opts] install IMAGE [SHA256] | rollback NAME"
+CMD=$1
+ENTRIES=$ESP/loader/entries
+LOADER=$ESP/loader/loader.conf
+
+esp_rw() {
+	[ "$REMOUNT" = 1 ] || return 0
+	mount -o remount,rw "$ESP"
+	trap 'sync -f "$ESP"; mount -o remount,ro,nosuid,nodev,noexec "$ESP"' EXIT
+}
+
+# Write $2 to $1 via a temporary name so a crash never leaves half a file.
+put() {
+	printf '%s\n' "$2" > "$1.q25tmp"
+	sync "$1.q25tmp"
+	mv "$1.q25tmp" "$1"
+}
+
+loader_default() { awk '$1 == "default" { print $2 }' "$LOADER"; }
+
+set_default() {
+	put "$LOADER" "$(awk -v d="$1" '$1 == "default" { print "default " d; next } { print }' "$LOADER")"
+}
+
+install_image() {
+	image=$1
+	sha=${2:-}
+	base=${image##*/}
+	name=${base%.ext4}
+	case $base in
+	*.ext4) ;;
+	*) die "$image: expected a .ext4 file" ;;
+	esac
+	case $name in
+	*[!A-Za-z0-9._-]* | '') die "$base: name must be [A-Za-z0-9._-]" ;;
+	esac
+	[ -f "$image" ] || die "$image: no such file"
+
+	target=$CARRIER$IMAGES_REL/$base
+	[ ! -e "$target" ] || die "$target already exists; refusing to overwrite a root image"
+	backup=$LOADER.before-$name
+	[ ! -e "$backup" ] || die "$backup exists: $name was installed before (roll it back first)"
+
+	current=$(loader_default)
+	[ -f "$ENTRIES/$current" ] || die "default '$current' is not a plain entry file"
+	n=$(grep -o 'q25\.rootfs_file=[^ ]*' "$ENTRIES/$current" | wc -l)
+	[ "$n" -eq 1 ] || die "$current: expected exactly one q25.rootfs_file token, found $n"
+	old_root=$(grep -o 'q25\.rootfs_file=[^ ]*' "$ENTRIES/$current")
+	new_root=q25.rootfs_file=$IMAGES_REL/$base
+	entry=$(sed "s|q25\\.rootfs_file=[^ ]*|$new_root|" "$ENTRIES/$current")
+
+	if [ "$COUNTED" = 1 ]; then
+		new_id=marathon-q25-b-$name.conf
+		new_file=marathon-q25-b-$name+3.conf
+		new_default='marathon-q25-*'
+		entry=$(printf '%s\n' "$entry" | awk -v v="$name" '
+			$1 == "sort-key" || $1 == "version" { next }
+			{ print } END { print "sort-key marathon-q25"; print "version " v }')
+		fallback=$ENTRIES/marathon-q25-a-fallback.conf
+		fallback_body=$(awk '$1 == "sort-key" || $1 == "version" { next }
+			{ print } END { print "sort-key marathon-q25"; print "version 0" }' "$ENTRIES/$current")
+	else
+		new_id=marathon-q25-$name.conf
+		new_file=$new_id
+		new_default=$new_id
+		fallback=
+	fi
+	for f in "$ENTRIES"/marathon-q25-b-"$name".conf "$ENTRIES"/marathon-q25-b-"$name"+*.conf "$ENTRIES/marathon-q25-$name.conf"; do
+		[ ! -e "$f" ] || die "$f already exists"
+	done
+
+	say "image:    $image -> $target"
+	say "entry:    $ENTRIES/$new_file (copy of $current, $old_root -> $new_root)"
+	[ -z "$fallback" ] || [ -e "$fallback" ] || say "fallback: $fallback (copy of $current)"
+	say "default:  $current -> $new_default (backup $backup)"
+	if [ "$DRY" = 1 ]; then
+		say "dry run; new entry would read:"
+		printf '%s\n' "$entry"
+		exit 0
+	fi
+
+	if [ -n "$sha" ]; then
+		say "verifying sha256 of $image"
+		echo "$sha  $image" | sha256sum -c - >/dev/null || die "$image: sha256 mismatch"
+	fi
+	mkdir -p "$CARRIER$IMAGES_REL"
+	mv -n "$image" "$target"
+	[ ! -e "$image" ] || die "move of $image did not complete"
+	sync -f "$target"
+
+	esp_rw
+	cp "$LOADER" "$backup"
+	if [ -n "$fallback" ] && [ ! -e "$fallback" ]; then
+		put "$fallback" "$fallback_body"
+	fi
+	put "$ENTRIES/$new_file" "$entry"
+	set_default "$new_default"
+	sync -f "$ESP"
+	say "installed; loader.conf now:"
+	cat "$LOADER"
+}
+
+rollback() {
+	name=$1
+	backup=$LOADER.before-$name
+	[ -f "$backup" ] || die "$backup: no backup for $name"
+	say "restore:  $LOADER from $backup"
+	set -- "$ENTRIES/marathon-q25-$name.conf" "$ENTRIES"/marathon-q25-b-"$name".conf "$ENTRIES"/marathon-q25-b-"$name"+*.conf
+	for f; do [ ! -e "$f" ] || say "remove:   $f"; done
+	if [ "$DRY" = 1 ]; then
+		say "dry run; nothing changed"
+		exit 0
+	fi
+	esp_rw
+	put "$LOADER" "$(cat "$backup")"
+	for f; do [ ! -e "$f" ] || rm -- "$f"; done
+	if ! ls "$ENTRIES"/marathon-q25-b-* >/dev/null 2>&1 && [ -e "$ENTRIES/marathon-q25-a-fallback.conf" ]; then
+		say "remove:   $ENTRIES/marathon-q25-a-fallback.conf (no counted entries left)"
+		rm -- "$ENTRIES/marathon-q25-a-fallback.conf"
+	fi
+	sync -f "$ESP"
+	say "rolled back; loader.conf now:"
+	cat "$LOADER"
+	say "root image left in place: $CARRIER$IMAGES_REL/$name.ext4"
+}
+
+case $CMD in
+install) shift; install_image "$@" ;;
+rollback) rollback "$2" ;;
+*) die "unknown command $CMD" ;;
+esac

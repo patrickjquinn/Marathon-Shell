@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-2.0
+snd-soc-mt6358-y := mt6358.o
+obj-m += snd-soc-mt6358.o

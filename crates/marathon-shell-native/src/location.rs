@@ -289,9 +289,7 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
         return;
     }
     // Only if GeoClue already runs: registering would start it just to sit idle.
-    if running {
-        add_agent(&bus).await;
-    }
+    let mut agent = running && add_agent(&bus).await;
     let owners = match dbus
         .receive_name_owner_changed_with_args(&[(0, GEOCLUE)])
         .await
@@ -315,8 +313,9 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
         match event {
             Event::Closed => break,
             Event::Wanted(on) => want = on,
-            Event::Restarted(true) => add_agent(&bus).await,
+            Event::Restarted(true) => agent = add_agent(&bus).await,
             Event::Restarted(false) => {
+                agent = false;
                 client = None;
                 active = false;
             }
@@ -328,6 +327,11 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
             }
         }
         if want && client.is_none() {
+            // GeoClue answers no GetClient of ours until our agent is in, and
+            // this loop is what registers it.
+            if !agent {
+                agent = add_agent(&bus).await;
+            }
             client = new_client(&bus, &new_fixes).await;
             if client.is_none() {
                 qt.queue(|obj| obj.error(&QString::from(fl!("location-client-failed"))))
@@ -362,16 +366,17 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
     }
 }
 
-async fn add_agent(bus: &zbus::Connection) {
+async fn add_agent(bus: &zbus::Connection) -> bool {
     let added = async {
         ManagerProxy::new(bus)
             .await?
             .add_agent("marathon-shell")
             .await
     };
-    if let Err(e) = added.await {
-        log::warn("location", format_args!("AddAgent: {e}"));
-    }
+    added
+        .await
+        .map_err(|e| log::warn("location", format_args!("AddAgent: {e}")))
+        .is_ok()
 }
 
 /// A client for the shell, its fixes forwarded to `updates`.

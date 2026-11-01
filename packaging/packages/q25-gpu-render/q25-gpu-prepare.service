@@ -1,0 +1,14 @@
+[Unit]
+Description=Prepare validated Q25 Panfrost render state
+After=systemd-modules-load.service q25-platform-prepare.service
+Before=greetd.service
+ConditionPathExists=/sys/firmware/devicetree/base/soc/gpu@13000000
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon/q25-gpu-prepare
+TimeoutStartSec=20s
+TimeoutStopSec=2s
+ExecStopPost=/bin/rm -f /run/q25-gpu/ready
+RemainAfterExit=yes
+

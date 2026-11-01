@@ -5,7 +5,8 @@
 # postmarketOS ships, so its signed repo is added next to Alpine's.
 #
 # Usage: build-aport-apk.sh <pkgname>, or APORT=<pkgname> in the env.
-# NO_DEPS=1 skips installing depends=, for meta-packages.
+# NO_DEPS=1 installs only makedepends=, for meta-packages and aports whose
+# depends are other local packages.
 set -euo pipefail
 
 PKG="${1:-${APORT:?usage: $0 <pkgname> (or APORT=<pkgname>)}}"
@@ -53,6 +54,10 @@ mkdir -p /work/aports
 rsync -a --checksum --no-times "/aports-src/$PKG/" "/work/aports/$PKG/"
 cd "/work/aports/$PKG"
 abuild -F checksum >/dev/null
+# abuild -d installs nothing; the compilers and makedepends still have to be there.
+if [ "$DEPS_FLAG" = -d ]; then
+    apk add --no-cache --quiet build-base $(srcdir=/; . ./APKBUILD; echo ${makedepends:-})
+fi
 abuild "$DEPS_FLAG" -F
 
 cp /root/packages/aports/*/"$PKG"-*.apk /out/

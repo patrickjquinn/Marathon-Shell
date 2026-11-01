@@ -1,0 +1,2 @@
+# C that mirrors the MediaTek CCCI kernel ABI; kept in its own (kernel) layout.
+packaging/packages/q25-modem/userspace/**

@@ -732,7 +732,7 @@ const BLUETOOTH: u32 = 5;
     default_service = "org.freedesktop.NetworkManager",
     default_path = "/org/freedesktop/NetworkManager"
 )]
-trait Nm {
+pub(crate) trait Nm {
     fn get_devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn activate_connection(
         &self,
@@ -753,16 +753,24 @@ trait Nm {
     fn set_wireless_enabled(&self, enabled: bool) -> zbus::Result<()>;
     #[zbus(property)]
     fn active_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    #[zbus(property)]
+    fn devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
 }
 
 #[zbus::proxy(
     interface = "org.freedesktop.NetworkManager.Device",
     default_service = "org.freedesktop.NetworkManager"
 )]
-trait Device {
+pub(crate) trait Device {
     fn disconnect(&self) -> zbus::Result<()>;
     #[zbus(property)]
     fn device_type(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
+    fn udi(&self) -> zbus::Result<String>;
+    #[zbus(property)]
+    fn state(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
+    fn active_connection(&self) -> zbus::Result<OwnedObjectPath>;
 }
 
 #[zbus::proxy(
@@ -781,7 +789,7 @@ trait Wireless {
     default_service = "org.freedesktop.NetworkManager",
     default_path = "/org/freedesktop/NetworkManager/Settings"
 )]
-trait NmSettings {
+pub(crate) trait NmSettings {
     fn list_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn get_connection_by_uuid(&self, uuid: &str) -> zbus::Result<OwnedObjectPath>;
     #[zbus(signal)]
@@ -794,14 +802,18 @@ trait NmSettings {
     interface = "org.freedesktop.NetworkManager.Settings.Connection",
     default_service = "org.freedesktop.NetworkManager"
 )]
-trait SavedConnection {
+pub(crate) trait SavedConnection {
     fn get_settings(&self) -> zbus::Result<HashMap<String, HashMap<String, OwnedValue>>>;
+    fn get_secrets(
+        &self,
+        setting: &str,
+    ) -> zbus::Result<HashMap<String, HashMap<String, OwnedValue>>>;
     fn update(&self, settings: Settings<'_>) -> zbus::Result<()>;
     fn delete(&self) -> zbus::Result<()>;
 }
 
 /// `NetworkManager`'s connection settings, `a{sa{sv}}`.
-type Settings<'a> = HashMap<&'a str, HashMap<&'a str, Value<'a>>>;
+pub(crate) type Settings<'a> = HashMap<&'a str, HashMap<&'a str, Value<'a>>>;
 
 fn wifi_settings<'a>(
     ssid: &'a str,
@@ -877,7 +889,7 @@ fn hotspot_settings<'a>(ssid: &'a str, password: &'a str) -> Settings<'a> {
 }
 
 /// The kernel makes UUIDs; no crate needed for one per new profile.
-fn new_uuid() -> String {
+pub(crate) fn new_uuid() -> String {
     io::read("/proc/sys/kernel/random/uuid").unwrap_or_default()
 }
 
@@ -942,6 +954,8 @@ enum Event {
     Closed,
     WirelessEnabled(bool),
     ActiveChanged,
+    // Adapters can appear after start: firmware loads late, USB is replugged.
+    DevicesChanged,
     ActiveState {
         path: OwnedObjectPath,
         state: u32,
@@ -1030,6 +1044,10 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                     .ok();
             }
             Event::ActiveChanged => actor.refresh_links().await,
+            Event::DevicesChanged => {
+                actor.detect_hardware().await;
+                actor.scan().await;
+            }
             Event::ActiveState {
                 path,
                 state,
@@ -1077,6 +1095,7 @@ impl Actor {
             Err(e) => return log::warn("network", format_args!("no devices: {e}")),
         };
         let (mut wifi, mut bluetooth) = (false, false);
+        self.wifi_device = None;
         for path in devices {
             let Ok(device) = DeviceProxy::builder(&self.bus)
                 .path(path.clone())
@@ -1603,7 +1622,12 @@ impl Actor {
             .receive_active_connections_changed()
             .await
             .map(|_| Event::ActiveChanged);
-        enabled.or(active).boxed()
+        let devices = self
+            .nm
+            .receive_devices_changed()
+            .await
+            .map(|_| Event::DevicesChanged);
+        enabled.or(active).or(devices).boxed()
     }
 
     // Signals from objects that come and go: every active connection's

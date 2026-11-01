@@ -1,0 +1,11 @@
+[Unit]
+Description=Q25 MD1: ccci_mdinit (boots and supervises the modem)
+Requires=q25-ccci-rpcd.service q25-ccci-fsd.service
+After=q25-ccci-rpcd.service q25-ccci-fsd.service
+PartOf=q25-modem.target
+
+[Service]
+# The kernel takes DO_START_MD only from a process named ccci_mdinit.
+ExecStart=/usr/libexec/q25-modem/ccci_mdinit 0
+Restart=on-failure
+RestartSec=5

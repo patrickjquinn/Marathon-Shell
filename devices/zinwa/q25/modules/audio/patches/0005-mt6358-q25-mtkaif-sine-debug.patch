@@ -1,0 +1,13 @@
+--- a/sound/soc/codecs/mt6358.c
++++ b/sound/soc/codecs/mt6358.c
+@@ -605,6 +605,10 @@
+ 		       UL_LOOP_BACK_MODE_CTL_SFT, 1, 0, q25_dbg_get, q25_dbg_put),
+ 	SOC_SINGLE_EXT("Q25 MISO Pad Loopback Switch", MT6358_AUDIO_DIG_CFG,
+ 		       RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_SFT, 1, 0, q25_dbg_get, q25_dbg_put),
++	SOC_SINGLE_EXT("Q25 MTKAIF Sine Switch", MT6358_AFE_TOP_CON0,
++		       MTKAIF_SINE_ON_SFT, 1, 0, q25_dbg_get, q25_dbg_put),
++	SOC_SINGLE_EXT("Q25 UL Sine Switch", MT6358_AFE_TOP_CON0,
++		       UL_SINE_ON_SFT, 1, 0, q25_dbg_get, q25_dbg_put),
+ 	/* dl pga gain */
+ 	SOC_DOUBLE_EXT_TLV("Headphone Volume",
+ 			   MT6358_ZCD_CON2, 0, 7, 0x12, 1,

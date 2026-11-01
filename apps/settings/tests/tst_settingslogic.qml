@@ -116,8 +116,8 @@ TestCase {
         ]), "Buds");
         compare(Logic.batterySummary(55, false), "55%");
         compare(Logic.batterySummary(55, true), "55% · charging");
-        compare(Logic.batterySummary(-1, false), "");
-        compare(Logic.batterySummary(undefined, false), "");
+        compare(Logic.batterySummary(-1, false), "Battery level unavailable");
+        compare(Logic.batterySummary(undefined, false), "Battery level unavailable");
         compare(Logic.percent(0.456), 46);
         compare(Logic.percent(2), 100);
         compare(Logic.zoneCity("America/Port_of_Spain"), "Port of Spain");

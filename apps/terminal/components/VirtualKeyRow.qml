@@ -19,27 +19,31 @@ Row {
 
     readonly property var keys: [
         {
-            label: "Esc",
+            label: "Esc" // i18n: literal (standard keyboard legend)
+            ,
             name: qsTr("Escape"),
             key: Qt.Key_Escape,
             text: ""
         } // i18n: not user-facing
         ,
         {
-            label: "Tab",
+            label: "Tab" // i18n: literal (standard keyboard legend)
+            ,
             name: qsTr("Tab"),
             key: Qt.Key_Tab,
             text: ""
         } // i18n: not user-facing
         ,
         {
-            label: "Ctrl",
+            label: "Ctrl" // i18n: literal (standard keyboard legend)
+            ,
             name: qsTr("Control"),
             kind: "ctrl"
         } // i18n: not user-facing
         ,
         {
-            label: "Alt",
+            label: "Alt" // i18n: literal (standard keyboard legend)
+            ,
             name: qsTr("Alt"),
             kind: "alt"
         } // i18n: not user-facing

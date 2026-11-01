@@ -480,9 +480,10 @@ int main(int argc, char *argv[]) {
 
     // Touch comes from Qt's evdevtouch, read on its own thread with the
     // device's parameters; 71-marathon-touch.rules hides touchscreens from
-    // libinput, which eglfs reads on the GUI thread.
-    const bool evdevTouch =
-        qEnvironmentVariable("QT_QPA_PLATFORM").startsWith(QLatin1String("eglfs")) &&
+    // libinput, which the EGLFS and LinuxFB backends read on the GUI thread.
+    const QString qpaPlatform = qEnvironmentVariable("QT_QPA_PLATFORM");
+    const bool    evdevTouch  = (qpaPlatform.startsWith(QLatin1String("eglfs")) ||
+                                 qpaPlatform.startsWith(QLatin1String("linuxfb"))) &&
         !qEnvironmentVariableIsSet("QT_QPA_GENERIC_PLUGINS");
     QStringList touchSpec;
     if (evdevTouch) {
@@ -506,6 +507,12 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
     startupMark("application");
     qunsetenv("QT_IM_MODULES");
+    // Qt Quick steps animations by a frame of the screen's rate each frame.
+    // Where that rate is made up and the panel's is given, step by the clock.
+    if (const qreal panelHz = qEnvironmentVariable("MARATHON_OUTPUT_HZ").toDouble(); panelHz > 0 &&
+        qAbs(panelHz - QGuiApplication::primaryScreen()->refreshRate()) > 0.5 &&
+        !qEnvironmentVariableIsSet("QSG_USE_SIMPLE_ANIMATION_DRIVER"))
+        qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
     if (evdevTouch) {
 #ifdef MARATHON_HAVE_INPUT_SUPPORT
         startTouchInput(touchSpec.join(QLatin1Char(':')));
@@ -1462,10 +1469,15 @@ int main(int argc, char *argv[]) {
             if (auto *win = qobject_cast<QQuickWindow *>(root)) {
                 auto *resampler = new TouchResampler(win, win->contentItem());
 #ifdef HAVE_WAYLAND
-                resampler->setVblankClock([compositorManager]() -> qint64 {
-                    WaylandCompositor *compositor = compositorManager->compositor();
-                    return compositor ? compositor->frameLatchUs() : -1;
-                });
+                resampler->setVblankClock(
+                    [compositorManager]() -> qint64 {
+                        WaylandCompositor *compositor = compositorManager->compositor();
+                        return compositor ? compositor->frameLatchUs() : -1;
+                    },
+                    [compositorManager]() -> qreal {
+                        WaylandCompositor *compositor = compositorManager->compositor();
+                        return compositor ? compositor->outputRefreshHz() : 0;
+                    });
 #else
                 Q_UNUSED(resampler);
 #endif

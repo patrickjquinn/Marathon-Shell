@@ -1,0 +1,698 @@
+Port the MindOne GKI-6.12 copy of MediaTek's ECCCI modem stack (ccci_util_lib,
+ccmni, ccci_md_all, ccci_ccif, ccci_dpmaif) to Linux 7.0 and the Q25 boot chain.
+
+Applies with -p1 inside a tree holding the files of eccci-files.txt, copied
+(with symlinks) from iasnezhkov/android_kernel_ikko_mindone 9cd73c15
+mindone/modules. Adds the Kbuild files, q25_ccci_smc (the LK CCCI SiP mapping
+for a BL31 that never saw MTK_SIP_KERNEL_BOOT) and 7.0 API fixes.
+
+--- a/ccci_ccif/ccci_hif_ccif.c
++++ b/ccci_ccif/ccci_hif_ccif.c
+@@ -892,7 +892,7 @@
+ 
+ static void md_ccif_traffic_monitor_func(struct timer_list *t)
+ {
+-	struct md_ccif_ctrl *md_ctrl = from_timer(md_ctrl, t, traffic_monitor);
++	struct md_ccif_ctrl *md_ctrl = timer_container_of(md_ctrl, t, traffic_monitor);
+ 
+ 	schedule_work(&md_ctrl->traffic_info.traffic_work_struct);
+ }
+@@ -1205,7 +1205,7 @@
+ 		mod_timer(&md_ctrl->traffic_monitor,
+ 			jiffies + CCIF_TRAFFIC_MONITOR_INTERVAL * HZ);
+ 	} else {
+-		del_timer(&md_ctrl->traffic_monitor);
++		timer_delete(&md_ctrl->traffic_monitor);
+ 		/*
+ 		 *ccci_reset_ccif_hw(md_ctrl->md_id,
+ 		 *	ccif_id, md_ctrl->ccif_ap_base,
+@@ -2440,7 +2440,7 @@
+ 		return 0;
+ 	}
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
++	q25_ccci_smc( MD_CLOCK_REQUEST,
+ 		MD_WAKEUP_AP_SRC, WAKE_SRC_HIF_CCIF0, 0, 0, 0, 0, &res);
+ 	CCCI_REPEAT_LOG(-1, TAG,
+ 		"[%s] flag_1=0x%lx, flag_2=0x%lx, flag_3=0x%lx, flag_4=0x%lx\n",
+--- /dev/null
++++ b/ccci_ccif/Kbuild
+@@ -0,0 +1,7 @@
++MTK_INC := $(src)/../include/drivers/misc/mediatek
++ccflags-y += -I$(src)/../compat -I$(src) -I$(MTK_INC)/eccci/inc -I$(MTK_INC)/eccci/platform \
++	-I$(MTK_INC)/include -I$(MTK_INC)/eccci/hif -I$(MTK_INC)/eccci -I$(src)/../include/include \
++	-I$(src)/../include
++ccflags-y += -DCCCI_KMODULE_ENABLE=1 -include $(src)/mtk_sip_svc_ext.h -include $(src)/../compat/q25_ccci_smc.h
++obj-m += ccci_ccif.o
++ccci_ccif-y := ccci_ringbuf.o ccci_hif_ccif.o
+--- a/ccci_dpmaif/ccci_hif_dpmaif.c
++++ b/ccci_dpmaif/ccci_hif_dpmaif.c
+@@ -507,7 +507,7 @@
+ static void dpmaif_traffic_monitor_func(struct timer_list *t)
+ {
+ 	struct hif_dpmaif_ctrl *hif_ctrl =
+-			from_timer(hif_ctrl, t, traffic_monitor);
++			timer_container_of(hif_ctrl, t, traffic_monitor);
+ 
+ 	struct ccci_hif_traffic *tinfo = &hif_ctrl->traffic_info;
+ 	unsigned long q_rx_rem_nsec[DPMAIF_RXQ_NUM] = {0};
+@@ -2643,8 +2643,8 @@
+ 
+ 	init_waitqueue_head(&txq->tx_done_wait);
+ 	atomic_set(&txq->txq_done, 0);
+-	hrtimer_init(&txq->tx_done_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+-	txq->tx_done_timer.function = tx_done_action;
++	hrtimer_setup(&txq->tx_done_timer, tx_done_action, CLOCK_MONOTONIC,
++		      HRTIMER_MODE_REL);
+ 	txq->tx_done_thread = NULL;
+ 
+ 	spin_lock_init(&txq->tx_lock);
+@@ -3152,7 +3152,7 @@
+ 	/* rx rx clear */
+ 	dpmaif_stop_rx_sw(hif_id);
+ 	/* stop debug mechnism */
+-	del_timer(&dpmaif_ctrl->traffic_monitor);
++	timer_delete(&dpmaif_ctrl->traffic_monitor);
+ 
+ 	/* 3. todo: reset IP */
+ #ifdef MT6297
+@@ -3559,7 +3559,7 @@
+ 	if ((!dpmaif_ctrl) || (atomic_read(&dpmaif_ctrl->suspend_flag) < 0))
+ 		return 0;
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL,
++	q25_ccci_smc(
+ 			MD_CLOCK_REQUEST, MD_WAKEUP_AP_SRC,
+ 			WAKE_SRC_HIF_DPMAIF, 0, 0, 0, 0, &res);
+ 
+--- a/ccci_dpmaif/ccci_hif_dpmaif_v1.c
++++ b/ccci_dpmaif/ccci_hif_dpmaif_v1.c
+@@ -636,7 +636,7 @@
+ {
+ 	//struct hif_dpmaif_ctrl *hif_ctrl = (struct hif_dpmaif_ctrl *)data;
+ 	struct hif_dpmaif_ctrl *hif_ctrl =
+-			from_timer(hif_ctrl, t, traffic_monitor);
++			timer_container_of(hif_ctrl, t, traffic_monitor);
+ 	struct ccci_hif_traffic *tinfo = &hif_ctrl->traffic_info;
+ 	unsigned long q_rx_rem_nsec[DPMAIF_RXQ_NUM] = {0};
+ 	unsigned long isr_rem_nsec;
+@@ -3817,8 +3817,8 @@
+ #ifdef USING_TX_DONE_KERNEL_THREAD
+ 	init_waitqueue_head(&txq->tx_done_wait);
+ 	atomic_set(&txq->txq_done, 0);
+-	hrtimer_init(&txq->tx_done_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+-	txq->tx_done_timer.function = tx_done_action;
++	hrtimer_setup(&txq->tx_done_timer, tx_done_action, CLOCK_MONOTONIC,
++		      HRTIMER_MODE_REL);
+ 	txq->tx_done_thread = NULL;
+ #else
+ 	INIT_DELAYED_WORK(&txq->dpmaif_tx_work, dpmaif_tx_done);
+@@ -4518,7 +4518,7 @@
+ 	/* rx clear */
+ 	dpmaif_stop_rx_sw(hif_id);
+ 	/* stop debug mechnism */
+-	del_timer(&dpmaif_ctrl->traffic_monitor);
++	timer_delete(&dpmaif_ctrl->traffic_monitor);
+ 
+ 	if (dpmaif_ctrl->tx_sw_solution_enable)
+ 		dpmaif_smem_tx_stop();
+@@ -5397,7 +5397,7 @@
+ 	if ((!dpmaif_ctrl) || (atomic_read(&dpmaif_ctrl->suspend_flag) < 0))
+ 		return 0;
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL,
++	q25_ccci_smc(
+ 			MD_CLOCK_REQUEST, MD_WAKEUP_AP_SRC,
+ 			WAKE_SRC_HIF_DPMAIF, 0, 0, 0, 0, &res);
+ 
+--- a/ccci_dpmaif/ccci_hif_dpmaif_v3.c
++++ b/ccci_dpmaif/ccci_hif_dpmaif_v3.c
+@@ -988,7 +988,7 @@
+ static void dpmaif_traffic_monitor_func(struct timer_list *t)
+ {
+ 	struct hif_dpmaif_ctrl *hif_ctrl =
+-			from_timer(hif_ctrl, t, traffic_monitor);
++			timer_container_of(hif_ctrl, t, traffic_monitor);
+ 
+ 	struct ccci_hif_traffic *tinfo = &hif_ctrl->traffic_info;
+ 	unsigned long q_rx_rem_nsec[DPMAIF_RXQ_NUM] = {0};
+@@ -3202,8 +3202,8 @@
+ 
+ 	init_waitqueue_head(&txq->tx_done_wait);
+ 	atomic_set(&txq->txq_done, 0);
+-	hrtimer_init(&txq->tx_done_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+-	txq->tx_done_timer.function = tx_done_action;
++	hrtimer_setup(&txq->tx_done_timer, tx_done_action, CLOCK_MONOTONIC,
++		      HRTIMER_MODE_REL);
+ 	txq->tx_done_thread = NULL;
+ 
+ 	spin_lock_init(&txq->tx_lock);
+@@ -3871,7 +3871,7 @@
+ 	/* rx rx clear */
+ 	dpmaif_stop_rx_sw(hif_id);
+ 	/* stop debug mechnism */
+-	del_timer(&dpmaif_ctrl->traffic_monitor);
++	timer_delete(&dpmaif_ctrl->traffic_monitor);
+ 
+ 	/* 3. todo: reset IP */
+ 	/* CG set */
+@@ -4278,7 +4278,7 @@
+ 	if ((!dpmaif_ctrl) || (atomic_read(&dpmaif_ctrl->suspend_flag) < 0))
+ 		return 0;
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL,
++	q25_ccci_smc(
+ 			MD_CLOCK_REQUEST, MD_WAKEUP_AP_SRC,
+ 			WAKE_SRC_HIF_DPMAIF, 0, 0, 0, 0, &res);
+ 
+--- /dev/null
++++ b/ccci_dpmaif/Kbuild
+@@ -0,0 +1,9 @@
++MTK_INC := $(src)/../include/drivers/misc/mediatek
++ccflags-y += -I$(src)/../compat -I$(src) -I$(MTK_INC)/eccci/inc -I$(MTK_INC)/eccci/platform \
++	-I$(MTK_INC)/include -I$(MTK_INC)/eccci/hif -I$(MTK_INC)/eccci -I$(MTK_INC)/ccmni \
++	-I$(src)/../include/include -I$(src)/../include
++ccflags-y += -DCCCI_KMODULE_ENABLE=1 -include $(src)/mtk_sip_svc_ext.h -include $(src)/../compat/q25_ccci_smc.h
++obj-m += ccci_dpmaif.o
++ccci_dpmaif-y := ccci_hif_dpmaif.o dpmaif_drv.o ccci_hif_dpmaif_comm.o ccci_hif_dpmaif_v3.o \
++	dpmaif_drv_v3.o dpmaif_bat.o dpmaif_bat_v3.o dpmaif_debug.o net_speed.o \
++	ccci_hif_dpmaif_v1.o dpmaif_drv_v1.o net_pool.o md_spd_dvfs_fn.o md_spd_dvfs_method.o
+--- a/ccci_md_all/fsm/ccci_fsm.c
++++ b/ccci_md_all/fsm/ccci_fsm.c
+@@ -706,7 +706,7 @@
+ 		return -CCCI_ERR_INVALID_PARAM;
+ 	}
+ 	cmd = kmalloc(sizeof(struct ccci_fsm_command),
+-		(in_irq() || in_softirq()
++		(in_hardirq() || in_softirq()
+ 		|| irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL);
+ 	if (!cmd) {
+ 		CCCI_ERROR_LOG(ctl->md_id, FSM,
+@@ -717,14 +717,14 @@
+ 	init_waitqueue_head(&cmd->complete_wq);
+ 	cmd->cmd_id = cmd_id;
+ 	cmd->complete = 0;
+-	if (in_irq() || irqs_disabled())
++	if (in_hardirq() || irqs_disabled())
+ 		flag &= ~FSM_CMD_FLAG_WAIT_FOR_COMPLETE;
+ 	cmd->flag = flag;
+ 
+ 	spin_lock_irqsave(&ctl->command_lock, flags);
+ 	list_add_tail(&cmd->entry, &ctl->command_queue);
+ 	spin_unlock_irqrestore(&ctl->command_lock, flags);
+-	if (!in_irq())
++	if (!in_hardirq())
+ 		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+ 			"command %d is appended %x from %ps\n",
+ 			cmd_id, flag,
+--- a/ccci_md_all/hif/ccci_hif_cldma.c
++++ b/ccci_md_all/hif/ccci_hif_cldma.c
+@@ -486,7 +486,7 @@
+ {
+ 	int i;
+ 	//struct md_cd_ctrl *md_ctrl = (struct md_cd_ctrl *)data;
+-	struct md_cd_ctrl *md_ctrl = from_timer(md_ctrl, t, traffic_monitor);
++	struct md_cd_ctrl *md_ctrl = timer_container_of(md_ctrl, t, traffic_monitor);
+ 
+ 	struct ccci_hif_traffic *tinfo = &md_ctrl->traffic_info;
+ 	unsigned long q_rx_rem_nsec[CLDMA_RXQ_NUM] = {0};
+@@ -1794,7 +1794,7 @@
+ 					md_ctrl->txq[i].timeout_end
+ 					= local_clock();
+ 					ret =
+-					del_timer(
++					timer_delete(
+ 					&md_ctrl->txq[i].timeout_timer);
+ 					CCCI_DEBUG_LOG(md_ctrl->md_id, TAG,
+ 						"qno%d del_timer %d ptr=0x%p\n",
+@@ -1945,7 +1945,7 @@
+ 	/* stop timer */
+ #ifdef ENABLE_CLDMA_TIMER
+ 	for (qno = 0; qno < CLDMA_TXQ_NUM; qno++)
+-		del_timer(&md_ctrl->txq[qno].timeout_timer);
++		timer_delete(&md_ctrl->txq[qno].timeout_timer);
+ #endif
+ 
+ 	spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock,
+--- /dev/null
++++ b/ccci_md_all/Kbuild
+@@ -0,0 +1,16 @@
++# Out-of-tree port of MediaTek ECCCI core (MindOne GKI-6.12 copy of stock 2a873a35).
++MTK_INC := $(src)/../include/drivers/misc/mediatek
++ccflags-y += -I$(src)/../compat -I$(src) -I$(src)/inc -I$(src)/platform -I$(src)/hif -I$(src)/port -I$(src)/fsm \
++	-I$(src)/udc -I$(src)/udc/udc_lib_inc -I$(MTK_INC)/ccmni -I$(MTK_INC)/scp/include \
++	-I$(MTK_INC)/scp/rv -I$(MTK_INC)/include -I$(MTK_INC)/mdpm -I$(MTK_INC)/pbm \
++	-I$(src)/../include/include -I$(src)/../include
++ccflags-y += -DCCCI_KMODULE_ENABLE=1 -include $(src)/mtk_sip_svc_ext.h -include $(src)/../compat/q25_ccci_smc.h
++obj-m += ccci_md_all.o
++ccci_md_all-y := ccci_auxadc.o ccci_core.o ccci_bm.o ccci_modem.o modem_sys1.o udc/udc.o \
++	hif/ccci_hif.o port/port_cfg.o port/port_char.o port/port_ctlmsg.o port/port_udc.o \
++	port/port_ipc.o port/port_net.o port/port_poller.o port/port_proxy.o port/port_rpc.o \
++	port/port_smem.o port/port_sysmsg.o port/ccci_swtp.o fsm/ccci_fsm.o fsm/ccci_fsm_ioctl.o \
++	fsm/ccci_fsm_monitor.o fsm/ccci_fsm_poller.o fsm/ccci_fsm_ee.o fsm/ccci_fsm_sys.o \
++	fsm/mdee_dumper_v1.o fsm/mdee_dumper_v2.o fsm/mdee_dumper_v3.o fsm/mdee_dumper_v5.o \
++	platform/ccci_platform.o platform/ap_md_reg_dump.o platform/md_sys1_platform.o \
++	q25_compat.o
+--- a/ccci_md_all/modem_sys1.c
++++ b/ccci_md_all/modem_sys1.c
+@@ -70,7 +70,7 @@
+ 				__func__, md_cd_plat_val_ptr.md_gen);
+ 		return s_spm_md_sleep_callback();
+ 	}
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
++	q25_ccci_smc( MD_CLOCK_REQUEST,
+ 		MD_GET_SLEEP_MODE, 0, 0, 0, 0, 0, &res);
+ 
+ 	CCCI_NORMAL_LOG(0, TAG,
+@@ -1260,7 +1260,7 @@
+ 	ccci_hif_resume(md->index, md->hif_flag);
+ }
+ 
+-int ccci_modem_syssuspend(void)
++int ccci_modem_syssuspend(void *data)
+ {
+ 	struct ccci_modem *md;
+ 
+@@ -1271,7 +1271,7 @@
+ 	return 0;
+ }
+ 
+-void ccci_modem_sysresume(void)
++void ccci_modem_sysresume(void *data)
+ {
+ 	struct ccci_modem *md;
+ 
+@@ -1282,11 +1282,15 @@
+ }
+ 
+ 
+-static struct syscore_ops ccci_modem_sysops = {
++static const struct syscore_ops ccci_modem_sysops = {
+ 	.suspend = ccci_modem_syssuspend,
+ 	.resume = ccci_modem_sysresume,
+ };
+ 
++static struct syscore ccci_modem_syscore = {
++	.ops = &ccci_modem_sysops,
++};
++
+ static u64 cldma_dmamask = DMA_BIT_MASK(36);
+ 
+ int ccci_modem_init_common(struct platform_device *plat_dev,
+@@ -1369,7 +1373,7 @@
+ 	//	return ret;
+ 	//}
+ 	/* register SYS CORE suspend resume call back */
+-	register_syscore_ops(&ccci_modem_sysops);
++	register_syscore(&ccci_modem_syscore);
+ 
+ 	/* add sysfs entries */
+ 	md_cd_sysfs_init(md);
+--- a/ccci_md_all/platform/ap_md_reg_dump.c
++++ b/ccci_md_all/platform/ap_md_reg_dump.c
+@@ -22,7 +22,7 @@
+ {
+ 	struct arm_smccc_res res;
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DBGSYS_REG_DUMP, reg_id,
++	q25_ccci_smc( MD_DBGSYS_REG_DUMP, reg_id,
+ 		value, 0, 0, 0, 0, &res);
+ 
+ 	return res.a0;
+@@ -1201,7 +1201,7 @@
+ 	int loop_max_cnt = 0, ret;
+ 
+ 	/* 1. start to dump, send start command */
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DEBUG_DUMP,
++	q25_ccci_smc( MD_DEBUG_DUMP,
+ 		MD_REG_DUMP_START, MD_REG_DUMP_MAGIC, 0, 0, 0, 0, &res);
+ 	buf_addr = res.a1;
+ 	buf_size = res.a2;
+@@ -1235,7 +1235,7 @@
+ 	/* 2. get dump data, send dump_stage command to get */
+ 	do {
+ 		loop_max_cnt++;
+-		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DEBUG_DUMP,
++		q25_ccci_smc( MD_DEBUG_DUMP,
+ 			MD_REG_DUMP_STAGE, 0, 0, 0, 0, 0, &res);
+ 		CCCI_DEBUG_LOG(-1, TAG,
+ 			"[%s][MD_REG_DUMP_STAGE] flag_0=0x%lx, flag_1=0x%lx, flag_2=0x%lx, flag_3=0x%lx\n",
+--- a/ccci_md_all/platform/md_sys1_platform.c
++++ b/ccci_md_all/platform/md_sys1_platform.c
+@@ -178,7 +178,7 @@
+ 	int settle;
+ 	struct arm_smccc_res res = {0};
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
++	q25_ccci_smc( MD_CLOCK_REQUEST,
+ 		MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, &res);
+ 	if (res.a0)
+ 		CCCI_ERROR_LOG(-1, TAG,
+@@ -192,7 +192,7 @@
+ 	}
+ 
+ 	if (locked) {
+-		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
++		q25_ccci_smc( MD_CLOCK_REQUEST,
+ 			MD_REG_AP_MDSRC_SETTLE, 0, 0, 0, 0, 0, &res);
+ 
+ 		CCCI_MEM_LOG_TAG(-1, TAG,
+@@ -210,7 +210,7 @@
+ 		}
+ 		mdelay(settle);
+ 
+-		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
++		q25_ccci_smc( MD_CLOCK_REQUEST,
+ 			MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0, &res);
+ 		CCCI_MEM_LOG_TAG(-1, TAG,
+ 			"settle = %d; ret = 0x%lX\n", settle, res.a0);
+@@ -225,7 +225,7 @@
+ 	void __iomem *md_boot_status0;
+ 	void __iomem *md_boot_status1;
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
++	q25_ccci_smc( MD_POWER_CONFIG,
+ 		MD_BOOT_STATUS, 0, 0, 0, 0, 0, &res);
+ 
+ 	if (buff && (length >= 2)) {
+@@ -441,7 +441,7 @@
+ {
+ 	struct arm_smccc_res res;
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_FLIGHT_MODE_SET,
++	q25_ccci_smc( MD_FLIGHT_MODE_SET,
+ 		flightMode, 0, 0, 0, 0, 0, &res);
+ 
+ 	CCCI_BOOTUP_LOG(md->index, TAG,
+@@ -785,7 +785,7 @@
+ 		return 0;
+ 
+ 	while (timeout > 0) {
+-		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG, MD_CHECK_DONE,
++		q25_ccci_smc( MD_POWER_CONFIG, MD_CHECK_DONE,
+ 			0, 0, 0, 0, 0, &res);
+ 		ret = res.a0;
+ 		if (!ret) {
+@@ -795,7 +795,7 @@
+ 		timeout--;
+ 		msleep(20);
+ 	}
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
++	q25_ccci_smc( MD_POWER_CONFIG,
+ 		MD_CHECK_FLAG, 0, 0, 0, 0, 0, &res);
+ 	CCCI_ERROR_LOG(md->index, TAG,
+ 		"flag_1=%lu, flag_2=%lu, flag_3=%lu, flag_4=%lu\n",
+@@ -979,7 +979,7 @@
+ 
+ 	CCCI_NORMAL_LOG(-1, TAG, "Trigger MD pll setting, %d\n", (int)stage);
+ 
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
++	q25_ccci_smc( MD_POWER_CONFIG,
+ 		MD_LK_BOOT_PLAT, stage, 0, 0, 0, 0, &res);
+ 	if (res.a0)
+ 		return -1;
+@@ -1515,7 +1515,7 @@
+ 	CCCI_NORMAL_LOG(0, TAG, "[POWER ON]set MD boot slave\n");
+ 
+ 	/* make boot vector take effect */
+-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
++	q25_ccci_smc( MD_POWER_CONFIG,
+ 		MD_KERNEL_BOOT_UP, 0, 0, 0, 0, 0, &res);
+ 	CCCI_BOOTUP_LOG(0, TAG,
+ 		"[POWER ON]set MD boot slave done: ret=%lu, boot_status_0=%lu, boot_status_1=%lu, boot_slave = %lu\n",
+@@ -1893,7 +1893,7 @@
+ #endif
+ 		   },
+ 	.probe = ccci_modem_probe,
+-	.remove_new = ccci_modem_remove,
++	.remove = ccci_modem_remove,
+ 	.shutdown = ccci_modem_shutdown,
+ 	.suspend = ccci_modem_suspend,
+ 	.resume = ccci_modem_resume,
+--- a/ccci_md_all/port/port_smem.c
++++ b/ccci_md_all/port/port_smem.c
+@@ -178,9 +178,8 @@
+ 			smem_port->wakeup = 0;
+ 			smem_port->type = TYPE_CCB;
+ 			init_waitqueue_head(&smem_port->rx_wq);
+-			hrtimer_init(&smem_port->notify_timer,
+-			CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+-			smem_port->notify_timer.function = smem_tx_timer_func;
++			hrtimer_setup(&smem_port->notify_timer, smem_tx_timer_func,
++				      CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+ 			break;
+ 		}
+ 	}
+--- /dev/null
++++ b/ccci_md_all/q25_compat.c
+@@ -0,0 +1,26 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Q25: the MediaTek display driver that retunes DSI/OSC clocks on modem RF
++ * notifications is not present (mainline mediatek-drm/simpledrm). The modem's
++ * desense requests are logged and acknowledged as unsupported.
++ */
++#include <linux/printk.h>
++
++void mtk_disp_mipi_clk_change(int msg, unsigned int en);
++void mtk_disp_mipi_ccci_callback(unsigned int para0, unsigned int para1);
++void mtk_disp_osc_ccci_callback(unsigned int para0, unsigned int para1);
++
++void mtk_disp_mipi_clk_change(int msg, unsigned int en)
++{
++	pr_debug("ccci: MIPI clock hop request %d/%u ignored\n", msg, en);
++}
++
++void mtk_disp_mipi_ccci_callback(unsigned int para0, unsigned int para1)
++{
++	pr_debug("ccci: MIPI_CLK RF notify %u/%u ignored\n", para0, para1);
++}
++
++void mtk_disp_osc_ccci_callback(unsigned int para0, unsigned int para1)
++{
++	pr_debug("ccci: LCM_OSC RF notify %u/%u ignored\n", para0, para1);
++}
+--- a/ccci_util_lib/ccci_util_lib_fo.c
++++ b/ccci_util_lib/ccci_util_lib_fo.c
+@@ -1089,7 +1089,7 @@
+ 		memset_io(s_g_lk_inf_base, 0, s_g_tag_inf_size);
+ 		iounmap(s_g_lk_inf_base);
+ 	} else if (s_g_lk_info_tag_version >= 3) {
+-		if (!pfn_valid(__phys_to_pfn(s_g_tag_phy_addr))) {
++		if (!pfn_is_map_memory(__phys_to_pfn(s_g_tag_phy_addr))) {
+ 			iounmap(s_g_lk_inf_base);
+ 		} else {
+ 			vunmap(s_g_lk_inf_base);
+--- /dev/null
++++ b/ccci_util_lib/Kbuild
+@@ -0,0 +1,9 @@
++# Out-of-tree port of MediaTek ccci_util_lib (MindOne GKI-6.12 copy of stock 2a873a35).
++MTK_INC := $(src)/../include/drivers/misc/mediatek
++ccflags-y += -I$(src)/../compat -I$(MTK_INC)/include -I$(MTK_INC)/eccci/inc -I$(MTK_INC)/eccci -I$(src)
++ccflags-y += -DCCCI_KMODULE_ENABLE -Wno-missing-prototypes -Wno-missing-declarations
++obj-m += ccci_util_lib.o
++ccci_util_lib-y := ccci_util_lib_main.o ccci_util_lib_fo.o ccci_util_lib_load_img.o \
++	ccci_util_lib_reserved_mem.o ccci_util_lib_sys.o ccci_util_lib_time.o \
++	ccci_util_broadcast.o ccci_util_pin_broadcast.o ccci_util_md_rat.o ccci_util_sib.o \
++	ccci_private_log.o ccci_util_ld_md_errno.o q25_ccci_smc.o
+--- /dev/null
++++ b/ccci_util_lib/q25_ccci_smc.c
+@@ -0,0 +1,82 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Q25 boot chain: U-Boot sits in LK's place and never issues
++ * MTK_SIP_KERNEL_BOOT, so the installed BL31 (v2.4 8605b7e34f7) keeps
++ * dispatching Linux SiP calls to its BL33 table. The kernel CCCI ID returns
++ * SMC_UNK there; the LK CCCI ID (0x40B) is served. Try the kernel ID first so
++ * a fixed boot chain needs no change, then map the boot-path requests onto
++ * their LK-table equivalents (decoded from the BL31 handlers).
++ */
++#include <linux/arm-smccc.h>
++#include <linux/module.h>
++#include <linux/printk.h>
++#include "q25_ccci_smc.h"
++
++#define SIP_KERNEL_CCCI		ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_64, \
++						   ARM_SMCCC_OWNER_SIP, 0x505)
++#define SIP_LK_CCCI		ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_64, \
++						   ARM_SMCCC_OWNER_SIP, 0x40b)
++
++/* modem_secure_base.h */
++#define MD_POWER_CONFIG		6
++#define MD_KERNEL_BOOT_UP	0
++#define MD_CHECK_FLAG		2
++#define MD_CHECK_DONE		3
++#define MD_BOOT_STATUS		4
++#define MD_LK_BOOT_PLAT		8
++/* LK2 ccci_ld_md_sec.h */
++#define LK_BOOT_UP		1
++#define LK_GET_BOOT_UP_STATUS	7
++
++void q25_ccci_smc(unsigned long a1, unsigned long a2, unsigned long a3, unsigned long a4,
++		  unsigned long a5, unsigned long a6, unsigned long a7,
++		  struct arm_smccc_res *res)
++{
++	struct arm_smccc_res lk;
++
++	arm_smccc_smc(SIP_KERNEL_CCCI, a1, a2, a3, a4, a5, a6, a7, res);
++	if (res->a0 != SMCCC_RET_NOT_SUPPORTED && res->a0 != ~0UL)
++		return;
++	if (a1 != MD_POWER_CONFIG) {
++		pr_debug_ratelimited("q25-ccci: SiP CCCI %lu/%lu unavailable on this boot chain\n",
++				     a1, a2);
++		return;
++	}
++	switch (a2) {
++	case MD_KERNEL_BOOT_UP:
++		arm_smccc_smc(SIP_LK_CCCI, MD_POWER_CONFIG, LK_BOOT_UP, 0, 0, 0, 0, 0, res);
++		break;
++	case MD_LK_BOOT_PLAT:
++		arm_smccc_smc(SIP_LK_CCCI, MD_POWER_CONFIG, MD_LK_BOOT_PLAT, a3, 0, 0, 0, 0, res);
++		break;
++	case MD_CHECK_FLAG:
++	case MD_CHECK_DONE:
++	case MD_BOOT_STATUS:
++		arm_smccc_smc(SIP_LK_CCCI, MD_POWER_CONFIG, LK_GET_BOOT_UP_STATUS, 0, 0, 0, 0, 0,
++			      &lk);
++		if (lk.a0) {
++			*res = lk;
++			break;
++		}
++		if (a2 == MD_BOOT_STATUS) {
++			/* kernel layout: a1/a2 = the two boot status words */
++			res->a0 = 0;
++			res->a1 = lk.a1 >> 32;
++			res->a2 = lk.a1 & 0xffffffff;
++			res->a3 = 0;
++		} else {
++			/* four BROM check flags; all 1 means pass */
++			res->a1 = lk.a2 & 0xffffffff;
++			res->a2 = lk.a3 >> 32;
++			res->a3 = lk.a3 & 0xffffffff;
++			if (a2 == MD_CHECK_FLAG)
++				res->a0 = lk.a2 >> 32;
++			else
++				res->a0 = !(lk.a2 == 0x100000001UL && lk.a3 == 0x100000001UL);
++		}
++		break;
++	default:
++		break;
++	}
++}
++EXPORT_SYMBOL_GPL(q25_ccci_smc);
+--- a/ccmni/ccmni.c
++++ b/ccmni/ccmni.c
+@@ -24,6 +24,7 @@
+  ****************************************************************************/
+ #include <linux/if_arp.h>
+ #include <linux/netdevice.h>
++#include <net/gro.h>
+ #include <linux/u64_stats_sync.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ip.h>
+@@ -46,7 +47,7 @@
+ #include <mt-plat/met_drv.h>
+ #endif
+ 
+-#include <trace/hooks/ipv6.h>
++/* Q25: Android vendor hook header dropped; the hook is unused here. */
+ 
+ struct ccmni_ctl_block *ccmni_ctl_blk[MAX_MD_NUM];
+ 
+@@ -301,10 +302,10 @@
+ 
+ 	napi = ccmni->napi;
+ 	napi_gro_flush(napi, false);
+-	if (napi->rx_count) {
+-		netif_receive_skb_list(&napi->rx_list);
+-		INIT_LIST_HEAD(&napi->rx_list);
+-		napi->rx_count = 0;
++	if (napi->gro.rx_count) {
++		netif_receive_skb_list(&napi->gro.rx_list);
++		INIT_LIST_HEAD(&napi->gro.rx_list);
++		napi->gro.rx_count = 0;
+ 	}
+ }
+ 
+@@ -1130,7 +1131,7 @@
+ 	int md_id = ccmni->md_id;
+ 	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+ 
+-	del_timer(ccmni->timer);
++	timer_delete(ccmni->timer);
+ 
+ 	if (ctlb->ccci_ops->napi_poll)
+ 		return ctlb->ccci_ops->napi_poll(md_id, ccmni->index,
+@@ -1144,7 +1145,7 @@
+ static void ccmni_napi_poll_timeout(struct timer_list *t)
+ {
+ 	//struct ccmni_instance *ccmni = (struct ccmni_instance *)data;
+-	//struct ccmni_instance *ccmni = from_timer(ccmni, t, timer);
++	//struct ccmni_instance *ccmni = timer_container_of(ccmni, t, timer);
+ 
+ 	//CCMNI_DBG_MSG(ccmni->md_id,
+ 	//	"CCMNI%d lost NAPI polling\n", ccmni->index);
+--- /dev/null
++++ b/ccmni/Kbuild
+@@ -0,0 +1,3 @@
++MTK_INC := $(src)/../include/drivers/misc/mediatek
++ccflags-y += -I$(src)/../compat -I$(MTK_INC)/eccci/inc -I$(MTK_INC)/eccci -I$(MTK_INC)/include -I$(MTK_INC)/ccmni -I$(src) -I$(src)/../include/include -I$(src)/../include
++obj-m += ccmni.o
+--- /dev/null
++++ b/compat/q25_ccci_smc.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _Q25_CCCI_SMC_H
++#define _Q25_CCCI_SMC_H
++#include <linux/arm-smccc.h>
++
++/* Drop-in for arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, ...); see q25_ccci_smc.c. */
++void q25_ccci_smc(unsigned long a1, unsigned long a2, unsigned long a3, unsigned long a4,
++		  unsigned long a5, unsigned long a6, unsigned long a7,
++		  struct arm_smccc_res *res);
++#endif
+--- /dev/null
++++ b/compat/rps_perf.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* Q25: no MediaTek rps_perf module; tune via the ccmni rx-0 rps_cpus sysfs file. */
++#ifndef _Q25_COMPAT_RPS_PERF_H
++#define _Q25_COMPAT_RPS_PERF_H
++struct netdev_rx_queue;
++static inline int set_rps_map(struct netdev_rx_queue *queue, unsigned long rps_value)
++{
++	return 0;
++}
++#endif
+--- /dev/null
++++ b/compat/soc/mediatek/emi.h
+@@ -0,0 +1,16 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* Q25: no MediaTek EMI MPU driver; violation reporting is not wired up. */
++#ifndef _Q25_COMPAT_SOC_MEDIATEK_EMI_H
++#define _Q25_COMPAT_SOC_MEDIATEK_EMI_H
++
++typedef void (*emimpu_md_handler)(const char *vio_msg);
++
++static inline int mtk_emimpu_md_handling_register(emimpu_md_handler fn)
++{
++	return 0;
++}
++
++static inline void mtk_clear_md_violation(void)
++{
++}
++#endif
+--- a/include/drivers/misc/mediatek/eccci/platform/md_sys1_platform.h
++++ b/include/drivers/misc/mediatek/eccci/platform/md_sys1_platform.h
+@@ -106,8 +106,8 @@
+ extern unsigned int ap_plat_info;
+ 
+ /* ADD_SYS_CORE */
+-int ccci_modem_syssuspend(void);
+-void ccci_modem_sysresume(void);
++int ccci_modem_syssuspend(void *data);
++void ccci_modem_sysresume(void *data);
+ void md_dump_register_6873(unsigned int md_index);
+ 
+ extern void ccci_mem_dump(int md_id, void *start_addr, int len);

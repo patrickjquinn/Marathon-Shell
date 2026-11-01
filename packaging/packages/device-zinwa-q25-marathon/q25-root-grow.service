@@ -1,0 +1,13 @@
+[Unit]
+Description=Q25: grow the root image into the carrier filesystem
+DefaultDependencies=no
+After=q25-root-dio.service
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/q25-root-grow
+
+[Install]
+WantedBy=sysinit.target

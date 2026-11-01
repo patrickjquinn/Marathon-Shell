@@ -1,0 +1,14 @@
+[Unit]
+Description=Q25: direct I/O for the loop-mounted root image
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Without it the image's pages are cached twice: by / and by the carrier.
+ExecStart=/bin/sh -c 'dev=$$(findmnt -no SOURCE /); case "$$dev" in /dev/loop*) exec losetup --direct-io=on "$$dev";; esac'
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,35 @@
+#!/bin/sh
+# q25-modem-nv mount|umount|status
+# Exposes nvdata/nvcfg/protect1/protect2 to ccci_fsd at the stock
+# /mnt/vendor paths through overlayfs: the partitions are mounted read-only
+# with noload (no journal replay), all modem writes land in
+# /var/lib/q25-modem/nv/upper. Real partitions are never written.
+set -eu
+B=/var/lib/q25-modem/nv
+MAP="nvdata:nvdata nvcfg:nvcfg protect_f:protect1 protect_s:protect2"
+case "${1:-status}" in
+mount)
+	for m in $MAP; do
+		n=${m%%:*}; p=${m#*:}
+		mkdir -p $B/lower/$n $B/upper/$n $B/work/$n /mnt/vendor/$n
+		mountpoint -q $B/lower/$n || mount -t ext4 -o ro,noload,nodev,nosuid,noexec \
+			/dev/disk/by-partlabel/$p $B/lower/$n
+		mountpoint -q /mnt/vendor/$n || mount -t overlay overlay \
+			-o lowerdir=$B/lower/$n,upperdir=$B/upper/$n,workdir=$B/work/$n,nodev,nosuid,noexec \
+			/mnt/vendor/$n
+	done
+	mkdir -p /data/vendor/mdlpm /data/vendor/md3 /data/vendor_de/md /mnt/vendor/nvdata/md \
+		/mnt/vendor/nvdata/md_cmn /vendor/etc/mdota /vendor/etc/md /vendor/firmware
+	;;
+umount)
+	for m in $MAP; do
+		n=${m%%:*}
+		umount /mnt/vendor/$n 2>/dev/null || true
+		umount $B/lower/$n 2>/dev/null || true
+	done
+	;;
+status)
+	findmnt -rn -o TARGET,SOURCE,FSTYPE,OPTIONS | grep -E "/mnt/vendor|$B" || true
+	du -sh $B/upper 2>/dev/null || true
+	;;
+esac

@@ -429,7 +429,7 @@ TestCase {
         compare(child(s.page, "versionItem").value, "r375");
         compare(child(s.page, "baseItem").value, "postmarketOS edge");
         Power.batteryLevel = -1;
-        compare(child(s.page, "batteryItem").value, "No battery");
+        compare(child(s.page, "batteryItem").value, "Battery level unavailable");
         child(s.page, "nameButton").clicked(null);
         const dialog = pushed(s.app, s.page);
         compare(dialog.name, "Librem 5");

@@ -1,0 +1,18 @@
+#!/bin/sh
+# Hands the firmware framebuffer from simpledrm to q25-vsyncdrm, which adds a
+# vblank locked to the panel's scan; back to simpledrm if it will not probe.
+set -eu
+drivers=/sys/bus/platform/drivers
+for dev in "$drivers"/simple-framebuffer/*.framebuffer; do
+	[ -e "$dev" ] || exit 0
+	fb=$(basename "$dev")
+	modprobe q25-vsyncdrm
+	echo q25-vsyncdrm > "$dev/driver_override"
+	echo "$fb" > "$drivers/simple-framebuffer/unbind"
+	echo "$fb" > /sys/bus/platform/drivers_probe || true
+	[ -e "$drivers/q25-vsyncdrm/$fb" ] && continue
+	echo > "/sys/bus/platform/devices/$fb/driver_override"
+	echo "$fb" > /sys/bus/platform/drivers_probe
+	echo "q25-vsyncdrm: $fb did not probe; left on simpledrm" >&2
+	exit 1
+done

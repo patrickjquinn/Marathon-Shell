@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Zinwa Q25 MD1 owner. Replaces the md_mem/md_mem2/md_mem3/md_mem4 nodes of
+ * mt8781-zinwa-q25.dts / mt6789-zinwa-q25.dts with one 128 MiB span that the
+ * v6 CHECK_HEADER declares (mem_size 0x8000000, DSP at +0x7200000, DRDI
+ * runtime at +0x5400000). Requires labels apmdc_mem, apmdnc_mem, scpsys and
+ * infracfg_ao from the board/SoC DT.
+ */
+#include <dt-bindings/clock/mediatek,mt6789-clk.h>
+
+&{/reserved-memory} {
+	md1_image: md1-image@dc000000 {
+		reg = <0 0xdc000000 0 0x8000000>;
+		no-map;
+	};
+};
+
+&{/soc} {
+	modem@10209000 {
+		compatible = "zinwa,q25-md1-owner";
+		reg = <0 0x10209000 0 0x1000>, <0 0x1020a000 0 0x1000>;
+		reg-names = "ccif-ap", "ccif-md";
+		clocks = <&infracfg_ao CLK_IFRAO_CCIF_AP>,
+			 <&infracfg_ao CLK_IFRAO_CCIF_MD>;
+		clock-names = "ccif-ap", "ccif-md";
+		memory-region = <&md1_image>, <&apmdnc_mem>, <&apmdc_mem>;
+		memory-region-names = "md-image", "nc-smem", "c-smem";
+		mediatek,spm = <&scpsys>;
+		mediatek,infracfg-ao = <&infracfg_ao>;
+		firmware-name = "q25-md1/md1img.img";
+		status = "okay";
+	};
+};

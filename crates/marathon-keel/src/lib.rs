@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use async_io::Async;
 use futures_lite::StreamExt as _;
@@ -70,11 +69,6 @@ impl Host {
             on_activate,
             on_ambience,
         };
-        if let Some(ambience) =
-            async_io::block_on(io::timeout(Duration::from_secs(1), read_ambience())).flatten()
-        {
-            host.lock().ambience = ambience;
-        }
         let accepting = host.clone();
         io::spawn(async move {
             while let Ok((stream, _)) = listener.accept().await {
@@ -211,6 +205,10 @@ impl Host {
             .await?
             .receive_name_owner_changed_with_args(&[(0, SHELL)])
             .await?;
+        // Subscribed first, so a change while reading is not lost.
+        if let Some(ambience) = read_ambience().await {
+            self.set_ambience(ambience);
+        }
         let reread = self.clone();
         io::spawn(async move {
             while let Some(change) = owners.next().await {

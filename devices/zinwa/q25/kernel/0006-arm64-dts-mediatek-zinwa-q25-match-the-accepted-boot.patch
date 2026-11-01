@@ -1,0 +1,130 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Fri, 30 Oct 2026 23:59:00 +0000
+Subject: [PATCH] arm64: dts: mediatek: zinwa-q25: match the accepted boot DT
+
+The Q25 has booted for weeks from a DTB edited as a binary (f668fc23...,
+q25-native-input.dtb), not from this source. Carry its changes here:
+
+- the bootloader framebuffer with its 736-pixel pitch, which simpledrm
+  needs while scanout stays with the firmware;
+- the touch controller's reset line and start-up delay;
+- the RP2040 keyboard on i2c6 (q25-bbq-keys) and i2c7 enabled;
+- no ramoops carveout: the booted DT never had it.
+
+The result compiles to a tree equal to f668fc23 (phandle numbering
+aside, checked node by node).
+---
+ arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts |   68 +++++++++++----------
+ 1 file changed, 36 insertions(+), 32 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+index 4189072..911721c 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+@@ -37,8 +37,20 @@
+ 	};
+ 
+ 	chosen {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
+ 		stdout-path = "serial0:921600n1";
+-		/* Framebuffer is EFI-GOP-provided (simpledrm); no fb node here. */
++
++		/* The bootloader scans out 720x720 with a 736-pixel pitch. */
++		framebuffer@ff97c000 {
++			compatible = "simple-framebuffer";
++			reg = <0 0xff97c000 0 0x205800>;
++			width = <720>;
++			height = <720>;
++			stride = <(736 * 4)>;
++			format = "a8r8g8b8";
++		};
+ 	};
+ 
+ 	/*
+@@ -75,28 +87,6 @@
+ 		fb_mem:       framebuffer@fe0d0000 { reg = <0 0xfe0d0000 0 0x1f2f000>; no-map; };
+ 		aee_lk_mem:   aee_lk@50700000      { reg = <0 0x50700000 0 0x800000>;  no-map; };
+ 
+-		/*
+-		 * ramoops persistent crash recorder. Placed in the 2 MiB hole at
+-		 * the top of the declared RAM window (memory@ = 0x40000000 +
+-		 * 0x80000000 = ends 0xc0000000; the last SoC carveout scp@bfa00000
+-		 * ends at 0xbfe00000), so it collides with nothing above and the
+-		 * MTK watchdog warm-reset (WATCHDOG_HANDLE_BOOT_ENABLED, 31 s)
+-		 * preserves DRAM across a hang -> the last kernel console lines
+-		 * survive to /sys/fs/pstore on the next boot. This is the "never
+-		 * silently brick again" net: an early driver hang (e.g. the scpsys
+-		 * pm-domains probe that wedged the boot with zero disk/journal
+-		 * trace) now leaves console-ramoops behind. Requires the built-in
+-		 * (=y, not =m) CONFIG_PSTORE_RAM + CONFIG_PSTORE_CONSOLE in config.
+-		 * NOT no-map: ramoops memremaps the region as normal RAM.
+-		 */
+-		ramoops@bfe00000 {
+-			compatible = "ramoops";
+-			reg = <0 0xbfe00000 0 0x100000>;
+-			console-size = <0x80000>;
+-			record-size = <0x40000>;
+-			pmsg-size = <0x20000>;
+-			max-reason = <5>; /* KMSG_DUMP_OOPS and worse */
+-		};
+ 	};
+ 
+ 	/*
+@@ -602,14 +592,10 @@
+ 		interrupt-parent = <&pio>;
+ 		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
+ 
+-		/*
+-		 * Power = GPIO27 (active-high). Modeled as an always-on enable
+-		 * regulator feeding vdd-supply; reset = GPIO152 (active-low).
+-		 * rmi4-i2c has no reset-gpios property — verify on-device whether
+-		 * a gpio-hog on 152 or a regulator ramp is needed. syna,reset-
+-		 * delay-ms covers the post-reset settle.
+-		 */
++		/* Power = GPIO27 (active-high); reset = GPIO152 (active-low). */
++		reset-gpios = <&pio 152 GPIO_ACTIVE_LOW>;
+ 		syna,reset-delay-ms = <200>;
++		syna,startup-delay-ms = <200>;
+ 
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+@@ -629,6 +615,25 @@
+ 	};
+ };
+ 
++/* RP2040 QWERTY keyboard and its light (q25-bbq-keys, q25-keyboard-led). */
++&i2c6 {
++	status = "okay";
++
++	keyboard@1f {
++		compatible = "zinwa,q25-bbq-keys";
++		reg = <0x1f>;
++		interrupt-parent = <&pio>;
++		interrupts = <12 IRQ_TYPE_EDGE_FALLING>;
++		power-vdd-gpios = <&pio 159 GPIO_ACTIVE_HIGH>;
++		power-1v8-gpios = <&pio 157 GPIO_ACTIVE_HIGH>;
++		power-2v8-gpios = <&pio 158 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++&i2c7 {
++	status = "okay";
++};
++
+ /* ------------------------------------------------------------------ *
+  * Charger — Unisemipower UPM6922 on I2C5 @ 0x6B (stock DTBO fragment@36).
+  * Register-compatible BQ25601 clone (REG0B PN=2), driven by the mainline
+@@ -831,6 +836,5 @@
+ };
+ 
+ /* ------------------------------------------------------------------ *
+- * Physical QWERTY: RP2040 USB-HID — enumerates over USB, remapped by keyd.
+- * No DT node.
++ * Physical QWERTY: RP2040 on I2C6, see &i2c6 above.
+  * ------------------------------------------------------------------ */
+-- 
+2.47.0
+

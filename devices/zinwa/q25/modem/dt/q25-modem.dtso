@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Zinwa Q25 MD1 + MediaTek ECCCI overlay for the current DTB
+ * (wifi-gen4m/merged/q25-native-input-audio-sensors-connsys-btif-nobl.dtb, sha256 edc93beb...).
+ * Node contents follow the stock mt6789.dts (LineageOS 2a873a35) with
+ * mainline clock indices (mediatek,mt6789-clk.h). The base DTB has no
+ * __symbols__ for these providers, so infracfg_ao/topckgen are referenced by
+ * their verified base phandles; make-modem-dtbo.py refuses any other base.
+ */
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#define INFRACFG_AO_PH	0x13
+#define TOPCKGEN_PH	0x12
+#define CLK_IFRAO_CCIF1_AP	25
+#define CLK_IFRAO_CCIF1_MD	26
+#define CLK_IFRAO_CCIF_AP	30
+#define CLK_IFRAO_CCIF_MD	33
+#define CLK_IFRAO_CCIF5_MD	51
+#define CLK_IFRAO_DPMAIF_MAIN	55
+#define CLK_IFRAO_CCIF4_MD	57
+
+/* Stock LK smem layout needs 0xe10000 non-cacheable; the carve-out was 0xe00000. */
+&{/reserved-memory/ap_md_nc_smem@8e000000} {
+	reg = <0 0x8e000000 0 0xe10000>;
+};
+
+&{/} {
+	md_attr_node {
+		compatible = "mediatek,md_attr_node";
+		mediatek,md_drdi_rf_set_idx = <0x0f0f0f0f>;
+		mediatek,md_product_name_model_id = <0x0f0f0f0f>;
+	};
+};
+
+&{/soc} {
+	md1_owner: md1-owner {
+		compatible = "zinwa,q25-md1-owner";
+		firmware-name = "q25-md1/md1img.img";
+		#power-domain-cells = <0>;
+	};
+
+	apccci_mdo1: md_power_o1@10006000 {
+		compatible = "mediatek,md_power_o1", "syscon";
+		reg = <0 0x10006000 0 0x1000>;
+	};
+
+	infracfg_ao_ccci: infracfg_ao_ccci@10001000 {
+		compatible = "mediatek,infracfg_ao";
+		reg = <0 0x10001000 0 0x1000>;
+	};
+
+	mddriver {
+		compatible = "mediatek,mddriver";
+		mediatek,mdhif_type = <6>;
+		mediatek,md_id = <0>;
+		mediatek,ap_plat_info = <6789>;
+		mediatek,md_generation = <6295>;
+		mediatek,offset_epon_md1 = <0x24 0x06>;
+		mediatek,cldma_capability = <6>;
+		mediatek,power_flow_config = <0x12>;
+		mediatek,srclken_o1 = <0x200000>;
+		reg = <0 0x0d0cf000 0 0x1000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_EDGE_RISING 0>,
+			     <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <&md1_owner>;
+		ccci-infracfg = <INFRACFG_AO_PH>;
+		ccci-topckgen = <TOPCKGEN_PH>;
+		ccci_spmsleep = <&apccci_mdo1>;
+	};
+
+	ccifdriver@10209000 {
+		compatible = "mediatek,ccci_ccif";
+		reg = <0 0x10209000 0 0x1000>, <0 0x1020a000 0 0x1000>;
+		mediatek,sram_size = <512>;
+		interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <INFRACFG_AO_PH CLK_IFRAO_CCIF_AP>,
+			 <INFRACFG_AO_PH CLK_IFRAO_CCIF_MD>,
+			 <INFRACFG_AO_PH CLK_IFRAO_CCIF1_AP>,
+			 <INFRACFG_AO_PH CLK_IFRAO_CCIF1_MD>,
+			 <INFRACFG_AO_PH CLK_IFRAO_CCIF4_MD>,
+			 <INFRACFG_AO_PH CLK_IFRAO_CCIF5_MD>;
+		clock-names = "infra-ccif-ap", "infra-ccif-md", "infra-ccif1-ap",
+			      "infra-ccif1-md", "infra-ccif4-md", "infra-ccif5-md";
+	};
+
+	dpmaif@10014000 {
+		compatible = "mediatek,dpmaif";
+		reg = <0 0x10014000 0 0x1000>, <0 0x10014400 0 0x1000>,
+		      <0 0x1022d000 0 0x1000>, <0 0x1022d100 0 0x1000>,
+		      <0 0x1022d400 0 0x1000>, <0 0x1022c000 0 0x1000>,
+		      <0 0x1022e000 0 0x1000>;
+		interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>;
+		mediatek,dpmaif_capability = <6>;
+		clocks = <INFRACFG_AO_PH CLK_IFRAO_DPMAIF_MAIN>;
+		clock-names = "infra-dpmaif-clk";
+		mediatek,dpmaif_ver = <1>;
+		mediatek,chip_info = <6789>;
+	};
+};

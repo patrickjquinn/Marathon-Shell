@@ -34,7 +34,7 @@ echo "+-- building $TARGET --+"
 # (devices/<vendor>/<codename>/device.toml), not checked in.
 GENERATED="$(mktemp -d)"
 trap 'rm -rf "$GENERATED"' EXIT
-if grep -q '^[[:space:]]*device-profile.conf$' "$APORT/APKBUILD"; then
+if grep -qw 'device-profile\.conf' "$APORT/APKBUILD"; then
     python3 "${MARATHON_SHELL_SRC:-$(cd "$SCRIPT_DIR/../../.." && pwd)}/tools/devices/devices.py" \
         profile "device-${DEVICE}-marathon" > "$GENERATED/device-profile.conf"
 fi

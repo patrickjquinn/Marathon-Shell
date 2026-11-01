@@ -1,0 +1,61 @@
+diff --git a/mmc5633.c b/mmc5633.c
+index 9d8e274..4cbcfa5 100644
+--- a/mmc5633.c
++++ b/mmc5633.c
+@@ -286,6 +286,31 @@ static int mmc5633_get_raw(struct mmc5633_data *data, int index, unsigned char *
+ 	return 0;
+ }
+ 
++/*
++ * Measure after SET and after RESET: the field flips sign between the two
++ * while the bridge offset does not, so half the difference is offset-free
++ * and centred on zero.
++ */
++static int mmc5633_read_set_reset(struct mmc5633_data *data, int axis, int *val)
++{
++	static const unsigned int pulse[] = { MMC5633_CTRL0_SET, MMC5633_CTRL0_RESET };
++	char buf[MMC5633_ALL_SIZE];
++	int raw[2], ret, i;
++
++	for (i = 0; i < 2; i++) {
++		ret = regmap_write(data->regmap, MMC5633_REG_CTRL0, pulse[i]);
++		if (ret)
++			return ret;
++		fsleep(MMC5633_WAIT_SET_RESET_US);
++		ret = mmc5633_read_measurement(data, axis, buf, MMC5633_ALL_SIZE);
++		if (ret)
++			return ret;
++		mmc5633_get_raw(data, axis, buf, &raw[i]);
++	}
++	*val = (raw[0] - raw[1]) / 2;
++	return 0;
++}
++
+ static int mmc5633_read_raw(struct iio_dev *indio_dev,
+ 			    struct iio_chan_spec const *chan, int *val,
+ 			    int *val2, long mask)
+@@ -297,6 +322,11 @@ static int mmc5633_read_raw(struct iio_dev *indio_dev,
+ 
+ 	switch (mask) {
+ 	case IIO_CHAN_INFO_RAW:
++		if (chan->type == IIO_MAGN && !data->i3cdev) {
++			scoped_guard(mutex, &data->mutex)
++				ret = mmc5633_read_set_reset(data, chan->address, val);
++			return ret ?: IIO_VAL_INT;
++		}
+ 		scoped_guard(mutex, &data->mutex) {
+ 			ret = mmc5633_read_measurement(data, chan->address, buf, MMC5633_ALL_SIZE);
+ 			if (ret < 0)
+@@ -309,8 +339,10 @@ static int mmc5633_read_raw(struct iio_dev *indio_dev,
+ 		return IIO_VAL_INT;
+ 	case IIO_CHAN_INFO_SCALE:
+ 		if (chan->type == IIO_MAGN) {
+-			*val = 0;
+-			*val2 = 62500;
++			/* MMC5603NJ 20-bit mode: 16384 counts/G */
++			*val = 1;
++			*val2 = 16384;
++			return IIO_VAL_FRACTIONAL;
+ 		} else {
+ 			*val = 0;
+ 			*val2 = 800000000; /* 0.8C */

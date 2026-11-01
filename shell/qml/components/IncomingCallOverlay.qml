@@ -34,6 +34,24 @@ Item {
         Logger.info("IncomingCallOverlay", "Hiding call overlay");
     }
 
+    function answer() {
+        Logger.info("IncomingCallOverlay", "Call answered");
+        HapticManager.heavy();
+        answeredHere = true;
+        hide();
+        UIStore.openApp("phone", qsTr("Phone"), "");
+        // Last: the call state change can unload this overlay.
+        Modem.answer();
+    }
+
+    function decline() {
+        Logger.info("IncomingCallOverlay", "Call declined");
+        HapticManager.medium();
+        hide();
+        // Last: the call state change can unload this overlay.
+        Modem.hangup();
+    }
+
     function silence() {
         AudioManagerCpp.stopRingtone();
         HapticManager.cancelVibration();
@@ -157,13 +175,7 @@ Item {
                 objectName: "declineCall"
                 iconName: "phone-disconnect"
                 label: qsTr("Decline")
-                onActivated: {
-                    Logger.info("IncomingCallOverlay", "Call declined");
-                    HapticManager.medium();
-                    callOverlay.hide();
-                    // Last: the call state change can unload this overlay.
-                    Modem.hangup();
-                }
+                onActivated: callOverlay.decline()
             }
 
             CallAction {
@@ -171,15 +183,7 @@ Item {
                 iconName: "phone"
                 label: qsTr("Answer")
                 emphasised: true
-                onActivated: {
-                    Logger.info("IncomingCallOverlay", "Call answered");
-                    HapticManager.heavy();
-                    callOverlay.answeredHere = true;
-                    callOverlay.hide();
-                    UIStore.openApp("phone", qsTr("Phone"), "");
-                    // Last: the call state change can unload this overlay.
-                    Modem.answer();
-                }
+                onActivated: callOverlay.answer()
             }
         }
 

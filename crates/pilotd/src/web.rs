@@ -170,7 +170,8 @@ mod tests {
             r,
             vec![json!({"title": "A", "url": "https://a.example", "extract": "x"})]
         );
-        assert!(results(&json!({})).is_empty());
+        let empty = results(&json!({}));
+        assert!(empty.is_empty(), "{empty:?}");
     }
 
     #[test]

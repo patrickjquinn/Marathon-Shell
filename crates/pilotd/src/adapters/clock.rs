@@ -345,7 +345,8 @@ mod tests {
         assert_eq!(ev.attr.txt["TITLE"], "pasta");
         assert_eq!(ev.attr.txt["APPLICATION"], "nemoalarms");
         assert_eq!(ev.flags, flags::ALARM | flags::REMINDER | flags::KEEP_ALIVE);
-        assert!(ev.recrs.is_empty());
+        let empty = &ev.recrs;
+        assert!(empty.is_empty(), "{empty:?}");
     }
 
     #[test]

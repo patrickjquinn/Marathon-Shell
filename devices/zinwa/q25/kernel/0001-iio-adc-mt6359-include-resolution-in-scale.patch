@@ -1,0 +1,23 @@
+--- a/drivers/iio/adc/mt6359-auxadc.c
++++ b/drivers/iio/adc/mt6359-auxadc.c
+@@ -769,14 +769,14 @@
+ 	int ret;
+ 
+ 	if (mask == IIO_CHAN_INFO_SCALE) {
++		if (!desc->r_ratio.denominator)
++			return -EINVAL;
++
+ 		*val = desc->r_ratio.numerator * cinfo->vref_mV;
+ 
+-		if (desc->r_ratio.denominator > 1) {
+-			*val2 = desc->r_ratio.denominator;
+-			return IIO_VAL_FRACTIONAL;
+-		}
+-
+-		return IIO_VAL_INT;
++		/* RAW is an ADC code; include its resolution in the scale. */
++		*val2 = desc->r_ratio.denominator << chan->scan_type.realbits;
++		return IIO_VAL_FRACTIONAL;
+ 	}
+ 
+ 	scoped_guard(mutex, &adc_dev->lock) {

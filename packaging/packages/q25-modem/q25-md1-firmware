@@ -1,0 +1,12 @@
+#!/bin/sh
+# The modem image is not redistributable, so no package carries it: copy it
+# from the phone's own stock md1img partition. Its mkimg records end at
+# about 50 MiB; the first 64 MiB hold them all.
+set -eu
+dst=/var/lib/q25-md1/md1img.img
+mkdir -p "${dst%/*}"
+head -c 67108864 /dev/disk/by-partlabel/md1img_a > "$dst.new"
+[ "$(dd if="$dst.new" bs=1 skip=8 count=6 2>/dev/null)" = md1rom ] ||
+	{ echo "q25-md1-firmware: md1img_a holds no md1rom image" >&2; rm -f "$dst.new"; exit 1; }
+chmod 0600 "$dst.new"
+mv "$dst.new" "$dst"

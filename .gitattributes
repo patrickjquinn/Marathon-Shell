@@ -1,0 +1,2 @@
+# Preserve the exact device-validated Q25 unit, including its final empty line.
+packaging/packages/q25-gpu-render/q25-gpu-prepare.service whitespace=-blank-at-eof

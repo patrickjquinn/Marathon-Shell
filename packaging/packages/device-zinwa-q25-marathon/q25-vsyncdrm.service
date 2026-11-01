@@ -1,0 +1,13 @@
+[Unit]
+Description=Q25: scan-locked vblank for the firmware framebuffer
+ConditionKernelVersion=7.0.0-q25-cfi-test
+After=systemd-modules-load.service q25-gpu-prepare.service
+Before=greetd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/q25-vsyncdrm
+
+[Install]
+WantedBy=multi-user.target

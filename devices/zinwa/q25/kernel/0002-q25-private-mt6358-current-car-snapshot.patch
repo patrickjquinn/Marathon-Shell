@@ -1,0 +1,745 @@
+diff --git a/PARENT-TEST.txt b/PARENT-TEST.txt
+new file mode 100644
+index 0000000..788a43f
+--- /dev/null
++++ b/PARENT-TEST.txt
+@@ -0,0 +1,51 @@
++FROZEN SOURCE CANDIDATE; COMPILED/TESTED HOST ONLY; PARENT SOLE DEVICE OWNER.
++Feynman final review of THIS frozen source/manifest is pending parent relay.
++
++Artifact: modules/q25-mt6358-snapshot.ko
++Vermagic7.0.0-q25-cfi-test SMP preempt aarch64. Current ADC object exports/config
++used without mutation. No new kernelImage/initrd/config/global source changes.
++
++After parent staging+hash verification and final peer-review PASS, proposed
++root commands (NOT executed by source agent):
++  insmod /tmp/q25-mt6358-snapshot.ko enable_snapshot=1 parent_name='10026000.pmic-wrapper:pmic'
++  p=/sys/bus/platform/devices/q25-mt6358-snapshot
++  cat "$p/diagnostics"
++  cat "$p/snapshot"
++  sleep 5
++  cat "$p/snapshot"
++  cat "$p/diagnostics"
++Exactly TWO snapshot reads; do not use watch/udevadm-test/cat wildcard loops.
++No PMIC I/O on load/probe, diagnostics reads, or module exit. Only root0400
++snapshot read performs the reviewed latch/release protocol. No auto-polling.
++Maximum2 attempts INCLUDING failed attempts, then inert withEDQUOT. Optional
++one-way early stop: printf '1\n' > "$p/stop" (software flag, NO PMIC write).
++CONFIG_MODULE_UNLOAD=n: do not depend on rmmod. No boot autoload is supplied.
++
++Writes are ONLY regmap_update_bits atCON1 d0a: mask9 value1(begin), mask9
++value8(release), mask8 value0(clear). No full-word writes, reset bits preserved.
++Each latch/clear poll has20ms configured timeout,50us interval. If FG_ON is
++clear or FG clocks gated: EHOSTDOWN with ZERO writes, not enable/retry logic.
++Busy/reset-in-progress: EBUSY with ZERO writes. Failed reads return error,
++never stale measurements. Release error poisons endpoint and forbids new I/O.
++
++Snapshot reports current_ua,car_uah, rawwords,delta_counts,delta_error,samples.
++Positive current follows vendor charging convention; verify on Q25 before
++using as sign-qualified SOC input. CAR is hardware-origin counter, NOT SOC or
++remaining charge. First delta_errorENODATA; second can show adjacent delta
++if<=10sec apart. Large jumps/rollover ambiguous endpoints returnERANGE rather
++than inventing an unwrap; resets with small deltas are not detectable, hence
++this short delta is diagnostic only, not persisted charge accounting.
++At a5sec interval low termination current can quantize CAR delta to0: oneCAR
++LSB is~1095.92uAh at configured1mOhm/1.01. Use current_ua, not zeroCARdelta,
++for termination-current evidence. No CAPACITY, CHARGE_NOW or third Battery.
++
++Tests: every one of11 protocol operations fault-injected; successful release
++preserves unrelated bits; all65536 current words and2097152 signedCAR
++encodings; units, dualzero/ambiguous endpoints; delta/rollover rejection;
++FGoff/clocks gated/busy fail-closed; explicit stuck-false latch timeout and
++stuck-true clear timeout/fail-stop. Actual shared core compiled withUBSan,
++Wall/Wextra/Werror. Kernel externalmodule W1 j1 compile/link passed with no
++warnings. Checkpatch0errors,1intentional permission warning: root-only0400
++snapshot is necessary to prevent unprivileged users consuming hardware reads.
++
++Not yet FUNCTIONAL or SOC-capable. No device calls occurred in this work.
+diff --git a/PROVENANCE.txt b/PROVENANCE.txt
+new file mode 100644
+index 0000000..6bcbbcb
+--- /dev/null
++++ b/PROVENANCE.txt
+@@ -0,0 +1,34 @@
++GPL-2.0-only source candidate, 2026-10-30. Newly scoped diagnostic module;
++not a verbatim upstream driver and not upstream merged/device tested.
++Native prior art: https://github.com/mt6768-mainline/linux
++Tree a18ebe5fa10cb495588ad82af5d105cce1f2f89f
++Roman Vivchar driver e49b661b05d528dd0bd279885b16a7c9ef43adfa
++Driver blob18b1b028327b7417d7c6b666cc5e676ed75685f9.
++MediaTek2021/Samsung2024/Roman2026 GPL driver informed register definitions,
++latch protocol and silicon conversion units; native initialization/OCV/SOC,
++thresholds/RTC/interrupt configuration were deliberately not carried over.
++Register offsets are from that commit's saved include/linux/mfd/mt6358/registers.h
++patch in ../coulomb-gauge-source-20261030/native-reference/add-commit.json.
++Only c0c,d08,d0a,d14,d16,d8a are used. No global header edits are needed.
++Vendor reference: https://github.com/LineageOS/android_kernel_xelex_mt6789
++Commit2a873a3511ee0eeead1442e60145093192a4535d
++GPL drivers/power/supply/mt6358-gauge.c:394 pre_gauge_update,429 post,
++449 reg_to_current,1798 coulomb_get; signed decoding follows vendor ones
++complement rather than the native fork's s16/twos-complement differences.
++ADC current scale381470nA, CAR108507nAh at10mOhm nominal. 1mOhm/1.01 source
++calibration gives raw_current*381470*10*1010/1000000 uA and corresponding CAR
++raw*108507*10*1010/1000000 uAh, signed64 intermediates, one final truncation.
++Exact stock DTBO635d2c85da1a631867575a0e64cb75babfda8a04935cbbd4fddf23546624ba6c
++matches archived dump; base-vendor.dts R_FG_VALUE1mOhm/CAR_TUNE_VALUE101(1.01),
++overlay has no overrides. mtk_battery.c:1564/1584 multiplies both by10 and
++copies into hw_status. This is exact stock configuration, not measured shunt.
++Stock profile0 selection and six temperature tables are documented in
++../coulomb-gauge-source-20261030/SOURCE-HANDOFF.txt andstock-profile-summary.json.
++
++MFD integration: runtime platform_device_register_full explicitly creates a
++child under the existing verified mt6397 driver; dev_get_drvdata(parent)
++provides struct mt6397_chip regmap. This substitutes a temporary manual MFD
++cell without patching/rebuilding the built-in MFD or changing the live DT.
++Only parent compatible mediatek,mt6358 and runtime chipID58/66 accepted.
++No modalias autoload, modules-load file, systemd unit, DT modification or
++power_supply registration. The module never obtains/changes regulators.
+diff --git a/source/Makefile b/source/Makefile
+new file mode 100644
+index 0000000..51fc8e6
+--- /dev/null
++++ b/source/Makefile
+@@ -0,0 +1,2 @@
++# SPDX-License-Identifier: GPL-2.0-only
++obj-m += q25-mt6358-snapshot.o
+diff --git a/source/q25-fg-core.h b/source/q25-fg-core.h
+new file mode 100644
+index 0000000..96a2d89
+--- /dev/null
++++ b/source/q25-fg-core.h
+@@ -0,0 +1,167 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* MT6358 snapshot protocol and vendor signed conversions; host-testable. */
++#ifndef Q25_FG_CORE_H
++#define Q25_FG_CORE_H
++
++#ifdef __KERNEL__
++#include <linux/errno.h>
++#include <linux/math64.h>
++#include <linux/types.h>
++#else
++#include <stdbool.h>
++#include <stdint.h>
++#include <errno.h>
++typedef int64_t s64;
++#define div_s64(n, d) ((n) / (d))
++#endif
++
++/* Roman Vivchar e49b661b05d528dd0bd279885b16a7c9ef43adfa, register patch;
++ * also vendor mt6358-gauge.c RG_FGADC_* and BM_TOP_CKPDN_CON0.
++ */
++#define Q25_FG_CLOCK 0xc0c
++#define Q25_FG_CON0 0xd08
++#define Q25_FG_CON1 0xd0a
++#define Q25_FG_CAR0 0xd14
++#define Q25_FG_CAR1 0xd16
++#define Q25_FG_CURRENT 0xd8a
++#define Q25_FG_LATCH 0x8000
++#define Q25_FG_READ 0x0001
++#define Q25_FG_CLEAR 0x0008
++#define Q25_FG_RESET 0x1f00
++#define Q25_FG_CAR_MAX 0xfffff
++#define Q25_FG_SHUNT_UOHM 1000
++#define Q25_FG_TUNE_PERMILLE 1010
++
++struct q25_fg_raw {
++	unsigned int current_value;
++	unsigned int car0;
++	unsigned int car1;
++};
++
++struct q25_fg_io {
++	void *ctx;
++	int (*read)(void *ctx, unsigned int reg, unsigned int *val);
++	int (*update)(void *ctx, unsigned int reg, unsigned int mask,
++		      unsigned int val);
++	int (*poll)(void *ctx, bool latched);
++	bool poisoned;
++};
++
++static inline int q25_fg_release(struct q25_fg_io *io)
++{
++	int ret, poll, clear;
++
++	ret = io->update(io->ctx, Q25_FG_CON1,
++			 Q25_FG_READ | Q25_FG_CLEAR, Q25_FG_CLEAR);
++	poll = io->poll(io->ctx, false);
++	clear = io->update(io->ctx, Q25_FG_CON1, Q25_FG_CLEAR, 0);
++	if (ret || poll || clear) {
++		io->poisoned = true;
++		return ret ? ret : (poll ? poll : clear);
++	}
++	return 0;
++}
++
++/* No enabling, reset, threshold, RTC or calibration register writes. */
++static inline int q25_fg_snapshot(struct q25_fg_io *io, struct q25_fg_raw *out)
++{
++	struct q25_fg_raw raw;
++	unsigned int value;
++	int ret, release;
++
++	if (io->poisoned)
++		return -EIO;
++	ret = io->read(io->ctx, Q25_FG_CON0, &value);
++	if (ret)
++		return ret;
++	if (!(value & 1))
++		return -EHOSTDOWN;
++	ret = io->read(io->ctx, Q25_FG_CLOCK, &value);
++	if (ret)
++		return ret;
++	if (value & 0x18)
++		return -EHOSTDOWN;
++	ret = io->read(io->ctx, Q25_FG_CON1, &value);
++	if (ret)
++		return ret;
++	if (value & (Q25_FG_RESET | Q25_FG_LATCH | Q25_FG_READ | Q25_FG_CLEAR))
++		return -EBUSY;
++	ret = io->update(io->ctx, Q25_FG_CON1,
++			 Q25_FG_READ | Q25_FG_CLEAR, Q25_FG_READ);
++	if (!ret)
++		ret = io->poll(io->ctx, true);
++	if (!ret)
++		ret = io->read(io->ctx, Q25_FG_CURRENT, &raw.current_value);
++	if (!ret)
++		ret = io->read(io->ctx, Q25_FG_CAR0, &raw.car0);
++	if (!ret)
++		ret = io->read(io->ctx, Q25_FG_CAR1, &raw.car1);
++	release = q25_fg_release(io);
++	if (ret || release)
++		return ret ? ret : release;
++	if ((raw.current_value | raw.car0 | raw.car1) & ~0xffffU)
++		return -EOVERFLOW;
++	*out = raw;
++	return 0;
++}
++
++/* Vendor reg_to_current(): one's complement, NOT an s16 cast. */
++static inline int q25_fg_current_counts(unsigned int raw)
++{
++	return raw > 32767 ? (int)raw - 65535 : (int)raw;
++}
++
++/* Vendor coulomb_get(): 20 payload bits and separate sign, dual zero. */
++static inline int q25_fg_car_counts(unsigned int low, unsigned int high)
++{
++	unsigned int raw = (low >> 11) | ((high & 0x7fff) << 5);
++
++	if (!raw || raw == Q25_FG_CAR_MAX)
++		return 0;
++	return high & 0x8000 ? (int)raw - Q25_FG_CAR_MAX : (int)raw;
++}
++
++/* nA/nAh silicon units at10mOhm, calibrated for stock1mOhm /1.01.
++ * Use one final division: no vendor sysfs rounding to0.1mA/0.1mAh.
++ */
++static inline s64 q25_fg_scaled(int counts, int nano_unit)
++{
++	return div_s64((s64)counts * nano_unit * 10 * Q25_FG_TUNE_PERMILLE,
++		       1000000);
++}
++
++static inline int q25_fg_decode(const struct q25_fg_raw *raw, int *current_ua,
++			       int *car_uah, int *counts)
++{
++	unsigned int payload;
++	int count;
++
++	if ((raw->current_value | raw->car0 | raw->car1) & ~0xffffU)
++		return -EOVERFLOW;
++	payload = (raw->car0 >> 11) | ((raw->car1 & 0x7fff) << 5);
++	/* Vendor maps both extremes to0 irrespective of sign. Preserve the two
++	 * normal zero encodings; reject ambiguous overflow endpoints.
++	 */
++	if ((!payload && (raw->car1 & 0x8000)) ||
++	    (payload == Q25_FG_CAR_MAX && !(raw->car1 & 0x8000)))
++		return -ERANGE;
++	count = q25_fg_car_counts(raw->car0, raw->car1);
++	*current_ua = q25_fg_scaled(q25_fg_current_counts(raw->current_value), 381470);
++	*car_uah = q25_fg_scaled(count, 108507);
++	*counts = count;
++	return 0;
++}
++
++/* Diagnostic adjacent-snapshot delta only. A discontinuity is NOT unwrapped:
++ * hardware reset versus overflow cannot be distinguished without more state.
++ */
++static inline int q25_fg_delta(int previous, int current_value, int *delta)
++{
++	int difference = current_value - previous;
++
++	if (difference > Q25_FG_CAR_MAX || difference < -Q25_FG_CAR_MAX)
++		return -ERANGE;
++	*delta = difference;
++	return 0;
++}
++#endif
+diff --git a/source/q25-mt6358-snapshot.c b/source/q25-mt6358-snapshot.c
+new file mode 100644
+index 0000000..fe1b197
+--- /dev/null
++++ b/source/q25-mt6358-snapshot.c
+@@ -0,0 +1,252 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Q25 opt-in MT6358/MT6366 diagnostic current/CAR snapshots.
++ * Protocol/conversion references: MediaTek2021 mt6358-gauge.c and Roman
++ * Vivchar2026 e49b661b05d528dd0bd279885b16a7c9ef43adfa; see PROVENANCE.txt.
++ * No hardware initialization, counter reset, OCV/SOC, thresholds or RTC I/O.
++ */
++#include <linux/device.h>
++#include <linux/ktime.h>
++#include <linux/mfd/mt6397/core.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/slab.h>
++
++#include "q25-fg-core.h"
++
++#define Q25_NAME "q25-mt6358-snapshot"
++#define Q25_SAMPLE_BUDGET 2
++
++static bool enable_snapshot;
++module_param(enable_snapshot, bool, 0444);
++MODULE_PARM_DESC(enable_snapshot, "Explicit permission for bounded latch/release writes");
++static char *parent_name;
++module_param(parent_name, charp, 0444);
++MODULE_PARM_DESC(parent_name, "Exact verified existing mt6397 PMIC platform device name");
++
++struct q25_fg {
++	struct mutex lock;
++	struct q25_fg_io io;
++	unsigned int attempts;
++	unsigned int errors;
++	int last_error;
++	bool stopped;
++	bool have_previous;
++	int previous;
++	int delta;
++	int delta_error;
++	u64 previous_ns;
++};
++
++static struct platform_device *q25_child;
++static struct device *q25_parent;
++
++static int q25_read(void *ctx, unsigned int reg, unsigned int *val)
++{
++	return regmap_read(ctx, reg, val);
++}
++
++static int q25_update(void *ctx, unsigned int reg, unsigned int mask,
++		      unsigned int val)
++{
++	/* Fail closed if later code tries to extend the write surface. */
++	if (reg != Q25_FG_CON1 || (mask & ~(Q25_FG_READ | Q25_FG_CLEAR)) ||
++	    (val & ~mask))
++		return -EPERM;
++	return regmap_update_bits(ctx, reg, mask, val);
++}
++
++static int q25_poll(void *ctx, bool latched)
++{
++	unsigned int val;
++
++	return regmap_read_poll_timeout(ctx, Q25_FG_CON1, val,
++				       !!(val & Q25_FG_LATCH) == latched,
++				       50, 20000);
++}
++
++/* Caller holds lock; a failed read never returns a cached measurement. */
++static int q25_sample(struct q25_fg *fg, struct q25_fg_raw *raw,
++		      int *current_ua, int *car_uah)
++{
++	u64 now;
++	int ret, count;
++
++	if (fg->stopped)
++		return -ESHUTDOWN;
++	if (fg->attempts >= Q25_SAMPLE_BUDGET)
++		return -EDQUOT;
++	fg->attempts++;
++	ret = q25_fg_snapshot(&fg->io, raw);
++	if (ret)
++		goto error;
++	ret = q25_fg_decode(raw, current_ua, car_uah, &count);
++	if (ret)
++		goto error;
++	now = ktime_get_boottime_ns();
++	fg->delta_error = -ENODATA;
++	if (fg->have_previous && now - fg->previous_ns <= 10ULL * NSEC_PER_SEC)
++		fg->delta_error = q25_fg_delta(fg->previous, count, &fg->delta);
++	fg->previous = count;
++	fg->previous_ns = now;
++	fg->have_previous = true;
++	fg->last_error = 0;
++	return 0;
++error:
++	fg->errors++;
++	fg->last_error = ret;
++	fg->have_previous = false;
++	fg->delta_error = -ENODATA;
++	return ret;
++}
++
++static ssize_t snapshot_show(struct device *dev, struct device_attribute *attr,
++			     char *buf)
++{
++	struct q25_fg *fg = dev_get_drvdata(dev);
++	struct q25_fg_raw raw;
++	int current_value, car, ret;
++
++	mutex_lock(&fg->lock);
++	ret = q25_sample(fg, &raw, &current_value, &car);
++	if (!ret)
++		ret = sysfs_emit(buf,
++			"current_ua=%d car_uah=%d current_raw=%04x car0=%04x car1=%04x delta_counts=%d delta_error=%d samples=%u\n",
++			current_value, car, raw.current_value, raw.car0, raw.car1,
++			fg->delta_error ? 0 : fg->delta, fg->delta_error, fg->attempts);
++	mutex_unlock(&fg->lock);
++	return ret;
++}
++static DEVICE_ATTR(snapshot, 0400, snapshot_show, NULL);
++
++static ssize_t diagnostics_show(struct device *dev, struct device_attribute *attr,
++				char *buf)
++{
++	struct q25_fg *fg = dev_get_drvdata(dev);
++	int ret;
++
++	mutex_lock(&fg->lock);
++	ret = sysfs_emit(buf,
++		"attempts=%u errors=%u last_error=%d poisoned=%u stopped=%u budget=%u shunt_uohm=%u tune_permille=%u\n",
++		fg->attempts, fg->errors, fg->last_error, fg->io.poisoned,
++		fg->stopped, Q25_SAMPLE_BUDGET, Q25_FG_SHUNT_UOHM,
++		Q25_FG_TUNE_PERMILLE);
++	mutex_unlock(&fg->lock);
++	return ret;
++}
++static DEVICE_ATTR_RO(diagnostics);
++
++/* Stop is one-way until next boot, important with CONFIG_MODULE_UNLOAD=n. */
++static ssize_t stop_store(struct device *dev, struct device_attribute *attr,
++			  const char *buf, size_t count)
++{
++	struct q25_fg *fg = dev_get_drvdata(dev);
++	bool stop;
++	int ret = kstrtobool(buf, &stop);
++
++	if (ret || !stop)
++		return -EINVAL;
++	mutex_lock(&fg->lock);
++	fg->stopped = true;
++	mutex_unlock(&fg->lock);
++	return count;
++}
++static DEVICE_ATTR_WO(stop);
++
++static struct attribute *q25_attrs[] = {
++	&dev_attr_snapshot.attr,
++	&dev_attr_diagnostics.attr,
++	&dev_attr_stop.attr,
++	NULL,
++};
++static const struct attribute_group q25_group = { .attrs = q25_attrs };
++
++static int q25_probe(struct platform_device *pdev)
++{
++	struct device *parent = pdev->dev.parent;
++	struct mt6397_chip *chip;
++	struct q25_fg *fg;
++	int ret;
++
++	if (!enable_snapshot || !parent || !parent->driver ||
++	    strcmp(parent->driver->name, "mt6397") ||
++	    !of_device_is_compatible(parent->of_node, "mediatek,mt6358"))
++		return -ENODEV;
++	chip = dev_get_drvdata(parent);
++	if (!chip || !chip->regmap ||
++	    (chip->chip_id != MT6358_CHIP_ID && chip->chip_id != MT6366_CHIP_ID))
++		return -ENODEV;
++	fg = devm_kzalloc(&pdev->dev, sizeof(*fg), GFP_KERNEL);
++	if (!fg)
++		return -ENOMEM;
++	mutex_init(&fg->lock);
++	fg->delta_error = -ENODATA;
++	fg->io = (struct q25_fg_io) {
++		.ctx = chip->regmap, .read = q25_read,
++		.update = q25_update, .poll = q25_poll,
++	};
++	platform_set_drvdata(pdev, fg);
++	ret = devm_device_add_group(&pdev->dev, &q25_group);
++	if (ret) {
++		platform_set_drvdata(pdev, NULL);
++		return ret;
++	}
++	dev_info(&pdev->dev, "opt-in diagnostic: chip=%02x, max2 explicit snapshots, no SOC/reset/RTC\n",
++		 chip->chip_id);
++	return 0;
++}
++
++static struct platform_driver q25_driver = {
++	.probe = q25_probe,
++	.driver.name = Q25_NAME,
++};
++
++static int __init q25_init(void)
++{
++	struct platform_device_info info = { .name = Q25_NAME,
++		.id = PLATFORM_DEVID_NONE };
++	int ret;
++
++	if (!enable_snapshot || !parent_name || !*parent_name)
++		return -EPERM;
++	q25_parent = bus_find_device_by_name(&platform_bus_type, NULL, parent_name);
++	if (!q25_parent)
++		return -ENODEV;
++	ret = platform_driver_register(&q25_driver);
++	if (ret)
++		goto put;
++	info.parent = q25_parent;
++	q25_child = platform_device_register_full(&info);
++	if (IS_ERR(q25_child)) {
++		ret = PTR_ERR(q25_child);
++		goto unregister;
++	}
++	if (!platform_get_drvdata(q25_child)) {
++		ret = -ENODEV;
++		platform_device_unregister(q25_child);
++		goto unregister;
++	}
++	return 0;
++unregister:
++	platform_driver_unregister(&q25_driver);
++put:
++	put_device(q25_parent);
++	return ret;
++}
++module_init(q25_init);
++
++static void __exit q25_exit(void)
++{
++	platform_device_unregister(q25_child);
++	platform_driver_unregister(&q25_driver);
++	put_device(q25_parent);
++}
++module_exit(q25_exit);
++
++/* Intentionally no MODULE_DEVICE_TABLE: no modalias autoload. */
++MODULE_DESCRIPTION("Q25 bounded opt-in MT6358 current/CAR snapshots, no SOC");
++MODULE_AUTHOR("Q25 native gauge source review");
++MODULE_LICENSE("GPL");
+diff --git a/tests/test-core.c b/tests/test-core.c
+new file mode 100644
+index 0000000..121ae00
+--- /dev/null
++++ b/tests/test-core.c
+@@ -0,0 +1,203 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++#include "../source/q25-fg-core.h"
++
++struct fake {
++	unsigned int con0, clock, con1;
++	unsigned int steps, fail, writes, polls;
++	bool latch_stuck_false, clear_stuck_true;
++};
++
++static int step(struct fake *f)
++{
++	return ++f->steps == f->fail ? -EIO : 0;
++}
++
++static int read_fake(void *ctx, unsigned int reg, unsigned int *val)
++{
++	struct fake *f = ctx;
++	int ret = step(f);
++
++	if (ret)
++		return ret;
++	switch (reg) {
++	case Q25_FG_CON0: *val = f->con0; break;
++	case Q25_FG_CLOCK: *val = f->clock; break;
++	case Q25_FG_CON1: *val = f->con1; break;
++	case Q25_FG_CURRENT: *val = 0xfffe; break;
++	case Q25_FG_CAR0: *val = 0xf000; break;
++	case Q25_FG_CAR1: *val = 0xffff; break;
++	default: assert(!"unreviewed read");
++	}
++	return 0;
++}
++
++static int update_fake(void *ctx, unsigned int reg, unsigned int mask,
++		       unsigned int val)
++{
++	struct fake *f = ctx;
++	int ret;
++
++	assert(reg == Q25_FG_CON1);
++	assert(!(mask & ~(Q25_FG_READ | Q25_FG_CLEAR)));
++	assert(!(val & ~mask));
++	f->writes++;
++	ret = step(f);
++	if (ret)
++		return ret;
++	f->con1 = (f->con1 & ~mask) | val;
++	if ((val & Q25_FG_READ) && !f->latch_stuck_false)
++		f->con1 |= Q25_FG_LATCH;
++	if ((val & Q25_FG_CLEAR) && !f->clear_stuck_true)
++		f->con1 &= ~Q25_FG_LATCH;
++	return 0;
++}
++
++static struct q25_fg_io io_for(struct fake *f);
++
++static void timeouts(void)
++{
++	struct fake f = { .con0 = 1, .con1 = 0x20, .latch_stuck_false = true };
++	struct q25_fg_io io = io_for(&f);
++	struct q25_fg_raw original = { 7, 8, 9 }, raw = original;
++	unsigned int steps;
++
++	assert(q25_fg_snapshot(&io, &raw) == -ETIMEDOUT);
++	assert(f.writes == 3 && f.polls == 2 && f.steps == 8);
++	assert(f.con1 == 0x20 && !io.poisoned);
++	assert(!memcmp(&raw, &original, sizeof(raw)));
++	f = (struct fake) { .con0 = 1, .con1 = 0x20, .clear_stuck_true = true };
++	io = io_for(&f);
++	assert(q25_fg_snapshot(&io, &raw) == -ETIMEDOUT);
++	assert(f.writes == 3 && f.polls == 2 && f.steps == 11);
++	assert((f.con1 & Q25_FG_LATCH) && io.poisoned);
++	assert(!(f.con1 & (Q25_FG_READ | Q25_FG_CLEAR)));
++	assert(!memcmp(&raw, &original, sizeof(raw)));
++	steps = f.steps;
++	assert(q25_fg_snapshot(&io, &raw) == -EIO);
++	assert(f.steps == steps); /* no retry after failed unlatch */
++}
++
++static int poll_fake(void *ctx, bool latched)
++{
++	struct fake *f = ctx;
++	int ret;
++
++	f->polls++;
++	ret = step(f);
++	if (ret)
++		return ret;
++	return !!(f->con1 & Q25_FG_LATCH) == latched ? 0 : -ETIMEDOUT;
++}
++
++static struct q25_fg_io io_for(struct fake *f)
++{
++	return (struct q25_fg_io) { .ctx = f, .read = read_fake,
++		.update = update_fake, .poll = poll_fake };
++}
++
++static void snapshot_and_errors(void)
++{
++	struct fake f = { .con0 = 1, .con1 = 0x20 };
++	struct q25_fg_io io = io_for(&f);
++	struct q25_fg_raw raw = {};
++	unsigned int failure;
++
++	assert(q25_fg_snapshot(&io, &raw) == 0);
++	assert(raw.current_value == 0xfffe && raw.car0 == 0xf000 && raw.car1 == 0xffff);
++	assert(f.steps == 11 && f.writes == 3 && f.polls == 2);
++	assert(f.con1 == 0x20 && !io.poisoned);
++	for (failure = 1; failure <= 11; failure++) {
++		struct q25_fg_raw original = { 7, 8, 9 };
++		unsigned int steps;
++
++		f = (struct fake) { .con0 = 1, .con1 = 0x20, .fail = failure };
++		io = io_for(&f);
++		raw = original;
++		assert(q25_fg_snapshot(&io, &raw) == -EIO);
++		assert(!memcmp(&raw, &original, sizeof(raw)));
++		assert(f.con1 & 0x20); /* unrelated bits preserved */
++		if (failure >= 9) {
++			assert(io.poisoned);
++			steps = f.steps;
++			assert(q25_fg_snapshot(&io, &raw) == -EIO);
++			assert(f.steps == steps); /* fail-stop, no repeated writes */
++		} else {
++			assert(!io.poisoned);
++		}
++	}
++	f = (struct fake) { .con0 = 0 };
++	io = io_for(&f);
++	assert(q25_fg_snapshot(&io, &raw) == -EHOSTDOWN && !f.writes);
++	f = (struct fake) { .con0 = 1, .clock = 0x18 };
++	io = io_for(&f);
++	assert(q25_fg_snapshot(&io, &raw) == -EHOSTDOWN && !f.writes);
++	for (unsigned int flag = 1; flag <= 0x8000; flag <<= 1) {
++		if (!(flag & (Q25_FG_RESET | Q25_FG_LATCH | Q25_FG_READ | Q25_FG_CLEAR)))
++			continue;
++		f = (struct fake) { .con0 = 1, .con1 = flag };
++		io = io_for(&f);
++		assert(q25_fg_snapshot(&io, &raw) == -EBUSY && !f.writes);
++	}
++}
++
++static void decoding(void)
++{
++	unsigned int value, sign;
++	int ua, uah, count;
++	struct q25_fg_raw raw = {};
++
++	for (value = 0; value <= 0xffff; value++) {
++		int expected = value <= 32767 ? (int)value : -(int)(65535 - value);
++
++		assert(q25_fg_current_counts(value) == expected);
++		assert(q25_fg_scaled(expected, 381470) ==
++		       (s64)((__int128)expected * 381470 * 101 / 10000));
++	}
++	assert(q25_fg_current_counts(0xffff) == 0);
++	assert(q25_fg_current_counts(0xfffe) == -1);
++	assert(q25_fg_scaled(-1, 381470) == -3852);
++	assert(q25_fg_scaled(1, 108507) == 1095);
++	for (sign = 0; sign <= 1; sign++) {
++		for (value = 0; value <= Q25_FG_CAR_MAX; value++) {
++			int expected = sign ? (int)value - Q25_FG_CAR_MAX : (int)value;
++			bool ambiguous = (!value && sign) || (value == Q25_FG_CAR_MAX && !sign);
++
++			raw.car0 = (value & 31) << 11;
++			raw.car1 = (value >> 5) | (sign << 15);
++			if (ambiguous) {
++				assert(q25_fg_decode(&raw, &ua, &uah, &count) == -ERANGE);
++				continue;
++			}
++			assert(q25_fg_decode(&raw, &ua, &uah, &count) == 0);
++			assert(count == expected && ua == 0);
++			assert(uah == (s64)((__int128)expected * 108507 * 101 / 10000));
++		}
++	}
++	raw = (struct q25_fg_raw) { .current_value = 0x10000 };
++	assert(q25_fg_decode(&raw, &ua, &uah, &count) == -EOVERFLOW);
++}
++
++static void deltas(void)
++{
++	int delta = 123;
++
++	assert(q25_fg_delta(100, 104, &delta) == 0 && delta == 4);
++	assert(q25_fg_delta(0, -1, &delta) == 0 && delta == -1);
++	assert(q25_fg_delta(-1, 0, &delta) == 0 && delta == 1);
++	assert(q25_fg_delta(Q25_FG_CAR_MAX - 1, -Q25_FG_CAR_MAX + 1, &delta) == -ERANGE);
++	assert(delta == 1); /* do not publish fabricated rollover */
++	assert(q25_fg_delta(-Q25_FG_CAR_MAX + 1, Q25_FG_CAR_MAX - 1, &delta) == -ERANGE);
++}
++
++int main(void)
++{
++	snapshot_and_errors();
++	timeouts();
++	decoding();
++	deltas();
++	puts("PASS: 65536 current words; 2097152 signed CAR encodings; units; zero/edges; rollover rejection; every transaction failure; both latch/clear timeouts; busy/off fail-closed; release fail-stop");
++	return 0;
++}

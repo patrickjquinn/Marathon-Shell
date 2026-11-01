@@ -1,0 +1,70 @@
+#!/bin/sh
+# Q25 accepted MFG-v2/Panfrost workaround, not a generic MTK power policy.
+# No direct regulator/MMIO writes. Only existing, DT-defined OPP transitions.
+set -eu
+state=/run/q25-gpu
+gpu=/sys/devices/platform/soc/13000000.gpu
+df=/sys/class/devfreq/13000000.gpu
+install -d -m 0755 "$state"
+rm -f "$state/ready"
+fail() { echo "q25-gpu: $*; software fallback" >&2; exit 1; }
+[ ! -e /etc/q25/gpu-disabled ] || fail 'disabled by recovery override'
+case " $(cat /proc/cmdline) " in *' q25.gpu=off '*) fail 'disabled by command line';; esac
+[ "$(uname -r)" = 7.0.0-q25-cfi-test ] || fail 'kernel release mismatch'
+[ "$(cat /sys/devices/system/cpu/cpu0/online)" = 0 ] || fail 'CPU0 quarantine absent'
+sha256sum -c /usr/lib/q25-gpu/SHA256SUMS || fail 'artifact identity mismatch'
+[ -e "$gpu/of_node" ] || fail 'native GPU node absent'
+if [ ! -d /sys/module/q25_mfg_only_v2 ]; then
+    insmod /usr/lib/q25-gpu/q25-mfg-only-v2.ko enable=1
+fi
+[ -L /sys/bus/platform/drivers/q25-mfg-only-v2/10006000.syscon:power-controller ] || fail 'MFG provider not bound'
+[ -d /sys/module/gpu_sched ] || insmod /usr/lib/q25-gpu/gpu-sched.ko
+[ -d /sys/module/panfrost ] || insmod /usr/lib/q25-gpu/panfrost.ko
+[ "$(basename "$(readlink "$gpu/driver")")" = panfrost ] || fail 'Panfrost not bound'
+[ -c /dev/dri/card0 ] && [ -c /dev/dri/renderD128 ] || fail 'DRM nodes missing'
+[ "$(basename "$(readlink /sys/class/drm/card0/device/driver)")" = simple-framebuffer ] || fail 'display is not SimpleDRM'
+# Keep genpd suppliers enabled: a later SRAM first-enable can reset coupling.
+echo on > "$gpu/power/control"
+# Pinned (min = max): MT6789 has no MFG mux notifier, so never hop between PLL OPPs.
+pin_hz=700000000
+pin_vgpu=700000
+pin_vsram=800000
+restore_cap() {
+    echo 390000000 > "$df/max_freq"
+    echo 390000000 > "$df/min_freq"
+}
+trap restore_cap EXIT
+# On a re-run the GPU may already be pinned: go back through 390 so every step is a mux switch.
+restore_cap
+sleep 0.2
+echo 467000000 > "$df/max_freq"
+echo 467000000 > "$df/min_freq"
+sleep 0.2
+[ "$(cat "$df/cur_freq")" = 467000000 ] || fail 'OPP transition did not complete'
+restore_cap
+sleep 0.2
+[ "$(cat "$df/cur_freq")" = 390000000 ] || fail '390 MHz not restored'
+[ "$(cat "$gpu/power/runtime_status")" = active ] || fail 'GPU is not active'
+rails() {
+    vgpu=
+    vsram=
+    for r in /sys/class/regulator/regulator.*; do
+        case "$(cat "$r/name")" in
+            vgpu) vgpu=$(cat "$r/microvolts");;
+            vsram_gpu) vsram=$(cat "$r/microvolts");;
+        esac
+    done
+}
+rails
+[ "$vgpu" = 675000 ] && [ "$vsram" = 775000 ] || fail "coupling readback $vgpu/$vsram"
+# One jump 390 -> pin: min first while max is still 390.
+echo "$pin_hz" > "$df/min_freq"
+echo "$pin_hz" > "$df/max_freq"
+sleep 0.3
+[ "$(cat "$df/cur_freq")" = "$pin_hz" ] || fail "$pin_hz not reached"
+rails
+[ "$vgpu" = "$pin_vgpu" ] && [ "$vsram" = "$pin_vsram" ] || fail "pinned readback $vgpu/$vsram"
+trap - EXIT
+printf '%s\n' "MFGv2/Panfrost $((pin_hz / 1000000))MHz PM-on VGPU$pin_vgpu SRAM$pin_vsram noafbc KMSRO" > "$state/ready"
+chmod 0644 "$state/ready"
+echo 'q25-gpu: accepted power state ready; GPU render path enabled'

@@ -4,10 +4,15 @@
 # ctest reports a suite with skips inside as passed.
 # Usage: count-skips.sh <ctest LastTest.log> <expected skips>
 set -eu
+log=$1
+if [ ! -f "$log" ] || [ ! -r "$log" ]; then
+    printf 'test log is not a readable regular file: %s\n' "$log" >&2
+    exit 1
+fi
 found=$(
 	sed -n -e 's/^SKIP   : \([^ (]*\).*/\1/p' \
 		-e 's/^SKIP: \(.*\)/script: \1/p' \
-		-e 's/^test \(.*\) \.\.\. ignored.*/cargo: \1/p' "$1" | sort -u
+		-e 's/^test \(.*\) \.\.\. ignored.*/cargo: \1/p' "$log" | sort -u
 )
 echo "skipped tests: $(printf '%s' "$found" | grep -c . || true)"
 [ -z "$found" ] || printf '%s\n' "$found" | sed 's/^/  /'

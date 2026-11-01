@@ -1,0 +1,4 @@
+# Optional /etc/marathon/q25-session.conf: temporary QA metrics, normally off.
+#MARATHON_STARTUP_TIMING=1
+#MARATHON_PRESENT_STATS=1
+#MARATHON_FRAME_TIMING=1

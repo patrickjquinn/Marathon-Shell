@@ -1,0 +1,14 @@
+[Unit]
+Description=Q25: panel brightness through the OCP2131 bias supply
+ConditionKernelVersion=7.0.0-q25-cfi-test
+ConditionPathExists=/sys/bus/platform/devices/14013000.panel-doze
+After=systemd-modules-load.service
+Before=greetd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/q25-backlight
+
+[Install]
+WantedBy=multi-user.target

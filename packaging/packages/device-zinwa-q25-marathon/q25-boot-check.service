@@ -1,0 +1,14 @@
+[Unit]
+Description=Q25: check that this boot reached a working session
+After=greetd.service q25-gpu-prepare.service sshd.service
+Before=boot-complete.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/systemctl -q is-active greetd.service
+ExecStart=/usr/bin/systemctl -q is-active q25-gpu-prepare.service
+ExecStart=/bin/sh -c '! systemctl -q is-enabled sshd.service || systemctl -q is-active sshd.service'
+
+[Install]
+RequiredBy=boot-complete.target

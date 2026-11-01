@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+# Remove only the legacy enablement link; never start/load GPU during upgrade.
+legacy=/etc/systemd/system/multi-user.target.wants/q25-gpu-provider.service
+if [ -L "$legacy" ]; then
+    case "$(readlink "$legacy")" in
+        ../q25-gpu-provider.service|/usr/lib/systemd/system/q25-gpu-provider.service|/etc/systemd/system/q25-gpu-provider.service)
+            rm -f "$legacy" ;;
+    esac
+fi
+exec depmod -a 7.0.0-q25-cfi-test
