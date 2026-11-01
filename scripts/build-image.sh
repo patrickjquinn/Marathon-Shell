@@ -52,7 +52,8 @@ set -euo pipefail
 
 # Resolve repo root (this script lives at $repo/scripts/).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export MARATHON_SHELL_SRC="$(dirname "$SCRIPT_DIR")"
+MARATHON_SHELL_SRC="$(dirname "$SCRIPT_DIR")"
+export MARATHON_SHELL_SRC
 LIB="$SCRIPT_DIR/qemu/lib"
 
 # Pluck the target device off the front of the arg list. Everything
@@ -138,6 +139,7 @@ build_if_missing() {
         local pkgver pkgrel pkgname expected
         # Sourced, not grepped: pkgname can be built from other variables
         # (linux-$_flavor-marathon).
+        # shellcheck source=/dev/null
         read -r pkgname pkgver pkgrel < <(set +u; . "$aport_apkbuild" >/dev/null 2>&1
                                           echo "$pkgname $pkgver $pkgrel")
         if [ -n "$pkgver" ] && [ -n "$pkgrel" ] && [ -n "$pkgname" ]; then
@@ -148,7 +150,7 @@ build_if_missing() {
             fi
             if compgen -G "$MKOSI_PKG_DIR/$glob" >/dev/null; then
                 local stale
-                stale=$(ls -1 "$MKOSI_PKG_DIR"/$glob | xargs -n1 basename | tr '\n' ' ')
+                stale=$(for f in "$MKOSI_PKG_DIR"/$glob; do printf '%s ' "${f##*/}"; done)
                 echo "==> $label: cache STALE (want $expected, have $stale) — rebuilding"
                 rm -f "$MKOSI_PKG_DIR"/$glob
             fi
@@ -239,6 +241,7 @@ DEVICE_OVERLAY_APORT="$APORTS_DIR/device-$MARATHON_TARGET_DEVICE-marathon"
 if [ -d "$DEVICE_OVERLAY_APORT" ]; then
     # Forks the overlay depends on (kernel, U-Boot, ...); apk takes them
     # from mkosi.packages in place of the pmaports packages they replace.
+    # shellcheck source=/dev/null disable=SC2154 # depends comes from the APKBUILD
     for fork in $(set +u; . "$DEVICE_OVERLAY_APORT/APKBUILD"; echo $depends); do
         # A device overlay it depends on (CM5 on Pi 5) has its own builder.
         case "$fork" in device-*) continue ;; *-marathon) [ -d "$APORTS_DIR/$fork" ] || continue ;; *) continue ;; esac
@@ -319,6 +322,7 @@ PATH="$(dirname "$MKOSI_BIN"):$PATH" \
 # mkosi names its output dir + raw artifacts by the device + ui
 # pair. Find the freshly written one.
 OUT_DIR_GLOB="$DURANIUM_DIR/mkosi.output/${MARATHON_TARGET_DEVICE}_marathon_edge"
+# shellcheck disable=SC2010 # newest by mtime; mkosi's names have no spaces
 LATEST_IMG=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.raw 2>/dev/null \
     | grep -E "/${MARATHON_TARGET_DEVICE}_marathon_edge_[0-9]+\.raw$" | head -1)
 [ -z "$LATEST_IMG" ] && { echo "no image produced for device-$MARATHON_TARGET_DEVICE" >&2; exit 1; }
@@ -337,12 +341,13 @@ echo "==> image ready: $LATEST_IMG"
 # the live split. Newest-per-family has no such race — whatever this bake
 # just wrote is by definition the newest.
 prune_splits() {
-    local dir="$1" fam base kept=0 pruned=0
+    local dir="$1" fam kept=0 pruned=0
     # Family = filename with the hash segment removed, e.g.
     # qemu-aarch64_marathon_edge_26083101.root-arm64
     for fam in $(ls -1 "$dir"/*.*-*.*.raw "$dir"/*.boot.*.raw "$dir"/*.root.*.raw 2>/dev/null \
                  | sed -E 's|.*/||; s|\.[0-9a-f]{32}\.raw$||' | sort -u); do
         local first=1
+        # shellcheck disable=SC2045 # newest first by mtime; mkosi's names have no spaces
         for f in $(ls -1t "$dir/$fam".*.raw 2>/dev/null); do
             if [ "$first" = 1 ]; then first=0; kept=$((kept + 1)); continue; fi
             rm -f "$f"; pruned=$((pruned + 1))
