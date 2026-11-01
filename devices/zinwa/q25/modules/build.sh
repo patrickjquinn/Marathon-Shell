@@ -33,7 +33,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd cam-dt cam-pmic imu bt audio panel display clk mag light haptic net; do
+for d in keyboard md1 conn-pd cam-pd cam-dt cam-pmic imu bt audio panel display clk mag light haptic net; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -107,7 +107,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in keyboard md1 conn-pd cam-dt cam-pmic imu audio panel display clk mag light haptic; do
+for d in keyboard md1 conn-pd cam-pd cam-dt cam-pmic imu audio panel display clk mag light haptic; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 # Android netd's matches and targets, unset in the kernel config.
@@ -153,6 +153,7 @@ done
 # The first set ships as built; everything else without debug info. Of
 # net/bluetooth only the core is shipped, and of the networking builds what
 # Deckard's bridge, veth and iptables-nft NAT and Android's legacy iptables need.
+# The camera modules are loaded by hand and stay in obj/ until they ship.
 mkdir -p "$out/modules"
 net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE
 	nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat
