@@ -1,0 +1,2 @@
+# SPDX-License-Identifier: GPL-2.0
+obj-$(CONFIG_PHY_MTK_MIPI_CSI_2_1) += phy-mtk-mipi-csi-2-1.o

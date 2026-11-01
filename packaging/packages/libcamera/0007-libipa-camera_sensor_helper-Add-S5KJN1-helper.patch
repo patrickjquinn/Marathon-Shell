@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 1 Nov 2026 16:35:51 +0000
+Subject: [PATCH] libipa: camera_sensor_helper: Add S5KJN1 helper
+
+The mainline s5kjn1 driver writes the analogue gain control shifted left
+by five into a register where 0x20 is unity, so the control value is the
+gain itself. The black level, 64 at 10 bits, is Samsung's usual value
+and matches a dark frame from a Zinwa Q25 module.
+
+Without the helper the software ISP's AGC has no gain model and the
+image stays dark.
+---
+ src/ipa/libipa/camera_sensor_helper.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/src/ipa/libipa/camera_sensor_helper.cpp b/src/ipa/libipa/camera_sensor_helper.cpp
+index 4abb4711..72f055a7 100644
+--- a/src/ipa/libipa/camera_sensor_helper.cpp
++++ b/src/ipa/libipa/camera_sensor_helper.cpp
+@@ -899,6 +899,19 @@ public:
+ };
+ REGISTER_CAMERA_SENSOR_HELPER("ov13858", CameraSensorHelperOv13858)
+ 
++class CameraSensorHelperS5kjn1 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperS5kjn1()
++	{
++		/* Samsung's usual 64 at 10bits; a Zinwa Q25 dark frame agrees. */
++		blackLevel_ = 4096;
++		/* The driver's control is the gain multiplier itself. */
++		gain_ = AnalogueGainLinear{ 1, 0, 0, 1 };
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("s5kjn1", CameraSensorHelperS5kjn1)
++
+ class CameraSensorHelperVd55g1 : public CameraSensorHelper
+ {
+ public:
+-- 
+2.55.0
+

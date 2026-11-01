@@ -758,7 +758,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
 
     env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1");
 
-    if (!isFlatpak && !isSnap)
+    if (!isFlatpak && !isSnap && !extraEnv.contains("QT_MEDIA_BACKEND"))
         env.insert("QT_MEDIA_BACKEND", "ffmpeg");
 
     if (actualCommand.contains("marathon-app-runner") ||

@@ -206,9 +206,8 @@ function(add_marathon_app APP_NAME)
   # un-installed by default. RPATH on the plugin is $ORIGIN, so it looks
   # for the app library in the same directory — install the app library
   # TARGET directly next to the plugin so the loader resolves it without
-  # touching LD_LIBRARY_PATH. The Marathon-Image APKBUILD used to handle
-  # this with a manual cp loop into /usr/lib; with this install rule the
-  # APKBUILD step becomes redundant but harmless.
+  # touching LD_LIBRARY_PATH. Nothing else installs it: in /usr/lib the
+  # Camera app's libcamera.so would take libcamera's name.
   install(TARGETS ${APP_NAME}
           LIBRARY DESTINATION "${INSTALL_DIR}/${MODULE_PATH}")
 

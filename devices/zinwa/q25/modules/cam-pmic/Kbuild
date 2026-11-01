@@ -1,0 +1,1 @@
+obj-m := wl2868c-regulator.o

@@ -33,7 +33,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 conn-pd imu bt audio panel display clk mag light haptic net; do
+for d in keyboard md1 conn-pd cam-pd cam-dt cam-pmic imu bt audio panel display clk mag light haptic net; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -83,6 +83,24 @@ cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 
+m=$out/src/media
+rm -rf "$m"
+mkdir -p "$m"
+cp "$here/media/Kbuild" "$m/"
+cp -r "$ksrc/drivers/media/mc" "$ksrc/drivers/media/v4l2-core" "$m/"
+cp -r "$ksrc/drivers/media/common/videobuf2" "$m/"
+mkdir -p "$m/mediatek"
+cp "$here/camera/Kbuild" "$m/mediatek/"
+cp -r "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" "$m/mediatek/"
+cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/mediatek/phy/"
+mkdir -p "$m/i2c"
+cp "$here/camera/i2c/Kbuild" "$ksrc/drivers/media/i2c/imx111.c" \
+	"$ksrc/drivers/media/i2c/s5kjn1.c" "$m/i2c/"
+for p in "$here"/camera/i2c/*.patch; do
+	(cd "$m/i2c" && patch -p1 -s < "$p")
+done
+(cd "$m/mediatek" && patch -p1 -s < "$here/camera/0001-mt6789-port.patch")
+
 rm -rf "$out/src/modem"
 mkdir -p "$out/src/modem"
 (cd "$donor" && tar cf - -T "$here/modem/eccci-files.txt") | tar xf - -C "$out/src/modem"
@@ -90,7 +108,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in keyboard md1 conn-pd imu audio panel display clk mag light haptic; do
+for d in keyboard md1 conn-pd cam-pd cam-dt cam-pmic imu audio panel display clk mag light haptic; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 # Android netd's matches and targets, unset in the kernel config.
@@ -118,6 +136,15 @@ kmake "$out/src/wlan" "$out/obj/wlan" JOINT="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/cfg80211/Module.symvers"
 kmake "$out/src/bt" "$out/obj/bt" WMTSRC="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/bluetooth/Module.symvers"
+# The V4L2 media core, unset in the kernel config, and the camera drivers
+# that use it, as one set (media/Kbuild).
+kmake "$out/src/media" "$out/obj/media" \
+	CONFIG_MEDIA_SUPPORT=m CONFIG_MEDIA_CONTROLLER=y CONFIG_VIDEO_DEV=m \
+	CONFIG_VIDEO_V4L2_I2C=y CONFIG_V4L2_ASYNC=m CONFIG_V4L2_FWNODE=m \
+	CONFIG_V4L2_CCI=m CONFIG_V4L2_CCI_I2C=m CONFIG_VIDEOBUF2_CORE=m \
+	CONFIG_VIDEOBUF2_V4L2=m CONFIG_VIDEOBUF2_MEMOPS=m CONFIG_VIDEOBUF2_DMA_CONTIG=m \
+	CONFIG_MTK_SENINF6S=m CONFIG_MTK_CAMSV6S=m CONFIG_PHY_MTK_MIPI_CSI_2_1=m \
+	CONFIG_VIDEO_IMX111=m CONFIG_VIDEO_S5KJN1=m
 syms=""
 for m in ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif; do
 	kmake "$out/src/modem/$m" "$out/obj/modem/$m" KBUILD_EXTRA_SYMBOLS="$syms"
@@ -127,6 +154,7 @@ done
 # The first set ships as built; everything else without debug info. Of
 # net/bluetooth only the core is shipped, and of the networking builds what
 # Deckard's bridge, veth and iptables-nft NAT and Android's legacy iptables need.
+# The camera modules are loaded by hand and stay in obj/ until they ship.
 mkdir -p "$out/modules"
 net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE
 	nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat
@@ -140,20 +168,32 @@ net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUER
 for m in $net; do
 	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
 done
-find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" ! -path "$out/obj/net/*" -o -path "$out/obj/bluetooth/bluetooth.ko" |
+find "$out/obj" -name '*.ko' ! -path "$out/obj/bluetooth/*" ! -path "$out/obj/net/*" \
+	-o -path "$out/obj/bluetooth/bluetooth.ko" |
 while read -r ko; do
 	case "$(basename "$ko")" in
 	q25-bbq-keys.ko | q25-keyboard-led.ko | q25-md1-owner.ko | inv-icm42607*.ko | spi-mt65xx.ko)
 		cp "$ko" "$out/modules/" ;;
+	v4l2-dv-timings.ko) ;;
 	*)
 		llvm-strip --strip-debug -o "$out/modules/$(basename "$ko")" "$ko" ;;
 	esac
 done
+mkdir -p "$out/firmware"
+cpp -nostdinc -undef -x assembler-with-cpp -P -I "$ksrc/include" \
+	"$here/camera/q25-camera.dtso" > "$out/obj/q25-camera.dts"
+# Its providers are base phandles dtc cannot see.
+"$kobj/scripts/dtc/dtc" -@ -Wno-clocks_property -Wno-power_domains_property \
+	-Wno-interrupts_property -Wno-gpios_property -I dts -O dtb -o "$out/firmware/q25-camera.dtbo" "$out/obj/q25-camera.dts"
 [ -n "$shipped" ] || exit 0
 mkdir -p "$out/cmp"
 status=0
 for ko in "$out"/modules/*.ko; do
 	m=$(basename "$ko")
+	if [ ! -f "$shipped/$m" ]; then
+		echo "$m: new"
+		continue
+	fi
 	llvm-strip --strip-debug -o "$out/cmp/new-$m" "$ko"
 	llvm-strip --strip-debug -o "$out/cmp/shipped-$m" "$shipped/$m"
 	printf '%s: ' "$m"

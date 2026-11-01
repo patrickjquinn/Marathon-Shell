@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 1 Nov 2026 12:56:09 +0000
+Subject: [PATCH 2/6] libcamera: shaders: Sample the texel the Bayer phase is
+ taken from
+
+bayer_unpacked.frag picks the Bayer phase from floor(center.zw) but
+samples at center.xy. The two are interpolated separately, so when the
+output is scaled a fragment near a texel edge can sample one texel and
+debayer it with its neighbour's phase, which shows as coloured vertical
+lines (1640x1232 to 1600x1200: columns ~556 and ~955). Sample at the
+centre of the texel the phase comes from, and move the neighbour taps
+with it.
+
+Tested on a Zinwa Q25 (Mali-G57): the R-G column deviation at 1600x1200
+drops from 46.9 to 0.3; native size was already clean.
+---
+ src/libcamera/shaders/bayer_unpacked.frag | 39 +++++++++++++++--------
+ 1 file changed, 26 insertions(+), 13 deletions(-)
+
+diff --git a/src/libcamera/shaders/bayer_unpacked.frag b/src/libcamera/shaders/bayer_unpacked.frag
+index fb9b28d7..d7a3819d 100644
+--- a/src/libcamera/shaders/bayer_unpacked.frag
++++ b/src/libcamera/shaders/bayer_unpacked.frag
+@@ -29,6 +29,9 @@ uniform mat3            ccm;
+ uniform vec3            blacklevel;
+ uniform float           gamma;
+ uniform float           contrastExp;
++uniform vec2            tex_size;
++uniform vec2            tex_bayer_first_red;
++uniform float           stride_factor;
+ 
+ #if defined(APPLY_LSC)
+ uniform sampler2D lsc_tex;
+@@ -59,17 +62,27 @@ void main(void) {
+     #define fetch(x, y) texture2D(tex_y, vec2(x, y)).r
+     #endif
+ 
+-    float C = fetch(center.x, center.y); // ( 0, 0)
++    /*
++     * Sample the texel whose Bayer phase is taken below. center.xy and
++     * center.zw are interpolated apart, so when the output is scaled they
++     * can land on either side of a texel edge and swap the colours.
++     */
++    vec2 texel = floor(center.zw - tex_bayer_first_red) + 0.5;
++    vec2 snapped = vec2(texel.x * stride_factor / tex_size.x, texel.y / tex_size.y);
++    vec4 xs = xCoord - center.x + snapped.x;
++    vec4 ys = yCoord - center.y + snapped.y;
++
++    float C = fetch(snapped.x, snapped.y); // ( 0, 0)
+     const vec4 kC = vec4( 4.0,  6.0,  5.0,  5.0) / 8.0;
+ 
+     // Determine which of four types of pixels we are on.
+     vec2 alternate = mod(floor(center.zw), 2.0);
+ 
+     vec4 Dvec = vec4(
+-        fetch(xCoord[1], yCoord[1]),  // (-1,-1)
+-        fetch(xCoord[1], yCoord[2]),  // (-1, 1)
+-        fetch(xCoord[2], yCoord[1]),  // ( 1,-1)
+-        fetch(xCoord[2], yCoord[2])); // ( 1, 1)
++        fetch(xs[1], ys[1]),  // (-1,-1)
++        fetch(xs[1], ys[2]),  // (-1, 1)
++        fetch(xs[2], ys[1]),  // ( 1,-1)
++        fetch(xs[2], ys[2])); // ( 1, 1)
+ 
+     vec4 PATTERN = (kC.xyz * C).xyzz;
+ 
+@@ -80,16 +93,16 @@ void main(void) {
+     Dvec.x  += Dvec.y;
+ 
+     vec4 value = vec4(
+-        fetch(center.x, yCoord[0]),   // ( 0,-2)
+-        fetch(center.x, yCoord[1]),   // ( 0,-1)
+-        fetch(xCoord[0], center.y),   // (-2, 0)
+-        fetch(xCoord[1], center.y));  // (-1, 0)
++        fetch(snapped.x, ys[0]),   // ( 0,-2)
++        fetch(snapped.x, ys[1]),   // ( 0,-1)
++        fetch(xs[0], snapped.y),   // (-2, 0)
++        fetch(xs[1], snapped.y));  // (-1, 0)
+ 
+     vec4 temp = vec4(
+-        fetch(center.x, yCoord[3]),   // ( 0, 2)
+-        fetch(center.x, yCoord[2]),   // ( 0, 1)
+-        fetch(xCoord[3], center.y),   // ( 2, 0)
+-        fetch(xCoord[2], center.y));  // ( 1, 0)
++        fetch(snapped.x, ys[3]),   // ( 0, 2)
++        fetch(snapped.x, ys[2]),   // ( 0, 1)
++        fetch(xs[3], snapped.y),   // ( 2, 0)
++        fetch(xs[2], snapped.y));  // ( 1, 0)
+ 
+     // Even the simplest compilers should be able to constant-fold these to
+     // avoid the division.
