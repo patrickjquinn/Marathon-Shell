@@ -1,8 +1,5 @@
-diff --git a/.checkpatch-camelcase.git. b/.checkpatch-camelcase.git.
-new file mode 100644
-index 0000000..e69de29
 diff --git a/camsv/mtk_camsv.c b/camsv/mtk_camsv.c
-index 1903322..c0ef993 100644
+index 1903322..eddb981 100644
 --- a/camsv/mtk_camsv.c
 +++ b/camsv/mtk_camsv.c
 @@ -103,7 +103,6 @@ err_unlock:
@@ -46,7 +43,28 @@ index 1903322..c0ef993 100644
  	.registered = mtk_cam_subdev_registered,
  };
  
-@@ -376,7 +376,7 @@ static int mtk_cam_v4l2_register(struct mtk_cam_dev *cam)
+@@ -356,7 +356,9 @@ static int mtk_cam_v4l2_register(struct mtk_cam_dev *cam)
+ 
+ 	dev_info(dev, "camsv | start %s\n", __func__);
+ 
+-	/* Initialize subdev pads */
++	/* Initialize subdev pads; media_entity_pads_init() checks the flags. */
++	cam->subdev_pads[MTK_CAM_CIO_PAD_SENINF].flags = MEDIA_PAD_FL_SINK;
++	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
+ 	ret = media_entity_pads_init(&cam->subdev.entity,
+ 				     ARRAY_SIZE(cam->subdev_pads),
+ 				     cam->subdev_pads);
+@@ -365,9 +367,6 @@ static int mtk_cam_v4l2_register(struct mtk_cam_dev *cam)
+ 		return ret;
+ 	}
+ 
+-	cam->subdev_pads[MTK_CAM_CIO_PAD_SENINF].flags = MEDIA_PAD_FL_SINK;
+-	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
+-
+ 	/* Initialize subdev */
+ 	v4l2_subdev_init(&cam->subdev, &mtk_cam_subdev_ops);
+ 
+@@ -376,7 +375,7 @@ static int mtk_cam_v4l2_register(struct mtk_cam_dev *cam)
  	cam->subdev.entity.ops = &mtk_cam_media_entity_ops;
  	cam->subdev.internal_ops = &mtk_cam_internal_ops;
  	cam->subdev.flags = V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -314,7 +332,7 @@ index c2de30a..9f3e68f 100644
  static struct platform_driver mtk_camsv_driver = {
  	.probe = mtk_camsv_probe,
 diff --git a/camsv/mtk_camsv_video.c b/camsv/mtk_camsv_video.c
-index 9e99d80..70dac85 100644
+index 9e99d80..948b4f0 100644
 --- a/camsv/mtk_camsv_video.c
 +++ b/camsv/mtk_camsv_video.c
 @@ -34,47 +34,73 @@ to_mtk_cam_dev_buffer(struct vb2_buffer *buf)
@@ -500,6 +518,22 @@ index 9e99d80..70dac85 100644
  	V4L2_PIX_FMT_SBGGR8,
  	V4L2_PIX_FMT_SGBRG8,
  	V4L2_PIX_FMT_SGRBG8,
+@@ -695,13 +727,13 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+ 
+ 	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
+ 
+-	/* Initialize media entities */
++	/* Initialize media entities; media_entity_pads_init() checks the flags. */
++	cam_vdev->vdev_pad.flags = MEDIA_PAD_FL_SINK;
+ 	ret = media_entity_pads_init(&vdev->entity, 1, &cam_vdev->vdev_pad);
+ 	if (ret) {
+ 		dev_err(dev, "failed to initialize media pad:%d\n", ret);
+ 		return ret;
+ 	}
+-	cam_vdev->vdev_pad.flags = MEDIA_PAD_FL_SINK;
+ 
+ 	vbq->type = cam_vdev->desc->buf_type;
+ 	vbq->io_modes = VB2_MMAP | VB2_DMABUF;
 @@ -718,7 +750,7 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
  			     | V4L2_BUF_FLAG_TSTAMP_SRC_EOF;
  
