@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=18
+pkgrel=19
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -15,7 +15,7 @@ install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se q25-mt6358-live q25-haptic regulator-haptic"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
 _audio="snd-timer snd-pcm snd-jack snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card q25-mt6366-irqfix q25-mt6358-accdet"
-_net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat nft_masq nft_ct nf_reject_ipv4 nf_reject_ipv6 ip_tables ip6_tables iptable_filter iptable_nat iptable_mangle iptable_raw ip6table_filter ip6table_nat ip6table_mangle ip6table_raw ipt_REJECT ip6t_REJECT xt_mark xt_conntrack xt_comment xt_multiport xt_tcpmss xt_TCPMSS xt_addrtype xt_REDIRECT xt_connmark xt_bpf xt_owner xt_u32 xt_state xt_pkttype xt_limit xt_quota xt_hashlimit xt_iprange xt_length xt_IDLETIMER xt_NFLOG nfnetlink_log xt_CT"
+_net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat nft_masq nft_ct nf_reject_ipv4 nf_reject_ipv6 ip_tables ip6_tables iptable_filter iptable_nat iptable_mangle iptable_raw ip6table_filter ip6table_nat ip6table_mangle ip6table_raw ipt_REJECT ip6t_REJECT xt_mark xt_conntrack xt_comment xt_multiport xt_tcpmss xt_TCPMSS xt_addrtype xt_REDIRECT xt_connmark xt_bpf xt_owner xt_u32 xt_state xt_pkttype xt_limit xt_quota xt_hashlimit xt_iprange xt_length xt_IDLETIMER xt_NFLOG nfnetlink_log xt_CT dummy"
 source="SHA256SUMS"
 for _m in $_extra $_connsys $_audio $_net; do
     source="$source $_m.ko.zst"
@@ -40,7 +40,7 @@ package() {
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-c26bcba77565a0c3998d909fadaf04c5a8db53140d707be9bbf2e73a27bbdc1fab62d2e3922d64e10261760008bc001a54a7999bfcf3c2fcc43b3d5cd87d2199  SHA256SUMS
+f05081dab6d780dd2df16cb422fb0cb932e67169d94958d485aca76acb3a414e72e94a67ecc83570cc22117540dbd31ed67e50f7f8d1499aaf4e4f64a04a7e7e  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 a1bc222102bf04eb7cd7c2b9efc6d019bf1cf09dbdcbc28de008c707e2a6a962543d9b2f2ff7b6619d970fe407897e9f242c92757a42d210bb10ca4a1e0ee873  q25-md1-owner.ko.zst
@@ -133,4 +133,5 @@ b9e05974e0eeac8b90b9da8c8da8b0502d0a9a9abc81d20af40b54fe66b609b34ad733102d12882f
 464525d066e1add0c930e259c0fad6716e2ea06dbab0edfb5fc8aba3075d397b13a37237cda32102417fd04c9571fe9cfe076f0ab4d109d07d85ccac5c18048d  xt_NFLOG.ko.zst
 bc617359d2ff9c7b06df1c113bbf82bc08d662f5cc7ae4d081d714a6fe630ab6db837987242a0ca9c34e34547b843de5286e48aa1380374261b4e482d10b7ad8  nfnetlink_log.ko.zst
 c62c5bc2e4c53741e91ab3a102701deaa686e0ee24bac32e335d93b220ef7f7330e9175dbd212af95ecd7900dd63caacd1882668bec06372b60ffb10e82b6c08  xt_CT.ko.zst
+485c253318c35105461d8557e0298ace5cc16fc0051539055a2087c98333249a8ab6a0a432c719e028bec4b5307d89c2f676fbac726ebea9033068c921ae4654  dummy.ko.zst
 "
