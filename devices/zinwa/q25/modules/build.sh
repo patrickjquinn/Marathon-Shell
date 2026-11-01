@@ -43,7 +43,8 @@ cp "$ksrc/drivers/iio/magnetometer/mmc5633.c" "$out/src/mag/"
 cp "$ksrc/drivers/input/misc/regulator-haptic.c" "$out/src/haptic/"
 cp "$ksrc/drivers/net/tun.c" "$ksrc/drivers/net/tun_vnet.h" "$ksrc/drivers/net/veth.c" "$out/src/net/"
 cp -r "$ksrc/net/netfilter" "$out/src/net/netfilter"
-mkdir -p "$out/src/net/ipv4" "$out/src/net/ipv6"
+mkdir -p "$out/src/net/ipv4" "$out/src/net/ipv6" "$out/src/net/bridge"
+cp "$ksrc/net/bridge/br_private.h" "$out/src/net/bridge/"
 cp -r "$ksrc/net/ipv4/netfilter" "$out/src/net/ipv4/netfilter"
 cp -r "$ksrc/net/ipv6/netfilter" "$out/src/net/ipv6/netfilter"
 
@@ -91,7 +92,16 @@ done
 for d in keyboard md1 conn-pd imu audio panel display clk mag light haptic; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
-kmake "$out/src/net" "$out/obj/net/core"
+# Android netd's matches and targets, unset in the kernel config.
+kmake "$out/src/net" "$out/obj/net/core" \
+	CONFIG_NETFILTER_XT_CONNMARK=m CONFIG_NETFILTER_XT_MATCH_BPF=m \
+	CONFIG_NETFILTER_XT_MATCH_OWNER=m CONFIG_NETFILTER_XT_MATCH_U32=m \
+	CONFIG_NETFILTER_XT_MATCH_STATE=m CONFIG_NETFILTER_XT_MATCH_PKTTYPE=m \
+	CONFIG_NETFILTER_XT_MATCH_LIMIT=m CONFIG_NETFILTER_XT_MATCH_QUOTA=m \
+	CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=m CONFIG_NETFILTER_XT_MATCH_IPRANGE=m \
+	CONFIG_NETFILTER_XT_MATCH_LENGTH=m CONFIG_NETFILTER_XT_TARGET_IDLETIMER=m \
+	CONFIG_NETFILTER_XT_TARGET_NFLOG=m CONFIG_NETFILTER_NETLINK_LOG=m \
+	CONFIG_NETFILTER_XT_TARGET_CT=m
 kmake "$ksrc/net/llc" "$out/obj/net/llc"
 kmake "$ksrc/net/802" "$out/obj/net/802" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/net/llc/Module.symvers"
@@ -123,7 +133,9 @@ net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUER
 	nf_reject_ipv4 nf_reject_ipv6 ip_tables ip6_tables iptable_filter iptable_nat
 	iptable_mangle iptable_raw ip6table_filter ip6table_nat ip6table_mangle ip6table_raw
 	ipt_REJECT ip6t_REJECT xt_mark xt_conntrack xt_comment xt_multiport xt_tcpmss
-	xt_TCPMSS xt_addrtype xt_REDIRECT"
+	xt_TCPMSS xt_addrtype xt_REDIRECT
+	xt_connmark xt_bpf xt_owner xt_u32 xt_state xt_pkttype xt_limit xt_quota
+	xt_hashlimit xt_iprange xt_length xt_IDLETIMER xt_NFLOG nfnetlink_log xt_CT"
 for m in $net; do
 	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
 done
