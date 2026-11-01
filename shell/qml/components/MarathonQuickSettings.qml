@@ -19,8 +19,9 @@ Item {
     // at every scale.
     property real maxHeight: 0
 
-    // The wallpaper, frosted behind the shade.
-    property Item homeBackdrop: null
+    // What the shade frosts, bottom to top: the open app, or the wallpaper
+    // and the home screen.
+    property list<Item> backdrops
 
     signal closed
     signal launchApp(var app)
@@ -37,11 +38,9 @@ Item {
     // follows the finger.
     readonly property real openProgress: Math.min(1, height / Math.max(1, maxHeight))
 
-    // Backdrop: the ambience's wallpaper, lightly frosted, over any app or
-    // the home screen alike. It keeps the open shade's size while the shade
-    // animates and the shade clips it: resizing it every frame re-ran the
-    // blur at 25-33 ms of GPU per frame on the PinePhone. A solid floor keeps
-    // the shade opaque if the wallpaper is missing.
+    // Backdrop: what is behind the shade, frosted. It keeps the open shade's
+    // size while the shade animates and the shade clips it, so a drag does
+    // not re-blur at every height. A solid floor keeps the shade opaque.
     Rectangle {
         anchors.fill: parent
         color: MColors.elev0
@@ -51,15 +50,14 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         height: quickSettings.maxHeight
-        source: quickSettings.homeBackdrop
-        sourceRect: Qt.rect(0, 0, width, height)
+        sources: quickSettings.backdrops
+        sourceRect: Qt.rect(0, quickSettings.y, width, height)
         blurAmount: 1.0
         blurMax: MBlur.lg
         blurMultiplier: 2.2
         saturation: 0.8
         brightness: -0.05
         tint: Qt.rgba(0, 0, 0, 0.5)
-        live: false
     }
 
     // The drawn height: follows UIStore while a finger drags the shade and

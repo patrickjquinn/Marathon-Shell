@@ -2,93 +2,88 @@ import MarathonOS.Shell
 import QtQuick
 import QtQuick.Effects
 
-// Live-blur backdrop over a target QQuickItem (typically the running app's
-// WaylandShellSurfaceItem). Used by Lock Screen and Quick Settings to give
-// the chrome an iOS-style glass-over-app coherence that competing Wayland
-// phone shells can't match: they'd need ext-image-copy-capture-v1 per frame
-// across IPC, whereas Marathon samples the surface texture inline.
+// Frosted glass over the layers behind the chrome: the app's surface, or the
+// wallpaper and home screen. Marathon samples them inline, where another
+// Wayland shell would need a screen copy across IPC per frame.
 //
-// Render path: ShaderEffectSource samples `source` → MultiEffect blurs it.
-// Per coding-rules C8, `live` is gated on this item's visibility so the
-// GPU isn't burning samples while the chrome is hidden.
+// The layers are captured, bottom to top, at 1/downscale of this item's size
+// and blurred at that size, then scaled up: a blur loses the detail the small
+// texture would. A live capture redraws only when a layer changes, and only
+// while this item is visible (coding-rules C8).
 Item {
     id: root
 
-    // The Item to blur. Pass appWindowContainer when an app is open;
-    // pass null (or a wallpaper item) otherwise.
+    // Bottom to top. `source` is the one-layer form.
+    property list<Item> sources
     property Item source
 
-    // Region of `source` to capture, in the source item's coordinates. Default
-    // Qt.rect(0,0,0,0) = the whole source (ShaderEffectSource's "empty = all"
-    // rule). Set this to a rect the SAME SIZE as this blur item to avoid the
-    // source being squashed into a different aspect — e.g. sampling a
-    // full-screen wallpaper into a shorter shade compresses it into a smeared,
-    // misaligned cast. A 1:1 slice keeps the frost uniform and aligned.
+    // The region of the layers behind this item, in their coordinates, the
+    // same size as this item so the frost stays aligned; empty is all of it.
     property rect sourceRect: Qt.rect(0, 0, 0, 0)
 
+    property real downscale: 4
     property real blurAmount: 1.0
-    // Cap default at 24. The Qt docs document blurMax ≤ 32 as the Snapdragon
-    // ceiling; the L5's etnaviv GC7000Lite is materially weaker, and the
-    // wider the kernel the more fillrate it costs per vsync. blurMultiplier
-    // gives back perceived strength without raising the sample radius.
+    // In the small texture's pixels, so one step frosts four times as wide.
     property real blurMax: MBlur.lg
     property real blurMultiplier: 1.0
     property real saturation: 0.5
     property real brightness: -0.1
     property color tint: Qt.rgba(0, 0, 0, 0.2)
-    // When the backdrop is a frozen app surface (Lock screen sitting over
-    // a paused Phone, QS shade pulled down over a static home) the source
-    // texture does not change. Callers set live: false so the GPU samples
-    // the backdrop ONCE then reuses the cached snapshot.
+    // False when the layers cannot change underneath (a frozen app under the
+    // lock screen): they are captured and blurred once.
     property bool live: true
 
-    visible: source !== null
+    readonly property list<Item> layers: sources.length > 0 ? sources : (source ? [source] : [])
 
-    ShaderEffectSource {
-        id: capture
+    visible: layers.length > 0
 
-        anchors.fill: parent
-        sourceItem: root.source
-        sourceRect: root.sourceRect
-        live: root.live && root.visible && root.source !== null
-        hideSource: false
-        recursive: false
-        // RGBA16F keeps the colour chain linear-precise across the blur
-        // → tint composite. With 8-bit RGBA you get dark-fringe gamma
-        // error around bright pixels (white app text against teal-glow
-        // tint shows a brown halo).
-        //
-        // Gated on Constants.gpuHdr (set via MARATHON_GPU_HDR env, read
-        // by shell/runner C++). The Librem 5's etnaviv GC7000Lite can't
-        // expose RGBA16F as a colour buffer attachment — QRhi logs
-        // "QSGRhiLayer: Attempted to set unsupported texture format 8"
-        // on every blur compose. RGBA fallback gives a slightly darker
-        // halo but eliminates the per-frame spam. Default off; enable
-        // on capable GPUs (Mali / Mesa-virgl / Apple GPU).
-        format: Constants.gpuHdr ? ShaderEffectSource.RGBA16F : ShaderEffectSource.RGBA
-        // Mipmap so MultiEffect's wide-kernel reads sample a pre-filtered
-        // chain rather than re-blurring 32× per pixel — visibly smoother
-        // bokeh, lower fillrate cost.
-        mipmap: true
-        smooth: true
+    Item {
+        id: small
+
+        width: Math.max(1, Math.ceil(root.width / root.downscale))
+        height: Math.max(1, Math.ceil(root.height / root.downscale))
         visible: false
+
+        Repeater {
+            model: root.layers
+
+            ShaderEffectSource {
+                required property Item modelData
+
+                anchors.fill: parent
+                sourceItem: modelData
+                sourceRect: root.sourceRect
+                textureSize: Qt.size(small.width, small.height)
+                live: root.live && root.visible
+                recursive: false
+                // RGBA16F avoids dark fringes round bright pixels; etnaviv
+                // cannot render to it, so it follows MARATHON_GPU_HDR.
+                format: Constants.gpuHdr ? ShaderEffectSource.RGBA16F : ShaderEffectSource.RGBA
+                smooth: true
+            }
+        }
     }
 
-    MultiEffect {
-        anchors.fill: parent
-        source: capture
-        // A static backdrop's output never changes, but MultiEffect still
-        // runs its full-size compositing shader (several blur levels,
-        // saturation, brightness per pixel) on every frame: 15-30 ms of GPU
-        // a frame under the Quick Settings shade on the PinePhone. The layer
-        // renders it once and each frame samples one texture.
-        layer.enabled: !root.live
-        blurEnabled: true
-        blur: root.blurAmount
-        blurMax: root.blurMax
-        blurMultiplier: root.blurMultiplier
-        saturation: root.saturation
-        brightness: root.brightness
+    // Blurred at the small size into a layer, which is scaled up filtered.
+    Item {
+        width: small.width
+        height: small.height
+        scale: root.downscale
+        transformOrigin: Item.TopLeft
+        layer.enabled: true
+        layer.smooth: true
+
+        MultiEffect {
+            anchors.fill: parent
+            source: small
+            autoPaddingEnabled: false
+            blurEnabled: true
+            blur: root.blurAmount
+            blurMax: root.blurMax
+            blurMultiplier: root.blurMultiplier
+            saturation: root.saturation
+            brightness: root.brightness
+        }
     }
 
     Rectangle {

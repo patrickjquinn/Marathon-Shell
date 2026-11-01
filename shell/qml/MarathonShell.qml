@@ -1470,6 +1470,7 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
+        backdrops: UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
 
         // The Hub and Quick Settings never outlive a lock or an app launch.
         Connections {
@@ -1892,7 +1893,7 @@ Item {
         visible: !SessionStore.isLocked && drawnHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
-        homeBackdrop: wallpaperImage
+        backdrops: UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
         onClosed: {
             UIStore.closeQuickSettings();
         }
