@@ -114,11 +114,15 @@ done
 
 # The first set ships as built; everything else without debug info. Of
 # net/bluetooth only the core is shipped, and of the networking builds what
-# Deckard's bridge, veth and iptables-nft NAT need.
+# Deckard's bridge, veth and iptables-nft NAT and Android's legacy iptables need.
 mkdir -p "$out/modules"
 net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE
 	nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat
-	nft_masq nft_ct"
+	nft_masq nft_ct
+	nf_reject_ipv4 nf_reject_ipv6 ip_tables ip6_tables iptable_filter iptable_nat
+	iptable_mangle iptable_raw ip6table_filter ip6table_nat ip6table_mangle ip6table_raw
+	ipt_REJECT ip6t_REJECT xt_mark xt_conntrack xt_comment xt_multiport xt_tcpmss
+	xt_TCPMSS xt_addrtype xt_REDIRECT"
 for m in $net; do
 	llvm-strip --strip-debug -o "$out/modules/$m.ko" "$(find "$out/obj/net" -name "$m.ko")"
 done
