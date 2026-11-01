@@ -1,0 +1,32 @@
+From ec5a4534aea6d12df4daec4c656bd9610e58e876 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 1 Nov 2026 02:56:13 +0000
+Subject: [PATCH] fix(build): developer images get their SSH key
+
+PassEnvironment only forwards what is already in mkosi's environment,
+so MARATHON_DEV_SSH_KEY never reached the base postinst: every
+developer image since 0050 shipped with no authorized key and sshd
+disabled. Pass it with --environment like MARATHON_IMAGE_LAYOUT.
+---
+ scripts/build-image.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index e4c5123..3b60c9c 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -144,8 +144,9 @@ def build_image(components: List[str], extra_args: List[str]):
+             f"--environment=PMOS_VARIANT={ui_name}",
+         ] + extra_args
+         # PassEnvironment forwards only mkosi's own environment, not ours.
+-        if layout := os.environ.get("MARATHON_IMAGE_LAYOUT"):
+-            mkosi_cmd.insert(len(mkosi_cmd) - len(extra_args), f"--environment=MARATHON_IMAGE_LAYOUT={layout}")
++        for var in ("MARATHON_IMAGE_LAYOUT", "MARATHON_DEV_SSH_KEY"):
++            if value := os.environ.get(var):
++                mkosi_cmd.insert(len(mkosi_cmd) - len(extra_args), f"--environment={var}={value}")
+ 
+         print(f"Executing: {' '.join(mkosi_cmd)}")
+ 
+-- 
+2.55.0
+
