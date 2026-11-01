@@ -105,10 +105,10 @@ index 3544b91..19399ef 100644
  	void (*mtk_cam_update_buffers_add)(struct mtk_cam_dev *cam_dev,
  					   struct mtk_cam_dev_buffer *buf);
 diff --git a/camsv/mtk_camsv_hw.c b/camsv/mtk_camsv_hw.c
-index c2de30a..584e914 100644
+index c2de30a..0930666 100644
 --- a/camsv/mtk_camsv_hw.c
 +++ b/camsv/mtk_camsv_hw.c
-@@ -4,8 +4,8 @@
+@@ -4,13 +4,14 @@
   */
  
  #include <linux/device.h>
@@ -118,7 +118,13 @@ index c2de30a..584e914 100644
  #include <linux/iopoll.h>
  #include <linux/ktime.h>
  #include <linux/module.h>
-@@ -18,6 +18,13 @@
+ #include <linux/of.h>
+ #include <linux/of_platform.h>
++#include <linux/of_reserved_mem.h>
+ #include <linux/platform_device.h>
+ 
+ #include "mtk_camsv.h"
+@@ -18,6 +19,13 @@
  
  #define MTK_CAMSV_AUTOSUSPEND_DELAY_MS 100
  
@@ -132,7 +138,7 @@ index c2de30a..584e914 100644
  static const struct mtk_cam_conf camsv_conf = {
  	.tg_sen_mode = 0x00010002U, /* TIME_STP_EN = 1. DBL_DATA_BUS = 1 */
  	.module_en = 0x50000001U, /* enable double buffer(DB_LOAD_SRC:SOF) and TG */
-@@ -28,7 +35,8 @@ static const struct mtk_cam_conf camsv_conf = {
+@@ -28,7 +36,8 @@ static const struct mtk_cam_conf camsv_conf = {
  	.enableFH = false, /* Frame Header disabled */
  };
  
@@ -142,7 +148,7 @@ index c2de30a..584e914 100644
  {
  	switch (fmtinfo->code) {
  	case MEDIA_BUS_FMT_SBGGR12_1X12:
-@@ -115,11 +123,11 @@ static void mtk_camsv_update_buffers_add(struct mtk_cam_dev *cam_dev,
+@@ -115,11 +124,11 @@ static void mtk_camsv_update_buffers_add(struct mtk_cam_dev *cam_dev,
  	mtk_camsv_write(cam_dev, CAMSV_IMGO_BASE_ADDR, buf->daddr);
  	mtk_camsv_write(cam_dev, CAMSV_IMGO_FBC, 0x11U);
  
@@ -159,7 +165,7 @@ index c2de30a..584e914 100644
  }
  
  static void mtk_camsv_cmos_vf_hw_enable(struct mtk_cam_dev *cam_dev, bool pak_en)
-@@ -135,13 +143,13 @@ static void mtk_camsv_cmos_vf_hw_enable(struct mtk_cam_dev *cam_dev, bool pak_en
+@@ -135,13 +144,13 @@ static void mtk_camsv_cmos_vf_hw_enable(struct mtk_cam_dev *cam_dev, bool pak_en
  	mtk_camsv_write(cam_dev, CAMSV_MODULE_EN,
  			mtk_camsv_read(cam_dev, CAMSV_MODULE_EN) &
  			     ~CAMSV_MODULE_EN_DB_EN);
@@ -175,7 +181,7 @@ index c2de30a..584e914 100644
  		 __func__, mtk_camsv_read(cam_dev,
  		 CAMSV_MODULE_EN));
  
-@@ -161,7 +169,27 @@ static void mtk_camsv_cmos_vf_hw_disable(struct mtk_cam_dev *cam_dev, bool pak_e
+@@ -161,7 +170,27 @@ static void mtk_camsv_cmos_vf_hw_disable(struct mtk_cam_dev *cam_dev, bool pak_e
  			     ~CAMSV_TG_VF_CON_VFDATA_EN);
  }
  
@@ -204,7 +210,7 @@ index c2de30a..584e914 100644
  {
  	const struct mtk_cam_conf *conf = cam_dev->conf;
  	u32 int_en = INT_ST_MASK_CAMSV;
-@@ -174,9 +202,16 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+@@ -174,9 +203,16 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
  	fmt_to_sparams(cam_dev->vdev.fmtinfo, &sparams);
  
  	dev_info(cam_dev->dev, "%s power on camsv\n", __func__);
@@ -223,7 +229,7 @@ index c2de30a..584e914 100644
  	}
  
  	spin_lock_irqsave(&cam_dev->irqlock, flags);
-@@ -198,7 +233,9 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+@@ -198,7 +234,9 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
  					(val & mask) == mask, 10, 100000);
  	if (ret) {
  		dev_err(cam_dev->dev, "CAMSV reset failed, CAMSV_SW_CTL: 0x%x\n", val);
@@ -234,7 +240,7 @@ index c2de30a..584e914 100644
  	}
  
  	mtk_camsv_write(cam_dev, CAMSV_SW_CTL, 0x0U);
-@@ -258,6 +295,8 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
+@@ -258,6 +296,8 @@ static void mtk_camsv_setup(struct mtk_cam_dev *cam_dev, u32 w, u32 h, u32 bpl)
  
  	spin_unlock_irqrestore(&cam_dev->irqlock, flags);
  	pm_runtime_put_autosuspend(cam_dev->dev);
@@ -243,7 +249,7 @@ index c2de30a..584e914 100644
  }
  
  static void mtk_camsv_reset(struct mtk_cam_dev *cam_dev)
-@@ -372,7 +411,7 @@ static int mtk_camsv_suspend(struct device *dev)
+@@ -372,7 +412,7 @@ static int mtk_camsv_suspend(struct device *dev)
  	struct mtk_cam_video_device *vdev = &cam_dev->vdev;
  	struct vb2_queue *vbq = &vdev->vbq;
  
@@ -252,7 +258,7 @@ index c2de30a..584e914 100644
  		mutex_lock(&cam_dev->op_lock);
  		v4l2_subdev_call(&cam_dev->subdev, video, s_stream, 0);
  		mutex_unlock(&cam_dev->op_lock);
-@@ -395,9 +434,11 @@ static int mtk_camsv_resume(struct device *dev)
+@@ -395,9 +435,11 @@ static int mtk_camsv_resume(struct device *dev)
  	if (ret < 0)
  		return ret;
  
@@ -267,7 +273,19 @@ index c2de30a..584e914 100644
  
  		spin_lock_irqsave(&cam_dev->irqlock, flags);
  		if (cam_dev->buf_curr) {
-@@ -464,8 +505,10 @@ static int mtk_camsv_probe(struct platform_device *pdev)
+@@ -446,6 +488,11 @@ static struct mtk_cam_hw_functions mtk_camsv_hw_functions = {
+ 	.mtk_cam_get_pixel_mode = mtk_camsv_get_pixel_mode,
+ };
+ 
++static void mtk_camsv_release_mem(void *dev)
++{
++	of_reserved_mem_device_release(dev);
++}
++
+ static int mtk_camsv_probe(struct platform_device *pdev)
+ {
+ 	static const char * const clk_names[] = {
+@@ -464,8 +511,17 @@ static int mtk_camsv_probe(struct platform_device *pdev)
  	int i;
  
  	dev_info(dev, "camsv | start %s\n", __func__);
@@ -277,10 +295,17 @@ index c2de30a..584e914 100644
 +	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 +	if (ret)
 +		return ret;
++
++	/* Frames over 4 MiB need the pool memory-region names, if present. */
++	ret = of_reserved_mem_device_init(dev);
++	if (!ret)
++		ret = devm_add_action_or_reset(dev, mtk_camsv_release_mem, dev);
++	if (ret && ret != -ENODEV)
++		return dev_err_probe(dev, ret, "failed to attach the memory region\n");
  
  	cam_dev = devm_kzalloc(dev, sizeof(*cam_dev), GFP_KERNEL);
  	if (!cam_dev)
-@@ -485,6 +528,14 @@ static int mtk_camsv_probe(struct platform_device *pdev)
+@@ -485,6 +541,14 @@ static int mtk_camsv_probe(struct platform_device *pdev)
  		return PTR_ERR(cam_dev->regs);
  	}
  
@@ -295,7 +320,7 @@ index c2de30a..584e914 100644
  	cam_dev->num_clks = ARRAY_SIZE(clk_names);
  	cam_dev->clks = devm_kcalloc(dev, cam_dev->num_clks,
  				     sizeof(*cam_dev->clks), GFP_KERNEL);
-@@ -531,7 +582,7 @@ static int mtk_camsv_probe(struct platform_device *pdev)
+@@ -531,7 +595,7 @@ static int mtk_camsv_probe(struct platform_device *pdev)
  	return mtk_isp6s_camsv_dev_init(cam_dev);
  }
  
@@ -304,7 +329,7 @@ index c2de30a..584e914 100644
  {
  	struct device *dev = &pdev->dev;
  	struct mtk_cam_dev *cam_dev = dev_get_drvdata(dev);
-@@ -539,8 +590,6 @@ static int mtk_camsv_remove(struct platform_device *pdev)
+@@ -539,8 +603,6 @@ static int mtk_camsv_remove(struct platform_device *pdev)
  	mtk_isp6s_camsv_dev_cleanup(cam_dev);
  	pm_runtime_put_autosuspend(dev);
  	pm_runtime_disable(dev);
@@ -313,7 +338,7 @@ index c2de30a..584e914 100644
  }
  
  static const struct dev_pm_ops mtk_camsv_pm_ops = {
-@@ -551,6 +600,10 @@ static const struct dev_pm_ops mtk_camsv_pm_ops = {
+@@ -551,6 +613,10 @@ static const struct dev_pm_ops mtk_camsv_pm_ops = {
  };
  
  static const struct of_device_id mtk_camsv_of_ids[] = {
