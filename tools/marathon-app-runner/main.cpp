@@ -197,9 +197,6 @@ static bool subtreeHasFocus(const QQuickItem *item) {
     return false;
 }
 
-// MarathonOS.Shell roots, ahead of Qt's defaults. App-independent, so a pool
-// spare sets them up before it is adopted.
-static int  sharedImportPathCount = 0;
 // Keel takes the host's ambience from an asynchronous reply, after the
 // window maps; there it counts as a change, and the app fades out and back
 // in, its first frames in the default colours. Hand it over before then.
@@ -224,6 +221,9 @@ static void applyHostAmbience(QQmlEngine *engine) {
                                   Q_ARG(QVariantMap, ambience));
 }
 
+// MarathonOS.Shell roots, ahead of Qt's defaults. App-independent, so a pool
+// spare sets them up before it is adopted.
+static int  sharedImportPathCount = 0;
 static void addSharedImportPaths(QQmlEngine *engine) {
     const QStringList roots =
         marathon::runner::shell_import_roots(QCoreApplication::applicationDirPath());
