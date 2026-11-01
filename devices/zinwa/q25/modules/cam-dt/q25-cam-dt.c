@@ -2,7 +2,7 @@
 /*
  * Q25 camera DT overlay loader. The boot DTB has no SENINF/CAMSV nodes and
  * this kernel has no userspace overlay interface, so this applies
- * q25-camera.dtbo from the firmware path at runtime. Loaded by hand.
+ * q25-camera.dtbo from the firmware path at runtime. Loaded at boot.
  */
 #include <linux/debugfs.h>
 #include <linux/firmware.h>
