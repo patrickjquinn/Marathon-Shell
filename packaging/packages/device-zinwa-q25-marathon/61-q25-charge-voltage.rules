@@ -1,0 +1,4 @@
+# bq256xx starts the charger at its 4.208 V default and keeps the battery's
+# 4.44 V only as a ceiling: the cell stopped near 80%. Stock charges to
+# 4.44 V (battery_cv, upm6922 vreg).
+ACTION=="add", SUBSYSTEM=="power_supply", KERNEL=="bq256xx-charger", ATTR{constant_charge_voltage}="4440000"
