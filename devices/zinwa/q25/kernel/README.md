@@ -64,3 +64,9 @@ only `.top_offset` in `mt6358_irq_handler`; MT6357 and MT6359 have their own
 enums. `MFD_MT6397` is built in, so it takes effect only with the next kernel
 build; until then `q25-mt6366-irqfix` (modules/audio) patches the table at
 runtime and does nothing on a fixed kernel.
+
+`0010` reserves 256 MiB below 4 GiB as a `shared-dma-pool` for CAMSV, whose
+32-bit `dma_alloc_coherent()` otherwise stops at 4 MiB, short of the
+sensors' full-resolution frames. The camera overlay (`modules/camera`)
+names the pool by its fixed phandle, `0x93`. The Q25 boots the same node
+added to its current DTB.
