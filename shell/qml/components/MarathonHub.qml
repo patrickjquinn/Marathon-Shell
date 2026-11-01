@@ -164,8 +164,7 @@ Rectangle {
         height: hub.Window.height
         sources: hub.backdrops
         sourceRect: Qt.rect(0, 0, width, height)
-        blurMax: MBlur.lg
-        blurMultiplier: 2.2
+        blurMax: MBlur.xl
         saturation: 0.8
         brightness: -0.05
         tint: Qt.rgba(0, 0, 0, 0.5)

@@ -53,8 +53,7 @@ Item {
         sources: quickSettings.backdrops
         sourceRect: Qt.rect(0, quickSettings.y, width, height)
         blurAmount: 1.0
-        blurMax: MBlur.lg
-        blurMultiplier: 2.2
+        blurMax: MBlur.xl
         saturation: 0.8
         brightness: -0.05
         tint: Qt.rgba(0, 0, 0, 0.5)

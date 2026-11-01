@@ -278,8 +278,7 @@ Item {
             // 24 instead of 64 — see AppBackdropBlur.qml. A wider kernel
             // is invisible past ~24 on a 540×1140 screen but quadruples
             // fillrate on etnaviv.
-            blurMax: MBlur.lg
-            blurMultiplier: 1.4
+            blurMax: MBlur.xl
             saturation: 0.4
             brightness: -0.15
             tint: Qt.rgba(0, 0, 0, 0.25)
