@@ -163,6 +163,32 @@ pub(crate) fn uses_webengine(runner: &Runner) -> bool {
     modules.iter().any(|m| m == "webengine")
 }
 
+/// The app records through libcamera.
+pub(crate) fn uses_camera(runner: &Runner) -> bool {
+    app(runner).is_some_and(|a| a.has("camera"))
+}
+
+/// What libcamera opens: the media graph's nodes, and udmabuf for the
+/// software ISP's output.
+fn camera_nodes() -> Vec<String> {
+    let Ok(entries) = fs::read_dir("/dev") else {
+        return Vec::new();
+    };
+    let mut nodes: Vec<String> = entries
+        .filter_map(Result::ok)
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| {
+            ["media", "video", "v4l-subdev"]
+                .iter()
+                .any(|p| n.starts_with(p))
+                || n == "udmabuf"
+        })
+        .map(|n| format!("/dev/{n}"))
+        .collect();
+    nodes.sort();
+    nodes
+}
+
 fn chromium_flags(app: &App<'_>) -> String {
     var("QTWEBENGINE_CHROMIUM_FLAGS").unwrap_or_else(|| {
         let flags = manifest(&app.id).chromium_flags;
@@ -226,6 +252,10 @@ fn variables(runner: &Runner) -> Vec<(&'static str, String)> {
         if app.has(permission) {
             vars.push((name, "1".to_owned()));
         }
+    }
+    if app.has("camera") {
+        // FFmpeg's camera is plain V4L2; libcamera's comes through GStreamer.
+        vars.push(("QT_MEDIA_BACKEND", "gstreamer".to_owned()));
     }
     if uses_webengine(runner) {
         vars.push(("QT_OPENGL", var_or("QT_OPENGL", "es2")));
@@ -357,6 +387,13 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     args.flags(&["--proc", "/proc", "--dev", "/dev"]);
     // The render node only: card nodes belong to the shell, which is DRM master.
     args.bind("--dev-bind-try", &render);
+    if uses_camera(runner) {
+        for node in camera_nodes() {
+            args.bind("--dev-bind-try", &node);
+        }
+        // libudev's view of those nodes.
+        args.bind("--ro-bind-try", "/run/udev");
+    }
     // Mesa finds its driver through these sysfs links; resolv.conf links into
     // systemd-resolved's state.
     for dir in [
