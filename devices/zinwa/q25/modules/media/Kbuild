@@ -5,4 +5,4 @@
 # every module that includes <media/*.h> must build in this one set.
 subdir-ccflags-y += -DCONFIG_MEDIA_CONTROLLER=1 -DCONFIG_VIDEO_V4L2_SUBDEV_API=1 \
 	-DCONFIG_VIDEO_V4L2_I2C=1 -DCONFIG_V4L2_CCI_I2C_MODULE=1
-obj-m += mc/ v4l2-core/ videobuf2/
+obj-m += mc/ v4l2-core/ videobuf2/ mediatek/

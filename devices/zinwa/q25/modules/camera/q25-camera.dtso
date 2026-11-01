@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Zinwa Q25 camera overlay, applied at runtime: SENINF (CSI port 0 with the
+ * test-pattern generator, no sensor yet), CAMSV2 and the CSI0/CSI1 D-PHYs.
+ * Node layout follows Genio's mt8189.dtsi (a246e0c6) with MT6789 addresses
+ * and mainline clock indices. The base DTB has no __symbols__ for these
+ * providers, so they are referenced by their phandles in the running DTB
+ * (image/evidence/live.dts).
+ */
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/mediatek,mt6789-clk.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/phy/phy.h>
+
+#define TOPCKGEN_PH	0x12
+#define SPM_PC_PH	0x1e	/* q25-cam-pd serves domain 12 on this node */
+#define CAMSYS_PH	0x1a
+#define PD_CAM		12
+
+&{/soc} {
+	/* as in the base, so dtc can check the reg cells */
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	mipi_csi0: mipi-csi0@11c80000 {
+		compatible = "mediatek,mt6789-csi-rx";
+		reg = <0 0x11c80000 0 0x4000>;
+		phy-type = <PHY_TYPE_DPHY>;
+		num-lanes = <2>;
+		#phy-cells = <1>;
+		mediatek,csi-port = "0";
+		settle_delay_ck = <0x20>;
+		dphy_settle_delay_dt = <0x20>;
+	};
+
+	/* port 1 at +0x4000: the MT8189 stride, not yet confirmed on MT6789 */
+	mipi_csi1: mipi-csi1@11c84000 {
+		compatible = "mediatek,mt6789-csi-rx";
+		reg = <0 0x11c84000 0 0x4000>;
+		phy-type = <PHY_TYPE_DPHY>;
+		num-lanes = <4>;
+		#phy-cells = <1>;
+		mediatek,csi-port = "1";
+		status = "disabled";
+	};
+
+	seninf-top@1a004000 {
+		compatible = "mediatek,mt6789-seninf-core";
+		/* eight SENINF/MUX pages; SMI sub-common starts at 0x1a00c000 */
+		reg = <0 0x1a004000 0 0x8000>;
+		reg-names = "base";
+		interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <SPM_PC_PH PD_CAM>;
+		clocks = <CAMSYS_PH CLK_CAM_M_SENINF>,
+			 <TOPCKGEN_PH CLK_TOP_SENINF_SEL>,
+			 <TOPCKGEN_PH CLK_TOP_SENINF1_SEL>,
+			 <TOPCKGEN_PH CLK_TOP_CAMTG_SEL>,
+			 <TOPCKGEN_PH CLK_TOP_CAMTG2_SEL>,
+			 <TOPCKGEN_PH CLK_TOP_CAMTG3_SEL>,
+			 <TOPCKGEN_PH CLK_TOP_F26M_CK_D2>,
+			 <TOPCKGEN_PH CLK_TOP_UNIVPLL_192M_D8>,
+			 <TOPCKGEN_PH CLK_TOP_UNIVPLL_D6_D8>,
+			 <TOPCKGEN_PH CLK_TOP_UNIVPLL_192M_D4>,
+			 <TOPCKGEN_PH CLK_TOP_TCK_26M_MX9>,
+			 <TOPCKGEN_PH CLK_TOP_UNIVPLL_192M_D16>,
+			 <TOPCKGEN_PH CLK_TOP_UNIVPLL_192M_D32>,
+			 <TOPCKGEN_PH CLK_TOP_CAMTM_SEL>;
+		clock-names = "CAMSYS_SENINF_CGPDN", "TOP_MUX_SENINF",
+			      "TOP_MUX_SENINF1", "TOP_MUX_CAMTG",
+			      "TOP_MUX_CAMTG1", "TOP_MUX_CAMTG2",
+			      "TOP_F26M_CK_D2", "TOP_UNIVP_192M_D8",
+			      "TOP_UNIVPLL_D6_D8", "TOP_UNIVP_192M_D4",
+			      "TOP_CLK26M", "TOP_UNIVP_192M_D16",
+			      "TOP_UNIVP_192M_D32", "TOP_CAMTM";
+
+		seninf-csi-port-0 {
+			compatible = "mediatek,mt6789-seninf";
+			mediatek,csi-port = "0";
+			phys = <&mipi_csi0 PHY_TYPE_DPHY>;
+			phy-names = "csi0";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				/* the sensor endpoint is added with the IMX111 */
+				port@0 {
+					reg = <0>;
+				};
+
+				port@1 {
+					reg = <1>;
+
+					seninf0_camsv2: endpoint {
+						remote-endpoint = <&camsv2_seninf0>;
+					};
+				};
+			};
+		};
+	};
+
+	camsv2@1a092000 {
+		compatible = "mediatek,mt6789-camsv";
+		/* larb13 is shared by every CAMSV; the driver maps it unclaimed */
+		reg = <0 0x1a092000 0 0x1000>, <0 0x1a001000 0 0x1000>;
+		reg-names = "camsv", "larb";
+		interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* the only cam-mux that fed camsv2 on the Q25 bench (0..12 tried) */
+		mediatek,cammux-id = <5>;
+		power-domains = <SPM_PC_PH PD_CAM>;
+		clocks = <CAMSYS_PH CLK_CAM_M_CAM>,
+			 <CAMSYS_PH CLK_CAM_M_CAMTG>,
+			 <CAMSYS_PH CLK_CAM_M_CAMSV1>,
+			 <CAMSYS_PH CLK_CAM_M_LARB13>,
+			 <CAMSYS_PH CLK_CAM_M_CAM2MM_GALS>,
+			 <TOPCKGEN_PH CLK_TOP_CAMTM_SEL>;
+		clock-names = "CAMSYS_CAM_CGPDN", "CAMSYS_CAMTG_CGPDN",
+			      "CAMSYS_CAMSV_CGPDN", "CAMSYS_LARB_CGPDN",
+			      "CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
+			      "TOPCKGEN_TOP_MUX_CAMTM";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				camsv2_seninf0: endpoint {
+					remote-endpoint = <&seninf0_camsv2>;
+				};
+			};
+		};
+	};
+};

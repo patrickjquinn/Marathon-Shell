@@ -89,6 +89,11 @@ mkdir -p "$m"
 cp "$here/media/Kbuild" "$m/"
 cp -r "$ksrc/drivers/media/mc" "$ksrc/drivers/media/v4l2-core" "$m/"
 cp -r "$ksrc/drivers/media/common/videobuf2" "$m/"
+mkdir -p "$m/mediatek"
+cp "$here/camera/Kbuild" "$m/mediatek/"
+cp -r "$here/camera/seninf" "$here/camera/camsv" "$here/camera/phy" "$m/mediatek/"
+cp "$ksrc/drivers/phy/mediatek/phy-mtk-io.h" "$m/mediatek/phy/"
+(cd "$m/mediatek" && patch -p1 -s < "$here/camera/0001-mt6789-port.patch")
 
 rm -rf "$out/src/modem"
 mkdir -p "$out/src/modem"
@@ -125,12 +130,14 @@ kmake "$out/src/wlan" "$out/obj/wlan" JOINT="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/cfg80211/Module.symvers"
 kmake "$out/src/bt" "$out/obj/bt" WMTSRC="$out/src/wmt" \
 	KBUILD_EXTRA_SYMBOLS="$out/obj/wmt/Module.symvers $out/obj/rfkill/Module.symvers $out/obj/bluetooth/Module.symvers"
-# The V4L2 media core, unset in the kernel config, as one set (media/Kbuild).
+# The V4L2 media core, unset in the kernel config, and the camera drivers
+# that use it, as one set (media/Kbuild).
 kmake "$out/src/media" "$out/obj/media" \
 	CONFIG_MEDIA_SUPPORT=m CONFIG_MEDIA_CONTROLLER=y CONFIG_VIDEO_DEV=m \
 	CONFIG_VIDEO_V4L2_I2C=y CONFIG_V4L2_ASYNC=m CONFIG_V4L2_FWNODE=m \
 	CONFIG_V4L2_CCI=m CONFIG_V4L2_CCI_I2C=m CONFIG_VIDEOBUF2_CORE=m \
-	CONFIG_VIDEOBUF2_V4L2=m CONFIG_VIDEOBUF2_MEMOPS=m CONFIG_VIDEOBUF2_DMA_CONTIG=m
+	CONFIG_VIDEOBUF2_V4L2=m CONFIG_VIDEOBUF2_MEMOPS=m CONFIG_VIDEOBUF2_DMA_CONTIG=m \
+	CONFIG_MTK_SENINF6S=m CONFIG_MTK_CAMSV6S=m CONFIG_PHY_MTK_MIPI_CSI_2_1=m
 syms=""
 for m in ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif; do
 	kmake "$out/src/modem/$m" "$out/obj/modem/$m" KBUILD_EXTRA_SYMBOLS="$syms"
@@ -168,6 +175,11 @@ mkdir -p "$out/camera"
 find "$out/obj/media" -name '*.ko' | while read -r ko; do
 	llvm-strip --strip-debug -o "$out/camera/$(basename "$ko")" "$ko"
 done
+cpp -nostdinc -undef -x assembler-with-cpp -P -I "$ksrc/include" \
+	"$here/camera/q25-camera.dtso" > "$out/obj/q25-camera.dts"
+# Its providers are base phandles dtc cannot see.
+"$kobj/scripts/dtc/dtc" -@ -Wno-clocks_property -Wno-power_domains_property \
+	-Wno-interrupts_property -I dts -O dtb -o "$out/camera/q25-camera.dtbo" "$out/obj/q25-camera.dts"
 [ -n "$shipped" ] || exit 0
 mkdir -p "$out/cmp"
 status=0
