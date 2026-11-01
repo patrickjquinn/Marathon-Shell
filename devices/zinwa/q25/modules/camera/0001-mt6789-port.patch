@@ -332,7 +332,7 @@ index c2de30a..9f3e68f 100644
  static struct platform_driver mtk_camsv_driver = {
  	.probe = mtk_camsv_probe,
 diff --git a/camsv/mtk_camsv_video.c b/camsv/mtk_camsv_video.c
-index 9e99d80..ebb0e57 100644
+index 9e99d80..7c4371a 100644
 --- a/camsv/mtk_camsv_video.c
 +++ b/camsv/mtk_camsv_video.c
 @@ -34,47 +34,52 @@ to_mtk_cam_dev_buffer(struct vb2_buffer *buf)
@@ -489,7 +489,18 @@ index 9e99d80..ebb0e57 100644
  };
  
  /* -----------------------------------------------------------------------------
-@@ -631,14 +638,14 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
+@@ -524,7 +531,9 @@ static int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
+ 	if (!mtk_cam_dev_find_fmt(vdev->desc, pix_mp->pixelformat))
+ 		pix_mp->pixelformat = vdev->desc->fmts[0];
+ 
+-	pix_mp->width = clamp_val(pix_mp->width, IMG_MIN_WIDTH, IMG_MAX_WIDTH);
++	/* The SENINF muxes pass lines in whole groups of 8 pixels. */
++	pix_mp->width = round_down(clamp_val(pix_mp->width, IMG_MIN_WIDTH,
++					     IMG_MAX_WIDTH), 8);
+ 	pix_mp->height = clamp_val(pix_mp->height, IMG_MIN_HEIGHT,
+ 				   IMG_MAX_HEIGHT);
+ 
+@@ -631,14 +640,14 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
  
  static const u32 stream_out_fmts[] = {
  	/* The 1st entry is the default image format */
@@ -512,7 +523,24 @@ index 9e99d80..ebb0e57 100644
  	V4L2_PIX_FMT_SBGGR8,
  	V4L2_PIX_FMT_SGBRG8,
  	V4L2_PIX_FMT_SGRBG8,
-@@ -695,13 +702,13 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+@@ -662,14 +671,14 @@ static const struct mtk_cam_vdev_desc video_stream = {
+ 	.frmsizes =
+ 		&(struct v4l2_frmsizeenum){
+ 			.index = 0,
+-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
++			.type = V4L2_FRMSIZE_TYPE_STEPWISE,
+ 			.stepwise = {
+ 				.max_width = IMG_MAX_WIDTH,
+ 				.min_width = IMG_MIN_WIDTH,
+ 				.max_height = IMG_MAX_HEIGHT,
+ 				.min_height = IMG_MIN_HEIGHT,
+ 				.step_height = 1,
+-				.step_width = 1,
++				.step_width = 8,
+ 			},
+ 		},
+ };
+@@ -695,13 +704,13 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
  
  	cam->subdev_pads[MTK_CAM_CIO_PAD_VIDEO].flags = MEDIA_PAD_FL_SOURCE;
  
@@ -528,7 +556,7 @@ index 9e99d80..ebb0e57 100644
  
  	vbq->type = cam_vdev->desc->buf_type;
  	vbq->io_modes = VB2_MMAP | VB2_DMABUF;
-@@ -718,7 +725,11 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
+@@ -718,7 +727,11 @@ int mtk_isp6s_camsv_video_register(struct mtk_cam_dev *cam)
  			     | V4L2_BUF_FLAG_TSTAMP_SRC_EOF;
  
  	/* No minimum buffers limitation */
@@ -541,7 +569,7 @@ index 9e99d80..ebb0e57 100644
  	vbq->drv_priv = cam;
  
  	vbq->lock = &cam_vdev->vdev_lock;
-@@ -785,5 +796,5 @@ void mtk_isp6s_camsv_video_unregister(struct mtk_cam_video_device *vdev)
+@@ -785,5 +798,5 @@ void mtk_isp6s_camsv_video_unregister(struct mtk_cam_video_device *vdev)
  	vb2_queue_release(&vdev->vbq);
  	media_entity_cleanup(&vdev->vdev.entity);
  	mutex_destroy(&vdev->vdev_lock);
