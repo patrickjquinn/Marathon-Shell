@@ -3,7 +3,7 @@
 # The kernel APK is a prebuilt closure, so these bytes are pinned to it.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=16
+pkgrel=17
 pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -12,7 +12,7 @@ options="!check !strip !tracedeps"
 depends="kmod linux-postmarketos-mediatek-g99=7.0-r1000"
 makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
-_extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se q25-mt6358-live"
+_extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se q25-mt6358-live q25-haptic regulator-haptic"
 _connsys="q25-conn-pd rfkill cfg80211 connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789 bluetooth q25-btmtk-stp"
 _audio="snd-timer snd-pcm snd-jack snd-soc-core snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390 q25-mt6366-card q25-mt6366-irqfix q25-mt6358-accdet"
 _net="llc stp bridge veth tun nfnetlink x_tables xt_tcpudp xt_CHECKSUM xt_MASQUERADE nf_defrag_ipv4 nf_defrag_ipv6 nf_conntrack nf_nat nf_tables nft_compat nft_chain_nat nft_masq nft_ct nf_reject_ipv4 nf_reject_ipv6 ip_tables ip6_tables iptable_filter iptable_nat iptable_mangle iptable_raw ip6table_filter ip6table_nat ip6table_mangle ip6table_raw ipt_REJECT ip6t_REJECT xt_mark xt_conntrack xt_comment xt_multiport xt_tcpmss xt_TCPMSS xt_addrtype xt_REDIRECT"
@@ -40,7 +40,7 @@ package() {
     install -Dm644 "$srcdir/SHA256SUMS" "$pkgdir/usr/share/doc/$pkgname/SHA256SUMS"
 }
 sha512sums="
-20d2bb3a82d8a4c30feab452a9e0a4ca8340fe57d2cf861ae578ed69f9879c7a1ca3a9a7a0c1bc47aed61164a21c52134d7f64cafe1155d39c17f419aeb23c79  SHA256SUMS
+0b0c4c2c3403d5f2d99c313875ab86f3196e39f13be4957cb54ddd69ee788aa5cae6c06df13d9633b4dee5d2b6647915483fbe4ec6243b740c92be6b2bd2d3f9  SHA256SUMS
 9859c9f91e29ed1c347bf24764bb971298976e460b127eed504837fbb3ce00fadb6b038f4521e626a7309a181a14fd78a23e9468a94cb2f5c0e6aaf9ccf42b87  q25-bbq-keys.ko.zst
 2330feaa4e39d20a32c2b8a5ed64985de72bcf1236520890fcd2545371afa5b8f523b82e2eea04f301a32eb8027ad140e8a6272b65bbfb5748b4d79fc370b216  q25-keyboard-led.ko.zst
 a1bc222102bf04eb7cd7c2b9efc6d019bf1cf09dbdcbc28de008c707e2a6a962543d9b2f2ff7b6619d970fe407897e9f242c92757a42d210bb10ca4a1e0ee873  q25-md1-owner.ko.zst
@@ -53,6 +53,8 @@ e569356d1e20b4ebc0444b34c499bda4a635f800b147325e36924f607eb00f19717ea90f34a7e68d
 f4a71baae208e8ef9235c80f45884712af88ba50c4777514108b0afe29a60c8e3f8f711a4bd3ed742b3abac6ebb53ba0a062ffcdd5a7425ecaf86ad7a9ebff80  mmc5633.ko.zst
 b8abc2da15d324cd8ac1cc198049f1f17a44a8710980c2041ca837d13ac11a111c8993c22073fdc878bd313ff849d8d0ff12c7bceece9b041a71b1400c76c607  hx32062se.ko.zst
 4df35935b950f9b343ad56770e1979a1aff826a6c76e240ccf3e73db58d11737fb4c93f5a359a043cf13173b2f2d25c85e64271e592804431836305e8b6a05f3  q25-mt6358-live.ko.zst
+1a661b5bf01de1a5491fd9c9ef9aa8c794aecb33fac393fbd517f18e2e24081176000168e6a2b6d0af3b1d80ec2a3adde1f4db6810d528786090e3f5963b70cb  q25-haptic.ko.zst
+cad1831f2624e1b3a6dbac8597ef4bca91b97b1c8a3e11256afad625a9961f84f772ccbfff2c4ed6b2169701dcea815b15b6b4bc061fa4b0ab12dd3c09d6c08c  regulator-haptic.ko.zst
 3f0ad193143c6b560bcb7112f8eb7138af8cd524601a0fadc4c8d15d7fbbb93b36a45a2a46afe88636b9d36f01566c0b194ed1e148ed4e08da27ba6175ff22cd  q25-conn-pd.ko.zst
 4b090c98a80a163ea09aa3c132f92d0a7ea794fedae96992ac34c37b5dd30da518e75c6a3ab56c5a78ab234def2be0fac5811419de76dc75eae07cb6b0d57d82  rfkill.ko.zst
 409802133437c55a7ced974b830ba03d26c967cfe1a6f6724fcfce19c16c77f4d0ca17059743051b62a13ebcaebc1e81a382597c88df63d2bb7be790112fdec0  cfg80211.ko.zst

@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=32
+pkgrel=33
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -25,7 +25,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-wifi-radio q25-wifi-radio.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
- q25-power-supply-ignore 99-q25-upower-duplicate.rules q25-deckard.modules-load.conf"
+ q25-power-supply-ignore 99-q25-upower-duplicate.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -90,6 +90,7 @@ package() {
     install -Dm644 "$srcdir/q25-hx.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-hx.conf"
 
     install -Dm644 "$srcdir/q25-deckard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-deckard.conf"
+    install -Dm644 "$srcdir/q25-haptic.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-haptic.conf"
 
     # USB networking starts when the gadget's usb0 appears and stops when it
     # goes, instead of retrying a missing interface every second while no
@@ -217,4 +218,5 @@ c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3c
 20a56732a4a8fbc22b461dc35886c3cacbb02bfbb17359ea08a7ec8f464c7499a9d7c453b1cb4d0117a424ade0fbbc670b83d22cd43a3a50316b0aa48c5143f8  q25-power-supply-ignore
 318f0b585d5f7d12e8e7de3a6fa360ca1dc3abeec8af9411541937dac2f97c3d15e695698d6c07b4485dfc141e8badffc0267db5adb5550958e47e401c02ce39  99-q25-upower-duplicate.rules
 e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99e63c486882373de76f6433906e7a00c4c0774235b798981c  q25-deckard.modules-load.conf
+05f4d8b5dbbdd8e97dd09e778d822b19861bde1cee13c43bb6f1a4fcf2e9c685904f2318c58c51dc252bd4ffa84e46511faab404795f499e0e4b402fbd2b0736  q25-haptic.modules-load.conf
 "

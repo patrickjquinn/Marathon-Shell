@@ -73,3 +73,5 @@ d1d0d11de5ecf19fed2a2161fdcc9f78b403f3c4ae69fc385372ed9834004018  /usr/lib/modul
 0303c5751b5b8edcd28d46e2264e65d646627d46fd280f85a8b7455d4b19a79d  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-net/xt_TCPMSS.ko
 2fa640003e87a1b910a0f475c1d77478734f71f55e8c39aebf03e442f188af45  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-net/xt_addrtype.ko
 124fa322f52d54848d790f1d4b593bed6e30adc7d7a15673a1b4b9d235ad1b6f  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-net/xt_REDIRECT.ko
+41d3cdfcd1f6b7252f590c23459b70f0c46f35829ecb107a5b6e139841708ae1  /usr/lib/modules/7.0.0-q25-cfi-test/extra/q25-haptic.ko
+ea887bd99d1755a8d928c0615c8f1a28795c1913aa2713cd06b38e61850cb9b8  /usr/lib/modules/7.0.0-q25-cfi-test/extra/regulator-haptic.ko
