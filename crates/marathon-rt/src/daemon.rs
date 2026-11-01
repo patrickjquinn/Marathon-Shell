@@ -99,14 +99,17 @@ pub fn dialable(number: &str) -> String {
         .collect()
 }
 
-/// Whether two numbers reach the same phone: the same, or one ends in the
-/// other's last ten digits.
+/// Whether two numbers reach the same phone: their last nine digits, which
+/// a national number's trunk 0 and an international prefix both leave
+/// alone (as the Phone and Messages apps compare). Shorter numbers, such as
+/// short codes, must match exactly.
 pub fn same_number(a: &str, b: &str) -> bool {
-    let (a, b) = (dialable(a), dialable(b));
-    let last_ten = |n: &str| n[n.len().saturating_sub(10)..].to_owned();
-    !a.is_empty()
-        && !b.is_empty()
-        && (a == b || a.ends_with(&last_ten(&b)) || b.ends_with(&last_ten(&a)))
+    let digits = |n: &str| n.chars().filter(char::is_ascii_digit).collect::<String>();
+    let (a, b) = (digits(a), digits(b));
+    if a.len() < 9 || b.len() < 9 {
+        return !a.is_empty() && a == b;
+    }
+    a[a.len() - 9..] == b[b.len() - 9..]
 }
 
 #[cfg(test)]
@@ -114,9 +117,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn numbers_match_on_their_last_ten_digits() {
+    fn numbers_match_on_their_last_nine_digits() {
         assert!(same_number("+1 (415) 555-0142", "4155550142"));
+        assert!(same_number("087 123 4567", "+353871234567"));
         assert!(!same_number("+1 415 555 0142", "+1 415 555 0143"));
+        assert!(!same_number("50142", "550142"));
     }
 
     // A contact without a number matched every caller.
