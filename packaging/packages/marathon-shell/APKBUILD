@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=520
+pkgrel=521
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -210,14 +210,6 @@ package() {
 	# linux-dmabuf-v1 v4 compositor plugin -> Qt's server-side integration dir.
 	install -Dm755 build-dmabuf/libqt-wayland-compositor-linux-dmabuf-v1.so \
 		"$pkgdir/usr/lib/qt6/plugins/wayland-graphics-integration-server/libqt-wayland-compositor-linux-dmabuf-v1.so"
-
-	# cmake doesn't install app shared libs
-	for lib in build-apps/*/lib*.so; do
-		if [ -f "$lib" ]; then
-			appname=$(basename "$lib")
-			install -Dm755 "$lib" "$pkgdir/usr/lib/$appname"
-		fi
-	done
 
 	for plugindir in build-apps/apps/*/MarathonApp/*; do
 		if [ -d "$plugindir" ]; then
