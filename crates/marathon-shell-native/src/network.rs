@@ -173,6 +173,8 @@ pub mod qobject {
 
 use qobject::Network;
 
+const BLUEZ_ADAPTER: &str = "org.bluez.Adapter1";
+
 /// `Marathon-XXXX` and `xxxx-xxxx-xxxx`, read off the screen and typed: no
 /// 0/O/1/l/i.
 fn hotspot_credentials() -> (String, String) {
@@ -752,6 +754,10 @@ pub(crate) trait Nm {
     #[zbus(property)]
     fn set_wireless_enabled(&self, enabled: bool) -> zbus::Result<()>;
     #[zbus(property)]
+    fn wwan_enabled(&self) -> zbus::Result<bool>;
+    #[zbus(property)]
+    fn set_wwan_enabled(&self, enabled: bool) -> zbus::Result<()>;
+    #[zbus(property)]
     fn active_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     #[zbus(property)]
     fn devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
@@ -988,6 +994,8 @@ struct Actor {
     hotspot: Option<OwnedObjectPath>,
     hotspot_active: bool,
     rescan: Sender<Event>,
+    /// The Bluetooth adapters airplane mode powered off, to power back on.
+    airplane_bluetooth: Vec<OwnedObjectPath>,
 }
 
 async fn run(qt: Qt, commands: Receiver<Command>) {
@@ -1013,6 +1021,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         hotspot: None,
         hotspot_active: false,
         rescan,
+        airplane_bluetooth: Vec::new(),
     };
     actor.detect_hardware().await;
     if let Ok(enabled) = actor.nm.wireless_enabled().await {
@@ -1190,14 +1199,7 @@ impl Actor {
                 }
             }
             Command::Forget(ssid) => self.forget(&ssid).await,
-            Command::Airplane(enabled) => {
-                if set_rfkill(&["wlan", "wwan", "bluetooth"], enabled) == 0 {
-                    log::warn("network", "airplane mode: no rfkill switch answered");
-                }
-                if let Err(e) = self.nm.set_wireless_enabled(!enabled).await {
-                    log::warn("network", format_args!("WirelessEnabled: {e}"));
-                }
-            }
+            Command::Airplane(enabled) => self.airplane(enabled).await,
             Command::CreateHotspot { ssid, password } => {
                 self.create_hotspot(&ssid, &password).await;
             }
@@ -1210,6 +1212,98 @@ impl Actor {
                 self.set_hotspot(false);
             }
         }
+    }
+
+    // Through the radios' own services: the shell can't write rfkill, and
+    // a modem need not have a switch at all.
+    async fn airplane(&mut self, enabled: bool) {
+        if let Err(e) = self.nm.set_wireless_enabled(!enabled).await {
+            log::warn("network", format_args!("WirelessEnabled: {e}"));
+        }
+        if let Err(e) = self.nm.set_wwan_enabled(!enabled).await {
+            log::warn("network", format_args!("WwanEnabled: {e}"));
+        }
+        let adapters = if enabled {
+            let mut powered = Vec::new();
+            for adapter in self.bluetooth_adapters().await {
+                if self.bluetooth_powered(&adapter).await {
+                    powered.push(adapter);
+                }
+            }
+            self.airplane_bluetooth.clone_from(&powered);
+            powered
+        } else {
+            std::mem::take(&mut self.airplane_bluetooth)
+        };
+        for adapter in adapters {
+            if let Err(e) = self.set_bluetooth_powered(&adapter, !enabled).await {
+                log::warn("network", format_args!("Bluetooth Powered: {e}"));
+            }
+        }
+    }
+
+    async fn bluetooth_adapters(&self) -> Vec<OwnedObjectPath> {
+        let objects = async {
+            fdo::ObjectManagerProxy::builder(&self.bus)
+                .destination("org.bluez")
+                .path("/")
+                .build()
+                .await?
+                .get_managed_objects()
+                .await
+                .map_err(zbus::Error::from)
+        };
+        objects
+            .await
+            .map(|objects| {
+                objects
+                    .into_iter()
+                    .filter(|(_, interfaces)| {
+                        interfaces.keys().any(|i| i.as_str() == BLUEZ_ADAPTER)
+                    })
+                    .map(|(path, _)| path)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    async fn bluetooth_props(
+        &self,
+        adapter: &ObjectPath<'_>,
+    ) -> zbus::Result<PropertiesProxy<'static>> {
+        PropertiesProxy::builder(&self.bus)
+            .destination("org.bluez")
+            .path(adapter.to_owned())
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build()
+            .await
+    }
+
+    async fn bluetooth_powered(&self, adapter: &ObjectPath<'_>) -> bool {
+        let powered = async {
+            let value = self
+                .bluetooth_props(adapter)
+                .await?
+                .get(
+                    InterfaceName::from_static_str_unchecked(BLUEZ_ADAPTER),
+                    "Powered",
+                )
+                .await?;
+            Ok::<_, zbus::Error>(bool::try_from(&value).unwrap_or(false))
+        };
+        powered.await.unwrap_or(false)
+    }
+
+    async fn set_bluetooth_powered(&self, adapter: &ObjectPath<'_>, on: bool) -> zbus::Result<()> {
+        self.bluetooth_props(adapter)
+            .await?
+            .set(
+                InterfaceName::from_static_str_unchecked(BLUEZ_ADAPTER),
+                "Powered",
+                &Value::from(on),
+            )
+            .await
+            .map_err(zbus::Error::from)
     }
 
     async fn wireless(&self) -> Option<WirelessProxy<'static>> {
