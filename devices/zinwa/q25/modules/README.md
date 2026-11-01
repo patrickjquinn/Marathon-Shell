@@ -6,6 +6,7 @@ Sources of the modules that `packaging/packages/q25-kernel-modules` ships.
 | `md1` | `q25-md1-owner` | Marathon |
 | `conn-pd` | `q25-conn-pd` | Marathon |
 | `cam-pd` | `q25-cam-pd` | Marathon; loaded by hand, not shipped yet |
+| `cam-bench` | `q25-cam-bench` | Marathon; loaded by hand, not shipped yet |
 | `imu` | `inv-icm42607`, `inv-icm42607-spi` | torvalds/linux `abf8c334` `drivers/iio/imu/inv_icm42607`, unmodified |
 | `bt` | `q25-btmtk-stp` | Marathon |
 | `audio` | `snd-timer`, `snd-pcm`, `snd-jack`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-audio-pd`, `q25-oca72390`, `q25-mt6366-card`, `q25-mt6366-irqfix`, `q25-mt6358-accdet` | the kernel's `sound/` files (`mt6358` plus patches `0002`–`0006`), linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, Marathon's `q25/` and `q25irqfix/` drivers, and `q25accdet/`, a port of `sound/soc/codecs/mt6358-accdet.c` from LineageOS/android_kernel_xelex_mt6789 `2a873a35` |
