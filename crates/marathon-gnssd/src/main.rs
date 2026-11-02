@@ -13,7 +13,9 @@
 //! by an earlier run, else `--guess` or the system time zone's; from a guess
 //! that coarse the first fix searches up to 2500 km around it.
 //!
-//! NMEA goes to stdout.
+//! Started by systemd's socket (marathon-gnssd.socket) it serves NMEA to
+//! each client of that socket, opens the device only while one is connected
+//! and exits when the last one leaves. Otherwise NMEA goes to stdout.
 //! `--replay` runs a `mtk-gnss-capture` recording instead of the device;
 //! `--record FILE` writes what the device sends in that format.
 
@@ -28,7 +30,9 @@ use nalgebra::Vector3;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Write};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const GPS_UNIX_EPOCH: f64 = 315_964_800.0;
 const WEEK: f64 = 604_800.0;
@@ -53,6 +57,8 @@ const COARSE_HEIGHT_SIGMA: f64 = 500.0;
 const STARVED: u32 = 60;
 /// Seconds between saves of the position to `--state`.
 const SAVE_EVERY: f64 = 60.0;
+/// Seconds without a client before the daemon exits.
+const IDLE: f64 = 10.0;
 /// Height samples (redundant, strong geometry) before they replace --approx.
 const HEIGHT_SAMPLES: usize = 30;
 /// Height constraint sigma, metres, once the height is known; while it is
@@ -450,6 +456,72 @@ fn arg(args: &[String], name: &str) -> Option<String> {
         .cloned()
 }
 
+/// The NMEA clients of the listening socket. Each has a thread that waits
+/// for it to hang up; one that cannot keep up is dropped.
+#[derive(Clone, Default)]
+struct Clients(Arc<Mutex<Vec<(u64, UnixStream)>>>);
+
+impl Clients {
+    fn len(&self) -> usize {
+        self.0.lock().map_or(0, |c| c.len())
+    }
+
+    fn add(&self, id: u64, s: UnixStream) {
+        s.set_write_timeout(Some(Duration::from_secs(1))).ok();
+        let Ok(mut reader) = s.try_clone() else {
+            return;
+        };
+        if let Ok(mut c) = self.0.lock() {
+            c.push((id, s));
+        }
+        let clients = self.clone();
+        std::thread::spawn(move || {
+            io::copy(&mut reader, &mut io::sink()).ok();
+            if let Ok(mut c) = clients.0.lock() {
+                c.retain(|(i, _)| *i != id);
+            }
+        });
+    }
+
+    /// Takes the first client now and the rest as they come.
+    fn serve(listener: UnixListener) -> io::Result<Self> {
+        let clients = Self::default();
+        clients.add(0, listener.accept()?.0);
+        let more = clients.clone();
+        std::thread::spawn(move || {
+            for (id, s) in (1..).zip(listener.incoming().flatten()) {
+                more.add(id, s);
+            }
+        });
+        Ok(clients)
+    }
+}
+
+impl Write for Clients {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if let Ok(mut c) = self.0.lock() {
+            c.retain_mut(|(_, s)| s.write_all(buf).is_ok());
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// systemd's socket (marathon-gnssd.socket), if this process was given one.
+fn activation_socket() -> Option<UnixListener> {
+    use std::os::fd::FromRawFd as _;
+    if std::env::var("LISTEN_PID").ok() != Some(std::process::id().to_string())
+        || std::env::var("LISTEN_FDS").ok().as_deref() != Some("1")
+    {
+        return None;
+    }
+    // SAFETY: systemd passed exactly one socket, as fd 3, to this process.
+    Some(unsafe { UnixListener::from_raw_fd(3) })
+}
+
 fn parse_position(s: &str) -> Option<(f64, f64, f64)> {
     let v: Vec<f64> = s.trim().split(',').filter_map(|x| x.parse().ok()).collect();
     match v[..] {
@@ -529,7 +601,11 @@ fn main() -> io::Result<()> {
         return replay(&mut engine, &path);
     }
 
-    let mut out = io::stdout().lock();
+    let clients = activation_socket().map(Clients::serve).transpose()?;
+    let mut out: Box<dyn Write> = match &clients {
+        Some(c) => Box::new(c.clone()),
+        None => Box::new(io::stdout().lock()),
+    };
     let path = arg(&args, "--device").unwrap_or_else(|| "/dev/gnss0".into());
     let mut dev = OpenOptions::new().read(true).write(true).open(path)?;
     let mut record = arg(&args, "--record")
@@ -538,12 +614,20 @@ fn main() -> io::Result<()> {
     dev.write_all(&dsp::start())?;
     let mut deframer = Deframer::default();
     let mut buf = [0u8; 4096];
+    let mut alone_since = None;
     loop {
         let n = dev.read(&mut buf)?;
         if n == 0 {
             return Ok(());
         }
         let unix = now();
+        if let Some(c) = &clients {
+            if c.len() > 0 {
+                alone_since = None;
+            } else if unix - *alone_since.get_or_insert(unix) > IDLE {
+                return Ok(());
+            }
+        }
         if let Some(r) = record.as_mut() {
             #[allow(
                 clippy::cast_possible_truncation,
