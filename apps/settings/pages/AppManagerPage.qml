@@ -107,7 +107,7 @@ Page {
                     icon: modelData.icon || ""
                     subtitle: [modelData.version ? qsTr("Version %1").arg(modelData.version) : "", qsTr("Android app")].filter(t => t !== "").join(" · ")
                     Accessible.name: modelData.name + ", " + qsTr("Android app")
-                    canUninstall: Logic.androidRemovable(modelData.pkg)
+                    canUninstall: Logic.androidRemovable(modelData.pkg) && !modelData.system
                     onUninstallRequested: page.uninstallAndroid(modelData.pkg, modelData.name)
                     onClicked: page.showApp(modelData.id)
                 }

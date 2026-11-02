@@ -149,6 +149,12 @@ QtObject {
     function uninstall(pkg) {
         record("uninstall", [pkg]);
     }
+    function uninstallUpdates(pkg) {
+        record("uninstallUpdates", [pkg]);
+    }
+    function setEnabled(pkg, enabled) {
+        record("setEnabled", [pkg, enabled]);
+    }
     function loadSpecialAccess(kind) {
         record("loadSpecialAccess", [kind]);
         specialAccessLoaded(kind, access[kind] || []);

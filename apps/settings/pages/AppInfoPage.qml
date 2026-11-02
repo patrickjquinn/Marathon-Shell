@@ -18,8 +18,12 @@ Page {
     readonly property bool android: appId.startsWith("deckard.")
     readonly property string pkg: android ? appId.substring(8) : ""
     property var androidApp: ({})
-    // Android refuses to remove Deckard's own packages.
-    readonly property bool canUninstall: android && Logic.androidRemovable(pkg)
+    // Android refuses to remove Deckard's own packages and system apps; a
+    // system app can lose its updates or, unless it is the platform's, be disabled.
+    readonly property bool canUninstall: android && Logic.androidRemovable(pkg) && !androidApp.system
+    readonly property bool disabled: androidApp.enabled === false
+    readonly property bool canUninstallUpdates: !!androidApp.updatedSystem
+    readonly property bool canDisable: !disabled && !!androidApp.canDisable
 
     Component.onCompleted: {
         if (android)
@@ -61,6 +65,11 @@ Page {
             if (action === "uninstall") {
                 Notices.show(qsTr("%1 uninstalled").arg(page.androidApp.label || page.pkg));
                 page.leave();
+            } else if (action === "uninstallUpdates") {
+                Notices.show(qsTr("%1's updates uninstalled").arg(page.androidApp.label || page.pkg));
+                AndroidApps.loadApp(pkg);
+            } else if (action === "setEnabled") {
+                AndroidApps.loadApp(pkg);
             } else if (action === "forceStop") {
                 Notices.show(qsTr("%1 stopped").arg(page.androidApp.label || page.pkg));
             } else if (action === "clearData" || action === "clearCache") {
@@ -91,7 +100,26 @@ Page {
                 onClicked: remorse.execute(qsTr("Uninstalling %1").arg(page.androidApp.label || page.pkg), () => AndroidApps.uninstall(page.pkg))
             }
             MenuItem {
+                objectName: "uninstallUpdatesItem"
+                visible: page.canUninstallUpdates
+                text: qsTr("Uninstall updates")
+                onClicked: remorse.execute(qsTr("Uninstalling %1's updates").arg(page.androidApp.label || page.pkg), () => AndroidApps.uninstallUpdates(page.pkg))
+            }
+            MenuItem {
+                objectName: "enableItem"
+                visible: page.disabled
+                text: qsTr("Enable")
+                onClicked: AndroidApps.setEnabled(page.pkg, true)
+            }
+            MenuItem {
+                objectName: "disableItem"
+                visible: page.canDisable
+                text: qsTr("Disable")
+                onClicked: remorse.execute(qsTr("Disabling %1").arg(page.androidApp.label || page.pkg), () => AndroidApps.setEnabled(page.pkg, false))
+            }
+            MenuItem {
                 objectName: "forceStopItem"
+                visible: !page.disabled
                 text: qsTr("Force stop")
                 onClicked: AndroidApps.forceStop(page.pkg)
             }

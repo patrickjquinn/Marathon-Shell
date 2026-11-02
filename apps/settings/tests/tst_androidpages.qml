@@ -243,6 +243,71 @@ TestCase {
         tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AppInfoPage") !== 0 && !s.app.pageStack.busy);
     }
 
+    // A system app, as Android's Settings treats it: no Uninstall; its
+    // updates can go and, unless it is the platform's, it can be disabled.
+    function systemApp() {
+        AndroidApps.details["org.fdroid.fdroid"] = Object.assign({}, AndroidApps.details["org.fdroid.fdroid"], {
+            system: true,
+            updatedSystem: true,
+            enabled: true,
+            canDisable: true
+        });
+        const s = open("appmanager/deckard.org.fdroid.fdroid");
+        tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AppInfoPage") === 0 && !s.app.pageStack.busy);
+        const info = s.app.pageStack.currentPage;
+        verify(!info.canUninstall && info.canUninstallUpdates && info.canDisable && !info.disabled);
+        return info;
+    }
+
+    function test_systemAppUninstallUpdates() {
+        const info = systemApp();
+        child(info, "uninstallUpdatesItem").clicked();
+        tryVerify(() => called("uninstallUpdates").length === 1, 10000);
+        compare(called("uninstallUpdates"), [["uninstallUpdates", "org.fdroid.fdroid"]]);
+    }
+
+    function test_systemAppDisableAndEnable() {
+        const info = systemApp();
+        child(info, "disableItem").clicked();
+        tryVerify(() => called("setEnabled").length === 1, 10000);
+        compare(called("setEnabled"), [["setEnabled", "org.fdroid.fdroid", false]]);
+        AndroidApps.appLoaded("org.fdroid.fdroid", Object.assign({}, info.androidApp, {
+            enabled: false
+        }));
+        verify(info.disabled && !info.canDisable);
+        child(info, "enableItem").clicked();
+        compare(called("setEnabled")[1], ["setEnabled", "org.fdroid.fdroid", true]);
+    }
+
+    function test_systemAppsInTheList() {
+        AndroidApps.apps = [
+            {
+                pkg: "org.fdroid.fdroid",
+                id: "deckard.org.fdroid.fdroid",
+                name: "F-Droid",
+                version: "1.23",
+                icon: "",
+                system: true,
+                updatedSystem: false,
+                enabled: false
+            },
+            {
+                pkg: "me.zhanghai.android.files",
+                id: "deckard.me.zhanghai.android.files",
+                name: "Material Files",
+                version: "1.7",
+                icon: "",
+                system: false,
+                enabled: true
+            }
+        ];
+        const s = open("androidapps");
+        const stock = child(s.page, "app-deckard.org.fdroid.fdroid");
+        verify(stock.menu === null);
+        compare(stock.subtitle, "Disabled");
+        verify(child(s.page, "app-deckard.me.zhanghai.android.files").menu !== null);
+    }
+
     // Removed elsewhere (or by our own uninstall): the page closes without an error.
     function test_appRemovedClosesThePage() {
         const s = open("appmanager/deckard.org.fdroid.fdroid");
