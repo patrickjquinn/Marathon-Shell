@@ -102,6 +102,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0041-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-VBIF28-on.patch
 	0042-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-UFS-VCC-f.patch
 	0043-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-modem-s.patch
+	0044-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -234,6 +235,7 @@ efc178c105812369c599b18c4d1004b2bf6ab12b332c162d89959746dd8e9549bfe70a234530c04d
 51797b5426c655724b56c074c3daab57ca84bda2013ace3c59b57a11999b6643082047d9fbe1d82b5f292ec6b727e38dc56b6f1767bbeb9d23ba8730c1388e8f  0041-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-VBIF28-on.patch
 d128744a2a7e46f5f8b2fb3fcdbbe772eb259b95a2872542f664b4b81a6df1e927d681e84cebc16cf96f586335279c81eef676da90458d35be66747373920ee7  0042-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-UFS-VCC-f.patch
 eebd6b5f2e2b7984e9002932bd26b2f16f3b0ffaebaa2dadcf1e0d52292daeb994bb183fca82df6b47d0a658c29c193fa83aee408e9b40908549c6b1edd19440  0043-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-modem-s.patch
+25b30e94af219e836f9161dc0809dc3c11fd72195ca2dbfb4642fa111970cdf0e072872e478b64728a70f361d2c7079a28d65594414656e466e9c7fce4f25b40  0044-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
