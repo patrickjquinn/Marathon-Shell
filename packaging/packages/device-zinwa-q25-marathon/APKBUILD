@@ -23,7 +23,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
- q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install
+ q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
@@ -157,8 +157,10 @@ package() {
     install -Dm644 "$srcdir/q25-esp-readonly.service" "$pkgdir/usr/lib/systemd/system/q25-esp-readonly.service"
     ln -s ../q25-esp-readonly.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-esp-readonly.service"
     install -Dm755 "$srcdir/q25-boot-bless" "$pkgdir/usr/libexec/marathon/q25-boot-bless"
-    # Installs a root image beside the running one behind a counted entry.
+    # Over the air, systemd-sysupdate writes the next root beside the running
+    # one; q25-root-arm boots it, counted, at the next restart (docs/OTA.md).
     install -Dm755 "$srcdir/q25-root-install" "$pkgdir/usr/libexec/marathon/q25-root-install"
+    install -Dm644 "$srcdir/q25-root-arm.service" "$pkgdir/usr/lib/systemd/system/q25-root-arm.service"
     for unit in q25-boot-check q25-boot-bless; do
         install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
     done
@@ -167,7 +169,7 @@ package() {
     ln -s ../q25-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/q25-boot-bless.service"
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
+    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight q25-root-arm; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
     done
     install -d "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
@@ -241,5 +243,6 @@ e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f59
 24c65349f8bdc55656ccc0b8a1c24b77895544a2bdafc1405fcd07666fc6c5925e14fd59038679d0003ab67d1dc098d358a6549005767587c12531b5f921de98  q25-vconsole.conf
 1ec697f5a2afc5268d9230637ddc296d252db2b611f18820846472f65a813532d2cc6e3e56285ee18f712d2a92d5c5a7e6566bb4b5ea563b8c4ae1fe2b440ae0  q25-plymouth-keyboard.conf
 266cb6790fe03a0a12a4756e0f6ee4b4a10726cd293a67ed43efc9ebc904501ffa3f9807b887bf626b7c0281132076ab7a8bec8b2b220e23d143e59b89147651  61-q25-charge-voltage.rules
-a81532454b157bf4d2df50ef0653613dfb218b0a8d554e2ceeed70d480177543da383740ba5288ed3c79fe1f4981aed0717a6773b6bc96401ea9e150e404af06  q25-root-install
+0c4ca31eaf0503326618deaa830d3ee36f057fd2493e5133c356c127ac34feaae951a319a5b8668f79f1b0da8117fcbc0e43c61973257ff3d5b0dc1c5f86e4ea  q25-root-install
+b687a7fb02ece7ea7bfef3a24eca359652b22e4292db3ca9e23179515b926722ab3f5ab3de59e5379adb05d8c6d33900967b96b66ff29ad5efe20e1ba33adbcb  q25-root-arm.service
 "

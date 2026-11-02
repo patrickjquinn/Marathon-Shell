@@ -6,6 +6,7 @@
 #
 #   q25-root-install [opts] install IMAGE.ext4 [SHA256]
 #   q25-root-install [opts] rollback NAME
+#   q25-root-install [opts] arm [--reboot]
 #
 #   --dry-run     print what would change, change nothing
 #   --counted     boot-counted entry marathon-q25-b-NAME+3.conf, a fallback
@@ -14,11 +15,17 @@
 #                 without --counted the new entry is the plain default.
 #   --esp DIR     ESP mount (default /boot)
 #   --carrier DIR carrier root (default /.q25-carrier/root)
+#   --root DIR    running root whose state arm carries (tests; default /)
 #   --no-remount  leave the ESP mount as it is (tests)
 #
 # IMAGE should already be on the carrier filesystem so the move is a rename.
 # NAME is the image basename without .ext4. Rollback restores loader.conf
 # and removes the entries; the image file is left for inspection.
+#
+# arm is the over-the-air path (docs/OTA.md): the newest root systemd-sysupdate
+# installed, IMAGE_ID_VARIANT_ID_VERSION_ID_<version>.ext4, gets this phone's
+# state and a --counted entry copied from the booted one. A version with an
+# entry already was tried, and is left alone. --reboot restarts into it.
 set -eu
 
 ESP=/boot
@@ -26,6 +33,7 @@ CARRIER=/.q25-carrier/root
 DRY=0
 COUNTED=0
 REMOUNT=1
+ROOT=
 IMAGES_REL=/var/lib/marathon/images
 
 die() { echo "q25-root-install: $*" >&2; exit 1; }
@@ -37,13 +45,14 @@ while [ $# -gt 0 ]; do
 	--counted) COUNTED=1 ;;
 	--esp) ESP=$2; shift ;;
 	--carrier) CARRIER=$2; shift ;;
+	--root) ROOT=$2; shift ;;
 	--no-remount) REMOUNT=0 ;;
 	-*) die "unknown option $1" ;;
 	*) break ;;
 	esac
 	shift
 done
-[ $# -ge 2 ] || die "usage: $0 [opts] install IMAGE [SHA256] | rollback NAME"
+[ $# -ge 1 ] || die "usage: $0 [opts] install IMAGE [SHA256] | rollback NAME | arm [--reboot]"
 CMD=$1
 ENTRIES=$ESP/loader/entries
 LOADER=$ESP/loader/loader.conf
@@ -66,6 +75,16 @@ loader_default() { awk '$1 == "default" { print $2 }' "$LOADER"; }
 set_default() {
 	put "$LOADER" "$(awk -v d="$1" '$1 == "default" { print "default " d; next } { print }' "$LOADER")"
 }
+
+# The entry on stdin, sorted with the other marathon-q25 entries as version $1.
+ours() {
+	awk -v v="$1" '$1 == "sort-key" || $1 == "version" { next }
+		{ print } END { print "sort-key marathon-q25"; print "version " v }'
+}
+
+words() { tr -s '[:space:]' '\n' | sed '/^$/d'; }
+
+osr() { sed -n "s/^$1=//p" "$ROOT/etc/os-release" | tr -d "\"'"; }
 
 install_image() {
 	image=$1
@@ -98,12 +117,9 @@ install_image() {
 		new_id=marathon-q25-b-$name.conf
 		new_file=marathon-q25-b-$name+3.conf
 		new_default='marathon-q25-*'
-		entry=$(printf '%s\n' "$entry" | awk -v v="$name" '
-			$1 == "sort-key" || $1 == "version" { next }
-			{ print } END { print "sort-key marathon-q25"; print "version " v }')
+		entry=$(printf '%s\n' "$entry" | ours "$name")
 		fallback=$ENTRIES/marathon-q25-a-fallback.conf
-		fallback_body=$(awk '$1 == "sort-key" || $1 == "version" { next }
-			{ print } END { print "sort-key marathon-q25"; print "version 0" }' "$ENTRIES/$current")
+		fallback_body=$(ours 0 < "$ENTRIES/$current")
 	else
 		new_id=marathon-q25-$name.conf
 		new_file=$new_id
@@ -169,8 +185,128 @@ rollback() {
 	say "root image left in place: $CARRIER$IMAGES_REL/$name.ext4"
 }
 
+# Per-phone state a new root lacks (scripts/q25/explain/per-phone-state.toml):
+# identity, clock and time zone, connections and pairings, the APN, the
+# modem's own NV writes and the radio switches. /home is its own volume.
+CARRY='etc/machine-id
+etc/hostname
+etc/machine-info
+etc/locale.conf
+etc/localtime
+etc/adjtime
+etc/ssh/ssh_host_*
+etc/NetworkManager/system-connections
+etc/q25-modem/modem.conf
+var/lib/bluetooth
+var/lib/NetworkManager
+var/lib/q25-modem
+var/lib/systemd/rfkill
+var/lib/systemd/timesync'
+
+carry() {
+	mnt=$ROOT/run/q25-root-arm
+	mkdir -p "$mnt"
+	mount -o loop "$1" "$mnt" || die "cannot mount $1"
+	failed=
+	while read -r p; do
+		for src in "$ROOT"/$p; do
+			[ -e "$src" ] || [ -L "$src" ] || continue
+			dst=$mnt${src#"$ROOT"}
+			if [ -d "$src" ] && [ ! -L "$src" ]; then
+				mkdir -p "$dst" && cp -ax "$src/." "$dst/"
+			else
+				mkdir -p "${dst%/*}" && rm -rf "$dst" && cp -a "$src" "$dst"
+			fi || failed=$src
+		done
+	done <<END
+$CARRY
+END
+	sync -f "$mnt"
+	umount "$mnt"
+	[ -z "$failed" ] || die "cannot carry $failed into $1"
+}
+
+# The entry whose options are this boot's command line, less the initrd=
+# words systemd-boot adds; among several, ours, then the default.
+booted_entry() {
+	want=$(words < "$ROOT/proc/cmdline" | sed '/^initrd=/d')
+	found=
+	for e in "$ENTRIES"/*.conf; do
+		[ -f "$e" ] || continue
+		[ "$(sed -n 's/^options[[:space:]]//p' "$e" | words)" != "$want" ] || found="$found $e"
+	done
+	# shellcheck disable=SC2086 # entry paths have no spaces
+	set -- $found
+	if [ $# -gt 1 ]; then
+		mine=
+		for e; do
+			case ${e##*/} in marathon-q25-[ab]-*) mine="$mine $e" ;; esac
+		done
+		# shellcheck disable=SC2086
+		[ -z "$mine" ] || set -- $mine
+	fi
+	if [ $# -gt 1 ]; then
+		default=$ENTRIES/$(loader_default)
+		for e; do
+			[ "$e" != "$default" ] || set -- "$e"
+		done
+	fi
+	[ $# -eq 1 ] || die "cannot tell which entry booted (${*:-none} match /proc/cmdline)"
+	echo "$1"
+}
+
+arm() {
+	running=$(osr IMAGE_VERSION)
+	[ -n "$running" ] || die "no IMAGE_VERSION in $ROOT/etc/os-release"
+	prefix=$(osr IMAGE_ID)_$(osr VARIANT_ID)_$(osr VERSION_ID)_
+	newest=$(for f in "$CARRIER$IMAGES_REL/$prefix"*.ext4; do
+		[ -f "$f" ] || continue
+		v=${f##*/"$prefix"}
+		echo "${v%.ext4}"
+	done | sort -V | tail -n 1)
+	[ -n "$newest" ] && [ "$newest" != "$running" ] || return 0
+	[ "$(printf '%s\n' "$running" "$newest" | sort -V | tail -n 1)" = "$newest" ] || return 0
+	name=$prefix$newest
+	for f in "$ENTRIES/marathon-q25-b-$name.conf" "$ENTRIES/marathon-q25-b-$name"+*.conf; do
+		[ ! -e "$f" ] || { say "$name was armed before (${f##*/})"; return 0; }
+	done
+
+	booted=$(booted_entry)
+	n=$(grep -o 'q25\.rootfs_file=[^ ]*' "$booted" | wc -l)
+	[ "$n" -eq 1 ] || die "${booted##*/}: expected exactly one q25.rootfs_file token, found $n"
+	new_file=marathon-q25-b-$name+3.conf
+	entry=$(sed "s|q25\\.rootfs_file=[^ ]*|q25.rootfs_file=$IMAGES_REL/$name.ext4|" "$booted" | ours "$newest")
+	fallback=$ENTRIES/marathon-q25-a-fallback.conf
+	say "arm:      $name ($running -> $newest)"
+	say "entry:    $ENTRIES/$new_file (copy of ${booted##*/})"
+	say "fallback: $fallback (copy of ${booted##*/})"
+	if [ "$DRY" = 1 ]; then
+		say "dry run; new entry would read:"
+		printf '%s\n' "$entry"
+		exit 0
+	fi
+
+	carry "$CARRIER$IMAGES_REL/$name.ext4"
+	fallback_body=$(ours 0 < "$booted")
+	esp_rw
+	[ -e "$LOADER.before-$name" ] || cp "$LOADER" "$LOADER.before-$name"
+	put "$fallback" "$fallback_body"
+	put "$ENTRIES/$new_file" "$entry"
+	set_default 'marathon-q25-*'
+	for f in "$ENTRIES"/marathon-q25-b-*.conf; do
+		[ -e "$f" ] && [ "${f##*/}" != "$new_file" ] || continue
+		say "remove:   $f"
+		rm -- "$f"
+	done
+	sync -f "$ESP"
+	say "armed; loader.conf now:"
+	cat "$LOADER"
+	[ "${1:-}" != --reboot ] || systemctl --no-block reboot
+}
+
 case $CMD in
-install) shift; install_image "$@" ;;
-rollback) rollback "$2" ;;
+install) shift; [ $# -ge 1 ] || die "install needs IMAGE"; install_image "$@" ;;
+rollback) [ $# -ge 2 ] || die "rollback needs NAME"; rollback "$2" ;;
+arm) shift; arm "$@" ;;
 *) die "unknown command $CMD" ;;
 esac
