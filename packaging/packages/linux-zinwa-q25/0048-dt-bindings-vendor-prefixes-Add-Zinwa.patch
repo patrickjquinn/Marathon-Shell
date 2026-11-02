@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:46:49 +0000
+Subject: [PATCH] dt-bindings: vendor-prefixes: Add Zinwa
+
+Zinwa makes the Q25, a keyboard phone built around the MediaTek Helio
+G99 (MT6789/MT8781).
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index ee7fd3cf..d1d4e571 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1909,6 +1909,8 @@ patternProperties:
+     description: Zodiac Inflight Innovations
+   "^zinitix,.*":
+     description: Zinitix Co., Ltd
++  "^zinwa,.*":
++    description: Zinwa Technology Co., Ltd.
+   "^zkmagic,.*":
+     description: Shenzhen Zkmagic Technology Co., Ltd.
+   "^zte,.*":

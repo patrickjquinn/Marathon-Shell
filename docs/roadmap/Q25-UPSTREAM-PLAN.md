@@ -59,8 +59,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Item | Why it exists | Fixed by |
 |---|---|---|---|
-| H1 | `modprobe.blacklist=mediatek-drm,panfrost,panel-zinwa-q20-hd720,phy-mtk-mipi-dsi-drv` (and `pkg/q25-gpu-render/q25-render-only-blacklist.conf`, which adds `mtk_mmsys`) | With the display nodes enabled, udev autoloads mediatek-drm in the initramfs; it takes over the DSI that LK left scanning and hangs in the first atomic commit, wedging boot. Panfrost is held back so `q25-gpu-prepare` can load it after its own power-domain shim. | W5, W6 |
-| H6 | `earlycon=efifb` | Debug console into the live scanout; with `keep_bootcon` it caused the "screen jump" (`Q/display-corruption/HANDOFF.md`). Harmless now, but it writes into the framebuffer. | Drop with W5. |
 
 ### 2.2 Boot services and scripts that touch hardware (`pkg/device-zinwa-q25-marathon/`, `pkg/q25-gpu-render/`)
 
@@ -68,10 +66,8 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 |---|---|---|---|---|
 | H7 | `q25-platform-prepare` (+`.service`, sysinit) | Writes `0` to `/sys/devices/system/cpu/cpu0/online` every boot. | Memory corruption seen only with CPU0 online (multi-thread allocator seeds fail; `Q/cpu0-quarantine-20261030/README.txt`). Cause unknown; candidates in W8. | W8 |
 | H8 | `q25-user-slice-cpu.conf`, `q25-user-manager-cpu.conf`, `CPUAffinity=4-7` in `50-q25-session.conf` | Pins the whole session and greetd to CPUs 4–7. | Earlier form of the same CPU0 workaround ("bring-up stability policy"). | W8 |
-| H9 | `q25-backlight` (+`.service`) | Writes the i2c7 bus number to `panel-doze`'s `ocp_attach` so it drives the OCP2131. | Nothing in the kernel owns the OCP2131 bias chip, which is the only brightness control. | W5 |
-| H10 | `q25-vsyncdrm` (+`.service`) | `driver_override`s the firmware framebuffer from simpledrm to `q25-vsyncdrm` after Plymouth quits. | simpledrm has no vblank; the compositor free-ran at ~160 fps on a 70.98 Hz panel. | W5 |
 | H11 | `q25-gpu-prepare` (+`.service`, greetd drop-in `80-q25-gpu-prepare.conf`) | `modprobe`s panfrost; forces `power/control=on`; walks devfreq 390→467→390→700 MHz and pins it; checks VGPU/VSRAM readback. | No MFG clock-mux notifier, so devfreq PLL hops are unsafe; GPU kept powered because "a later SRAM first-enable can reset coupling". | W6 |
-| H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`, `LIBGL_DRIVERS_PATH=/usr/lib/q25-gpu/dri`), `simpledrm_dri.so` shim, `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file (which requires CPU0 offline), runtime PM is forced on and devfreq reads 700 MHz; maps Mesa's `simpledrm` KMSRO lookup onto the `mediatek` render-only driver; disables AFBC. | Display is simpledrm, not mediatek-drm, so Mesa finds no kmsro pairing; AFBC corrupts (cause unresolved). | W5, W6 |
+| H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`), `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file (which requires CPU0 offline), runtime PM is forced on and devfreq reads 700 MHz; disables AFBC. | AFBC corrupts (cause unresolved). | W6 |
 | H13 | `q25-md1-off.service` (+post-install arming file) | `insmod q25-md1-owner standalone=1 md_off_at_boot=1` to switch off the MD1 domain the preloader left on. | No MD power domain in the kernel, so genpd cannot switch it off as unused. | W3 (MD domain) |
 | H14 | `q25-usb-gadget` (+`.service`) | Recreates the pmOS USB network gadget in configfs after boot. | The pmOS initramfs only creates it if a UDC exists when it looks (`cat …/g1/UDC: No such file` at 7.8 s in the boot log). Why the musb UDC is late is unverified. | W16 |
 | H15 | `q25-bt-address` (+`.service`) | Derives a Bluetooth address from machine-id and sets it with `btmgmt public-addr`. | Controller reports a placeholder; the nvdata copy is multicast. | Section 4.1 |
@@ -84,8 +80,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Module | What it does | Root cause | Fixed by |
 |---|---|---|---|---|
-| H26 | `q25-panel-doze` (`panel/`), DT node `zinwa,q25-panel-doze` (patch `0008`) | Binds to the DSI register range and sends DCS sleep/wake as video-mode commands; drives GPIO84 (OCP2131 enable) and GPIO85 (panel reset); `ocp_attach` brightness over I2C. | No DSI/DRM driver owns the pipeline (H1). | W5 |
-| H27 | `q25-vsyncdrm` (`display/`, 1261 lines) | A copy of simpledrm that reads RDMA0's line counter to fake a scan-locked vblank; keeps the DRM name `simpledrm` for Mesa. | Same. | W5 |
 | H28 | `q25-mt6358-live` (`gauge/`) + kernel `0002` | Root-only snapshot of PMIC current and CAR registers, cache for the userspace model. | No fuel-gauge driver. | W9 |
 | H29 | `q25-cam-dt` (`cam-dt/`) | Applies `q25-camera.dtbo` from the firmware path at runtime (`of_overlay_fdt_apply`); leaks on removal (boot log warnings). | Camera nodes are not in the board DTS. | W15 |
 | H30 | `q25-haptic` (`haptic/`) | Creates a `regulator-haptic` platform device pointing at the MT6366 `vibr` LDO. | No haptic node in the board DTS. | W14 |

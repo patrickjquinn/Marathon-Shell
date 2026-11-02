@@ -1,8 +1,0 @@
-#!/bin/sh
-# Panel brightness is the OCP2131 bias supply on i2c7: hand the chip to the
-# panel driver.
-set -eu
-modprobe -b q25-panel-doze
-for bus in /sys/bus/platform/devices/11f00000.i2c/i2c-*; do
-	echo "${bus##*/i2c-}" > /sys/bus/platform/devices/14013000.panel-doze/ocp_attach
-done

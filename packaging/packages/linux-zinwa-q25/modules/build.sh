@@ -31,7 +31,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in keyboard md1 cam-dt cam-pmic bt audio panel display light haptic gauge gnss; do
+for d in keyboard md1 cam-dt cam-pmic bt audio light haptic gauge gnss; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -79,7 +79,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in keyboard md1 cam-dt cam-pmic audio panel display light haptic gauge; do
+for d in keyboard md1 cam-dt cam-pmic audio light haptic gauge; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$out/src/wmt" "$out/obj/wmt"

@@ -6,7 +6,6 @@ export QT_QPA_EGLFS_KMS_CONFIG=/etc/q25/eglfs-kms.json
 export QSG_RHI_BACKEND=opengl
 export PAN_MESA_DEBUG=noafbc
 export GBM_BACKENDS_PATH=/usr/lib/gbm
-export LIBGL_DRIVERS_PATH=/usr/lib/q25-gpu/dri:/usr/lib/dri
 export MARATHON_FORCE_DPI=240
 export MARATHON_STARTUP_TIMING=1
 export MARATHON_PRESENT_STATS=1

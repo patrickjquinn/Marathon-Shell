@@ -11,8 +11,8 @@ options="!check !strip !tracedeps"
 depends="kmod linux-zinwa-q25>=7.0.0-r29 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
 install="$pkgname.post-install $pkgname.post-upgrade"
 source="q25-gpu-prepare q25-gpu-prepare.service 80-q25-gpu-prepare.conf
- q25-shell-session.gpu GPU-SHA256SUMS eglfs-kms.json simpledrm_dri.so simpledrm_dri.c
- q25-render-only-blacklist.conf GPU-SOURCE-PROVENANCE.json"
+ q25-shell-session.gpu GPU-SHA256SUMS eglfs-kms.json 60-q25-display.rules
+ GPU-SOURCE-PROVENANCE.json"
 package() {
     local private="$pkgdir/usr/lib/q25-gpu"
     install -d "$private"
@@ -22,23 +22,16 @@ package() {
     install -Dm644 "$srcdir/q25-gpu-prepare.service" "$pkgdir/usr/lib/systemd/system/q25-gpu-prepare.service"
     install -Dm644 "$srcdir/80-q25-gpu-prepare.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/80-q25-gpu-prepare.conf"
     install -Dm644 "$srcdir/eglfs-kms.json" "$pkgdir/etc/q25/eglfs-kms.json"
-    # Keep the accepted shim byte-exact in a package-owned private path.
-    install -Dm755 "$srcdir/simpledrm_dri.so" "$pkgdir/usr/lib/q25-gpu/dri/simpledrm_dri.so"
-    install -Dm644 "$srcdir/q25-render-only-blacklist.conf" "$pkgdir/usr/lib/modprobe.d/q25-render-only.conf"
-    local doc="$pkgdir/usr/share/doc/$pkgname"
-    install -d "$doc/source"
-    install -m644 "$srcdir/simpledrm_dri.c" "$doc/source/"
-    install -m644 "$srcdir/GPU-SOURCE-PROVENANCE.json" "$doc/"
+    install -Dm644 "$srcdir/60-q25-display.rules" "$pkgdir/usr/lib/udev/rules.d/60-q25-display.rules"
+    install -Dm644 "$srcdir/GPU-SOURCE-PROVENANCE.json" "$pkgdir/usr/share/doc/$pkgname/GPU-SOURCE-PROVENANCE.json"
 }
 sha512sums="
-7f3c6301f68f6ada0640e942a829fb95d5b4d4688b760b31b87877d6580d5f8023acd592d59eebb940d951673881b7b5bb28b667039e45656e8125cb4d47368d  q25-gpu-prepare
+3d52fde6b3ab3964da012b5686e1a1972044f747a2255dd48e6fd4cb1308a0bfcb068543663321a11d2ae07a17bd1f880929a8b32f8c242001745bbf054f5f3e  q25-gpu-prepare
 e10c853645bc8f2af481b2936c0aad4e60e214460e685deae8a39fc96882da2927097eb07941fbf06909eb72bd95543c529bb431c61d378722770097d609ea8d  q25-gpu-prepare.service
 1e8c28c7b0353b3af4f8085d9e28064fa3e8eae8ebe93ea3db33c19fb6102de7a990343906846dbc13d833ad94153b396941e0585f378acec70554a691118152  80-q25-gpu-prepare.conf
-2b72853bbb51edd1a765cbc1a7fae6372aafac5bae84a5554b99d91d5456f20eedc669d503552414ac5bd5739e2d3d2af876a1058b717922119102a544301681  q25-shell-session.gpu
-df20b9b7d42629b987dea33fa5e39f26f3f9755c9f43abe7bddfe8bf392cf6c3ef396c3650a1bb93eb536eceb210e0da4170dd65faf0dc879b2c260b266389a9  GPU-SHA256SUMS
-226e3eac9efa0b532f851ef7d15a6973c44fc36508d022101655e5057013c431c9073e27976d5d7be7d9cd2bae1f26ae395ba982c9a4342f66807cdbfba620fd  eglfs-kms.json
-8e72f0f973fbe3b0636842454919c583bcd570716a757e0c999e0106638b3be6f786f6160ea1da1832686ac717ef2cbc5ad06a1aa29a30a6ae3001f9f31f5e02  simpledrm_dri.so
-cb2e1c1b810069d9f1d7314280367103bbfe8f04532d7a79cc9dd8078e3c788579627bee97f28619908750e215323bbe081be1a53dc2b102084cd4608360452f  simpledrm_dri.c
-3cdf72e79fd7d82b72f54a2d2ef266b9b8bb3d1e822f090338060e98435ab2ca8021afe425ed96e3d3d6ad0e40a93711b248f03c84a633f8c23fa731c91301d4  q25-render-only-blacklist.conf
-82e28355b9a0a45d705232686537bd0097abd6f6ec450edb84a7ba0b90da06f30eae4d9e06a7fbc7157bc4896955cd70dfed81aa295a8789c4ecef9b6e2f6667  GPU-SOURCE-PROVENANCE.json
+9fa2867aefbd66d13efd6886cfaabaf4640be5dc42fd0106350bc4ffe2fcf9e82e1621203bb4cfb1ed636510cd376d25e520b2e79c4e5155cf2a4690795379e1  q25-shell-session.gpu
+73b2155c1cc8b8539ae2c13505598399ae94ee644689118e9771490a4c505072abc4991d4d56bf4e3a37c449693dd328eae85aeb9d365668db4e984405a8a131  GPU-SHA256SUMS
+942a1d15b357c459e78aa068230257fce0d708ce56fec0d8195e1e577a0a0ffe122a7f83fc09ce96716ac28cae5bb46835bdb6a3c587ef2ee9a386ffda87a83b  eglfs-kms.json
+e1be53628f247c11aa3861db0fa221c9d4fac685af09ea768f0116c78808bac1cefd999c7d199c5aa7deaad9c66d4e85a319b37b1f4a802143b64bdf735ced34  GPU-SOURCE-PROVENANCE.json
+336e0fb1bcd990b2d0db648281afd6b0d5ee15da842e48a38f6267bd74a86982861019c43174223f29124744380830aa72c9f6c16c91049944e8813eb74dce1b  60-q25-display.rules
 "

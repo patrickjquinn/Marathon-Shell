@@ -58,7 +58,6 @@ install="q25-kernel-modules.post-install q25-kernel-modules.post-upgrade"
 source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-mainline/-/archive/$_commit/mtk_g99-mainline-$_commit.tar.gz
 	android_kernel_ikko_mindone-$_mindone.tar.gz::https://github.com/iasnezhkov/android_kernel_ikko_mindone/archive/$_mindone.tar.gz
 	config-zinwa-q25.aarch64
-	panel-zinwa-q20-hd720.c
 	0001-drm-mediatek-Add-MT6789-display-support.patch
 	0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
 	0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
@@ -103,6 +102,14 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0042-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
 	0043-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 	0044-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
+	0045-drm-mediatek-mtk_dsi-Stop-the-engine-the-bootloader-.patch
+	0046-drm-mediatek-dsi-Register-DSI-host-after-preparing-e.patch
+	0047-drm-mediatek-mtk_dsi-Run-the-link-at-the-peripheral-.patch
+	0048-dt-bindings-vendor-prefixes-Add-Zinwa.patch
+	0049-dt-bindings-regulator-ti-tps65132-Add-OCS-OCP2131.patch
+	0050-dt-bindings-display-panel-Add-Zinwa-Q20-HD720.patch
+	0051-drm-panel-Add-Zinwa-Q20-HD720-panel-driver.patch
+	0053-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-pan.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -117,11 +124,6 @@ unpack() {
 
 prepare() {
 	default_prepare
-	cp "$srcdir/panel-zinwa-q20-hd720.c" drivers/gpu/drm/panel/
-	echo 'obj-$(CONFIG_DRM_PANEL_ZINWA_Q20_HD720) += panel-zinwa-q20-hd720.o' \
-		>> drivers/gpu/drm/panel/Makefile
-	printf '\nconfig DRM_PANEL_ZINWA_Q20_HD720\n\ttristate "Zinwa Q25 q20_v12 720x720 DSI panel"\n\tdepends on OF\n\tdepends on DRM_MIPI_DSI\n\tdepends on BACKLIGHT_CLASS_DEVICE\n' \
-		>> drivers/gpu/drm/panel/Kconfig
 	cp "$srcdir/config-zinwa-q25.aarch64" .config
 	make ARCH=arm64 LLVM=1 olddefconfig
 	local afe="$srcdir/mt6789-sound/sound/soc/mediatek/mt6789" f
@@ -158,8 +160,8 @@ package() {
 }
 
 # Out-of-tree modules by directory under extra/; every built module is listed.
-_extra="q25-bbq-keys q25-keyboard-led q25-md1-owner q25-panel-doze q25-vsyncdrm
-	hx32062se q25-mt6358-live q25-haptic"
+_extra="q25-bbq-keys q25-keyboard-led q25-md1-owner hx32062se q25-mt6358-live
+	q25-haptic"
 _connsys="connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
 	q25-btmtk-stp mtk-connsys-gnss"
 _audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-oca72390
@@ -190,8 +192,7 @@ _modules() {
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
 36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
-d1c4a0867be973a105060ff7a3f1f3eac762dc72d212bf4d2380b0fa1cef79ce0c766e38fdd864d3359cc18713a583e9ba7b030fd1dbbd05128f8d75a644ddb5  config-zinwa-q25.aarch64
-2cf5f7923e2db6d4b5b075319e647526424fc8e2f94f832287e6b9bd63c05f1dc27115e05ea3f5e14b7693f1fad4471e40207ab47dfca5a33ecdf019d36aedb4  panel-zinwa-q20-hd720.c
+1542a32b6fc4876da2271e97d7fdaeabf5361b4933b5dd042de01a920d114dc39b627672c44e8c0e551f27a3be42af564427e7cc0143e93ad2e54e33ed7a2a72  config-zinwa-q25.aarch64
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 fae7d50d65607e43f9dbafa5613f134ce4bb9b3954ac34b82f25a4d6c868578de9a5582eaccd7885284c50df644fd1f9d57cd5221dd210e9fe36976a351afb34  0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
@@ -236,6 +237,14 @@ eebd6b5f2e2b7984e9002932bd26b2f16f3b0ffaebaa2dadcf1e0d52292daeb994bb183fca82df6b
 25b30e94af219e836f9161dc0809dc3c11fd72195ca2dbfb4642fa111970cdf0e072872e478b64728a70f361d2c7079a28d65594414656e466e9c7fce4f25b40  0042-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
 53bf5b7b5a8e022026cf0f6386c4415c24641c35a78f947dd1e93d00da2c6401989790d16f6bfbecf0f44f6c2e8bbbfe09d96225eb3f9b05dca273a98487932a  0043-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 b384eb0a745cabc582cb7e74e27d62669de2cabead637945edcf4ccf473b493c96036f3e71882338b4346dff9c1eaab5df63af9f180b6ea7c988c372514107c3  0044-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
+ab5913bdfebb0a5124ccb4112eadf729de0e619dc9c160bacee6a26db42e2da266ccd2728b06203a5f700fed9ae61279a6919e3e66446cb8bb9ff45b7d476a1f  0045-drm-mediatek-mtk_dsi-Stop-the-engine-the-bootloader-.patch
+a8e4674c2f29d3cd8e1b5d2c508480e9e1282f479345f656aa5fd5a5d4eb500bcf7f7f2a6a6e564270e8c23c3444a325873b7456ebe505852a227049308205d6  0046-drm-mediatek-dsi-Register-DSI-host-after-preparing-e.patch
+a8fa8215b51938cea3445420b142ff4612d3426376d9c7cc4cff0dab0e9a3294babdfaaed5612a33f7ad545eaa6dc1c2e717278c86d56e95d2bb12dfb6fcc491  0047-drm-mediatek-mtk_dsi-Run-the-link-at-the-peripheral-.patch
+262cf2ffa1da591bfcbaf9079fd6439be1cb6bf3225bfc888bce621c6089fbfd494a59bc6ab4ebe41ecce1a862380d096bc11e2bd047d4231b2aa8a8965b5bc9  0048-dt-bindings-vendor-prefixes-Add-Zinwa.patch
+4191cab445d950e12e3624ad4268beb327672cfb25a053f986444f2fdd6d1f47772e8607088bc1712dedfba4780839888479d9a03bd98d5f2e14337e4a7a7ce0  0049-dt-bindings-regulator-ti-tps65132-Add-OCS-OCP2131.patch
+330c01e50a18f757230ada76ab7df76941e783dddd7c0eea128aea5519473be316067f78e8065b911cba24cd3339f618b58ac49e7bb53b67d0ff1a453926e166  0050-dt-bindings-display-panel-Add-Zinwa-Q20-HD720.patch
+e2712a5b3ab915028fe7decbec6340b8451129782f50c002cd80663a60031bfe1a5f1b0ae33efe12431953badb365076c16c2c01b4d8b1a4bc8599ad89dcb1ed  0051-drm-panel-Add-Zinwa-Q20-HD720-panel-driver.patch
+c03b968b2dedb00a4c7a15483d3eceb0bf31174b4f7680541bdd717cfad1fad4d66cc4c10d511cd182cd2a0749d87d4cafbcecb1d4f77918d0c47de763376d18  0053-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-pan.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

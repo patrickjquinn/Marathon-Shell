@@ -15,8 +15,8 @@ sha256sum -c /usr/lib/q25-gpu/SHA256SUMS || fail 'artifact identity mismatch'
 [ -e "$gpu/of_node" ] || fail 'native GPU node absent'
 modprobe panfrost
 [ "$(basename "$(readlink "$gpu/driver")")" = panfrost ] || fail 'Panfrost not bound'
-[ -c /dev/dri/card0 ] && [ -c /dev/dri/renderD128 ] || fail 'DRM nodes missing'
-[ "$(basename "$(readlink /sys/class/drm/card0/device/driver)")" = simple-framebuffer ] || fail 'display is not SimpleDRM'
+[ -c /dev/dri/renderD128 ] || fail 'render node missing'
+[ -c /dev/dri/q25-display ] || fail 'display is not mediatek-drm'
 # Keep genpd suppliers enabled: a later SRAM first-enable can reset coupling.
 echo on > "$gpu/power/control"
 # Pinned (min = max): MT6789 has no MFG mux notifier, so never hop between PLL OPPs.

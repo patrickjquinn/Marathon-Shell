@@ -60,7 +60,7 @@ class Q25Session(unittest.TestCase):
         self.assertEqual(env['QT_QPA_EGLFS_KMS_CONFIG'], '/etc/q25/eglfs-kms.json')
         self.assertEqual(env['PAN_MESA_DEBUG'], 'noafbc')
         self.assertEqual(env['MARATHON_FORCE_DPI'], '240')
-        self.assertEqual(env['LIBGL_DRIVERS_PATH'], '/usr/lib/q25-gpu/dri:/usr/lib/dri')
+        self.assertNotIn('LIBGL_DRIVERS_PATH', env)
         self.assertNotIn('QT_QUICK_BACKEND', env)
         self.assertEqual(result['args'], ['argument with spaces'])
 
