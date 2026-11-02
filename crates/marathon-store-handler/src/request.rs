@@ -173,7 +173,10 @@ pub fn parse(url: &str) -> Result<Request, Rejection> {
         if arg.contains("..") {
             return Err(Rejection::Traversal(arg.to_owned()));
         }
-        if !REF_RE.is_match(arg) && crate::fdroid::package_of(arg).is_none() {
+        if !REF_RE.is_match(arg)
+            && crate::fdroid::package_of(arg).is_none()
+            && crate::marathon::app_of(arg).is_none()
+        {
             return Err(Rejection::BadRef(arg.to_owned()));
         }
     }
@@ -231,6 +234,17 @@ mod tests {
             parse("marathon-store://auto-update/x").unwrap().verb,
             Verb::AutoUpdate
         );
+    }
+
+    #[test]
+    fn marathon_apps() {
+        let r = parse("marathon-store://update/marathon:maps?name=Maps").unwrap();
+        assert_eq!(
+            (r.verb, r.arg.as_str(), r.name.as_str()),
+            (Verb::Update, "marathon:maps", "Maps")
+        );
+        assert!(parse("marathon-store://install/marathon:Maps").is_err());
+        assert!(parse("marathon-store://install/marathon:..").is_err());
     }
 
     #[test]

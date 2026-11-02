@@ -6,6 +6,7 @@
 
 mod fdroid;
 mod jar;
+mod marathon;
 mod notice;
 mod ops;
 mod phone;
@@ -101,6 +102,14 @@ fn run(request: &Request) -> std::io::Result<()> {
                 .or_else(|| fdroid::catalogue_name(&request.arg))
                 .unwrap_or_else(|| request.arg.clone());
             let notice = notice::Notice::for_job(request.verb, &name);
+            if marathon::app_of(&request.arg).is_some() {
+                return match request.verb {
+                    Verb::Uninstall => Err(std::io::Error::other(
+                        "a Marathon app the phone came with stays installed",
+                    )),
+                    verb => marathon::install(&state, &request.arg, verb.as_str(), notice),
+                };
+            }
             if fdroid::package_of(&request.arg).is_some() {
                 return match request.verb {
                     Verb::Uninstall => fdroid::uninstall(&state, &request.arg),

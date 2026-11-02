@@ -323,7 +323,7 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     Ok(())
 }
 
-fn http() -> ureq::Agent {
+pub(crate) fn http() -> ureq::Agent {
     ureq::Agent::config_builder()
         .user_agent("Marathon Store")
         .build()
@@ -518,8 +518,9 @@ fn run_job(
     Err(io::Error::other("deckardd went away"))
 }
 
-/// Downloads into `to`, checking size and SHA-256 as it goes.
-fn download(
+/// Downloads into `to`, checking size (when known: not 0) and SHA-256 as it
+/// goes.
+pub(crate) fn download(
     url: &str,
     to: &Path,
     size: u64,
@@ -551,7 +552,9 @@ fn download(
         }
         hasher.update(&buf[..n]);
         file.write_all(&buf[..n])?;
-        let percent = i32::try_from(done * 90 / size.max(1)).unwrap_or(90);
+        let percent = (done * 90)
+            .checked_div(size)
+            .map_or(-1, |p| i32::try_from(p).unwrap_or(90));
         if percent != last {
             last = percent;
             on_progress(percent);

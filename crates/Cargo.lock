@@ -3379,6 +3379,7 @@ dependencies = [
  "base64 0.23.1",
  "flate2",
  "futures-lite",
+ "marathon-apps",
  "marathon-rt",
  "nix 0.31.3",
  "quick-xml 0.42.0",
