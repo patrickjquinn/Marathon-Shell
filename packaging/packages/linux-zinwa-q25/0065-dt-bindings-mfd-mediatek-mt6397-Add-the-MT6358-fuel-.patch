@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 20:33:54 +0000
+Subject: [PATCH] dt-bindings: mfd: mediatek,mt6397: Add the MT6358 fuel gauge
+
+Allow the fuel gauge of the MT6358 and MT6366 as a child of the PMIC.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml b/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml
+index 05c121b0..d74a691d 100644
+--- a/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml
++++ b/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml
+@@ -107,6 +107,11 @@ properties:
+     $ref: /schemas/iio/adc/mediatek,mt6359-auxadc.yaml#
+     unevaluatedProperties: false
+ 
++  fuel-gauge:
++    type: object
++    $ref: /schemas/power/supply/mediatek,mt6358-gauge.yaml#
++    unevaluatedProperties: false
++
+   audio-codec:
+     type: object
+     description:

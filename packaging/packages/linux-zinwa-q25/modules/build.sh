@@ -31,7 +31,7 @@ kmake() {
 }
 
 mkdir -p "$out/src"
-for d in md1 cam-dt cam-pmic bt audio haptic gauge gnss; do
+for d in md1 cam-dt cam-pmic bt audio haptic gnss; do
 	rm -rf "$out/src/$d"
 	cp -r "$here/$d" "$out/src/$d"
 done
@@ -79,7 +79,7 @@ for p in "$here"/modem/*.patch; do
 	(cd "$out/src/modem" && patch -p1 -s < "$p")
 done
 
-for d in md1 cam-dt cam-pmic audio haptic gauge; do
+for d in md1 cam-dt cam-pmic audio haptic; do
 	kmake "$out/src/$d" "$out/obj/$d"
 done
 kmake "$out/src/wmt" "$out/obj/wmt"

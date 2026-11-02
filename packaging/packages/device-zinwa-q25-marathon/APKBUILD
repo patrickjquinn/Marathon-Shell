@@ -9,7 +9,7 @@ license="Apache-2.0"
 options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
  q25-kernel-modules q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
- upower-q25 q25-native-gauge q25-modem libcamera libcamera-gstreamer
+ upower-q25 q25-modem libcamera libcamera-gstreamer
  cryptsetup e2fsprogs plymouth marathon-plymouth-theme"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
@@ -26,7 +26,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless
  q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
- q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
+ q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf battery-model-experimental 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -78,6 +78,10 @@ package() {
     # hide it from UPower and from the shell's own gauge reader.
     install -Dm644 "$srcdir/99-q25-upower-duplicate.rules" "$pkgdir/usr/lib/udev/rules.d/99-q25-upower-duplicate.rules"
     install -Dm644 "$srcdir/q25-power-supply-ignore" "$pkgdir/etc/marathon/power-supply-ignore"
+    # The kernel's MT6358 gauge is not trusted yet: the shell and UPower must
+    # not shut the phone down on it.
+    install -Dm644 "$srcdir/battery-model-experimental" "$pkgdir/etc/marathon/battery-model-experimental"
+    install -Dm644 "$srcdir/90-q25-battery-model.conf" "$pkgdir/etc/UPower/UPower.conf.d/90-q25-battery-model.conf"
     install -Dm644 "$srcdir/61-q25-charge-voltage.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-charge-voltage.rules"
 
     # The IMU is mounted rotated 180 degrees about Z.
@@ -206,7 +210,7 @@ c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3c
 98357776e02b8aff3b585280bf9d4a3082ae8ad694ac880616ca66fec423ee2a645bf65840194e51d0345c6a60fa4c426f183a955ac0233e77c1fa476fb90499  q25-usb-recovery.nm.conf
 95f3a7f976e410ed0eebe473a815ecad5a8cba847bbe9f065163c9bc0f4ac165550cf7feb889f80192d23493dc4ad0cd259099bbfea90c08864e216c400e8e4f  90-q25-recovery-console.rules
 20a56732a4a8fbc22b461dc35886c3cacbb02bfbb17359ea08a7ec8f464c7499a9d7c453b1cb4d0117a424ade0fbbc670b83d22cd43a3a50316b0aa48c5143f8  q25-power-supply-ignore
-318f0b585d5f7d12e8e7de3a6fa360ca1dc3abeec8af9411541937dac2f97c3d15e695698d6c07b4485dfc141e8badffc0267db5adb5550958e47e401c02ce39  99-q25-upower-duplicate.rules
+28947046a89b216d125252b3b9df38367b707fcf3d872befe3066ff876b2714bdec4740147d58b7e2a493a745d7d217a6e4afa6dc3a83e53b5b1da16bccbb00f  99-q25-upower-duplicate.rules
 e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99e63c486882373de76f6433906e7a00c4c0774235b798981c  q25-deckard.modules-load.conf
 05f4d8b5dbbdd8e97dd09e778d822b19861bde1cee13c43bb6f1a4fcf2e9c685904f2318c58c51dc252bd4ffa84e46511faab404795f499e0e4b402fbd2b0736  q25-haptic.modules-load.conf
 bcfbad49040b637276b21d58fa21d5301f1d60627d072141c064660a216fdd55800cf0a4ae0903d044a991c18f3175c6c81b51f8a51d7513628b26576a6de1a4  q25-camera.modules-load.conf
@@ -219,4 +223,6 @@ e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f59
 24c65349f8bdc55656ccc0b8a1c24b77895544a2bdafc1405fcd07666fc6c5925e14fd59038679d0003ab67d1dc098d358a6549005767587c12531b5f921de98  q25-vconsole.conf
 1ec697f5a2afc5268d9230637ddc296d252db2b611f18820846472f65a813532d2cc6e3e56285ee18f712d2a92d5c5a7e6566bb4b5ea563b8c4ae1fe2b440ae0  q25-plymouth-keyboard.conf
 266cb6790fe03a0a12a4756e0f6ee4b4a10726cd293a67ed43efc9ebc904501ffa3f9807b887bf626b7c0281132076ab7a8bec8b2b220e23d143e59b89147651  61-q25-charge-voltage.rules
+1087d9699f6c4325a1d7ba2e6faf7fda87953fc0d3b0ef97de1da05187ba8f942f78806916cfb2ae9456fa2e63b2adf08e1e8118dc834c31a677755bab0fbf9a  90-q25-battery-model.conf
+0292d56380778e9acc09a4dcdf6c675af566d3fc3595d85140bd9aa842186e37e9989cbf4590c59892dd45f9564a95e918b1a2a49dd632910fd50c8c0a6e51ae  battery-model-experimental
 "

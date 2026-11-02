@@ -1,0 +1,126 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 20:33:55 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Use the PMIC fuel
+ gauge
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace the voltage-only adc-battery with the MT6366's coulomb counter
+gauge, supplied by the charger so that the end of charge anchors the
+state of charge at full.
+
+The battery gains the 25 °C OCV table of the stock gauge profile,
+resampled at whole percent, its internal resistance (the profile's median
+discharge resistance plus the 8 mOhm the vendor model adds for the sense
+path) and its capacity, 2939 mAh, for the 3000 mAh rated pack. The sense
+shunt is 1 mOhm with the vendor's 1.01 counter tuning.
+
+The link to the charger had been left out because it crashed the kernel;
+that was a power supply core bug, fixed earlier in this series.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 63 ++++++++++++-------
+ 1 file changed, 40 insertions(+), 23 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 83b1ae44..6af54616 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -174,47 +174,55 @@
+ 	/*
+ 	 * Battery — 3000 mAh Li-ion pack. Values from the stock DTBO
+ 	 * (upm6922 vreg 4440 mV, ichg 3000 mA, iprechg 180 mA, iterm 200 mA;
+-	 * pack design_cap 3000 mAh; gauge shutdown floor 3.4 V).
++	 * gauge shutdown floor 3.4 V). The capacity, OCV table and internal
++	 * resistance are the stock gauge profile's at 25 °C.
+ 	 */
+ 	battery: battery {
+ 		compatible = "simple-battery";
+ 		device-chemistry = "lithium-ion";
+-		charge-full-design-microamp-hours = <3000000>;
++		charge-full-design-microamp-hours = <2939000>;
+ 		voltage-min-design-microvolt = <3400000>;
+ 		voltage-max-design-microvolt = <4440000>;
+ 		constant-charge-current-max-microamp = <3000000>;
+ 		constant-charge-voltage-max-microvolt = <4440000>;
+ 		precharge-current-microamp = <180000>;
+ 		charge-term-current-microamp = <200000>;
++		factory-internal-resistance-micro-ohms = <155000>;
++		ocv-capacity-celsius = <25>;
++		ocv-capacity-table-0 = <4393000 100>, <4379285 99>, <4368447 98>, <4357671 97>,
++				       <4346895 96>, <4336118 95>, <4324464 94>, <4312708 93>,
++				       <4300952 92>, <4289196 91>, <4277440 90>, <4265684 89>,
++				       <4253928 88>, <4242172 87>, <4230416 86>, <4219355 85>,
++				       <4207904 84>, <4196802 83>, <4185392 82>, <4174250 81>,
++				       <4162880 80>, <4151697 79>, <4140921 78>, <4129612 77>,
++				       <4118368 76>, <4107592 75>, <4096815 74>, <4085588 73>,
++				       <4074263 72>, <4063897 71>, <4054100 70>, <4043934 69>,
++				       <4032459 68>, <4020052 67>, <4008296 66>, <3996828 65>,
++				       <3986320 64>, <3976276 63>, <3965499 62>, <3954930 61>,
++				       <3944947 60>, <3934337 59>, <3924686 58>, <3915869 57>,
++				       <3907052 56>, <3898320 55>, <3890483 54>, <3882690 53>,
++				       <3875832 52>, <3868974 51>, <3862117 50>, <3856222 49>,
++				       <3851287 48>, <3845466 47>, <3840490 46>, <3834710 45>,
++				       <3829693 44>, <3824795 43>, <3820717 42>, <3815998 41>,
++				       <3811880 40>, <3807202 39>, <3803043 38>, <3799124 37>,
++				       <3795205 36>, <3791287 35>, <3788026 34>, <3784449 33>,
++				       <3781148 32>, <3777612 31>, <3774270 30>, <3770775 29>,
++				       <3767392 28>, <3764453 27>, <3761514 26>, <3758100 25>,
++				       <3754636 24>, <3751697 23>, <3748344 22>, <3744425 21>,
++				       <3740880 20>, <3737235 19>, <3732337 18>, <3726814 17>,
++				       <3720248 16>, <3714370 15>, <3708241 14>, <3701152 13>,
++				       <3693947 12>, <3689619 11>, <3687660 10>, <3685701 9>,
++				       <3683741 8>, <3681564 7>, <3677291 6>, <3668838 5>,
++				       <3651224 4>, <3614561 3>, <3563494 2>, <3495897 1>,
++				       <3401233 0>;
+ 	};
+ 
+-	/*
+-	 * Voltage-only fuel gauge: the MT6366 AUXADC BATADC channel surfaced
+-	 * as a battery power_supply (generic-adc-battery). The MT6366
+-	 * coulomb-counter gauge has no mainline driver; % is derived from
+-	 * voltage in userspace for now.
+-	 *
+-	 * NB: deliberately NO `power-supplies = <&charger>` here. Linking the
+-	 * adc-battery's supplied_from to the bq256xx charger makes
+-	 * power_supply_changed_work -> __power_supply_am_i_supplied walk the
+-	 * supply list and strcmp() a NULL supplier name the instant the charger
+-	 * comes online -> NULL-deref Oops (observed 2x at ~4s probe on-device).
+-	 * The voltage gauge polls the ADC independently, so it needs no supply
+-	 * notifications. Do not re-add the link.
+-	 */
+ 	sound {
+ 		compatible = "zinwa,q25-mt6366-sound";
+ 		model = "Zinwa Q25";
+ 		mediatek,platform = <&afe_pcm>;
+ 		mediatek,speaker-amp = <&speaker_amp>;
+ 	};
+-
+-	fuel_gauge: fuel-gauge {
+-		compatible = "adc-battery";
+-		io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
+-		io-channel-names = "voltage";
+-		monitored-battery = <&battery>;
+-	};
+ };
+ 
+ /* ------------------------------------------------------------------ *
+@@ -653,6 +661,15 @@
+ 			compatible = "mediatek,mt6358-auxadc";
+ 			#io-channel-cells = <1>;
+ 		};
++
++		fuel-gauge {
++			compatible = "mediatek,mt6358-gauge";
++			io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
++			monitored-battery = <&battery>;
++			power-supplies = <&charger>;
++			/* 1 mOhm, with the vendor's 1.01 counter tuning folded in */
++			shunt-resistor-micro-ohms = <990>;
++		};
+ 	};
+ };
+ 

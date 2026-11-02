@@ -16,10 +16,6 @@ docs/roadmap/Q25-UPSTREAM-PLAN.md lists what each patch replaces.
 | `media: i2c: imx111: …`, `media: i2c: s5kjn1: …`, `iio: magnetometer: mmc5633: …` | Sensor fixes found on the Q25. | linux-media, linux-iio. |
 | `pinctrl: mediatek: mt6789: Drop the unused EH driving table` | W=1 fix. | Fold into ellyq's pinctrl patch. |
 
-`0002-q25-private-mt6358-current-car-snapshot.patch` here is not part of the
-series: it is the source of the diagnostic `q25-mt6358-live` module (H28) and
-goes with the mt6358 gauge driver (W9).
-
 The release is `7.0.0-q25`; `CONFIG_MODULE_UNLOAD` is on and every configured
 module is built and shipped by the kernel package. The same build compiles
 the Q25's out-of-tree modules (`packaging/packages/linux-zinwa-q25/modules`)

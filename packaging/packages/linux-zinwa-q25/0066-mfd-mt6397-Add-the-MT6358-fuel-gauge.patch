@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 20:33:54 +0000
+Subject: [PATCH] mfd: mt6397: Add the MT6358 fuel gauge
+
+Register a cell for the fuel gauge of the MT6358, which the MT6366 shares,
+and add the gauge registers its driver uses.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/mfd/mt6397-core.c            | 3 +++
+ include/linux/mfd/mt6358/registers.h | 6 ++++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/drivers/mfd/mt6397-core.c b/drivers/mfd/mt6397-core.c
+index 3e58d076..9cff5530 100644
+--- a/drivers/mfd/mt6397-core.c
++++ b/drivers/mfd/mt6397-core.c
+@@ -207,6 +207,9 @@ static const struct mfd_cell mt6358_devs[] = {
+ 	{
+ 		.name = "mt6359-auxadc",
+ 		.of_compatible = "mediatek,mt6358-auxadc"
++	}, {
++		.name = "mt6358-gauge",
++		.of_compatible = "mediatek,mt6358-gauge"
+ 	}, {
+ 		.name = "mt6358-regulator",
+ 		.of_compatible = "mediatek,mt6358-regulator"
+diff --git a/include/linux/mfd/mt6358/registers.h b/include/linux/mfd/mt6358/registers.h
+index d83e8729..f478eb75 100644
+--- a/include/linux/mfd/mt6358/registers.h
++++ b/include/linux/mfd/mt6358/registers.h
+@@ -75,10 +75,16 @@
+ #define MT6358_RTC_SEC_WRTGR                  0x618
+ #define MT6358_PSC_TOP_INT_CON0               0x910
+ #define MT6358_PSC_TOP_INT_STATUS0            0x91c
++#define MT6358_BM_TOP_CKPDN_CON0              0xc0c
+ #define MT6358_BM_TOP_INT_CON0                0xc32
+ #define MT6358_BM_TOP_INT_CON1                0xc38
+ #define MT6358_BM_TOP_INT_STATUS0             0xc4a
+ #define MT6358_BM_TOP_INT_STATUS1             0xc4c
++#define MT6358_FGADC_CON0                     0xd08
++#define MT6358_FGADC_CON1                     0xd0a
++#define MT6358_FGADC_CAR_CON0                 0xd14
++#define MT6358_FGADC_CAR_CON1                 0xd16
++#define MT6358_FGADC_CUR_CON0                 0xd8a
+ #define MT6358_HK_TOP_INT_CON0                0xf92
+ #define MT6358_HK_TOP_INT_STATUS0             0xf9e
+ #define MT6358_BUCK_TOP_INT_CON0              0x1318
