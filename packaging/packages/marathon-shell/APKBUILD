@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=521
+pkgrel=522
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -100,7 +100,8 @@ makedepends="
 	sqlite-dev
 	"
 install="$pkgname.post-install"
-subpackages="$pkgname-doc marathon-icon-theme:icontheme:noarch"
+subpackages="$pkgname-doc marathon-icon-theme:icontheme:noarch $pkgname-browser:browser
+	$pkgname-test-app:testapp"
 # The shell source is this repo. scripts/qemu/lib/build-marathon-shell-apk.sh
 # stages the working tree into /var/cache/distfiles as
 # marathon-shell-$pkgver.tar.gz and re-runs `abuild -F checksum`, so the URL
@@ -335,6 +336,24 @@ package() {
 	install -Dm644 "$srcdir/marathon-shell-tmpfiles.conf" \
 		"$pkgdir/usr/lib/tmpfiles.d/marathon-shell.conf"
 
+}
+
+# The built-in browser is the fallback for images without Pacific.
+browser() {
+	pkgdesc="Marathon's built-in browser, for images without Pacific"
+	depends="$pkgname=$pkgver-r$pkgrel"
+	install_if="$pkgname=$pkgver-r$pkgrel !pacific"
+	amove usr/share/marathon-apps/browser \
+		usr/share/marathon-apps/MarathonApp/Browser \
+		usr/share/keel/actions/org.marathonos.browser.json \
+		usr/share/dbus-1/services/org.marathonos.browser.service
+}
+
+# The service test app (docs/testing) is for development; images leave it out.
+testapp() {
+	pkgdesc="Marathon's service test app, for development"
+	depends="$pkgname=$pkgver-r$pkgrel"
+	amove usr/share/marathon-apps/test usr/share/marathon-apps/MarathonApp/Test
 }
 
 # sha512sums regenerate with `abuild checksum` on build host.
