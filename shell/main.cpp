@@ -1012,6 +1012,9 @@ int main(int argc, char *argv[]) {
     auto *locationManager = new Location();
     locationManager->setParent(&app);
     ctx->setContextProperty("LocationManager", locationManager);
+    locationManager->setEnabled(settingsManager->getLocationEnabled());
+    QObject::connect(settingsManager, &marathon::Settings::locationEnabledChanged, locationManager,
+                     [=] { locationManager->setEnabled(settingsManager->getLocationEnabled()); });
     // Never starts location itself: with Location off there is no fix and the zone stays.
     const auto automaticTimeZone = [=] {
         if (!settingsManager->getAutomaticTimeZone() || !locationManager->getActive() ||

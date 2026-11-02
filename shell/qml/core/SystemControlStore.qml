@@ -14,7 +14,7 @@ QtObject {
     readonly property bool isCellularDataOn: Modem.dataEnabled
     readonly property bool isDndMode: SettingsManagerCpp.dndEnabled
     readonly property bool isAutoBrightnessOn: Display.autoBrightness
-    readonly property bool isLocationOn: LocationManager.active
+    readonly property bool isLocationOn: SettingsManagerCpp.locationEnabled
     readonly property bool isHotspotOn: Network.hotspotActive
     readonly property string hotspotSsid: Network.hotspotSsid
     readonly property string hotspotPassword: Network.hotspotPassword
@@ -47,7 +47,6 @@ QtObject {
     onIsWifiOnChanged: clearPending("wifi")
     onIsBluetoothOnChanged: clearPending("bluetooth")
     onIsCellularDataOnChanged: clearPending("cellular")
-    onIsLocationOnChanged: clearPending("location")
     onIsHotspotOnChanged: clearPending("hotspot")
 
     readonly property Timer expiry: Timer {
@@ -115,11 +114,7 @@ QtObject {
     }
 
     function toggleLocation() {
-        markPending("location");
-        if (isLocationOn)
-            LocationManager.stop();
-        else
-            LocationManager.start();
+        SettingsManagerCpp.locationEnabled = !isLocationOn;
     }
 
     function toggleHotspot() {
