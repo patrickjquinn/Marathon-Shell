@@ -129,6 +129,8 @@ pub mod id {
     pub const TIME_TAG: u16 = 0xfe28;
     pub const CHANNEL: u16 = 0xfe29;
     pub const EPOCH_END: u16 = 0xfe2c;
+    /// The last message of each epoch.
+    pub const EPOCH_LAST: u16 = 0xfe4e;
 }
 
 /// The DSP's word order for 32-bit values: high 16-bit word first.

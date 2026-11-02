@@ -3324,6 +3324,7 @@ dependencies = [
 name = "marathon-gnssd"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "nalgebra",
 ]
 

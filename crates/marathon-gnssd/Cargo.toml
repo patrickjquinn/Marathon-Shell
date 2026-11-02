@@ -6,6 +6,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 nalgebra = { version = "0.34", default-features = false, features = ["std"] }
 
 [lints]

@@ -6,6 +6,7 @@ use crate::lnav::Ephemeris;
 use crate::orbit::{position, C, OMEGA_E};
 use nalgebra::{Matrix4, Rotation3, Vector3, Vector4};
 
+#[derive(Clone)]
 pub struct Observation<'a> {
     pub eph: &'a Ephemeris,
     /// Pseudorange in metres.
