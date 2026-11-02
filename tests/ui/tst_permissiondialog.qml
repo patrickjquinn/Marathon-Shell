@@ -36,6 +36,13 @@ TestCase {
         PermissionManager.responses = [];
     }
 
+    // The switches sit below the fold of a 720 × 720 screen.
+    function scrollToEnd() {
+        const flickable = findChild(dialog, "permissionFlickable");
+        flickable.contentY = Math.max(0, flickable.contentHeight - flickable.height);
+        wait(50);
+    }
+
     function ask(appId, permission, options) {
         AppModel.names = {
             "deckard.org.example.cam": "Example Camera"
@@ -63,6 +70,7 @@ TestCase {
         verify(once.visible);
         verify(!once.checked);
         verify(!findChild(dialog, "preciseSwitch").visible);
+        scrollToEnd();
         mouseClick(once);
         verify(once.checked);
         mouseClick(findChild(dialog, "allowButton"));
@@ -87,9 +95,7 @@ TestCase {
         const precise = findChild(dialog, "preciseSwitch");
         verify(precise.visible);
         verify(precise.checked);
-        const flickable = findChild(dialog, "permissionFlickable");
-        flickable.contentY = Math.max(0, flickable.contentHeight - flickable.height);
-        wait(50);
+        scrollToEnd();
         mouseClick(precise);
         mouseClick(findChild(dialog, "allowButton"));
         compare(PermissionManager.responses[0], [true, false, false]);
