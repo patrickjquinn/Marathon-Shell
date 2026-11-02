@@ -264,6 +264,39 @@ While booting, only ids 0x05, 0x08, 0x0C and 0x1D are sent.
 Items 2–3 are the bulk of the work and cannot be finished from static
 analysis alone.
 
+## Engine design (`crates/marathon-gnssd`)
+
+One daemon owns `/dev/gnssN` (opening it boots the DSP) and does what
+`libmnl` does on stock, with open code:
+
+1. Protocol: deframe, unscramble, group messages into epochs (0x42 … 0x4E,
+   one per second), send host commands. Done.
+2. Measurements: turn the per-channel records into pseudoranges (code
+   phase, measurement time, carrier/Doppler, C/N0, lock flags). Blocked on
+   decoding the records from outdoor captures.
+3. Acquisition: decide which satellite each channel searches and with what
+   code/Doppler window (msgs 0x01–0x03, search mode in msg 0x08), using
+   the best available aiding: system time (NTP-synced clock), an
+   approximate position (GeoClue's Wi-Fi/cell fix, requested at city
+   accuracy so that this daemon does not feed on itself) and, once decoded,
+   broadcast ephemeris and almanac. Cold start without aiding: assign all 32
+   GPS PRNs round-robin with full Doppler search. Blocked on the command
+   layouts; whether the DSP searches on its own (the indoor capture shows
+   one channel working unprompted) is the first thing an outdoor capture
+   answers.
+4. Navigation message: GPS L1 C/A word parity and subframes 1–3 →
+   ephemeris (IS-GPS-200). Done; needs the DSP's navigation bits wired in.
+   GLONASS, Galileo and BeiDou decoders follow the same pattern later.
+5. Position: satellite orbit and clock from the ephemeris, then single-point
+   least squares (RTKLIB's `pntpos` method, with nalgebra). Done; the
+   Klobuchar ionosphere and a troposphere model come next for 5–10 m.
+6. Output: NMEA GGA/RMC (done) to GeoClue's `[network-nmea]` source.
+   GeoClue connects to a Unix socket given as `nmea-socket=` and reads NMEA
+   lines; the daemon will listen on `/run/marathon-gnssd/nmea.sock`.
+
+Today the binary prints each epoch's messages unscrambled, which is the
+tool for step 2.
+
 ## Kernel driver
 
 `devices/zinwa/q25/modules/gnss/mtk-connsys-gnss.c`, compatible
@@ -314,7 +347,12 @@ WMT's normal reset path).
    `aa f0 06 00 08 fe 18 00 24 01 aa 0f` to `/dev/gnss0` (a second open
    shares the running receiver); the capture should then hold a msg 0x14
    with four bytes, the DSP version.
-4. With the DT from `0013` (needs a reboot into it): the module binds to the
+4. LNA without a new DT: the pinctrl debugfs mux gives GPIO25 to the DSP
+   for a test, the same setting as `0013`'s `active` state:
+   `echo "GPIO25 func2" > /sys/kernel/debug/pinctrl/10005000.pinctrl-pinctrl_paris/pinmux-select`
+   (and `func0` to undo). Record outdoors with
+   `devices/zinwa/q25/gnss/mtk-gnss-capture`.
+5. With the DT from `0013` (needs a reboot into it): the module binds to the
    `gnss` node and switches GPIO25 to function 2 while open
    (with debugfs mounted, `/sys/kernel/debug/pinctrl/*/pinmux-pins` shows
    pin 25 in function 2 only while `/dev/gnss0` is open). Outdoors, per-channel records (0x29 and
