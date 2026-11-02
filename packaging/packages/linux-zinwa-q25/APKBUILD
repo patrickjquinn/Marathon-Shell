@@ -117,6 +117,9 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0057-dt-bindings-input-Add-Zinwa-Q25-keyboard.patch
 	0058-Input-add-driver-for-BBQ10-BBQ20-I2C-keyboards.patch
 	0059-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-key.patch
+	0060-ASoC-dt-bindings-awinic-aw87390-Add-Orient-Chip-OCA7.patch
+	0061-ASoC-codecs-aw87390-Add-OCA72390-support-for-the-Zin.patch
+	0062-arm64-dts-mediatek-mt8781-zinwa-q25-Use-the-aw87390-.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -171,7 +174,7 @@ _extra="q25-md1-owner q25-mt6358-live
 	q25-haptic"
 _connsys="connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
 	q25-btmtk-stp mtk-connsys-gnss"
-_audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-oca72390
+_audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe
 	q25-mt6366-card q25-mt6358-accdet"
 _camera="q25-cam-dt wl2868c-regulator videobuf2-common videobuf2-memops
 	videobuf2-v4l2 videobuf2-dma-contig phy-mtk-mipi-csi-2-1 mtk-seninf6s mtk-camsv6s"
@@ -199,7 +202,7 @@ _modules() {
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
 36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
-51d0ad856d67f2775695d1d62513bcce8261795f00706a891d7eb9535ca68c9262d81032bf77653ef19e790ad6231f6f7f291792a482a911826ef8514391e843  config-zinwa-q25.aarch64
+b1696a5f86c1b5c16525ca795a3e78e320c03e3887fb1d80b254978fdee6d0e81a8be87003d1f7c18c32707268dc463cf441a67adfbae68447561fa7a74405be  config-zinwa-q25.aarch64
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 fae7d50d65607e43f9dbafa5613f134ce4bb9b3954ac34b82f25a4d6c868578de9a5582eaccd7885284c50df644fd1f9d57cd5221dd210e9fe36976a351afb34  0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
@@ -259,6 +262,9 @@ fe3bc0a9b24dc2eb2389f5347aab4e488c4f34440c4530997163003e3d3f931f15c20f5c2bbf350c
 8c2917b6f12393b2ee94504d9ea35e3388fd215c84b190efff66c5cc930de04fec5e1165bcc146693ee58aee4612eef99306835e2d95e9c519deb76261445281  0057-dt-bindings-input-Add-Zinwa-Q25-keyboard.patch
 3ad05f349c9a57c08a2449342bbd7bed4759b1a6f80d4c4c96b17e094e10b6c5e36e553c58cf155feb17b5d886125977b9b3bd5a9f938fe33b08bf71b7dfe4a2  0058-Input-add-driver-for-BBQ10-BBQ20-I2C-keyboards.patch
 bfe12060f4e71f9a3861800884753c5717940ddef38c905a41e82acfaade3880831a0d338b6ffe6630fc7fa51dfef11da3f7ad349c51711fcf9c38c781f3c01b  0059-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-key.patch
+6fd50356462ceccb1672c64871256e1e014bdf953b18c50095d55d04f0e2cd3a16060f509e602399d5551c7ded97791c538e9cc74c15f4bcebb8f496fc10fc52  0060-ASoC-dt-bindings-awinic-aw87390-Add-Orient-Chip-OCA7.patch
+017ce5ea8d1746d09b1ae902892f1670aab940e656210e7c5e05979e863e8f2baaeb322c38cdec9a07881e7a07165039b75e7383c1a966b6992fe26f995d6ff9  0061-ASoC-codecs-aw87390-Add-OCA72390-support-for-the-Zin.patch
+a48144931d859091351364f15c221b75e2dbb8c842178666a9df27a838f0c3798a7a9ee8353e866d4de8fb17959c3904150953fbb5626968ced27d8b45d8dc28  0062-arm64-dts-mediatek-mt8781-zinwa-q25-Use-the-aw87390-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

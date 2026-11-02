@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:29:22 +0000
+Subject: [PATCH] ASoC: codecs: aw87390: Add OCA72390 support for the Zinwa Q25
+
+Accept the Orient Chip OCA72390, which uses the aw87390 register map
+but reports chip ID 0x11. As for the aw87391, the chip is only bound
+together with board data.
+
+The Zinwa Q25 has no ACF file. Its vendor configuration holds two
+register lists for the amplifier, "Music" and "Off": write the first
+once the path is powered up and the second before it is powered down.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ sound/soc/codecs/aw87390.c | 58 +++++++++++++++++++++++++++++++++++++-
+ sound/soc/codecs/aw87390.h |  1 +
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/codecs/aw87390.c b/sound/soc/codecs/aw87390.c
+index 613daccc..bb535b91 100644
+--- a/sound/soc/codecs/aw87390.c
++++ b/sound/soc/codecs/aw87390.c
+@@ -368,6 +368,49 @@ static const struct snd_soc_dapm_widget aw87391_rgds_dapm_widgets[] = {
+ 	SND_SOC_DAPM_OUTPUT("OUT"),
+ };
+ 
++/*
++ * The Zinwa Q25 has no ACF file either. These are the "Music" and "Off"
++ * register lists of its vendor configuration.
++ */
++static const struct reg_sequence zinwa_q25_amp_on[] = {
++	{ 0x01, 0x0d }, { 0x02, 0x1c }, { 0x03, 0x08 }, { 0x04, 0x09 },
++	{ 0x05, 0x0e }, { 0x06, 0x08 }, { 0x07, 0x56 }, { 0x08, 0x87 },
++	{ 0x09, 0x12 }, { 0x0a, 0xca }, { 0x0b, 0x26 },
++};
++
++static const struct reg_sequence zinwa_q25_amp_off[] = {
++	{ 0x01, 0x0c }, { 0x02, 0x0c }, { 0x03, 0x0a }, { 0x04, 0x09 },
++	{ 0x05, 0x0a }, { 0x06, 0x09 }, { 0x07, 0x4e }, { 0x08, 0x04 },
++	{ 0x09, 0x12 }, { 0x0a, 0x4a }, { 0x0b, 0x26 },
++};
++
++static int zinwa_q25_amp_drv_event(struct snd_soc_dapm_widget *w,
++				   struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
++	struct aw87390 *aw87390 = snd_soc_component_get_drvdata(component);
++	struct regmap *regmap = aw87390->aw_pa->regmap;
++
++	switch (event) {
++	case SND_SOC_DAPM_POST_PMU:
++		return regmap_multi_reg_write(regmap, zinwa_q25_amp_on,
++					      ARRAY_SIZE(zinwa_q25_amp_on));
++	case SND_SOC_DAPM_PRE_PMD:
++		return regmap_multi_reg_write(regmap, zinwa_q25_amp_off,
++					      ARRAY_SIZE(zinwa_q25_amp_off));
++	default:
++		return -EINVAL;
++	}
++}
++
++static const struct snd_soc_dapm_widget zinwa_q25_amp_dapm_widgets[] = {
++	SND_SOC_DAPM_INPUT("IN"),
++	SND_SOC_DAPM_PGA_E("SPK PA", SND_SOC_NOPM, 0, 0, NULL, 0,
++			   zinwa_q25_amp_drv_event,
++			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
++	SND_SOC_DAPM_OUTPUT("OUT"),
++};
++
+ static const struct snd_soc_dapm_route aw87390_dapm_routes[] = {
+ 	{ "SPK PA", NULL, "IN" },
+ 	{ "OUT", NULL, "SPK PA" },
+@@ -478,6 +521,13 @@ static const struct snd_soc_component_driver soc_codec_dev_anbernic_rgds = {
+ 	.num_dapm_routes = ARRAY_SIZE(aw87390_dapm_routes),
+ };
+ 
++static const struct snd_soc_component_driver soc_codec_dev_zinwa_q25_amp = {
++	.dapm_widgets = zinwa_q25_amp_dapm_widgets,
++	.num_dapm_widgets = ARRAY_SIZE(zinwa_q25_amp_dapm_widgets),
++	.dapm_routes = aw87390_dapm_routes,
++	.num_dapm_routes = ARRAY_SIZE(aw87390_dapm_routes),
++};
++
+ static void aw87390_parse_channel_dt(struct aw87390 *aw87390)
+ {
+ 	struct aw_device *aw_dev = aw87390->aw_pa;
+@@ -513,6 +563,9 @@ static int aw87390_init(struct aw87390 *aw87390, struct i2c_client *i2c, struct
+ 	case AW87391_CHIP_ID:
+ 		aw_dev->chip_id = AW87391_CHIP_ID;
+ 		break;
++	case OCA72390_CHIP_ID:
++		aw_dev->chip_id = OCA72390_CHIP_ID;
++		break;
+ 	default:
+ 		dev_err(&i2c->dev, "unsupported device\n");
+ 		return -ENXIO;
+@@ -576,10 +629,12 @@ static int aw87390_i2c_probe(struct i2c_client *i2c)
+ 					&soc_codec_dev_aw87390, NULL, 0);
+ 		break;
+ 	case AW87391_CHIP_ID:
++	case OCA72390_CHIP_ID:
+ 		priv = of_device_get_match_data(&i2c->dev);
+ 		if (!priv)
+ 			return dev_err_probe(&i2c->dev, -EINVAL,
+-					     "aw87391 not currently supported\n");
++					     "chip 0x%02x not currently supported\n",
++					     aw87390->aw_pa->chip_id);
+ 		ret = devm_snd_soc_register_component(&i2c->dev, priv, NULL, 0);
+ 		break;
+ 	default:
+@@ -595,6 +650,7 @@ static int aw87390_i2c_probe(struct i2c_client *i2c)
+ static const struct of_device_id aw87390_of_match[] = {
+ 	{ .compatible = "awinic,aw87390" },
+ 	{ .compatible = "anbernic,rgds-amp", .data = &soc_codec_dev_anbernic_rgds },
++	{ .compatible = "zinwa,q25-amp", .data = &soc_codec_dev_zinwa_q25_amp },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, aw87390_of_match);
+diff --git a/sound/soc/codecs/aw87390.h b/sound/soc/codecs/aw87390.h
+index f48b207e..24596358 100644
+--- a/sound/soc/codecs/aw87390.h
++++ b/sound/soc/codecs/aw87390.h
+@@ -148,6 +148,7 @@
+ enum aw87390_id {
+ 	AW87390_CHIP_ID = 0x76,
+ 	AW87391_CHIP_ID = 0xc1,
++	OCA72390_CHIP_ID = 0x11,
+ };
+ 
+ enum {

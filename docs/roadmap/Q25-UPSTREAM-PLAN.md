@@ -90,7 +90,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Module | Device | Status | Fixed by |
 |---|---|---|---|---|
-| H34 | `q25-oca72390` (`audio/q25/`) | Orient-Chip OCA72390 speaker PA (i2c3 @0x58), register lists embedded. | Register-compatible with Awinic AW87390 (mainline `sound/soc/codecs/aw87390.c`) but reports ID 0x11. | W11 |
 | H35 | `q25-mt6366-card` (`audio/q25/`), `q25-audio.modprobe.conf` softdeps, `q25-audio.modules-load.conf` | ASoC machine driver (AFE + MT6366 + PA), MTKAIF calibration port. | No MT6789 machine driver; codec binds to an MFD cell without an OF node, so it is loaded by name. | W11 |
 | H36 | `q25-mt6358-accdet` (`audio/q25accdet/`, `options standalone=1`) | Headset detection, port of the vendor `mt6358-accdet.c` (LineageOS `2a873a35`). | Mainline has only `mt6359-accdet`. | W10 |
 | H37 | `snd-soc-mt6789-afe` + codec patches `0002`–`0006` (`audio/patches/`) | AFE from `adomerle/mt6789-sound` `996ec481` ("sound wip") + `0001` fixups; `0003`/`0005`/`0006` are debug controls. | WIP upstream driver. | W11 |
