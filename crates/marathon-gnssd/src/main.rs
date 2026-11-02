@@ -129,11 +129,12 @@ struct Engine {
     iono: Option<[f64; 8]>,
     filter: Filter,
     almanac: HashMap<u8, Almanac>,
-    /// The crystal's thermistor code, its frequency model and the last
-    /// Doppler offset measured with it.
+    /// The crystal's thermistor code, its frequency model, the last Doppler
+    /// offset measured with it and when the model was last saved.
     tsx: Option<u16>,
     clock: clock::Model,
     doppler: Option<f64>,
+    clock_saved: f64,
     sweep: bool,
     sweep_last: Option<i32>,
     /// The aid last sent (middle point).
@@ -317,6 +318,25 @@ impl Engine {
         dsp::search_order(&gps, known_sky, &of(meas::GLONASS), &of(meas::BEIDOU))
     }
 
+    /// Corrects the crystal model from the measured Doppler offset (not while
+    /// sweeping), saving it now and then.
+    fn learn_clock(&mut self, unix: f64, offset: Option<f64>) {
+        let (Some(r), Some(code)) = (offset, self.tsx) else {
+            return;
+        };
+        self.doppler = Some(r);
+        if self.sweep_last.is_some() {
+            return;
+        }
+        self.clock.learn(code, r);
+        if unix - self.clock_saved > SAVE_EVERY {
+            self.clock_saved = unix;
+            if let Some(path) = &self.state {
+                write_atomic(&format!("{path}.clk"), &self.clock.to_lines());
+            }
+        }
+    }
+
     /// With --clock-sweep, the clock aid's middle point is stepped through
     /// absolute values, 45 s each, from -600 to 3000 in steps of 300, then
     /// handed back to the model: on a hot phone, to see at which aid
@@ -436,7 +456,7 @@ impl Engine {
             }
         };
         self.learn_slots(samples);
-        self.doppler = offset.or(self.doppler);
+        self.learn_clock(unix, offset);
         if let Some(found) = coarse {
             let found = found.and_then(|f| self.coarse_pick(f, gps));
             self.coarse_result(found, gps);
@@ -1120,7 +1140,12 @@ fn new_engine(
         almanac: state.as_deref().map(load_almanac).unwrap_or_default(),
         searching: String::new(),
         tsx: None,
-        clock: clock::Model,
+        clock: state
+            .as_deref()
+            .and_then(|p| std::fs::read_to_string(format!("{p}.clk")).ok())
+            .map(|s| clock::Model::from_lines(&s))
+            .unwrap_or_default(),
+        clock_saved: 0.0,
         doppler: None,
         sweep: args.iter().any(|a| a == "--clock-sweep"),
         sweep_last: None,
