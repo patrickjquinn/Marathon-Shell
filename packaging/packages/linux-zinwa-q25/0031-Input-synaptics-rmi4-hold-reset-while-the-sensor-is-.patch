@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 13:47:37 +0000
+Subject: [PATCH] Input: synaptics-rmi4 - hold reset while the sensor is off
+
+Follow-up to the reset GPIO support:
+- Assert reset in the managed supply teardown and reuse that path on
+  suspend, so the line is asserted whenever the sensor is unpowered.
+- Hold reset for 20 ms across power-up; the Zinwa Q25's Synaptics
+  S2716B needs it when the bootloader left the line low.
+- Forget the cached page select after a reset: the sensor is back on
+  page 0.
+- Report reset GPIO lookup failures, including deferral, with
+  dev_err_probe().
+
+On the Zinwa Q25 the touchscreen does not answer on a cold boot without
+the reset release.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/input/rmi4/rmi_i2c.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/input/rmi4/rmi_i2c.c b/drivers/input/rmi4/rmi_i2c.c
+index 62626cb..32c055b 100644
+--- a/drivers/input/rmi4/rmi_i2c.c
++++ b/drivers/input/rmi4/rmi_i2c.c
+@@ -27,7 +27,8 @@
+  * @tx_buf_size: Size of the buffer
+  *
+  * @supplies: Array of voltage regulators
+- * @startup_delay: Milliseconds to pause after powering up the regulators
++ * @startup_delay: Milliseconds to pause after power-up and reset release
++ * @reset_gpio: Optional reset line, asserted while the sensor is powered off
+  */
+ struct rmi_i2c_xport {
+ 	struct rmi_transport_dev xport;
+@@ -189,6 +190,8 @@ static void rmi_i2c_regulator_bulk_disable(void *data)
+ {
+ 	struct rmi_i2c_xport *rmi_i2c = data;
+ 
++	gpiod_set_value_cansleep(rmi_i2c->reset_gpio, 1);
++
+ 	regulator_bulk_disable(ARRAY_SIZE(rmi_i2c->supplies),
+ 			       rmi_i2c->supplies);
+ }
+@@ -203,8 +206,10 @@ static void rmi_i2c_unregister_transport(void *data)
+ static void rmi_i2c_release_reset(struct rmi_i2c_xport *rmi_i2c)
+ {
+ 	if (rmi_i2c->reset_gpio) {
+-		usleep_range(10000, 20000);
++		/* Keep reset asserted across power-up, including always-on rails. */
++		usleep_range(20000, 21000);
+ 		gpiod_set_value_cansleep(rmi_i2c->reset_gpio, 0);
++		rmi_i2c->page = -1;
+ 	}
+ 
+ 	msleep(rmi_i2c->startup_delay);
+@@ -250,7 +255,8 @@ static int rmi_i2c_probe(struct i2c_client *client)
+ 	rmi_i2c->reset_gpio = devm_gpiod_get_optional(&client->dev, "reset",
+ 						      GPIOD_OUT_HIGH);
+ 	if (IS_ERR(rmi_i2c->reset_gpio))
+-		return PTR_ERR(rmi_i2c->reset_gpio);
++		return dev_err_probe(&client->dev, PTR_ERR(rmi_i2c->reset_gpio),
++				     "Failed to get reset GPIO\n");
+ 
+ 	error = regulator_bulk_enable(ARRAY_SIZE(rmi_i2c->supplies),
+ 				       rmi_i2c->supplies);
+@@ -314,11 +320,7 @@ static int rmi_i2c_suspend(struct device *dev)
+ 	if (ret)
+ 		dev_warn(dev, "Failed to resume device: %d\n", ret);
+ 
+-	if (rmi_i2c->reset_gpio)
+-		gpiod_set_value_cansleep(rmi_i2c->reset_gpio, 1);
+-
+-	regulator_bulk_disable(ARRAY_SIZE(rmi_i2c->supplies),
+-			       rmi_i2c->supplies);
++	rmi_i2c_regulator_bulk_disable(rmi_i2c);
+ 
+ 	return ret;
+ }
+@@ -353,11 +355,7 @@ static int rmi_i2c_runtime_suspend(struct device *dev)
+ 	if (ret)
+ 		dev_warn(dev, "Failed to resume device: %d\n", ret);
+ 
+-	if (rmi_i2c->reset_gpio)
+-		gpiod_set_value_cansleep(rmi_i2c->reset_gpio, 1);
+-
+-	regulator_bulk_disable(ARRAY_SIZE(rmi_i2c->supplies),
+-			       rmi_i2c->supplies);
++	rmi_i2c_regulator_bulk_disable(rmi_i2c);
+ 
+ 	return 0;
+ }
