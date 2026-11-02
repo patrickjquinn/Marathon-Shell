@@ -191,7 +191,7 @@ function batteryStatus(charging, pluggedIn, secondsLeft) {
     if (charging)
         return qsTr("Charging");
     if (pluggedIn)
-        return qsTr("Plugged in, not charging");
+        return qsTr("Charged");
     if (!(secondsLeft > 0))
         return qsTr("Discharging");
     const hours = Math.floor(secondsLeft / 3600);
