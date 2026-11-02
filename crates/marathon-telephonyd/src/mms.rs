@@ -11,7 +11,7 @@ use futures_lite::StreamExt;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageDecoder, ImageReader};
-use marathon_rt::log;
+use marathon_rt::{io, log};
 use zbus::fdo;
 use zbus::{MatchRule, MessageStream};
 use zbus::{OwnedObjectPath, OwnedVariant as OwnedValue, Variant as Value};
@@ -22,6 +22,8 @@ const BUS: &str = "org.ofono.mms";
 const MANAGER: &str = "/org/ofono/mms";
 const SERVICE: &str = "org.ofono.mms.Service";
 const MODEM_MANAGER: &str = "org.ofono.mms.ModemManager";
+/// mmsd-tng's MMSC until the carrier's is set.
+const UNSET: &str = "http://mms.invalid";
 const CARRIER_KEYS: &[&str] = &[
     "CarrierMMSC",
     "MMS_APN",
@@ -103,6 +105,61 @@ async fn discover(core: &Core) {
             .await
             .ok();
     }
+    provision(core).await;
+}
+
+/// Sets mmsd-tng's carrier settings from the carrier database while they
+/// are unset. mmsd-tng looks them up itself only by the connected APN, which
+/// many networks assign without naming it.
+async fn provision(core: &Core) {
+    let settings: Props = call(core, MANAGER, MODEM_MANAGER, "ViewSettings", &())
+        .await
+        .unwrap_or_default();
+    if field::<String>(&settings, "CarrierMMSC").as_deref() != Some(UNSET) {
+        return;
+    }
+    let Ok(system) = io::system_bus().await else {
+        return;
+    };
+    let Some(operator) = modem::home_operator(&system).await else {
+        return;
+    };
+    let apn = modem::data_apn(&system).await.unwrap_or_default();
+    let lookup = operator.clone();
+    let Some(carrier) = blocking::unblock(move || {
+        modem::carrier_of(
+            &std::fs::read_to_string(modem::PROVIDERS).ok()?,
+            &lookup,
+            &apn,
+        )
+    })
+    .await
+    else {
+        return log::warn(
+            "Mms",
+            format_args!("no MMS settings for operator {operator}"),
+        );
+    };
+    let proxy = if carrier.proxy.is_empty() {
+        "NULL".to_owned()
+    } else {
+        carrier.proxy
+    };
+    let all = HashMap::from([
+        ("CarrierMMSC", Value::from(carrier.mmsc)),
+        ("MMS_APN", Value::from(carrier.apn)),
+        ("CarrierMMSProxy", Value::from(proxy)),
+    ]);
+    let set = call::<()>(core, MANAGER, MODEM_MANAGER, "ChangeAllSettings", &(all,)).await;
+    if let Err(e) = set {
+        return log::warn(
+            "Mms",
+            format_args!("cannot set the MMS settings for operator {operator}: {e}"),
+        );
+    }
+    call::<()>(core, MANAGER, MODEM_MANAGER, "ProcessMessageQueue", &())
+        .await
+        .ok();
 }
 
 async fn forget(core: &Core) {
@@ -241,6 +298,7 @@ pub async fn watch(core: &Core) {
             }
             (MODEM_MANAGER, "SettingsChanged") => {
                 if let Ok((apn, mmsc, proxy)) = body.deserialize::<(String, String, String)>() {
+                    let unset = mmsc == UNSET;
                     let settings = HashMap::from([
                         ("MMS_APN".to_owned(), OwnedValue::from(zbus::Str::from(apn))),
                         (
@@ -255,6 +313,9 @@ pub async fn watch(core: &Core) {
                     SmsService::mms_settings_changed(&core.sms(), settings)
                         .await
                         .ok();
+                    if unset {
+                        provision(core).await;
+                    }
                 }
             }
             (MODEM_MANAGER, "BearerHandlerError") => {
