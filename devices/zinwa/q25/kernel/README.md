@@ -25,6 +25,7 @@ docs/roadmap/Q25-UPSTREAM-PLAN.md lists what each patch replaces.
 | `soc: mediatek: mtk-mutex: Defer until the mutex device has probed` | From linux-mediatek `3e6c84ec8051`. | linux-mediatek (W5). |
 | `clk: mediatek: mt6789: Park the GPU mux during MFGPLL rate changes` | GPU DVFS. | MT6789 tree (W6). |
 | `drm/mediatek: mtk_dsi: Stop the engine…`, `drm/mediatek: dsi: Register DSI host after…`, `drm/mediatek: mtk_dsi: Run the link at the peripheral's HS rate` | Taking over the DSI the bootloader left running, at the panel's 652 Mbit/s. | linux-mediatek (W5). |
+| `drm/mediatek: Add the MT6789 DSI to the DDP components`, `drm/mediatek: Remove conflicting framebuffers` | mediatek-drm binds the DSI and takes over from simpledrm. | linux-mediatek (W5). |
 | `dt-bindings: vendor-prefixes: Add Zinwa`, `dt-bindings: regulator: ti,tps65132: Add OCS OCP2131`, `dt-bindings: display: panel: …`, `drm/panel: Add Zinwa Q20 HD720 panel driver`, `arm64: dts: … Describe the panel bias supply` | The panel and its bias supply. | dri-devel, linux-regulator, devicetree (W5). |
 | `dt-bindings: iio: light: Add TYHX HX32062SE`, `iio: light: Add TYHX HX32062SE …`, `arm64: dts: … Set the proximity near level` | Light and proximity. | linux-iio (W13). |
 | `dt-bindings: input: Add Zinwa Q25 keyboard`, `Input: add driver for BBQ10/BBQ20 I2C keyboards`, `arm64: dts: … Describe the keyboard` | The keyboard and its light. | linux-input (W12). |
