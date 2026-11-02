@@ -145,6 +145,12 @@ Item {
         pageView.currentIndex = 1;
     }
 
+    // A hardware home key does nothing on the lock screen.
+    function handleHomeKeyPress() {
+        if (!SessionStore.isLocked)
+            handleHomeKey();
+    }
+
     // A phone keyboard's green key: answers a ringing call, else opens Phone.
     function handleCallKey() {
         if (incomingCallOverlay && incomingCallOverlay.isRinging) {
@@ -156,22 +162,33 @@ Item {
         UIStore.openApp("phone", qsTr("Phone"), "");
     }
 
-    // The red key: declines or ends a call, else goes home.
-    function handleEndKey() {
+    // Declines a ringing call or ends the one in progress; false if none.
+    function endCall() {
         if (incomingCallOverlay && incomingCallOverlay.isRinging) {
             incomingCallOverlay.decline();
-            return;
+            return true;
         }
         if (Modem.callState !== "idle" && Modem.callState !== "terminated") {
             HapticManager.medium();
             Modem.hangup();
-            return;
+            return true;
         }
-        if (!SessionStore.isLocked)
+        return false;
+    }
+
+    // A red key: declines or ends a call, else goes home.
+    function handleEndKey() {
+        if (!endCall() && !SessionStore.isLocked)
             handleHomeKey();
     }
 
-    // The menu key: Active Frames from an app, and between them and the grid.
+    // The Q25's end key: declines or ends a call, else the switcher.
+    function handleHangupKey() {
+        if (!endCall())
+            handleSwitcherKey();
+    }
+
+    // Active Frames from an app, and between them and the grid.
     function handleSwitcherKey() {
         if (SessionStore.isLocked)
             return;
@@ -246,10 +263,11 @@ Item {
         lockScreen.swipeProgress = 0;
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
-            compositor.systemHomeTriggered.connect(handleHomeKey);
+            compositor.systemHomeTriggered.connect(handleHomeKeyPress);
             compositor.systemCallTriggered.connect(handleCallKey);
             compositor.systemEndTriggered.connect(handleEndKey);
             compositor.systemSwitcherTriggered.connect(handleSwitcherKey);
+            compositor.systemHangupTriggered.connect(handleHangupKey);
             // Also reset the idle-screen-off timer when the compositor
             // sees ANY input — without this the timer only resets on
             // events that bubble up to the shell's own cursorTracker

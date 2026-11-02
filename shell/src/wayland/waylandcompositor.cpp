@@ -2858,6 +2858,16 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         if (type == QEvent::KeyPress)
             emit keyPressed();
 
+        if ((type == QEvent::KeyPress || type == QEvent::KeyRelease) &&
+            static_cast<QKeyEvent *>(event)->nativeScanCode() == KeyRouting::SelectScanCode) {
+            const auto *select = static_cast<QKeyEvent *>(event);
+            QKeyEvent   enter(type, Qt::Key_Return, select->modifiers(), KeyRouting::EnterScanCode,
+                              KeyRouting::ReturnKeysym, select->nativeModifiers(),
+                              QStringLiteral("\r"), select->isAutoRepeat(), select->count(),
+                              select->device());
+            QCoreApplication::sendEvent(watched, &enter);
+            return true;
+        }
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto              *keyEvent = static_cast<QKeyEvent *>(event);
             const KeyRouting::Action action   = KeyRouting::systemAction(
@@ -2870,6 +2880,7 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
                         case KeyRouting::Call: emit systemCallTriggered(); break;
                         case KeyRouting::End: emit systemEndTriggered(); break;
                         case KeyRouting::Switcher: emit systemSwitcherTriggered(); break;
+                        case KeyRouting::Hangup: emit systemHangupTriggered(); break;
                         case KeyRouting::None: break;
                     }
                 }
