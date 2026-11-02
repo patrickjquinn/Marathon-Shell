@@ -10,8 +10,9 @@ The feed is laid out as the image's sysupdate.d transfers expect: one
 directory per image id holding each kept version's payload, a SHA256SUMS
 manifest, its detached signature SHA256SUMS.gpg, and an AppStream catalog
 with each release's download size and notes. The payload is the UKI and the
-zstd-compressed /usr and verity partitions, or on the Raspberry Pi the
-compressed boot and root slot partitions. See docs/OTA.md.
+zstd-compressed /usr and verity partitions, on the Raspberry Pi the
+compressed boot and root slot partitions, and on the Zinwa Q25 the
+compressed root file. See docs/OTA.md.
 """
 
 import argparse
@@ -46,9 +47,13 @@ def gpg(gnupghome, *args, **kwargs):
 def find_artifacts(image_dir, image_id, version):
     """The partition images mkosi split out, plus the UKI where one boots.
 
-    The Pi firmware boots a whole boot partition, so a Pi image is its boot
+    The Q25 boots a root file, <stem>.ext4 (build-zinwa-q25-image.sh). The
+    Pi firmware boots a whole boot partition, so a Pi image is its boot
     and root slots; every other A/B image is a UKI, /usr and its verity."""
     stem = f"{image_id}_{version}"
+    root_file = image_dir / f"{stem}.ext4"
+    if root_file.is_file():
+        return [root_file]
     slots = {}
     slot = re.compile(re.escape(stem) + r"\.(boot|root)\.[0-9a-f]{32}\.raw$")
     for f in image_dir.iterdir():
@@ -78,7 +83,7 @@ def find_artifacts(image_dir, image_id, version):
 
 def versions_in(feed_dir, image_id):
     found = set()
-    pattern = re.compile(re.escape(image_id) + r"_([^._+]+)\.(?:efi|boot\.[0-9a-f]{32}\.raw\.zst)$")
+    pattern = re.compile(re.escape(image_id) + r"_([^._+]+)\.(?:efi|boot\.[0-9a-f]{32}\.raw\.zst|ext4\.zst)$")
     for f in feed_dir.iterdir():
         m = pattern.match(f.name)
         if m:
