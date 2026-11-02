@@ -2951,14 +2951,15 @@ Item {
                 "priority": "high",
                 "actions": [
                     {
-                        "id": "call_back",
+                        "key": "call_back",
                         "label": qsTr("Call Back")
                     },
                     {
-                        "id": "message",
+                        "key": "message",
                         "label": qsTr("Message")
                     }
-                ]
+                ],
+                "replyTarget": number
             });
             HapticManager.heavy();
         }
@@ -2984,11 +2985,11 @@ Item {
                 "priority": "high",
                 "actions": [
                     {
-                        "id": "inline-reply",
+                        "key": "inline-reply",
                         "label": qsTr("Reply")
                     },
                     {
-                        "id": "mark_read",
+                        "key": "mark_read",
                         "label": qsTr("Mark Read")
                     }
                 ],

@@ -974,10 +974,10 @@ impl Notifications {
         let action = action.to_string();
         self.as_mut().mark_as_read(id);
         self.as_mut().activate(&row, &action);
-        let number = row.body.replace("From: ", "");
+        let number = row.hint("replyTarget").as_str().unwrap_or_default();
         match (row.app_id.as_str(), action.as_str()) {
             ("phone", "call_back") => {
-                modem::dial(&number);
+                modem::dial(number);
                 deep_link("phone", "", &json!({}));
             }
             ("phone", "message") => {
