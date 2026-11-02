@@ -240,6 +240,51 @@ The host sends these commands (`0xFE00 | id`, word payloads):
 
 While booting, only ids 0x05, 0x08, 0x0C and 0x1D are sent.
 
+## Measurements and search commands
+
+Established from two reference runs of the stock engine on the Q25
+(analysis only, nothing of it in this repository) against public broadcast
+ephemeris and a surveyed reference position.
+
+Channel record (msg 0x29), offsets into the unscrambled payload:
+
+| Bytes | Meaning |
+|---|---|
+| 0 | channel |
+| 1 | satellite: GPS/QZSS PRN, GLONASS frequency slot, BeiDou PRN |
+| 2 | system: 0x01 GPS, 0x02 Galileo, 0x08 QZSS, 0x10 GLONASS, 0x20 BeiDou |
+| 3 | C/N0, dB-Hz (0 = not tracking) |
+| 23–26 | the DSP's time estimate for the epoch, common to all channels of a system |
+| 27–30 | GPS: code phase within the 20 ms data bit, 16-bit chips (0–20459) then a 16-bit fraction |
+| 31–32 | Doppler in Hz, signed, including the reference-clock offset |
+| 35–36 | accumulated carrier phase, L1 cycles, wrapping |
+
+Checks: across satellites the code phase modulo 1 ms matches the geometry
+to about 0.1 chip; the Doppler field equals the geometric Doppler plus one
+common offset (1626 Hz on this phone, slope 1.000, 0.5 Hz rms); bytes 35–36
+change by 5.26 per metre of range change (1/λ at L1). The BeiDou code phase
+scale is not settled yet.
+
+Host commands seen during a cold start (all payloads plain):
+
+| id | When | Content |
+|---|---|---|
+| 0x05 | once | engine settings (sub-command byte first) |
+| 0x04 | once | per-system signal enable masks |
+| 0x08 | once | search mode `10 00 10 00` |
+| 0x00 | every epoch | the next epoch's DSP time (32-bit, high word first) |
+| 0x10, 0x11 | every epoch | reference-clock aiding per system |
+| 0x01 | every epoch | time and frequency aid: clock offset in Hz, its uncertainty, the DSP time it refers to (0 before the first fix), GPS time in 1.5 s units |
+| 0x03 | every epoch | type 0: satellites being aided; type 1: search list, `01 n` then (satellite, system) pairs |
+| 0x1C | every epoch | end of the epoch's commands |
+| 0x05 `29 00` | every epoch | |
+| 0x02 | per tracked channel, after the first fix | aid echoing the channel's time, code phase and Doppler |
+| 0x0A | every ~43 s once time is known | UTC date and time for a DSP time |
+| 0x07 | cycling | SBAS satellite selection |
+
+Without host commands the DSP only runs its idle channel; with the cold-start
+set it acquires satellites on its own, before any per-channel aid.
+
 ## What an open engine needs
 
 1. Captures of a running DSP: the stream from `/dev/gnssN` after boot, first
