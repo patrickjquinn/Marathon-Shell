@@ -760,7 +760,7 @@ impl Tasks {
         let viewport = (self.device.viewport_width, self.device.viewport_height);
         self.as_mut().rust_mut().device = Device {
             render_node: profile.render_node(),
-            gpu_webgl: profile.gpu_stack() == "mesa-v3d",
+            gpu_webgl: matches!(profile.gpu_stack().as_str(), "mesa-v3d" | "mesa-panfrost"),
             runner_pool: profile.runner_pool(),
             runner_width,
             runner_height,

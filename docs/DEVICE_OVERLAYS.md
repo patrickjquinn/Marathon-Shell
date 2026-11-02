@@ -105,7 +105,7 @@ location (for host testing).
 | Conf key | Env override | Default | Meaning |
 |---|---|---|---|
 | `DEVICE_ID` | `MARATHON_DEVICE_ID` | `generic` | Log/telemetry id |
-| `GPU_STACK` | `MARATHON_GPU_STACK` | `mesa-etnaviv` | `mesa-etnaviv` \| `vivante-blob` \| `mesa-lima` \| `mesa-v3d` \| `mesa-virgl` \| `mesa-freedreno` \| `llvmpipe` |
+| `GPU_STACK` | `MARATHON_GPU_STACK` | `mesa-etnaviv` | `mesa-etnaviv` \| `vivante-blob` \| `mesa-lima` \| `mesa-v3d` \| `mesa-panfrost` \| `mesa-virgl` \| `mesa-freedreno` \| `llvmpipe` |
 | `GLES_LEVEL` | `MARATHON_GLES_VERSION` | `2.0` | ES context version for the default surface |
 | `SURFACE_ALPHA` | `MARATHON_SURFACE_ALPHA` | `0` | 1 if the CRTC framebuffer has an alpha channel (ARGB); 0 for XRGB (i.MX8 LCDIF) |
 | `GPU_MSAA` | `MARATHON_LAYER_SAMPLES` | `0` | Max HW FBO sample count (0 = none) |
