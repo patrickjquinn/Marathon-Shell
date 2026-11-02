@@ -1,9 +1,10 @@
 //! `medialibrary.db`: the photos and videos under Pictures and DCIM, by
-//! album (the folder they are in), with a thumbnail for each photo.
+//! album (the folder they are in), with a thumbnail for each.
 
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
 
 use image::imageops::FilterType;
@@ -83,12 +84,17 @@ pub fn walk(roots: &[PathBuf]) -> Vec<Found> {
         .collect()
 }
 
-/// A picture scaled to fit `size`, as PNG for PNGs and screenshots, else
-/// JPEG; kept by a hash of its source's path.
-pub fn thumbnail(source: &str, dir: &Path, size: u32) -> Option<String> {
+/// Where `source`'s thumbnail is kept: by a hash of its path.
+fn thumb_path(source: &str, dir: &Path, size: u32, ext: &str) -> PathBuf {
     let hash = source.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
         (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
     });
+    dir.join(format!("{hash:016x}_thumb_v3_{size}.{ext}"))
+}
+
+/// A picture scaled to fit `size`, as PNG for PNGs and screenshots, else
+/// JPEG.
+pub fn thumbnail(source: &str, dir: &Path, size: u32) -> Option<String> {
     let path = Path::new(source);
     let png = path
         .extension()
@@ -97,10 +103,7 @@ pub fn thumbnail(source: &str, dir: &Path, size: u32) -> Option<String> {
         || path
             .file_stem()
             .is_some_and(|s| s.to_string_lossy().to_lowercase().contains("screenshot"));
-    let thumb = dir.join(format!(
-        "{hash:016x}_thumb_v3_{size}.{}",
-        if png { "png" } else { "jpg" }
-    ));
+    let thumb = thumb_path(source, dir, size, if png { "png" } else { "jpg" });
     if thumb.exists() {
         return Some(thumb.to_string_lossy().into_owned());
     }
@@ -124,6 +127,39 @@ pub fn thumbnail(source: &str, dir: &Path, size: u32) -> Option<String> {
         )
     };
     saved.ok().map(|()| thumb.to_string_lossy().into_owned())
+}
+
+/// A video's frame a second in (its first, if shorter), scaled to fit
+/// `size`, as JPEG; by ffmpeg, as ffmpegthumbnailer does.
+pub fn video_thumbnail(source: &str, dir: &Path, size: u32) -> Option<String> {
+    let thumb = thumb_path(source, dir, size, "jpg");
+    let made = || fs::metadata(&thumb).is_ok_and(|m| m.len() > 0);
+    if !made() {
+        fs::create_dir_all(dir).ok()?;
+        let scale = format!("scale={size}:{size}:force_original_aspect_ratio=decrease");
+        for seek in ["1", "0"] {
+            let ran = Command::new("ffmpeg")
+                .args([
+                    "-nostdin",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-ss",
+                    seek,
+                    "-i",
+                    source,
+                ])
+                .args(["-frames:v", "1", "-vf", &scale, "-q:v", "3", "-update", "1"])
+                .arg(&thumb)
+                .stdin(Stdio::null())
+                .status()
+                .is_ok_and(|s| s.success());
+            if ran && made() {
+                break;
+            }
+        }
+    }
+    made().then(|| thumb.to_string_lossy().into_owned())
 }
 
 pub struct Library {
@@ -152,7 +188,7 @@ impl Library {
     }
 
     /// The files a scan found that the library does not have, and the
-    /// photos without a thumbnail; files gone since are dropped.
+    /// ones without a thumbnail; files gone since are dropped.
     pub fn reconcile(&self, found: Vec<Found>) -> rusqlite::Result<Vec<Found>> {
         let known: HashSet<String> = self
             .db
@@ -166,9 +202,7 @@ impl Library {
         }
         let unthumbed: HashSet<String> = self
             .db
-            .prepare(
-                "SELECT path FROM media WHERE type = 'photo' AND IFNULL(thumbnail_path, '') = ''",
-            )?
+            .prepare("SELECT path FROM media WHERE IFNULL(thumbnail_path, '') = ''")?
             .query_map([], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
         Ok(found
@@ -183,6 +217,8 @@ impl Library {
         if f.kind == "photo" {
             (width, height) = image::image_dimensions(&f.path).unwrap_or_default();
             thumb = thumbnail(&f.path, &self.thumbnails, self.size).unwrap_or_default();
+        } else {
+            thumb = video_thumbnail(&f.path, &self.thumbnails, self.size).unwrap_or_default();
         }
         let added = self.db.execute(
             "INSERT OR IGNORE INTO media (path, type, album, timestamp, width, height, thumbnail_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
