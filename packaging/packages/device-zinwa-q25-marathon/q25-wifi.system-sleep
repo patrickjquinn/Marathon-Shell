@@ -1,15 +1,19 @@
 #!/bin/sh
-# Conservative suspend policy until CONNSYS suspend is validated: gen4m's
-# AXI suspend/resume are stubs, so power Wi-Fi off across sleep and restore.
+# gen4m's AXI suspend/resume are stubs, so keep the radio quiet across sleep
+# with an rfkill soft block, as the Wi-Fi toggle does. Never power WLAN off
+# through WMT here: gen4m can't scan after that until a reboot.
 case "$1" in
 pre)
-	if systemctl -q is-active q25-wifi.service; then
-		touch /run/q25-wifi.resume
-		systemctl stop q25-wifi.service
-	fi ;;
+	rm -f /run/q25-wifi.resume
+	for r in /sys/class/rfkill/rfkill*; do
+		[ "$(cat "$r/type")" = wlan ] && [ "$(cat "$r/soft")" = 0 ] || continue
+		echo "${r##*/}" >> /run/q25-wifi.resume
+		echo 1 > "$r/soft"
+	done ;;
 post)
-	if [ -e /run/q25-wifi.resume ]; then
-		rm -f /run/q25-wifi.resume
-		systemctl start --no-block q25-wifi.service
-	fi ;;
+	[ -e /run/q25-wifi.resume ] || exit 0
+	while read -r r; do
+		echo 0 > "/sys/class/rfkill/$r/soft"
+	done < /run/q25-wifi.resume
+	rm -f /run/q25-wifi.resume ;;
 esac
