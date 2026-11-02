@@ -5,6 +5,7 @@
 
 pub mod d1;
 pub mod dsp;
+pub mod filter;
 pub mod glonass;
 pub mod iono;
 pub mod lnav;

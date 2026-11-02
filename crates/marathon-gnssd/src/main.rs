@@ -9,6 +9,7 @@
 //! `--replay` runs a `mtk-gnss-capture` recording instead of the device;
 //! `--record FILE` writes what the device sends in that format.
 
+use marathon_gnssd::filter::Filter;
 use marathon_gnssd::lnav::{Ephemeris, EphemerisBuilder};
 use marathon_gnssd::meas::{self, Channel};
 use marathon_gnssd::mtk::{self, Deframer};
@@ -30,11 +31,8 @@ const MAX_CHI: f64 = 3.0;
 const MAX_FROM_APPROX: f64 = 5_000.0;
 /// Geometry too weak to trust beyond this.
 const MAX_HDOP: f64 = 10.0;
-/// A fix may move this far from the last one, plus a speed allowance.
-const JUMP_BASE: f64 = 30.0;
-const MAX_SPEED: f64 = 60.0;
-/// After this many refusals in a row the last fix is presumed wrong.
-const MAX_REFUSED: u32 = 5;
+/// Horizontal error at HDOP 1, metres, for the filter.
+const UERE: f64 = 10.0;
 /// Height samples (redundant, strong geometry) before they replace --approx.
 const HEIGHT_SAMPLES: usize = 30;
 /// Height constraint sigma, metres.
@@ -58,9 +56,7 @@ struct Engine {
     subframes: HashMap<u8, EphemerisBuilder>,
     d1: HashMap<u8, d1::EphemerisBuilder>,
     iono: Option<[f64; 8]>,
-    /// The last accepted fix and its time, and how many in a row were refused.
-    last: Option<(Vector3<f64>, f64)>,
-    refused: u32,
+    filter: Filter,
 }
 
 fn ecef(lat: f64, lon: f64, h: f64) -> Vector3<f64> {
@@ -94,21 +90,6 @@ impl Engine {
     fn kepler(list: Option<&Vec<Ephemeris>>, t: f64) -> Option<&Ephemeris> {
         list.and_then(|l| rinex::nearest(l, t))
             .filter(|e| e.health == 0)
-    }
-
-    /// Refuses a fix that jumps further from the last accepted one than a
-    /// fast vehicle could have moved, unless that keeps happening.
-    fn plausible(&mut self, fix: &spp::Fix, unix: f64) -> bool {
-        if let Some((pos, at)) = self.last {
-            let allowed = JUMP_BASE + MAX_SPEED * (unix - at).abs() + 5.0 * fix.hdop;
-            if (fix.ecef - pos).norm() > allowed && self.refused < MAX_REFUSED {
-                self.refused += 1;
-                return false;
-            }
-        }
-        self.refused = 0;
-        self.last = Some((fix.ecef, unix));
-        true
     }
 
     /// Azimuth and elevation (radians) from the approximate position.
@@ -208,10 +189,10 @@ impl Engine {
         let Some(fix) = fix else {
             return Ok(());
         };
-        if !self.plausible(&fix, unix) {
+        let Some(pos) = self.filter.update(unix, fix.ecef, UERE * fix.hdop.max(1.0)) else {
             return Ok(());
-        }
-        let (lat, lon, h) = spp::geodetic(&fix.ecef);
+        };
+        let (_, _, h) = spp::geodetic(&fix.ecef);
         if fix.redundancy >= 3 && fix.hdop < 2.0 {
             self.heights.push(h);
             if self.heights.len() >= HEIGHT_SAMPLES {
@@ -220,6 +201,7 @@ impl Engine {
                 self.height = sorted[sorted.len() / 2];
             }
         }
+        let (lat, lon, h) = spp::geodetic(&pos);
         #[allow(clippy::cast_possible_truncation, reason = "degrees")]
         let geoid = f64::from(egm2008::geoid_height(lat as f32, lon as f32).unwrap_or(0.0));
         // The receiver clock bias puts the epoch on GPS time.
@@ -345,8 +327,7 @@ fn main() -> io::Result<()> {
         subframes: HashMap::new(),
         d1: HashMap::new(),
         iono: None,
-        last: None,
-        refused: 0,
+        filter: Filter::default(),
     };
     let mut out = io::stdout().lock();
     let mut deframer = Deframer::default();
