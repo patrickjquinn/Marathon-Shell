@@ -59,7 +59,7 @@ class Packaging(unittest.TestCase):
         self.assertNotIn('multi-user.target.wants', apk)
         self.assertNotIn('/usr/local', apk)
         self.assertIn('mesa=26.2.6-r0', apk)
-        self.assertIn('q25-kernel-modules>=7.0.0-r25', apk)
+        self.assertIn('q25-kernel-modules>=7.0.0-r26', apk)
 
     def test_guard_checks_manifest_before_loading_modules(self):
         text = (GPU / 'q25-gpu-prepare').read_text()
