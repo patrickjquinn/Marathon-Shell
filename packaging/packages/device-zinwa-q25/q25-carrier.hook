@@ -1,0 +1,44 @@
+#!/bin/sh
+# The root is an ext4 file on the userdata carrier, named by
+# q25.rootfs_file=. By now init_2nd.sh has grown the carrier (partition 2
+# of the nested GPT) into the rest of userdata and mounted it on /sysroot,
+# with the ESP on /sysroot/boot. Mount the file there instead and keep
+# the carrier at /.q25-carrier/root.
+root=${MARATHON_Q25_TEST_ROOT:-}
+sysroot=$root/sysroot
+carrier=$root/q25-carrier
+
+log() {
+	echo "q25-carrier: $*" > "$root/dev/kmsg"
+}
+
+file=
+read -r cmdline < "$root/proc/cmdline"
+for arg in $cmdline; do
+	case $arg in q25.rootfs_file=*) file=${arg#q25.rootfs_file=} ;; esac
+done
+[ -n "$file" ] || exit 0
+case $file in
+*..* | *[!A-Za-z0-9_./-]*) log "refusing q25.rootfs_file=$file"; exit 1 ;;
+/var/lib/marathon/images/*.ext4) ;;
+*) log "refusing q25.rootfs_file=$file"; exit 1 ;;
+esac
+[ -f "$sysroot$file" ] || { log "no $file on the carrier"; exit 1; }
+
+mkdir -p "$carrier"
+mount --move "$sysroot" "$carrier" || exit 1
+if ! loop=$(losetup --find --show --sector-size 4096 "$carrier$file") ||
+	! mount -t ext4 -o rw "$loop" "$sysroot"; then
+	log "cannot mount $file"
+	[ -z "$loop" ] || losetup -d "$loop"
+	mount --move "$carrier" "$sysroot"
+	exit 1
+fi
+if mountpoint -q "$carrier/boot"; then
+	mount --move "$carrier/boot" "$sysroot/boot"
+	mount -o remount,ro "$sysroot/boot"
+fi
+# Only root may reach the carrier, which holds the encrypted /home.
+mkdir -p "$sysroot/.q25-carrier/root"
+chmod 0700 "$sysroot/.q25-carrier"
+mount --move "$carrier" "$sysroot/.q25-carrier/root"
