@@ -5,13 +5,16 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import "../ClockLogic.js" as Logic
 
-Row {
+Grid {
     id: root
 
     property var days: []
+    // Two rows when seven days would not fit a narrow column.
+    readonly property int perRow: width / 7 >= Theme.iconSizeMedium ? 7 : 4
 
     x: Theme.horizontalPageMargin
     width: parent.width - 2 * Theme.horizontalPageMargin
+    columns: perRow
     Accessible.role: Accessible.Grouping
     Accessible.name: qsTr("Repeat")
 
@@ -25,7 +28,7 @@ Row {
             required property int modelData
             readonly property bool selected: root.days.indexOf(modelData) !== -1
 
-            width: root.width / 7
+            width: root.width / root.perRow
             height: Theme.itemSizeMedium
             Accessible.role: Accessible.CheckBox
             Accessible.name: Qt.locale().dayName(modelData)
