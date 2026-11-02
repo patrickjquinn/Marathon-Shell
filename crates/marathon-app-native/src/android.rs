@@ -114,6 +114,13 @@ pub mod qobject {
         fn clear_data(self: &AndroidApps, pkg: &QString);
         #[qinvokable]
         fn uninstall(self: Pin<&mut AndroidApps>, pkg: &QString);
+        /// A system app back to the image's copy.
+        #[qinvokable]
+        #[cxx_name = "uninstallUpdates"]
+        fn uninstall_updates(self: Pin<&mut AndroidApps>, pkg: &QString);
+        #[qinvokable]
+        #[cxx_name = "setEnabled"]
+        fn set_enabled(self: &AndroidApps, pkg: &QString, enabled: bool);
         #[qinvokable]
         #[cxx_name = "loadSpecialAccess"]
         fn load_special_access(self: &AndroidApps, kind: &QString);
@@ -169,6 +176,7 @@ trait Deckard {
 trait Packages {
     fn list_packages(&self) -> zbus::Result<Vec<Map>>;
     fn uninstall_package(&self, pkg: &str) -> zbus::Result<String>;
+    fn uninstall_updates(&self, pkg: &str) -> zbus::Result<String>;
     #[zbus(signal)]
     fn package_changed(&self, pkg: String, change: String) -> zbus::Result<()>;
     #[zbus(signal)]
@@ -183,6 +191,23 @@ async fn packages() -> zbus::Result<PackagesProxy<'static>> {
     PackagesProxy::new(&io::session_bus().await?).await
 }
 
+/// Icons of the apps not in `known`, by package, as Deckard has them.
+async fn icons(apps: &[Map], known: &HashSet<String>) -> Vec<(String, String)> {
+    let Ok(deckard) = deckard().await else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for pkg in apps.iter().map(|a| text(a, "pkg")) {
+        if known.contains(&pkg) {
+            continue;
+        }
+        if let Some(icon) = deckard.app_icon(&pkg).await.ok().filter(|i| !i.is_empty()) {
+            out.push((pkg, icon));
+        }
+    }
+    out
+}
+
 #[derive(Default)]
 pub struct AndroidAppsRust {
     available: bool,
@@ -193,11 +218,16 @@ pub struct AndroidAppsRust {
     // An uninstall's job, to its package.
     jobs: HashMap<String, String>,
     // Asked, not yet answered.
-    uninstalling: HashSet<String>,
+    uninstalling: HashMap<String, &'static str>,
 }
 
 fn q(s: &str) -> QString {
     QString::from(s)
+}
+
+fn flag(m: &Map, key: &str) -> bool {
+    m.get(key)
+        .is_some_and(|v| bool::try_from(&**v).unwrap_or(false))
 }
 
 fn text(m: &Map, key: &str) -> String {
@@ -285,22 +315,23 @@ impl AndroidApps {
                 let mut rust = self.as_mut().rust_mut();
                 let pkg = rust.jobs.remove(&job).or_else(|| {
                     rust.uninstalling
-                        .contains(&finished_pkg)
+                        .contains_key(&finished_pkg)
                         .then_some(finished_pkg)
                 });
-                let Some(pkg) = pkg.filter(|p| rust.uninstalling.remove(p)) else {
+                let Some((pkg, action)) =
+                    pkg.and_then(|p| rust.uninstalling.remove(&p).map(|a| (p, a)))
+                else {
                     return;
                 };
                 if ok {
-                    self.as_mut().done(&q(&pkg), &q("uninstall"));
+                    self.as_mut().done(&q(&pkg), &q(action));
                 } else {
                     let message = if message.is_empty() {
                         "Android refused".to_owned()
                     } else {
                         message
                     };
-                    self.as_mut()
-                        .failed(&q(&pkg), &q("uninstall"), &q(&message));
+                    self.as_mut().failed(&q(&pkg), &q(action), &q(&message));
                 }
                 self.refresh();
             }
@@ -356,12 +387,9 @@ impl AndroidApps {
     fn set_packages(mut self: Pin<&mut Self>, packages: Vec<Map>) {
         let mut apps: Vec<(String, Map)> = packages
             .into_iter()
-            .filter(|p| {
-                !text(p, "pkg").is_empty()
-                    && !p
-                        .get("system")
-                        .is_some_and(|s| bool::try_from(&**s).unwrap_or(false))
-            })
+            // As Android's Settings lists apps: installed ones, and system
+            // apps the person can open (F-Droid, Aurora, microG).
+            .filter(|p| !text(p, "pkg").is_empty() && (!flag(p, "system") || flag(p, "launchable")))
             .map(|p| {
                 let (pkg, label) = (text(&p, "pkg"), text(&p, "label"));
                 let mut app = Map::new();
@@ -380,6 +408,11 @@ impl AndroidApps {
                 );
                 if let Some(v) = p.get("versionName").and_then(|v| v.try_clone().ok()) {
                     app.insert("version".into(), v);
+                }
+                for key in ["system", "updatedSystem", "enabled"] {
+                    if let Some(v) = p.get(key).and_then(|v| v.try_clone().ok()) {
+                        app.insert(key.into(), v);
+                    }
                 }
                 (pkg, app)
             })
@@ -616,10 +649,16 @@ impl AndroidApps {
 
     fn load_special_access(&self, kind: &QString) {
         let (qt, kind) = (self.qt_thread(), kind.to_string());
+        let known: HashSet<String> = self.icons.keys().cloned().collect();
         io::spawn(async move {
             let apps = async { deckard().await?.get_special_access(&kind).await }.await;
-            qt.queue(move |obj| match apps {
+            let icons = match &apps {
+                Ok(apps) => icons(apps, &known).await,
+                Err(_) => Vec::new(),
+            };
+            qt.queue(move |mut obj| match apps {
                 Ok(apps) => {
+                    obj.as_mut().rust_mut().icons.extend(icons);
                     let list = obj.with_icons(apps);
                     obj.special_access_loaded(&q(&kind), &list);
                 }
@@ -633,23 +672,51 @@ impl AndroidApps {
         });
     }
 
-    fn uninstall(mut self: Pin<&mut Self>, pkg: &QString) {
+    fn uninstall(self: Pin<&mut Self>, pkg: &QString) {
+        self.remove(pkg, "uninstall");
+    }
+
+    fn uninstall_updates(self: Pin<&mut Self>, pkg: &QString) {
+        self.remove(pkg, "uninstallUpdates");
+    }
+
+    fn set_enabled(&self, pkg: &QString, enabled: bool) {
+        self.act(
+            "setEnabled",
+            pkg,
+            "SetAppEnabled",
+            (pkg.to_string(), enabled),
+        );
+    }
+
+    /// `action`: "uninstall" the app, or "uninstallUpdates" over a system app.
+    fn remove(mut self: Pin<&mut Self>, pkg: &QString, action: &'static str) {
         let (qt, pkg) = (self.qt_thread(), pkg.to_string());
-        self.as_mut().rust_mut().uninstalling.insert(pkg.clone());
+        self.as_mut()
+            .rust_mut()
+            .uninstalling
+            .insert(pkg.clone(), action);
         io::spawn(async move {
-            let reply = async { packages().await?.uninstall_package(&pkg).await }.await;
+            let reply = async {
+                let packages = packages().await?;
+                match action {
+                    "uninstallUpdates" => packages.uninstall_updates(&pkg).await,
+                    _ => packages.uninstall_package(&pkg).await,
+                }
+            }
+            .await;
             qt.queue(move |mut obj| {
                 let job = reply.as_deref().unwrap_or_default().to_owned();
                 let mut rust = obj.as_mut().rust_mut();
-                if !job.is_empty() && rust.uninstalling.contains(&pkg) {
+                if !job.is_empty() && rust.uninstalling.contains_key(&pkg) {
                     rust.jobs.insert(job, pkg);
-                } else if job.is_empty() && rust.uninstalling.remove(&pkg) {
+                } else if job.is_empty() && rust.uninstalling.remove(&pkg).is_some() {
                     let error = reply
                         .err()
                         .map(|e| crate::shell::message(&e))
                         .filter(|e| !e.is_empty())
                         .unwrap_or_else(|| "Android refused".into());
-                    obj.failed(&q(&pkg), &q("uninstall"), &q(&error));
+                    obj.failed(&q(&pkg), &q(action), &q(&error));
                 }
             })
             .ok();
