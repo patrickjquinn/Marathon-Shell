@@ -2,6 +2,7 @@
 //! shell's old contacts folder.
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -131,7 +132,7 @@ fn entries(value: &Value<'_>) -> Vec<Entry> {
             for (k, v) in dict.iter() {
                 match text(k).as_str() {
                     "type" => entry.kind = text(v),
-                    "value" => entry.value = text(v).trim().to_owned(),
+                    "value" => text(v).trim().clone_into(&mut entry.value),
                     _ => {}
                 }
             }
@@ -203,19 +204,20 @@ impl Contact {
         for e in &self.phones {
             let kind = type_for(&e.kind, TEL_TYPES);
             let kind = if kind.is_empty() { "VOICE" } else { kind };
-            card.push_str(&format!("TEL;TYPE={kind}:{}\n", e.value));
+            writeln!(card, "TEL;TYPE={kind}:{}", e.value).ok();
         }
         for e in &self.emails {
             match type_for(&e.kind, EMAIL_TYPES) {
-                "" => card.push_str(&format!("EMAIL;TYPE=INTERNET:{}\n", e.value)),
-                kind => card.push_str(&format!("EMAIL;TYPE=INTERNET,{kind}:{}\n", e.value)),
+                "" => writeln!(card, "EMAIL;TYPE=INTERNET:{}", e.value),
+                kind => writeln!(card, "EMAIL;TYPE=INTERNET,{kind}:{}", e.value),
             }
+            .ok();
         }
         if !self.organization.is_empty() {
-            card.push_str(&format!("ORG:{}\n", self.organization));
+            writeln!(card, "ORG:{}", self.organization).ok();
         }
         if !self.note.is_empty() {
-            card.push_str(&format!("NOTE:{}\n", escape(&self.note)));
+            writeln!(card, "NOTE:{}", escape(&self.note)).ok();
         }
         if self.favorite {
             card.push_str("X-MARATHON-FAVORITE:TRUE\n");
