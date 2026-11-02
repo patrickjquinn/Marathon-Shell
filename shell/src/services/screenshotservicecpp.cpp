@@ -126,10 +126,12 @@ void ScreenshotServiceCpp::handleSavedScreenshot(const QString &filePath) {
         m_haptics->medium();
     if (m_notificationService) {
         QVariantMap options;
-        options["icon"]     = "camera";
-        options["category"] = "system";
-        options["priority"] = "low";
-        m_notificationService->sendNotification("system", tr("Screenshot captured"),
+        options["icon"]        = "camera";
+        options["category"]    = "system";
+        options["priority"]    = "low";
+        options["route"]       = "/image";
+        options["routeParams"] = QVariantMap{{"path", filePath}};
+        m_notificationService->sendNotification("gallery", tr("Screenshot captured"),
                                                 QFileInfo(filePath).fileName(), options);
     }
 }
