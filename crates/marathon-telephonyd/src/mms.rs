@@ -214,6 +214,8 @@ pub async fn watch(core: &Core) {
                     Err(_) => {}
                 }
             }
+            ("org.ofono.mms.Manager", "ServiceAdded") => discover(core).await,
+            ("org.ofono.mms.Manager", "ServiceRemoved") => forget(core).await,
             (SERVICE, "MessageAdded") => {
                 if let Ok((path, props)) = body.deserialize::<(OwnedObjectPath, Props)>() {
                     added(core, path.to_string(), props).await;
