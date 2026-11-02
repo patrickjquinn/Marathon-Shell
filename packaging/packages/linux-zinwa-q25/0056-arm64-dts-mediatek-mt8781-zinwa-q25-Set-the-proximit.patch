@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:28:01 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Set the proximity
+ near level
+
+The node carries the vendor firmware's near threshold of 3800, which
+belongs to that firmware's own baseline-tracking proximity algorithm.
+With the hx32062se driver the raw count reads 0 with nothing near the
+phone and about 1400 with a finger over the sensor window, so 3800 is
+never reached and nothing is ever reported as near.
+
+Use 600, which separates the two through the Q25's cover glass.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 2886f9d7..a61df551 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -884,7 +884,7 @@
+ 	light-sensor@2b {
+ 		compatible = "tyhx,hx32062se";
+ 		reg = <0x2b>;
+-		proximity-near-level = <3800>;
++		proximity-near-level = <600>;
+ 	};
+ };
+ 

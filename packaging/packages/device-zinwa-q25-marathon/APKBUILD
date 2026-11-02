@@ -18,7 +18,7 @@ replaces="device-mediatek-g99-marathon"
 source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example q25-keyboard.modprobe.conf q25-keyboard.modules-load.conf
  q25-md1-off.service q25-wmt.c q25-connsys.service q25-wmt-launcher.service q25-wifi.service
  q25-wifi.system-sleep 50-q25-wpa_supplicant.conf
- q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules q25-hx.modprobe.conf
+ q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules 
  unudhcpd-usb0.conf q25.preset
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
@@ -87,7 +87,6 @@ package() {
 
     # The IMU is mounted rotated 180 degrees about Z.
     install -Dm644 "$srcdir/61-q25-sensor-local.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-sensor-local.rules"
-    install -Dm644 "$srcdir/q25-hx.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-hx.conf"
 
     install -Dm644 "$srcdir/q25-deckard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-deckard.conf"
     install -Dm644 "$srcdir/q25-haptic.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-haptic.conf"
@@ -193,7 +192,6 @@ b2a59abc6169bdcb7e945ab48ebb4133d986cef7a757a044463b14c47bf82f5c5e6dc259d2ae3e2a
 f21a54d04eb82281555e89df898b5da68b8c6b8d3e3755f972d7610e7e56a672383bf3de1fcb9fca45b3a69d14ddb4c3ad999a7120ce67c1dade5a0816ff961a  HiFi.conf
 db9ebb4d0b288f6c0d5e16b27fcaa4e4c6ded6bc7c24100eb5de10f2b56d5552e8c9e26f26db73f76927d3b0d2ae4d2031ab8f742c309ce6eec9ec3e72a6a977  VoiceCall.conf
 1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
-4a1b6e9a3e6d6dccdd3e600b8e7db7c4ccc8c752eb3f20c9cfd3ab86a4bce3ec7c67b2fe635f18d83bc5c67dcafba19708b40bf14bf2541c11b48fafceb1541d  q25-hx.modprobe.conf
 9e77ff4f12873407255fcbde236299678e238315b27f57401fcdd50b04c5427f2aacb5836bd5ce7c0aa177106e32085ac2e3505ec486d33f1f583dc7cd0f8d01  unudhcpd-usb0.conf
 f1e9538dbffbe77c5b83d294f7b163de4e5ddbe2c5f0b5c7d10aea961bc4447ca56dcf9b8bd7746b6d51970091db3eb93a9f1e950ad3fdb656d189db93f0173b  q25.preset
 1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  q25-usb-gadget

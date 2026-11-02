@@ -1,0 +1,509 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:28:00 +0000
+Subject: [PATCH] iio: light: Add TYHX HX32062SE ambient light and proximity
+ sensor
+
+Add a driver for the TYHX HX32062SE, an ambient light and infrared
+proximity sensor found on the Zinwa Q25.
+
+There is no public datasheet. The register sequences are those the
+vendor sensor-hub firmware uses for this part (chip ID 0x37):
+
+ - a fixed initialisation sequence followed by ALS gain setting 1;
+ - a proximity gain and an ALS dark offset derived from the factory
+   fuses at 0x92/0x95/0x97, which the chip loads itself and which are
+   never written;
+ - a hold bit in 0x83 that latches the data registers for a coherent
+   multi-byte read;
+ - a restart pulse on 0x1a bit 2 after enabling, and a second one once
+   the proximity engine has produced its first frames.
+
+The ALS channel reports the offset-corrected 24-bit count with the
+vendor firmware's lux conversion as the scale. The proximity channel
+reports the raw 16-bit reflectance count, and nearlevel comes from the
+proximity-near-level property as for other IIO proximity sensors.
+
+The vendor firmware polls this part; its interrupt output was not seen
+to reach an application processor pin on the Q25, so the driver polls
+too and offers no events. The sensor is powered on through runtime PM
+when a channel is read, with a five-second autosuspend delay because
+the proximity engine needs 250 ms to produce data after enabling.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ MAINTAINERS                   |   1 +
+ drivers/iio/light/Kconfig     |  11 +
+ drivers/iio/light/Makefile    |   1 +
+ drivers/iio/light/hx32062se.c | 416 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 429 insertions(+)
+ create mode 100644 drivers/iio/light/hx32062se.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index fdd3bc10..52dd8e37 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -26992,6 +26992,7 @@ M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
+ L:	linux-iio@vger.kernel.org
+ S:	Maintained
+ F:	Documentation/devicetree/bindings/iio/light/tyhx,hx32062se.yaml
++F:	drivers/iio/light/hx32062se.c
+ 
+ U-BOOT ENVIRONMENT VARIABLES
+ M:	Rafał Miłecki <rafal@milecki.pl>
+diff --git a/drivers/iio/light/Kconfig b/drivers/iio/light/Kconfig
+index ac1408d3..c5924ead 100644
+--- a/drivers/iio/light/Kconfig
++++ b/drivers/iio/light/Kconfig
+@@ -255,6 +255,17 @@ config GP2AP020A00F
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called gp2ap020a00f.
+ 
++config HX32062SE
++	tristate "TYHX HX32062SE ambient light and proximity sensor"
++	depends on I2C
++	select REGMAP_I2C
++	help
++	  Say Y here to build support for the TYHX HX32062SE ambient light
++	  and proximity sensor.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called hx32062se.
++
+ config IQS621_ALS
+ 	tristate "Azoteq IQS621/622 ambient light sensors"
+ 	depends on MFD_IQS62X || COMPILE_TEST
+diff --git a/drivers/iio/light/Makefile b/drivers/iio/light/Makefile
+index c0048e0d..947d838b 100644
+--- a/drivers/iio/light/Makefile
++++ b/drivers/iio/light/Makefile
+@@ -28,6 +28,7 @@ obj-$(CONFIG_GP2AP002)		+= gp2ap002.o
+ obj-$(CONFIG_GP2AP020A00F)	+= gp2ap020a00f.o
+ obj-$(CONFIG_HID_SENSOR_ALS)	+= hid-sensor-als.o
+ obj-$(CONFIG_HID_SENSOR_PROX)	+= hid-sensor-prox.o
++obj-$(CONFIG_HX32062SE)		+= hx32062se.o
+ obj-$(CONFIG_IQS621_ALS)	+= iqs621-als.o
+ obj-$(CONFIG_SENSORS_ISL29018)	+= isl29018.o
+ obj-$(CONFIG_SENSORS_ISL29028)	+= isl29028.o
+diff --git a/drivers/iio/light/hx32062se.c b/drivers/iio/light/hx32062se.c
+new file mode 100644
+index 00000000..34fd5687
+--- /dev/null
++++ b/drivers/iio/light/hx32062se.c
+@@ -0,0 +1,416 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * TYHX HX32062SE ambient light and proximity sensor
++ *
++ * No datasheet is public. The register sequences below are those of the
++ * vendor sensor-hub firmware shipped on the Zinwa Q25.
++ */
++
++#include <linux/array_size.h>
++#include <linux/bitfield.h>
++#include <linux/bits.h>
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/iio/iio.h>
++#include <linux/minmax.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/pm_runtime.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++#include <linux/types.h>
++#include <linux/unaligned.h>
++
++#define HX32062SE_REG_ID		0x00
++#define HX32062SE_ID_1S2_MC		0x37
++#define HX32062SE_REG_ALS_DATA		0x01	/* 24-bit LE */
++#define HX32062SE_REG_RESTART		0x1a
++#define HX32062SE_RESTART		BIT(2)
++#define HX32062SE_REG_CTRL		0x4c
++#define HX32062SE_CTRL_ALS_EN		GENMASK(2, 0)
++#define HX32062SE_CTRL_PS_EN		BIT(3)
++#define HX32062SE_REG_PS_GAIN		0x67
++#define HX32062SE_PS_GAIN_EN		BIT(4)
++#define HX32062SE_REG_PS_DATA		0x69	/* 16-bit LE */
++#define HX32062SE_REG_PS_START		0x70
++#define HX32062SE_PS_START		0x02
++#define HX32062SE_REG_LATCH		0x83
++#define HX32062SE_LATCH_HOLD		BIT(1)
++#define HX32062SE_REG_EFUSE_FIRST	0x90
++#define HX32062SE_REG_EFUSE_PS_GAIN	0x92
++#define HX32062SE_EFUSE_PS_GAIN		GENMASK(7, 6)
++#define HX32062SE_REG_EFUSE_ALS_OFFSET	0x95
++#define HX32062SE_REG_EFUSE_FLAGS	0x97
++#define HX32062SE_EFUSE_NO_PS_GAIN	BIT(6)
++#define HX32062SE_REG_EFUSE_CTRL	0x9a
++
++/* The proximity engine produces no data before its fifth 50 ms frame. */
++#define HX32062SE_PS_START_US		(250 * USEC_PER_MSEC)
++#define HX32062SE_AUTOSUSPEND_MS	5000
++
++/* Dark offset of the ALS channel at the default gain, in counts. */
++#define HX32062SE_ALS_OFFSET_BASE	245800
++#define HX32062SE_ALS_OFFSET_STEP	1024
++
++/* 20000 / (29 * 25600) lux per count at the default gain. */
++#define HX32062SE_LUX_SCALE_MICRO	26940
++
++struct hx32062se_data {
++	struct regmap *regmap;
++	struct device *dev;
++	/* Serialises the data latch against concurrent reads. */
++	struct mutex lock;
++	u32 near_level;
++	int als_offset;
++};
++
++static const struct reg_sequence hx32062se_init_seq[] = {
++	{ 0x64, 0x00 }, { 0x65, 0x00 }, { 0x66, 0x00 }, { 0x72, 0xff },
++	{ 0x53, 0xf4 }, { 0x52, 0x52 }, { 0x55, 0xc5 }, { 0x50, 0x74 },
++	{ 0x5c, 0x21 }, { 0xe0, 0x00 }, { 0xe1, 0xd7 }, { 0xe2, 0xc8 },
++	{ 0xe3, 0xf8 }, { 0xe4, 0x80 }, { 0xe7, 0x00 }, { 0xe9, 0x3f },
++	{ 0xea, 0x57 }, { 0xeb, 0x04 }, { 0xec, 0x2c }, { 0xed, 0x01 },
++	{ 0xef, 0x9f }, { 0xf0, 0x0f }, { 0x5a, 0x00 }, { 0x5b, 0x01 },
++	{ 0x20, 0x30 }, { 0x21, 0x10 }, { 0x30, 0x30 }, { 0x31, 0x10 },
++	{ 0x54, 0x22 }, { 0x1d, 0x10 }, { 0x80, 0x12 }, { 0x83, 0x00 },
++	{ 0x1f, 0x80 }, { 0x19, 0x00 }, { 0x1d, 0xd0 }, { 0x1e, 0xc0 },
++	{ 0x1c, 0x00 }, { 0x1b, 0x00 }, { 0x8a, 0xd0 }, { 0x8b, 0x00 },
++	{ 0x8c, 0xd0 }, { 0x8d, 0x00 }, { 0x2a, 0x01 }, { 0x2b, 0xfc },
++	{ 0x2c, 0x01 }, { 0x3a, 0x00 }, { 0x3b, 0x00 }, { 0x3c, 0x00 },
++	{ 0x3d, 0x00 }, { 0x4d, 0x00 }, { 0x4e, 0x00 }, { 0x4f, 0x00 },
++	{ 0x29, 0x06 }, { 0x39, 0x06 }, { 0x4a, 0x06 }, { 0x46, 0x00 },
++	{ 0x47, 0x00 }, { 0x48, 0x18 }, { 0x67, 0x18 }, { 0x14, 0x02 },
++	{ 0x77, 0x20 }, { 0x58, 0x80 }, { 0x6e, 0x0f }, { 0x70, 0x00 },
++	{ 0x45, 0x10 }, { 0x1d, 0x10 },
++	/* ALS gain 1 of 3, the only one the scale above is valid for. */
++	{ 0x29, 0x06 }, { 0x39, 0x06 }, { 0x4a, 0x06 }, { 0x8a, 0xd0 },
++	{ 0x8c, 0xd0 }, { 0xe7, 0x00 }, { 0xef, 0xbf },
++};
++
++static int hx32062se_read_latched(struct hx32062se_data *data,
++				  unsigned int reg, u8 *buf, size_t len)
++{
++	int ret, ret2;
++
++	guard(mutex)(&data->lock);
++
++	ret = regmap_set_bits(data->regmap, HX32062SE_REG_LATCH,
++			      HX32062SE_LATCH_HOLD);
++	if (ret)
++		return ret;
++
++	ret = regmap_bulk_read(data->regmap, reg, buf, len);
++	ret2 = regmap_clear_bits(data->regmap, HX32062SE_REG_LATCH,
++				 HX32062SE_LATCH_HOLD);
++
++	return ret ?: ret2;
++}
++
++static int hx32062se_read_channel(struct hx32062se_data *data,
++				  const struct iio_chan_spec *chan, int *val)
++{
++	u8 buf[3];
++	int ret;
++
++	switch (chan->type) {
++	case IIO_LIGHT:
++		ret = hx32062se_read_latched(data, HX32062SE_REG_ALS_DATA,
++					     buf, 3);
++		if (ret)
++			return ret;
++		*val = max_t(int, get_unaligned_le24(buf) - data->als_offset, 0);
++		return 0;
++	case IIO_PROXIMITY:
++		ret = hx32062se_read_latched(data, HX32062SE_REG_PS_DATA,
++					     buf, 2);
++		if (ret)
++			return ret;
++		*val = get_unaligned_le16(buf);
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int hx32062se_read_raw(struct iio_dev *indio_dev,
++			      const struct iio_chan_spec *chan,
++			      int *val, int *val2, long mask)
++{
++	struct hx32062se_data *data = iio_priv(indio_dev);
++	int ret;
++
++	switch (mask) {
++	case IIO_CHAN_INFO_RAW:
++		ret = pm_runtime_resume_and_get(data->dev);
++		if (ret)
++			return ret;
++
++		ret = hx32062se_read_channel(data, chan, val);
++		pm_runtime_put_autosuspend(data->dev);
++		if (ret)
++			return ret;
++
++		return IIO_VAL_INT;
++	case IIO_CHAN_INFO_SCALE:
++		*val = 0;
++		*val2 = HX32062SE_LUX_SCALE_MICRO;
++		return IIO_VAL_INT_PLUS_MICRO;
++	default:
++		return -EINVAL;
++	}
++}
++
++static ssize_t hx32062se_read_near_level(struct iio_dev *indio_dev,
++					 uintptr_t priv,
++					 const struct iio_chan_spec *chan,
++					 char *buf)
++{
++	struct hx32062se_data *data = iio_priv(indio_dev);
++
++	return sysfs_emit(buf, "%u\n", data->near_level);
++}
++
++static const struct iio_chan_spec_ext_info hx32062se_ext_info[] = {
++	{
++		.name = "nearlevel",
++		.shared = IIO_SEPARATE,
++		.read = hx32062se_read_near_level,
++	},
++	{ }
++};
++
++static const struct iio_chan_spec hx32062se_channels[] = {
++	{
++		.type = IIO_LIGHT,
++		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
++				      BIT(IIO_CHAN_INFO_SCALE),
++	},
++	{
++		.type = IIO_PROXIMITY,
++		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
++		.ext_info = hx32062se_ext_info,
++	},
++};
++
++static const struct iio_info hx32062se_info = {
++	.read_raw = hx32062se_read_raw,
++};
++
++static int hx32062se_restart(struct hx32062se_data *data)
++{
++	int ret;
++
++	ret = regmap_clear_bits(data->regmap, HX32062SE_REG_RESTART,
++				HX32062SE_RESTART);
++	if (ret)
++		return ret;
++
++	return regmap_set_bits(data->regmap, HX32062SE_REG_RESTART,
++			       HX32062SE_RESTART);
++}
++
++static int hx32062se_power_on(struct hx32062se_data *data)
++{
++	int ret;
++
++	ret = regmap_set_bits(data->regmap, HX32062SE_REG_CTRL,
++			      HX32062SE_CTRL_ALS_EN | HX32062SE_CTRL_PS_EN);
++	if (ret)
++		return ret;
++
++	ret = hx32062se_restart(data);
++	if (ret)
++		return ret;
++
++	fsleep(HX32062SE_PS_START_US);
++
++	ret = regmap_write(data->regmap, HX32062SE_REG_PS_START,
++			   HX32062SE_PS_START);
++	if (ret)
++		return ret;
++
++	return hx32062se_restart(data);
++}
++
++static int hx32062se_power_off(struct hx32062se_data *data)
++{
++	return regmap_clear_bits(data->regmap, HX32062SE_REG_CTRL,
++				 HX32062SE_CTRL_ALS_EN | HX32062SE_CTRL_PS_EN);
++}
++
++static void hx32062se_disable(void *data)
++{
++	hx32062se_power_off(data);
++}
++
++static int hx32062se_calibrate(struct hx32062se_data *data)
++{
++	unsigned int ps_gain, als_offset, flags;
++	int ret;
++
++	ret = regmap_read(data->regmap, HX32062SE_REG_EFUSE_ALS_OFFSET,
++			  &als_offset);
++	if (ret)
++		return ret;
++
++	data->als_offset = (s8)als_offset * HX32062SE_ALS_OFFSET_STEP +
++			   HX32062SE_ALS_OFFSET_BASE;
++
++	ret = regmap_read(data->regmap, HX32062SE_REG_EFUSE_FLAGS, &flags);
++	if (ret)
++		return ret;
++
++	/* Uncalibrated parts keep the proximity gain of the init sequence. */
++	if (!flags || flags & HX32062SE_EFUSE_NO_PS_GAIN)
++		return 0;
++
++	ret = regmap_read(data->regmap, HX32062SE_REG_EFUSE_PS_GAIN, &ps_gain);
++	if (ret)
++		return ret;
++
++	return regmap_write(data->regmap, HX32062SE_REG_PS_GAIN,
++			    HX32062SE_PS_GAIN_EN |
++			    (FIELD_GET(HX32062SE_EFUSE_PS_GAIN, ps_gain) + 5));
++}
++
++static bool hx32062se_writeable_reg(struct device *dev, unsigned int reg)
++{
++	/* The fuse shadow registers and their load control are left alone. */
++	return reg != HX32062SE_REG_ID &&
++	       (reg < HX32062SE_REG_EFUSE_FIRST ||
++		reg > HX32062SE_REG_EFUSE_CTRL);
++}
++
++static const struct regmap_config hx32062se_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.max_register = 0xff,
++	.writeable_reg = hx32062se_writeable_reg,
++};
++
++static int hx32062se_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct hx32062se_data *data;
++	struct iio_dev *indio_dev;
++	unsigned int id;
++	int ret;
++
++	indio_dev = devm_iio_device_alloc(dev, sizeof(*data));
++	if (!indio_dev)
++		return -ENOMEM;
++
++	data = iio_priv(indio_dev);
++	data->dev = dev;
++
++	ret = devm_mutex_init(dev, &data->lock);
++	if (ret)
++		return ret;
++
++	ret = devm_regulator_get_enable(dev, "vdd");
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to enable vdd supply\n");
++
++	data->regmap = devm_regmap_init_i2c(client, &hx32062se_regmap_config);
++	if (IS_ERR(data->regmap))
++		return dev_err_probe(dev, PTR_ERR(data->regmap),
++				     "Failed to init regmap\n");
++
++	ret = regmap_read(data->regmap, HX32062SE_REG_ID, &id);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to read chip ID\n");
++
++	if (id != HX32062SE_ID_1S2_MC)
++		dev_info(dev, "Unknown chip ID 0x%02x\n", id);
++
++	ret = hx32062se_power_off(data);
++	if (ret)
++		return ret;
++
++	ret = regmap_multi_reg_write(data->regmap, hx32062se_init_seq,
++				     ARRAY_SIZE(hx32062se_init_seq));
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to initialise\n");
++
++	ret = hx32062se_calibrate(data);
++	if (ret)
++		return ret;
++
++	device_property_read_u32(dev, "proximity-near-level",
++				 &data->near_level);
++
++	ret = hx32062se_power_on(data);
++	if (ret)
++		return ret;
++
++	ret = devm_add_action_or_reset(dev, hx32062se_disable, data);
++	if (ret)
++		return ret;
++
++	pm_runtime_get_noresume(dev);
++	pm_runtime_set_autosuspend_delay(dev, HX32062SE_AUTOSUSPEND_MS);
++	pm_runtime_use_autosuspend(dev);
++	ret = devm_pm_runtime_set_active_enabled(dev);
++	if (ret)
++		return ret;
++
++	indio_dev->name = "hx32062se";
++	indio_dev->info = &hx32062se_info;
++	indio_dev->channels = hx32062se_channels;
++	indio_dev->num_channels = ARRAY_SIZE(hx32062se_channels);
++	indio_dev->modes = INDIO_DIRECT_MODE;
++
++	ret = devm_iio_device_register(dev, indio_dev);
++	if (ret)
++		return ret;
++
++	pm_runtime_put_autosuspend(dev);
++
++	return 0;
++}
++
++static int hx32062se_runtime_suspend(struct device *dev)
++{
++	struct hx32062se_data *data = iio_priv(dev_get_drvdata(dev));
++
++	return hx32062se_power_off(data);
++}
++
++static int hx32062se_runtime_resume(struct device *dev)
++{
++	struct hx32062se_data *data = iio_priv(dev_get_drvdata(dev));
++
++	return hx32062se_power_on(data);
++}
++
++static DEFINE_RUNTIME_DEV_PM_OPS(hx32062se_pm_ops, hx32062se_runtime_suspend,
++				 hx32062se_runtime_resume, NULL);
++
++static const struct of_device_id hx32062se_of_match[] = {
++	{ .compatible = "tyhx,hx32062se" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, hx32062se_of_match);
++
++static const struct i2c_device_id hx32062se_id[] = {
++	{ "hx32062se" },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, hx32062se_id);
++
++static struct i2c_driver hx32062se_driver = {
++	.driver = {
++		.name = "hx32062se",
++		.of_match_table = hx32062se_of_match,
++		.pm = pm_ptr(&hx32062se_pm_ops),
++	},
++	.probe = hx32062se_probe,
++	.id_table = hx32062se_id,
++};
++module_i2c_driver(hx32062se_driver);
++
++MODULE_AUTHOR("Patrick Quinn <patrick.jm.quinn@gmail.com>");
++MODULE_DESCRIPTION("TYHX HX32062SE ambient light and proximity sensor driver");
++MODULE_LICENSE("GPL");
