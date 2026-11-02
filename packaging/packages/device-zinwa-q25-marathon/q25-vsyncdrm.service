@@ -1,6 +1,6 @@
 [Unit]
 Description=Q25: scan-locked vblank for the firmware framebuffer
-ConditionKernelVersion=7.0.0-q25-cfi-test
+ConditionKernelVersion=7.0.0-q25
 # Plymouth holds card0 until it quits; a rebind under it moves the display
 # to a new minor that the session does not open.
 After=systemd-modules-load.service q25-gpu-prepare.service plymouth-quit-wait.service

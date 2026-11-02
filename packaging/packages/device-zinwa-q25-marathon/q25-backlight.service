@@ -1,6 +1,6 @@
 [Unit]
 Description=Q25: panel brightness through the OCP2131 bias supply
-ConditionKernelVersion=7.0.0-q25-cfi-test
+ConditionKernelVersion=7.0.0-q25
 ConditionPathExists=/sys/bus/platform/devices/14013000.panel-doze
 After=systemd-modules-load.service
 Before=greetd.service

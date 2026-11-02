@@ -22,7 +22,7 @@ bootloader = "none"
 method = "uefi"
 partition_table = "gpt"
 
-# 7.0.0-q25-cfi-test, built from source; every module package is pinned
+# 7.0.0-q25, built from source; every module package is pinned
 # to it.
 [kernel]
 package = "linux-zinwa-q25"

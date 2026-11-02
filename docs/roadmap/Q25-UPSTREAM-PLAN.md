@@ -92,7 +92,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H22 | `q25-audio-pd` (`audio/q25/`) | Second genpd provider on the same SPM node, resolving only AUDIO (11). | Same. | W3 |
 | H23 | `q25-conn-pd` (`conn-pd/`) | Provider for CONN (1) plus a reset controller on `toprgu` exposing only bit 12. | Same; `mtk-wdt` binds toprgu through the mt6589 fallback without MT6789 reset data. | W3 |
 | H24 | `q25-cam-pd` (`cam-pd/`) | Provider for CAM (12). | Same. | W3 |
-| H25 | `q25-mt6366-irqfix` (`audio/q25irqfix/`) | Patches the PMIC irq chip's group table at runtime (AUD/MISC bits 7/8). | Mainline `enum mt6358_irq_top_status_shift` has AUD=6, MISC=7 (still wrong in v7.4-rc1): ACCDET storms at ~24000 irq/s. Fixed in-tree by our `0009`. | W10 (and phase 0: the from-source kernel already carries 0009) |
 | H26 | `q25-panel-doze` (`panel/`), DT node `zinwa,q25-panel-doze` (patch `0008`) | Binds to the DSI register range and sends DCS sleep/wake as video-mode commands; drives GPIO84 (OCP2131 enable) and GPIO85 (panel reset); `ocp_attach` brightness over I2C. | No DSI/DRM driver owns the pipeline (H1). | W5 |
 | H27 | `q25-vsyncdrm` (`display/`, 1261 lines) | A copy of simpledrm that reads RDMA0's line counter to fake a scan-locked vblank; keeps the DRM name `simpledrm` for Mesa. | Same. | W5 |
 | H28 | `q25-mt6358-live` (`gauge/`) + kernel `0002` | Root-only snapshot of PMIC current and CAR registers, cache for the userspace model. | No fuel-gauge driver. | W9 |
