@@ -384,6 +384,21 @@ A device's hardware works through kernel drivers and its device tree, written to
 
 Where no mainline path exists yet (vendor CONNSYS, modem), vendor code lives in its own clearly named package, is never extended with Marathon features, and every userspace helper it needs is listed in the device's upstream plan. New hardware support does not start from vendor drivers when a mainline or upstreamable route exists.
 
+### H3. Every existing workaround has an exit
+
+Each hardware workaround that predates H1 has an `H#` entry in the device's upstream plan
+(docs/roadmap/Q25-UPSTREAM-PLAN.md for the Q25) naming the work item that replaces it. A change
+that adds a workaround without an entry is rejected; a change that lands a replacement deletes the
+workaround and its entry in the same series. Nothing new is added to a workaround: not a module
+parameter, not a retry, not a second consumer.
+
+### H4. The board DT uses upstream bindings
+
+Board device trees use only compatibles and properties that are in mainline or in a patch posted
+to the relevant list or the device's upstream tree, and pass `make dtbs_check`. Marathon-only or
+vendor compatibles live in overlays shipped by the package that needs them, never in the board DTS,
+and nodes refer to each other by label, never by raw phandle.
+
 ---
 
 ## How to use this document
