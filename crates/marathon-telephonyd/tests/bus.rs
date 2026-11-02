@@ -65,6 +65,14 @@ fn texts_and_calls_are_kept_for_permitted_apps() {
         assert_eq!(threads.len(), 1);
         assert_eq!(text(&threads[0], "id"), "+14155550142");
         assert_eq!(text(&threads[0], "lastMessage"), "hello");
+        assert_eq!(text(&threads[0], "contactName"), "");
+        assert_eq!(text(&threads[0], "displayNumber"), "+1 415-555-0142");
+        assert_eq!(
+            call::<String>(&app, "Sms", "FormatNumber", &("+353834700345",))
+                .await
+                .unwrap(),
+            "+353 83 470 0345"
+        );
         let messages = rows(
             call(&app, "Sms", "GetMessages", &("+14155550142",))
                 .await

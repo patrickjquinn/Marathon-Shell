@@ -228,6 +228,11 @@ impl SmsService {
         Ok(self.0.store.with(move |s| s.conversation_id(&number)).await)
     }
 
+    /// Pure formatting, so open to any caller: apps ask per number shown.
+    async fn format_number(&self, number: String) -> String {
+        self.0.store.with(move |s| s.display_number(&number)).await
+    }
+
     #[zbus(name = "SimulateIncomingSMS")]
     async fn simulate_incoming_sms(
         &self,
