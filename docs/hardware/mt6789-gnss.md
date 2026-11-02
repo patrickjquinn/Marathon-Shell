@@ -364,11 +364,18 @@ One daemon owns `/dev/gnssN` (opening it boots the DSP) and does what
    mapped by elevation, Klobuchar ionospheric corrections, leave-one-out on inconsistent
    epochs, then a constant-velocity Kalman filter (σ = 10 m × HDOP,
    innovation gate χ²₃ 0.1 %, restart after five refusals).
-5. Start: `--approx`, else the last position saved in `--state`, else the
-   time zone's location (`zone1970.tab`), from which a coarse search over
-   a 75 km grid up to 2500 km finds the first fix (≥ 5 GPS satellites).
-   Sixty epochs with satellites but no fix near the approximate position
-   start the search again. Accepted fixes move the approximate position.
+5. Start: `--approx`, else the last position saved in `--state` (with the
+   ephemerides decoded in the last four hours, `FILE.nav`), else the time
+   zone's location (`zone1970.tab`). From a guess the first fix is a coarse
+   search over a 75 km grid up to 2500 km away: from three GPS
+   ephemerides, each grid point's code solution is checked against the
+   satellites' Doppler for a still receiver, averaged per cell over five
+   epochs, and the clearly best cell wins (five or more satellites can
+   also decide on code residuals, for a moving receiver). After 30 epochs
+   without an answer the search covers the whole Earth. Sixty epochs with
+   satellites but no fix near the approximate position start the search
+   again. Accepted fixes move the approximate position; the height is
+   learnt from fixes solved without the height constraint.
 6. Output: NMEA GGA (MSL height, EGM2008 geoid separation, HDOP, satellites
    used) and RMC to the clients of systemd's socket
    `/run/marathon-gnssd.sock`, which GeoClue's `[network-nmea]` source
@@ -390,10 +397,18 @@ With `--systems GRC` and RINEX, after slot calibration: reference run 2
 81 %, 17 m, 41 m; native run 1 unchanged (37 %); native run 2 82 %, 12 m,
 25 m, maximum 38 m instead of 64 m.
 
-Started from a time-zone guess instead of a position (Dublin, Paris, Rome
-and Oslo all landed on the same first fix), run 2 reaches its first fix
-after five GPS ephemerides have been read from the sky, 5–10 minutes in
-these window captures.
+Fully cold (no RINEX, no position, time-zone seed) the first fix comes
+after 49 s (native run 2), 63 s (native run 1) and 205 s (reference run
+2, whose third GPS ephemeris arrives at 170 s); seeded at New York or
+Sydney instead, after 94, 109 and 237 s, all on the surveyed point.
+Until the height has been measured the fixes lean on a sea-level guess,
+which costs accuracy with three or four satellites (native run 1: median
+64 m cold against 22 m with a known height).
+
+The journal shows where a start is: the seed, each ephemeris decoded,
+the coarse fix, the time to first fix, the learnt height, and every 30 s
+the satellites locked per system, the ephemerides held and what the
+engine is waiting for.
 
 ## Kernel driver
 
