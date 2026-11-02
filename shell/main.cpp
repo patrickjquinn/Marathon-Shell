@@ -884,7 +884,7 @@ int main(int argc, char *argv[]) {
         qInfo() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
     }
 
-    createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
+    createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", settingsManager, &app);
     qInfo() << "Input Method Engine initialized";
 
     auto *remoteTextInput = new RemoteTextInput();
