@@ -9,11 +9,12 @@ soc = "mt6789"
 status = "bring-up"
 package = "device-zinwa-q25-marathon"
 
-# The image is a root file on the userdata carrier, booted by the kernel,
-# initramfs and ESP already on the phone; the pipeline builds no loader.
+# mkosi builds the root alone; the wrapper puts it on the userdata carrier
+# beside an ESP made from the root's /boot, and builds U-Boot for lk_a/lk_b.
 [build]
 target = "zinwa-q25"
 wrapper = "scripts/build-zinwa-q25-image.sh"
+flash = "scripts/flash/flash-zinwa-q25.sh"
 bootloader = "none"
 
 # U-Boot (lk_a) boots systemd-boot from the nested-GPT ESP inside userdata.
