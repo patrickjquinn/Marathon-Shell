@@ -69,10 +69,12 @@ Page {
             }
         }
 
-        delegate: TextSwitch {
+        delegate: IconTextSwitch {
             required property var modelData
 
             objectName: "access-" + modelData.pkg
+            icon.source: modelData.icon || "image://theme/icon-m-apps"
+            icon.sourceSize: Qt.size(Theme.iconSizeMedium, Theme.iconSizeMedium)
             text: modelData.label
             automaticCheck: false
             checked: modelData.granted

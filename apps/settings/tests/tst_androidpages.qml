@@ -286,6 +286,30 @@ TestCase {
         compare(String(bad.app.pageStack.currentPage).indexOf("AndroidAccessListPage"), 0);
     }
 
+    function test_accessIcons() {
+        AndroidApps.access = {
+            battery: [
+                {
+                    pkg: "com.aurora.store",
+                    label: "Aurora Store",
+                    granted: true,
+                    icon: "file:///run/user/1000/deckard/icons/com.aurora.store.png"
+                },
+                {
+                    pkg: "org.fdroid.fdroid",
+                    label: "F-Droid",
+                    granted: false,
+                    icon: ""
+                }
+            ]
+        };
+        const s = open("androidaccess/battery");
+        tryVerify(() => String(s.app.pageStack.currentPage).indexOf("AndroidAccessPage") === 0 && !s.app.pageStack.busy);
+        const page = s.app.pageStack.currentPage;
+        compare(String(child(page, "access-com.aurora.store").icon.source), "file:///run/user/1000/deckard/icons/com.aurora.store.png");
+        compare(String(child(page, "access-org.fdroid.fdroid").icon.source), "image://theme/icon-m-apps");
+    }
+
     // Android won't remove Deckard's own packages: Settings doesn't offer it.
     function test_deckardPackagesStay() {
         AndroidApps.apps = AndroidApps.apps.concat([

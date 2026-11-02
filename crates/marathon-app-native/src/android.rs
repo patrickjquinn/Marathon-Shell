@@ -183,6 +183,23 @@ async fn packages() -> zbus::Result<PackagesProxy<'static>> {
     PackagesProxy::new(&io::session_bus().await?).await
 }
 
+/// Icons of the apps not in `known`, by package, as Deckard has them.
+async fn icons(apps: &[Map], known: &HashSet<String>) -> Vec<(String, String)> {
+    let Ok(deckard) = deckard().await else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for pkg in apps.iter().map(|a| text(a, "pkg")) {
+        if known.contains(&pkg) {
+            continue;
+        }
+        if let Some(icon) = deckard.app_icon(&pkg).await.ok().filter(|i| !i.is_empty()) {
+            out.push((pkg, icon));
+        }
+    }
+    out
+}
+
 #[derive(Default)]
 pub struct AndroidAppsRust {
     available: bool,
@@ -616,10 +633,16 @@ impl AndroidApps {
 
     fn load_special_access(&self, kind: &QString) {
         let (qt, kind) = (self.qt_thread(), kind.to_string());
+        let known: HashSet<String> = self.icons.keys().cloned().collect();
         io::spawn(async move {
             let apps = async { deckard().await?.get_special_access(&kind).await }.await;
-            qt.queue(move |obj| match apps {
+            let icons = match &apps {
+                Ok(apps) => icons(apps, &known).await,
+                Err(_) => Vec::new(),
+            };
+            qt.queue(move |mut obj| match apps {
                 Ok(apps) => {
+                    obj.as_mut().rust_mut().icons.extend(icons);
                     let list = obj.with_icons(apps);
                     obj.special_access_loaded(&q(&kind), &list);
                 }
