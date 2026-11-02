@@ -4,6 +4,10 @@ Status: research only, 2026-11-02. Nothing here is built or shipped. How GNSS
 is done is decided in `Q25-UPSTREAM-PLAN.md`; this file records the facts that
 decision needs.
 
+Option 1 has since been taken up: the DSP boot protocol, firmware layout and
+message catalogue are in `docs/hardware/mt6789-gnss.md`, with a driver,
+firmware extractor and bring-up plan; the positioning engine is still open.
+
 ## Today
 
 - ModemManager reports only `3gpp-lac-ci` location; the MD1 modem has no GNSS
