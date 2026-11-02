@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:05:12 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Keep the modem's SIM
+ and PA rails on
+
+The modem uses VSIM1 for the SIM card and VPA for its power amplifier and
+switches them itself; nothing in Linux consumes them. Both are on when the
+modem runs, so the regulator core would switch them off as unused once the
+board no longer boots with regulator_ignore_unused. Mark them always-on.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 1488c371..cffb1218 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -257,6 +257,8 @@
+ 				regulator-enable-ramp-delay = <250>;
+ 				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
+ 				                           MT6397_BUCK_MODE_FORCE_PWM>;
++				/* The modem drives it; no Linux consumer. */
++				regulator-always-on;
+ 			};
+ 
+ 			mt6366_vproc11_reg: vproc11 {
+@@ -337,6 +339,8 @@
+ 				regulator-min-microvolt = <1700000>;
+ 				regulator-max-microvolt = <3100000>;
+ 				regulator-enable-ramp-delay = <540>;
++				/* The modem drives it; no Linux consumer. */
++				regulator-always-on;
+ 			};
+ 
+ 			mt6366_vibr_reg: vibr {

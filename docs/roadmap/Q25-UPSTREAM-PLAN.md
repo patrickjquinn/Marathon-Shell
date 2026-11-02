@@ -60,9 +60,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H# | Item | Why it exists | Fixed by |
 |---|---|---|---|
 | H1 | `modprobe.blacklist=mediatek-drm,panfrost,panel-zinwa-q20-hd720,phy-mtk-mipi-dsi-drv` (and `pkg/q25-gpu-render/q25-render-only-blacklist.conf`, which adds `mtk_mmsys`) | With the display nodes enabled, udev autoloads mediatek-drm in the initramfs; it takes over the DSI that LK left scanning and hangs in the first atomic commit, wedging boot. Panfrost is held back so `q25-gpu-prepare` can load it after its own power-domain shim. | W5, W6 |
-| H2 | `pd_ignore_unused` | No complete MT6789 power-domain provider; the shims register single domains, and genpd would otherwise switch off DISP (and others) under the firmware framebuffer. | W3, W4 |
-| H3 | `clk_ignore_unused` | simple-framebuffer does not claim the display clocks, and the imp_iic_wrap I2C gates are orphans (H20); the unused-clock sweep would gate live clocks. | W2, W4 |
-| H4 | `regulator_ignore_unused` | The display and panel rails LK left on are not claimed by any consumer. HW notes: "iteration-1 PMIC enable bricked the device" (`~/zinwa-q25-port/dumps/HW_MAP.md`): regulators switched under the live panel. | W4, W5 |
 | H6 | `earlycon=efifb` | Debug console into the live scanout; with `keep_bootcon` it caused the "screen jump" (`Q/display-corruption/HANDOFF.md`). Harmless now, but it writes into the framebuffer. | Drop with W5. |
 
 ### 2.2 Boot services and scripts that touch hardware (`pkg/device-zinwa-q25-marathon/`, `pkg/q25-gpu-render/`)

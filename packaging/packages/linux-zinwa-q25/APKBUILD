@@ -96,6 +96,10 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0035-arm64-dts-mediatek-mt6789-Make-the-TOPRGU-a-reset-co.patch
 	0036-arm64-dts-mediatek-mt8781-zinwa-q25-Take-the-CONN-MC.patch
 	0037-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-the-GPU-p.patch
+	0038-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-bootloa.patch
+	0039-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-VBIF28-on.patch
+	0040-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-UFS-VCC-f.patch
+	0041-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-modem-s.patch
 	0043-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 	0044-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
 "
@@ -224,6 +228,10 @@ c542777721b20fb01d8f407e88dfe0e6590beadb2e0b0cdec45dc983b8208e550528fe8f19601464
 2c2199950a2b06c9d4c256a740df967ead7c9025a82e061d93df036c200cae0d998f42b0a842fbbec3ff6a055423a3f6e123b209b6b8c910bd491451e4a1b25d  0035-arm64-dts-mediatek-mt6789-Make-the-TOPRGU-a-reset-co.patch
 19ff0bf45779b29b2a32e87bcbae5daf4a27e705cf9153b868c222188c1af0691be0586809a798f2c5fb45d42bb130bfc96506afe3a5ddccc22df1cbefd44b42  0036-arm64-dts-mediatek-mt8781-zinwa-q25-Take-the-CONN-MC.patch
 efc178c105812369c599b18c4d1004b2bf6ab12b332c162d89959746dd8e9549bfe70a234530c04d483540b4358890b545be116aa2055acb063b375538db2de6  0037-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-the-GPU-p.patch
+1c886629b9e74fa4ab6180e0cd4a06f9fa3136f74cd76598b8f12af8ee1ea4f2f41d4850f7f25c50e10e48ef0e766631aca948bc54ae527eecc29e6d45e5fe17  0038-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-bootloa.patch
+51797b5426c655724b56c074c3daab57ca84bda2013ace3c59b57a11999b6643082047d9fbe1d82b5f292ec6b727e38dc56b6f1767bbeb9d23ba8730c1388e8f  0039-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-VBIF28-on.patch
+d128744a2a7e46f5f8b2fb3fcdbbe772eb259b95a2872542f664b4b81a6df1e927d681e84cebc16cf96f586335279c81eef676da90458d35be66747373920ee7  0040-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-UFS-VCC-f.patch
+eebd6b5f2e2b7984e9002932bd26b2f16f3b0ffaebaa2dadcf1e0d52292daeb994bb183fca82df6b47d0a658c29c193fa83aee408e9b40908549c6b1edd19440  0041-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-modem-s.patch
 53bf5b7b5a8e022026cf0f6386c4415c24641c35a78f947dd1e93d00da2c6401989790d16f6bfbecf0f44f6c2e8bbbfe09d96225eb3f9b05dca273a98487932a  0043-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 b384eb0a745cabc582cb7e74e27d62669de2cabead637945edcf4ccf473b493c96036f3e71882338b4346dff9c1eaab5df63af9f180b6ea7c988c372514107c3  0044-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
