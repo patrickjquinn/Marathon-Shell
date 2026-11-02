@@ -10,7 +10,7 @@ url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND Apache-2.0"
 options="!check !strip !tracedeps"
-depends="kmod util-linux q25-kernel-modules>=7.0.0-r23 modemmanager-mtk-ccci"
+depends="kmod util-linux q25-kernel-modules>=7.0.0-r24 modemmanager-mtk-ccci"
 makedepends="gcc make musl-dev linux-headers"
 _units="q25-modem.target q25-modem-owner.service q25-modem-stack.service q25-modem-nv.service
  q25-ccci-rpcd.service q25-ccci-fsd.service q25-ccci-mdinit.service q25-modem-init.service
