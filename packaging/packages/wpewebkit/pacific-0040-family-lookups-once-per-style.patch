@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 Patrick Quinn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# A page in many languages draws in a second, not a minute.
+#
+# FontCache keys its platform data by the whole FontDescription, locale
+# included, so each new lang="" asked Skia's fontconfig manager again for
+# every family in the font-family list, installed or not. matchFamilyStyle()
+# takes no locale. www.wikipedia.org has 354 lang="" values and an
+# eight-family system-sans list: about 2800 FcFontMatch() calls before the
+# first paint, 8 s of the WebProcess's main thread on an Apple-silicon
+# laptop; on the Zinwa Q25 (Helio G99) the page showed after about a minute,
+# its WebProcess's main thread at 61 s of CPU. The typeface is now looked up
+# once per family and style (weight, width, slant), absent families
+# included, and forgotten when fonts change (platformInvalidate()). 354
+# lang="" paragraphs with that list took 6.5 s to load on the laptop, and
+# 0.13 s without the lang="". Upstream main has the same code.
+#
+--- a/Source/WebCore/platform/graphics/FontCache.h
++++ b/Source/WebCore/platform/graphics/FontCache.h
+@@ -83,6 +83,9 @@
+ #if USE(SKIA)
+ #include "SkiaHarfBuzzFontCache.h"
+ #include <skia/core/SkFontMgr.h>
++#include <skia/core/SkTypeface.h>
++#include <wtf/HashMap.h>
++#include <wtf/text/StringHash.h>
+ #if !OS(ANDROID) && !PLATFORM(WIN)
+ #include "SkiaSystemFallbackFontCache.h"
+ #endif
+@@ -289,6 +292,9 @@
+ #if !OS(ANDROID) && !PLATFORM(WIN)
+     SkiaSystemFallbackFontCache m_skiaSystemFallbackFontCache;
+ #endif
++    // Pacific (patch 0040): matchFamilyStyle() by family and style, whatever
++    // the locale; null when the family is not installed.
++    HashMap<String, sk_sp<SkTypeface>> m_typefaceForFamilyCache;
+ #endif
+ 
+ #if PLATFORM(WIN) && USE(SKIA)
+--- a/Source/WebCore/platform/graphics/skia/FontCacheSkia.cpp
++++ b/Source/WebCore/platform/graphics/skia/FontCacheSkia.cpp
+@@ -32,6 +32,7 @@
+ #include "StyleFontSizeFunctions.h"
+ #include <wtf/Assertions.h>
+ #include <wtf/text/CString.h>
++#include <wtf/text/MakeString.h>
+ #include <wtf/text/CharacterProperties.h>
+ #include <wtf/unicode/CharacterNames.h>
+ 
+@@ -414,7 +415,12 @@
+         return nullptr;
+     auto familyName = getFamilyNameStringFromFamily(family);
+     auto skFontStyle = skiaFontStyle(fontDescription);
+-    auto typeface = fontManager().matchFamilyStyle(familyName.utf8().data(), skFontStyle);
++    // Pacific (patch 0040): the platform data cache is keyed by locale too,
++    // so each lang="" asked fontconfig again for the same family.
++    auto key = makeString(familyName, '\n', skFontStyle.weight(), ',', skFontStyle.width(), ',', static_cast<int>(skFontStyle.slant()));
++    auto typeface = m_typefaceForFamilyCache.ensure(key, [&] {
++        return fontManager().matchFamilyStyle(familyName.utf8().data(), skFontStyle);
++    }).iterator->value;
+     if (!typeface)
+         return nullptr;
+ 
+@@ -446,6 +452,7 @@
+ 
+ void FontCache::platformInvalidate()
+ {
++    m_typefaceForFamilyCache.clear();
+ }
+ 
+ void FontCache::platformPurgeInactiveFontData()

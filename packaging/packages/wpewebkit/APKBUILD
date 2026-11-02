@@ -6,7 +6,7 @@
 # Pacific's own (shoal/pacific/engine/build/patches, as pacific-*.patch).
 pkgname=wpewebkit
 pkgver=2.54.2
-pkgrel=0
+pkgrel=1
 _atlantic=a91f8ecdea2e4fe8fa017d6a28503a4d01edf381
 pkgdesc="WebKit port optimized for embedded devices"
 url="https://wpewebkit.org/"
@@ -92,6 +92,7 @@ source="https://wpewebkit.org/releases/wpewebkit-$pkgver.tar.xz
 	pacific-0037-visible-tiles-first.patch
 	pacific-0038-frame-threads-preempt.patch
 	pacific-0039-scene-layers-lock-order.patch
+	pacific-0040-family-lookups-once-per-style.patch
 	"
 options="!check"
 
@@ -220,4 +221,5 @@ a2dc4fd93fa99700f145b49e231a1781e46dbc091d4446b0a48a03292279859ef7de4855c7320cba
 003271ff7df2a183e8ca4dbd3da115a72ecda51d8da4ca4421f7962f09c422f1f56bb279967baef7b453d6d5fe442e7eec09870a4b1bd7f3df8150b9a4b23e2d  pacific-0037-visible-tiles-first.patch
 e44257e3faba924d2fab1392f11d5ae6934dd45ad4e3bb923225f61eb4a044c9fa5da00c6736867b7f5c299318925ac6b9f54b984d5fc499f282afbf519f4796  pacific-0038-frame-threads-preempt.patch
 5fc07809c9ede2a83751ee30400194983e52749e53b1902156a2dd3a7178daad34048a1230f0c27930cb67903204afe3e9a58b3b027f7576a847e8a73d88da07  pacific-0039-scene-layers-lock-order.patch
+ee6b3743db1932bf22280a9202fb42dc3d826bd5fc75fa4b2054f41f6d5ffbbda5c498a5e44be8e74acd678892c43a7cb0bf92d20f8dcce065179c15a64422e0  pacific-0040-family-lookups-once-per-style.patch
 "
