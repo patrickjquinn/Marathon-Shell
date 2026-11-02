@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
-# Build the Zinwa Q25 root: an ext4 file that the phone's carrier boots
-# with q25.rootfs_file=, on the kernel, initramfs and ESP already on the
-# phone. Nothing here builds or changes those.
+# Build the Zinwa Q25 image (docs/install/ZINWA_Q25.md).
 #
 # Output, in $Q25_IMAGE_OUT (default $MARATHON_BUILD_DIR/q25):
-#   q25-duranium-<date>-<rev>.ext4, .ext4.zst and SHA256SUMS
+#   q25-duranium-<date>-<rev>.ext4, .ext4.zst  the root, which the carrier
+#                                     boots with q25.rootfs_file= (an
+#                                     installed phone takes it with
+#                                     scripts/q25/q25-root-install.sh)
+#   q25-duranium-<date>-<rev>.userdata.img(.zst)  the whole userdata
+#                                     partition for a new install
+#                                     (scripts/q25/q25-userdata-image.sh)
+#   u-boot-q25.bin, gimme-uboot.py    U-Boot for lk_a/lk_b, and the tool
+#                                     that puts it into the phone's own lk
+#                                     image (scripts/q25/build-q25-uboot.sh)
+#   q25-duranium-<date>-<rev>.SHA256SUMS
+# scripts/flash/flash-zinwa-q25.sh flashes them.
 #
 # Env:
 #   Q25_KERNEL_APK            the prebuilt linux-postmarketos-mediatek-g99
@@ -13,6 +22,7 @@
 #                             q25-connsys-firmware aport when it is missing
 #                             there
 #   MARATHON_BUILD_DIR        as for scripts/build-image.sh
+#   PODMAN                    for the U-Boot build (default podman)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$SCRIPT_DIR")"
@@ -42,6 +52,11 @@ mv "$ROOT" "$DEST/$NAME.ext4"
 rm -f "$IMAGE.raw"
 e2fsck -fn "$DEST/$NAME.ext4"
 zstd -T0 -10 -f "$DEST/$NAME.ext4" -o "$DEST/$NAME.ext4.zst"
-(cd "$DEST" && sha256sum "$NAME.ext4" "$NAME.ext4.zst" > "$NAME.SHA256SUMS")
-echo "==> $DEST/$NAME.ext4"
+bash "$SCRIPT_DIR/q25/q25-userdata-image.sh" "$DEST/$NAME.ext4" "$DEST/$NAME.userdata.img"
+zstd -T0 -10 -f "$DEST/$NAME.userdata.img" -o "$DEST/$NAME.userdata.img.zst"
+bash "$SCRIPT_DIR/q25/build-q25-uboot.sh" "$DEST/u-boot"
+cp "$DEST/u-boot/u-boot-q25.bin" "$DEST/u-boot/src/gimme-uboot.py" "$DEST/"
+(cd "$DEST" && sha256sum "$NAME.ext4" "$NAME.ext4.zst" "$NAME.userdata.img" "$NAME.userdata.img.zst" \
+    u-boot-q25.bin gimme-uboot.py > "$NAME.SHA256SUMS")
+echo "==> $DEST/$NAME.userdata.img"
 cat "$DEST/$NAME.SHA256SUMS"
