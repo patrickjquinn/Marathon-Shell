@@ -5,7 +5,9 @@
 //! shortest side, and it either declares `Purism::form_factor` mobile or has
 //! a `display_length` admitting 360 px together with a touch `<control>`, in
 //! `requires`, `recommends` or `supports`. Anything else, including an app
-//! that says nothing, is left out.
+//! that says nothing, is left out. A fitting app is phone-first when it
+//! declares the mobile form factor, or expects touch (`requires` or
+//! `recommends`) and recommends no screen bigger than a phone.
 //!
 //! The fitting apps' details go to Reef as `flathub.json`, in the language
 //! the catalogue is written in.
@@ -32,8 +34,10 @@ const PHONE_MAX: u32 = 768;
 struct Component {
     app: bool,
     required_too_big: bool,
+    recommended_too_big: bool,
     fits: bool,
     touch: bool,
+    touch_expected: bool,
     mobile: bool,
     details: App,
 }
@@ -57,14 +61,22 @@ pub struct App {
     /// The newest release's version and Unix time (0: unknown).
     pub version: String,
     pub released: u64,
+    /// Made for a phone first; the Store's banner prefers these.
+    pub phone_first: bool,
 }
 
 const MAX_SCREENSHOTS: usize = 5;
+/// Changes when `flathub.json` does, so a cache from before is read again.
+const ROWS_FORMAT: u64 = 2;
 const MAX_DESCRIPTION: usize = 4000;
 
 impl Component {
     fn phone_ready(&self) -> bool {
         self.app && !self.required_too_big && (self.mobile || (self.fits && self.touch))
+    }
+
+    fn phone_first(&self) -> bool {
+        self.mobile || (self.touch_expected && !self.recommended_too_big)
     }
 }
 
@@ -190,6 +202,7 @@ pub fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
                 let in_component = path.len() >= 2 && path[1] == "component";
                 if !in_component && name == "component" && path.len() == 1 {
                     if component.phone_ready() && !component.details.id.is_empty() {
+                        component.details.phone_first = component.phone_first();
                         out.push(std::mem::take(&mut component.details));
                     }
                 } else if in_component && !foreign {
@@ -215,10 +228,14 @@ pub fn fitting(source: impl BufRead) -> io::Result<Vec<App>> {
                             Some(false) if parent == "requires" => {
                                 component.required_too_big = true;
                             }
+                            Some(false) if parent == "recommends" => {
+                                component.recommended_too_big = true;
+                            }
                             _ => {}
                         }
                     } else if relation && name == "control" && text.trim() == "touch" {
                         component.touch = true;
+                        component.touch_expected |= parent != "supports";
                     } else if parent == "custom"
                         && name == "value"
                         && custom_key == "Purism::form_factor"
@@ -339,13 +356,17 @@ pub fn publish(state: &StateDir) -> io::Result<()> {
     let cached: Option<Value> = fs::read(&cache)
         .ok()
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-        .filter(|v: &Value| v["source"].as_u64() == Some(stamp) && rows.is_file());
+        .filter(|v: &Value| {
+            v["source"].as_u64() == Some(stamp)
+                && v["format"].as_u64() == Some(ROWS_FORMAT)
+                && rows.is_file()
+        });
     let record = if let Some(record) = cached {
         record
     } else {
         let apps = read_catalogue(&source)?;
         let ids: Vec<&str> = apps.iter().map(|a| a.id.as_str()).collect();
-        let record = json!({ "source": stamp, "apps": ids, "ts": now() });
+        let record = json!({ "source": stamp, "format": ROWS_FORMAT, "apps": ids, "ts": now() });
         // Reef's Flathub rows, icons from the catalogue's own cache.
         let icons = source.with_file_name("icons").join("128x128");
         let listing = json!({ "source": stamp, "icons": icons, "apps": apps });
@@ -405,6 +426,32 @@ mod tests {
         // Left out: Freelens requires 768 px; Legcord requires 420 px although
         // it would take up to 1200; Karlender requires more than 360 px;
         // Black Box fits but has no touch; GIMP says nothing.
+        let first: Vec<String> = fitting(FIXTURE.as_bytes())
+            .unwrap()
+            .into_iter()
+            .filter(|a| a.phone_first)
+            .map(|a| a.id)
+            .collect();
+        assert_eq!(
+            first,
+            [
+                "app.drey.Dialect",
+                "de.schmidhuberj.DieBahn",
+                "dev.tchx84.Portfolio"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_bigger_recommended_screen_is_not_phone_first() {
+        // RustConn's: fits and expects touch, but recommends 768 px.
+        let xml = r#"<components><component type="desktop-application"><id>io.github.totoshko88.RustConn</id>
+            <requires><display_length>360</display_length></requires>
+            <recommends><display_length>768</display_length><control>touch</control></recommends>
+            </component></components>"#;
+        let apps = fitting(xml.as_bytes()).unwrap();
+        assert_eq!(apps.len(), 1);
+        assert!(!apps[0].phone_first);
     }
 
     #[test]

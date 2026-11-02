@@ -41,6 +41,8 @@ struct FlathubApp {
     version: String,
     #[serde(default)]
     released: u64,
+    #[serde(default)]
+    phone_first: bool,
 }
 
 #[derive(Deserialize)]
@@ -101,6 +103,7 @@ pub fn flathub(json: &[u8]) -> Vec<Package> {
                 .take(5)
                 .collect();
             p.updated = day(a.released);
+            p.phone_first = a.phone_first;
             p
         })
         .collect()
@@ -416,7 +419,8 @@ fn store_category(names: &[String]) -> String {
 
 /// Reef's catalogue with the handler's apps it does not list itself: an
 /// app in both is Reef's row. Until Reef's catalogue features apps, the
-/// newest Flathub apps with screenshots are the front page's banner.
+/// newest Flathub apps with screenshots are the front page's banner, those
+/// made for a phone first.
 pub fn merge(reef: &Catalogue, extra: Vec<Package>) -> Catalogue {
     let covered: BTreeSet<String> = reef
         .packages
@@ -435,8 +439,9 @@ pub fn merge(reef: &Catalogue, extra: Vec<Package>) -> Catalogue {
             .filter(|p| p.origin == Origin::Flathub && !p.screenshots.is_empty())
             .collect();
         shown.sort_by(|a, b| {
-            b.updated
-                .cmp(&a.updated)
+            b.phone_first
+                .cmp(&a.phone_first)
+                .then_with(|| b.updated.cmp(&a.updated))
                 .then_with(|| a.title.cmp(&b.title))
         });
         merged.featured = shown
@@ -485,6 +490,7 @@ pub fn blank(name: &str, title: String, origin: Origin) -> Package {
         install: None,
         origin,
         android: None,
+        phone_first: false,
     }
 }
 
@@ -674,6 +680,17 @@ mod tests {
         assert_eq!(
             merge(&reef, shots).featured,
             ["org.example.New", "org.example.Old"]
+        );
+        let phone = flathub(
+            br#"{"apps": [{"id": "org.example.Old", "name": "Old", "phone_first": true,
+            "screenshots": ["https://dl.flathub.org/o.png"], "released": 1},
+            {"id": "org.example.New", "name": "New",
+            "screenshots": ["https://dl.flathub.org/n.png"], "released": 1700000000}]}"#,
+        );
+        assert_eq!(
+            merge(&reef, phone).featured,
+            ["org.example.Old", "org.example.New"],
+            "made for a phone first"
         );
     }
 
