@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parent / 'q25-root-install.sh'
+SCRIPT = Path(__file__).resolve().parents[2] / 'packaging/packages/device-zinwa-q25-marathon/q25-root-install'
 OPTIONS = ('options pd_ignore_unused console=tty0 pmos_boot_uuid=F362-E950 '
            'q25.rootfs_file=/var/lib/marathon/images/old.ext4 systemd.gpt_auto=0\n')
 CURRENT = ('title Marathon Q25 everyday + modem (no bootcon)\nsort-key postmarketOS\n'

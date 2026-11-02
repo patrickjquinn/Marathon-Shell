@@ -4,8 +4,8 @@
 # Kernel, initramfs and DTB stay exactly as the current default entry has
 # them; only q25.rootfs_file changes. Runs on the phone as root.
 #
-#   q25-root-install.sh [opts] install IMAGE.ext4 [SHA256]
-#   q25-root-install.sh [opts] rollback NAME
+#   q25-root-install [opts] install IMAGE.ext4 [SHA256]
+#   q25-root-install [opts] rollback NAME
 #
 #   --dry-run     print what would change, change nothing
 #   --counted     boot-counted entry marathon-q25-b-NAME+3.conf, a fallback
