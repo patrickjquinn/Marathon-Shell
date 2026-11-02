@@ -267,11 +267,19 @@ GLONASS satellite field is the frequency slot (channel + 8). BeiDou code
 phase jumps by 0.5 ms against GPS between epochs; within 0.5 ms it agrees
 with GPS to about 25 m. GLONASS code phase also jumps by 0.5 ms, for all
 GLONASS satellites at once (a common offset its own clock bias absorbs),
-and then disagrees per satellite by 100–300 m: in the reference run about
--35 m per frequency slot plus a term proportional to range rate, which
-together leave 31 m rms; the native runs (three satellites) fit different
-coefficients, so the cause is not settled and GLONASS stays off by
-default.
+and in a three-epoch cycle of steps of about 150 m; within an epoch each
+satellite then sits at its own offset of up to a few hundred metres,
+stable for the whole run (reference run 2: residual histograms with three
+sharp 150 m-spaced peaks per satellite). The offsets are not linear in the
+frequency slot across runs, so they are measured rather than modelled:
+the engine learns each slot's offset from fixes made without it (HDOP < 2,
+redundancy >= 2) and uses the slot after 30 epochs. GLONASS is then never
+worse than GPS + BeiDou in the replays and better in native run 2, but no
+better in reference run 2, so it stays opt-in (`--systems GRC`). The DSP
+reports GLONASS navigation data (0x3B: channel, flags, slot twice, ten
+bytes) only about every 35 s per channel, cycling through five payloads,
+which is not the 2 s string stream ephemerides need; GLONASS orbits come
+only from `--nav`.
 
 Checks: across satellites the code phase modulo 1 ms matches the geometry
 to about 0.1 chip; the Doppler field equals the geometric Doppler plus one
@@ -377,6 +385,10 @@ horizontal error against the surveyed point; GPS + BeiDou):
 | reference run 2 (window sill) | 74 %, 29 m, 58 m | 81 %, 17 m, 41 m |
 | native run 1 | 24 %, 22 m, 40 m | 37 %, 22 m, 39 m |
 | native run 2 | 74 %, 15 m, 33 m | 80 %, 12 m, 25 m |
+
+With `--systems GRC` and RINEX, after slot calibration: reference run 2
+81 %, 17 m, 41 m; native run 1 unchanged (37 %); native run 2 82 %, 12 m,
+25 m, maximum 38 m instead of 64 m.
 
 Started from a time-zone guess instead of a position (Dublin, Paris, Rome
 and Oslo all landed on the same first fix), run 2 reaches its first fix
