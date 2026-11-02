@@ -23,7 +23,8 @@ use zbus::wire::StructureBuilder;
 use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::{
-    apps, audio, clock, gate, haptics, io, ipc, log, modem, power, settings, tasks, variant,
+    apps, audio, clock, gate, haptics, io, ipc, log, modem, power, settings, tasks, telephonyd,
+    variant,
 };
 
 pub use proxy::NotificationsProxy;
@@ -894,7 +895,7 @@ impl Notifications {
         }
     }
 
-    fn dismiss_tagged(mut self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
+    pub(crate) fn dismiss_tagged(mut self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
         let (app_id, tag) = (app_id.to_string(), tag.to_string());
         let ids: Vec<i64> = self
             .rows
@@ -984,7 +985,14 @@ impl Notifications {
                 deep_link("messages", "conversation", &json!({"number": number}));
             }
             ("messages", "inline-reply") => deep_link("messages", "", &json!({})),
-            ("messages", "mark_read") => self.dismiss(row.id, Some(2)),
+            ("messages", "mark_read") => {
+                telephonyd::mark_read(
+                    row.hint("conversation")
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_owned(),
+                );
+            }
             _ => {}
         }
     }
@@ -992,6 +1000,10 @@ impl Notifications {
     fn reply(self: Pin<&mut Self>, id: i32, text: &QString) {
         if let Ok(id) = u32::try_from(id) {
             emit("NotificationReplied", (id, text.to_string()));
+        }
+        // Answering a text reads its thread, as opening it would.
+        if let Some(thread) = self.row(id).and_then(|r| r.hint("conversation").as_str()) {
+            telephonyd::mark_read(thread.to_owned());
         }
         self.replied(id, text);
     }

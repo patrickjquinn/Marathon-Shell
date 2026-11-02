@@ -2977,7 +2977,7 @@ Item {
     }
 
     Connections {
-        function onMessageReceived(sender, text) {
+        function onMessageReceived(sender, text, timestamp, thread) {
             Display.turnScreenOn();
             NotificationService.sendNotification("messages", calls.nameOf(sender), text, {
                 "icon": "message-circle",
@@ -2993,7 +2993,9 @@ Item {
                         "label": qsTr("Mark Read")
                     }
                 ],
-                "replyTarget": sender
+                "replyTarget": sender,
+                "conversation": thread,
+                "tag": "sms:" + thread
             });
             HapticManager.medium();
             AudioManagerCpp.playNotificationSound();
