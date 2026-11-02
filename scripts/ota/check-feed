@@ -5,7 +5,7 @@
 # namespace, so no root is needed). Prints the newest version on offer;
 # with --install, also downloads and writes it into a scratch root.
 #
-#   scripts/ota/check-feed q25|pi|qemu RUNNING-VERSION [--install]
+#   scripts/ota/check-feed q25|hackberrypi|pi|qemu RUNNING-VERSION [--install]
 #       [--url URL]  feed root (default: marathon-updates' stable channel)
 #       [--image-id ID]  IMAGE_ID (default: the device's)
 #
@@ -13,7 +13,7 @@
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SYSUPDATE=/usr/lib/systemd/systemd-sysupdate
-device="${1:?device: q25, pi or qemu}"
+device="${1:?device: q25, hackberrypi, pi or qemu}"
 running="${2:?the version the device runs}"
 shift 2
 url=https://github.com/patrickjquinn/marathon-updates/releases/download/stable
@@ -40,7 +40,8 @@ case "$device" in
         : "${image_id:=zinwa-q25}"
         mkdir -p "$root/.q25-carrier/root/var/lib/marathon/images"
         for t in "$REPO"/packaging/ota/q25/sysupdate.d/*.transfer.in; do render "$t"; done ;;
-    pi)
+    hackberrypi|pi)
+        [ "$device" = pi ] || : "${image_id:=hackberrypi-cm5}"
         : "${image_id:=raspberry-pi5}"
         truncate -s 64M "$root/disk.raw"
         sfdisk -q "$root/disk.raw" <<EOF
@@ -51,14 +52,14 @@ size=2048, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, name="_empty"
 size=4096, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, name="marathon_${running}_root"
 size=4096, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, name="_empty"
 EOF
-        [ "$install" = 0 ] || { echo "--install needs slots the size of the real ones; pi only checks" >&2; exit 2; }
+        [ "$install" = 0 ] || { echo "--install needs slots the size of the real ones; the Pi only checks" >&2; exit 2; }
         for t in "$REPO"/packaging/ota/pi/sysupdate.d/*.transfer.in; do render "$t"; done ;;
     qemu)
         : "${image_id:=qemu-aarch64}"
         mkdir -p "$root/boot/EFI/Linux"
         # Partitions need a real disk; the UKI is the transfer that runs here.
         render "$REPO/packaging/ota/sysupdate.d/marathon-20-uki.transfer.in" ;;
-    *) echo "device: q25, pi or qemu" >&2; exit 2 ;;
+    *) echo "device: q25, hackberrypi, pi or qemu" >&2; exit 2 ;;
 esac
 printf 'ID=postmarketos\nIMAGE_ID=%s\nVARIANT_ID=marathon\nVERSION_ID=edge\nIMAGE_VERSION=%s\n' \
     "$image_id" "$running" > "$root/usr/lib/os-release"

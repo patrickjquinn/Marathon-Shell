@@ -24,12 +24,12 @@
 # Change with `passwd` after first SSH/console login.
 set -euo pipefail
 
-CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output/raspberry-pi5_marathon_edge"
-DEFAULT_IMG_RAW=$(ls -1t "$CACHE"/raspberry-pi5_marathon_edge_*.raw 2>/dev/null \
-    | grep -E "/raspberry-pi5_marathon_edge_[0-9]+\.raw$" | head -1 || true)
-DEFAULT_IMG_XZ=$(ls -1t "$CACHE"/raspberry-pi5_marathon_edge_*.raw.zst \
-                       "$CACHE"/raspberry-pi5_marathon_edge_*.raw.xz \
-                       "$CACHE"/raspberry-pi5_marathon_edge_*.raw.gz 2>/dev/null | head -1 || true)
+CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output/hackberrypi-cm5_marathon_edge"
+DEFAULT_IMG_RAW=$(ls -1t "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw 2>/dev/null \
+    | grep -E "/hackberrypi-cm5_marathon_edge_[0-9]+\.raw$" | head -1 || true)
+DEFAULT_IMG_XZ=$(ls -1t "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw.zst \
+                       "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw.xz \
+                       "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw.gz 2>/dev/null | head -1 || true)
 
 usage() {
     cat <<USAGE

@@ -1,0 +1,56 @@
+From d6472753bad14b090f8ecd9a05cb2d461f31f904 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 22:15:38 +0000
+Subject: [PATCH] feat(hackberrypi): its own image id, so its own update feed
+
+A HackberryPi CM5 image is built as raspberry-pi5 plus an enclosure
+overlay, so it was IMAGE_ID=raspberry-pi5 like a plain Pi 5 image and
+both read one sysupdate feed: a plain Pi 5 could be offered a
+HackberryPi image. scripts/build-image.sh now names the device the
+image is for in MARATHON_IMAGE_DEVICE, which becomes the image id and
+IMAGE_ID; pmaports still resolves the raspberry-pi5 port.
+---
+ mkosi.finalize         | 2 +-
+ scripts/build-image.py | 6 +++++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 255295a..3e66e14 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -25,7 +25,7 @@ fi
+ 
+ ## Fixup os-release
+ # Fix IMAGE_ID to be device-only (not device_ui_release)
+-sed -i "s/^IMAGE_ID=.*/IMAGE_ID=$PMOS_DEVICE/" "$BUILDROOT/usr/lib/os-release"
++sed -i "s/^IMAGE_ID=.*/IMAGE_ID=${MARATHON_IMAGE_DEVICE:-$PMOS_DEVICE}/" "$BUILDROOT/usr/lib/os-release"
+ # Add VARIANT_ID for UI
+ echo "VARIANT_ID=$PMOS_VARIANT" >> "$BUILDROOT/usr/lib/os-release"
+ # Ensure confexts are only merged when they match the running OS version.
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index 3b60c9c..8f09223 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -78,7 +78,10 @@ def build_image(components: List[str], extra_args: List[str]):
+                 release = arg.split('=', 1)[1]
+                 break
+ 
+-        image_id = f"{device_name}_{ui_name}_{release}"
++        # A device sharing another's port names itself (HackberryPi CM5
++        # on raspberry-pi5), so it gets its own image id and update feed.
++        image_device = os.environ.get("MARATHON_IMAGE_DEVICE") or device_name
++        image_id = f"{image_device}_{ui_name}_{release}"
+ 
+         print(f"Device: {device_name}, UI: {ui_name}")
+         print(f"ImageID: {image_id}")
+@@ -141,6 +144,7 @@ def build_image(components: List[str], extra_args: List[str]):
+             f"--architecture={resolved['Architecture']}",
+             f"--image-id={image_id}",
+             f"--environment=PMOS_DEVICE={device_name}",
++            f"--environment=MARATHON_IMAGE_DEVICE={image_device}",
+             f"--environment=PMOS_VARIANT={ui_name}",
+         ] + extra_args
+         # PassEnvironment forwards only mkosi's own environment, not ours.
+-- 
+2.55.0
+

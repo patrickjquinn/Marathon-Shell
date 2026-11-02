@@ -322,6 +322,16 @@ if [ "$BUMP" -eq 1 ]; then
     (cd "$DURANIUM_DIR" && PATH="$(dirname "$MKOSI_BIN"):$PATH" "$MKOSI_BIN" bump)
 fi
 
+# A Pi 5 image with the HackberryPi overlay (mkosi-configure.py installs it
+# when its apk is in mkosi.packages) is a HackberryPi image: its own image
+# id, and so its own update feed (pipeline patch 0056).
+IMAGE_DEVICE="$MARATHON_TARGET_DEVICE"
+if [ "$MARATHON_TARGET_DEVICE" = raspberry-pi5 ] \
+        && compgen -G "$DURANIUM_DIR/mkosi.packages/device-hackberrypi-cm5-marathon-*.apk" >/dev/null; then
+    IMAGE_DEVICE=hackberrypi-cm5
+fi
+export MARATHON_IMAGE_DEVICE="$IMAGE_DEVICE"
+
 echo "==> stage 4: bake image for device=$MARATHON_TARGET_DEVICE (layout $MARATHON_IMAGE_LAYOUT, version $(cat "$DURANIUM_DIR/mkosi.version" 2>/dev/null || echo new))"
 cd "$DURANIUM_DIR"
 PATH="$(dirname "$MKOSI_BIN"):$PATH" \
@@ -329,10 +339,10 @@ PATH="$(dirname "$MKOSI_BIN"):$PATH" \
 
 # mkosi names its output dir + raw artifacts by the device + ui
 # pair. Find the freshly written one.
-OUT_DIR_GLOB="$DURANIUM_DIR/mkosi.output/${MARATHON_TARGET_DEVICE}_marathon_edge"
+OUT_DIR_GLOB="$DURANIUM_DIR/mkosi.output/${IMAGE_DEVICE}_marathon_edge"
 # shellcheck disable=SC2010 # newest by mtime; mkosi's names have no spaces
-LATEST_IMG=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.raw 2>/dev/null \
-    | grep -E "/${MARATHON_TARGET_DEVICE}_marathon_edge_[0-9]+\.raw$" | head -1)
+LATEST_IMG=$(ls -1t "$OUT_DIR_GLOB"/${IMAGE_DEVICE}_marathon_edge_*.raw 2>/dev/null \
+    | grep -E "/${IMAGE_DEVICE}_marathon_edge_[0-9]+\.raw$" | head -1)
 [ -z "$LATEST_IMG" ] && { echo "no image produced for device-$MARATHON_TARGET_DEVICE" >&2; exit 1; }
 echo "==> image ready: $LATEST_IMG"
 
@@ -670,7 +680,7 @@ PLYDEF
         # at the ESP root. Extract it next to the .raw so
         # flash-oneplus6.sh can pick it up without slicing the GPT
         # image at flash time.
-        ESP_RAW=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.esp.raw 2>/dev/null | head -1 || true)
+        ESP_RAW=$(ls -1t "$OUT_DIR_GLOB"/${IMAGE_DEVICE}_marathon_edge_*.esp.raw 2>/dev/null | head -1 || true)
         if [ -n "$ESP_RAW" ]; then
             if command -v mcopy >/dev/null; then
                 BOOT_IMG="$OUT_DIR_GLOB/boot.img"

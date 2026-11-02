@@ -192,7 +192,8 @@ equivalent.
 The feeds are releases of the public repository
 [patrickjquinn/marathon-updates](https://github.com/patrickjquinn/marathon-updates),
 one per channel and image id, tagged `<channel>/<image id>`:
-`stable/zinwa-q25_marathon_edge`, `stable/raspberry-pi5_marathon_edge`,
+`stable/zinwa-q25_marathon_edge`, `stable/hackberrypi-cm5_marathon_edge`,
+`stable/raspberry-pi5_marathon_edge` (a plain Pi 5),
 `stable/qemu-aarch64_marathon_edge`, and the same under `test/` as
 pre-releases. A release's download URL is
 `https://github.com/patrickjquinn/marathon-updates/releases/download/<tag>/<asset>`,
@@ -234,8 +235,13 @@ Limits:
   about a second. A phone checking in that window sees the old manifest
   (nothing new) or a manifest and signature that don't match, a check error
   that the next check clears.
-- `raspberry-pi5` is the image id of vanilla Pi 5 and HackberryPi builds
-  alike, so they share one feed: publish HackberryPi builds only.
+- A HackberryPi image is a Pi 5 image plus the HackberryPi overlay, but its
+  image id is `hackberrypi-cm5` (`MARATHON_IMAGE_DEVICE`, set by
+  `build-image.sh` when the overlay's apk is in `mkosi.packages`, and
+  pipeline patch 0056), so a plain Pi 5 and a HackberryPi never read each
+  other's feed. Images built before that say `raspberry-pi5`: a HackberryPi
+  moves to its own feed by one reflash, as it must anyway to leave the old
+  feed URL.
 
 The repository's CI (`validate`) checks each feed on every release change
 and daily: a good signature by `keys/marathon-ota.asc` (this repository's
@@ -548,7 +554,7 @@ The host serves the feed at 192.168.68.78; the device is
    put a file in `~`, note `/etc/machine-id`, reboot twice: all unchanged.
 4. **Image N+1.** Build again with `--bump`, then
    ```sh
-   scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/raspberry-pi5_marathon_edge \
+   scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/hackberrypi-cm5_marathon_edge \
        --version <N+1> --feed ~/ota-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg --notes notes.txt
    python3 -m http.server 8080 --bind 192.168.68.78 --directory ~/ota-test/feed
    ```
@@ -589,9 +595,6 @@ on the host and rewriting it.
   committed slot. The bootloader watchdog (EEPROM 2025-06-20 and later) and
   `PARTITION_WALK=1` (on by default from 2025-08-13) would harden this; the
   HackberryPi's EEPROM is 2025-06-13.
-- Raspberry Pi: `IMAGE_ID` is `raspberry-pi5` for vanilla Pi 5 and HackberryPi
-  builds alike, so both would share one feed directory. Publish HackberryPi
-  builds only.
 - Raspberry Pi: going from the single-root image to A/B needs a re-flash.
 - Zinwa Q25: nothing reboots a trial whose session never comes up
   (`q25-boot-check` fails and the entry stays unblessed); each restart by

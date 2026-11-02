@@ -8,8 +8,8 @@
 # defaults to the most recently built raspberry-pi5 .raw.
 set -euo pipefail
 
-CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output/raspberry-pi5_marathon_edge"
-IMG="${1:-$(ls -1t "$CACHE"/raspberry-pi5_marathon_edge_*.raw 2>/dev/null | grep -E "/raspberry-pi5_marathon_edge_[0-9]+\.raw$" | head -1)}"
+CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output/hackberrypi-cm5_marathon_edge"
+IMG="${1:-$(ls -1t "$CACHE"/hackberrypi-cm5_marathon_edge_*.raw 2>/dev/null | grep -E "/hackberrypi-cm5_marathon_edge_[0-9]+\.raw$" | head -1)}"
 
 [ -n "$IMG" ] && [ -f "$IMG" ] || { echo "error: no .raw image found in $CACHE" >&2; exit 1; }
 
