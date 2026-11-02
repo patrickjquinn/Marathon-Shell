@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=28
+pkgrel=29
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -90,6 +90,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0029-arm64-dts-mediatek-mt8781-zinwa-q25-Build-with-overl.patch
 	0030-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 	0031-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
+	0032-clk-mediatek-mt6789-Parent-the-I2C-wrapper-gates-to-.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -146,7 +147,7 @@ package() {
 
 # Out-of-tree modules by directory under extra/; every built module is listed.
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner q25-panel-doze q25-vsyncdrm
-	q25-i2c-clk hx32062se q25-mt6358-live q25-haptic"
+	hx32062se q25-mt6358-live q25-haptic"
 _connsys="q25-conn-pd connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
 	q25-btmtk-stp mtk-connsys-gnss"
 _audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390
@@ -211,6 +212,7 @@ cae60eb269341d6ddd691264c87702a1cb88b46bef3c922dce4b0f8c3e136f6fd3cf3e95faa0bc04
 4accbeb48339be58bc918622926408e97cfaaf2a9de42203f2d8a1ddd4c92a75ccb6cc7f01ab6dfb7ae81661a48e90c43e897ac6a5993681dd0f5f74a7b2c111  0029-arm64-dts-mediatek-mt8781-zinwa-q25-Build-with-overl.patch
 53bf5b7b5a8e022026cf0f6386c4415c24641c35a78f947dd1e93d00da2c6401989790d16f6bfbecf0f44f6c2e8bbbfe09d96225eb3f9b05dca273a98487932a  0030-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 b384eb0a745cabc582cb7e74e27d62669de2cabead637945edcf4ccf473b493c96036f3e71882338b4346dff9c1eaab5df63af9f180b6ea7c988c372514107c3  0031-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
+8ae9f5846691b36194087b04c11fe35cc42f610c1aad1da1eb82c4b97d7d1cf72d2244b09b59b5ccbd09c13700c871e49426cee6a66bbae8eac01a2a064aa682  0032-clk-mediatek-mt6789-Parent-the-I2C-wrapper-gates-to-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
