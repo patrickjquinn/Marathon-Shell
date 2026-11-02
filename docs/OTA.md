@@ -8,9 +8,10 @@ itself.
 Two targets build this way with `MARATHON_IMAGE_LAYOUT=ab`: the QEMU dev-sim,
 and the Raspberry Pi 5 / HackberryPi CM5, which has no boot counter and uses
 the Pi firmware's one-shot tryboot instead ([Raspberry Pi](#raspberry-pi-5--hackberrypi-cm5)).
-Every other device keeps its single-root image and Settings says it can't
-install updates. [Per-device status](#per-device-status) lists what each one
-still needs.
+Every Zinwa Q25 image updates too: its root is a file, so the next root is
+written beside it ([Zinwa Q25](#zinwa-q25)). Every other device keeps its
+single-root image and Settings says it can't install updates.
+[Per-device status](#per-device-status) lists what each one still needs.
 
 ## Choice: systemd-sysupdate
 
@@ -274,6 +275,83 @@ the slots and `autoboot.txt` alone ([FACTORY_RESET.md](FACTORY_RESET.md)).
 Settings shows a version that failed its trials as rolled back, from the same
 `GetVersion` logic as on QEMU.
 
+## Zinwa Q25
+
+The Q25 boots the stock bootloader's U-Boot, then systemd-boot from an ESP
+inside userdata's nested GPT. Partition 2 of that GPT is the ext4 carrier,
+mounted at `/.q25-carrier/root`; the root is an ext4 image file on it,
+`/var/lib/marathon/images/<name>.ext4`, which the carrier initramfs
+loop-mounts as `/` from the entry's `q25.rootfs_file=`. `/home` is
+`home.luks` in the same directory and outlives every root. The kernel,
+initramfs and DTB on the ESP are the phone's own and never change in an
+update. Ubuntu Touch on Android hardware kept its root the same way, as a
+`system.img` on userdata, and Android's Virtual A/B stages an update's
+copy-on-write images as files in `/data`.
+
+### Update, trial and commit
+
+1. `marathon-10-q25-root.transfer` (`packaging/ota/q25/sysupdate.d`, which
+   `build-image.sh` installs in every Q25 image) is a sysupdate
+   `regular-file` target. It downloads
+   `zinwa-q25_marathon_edge_<v>.ext4.zst`, checks it against the signed
+   `SHA256SUMS`, unpacks it sparse into the images directory as
+   `zinwa-q25_marathon_edge_<v>.ext4`, mode 0600, and keeps two such roots,
+   never the running one (`InstancesMax=2`, `ProtectVersion=%A`). Roots
+   flashed by hand under other names are not sysupdate's and stay. The
+   carrier keeps room for two 32 GiB roots beside `/home`.
+2. At shutdown, `q25-root-arm.service` runs `q25-root-install arm` once
+   NetworkManager, BlueZ, ModemManager and sysupdated have stopped. For the
+   newest installed root that is newer than `IMAGE_VERSION` and has no boot
+   entry yet, it loop-mounts the new root, copies this phone's state into
+   it (below), and writes `marathon-q25-b-<name>+3.conf`, a copy of the
+   booted entry with only `q25.rootfs_file` changed;
+   `marathon-q25-a-fallback.conf`, the booted entry itself; and
+   `default marathon-q25-*` in `loader.conf`, backed up once as
+   `loader.conf.before-<name>`. Other `marathon-q25-b-*` entries go. A root
+   installed before a power loss is armed at the next boot, which then
+   restarts before greetd.
+3. systemd-boot boots the newest `marathon-q25` entry with tries left,
+   renaming it `+2-1`, `+1-2`, `+0-3` (U-Boot has `CONFIG_FAT_WRITE` and
+   renames files). Once `q25-boot-check` passes (greetd and the GPU guard
+   active), `q25-boot-bless` drops the counter. An entry at `+0-3` sorts
+   last and the fallback boots; Settings shows the version as rolled back,
+   and it is never armed again.
+
+The booted entry is found as `q25-boot-bless` finds it: the one whose
+`options` equal `/proc/cmdline` less systemd-boot's `initrd=` words. When
+several match (the fallback has the same options as the hand-made entry it
+was copied from), ours wins, then the loader default. This firmware has
+EFI runtime services off, so there is no `LoaderEntrySelected` or
+`LoaderBootCountPath`, and `marathon-boot-health` does not run.
+
+### State carried into a new root
+
+Each root is a whole image, so the phone's own state in `/etc` and `/var`
+is copied into the new one at arm time, in the spirit of Ubuntu Touch's
+`writable-paths` and Alpine's `lbu`, as a fixed list in `q25-root-install`
+taken from `scripts/q25/explain/per-phone-state.toml`: `machine-id`,
+`hostname`, `machine-info`, `locale.conf`, `localtime`, `adjtime`, the SSH
+host keys, NetworkManager's connections and `/var/lib/NetworkManager`, the
+APN in `/etc/q25-modem/modem.conf`, `/var/lib/bluetooth`,
+`/var/lib/q25-modem` (the modem's NV overlay) and systemd's rfkill and
+timesync state. Everything else comes fresh from the image, including
+`/etc/shadow`, sshd enablement and `/root/.ssh` (a build without
+`MARATHON_DEV_SSH_KEY` has no SSH), `/var/lib/deckard` (Android's data is
+in `/home`) and system-wide Flatpaks in `/var/lib/flatpak` (Reef installs
+per user, in `/home`).
+
+### Publishing
+
+```sh
+scripts/build-zinwa-q25-image.sh --bump      # MARATHON_OTA_URL=... for a test feed
+scripts/ota/marathon-ota publish --image-dir ~/.cache/marathon-build/q25/zinwa-q25_marathon_edge \
+    --version <IMAGE_VERSION> --feed ~/ota-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg --notes notes.txt
+```
+
+A phone running a root flashed by hand under its old name updates the same
+way: that root is the fallback of the first update, and stays on the
+carrier until removed by hand.
+
 ## Per-device status
 
 | Device | Boot chain | Rollback today | Needed |
@@ -282,6 +360,7 @@ Settings shows a version that failed its trials as rolled back, from the same
 | Librem 5 | U-Boot `boot.scr` → kernel + initramfs from ext4 partition 1 | no | either U-Boot's EFI loader → systemd-boot (duranium's plan; FAT write and EFI variables at runtime to verify), or U-Boot `bootcount`/`bootlimit`/`altbootcmd` choosing the slot, with marathon-health clearing `bootcount`/`upgrade_available` via `fw_setenv` |
 | PinePhone | U-Boot (our `u-boot-pinephone-marathon` fork) `boot.scr` | no | same as the Librem 5; we already build its U-Boot, so `CONFIG_BOOTCOUNT_LIMIT` is in reach |
 | Raspberry Pi 5 / HackberryPi CM5 | Pi firmware → `autoboot.txt` (`tryboot_a_b=1`) → the slot's FAT boot partition → mkinitfs → ext4 root slot by GPT label | yes, with `MARATHON_IMAGE_LAYOUT=ab` (GPT) | validated on the HackberryPi 2026-10-17 ([results](#hackberrypi-validation)). One failed trial falls back; each version gets two |
+| Zinwa Q25 | U-Boot (lk) → systemd-boot on the nested-GPT ESP → carrier initramfs → root file `q25.rootfs_file=` | yes, every image ([Zinwa Q25](#zinwa-q25)) | on-device validation; systemd-boot's counter renames on this U-Boot are unproven |
 | OnePlus 6 | Android boot.img → U-Boot → EFI | untested | the EFI path should work as on QEMU; needs a device |
 
 `AB_DEVICES` in `mkosi-configure.py` (`qemu-aarch64`, `raspberry-pi5`), with
@@ -442,3 +521,8 @@ on the host and rewriting it.
   builds alike, so both would share one feed directory. Publish HackberryPi
   builds only.
 - Raspberry Pi: going from the single-root image to A/B needs a re-flash.
+- Zinwa Q25: nothing reboots a trial whose session never comes up
+  (`q25-boot-check` fails and the entry stays unblessed); each restart by
+  hand spends a try. The kernel runs with `nowatchdog`.
+- Zinwa Q25: the state carried into a new root is a fixed list; state
+  outside it written on the running root stays in that root.
