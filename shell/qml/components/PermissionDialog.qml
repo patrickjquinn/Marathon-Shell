@@ -35,17 +35,18 @@ Item {
     // Declared but restricted to protected system apps: listed, never offered.
     property var refusedPermissions: (PermissionManager && PermissionManager.currentRefused) ? PermissionManager.currentRefused : []
     readonly property bool asking: allPermissions.length > 0
-    // Android apps' prompts (deckardd): kind, once, accuracy, preciseDefault.
+    // Android apps' prompts (deckardd): kind, once, accuracy, preciseDefault, limited.
     property var options: (PermissionManager && PermissionManager.currentOptions) ? PermissionManager.currentOptions : ({})
     readonly property string kind: options.kind || ""
 
     onOptionsChanged: {
         onceSwitch.checked = false;
         preciseSwitch.checked = !!options.preciseDefault;
+        limitedSwitch.checked = false;
     }
 
     function answer(granted) {
-        PermissionManager.respondWith(granted, granted && onceSwitch.visible && onceSwitch.checked, granted && preciseSwitch.visible && preciseSwitch.checked);
+        PermissionManager.respondWith(granted, granted && onceSwitch.visible && onceSwitch.checked, granted && preciseSwitch.visible && preciseSwitch.checked, granted && limitedSwitch.visible && limitedSwitch.checked);
     }
 
     function permissionTitle(p) {
@@ -244,8 +245,8 @@ Item {
                 delegate: PermissionRow {}
             }
 
-            // Android's "only this time" and precise location: choices,
-            // so the prompt keeps its two actions.
+            // Android's "only this time", precise location and limited photo
+            // access: choices, so the prompt keeps its two actions.
             Silica.TextSwitch {
                 id: onceSwitch
 
@@ -262,6 +263,15 @@ Item {
                 visible: permissionDialog.options.accuracy === "choice"
                 text: qsTr("Precise location")
                 description: qsTr("When off, %1 learns only roughly where you are").arg(permissionDialog.appName)
+            }
+
+            Silica.TextSwitch {
+                id: limitedSwitch
+
+                objectName: "limitedSwitch"
+                visible: !!permissionDialog.options.limited
+                text: qsTr("Only photos I pick")
+                description: qsTr("%1 sees only the photos and videos you choose next").arg(permissionDialog.appName)
             }
 
             Silica.SectionHeader {

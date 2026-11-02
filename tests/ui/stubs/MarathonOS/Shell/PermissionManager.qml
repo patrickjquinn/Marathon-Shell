@@ -17,7 +17,7 @@ QtObject {
     function respond(allowed) {
         responses = responses.concat([allowed]);
     }
-    function respondWith(allowed, once, precise) {
-        responses = responses.concat([[allowed, once, precise]]);
+    function respondWith(allowed, once, precise, limited) {
+        responses = responses.concat([[allowed, once, precise, limited]]);
     }
 }

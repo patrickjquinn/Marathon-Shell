@@ -36,6 +36,13 @@ TestCase {
         PermissionManager.responses = [];
     }
 
+    // The switches sit below the fold of a 720 × 720 screen.
+    function scrollToEnd() {
+        const flickable = findChild(dialog, "permissionFlickable");
+        flickable.contentY = Math.max(0, flickable.contentHeight - flickable.height);
+        wait(50);
+    }
+
     function ask(appId, permission, options) {
         AppModel.names = {
             "deckard.org.example.cam": "Example Camera"
@@ -49,8 +56,32 @@ TestCase {
     function test_marathonPromptsHaveNoAndroidChoices() {
         verify(!findChild(dialog, "onceSwitch").visible);
         verify(!findChild(dialog, "preciseSwitch").visible);
+        verify(!findChild(dialog, "limitedSwitch").visible);
         mouseClick(findChild(dialog, "allowButton"));
-        compare(PermissionManager.responses[0], [true, false, false]);
+        compare(PermissionManager.responses[0], [true, false, false, false]);
+    }
+
+    // Android 14's "select photos" is a choice in the prompt too.
+    function test_onlyPhotosIPick() {
+        ask("deckard.org.example.cam", "storage", {
+            kind: "foreground",
+            limited: true
+        });
+        const limited = findChild(dialog, "limitedSwitch");
+        verify(limited.visible);
+        verify(!limited.checked);
+        scrollToEnd();
+        mouseClick(limited);
+        mouseClick(findChild(dialog, "allowButton"));
+        compare(PermissionManager.responses[0], [true, false, false, true]);
+
+        ask("deckard.org.example.cam", "storage", {
+            kind: "foreground",
+            limited: true
+        });
+        verify(!findChild(dialog, "limitedSwitch").checked);
+        mouseClick(findChild(dialog, "allowButton"));
+        compare(PermissionManager.responses[1], [true, false, false, false]);
     }
 
     // Android's "only this time" is a choice in the prompt, not a third action.
@@ -63,10 +94,11 @@ TestCase {
         verify(once.visible);
         verify(!once.checked);
         verify(!findChild(dialog, "preciseSwitch").visible);
+        scrollToEnd();
         mouseClick(once);
         verify(once.checked);
         mouseClick(findChild(dialog, "allowButton"));
-        compare(PermissionManager.responses[0], [true, true, false]);
+        compare(PermissionManager.responses[0], [true, true, false, false]);
 
         ask("deckard.org.example.cam", "microphone", {
             kind: "foreground",
@@ -74,7 +106,7 @@ TestCase {
         });
         verify(!findChild(dialog, "onceSwitch").checked);
         mouseClick(findChild(dialog, "denyButton"));
-        compare(PermissionManager.responses[1], [false, false, false]);
+        compare(PermissionManager.responses[1], [false, false, false, false]);
     }
 
     function test_preciseLocationChoice() {
@@ -87,12 +119,10 @@ TestCase {
         const precise = findChild(dialog, "preciseSwitch");
         verify(precise.visible);
         verify(precise.checked);
-        const flickable = findChild(dialog, "permissionFlickable");
-        flickable.contentY = Math.max(0, flickable.contentHeight - flickable.height);
-        wait(50);
+        scrollToEnd();
         mouseClick(precise);
         mouseClick(findChild(dialog, "allowButton"));
-        compare(PermissionManager.responses[0], [true, false, false]);
+        compare(PermissionManager.responses[0], [true, false, false, false]);
     }
 
     function test_whatIsAskedIsSaid() {
