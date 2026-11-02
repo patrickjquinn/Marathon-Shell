@@ -67,7 +67,7 @@ Page {
             DetailItem {
                 objectName: "versionItem"
                 label: qsTr("Marathon OS version")
-                value: Updates.currentVersion || qsTr("Unknown")
+                value: Updates.osVersion || qsTr("Unknown")
             }
             DetailItem {
                 objectName: "baseItem"
