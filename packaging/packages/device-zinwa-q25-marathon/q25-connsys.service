@@ -10,6 +10,8 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/sbin/modprobe -a wmt_drv wmt_chrdev_wifi
 ExecStart=/usr/libexec/marathon/q25-wmt init
+# The GNSS receiver rides on WMT; '-' while the module is not shipped.
+ExecStartPost=-/usr/sbin/modprobe mtk-connsys-gnss
 TimeoutStartSec=90
 
 [Install]

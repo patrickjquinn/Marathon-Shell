@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=40
+pkgrel=41
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -9,7 +9,7 @@ license="Apache-2.0"
 options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
  q25-kernel-modules q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
- upower-q25 q25-native-gauge q25-modem libcamera libcamera-gstreamer
+ upower-q25 q25-native-gauge q25-modem q25-gnss-firmware marathon-gnssd libcamera libcamera-gstreamer
  cryptsetup e2fsprogs plymouth marathon-plymouth-theme"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
@@ -188,7 +188,7 @@ c378432befaf0b54fe3b4d72230634f48f6a344f74f217f1d475da7be6f834bc82ea30ec4dd8ff24
 03af4f0a3a4e222cae635c4a69d5bc26d00dd070bf1b58d9488c05fae0891009d2ba8c92311e45f66b877711f1175cd23c7bf699d986bed23c7f5a0dc8e69763  q25-keyboard.modules-load.conf
 56c1c51a0a587b0071e87cd9cff60896f3cc9bd277252cf84ff161f4d66a87eab998a6c51aa3f91576fb4026799d5d5ba282ffbdc06373e172fe98128934c9bd  q25-md1-off.service
 11d05acf58b9cdf0a6976209939fb268e8e114dac6bb00b66edf95c5f6bfc6c51350ca5e9cdc1c247ba7866939a724d6634d7a3f463dd5dfeafe51ecc0f9e554  q25-wmt.c
-447865489add96c55e51e054a7b16a4970fdab7f7b0c338ff143d35fbc4b921b688389506fb2052fe722e56efd332c0dd148f24cd28b6f05557ac6790d456d44  q25-connsys.service
+4aace7ac65d8cd2c66f8f4c04a51033dca33fdb97657ffac67faaa4add586f85ff55c23315330a6e831a61254650c076e442aa154344281d22ef1092a218a7cc  q25-connsys.service
 6c41623b2d8fc1c4aab153f67e1b50f14c858aebbd89f7d8a562286ca80fb328b704cd12b691f947dbc18562fe72b51a726e12785da3de56ca2cceb64d144d32  q25-wmt-launcher.service
 b6bb3fe14406fdde166708cf55e71d81146513560ca56ab53e3a06049c74434544d5a48e47fe951d328c0dda9acbd46333bca3a3fb4c0ecdf965012aaef8912b  q25-wifi.service
 826e387971ca88287220f9febed7fde4b604772e4fb3cd34ec49a20ddf63dcc0834071be9476773ae75a004c663edcf6f48fba32d6db0545a1aba3bc80635bfd  q25-connsys.modprobe.conf
