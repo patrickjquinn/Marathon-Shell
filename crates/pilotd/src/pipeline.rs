@@ -671,26 +671,30 @@ fn without_history_notes(text: &str) -> String {
 }
 
 /// A tool call written as the reply's text instead of as a call (a small
-/// model's `{"name": .., "arguments": {..}}` or `name{..}`, maybe inside
-/// `<tool_call>`), when it names a known tool; other text is an answer.
+/// model's `{"name": .., "arguments": {..}}`, `name{..}` or the bare name,
+/// maybe inside `<tool_call>` or before its follow-ups), when it names a
+/// known tool; other text is an answer.
 fn stray_call(text: &str, registry: &Registry) -> Option<crate::llm::ToolCall> {
-    let text = text.trim();
+    let (text, _) = split_followups(text);
     let text = text
+        .as_str()
         .strip_prefix("<tool_call>")
         .and_then(|t| t.strip_suffix("</tool_call>"))
-        .unwrap_or(text)
+        .unwrap_or(&text)
         .trim();
     let (name, arguments) = if let Ok(Value::Object(call)) = serde_json::from_str::<Value>(text) {
         (
             call.get("name")?.as_str()?.to_owned(),
             call.get("arguments").cloned().unwrap_or_else(|| json!({})),
         )
-    } else {
-        let (name, rest) = text.split_at(text.find('{')?);
+    } else if let Some(brace) = text.find('{') {
+        let (name, rest) = text.split_at(brace);
         (
             name.trim().to_owned(),
             serde_json::from_str::<Value>(rest).ok()?,
         )
+    } else {
+        (text.trim_end_matches("()").to_owned(), json!({}))
     };
     (registry.knows(&name) && arguments.is_object()).then(|| crate::llm::ToolCall {
         id: "stray".into(),
@@ -3543,6 +3547,35 @@ fn domain_question(registry: &Registry, domains: &[String]) -> Question {
 #[cfg(test)]
 mod answer_tests {
     use super::*;
+
+    struct Nothing;
+
+    #[async_trait::async_trait]
+    impl crate::tools::ToolExecutor for Nothing {
+        async fn call(&self, _: &str, _: &Value) -> Result<crate::tools::ToolOutput, ToolError> {
+            Err(ToolError::Failed("unused".into()))
+        }
+    }
+
+    #[test]
+    fn a_tool_name_written_as_the_answer_is_a_call() {
+        let mut registry = Registry::new();
+        registry.add(crate::weather::spec(), true, std::sync::Arc::new(Nothing));
+        let name = registry.entries().next().unwrap().model_name.clone();
+        for reply in [
+            name.clone(),
+            format!("{name}()"),
+            format!("{name}\nFOLLOWUPS: Is it windy? | And tomorrow?"),
+            format!("<tool_call>{name}</tool_call>"),
+        ] {
+            let call = stray_call(&reply, &registry).unwrap();
+            assert_eq!(
+                (call.name.as_str(), call.arguments.as_str()),
+                (name.as_str(), "{}")
+            );
+        }
+        assert!(stray_call("It is sunny.\nFOLLOWUPS: Rain? | Wind?", &registry).is_none());
+    }
 
     #[test]
     fn reasoning_is_not_the_answer() {
