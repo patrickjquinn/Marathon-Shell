@@ -62,6 +62,8 @@ class Q25Session(unittest.TestCase):
         self.assertEqual(env['MARATHON_FORCE_DPI'], '240')
         self.assertEqual(env['LIBGL_DRIVERS_PATH'], '/usr/lib/q25-gpu/dri:/usr/lib/dri')
         self.assertNotIn('QT_QUICK_BACKEND', env)
+        self.assertNotIn('MARATHON_PRESENT_STATS', env)
+        self.assertNotIn('MARATHON_FRAME_TIMING', env)
         self.assertEqual(result['args'], ['argument with spaces'])
 
     def test_failed_readiness_conditions_choose_software(self):
@@ -115,6 +117,8 @@ class Q25Session(unittest.TestCase):
         self.assertEqual(env['QT_QPA_PLATFORM'], 'linuxfb:fb=/dev/fb0')
         self.assertNotIn('UNEXPECTED', env)
         self.assertFalse(marker.exists())
+        self.ready()
+        self.assertEqual(self.run_wrapper()['env']['MARATHON_PRESENT_STATS'], '1')
 
     def test_both_greetd_sessions_select_wrapper(self):
         c = tomllib.loads((PROFILE / 'greetd-q25.toml').read_text())

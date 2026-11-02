@@ -12,19 +12,6 @@ export QSG_RENDER_LOOP=basic
 export QT_QPA_FB_FORCE_FULLSCREEN=1
 export MARATHON_FORCE_DPI=240
 unset QT_SCALE_FACTOR QT_FONT_DPI QT_SCALE_FACTOR_ROUNDING_POLICY
-
-# Explicit temporary diagnostics, independent of greetd's discarded environment.
-# No eval/source: permit only these boolean switches in the root-owned file.
-if [ -r /etc/marathon/q25-session.conf ]; then
-    while IFS='=' read -r name value; do
-        case "$name:$value" in
-            MARATHON_STARTUP_TIMING:0|MARATHON_STARTUP_TIMING:1|\
-            MARATHON_PRESENT_STATS:0|MARATHON_PRESENT_STATS:1|\
-            MARATHON_FRAME_TIMING:0|MARATHON_FRAME_TIMING:1)
-                export "$name=$value" ;;
-        esac
-    done < /etc/marathon/q25-session.conf
-fi
 if [ -r /etc/q25/keyboard-layout-preview.env ]; then
     set -a
     . /etc/q25/keyboard-layout-preview.env
