@@ -604,6 +604,9 @@ struct Battery {
     warning: u32,
     time_to_empty: i64,
     time_to_full: i64,
+    /// `UPower`'s `OnBattery`, from the line power: on a charger a full
+    /// battery's gauge can swing between charging and discharging.
+    on_battery: Option<bool>,
 }
 
 impl Battery {
@@ -614,21 +617,27 @@ impl Battery {
     }
 
     fn is_charging(self) -> bool {
-        matches!(self.state, 1 | 5)
+        match self.on_battery {
+            Some(on) => !on && self.state != 4 && self.level() < 100,
+            None => matches!(self.state, 1 | 5),
+        }
     }
 
     fn is_plugged_in(self) -> bool {
-        matches!(self.state, 1 | 4 | 5)
+        self.on_battery
+            .map_or(matches!(self.state, 1 | 4 | 5), |on| !on)
     }
 
     fn estimated_minutes(self) -> i32 {
         if !measurement::known(self.level()) {
             return -1;
         }
-        let seconds = match self.state {
-            2 | 6 => self.time_to_empty,
-            1 | 5 => self.time_to_full,
-            _ => 0,
+        let seconds = if self.is_charging() {
+            self.time_to_full
+        } else if !self.is_plugged_in() && matches!(self.state, 2 | 6) {
+            self.time_to_empty
+        } else {
+            0
         };
         if seconds > 0 {
             i32::try_from(seconds / 60).unwrap_or(i32::MAX)
@@ -645,6 +654,7 @@ impl Battery {
             "TimeToFull" => self.time_to_full = 0,
             "State" => self.state = 0,
             "WarningLevel" => self.warning = 0,
+            "OnBattery" => self.on_battery = None,
             _ => {}
         }
     }
@@ -658,6 +668,7 @@ impl Battery {
                 self.time_to_empty = value.downcast_ref().unwrap_or(self.time_to_empty);
             }
             "TimeToFull" => self.time_to_full = value.downcast_ref().unwrap_or(self.time_to_full),
+            "OnBattery" => self.on_battery = value.downcast_ref().ok(),
             _ => {}
         }
     }
@@ -697,9 +708,12 @@ pub(crate) trait Logind {
 )]
 trait UPower {
     fn get_critical_action(&self) -> zbus::Result<String>;
+    #[zbus(property)]
+    fn on_battery(&self) -> zbus::Result<bool>;
 }
 
 const UPOWER: &str = "org.freedesktop.UPower";
+const UPOWER_PATH: &str = "/org/freedesktop/UPower";
 const DISPLAY_DEVICE: &str = "/org/freedesktop/UPower/devices/DisplayDevice";
 const DEVICE: &str = "org.freedesktop.UPower.Device";
 const PROFILES: &str = "org.freedesktop.UPower.PowerProfiles";
@@ -767,7 +781,8 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
         .map(Event::Command)
         .chain(stream::once(Event::Closed))
         .or(actor.sleep_events().await)
-        .or(actor.battery_events().await)
+        .or(actor.battery_events(DISPLAY_DEVICE, DEVICE).await)
+        .or(actor.battery_events(UPOWER_PATH, UPOWER).await)
         .or(actor.profile_events().await);
     let mut events = std::pin::pin!(events);
     while let Some(event) = events.next().await {
@@ -978,6 +993,9 @@ impl Actor {
                 for (name, value) in &all {
                     self.battery.set(name, value);
                 }
+                if let Ok(upower) = UPowerProxy::new(&self.bus).await {
+                    self.battery.on_battery = upower.on_battery().await.ok();
+                }
                 self.battery.percentage_available =
                     measurement::available(std::path::Path::new("/sys/class/power_supply"));
                 let battery = self.battery;
@@ -1030,15 +1048,20 @@ impl Actor {
         }
     }
 
-    async fn battery_events(&self) -> stream::Boxed<Event> {
-        let Some(props) = self.properties(UPOWER, DISPLAY_DEVICE).await else {
+    /// The battery's properties, or the daemon's (`OnBattery`), as they change.
+    async fn battery_events(
+        &self,
+        path: &'static str,
+        interface: &'static str,
+    ) -> stream::Boxed<Event> {
+        let Some(props) = self.properties(UPOWER, path).await else {
             return stream::empty().boxed();
         };
         match props.receive_properties_changed().await {
             Ok(s) => s
-                .filter_map(|signal| {
+                .filter_map(move |signal| {
                     let args = signal.args().ok()?;
-                    if args.interface_name().as_str() != DEVICE {
+                    if args.interface_name().as_str() != interface {
                         return None;
                     }
                     let changed = args
@@ -1191,6 +1214,7 @@ mod tests {
             warning: 1,
             time_to_empty: 0,
             time_to_full: 1800,
+            on_battery: None,
         };
         assert_eq!(charging.level(), 55);
         assert!(charging.is_charging() && charging.is_plugged_in());
@@ -1208,6 +1232,18 @@ mod tests {
         };
         assert!(!draining.is_plugged_in());
         assert_eq!(draining.estimated_minutes(), 120);
+        let swinging_at_full = Battery {
+            percentage: Some(100.0),
+            on_battery: Some(false),
+            ..draining
+        };
+        assert!(!swinging_at_full.is_charging() && swinging_at_full.is_plugged_in());
+        assert_eq!(swinging_at_full.estimated_minutes(), -1);
+        let topping_up = Battery {
+            on_battery: Some(false),
+            ..draining
+        };
+        assert!(topping_up.is_charging() && topping_up.is_plugged_in());
     }
     #[test]
     fn invalidated_percentage_disarms_until_a_fresh_measurement() {
