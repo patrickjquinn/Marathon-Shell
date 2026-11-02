@@ -1,0 +1,57 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] mt6789: q25: boot the nested userdata ESP; try fastboot first
+
+The Q25 env maps the userdata partition with blkmap so that bootefi
+bootmgr finds the nested ESP, but the defconfig lacks CONFIG_BLKMAP.
+
+fastboot_addr_r is never set on the Q25, so the upstream `fastboot -l
+$fastboot_addr_r usb 0` mis-parses and returns at once; use the kconfig
+buffer. bootcmd tries fastboot before bootefi bootmgr, since the board
+has no input to reach the menu (on this board the fastboot gadget still
+fails and the boot continues straight to bootefi).
+---
+diff --git a/board/mediatek/mtk-phone.env b/board/mediatek/mtk-phone.env
+--- a/board/mediatek/mtk-phone.env
++++ b/board/mediatek/mtk-phone.env
+@@ -4,9 +4,12 @@ stdin=serial,button-kbd
+ stdout=serial,vidconsole
+ stderr=serial,vidconsole
+ 
+-# Fastboot is keen to use the address from kconfig, but we
+-# allocate its buffer at runtime.
+-fastboot=fastboot -l $fastboot_addr_r usb 0
++# Marathon dev: use the kconfig download buffer (CONFIG_FASTBOOT_BUF_ADDR=0x60000000)
++# directly. The upstream form `-l $fastboot_addr_r` relied on a runtime-allocated
++# buffer var that is never set on the Q25, so `-l` swallowed "usb", the command
++# mis-parsed, returned instantly instead of blocking, and bootcmd fell through to
++# `bootefi bootmgr` (booting the OS instead of holding fastboot).
++fastboot=fastboot usb 0
+ 
+ # Set up a block map pointing to our subpartition
+ setup_rootdev=scsi device 2; setenv rootdev scsi 2
+@@ -16,10 +19,13 @@ preboot=scsi reset; scsi scan; run setup_rootdev; run setup_blkmap
+ # Shortcut to enable USB serial gadget and disable bootretry
+ serial_gadget=setenv stdin serial,button-kbd,usbacm; setenv stdout serial,vidconsole,usbacm; setenv stderr serial,vidconsole,usbacm; setenv bootretry -1; echo Enabled U-Boot console serial gadget
+ 
+-# bootretry will run this command over and over, if we fail once
+-# then bail out to the boot menu instead (with a pause to read
+-# the error message)
+-bootcmd=bootefi bootmgr; pause; run menucmd
++# Marathon dev: this device has no usable input in U-Boot (volume keys are on
++# an MTK matrix keypad with no U-Boot driver, no serial cable), so the button
++# boot menu is unreachable. Enter fastboot on every boot instead — the host
++# runs `fastboot continue` to boot the OS, or `fastboot boot <img>` /
++# `fastboot flash <part> <img>`. This makes fastboot reliably reachable with
++# zero on-device input. (Revert to `bootefi bootmgr; ...` once bring-up settles.)
++bootcmd=echo '*** Marathon dev U-Boot: in fastboot. fastboot continue = boot OS ***'; run fastboot; bootefi bootmgr; pause; run menucmd
+ 
+ # When entering the menu (either from button press or failed boot)
+ # remap bootcmd so it will re-open the menu and we won't get stuck
+diff --git a/configs/mt6789_q25_defconfig b/configs/mt6789_q25_defconfig
+--- a/configs/mt6789_q25_defconfig
++++ b/configs/mt6789_q25_defconfig
+@@ -119,3 +119,4 @@ CONFIG_VIDEO_SIMPLE=y
+ CONFIG_VIDEO_DT_SIMPLEFB=y
+ CONFIG_WDT=y
+ CONFIG_WDT_MTK=y
++CONFIG_BLKMAP=y

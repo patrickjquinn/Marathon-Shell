@@ -1,0 +1,175 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] arm: mediatek: mt6789: take DRAM size from preloader boot tags
+
+dram_init() clamped RAM to 2 GiB, so a 12 GiB Zinwa Q25 booted Linux
+with 1.7 GiB usable.
+
+The MT6789 preloader leaves its boot tags at 0x48600000 and bl2_ext
+writes its updated copy back there before it starts BL33 (bl2_ext reads
+and rewrites them at that fixed address). BOOT_TAG_MEM (0x88610005)
+holds the DRAM rank layout in orig_dram_info. Read the ranks from it and
+report them as DRAM banks. If the tag is missing or fails validation
+(size, mblock magic/version, rank count, contiguity, 1 GiB granularity,
+16 GiB cap), keep the old 2 GiB probe.
+
+Limit the relocation/EFI allocation top to the first 2 GiB, exactly
+where U-Boot ran before, and grow the last DRAM MMU region to cover the
+detected DRAM. RAM above the top reaches the OS as EfiBootServicesData.
+
+Layout taken from the bl2_ext disassembly of this device:
+tag {u32 size; u32 tag}, size 0x58b0; mblock magic 0x99999999 at
+payload+0xc30, version at +0xc34; orig_dram_info at payload+0x5840
+(u32 rank_num, then {u64 start, u64 size}[4]).
+---
+--- a/arch/arm/mach-mediatek/mt6789/init.c
++++ b/arch/arm/mach-mediatek/mt6789/init.c
+@@ -5,6 +5,8 @@
+ #include <asm/armv8/mmu.h>
+ #include <asm/system.h>
+ #include <asm/global_data.h>
++#include <asm/io.h>
++#include <linux/kernel.h>
+ #include <linux/sizes.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+@@ -15,19 +17,6 @@
+ 	return 0;
+ }
+ 
+-int dram_init(void)
+-{
+-	int ret;
+-
+-	ret = fdtdec_setup_mem_size_base();
+-	if (ret)
+-		return ret;
+-
+-	// Fix ram_size to 2GB, above that things start to break
+-	gd->ram_size = get_ram_size((void *)gd->ram_base, SZ_2G);
+-
+-	return 0;
+-}
+ 
+ void reset_cpu(void)
+ {
+@@ -119,3 +108,120 @@
+ };
+ 
+ struct mm_region *mem_map = vicky_mem_map;
++
++/* Preloader boot tags, refreshed by bl2_ext before it starts BL33 */
++#define BOOT_TAG_BASE		0x48600000UL
++#define BOOT_TAG_AREA		SZ_1M
++#define BOOT_TAG_MEM		0x88610005
++#define BOOT_TAG_MEM_SIZE	0x58b0
++#define BOOT_TAG_MBLOCK_MAGIC	0x99999999
++#define BOOT_TAG_MBLOCK_VERSION	3
++#define MEM_MAGIC_OFF		0xc38
++#define MEM_VERSION_OFF		0xc3c
++#define MEM_RANK_NUM_OFF	0x5848
++#define MEM_RANK_OFF		0x5850
++#define MAX_DRAM_RANKS		4
++#define DRAM_HIGH_REGION	9
++
++static struct {
++	u64 start;
++	u64 size;
++} dram_ranks[MAX_DRAM_RANKS] __section(".data");
++static u32 dram_rank_num __section(".data");
++
++static u64 boot_tag_read64(ulong addr)
++{
++	return readl(addr) | (u64)readl(addr + 4) << 32;
++}
++
++static u32 boot_tag_dram_ranks(void)
++{
++	ulong tag = BOOT_TAG_BASE;
++	ulong end = BOOT_TAG_BASE + BOOT_TAG_AREA;
++	u64 next = gd->ram_base;
++	u32 i, num, size = 0;
++
++	for (; tag + 8 <= end; tag += size) {
++		size = readl(tag);
++		if (size < 8 || size % 4 || size > end - tag)
++			return 0;
++		if (readl(tag + 4) == BOOT_TAG_MEM)
++			break;
++	}
++	if (tag + 8 > end || size != BOOT_TAG_MEM_SIZE ||
++	    readl(tag + MEM_MAGIC_OFF) != BOOT_TAG_MBLOCK_MAGIC ||
++	    readl(tag + MEM_VERSION_OFF) > BOOT_TAG_MBLOCK_VERSION)
++		return 0;
++
++	num = readl(tag + MEM_RANK_NUM_OFF);
++	if (!num || num > MAX_DRAM_RANKS)
++		return 0;
++
++	for (i = 0; i < num; i++) {
++		ulong rank = tag + MEM_RANK_OFF + i * 16UL;
++
++		dram_ranks[i].start = boot_tag_read64(rank);
++		dram_ranks[i].size = boot_tag_read64(rank + 8);
++		if (dram_ranks[i].start != next || !dram_ranks[i].size ||
++		    dram_ranks[i].size % SZ_1G)
++			return 0;
++		next += dram_ranks[i].size;
++	}
++	if (next - gd->ram_base > SZ_16G)
++		return 0;
++
++	return num;
++}
++
++int dram_init(void)
++{
++	struct mm_region *high = &vicky_mem_map[DRAM_HIGH_REGION];
++	u64 dram_end;
++	u32 i;
++	int ret;
++
++	ret = fdtdec_setup_mem_size_base();
++	if (ret)
++		return ret;
++
++	dram_rank_num = boot_tag_dram_ranks();
++	if (!dram_rank_num) {
++		/* Fall back to the known-good 2 GiB */
++		gd->ram_size = get_ram_size((void *)gd->ram_base, SZ_2G);
++		return 0;
++	}
++
++	gd->ram_size = 0;
++	for (i = 0; i < dram_rank_num; i++)
++		gd->ram_size += dram_ranks[i].size;
++
++	dram_end = gd->ram_base + gd->ram_size;
++	if (dram_end > high->phys + high->size)
++		high->size = dram_end - high->phys;
++
++	return 0;
++}
++
++int dram_init_banksize(void)
++{
++	u32 i;
++
++	if (!dram_rank_num) {
++		gd->bd->bi_dram[0].start = gd->ram_base;
++		gd->bd->bi_dram[0].size = gd->ram_size;
++		return 0;
++	}
++
++	for (i = 0; i < dram_rank_num; i++) {
++		gd->bd->bi_dram[i].start = dram_ranks[i].start;
++		gd->bd->bi_dram[i].size = dram_ranks[i].size;
++	}
++
++	return 0;
++}
++
++/* Keep U-Boot and every EFI allocation in the first 2 GiB, as before */
++phys_addr_t board_get_usable_ram_top(phys_size_t __maybe_unused total_size)
++{
++	return min_t(phys_addr_t, gd->ram_top, gd->ram_base + SZ_2G);
++}

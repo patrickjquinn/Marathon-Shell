@@ -1,0 +1,24 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] arm: dts: mt6789-zinwa-q25: reserve the MD1 image region
+
+LK reserved the modem image region at 0xdc000000; with the DRAM ranks
+from the boot tags it became System RAM, and q25-md1-owner could not
+claim it (-EADDRINUSE). Carve it out as no-map so that the EFI memory
+map keeps it from Linux.
+---
+diff --git a/arch/arm/dts/mt6789-zinwa-q25.dts b/arch/arm/dts/mt6789-zinwa-q25.dts
+--- a/arch/arm/dts/mt6789-zinwa-q25.dts
++++ b/arch/arm/dts/mt6789-zinwa-q25.dts
+@@ -44,6 +44,12 @@
+ 		#size-cells = <0x02>;
+ 		ranges;
+ 
++		/* MD1 image, as LK reserved it; Marathon loads the modem here. */
++		md1-image@dc000000 {
++			reg = <0x00 0xdc000000 0x00 0x8000000>;
++			no-map;
++		};
++
+ 		mblock-33-shared-dma-pool_wifi-reserve-memory_dma {
+ 			reg = <0x00 0xbf000000 0x00 0x600000>;
+ 			no-map;
