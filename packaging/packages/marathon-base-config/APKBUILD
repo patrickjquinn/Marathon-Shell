@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=60
+pkgrel=61
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -38,6 +38,8 @@ depends="
 	tmux
 	font-noto
 	font-noto-emoji
+	font-noto-cjk
+	font-noto-devanagari
 	ttf-dejavu
         greetd
 	gpg
@@ -47,6 +49,10 @@ depends="
 # D-Bus API, with tuned owning the CPU governor through the profiles below.
 # power-profiles-daemon itself has no driver for these SoCs' cpufreq
 # (placeholder only), so its power-saver would change nothing.
+# font-noto-cjk, font-noto-devanagari: Chinese, Japanese, Korean and Hindi
+# text, which otherwise renders as boxes. Noto Sans/Serif CJK are Android's
+# CJK fonts; font-noto-cjk is Regular and Bold only (93 MB installed;
+# font-noto-cjk-extra's other weights are another 219 MB).
 # font-noto-emoji: colour emoji for Marathon (fontconfig's "emoji") and, as
 # the same NotoColorEmoji.ttf, for Android apps (deckard-fonts-sync).
 # gpg: systemd-pull runs it to check an OTA feed's SHA256SUMS.gpg against
