@@ -117,11 +117,8 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Modules | Why OOT |
 |---|---|---|
-| H41 | 57 networking modules (`tun`, `veth`, `dummy`, `bridge`, `llc`, `stp`, all `nf_*`/`nft_*`/`xt_*`/`ip*_tables`) | Kernel config leaves them out; Deckard needs them. |
-| H42 | 9 media core modules (`mc`, `videodev`, `v4l2-*`, `videobuf2-*`) and `imx111`, `s5kjn1` (+3 patches in `camera/i2c/`) | Same; sensor patches are ours. |
-| H43 | `snd-timer`, `snd-pcm`, `snd-jack`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common` | `CONFIG_SND_SOC` unset in the running kernel. |
-| H44 | `cfg80211`, `bluetooth`, `rfkill`, `spi-mt65xx`, `regulator-haptic`, `inv-icm42607`(+`-spi`), `mmc5633` (+`mmc5633-q25.patch`) | Unset or unshipped. `inv_icm42607` is mainline code newer than v7.0 (torvalds `abf8c334`). |
-| H46 | `CONFIG_MODULE_UNLOAD=n` (`7.0.0-q25-cfi-test`, `linux-zinwa-q25` config) | Bring-up safety; makes every module test a reboot. |
+| H42 | `videobuf2-common`, `-memops`, `-v4l2`, `-dma-contig` | No in-tree driver in the config selects videobuf2; built with the H38 camera set. Media core, `imx111` and `s5kjn1` are in the kernel. |
+| H43 | `snd-soc-mt6358` (+ `audio/patches` `0002`–`0006`), `snd-soc-mtk-common` | The codec carries Q25 patches the machine driver needs (H35); MTK common is selected only by an AFE. Move in with W10/W11. ALSA and ASoC core are in the kernel. |
 
 ### 2.6 udev and modprobe policy that encodes hardware facts
 

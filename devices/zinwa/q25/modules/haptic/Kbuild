@@ -1,1 +1,1 @@
-obj-m := q25-haptic.o regulator-haptic.o
+obj-m := q25-haptic.o

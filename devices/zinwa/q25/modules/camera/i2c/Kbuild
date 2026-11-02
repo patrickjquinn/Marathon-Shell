@@ -1,1 +1,0 @@
-obj-m := imx111.o s5kjn1.o

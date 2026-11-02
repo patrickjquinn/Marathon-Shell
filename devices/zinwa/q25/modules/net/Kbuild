@@ -1,4 +1,0 @@
-# SPDX-License-Identifier: GPL-2.0-only
-# net/netfilter and net/ipv{4,6}/netfilter need each other's symbols, so they
-# build as one set.
-obj-m += tun.o veth.o dummy.o netfilter/ ipv4/netfilter/ ipv6/netfilter/
