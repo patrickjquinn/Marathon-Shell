@@ -20,7 +20,20 @@ QtObject {
             }
         ]);
     }
+    // As marathon-davd fills `phone` and `email` from the lists.
+    function createContact(data) {
+        addContact(data.name, data.phones.length > 0 ? data.phones[0].value : "", data.emails.length > 0 ? data.emails[0].value : "");
+        updateContact(nextId - 1, data);
+    }
     function updateContact(id, data) {
+        if (data.phones)
+            data = Object.assign({
+                phone: data.phones.length > 0 ? data.phones[0].value : ""
+            }, data);
+        if (data.emails)
+            data = Object.assign({
+                email: data.emails.length > 0 ? data.emails[0].value : ""
+            }, data);
         contacts = contacts.map(c => c.id === id ? Object.assign({}, c, data) : c);
     }
     function deleteContact(id) {

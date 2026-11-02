@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
@@ -69,98 +71,127 @@ Page {
                 }
             }
 
-            ListItem {
-                id: phoneRow
+            Repeater {
+                model: Phone.contactEntries(root.contact, "phones", "phone", "mobile").filter(e => e.value !== "")
 
-                objectName: "phoneItem"
-                contentHeight: Theme.itemSizeMedium
-                Accessible.name: qsTr("Call %1").arg(phoneValue.text)
-                onClicked: root.phone.call(root.contact.phone)
+                ListItem {
+                    id: phoneRow
 
-                Icon {
-                    id: phoneIcon
+                    required property var modelData
 
-                    x: Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: "image://theme/icon-m-call"
-                    highlighted: phoneRow.highlighted
-                }
-                Column {
-                    anchors {
-                        left: phoneIcon.right
-                        leftMargin: Theme.paddingLarge
-                        right: messageButton.left
-                        rightMargin: Theme.paddingMedium
-                        verticalCenter: parent.verticalCenter
+                    objectName: "phoneItem"
+                    contentHeight: Theme.itemSizeMedium
+                    Accessible.name: qsTr("Call %1").arg(phoneValue.text)
+                    onClicked: root.phone.call(modelData.value)
+
+                    Icon {
+                        id: phoneIcon
+
+                        x: Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "image://theme/icon-m-call"
+                        highlighted: phoneRow.highlighted
                     }
+                    Column {
+                        anchors {
+                            left: phoneIcon.right
+                            leftMargin: Theme.paddingLarge
+                            right: messageButton.left
+                            rightMargin: Theme.paddingMedium
+                            verticalCenter: parent.verticalCenter
+                        }
 
-                    Label {
-                        id: phoneValue
+                        Label {
+                            id: phoneValue
 
-                        objectName: "phoneValue"
-                        width: parent.width
-                        text: root.contact ? Phone.format(root.contact.phone) : ""
-                        truncationMode: TruncationMode.Fade
-                        color: phoneRow.highlighted ? Theme.highlightColor : Theme.primaryColor
+                            objectName: "phoneValue"
+                            width: parent.width
+                            text: Phone.format(phoneRow.modelData.value)
+                            truncationMode: TruncationMode.Fade
+                            color: phoneRow.highlighted ? Theme.highlightColor : Theme.primaryColor
+                        }
+                        Label {
+                            width: parent.width
+                            text: Phone.kindName(phoneRow.modelData.type)
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: phoneRow.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                        }
                     }
-                    Label {
-                        width: parent.width
-                        text: qsTr("Phone")
-                        font.pixelSize: Theme.fontSizeSmall
-                        color: phoneRow.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-                    }
-                }
-                IconButton {
-                    id: messageButton
+                    IconButton {
+                        id: messageButton
 
-                    objectName: "messageButton"
-                    anchors {
-                        right: parent.right
-                        rightMargin: Theme.horizontalPageMargin - Theme.paddingMedium
-                        verticalCenter: parent.verticalCenter
+                        objectName: "messageButton"
+                        anchors {
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin - Theme.paddingMedium
+                            verticalCenter: parent.verticalCenter
+                        }
+                        icon.source: "image://theme/icon-m-message"
+                        Accessible.name: qsTr("Send message")
+                        onClicked: root.phone.sendMessage(phoneRow.modelData.value)
                     }
-                    icon.source: "image://theme/icon-m-message"
-                    Accessible.name: qsTr("Send message")
-                    onClicked: root.phone.sendMessage(root.contact.phone)
                 }
             }
 
-            Item {
-                width: parent.width
-                height: Theme.itemSizeMedium
-                visible: !!(root.contact && root.contact.email)
+            Repeater {
+                model: Phone.contactEntries(root.contact, "emails", "email", "home").filter(e => e.value !== "")
 
-                Icon {
-                    id: emailIcon
+                Item {
+                    id: emailRow
 
-                    x: Theme.horizontalPageMargin
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: "image://theme/icon-m-mail"
-                    color: Theme.highlightColor
-                }
-                Column {
-                    anchors {
-                        left: emailIcon.right
-                        leftMargin: Theme.paddingLarge
-                        right: parent.right
-                        rightMargin: Theme.horizontalPageMargin
-                        verticalCenter: parent.verticalCenter
-                    }
+                    required property var modelData
 
-                    Label {
-                        objectName: "emailValue"
-                        width: parent.width
-                        text: root.contact && root.contact.email || ""
-                        truncationMode: TruncationMode.Fade
+                    width: parent.width
+                    height: Theme.itemSizeMedium
+
+                    Icon {
+                        id: emailIcon
+
+                        x: Theme.horizontalPageMargin
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "image://theme/icon-m-mail"
                         color: Theme.highlightColor
                     }
-                    Label {
-                        width: parent.width
-                        text: qsTr("Email")
-                        font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.secondaryHighlightColor
+                    Column {
+                        anchors {
+                            left: emailIcon.right
+                            leftMargin: Theme.paddingLarge
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin
+                            verticalCenter: parent.verticalCenter
+                        }
+
+                        Label {
+                            objectName: "emailValue"
+                            width: parent.width
+                            text: emailRow.modelData.value
+                            truncationMode: TruncationMode.Fade
+                            color: Theme.highlightColor
+                        }
+                        Label {
+                            width: parent.width
+                            text: Phone.kindName(emailRow.modelData.type)
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.secondaryHighlightColor
+                        }
                     }
                 }
+            }
+
+            SectionHeader {
+                visible: noteLabel.visible
+                text: qsTr("Notes")
+            }
+            Label {
+                id: noteLabel
+
+                objectName: "noteValue"
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * x
+                visible: text !== ""
+                text: root.contact && root.contact.note || ""
+                wrapMode: Text.Wrap
+                color: Theme.highlightColor
             }
         }
 

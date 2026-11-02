@@ -204,6 +204,59 @@ TestCase {
         compare(Contacts.contacts.length, 3);
     }
 
+    function test_contactKeepsSeveralNumbersAndANote() {
+        const app = makeApp();
+        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), {
+            contact: null
+        });
+        waitIdle(app);
+        const dialog = app.pageStack.currentPage;
+        findChild(dialog, "nameField").text = "Grace Hopper";
+        findChild(dialog, "phoneField").text = "+1 202 555 0101";
+        findChild(dialog, "phoneFieldAdd").clicked(null);
+        const fields = findChildren(dialog, "phoneField");
+        compare(fields.length, 2);
+        fields[1].text = "+1 202 555 0199";
+        findChild(dialog, "noteField").text = "Navy";
+        dialog.accept();
+        tryVerify(() => Contacts.contacts.length === 4);
+        const grace = Contacts.contacts[3];
+        compare(grace.phones, [
+            {
+                type: "mobile",
+                value: "+1 202 555 0101"
+            },
+            {
+                type: "mobile",
+                value: "+1 202 555 0199"
+            }
+        ]);
+        compare(grace.emails, []);
+        compare(grace.note, "Navy");
+        compare(grace.phone, "+1 202 555 0101");
+
+        app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), {
+            contact: grace
+        });
+        waitIdle(app);
+        const edit = app.pageStack.currentPage;
+        compare(findChildren(edit, "phoneField").map(f => f.text), ["+1 202 555 0101", "+1 202 555 0199"]);
+        compare(findChild(edit, "noteField").text, "Navy");
+    }
+
+    function findChildren(parent, name) {
+        const out = [];
+        const walk = item => {
+            for (const child of item.children || []) {
+                if (child.objectName === name)
+                    out.push(child);
+                walk(child);
+            }
+        };
+        walk(parent);
+        return out;
+    }
+
     function test_rejectedDialogDiscards() {
         const app = makeApp();
         app.pageStack.push(Qt.resolvedUrl("../pages/ContactEditorDialog.qml"), {

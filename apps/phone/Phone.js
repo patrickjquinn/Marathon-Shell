@@ -115,3 +115,30 @@ function lastOutgoing(history) {
     }
     return best ? String(best.number) : "";
 }
+
+// The kinds of number and address a contact keeps, as marathon-davd names them.
+const kinds = ["mobile", "home", "work", "other", "fax"];
+
+function kindName(kind) {
+    switch (kind) {
+    case "mobile":
+        return qsTr("Mobile");
+    case "home":
+        return qsTr("Home");
+    case "work":
+        return qsTr("Work");
+    case "fax":
+        return qsTr("Fax");
+    default:
+        return qsTr("Other");
+    }
+}
+
+// A contact's numbers or addresses as {type, value}, from its list or its one
+// `key` field; one empty entry when it has none, to type into.
+function contactEntries(contact, listKey, key, kind) {
+    const list = contact && contact[listKey] && contact[listKey].length > 0 ? contact[listKey]
+        : contact && contact[key] ? [{ type: kind, value: contact[key] }] : [];
+    const out = list.map(e => ({ type: e.type || kind, value: String(e.value || "") }));
+    return out.length > 0 ? out : [{ type: kind, value: "" }];
+}
