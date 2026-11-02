@@ -329,6 +329,13 @@ pub fn refresh(state: &StateDir, flatpak: &str) -> io::Result<()> {
     // Publish local Flatpaks before asking Deckard for Android packages. The
     // latter may be booting Android and must not hide already-known apps.
     state.write_json("installed.json", &listed)?;
+    for app in listed["installed"].as_array_mut().into_iter().flatten() {
+        let id = app["app_id"].as_str().unwrap_or_default().to_owned();
+        let size = stdout_of(Command::new(flatpak).args(["--user", "info", "--show-size", &id]));
+        if let Some(bytes) = size.ok().and_then(|s| s.trim().parse::<u64>().ok()) {
+            app["size"] = bytes.into();
+        }
+    }
     let (android_installed, android_updates) = crate::fdroid::lists();
     if let Some(apps) = listed["installed"].as_array_mut() {
         apps.extend(android_installed);
