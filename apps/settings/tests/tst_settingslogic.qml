@@ -58,7 +58,7 @@ TestCase {
 
     function test_batteryStatus() {
         compare(Logic.batteryStatus(true, true, 0), "Charging");
-        compare(Logic.batteryStatus(false, true, 0), "Plugged in, not charging");
+        compare(Logic.batteryStatus(false, true, 0), "Charged");
         compare(Logic.batteryStatus(false, false, 0), "Discharging");
         compare(Logic.batteryStatus(false, false, 2 * 3600 + 5 * 60), "2 h 5 min left");
         compare(Logic.batteryStatus(false, false, 40 * 60), "40 min left");
