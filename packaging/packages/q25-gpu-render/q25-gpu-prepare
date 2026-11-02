@@ -10,16 +10,12 @@ rm -f "$state/ready"
 fail() { echo "q25-gpu: $*; software fallback" >&2; exit 1; }
 [ ! -e /etc/q25/gpu-disabled ] || fail 'disabled by recovery override'
 case " $(cat /proc/cmdline) " in *' q25.gpu=off '*) fail 'disabled by command line';; esac
-[ "$(uname -r)" = 7.0.0-q25-cfi-test ] || fail 'kernel release mismatch'
 [ "$(cat /sys/devices/system/cpu/cpu0/online)" = 0 ] || fail 'CPU0 quarantine absent'
 sha256sum -c /usr/lib/q25-gpu/SHA256SUMS || fail 'artifact identity mismatch'
 [ -e "$gpu/of_node" ] || fail 'native GPU node absent'
-if [ ! -d /sys/module/q25_mfg_only_v2 ]; then
-    insmod /usr/lib/q25-gpu/q25-mfg-only-v2.ko enable=1
-fi
+modprobe q25-mfg-only-v2 enable=1
 [ -L /sys/bus/platform/drivers/q25-mfg-only-v2/10006000.syscon:power-controller ] || fail 'MFG provider not bound'
-[ -d /sys/module/gpu_sched ] || insmod /usr/lib/q25-gpu/gpu-sched.ko
-[ -d /sys/module/panfrost ] || insmod /usr/lib/q25-gpu/panfrost.ko
+modprobe panfrost
 [ "$(basename "$(readlink "$gpu/driver")")" = panfrost ] || fail 'Panfrost not bound'
 [ -c /dev/dri/card0 ] && [ -c /dev/dri/renderD128 ] || fail 'DRM nodes missing'
 [ "$(basename "$(readlink /sys/class/drm/card0/device/driver)")" = simple-framebuffer ] || fail 'display is not SimpleDRM'

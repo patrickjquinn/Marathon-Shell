@@ -1,12 +1,36 @@
 # Zinwa Q25 kernel: ellyq's mtk_g99-mainline (the MT6789 tree) at 978b8b67
-# with the Q25 series below and its config. Every configured module is built
-# here; only Q25 shims and vendor drivers ship out of tree
-# (devices/zinwa/q25/modules). The patches are a git format-patch series;
-# devices/zinwa/q25/kernel/README.md says where each one stands upstream.
+# with the Q25 series below and its config, plus the Q25 out-of-tree drivers
+# (modules/, built against this tree into q25-kernel-modules). The patches
+# are a git format-patch series; devices/zinwa/q25/kernel/README.md says
+# where each one stands upstream. pkgrel continues q25-kernel-modules'
+# numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=2
+pkgrel=23
 _commit=978b8b672d68e43b08c891132b974255489889aa
+# Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
+# (adomerle/mt6789-sound) that modules/ builds.
+_mindone=9cd73c15f312cfd1e40a22d871de65a2fb2c5791
+_sound=996ec48145f6746ecc664e92c6e5892b6978e3ae
+_afe="
+	mt6789-afe-clk.c
+	mt6789-afe-clk.h
+	mt6789-afe-common.h
+	mt6789-afe-control.c
+	mt6789-afe-gpio.c
+	mt6789-afe-gpio.h
+	mt6789-afe-pcm.c
+	mt6789-dai-adda.c
+	mt6789-dai-hostless.c
+	mt6789-dai-hw-gain.c
+	mt6789-dai-i2s.c
+	mt6789-dai-pcm.c
+	mt6789-dai-src.c
+	mt6789-interconnection.h
+	mt6789-misc-control.c
+	mt6789-mt6366.c
+	mt6789-reg.h
+"
 _release=7.0.0-q25
 pkgdesc="Zinwa Q25 Pro kernel"
 url="https://gitlab.nura.eco/ellyq/mtk_g99-mainline"
@@ -22,13 +46,17 @@ makedepends="
 	lld
 	llvm
 	openssl-dev
+	patch
 	perl
 	python3
 	zstd
 "
 # The prebuilt kernel package this one takes over from.
 replaces="linux-postmarketos-mediatek-g99"
+subpackages="q25-kernel-modules:_modules"
+install="q25-kernel-modules.post-install q25-kernel-modules.post-upgrade"
 source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-mainline/-/archive/$_commit/mtk_g99-mainline-$_commit.tar.gz
+	android_kernel_ikko_mindone-$_mindone.tar.gz::https://github.com/iasnezhkov/android_kernel_ikko_mindone/archive/$_mindone.tar.gz
 	config-zinwa-q25.aarch64
 	panel-zinwa-q20-hd720.c
 	0001-drm-mediatek-Add-MT6789-display-support.patch
@@ -57,7 +85,16 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0024-media-i2c-s5kjn1-Report-the-crop-height-not-the-widt.patch
 	0025-iio-magnetometer-mmc5633-Cancel-the-bridge-offset-an.patch
 "
+for _f in $_afe; do
+	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
+done
 builddir="$srcdir/mtk_g99-mainline-$_commit"
+
+unpack() {
+	tar -C "$srcdir" -xzf "$SRCDEST/mtk_g99-mainline-$_commit.tar.gz"
+	tar -C "$srcdir" -xzf "$SRCDEST/android_kernel_ikko_mindone-$_mindone.tar.gz" \
+		"android_kernel_ikko_mindone-$_mindone/mindone/modules"
+}
 
 prepare() {
 	default_prepare
@@ -68,6 +105,11 @@ prepare() {
 		>> drivers/gpu/drm/panel/Kconfig
 	cp "$srcdir/config-zinwa-q25.aarch64" .config
 	make ARCH=arm64 LLVM=1 olddefconfig
+	local afe="$srcdir/mt6789-sound/sound/soc/mediatek/mt6789" f
+	mkdir -p "$afe"
+	for f in $_afe; do
+		cp "$srcdir/$f" "$afe/"
+	done
 }
 
 build() {
@@ -75,6 +117,9 @@ build() {
 	export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@$SOURCE_DATE_EPOCH")"
 	make ARCH=arm64 LLVM=1 Image vmlinuz.efi modules mediatek/mt8781-zinwa-q25.dtb
 	[ "$(cat include/config/kernel.release)" = "$_release" ]
+	MT6789_SOUND="$srcdir/mt6789-sound" JOBS="${JOBS:-2}" \
+		sh "$startdir/modules/build.sh" "$builddir" "$builddir" \
+		"$srcdir/android_kernel_ikko_mindone-$_mindone" "$srcdir/q25-modules"
 }
 
 package() {
@@ -89,8 +134,41 @@ package() {
 	install -Dm644 include/config/kernel.release \
 		"$pkgdir"/usr/share/kernel/zinwa-q25/kernel.release
 }
+
+# Out-of-tree modules by directory under extra/; every built module is listed.
+_extra="q25-bbq-keys q25-keyboard-led q25-md1-owner q25-panel-doze q25-vsyncdrm
+	q25-i2c-clk hx32062se q25-mt6358-live q25-haptic"
+_connsys="q25-conn-pd connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
+	q25-btmtk-stp mtk-connsys-gnss"
+_audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390
+	q25-mt6366-card q25-mt6358-accdet"
+_camera="q25-cam-pd q25-cam-dt wl2868c-regulator videobuf2-common videobuf2-memops
+	videobuf2-v4l2 videobuf2-dma-contig phy-mtk-mipi-csi-2-1 mtk-seninf6s mtk-camsv6s"
+_modem="ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif"
+_gpu="q25-mfg-only-v2"
+
+_modules() {
+	pkgdesc="Zinwa Q25 out-of-tree drivers for linux-zinwa-q25"
+	depends="kmod $pkgname=$pkgver-r$pkgrel"
+	local out="$srcdir/q25-modules" extra="$subpkgdir/usr/lib/modules/$_release/extra"
+	local d m n=0
+	for d in extra connsys audio camera modem gpu; do
+		local dir="$extra/q25-$d" list
+		eval "list=\$_$d"
+		[ "$d" = extra ] && dir="$extra"
+		for m in $list; do
+			install -Dm644 "$out/modules/$m.ko" "$dir/$m.ko"
+			n=$((n + 1))
+		done
+	done
+	[ "$n" = "$(ls "$out"/modules/*.ko | wc -l)" ]
+	install -Dm644 "$out/firmware/q25-camera.dtbo" \
+		"$subpkgdir"/usr/lib/firmware/q25-camera.dtbo
+}
+
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
+36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
 c95d7a034f868ae72bf078f27fd07e0bcc7062923c8ccc10213cade6e1d60bcbbf8364017561dcc36b3b1f700361099c470b5e49419ad12cdf3775ed7214fe8d  config-zinwa-q25.aarch64
 2cf5f7923e2db6d4b5b075319e647526424fc8e2f94f832287e6b9bd63c05f1dc27115e05ea3f5e14b7693f1fad4471e40207ab47dfca5a33ecdf019d36aedb4  panel-zinwa-q20-hd720.c
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
@@ -118,4 +196,21 @@ a701099e3386327fdabc1968d93424747c757efef45e2fd25181f1965246831b5e7b4effe41a9a68
 f4e0fd9862dad98b15aa3a64424d436c4c22c053914b0df54157bdaf82b27d10d9ff0ac296b387f19b4db145e2eb4734175cbf6f27f10c96f969da60c4f42b4f  0023-media-i2c-imx111-Derive-the-data-depth-from-the-requ.patch
 b4ac1dc10995e5eeca328dadac16e6135892d0cca1e5cf9251e0a56a20e26b0bbb7f69995959028eb3ad38b43aa45c12bdaf4abbe41d70cebc318121c1534c2e  0024-media-i2c-s5kjn1-Report-the-crop-height-not-the-widt.patch
 67c1fb0e05b4ce8588e15367612d27c51c81ad30ed900bdb8576ac9c208ff7a276a643486b54b4e60fda2675ac2c999ad56fa04904779d8abc80747a88e9310f  0025-iio-magnetometer-mmc5633-Cancel-the-bridge-offset-an.patch
+7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
+4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
+d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
+bcaaaee61f9c6b3cbf4771715975cd8c90f01009637624b36c18569e4ae6c04056e9cdd06127643f0c9ddeaa3d0ee56b7eba643a044fa436d0cfbc916a9b356c  mt6789-afe-control.c
+fc6d70cdc7a53076e56fc7d04ae98009687f6b3023f1eed87f517e0aad6246fee0f83c572899ccf73b2aa85a5d6554bd67f8c16ede412badf5f77e731a0411b5  mt6789-afe-gpio.c
+f402410a5846bf3fd86ba0fbe78229abeb091d933ec670a62f3819a241532efd467d616d192ef2e1e60e05886cf81b1b84e653439c235c10a37f202fbaa62876  mt6789-afe-gpio.h
+39bb1d247dd66ebe3842a4ab4a0bfd27a96c9e2a99fd7272c388d5463bdbc92643cb21d6448bf8f4731b351c923c19ef3c83433bf09835bfc0bdb9051af8912a  mt6789-afe-pcm.c
+f36d900da43bd03dd40b0ba77cd953227aa91066cb4370671ffd097b253a0fdd64dc4f6ff5529625f67fd553d7916161bfd46baf094eabbc4f82ce7cf102ee0a  mt6789-dai-adda.c
+21310c5d736230578e43009d359ff048c35c2614e252df8a76275e1559e3597cd928f9fb5292833a60de2a289cbc83de6a67a34c98f8be87436413ebbf8b6f3f  mt6789-dai-hostless.c
+6c1e45aa621ca1ca80bdcdbc7364498500f5d56d7658f981f68b1afa1809a4e1a8ba36a3a1b121990bb65a86f34510b3b0dee6ed071f58766cf282cb0a922c58  mt6789-dai-hw-gain.c
+83b682c2ea4d9781086dc8935f0d346a8a97841fcce11e6b18eb59a8b8d10151fa7489d1fb3309324a6150410fef44291bda0f073ee1c114ba5d189747bfad05  mt6789-dai-i2s.c
+c3fb1d607374dd688886a4f65721f30dc0f094a89e0c53368cc997d9e7dac7a9ae24029c00e447f84cd3b6e052c1665956ab9921952c062f0913a6e10d54d27f  mt6789-dai-pcm.c
+42398f0e08e745105c78b77e50c61b26f8401703e9e63c828df82c811dc999636d8f345c260c548b053cbad5647ab02cce5be9061b6b3440dccfefb78316303f  mt6789-dai-src.c
+25c44e1f1512f5a00c61ea76030478860b5dba5861e4ddc815bb956558fca2906552bbd6d94b3e9d9bbf830e1bbf632040f214eecd6d92ad0a1c6f1541eb4236  mt6789-interconnection.h
+5e216cb71372137c2362d71f20c62826d5d650876005501ddc4acdb836a2cc674124584bd6773a78918e24405fcbbb1060847c13788a12e97e76d0d244c0e940  mt6789-misc-control.c
+d9bad2600e2476271cc81c6760218213493071c80a9c75900b99017a5bea0d4458b39f1555742d47868e76a0f4826907664039bc53fc9c457f3b1482932563cf  mt6789-mt6366.c
+870a4627bfc6ecdae2bd34c124d97561f3010ccc9867a4c2fef896dffdd5f2d9c4041e6f0b088e9191b15bea14e823593a0d83983003cdf523b76a727cde057f  mt6789-reg.h
 "

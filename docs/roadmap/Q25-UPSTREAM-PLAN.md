@@ -44,7 +44,7 @@ mainline path exists yet, in their own packages, with no userspace hardware poki
 
 lore.kernel.org refused requests from this environment (HTTP 403), so whether the out-of-tree
 series above have been posted is **unverified**; the trees are cited instead. The WL2868C regulator
-is the one item known to be on the list (v4, 2026-10-31, per `devices/zinwa/q25/modules/README.md`).
+is the one item known to be on the list (v4, 2026-10-31, per `pkg/linux-zinwa-q25/modules/README.md`).
 Julien Stephan's MediaTek ISP3.0 seninf/camsv series reached
 [v8](https://lkml.iu.edu/hypermail/linux/kernel/2501.2/06543.html) (Jan 2025) and is not in mainline.
 
@@ -83,12 +83,12 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H18 | `q25-native-gauge` (Python service `q25_gauge_service.py`, `q25_soc.py`, `stock-profile0.json`, `90-q25-battery-model.conf`, `battery-model-experimental`) | Reads current/CAR snapshots from `q25-mt6358-live`, fits the stock battery profile, writes capacity back into the kernel; UPower told to ignore critical levels. | No MT6358 fuel-gauge driver; `fuel-gauge` is `generic-adc-battery` (voltage only). | W9 |
 | H19 | `q25-root-dio.service` | `losetup --direct-io=on` on the loop-mounted root. | Root is an ext4 file on the userdata carrier (`q25-carrier.hook`). Storage layout, not hardware; goes with `docs/roadmap/2026-10-31-storage-erofs-f2fs.md`. | Storage roadmap |
 
-### 2.3 Out-of-tree kernel modules: Marathon shims for missing drivers (`devices/zinwa/q25/modules/`, `pkg/q25-gpu-render/`)
+### 2.3 Out-of-tree kernel modules: Marathon shims for missing drivers (`pkg/linux-zinwa-q25/modules/`, built into `q25-kernel-modules`)
 
 | H# | Module | What it does | Root cause | Fixed by |
 |---|---|---|---|---|
 | H20 | `q25-i2c-clk` (`clk/`) | Registers a critical `top_i2c` alias of `i2c_pseudo_ck`. | `clk-mt6789-imp_iic_wrap.c` names the parent `top_i2c`, which topckgen never registers: every I2C "main" clock is an orphan at 0 Hz. A DT workaround (dt4) gated `i2c_sel` for all buses and boot-looped the phone (`Q/backlight-bringup/HANDOFF.md`, update 6). | W2 |
-| H21 | `q25-mfg-only-v2` (`pkg/q25-gpu-render/q25-mfg-only-v2.c`) | A copy of `mtk-pm-domains.c` with linux-mediatek `2ed59e43` MT6789 MFG data, registering only MFG2–5 on the SPM node. Shipped as a prebuilt `.ko`. | ellyq's tree lacks `a2a96be99f1b`; the copy adds fixes (OF child reg lookup, supply resolution, initial-off guard). | W3 |
+| H21 | `q25-mfg-only-v2` (`modules/gpu-mfg/`) | A copy of `mtk-pm-domains.c` with linux-mediatek `2ed59e43` MT6789 MFG data, registering only MFG2–5 on the SPM node. | ellyq's tree lacks `a2a96be99f1b`; the copy adds fixes (OF child reg lookup, supply resolution, initial-off guard). | W3 |
 | H22 | `q25-audio-pd` (`audio/q25/`) | Second genpd provider on the same SPM node, resolving only AUDIO (11). | Same. | W3 |
 | H23 | `q25-conn-pd` (`conn-pd/`) | Provider for CONN (1) plus a reset controller on `toprgu` exposing only bit 12. | Same; `mtk-wdt` binds toprgu through the mt6589 fallback without MT6789 reset data. | W3 |
 | H24 | `q25-cam-pd` (`cam-pd/`) | Provider for CAM (12). | Same. | W3 |
