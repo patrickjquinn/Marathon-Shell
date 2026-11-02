@@ -132,7 +132,7 @@ QtObject {
     }
 
     function toggleVibration() {
-        HapticManager.enabled = !isVibrationOn;
+        SettingsManagerCpp.vibrationEnabled = !SettingsManagerCpp.vibrationEnabled;
     }
 
     function toggleNightLight() {
