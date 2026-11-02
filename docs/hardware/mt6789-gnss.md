@@ -300,6 +300,22 @@ matched the IGS broadcast file field for field (GPS and BeiDou C33).
 0x3B (14 bytes, GLONASS frequency slot in bytes 2–3) is probably GLONASS
 string data; not decoded.
 
+Reference clock: the crystal is not temperature-compensated. Bytes 12-13
+of msg 0x42 (the first message of each epoch) are its thermistor code,
+falling as the phone warms (29900 on a cool phone, 26500 hot). Each epoch
+the stock engine sends msg 0x10 as a flag byte (1) and three (code,
+offset) pairs at code - 800, code and code + 800, each value 32-bit, the
+code in the high half: on this phone offset = 1248 + 0.3775 (code -
+29186), over the whole reference run. The DSP interpolates; with the
+current code outside the pairs sent, the GPS Doppler offset it reports
+moved from the usual 1620-1630 Hz to 1800-1960 Hz and acquisition slowed
+to minutes per satellite (native-cold1). Whether that reported offset
+follows the aid is not yet measured (`marathon-gnssd --clock-sweep`).
+
+The DSP walks the whole search list itself, a few entries per epoch; the
+stock engine moves satellites in lock to the front of their system's
+part of the list, strongest first.
+
 Host commands seen during a cold start (all payloads plain):
 
 | id | When | Content |
@@ -308,7 +324,8 @@ Host commands seen during a cold start (all payloads plain):
 | 0x04 | once | per-system signal enable masks |
 | 0x08 | once | search mode `10 00 10 00` |
 | 0x00 | every epoch | the next epoch's DSP time (32-bit, high word first) |
-| 0x10, 0x11 | every epoch | reference-clock aiding per system |
+| 0x05 `34 00 00 01 00` | every epoch, first | |
+| 0x10, 0x11 | every epoch | reference-clock aid (above); 0x11 zeros |
 | 0x01 | every epoch | time and frequency aid: clock offset in Hz, its uncertainty, the DSP time it refers to (0 before the first fix), GPS time in 1.5 s units |
 | 0x03 | every epoch | type 0: satellites being aided; type 1: search list, `01 n` then (satellite, system) pairs |
 | 0x1C | every epoch | end of the epoch's commands |
