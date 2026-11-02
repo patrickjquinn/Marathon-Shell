@@ -20,7 +20,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-wifi.system-sleep 50-q25-wpa_supplicant.conf
  q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules q25-hx.modprobe.conf
  unudhcpd-usb0.conf q25.preset
- q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service
+ q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
  q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless
@@ -118,11 +118,7 @@ package() {
     ln -s ../q25-usb-gadget.service "$pkgdir/usr/lib/systemd/system/usb-gadget.target.wants/q25-usb-gadget.service"
 
     install -Dm644 "$srcdir/q25-root-dio.service" "$pkgdir/usr/lib/systemd/system/q25-root-dio.service"
-    install -Dm755 "$srcdir/q25-vsyncdrm" "$pkgdir/usr/libexec/marathon/q25-vsyncdrm"
-    install -Dm755 "$srcdir/q25-backlight" "$pkgdir/usr/libexec/marathon/q25-backlight"
     install -Dm755 "$srcdir/q25-root-grow" "$pkgdir/usr/libexec/marathon/q25-root-grow"
-    install -Dm644 "$srcdir/q25-vsyncdrm.service" "$pkgdir/usr/lib/systemd/system/q25-vsyncdrm.service"
-    install -Dm644 "$srcdir/q25-backlight.service" "$pkgdir/usr/lib/systemd/system/q25-backlight.service"
     install -Dm644 "$srcdir/q25-root-grow.service" "$pkgdir/usr/lib/systemd/system/q25-root-grow.service"
     install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
     ln -s ../q25-root-dio.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-root-dio.service"
@@ -164,7 +160,7 @@ package() {
     ln -s ../q25-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/q25-boot-bless.service"
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight; do
+    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
     done
     install -d "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
@@ -203,10 +199,6 @@ f1e9538dbffbe77c5b83d294f7b163de4e5ddbe2c5f0b5c7d10aea961bc4447ca56dcf9b8bd7746b
 1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  q25-usb-gadget
 6c275f539f32b2746db9da50d83b7c3f0de9ceb4db4068c4d0ba3e11f70d164dd6ed369884c37bd8c902448bd26c5bba07822bd6465f6796190fafa7ed277433  q25-usb-gadget.service
 dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695cd2bd2f2ca06153f38617fb605279038f52db61746df6f57  q25-root-dio.service
-0c7e0f8a01808bbe91e94c5654a7b36170e4674e665da76338f4cbc0815ec3271e7575297fdfc7ac86d56ca34e892fa8c2b78e549fab91113bdebaf679914950  q25-vsyncdrm
-085474142a38ce9da09f3dc13f6f4ec860968697006b91255c2b02d467e49941cd3a3a061575bd1a7dd17c66505b3a06170750345a1f20de69bdf939d11310ef  q25-vsyncdrm.service
-1f5c9bca46329035318a4398a86e88f59b49eece760e63e7628987c7914b21e92c1b736413ecea599d26cb8daf71a9cd82961ba608552080db4df4c59b450ec0  q25-backlight
-e66a7c617f0410d538db796c0da74d79c6ad3bcc871377b83240f99f68e4bc25c88d8f547812446b209ea978ecb17415c950f0a68c67bdbea89f1b3a34a09403  q25-backlight.service
 dc89cdcbbf044d06c1ba18cffd2bebdc86f0015591cde276cd57fb4a82457c89b2a408f927b4662f13f8a52df5a26fbcd580dc7cc882660af36011e638ac5cff  q25-root-grow
 42a5d63e17226632be80493adca33f25bd5dcd5645d96d8d2819051355f53da6823eb04c57aac5fff774c4b963efd92a10bea623943b268612c417cd3cf09b89  q25-root-grow.service
 8bc65514cfafe1c4291390109f2f4814b1681850c20ae1aea24ba497cefd6dbc82f4948cbef796c1c184bb25fe55cf1b7f7177912e6b1be7c56301edb9af145b  q25-platform-prepare

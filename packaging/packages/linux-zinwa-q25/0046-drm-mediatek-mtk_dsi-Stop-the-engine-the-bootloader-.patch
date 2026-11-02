@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:44:14 +0000
+Subject: [PATCH] drm/mediatek: mtk_dsi: Stop the engine the bootloader left
+ running
+
+On phones the bootloader often leaves DSI scanning out in video mode.
+mtk_dsi_poweron() then reprograms timing and the D-PHY under the
+running engine, and the first DCS command from the panel's prepare()
+waits for a video-mode-done interrupt that a reconfigured engine never
+raises, so the first atomic commit stalls (seen on the Zinwa Q25,
+MT6789).
+
+Stop the engine and select command mode before enabling it, the state
+the rest of the power-on sequence and mtk_dsi_host_transfer() expect.
+mtk_output_dsi_enable() selects video mode and restarts it as before.
+
+This follows Roman Vivchar's "drm/mediatek: mtk_dsi: stop engine on
+mtk_dsi_poweron" for MT6768 (mt6768-mainline 6d3ec2fbb6e7), whose base
+already selects command mode there.
+
+Link: https://github.com/mt6768-mainline/linux/commit/6d3ec2fbb6e7
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index cf3e2afe..26de9ee5 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -712,6 +712,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 		goto err_disable_engine_clk;
+ 	}
+ 
++	mtk_dsi_stop(dsi);
++	mtk_dsi_set_cmd_mode(dsi);
+ 	mtk_dsi_enable(dsi);
+ 
+ 	if (dsi->driver_data->has_shadow_ctl)

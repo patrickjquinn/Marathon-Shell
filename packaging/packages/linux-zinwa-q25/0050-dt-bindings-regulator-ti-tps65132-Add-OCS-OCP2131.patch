@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:46:52 +0000
+Subject: [PATCH] dt-bindings: regulator: ti,tps65132: Add OCS OCP2131
+
+The Orient Chip OCP2131 is a dual +/-4.0..6.0 V display bias supply at
+I2C address 0x3e with the TPS65132 register layout for everything the
+tps65132 driver uses: VPOS (0x00) and VNEG (0x01) take 4.0 V + n x
+0.1 V in bits 4:0 up to 0x14, and register 0x03 holds the two active
+discharge bits (D1/D0). It differs in what the driver does not touch:
+it has no 0xff EEPROM control register and reports device ID 0x0d in
+register 0x04 (OCP2131 datasheet rev 1.0, Aug 2021). Allow it with a
+TPS65132 fallback.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/regulator/ti,tps65132.yaml         | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/regulator/ti,tps65132.yaml b/Documentation/devicetree/bindings/regulator/ti,tps65132.yaml
+index 873d9273..bd8f397e 100644
+--- a/Documentation/devicetree/bindings/regulator/ti,tps65132.yaml
++++ b/Documentation/devicetree/bindings/regulator/ti,tps65132.yaml
+@@ -17,8 +17,11 @@ description: |
+ 
+ properties:
+   compatible:
+-    enum:
+-      - ti,tps65132
++    oneOf:
++      - const: ti,tps65132
++      - items:
++          - const: ocs,ocp2131
++          - const: ti,tps65132
+ 
+   reg:
+     maxItems: 1
