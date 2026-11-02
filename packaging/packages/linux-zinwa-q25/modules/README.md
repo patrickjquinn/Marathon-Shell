@@ -5,16 +5,13 @@ tree (`build.sh`, run from its APKBUILD) and ships as `q25-kernel-modules`.
 |---|---|---|
 | `keyboard` | `q25-bbq-keys`, `q25-keyboard-led` | Marathon |
 | `md1` | `q25-md1-owner` | Marathon |
-| `conn-pd` | `q25-conn-pd` | Marathon |
-| `cam-pd` | `q25-cam-pd` | Marathon: the CAM power domain provider |
 | `bt` | `q25-btmtk-stp` | Marathon |
-| `audio` | `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-audio-pd`, `q25-oca72390`, `q25-mt6366-card`, `q25-mt6358-accdet` | the kernel's `sound/soc/codecs/mt6358.c` plus patches `0002`–`0006` and `sound/soc/mediatek/common`, linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, Marathon's `q25/` drivers, and `q25accdet/`, a port of `sound/soc/codecs/mt6358-accdet.c` from LineageOS/android_kernel_xelex_mt6789 `2a873a35` |
+| `audio` | `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-oca72390`, `q25-mt6366-card`, `q25-mt6358-accdet` | the kernel's `sound/soc/codecs/mt6358.c` plus patches `0002`–`0006` and `sound/soc/mediatek/common`, linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, Marathon's `q25/` drivers, and `q25accdet/`, a port of `sound/soc/codecs/mt6358-accdet.c` from LineageOS/android_kernel_xelex_mt6789 `2a873a35` |
 | `panel` | `q25-panel-doze` | Marathon |
 | `display` | `q25-vsyncdrm` | the kernel's `drivers/gpu/drm/sysfb/simpledrm.c` plus Marathon's scan-locked vblank |
 | `light` | `hx32062se` | Marathon |
 | `gauge` | `q25-mt6358-live` | Marathon |
 | `gnss` | `mtk-connsys-gnss` | Marathon: boots the CONNSYS GNSS DSP, `/dev/gnssN` (feat/q25-gnss-open `bd570bc8`) |
-| `gpu-mfg` | `q25-mfg-only-v2` | Marathon: the MT6789 MFG power domains, from `mtk-pm-domains.c` and linux-mediatek `2ed59e43` data |
 | `haptic` | `q25-haptic` | Marathon's glue for the kernel's `regulator-haptic` |
 | `cam-dt` | `q25-cam-dt` | Marathon: applies `camera/q25-camera.dtbo` at runtime |
 | `cam-pmic` | `wl2868c-regulator` | Qianhui Xu's "[PATCH v4 2/4] regulator: willsemi,wl2868c" (LKML, 2026-10-31), unmodified |

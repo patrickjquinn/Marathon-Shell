@@ -1267,7 +1267,7 @@ index 7a99ed8..b5c11ce 100644
  static VOID consys_hw_spm_clk_gating_enable(VOID)
  {
 -	consys_hw_spm_clk_gating_enable_mt6789_gen();
-+	/* SPM register access belongs to the SPM genpd provider (q25-conn-pd). */
++	/* SPM register access belongs to the CONN power domain. */
  }
  
  int consys_platform_spm_conn_ctrl_mt6789(unsigned int enable)
