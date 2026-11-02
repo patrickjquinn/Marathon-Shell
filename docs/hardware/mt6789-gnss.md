@@ -259,6 +259,15 @@ Channel record (msg 0x29), offsets into the unscrambled payload:
 | 31–32 | Doppler in Hz, signed, including the reference-clock offset |
 | 35–36 | accumulated carrier phase, L1 cycles, wrapping |
 
+Bytes 4–7 are `00 14 40 2c` for a channel in steady lock; other values are
+search and pull-in states whose C/N0 byte means nothing (they made every
+BeiDou PRN look tracked at about 30 dB-Hz). Code phase units per system:
+GPS 1.023 Mchip/s, GLONASS 0.511 Mchip/s, BeiDou B1I 2.046 Mchip/s. The
+GLONASS satellite field is the frequency slot (channel + 8). BeiDou code
+phase jumps by 0.5 ms against GPS between epochs; within 0.5 ms it agrees
+with GPS to about 25 m. GLONASS agrees only to 100–200 m per satellite in
+the reference run and worse in the native run, not yet explained.
+
 Checks: across satellites the code phase modulo 1 ms matches the geometry
 to about 0.1 chip; the Doppler field equals the geometric Doppler plus one
 common offset (1626 Hz on this phone, slope 1.000, 0.5 Hz rms); bytes 35–36
