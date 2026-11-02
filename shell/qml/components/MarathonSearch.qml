@@ -62,12 +62,12 @@ Item {
         Logger.info("Search", "Search performed: '" + searchQuery + "' - " + searchResults.length + " results");
     }
 
-    // Enter opens the app the query names the start of; anything else is a
-    // question for Pilot.
+    // Enter opens the result the query names, by the start of its title or
+    // one of its keywords; anything else is a question for Pilot.
     function accept() {
         const query = searchQuery.trim().toLowerCase();
         const top = searchResults.length > 0 ? searchResults[0] : null;
-        if (top && top.type === "app" && top.title.toLowerCase().startsWith(query))
+        if (top && (top.title.toLowerCase().startsWith(query) || top.keywords.indexOf(query) >= 0))
             selectResult(top);
         else
             askPilot();
