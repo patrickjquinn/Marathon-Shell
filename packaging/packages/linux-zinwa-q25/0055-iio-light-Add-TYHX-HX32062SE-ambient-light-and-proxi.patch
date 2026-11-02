@@ -35,8 +35,8 @@ Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
  MAINTAINERS                   |   1 +
  drivers/iio/light/Kconfig     |  11 +
  drivers/iio/light/Makefile    |   1 +
- drivers/iio/light/hx32062se.c | 416 ++++++++++++++++++++++++++++++++++
- 4 files changed, 429 insertions(+)
+ drivers/iio/light/hx32062se.c | 417 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 430 insertions(+)
  create mode 100644 drivers/iio/light/hx32062se.c
 
 diff --git a/MAINTAINERS b/MAINTAINERS
@@ -87,10 +87,10 @@ index c0048e0d..947d838b 100644
  obj-$(CONFIG_SENSORS_ISL29028)	+= isl29028.o
 diff --git a/drivers/iio/light/hx32062se.c b/drivers/iio/light/hx32062se.c
 new file mode 100644
-index 00000000..34fd5687
+index 00000000..8c580003
 --- /dev/null
 +++ b/drivers/iio/light/hx32062se.c
-@@ -0,0 +1,416 @@
+@@ -0,0 +1,417 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * TYHX HX32062SE ambient light and proximity sensor
@@ -397,6 +397,7 @@ index 00000000..34fd5687
 +
 +	data = iio_priv(indio_dev);
 +	data->dev = dev;
++	i2c_set_clientdata(client, indio_dev);
 +
 +	ret = devm_mutex_init(dev, &data->lock);
 +	if (ret)
