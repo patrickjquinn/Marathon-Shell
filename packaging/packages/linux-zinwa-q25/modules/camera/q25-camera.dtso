@@ -4,9 +4,8 @@
  * front IMX111 on CSI port 0 and the rear S5KJN1 on CSI port 1, SENINF, CAMSV2
  * (fed by both ports, one camera at a time) and the CSI0/CSI1 D-PHYs.
  * Node layout follows Genio's mt8189.dtsi (a246e0c6) with MT6789 addresses
- * and mainline clock indices. The base DTB has no __symbols__ for these
- * providers, so they are referenced by their phandles in the running DTB
- * (image/evidence/live.dts).
+ * and mainline clock indices. The providers in the base DTB are referenced
+ * by label through its __symbols__.
  */
 /dts-v1/;
 /plugin/;
@@ -16,11 +15,11 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/phy/phy.h>
 
-#define TOPCKGEN_PH	0x12
-#define SPM_PC_PH	0x1e	/* the SPM power controller */
-#define CAMSYS_PH	0x1a
+#define TOPCKGEN_PH	&topckgen
+#define SPM_PC_PH	&spm
+#define CAMSYS_PH	&camsys
 #define PD_CAM		12
-#define PIO_PH		0x2a
+#define PIO_PH		&pio
 
 &{/soc} {
 	/* as in the base, so dtc can check the reg cells */
