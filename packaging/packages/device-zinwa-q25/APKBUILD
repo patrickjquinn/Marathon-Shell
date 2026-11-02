@@ -3,7 +3,7 @@
 pkgname=device-zinwa-q25
 pkgdesc="Zinwa Q25 Pro"
 pkgver=1
-pkgrel=4
+pkgrel=5
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="MIT"
 arch="aarch64"
@@ -35,7 +35,7 @@ package() {
 
 sha512sums="
 f1e3eea0c466a4c3f73613238b9bf85a1c7c35c989c5c7348560a9cc5af5c984c0fc06fe4b8657486a44154027021e8230a06395c2f402c97ed636a234965a10  deviceinfo
-e7fc8163d57a094f51a2d325191bea56198ab9725528eecb05fec3f7144fefd83620263c40934eeb3e47746928db892d5dad1953f31ad03a4444eede30418980  kernel-cmdline.conf
+32f740fb346fedf77dfb9f7e6a7ab35d9de7fd5ebc6f8663115d18e7f07e5afe847576e43fae1cc110fb1e638af1ae7689dd35e2b89f36ea3b4fb60347ad1149  kernel-cmdline.conf
 765311f6e7de9440727caf681cad998e1580306b84e582eec6e6a949edbf54541a70f2e77a07710f7e3c6fc9f290fd49b623257708eaabf1a6fabea893385d18  modules-initfs
 11aeab11d2dc70acd668460038df35cdc7f0d0d7fee5d7d356daf175c4b5863751217d5b206144cee3ca1501c06afa652b2d8ecda18e15a6435ce9f66280eb7d  q25-carrier.hook
 "

@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:39:07 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Supply UFS VCC from
+ VEMC
+
+The UFS device's VCC comes from the MT6366 VEMC LDO, as in MediaTek's
+board files. Without a consumer the regulator core switches VEMC off as
+unused and the root filesystem disappears. With mediatek,ufs-broken-vcc
+in the SoC dtsi the UFS driver keeps VCC always on.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index ec02b3c4..1488c371 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1317,6 +1317,7 @@
+ };
+ 
+ &ufs {
++	vcc-supply = <&mt6366_vemc_reg>;
+ 	status = "okay";
+ };
+ 
