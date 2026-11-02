@@ -227,6 +227,9 @@ if [ "$DEVICE" = zinwa-q25 ]; then
         APORT="$name" NO_DEPS=1 build_if_missing "$name" "$name-[0-9]*.apk" \
             "$LIB/build-aport-apk.sh" "$aport/APKBUILD"
     done
+    # Satellite positioning, from this tree.
+    PILOT_PKGS=marathon-gnssd build_if_missing "marathon-gnssd" 'marathon-gnssd-[0-9]*.apk' \
+        "$LIB/build-pilot-apk.sh" "$APORTS_DIR/marathon-gnssd/APKBUILD"
     APORT=modemmanager-mtk-ccci build_if_missing "modemmanager-mtk-ccci" 'modemmanager-mtk-ccci-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/modemmanager-mtk-ccci/APKBUILD"
 fi
