@@ -4,6 +4,7 @@ import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
 import ".."
+import "../ClockLogic.js" as Logic
 
 TestCase {
     id: testCase
@@ -208,16 +209,32 @@ TestCase {
 
     function test_cityTime() {
         const app = makeApp();
+        const now = new Date(Date.UTC(2026, 0, 1, 12, 0));
+        const local = now.getTimezoneOffset() * 60;
+        compare(app.cityTime({
+            name: "Dublin",
+            tz: "Europe/Dublin"
+        }, now).diff, "Local");
         compare(app.cityTime({
             name: "London",
             tz: "Europe/London"
-        }, new Date()).diff, "Local");
+        }, now).diff, Logic.offsetLabel(local));
+        const tokyo = app.cityTime({
+            name: "Tokyo",
+            tz: "Asia/Tokyo"
+        }, now);
+        compare(tokyo.time, Format.formatDate(new Date(2026, 0, 1, 21, 0), Formatter.TimeValue));
+        compare(tokyo.weekday, Qt.locale().dayName(4, Locale.ShortFormat).toUpperCase());
+        compare(app.cityTime({
+            name: "Gone",
+            tz: "Nowhere/Gone"
+        }, now).time, "—:—");
         const legacy = app.cityTime({
             name: "Atlantis",
             offset: -3
-        }, new Date(Date.UTC(2026, 0, 1, 12, 0)));
+        }, now);
         compare(legacy.time, Format.formatDate(new Date(2026, 0, 1, 9, 0), Formatter.TimeValue));
-        compare(legacy.diff, "-3h");
+        compare(legacy.diff, Logic.offsetLabel(-3 * 3600 + local));
     }
 
     function test_countdownHoldsBackgroundAndRings() {

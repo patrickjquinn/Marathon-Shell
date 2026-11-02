@@ -2,11 +2,10 @@ pragma Singleton
 import QtQml
 
 QtObject {
-    function timeIn(tz) {
-        return {
-            time: "12:00 PM",
-            weekday: "MON",
-            offsetLabel: tz === "Europe/London" ? "Local" : "+1h"
-        };
+    function utcOffset(tz) {
+        return tz === "Asia/Tokyo" ? 9 * 3600 : tz === "Nowhere/Gone" ? undefined : 0;
+    }
+    function localZone() {
+        return "Europe/Dublin";
     }
 }
