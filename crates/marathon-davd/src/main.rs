@@ -338,17 +338,28 @@ impl ContactsService {
         phone: String,
         email: String,
     ) -> fdo::Result<()> {
+        let data = HashMap::from([
+            ("name".to_owned(), OwnedValue::from(zbus::Str::from(name))),
+            ("phone".to_owned(), OwnedValue::from(zbus::Str::from(phone))),
+            ("email".to_owned(), OwnedValue::from(zbus::Str::from(email))),
+        ]);
+        self.create_contact(h, data).await.map(drop)
+    }
+
+    /// `AddContact` with any of `UpdateContact`'s fields; the new id.
+    async fn create_contact(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+        data: HashMap<String, OwnedValue>,
+    ) -> fdo::Result<i32> {
         self.admit(&h).await?;
         let added = self
             .0
             .book
             .with(move |b| {
-                b.add(Contact {
-                    name,
-                    phone,
-                    email,
-                    ..Contact::default()
-                })
+                let mut contact = Contact::default();
+                contact.update(&data);
+                b.add(contact)
             })
             .await
             .map_err(|e| fdo::Error::Failed(format!("Cannot save contact: {e}")))?;
@@ -356,7 +367,8 @@ impl ContactsService {
             return Err(fdo::Error::InvalidArgs("A contact needs a name".into()));
         };
         Self::contacts_changed(&self.0.contacts()).await?;
-        Ok(Self::contact_added(&self.0.contacts(), id).await?)
+        Self::contact_added(&self.0.contacts(), id).await?;
+        Ok(id)
     }
 
     async fn update_contact(

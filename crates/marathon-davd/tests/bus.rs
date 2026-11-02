@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use marathon_rt::testing::PrivateBus;
 use zbus::Connection;
-use zbus::OwnedVariant as OwnedValue;
+use zbus::{OwnedVariant as OwnedValue, Variant};
 
 const BUS: &str = "org.marathonos.Dav";
 
@@ -69,6 +69,39 @@ fn the_address_book_answers_permitted_callers() {
                 .await
                 .unwrap();
         assert!(!none.contains_key("name"));
+
+        // As QML's contact editor sends it: av of a{sv}.
+        let entry = |kind: &str, value: &str| {
+            Variant::from(HashMap::from([
+                ("type".to_owned(), Variant::from(kind.to_owned())),
+                ("value".to_owned(), Variant::from(value.to_owned())),
+            ]))
+        };
+        let details = HashMap::from([
+            ("name".to_owned(), Variant::from("Sam Rivera")),
+            (
+                "phones".to_owned(),
+                Variant::from(vec![
+                    entry("mobile", "+1 555 0002"),
+                    entry("work", "+1 555 0003"),
+                ]),
+            ),
+            ("note".to_owned(), Variant::from("Met at the conference")),
+        ]);
+        let id: i32 = call(&app, "Contacts", "CreateContact", &(details,))
+            .await
+            .unwrap();
+        let sam: HashMap<String, OwnedValue> =
+            call(&app, "Contacts", "GetContactByNumber", &("15550003",))
+                .await
+                .unwrap();
+        assert_eq!(i32::try_from(&sam["id"]).unwrap(), id);
+        assert_eq!(text(&sam, "phone"), "+1 555 0002");
+        assert_eq!(text(&sam, "note"), "Met at the conference");
+        let phones =
+            Vec::<HashMap<String, OwnedValue>>::try_from(sam["phones"].try_clone().unwrap())
+                .unwrap();
+        assert_eq!(text(&phones[1], "type"), "work");
         assert!(home
             .path()
             .join("data/Marathon OS/Marathon Shell/marathon/contacts/Maya_Chen_1.vcf")
