@@ -7,15 +7,41 @@ also has: its title, screenshots, licence and price are shown instead.
 
 ## Where Reef reads it
 
-`https://reefstore.app/marathon/<arch>/catalogue.json`, where `<arch>` is the
-phone's processor as Rust names it: `aarch64` or `x86_64`. Icons and
-screenshots are paths relative to that directory (`assets/notes.png`); Reef
-fetches them from there and from nowhere else. `REEF_STORE_URL` overrides the
-directory on a development phone (`{arch}` is replaced).
+`https://patrickjquinn.github.io/marathon-updates/reef/<arch>/catalogue.json`,
+where `<arch>` is the phone's processor as Rust names it: `aarch64` or
+`x86_64`. That is GitHub Pages for
+[patrickjquinn/marathon-updates](https://github.com/patrickjquinn/marathon-updates),
+whose `site/` it serves. Icons and screenshots are paths relative to that
+directory (`assets/notes.png`); Reef fetches them from there and from nowhere
+else. `REEF_STORE_URL` overrides the directory on a development phone
+(`{arch}` is replaced).
 
-The file is either a catalogue (below) or the store index that
-`tools/build/reef/gen-store.py` writes; both carry the same install
-information.
+The file is either a catalogue (below) or a store index; both carry the same
+install information.
+
+## Signature
+
+Beside each catalogue is `catalogue.json.asc`, a detached ASCII GnuPG
+signature over its exact bytes by the Reef catalogue key: the scheme Reef's
+Sailfish OS store uses for its index (`store/index.json.asc`, checked with
+`gpgv` against the key the client ships). The catalogue's `revision`, an
+integer, never goes backwards, so a client that remembers the highest it
+accepted can refuse a replayed older catalogue.
+
+| | |
+|---|---|
+| public key | `keys/marathon-reef.asc` in marathon-updates, fingerprint `F2E11B366BAF957F487B86E64D63ECF4806B0F6E` |
+| private key | `~/.marathon-secrets/reef/gnupg` on the publisher's machine only |
+| sign | `tools/reef-catalogue sign site/reef/<arch>/catalogue.json --gnupghome ~/.marathon-secrets/reef/gnupg`: checks the catalogue, stamps `generated_at` and a higher `revision`, signs |
+| check | `tools/reef-catalogue verify site/reef/*/catalogue.json`, run by marathon-updates' CI on every push; the Pages deploy runs it first and publishes nothing that fails |
+
+Reef does not check the signature yet: it trusts HTTPS to GitHub Pages, as
+it trusted HTTPS to reefstore.app. Checking it means shipping the key
+dearmored in the shipwright-reef package (gpgv reads no armored keys) with
+`gpgv` as a dependency, fetching `catalogue.json.asc` beside the catalogue in
+`jobs::refresh`, refusing the catalogue on a bad signature or a lower
+`revision` than the one kept beside the cache, and signing the `file://`
+stores in its tests.
 
 ## Catalogue
 
