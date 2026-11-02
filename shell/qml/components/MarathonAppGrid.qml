@@ -311,6 +311,9 @@ Item {
             property real pressTime: 0
             property bool isSearchGesture: false
             property bool held: false
+            // Past the drag slop: a MouseArea still reports a hold after
+            // the finger has moved, so a slow pull would start editing.
+            property bool moved: false
             property real dragDistance: 0
             readonly property real pullThreshold: 100
             readonly property real commitThreshold: 0.35
@@ -324,6 +327,7 @@ Item {
                 pressTime = Date.now();
                 isSearchGesture = false;
                 held = false;
+                moved = false;
                 dragDistance = 0;
                 appGrid.searchGestureActive = false;
             }
@@ -331,7 +335,9 @@ Item {
                 var deltaX = Math.abs(mouse.x - pressX);
                 var deltaY = mouse.y - pressY;
                 dragDistance = deltaY;
-                if (!isSearchGesture && deltaY > 10) {
+                if (Math.max(deltaX, Math.abs(deltaY)) > Qt.styleHints.startDragDistance)
+                    moved = true;
+                if (!isSearchGesture && deltaY > Qt.styleHints.startDragDistance) {
                     if (Math.abs(deltaY) > Math.abs(deltaX) * 3 && deltaY > 0)
                         isSearchGesture = true;
                 }
@@ -351,7 +357,7 @@ Item {
                     return;
                 }
                 // A tap: a swipe the pager did not take still moved the finger.
-                if (!isSearchGesture && !held && Math.abs(dragDistance) < 15 && Math.abs(mouse.x - pressX) < 15) {
+                if (!isSearchGesture && !held && !moved) {
                     if (iconCell.appData && appGrid.editing) {
                         iconCell.showInfo();
                         HapticManager.light();
@@ -363,6 +369,8 @@ Item {
                 isSearchGesture = false;
             }
             onPressAndHold: {
+                if (moved)
+                    return;
                 held = true;
                 if (iconCell.appData && !appGrid.editing) {
                     appGrid.editRequested();
