@@ -39,6 +39,8 @@ enum Command {
     },
     /// Check a package's signature.
     Verify { package: PathBuf },
+    /// Create a minisign key pair; the secret key has no password.
+    Keygen { secret: PathBuf, public: PathBuf },
     /// Install an app locally.
     Install {
         path: PathBuf,
@@ -288,6 +290,13 @@ fn main() -> ExitCode {
             sign(&package, &key)
         }
         Command::Verify { package } => verify(&package),
+        Command::Keygen { secret, public } => match signature::keygen(&secret, &public) {
+            Ok(id) => {
+                ok(&format!("Key {id}: {}", public.display()));
+                ExitCode::SUCCESS
+            }
+            Err(e) => fail(&e),
+        },
         Command::Install {
             path,
             approve_permissions,

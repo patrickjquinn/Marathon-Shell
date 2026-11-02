@@ -207,6 +207,17 @@ package() {
 	# Main shell + apps
 	DESTDIR="$pkgdir" cmake --install build
 	DESTDIR="$pkgdir" cmake --install build-apps
+	# Each app's version gains this build's time (UTC), so a later build
+	# sorts after an earlier one: the newer of the image's copy and Reef's
+	# runs (docs/reef/marathon-catalogue.md).
+	local _stamp _m
+	_stamp=$(date -u +%y%m%d%H%M)
+	for _m in "$pkgdir"/usr/share/marathon-apps/*/manifest.json; do
+		sed -i -E "s/(\"version\"[[:space:]]*:[[:space:]]*\"[0-9]+(\.[0-9]+)*)\"/\1.$_stamp\"/" "$_m"
+	done
+	# Marathon's app key: a package it signed may replace an app the OS ships.
+	install -Dm644 crates/marathon-apps/system-keys/marathon-apps.pub \
+		"$pkgdir"/usr/share/marathon/system-keys/marathon-apps.pub
 
 	# linux-dmabuf-v1 v4 compositor plugin -> Qt's server-side integration dir.
 	install -Dm755 build-dmabuf/libqt-wayland-compositor-linux-dmabuf-v1.so \
