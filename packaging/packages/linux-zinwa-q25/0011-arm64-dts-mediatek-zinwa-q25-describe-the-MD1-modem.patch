@@ -20,13 +20,13 @@ resolve.
 With these nodes q25-md1-owner autoloads and q25-modem's udev rule
 starts the modem stack on boot, as on the tested phone.
 ---
- .../boot/dts/mediatek/mt6789-zinwa-q25.dts    | 82 ++++++++++++++++++-
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 82 ++++++++++++++++++-
  1 file changed, 81 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-index 3464eea..b9572a7 100644
---- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-+++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 46348db0..f2c361bd 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 @@ -39,6 +39,12 @@
  		serial0 = &uart0;
  	};

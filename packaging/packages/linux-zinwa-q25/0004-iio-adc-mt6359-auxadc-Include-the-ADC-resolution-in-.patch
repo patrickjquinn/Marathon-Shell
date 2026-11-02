@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:32:41 +0000
+Subject: [PATCH] iio: adc: mt6359-auxadc: Include the ADC resolution in the
+ scale
+
+The scale omitted the ADC resolution: on the MT6358 BATADC channel, raw
+code 25383 was reported with a scale of 5400 instead of 5400/32768 mV
+per count, and generic-adc-battery's conversion of the result
+overflowed. Divide by 2^realbits, and reject a channel descriptor with
+a zero ratio denominator instead of dividing by it.
+
+On the Zinwa Q25 the scale becomes 0.164794921 and the battery reads
+4.182 V.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/iio/adc/mt6359-auxadc.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/iio/adc/mt6359-auxadc.c b/drivers/iio/adc/mt6359-auxadc.c
+index f426a289..b365b19f 100644
+--- a/drivers/iio/adc/mt6359-auxadc.c
++++ b/drivers/iio/adc/mt6359-auxadc.c
+@@ -769,14 +769,14 @@ static int mt6359_auxadc_read_raw(struct iio_dev *indio_dev,
+ 	int ret;
+ 
+ 	if (mask == IIO_CHAN_INFO_SCALE) {
+-		*val = desc->r_ratio.numerator * cinfo->vref_mV;
++		if (!desc->r_ratio.denominator)
++			return -EINVAL;
+ 
+-		if (desc->r_ratio.denominator > 1) {
+-			*val2 = desc->r_ratio.denominator;
+-			return IIO_VAL_FRACTIONAL;
+-		}
++		*val = desc->r_ratio.numerator * cinfo->vref_mV;
+ 
+-		return IIO_VAL_INT;
++		/* RAW is an ADC code; include its resolution in the scale. */
++		*val2 = desc->r_ratio.denominator << chan->scan_type.realbits;
++		return IIO_VAL_FRACTIONAL;
+ 	}
+ 
+ 	scoped_guard(mutex, &adc_dev->lock) {

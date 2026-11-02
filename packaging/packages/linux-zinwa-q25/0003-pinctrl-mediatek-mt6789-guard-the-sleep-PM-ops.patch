@@ -14,7 +14,7 @@ this change.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/pinctrl/mediatek/pinctrl-mt6789.c b/drivers/pinctrl/mediatek/pinctrl-mt6789.c
-index b71f6b48b..b4c58209c 100644
+index b71f6b48..b4c58209 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-mt6789.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-mt6789.c
 @@ -1262,7 +1262,7 @@ static struct platform_driver mt6789_pinctrl_driver = {

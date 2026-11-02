@@ -14,13 +14,13 @@ Tested on the Q25 with the same node added to the DTB it boots, as the
 default entry: both sensors streamed full-resolution frames from the
 pool.
 ---
- arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts | 13 +++++++++++++
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 13 +++++++++++++
  1 file changed, 13 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-index a06ea52..3464eea 100644
---- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-+++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 7da2862e..46348db0 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 @@ -92,6 +92,19 @@
  		fb_mem:       framebuffer@fe0d0000 { reg = <0 0xfe0d0000 0 0x1f2f000>; no-map; };
  		aee_lk_mem:   aee_lk@50700000      { reg = <0 0x50700000 0 0x800000>;  no-map; };
@@ -41,6 +41,3 @@ index a06ea52..3464eea 100644
  	};
  
  	/*
--- 
-2.55.0
-

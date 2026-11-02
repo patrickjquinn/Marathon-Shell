@@ -1,16 +1,27 @@
-Subject: [PATCH] drm/mediatek: add MT6789 (Helio G99) display support
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:32:22 +0000
+Subject: [PATCH] drm/mediatek: Add MT6789 display support
 
-The MT6789 display subsystem is an mt8186-generation block: identical main
-DDP path (OVL0->RDMA0->COLOR0->CCORR->AAL0->GAMMA->POSTMASK0->DITHER0->DSI0),
-mmsys routing/reset layout and DSI controller. Wire up mt6789 by reusing the
-mt8186 routing table and DSI driver-data with the mt6789 MM clock driver. Only
-the main path is described (the Zinwa Q25 dtsi has no external DPI/second-CRTC
-path). The disp components bind via their mt8192/mt8173/mt8183 fallback
-compatibles in device tree, so no component-driver changes are needed.
+The MT6789 display subsystem is an MT8186-generation block: the same
+main DDP path (OVL0 -> RDMA0 -> COLOR0 -> CCORR0 -> AAL0 -> GAMMA0 ->
+POSTMASK0 -> DITHER0 -> DSI0), mmsys routing and reset layout, and DSI
+controller. Wire up MT6789 by reusing the MT8186 routing table and DSI
+driver data with the MT6789 MM clock driver. Only the main path is
+described.
 
---- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c	2026-07-13 10:27:31.283534327 +0100
-+++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c	2026-07-13 10:27:58.774816601 +0100
-@@ -288,6 +288,17 @@
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_drm_drv.c | 13 +++++++++++++
+ drivers/gpu/drm/mediatek/mtk_dsi.c     |  1 +
+ drivers/soc/mediatek/mtk-mmsys.c       | 14 ++++++++++++++
+ 3 files changed, 28 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_drm_drv.c b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+index a94c51a8..ddb39ca7 100644
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+@@ -288,6 +288,17 @@ static const struct mtk_mmsys_driver_data mt8186_mmsys_driver_data = {
  	.mmsys_dev_num = 1,
  };
  
@@ -28,7 +39,7 @@ compatibles in device tree, so no component-driver changes are needed.
  static const struct mtk_mmsys_driver_data mt8188_vdosys0_driver_data = {
  	.main_path = mt8188_mtk_ddp_main,
  	.main_len = ARRAY_SIZE(mt8188_mtk_ddp_main),
-@@ -345,6 +356,8 @@
+@@ -345,6 +356,8 @@ static const struct of_device_id mtk_drm_of_ids[] = {
  	  .data = &mt8183_mmsys_driver_data},
  	{ .compatible = "mediatek,mt8186-mmsys",
  	  .data = &mt8186_mmsys_driver_data},
@@ -37,9 +48,11 @@ compatibles in device tree, so no component-driver changes are needed.
  	{ .compatible = "mediatek,mt8188-vdosys0",
  	  .data = &mt8188_vdosys0_driver_data},
  	{ .compatible = "mediatek,mt8188-vdosys1",
---- a/drivers/gpu/drm/mediatek/mtk_dsi.c	2026-07-13 10:27:31.284306770 +0100
-+++ b/drivers/gpu/drm/mediatek/mtk_dsi.c	2026-07-13 10:28:12.713528646 +0100
-@@ -1309,6 +1309,7 @@
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index aaf6c9eb..cf3e2afe 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -1309,6 +1309,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
  	{ .compatible = "mediatek,mt8173-dsi", .data = &mt8173_dsi_driver_data },
  	{ .compatible = "mediatek,mt8183-dsi", .data = &mt8183_dsi_driver_data },
  	{ .compatible = "mediatek,mt8186-dsi", .data = &mt8186_dsi_driver_data },
@@ -47,9 +60,11 @@ compatibles in device tree, so no component-driver changes are needed.
  	{ .compatible = "mediatek,mt8188-dsi", .data = &mt8188_dsi_driver_data },
  	{ /* sentinel */ }
  };
---- a/drivers/soc/mediatek/mtk-mmsys.c	2026-07-13 10:27:31.285066629 +0100
-+++ b/drivers/soc/mediatek/mtk-mmsys.c	2026-07-13 10:28:20.813361314 +0100
-@@ -83,6 +83,19 @@
+diff --git a/drivers/soc/mediatek/mtk-mmsys.c b/drivers/soc/mediatek/mtk-mmsys.c
+index bb4639ca..959e2dfa 100644
+--- a/drivers/soc/mediatek/mtk-mmsys.c
++++ b/drivers/soc/mediatek/mtk-mmsys.c
+@@ -83,6 +83,19 @@ static const struct mtk_mmsys_driver_data mt8186_mmsys_driver_data = {
  	.num_resets = 32,
  };
  
@@ -69,7 +84,7 @@ compatibles in device tree, so no component-driver changes are needed.
  static const struct mtk_mmsys_driver_data mt8188_vdosys0_driver_data = {
  	.clk_driver = "clk-mt8188-vdo0",
  	.routes = mmsys_mt8188_routing_table,
-@@ -465,6 +478,7 @@
+@@ -465,6 +478,7 @@ static const struct of_device_id of_match_mtk_mmsys[] = {
  	{ .compatible = "mediatek,mt8173-mmsys", .data = &mt8173_mmsys_driver_data },
  	{ .compatible = "mediatek,mt8183-mmsys", .data = &mt8183_mmsys_driver_data },
  	{ .compatible = "mediatek,mt8186-mmsys", .data = &mt8186_mmsys_driver_data },

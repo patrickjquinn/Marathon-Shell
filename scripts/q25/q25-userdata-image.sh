@@ -36,7 +36,7 @@ take() {
 }
 take /boot/linux.efi linux.efi
 take /boot/initramfs initramfs
-take /boot/dtbs/mediatek/mt6789-zinwa-q25.dtb q25.dtb
+take /boot/dtbs/mediatek/mt8781-zinwa-q25.dtb q25.dtb
 take /usr/lib/systemd/boot/efi/systemd-bootaa64.efi BOOTAA64.EFI
 take /usr/lib/kernel-cmdline.d/50-device-zinwa-q25.conf cmdline.conf
 CMDLINE=$(sed 's/#.*//' "$WORK/cmdline.conf" | xargs)
@@ -55,14 +55,14 @@ cat > "$WORK/$ENTRY" << EOF
 title Marathon
 linux /linux.efi
 initrd /initramfs
-devicetree /dtbs/mediatek/mt6789-zinwa-q25.dtb
+devicetree /dtbs/mediatek/mt8781-zinwa-q25.dtb
 options $CMDLINE pmos_boot_uuid=$BOOT_UUID pmos_root_uuid=$ROOT_UUID q25.rootfs_file=$IMAGES/$NAME.ext4
 EOF
 echo "default $ENTRY" > "$WORK/loader.conf"
 mmd -i "$ESP" ::/EFI ::/EFI/BOOT ::/dtbs ::/dtbs/mediatek ::/loader ::/loader/entries
 mcopy -i "$ESP" "$WORK/BOOTAA64.EFI" ::/EFI/BOOT/BOOTAA64.EFI
 mcopy -i "$ESP" "$WORK/linux.efi" "$WORK/initramfs" ::/
-mcopy -i "$ESP" "$WORK/q25.dtb" ::/dtbs/mediatek/mt6789-zinwa-q25.dtb
+mcopy -i "$ESP" "$WORK/q25.dtb" ::/dtbs/mediatek/mt8781-zinwa-q25.dtb
 mcopy -i "$ESP" "$WORK/loader.conf" ::/loader/loader.conf
 mcopy -i "$ESP" "$WORK/$ENTRY" ::/loader/entries/
 

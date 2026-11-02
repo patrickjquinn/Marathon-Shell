@@ -19,7 +19,7 @@ CARRIER = 62464 * SECTOR
 FILES = {
     'boot/linux.efi': b'zboot kernel',
     'boot/initramfs': b'initramfs',
-    'boot/dtbs/mediatek/mt6789-zinwa-q25.dtb': b'board dtb',
+    'boot/dtbs/mediatek/mt8781-zinwa-q25.dtb': b'board dtb',
     'usr/lib/systemd/boot/efi/systemd-bootaa64.efi': b'systemd-boot',
 }
 
@@ -85,8 +85,8 @@ class UserdataImage(unittest.TestCase):
     def test_esp_holds_the_root_boot_files(self):
         self.assertEqual(self.esp('/linux.efi'), FILES['boot/linux.efi'])
         self.assertEqual(self.esp('/initramfs'), FILES['boot/initramfs'])
-        self.assertEqual(self.esp('/dtbs/mediatek/mt6789-zinwa-q25.dtb'),
-                         FILES['boot/dtbs/mediatek/mt6789-zinwa-q25.dtb'])
+        self.assertEqual(self.esp('/dtbs/mediatek/mt8781-zinwa-q25.dtb'),
+                         FILES['boot/dtbs/mediatek/mt8781-zinwa-q25.dtb'])
         self.assertEqual(self.esp('/EFI/BOOT/BOOTAA64.EFI'),
                          FILES['usr/lib/systemd/boot/efi/systemd-bootaa64.efi'])
 
@@ -95,7 +95,7 @@ class UserdataImage(unittest.TestCase):
         entry = self.esp('/loader/entries/marathon-q25-q25-test-1.conf').decode()
         self.assertIn('linux /linux.efi\n', entry)
         self.assertIn('initrd /initramfs\n', entry)
-        self.assertIn('devicetree /dtbs/mediatek/mt6789-zinwa-q25.dtb\n', entry)
+        self.assertIn('devicetree /dtbs/mediatek/mt8781-zinwa-q25.dtb\n', entry)
         options = re.search(r'^options (.*)$', entry, re.M).group(1).split()
         package = [w for w in CMDLINE.read_text().split() if not w.startswith('#')]
         self.assertEqual(options[:len(package)], package)

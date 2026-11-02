@@ -1,4 +1,4 @@
-From 189f3491f85b8af40b4ecf901534062c96098c42 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patrick Quinn <patrick.jm.quinn@gmail.com>
 Date: Wed, 15 Jul 2026 17:23:58 +0100
 Subject: [PATCH] power: supply: bq256xx: ensure charging is enabled at probe
@@ -21,7 +21,7 @@ charge_type/status properties.
  1 file changed, 20 insertions(+)
 
 diff --git a/drivers/power/supply/bq256xx_charger.c b/drivers/power/supply/bq256xx_charger.c
-index 563f512..e62ab5a 100644
+index 563f5127..e62ab5a7 100644
 --- a/drivers/power/supply/bq256xx_charger.c
 +++ b/drivers/power/supply/bq256xx_charger.c
 @@ -72,6 +72,8 @@

@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 30 Oct 2026 23:59:00 +0000
-Subject: [PATCH] arm64: dts: mediatek: zinwa-q25: describe audio, sensors and CONNSYS
+Subject: [PATCH] arm64: dts: mediatek: zinwa-q25: describe audio, sensors and
+ CONNSYS
 
 Add what the Q25 now boots with (edc93beb..., the DTB staged as
 q25-native-input-audio-sensors-connsys-btif-nobl.dtb):
@@ -19,13 +20,13 @@ The BMP390 node of the staged DTB is left out: both of its addresses
 NACK on the device, so the barometer is not fitted. Apart from that
 node the result equals edc93beb node by node. No gpio-backlight.
 ---
- arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts |  376 +++++++++++++++++++++
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 376 +++++++++++++++++-
  1 file changed, 374 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-index 911721c..8ba574b 100644
---- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-+++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 21a6dbf6..b30044c3 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 @@ -19,6 +19,9 @@
  #include <dt-bindings/input/input.h>
  #include <dt-bindings/gpio/gpio.h>
@@ -444,6 +445,3 @@ index 911721c..8ba574b 100644
  };
  
  /* Enable the pipeline components already present in mt6789.dtsi and give the
--- 
-2.47.0
-

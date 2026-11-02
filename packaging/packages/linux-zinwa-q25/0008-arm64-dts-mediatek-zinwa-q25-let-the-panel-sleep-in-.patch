@@ -12,13 +12,13 @@ The result equals the device-tested DTB (edc93beb... plus the panel-doze
 overlay, 8c282e5d...) node by node, apart from the BMP390 node already
 left out.
 ---
- arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts |   14 +++++++++++---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 14 +++++++++++---
  1 file changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-index 8ba574b..a06ea52 100644
---- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
-+++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index b30044c3..7da2862e 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 @@ -939,9 +939,8 @@
  
  	/*
@@ -47,6 +47,3 @@ index 8ba574b..a06ea52 100644
  	};
  
  	afe_pcm: audio-controller@11210000 {
--- 
-2.47.0
-
