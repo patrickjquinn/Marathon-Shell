@@ -17,7 +17,8 @@ reads the starting level from the voltage the bootloader set.
 The mode is the bootloader's, read back from the DSI registers it
 programs: HSA 50, HBP 40, HFP 60, VSA 5, VBP 40 and VFP 68 on two lanes
 at 652 Mbit/s, the link rate the panel needs to lock, which it asks for
-through hs_rate. The panel runs at 70.98 Hz on it.
+through hs_rate. The panel runs at 70.93 Hz on it, measured from vblank
+timestamps.
 
 Unprepare sleeps the panel before it drops the bias; dropping the bias
 under an awake panel leaves it ghosting.
@@ -82,7 +83,7 @@ index aeffaa95..c803cfda 100644
 +obj-$(CONFIG_DRM_PANEL_ZINWA_Q20_HD720) += panel-zinwa-q20-hd720.o
 diff --git a/drivers/gpu/drm/panel/panel-zinwa-q20-hd720.c b/drivers/gpu/drm/panel/panel-zinwa-q20-hd720.c
 new file mode 100644
-index 00000000..4e390102
+index 00000000..e30124d8
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-zinwa-q20-hd720.c
 @@ -0,0 +1,263 @@
@@ -127,10 +128,10 @@ index 00000000..4e390102
 +
 +/*
 + * The bootloader's timing: two lanes at 652 Mbit/s, the rate the panel
-+ * needs to lock, and these porches give 70.98 Hz.
++ * needs to lock, and these porches give 70.93 Hz.
 + */
 +static const struct drm_display_mode q20_mode = {
-+	.clock = 51437,
++	.clock = 51400,
 +	.hdisplay = 720,
 +	.hsync_start = 720 + 60,
 +	.hsync_end = 720 + 60 + 50,
