@@ -43,9 +43,9 @@
 #                           empty builds an image with no remote login.
 #   MARATHON_IMAGE_LAYOUT   "single" (default) or "ab": A/B /usr slots with
 #                           signed OTA updates and rollback (docs/OTA.md)
-#   MARATHON_OTA_URL        update feed root for A/B images
+#   MARATHON_OTA_URL        update feed root for A/B and Zinwa Q25 images
 #                           (default https://thrivelobal.com/marathon/updates)
-#   MARATHON_OTA_PUBKEY     armored public signing key for A/B images
+#   MARATHON_OTA_PUBKEY     armored public signing key for those images
 #                           (default packaging/ota/marathon-ota.asc)
 
 set -euo pipefail
@@ -256,8 +256,13 @@ fi
 
 # A/B images update over the air (docs/OTA.md): sysupdate transfers for the
 # feed at $MARATHON_OTA_URL and the keyring that verifies it go into the
-# image through mkosi.extra. Single-root images get neither.
+# image through mkosi.extra. Single-root images get neither, except the
+# Q25's, whose root is a file on its carrier with room for the next one.
 export MARATHON_IMAGE_LAYOUT="${MARATHON_IMAGE_LAYOUT:-single}"
+OTA=0
+if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ] || [ "$MARATHON_TARGET_DEVICE" = zinwa-q25 ]; then
+    OTA=1
+fi
 # Remote login for the builder's own phone, by their key; an image for other
 # people is built with MARATHON_DEV_SSH_KEY= (empty) and has none.
 export MARATHON_DEV_SSH_KEY="${MARATHON_DEV_SSH_KEY-$(cat "$HOME/.ssh/id_ed25519.pub" 2>/dev/null)}"
@@ -274,12 +279,13 @@ for d in $PI_AB_EXTRA; do rm -rf "${DURANIUM_DIR:?}/mkosi.extra/$d"; done
 OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/sysupdate.d"
 case "$MARATHON_TARGET_DEVICE" in
     raspberry-pi*) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/pi/sysupdate.d" ;;
+    zinwa-q25) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/q25/sysupdate.d" ;;
 esac
-if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
+if [ "$OTA" = 1 ]; then
     OTA_URL="${MARATHON_OTA_URL:-https://thrivelobal.com/marathon/updates}"
     OTA_PUBKEY="${MARATHON_OTA_PUBKEY:-$MARATHON_IMAGE_SRC/ota/marathon-ota.asc}"
     if [ ! -s "$OTA_PUBKEY" ]; then
-        echo "error: A/B image needs the update signing key's public half at $OTA_PUBKEY" >&2
+        echo "error: an updatable image needs the update signing key's public half at $OTA_PUBKEY" >&2
         echo "       create one: scripts/ota/marathon-ota keygen --gnupghome ~/.marathon-secrets/ota/gnupg --export $OTA_PUBKEY" >&2
         exit 1
     fi
@@ -307,7 +313,7 @@ if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ]; then
             install -Dm644 -t "$EXTRA/usr/lib/systemd/system/systemd-repart.service.d" "$PI_SRC"/systemd-repart.service.d/*.conf
             ;;
     esac
-    echo "==> A/B layout: updates from $OTA_URL, signed by $(basename "$OTA_PUBKEY")"
+    echo "==> OTA: updates from $OTA_URL, signed by $(basename "$OTA_PUBKEY")"
 fi
 
 if [ "$BUMP" -eq 1 ]; then
