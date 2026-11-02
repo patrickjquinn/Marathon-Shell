@@ -715,4 +715,151 @@ Page {
                                 required property var modelData
                                 width: parent.width
                                 IconLine {
-                                    
+                                    objectName: "systemChangeLine"
+                                    source: "image://theme/icon-s-warning"
+                                    text: changeGroup.modelData.items.length > 0 ? qsTr("%1:").arg(changeGroup.modelData.text) : changeGroup.modelData.text
+                                }
+                                Repeater {
+                                    model: changeGroup.modelData.items
+                                    // A bullet with its lines hanging after it.
+                                    Item {
+                                        id: changeItem
+                                        required property string modelData
+                                        x: Theme.horizontalPageMargin + Theme.iconSizeSmallPlus + Theme.paddingMedium
+                                        width: parent.width - x - Theme.horizontalPageMargin
+                                        height: itemText.height + Theme.paddingSmall
+                                        Label {
+                                            id: bullet
+                                            text: "•"
+                                            color: Theme.secondaryHighlightColor
+                                            font.pixelSize: Theme.fontSizeSmall
+                                        }
+                                        Label {
+                                            id: itemText
+                                            objectName: "systemChangeItem"
+                                            x: bullet.width + Theme.paddingSmall
+                                            width: parent.width - x
+                                            text: changeItem.modelData
+                                            wrapMode: Text.Wrap
+                                            color: Theme.highlightColor
+                                            font.pixelSize: Theme.fontSizeSmall
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // What it may reach on the phone, from the app's own desktop
+                    // file: before install, in words.
+                    SectionHeader {
+                        text: qsTr("Permissions")
+                    }
+                    Column {
+                        id: permissionList
+                        objectName: "permissions"
+                        // The first few, the rest a tap away: twenty lines of
+                        // permissions buried the rest of the page.
+                        // An Android app's, in words; the trivial ones left out.
+                        readonly property var all: {
+                            const android = (page.pkg.abilities || []).filter(function (k) {
+                                return Texts.ability(k).length > 0;
+                            });
+                            return android.length > 0 ? android : (page.pkg.permissions || []);
+                        }
+                        readonly property int firstFew: 5
+                        property bool showAll
+                        width: parent.width
+                        spacing: Theme.paddingSmall
+
+                        IconLine {
+                            source: page.pkg.sandboxed === false ? "image://theme/icon-s-warning" : "image://theme/icon-s-secure"
+                            text: page.pkg.sandboxed === false ? qsTr("Parts of it run outside the app sandbox, with your access to files and data.") : permissionList.all.length > 0 ? qsTr("Runs in the app sandbox, and may use:") : qsTr("Runs in the app sandbox, and asks for no extra permissions.")
+                            color: page.pkg.sandboxed === false ? Theme.highlightColor : Theme.secondaryHighlightColor
+                        }
+                        Repeater {
+                            model: permissionList.showAll ? permissionList.all : permissionList.all.slice(0, permissionList.firstFew)
+                            IconLine {
+                                required property string modelData
+                                source: Texts.permission(modelData).icon
+                                text: Texts.permission(modelData).label
+                            }
+                        }
+                    }
+                    BackgroundItem {
+                        id: morePermissions
+                        objectName: "morePermissions"
+                        width: parent.width
+                        height: permissionList.all.length > permissionList.firstFew ? Theme.itemSizeExtraSmall : 0
+                        visible: permissionList.all.length > permissionList.firstFew
+                        onClicked: permissionList.showAll = !permissionList.showAll
+                        Label {
+                            anchors.right: parent.right
+                            anchors.rightMargin: Theme.horizontalPageMargin
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: permissionList.showAll ? qsTr("Show fewer") : qsTr("Show all %n permission(s)", "", permissionList.all.length)
+                            color: morePermissions.highlighted ? Theme.highlightColor : Theme.primaryColor
+                            font.pixelSize: Theme.fontSizeSmall
+                        }
+                    }
+
+                    SectionHeader {
+                        text: qsTr("Information")
+                    }
+                    DetailItem {
+                        label: qsTr("Version")
+                        value: page.pkg.version || ""
+                    }
+                    DetailItem {
+                        label: qsTr("Installed")
+                        value: page.pkg.installedVersion || ""
+                        // Only when it is not the version above (an update waits).
+                        visible: page.installed && page.pkg.installedVersion !== page.pkg.version
+                    }
+                    DetailItem {
+                        label: qsTr("Publisher")
+                        value: page.pkg.publisher || ""
+                        visible: !!page.pkg.publisher
+                    }
+                    DetailItem {
+                        label: qsTr("Licence")
+                        value: Texts.licence(page.pkg.spdx)
+                        visible: !!page.pkg.spdx
+                    }
+                    DetailItem {
+                        label: qsTr("First published")
+                        value: Texts.date(page.pkg.added)
+                        visible: !!page.pkg.added && page.changes.length > 0
+                    }
+                    DetailItem {
+                        // The catalogue's keel_tier, the tier keel-compat measures
+                        // (docs/plan.md, "Compatibility target", where B is the
+                        // higher): how much of the app runs on Keel, Sailfish's Qt 6.
+                        label: qsTr("Qt 6 (Keel)")
+                        value: page.pkg.keelTier === "B" ? qsTr("Fully supported") : page.pkg.keelTier === "A" ? qsTr("Mostly supported") : page.pkg.keelTier === "none" ? qsTr("Not supported yet") : page.pkg.keelTier === "not-applicable" ? qsTr("Not needed") : (page.pkg.keelTier || "")
+                        visible: !!page.pkg.keelTier
+                    }
+
+                    Item {
+                        width: 1
+                        height: Theme.paddingLarge
+                    }
+                    LinkItem {
+                        objectName: "homepageLink"
+                        iconSource: "image://theme/icon-m-website"
+                        text: qsTr("Website")
+                        url: page.pkg.homepage || ""
+                    }
+                    LinkItem {
+                        objectName: "sourceLink"
+                        iconSource: "image://theme/icon-m-developer-mode"
+                        text: qsTr("Source code")
+                        url: page.pkg.source || ""
+                    }
+                }
+            }
+        }
+
+        VerticalScrollDecorator {}
+    }
+}
