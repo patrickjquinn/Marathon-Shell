@@ -426,7 +426,7 @@ TestCase {
         compare(child(s.page, "nameButton").value, "Librem 5");
         compare(child(s.page, "storageItem").value, "64.0 GB");
         compare(child(s.page, "batteryItem").value, "80%");
-        compare(child(s.page, "versionItem").value, "r375");
+        compare(child(s.page, "versionItem").value, "26101701");
         compare(child(s.page, "baseItem").value, "postmarketOS edge");
         Power.batteryLevel = -1;
         compare(child(s.page, "batteryItem").value, "Battery level unavailable");
