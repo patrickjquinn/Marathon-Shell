@@ -25,7 +25,7 @@ Page {
 
     function rowTitle(row) {
         if (row.kind === "all")
-            return qsTr("Photos");
+            return row.videoCount > 0 ? qsTr("Photos & videos") : qsTr("Photos");
         if (row.kind === "videos")
             return qsTr("Videos");
         if (row.kind === "memory")

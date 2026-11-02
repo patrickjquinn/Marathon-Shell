@@ -239,6 +239,7 @@ TestCase {
         const app = makeApp(threePhotos(), [video(2)]);
         const list = findChild(app.pageStack.currentPage, "collections");
         tryCompare(list, "count", 4);
+        compare(app.pageStack.currentPage.rowTitle(list.model[0]), "Photos & videos");
         compare(app.pageStack.currentPage.rowDetail(list.model[0]), "3 photos · 1 video");
         compare(app.pageStack.currentPage.rowTitle(list.model[1]), "Videos");
         compare(app.pageStack.currentPage.rowDetail(list.model[1]), "1 video");
