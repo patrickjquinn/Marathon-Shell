@@ -543,6 +543,7 @@ mod tests {
                 screenshots: vec!["https://s.png".into()],
                 version: "2.1".into(),
                 released: 1_700_000_000,
+                phone_first: true,
             }]
         );
     }
