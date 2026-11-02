@@ -15,7 +15,7 @@ Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
  1 file changed, 15 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
-index 6af54616..a1754071 100644
+index 297e8a0f..c9664f52 100644
 --- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 +++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 @@ -20,6 +20,7 @@

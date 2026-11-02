@@ -11,11 +11,12 @@ Replace the voltage-only adc-battery with the MT6366's coulomb counter
 gauge, supplied by the charger so that the end of charge anchors the
 state of charge at full.
 
-The battery gains the 25 °C OCV table of the stock gauge profile,
-resampled at whole percent, its internal resistance (the profile's median
-discharge resistance plus the 8 mOhm the vendor model adds for the sense
-path) and its capacity, 2939 mAh, for the 3000 mAh rated pack. The sense
-shunt is 1 mOhm with the vendor's 1.01 counter tuning.
+The battery gains the 25 �C OCV table of the stock gauge profile,
+resampled at whole percent except 99% (the binding allows 100 points),
+its internal resistance (the profile's median discharge resistance plus
+the 8 mOhm the vendor model adds for the sense path) and its capacity,
+2939 mAh, for the 3000 mAh rated pack. The sense shunt is 1 mOhm with
+the vendor's 1.01 counter tuning.
 
 The link to the charger had been left out because it crashed the kernel;
 that was a power supply core bug, fixed earlier in this series.
@@ -26,7 +27,7 @@ Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
  1 file changed, 40 insertions(+), 23 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
-index 83b1ae44..6af54616 100644
+index 83b1ae44..297e8a0f 100644
 --- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 +++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
 @@ -174,47 +174,55 @@
@@ -50,7 +51,7 @@ index 83b1ae44..6af54616 100644
  		charge-term-current-microamp = <200000>;
 +		factory-internal-resistance-micro-ohms = <155000>;
 +		ocv-capacity-celsius = <25>;
-+		ocv-capacity-table-0 = <4393000 100>, <4379285 99>, <4368447 98>, <4357671 97>,
++		ocv-capacity-table-0 = <4393000 100>, <4368447 98>, <4357671 97>,
 +				       <4346895 96>, <4336118 95>, <4324464 94>, <4312708 93>,
 +				       <4300952 92>, <4289196 91>, <4277440 90>, <4265684 89>,
 +				       <4253928 88>, <4242172 87>, <4230416 86>, <4219355 85>,
