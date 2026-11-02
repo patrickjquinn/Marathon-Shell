@@ -127,10 +127,6 @@
 #include <QtGui/private/qinputdevicemanager_p_p.h>
 #include <QtInputSupport/private/qevdevtouchhandler_p.h>
 #include <QtInputSupport/private/qevdevutil_p.h>
-#include <QtQuick/private/qquickdeliveryagent_p_p.h>
-#include <QtQuick/private/qquickwindow_p.h>
-#include <QPointer>
-#include <QThread>
 // Where Qt defines it; outside Qt's build the header declares a global one.
 namespace QtPrivateLogging {
     const QLoggingCategory &qLcEvdevTouch();
@@ -221,34 +217,6 @@ static void connectTasks(Tasks *tasks, WaylandCompositor *wc) {
 #endif
 
 #ifdef MARATHON_HAVE_INPUT_SUPPORT
-// A touchscreen that goes mid-touch never ends that touch, and Qt Quick keeps
-// the device it makes mouse events from as a raw pointer, which the next
-// press reads after the device is deleted (qtdeclarative 6.11 and dev).
-// Forget it as the device goes, until Qt Quick does.
-static void forgetTouchMouseDevices() {
-    static QList<QPointer<const QInputDevice>> watched;
-    watched.removeAll(nullptr);
-    for (const QInputDevice *device : QInputDevice::devices()) {
-        if (device->type() != QInputDevice::DeviceType::TouchScreen || watched.contains(device))
-            continue;
-        watched.append(device);
-        QObject::connect(
-            device, &QObject::destroyed, qApp,
-            [device] {
-                if (QThread::currentThread() != qApp->thread())
-                    return;
-                for (QWindow *window : QGuiApplication::topLevelWindows()) {
-                    auto *quick = qobject_cast<QQuickWindow *>(window);
-                    auto *agent =
-                        quick ? QQuickWindowPrivate::get(quick)->deliveryAgentPrivate() : nullptr;
-                    if (agent && agent->touchMouseDevice == device)
-                        agent->cancelTouchMouseSynthesis();
-                }
-            },
-            Qt::DirectConnection);
-    }
-}
-
 // Qt's QEvdevTouchManager, except that a udev "add" for a node already read
 // doesn't open it again.
 static void startTouchInput(const QString &specification) {
@@ -276,10 +244,7 @@ static void startTouchInput(const QString &specification) {
     const auto add = [devices, updateCount](const QString &node) {
         if (auto *handler = static_cast<QEvdevTouchScreenHandlerThread *>(devices->add(node)))
             QObject::connect(handler, &QEvdevTouchScreenHandlerThread::touchDeviceRegistered,
-                             devices, [updateCount] {
-                                 updateCount();
-                                 forgetTouchMouseDevices();
-                             });
+                             devices, updateCount);
     };
 
     for (const QString &node : parsed.devices)
