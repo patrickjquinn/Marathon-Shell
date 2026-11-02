@@ -57,6 +57,10 @@ void TouchResampler::setVblankClock(std::function<qint64()> lastVblankUs,
 }
 
 bool TouchResampler::flush() {
+    if (m_pending && !m_device) {
+        m_tracks.clear();
+        m_pending = false;
+    }
     if (!m_pending)
         return false;
     const qreal  hz      = m_refreshHz ? m_refreshHz() : 0;
