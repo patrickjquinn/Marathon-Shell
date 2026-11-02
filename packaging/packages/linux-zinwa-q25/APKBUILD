@@ -1,6 +1,6 @@
 # Zinwa Q25 kernel: ellyq's mtk_g99-mainline at the commit the phone runs,
 # with its config. g99-* and panel-zinwa-q20-hd720.c are the MT6789 display,
-# charger and pinctrl changes the phone's kernel was built with; 0001-0010
+# charger and pinctrl changes the phone's kernel was built with; 0001-0011
 # are the Q25's (devices/zinwa/q25/kernel/README.md). The release keeps the
 # -q25-cfi-test suffix q25-kernel-modules, q25-modem and q25-gpu-render were
 # built for, and only the in-tree modules the phone boots with are built.
@@ -69,6 +69,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0008-arm64-dts-mediatek-zinwa-q25-let-the-panel-sleep-in-Doze.patch
 	0009-mfd-mt6358-fix-AUD-and-MISC-top-status-bits.patch
 	0010-arm64-dts-mediatek-zinwa-q25-reserve-a-camera-pool.patch
+	0011-arm64-dts-mediatek-zinwa-q25-describe-the-MD1-modem.patch
 "
 builddir="$srcdir/mtk_g99-mainline-$_commit"
 
@@ -122,4 +123,5 @@ d46b68a98cc85d68560acc009d30c7d3dcc4b59dda9194b45b79381c7ec74c1f34e66619d180cc10
 9e1bd6da0d9e234c045f28f139c2165b82575b444c76129e3c4e92f913234a8d42faaa103f3df26cfa03e9e57aa08ffcb88d452c170c5f72b3e7eea8215d6300  0008-arm64-dts-mediatek-zinwa-q25-let-the-panel-sleep-in-Doze.patch
 6b904eb6eafb302d7e8d118e0f040c0dd5c8e8f0cd842f471d533fe429d5809d753763b1b0d280ec10160623a40e0a8a12eb034406cbec79fb3912e1300d36ea  0009-mfd-mt6358-fix-AUD-and-MISC-top-status-bits.patch
 3084f505b58c84e4cb624258131a569fb2034fa132e0a41438eac66bce328adca776784938cf056469cf6b48072eaa634c0ab103366b204dc4c9d17367e11444  0010-arm64-dts-mediatek-zinwa-q25-reserve-a-camera-pool.patch
+2b310498811eaf7ae0053f6230e34068fa5dfd16fcc6b824e9a0c7a9787b6343fa32179d0fd84df93e285e2386d2d3f9df18683c01bb81ce4f8a94a949633665  0011-arm64-dts-mediatek-zinwa-q25-describe-the-MD1-modem.patch
 "

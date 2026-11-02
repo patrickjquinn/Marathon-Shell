@@ -1,0 +1,132 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 06:27:04 +0000
+Subject: [PATCH] arm64: dts: mediatek: zinwa-q25: describe the MD1 modem
+
+Add the MD1 owner and MediaTek's ECCCI nodes (mddriver, the CCIF and
+DPMAIF blocks, the SPM sleep syscon and md_attr_node) and grow the
+non-cacheable modem carve-out to the 0xe10000 the stock LK lays out.
+They are the nodes of devices/zinwa/q25/modem/dt/q25-modem.dtso, with
+labels in place of its raw phandles.
+
+The Q25 boots this DT (7ae8313e..., the edc93beb DT plus the panel-doze
+and modem overlays and the camera pool): compiled against the 978b8b67
+mt6789.dtsi, the result equals it node by node with phandles resolved,
+except for the BMP390 node (0007) and the overlays' __symbols__.
+md1-owner and md_power_o1 keep that DT's phandles, 0x90 and 0x91, so no
+other node's phandle moves and the camera overlay's raw phandles still
+resolve.
+
+With these nodes q25-md1-owner autoloads and q25-modem's udev rule
+starts the modem stack on boot, as on the tested phone.
+---
+ .../boot/dts/mediatek/mt6789-zinwa-q25.dts    | 82 ++++++++++++++++++-
+ 1 file changed, 81 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+index 3464eea..b9572a7 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+@@ -39,6 +39,12 @@
+ 		serial0 = &uart0;
+ 	};
+ 
++	md_attr_node {
++		compatible = "mediatek,md_attr_node";
++		mediatek,md_drdi_rf_set_idx = <0x0f0f0f0f>;
++		mediatek,md_product_name_model_id = <0x0f0f0f0f>;
++	};
++
+ 	chosen {
+ 		#address-cells = <2>;
+ 		#size-cells = <2>;
+@@ -74,7 +80,8 @@
+ 		q25_held:     q25-held@7d000000    { reg = <0 0x7d000000 0 0x500000>;  no-map; };
+ 		sspm_ap_mem:  sspm_ap@9f560000     { reg = <0 0x9f560000 0 0x110000>;  no-map; };
+ 		apmdc_mem:    ap_md_c_smem@8c000000  { reg = <0 0x8c000000 0 0x16a0000>; no-map; };
+-		apmdnc_mem:   ap_md_nc_smem@8e000000 { reg = <0 0x8e000000 0 0xe00000>;  no-map; };
++		/* The stock LK lays out 0xe10000 of non-cacheable modem memory. */
++		apmdnc_mem:   ap_md_nc_smem@8e000000 { reg = <0 0x8e000000 0 0xe10000>;  no-map; };
+ 		md_mem:       md_mem@e3200000      { reg = <0 0xe3200000 0 0xe00000>;  no-map; };
+ 		md2_mem:      md_mem2@de800000     { reg = <0 0xde800000 0 0x2b10000>; no-map; };
+ 		md3_mem:      md_mem3@ddc00000     { reg = <0 0xddc00000 0 0x430000>;  no-map; };
+@@ -1131,6 +1138,79 @@
+ 		clocks = <&infracfg_ao CLK_IFRAO_BTIF>, <&infracfg_ao CLK_IFRAO_AP_DMA>;
+ 		clock-names = "btifc", "apdmac";
+ 	};
++
++	/*
++	 * MD1 and MediaTek's ECCCI (q25-modem), as in the stock mt6789.dts.
++	 * q25-md1-owner provides the power domain and loads the modem image.
++	 * The phandles are those of the DTB the Q25 was tested with.
++	 */
++	md1_owner: md1-owner {
++		compatible = "zinwa,q25-md1-owner";
++		firmware-name = "q25-md1/md1img.img";
++		#power-domain-cells = <0>;
++		phandle = <0x90>;
++	};
++
++	apccci_mdo1: md_power_o1@10006000 {
++		compatible = "mediatek,md_power_o1", "syscon";
++		reg = <0 0x10006000 0 0x1000>;
++		phandle = <0x91>;
++	};
++
++	infracfg_ao_ccci@10001000 {
++		compatible = "mediatek,infracfg_ao";
++		reg = <0 0x10001000 0 0x1000>;
++	};
++
++	mddriver {
++		compatible = "mediatek,mddriver";
++		mediatek,mdhif_type = <6>;
++		mediatek,md_id = <0>;
++		mediatek,ap_plat_info = <6789>;
++		mediatek,md_generation = <6295>;
++		mediatek,offset_epon_md1 = <0x24 0x06>;
++		mediatek,cldma_capability = <6>;
++		mediatek,power_flow_config = <0x12>;
++		mediatek,srclken_o1 = <0x200000>;
++		reg = <0 0x0d0cf000 0 0x1000>;
++		interrupts = <GIC_SPI 110 IRQ_TYPE_EDGE_RISING 0>,
++			     <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH 0>;
++		power-domains = <&md1_owner>;
++		ccci-infracfg = <&infracfg_ao>;
++		ccci-topckgen = <&topckgen>;
++		ccci_spmsleep = <&apccci_mdo1>;
++	};
++
++	ccifdriver@10209000 {
++		compatible = "mediatek,ccci_ccif";
++		reg = <0 0x10209000 0 0x1000>, <0 0x1020a000 0 0x1000>;
++		mediatek,sram_size = <512>;
++		interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>,
++			     <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH 0>;
++		clocks = <&infracfg_ao CLK_IFRAO_CCIF_AP>,
++			 <&infracfg_ao CLK_IFRAO_CCIF_MD>,
++			 <&infracfg_ao CLK_IFRAO_CCIF1_AP>,
++			 <&infracfg_ao CLK_IFRAO_CCIF1_MD>,
++			 <&infracfg_ao CLK_IFRAO_CCIF4_MD>,
++			 <&infracfg_ao CLK_IFRAO_CCIF5_MD>;
++		clock-names = "infra-ccif-ap", "infra-ccif-md", "infra-ccif1-ap",
++			      "infra-ccif1-md", "infra-ccif4-md", "infra-ccif5-md";
++	};
++
++	dpmaif@10014000 {
++		compatible = "mediatek,dpmaif";
++		reg = <0 0x10014000 0 0x1000>, <0 0x10014400 0 0x1000>,
++		      <0 0x1022d000 0 0x1000>, <0 0x1022d100 0 0x1000>,
++		      <0 0x1022d400 0 0x1000>, <0 0x1022c000 0 0x1000>,
++		      <0 0x1022e000 0 0x1000>;
++		interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>;
++		mediatek,dpmaif_capability = <6>;
++		clocks = <&infracfg_ao CLK_IFRAO_DPMAIF_MAIN>;
++		clock-names = "infra-dpmaif-clk";
++		mediatek,dpmaif_ver = <1>;
++		mediatek,chip_info = <6789>;
++	};
+ };
+ 
+ /* Enable the pipeline components already present in mt6789.dtsi and give the

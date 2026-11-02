@@ -1,4 +1,4 @@
-The patches against the kernel tree, `0001`, `0003` and `0005`–`0010`, are in
+The patches against the kernel tree, `0001`, `0003` and `0005`–`0011`, are in
 `packaging/packages/linux-zinwa-q25`, which builds the Q25 kernel from ellyq's
 `mtk_g99-mainline` at `978b8b67` with them and the phone's own configuration.
 `0002` stays here: it is not a kernel-tree patch.
@@ -55,9 +55,7 @@ is dropped: both of its addresses NACK on the device. No gpio-backlight.
 `0008` hands GPIO84 (panel bias) and GPIO85 (panel reset) from the
 always-on regulator to `q25-panel-doze`, which sleeps the panel in Doze. The
 result equals the device-tested `8c282e5d…` (edc93beb plus the panel-doze
-overlay) except for the BMP390 node. The board DTS carries no modem nodes:
-with them, `q25-md1-owner` would autoload and `q25-md1-off.service` would
-skip, leaving MD1 powered.
+overlay) except for the BMP390 node.
 
 `0009` fixes the MT6358/MT6366 PMIC interrupt handler's AUD and MISC group
 bits (7 and 8 in TOP_INT_STATUS0, as in MediaTek's headers; mainline has 6
@@ -73,3 +71,12 @@ at runtime, and it does nothing on a fixed kernel.
 sensors' full-resolution frames. The camera overlay (`modules/camera`)
 names the pool by its fixed phandle, `0x93`. The Q25 boots the same node
 added to its current DTB.
+
+`0011` adds the MD1 owner and ECCCI nodes of `modem/dt/q25-modem.dtso`, with
+labels in place of its raw phandles. With `0005`–`0011` the DTB equals the one
+the Q25 boots (`7ae8313e…`: `edc93beb…` plus the panel-doze and modem
+overlays and the camera pool) node by node with phandles resolved, except
+for the BMP390 node and the overlays' `__symbols__`. `md1-owner` and
+`md_power_o1` keep that DT's phandles (`0x90`, `0x91`), so no other phandle
+moves. With the modem nodes `q25-md1-owner` autoloads and `q25-modem` starts
+the modem stack at boot, as on the tested phone.
