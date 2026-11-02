@@ -14,7 +14,7 @@ use marathon_gnssd::meas::{self, Channel};
 use marathon_gnssd::mtk::{self, Deframer};
 use marathon_gnssd::rinex::{self, LEAP_SECONDS};
 use marathon_gnssd::sat::Sat;
-use marathon_gnssd::{dsp, iono, lnav, nmea, orbit, spp};
+use marathon_gnssd::{d1, dsp, iono, lnav, nmea, orbit, spp};
 use nalgebra::Vector3;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
@@ -44,7 +44,7 @@ const SIGMA: [f64; 3] = [10.0, 60.0, 15.0];
 /// BeiDou time is GPS time less 14 s and the receiver adds no measurable
 /// bias between the two (reference runs: within 25 m), so its clock is tied
 /// to the GPS clock; GLONASS keeps a free one.
-const BIAS_SIGMA: [Option<f64>; 3] = [None, None, Some(30.0)];
+const BIAS_SIGMA: [Option<f64>; 3] = [None, None, Some(100.0)];
 
 struct Engine {
     nav: rinex::Nav,
@@ -56,6 +56,7 @@ struct Engine {
     tag: Option<(u32, f64)>,
     chans: Vec<Channel>,
     subframes: HashMap<u8, EphemerisBuilder>,
+    d1: HashMap<u8, d1::EphemerisBuilder>,
     iono: Option<[f64; 8]>,
     /// The last accepted fix and its time, and how many in a row were refused.
     last: Option<(Vector3<f64>, f64)>,
@@ -242,6 +243,12 @@ impl Engine {
                     self.nav.gps.insert(prn, vec![e]);
                 }
             }
+        } else if f.id == mtk::id::BEIDOU_SUBFRAME {
+            if let Some((prn, sf)) = meas::beidou_subframe(&f.payload) {
+                if let Some(e) = self.d1.entry(prn).or_default().add(sf) {
+                    self.nav.beidou.insert(prn, vec![e]);
+                }
+            }
         } else if f.id == mtk::id::EPOCH_LAST {
             if let Some((ms, at)) = self.tag {
                 self.fix(at, out)?;
@@ -336,6 +343,7 @@ fn main() -> io::Result<()> {
         tag: None,
         chans: Vec::new(),
         subframes: HashMap::new(),
+        d1: HashMap::new(),
         iono: None,
         last: None,
         refused: 0,

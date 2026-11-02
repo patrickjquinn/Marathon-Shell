@@ -60,6 +60,23 @@ pub fn gps_subframe(p: &[u8]) -> Option<(u8, [u8; 30])> {
     Some((prn, crate::lnav::subframe_from_data(&words)?))
 }
 
+/// A BeiDou D1 subframe (msg 0x4B record): three bytes of word-failure
+/// flags, the PRN, the subframe id, the page (subframes 4 and 5), then ten
+/// 30-bit words in the DSP's word order with parity bits kept. Only clean ones.
+pub fn beidou_subframe(p: &[u8]) -> Option<(u8, crate::d1::Subframe)> {
+    let w16 = |at: usize| p.get(at..at + 2).map(|b| u16::from_le_bytes([b[0], b[1]]));
+    if p.get(..3)? != [0, 0, 0] {
+        return None;
+    }
+    let mut words = [0u32; 10];
+    for (i, w) in words.iter_mut().enumerate() {
+        let at = 7 + 4 * i;
+        *w = (u32::from(w16(at)?) << 16 | u32::from(w16(at + 2)?)) & 0x3fff_ffff;
+    }
+    crate::d1::frame_id(&words)?;
+    Some((p[3], words))
+}
+
 /// Range rate (m/s) from `approx` to the satellite around time `t`.
 fn range_rate(sat: &Sat, t: f64, approx: Vector3<f64>) -> f64 {
     (sat.position(t + 0.5).0 - approx).norm() - (sat.position(t - 0.5).0 - approx).norm()

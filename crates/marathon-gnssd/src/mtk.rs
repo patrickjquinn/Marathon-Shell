@@ -130,6 +130,7 @@ pub mod id {
     pub const CHANNEL: u16 = 0xfe29;
     pub const GPS_SUBFRAME: u16 = 0xfe2b;
     pub const EPOCH_END: u16 = 0xfe2c;
+    pub const BEIDOU_SUBFRAME: u16 = 0xfe4b;
     /// The last message of each epoch.
     pub const EPOCH_LAST: u16 = 0xfe4e;
 }
