@@ -2,7 +2,6 @@ import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
 import Marathon.Platform 1.0
-import "../MessagesLogic.js" as Logic
 
 Dialog {
     id: root
@@ -41,7 +40,7 @@ Dialog {
             }
             DetailItem {
                 label: qsTr("Phone")
-                value: Logic.formatNumber(root.number)
+                value: Sms.formatNumber(root.number)
                 alignment: Qt.AlignLeft
             }
         }

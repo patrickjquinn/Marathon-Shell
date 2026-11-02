@@ -16,6 +16,7 @@ Page {
     property var messages: []
     readonly property string recipientNumber: conversation.contactNumber
     property string contactName: conversation.contactName || ""
+    readonly property string shownNumber: conversation.displayNumber || Sms.formatNumber(recipientNumber)
     readonly property bool hasModem: Telephony.hasModem
     readonly property bool canSend: hasModem && pendingText === "" && (input.text.trim() !== "" || attachments.length > 0)
     property string pendingText: ""
@@ -142,8 +143,8 @@ Page {
         model: root.messages
 
         header: PageHeader {
-            title: root.contactName || Logic.formatNumber(root.recipientNumber)
-            description: root.contactName ? Logic.formatNumber(root.recipientNumber) : ""
+            title: root.contactName || root.shownNumber
+            description: root.contactName ? root.shownNumber : ""
         }
 
         PullDownMenu {

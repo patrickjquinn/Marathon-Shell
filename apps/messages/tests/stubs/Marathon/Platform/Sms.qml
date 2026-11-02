@@ -66,6 +66,9 @@ QtObject {
         opened = opened.concat([id]);
         return "/cache/mms/" + id + "/" + name;
     }
+    function formatNumber(number) {
+        return "fmt:" + number;
+    }
     function generateConversationId(number) {
         return "conv_" + number;
     }
