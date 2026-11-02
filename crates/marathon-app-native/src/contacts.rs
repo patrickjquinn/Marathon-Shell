@@ -47,6 +47,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "addContact"]
         fn add_contact(self: &Contacts, name: &QString, phone: &QString, email: &QString);
+        /// A contact with any of `updateContact`'s fields.
+        #[qinvokable]
+        #[cxx_name = "createContact"]
+        fn create_contact(self: &Contacts, data: &QMap_QString_QVariant);
         #[qinvokable]
         #[cxx_name = "updateContact"]
         fn update_contact(self: &Contacts, id: i32, data: &QMap_QString_QVariant);
@@ -137,6 +141,10 @@ impl Contacts {
     fn refresh(&self) {
         let qt = self.qt_thread();
         io::spawn(async move { read(&qt).await });
+    }
+
+    fn create_contact(&self, data: &QMap<QMapPair_QString_QVariant>) {
+        CONTACTS.call("CreateContact", (variant::map(data),));
     }
 
     fn update_contact(&self, id: i32, data: &QMap<QMapPair_QString_QVariant>) {
