@@ -27,6 +27,15 @@ const ANDROID_HANDOFF_GRACE: Duration = Duration::from_secs(45);
 /// A second tap within this of the first starts no second copy.
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
+/// Android desktop files are rewritten during a session cutover. The
+/// catalogue may still hold the old launcher until Shell restarts.
+fn android_exec(app: &App) -> String {
+    desktop_entry(&app.id)
+        .map(|entry| entry.exec)
+        .filter(|command| !command.is_empty())
+        .unwrap_or_else(|| app.exec.clone())
+}
+
 pub(super) fn is_android_app_id(app_id: &str) -> bool {
     app_ids::android_package(app_id).is_some_and(|package| package.contains('.'))
 }
@@ -459,6 +468,15 @@ impl Tasks {
             self.as_mut().open(&app, true);
             self.as_mut().show(&app, &task.kind, task.surface_id);
             self.as_mut().rust_mut().launching.remove(&app.id);
+            // An Android card can outlive its app (force-stopped under
+            // another app's prompt); only Android knows whether to front
+            // the task or start the app, and its window takes the card.
+            if is_android_app_id(&app.id) {
+                let exec = android_exec(&app);
+                if !exec.is_empty() {
+                    self.as_mut().spawn_requested(&q(&exec), &Map::default());
+                }
+            }
             self.launched(&app);
             return true;
         }
@@ -510,13 +528,8 @@ impl Tasks {
             self.as_mut().open(app, false);
             self.as_mut().show(app, "native", -1);
         }
-        // Android desktop files are rewritten during a session cutover. The
-        // catalogue may still hold the old launcher until Shell restarts.
         let exec = if is_android_app_id(&app.id) {
-            desktop_entry(&app.id)
-                .map(|entry| entry.exec)
-                .filter(|command| !command.is_empty())
-                .unwrap_or_else(|| app.exec.clone())
+            android_exec(app)
         } else {
             app.exec.clone()
         };
