@@ -1,6 +1,7 @@
 #include <cmath>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QStyleHints>
 #include <QScreen>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
@@ -520,6 +521,17 @@ int main(int argc, char *argv[]) {
 #else
         qunsetenv("QT_QPA_GENERIC_PLUGINS");
 #endif
+    }
+    // Qt's 10 px drag slop and 800 ms hold ignore density: 10 px is 0.86 mm
+    // at 295 dpi, inside a resting finger's wobble. Android's touch slop
+    // (8 dp) and long press, in the panel's real pixels.
+    {
+        const marathon::device::Profile dp  = marathon::device::profile();
+        const qreal                     dpi = dp.panel_dpi > 0 ?
+            dp.panel_dpi :
+            QGuiApplication::primaryScreen()->physicalDotsPerInch();
+        QGuiApplication::styleHints()->setStartDragDistance(qMax(10, qRound(8 * dpi / 160)));
+        QGuiApplication::styleHints()->setMousePressAndHoldInterval(500);
     }
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
