@@ -1,13 +1,13 @@
 # Exact accepted Q25 closure; this package never compiles kernel/GPU code.
 pkgname=q25-gpu-render
 pkgver=7.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Q25 accepted guarded Panfrost390MHz PM-on render path"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND MIT"
 options="!check !strip !tracedeps"
-depends="kmod linux-postmarketos-mediatek-g99=7.0-r1000 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
+depends="kmod linux-zinwa-q25=7.0.0-r0 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
 makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
 source="q25-mfg-only-v2.ko.zst panfrost.ko.zst gpu-sched.ko.zst

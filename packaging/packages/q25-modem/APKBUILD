@@ -2,16 +2,16 @@
 # whose DTB carries the modem nodes (q25-modem.dtbo, from
 # devices/zinwa/q25/modem/dt). The daemons build from userspace/ here; the
 # ECCCI modules are prebuilt like q25-kernel-modules (sources and rebuild:
-# devices/zinwa/q25/modules, modem/), pinned to the prebuilt kernel.
+# devices/zinwa/q25/modules, modem/), pinned to linux-zinwa-q25.
 pkgname=q25-modem
 pkgver=1.0.0
-pkgrel=6
+pkgrel=7
 pkgdesc="Zinwa Q25 MD1 modem stack: ECCCI modules, CCCI daemons, services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND Apache-2.0"
 options="!check !strip !tracedeps"
-depends="kmod util-linux q25-kernel-modules>=7.0.0-r6 linux-postmarketos-mediatek-g99=7.0-r1000
+depends="kmod util-linux q25-kernel-modules>=7.0.0-r6 linux-zinwa-q25=7.0.0-r0
  modemmanager-mtk-ccci"
 makedepends="gcc make musl-dev linux-headers zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"

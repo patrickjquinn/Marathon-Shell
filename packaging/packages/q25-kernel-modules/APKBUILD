@@ -1,15 +1,15 @@
 # Q25 out-of-tree and unconfigured in-tree modules, as loaded on the device.
 # Sources and the rebuild check: devices/zinwa/q25/modules (build.sh).
-# The kernel APK is a prebuilt closure, so these bytes are pinned to it.
+# The bytes are pinned to the linux-zinwa-q25 build they load into.
 pkgname=q25-kernel-modules
 pkgver=7.0.0
-pkgrel=21
-pkgdesc="Zinwa Q25 hardware modules for the prebuilt kernel"
+pkgrel=22
+pkgdesc="Zinwa Q25 hardware modules for linux-zinwa-q25"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND GPL-2.0-or-later AND (BSD-3-Clause OR GPL-2.0-only)"
 options="!check !strip !tracedeps"
-depends="kmod linux-postmarketos-mediatek-g99=7.0-r1000"
+depends="kmod linux-zinwa-q25=7.0.0-r0"
 makedepends="zstd"
 install="$pkgname.post-install $pkgname.post-upgrade"
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner inv-icm42607 inv-icm42607-spi spi-mt65xx q25-panel-doze q25-vsyncdrm q25-i2c-clk mmc5633 hx32062se q25-mt6358-live q25-haptic regulator-haptic"
