@@ -172,6 +172,27 @@ is what stock sends on a phone with no stored data.
 
 ## After boot
 
+DSP-to-host payloads are scrambled: each byte is sent rotated left by three
+and XORed with 0x59 (libmnl's `dsp_auth_decrypt` undoes it after the
+checksum check; the checksum covers the scrambled bytes). Boot
+acknowledgements are not scrambled. Host-to-DSP payloads are plain.
+Multi-byte DSP values are 16-bit little-endian words; 32-bit values are two
+words, high word first.
+
+Observed on the Q25 (2026-11-02, indoors, LNA not enabled, no host
+commands after boot): the DSP runs by itself and sends one epoch per second
+in the order 0x42, 0x2C, 0x62, 0x28, 0x29, 0x30, 0x4E. The DSP version
+reply (msg 0x14 to `0018`) is `0007 0115`.
+
+- msg 0x28 (9 bytes): byte 0 = 1, bytes 1–4 a 32-bit DSP time in ms
+  (1013, 2013, … one second apart), bytes 5–8 constant (`78 69 00 50`).
+- msg 0x2C, 0x4E, 0x62 carry the same millisecond time at bytes 2–3.
+- msg 0x29 (67 bytes): one record per epoch for channel 66, byte 1 = 0x25,
+  byte 2 = 1; bytes 23 and 25–30 change every epoch (a search in progress).
+  libmnl reads the record as: byte 1 satellite, byte 2 signal/system, bytes
+  3–6 state, then 16-bit and 32-bit fields from byte 7 on.
+
+
 The DSP returns frames with these ids (sizes are the payload capacity the
 stock decoder accepts). Meanings come from how `libmnl` stores and uses them;
 none has been observed on the wire yet.

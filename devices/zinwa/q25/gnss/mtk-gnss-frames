@@ -5,13 +5,32 @@ Usage: mtk-gnss-frames [-v] [FILE]   (stdin without FILE)
 
 Frames are AA F0 | len | id | payload | sum | AA 0F with DE DF / DE E0
 escapes (docs/hardware/mt6789-gnss.md). Prints the count and payload sizes
-per message id, bytes outside frames and frames with a bad length or sum;
--v also prints every frame.
+per message id and frames with a bad length or sum; -v also prints every
+frame, its payload unscrambled. FILE may be a raw capture or the output of
+mtk-gnss-capture.
 """
 import collections
 import sys
 
 UNESCAPE = {0xDF: 0xAA, 0xE0: 0xDE}
+CAPTURE_HEADER = 20  # mtk-gnss-capture: realtime ns, boottime ns, length
+
+
+def unscramble(payload):
+    """DSP-to-host payloads are sent rotated left by 3 and XORed with 0x59."""
+    return bytes((((b >> 3) | (b << 5)) & 0xFF) ^ 0x59 for b in payload)
+
+
+def raw_stream(data):
+    """Strip mtk-gnss-capture record headers if the file has them."""
+    if data[:2] == b"\xaa\xf0":
+        return data
+    out, i = bytearray(), 0
+    while i + CAPTURE_HEADER <= len(data):
+        n = int.from_bytes(data[i + 16:i + 20], "little")
+        out += data[i + CAPTURE_HEADER:i + CAPTURE_HEADER + n]
+        i += CAPTURE_HEADER + n
+    return bytes(out)
 
 
 def frames(data):
@@ -52,7 +71,7 @@ def check(body):
 def main(argv):
     verbose = "-v" in argv
     args = [a for a in argv if a != "-v"]
-    data = open(args[0], "rb").read() if args else sys.stdin.buffer.read()
+    data = raw_stream(open(args[0], "rb").read() if args else sys.stdin.buffer.read())
     counts, sizes, bad, framed = collections.Counter(), collections.defaultdict(set), 0, 0
     for off, body in frames(data):
         if body is None:
@@ -63,7 +82,7 @@ def main(argv):
         sizes[mid].add(len(payload))
         framed += len(body)
         if verbose:
-            print(f"{off:8d} {mid:#06x} {len(payload):4d} {payload[:32].hex()}")
+            print(f"{off:8d} {mid:#06x} {len(payload):4d} {unscramble(payload).hex()}")
     for mid in sorted(counts):
         print(f"{mid:#06x} {counts[mid]:6d} frames, payload {sorted(sizes[mid])}")
     print(f"{len(data)} bytes, {sum(counts.values())} good frames, {bad} bad")
