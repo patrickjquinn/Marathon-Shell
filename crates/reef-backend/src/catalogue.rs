@@ -306,6 +306,10 @@ pub struct Package {
     /// What an Android app asks of the phone (F-Droid's rows).
     #[serde(skip)]
     pub android: Option<AndroidNeeds>,
+    /// A Flathub app made for a phone first (its AppStream, as the store
+    /// handler reads it): the banner prefers these.
+    #[serde(skip)]
+    pub phone_first: bool,
 }
 
 /// What an Android app needs and does, from F-Droid's catalogue.
