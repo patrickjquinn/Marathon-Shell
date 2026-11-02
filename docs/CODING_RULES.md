@@ -374,6 +374,18 @@ If the plan was "fix A and B" but B turned out to require a different approach a
 
 ---
 
+## Section H — Hardware enablement
+
+### H1. Hardware is enabled in the kernel, not worked around in userspace
+
+A device's hardware works through kernel drivers and its device tree, written to upstream standards and sent upstream (for the Q25, to the MT6789 mainline port). No new userspace services, udev rules or scripts that bind/unbind drivers, poke sysfs or registers, force power or clock state, or replay vendor command sequences to make hardware work; no kernel command-line blacklists or `*_ignore_unused` flags to paper over a missing driver. If the proper driver isn't there yet, the fix is to write it (or finish the upstream one), and the hack it would replace is listed in the device's upstream plan (docs/roadmap/Q25-UPSTREAM-PLAN.md for the Q25) with its replacement.
+
+### H2. Vendor drivers are quarantined
+
+Where no mainline path exists yet (vendor CONNSYS, modem), vendor code lives in its own clearly named package, is never extended with Marathon features, and every userspace helper it needs is listed in the device's upstream plan. New hardware support does not start from vendor drivers when a mainline or upstreamable route exists.
+
+---
+
 ## How to use this document
 
 - Reviewers: cite rule IDs (e.g., "A3", "B12", "C8") in review comments. Faster than re-explaining.
