@@ -16,8 +16,6 @@
 # scripts/flash/flash-zinwa-q25.sh flashes them.
 #
 # Env:
-#   Q25_KERNEL_APK            the prebuilt linux-postmarketos-mediatek-g99
-#                             7.0-r1000 package the phone's modules match
 #   Q25_CONNSYS_FIRMWARE_DIR  the stock CONNSYS firmware, copied into the
 #                             q25-connsys-firmware aport when it is missing
 #                             there
@@ -26,10 +24,6 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$SCRIPT_DIR")"
-
-export Q25_KERNEL_APK="${Q25_KERNEL_APK:?set Q25_KERNEL_APK to linux-postmarketos-mediatek-g99-7.0-r1000.apk}"
-KERNEL_APK_SHA256=04e459cd8582ab5c08fc76122b9c4a8d1debcd1d952109f1cbf568cf1c6adfb6
-echo "$KERNEL_APK_SHA256  $Q25_KERNEL_APK" | sha256sum -c --quiet
 
 FW_APORT="$REPO/packaging/packages/q25-connsys-firmware"
 # shellcheck disable=SC1091

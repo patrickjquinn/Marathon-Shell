@@ -110,10 +110,13 @@ mtkclient.
 ## Building the image yourself
 
 ```sh
-Q25_KERNEL_APK=…/linux-postmarketos-mediatek-g99-7.0-r1000.apk \
 Q25_CONNSYS_FIRMWARE_DIR=…/connsys-firmware \
 ./scripts/build-zinwa-q25-image.sh
 ```
+
+The kernel builds from source (`packaging/packages/linux-zinwa-q25`); its
+build tree takes several GB, so point `MARATHON_APK_WORK_DIR` at a disk with
+room for it.
 
 This writes the root, the `userdata` image, U-Boot and `gimme-uboot.py` and a
 `.SHA256SUMS` to `$Q25_IMAGE_OUT` (default `$MARATHON_BUILD_DIR/q25`). U-Boot

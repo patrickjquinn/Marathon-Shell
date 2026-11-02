@@ -215,12 +215,11 @@ if [ "$DEVICE" = raspberry-pi5 ] || [ "$DEVICE" = zinwa-q25 ]; then
 APORT=deckard-images NO_DEPS=1 \
 build_if_missing "deckard-images"            'deckard-images-*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/deckard-images/APKBUILD"
 fi
-# Zinwa Q25: the prebuilt kernel the phone boots (Q25_KERNEL_APK, from
-# scripts/build-zinwa-q25-image.sh), its device package and every q25-* and
-# *-q25 aport, which depend on each other; the modem's ModemManager depends
-# only on Alpine packages, which abuild needs installed to trace libmm-glib.
+# Zinwa Q25: its device package and every q25-* and *-q25 aport, the kernel
+# (linux-zinwa-q25) among them, which depend on each other; the modem's
+# ModemManager depends only on Alpine packages, which abuild needs installed
+# to trace libmm-glib.
 if [ "$DEVICE" = zinwa-q25 ]; then
-    cp "${Q25_KERNEL_APK:?zinwa-q25 needs Q25_KERNEL_APK, the prebuilt kernel package}" "$MKOSI_PKG_DIR/"
     for aport in "$APORTS_DIR"/device-zinwa-q25 "$APORTS_DIR"/q25-* "$APORTS_DIR"/*-q25; do
         [ -f "$aport/APKBUILD" ] || continue
         name="$(basename "$aport")"
