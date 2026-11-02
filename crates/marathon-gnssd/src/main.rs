@@ -67,8 +67,9 @@ const COARSE_TRIES: u32 = 30;
 const GLOBAL_EVERY: u32 = 5;
 /// Height prior of the coarse search: sea level, give or take mountains.
 const COARSE_HEIGHT_SIGMA: f64 = 500.0;
-/// Epochs with that many satellites but no fix before the approximate
+/// Epochs with this many GPS satellites but no fix before the approximate
 /// position is presumed wrong and the coarse search starts again.
+const STARVE_SATS: usize = 5;
 const STARVED: u32 = 60;
 /// Epochs of residuals before a GLONASS frequency slot's bias is used, and
 /// how many are kept.
@@ -406,7 +407,7 @@ impl Engine {
 
     fn fix(&mut self, unix: f64, out: &mut impl Write) -> io::Result<()> {
         let t = tow(unix);
-        let (fix, used, gps, coarse, samples, (free_height, offset)) = {
+        let (fix, used, gps, coarse, samples, (free_height, offset, why)) = {
             let tracked: Vec<(Channel, Sat)> = self
                 .chans
                 .iter()
@@ -425,7 +426,7 @@ impl Engine {
                 // The whole-Earth search takes a while: not every epoch.
                 let due = !self.global || self.coarse_tries.is_multiple_of(GLOBAL_EVERY);
                 let found = (gps >= COARSE_SATS && due).then(|| self.coarse_fix(&tracked, t));
-                (None, 0, gps, Some(found), Vec::new(), (None, None))
+                (None, 0, gps, Some(found), Vec::new(), (None, None, None))
             } else {
                 let mut ordered = tracked.clone();
                 ordered.sort_by_key(|(_, s)| s.system());
@@ -441,7 +442,10 @@ impl Engine {
                         _ => Some(*o),
                     })
                     .collect();
-                let fix = best_fix(&used, t, self.approx, self.height);
+                let (fix, why) = match best_fix(&used, t, self.approx, self.height) {
+                    Ok(f) => (Some(f), None),
+                    Err(why) => (None, Some(why)),
+                };
                 let samples = fix
                     .as_ref()
                     .filter(|f| f.hdop < 2.0 && f.redundancy >= 2)
@@ -457,7 +461,7 @@ impl Engine {
                 // Doppler by hundreds of hertz, the position error by less than one.
                 let at = fix.as_ref().map_or(self.approx, |f| f.ecef);
                 let offset = meas::doppler_offset(&tracked, t, at);
-                (fix, used.len(), gps, None, samples, (free, offset))
+                (fix, used.len(), gps, None, samples, (free, offset, why))
             }
         };
         self.learn_slots(samples);
@@ -468,8 +472,13 @@ impl Engine {
             return Ok(());
         }
         let Some(fix) = fix else {
-            self.status = format!("no fix from {used} usable satellites");
-            if gps >= COARSE_SATS {
+            self.status = format!(
+                "no fix from {used} usable satellites: {}",
+                why.unwrap_or_default()
+            );
+            // Only enough satellites to cross-check each other can say the
+            // approximate position is wrong.
+            if gps >= STARVE_SATS {
                 self.starved += 1;
                 if self.starved >= STARVED {
                     log("no fix near the approximate position, searching wider");
@@ -870,7 +879,7 @@ fn best_fix(
     t: f64,
     approx: Vector3<f64>,
     height: (f64, f64),
-) -> Option<spp::Fix> {
+) -> Result<spp::Fix, String> {
     let constraint = Some(height);
     let full = spp::solve(obs, t, approx, constraint, BIAS_SIGMA);
     let mut fix = full.unwrap_or(spp::Fix {
@@ -895,8 +904,18 @@ fn best_fix(
             }
         }
     }
-    (fix.chi < MAX_CHI && fix.hdop < MAX_HDOP && (fix.ecef - approx).norm() < MAX_FROM_APPROX)
-        .then_some(fix)
+    let far = (fix.ecef - approx).norm();
+    if fix.chi.is_infinite() {
+        Err(format!("no solution from {} measurements", obs.len()))
+    } else if fix.chi >= MAX_CHI {
+        Err(format!("inconsistent (residuals {:.1} sigma)", fix.chi))
+    } else if fix.hdop >= MAX_HDOP {
+        Err(format!("geometry too weak (HDOP {:.0})", fix.hdop))
+    } else if far >= MAX_FROM_APPROX {
+        Err(format!("{:.0} km from the approximate position", far / 1e3))
+    } else {
+        Ok(fix)
+    }
 }
 
 fn now() -> f64 {
