@@ -154,6 +154,7 @@ Page {
                 }
                 text: Logic.displayName(item.modelData)
                 truncationMode: TruncationMode.Fade
+                font.bold: item.unread > 0
                 color: item.highlighted || item.unread > 0 ? Theme.highlightColor : Theme.primaryColor
             }
             Label {
@@ -182,19 +183,31 @@ Page {
                 wrapMode: Text.Wrap
                 elide: Text.ElideRight
                 maximumLineCount: 2
-                color: item.draft !== "" || item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                color: item.draft !== "" || item.highlighted ? Theme.secondaryHighlightColor : item.unread > 0 ? Theme.primaryColor : Theme.secondaryColor
             }
-            Label {
+            Rectangle {
                 id: count
+                objectName: "unreadBadge"
                 anchors {
                     right: parent.right
                     rightMargin: Theme.horizontalPageMargin
                     top: name.bottom
+                    topMargin: Theme.paddingSmall
                 }
                 visible: item.unread > 0
-                text: item.unread
-                font.pixelSize: Theme.fontSizeSmall
+                width: Math.max(height, countLabel.implicitWidth + 2 * Theme.paddingSmall)
+                height: countLabel.implicitHeight + Theme.paddingSmall / 2
+                radius: height / 2
                 color: Theme.highlightColor
+
+                Label {
+                    id: countLabel
+                    anchors.centerIn: parent
+                    text: item.unread > 99 ? "99+" : item.unread
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    font.bold: true
+                    color: Theme.darkPrimaryColor
+                }
             }
         }
 

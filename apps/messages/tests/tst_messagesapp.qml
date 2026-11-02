@@ -165,6 +165,14 @@ TestCase {
         compare(app.archivedIds, []);
     }
 
+    function test_unreadThreadsCarryABadge() {
+        const app = makeApp();
+        const a = findChild(findChild(page(app), "conversation-a"), "unreadBadge");
+        verify(a.visible);
+        compare(a.children[0].text, "2");
+        verify(!findChild(findChild(page(app), "conversation-b"), "unreadBadge").visible);
+    }
+
     function test_openConversationShowsMessagesAndMarksRead() {
         const app = makeApp();
         mouseClick(findChild(page(app), "conversation-a"));
