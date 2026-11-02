@@ -74,50 +74,66 @@ Page {
                 description: page.date.getFullYear()
             }
 
-            DatePicker {
-                id: picker
+            // A square or landscape screen shows the day's events beside the month.
+            Grid {
+                id: body
 
-                objectName: "datePicker"
+                readonly property bool sideBySide: page.width > page.height
+
                 width: parent.width
-                // Without the week column the margins let the next month peek in.
-                leftMargin: 0
-                rightMargin: 0
-                // Six weeks fit on a short screen.
-                cellHeight: Math.min(cellWidth, Math.floor((page.height - header.height - dayRowHeight) / 6))
-                daysVisible: true
-                weeksVisible: false
-                monthYearVisible: false
-                delegate: Component {
-                    DayCell {
-                        picker: picker
-                        events: page.app.events
+                columns: sideBySide ? 2 : 1
+
+                DatePicker {
+                    id: picker
+
+                    readonly property int fillHeight: Math.floor((page.height - header.height - dayRowHeight) / 6)
+
+                    objectName: "datePicker"
+                    width: body.sideBySide ? body.width / 2 : body.width
+                    // Without the week column the margins let the next month peek in.
+                    leftMargin: 0
+                    rightMargin: 0
+                    // Six weeks fit on a short screen.
+                    cellHeight: body.sideBySide ? fillHeight : Math.min(cellWidth, fillHeight)
+                    daysVisible: true
+                    weeksVisible: false
+                    monthYearVisible: false
+                    delegate: Component {
+                        DayCell {
+                            picker: picker
+                            events: page.app.events
+                        }
                     }
                 }
-            }
 
-            SectionHeader {
-                objectName: "dayHeader"
-                text: page.showingToday ? qsTr("Today") : Format.formatDate(page.date, Formatter.DateLong)
-            }
+                Column {
+                    width: body.width - (body.sideBySide ? picker.width : 0)
 
-            Repeater {
-                objectName: "dayEvents"
-                model: page.dayEvents
+                    SectionHeader {
+                        objectName: "dayHeader"
+                        text: page.showingToday ? qsTr("Today") : Format.formatDate(page.date, Formatter.DateLong)
+                    }
 
-                EventItem {
-                    app: page.app
+                    Repeater {
+                        objectName: "dayEvents"
+                        model: page.dayEvents
+
+                        EventItem {
+                            app: page.app
+                        }
+                    }
+
+                    Label {
+                        objectName: "noEvents"
+                        x: Theme.horizontalPageMargin
+                        width: parent.width - 2 * Theme.horizontalPageMargin
+                        visible: page.dayEvents.length === 0
+                        text: qsTr("No events")
+                        horizontalAlignment: Text.AlignHCenter
+                        color: Theme.secondaryHighlightColor
+                        wrapMode: Text.Wrap
+                    }
                 }
-            }
-
-            Label {
-                objectName: "noEvents"
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: page.dayEvents.length === 0
-                text: qsTr("No events")
-                horizontalAlignment: Text.AlignHCenter
-                color: Theme.secondaryHighlightColor
-                wrapMode: Text.Wrap
             }
         }
 
