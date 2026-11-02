@@ -172,13 +172,33 @@ fn score(item: &Item, query: &str, fuzzy: &SkimMatcherV2) -> i64 {
         (item.keywords.iter().any(|k| k.contains(query)), 500),
     ];
     let base = tiers.iter().find(|(hit, _)| *hit).map_or_else(
-        || fuzzy.fuzzy_match(&item.text, query).unwrap_or(0).min(400),
+        || fuzzy_from_word_start(&item.text, query, fuzzy).min(400),
         |(_, s)| *s,
     );
     if base > 0 && item.kind == "app" {
         base + 100
     } else {
         base
+    }
+}
+
+/// A fuzzy match that starts at a word: "wifi" picks its letters out of
+/// "shipwright-pacific", but from the middle of a word.
+fn fuzzy_from_word_start(text: &str, query: &str, fuzzy: &SkimMatcherV2) -> i64 {
+    let Some((score, indices)) = fuzzy.fuzzy_indices(text, query) else {
+        return 0;
+    };
+    let starts_word = indices.first().is_some_and(|&i| {
+        i == 0
+            || text
+                .chars()
+                .nth(i - 1)
+                .is_some_and(|c| !c.is_alphanumeric())
+    });
+    if starts_word {
+        score
+    } else {
+        0
     }
 }
 
