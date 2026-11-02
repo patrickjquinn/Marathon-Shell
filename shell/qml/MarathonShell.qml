@@ -1942,7 +1942,7 @@ Item {
         }
         onPositionChanged: mouse => {
             var dragDistance = mouse.y - startY;
-            if (dragDistance > 5 && !isDraggingDown) {
+            if (dragDistance > Qt.styleHints.startDragDistance && !isDraggingDown) {
                 isDraggingDown = true;
                 UIStore.quickSettingsDragging = true;
                 Logger.gesture("StatusBar", "dragStart", {
