@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Sailfish.Silica 1.0
 import Marathon.Silica 1.0
+import "../ClockLogic.js" as Logic
 
 TabItem {
     id: root
@@ -54,6 +55,14 @@ TabItem {
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: Format.formatDate(root.now, Formatter.DateLong)
+                color: Theme.secondaryHighlightColor
+            }
+            Label {
+                objectName: "localCity"
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: root.app.localZone !== ""
+                text: Logic.zoneCity(root.app.localZone)
+                font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
             }
         }

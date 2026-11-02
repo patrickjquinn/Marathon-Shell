@@ -14,6 +14,7 @@ ApplicationWindow {
 
     readonly property var alarms: Alarms.alarms
     property var cities: Logic.parseCities(Settings.get("clock/worldCities", ""), Logic.defaultCities)
+    readonly property string localZone: WorldClock.localZone()
     property Stopwatch stopwatch: Stopwatch {
         ticking: Application.state === Qt.ApplicationActive
         onEdited: Settings.set("clock/stopwatch", JSON.stringify(snapshot()))
@@ -171,18 +172,18 @@ ApplicationWindow {
 
     function cityTime(city, now) {
         const tz = Logic.zoneFor(city, Logic.knownCities);
-        if (tz) {
-            const r = WorldClock.timeIn(tz);
+        const offset = tz ? WorldClock.utcOffset(tz) : city.offset * 3600;
+        if (offset === undefined)
             return {
-                time: r.time,
-                diff: r.offsetLabel,
-                weekday: r.weekday
+                time: "—:—",
+                diff: tz,
+                weekday: ""
             };
-        }
+        const there = Logic.offsetDate(offset / 3600, now);
         return {
-            time: Format.formatDate(Logic.offsetDate(city.offset, now), Formatter.TimeValue),
-            diff: (city.offset >= 0 ? "+" : "") + city.offset + "h",
-            weekday: ""
+            time: Format.formatDate(there, Formatter.TimeValue),
+            diff: tz && tz === localZone ? qsTr("Local") : Logic.offsetLabel(offset + now.getTimezoneOffset() * 60),
+            weekday: Qt.locale().dayName(there.getDay(), Locale.ShortFormat).toUpperCase()
         };
     }
 
