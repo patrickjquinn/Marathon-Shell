@@ -198,8 +198,11 @@ pub fn with_installed(sources: &[Package], status: &Status) -> Vec<Package> {
         let Some(id) = a["app_id"].as_str() else {
             continue;
         };
-        if !sources.iter().any(|p| p.name == id) {
-            all.push(installed_only(id, a));
+        match all.iter_mut().find(|p| p.name == id) {
+            // The installed size, where the catalogue has none (Flathub's).
+            Some(p) => p.size = p.size.or_else(|| a["size"].as_u64()),
+            None if !sources.iter().any(|p| p.name == id) => all.push(installed_only(id, a)),
+            None => {}
         }
     }
     all
@@ -296,6 +299,7 @@ fn installed_only(id: &str, listed: &Value) -> Package {
         .and_then(|i| i.strip_prefix("file://"))
         .map(str::to_owned);
     p.install = Some(install);
+    p.size = listed["size"].as_u64();
     p
 }
 
@@ -349,7 +353,7 @@ mod tests {
         fs::write(
             d.join("installed.json"),
             r#"{"installed":[{"app_id":"org.example.Notes","name":"Notes","version":"2",
-                "icon":"file:///icons/notes.svg"}]}"#,
+                "icon":"file:///icons/notes.svg","size":1536000}]}"#,
         )
         .unwrap();
         fs::write(
@@ -372,6 +376,7 @@ mod tests {
         assert_eq!(notes.title, "Notes");
         assert_eq!(notes.icon.as_deref(), Some("/icons/notes.svg"));
         assert_eq!(notes.origin, Origin::Flathub);
+        assert_eq!(notes.size, Some(1_536_000));
         fs::remove_dir_all(d).unwrap();
     }
 
