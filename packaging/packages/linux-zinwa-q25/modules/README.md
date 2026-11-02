@@ -11,7 +11,6 @@ tree (`build.sh`, run from its APKBUILD) and ships as `q25-kernel-modules`.
 | `audio` | `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-audio-pd`, `q25-oca72390`, `q25-mt6366-card`, `q25-mt6358-accdet` | the kernel's `sound/soc/codecs/mt6358.c` plus patches `0002`–`0006` and `sound/soc/mediatek/common`, linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, Marathon's `q25/` drivers, and `q25accdet/`, a port of `sound/soc/codecs/mt6358-accdet.c` from LineageOS/android_kernel_xelex_mt6789 `2a873a35` |
 | `panel` | `q25-panel-doze` | Marathon |
 | `display` | `q25-vsyncdrm` | the kernel's `drivers/gpu/drm/sysfb/simpledrm.c` plus Marathon's scan-locked vblank |
-| `clk` | `q25-i2c-clk` | Marathon |
 | `light` | `hx32062se` | Marathon |
 | `gauge` | `q25-mt6358-live` | Marathon |
 | `gnss` | `mtk-connsys-gnss` | Marathon: boots the CONNSYS GNSS DSP, `/dev/gnssN` (feat/q25-gnss-open `bd570bc8`) |
