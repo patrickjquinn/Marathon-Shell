@@ -47,6 +47,7 @@
 #include "marathon-shell-native/src/ipc.cxxqt.h"
 #include "marathon-shell-native/src/alarms.cxxqt.h"
 #include "src/services/gesturetracker.h"
+#include "src/components/nightlightitem.h"
 #include "src/components/windowtextureitem.h"
 #include "src/components/backdropprobe.h"
 #include "src/services/waketouchfilter.h"
@@ -736,6 +737,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<FileChooserModel>("MarathonOS.Shell", 1, 0, "FileChooserModel");
     qmlRegisterType<WindowTextureItem>("MarathonOS.Shell", 1, 0, "WindowTextureItem");
     qmlRegisterType<BackdropProbe>("MarathonOS.Shell", 1, 0, "BackdropProbe");
+    qmlRegisterType<NightLightItem>("MarathonOS.Shell", 1, 0, "NightLight");
 
     auto *sessionStore = new Session();
     sessionStore->setParent(&app);

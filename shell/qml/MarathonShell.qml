@@ -2731,13 +2731,6 @@ Item {
         }
     }
 
-    // ── Night Light warm-tint overlay ─────────────────────────────
-    // Marathon's shell IS the compositor, so one top-most tint item warms
-    // every app surface + chrome uniformly — the scene-graph equivalent of a
-    // CRTC gamma ramp (which Qt's compositor exposes no protocol for). Bound
-    // to the real DisplayManager night-light state via SystemControlStore.
-    // No MouseArea → never intercepts input. This is what makes the Night
-    // tile actually do something on screen.
     Binding {
         target: PilotClient
         property: "watching"
@@ -2751,17 +2744,15 @@ Item {
         z: Constants.zIndexPilotGlow
     }
 
-    Rectangle {
-        id: nightLightOverlay
+    // Above every surface and the chrome, below the panel's dither.
+    NightLight {
         anchors.fill: parent
         z: 900000
-        color: Qt.rgba(1.0, 0.52, 0.12, 1.0)
-        opacity: SystemControlStore.isNightLightOn ? 0.22 : 0.0
-        visible: opacity > 0.0
-        Behavior on opacity {
+        temperature: SystemControlStore.isNightLightOn ? Display.nightLightTemperature : 6500
+        Behavior on temperature {
             NumberAnimation {
-                duration: 400
-                easing.type: Easing.OutCubic
+                duration: 2000
+                easing.type: Easing.InOutSine
             }
         }
     }

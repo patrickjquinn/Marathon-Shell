@@ -338,6 +338,8 @@ qt_add_resources(marathon-shell "shell_shaders"
         shaders/windowcorner.vert.qsb
         shaders/windowcorner.frag.qsb
         shaders/glassplatter.frag.qsb
+        shaders/nightlight.vert.qsb
+        shaders/nightlight.frag.qsb
 )
 qt_add_resources(marathon-shell "shell_wallpapers"
     PREFIX "/wallpapers"
@@ -386,6 +388,8 @@ qt6_add_qml_module(marathon-shell
         src/services/gesturetracker.h
         src/components/backdropprobe.cpp
         src/components/backdropprobe.h
+        src/components/nightlightitem.cpp
+        src/components/nightlightitem.h
         src/components/windowtexturegeometry.h
         src/components/windowtextureitem.cpp
         src/components/windowtextureitem.h
