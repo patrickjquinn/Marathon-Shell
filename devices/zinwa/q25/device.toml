@@ -52,8 +52,10 @@ version = "20261030"
 
 [profile]
 # Constants.scaleFactor = DPI / 160. Do not use QT_SCALE_FACTOR.
-# Leave panel_dpi unset until the physical panel dimensions are measured.
 force_dpi = 240
+# The true pitch, 720 px over the stock panel driver's 62 mm, for the
+# wl_output size: the DT gives the panel no size.
+panel_dpi = 295
 # ondemand ramps only past 95% load; schedutil follows the foreground uclamp.
 cpu_governor = "schedutil"
 # Level 1 of 20 (4.1 V bias), the stock minimum, stays clean.
