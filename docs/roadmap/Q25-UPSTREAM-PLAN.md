@@ -122,7 +122,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H42 | 9 media core modules (`mc`, `videodev`, `v4l2-*`, `videobuf2-*`) and `imx111`, `s5kjn1` (+3 patches in `camera/i2c/`) | Same; sensor patches are ours. |
 | H43 | `snd-timer`, `snd-pcm`, `snd-jack`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common` | `CONFIG_SND_SOC` unset in the running kernel. |
 | H44 | `cfg80211`, `bluetooth`, `rfkill`, `spi-mt65xx`, `regulator-haptic`, `inv-icm42607`(+`-spi`), `mmc5633` (+`mmc5633-q25.patch`) | Unset or unshipped. `inv_icm42607` is mainline code newer than v7.0 (torvalds `abf8c334`). |
-| H45 | `panfrost.ko`, `gpu-sched.ko` in `q25-gpu-render` | Built in-tree but shipped privately and loaded by H11. |
 | H46 | `CONFIG_MODULE_UNLOAD=n` (`7.0.0-q25-cfi-test`, `linux-zinwa-q25` config) | Bring-up safety; makes every module test a reboot. |
 
 ### 2.6 udev and modprobe policy that encodes hardware facts

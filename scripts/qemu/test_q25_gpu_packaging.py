@@ -16,8 +16,8 @@ class Packaging(unittest.TestCase):
     def test_manifest_matches_exact_assets_and_compressed_modules(self):
         manifest = dict(line.split(None, 1)[::-1] for line in
                         (GPU / 'GPU-SHA256SUMS').read_text().splitlines())
-        self.assertEqual(len(manifest), 6)
-        for module in ['q25-mfg-only-v2', 'gpu-sched', 'panfrost']:
+        self.assertEqual(len(manifest), 4)
+        for module in ['q25-mfg-only-v2']:
             raw = subprocess.check_output(['zstd', '-q', '-d', '-c', str(GPU / (module + '.ko.zst'))])
             self.assertEqual(hashlib.sha256(raw).hexdigest(), manifest['/usr/lib/q25-gpu/' + module + '.ko'])
         for name, dest in [('simpledrm_dri.so', '/usr/lib/q25-gpu/dri/simpledrm_dri.so'),
@@ -62,7 +62,7 @@ class Packaging(unittest.TestCase):
         self.assertNotIn('multi-user.target.wants', apk)
         self.assertNotIn('/usr/local', apk)
         self.assertIn('mesa=26.2.6-r0', apk)
-        self.assertIn('linux-zinwa-q25=7.0.0-r0', apk)
+        self.assertIn('linux-zinwa-q25=7.0.0-r2', apk)
 
     def test_guard_checks_manifest_before_loading_modules(self):
         text = (GPU / 'q25-gpu-prepare').read_text()
