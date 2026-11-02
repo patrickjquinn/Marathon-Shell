@@ -28,6 +28,12 @@ Item {
     // In arrival order; a critical one goes ahead of all but earlier
     // critical ones.
     function showToast(notification) {
+        // A newer text in the thread being answered takes over the banner,
+        // keeping the reply.
+        if (showInlineReply && currentToast && notification.replyTarget && notification.replyTarget === currentToast.replyTarget) {
+            currentToast = notification;
+            return;
+        }
         const critical = n => n.urgency >= 2;
         const at = critical(notification) ? toastQueue.findIndex(n => !critical(n)) : -1;
         toastQueue.splice(at < 0 ? toastQueue.length : at, 0, notification);
@@ -36,9 +42,10 @@ Item {
     }
 
     // A notification closed before its banner showed loses the banner.
+    // One being replied to stays: its replacement may take it over.
     function forget(id) {
         toastQueue = toastQueue.filter(n => n.id !== id);
-        if (currentToast && currentToast.id === id)
+        if (currentToast && currentToast.id === id && !showInlineReply)
             dismissToast();
     }
 
@@ -236,6 +243,7 @@ Item {
                 Silica.TextField {
                     id: replyField
 
+                    objectName: "replyField"
                     width: parent.width - sendButton.width - parent.spacing
                     placeholderText: (toastContainer.currentToast && toastContainer.currentToast.replyPlaceholder) || qsTr("Reply")
                     labelVisible: false
