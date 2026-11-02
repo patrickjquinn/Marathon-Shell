@@ -12,6 +12,20 @@ Page {
         Display.brightness = Math.max(0, Math.min(100, percent)) / 100;
     }
 
+    function pickNightTime(minutes, chosen) {
+        const dialog = pageStack.push(timePicker, {
+            hour: Math.floor(minutes / 60),
+            minute: minutes % 60
+        });
+        dialog.accepted.connect(() => chosen(dialog.hour * 60 + dialog.minute));
+    }
+
+    Component {
+        id: timePicker
+
+        TimePickerDialog {}
+    }
+
     SilicaFlickable {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
@@ -50,6 +64,68 @@ Page {
                 automaticCheck: false
                 checked: Display.autoBrightnessEnabled
                 onClicked: Display.autoBrightnessEnabled = !checked
+            }
+
+            SectionHeader {
+                text: qsTr("Night light")
+            }
+            TextSwitch {
+                objectName: "nightLightSwitch"
+                text: qsTr("Night light")
+                description: qsTr("Warms the screen's colours, which is easier on your eyes and sleep in the evening")
+                automaticCheck: false
+                checked: Display.nightLightEnabled
+                onClicked: Display.nightLightEnabled = !checked
+            }
+            Slider {
+                objectName: "nightLightWarmth"
+                width: parent.width
+                label: qsTr("Warmth")
+                minimumValue: 0
+                maximumValue: 100
+                stepSize: 1
+                value: Logic.nightLightWarmth(Display.nightLightTemperature)
+                valueText: qsTr("%1 K").arg(Logic.nightLightKelvin(sliderValue))
+                onValueChanged: {
+                    if (down)
+                        Display.nightLightTemperature = Logic.nightLightKelvin(value);
+                }
+                onReleased: Display.nightLightTemperature = Logic.nightLightKelvin(value)
+            }
+            ComboBox {
+                objectName: "nightLightSchedule"
+                width: parent.width
+                label: qsTr("Schedule")
+                description: Logic.nightLightSchedules[currentIndex].description
+                Binding on currentIndex {
+                    value: Math.max(0, Logic.nightLightSchedules.findIndex(s => s.id === Display.nightLightSchedule))
+                }
+                menu: ContextMenu {
+                    Repeater {
+                        model: Logic.nightLightSchedules
+
+                        MenuItem {
+                            required property var modelData
+
+                            text: modelData.title
+                            onClicked: Display.nightLightSchedule = modelData.id
+                        }
+                    }
+                }
+            }
+            ValueButton {
+                objectName: "nightLightFrom"
+                visible: Display.nightLightSchedule === "custom"
+                label: qsTr("Turns on")
+                value: Format.formatDate(Logic.timeOfDay(Display.nightLightFrom), Formatter.TimeValue)
+                onClicked: page.pickNightTime(Display.nightLightFrom, minutes => Display.setNightLightTimes(minutes, Display.nightLightTo))
+            }
+            ValueButton {
+                objectName: "nightLightTo"
+                visible: Display.nightLightSchedule === "custom"
+                label: qsTr("Turns off")
+                value: Format.formatDate(Logic.timeOfDay(Display.nightLightTo), Formatter.TimeValue)
+                onClicked: page.pickNightTime(Display.nightLightTo, minutes => Display.setNightLightTimes(Display.nightLightFrom, minutes))
             }
 
             SectionHeader {

@@ -124,6 +124,18 @@ TestCase {
         compare(Logic.zoneCity(""), "UTC");
     }
 
+    function test_nightLight() {
+        compare(Logic.nightLightKelvin(0), 4500);
+        compare(Logic.nightLightKelvin(100), 2700);
+        compare(Logic.nightLightKelvin(61), 3400);
+        compare(Logic.nightLightKelvin(150), 2700);
+        compare(Logic.nightLightWarmth(3400), 61);
+        compare(Logic.nightLightWarmth(6500), 0);
+        const t = Logic.timeOfDay(22 * 60 + 5);
+        compare(t.getHours(), 22);
+        compare(t.getMinutes(), 5);
+    }
+
     function test_setMember() {
         compare(Logic.setMember(["a", "b"], "c", true), ["a", "b", "c"]);
         compare(Logic.setMember(["a", "b"], "a", true), ["b", "a"]);
