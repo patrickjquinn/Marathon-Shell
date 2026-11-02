@@ -109,6 +109,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0049-dt-bindings-regulator-ti-tps65132-Add-OCS-OCP2131.patch
 	0050-dt-bindings-display-panel-Add-Zinwa-Q20-HD720.patch
 	0051-drm-panel-Add-Zinwa-Q20-HD720-panel-driver.patch
+	0052-clk-mediatek-mt6789-Park-the-GPU-mux-during-MFGPLL-r.patch
 	0053-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-pan.patch
 "
 for _f in $_afe; do
@@ -244,6 +245,7 @@ a8fa8215b51938cea3445420b142ff4612d3426376d9c7cc4cff0dab0e9a3294babdfaaed5612a33
 4191cab445d950e12e3624ad4268beb327672cfb25a053f986444f2fdd6d1f47772e8607088bc1712dedfba4780839888479d9a03bd98d5f2e14337e4a7a7ce0  0049-dt-bindings-regulator-ti-tps65132-Add-OCS-OCP2131.patch
 330c01e50a18f757230ada76ab7df76941e783dddd7c0eea128aea5519473be316067f78e8065b911cba24cd3339f618b58ac49e7bb53b67d0ff1a453926e166  0050-dt-bindings-display-panel-Add-Zinwa-Q20-HD720.patch
 e2712a5b3ab915028fe7decbec6340b8451129782f50c002cd80663a60031bfe1a5f1b0ae33efe12431953badb365076c16c2c01b4d8b1a4bc8599ad89dcb1ed  0051-drm-panel-Add-Zinwa-Q20-HD720-panel-driver.patch
+2215cbb9faed0cbda9338d12e4fe983d738337faa6b9d839da64fbfe5cc18c90581156a911c4da771fa5ecb6af2b02c1a0389b8ca62b8903ddde908b4419e265  0052-clk-mediatek-mt6789-Park-the-GPU-mux-during-MFGPLL-r.patch
 c03b968b2dedb00a4c7a15483d3eceb0bf31174b4f7680541bdd717cfad1fad4d66cc4c10d511cd182cd2a0749d87d4cafbcecb1d4f77918d0c47de763376d18  0053-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-pan.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h

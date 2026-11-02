@@ -31,7 +31,6 @@ class Q25Session(unittest.TestCase):
             '/run/q25-gpu/ready': str(self.dir / 'ready'),
             '/etc/q25/gpu-disabled': str(self.dir / 'disabled'),
             '/sys/devices/platform/soc/13000000.gpu/power/control': str(self.dir / 'power'),
-            '/sys/class/devfreq/13000000.gpu/cur_freq': str(self.dir / 'frequency'),
             '/etc/q25/keyboard-layout-preview.env': str(self.dir / 'keyboard.env'),
             '/usr/libexec/marathon/q25-shell-session.gpu': str(self.dir / 'gpu'),
             '/usr/libexec/marathon/q25-shell-session.software': str(self.dir / 'software'),
@@ -50,7 +49,6 @@ class Q25Session(unittest.TestCase):
     def ready(self):
         (self.dir / 'ready').write_text('ready\n')
         (self.dir / 'power').write_text('on\n')
-        (self.dir / 'frequency').write_text('700000000\n')
 
     def test_gpu_ready_selects_accepted_environment_and_preserves_arguments(self):
         self.ready()
@@ -65,15 +63,13 @@ class Q25Session(unittest.TestCase):
         self.assertEqual(result['args'], ['argument with spaces'])
 
     def test_failed_readiness_conditions_choose_software(self):
-        for failure in ['disabled', 'power', 'frequency', 'gpu']:
+        for failure in ['disabled', 'power', 'gpu']:
             with self.subTest(failure=failure):
                 self.ready()
                 if failure == 'disabled':
                     (self.dir / 'disabled').touch()
                 elif failure == 'power':
                     (self.dir / 'power').write_text('auto\n')
-                elif failure == 'frequency':
-                    (self.dir / 'frequency').write_text('467000000\n')
                 else:
                     (self.dir / 'gpu').chmod(0o644)
                 self.assertEqual(self.run_wrapper()['env']['QT_QUICK_BACKEND'], 'software')

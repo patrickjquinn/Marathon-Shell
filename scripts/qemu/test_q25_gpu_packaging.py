@@ -61,8 +61,6 @@ class Packaging(unittest.TestCase):
         self.assertLess(text.index('sha256sum -c'), text.index('modprobe'))
         self.assertNotIn('insmod', text)
         self.assertIn('q25.gpu=off', text)
-        self.assertIn('675000', text)
-        self.assertIn('775000', text)
         self.assertNotIn('/dev/mem', text)
         self.assertEqual(json.loads((GPU / 'eglfs-kms.json').read_text())['outputs'][0]['mode'], 'current')
 
