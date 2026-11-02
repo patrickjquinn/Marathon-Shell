@@ -119,6 +119,82 @@ pub struct Ephemeris {
     pub idot: f64,
 }
 
+impl Ephemeris {
+    /// The ephemeris as one line of numbers, for the state directory.
+    pub fn to_line(&self) -> String {
+        let f = [
+            self.tgd,
+            self.toc,
+            self.af0,
+            self.af1,
+            self.af2,
+            self.crs,
+            self.dn,
+            self.m0,
+            self.cuc,
+            self.e,
+            self.cus,
+            self.sqrt_a,
+            self.toe,
+            self.cic,
+            self.omega0,
+            self.cis,
+            self.i0,
+            self.crc,
+            self.omega,
+            self.omega_dot,
+            self.idot,
+        ];
+        let head = format!("{} {} {} {}", self.week, self.health, self.iodc, self.iode);
+        std::iter::once(head)
+            .chain(f.iter().map(|v| format!("{v:e}")))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Reads back [`Ephemeris::to_line`].
+    pub fn from_line(s: &str) -> Option<Self> {
+        let w: Vec<&str> = s.split_whitespace().collect();
+        let f: Vec<f64> = w
+            .get(4..)?
+            .iter()
+            .map(|x| x.parse().ok())
+            .collect::<Option<_>>()?;
+        let [tgd, toc, af0, af1, af2, crs, dn, m0, cuc, e, cus, sqrt_a, toe, cic, omega0, cis, i0, crc, omega, omega_dot, idot] =
+            f[..]
+        else {
+            return None;
+        };
+        Some(Self {
+            week: w[0].parse().ok()?,
+            health: w[1].parse().ok()?,
+            iodc: w[2].parse().ok()?,
+            iode: w[3].parse().ok()?,
+            tgd,
+            toc,
+            af0,
+            af1,
+            af2,
+            crs,
+            dn,
+            m0,
+            cuc,
+            e,
+            cus,
+            sqrt_a,
+            toe,
+            cic,
+            omega0,
+            cis,
+            i0,
+            crc,
+            omega,
+            omega_dot,
+            idot,
+        })
+    }
+}
+
 /// Collects subframes 1-3 of one satellite into an ephemeris.
 #[derive(Default)]
 pub struct EphemerisBuilder {
@@ -237,6 +313,23 @@ pub(crate) mod tests {
             assert_eq!(word_data(prev, w), Some(0x8b_1234));
             assert_eq!(word_data(prev, w ^ 0x100), None);
         }
+    }
+
+    #[test]
+    fn line_round_trip() {
+        let e = Ephemeris {
+            week: 2390,
+            iodc: 77,
+            iode: 77,
+            toc: 122_400.0,
+            af0: -1.234_567_890_123e-4,
+            sqrt_a: 5_153.654_321,
+            omega: -2.1,
+            idot: 3.0e-10,
+            ..Ephemeris::default()
+        };
+        assert_eq!(Ephemeris::from_line(&e.to_line()), Some(e));
+        assert_eq!(Ephemeris::from_line("1 2 3"), None);
     }
 
     #[test]
