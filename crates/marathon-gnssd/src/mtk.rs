@@ -131,6 +131,9 @@ pub mod id {
     pub const GPS_SUBFRAME: u16 = 0xfe2b;
     pub const EPOCH_END: u16 = 0xfe2c;
     pub const BEIDOU_SUBFRAME: u16 = 0xfe4b;
+    /// The first message of an epoch; bytes 12-13 are the crystal's
+    /// thermistor code.
+    pub const EPOCH_FIRST: u16 = 0xfe42;
     /// The last message of each epoch.
     pub const EPOCH_LAST: u16 = 0xfe4e;
 }

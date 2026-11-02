@@ -82,6 +82,19 @@ fn range_rate(sat: &Sat, t: f64, approx: Vector3<f64>) -> f64 {
     (sat.position(t + 0.5).0 - approx).norm() - (sat.position(t - 0.5).0 - approx).norm()
 }
 
+/// The Doppler offset (Hz) common to the GPS channels at a known position:
+/// what the DSP reports beyond the geometric Doppler, the median over
+/// satellites. It measures the reference-clock aid's error.
+pub fn doppler_offset(chans: &[(Channel, Sat)], t: f64, pos: Vector3<f64>) -> Option<f64> {
+    let mut v: Vec<f64> = chans
+        .iter()
+        .filter(|(_, s)| s.system() == 0)
+        .map(|(c, s)| f64::from(c.doppler) + range_rate(s, t, pos) * s.carrier() / C)
+        .collect();
+    v.sort_by(f64::total_cmp);
+    v.get(v.len() / 2).copied()
+}
+
 /// RMS (m/s) of the channels' Doppler against a still receiver at `pos`,
 /// after removing the common reference-clock drift.
 pub fn doppler_rms(chans: &[(Channel, Sat)], t: f64, pos: Vector3<f64>) -> f64 {

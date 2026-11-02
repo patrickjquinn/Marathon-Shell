@@ -1,6 +1,6 @@
 //! marathon-gnssd [--approx LAT,LON,H | --guess LAT,LON,H] [--state FILE] [--nav RINEX]
 //!                [--systems GC] [--device DEV | --replay CAPTURE]
-//!                [--record FILE]
+//!                [--record FILE] [--clock-sweep]
 //!
 //! Opens the GNSS device (which boots the DSP), keeps the DSP searching, and
 //! writes NMEA GGA/RMC for each epoch with a fix from GPS (G), BeiDou (C)
@@ -21,13 +21,14 @@
 //! `--replay` runs a `mtk-gnss-capture` recording instead of the device;
 //! `--record FILE` writes what the device sends in that format.
 
+use marathon_gnssd::almanac::{self, Almanac};
 use marathon_gnssd::filter::Filter;
 use marathon_gnssd::lnav::{Ephemeris, EphemerisBuilder};
 use marathon_gnssd::meas::{self, Channel};
 use marathon_gnssd::mtk::{self, Deframer};
 use marathon_gnssd::rinex::{self, LEAP_SECONDS};
 use marathon_gnssd::sat::Sat;
-use marathon_gnssd::{d1, dsp, iono, lnav, nmea, orbit, spp, tz};
+use marathon_gnssd::{clock, d1, dsp, iono, lnav, nmea, orbit, spp, tz};
 use nalgebra::Vector3;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
@@ -73,8 +74,14 @@ const STARVED: u32 = 60;
 /// how many are kept.
 const SLOT_SAMPLES: usize = 30;
 const SLOT_SAMPLES_KEPT: usize = 300;
+/// Thermistor code assumed before the DSP has reported one.
+const TSX_DEFAULT: u16 = 29_986;
 /// Seconds between progress lines in the journal.
 const REPORT_EVERY: f64 = 30.0;
+/// An almanac this complete is trusted to name every GPS satellite up, and
+/// one older than this (seconds) is not used.
+const ALMANAC_FULL: usize = 24;
+const ALMANAC_MAX_AGE: f64 = 90.0 * 86_400.0;
 /// Saved ephemerides older than this are not used (their fit interval).
 const NAV_MAX_AGE: f64 = 4.0 * 3600.0;
 /// Seconds between saves of the position to `--state`.
@@ -116,6 +123,16 @@ struct Engine {
     d1: HashMap<u8, d1::EphemerisBuilder>,
     iono: Option<[f64; 8]>,
     filter: Filter,
+    almanac: HashMap<u8, Almanac>,
+    /// The crystal's thermistor code, its frequency model and the last
+    /// Doppler offset measured with it.
+    tsx: Option<u16>,
+    clock: clock::Model,
+    doppler: Option<f64>,
+    sweep: bool,
+    sweep_last: i32,
+    /// The head of the last search list, for the journal.
+    searching: String,
     /// Residuals per GLONASS frequency slot, for its bias.
     slots: HashMap<i8, Vec<f64>>,
     /// The approximate position is only a guess (time zone, old state).
@@ -154,6 +171,21 @@ fn ecef(lat: f64, lon: f64, h: f64) -> Vector3<f64> {
 fn geoid(lat: f64, lon: f64) -> f64 {
     #[allow(clippy::cast_possible_truncation, reason = "degrees")]
     f64::from(egm2008::geoid_height(lat as f32, lon as f32).unwrap_or(0.0))
+}
+
+/// GPS time, seconds since the GPS epoch, for a Unix time.
+fn gps_time(unix: f64) -> f64 {
+    unix - GPS_UNIX_EPOCH + LEAP_SECONDS
+}
+
+fn system_letter(sys: u8) -> char {
+    match sys {
+        dsp::GPS => 'G',
+        dsp::GLONASS => 'R',
+        dsp::BEIDOU => 'C',
+        dsp::QZSS => 'J',
+        _ => '?',
+    }
 }
 
 /// GPS time of week for a Unix time.
@@ -222,21 +254,122 @@ impl Engine {
         }
     }
 
-    /// GPS PRNs above the horizon at `t` for the approximate position, highest first.
-    fn visible(&self, t: f64) -> Vec<u8> {
+    /// GPS PRNs expected above the horizon at Unix time `unix`, highest
+    /// first, from the ephemerides or else the almanac. From a coarse guess
+    /// the horizon is lowered by its possible error.
+    fn visible(&self, unix: f64) -> Vec<u8> {
+        let t = tow(unix);
+        let horizon = if self.coarse { -25f64 } else { -5f64 }.to_radians();
         let mut v: Vec<(f64, u8)> = (1..=32)
             .filter_map(|p| {
-                let el = self.elevation(&Sat::Gps(Self::kepler(self.nav.gps.get(&p), t)?), t);
-                (el > 0.0).then_some((-el, p))
+                let alm;
+                let e = if let Some(e) = Self::kepler(self.nav.gps.get(&p), t) {
+                    e
+                } else {
+                    alm = self.almanac.get(&p)?.ephemeris(gps_time(unix));
+                    if alm.health != 0 {
+                        return None;
+                    }
+                    &alm
+                };
+                let el = self.elevation(&Sat::Gps(e), t);
+                (el > horizon).then_some((-el, p))
             })
             .collect();
         v.sort_by(|a, b| a.0.total_cmp(&b.0));
         v.into_iter().map(|(_, p)| p).collect()
     }
 
+    /// The search list for the epoch at `unix`: satellites in lock first
+    /// (strongest first, as the stock engine does), then those expected up.
+    /// With a whole almanac and a position that is not a world-wide guess,
+    /// GPS satellites below the horizon are left out.
+    fn search(&self, unix: f64) -> Vec<(u8, u8)> {
+        let mut locked: Vec<&Channel> = self
+            .chans
+            .iter()
+            .filter(|c| c.locked && c.cn0 >= MIN_CN0)
+            .collect();
+        locked.sort_by_key(|c| std::cmp::Reverse(c.cn0));
+        let of = |sys| -> Vec<u8> {
+            let mut v: Vec<u8> = locked
+                .iter()
+                .filter(|c| c.system == sys)
+                .map(|c| c.sv)
+                .collect();
+            v.dedup();
+            v
+        };
+        let mut gps = of(meas::GPS);
+        for p in self.visible(unix) {
+            if !gps.contains(&p) {
+                gps.push(p);
+            }
+        }
+        let known_sky = self.almanac.len() >= ALMANAC_FULL && !self.global;
+        dsp::search_order(&gps, known_sky, &of(meas::GLONASS), &of(meas::BEIDOU))
+    }
+
+    /// With --clock-sweep, the offset added to the clock aid now: a minute
+    /// each of 0, +300, 0, -300, 0, +600, 0, -600 units, then 0, to see
+    /// how the reported Doppler offset answers.
+    fn sweep_step(&mut self, unix: f64) -> i32 {
+        const STEPS: [i32; 8] = [0, 300, 0, -300, 0, 600, 0, -600];
+        if !self.sweep {
+            return 0;
+        }
+        let elapsed = unix - self.started.unwrap_or(unix);
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "minutes"
+        )]
+        let step = STEPS.get((elapsed / 60.0) as usize).copied().unwrap_or(0);
+        if step != self.sweep_last {
+            log(&format!("clock sweep: aid {step:+}"));
+            self.sweep_last = step;
+        }
+        step
+    }
+
+    /// Takes the median of heights measured without the constraint as the
+    /// constraint, once there are enough of them.
+    fn learn_height(&mut self, free_height: Option<f64>) {
+        if let Some(h) = free_height {
+            self.heights.push(h);
+            if self.heights.len() >= HEIGHT_SAMPLES {
+                let mut sorted = self.heights.split_off(0);
+                sorted.sort_by(f64::total_cmp);
+                self.height = (sorted[sorted.len() / 2], HEIGHT_SIGMA);
+                log(&format!(
+                    "height {:.0} m above the ellipsoid, from {} fixes",
+                    self.height.0, HEIGHT_SAMPLES
+                ));
+            }
+        }
+    }
+
+    /// Keeps an almanac page and saves the almanac when it changes.
+    fn learn_almanac(&mut self, sf: &[u8; 30], unix: f64) {
+        let Some(a) = almanac::decode(sf, gps_time(unix)) else {
+            return;
+        };
+        if self.almanac.insert(a.prn, a).is_some_and(|old| old == a) {
+            return;
+        }
+        if self.almanac.len() == ALMANAC_FULL {
+            log(&format!("almanac: {ALMANAC_FULL} GPS satellites"));
+        }
+        let Some(path) = &self.state else {
+            return;
+        };
+        let lines: Vec<String> = self.almanac.values().map(Almanac::to_line).collect();
+        write_atomic(&format!("{path}.alm"), &(lines.join("\n") + "\n"));
+    }
+
     fn fix(&mut self, unix: f64, out: &mut impl Write) -> io::Result<()> {
         let t = tow(unix);
-        let (fix, used, gps, coarse, samples, free_height) = {
+        let (fix, used, gps, coarse, samples, (free_height, offset)) = {
             let tracked: Vec<(Channel, Sat)> = self
                 .chans
                 .iter()
@@ -255,7 +388,7 @@ impl Engine {
                 // The whole-Earth search takes a while: not every epoch.
                 let due = !self.global || self.coarse_tries.is_multiple_of(GLOBAL_EVERY);
                 let found = (gps >= COARSE_SATS && due).then(|| self.coarse_fix(&tracked, t));
-                (None, 0, gps, Some(found), Vec::new(), None)
+                (None, 0, gps, Some(found), Vec::new(), (None, None))
             } else {
                 let mut ordered = tracked.clone();
                 ordered.sort_by_key(|(_, s)| s.system());
@@ -283,10 +416,15 @@ impl Engine {
                     .and_then(|f| spp::solve(&used, t, f.ecef, None, BIAS_SIGMA))
                     .filter(|g| g.chi < MAX_CHI && g.hdop < 3.0)
                     .map(|g| spp::geodetic(&g.ecef).2);
-                (fix, used.len(), gps, None, samples, free)
+                // Known well enough without a fix: the clock error moves the
+                // Doppler by hundreds of hertz, the position error by less than one.
+                let at = fix.as_ref().map_or(self.approx, |f| f.ecef);
+                let offset = meas::doppler_offset(&tracked, t, at);
+                (fix, used.len(), gps, None, samples, (free, offset))
             }
         };
         self.learn_slots(samples);
+        self.doppler = offset.or(self.doppler);
         if let Some(found) = coarse {
             let found = found.and_then(|f| self.coarse_pick(f, gps));
             self.coarse_result(found, gps);
@@ -315,18 +453,7 @@ impl Engine {
         }
         self.fixes += 1;
         self.status = format!("fixing, HDOP {:.1}, {used} satellites", fix.hdop);
-        if let Some(h) = free_height {
-            self.heights.push(h);
-            if self.heights.len() >= HEIGHT_SAMPLES {
-                let mut sorted = self.heights.split_off(0);
-                sorted.sort_by(f64::total_cmp);
-                self.height = (sorted[sorted.len() / 2], HEIGHT_SIGMA);
-                log(&format!(
-                    "height {:.0} m above the ellipsoid, from {} fixes",
-                    self.height.0, HEIGHT_SAMPLES
-                ));
-            }
-        }
+        self.learn_height(free_height);
         if fix.hdop < 3.0 {
             self.approx = pos;
             self.save(unix);
@@ -546,7 +673,7 @@ impl Engine {
             format!("around {}", self.seed)
         };
         self.status = if gps < COARSE_SATS {
-            format!("searching {area}: {gps}/{COARSE_SATS} GPS ephemerides")
+            format!("searching {area}: {gps}/{COARSE_SATS} GPS in lock with an ephemeris")
         } else {
             format!("searching {area}: no clear position yet from {gps} GPS")
         };
@@ -587,13 +714,18 @@ impl Engine {
                 .join(" ")
         };
         log(&format!(
-            "{:.0} s: locked GPS {} GLONASS {} BeiDou {}; ephemerides [{}] [{}]; {}",
+            "{:.0} s: locked GPS {} GLONASS {} BeiDou {}; ephemerides [{}] [{}]; almanac {}; crystal code {} aid {} Doppler offset {}; searching {} ...; {}",
             unix - started,
             locked[0],
             locked[1],
             locked[2],
             list(&self.nav.gps, 'G'),
             list(&self.nav.beidou, 'C'),
+            self.almanac.len(),
+            self.tsx.map_or_else(|| "-".into(), |c| c.to_string()),
+            self.clock.offset(i32::from(self.tsx.unwrap_or(TSX_DEFAULT))),
+            self.doppler.map_or_else(|| "-".into(), |d| format!("{d:.0} Hz")),
+            self.searching,
             self.status
         ));
     }
@@ -636,11 +768,16 @@ impl Engine {
         if let Some(ms) = mtk::time_tag_ms(f) {
             self.tag = Some((ms, unix));
             self.chans.clear();
+        } else if f.id == mtk::id::EPOCH_FIRST {
+            if let Some(b) = f.payload.get(12..14) {
+                self.tsx = Some(u16::from_le_bytes([b[0], b[1]]));
+            }
         } else if f.id == mtk::id::CHANNEL {
             self.chans.extend(meas::channel(&f.payload));
         } else if f.id == mtk::id::GPS_SUBFRAME {
             if let Some((prn, sf)) = meas::gps_subframe(&f.payload) {
                 self.iono = lnav::klobuchar(&sf).or(self.iono);
+                self.learn_almanac(&sf, unix);
                 if let Some(e) = self.subframes.entry(prn).or_default().add(sf) {
                     match self.nav.gps.insert(prn, vec![e]) {
                         None => log(&format!("ephemeris G{prn:02}: {} GPS", self.nav.gps.len())),
@@ -668,12 +805,19 @@ impl Engine {
             if let Some((ms, at)) = self.tag {
                 self.fix(at, out)?;
                 self.report(at);
-                let next = tow(at + 1.0);
-                return Ok(dsp::epoch(
-                    ms,
-                    next,
-                    &dsp::search_order(&self.visible(next)),
-                ));
+                let list = self.search(at + 1.0);
+                self.searching = list
+                    .iter()
+                    .take(12)
+                    .map(|&(sv, sys)| format!("{}{sv}", system_letter(sys)))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let mut clock = self.clock.aid(self.tsx.unwrap_or(TSX_DEFAULT));
+                let step = self.sweep_step(at);
+                for p in &mut clock {
+                    p.1 += step;
+                }
+                return Ok(dsp::epoch(ms, tow(at + 1.0), &clock, &list));
             }
         }
         Ok(Vec::new())
@@ -837,6 +981,25 @@ fn load_nav(path: &str, unix: f64, nav: &mut rinex::Nav) {
     ));
 }
 
+/// The almanac saved by an earlier run, unless it is too old to help.
+fn load_almanac(path: &str) -> HashMap<u8, Almanac> {
+    let now = gps_time(now());
+    let alm: HashMap<u8, Almanac> = std::fs::read_to_string(format!("{path}.alm"))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(Almanac::from_line)
+        .filter(|a| (now - a.toa).abs() < ALMANAC_MAX_AGE)
+        .map(|a| (a.prn, a))
+        .collect();
+    if !alm.is_empty() {
+        log(&format!(
+            "almanac of {} GPS satellites from an earlier run",
+            alm.len()
+        ));
+    }
+    alm
+}
+
 /// The height sigma saved with a position, if any.
 fn parse_height_sigma(s: &str) -> Option<f64> {
     s.trim().split(',').nth(3)?.parse().ok()
@@ -919,20 +1082,17 @@ fn start_position(args: &[String], state: Option<&str>) -> io::Result<Start> {
     ))
 }
 
-fn main() -> io::Result<()> {
-    let args: Vec<String> = std::env::args().collect();
-    let nav = arg(&args, "--nav")
-        .map(std::fs::read_to_string)
-        .transpose()?
-        .unwrap_or_default();
-    let state = arg(&args, "--state");
-    let (seed, (lat, lon, h), sigma, coarse) = start_position(&args, state.as_deref())?;
-    let mut nav = rinex::parse(&nav);
-    if let Some(p) = &state {
-        load_nav(p, now(), &mut nav);
-    }
-    let systems = arg(&args, "--systems").unwrap_or_else(|| "GC".into());
-    let mut engine = Engine {
+fn new_engine(
+    args: &[String],
+    nav: rinex::Nav,
+    state: Option<String>,
+    seed: String,
+    (lat, lon, h): (f64, f64, f64),
+    sigma: f64,
+    coarse: bool,
+) -> Engine {
+    let systems = arg(args, "--systems").unwrap_or_else(|| "GC".into());
+    Engine {
         nav,
         systems: ['G', 'R', 'C'].map(|c| systems.contains(c)),
         approx: ecef(lat, lon, h),
@@ -944,6 +1104,13 @@ fn main() -> io::Result<()> {
         d1: HashMap::new(),
         iono: None,
         filter: Filter::default(),
+        almanac: state.as_deref().map(load_almanac).unwrap_or_default(),
+        searching: String::new(),
+        tsx: None,
+        clock: clock::Model,
+        doppler: None,
+        sweep: args.iter().any(|a| a == "--clock-sweep"),
+        sweep_last: 0,
         slots: HashMap::new(),
         coarse,
         starved: 0,
@@ -957,7 +1124,22 @@ fn main() -> io::Result<()> {
         started: None,
         reported: 0.0,
         fixes: 0,
-    };
+    }
+}
+
+fn main() -> io::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    let nav = arg(&args, "--nav")
+        .map(std::fs::read_to_string)
+        .transpose()?
+        .unwrap_or_default();
+    let state = arg(&args, "--state");
+    let (seed, (lat, lon, h), sigma, coarse) = start_position(&args, state.as_deref())?;
+    let mut nav = rinex::parse(&nav);
+    if let Some(p) = &state {
+        load_nav(p, now(), &mut nav);
+    }
+    let mut engine = new_engine(&args, nav, state, seed, (lat, lon, h), sigma, coarse);
     if let Some(path) = arg(&args, "--replay") {
         return replay(&mut engine, &path);
     }
