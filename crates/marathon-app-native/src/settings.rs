@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
+use lofty::prelude::{Accessor as _, TaggedFileExt as _};
 use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::shell::{allowed, relay, Arg, Field, Service, State};
@@ -418,9 +419,29 @@ impl Settings {
     }
 }
 
-/// `file:///usr/share/sounds/ring_old_phone.ogg` is "Old Phone".
+/// The file's title tag, as Android's ringtone picker shows it.
+fn sound_title(path: &str) -> Option<String> {
+    let tagged = lofty::probe::Probe::open(path)
+        .ok()?
+        .options(lofty::config::ParseOptions::new().read_properties(false))
+        .read()
+        .ok()?;
+    let title = tagged
+        .primary_tag()
+        .or_else(|| tagged.first_tag())?
+        .title()?
+        .trim()
+        .to_owned();
+    (!title.is_empty()).then_some(title)
+}
+
+/// The sound's title tag, or `file:///usr/share/sounds/ring_old_phone.ogg`
+/// as "Old Phone".
 fn sound_name(path: &str) -> String {
     let path = path.strip_prefix("file://").unwrap_or(path);
+    if let Some(title) = sound_title(path) {
+        return title;
+    }
     let file = path.rsplit('/').next().unwrap_or(path);
     let base = file
         .split('.')
@@ -465,5 +486,14 @@ mod tests {
             "Old Phone"
         );
         assert_eq!(super::sound_name("/x/alarm_early-bird.wav"), "Early Bird");
+    }
+
+    #[test]
+    fn sound_names_come_from_the_title_tag() {
+        let ringtone = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../shell/resources/sounds/phone/bbpro1.wav"
+        );
+        assert_eq!(super::sound_name(&format!("file://{ringtone}")), "BB Pro 1");
     }
 }
