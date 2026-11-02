@@ -1,0 +1,251 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:51:34 +0000
+Subject: [PATCH] clk: Add MediaTek MT6358 clock buffer driver
+
+Each output buffer of the MT6358 and MT6366 crystal oscillator is either
+gated by hardware, following the SoC's clock requests, or switched by
+software through an enable bit. Expose the buffers as clocks that a
+consumer switches on by putting the buffer in software mode and setting
+its enable bit.
+
+Buffers under hardware control are reported as unprepared, and none of
+the buffers is swept when unused, as the modem and the connectivity
+subsystem use some of them without a Linux consumer.
+
+The register layout is that of MediaTek's vendor clock buffer driver.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ MAINTAINERS              |   1 +
+ drivers/clk/Kconfig      |  11 +++
+ drivers/clk/Makefile     |   1 +
+ drivers/clk/clk-mt6358.c | 173 +++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 186 insertions(+)
+ create mode 100644 drivers/clk/clk-mt6358.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 646eed01..856e3c1e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -16273,6 +16273,7 @@ MEDIATEK MT6358 CLOCK BUFFER DRIVER
+ M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
+ L:	linux-clk@vger.kernel.org
+ S:	Maintained
++F:	drivers/clk/clk-mt6358.c
+ F:	include/dt-bindings/clock/mediatek,mt6358-clk.h
+ 
+ MEDIATEK MT6358 FUEL GAUGE DRIVER
+diff --git a/drivers/clk/Kconfig b/drivers/clk/Kconfig
+index 3d803b4c..22adcd75 100644
+--- a/drivers/clk/Kconfig
++++ b/drivers/clk/Kconfig
+@@ -79,6 +79,17 @@ config COMMON_CLK_MAX9485
+ 	help
+ 	  This driver supports Maxim 9485 Programmable Audio Clock Generator
+ 
++config COMMON_CLK_MT6358
++	tristate "Clock driver for MediaTek MT6358/MT6366 PMICs"
++	depends on MFD_MT6397 || COMPILE_TEST
++	help
++	  This driver supports the 26 MHz clock buffers of the MediaTek
++	  MT6358 and MT6366 PMICs, which supply reference clocks to
++	  peripherals such as NFC controllers and connectivity chips.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called clk-mt6358.
++
+ config COMMON_CLK_RK808
+ 	tristate "Clock driver for RK805/RK808/RK809/RK817/RK818"
+ 	depends on MFD_RK8XX
+diff --git a/drivers/clk/Makefile b/drivers/clk/Makefile
+index f7bce395..d6defb60 100644
+--- a/drivers/clk/Makefile
++++ b/drivers/clk/Makefile
+@@ -74,6 +74,7 @@ obj-$(CONFIG_COMMON_CLK_MAX77686)	+= clk-max77686.o
+ obj-$(CONFIG_COMMON_CLK_MAX9485)	+= clk-max9485.o
+ obj-$(CONFIG_ARCH_MILBEAUT_M10V)	+= clk-milbeaut.o
+ obj-$(CONFIG_ARCH_MOXART)		+= clk-moxart.o
++obj-$(CONFIG_COMMON_CLK_MT6358)	+= clk-mt6358.o
+ obj-$(CONFIG_ARCH_NOMADIK)		+= clk-nomadik.o
+ obj-$(CONFIG_ARCH_NPCM7XX)	    	+= clk-npcm7xx.o
+ obj-$(CONFIG_COMMON_CLK_NPCM8XX)	+= clk-npcm8xx.o
+diff --git a/drivers/clk/clk-mt6358.c b/drivers/clk/clk-mt6358.c
+new file mode 100644
+index 00000000..ebc4e095
+--- /dev/null
++++ b/drivers/clk/clk-mt6358.c
+@@ -0,0 +1,173 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Clock buffers of the MediaTek MT6358 and MT6366 PMICs
++ *
++ * The PMIC's 26 MHz crystal oscillator drives several output buffers. Each
++ * buffer is either controlled by hardware (by the SoC's clock requests) or
++ * switched on and off by software; this driver only switches buffers on in
++ * software mode and leaves the ones under hardware control alone.
++ */
++
++#include <linux/array_size.h>
++#include <linux/bits.h>
++#include <linux/clk-provider.h>
++#include <linux/delay.h>
++#include <linux/mfd/mt6397/core.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/units.h>
++
++#include <dt-bindings/clock/mediatek,mt6358-clk.h>
++
++#define MT6358_DCXO_CW00	0x788
++#define MT6358_DCXO_CW11	0x7a2
++
++#define MT6358_XO_MODE_SW	0
++#define MT6358_XO_RATE		(26 * HZ_PER_MHZ)
++#define MT6358_XO_SETTLE_US	400
++
++struct mt6358_xo_buf {
++	const char *name;
++	unsigned int reg;
++	u8 mode_shift;
++	u8 en_shift;
++};
++
++static const struct mt6358_xo_buf mt6358_xo_bufs[] = {
++	[MT6358_CLK_XO_SOC] = { "xo_soc", MT6358_DCXO_CW00, 0, 2 },
++	[MT6358_CLK_XO_WCN] = { "xo_wcn", MT6358_DCXO_CW00, 3, 5 },
++	[MT6358_CLK_XO_NFC] = { "xo_nfc", MT6358_DCXO_CW00, 6, 8 },
++	[MT6358_CLK_XO_CEL] = { "xo_cel", MT6358_DCXO_CW00, 9, 11 },
++	[MT6358_CLK_XO_PD] = { "xo_pd", MT6358_DCXO_CW11, 8, 10 },
++	[MT6358_CLK_XO_EXT] = { "xo_ext", MT6358_DCXO_CW11, 11, 13 },
++};
++
++struct mt6358_clk {
++	struct clk_hw hw;
++	struct regmap *regmap;
++	const struct mt6358_xo_buf *buf;
++};
++
++static struct mt6358_clk *to_mt6358_clk(struct clk_hw *hw)
++{
++	return container_of(hw, struct mt6358_clk, hw);
++}
++
++static int mt6358_clk_prepare(struct clk_hw *hw)
++{
++	struct mt6358_clk *clk = to_mt6358_clk(hw);
++	const struct mt6358_xo_buf *buf = clk->buf;
++	int ret;
++
++	ret = regmap_update_bits(clk->regmap, buf->reg,
++				 GENMASK(buf->mode_shift + 1, buf->mode_shift),
++				 MT6358_XO_MODE_SW << buf->mode_shift);
++	if (ret)
++		return ret;
++
++	ret = regmap_set_bits(clk->regmap, buf->reg, BIT(buf->en_shift));
++	if (ret)
++		return ret;
++
++	fsleep(MT6358_XO_SETTLE_US);
++
++	return 0;
++}
++
++static void mt6358_clk_unprepare(struct clk_hw *hw)
++{
++	struct mt6358_clk *clk = to_mt6358_clk(hw);
++
++	regmap_clear_bits(clk->regmap, clk->buf->reg, BIT(clk->buf->en_shift));
++}
++
++/* Buffers under hardware control do not count as prepared. */
++static int mt6358_clk_is_prepared(struct clk_hw *hw)
++{
++	struct mt6358_clk *clk = to_mt6358_clk(hw);
++	const struct mt6358_xo_buf *buf = clk->buf;
++	unsigned int val;
++
++	if (regmap_read(clk->regmap, buf->reg, &val))
++		return 0;
++
++	return ((val >> buf->mode_shift) & 0x3) == MT6358_XO_MODE_SW &&
++	       (val & BIT(buf->en_shift));
++}
++
++static unsigned long mt6358_clk_recalc_rate(struct clk_hw *hw,
++					    unsigned long parent_rate)
++{
++	return MT6358_XO_RATE;
++}
++
++static const struct clk_ops mt6358_clk_ops = {
++	.prepare = mt6358_clk_prepare,
++	.unprepare = mt6358_clk_unprepare,
++	.is_prepared = mt6358_clk_is_prepared,
++	.recalc_rate = mt6358_clk_recalc_rate,
++};
++
++static int mt6358_clk_probe(struct platform_device *pdev)
++{
++	struct mt6397_chip *pmic = dev_get_drvdata(pdev->dev.parent);
++	struct clk_hw_onecell_data *data;
++	struct device *dev = &pdev->dev;
++	/* Other processors use buffers without Linux knowing, never sweep. */
++	struct clk_init_data init = {
++		.ops = &mt6358_clk_ops,
++		.flags = CLK_IGNORE_UNUSED,
++	};
++	struct mt6358_clk *clks;
++	unsigned int i;
++	int ret;
++
++	clks = devm_kcalloc(dev, ARRAY_SIZE(mt6358_xo_bufs), sizeof(*clks),
++			    GFP_KERNEL);
++	if (!clks)
++		return -ENOMEM;
++
++	data = devm_kzalloc(dev, struct_size(data, hws,
++					     ARRAY_SIZE(mt6358_xo_bufs)),
++			    GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->num = ARRAY_SIZE(mt6358_xo_bufs);
++
++	for (i = 0; i < ARRAY_SIZE(mt6358_xo_bufs); i++) {
++		init.name = mt6358_xo_bufs[i].name;
++		clks[i].hw.init = &init;
++		clks[i].regmap = pmic->regmap;
++		clks[i].buf = &mt6358_xo_bufs[i];
++
++		ret = devm_clk_hw_register(dev, &clks[i].hw);
++		if (ret)
++			return ret;
++
++		data->hws[i] = &clks[i].hw;
++	}
++
++	return devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get, data);
++}
++
++static const struct of_device_id mt6358_clk_of_match[] = {
++	{ .compatible = "mediatek,mt6358-clk" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6358_clk_of_match);
++
++static struct platform_driver mt6358_clk_driver = {
++	.driver = {
++		.name = "mt6358-clk",
++		.of_match_table = mt6358_clk_of_match,
++	},
++	.probe = mt6358_clk_probe,
++};
++module_platform_driver(mt6358_clk_driver);
++
++MODULE_AUTHOR("Patrick Quinn <patrick.jm.quinn@gmail.com>");
++MODULE_DESCRIPTION("MediaTek MT6358 PMIC clock buffer driver");
++MODULE_LICENSE("GPL");

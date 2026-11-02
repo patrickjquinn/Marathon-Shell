@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:51:34 +0000
+Subject: [PATCH] dt-bindings: net: nfc: st,st-nci: Add ST21NFCD
+
+The ST21NFCD is an NCI 2.0 controller of the same family as the ST21NFCB
+and ST21NFCC. It can run from a reference clock instead of a crystal, as
+on the Zinwa Q25, where the PMIC provides it.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/net/nfc/st,st-nci.yaml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/nfc/st,st-nci.yaml b/Documentation/devicetree/bindings/net/nfc/st,st-nci.yaml
+index 1dcbddbc..5d7acd48 100644
+--- a/Documentation/devicetree/bindings/net/nfc/st,st-nci.yaml
++++ b/Documentation/devicetree/bindings/net/nfc/st,st-nci.yaml
+@@ -15,6 +15,11 @@ properties:
+       - st,st21nfcb-i2c
+       - st,st21nfcb-spi
+       - st,st21nfcc-i2c
++      - st,st21nfcd-i2c
++
++  clocks:
++    maxItems: 1
++    description: Reference clock, when the controller has no crystal
+ 
+   reset-gpios:
+     description: Output GPIO pin used for resetting the controller
+@@ -49,6 +54,7 @@ if:
+         enum:
+           - st,st21nfcb-i2c
+           - st,st21nfcc-i2c
++          - st,st21nfcd-i2c
+ then:
+   properties:
+     spi-max-frequency: false

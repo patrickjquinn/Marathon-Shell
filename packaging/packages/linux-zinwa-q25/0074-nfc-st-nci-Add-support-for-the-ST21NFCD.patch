@@ -1,0 +1,353 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:51:36 +0000
+Subject: [PATCH] nfc: st-nci: Add support for the ST21NFCD
+
+The ST21NFCD differs from the ST21NFCB and ST21NFCC in two ways.
+
+It does not use NDLC: NCI packets go over I2C as they are, and the
+controller sends 0x7e idle bytes while it has no packet ready. Let the
+I2C PHY tell the NDLC layer to pass packets straight through, and skip
+idle bytes ahead of a packet when reading.
+
+It switches to NFC mode with a different proprietary command, sent after
+CORE_INIT rather than before CORE_RESET. Switching restarts the
+controller, which reports a CORE_RESET_NTF with reason 0xa0 and then
+rejects every command until it has seen CORE_INIT again. Send the
+command from post_setup, let the reset notification complete it, and
+initialise the controller again, as ST's own NCI HAL does.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/nfc/st-nci/core.c   | 50 ++++++++++++++++++++++++++
+ drivers/nfc/st-nci/i2c.c    | 70 +++++++++++++++++++++++++++++++++++--
+ drivers/nfc/st-nci/ndlc.c   | 25 ++++++++++++-
+ drivers/nfc/st-nci/ndlc.h   |  6 +++-
+ drivers/nfc/st-nci/spi.c    |  2 +-
+ drivers/nfc/st-nci/st-nci.h |  2 ++
+ 6 files changed, 149 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/nfc/st-nci/core.c b/drivers/nfc/st-nci/core.c
+index a367136d..6b6c1b8f 100644
+--- a/drivers/nfc/st-nci/core.c
++++ b/drivers/nfc/st-nci/core.c
+@@ -18,8 +18,13 @@
+ 
+ static int st_nci_init(struct nci_dev *ndev)
+ {
++	struct st_nci_info *info = nci_get_drvdata(ndev);
+ 	struct nci_mode_set_cmd cmd;
+ 
++	/* The ST21NFCD switches to NFC mode after initialisation. */
++	if (info->ndlc->raw)
++		return 0;
++
+ 	cmd.cmd_type = ST_NCI_SET_NFC_MODE;
+ 	cmd.mode = 1;
+ 
+@@ -27,6 +32,34 @@ static int st_nci_init(struct nci_dev *ndev)
+ 			sizeof(struct nci_mode_set_cmd), (__u8 *)&cmd);
+ }
+ 
++/*
++ * Turning NFC mode on restarts the ST21NFCD, which reports it with a
++ * CORE_RESET_NTF and needs CORE_INIT again before anything else.
++ */
++static int st_nci_post_setup(struct nci_dev *ndev)
++{
++	struct st_nci_info *info = nci_get_drvdata(ndev);
++	struct nci_core_init_v2_cmd init = {
++		.feature1 = NCI_FEATURE_DISABLE,
++		.feature2 = NCI_FEATURE_DISABLE,
++	};
++	struct nci_mode_set_cmd cmd = {
++		.cmd_type = ST_NCI_SET_NFC_MODE,
++		.mode = 1,
++	};
++	int r;
++
++	if (!info->ndlc->raw)
++		return 0;
++
++	r = nci_prop_cmd(ndev, ST_NCI_NFC_MODE_PROP, sizeof(cmd), (__u8 *)&cmd);
++	if (r)
++		return r;
++
++	return nci_core_cmd(ndev, NCI_OP_CORE_INIT_CMD, sizeof(init),
++			    (__u8 *)&init);
++}
++
+ static int st_nci_open(struct nci_dev *ndev)
+ {
+ 	struct st_nci_info *info = nci_get_drvdata(ndev);
+@@ -84,16 +117,33 @@ static int st_nci_prop_rsp_packet(struct nci_dev *ndev,
+ 	return 0;
+ }
+ 
++/* The CORE_RESET_NTF that follows a successful mode switch completes it. */
++static int st_nci_nfc_mode_rsp_packet(struct nci_dev *ndev,
++				      struct sk_buff *skb)
++{
++	__u8 status = skb->data[0];
++
++	if (status != NCI_STATUS_OK)
++		nci_req_complete(ndev, status);
++	return 0;
++}
++
+ static const struct nci_driver_ops st_nci_prop_ops[] = {
+ 	{
+ 		.opcode = nci_opcode_pack(NCI_GID_PROPRIETARY,
+ 					  ST_NCI_CORE_PROP),
+ 		.rsp = st_nci_prop_rsp_packet,
+ 	},
++	{
++		.opcode = nci_opcode_pack(NCI_GID_PROPRIETARY,
++					  ST_NCI_NFC_MODE_PROP),
++		.rsp = st_nci_nfc_mode_rsp_packet,
++	},
+ };
+ 
+ static const struct nci_ops st_nci_ops = {
+ 	.init = st_nci_init,
++	.post_setup = st_nci_post_setup,
+ 	.open = st_nci_open,
+ 	.close = st_nci_close,
+ 	.send = st_nci_send,
+diff --git a/drivers/nfc/st-nci/i2c.c b/drivers/nfc/st-nci/i2c.c
+index 379d159b..82b9914a 100644
+--- a/drivers/nfc/st-nci/i2c.c
++++ b/drivers/nfc/st-nci/i2c.c
+@@ -15,6 +15,7 @@
+ #include <linux/delay.h>
+ #include <linux/nfc.h>
+ #include <linux/of.h>
++#include <net/nfc/nci.h>
+ 
+ #include "st-nci.h"
+ 
+@@ -27,6 +28,10 @@
+ #define ST_NCI_I2C_MIN_SIZE 4   /* PCB(1) + NCI Packet header(3) */
+ #define ST_NCI_I2C_MAX_SIZE 250 /* req 4.2.1 */
+ 
++/* The ST21NFCD sends idle bytes while it has no packet ready. */
++#define ST_NCI_I2C_IDLE		0x7e
++#define ST_NCI_I2C_MAX_IDLE	3
++
+ #define ST_NCI_DRIVER_NAME "st_nci"
+ #define ST_NCI_I2C_DRIVER_NAME "st_nci_i2c"
+ 
+@@ -165,6 +170,59 @@ static int st_nci_i2c_read(struct st_nci_i2c_phy *phy,
+ 	return 0;
+ }
+ 
++/*
++ * Reads an NCI packet sent without NDLC framing, skipping the idle bytes
++ * that may precede it. Returns the same codes as st_nci_i2c_read().
++ */
++static int st_nci_i2c_read_nci(struct st_nci_i2c_phy *phy,
++			       struct sk_buff **skb)
++{
++	struct i2c_client *client = phy->i2c_dev;
++	u8 hdr[NCI_CTRL_HDR_SIZE];
++	int idle = 0, n = 0, i, r;
++	u8 len;
++
++	while (n < NCI_CTRL_HDR_SIZE) {
++		r = i2c_master_recv(client, hdr + n, NCI_CTRL_HDR_SIZE - n);
++		if (r < 0) {  /* Retry, chip was in standby */
++			usleep_range(1000, 4000);
++			r = i2c_master_recv(client, hdr + n,
++					    NCI_CTRL_HDR_SIZE - n);
++		}
++		if (r != NCI_CTRL_HDR_SIZE - n)
++			return -EREMOTEIO;
++
++		/* Only bytes ahead of the packet can be idle bytes. */
++		i = 0;
++		while (i < NCI_CTRL_HDR_SIZE && hdr[i] == ST_NCI_I2C_IDLE)
++			i++;
++
++		n = NCI_CTRL_HDR_SIZE - i;
++		if (i) {
++			memmove(hdr, hdr + i, n);
++			if (++idle > ST_NCI_I2C_MAX_IDLE)
++				return -EBADMSG;
++		}
++	}
++
++	len = hdr[2];
++	*skb = alloc_skb(NCI_CTRL_HDR_SIZE + len, GFP_KERNEL);
++	if (!*skb)
++		return -ENOMEM;
++
++	skb_put_data(*skb, hdr, NCI_CTRL_HDR_SIZE);
++	if (!len)
++		return 0;
++
++	r = i2c_master_recv(client, skb_put(*skb, len), len);
++	if (r != len) {
++		kfree_skb(*skb);
++		return -EREMOTEIO;
++	}
++
++	return 0;
++}
++
+ /*
+  * Reads an ndlc frame from the chip.
+  *
+@@ -189,7 +247,10 @@ static irqreturn_t st_nci_irq_thread_fn(int irq, void *phy_id)
+ 		return IRQ_HANDLED;
+ 	}
+ 
+-	r = st_nci_i2c_read(phy, &skb);
++	if (phy->ndlc->raw)
++		r = st_nci_i2c_read_nci(phy, &skb);
++	else
++		r = st_nci_i2c_read(phy, &skb);
+ 	if (r == -EREMOTEIO || r == -ENOMEM || r == -EBADMSG)
+ 		return IRQ_HANDLED;
+ 
+@@ -215,6 +276,7 @@ static int st_nci_i2c_probe(struct i2c_client *client)
+ {
+ 	struct device *dev = &client->dev;
+ 	struct st_nci_i2c_phy *phy;
++	bool raw;
+ 	int r;
+ 
+ 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+@@ -251,9 +313,10 @@ static int st_nci_i2c_probe(struct i2c_client *client)
+ 	phy->se_status.is_uicc_present =
+ 				device_property_read_bool(dev, "uicc-present");
+ 
++	raw = (uintptr_t)device_get_match_data(dev);
+ 	r = ndlc_probe(phy, &i2c_phy_ops, &client->dev,
+-			ST_NCI_FRAME_HEADROOM, ST_NCI_FRAME_TAILROOM,
+-			&phy->ndlc, &phy->se_status);
++			raw ? 0 : ST_NCI_FRAME_HEADROOM, ST_NCI_FRAME_TAILROOM,
++			&phy->ndlc, &phy->se_status, raw);
+ 	if (r < 0) {
+ 		nfc_err(&client->dev, "Unable to register ndlc layer\n");
+ 		return r;
+@@ -294,6 +357,7 @@ static const struct of_device_id of_st_nci_i2c_match[] __maybe_unused = {
+ 	{ .compatible = "st,st21nfcb-i2c", },
+ 	{ .compatible = "st,st21nfcb_i2c", },
+ 	{ .compatible = "st,st21nfcc-i2c", },
++	{ .compatible = "st,st21nfcd-i2c", .data = (void *)true },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, of_st_nci_i2c_match);
+diff --git a/drivers/nfc/st-nci/ndlc.c b/drivers/nfc/st-nci/ndlc.c
+index be480885..bfaff35b 100644
+--- a/drivers/nfc/st-nci/ndlc.c
++++ b/drivers/nfc/st-nci/ndlc.c
+@@ -56,6 +56,12 @@ void ndlc_close(struct llt_ndlc *ndlc)
+ {
+ 	struct nci_mode_set_cmd cmd;
+ 
++	if (ndlc->raw) {
++		ndlc->powered = 0;
++		ndlc->ops->disable(ndlc->phy_id);
++		return;
++	}
++
+ 	cmd.cmd_type = ST_NCI_SET_NFC_MODE;
+ 	cmd.mode = 0;
+ 
+@@ -75,6 +81,16 @@ int ndlc_send(struct llt_ndlc *ndlc, struct sk_buff *skb)
+ 	/* add ndlc header */
+ 	u8 pcb = PCB_TYPE_DATAFRAME | PCB_DATAFRAME_RETRANSMIT_NO |
+ 		PCB_FRAME_CRC_INFO_NOTPRESENT;
++	int r;
++
++	if (ndlc->raw) {
++		r = ndlc->ops->write(ndlc->phy_id, skb);
++		if (r)
++			kfree_skb(skb);
++		else
++			consume_skb(skb);
++		return r;
++	}
+ 
+ 	*(u8 *)skb_push(skb, 1) = pcb;
+ 	skb_queue_tail(&ndlc->send_q, skb);
+@@ -222,6 +238,11 @@ static void llt_ndlc_sm_work(struct work_struct *work)
+ 
+ void ndlc_recv(struct llt_ndlc *ndlc, struct sk_buff *skb)
+ {
++	if (ndlc->raw && skb) {
++		nci_recv_frame(ndlc->ndev, skb);
++		return;
++	}
++
+ 	if (skb == NULL) {
+ 		pr_err("NULL Frame -> link is dead\n");
+ 		ndlc->hard_fault = -EREMOTEIO;
+@@ -251,7 +272,8 @@ static void ndlc_t2_timeout(struct timer_list *t)
+ 
+ int ndlc_probe(void *phy_id, const struct nfc_phy_ops *phy_ops,
+ 	       struct device *dev, int phy_headroom, int phy_tailroom,
+-	       struct llt_ndlc **ndlc_id, struct st_nci_se_status *se_status)
++	       struct llt_ndlc **ndlc_id, struct st_nci_se_status *se_status,
++	       bool raw)
+ {
+ 	struct llt_ndlc *ndlc;
+ 
+@@ -263,6 +285,7 @@ int ndlc_probe(void *phy_id, const struct nfc_phy_ops *phy_ops,
+ 	ndlc->phy_id = phy_id;
+ 	ndlc->dev = dev;
+ 	ndlc->powered = 0;
++	ndlc->raw = raw;
+ 
+ 	*ndlc_id = ndlc;
+ 
+diff --git a/drivers/nfc/st-nci/ndlc.h b/drivers/nfc/st-nci/ndlc.h
+index c24ce9b0..59775b1a 100644
+--- a/drivers/nfc/st-nci/ndlc.h
++++ b/drivers/nfc/st-nci/ndlc.h
+@@ -39,6 +39,9 @@ struct llt_ndlc {
+ 	 */
+ 	int hard_fault;
+ 	int powered;
++
++	/* NCI packets go on the link as they are, without NDLC framing. */
++	bool raw;
+ };
+ 
+ int ndlc_open(struct llt_ndlc *ndlc);
+@@ -47,6 +50,7 @@ int ndlc_send(struct llt_ndlc *ndlc, struct sk_buff *skb);
+ void ndlc_recv(struct llt_ndlc *ndlc, struct sk_buff *skb);
+ int ndlc_probe(void *phy_id, const struct nfc_phy_ops *phy_ops,
+ 	       struct device *dev, int phy_headroom, int phy_tailroom,
+-	       struct llt_ndlc **ndlc_id, struct st_nci_se_status *se_status);
++	       struct llt_ndlc **ndlc_id, struct st_nci_se_status *se_status,
++	       bool raw);
+ void ndlc_remove(struct llt_ndlc *ndlc);
+ #endif /* __LOCAL_NDLC_H__ */
+diff --git a/drivers/nfc/st-nci/spi.c b/drivers/nfc/st-nci/spi.c
+index 169eacc0..01075d26 100644
+--- a/drivers/nfc/st-nci/spi.c
++++ b/drivers/nfc/st-nci/spi.c
+@@ -246,7 +246,7 @@ static int st_nci_spi_probe(struct spi_device *dev)
+ 
+ 	r = ndlc_probe(phy, &spi_phy_ops, &dev->dev,
+ 			ST_NCI_FRAME_HEADROOM, ST_NCI_FRAME_TAILROOM,
+-			&phy->ndlc, &phy->se_status);
++			&phy->ndlc, &phy->se_status, false);
+ 	if (r < 0) {
+ 		nfc_err(&dev->dev, "Unable to register ndlc layer\n");
+ 		return r;
+diff --git a/drivers/nfc/st-nci/st-nci.h b/drivers/nfc/st-nci/st-nci.h
+index 5286071e..2ce8136a 100644
+--- a/drivers/nfc/st-nci/st-nci.h
++++ b/drivers/nfc/st-nci/st-nci.h
+@@ -15,6 +15,8 @@
+ 
+ #define ST_NCI_CORE_PROP                0x01
+ #define ST_NCI_SET_NFC_MODE             0x02
++/* ST21NFCD proprietary command switching NFC mode on and off */
++#define ST_NCI_NFC_MODE_PROP            0x02
+ 
+ /*
+  * ref ISO7816-3 chap 8.1. the initial character TS is followed by a
