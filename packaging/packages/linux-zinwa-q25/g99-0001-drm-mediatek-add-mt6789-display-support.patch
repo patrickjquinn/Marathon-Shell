@@ -1,0 +1,79 @@
+Subject: [PATCH] drm/mediatek: add MT6789 (Helio G99) display support
+
+The MT6789 display subsystem is an mt8186-generation block: identical main
+DDP path (OVL0->RDMA0->COLOR0->CCORR->AAL0->GAMMA->POSTMASK0->DITHER0->DSI0),
+mmsys routing/reset layout and DSI controller. Wire up mt6789 by reusing the
+mt8186 routing table and DSI driver-data with the mt6789 MM clock driver. Only
+the main path is described (the Zinwa Q25 dtsi has no external DPI/second-CRTC
+path). The disp components bind via their mt8192/mt8173/mt8183 fallback
+compatibles in device tree, so no component-driver changes are needed.
+
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c	2026-07-13 10:27:31.283534327 +0100
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c	2026-07-13 10:27:58.774816601 +0100
+@@ -288,6 +288,17 @@
+ 	.mmsys_dev_num = 1,
+ };
+ 
++/*
++ * MT6789 (Helio G99) uses the same primary display path as mt8186. The Zinwa
++ * Q25 dtsi does not describe the external (DPI / second-CRTC) path, so only
++ * the main path is provided here.
++ */
++static const struct mtk_mmsys_driver_data mt6789_mmsys_driver_data = {
++	.main_path = mt8186_mtk_ddp_main,
++	.main_len = ARRAY_SIZE(mt8186_mtk_ddp_main),
++	.mmsys_dev_num = 1,
++};
++
+ static const struct mtk_mmsys_driver_data mt8188_vdosys0_driver_data = {
+ 	.main_path = mt8188_mtk_ddp_main,
+ 	.main_len = ARRAY_SIZE(mt8188_mtk_ddp_main),
+@@ -345,6 +356,8 @@
+ 	  .data = &mt8183_mmsys_driver_data},
+ 	{ .compatible = "mediatek,mt8186-mmsys",
+ 	  .data = &mt8186_mmsys_driver_data},
++	{ .compatible = "mediatek,mt6789-mmsys",
++	  .data = &mt6789_mmsys_driver_data},
+ 	{ .compatible = "mediatek,mt8188-vdosys0",
+ 	  .data = &mt8188_vdosys0_driver_data},
+ 	{ .compatible = "mediatek,mt8188-vdosys1",
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c	2026-07-13 10:27:31.284306770 +0100
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c	2026-07-13 10:28:12.713528646 +0100
+@@ -1309,6 +1309,7 @@
+ 	{ .compatible = "mediatek,mt8173-dsi", .data = &mt8173_dsi_driver_data },
+ 	{ .compatible = "mediatek,mt8183-dsi", .data = &mt8183_dsi_driver_data },
+ 	{ .compatible = "mediatek,mt8186-dsi", .data = &mt8186_dsi_driver_data },
++	{ .compatible = "mediatek,mt6789-dsi", .data = &mt8186_dsi_driver_data },
+ 	{ .compatible = "mediatek,mt8188-dsi", .data = &mt8188_dsi_driver_data },
+ 	{ /* sentinel */ }
+ };
+--- a/drivers/soc/mediatek/mtk-mmsys.c	2026-07-13 10:27:31.285066629 +0100
++++ b/drivers/soc/mediatek/mtk-mmsys.c	2026-07-13 10:28:20.813361314 +0100
+@@ -83,6 +83,19 @@
+ 	.num_resets = 32,
+ };
+ 
++/*
++ * MT6789 (Helio G99) shares the mt8186-generation display subsystem: same
++ * mmsys routing and reset layout. Reuse the mt8186 routing table with the
++ * mt6789 MM clock driver.
++ */
++static const struct mtk_mmsys_driver_data mt6789_mmsys_driver_data = {
++	.clk_driver = "clk-mt6789-mm",
++	.routes = mmsys_mt8186_routing_table,
++	.num_routes = ARRAY_SIZE(mmsys_mt8186_routing_table),
++	.sw0_rst_offset = MT8186_MMSYS_SW0_RST_B,
++	.num_resets = 32,
++};
++
+ static const struct mtk_mmsys_driver_data mt8188_vdosys0_driver_data = {
+ 	.clk_driver = "clk-mt8188-vdo0",
+ 	.routes = mmsys_mt8188_routing_table,
+@@ -465,6 +478,7 @@
+ 	{ .compatible = "mediatek,mt8173-mmsys", .data = &mt8173_mmsys_driver_data },
+ 	{ .compatible = "mediatek,mt8183-mmsys", .data = &mt8183_mmsys_driver_data },
+ 	{ .compatible = "mediatek,mt8186-mmsys", .data = &mt8186_mmsys_driver_data },
++	{ .compatible = "mediatek,mt6789-mmsys", .data = &mt6789_mmsys_driver_data },
+ 	{ .compatible = "mediatek,mt8188-vdosys0", .data = &mt8188_vdosys0_driver_data },
+ 	{ .compatible = "mediatek,mt8188-vdosys1", .data = &mt8188_vdosys1_driver_data },
+ 	{ .compatible = "mediatek,mt8188-vppsys0", .data = &mt8188_vppsys0_driver_data },

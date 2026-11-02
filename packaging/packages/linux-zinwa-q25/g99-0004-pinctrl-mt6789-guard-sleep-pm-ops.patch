@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 29 Oct 2026 20:43:00 +0000
+Subject: [PATCH] pinctrl: mediatek: mt6789: guard the sleep PM ops
+
+Reference the paris sleep PM ops through pm_sleep_ptr(), as the other
+MediaTek paris drivers do, so a kernel without CONFIG_PM_SLEEP drops
+them. With PM_SLEEP=y, as on the Q25, the pointer is unchanged.
+
+The Q25's 7.0.0-q25-cfi-test kernels were built from a tree carrying
+this change.
+---
+ drivers/pinctrl/mediatek/pinctrl-mt6789.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pinctrl/mediatek/pinctrl-mt6789.c b/drivers/pinctrl/mediatek/pinctrl-mt6789.c
+index b71f6b48b..b4c58209c 100644
+--- a/drivers/pinctrl/mediatek/pinctrl-mt6789.c
++++ b/drivers/pinctrl/mediatek/pinctrl-mt6789.c
+@@ -1262,7 +1262,7 @@ static struct platform_driver mt6789_pinctrl_driver = {
+ 	.driver = {
+ 		.name = "mt6789-pinctrl",
+ 		.of_match_table = mt6789_pinctrl_of_match,
+-		.pm = &mtk_paris_pinctrl_pm_ops,
++		.pm = pm_sleep_ptr(&mtk_paris_pinctrl_pm_ops),
+ 	},
+ 	.probe = mtk_paris_pinctrl_probe,
+ };

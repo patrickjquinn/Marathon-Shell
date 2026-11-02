@@ -1,0 +1,125 @@
+# Zinwa Q25 kernel: ellyq's mtk_g99-mainline at the commit the phone runs,
+# with its config. g99-* and panel-zinwa-q20-hd720.c are the MT6789 display,
+# charger and pinctrl changes the phone's kernel was built with; 0001-0010
+# are the Q25's (devices/zinwa/q25/kernel/README.md). The release keeps the
+# -q25-cfi-test suffix q25-kernel-modules, q25-modem and q25-gpu-render were
+# built for, and only the in-tree modules the phone boots with are built.
+pkgname=linux-zinwa-q25
+pkgver=7.0.0
+pkgrel=0
+_commit=978b8b672d68e43b08c891132b974255489889aa
+_release=7.0.0-q25-cfi-test
+pkgdesc="Zinwa Q25 Pro kernel"
+url="https://gitlab.nura.eco/ellyq/mtk_g99-mainline"
+arch="aarch64"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps"
+makedepends="
+	bison
+	clang
+	findutils
+	flex
+	kmod
+	lld
+	llvm
+	openssl-dev
+	perl
+	python3
+	zstd
+"
+# The prebuilt kernel package this one takes over from.
+replaces="linux-postmarketos-mediatek-g99"
+_modules="
+	drivers/input/evdev.ko
+	drivers/input/rmi4/rmi_core.ko
+	drivers/input/rmi4/rmi_i2c.ko
+	drivers/md/dm-bufio.ko
+	drivers/md/dm-verity.ko
+	drivers/misc/rpmb-core.ko
+	drivers/ufs/core/ufshcd-core.ko
+	drivers/ufs/host/ufs-mediatek.ko
+	drivers/ufs/host/ufshcd-pltfrm.ko
+	drivers/usb/gadget/function/u_ether.ko
+	drivers/usb/gadget/function/u_serial.ko
+	drivers/usb/gadget/function/usb_f_acm.ko
+	drivers/usb/gadget/function/usb_f_mass_storage.ko
+	drivers/usb/gadget/function/usb_f_ncm.ko
+	drivers/usb/gadget/function/usb_f_rndis.ko
+	drivers/usb/gadget/libcomposite.ko
+	drivers/usb/storage/usb-storage.ko
+	fs/binfmt_misc.ko
+	fs/erofs/erofs.ko
+	fs/netfs/netfs.ko
+	fs/nls/nls_iso8859-1.ko
+	fs/nls/nls_utf8.ko
+	fs/overlayfs/overlay.ko
+	fs/xfs/xfs.ko
+"
+source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-mainline/-/archive/$_commit/mtk_g99-mainline-$_commit.tar.gz
+	config-zinwa-q25.aarch64
+	panel-zinwa-q20-hd720.c
+	g99-0001-drm-mediatek-add-mt6789-display-support.patch
+	g99-0003-power-supply-bq256xx-ensure-charging-enabled-at-probe.patch
+	g99-0004-pinctrl-mt6789-guard-sleep-pm-ops.patch
+	0001-iio-adc-mt6359-include-resolution-in-scale.patch
+	0003-net-wwan-q25-rpc-metadata-validator.patch
+	0005-arm64-dts-mediatek-add-the-Zinwa-Q25-board.patch
+	0006-arm64-dts-mediatek-zinwa-q25-match-the-accepted-boot.patch
+	0007-arm64-dts-mediatek-zinwa-q25-describe-audio-sensors-and-connsys.patch
+	0008-arm64-dts-mediatek-zinwa-q25-let-the-panel-sleep-in-Doze.patch
+	0009-mfd-mt6358-fix-AUD-and-MISC-top-status-bits.patch
+	0010-arm64-dts-mediatek-zinwa-q25-reserve-a-camera-pool.patch
+"
+builddir="$srcdir/mtk_g99-mainline-$_commit"
+
+prepare() {
+	default_prepare
+	cp "$srcdir/panel-zinwa-q20-hd720.c" drivers/gpu/drm/panel/
+	echo 'obj-$(CONFIG_DRM_PANEL_ZINWA_Q20_HD720) += panel-zinwa-q20-hd720.o' \
+		>> drivers/gpu/drm/panel/Makefile
+	printf '\nconfig DRM_PANEL_ZINWA_Q20_HD720\n\ttristate "Zinwa Q25 q20_v12 720x720 DSI panel"\n\tdepends on OF\n\tdepends on DRM_MIPI_DSI\n\tdepends on BACKLIGHT_CLASS_DEVICE\n' \
+		>> drivers/gpu/drm/panel/Kconfig
+	cp "$srcdir/config-zinwa-q25.aarch64" .config
+	make ARCH=arm64 LLVM=1 olddefconfig
+}
+
+build() {
+	unset LDFLAGS
+	export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@$SOURCE_DATE_EPOCH")"
+	make ARCH=arm64 LLVM=1 Image vmlinuz.efi mediatek/mt6789-zinwa-q25.dtb
+	# modpost resolves the modules against vmlinux.symvers.
+	make ARCH=arm64 LLVM=1 $_modules
+	[ "$(cat include/config/kernel.release)" = "$_release" ]
+	# Single-module targets leave no modules.order for modules_install.
+	for m in $_modules; do echo "${m%.ko}.o"; done > modules.order
+}
+
+package() {
+	make ARCH=arm64 LLVM=1 INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
+		modules_install
+	rm -f "$pkgdir"/usr/lib/modules/$_release/build
+	install -Dm644 arch/arm64/boot/vmlinuz.efi "$pkgdir"/boot/linux.efi
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/boot/vmlinuz
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/usr/lib/modules/$_release/vmlinuz
+	install -Dm644 arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dtb \
+		"$pkgdir"/boot/dtbs/mediatek/mt6789-zinwa-q25.dtb
+	install -Dm644 include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/zinwa-q25/kernel.release
+}
+
+sha512sums="
+9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
+740c3efa45cca3e5b16fdda9ae4de848655d693d4170dc65ee4c255eb9a43386b2f7c60f79939f11825d49b8dcbdec068d9168d181db8a0a22c2f0a77fa03001  config-zinwa-q25.aarch64
+2cf5f7923e2db6d4b5b075319e647526424fc8e2f94f832287e6b9bd63c05f1dc27115e05ea3f5e14b7693f1fad4471e40207ab47dfca5a33ecdf019d36aedb4  panel-zinwa-q20-hd720.c
+94afbbec06224d78974be5b2ac2de163199338418c845b758275b7de69b458cefbdc17e5cef102314d7190b9171da87cc2df1835e9e1ce6dde754c40d6a77191  g99-0001-drm-mediatek-add-mt6789-display-support.patch
+6b0da4bd1d0b8c67c433db36174c848c53af01be3b35ae4025a063b2b84ddb39d297416d9f0b30c71464124ef8ed1cd88e01c2e516dc18de0a6e991d4e061c8e  g99-0003-power-supply-bq256xx-ensure-charging-enabled-at-probe.patch
+c71f6e4da332ca8eaff92f1929c2700bfb48a853de1ee4780d297ae32d0938d3a7210be25465247bce75668d711ad1ae69599b4a47aaa39354005a94cdb4b428  g99-0004-pinctrl-mt6789-guard-sleep-pm-ops.patch
+ebb96213b2dbf015372d0a2cfda3492a743a8216d5c0132da776ce9daaf88104dc7849620f2cbf88fb8fe4f56ff60341a4ff947646074320b25cebbcbebf3b5e  0001-iio-adc-mt6359-include-resolution-in-scale.patch
+8e13f091d00ddc68acf95fd33c8f8441baae444efa81b30f6cdb365b095bad3d5c21c23ef88a3443fb522a154248e2e8c5b67182e3b8b1904a19816295945534  0003-net-wwan-q25-rpc-metadata-validator.patch
+bb01f0c2868254c9f39b508118fc0feec70dcb7ebd07109410dcb994818f785f58bc8319e3beed77e4c29623f27fa26308d3936822e0f0af65e7c3ae44335247  0005-arm64-dts-mediatek-add-the-Zinwa-Q25-board.patch
+cddd665edb094de57cb12b3ddd4ee057a4bce9cf8ed7fdef68dbd67edce317af4cc174a8d5d8ca636e44931a229d510b07a54a97803789de7da891934176566d  0006-arm64-dts-mediatek-zinwa-q25-match-the-accepted-boot.patch
+d46b68a98cc85d68560acc009d30c7d3dcc4b59dda9194b45b79381c7ec74c1f34e66619d180cc100c90c3cfcebc0f198b25f21bd22a4e93655162ab78dc2f03  0007-arm64-dts-mediatek-zinwa-q25-describe-audio-sensors-and-connsys.patch
+9e1bd6da0d9e234c045f28f139c2165b82575b444c76129e3c4e92f913234a8d42faaa103f3df26cfa03e9e57aa08ffcb88d452c170c5f72b3e7eea8215d6300  0008-arm64-dts-mediatek-zinwa-q25-let-the-panel-sleep-in-Doze.patch
+6b904eb6eafb302d7e8d118e0f040c0dd5c8e8f0cd842f471d533fe429d5809d753763b1b0d280ec10160623a40e0a8a12eb034406cbec79fb3912e1300d36ea  0009-mfd-mt6358-fix-AUD-and-MISC-top-status-bits.patch
+3084f505b58c84e4cb624258131a569fb2034fa132e0a41438eac66bce328adca776784938cf056469cf6b48072eaa634c0ab103366b204dc4c9d17367e11444  0010-arm64-dts-mediatek-zinwa-q25-reserve-a-camera-pool.patch
+"

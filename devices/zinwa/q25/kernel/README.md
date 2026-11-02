@@ -1,5 +1,10 @@
-The ADC patch targets `drivers/iio/adc/mt6359-auxadc.c` in the Q25 kernel source
-based on `978b8b672d68e43b08c891132b974255489889aa`.
+The patches against the kernel tree, `0001`, `0003` and `0005`–`0010`, are in
+`packaging/packages/linux-zinwa-q25`, which builds the Q25 kernel from ellyq's
+`mtk_g99-mainline` at `978b8b67` with them and the phone's own configuration.
+`0002` stays here: it is not a kernel-tree patch.
+
+The ADC patch (`0001`) targets `drivers/iio/adc/mt6359-auxadc.c` in the Q25
+kernel source based on `978b8b672d68e43b08c891132b974255489889aa`.
 
 Its scale omitted the ADC resolution. On MT6358 BATADC, raw code 25383 was
 reported with scale 5400 instead of 5400/32768 mV per count. The generic battery
@@ -18,9 +23,7 @@ Tested EFI SHA256:
 The prior `7d06cd6f…` kernel, `23e3f8d4…` carrier initrd and `f668fc23…` DT remain
 available as the working fallback.
 
-This patch records the tested bring-up change. It is not yet applied by the
-canonical kernel APK recipe; the existing `7.0-r1000` package must not be assumed
-to contain it.
+The prebuilt `7.0-r1000` kernel package lacks it; `linux-zinwa-q25` applies it.
 
 `0002-q25-private-mt6358-current-car-snapshot.patch` preserves the separate
 external diagnostic source and host fault/encoding tests. Its temporary PMIC
@@ -40,10 +43,10 @@ entrypoint, device access, modem firmware load or radio functionality is implied
 See the modem prior-art document for its missing firmware/memory owner.
 
 `0005`–`0007` carry the board DT. `0005` adds the DTS that the
-linux-postmarketos-mediatek-g99 recipe copies into the tree (pmaports
-`mt6789-zinwa-q25.dts`, sha512 `a242ca0b…`); a recipe applying this series
-must stop copying its own. `0006` brings it to the DT the Q25 booted from
-(`f668fc23…`: framebuffer pitch, touch reset, keyboard on i2c6, no ramoops).
+linux-postmarketos-mediatek-g99 recipe copied into the tree (pmaports
+`mt6789-zinwa-q25.dts`, sha512 `a242ca0b…`). `0006` brings it to the DT the
+Q25 booted from (`f668fc23…`: framebuffer pitch, touch reset, keyboard on
+i2c6, no ramoops).
 `0007` adds audio, the AP-side sensor buses, CONNSYS, Wi-Fi and BTIF, as in
 `edc93beb…`. Compiled against the 978b8b67 `mt6789.dtsi`, the result equals
 `edc93beb…` node by node with phandles resolved, except that the BMP390 node
@@ -61,9 +64,9 @@ bits (7 and 8 in TOP_INT_STATUS0, as in MediaTek's headers; mainline has 6
 and 7). Without it an ACCDET interrupt is read as MISC, never dispatched or
 acknowledged, and the PMIC line storms at about 24000/s. The constants feed
 only `.top_offset` in `mt6358_irq_handler`; MT6357 and MT6359 have their own
-enums. `MFD_MT6397` is built in, so it takes effect only with the next kernel
-build; until then `q25-mt6366-irqfix` (modules/audio) patches the table at
-runtime and does nothing on a fixed kernel.
+enums. `MFD_MT6397` is built in, so it takes effect with `linux-zinwa-q25`;
+on the prebuilt kernel `q25-mt6366-irqfix` (modules/audio) patches the table
+at runtime, and it does nothing on a fixed kernel.
 
 `0010` reserves 256 MiB below 4 GiB as a `shared-dma-pool` for CAMSV, whose
 32-bit `dma_alloc_coherent()` otherwise stops at 4 MiB, short of the
