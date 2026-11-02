@@ -5,6 +5,12 @@
 #
 # Output, in $Q25_IMAGE_OUT (default $MARATHON_BUILD_DIR/q25):
 #   q25-duranium-<date>-<rev>.ext4, .ext4.zst and SHA256SUMS
+#   zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_<IMAGE_VERSION>.ext4, the
+#   same file (a hard link) as the update feed names it, for
+#   scripts/ota/marathon-ota publish --image-dir (docs/OTA.md)
+#
+# Arguments go to scripts/build-image.sh: --bump gives the image a new
+# IMAGE_VERSION, which an over-the-air update needs.
 #
 # Env:
 #   Q25_KERNEL_APK            the prebuilt linux-postmarketos-mediatek-g99
@@ -27,11 +33,12 @@ for f in $(set +u; . "$FW_APORT/APKBUILD"; echo "${source:-}"); do
     [ -f "$FW_APORT/$f" ] || install -m644 "${Q25_CONNSYS_FIRMWARE_DIR:?set Q25_CONNSYS_FIRMWARE_DIR to the stock CONNSYS firmware}/$f" "$FW_APORT/$f"
 done
 
-bash "$SCRIPT_DIR/build-image.sh" zinwa-q25
+bash "$SCRIPT_DIR/build-image.sh" zinwa-q25 "$@"
 
 DURANIUM_DIR="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium"
 OUT_DIR="$DURANIUM_DIR/mkosi.output/zinwa-q25_marathon_edge"
-IMAGE="$OUT_DIR/zinwa-q25_marathon_edge_$(cat "$DURANIUM_DIR/mkosi.version")"
+VERSION="$(cat "$DURANIUM_DIR/mkosi.version")"
+IMAGE="$OUT_DIR/zinwa-q25_marathon_edge_$VERSION"
 set -- "$IMAGE".root-*.raw
 ROOT="$1"
 DEST="${Q25_IMAGE_OUT:-${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/q25}"
@@ -43,5 +50,9 @@ rm -f "$IMAGE.raw"
 e2fsck -fn "$DEST/$NAME.ext4"
 zstd -T0 -10 -f "$DEST/$NAME.ext4" -o "$DEST/$NAME.ext4.zst"
 (cd "$DEST" && sha256sum "$NAME.ext4" "$NAME.ext4.zst" > "$NAME.SHA256SUMS")
+FEED_IMAGE="$DEST/zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_$VERSION.ext4"
+mkdir -p "$(dirname "$FEED_IMAGE")"
+ln -f "$DEST/$NAME.ext4" "$FEED_IMAGE"
 echo "==> $DEST/$NAME.ext4"
+echo "==> for the update feed: $FEED_IMAGE"
 cat "$DEST/$NAME.SHA256SUMS"
