@@ -253,6 +253,19 @@ payloads): the host's systemd-sysupdate 259 with the Q25 transfer verified
 roots; with the host's own keyring it refused the feed ("Signature
 verification failed").
 
+### What updates how
+
+| | Updated by | Apps |
+|---|---|---|
+| system | the OS image (this document) | shell, the on-screen keyboard, Settings, Phone, Messages, Contacts, Camera, Clock, Reef, Deckard |
+| Reef | Reef, from its signed catalogue | Pacific and Shipwright's other closed apps (`packaging/vendor/shipwright.lock`), Pilot, Maps, Music, Notes, Calendar, Mail, Gallery, and the other apps |
+
+Every image keeps shipping the Reef-updated apps. Today an OS update is still
+the only way any of them changes. The plan for Reef to update the apps the
+image ships is in [Reef-updated Marathon apps](reef/marathon-catalogue.md#reef-updated-marathon-apps).
+Reef installs a newer copy in the home directory, beside the image's read-only
+one, and the newer of the two runs.
+
 ## Raspberry Pi 5 / HackberryPi CM5
 
 The Pi 5 has no UEFI: its firmware loads `config.txt`, `kernel_2712.img`,
