@@ -219,8 +219,8 @@ Item {
             t.push({
                 id: "rotation",
                 icon: "device-rotate",
-                label: qsTr("Rotation"),
-                on: SystemControlStore.isRotationLocked
+                label: qsTr("Auto-rotate"),
+                on: !SystemControlStore.isRotationLocked
             });
         if (Display.lightAvailable)
             t.push({

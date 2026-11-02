@@ -82,8 +82,10 @@ TestCase {
 
         child(s.page, "autoBrightnessSwitch").clicked(null);
         verify(Display.autoBrightnessEnabled);
+        verify(child(s.page, "rotationSwitch").checked);
         child(s.page, "rotationSwitch").clicked(null);
         verify(Display.rotationLocked);
+        verify(!child(s.page, "rotationSwitch").checked);
         child(s.page, "reduceMotionSwitch").clicked(null);
         verify(Settings.reduceMotion);
 

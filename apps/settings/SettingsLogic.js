@@ -224,7 +224,7 @@ const tiles = [
     { id: "location", label: qsTr("Location"), desc: qsTr("GPS and location services") },
     { id: "hotspot", label: qsTr("Hotspot"), desc: qsTr("Share internet connection") },
     { id: "nightlight", label: qsTr("Night light"), desc: qsTr("Reduce blue light") },
-    { id: "rotation", label: qsTr("Rotation lock"), desc: qsTr("Lock screen orientation"), needs: "rotation" },
+    { id: "rotation", label: qsTr("Auto-rotate"), desc: qsTr("Turn the screen with the phone"), needs: "rotation" },
     { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment"), needs: "lightSensor" },
     { id: "lowpower", label: qsTr("Battery saver"), desc: qsTr("Low power mode") },
     { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback"), needs: "vibrator" },

@@ -80,11 +80,11 @@ Page {
             TextSwitch {
                 objectName: "rotationSwitch"
                 visible: Display.rotationAvailable
-                text: qsTr("Rotation lock")
-                description: qsTr("Keeps the screen in its current orientation")
+                text: qsTr("Auto-rotate")
+                description: qsTr("Turns the screen with the phone. Off keeps it as it is.")
                 automaticCheck: false
-                checked: Display.rotationLocked
-                onClicked: Display.rotationLocked = !checked
+                checked: !Display.rotationLocked
+                onClicked: Display.rotationLocked = checked
             }
 
             SectionHeader {
