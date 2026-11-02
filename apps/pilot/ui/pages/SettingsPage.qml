@@ -57,11 +57,6 @@ Page {
             description: qsTr("New notifications, messages and calendar changes are sorted into Pilot events.")
         },
         {
-            name: "cloud_asr",
-            label: qsTr("Cloud speech recognition"),
-            description: qsTr("If the phone can't understand you, the audio is sent to be recognised. Off by default.")
-        },
-        {
             name: "spoken_nudges",
             label: qsTr("Spoken nudges"),
             description: qsTr("Pilot may speak when something urgent arrives.") + englishVoiceNote
