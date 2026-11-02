@@ -16,3 +16,4 @@ pub mod orbit;
 pub mod rinex;
 pub mod sat;
 pub mod spp;
+pub mod tz;
