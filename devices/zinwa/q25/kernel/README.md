@@ -70,3 +70,14 @@ runtime and does nothing on a fixed kernel.
 sensors' full-resolution frames. The camera overlay (`modules/camera`)
 names the pool by its fixed phandle, `0x93`. The Q25 boots the same node
 added to its current DTB.
+
+`0012` and `0013` describe the GNSS function of CONNSYS: a binding for
+`mediatek,mt6789-gnss` (a child of the CONNSYS node, no registers, two
+pinctrl states for the L1 LNA enable) and the Q25's node, with GPIO25 held
+low as a GPIO or muxed to the GNSS DSP (function 2). The new pin nodes take
+phandles `0xd0` and `0xd1`, after the last base one, so the camera
+overlay's numbered references stay valid. They apply on top of `0011` of
+`linux-zinwa-q25` and also without it. Built with dtc and checked with
+dt-validate: no new warnings, and the DTB otherwise equals the previous one.
+The driver is `modules/gnss`; the protocol is in
+`docs/hardware/mt6789-gnss.md`.

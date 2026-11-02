@@ -1,0 +1,62 @@
+From 8f287d1a3d9346e50168d39f1daad8d5763e0a98 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:14:19 +0000
+Subject: [PATCH 13/13] arm64: dts: mediatek: zinwa-q25: describe the GNSS
+ receiver
+
+The Q25's L1 LNA enable is GPIO25, as in the stock DT's gps_l1_lna
+states; function 2 gives the pin to the GNSS DSP. The stock DT also
+carries L5 states on GPIO87, but the stock engine has no L5 DSP image for
+MT6789, so they are left out.
+
+The new pin nodes take the next free phandles, 0xd0 and 0xd1, so that no
+existing phandle moves: the camera overlay names base nodes by number.
+The DTB otherwise equals the previous one node for node and dtc and
+dt-validate report nothing new.
+---
+ .../boot/dts/mediatek/mt6789-zinwa-q25.dts    | 32 +++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+index b9572a7..6b03ffe 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt6789-zinwa-q25.dts
+@@ -1311,3 +1311,35 @@
+ /* ------------------------------------------------------------------ *
+  * Physical QWERTY: RP2040 on I2C6, see &i2c6 above.
+  * ------------------------------------------------------------------ */
++
++/*
++ * GNSS L1 LNA enable on GPIO25; function 2 hands the pin to the GNSS DSP.
++ * The phandles follow the last base one so the camera overlay's stay put.
++ */
++&pio {
++	gnss_lna_off_pins: gnss-lna-off-pins {
++		phandle = <0xd0>;
++
++		pins {
++			pinmux = <Q25_PINMUX(25, 0)>;
++			output-low;
++		};
++	};
++
++	gnss_lna_dsp_pins: gnss-lna-dsp-pins {
++		phandle = <0xd1>;
++
++		pins {
++			pinmux = <Q25_PINMUX(25, 2)>;
++		};
++	};
++};
++
++&consys {
++	gnss {
++		compatible = "mediatek,mt6789-gnss";
++		pinctrl-names = "default", "active";
++		pinctrl-0 = <&gnss_lna_off_pins>;
++		pinctrl-1 = <&gnss_lna_dsp_pins>;
++	};
++};
+-- 
+2.55.0
+
