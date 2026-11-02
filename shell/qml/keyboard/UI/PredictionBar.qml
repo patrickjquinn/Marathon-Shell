@@ -60,7 +60,8 @@ Rectangle {
 
                     anchors.fill: parent
                     onClicked: {
-                        HapticManager.light();
+                        if (SettingsManagerCpp.keyboardHapticStrength !== "off")
+                            HapticManager.light();
                         predictionBar.predictionSelected(predictionChip.modelData);
                     }
                 }

@@ -60,7 +60,8 @@ Item {
 
         sourceComponent: MarathonKeyboard {
             onDismissRequested: {
-                HapticManager.light();
+                if (SettingsManagerCpp.keyboardHapticStrength !== "off")
+                    HapticManager.light();
                 keyboardContainer.active = false;
                 Logger.info("VirtualKeyboard", "Keyboard dismissed via dismiss button");
             }
@@ -70,12 +71,6 @@ Item {
                     show();
             }
         }
-    }
-
-    Binding {
-        target: HapticManager
-        property: "enabled"
-        value: SettingsManagerCpp.keyboardHapticStrength !== "off" && SettingsManagerCpp.vibrationEnabled
     }
 
     Behavior on shown {
