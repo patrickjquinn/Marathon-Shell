@@ -81,6 +81,20 @@ TestCase {
         compare(app.photos.length, 3);
     }
 
+    function test_imageRouteOpensThePhotoOnceListed() {
+        const app = makeApp([photo(1, "Trip")]);
+        const shot = photo(2, "Screenshots");
+        app.openRoute("/image", JSON.stringify({
+            path: shot.path.replace("file://", "")
+        }));
+        compare(app.pendingUrl, shot.path);
+        MediaLibrary.photos = [photo(1, "Trip"), shot];
+        MediaLibrary.libraryChanged();
+        tryCompare(app.pageStack, "busy", false);
+        compare(app.pendingUrl, "");
+        compare(app.pageStack.currentPage.photo.path, shot.path);
+    }
+
     function test_refreshesWhenLibraryChanges() {
         const app = makeApp(threePhotos());
         MediaLibrary.photos = [photo(7, "Trip")];
