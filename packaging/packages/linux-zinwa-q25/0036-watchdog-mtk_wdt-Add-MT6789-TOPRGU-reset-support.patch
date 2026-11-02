@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:20:49 +0000
+Subject: [PATCH] watchdog: mtk_wdt: Add MT6789 TOPRGU reset support
+
+The MT6789 TOPRGU resets the CONNSYS MCU through WDT_SWSYSRST bit 12,
+the same scheme as on MT8186. Register the reset controller for the
+MT6789 compatible so CONNSYS drivers can use the standard reset API.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/watchdog/mtk_wdt.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/watchdog/mtk_wdt.c b/drivers/watchdog/mtk_wdt.c
+index 91d11064..b769fc78 100644
+--- a/drivers/watchdog/mtk_wdt.c
++++ b/drivers/watchdog/mtk_wdt.c
+@@ -11,6 +11,7 @@
+ 
+ #include <dt-bindings/reset/mt2712-resets.h>
+ #include <dt-bindings/reset/mediatek,mt6735-wdt.h>
++#include <dt-bindings/reset/mediatek,mt6789-resets.h>
+ #include <dt-bindings/reset/mediatek,mt6795-resets.h>
+ #include <dt-bindings/reset/mt7986-resets.h>
+ #include <dt-bindings/reset/mt8183-resets.h>
+@@ -92,6 +93,10 @@ static const struct mtk_wdt_data mt6735_data = {
+ 	.toprgu_sw_rst_num = MT6735_TOPRGU_RST_NUM,
+ };
+ 
++static const struct mtk_wdt_data mt6789_data = {
++	.toprgu_sw_rst_num = MT6789_TOPRGU_SW_RST_NUM,
++};
++
+ static const struct mtk_wdt_data mt6795_data = {
+ 	.toprgu_sw_rst_num = MT6795_TOPRGU_SW_RST_NUM,
+ };
+@@ -495,6 +500,7 @@ static const struct of_device_id mtk_wdt_dt_ids[] = {
+ 	{ .compatible = "mediatek,mt2712-wdt", .data = &mt2712_data },
+ 	{ .compatible = "mediatek,mt6589-wdt" },
+ 	{ .compatible = "mediatek,mt6735-wdt", .data = &mt6735_data },
++	{ .compatible = "mediatek,mt6789-wdt", .data = &mt6789_data },
+ 	{ .compatible = "mediatek,mt6795-wdt", .data = &mt6795_data },
+ 	{ .compatible = "mediatek,mt7986-wdt", .data = &mt7986_data },
+ 	{ .compatible = "mediatek,mt7988-wdt", .data = &mt7988_data },

@@ -1,14 +1,14 @@
-# Q25 Panfrost render path: prepares the GPU (q25-mfg-only-v2 from
-# q25-kernel-modules, the kernel's panfrost) and selects the GPU session.
+# Q25 Panfrost render path: prepares the GPU (the kernel's panfrost) and
+# selects the GPU session.
 pkgname=q25-gpu-render
 pkgver=7.0.0
-pkgrel=6
+pkgrel=7
 pkgdesc="Q25 accepted guarded Panfrost390MHz PM-on render path"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND MIT"
 options="!check !strip !tracedeps"
-depends="kmod q25-kernel-modules>=7.0.0-r27 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
+depends="kmod linux-zinwa-q25>=7.0.0-r29 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
 install="$pkgname.post-install $pkgname.post-upgrade"
 source="q25-gpu-prepare q25-gpu-prepare.service 80-q25-gpu-prepare.conf
  q25-shell-session.gpu GPU-SHA256SUMS eglfs-kms.json simpledrm_dri.so simpledrm_dri.c
@@ -31,7 +31,7 @@ package() {
     install -m644 "$srcdir/GPU-SOURCE-PROVENANCE.json" "$doc/"
 }
 sha512sums="
-8f3d75c565c8c3e1fab0d0a3214df534f115b4ca0fb45b92e32b25cac59a5fd89bb6067eb2990d4ac4fa123ba2f929aaca91432f2f0f87aed156b031c0731c51  q25-gpu-prepare
+7f3c6301f68f6ada0640e942a829fb95d5b4d4688b760b31b87877d6580d5f8023acd592d59eebb940d951673881b7b5bb28b667039e45656e8125cb4d47368d  q25-gpu-prepare
 e10c853645bc8f2af481b2936c0aad4e60e214460e685deae8a39fc96882da2927097eb07941fbf06909eb72bd95543c529bb431c61d378722770097d609ea8d  q25-gpu-prepare.service
 1e8c28c7b0353b3af4f8085d9e28064fa3e8eae8ebe93ea3db33c19fb6102de7a990343906846dbc13d833ad94153b396941e0585f378acec70554a691118152  80-q25-gpu-prepare.conf
 2b72853bbb51edd1a765cbc1a7fae6372aafac5bae84a5554b99d91d5456f20eedc669d503552414ac5bd5739e2d3d2af876a1058b717922119102a544301681  q25-shell-session.gpu

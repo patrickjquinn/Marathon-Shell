@@ -91,6 +91,13 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0030-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 	0031-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
 	0032-clk-mediatek-mt6789-Parent-the-I2C-wrapper-gates-to-.patch
+	0033-dt-bindings-power-mediatek-Add-MT6789-power-controll.patch
+	0034-pmdomain-mediatek-Add-MT6789-power-domains.patch
+	0035-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6789.patch
+	0036-watchdog-mtk_wdt-Add-MT6789-TOPRGU-reset-support.patch
+	0037-arm64-dts-mediatek-mt6789-Make-the-TOPRGU-a-reset-co.patch
+	0038-arm64-dts-mediatek-mt8781-zinwa-q25-Take-the-CONN-MC.patch
+	0039-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-the-GPU-p.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -148,21 +155,20 @@ package() {
 # Out-of-tree modules by directory under extra/; every built module is listed.
 _extra="q25-bbq-keys q25-keyboard-led q25-md1-owner q25-panel-doze q25-vsyncdrm
 	hx32062se q25-mt6358-live q25-haptic"
-_connsys="q25-conn-pd connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
+_connsys="connadp btif_drv wmt_drv wmt_chrdev_wifi wlan_drv_gen4m_6789
 	q25-btmtk-stp mtk-connsys-gnss"
-_audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-audio-pd q25-oca72390
+_audio="snd-soc-mt6358 snd-soc-mtk-common snd-soc-mt6789-afe q25-oca72390
 	q25-mt6366-card q25-mt6358-accdet"
-_camera="q25-cam-pd q25-cam-dt wl2868c-regulator videobuf2-common videobuf2-memops
+_camera="q25-cam-dt wl2868c-regulator videobuf2-common videobuf2-memops
 	videobuf2-v4l2 videobuf2-dma-contig phy-mtk-mipi-csi-2-1 mtk-seninf6s mtk-camsv6s"
 _modem="ccci_util_lib ccmni ccci_md_all ccci_ccif ccci_dpmaif"
-_gpu="q25-mfg-only-v2"
 
 _modules() {
 	pkgdesc="Zinwa Q25 out-of-tree drivers for linux-zinwa-q25"
 	depends="kmod $pkgname=$pkgver-r$pkgrel"
 	local out="$srcdir/q25-modules" extra="$subpkgdir/usr/lib/modules/$_release/extra"
 	local d m n=0
-	for d in extra connsys audio camera modem gpu; do
+	for d in extra connsys audio camera modem; do
 		local dir="$extra/q25-$d" list
 		eval "list=\$_$d"
 		[ "$d" = extra ] && dir="$extra"
@@ -213,6 +219,13 @@ cae60eb269341d6ddd691264c87702a1cb88b46bef3c922dce4b0f8c3e136f6fd3cf3e95faa0bc04
 53bf5b7b5a8e022026cf0f6386c4415c24641c35a78f947dd1e93d00da2c6401989790d16f6bfbecf0f44f6c2e8bbbfe09d96225eb3f9b05dca273a98487932a  0030-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 b384eb0a745cabc582cb7e74e27d62669de2cabead637945edcf4ccf473b493c96036f3e71882338b4346dff9c1eaab5df63af9f180b6ea7c988c372514107c3  0031-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
 8ae9f5846691b36194087b04c11fe35cc42f610c1aad1da1eb82c4b97d7d1cf72d2244b09b59b5ccbd09c13700c871e49426cee6a66bbae8eac01a2a064aa682  0032-clk-mediatek-mt6789-Parent-the-I2C-wrapper-gates-to-.patch
+a64957c3c048ea0a308d7704843212506bc99bb26d7be1fd05e7ca0c06ba250bee9dc9f0d76b48fcd8d3672bce9b95923d19ad0cfadf0dd4f7517d0761bdf63f  0033-dt-bindings-power-mediatek-Add-MT6789-power-controll.patch
+b1bb91bee8874aac17450ecd681c6e7065bece324beda81c187f99b020c6bc76e6c873b1fbbd2f162db8e712cc3fef3feec17a146d5ace809f801609eef6dd3f  0034-pmdomain-mediatek-Add-MT6789-power-domains.patch
+e79a6181fe1b5c5549bc9bce62df1a0bc19521bedb1f3166568844cec304eb8e9f7eb0e480fa704a1017c7f4535b69113c3b4f98b6be3e8b22c0fca7d9edde96  0035-dt-bindings-watchdog-mediatek-mtk-wdt-Add-MT6789.patch
+c542777721b20fb01d8f407e88dfe0e6590beadb2e0b0cdec45dc983b8208e550528fe8f19601464fa5944c7914fac650fa2940a747c5cd93e067b054186c777  0036-watchdog-mtk_wdt-Add-MT6789-TOPRGU-reset-support.patch
+2c2199950a2b06c9d4c256a740df967ead7c9025a82e061d93df036c200cae0d998f42b0a842fbbec3ff6a055423a3f6e123b209b6b8c910bd491451e4a1b25d  0037-arm64-dts-mediatek-mt6789-Make-the-TOPRGU-a-reset-co.patch
+19ff0bf45779b29b2a32e87bcbae5daf4a27e705cf9153b868c222188c1af0691be0586809a798f2c5fb45d42bb130bfc96506afe3a5ddccc22df1cbefd44b42  0038-arm64-dts-mediatek-mt8781-zinwa-q25-Take-the-CONN-MC.patch
+efc178c105812369c599b18c4d1004b2bf6ab12b332c162d89959746dd8e9549bfe70a234530c04d483540b4358890b545be116aa2055acb063b375538db2de6  0039-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-the-GPU-p.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

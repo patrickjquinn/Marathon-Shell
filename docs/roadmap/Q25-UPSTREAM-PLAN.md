@@ -73,7 +73,7 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H8 | `q25-user-slice-cpu.conf`, `q25-user-manager-cpu.conf`, `CPUAffinity=4-7` in `50-q25-session.conf` | Pins the whole session and greetd to CPUs 4–7. | Earlier form of the same CPU0 workaround ("bring-up stability policy"). | W8 |
 | H9 | `q25-backlight` (+`.service`) | Writes the i2c7 bus number to `panel-doze`'s `ocp_attach` so it drives the OCP2131. | Nothing in the kernel owns the OCP2131 bias chip, which is the only brightness control. | W5 |
 | H10 | `q25-vsyncdrm` (+`.service`) | `driver_override`s the firmware framebuffer from simpledrm to `q25-vsyncdrm` after Plymouth quits. | simpledrm has no vblank; the compositor free-ran at ~160 fps on a 70.98 Hz panel. | W5 |
-| H11 | `q25-gpu-prepare` (+`.service`, greetd drop-in `80-q25-gpu-prepare.conf`) | `insmod`s a private `q25-mfg-only-v2.ko`, `gpu-sched.ko`, `panfrost.ko`; forces `power/control=on`; walks devfreq 390→467→390→700 MHz and pins it; checks VGPU/VSRAM readback. | No MT6789 MFG power domains in the kernel; no MFG clock-mux notifier, so devfreq PLL hops are unsafe; GPU kept powered because "a later SRAM first-enable can reset coupling". | W3, W6 |
+| H11 | `q25-gpu-prepare` (+`.service`, greetd drop-in `80-q25-gpu-prepare.conf`) | `modprobe`s panfrost; forces `power/control=on`; walks devfreq 390→467→390→700 MHz and pins it; checks VGPU/VSRAM readback. | No MFG clock-mux notifier, so devfreq PLL hops are unsafe; GPU kept powered because "a later SRAM first-enable can reset coupling". | W6 |
 | H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`, `LIBGL_DRIVERS_PATH=/usr/lib/q25-gpu/dri`), `simpledrm_dri.so` shim, `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file (which requires CPU0 offline), runtime PM is forced on and devfreq reads 700 MHz; maps Mesa's `simpledrm` KMSRO lookup onto the `mediatek` render-only driver; disables AFBC. | Display is simpledrm, not mediatek-drm, so Mesa finds no kmsro pairing; AFBC corrupts (cause unresolved). | W5, W6 |
 | H13 | `q25-md1-off.service` (+post-install arming file) | `insmod q25-md1-owner standalone=1 md_off_at_boot=1` to switch off the MD1 domain the preloader left on. | No MD power domain in the kernel, so genpd cannot switch it off as unused. | W3 (MD domain) |
 | H14 | `q25-usb-gadget` (+`.service`) | Recreates the pmOS USB network gadget in configfs after boot. | The pmOS initramfs only creates it if a UDC exists when it looks (`cat …/g1/UDC: No such file` at 7.8 s in the boot log). Why the musb UDC is late is unverified. | W16 |
@@ -87,10 +87,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Module | What it does | Root cause | Fixed by |
 |---|---|---|---|---|
-| H21 | `q25-mfg-only-v2` (`modules/gpu-mfg/`) | A copy of `mtk-pm-domains.c` with linux-mediatek `2ed59e43` MT6789 MFG data, registering only MFG2–5 on the SPM node. | ellyq's tree lacks `a2a96be99f1b`; the copy adds fixes (OF child reg lookup, supply resolution, initial-off guard). | W3 |
-| H22 | `q25-audio-pd` (`audio/q25/`) | Second genpd provider on the same SPM node, resolving only AUDIO (11). | Same. | W3 |
-| H23 | `q25-conn-pd` (`conn-pd/`) | Provider for CONN (1) plus a reset controller on `toprgu` exposing only bit 12. | Same; `mtk-wdt` binds toprgu through the mt6589 fallback without MT6789 reset data. | W3 |
-| H24 | `q25-cam-pd` (`cam-pd/`) | Provider for CAM (12). | Same. | W3 |
 | H26 | `q25-panel-doze` (`panel/`), DT node `zinwa,q25-panel-doze` (patch `0008`) | Binds to the DSI register range and sends DCS sleep/wake as video-mode commands; drives GPIO84 (OCP2131 enable) and GPIO85 (panel reset); `ocp_attach` brightness over I2C. | No DSI/DRM driver owns the pipeline (H1). | W5 |
 | H27 | `q25-vsyncdrm` (`display/`, 1261 lines) | A copy of simpledrm that reads RDMA0's line counter to fake a scan-locked vblank; keeps the DRM name `simpledrm` for Mesa. | Same. | W5 |
 | H28 | `q25-mt6358-live` (`gauge/`) + kernel `0002` | Root-only snapshot of PMIC current and CAR registers, cache for the userspace model. | No fuel-gauge driver. | W9 |
@@ -126,7 +122,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H47 | `61-q25-charge-voltage.rules` | Writes `constant_charge_voltage=4440000` to bq256xx at add. `bq256xx_hw_init()` programs the chip default (4.208 V) and uses the battery's 4.44 V only as a ceiling: the cell stopped near 80 %. | W9 |
 | H48 | `99-q25-upower-duplicate.rules`, `q25-power-supply-ignore`, `upower-q25` (UPower patch for `UPOWER_IGNORE`) | Hides `bq256xx-battery` so UPower sees one battery. | W9 |
 | H49 | `61-q25-sensor-local.rules` | `ACCEL_MOUNT_MATRIX` for the ICM-42607. | W13 (DT `mount-matrix`) |
-| H50 | `q25-connsys.modprobe.conf` | `softdep wmt_drv pre: q25-conn-pd`. | W3 + section 4 |
 | H51 | `q25-camera.modprobe.conf`, `q25-camera.modules-load.conf` | Enables H24/H29 by parameter, loads them at boot. | W3, W15 |
 | H52 | `q25-modem.conf.modprobe`, `78-q25-modem.rules` | Blacklists ECCCI until the owner hands off; tags `ttyC0`/`ccmni` for ModemManager with a hard-coded physdev path. | Section 4 |
 

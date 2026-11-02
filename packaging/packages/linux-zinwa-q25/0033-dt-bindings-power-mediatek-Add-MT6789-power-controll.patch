@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:20:13 +0000
+Subject: [PATCH] dt-bindings: power: mediatek: Add MT6789 power controller
+
+Add the compatible for the MT6789 (Helio G99) SPM power controller and
+give the power domain index header, already used by mt6789.dtsi, its
+licence identifier and aligned values.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../power/mediatek,power-controller.yaml      |  1 +
+ .../dt-bindings/power/mediatek,mt6789-power.h | 31 ++++++++++---------
+ 2 files changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/power/mediatek,power-controller.yaml b/Documentation/devicetree/bindings/power/mediatek,power-controller.yaml
+index 9507b342..79edcd75 100644
+--- a/Documentation/devicetree/bindings/power/mediatek,power-controller.yaml
++++ b/Documentation/devicetree/bindings/power/mediatek,power-controller.yaml
+@@ -24,6 +24,7 @@ properties:
+   compatible:
+     enum:
+       - mediatek,mt6735-power-controller
++      - mediatek,mt6789-power-controller
+       - mediatek,mt6795-power-controller
+       - mediatek,mt6893-power-controller
+       - mediatek,mt8167-power-controller
+diff --git a/include/dt-bindings/power/mediatek,mt6789-power.h b/include/dt-bindings/power/mediatek,mt6789-power.h
+index 49c2635d..14b11529 100644
+--- a/include/dt-bindings/power/mediatek,mt6789-power.h
++++ b/include/dt-bindings/power/mediatek,mt6789-power.h
+@@ -1,20 +1,21 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+ #ifndef _DT_BINDINGS_POWER_MT6789_POWER_H
+ #define _DT_BINDINGS_POWER_MT6789_POWER_H
+ 
+-#define MT6789_POWER_DOMAIN_MD	0
+-#define MT6789_POWER_DOMAIN_CONN 1
+-#define MT6789_POWER_DOMAIN_MFG0 2
+-#define MT6789_POWER_DOMAIN_MFG1 3
+-#define MT6789_POWER_DOMAIN_MFG2 4
+-#define MT6789_POWER_DOMAIN_MFG3 5
+-#define MT6789_POWER_DOMAIN_ISP 6
+-#define MT6789_POWER_DOMAIN_IPE 7
+-#define MT6789_POWER_DOMAIN_VDEC 8
+-#define MT6789_POWER_DOMAIN_VENC 9
+-#define MT6789_POWER_DOMAIN_DISP 10
+-#define MT6789_POWER_DOMAIN_AUDIO 11
+-#define MT6789_POWER_DOMAIN_CAM 12
+-#define MT6789_POWER_DOMAIN_CAM_RAWA 13
+-#define MT6789_POWER_DOMAIN_CAM_RAWB 14
++#define MT6789_POWER_DOMAIN_MD		0
++#define MT6789_POWER_DOMAIN_CONN	1
++#define MT6789_POWER_DOMAIN_MFG0	2
++#define MT6789_POWER_DOMAIN_MFG1	3
++#define MT6789_POWER_DOMAIN_MFG2	4
++#define MT6789_POWER_DOMAIN_MFG3	5
++#define MT6789_POWER_DOMAIN_ISP		6
++#define MT6789_POWER_DOMAIN_IPE		7
++#define MT6789_POWER_DOMAIN_VDEC	8
++#define MT6789_POWER_DOMAIN_VENC	9
++#define MT6789_POWER_DOMAIN_DISP	10
++#define MT6789_POWER_DOMAIN_AUDIO	11
++#define MT6789_POWER_DOMAIN_CAM		12
++#define MT6789_POWER_DOMAIN_CAM_RAWA	13
++#define MT6789_POWER_DOMAIN_CAM_RAWB	14
+ 
+ #endif /* _DT_BINDINGS_POWER_MT6789_POWER_H */

@@ -17,7 +17,7 @@
 #include <dt-bindings/phy/phy.h>
 
 #define TOPCKGEN_PH	0x12
-#define SPM_PC_PH	0x1e	/* q25-cam-pd serves domain 12 on this node */
+#define SPM_PC_PH	0x1e	/* the SPM power controller */
 #define CAMSYS_PH	0x1a
 #define PD_CAM		12
 #define PIO_PH		0x2a
