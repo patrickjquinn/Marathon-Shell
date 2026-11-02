@@ -1020,7 +1020,8 @@ fn deep_link(app_id: &str, route: &str, params: &Json) {
 /// The app it is from, at what it was about.
 fn open(row: &Row) {
     if let Some(route) = row.hint("route").as_str() {
-        return deep_link(&row.app_id, route, &json!({}));
+        let params = Some(row.hint("routeParams")).filter(|p| p.is_object());
+        return deep_link(&row.app_id, route, params.unwrap_or(&json!({})));
     }
     match row.app_id.as_str() {
         "phone" => return deep_link("phone", "history", &json!({})),
