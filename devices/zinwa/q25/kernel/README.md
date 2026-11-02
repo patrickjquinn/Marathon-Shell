@@ -12,7 +12,12 @@ docs/roadmap/Q25-UPSTREAM-PLAN.md lists what each patch replaces.
 | `iio: adc: mt6359-auxadc: Include the ADC resolution…` | BATADC scale. | linux-iio, reconciled with mt6768-mainline `ca09cacace6d`. |
 | `arm64: dts: … mt8781-zinwa-q25` (board, accepted boot, audio/sensors/CONNSYS, panel Doze, camera pool, MD1) | The board DT the phone boots, on upstream's `mt8781-zinwa-q25.dts`. | ellyq's DTS; vendor nodes to overlays (W19, section 4). |
 | `mfd: mt6358: Fix AUD and MISC top interrupt status bits` | ACCDET irq storm. | Mainline (W10). |
+| `dt-bindings: iio: imu: icm42600: …`, `iio: imu: inv_icm42607: …` | Backports of torvalds `e097c0108de9`, `22addefdabdf`, `2871c45d9469`…`87775fff21b1`. | Drop when the base passes v7.3. |
+| `media: i2c: imx111: …`, `media: i2c: s5kjn1: …`, `iio: magnetometer: mmc5633: …` | Sensor fixes found on the Q25. | linux-media, linux-iio. |
 
 `0002-q25-private-mt6358-current-car-snapshot.patch` here is not part of the
 series: it is the source of the diagnostic `q25-mt6358-live` module (H28) and
 goes with the mt6358 gauge driver (W9).
+
+The release is `7.0.0-q25`; `CONFIG_MODULE_UNLOAD` is on and every configured
+module is built and shipped by the kernel package.

@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:20:02 +0000
+Subject: [PATCH] iio: magnetometer: mmc5633: Cancel the bridge offset and fix
+ the scale
+
+On I2C, a single measurement carries the sensor bridge offset, which on
+the Zinwa Q25's part is larger than the earth field. Measure after a SET
+pulse and after a RESET pulse: the field changes sign between the two
+while the offset does not, so half the difference is offset-free and
+centred on zero. I3C keeps its single read.
+
+The magnetic scale was reported as 0.0625 gauss per count, the part's
+resolution in milligauss. The driver reads 20-bit samples, 16384 counts
+per gauss, so report 1/16384 as a fractional value.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/iio/magnetometer/mmc5633.c | 36 ++++++++++++++++++++++++++++--
+ 1 file changed, 34 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/iio/magnetometer/mmc5633.c b/drivers/iio/magnetometer/mmc5633.c
+index 9d8e2748..4cbcfa5f 100644
+--- a/drivers/iio/magnetometer/mmc5633.c
++++ b/drivers/iio/magnetometer/mmc5633.c
+@@ -286,6 +286,31 @@ static int mmc5633_get_raw(struct mmc5633_data *data, int index, unsigned char *
+ 	return 0;
+ }
+ 
++/*
++ * Measure after SET and after RESET: the field flips sign between the two
++ * while the bridge offset does not, so half the difference is offset-free
++ * and centred on zero.
++ */
++static int mmc5633_read_set_reset(struct mmc5633_data *data, int axis, int *val)
++{
++	static const unsigned int pulse[] = { MMC5633_CTRL0_SET, MMC5633_CTRL0_RESET };
++	char buf[MMC5633_ALL_SIZE];
++	int raw[2], ret, i;
++
++	for (i = 0; i < 2; i++) {
++		ret = regmap_write(data->regmap, MMC5633_REG_CTRL0, pulse[i]);
++		if (ret)
++			return ret;
++		fsleep(MMC5633_WAIT_SET_RESET_US);
++		ret = mmc5633_read_measurement(data, axis, buf, MMC5633_ALL_SIZE);
++		if (ret)
++			return ret;
++		mmc5633_get_raw(data, axis, buf, &raw[i]);
++	}
++	*val = (raw[0] - raw[1]) / 2;
++	return 0;
++}
++
+ static int mmc5633_read_raw(struct iio_dev *indio_dev,
+ 			    struct iio_chan_spec const *chan, int *val,
+ 			    int *val2, long mask)
+@@ -297,6 +322,11 @@ static int mmc5633_read_raw(struct iio_dev *indio_dev,
+ 
+ 	switch (mask) {
+ 	case IIO_CHAN_INFO_RAW:
++		if (chan->type == IIO_MAGN && !data->i3cdev) {
++			scoped_guard(mutex, &data->mutex)
++				ret = mmc5633_read_set_reset(data, chan->address, val);
++			return ret ?: IIO_VAL_INT;
++		}
+ 		scoped_guard(mutex, &data->mutex) {
+ 			ret = mmc5633_read_measurement(data, chan->address, buf, MMC5633_ALL_SIZE);
+ 			if (ret < 0)
+@@ -309,8 +339,10 @@ static int mmc5633_read_raw(struct iio_dev *indio_dev,
+ 		return IIO_VAL_INT;
+ 	case IIO_CHAN_INFO_SCALE:
+ 		if (chan->type == IIO_MAGN) {
+-			*val = 0;
+-			*val2 = 62500;
++			/* MMC5603NJ 20-bit mode: 16384 counts/G */
++			*val = 1;
++			*val2 = 16384;
++			return IIO_VAL_FRACTIONAL;
+ 		} else {
+ 			*val = 0;
+ 			*val2 = 800000000; /* 0.8C */

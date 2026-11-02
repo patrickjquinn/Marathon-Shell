@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:19:45 +0000
+Subject: [PATCH] media: i2c: imx111: Fix the Bayer order of the unflipped
+ readout
+
+The format table lists the media bus codes in flip order (none, H, V,
+H+V), but starts the cycle at GBRG. With no flip applied the IMX111
+reads out RGGB, so every reported code was off by one flip and raw
+captures demosaiced with swapped colours on the Zinwa Q25's front
+camera. Rotate the table to start at RGGB and make the default format
+match it.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/media/i2c/imx111.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/i2c/imx111.c b/drivers/media/i2c/imx111.c
+index 8eb91978..073efc0f 100644
+--- a/drivers/media/i2c/imx111.c
++++ b/drivers/media/i2c/imx111.c
+@@ -218,15 +218,15 @@ static const struct imx111_pll imx111_pll[] = {
+  * - h&v flips
+  */
+ static const u32 imx111_mbus_formats[] = {
+-	MEDIA_BUS_FMT_SGBRG10_1X10,
+-	MEDIA_BUS_FMT_SBGGR10_1X10,
+ 	MEDIA_BUS_FMT_SRGGB10_1X10,
+ 	MEDIA_BUS_FMT_SGRBG10_1X10,
++	MEDIA_BUS_FMT_SGBRG10_1X10,
++	MEDIA_BUS_FMT_SBGGR10_1X10,
+ 
+-	MEDIA_BUS_FMT_SGBRG8_1X8,
+-	MEDIA_BUS_FMT_SBGGR8_1X8,
+ 	MEDIA_BUS_FMT_SRGGB8_1X8,
+ 	MEDIA_BUS_FMT_SGRBG8_1X8,
++	MEDIA_BUS_FMT_SGBRG8_1X8,
++	MEDIA_BUS_FMT_SBGGR8_1X8,
+ };
+ 
+ static const struct cci_reg_sequence imx111_global_init[] = {
+@@ -1195,7 +1195,7 @@ static int imx111_init_state(struct v4l2_subdev *sd,
+ 
+ 	fmt = v4l2_subdev_state_get_format(sd_state, 0);
+ 
+-	fmt->code = MEDIA_BUS_FMT_SGBRG10_1X10;
++	fmt->code = MEDIA_BUS_FMT_SRGGB10_1X10;
+ 	fmt->width = mode->width;
+ 	fmt->height = mode->height;
+ 	fmt->field = V4L2_FIELD_NONE;

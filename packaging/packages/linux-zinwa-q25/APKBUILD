@@ -1,14 +1,13 @@
-# Zinwa Q25 kernel: ellyq's mtk_g99-mainline at the commit the phone runs,
-# with its config, the Q25 series (one git format-patch series, see
-# devices/zinwa/q25/kernel/README.md) and panel-zinwa-q20-hd720.c. The
-# release keeps the -q25-cfi-test suffix q25-kernel-modules, q25-modem and
-# q25-gpu-render were built for, and only the in-tree modules the phone
-# boots with are built.
+# Zinwa Q25 kernel: ellyq's mtk_g99-mainline (the MT6789 tree) at 978b8b67
+# with the Q25 series below and its config. Every configured module is built
+# here; only Q25 shims and vendor drivers ship out of tree
+# (devices/zinwa/q25/modules). The patches are a git format-patch series;
+# devices/zinwa/q25/kernel/README.md says where each one stands upstream.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=1
+pkgrel=2
 _commit=978b8b672d68e43b08c891132b974255489889aa
-_release=7.0.0-q25-cfi-test
+_release=7.0.0-q25
 pkgdesc="Zinwa Q25 Pro kernel"
 url="https://gitlab.nura.eco/ellyq/mtk_g99-mainline"
 arch="aarch64"
@@ -29,32 +28,6 @@ makedepends="
 "
 # The prebuilt kernel package this one takes over from.
 replaces="linux-postmarketos-mediatek-g99"
-_modules="
-	drivers/input/evdev.ko
-	drivers/input/rmi4/rmi_core.ko
-	drivers/input/rmi4/rmi_i2c.ko
-	drivers/md/dm-bufio.ko
-	drivers/md/dm-verity.ko
-	drivers/misc/rpmb-core.ko
-	drivers/ufs/core/ufshcd-core.ko
-	drivers/ufs/host/ufs-mediatek.ko
-	drivers/ufs/host/ufshcd-pltfrm.ko
-	drivers/usb/gadget/function/u_ether.ko
-	drivers/usb/gadget/function/u_serial.ko
-	drivers/usb/gadget/function/usb_f_acm.ko
-	drivers/usb/gadget/function/usb_f_mass_storage.ko
-	drivers/usb/gadget/function/usb_f_ncm.ko
-	drivers/usb/gadget/function/usb_f_rndis.ko
-	drivers/usb/gadget/libcomposite.ko
-	drivers/usb/storage/usb-storage.ko
-	fs/binfmt_misc.ko
-	fs/erofs/erofs.ko
-	fs/netfs/netfs.ko
-	fs/nls/nls_iso8859-1.ko
-	fs/nls/nls_utf8.ko
-	fs/overlayfs/overlay.ko
-	fs/xfs/xfs.ko
-"
 source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-mainline/-/archive/$_commit/mtk_g99-mainline-$_commit.tar.gz
 	config-zinwa-q25.aarch64
 	panel-zinwa-q20-hd720.c
@@ -69,6 +42,20 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0009-mfd-mt6358-Fix-AUD-and-MISC-top-interrupt-status-bit.patch
 	0010-arm64-dts-mediatek-zinwa-q25-reserve-a-camera-pool.patch
 	0011-arm64-dts-mediatek-zinwa-q25-describe-the-MD1-modem.patch
+	0012-dt-bindings-iio-imu-icm42600-Add-mount-matrix.patch
+	0013-dt-bindings-iio-imu-icm42600-Add-icm42607.patch
+	0014-iio-imu-inv_icm42607-Add-inv_icm42607-Core-Driver.patch
+	0015-iio-imu-inv_icm42607-Add-SPI-For-icm42607.patch
+	0016-iio-imu-inv_icm42607-Add-PM-support-for-icm42607.patch
+	0017-iio-imu-inv_icm42607-Add-Accelerometer-for-icm42607.patch
+	0018-iio-imu-inv_icm42607-Add-Gyroscope-to-icm42607.patch
+	0019-iio-imu-inv_icm42607-Add-Temp-Support-in-icm42607.patch
+	0020-iio-imu-inv_icm42607-propagate-runtime-suspend-error.patch
+	0021-iio-imu-inv_icm42607-restore-runtime-PM-on-system-re.patch
+	0022-media-i2c-imx111-Fix-the-Bayer-order-of-the-unflippe.patch
+	0023-media-i2c-imx111-Derive-the-data-depth-from-the-requ.patch
+	0024-media-i2c-s5kjn1-Report-the-crop-height-not-the-widt.patch
+	0025-iio-magnetometer-mmc5633-Cancel-the-bridge-offset-an.patch
 "
 builddir="$srcdir/mtk_g99-mainline-$_commit"
 
@@ -86,12 +73,8 @@ prepare() {
 build() {
 	unset LDFLAGS
 	export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@$SOURCE_DATE_EPOCH")"
-	make ARCH=arm64 LLVM=1 Image vmlinuz.efi mediatek/mt8781-zinwa-q25.dtb
-	# modpost resolves the modules against vmlinux.symvers.
-	make ARCH=arm64 LLVM=1 $_modules
+	make ARCH=arm64 LLVM=1 Image vmlinuz.efi modules mediatek/mt8781-zinwa-q25.dtb
 	[ "$(cat include/config/kernel.release)" = "$_release" ]
-	# Single-module targets leave no modules.order for modules_install.
-	for m in $_modules; do echo "${m%.ko}.o"; done > modules.order
 }
 
 package() {
@@ -106,10 +89,9 @@ package() {
 	install -Dm644 include/config/kernel.release \
 		"$pkgdir"/usr/share/kernel/zinwa-q25/kernel.release
 }
-
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
-740c3efa45cca3e5b16fdda9ae4de848655d693d4170dc65ee4c255eb9a43386b2f7c60f79939f11825d49b8dcbdec068d9168d181db8a0a22c2f0a77fa03001  config-zinwa-q25.aarch64
+c95d7a034f868ae72bf078f27fd07e0bcc7062923c8ccc10213cade6e1d60bcbbf8364017561dcc36b3b1f700361099c470b5e49419ad12cdf3775ed7214fe8d  config-zinwa-q25.aarch64
 2cf5f7923e2db6d4b5b075319e647526424fc8e2f94f832287e6b9bd63c05f1dc27115e05ea3f5e14b7693f1fad4471e40207ab47dfca5a33ecdf019d36aedb4  panel-zinwa-q20-hd720.c
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 fae7d50d65607e43f9dbafa5613f134ce4bb9b3954ac34b82f25a4d6c868578de9a5582eaccd7885284c50df644fd1f9d57cd5221dd210e9fe36976a351afb34  0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
@@ -122,4 +104,18 @@ af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c11
 c46f161e14ae3e7632768fd4cb7c581080b9a62de18c4dac9254f2e7b9089150e6f68a7e0a4c1797603291180e89211e0122700d37fefa894c64a0daedf8eab9  0009-mfd-mt6358-Fix-AUD-and-MISC-top-interrupt-status-bit.patch
 1973b7d5b4cce86169854c0fbf497af26b2de218ee10e8a4f3c03e64468e6898da94986a8aa9f34e50a156a5ceccbfb3f5c0ec458ede1bc4dec214d264a96016  0010-arm64-dts-mediatek-zinwa-q25-reserve-a-camera-pool.patch
 30291ac447d2b339c996ca432c3688fe95bf4f4274ffa9f8fe37c30e0eb88db4b1c827c0debcbb5a9996f1e4ea86a6d336448bcd9b9094ea293a95dba90caf64  0011-arm64-dts-mediatek-zinwa-q25-describe-the-MD1-modem.patch
+ed8d9f9744ae1df91a8f50d9d3a30dc7813223ccbd4fb90562e6032a924c1bbc01fd3d18d154fde737824824624f7daa56f1c7863a472f088686fceda58bcaaa  0012-dt-bindings-iio-imu-icm42600-Add-mount-matrix.patch
+7c41343ab41cf2cd00632f28e9ca323900318f38d064dbd33870b84b8d28405a2734ffe4f03287607aa411e0525cfb0195b95850d0e4000c376e1aaa9072a211  0013-dt-bindings-iio-imu-icm42600-Add-icm42607.patch
+eab74735bb8f8300ddfd1bfd19283f881d41c2c3c41cd346af013b652d29131b140ae5fdc22bc377055e40d17591cd448b8429807a08c3c148ee260a471b24a2  0014-iio-imu-inv_icm42607-Add-inv_icm42607-Core-Driver.patch
+28282f859bd9fb81288934826b0d56ffcb669877b6a090996c90b91e9b9bda8b9b8fe19979625b78866b35b27e735ab250ee6810bc3cfd105a0aa1961c0ad567  0015-iio-imu-inv_icm42607-Add-SPI-For-icm42607.patch
+68fe186af802e35c9098a35df1fdba02a5c0e5b58889709cff5d4a1e0a1e706166d37c8abced4b02f58a351c0953018a8d27cf256e7128f96dc7a1956b91d02b  0016-iio-imu-inv_icm42607-Add-PM-support-for-icm42607.patch
+39dbf52ee624fbcadfa4e43f531a66942b963fc8037af45dd017bbbba1b955860d56be3a3e22cd66908bb06c251dd3f9d824a487e79fe971e90501f9ff25d976  0017-iio-imu-inv_icm42607-Add-Accelerometer-for-icm42607.patch
+47472dedbf44ffa171d18137e8b1eaf3dea9d92d29ddeb3284611090b53f51b89efe97c8673c1355d2caf4c13da941320e5214fd8677227d5bcd41e3478f2090  0018-iio-imu-inv_icm42607-Add-Gyroscope-to-icm42607.patch
+5d35c52429c3e98fd0d7b0b8447cd164ce3e7a27b374c9be0df329e467918e2049fe7d84491dd5395a572d00fcef13168df0834ec93de74c40302f1817244bd5  0019-iio-imu-inv_icm42607-Add-Temp-Support-in-icm42607.patch
+a701099e3386327fdabc1968d93424747c757efef45e2fd25181f1965246831b5e7b4effe41a9a682f9d665b0a8119aa698398802e2dc45ca93cf47caaecea19  0020-iio-imu-inv_icm42607-propagate-runtime-suspend-error.patch
+9ab7574722e4f62243ced8ec5660a3ecf459003bf68b3c8708d7b65d413e0791835b8822291e10d23801545fd7c977d92322231e2c9957ba3afd577c401d6713  0021-iio-imu-inv_icm42607-restore-runtime-PM-on-system-re.patch
+69923ee6d65fc5a1891602ce3c4787ba6c29be37626ad67c96b2875757876ae81cf1c67c936e8d764e4f4c52c2ac2058a240c4f2865f1d11ad6fac9828fd7ea4  0022-media-i2c-imx111-Fix-the-Bayer-order-of-the-unflippe.patch
+f4e0fd9862dad98b15aa3a64424d436c4c22c053914b0df54157bdaf82b27d10d9ff0ac296b387f19b4db145e2eb4734175cbf6f27f10c96f969da60c4f42b4f  0023-media-i2c-imx111-Derive-the-data-depth-from-the-requ.patch
+b4ac1dc10995e5eeca328dadac16e6135892d0cca1e5cf9251e0a56a20e26b0bbb7f69995959028eb3ad38b43aa45c12bdaf4abbe41d70cebc318121c1534c2e  0024-media-i2c-s5kjn1-Report-the-crop-height-not-the-widt.patch
+67c1fb0e05b4ce8588e15367612d27c51c81ad30ed900bdb8576ac9c208ff7a276a643486b54b4e60fda2675ac2c999ad56fa04904779d8abc80747a88e9310f  0025-iio-magnetometer-mmc5633-Cancel-the-bridge-offset-an.patch
 "
