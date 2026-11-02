@@ -1,0 +1,102 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# Alpine's community/qt6-qtdeclarative 6.11.1-r1 (maintainer Bart Ribbers),
+# one package release above it, without the -dbg split, plus a Qt Quick fix written
+# for upstream: 0002 stops a touchscreen that disappears mid-touch from
+# leaving a dangling device that the next press dereferences. Rebase on
+# Alpine's recipe when it moves.
+pkgname=qt6-qtdeclarative
+pkgver=6.11.1
+pkgrel=2
+pkgdesc="Classes for QML and JavaScript languages"
+url="https://qt.io/"
+# armhf is utterly broken, https://bugreports.qt.io/browse/QTBUG-65246
+# Better not ship it at all than ship something so broken
+arch="all !armhf"
+license="LGPL-2.1-only AND LGPL-3.0-only AND GPL-3.0-only AND Qt-GPL-exception-1.0"
+depends_dev="
+	qt6-qtshadertools-dev
+	qt6-qtsvg-dev
+	vulkan-headers
+	"
+makedepends="
+	$depends_dev
+	cmake
+	lttng-ust-dev
+	perl
+	qt6-qtbase-dev
+	qt6-qtbase-private-dev
+	qt6-qtlanguageserver-dev
+	samurai
+	"
+subpackages="
+	$pkgname-private-dev:private_dev
+	$pkgname-dev
+	"
+options="!check" # No tests
+builddir="$srcdir/qtdeclarative-everywhere-src-${pkgver/_/-}"
+
+case $pkgver in
+	*_alpha*|*_beta*|*_rc*) _rel=development_releases;;
+	*) _rel=official_releases;;
+esac
+
+source="https://download.qt.io/$_rel/qt/${pkgver%.*}/${pkgver/_/-}/submodules/qtdeclarative-everywhere-src-${pkgver/_/-}.tar.xz
+	0001-QQmlTableInstanceModel-refactor-QModelIndex-calculat.patch
+	0002-QQuickDeliveryAgent-forget-the-touch-mouse-device-when-it-is-destroyed.patch
+	"
+options="!check" # No usable tests
+
+_qt6_prefix=usr/lib/qt6
+
+build() {
+	export PATH="$PATH:/usr/lib/qt6/bin"
+	export CFLAGS="$CFLAGS -flto=auto"
+	export CXXFLAGS="$CXXFLAGS -flto=auto"
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+		-DINSTALL_PUBLICBINDIR=usr/bin \
+		-DCMAKE_INSTALL_PREFIX=/usr
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+
+	# install symlinks for user-facing tools
+	mkdir -p "$pkgdir"/usr/bin
+	local target name
+	while read -r target name; do
+		ln -sv "$target" "$pkgdir/$name"
+	done < "$builddir"/build/user_facing_tool_links.txt
+}
+
+dev() {
+	default_dev
+
+	# move created symlinks- all dev binaries
+	amove usr/bin
+
+	find "$pkgdir"/"$_qt6_prefix"/bin/ -type f ! -name "qmlscene" | while read -r f; do
+		file=$(basename $f)
+		amove "$_qt6_prefix"/bin/$file
+	done
+
+	amove usr/lib/qt6/sbom
+}
+
+private_dev() {
+	depends="qt6-qtbase-private-dev"
+
+	local file; find "$pkgdir"/usr/include -type d -name private | while read -r file; do
+		amove "${file#"$pkgdir"}"
+	done
+
+	amove usr/lib/cmake/*Private
+	amove usr/lib/qt6/modules/*Private.json
+}
+
+sha512sums="
+91d657a33b3bf8fc79f1116561f125b3905b590e94504dcb3e4feead71f209b35b42a9da783d4568f756b22fd7a0e9802e1a9039553d400fe33417562776a1d6  qtdeclarative-everywhere-src-6.11.1.tar.xz
+daf56c8fee13b872264a6e9d29d2e8897f851252f74ee0103f9150e65945d0f80d7bd10e21da013ef501a04e6fa809677865aa4b7a4eac7234f9de512a55bb22  0001-QQmlTableInstanceModel-refactor-QModelIndex-calculat.patch
+90d112dddf3f99b0fdb60507e7501dc9f0a65df405d8bb2d16217d726ee0b4e831bb7910253e514dc5d9d0644fd3886e5cd085179fa7e10d1a967ad0e24abc07  0002-QQuickDeliveryAgent-forget-the-touch-mouse-device-when-it-is-destroyed.patch
+"
