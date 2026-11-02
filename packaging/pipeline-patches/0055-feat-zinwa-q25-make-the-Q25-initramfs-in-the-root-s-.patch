@@ -1,0 +1,47 @@
+From 339347644aab9f5208f5b96f1091aa5010f9b177 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 05:03:35 +0000
+Subject: [PATCH] feat(zinwa-q25): make the Q25 initramfs in the root's /boot
+
+The Q25 root is not bootable, so nothing made an initramfs for it and
+the phone booted a hand-built one. Run mkinitfs in the image, as the Pi
+and the Librem 5 do, so that /boot/initramfs matches the root's kernel
+modules and device packages; scripts/q25/q25-userdata-image.sh puts it
+on the ESP with the kernel and DTB.
+---
+ mkosi.finalize | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 07d11ea..255295a 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -969,6 +969,25 @@ EOF
+     fi
+ fi
+ 
++# Zinwa Q25: scripts/q25/q25-userdata-image.sh copies /boot/initramfs to
++# the phone's ESP with the kernel; make it here, as for the Pi and the
++# Librem 5. /etc is the root's own (NEED_ETC_STASH).
++if [ "$PMOS_DEVICE" = zinwa-q25 ]; then
++    rm -f "$BUILDROOT/in-pmbootstrap"
++    for d in proc sys dev; do
++        mkdir -p "$BUILDROOT/$d"
++        mount --bind "/$d" "$BUILDROOT/$d" 2>/dev/null || true
++    done
++    chroot "$BUILDROOT" /usr/bin/mkinitfs 2>&1 | sed 's/^/  mkinitfs: /'
++    for d in proc sys dev; do
++        umount "$BUILDROOT/$d" 2>/dev/null || true
++    done
++    if [ ! -s "$BUILDROOT/boot/initramfs" ]; then
++        echo "error: mkinitfs made no /boot/initramfs for the Q25" >&2
++        exit 1
++    fi
++fi
++
+ # A/B Pi images (mkosi.repart.ab-pi): each boot slot names its own root
+ # and boot partition by label, since both slots' filesystems carry the
+ # pmOS_root/pmOS_boot labels. panic=10 lets a failed trial boot fall back.
+-- 
+2.55.0
+
