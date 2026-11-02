@@ -1232,6 +1232,25 @@ impl Pipeline {
         if let Err(e) = backends.jev.decide(&req, "decide").await {
             log::debug!("warming the router: {e}");
         }
+        // The model on the phone reads the system prompt now, not with the
+        // first question: every turn's prompt starts with it.
+        if backends.llm.provider() == "local" {
+            let req = ChatRequest {
+                messages: vec![
+                    Message::text(Role::System, self.system_prompt()),
+                    Message::text(Role::User, "."),
+                ],
+                tools: Vec::new(),
+                json_mode: false,
+                effort: Effort::Off,
+                purpose: "warm".into(),
+                require: false,
+                max_tokens: Some(1),
+            };
+            if let Err(e) = backends.llm.chat(&req).await {
+                log::debug!("warming the model: {e}");
+            }
+        }
     }
 
     pub fn on_screen(&self) -> Option<(String, String)> {
@@ -2735,6 +2754,7 @@ impl Pipeline {
                     "tool-loop".into()
                 },
                 require: round == 0 && ground,
+                max_tokens: None,
             };
             self.stage(
                 turn,
@@ -3245,6 +3265,7 @@ impl Pipeline {
             effort: Effort::Off,
             purpose: "vision".into(),
             require: false,
+            max_tokens: None,
         };
         let card = match self.backends().llm.chat(&req).await {
             Ok(r) => {
