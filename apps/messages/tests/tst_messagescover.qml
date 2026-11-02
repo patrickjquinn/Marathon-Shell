@@ -52,6 +52,7 @@ TestCase {
                 {
                     id: "b",
                     contactName: "",
+                    displayNumber: "+1 555-123-4567",
                     contactNumber: "+15551234567",
                     lastMessage: "yo",
                     unreadCount: 0
@@ -59,7 +60,7 @@ TestCase {
             ]
         });
         verify(!findChild(c, "coverUnread").visible);
-        compare(findChild(c, "coverSender").text, "+1 555 123 4567");
+        compare(findChild(c, "coverSender").text, "+1 555-123-4567");
     }
 
     function test_placeholderWhenEmpty() {

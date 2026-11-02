@@ -59,14 +59,14 @@ Page {
             objectName: "typedNumberItem"
             visible: root.isNumber
             contentHeight: Theme.itemSizeSmall
-            Accessible.name: qsTr("Send to %1").arg(Logic.formatNumber(root.typed))
+            Accessible.name: qsTr("Send to %1").arg(Sms.formatNumber(root.typed))
             onClicked: root.startWithTyped()
 
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 anchors.verticalCenter: parent.verticalCenter
-                text: qsTr("Send to %1").arg(Logic.formatNumber(Logic.normaliseNumber(root.typed)))
+                text: qsTr("Send to %1").arg(Sms.formatNumber(Logic.normaliseNumber(root.typed)))
                 truncationMode: TruncationMode.Fade
                 color: parent.highlighted ? Theme.highlightColor : Theme.primaryColor
             }
@@ -103,7 +103,7 @@ Page {
 
             objectName: "contact-" + modelData.phone
             contentHeight: Theme.itemSizeMedium
-            Accessible.name: modelData.name + ", " + Logic.formatNumber(modelData.phone)
+            Accessible.name: modelData.name + ", " + Sms.formatNumber(modelData.phone)
             onClicked: root.app.startConversation(modelData.phone, modelData.name, root.sharedText, root.sharedAttachments)
 
             Column {
@@ -119,7 +119,7 @@ Page {
                 }
                 Label {
                     width: parent.width
-                    text: Logic.formatNumber(item.modelData.phone)
+                    text: Sms.formatNumber(item.modelData.phone)
                     font.pixelSize: Theme.fontSizeExtraSmall
                     color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
                 }

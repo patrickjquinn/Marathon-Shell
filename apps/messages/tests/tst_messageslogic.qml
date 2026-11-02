@@ -17,6 +17,7 @@ TestCase {
         {
             id: "b",
             contactName: "",
+            displayNumber: "+44 7700 900123",
             contactNumber: "+447700900123",
             lastMessage: "Code 1234",
             lastTimestamp: 20,
@@ -32,12 +33,6 @@ TestCase {
         }
     ]
 
-    function test_formatNumber() {
-        compare(Logic.formatNumber("+15551234567"), "+1 555 123 4567");
-        compare(Logic.formatNumber("+447700900123"), "+44 770 090 0123");
-        compare(Logic.formatNumber("*100#"), "*100#");
-    }
-
     function test_sameNumber() {
         verify(Logic.sameNumber("+1 555 123 4567", "5551234567"));
         verify(!Logic.sameNumber("555", "5551"));
@@ -46,7 +41,11 @@ TestCase {
 
     function test_displayName() {
         compare(Logic.displayName(convs[0]), "Alice");
-        compare(Logic.displayName(convs[1]), "+44 770 090 0123");
+        compare(Logic.displayName(convs[1]), "+44 7700 900123");
+        compare(Logic.displayName({
+            contactName: "",
+            contactNumber: "555"
+        }), "555");
     }
 
     function test_inboxHidesArchivedAndPinsFirst() {

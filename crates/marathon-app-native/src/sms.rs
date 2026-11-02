@@ -65,6 +65,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "generateConversationId"]
         fn generate_conversation_id(self: &Sms, number: &QString) -> QString;
+        /// `number` as people read it, grouped by the daemon.
+        #[qinvokable]
+        #[cxx_name = "formatNumber"]
+        fn format_number(self: &Sms, number: &QString) -> QString;
         #[qinvokable]
         #[cxx_name = "simulateIncomingSMS"]
         fn simulate_incoming_sms(self: &Sms, sender: &QString, message: &QString);
@@ -190,6 +194,11 @@ impl Sms {
         delete_message(id: i32) -> bool => "DeleteMessage";
         get_messages(conversation_id: &QString) -> QList<QVariant> => "GetMessages";
         generate_conversation_id(number: &QString) -> QString => "GenerateConversationId";
+    }
+
+    fn format_number(&self, number: &QString) -> QString {
+        SMS.ask_now::<_, String>("FormatNumber", &(number.to_string(),))
+            .map_or_else(|| number.clone(), |shown| QString::from(&shown))
     }
 
     fn refresh(&self) {

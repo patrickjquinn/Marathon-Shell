@@ -1,36 +1,9 @@
 .pragma library
 
-const twoDigitCountryCodes = ["20", "27", "30", "31", "32", "33", "34", "36", "39", "40", "41", "43", "44", "45", "46", "47", "48", "49", "51", "52", "53", "54", "55", "56", "57", "58", "60", "61", "62", "63", "64", "65", "66", "81", "82", "84", "86", "90", "91", "92", "93", "94", "95", "98"];
 const runGap = 5 * 60 * 1000;
 
 function digits(number) {
     return String(number || "").replace(/\D/g, "");
-}
-
-function group(d) {
-    const out = [];
-    while (d.length > 4) {
-        out.push(d.slice(0, 3));
-        d = d.slice(3);
-    }
-    if (d.length > 0)
-        out.push(d);
-    return out.join(" ");
-}
-
-// Display grouping only; the stored number is never rewritten.
-function formatNumber(number) {
-    const raw = String(number || "").trim();
-    if (/[*#,;pPwW]/.test(raw))
-        return raw;
-    const d = digits(raw);
-    if (d.length === 0)
-        return raw.charAt(0) === "+" ? "+" : "";
-    if (raw.charAt(0) !== "+")
-        return group(d);
-    const ccLength = (d.charAt(0) === "1" || d.charAt(0) === "7") ? 1 : twoDigitCountryCodes.indexOf(d.slice(0, 2)) !== -1 ? 2 : 3;
-    const rest = d.slice(ccLength);
-    return "+" + d.slice(0, ccLength) + (rest.length > 0 ? " " + group(rest) : "");
 }
 
 // The trailing 9 digits drop trunk and country prefixes.
@@ -53,7 +26,7 @@ function normaliseNumber(text) {
 }
 
 function displayName(conversation) {
-    return conversation.contactName || formatNumber(conversation.contactNumber);
+    return conversation.contactName || conversation.displayNumber || conversation.contactNumber;
 }
 
 function matches(query, name, number, text) {
