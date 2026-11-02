@@ -187,6 +187,17 @@ def full_tracker(tracker, sample):
     return full
 
 
+def full_seed_tracker(sample):
+    """Charger already Full before any seed: the regulated battery is at 100%."""
+    g = sample["gauge"]
+    _, qmax = model.profile(int(sample["temp_mc"]))
+    seed = dict(estimated=True, percentage=100.0, percentage_low=100.0, percentage_high=100.0,
+                qmax_low_uah=float(qmax), qmax_high_uah=float(qmax))
+    full = model.CounterTrack(seed, g["car0"], g["car1"], g["mono_ns"] // 1000000)
+    full.seed_temp_mc = sample["temp_mc"]
+    return full
+
+
 def commit(endpoint, sample, result=None):
     g = sample["gauge"]
     cap = -1
@@ -220,7 +231,12 @@ def run(endpoint, margin_bp, runtime_seconds):
             try:
                 sample = read_sample(endpoint, adc)
                 result = None
-                if tracker is None:
+                if tracker is None and charger_full():
+                    # A Full charger sits above the loaded curve, so no seed row would qualify.
+                    tracker = full_seed_tracker(sample)
+                    history.clear()
+                    result = dict(tracker.seed, delta_uah=0.0)
+                elif tracker is None:
                     # Every seed row is qualified, not just the median.
                     sample["estimate"] = point_estimate(sample, margin_bp)
                     if history and sample["gauge"]["mono_ns"] - history[-1]["gauge"]["mono_ns"] > 1500000000:
