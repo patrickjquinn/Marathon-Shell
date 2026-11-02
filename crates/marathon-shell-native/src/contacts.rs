@@ -46,7 +46,7 @@ const INTERFACE: &str = "org.marathonos.Shell.Contacts1";
 struct Known {
     id: i32,
     name: String,
-    phone: String,
+    phones: Vec<String>,
 }
 
 #[derive(Default)]
@@ -73,7 +73,13 @@ async fn read(bus: &zbus::Connection) -> zbus::Result<Vec<Known>> {
                 .and_then(|v| i32::try_from(v).ok())
                 .unwrap_or_default(),
             name: field(&row, "name"),
-            phone: field(&row, "phone"),
+            phones: row
+                .get("phones")
+                .and_then(|v| {
+                    Vec::<HashMap<String, OwnedValue>>::try_from(v.try_clone().ok()?).ok()
+                })
+                .map(|list| list.iter().map(|e| field(e, "value")).collect())
+                .unwrap_or_else(|| vec![field(&row, "phone")]),
         })
         .collect())
 }
@@ -120,12 +126,14 @@ impl Contacts {
     fn get_contact_by_number(&self, number: &QString) -> QMap<QMapPair_QString_QVariant> {
         let number = number.to_string();
         let mut map = QMap::default();
-        if let Some(c) = self
-            .rust()
-            .known
-            .iter()
-            .find(|c| marathon_rt::daemon::same_number(&c.phone, &number))
-        {
+        let found = self.rust().known.iter().find_map(|c| {
+            let phone = c
+                .phones
+                .iter()
+                .find(|p| marathon_rt::daemon::same_number(p, &number))?;
+            Some((c, phone))
+        });
+        if let Some((c, phone)) = found {
             map.insert(QString::from("id"), QVariant::from(&c.id));
             map.insert(
                 QString::from("name"),
@@ -133,7 +141,7 @@ impl Contacts {
             );
             map.insert(
                 QString::from("phone"),
-                QVariant::from(&QString::from(&c.phone)),
+                QVariant::from(&QString::from(phone)),
             );
         }
         map
