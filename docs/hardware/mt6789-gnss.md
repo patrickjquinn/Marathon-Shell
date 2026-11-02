@@ -265,14 +265,32 @@ BeiDou PRN look tracked at about 30 dB-Hz). Code phase units per system:
 GPS 1.023 Mchip/s, GLONASS 0.511 Mchip/s, BeiDou B1I 2.046 Mchip/s. The
 GLONASS satellite field is the frequency slot (channel + 8). BeiDou code
 phase jumps by 0.5 ms against GPS between epochs; within 0.5 ms it agrees
-with GPS to about 25 m. GLONASS agrees only to 100–200 m per satellite in
-the reference run and worse in the native run, not yet explained.
+with GPS to about 25 m. GLONASS code phase also jumps by 0.5 ms, for all
+GLONASS satellites at once (a common offset its own clock bias absorbs),
+and then disagrees per satellite by 100–300 m: in the reference run about
+-35 m per frequency slot plus a term proportional to range rate, which
+together leave 31 m rms; the native runs (three satellites) fit different
+coefficients, so the cause is not settled and GLONASS stays off by
+default.
 
 Checks: across satellites the code phase modulo 1 ms matches the geometry
 to about 0.1 chip; the Doppler field equals the geometric Doppler plus one
 common offset (1626 Hz on this phone, slope 1.000, 0.5 Hz rms); bytes 35–36
 change by 5.26 per metre of range change (1/λ at L1). The BeiDou code phase
 scale is not settled yet.
+
+Navigation bits (unscrambled payloads, one record per message):
+
+| Message | Layout |
+|---|---|
+| 0x2B, GPS L1 C/A, 46 bytes | u16 word parity-failure mask (bit per word), u16 PRN, u8 subframe id, u8 pad, then ten words of 32 bits (two 16-bit halves, high half first, each little-endian); the low 24 bits are the data bits with parity applied and polarity corrected |
+| 0x4B, BeiDou B1I D1, 47 bytes | three bytes of word-failure flags, u8 PRN, u8 0, u8 subframe id, u8 page (subframes 4/5; 0xFF otherwise), then ten words as above holding the 30-bit words with parity kept and the BCH interleave undone: 22 data bits then 8 parity bits (word 1: 26 then 4) |
+
+0x2A and 0x4A are their headers (a count and a DSP time). Records with any
+failure flag set are often garbage and are discarded. Decoded subframes
+matched the IGS broadcast file field for field (GPS and BeiDou C33).
+0x3B (14 bytes, GLONASS frequency slot in bytes 2–3) is probably GLONASS
+string data; not decoded.
 
 Host commands seen during a cold start (all payloads plain):
 
@@ -323,33 +341,47 @@ analysis alone.
 One daemon owns `/dev/gnssN` (opening it boots the DSP) and does what
 `libmnl` does on stock, with open code:
 
-1. Protocol: deframe, unscramble, group messages into epochs (0x42 … 0x4E,
-   one per second), send host commands. Done.
-2. Measurements: turn the per-channel records into pseudoranges (code
-   phase, measurement time, carrier/Doppler, C/N0, lock flags). Blocked on
-   decoding the records from outdoor captures.
-3. Acquisition: decide which satellite each channel searches and with what
-   code/Doppler window (msgs 0x01–0x03, search mode in msg 0x08), using
-   the best available aiding: system time (NTP-synced clock), an
-   approximate position (GeoClue's Wi-Fi/cell fix, requested at city
-   accuracy so that this daemon does not feed on itself) and, once decoded,
-   broadcast ephemeris and almanac. Cold start without aiding: assign all 32
-   GPS PRNs round-robin with full Doppler search. Blocked on the command
-   layouts; whether the DSP searches on its own (the indoor capture shows
-   one channel working unprompted) is the first thing an outdoor capture
-   answers.
-4. Navigation message: GPS L1 C/A word parity and subframes 1–3 →
-   ephemeris (IS-GPS-200). Done; needs the DSP's navigation bits wired in.
-   GLONASS, Galileo and BeiDou decoders follow the same pattern later.
-5. Position: satellite orbit and clock from the ephemeris, then single-point
-   least squares (RTKLIB's `pntpos` method, with nalgebra). Done; the
-   Klobuchar ionosphere and a troposphere model come next for 5–10 m.
-6. Output: NMEA GGA/RMC (done) to GeoClue's `[network-nmea]` source.
-   GeoClue connects to a Unix socket given as `nmea-socket=` and reads NMEA
-   lines; the daemon will listen on `/run/marathon-gnssd/nmea.sock`.
+1. Protocol: deframe, unscramble, group messages into epochs (0x28 … 0x4E,
+   one per second) and answer each with the cold-start command set above.
+2. Measurements: lock-state filter, C/N0 ≥ 20, 10° mask, Doppler
+   consistency (one common clock offset, 50 Hz tolerance), code phase
+   modulo the code period (BeiDou 0.5 ms), whole periods from the
+   approximate position relative to the first satellite.
+3. Ephemerides from the sky: GPS LNAV subframes 1–3 (0x2B) and BeiDou D1
+   subframes 1–3 (0x4B); Klobuchar coefficients from GPS subframe 4 page
+   18. A RINEX 3 navigation file (`--nav`) is an optional warm start.
+4. Position: weighted least squares (GPS clock; BeiDou clock tied to it
+   within 100 m; GLONASS, when enabled, free), a height constraint (the
+   median of 30 strong fixes, 10 m), a standard zenith tropospheric delay
+   mapped by elevation, Klobuchar ionospheric corrections, leave-one-out on inconsistent
+   epochs, then a constant-velocity Kalman filter (σ = 10 m × HDOP,
+   innovation gate χ²₃ 0.1 %, restart after five refusals).
+5. Start: `--approx`, else the last position saved in `--state`, else the
+   time zone's location (`zone1970.tab`), from which a coarse search over
+   a 75 km grid up to 2500 km finds the first fix (≥ 5 GPS satellites).
+   Sixty epochs with satellites but no fix near the approximate position
+   start the search again. Accepted fixes move the approximate position.
+6. Output: NMEA GGA (MSL height, EGM2008 geoid separation, HDOP, satellites
+   used) and RMC to the clients of systemd's socket
+   `/run/marathon-gnssd.sock`, which GeoClue's `[network-nmea]` source
+   reads (`/etc/geoclue/conf.d/91-marathon-gnssd.conf`). The daemon opens
+   the device when the first client connects and exits 10 s after the
+   last one leaves, so the DSP and LNA run only while GeoClue needs an
+   exact position.
 
-Today the binary prints each epoch's messages unscrambled, which is the
-tool for step 2.
+Replays of the three captures (fixes / epochs, median and 90th percentile
+horizontal error against the surveyed point; GPS + BeiDou):
+
+| Capture | No RINEX | With RINEX |
+|---|---|---|
+| reference run 2 (window sill) | 74 %, 29 m, 58 m | 81 %, 17 m, 41 m |
+| native run 1 | 24 %, 22 m, 40 m | 37 %, 22 m, 39 m |
+| native run 2 | 74 %, 15 m, 33 m | 80 %, 12 m, 25 m |
+
+Started from a time-zone guess instead of a position (Dublin, Paris, Rome
+and Oslo all landed on the same first fix), run 2 reaches its first fix
+after five GPS ephemerides have been read from the sky, 5–10 minutes in
+these window captures.
 
 ## Kernel driver
 
@@ -413,4 +445,13 @@ WMT's normal reset path).
    the grouped blocks) should start to carry non-zero data once satellites
    are tracked; that capture is the input for the open engine.
 
-No time to first fix can be measured until the open engine exists.
+6. The product path, with the DT from `0013` booted and the packages
+   installed (`marathon-gnssd`, `q25-gnss-firmware`, the module):
+   `systemctl status marathon-gnssd.socket` is listening; as root,
+   `socat -u UNIX-CONNECT:/run/marathon-gnssd.sock -` starts the service
+   and prints NMEA once fixes come; any GeoClue
+   client asking for exact accuracy (`/usr/libexec/geoclue-2.0/demos/where-am-i -a 8`)
+   makes GeoClue connect, `marathon-gnssd.service` start and
+   `/dev/gnss0` open; `journalctl -u marathon-gnssd` logs the coarse fix;
+   ten seconds after the client exits the service stops and the DSP is
+   off again.
