@@ -72,17 +72,12 @@ pub fn solve(
         let pos: Vector3<f64> = x.fixed_rows::<3>(0).into();
         for (i, o) in obs.iter().enumerate() {
             let col = column[o.sat.system()]?;
-            let tx = t - o.range / C;
-            let (sat0, clock) = o.sat.position(tx - o.sat.position(tx).1);
-            let travel = (sat0 - pos).norm() / C;
-            let sat = Rotation3::from_axis_angle(&Vector3::z_axis(), -OMEGA_E * travel) * sat0;
-            let los = sat - pos;
-            let rho = los.norm();
+            let (los, modelled) = geometry(o, t, &pos);
             h.row_mut(i)
                 .columns_mut(0, 3)
-                .copy_from(&(-los / rho).transpose());
+                .copy_from(&(-los.normalize()).transpose());
             h[(i, col)] = 1.0;
-            r[i] = o.range - (rho + x[col] - C * clock);
+            r[i] = o.range - (modelled + x[col]);
             w[i] = 1.0 / (o.sigma * o.sigma);
         }
         if let Some((h0, sigma)) = height {
@@ -126,6 +121,18 @@ pub fn solve(
         }
     }
     None
+}
+
+/// Line of sight from `pos` to the satellite at transmission (Earth
+/// rotation during the flight applied), and the pseudorange it implies
+/// without the receiver clock: geometric range less the satellite clock.
+pub fn geometry(o: &Observation, t: f64, pos: &Vector3<f64>) -> (Vector3<f64>, f64) {
+    let tx = t - o.range / C;
+    let (sat0, clock) = o.sat.position(tx - o.sat.position(tx).1);
+    let travel = (sat0 - pos).norm() / C;
+    let sat = Rotation3::from_axis_angle(&Vector3::z_axis(), -OMEGA_E * travel) * sat0;
+    let los = sat - pos;
+    (los, los.norm() - C * clock)
 }
 
 fn up_vector(lat: f64, lon: f64) -> Vector3<f64> {

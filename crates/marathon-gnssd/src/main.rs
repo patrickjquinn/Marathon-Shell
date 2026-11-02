@@ -4,10 +4,12 @@
 //!
 //! Opens the GNSS device (which boots the DSP), keeps the DSP searching, and
 //! writes NMEA GGA/RMC for each epoch with a fix from GPS (G), BeiDou (C)
-//! and, on request, GLONASS (R), whose pseudoranges still carry per-satellite
-//! errors of hundreds of metres. Ephemerides come from the satellites' own
-//! navigation messages; a RINEX 3 navigation file (`--nav`) only speeds up
-//! the first fix.
+//! and, on request, GLONASS (R). GLONASS pseudoranges carry a bias of up to
+//! a few hundred metres per frequency slot, so each slot is used only after
+//! 30 strong fixes have measured its bias. GPS and BeiDou ephemerides come
+//! from the satellites' own navigation messages; GLONASS ones only from a
+//! RINEX 3 navigation file (`--nav`), which otherwise just speeds up the
+//! first fix.
 //!
 //! The approximate position is `--approx`, else the one saved in `--state`
 //! by an earlier run, else `--guess` or the system time zone's; from a guess
@@ -55,6 +57,10 @@ const COARSE_HEIGHT_SIGMA: f64 = 500.0;
 /// Epochs with that many satellites but no fix before the approximate
 /// position is presumed wrong and the coarse search starts again.
 const STARVED: u32 = 60;
+/// Epochs of residuals before a GLONASS frequency slot's bias is used, and
+/// how many are kept.
+const SLOT_SAMPLES: usize = 30;
+const SLOT_SAMPLES_KEPT: usize = 300;
 /// Seconds between saves of the position to `--state`.
 const SAVE_EVERY: f64 = 60.0;
 /// Seconds without a client before the daemon exits.
@@ -66,7 +72,7 @@ const HEIGHT_SAMPLES: usize = 30;
 const HEIGHT_SIGMA: f64 = 10.0;
 const GUESSED_HEIGHT_SIGMA: f64 = 50.0;
 /// Pseudorange sigma at zenith per system (GPS, GLONASS, BeiDou), metres.
-const SIGMA: [f64; 3] = [10.0, 60.0, 15.0];
+const SIGMA: [f64; 3] = [10.0, 35.0, 15.0];
 /// BeiDou time is GPS time less 14 s and the receiver adds no measurable
 /// bias between the two (reference runs: within 25 m), so its clock is tied
 /// to the GPS clock; GLONASS keeps a free one.
@@ -91,6 +97,8 @@ struct Engine {
     d1: HashMap<u8, d1::EphemerisBuilder>,
     iono: Option<[f64; 8]>,
     filter: Filter,
+    /// Residuals per GLONASS frequency slot, for its bias.
+    slots: HashMap<i8, Vec<f64>>,
     /// The approximate position is only a guess (time zone, old state).
     coarse: bool,
     starved: u32,
@@ -196,7 +204,7 @@ impl Engine {
 
     fn fix(&mut self, unix: f64, out: &mut impl Write) -> io::Result<()> {
         let t = tow(unix);
-        let (fix, used, gps, coarse) = {
+        let (fix, used, gps, coarse, samples) = {
             let tracked: Vec<(Channel, Sat)> = self
                 .chans
                 .iter()
@@ -215,40 +223,38 @@ impl Engine {
                 let found = (gps >= COARSE_SATS)
                     .then(|| self.coarse_fix(&tracked, t))
                     .flatten();
-                (None, 0, gps, Some(found))
+                (None, 0, gps, Some(found), Vec::new())
             } else {
-                // GPS first: its clock is the one reported.
                 let mut ordered = tracked.clone();
                 ordered.sort_by_key(|(_, s)| s.system());
-                let obs: Vec<spp::Observation> = meas::transmit_times(&ordered, t, self.approx)
-                    .into_iter()
-                    .map(|(sat, ttx)| {
-                        let (az, el) = self.az_el(&sat, ttx);
-                        // less a mapped standard troposphere and the broadcast ionosphere
-                        let tropo = 2.47 / (el.sin() + 0.0121);
-                        let iono = self.iono.map_or(0.0, |k| {
-                            let (lat, lon, _) = spp::geodetic(&self.approx);
-                            let l1 = 1_575.42e6 / sat.carrier();
-                            orbit::C
-                                * iono::delay(&k, lat.to_radians(), lon.to_radians(), az, el, t)
-                                * l1
-                                * l1
-                        });
-                        spp::Observation {
-                            sat,
-                            range: orbit::C * orbit::dt(t, ttx) - tropo - iono,
-                            sigma: SIGMA[sat.system()] / el.sin(),
-                        }
+                let obs = self.observations(&ordered, t);
+                // GLONASS only once its satellite's bias is known.
+                let used: Vec<spp::Observation> = obs
+                    .iter()
+                    .filter_map(|o| match o.sat {
+                        Sat::Glonass(e) => self.slot_bias(e.k).map(|b| spp::Observation {
+                            range: o.range - b,
+                            ..*o
+                        }),
+                        _ => Some(*o),
                     })
                     .collect();
-                (
-                    best_fix(&obs, t, self.approx, self.height),
-                    obs.len(),
-                    gps,
-                    None,
-                )
+                let fix = best_fix(&used, t, self.approx, self.height);
+                let samples = fix
+                    .as_ref()
+                    .filter(|f| f.hdop < 2.0 && f.redundancy >= 2)
+                    .map(|f| self.slot_samples(&obs, t, &f.ecef))
+                    .unwrap_or_default();
+                (fix, used.len(), gps, None, samples)
             }
         };
+        for (k, s) in samples {
+            let v = self.slots.entry(k).or_default();
+            if v.len() >= SLOT_SAMPLES_KEPT {
+                v.remove(0);
+            }
+            v.push(s);
+        }
         if let Some(found) = coarse {
             if let Some(f) = found {
                 let (lat, lon, _) = spp::geodetic(&f.ecef);
@@ -351,6 +357,71 @@ impl Engine {
             }
         }
         best.filter(|f| f.chi < MAX_CHI)
+    }
+
+    /// Pseudoranges, less the troposphere and broadcast ionosphere, for the
+    /// tracked channels (GPS first: its clock is the one reported).
+    fn observations<'a>(
+        &'a self,
+        ordered: &[(Channel, Sat<'a>)],
+        t: f64,
+    ) -> Vec<spp::Observation<'a>> {
+        meas::transmit_times(ordered, t, self.approx)
+            .into_iter()
+            .map(|(sat, ttx)| {
+                let (az, el) = self.az_el(&sat, ttx);
+                // less a mapped standard troposphere and the broadcast ionosphere
+                let tropo = 2.47 / (el.sin() + 0.0121);
+                let iono = self.iono.map_or(0.0, |k| {
+                    let (lat, lon, _) = spp::geodetic(&self.approx);
+                    let l1 = 1_575.42e6 / sat.carrier();
+                    orbit::C
+                        * iono::delay(&k, lat.to_radians(), lon.to_radians(), az, el, t)
+                        * l1
+                        * l1
+                });
+                spp::Observation {
+                    sat,
+                    range: orbit::C * orbit::dt(t, ttx) - tropo - iono,
+                    sigma: SIGMA[sat.system()] / el.sin(),
+                }
+            })
+            .collect()
+    }
+
+    /// The pseudorange bias of a GLONASS frequency slot relative to the
+    /// others, once enough epochs have measured it.
+    fn slot_bias(&self, k: i8) -> Option<f64> {
+        let v = self.slots.get(&k).filter(|v| v.len() >= SLOT_SAMPLES)?;
+        let mut s = v.clone();
+        s.sort_by(f64::total_cmp);
+        Some(s[s.len() / 2])
+    }
+
+    /// Each GLONASS satellite's residual against a fix made without the
+    /// uncalibrated ones, less the epoch's common GLONASS offset (its clock).
+    fn slot_samples(&self, obs: &[spp::Observation], t: f64, pos: &Vector3<f64>) -> Vec<(i8, f64)> {
+        let glo: Vec<(i8, f64)> = obs
+            .iter()
+            .filter_map(|o| match o.sat {
+                Sat::Glonass(e) => Some((e.k, o.range - spp::geometry(o, t, pos).1)),
+                _ => None,
+            })
+            .collect();
+        if glo.len() < 2 {
+            return Vec::new();
+        }
+        let known: Vec<f64> = glo
+            .iter()
+            .filter_map(|&(k, r)| Some(r - self.slot_bias(k)?))
+            .collect();
+        #[allow(clippy::cast_precision_loss, reason = "a handful")]
+        let common = if known.is_empty() {
+            glo.iter().map(|g| g.1).sum::<f64>() / glo.len() as f64
+        } else {
+            known.iter().sum::<f64>() / known.len() as f64
+        };
+        glo.into_iter().map(|(k, r)| (k, r - common)).collect()
     }
 
     /// Saves the approximate position for the next start, now and then.
@@ -592,6 +663,7 @@ fn main() -> io::Result<()> {
         d1: HashMap::new(),
         iono: None,
         filter: Filter::default(),
+        slots: HashMap::new(),
         coarse: given.is_none() && saved.is_none(),
         starved: 0,
         state,
