@@ -3,7 +3,6 @@ tree (`build.sh`, run from its APKBUILD) and ships as `q25-kernel-modules`.
 
 | Directory | Modules | Origin |
 |---|---|---|
-| `keyboard` | `q25-bbq-keys`, `q25-keyboard-led` | Marathon |
 | `md1` | `q25-md1-owner` | Marathon |
 | `bt` | `q25-btmtk-stp` | Marathon |
 | `audio` | `snd-soc-mt6358`, `snd-soc-mtk-common`, `snd-soc-mt6789-afe`, `q25-oca72390`, `q25-mt6366-card`, `q25-mt6358-accdet` | the kernel's `sound/soc/codecs/mt6358.c` plus patches `0002`–`0006` and `sound/soc/mediatek/common`, linux-mediatek/linux `996ec481` (`adomerle/mt6789-sound`) `sound/soc/mediatek/mt6789` plus `0001`, Marathon's `q25/` drivers, and `q25accdet/`, a port of `sound/soc/codecs/mt6358-accdet.c` from LineageOS/android_kernel_xelex_mt6789 `2a873a35` |

@@ -1,0 +1,334 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:53:09 +0000
+Subject: [PATCH] Input: add driver for BBQ10/BBQ20 I2C keyboards
+
+BlackBerry Q10 and Q20 keyboards are commonly paired with a
+microcontroller running arturo182's BBQ10 keyboard firmware or one of
+its derivatives (i2c_puppet), which scans the matrix and queues key
+events in a FIFO behind a small I2C register file. The Zinwa Q25 phone
+has such a keyboard, scanned by an RP2040.
+
+The driver configures the firmware to report raw keys including the
+modifiers and not to translate them, so that layout and modifier
+handling stay in userspace, and drains the FIFO from the interrupt.
+Keys are mapped through linux,keymap with the firmware scancode as the
+column. The key backlight is exposed as an LED class device.
+
+Writes are the register number with bit 7 set. The interrupt status is
+cleared by writing it, as the firmware does not clear it on read.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ MAINTAINERS                       |   1 +
+ drivers/input/keyboard/Kconfig    |  12 ++
+ drivers/input/keyboard/Makefile   |   1 +
+ drivers/input/keyboard/bbqx0kbd.c | 252 ++++++++++++++++++++++++++++++
+ 4 files changed, 266 insertions(+)
+ create mode 100644 drivers/input/keyboard/bbqx0kbd.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ba0c3435..c0d2a007 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4447,6 +4447,7 @@ M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
+ L:	linux-input@vger.kernel.org
+ S:	Maintained
+ F:	Documentation/devicetree/bindings/input/zinwa,q25-keyboard.yaml
++F:	drivers/input/keyboard/bbqx0kbd.c
+ 
+ BCACHE (BLOCK LAYER CACHE)
+ M:	Coly Li <colyli@fnnas.com>
+diff --git a/drivers/input/keyboard/Kconfig b/drivers/input/keyboard/Kconfig
+index 2ff4fef3..2be25a05 100644
+--- a/drivers/input/keyboard/Kconfig
++++ b/drivers/input/keyboard/Kconfig
+@@ -157,6 +157,18 @@ config KEYBOARD_ATKBD_RDI_KEYCODES
+ 	  right-hand column will be interpreted as the key shown in the
+ 	  left-hand column.
+ 
++config KEYBOARD_BBQX0
++	tristate "BBQ10/BBQ20 I2C keyboard"
++	depends on I2C
++	select INPUT_MATRIXKMAP
++	help
++	  Say Y here to enable support for BlackBerry Q10 and Q20 style
++	  keyboards connected through a microcontroller that speaks the
++	  BBQ10 keyboard I2C protocol, such as the one on the Zinwa Q25.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called bbqx0kbd.
++
+ config KEYBOARD_QT1050
+ 	tristate "Microchip AT42QT1050 Touch Sensor Chip"
+ 	depends on I2C
+diff --git a/drivers/input/keyboard/Makefile b/drivers/input/keyboard/Makefile
+index 2d906e14..fd40ed2f 100644
+--- a/drivers/input/keyboard/Makefile
++++ b/drivers/input/keyboard/Makefile
+@@ -13,6 +13,7 @@ obj-$(CONFIG_KEYBOARD_AMIGA)		+= amikbd.o
+ obj-$(CONFIG_KEYBOARD_APPLESPI)		+= applespi.o
+ obj-$(CONFIG_KEYBOARD_ATARI)		+= atakbd.o
+ obj-$(CONFIG_KEYBOARD_ATKBD)		+= atkbd.o
++obj-$(CONFIG_KEYBOARD_BBQX0)		+= bbqx0kbd.o
+ obj-$(CONFIG_KEYBOARD_BCM)		+= bcm-keypad.o
+ obj-$(CONFIG_KEYBOARD_CAP11XX)		+= cap11xx.o
+ obj-$(CONFIG_KEYBOARD_CLPS711X)		+= clps711x-keypad.o
+diff --git a/drivers/input/keyboard/bbqx0kbd.c b/drivers/input/keyboard/bbqx0kbd.c
+new file mode 100644
+index 00000000..3c13c825
+--- /dev/null
++++ b/drivers/input/keyboard/bbqx0kbd.c
+@@ -0,0 +1,252 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Keyboard driver for BlackBerry keyboards behind an i2c_puppet style
++ * microcontroller (BBQ10/BBQ20 register protocol)
++ *
++ * The protocol comes from arturo182's BBQ10 keyboard firmware and
++ * wallComputer's bbqX0kbd driver.
++ */
++
++#include <linux/array_size.h>
++#include <linux/bitfield.h>
++#include <linux/bits.h>
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/input.h>
++#include <linux/input/matrix_keypad.h>
++#include <linux/interrupt.h>
++#include <linux/leds.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/regulator/consumer.h>
++
++#define BBQX0KBD_REG_VER		0x01
++#define BBQX0KBD_REG_CFG		0x02
++#define BBQX0KBD_CFG_OVERFLOW_ON	BIT(0)
++#define BBQX0KBD_CFG_OVERFLOW_INT	BIT(1)
++#define BBQX0KBD_CFG_KEY_INT		BIT(4)
++#define BBQX0KBD_CFG_REPORT_MODS	BIT(6)
++#define BBQX0KBD_REG_INT		0x03
++#define BBQX0KBD_REG_KEY		0x04
++#define BBQX0KBD_KEY_COUNT		GENMASK(4, 0)
++#define BBQX0KBD_REG_BKL		0x05
++#define BBQX0KBD_REG_FIF		0x09
++#define BBQX0KBD_WRITE			BIT(7)
++
++#define BBQX0KBD_STATE_PRESSED		1
++#define BBQX0KBD_STATE_RELEASED		3
++
++/* The firmware reports raw keys and modifiers, and never translates. */
++#define BBQX0KBD_CFG			(BBQX0KBD_CFG_OVERFLOW_ON | \
++					 BBQX0KBD_CFG_OVERFLOW_INT | \
++					 BBQX0KBD_CFG_KEY_INT | \
++					 BBQX0KBD_CFG_REPORT_MODS)
++
++#define BBQX0KBD_NUM_SCANCODES		256
++#define BBQX0KBD_SUPPLY_SETTLE_US	(10 * USEC_PER_MSEC)
++#define BBQX0KBD_BOOT_US		(400 * USEC_PER_MSEC)
++
++struct bbqx0kbd {
++	struct i2c_client *client;
++	struct input_dev *input;
++	struct led_classdev backlight;
++};
++
++static const char * const bbqx0kbd_io_supplies[] = { "vdd18", "vdd28" };
++
++static int bbqx0kbd_write(struct bbqx0kbd *kbd, u8 reg, u8 val)
++{
++	return i2c_smbus_write_byte_data(kbd->client, reg | BBQX0KBD_WRITE, val);
++}
++
++static void bbqx0kbd_read_fifo(struct bbqx0kbd *kbd)
++{
++	struct device *dev = &kbd->client->dev;
++	unsigned int code;
++	int count, entry;
++	u8 state, scan;
++
++	count = i2c_smbus_read_byte_data(kbd->client, BBQX0KBD_REG_KEY);
++	if (count < 0) {
++		dev_err_ratelimited(dev, "Failed to read key count: %d\n", count);
++		return;
++	}
++
++	count = FIELD_GET(BBQX0KBD_KEY_COUNT, count);
++	while (count--) {
++		entry = i2c_smbus_read_word_data(kbd->client, BBQX0KBD_REG_FIF);
++		if (entry < 0) {
++			dev_err_ratelimited(dev, "Failed to read FIFO: %d\n", entry);
++			break;
++		}
++
++		state = entry & 0xff;
++		scan = entry >> 8;
++		if (state != BBQX0KBD_STATE_PRESSED &&
++		    state != BBQX0KBD_STATE_RELEASED)
++			continue;
++
++		code = ((unsigned short *)kbd->input->keycode)[scan];
++		input_event(kbd->input, EV_MSC, MSC_SCAN, scan);
++		input_report_key(kbd->input, code,
++				 state == BBQX0KBD_STATE_PRESSED);
++	}
++
++	input_sync(kbd->input);
++}
++
++/*
++ * Clear the status before draining the FIFO: an event queued meanwhile sets
++ * it again and raises another interrupt instead of being left behind.
++ */
++static irqreturn_t bbqx0kbd_irq(int irq, void *dev_id)
++{
++	struct bbqx0kbd *kbd = dev_id;
++	int ret;
++
++	ret = bbqx0kbd_write(kbd, BBQX0KBD_REG_INT, 0);
++	if (ret)
++		dev_err_ratelimited(&kbd->client->dev,
++				    "Failed to clear interrupt status: %d\n", ret);
++
++	bbqx0kbd_read_fifo(kbd);
++
++	return IRQ_HANDLED;
++}
++
++static int bbqx0kbd_backlight_set(struct led_classdev *led,
++				  enum led_brightness brightness)
++{
++	struct bbqx0kbd *kbd = container_of(led, struct bbqx0kbd, backlight);
++
++	return bbqx0kbd_write(kbd, BBQX0KBD_REG_BKL, brightness);
++}
++
++static int bbqx0kbd_init_backlight(struct bbqx0kbd *kbd)
++{
++	struct device *dev = &kbd->client->dev;
++	int brightness;
++
++	brightness = i2c_smbus_read_byte_data(kbd->client, BBQX0KBD_REG_BKL);
++	if (brightness < 0)
++		return dev_err_probe(dev, brightness,
++				     "Failed to read backlight level\n");
++
++	kbd->backlight.name = devm_kasprintf(dev, GFP_KERNEL, "%s::%s",
++					     dev_name(dev),
++					     LED_FUNCTION_KBD_BACKLIGHT);
++	if (!kbd->backlight.name)
++		return -ENOMEM;
++
++	kbd->backlight.max_brightness = 255;
++	kbd->backlight.brightness = brightness;
++	kbd->backlight.brightness_set_blocking = bbqx0kbd_backlight_set;
++
++	return devm_led_classdev_register(dev, &kbd->backlight);
++}
++
++static int bbqx0kbd_power_on(struct device *dev)
++{
++	int ret;
++
++	ret = devm_regulator_get_enable(dev, "vdd");
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to enable vdd supply\n");
++
++	fsleep(BBQX0KBD_SUPPLY_SETTLE_US);
++
++	ret = devm_regulator_bulk_get_enable(dev,
++					     ARRAY_SIZE(bbqx0kbd_io_supplies),
++					     bbqx0kbd_io_supplies);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to enable I/O supplies\n");
++
++	fsleep(BBQX0KBD_BOOT_US);
++
++	return 0;
++}
++
++static int bbqx0kbd_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct bbqx0kbd *kbd;
++	int version, ret;
++
++	if (!i2c_check_functionality(client->adapter,
++				     I2C_FUNC_SMBUS_BYTE_DATA |
++				     I2C_FUNC_SMBUS_WORD_DATA))
++		return -EOPNOTSUPP;
++
++	kbd = devm_kzalloc(dev, sizeof(*kbd), GFP_KERNEL);
++	if (!kbd)
++		return -ENOMEM;
++
++	kbd->client = client;
++
++	ret = bbqx0kbd_power_on(dev);
++	if (ret)
++		return ret;
++
++	version = i2c_smbus_read_byte_data(client, BBQX0KBD_REG_VER);
++	if (version < 0)
++		return dev_err_probe(dev, version,
++				     "Failed to read firmware version\n");
++
++	ret = bbqx0kbd_write(kbd, BBQX0KBD_REG_CFG, BBQX0KBD_CFG);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to configure\n");
++
++	kbd->input = devm_input_allocate_device(dev);
++	if (!kbd->input)
++		return -ENOMEM;
++
++	kbd->input->name = "BBQX0 keyboard";
++	kbd->input->id.bustype = BUS_I2C;
++	kbd->input->id.version = version;
++
++	ret = matrix_keypad_build_keymap(NULL, NULL, 1, BBQX0KBD_NUM_SCANCODES,
++					 NULL, kbd->input);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to build keymap\n");
++
++	input_set_capability(kbd->input, EV_MSC, MSC_SCAN);
++	__set_bit(EV_REP, kbd->input->evbit);
++
++	ret = input_register_device(kbd->input);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to register input device\n");
++
++	ret = devm_request_threaded_irq(dev, client->irq, NULL, bbqx0kbd_irq,
++					IRQF_ONESHOT, client->name, kbd);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to request IRQ\n");
++
++	return bbqx0kbd_init_backlight(kbd);
++}
++
++static const struct of_device_id bbqx0kbd_of_match[] = {
++	{ .compatible = "zinwa,q25-keyboard" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, bbqx0kbd_of_match);
++
++static const struct i2c_device_id bbqx0kbd_id[] = {
++	{ "q25-keyboard" },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, bbqx0kbd_id);
++
++static struct i2c_driver bbqx0kbd_driver = {
++	.driver = {
++		.name = "bbqx0kbd",
++		.of_match_table = bbqx0kbd_of_match,
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	},
++	.probe = bbqx0kbd_probe,
++	.id_table = bbqx0kbd_id,
++};
++module_i2c_driver(bbqx0kbd_driver);
++
++MODULE_AUTHOR("Patrick Quinn <patrick.jm.quinn@gmail.com>");
++MODULE_DESCRIPTION("BBQ10/BBQ20 I2C keyboard driver");
++MODULE_LICENSE("GPL");

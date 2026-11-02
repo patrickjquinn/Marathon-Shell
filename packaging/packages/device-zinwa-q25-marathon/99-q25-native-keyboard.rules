@@ -1,4 +1,0 @@
-# SPDX-License-Identifier: GPL-2.0-only
-# Exact Q25 keyboard names only; run after60-input-id.rules.
-ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{name}=="Q25 BBQ firmware handoff (experimental)", ATTRS{id/bustype}=="0018", ENV{ID_INPUT}="1", ENV{ID_INPUT_KEY}="1", ENV{ID_INPUT_KEYBOARD}="1", ENV{ID_INPUT_MOUSE}="", ENV{ID_INPUT_POINTINGSTICK}="", ENV{ID_INPUT_TOUCHPAD}="", ENV{ID_INTEGRATION}="internal", ENV{ID_INPUT_KEYBOARD_INTEGRATION}="internal"
-ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{name}=="Q25 native BBQ keyboard", ATTRS{id/bustype}=="0018", ENV{ID_INPUT}="1", ENV{ID_INPUT_KEY}="1", ENV{ID_INPUT_KEYBOARD}="1", ENV{ID_INPUT_MOUSE}="", ENV{ID_INPUT_POINTINGSTICK}="", ENV{ID_INPUT_TOUCHPAD}="", ENV{ID_INTEGRATION}="internal", ENV{ID_INPUT_KEYBOARD_INTEGRATION}="internal"

@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:53:06 +0000
+Subject: [PATCH] dt-bindings: input: Add Zinwa Q25 keyboard
+
+The Zinwa Q25 has a BlackBerry Q20 style keyboard, a row of front
+buttons and an optical trackpad, all scanned by an RP2040 that runs a
+firmware speaking the BBQ10 keyboard I2C protocol (arturo182's
+i2c_puppet). It reports each key as an 8-bit scancode, raises an edge
+interrupt for new events and drives the key backlight. It has three
+supplies with separate enables.
+
+The scancodes are characters chosen by the firmware rather than matrix
+positions, so the keymap uses row 0 and the scancode as the column.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../bindings/input/zinwa,q25-keyboard.yaml    | 82 +++++++++++++++++++
+ MAINTAINERS                                   |  6 ++
+ 2 files changed, 88 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/input/zinwa,q25-keyboard.yaml
+
+diff --git a/Documentation/devicetree/bindings/input/zinwa,q25-keyboard.yaml b/Documentation/devicetree/bindings/input/zinwa,q25-keyboard.yaml
+new file mode 100644
+index 00000000..ffb7aab8
+--- /dev/null
++++ b/Documentation/devicetree/bindings/input/zinwa,q25-keyboard.yaml
+@@ -0,0 +1,82 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/input/zinwa,q25-keyboard.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Zinwa Q25 keyboard
++
++maintainers:
++  - Patrick Quinn <patrick.jm.quinn@gmail.com>
++
++description: |
++  BlackBerry Q20 style keyboard, front buttons and trackpad of the Zinwa
++  Q25, scanned by an RP2040 microcontroller that speaks the BBQ10 keyboard
++  I2C protocol. The controller reports every key as an 8-bit scancode and
++  drives the key backlight.
++
++  Keys are described with linux,keymap entries of the form
++  MATRIX_KEY(0, scancode, keycode): the column is the scancode the
++  controller reports for the key and the row is always 0.
++
++allOf:
++  - $ref: matrix-keymap.yaml#
++
++properties:
++  compatible:
++    const: zinwa,q25-keyboard
++
++  reg:
++    maxItems: 1
++
++  interrupts:
++    maxItems: 1
++
++  vdd-supply:
++    description: Main supply, enabled first.
++
++  vdd18-supply:
++    description: 1.8 V supply.
++
++  vdd28-supply:
++    description: 2.8 V supply.
++
++  wakeup-source: true
++
++required:
++  - compatible
++  - reg
++  - interrupts
++  - vdd-supply
++  - vdd18-supply
++  - vdd28-supply
++  - linux,keymap
++
++unevaluatedProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/input/input.h>
++    #include <dt-bindings/interrupt-controller/irq.h>
++
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        keyboard@1f {
++            compatible = "zinwa,q25-keyboard";
++            reg = <0x1f>;
++            interrupt-parent = <&pio>;
++            interrupts = <12 IRQ_TYPE_EDGE_FALLING>;
++            vdd-supply = <&kbd_vdd>;
++            vdd18-supply = <&kbd_1v8>;
++            vdd28-supply = <&kbd_2v8>;
++            linux,keymap = <MATRIX_KEY(0, 0x07, KEY_BACK)
++                            MATRIX_KEY(0, 0x08, KEY_BACKSPACE)
++                            MATRIX_KEY(0, 0x0a, KEY_ENTER)
++                            MATRIX_KEY(0, 0x1a, KEY_LEFTALT)
++                            MATRIX_KEY(0, 0x20, KEY_SPACE)
++                            MATRIX_KEY(0, 0x41, KEY_A)>;
++        };
++    };
++...
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 52dd8e37..ba0c3435 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4442,6 +4442,12 @@ S:	Maintained
+ W:	http://www.baycom.org/~tom/ham/ham.html
+ F:	drivers/net/hamradio/baycom*
+ 
++BBQX0 I2C KEYBOARD DRIVER
++M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
++L:	linux-input@vger.kernel.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/input/zinwa,q25-keyboard.yaml
++
+ BCACHE (BLOCK LAYER CACHE)
+ M:	Coly Li <colyli@fnnas.com>
+ M:	Kent Overstreet <kent.overstreet@linux.dev>

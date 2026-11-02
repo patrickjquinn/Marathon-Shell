@@ -15,16 +15,16 @@ makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
 replaces="device-mediatek-g99-marathon"
-source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example q25-keyboard.modprobe.conf q25-keyboard.modules-load.conf
+source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example
  q25-md1-off.service q25-wmt.c q25-connsys.service q25-wmt-launcher.service q25-wifi.service
  q25-wifi.system-sleep 50-q25-wpa_supplicant.conf
- q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules 
+ q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
  unudhcpd-usb0.conf q25.preset
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
  q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless
- q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf
+ q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
 build() {
@@ -38,8 +38,6 @@ package() {
     install -Dm644 "$srcdir/greetd-q25.toml" "$pkgdir/etc/greetd/q25-config.toml"
     install -Dm644 "$srcdir/50-q25-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-q25-session.conf"
     install -Dm644 "$srcdir/q25-session.conf.example" "$pkgdir/usr/share/doc/$pkgname/q25-session.conf.example"
-    install -Dm644 "$srcdir/q25-keyboard.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-keyboard.conf"
-    install -Dm644 "$srcdir/q25-keyboard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-keyboard.conf"
     # The session sources the env file; it selects the printed legends
     # (Alt symbols, Sym navigation) in place of a US layout.
     install -Dm644 "$srcdir/q25.xkb-symbols" "$pkgdir/usr/share/q25-keyboard/xkb/symbols/q25"
@@ -47,12 +45,9 @@ package() {
     # The same layout for Plymouth's PIN prompt.
     install -Dm644 "$srcdir/q25-vconsole.conf" "$pkgdir/etc/vconsole.conf"
     install -Dm644 "$srcdir/q25-plymouth-keyboard.conf" "$pkgdir/usr/lib/systemd/system/plymouth-start.service.d/50-q25-keyboard.conf"
-    # input_id wants every KEY_1..31 bit for a keyboard, which the compact
-    # QWERTY lacks, and calls an I2C pointer a pointing stick.
-    install -Dm644 "$srcdir/99-q25-native-keyboard.rules" "$pkgdir/usr/lib/udev/rules.d/99-q25-native-keyboard.rules"
     # Doze puts the keyboard light out, so a level saved at shutdown is usually 0.
     install -d "$pkgdir/usr/lib/systemd/system"
-    ln -s /dev/null "$pkgdir/usr/lib/systemd/system/systemd-backlight@leds:q25::kbd_backlight.service"
+    ln -s /dev/null "$pkgdir/usr/lib/systemd/system/systemd-backlight@leds:6-001f::kbd_backlight.service"
 
     # The preloader leaves the unbooted MD1 modem domain powered.
     install -Dm644 "$srcdir/q25-md1-off.service" "$pkgdir/usr/lib/systemd/system/q25-md1-off.service"
@@ -174,8 +169,6 @@ f72a9d970e219e240e0df166693f4f884778683e23ea2ca1c0bd0f1ad00cdd2ca22d33de43f1b4d7
 56babfe06ed3da7ff72569304d9984adba8d77878cacf27435cb0a83d025bacae203e544e366c4d0490880bcdb7425ac67122b40ae3d46534a1104b76ba7157d  greetd-q25.toml
 221913275648d3c6f09a5da643d8c16922cfe305a4630f1d08dc5cabf98e85f7a105dab8daa1d426ca7ea7cff6ba1fed0c8ba4acac506e6be7103df7785ac3ad  50-q25-session.conf
 358ebe8f456cad78ad4d53c3721835cf79026cb233c43f1428f7a4001cf3825e3fbe2db9777d5ca2ced41acc9590ad5508c40307dca9c341859c90aa83f93d6f  q25-session.conf.example
-01a5d44c6c4da99ab36aac068c57d8b9279315b66d05a04eb0c5919551d98e290038612e13c0047b58e68bc97b50781131829573cf33f90b9a5cbce560d360f4  q25-keyboard.modprobe.conf
-03af4f0a3a4e222cae635c4a69d5bc26d00dd070bf1b58d9488c05fae0891009d2ba8c92311e45f66b877711f1175cd23c7bf699d986bed23c7f5a0dc8e69763  q25-keyboard.modules-load.conf
 c863190931afc04d1702917dc5cf6ee4e218151f204a984c8587a9ea311cbf959b5f9025678f1bbfb66a22ff66545d9e7ffa40274c706f8d9538d6cdde640390  q25-md1-off.service
 11d05acf58b9cdf0a6976209939fb268e8e114dac6bb00b66edf95c5f6bfc6c51350ca5e9cdc1c247ba7866939a724d6634d7a3f463dd5dfeafe51ecc0f9e554  q25-wmt.c
 447865489add96c55e51e054a7b16a4970fdab7f7b0c338ff143d35fbc4b921b688389506fb2052fe722e56efd332c0dd148f24cd28b6f05557ac6790d456d44  q25-connsys.service
@@ -210,7 +203,6 @@ ac6802cd8209d3890212f3402777bf3756decb9a1154f5934917611c36512d9136d2bd3eb6185289
 33c25690010d2d4812b58e52356f85ccdec29e798446722c5b45e686f3104c8eb9aadbc61e59950994500b21f12d733736f76f423c0a517a9fab8f9c72a7e413  q25-boot-bless
 ddd69eb57bef58a76f3b0bd965cadbef340efa6cbc4a7b11a0f1d7d700704a27f80f06d7f50e314c31e93a0bd62d92d2c070013b2015528cb624b9c5d5e25288  q25.xkb-symbols
 c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3ccbe57e24776e11ad02ab5d7457f0bc444a4b2b891f442605  q25-keyboard-layout.env
-898ecb22f6ec7a466987b80baaa55fbd3dfc964444b5ca34f378b091d6b4d0b511312b45eeeb40b5af2e1fd434e72a826a8e1dc7603385428b5bacb17152fa4b  99-q25-native-keyboard.rules
 98357776e02b8aff3b585280bf9d4a3082ae8ad694ac880616ca66fec423ee2a645bf65840194e51d0345c6a60fa4c426f183a955ac0233e77c1fa476fb90499  q25-usb-recovery.nm.conf
 95f3a7f976e410ed0eebe473a815ecad5a8cba847bbe9f065163c9bc0f4ac165550cf7feb889f80192d23493dc4ad0cd259099bbfea90c08864e216c400e8e4f  90-q25-recovery-console.rules
 20a56732a4a8fbc22b461dc35886c3cacbb02bfbb17359ea08a7ec8f464c7499a9d7c453b1cb4d0117a424ade0fbbc670b83d22cd43a3a50316b0aa48c5143f8  q25-power-supply-ignore

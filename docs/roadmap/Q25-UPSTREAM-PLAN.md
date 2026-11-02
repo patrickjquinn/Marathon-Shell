@@ -90,7 +90,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Module | Device | Status | Fixed by |
 |---|---|---|---|---|
-| H32 | `q25-bbq-keys` + `q25-keyboard-led` (`keyboard/`), `q25-keyboard.modprobe.conf` (`client_name=6-001f`), `99-q25-native-keyboard.rules` | RP2040 QWERTY on i2c6 @0x1f, BBQ20-style FIFO protocol, key backlight. LED module attaches to the keyboard's bound client by name. | Marathon driver, `compatible` not upstream; LED is a sidecar instead of part of the driver. | W12 |
 | H34 | `q25-oca72390` (`audio/q25/`) | Orient-Chip OCA72390 speaker PA (i2c3 @0x58), register lists embedded. | Register-compatible with Awinic AW87390 (mainline `sound/soc/codecs/aw87390.c`) but reports ID 0x11. | W11 |
 | H35 | `q25-mt6366-card` (`audio/q25/`), `q25-audio.modprobe.conf` softdeps, `q25-audio.modules-load.conf` | ASoC machine driver (AFE + MT6366 + PA), MTKAIF calibration port. | No MT6789 machine driver; codec binds to an MFD cell without an OF node, so it is loaded by name. | W11 |
 | H36 | `q25-mt6358-accdet` (`audio/q25accdet/`, `options standalone=1`) | Headset detection, port of the vendor `mt6358-accdet.c` (LineageOS `2a873a35`). | Mainline has only `mt6359-accdet`. | W10 |

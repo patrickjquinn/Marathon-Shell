@@ -1,0 +1,125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:53:11 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Describe the keyboard
+
+Replace the out-of-tree zinwa,q25-bbq-keys node with the
+zinwa,q25-keyboard binding: the three keyboard supply enables (GPIO159,
+GPIO157 and GPIO158, which the vendor firmware brings up in that order)
+become fixed regulators, and the keymap moves into the device tree.
+
+The letters, space, backspace, enter, the modifiers and the two
+punctuation keys keep the codes they had, so the xkb layout that puts
+digits on Alt continues to work. The front buttons get the codes for
+what they are: call and end are KEY_PICKUP_PHONE and KEY_HANGUP_PHONE,
+the BlackBerry menu key is KEY_MENU, back is KEY_BACK, and the trackpad
+click is KEY_SELECT.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 78 +++++++++++++++++--
+ 1 file changed, 73 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index a61df551..7f6f6a33 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -143,6 +143,34 @@
+ 		regulator-boot-on;
+ 	};
+ 
++	kbd_vdd: regulator-kbd-vdd {
++		compatible = "regulator-fixed";
++		regulator-name = "kbd_vdd";
++		gpio = <&pio 159 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	kbd_1v8: regulator-kbd-1v8 {
++		compatible = "regulator-fixed";
++		regulator-name = "kbd_1v8";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		gpio = <&pio 157 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	kbd_2v8: regulator-kbd-2v8 {
++		compatible = "regulator-fixed";
++		regulator-name = "kbd_2v8";
++		regulator-min-microvolt = <2800000>;
++		regulator-max-microvolt = <2800000>;
++		gpio = <&pio 158 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
+ 	/*
+ 	 * Battery — 3000 mAh Li-ion pack. Values from the stock DTBO
+ 	 * (upm6922 vreg 4440 mV, ichg 3000 mA, iprechg 180 mA, iterm 200 mA;
+@@ -677,18 +705,58 @@
+ 	};
+ };
+ 
+-/* RP2040 QWERTY keyboard and its light (q25-bbq-keys, q25-keyboard-led). */
++/* RP2040 QWERTY keyboard, front buttons and trackpad. */
+ &i2c6 {
+ 	status = "okay";
+ 
+ 	keyboard@1f {
+-		compatible = "zinwa,q25-bbq-keys";
++		compatible = "zinwa,q25-keyboard";
+ 		reg = <0x1f>;
+ 		interrupt-parent = <&pio>;
+ 		interrupts = <12 IRQ_TYPE_EDGE_FALLING>;
+-		power-vdd-gpios = <&pio 159 GPIO_ACTIVE_HIGH>;
+-		power-1v8-gpios = <&pio 157 GPIO_ACTIVE_HIGH>;
+-		power-2v8-gpios = <&pio 158 GPIO_ACTIVE_HIGH>;
++		vdd-supply = <&kbd_vdd>;
++		vdd18-supply = <&kbd_1v8>;
++		vdd28-supply = <&kbd_2v8>;
++		linux,keymap = <MATRIX_KEY(0, 0x05, KEY_SELECT)
++				MATRIX_KEY(0, 0x06, KEY_PICKUP_PHONE)
++				MATRIX_KEY(0, 0x07, KEY_BACK)
++				MATRIX_KEY(0, 0x08, KEY_BACKSPACE)
++				MATRIX_KEY(0, 0x0a, KEY_ENTER)
++				MATRIX_KEY(0, 0x11, KEY_HANGUP_PHONE)
++				MATRIX_KEY(0, 0x12, KEY_MENU)
++				MATRIX_KEY(0, 0x1a, KEY_LEFTALT)
++				MATRIX_KEY(0, 0x1b, KEY_LEFTSHIFT)
++				MATRIX_KEY(0, 0x1c, KEY_RIGHTSHIFT)
++				MATRIX_KEY(0, 0x1d, KEY_RIGHTALT)
++				MATRIX_KEY(0, 0x20, KEY_SPACE)
++				MATRIX_KEY(0, 0x24, KEY_GRAVE)
++				MATRIX_KEY(0, 0x41, KEY_A)
++				MATRIX_KEY(0, 0x42, KEY_B)
++				MATRIX_KEY(0, 0x43, KEY_C)
++				MATRIX_KEY(0, 0x44, KEY_D)
++				MATRIX_KEY(0, 0x45, KEY_E)
++				MATRIX_KEY(0, 0x46, KEY_F)
++				MATRIX_KEY(0, 0x47, KEY_G)
++				MATRIX_KEY(0, 0x48, KEY_H)
++				MATRIX_KEY(0, 0x49, KEY_I)
++				MATRIX_KEY(0, 0x4a, KEY_J)
++				MATRIX_KEY(0, 0x4b, KEY_K)
++				MATRIX_KEY(0, 0x4c, KEY_L)
++				MATRIX_KEY(0, 0x4d, KEY_M)
++				MATRIX_KEY(0, 0x4e, KEY_N)
++				MATRIX_KEY(0, 0x4f, KEY_O)
++				MATRIX_KEY(0, 0x50, KEY_P)
++				MATRIX_KEY(0, 0x51, KEY_Q)
++				MATRIX_KEY(0, 0x52, KEY_R)
++				MATRIX_KEY(0, 0x53, KEY_S)
++				MATRIX_KEY(0, 0x54, KEY_T)
++				MATRIX_KEY(0, 0x55, KEY_U)
++				MATRIX_KEY(0, 0x56, KEY_V)
++				MATRIX_KEY(0, 0x57, KEY_W)
++				MATRIX_KEY(0, 0x58, KEY_X)
++				MATRIX_KEY(0, 0x59, KEY_Y)
++				MATRIX_KEY(0, 0x5a, KEY_Z)
++				MATRIX_KEY(0, 0x7e, KEY_0)>;
+ 	};
+ };
+ 
