@@ -5,6 +5,7 @@
 
 pub mod dsp;
 pub mod glonass;
+pub mod iono;
 pub mod lnav;
 pub mod meas;
 pub mod mtk;

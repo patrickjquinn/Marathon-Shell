@@ -43,6 +43,23 @@ pub fn channel(p: &[u8]) -> Option<Channel> {
     })
 }
 
+/// A GPS subframe (msg 0x2B record): a parity-failure mask with one bit per
+/// word, the PRN, the subframe id, then ten 32-bit words in the DSP's word
+/// order whose low 24 bits are the corrected data bits. Only clean ones.
+pub fn gps_subframe(p: &[u8]) -> Option<(u8, [u8; 30])> {
+    let w16 = |at: usize| p.get(at..at + 2).map(|b| u16::from_le_bytes([b[0], b[1]]));
+    if w16(0)? & 0x3ff != 0 {
+        return None;
+    }
+    let prn = u8::try_from(w16(2)?).ok()?;
+    let mut words = [0u32; 10];
+    for (i, w) in words.iter_mut().enumerate() {
+        let at = 6 + 4 * i;
+        *w = (u32::from(w16(at)?) << 16 | u32::from(w16(at + 2)?)) & 0x00ff_ffff;
+    }
+    Some((prn, crate::lnav::subframe_from_data(&words)?))
+}
+
 /// Range rate (m/s) from `approx` to the satellite around time `t`.
 fn range_rate(sat: &Sat, t: f64, approx: Vector3<f64>) -> f64 {
     (sat.position(t + 0.5).0 - approx).norm() - (sat.position(t - 0.5).0 - approx).norm()
@@ -117,6 +134,22 @@ mod tests {
             (0, 30, GPS, 29, -597)
         );
         assert!((c.chips - (19822.0 + 15481.0 / 65536.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn subframe_record() {
+        // Built like the DSP's: mask 0, PRN 30, subframe 2, then words with
+        // parity bits above the data.
+        let sf = crate::lnav::tests::subframe(2, |b| crate::lnav::tests::put(b, 48, 8, 83));
+        let mut p = vec![0, 0, 30, 0, 2, 0];
+        for c in sf.chunks(3) {
+            let w = 0x2b00_0000 | u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2]);
+            p.extend_from_slice(&u16::try_from(w >> 16).unwrap().to_le_bytes());
+            p.extend_from_slice(&u16::try_from(w & 0xffff).unwrap().to_le_bytes());
+        }
+        assert_eq!(gps_subframe(&p), Some((30, sf)));
+        p[0] = 1;
+        assert_eq!(gps_subframe(&p), None);
     }
 
     fn hex(s: &str) -> Vec<u8> {

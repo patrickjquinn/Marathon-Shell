@@ -1,4 +1,4 @@
-//! marathon-gnssd --nav RINEX --approx LAT,LON,HEIGHT [--systems GC]
+//! marathon-gnssd --approx LAT,LON,HEIGHT [--nav RINEX] [--systems GC]
 //!                [--device DEV | --replay CAPTURE] [--record FILE]
 //!
 //! Opens the GNSS device (which boots the DSP), keeps the DSP searching, and
@@ -9,13 +9,14 @@
 //! `--replay` runs a `mtk-gnss-capture` recording instead of the device;
 //! `--record FILE` writes what the device sends in that format.
 
-use marathon_gnssd::lnav::Ephemeris;
+use marathon_gnssd::lnav::{Ephemeris, EphemerisBuilder};
 use marathon_gnssd::meas::{self, Channel};
 use marathon_gnssd::mtk::{self, Deframer};
 use marathon_gnssd::rinex::{self, LEAP_SECONDS};
 use marathon_gnssd::sat::Sat;
-use marathon_gnssd::{dsp, nmea, orbit, spp};
+use marathon_gnssd::{dsp, iono, lnav, nmea, orbit, spp};
 use nalgebra::Vector3;
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -54,6 +55,8 @@ struct Engine {
     heights: Vec<f64>,
     tag: Option<(u32, f64)>,
     chans: Vec<Channel>,
+    subframes: HashMap<u8, EphemerisBuilder>,
+    iono: Option<[f64; 8]>,
     /// The last accepted fix and its time, and how many in a row were refused.
     last: Option<(Vector3<f64>, f64)>,
     refused: u32,
@@ -105,6 +108,17 @@ impl Engine {
         self.refused = 0;
         self.last = Some((fix.ecef, unix));
         true
+    }
+
+    /// Azimuth and elevation (radians) from the approximate position.
+    fn az_el(&self, sat: &Sat, t: f64) -> (f64, f64) {
+        let (lat, lon, _) = spp::geodetic(&self.approx);
+        let (la, lo) = (lat.to_radians(), lon.to_radians());
+        let d = (sat.position(t).0 - self.approx).normalize();
+        let east = Vector3::new(-lo.sin(), lo.cos(), 0.0);
+        let north = Vector3::new(-la.sin() * lo.cos(), -la.sin() * lo.sin(), la.cos());
+        let up = Vector3::new(la.cos() * lo.cos(), la.cos() * lo.sin(), la.sin());
+        (d.dot(&east).atan2(d.dot(&north)), d.dot(&up).asin())
     }
 
     fn elevation(&self, sat: &Sat, t: f64) -> f64 {
@@ -170,11 +184,20 @@ impl Engine {
             let obs: Vec<spp::Observation> = meas::transmit_times(&ordered, t, self.approx)
                 .into_iter()
                 .map(|(sat, ttx)| {
-                    let el = self.elevation(&sat, ttx);
+                    let (az, el) = self.az_el(&sat, ttx);
+                    // less a mapped standard troposphere and the broadcast ionosphere
+                    let tropo = 2.47 / (el.sin() + 0.0121);
+                    let iono = self.iono.map_or(0.0, |k| {
+                        let (lat, lon, _) = spp::geodetic(&self.approx);
+                        let l1 = 1_575.42e6 / sat.carrier();
+                        orbit::C
+                            * iono::delay(&k, lat.to_radians(), lon.to_radians(), az, el, t)
+                            * l1
+                            * l1
+                    });
                     spp::Observation {
                         sat,
-                        // less a mapped standard troposphere
-                        range: orbit::C * orbit::dt(t, ttx) - 2.47 / (el.sin() + 0.0121),
+                        range: orbit::C * orbit::dt(t, ttx) - tropo - iono,
                         sigma: SIGMA[sat.system()] / el.sin(),
                     }
                 })
@@ -212,6 +235,13 @@ impl Engine {
             self.chans.clear();
         } else if f.id == mtk::id::CHANNEL {
             self.chans.extend(meas::channel(&f.payload));
+        } else if f.id == mtk::id::GPS_SUBFRAME {
+            if let Some((prn, sf)) = meas::gps_subframe(&f.payload) {
+                self.iono = lnav::klobuchar(&sf).or(self.iono);
+                if let Some(e) = self.subframes.entry(prn).or_default().add(sf) {
+                    self.nav.gps.insert(prn, vec![e]);
+                }
+            }
         } else if f.id == mtk::id::EPOCH_LAST {
             if let Some((ms, at)) = self.tag {
                 self.fix(at, out)?;
@@ -281,10 +311,13 @@ fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let usage = || {
         io::Error::other(
-            "usage: marathon-gnssd --nav RINEX --approx LAT,LON,H [--systems GRC] [--device DEV | --replay FILE]",
+            "usage: marathon-gnssd --approx LAT,LON,H [--nav RINEX] [--systems GRC] [--device DEV | --replay FILE] [--record FILE]",
         )
     };
-    let nav = std::fs::read_to_string(arg(&args, "--nav").ok_or_else(usage)?)?;
+    let nav = arg(&args, "--nav")
+        .map(std::fs::read_to_string)
+        .transpose()?
+        .unwrap_or_default();
     let approx: Vec<f64> = arg(&args, "--approx")
         .ok_or_else(usage)?
         .split(',')
@@ -302,6 +335,8 @@ fn main() -> io::Result<()> {
         heights: Vec::new(),
         tag: None,
         chans: Vec::new(),
+        subframes: HashMap::new(),
+        iono: None,
         last: None,
         refused: 0,
     };

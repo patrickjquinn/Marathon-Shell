@@ -38,6 +38,36 @@ pub fn subframe_bits(prev: u32, words: &[u32; 10]) -> Option<[u8; 30]> {
     (u32::from(out[0]) == PREAMBLE).then_some(out)
 }
 
+/// The 240 data bits of a subframe from ten 24-bit data words that have
+/// already been parity-checked and corrected for polarity, as the DSP
+/// reports them.
+pub fn subframe_from_data(words: &[u32; 10]) -> Option<[u8; 30]> {
+    let mut out = [0u8; 30];
+    for (i, w) in words.iter().enumerate() {
+        out[i * 3..i * 3 + 3].copy_from_slice(&w.to_be_bytes()[1..]);
+    }
+    (u32::from(out[0]) == PREAMBLE).then_some(out)
+}
+
+/// Klobuchar coefficients (alpha 0-3 in s, s/sc, s/sc², s/sc³; beta 0-3 in
+/// s, s/sc, ...) from subframe 4 page 18.
+pub fn klobuchar(b: &[u8; 30]) -> Option<[f64; 8]> {
+    if header(b).0 != 4 || bits(b, 50, 6) != 56 {
+        return None;
+    }
+    let p = |pos, exp| scaled(sbits(b, pos, 8), exp);
+    Some([
+        p(56, -30),
+        p(64, -27),
+        p(72, -24),
+        p(80, -24),
+        p(88, 11),
+        p(96, 14),
+        p(104, 16),
+        p(112, 16),
+    ])
+}
+
 fn bits(b: &[u8; 30], pos: usize, len: usize) -> u64 {
     (pos..pos + len).fold(0, |v, i| v << 1 | u64::from(b[i / 8] >> (7 - i % 8) & 1))
 }
@@ -207,6 +237,24 @@ pub(crate) mod tests {
             assert_eq!(word_data(prev, w), Some(0x8b_1234));
             assert_eq!(word_data(prev, w ^ 0x100), None);
         }
+    }
+
+    #[test]
+    fn page_18_ionosphere() {
+        let sf = subframe(4, |b| {
+            put(b, 50, 6, 56);
+            put(b, 56, 8, 0x0c);
+            put(b, 88, 8, 0x4b);
+            put(b, 112, 8, -2);
+        });
+        let k = klobuchar(&sf).unwrap();
+        assert!((k[0] - 12.0 * 2f64.powi(-30)).abs() < 1e-20);
+        assert!((k[4] - 75.0 * 2048.0).abs() < 1e-9 && (k[7] + 2.0 * 65536.0).abs() < 1e-9);
+        let words: Vec<u32> = sf
+            .chunks(3)
+            .map(|c| u32::from_be_bytes([0, c[0], c[1], c[2]]))
+            .collect();
+        assert_eq!(subframe_from_data(&words.try_into().unwrap()), Some(sf));
     }
 
     #[test]
