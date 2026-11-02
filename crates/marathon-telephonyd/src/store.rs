@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use phonenumber::country;
+use phonenumber::{country, Mode};
 use rusqlite::{params, Connection, OptionalExtension};
 use zbus::Variant as Value;
 
@@ -44,11 +44,33 @@ pub fn conversation_id(numbers: &str, region: Option<country::Id>) -> String {
             return number.to_owned();
         }
         match phonenumber::parse(region, number) {
-            Ok(n) if n.is_valid() => n.format().mode(phonenumber::Mode::E164).to_string(),
+            Ok(n) if n.is_valid() => n.format().mode(Mode::E164).to_string(),
             _ => marathon_rt::daemon::dialable(number),
         }
     };
     numbers.split(',').map(one).collect::<Vec<_>>().join(",")
+}
+
+/// Numbers as people read them: grouped as libphonenumber groups them, in
+/// the form given (international with a +, else national); anything not a
+/// valid number as given.
+pub fn display_number(numbers: &str, region: Option<country::Id>) -> String {
+    let one = |number: &str| {
+        let number = number.trim();
+        if number.chars().any(char::is_alphabetic) {
+            return number.to_owned();
+        }
+        let mode = if number.starts_with('+') {
+            Mode::International
+        } else {
+            Mode::National
+        };
+        match phonenumber::parse(region, number) {
+            Ok(n) if n.is_valid() => n.format().mode(mode).to_string(),
+            _ => number.to_owned(),
+        }
+    };
+    numbers.split(',').map(one).collect::<Vec<_>>().join(", ")
 }
 
 impl Store {
@@ -102,6 +124,10 @@ impl Store {
         conversation_id(number, self.region)
     }
 
+    pub fn display_number(&self, number: &str) -> String {
+        display_number(number, self.region)
+    }
+
     /// Reads national numbers as dialled in `region` from now on, and
     /// rekeys the threads not yet keyed in E.164, merging those it had split.
     pub fn set_region(&mut self, region: country::Id) -> rusqlite::Result<bool> {
@@ -151,7 +177,11 @@ impl Store {
             };
             Ok(Row::from([
                 ("id", Value::from(id)),
-                ("contactName", Value::from(number.clone())),
+                ("contactName", Value::from("")),
+                (
+                    "displayNumber",
+                    Value::from(display_number(&number, self.region)),
+                ),
                 ("contactNumber", Value::from(number)),
                 ("lastMessage", Value::from(row.get::<_, String>(1)?)),
                 ("lastTimestamp", Value::from(row.get::<_, i64>(3)?)),
@@ -429,6 +459,22 @@ mod tests {
         assert_eq!(
             conversation_id("0871234567,+447700900123", ie),
             "+353871234567,+447700900123"
+        );
+    }
+
+    #[test]
+    fn numbers_read_as_libphonenumber_groups_them() {
+        let ie = Some(country::Id::IE);
+        assert_eq!(display_number("+353834700345", ie), "+353 83 470 0345");
+        assert_eq!(display_number("+353834700345", None), "+353 83 470 0345");
+        assert_eq!(display_number("0834700345", ie), "083 470 0345");
+        assert_eq!(display_number("+14155550142", ie), "+1 415-555-0142");
+        assert_eq!(display_number("50123", ie), "50123");
+        assert_eq!(display_number("*21#", ie), "*21#");
+        assert_eq!(display_number("Vodafone", ie), "Vodafone");
+        assert_eq!(
+            display_number("+353834700345,+447911123456", ie),
+            "+353 83 470 0345, +44 7911 123456"
         );
     }
 
