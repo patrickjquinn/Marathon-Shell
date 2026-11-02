@@ -74,6 +74,11 @@ const STARVED: u32 = 60;
 /// how many are kept.
 const SLOT_SAMPLES: usize = 30;
 const SLOT_SAMPLES_KEPT: usize = 300;
+/// --clock-sweep: seconds per step, first aid, step, number of steps after the first.
+const SWEEP_SECONDS: f64 = 45.0;
+const SWEEP_FROM: i32 = -600;
+const SWEEP_STEP: i32 = 300;
+const SWEEP_STEPS: i32 = 12;
 /// Thermistor code assumed before the DSP has reported one.
 const TSX_DEFAULT: u16 = 29_986;
 /// Seconds between progress lines in the journal.
@@ -130,7 +135,9 @@ struct Engine {
     clock: clock::Model,
     doppler: Option<f64>,
     sweep: bool,
-    sweep_last: i32,
+    sweep_last: Option<i32>,
+    /// The aid last sent (middle point).
+    aid: i32,
     /// The head of the last search list, for the journal.
     searching: String,
     /// Residuals per GLONASS frequency slot, for its bias.
@@ -310,11 +317,12 @@ impl Engine {
         dsp::search_order(&gps, known_sky, &of(meas::GLONASS), &of(meas::BEIDOU))
     }
 
-    /// With --clock-sweep, the offset added to the clock aid now: a minute
-    /// each of 0, +300, 0, -300, 0, +600, 0, -600 units, then 0, to see
-    /// how the reported Doppler offset answers.
-    fn sweep_step(&mut self, unix: f64) -> i32 {
-        const STEPS: [i32; 8] = [0, 300, 0, -300, 0, 600, 0, -600];
+    /// With --clock-sweep, the clock aid's middle point is stepped through
+    /// absolute values, 45 s each, from -600 to 3000 in steps of 300, then
+    /// handed back to the model: on a hot phone, to see at which aid
+    /// satellites lock and how the Doppler offset the DSP reports answers.
+    /// Returns the shift to add to the model's points.
+    fn sweep_shift(&mut self, unix: f64, model: i32) -> i32 {
         if !self.sweep {
             return 0;
         }
@@ -322,14 +330,18 @@ impl Engine {
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_sign_loss,
-            reason = "minutes"
+            reason = "a few dozen steps"
         )]
-        let step = STEPS.get((elapsed / 60.0) as usize).copied().unwrap_or(0);
-        if step != self.sweep_last {
-            log(&format!("clock sweep: aid {step:+}"));
-            self.sweep_last = step;
+        let step = (elapsed / SWEEP_SECONDS) as i32;
+        let target = (step <= SWEEP_STEPS).then_some(SWEEP_FROM + step * SWEEP_STEP);
+        if target != self.sweep_last {
+            match target {
+                Some(a) => log(&format!("clock sweep: aid {a}")),
+                None => log("clock sweep: done, aid from the model"),
+            }
+            self.sweep_last = target;
         }
-        step
+        target.map_or(0, |a| a - model)
     }
 
     /// Takes the median of heights measured without the constraint as the
@@ -723,7 +735,7 @@ impl Engine {
             list(&self.nav.beidou, 'C'),
             self.almanac.len(),
             self.tsx.map_or_else(|| "-".into(), |c| c.to_string()),
-            self.clock.offset(i32::from(self.tsx.unwrap_or(TSX_DEFAULT))),
+            self.aid,
             self.doppler.map_or_else(|| "-".into(), |d| format!("{d:.0} Hz")),
             self.searching,
             self.status
@@ -813,10 +825,11 @@ impl Engine {
                     .collect::<Vec<_>>()
                     .join(" ");
                 let mut clock = self.clock.aid(self.tsx.unwrap_or(TSX_DEFAULT));
-                let step = self.sweep_step(at);
+                let shift = self.sweep_shift(at, clock[1].1);
                 for p in &mut clock {
-                    p.1 += step;
+                    p.1 += shift;
                 }
+                self.aid = clock[1].1;
                 return Ok(dsp::epoch(ms, tow(at + 1.0), &clock, &list));
             }
         }
@@ -1110,7 +1123,8 @@ fn new_engine(
         clock: clock::Model,
         doppler: None,
         sweep: args.iter().any(|a| a == "--clock-sweep"),
-        sweep_last: 0,
+        sweep_last: None,
+        aid: 0,
         slots: HashMap::new(),
         coarse,
         starved: 0,
