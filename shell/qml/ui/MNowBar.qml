@@ -153,7 +153,7 @@ Item {
         Item {
             id: visualWrap
             anchors.verticalCenter: parent.verticalCenter
-            width: root.variant === "music" && !root.controls ? visualiser.implicitWidth : 0
+            width: visualiser.visible ? visualiser.implicitWidth : 0
             height: Silica.Theme.paddingLarge
 
             Row {
@@ -161,7 +161,7 @@ Item {
                 readonly property real unit: Math.max(2, Math.round(Silica.Theme.paddingSmall / 3))
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: visualiser.unit
-                visible: root.variant === "music" && !root.controls
+                visible: root.variant === "music" && root.playing && !root.controls
 
                 Repeater {
                     model: [0.5, 0.85, 0.35, 0.7, 0.45]
