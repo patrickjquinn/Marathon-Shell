@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Arseniy Velikanov <me@adomerle.pw>
+Date: Thu, 17 Jul 2025 07:20:59 +0400
+Subject: [PATCH] soc: mediatek: mtk-mutex: Defer until the mutex device has
+ probed
+
+mtk_mutex_get() dereferences the mutex device's driver data, which is
+NULL until that device has probed. With mediatek-drm and the mutex
+probing in either order, a CRTC created first oopses. Return
+-EPROBE_DEFER instead.
+
+Signed-off-by: Arseniy Velikanov <me@adomerle.pw>
+[Patrick: from linux-mediatek mt6789-next 3e6c84ec8051; commit message]
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/soc/mediatek/mtk-mutex.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/soc/mediatek/mtk-mutex.c b/drivers/soc/mediatek/mtk-mutex.c
+index 38179e8c..2308e3de 100644
+--- a/drivers/soc/mediatek/mtk-mutex.c
++++ b/drivers/soc/mediatek/mtk-mutex.c
+@@ -850,6 +850,9 @@ struct mtk_mutex *mtk_mutex_get(struct device *dev)
+ 	struct mtk_mutex_ctx *mtx = dev_get_drvdata(dev);
+ 	int i;
+ 
++	if (!mtx)
++		return ERR_PTR(-EPROBE_DEFER);
++
+ 	for (i = 0; i < MTK_MUTEX_MAX_HANDLES; i++)
+ 		if (!mtx->mutex[i].claimed) {
+ 			mtx->mutex[i].claimed = true;

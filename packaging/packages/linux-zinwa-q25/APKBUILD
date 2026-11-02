@@ -100,6 +100,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0039-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-VBIF28-on.patch
 	0040-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-UFS-VCC-f.patch
 	0041-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-modem-s.patch
+	0042-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
 	0043-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 	0044-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
 "
@@ -232,6 +233,7 @@ efc178c105812369c599b18c4d1004b2bf6ab12b332c162d89959746dd8e9549bfe70a234530c04d
 51797b5426c655724b56c074c3daab57ca84bda2013ace3c59b57a11999b6643082047d9fbe1d82b5f292ec6b727e38dc56b6f1767bbeb9d23ba8730c1388e8f  0039-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-VBIF28-on.patch
 d128744a2a7e46f5f8b2fb3fcdbbe772eb259b95a2872542f664b4b81a6df1e927d681e84cebc16cf96f586335279c81eef676da90458d35be66747373920ee7  0040-arm64-dts-mediatek-mt8781-zinwa-q25-Supply-UFS-VCC-f.patch
 eebd6b5f2e2b7984e9002932bd26b2f16f3b0ffaebaa2dadcf1e0d52292daeb994bb183fca82df6b47d0a658c29c193fa83aee408e9b40908549c6b1edd19440  0041-arm64-dts-mediatek-mt8781-zinwa-q25-Keep-the-modem-s.patch
+25b30e94af219e836f9161dc0809dc3c11fd72195ca2dbfb4642fa111970cdf0e072872e478b64728a70f361d2c7079a28d65594414656e466e9c7fce4f25b40  0042-soc-mediatek-mtk-mutex-Defer-until-the-mutex-device-.patch
 53bf5b7b5a8e022026cf0f6386c4415c24641c35a78f947dd1e93d00da2c6401989790d16f6bfbecf0f44f6c2e8bbbfe09d96225eb3f9b05dca273a98487932a  0043-Input-synaptics-rmi4-add-support-for-reset-gpios.patch
 b384eb0a745cabc582cb7e74e27d62669de2cabead637945edcf4ccf473b493c96036f3e71882338b4346dff9c1eaab5df63af9f180b6ea7c988c372514107c3  0044-Input-synaptics-rmi4-hold-reset-while-the-sensor-is-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
