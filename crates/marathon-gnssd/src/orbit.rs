@@ -2,7 +2,7 @@
 //! (IS-GPS-200 tables 20-IV and 20.3.3.3.3.1).
 
 use crate::lnav::Ephemeris;
-use nalgebra::Vector3;
+use nalgebra::{Rotation3, Vector3};
 
 pub const MU: f64 = 3.986_005e14;
 pub const OMEGA_E: f64 = 7.292_115_146_7e-5;
@@ -22,13 +22,36 @@ pub fn dt(t: f64, t0: f64) -> f64 {
     }
 }
 
+/// Which Keplerian broadcast model an ephemeris follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Model {
+    Gps,
+    /// BeiDou (CGCS2000 constants); `geo` for the geostationary satellites.
+    Beidou {
+        geo: bool,
+    },
+}
+
 /// ECEF position (m) and clock offset (s, including relativity and TGD for
 /// L1) at GPS time of week `t` (transmit time).
-#[allow(clippy::many_single_char_names, reason = "IS-GPS-200 symbols")]
 pub fn position(e: &Ephemeris, t: f64) -> (Vector3<f64>, f64) {
+    kepler(e, t, Model::Gps)
+}
+
+/// ECEF position and clock offset from a Keplerian ephemeris at time `t` in
+/// the ephemeris' own time scale (GPS time, or BDT for BeiDou).
+#[allow(
+    clippy::many_single_char_names,
+    reason = "IS-GPS-200 / BDS ICD symbols"
+)]
+pub fn kepler(e: &Ephemeris, t: f64, model: Model) -> (Vector3<f64>, f64) {
+    let (mu, we) = match model {
+        Model::Gps => (MU, OMEGA_E),
+        Model::Beidou { .. } => (3.986_004_418e14, 7.292_115e-5),
+    };
     let a = e.sqrt_a * e.sqrt_a;
     let tk = dt(t, e.toe);
-    let m = e.m0 + ((MU / (a * a * a)).sqrt() + e.dn) * tk;
+    let m = e.m0 + ((mu / (a * a * a)).sqrt() + e.dn) * tk;
     let mut ek = m;
     for _ in 0..30 {
         let next = m + e.e * ek.sin();
@@ -45,12 +68,22 @@ pub fn position(e: &Ephemeris, t: f64) -> (Vector3<f64>, f64) {
     let r = a * (1.0 - e.e * ek.cos()) + e.crs * s2 + e.crc * c2;
     let i = e.i0 + e.cis * s2 + e.cic * c2 + e.idot * tk;
     let (xp, yp) = (r * u.cos(), r * u.sin());
-    let om = e.omega0 + (e.omega_dot - OMEGA_E) * tk - OMEGA_E * e.toe;
-    let pos = Vector3::new(
+    let geo = model == Model::Beidou { geo: true };
+    let om = if geo {
+        e.omega0 + e.omega_dot * tk - we * e.toe
+    } else {
+        e.omega0 + (e.omega_dot - we) * tk - we * e.toe
+    };
+    let mut pos = Vector3::new(
         xp * om.cos() - yp * i.cos() * om.sin(),
         xp * om.sin() + yp * i.cos() * om.cos(),
         yp * i.sin(),
     );
+    if geo {
+        // BDS ICD: Rz(we tk) Rx(-5 deg), passive rotations.
+        let tilt = Rotation3::from_axis_angle(&Vector3::x_axis(), 5f64.to_radians());
+        pos = Rotation3::from_axis_angle(&Vector3::z_axis(), -we * tk) * (tilt * pos);
+    }
     let tc = dt(t, e.toc);
     let clock = e.af0 + e.af1 * tc + e.af2 * tc * tc + F * e.e * e.sqrt_a * ek.sin() - e.tgd;
     (pos, clock)

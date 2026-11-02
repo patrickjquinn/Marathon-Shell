@@ -1,8 +1,22 @@
-//! GPS records of a RINEX 3 navigation file (broadcast ephemeris), the
-//! network aiding source until the DSP's navigation bits are decoded.
+//! GPS, BeiDou and GLONASS records of a RINEX 3 navigation file (broadcast
+//! ephemeris), the network aiding source until the DSP's navigation bits are
+//! decoded.
 
+use crate::glonass;
 use crate::lnav::Ephemeris;
+use nalgebra::Vector3;
 use std::collections::HashMap;
+
+/// GPS minus UTC, valid since 2017.
+pub const LEAP_SECONDS: f64 = 18.0;
+
+#[derive(Default)]
+pub struct Nav {
+    pub gps: HashMap<u8, Vec<Ephemeris>>,
+    /// Times in BDT.
+    pub beidou: HashMap<u8, Vec<Ephemeris>>,
+    pub glonass: HashMap<u8, Vec<glonass::Ephemeris>>,
+}
 
 fn num(s: &str) -> Option<f64> {
     s.trim().replace(['D', 'd'], "E").parse().ok()
@@ -15,14 +29,13 @@ pub fn seconds_of_week(at: chrono::NaiveDateTime) -> Option<f64> {
     Some((at - gps_epoch).num_seconds().rem_euclid(604_800) as f64)
 }
 
-/// Every GPS ephemeris in `text`, by PRN.
-pub fn parse_gps(text: &str) -> HashMap<u8, Vec<Ephemeris>> {
-    let mut out: HashMap<u8, Vec<Ephemeris>> = HashMap::new();
+/// Every GPS, BeiDou and GLONASS ephemeris in `text`, by satellite number.
+pub fn parse(text: &str) -> Nav {
+    let mut nav = Nav::default();
     let mut lines = text
         .lines()
         .skip_while(|l| !l.contains("END OF HEADER"))
-        .skip(1)
-        .peekable();
+        .skip(1);
     while let Some(l) = lines.next() {
         let n = match l.chars().next() {
             Some('R' | 'S') => 3,
@@ -30,34 +43,78 @@ pub fn parse_gps(text: &str) -> HashMap<u8, Vec<Ephemeris>> {
             None => continue,
         };
         let body: Vec<&str> = (0..n).filter_map(|_| lines.next()).collect();
-        if !l.starts_with('G') || body.len() != 7 {
-            continue;
-        }
-        let Some(e) = gps_record(l, &body) else {
+        let Ok(sv) = l.get(1..3).unwrap_or("").trim().parse::<u8>() else {
             continue;
         };
-        if let Ok(prn) = l[1..3].trim().parse() {
-            out.entry(prn).or_default().push(e);
+        match l.as_bytes()[0] {
+            b'G' => {
+                if let Some(e) = kepler_record(l, &body) {
+                    nav.gps.entry(sv).or_default().push(e);
+                }
+            }
+            b'C' => {
+                if let Some(e) = kepler_record(l, &body) {
+                    nav.beidou.entry(sv).or_default().push(e);
+                }
+            }
+            b'R' => {
+                if let Some(e) = glonass_record(l, &body) {
+                    nav.glonass.entry(sv).or_default().push(e);
+                }
+            }
+            _ => {}
         }
     }
-    out
+    nav
 }
 
-fn gps_record(head: &str, body: &[&str]) -> Option<Ephemeris> {
-    let toc = chrono::NaiveDateTime::parse_from_str(head.get(4..23)?, "%Y %m %d %H %M %S").ok()?;
+fn values(head: &str, body: &[&str]) -> Option<Vec<f64>> {
     let mut v = vec![
         num(head.get(23..42)?)?,
         num(head.get(42..61)?)?,
         num(head.get(61..80)?)?,
     ];
+    // Blank (spare) fields still take their place.
     for l in body {
         for k in 0..4 {
-            if let Some(x) = l.get(4 + 19 * k..23 + 19 * k).and_then(num) {
-                v.push(x);
-            }
+            v.push(
+                l.get(4 + 19 * k..(23 + 19 * k).min(l.len()))
+                    .and_then(num)
+                    .unwrap_or(0.0),
+            );
         }
     }
-    if v.len() < 26 {
+    Some(v)
+}
+
+fn glonass_record(head: &str, body: &[&str]) -> Option<glonass::Ephemeris> {
+    let utc = chrono::NaiveDateTime::parse_from_str(head.get(4..23)?, "%Y %m %d %H %M %S").ok()?;
+    let v = values(head, body)?;
+    if v.len() < 15 || body.len() != 3 {
+        return None;
+    }
+    let km = |i: usize, j: usize, k: usize| Vector3::new(v[i], v[j], v[k]) * 1e3;
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "RINEX integer fields"
+    )]
+    Some(glonass::Ephemeris {
+        tb: (seconds_of_week(utc)? + LEAP_SECONDS) % 604_800.0,
+        clock: v[0],
+        gamma: v[1],
+        pos: km(3, 7, 11),
+        vel: km(4, 8, 12),
+        acc: km(5, 9, 13),
+        health: v[6] as u8,
+        k: v[10] as i8,
+    })
+}
+
+fn kepler_record(head: &str, body: &[&str]) -> Option<Ephemeris> {
+    let toc = chrono::NaiveDateTime::parse_from_str(head.get(4..23)?, "%Y %m %d %H %M %S").ok()?;
+    let v = values(head, body)?;
+    if v.len() < 27 {
         return None;
     }
     #[allow(
@@ -130,11 +187,29 @@ G30 2026 11 02 10 00 00 1.000000000000E-04 2.000000000000E-12 0.000000000000E+00
 1.000000000000E-10 1.000000000000E+00 2.443000000000E+03 0.000000000000E+00\n     \
 2.000000000000E+00 0.000000000000E+00-1.000000000000E-08 3.700000000000E+01\n     \
 1.188000000000E+05 4.000000000000E+00\n";
-        let g = parse_gps(text);
-        let e = g[&30][0];
+        let e = parse(text).gps[&30][0];
         assert_eq!((e.week, e.iode, e.iodc), (2443, 37, 37));
         assert!((e.toe - 122_400.0).abs() < 1e-9 && (e.toc - 122_400.0).abs() < 1e-9);
         assert!((e.sqrt_a - 5153.7).abs() < 1e-9 && (e.omega_dot + 8e-9).abs() < 1e-20);
         assert!((e.tgd + 1e-8).abs() < 1e-20);
+    }
+
+    #[test]
+    fn beidou_record_keeps_blank_fields_in_place() {
+        // BeiDou records leave spare fields blank; TGD1 must not shift.
+        let text =
+            "     3.05           N: GNSS NAV DATA    M: MIXED            RINEX VERSION / TYPE\n\
+                                                                END OF HEADER\n\
+C36 2026 11 02 09 00 00 2.135041868314e-04-5.955236304089e-12 0.000000000000e+00\n     \
+1.000000000000e+00 2.232812500000e+01 4.035882396416e-09 1.328131143342e+00\n     \
+1.090578734875e-06 5.441338289529e-04 1.008482649922e-05 5.282651386261e+03\n     \
+1.188000000000e+05-1.629814505577e-08 2.396965464078e+00 1.257285475731e-07\n     \
+9.454162771142e-01 1.494687500000e+02-5.507733254626e-01-6.808855044714e-09\n     \
+3.157274370293e-10                    1.087000000000e+03                   \n     \
+2.000000000000e+00 0.000000000000e+00-2.070000000000e-08-2.070000000000e-08\n     \
+1.188000000000e+05 1.000000000000e+00\n";
+        let e = parse(text).beidou[&36][0];
+        assert_eq!(e.week, 1087);
+        assert!((e.tgd + 2.07e-8).abs() < 1e-20 && (e.toc - 118_800.0).abs() < 1e-9);
     }
 }

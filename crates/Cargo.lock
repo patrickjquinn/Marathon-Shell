@@ -1462,6 +1462,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egm2008"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ccbd03233a0bad6c342488b1746e47ba3eaad362018cc8ffecd71d8148d879b"
+dependencies = [
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3325,6 +3334,7 @@ name = "marathon-gnssd"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "egm2008",
  "nalgebra",
 ]
 
