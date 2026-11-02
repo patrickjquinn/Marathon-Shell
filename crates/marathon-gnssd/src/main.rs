@@ -79,6 +79,8 @@ const SWEEP_SECONDS: f64 = 45.0;
 const SWEEP_FROM: i32 = -600;
 const SWEEP_STEP: i32 = 300;
 const SWEEP_STEPS: i32 = 12;
+/// Seconds between corrections of the crystal model.
+const LEARN_EVERY: f64 = 5.0;
 /// Thermistor code assumed before the DSP has reported one.
 const TSX_DEFAULT: u16 = 29_986;
 /// Seconds between progress lines in the journal.
@@ -135,6 +137,7 @@ struct Engine {
     clock: clock::Model,
     doppler: Option<f64>,
     clock_saved: f64,
+    clock_learnt: f64,
     sweep: bool,
     sweep_last: Option<i32>,
     /// The aid last sent (middle point).
@@ -325,9 +328,11 @@ impl Engine {
             return;
         };
         self.doppler = Some(r);
-        if self.sweep_last.is_some() {
+        // The DSP takes a few epochs to answer a new aid.
+        if self.sweep_last.is_some() || unix - self.clock_learnt < LEARN_EVERY {
             return;
         }
+        self.clock_learnt = unix;
         self.clock.learn(code, r);
         if unix - self.clock_saved > SAVE_EVERY {
             self.clock_saved = unix;
@@ -1146,6 +1151,7 @@ fn new_engine(
             .map(|s| clock::Model::from_lines(&s))
             .unwrap_or_default(),
         clock_saved: 0.0,
+        clock_learnt: 0.0,
         doppler: None,
         sweep: args.iter().any(|a| a == "--clock-sweep"),
         sweep_last: None,
