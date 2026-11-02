@@ -40,6 +40,7 @@ pub mod qobject {
         type QVariant = cxx_qt_lib::QVariant;
         include!("cxx-qt-lib/qlist.h");
         type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
+        type QList_i32 = cxx_qt_lib::QList<i32>;
         include!("cxx-qt-lib/qmap.h");
         type QMap_QString_QVariant = cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant>;
         include!("cxx-qt-lib/qmodelindex.h");
@@ -64,6 +65,38 @@ pub mod qobject {
         #[inherit]
         #[cxx_name = "endResetModel"]
         fn end_reset_model(self: Pin<&mut Notifications>);
+        #[inherit]
+        #[cxx_name = "beginInsertRows"]
+        fn begin_insert_rows(
+            self: Pin<&mut Notifications>,
+            parent: &QModelIndex,
+            first: i32,
+            last: i32,
+        );
+        #[inherit]
+        #[cxx_name = "endInsertRows"]
+        fn end_insert_rows(self: Pin<&mut Notifications>);
+        #[inherit]
+        #[cxx_name = "beginRemoveRows"]
+        fn begin_remove_rows(
+            self: Pin<&mut Notifications>,
+            parent: &QModelIndex,
+            first: i32,
+            last: i32,
+        );
+        #[inherit]
+        #[cxx_name = "endRemoveRows"]
+        fn end_remove_rows(self: Pin<&mut Notifications>);
+        #[inherit]
+        #[cxx_name = "dataChanged"]
+        fn data_changed(
+            self: Pin<&mut Notifications>,
+            top_left: &QModelIndex,
+            bottom_right: &QModelIndex,
+            roles: &QList_i32,
+        );
+        #[inherit]
+        fn index(self: &Notifications, row: i32, column: i32, parent: &QModelIndex) -> QModelIndex;
         #[cxx_override]
         #[cxx_name = "rowCount"]
         fn row_count(self: &Notifications, parent: &QModelIndex) -> i32;
@@ -197,7 +230,7 @@ pub(crate) fn with(f: impl FnOnce(Pin<&mut Notifications>) + Send + 'static) {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 struct Row {
     id: i64,
     app_id: String,
@@ -616,12 +649,42 @@ impl Notifications {
         for row in &rows {
             list.append(QVariant::from(&variant::map(&row.to_json())));
         }
-        self.as_mut().begin_reset_model();
+        // Row by row: a reset rebuilds every delegate in the Hub, and with
+        // it a reply being typed.
+        match edits(&self.rows, &rows) {
+            Some(edits) => {
+                let root = QModelIndex::default();
+                for edit in edits {
+                    match edit {
+                        Edit::Remove(i) => {
+                            let at = i32::try_from(i).unwrap_or(i32::MAX);
+                            self.as_mut().begin_remove_rows(&root, at, at);
+                            self.as_mut().rust_mut().rows.remove(i);
+                            self.as_mut().end_remove_rows();
+                        }
+                        Edit::Insert(i) => {
+                            let at = i32::try_from(i).unwrap_or(i32::MAX);
+                            self.as_mut().begin_insert_rows(&root, at, at);
+                            self.as_mut().rust_mut().rows.insert(i, rows[i].clone());
+                            self.as_mut().end_insert_rows();
+                        }
+                        Edit::Change(i) => {
+                            self.as_mut().rust_mut().rows[i].clone_from(&rows[i]);
+                            let at = self.index(i32::try_from(i).unwrap_or(i32::MAX), 0, &root);
+                            self.as_mut().data_changed(&at, &at, &QList::default());
+                        }
+                    }
+                }
+            }
+            None => {
+                self.as_mut().begin_reset_model();
+                self.as_mut().rust_mut().rows = rows;
+                self.as_mut().end_reset_model();
+            }
+        }
         let mut rust = self.as_mut().rust_mut();
-        rust.rows = rows;
         rust.count = count;
         rust.notifications = list;
-        self.as_mut().end_reset_model();
         self.as_mut().count_changed();
         self.as_mut().notifications_changed();
         if self.unread_count != unread {
@@ -1330,10 +1393,71 @@ mod proxy {
     }
 }
 
+enum Edit {
+    Remove(usize),
+    Insert(usize),
+    Change(usize),
+}
+
+/// The removals (back to front), then the insertions and changes (front to
+/// back) that make `old` into `new`; `None` if kept rows changed order.
+fn edits(old: &[Row], new: &[Row]) -> Option<Vec<Edit>> {
+    let new_at: HashMap<i64, usize> = new.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
+    let old_at: HashMap<i64, usize> = old.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
+    let kept_old = old
+        .iter()
+        .map(|r| r.id)
+        .filter(|id| new_at.contains_key(id));
+    let kept_new = new
+        .iter()
+        .map(|r| r.id)
+        .filter(|id| old_at.contains_key(id));
+    if !kept_old.eq(kept_new) {
+        return None;
+    }
+    let mut out: Vec<Edit> = (0..old.len())
+        .rev()
+        .filter(|&i| !new_at.contains_key(&old[i].id))
+        .map(Edit::Remove)
+        .collect();
+    for (i, row) in new.iter().enumerate() {
+        match old_at.get(&row.id) {
+            Some(&j) if old[j] != *row => out.push(Edit::Change(i)),
+            Some(_) => {}
+            None => out.push(Edit::Insert(i)),
+        }
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{app_from_cgroup, retain_source_name, source_summaries, Row, SOURCE_NAME};
+    use super::{
+        app_from_cgroup, edits, retain_source_name, source_summaries, Edit, Row, SOURCE_NAME,
+    };
     use serde_json::json;
+
+    #[test]
+    fn rows_change_in_place_without_a_reset() {
+        let row = |id, title: &str| Row {
+            id,
+            title: title.into(),
+            ..Row::default()
+        };
+        let old = vec![row(3, "c"), row(2, "b"), row(1, "a")];
+        let new = vec![row(4, "d"), row(3, "c"), row(1, "a, read")];
+        let mut rows = old.clone();
+        for edit in edits(&old, &new).unwrap() {
+            match edit {
+                Edit::Remove(i) => drop(rows.remove(i)),
+                Edit::Insert(i) => rows.insert(i, new[i].clone()),
+                Edit::Change(i) => rows[i].clone_from(&new[i]),
+            }
+        }
+        assert_eq!(rows, new);
+        // A kept row that moved can't be patched in place.
+        assert!(edits(&old, &[row(1, "a"), row(3, "c")]).is_none());
+    }
 
     #[test]
     fn source_names_survive_later_updates_without_a_name() {
