@@ -14,7 +14,7 @@ tree (`build.sh`, run from its APKBUILD) and ships as `q25-kernel-modules`.
 | `clk` | `q25-i2c-clk` | Marathon |
 | `light` | `hx32062se` | Marathon |
 | `gauge` | `q25-mt6358-live` | Marathon |
-| `gnss` | `mtk-connsys-gnss` | Marathon: boots the CONNSYS GNSS DSP, `/dev/gnssN` (feat/q25-gnss-open `00dbd387`) |
+| `gnss` | `mtk-connsys-gnss` | Marathon: boots the CONNSYS GNSS DSP, `/dev/gnssN` (feat/q25-gnss-open `bd570bc8`) |
 | `gpu-mfg` | `q25-mfg-only-v2` | Marathon: the MT6789 MFG power domains, from `mtk-pm-domains.c` and linux-mediatek `2ed59e43` data |
 | `haptic` | `q25-haptic` | Marathon's glue for the kernel's `regulator-haptic` |
 | `cam-dt` | `q25-cam-dt` | Marathon: applies `camera/q25-camera.dtbo` at runtime |

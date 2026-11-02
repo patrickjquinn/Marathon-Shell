@@ -587,7 +587,8 @@ static struct platform_device *mtk_gnss_pdev;
 
 /*
  * Interim: wmt_drv does not populate the CONNSYS node's children, so create
- * the device here; without a DT node it runs without LNA control.
+ * the device here unless something already has; without a DT node it runs
+ * without LNA control.
  */
 static int __init mtk_gnss_init(void)
 {
@@ -598,6 +599,10 @@ static int __init mtk_gnss_init(void)
 	if (ret)
 		return ret;
 	np = of_find_compatible_node(NULL, NULL, "mediatek,mt6789-gnss");
+	if (np && of_node_check_flag(np, OF_POPULATED)) {
+		of_node_put(np);
+		return 0;
+	}
 	if (np)
 		mtk_gnss_pdev = of_platform_device_create(np, NULL, NULL);
 	else

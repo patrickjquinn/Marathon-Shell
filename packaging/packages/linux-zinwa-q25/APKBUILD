@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=24
+pkgrel=25
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -85,6 +85,8 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0024-media-i2c-s5kjn1-Report-the-crop-height-not-the-widt.patch
 	0025-iio-magnetometer-mmc5633-Cancel-the-bridge-offset-an.patch
 	0026-pinctrl-mediatek-mt6789-Drop-the-unused-EH-driving-t.patch
+	0027-dt-bindings-gnss-add-MediaTek-MT6789-CONNSYS-GNSS.patch
+	0028-arm64-dts-mediatek-mt8781-zinwa-q25-describe-the-GNS.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -198,6 +200,8 @@ f4e0fd9862dad98b15aa3a64424d436c4c22c053914b0df54157bdaf82b27d10d9ff0ac296b387f1
 b4ac1dc10995e5eeca328dadac16e6135892d0cca1e5cf9251e0a56a20e26b0bbb7f69995959028eb3ad38b43aa45c12bdaf4abbe41d70cebc318121c1534c2e  0024-media-i2c-s5kjn1-Report-the-crop-height-not-the-widt.patch
 67c1fb0e05b4ce8588e15367612d27c51c81ad30ed900bdb8576ac9c208ff7a276a643486b54b4e60fda2675ac2c999ad56fa04904779d8abc80747a88e9310f  0025-iio-magnetometer-mmc5633-Cancel-the-bridge-offset-an.patch
 df3d58b0c34a2381ca05818b91bbad8a34d1154f989ed28a458923a80a110c95091d10413007a98cef7c1286b4bc3779138a0ac042da65eca0a615521455ae49  0026-pinctrl-mediatek-mt6789-Drop-the-unused-EH-driving-t.patch
+67b85898c333744b875f5ba0bb31563d951e4c176c8f908ba7d8a96555b021a30b18929ab14c37660e831ba90bab7d1a3353243ebf2730e709a19e667ff49f35  0027-dt-bindings-gnss-add-MediaTek-MT6789-CONNSYS-GNSS.patch
+cae60eb269341d6ddd691264c87702a1cb88b46bef3c922dce4b0f8c3e136f6fd3cf3e95faa0bc0449b72b53c0b1d7fe4931d95152fbc4d4d89f1d5e072c37f9  0028-arm64-dts-mediatek-mt8781-zinwa-q25-describe-the-GNS.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

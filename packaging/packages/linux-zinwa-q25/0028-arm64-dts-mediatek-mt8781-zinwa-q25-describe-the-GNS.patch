@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 12:52:05 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: describe the GNSS
+ receiver
+
+The Q25's L1 LNA enable is GPIO25, as in the stock DT's gps_l1_lna
+states; function 2 gives the pin to the GNSS DSP. The stock DT also
+carries L5 states on GPIO87, but the stock engine has no L5 DSP image for
+MT6789, so they are left out.
+
+The receiver sits under the CONNSYS node with a default state that holds
+the pin low as a GPIO and an active state the driver selects while
+/dev/gnssN is open.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 25 +++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index f2c361bd..293595bb 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1311,3 +1311,28 @@
+ /* ------------------------------------------------------------------ *
+  * Physical QWERTY: RP2040 on I2C6, see &i2c6 above.
+  * ------------------------------------------------------------------ */
++
++/* GNSS L1 LNA enable on GPIO25; function 2 hands the pin to the GNSS DSP. */
++&pio {
++	gnss_lna_off_pins: gnss-lna-off-pins {
++		pins {
++			pinmux = <Q25_PINMUX(25, 0)>;
++			output-low;
++		};
++	};
++
++	gnss_lna_dsp_pins: gnss-lna-dsp-pins {
++		pins {
++			pinmux = <Q25_PINMUX(25, 2)>;
++		};
++	};
++};
++
++&consys {
++	gnss {
++		compatible = "mediatek,mt6789-gnss";
++		pinctrl-names = "default", "active";
++		pinctrl-0 = <&gnss_lna_off_pins>;
++		pinctrl-1 = <&gnss_lna_dsp_pins>;
++	};
++};

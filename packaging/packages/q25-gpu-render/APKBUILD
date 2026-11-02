@@ -8,7 +8,7 @@ url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND MIT"
 options="!check !strip !tracedeps"
-depends="kmod q25-kernel-modules>=7.0.0-r24 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
+depends="kmod q25-kernel-modules>=7.0.0-r25 mesa=26.2.6-r0 mesa-dri-gallium=26.2.6-r0"
 install="$pkgname.post-install $pkgname.post-upgrade"
 source="q25-gpu-prepare q25-gpu-prepare.service 80-q25-gpu-prepare.conf
  q25-shell-session.gpu GPU-SHA256SUMS eglfs-kms.json simpledrm_dri.so simpledrm_dri.c
