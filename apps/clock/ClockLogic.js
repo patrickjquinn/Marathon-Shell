@@ -51,7 +51,7 @@ function alarmIn(when, now) {
     const ms = when - now;
     if (ms < 60000)
         return qsTr("Alarm in less than a minute");
-    const mins = Math.ceil(ms / 60000);
+    const mins = Math.floor(ms / 60000);
     const d = Math.floor(mins / 1440);
     const h = Math.floor(mins % 1440 / 60);
     const m = mins % 60;

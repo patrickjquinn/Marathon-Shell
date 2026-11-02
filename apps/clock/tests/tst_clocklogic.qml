@@ -231,13 +231,13 @@ TestCase {
                 tag: "hours and minutes",
                 when: at(6, 7, 0),
                 now: now,
-                out: "Alarm in 7 h 20 min"
+                out: "Alarm in 7 h 19 min"
             },
             {
                 tag: "minutes",
                 when: at(6, 0, 5),
                 now: now,
-                out: "Alarm in 25 min"
+                out: "Alarm in 24 min"
             },
             {
                 tag: "exact hours",
@@ -256,6 +256,12 @@ TestCase {
                 when: at(8, 7, 0),
                 now: now,
                 out: "Alarm in 2 d 7 h"
+            },
+            {
+                tag: "just under a day",
+                when: at(6, 23, 40),
+                now: now,
+                out: "Alarm in 23 h 59 min"
             }
         ];
     }
