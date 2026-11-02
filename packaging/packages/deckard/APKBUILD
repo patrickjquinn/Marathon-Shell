@@ -26,6 +26,7 @@ depends="lxc dnsmasq iptables kmod iproute2 util-linux-misc libgcc marathon-shel
 options="!tracedeps !strip net"
 makedepends="cargo unzip"
 checkdepends="dbus"
+install="$pkgname.post-install $pkgname.post-upgrade"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
 _microg=v0.3.17.252432
 _gms=com.google.android.gms-252432034.apk
