@@ -131,6 +131,8 @@ pub struct ChatRequest {
     /// The model must call one of `tools` this round: a question only a
     /// tool can answer truthfully (the weather, the calendar).
     pub require: bool,
+    /// Fewer tokens than the client's own limit.
+    pub max_tokens: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -231,6 +233,11 @@ impl OpenAiClient {
         }
         if req.json_mode {
             body["response_format"] = json!({"type": "json_object"});
+        }
+        if let Some(n) = req.max_tokens {
+            // llama-server reads max_tokens.
+            body["max_completion_tokens"] = json!(n);
+            body["max_tokens"] = json!(n);
         }
         body
     }
