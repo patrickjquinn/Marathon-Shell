@@ -133,6 +133,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0073-nfc-st-nci-i2c-Enable-an-optional-reference-clock.patch
 	0074-nfc-st-nci-Add-support-for-the-ST21NFCD.patch
 	0075-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-NFC.patch
+	0076-clk-mediatek-mt6789-Keep-the-SCP-clock-on.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -291,6 +292,7 @@ f7f2b01eb3226d240c4732ae8a30361719e2eb808086bd0ddfa19e4c3fb7e3953eebecdef3cc4119
 e8b67c2350158611d3b0f6dc8dec2769204897d97e1f70b39a86384f525217a40a43f60460ebf340328613f439036b8778135313f71e4e407f503f931466e972  0073-nfc-st-nci-i2c-Enable-an-optional-reference-clock.patch
 2a2b98425ca05699e70f01ae16d0b5345abf3f4edd9aa91f4bb3e8d907f12a2c6b5e7cf8997ab1e921893e006e75f21afb06877416688a4f6bceddd5a0f87932  0074-nfc-st-nci-Add-support-for-the-ST21NFCD.patch
 452dd3fb1e6c4e07e33ea71df1942139d9517975961fdba3a4db0891c01f0ebfac645eaf98c5d48e866ac285469f802f89f198f6c4273a4ce66e439b7dd09559  0075-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-NFC.patch
+979fd2d158d3cbe1c5f3a7d24bb4d3f98e82180891b6ed5214176638eab583ec6d3912fada4a52d37beb7ad209573bd6e9d20ca90ad9fc15952b27edf69077b8  0076-clk-mediatek-mt6789-Keep-the-SCP-clock-on.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

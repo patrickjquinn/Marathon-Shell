@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 20:55:35 +0000
+Subject: [PATCH] clk: mediatek: mt6789: Keep the SCP clock on
+
+The SCP runs firmware that the bootloader loads and starts, and no Linux
+driver claims its clock: the SCP node stays disabled. Without
+clk_ignore_unused the unused-clock sweep gates scp_sel under the running
+coprocessor. Mark it critical, as MT8186 does for its SCP clock.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/clk/mediatek/clk-mt6789-topckgen.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6789-topckgen.c b/drivers/clk/mediatek/clk-mt6789-topckgen.c
+index 41a208e2..c561c6c6 100644
+--- a/drivers/clk/mediatek/clk-mt6789-topckgen.c
++++ b/drivers/clk/mediatek/clk-mt6789-topckgen.c
+@@ -643,8 +643,10 @@ static const struct mtk_mux top_muxes[] = {
+ 			0x18 , 0 , 3 ,0x04 , 0 ),
+ 	MUX_CLR_SET_UPD(CLK_TOP_SPM_SEL , "spm_sel", spm_parents , 0x10, 0x14,
+ 			0x18 , 8 , 2 , 0x04 , 1 ),
+-	MUX_GATE_CLR_SET_UPD(CLK_TOP_SCP_SEL , "scp_sel", scp_parents , 0x10, 0x14,
+-			     0x18 , 16 , 3 , 23 , 0x04 , 2 ),
++	/* The SCP runs firmware the bootloader started; nothing in Linux owns it. */
++	MUX_GATE_CLR_SET_UPD_FLAGS(CLK_TOP_SCP_SEL, "scp_sel", scp_parents, 0x10, 0x14,
++				   0x18, 16, 3, 23, 0x04, 2,
++				   CLK_IS_CRITICAL | CLK_SET_RATE_PARENT),
+ 	MUX_CLR_SET_UPD(CLK_TOP_BUS_AXIMEM_SEL , "bus_aximem_sel", bus_aximem_parents , 0x10, 0x14,
+ 			0x18 , 24 , 3 , 0x04 , 3 ),
+ 	/* CLK_CFG_1 */
