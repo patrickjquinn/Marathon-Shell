@@ -1,0 +1,74 @@
+#!/bin/bash
+# Run a device's own sysupdate transfers against a published feed, as that
+# device would: the transfers from packaging/ota, rendered with the feed's
+# URL, and the image's keyring in place of the host's (in a user and mount
+# namespace, so no root is needed). Prints the newest version on offer;
+# with --install, also downloads and writes it into a scratch root.
+#
+#   scripts/ota/check-feed q25|pi|qemu RUNNING-VERSION [--install]
+#       [--url URL]  feed root (default: marathon-updates' stable channel)
+#       [--image-id ID]  IMAGE_ID (default: the device's)
+#
+# Needs /usr/lib/systemd/systemd-sysupdate, unshare and, for pi, sfdisk.
+set -euo pipefail
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SYSUPDATE=/usr/lib/systemd/systemd-sysupdate
+device="${1:?device: q25, pi or qemu}"
+running="${2:?the version the device runs}"
+shift 2
+url=https://github.com/patrickjquinn/marathon-updates/releases/download/stable
+install=0
+image_id=
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --install) install=1 ;;
+        --url) url="${2%/}"; shift ;;
+        --image-id) image_id="$2"; shift ;;
+        *) echo "unknown argument $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+
+root="$(mktemp -d)"
+trap 'rm -rf "$root"' EXIT
+mkdir -p "$root/usr/lib/sysupdate.d" "$root/etc"
+gpg --dearmor < "$REPO/packaging/ota/marathon-ota.asc" > "$root/keyring.pgp"
+render() { sed -e "s|@MARATHON_OTA_URL@|$url|g" -e "s|^Path=auto$|Path=/disk.raw|" "$1" \
+    > "$root/usr/lib/sysupdate.d/$(basename "$1" .in)"; }
+case "$device" in
+    q25)
+        : "${image_id:=zinwa-q25}"
+        mkdir -p "$root/.q25-carrier/root/var/lib/marathon/images"
+        for t in "$REPO"/packaging/ota/q25/sysupdate.d/*.transfer.in; do render "$t"; done ;;
+    pi)
+        : "${image_id:=raspberry-pi5}"
+        truncate -s 64M "$root/disk.raw"
+        sfdisk -q "$root/disk.raw" <<EOF
+label: gpt
+start=2048, size=2048, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="marathon_autoboot"
+size=2048, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, name="marathon_${running}_boot"
+size=2048, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, name="_empty"
+size=4096, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, name="marathon_${running}_root"
+size=4096, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, name="_empty"
+EOF
+        [ "$install" = 0 ] || { echo "--install needs slots the size of the real ones; pi only checks" >&2; exit 2; }
+        for t in "$REPO"/packaging/ota/pi/sysupdate.d/*.transfer.in; do render "$t"; done ;;
+    qemu)
+        : "${image_id:=qemu-aarch64}"
+        mkdir -p "$root/boot/EFI/Linux"
+        # Partitions need a real disk; the UKI is the transfer that runs here.
+        render "$REPO/packaging/ota/sysupdate.d/marathon-20-uki.transfer.in" ;;
+    *) echo "device: q25, pi or qemu" >&2; exit 2 ;;
+esac
+printf 'ID=postmarketos\nIMAGE_ID=%s\nVARIANT_ID=marathon\nVERSION_ID=edge\nIMAGE_VERSION=%s\n' \
+    "$image_id" "$running" > "$root/usr/lib/os-release"
+
+verb=check-new
+[ "$install" = 0 ] || verb=update
+unshare --map-root-user --mount /bin/sh -c '
+    mount --bind "$1/keyring.pgp" /usr/lib/systemd/import-pubring.pgp &&
+    SYSTEMD_ESP_PATH=/boot SYSTEMD_RELAX_ESP_CHECKS=1 exec "$2" --root="$1" --sync=no "$3"' \
+    sh "$root" "$SYSUPDATE" "$verb"
+if [ "$install" = 1 ]; then
+    find "$root" -type f ! -name keyring.pgp ! -path "$root/usr/*" -printf '%P %s bytes\n'
+fi

@@ -43,8 +43,10 @@
 #                           empty builds an image with no remote login.
 #   MARATHON_IMAGE_LAYOUT   "single" (default) or "ab": A/B /usr slots with
 #                           signed OTA updates and rollback (docs/OTA.md)
+#   MARATHON_OTA_CHANNEL    "stable" (default) or "test": which of
+#                           marathon-updates' release feeds the image follows
 #   MARATHON_OTA_URL        update feed root for A/B and Zinwa Q25 images
-#                           (default https://thrivelobal.com/marathon/updates)
+#                           (default https://github.com/patrickjquinn/marathon-updates/releases/download/$MARATHON_OTA_CHANNEL)
 #   MARATHON_OTA_PUBKEY     armored public signing key for those images
 #                           (default packaging/ota/marathon-ota.asc)
 
@@ -282,7 +284,7 @@ case "$MARATHON_TARGET_DEVICE" in
     zinwa-q25) OTA_TEMPLATES="$MARATHON_IMAGE_SRC/ota/q25/sysupdate.d" ;;
 esac
 if [ "$OTA" = 1 ]; then
-    OTA_URL="${MARATHON_OTA_URL:-https://thrivelobal.com/marathon/updates}"
+    OTA_URL="${MARATHON_OTA_URL:-https://github.com/patrickjquinn/marathon-updates/releases/download/${MARATHON_OTA_CHANNEL:-stable}}"
     OTA_PUBKEY="${MARATHON_OTA_PUBKEY:-$MARATHON_IMAGE_SRC/ota/marathon-ota.asc}"
     if [ ! -s "$OTA_PUBKEY" ]; then
         echo "error: an updatable image needs the update signing key's public half at $OTA_PUBKEY" >&2
