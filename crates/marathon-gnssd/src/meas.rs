@@ -82,6 +82,19 @@ fn range_rate(sat: &Sat, t: f64, approx: Vector3<f64>) -> f64 {
     (sat.position(t + 0.5).0 - approx).norm() - (sat.position(t - 0.5).0 - approx).norm()
 }
 
+/// RMS (m/s) of the channels' Doppler against a still receiver at `pos`,
+/// after removing the common reference-clock drift.
+pub fn doppler_rms(chans: &[(Channel, Sat)], t: f64, pos: Vector3<f64>) -> f64 {
+    let res: Vec<f64> = chans
+        .iter()
+        .map(|(c, s)| -f64::from(c.doppler) * C / s.carrier() - range_rate(s, t, pos))
+        .collect();
+    #[allow(clippy::cast_precision_loss, reason = "a handful of channels")]
+    let n = res.len() as f64;
+    let mean = res.iter().sum::<f64>() / n;
+    (res.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / n).sqrt()
+}
+
 /// The channels whose Doppler matches the geometry once one reference-clock
 /// frequency offset, common to all of them, is removed.
 pub fn doppler_consistent<'a>(

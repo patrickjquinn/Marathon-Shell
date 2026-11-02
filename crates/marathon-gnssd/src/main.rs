@@ -51,7 +51,19 @@ const UERE: f64 = 10.0;
 /// the GPS satellites it needs.
 const COARSE_RADIUS: f64 = 2_500e3;
 const COARSE_STEP: f64 = 75e3;
-const COARSE_SATS: usize = 5;
+const COARSE_SATS: usize = 3;
+/// Doppler residual RMS (m/s) of an accepted coarse position, and how far
+/// apart (m) two candidates must be to count as rivals.
+const COARSE_DOPPLER: f64 = 0.5;
+const COARSE_DISTINCT: f64 = 20e3;
+/// Epochs a cell's Doppler fit is averaged over before it can be picked, and
+/// how much worse the best rival must fit.
+const COARSE_EPOCHS: u32 = 5;
+const COARSE_RATIO: f64 = 2.5;
+/// Coarse epochs without an answer before the search covers the whole Earth,
+/// and how often (in such epochs) that search then runs.
+const COARSE_TRIES: u32 = 30;
+const GLOBAL_EVERY: u32 = 5;
 /// Height prior of the coarse search: sea level, give or take mountains.
 const COARSE_HEIGHT_SIGMA: f64 = 500.0;
 /// Epochs with that many satellites but no fix before the approximate
@@ -61,6 +73,10 @@ const STARVED: u32 = 60;
 /// how many are kept.
 const SLOT_SAMPLES: usize = 30;
 const SLOT_SAMPLES_KEPT: usize = 300;
+/// Seconds between progress lines in the journal.
+const REPORT_EVERY: f64 = 30.0;
+/// Saved ephemerides older than this are not used (their fit interval).
+const NAV_MAX_AGE: f64 = 4.0 * 3600.0;
 /// Seconds between saves of the position to `--state`.
 const SAVE_EVERY: f64 = 60.0;
 /// Seconds without a client before the daemon exits.
@@ -83,6 +99,9 @@ fn log(msg: &str) {
     eprintln!("{msg}");
 }
 
+/// A coarse grid cell, its solution and that solution's Doppler RMS (m/s).
+type Cell = ((i32, i32), spp::Fix, f64);
+
 struct Engine {
     nav: rinex::Nav,
     systems: [bool; 3],
@@ -102,8 +121,21 @@ struct Engine {
     /// The approximate position is only a guess (time zone, old state).
     coarse: bool,
     starved: u32,
+    /// Coarse epochs with satellites to spare but no answer, and whether
+    /// the search now covers the whole Earth.
+    coarse_tries: u32,
+    global: bool,
+    /// Per coarse grid cell: summed squared Doppler RMS, epochs, last solution.
+    cells: HashMap<(i32, i32), (f64, u32, spp::Fix)>,
     state: Option<String>,
     saved: f64,
+    /// Progress for the journal: where the start position came from, what
+    /// the last epoch did, when the run started and was last reported.
+    seed: String,
+    status: String,
+    started: Option<f64>,
+    reported: f64,
+    fixes: u64,
 }
 
 fn ecef(lat: f64, lon: f64, h: f64) -> Vector3<f64> {
@@ -204,7 +236,7 @@ impl Engine {
 
     fn fix(&mut self, unix: f64, out: &mut impl Write) -> io::Result<()> {
         let t = tow(unix);
-        let (fix, used, gps, coarse, samples) = {
+        let (fix, used, gps, coarse, samples, free_height) = {
             let tracked: Vec<(Channel, Sat)> = self
                 .chans
                 .iter()
@@ -220,10 +252,10 @@ impl Engine {
             };
             let gps = tracked.iter().filter(|(_, s)| s.system() == 0).count();
             if self.coarse {
-                let found = (gps >= COARSE_SATS)
-                    .then(|| self.coarse_fix(&tracked, t))
-                    .flatten();
-                (None, 0, gps, Some(found), Vec::new())
+                // The whole-Earth search takes a while: not every epoch.
+                let due = !self.global || self.coarse_tries.is_multiple_of(GLOBAL_EVERY);
+                let found = (gps >= COARSE_SATS && due).then(|| self.coarse_fix(&tracked, t));
+                (None, 0, gps, Some(found), Vec::new(), None)
             } else {
                 let mut ordered = tracked.clone();
                 ordered.sort_by_key(|(_, s)| s.system());
@@ -245,29 +277,23 @@ impl Engine {
                     .filter(|f| f.hdop < 2.0 && f.redundancy >= 2)
                     .map(|f| self.slot_samples(&obs, t, &f.ecef))
                     .unwrap_or_default();
-                (fix, used.len(), gps, None, samples)
+                // The height measured without the height constraint.
+                let free = fix
+                    .as_ref()
+                    .and_then(|f| spp::solve(&used, t, f.ecef, None, BIAS_SIGMA))
+                    .filter(|g| g.chi < MAX_CHI && g.hdop < 3.0)
+                    .map(|g| spp::geodetic(&g.ecef).2);
+                (fix, used.len(), gps, None, samples, free)
             }
         };
-        for (k, s) in samples {
-            let v = self.slots.entry(k).or_default();
-            if v.len() >= SLOT_SAMPLES_KEPT {
-                v.remove(0);
-            }
-            v.push(s);
-        }
+        self.learn_slots(samples);
         if let Some(found) = coarse {
-            if let Some(f) = found {
-                let (lat, lon, _) = spp::geodetic(&f.ecef);
-                log(&format!(
-                    "coarse fix {lat:.3},{lon:.3} from {gps} satellites"
-                ));
-                self.approx = f.ecef;
-                self.height = (geoid(lat, lon), GUESSED_HEIGHT_SIGMA);
-                self.coarse = false;
-            }
+            let found = found.and_then(|f| self.coarse_pick(f, gps));
+            self.coarse_result(found, gps);
             return Ok(());
         }
         let Some(fix) = fix else {
+            self.status = format!("no fix from {used} usable satellites");
             if gps >= COARSE_SATS {
                 self.starved += 1;
                 if self.starved >= STARVED {
@@ -280,15 +306,25 @@ impl Engine {
         };
         self.starved = 0;
         let Some(pos) = self.filter.update(unix, fix.ecef, UERE * fix.hdop.max(1.0)) else {
+            self.status = "fix refused by the filter".into();
             return Ok(());
         };
-        let (_, _, h) = spp::geodetic(&fix.ecef);
-        if fix.redundancy >= 3 && fix.hdop < 2.0 {
+        if self.fixes == 0 {
+            let after = unix - self.started.unwrap_or(unix);
+            log(&format!("first fix after {after:.0} s"));
+        }
+        self.fixes += 1;
+        self.status = format!("fixing, HDOP {:.1}, {used} satellites", fix.hdop);
+        if let Some(h) = free_height {
             self.heights.push(h);
             if self.heights.len() >= HEIGHT_SAMPLES {
                 let mut sorted = self.heights.split_off(0);
                 sorted.sort_by(f64::total_cmp);
                 self.height = (sorted[sorted.len() / 2], HEIGHT_SIGMA);
+                log(&format!(
+                    "height {:.0} m above the ellipsoid, from {} fixes",
+                    self.height.0, HEIGHT_SAMPLES
+                ));
             }
         }
         if fix.hdop < 3.0 {
@@ -305,58 +341,77 @@ impl Engine {
     }
 
     /// A GPS-only solution from a grid of starting points around a guess that
-    /// may be far off: whole code periods are resolved anew from each, and
-    /// the consistent solution with the smallest residuals wins.
-    fn coarse_fix(&self, tracked: &[(Channel, Sat)], t: f64) -> Option<spp::Fix> {
+    /// may be far off: whole code periods are resolved anew from each. A
+    /// still receiver's Doppler then picks the right one, which works from
+    /// three satellites; with five or more the code residuals alone can.
+    fn coarse_fix(&self, tracked: &[(Channel, Sat)], t: f64) -> Vec<Cell> {
         let gps: Vec<(Channel, Sat)> = tracked
             .iter()
             .filter(|(_, s)| s.system() == 0)
             .copied()
             .collect();
-        let (lat0, lon0, _) = spp::geodetic(&self.approx);
-        #[allow(clippy::cast_possible_truncation, reason = "a few dozen steps")]
-        let n = (COARSE_RADIUS / COARSE_STEP) as i32;
-        let mut best: Option<spp::Fix> = None;
-        for i in -n..=n {
-            for j in -n..=n {
-                let (north, east) = (f64::from(i) * COARSE_STEP, f64::from(j) * COARSE_STEP);
-                if north.hypot(east) > COARSE_RADIUS {
-                    continue;
-                }
-                let lat = (lat0 + north / 111_320.0).clamp(-89.0, 89.0);
-                let lon = lon0 + east / (111_320.0 * lat.to_radians().cos());
-                let start = ecef(lat, lon, 0.0);
-                let up = start.normalize();
-                // Every satellite tracked is above this horizon.
-                if gps
-                    .iter()
-                    .any(|(_, s)| (s.position(t).0 - start).dot(&up) < 0.0)
-                {
-                    continue;
-                }
-                let obs: Vec<spp::Observation> = meas::transmit_times(&gps, t, start)
-                    .into_iter()
-                    .map(|(sat, ttx)| spp::Observation {
-                        sat,
-                        range: orbit::C * orbit::dt(t, ttx),
-                        sigma: SIGMA[0],
-                    })
-                    .collect();
-                let Some(f) =
-                    spp::solve(&obs, t, start, Some((0.0, COARSE_HEIGHT_SIGMA)), BIAS_SIGMA)
-                else {
-                    continue;
-                };
-                if f.redundancy >= 2
-                    && f.hdop < 5.0
-                    && (f.ecef - start).norm() < COARSE_STEP
-                    && best.as_ref().is_none_or(|b| f.chi < b.chi)
-                {
-                    best = Some(f);
-                }
+        let mut found = Vec::new();
+        for (cell, lat, lon) in self.coarse_grid() {
+            let start = ecef(lat, lon, 0.0);
+            let up = start.normalize();
+            // Every satellite tracked is above this horizon.
+            if gps
+                .iter()
+                .any(|(_, s)| (s.position(t).0 - start).dot(&up) < 0.0)
+            {
+                continue;
+            }
+            let obs: Vec<spp::Observation> = meas::transmit_times(&gps, t, start)
+                .into_iter()
+                .map(|(sat, ttx)| spp::Observation {
+                    sat,
+                    range: orbit::C * orbit::dt(t, ttx),
+                    sigma: SIGMA[0],
+                })
+                .collect();
+            let Some(f) = spp::solve(&obs, t, start, Some((0.0, COARSE_HEIGHT_SIGMA)), BIAS_SIGMA)
+            else {
+                continue;
+            };
+            if f.hdop < MAX_HDOP && (f.ecef - start).norm() < COARSE_STEP {
+                let rms = meas::doppler_rms(&gps, t, f.ecef);
+                found.push((cell, f, rms));
             }
         }
-        best.filter(|f| f.chi < MAX_CHI)
+        found
+    }
+
+    /// Accumulates each cell's Doppler fit over epochs and picks the cell
+    /// that fits clearly better than any other more than 20 km from it; with
+    /// five or more satellites, the code residuals of one epoch can decide.
+    fn coarse_pick(&mut self, found: Vec<Cell>, gps: usize) -> Option<spp::Fix> {
+        let by_chi = found
+            .iter()
+            .map(|c| c.1)
+            .filter(|f| gps >= 5 && f.redundancy >= 2 && f.hdop < 5.0)
+            .min_by(|a, b| a.chi.total_cmp(&b.chi))
+            .filter(|f| f.chi < MAX_CHI);
+        for (cell, f, rms) in found {
+            let e = self.cells.entry(cell).or_insert((0.0, 0, f));
+            *e = (e.0 + rms * rms, e.1 + 1, f);
+        }
+        #[allow(clippy::cast_precision_loss, reason = "a few hundred epochs")]
+        let fits: Vec<(f64, spp::Fix)> = self
+            .cells
+            .values()
+            .filter(|c| c.1 >= COARSE_EPOCHS)
+            .map(|c| ((c.0 / f64::from(c.1)).sqrt(), c.2))
+            .collect();
+        let best = fits.iter().min_by(|a, b| a.0.total_cmp(&b.0));
+        let picked = best.and_then(|&(rms, f)| {
+            let rival = fits
+                .iter()
+                .filter(|c| (c.1.ecef - f.ecef).norm() > COARSE_DISTINCT)
+                .map(|c| c.0)
+                .fold(f64::INFINITY, f64::min);
+            (rms < COARSE_DOPPLER && rival > COARSE_RATIO * rms).then_some(f)
+        });
+        picked.or(by_chi)
     }
 
     /// Pseudoranges, less the troposphere and broadcast ionosphere, for the
@@ -424,6 +479,125 @@ impl Engine {
         glo.into_iter().map(|(k, r)| (k, r - common)).collect()
     }
 
+    fn learn_slots(&mut self, samples: Vec<(i8, f64)>) {
+        for (k, s) in samples {
+            let v = self.slots.entry(k).or_default();
+            if v.len() >= SLOT_SAMPLES_KEPT {
+                v.remove(0);
+            }
+            v.push(s);
+        }
+    }
+
+    /// Starting points of the coarse search: around the guess, or once that
+    /// has failed for long enough, the whole Earth.
+    fn coarse_grid(&self) -> Vec<((i32, i32), f64, f64)> {
+        let deg = COARSE_STEP / 111_320.0;
+        let (lat0, lon0) = if self.global {
+            (0.0, 0.0)
+        } else {
+            let (lat, lon, _) = spp::geodetic(&self.approx);
+            (lat, lon)
+        };
+        let radius = if self.global {
+            90.0
+        } else {
+            COARSE_RADIUS / 111_320.0
+        };
+        #[allow(clippy::cast_possible_truncation, reason = "a few hundred steps")]
+        let n = (radius / deg).ceil() as i32;
+        let mut grid = Vec::new();
+        for i in -n..=n {
+            let dlat = f64::from(i) * deg;
+            let lat = lat0 + dlat;
+            if !(-89.0..=89.0).contains(&lat) {
+                continue;
+            }
+            let cos = lat.to_radians().cos();
+            let span = if self.global {
+                180.0
+            } else {
+                (radius * radius - dlat * dlat).max(0.0).sqrt() / cos
+            };
+            #[allow(clippy::cast_possible_truncation, reason = "a few hundred steps")]
+            let m = (span * cos / deg).floor() as i32;
+            for j in -m..=m {
+                grid.push(((i, j), lat, lon0 + f64::from(j) * deg / cos));
+            }
+        }
+        grid
+    }
+
+    fn coarse_result(&mut self, found: Option<spp::Fix>, gps: usize) {
+        if found.is_none() && gps >= COARSE_SATS {
+            self.coarse_tries += 1;
+            if self.coarse_tries == COARSE_TRIES && !self.global {
+                log(&format!(
+                    "nothing near {}; searching the whole Earth",
+                    self.seed
+                ));
+                self.global = true;
+                self.cells.clear();
+            }
+        }
+        let area = if self.global {
+            "the whole Earth".to_owned()
+        } else {
+            format!("around {}", self.seed)
+        };
+        self.status = if gps < COARSE_SATS {
+            format!("searching {area}: {gps}/{COARSE_SATS} GPS ephemerides")
+        } else {
+            format!("searching {area}: no clear position yet from {gps} GPS")
+        };
+        if let Some(f) = found {
+            let (lat, lon, _) = spp::geodetic(&f.ecef);
+            log(&format!(
+                "coarse fix {lat:.3},{lon:.3} from {gps} satellites"
+            ));
+            self.approx = f.ecef;
+            self.height = (geoid(lat, lon), GUESSED_HEIGHT_SIGMA);
+            self.coarse = false;
+            self.cells.clear();
+        }
+    }
+
+    /// Logs where the receiver is, at most every `REPORT_EVERY` seconds.
+    fn report(&mut self, unix: f64) {
+        let started = *self.started.get_or_insert(unix);
+        if self.reported > 0.0 && unix - self.reported < REPORT_EVERY {
+            return;
+        }
+        self.reported = unix;
+        let mut locked = [0; 3];
+        for c in self.chans.iter().filter(|c| c.locked && c.cn0 >= MIN_CN0) {
+            match c.system {
+                meas::GPS => locked[0] += 1,
+                meas::GLONASS => locked[1] += 1,
+                meas::BEIDOU => locked[2] += 1,
+                _ => {}
+            }
+        }
+        let list = |m: &HashMap<u8, Vec<Ephemeris>>, p: char| {
+            let mut v: Vec<u8> = m.keys().copied().collect();
+            v.sort_unstable();
+            v.iter()
+                .map(|n| format!("{p}{n:02}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        log(&format!(
+            "{:.0} s: locked GPS {} GLONASS {} BeiDou {}; ephemerides [{}] [{}]; {}",
+            unix - started,
+            locked[0],
+            locked[1],
+            locked[2],
+            list(&self.nav.gps, 'G'),
+            list(&self.nav.beidou, 'C'),
+            self.status
+        ));
+    }
+
     /// Saves the approximate position for the next start, now and then.
     fn save(&mut self, unix: f64) {
         let Some(path) = &self.state else {
@@ -433,13 +607,28 @@ impl Engine {
             return;
         }
         self.saved = unix;
-        let (lat, lon, h) = spp::geodetic(&self.approx);
-        let tmp = format!("{path}.new");
-        let saved = std::fs::write(&tmp, format!("{lat:.5},{lon:.5},{h:.0}\n"))
-            .and_then(|()| std::fs::rename(&tmp, path));
-        if let Err(e) = saved {
-            log(&format!("{path}: {e}"));
-        }
+        let (lat, lon, _) = spp::geodetic(&self.approx);
+        let (h, sigma) = self.height;
+        write_atomic(path, &format!("{lat:.5},{lon:.5},{h:.0},{sigma:.0}\n"));
+    }
+
+    /// Saves the ephemerides read from the sky next to the position, for a
+    /// warm start within the next few hours.
+    fn save_nav(&self, unix: f64) {
+        let Some(path) = &self.state else {
+            return;
+        };
+        let lines: Vec<String> = [('G', &self.nav.gps), ('C', &self.nav.beidou)]
+            .into_iter()
+            .flat_map(|(p, map)| {
+                map.iter()
+                    .filter_map(move |(prn, e)| Some(format!("{p} {prn} {}", e.first()?.to_line())))
+            })
+            .collect();
+        write_atomic(
+            &format!("{path}.nav"),
+            &format!("saved {unix:.0}\n{}\n", lines.join("\n")),
+        );
     }
 
     /// Handles one frame received at Unix time `unix`; returns commands to send.
@@ -453,18 +642,32 @@ impl Engine {
             if let Some((prn, sf)) = meas::gps_subframe(&f.payload) {
                 self.iono = lnav::klobuchar(&sf).or(self.iono);
                 if let Some(e) = self.subframes.entry(prn).or_default().add(sf) {
-                    self.nav.gps.insert(prn, vec![e]);
+                    match self.nav.gps.insert(prn, vec![e]) {
+                        None => log(&format!("ephemeris G{prn:02}: {} GPS", self.nav.gps.len())),
+                        Some(old) if old.first() == Some(&e) => return Ok(Vec::new()),
+                        Some(_) => {}
+                    }
+                    self.save_nav(unix);
                 }
             }
         } else if f.id == mtk::id::BEIDOU_SUBFRAME {
             if let Some((prn, sf)) = meas::beidou_subframe(&f.payload) {
                 if let Some(e) = self.d1.entry(prn).or_default().add(sf) {
-                    self.nav.beidou.insert(prn, vec![e]);
+                    match self.nav.beidou.insert(prn, vec![e]) {
+                        None => log(&format!(
+                            "ephemeris C{prn:02}: {} BeiDou",
+                            self.nav.beidou.len()
+                        )),
+                        Some(old) if old.first() == Some(&e) => return Ok(Vec::new()),
+                        Some(_) => {}
+                    }
+                    self.save_nav(unix);
                 }
             }
         } else if f.id == mtk::id::EPOCH_LAST {
             if let Some((ms, at)) = self.tag {
                 self.fix(at, out)?;
+                self.report(at);
                 let next = tow(at + 1.0);
                 return Ok(dsp::epoch(
                     ms,
@@ -593,10 +796,56 @@ fn activation_socket() -> Option<UnixListener> {
     Some(unsafe { UnixListener::from_raw_fd(3) })
 }
 
+fn write_atomic(path: &str, text: &str) {
+    let tmp = format!("{path}.new");
+    if let Err(e) = std::fs::write(&tmp, text).and_then(|()| std::fs::rename(&tmp, path)) {
+        log(&format!("{path}: {e}"));
+    }
+}
+
+/// Ephemerides saved by an earlier run, if they are recent enough.
+fn load_nav(path: &str, unix: f64, nav: &mut rinex::Nav) {
+    let Ok(text) = std::fs::read_to_string(format!("{path}.nav")) else {
+        return;
+    };
+    let mut lines = text.lines();
+    let saved: Option<f64> = lines
+        .next()
+        .and_then(|l| l.strip_prefix("saved "))
+        .and_then(|s| s.parse().ok());
+    if saved.is_none_or(|s| unix - s > NAV_MAX_AGE) {
+        return;
+    }
+    for l in lines {
+        let mut w = l.splitn(3, ' ');
+        let (Some(sys), Some(prn), Some(rest)) = (w.next(), w.next(), w.next()) else {
+            continue;
+        };
+        let (Ok(prn), Some(e)) = (prn.parse(), Ephemeris::from_line(rest)) else {
+            continue;
+        };
+        match sys {
+            "G" => nav.gps.insert(prn, vec![e]),
+            "C" => nav.beidou.insert(prn, vec![e]),
+            _ => None,
+        };
+    }
+    log(&format!(
+        "{} GPS and {} BeiDou ephemerides from the last run",
+        nav.gps.len(),
+        nav.beidou.len()
+    ));
+}
+
+/// The height sigma saved with a position, if any.
+fn parse_height_sigma(s: &str) -> Option<f64> {
+    s.trim().split(',').nth(3)?.parse().ok()
+}
+
 fn parse_position(s: &str) -> Option<(f64, f64, f64)> {
     let v: Vec<f64> = s.trim().split(',').filter_map(|x| x.parse().ok()).collect();
     match v[..] {
-        [lat, lon, h] => Some((lat, lon, h)),
+        [lat, lon, h] | [lat, lon, h, _] => Some((lat, lon, h)),
         _ => None,
     }
 }
@@ -633,6 +882,43 @@ fn replay(engine: &mut Engine, path: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// Where to start: the first of `--approx`, the saved position, `--guess` and
+/// the time zone, with a description for the journal.
+/// Description, position, height sigma, and whether it is only a guess.
+type Start = (String, (f64, f64, f64), f64, bool);
+
+/// Also the height sigma, and whether the position is only a guess.
+fn start_position(args: &[String], state: Option<&str>) -> io::Result<Start> {
+    let given = arg(args, "--approx").and_then(|s| parse_position(&s));
+    let saved_text = state.and_then(|p| std::fs::read_to_string(p).ok());
+    let saved = saved_text.as_deref().and_then(parse_position);
+    // A saved height is trusted only as far as it was when saved.
+    let sigma = saved_text
+        .as_deref()
+        .and_then(parse_height_sigma)
+        .filter(|_| given.is_none())
+        .unwrap_or(HEIGHT_SIGMA);
+    let guess = arg(args, "--guess").and_then(|s| parse_position(&s));
+    let tz = time_zone_position();
+    let (from, (lat, lon, h)) = [
+        ("--approx", given),
+        ("the saved position", saved),
+        ("--guess", guess),
+        ("the time zone", tz),
+    ]
+    .into_iter()
+    .find_map(|(name, p)| Some((name, p?)))
+    .ok_or_else(|| io::Error::other("no --approx, --state or time zone to start from"))?;
+    let seed = format!("{lat:.2},{lon:.2} ({from})");
+    log(&format!("starting from {seed}"));
+    Ok((
+        seed,
+        (lat, lon, h),
+        sigma,
+        given.is_none() && saved.is_none(),
+    ))
+}
+
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let nav = arg(&args, "--nav")
@@ -640,22 +926,17 @@ fn main() -> io::Result<()> {
         .transpose()?
         .unwrap_or_default();
     let state = arg(&args, "--state");
-    let given = arg(&args, "--approx").and_then(|s| parse_position(&s));
-    let saved = state
-        .as_ref()
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .and_then(|s| parse_position(&s));
-    let (lat, lon, h) = given
-        .or(saved)
-        .or_else(|| arg(&args, "--guess").and_then(|s| parse_position(&s)))
-        .or_else(time_zone_position)
-        .ok_or_else(|| io::Error::other("no --approx, --state or time zone to start from"))?;
+    let (seed, (lat, lon, h), sigma, coarse) = start_position(&args, state.as_deref())?;
+    let mut nav = rinex::parse(&nav);
+    if let Some(p) = &state {
+        load_nav(p, now(), &mut nav);
+    }
     let systems = arg(&args, "--systems").unwrap_or_else(|| "GC".into());
     let mut engine = Engine {
-        nav: rinex::parse(&nav),
+        nav,
         systems: ['G', 'R', 'C'].map(|c| systems.contains(c)),
         approx: ecef(lat, lon, h),
-        height: (h, HEIGHT_SIGMA),
+        height: (h, sigma),
         heights: Vec::new(),
         tag: None,
         chans: Vec::new(),
@@ -664,10 +945,18 @@ fn main() -> io::Result<()> {
         iono: None,
         filter: Filter::default(),
         slots: HashMap::new(),
-        coarse: given.is_none() && saved.is_none(),
+        coarse,
         starved: 0,
+        coarse_tries: 0,
+        global: false,
+        cells: HashMap::new(),
         state,
         saved: 0.0,
+        seed,
+        status: "starting".into(),
+        started: None,
+        reported: 0.0,
+        fixes: 0,
     };
     if let Some(path) = arg(&args, "--replay") {
         return replay(&mut engine, &path);
