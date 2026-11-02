@@ -8,7 +8,7 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=26
+pkgrel=27
 _commit=d5c317833bbe0844eb2809a8ecf873e09379cafe
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
@@ -25,6 +25,7 @@ depends="lxc dnsmasq iptables kmod iproute2-ss util-linux-misc libgcc marathon-s
 options="!tracedeps !strip net"
 makedepends="cargo unzip"
 checkdepends="dbus"
+install="$pkgname.post-install $pkgname.post-upgrade"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
 _microg=v0.3.17.252432
 _gms=com.google.android.gms-252432034.apk

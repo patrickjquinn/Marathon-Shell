@@ -1,0 +1,10 @@
+#!/bin/sh
+# deckard-containerd can run Android in a user namespace (userns = True in
+# deckard.cfg) whose ids are root's subordinate range 0x70000000 + 2^20
+# (USERNS_BASE and USERNS_IDS in deckard-host-tools). LXC maps it through
+# newuidmap and newgidmap, which need it in /etc/subuid and /etc/subgid.
+for file in /etc/subuid /etc/subgid; do
+	grep -qx 'root:1879048192:1048576' "$file" 2>/dev/null ||
+		echo 'root:1879048192:1048576' >> "$file"
+done
+exit 0
