@@ -1,0 +1,17 @@
+# The Q25 root is an ext4 file on the carrier partition; q25-root-arm.service
+# boots the new one, counted, at the next restart.
+[Transfer]
+ProtectVersion=%A
+AppStream=@MARATHON_OTA_URL@/%M_%W_%w/marathon-os.metainfo.xml
+
+[Source]
+Type=url-file
+Path=@MARATHON_OTA_URL@/%M_%W_%w/
+MatchPattern=%M_%W_%w_@v.ext4.zst
+
+[Target]
+Type=regular-file
+Path=/.q25-carrier/root/var/lib/marathon/images
+MatchPattern=%M_%W_%w_@v.ext4
+Mode=0600
+InstancesMax=2
