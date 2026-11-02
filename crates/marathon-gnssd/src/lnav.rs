@@ -68,12 +68,12 @@ pub fn klobuchar(b: &[u8; 30]) -> Option<[f64; 8]> {
     ])
 }
 
-fn bits(b: &[u8; 30], pos: usize, len: usize) -> u64 {
+pub(crate) fn bits(b: &[u8; 30], pos: usize, len: usize) -> u64 {
     (pos..pos + len).fold(0, |v, i| v << 1 | u64::from(b[i / 8] >> (7 - i % 8) & 1))
 }
 
 #[allow(clippy::cast_possible_wrap, reason = "two's complement field")]
-fn sbits(b: &[u8; 30], pos: usize, len: usize) -> i64 {
+pub(crate) fn sbits(b: &[u8; 30], pos: usize, len: usize) -> i64 {
     let v = bits(b, pos, len);
     ((v << (64 - len)) as i64) >> (64 - len)
 }

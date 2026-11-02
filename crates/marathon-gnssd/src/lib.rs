@@ -3,6 +3,7 @@
 //! commands that keep it searching, its channel records, the GPS and
 //! BeiDou navigation messages, orbits, single-point positioning and NMEA.
 
+pub mod almanac;
 pub mod d1;
 pub mod dsp;
 pub mod filter;
