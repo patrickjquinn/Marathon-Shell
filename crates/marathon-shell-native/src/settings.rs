@@ -409,7 +409,7 @@ macro_rules! properties {
 properties! {
     user_scale_factor: f64 = 1.0, "ui/userScaleFactor", "userScaleFactor", user_scale_factor_changed, on_user_scale_factor_changed, set_user_scale_factor(f64) custom;
     wallpaper_path: QString = QString::from(&asset_url("wallpapers/meridian.jpg")), "ui/wallpaperPath", "wallpaperPath", wallpaper_path_changed, on_wallpaper_path_changed, set_wallpaper_path(&QString);
-    device_name: QString = QString::from("Marathon OS"), "system/deviceName", "deviceName", device_name_changed, on_device_name_changed, set_device_name(&QString) custom;
+    device_name: QString = QString::from(&model_name()), "system/deviceName", "deviceName", device_name_changed, on_device_name_changed, set_device_name(&QString) custom;
     auto_lock: bool = true, "system/autoLock", "autoLock", auto_lock_changed, on_auto_lock_changed, set_auto_lock(bool);
     auto_lock_timeout: i32 = 0, "system/autoLockTimeout", "autoLockTimeout", auto_lock_timeout_changed, on_auto_lock_timeout_changed, set_auto_lock_timeout(i32);
     show_notification_previews: bool = true, "system/showNotificationPreviews", "showNotificationPreviews", show_notification_previews_changed, on_show_notification_previews_changed, set_show_notification_previews(bool);
@@ -502,6 +502,22 @@ pub fn data_dir() -> Option<PathBuf> {
 
 fn file_url(path: &Path) -> String {
     QUrl::from_local_file(&QString::from(&*path.to_string_lossy())).to_string()
+}
+
+/// The model as the firmware names it, the default device name as on Android.
+fn model_name() -> String {
+    [
+        "/sys/firmware/devicetree/base/model",
+        "/sys/devices/virtual/dmi/id/product_name",
+    ]
+    .into_iter()
+    .filter_map(|path| fs::read_to_string(path).ok())
+    .map(|name| {
+        name.trim_matches(|c: char| c == '\0' || c.is_whitespace())
+            .to_owned()
+    })
+    .find(|name| !name.is_empty())
+    .unwrap_or_else(|| "Marathon OS".to_owned())
 }
 
 /// An installed asset's file URL, else the wallpaper built into the shell.
@@ -1052,6 +1068,22 @@ fn migrate(ini: &mut Ini) -> bool {
             .insert("system/autoLockTimeoutMigrated".into(), Value::Bool(true));
         changed = true;
     }
+    // Once only: older images saved "Marathon OS" as the name before it
+    // defaulted to the model.
+    if !flag(ini, "system/deviceNameModelDefault") {
+        if ini
+            .0
+            .get("system/deviceName")
+            .and_then(Value::as_text)
+            .as_deref()
+            == Some("Marathon OS")
+        {
+            ini.0.remove("system/deviceName");
+        }
+        ini.0
+            .insert("system/deviceNameModelDefault".into(), Value::Bool(true));
+        changed = true;
+    }
     // Once only, so a developer who unhides the Test Suite keeps it.
     if !flag(ini, "apps/testHiddenByDefault") {
         let mut hidden = ini
@@ -1378,6 +1410,21 @@ mod tests {
         assert_eq!(
             delay("[system]\nautoLockTimeout=30\nautoLockTimeoutMigrated=true\n"),
             Some(30)
+        );
+    }
+
+    #[test]
+    fn the_old_default_name_gives_way_to_the_model_once() {
+        let name = |file: &str| {
+            let mut ini = Ini::parse(file);
+            migrate(&mut ini);
+            ini.0.get("system/deviceName").and_then(Value::as_text)
+        };
+        assert_eq!(name("[system]\ndeviceName=Marathon OS\n"), None);
+        assert_eq!(name("[system]\ndeviceName=Pat\n").as_deref(), Some("Pat"));
+        assert_eq!(
+            name("[system]\ndeviceName=Marathon OS\ndeviceNameModelDefault=true\n").as_deref(),
+            Some("Marathon OS")
         );
     }
 
