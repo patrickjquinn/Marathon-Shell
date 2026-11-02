@@ -29,6 +29,13 @@ const MAX_CHI: f64 = 3.0;
 const MAX_FROM_APPROX: f64 = 5_000.0;
 /// Geometry too weak to trust beyond this.
 const MAX_HDOP: f64 = 10.0;
+/// A fix may move this far from the last one, plus a speed allowance.
+const JUMP_BASE: f64 = 30.0;
+const MAX_SPEED: f64 = 60.0;
+/// After this many refusals in a row the last fix is presumed wrong.
+const MAX_REFUSED: u32 = 5;
+/// Height samples (redundant, strong geometry) before they replace --approx.
+const HEIGHT_SAMPLES: usize = 30;
 /// Height constraint sigma, metres.
 const HEIGHT_SIGMA: f64 = 10.0;
 /// Pseudorange sigma at zenith per system (GPS, GLONASS, BeiDou), metres.
@@ -43,8 +50,13 @@ struct Engine {
     systems: [bool; 3],
     approx: Vector3<f64>,
     height: f64,
+    /// Heights of well-determined fixes, for the height constraint.
+    heights: Vec<f64>,
     tag: Option<(u32, f64)>,
     chans: Vec<Channel>,
+    /// The last accepted fix and its time, and how many in a row were refused.
+    last: Option<(Vector3<f64>, f64)>,
+    refused: u32,
 }
 
 fn ecef(lat: f64, lon: f64, h: f64) -> Vector3<f64> {
@@ -78,6 +90,21 @@ impl Engine {
     fn kepler(list: Option<&Vec<Ephemeris>>, t: f64) -> Option<&Ephemeris> {
         list.and_then(|l| rinex::nearest(l, t))
             .filter(|e| e.health == 0)
+    }
+
+    /// Refuses a fix that jumps further from the last accepted one than a
+    /// fast vehicle could have moved, unless that keeps happening.
+    fn plausible(&mut self, fix: &spp::Fix, unix: f64) -> bool {
+        if let Some((pos, at)) = self.last {
+            let allowed = JUMP_BASE + MAX_SPEED * (unix - at).abs() + 5.0 * fix.hdop;
+            if (fix.ecef - pos).norm() > allowed && self.refused < MAX_REFUSED {
+                self.refused += 1;
+                return false;
+            }
+        }
+        self.refused = 0;
+        self.last = Some((fix.ecef, unix));
+        true
     }
 
     fn elevation(&self, sat: &Sat, t: f64) -> f64 {
@@ -157,9 +184,17 @@ impl Engine {
         let Some(fix) = fix else {
             return Ok(());
         };
+        if !self.plausible(&fix, unix) {
+            return Ok(());
+        }
         let (lat, lon, h) = spp::geodetic(&fix.ecef);
-        if fix.redundancy >= 2 {
-            self.height = h;
+        if fix.redundancy >= 3 && fix.hdop < 2.0 {
+            self.heights.push(h);
+            if self.heights.len() >= HEIGHT_SAMPLES {
+                let mut sorted = self.heights.split_off(0);
+                sorted.sort_by(f64::total_cmp);
+                self.height = sorted[sorted.len() / 2];
+            }
         }
         #[allow(clippy::cast_possible_truncation, reason = "degrees")]
         let geoid = f64::from(egm2008::geoid_height(lat as f32, lon as f32).unwrap_or(0.0));
@@ -264,8 +299,11 @@ fn main() -> io::Result<()> {
         systems: ['G', 'R', 'C'].map(|c| systems.contains(c)),
         approx: ecef(lat, lon, h),
         height: h,
+        heights: Vec::new(),
         tag: None,
         chans: Vec::new(),
+        last: None,
+        refused: 0,
     };
     let mut out = io::stdout().lock();
     let mut deframer = Deframer::default();
