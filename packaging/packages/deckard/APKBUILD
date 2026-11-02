@@ -8,8 +8,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=29
-_commit=51e20b501c0680bd19559bb77d2e54410ef22869
+pkgrel=30
+_commit=44fa341f1cb1ac4a69c594be1f8edae4ad0fdfd5
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -30,9 +30,17 @@ checkdepends="dbus"
 _microg=v0.3.17.252432
 _gms=com.google.android.gms-252432034.apk
 _vending=com.android.vending-84022634.apk
+# F-Droid, its Privileged Extension and Aurora Store from f-droid.org, unchanged
+# (Marathon-Deckard docs/fdroid.md).
+_fdroid=org.fdroid.fdroid_1023052.apk
+_privext=org.fdroid.fdroid.privileged_2140.apk
+_aurora=com.aurora.store_76.apk
 source="deckard-$_commit.tar.gz::https://github.com/patrickjquinn/Marathon-Deckard/archive/$_commit.tar.gz
 	$_gms::https://github.com/microg/GmsCore/releases/download/$_microg/$_gms
 	$_vending::https://github.com/microg/GmsCore/releases/download/$_microg/$_vending
+	https://f-droid.org/repo/$_fdroid
+	https://f-droid.org/repo/$_privext
+	https://f-droid.org/repo/$_aurora
 	"
 builddir="$srcdir/Marathon-Deckard-$_commit"
 
@@ -125,14 +133,16 @@ package() {
 
 	install -d "$pkgdir"/usr/share/deckard
 	cp -r image/overlay "$pkgdir"/usr/share/deckard/overlay
-	if [ -x image/microg/install.sh ]; then
-		case "$CARCH" in
-		aarch64) _abi=arm64-v8a ;;
-		x86_64) _abi=x86_64 ;;
-		esac
+	case "$CARCH" in
+	aarch64) _abi=arm64-v8a ;;
+	x86_64) _abi=x86_64 ;;
+	esac
+	[ ! -x image/microg/install.sh ] ||
 		image/microg/install.sh "$srcdir/$_gms" "$srcdir/$_vending" \
 			"$pkgdir"/usr/share/deckard/overlay $_abi
-	fi
+	[ ! -x image/fdroid/install.sh ] ||
+		image/fdroid/install.sh "$srcdir/$_fdroid" "$srcdir/$_privext" \
+			"$srcdir/$_aurora" "$pkgdir"/usr/share/deckard/overlay $_abi
 	chmod -R u=rwX,go=rX "$pkgdir"/usr/share/deckard/overlay
 	[ ! -f image/whiteouts ] ||
 		install -Dm644 image/whiteouts "$pkgdir"/usr/share/deckard/whiteouts
@@ -153,4 +163,7 @@ sha512sums="
 SKIP  deckard-$_commit.tar.gz
 0b2f77e87aea3f97e0958f8d02b2d0859ad413347181eee3e45949cf1fb23b8eadc3654472ef802030a15707b85245b22af6d74ebb85667a960d707fea223e27  com.google.android.gms-252432034.apk
 8a0297a6e2ee648f456480309c41b84ead67ffb2a28ac907e764077012d28f5826a7994f9a39e4202b1b7382030bd7cd45d6368930faa84773f0b4695f9c7af6  com.android.vending-84022634.apk
+a57b0952c4a3a1573bd9837998c5941d1a820ae9bae5fe4e0e6f24ff2f95c91e083a08b5b26619329f6099ad796a1e06692fad1d3b73bb534da0f71eafe88792  org.fdroid.fdroid_1023052.apk
+1d57c4927f5e88f9480f51132dc29ca366a06021c805c30e85fb53d7c577e2e4f3ceb507e3dabecf9ed4360eea02d1b9dcd8f83ad199b11aec7d06e0411c4929  org.fdroid.fdroid.privileged_2140.apk
+0511962ae1474c804805c06b78a614d5aa62a977625f178a06aedcb651ff8162e62c2ec4715e70303836be7e6b4dc048d541e9511804f1b4272171b8e5b24b4b  com.aurora.store_76.apk
 "
