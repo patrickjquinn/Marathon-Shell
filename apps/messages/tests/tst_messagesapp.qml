@@ -171,7 +171,28 @@ TestCase {
         const conv = waitForPage(app, "conversation");
         compare(conv.conversation.id, "a");
         compare(findChild(conv, "messageList").count, 2);
-        compare(Sms.read, ["a"]);
+        tryCompare(Sms, "read", ["a"]);
+    }
+
+    // A text into the open thread is read while it is on screen, and not
+    // while something covers it.
+    function test_openThreadReadsOnlyWhileShown() {
+        const app = makeApp();
+        app.openConversation(sample()[0]);
+        waitForPage(app, "conversation");
+        tryCompare(Sms, "read", ["a"]);
+        const unread = () => Sms.conversations.map(c => Object.assign({}, c, {
+                        unreadCount: c.id === "a" ? 1 : 0
+                    }));
+        Sms.conversations = unread();
+        tryCompare(Sms, "read", ["a", "a"]);
+        app.newMessage();
+        waitForPage(app, "matches");
+        Sms.conversations = unread();
+        wait(50);
+        compare(Sms.read, ["a", "a"]);
+        app.pageStack.pop();
+        tryCompare(Sms, "read", ["a", "a", "a"]);
     }
 
     function test_sendClearsFieldOnConfirmation() {
