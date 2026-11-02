@@ -1,15 +1,20 @@
 #include "marathoninputmethodengine.h"
 #include "marathon-shell-native/src/device.cxxqt.h"
+#include "marathon-shell-native/src/settings.cxxqt.h"
 #include <QDebug>
 #include <QGuiApplication>
 #include <QInputMethod>
+#include <QInputMethodEvent>
 #include <QInputMethodQueryEvent>
+#include <QKeyEvent>
 
-MarathonInputMethodEngine::MarathonInputMethodEngine(QObject *parent)
+MarathonInputMethodEngine::MarathonInputMethodEngine(const marathon::Settings *settings,
+                                                     QObject                  *parent)
     : QObject(parent)
     , m_active(false)
     , m_preeditText("")
-    , m_inputMethod(nullptr) {
+    , m_inputMethod(nullptr)
+    , m_settings(settings) {
     m_inputMethod = QGuiApplication::inputMethod();
     if (m_inputMethod) {
         connectToInputMethod();
@@ -113,7 +118,54 @@ void MarathonInputMethodEngine::onCursorRectangleChanged() {
     emit inputItemRectChanged();
 }
 
+// A hardware keyboard's first letter of a sentence, typed as a capital the
+// way the on-screen keyboard shifts for it (and BlackBerry's keyboards did).
+bool MarathonInputMethodEngine::capitalise(QObject *obj, const QKeyEvent *key) {
+    const bool held = m_heldCapital != 0 && key->nativeScanCode() == m_heldCapital;
+    if (key->type() == QEvent::KeyRelease || key->isAutoRepeat()) {
+        if (held && key->type() == QEvent::KeyRelease && !key->isAutoRepeat())
+            m_heldCapital = 0;
+        return held;
+    }
+    const QString text = key->text();
+    if (text.size() != 1 || !text.front().isLower() || (key->modifiers() & ~Qt::KeypadModifier) ||
+        !m_settings->getKeyboardAutoCapitalize()) {
+        if (text.isEmpty() || !text.front().isPrint())
+            m_capitalisedAt.clear();
+        return false;
+    }
+    QInputMethodQueryEvent query(Qt::ImEnabled | Qt::ImHints | Qt::ImSurroundingText |
+                                 Qt::ImCursorPosition);
+    QGuiApplication::sendEvent(obj, &query);
+    // The fields the on-screen keyboard leaves lower case (MarathonKeyboard.qml).
+    constexpr Qt::InputMethodHints plain = Qt::ImhNoAutoUppercase | Qt::ImhNoPredictiveText |
+        Qt::ImhSensitiveData | Qt::ImhHiddenText | Qt::ImhUrlCharactersOnly |
+        Qt::ImhEmailCharactersOnly | Qt::ImhDigitsOnly | Qt::ImhFormattedNumbersOnly |
+        Qt::ImhDialableCharactersOnly;
+    if (!query.value(Qt::ImEnabled).toBool() ||
+        (Qt::InputMethodHints(query.value(Qt::ImHints).toInt()) & plain))
+        return false;
+    const QString before   = query.value(Qt::ImSurroundingText)
+                                 .toString()
+                                 .left(query.value(Qt::ImCursorPosition).toInt());
+    const QString sentence = before.trimmed();
+    const bool    start    = sentence.isEmpty() ||
+        (before.back().isSpace() && QStringView(u".!?").contains(sentence.back()));
+    if (!start || before == m_capitalisedAt)
+        return false;
+    QInputMethodEvent commit;
+    commit.setCommitString(text.toUpper());
+    QGuiApplication::sendEvent(obj, &commit);
+    m_capitalisedAt = before;
+    m_heldCapital   = key->nativeScanCode();
+    return true;
+}
+
 bool MarathonInputMethodEngine::eventFilter(QObject *obj, QEvent *event) {
+    if ((event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease) &&
+        event->spontaneous() && obj == QGuiApplication::focusObject() &&
+        capitalise(obj, static_cast<QKeyEvent *>(event)))
+        return true;
     if (event->type() == QEvent::FocusIn) {
 
         QInputMethodQueryEvent query(Qt::ImEnabled | Qt::ImHints);
