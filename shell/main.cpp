@@ -943,6 +943,8 @@ int main(int argc, char *argv[]) {
         {"rotationLocked", &marathon::Display::rotationLockedChanged},
         {"nightLightEnabled", &marathon::Display::nightLightEnabledChanged},
         {"nightLightTemperature", &marathon::Display::nightLightTemperatureChanged},
+        {"nightLightFrom", &marathon::Display::nightLightFromChanged},
+        {"nightLightTo", &marathon::Display::nightLightToChanged},
         {"nightLightSchedule", &marathon::Display::nightLightScheduleChanged},
         {"learnedCurve", &marathon::Display::learnedCurveChanged},
     };

@@ -601,7 +601,7 @@ fn sound_name(path: &str) -> String {
 }
 
 /// The zone `/etc/localtime` names.
-fn local_zone() -> String {
+pub(crate) fn local_zone() -> String {
     let target = fs::read_link("/etc/localtime").unwrap_or_default();
     let target = target.to_string_lossy();
     target.split_once("zoneinfo/").map_or_else(
