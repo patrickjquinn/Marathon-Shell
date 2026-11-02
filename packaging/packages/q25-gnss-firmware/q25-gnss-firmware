@@ -1,0 +1,88 @@
+#!/usr/bin/python3 -I
+"""Copy the GNSS DSP image out of the phone's own stock vendor partition.
+
+The image is MediaTek's and not redistributable, so no package carries it:
+it sits inside the stock positioning library, libmnl.so, on vendor_a in the
+super partition. This finds vendor_a from super's dynamic-partition (LP)
+metadata, reads libmnl.so through debugfs without mapping or mounting
+anything, and cuts the MT6789 L1 image out of it at the place recorded for
+that exact library build.
+"""
+import hashlib
+import os
+import struct
+import subprocess
+import sys
+import tempfile
+
+SUPER = "/dev/disk/by-partlabel/super"
+LIBMNL = "/lib64/mt6789/libmnl.so"
+DST = "/var/lib/q25-gnss/gnss-l1-dsp.bin"
+
+# libmnl.so sha256 -> (offset, length, image sha256). Offsets come from the
+# MT6789 branch of the library's DSP boot routine (docs/hardware/mt6789-gnss.md).
+KNOWN = {
+    "c0eba0a260afd162caf10e298e4adea9865504f05567af71cd85b17a13a8deca":
+        (0x3DFCBA, 0x118A0, "2b01f7489d3490c97e80b7b88a2d44a6e03dc39d52cdea70d5c1c2a4dcc3400c"),
+}
+
+LP_GEOMETRY = 4096
+LP_GEOMETRY_MAGIC = 0x616C4467
+LP_HEADER_MAGIC = 0x414C5030
+SECTOR = 512
+
+
+def vendor_offset(dev, names=("vendor_a", "vendor_b")):
+    """Byte offset of the first vendor slot that is one contiguous extent."""
+    with open(dev, "rb") as f:
+        f.seek(LP_GEOMETRY)
+        geo = f.read(4096)
+        magic = struct.unpack_from("<I", geo, 0)[0]
+        if magic != LP_GEOMETRY_MAGIC:
+            raise SystemExit("q25-gnss-firmware: no LP geometry on " + dev)
+        metadata_max = struct.unpack_from("<I", geo, 40)[0]
+        f.seek(LP_GEOMETRY + 2 * 4096)  # primary metadata, slot 0
+        head = f.read(metadata_max)
+    magic, _, _, header_size = struct.unpack_from("<IHHI", head, 0)
+    if magic != LP_HEADER_MAGIC:
+        raise SystemExit("q25-gnss-firmware: no LP metadata on " + dev)
+    parts, extents = (struct.unpack_from("<III", head, 80 + 12 * i) for i in range(2))
+    tables = head[header_size:]
+    found = {}
+    for i in range(parts[1]):
+        raw, _, first, count, _ = struct.unpack_from("<36sIIII", tables, parts[0] + i * parts[2])
+        exts = [struct.unpack_from("<QIQI", tables, extents[0] + (first + j) * extents[2])
+                for j in range(count)]
+        found[raw.rstrip(b"\0").decode()] = exts
+    for name in names:
+        exts = found.get(name, [])
+        # one linear extent on the super device itself
+        if len(exts) == 1 and exts[0][1] == 0 and exts[0][3] == 0:
+            return exts[0][2] * SECTOR
+    raise SystemExit("q25-gnss-firmware: no single-extent vendor partition in super")
+
+
+def main():
+    off = vendor_offset(SUPER)
+    with tempfile.TemporaryDirectory() as tmp:
+        lib = os.path.join(tmp, "libmnl.so")
+        subprocess.run(["debugfs", "-R", f"dump {LIBMNL} {lib}", f"{SUPER}?offset={off}"],
+                       check=True, capture_output=True)
+        data = open(lib, "rb").read()
+    entry = KNOWN.get(hashlib.sha256(data).hexdigest())
+    if entry is None:
+        raise SystemExit("q25-gnss-firmware: unknown libmnl.so build, add it to KNOWN")
+    start, length, digest = entry
+    image = data[start:start + length]
+    if hashlib.sha256(image).hexdigest() != digest:
+        raise SystemExit("q25-gnss-firmware: image checksum mismatch")
+    os.makedirs(os.path.dirname(DST), exist_ok=True)
+    with open(DST + ".new", "wb") as f:
+        f.write(image)
+    os.chmod(DST + ".new", 0o644)
+    os.replace(DST + ".new", DST)
+    print(f"q25-gnss-firmware: wrote {DST} ({length} bytes)")
+
+
+if __name__ == "__main__":
+    sys.exit(main())
