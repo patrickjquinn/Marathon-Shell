@@ -30,7 +30,7 @@
   ],
   "deepLinks": {
     "wifi": {
-      "title": "WiFi Settings",
+      "title": "Wi-Fi Settings",
       "description": "Manage wireless network connections",
       "keywords": ["network", "internet", "wireless", "connection"]
     },
