@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 22:46:50 +0000
+Subject: [PATCH] drm/mediatek: Remove conflicting framebuffers
+
+On phones the bootloader leaves the panel scanning out a framebuffer that
+simpledrm or simplefb drives until a display driver takes over.
+mediatek-drm never removed them, so after it bound both drivers kept
+their devices and the firmware framebuffer stayed the system's first
+DRM device and fbdev. Remove conflicting framebuffer devices before
+registering, as rockchip and sun4i do.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_drm_drv.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_drm_drv.c b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+index fcfb0d43..92891edb 100644
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+@@ -4,6 +4,7 @@
+  * Author: YT SHEN <yt.shen@mediatek.com>
+  */
+ 
++#include <linux/aperture.h>
+ #include <linux/component.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+@@ -668,6 +669,11 @@ static int mtk_drm_bind(struct device *dev)
+ 	if (!mtk_drm_get_all_drm_priv(dev))
+ 		return 0;
+ 
++	/* Take the display from a firmware framebuffer driver. */
++	ret = aperture_remove_all_conflicting_devices(mtk_drm_driver.name);
++	if (ret)
++		goto err_put_dev;
++
+ 	drm = drm_dev_alloc(&mtk_drm_driver, dev);
+ 	if (IS_ERR(drm)) {
+ 		ret = PTR_ERR(drm);
