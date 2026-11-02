@@ -2816,6 +2816,10 @@ Item {
     PowerMenu {
         id: powerMenu
 
+        onLockRequested: {
+            Logger.info("Shell", "Lock requested from power menu");
+            SessionStore.lock();
+        }
         onSleepRequested: {
             Logger.info("Shell", "Sleep requested from power menu");
             SessionStore.lock();

@@ -10,6 +10,7 @@ Item {
     // "" | "reboot" | "shutdown" — a destructive choice waits here for confirmation.
     property string pending: ""
 
+    signal lockRequested
     signal sleepRequested
     signal rebootRequested
     signal shutdownRequested
@@ -148,6 +149,14 @@ Item {
                 topPadding: Silica.Theme.paddingLarge
                 visible: root.pending === ""
 
+                PowerAction {
+                    iconName: "lock"
+                    label: qsTr("Lock")
+                    onActivated: {
+                        root.lockRequested();
+                        root.hide();
+                    }
+                }
                 PowerAction {
                     iconName: "moon"
                     label: qsTr("Sleep")
