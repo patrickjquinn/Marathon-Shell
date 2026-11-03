@@ -59,8 +59,8 @@ Page {
         section.delegate: SectionHeader {
             required property string section
 
-            visible: section !== "today"
-            height: visible ? implicitHeight : 0
+            // Not by visible: the view shows each section item it reuses.
+            height: section === "today" ? 0 : implicitHeight
             text: section === "pinned" ? qsTr("Pinned") : section === "today" ? "" : Format.formatDate(new Date(Number(section)), Formatter.TimepointSectionRelative)
         }
 
