@@ -4,3 +4,6 @@
 /usr/share/q25-keyboard/xkb/symbols/q25:/usr/share/X11/xkb/symbols/q25
 /usr/share/X11/xkb/symbols/level3
 /usr/share/X11/xkb/symbols/level5
+# Plymouth's text (the wordmark, the PIN prompt) falls back to this file when
+# fontconfig has no config, as in the initramfs.
+/usr/share/fonts/marathon/Sora-Regular.ttf:/usr/share/fonts/Plymouth.ttf
