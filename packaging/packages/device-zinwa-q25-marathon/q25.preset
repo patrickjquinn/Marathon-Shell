@@ -1,1 +1,4 @@
 disable unudhcpd@.service
+# q25-modem-init starts it once the modem is up; enabled, multi-user.target
+# waits for the modem bring-up it is ordered after.
+disable ModemManager.service
