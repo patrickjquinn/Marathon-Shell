@@ -380,7 +380,7 @@ Rectangle {
 
             unread: !isRead
             avatarText: appIcon ? "" : hub.monogramFor(title, appKey)
-            avatarIcon: appKey === "phone" ? "phone" : ""
+            avatarIcon: appKey === "phone" ? "phone" : appKey === "messages" ? "user" : ""
             image: icon || appIcon
             glyphReplacesMonogram: appKey !== "messages"
             actions: model.actions || []
@@ -462,7 +462,8 @@ Rectangle {
     }
 
     function monogramFor(name, appId) {
-        if (appId === "phone" || appId === "call")
+        // A bare number has no initials: the person glyph, as phones show it.
+        if (appId === "phone" || appId === "call" || /^[+\d\s().#*-]+$/.test(name || ""))
             return "";
         const parts = (name || "").split(/\s+/).map(p => hub.initialsOf(p)).filter(p => p.length > 0);
         if (parts.length === 0)
