@@ -6,6 +6,10 @@
 //! live in `~/.config/marathon/app-permissions.json`. Requests that arrive
 //! together become one prompt per app. Apps whose grants another system keeps
 //! (Android's, for deckardd) get a "foreign" prompt that stores nothing.
+#![allow(
+    clippy::fn_params_excessive_bools,
+    reason = "QML's respondWith(granted, once, precise, limited)"
+)]
 
 use crate::i18n::fl;
 use std::collections::{BTreeMap, HashMap, VecDeque};

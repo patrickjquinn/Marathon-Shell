@@ -606,6 +606,7 @@ struct Battery {
     time_to_full: i64,
     /// `UPower`'s `OnBattery`, from the line power: on a charger a full
     /// battery's gauge can swing between charging and discharging.
+    #[allow(clippy::struct_field_names, reason = "UPower's OnBattery")]
     on_battery: Option<bool>,
 }
 

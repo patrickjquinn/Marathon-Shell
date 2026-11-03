@@ -24,7 +24,7 @@ Column {
         id: textItem
 
         color: "white"
-        text: root.value == 0 ? "Auto" : root.value
+        text: root.value == 0 ? qsTr("Auto") : root.value
         font.pixelSize: Theme.fontSizeExtraSmallBase
     }
 }

@@ -69,7 +69,7 @@ fn local(day: i64, minutes: i32, zone: TimeZoneRef<'_>) -> Option<i64> {
         zone,
     )
     .ok()?;
-    Some(found.earliest().or(found.latest())?.unix_time())
+    Some(found.earliest().or_else(|| found.latest())?.unix_time())
 }
 
 /// Sunrise and sunset on day `day` (days since the epoch) at `lat`, `lon`

@@ -655,36 +655,33 @@ impl Notifications {
         }
         // Row by row: a reset rebuilds every delegate in the Hub, and with
         // it a reply being typed.
-        match edits(&self.rows, &rows) {
-            Some(edits) => {
-                let root = QModelIndex::default();
-                for edit in edits {
-                    match edit {
-                        Edit::Remove(i) => {
-                            let at = i32::try_from(i).unwrap_or(i32::MAX);
-                            self.as_mut().begin_remove_rows(&root, at, at);
-                            self.as_mut().rust_mut().rows.remove(i);
-                            self.as_mut().end_remove_rows();
-                        }
-                        Edit::Insert(i) => {
-                            let at = i32::try_from(i).unwrap_or(i32::MAX);
-                            self.as_mut().begin_insert_rows(&root, at, at);
-                            self.as_mut().rust_mut().rows.insert(i, rows[i].clone());
-                            self.as_mut().end_insert_rows();
-                        }
-                        Edit::Change(i) => {
-                            self.as_mut().rust_mut().rows[i].clone_from(&rows[i]);
-                            let at = self.index(i32::try_from(i).unwrap_or(i32::MAX), 0, &root);
-                            self.as_mut().data_changed(&at, &at, &QList::default());
-                        }
+        if let Some(edits) = edits(&self.rows, &rows) {
+            let root = QModelIndex::default();
+            for edit in edits {
+                match edit {
+                    Edit::Remove(i) => {
+                        let at = i32::try_from(i).unwrap_or(i32::MAX);
+                        self.as_mut().begin_remove_rows(&root, at, at);
+                        self.as_mut().rust_mut().rows.remove(i);
+                        self.as_mut().end_remove_rows();
+                    }
+                    Edit::Insert(i) => {
+                        let at = i32::try_from(i).unwrap_or(i32::MAX);
+                        self.as_mut().begin_insert_rows(&root, at, at);
+                        self.as_mut().rust_mut().rows.insert(i, rows[i].clone());
+                        self.as_mut().end_insert_rows();
+                    }
+                    Edit::Change(i) => {
+                        self.as_mut().rust_mut().rows[i].clone_from(&rows[i]);
+                        let at = self.index(i32::try_from(i).unwrap_or(i32::MAX), 0, &root);
+                        self.as_mut().data_changed(&at, &at, &QList::default());
                     }
                 }
             }
-            None => {
-                self.as_mut().begin_reset_model();
-                self.as_mut().rust_mut().rows = rows;
-                self.as_mut().end_reset_model();
-            }
+        } else {
+            self.as_mut().begin_reset_model();
+            self.as_mut().rust_mut().rows = rows;
+            self.as_mut().end_reset_model();
         }
         let mut rust = self.as_mut().rust_mut();
         rust.count = count;
@@ -1113,8 +1110,13 @@ fn deep_link(app_id: &str, route: &str, params: &Json) {
 /// The app it is from, at what it was about.
 fn open(row: &Row) {
     if let Some(route) = row.hint("route").as_str() {
-        let params = Some(row.hint("routeParams")).filter(|p| p.is_object());
-        return deep_link(&row.app_id, route, params.unwrap_or(&json!({})));
+        let params = row.hint("routeParams");
+        let empty = json!({});
+        return deep_link(
+            &row.app_id,
+            route,
+            if params.is_object() { params } else { &empty },
+        );
     }
     match row.app_id.as_str() {
         "phone" => return deep_link("phone", "history", &json!({})),

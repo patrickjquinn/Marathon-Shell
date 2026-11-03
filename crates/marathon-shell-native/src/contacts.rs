@@ -78,8 +78,10 @@ async fn read(bus: &zbus::Connection) -> zbus::Result<Vec<Known>> {
                 .and_then(|v| {
                     Vec::<HashMap<String, OwnedValue>>::try_from(v.try_clone().ok()?).ok()
                 })
-                .map(|list| list.iter().map(|e| field(e, "value")).collect())
-                .unwrap_or_else(|| vec![field(&row, "phone")]),
+                .map_or_else(
+                    || vec![field(&row, "phone")],
+                    |list| list.iter().map(|e| field(e, "value")).collect(),
+                ),
         })
         .collect())
 }
