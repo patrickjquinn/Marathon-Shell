@@ -25,6 +25,7 @@ history.
 | Device overlays | `device-purism-librem5-marathon`, `device-pine64-pinephone-marathon`, `device-raspberry-pi5-marathon`, `device-hackberrypi-cm5-marathon` (layers on the Pi 5 overlay), `device-oneplus-enchilada-marathon` (dormant) |
 | Kernels and boot | `linux-purism-librem5-marathon`, `linux-postmarketos-allwinner-marathon`, `u-boot-pinephone-marathon`, `linux-marathon` (SDM845) |
 | Device support | `librem5-vivante-blobs`, `callaudiod`, `pinephone-callaudiod-marathon` |
+| Qt fixes | `qt6-qtdeclarative` (Alpine's, plus a Qt Quick fix for touchscreens that vanish mid-touch) |
 
 `shoal-pilot`, `shoal-pilotd`, `shipwright-reef` and `keel-mcp` build from this tree
 (`scripts/qemu/lib/build-pilot-apk.sh`). `pacific` builds from a local

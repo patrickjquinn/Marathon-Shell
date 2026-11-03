@@ -1,0 +1,42 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] QQuickDeliveryAgent: forget the touch-mouse device when it is destroyed
+
+While a touch point is delivered as a synthesized mouse event,
+QQuickDeliveryAgentPrivate keeps the touch's device in the raw pointer
+touchMouseDevice until the touch is released or cancelled. If the
+device is destroyed first, for example a touchscreen unplugged or
+unbound mid-touch (the evdevtouch handler deletes its QPointingDevice
+when a read fails with ENODEV, and no release is ever sent), the
+pointer dangles. The next press from any device then reaches
+deliverPressOrReleaseEvent(), which sees isDeliveringTouchAsMouse()
+still true and calls queryPointById() on the deleted device: a
+use-after-free that crashes in QPointingDevicePrivate::queryPointById.
+
+ensureDeviceConnected() already watches each device's destroyed()
+signal to keep knownPointingDevices up to date; also cancel touch-mouse
+synthesis there when the destroyed device is the one being synthesized
+from.
+
+Reproduced on Qt 6.11.1 (and present on dev) with a uinput touchscreen
+that presses and moves over a MouseArea and is destroyed without a
+release, followed by a tap from another touchscreen.
+
+Pick-to: 6.11 6.8
+---
+ src/quick/util/qquickdeliveryagent.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/quick/util/qquickdeliveryagent.cpp b/src/quick/util/qquickdeliveryagent.cpp
+--- a/src/quick/util/qquickdeliveryagent.cpp
++++ b/src/quick/util/qquickdeliveryagent.cpp
+@@ -2017,5 +2017,9 @@ void QQuickDeliveryAgentPrivate::ensureDeviceConnected(const QPointingDevice *dev)
+         return;
+     knownPointingDevices.append(dev);
+     connect(dev, &QPointingDevice::grabChanged, this, &QQuickDeliveryAgentPrivate::onGrabChanged);
+-    QObject::connect(dev, &QObject::destroyed, q, [this, dev] {this->knownPointingDevices.removeAll(dev);});
++    QObject::connect(dev, &QObject::destroyed, q, [this, dev] {
++        knownPointingDevices.removeAll(dev);
++        if (touchMouseDevice == dev)
++            cancelTouchMouseSynthesis();
++    });
+ }

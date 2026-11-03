@@ -846,7 +846,7 @@ Item {
         }
         onPositionChanged: mouse => {
             const totalDelta = startY - mouse.y;
-            if (totalDelta > 10) {
+            if (totalDelta > Qt.styleHints.startDragDistance) {
                 isDragging = true;
                 mouse.accepted = true;
             }

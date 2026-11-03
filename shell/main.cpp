@@ -1,6 +1,7 @@
 #include <cmath>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QStyleHints>
 #include <QScreen>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
@@ -47,6 +48,7 @@
 #include "marathon-shell-native/src/ipc.cxxqt.h"
 #include "marathon-shell-native/src/alarms.cxxqt.h"
 #include "src/services/gesturetracker.h"
+#include "src/components/nightlightitem.h"
 #include "src/components/windowtextureitem.h"
 #include "src/components/backdropprobe.h"
 #include "src/services/waketouchfilter.h"
@@ -520,6 +522,17 @@ int main(int argc, char *argv[]) {
         qunsetenv("QT_QPA_GENERIC_PLUGINS");
 #endif
     }
+    // Qt's 10 px drag slop and 800 ms hold ignore density: 10 px is 0.86 mm
+    // at 295 dpi, inside a resting finger's wobble. Android's touch slop
+    // (8 dp) and long press, in the panel's real pixels.
+    {
+        const marathon::device::Profile dp  = marathon::device::profile();
+        const qreal                     dpi = dp.panel_dpi > 0 ?
+            dp.panel_dpi :
+            QGuiApplication::primaryScreen()->physicalDotsPerInch();
+        QGuiApplication::styleHints()->setStartDragDistance(qMax(10, qRound(8 * dpi / 160)));
+        QGuiApplication::styleHints()->setMousePressAndHoldInterval(500);
+    }
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
     // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1, so the target HW
@@ -736,6 +749,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<FileChooserModel>("MarathonOS.Shell", 1, 0, "FileChooserModel");
     qmlRegisterType<WindowTextureItem>("MarathonOS.Shell", 1, 0, "WindowTextureItem");
     qmlRegisterType<BackdropProbe>("MarathonOS.Shell", 1, 0, "BackdropProbe");
+    qmlRegisterType<NightLightItem>("MarathonOS.Shell", 1, 0, "NightLight");
 
     auto *sessionStore = new Session();
     sessionStore->setParent(&app);
@@ -941,6 +955,8 @@ int main(int argc, char *argv[]) {
         {"rotationLocked", &marathon::Display::rotationLockedChanged},
         {"nightLightEnabled", &marathon::Display::nightLightEnabledChanged},
         {"nightLightTemperature", &marathon::Display::nightLightTemperatureChanged},
+        {"nightLightFrom", &marathon::Display::nightLightFromChanged},
+        {"nightLightTo", &marathon::Display::nightLightToChanged},
         {"nightLightSchedule", &marathon::Display::nightLightScheduleChanged},
         {"learnedCurve", &marathon::Display::learnedCurveChanged},
     };
@@ -996,6 +1012,9 @@ int main(int argc, char *argv[]) {
     auto *locationManager = new Location();
     locationManager->setParent(&app);
     ctx->setContextProperty("LocationManager", locationManager);
+    locationManager->setEnabled(settingsManager->getLocationEnabled());
+    QObject::connect(settingsManager, &marathon::Settings::locationEnabledChanged, locationManager,
+                     [=] { locationManager->setEnabled(settingsManager->getLocationEnabled()); });
     // Never starts location itself: with Location off there is no fix and the zone stays.
     const auto automaticTimeZone = [=] {
         if (!settingsManager->getAutomaticTimeZone() || !locationManager->getActive() ||

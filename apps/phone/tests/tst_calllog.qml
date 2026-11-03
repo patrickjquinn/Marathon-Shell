@@ -86,6 +86,17 @@ TestCase {
         compare(t.app.missedCount, 0);
     }
 
+    function test_missedCallNotificationOpensTheLog() {
+        const app = createTemporaryObject(appComponent, testCase, {
+            callLogSeen: seenStub
+        });
+        tryVerify(() => app.pageStack.currentPage !== null);
+        compare(app.pageStack.currentPage.tabs.currentIndex, 0);
+        app.handleRoute("history", {});
+        tryCompare(app.pageStack.currentPage.tabs, "currentIndex", 1);
+        compare(app.missedCount, 0);
+    }
+
     function test_missedCountUntilSeen() {
         const app = createTemporaryObject(appComponent, testCase, {
             callLogSeen: seenStub

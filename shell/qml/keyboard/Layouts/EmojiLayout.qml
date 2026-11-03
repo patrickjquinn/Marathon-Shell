@@ -223,7 +223,8 @@ Item {
                     anchors.fill: parent
                     onClicked: {
                         layout.keyClicked(emojiCell.modelData);
-                        HapticManager.light();
+                        if (SettingsManagerCpp.keyboardHapticStrength !== "off")
+                            HapticManager.light();
                         if (layout.searchText.length > 0) {}
                     }
                 }

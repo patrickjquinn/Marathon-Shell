@@ -53,7 +53,15 @@ ApplicationWindow {
     }
 
     // "/call" fills the dialer; another app never places the call itself.
+    // "history", a missed call's notification, shows the call log.
     function handleRoute(name, params) {
+        if (name === "history" && !inCall) {
+            const main = pageStack.currentPage as MainPage;
+            if (main && main.tabs)
+                main.tabs.moveTo(1);
+            markCallLogSeen();
+            return;
+        }
         if (name !== "/call" || inCall)
             return;
         const number = String((params && params.number) || "").trim();
@@ -235,7 +243,7 @@ ApplicationWindow {
             callStartedAt = Date.now();
             showCallPage();
         }
-        if (route === "/call") {
+        if (route === "/call" || route === "history") {
             let params = {};
             try {
                 params = JSON.parse(routeParams || "{}");

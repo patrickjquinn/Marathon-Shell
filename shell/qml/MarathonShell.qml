@@ -1,6 +1,7 @@
 import "./components" as Comp
 import "./core/BatteryWarning.js" as BatteryWarning
 import MarathonOS.Shell 1.0
+import Nemo.Configuration 1.0
 import QtQuick
 import QtQuick.Window
 import Sailfish.Silica 1.0 as Silica
@@ -145,6 +146,12 @@ Item {
         pageView.currentIndex = 1;
     }
 
+    // A hardware home key does nothing on the lock screen.
+    function handleHomeKeyPress() {
+        if (!SessionStore.isLocked)
+            handleHomeKey();
+    }
+
     // A phone keyboard's green key: answers a ringing call, else opens Phone.
     function handleCallKey() {
         if (incomingCallOverlay && incomingCallOverlay.isRinging) {
@@ -156,22 +163,33 @@ Item {
         UIStore.openApp("phone", qsTr("Phone"), "");
     }
 
-    // The red key: declines or ends a call, else goes home.
-    function handleEndKey() {
+    // Declines a ringing call or ends the one in progress; false if none.
+    function endCall() {
         if (incomingCallOverlay && incomingCallOverlay.isRinging) {
             incomingCallOverlay.decline();
-            return;
+            return true;
         }
         if (Modem.callState !== "idle" && Modem.callState !== "terminated") {
             HapticManager.medium();
             Modem.hangup();
-            return;
+            return true;
         }
-        if (!SessionStore.isLocked)
+        return false;
+    }
+
+    // A red key: declines or ends a call, else goes home.
+    function handleEndKey() {
+        if (!endCall() && !SessionStore.isLocked)
             handleHomeKey();
     }
 
-    // The menu key: Active Frames from an app, and between them and the grid.
+    // The Q25's end key: declines or ends a call, else the switcher.
+    function handleHangupKey() {
+        if (!endCall())
+            handleSwitcherKey();
+    }
+
+    // Active Frames from an app, and between them and the grid.
     function handleSwitcherKey() {
         if (SessionStore.isLocked)
             return;
@@ -246,10 +264,11 @@ Item {
         lockScreen.swipeProgress = 0;
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
-            compositor.systemHomeTriggered.connect(handleHomeKey);
+            compositor.systemHomeTriggered.connect(handleHomeKeyPress);
             compositor.systemCallTriggered.connect(handleCallKey);
             compositor.systemEndTriggered.connect(handleEndKey);
             compositor.systemSwitcherTriggered.connect(handleSwitcherKey);
+            compositor.systemHangupTriggered.connect(handleHangupKey);
             // Also reset the idle-screen-off timer when the compositor
             // sees ANY input — without this the timer only resets on
             // events that bubble up to the shell's own cursorTracker
@@ -1942,7 +1961,7 @@ Item {
         }
         onPositionChanged: mouse => {
             var dragDistance = mouse.y - startY;
-            if (dragDistance > 5 && !isDraggingDown) {
+            if (dragDistance > Qt.styleHints.startDragDistance && !isDraggingDown) {
                 isDraggingDown = true;
                 UIStore.quickSettingsDragging = true;
                 Logger.gesture("StatusBar", "dragStart", {
@@ -2731,13 +2750,6 @@ Item {
         }
     }
 
-    // ── Night Light warm-tint overlay ─────────────────────────────
-    // Marathon's shell IS the compositor, so one top-most tint item warms
-    // every app surface + chrome uniformly — the scene-graph equivalent of a
-    // CRTC gamma ramp (which Qt's compositor exposes no protocol for). Bound
-    // to the real DisplayManager night-light state via SystemControlStore.
-    // No MouseArea → never intercepts input. This is what makes the Night
-    // tile actually do something on screen.
     Binding {
         target: PilotClient
         property: "watching"
@@ -2751,17 +2763,15 @@ Item {
         z: Constants.zIndexPilotGlow
     }
 
-    Rectangle {
-        id: nightLightOverlay
+    // Above every surface and the chrome, below the panel's dither.
+    NightLight {
         anchors.fill: parent
         z: 900000
-        color: Qt.rgba(1.0, 0.52, 0.12, 1.0)
-        opacity: SystemControlStore.isNightLightOn ? 0.22 : 0.0
-        visible: opacity > 0.0
-        Behavior on opacity {
+        temperature: SystemControlStore.isNightLightOn ? Display.nightLightTemperature : 6500
+        Behavior on temperature {
             NumberAnimation {
-                duration: 400
-                easing.type: Easing.OutCubic
+                duration: 2000
+                easing.type: Easing.InOutSine
             }
         }
     }
@@ -2880,7 +2890,7 @@ Item {
         onLoaded: {
             item.pinShown = Qt.binding(() => shell.showPinScreen);
             shell.incomingCallOverlay = item;
-            item.show(calls.ringing, calls.nameOf(calls.ringing));
+            item.show(calls.ringing, calls.contactName(calls.ringing));
         }
         onActiveChanged: {
             if (!active)
@@ -2915,8 +2925,12 @@ Item {
         property string ringing: ""
         property bool active: false
 
+        function contactName(number) {
+            return ContactsManager.getContactByNumber(number).name || "";
+        }
+
         function nameOf(number) {
-            return ContactsManager.getContactByNumber(number).name || number;
+            return contactName(number) || number;
         }
 
         function onIncomingCall(number) {
@@ -2925,7 +2939,7 @@ Item {
             AudioManagerCpp.playRingtone();
             HapticManager.vibratePattern([1000, 500]);
             if (shell.incomingCallOverlay)
-                shell.incomingCallOverlay.show(number, nameOf(number));
+                shell.incomingCallOverlay.show(number, contactName(number));
             else
                 incomingCallOverlayLoader.active = true;
         }
@@ -2960,19 +2974,36 @@ Item {
                 "priority": "high",
                 "actions": [
                     {
-                        "id": "call_back",
+                        "key": "call_back",
                         "label": qsTr("Call Back")
                     },
                     {
-                        "id": "message",
+                        "key": "message",
                         "label": qsTr("Message")
                     }
-                ]
+                ],
+                "replyTarget": number,
+                "tag": "missed-call:" + number
             });
             HapticManager.heavy();
         }
 
         target: Modem
+    }
+
+    // Phone's call log seen clears the missed-call notifications, as Android's does.
+    ConfigurationValue {
+        property real seenAt: -1
+
+        key: "/apps/phone/callLogSeen"
+        defaultValue: 0
+        onValueChanged: {
+            const at = Number(value) || 0;
+            if (seenAt >= 0 && at > seenAt)
+                NotificationService.dismissTaggedPrefix("phone", "missed-call:");
+            seenAt = at;
+        }
+        Component.onCompleted: seenAt = Number(value) || 0
     }
 
     Connections {
@@ -2985,7 +3016,7 @@ Item {
     }
 
     Connections {
-        function onMessageReceived(sender, text) {
+        function onMessageReceived(sender, text, timestamp, thread) {
             Display.turnScreenOn();
             NotificationService.sendNotification("messages", calls.nameOf(sender), text, {
                 "icon": "message-circle",
@@ -2993,15 +3024,17 @@ Item {
                 "priority": "high",
                 "actions": [
                     {
-                        "id": "inline-reply",
+                        "key": "inline-reply",
                         "label": qsTr("Reply")
                     },
                     {
-                        "id": "mark_read",
+                        "key": "mark_read",
                         "label": qsTr("Mark Read")
                     }
                 ],
-                "replyTarget": sender
+                "replyTarget": sender,
+                "conversation": thread,
+                "tag": "sms:" + thread
             });
             HapticManager.medium();
             AudioManagerCpp.playNotificationSound();

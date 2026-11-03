@@ -82,8 +82,10 @@ TestCase {
 
         child(s.page, "autoBrightnessSwitch").clicked(null);
         verify(Display.autoBrightnessEnabled);
+        verify(child(s.page, "rotationSwitch").checked);
         child(s.page, "rotationSwitch").clicked(null);
         verify(Display.rotationLocked);
+        verify(!child(s.page, "rotationSwitch").checked);
         child(s.page, "reduceMotionSwitch").clicked(null);
         verify(Settings.reduceMotion);
 
@@ -102,6 +104,40 @@ TestCase {
         compare(findChild(s.page, "clockCombo"), null);
 
         compare(findChild(s.page, "wallpaperButton"), null);
+    }
+
+    function test_nightLight() {
+        const s = open("display");
+        child(s.page, "nightLightSwitch").clicked(null);
+        verify(Display.nightLightEnabled);
+
+        const warmth = child(s.page, "nightLightWarmth");
+        compare(warmth.value, 61);
+        Display.nightLightTemperature = 2700;
+        compare(warmth.value, 100);
+
+        const from = child(s.page, "nightLightFrom");
+        verify(!from.visible);
+        const schedule = child(s.page, "nightLightSchedule");
+        pick(schedule, 2);
+        compare(Display.nightLightSchedule, "custom");
+        verify(from.visible);
+        verify(child(s.page, "nightLightTo").visible);
+
+        Display.setNightLightTimes(21 * 60 + 30, 6 * 60);
+        child(s.page, "nightLightTo").clicked(null);
+        const dialog = pushed(s.app, s.page);
+        compare(dialog.hour, 6);
+        compare(dialog.minute, 0);
+        Display.nightLightFrom = 0;
+        dialog.accept();
+        tryCompare(Display, "nightLightTo", 6 * 60);
+        compare(Display.nightLightFrom, 0);
+        tryCompare(s.page, "status", PageStatus.Active);
+
+        pick(schedule, 1);
+        compare(Display.nightLightSchedule, "sunset");
+        verify(!from.visible);
     }
 
     function test_displayHidesAbsentSensors() {

@@ -63,6 +63,8 @@ pub mod qobject {
         #[qproperty(f64, system_volume, cxx_name = "systemVolume", READ, WRITE = set_system_volume, NOTIFY)]
         #[qproperty(bool, dnd_enabled, cxx_name = "dndEnabled", READ, WRITE = set_dnd_enabled, NOTIFY)]
         #[qproperty(bool, vibration_enabled, cxx_name = "vibrationEnabled", READ, WRITE = set_vibration_enabled, NOTIFY)]
+        /// The system's location switch: off, nothing is located.
+        #[qproperty(bool, location_enabled, cxx_name = "locationEnabled", READ, WRITE = set_location_enabled, NOTIFY)]
         #[qproperty(bool, reduce_motion, cxx_name = "reduceMotion", READ, WRITE = set_reduce_motion, NOTIFY)]
         #[qproperty(QString, time_zone, cxx_name = "timeZone", READ, WRITE = set_time_zone, NOTIFY)]
         #[qproperty(bool, automatic_time, cxx_name = "automaticTime", READ, WRITE = set_automatic_time, NOTIFY)]
@@ -135,6 +137,8 @@ pub mod qobject {
         fn set_dnd_enabled(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setVibrationEnabled"]
         fn set_vibration_enabled(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setLocationEnabled"]
+        fn set_location_enabled(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setReduceMotion"]
         fn set_reduce_motion(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setTimeZone"]
@@ -425,6 +429,7 @@ properties! {
     system_volume: f64 = 0.5, "audio/systemVolume", "systemVolume", system_volume_changed, on_system_volume_changed, set_system_volume(f64) custom;
     dnd_enabled: bool = false, "audio/dndEnabled", "dndEnabled", dnd_enabled_changed, on_dnd_enabled_changed, set_dnd_enabled(bool);
     vibration_enabled: bool = true, "audio/vibrationEnabled", "vibrationEnabled", vibration_enabled_changed, on_vibration_enabled_changed, set_vibration_enabled(bool);
+    location_enabled: bool = true, "location/enabled", "locationEnabled", location_enabled_changed, on_location_enabled_changed, set_location_enabled(bool);
     reduce_motion: bool = false, "accessibility/reduceMotion", "reduceMotion", reduce_motion_changed, on_reduce_motion_changed, set_reduce_motion(bool);
     time_zone: QString = QString::from(&local_zone()), "", "timeZone", time_zone_changed, on_time_zone_changed, set_time_zone(&QString) custom;
     automatic_time: bool = true, "", "automaticTime", automatic_time_changed, on_automatic_time_changed, set_automatic_time(bool) custom;
@@ -601,7 +606,7 @@ fn sound_name(path: &str) -> String {
 }
 
 /// The zone `/etc/localtime` names.
-fn local_zone() -> String {
+pub(crate) fn local_zone() -> String {
     let target = fs::read_link("/etc/localtime").unwrap_or_default();
     let target = target.to_string_lossy();
     target.split_once("zoneinfo/").map_or_else(

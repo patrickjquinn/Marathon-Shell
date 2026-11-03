@@ -3,6 +3,7 @@
 #include "marathon-shell-native/src/audio.cxxqt.h"
 #include "marathon-shell-native/src/haptics.cxxqt.h"
 #include "marathon-shell-native/src/notifications.cxxqt.h"
+#include "../components/nightlightitem.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -12,6 +13,23 @@
 #include <QQuickItemGrabResult>
 #include <QQuickWindow>
 #include <QStandardPaths>
+
+namespace {
+
+    // Night light warms the panel, not the picture: it is drawn into the
+    // frame, so it leaves the frame for the grab.
+    QImage grabUntinted(QQuickWindow *window) {
+        const QList<NightLightItem *> lights =
+            window->contentItem()->findChildren<NightLightItem *>();
+        for (NightLightItem *light : lights)
+            light->setVisible(false);
+        const QImage image = window->grabWindow();
+        for (NightLightItem *light : lights)
+            light->setVisible(true);
+        return image;
+    }
+
+} // namespace
 
 ScreenshotServiceCpp::ScreenshotServiceCpp(marathon::Audio *audioPolicy, Haptics *haptics,
                                            Notifications *notificationService, QObject *parent)
@@ -47,8 +65,12 @@ void ScreenshotServiceCpp::captureScreen(QObject *windowItem) {
 
     const QString fullPath = buildScreenshotPath();
 
-    if (auto *window = qobject_cast<QQuickWindow *>(target)) {
-        const QImage image = window->grabWindow();
+    auto         *window = qobject_cast<QQuickWindow *>(target);
+    if (auto *item = qobject_cast<QQuickItem *>(target);
+        item && item->window() && item->size() == item->window()->size())
+        window = item->window();
+    if (window) {
+        const QImage image = grabUntinted(window);
         if (image.isNull()) {
             notifyFailure(tr("Failed to capture image"));
             return;
@@ -89,7 +111,7 @@ bool ScreenshotServiceCpp::saveScreenshotTo(const QString &absolutePath) {
     auto *window = qobject_cast<QQuickWindow *>(m_shellWindow);
     if (!window)
         return false;
-    const QImage image = window->grabWindow();
+    const QImage image = grabUntinted(window);
     if (image.isNull())
         return false;
     return image.save(absolutePath);

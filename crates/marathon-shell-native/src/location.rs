@@ -3,11 +3,13 @@
 //! no agent, and forgets its agents when it exits, so the agent registers
 //! each time the service starts. `GeoClue` is bus-activated and can take 90 s
 //! to come up without Wi-Fi or a SIM; nothing here waits on it on the GUI
-//! thread.
+//! thread. With location off, as GNOME Shell does, the agent's maximum
+//! accuracy is none, so `GeoClue` serves no client at all.
 
 use crate::i18n::fl;
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_channel::{Receiver, Sender};
 use cxx_qt::{CxxQtType, Threading};
@@ -32,6 +34,8 @@ pub mod qobject {
         #[qobject]
         #[qproperty(bool, available, READ, NOTIFY)]
         #[qproperty(bool, active, READ, NOTIFY)]
+        /// The system's location switch.
+        #[qproperty(bool, enabled, READ, WRITE = set_enabled, NOTIFY)]
         #[qproperty(f64, latitude, READ, NOTIFY = location_changed)]
         #[qproperty(f64, longitude, READ, NOTIFY = location_changed)]
         #[qproperty(f64, accuracy, READ, NOTIFY = location_changed)]
@@ -48,6 +52,8 @@ pub mod qobject {
         #[qsignal]
         fn error(self: Pin<&mut Self>, message: &QString);
 
+        #[cxx_name = "setEnabled"]
+        fn set_enabled(self: Pin<&mut Location>, enabled: bool);
         #[qinvokable]
         fn start(self: &Location);
         #[qinvokable]
@@ -60,10 +66,10 @@ pub mod qobject {
 
 use qobject::Location;
 
-#[derive(Default)]
 pub struct LocationRust {
     available: bool,
     active: bool,
+    enabled: bool,
     latitude: f64,
     longitude: f64,
     accuracy: f64,
@@ -73,6 +79,27 @@ pub struct LocationRust {
     timestamp: i64,
     actor: Option<Sender<bool>>,
 }
+
+impl Default for LocationRust {
+    fn default() -> Self {
+        Self {
+            available: false,
+            active: false,
+            enabled: true,
+            latitude: 0.0,
+            longitude: 0.0,
+            accuracy: 0.0,
+            altitude: 0.0,
+            speed: 0.0,
+            heading: 0.0,
+            timestamp: 0,
+            actor: None,
+        }
+    }
+}
+
+/// The switch, for the agent, which answers `GeoClue` on the I/O thread.
+static ENABLED: AtomicBool = AtomicBool::new(true);
 
 #[derive(Clone, Copy, Default)]
 struct Fix {
@@ -135,6 +162,9 @@ impl Location1 {
 
     async fn start(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
         ipc::admit(&h, "Location", &["location"]).await?;
+        if !ENABLED.load(Ordering::Relaxed) {
+            return Err(fdo::Error::AccessDenied("Location is off".to_owned()));
+        }
         ipc::on_gui(&self.qt, |obj| obj.start()).await
     }
 
@@ -150,7 +180,34 @@ impl Location1 {
 }
 
 impl Location {
+    fn set_enabled(mut self: Pin<&mut Self>, enabled: bool) {
+        set!(self, enabled, enabled_changed, enabled);
+        ENABLED.store(enabled, Ordering::Relaxed);
+        if let Some(actor) = &self.actor {
+            actor.try_send(enabled).ok();
+        }
+        io::spawn(async {
+            let Ok(bus) = io::system_bus().await else {
+                return;
+            };
+            let Ok(agent) = bus.object_server().interface::<_, Agent>(AGENT).await else {
+                return;
+            };
+            let changed = agent
+                .get()
+                .await
+                .max_accuracy_level_changed(agent.signal_emitter())
+                .await;
+            if let Err(e) = changed {
+                log::warn("location", format_args!("MaxAccuracyLevel: {e}"));
+            }
+        });
+    }
+
     fn start(&self) {
+        if !self.enabled {
+            return;
+        }
         if let Some(actor) = &self.actor {
             actor.try_send(true).ok();
         }
@@ -201,6 +258,7 @@ impl Fix {
 }
 
 const GEOCLUE: &str = "org.freedesktop.GeoClue2";
+const AGENT: &str = "/org/freedesktop/GeoClue2/Agent";
 const EXACT: u32 = 8;
 /// `GeoClue`'s apps that locate without asking: the shell, weatherd, the
 /// portal (which asks the user itself) and deckardd (Android asks per app).
@@ -262,11 +320,7 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
         Ok(bus) => bus,
         Err(e) => return log::warn("location", format_args!("no system bus: {e}")),
     };
-    if let Err(e) = bus
-        .object_server()
-        .at("/org/freedesktop/GeoClue2/Agent", Agent)
-        .await
-    {
+    if let Err(e) = bus.object_server().at(AGENT, Agent).await {
         log::warn("location", format_args!("cannot export the agent: {e}"));
     }
     let Ok(dbus) = DBusProxy::new(&bus).await else {
@@ -300,8 +354,9 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
         Err(_) => stream::empty().boxed(),
     };
     let (new_fixes, fixes) = async_channel::bounded(8);
-    // The shell locates from the start, until something stops it.
-    let events = stream::once(Event::Wanted(true))
+    // The shell locates from the start, unless location is off, until
+    // something stops it.
+    let events = stream::once(Event::Wanted(ENABLED.load(Ordering::Relaxed)))
         .chain(wanted.map(Event::Wanted))
         .chain(stream::once(Event::Closed))
         .or(owners)
@@ -437,6 +492,9 @@ struct Agent;
 impl Agent {
     #[allow(clippy::unused_self, reason = "a D-Bus method")]
     fn authorize_app(&self, desktop_id: &str, requested_accuracy_level: u32) -> (bool, u32) {
+        if !ENABLED.load(Ordering::Relaxed) {
+            return (false, 0);
+        }
         let allowed = SYSTEM.contains(&desktop_id) || permissions::has(desktop_id, "location");
         if !allowed {
             permissions::ask_if_undecided(desktop_id, &["location".to_owned()]);
@@ -455,7 +513,11 @@ impl Agent {
     #[zbus(property)]
     #[allow(clippy::unused_self, reason = "a D-Bus property")]
     fn max_accuracy_level(&self) -> u32 {
-        EXACT
+        if ENABLED.load(Ordering::Relaxed) {
+            EXACT
+        } else {
+            0
+        }
     }
 }
 

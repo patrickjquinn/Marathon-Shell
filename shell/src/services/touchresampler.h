@@ -76,7 +76,6 @@ class TouchResampler : public QObject {
     bool                    m_passthrough = false;
     bool                    m_decided     = false;
     QHash<int, Track>       m_tracks;
-    const QPointingDevice  *m_device    = nullptr;
     Qt::KeyboardModifiers   m_modifiers = Qt::NoModifier;
     bool                    m_pending   = false;
     qint64                  m_sentAt    = -1;
@@ -90,4 +89,7 @@ class TouchResampler : public QObject {
     QElapsedTimer           m_clock;
     qint64                  m_offset    = 0;
     bool                    m_hasOffset = false;
+
+    // A device can go mid-touch, its touches never ended.
+    QPointer<const QPointingDevice> m_device;
 };

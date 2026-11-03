@@ -224,7 +224,7 @@ const tiles = [
     { id: "location", label: qsTr("Location"), desc: qsTr("GPS and location services") },
     { id: "hotspot", label: qsTr("Hotspot"), desc: qsTr("Share internet connection") },
     { id: "nightlight", label: qsTr("Night light"), desc: qsTr("Reduce blue light") },
-    { id: "rotation", label: qsTr("Rotation lock"), desc: qsTr("Lock screen orientation"), needs: "rotation" },
+    { id: "rotation", label: qsTr("Auto-rotate"), desc: qsTr("Turn the screen with the phone"), needs: "rotation" },
     { id: "autobrightness", label: qsTr("Auto-brightness"), desc: qsTr("Automatic brightness adjustment"), needs: "lightSensor" },
     { id: "lowpower", label: qsTr("Battery saver"), desc: qsTr("Low power mode") },
     { id: "vibration", label: qsTr("Vibration"), desc: qsTr("Haptic feedback"), needs: "vibrator" },
@@ -256,6 +256,28 @@ const screenTimeouts = [
     { ms: 300000, title: qsTr("5 minutes") },
     { ms: 0, title: qsTr("Never") }
 ];
+
+const nightLightSchedules = [
+    { id: "off", title: qsTr("Off"), description: qsTr("Only when you turn it on") },
+    { id: "sunset", title: qsTr("Sunset to sunrise"), description: qsTr("Sun times where your time zone is") },
+    { id: "custom", title: qsTr("Custom"), description: qsTr("Between times you choose") }
+];
+
+// Night light warmth, 0-100, over 4500 K (mild) to 2700 K (candlelight).
+function nightLightKelvin(warmth) {
+    return Math.round((4500 - Math.max(0, Math.min(100, warmth)) * 18) / 100) * 100;
+}
+
+function nightLightWarmth(kelvin) {
+    return Math.max(0, Math.min(100, Math.round((4500 - kelvin) / 18)));
+}
+
+// Minutes after midnight as a Date today, for formatting and the picker.
+function timeOfDay(minutes) {
+    const d = new Date();
+    d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+    return d;
+}
 
 // Index of the option closest to value, so a stored 1.0999 still selects 110%.
 function nearestIndex(values, value) {

@@ -10,11 +10,21 @@ namespace KeyRouting {
         Home,
         Call,
         End,
-        Switcher
+        Switcher,
+        // Ends a call, else the switcher: the Q25's end key.
+        Hangup
     };
 
-    // Qt has no key for evdev KEY_APPSELECT; xkbcommon scan codes are evdev's + 8.
+    // xkbcommon scan codes are evdev's + 8. Qt has no keys for these, or
+    // (KEY_MENU) shares its key with a PC keyboard's menu key.
     inline constexpr quint32 AppSelectScanCode = 580 + 8;
+    inline constexpr quint32 MenuScanCode      = 139 + 8;
+    inline constexpr quint32 PickupScanCode    = 445 + 8;
+    inline constexpr quint32 HangupScanCode    = 446 + 8;
+    // A trackpad's click (KEY_SELECT), which apps take as Return (KEY_ENTER).
+    inline constexpr quint32 SelectScanCode = 353 + 8;
+    inline constexpr quint32 EnterScanCode  = 28 + 8;
+    inline constexpr quint32 ReturnKeysym   = 0xff0d;
 
     // The system action a hardware key triggers before the focused app sees it.
     // Keel apps get Escape: their menus, dialogs and remorse timers use it, and
@@ -27,12 +37,17 @@ namespace KeyRouting {
             return focusedToolkit.isEmpty() ? Back : None;
         if (key == Qt::Key_Back)
             return Back;
-        if (key == Qt::Key_Call || key == Qt::Key_Send)
+        // The Q25's keys, as its bbqx0kbd driver sends them (pickup, hangup,
+        // menu) and as its older driver did (appselect for end, homepage for
+        // the menu key).
+        if (key == Qt::Key_Call || key == Qt::Key_Send || scanCode == PickupScanCode)
             return Call;
-        if (key == Qt::Key_Hangup || key == Qt::Key_HomePage)
+        if (scanCode == HangupScanCode || scanCode == AppSelectScanCode)
+            return Hangup;
+        if (key == Qt::Key_HomePage || scanCode == MenuScanCode)
+            return Home;
+        if (key == Qt::Key_Hangup)
             return End;
-        if (scanCode == AppSelectScanCode)
-            return Switcher;
         return None;
     }
 

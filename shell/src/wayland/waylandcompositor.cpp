@@ -729,6 +729,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("MOZ_ENABLE_WAYLAND", "1");
 
     env.insert("QT_IM_MODULE", "wayland");
+    env.insert("QT_QPA_GENERIC_PLUGINS", "marathontouch");
     // GTK 4 otherwise falls back to its "simple" module, never binds
     // text-input, and the keyboard can't open or type into GTK apps.
     env.insert("GTK_IM_MODULE", "wayland");
@@ -2858,6 +2859,16 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         if (type == QEvent::KeyPress)
             emit keyPressed();
 
+        if ((type == QEvent::KeyPress || type == QEvent::KeyRelease) &&
+            static_cast<QKeyEvent *>(event)->nativeScanCode() == KeyRouting::SelectScanCode) {
+            const auto *select = static_cast<QKeyEvent *>(event);
+            QKeyEvent   enter(type, Qt::Key_Return, select->modifiers(), KeyRouting::EnterScanCode,
+                              KeyRouting::ReturnKeysym, select->nativeModifiers(),
+                              QStringLiteral("\r"), select->isAutoRepeat(), select->count(),
+                              select->device());
+            QCoreApplication::sendEvent(watched, &enter);
+            return true;
+        }
         if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
             const auto              *keyEvent = static_cast<QKeyEvent *>(event);
             const KeyRouting::Action action   = KeyRouting::systemAction(
@@ -2870,6 +2881,7 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
                         case KeyRouting::Call: emit systemCallTriggered(); break;
                         case KeyRouting::End: emit systemEndTriggered(); break;
                         case KeyRouting::Switcher: emit systemSwitcherTriggered(); break;
+                        case KeyRouting::Hangup: emit systemHangupTriggered(); break;
                         case KeyRouting::None: break;
                     }
                 }

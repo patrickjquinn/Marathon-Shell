@@ -26,6 +26,7 @@ use zbus::message::Header;
 
 use crate::io::{self, read};
 use crate::ipc::{self, value, State};
+use crate::night_light::{self, Plan, Schedule};
 use crate::{flashlight, log};
 
 #[cxx_qt::bridge(namespace = "marathon")]
@@ -69,14 +70,18 @@ pub mod qobject {
             WRITE,
             NOTIFY
         )]
+        /// off, sunset (to sunrise) or custom (nightLightFrom to nightLightTo).
         #[qproperty(
             QString,
             night_light_schedule,
             cxx_name = "nightLightSchedule",
             READ,
-            WRITE,
+            WRITE = set_night_light_schedule,
             NOTIFY
         )]
+        /// Minutes after midnight.
+        #[qproperty(i32, night_light_from, cxx_name = "nightLightFrom", READ, WRITE = set_night_light_from, NOTIFY)]
+        #[qproperty(i32, night_light_to, cxx_name = "nightLightTo", READ, WRITE = set_night_light_to, NOTIFY)]
         /// What the user taught the brightness curve, as the settings keep it.
         #[qproperty(QString, learned_curve, cxx_name = "learnedCurve", READ, WRITE = set_learned_curve, NOTIFY)]
         /// The one record of whether the screen is on.
@@ -97,6 +102,12 @@ pub mod qobject {
         fn set_rotation_locked(self: Pin<&mut Display>, locked: bool);
         #[cxx_name = "setLearnedCurve"]
         fn set_learned_curve(self: Pin<&mut Display>, curve: &QString);
+        #[cxx_name = "setNightLightSchedule"]
+        fn set_night_light_schedule(self: Pin<&mut Display>, schedule: &QString);
+        #[cxx_name = "setNightLightFrom"]
+        fn set_night_light_from(self: Pin<&mut Display>, minutes: i32);
+        #[cxx_name = "setNightLightTo"]
+        fn set_night_light_to(self: Pin<&mut Display>, minutes: i32);
 
         /// The backlight under `backlight_dir`, the iio sensors under
         /// `iio_dir`, and the lowest duty the panel is visible at.
@@ -163,6 +174,9 @@ pub struct DisplayRust {
     night_light_enabled: bool,
     night_light_temperature: i32,
     night_light_schedule: QString,
+    night_light_from: i32,
+    night_light_to: i32,
+    night_plans: Option<Sender<Plan>>,
     learned_curve: QString,
     screen_on: bool,
     proximity_near: bool,
@@ -197,6 +211,9 @@ impl Default for DisplayRust {
             night_light_enabled: false,
             night_light_temperature: 3400,
             night_light_schedule: QString::from("off"),
+            night_light_from: 22 * 60,
+            night_light_to: 7 * 60,
+            night_plans: None,
             learned_curve: QString::default(),
             screen_on: true,
             proximity_near: false,
@@ -279,6 +296,10 @@ impl Display {
         io::spawn(rotation(self.qt_thread(), rx));
         self.as_mut().rust_mut().accelerometer = Some(tx);
         self.want_sensors();
+        let (tx, rx) = async_channel::bounded(8);
+        io::spawn(night_light::run(self.qt_thread(), rx));
+        self.as_mut().rust_mut().night_plans = Some(tx);
+        self.plan_night_light();
         let push = |obj: Pin<&mut Self>| ipc::signal("Display", "StateChanged", (state(&obj),));
         self.as_mut().on_auto_brightness_changed(push).release();
         self.as_mut().on_rotation_locked_changed(push).release();
@@ -291,6 +312,8 @@ impl Display {
         self.as_mut()
             .on_night_light_schedule_changed(push)
             .release();
+        self.as_mut().on_night_light_from_changed(push).release();
+        self.as_mut().on_night_light_to_changed(push).release();
         self.as_mut().on_screen_on_changed(push).release();
         self.as_mut()
             .on_proximity_near_changed(|obj| {
@@ -354,6 +377,48 @@ impl Display {
         rust.curve = curve.to_string().parse().unwrap_or_default();
         rust.learned_curve = curve.clone();
         self.learned_curve_changed();
+    }
+
+    fn set_night_light_schedule(mut self: Pin<&mut Self>, schedule: &QString) {
+        set!(
+            self,
+            night_light_schedule,
+            night_light_schedule_changed,
+            schedule.clone()
+        );
+        self.plan_night_light();
+    }
+
+    fn set_night_light_from(mut self: Pin<&mut Self>, minutes: i32) {
+        set!(
+            self,
+            night_light_from,
+            night_light_from_changed,
+            minutes.rem_euclid(1440)
+        );
+        self.plan_night_light();
+    }
+
+    fn set_night_light_to(mut self: Pin<&mut Self>, minutes: i32) {
+        set!(
+            self,
+            night_light_to,
+            night_light_to_changed,
+            minutes.rem_euclid(1440)
+        );
+        self.plan_night_light();
+    }
+
+    /// Hands the schedule to its timer, which applies it now.
+    fn plan_night_light(&self) {
+        let schedule = match self.night_light_schedule.to_string().as_str() {
+            "sunset" => Schedule::Sunset,
+            "custom" => Schedule::Times(self.night_light_from, self.night_light_to),
+            _ => Schedule::Manual,
+        };
+        if let Some(plans) = &self.night_plans {
+            plans.try_send(Plan::Set(schedule)).ok();
+        }
     }
 
     fn set_rotation_locked(mut self: Pin<&mut Self>, locked: bool) {
@@ -459,6 +524,9 @@ impl Display {
         self.as_mut().screen_state_changed(on);
         if let (true, Some(panel)) = (on, &self.panel) {
             panel.send(Command::Wake(panel.level(self.brightness)));
+        }
+        if let (true, Some(plans)) = (on, &self.night_plans) {
+            plans.try_send(Plan::Check).ok();
         }
         self.want_sensors();
     }
@@ -1002,6 +1070,8 @@ fn state(display: &Display) -> State {
             "nightLightSchedule".to_owned(),
             value(display.night_light_schedule.to_string()),
         ),
+        ("nightLightFrom".to_owned(), value(display.night_light_from)),
+        ("nightLightTo".to_owned(), value(display.night_light_to)),
     ])
 }
 
@@ -1075,7 +1145,22 @@ impl Display1 {
     ) -> fdo::Result<()> {
         ipc::admit(&h, "Display", &["system"]).await?;
         ipc::on_gui(&self.qt, move |obj| {
-            obj.set_night_light_schedule(QString::from(&schedule));
+            obj.set_night_light_schedule(&QString::from(&schedule));
+        })
+        .await
+    }
+
+    /// Minutes after midnight, for the custom schedule.
+    async fn set_night_light_times(
+        &self,
+        from: i32,
+        to: i32,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Display", &["system"]).await?;
+        ipc::on_gui(&self.qt, move |mut obj| {
+            obj.as_mut().set_night_light_from(from);
+            obj.set_night_light_to(to);
         })
         .await
     }

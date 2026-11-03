@@ -45,6 +45,25 @@ fn nearest_in(table: &Path, latitude: f64, longitude: f64) -> Option<String> {
         .map(|(_, zone)| zone.to_owned())
 }
 
+/// The latitude and longitude of `zone`'s principal city, in degrees.
+pub(crate) fn place(zone: &str) -> Option<(f64, f64)> {
+    place_in(Path::new("/usr/share/zoneinfo/zone.tab"), zone)
+}
+
+fn place_in(table: &Path, zone: &str) -> Option<(f64, f64)> {
+    let tab = std::fs::read_to_string(table).ok()?;
+    tab.lines()
+        .filter(|l| !l.starts_with('#'))
+        .find_map(|line| {
+            let mut fields = line.split('\t').skip(1);
+            let place = fields.next()?;
+            (fields.next()? == zone)
+                .then(|| coordinates(place))
+                .flatten()
+        })
+        .map(|(lat, lon)| (lat.to_degrees(), lon.to_degrees()))
+}
+
 /// ISO 6709 `±DDMM[SS]±DDDMM[SS]`, in radians.
 fn coordinates(field: &str) -> Option<(f64, f64)> {
     let split = field.get(1..)?.find(['+', '-'])? + 1;
@@ -94,6 +113,9 @@ mod tests {
             Some("Pacific/Fiji")
         );
         assert_eq!(nearest_in(&dir.path().join("none"), 0.0, 0.0), None);
+        let (lat, lon) = place_in(&tab, "America/New_York").unwrap();
+        assert!((lat - 40.714_17).abs() < 1e-4 && (lon + 74.006_39).abs() < 1e-4);
+        assert_eq!(place_in(&tab, "Europe/Nowhere"), None);
     }
 
     #[test]

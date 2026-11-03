@@ -553,6 +553,11 @@ impl Modem {
         );
         set!(self, registered, registered_changed, view.registered);
         set!(self, roaming, roaming_changed, view.roaming);
+        // The profile's home-only is written only when data is switched on,
+        // so data started at home would keep running once roaming.
+        if self.roaming && self.data_enabled && !self.data_roaming_allowed {
+            self.as_mut().disable_data();
+        }
         set!(self, sim_present, sim_present_changed, view.sim);
         set!(
             self,

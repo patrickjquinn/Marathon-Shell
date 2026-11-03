@@ -51,8 +51,8 @@ Page {
             required property string section
 
             text: section === "memories" ? qsTr("Memories") : section === "albums" ? qsTr("Albums") : ""
-            visible: text !== ""
-            height: visible ? implicitHeight : 0
+            // Not by visible: the view shows each section item it reuses.
+            height: text !== "" ? implicitHeight : 0
         }
 
         delegate: ListItem {

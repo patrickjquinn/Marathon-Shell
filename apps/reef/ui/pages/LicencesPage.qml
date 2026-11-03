@@ -64,7 +64,7 @@ Page {
                 wrapMode: Text.Wrap
                 color: Theme.errorColor
                 font.pixelSize: Theme.fontSizeSmall
-                text: Texts.message(Reef.lastError)
+                text: Texts.message(Texts.withoutCatalogue(Reef.lastError))
             }
         }
 

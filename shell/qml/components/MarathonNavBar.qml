@@ -312,12 +312,12 @@ Rectangle {
         property bool pullingQuickSettings: false
         // This touch is dragging the open shade closed.
         property bool draggingQuickSettings: false
-        // About a millimetre: the bar sits at the screen edge, so a pull
-        // down from the pill runs off the panel after a few pixels.
-        readonly property real pullSlop: Math.max(3, Math.round(2 * Constants.scaleFactor))
+        // Under the drag slop: the bar sits at the screen edge, so a pull
+        // down from the pill runs off the panel within the bar's height.
+        readonly property real pullSlop: Math.round(Qt.styleHints.startDragDistance * 2 / 3)
         // The last millimetre of the panel.
         readonly property real edgeBand: Constants.dpi / 25.4
-        readonly property real directionLockDistance: 10
+        readonly property real directionLockDistance: Qt.styleHints.startDragDistance
         readonly property real verticalIntentRatio: 0.72
 
         anchors.fill: parent
@@ -412,7 +412,7 @@ Rectangle {
                 isHorizontalGesture = false;
             }
             const pullingDown = -diffY > pullSlop && (Math.abs(diffY) >= Math.abs(diffX) || intoEdge);
-            if (!isVerticalGesture && !isHorizontalGesture && (pullingDown || Math.max(Math.abs(diffX), Math.abs(diffY)) > 10)) {
+            if (!isVerticalGesture && !isHorizontalGesture && (pullingDown || Math.max(Math.abs(diffX), Math.abs(diffY)) > directionLockDistance)) {
                 const axis = pullingDown ? 1 : gestureAxis(diffX, diffY);
                 if (axis === 1) {
                     isVerticalGesture = true;

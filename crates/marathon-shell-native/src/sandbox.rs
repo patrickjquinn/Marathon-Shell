@@ -215,6 +215,7 @@ fn variables(runner: &Runner) -> Vec<(&'static str, String)> {
             var_or("MARATHON_WL_SOCKET_NAME", "marathon-wayland-0"),
         ),
         ("QT_IM_MODULE", "wayland".to_owned()),
+        ("QT_QPA_GENERIC_PLUGINS", "marathontouch".to_owned()),
         (
             "QSG_ANTIALIASING_METHOD",
             var_or("QSG_ANTIALIASING_METHOD", "vertex"),

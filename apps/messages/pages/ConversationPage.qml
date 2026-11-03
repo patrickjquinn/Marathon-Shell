@@ -23,6 +23,15 @@ Page {
     property string sendError: ""
     // Pictures to send with the text, as MMS: [{contentType, filePath, name}].
     property var attachments: []
+    // Texts are read while the thread is on screen, not while it waits
+    // behind another app.
+    readonly property bool reading: status === PageStatus.Active && Application.state === Qt.ApplicationActive
+
+    function markRead() {
+        const current = app.conversations.find(c => c.id === conversation.id);
+        if (reading && current && current.unreadCount > 0)
+            Sms.markAsRead(conversation.id);
+    }
 
     function load() {
         messages = Logic.messageRows(Sms.getMessages(conversation.id));
@@ -80,10 +89,9 @@ Page {
         return qsTr("Not sent. Check your mobile signal and try again.");
     }
 
+    onReadingChanged: markRead()
     Component.onCompleted: {
         load();
-        if (conversation.unreadCount > 0)
-            Sms.markAsRead(conversation.id);
         input.text = app.drafts[conversation.id] || "";
     }
 
@@ -123,10 +131,16 @@ Page {
         }
 
         function onMessageReceived(sender, text, timestamp) {
-            if (Logic.sameNumber(sender, root.recipientNumber)) {
+            if (Logic.sameNumber(sender, root.recipientNumber))
                 root.load();
-                Sms.markAsRead(root.conversation.id);
-            }
+        }
+    }
+
+    Connections {
+        target: root.app
+
+        function onConversationsChanged() {
+            root.markRead();
         }
     }
 

@@ -23,7 +23,8 @@ use zbus::wire::StructureBuilder;
 use zbus::{OwnedVariant as OwnedValue, Variant as Value};
 
 use crate::{
-    apps, audio, clock, gate, haptics, io, ipc, log, modem, power, settings, tasks, variant,
+    apps, audio, clock, gate, haptics, io, ipc, log, modem, power, settings, tasks, telephonyd,
+    variant,
 };
 
 pub use proxy::NotificationsProxy;
@@ -39,6 +40,7 @@ pub mod qobject {
         type QVariant = cxx_qt_lib::QVariant;
         include!("cxx-qt-lib/qlist.h");
         type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
+        type QList_i32 = cxx_qt_lib::QList<i32>;
         include!("cxx-qt-lib/qmap.h");
         type QMap_QString_QVariant = cxx_qt_lib::QMap<cxx_qt_lib::QMapPair_QString_QVariant>;
         include!("cxx-qt-lib/qmodelindex.h");
@@ -63,6 +65,38 @@ pub mod qobject {
         #[inherit]
         #[cxx_name = "endResetModel"]
         fn end_reset_model(self: Pin<&mut Notifications>);
+        #[inherit]
+        #[cxx_name = "beginInsertRows"]
+        fn begin_insert_rows(
+            self: Pin<&mut Notifications>,
+            parent: &QModelIndex,
+            first: i32,
+            last: i32,
+        );
+        #[inherit]
+        #[cxx_name = "endInsertRows"]
+        fn end_insert_rows(self: Pin<&mut Notifications>);
+        #[inherit]
+        #[cxx_name = "beginRemoveRows"]
+        fn begin_remove_rows(
+            self: Pin<&mut Notifications>,
+            parent: &QModelIndex,
+            first: i32,
+            last: i32,
+        );
+        #[inherit]
+        #[cxx_name = "endRemoveRows"]
+        fn end_remove_rows(self: Pin<&mut Notifications>);
+        #[inherit]
+        #[cxx_name = "dataChanged"]
+        fn data_changed(
+            self: Pin<&mut Notifications>,
+            top_left: &QModelIndex,
+            bottom_right: &QModelIndex,
+            roles: &QList_i32,
+        );
+        #[inherit]
+        fn index(self: &Notifications, row: i32, column: i32, parent: &QModelIndex) -> QModelIndex;
         #[cxx_override]
         #[cxx_name = "rowCount"]
         fn row_count(self: &Notifications, parent: &QModelIndex) -> i32;
@@ -97,6 +131,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "dismissTagged"]
         fn dismiss_tagged(self: Pin<&mut Notifications>, app_id: &QString, tag: &QString);
+        /// Every notification of `app_id` whose tag starts with `prefix`.
+        #[qinvokable]
+        #[cxx_name = "dismissTaggedPrefix"]
+        fn dismiss_tagged_prefix(self: Pin<&mut Notifications>, app_id: &QString, prefix: &QString);
         #[qinvokable]
         #[cxx_name = "dismissNotification"]
         fn dismiss_notification(self: Pin<&mut Notifications>, id: i32);
@@ -196,7 +234,7 @@ pub(crate) fn with(f: impl FnOnce(Pin<&mut Notifications>) + Send + 'static) {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 struct Row {
     id: i64,
     app_id: String,
@@ -615,12 +653,42 @@ impl Notifications {
         for row in &rows {
             list.append(QVariant::from(&variant::map(&row.to_json())));
         }
-        self.as_mut().begin_reset_model();
+        // Row by row: a reset rebuilds every delegate in the Hub, and with
+        // it a reply being typed.
+        match edits(&self.rows, &rows) {
+            Some(edits) => {
+                let root = QModelIndex::default();
+                for edit in edits {
+                    match edit {
+                        Edit::Remove(i) => {
+                            let at = i32::try_from(i).unwrap_or(i32::MAX);
+                            self.as_mut().begin_remove_rows(&root, at, at);
+                            self.as_mut().rust_mut().rows.remove(i);
+                            self.as_mut().end_remove_rows();
+                        }
+                        Edit::Insert(i) => {
+                            let at = i32::try_from(i).unwrap_or(i32::MAX);
+                            self.as_mut().begin_insert_rows(&root, at, at);
+                            self.as_mut().rust_mut().rows.insert(i, rows[i].clone());
+                            self.as_mut().end_insert_rows();
+                        }
+                        Edit::Change(i) => {
+                            self.as_mut().rust_mut().rows[i].clone_from(&rows[i]);
+                            let at = self.index(i32::try_from(i).unwrap_or(i32::MAX), 0, &root);
+                            self.as_mut().data_changed(&at, &at, &QList::default());
+                        }
+                    }
+                }
+            }
+            None => {
+                self.as_mut().begin_reset_model();
+                self.as_mut().rust_mut().rows = rows;
+                self.as_mut().end_reset_model();
+            }
+        }
         let mut rust = self.as_mut().rust_mut();
-        rust.rows = rows;
         rust.count = count;
         rust.notifications = list;
-        self.as_mut().end_reset_model();
         self.as_mut().count_changed();
         self.as_mut().notifications_changed();
         if self.unread_count != unread {
@@ -894,12 +962,26 @@ impl Notifications {
         }
     }
 
-    fn dismiss_tagged(mut self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
-        let (app_id, tag) = (app_id.to_string(), tag.to_string());
+    pub(crate) fn dismiss_tagged(self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
+        let tag = tag.to_string();
+        self.dismiss_tagged_if(&app_id.to_string(), |t| t == tag);
+    }
+
+    fn dismiss_tagged_prefix(self: Pin<&mut Self>, app_id: &QString, prefix: &QString) {
+        let prefix = prefix.to_string();
+        self.dismiss_tagged_if(&app_id.to_string(), |t| t.starts_with(&prefix));
+    }
+
+    /// Every notification of `app_id` whose tag `wanted` accepts.
+    pub(crate) fn dismiss_tagged_if(
+        mut self: Pin<&mut Self>,
+        app_id: &str,
+        wanted: impl Fn(&str) -> bool,
+    ) {
         let ids: Vec<i64> = self
             .rows
             .iter()
-            .filter(|r| r.app_id == app_id && r.hint("tag").as_str() == Some(&tag))
+            .filter(|r| r.app_id == app_id && r.hint("tag").as_str().is_some_and(&wanted))
             .map(|r| r.id)
             .collect();
         for id in ids {
@@ -974,17 +1056,24 @@ impl Notifications {
         let action = action.to_string();
         self.as_mut().mark_as_read(id);
         self.as_mut().activate(&row, &action);
-        let number = row.body.replace("From: ", "");
+        let number = row.hint("replyTarget").as_str().unwrap_or_default();
         match (row.app_id.as_str(), action.as_str()) {
             ("phone", "call_back") => {
-                modem::dial(&number);
+                modem::dial(number);
                 deep_link("phone", "", &json!({}));
             }
             ("phone", "message") => {
                 deep_link("messages", "conversation", &json!({"number": number}));
             }
             ("messages", "inline-reply") => deep_link("messages", "", &json!({})),
-            ("messages", "mark_read") => self.dismiss(row.id, Some(2)),
+            ("messages", "mark_read") => {
+                telephonyd::mark_read(
+                    row.hint("conversation")
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_owned(),
+                );
+            }
             _ => {}
         }
     }
@@ -992,6 +1081,10 @@ impl Notifications {
     fn reply(self: Pin<&mut Self>, id: i32, text: &QString) {
         if let Ok(id) = u32::try_from(id) {
             emit("NotificationReplied", (id, text.to_string()));
+        }
+        // Answering a text reads its thread, as opening it would.
+        if let Some(thread) = self.row(id).and_then(|r| r.hint("conversation").as_str()) {
+            telephonyd::mark_read(thread.to_owned());
         }
         self.replied(id, text);
     }
@@ -1318,10 +1411,71 @@ mod proxy {
     }
 }
 
+enum Edit {
+    Remove(usize),
+    Insert(usize),
+    Change(usize),
+}
+
+/// The removals (back to front), then the insertions and changes (front to
+/// back) that make `old` into `new`; `None` if kept rows changed order.
+fn edits(old: &[Row], new: &[Row]) -> Option<Vec<Edit>> {
+    let new_at: HashMap<i64, usize> = new.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
+    let old_at: HashMap<i64, usize> = old.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
+    let kept_old = old
+        .iter()
+        .map(|r| r.id)
+        .filter(|id| new_at.contains_key(id));
+    let kept_new = new
+        .iter()
+        .map(|r| r.id)
+        .filter(|id| old_at.contains_key(id));
+    if !kept_old.eq(kept_new) {
+        return None;
+    }
+    let mut out: Vec<Edit> = (0..old.len())
+        .rev()
+        .filter(|&i| !new_at.contains_key(&old[i].id))
+        .map(Edit::Remove)
+        .collect();
+    for (i, row) in new.iter().enumerate() {
+        match old_at.get(&row.id) {
+            Some(&j) if old[j] != *row => out.push(Edit::Change(i)),
+            Some(_) => {}
+            None => out.push(Edit::Insert(i)),
+        }
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{app_from_cgroup, retain_source_name, source_summaries, Row, SOURCE_NAME};
+    use super::{
+        app_from_cgroup, edits, retain_source_name, source_summaries, Edit, Row, SOURCE_NAME,
+    };
     use serde_json::json;
+
+    #[test]
+    fn rows_change_in_place_without_a_reset() {
+        let row = |id, title: &str| Row {
+            id,
+            title: title.into(),
+            ..Row::default()
+        };
+        let old = vec![row(3, "c"), row(2, "b"), row(1, "a")];
+        let new = vec![row(4, "d"), row(3, "c"), row(1, "a, read")];
+        let mut rows = old.clone();
+        for edit in edits(&old, &new).unwrap() {
+            match edit {
+                Edit::Remove(i) => drop(rows.remove(i)),
+                Edit::Insert(i) => rows.insert(i, new[i].clone()),
+                Edit::Change(i) => rows[i].clone_from(&new[i]),
+            }
+        }
+        assert_eq!(rows, new);
+        // A kept row that moved can't be patched in place.
+        assert!(edits(&old, &[row(1, "a"), row(3, "c")]).is_none());
+    }
 
     #[test]
     fn source_names_survive_later_updates_without_a_name() {

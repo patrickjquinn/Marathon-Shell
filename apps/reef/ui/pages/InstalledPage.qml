@@ -14,6 +14,8 @@ Page {
     id: page
     objectName: "installedPage"
 
+    readonly property string error: Texts.withoutCatalogue(Reef.lastError)
+
     SilicaListView {
         id: list
         anchors.fill: parent
@@ -64,16 +66,16 @@ Page {
                 objectName: "lastError"
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: !Reef.busy && Reef.lastError.length > 0
+                visible: !Reef.busy && page.error.length > 0
                 wrapMode: Text.Wrap
                 color: Theme.errorColor
                 font.pixelSize: Theme.fontSizeSmall
-                text: Texts.message(Reef.lastError)
+                text: Texts.message(page.error)
             }
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: !Reef.busy && Reef.lastError.length > 0
+                visible: !Reef.busy && page.error.length > 0
                 wrapMode: Text.Wrap
                 color: Theme.secondaryHighlightColor
                 font.pixelSize: Theme.fontSizeExtraSmall
@@ -85,7 +87,7 @@ Page {
         // installed, so "nothing installed" would be wrong (and the two
         // overlapped at large text sizes).
         ViewPlaceholder {
-            enabled: list.count === 0 && !Reef.busy && Reef.lastError.length === 0
+            enabled: list.count === 0 && !Reef.busy && page.error.length === 0
             text: qsTr("Nothing installed yet")
             hintText: qsTr("Apps you install from the store show here")
         }

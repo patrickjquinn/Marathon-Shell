@@ -27,6 +27,9 @@ pub mod qobject {
         #[qproperty(bool, night_light_enabled, cxx_name = "nightLightEnabled", READ, WRITE = set_night_light_enabled, NOTIFY = state_changed)]
         #[qproperty(i32, night_light_temperature, cxx_name = "nightLightTemperature", READ, WRITE = set_night_light_temperature, NOTIFY = state_changed)]
         #[qproperty(QString, night_light_schedule, cxx_name = "nightLightSchedule", READ, WRITE = set_night_light_schedule, NOTIFY = state_changed)]
+        /// Minutes after midnight, for the custom schedule.
+        #[qproperty(i32, night_light_from, cxx_name = "nightLightFrom", READ, NOTIFY = state_changed)]
+        #[qproperty(i32, night_light_to, cxx_name = "nightLightTo", READ, NOTIFY = state_changed)]
         /// False once the shell refuses the system permission.
         #[qproperty(bool, permitted, READ, NOTIFY = state_changed)]
         type Display = super::DisplayRust;
@@ -47,6 +50,9 @@ pub mod qobject {
         fn set_night_light_temperature(self: Pin<&mut Display>, temperature: i32);
         #[cxx_name = "setNightLightSchedule"]
         fn set_night_light_schedule(self: Pin<&mut Display>, schedule: &QString);
+        #[qinvokable]
+        #[cxx_name = "setNightLightTimes"]
+        fn set_night_light_times(self: &Display, from: i32, to: i32);
         #[qinvokable]
         #[cxx_name = "setScreenState"]
         fn set_screen_state(self: &Display, on: bool);
@@ -73,6 +79,8 @@ pub struct DisplayRust {
     night_light_enabled: bool,
     night_light_temperature: i32,
     night_light_schedule: QString,
+    night_light_from: i32,
+    night_light_to: i32,
     permitted: bool,
 }
 
@@ -95,6 +103,8 @@ impl cxx_qt::Initialize for Display {
                     d.night_light_enabled = get(&s, "nightLightEnabled");
                     d.night_light_temperature = get(&s, "nightLightTemperature");
                     d.night_light_schedule = get(&s, "nightLightSchedule");
+                    d.night_light_from = get(&s, "nightLightFrom");
+                    d.night_light_to = get(&s, "nightLightTo");
                 }
             }
             obj.state_changed();
@@ -105,6 +115,7 @@ impl cxx_qt::Initialize for Display {
 impl Display {
     crate::shell::calls! { DISPLAY;
         set_screen_state(on: bool) => "SetScreenState";
+        set_night_light_times(from: i32, to: i32) => "SetNightLightTimes";
     }
     crate::shell::calls! { DISPLAY; mut
         set_auto_brightness_enabled(enabled: bool) => "SetAutoBrightness";

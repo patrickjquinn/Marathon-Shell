@@ -534,9 +534,9 @@ fn redeem_claims(
     redeemed
 }
 
-/// Where the store is: `{arch}` is the phone's architecture. Not yet
-/// served: Reef has no catalogue for Marathon.
-pub const DEFAULT_STORE_URL: &str = "https://reefstore.app/marathon/{arch}/";
+/// Where the store is: `{arch}` is the phone's architecture. Pages of
+/// github.com/patrickjquinn/marathon-updates (docs/reef/marathon-catalogue.md).
+pub const DEFAULT_STORE_URL: &str = "https://patrickjquinn.github.io/marathon-updates/reef/{arch}/";
 
 /// The store directory for `arch`, ending in `/`: `$REEF_STORE_URL` when
 /// set (development and tests), else [`DEFAULT_STORE_URL`].
@@ -634,12 +634,12 @@ mod tests {
     fn store_urls() {
         assert_eq!(
             DEFAULT_STORE_URL.replace("{arch}", "aarch64"),
-            "https://reefstore.app/marathon/aarch64/"
+            "https://patrickjquinn.github.io/marathon-updates/reef/aarch64/"
         );
         if std::env::var_os("REEF_STORE_URL").is_none() {
             assert_eq!(
                 store_url("x86_64"),
-                "https://reefstore.app/marathon/x86_64/"
+                "https://patrickjquinn.github.io/marathon-updates/reef/x86_64/"
             );
         }
     }
