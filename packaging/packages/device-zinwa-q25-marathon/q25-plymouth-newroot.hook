@@ -1,0 +1,5 @@
+#!/bin/sh
+# plymouthd outlives switch_root, which deletes the initramfs; make it load
+# fonts and plugins for the PIN prompt from the real root.
+plymouth --ping 2> /dev/null || exit 0
+plymouth update-root-fs --new-root-dir=/sysroot

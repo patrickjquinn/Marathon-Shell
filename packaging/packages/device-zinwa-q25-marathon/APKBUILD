@@ -24,7 +24,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
  q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
- q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf
+ q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
 build() {
@@ -53,6 +53,9 @@ package() {
     # The same layout for Plymouth's PIN prompt.
     install -Dm644 "$srcdir/q25-vconsole.conf" "$pkgdir/etc/vconsole.conf"
     install -Dm644 "$srcdir/q25-plymouth-keyboard.conf" "$pkgdir/usr/lib/systemd/system/plymouth-start.service.d/50-q25-keyboard.conf"
+    # And for the initramfs's Plymouth, which stays up to ask for the PIN.
+    install -Dm644 "$srcdir/q25-plymouth.files" "$pkgdir/usr/share/mkinitfs/files/50-q25-plymouth.files"
+    install -Dm755 "$srcdir/q25-plymouth-newroot.hook" "$pkgdir/usr/share/mkinitfs/hooks-cleanup/90-q25-plymouth-newroot.sh"
     # input_id wants every KEY_1..31 bit for a keyboard, which the compact
     # QWERTY lacks, and calls an I2C pointer a pointing stick.
     install -Dm644 "$srcdir/99-q25-native-keyboard.rules" "$pkgdir/usr/lib/udev/rules.d/99-q25-native-keyboard.rules"
@@ -257,4 +260,6 @@ b687a7fb02ece7ea7bfef3a24eca359652b22e4292db3ca9e23179515b926722ab3f5ab3de59e537
 74b3f08210dedf5cadea24cd9959535319f6527dab12426bffcbda0dd0d1922870e78c3a97c2b07ec9a28e657f5d6ee9cfe02bd3614c7c5c668960a352562e7a  q25-hardening.sysctl
 dae9ea8b380d96f6f83ae007fc1c540eab138f99d816351d0311e154e440cfc9d6c01e0295f54ae987a02105f95b48aec741fb6455b0c355d5d8eb4d6f5596ce  q25-firewall.nft
 d6b9f2b43214e41ad32dded769b0855d9bc8875ce1ad03061b7cf9e3ef9e3578e241a83b202387c1b9394042d49374ef9ba0676a1b6404dc754950c31f58feda  q25-firewall.service
+d0c31fcc566527845a3132aef7594f37f78688d936fcbae1f8cc68c5b11427556e945ee1185606061116ad4efdaef133a394795cb69a59fea9409d770d4589b0  q25-plymouth.files
+8d414795e544c64173c649822deaf53ce86902736a29e6e184b7b36bc3e48d60b2e6cb1e2703b8b9f1407e19ac49fa92fba9a2a1448ad4d74fcb0a57f285176e  q25-plymouth-newroot.hook
 "
