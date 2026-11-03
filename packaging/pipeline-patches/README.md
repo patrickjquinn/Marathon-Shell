@@ -9,7 +9,7 @@ patched tree is left alone if its log contains the newest patch's subject.
 The tree it produces (`~/.cache/marathon-build/duranium/` by default) is
 generated. To change duranium, add the next numbered patch here.
 
-There are 54 patches. **There is no 0011**: it vendored a loose
+There are 55 patches. **There is no 0011**: it vendored a loose
 `StoreApp.qml` copy and was removed by 0019.
 
 | # | Subject | What it is for |
@@ -68,6 +68,7 @@ There are 54 patches. **There is no 0011**: it vendored a loose
 | 0053 | feat(zinwa-q25): build the Q25 root as one ext4 partition | `zinwa-q25` is not bootable and lays out `mkosi.repart.root-only`, a 5 GiB ext4 root the phone's carrier boots as a file (`q25.rootfs_file=`); `/etc` stays populated; the base adds `deckard` and `deckard-images`; `build-image.py` syncs every `device-*` aport, so `device-zinwa-q25`'s deviceinfo resolves. Built by `scripts/build-zinwa-q25-image.sh`. |
 | 0054 | fix(build): developer images get their SSH key | `build-image.py` passes `MARATHON_DEV_SSH_KEY` with `--environment`, as 0039 does for the layout; through `PassEnvironment` alone it never reached the postinst, so 0050's key and sshd were missing. |
 | 0055 | feat(zinwa-q25): make the Q25 initramfs in the root's /boot | `mkosi.finalize` runs mkinitfs in the Q25 root, as for the Pi and the Librem 5, so `/boot/initramfs` matches the root's kernel modules and device packages; `scripts/q25/q25-userdata-image.sh` copies it to the phone's ESP. |
+| 0056 | fix(finalize): no root password outside QEMU | `mkosi.finalize` sets root's password field to `*` on every device but QEMU, whose serial harness logs in with 0001's known `marathon` hash; `*` keeps developer images' key login, which sshd without UsePAM refuses for a `!` account. |
 
 `scripts/check-patch-numbers.sh` lists duplicate numbers and gaps.
 
