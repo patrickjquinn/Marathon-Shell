@@ -141,6 +141,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0081-dt-bindings-display-mediatek-gamma-Add-MT6789.patch
 	0082-drm-mediatek-gamma-Run-the-MT6789-gamma-in-relay-mod.patch
 	0083-drm-mediatek-dsi-Stop-a-link-the-bootloader-left-run.patch
+	0084-arm64-dts-mediatek-mt8781-zinwa-q25-Constrain-the-GP.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -307,6 +308,7 @@ b265234c80a51e26ae9a901a875d12a67af4f43f5e5de592bf5e9a8dc29043f014ed16d8e375b946
 8beb0b111dab337dfcc05282e2cadc097a7929be58dc16f67c2dccc31261ed08514967042e11756f5009aa01a20aeb9d30cbc4ab23a6b0dd55187d6fa194ea06  0081-dt-bindings-display-mediatek-gamma-Add-MT6789.patch
 991a121fd8ce7e0f9f4de54aa0637198b9ab2ba103d80cc24d2f3836f07377636f6f30c898b9e85e1595667272eaf296e0a8bb30e5b0a55f7f046f6142322ed9  0082-drm-mediatek-gamma-Run-the-MT6789-gamma-in-relay-mod.patch
 8b860342b2dc4a3a1175b01b2cbc34f73b002dcb60f450ee8086e2fc997cfca6ec99c17e7c4e1f69941c23e3ea2474f3b08f9fba28929d9c155300f406fb1c44  0083-drm-mediatek-dsi-Stop-a-link-the-bootloader-left-run.patch
+1d0e4dfdf1bd73c53b1a005b8609658fd333f62280794c806d738a1fd3e5776502b6b20801bd22b029d00fabc207b7e674655ad916733ace59d652f912fcfb38  0084-arm64-dts-mediatek-mt8781-zinwa-q25-Constrain-the-GP.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
