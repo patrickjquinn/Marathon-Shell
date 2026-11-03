@@ -14,8 +14,16 @@ if [ -r /etc/marathon/q25-session.conf ]; then
         esac
     done < /etc/marathon/q25-session.conf
 fi
+# q25-gpu-prepare holds the GPU's MFG power domains on.
+mfg_held() {
+    set -- /sys/devices/genpd:*:13000000.gpu/power/control
+    [ -e "$1" ] || return 1
+    for c; do
+        [ "$(cat "$c")" = on ] || return 1
+    done
+}
 if [ -x /usr/libexec/marathon/q25-shell-session.gpu ] && [ -r /run/q25-gpu/ready ] && [ ! -e /etc/q25/gpu-disabled ] &&
-   [ "$(cat /sys/devices/platform/soc/13000000.gpu/power/control)" = on ]; then
+   mfg_held; then
     exec /usr/libexec/marathon/q25-shell-session.gpu "$@"
 fi
 echo 'q25-session: GPU validation unavailable; starting software framebuffer' >&2
