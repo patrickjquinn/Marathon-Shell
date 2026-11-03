@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:59:21 +0000
+Subject: [PATCH 81/83] dt-bindings: display: mediatek: gamma: Add MT6789
+
+The MT6789 display gamma block sits where the MT8183 one does and is
+described with that fallback.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/display/mediatek/mediatek,gamma.yaml     | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/display/mediatek/mediatek,gamma.yaml b/Documentation/devicetree/bindings/display/mediatek/mediatek,gamma.yaml
+index 48542dc7..67e5c142 100644
+--- a/Documentation/devicetree/bindings/display/mediatek/mediatek,gamma.yaml
++++ b/Documentation/devicetree/bindings/display/mediatek/mediatek,gamma.yaml
+@@ -31,6 +31,7 @@ properties:
+           - const: mediatek,mt8173-disp-gamma
+       - items:
+           - enum:
++              - mediatek,mt6789-disp-gamma
+               - mediatek,mt8186-disp-gamma
+               - mediatek,mt8188-disp-gamma
+               - mediatek,mt8192-disp-gamma
+-- 
+2.55.0
+

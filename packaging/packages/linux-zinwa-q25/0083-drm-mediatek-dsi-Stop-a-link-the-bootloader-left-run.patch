@@ -1,0 +1,125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 11:19:34 +0000
+Subject: [PATCH 83/83] drm/mediatek: dsi: Stop a link the bootloader left
+ running
+
+On the Zinwa Q25 (MT6789) the bootloader hands over the DSI link still
+streaming video, with the lanes configured and the clock lane in HS.
+mtk_dsi_poweron() assumes mtk_dsi_poweroff() stopped the link before, so
+the panel's first DCS command after boot never completed (CMD_DONE never
+raised, -ETIME after 2 s): the first panel prepare failed and the
+display stayed dark until it was next turned off and on.
+
+When the link is still configured at power-on, stop it the way
+mtk_dsi_poweroff() does (waiting for the video frame, putting the lanes
+into ULPS and cycling the PHY), then power it on as usual. With this the
+first command after boot completes like every later one.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_dsi.c | 74 ++++++++++++++++++++----------
+ 1 file changed, 50 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index 221b2c05..5b32473b 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -674,6 +674,34 @@ static s32 mtk_dsi_switch_to_cmd_mode(struct mtk_dsi *dsi, u8 irq_flag, u32 t)
+ 	}
+ }
+ 
++static void mtk_dsi_link_off(struct mtk_dsi *dsi)
++{
++	/*
++	 * mtk_dsi_stop() and mtk_dsi_start() is asymmetric, since
++	 * mtk_dsi_stop() should be called after mtk_crtc_atomic_disable(),
++	 * which needs irq for vblank, and mtk_dsi_stop() will disable irq.
++	 * mtk_dsi_start() needs to be called in mtk_output_dsi_enable(),
++	 * after dsi is fully set.
++	 */
++	mtk_dsi_stop(dsi);
++
++	mtk_dsi_switch_to_cmd_mode(dsi, VM_DONE_INT_FLAG, 500);
++	mtk_dsi_reset_engine(dsi);
++	mtk_dsi_lane0_ulp_mode_enter(dsi);
++	mtk_dsi_clk_ulp_mode_enter(dsi);
++	/* set the lane number as 0 to pull down mipi */
++	writel(0, dsi->regs + DSI_TXRX_CTRL);
++
++	mtk_dsi_disable(dsi);
++
++	clk_disable_unprepare(dsi->engine_clk);
++	clk_disable_unprepare(dsi->digital_clk);
++
++	phy_power_off(dsi->phy);
++
++	dsi->lanes_ready = false;
++}
++
+ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ {
+ 	struct device *dev = dsi->host.dev;
+@@ -716,6 +744,27 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+ 		goto err_disable_engine_clk;
+ 	}
+ 
++	/*
++	 * A link the bootloader left running takes no commands until it has
++	 * been stopped the way mtk_dsi_poweroff() stops it.
++	 */
++	if (readl(dsi->regs + DSI_TXRX_CTRL)) {
++		mtk_dsi_set_interrupt_enable(dsi);
++		mtk_dsi_link_off(dsi);
++
++		phy_power_on(dsi->phy);
++		ret = clk_prepare_enable(dsi->engine_clk);
++		if (ret < 0) {
++			dev_err(dev, "Failed to enable engine clock: %d\n", ret);
++			goto err_phy_power_off;
++		}
++		ret = clk_prepare_enable(dsi->digital_clk);
++		if (ret < 0) {
++			dev_err(dev, "Failed to enable digital clock: %d\n", ret);
++			goto err_disable_engine_clk;
++		}
++	}
++
+ 	mtk_dsi_stop(dsi);
+ 	mtk_dsi_set_cmd_mode(dsi);
+ 	mtk_dsi_enable(dsi);
+@@ -750,30 +799,7 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
+ 	if (--dsi->refcount != 0)
+ 		return;
+ 
+-	/*
+-	 * mtk_dsi_stop() and mtk_dsi_start() is asymmetric, since
+-	 * mtk_dsi_stop() should be called after mtk_crtc_atomic_disable(),
+-	 * which needs irq for vblank, and mtk_dsi_stop() will disable irq.
+-	 * mtk_dsi_start() needs to be called in mtk_output_dsi_enable(),
+-	 * after dsi is fully set.
+-	 */
+-	mtk_dsi_stop(dsi);
+-
+-	mtk_dsi_switch_to_cmd_mode(dsi, VM_DONE_INT_FLAG, 500);
+-	mtk_dsi_reset_engine(dsi);
+-	mtk_dsi_lane0_ulp_mode_enter(dsi);
+-	mtk_dsi_clk_ulp_mode_enter(dsi);
+-	/* set the lane number as 0 to pull down mipi */
+-	writel(0, dsi->regs + DSI_TXRX_CTRL);
+-
+-	mtk_dsi_disable(dsi);
+-
+-	clk_disable_unprepare(dsi->engine_clk);
+-	clk_disable_unprepare(dsi->digital_clk);
+-
+-	phy_power_off(dsi->phy);
+-
+-	dsi->lanes_ready = false;
++	mtk_dsi_link_off(dsi);
+ }
+ 
+ static void mtk_dsi_lane_ready(struct mtk_dsi *dsi)
+-- 
+2.55.0
+
