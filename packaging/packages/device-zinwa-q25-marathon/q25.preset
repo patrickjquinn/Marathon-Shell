@@ -8,3 +8,5 @@ disable postmarketos-zram-swap.service
 # network it joins. Sorts before 10-marathon.preset, which enables it.
 disable avahi-daemon.service
 disable avahi-daemon.socket
+# D-Bus activates it for the rare client; nothing needs it at boot.
+disable udisks2.service
