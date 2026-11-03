@@ -5,6 +5,7 @@ S.Slider {
     id: root
 
     readonly property real _keyStep: stepSize > 0 ? stepSize : (maximumValue - minimumValue) / 20
+    property Item _page
 
     function _moveTo(v) {
         root.value = Math.max(root.minimumValue, Math.min(root.maximumValue, v));
@@ -16,6 +17,12 @@ S.Slider {
     Accessible.description: valueText
     Accessible.onIncreaseAction: root._moveTo(root.value + root._keyStep)
     Accessible.onDecreaseAction: root._moveTo(root.value - root._keyStep)
+    onPressedChanged: {
+        for (let p = root.parent; root.pressed && !root._page && p; p = p.parent) {
+            if (p.hasOwnProperty("backNavigation"))
+                root._page = p;
+        }
+    }
     Keys.onPressed: function (event) {
         if (!root.enabled)
             return;
@@ -45,6 +52,16 @@ S.Slider {
             return;
         }
         event.accepted = true;
+    }
+
+    // The page's back swipe looks for a kept grab only once the finger passes
+    // its own threshold, so a quick drag crossing that and the slider's in one
+    // move went back instead of moving the slider.
+    Binding {
+        target: root._page
+        property: "backNavigation"
+        value: false
+        when: root.pressed && root._page !== null
     }
 
     FocusFrame {
