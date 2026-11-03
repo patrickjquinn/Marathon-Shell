@@ -22,7 +22,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  unudhcpd-usb0.conf q25.preset
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
- q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
+ q25-platform-prepare q25-platform-prepare.service q25-carrier-root
  q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
  q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
@@ -141,8 +141,6 @@ package() {
     install -Dm755 "$srcdir/q25-platform-prepare" "$pkgdir/usr/libexec/marathon/q25-platform-prepare"
     install -Dm644 "$srcdir/q25-platform-prepare.service" "$pkgdir/usr/lib/systemd/system/q25-platform-prepare.service"
     ln -s ../q25-platform-prepare.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-platform-prepare.service"
-    install -Dm644 "$srcdir/q25-user-manager-cpu.conf" "$pkgdir/usr/lib/systemd/system/user@.service.d/40-q25-cpu.conf"
-    install -Dm644 "$srcdir/q25-user-slice-cpu.conf" "$pkgdir/usr/lib/systemd/system/user-1000.slice.d/40-q25-cpu.conf"
     install -Dm644 "$srcdir/q25-carrier-root" "$pkgdir/etc/marathon/q25-carrier-root"
     # The root is an ext4 file inside userdata, behind an ESP that the
     # stock layout shares: nothing may repartition, or touch the ESP's
@@ -184,7 +182,7 @@ d88d234fe15b85a63983a2f36eeb52cf614c931d53bcd68bb7b43fc4c16831d773d8181b7edc84f2
 8dbac3f141d9837f55e33e80e4aedcc082d7fdb82af1ba60748205b366e2c13d2b88cdcd6f68182dbaf5c5cf19ea0d76b39473b337c27288318731492817f9a7  q25-shell-session
 c378432befaf0b54fe3b4d72230634f48f6a344f74f217f1d475da7be6f834bc82ea30ec4dd8ff24bd3808906b8eced5cf3ea0e13eaddcb1d61b936835971e44  q25-shell-session.software
 56babfe06ed3da7ff72569304d9984adba8d77878cacf27435cb0a83d025bacae203e544e366c4d0490880bcdb7425ac67122b40ae3d46534a1104b76ba7157d  greetd-q25.toml
-221913275648d3c6f09a5da643d8c16922cfe305a4630f1d08dc5cabf98e85f7a105dab8daa1d426ca7ea7cff6ba1fed0c8ba4acac506e6be7103df7785ac3ad  50-q25-session.conf
+f5891ae339a24528fd78c2a805d9072f85609aaa7a1f487d01543c20a4325fc429a56a746b86ea739a3119b9ea07f180a9b1c5507ad5446bbb97c66916322999  50-q25-session.conf
 358ebe8f456cad78ad4d53c3721835cf79026cb233c43f1428f7a4001cf3825e3fbe2db9777d5ca2ced41acc9590ad5508c40307dca9c341859c90aa83f93d6f  q25-session.conf.example
 c863190931afc04d1702917dc5cf6ee4e218151f204a984c8587a9ea311cbf959b5f9025678f1bbfb66a22ff66545d9e7ffa40274c706f8d9538d6cdde640390  q25-md1-off.service
 11d05acf58b9cdf0a6976209939fb268e8e114dac6bb00b66edf95c5f6bfc6c51350ca5e9cdc1c247ba7866939a724d6634d7a3f463dd5dfeafe51ecc0f9e554  q25-wmt.c
@@ -213,8 +211,6 @@ dc89cdcbbf044d06c1ba18cffd2bebdc86f0015591cde276cd57fb4a82457c89b2a408f927b4662f
 118cffcf87524ed925fb0551df4eada2bcae5a1e56dbb72e70278d494f50fc9e83ab147c3411ac17c53619952f81d7b008817f37d204cfb082437a59ff4dab65  q25-home-crypt.service
 b56de27623880c795d38953f99745947e8e394356f80a78c435726309efff6ff99e54db53eb235fb62cdcc36032a3e105525b69249200af8eab7ad46d6965458  q25-platform-prepare
 a5a216437d1d62c296b584e620373797cf1cbf9c4588f969b3b9456645d79942a5340a69cafb74155d65ec878be2d5ab08a2e94a2631d4aaea6f9466f03af8ed  q25-platform-prepare.service
-01c93dc1c2fbcbe7d4c3df5f1e282549f2507204a4a4157051e62f48bc98b65b49a4a915d0ed4fe745723d29fbc7d390baddd7b65859e78739cae84a099014b5  q25-user-manager-cpu.conf
-692a0a87d3de9cf23d81d91278bb34dac1367f9aa827e09f001b7985b368aa8dcca00f94ef22eb6cd5fecea44af31e2c9f958b33579448586c08f73a2761e181  q25-user-slice-cpu.conf
 c95e3e6281e0a842a1102b617e8cbe9be4a44be91193190bc9565fd2b064c2a52fb494b1d72ae4f2d50af666f6aa83d20be9e3d8c92f36d4caf8b94c015dde5d  q25-carrier-root
 99e1359ac17cf5a8e7758222314e5c6f2d6e0c8125972e038b1188c392fd9c3a0d9d1d8d1cb49b435e2497af4fa057ef826ef5c939d5ed743a6e36a2df020348  q25-zram-swap.service
 534514fdb7bd279b2d697d3d9b6aa65bd9994746c13191d15010949d0fe3443cb6c5cad2700f57279953d69e4add69436e782d5d975e06c100d2485a381978dd  q25-logind.conf
