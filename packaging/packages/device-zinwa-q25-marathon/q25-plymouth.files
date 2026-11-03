@@ -1,0 +1,6 @@
+# Plymouth starts in the initramfs and asks for the /home PIN after
+# switch_root with the keymap it loaded there: give it the Q25 layout.
+/etc/vconsole.conf
+/usr/share/q25-keyboard/xkb/symbols/q25:/usr/share/X11/xkb/symbols/q25
+/usr/share/X11/xkb/symbols/level3
+/usr/share/X11/xkb/symbols/level5

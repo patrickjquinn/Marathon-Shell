@@ -5,4 +5,4 @@ ConditionPathExists=/usr/sbin/tuned-ppd
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/touch /run/marathon-power-profiles-ready
-ExecStartPost=/usr/bin/systemctl start tuned-ppd.service
+ExecStartPost=/usr/bin/systemctl start --no-block tuned-ppd.service
