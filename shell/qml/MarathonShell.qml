@@ -2890,7 +2890,7 @@ Item {
         onLoaded: {
             item.pinShown = Qt.binding(() => shell.showPinScreen);
             shell.incomingCallOverlay = item;
-            item.show(calls.ringing, calls.nameOf(calls.ringing));
+            item.show(calls.ringing, calls.contactName(calls.ringing));
         }
         onActiveChanged: {
             if (!active)
@@ -2925,8 +2925,12 @@ Item {
         property string ringing: ""
         property bool active: false
 
+        function contactName(number) {
+            return ContactsManager.getContactByNumber(number).name || "";
+        }
+
         function nameOf(number) {
-            return ContactsManager.getContactByNumber(number).name || number;
+            return contactName(number) || number;
         }
 
         function onIncomingCall(number) {
@@ -2935,7 +2939,7 @@ Item {
             AudioManagerCpp.playRingtone();
             HapticManager.vibratePattern([1000, 500]);
             if (shell.incomingCallOverlay)
-                shell.incomingCallOverlay.show(number, nameOf(number));
+                shell.incomingCallOverlay.show(number, contactName(number));
             else
                 incomingCallOverlayLoader.active = true;
         }
