@@ -958,12 +958,21 @@ impl Notifications {
         }
     }
 
-    pub(crate) fn dismiss_tagged(mut self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
-        let (app_id, tag) = (app_id.to_string(), tag.to_string());
+    pub(crate) fn dismiss_tagged(self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
+        let tag = tag.to_string();
+        self.dismiss_tagged_if(&app_id.to_string(), |t| t == tag);
+    }
+
+    /// Every notification of `app_id` whose tag `wanted` accepts.
+    pub(crate) fn dismiss_tagged_if(
+        mut self: Pin<&mut Self>,
+        app_id: &str,
+        wanted: impl Fn(&str) -> bool,
+    ) {
         let ids: Vec<i64> = self
             .rows
             .iter()
-            .filter(|r| r.app_id == app_id && r.hint("tag").as_str() == Some(&tag))
+            .filter(|r| r.app_id == app_id && r.hint("tag").as_str().is_some_and(&wanted))
             .map(|r| r.id)
             .collect();
         for id in ids {

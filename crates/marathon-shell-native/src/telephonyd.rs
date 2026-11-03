@@ -3,9 +3,11 @@
 //! notification is tagged `sms:<thread>` and goes once the thread is read,
 //! wherever it was read.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
+use std::time::Duration;
 
+use async_io::Timer;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use futures_lite::StreamExt;
@@ -126,32 +128,43 @@ async fn ask<R: serde::de::DeserializeOwned + zbus::Type>(
         .deserialize()
 }
 
-/// Dismisses the notifications of every thread with nothing unread, each
-/// time a thread changes.
+/// Dismisses the notifications of every thread with nothing unread, or
+/// gone: at start (the store keeps notifications across restarts) and
+/// each time a thread changes.
 async fn dismiss_read(bus: zbus::Connection, changes: MessageStream) {
     let mut changes = std::pin::pin!(changes);
-    while changes.next().await.is_some() {
-        let threads = match ask::<Vec<OwnedVariant>>(&bus, "GetConversations", &()).await {
-            Ok(threads) => threads,
-            Err(e) => {
-                log::warn("Telephonyd", format_args!("GetConversations: {e}"));
-                continue;
-            }
-        };
-        let read: Vec<String> = threads
-            .into_iter()
-            .filter_map(|t| HashMap::<String, OwnedVariant>::try_from(t).ok())
-            .filter(|t| t.get("unreadCount").and_then(|n| i32::try_from(n).ok()) == Some(0))
-            .filter_map(|t| Some(<&str>::try_from(t.get("id")?).ok()?.to_owned()))
-            .collect();
-        notifications::with(move |mut n| {
-            let app = QString::from("messages");
-            for thread in &read {
-                n.as_mut()
-                    .dismiss_tagged(&app, &QString::from(&format!("sms:{thread}")));
-            }
-        });
+    // Until the shell answers telephonyd's caller check, it refuses.
+    for _ in 0..10 {
+        if dismiss_gone(&bus).await {
+            break;
+        }
+        Timer::after(Duration::from_secs(3)).await;
     }
+    while changes.next().await.is_some() {
+        dismiss_gone(&bus).await;
+    }
+}
+
+async fn dismiss_gone(bus: &zbus::Connection) -> bool {
+    let threads = match ask::<Vec<OwnedVariant>>(bus, "GetConversations", &()).await {
+        Ok(threads) => threads,
+        Err(e) => {
+            log::warn("Telephonyd", format_args!("GetConversations: {e}"));
+            return false;
+        }
+    };
+    let unread: HashSet<String> = threads
+        .into_iter()
+        .filter_map(|t| HashMap::<String, OwnedVariant>::try_from(t).ok())
+        .filter(|t| t.get("unreadCount").and_then(|n| i32::try_from(n).ok()) != Some(0))
+        .filter_map(|t| Some(format!("sms:{}", <&str>::try_from(t.get("id")?).ok()?)))
+        .collect();
+    notifications::with(move |n| {
+        n.dismiss_tagged_if("messages", |tag| {
+            tag.starts_with("sms:") && !unread.contains(tag)
+        });
+    });
+    true
 }
 
 /// Starts the daemon with the shell: texts arrive whether or not an app asked.
