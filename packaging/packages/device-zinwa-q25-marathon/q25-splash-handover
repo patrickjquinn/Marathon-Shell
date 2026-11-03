@@ -1,0 +1,11 @@
+#!/bin/sh
+# Keep the splash on screen until the shell shows its own frame, then let
+# Plymouth exit without clearing it (the handover GDM does).
+i=0
+while [ $i -lt 150 ]; do
+	awk "/^plane\\[/ {on = 0} /^\\tcrtc=crtc/ {on = 1} on && /allocated by = (QSGRenderThread|marathon-shell)/ {f = 1} END {exit !f}" \
+		/sys/kernel/debug/dri/*/state 2> /dev/null && break
+	sleep 0.1
+	i=$((i + 1))
+done
+exec /usr/bin/plymouth quit --retain-splash

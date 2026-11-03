@@ -1,0 +1,9 @@
+[Unit]
+Description=Q25: hand the boot splash to the shell
+After=greetd.service plymouth-start.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/marathon/q25-splash-handover
+TimeoutStartSec=30
