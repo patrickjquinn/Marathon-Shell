@@ -11,8 +11,8 @@
  *
  * Application-wide event filter (DeviceProfile WAKE_ON_KEY): while the screen
  * is off, a physical key press wakes it and is swallowed together with its
- * repeats and release, so no app or shell item sees it. Power/sleep keys pass
- * through to the power-key path. The shell is the compositor, so every
+ * repeats and release, so no app or shell item sees it. Power, sleep and volume
+ * keys pass through to their evdev paths. The shell is the compositor, so every
  * keyboard libinput reports, hotplugged ones included, reaches its window.
  */
 class WakeOnKeyFilter : public QObject {

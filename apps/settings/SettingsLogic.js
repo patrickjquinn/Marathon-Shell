@@ -22,6 +22,7 @@ const pages = {
     privacy: "PrivacyPage.qml",
     updates: "UpdatesPage.qml",
     keyboard: "KeyboardPage.qml",
+    assistkey: "AssistKeyPage.qml",
     appmanager: "AppManagerPage.qml",
     appinfo: "AppManagerPage.qml",
     accounts: "AccountsPage.qml",
@@ -69,7 +70,8 @@ const sections = [
             { page: "datetime", title: qsTr("Date and time"), icon: "image://theme/icon-m-clock", keywords: "time zone timezone clock 24-hour 12-hour format city" },
             { page: "battery", title: qsTr("Battery"), icon: "image://theme/icon-m-battery", keywords: "power saver profile charging" },
             { page: "storage", title: qsTr("Storage"), icon: "image://theme/icon-m-storage", keywords: "disk space memory usage free" },
-            { page: "keyboard", title: qsTr("Keyboard"), icon: "image://theme/icon-m-keyboard", keywords: "language autocorrect predictions typing capitalize" }
+            { page: "keyboard", title: qsTr("Keyboard"), icon: "image://theme/icon-m-keyboard", keywords: "language autocorrect predictions typing capitalize" },
+            { page: "assistkey", title: qsTr("Assistant key"), icon: "image://theme/icon-m-keys", keywords: "button side key shortcut camera pilot voice talk convenience" }
         ]
     },
     {
@@ -251,6 +253,19 @@ const scales = [
 ];
 
 // The shell's screenTimeout is in milliseconds; 0 keeps the screen on.
+// What the key between the volume keys does (Settings.assistKeyPress, assistKeyHold).
+const assistKeyActions = [
+    { id: "camera", title: qsTr("Open Camera") },
+    { id: "pilot", title: qsTr("Ask Pilot") },
+    { id: "pilot-voice", title: qsTr("Talk to Pilot") },
+    { id: "none", title: qsTr("Do nothing") }
+];
+
+function assistKeyActionTitle(id) {
+    const action = assistKeyActions.find(a => a.id === id);
+    return action ? action.title : "";
+}
+
 const screenTimeouts = [
     { ms: 30000, title: qsTr("30 seconds") },
     { ms: 60000, title: qsTr("1 minute") },

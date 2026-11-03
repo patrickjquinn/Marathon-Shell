@@ -26,6 +26,8 @@ pub mod qobject {
         #[qproperty(i32, estimated_battery_time, cxx_name = "estimatedBatteryTime", READ, NOTIFY = state_changed)]
         #[qproperty(QString, power_profile, cxx_name = "powerProfile", READ, NOTIFY = state_changed)]
         #[qproperty(bool, power_profiles_supported, cxx_name = "powerProfilesSupported", READ, NOTIFY = state_changed)]
+        /// The phone has an assistant key (the key between the volume keys).
+        #[qproperty(bool, has_assist_key, cxx_name = "hasAssistKey", READ, NOTIFY = state_changed)]
         /// False once the shell refuses the system permission.
         #[qproperty(bool, permitted, READ, NOTIFY = state_changed)]
         type Power = super::PowerRust;
@@ -73,6 +75,7 @@ pub struct PowerRust {
     estimated_battery_time: i32,
     power_profile: QString,
     power_profiles_supported: bool,
+    has_assist_key: bool,
     permitted: bool,
 }
 
@@ -86,6 +89,7 @@ impl Default for PowerRust {
             estimated_battery_time: -1,
             power_profile: QString::default(),
             power_profiles_supported: false,
+            has_assist_key: false,
             permitted: false,
         }
     }
@@ -110,6 +114,7 @@ impl cxx_qt::Initialize for Power {
                     p.estimated_battery_time = get(&s, "estimatedBatteryTime");
                     p.power_profile = get(&s, "powerProfile");
                     p.power_profiles_supported = get(&s, "powerProfilesSupported");
+                    p.has_assist_key = get(&s, "hasAssistKey");
                 }
             }
             obj.state_changed();

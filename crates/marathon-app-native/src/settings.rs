@@ -61,6 +61,8 @@ pub mod qobject {
         #[qproperty(bool, filter_mobile_friendly_apps, cxx_name = "filterMobileFriendlyApps", READ, WRITE = set_filter_mobile_friendly_apps, NOTIFY)]
         #[qproperty(QStringList, hidden_apps, cxx_name = "hiddenApps", READ, WRITE = set_hidden_apps, NOTIFY)]
         #[qproperty(QString, app_sort_order, cxx_name = "appSortOrder", READ, WRITE = set_app_sort_order, NOTIFY)]
+        #[qproperty(QString, assist_key_press, cxx_name = "assistKeyPress", READ, WRITE = set_assist_key_press, NOTIFY)]
+        #[qproperty(QString, assist_key_hold, cxx_name = "assistKeyHold", READ, WRITE = set_assist_key_hold, NOTIFY)]
         #[qproperty(i32, app_grid_columns, cxx_name = "appGridColumns", READ, WRITE = set_app_grid_columns, NOTIFY)]
         #[qproperty(bool, search_native_apps, cxx_name = "searchNativeApps", READ, WRITE = set_search_native_apps, NOTIFY)]
         #[qproperty(bool, show_notification_badges, cxx_name = "showNotificationBadges", READ, WRITE = set_show_notification_badges, NOTIFY)]
@@ -143,6 +145,10 @@ pub mod qobject {
         fn set_hidden_apps(self: Pin<&mut Settings>, value: &QStringList);
         #[cxx_name = "setAppSortOrder"]
         fn set_app_sort_order(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setAssistKeyPress"]
+        fn set_assist_key_press(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setAssistKeyHold"]
+        fn set_assist_key_hold(self: Pin<&mut Settings>, value: &QString);
         #[cxx_name = "setAppGridColumns"]
         fn set_app_grid_columns(self: Pin<&mut Settings>, value: i32);
         #[cxx_name = "setSearchNativeApps"]
@@ -285,6 +291,8 @@ properties! {
     filter_mobile_friendly_apps: bool = true, "filterMobileFriendlyApps", filter_mobile_friendly_apps_changed, set_filter_mobile_friendly_apps(bool);
     hidden_apps: QStringList, "hiddenApps", hidden_apps_changed, set_hidden_apps(&QStringList);
     app_sort_order: QString = QString::from("alphabetical"), "appSortOrder", app_sort_order_changed, set_app_sort_order(&QString);
+    assist_key_press: QString = QString::from("camera"), "assistKeyPress", assist_key_press_changed, set_assist_key_press(&QString);
+    assist_key_hold: QString = QString::from("pilot-voice"), "assistKeyHold", assist_key_hold_changed, set_assist_key_hold(&QString);
     app_grid_columns: i32, "appGridColumns", app_grid_columns_changed, set_app_grid_columns(i32);
     search_native_apps: bool = true, "searchNativeApps", search_native_apps_changed, set_search_native_apps(bool);
     show_notification_badges: bool = true, "showNotificationBadges", show_notification_badges_changed, set_show_notification_badges(bool);

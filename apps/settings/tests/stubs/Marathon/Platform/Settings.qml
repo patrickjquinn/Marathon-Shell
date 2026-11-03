@@ -5,6 +5,8 @@ QtObject {
     property string timeZone: "Europe/London"
     property string wallpaperPath: "file:///wallpapers/slate-aurora.svg"
     property string timeFormat: "24h"
+    property string assistKeyPress: "camera"
+    property string assistKeyHold: "pilot-voice"
     property var hiddenApps: []
     property int appGridColumns: 0
     property bool dndEnabled: false

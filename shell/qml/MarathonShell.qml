@@ -34,6 +34,8 @@ Item {
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.quickSettingsDismissThreshold
     property var pendingLaunch: null
     property bool volumeUpPressed: false
+    // Pilot for the assistant key, waiting for the PIN: "pilot" or "pilot-voice".
+    property string pendingAssist: ""
     property bool powerButtonPressed: false
 
     // Closes the topmost shell overlay; false when none was open.
@@ -238,13 +240,56 @@ Item {
         powerMenu.show();
     }
 
-    focus: true
-    Keys.onReleased: event => {
-        if (event.key === Qt.Key_VolumeUp) {
-            volumeUpPressed = false;
-            event.accepted = true;
-        }
+    function stepVolume(key) {
+        SystemControlStore.setVolume(SystemControlStore.volume + (key === "volumeUp" ? 10 : -10));
+        systemHUD.showVolume(AudioManagerCpp.volume);
     }
+
+    // The key between the volume keys: `action` is SettingsManagerCpp's
+    // assistKeyPress or assistKeyHold. Locked, it waits for the PIN.
+    function runAssistAction(action) {
+        if (action === "none" || !SettingsManagerCpp.firstRunComplete)
+            return;
+        if (action !== "camera" && !PilotClient.available) {
+            Logger.warn("Shell", "Assistant key: Pilot is not available");
+            return;
+        }
+        if (!Display.screenOn)
+            Display.turnScreenOn();
+        HapticManager.medium();
+        if (SessionStore.isLocked) {
+            if (!SessionStore.checkSession()) {
+                if (action === "camera")
+                    shell.pendingLaunch = {
+                        "appId": "camera",
+                        "appName": qsTr("Camera")
+                    };
+                else
+                    shell.pendingAssist = action;
+                shell.showPinScreen = true;
+                pinScreen.show();
+                return;
+            }
+            SessionStore.unlock();
+        }
+        if (action === "camera")
+            UIStore.openApp("camera", qsTr("Camera"), "");
+        else
+            askPilot(action === "pilot-voice");
+    }
+
+    function askPilot(listening) {
+        pilotGlow.light();
+        // The Wayland client is the app itself, not its sandbox or Keel host.
+        const s = UIStore.appWindowOpen && appWindow.waylandSurface ? (appWindow.waylandSurface.surface || appWindow.waylandSurface) : null;
+        const pid = s && s.client ? s.client.processId : 0;
+        if (listening)
+            PilotClient.listenFor(pid);
+        else
+            PilotClient.showSheetFor(pid);
+    }
+
+    focus: true
     Component.onCompleted: {
         shell.forceActiveFocus();
         if (Security.bootUnlocked && SessionStore.isLocked)
@@ -484,34 +529,6 @@ Item {
     // ignored it). Honor the app-window state even under skip-lock.
     state: _skipLock ? (UIStore.appWindowOpen ? "app" : "home") : (SettingsManagerCpp.firstRunComplete ? (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : (UIStore.appWindowOpen ? "app" : "home")) : "home")
     Keys.onPressed: event => {
-        if (event.key === Qt.Key_VolumeUp) {
-            volumeUpPressed = true;
-            if (powerButtonPressed) {
-                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
-                screenshotFlash.trigger();
-                ScreenshotService.captureScreen(shell);
-                event.accepted = true;
-                return;
-            }
-            if (shell.silenceRinging()) {
-                event.accepted = true;
-                return;
-            }
-            SystemControlStore.setVolume(SystemControlStore.volume + 10);
-            systemHUD.showVolume(AudioManagerCpp.volume);
-            event.accepted = true;
-            return;
-        }
-        if (event.key === Qt.Key_VolumeDown) {
-            if (shell.silenceRinging()) {
-                event.accepted = true;
-                return;
-            }
-            SystemControlStore.setVolume(SystemControlStore.volume - 10);
-            systemHUD.showVolume(AudioManagerCpp.volume);
-            event.accepted = true;
-            return;
-        }
         if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+Space pressed - Opening Universal Search");
             UIStore.toggleSearch();
@@ -1052,6 +1069,68 @@ Item {
                 UIStore.closeQuickSettings();
         }
         target: PermissionManager
+    }
+
+    // The volume and assistant keys, read from /dev/input whichever window
+    // has focus, locked or not. Volume works with the screen off without
+    // waking it; held, it repeats.
+    Connections {
+        function onSideKeyPressed(key) {
+            if (key === "assist") {
+                assistHoldTimer.restart();
+                return;
+            }
+            if (key === "volumeUp") {
+                volumeUpPressed = true;
+                if (powerButtonPressed) {
+                    Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
+                    screenshotFlash.trigger();
+                    ScreenshotService.captureScreen(shell);
+                    return;
+                }
+            }
+            if (shell.silenceRinging())
+                return;
+            shell.stepVolume(key);
+            volumeRepeatTimer.key = key;
+            volumeRepeatTimer.interval = 400;
+            volumeRepeatTimer.restart();
+        }
+
+        function onSideKeyReleased(key) {
+            if (key === "assist") {
+                if (assistHoldTimer.running) {
+                    assistHoldTimer.stop();
+                    shell.runAssistAction(SettingsManagerCpp.assistKeyPress);
+                }
+                return;
+            }
+            if (key === "volumeUp")
+                volumeUpPressed = false;
+            if (volumeRepeatTimer.key === key)
+                volumeRepeatTimer.stop();
+        }
+
+        target: Power
+    }
+
+    Timer {
+        id: volumeRepeatTimer
+
+        property string key: ""
+
+        repeat: true
+        onTriggered: {
+            interval = 120;
+            shell.stepVolume(key);
+        }
+    }
+
+    Timer {
+        id: assistHoldTimer
+
+        interval: 500
+        onTriggered: shell.runAssistAction(SettingsManagerCpp.assistKeyHold)
     }
 
     // The power key, read from /dev/input whichever window has focus. A
@@ -2144,6 +2223,11 @@ Item {
                 Logger.info("Shell", "Executing pending launch: " + shell.pendingLaunch.appName);
                 UIStore.openApp(shell.pendingLaunch.appId, shell.pendingLaunch.appName, "");
                 shell.pendingLaunch = null;
+            }
+            if (shell.pendingAssist) {
+                const listening = shell.pendingAssist === "pilot-voice";
+                shell.pendingAssist = "";
+                shell.askPilot(listening);
             }
             if (shell.pendingHub) {
                 shell.pendingHub = false;

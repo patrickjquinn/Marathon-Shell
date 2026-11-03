@@ -97,6 +97,14 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "powerKeyReleased"]
         fn power_key_released(self: Pin<&mut Self>, device: &QString);
+        /// "volumeUp", "volumeDown" or "assist", read like the power key so
+        /// it works whichever window has focus.
+        #[qsignal]
+        #[cxx_name = "sideKeyPressed"]
+        fn side_key_pressed(self: Pin<&mut Self>, key: &QString);
+        #[qsignal]
+        #[cxx_name = "sideKeyReleased"]
+        fn side_key_released(self: Pin<&mut Self>, key: &QString);
         /// Whether systemd took the wake-up `setWakeTimer` asked for.
         #[qsignal]
         #[cxx_name = "wakeTimerSet"]
@@ -553,13 +561,29 @@ fn battery_warning(
     }
 }
 
-/// Reads every input device with a power key on a thread of its own: the
-/// key wakes the screen, so it never waits behind other I/O.
+/// The side keys besides power, by the name `sideKeyPressed` gives them.
+fn side_key(code: KeyCode) -> Option<&'static str> {
+    match code {
+        KeyCode::KEY_VOLUMEUP => Some("volumeUp"),
+        KeyCode::KEY_VOLUMEDOWN => Some("volumeDown"),
+        KeyCode::KEY_ASSISTANT => Some("assist"),
+        _ => None,
+    }
+}
+
+/// Reads every input device with a power or side key on a thread of its
+/// own: the power key wakes the screen, so it never waits behind other I/O.
 fn watch_power_keys(qt: Qt) {
     let found = std::thread::Builder::new().name("marathon-keys".into()).spawn(move || {
-        let keys = evdev::enumerate().filter(|(_, d)| d.supported_keys().is_some_and(|k| k.contains(KeyCode::KEY_POWER)));
+        let keys = evdev::enumerate().filter(|(_, d)| {
+            d.supported_keys().is_some_and(|k| k.iter().any(|c| c == KeyCode::KEY_POWER || side_key(c).is_some()))
+        });
         let mut watched = 0;
         for (path, mut device) in keys {
+            if device.supported_keys().is_some_and(|k| k.contains(KeyCode::KEY_ASSISTANT)) {
+                HAS_ASSIST_KEY.store(true, std::sync::atomic::Ordering::Relaxed);
+                state_changed();
+            }
             let name = format!("{} ({})", device.name().unwrap_or("?"), path.display());
             let qt = qt.clone();
             let read = move || loop {
@@ -568,7 +592,10 @@ fn watch_power_keys(qt: Qt) {
                     Err(e) => return log::warn("power", format_args!("{name}: {e}")),
                 };
                 for event in events {
-                    if let EventSummary::Key(_, KeyCode::KEY_POWER, value @ 0..=1) = event.destructure() {
+                    let EventSummary::Key(_, code, value @ 0..=1) = event.destructure() else {
+                        continue;
+                    };
+                    if code == KeyCode::KEY_POWER {
                         let device = QString::from(name.as_str());
                         qt.queue(move |obj| {
                             if value == 1 {
@@ -578,16 +605,26 @@ fn watch_power_keys(qt: Qt) {
                             }
                         })
                         .ok();
+                    } else if let Some(key) = side_key(code) {
+                        qt.queue(move |obj| {
+                            let key = QString::from(key);
+                            if value == 1 {
+                                obj.side_key_pressed(&key);
+                            } else {
+                                obj.side_key_released(&key);
+                            }
+                        })
+                        .ok();
                     }
                 }
             };
-            match std::thread::Builder::new().name("marathon-powerkey".into()).spawn(read) {
+            match std::thread::Builder::new().name("marathon-keys".into()).spawn(read) {
                 Ok(_) => watched += 1,
-                Err(e) => log::warn("power", format_args!("cannot read a power key: {e}")),
+                Err(e) => log::warn("power", format_args!("cannot read the keys of {}: {e}", path.display())),
             }
         }
         if watched == 0 {
-            log::warn("power", "no input device has a power key the shell can read; the power button will not wake the display");
+            log::warn("power", "no input device has a power or side key the shell can read; the power button will not wake the display");
         }
     });
     if let Err(e) = found {
@@ -1336,6 +1373,8 @@ mod tests {
 }
 
 static POWER: OnceLock<cxx_qt::CxxQtThread<Power>> = OnceLock::new();
+// An input device has KEY_ASSISTANT: Settings offers the key's actions.
+static HAS_ASSIST_KEY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 // ScheduleWake calls, answered once systemd has their timer.
 static WAKES: LazyLock<Mutex<HashMap<String, Vec<Sender<bool>>>>> = LazyLock::new(Mutex::default);
 
@@ -1360,6 +1399,10 @@ fn state(power: &Power) -> State {
         (
             "powerProfilesSupported".to_owned(),
             value(power.power_profiles_supported),
+        ),
+        (
+            "hasAssistKey".to_owned(),
+            value(HAS_ASSIST_KEY.load(std::sync::atomic::Ordering::Relaxed)),
         ),
     ])
 }

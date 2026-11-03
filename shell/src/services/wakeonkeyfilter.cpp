@@ -15,6 +15,11 @@ namespace {
         }
     }
 
+    // Read from evdev by Power: volume changes with the screen off.
+    bool isVolumeKey(int key) {
+        return key == Qt::Key_VolumeUp || key == Qt::Key_VolumeDown || key == Qt::Key_VolumeMute;
+    }
+
     quint32 keyId(const QKeyEvent *e) {
         return e->nativeScanCode() ? e->nativeScanCode() : static_cast<quint32>(e->key());
     }
@@ -48,7 +53,7 @@ bool WakeOnKeyFilter::eventFilter(QObject *watched, QEvent *event) {
         m_swallowed.remove(id); // release lost, e.g. keyboard unplugged mid-press
     }
 
-    if (isPowerKey(key->key()) || !m_screenOff())
+    if (isPowerKey(key->key()) || isVolumeKey(key->key()) || !m_screenOff())
         return QObject::eventFilter(watched, event);
 
     m_swallowed.insert(id);
