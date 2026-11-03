@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=29
+pkgrel=30
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
