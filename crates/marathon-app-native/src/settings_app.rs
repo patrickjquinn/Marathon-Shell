@@ -2,8 +2,9 @@
 //! `TimeZoneList`, `KeyboardSettingsStore`, and `SettingsController`.
 
 use std::collections::{HashMap, HashSet};
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fs;
+use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::pin::Pin;
 
@@ -284,6 +285,14 @@ pub mod qobject {
             pin: &QString,
             password: &QString,
         ) -> QString;
+        /// Where a computer reaches this phone over SSH: `{kind, address}`
+        /// with kind "usb", "wifi" or "ethernet".
+        #[qinvokable]
+        #[cxx_name = "remoteAddresses"]
+        fn remote_addresses(self: &SettingsController) -> QList_QVariant;
+        #[qinvokable]
+        #[cxx_name = "newRemotePassword"]
+        fn new_remote_password(self: &SettingsController) -> QString;
     }
 
     impl cxx_qt::Threading for MmsSettings {}
@@ -1370,4 +1379,64 @@ impl SettingsController {
             QString::default()
         }
     }
+
+    fn remote_addresses(&self) -> QList<QVariant> {
+        let mut out = QList::<QVariant>::default();
+        for (name, address) in ipv4_addresses() {
+            let kind = if name.starts_with("usb") {
+                "usb"
+            } else if name.starts_with("wl") {
+                "wifi"
+            } else if name.starts_with("eth") || name.starts_with("en") {
+                "ethernet"
+            } else {
+                continue;
+            };
+            let mut m = QMap::<QMapPair_QString_QVariant>::default();
+            m.insert(q("kind"), QVariant::from(&q(kind)));
+            m.insert(q("address"), QVariant::from(&q(&address.to_string())));
+            out.append(QVariant::from(&m));
+        }
+        out
+    }
+
+    fn new_remote_password(&self) -> QString {
+        let pick = marathon_rt::readable_secret;
+        q(&format!("{}-{}-{}", pick(4), pick(4), pick(4)))
+    }
+}
+
+/// Each interface's IPv4 addresses, by interface name.
+fn ipv4_addresses() -> Vec<(String, Ipv4Addr)> {
+    let mut list = std::ptr::null_mut();
+    // SAFETY: getifaddrs fills `list`, which freeifaddrs releases below.
+    if unsafe { libc::getifaddrs(&raw mut list) } != 0 {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    let mut next = list;
+    while !next.is_null() {
+        // SAFETY: the entries, their names and their addresses stay valid
+        // until freeifaddrs, and an AF_INET address is a sockaddr_in.
+        unsafe {
+            let entry = &*next;
+            next = entry.ifa_next;
+            if !entry.ifa_addr.is_null() && i32::from((*entry.ifa_addr).sa_family) == libc::AF_INET
+            {
+                let ip = entry
+                    .ifa_addr
+                    .cast::<libc::sockaddr_in>()
+                    .read_unaligned()
+                    .sin_addr
+                    .s_addr;
+                let name = CStr::from_ptr(entry.ifa_name)
+                    .to_string_lossy()
+                    .into_owned();
+                out.push((name, Ipv4Addr::from(u32::from_be(ip))));
+            }
+        }
+    }
+    // SAFETY: the list getifaddrs returned, freed once.
+    unsafe { libc::freeifaddrs(list) };
+    out
 }
