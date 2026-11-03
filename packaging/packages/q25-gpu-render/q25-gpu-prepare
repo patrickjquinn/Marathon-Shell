@@ -18,9 +18,12 @@ modprobe panfrost
 [ -c /dev/dri/renderD128 ] || fail 'render node missing'
 # mediatek-drm probes from udev's coldplug, which may still be running.
 udevadm wait --timeout=15 /dev/dri/q25-display || fail 'display is not mediatek-drm'
-# Keep genpd suppliers enabled: a later SRAM first-enable can reset coupling.
-echo on > "$gpu/power/control"
-[ "$(cat "$gpu/power/runtime_status")" = active ] || fail 'GPU is not active'
-printf '%s\n' "Panfrost devfreq $(cat "$df/governor") PM-on noafbc" > "$state/ready"
+# Hold the MFG domains up: cycling their coupled SRAM supply hangs the first
+# job after resume. The GPU itself still runtime-suspends.
+for pd in /sys/devices/genpd:*:13000000.gpu; do
+	echo on > "$pd/power/control" || fail "cannot hold $pd"
+done
+echo auto > "$gpu/power/control"
+printf '%s\n' "Panfrost devfreq $(cat "$df/governor") RPM-domains-on noafbc" > "$state/ready"
 chmod 0644 "$state/ready"
 echo 'q25-gpu: accepted power state ready; GPU render path enabled'

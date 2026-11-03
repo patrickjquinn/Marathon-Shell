@@ -2,8 +2,8 @@
 # selects the GPU session.
 pkgname=q25-gpu-render
 pkgver=7.0.0
-pkgrel=7
-pkgdesc="Q25 accepted guarded Panfrost390MHz PM-on render path"
+pkgrel=8
+pkgdesc="Q25 accepted guarded Panfrost390MHz runtime-PM render path"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND MIT"
@@ -26,7 +26,7 @@ package() {
     install -Dm644 "$srcdir/GPU-SOURCE-PROVENANCE.json" "$pkgdir/usr/share/doc/$pkgname/GPU-SOURCE-PROVENANCE.json"
 }
 sha512sums="
-4de879d05e9ae64e94d6c94bfd664c0fb16c9e455266781c95efcdedf77e9070eadb36c742ffa76e05ae5d781520a2b9125a8d8ca62ad6a27afbff14a8de31a0  q25-gpu-prepare
+57cdf44d39cc2355f750bd929421d554cd04fa4516414da4718f283dc95ed58d548b99aad0b8a92797a10fb581712ee90aa42cbaafdc2f17e923645a5c816123  q25-gpu-prepare
 e10c853645bc8f2af481b2936c0aad4e60e214460e685deae8a39fc96882da2927097eb07941fbf06909eb72bd95543c529bb431c61d378722770097d609ea8d  q25-gpu-prepare.service
 1e8c28c7b0353b3af4f8085d9e28064fa3e8eae8ebe93ea3db33c19fb6102de7a990343906846dbc13d833ad94153b396941e0585f378acec70554a691118152  80-q25-gpu-prepare.conf
 9fa2867aefbd66d13efd6886cfaabaf4640be5dc42fd0106350bc4ffe2fcf9e82e1621203bb4cfb1ed636510cd376d25e520b2e79c4e5155cf2a4690795379e1  q25-shell-session.gpu
