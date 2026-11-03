@@ -1,0 +1,63 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wmt, btif: do not sleep in the atomic error paths
+
+When CONNSYS fails to start, the WMT assert path dumps the STP log with
+interrupts or bottom halves disabled: vmalloc() there hits
+BUG_ON(in_interrupt()) (mm/vmalloc.c), and BTIF's TX-allow wait sleeps under
+the TX lock. Allocate the dump atomically and busy-wait the 4 us instead.
+---
+diff --git a/btif_drv/btif_dma_plat.c b/btif_drv/btif_dma_plat.c
+index ecf2341..e500a25 100644
+--- a/btif_drv/btif_dma_plat.c
++++ b/btif_drv/btif_dma_plat.c
+@@ -1023,7 +1023,7 @@ bool hal_dma_is_tx_allow(struct _MTK_DMA_INFO_STR_ *p_dma_info)
+ /*see if flush operation is in process*/
+ 	b_ret = _is_tx_dma_in_flush(p_dma_info) ? false : true;
+ 	if (!b_ret) {
+-		usleep_range(wait_us, 2 * wait_us);
++		udelay(wait_us);
+ 		b_ret = _is_tx_dma_in_flush(p_dma_info) ? false : true;
+ 	}
+ 	if (!b_ret)
+diff --git a/wmt_drv/common_main/linux/stp_dbg.c b/wmt_drv/common_main/linux/stp_dbg.c
+index be824ba..25360d4 100644
+--- a/wmt_drv/common_main/linux/stp_dbg.c
++++ b/wmt_drv/common_main/linux/stp_dbg.c
+@@ -1249,7 +1249,7 @@ static VOID stp_dbg_dmp_print_work(struct work_struct *work)
+ 			stp_dbg_dump_data(pBuf, pHdr->dir == PKT_DIR_TX ? "Tx" : "Rx", len);
+ 
+ 	}
+-	vfree(queue);
++	kfree(queue);
+ 	logsys->dump_queue = NULL;
+ }
+ 
+@@ -1272,8 +1272,8 @@ INT32 stp_dbg_dmp_print(MTKSTP_DBG_T *stp_dbg)
+ 	stp_dbg->logsys->dump_queue = (MTKSTP_LOG_ENTRY_T *)STP_MAGIC_NUM;
+ 	spin_unlock_irqrestore(&(stp_dbg->logsys->lock), flags);
+ 
+-	/* allocate memory may take long time, thus allocate it before get lock */
+-	dump_queue = vmalloc(sizeof(MTKSTP_LOG_ENTRY_T) * MAX_DMP_NUM);
++	/* the assert path calls this with interrupts or bottom halves disabled */
++	dump_queue = kmalloc_array(MAX_DMP_NUM, sizeof(MTKSTP_LOG_ENTRY_T), GFP_ATOMIC);
+ 	if (dump_queue == NULL) {
+ 		stp_dbg->logsys->dump_queue = NULL;
+ 		pr_info("fail to allocate memory");
+@@ -1282,7 +1282,7 @@ INT32 stp_dbg_dmp_print(MTKSTP_DBG_T *stp_dbg)
+ 
+ 	if (spin_trylock_irqsave(&(stp_dbg->logsys->lock), flags) == 0) {
+ 		stp_dbg->logsys->dump_queue = NULL;
+-		vfree(dump_queue);
++		kfree(dump_queue);
+ 		pr_info("fail to get lock");
+ 		return -1;
+ 	}
+@@ -1294,7 +1294,7 @@ INT32 stp_dbg_dmp_print(MTKSTP_DBG_T *stp_dbg)
+ 	if (dumpSize == 0) {
+ 		stp_dbg->logsys->dump_queue = NULL;
+ 		spin_unlock_irqrestore(&(stp_dbg->logsys->lock), flags);
+-		vfree(dump_queue);
++		kfree(dump_queue);
+ 		return 0;
+ 	}
+ 

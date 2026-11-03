@@ -60,6 +60,7 @@ done < "$here/wifi/wmt-files.txt"
 cp -r "$donor/wlan_drv_gen4m_6789" "$donor/wmt_chrdev_wifi" "$out/src/wlan/"
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0001-wmt-btif-connadp-q25.patch")
 (cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0003-wmt-populate-consys-children.patch")
+(cd "$out/src/wmt" && patch -p1 -s < "$here/wifi/0004-wmt-btif-no-sleep-in-atomic-paths.patch")
 (cd "$out/src/wlan" && patch -p1 -s < "$here/wifi/0002-wlan-gen4m-q25.patch")
 
 m=$out/src/media
