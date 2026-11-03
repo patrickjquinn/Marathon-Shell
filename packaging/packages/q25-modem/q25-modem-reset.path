@@ -1,6 +1,10 @@
 [Unit]
 Description=Q25 MD1: watch ccci_mdinit's modem status for resets
-After=q25-modem-init.service
+# Not before paths.target: the stack it waits for starts after basic.target.
+DefaultDependencies=no
+After=sysinit.target q25-modem-init.service
+Before=shutdown.target
+Conflicts=shutdown.target
 PartOf=q25-modem.target
 
 [Path]
