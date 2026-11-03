@@ -523,6 +523,11 @@ on the host and rewriting it.
 - Raspberry Pi: going from the single-root image to A/B needs a re-flash.
 - Zinwa Q25: nothing reboots a trial whose session never comes up
   (`q25-boot-check` fails and the entry stays unblessed); each restart by
-  hand spends a try. The kernel runs with `nowatchdog`.
+  hand spends a try.
+- Zinwa Q25: an update keeps the ESP's kernel, initramfs and DTB, but the
+  root carries `linux-zinwa-q25`'s modules, and the kernel checks neither
+  module versions nor signatures. Publish a root over the air only if it
+  was built with the same `linux-zinwa-q25` package as the phones' ESP; a
+  new kernel needs a new install until `arm` installs a root's own `/boot`.
 - Zinwa Q25: the state carried into a new root is a fixed list; state
   outside it written on the running root stays in that root.
