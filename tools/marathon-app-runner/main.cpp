@@ -3,6 +3,7 @@
 #include <memory>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QStyleHints>
 #include "services/touchresampler.h"
 #include "services/translations.h"
 #include <QSGRendererInterface>
@@ -360,6 +361,11 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName("marathon-app-runner");
     QCoreApplication::setOrganizationName("Marathon OS");
+    // The shell's drag slop and hold (Android's 8 dp touch slop at the
+    // panel's density) instead of Qt's density-blind 10 px and 800 ms.
+    QGuiApplication::styleHints()->setStartDragDistance(
+        qMax(10, qRound(8 * QGuiApplication::primaryScreen()->physicalDotsPerInch() / 160)));
+    QGuiApplication::styleHints()->setMousePressAndHoldInterval(500);
 
     // Mirror the shell's choice: force QtRendering globally so every Text
     // resolves Sora via the FontLoader instead of fontconfig (which falls
