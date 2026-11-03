@@ -84,6 +84,8 @@ security-cannot-erase = This device can't erase itself
 # $error is the system's own reason, in English.
 security-erase-unreachable = Couldn't reach the erase service: { $error }
 security-erase-closed = Couldn't reach the erase service: it closed the connection
+remote-connection-on-failed = Couldn't turn on remote connection
+remote-connection-off-failed = Couldn't turn off remote connection
 
 ## The fingerprint reader
 

@@ -30,6 +30,7 @@ TestCase {
         Updates.reset();
         DavSync.reset();
         Power.reset();
+        SettingsController.reset();
     }
 
     function open(name) {
@@ -521,5 +522,75 @@ TestCase {
         const s = open("erase");
         child(s.page, "eraseButton").clicked(null);
         compare(child(pushed(s.app, s.page), "secretField").label, "System password");
+    }
+
+    function test_remoteConnectionOffOffersAPassword() {
+        Security.remoteConnection = "off";
+        const s = open("developer");
+        const remote = child(s.page, "remoteSwitch");
+        verify(!remote.checked);
+        compare(child(s.page, "passwordField").text, "abcd-efgh-jkmn");
+        verify(remote.enabled);
+        verify(!child(s.page, "saveButton").visible);
+        child(s.page, "passwordField").text = "short";
+        verify(!remote.enabled);
+    }
+
+    function test_remoteConnectionOnWithoutAPin() {
+        Security.remoteConnection = "off";
+        const s = open("developer");
+        child(s.page, "remoteSwitch").clicked(null);
+        compare(Security.calls, [["remote", true, "abcd-efgh-jkmn", ""]]);
+        verify(child(s.page, "remoteSwitch").busy);
+        Security.remoteConnection = "on";
+        Security.remoteConnectionApplied();
+        verify(!child(s.page, "remoteSwitch").busy);
+        verify(child(s.page, "remoteSwitch").checked);
+        verify(!child(s.page, "saveButton").enabled);
+    }
+
+    function test_remoteConnectionAsksForThePin() {
+        Security.remoteConnection = "off";
+        Security.hasQuickPIN = true;
+        const s = open("developer");
+        child(s.page, "remoteSwitch").clicked(null);
+        const dialog = pushed(s.app, s.page);
+        verify(!dialog.canAccept);
+        dialog.pin = "1234";
+        dialog.accept();
+        back(s);
+        compare(Security.calls, [["remote", true, "abcd-efgh-jkmn", "1234"]]);
+        Security.remoteConnectionFailed("Incorrect PIN");
+        verify(!child(s.page, "remoteSwitch").busy);
+        verify(!child(s.page, "remoteSwitch").checked);
+    }
+
+    function test_remoteConnectionShowsAddresses() {
+        Security.remoteConnection = "on";
+        SettingsController.remoteAddressList = [
+            {
+                kind: "usb",
+                address: "172.16.42.1"
+            },
+            {
+                kind: "wifi",
+                address: "192.168.1.20"
+            }
+        ];
+        const s = open("developer");
+        compare(child(s.page, "passwordField").text, "");
+        compare(child(s.page, "connectHint").text, "On the computer, run ssh user@172.16.42.1");
+        child(s.page, "passwordField").text = "a-new-password";
+        child(s.page, "saveButton").clicked(null);
+        compare(Security.calls, [["remote", true, "a-new-password", ""]]);
+        verify(child(s.page, "remoteSwitch").busy);
+    }
+
+    function test_remoteConnectionOff() {
+        Security.remoteConnection = "on";
+        const s = open("developer");
+        child(s.page, "remoteSwitch").clicked(null);
+        compare(Security.calls, [["remote", false, "", ""]]);
+        compare(child(s.page, "connectHint").text, "Connect a USB cable or join a Wi-Fi network to get an address.");
     }
 }

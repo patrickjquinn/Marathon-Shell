@@ -30,6 +30,7 @@ const pages = {
     appsort: "AppLayoutPage.qml",
     store: "StorePage.qml",
     erase: "ErasePage.qml",
+    developer: "DeveloperPage.qml",
     android: "AndroidPage.qml",
     androidapps: "AndroidAppsPage.qml",
     androidaccess: "AndroidAccessListPage.qml",
@@ -95,6 +96,7 @@ const sections = [
             { page: "updates", title: qsTr("Software updates"), icon: "image://theme/icon-m-update", keywords: "upgrade version release channel" },
             { page: "about", title: qsTr("About device"), icon: "image://theme/icon-m-about", keywords: "device name version model kernel build licenses legal terms privacy" },
             { app: "terminal", title: qsTr("Terminal"), icon: "image://theme/icon-m-terminal", keywords: "shell command console" },
+            { page: "developer", title: qsTr("Developer tools"), icon: "image://theme/icon-m-developer-mode", keywords: "developer mode remote connection ssh usb login" },
             { page: "erase", title: qsTr("Erase all content"), icon: "image://theme/icon-m-delete", keywords: "factory reset wipe delete everything restore sell" }
         ]
     }
@@ -335,6 +337,11 @@ function dataEncryptionNote(state) {
     if (state === "off")
         return qsTr("This phone was set up before Marathon encrypted its data. Erase all content to start again with encryption.");
     return qsTr("Marathon doesn't encrypt data on this phone yet.");
+}
+
+// SettingsController.remoteAddresses()' kinds.
+function remoteAddressLabel(kind) {
+    return kind === "usb" ? qsTr("USB") : kind === "wifi" ? qsTr("Wi-Fi") : qsTr("Ethernet");
 }
 
 // Android apps: the runtime's state, its permission groups and special access.

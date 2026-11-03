@@ -1,7 +1,8 @@
 //! `SecurityManagerCpp`: the quick PIN, the system password through PAM,
-//! the fingerprint reader, the lockout and the data partition's startup PIN.
-//! Hashing, PAM and the data-key helper run on the blocking pool and fprintd
-//! on the I/O thread; the GUI thread only keeps the state QML binds to.
+//! the fingerprint reader, the lockout, the data partition's startup PIN and
+//! remote connection over SSH. Hashing, PAM and the root helpers run on the
+//! blocking pool and fprintd on the I/O thread; the GUI thread only keeps the
+//! state QML binds to.
 
 use crate::i18n::fl;
 use std::fs;
@@ -28,6 +29,7 @@ use zbus::OwnedObjectPath;
 
 use crate::audit::{self, Severity};
 use crate::ipc::{self, value, State};
+use crate::systemd::SystemdManagerProxy;
 use crate::{gate, io, log, pam};
 
 #[cxx_qt::bridge]
@@ -136,6 +138,9 @@ use qobject::Security;
 const MAX_ATTEMPTS: i32 = 5;
 const LOCKOUT: Duration = Duration::from_secs(300);
 const DATA_KEY_HELPER: &str = "/usr/libexec/marathon-data-key";
+const REMOTE_HELPER: &str = "/usr/libexec/marathon-remote-connection";
+/// The shortest remote connection password, here and in the helper.
+const REMOTE_PASSWORD_MIN: usize = 8;
 /// The root service that erases the device at the next boot, on images that can.
 const FACTORY_RESET: &str = "/run/marathon/factory-reset.sock";
 
@@ -153,6 +158,8 @@ pub struct SecurityRust {
     // Ticks the lockout countdown while set.
     counting_down: Arc<AtomicBool>,
     user: String,
+    /// "unavailable", "off" or "on": see `remote_connection_state`.
+    remote_connection: &'static str,
 }
 
 /// What an attempt checked, for the messages and the audit log.
@@ -176,6 +183,7 @@ impl cxx_qt::Initialize for Security {
             rust.has_quick_pin = !stored_pin().is_empty();
             rust.data_encryption = QString::from(encryption);
             rust.user.clone_from(&user);
+            rust.remote_connection = "unavailable";
         }
         let push = |obj: Pin<&mut Self>| ipc::signal("Security", "StateChanged", (state(&obj),));
         self.as_mut().on_auth_mode_changed(push).release();
@@ -205,6 +213,7 @@ impl cxx_qt::Initialize for Security {
             .release();
         let qt = self.qt_thread();
         ipc::export("Security", Security1 { qt: qt.clone() });
+        io::spawn(refresh_remote_connection(qt.clone()));
         io::spawn(find_fingerprint_reader(qt.clone(), user));
         if encryption == "pin" {
             // The initramfs leaves a note when the PIN was typed there.
@@ -604,15 +613,16 @@ fn state(security: &Security) -> State {
             "dataEncryption".to_owned(),
             value(security.data_encryption.to_string()),
         ),
+        (
+            "remoteConnection".to_owned(),
+            value(security.remote_connection),
+        ),
     ])
 }
 
-/// Once the owner's secret checks out, asks the service for an erase; it
-/// restarts the device. Err says why not.
-async fn erase(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(), String> {
-    if !Path::new(FACTORY_RESET).exists() {
-        return Err(fl!("security-cannot-erase"));
-    }
+/// Ok once `secret` is the owner's quick PIN, or system password without
+/// one; Err says why not.
+async fn confirm_owner(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(), String> {
     let (tx, rx) = async_channel::bounded(1);
     ipc::on_gui(qt, move |obj| {
         obj.check_owner(secret, move |_, refusal| {
@@ -622,9 +632,20 @@ async fn erase(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(),
     .await
     .map_err(|e| e.to_string())?;
     let refusal = rx.recv().await.map_err(|e| e.to_string())?;
-    if !refusal.is_empty() {
-        return Err(refusal);
+    if refusal.is_empty() {
+        Ok(())
+    } else {
+        Err(refusal)
     }
+}
+
+/// Once the owner's secret checks out, asks the service for an erase; it
+/// restarts the device. Err says why not.
+async fn erase(qt: &cxx_qt::CxxQtThread<Security>, secret: String) -> Result<(), String> {
+    if !Path::new(FACTORY_RESET).exists() {
+        return Err(fl!("security-cannot-erase"));
+    }
+    confirm_owner(qt, secret).await?;
     let reply = blocking::unblock(|| {
         let mut socket = UnixStream::connect(FACTORY_RESET)?;
         socket.write_all(b"erase\n")?;
@@ -761,6 +782,95 @@ impl Security1 {
         });
         Ok(())
     }
+
+    /// SSH logins by `password` on, or a new password while on, once `pin`
+    /// is the owner's quick PIN (none without one); or off. Answers with
+    /// `RemoteConnectionApplied`, or `RemoteConnectionFailed` saying why not.
+    async fn set_remote_connection(
+        &self,
+        on: bool,
+        password: String,
+        pin: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Security", &["system"]).await?;
+        // The helper reads one line.
+        if on
+            && (password.chars().count() < REMOTE_PASSWORD_MIN
+                || password.chars().any(char::is_control))
+        {
+            return Err(fdo::Error::InvalidArgs("Unusable password".into()));
+        }
+        let qt = self.qt.clone();
+        io::spawn(async move {
+            let outcome = set_remote_connection(&qt, on, password, pin).await;
+            refresh_remote_connection(qt).await;
+            match outcome {
+                Ok(()) => ipc::signal("Security", "RemoteConnectionApplied", ()),
+                Err(reason) => ipc::signal("Security", "RemoteConnectionFailed", (reason,)),
+            }
+        });
+        Ok(())
+    }
+}
+
+async fn set_remote_connection(
+    qt: &cxx_qt::CxxQtThread<Security>,
+    on: bool,
+    password: String,
+    pin: String,
+) -> Result<(), String> {
+    if on {
+        let has_pin = ipc::on_gui(qt, |obj| obj.has_quick_pin)
+            .await
+            .map_err(|e| e.to_string())?;
+        if has_pin {
+            confirm_owner(qt, pin).await?;
+        }
+    }
+    let (command, password) = if on {
+        ("on", password)
+    } else {
+        ("off", String::new())
+    };
+    if run_helper(REMOTE_HELPER, command, &password).await == Some(0) {
+        Ok(())
+    } else if on {
+        Err(fl!("remote-connection-on-failed"))
+    } else {
+        Err(fl!("remote-connection-off-failed"))
+    }
+}
+
+/// "on" while sshd starts at boot, "off" while it doesn't, "unavailable"
+/// on an image without sshd or the helper.
+async fn remote_connection_state() -> &'static str {
+    if !Path::new(REMOTE_HELPER).exists() {
+        return "unavailable";
+    }
+    let state = async {
+        SystemdManagerProxy::new(&io::system_bus().await?)
+            .await?
+            .get_unit_file_state("sshd.service")
+            .await
+    };
+    match state.await {
+        Ok(state) if state.starts_with("enabled") => "on",
+        Ok(_) => "off",
+        Err(_) => "unavailable",
+    }
+}
+
+async fn refresh_remote_connection(qt: cxx_qt::CxxQtThread<Security>) {
+    let state = remote_connection_state().await;
+    ipc::on_gui(&qt, move |mut obj| {
+        if obj.remote_connection != state {
+            obj.as_mut().rust_mut().remote_connection = state;
+            ipc::signal("Security", "StateChanged", (self::state(&obj),));
+        }
+    })
+    .await
+    .ok();
 }
 
 fn helper_ok(code: Option<i32>) -> bool {
@@ -953,14 +1063,21 @@ fn current_user() -> String {
 /// exit code, or `None` when it could not run. Without the helper (a desktop
 /// session) there is no data partition to keep in step: `Some(0)`.
 async fn run_data_key(command: &str, secret: &str) -> Option<i32> {
-    let (program, args) = match std::env::var("MARATHON_DATA_KEY_HELPER") {
-        Ok(helper) if !helper.is_empty() => (helper, vec![command.to_owned()]),
-        _ if !Path::new(DATA_KEY_HELPER).exists() => return Some(0),
-        _ => (
-            "pkexec".to_owned(),
-            vec![DATA_KEY_HELPER.to_owned(), command.to_owned()],
-        ),
-    };
+    match std::env::var("MARATHON_DATA_KEY_HELPER") {
+        Ok(helper) if !helper.is_empty() => run(helper, vec![command.to_owned()], secret).await,
+        _ if !Path::new(DATA_KEY_HELPER).exists() => Some(0),
+        _ => run_helper(DATA_KEY_HELPER, command, secret).await,
+    }
+}
+
+/// Runs `helper command` as root through pkexec with `secret` on stdin; its
+/// exit code, or `None` when it could not run.
+async fn run_helper(helper: &str, command: &str, secret: &str) -> Option<i32> {
+    let args = vec![helper.to_owned(), command.to_owned()];
+    run("pkexec".to_owned(), args, secret).await
+}
+
+async fn run(program: String, args: Vec<String>, secret: &str) -> Option<i32> {
     let secret = secret.to_owned();
     blocking::unblock(move || {
         let mut child = Command::new(&program)
@@ -977,7 +1094,8 @@ async fn run_data_key(command: &str, secret: &str) -> Option<i32> {
             log::warn(
                 "security",
                 format_args!(
-                    "marathon-data-key {}: {}",
+                    "{} {}: {}",
+                    program,
                     args.join(" "),
                     String::from_utf8_lossy(&out.stderr).trim()
                 ),

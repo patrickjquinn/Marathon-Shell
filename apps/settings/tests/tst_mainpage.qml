@@ -98,6 +98,14 @@ TestCase {
         compare(findChild(app.pageStack.currentPage, "airplaneSwitch").description, "Turns off Wi-Fi and Bluetooth");
     }
 
+    function test_developerToolsOnlyWithSsh() {
+        const app = makeApp();
+        entry(app, "about");
+        compare(findChild(app.pageStack.currentPage, "entry-developer"), null);
+        Security.remoteConnection = "on";
+        compare(valueOf(entry(app, "developer")), "Developer tools, Remote connection on");
+    }
+
     function test_eraseOnlyWhereTheImageCanErase() {
         const app = makeApp();
         entry(app, "about");
@@ -160,6 +168,7 @@ TestCase {
     // Every category on the main page opens its own page.
     function test_everyEntryOpensItsPage() {
         Security.canEraseAllContent = true;
+        Security.remoteConnection = "off";
         const app = makeApp();
         const main = app.pageStack.currentPage;
         Logic.sections.forEach(section => section.entries.filter(e => e.page).forEach(e => {

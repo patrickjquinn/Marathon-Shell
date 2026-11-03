@@ -17,9 +17,10 @@ Page {
     readonly property var wallpapers: typeof Wallpapers !== "undefined" ? Wallpapers : null
 
     // No mobile network entry on devices without a modem, no erasing
-    // where the image can't erase itself, and no Android apps without Android.
+    // where the image can't erase itself, no Android apps without Android
+    // and no developer tools without SSH.
     function present(entries) {
-        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent) && (e.page !== "android" || AndroidApps.available));
+        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent) && (e.page !== "android" || AndroidApps.available) && (e.page !== "developer" || Security.remoteConnection !== "unavailable"));
     }
 
     function summary(name) {
@@ -55,6 +56,8 @@ Page {
             return Updates.updateAvailable ? qsTr("Update available") : "";
         case "android":
             return Logic.androidState((AndroidApps.runtime || {}).state) + " · " + qsTr("%n apps", "", AndroidApps.apps.length);
+        case "developer":
+            return Security.remoteConnection === "on" ? qsTr("Remote connection on") : "";
         }
         return "";
     }

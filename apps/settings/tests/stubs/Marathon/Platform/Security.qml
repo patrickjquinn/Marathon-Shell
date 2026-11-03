@@ -10,11 +10,14 @@ QtObject {
     property int failedAttempts: 0
     property bool canEraseAllContent: false
     property string dataEncryption: "none"
+    property string remoteConnection: "unavailable"
     property var calls: []
 
     signal quickPINChanged
     signal authenticationFailed(string reason)
     signal eraseFailed(string reason)
+    signal remoteConnectionApplied
+    signal remoteConnectionFailed(string reason)
 
     function reset() {
         authMode = 0;
@@ -24,6 +27,7 @@ QtObject {
         failedAttempts = 0;
         canEraseAllContent = false;
         dataEncryption = "none";
+        remoteConnection = "unavailable";
         calls = [];
     }
     function setQuickPIN(pin, password) {
@@ -34,5 +38,11 @@ QtObject {
     }
     function eraseAllContent(secret) {
         calls = calls.concat([["erase", secret]]);
+    }
+    function setRemoteConnection(on, password, pin) {
+        calls = calls.concat([["remote", on, password, pin]]);
+    }
+    function currentUsername() {
+        return "user";
     }
 }

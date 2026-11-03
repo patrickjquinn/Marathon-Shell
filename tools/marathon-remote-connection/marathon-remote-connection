@@ -1,0 +1,74 @@
+#!/bin/sh
+# Settings > Developer tools > Remote connection (docs/SECURITY_MODEL.md):
+# SSH logins as the user who runs it, by password, over USB and any network.
+# Run as root, through pkexec.
+#
+#   on   the line on stdin becomes the user's password, and sshd runs now
+#        and at every boot
+#   off  sshd stops, its sessions end and the password is locked again
+#
+# Exit status: 0 done, 2 usage, 1 any other failure.
+set -u
+
+conf=/etc/ssh/sshd_config.d/50-marathon-remote-connection.conf
+sessions=/sys/fs/cgroup/system.slice/sshd.service/cgroup.kill
+
+die() {
+	echo "marathon-remote-connection: $2" >&2
+	exit "$1"
+}
+
+# Never root's own password, nor one named by the caller.
+uid=${PKEXEC_UID:-0}
+[ "$uid" -ge 1000 ] 2> /dev/null || die 2 "run through pkexec, as the phone's user"
+user=$(getent passwd "$uid" | cut -d: -f1)
+[ -n "$user" ] || die 1 "no user with uid $uid"
+
+lock() {
+	usermod -p '!' "$user" || die 1 "cannot lock the password of $user"
+}
+
+case ${1:-} in
+on)
+	IFS= read -r password || [ -n "$password" ] || die 2 "no password on stdin"
+	[ ${#password} -ge 8 ] || die 2 "the password is shorter than 8 characters"
+	sshd=$(command -v sshd.pam || command -v sshd) || die 1 "sshd is not installed"
+	mkdir -p "${conf%/*}" || die 1 "cannot create ${conf%/*}"
+	# Read before 99-marathon-dev.conf, and the first value read wins.
+	cat > "$conf" <<- 'EOF' || die 1 "cannot write $conf"
+		# Settings > Developer tools > Remote connection
+		PasswordAuthentication yes
+		PermitEmptyPasswords no
+		KbdInteractiveAuthentication no
+		PermitRootLogin prohibit-password
+		MaxAuthTries 3
+		LoginGraceTime 30
+		PerSourcePenalties authfail:30s invaliduser:30s
+	EOF
+	# sshd -t fails without host keys, which the first start would make.
+	ssh-keygen -A > /dev/null || die 1 "cannot make the host keys"
+	if ! "$sshd" -t; then
+		rm -f "$conf"
+		die 1 "sshd refuses the configuration"
+	fi
+	# musl's crypt, which sshd checks with, has no yescrypt.
+	printf '%s:%s\n' "$user" "$password" | chpasswd -c SHA512 ||
+		die 1 "cannot set the password of $user"
+	if ! systemctl enable sshd.service || ! systemctl reload-or-restart sshd.service; then
+		systemctl disable --now sshd.service
+		rm -f "$conf"
+		lock
+		die 1 "cannot start sshd"
+	fi
+	;;
+off)
+	systemctl disable --now sshd.service || die 1 "cannot stop sshd"
+	# KillMode=process leaves the sessions behind.
+	[ ! -e "$sessions" ] || echo 1 > "$sessions" || die 1 "cannot end the SSH sessions"
+	rm -f "$conf" || die 1 "cannot remove $conf"
+	lock
+	;;
+*)
+	die 2 "usage: marathon-remote-connection on|off"
+	;;
+esac

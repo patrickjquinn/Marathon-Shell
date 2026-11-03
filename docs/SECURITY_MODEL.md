@@ -163,6 +163,45 @@ resolve the caller's app from its PID (the launcher's PID map, then the
 process ancestry up to the shell) and check the app's granted
 permissions before acting. See `docs/PERMISSION_GUIDE.md`.
 
+## Remote login over SSH
+
+Nothing listens on port 22 on a release image: the preset disables
+`sshd.service`, the user's password is locked (`!`) and root has no key.
+There are two ways in.
+
+**Developer images** are built with `MARATHON_DEV_SSH_KEY` (pipeline
+patch 0050). That key logs in as root and as the user, key only, and sshd
+runs from the first boot.
+
+**Remote connection** (Settings > Developer tools) is the owner's switch,
+as in Sailfish OS. Turning it on, or saving a new password, takes the
+quick PIN where one is set. The shell then runs
+`pkexec /usr/libexec/marathon-remote-connection on` with the password on
+stdin (polkit action `org.marathonos.shell.remote-connection`, active
+session only; sandboxed apps can't use pkexec). The helper:
+
+- sets the password of the caller's own account (`PKEXEC_UID`, never
+  below 1000) with `chpasswd -c SHA512`;
+- writes `/etc/ssh/sshd_config.d/50-marathon-remote-connection.conf`:
+  passwords on, `PermitRootLogin prohibit-password`, `MaxAuthTries 3`,
+  `LoginGraceTime 30`, `PerSourcePenalties authfail:30s invaliduser:30s`.
+  It sorts before a developer image's `99-marathon-dev.conf`, and sshd
+  keeps the first value it reads;
+- enables and starts `sshd.service`, so it survives reboots (`/etc` is the
+  confext's writable upper layer).
+
+`off` disables and stops sshd, ends open sessions through the unit's
+`cgroup.kill`, removes the drop-in and locks the password again.
+
+sshd listens on every interface: the USB gadget (`172.16.42.1`), Wi-Fi,
+and mobile data, where an IPv6 address may be reachable from outside.
+
+The password is the user's system password, so while remote connection
+is on it also unlocks the lock screen and passes the Security page's
+password checks. It is also the password for `sudo` and polkit, which
+treat the `wheel` group, the user's, as administrators. So whoever has
+it has root, as Sailfish's developer password does through `devel-su`.
+
 ## Not covered here
 
 Package signing and install-time verification: `docs/CODE_SIGNING_GUIDE.md`.

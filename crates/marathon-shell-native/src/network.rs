@@ -175,25 +175,9 @@ use qobject::Network;
 
 const BLUEZ_ADAPTER: &str = "org.bluez.Adapter1";
 
-/// `Marathon-XXXX` and `xxxx-xxxx-xxxx`, read off the screen and typed: no
-/// 0/O/1/l/i.
+/// `Marathon-XXXX` and `xxxx-xxxx-xxxx`, read off the screen and typed.
 fn hotspot_credentials() -> (String, String) {
-    const ALPHABET: &[u8] = b"abcdefghjkmnpqrstuvwxyz23456789";
-    let pick = |n: usize| -> String {
-        let mut out = String::new();
-        while out.len() < n {
-            let mut byte = [0u8; 1];
-            // SAFETY: getrandom writes the one byte it is given.
-            if unsafe { libc::getrandom(byte.as_mut_ptr().cast(), 1, 0) } != 1 {
-                continue;
-            }
-            // Below 248 (8 x 31): no bias to the alphabet's start.
-            if usize::from(byte[0]) < ALPHABET.len() * 8 {
-                out.push(char::from(ALPHABET[usize::from(byte[0]) % ALPHABET.len()]));
-            }
-        }
-        out
-    };
+    let pick = marathon_rt::readable_secret;
     let ssid = format!("Marathon-{}", pick(4).to_uppercase());
     (ssid, format!("{}-{}-{}", pick(4), pick(4), pick(4)))
 }

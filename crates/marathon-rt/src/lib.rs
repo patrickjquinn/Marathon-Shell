@@ -20,6 +20,25 @@ macro_rules! set {
     }};
 }
 
+/// `len` random characters to read off a screen and type: lower case and
+/// digits, without 0/O/1/l/i.
+pub fn readable_secret(len: usize) -> String {
+    const ALPHABET: &[u8] = b"abcdefghjkmnpqrstuvwxyz23456789";
+    let mut out = String::with_capacity(len);
+    while out.len() < len {
+        let mut byte = [0u8; 1];
+        // SAFETY: getrandom writes the one byte it is given.
+        if unsafe { libc::getrandom(byte.as_mut_ptr().cast(), 1, 0) } != 1 {
+            continue;
+        }
+        // Below 248 (8 x 31): no bias to the alphabet's start.
+        if usize::from(byte[0]) < ALPHABET.len() * 8 {
+            out.push(char::from(ALPHABET[usize::from(byte[0]) % ALPHABET.len()]));
+        }
+    }
+    out
+}
+
 /// The calling thread under `SCHED_RR | SCHED_RESET_ON_FORK` at `priority`,
 /// or `SCHED_OTHER` for 0 (`docs/RT_SCHEDULING.md`); `pthread_setschedparam`'s
 /// error number on failure.
