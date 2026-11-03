@@ -54,6 +54,7 @@ QtObject {
     property bool bluetoothDialogPairing: false
     property string bluetoothDialogError: ""
 
+    property var remoteAddressList: []
     property var calls: []
 
     function reset() {
@@ -66,6 +67,7 @@ QtObject {
         bluetoothDialogVisible = false;
         bluetoothDialogPairing = false;
         bluetoothDialogError = "";
+        remoteAddressList = [];
         calls = [];
     }
     function record(call) {
@@ -198,6 +200,12 @@ QtObject {
 
     function lockoutStatusText(locked, seconds) {
         return locked ? "Locked (" + seconds + "s remaining)" : "Active";
+    }
+    function remoteAddresses() {
+        return remoteAddressList;
+    }
+    function newRemotePassword() {
+        return "abcd-efgh-jkmn";
     }
     function quickPinValidationError(pin, password) {
         if (pin.length < 4)
