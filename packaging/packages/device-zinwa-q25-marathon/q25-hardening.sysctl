@@ -6,9 +6,8 @@ fs.suid_dumpable = 0
 # Needs CONFIG_SECURITY_YAMA; 1 = only a process's own descendants.
 -kernel.yama.ptrace_scope = 1
 
-# Loose reverse-path filtering: Wi-Fi and LTE can both be up.
-net.ipv4.conf.default.rp_filter = 2
-net.ipv4.conf.all.rp_filter = 2
+# rp_filter stays at postmarketOS's 0 (90-disable-rp-filter.conf): MMS
+# replies arrive on the MMS APN's interface, not the default route.
 net.ipv4.conf.default.accept_redirects = 0
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.secure_redirects = 0
