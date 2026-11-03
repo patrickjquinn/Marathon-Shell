@@ -65,10 +65,10 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Item | What it does | Root cause | Fixed by |
 |---|---|---|---|---|
-| H7 | `q25-platform-prepare` (+`.service`, sysinit) | Writes `0` to `/sys/devices/system/cpu/cpu0/online` every boot. | Memory corruption seen only with CPU0 online (multi-thread allocator seeds fail; `Q/cpu0-quarantine-20261030/README.txt`). Cause unknown; candidates in W8. | W8 |
-| H8 | `q25-user-slice-cpu.conf`, `q25-user-manager-cpu.conf`, `CPUAffinity=4-7` in `50-q25-session.conf` | Pins the whole session and greetd to CPUs 4–7. | Earlier form of the same CPU0 workaround ("bring-up stability policy"). | W8 |
+| H7 | `q25-platform-prepare` (+`.service`, sysinit) | Writes `0` to `/sys/devices/system/cpu/cpu0/online` unless U-Boot marked `/chosen/marathon,mtk-kernel-boot` (it handed off through BL31). | Memory corruption with CPU0 online when the OS was not started through `MTK_SIP_KERNEL_BOOT` (W8). Now only the fallback for `/loader/q25-no-handoff` or a failed hand-off. | W8 |
+| H8 | ~~`q25-user-slice-cpu.conf`, `q25-user-manager-cpu.conf`, `CPUAffinity=4-7` in `50-q25-session.conf`~~ | Removed. | Earlier form of the CPU0 workaround. | W8 (done) |
 | H11 | `q25-gpu-prepare` (+`.service`, greetd drop-in `80-q25-gpu-prepare.conf`) | `modprobe`s panfrost; checks the render node and the `q25-display` card; forces `power/control=on`. | GPU kept powered because "a later SRAM first-enable can reset coupling". | W6 |
-| H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`), `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file (which requires CPU0 offline), and runtime PM is forced on; disables AFBC. | AFBC corrupts (cause unresolved). | W6 |
+| H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`), `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file, and runtime PM is forced on; disables AFBC. | AFBC corrupts (cause unresolved). | W6 |
 | H13 | `q25-md1-off.service` (+post-install arming file) | `insmod q25-md1-owner standalone=1 md_off_at_boot=1` to switch off the MD1 domain the preloader left on. | No MD power domain in the kernel, so genpd cannot switch it off as unused. | W3 (MD domain) |
 | H14 | `q25-usb-gadget` (+`.service`) | Recreates the pmOS USB network gadget in configfs after boot. | The pmOS initramfs only creates it if a UDC exists when it looks (`cat …/g1/UDC: No such file` at 7.8 s in the boot log). Why the musb UDC is late is unverified. | W16 |
 | H15 | `q25-bt-address` (+`.service`) | Derives a Bluetooth address from machine-id and sets it with `btmgmt public-addr`. | Controller reports a placeholder; the nvdata copy is multicast. | Section 4.1 |
@@ -197,19 +197,19 @@ Eliminates H1 (GPU half), H11, H12, H45.
 already in ellyq (`55959b22`); drop Arseniy's "Disable iommu for now" (`a3a7d9830e61`). Gives the
 display, GPU and camera IOVA space. Eliminates `0010` and the camera pool.
 
-**W8. CPU0** (M–L, unknown cause). Facts: with CPU0 offline every test passes; CPU0 can be taken
-off (`psci: CPU0 killed`) but not brought back (CPU_ON fails); all CPUs start at EL1. Secondary
-CPUs enter Linux through ATF's PSCI warm-boot path; CPU0 enters through U-Boot's EFI path. Deathmist's
-U-Boot has `CONFIG_MTK_SMC_JUMP=y` (`c8e0347069f9`, "needed for newer SoCs running U-Boot in Insecure
-World, else … undefined behaviour"), but that SMC (`MTK_SIP_KERNEL_BOOT`) is only issued by `bootm`;
-our `bootefi` → systemd-boot → EFI-stub path never makes it. Lead hypothesis: CPU0 misses per-CPU
-setup that ATF does on the kernel-boot SiP. Test in order, each from a one-shot entry: (a) boot the
-same kernel via `booti`/`bootm` with the SMC jump and run the allocator seeds with CPU0 online; (b)
-`ARM64_ERRATUM_2441007=y` (A55 TLBI race, disabled today); (c) compare CPU0's accessible ID/feature
-registers with CPU1's (Arseniy carries "HACK: arm64: cpufeature: Ignore capabilities conflict"
-`5c5dffbd8def`, so MT6789 already shows CPU feature mismatches). The fix belongs in U-Boot (an EFI
-`ExitBootServices` hook that performs the SiP call) or ATF config, not the kernel. Eliminates H7,
-H8, the CPU0 check in H11/H12.
+**W8. CPU0** (done for Marathon's U-Boot). BL31 (MediaTek TF-A 2.4) keeps a one-shot
+`MTK_SIP_KERNEL_BOOT` (`0xC2000115`) that LK issues to start Linux; it switches the SiP table from
+the BL33 set to the kernel set and programs EMI MPU region 31 over all DRAM. Our `bootefi` →
+systemd-boot path never made it, and with it missing CPU0 corrupts memory (the allocator seeds fail
+only with CPU0 online). EL2 is not available on this SoC, so the call is made by U-Boot itself: it
+sets the modem bank remaps (LK CCCI `0xC200040B`), opens CONNSYS's and the modem's carve-outs in EMI
+MPU regions 22-27 (region 31 would forbid them), then restarts itself from `lk_a` through
+`MTK_SIP_KERNEL_BOOT` and marks `/chosen/marathon,mtk-kernel-boot` (`devices/zinwa/q25/u-boot/0004`).
+The kernel side: `q25-md1-owner` uses the kernel SiP set, and the eccci SiP calls stay at the set
+proven on stock (`modules/modem/0003`). With it all 8 CPUs run the allocator seeds (240/240), LTE,
+Wi-Fi, BT, GNSS, NFC, cameras, audio and the GPU. Eliminates H8 and the CPU0 check in H11; H7 stays
+as the fallback when the mark is missing. Upstream form: none needed in the kernel; the U-Boot
+commands belong in `arch/arm/mach-mediatek` behind `CONFIG_MTK_SMC_JUMP`.
 
 **W9. Battery and charging** (M, medium risk). Port mt6768-mainline `7aa11fc98409` (mt6358-gauge:
 coulomb counter, SoC, current) + `2ae4ae27856c` + `a773719a6954` to the MT6366, with the stock
@@ -388,7 +388,7 @@ Persistent journald (`journalctl --list-boots`) is the ground truth for failed b
 | 0. Stop the pile (now) | H1/H2 rules in force (`ad9cb804`). Ship the from-source kernel (`feat/q25-kernel-package`). W1 config. Drop `q25-mt6366-irqfix` (the kernel carries `0009`). Drop `0002`/`0003` from the series. Send the "send now" set. Drop `nowatchdog`. | `grep -c '(O' /proc/modules` falls from 99 to the shim, driver and vendor modules only; no new `WARN` in the kernel log; speaker, earpiece, mic, headset detect (no PMIC irq storm in `/proc/interrupts`); Deckard networking; camera stills; module unload works. |
 | 1. Clocks and power domains | W2, W3, W4 (cmdline flags removed one per boot). | `/sys/kernel/debug/clk/clk_summary`: imp_iic gates at 124.8 MHz with no `top_i2c`; `/sys/kernel/debug/pm_genpd/pm_genpd_summary`: one provider, MD1 off after boot, DISP held by the framebuffer; i2c7 OCP2131 answers at boot; touch, keyboard, charger, amp probe on cold boot ×10; Wi-Fi/BT/modem still up through the W3 CONN/MD domains. |
 | 2. Display and GPU | W5, W6, W7. | `card0` driver `mediatek-drm`; `modetest -v` page-flip at 70.98 Hz; Doze off/on ×20 with no DSI errors; brightness 1..20 visible; panfrost bound at boot, devfreq scales across OPPs under `glmark2` for 1 h with no faults; AFBC on; camera works without the pool. Shell starts with no `q25-gpu-prepare`. |
-| 3. CPU0 | W8. | Allocator seeds pass with all 8 CPUs online; 24 h soak with the session unpinned; `q25-platform-prepare` and the affinity drop-ins removed. |
+| 3. CPU0 | W8. | Allocator seeds pass with all 8 CPUs online (240/240, done); 24 h soak with the session unpinned; affinity drop-ins removed (done); `q25-platform-prepare` leaves CPU0 online on the hand-off path. |
 | 4. Power | W9, W17. | One battery in `upower -d`; SoC tracks a full charge to termination and a discharge to 5 % within the stated margin; charging stops at 4.44 V; thermal zones report and throttle. |
 | 5. Peripherals | W10–W14, W16, W18. | Headset plug/unplug events; full audio matrix; keyboard and its light with stock udev rules; ALS/proximity/accel/mag in `monitor-sensor`; haptics; USB network from the initramfs; final cmdline has no hardware flags. |
 | 6. Cameras | W15. | Both sensors stream at full resolution through libcamera with the IOMMU. |
