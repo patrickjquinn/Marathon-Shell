@@ -23,7 +23,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
- q25-zram-swap.service q25-logind.conf q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
+ q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
@@ -38,6 +38,7 @@ package() {
     install -Dm644 "$srcdir/greetd-q25.toml" "$pkgdir/etc/greetd/q25-config.toml"
     install -Dm644 "$srcdir/50-q25-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-q25-session.conf"
     install -Dm644 "$srcdir/q25-logind.conf" "$pkgdir/usr/lib/systemd/logind.conf.d/50-q25.conf"
+    install -Dm644 "$srcdir/q25-hardening.sysctl" "$pkgdir/usr/lib/sysctl.d/60-q25-hardening.conf"
     install -Dm644 "$srcdir/q25-session.conf.example" "$pkgdir/usr/share/doc/$pkgname/q25-session.conf.example"
     install -Dm644 "$srcdir/q25-keyboard.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-keyboard.conf"
     install -Dm644 "$srcdir/q25-keyboard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-keyboard.conf"
@@ -249,4 +250,5 @@ e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f59
 b687a7fb02ece7ea7bfef3a24eca359652b22e4292db3ca9e23179515b926722ab3f5ab3de59e5379adb05d8c6d33900967b96b66ff29ad5efe20e1ba33adbcb  q25-root-arm.service
 99e1359ac17cf5a8e7758222314e5c6f2d6e0c8125972e038b1188c392fd9c3a0d9d1d8d1cb49b435e2497af4fa057ef826ef5c939d5ed743a6e36a2df020348  q25-zram-swap.service
 534514fdb7bd279b2d697d3d9b6aa65bd9994746c13191d15010949d0fe3443cb6c5cad2700f57279953d69e4add69436e782d5d975e06c100d2485a381978dd  q25-logind.conf
+74b3f08210dedf5cadea24cd9959535319f6527dab12426bffcbda0dd0d1922870e78c3a97c2b07ec9a28e657f5d6ee9cfe02bd3614c7c5c668960a352562e7a  q25-hardening.sysctl
 "
