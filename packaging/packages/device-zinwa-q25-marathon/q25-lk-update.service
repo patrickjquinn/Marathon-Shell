@@ -1,0 +1,14 @@
+[Unit]
+Description=Q25: put this root's U-Boot into lk_a once the boot is blessed
+Documentation=https://github.com/patrickjquinn/Marathon-Shell/blob/main/docs/OTA.md
+Requires=q25-boot-bless.service
+After=q25-boot-bless.service
+ConditionPathExists=/usr/lib/q25/u-boot-q25.bin
+ConditionPathIsMountPoint=/.q25-carrier/root
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon/q25-lk-update
+
+[Install]
+WantedBy=graphical.target

@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=43
+pkgrel=44
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -23,7 +23,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-carrier-root
- q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
+ q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service q25-lk-update q25-lk-update.service
  q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf battery-model-experimental 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
@@ -160,12 +160,16 @@ package() {
     # one; q25-root-arm boots it, counted, at the next restart (docs/OTA.md).
     install -Dm755 "$srcdir/q25-root-install" "$pkgdir/usr/libexec/marathon/q25-root-install"
     install -Dm644 "$srcdir/q25-root-arm.service" "$pkgdir/usr/lib/systemd/system/q25-root-arm.service"
-    for unit in q25-boot-check q25-boot-bless; do
+    # The U-Boot the image build put in this root goes into lk_a once a boot
+    # of it is blessed; the replaced lk_a stays on the carrier (docs/OTA.md).
+    install -Dm755 "$srcdir/q25-lk-update" "$pkgdir/usr/libexec/marathon/q25-lk-update"
+    for unit in q25-boot-check q25-boot-bless q25-lk-update; do
         install -Dm644 "$srcdir/$unit.service" "$pkgdir/usr/lib/systemd/system/$unit.service"
     done
     install -d "$pkgdir/usr/lib/systemd/system/boot-complete.target.requires" "$pkgdir/usr/lib/systemd/system/graphical.target.wants"
     ln -s ../q25-boot-check.service "$pkgdir/usr/lib/systemd/system/boot-complete.target.requires/q25-boot-check.service"
     ln -s ../q25-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/q25-boot-bless.service"
+    ln -s ../q25-lk-update.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/q25-lk-update.service"
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
     install -Dm644 "$srcdir/q25-zram-swap.service" "$pkgdir/usr/lib/systemd/system/q25-zram-swap.service"
@@ -223,6 +227,8 @@ ac6802cd8209d3890212f3402777bf3756decb9a1154f5934917611c36512d9136d2bd3eb6185289
 33c25690010d2d4812b58e52356f85ccdec29e798446722c5b45e686f3104c8eb9aadbc61e59950994500b21f12d733736f76f423c0a517a9fab8f9c72a7e413  q25-boot-bless
 0c4ca31eaf0503326618deaa830d3ee36f057fd2493e5133c356c127ac34feaae951a319a5b8668f79f1b0da8117fcbc0e43c61973257ff3d5b0dc1c5f86e4ea  q25-root-install
 b687a7fb02ece7ea7bfef3a24eca359652b22e4292db3ca9e23179515b926722ab3f5ab3de59e5379adb05d8c6d33900967b96b66ff29ad5efe20e1ba33adbcb  q25-root-arm.service
+509b7d543fcc458cf710f9b9b5ad4e087d3760997de48c246cdbe8a9b7d2a8173c46a055657ca2966d94a50340802002f9b435c495358e87965bc628c2f3efb7  q25-lk-update
+6878a13341d51a0c797327f438b473d367ac415381f04345b58937a4c73697571475c94c70a6a95c1495a12e610e065e3dede2b61696d9548839d6b1ac1ddbec  q25-lk-update.service
 ddd69eb57bef58a76f3b0bd965cadbef340efa6cbc4a7b11a0f1d7d700704a27f80f06d7f50e314c31e93a0bd62d92d2c070013b2015528cb624b9c5d5e25288  q25.xkb-symbols
 c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3ccbe57e24776e11ad02ab5d7457f0bc444a4b2b891f442605  q25-keyboard-layout.env
 24c65349f8bdc55656ccc0b8a1c24b77895544a2bdafc1405fcd07666fc6c5925e14fd59038679d0003ab67d1dc098d358a6549005767587c12531b5f921de98  q25-vconsole.conf

@@ -1,0 +1,99 @@
+#!/bin/sh
+# Put the U-Boot this root carries into lk_a, the way gimme-uboot.py does at
+# install: the lk image's first part ("lk") gets the new U-Boot, padded to its
+# 16-byte alignment, and keeps its header and certificates; MediaTek's other
+# parts (bl2_ext, aee, lk_main_dtb and their certificates) follow unchanged.
+# Only a Marathon U-Boot is replaced. The previous lk_a stays on the carrier.
+#
+#   q25-lk-update [--check] [NEW_UBOOT [LK_DEVICE_OR_FILE]]
+set -eu
+check=
+[ "${1:-}" != --check ] || { check=1; shift; }
+new=${1:-/usr/lib/q25/u-boot-q25.bin}
+store=/.q25-carrier/root/var/lib/marathon/lk
+MAGIC=1485313672 # 0x58881688
+EXT=1485379209   # 0x58891689
+
+lk=${2:-}
+if [ -z "$lk" ]; then
+	for d in /sys/class/block/*; do
+		grep -qx PARTNAME=lk_a "$d/uevent" 2> /dev/null && lk=/dev/${d##*/}
+	done
+fi
+[ -n "$lk" ] || { echo "q25-lk-update: no lk_a" >&2; exit 1; }
+[ -f "$new" ] || exit 0
+
+u32() { od -An -tu4 -j "$2" -N4 "$1" | tr -d ' \n'; }
+# shellcheck disable=SC2059 # the format is the bytes
+le32() { printf "$(printf '\\%03o\\%03o\\%03o\\%03o' $(($1 & 255)) $(($1 >> 8 & 255)) $(($1 >> 16 & 255)) $(($1 >> 24 & 255)))"; }
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+cat "$lk" > "$tmp/cur"
+
+# Walk the parts: 512-byte header, data, padding to the part's alignment.
+[ "$(u32 "$tmp/cur" 0)" = $MAGIC ] || { echo "q25-lk-update: lk_a is not an lk image" >&2; exit 1; }
+[ "$(od -An -tx1 -j8 -N3 "$tmp/cur" | tr -d ' \n')" = 6c6b00 ] ||
+	{ echo "q25-lk-update: lk_a's first part is not lk" >&2; exit 1; }
+off=0 lkend=
+while [ "$(u32 "$tmp/cur" $off)" = $MAGIC ]; do
+	[ "$(u32 "$tmp/cur" $((off + 48)))" = $EXT ] || { echo "q25-lk-update: lk_a part at $off has no extended header" >&2; exit 1; }
+	a=$(u32 "$tmp/cur" $((off + 68)))
+	end=$((off + 512 + $(u32 "$tmp/cur" $((off + 4)))))
+	[ "$a" = 0 ] || end=$(((end + a - 1) / a * a))
+	[ -n "$lkend" ] || lkend=$end
+	last=$(u32 "$tmp/cur" $((off + 64)))
+	off=$end
+	[ "$last" = 0 ] || break
+done
+[ "$last" = 1 ] || { echo "q25-lk-update: lk_a's part list does not end" >&2; exit 1; }
+used=$off
+
+oldsize=$(u32 "$tmp/cur" 4)
+dd if="$tmp/cur" of="$tmp/old-uboot" bs=512 skip=1 count=$(((oldsize + 511) / 512)) status=none
+truncate -s "$oldsize" "$tmp/old-uboot"
+grep -q mt6789-q25 "$tmp/old-uboot" || { echo "q25-lk-update: lk_a holds no Marathon U-Boot; leaving it" >&2; exit 1; }
+grep -q mt6789-q25 "$new" || { echo "q25-lk-update: $new is not the Q25 U-Boot" >&2; exit 1; }
+
+size=$(stat -c %s "$new")
+padded=$(((size + 15) / 16 * 16))
+# U-Boot's hand-off restarts itself from the first 0x120 4 KiB blocks of lk_a.
+[ $((512 + padded)) -le $((0x120 * 4096)) ] || { echo "q25-lk-update: $new is too big for the hand-off" >&2; exit 1; }
+cp "$new" "$tmp/new-uboot"
+truncate -s "$padded" "$tmp/new-uboot"
+if [ "$padded" = "$oldsize" ] && cmp -s "$tmp/new-uboot" "$tmp/old-uboot"; then
+	[ -z "$check" ] || echo "q25-lk-update: lk_a is current"
+	exit 0
+fi
+
+{
+	dd if="$tmp/cur" bs=4 count=1 status=none
+	le32 "$padded"
+	dd if="$tmp/cur" bs=8 skip=1 count=63 status=none
+	cat "$tmp/new-uboot"
+	dd if="$tmp/cur" bs=16 skip=$((lkend / 16)) count=$(((used - lkend) / 16)) status=none
+} > "$tmp/lk.img"
+[ "$(stat -c %s "$tmp/lk.img")" -le "$(stat -c %s "$tmp/cur")" ] ||
+	{ echo "q25-lk-update: the new lk image does not fit lk_a" >&2; exit 1; }
+if [ -n "$check" ]; then
+	echo "q25-lk-update: lk_a would change to $(sha256sum < "$tmp/lk.img" | cut -d' ' -f1)"
+	cp "$tmp/lk.img" "${Q25_LK_UPDATE_OUT:-/dev/null}"
+	exit 0
+fi
+
+mkdir -p "$store"
+backup=$store/lk_a-$(sha256sum < "$tmp/cur" | cut -c1-16).img
+[ -e "$backup" ] || { cp "$tmp/cur" "$backup.part" && sync "$backup.part" && mv "$backup.part" "$backup"; }
+# shellcheck disable=SC2012 # names are lk_a-<hex>.img
+ls -t "$store"/lk_a-*.img | tail -n +4 | xargs -r rm -f
+
+n=$(stat -c %s "$tmp/lk.img")
+want=$(sha256sum < "$tmp/lk.img" | cut -d' ' -f1)
+dd if="$tmp/lk.img" of="$lk" bs=4096 conv=fsync,notrunc status=none
+if [ "$(head -c "$n" "$lk" | sha256sum | cut -d' ' -f1)" != "$want" ]; then
+	echo "q25-lk-update: lk_a read back wrong; restoring $backup" >&2
+	dd if="$backup" of="$lk" bs=4096 conv=fsync,notrunc status=none
+	cmp -s "$backup" "$lk" || echo "q25-lk-update: lk_a restore did not verify either" >&2
+	exit 1
+fi
+echo "q25-lk-update: lk_a now carries $(sha256sum < "$new" | cut -c1-16) (was ${backup##*/})"

@@ -284,7 +284,7 @@ mounted at `/.q25-carrier/root`; the root is an ext4 image file on it,
 loop-mounts as `/` from the entry's `q25.rootfs_file=`. `/home` is
 `home.luks` in the same directory and outlives every root. The kernel,
 initramfs and DTB on the ESP are the phone's own and never change in an
-update. Ubuntu Touch on Android hardware kept its root the same way, as a
+update; U-Boot in `lk_a` follows the root ([U-Boot](#u-boot)). Ubuntu Touch on Android hardware kept its root the same way, as a
 `system.img` on userdata, and Android's Virtual A/B stages an update's
 copy-on-write images as files in `/data`.
 
@@ -339,6 +339,47 @@ timesync state. Everything else comes fresh from the image, including
 `MARATHON_DEV_SSH_KEY` has no SSH), `/var/lib/deckard` (Android's data is
 in `/home`) and system-wide Flatpaks in `/var/lib/flatpak` (Reef installs
 per user, in `/home`).
+
+### U-Boot
+
+U-Boot is the first part ("lk") of the `lk_a` partition; MediaTek's
+`bl2_ext`, `aee`, `lk_main_dtb` and their certificates follow it, are the
+phone's own and cannot be shipped. `scripts/build-zinwa-q25-image.sh`
+builds U-Boot (`scripts/q25/build-q25-uboot.sh`, byte for byte the tested
+binary) and writes it into the root as `/usr/lib/q25/u-boot-q25.bin`.
+After `q25-boot-bless` on every boot that reached `boot-complete.target`,
+`q25-lk-update.service` compares it with the U-Boot in `lk_a` and, if they
+differ:
+
+1. rebuilds the lk image as `gimme-uboot.py` does (new U-Boot padded to
+   16 bytes under the old lk header and certificates, the other parts
+   verbatim; checked byte-equal with `gimme-uboot.py` for three U-Boots);
+2. saves the current `lk_a` as
+   `/var/lib/marathon/lk/lk_a-<sha256 prefix>.img` on the carrier (the
+   three newest are kept);
+3. writes `lk_a` with `fsync`, reads it back and compares the hash; on a
+   mismatch it writes the saved image back.
+
+It leaves an `lk_a` alone that holds no Marathon U-Boot (stock LK) or whose
+part list does not parse, and a U-Boot too big for the hand-off below
+(0x120 4 KiB blocks). So an update brings its U-Boot only after a boot of
+the new root was blessed, and a rollback brings the older root's U-Boot
+back the same way. `lk_b` keeps the U-Boot it was installed with.
+
+U-Boot enters fastboot on every boot (`fastboot continue` boots on), then
+runs a one-shot test boot if Linux armed one (`Q25ONCE1` in `misc`'s block
+0x7f, cleared and read back before it runs `/q25-oneshot/env.txt` from the
+ESP), then the CPU0 hand-off: it sets the modem bank remaps and EMI MPU
+regions 22-27 for CONNSYS and the modem, and restarts itself from `lk_a`
+through BL31's `MTK_SIP_KERNEL_BOOT`, the way LK starts Linux. Without it
+CPU0 corrupts memory. The restarted U-Boot adds
+`/chosen/marathon,mtk-kernel-boot` to the DT; `q25-platform-prepare`
+takes CPU0 offline before udev starts unless that property is there.
+`/loader/q25-no-handoff` on the ESP skips the hand-off (CPU0 then stays
+offline); a failed hand-off step falls back to the same path.
+
+To put back a saved `lk_a`: `fastboot flash lk_a lk_a-<sha>.img` while
+U-Boot holds fastboot, or mtkclient if U-Boot does not start.
 
 ### Publishing
 
@@ -531,3 +572,6 @@ on the host and rewriting it.
   new kernel needs a new install until `arm` installs a root's own `/boot`.
 - Zinwa Q25: the state carried into a new root is a fixed list; state
   outside it written on the running root stays in that root.
+- Zinwa Q25: `q25-lk-update` writes `lk_a` only and nothing falls back to
+  another U-Boot: one that never reaches fastboot needs mtkclient to put
+  the saved `lk_a` back.
