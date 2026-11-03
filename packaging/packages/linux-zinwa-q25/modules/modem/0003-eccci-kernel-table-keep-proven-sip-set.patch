@@ -1,0 +1,69 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] eccci: keep the proven SiP set when BL31 serves the kernel table
+
+---
+--- a/ccci_util_lib/q25_ccci_smc.c
++++ b/ccci_util_lib/q25_ccci_smc.c
+@@ -1,11 +1,13 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /*
+- * Q25 boot chain: U-Boot sits in LK's place and never issues
+- * MTK_SIP_KERNEL_BOOT, so the installed BL31 (v2.4 8605b7e34f7) keeps
+- * dispatching Linux SiP calls to its BL33 table. The kernel CCCI ID returns
+- * SMC_UNK there; the LK CCCI ID (0x40B) is served. Try the kernel ID first so
+- * a fixed boot chain needs no change, then map the boot-path requests onto
+- * their LK-table equivalents (decoded from the BL31 handlers).
++ * Q25 boot chain: U-Boot sits in LK's place. Without MTK_SIP_KERNEL_BOOT the
++ * installed BL31 (v2.4 8605b7e34f7) dispatches Linux SiP calls to its BL33
++ * table: the kernel CCCI ID returns SMC_UNK and the boot-path requests are
++ * mapped onto the LK CCCI ID (0x40B) below. With MTK_SIP_KERNEL_BOOT it serves
++ * the kernel ID. The modem is proven only with MD_POWER_CONFIG served, so the
++ * other requests (clock source, sleep mode, flight mode, debug dump) stay
++ * unanswered on both chains, and MD_CHECK_FLAG uses the read-only
++ * MD_CHECK_DONE because BL31's MD_CHECK_FLAG also writes 0x0c53a814.
+  */
+ #include <linux/arm-smccc.h>
+ #include <linux/module.h>
+@@ -28,18 +30,37 @@
+ #define LK_BOOT_UP		1
+ #define LK_GET_BOOT_UP_STATUS	7
+ 
++static bool kernel_table(void)
++{
++	static int served = -1;
++	struct arm_smccc_res res;
++
++	if (served < 0) {
++		arm_smccc_smc(SIP_KERNEL_CCCI, 99, 0, 0, 0, 0, 0, 0, &res);
++		served = (u32)res.a0 != (u32)SMCCC_RET_NOT_SUPPORTED;
++	}
++	return served;
++}
++
+ void q25_ccci_smc(unsigned long a1, unsigned long a2, unsigned long a3, unsigned long a4,
+ 		  unsigned long a5, unsigned long a6, unsigned long a7,
+ 		  struct arm_smccc_res *res)
+ {
+ 	struct arm_smccc_res lk;
+ 
+-	arm_smccc_smc(SIP_KERNEL_CCCI, a1, a2, a3, a4, a5, a6, a7, res);
+-	if (res->a0 != SMCCC_RET_NOT_SUPPORTED && res->a0 != ~0UL)
+-		return;
+ 	if (a1 != MD_POWER_CONFIG) {
+-		pr_debug_ratelimited("q25-ccci: SiP CCCI %lu/%lu unavailable on this boot chain\n",
+-				     a1, a2);
++		pr_debug_ratelimited("q25-ccci: SiP CCCI %lu/%lu not issued\n", a1, a2);
++		*res = (struct arm_smccc_res){ .a0 = SMCCC_RET_NOT_SUPPORTED };
++		return;
++	}
++	if (kernel_table()) {
++		if (a2 != MD_CHECK_FLAG) {
++			arm_smccc_smc(SIP_KERNEL_CCCI, a1, a2, a3, a4, a5, a6, a7, res);
++			return;
++		}
++		/* a0 = flag 1, a1..a3 = flags 2..4; MD_CHECK_DONE: a0 = 0 iff all four are 1 */
++		arm_smccc_smc(SIP_KERNEL_CCCI, a1, MD_CHECK_DONE, 0, 0, 0, 0, 0, res);
++		res->a0 = !res->a0;
+ 		return;
+ 	}
+ 	switch (a2) {
