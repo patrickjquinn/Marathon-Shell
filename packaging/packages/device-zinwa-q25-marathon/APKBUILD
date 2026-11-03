@@ -23,7 +23,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
- q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
+ q25-zram-swap.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
@@ -169,7 +169,8 @@ package() {
     ln -s ../q25-boot-bless.service "$pkgdir/usr/lib/systemd/system/graphical.target.wants/q25-boot-bless.service"
 
     install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight q25-root-arm; do
+    install -Dm644 "$srcdir/q25-zram-swap.service" "$pkgdir/usr/lib/systemd/system/q25-zram-swap.service"
+    for unit in q25-md1-off q25-connsys q25-wmt-launcher q25-wifi q25-bluetooth q25-bt-address q25-vsyncdrm q25-backlight q25-root-arm q25-zram-swap; do
         ln -s ../$unit.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$unit.service"
     done
     install -d "$pkgdir/usr/lib/systemd/system/bluetooth.target.wants"
@@ -205,7 +206,7 @@ db9ebb4d0b288f6c0d5e16b27fcaa4e4c6ded6bc7c24100eb5de10f2b56d5552e8c9e26f26db73f7
 1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
 4a1b6e9a3e6d6dccdd3e600b8e7db7c4ccc8c752eb3f20c9cfd3ab86a4bce3ec7c67b2fe635f18d83bc5c67dcafba19708b40bf14bf2541c11b48fafceb1541d  q25-hx.modprobe.conf
 9e77ff4f12873407255fcbde236299678e238315b27f57401fcdd50b04c5427f2aacb5836bd5ce7c0aa177106e32085ac2e3505ec486d33f1f583dc7cd0f8d01  unudhcpd-usb0.conf
-c93504d1baf10235b0515f6f1ef9801e234ce682590ce2dea07b2c4affde69753bca92befaffd7e839b53566de965a469b117cb37e4ec299fb025aaf15b1528a  q25.preset
+4864bcba6e3e9e1af750d20f01572112f3e33c0cf86bcb998ed7bed871cd299a8291e9ff26ef614c26bed0487283779a0989b79dde29e4326377ed91b09e0b8d  q25.preset
 1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  q25-usb-gadget
 6c275f539f32b2746db9da50d83b7c3f0de9ceb4db4068c4d0ba3e11f70d164dd6ed369884c37bd8c902448bd26c5bba07822bd6465f6796190fafa7ed277433  q25-usb-gadget.service
 dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695cd2bd2f2ca06153f38617fb605279038f52db61746df6f57  q25-root-dio.service
@@ -245,4 +246,5 @@ e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f59
 266cb6790fe03a0a12a4756e0f6ee4b4a10726cd293a67ed43efc9ebc904501ffa3f9807b887bf626b7c0281132076ab7a8bec8b2b220e23d143e59b89147651  61-q25-charge-voltage.rules
 0c4ca31eaf0503326618deaa830d3ee36f057fd2493e5133c356c127ac34feaae951a319a5b8668f79f1b0da8117fcbc0e43c61973257ff3d5b0dc1c5f86e4ea  q25-root-install
 b687a7fb02ece7ea7bfef3a24eca359652b22e4292db3ca9e23179515b926722ab3f5ab3de59e5379adb05d8c6d33900967b96b66ff29ad5efe20e1ba33adbcb  q25-root-arm.service
+99e1359ac17cf5a8e7758222314e5c6f2d6e0c8125972e038b1188c392fd9c3a0d9d1d8d1cb49b435e2497af4fa057ef826ef5c939d5ed743a6e36a2df020348  q25-zram-swap.service
 "

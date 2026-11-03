@@ -1,0 +1,10 @@
+[Unit]
+Description=Q25: compressed swap in memory (zram), after boot
+# postmarketos-zram-swap runs before swap.target, on sysinit's path.
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecCondition=sh -c '. /usr/share/misc/source_deviceinfo'
+ExecStart=/usr/bin/zramstart
+ExecStop=/usr/bin/zramstop
