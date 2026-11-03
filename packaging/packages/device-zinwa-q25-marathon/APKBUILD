@@ -10,7 +10,7 @@ options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
  q25-kernel-modules q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
  upower-q25 q25-native-gauge q25-modem libcamera libcamera-gstreamer
- cryptsetup e2fsprogs plymouth marathon-plymouth-theme"
+ cryptsetup e2fsprogs plymouth marathon-plymouth-theme nftables"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"
 # The private generic-G99 trial overlay also owned this same generated profile.
@@ -23,7 +23,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-vsyncdrm q25-vsyncdrm.service q25-backlight q25-backlight.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-user-manager-cpu.conf q25-user-slice-cpu.conf q25-carrier-root
- q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
+ q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service
  q25.xkb-symbols q25-keyboard-layout.env 99-q25-native-keyboard.rules q25-vconsole.conf q25-plymouth-keyboard.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
  q25-power-supply-ignore 99-q25-upower-duplicate.rules 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
@@ -39,6 +39,10 @@ package() {
     install -Dm644 "$srcdir/50-q25-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-q25-session.conf"
     install -Dm644 "$srcdir/q25-logind.conf" "$pkgdir/usr/lib/systemd/logind.conf.d/50-q25.conf"
     install -Dm644 "$srcdir/q25-hardening.sysctl" "$pkgdir/usr/lib/sysctl.d/60-q25-hardening.conf"
+    install -Dm644 "$srcdir/q25-firewall.nft" "$pkgdir/usr/share/marathon/q25-firewall.nft"
+    install -Dm644 "$srcdir/q25-firewall.service" "$pkgdir/usr/lib/systemd/system/q25-firewall.service"
+    install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
+    ln -s ../q25-firewall.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-firewall.service"
     install -Dm644 "$srcdir/q25-session.conf.example" "$pkgdir/usr/share/doc/$pkgname/q25-session.conf.example"
     install -Dm644 "$srcdir/q25-keyboard.modprobe.conf" "$pkgdir/usr/lib/modprobe.d/q25-keyboard.conf"
     install -Dm644 "$srcdir/q25-keyboard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-keyboard.conf"
@@ -208,7 +212,7 @@ db9ebb4d0b288f6c0d5e16b27fcaa4e4c6ded6bc7c24100eb5de10f2b56d5552e8c9e26f26db73f7
 1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
 4a1b6e9a3e6d6dccdd3e600b8e7db7c4ccc8c752eb3f20c9cfd3ab86a4bce3ec7c67b2fe635f18d83bc5c67dcafba19708b40bf14bf2541c11b48fafceb1541d  q25-hx.modprobe.conf
 9e77ff4f12873407255fcbde236299678e238315b27f57401fcdd50b04c5427f2aacb5836bd5ce7c0aa177106e32085ac2e3505ec486d33f1f583dc7cd0f8d01  unudhcpd-usb0.conf
-920fe047e3d8280aeb04b9071f219c7aa631e4b3c90424a0b179449db90d176eb645cdf8b0c1eefa395821bc0521b732c3103b6d4e082b81690325d1badb7dd3  q25.preset
+411f9224d7c436251394e5c3dae04179b91465b0271a727bd415a02ac45d9672cf3db1690afddf3d42345632cc5abf32c26eda226f688a4027592b66d5ad1419  q25.preset
 1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  q25-usb-gadget
 6c275f539f32b2746db9da50d83b7c3f0de9ceb4db4068c4d0ba3e11f70d164dd6ed369884c37bd8c902448bd26c5bba07822bd6465f6796190fafa7ed277433  q25-usb-gadget.service
 dd74eaa4f25b674fc6ed47c7cd1b4ab0dbde1d9cbfe661a69a2c16a5a49a0ba58f05cba5bd834695cd2bd2f2ca06153f38617fb605279038f52db61746df6f57  q25-root-dio.service
@@ -251,4 +255,6 @@ b687a7fb02ece7ea7bfef3a24eca359652b22e4292db3ca9e23179515b926722ab3f5ab3de59e537
 99e1359ac17cf5a8e7758222314e5c6f2d6e0c8125972e038b1188c392fd9c3a0d9d1d8d1cb49b435e2497af4fa057ef826ef5c939d5ed743a6e36a2df020348  q25-zram-swap.service
 534514fdb7bd279b2d697d3d9b6aa65bd9994746c13191d15010949d0fe3443cb6c5cad2700f57279953d69e4add69436e782d5d975e06c100d2485a381978dd  q25-logind.conf
 74b3f08210dedf5cadea24cd9959535319f6527dab12426bffcbda0dd0d1922870e78c3a97c2b07ec9a28e657f5d6ee9cfe02bd3614c7c5c668960a352562e7a  q25-hardening.sysctl
+dae9ea8b380d96f6f83ae007fc1c540eab138f99d816351d0311e154e440cfc9d6c01e0295f54ae987a02105f95b48aec741fb6455b0c355d5d8eb4d6f5596ce  q25-firewall.nft
+d6b9f2b43214e41ad32dded769b0855d9bc8875ce1ad03061b7cf9e3ef9e3578e241a83b202387c1b9394042d49374ef9ba0676a1b6404dc754950c31f58feda  q25-firewall.service
 "

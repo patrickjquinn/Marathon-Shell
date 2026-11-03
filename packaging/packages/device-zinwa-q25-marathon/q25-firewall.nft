@@ -1,0 +1,49 @@
+#!/usr/sbin/nft -f
+# Default-deny inbound. A packet must pass every table's chain on a hook,
+# so what Deckard's and NetworkManager's own rules accept is accepted here
+# too. Mobile data (ccmni*) gets no service at all.
+table inet marathon
+delete table inet marathon
+
+table inet marathon {
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif lo accept
+		ct state established,related accept
+		ct state invalid drop
+
+		icmpv6 type { destination-unreachable, packet-too-big, time-exceeded, parameter-problem } accept
+		icmpv6 type { nd-router-solicit, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } ip6 hoplimit 255 accept
+		icmpv6 type { mld-listener-query, mld-listener-report, mld-listener-reduction, mld2-listener-report } ip6 saddr fe80::/10 ip6 hoplimit 1 accept
+
+		# DHCP replies to the phone's own clients (NetworkManager, Wi-Fi and LTE).
+		udp sport 67 udp dport 68 accept
+		ip6 saddr fe80::/10 udp sport 547 udp dport 546 accept
+
+		# DHCP and DNS the phone serves: unudhcpd on USB, Deckard's dnsmasq,
+		# and NetworkManager's hotspot on Wi-Fi.
+		iifname { "usb0", "deckard0" } udp dport 67 accept
+		iifname "wlan*" udp dport 67 accept
+		iifname "deckard0" meta l4proto { tcp, udp } th dport 53 accept
+		iifname "wlan*" meta l4proto { tcp, udp } th dport 53 accept
+
+		# SSH, when Settings' Remote connection runs sshd: USB and local
+		# networks only, never mobile data or Android.
+		iifname "usb0" tcp dport 22 accept
+		iifname "wlan*" tcp dport 22 accept
+		iifname "eth*" tcp dport 22 accept
+		iifname "en*" tcp dport 22 accept
+	}
+
+	# Deckard turns on IPv4 forwarding: forward only Android's and the
+	# hotspot clients' own connections, so nothing on a network the phone
+	# joins can route into Android.
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state established,related accept
+		iifname "deckard0" accept
+		iifname "wlan*" ip saddr 10.42.0.0/16 accept
+	}
+}

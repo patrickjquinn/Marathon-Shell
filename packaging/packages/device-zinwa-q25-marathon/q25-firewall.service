@@ -1,0 +1,15 @@
+[Unit]
+Description=Q25: default-deny inbound firewall
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /usr/share/marathon/q25-firewall.nft
+ExecStop=/usr/sbin/nft delete table inet marathon
+
+[Install]
+WantedBy=sysinit.target

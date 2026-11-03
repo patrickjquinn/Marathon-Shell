@@ -10,3 +10,6 @@ disable avahi-daemon.service
 disable avahi-daemon.socket
 # D-Bus activates it for the rare client; nothing needs it at boot.
 disable udisks2.service
+# Alpine's unit flushes every table, Deckard's NAT included; the Q25 loads
+# its own (q25-firewall.service).
+disable nftables.service
