@@ -16,7 +16,7 @@ _units="q25-modem.target q25-modem-owner.service q25-modem-stack.service q25-mod
  q25-ccci-rpcd.service q25-ccci-fsd.service q25-ccci-mdinit.service q25-modem-init.service
  q25-modem-reset.path q25-modem-reset.service q25-md1-firmware.service"
 source="q25-modem-up q25-modem-nv q25-modem-init properties modem.conf
- 78-q25-modem.rules q25-modem.conf.modprobe q25-modem.dtbo q25-md1-firmware $_units"
+ 78-q25-modem.rules q25-modem.conf.modprobe 50-q25-modem-nm.conf q25-modem.dtbo q25-md1-firmware $_units"
 
 prepare() {
     default_prepare
@@ -45,6 +45,7 @@ package() {
     install -Dm644 "$srcdir/modem.conf" "$pkgdir/etc/q25-modem/modem.conf"
     install -Dm644 "$srcdir/78-q25-modem.rules" "$pkgdir/usr/lib/udev/rules.d/78-q25-modem.rules"
     install -Dm644 "$srcdir/q25-modem.conf.modprobe" "$pkgdir/usr/lib/modprobe.d/q25-modem.conf"
+    install -Dm644 "$srcdir/50-q25-modem-nm.conf" "$pkgdir/usr/lib/NetworkManager/conf.d/50-q25-modem.conf"
     install -Dm644 "$srcdir/q25-modem.dtbo" "$pkgdir/usr/share/$pkgname/q25-modem.dtbo"
     # 78-q25-modem.rules pulls the target in. The owner unit's ExecStop
     # powers MD1 off.
@@ -60,6 +61,7 @@ a2afb868e7c24892059a0a1576d4ec807512079ec2141d5f5aa4466c8a125826bc702a9c08dfb770
 66d60916c3461d18d7f19c5893219e840fe7b0ac6a9cc89f47cb726a2343c38824e41700f9aa8889c57ccd4ac61a2c45ce9218e2faea1dfcab0f8c6f04fb8f33  modem.conf
 ad80d0bf1c04ee3207c24fb4e809b639c7ee22ea6125737cb315ce7ef054eb3fb1a37aebdbc5fcfa5e0a3de185f07f884063ec02380a8588d018301e6eb44d79  78-q25-modem.rules
 8ef3d056d8509e4f871fe2b7833a5e15ee7097517e6ac8e5a7c6c7a40c3f2494da3578fec7c471dad46376394f32f2eb56818090ffbcefee5bfc6ca42013f4d2  q25-modem.conf.modprobe
+a4bda22e64a8c4d2ad9b788af7047bdedd3a1cd276c36bc36260072dd08c01d55df093e1916ac1e3b614f395e910ca653a85b58648094e40bd6cfe1835f87f62  50-q25-modem-nm.conf
 150fa4492634645845a7961575d8d96838fc7cde3624613dcfc26eb075d85f95a0a52fc9053341fac05a010762597bc172afa763a1341ae1b8f61c3563842a29  q25-modem.dtbo
 23ee0f2578ae39bf1aa29e5cdc0e84ec1ecd24fba17b22a8814b0f69a90bed4425bae044105fb0404284d9be9e5a51472443ab6c13b534e171587c508e8d2fb2  q25-md1-firmware
 ca1b76b1fbf3a26aefc25f113fec2c208819ed7dbc56f7c252815aec417ef023c7cc2040e57f2479eb4c31a5545f7736fd24fefe37a6c51f86f243467f312edf  q25-modem.target
