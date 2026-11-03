@@ -1,0 +1,270 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] arm: mediatek: mt6789: start the OS through MTK_SIP_KERNEL_BOOT
+
+LK starts Linux with BL31's one-shot MTK_SIP_KERNEL_BOOT, which switches
+BL31 from its BL33 SiP table to the kernel's and programs EMI MPU region
+31 over all DRAM. bootefi never made the call, and with it missing CPU0
+corrupts memory. EL2 is not available here, so U-Boot hands off to itself:
+it sets LK's modem bank remaps, opens CONNSYS's carve-outs to CONNSYS and
+the modem's to every domain in EMI MPU regions 22-27 (region 31 would
+forbid them), and restarts from lk_a through MTK_SIP_KERNEL_BOOT. The
+restarted U-Boot finds the BL33 calls gone, marks
+/chosen/marathon,mtk-kernel-boot and boots the OS. UFS device reset falls
+back to the kernel SiP call. /loader/q25-no-handoff on the ESP, or any
+failed step, keeps the old path.
+
+Also a one-shot test boot: "Q25ONCE1" in misc's block 0x7f runs
+/q25-oneshot/env.txt once; the marker is cleared and read back first.
+---
+diff --git a/arch/arm/mach-mediatek/Makefile b/arch/arm/mach-mediatek/Makefile
+index 4f659e74..939ed327 100644
+--- a/arch/arm/mach-mediatek/Makefile
++++ b/arch/arm/mach-mediatek/Makefile
+@@ -2,6 +2,7 @@
+ 
+ obj-y	+= cpu.o
+ obj-$(CONFIG_MTK_TZ_MOVABLE)	+= tzcfg.o
++obj-$(CONFIG_MTK_SMC_JUMP)	+= mtk_kernel_boot.o
+ obj-$(CONFIG_XPL_BUILD)	+= spl.o
+ 
+ obj-$(CONFIG_TARGET_MT6789) += mt6789/
+diff --git a/arch/arm/mach-mediatek/mtk_kernel_boot.c b/arch/arm/mach-mediatek/mtk_kernel_boot.c
+new file mode 100644
+index 00000000..e2220726
+--- /dev/null
++++ b/arch/arm/mach-mediatek/mtk_kernel_boot.c
+@@ -0,0 +1,149 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * BL31 (MediaTek TF-A) services that LK used before starting the OS. Once
++ * MTK_SIP_KERNEL_BOOT has run, BL31 serves only its kernel SiP table, so the
++ * bank remaps and EMI MPU regions must be set before it.
++ */
++
++#include <command.h>
++#include <cpu_func.h>
++#include <env.h>
++#include <fdt_support.h>
++#include <vsprintf.h>
++#include <asm/u-boot-arm.h>
++#include <linux/arm-smccc.h>
++
++#define MTK_SIP_KERNEL_BOOT	0xc2000115
++#define MTK_SIP_LK_CCCI		0xc200040b
++#define MTK_SIP_BL_EMIMPU	0xc2000415
++#define EMIMPU_SET		0
++#define EMIMPU_READ		2
++#define EMIMPU_READ_SA		0
++#define EMIMPU_READ_EA		1
++#define EMIMPU_READ_APC		2
++
++static bool smc_unknown(unsigned long a0)
++{
++	return (u32)a0 == (u32)ARM_SMCCC_RET_NOT_SUPPORTED;
++}
++
++static void sip(unsigned long fid, unsigned long a1, unsigned long a2, unsigned long a3,
++		unsigned long a4, struct arm_smccc_res *res)
++{
++	arm_smccc_smc(fid, a1, a2, a3, a4, 0, 0, 0, res);
++}
++
++static int do_mtk_sip(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
++{
++	struct arm_smccc_res res;
++	unsigned long a[5] = { 0 };
++	int i;
++
++	if (argc < 2 || argc > 6)
++		return CMD_RET_USAGE;
++	for (i = 1; i < argc; i++)
++		a[i - 1] = hextoul(argv[i], NULL);
++	sip(a[0], a[1], a[2], a[3], a[4], &res);
++	env_set_hex("sip_a0", res.a0);
++	env_set_hex("sip_a1", res.a1);
++	env_set_hex("sip_a2", res.a2);
++	env_set_hex("sip_a3", res.a3);
++	return smc_unknown(res.a0) ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
++}
++
++static unsigned long mpu_read(unsigned long type, unsigned long region, unsigned long group)
++{
++	struct arm_smccc_res res;
++
++	sip(MTK_SIP_BL_EMIMPU, EMIMPU_READ, type, region, group, &res);
++	return res.a0;
++}
++
++/* The two-write protocol of BL31's emi_mpu_set_protection(): group 1, then group 0. */
++static int do_mtk_emimpu_grant(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
++{
++	struct arm_smccc_res res;
++	unsigned long r, start, end, apc0, apc1, sa;
++
++	if (argc != 6)
++		return CMD_RET_USAGE;
++	r = hextoul(argv[1], NULL);
++	start = hextoul(argv[2], NULL);
++	end = hextoul(argv[3], NULL);
++	apc0 = hextoul(argv[4], NULL);
++	apc1 = hextoul(argv[5], NULL);
++	if (r > 30 || (start | end) & 0xffff || end <= start)
++		return CMD_RET_USAGE;
++	if (mpu_read(EMIMPU_READ_SA, r, 0) || mpu_read(EMIMPU_READ_EA, r, 0) ||
++	    mpu_read(EMIMPU_READ_APC, r, 0) || mpu_read(EMIMPU_READ_APC, r, 1)) {
++		printf("EMI MPU region %lu is in use\n", r);
++		return CMD_RET_FAILURE;
++	}
++	sa = (start >> 16) | (r << 24);
++	sip(MTK_SIP_BL_EMIMPU, EMIMPU_SET, sa, (end >> 16) | (1UL << 24), apc1, &res);
++	if (!res.a0)
++		sip(MTK_SIP_BL_EMIMPU, EMIMPU_SET, sa, end >> 16, apc0, &res);
++	printf("EMI MPU region %lu [%#lx, %#lx) apc %#lx/%#lx: %#lx\n", r, start, end, apc1, apc0,
++	       res.a0);
++	return res.a0 ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
++}
++
++static int do_mtk_kernel_boot(struct cmd_tbl *cmdtp, int flag, int argc,
++			      char *const argv[])
++{
++	struct arm_smccc_res res = {0};
++	ulong entry, arg = 0;
++
++	if (argc < 2)
++		return CMD_RET_USAGE;
++	entry = hextoul(argv[1], NULL);
++	if (argc > 2)
++		arg = hextoul(argv[2], NULL);
++
++	sip(MTK_SIP_LK_CCCI, 0, 0, 0, 0, &res);
++	if (smc_unknown(res.a0)) {
++		printf("MTK_SIP_KERNEL_BOOT already used\n");
++		return CMD_RET_FAILURE;
++	}
++
++	printf("MTK_SIP_KERNEL_BOOT -> 0x%lx (x0=0x%lx)\n", entry, arg);
++	cleanup_before_linux();
++	arm_smccc_smc(MTK_SIP_KERNEL_BOOT, entry, arg, 0, 1, 0, 0, 0, &res);
++
++	/* BL31 returns only if it does not own the jump (GenieZone). */
++	icache_enable();
++	dcache_enable();
++	printf("MTK_SIP_KERNEL_BOOT returned 0x%lx\n", res.a0);
++	return CMD_RET_FAILURE;
++}
++
++/*
++ * Tell the OS whether BL31 has started it through MTK_SIP_KERNEL_BOOT (the
++ * BL33 calls are gone): /chosen/marathon,mtk-kernel-boot. Never fails a boot.
++ */
++int ft_board_setup(void *blob, struct bd_info *bd)
++{
++	struct arm_smccc_res res;
++	int node, ret;
++
++	sip(MTK_SIP_LK_CCCI, 0, 0, 0, 0, &res);
++	if (!smc_unknown(res.a0))
++		return 0;
++	node = fdt_find_or_add_subnode(blob, 0, "chosen");
++	ret = node < 0 ? node : fdt_setprop_empty(blob, node, "marathon,mtk-kernel-boot");
++	if (ret)
++		printf("marathon,mtk-kernel-boot: %s\n", fdt_strerror(ret));
++	return 0;
++}
++
++U_BOOT_CMD(mtk_sip, 6, 0, do_mtk_sip,
++	   "issue a MediaTek SiP call; results in sip_a0..sip_a3",
++	   "<fid> [a1 [a2 [a3 [a4]]]] (fails only on SMC_UNK)");
++
++U_BOOT_CMD(mtk_emimpu_grant, 6, 0, do_mtk_emimpu_grant,
++	   "program a free EMI MPU region through BL31 (before MTK_SIP_KERNEL_BOOT)",
++	   "<region> <start> <end> <apc0> <apc1> (64 KiB aligned, end exclusive)");
++
++U_BOOT_CMD(mtk_kernel_boot, 3, 0, do_mtk_kernel_boot,
++	   "start an image through BL31's MTK_SIP_KERNEL_BOOT (one-shot)",
++	   "<entry> [x0]");
+diff --git a/board/mediatek/mtk-phone.env b/board/mediatek/mtk-phone.env
+index 4cea8c4f..ac69bc05 100644
+--- a/board/mediatek/mtk-phone.env
++++ b/board/mediatek/mtk-phone.env
+@@ -25,7 +25,7 @@ serial_gadget=setenv stdin serial,button-kbd,usbacm; setenv stdout serial,vidcon
+ # runs `fastboot continue` to boot the OS, or `fastboot boot <img>` /
+ # `fastboot flash <part> <img>`. This makes fastboot reliably reachable with
+ # zero on-device input. (Revert to `bootefi bootmgr; ...` once bring-up settles.)
+-bootcmd=echo '*** Marathon dev U-Boot: in fastboot. fastboot continue = boot OS ***'; run fastboot; bootefi bootmgr; pause; run menucmd
++bootcmd=echo '*** Marathon dev U-Boot: in fastboot. fastboot continue = boot OS ***'; run fastboot; run oneshot; run handoff; bootefi bootmgr; pause; run menucmd
+ 
+ # When entering the menu (either from button press or failed boot)
+ # remap bootcmd so it will re-open the menu and we won't get stuck
+@@ -50,3 +50,25 @@ bootmenu_9=Dump bootargs=fdt print /chosen bootargs; pause
+ button_cmd_0_name=Volume Down
+ button_cmd_0=run menucmd
+ 
++
++# Marathon one-shot boot. Linux arms it by writing "Q25ONCE1" to the last 4 KiB
++# block (LBA 0x7f) of the misc partition. U-Boot clears that block and reads it
++# back as zero before acting, so a test boot that hangs is never retried: the
++# next power cycle takes bootefi bootmgr. The test itself lives on the ESP in
++# /q25-oneshot/env.txt and must define oneshot_boot.
++oneshot_buf=0x40000000
++oneshot=if scsi device 2 && part start scsi 2 misc misc_lba; then setexpr oneshot_lba ${misc_lba} + 7f; scsi read ${oneshot_buf} ${oneshot_lba} 1; if itest.l *0x40000000 == 0x4f353251 && itest.l *0x40000004 == 0x3145434e; then mw.b ${oneshot_buf} 0 0x1000; scsi write ${oneshot_buf} ${oneshot_lba} 1; mw.l ${oneshot_buf} 0xffffffff 2; scsi read ${oneshot_buf} ${oneshot_lba} 1; if itest.l *0x40000000 == 0 && itest.l *0x40000004 == 0; then echo '*** Marathon one-shot boot ***'; load blkmap 0:1 ${oneshot_buf} /q25-oneshot/env.txt && env import -t ${oneshot_buf} ${filesize} && run oneshot_boot; fi; fi; fi
++
++# Start the OS the way LK did. BL31's MTK_SIP_KERNEL_BOOT makes it forbid
++# MD1, MDHW and CONNSYS (and EMI domains 3, 9, 10, 14, 15) in all of DRAM
++# through EMI MPU region 31 and drops the BL33 SiP calls, so first set the
++# modem bank remaps, open CONNSYS's carve-outs to CONNSYS and the modem's to
++# every domain as before (its DSP is not MD1 or MDHW) in regions 22-27, then
++# restart this U-Boot from lk_a through MTK_SIP_KERNEL_BOOT.
++# The restarted U-Boot finds the BL33 calls gone and boots the OS.
++# Without the hand-off CPU0 corrupts memory. /loader/q25-no-handoff on the
++# ESP keeps the old path; any failure here falls back to it too.
++handoff=if test -e blkmap 0:1 /loader/q25-no-handoff; then echo 'MTK hand-off disabled'; else mtk_sip 0xc200040b && run handoff_remap && run handoff_mpu && run handoff_jump; fi
++handoff_remap=mtk_sip 0xc200040b 1 0xdc000000 && mtk_sip 0xc200040b 2 0xdc000000 && mtk_sip 0xc200040b 3 0x8e000000 0 0 && mtk_sip 0xc200040b 3 0x90000000 0 1 && mtk_sip 0xc200040b 3 0x92000000 0 2 && mtk_sip 0xc200040b 3 0x94000000 0 3 && mtk_sip 0xc200040b 3 0x96000000 0 4 && mtk_sip 0xc200040b 3 0x98000000 0 5 && mtk_sip 0xc200040b 3 0x9a000000 0 6 && mtk_sip 0xc200040b 3 0x9c000000 0 7 && mtk_sip 0xc200040b 3 0x8c000000 0 4 && mtk_sip 0xc200040b 3 0x8e000000 0 5 && mtk_sip 0xc200040b 3 0x90000000 0 6 && mtk_sip 0xc200040b 3 0x92000000 0 7
++handoff_mpu=mtk_emimpu_grant 0x16 0x7e000000 0x7e500000 0xb80a28 0xb40168 && mtk_emimpu_grant 0x17 0xbf000000 0xbf600000 0xb80a28 0xb40168 && mtk_emimpu_grant 0x18 0xdc000000 0xe4000000 0x0 0x0 && mtk_emimpu_grant 0x19 0xe5200000 0xe6000000 0x0 0x0 && mtk_emimpu_grant 0x1a 0x8c000000 0x8d6a0000 0x0 0x0 && mtk_emimpu_grant 0x1b 0x8e000000 0x8ee10000 0x0 0x0
++handoff_jump=scsi device 2 && part start scsi 2 lk_a lk_lba && scsi read 0x80000000 ${lk_lba} 0x120 && itest.l *0x80000000 == 0x58881688 && setexpr.l lk_size *0x80000004 && cp.b 0x80000200 0x50f00000 ${lk_size} && mtk_kernel_boot 0x50f00000
+diff --git a/configs/mt6789_q25_defconfig b/configs/mt6789_q25_defconfig
+index 4e5f95d7..4c227812 100644
+--- a/configs/mt6789_q25_defconfig
++++ b/configs/mt6789_q25_defconfig
+@@ -120,3 +120,5 @@ CONFIG_VIDEO_DT_SIMPLEFB=y
+ CONFIG_WDT=y
+ CONFIG_WDT_MTK=y
+ CONFIG_BLKMAP=y
++CONFIG_CMD_NVEDIT_EFI=y
++CONFIG_OF_BOARD_SETUP=y
+diff --git a/drivers/ufs/ufs-mediatek.c b/drivers/ufs/ufs-mediatek.c
+index dfdfe2ba..85d6d872 100644
+--- a/drivers/ufs/ufs-mediatek.c
++++ b/drivers/ufs/ufs-mediatek.c
+@@ -89,6 +89,15 @@ static int ufs_mtk_unipro_set_lpm(struct ufs_hba *hba, bool lpm)
+ 	return ret;
+ }
+ 
++/* After MTK_SIP_KERNEL_BOOT, BL31 serves the kernel UFS call instead. */
++static void ufs_mtk_device_reset_smc(unsigned long high, struct arm_smccc_res *res)
++{
++	arm_smccc_smc(MTK_SIP_BL_UFS_CONTROL, UFS_MTK_SIP_DEVICE_RESET, high, 0, 0, 0, 0, 0, res);
++	if ((u32)res->a0 == (u32)ARM_SMCCC_RET_NOT_SUPPORTED)
++		arm_smccc_smc(MTK_SIP_UFS_CONTROL, UFS_MTK_SIP_DEVICE_RESET, high, 0, 0, 0, 0, 0,
++			      res);
++}
++
+ void mtk_ufs_bootloader_smc_reset(void)
+ {
+ 	struct arm_smccc_res smccc_res;
+@@ -96,13 +105,11 @@ void mtk_ufs_bootloader_smc_reset(void)
+ 
+ 	memset(&smccc_res, 0, sizeof(smccc_res));
+ 
+-	arm_smccc_smc(MTK_SIP_BL_UFS_CONTROL, (1 << 1),
+-				  0, 0, 0, 0, 0, 0, &smccc_res);
++	ufs_mtk_device_reset_smc(0, &smccc_res);
+ 
+ 	udelay(10);
+ 
+-	arm_smccc_smc(MTK_SIP_BL_UFS_CONTROL, (1 << 1),
+-				  1, 0, 0, 0, 0, 0, &smccc_res);
++	ufs_mtk_device_reset_smc(1, &smccc_res);
+ }
+ 
+ static int ufs_mtk_pre_link(struct ufs_hba *hba)

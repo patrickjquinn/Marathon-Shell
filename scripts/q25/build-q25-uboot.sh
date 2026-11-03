@@ -27,9 +27,9 @@ a5270a2635bf07bff2cd3d90742c3bd7b5ee8751feaecd0a8c6ea8bae732fc29 cross-gcc/15.2.
 00626465dbfa03135d0eea6f13e1dce687b2fb0659abeb2142b23c1a0c017b91 cross-binutils/2.44/1.fc42/aarch64/binutils-aarch64-linux-gnu-2.44-1.fc42.aarch64.rpm
 f610a2b8ce2072369ddeb8d9475f8b27ac294ec1a13b0ca8b4fb4a6587552503 cross-binutils/2.44/1.fc42/noarch/cross-binutils-common-2.44-1.fc42.noarch.rpm
 "
-# "U-Boot 2025.10-rc5-g11b7b36cf6c2-dirty (Oct 31 2026 - 14:07:34 +0000)"
-SOURCE_DATE_EPOCH=1793455654
-UBOOT_SHA256=912fc02fd8a4e753b886385e8712646b195d4b535c9cd468e0792e678479f1a5
+# "U-Boot 2025.10-rc5-g11b7b36cf6c2-dirty (Nov 03 2026 - 17:11:19 +0000)"
+SOURCE_DATE_EPOCH=1793725879
+UBOOT_SHA256=a1288ab110bb51af7c8a5793de66e102e10e06c6fc1968a7ba82e27ac46155c1
 
 mkdir -p "$OUT/toolchain"
 echo "$RPMS" | while read -r sha path; do
@@ -50,7 +50,7 @@ for p in "$REPO"/devices/zinwa/q25/u-boot/*.patch; do
 done
 
 # shellcheck disable=SC2016
-"$PODMAN" run --rm --network=host -e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+"$PODMAN" run --rm --network=host --security-opt label=disable -e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
     -v "$OUT:/out" "$IMAGE" sh -euc '
 dnf -y -q install /out/toolchain/*.rpm make bison flex bc python3 openssl-devel \
     gnutls-devel libuuid-devel perl diffutils findutils which xxd git-core gcc >/dev/null
