@@ -1,0 +1,315 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Arseniy Velikanov <me@adomerle.pw>
+Date: Mon, 2 Nov 2026 09:19:22 +0000
+Subject: [PATCH] pmdomain: mediatek: Add MT6789 power domains
+
+Add the MT6789 (Helio G99) SPM power domains: MD, CONN, MFG0-3, ISP,
+IPE, VDEC, VENC, DISP, AUDIO, CAM and CAM_RAWA/B, with their bus
+protection in infracfg. The IFR and DPY domains are left out: Linux must
+never switch them.
+
+Signed-off-by: Arseniy Velikanov <me@adomerle.pw>
+[Patrick: from linux-mediatek mt6789-next a2a96be99f1b; read MD and CONN
+ status from PWR_STATUS(_2ND) like the other domains; power MD with the
+ modem sequence and external buck isolation, as MediaTek's LK does; keep
+ ISP, IPE, AUDIO and the CAM domains off at probe, as the bootloader
+ leaves them; checked against MediaTek's mtk-scpsys-mt6789.c]
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/pmdomain/mediatek/mt6789-pm-domains.h | 228 ++++++++++++++++++
+ drivers/pmdomain/mediatek/mtk-pm-domains.c    |   5 +
+ include/linux/soc/mediatek/infracfg.h         |  23 ++
+ 3 files changed, 256 insertions(+)
+ create mode 100644 drivers/pmdomain/mediatek/mt6789-pm-domains.h
+
+diff --git a/drivers/pmdomain/mediatek/mt6789-pm-domains.h b/drivers/pmdomain/mediatek/mt6789-pm-domains.h
+new file mode 100644
+index 00000000..5001fc48
+--- /dev/null
++++ b/drivers/pmdomain/mediatek/mt6789-pm-domains.h
+@@ -0,0 +1,228 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++
++#ifndef __SOC_MEDIATEK_MT6789_PM_DOMAINS_H
++#define __SOC_MEDIATEK_MT6789_PM_DOMAINS_H
++
++#include "mtk-pm-domains.h"
++#include <dt-bindings/power/mediatek,mt6789-power.h>
++
++/*
++ * MT6789 power domain support
++ */
++
++static const struct scpsys_domain_data scpsys_domain_data_mt6789[] = {
++	[MT6789_POWER_DOMAIN_MD] = {
++		.name = "md",
++		.sta_mask = BIT(0),
++		.ctl_offs = 0x300,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.ext_buck_iso_offs = 0x398,
++		.ext_buck_iso_mask = GENMASK(1, 0),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MD, 0x02A0, 0x02A4, 0x0228),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_INFRA_VDNR_MD,
++					0x0B84, 0x0B88, 0x0B90),
++		},
++		.caps = MTK_SCPD_MODEM_PWRSEQ | MTK_SCPD_EXT_BUCK_ISO,
++	},
++	[MT6789_POWER_DOMAIN_CONN] = {
++		.name = "conn",
++		.sta_mask = BIT(1),
++		.ctl_offs = 0x304,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_CONN, 0x02A0, 0x02A4, 0x0228),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_CONN_2ND,
++					0x02A0, 0x02A4, 0x0228),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_1_CONN,
++					0x02A8, 0x02AC, 0x0258),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_MFG0] = {
++		.name = "mfg0",
++		.sta_mask = BIT(2),
++		.ctl_offs = 0x308,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF | MTK_SCPD_DOMAIN_SUPPLY,
++	},
++	[MT6789_POWER_DOMAIN_MFG1] = {
++		.name = "mfg1",
++		.sta_mask = BIT(3),
++		.ctl_offs = 0x30C,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_1_MFG1,
++					0x02A8, 0x02AC, 0x0258),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_2_MFG1,
++					0x0714, 0x0718, 0x0724),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MFG1, 0x02A0, 0x02A4, 0x0228),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_2_MFG1_2ND,
++					0x0714, 0x0718, 0x0724),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF | MTK_SCPD_DOMAIN_SUPPLY,
++	},
++	[MT6789_POWER_DOMAIN_MFG2] = {
++		.name = "mfg2",
++		.sta_mask = BIT(4),
++		.ctl_offs = 0x310,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_MFG3] = {
++		.name = "mfg3",
++		.sta_mask = BIT(5),
++		.ctl_offs = 0x314,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_ISP] = {
++		.name = "isp",
++		.sta_mask = BIT(13),
++		.ctl_offs = 0x334,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_2_ISP,
++					0x0DCC, 0x0DD0, 0x0DD8),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_2_ISP_2ND,
++					0x0DCC, 0x0DD0, 0x0DD8),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_IPE] = {
++		.name = "ipe",
++		.sta_mask = BIT(15),
++		.ctl_offs = 0x33C,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_IPE,
++					0x02D4, 0x02D8, 0x02EC),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_IPE_2ND,
++					0x02D4, 0x02D8, 0x02EC),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_VDEC] = {
++		.name = "vdec",
++		.sta_mask = BIT(16),
++		.ctl_offs = 0x340,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_VDEC,
++					0x02D4, 0x02D8, 0x02EC),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_VDEC_2ND,
++					0x02D4, 0x02D8, 0x02EC),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_VENC] = {
++		.name = "venc",
++		.sta_mask = BIT(18),
++		.ctl_offs = 0x348,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_VENC,
++					0x02D4, 0x02D8, 0x02EC),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_VENC_2ND,
++					0x02D4, 0x02D8, 0x02EC),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_DISP] = {
++		.name = "disp",
++		.sta_mask = BIT(21),
++		.ctl_offs = 0x354,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_DISP,
++					0x02D4, 0x02D8, 0x02EC),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_DISP, 0x02A0, 0x02A4, 0x0228),
++		},
++	},
++	[MT6789_POWER_DOMAIN_AUDIO] = {
++		.name = "audio",
++		.sta_mask = BIT(22),
++		.ctl_offs = 0x358,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_2_AUDIO,
++					0x0714, 0x0718, 0x0724),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_CAM] = {
++		.name = "cam",
++		.sta_mask = BIT(23),
++		.ctl_offs = 0x35C,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.bp_cfg = {
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_CAM,
++					0x02D4, 0x02D8, 0x02EC),
++			BUS_PROT_WR_IGN(INFRA, MT6789_TOP_AXI_PROT_EN_MM_CAM_2ND,
++					0x02D4, 0x02D8, 0x02EC),
++		},
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_CAM_RAWA] = {
++		.name = "cam_rawa",
++		.sta_mask = BIT(24),
++		.ctl_offs = 0x360,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++	[MT6789_POWER_DOMAIN_CAM_RAWB] = {
++		.name = "cam_rawb",
++		.sta_mask = BIT(25),
++		.ctl_offs = 0x364,
++		.pwr_sta_offs = 0x016c,
++		.pwr_sta2nd_offs = 0x0170,
++		.sram_pdn_bits = GENMASK(8, 8),
++		.sram_pdn_ack_bits = GENMASK(12, 12),
++		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
++	},
++};
++
++static const struct scpsys_soc_data mt6789_scpsys_data = {
++	.domains_data = scpsys_domain_data_mt6789,
++	.num_domains = ARRAY_SIZE(scpsys_domain_data_mt6789),
++};
++
++#endif /* __SOC_MEDIATEK_MT6789_PM_DOMAINS_H */
+diff --git a/drivers/pmdomain/mediatek/mtk-pm-domains.c b/drivers/pmdomain/mediatek/mtk-pm-domains.c
+index e2800aa1..8416f131 100644
+--- a/drivers/pmdomain/mediatek/mtk-pm-domains.c
++++ b/drivers/pmdomain/mediatek/mtk-pm-domains.c
+@@ -19,6 +19,7 @@
+ #include <linux/soc/mediatek/mtk_sip_svc.h>
+ 
+ #include "mt6735-pm-domains.h"
++#include "mt6789-pm-domains.h"
+ #include "mt6795-pm-domains.h"
+ #include "mt6893-pm-domains.h"
+ #include "mt8167-pm-domains.h"
+@@ -1122,6 +1123,10 @@ static const struct of_device_id scpsys_of_match[] = {
+ 		.compatible = "mediatek,mt6735-power-controller",
+ 		.data = &mt6735_scpsys_data,
+ 	},
++	{
++		.compatible = "mediatek,mt6789-power-controller",
++		.data = &mt6789_scpsys_data,
++	},
+ 	{
+ 		.compatible = "mediatek,mt6795-power-controller",
+ 		.data = &mt6795_scpsys_data,
+diff --git a/include/linux/soc/mediatek/infracfg.h b/include/linux/soc/mediatek/infracfg.h
+index 9956e18c..5a045c4c 100644
+--- a/include/linux/soc/mediatek/infracfg.h
++++ b/include/linux/soc/mediatek/infracfg.h
+@@ -2,6 +2,29 @@
+ #ifndef __SOC_MEDIATEK_INFRACFG_H
+ #define __SOC_MEDIATEK_INFRACFG_H
+ 
++#define MT6789_TOP_AXI_PROT_EN_MD	(BIT(7))
++#define MT6789_TOP_AXI_PROT_EN_INFRA_VDNR_MD	(BIT(0) | BIT(10) | BIT(15))
++#define MT6789_TOP_AXI_PROT_EN_CONN	(BIT(13) | BIT(18))
++#define MT6789_TOP_AXI_PROT_EN_CONN_2ND	(BIT(14))
++#define MT6789_TOP_AXI_PROT_EN_1_CONN	(BIT(10))
++#define MT6789_TOP_AXI_PROT_EN_1_MFG1	(BIT(21))
++#define MT6789_TOP_AXI_PROT_EN_2_MFG1	(BIT(5) | BIT(6))
++#define MT6789_TOP_AXI_PROT_EN_MFG1	(BIT(21) | BIT(22))
++#define MT6789_TOP_AXI_PROT_EN_2_MFG1_2ND	(BIT(7))
++#define MT6789_TOP_AXI_PROT_EN_MM_2_ISP	(BIT(8))
++#define MT6789_TOP_AXI_PROT_EN_MM_2_ISP_2ND	(BIT(9))
++#define MT6789_TOP_AXI_PROT_EN_MM_IPE	(BIT(16))
++#define MT6789_TOP_AXI_PROT_EN_MM_IPE_2ND	(BIT(17))
++#define MT6789_TOP_AXI_PROT_EN_MM_VDEC	(BIT(24))
++#define MT6789_TOP_AXI_PROT_EN_MM_VDEC_2ND	(BIT(25))
++#define MT6789_TOP_AXI_PROT_EN_MM_VENC	(BIT(26))
++#define MT6789_TOP_AXI_PROT_EN_MM_VENC_2ND	(BIT(27))
++#define MT6789_TOP_AXI_PROT_EN_MM_DISP	(BIT(10) | BIT(12))
++#define MT6789_TOP_AXI_PROT_EN_DISP	(BIT(6) | BIT(23))
++#define MT6789_TOP_AXI_PROT_EN_2_AUDIO	(BIT(4))
++#define MT6789_TOP_AXI_PROT_EN_MM_CAM	(BIT(0) | BIT(2))
++#define MT6789_TOP_AXI_PROT_EN_MM_CAM_2ND	(BIT(1) | BIT(3))
++
+ #define MT8365_INFRA_TOPAXI_PROTECTEN_STA1				0x228
+ #define MT8365_INFRA_TOPAXI_PROTECTEN_SET				0x2a0
+ #define MT8365_INFRA_TOPAXI_PROTECTEN_CLR				0x2a4

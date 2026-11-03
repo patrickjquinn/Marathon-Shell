@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
+# The Q25-patched MT6358 codec, the MT6789 AFE and the Q25 machine,
+# amplifier and headset drivers; ALSA and ASoC core are in the kernel.
+obj-m += codecs/ mediatek/ q25/ q25accdet/

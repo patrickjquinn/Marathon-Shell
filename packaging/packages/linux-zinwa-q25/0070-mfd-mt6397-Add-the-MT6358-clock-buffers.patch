@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:51:34 +0000
+Subject: [PATCH] mfd: mt6397: Add the MT6358 clock buffers
+
+Register a cell for the clock buffers of the MT6358, which the MT6366
+shares.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/mfd/mt6397-core.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/mfd/mt6397-core.c b/drivers/mfd/mt6397-core.c
+index 9cff5530..4d0ef61a 100644
+--- a/drivers/mfd/mt6397-core.c
++++ b/drivers/mfd/mt6397-core.c
+@@ -226,6 +226,9 @@ static const struct mfd_cell mt6358_devs[] = {
+ 		.num_resources = ARRAY_SIZE(mt6358_keys_resources),
+ 		.resources = mt6358_keys_resources,
+ 		.of_compatible = "mediatek,mt6358-keys"
++	}, {
++		.name = "mt6358-clk",
++		.of_compatible = "mediatek,mt6358-clk"
+ 	},
+ };
+ 

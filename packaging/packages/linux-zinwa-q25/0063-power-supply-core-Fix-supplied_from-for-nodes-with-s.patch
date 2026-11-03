@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 20:33:52 +0000
+Subject: [PATCH] power: supply: core: Fix supplied_from for nodes with several
+ supplies
+
+power_supply_check_supplies() allocates supplied_from with room for a
+single pointer, whatever the number of power-supplies references, and
+then stores a separately allocated array of cnt - 1 chars in that one
+slot. __power_supply_populate_supplied_from() then fills in one slot per
+reference index, but bumps num_supplies once for every registered supply
+whose node matches.
+
+A device that registers two power supplies on one node, such as bq256xx
+with its charger and battery supplies, therefore leaves num_supplies at
+2 with a single slot, and __power_supply_is_supplied_by() reads past the
+array and passes whatever it finds there to strcmp(). On the Zinwa Q25,
+a battery with power-supplies pointing at its bq25601 charger crashed
+this way with a NULL pointer dereference as soon as the charger came
+online.
+
+Allocate one slot per reference and take the first supply registered for
+each reference, so that num_supplies never exceeds the slots filled.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/power/supply/power_supply_core.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/power/supply/power_supply_core.c b/drivers/power/supply/power_supply_core.c
+index a446d3d0..ce001805 100644
+--- a/drivers/power/supply/power_supply_core.c
++++ b/drivers/power/supply/power_supply_core.c
+@@ -203,7 +203,7 @@ static int __power_supply_populate_supplied_from(struct power_supply *epsy,
+ 		if (IS_ERR(np))
+ 			break;
+ 
+-		if (np == epsy->dev.fwnode) {
++		if (np == epsy->dev.fwnode && !psy->supplied_from[i - 1]) {
+ 			dev_dbg(&psy->dev, "%s: Found supply : %s\n",
+ 				psy->desc->name, epsy->desc->name);
+ 			psy->supplied_from[i-1] = (char *)epsy->desc->name;
+@@ -292,18 +292,13 @@ static int power_supply_check_supplies(struct power_supply *psy)
+ 	if (cnt == 1)
+ 		return 0;
+ 
+-	/* All supplies found, allocate char ** array for filling */
+-	psy->supplied_from = devm_kzalloc(&psy->dev, sizeof(*psy->supplied_from),
++	/* All supplies found, allocate one name per reference for filling */
++	psy->supplied_from = devm_kcalloc(&psy->dev, cnt - 1,
++					  sizeof(*psy->supplied_from),
+ 					  GFP_KERNEL);
+ 	if (!psy->supplied_from)
+ 		return -ENOMEM;
+ 
+-	*psy->supplied_from = devm_kcalloc(&psy->dev,
+-					   cnt - 1, sizeof(**psy->supplied_from),
+-					   GFP_KERNEL);
+-	if (!*psy->supplied_from)
+-		return -ENOMEM;
+-
+ 	return power_supply_populate_supplied_from(psy);
+ }
+ #else

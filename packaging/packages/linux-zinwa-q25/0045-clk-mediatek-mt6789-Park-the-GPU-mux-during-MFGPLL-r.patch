@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:49:18 +0000
+Subject: [PATCH] clk: mediatek: mt6789: Park the GPU mux during MFGPLL rate
+ changes
+
+GPU DVFS changes the MFGPLL rate while the GPU runs from it through the
+mfg_pll_sel mux. Without a notifier the GPU is clocked by a relocking
+PLL during every OPP change, so on MT6789 devfreq could only be pinned
+to one PLL rate.
+
+Register the generic MediaTek mux notifier, as MT8183 and MT8186 do, to
+park the mux on mfg_ref_ck (index 0) across the PLL rate change.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/clk/mediatek/clk-mt6789-topckgen.c | 27 ++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/drivers/clk/mediatek/clk-mt6789-topckgen.c b/drivers/clk/mediatek/clk-mt6789-topckgen.c
+index 5bbbe845..41a208e2 100644
+--- a/drivers/clk/mediatek/clk-mt6789-topckgen.c
++++ b/drivers/clk/mediatek/clk-mt6789-topckgen.c
+@@ -812,6 +812,31 @@ static const struct mtk_composite top_aud_divs[] = {
+ 		 "apll_i2s9_mck_sel" , 0x0320 ,10 , 0x0338 , 8 ,16 ),
+ 	};
+ 
++/*
++ * Park the GPU mux on mfg_ref_ck while MFGPLL relocks, so a DVFS step
++ * never runs the GPU from an unlocked PLL.
++ */
++static int clk_mt6789_reg_mfg_mux_notifier(struct device *dev, struct clk *clk)
++{
++	struct mtk_mux_nb *mfg_mux_nb;
++	int i;
++
++	mfg_mux_nb = devm_kzalloc(dev, sizeof(*mfg_mux_nb), GFP_KERNEL);
++	if (!mfg_mux_nb)
++		return -ENOMEM;
++
++	for (i = 0; i < ARRAY_SIZE(top_muxes); i++)
++		if (top_muxes[i].id == CLK_TOP_MFG_PLL_SEL)
++			break;
++	if (i == ARRAY_SIZE(top_muxes))
++		return -EINVAL;
++
++	mfg_mux_nb->ops = top_muxes[i].ops;
++	mfg_mux_nb->bypass_index = 0; /* mfg_ref_ck */
++
++	return devm_mtk_clk_mux_notifier_register(dev, clk, mfg_mux_nb);
++}
++
+ static const struct mtk_clk_desc topck_desc = {
+ 	.factor_clks = top_divs,
+ 	.num_factor_clks = ARRAY_SIZE(top_divs),
+@@ -820,6 +845,8 @@ static const struct mtk_clk_desc topck_desc = {
+ 	.composite_clks = top_aud_divs,
+ 	.num_composite_clks = ARRAY_SIZE(top_aud_divs),
+ 	.clk_lock = &mt6789_clk_lock,
++	.clk_notifier_func = clk_mt6789_reg_mfg_mux_notifier,
++	.mfg_clk_idx = CLK_TOP_MFG_PLL_SEL,
+ };
+ 
+ static const struct of_device_id of_match_clk_mt6789_topckgen[] = {

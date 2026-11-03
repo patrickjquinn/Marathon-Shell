@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:58:43 +0000
+Subject: [PATCH 82/83] drm/mediatek: gamma: Run the MT6789 gamma in relay mode
+
+The MT6789 gamma block was matched as an MT8183 one, but its LUT layout
+differs: with any LUT programmed the Zinwa Q25 shows every dark pixel as
+blue, and setting relay mode by hand restores the colours. The LUT
+enable the bootloader leaves set also stayed on, since mtk_gamma_set()
+returned early without a LUT.
+
+Give MT6789 its own data without a LUT, so the CRTC offers no gamma LUT,
+and without a LUT clear the LUT enable and select relay mode, applying
+the CRTC's gamma state whenever the pipeline is initialised.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_crtc.c       |  1 +
+ drivers/gpu/drm/mediatek/mtk_disp_gamma.c | 16 ++++++++++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_crtc.c b/drivers/gpu/drm/mediatek/mtk_crtc.c
+index 351d58c5..befcde1e 100644
+--- a/drivers/gpu/drm/mediatek/mtk_crtc.c
++++ b/drivers/gpu/drm/mediatek/mtk_crtc.c
+@@ -410,6 +410,7 @@ static int mtk_crtc_ddp_hw_init(struct mtk_crtc *mtk_crtc)
+ 			mtk_ddp_comp_bgclr_in_on(comp);
+ 
+ 		mtk_ddp_comp_config(comp, width, height, vrefresh, bpc, NULL);
++		mtk_ddp_gamma_set(comp, crtc->state);
+ 		mtk_ddp_comp_start(comp);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_gamma.c b/drivers/gpu/drm/mediatek/mtk_disp_gamma.c
+index 8afd1500..f3ae192f 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_gamma.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_gamma.c
+@@ -124,9 +124,14 @@ void mtk_gamma_set(struct device *dev, struct drm_crtc_state *state)
+ 	struct drm_color_lut *lut;
+ 	unsigned int i;
+ 
+-	/* If there's no gamma lut there's nothing to do here. */
+-	if (!state->gamma_lut)
++	/* Without a LUT, bypass whatever the bootloader left enabled. */
++	if (!state->gamma_lut) {
++		cfg_val = readl(gamma->regs + DISP_GAMMA_CFG);
++		cfg_val &= ~GAMMA_LUT_EN;
++		cfg_val |= GAMMA_RELAY_MODE;
++		writel(cfg_val, gamma->regs + DISP_GAMMA_CFG);
+ 		return;
++	}
+ 
+ 	num_lut_banks = gamma->data->lut_size / gamma->data->lut_bank_size;
+ 	lut = (struct drm_color_lut *)state->gamma_lut->data;
+@@ -300,6 +305,11 @@ static const struct mtk_disp_gamma_data mt8173_gamma_driver_data = {
+ 	.lut_size = 512,
+ };
+ 
++/* The LUT layout is not the MT8183 one; run in relay mode until it is known. */
++static const struct mtk_disp_gamma_data mt6789_gamma_driver_data = {
++	.lut_size = 0,
++};
++
+ static const struct mtk_disp_gamma_data mt8183_gamma_driver_data = {
+ 	.lut_bank_size = 512,
+ 	.lut_bits = 10,
+@@ -315,6 +325,8 @@ static const struct mtk_disp_gamma_data mt8195_gamma_driver_data = {
+ };
+ 
+ static const struct of_device_id mtk_disp_gamma_driver_dt_match[] = {
++	{ .compatible = "mediatek,mt6789-disp-gamma",
++	  .data = &mt6789_gamma_driver_data},
+ 	{ .compatible = "mediatek,mt8173-disp-gamma",
+ 	  .data = &mt8173_gamma_driver_data},
+ 	{ .compatible = "mediatek,mt8183-disp-gamma",
+-- 
+2.55.0
+

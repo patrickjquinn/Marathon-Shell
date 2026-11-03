@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Linmao Li <lilinmao@kylinos.cn>
+Date: Mon, 24 Aug 2026 11:55:30 +0800
+Subject: [PATCH] iio: imu: inv_icm42607: propagate runtime suspend errors
+
+The runtime suspend callback returns success when updating PWR_MGMT0
+fails.  The PM core then marks the device suspended even though the
+shutdown outcome is unknown.  If the write did not reach the sensor, the
+sensors remain running and draw power while the device is idle.
+
+The condition need not persist.  If the bus error clears, a later sensor
+access either reads the current PWR_MGMT0 value from hardware or retries
+programming the requested enabled mode, allowing normal operation to
+resume.
+
+Return the underlying errno to the PM core.  -EAGAIN and -EBUSY retain
+their transient-error semantics; other errors put runtime PM into an
+error state and cause later PM acquires to fail until the status is
+explicitly reset.  In the normal idle case, a successful system suspend
+can perform that reset.  This leaves the transient-versus-fatal
+classification to the PM core and matches the sibling ICM-42600 driver.
+
+Keep a void wrapper for the managed teardown action, where errors can
+only be logged.
+
+Fixes: 3007c1530f96 ("iio: imu: inv_icm42607: Add PM support for icm42607")
+Signed-off-by: Linmao Li <lilinmao@kylinos.cn>
+Tested-by: Kanak Shilledar <kanak.shilledar@axis.com>
+Tested-by: Chris Morgan <macromorgan@hotmail.com>
+Signed-off-by: Jonathan Cameron <jonathan.cameron@oss.qualcomm.com>
+
+(cherry picked from commit c1774272c76e92fc3df10a8fedfc033716e55d1b)
+---
+ drivers/iio/imu/inv_icm42607/inv_icm42607_core.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/iio/imu/inv_icm42607/inv_icm42607_core.c b/drivers/iio/imu/inv_icm42607/inv_icm42607_core.c
+index 190e998f..0da36296 100644
+--- a/drivers/iio/imu/inv_icm42607/inv_icm42607_core.c
++++ b/drivers/iio/imu/inv_icm42607/inv_icm42607_core.c
+@@ -537,9 +537,8 @@ static int inv_icm42607_enable_vddio_reg(struct inv_icm42607_state *st)
+ 	return 0;
+ }
+ 
+-static void inv_icm42607_sensors_off(void *_data)
++static int inv_icm42607_sensors_off(struct inv_icm42607_state *st)
+ {
+-	struct inv_icm42607_state *st = _data;
+ 	const struct device *dev = regmap_get_device(st->map);
+ 	int ret;
+ 
+@@ -552,6 +551,13 @@ static void inv_icm42607_sensors_off(void *_data)
+ 					 st->conf.accel.mode);
+ 	if (ret)
+ 		dev_err(dev, "Unable to turn off sensors\n");
++
++	return ret;
++}
++
++static void inv_icm42607_sensors_off_action(void *data)
++{
++	inv_icm42607_sensors_off(data);
+ }
+ 
+ static void inv_icm42607_disable_vddio_reg(void *_data)
+@@ -619,7 +625,7 @@ int inv_icm42607_core_probe(struct regmap *regmap,
+ 	 * Ensure if sensors get turned on at some point, they're turned off
+ 	 * as part of teardown.
+ 	 */
+-	ret = devm_add_action_or_reset(dev, inv_icm42607_sensors_off, st);
++	ret = devm_add_action_or_reset(dev, inv_icm42607_sensors_off_action, st);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -688,8 +694,7 @@ static int inv_icm42607_runtime_suspend(struct device *dev)
+ 	 * however the tradeoff is that an unused sensor won't be
+ 	 * turned off until the entire chip is no longer in use.
+ 	 */
+-	inv_icm42607_sensors_off(st);
+-	return 0;
++	return inv_icm42607_sensors_off(st);
+ }
+ 
+ EXPORT_NS_GPL_DEV_PM_OPS(inv_icm42607_pm_ops, IIO_ICM42607) = {

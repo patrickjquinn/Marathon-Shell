@@ -7,7 +7,6 @@ export QSG_RHI_BACKEND=opengl
 export PAN_MESA_DEBUG=noafbc
 export MARATHON_GPU_STACK=mesa-panfrost
 export GBM_BACKENDS_PATH=/usr/lib/gbm
-export LIBGL_DRIVERS_PATH=/usr/lib/q25-gpu/dri:/usr/lib/dri
 export MARATHON_FORCE_DPI=240
 export MARATHON_RUNNER_POOL=0
 export MARATHON_SCREENSHOT_PATH=/run/user/1000/q25-gpu-screen.png

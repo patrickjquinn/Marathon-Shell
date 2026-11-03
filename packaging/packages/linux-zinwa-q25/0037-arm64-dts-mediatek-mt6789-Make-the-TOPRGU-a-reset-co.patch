@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:38:21 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt6789: Make the TOPRGU a reset
+ controller
+
+The MT6789 watchdog exposes the WDT_SWSYSRST resets through mtk-wdt.
+Add #reset-cells so consumers can reference them.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+index cf276a7f..4d335531 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -652,6 +652,7 @@
+ 			compatible = "mediatek,mt6789-wdt",
+ 			             "mediatek,mt6589-wdt";
+ 			reg = <0 0x10007000 0 0x100>;
++			#reset-cells = <1>;
+ 		};
+ 
+ 		mcusys: syscon@c530000 {

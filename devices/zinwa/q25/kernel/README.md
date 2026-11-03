@@ -1,72 +1,40 @@
-The ADC patch targets `drivers/iio/adc/mt6359-auxadc.c` in the Q25 kernel source
-based on `978b8b672d68e43b08c891132b974255489889aa`.
+`packaging/packages/linux-zinwa-q25` builds the Q25 kernel from ellyq's
+`mtk_g99-mainline` at `978b8b67` with one `git format-patch` series and the
+phone's configuration. The series is kept as clean, atomic patches for the
+MT6789 tree and mainline; each patch's commit message carries its rationale.
+docs/roadmap/Q25-UPSTREAM-PLAN.md lists what each patch replaces.
 
-Its scale omitted the ADC resolution. On MT6358 BATADC, raw code 25383 was
-reported with scale 5400 instead of 5400/32768 mV per count. The generic battery
-driver's subsequent conversion overflowed. The patch also rejects an absent
-channel descriptor's zero denominator. It changes no sampling, charger, voltage
-limit, DT or GPU policy.
+| Patches | What | Where it goes |
+|---|---|---|
+| `drm/mediatek: Add MT6789 display support` | MT6789 mmsys/DSI data on the MT8186 tables. | MT6789 tree, with linux-mediatek `880bc1cbf3a3` (W5). |
+| `power: supply: bq256xx: ensure charging…` | Clears EN_HIZ, sets CHG_CONFIG at probe. | linux-pm (W9). |
+| `pinctrl: mediatek: mt6789: guard the sleep PM ops` | Build fix. | Fold into ellyq's pinctrl patch. |
+| `iio: adc: mt6359-auxadc: Include the ADC resolution…` | BATADC scale. | linux-iio, reconciled with mt6768-mainline `ca09cacace6d`. |
+| `arm64: dts: … mt8781-zinwa-q25` (board, accepted boot, audio/sensors/CONNSYS, panel Doze, camera pool, MD1) | The board DT the phone boots, on upstream's `mt8781-zinwa-q25.dts`. | ellyq's DTS; vendor nodes to overlays (W19, section 4). |
+| `mfd: mt6358: Fix AUD and MISC top interrupt status bits` | ACCDET irq storm. | Mainline (W10). |
+| `dt-bindings: iio: imu: icm42600: …`, `iio: imu: inv_icm42607: …` | Backports of torvalds `e097c0108de9`, `22addefdabdf`, `2871c45d9469`…`87775fff21b1`. | Drop when the base passes v7.3. |
+| `media: i2c: imx111: …`, `media: i2c: s5kjn1: …`, `iio: magnetometer: mmc5633: …` | Sensor fixes found on the Q25. | linux-media, linux-iio. |
+| `pinctrl: mediatek: mt6789: Drop the unused EH driving table` | W=1 fix. | Fold into ellyq's pinctrl patch. |
+| `dt-bindings: gnss: add MediaTek MT6789 CONNSYS GNSS`, `arm64: dts: … describe the GNSS receiver` | The GNSS node and its LNA pin states for `mtk-connsys-gnss`. | With the driver, to the MT6789 tree. |
+| `arm64: dts: … Build with overlay symbols` | `-@` for the runtime camera overlay. | Drops with the camera overlay (W7). |
+| `Input: synaptics-rmi4 - add support for reset gpios` (Roman Vivchar's RFC), `… hold reset while the sensor is off` | The touchscreen's reset line. | linux-input, with the RFC. |
+| `clk: mediatek: mt6789: Parent the I2C wrapper gates to i2c_pseudo_ck` | The I2C clocks were orphans at 0 Hz. | MT6789 tree (W2). |
+| `dt-bindings: power: …`, `pmdomain: mediatek: Add MT6789 power domains` | The SoC power domains, from linux-mediatek `a2a96be99f1b` with fixes. | MT6789 tree (W3). |
+| `dt-bindings: watchdog: mediatek,mtk-wdt: Add MT6789`, `watchdog: mtk_wdt: …`, `arm64: dts: mediatek: mt6789: Make the TOPRGU a reset controller` | The CONN MCU reset. | linux-watchdog, MT6789 tree (W3). |
+| `arm64: dts: … mt8781-zinwa-q25` (CONN MCU reset, GPU supplies, bootloader display, VBIF28, UFS VCC, modem rails) | Owners for what the bootloader leaves on, so the board boots without `pd_ignore_unused` and `regulator_ignore_unused`. | ellyq's DTS (W4). |
+| `soc: mediatek: mtk-mutex: Defer until the mutex device has probed` | From linux-mediatek `3e6c84ec8051`. | linux-mediatek (W5). |
+| `clk: mediatek: mt6789: Park the GPU mux during MFGPLL rate changes` | GPU DVFS. | MT6789 tree (W6). |
+| `drm/mediatek: mtk_dsi: Stop the engine…`, `drm/mediatek: dsi: Register DSI host after…`, `drm/mediatek: mtk_dsi: Run the link at the peripheral's HS rate` | Taking over the DSI the bootloader left running, at the panel's 652 Mbit/s. | linux-mediatek (W5). |
+| `drm/mediatek: Add the MT6789 DSI to the DDP components`, `drm/mediatek: Remove conflicting framebuffers` | mediatek-drm binds the DSI and takes over from simpledrm. | linux-mediatek (W5). |
+| `dt-bindings: vendor-prefixes: Add Zinwa`, `dt-bindings: regulator: ti,tps65132: Add OCS OCP2131`, `dt-bindings: display: panel: …`, `drm/panel: Add Zinwa Q20 HD720 panel driver`, `arm64: dts: … Describe the panel bias supply` | The panel and its bias supply. | dri-devel, linux-regulator, devicetree (W5). |
+| `dt-bindings: iio: light: Add TYHX HX32062SE`, `iio: light: Add TYHX HX32062SE …`, `arm64: dts: … Set the proximity near level` | Light and proximity. | linux-iio (W13). |
+| `dt-bindings: input: Add Zinwa Q25 keyboard`, `Input: add driver for BBQ10/BBQ20 I2C keyboards`, `arm64: dts: … Describe the keyboard` | The keyboard and its light. | linux-input (W12). |
+| `ASoC: dt-bindings: awinic,aw87390: Add Orient Chip OCA72390`, `ASoC: codecs: aw87390: …`, `arm64: dts: … Use the aw87390 binding` | The speaker amplifier. | linux-sound (W11). |
+| `power: supply: core: Fix supplied_from…`, `dt-bindings: … MT6358 fuel gauge`, `mfd: mt6397: Add the MT6358 fuel gauge`, `power: supply: Add MediaTek MT6358 fuel gauge driver`, `arm64: dts: … Use the PMIC fuel gauge` | The battery gauge. | linux-pm, linux-mfd (W9). |
+| `dt-bindings: mfd: … MT6358 clock buffers`, `mfd: mt6397: Add the MT6358 clock buffers`, `clk: Add MediaTek MT6358 clock buffer driver`, `dt-bindings: net: nfc: st,st-nci: Add ST21NFCD`, `nfc: st-nci: …`, `arm64: dts: … Describe the NFC controller` | NFC with the PMIC's XO_NFC clock. | linux-clk, linux-mfd, netdev. |
+| `clk: mediatek: mt6789: Keep the SCP clock on` | The SCP's clock stays on without `clk_ignore_unused`. | MT6789 tree (W4). |
 
-The rebuilt EFI was tested on the Q25: scale became `0.164794921`, reported
-battery voltage was 4.182–4.183 V, and the full GPU session booted successfully.
-Kernel configuration, release and all 12,440 exported-symbol CRC records matched
-the prior working kernel. This does not supply state of charge or establish
-physical calibration.
-
-Tested EFI SHA256:
-`e4c19e018b4f473e702af6eebc1aa57c40997ac1c960611ac5637cae92bca149`.
-The prior `7d06cd6f…` kernel, `23e3f8d4…` carrier initrd and `f668fc23…` DT remain
-available as the working fallback.
-
-This patch records the tested bring-up change. It is not yet applied by the
-canonical kernel APK recipe; the existing `7.0-r1000` package must not be assumed
-to contain it.
-
-`0002-q25-private-mt6358-current-car-snapshot.patch` preserves the separate
-external diagnostic source and host fault/encoding tests. Its temporary PMIC
-child performs no hardware I/O at probe, exposes two root-only latch/release
-transactions, and then remains stopped. It is not an autoloaded fuel-gauge
-driver and does not report capacity. The Q25 device trial passed with module
-SHA256 `8bb3f59bfbd77f2758eb65ba7604fb38d74a522f5cebaf9f0ad80d41628006d1`:
-two samples five seconds apart reported 0 and 50087 µA, with zero errors and
-`poisoned=0 stopped=1`. No reset, RTC, charger or rail writes occurred. Stock
-configuration supplies 1 mΩ/1.01 scaling; physical calibration remains unverified.
-
-`0003-net-wwan-q25-rpc-metadata-validator.patch` is an independent, inactive
-RPC metadata helper. Its source commit is
-`bad48847ddb61e80ad534151f1177dcdf0033147`. Host ASan/UBSan checks, public ABI
-assertions and ARM64 W=1 compilation passed. No Kbuild activation, module
-entrypoint, device access, modem firmware load or radio functionality is implied.
-See the modem prior-art document for its missing firmware/memory owner.
-
-`0005`–`0007` carry the board DT. `0005` adds the DTS that the
-linux-postmarketos-mediatek-g99 recipe copies into the tree (pmaports
-`mt6789-zinwa-q25.dts`, sha512 `a242ca0b…`); a recipe applying this series
-must stop copying its own. `0006` brings it to the DT the Q25 booted from
-(`f668fc23…`: framebuffer pitch, touch reset, keyboard on i2c6, no ramoops).
-`0007` adds audio, the AP-side sensor buses, CONNSYS, Wi-Fi and BTIF, as in
-`edc93beb…`. Compiled against the 978b8b67 `mt6789.dtsi`, the result equals
-`edc93beb…` node by node with phandles resolved, except that the BMP390 node
-is dropped: both of its addresses NACK on the device. No gpio-backlight.
-
-`0008` hands GPIO84 (panel bias) and GPIO85 (panel reset) from the
-always-on regulator to `q25-panel-doze`, which sleeps the panel in Doze. The
-result equals the device-tested `8c282e5d…` (edc93beb plus the panel-doze
-overlay) except for the BMP390 node. The board DTS carries no modem nodes:
-with them, `q25-md1-owner` would autoload and `q25-md1-off.service` would
-skip, leaving MD1 powered.
-
-`0009` fixes the MT6358/MT6366 PMIC interrupt handler's AUD and MISC group
-bits (7 and 8 in TOP_INT_STATUS0, as in MediaTek's headers; mainline has 6
-and 7). Without it an ACCDET interrupt is read as MISC, never dispatched or
-acknowledged, and the PMIC line storms at about 24000/s. The constants feed
-only `.top_offset` in `mt6358_irq_handler`; MT6357 and MT6359 have their own
-enums. `MFD_MT6397` is built in, so it takes effect only with the next kernel
-build; until then `q25-mt6366-irqfix` (modules/audio) patches the table at
-runtime and does nothing on a fixed kernel.
-
-`0010` reserves 256 MiB below 4 GiB as a `shared-dma-pool` for CAMSV, whose
-32-bit `dma_alloc_coherent()` otherwise stops at 4 MiB, short of the
-sensors' full-resolution frames. The camera overlay (`modules/camera`)
-names the pool by its fixed phandle, `0x93`. The Q25 boots the same node
-added to its current DTB.
+The release is `7.0.0-q25`; `CONFIG_MODULE_UNLOAD` is on and every configured
+module is built and shipped by the kernel package. The same build compiles
+the Q25's out-of-tree modules (`packaging/packages/linux-zinwa-q25/modules`)
+against the tree and ships them as `q25-kernel-modules`.

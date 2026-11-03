@@ -44,7 +44,7 @@ mainline path exists yet, in their own packages, with no userspace hardware poki
 
 lore.kernel.org refused requests from this environment (HTTP 403), so whether the out-of-tree
 series above have been posted is **unverified**; the trees are cited instead. The WL2868C regulator
-is the one item known to be on the list (v4, 2026-10-31, per `devices/zinwa/q25/modules/README.md`).
+is the one item known to be on the list (v4, 2026-10-31, per `pkg/linux-zinwa-q25/modules/README.md`).
 Julien Stephan's MediaTek ISP3.0 seninf/camsv series reached
 [v8](https://lkml.iu.edu/hypermail/linux/kernel/2501.2/06543.html) (Jan 2025) and is not in mainline.
 
@@ -59,12 +59,7 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Item | Why it exists | Fixed by |
 |---|---|---|---|
-| H1 | `modprobe.blacklist=mediatek-drm,panfrost,panel-zinwa-q20-hd720,phy-mtk-mipi-dsi-drv` (and `pkg/q25-gpu-render/q25-render-only-blacklist.conf`, which adds `mtk_mmsys`) | With the display nodes enabled, udev autoloads mediatek-drm in the initramfs; it takes over the DSI that LK left scanning and hangs in the first atomic commit, wedging boot. Panfrost is held back so `q25-gpu-prepare` can load it after its own power-domain shim. | W5, W6 |
-| H2 | `pd_ignore_unused` | No complete MT6789 power-domain provider; the shims register single domains, and genpd would otherwise switch off DISP (and others) under the firmware framebuffer. | W3, W4 |
-| H3 | `clk_ignore_unused` | simple-framebuffer does not claim the display clocks, and the imp_iic_wrap I2C gates are orphans (H20); the unused-clock sweep would gate live clocks. | W2, W4 |
-| H4 | `regulator_ignore_unused` | The display and panel rails LK left on are not claimed by any consumer. HW notes: "iteration-1 PMIC enable bricked the device" (`~/zinwa-q25-port/dumps/HW_MAP.md`): regulators switched under the live panel. | W4, W5 |
-| H5 | `nowatchdog` | Added during bring-up so slow initramfs `udevadm settle` could not trip a lockup reset. Hides real lockups. | Drop in phase 0 once boots are reliable (they are). |
-| H6 | `earlycon=efifb` | Debug console into the live scanout; with `keep_bootcon` it caused the "screen jump" (`Q/display-corruption/HANDOFF.md`). Harmless now, but it writes into the framebuffer. | Drop with W5. |
+| H3 | `clk_ignore_unused` | About 140 gates and PLLs are on at boot with no consumer in the board description (c4 audit): the modem's CCIF2 and CLDMA, GCE, the UFS UniPro tick and AES, thermal, AUXADC, debug and CPU-monitor gates among them, some with firmware users nobody has identified. The unused-clock sweep would gate them. | W4 |
 
 ### 2.2 Boot services and scripts that touch hardware (`pkg/device-zinwa-q25-marathon/`, `pkg/q25-gpu-render/`)
 
@@ -72,31 +67,19 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 |---|---|---|---|---|
 | H7 | `q25-platform-prepare` (+`.service`, sysinit) | Writes `0` to `/sys/devices/system/cpu/cpu0/online` every boot. | Memory corruption seen only with CPU0 online (multi-thread allocator seeds fail; `Q/cpu0-quarantine-20261030/README.txt`). Cause unknown; candidates in W8. | W8 |
 | H8 | `q25-user-slice-cpu.conf`, `q25-user-manager-cpu.conf`, `CPUAffinity=4-7` in `50-q25-session.conf` | Pins the whole session and greetd to CPUs 4–7. | Earlier form of the same CPU0 workaround ("bring-up stability policy"). | W8 |
-| H9 | `q25-backlight` (+`.service`) | Loads `q25-i2c-clk`, unbinds and rebinds `i2c-mt65xx` on `11f00000.i2c` (i2c7), then writes the bus number to `panel-doze`'s `ocp_attach` so it drives the OCP2131. | i2c7 probed with an orphan 0 Hz clock (H20) so its timing is wrong; nothing in the kernel owns the OCP2131 bias chip, which is the only brightness control. | W2, W5 |
-| H10 | `q25-vsyncdrm` (+`.service`) | `driver_override`s the firmware framebuffer from simpledrm to `q25-vsyncdrm` after Plymouth quits. | simpledrm has no vblank; the compositor free-ran at ~160 fps on a 70.98 Hz panel. | W5 |
-| H11 | `q25-gpu-prepare` (+`.service`, greetd drop-in `80-q25-gpu-prepare.conf`) | `insmod`s a private `q25-mfg-only-v2.ko`, `gpu-sched.ko`, `panfrost.ko`; forces `power/control=on`; walks devfreq 390→467→390→700 MHz and pins it; checks VGPU/VSRAM readback. | No MT6789 MFG power domains in the kernel; no MFG clock-mux notifier, so devfreq PLL hops are unsafe; GPU kept powered because "a later SRAM first-enable can reset coupling". | W3, W6 |
-| H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`, `LIBGL_DRIVERS_PATH=/usr/lib/q25-gpu/dri`), `simpledrm_dri.so` shim, `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file (which requires CPU0 offline), runtime PM is forced on and devfreq reads 700 MHz; maps Mesa's `simpledrm` KMSRO lookup onto the `mediatek` render-only driver; disables AFBC. | Display is simpledrm, not mediatek-drm, so Mesa finds no kmsro pairing; AFBC corrupts (cause unresolved). | W5, W6 |
+| H11 | `q25-gpu-prepare` (+`.service`, greetd drop-in `80-q25-gpu-prepare.conf`) | `modprobe`s panfrost; checks the render node and the `q25-display` card; forces `power/control=on`. | GPU kept powered because "a later SRAM first-enable can reset coupling". | W6 |
+| H12 | `q25-shell-session` GPU selector, `q25-shell-session.gpu` (`PAN_MESA_DEBUG=noafbc`), `/etc/q25/eglfs-kms.json` | Starts the GPU session only if `q25-gpu-prepare` wrote its ready file (which requires CPU0 offline), and runtime PM is forced on; disables AFBC. | AFBC corrupts (cause unresolved). | W6 |
 | H13 | `q25-md1-off.service` (+post-install arming file) | `insmod q25-md1-owner standalone=1 md_off_at_boot=1` to switch off the MD1 domain the preloader left on. | No MD power domain in the kernel, so genpd cannot switch it off as unused. | W3 (MD domain) |
 | H14 | `q25-usb-gadget` (+`.service`) | Recreates the pmOS USB network gadget in configfs after boot. | The pmOS initramfs only creates it if a UDC exists when it looks (`cat …/g1/UDC: No such file` at 7.8 s in the boot log). Why the musb UDC is late is unverified. | W16 |
 | H15 | `q25-bt-address` (+`.service`) | Derives a Bluetooth address from machine-id and sets it with `btmgmt public-addr`. | Controller reports a placeholder; the nvdata copy is multicast. | Section 4.1 |
 | H16 | `q25-wifi.system-sleep` | rfkill-blocks Wi-Fi around suspend. | gen4m's AXI suspend/resume are stubs. | Section 4 |
 | H17 | `q25-wmt` (`q25-wmt.c`), `q25-connsys`, `q25-wmt-launcher`, `q25-wifi`, `q25-bluetooth` services | Native replacement for Android `wmt_loader`/`wmt_launcher`: ioctls on `/dev/wmtdetect` (SoC init, A-die probe), a resident daemon answering the ROM-patch up-call on `/dev/stpwmt`, writes `S`/`0` to `/dev/wmtWifi`. | Vendor WMT design: firmware selection and function power live in userspace. | Section 4 |
-| H18 | `q25-native-gauge` (Python service `q25_gauge_service.py`, `q25_soc.py`, `stock-profile0.json`, `90-q25-battery-model.conf`, `battery-model-experimental`) | Reads current/CAR snapshots from `q25-mt6358-live`, fits the stock battery profile, writes capacity back into the kernel; UPower told to ignore critical levels. | No MT6358 fuel-gauge driver; `fuel-gauge` is `generic-adc-battery` (voltage only). | W9 |
 | H19 | `q25-root-dio.service` | `losetup --direct-io=on` on the loop-mounted root. | Root is an ext4 file on the userdata carrier (`q25-carrier.hook`). Storage layout, not hardware; goes with `docs/roadmap/2026-10-31-storage-erofs-f2fs.md`. | Storage roadmap |
 
-### 2.3 Out-of-tree kernel modules: Marathon shims for missing drivers (`devices/zinwa/q25/modules/`, `pkg/q25-gpu-render/`)
+### 2.3 Out-of-tree kernel modules: Marathon shims for missing drivers (`pkg/linux-zinwa-q25/modules/`, built into `q25-kernel-modules`)
 
 | H# | Module | What it does | Root cause | Fixed by |
 |---|---|---|---|---|
-| H20 | `q25-i2c-clk` (`clk/`) | Registers a critical `top_i2c` alias of `i2c_pseudo_ck`. | `clk-mt6789-imp_iic_wrap.c` names the parent `top_i2c`, which topckgen never registers: every I2C "main" clock is an orphan at 0 Hz. A DT workaround (dt4) gated `i2c_sel` for all buses and boot-looped the phone (`Q/backlight-bringup/HANDOFF.md`, update 6). | W2 |
-| H21 | `q25-mfg-only-v2` (`pkg/q25-gpu-render/q25-mfg-only-v2.c`) | A copy of `mtk-pm-domains.c` with linux-mediatek `2ed59e43` MT6789 MFG data, registering only MFG2–5 on the SPM node. Shipped as a prebuilt `.ko`. | ellyq's tree lacks `a2a96be99f1b`; the copy adds fixes (OF child reg lookup, supply resolution, initial-off guard). | W3 |
-| H22 | `q25-audio-pd` (`audio/q25/`) | Second genpd provider on the same SPM node, resolving only AUDIO (11). | Same. | W3 |
-| H23 | `q25-conn-pd` (`conn-pd/`) | Provider for CONN (1) plus a reset controller on `toprgu` exposing only bit 12. | Same; `mtk-wdt` binds toprgu through the mt6589 fallback without MT6789 reset data. | W3 |
-| H24 | `q25-cam-pd` (`cam-pd/`) | Provider for CAM (12). | Same. | W3 |
-| H25 | `q25-mt6366-irqfix` (`audio/q25irqfix/`) | Patches the PMIC irq chip's group table at runtime (AUD/MISC bits 7/8). | Mainline `enum mt6358_irq_top_status_shift` has AUD=6, MISC=7 (still wrong in v7.4-rc1): ACCDET storms at ~24000 irq/s. Fixed in-tree by our `0009`. | W10 (and phase 0: the from-source kernel already carries 0009) |
-| H26 | `q25-panel-doze` (`panel/`), DT node `zinwa,q25-panel-doze` (patch `0008`) | Binds to the DSI register range and sends DCS sleep/wake as video-mode commands; drives GPIO84 (OCP2131 enable) and GPIO85 (panel reset); `ocp_attach` brightness over I2C. | No DSI/DRM driver owns the pipeline (H1). | W5 |
-| H27 | `q25-vsyncdrm` (`display/`, 1261 lines) | A copy of simpledrm that reads RDMA0's line counter to fake a scan-locked vblank; keeps the DRM name `simpledrm` for Mesa. | Same. | W5 |
-| H28 | `q25-mt6358-live` (`gauge/`) + kernel `0002` | Root-only snapshot of PMIC current and CAR registers, cache for the userspace model. | No fuel-gauge driver. | W9 |
 | H29 | `q25-cam-dt` (`cam-dt/`) | Applies `q25-camera.dtbo` from the firmware path at runtime (`of_overlay_fdt_apply`); leaks on removal (boot log warnings). | Camera nodes are not in the board DTS. | W15 |
 | H30 | `q25-haptic` (`haptic/`) | Creates a `regulator-haptic` platform device pointing at the MT6366 `vibr` LDO. | No haptic node in the board DTS. | W14 |
 | H31 | `q25-md1-owner` (`md1/`, 1175 lines) | Replaces LK's MD1 work: image placement, bank remap, MD1 MTCMOS, EMI MPU via ATF SiP, boot trigger, HS1 wait. Also used standalone for H13. | U-Boot replaced LK, so nobody boots the modem; vendor CCCI expects LK to have done it. | Section 4 |
@@ -105,9 +88,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Module | Device | Status | Fixed by |
 |---|---|---|---|---|
-| H32 | `q25-bbq-keys` + `q25-keyboard-led` (`keyboard/`), `q25-keyboard.modprobe.conf` (`client_name=6-001f`), `99-q25-native-keyboard.rules` | RP2040 QWERTY on i2c6 @0x1f, BBQ20-style FIFO protocol, key backlight. LED module attaches to the keyboard's bound client by name. | Marathon driver, `compatible` not upstream; LED is a sidecar instead of part of the driver. | W12 |
-| H33 | `hx32062se` (`light/`), `q25-hx.modprobe.conf` (`near_level=600`) | TYHX HX32062SE ALS/proximity on i2c9 @0x2b; registers decoded from the SCP sensor-hub firmware. | No mainline driver; DT carries stock threshold 3800. | W13 |
-| H34 | `q25-oca72390` (`audio/q25/`) | Orient-Chip OCA72390 speaker PA (i2c3 @0x58), register lists embedded. | Register-compatible with Awinic AW87390 (mainline `sound/soc/codecs/aw87390.c`) but reports ID 0x11. | W11 |
 | H35 | `q25-mt6366-card` (`audio/q25/`), `q25-audio.modprobe.conf` softdeps, `q25-audio.modules-load.conf` | ASoC machine driver (AFE + MT6366 + PA), MTKAIF calibration port. | No MT6789 machine driver; codec binds to an MFD cell without an OF node, so it is loaded by name. | W11 |
 | H36 | `q25-mt6358-accdet` (`audio/q25accdet/`, `options standalone=1`) | Headset detection, port of the vendor `mt6358-accdet.c` (LineageOS `2a873a35`). | Mainline has only `mt6359-accdet`. | W10 |
 | H37 | `snd-soc-mt6789-afe` + codec patches `0002`–`0006` (`audio/patches/`) | AFE from `adomerle/mt6789-sound` `996ec481` ("sound wip") + `0001` fixups; `0003`/`0005`/`0006` are debug controls. | WIP upstream driver. | W11 |
@@ -119,12 +99,8 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 
 | H# | Modules | Why OOT |
 |---|---|---|
-| H41 | 57 networking modules (`tun`, `veth`, `dummy`, `bridge`, `llc`, `stp`, all `nf_*`/`nft_*`/`xt_*`/`ip*_tables`) | Kernel config leaves them out; Deckard needs them. |
-| H42 | 9 media core modules (`mc`, `videodev`, `v4l2-*`, `videobuf2-*`) and `imx111`, `s5kjn1` (+3 patches in `camera/i2c/`) | Same; sensor patches are ours. |
-| H43 | `snd-timer`, `snd-pcm`, `snd-jack`, `snd-soc-core`, `snd-soc-mt6358`, `snd-soc-mtk-common` | `CONFIG_SND_SOC` unset in the running kernel. |
-| H44 | `cfg80211`, `bluetooth`, `rfkill`, `spi-mt65xx`, `regulator-haptic`, `inv-icm42607`(+`-spi`), `mmc5633` (+`mmc5633-q25.patch`) | Unset or unshipped. `inv_icm42607` is mainline code newer than v7.0 (torvalds `abf8c334`). |
-| H45 | `panfrost.ko`, `gpu-sched.ko` in `q25-gpu-render` | Built in-tree but shipped privately and loaded by H11. |
-| H46 | `CONFIG_MODULE_UNLOAD=n` (`7.0.0-q25-cfi-test`, `linux-zinwa-q25` config) | Bring-up safety; makes every module test a reboot. |
+| H42 | `videobuf2-common`, `-memops`, `-v4l2`, `-dma-contig` | No in-tree driver in the config selects videobuf2; built with the H38 camera set. Media core, `imx111` and `s5kjn1` are in the kernel. |
+| H43 | `snd-soc-mt6358` (+ `audio/patches` `0002`–`0006`), `snd-soc-mtk-common` | The codec carries Q25 patches the machine driver needs (H35); MTK common is selected only by an AFE. Move in with W10/W11. ALSA and ASoC core are in the kernel. |
 
 ### 2.6 udev and modprobe policy that encodes hardware facts
 
@@ -133,7 +109,6 @@ absolute. `pkg/` = `packaging/packages/`; `Q/` = the bring-up notes on the build
 | H47 | `61-q25-charge-voltage.rules` | Writes `constant_charge_voltage=4440000` to bq256xx at add. `bq256xx_hw_init()` programs the chip default (4.208 V) and uses the battery's 4.44 V only as a ceiling: the cell stopped near 80 %. | W9 |
 | H48 | `99-q25-upower-duplicate.rules`, `q25-power-supply-ignore`, `upower-q25` (UPower patch for `UPOWER_IGNORE`) | Hides `bq256xx-battery` so UPower sees one battery. | W9 |
 | H49 | `61-q25-sensor-local.rules` | `ACCEL_MOUNT_MATRIX` for the ICM-42607. | W13 (DT `mount-matrix`) |
-| H50 | `q25-connsys.modprobe.conf` | `softdep wmt_drv pre: q25-conn-pd`. | W3 + section 4 |
 | H51 | `q25-camera.modprobe.conf`, `q25-camera.modules-load.conf` | Enables H24/H29 by parameter, loads them at boot. | W3, W15 |
 | H52 | `q25-modem.conf.modprobe`, `78-q25-modem.rules` | Blacklists ECCCI until the owner hands off; tags `ttyC0`/`ccmni` for ModemManager with a hard-coded physdev path. | Section 4 |
 

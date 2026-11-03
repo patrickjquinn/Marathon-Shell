@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:20:07 +0000
+Subject: [PATCH] clk: mediatek: mt6789: Parent the I2C wrapper gates to
+ i2c_pseudo_ck
+
+The imp_iic_wrap gates name "top_i2c" as their parent, a clock the
+MT6789 topckgen does not register. Every I2C controller's main clock is
+therefore an orphan: it reads 0 Hz, so i2c-mt65xx computes its bus
+timing from a zero source clock, and enabling it never takes a reference
+on i2c_sel, which the unused-clock sweep then gates under live buses.
+
+The gates are fed by the infracfg_ao I2C pseudo clock (i2c_sel ->
+i2c_ck -> ifrao_i2c_pseudo -> i2c_pseudo_ck), as in MediaTek's
+clk-mt6789-i2c.c. Name that clock as the parent. On the Zinwa Q25 the
+I2C main clocks then report 124.8 MHz and enabling any of them holds
+i2c_sel and the infra gate.
+
+Fixes: f2d384152f83 ("clk: mediatek: Add MT6789 clocks")
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../clk/mediatek/clk-mt6789-imp_iic_wrap.c    | 30 ++++++++++++-------
+ 1 file changed, 20 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6789-imp_iic_wrap.c b/drivers/clk/mediatek/clk-mt6789-imp_iic_wrap.c
+index 20e60187..19cc83af 100644
+--- a/drivers/clk/mediatek/clk-mt6789-imp_iic_wrap.c
++++ b/drivers/clk/mediatek/clk-mt6789-imp_iic_wrap.c
+@@ -20,25 +20,35 @@ static const struct mtk_gate_regs imp_iic_wrap_cg_regs = {
+ 		&mtk_clk_gate_ops_setclr, CLK_OPS_PARENT_ENABLE)
+ 
+ static const struct mtk_gate imp_iic_wrap_c_clks[] = {
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_C_AP_CLOCK_I2C3, "imp_iic_wrap_c_ap_clock_i2c3", "top_i2c", 0),
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_C_AP_CLOCK_I2C5, "imp_iic_wrap_c_ap_clock_i2c5", "top_i2c", 1),
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_C_AP_CLOCK_I2C6, "imp_iic_wrap_c_ap_clock_i2c6", "top_i2c", 2),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_C_AP_CLOCK_I2C3, "imp_iic_wrap_c_ap_clock_i2c3",
++			  "i2c_pseudo_ck", 0),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_C_AP_CLOCK_I2C5, "imp_iic_wrap_c_ap_clock_i2c5",
++			  "i2c_pseudo_ck", 1),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_C_AP_CLOCK_I2C6, "imp_iic_wrap_c_ap_clock_i2c6",
++			  "i2c_pseudo_ck", 2),
+ };
+ 
+ static const struct mtk_gate imp_iic_wrap_w_clks[] = {
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_W_AP_CLOCK_I2C0, "imp_iic_wrap_w_ap_clock_i2c0", "top_i2c", 0),
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_W_AP_CLOCK_I2C1, "imp_iic_wrap_w_ap_clock_i2c1", "top_i2c", 1),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_W_AP_CLOCK_I2C0, "imp_iic_wrap_w_ap_clock_i2c0",
++			  "i2c_pseudo_ck", 0),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_W_AP_CLOCK_I2C1, "imp_iic_wrap_w_ap_clock_i2c1",
++			  "i2c_pseudo_ck", 1),
+ };
+ 
+ static const struct mtk_gate imp_iic_wrap_n_clks[] = {
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_N_AP_CLOCK_I2C7, "imp_iic_wrap_n_ap_clock_i2c7", "top_i2c", 0),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_N_AP_CLOCK_I2C7, "imp_iic_wrap_n_ap_clock_i2c7",
++			  "i2c_pseudo_ck", 0),
+ };
+ 
+ static const struct mtk_gate imp_iic_wrap_en_clks[] = {
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C2, "imp_iic_wrap_en_ap_clock_i2c2", "top_i2c", 0),
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C4, "imp_iic_wrap_en_ap_clock_i2c4", "top_i2c", 1),
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C8, "imp_iic_wrap_en_ap_clock_i2c8", "top_i2c", 2),
+-	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C9, "imp_iic_wrap_en_ap_clock_i2c9", "top_i2c", 3),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C2, "imp_iic_wrap_en_ap_clock_i2c2",
++			  "i2c_pseudo_ck", 0),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C4, "imp_iic_wrap_en_ap_clock_i2c4",
++			  "i2c_pseudo_ck", 1),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C8, "imp_iic_wrap_en_ap_clock_i2c8",
++			  "i2c_pseudo_ck", 2),
++	GATE_IMP_IIC_WRAP(CLK_IMP_IIC_WRAP_EN_AP_CLOCK_I2C9, "imp_iic_wrap_en_ap_clock_i2c9",
++			  "i2c_pseudo_ck", 3),
+ };
+ 
+ 

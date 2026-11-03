@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: GPL-2.0
-# Out-of-tree V4L2 media core for the running 7.0.0-q25-cfi-test kernel,
-# whose .config leaves CONFIG_MEDIA_SUPPORT unset. build.sh forces the
-# Makefile symbols; these give the C code and headers the same view, so
-# every module that includes <media/*.h> must build in this one set.
-subdir-ccflags-y += -DCONFIG_MEDIA_CONTROLLER=1 -DCONFIG_VIDEO_V4L2_SUBDEV_API=1 \
-	-DCONFIG_VIDEO_V4L2_I2C=1 -DCONFIG_V4L2_CCI_I2C_MODULE=1
-obj-m += mc/ v4l2-core/ videobuf2/ mediatek/ i2c/

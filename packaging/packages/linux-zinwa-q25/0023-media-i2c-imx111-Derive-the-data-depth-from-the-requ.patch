@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:19:50 +0000
+Subject: [PATCH] media: i2c: imx111: Derive the data depth from the requested
+ format
+
+imx111_set_pad_format() computes the data depth, and from it the pixel
+rate, from the pad's current format before that format is updated, so
+switching between RAW8 and RAW10 programs the depth of the previous
+format. Use the format being set.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/media/i2c/imx111.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/i2c/imx111.c b/drivers/media/i2c/imx111.c
+index 073efc0f..d0a72f3c 100644
+--- a/drivers/media/i2c/imx111.c
++++ b/drivers/media/i2c/imx111.c
+@@ -1140,7 +1140,7 @@ static int imx111_set_format(struct v4l2_subdev *sd,
+ 		int ret;
+ 
+ 		sensor->cur_mode = mode;
+-		sensor->data_depth = imx111_get_format_bpp(fmt);
++		sensor->data_depth = imx111_get_format_bpp(mbus_fmt);
+ 
+ 		ret = __v4l2_ctrl_s_ctrl_int64(sensor->pixel_rate,
+ 					       div_u64(sensor->pixel_clk_raw,

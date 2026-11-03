@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:38:47 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Keep the bootloader's
+ display alive
+
+The bootloader leaves the DISP power domain and the display pipeline
+clocks running for the framebuffer it scans out. Nothing in Linux
+claimed them, so genpd and the clock framework would switch them off
+as unused and the screen went dark; the board needed pd_ignore_unused
+and clk_ignore_unused.
+
+List the DISP domain and the clocks of the OVL0 -> RDMA0 -> COLOR0 ->
+CCORR0 -> AAL0 -> GAMMA0 -> POSTMASK0 -> DITHER0 -> DSI0 path on the
+simple-framebuffer node, which simpledrm holds until a display driver
+takes over, as linux-mediatek's mt6789-xiaomi-emerald does for the
+domain (ec1b71bd3149, "emerald: Fix random simplefb crashes").
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 104c65a2..7cd6ce07 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -59,6 +59,20 @@
+ 			height = <720>;
+ 			stride = <(736 * 4)>;
+ 			format = "a8r8g8b8";
++			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++			clocks = <&mmsys CLK_MM_DISP_MUTEX0>,
++				 <&mmsys CLK_MM_APB_BUS>,
++				 <&mmsys CLK_MM_DISP_OVL0>,
++				 <&mmsys CLK_MM_DISP_RDMA0>,
++				 <&mmsys CLK_MM_DISP_COLOR0>,
++				 <&mmsys CLK_MM_DISP_CCORR0>,
++				 <&mmsys CLK_MM_DISP_AAL0>,
++				 <&mmsys CLK_MM_DISP_GAMMA0>,
++				 <&mmsys CLK_MM_DISP_POSTMASK0>,
++				 <&mmsys CLK_MM_DISP_DITHER0>,
++				 <&mmsys CLK_MM_DSI0>,
++				 <&mmsys CLK_MM_DSI0_DSI_CK_DOMAIN>,
++				 <&mmsys CLK_MM_DISP_26M>;
+ 		};
+ 	};
+ 

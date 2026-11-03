@@ -17,9 +17,7 @@
   "unit_includes_stop_timeout_and_ready_cleanup": true,
   "session_delta": "Optional keyboard env-file guard; accepted shim relocated from /usr/local/lib/q25-kmsro/dri to package-owned /usr/lib/q25-gpu/dri; selector additionally requires executable GPU wrapper",
   "mesa_runtime": "26.2.6-r0 coherent full Duranium root",
-  "shim_source": "gpu-kmsro-20261030/simpledrm_dri.c; pmaports e9759d55ebb185b87d498b37b842329d78e8b72b",
-  "shim_sha256": "68fa4b2a5d0b795a1fa273531eff68a27d8c88895df328b10fcc20a9f64e069b",
-  "kms_config_status": "Exact exported accepted live asset, host/device hash matched by parent",
-  "kms_config_sha256": "ed32c467bcf591194d23ea136510b558abbc95f61a83b0881b59f06d69a2802d",
+  "kms_config_status": "mediatek-drm card through the 60-q25-display.rules symlink; replaces the SimpleDRM KMSRO shim",
+  "kms_config_sha256": "a35e4a854783cfb05096170c5089658f9815200ba4adf19ef4f98c5ba1678743",
   "packaging_validation": "Source-only; relocated shim path and stricter manifest have not been packaged or device-tested"
 }

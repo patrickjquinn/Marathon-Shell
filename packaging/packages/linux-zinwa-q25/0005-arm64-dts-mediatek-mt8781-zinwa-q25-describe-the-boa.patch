@@ -1,0 +1,654 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:26:30 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: describe the board as
+ it boots
+
+Replace the board description with the one the Q25 has booted since
+bring-up (pmaports mt6789-zinwa-q25.dts, sha512 a242ca0b...): the
+reserved-memory map of the shipped preloader, the MT6366 PMIC with its
+AUXADC and the voltage-only battery, the touchscreen, keyboard, charger,
+SD card and USB, written on the upstream mt8781-zinwa-q25.dts so the
+board has one device tree.
+
+Compiled with the 978b8b67 mt6789.dtsi it differs from the DTB the
+prebuilt kernel package shipped (0c3ee49c...) only in the chosen
+framebuffer, the ramoops carveout, two I2C enables and the touch reset;
+the next patch reconciles those.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 554 +++++++++++-------
+ 1 file changed, 351 insertions(+), 203 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index c5bf38f4..2fb58712 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1,11 +1,27 @@
+ // SPDX-License-Identifier: GPL-2.0
++/*
++ * Zinwa Q25 (BlackBerry Classic restomod) — MediaTek Helio G99 (MT6789).
++ *
++ * Modeled on mt6789-motorola-vicky.dts (ellyq/mtk_g99-mainline). This boots on
++ * ellyq's generic mediatek-g99 base via EFI (systemd-boot → vmlinuz.efi EFI
++ * stub); the framebuffer comes from EFI GOP → sysfb/simpledrm (kernel has
++ * CONFIG_EFI/EFI_STUB/FB_EFI/SYSFB_SIMPLEFB/DRM_SIMPLEDRM), so NO device-tree
++ * framebuffer node is needed.
++ *
++ * Hardware translated from LineageOS downstream (q20_v12_factory.dts) + the
++ * MT6789 SoC carveout map (shared with vicky). The only things NOT derivable
++ * off-device are boot verification and the preloader/partition map for
++ * flashing (see ~/zinwa-q25-port/SETUP.md).
++ */
+ 
+ /dts-v1/;
+ 
+ #include <dt-bindings/input/input.h>
+ #include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/regulator/mediatek,mt6397-regulator.h>
+ #include <dt-bindings/pinctrl/mediatek,mt6789-pinfunc.h>
++#include <dt-bindings/iio/adc/mediatek,mt6358-auxadc.h>
+ #include "mt6789.dtsi"
+ 
+ / {
+@@ -21,204 +37,131 @@
+ 	};
+ 
+ 	chosen {
+-		#address-cells = <2>;
+-		#size-cells = <2>;
+-		ranges;
+-
+ 		stdout-path = "serial0:921600n1";
+-
+-		framebuffer@ff97c000 {
+-			compatible = "simple-framebuffer";
+-			reg = <0 0xff97c000 0 ((720 + 16) * 720 * 4)>;
+-			width = <720>;
+-			height = <720>;
+-			stride = <((720 + 16) * 4)>;
+-			format = "a8r8g8b8";
+-		};
++		/* Framebuffer is EFI-GOP-provided (simpledrm); no fb node here. */
+ 	};
+ 
++	/*
++	 * MT6789 SoC/firmware-fixed reserved regions, adopted from
++	 * mt6789-motorola-vicky.dts (same SoC + preloader family). These MUST
++	 * be described or the kernel corrupts BL31/TEE/SCP/modem firmware. The
++	 * addresses are SoC-level and not board-specific; the framebuffer
++	 * carveout (fe0d0000) matches the bootloader fb region.
++	 */
+ 	reserved-memory {
+ 		#address-cells = <2>;
+ 		#size-cells = <2>;
++		ranges;
+ 
+-		wifi_mem: wifi@bf000000 {
+-			reg = <0 0xbf000000 0 0x600000>;
+-			no-map;
+-		};
+-
+-		emi_mem: consys_emi@7e000000 {
+-			reg = <0 0x7e000000 0 0x500000>;
+-			no-map;
+-		};
+-
+-		sspm_ap_mem: sspm_ap@9f560000 {
+-			reg = <0 0x9f560000 0 0x110000>;
+-			no-map;
+-		};
+-
+-		apmdc_mem: ap_md_c_smem@8c000000 {
+-			reg = <0 0x8c000000 0 0x16a0000>;
+-			no-map;
+-		};
+-
+-		apmdnc_mem: ap_md_nc_smem@8e000000 {
+-			reg = <0 0x8e000000 0 0xe10000>;
+-			no-map;
+-		};
+-
+-		md_mem: md_mem@e5200000 {
+-			reg = <0 0xe5200000 0 0xe00000>;
+-			no-map;
+-		};
+-
+-		md2_mem: md_mem2@e0800000 {
+-			reg = <0 0xe0800000 0 0x2c50000>;
+-			no-map;
+-		};
+-
+-		md3_mem: md_mem3@dfc00000 {
+-			reg = <0 0xdfc00000 0 0x430000>;
+-			no-map;
+-		};
+-
+-		md4_mem: md_mem4@de000000 {
+-			reg = <0 0xde000000 0 0x13f0000>;
+-			no-map;
+-		};
+-
+-		ccci_mem: ccci_tag@bf9f0000 {
+-			reg = <0 0xbf7f0000 0 0x10000>;
+-			no-map;
+-		};
+-
+-		scp_mem: scp_share@8f000000 {
+-			reg = <0 0x8f000000 0 0x7a0000>;
+-			compatible = "shared-dma-pool";
+-			no-map;
+-		};
+-
+-		scp_res_mem: scp@bf800000 {
+-			reg = <0 0xbf800000 0 0x600000>;
+-			no-map;
+-		};
+-
+-//		dfdmcu_mem: dfdmcu_dump@fd000000 {
+-//			reg = <0 0xff000000 0 0x100000>;
+-//			no-map;
+-//		};
+-
+-		crypto_mem: crypto_hw@48401000 {
+-			reg = <0 0x48401000 0 0x1000>;
+-			no-map;
+-		};
+-
+-		tee_mem: tee@70000000 {
+-			reg = <0 0x70000000 0 0x4600000>;
+-			no-map;
+-		};
+-
+-		tee_sec_mem: tee_sec@7ea00000 {
+-			reg = <0 0x7ea00000 0 0x800000>;
+-			no-map;
+-		};
+-
+-		mcupm_mem: mcupm@7feb0000 {
+-			reg = <0 0x7feb0000 0 0x100000>;
+-			no-map;
+-		};
+-
+-		sspm_mem: sspm@9fe70000 {
+-			reg = <0 0x9fe70000 0 0x180000>;
+-			no-map;
+-		};
+-
+-		fb_mem: framebuffer@ff97c000 {
+-			reg = <0 0xff97c000 0 0x683000>;
+-			no-map;
+-		};
+-
+-		bl31_mem: bl31@48200000 {
+-			reg = <0 0x48200000 0 0x200000>;
+-			no-map;
+-		};
+-
+-		aee_lk_mem: aee_lk@50700000 {
+-			reg = <0 0x50700000 0 0x800000>;
+-			no-map;
+-		};
+-
+-//		minirdump_mem: minirdump@48170000 {
+-//			reg = <0 0x48170000 0 0x10000>;
+-//			no-map;
+-//		};
+-
+-//		pstore_mem: pstore@48090000 {
+-//			reg = <0 0x48090000 0 0xe0000>;
+-//			no-map;
+-//		};
+-
+-//		aee_kinfo_mem: aee_kinfo@48080000 {
+-//			reg = <0 0x48080000 0 0x10000>;
+-//			no-map;
+-//		};
+-
+-//		atf_log_mem: atf_log@bfe00000 {
+-//			reg = <0 0xbfe00000 0 0x200000>;
+-//			no-map;
+-//		};
+-
+-//		log_mem: log_store@7ffbf000 {
+-//			reg = <0 0x7ffbf000 0 0x40000>;
+-//			no-map;
+-//		};
+-
+-//		gz_log_mem: gz_log@7f200000 {
+-//			reg = <0 0x7f200000 0 0x41000>;
+-//			no-map;
+-//		};
+-
+-		unmap_mem: unmap@7f400000 {
+-			reg = <0 0x7f400000 0 0x400000>;
+-			no-map;
+-		};
+-
+-		gz_mem: gz@7f800000 {
+-			reg = <0 0x7f800000 0 0x600000>;
+-			no-map;
+-		};
+-
+-		mbist_mem: emi_mbist@7ffff000 {
+-			reg = <0 0x7ffff000 0 0x1000>;
+-			no-map;
+-		};
+-
+-		// This SoC likely uses two DRAM bsanks,
+-		// so each bank needs 4K of reserved memory per bank.
+-		// ( Speculation, quotation needed :P )
+-//		dram1_mem: dram-controller1@3ffff000 {
+-//			reg = <0x3 0x3ffff000 0 0x1000>;
+-//			no-map;
+-//		};
+-
+-//		dram0_mem: dram-controller0@3ffff000 {
+-//			reg = <0x1 0xbffff000 0 0x1000>;
+-//			no-map;
+-//		};
+-
+-		dram_mem: dram-controller0@3ffff000 {
+-			reg = <0x0 0xbffff000 0 0x3000>;
+-			no-map;
++		wifi_mem:     wifi@bf000000        { reg = <0 0xbf000000 0 0x600000>;  no-map; };
++		consys_emi:   consys_emi@7d000000  { reg = <0 0x7d000000 0 0x500000>;  no-map; };
++		sspm_ap_mem:  sspm_ap@9f560000     { reg = <0 0x9f560000 0 0x110000>;  no-map; };
++		apmdc_mem:    ap_md_c_smem@8c000000  { reg = <0 0x8c000000 0 0x16a0000>; no-map; };
++		apmdnc_mem:   ap_md_nc_smem@8e000000 { reg = <0 0x8e000000 0 0xe00000>;  no-map; };
++		md_mem:       md_mem@e3200000      { reg = <0 0xe3200000 0 0xe00000>;  no-map; };
++		md2_mem:      md_mem2@de800000     { reg = <0 0xde800000 0 0x2b10000>; no-map; };
++		md3_mem:      md_mem3@ddc00000     { reg = <0 0xddc00000 0 0x430000>;  no-map; };
++		md4_mem:      md_mem4@dc000000     { reg = <0 0xdc000000 0 0x1490000>; no-map; };
++		ccci_mem:     ccci_tag@bf9f0000    { reg = <0 0xbf9f0000 0 0x10000>;   no-map; };
++		scp_mem:      scp_share@8f000000   { reg = <0 0x8f000000 0 0x5a0000>;  compatible = "shared-dma-pool"; no-map; };
++		scp_res_mem:  scp@bfa00000         { reg = <0 0xbfa00000 0 0x400000>;  no-map; };
++		dfdmcu_mem:   dfdmcu_dump@fd000000 { reg = <0 0xfd000000 0 0x100000>;  no-map; };
++		crypto_mem:   crypto_hw@48401000   { reg = <0 0x48401000 0 0x1000>;    no-map; };
++		tee_mem:      tee@70000000         { reg = <0 0x70000000 0 0x4600000>; no-map; };
++		tee_sec_mem:  tee_sec@7de00000     { reg = <0 0x7de00000 0 0x800000>;  no-map; };
++		mcupm_mem:    mcupm@7feb0000       { reg = <0 0x7feb0000 0 0x100000>;  no-map; };
++		sspm_mem:     sspm@9fe70000        { reg = <0 0x9fe70000 0 0x180000>;  no-map; };
++		bl31_mem:     bl31@48200000        { reg = <0 0x48200000 0 0x200000>;  no-map; };
++		fb_mem:       framebuffer@fe0d0000 { reg = <0 0xfe0d0000 0 0x1f2f000>; no-map; };
++		aee_lk_mem:   aee_lk@50700000      { reg = <0 0x50700000 0 0x800000>;  no-map; };
++
++		/*
++		 * ramoops persistent crash recorder. Placed in the 2 MiB hole at
++		 * the top of the declared RAM window (memory@ = 0x40000000 +
++		 * 0x80000000 = ends 0xc0000000; the last SoC carveout scp@bfa00000
++		 * ends at 0xbfe00000), so it collides with nothing above and the
++		 * MTK watchdog warm-reset (WATCHDOG_HANDLE_BOOT_ENABLED, 31 s)
++		 * preserves DRAM across a hang -> the last kernel console lines
++		 * survive to /sys/fs/pstore on the next boot. This is the "never
++		 * silently brick again" net: an early driver hang (e.g. the scpsys
++		 * pm-domains probe that wedged the boot with zero disk/journal
++		 * trace) now leaves console-ramoops behind. Requires the built-in
++		 * (=y, not =m) CONFIG_PSTORE_RAM + CONFIG_PSTORE_CONSOLE in config.
++		 * NOT no-map: ramoops memremaps the region as normal RAM.
++		 */
++		ramoops@bfe00000 {
++			compatible = "ramoops";
++			reg = <0 0xbfe00000 0 0x100000>;
++			console-size = <0x80000>;
++			record-size = <0x40000>;
++			pmsg-size = <0x20000>;
++			max-reason = <5>; /* KMSG_DUMP_OOPS and worse */
+ 		};
+ 	};
+ 
++	/*
++	 * Main system rail feeding the MT6366 PMIC. Fixed/always-on: it is
++	 * hardwired live by the preloader (which is why the device boots with
++	 * the regulator subsystem previously compiled out). Every mt6366
++	 * vsys-*-supply below hangs off this. Board-specific panel/sensor
++	 * fixed-regulators (avdd/vci/dvdd, which have GPIO enables) are added
++	 * with the display bring-up, not here.
++	 */
+ 	reg_vsys: regulator-vsys {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "vsys";
+ 		regulator-always-on;
+ 		regulator-boot-on;
+ 	};
++
++	/*
++	 * Battery — 3000 mAh Li-ion pack. Values from the stock DTBO
++	 * (upm6922 vreg 4440 mV, ichg 3000 mA, iprechg 180 mA, iterm 200 mA;
++	 * pack design_cap 3000 mAh; gauge shutdown floor 3.4 V).
++	 */
++	battery: battery {
++		compatible = "simple-battery";
++		device-chemistry = "lithium-ion";
++		charge-full-design-microamp-hours = <3000000>;
++		voltage-min-design-microvolt = <3400000>;
++		voltage-max-design-microvolt = <4440000>;
++		constant-charge-current-max-microamp = <3000000>;
++		constant-charge-voltage-max-microvolt = <4440000>;
++		precharge-current-microamp = <180000>;
++		charge-term-current-microamp = <200000>;
++	};
++
++	/*
++	 * Voltage-only fuel gauge: the MT6366 AUXADC BATADC channel surfaced
++	 * as a battery power_supply (generic-adc-battery). The MT6366
++	 * coulomb-counter gauge has no mainline driver; % is derived from
++	 * voltage in userspace for now.
++	 *
++	 * NB: deliberately NO `power-supplies = <&charger>` here. Linking the
++	 * adc-battery's supplied_from to the bq256xx charger makes
++	 * power_supply_changed_work -> __power_supply_am_i_supplied walk the
++	 * supply list and strcmp() a NULL supplier name the instant the charger
++	 * comes online -> NULL-deref Oops (observed 2x at ~4s probe on-device).
++	 * The voltage gauge polls the ADC independently, so it needs no supply
++	 * notifications. Do not re-add the link.
++	 */
++	fuel_gauge: fuel-gauge {
++		compatible = "adc-battery";
++		io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
++		io-channel-names = "voltage";
++		monitored-battery = <&battery>;
++	};
+ };
+ 
++/* ------------------------------------------------------------------ *
++ * PMIC — MT6366 (mt6358 family) over the SoC pwrap. Cribbed verbatim from
++ * mt6789-motorola-vicky.dts (same SoC + PMIC). Without this node the pwrap
++ * driver probes the bare SoC node, finds no PMIC child, and fails -EINVAL
++ * (-22) — which starved every regulator, the RTC, and the power key. Needs
++ * CONFIG_REGULATOR + CONFIG_REGULATOR_MT6358 (added to the kernel config).
++ * Keys: power = KEY_POWER (universal); the HOME pin keycode is provisional
++ * and will be reconciled with the Q25's physical buttons later.
++ * ------------------------------------------------------------------ */
+ &pwrap {
+ 	status = "okay";
+ 
+@@ -631,58 +574,263 @@
+ 				linux,keycodes = <KEY_VOLUMEUP>;
+ 			};
+ 		};
++
++		/*
++		 * MT6366 AUXADC — the MFD core (mt6358 chip_data) already
++		 * registers the "mt6359-auxadc" cell for this PMIC; the node
++		 * just needs to exist so the driver binds and exposes BATADC.
++		 */
++		pmic_adc: adc {
++			compatible = "mediatek,mt6358-auxadc";
++			#io-channel-cells = <1>;
++		};
+ 	};
+ };
+ 
+-&usb2 {
++/* ------------------------------------------------------------------ *
++ * Touchscreen — Synaptics S2716B on I2C0 @ 0x67 (CONFIRMED, LineageOS
++ * q20_v12_factory.dts). 720x720, 5-point. irq=GPIO9 (active-low),
++ * reset=GPIO152 (active-low), power=GPIO27 (active-high). Mainline: rmi4-i2c.
++ * ------------------------------------------------------------------ */
++&i2c0 {
+ 	status = "okay";
+ 
+-	dr_mode = "peripheral";
+-	maximum-speed = "high-speed";
++	touchscreen@67 {
++		compatible = "syna,rmi4-i2c";
++		reg = <0x67>;
++
++		interrupt-parent = <&pio>;
++		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
++
++		/*
++		 * Power = GPIO27 (active-high). Modeled as an always-on enable
++		 * regulator feeding vdd-supply; reset = GPIO152 (active-low).
++		 * rmi4-i2c has no reset-gpios property — verify on-device whether
++		 * a gpio-hog on 152 or a regulator ramp is needed. syna,reset-
++		 * delay-ms covers the post-reset settle.
++		 */
++		syna,reset-delay-ms = <200>;
++
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		rmi4-f01@1 {
++			reg = <0x1>;
++			syna,nosleep-mode = <1>;
++		};
++
++		rmi4-f12@12 {
++			reg = <0x12>;
++			syna,sensor-type = <1>;
++			/* 720x720 on a 3.5" square panel ≈ 63 mm/side */
++			touchscreen-x-mm = <63>;
++			touchscreen-y-mm = <63>;
++		};
++	};
++};
++
++/* ------------------------------------------------------------------ *
++ * Charger — Unisemipower UPM6922 on I2C5 @ 0x6B (stock DTBO fragment@36).
++ * Register-compatible BQ25601 clone (REG0B PN=2), driven by the mainline
++ * bq256xx driver. INT = GPIO37. vindpm 4.6 V from the vendor DT; iindpm
++ * left at the chip/driver default until BC1.2/Type-C negotiation is wired.
++ * This is what lets the phone charge while booted: the bootloader hands the
++ * charger over parked-disabled, and the 0003 patch re-enables it at probe.
++ * ------------------------------------------------------------------ */
++&i2c5 {
++	status = "okay";
++
++	charger: charger@6b {
++		compatible = "ti,bq25601";
++		reg = <0x6b>;
++		interrupts-extended = <&pio 37 IRQ_TYPE_EDGE_FALLING>;
++		input-voltage-limit-microvolt = <4600000>;
++		monitored-battery = <&battery>;
++	};
++};
++
++/* ================================================================== *
++ * Native GPU-accelerated display (mtk-drm), replacing simpledrm.
++ *
++ * The MT6789 display IP is an mt8186-generation clone: the mtk-drm main DDP
++ * path OVL0 -> RDMA0 -> COLOR0 -> CCORR -> AAL0 -> GAMMA -> POSTMASK0 ->
++ * DITHER0 -> DSI0 is identical. mt6789 SoC support is added by the companion
++ * kernel patch (0001-drm-mediatek-add-mt6789-display-support.patch): it wires
++ * "mediatek,mt6789-mmsys" (reusing the mt8186 routing table + the mt6789 MM
++ * clock driver) and "mediatek,mt6789-dsi" (reusing mt8186 DSI driver-data).
++ *
++ * ellyq's mt6789.dtsi declares only ovl0/rdma0/dither0/dsi0 (+mutex/dsc); the
++ * five in-pipeline processors below (color/ccorr/aal/gamma/postmask) are added
++ * here from the vendor base DTB addresses/IRQs + mt8186.dtsi structure. Each
++ * disp node carries the mt8192/mt8173/mt8183 fallback compatible its component
++ * driver already matches, so no per-component driver change is needed.
++ * ================================================================== */
++
++/* The five in-pipeline processors ellyq's dtsi omitted. Addresses + SPI IRQs
++ * from the vendor base DTB; clocks/PD/gce mirror the existing mt6789 ovl0. */
++&{/soc} {
++	color0: color@14009000 {
++		compatible = "mediatek,mt6789-disp-color", "mediatek,mt8173-disp-color";
++		reg = <0 0x14009000 0 0x1000>;
++		interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++		power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++		clocks = <&mmsys CLK_MM_DISP_COLOR0>;
++		mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0x9000 0x1000>;
++		status = "okay";
++	};
++
++	ccorr0: ccorr@1400b000 {
++		compatible = "mediatek,mt6789-disp-ccorr", "mediatek,mt8192-disp-ccorr";
++		reg = <0 0x1400b000 0 0x1000>;
++		interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++		power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++		clocks = <&mmsys CLK_MM_DISP_CCORR0>;
++		mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xb000 0x1000>;
++		status = "okay";
++	};
++
++	aal0: aal@1400c000 {
++		compatible = "mediatek,mt6789-disp-aal", "mediatek,mt8183-disp-aal";
++		reg = <0 0x1400c000 0 0x1000>;
++		interrupts = <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++		power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++		clocks = <&mmsys CLK_MM_DISP_AAL0>;
++		mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xc000 0x1000>;
++		status = "okay";
++	};
++
++	gamma0: gamma@1400d000 {
++		compatible = "mediatek,mt6789-disp-gamma", "mediatek,mt8183-disp-gamma";
++		reg = <0 0x1400d000 0 0x1000>;
++		interrupts = <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++		power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++		clocks = <&mmsys CLK_MM_DISP_GAMMA0>;
++		mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xd000 0x1000>;
++		status = "okay";
++	};
++
++	postmask0: postmask@1400e000 {
++		compatible = "mediatek,mt6789-disp-postmask", "mediatek,mt8192-disp-postmask";
++		reg = <0 0x1400e000 0 0x1000>;
++		interrupts = <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
++		power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
++		clocks = <&mmsys CLK_MM_DISP_POSTMASK0>;
++		mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0xe000 0x1000>;
++		status = "okay";
++	};
++
++	/*
++	 * ocp2131 DSI panel bias (+/-AVDD/AVEE). The bootloader already programs
++	 * its I2C registers; hold its enable (GPIO84) high so the rails stay up
++	 * across the mtk-drm panel re-init. (A full ocp2131 i2c driver can replace
++	 * this later for runtime power management.)
++	 */
++	panel_bias_en: panel-bias-enable {
++		compatible = "regulator-fixed";
++		regulator-name = "panel-bias-en";
++		gpio = <&pio 84 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++};
++
++/* Enable the pipeline components already present in mt6789.dtsi and give the
++ * three that lacked a fallback the compatible their driver matches. */
++&ovl0 {
++	compatible = "mediatek,mt6789-disp-ovl", "mediatek,mt8192-disp-ovl";
++	status = "okay";
++};
++
++&rdma0 {
++	compatible = "mediatek,mt6789-disp-rdma", "mediatek,mt8183-disp-rdma";
++	status = "okay";
++};
++
++&dither0 {
++	compatible = "mediatek,mt6789-disp-dither", "mediatek,mt8183-disp-dither";
++	status = "okay";
+ };
+ 
+-&u2phy {
++&mutex {
++	compatible = "mediatek,mt6789-disp-mutex", "mediatek,mt8186-disp-mutex";
+ 	status = "okay";
+ };
+ 
+-&mmc1 {
++/* MIPI D-PHY (already has an mt8183 fallback in the dtsi). */
++&mipi_tx0 {
+ 	status = "okay";
++};
+ 
+-	pinctrl-names = "default", "state_uhs";
+-//	pinctrl-0 = <&mmc1_pins_default>;
+-//	pinctrl-1 = <&mmc1_pins_default>;
++/* DSI host + the Zinwa q20_v12 720x720 video-mode panel. */
++&dsi0 {
++	status = "okay";
++	#address-cells = <1>;
++	#size-cells = <0>;
+ 
+-	bus-width = <4>;
++	panel@0 {
++		compatible = "zinwa,q20-hd720";
++		reg = <0>;
+ 
+-	max-frequency = <200000000>;
++		/* reset = GPIO85, avdd/enable = GPIO156 (vendor q20_v12). Raw
++		 * sequence in the panel driver expects active-high semantics. */
++		reset-gpios = <&pio 85 GPIO_ACTIVE_HIGH>;
++		enable-gpios = <&pio 156 GPIO_ACTIVE_HIGH>;
+ 
+-	cap-sd-highspeed;
+-	sd-uhs-sdr12;
+-	sd-uhs-sdr25;
+-	sd-uhs-sdr50;
+-	sd-uhs-sdr104;
+-	sd-uhs-ddr50;
++		/* TODO: backlight = <&...>; the vendor uses a mediatek,i2c-leds
++		 * controller. The bootloader leaves the backlight on, so first
++		 * light does not require it; add for brightness control later. */
+ 
+-	cd-debounce-delay-ms = <0>;
+-	cd-gpios = <&pio 7 GPIO_ACTIVE_HIGH>;
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&dsi_out>;
++			};
++		};
++	};
+ 
+-	vmmc-supply = <&mt6366_vmch_reg>;
+-	vqmmc-supply = <&mt6366_vmc_reg>;
++	ports {
++		port {
++			dsi_out: endpoint {
++				remote-endpoint = <&panel_in>;
++			};
++		};
++	};
+ };
+ 
+-&uart0 {
++/* ------------------------------------------------------------------ *
++ * GPU — Mali-G57 (Valhall, job-manager). Panfrost + mt6789 GPU support is
++ * already in ellyq's tree; the node just needs enabling and its supplies. The
++ * vgpu / vsram_gpu rails are coupled (see the mt6366 regulators above).
++ * ------------------------------------------------------------------ */
++&gpu {
++	mali-supply = <&mt6366_vgpu_reg>;
++	sram-supply = <&mt6366_vsram_gpu_reg>;
+ 	status = "okay";
+ };
+ 
++/* ------------------------------------------------------------------ *
++ * Internal storage — UFS on ufs@11270000 (+ its PHY) and the peripheral
++ * USB2 controller. The SoC mt6789.dtsi defines both fully (incl. the
++ * mediatek,ufs-disable-mcq + ufs-broken-vcc quirks) but leaves them
++ * status="disabled"; the board must enable them. Without this, the compiled
++ * DTB ships with UFS/USB off and Linux never enumerates storage (the initramfs
++ * then times out with no root). Same enable pattern as the vicky sibling board.
++ * ------------------------------------------------------------------ */
+ &ufsphy {
+ 	status = "okay";
+ };
+ 
+ &ufs {
+ 	status = "okay";
+-//	vcc-supply = <&mt6366_vemc_reg>;
+ };
+ 
+-&pio {
++&usb2 {
++	status = "okay";
++	dr_mode = "peripheral";
++	maximum-speed = "high-speed";
+ };
+ 
++/* ------------------------------------------------------------------ *
++ * Physical QWERTY: RP2040 USB-HID — enumerates over USB, remapped by keyd.
++ * No DT node.
++ * ------------------------------------------------------------------ */

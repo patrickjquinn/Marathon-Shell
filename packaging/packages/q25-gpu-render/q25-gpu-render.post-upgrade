@@ -8,4 +8,3 @@ if [ -L "$legacy" ]; then
             rm -f "$legacy" ;;
     esac
 fi
-exec depmod -a 7.0.0-q25-cfi-test

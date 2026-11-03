@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 11:48:48 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Constrain the GPU
+ supplies
+
+The vgpu and vsram_gpu rails kept the PMIC's 0.5-1.29 V defaults, so
+the GPU SRAM could sit at 500 mV under a 675 mV core, as measured on the
+phone after the MFG domains had cycled. Limit vgpu to the GPU OPP range
+(675-900 mV) and give vsram_gpu the 850 mV floor the other MT6358/MT6366
+boards use (mt8183-evb, mt8183-kukui, mt8186-corsola), up to 100 mV over
+the highest vgpu.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index f38b5ece..d21403f9 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -322,8 +322,8 @@
+ 
+ 			mt6366_vgpu_reg: vgpu {
+ 				regulator-name = "vgpu";
+-				regulator-min-microvolt = <500000>;
+-				regulator-max-microvolt = <1293750>;
++				regulator-min-microvolt = <675000>;
++				regulator-max-microvolt = <900000>;
+ 				regulator-ramp-delay = <6250>;
+ 				regulator-enable-ramp-delay = <200>;
+ 				regulator-allowed-modes = <MT6397_BUCK_MODE_AUTO
+@@ -482,8 +482,8 @@
+ 
+ 			mt6366_vsram_gpu_reg: vsram-gpu {
+ 				regulator-name = "vsram_gpu";
+-				regulator-min-microvolt = <500000>;
+-				regulator-max-microvolt = <1293750>;
++				regulator-min-microvolt = <850000>;
++				regulator-max-microvolt = <1000000>;
+ 				regulator-ramp-delay = <6250>;
+ 				regulator-enable-ramp-delay = <240>;
+ 
+-- 
+2.55.0
+

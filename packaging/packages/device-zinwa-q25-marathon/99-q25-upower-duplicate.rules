@@ -1,2 +1,2 @@
 # Needs upower-q25: stock UPower does not read UPOWER_IGNORE.
-ACTION!="remove", SUBSYSTEM=="power_supply", KERNEL=="bq256xx-battery", ATTR{type}=="Battery", TEST=="/sys/class/power_supply/fuel-gauge", ENV{UPOWER_IGNORE}="1"
+ACTION!="remove", SUBSYSTEM=="power_supply", KERNEL=="bq256xx-battery", ATTR{type}=="Battery", TEST=="/sys/class/power_supply/mt6358-battery", ENV{UPOWER_IGNORE}="1"

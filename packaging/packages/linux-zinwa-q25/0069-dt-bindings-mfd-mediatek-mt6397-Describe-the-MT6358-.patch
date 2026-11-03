@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:51:34 +0000
+Subject: [PATCH] dt-bindings: mfd: mediatek,mt6397: Describe the MT6358 clock
+ buffers
+
+The crystal oscillator of the MT6358 and MT6366 drives six 26 MHz output
+buffers, among them the reference clocks of the WLAN/Bluetooth combo chip
+and of the NFC controller. Allow them as a clock provider in the clocks
+child node, which so far only covered the MT6397, and add the buffer
+indices.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/mfd/mediatek,mt6397.yaml |  7 ++++---
+ MAINTAINERS                                      |  6 ++++++
+ include/dt-bindings/clock/mediatek,mt6358-clk.h  | 16 ++++++++++++++++
+ 3 files changed, 26 insertions(+), 3 deletions(-)
+ create mode 100644 include/dt-bindings/clock/mediatek,mt6358-clk.h
+
+diff --git a/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml b/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml
+index d74a691d..cbcca1e9 100644
+--- a/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml
++++ b/Documentation/devicetree/bindings/mfd/mediatek,mt6397.yaml
+@@ -137,12 +137,13 @@ properties:
+     type: object
+     additionalProperties: false
+     description:
+-      This is a clock buffer node for mt6397. However, there are no sub nodes
+-      or any public document exposed in public.
++      The clock buffers of the PMIC's crystal oscillator.
+ 
+     properties:
+       compatible:
+-        const: mediatek,mt6397-clk
++        enum:
++          - mediatek,mt6358-clk
++          - mediatek,mt6397-clk
+ 
+       '#clock-cells':
+         const: 1
+diff --git a/MAINTAINERS b/MAINTAINERS
+index cb1196f8..646eed01 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -16269,6 +16269,12 @@ S:	Maintained
+ F:	Documentation/devicetree/bindings/mmc/mtk-sd.yaml
+ F:	drivers/mmc/host/mtk-sd.c
+ 
++MEDIATEK MT6358 CLOCK BUFFER DRIVER
++M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
++L:	linux-clk@vger.kernel.org
++S:	Maintained
++F:	include/dt-bindings/clock/mediatek,mt6358-clk.h
++
+ MEDIATEK MT6358 FUEL GAUGE DRIVER
+ M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
+ L:	linux-pm@vger.kernel.org
+diff --git a/include/dt-bindings/clock/mediatek,mt6358-clk.h b/include/dt-bindings/clock/mediatek,mt6358-clk.h
+new file mode 100644
+index 00000000..a3c64286
+--- /dev/null
++++ b/include/dt-bindings/clock/mediatek,mt6358-clk.h
+@@ -0,0 +1,16 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++/*
++ * Clock buffers of the MediaTek MT6358 and MT6366 PMICs
++ */
++
++#ifndef _DT_BINDINGS_CLOCK_MEDIATEK_MT6358_CLK_H
++#define _DT_BINDINGS_CLOCK_MEDIATEK_MT6358_CLK_H
++
++#define MT6358_CLK_XO_SOC	0
++#define MT6358_CLK_XO_WCN	1
++#define MT6358_CLK_XO_NFC	2
++#define MT6358_CLK_XO_CEL	3
++#define MT6358_CLK_XO_PD	4
++#define MT6358_CLK_XO_EXT	5
++
++#endif

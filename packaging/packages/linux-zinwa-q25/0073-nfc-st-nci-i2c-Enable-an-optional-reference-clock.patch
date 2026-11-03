@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:51:35 +0000
+Subject: [PATCH] nfc: st-nci: i2c: Enable an optional reference clock
+
+Controllers without a crystal need their reference clock running while
+they are in use. Enable it before the controller is taken out of reset
+and disable it when the controller is disabled.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/nfc/st-nci/i2c.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/nfc/st-nci/i2c.c b/drivers/nfc/st-nci/i2c.c
+index 416770ad..379d159b 100644
+--- a/drivers/nfc/st-nci/i2c.c
++++ b/drivers/nfc/st-nci/i2c.c
+@@ -8,6 +8,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/i2c.h>
++#include <linux/clk.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/acpi.h>
+ #include <linux/interrupt.h>
+@@ -36,6 +37,8 @@ struct st_nci_i2c_phy {
+ 	bool irq_active;
+ 
+ 	struct gpio_desc *gpiod_reset;
++	struct clk *clk;
++	bool clk_on;
+ 
+ 	struct st_nci_se_status se_status;
+ };
+@@ -43,6 +46,14 @@ struct st_nci_i2c_phy {
+ static int st_nci_i2c_enable(void *phy_id)
+ {
+ 	struct st_nci_i2c_phy *phy = phy_id;
++	int r;
++
++	if (!phy->clk_on) {
++		r = clk_prepare_enable(phy->clk);
++		if (r)
++			return r;
++		phy->clk_on = true;
++	}
+ 
+ 	gpiod_set_value(phy->gpiod_reset, 0);
+ 	usleep_range(10000, 15000);
+@@ -63,6 +74,11 @@ static void st_nci_i2c_disable(void *phy_id)
+ 
+ 	disable_irq_nosync(phy->i2c_dev->irq);
+ 	phy->irq_active = false;
++
++	if (phy->clk_on) {
++		clk_disable_unprepare(phy->clk);
++		phy->clk_on = false;
++	}
+ }
+ 
+ /*
+@@ -225,6 +241,11 @@ static int st_nci_i2c_probe(struct i2c_client *client)
+ 		return -ENODEV;
+ 	}
+ 
++	phy->clk = devm_clk_get_optional(dev, NULL);
++	if (IS_ERR(phy->clk))
++		return dev_err_probe(dev, PTR_ERR(phy->clk),
++				     "Unable to get reference clock\n");
++
+ 	phy->se_status.is_ese_present =
+ 				device_property_read_bool(dev, "ese-present");
+ 	phy->se_status.is_uicc_present =

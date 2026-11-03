@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Tue, 28 Jul 2026 17:55:32 -0500
+Subject: [PATCH] dt-bindings: iio: imu: icm42600: Add mount-matrix
+
+Add mount-matrix attribute to schema. This attribute has been supported
+since the first revision of this driver, but was not documented.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Signed-off-by: Jonathan Cameron <jonathan.cameron@oss.qualcomm.com>
+
+(cherry picked from commit e097c0108de9068daf7f7c5b328e0b5938694d1c)
+---
+ .../devicetree/bindings/iio/imu/invensense,icm42600.yaml        | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/iio/imu/invensense,icm42600.yaml b/Documentation/devicetree/bindings/iio/imu/invensense,icm42600.yaml
+index 119e28a8..9b2af104 100644
+--- a/Documentation/devicetree/bindings/iio/imu/invensense,icm42600.yaml
++++ b/Documentation/devicetree/bindings/iio/imu/invensense,icm42600.yaml
+@@ -53,6 +53,8 @@ properties:
+   drive-open-drain:
+     type: boolean
+ 
++  mount-matrix: true
++
+   vdd-supply:
+     description: Regulator that provides power to the sensor
+ 

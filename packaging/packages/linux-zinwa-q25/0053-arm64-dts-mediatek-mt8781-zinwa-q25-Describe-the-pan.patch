@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:49:46 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Describe the panel
+ bias supply
+
+The panel's source driver bias comes from an OCP2131 on I2C7 at 0x3e,
+enabled by GPIO84 (both ENP and ENN). Describe it as a TPS65132
+compatible regulator and give the panel its AVDD/AVEE supplies, with
+the reset line active low as the panel driver expects.
+
+The panel driver now sleeps the panel and drops the bias on DPMS off,
+so the zinwa,q25-panel-doze node that did this over the firmware's DSI
+setup, and the disabled fixed regulator that held GPIO84 before it,
+go.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 54 ++++++++-----------
+ 1 file changed, 23 insertions(+), 31 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index cffb1218..2886f9d7 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -694,6 +694,26 @@
+ 
+ &i2c7 {
+ 	status = "okay";
++
++	/* OCP2131 panel bias; GPIO84 drives both ENP and ENN. */
++	regulator@3e {
++		compatible = "ocs,ocp2131", "ti,tps65132";
++		reg = <0x3e>;
++		vin-supply = <&reg_vsys>;
++
++		lcd_bias_pos: outp {
++			regulator-name = "lcd-bias-pos";
++			regulator-min-microvolt = <4000000>;
++			regulator-max-microvolt = <6000000>;
++			enable-gpios = <&pio 84 GPIO_ACTIVE_HIGH>;
++		};
++
++		lcd_bias_neg: outn {
++			regulator-name = "lcd-bias-neg";
++			regulator-min-microvolt = <4000000>;
++			regulator-max-microvolt = <6000000>;
++		};
++	};
+ };
+ 
+ #define Q25_PINMUX(pin, func)	(((pin) << 8) | (func))
+@@ -971,29 +991,6 @@
+ 		status = "okay";
+ 	};
+ 
+-	/*
+-	 * ocp2131 DSI panel bias (+/-AVDD/AVEE). The bootloader already programs
+-	 * its I2C registers. GPIO84 belongs to panel-doze below, which drops the
+-	 * bias only after putting the panel to sleep.
+-	 */
+-	panel_bias_en: panel-bias-enable {
+-		compatible = "regulator-fixed";
+-		regulator-name = "panel-bias-en";
+-		gpio = <&pio 84 GPIO_ACTIVE_HIGH>;
+-		enable-active-high;
+-		regulator-boot-on;
+-		regulator-always-on;
+-		status = "disabled";
+-	};
+-
+-	/* Doze: sleep the panel over the firmware-configured DSI host (q25-panel-doze). */
+-	panel-doze@14013000 {
+-		compatible = "zinwa,q25-panel-doze";
+-		reg = <0 0x14013000 0 0x1000>;
+-		bias-gpios = <&pio 84 GPIO_ACTIVE_HIGH>;
+-		reset-gpios = <&pio 85 GPIO_ACTIVE_HIGH>;
+-	};
+-
+ 	afe_pcm: audio-controller@11210000 {
+ 		compatible = "mediatek,mt6789-sound";
+ 		reg = <0 0x11210000 0 0x2000>;
+@@ -1263,15 +1260,10 @@
+ 	panel@0 {
+ 		compatible = "zinwa,q20-hd720";
+ 		reg = <0>;
+-
+-		/* reset = GPIO85, avdd/enable = GPIO156 (vendor q20_v12). Raw
+-		 * sequence in the panel driver expects active-high semantics. */
+-		reset-gpios = <&pio 85 GPIO_ACTIVE_HIGH>;
++		avdd-supply = <&lcd_bias_pos>;
++		avee-supply = <&lcd_bias_neg>;
+ 		enable-gpios = <&pio 156 GPIO_ACTIVE_HIGH>;
+-
+-		/* TODO: backlight = <&...>; the vendor uses a mediatek,i2c-leds
+-		 * controller. The bootloader leaves the backlight on, so first
+-		 * light does not require it; add for brightness control later. */
++		reset-gpios = <&pio 85 GPIO_ACTIVE_LOW>;
+ 
+ 		port {
+ 			panel_in: endpoint {

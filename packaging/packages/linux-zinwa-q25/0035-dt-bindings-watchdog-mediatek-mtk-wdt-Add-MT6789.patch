@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:20:41 +0000
+Subject: [PATCH] dt-bindings: watchdog: mediatek,mtk-wdt: Add MT6789
+
+The MT6789 TOPRGU is register compatible with the MT6589 watchdog and
+also resets the CONNSYS MCU through WDT_SWSYSRST. Add its compatible,
+with the MT6589 fallback, and the reset index for the CONN MCU.
+
+Only bit 12 (CONN MCU) is taken from MediaTek's MT6789 CONNSYS code;
+the other WDT_SWSYSRST bits are not described until they are known.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml        | 1 +
+ include/dt-bindings/reset/mediatek,mt6789-resets.h            | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml b/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml
+index 953629cb..a6b10b7c 100644
+--- a/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml
++++ b/Documentation/devicetree/bindings/watchdog/mediatek,mtk-wdt.yaml
+@@ -36,6 +36,7 @@ properties:
+               - mediatek,mt2701-wdt
+               - mediatek,mt6572-wdt
+               - mediatek,mt6582-wdt
++              - mediatek,mt6789-wdt
+               - mediatek,mt6797-wdt
+               - mediatek,mt7622-wdt
+               - mediatek,mt7623-wdt
+diff --git a/include/dt-bindings/reset/mediatek,mt6789-resets.h b/include/dt-bindings/reset/mediatek,mt6789-resets.h
+index 1918ebef..4c19a399 100644
+--- a/include/dt-bindings/reset/mediatek,mt6789-resets.h
++++ b/include/dt-bindings/reset/mediatek,mt6789-resets.h
+@@ -9,4 +9,8 @@
+ #define MT6789_INFRA_RST2_UNIPRO_SWRST		2
+ #define MT6789_INFRA_RST3_UFS_CRYPTO_SWRST	3
+ 
++/* TOPRGU resets */
++#define MT6789_TOPRGU_CONN_MCU_SW_RST		12
++#define MT6789_TOPRGU_SW_RST_NUM		13
++
+ #endif  /* _DT_BINDINGS_RESET_CONTROLLER_MT6789 */

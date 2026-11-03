@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
+# videobuf2 (selected by no in-tree driver in this config) and the camera
+# receive drivers that use it, built as one set.
+obj-m += videobuf2/ mediatek/

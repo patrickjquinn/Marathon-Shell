@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:29:21 +0000
+Subject: [PATCH] ASoC: dt-bindings: awinic,aw87390: Add Orient Chip OCA72390
+
+The Orient Chip OCA72390 is register compatible with the aw87390 but
+reports chip ID 0x11. The one known user, the Zinwa Q25, has no Awinic
+ACF configuration file, so like the Anbernic RG-DS it gets a board
+compatible that selects a fixed register configuration, with the chip
+as the fallback.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/sound/awinic,aw87390.yaml         | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml b/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml
+index 9c1baae7..b3d77892 100644
+--- a/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml
++++ b/Documentation/devicetree/bindings/sound/awinic,aw87390.yaml
+@@ -9,12 +9,14 @@ title: Awinic Aw87390 Audio Amplifier
+ maintainers:
+   - Weidong Wang <wangweidong.a@awinic.com>
+ 
+-description:
++description: |
+   The awinic aw87390 is specifically designed to improve
+   the musical output dynamic range, enhance the overall
+   sound quallity, which is a new high efficiency, low
+   noise, constant large volume, 6th Smart K audio amplifier.
+ 
++  The Orient Chip OCA72390 is register compatible with the aw87390.
++
+ properties:
+   compatible:
+     oneOf:
+@@ -24,6 +26,10 @@ properties:
+           - enum:
+               - anbernic,rgds-amp
+           - const: awinic,aw87391
++      - items:
++          - enum:
++              - zinwa,q25-amp
++          - const: ocs,oca72390
+ 
+   reg:
+     maxItems: 1

@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 11:59:58 +0000
+Subject: [PATCH] pinctrl: mediatek: mt6789: Drop the unused EH driving table
+
+The common pinctrl-paris code has no EH (I2C high-drive) register class,
+so mt6789_pin_eh_range was never referenced and W=1 builds warn about
+it. Remove the table and the commented-out reference to it; it can come
+back with EH support in the common code.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/pinctrl/mediatek/pinctrl-mt6789.c | 38 -----------------------
+ 1 file changed, 38 deletions(-)
+
+diff --git a/drivers/pinctrl/mediatek/pinctrl-mt6789.c b/drivers/pinctrl/mediatek/pinctrl-mt6789.c
+index b4c58209..408c1709 100644
+--- a/drivers/pinctrl/mediatek/pinctrl-mt6789.c
++++ b/drivers/pinctrl/mediatek/pinctrl-mt6789.c
+@@ -1073,43 +1073,6 @@ static const struct mtk_pin_field_calc mt6789_pin_drv_range[] = {
+ 	PIN_FIELD_BASE(187, 187, 4, 0x0060, 0x10, 18, 3),
+ };
+ 
+-static const struct mtk_pin_field_calc mt6789_pin_eh_range[] = {
+-	PIN_FIELD_BASE(15, 15, 1, 0x0010, 0x10, 20, 5),
+-	PIN_FIELD_BASE(16, 16, 1, 0x0020, 0x10, 10, 5),
+-	PIN_FIELD_BASE(17, 17, 1, 0x0010, 0x10, 25, 5),
+-	PIN_FIELD_BASE(18, 18, 1, 0x0020, 0x10, 15, 5),
+-	PIN_FIELD_BASE(19, 19, 1, 0x0020, 0x10, 0, 5),
+-	PIN_FIELD_BASE(20, 20, 1, 0x0020, 0x10, 20, 5),
+-	PIN_FIELD_BASE(21, 21, 1, 0x0020, 0x10, 5, 5),
+-	PIN_FIELD_BASE(22, 22, 1, 0x0020, 0x10, 25, 5),
+-	PIN_FIELD_BASE(126, 126, 1, 0x0010, 0x10, 0, 5),
+-	PIN_FIELD_BASE(127, 127, 1, 0x0010, 0x10, 5, 5),
+-	PIN_FIELD_BASE(128, 128, 1, 0x0010, 0x10, 10, 5),
+-	PIN_FIELD_BASE(129, 129, 1, 0x0010, 0x10, 15, 5),
+-	PIN_FIELD_BASE(130, 130, 4, 0x0080, 0x10, 0, 3),
+-	PIN_FIELD_BASE(131, 131, 4, 0x0080, 0x10, 15, 3),
+-	PIN_FIELD_BASE(132, 132, 5, 0x0030, 0x10, 0, 3),
+-	PIN_FIELD_BASE(133, 133, 5, 0x0030, 0x10, 3, 3),
+-	PIN_FIELD_BASE(134, 134, 6, 0x0050, 0x10, 0, 3),
+-	PIN_FIELD_BASE(135, 135, 6, 0x0050, 0x10, 12, 3),
+-	PIN_FIELD_BASE(136, 136, 4, 0x0080, 0x10, 3, 3),
+-	PIN_FIELD_BASE(137, 137, 4, 0x0080, 0x10, 18, 3),
+-	PIN_FIELD_BASE(138, 138, 6, 0x0050, 0x10, 3, 3),
+-	PIN_FIELD_BASE(139, 139, 6, 0x0050, 0x10, 15, 3),
+-	PIN_FIELD_BASE(140, 140, 4, 0x0080, 0x10, 6, 3),
+-	PIN_FIELD_BASE(141, 141, 4, 0x0080, 0x10, 21, 3),
+-	PIN_FIELD_BASE(142, 142, 4, 0x0080, 0x10, 9, 3),
+-	PIN_FIELD_BASE(143, 143, 4, 0x0080, 0x10, 24, 3),
+-	PIN_FIELD_BASE(144, 144, 4, 0x0080, 0x10, 12, 3),
+-	PIN_FIELD_BASE(145, 145, 4, 0x0080, 0x10, 27, 3),
+-	PIN_FIELD_BASE(146, 146, 6, 0x0050, 0x10, 6, 3),
+-	PIN_FIELD_BASE(147, 147, 6, 0x0050, 0x10, 18, 3),
+-	PIN_FIELD_BASE(148, 148, 6, 0x0050, 0x10, 9, 3),
+-	PIN_FIELD_BASE(149, 149, 6, 0x0050, 0x10, 21, 3),
+-	PIN_FIELD_BASE(186, 186, 4, 0x0090, 0x10, 0, 5),
+-	PIN_FIELD_BASE(187, 187, 4, 0x0090, 0x10, 5, 5),
+-};
+-
+ static const struct mtk_pin_field_calc mt6789_pin_rsel_range[] = {
+ 	PIN_FIELD_BASE(130, 130, 4, 0x01d0, 0x10, 0, 3),
+ 	PIN_FIELD_BASE(131, 131, 4, 0x01d0, 0x10, 15, 3),
+@@ -1212,7 +1175,6 @@ static const struct mtk_pin_reg_calc mt6789_reg_cals[PINCTRL_PIN_REG_MAX] = {
+ 	[PINCTRL_PIN_REG_PUPD] = MTK_RANGE(mt6789_pin_pupd_range),
+ 	[PINCTRL_PIN_REG_R0] = MTK_RANGE(mt6789_pin_r0_range),
+ 	[PINCTRL_PIN_REG_R1] = MTK_RANGE(mt6789_pin_r1_range),
+-	//[PINCTRL_PIN_REG_DRV_EH] = MTK_RANGE(mt6789_pin_eh_range),
+ 	[PINCTRL_PIN_REG_RSEL] = MTK_RANGE(mt6789_pin_rsel_range),
+ };
+ 

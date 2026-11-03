@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 09:15:26 +0000
+Subject: [PATCH] regulator: tps65132: Retry the first read before registering
+
+The OCP2131 panel bias on the Zinwa Q25 does not acknowledge the first
+transfer on its bus after boot. Registration then fails on reading the
+current voltage, with -ENXIO, and the driver core does not retry, so the
+panel and the display pipeline wait for the supply forever. Every later
+transfer succeeds, including a manual rebind seconds after boot.
+
+Read VPOS up to three times before registering, and defer if the chip
+still does not answer.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/regulator/tps65132-regulator.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/regulator/tps65132-regulator.c b/drivers/regulator/tps65132-regulator.c
+index 9c2f0dd4..019fd98e 100644
+--- a/drivers/regulator/tps65132-regulator.c
++++ b/drivers/regulator/tps65132-regulator.c
+@@ -227,7 +227,8 @@ static int tps65132_probe(struct i2c_client *client)
+ 	struct regulator_dev *rdev;
+ 	struct regmap *rmap;
+ 	struct regulator_config config = { };
+-	int id;
++	unsigned int val;
++	int id, tries;
+ 	int ret;
+ 
+ 	tps = devm_kzalloc(dev, sizeof(*tps), GFP_KERNEL);
+@@ -241,6 +242,18 @@ static int tps65132_probe(struct i2c_client *client)
+ 		return ret;
+ 	}
+ 
++	/* Some parts NAK the first transfer after power-up; retry it here. */
++	for (tries = 0; tries < 3; tries++) {
++		ret = regmap_read(rmap, TPS65132_REG_VPOS, &val);
++		if (!ret)
++			break;
++		usleep_range(1000, 2000);
++	}
++	if (ret)
++		return dev_err_probe(dev, -EPROBE_DEFER, "no response: %d\n", ret);
++	if (tries)
++		dev_info(dev, "responded after %d failed read(s)\n", tries);
++
+ 	i2c_set_clientdata(client, tps);
+ 	tps->dev = dev;
+ 
+-- 
+2.55.0
+

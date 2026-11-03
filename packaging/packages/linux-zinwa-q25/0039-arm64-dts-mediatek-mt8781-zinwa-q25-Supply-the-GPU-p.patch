@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 09:38:30 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Supply the GPU power
+ domains
+
+MFG0 and MFG1 are powered from the VGPU and VSRAM_GPU rails, as on
+other MT6366 boards (mt8186-corsola). The MT6789 power controller
+requires the supply for both domains.
+
+Signed-off-by: Patrick Quinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index f5a0e904..104c65a2 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1275,6 +1275,14 @@
+  * already in ellyq's tree; the node just needs enabling and its supplies. The
+  * vgpu / vsram_gpu rails are coupled (see the mt6366 regulators above).
+  * ------------------------------------------------------------------ */
++&mfg0 {
++	domain-supply = <&mt6366_vgpu_reg>;
++};
++
++&mfg1 {
++	domain-supply = <&mt6366_vsram_gpu_reg>;
++};
++
+ &gpu {
+ 	mali-supply = <&mt6366_vgpu_reg>;
+ 	sram-supply = <&mt6366_vsram_gpu_reg>;

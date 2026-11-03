@@ -1,0 +1,552 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 20:33:55 +0000
+Subject: [PATCH] power: supply: Add MediaTek MT6358 fuel gauge driver
+
+Add a driver for the coulomb counter fuel gauge of the MediaTek MT6358
+and MT6366 PMICs.
+
+The gauge reports the battery current, and integrates it in a 32-bit
+two's complement counter with 11 fractional bits; one count is
+108507 / 2048 nAh with the reference 10 mOhm shunt. Both are read under
+the gauge's latch so that they belong to the same instant.
+
+The state of charge is seeded from the battery's OCV table: the loaded
+voltage, averaged over a few samples, is corrected by the internal
+resistance and the current into an open circuit voltage. From then on
+the charge follows the coulomb counter, and is set to full whenever the
+charger supplying the battery reports that charging has finished. That
+check comes first, so a phone that boots on a charger in constant
+voltage regulation, where the loaded voltage lies above the whole OCV
+table, starts at full rather than from a voltage estimate; otherwise an
+OCV beyond either end of the table reads as 100% or 0%. The
+driver never resets the counter: it works with differences from the
+count at the last anchor, so it does not depend on the state the
+bootloader left the counter in.
+
+Prior art: Roman Vivchar's MT6358 gauge driver in the mt6768-mainline
+tree, and MediaTek's vendor mt6358-gauge driver for the register layout
+and units.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ MAINTAINERS                         |   1 +
+ drivers/power/supply/Kconfig        |  10 +
+ drivers/power/supply/Makefile       |   1 +
+ drivers/power/supply/mt6358-gauge.c | 462 ++++++++++++++++++++++++++++
+ 4 files changed, 474 insertions(+)
+ create mode 100644 drivers/power/supply/mt6358-gauge.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 6633cf0c..cb1196f8 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -16274,6 +16274,7 @@ M:	Patrick Quinn <patrick.jm.quinn@gmail.com>
+ L:	linux-pm@vger.kernel.org
+ S:	Maintained
+ F:	Documentation/devicetree/bindings/power/supply/mediatek,mt6358-gauge.yaml
++F:	drivers/power/supply/mt6358-gauge.c
+ 
+ MEDIATEK MT6735 CLOCK & RESET DRIVERS
+ M:	Yassine Oudjana <y.oudjana@protonmail.com>
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index 92f9f7aa..c98f0af7 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -473,6 +473,16 @@ config BATTERY_MAX1721X
+ 	  Say Y here to enable support for the MAX17211/MAX17215 standalone
+ 	  battery gas-gauge.
+ 
++config BATTERY_MT6358
++	tristate "MediaTek MT6358 PMIC fuel gauge"
++	depends on MFD_MT6397 && IIO
++	help
++	  Say Y here to enable support for the coulomb counter fuel gauge in
++	  the MediaTek MT6358 and MT6366 PMICs.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called mt6358-gauge.
++
+ config BATTERY_TWL4030_MADC
+ 	tristate "TWL4030 MADC battery driver"
+ 	depends on TWL4030_MADC
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index 4b79d5ab..40e5c2b4 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -59,6 +59,7 @@ obj-$(CONFIG_BATTERY_MAX17040)	+= max17040_battery.o
+ obj-$(CONFIG_BATTERY_MAX17042)	+= max17042_battery.o
+ obj-$(CONFIG_BATTERY_MAX1720X)	+= max1720x_battery.o
+ obj-$(CONFIG_BATTERY_MAX1721X)	+= max1721x_battery.o
++obj-$(CONFIG_BATTERY_MT6358)	+= mt6358-gauge.o
+ obj-$(CONFIG_BATTERY_RT5033)	+= rt5033_battery.o
+ obj-$(CONFIG_CHARGER_RT5033)	+= rt5033_charger.o
+ obj-$(CONFIG_CHARGER_RT9455)	+= rt9455_charger.o
+diff --git a/drivers/power/supply/mt6358-gauge.c b/drivers/power/supply/mt6358-gauge.c
+new file mode 100644
+index 00000000..e5cb66d3
+--- /dev/null
++++ b/drivers/power/supply/mt6358-gauge.c
+@@ -0,0 +1,462 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MediaTek MT6358/MT6366 PMIC fuel gauge
++ *
++ * The gauge measures the battery current across a shunt and integrates it
++ * in a coulomb counter. The state of charge is seeded from the battery's
++ * open circuit voltage table, then tracked with the counter and re-anchored
++ * at 100% whenever the charger reports the end of charge.
++ */
++
++#include <linux/bits.h>
++#include <linux/cleanup.h>
++#include <linux/devm-helpers.h>
++#include <linux/iio/consumer.h>
++#include <linux/math64.h>
++#include <linux/mfd/mt6358/registers.h>
++#include <linux/mfd/mt6397/core.h>
++#include <linux/minmax.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/platform_device.h>
++#include <linux/power_supply.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/units.h>
++#include <linux/workqueue.h>
++
++#define MT6358_FGADC_CK_PDN		BIT(3)
++#define MT6358_FGADC_ANA_CK_PDN		BIT(4)
++
++#define MT6358_FG_ON			BIT(0)
++
++#define MT6358_FG_LATCHDATA_ST		BIT(15)
++#define MT6358_FG_SW_CLEAR		BIT(3)
++#define MT6358_FG_SW_READ_PRE		BIT(0)
++
++/* Current and charge per LSB with the reference 10 mOhm shunt. */
++#define MT6358_FG_REF_SHUNT_UOHM	10000
++#define MT6358_FG_CURRENT_NA		381470
++/* The counter carries 11 fractional bits below this unit. */
++#define MT6358_FG_CHARGE_NAH		108507
++#define MT6358_FG_CHARGE_FRAC		2048
++
++#define MT6358_FG_OCV_SAMPLES		4
++#define MT6358_FG_OCV_CELSIUS		25
++#define MT6358_FG_IDLE_UA		50000
++#define MT6358_FG_POLL_MS		(10 * MSEC_PER_SEC)
++
++struct mt6358_gauge {
++	struct device *dev;
++	struct regmap *regmap;
++	struct iio_channel *vbat;
++	struct power_supply *psy;
++	struct power_supply_battery_info *info;
++	struct delayed_work work;
++	/* Serialises the latch sequence and the charge anchor. */
++	struct mutex lock;
++	u32 shunt_uohm;
++	bool anchored;
++	s32 anchor_count;
++	int anchor_uah;
++	int capacity;
++};
++
++struct mt6358_gauge_sample {
++	int current_ua;
++	s32 count;
++};
++
++static int mt6358_gauge_unlatch(struct mt6358_gauge *gauge)
++{
++	unsigned int val;
++	int ret;
++
++	ret = regmap_update_bits(gauge->regmap, MT6358_FGADC_CON1,
++				 MT6358_FG_SW_CLEAR | MT6358_FG_SW_READ_PRE,
++				 MT6358_FG_SW_CLEAR);
++	if (ret)
++		return ret;
++
++	ret = regmap_read_poll_timeout(gauge->regmap, MT6358_FGADC_CON1, val,
++				       !(val & MT6358_FG_LATCHDATA_ST),
++				       50, 20 * USEC_PER_MSEC);
++	if (ret)
++		return ret;
++
++	return regmap_clear_bits(gauge->regmap, MT6358_FGADC_CON1,
++				 MT6358_FG_SW_CLEAR);
++}
++
++/* Latch the current and the counter together, then read both. */
++static int mt6358_gauge_read(struct mt6358_gauge *gauge,
++			     struct mt6358_gauge_sample *sample)
++{
++	unsigned int cur, car_lo, car_hi, val;
++	int ret, ret2;
++
++	lockdep_assert_held(&gauge->lock);
++
++	ret = regmap_update_bits(gauge->regmap, MT6358_FGADC_CON1,
++				 MT6358_FG_SW_CLEAR | MT6358_FG_SW_READ_PRE,
++				 MT6358_FG_SW_READ_PRE);
++	if (ret)
++		return ret;
++
++	ret = regmap_read_poll_timeout(gauge->regmap, MT6358_FGADC_CON1, val,
++				       val & MT6358_FG_LATCHDATA_ST,
++				       50, 20 * USEC_PER_MSEC);
++	if (!ret)
++		ret = regmap_read(gauge->regmap, MT6358_FGADC_CUR_CON0, &cur);
++	if (!ret)
++		ret = regmap_read(gauge->regmap, MT6358_FGADC_CAR_CON0, &car_lo);
++	if (!ret)
++		ret = regmap_read(gauge->regmap, MT6358_FGADC_CAR_CON1, &car_hi);
++
++	ret2 = mt6358_gauge_unlatch(gauge);
++	if (ret || ret2)
++		return ret ?: ret2;
++
++	sample->current_ua = div_s64((s64)sign_extend32(cur, 15) *
++				     MT6358_FG_CURRENT_NA * 10,
++				     gauge->shunt_uohm);
++	sample->count = (s32)((car_hi << 16) | (car_lo & 0xffff));
++
++	return 0;
++}
++
++static int mt6358_gauge_count_to_uah(struct mt6358_gauge *gauge, s64 count)
++{
++	return div_s64(count * MT6358_FG_CHARGE_NAH * 10,
++		       (s64)MT6358_FG_CHARGE_FRAC * gauge->shunt_uohm);
++}
++
++static int mt6358_gauge_read_voltage(struct mt6358_gauge *gauge, int *uv)
++{
++	return iio_read_channel_processed_scale(gauge->vbat, uv, MILLI);
++}
++
++static int mt6358_gauge_charge_now(struct mt6358_gauge *gauge,
++				   const struct mt6358_gauge_sample *sample)
++{
++	int full = gauge->info->charge_full_design_uah;
++	int charge;
++
++	charge = gauge->anchor_uah +
++		 mt6358_gauge_count_to_uah(gauge, (s64)sample->count -
++						  gauge->anchor_count);
++
++	return clamp(charge, 0, full);
++}
++
++static int mt6358_gauge_capacity(struct mt6358_gauge *gauge,
++				 const struct mt6358_gauge_sample *sample)
++{
++	return DIV_S64_ROUND_CLOSEST(mt6358_gauge_charge_now(gauge, sample) * 100LL,
++				     gauge->info->charge_full_design_uah);
++}
++
++/*
++ * Estimate the open circuit voltage from the loaded voltage and the current,
++ * averaged over a few samples, and look the charge up in the OCV table.
++ */
++static int mt6358_gauge_seed(struct mt6358_gauge *gauge)
++{
++	struct mt6358_gauge_sample sample;
++	s64 ocv = 0, current_ua = 0;
++	int i, uv, ri, soc, ret;
++
++	for (i = 0; i < MT6358_FG_OCV_SAMPLES; i++) {
++		ret = mt6358_gauge_read_voltage(gauge, &uv);
++		if (ret)
++			return ret;
++
++		ret = mt6358_gauge_read(gauge, &sample);
++		if (ret)
++			return ret;
++
++		ocv += uv;
++		current_ua += sample.current_ua;
++	}
++
++	ocv = div_s64(ocv, MT6358_FG_OCV_SAMPLES);
++	current_ua = div_s64(current_ua, MT6358_FG_OCV_SAMPLES);
++
++	ri = power_supply_vbat2ri(gauge->info, (int)ocv, current_ua > 0);
++	if (ri > 0)
++		ocv -= div_s64(current_ua * ri, MICRO);
++
++	soc = power_supply_batinfo_ocv2cap(gauge->info, (int)ocv,
++					   MT6358_FG_OCV_CELSIUS);
++	if (soc < 0)
++		return soc;
++
++	gauge->anchor_count = sample.count;
++	gauge->anchor_uah = mult_frac(gauge->info->charge_full_design_uah,
++				      soc, 100);
++	gauge->anchored = true;
++
++	dev_dbg(gauge->dev, "OCV %lld uV at %lld uA: %d%%\n", ocv, current_ua,
++		soc);
++
++	return 0;
++}
++
++static bool mt6358_gauge_charger_full(struct mt6358_gauge *gauge)
++{
++	union power_supply_propval val;
++
++	if (power_supply_get_property_from_supplier(gauge->psy,
++						    POWER_SUPPLY_PROP_STATUS,
++						    &val))
++		return false;
++
++	return val.intval == POWER_SUPPLY_STATUS_FULL;
++}
++
++static void mt6358_gauge_work(struct work_struct *work)
++{
++	struct mt6358_gauge *gauge = container_of(work, struct mt6358_gauge,
++						  work.work);
++	struct mt6358_gauge_sample sample;
++	bool full = mt6358_gauge_charger_full(gauge);
++	int capacity = -ENODATA;
++	bool changed = false;
++	int ret;
++
++	scoped_guard(mutex, &gauge->lock) {
++		ret = mt6358_gauge_read(gauge, &sample);
++		if (ret)
++			break;
++
++		if (full) {
++			gauge->anchor_count = sample.count;
++			gauge->anchor_uah = gauge->info->charge_full_design_uah;
++			gauge->anchored = true;
++		} else if (!gauge->anchored) {
++			ret = mt6358_gauge_seed(gauge);
++			if (ret)
++				break;
++		}
++
++		capacity = mt6358_gauge_capacity(gauge, &sample);
++		changed = capacity != gauge->capacity;
++		gauge->capacity = capacity;
++	}
++
++	if (ret)
++		dev_err_ratelimited(gauge->dev, "Failed to update: %d\n", ret);
++
++	if (changed)
++		power_supply_changed(gauge->psy);
++
++	schedule_delayed_work(&gauge->work, msecs_to_jiffies(MT6358_FG_POLL_MS));
++}
++
++/* The battery info is only published once probe has fetched it. */
++static struct power_supply_battery_info *
++mt6358_gauge_info(struct mt6358_gauge *gauge)
++{
++	guard(mutex)(&gauge->lock);
++
++	return gauge->info;
++}
++
++static int mt6358_gauge_get_property(struct power_supply *psy,
++				     enum power_supply_property psp,
++				     union power_supply_propval *val)
++{
++	struct mt6358_gauge *gauge = power_supply_get_drvdata(psy);
++	struct power_supply_battery_info *info = mt6358_gauge_info(gauge);
++	struct mt6358_gauge_sample sample;
++	int ret;
++
++	if (!info)
++		return -ENODATA;
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_STATUS:
++		if (!power_supply_get_property_from_supplier(psy, psp, val))
++			return 0;
++		break;
++	case POWER_SUPPLY_PROP_PRESENT:
++		val->intval = 1;
++		return 0;
++	case POWER_SUPPLY_PROP_TECHNOLOGY:
++		val->intval = info->technology;
++		return 0;
++	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
++		return mt6358_gauge_read_voltage(gauge, &val->intval);
++	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
++		val->intval = info->voltage_min_design_uv;
++		return val->intval < 0 ? -ENODATA : 0;
++	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
++		val->intval = info->voltage_max_design_uv;
++		return val->intval < 0 ? -ENODATA : 0;
++	case POWER_SUPPLY_PROP_CHARGE_FULL:
++	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
++		val->intval = info->charge_full_design_uah;
++		return 0;
++	default:
++		break;
++	}
++
++	guard(mutex)(&gauge->lock);
++
++	ret = mt6358_gauge_read(gauge, &sample);
++	if (ret)
++		return ret;
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_STATUS:
++		if (sample.current_ua > MT6358_FG_IDLE_UA)
++			val->intval = POWER_SUPPLY_STATUS_CHARGING;
++		else if (sample.current_ua < -MT6358_FG_IDLE_UA)
++			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
++		else
++			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
++		return 0;
++	case POWER_SUPPLY_PROP_CURRENT_NOW:
++		val->intval = sample.current_ua;
++		return 0;
++	case POWER_SUPPLY_PROP_CHARGE_NOW:
++		if (!gauge->anchored)
++			return -ENODATA;
++		val->intval = mt6358_gauge_charge_now(gauge, &sample);
++		return 0;
++	case POWER_SUPPLY_PROP_CAPACITY:
++		if (!gauge->anchored)
++			return -ENODATA;
++		val->intval = mt6358_gauge_capacity(gauge, &sample);
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static void mt6358_gauge_external_power_changed(struct power_supply *psy)
++{
++	struct mt6358_gauge *gauge = power_supply_get_drvdata(psy);
++
++	if (mt6358_gauge_info(gauge))
++		mod_delayed_work(system_wq, &gauge->work, 0);
++}
++
++static const enum power_supply_property mt6358_gauge_props[] = {
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_PRESENT,
++	POWER_SUPPLY_PROP_TECHNOLOGY,
++	POWER_SUPPLY_PROP_VOLTAGE_NOW,
++	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
++	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
++	POWER_SUPPLY_PROP_CURRENT_NOW,
++	POWER_SUPPLY_PROP_CHARGE_NOW,
++	POWER_SUPPLY_PROP_CHARGE_FULL,
++	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
++	POWER_SUPPLY_PROP_CAPACITY,
++};
++
++static const struct power_supply_desc mt6358_gauge_desc = {
++	.name = "mt6358-battery",
++	.type = POWER_SUPPLY_TYPE_BATTERY,
++	.properties = mt6358_gauge_props,
++	.num_properties = ARRAY_SIZE(mt6358_gauge_props),
++	.get_property = mt6358_gauge_get_property,
++	.external_power_changed = mt6358_gauge_external_power_changed,
++};
++
++/* The bootloader normally leaves the gauge running; never reset it. */
++static int mt6358_gauge_enable(struct mt6358_gauge *gauge)
++{
++	int ret;
++
++	ret = regmap_clear_bits(gauge->regmap, MT6358_BM_TOP_CKPDN_CON0,
++				MT6358_FGADC_CK_PDN | MT6358_FGADC_ANA_CK_PDN);
++	if (ret)
++		return ret;
++
++	return regmap_set_bits(gauge->regmap, MT6358_FGADC_CON0, MT6358_FG_ON);
++}
++
++static int mt6358_gauge_probe(struct platform_device *pdev)
++{
++	struct mt6397_chip *pmic = dev_get_drvdata(pdev->dev.parent);
++	struct power_supply_battery_info *info;
++	struct power_supply_config cfg = {};
++	struct device *dev = &pdev->dev;
++	struct mt6358_gauge *gauge;
++	int ret;
++
++	gauge = devm_kzalloc(dev, sizeof(*gauge), GFP_KERNEL);
++	if (!gauge)
++		return -ENOMEM;
++
++	gauge->dev = dev;
++	gauge->regmap = pmic->regmap;
++	gauge->capacity = -ENODATA;
++
++	ret = devm_mutex_init(dev, &gauge->lock);
++	if (ret)
++		return ret;
++
++	ret = device_property_read_u32(dev, "shunt-resistor-micro-ohms",
++				       &gauge->shunt_uohm);
++	if (ret || !gauge->shunt_uohm)
++		return dev_err_probe(dev, -EINVAL, "Invalid shunt resistance\n");
++
++	gauge->vbat = devm_iio_channel_get(dev, NULL);
++	if (IS_ERR(gauge->vbat))
++		return dev_err_probe(dev, PTR_ERR(gauge->vbat),
++				     "Failed to get battery voltage channel\n");
++
++	ret = mt6358_gauge_enable(gauge);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to enable gauge\n");
++
++	ret = devm_delayed_work_autocancel(dev, &gauge->work, mt6358_gauge_work);
++	if (ret)
++		return ret;
++
++	cfg.fwnode = dev_fwnode(dev);
++	cfg.drv_data = gauge;
++
++	gauge->psy = devm_power_supply_register(dev, &mt6358_gauge_desc, &cfg);
++	if (IS_ERR(gauge->psy))
++		return dev_err_probe(dev, PTR_ERR(gauge->psy),
++				     "Failed to register power supply\n");
++
++	ret = power_supply_get_battery_info(gauge->psy, &info);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get battery info\n");
++
++	if (info->charge_full_design_uah <= 0 || !info->ocv_table[0])
++		return dev_err_probe(dev, -EINVAL,
++				     "Battery needs a design capacity and an OCV table\n");
++
++	scoped_guard(mutex, &gauge->lock)
++		gauge->info = info;
++
++	schedule_delayed_work(&gauge->work, 0);
++
++	return 0;
++}
++
++static const struct of_device_id mt6358_gauge_of_match[] = {
++	{ .compatible = "mediatek,mt6358-gauge" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mt6358_gauge_of_match);
++
++static struct platform_driver mt6358_gauge_driver = {
++	.driver = {
++		.name = "mt6358-gauge",
++		.of_match_table = mt6358_gauge_of_match,
++	},
++	.probe = mt6358_gauge_probe,
++};
++module_platform_driver(mt6358_gauge_driver);
++
++MODULE_AUTHOR("Patrick Quinn <patrick.jm.quinn@gmail.com>");
++MODULE_DESCRIPTION("MediaTek MT6358 PMIC fuel gauge driver");
++MODULE_LICENSE("GPL");

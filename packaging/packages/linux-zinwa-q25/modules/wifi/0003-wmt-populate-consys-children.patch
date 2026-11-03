@@ -1,0 +1,14 @@
+--- a/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c
++++ b/wmt_drv/common_main/platform/mtk_wcn_consys_hw.c
+@@ -478,6 +478,11 @@
+ 
+ 	INIT_WORK(&plt_resume_worker, plat_resume_handler);
+ 
++	/* Create the CONNSYS children, the GNSS receiver, so their drivers load. */
++	iRet = devm_of_platform_populate(&pdev->dev);
++	if (iRet)
++		WMT_PLAT_PR_ERR("CONNSYS children: %d\n", iRet);
++
+ 	atomic_set(&g_probe_called, 1);
+ 
+ 	return 0;

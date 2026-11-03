@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 15 Jul 2026 17:23:58 +0100
+Subject: [PATCH] power: supply: bq256xx: ensure charging is enabled at probe
+
+On devices where the bootloader manages pre-boot ("kpoc") charging and
+hands the charger over parked - charging disabled (CHG_CONFIG=0) and/or
+input in Hi-Z - with the I2C watchdog also disabled, the register file
+never resets to its charge-enabled power-on defaults, so the battery
+discharges even on external power (observed on the Zinwa Q25, whose
+UPM6922 is a register-compatible BQ25601 clone driven by this driver).
+
+hw_init() already programs the charge parameters but never touches
+EN_HIZ or CHG_CONFIG. Clear EN_HIZ and set CHG_CONFIG during hw_init()
+so charging is guaranteed on after probe, matching what every other
+mainline charger driver of this class does (e.g. bq24190, rt9467).
+Userspace can still disable charging afterwards via the writable
+charge_type/status properties.
+---
+ drivers/power/supply/bq256xx_charger.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/power/supply/bq256xx_charger.c b/drivers/power/supply/bq256xx_charger.c
+index 563f5127..e62ab5a7 100644
+--- a/drivers/power/supply/bq256xx_charger.c
++++ b/drivers/power/supply/bq256xx_charger.c
+@@ -72,6 +72,8 @@
+ #define BQ25611D_VBATREG_THRESH_uV	4290000
+ #define BQ25618_VBATREG_THRESH_uV	4300000
+ 
++#define BQ256XX_EN_HIZ_MASK		BIT(7)
++
+ #define BQ256XX_CHG_CONFIG_MASK		BIT(4)
+ #define BQ256XX_CHG_CONFIG_BIT_SHIFT	4
+ 
+@@ -1579,6 +1581,24 @@ static int bq256xx_hw_init(struct bq256xx_device *bq)
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * The bootloader may hand the charger over with charging disabled
++	 * (CHG_CONFIG=0) and/or the input path in Hi-Z, with the I2C watchdog
++	 * disabled so the register file never resets to its charge-enabled
++	 * power-on defaults. Explicitly exit Hi-Z and enable charging so the
++	 * battery charges while the system is running.
++	 */
++	ret = regmap_update_bits(bq->regmap, BQ256XX_INPUT_CURRENT_LIMIT,
++				 BQ256XX_EN_HIZ_MASK, 0);
++	if (ret)
++		return ret;
++
++	ret = regmap_update_bits(bq->regmap, BQ256XX_CHARGER_CONTROL_0,
++				 BQ256XX_CHG_CONFIG_MASK,
++				 1 << BQ256XX_CHG_CONFIG_BIT_SHIFT);
++	if (ret)
++		return ret;
++
+ 	ret = power_supply_get_battery_info(bq->charger, &bat_info);
+ 	if (ret == -ENOMEM)
+ 		return ret;

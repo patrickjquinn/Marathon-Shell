@@ -22,11 +22,11 @@ bootloader = "none"
 method = "uefi"
 partition_table = "gpt"
 
-# The prebuilt 7.0.0-q25-cfi-test kernel the phone boots; every module
-# package is pinned to it.
+# 7.0.0-q25, built from source; every module package is pinned
+# to it.
 [kernel]
-package = "linux-postmarketos-mediatek-g99"
-version = "7.0-r1000"
+package = "linux-zinwa-q25"
+version = "7.0.0"
 
 [display]
 interface = "dsi"

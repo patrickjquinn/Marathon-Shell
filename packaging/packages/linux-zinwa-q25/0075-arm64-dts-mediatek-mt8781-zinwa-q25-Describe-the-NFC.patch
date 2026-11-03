@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 2 Nov 2026 18:51:36 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Describe the NFC
+ controller
+
+The Q25 has an ST21NFCD on I2C3, with its interrupt on GPIO1 (level
+high, as the vendor HAL configures it), its enable on GPIO150, and its
+26 MHz reference from the XO_NFC buffer of the MT6366. Describe the
+PMIC clock buffers and the controller.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 297e8a0f..c9664f52 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -20,6 +20,7 @@
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/clock/mediatek,mt6358-clk.h>
+ #include <dt-bindings/clock/mediatek,mt6789-clk.h>
+ #include <dt-bindings/power/mediatek,mt6789-power.h>
+ #include <dt-bindings/regulator/mediatek,mt6397-regulator.h>
+@@ -662,6 +663,11 @@
+ 			#io-channel-cells = <1>;
+ 		};
+ 
++		mt6358_clk: clocks {
++			compatible = "mediatek,mt6358-clk";
++			#clock-cells = <1>;
++		};
++
+ 		fuel-gauge {
+ 			compatible = "mediatek,mt6358-gauge";
+ 			io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
+@@ -715,6 +721,15 @@
+ &i2c3 {
+ 	status = "okay";
+ 
++	nfc@8 {
++		compatible = "st,st21nfcd-i2c";
++		reg = <0x08>;
++		interrupt-parent = <&pio>;
++		interrupts = <1 IRQ_TYPE_LEVEL_HIGH>;
++		reset-gpios = <&pio 150 GPIO_ACTIVE_HIGH>;
++		clocks = <&mt6358_clk MT6358_CLK_XO_NFC>;
++	};
++
+ 	speaker_amp: amplifier@58 {
+ 		compatible = "zinwa,q25-amp", "ocs,oca72390";
+ 		reg = <0x58>;
