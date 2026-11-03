@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 19:41:43 +0000
+Subject: [PATCH 85/87] dt-bindings: input: mediatek,mt6779-keypad: Add MT6789
+
+The MT6789 keypad controller works with the MT6779 driver: the same
+registers, the single-key row/column layout and a 26 MHz clock.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/input/mediatek,mt6779-keypad.yaml        | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/input/mediatek,mt6779-keypad.yaml b/Documentation/devicetree/bindings/input/mediatek,mt6779-keypad.yaml
+index e3654137..14c1d89c 100644
+--- a/Documentation/devicetree/bindings/input/mediatek,mt6779-keypad.yaml
++++ b/Documentation/devicetree/bindings/input/mediatek,mt6779-keypad.yaml
+@@ -25,6 +25,7 @@ properties:
+       - const: mediatek,mt6779-keypad
+       - items:
+           - enum:
++              - mediatek,mt6789-keypad
+               - mediatek,mt6873-keypad
+               - mediatek,mt8183-keypad
+               - mediatek,mt8365-keypad
+-- 
+2.55.0
+

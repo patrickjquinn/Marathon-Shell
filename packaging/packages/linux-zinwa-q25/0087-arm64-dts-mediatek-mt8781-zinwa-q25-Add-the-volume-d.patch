@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 19:42:03 +0000
+Subject: [PATCH 87/87] arm64: dts: mediatek: mt8781-zinwa-q25: Add the volume
+ down and assistant keys
+
+Volume up is on the PMIC; volume down and the key between the volume
+keys connect KPCOL0 and KPCOL1 to ground. Mux both columns to the
+keypad with pull-ups and map them to KEY_VOLUMEDOWN and KEY_ASSISTANT,
+the stock firmware's matrix positions 0 and 1.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../boot/dts/mediatek/mt8781-zinwa-q25.dts    | 20 +++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index d21403f9..e6e71d7d 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1447,6 +1447,26 @@
+ 			pinmux = <Q25_PINMUX(25, 2)>;
+ 		};
+ 	};
++
++	keypad_pins: keypad-default-state {
++		pins-cols {
++			pinmux = <Q25_PINMUX(66, 1)>, <Q25_PINMUX(67, 1)>;
++			input-enable;
++			bias-pull-up;
++		};
++	};
++};
++
++/* Volume down and the key between the volume keys, each to ground. */
++&keypad {
++	pinctrl-names = "default";
++	pinctrl-0 = <&keypad_pins>;
++	keypad,num-rows = <1>;
++	keypad,num-columns = <2>;
++	debounce-delay-ms = <32>;
++	linux,keymap = <MATRIX_KEY(0, 0, KEY_VOLUMEDOWN)
++			MATRIX_KEY(0, 1, KEY_ASSISTANT)>;
++	status = "okay";
+ };
+ 
+ &consys {
+-- 
+2.55.0
+

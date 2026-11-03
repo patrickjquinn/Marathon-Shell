@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 19:41:53 +0000
+Subject: [PATCH 86/87] arm64: dts: mediatek: mt6789: Add the keypad controller
+
+Describe the keypad controller at 0x10010000 (SPI 106, rising edge, 26
+MHz "kpd" clock), as MediaTek's own MT6789 device tree does; boards
+enable it with their key map.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789.dtsi | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+index 4d335531..a45e24c5 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -485,6 +485,16 @@
+ 			};
+ 		};
+ 
++		keypad: keypad@10010000 {
++			compatible = "mediatek,mt6789-keypad",
++			             "mediatek,mt6779-keypad";
++			reg = <0 0x10010000 0 0x1000>;
++			interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING 0>;
++			clocks = <&clk26m>;
++			clock-names = "kpd";
++			status = "disabled";
++		};
++
+ 		systimer: systimer@10017000 {
+ 			compatible = "mediatek,mt6789-timer",
+ 			             "mediatek,mt6765-timer";
+-- 
+2.55.0
+
