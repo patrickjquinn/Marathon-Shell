@@ -163,6 +163,10 @@ Item {
         readonly property real naturalWidth: 3 * _buttonWidth + 2 * _horizontalSpacing
 
         objectName: "keypad"
+        // A key holding its touch hands it to the tab view's DragHandler only
+        // once the swipe cancels the key, and Qt 6.11 then loses the press
+        // point: the drag jumped by the press's x and turned the wrong way.
+        preventStealing: false
         anchors {
             right: parent.right
             rightMargin: root._wide ? Theme.horizontalPageMargin : 0
