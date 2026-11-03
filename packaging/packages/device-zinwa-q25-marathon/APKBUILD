@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=42
+pkgrel=43
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -137,8 +137,7 @@ package() {
     install -d "$pkgdir/usr/lib/systemd/system/local-fs.target.wants"
     ln -s ../q25-home-crypt.service "$pkgdir/usr/lib/systemd/system/local-fs.target.wants/q25-home-crypt.service"
 
-    # CPU0's PSCI CPU_ON fails, so it must stay offline; the GPU guard
-    # refuses to start while it is online.
+    # CPU0 stays offline unless U-Boot handed off through BL31.
     install -Dm755 "$srcdir/q25-platform-prepare" "$pkgdir/usr/libexec/marathon/q25-platform-prepare"
     install -Dm644 "$srcdir/q25-platform-prepare.service" "$pkgdir/usr/lib/systemd/system/q25-platform-prepare.service"
     ln -s ../q25-platform-prepare.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/q25-platform-prepare.service"
@@ -212,8 +211,8 @@ dc89cdcbbf044d06c1ba18cffd2bebdc86f0015591cde276cd57fb4a82457c89b2a408f927b4662f
 42a5d63e17226632be80493adca33f25bd5dcd5645d96d8d2819051355f53da6823eb04c57aac5fff774c4b963efd92a10bea623943b268612c417cd3cf09b89  q25-root-grow.service
 15b4c14d76a711fc633160a6f68c1a7ae6535500985ebf1382a6d7b639627dd2e70c0eab13e4aef231ab3a576e65cc29b6b62d4106dd7e3c3bf2ec3a8c697dcb  q25-home-crypt
 118cffcf87524ed925fb0551df4eada2bcae5a1e56dbb72e70278d494f50fc9e83ab147c3411ac17c53619952f81d7b008817f37d204cfb082437a59ff4dab65  q25-home-crypt.service
-8bc65514cfafe1c4291390109f2f4814b1681850c20ae1aea24ba497cefd6dbc82f4948cbef796c1c184bb25fe55cf1b7f7177912e6b1be7c56301edb9af145b  q25-platform-prepare
-e456f3bf3a5babc8e7052fe41020ea8ea92d5cefdb1736554455d391fcae0e53ac43cdc3246e7a81aa72ed780e59f778e3f6f3f8a56bc0f6703597763ee9702e  q25-platform-prepare.service
+b56de27623880c795d38953f99745947e8e394356f80a78c435726309efff6ff99e54db53eb235fb62cdcc36032a3e105525b69249200af8eab7ad46d6965458  q25-platform-prepare
+a5a216437d1d62c296b584e620373797cf1cbf9c4588f969b3b9456645d79942a5340a69cafb74155d65ec878be2d5ab08a2e94a2631d4aaea6f9466f03af8ed  q25-platform-prepare.service
 01c93dc1c2fbcbe7d4c3df5f1e282549f2507204a4a4157051e62f48bc98b65b49a4a915d0ed4fe745723d29fbc7d390baddd7b65859e78739cae84a099014b5  q25-user-manager-cpu.conf
 692a0a87d3de9cf23d81d91278bb34dac1367f9aa827e09f001b7985b368aa8dcca00f94ef22eb6cd5fecea44af31e2c9f958b33579448586c08f73a2761e181  q25-user-slice-cpu.conf
 c95e3e6281e0a842a1102b617e8cbe9be4a44be91193190bc9565fd2b064c2a52fb494b1d72ae4f2d50af666f6aa83d20be9e3d8c92f36d4caf8b94c015dde5d  q25-carrier-root

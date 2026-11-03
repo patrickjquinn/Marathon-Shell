@@ -1,8 +1,7 @@
 [Unit]
-Description=Q25 CPU0 bring-up stability workaround
+Description=Q25 CPU0: keep it offline unless U-Boot handed off through BL31
 DefaultDependencies=no
-After=systemd-remount-fs.service
-Before=sysinit.target greetd.service
+Before=systemd-udevd.service sysinit.target greetd.service
 [Service]
 Type=oneshot
 ExecStart=/usr/libexec/marathon/q25-platform-prepare

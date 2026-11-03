@@ -1,9 +1,18 @@
 #!/bin/sh
+# CPU0 corrupts memory unless BL31 started this kernel through
+# MTK_SIP_KERNEL_BOOT. Marathon's U-Boot does that and then marks /chosen;
+# without the mark (its hand-off failed, or /loader/q25-no-handoff) CPU0 goes
+# offline before udev starts, as it always did.
 set -eu
+if [ -e /proc/device-tree/chosen/marathon,mtk-kernel-boot ]; then
+    printf 'Q25: started through MTK_SIP_KERNEL_BOOT; online CPUs: '
+    cat /sys/devices/system/cpu/online
+    exit 0
+fi
 p=/sys/devices/system/cpu/cpu0/online
 if [ "$(cat "$p")" = 1 ]; then
     printf '0\n' > "$p"
 fi
 [ "$(cat "$p")" = 0 ]
-printf 'Q25: CPU0 quarantined; online CPUs: '
+printf 'Q25: no MTK hand-off, CPU0 quarantined; online CPUs: '
 cat /sys/devices/system/cpu/online
