@@ -1,5 +1,5 @@
-//! `Security`: the shell's Security1, the PIN, authentication and erasing
-//! the device, for system apps.
+//! `Security`: the shell's Security1, the PIN, authentication, erasing the
+//! device and remote connection, for system apps.
 
 use std::pin::Pin;
 
@@ -27,6 +27,8 @@ pub mod qobject {
         #[qproperty(i32, failed_attempts, cxx_name = "failedAttempts", READ, NOTIFY = state_changed)]
         #[qproperty(bool, can_erase_all_content, cxx_name = "canEraseAllContent", READ, NOTIFY = state_changed)]
         #[qproperty(QString, data_encryption, cxx_name = "dataEncryption", READ, NOTIFY = state_changed)]
+        /// "unavailable", "off" or "on".
+        #[qproperty(QString, remote_connection, cxx_name = "remoteConnection", READ, NOTIFY = state_changed)]
         type Security = super::SecurityRust;
 
         #[qsignal]
@@ -44,6 +46,12 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "eraseFailed"]
         fn erase_failed(self: Pin<&mut Self>, reason: &QString);
+        #[qsignal]
+        #[cxx_name = "remoteConnectionApplied"]
+        fn remote_connection_applied(self: Pin<&mut Self>);
+        #[qsignal]
+        #[cxx_name = "remoteConnectionFailed"]
+        fn remote_connection_failed(self: Pin<&mut Self>, reason: &QString);
 
         #[qinvokable]
         #[cxx_name = "setQuickPIN"]
@@ -76,6 +84,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "eraseAllContent"]
         fn erase_all_content(self: &Security, secret: &QString);
+        /// `pin` is the quick PIN, which turning on takes where one is set.
+        /// Answers with `remoteConnectionApplied` or `remoteConnectionFailed`.
+        #[qinvokable]
+        #[cxx_name = "setRemoteConnection"]
+        fn set_remote_connection(self: &Security, on: bool, password: &QString, pin: &QString);
     }
 
     impl cxx_qt::Threading for Security {}
@@ -97,11 +110,13 @@ pub struct SecurityRust {
     failed_attempts: i32,
     can_erase_all_content: bool,
     data_encryption: QString,
+    remote_connection: QString,
 }
 
 impl cxx_qt::Initialize for Security {
     fn initialize(mut self: Pin<&mut Self>) {
         self.as_mut().rust_mut().data_encryption = QString::from("none");
+        self.as_mut().rust_mut().remote_connection = QString::from("unavailable");
         let qt = self.qt_thread();
         relay(
             qt.clone(),
@@ -123,6 +138,20 @@ impl cxx_qt::Initialize for Security {
             "EraseFailed",
             |obj, (r,): (String,)| obj.erase_failed(&QString::from(&r)),
         );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "RemoteConnectionApplied",
+            |obj, ()| {
+                obj.remote_connection_applied();
+            },
+        );
+        relay(
+            qt.clone(),
+            SECURITY,
+            "RemoteConnectionFailed",
+            |obj, (r,): (String,)| obj.remote_connection_failed(&QString::from(&r)),
+        );
         mirror(qt, SECURITY, "system", |mut obj, update| {
             let Update::State(s) = update else { return };
             let mut x = obj.as_mut().rust_mut();
@@ -136,6 +165,10 @@ impl cxx_qt::Initialize for Security {
             x.data_encryption = s
                 .get("dataEncryption")
                 .map_or_else(|| QString::from("none"), |_| get(&s, "dataEncryption"));
+            x.remote_connection = s.get("remoteConnection").map_or_else(
+                || QString::from("unavailable"),
+                |_| get(&s, "remoteConnection"),
+            );
             obj.state_changed();
         });
     }
@@ -162,6 +195,20 @@ impl Security {
             if let Err(e) = SECURITY.reply("EraseAllContent", &(secret,)).await {
                 let reason = QString::from(&crate::shell::message(&e));
                 qt.queue(move |obj| obj.erase_failed(&reason)).ok();
+            }
+        });
+    }
+
+    fn set_remote_connection(&self, on: bool, password: &QString, pin: &QString) {
+        let (qt, args) = (
+            self.qt_thread(),
+            (on, password.to_string(), pin.to_string()),
+        );
+        io::spawn(async move {
+            if let Err(e) = SECURITY.reply("SetRemoteConnection", &args).await {
+                let reason = QString::from(&crate::shell::message(&e));
+                qt.queue(move |obj| obj.remote_connection_failed(&reason))
+                    .ok();
             }
         });
     }
