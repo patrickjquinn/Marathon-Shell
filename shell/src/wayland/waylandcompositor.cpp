@@ -729,6 +729,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("MOZ_ENABLE_WAYLAND", "1");
 
     env.insert("QT_IM_MODULE", "wayland");
+    env.insert("QT_QPA_GENERIC_PLUGINS", "marathontouch");
     // GTK 4 otherwise falls back to its "simple" module, never binds
     // text-input, and the keyboard can't open or type into GTK apps.
     env.insert("GTK_IM_MODULE", "wayland");

@@ -208,6 +208,7 @@ add_subdirectory(marathon-icon-theme)
 add_subdirectory(marathon-fonts)
 add_subdirectory(shell)
 add_subdirectory(tools/marathon-app-runner)
+add_subdirectory(tools/marathon-touch-hints)
 add_subdirectory(tools/sailfish-qml)
 add_subdirectory(tools/sailfish-install)
 
