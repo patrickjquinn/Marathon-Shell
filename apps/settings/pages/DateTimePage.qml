@@ -60,11 +60,14 @@ Page {
         }
     }
 
+    // On each minute, as the status bar's clock turns.
     Timer {
-        interval: 30000
+        interval: 60000 - page.now.getSeconds() * 1000 - page.now.getMilliseconds()
         repeat: true
         running: page.status === PageStatus.Active
         onTriggered: page.now = new Date()
+        onRunningChanged: if (running)
+            page.now = new Date()
     }
 
     TimeZoneList {
