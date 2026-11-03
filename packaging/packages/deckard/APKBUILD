@@ -8,8 +8,8 @@
 # scripts/qemu/lib/build-deckard-apk.sh stages a local checkout.
 pkgname=deckard
 pkgver=0.1.0
-pkgrel=32
-_commit=a2c81be60e5d6e115cd80e6154e9e375b43490fb
+pkgrel=33
+_commit=2c94290af40503a6def92d1e17ef820eff6f6655
 pkgdesc="Android notifications, media and system integration for Marathon"
 url="https://github.com/patrickjquinn/Marathon-Deckard"
 arch="aarch64 x86_64"
@@ -18,13 +18,14 @@ license="GPL-3.0-or-later AND GPL-3.0-only"
 # iproute2's ip (its bridge; busybox ip has no link add);
 # deckard-boot-evidence runs ss and nsenter; deckard-migrate runs
 # marathon-shell-bin --rename-app-ids.
-depends="lxc dnsmasq iptables kmod iproute2 util-linux-misc libgcc marathon-shell>=1.0.0-r492"
+# deckard-camera links GStreamer; a camera device's package brings libcamerasrc.
+depends="lxc dnsmasq iptables kmod iproute2 util-linux-misc libgcc gstreamer gst-plugins-base marathon-shell>=1.0.0-r492"
 # The overlay carries Android ELF files (the patched composer HAL) that link
 # Android's libc++, so the Rust binaries' libgcc_s is listed above instead.
 # Cargo strips the binaries; abuild's strip would rewrite them after package()
 # and break the build manifest's digests.
 options="!tracedeps !strip net"
-makedepends="cargo unzip"
+makedepends="cargo unzip gstreamer-dev gst-plugins-base-dev"
 checkdepends="dbus"
 install="$pkgname.post-install $pkgname.post-upgrade"
 # microG's signed releases, unchanged (Marathon-Deckard docs/microg.md).
@@ -56,7 +57,8 @@ prepare() {
 	[ -f host/deckard-launch/Cargo.toml ] &&
 	[ -f host/deckard-container/Cargo.toml ] &&
 	[ -f host/deckard-host-tools/src/migrate.rs ] &&
-	[ -f host/deckard-bridge/Cargo.toml ] ||
+	[ -f host/deckard-bridge/Cargo.toml ] &&
+	[ -f host/deckard-camera/Cargo.toml ] ||
 		die "pin a Deckard commit containing the native host tools"
 }
 
@@ -66,7 +68,7 @@ build() {
 	cargo build --release --locked -p deckard-host-tools \
 		-p deckard-fonts-sync -p deckard-overlay-sync \
 		-p deckard-runtime -p deckard-launch -p deckard-container \
-		-p deckard-bridge
+		-p deckard-bridge -p deckard-camera
 }
 
 check() {
@@ -77,7 +79,7 @@ check() {
 		cargo test --release --locked -p deckard-host-tools -p deckard-fonts-sync \
 		-p deckard-overlay-sync -p deckard-runtime -p deckard-launch \
 		-p deckard-container -p deckard-bridge -p deckard-core \
-		-p deckard-mpris -p deckard-packages
+		-p deckard-mpris -p deckard-packages -p deckard-camera
 }
 
 package() {
@@ -90,6 +92,11 @@ package() {
 		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckard-bridge.service
 	install -Dm644 $p/deckard-bridge.service.json \
 		"$pkgdir"/usr/share/marathon-shell/services/deckard-bridge.service.json
+	install -Dm755 target/release/deckard-camera "$pkgdir"/usr/libexec/deckard-camera
+	install -Dm644 $p/deckard-camera.service \
+		"$pkgdir"/usr/lib/systemd/user/deckard-camera.service
+	ln -s ../deckard-camera.service \
+		"$pkgdir"/usr/lib/systemd/user/graphical-session.target.wants/deckard-camera.service
 	install -Dm755 target/release/deckard-overlay-sync \
 		"$pkgdir"/usr/libexec/deckard-overlay-sync
 	install -Dm755 target/release/deckard-open-apk "$pkgdir"/usr/libexec/deckard-open-apk
