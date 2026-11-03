@@ -10,7 +10,6 @@ rm -f "$state/ready"
 fail() { echo "q25-gpu: $*; software fallback" >&2; exit 1; }
 [ ! -e /etc/q25/gpu-disabled ] || fail 'disabled by recovery override'
 case " $(cat /proc/cmdline) " in *' q25.gpu=off '*) fail 'disabled by command line';; esac
-[ "$(cat /sys/devices/system/cpu/cpu0/online)" = 0 ] || fail 'CPU0 quarantine absent'
 sha256sum -c /usr/lib/q25-gpu/SHA256SUMS || fail 'artifact identity mismatch'
 [ -e "$gpu/of_node" ] || fail 'native GPU node absent'
 modprobe panfrost
