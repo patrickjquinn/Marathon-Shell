@@ -6,4 +6,6 @@ Type=oneshot
 # ccci_mdinit writes "ready" only on its own first boot of MD1; every reset
 # goes through "exception", "reset" or "invalid".
 ExecCondition=/bin/sh -c '! grep -qx ready /run/q25-modem/props/vendor.mtk.md1.status'
-ExecStart=/bin/systemctl --no-block restart q25-modem-init.service
+# Never cut a running SIM power-up short; if the reset made it fail, its
+# Restart= runs it again.
+ExecStart=/bin/sh -c '[ "$(systemctl is-active q25-modem-init.service)" = activating ] || exec systemctl --no-block restart q25-modem-init.service'

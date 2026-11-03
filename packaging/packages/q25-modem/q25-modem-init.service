@@ -4,6 +4,8 @@ Requires=q25-ccci-mdinit.service
 After=q25-ccci-mdinit.service
 Before=ModemManager.service
 PartOf=q25-modem.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
@@ -12,3 +14,5 @@ ExecStartPre=-/bin/systemctl stop ModemManager.service
 ExecStartPre=/usr/libexec/q25-modem/q25-modem-up wait
 ExecStart=/usr/libexec/q25-modem/q25-modem-init
 ExecStartPost=/bin/systemctl start --no-block ModemManager.service
+Restart=on-failure
+RestartSec=10
