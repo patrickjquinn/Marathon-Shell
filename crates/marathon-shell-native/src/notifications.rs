@@ -131,6 +131,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "dismissTagged"]
         fn dismiss_tagged(self: Pin<&mut Notifications>, app_id: &QString, tag: &QString);
+        /// Every notification of `app_id` whose tag starts with `prefix`.
+        #[qinvokable]
+        #[cxx_name = "dismissTaggedPrefix"]
+        fn dismiss_tagged_prefix(self: Pin<&mut Notifications>, app_id: &QString, prefix: &QString);
         #[qinvokable]
         #[cxx_name = "dismissNotification"]
         fn dismiss_notification(self: Pin<&mut Notifications>, id: i32);
@@ -961,6 +965,11 @@ impl Notifications {
     pub(crate) fn dismiss_tagged(self: Pin<&mut Self>, app_id: &QString, tag: &QString) {
         let tag = tag.to_string();
         self.dismiss_tagged_if(&app_id.to_string(), |t| t == tag);
+    }
+
+    fn dismiss_tagged_prefix(self: Pin<&mut Self>, app_id: &QString, prefix: &QString) {
+        let prefix = prefix.to_string();
+        self.dismiss_tagged_if(&app_id.to_string(), |t| t.starts_with(&prefix));
     }
 
     /// Every notification of `app_id` whose tag `wanted` accepts.

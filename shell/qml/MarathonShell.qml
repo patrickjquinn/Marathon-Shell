@@ -1,6 +1,7 @@
 import "./components" as Comp
 import "./core/BatteryWarning.js" as BatteryWarning
 import MarathonOS.Shell 1.0
+import Nemo.Configuration 1.0
 import QtQuick
 import QtQuick.Window
 import Sailfish.Silica 1.0 as Silica
@@ -2977,12 +2978,28 @@ Item {
                         "label": qsTr("Message")
                     }
                 ],
-                "replyTarget": number
+                "replyTarget": number,
+                "tag": "missed-call:" + number
             });
             HapticManager.heavy();
         }
 
         target: Modem
+    }
+
+    // Phone's call log seen clears the missed-call notifications, as Android's does.
+    ConfigurationValue {
+        property real seenAt: -1
+
+        key: "/apps/phone/callLogSeen"
+        defaultValue: 0
+        onValueChanged: {
+            const at = Number(value) || 0;
+            if (seenAt >= 0 && at > seenAt)
+                NotificationService.dismissTaggedPrefix("phone", "missed-call:");
+            seenAt = at;
+        }
+        Component.onCompleted: seenAt = Number(value) || 0
     }
 
     Connections {
