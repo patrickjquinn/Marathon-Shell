@@ -1,4 +1,5 @@
-//! The systemd user manager, as the shell calls it.
+//! The systemd user manager, as the shell calls it, and the system manager
+//! it asks about units.
 
 use zbus::{OwnedObjectPath, Variant as Value};
 
@@ -28,6 +29,8 @@ pub trait SystemdManager {
     fn freeze_unit(&self, name: &str) -> zbus::Result<()>;
 
     fn thaw_unit(&self, name: &str) -> zbus::Result<()>;
+
+    fn get_unit_file_state(&self, file: &str) -> zbus::Result<String>;
 
     fn unset_and_set_environment(
         &self,
