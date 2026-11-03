@@ -54,6 +54,19 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-data-key</annotate>
   </action>
 
+  <!-- Settings > Developer tools > Remote connection. The shell asks for
+       the quick PIN before turning it on; sandboxed apps can't use pkexec. -->
+  <action id="org.marathonos.shell.remote-connection">
+    <description>Turn remote connection over SSH on or off</description>
+    <message>Authentication is required to change remote connection</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/marathon-remote-connection</annotate>
+  </action>
+
   <!-- Allow bluetooth management -->
   <action id="org.marathonos.shell.bluetooth-control">
     <description>Control Bluetooth</description>

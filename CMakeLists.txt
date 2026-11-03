@@ -244,6 +244,9 @@ install(PROGRAMS systemd/marathon-activate
 install(PROGRAMS tools/marathon-data-key/marathon-data-key
     DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
 )
+install(PROGRAMS tools/marathon-remote-connection/marathon-remote-connection
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec
+)
 
 # Install polkit policy
 install(FILES polkit/org.marathonos.shell.policy
