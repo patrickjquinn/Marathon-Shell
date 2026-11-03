@@ -64,6 +64,10 @@
 #define MD_LK_BOOT_UP		1
 #define MD_LK_GET_BOOT_UP_STATUS 7
 #define CCCI_SECURE_RET_LK	0xfffffffffffffff1UL
+/* Kernel-table MD_POWER_CONFIG sub-commands (modem_secure_base.h) */
+#define MD_KERNEL_BOOT_UP	0
+#define MD_CHECK_DONE		3
+#define MD_BOOT_STATUS		4
 
 /* SPM, offsets from LK2 mt6789 mtcmos.c / ccci_lk_md_power_ctrl.c */
 #define SPM_POWERON_CONFIG_EN	0x000
@@ -152,12 +156,22 @@ struct md1_owner {
 	u32 dsp_off;
 	u32 dsp_size;
 	u32 hs1_ms;
+	/* After MTK_SIP_KERNEL_BOOT: kernel SiP table; remaps and MPU set by the bootloader */
+	bool kernel_sip;
 };
 
 static void sip(unsigned long fid, unsigned long a1, unsigned long a2,
 		unsigned long a3, unsigned long a4, struct arm_smccc_res *res)
 {
 	arm_smccc_smc(fid, a1, a2, a3, a4, 0, 0, 0, res);
+}
+
+static bool md1_kernel_sip(void)
+{
+	struct arm_smccc_res res;
+
+	sip(SIP_LK_CCCI, 0, 0, 0, 0, &res);
+	return (u32)res.a0 == (u32)SMCCC_RET_NOT_SUPPORTED;
 }
 
 static int spm_rd(struct md1_owner *md, u32 off, u32 *v)
@@ -390,6 +404,11 @@ static int cmd_remap(struct md1_owner *md)
 	if (!IS_ALIGNED(b, SZ_32M) || !IS_ALIGNED(md->nc.start, SZ_32M) ||
 	    !IS_ALIGNED(md->c.start, SZ_32M))
 		return -EINVAL;
+	if (md->kernel_sip) {
+		dev_info(md->dev, "remap: set by the bootloader\n");
+		md->state |= ST_REMAPPED;
+		return 0;
+	}
 	sip(SIP_LK_CCCI, MD_BANK0_HW_REMAP, lower_32_bits(b), upper_32_bits(b), 0, &r0);
 	if (r0.a0 == CCCI_SECURE_RET_LK)
 		return -EIO;
@@ -532,7 +551,21 @@ static int cmd_power_off(struct md1_owner *md)
 
 static void boot_status(struct md1_owner *md, struct arm_smccc_res *res)
 {
-	sip(SIP_LK_CCCI, MD_POWER_CONFIG, MD_LK_GET_BOOT_UP_STATUS, 0, 0, res);
+	if (md->kernel_sip)
+		sip(SIP_KERNEL_CCCI, MD_POWER_CONFIG, MD_BOOT_STATUS, 0, 0, res);
+	else
+		sip(SIP_LK_CCCI, MD_POWER_CONFIG, MD_LK_GET_BOOT_UP_STATUS, 0, 0, res);
+}
+
+/* All four BROM check flags read 1. */
+static bool brom_pass(struct md1_owner *md, struct arm_smccc_res *res)
+{
+	if (md->kernel_sip) {
+		sip(SIP_KERNEL_CCCI, MD_POWER_CONFIG, MD_CHECK_DONE, 0, 0, res);
+		return !res->a0;
+	}
+	boot_status(md, res);
+	return res->a2 == 0x100000001UL && res->a3 == 0x100000001UL;
 }
 
 /* Writes only the 0x1020E700 debug mux select inside ATF; no state gate. */
@@ -551,7 +584,10 @@ static int cmd_boot(struct md1_owner *md)
 
 	if (!(md->state & ST_POWERED) || (md->state & ST_BOOTED))
 		return -EINVAL;
-	sip(SIP_LK_CCCI, MD_POWER_CONFIG, MD_LK_BOOT_UP, 0, 0, &res);
+	if (md->kernel_sip)
+		sip(SIP_KERNEL_CCCI, MD_POWER_CONFIG, MD_KERNEL_BOOT_UP, 0, 0, &res);
+	else
+		sip(SIP_LK_CCCI, MD_POWER_CONFIG, MD_LK_BOOT_UP, 0, 0, &res);
 	dev_info(md->dev, "boot: ret=%#lx boot_slave=%#lx\n", res.a0, res.a3);
 	if (res.a0)
 		return -EIO;
@@ -567,9 +603,7 @@ static int cmd_poll_brom(struct md1_owner *md)
 	if (!(md->state & ST_BOOTED))
 		return -EINVAL;
 	for (i = 0; i < 50; i++) {
-		boot_status(md, &res);
-		/* a1: status regs, a2/a3: four BROM check flags (all 1 = pass). */
-		if (res.a2 == 0x100000001UL && res.a3 == 0x100000001UL) {
+		if (brom_pass(md, &res)) {
 			md->state |= ST_BROM_PASS;
 			dev_info(md->dev, "poll-brom: pass after %u ms status=%#lx\n",
 				 i * 100, res.a1);
@@ -669,6 +703,11 @@ static void cmd_mpu_scan(struct md1_owner *md)
 {
 	unsigned int r, used = 0;
 
+	if (md->kernel_sip) {
+		dev_info(md->dev, "mpu-scan: BL31 serves EMI MPU reads to the bootloader only\n");
+		return;
+	}
+
 	for (r = 0; r < 32; r++) {
 		unsigned long sa = mpu_read(EMIMPU_READ_SA, r, 0);
 		unsigned long ea = mpu_read(EMIMPU_READ_EA, r, 0);
@@ -702,6 +741,11 @@ static int cmd_mpu_bound(struct md1_owner *md)
 
 	if (!(md->state & ST_REMAPPED) || md->c.start > md->nc.start || cend > md->nc.start)
 		return -EINVAL;
+	if (md->kernel_sip) {
+		dev_info(md->dev, "mpu-bound: MD1 and MDHW limited by the bootloader's EMI MPU regions\n");
+		md->state |= ST_MPU;
+		return 0;
+	}
 	if (md->c.start != lo)
 		return -EINVAL;
 	gap[0].s = cend;
@@ -1135,6 +1179,7 @@ static int md1_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 	md->hs1_ms = clamp(md->hs1_ms, 100U, 60000U);
+	md->kernel_sip = md1_kernel_sip();
 
 	/* The image span must never be Linux RAM; smem must be no-map carve-outs. */
 	if (resource_size(&md->img) < SZ_128M ||
@@ -1159,9 +1204,10 @@ static int md1_probe(struct platform_device *pdev)
 		if (ret)
 			return dev_err_probe(dev, ret, "MD1 power domain\n");
 	}
-	dev_info(dev, "MD1 owner idle (%s%s): image %pR nc %pR c %pR fw %s md1=%s\n",
+	dev_info(dev, "MD1 owner idle (%s%s): image %pR nc %pR c %pR fw %s md1=%s sip=%s\n",
 		 dev->of_node ? "dt" : "standalone", md->pd_registered ? ", genpd" : "",
-		 &md->img, &md->nc, &md->c, md->fw_name, md1_is_on(md) ? "on" : "off");
+		 &md->img, &md->nc, &md->c, md->fw_name, md1_is_on(md) ? "on" : "off",
+		 md->kernel_sip ? "kernel" : "bootloader");
 	return 0;
 }
 
