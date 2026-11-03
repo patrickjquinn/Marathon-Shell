@@ -15,3 +15,7 @@ netfs
 overlay
 dm-verity
 dm-bufio
+phy-mtk-mipi-dsi-drv
+panel-zinwa-q20-hd720
+mediatek-drm
+bbqx0kbd
