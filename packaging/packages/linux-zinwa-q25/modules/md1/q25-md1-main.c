@@ -138,6 +138,8 @@ struct md1_owner {
 	void __iomem *ccif_md;
 	struct clk_bulk_data clks[2];
 	bool clks_on;
+	/* Infra gates the running modem needs; they follow the MD1 domain. */
+	struct clk_bulk_data infra_clks[4];
 	struct resource img, nc, c, tag;
 	struct device_node *mddriver;
 	struct generic_pm_domain pd;
@@ -886,12 +888,27 @@ MODULE_PARM_DESC(md_off_at_boot, "power MD1 off at probe (preloader leaves it on
 
 static int md1_pd_on(struct generic_pm_domain *pd)
 {
-	return mtcmos_on(container_of(pd, struct md1_owner, pd));
+	struct md1_owner *md = container_of(pd, struct md1_owner, pd);
+	int ret;
+
+	ret = clk_bulk_prepare_enable(ARRAY_SIZE(md->infra_clks), md->infra_clks);
+	if (ret)
+		return ret;
+	ret = mtcmos_on(md);
+	if (ret)
+		clk_bulk_disable_unprepare(ARRAY_SIZE(md->infra_clks), md->infra_clks);
+	return ret;
 }
 
 static int md1_pd_off(struct generic_pm_domain *pd)
 {
-	return mtcmos_off(container_of(pd, struct md1_owner, pd), true);
+	struct md1_owner *md = container_of(pd, struct md1_owner, pd);
+	int ret;
+
+	ret = mtcmos_off(md, true);
+	if (!ret)
+		clk_bulk_disable_unprepare(ARRAY_SIZE(md->infra_clks), md->infra_clks);
+	return ret;
 }
 
 /*
@@ -947,6 +964,11 @@ static int md1_register_pd(struct md1_owner *md)
 	md->pd.name = "md1";
 	md->pd.power_on = md1_pd_on;
 	md->pd.power_off = md1_pd_off;
+	if (md1_is_on(md)) {
+		ret = clk_bulk_prepare_enable(ARRAY_SIZE(md->infra_clks), md->infra_clks);
+		if (ret)
+			return ret;
+	}
 	ret = pm_genpd_init(&md->pd, NULL, !md1_is_on(md));
 	if (ret)
 		return ret;
@@ -1071,6 +1093,13 @@ static int md1_probe_dt(struct platform_device *pdev, struct md1_owner *md)
 	ret = md1_common_resources(md);
 	if (ret)
 		return ret;
+	md->infra_clks[0].id = "ccif2-ap";
+	md->infra_clks[1].id = "ccif2-md";
+	md->infra_clks[2].id = "cldma";
+	md->infra_clks[3].id = "md-msdc0";
+	ret = devm_clk_bulk_get_optional(md->dev, ARRAY_SIZE(md->infra_clks), md->infra_clks);
+	if (ret)
+		return dev_err_probe(md->dev, ret, "modem infra clocks\n");
 	/* With the ECCCI stack, CCIF belongs to ccci_ccif; the node then has no reg. */
 	if (of_property_match_string(np, "reg-names", "ccif-ap") < 0) {
 		md->ccif_ap = NULL;
