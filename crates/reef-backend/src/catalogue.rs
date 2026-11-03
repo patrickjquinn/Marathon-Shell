@@ -306,7 +306,7 @@ pub struct Package {
     /// What an Android app asks of the phone (F-Droid's rows).
     #[serde(skip)]
     pub android: Option<AndroidNeeds>,
-    /// A Flathub app made for a phone first (its AppStream, as the store
+    /// A Flathub app made for a phone first (its `AppStream`, as the store
     /// handler reads it): the banner prefers these.
     #[serde(skip)]
     pub phone_first: bool,
@@ -343,6 +343,19 @@ pub enum Install {
         #[serde(default)]
         store: String,
     },
+    /// A Marathon app's signed `.marathon` package, which the store handler
+    /// installs beside the OS's copy of the app (`docs/reef/marathon-catalogue.md`).
+    Marathon {
+        app_id: String,
+        url: String,
+        sha256: String,
+        /// The oldest image it runs on.
+        #[serde(default)]
+        min_image: String,
+    },
+    /// A kind this Reef does not know: listed, not installable.
+    #[serde(other)]
+    Unknown,
 }
 
 impl Install {
@@ -369,6 +382,24 @@ impl Install {
             }
             Install::Android { package, store } if store == "fdroid" => {
                 id_shape(package).then(|| format!("android:{package}"))
+            }
+            Install::Marathon {
+                app_id,
+                url,
+                sha256,
+                min_image,
+            } => {
+                let marathon_id = !app_id.is_empty()
+                    && app_id.len() <= 64
+                    && app_id.bytes().all(|c| {
+                        c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'_' | b'-')
+                    });
+                let hex = sha256.len() == 64 && sha256.bytes().all(|c| c.is_ascii_hexdigit());
+                (marathon_id
+                    && hex
+                    && is_https_url(url)
+                    && min_image.bytes().all(|c| c.is_ascii_digit()))
+                .then(|| format!("marathon:{app_id}"))
             }
             _ => None,
         }
@@ -877,6 +908,31 @@ pub fn is_https_url(url: &str) -> bool {
 )]
 pub(crate) mod tests {
     use super::*;
+
+    #[test]
+    fn marathon_packages_install_and_unknown_kinds_do_not_break_the_catalogue() {
+        let sha = "ab".repeat(32);
+        let json = format!(
+            r#"{{"schema":1,"release":"marathon","arch":"aarch64","packages":[
+            {{"name":"maps","version":"1.0.0.2611050000","title":"Maps","summary":"s","tested_on":[],
+              "licence":{{"model":"free"}},
+              "install":{{"kind":"marathon","app_id":"maps","min_image":"26110501",
+                          "url":"https://github.com/o/r/releases/download/apps/aarch64/maps.marathon","sha256":"{sha}"}}}},
+            {{"name":"plain","version":"1","title":"Plain","summary":"s","tested_on":[],
+              "licence":{{"model":"free"}},
+              "install":{{"kind":"marathon","app_id":"plain","url":"http://insecure.example/p.marathon","sha256":"{sha}"}}}},
+            {{"name":"later","version":"1","title":"Later","summary":"s","tested_on":[],
+              "licence":{{"model":"free"}},
+              "install":{{"kind":"snap","name":"later"}}}}]}}"#
+        );
+        let cat = Catalogue::parse(json.as_bytes(), "aarch64").unwrap();
+        let ids: Vec<Option<String>> = cat
+            .packages
+            .iter()
+            .map(|p| p.install.as_ref().and_then(Install::handler_id))
+            .collect();
+        assert_eq!(ids, [Some("marathon:maps".to_owned()), None, None]);
+    }
 
     #[test]
     fn builds_a_cpu_cannot_run_are_hidden() {

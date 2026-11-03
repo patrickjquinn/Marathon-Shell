@@ -9,6 +9,7 @@ publish.workspace = true
 futures-lite = "2.6.1"
 base64 = "0.23.1"
 flate2 = { version = "1.1.10", default-features = false, features = ["zlib-rs"] }
+marathon-apps = { path = "../marathon-apps" }
 marathon-rt = { path = "../marathon-rt" }
 nix = { version = "0.31.3", features = ["term", "fs", "user"] }
 regex = "1.13.1"

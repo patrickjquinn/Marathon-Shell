@@ -50,11 +50,11 @@ Sources: duranium `DESIGN.md` (in the generated tree), [sysupdate.d(5)](https://
 ## How it fits together
 
 ```
- build host                              thrivelobal.com (MARATHON_OTA_URL)
+ build host                              github.com/patrickjquinn/marathon-updates
  ──────────                              ───────────────────────────────────
- build-image.sh MARATHON_IMAGE_LAYOUT=ab  <url>/<image-id>/
+ build-image.sh MARATHON_IMAGE_LAYOUT=ab  release <channel>/<image-id> (MARATHON_OTA_URL/<image-id>/)
    └ mkosi: ESP + erofs /usr + verity       <id>_<v>.usr-arm64.<uuid>.raw.zst
- marathon-ota publish ──── rsync ────────►  <id>_<v>.usr-arm64-verity.<uuid>.raw.zst
+ marathon-ota publish ─ gh release ──────►  <id>_<v>.usr-arm64-verity.<uuid>.raw.zst
    zstd, SHA256SUMS, gpg --detach-sign      <id>_<v>.efi
                                             SHA256SUMS, SHA256SUMS.gpg
                                             marathon-os.metainfo.xml
@@ -97,8 +97,9 @@ as Store installs already do.
 versions (2 by default, matching `InstancesMax=2`). It refuses a version that
 is already published or older than the newest one. Payloads land first, and
 `SHA256SUMS` and its signature land last, so a client never sees a version whose
-files are missing. With `--upload` it rsyncs the payloads, then the manifest,
-then deletes pruned files.
+files are missing. With `--github` it mirrors the feed onto a GitHub release
+([Hosting](#hosting-github-releases)); with `--upload` it rsyncs the payloads,
+then the manifest, then deletes pruned files.
 
 `--notes FILE` becomes the release's AppStream description: blank lines
 separate paragraphs, and lines starting `- ` or `* ` are list items, which
@@ -121,7 +122,9 @@ Marathon's feed. To rotate keys, ship an image whose keyring holds both keys,
 then start signing with the new one.
 
 The transfers are templates in `packaging/ota/sysupdate.d/`, rendered with
-`MARATHON_OTA_URL` (default `https://thrivelobal.com/marathon/updates`). The UKI
+`MARATHON_OTA_URL` (default
+`https://github.com/patrickjquinn/marathon-updates/releases/download/$MARATHON_OTA_CHANNEL`,
+channel `stable` unless set to `test`). The UKI
 transfer is named last, so a new boot entry appears only after its `/usr` is
 written. Its `AppStream=` points at the catalog that gives Settings each
 release's download size and notes.
@@ -178,23 +181,96 @@ differs from the last one whose shell came up, which it records in
 an update and every retry of a trial boot; a rollback or a fresh flash shows
 the plain splash. It never fails a boot.
 
-The update channel picker is gone. Channels were GitHub pre-releases, and
-images are built for one release (`edge`), which sysupdate matches as `%w`.
-Staged rollout is not implemented. Promoting a build from a test feed to the
-public one is the manual equivalent.
+There is no channel picker on the phone: an image follows the channel it was
+built for (`MARATHON_OTA_CHANNEL`), and images are built for one release
+(`edge`), which sysupdate matches as `%w`. Staged rollout is not implemented.
+Publishing a device-tested build from the test feed to stable is the manual
+equivalent.
 
-### Health check
+### Hosting: GitHub releases
 
-`marathon-boot-health.service` (crate `crates/marathon-health`) is required by
-`boot-complete.target` and runs only when systemd-boot is counting
-(`LoaderBootCountPath` set). It waits up to `MARATHON_HEALTH_TIMEOUT_SECS`
-(300 s) for any `/run/user/*/marathon-shell-ready`. The shell writes that file
-on its first frame. If the file never appears, the unit fails and the boot is
-not blessed. marathon-health then reboots, but only if the reboot can lead
-somewhere: either the entry still has tries left, or another entry in
-`EFI/Linux` is good or has tries. An entry already at zero that is the only one
-left stays up, so a device with nothing to fall back to never reboot-loops.
-Blessed entries are not counted, so it never runs on them.
+The feeds are releases of the public repository
+[patrickjquinn/marathon-updates](https://github.com/patrickjquinn/marathon-updates),
+one per channel and image id, tagged `<channel>/<image id>`:
+`stable/zinwa-q25_marathon_edge`, `stable/hackberrypi-cm5_marathon_edge`,
+`stable/raspberry-pi5_marathon_edge` (a plain Pi 5),
+`stable/qemu-aarch64_marathon_edge`, and the same under `test/` as
+pre-releases. A release's download URL is
+`https://github.com/patrickjquinn/marathon-updates/releases/download/<tag>/<asset>`,
+so `MARATHON_OTA_URL` ends in `/releases/download/<channel>` and the
+transfers' `@MARATHON_OTA_URL@/%M_%W_%w/` lands in the release for the
+phone's own image id, unchanged from a plain web server. GitHub answers each
+download with a 302 to its object store; systemd-pull, and the shell's
+AppStream fetch (ureq), follow it. Pages cannot serve these: it refuses files
+over 100 MB, and sysupdate fetches `SHA256SUMS` and the payloads from one
+base URL.
+
+```sh
+scripts/ota/marathon-ota publish --image-dir <mkosi.output>/<image id> --version <v> \
+    --feed /mnt/deckard-build/marathon-feeds/test --gnupghome ~/.marathon-secrets/ota/gnupg \
+    --notes notes.txt --github patrickjquinn/marathon-updates --channel test
+scripts/ota/check-feed q25 <running version> --url https://github.com/patrickjquinn/marathon-updates/releases/download/test
+```
+
+`--github` creates the release when it is missing, uploads payloads the
+release lacks, then uploads `marathon-os.metainfo.xml`, `SHA256SUMS` and
+`SHA256SUMS.gpg` as `*.new` and renames each over the old one, deletes the
+pruned versions' assets, and waits until GitHub serves the new manifest and
+signature. The local feed directory is the release's mirror and decides what
+is kept: keep it (`gh release download <tag> -D <dir>` restores it), and
+`marathon-ota github-sync` pushes it again after a failed upload.
+`scripts/ota/check-feed q25|pi|qemu <running version> [--install]` then runs
+the device's own transfers, rendered with the feed's URL, through the host's
+systemd-sysupdate with the image's keyring, in a user namespace.
+
+Limits:
+
+- An asset must be under 2 GiB; `marathon-ota --github` refuses a larger one.
+  The Pi's root slot was 778 MB and its boot slot 103 MB compressed
+  (26102001). No Q25 root has been published yet: its `.ext4.zst` is
+  checked at publish time, and one over the limit needs a smaller root or
+  stronger compression (`zstd -19 --long=27`, which systemd-pull's default
+  128 MiB window still reads), since sysupdate cannot join split files.
+- Replacing an asset is not atomic, and downloads lag a replaced asset by
+  about a second. A phone checking in that window sees the old manifest
+  (nothing new) or a manifest and signature that don't match, a check error
+  that the next check clears.
+- A HackberryPi image is a Pi 5 image plus the HackberryPi overlay, but its
+  image id is `hackberrypi-cm5` (`MARATHON_IMAGE_DEVICE`, set by
+  `build-image.sh` when the overlay's apk is in `mkosi.packages`, and
+  pipeline patch 0056), so a plain Pi 5 and a HackberryPi never read each
+  other's feed. Images built before that say `raspberry-pi5`: a HackberryPi
+  moves to its own feed by one reflash, as it must anyway to leave the old
+  feed URL.
+
+The repository's CI (`validate`) checks each feed on every release change
+and daily: a good signature by `keys/marathon-ota.asc` (this repository's
+`packaging/ota/marathon-ota.asc`), every asset listed in `SHA256SUMS` and
+nothing else, the AppStream catalog's versions matching, every asset under
+2 GiB, and small assets against their checksums. Signing stays on the
+publisher's machine.
+
+Proved on 2026-11-02 against the real repository with
+`test/sysupdate-proof_marathon_edge` (an image id no image has, tiny
+payloads): the host's systemd-sysupdate 259 with the Q25 transfer verified
+`SHA256SUMS.gpg` with the OTA key through GitHub's redirect, installed
+26110201 byte for byte, then 26110203 after two more publishes with
+`--keep 2` had pruned 26110201's assets from the release, and kept two
+roots; with the host's own keyring it refused the feed ("Signature
+verification failed").
+
+### What updates how
+
+| | Updated by | Apps |
+|---|---|---|
+| system | the OS image (this document) | shell, the on-screen keyboard, Settings, Phone, Messages, Contacts, Camera, Clock, Reef, Deckard |
+| Reef | Reef, from its signed catalogue | Pacific and Shipwright's other closed apps (`packaging/vendor/shipwright.lock`), Pilot, Maps, Music, Notes, Calendar, Mail, Gallery, and the other apps |
+
+Every image keeps shipping the Reef-updated apps. Today an OS update is still
+the only way any of them changes. The plan for Reef to update the apps the
+image ships is in [Reef-updated Marathon apps](reef/marathon-catalogue.md#reef-updated-marathon-apps).
+Reef installs a newer copy in the home directory, beside the image's read-only
+one, and the newer of the two runs.
 
 ## Raspberry Pi 5 / HackberryPi CM5
 
@@ -384,9 +460,10 @@ U-Boot holds fastboot, or mtkclient if U-Boot does not start.
 ### Publishing
 
 ```sh
-scripts/build-zinwa-q25-image.sh --bump      # MARATHON_OTA_URL=... for a test feed
+MARATHON_OTA_CHANNEL=test scripts/build-zinwa-q25-image.sh --bump
 scripts/ota/marathon-ota publish --image-dir ~/.cache/marathon-build/q25/zinwa-q25_marathon_edge \
-    --version <IMAGE_VERSION> --feed ~/ota-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg --notes notes.txt
+    --version <IMAGE_VERSION> --feed /mnt/deckard-build/marathon-feeds/test --gnupghome ~/.marathon-secrets/ota/gnupg \
+    --notes notes.txt --github patrickjquinn/marathon-updates --channel test
 ```
 
 A phone running a root flashed by hand under its old name updates the same
@@ -518,7 +595,7 @@ The host serves the feed at 192.168.68.78; the device is
    put a file in `~`, note `/etc/machine-id`, reboot twice: all unchanged.
 4. **Image N+1.** Build again with `--bump`, then
    ```sh
-   scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/raspberry-pi5_marathon_edge \
+   scripts/ota/marathon-ota publish --image-dir $D/mkosi.output/hackberrypi-cm5_marathon_edge \
        --version <N+1> --feed ~/ota-test/feed --gnupghome ~/.marathon-secrets/ota/gnupg --notes notes.txt
    python3 -m http.server 8080 --bind 192.168.68.78 --directory ~/ota-test/feed
    ```
@@ -543,7 +620,8 @@ on the host and rewriting it.
 ## Known gaps
 
 - Full-image downloads only (about 2 GB per update); no delta or casync.
-- No staged rollout percentage; one public feed per image id.
+- No staged rollout percentage; one feed per channel and image id.
+- GitHub asset replacement is not atomic ([Hosting](#hosting-github-releases)).
 - duranium's dev-tools sysext/confext are no longer updated: their pmOS
   transfers are dropped, and Marathon does not publish them yet.
 - The UEFI boot path cannot take the dev-sim's extra kernel arguments
@@ -558,9 +636,6 @@ on the host and rewriting it.
   committed slot. The bootloader watchdog (EEPROM 2025-06-20 and later) and
   `PARTITION_WALK=1` (on by default from 2025-08-13) would harden this; the
   HackberryPi's EEPROM is 2025-06-13.
-- Raspberry Pi: `IMAGE_ID` is `raspberry-pi5` for vanilla Pi 5 and HackberryPi
-  builds alike, so both would share one feed directory. Publish HackberryPi
-  builds only.
 - Raspberry Pi: going from the single-root image to A/B needs a re-flash.
 - Zinwa Q25: nothing reboots a trial whose session never comes up
   (`q25-boot-check` fails and the entry stays unblessed); each restart by

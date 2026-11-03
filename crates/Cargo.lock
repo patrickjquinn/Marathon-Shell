@@ -3379,6 +3379,7 @@ dependencies = [
  "base64 0.23.1",
  "flate2",
  "futures-lite",
+ "marathon-apps",
  "marathon-rt",
  "nix 0.31.3",
  "quick-xml 0.42.0",
@@ -4387,6 +4388,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "tempfile",
  "zbus 6.1.0",
 ]
 

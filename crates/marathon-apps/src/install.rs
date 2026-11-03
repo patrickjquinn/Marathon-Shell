@@ -141,7 +141,9 @@ fn plan(manifest: &Value, signer: &str, approved: &[String]) -> Result<Plan, Ref
         );
         return Err(format!("Permissions with no description: {list}").into());
     }
-    let installed = read_json(&paths::receipt(&id));
+    // A copy of an OS app adds to what the OS's copy was allowed.
+    let installed = read_json(&paths::receipt(&id))
+        .or_else(|| read_json(&paths::system_app(&id).join("manifest.json")));
     let added: Vec<String> = installed.as_ref().map_or_else(Vec::new, |r| {
         let had = permissions_of(r);
         wanted
@@ -214,10 +216,38 @@ fn remove(path: &Path) -> std::io::Result<()> {
     }
 }
 
+/// Only Marathon's own key may replace an app the OS ships, and only with a
+/// newer version than the OS's and the one already installed beside it.
+fn may_replace_os_app(id: &str, version: &str, signer: &str) -> Result<(), String> {
+    let Some(os) = apps::system(id) else {
+        return Ok(());
+    };
+    if !apps::is_system_signer(signer) {
+        return Err("A system app has this id".to_owned());
+    }
+    if !apps::is_newer(version, &os.version) {
+        return Err(format!(
+            "The system's {id} {} is not older than {version}",
+            os.version
+        ));
+    }
+    let installed = read_json(&paths::receipt(id));
+    let installed = installed
+        .as_ref()
+        .map(|r| text(r, "version"))
+        .unwrap_or_default();
+    if apps::is_newer(installed, version) {
+        return Err(format!(
+            "{id} {installed} is installed, newer than {version}"
+        ));
+    }
+    Ok(())
+}
+
 fn place(manifest: &Value, source: &Path, signer: &str, moved: bool) -> Result<(), Refusal> {
     let id = text(manifest, "id");
     if paths::system_app(id).join("manifest.json").exists() {
-        return Err("A system app has this id".to_owned().into());
+        may_replace_os_app(id, text(manifest, "version"), signer)?;
     }
     let dest = paths::install_dir(id);
     remove(&dest).map_err(|e| format!("Failed to remove existing installation: {e}"))?;
@@ -341,6 +371,15 @@ pub fn verify(package: &Path) -> Result<String, String> {
         ),
     );
     Err(format!("Package verification failed: {refused}"))
+}
+
+/// Removes the user's copies of OS apps that an OS update caught up with;
+/// their ids.
+pub fn remove_superseded() -> Vec<String> {
+    apps::superseded()
+        .into_iter()
+        .filter(|id| remove(&paths::install_dir(id)).is_ok())
+        .collect()
 }
 
 pub fn can_uninstall(app_id: &str) -> bool {

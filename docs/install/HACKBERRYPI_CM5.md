@@ -20,7 +20,7 @@ Find the card with `lsblk` (for example `/dev/sdb`), then:
 ```
 
 Without an image path it takes the newest build from
-`$MARATHON_BUILD_DIR/duranium/mkosi.output/raspberry-pi5_marathon_edge/`.
+`$MARATHON_BUILD_DIR/duranium/mkosi.output/hackberrypi-cm5_marathon_edge/`.
 The script refuses the disk the PC runs from, and asks for `FORCE` if the
 target is not a removable device. It shows the card, waits for `YES`,
 unmounts its partitions, and writes the image with `dd` (`sudo` asks for

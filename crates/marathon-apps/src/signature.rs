@@ -174,11 +174,31 @@ pub fn sign(archive: &Path, secret_key: &Path) -> Result<(), String> {
     fs::write(&out, sig.into_string()).map_err(|e| format!("{}: {e}", out.display()))
 }
 
+/// A new key pair: the secret key, unencrypted and readable by its owner
+/// only, at `secret`; the public key at `public`. Returns the key id.
+pub fn keygen(secret: &Path, public: &Path) -> Result<String, String> {
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let pair = minisign::KeyPair::generate_unencrypted_keypair().map_err(|e| e.to_string())?;
+    let sk = pair.sk.to_box(None).map_err(|e| e.to_string())?;
+    let pk = pair.pk.to_box().map_err(|e| e.to_string())?;
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(secret)
+        .and_then(|mut f| f.write_all(sk.into_string().as_bytes()))
+        .map_err(|e| format!("{}: {e}", secret.display()))?;
+    fs::write(public, pk.into_string()).map_err(|e| format!("{}: {e}", public.display()))?;
+    Ok(key_id(pair.pk.keynum()))
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
     use minisign::KeyPair;
+    use std::os::unix::fs::PermissionsExt;
 
     struct Fixture {
         dir: tempfile::TempDir,
@@ -242,6 +262,20 @@ mod tests {
         let id = f.key("alice", Some("system"));
         f.sign("alice");
         assert_eq!(f.verify(), Verdict::Valid(id));
+    }
+
+    #[test]
+    fn keygen_makes_a_key_that_signs() {
+        let f = Fixture::new();
+        let secret = f.path("app.key");
+        let id = keygen(&secret, &f.path("system").join("app.pub")).unwrap();
+        assert_eq!(
+            fs::metadata(&secret).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        f.sign("app");
+        assert_eq!(f.verify(), Verdict::Valid(id));
+        assert!(keygen(&secret, &f.path("other.pub")).is_err());
     }
 
     #[test]

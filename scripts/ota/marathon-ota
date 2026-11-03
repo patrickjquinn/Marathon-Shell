@@ -4,7 +4,8 @@
   marathon-ota keygen  --gnupghome DIR --export KEY.asc
   marathon-ota publish --image-dir mkosi.output/<image-id> --version V --feed DIR
                        [--gnupghome DIR] [--key ID] [--notes FILE] [--keep N]
-                       [--upload RSYNC-DEST]
+                       [--upload RSYNC-DEST | --github OWNER/REPO [--channel C]]
+  marathon-ota github-sync --feed DIR --image-id ID --github OWNER/REPO [--channel C]
 
 The feed is laid out as the image's sysupdate.d transfers expect: one
 directory per image id holding each kept version's payload, a SHA256SUMS
@@ -12,17 +13,24 @@ manifest, its detached signature SHA256SUMS.gpg, and an AppStream catalog
 with each release's download size and notes. The payload is the UKI and the
 zstd-compressed /usr and verity partitions, on the Raspberry Pi the
 compressed boot and root slot partitions, and on the Zinwa Q25 the
-compressed root file. See docs/OTA.md.
+compressed root file. With --github the feed directory becomes the assets
+of the release <channel>/<image id> on that repository, which sysupdate
+reads from https://github.com/OWNER/REPO/releases/download/<channel>/<image
+id>/. See docs/OTA.md.
 """
 
 import argparse
 import hashlib
 import itertools
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
+import urllib.request
 from pathlib import Path
 from xml.sax.saxutils import escape, quoteattr
 
@@ -30,6 +38,8 @@ CATALOG = "marathon-os.metainfo.xml"
 MANIFEST = "SHA256SUMS"
 SIGNATURE = "SHA256SUMS.gpg"
 KEY_UID = "Marathon OS updates <updates@thrivelobal.com>"
+# GitHub refuses release assets of 2 GiB or more.
+GITHUB_ASSET_MAX = 2 * 1024**3 - 1
 
 
 def fail(message):
@@ -217,6 +227,9 @@ def publish(args):
     os.replace(signature, feed_dir / SIGNATURE)
     print(f"published {image_id} {args.version} to {feed_dir} (keeping {', '.join(kept)})")
 
+    if args.github:
+        github_sync(feed_dir, args.github, f"{args.channel}/{image_id}", args.channel != "stable")
+
     if args.upload:
         dest = args.upload.rstrip("/") + f"/{image_id}/"
         src = str(feed_dir) + "/"
@@ -224,6 +237,76 @@ def publish(args):
                         f"--exclude={CATALOG}", src, dest], check=True)
         subprocess.run(["rsync", "-a", "--delete-after", src, dest], check=True)
         print(f"uploaded to {dest}")
+
+
+def gh(*args, **kwargs):
+    return subprocess.run(["gh", *args], check=True, text=True, **kwargs)
+
+
+def release_assets(repo, tag):
+    """{name: (id, size)} of the release's assets, or None if there is no release."""
+    r = subprocess.run(["gh", "api", f"repos/{repo}/releases/tags/{tag}"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        if "Not Found" in r.stdout + r.stderr:
+            return None
+        fail(f"gh api: {r.stderr.strip()}")
+    return {a["name"]: (a["id"], a["size"]) for a in json.loads(r.stdout)["assets"]}
+
+
+def github_sync(feed_dir, repo, tag, prerelease):
+    """Mirror feed_dir onto the release `tag`: payloads first, then the
+    manifest, signature and catalog, each uploaded under a temporary name and
+    renamed over the old one, then the pruned versions' assets go."""
+    files = {f.name: f for f in feed_dir.iterdir() if f.is_file() and not f.name.endswith(".part")}
+    for f in files.values():
+        if f.stat().st_size > GITHUB_ASSET_MAX:
+            fail(f"{f.name} is {f.stat().st_size} bytes; GitHub release assets must be under 2 GiB")
+    assets = release_assets(repo, tag)
+    if assets is None:
+        gh("release", "create", tag, "--repo", repo, "--title", tag, "--latest=false",
+           "--notes", f"systemd-sysupdate feed {tag}; every asset is listed in the signed SHA256SUMS.",
+           *(["--prerelease"] if prerelease else []), stdout=subprocess.DEVNULL)
+        assets = {}
+    last = (CATALOG, MANIFEST, SIGNATURE)
+    payload = [f for n, f in sorted(files.items())
+               if n not in last and (n not in assets or assets[n][1] != f.stat().st_size)]
+    if payload:
+        gh("release", "upload", tag, "--repo", repo, "--clobber", *map(str, payload))
+    with tempfile.TemporaryDirectory() as tmp:
+        staged = []
+        for name in last:
+            new = Path(tmp) / f"{name}.new"
+            shutil.copyfile(files[name], new)
+            staged.append(new)
+        gh("release", "upload", tag, "--repo", repo, "--clobber", *map(str, staged))
+    assets = release_assets(repo, tag)
+    for name in last:
+        if name in assets:
+            gh("api", "-X", "DELETE", f"repos/{repo}/releases/assets/{assets[name][0]}")
+        gh("api", "-X", "PATCH", f"repos/{repo}/releases/assets/{assets[name + '.new'][0]}",
+           "-f", f"name={name}", stdout=subprocess.DEVNULL)
+    for name, (asset_id, _) in release_assets(repo, tag).items():
+        if name not in files:
+            gh("api", "-X", "DELETE", f"repos/{repo}/releases/assets/{asset_id}")
+    # Downloads lag a replaced asset; until both are served a phone may see
+    # the old manifest, or the new manifest with the old signature.
+    base = f"https://github.com/{repo}/releases/download/{tag}/"
+    start = time.monotonic()
+    while any(served(base + n) != files[n].read_bytes() for n in (MANIFEST, SIGNATURE)):
+        if time.monotonic() - start > 600:
+            fail(f"{base}{MANIFEST} is still not the new one after 10 minutes")
+        time.sleep(5)
+    print(f"synced to https://github.com/{repo}/releases/tag/{tag}; "
+          f"served after {time.monotonic() - start:.0f}s")
+
+
+def served(url):
+    try:
+        with urllib.request.urlopen(url, timeout=30) as r:
+            return r.read()
+    except OSError:
+        return None
 
 
 def keygen(args):
@@ -250,7 +333,19 @@ def main():
     p.add_argument("--notes", help="release notes: paragraphs split by blank lines, \"- \" list items")
     p.add_argument("--keep", type=int, default=2, help="versions to keep in the feed (default 2)")
     p.add_argument("--upload", help="rsync destination of the feed root, e.g. user@thrivelobal.com:updates")
+    p.add_argument("--github", metavar="OWNER/REPO",
+                   help="also mirror the feed onto that repository's release <channel>/<image id>")
+    p.add_argument("--channel", default="stable",
+                   help="release channel for --github: stable, or test (a pre-release) (default stable)")
     p.set_defaults(run=publish)
+
+    g = sub.add_parser("github-sync", help="mirror a published feed onto its GitHub release again")
+    g.add_argument("--feed", required=True, help="local feed root (one directory per image id)")
+    g.add_argument("--image-id", required=True, help="e.g. zinwa-q25_marathon_edge")
+    g.add_argument("--github", required=True, metavar="OWNER/REPO")
+    g.add_argument("--channel", default="stable", help="stable or test (default stable)")
+    g.set_defaults(run=lambda a: github_sync(Path(a.feed).resolve() / a.image_id, a.github,
+                                             f"{a.channel}/{a.image_id}", a.channel != "stable"))
 
     k = sub.add_parser("keygen", help="create an Ed25519 signing key and export its public half")
     k.add_argument("--gnupghome", required=True)
@@ -261,7 +356,12 @@ def main():
     args = parser.parse_args()
     if getattr(args, "keep", 1) < 1:
         fail("--keep must be at least 1")
-    for tool in ("gpg", "zstd") + (("rsync",) if getattr(args, "upload", None) else ()):
+    if getattr(args, "upload", None) and getattr(args, "github", None):
+        fail("--upload and --github are separate feeds; publish to one at a time")
+    if getattr(args, "channel", "stable") not in ("stable", "test"):
+        fail("--channel must be stable or test")
+    for tool in (("gpg", "zstd") + (("rsync",) if getattr(args, "upload", None) else ())
+                 + (("gh",) if getattr(args, "github", None) else ())):
         if not shutil.which(tool):
             fail(f"{tool} is not installed")
     args.run(args)

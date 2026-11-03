@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""Publish Marathon apps the image ships for Reef to update.
+
+  publish-apps --shell-apk marathon-shell-<v>.apk --min-image IMAGE_VERSION
+               --key ~/.marathon-secrets/apps/marathon-apps.key
+               --catalogue <marathon-updates>/site/reef/<arch>/catalogue-full.json
+               [--marathon-dev PATH] [--out DIR] [--github OWNER/REPO] APP_ID...
+
+Each app's directory in the shell package (/usr/share/marathon-apps/<id>,
+its version stamped with the build time) becomes <id>-<version>.marathon,
+with `minImage` set to the image built from that package, signed with
+Marathon's app key (`marathon-dev package --key`). With --github both files
+go on the release apps/<arch>. Each app's `marathon` entry in the catalogue
+is added or updated; sign the catalogue afterwards with marathon-updates'
+tools/reef-catalogue. See docs/reef/marathon-catalogue.md.
+"""
+
+import argparse
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+APPS = "usr/share/marathon-apps"
+
+
+def fail(message):
+    sys.exit(f"publish-apps: {message}")
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def package(args, root, app_id, out):
+    src = root / APPS / app_id
+    manifest = json.loads((src / "manifest.json").read_text())
+    version = manifest.get("version", "")
+    if manifest.get("id") != app_id:
+        fail(f"{src} is not {app_id}")
+    if len(version.split(".")) < 4:
+        fail(f"{app_id} {version!r} has no build stamp: build the shell package again")
+    stage = out / "stage" / app_id
+    shutil.copytree(src, stage, symlinks=False)
+    manifest["minImage"] = args.min_image
+    (stage / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    archive = out / f"{app_id}-{version}.marathon"
+    subprocess.run([args.marathon_dev, "package", str(stage), str(archive), "--key", args.key],
+                   check=True, stdout=subprocess.DEVNULL)
+    return manifest, archive
+
+
+def upload(repo, tag, files):
+    if subprocess.run(["gh", "release", "view", tag, "--repo", repo],
+                      capture_output=True).returncode != 0:
+        subprocess.run(["gh", "release", "create", tag, "--repo", repo, "--title", tag,
+                        "--latest=false", "--notes",
+                        "Marathon apps for Reef: signed .marathon packages, listed in the "
+                        "signed catalogue."], check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(["gh", "release", "upload", tag, "--repo", repo, *map(str, files)], check=True)
+
+
+def entry(manifest, archive, url, min_image):
+    return {
+        "name": manifest["id"],
+        "version": manifest["version"],
+        "title": manifest["name"],
+        "summary": manifest.get("description") or manifest["name"],
+        "category": (manifest.get("categories") or ["Other"])[0],
+        "tested_on": [],
+        "publisher": "Marathon",
+        "licence": {"model": "free"},
+        "size": archive.stat().st_size,
+        "install": {"kind": "marathon", "app_id": manifest["id"], "url": url,
+                    "sha256": sha256(archive), "min_image": min_image},
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--shell-apk", required=True)
+    parser.add_argument("--min-image", required=True, help="IMAGE_VERSION of the image built from the package")
+    parser.add_argument("--key", required=True, help="Marathon's app key (minisign secret key)")
+    parser.add_argument("--catalogue", required=True, help="site/reef/<arch>/catalogue-full.json")
+    parser.add_argument("--marathon-dev", default=shutil.which("marathon-dev") or "marathon-dev")
+    parser.add_argument("--out", help="keep the packages here (default: a temporary directory)")
+    parser.add_argument("--github", metavar="OWNER/REPO", help="upload to its release apps/<arch>")
+    parser.add_argument("apps", nargs="+")
+    args = parser.parse_args()
+    if not re.fullmatch(r"[0-9]+", args.min_image):
+        fail("--min-image is an IMAGE_VERSION, digits only")
+    catalogue_path = Path(args.catalogue).resolve()
+    arch = catalogue_path.parent.name
+    catalogue = json.loads(catalogue_path.read_text())
+    if catalogue.get("arch") != arch:
+        fail(f"{catalogue_path} is not the {arch} catalogue")
+    base = f"https://github.com/{args.github or 'patrickjquinn/marathon-updates'}/releases/download/apps/{arch}/"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "apk"
+        root.mkdir()
+        subprocess.run(["tar", "-xzf", args.shell_apk, "-C", str(root), "--ignore-zeros",
+                        "--warning=no-unknown-keyword", APPS], check=True)
+        out = Path(args.out).resolve() if args.out else Path(tmp) / "out"
+        out.mkdir(parents=True, exist_ok=True)
+        built = [package(args, root, app_id, out) for app_id in args.apps]
+        if args.github:
+            files = [f for _, a in built for f in (a, a.with_name(a.name + ".minisig"))]
+            upload(args.github, f"apps/{arch}", files)
+        packages = catalogue.setdefault("packages", [])
+        for manifest, archive in built:
+            new = entry(manifest, archive, base + archive.name, args.min_image)
+            old = next((p for p in packages if p["name"] == new["name"]), None)
+            if old is None:
+                packages.append(new)
+            else:
+                old.update({k: new[k] for k in ("version", "size", "install")})
+            print(f"{manifest['id']} {manifest['version']}: {base}{archive.name}")
+    catalogue_path.write_text(json.dumps(catalogue, indent=2, ensure_ascii=False) + "\n")
+    print(f"updated {catalogue_path}; sign it with tools/reef-catalogue sign")
+
+
+if __name__ == "__main__":
+    main()

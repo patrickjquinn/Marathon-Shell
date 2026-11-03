@@ -59,6 +59,13 @@ pub fn cache_dir(app_id: &str) -> PathBuf {
         .join(app_id)
 }
 
+/// The running OS's os-release. `MARATHON_OS_RELEASE` overrides it.
+pub fn os_release() -> PathBuf {
+    std::env::var_os("MARATHON_OS_RELEASE")
+        .filter(|v| !v.is_empty())
+        .map_or_else(|| PathBuf::from("/etc/os-release"), PathBuf::from)
+}
+
 /// The keys Marathon's own apps are signed with: only a package one of them
 /// signed may be a protected system app. `MARATHON_SYSTEM_KEYS_DIR`
 /// overrides it.

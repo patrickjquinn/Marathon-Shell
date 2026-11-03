@@ -22,7 +22,7 @@
 #
 #   ./scripts/build-hackberry-cm5-image.sh
 #   # → image at ~/.cache/marathon-build/duranium/mkosi.output/
-#   #   raspberry-pi5_marathon_edge/...raw
+#   #   hackberrypi-cm5_marathon_edge/...raw (its own image id: build-image.sh)
 #   ./scripts/flash/flash-hackberry-cm5.sh /dev/sdX
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
