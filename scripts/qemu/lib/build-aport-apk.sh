@@ -60,7 +60,9 @@ if [ "$DEPS_FLAG" = -d ]; then
 fi
 abuild "$DEPS_FLAG" -F
 
-cp /root/packages/aports/*/"$PKG"-*.apk /out/
+# Every package the APKBUILD made: subpackages need not share its name
+# (linux-zinwa-q25 makes q25-kernel-modules).
+cp /root/packages/aports/*/*.apk /out/
 CSCRIPT
 
 ls -l "$MKOSI_PKG_DIR/$PKG"-*.apk
