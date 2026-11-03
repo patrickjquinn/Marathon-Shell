@@ -206,8 +206,9 @@ build_if_missing "marathon-shipwright-apps"  'marathon-shipwright-apps-*.apk' "$
 else
 bash "$SCRIPT_DIR/vendor/fetch-shipwright-apks.sh" "$MKOSI_PKG_DIR"
 fi
-# Deckard from a local Marathon-Deckard checkout when there is one.
-DECKARD_SRC="${DECKARD_SRC-$([ -d "$HOME/Developer/Marathon-Deckard/host/deckard-bridge" ] && echo "$HOME/Developer/Marathon-Deckard")}" \
+# Deckard at the APKBUILD's pinned commit; DECKARD_SRC=<checkout> builds a
+# local Marathon-Deckard instead.
+DECKARD_SRC="${DECKARD_SRC-}" \
 build_if_missing "deckard"                   'deckard-[0-9]*.apk'             "$LIB/build-deckard-apk.sh"                   "$APORTS_DIR/deckard/APKBUILD"
 # Android's images, for the HackberryPi overlay on the Pi 5 and for the Q25
 # (mkosi-configure.py).
