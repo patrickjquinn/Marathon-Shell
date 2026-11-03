@@ -31,6 +31,8 @@ pub enum Change {
     EventsRequested,
     /// The system-wide gesture asked for the sheet (`ShowSheet`).
     SheetRequested,
+    /// The shell's assistant key asked for the sheet, listening (`ListenFor`).
+    ListenRequested,
 }
 
 fn err(e: &zbus::Error) -> String {
@@ -239,6 +241,7 @@ impl Client {
                         .map(|s| Change::LastResponse(s.to_owned())),
                     "EventsRequested" => Some(Change::EventsRequested),
                     "SheetRequested" => Some(Change::SheetRequested),
+                    "ListenRequested" => Some(Change::ListenRequested),
                     _ => None,
                 };
                 if let Some(c) = change {

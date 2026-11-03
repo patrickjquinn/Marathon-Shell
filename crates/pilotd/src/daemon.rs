@@ -122,8 +122,10 @@ pub struct Daemon {
     pub events_requested: Arc<std::sync::atomic::AtomicU32>,
     pub open_events: Vec<String>,
     pub sheet_requested: Arc<std::sync::atomic::AtomicU32>,
-    /// What the last `ShowSheet` or `OpenEvents` asked for ("sheet",
-    /// "events") and when, for an app just started to take.
+    pub listen_requested: Arc<std::sync::atomic::AtomicU32>,
+    /// What the last `ShowSheet`, `ListenFor` or `OpenEvents` asked for
+    /// ("sheet", "listen", "events") and when, for an app just started to
+    /// take.
     pub launch_request: Arc<std::sync::Mutex<Option<(String, std::time::Instant)>>>,
     pub open_sheet: Vec<String>,
     /// Health URLs of the models on this machine, asked when the app
@@ -503,6 +505,7 @@ pub fn build(opts: Options) -> Result<Daemon, StartError> {
         events_requested: Arc::default(),
         open_events: cfg.events.open_command.clone(),
         sheet_requested: Arc::default(),
+        listen_requested: Arc::default(),
         launch_request: Arc::default(),
         open_sheet: cfg.sheet.open_command.clone(),
         triage,
@@ -537,6 +540,7 @@ impl Daemon {
             events_requested: Arc::clone(&self.events_requested),
             open_events: self.open_events.clone(),
             sheet_requested: Arc::clone(&self.sheet_requested),
+            listen_requested: Arc::clone(&self.listen_requested),
             launch_request: Arc::clone(&self.launch_request),
             open_sheet: self.open_sheet.clone(),
             runtime: tokio::runtime::Handle::current(),

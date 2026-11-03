@@ -39,7 +39,9 @@
 //! | `Capabilities()` | `s` | What Pilot can do in the person's apps: `[{"app", "name", "actions": [{"title", "description", "asks"}]}]` |
 //! | `SetName(name)` | `s` | What Pilot calls the person on its home; empty for none |
 //! | `ShowSheetFor(pid)` | `u` → `s` | As `ShowSheet`, from Lipstick's gesture with the process id of the window on top: that app's screen (its `KeelContext`, through keel-mcp) is the context of the next questions for three minutes; returns the app's name |
-//! | `TakeLaunchRequest()` | `s` | "sheet" or "events" when `ShowSheet`/`OpenEvents` started the app in the last 10 s, taken once |
+//! | `ListenFor(pid)` | `u` → `s` | As `ShowSheetFor`, with Pilot listening: the shell's assistant key |
+//! | `ListenRequested` | property `u` | Counts `ListenFor` calls; a running app opens its sheet and listens on change |
+//! | `TakeLaunchRequest()` | `s` | "sheet", "listen" or "events" when `ShowSheet`/`ListenFor`/`OpenEvents` started the app in the last 10 s, taken once |
 //! | `ClearOnScreen()` | | Stops using that app's screen as context |
 //! | `OpenUrl(url)` | `s` → `b` | Opens an http(s) address from a card in Pacific (or the browser): the sandboxed app cannot |
 //! | `ClearConversation()` | | Starts a new conversation: earlier questions are no longer context |
@@ -78,6 +80,7 @@ pub struct PilotService {
     /// `[events] open_command`.
     pub open_events: Vec<String>,
     pub sheet_requested: Arc<std::sync::atomic::AtomicU32>,
+    pub listen_requested: Arc<std::sync::atomic::AtomicU32>,
     pub launch_request: Arc<Mutex<Option<(String, std::time::Instant)>>>,
     /// `[sheet] open_command`.
     pub open_sheet: Vec<String>,
@@ -147,6 +150,52 @@ impl PilotService {
             log::error!("saving settings: {e}");
             fdo::Error::Failed("could not save settings".into())
         })
+    }
+
+    /// The app on top (`pid`, 0 for none) becomes the context of the next
+    /// questions: what it shows is read before Pilot comes to the front.
+    /// Its name, empty when it is not a Keel app.
+    async fn capture_for(&self, pid: u32, session: &zbus::Connection) -> String {
+        let app = match crate::adapters::marathon::app_for_pid(session, pid).await {
+            Some(app) => Some(app),
+            None => crate::onscreen::app_for_pid(pid),
+        }
+        .filter(|a| a.id != "org.shipwright.shoal-pilot");
+        if let Some(app) = app {
+            let pipeline = Arc::clone(&self.pipeline);
+            let (id, name) = (app.id.clone(), app.name.clone());
+            self.runtime
+                .spawn(async move { pipeline.capture_on_screen(&id, &name).await })
+                .await
+                .ok();
+            app.name
+        } else {
+            self.pipeline.clear_on_screen();
+            String::new()
+        }
+    }
+
+    /// Brings up the app's sheet, listening when `listen`: a running app
+    /// follows `SheetRequested` or `ListenRequested`, a started one its launch
+    /// request.
+    async fn request_sheet(&self, emitter: &SignalEmitter<'_>, listen: bool) {
+        let what = if listen { "listen" } else { "sheet" };
+        *lock(&self.launch_request) = Some((what.into(), std::time::Instant::now()));
+        if listen {
+            self.listen_requested
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.listen_requested_changed(emitter).await.ok();
+        } else {
+            self.sheet_requested
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.sheet_requested_changed(emitter).await.ok();
+        }
+        // Starting a running app again would make invoker raise its main
+        // window, over the app the person was in.
+        let app = self.open_sheet.iter().rev().find(|a| a.starts_with('/'));
+        if !app.is_some_and(|a| crate::onscreen::process_running(a)) {
+            spawn(&self.open_sheet, "opening the sheet");
+        }
     }
 }
 
@@ -387,17 +436,7 @@ impl PilotService {
         &self,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<()> {
-        *lock(&self.launch_request) = Some(("sheet".into(), std::time::Instant::now()));
-        self.sheet_requested
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        self.sheet_requested_changed(&emitter).await.ok();
-        // A running app shows its overlay on SheetRequested. Starting it
-        // again would make invoker raise its main window, over the app the
-        // person was in.
-        let app = self.open_sheet.iter().rev().find(|a| a.starts_with('/'));
-        if !app.is_some_and(|a| crate::onscreen::process_running(a)) {
-            spawn(&self.open_sheet, "opening the sheet");
-        }
+        self.request_sheet(&emitter, false).await;
         Ok(())
     }
 
@@ -411,31 +450,33 @@ impl PilotService {
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
         #[zbus(connection)] session: &zbus::Connection,
     ) -> fdo::Result<String> {
-        let app = match crate::adapters::marathon::app_for_pid(session, pid).await {
-            Some(app) => Some(app),
-            None => crate::onscreen::app_for_pid(pid),
-        }
-        .filter(|a| a.id != "org.shipwright.shoal-pilot");
-        let name = if let Some(app) = app {
-            // Read what it shows now, before Pilot comes to the front.
-            let pipeline = Arc::clone(&self.pipeline);
-            let (id, name) = (app.id.clone(), app.name.clone());
-            self.runtime
-                .spawn(async move { pipeline.capture_on_screen(&id, &name).await })
-                .await
-                .ok();
-            app.name
-        } else {
-            self.pipeline.clear_on_screen();
-            String::new()
-        };
-        self.show_sheet(emitter).await?;
+        let name = self.capture_for(pid, session).await;
+        self.request_sheet(&emitter, false).await;
         Ok(name)
     }
 
-    /// For the app at start: "sheet" or "events" when `ShowSheet` or
-    /// `OpenEvents` started it in the last ten seconds, else empty. Taken
-    /// once.
+    /// As `ShowSheetFor`, with Pilot listening when it comes up: the
+    /// shell's assistant key, held.
+    async fn listen_for(
+        &self,
+        pid: u32,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+        #[zbus(connection)] session: &zbus::Connection,
+    ) -> fdo::Result<String> {
+        let name = self.capture_for(pid, session).await;
+        self.request_sheet(&emitter, true).await;
+        Ok(name)
+    }
+
+    #[zbus(property)]
+    fn listen_requested(&self) -> u32 {
+        self.listen_requested
+            .load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// For the app at start: "sheet", "listen" or "events" when
+    /// `ShowSheet`, `ListenFor` or `OpenEvents` started it in the last ten
+    /// seconds, else empty. Taken once.
     fn take_launch_request(&self) -> String {
         lock(&self.launch_request)
             .take()

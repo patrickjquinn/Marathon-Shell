@@ -167,6 +167,15 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "startOnSheet"]
         fn start_on_sheet(self: &Pilot) -> bool;
+        /// The shell's assistant key asked for the sheet, listening, while
+        /// the app runs.
+        #[qsignal]
+        #[cxx_name = "listenRequested"]
+        fn listen_requested(self: Pin<&mut Pilot>);
+        /// Started by that key (`--listen`): open with the sheet up, listening.
+        #[qinvokable]
+        #[cxx_name = "startOnListen"]
+        fn start_on_listen(self: &Pilot) -> bool;
 
         /// Reads the home (`Now` on D-Bus); the JSON arrives as `nowChanged`.
         #[qinvokable]
@@ -221,7 +230,7 @@ pub struct PilotRust {
     client: Option<Arc<Client>>,
 }
 
-/// Why pilotd started the app ("sheet", "events" or ""), asked once:
+/// Why pilotd started the app ("sheet", "listen", "events" or ""), asked once:
 /// before the window is shown (`run` keeps it hidden for the overlay) and
 /// by the QML. Sailjail passes the app no arguments it did not template.
 pub fn launch_request() -> &'static str {
@@ -375,6 +384,7 @@ fn watch_pilotd(client: &Arc<Client>, thread: &cxx_qt::CxxQtThread<qobject::Pilo
                     }
                     Change::EventsRequested => o.as_mut().events_requested(),
                     Change::SheetRequested => o.as_mut().sheet_requested(),
+                    Change::ListenRequested => o.as_mut().listen_requested(),
                 })
                 .is_ok()
         });
@@ -622,6 +632,10 @@ impl qobject::Pilot {
 
     pub fn start_on_sheet(&self) -> bool {
         launch_request() == "sheet" || launch_args().iter().skip(1).any(|a| a == "--sheet")
+    }
+
+    pub fn start_on_listen(&self) -> bool {
+        launch_request() == "listen" || launch_args().iter().skip(1).any(|a| a == "--listen")
     }
 
     pub fn photo_path(&self) -> QString {

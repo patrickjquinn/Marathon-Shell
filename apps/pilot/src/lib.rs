@@ -70,8 +70,11 @@ fn run() {
         .set_application_version(&QString::from(env!("CARGO_PKG_VERSION")));
     // Started by the system-wide gesture: the overlay over the app the
     // person was in, without the app's own window (cpp/launcher.cpp).
-    let over_app =
-        bridge::launch_request() == "sheet" || launch_args.iter().skip(1).any(|a| a == "--sheet");
+    let over_app = matches!(bridge::launch_request(), "sheet" | "listen")
+        || launch_args
+            .iter()
+            .skip(1)
+            .any(|a| a == "--sheet" || a == "--listen");
     if !bridge::qobject::keel_show_main_view(
         &QString::from(qml.to_string_lossy().as_ref()),
         !over_app,

@@ -38,6 +38,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "showSheetFor"]
         fn show_sheet_for(self: &PilotClient, pid: u32);
+        /// As `showSheetFor`, with Pilot listening; an older pilotd without
+        /// ListenFor gets ShowSheetFor.
+        #[qinvokable]
+        #[cxx_name = "listenFor"]
+        fn listen_for(self: &PilotClient, pid: u32);
         /// Starts Pilot and its models on this machine ahead of a question.
         #[qinvokable]
         fn warm(self: &PilotClient);
@@ -65,6 +70,7 @@ const NAME: &str = "org.shipwright.Pilot";
 trait Pilot {
     fn show_sheet_for(&self, pid: u32) -> zbus::Result<()>;
     fn show_sheet(&self) -> zbus::Result<()>;
+    fn listen_for(&self, pid: u32) -> zbus::Result<String>;
     fn ask(&self, question: &str, spoken: bool) -> zbus::Result<String>;
     fn now(&self) -> zbus::Result<String>;
 }
@@ -166,6 +172,26 @@ impl PilotClient {
             };
             if let Err(e) = shown.await {
                 log::warn("pilot", format_args!("ShowSheetFor: {e}"));
+            }
+        });
+    }
+
+    #[allow(clippy::unused_self, reason = "an invokable")]
+    fn listen_for(&self, pid: u32) {
+        io::spawn(async move {
+            let shown = async {
+                let pilot = PilotProxy::new(&io::session_bus().await?).await?;
+                match pilot.listen_for(pid).await {
+                    Err(zbus::Error::FDO(error))
+                        if matches!(*error, zbus::fdo::Error::UnknownMethod(_)) =>
+                    {
+                        pilot.show_sheet_for(pid).await
+                    }
+                    shown => shown.map(drop),
+                }
+            };
+            if let Err(e) = shown.await {
+                log::warn("pilot", format_args!("ListenFor: {e}"));
             }
         });
     }

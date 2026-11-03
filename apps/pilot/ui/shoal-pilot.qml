@@ -46,6 +46,13 @@ ApplicationWindow {
             main.openSheet();
     }
 
+    // The shell's assistant key, held: the sheet, already listening.
+    function showListening() {
+        showSheet();
+        if (!Conversation.listening)
+            Qt.callLater(Conversation.listen);
+    }
+
     // The main window, also when it was kept hidden for the overlay.
     function openMain() {
         if (mainView && !mainView.visible)
@@ -79,11 +86,16 @@ ApplicationWindow {
         function onSheetRequested() {
             app.showSheet();
         }
+        function onListenRequested() {
+            app.showListening();
+        }
     }
 
     Component.onCompleted: {
         if (Pilot.startOnEvents())
             pageStack.push(Qt.resolvedUrl("pages/TriagePage.qml"), {}, PageStackAction.Immediate);
+        else if (Pilot.startOnListen())
+            Qt.callLater(app.showListening);
         else if (Pilot.startOnSheet())
             Qt.callLater(app.showSheet);
     }
