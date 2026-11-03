@@ -60,6 +60,14 @@ function message(text) {
     return text.split("\n").map(messageLine).join("\n")
 }
 
+// lastError less the catalogue's own failures, which leave installed apps,
+// licences and the other sources' apps as they were.
+function withoutCatalogue(text) {
+    return (text || "").split("\n").filter(function (line) {
+        return line.indexOf("\u001ecatalogue_") !== 0
+    }).join("\n")
+}
+
 // An absolute https:// URL with a host and no whitespace or control
 // characters (the rule reef-backend's catalogue parser applies too).
 function isHttps(url) {
