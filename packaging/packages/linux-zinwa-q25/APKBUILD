@@ -149,6 +149,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0089-Input-bbqx0kbd-Report-the-trackpad.patch
 	0090-arm64-dts-mediatek-mt8781-zinwa-q25-Make-the-trackpa.patch
 	0091-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-flash-LE.patch
+	0092-Input-bbqx0kbd-Don-t-lose-the-trackpad-to-an-edge-le.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -323,6 +324,7 @@ f30f4bf59bc5561073819a93d23d80edfe50cb137b6f9c93ca2b2537d1b7689ee46ace2696e71e98
 36d80402fd646aa598f874d2f31dcccaa9e9454a9ec136a56364111eea3d8769ef38ca21b229cb69518222466b985a25d5fc7a526559fcd078163b6feee475d1  0089-Input-bbqx0kbd-Report-the-trackpad.patch
 23668d7a126379662b0bed4df55b014a7b242f823dfa44b72dfc2140b4cea3e58567b8630e886553a8ebf47e5d948834c5b66a644e5bf5225e2917d75d2c988b  0090-arm64-dts-mediatek-mt8781-zinwa-q25-Make-the-trackpa.patch
 3bbd64da3950e75997c9aaa9e6917c6d065305e45198512a836b795f4c5d6fe66b271143d3dc30035c64219a9212c1454fd882a37f83898d3eb1aaa565b71af0  0091-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-flash-LE.patch
+f82694450975687bec9024228ece95159ff54b78f091db5f55ab6d91b421fbdbda9ddfa7f459d482c86a3ec0054bfb4c0af0017e7ea84e53e4d41d49ebf4114f  0092-Input-bbqx0kbd-Don-t-lose-the-trackpad-to-an-edge-le.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

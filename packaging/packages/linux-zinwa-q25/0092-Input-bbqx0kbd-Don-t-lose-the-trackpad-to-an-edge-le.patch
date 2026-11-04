@@ -1,0 +1,65 @@
+From 682b650f92045dd5af1153f0e31704ee129f513c Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 4 Nov 2026 16:29:28 +0000
+Subject: [PATCH] Input: bbqx0kbd - Don't lose the trackpad to an edge left
+ pending
+
+The trackpad stopped reporting until a key was pressed. Touch that
+arrived between reading and clearing REG_INT left no bit behind, so its
+motion was never read, and the edge-triggered line raised nothing more.
+
+Read the motion on every pass and go round until REG_INT stays clear.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/input/keyboard/bbqx0kbd.c | 27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/input/keyboard/bbqx0kbd.c b/drivers/input/keyboard/bbqx0kbd.c
+index d91c2639..97a7746f 100644
+--- a/drivers/input/keyboard/bbqx0kbd.c
++++ b/drivers/input/keyboard/bbqx0kbd.c
+@@ -127,23 +127,30 @@ static void bbqx0kbd_read_motion(struct bbqx0kbd *kbd)
+ }
+ 
+ /*
+- * Clear the status before draining the FIFO: an event queued meanwhile sets
+- * it again and raises another interrupt instead of being left behind.
++ * Clear the status before draining the FIFO and reading motion, and go round
++ * until it stays clear: the line is edge-triggered, and an event left pending
++ * raised no further interrupt. Motion is read on every pass, as a touch that
++ * arrived between reading and clearing the status leaves no bit behind.
+  */
+ static irqreturn_t bbqx0kbd_irq(int irq, void *dev_id)
+ {
+ 	struct bbqx0kbd *kbd = dev_id;
+-	int status, ret;
++	int status, ret, pass;
+ 
+-	status = i2c_smbus_read_byte_data(kbd->client, BBQX0KBD_REG_INT);
+-	ret = bbqx0kbd_write(kbd, BBQX0KBD_REG_INT, 0);
+-	if (ret)
+-		dev_err_ratelimited(&kbd->client->dev,
+-				    "Failed to clear interrupt status: %d\n", ret);
++	for (pass = 0; pass < 8; pass++) {
++		status = i2c_smbus_read_byte_data(kbd->client, BBQX0KBD_REG_INT);
++		if (pass && status <= 0)
++			break;
+ 
+-	bbqx0kbd_read_fifo(kbd);
+-	if (status > 0 && (status & BBQX0KBD_INT_TOUCH))
++		ret = bbqx0kbd_write(kbd, BBQX0KBD_REG_INT, 0);
++		if (ret)
++			dev_err_ratelimited(&kbd->client->dev,
++					    "Failed to clear interrupt status: %d\n",
++					    ret);
++
++		bbqx0kbd_read_fifo(kbd);
+ 		bbqx0kbd_read_motion(kbd);
++	}
+ 
+ 	return IRQ_HANDLED;
+ }
+-- 
+2.55.0
+
