@@ -3,6 +3,7 @@
 #include "src/wayland/nativeinput.h"
 
 #include <QTouchEvent>
+#include <QWheelEvent>
 #include <QWaylandCompositor>
 #include <QWaylandSeat>
 #include <QWaylandXdgShell>
@@ -71,6 +72,16 @@ void NativeSurfaceItem::touchUngrabEvent() {
         return;
     }
     releasePointer();
+}
+
+// Wheel axis events go to the pointer's surface; nothing may have entered
+// this one yet (the trackpad scrolls without moving the pointer).
+void NativeSurfaceItem::wheelEvent(QWheelEvent *event) {
+    QWaylandSeat *seat = compositor() ? compositor()->defaultSeat() : nullptr;
+    if (seat && inputEventsEnabled() && seat->mouseFocus() != view() &&
+        inputRegionContains(event->position()))
+        sendMouseMoveEvent(event->position(), seat);
+    QWaylandQuickShellSurfaceItem::wheelEvent(event);
 }
 
 void NativeSurfaceItem::releasePointer() {

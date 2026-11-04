@@ -25,6 +25,7 @@ class NativeSurfaceItem : public QWaylandQuickShellSurfaceItem {
   protected:
     void touchEvent(QTouchEvent *event) override;
     void touchUngrabEvent() override;
+    void wheelEvent(QWheelEvent *event) override;
 
   private:
     void                       releasePointer();
