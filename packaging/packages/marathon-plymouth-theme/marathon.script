@@ -58,9 +58,16 @@ progress_fill.sprite.SetZ(11);
 // Start at 0% by clipping width to 0; updated each callback.
 progress_fill.current_width = 0;
 
-// ── Boot progress callback (plymouth pushes 0.0..1.0 as boot proceeds) ─
-fun progress_callback(duration, progress) {
-    target_width = Math.Int(PROGRESS_BAR_WIDTH * progress);
+// ── Boot progress ─────────────────────────────────────────────────────
+// Plymouth's progress (0..1, an estimate from earlier boots) fills the first
+// half of the bar. The shell fills the second half: greetd sends the
+// "marathon-handover" status as the shell starts, the bar stops at exactly
+// half, and the shell's first frame draws this splash at half and carries on.
+HANDOVER = 0.5;
+handed_over = 0;
+
+fun set_fill(fraction) {
+    target_width = Math.Int(PROGRESS_BAR_WIDTH * fraction);
     if (progress_fill.current_width != target_width) {
         progress_fill.current_width = target_width;
         // Plymouth doesn't have an in-place clip; reslice the fill image.
@@ -68,7 +75,20 @@ fun progress_callback(duration, progress) {
         progress_fill.sprite.SetImage(progress_fill.sliced);
     }
 }
+
+fun progress_callback(duration, progress) {
+    if (!handed_over)
+        set_fill(Math.Min(progress, 1) * HANDOVER);
+}
 Plymouth.SetBootProgressFunction(progress_callback);
+
+fun update_status_callback(status) {
+    if (status == "marathon-handover") {
+        handed_over = 1;
+        set_fill(HANDOVER);
+    }
+}
+Plymouth.SetUpdateStatusFunction(update_status_callback);
 
 // ── Optional: passive glow pulse on the logo, very subtle, 4-second loop ─
 // Plymouth's Window.SetRefreshRate defaults to 50 Hz; we cap with a divisor.
