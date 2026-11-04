@@ -8,9 +8,7 @@ export PAN_MESA_DEBUG=noafbc
 export MARATHON_GPU_STACK=mesa-panfrost
 export GBM_BACKENDS_PATH=/usr/lib/gbm
 export MARATHON_FORCE_DPI=240
-export MARATHON_RUNNER_POOL=0
 export MARATHON_SCREENSHOT_PATH=/run/user/1000/q25-gpu-screen.png
-export QSG_INFO=1
 unset QT_QUICK_BACKEND QT_QPA_FB_DRM QT_SCALE_FACTOR QT_SCREEN_SCALE_FACTORS QT_FONT_DPI
 if [ -r /etc/q25/keyboard-layout-preview.env ]; then
     set -a
