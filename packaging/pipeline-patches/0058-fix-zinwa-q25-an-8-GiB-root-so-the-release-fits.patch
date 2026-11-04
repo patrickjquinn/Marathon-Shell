@@ -1,0 +1,29 @@
+From 99614453234d48ab7353c046c2c66ce50163b79f Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 4 Nov 2026 06:16:26 +0000
+Subject: [PATCH] fix(zinwa-q25): an 8 GiB root, so the release fits
+
+The release root no longer fit in 5 GiB: mkfs.ext4 ran out of room
+while copying it in. The phone grows the image file to its share of
+the carrier at first boot (q25-root-grow), so the size here is only
+what has to ship.
+---
+ mkosi.repart.root-only/11-root.conf | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/mkosi.repart.root-only/11-root.conf b/mkosi.repart.root-only/11-root.conf
+index b165c5b..a724f13 100644
+--- a/mkosi.repart.root-only/11-root.conf
++++ b/mkosi.repart.root-only/11-root.conf
+@@ -3,6 +3,6 @@ Type=root
+ Label=pmOS_root
+ Format=ext4
+ CopyFiles=/
+-SizeMinBytes=5G
+-SizeMaxBytes=5G
++SizeMinBytes=8G
++SizeMaxBytes=8G
+ SplitName=%t.%U
+-- 
+2.55.0
+
