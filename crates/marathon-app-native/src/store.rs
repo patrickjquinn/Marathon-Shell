@@ -1,10 +1,11 @@
-//! `AppInstaller`: uninstalls through the shell's `AppStore1`.
+//! `AppInstaller`: uninstalls through the shell's `AppStore1`, and lists the
+//! installed Flatpaks.
 
 use std::collections::{BTreeSet, HashMap};
 use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::QString;
+use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
 
 use crate::shell::{relay, Service};
 use marathon_rt::io;
@@ -15,6 +16,8 @@ pub mod qobject {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
+        include!("cxx-qt-lib/qlist.h");
+        type QList_QVariant = cxx_qt_lib::QList<cxx_qt_lib::QVariant>;
     }
 
     extern "RustQt" {
@@ -38,6 +41,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "uninstallApp"]
         fn uninstall_app(self: Pin<&mut AppInstaller>, app_id: &QString);
+        /// [{id, name}]
+        #[qinvokable]
+        #[cxx_name = "flatpakApps"]
+        fn flatpak_apps(self: &AppInstaller) -> QList_QVariant;
     }
 
     impl cxx_qt::Threading for AppInstaller {}
@@ -95,6 +102,19 @@ impl AppInstaller {
         };
         self.as_mut().rust_mut().removable.insert(id, removable);
         removable
+    }
+
+    #[allow(clippy::unused_self, reason = "a QML invokable")]
+    fn flatpak_apps(&self) -> QList<QVariant> {
+        let apps: Vec<(String, String)> = STORE.ask_now("FlatpakApps", &()).unwrap_or_default();
+        let mut list = QList::<QVariant>::default();
+        for (id, name) in apps {
+            let mut map = QMap::<QMapPair_QString_QVariant>::default();
+            map.insert(QString::from("id"), QVariant::from(&QString::from(&id)));
+            map.insert(QString::from("name"), QVariant::from(&QString::from(&name)));
+            list.append(QVariant::from(&map));
+        }
+        list
     }
 
     fn uninstall_app(mut self: Pin<&mut Self>, app_id: &QString) {

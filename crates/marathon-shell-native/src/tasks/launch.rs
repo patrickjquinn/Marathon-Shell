@@ -27,6 +27,13 @@ const ANDROID_HANDOFF_GRACE: Duration = Duration::from_secs(45);
 /// A second tap within this of the first starts no second copy.
 const LAUNCH_HOLD: Duration = Duration::from_secs(10);
 
+/// A Flatpak left on its toolkit's own colours: no generated gtk.css or KDE
+/// palette, no KDE platform theme, libadwaita's own accent. The portal still
+/// gives it the light or dark scheme.
+const UNTHEMED_FLATPAK: &str = "flatpak run --nofilesystem=xdg-config/gtk-4.0 \
+    --nofilesystem=xdg-config/kdeglobals --nofilesystem=xdg-data/color-schemes \
+    --unset-env=QT_QPA_PLATFORMTHEME --env=ADW_DEBUG_ACCENT_COLOR=blue ";
+
 /// Android desktop files are rewritten during a session cutover. The
 /// catalogue may still hold the old launcher until Shell restarts.
 fn android_exec(app: &App) -> String {
@@ -530,6 +537,8 @@ impl Tasks {
         }
         let exec = if is_android_app_id(&app.id) {
             android_exec(app)
+        } else if app.kind == "flatpak" && !crate::settings::themed(&app.id) {
+            app.exec.replacen("flatpak run ", UNTHEMED_FLATPAK, 1)
         } else {
             app.exec.clone()
         };

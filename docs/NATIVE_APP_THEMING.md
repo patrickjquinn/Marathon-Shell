@@ -218,6 +218,37 @@ it, and the KDE runtime grants it itself.
 | Wallpaper-tinted backgrounds | at restart, or at the next scheme flip | at restart | live |
 | Fonts, icons, style | live | live | live |
 
+## Switching it off
+
+Settings > Themed apps has one switch per toolkit (`Settings1` properties
+`gtkTheming`, `kdeTheming`, `androidTheming`, default on) and one per
+installed Flatpak (`unthemedApps`, the ids switched off). The light/dark
+`color-scheme` is a system preference and is always served.
+
+- **GTK off**: Marathon's `gtk-4.0/gtk.css` is removed (a user's own file,
+  without the marker, stays). `org.freedesktop.appearance` `accent-color`
+  becomes `(-1, -1, -1)`, which the spec defines as no accent, and is
+  signalled, so libadwaita falls back to blue live. `org.gnome.desktop.interface`
+  `accent-color` is no longer served.
+- **KDE off**: `kdeglobals` and `Marathon.colors` are removed; the
+  `Colors:*` groups and the WM colours are no longer served, and
+  `General/ColorScheme` becomes `BreezeDark` or `BreezeLight`, which the KDE
+  runtime ships. Changing that key makes running apps reload the palette, but
+  an app with the old `kdeglobals` bound keeps reading it until it restarts.
+- **Android off**: deckard-bridge writes an empty `/data/deckard/palette`;
+  `deckard-palette` then unregisters the `deckard_ambience` fabricated overlay.
+  Android has no per-app palette, so there is no per-app switch for it.
+- **One Flatpak off**: `Tasks` launches it with
+  `flatpak run --nofilesystem=xdg-config/gtk-4.0 --nofilesystem=xdg-config/kdeglobals
+  --nofilesystem=xdg-data/color-schemes --unset-env=QT_QPA_PLATFORMTHEME
+  --env=ADW_DEBUG_ACCENT_COLOR=blue`. Command-line context wins over the
+  global override, so the app gets no generated files and no KDE platform
+  theme. `ADW_DEBUG_ACCENT_COLOR` stops libadwaita reading the portal's accent
+  without touching its colour scheme, which `ADW_DISABLE_PORTAL` would also
+  drop (`adw-settings.c`). Native apps have no per-app switch: GTK 4 always
+  loads `$XDG_CONFIG_HOME/gtk-4.0/gtk.css` and native KDE apps read
+  `~/.config/kdeglobals`, neither of which can be hidden from one process.
+
 ## Not done natively, or not done
 
 - **libadwaita colours beyond the accent** have no portal key. They come

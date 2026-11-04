@@ -9,7 +9,7 @@ use std::io::Write as _;
 use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use async_channel::Sender;
@@ -97,6 +97,10 @@ pub mod qobject {
         #[qproperty(QString, language, READ, WRITE = set_language, NOTIFY)]
         #[qproperty(QList_QVariant, available_languages, cxx_name = "availableLanguages", READ = available_languages, CONSTANT)]
         #[qproperty(bool, unified_push_fallback_enabled, cxx_name = "unifiedPushFallbackEnabled", READ, WRITE = set_unified_push_fallback_enabled, NOTIFY)]
+        #[qproperty(bool, gtk_theming, cxx_name = "gtkTheming", READ, WRITE = set_gtk_theming, NOTIFY)]
+        #[qproperty(bool, kde_theming, cxx_name = "kdeTheming", READ, WRITE = set_kde_theming, NOTIFY)]
+        #[qproperty(bool, android_theming, cxx_name = "androidTheming", READ, WRITE = set_android_theming, NOTIFY)]
+        #[qproperty(QStringList, unthemed_apps, cxx_name = "unthemedApps", READ, WRITE = set_unthemed_apps, NOTIFY)]
         type Settings = super::SettingsRust;
 
         /// timedated refused a time zone, automatic time or clock change.
@@ -206,6 +210,14 @@ pub mod qobject {
         fn available_languages(self: &Settings) -> QList_QVariant;
         #[cxx_name = "setUnifiedPushFallbackEnabled"]
         fn set_unified_push_fallback_enabled(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setGtkTheming"]
+        fn set_gtk_theming(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setKdeTheming"]
+        fn set_kde_theming(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setAndroidTheming"]
+        fn set_android_theming(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setUnthemedApps"]
+        fn set_unthemed_apps(self: Pin<&mut Settings>, value: &QStringList);
 
         /// Reads the file; `screen_timeout` is the device's default.
         fn load(self: Pin<&mut Settings>, screen_timeout: i32);
@@ -472,6 +484,11 @@ properties! {
     keyboard_language: QString = QString::from("en_US"), "keyboard/language", "keyboardLanguage", keyboard_language_changed, on_keyboard_language_changed, set_keyboard_language(&QString);
     language: QString = QString::default(), "system/language", "language", language_changed, on_language_changed, set_language(&QString);
     unified_push_fallback_enabled: bool = false, "notifications/unifiedPushFallback", "unifiedPushFallbackEnabled", unified_push_fallback_enabled_changed, on_unified_push_fallback_enabled_changed, set_unified_push_fallback_enabled(bool);
+    // The ambience's colours in GTK, KDE and Android apps, and the Flatpaks left without them.
+    gtk_theming: bool = true, "theming/gtk", "gtkTheming", gtk_theming_changed, on_gtk_theming_changed, set_gtk_theming(bool);
+    kde_theming: bool = true, "theming/kde", "kdeTheming", kde_theming_changed, on_kde_theming_changed, set_kde_theming(bool);
+    android_theming: bool = true, "theming/android", "androidTheming", android_theming_changed, on_android_theming_changed, set_android_theming(bool);
+    unthemed_apps: QStringList = string_list(&[]), "theming/unthemedApps", "unthemedApps", unthemed_apps_changed, on_unthemed_apps_changed, set_unthemed_apps(&QStringList);
 }
 
 impl Settings {
@@ -688,6 +705,25 @@ pub(crate) fn with(f: impl FnOnce(Pin<&mut Settings>) + Send + 'static) {
 
 pub(crate) fn thread() -> Option<&'static Qt> {
     QT.get()
+}
+
+/// `unthemedApps`, for launches off the settings' thread.
+static UNTHEMED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn set_unthemed(apps: &QStringList) {
+    *UNTHEMED.lock().unwrap_or_else(|_| std::process::abort()) = QList::<QString>::from(apps)
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+}
+
+/// Whether `app_id` launches with the ambience's colours.
+pub(crate) fn themed(app_id: &str) -> bool {
+    !UNTHEMED
+        .lock()
+        .unwrap_or_else(|_| std::process::abort())
+        .iter()
+        .any(|id| id == app_id)
 }
 
 enum Timedated {
@@ -919,6 +955,8 @@ impl Settings {
         rust.screen_timeout = screen_timeout;
         rust.dirty = migrated;
         self.as_mut().read_properties();
+        crate::portal::set_theming(self.gtk_theming, self.kde_theming);
+        set_unthemed(&self.unthemed_apps);
         // Every "open in default..." resolves to one of Marathon's own apps
         // until the user picks another; an empty saved choice is none.
         let browser = if Path::new("/usr/share/applications/shipwright-pacific.desktop").exists() {
@@ -971,6 +1009,12 @@ impl Settings {
         }
         if name == "language" {
             crate::i18n::select(&self.language().to_string());
+        }
+        if matches!(name, "gtkTheming" | "kdeTheming") {
+            crate::portal::set_theming(self.gtk_theming, self.kde_theming);
+        }
+        if name == "unthemedApps" {
+            set_unthemed(&self.unthemed_apps);
         }
         self.save_soon();
     }

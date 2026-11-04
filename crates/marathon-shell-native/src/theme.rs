@@ -359,6 +359,13 @@ fn replace(path: &Path, content: &str) -> std::io::Result<()> {
         })
 }
 
+fn clear(path: &Path) -> std::io::Result<()> {
+    if !path.exists() || !ours(path) {
+        return Ok(());
+    }
+    std::fs::remove_file(path)
+}
+
 fn gtk4_path() -> PathBuf {
     marathon_rt::dirs::config().join("gtk-4.0/gtk.css")
 }
@@ -374,11 +381,21 @@ fn kdeglobals_path() -> PathBuf {
 /// Writes the ambience's GTK styling where GTK reads it: libadwaita's
 /// semantic colours to `$XDG_CONFIG_HOME/gtk-4.0`. GTK 3 stays on upstream
 /// Adwaita: partial widget selector themes break application hierarchy.
-pub(crate) fn write(highlight: Color, dark: bool) -> std::io::Result<()> {
+/// A toolkit switched off in Settings has Marathon's files removed instead.
+pub(crate) fn write(highlight: Color, dark: bool, gtk: bool, kde: bool) -> std::io::Result<()> {
     let p = palette(highlight, dark);
-    replace(&gtk4_path(), &gtk4_css(highlight, dark))?;
-    replace(&kde_scheme_path(), &kde_color_scheme(&p))?;
-    replace(&kdeglobals_path(), &kde_color_scheme(&p))
+    if gtk {
+        replace(&gtk4_path(), &gtk4_css(highlight, dark))?;
+    } else {
+        clear(&gtk4_path())?;
+    }
+    if kde {
+        replace(&kde_scheme_path(), &kde_color_scheme(&p))?;
+        replace(&kdeglobals_path(), &kde_color_scheme(&p))
+    } else {
+        clear(&kde_scheme_path())?;
+        clear(&kdeglobals_path())
+    }
 }
 
 #[cfg(test)]

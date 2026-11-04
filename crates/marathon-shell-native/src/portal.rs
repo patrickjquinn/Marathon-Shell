@@ -103,7 +103,30 @@ impl V {
 
 type Namespaces = BTreeMap<String, BTreeMap<String, V>>;
 
-static CURRENT: LazyLock<Mutex<Namespaces>> = LazyLock::new(|| Mutex::new(settings(None, 1)));
+/// What is served: the ambience, and the toolkits Settings lets it theme.
+#[derive(Clone, Copy)]
+struct Seed {
+    highlight: Option<Color>,
+    /// 0 no preference, 1 dark, 2 light.
+    scheme: u32,
+    gtk: bool,
+    kde: bool,
+}
+
+const UNSEEDED: Seed = Seed {
+    highlight: None,
+    scheme: 1,
+    gtk: true,
+    kde: true,
+};
+
+static SEED: Mutex<Seed> = Mutex::new(UNSEEDED);
+
+static CURRENT: LazyLock<Mutex<Namespaces>> = LazyLock::new(|| Mutex::new(settings(UNSEEDED)));
+
+fn seed() -> std::sync::MutexGuard<'static, Seed> {
+    SEED.lock().unwrap_or_else(|_| std::process::abort())
+}
 
 fn current() -> std::sync::MutexGuard<'static, Namespaces> {
     CURRENT.lock().unwrap_or_else(|_| std::process::abort())
@@ -114,10 +137,11 @@ fn kde_font(family: &str, points: u32) -> V {
     V::S(format!("{family},{points},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"))
 }
 
-/// Every namespace served for an ambience. scheme: 0 no preference, 1
-/// dark, 2 light. GTK 3 stays on upstream Adwaita; GTK 4 and KDE consume the
-/// generated semantic colours.
-fn settings(accent: Option<Color>, scheme: u32) -> Namespaces {
+/// Every namespace served for an ambience. GTK 3 stays on upstream Adwaita;
+/// GTK 4 and KDE consume the generated semantic colours unless switched off,
+/// when they keep only the scheme.
+fn settings(seed: Seed) -> Namespaces {
+    let Seed { scheme, .. } = seed;
     let s = |x: &str| V::S(x.to_owned());
     let theme = "Adwaita";
     let mut fdo = BTreeMap::from([
@@ -179,20 +203,32 @@ fn settings(accent: Option<Color>, scheme: u32) -> Namespaces {
             BTreeMap::from([("activeFont".to_owned(), kde_font(SANS, 11))]),
         ),
     ]);
-    if let Some(accent) = accent {
-        fdo.insert(
-            "accent-color".to_owned(),
-            V::Rgb(accent.red.into(), accent.green.into(), accent.blue.into()),
-        );
-        gnome.insert("accent-color".to_owned(), s(theme::gnome_accent(accent)));
-        for (group, keys) in theme::kde_colors(&theme::palette(accent, scheme != 2)) {
-            kde.entry(group)
-                .or_default()
-                .extend(keys.into_iter().map(|(k, v)| (k, V::S(v))));
+    if let Some(accent) = seed.highlight {
+        if seed.gtk {
+            fdo.insert(
+                "accent-color".to_owned(),
+                V::Rgb(accent.red.into(), accent.green.into(), accent.blue.into()),
+            );
+            gnome.insert("accent-color".to_owned(), s(theme::gnome_accent(accent)));
+        } else {
+            // Out of range is no accent, by the Settings portal's spec.
+            fdo.insert("accent-color".to_owned(), V::Rgb(-1.0, -1.0, -1.0));
         }
+        let scheme_name = if seed.kde {
+            for (group, keys) in theme::kde_colors(&theme::palette(accent, scheme != 2)) {
+                kde.entry(group)
+                    .or_default()
+                    .extend(keys.into_iter().map(|(k, v)| (k, V::S(v))));
+            }
+            "Marathon"
+        } else if scheme == 2 {
+            "BreezeLight"
+        } else {
+            "BreezeDark"
+        };
         kde.entry("General".to_owned())
             .or_default()
-            .insert("ColorScheme".to_owned(), s("Marathon"));
+            .insert("ColorScheme".to_owned(), s(scheme_name));
     }
     let mut out = Namespaces::from([
         ("org.freedesktop.appearance".to_owned(), fdo),
@@ -220,24 +256,46 @@ fn matches(ns: &str, filters: &[String]) -> bool {
         })
 }
 
-/// A new ambience: write GTK 4 and KDE files first, then announce what
-/// changed. KDE's platform theme reloads the whole palette when
-/// General/ColorScheme changes and ignores the colour keys themselves, as
-/// xdg-desktop-portal-kde signals it, so colours are announced through that
-/// key alone.
+/// A new ambience.
 pub(crate) fn set_ambience(highlight: Option<Color>, color_scheme: &str) {
     let scheme = match color_scheme {
         "lightondark" => 1,
         "darkonlight" => 2,
         _ => 0,
     };
+    {
+        let mut s = seed();
+        s.highlight = highlight;
+        s.scheme = scheme;
+    }
+    serve();
+}
+
+/// Settings' switches for GTK's and KDE's theming.
+pub(crate) fn set_theming(gtk: bool, kde: bool) {
+    {
+        let mut s = seed();
+        s.gtk = gtk;
+        s.kde = kde;
+    }
+    serve();
+}
+
+/// Writes GTK 4 and KDE files first, then announces what changed. KDE's
+/// platform theme reloads the whole palette when General/ColorScheme changes
+/// and ignores the colour keys themselves, as xdg-desktop-portal-kde signals
+/// it, so colours are announced through that key alone.
+fn serve() {
     io::spawn(async move {
-        if let Some(h) = highlight {
-            if let Err(e) = blocking::unblock(move || theme::write(h, scheme != 2)).await {
+        let s = *seed();
+        if let Some(h) = s.highlight {
+            if let Err(e) =
+                blocking::unblock(move || theme::write(h, s.scheme != 2, s.gtk, s.kde)).await
+            {
                 log::warn("portal", format_args!("writing native app themes: {e}"));
             }
         }
-        let next = settings(highlight, scheme);
+        let next = settings(s);
         let changes: Vec<(String, String, V)> = {
             let mut cur = current();
             let prev = std::mem::replace(&mut *cur, next.clone());

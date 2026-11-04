@@ -30,6 +30,7 @@ const pages = {
     quicksettings: "QuickSettingsPage.qml",
     hiddenapps: "HiddenAppsPage.qml",
     appsort: "AppLayoutPage.qml",
+    themedapps: "ThemedAppsPage.qml",
     store: "StorePage.qml",
     erase: "ErasePage.qml",
     developer: "DeveloperPage.qml",
@@ -91,6 +92,7 @@ const sections = [
             { page: "android", title: qsTr("Android apps"), icon: "image://theme/icon-m-android", keywords: "android apk play permissions special access reset google microg push account" },
             { page: "hiddenapps", title: qsTr("Hidden apps"), icon: "image://theme/icon-m-hidden", keywords: "hide drawer" },
             { page: "appsort", title: qsTr("App grid"), icon: "image://theme/icon-m-app-grid", keywords: "grid columns icons layout filter desktop native search badges" },
+            { page: "themedapps", title: qsTr("Themed apps"), icon: "image://theme/icon-m-ambience", keywords: "ambience theme colour color accent gtk gnome libadwaita kde qt android material flatpak" },
             { page: "store", title: qsTr("App Store"), icon: "image://theme/icon-m-package", keywords: "store flathub f-droid fdroid sources phone mobile desktop automatic updates metered anti-features" }
         ]
     },

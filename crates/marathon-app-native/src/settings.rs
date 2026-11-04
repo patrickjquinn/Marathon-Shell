@@ -80,6 +80,10 @@ pub mod qobject {
         #[qproperty(bool, keyboard_auto_capitalize, cxx_name = "keyboardAutoCapitalize", READ, WRITE = set_keyboard_auto_capitalize, NOTIFY)]
         #[qproperty(QString, language, READ, WRITE = set_language, NOTIFY)]
         #[qproperty(QList_QVariant, available_languages, cxx_name = "availableLanguages", READ = available_languages, CONSTANT)]
+        #[qproperty(bool, gtk_theming, cxx_name = "gtkTheming", READ, WRITE = set_gtk_theming, NOTIFY)]
+        #[qproperty(bool, kde_theming, cxx_name = "kdeTheming", READ, WRITE = set_kde_theming, NOTIFY)]
+        #[qproperty(bool, android_theming, cxx_name = "androidTheming", READ, WRITE = set_android_theming, NOTIFY)]
+        #[qproperty(QStringList, unthemed_apps, cxx_name = "unthemedApps", READ, WRITE = set_unthemed_apps, NOTIFY)]
         type Settings = super::SettingsRust;
 
         #[qsignal]
@@ -182,6 +186,14 @@ pub mod qobject {
         fn set_keyboard_auto_capitalize(self: Pin<&mut Settings>, value: bool);
         #[cxx_name = "setLanguage"]
         fn set_language(self: Pin<&mut Settings>, value: &QString);
+        #[cxx_name = "setGtkTheming"]
+        fn set_gtk_theming(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setKdeTheming"]
+        fn set_kde_theming(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setAndroidTheming"]
+        fn set_android_theming(self: Pin<&mut Settings>, value: bool);
+        #[cxx_name = "setUnthemedApps"]
+        fn set_unthemed_apps(self: Pin<&mut Settings>, value: &QStringList);
         #[cxx_name = "availableLanguages"]
         fn available_languages(self: &Settings) -> QList_QVariant;
 
@@ -312,6 +324,10 @@ properties! {
     keyboard_language: QString = QString::from("en_US"), "keyboardLanguage", keyboard_language_changed, set_keyboard_language(&QString);
     keyboard_auto_capitalize: bool = true, "keyboardAutoCapitalize", keyboard_auto_capitalize_changed, set_keyboard_auto_capitalize(bool);
     language: QString, "language", language_changed, set_language(&QString);
+    gtk_theming: bool = true, "gtkTheming", gtk_theming_changed, set_gtk_theming(bool);
+    kde_theming: bool = true, "kdeTheming", kde_theming_changed, set_kde_theming(bool);
+    android_theming: bool = true, "androidTheming", android_theming_changed, set_android_theming(bool);
+    unthemed_apps: QStringList, "unthemedApps", unthemed_apps_changed, set_unthemed_apps(&QStringList);
 }
 
 /// Writes a system setting; the shell answers with `PropertyChanged`.

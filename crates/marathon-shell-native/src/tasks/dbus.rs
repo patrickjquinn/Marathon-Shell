@@ -332,6 +332,20 @@ impl AppStore1 {
         });
         Ok(())
     }
+
+    /// The installed Flatpaks, id and name, which Settings can leave
+    /// without the ambience's colours.
+    async fn flatpak_apps(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<Vec<(String, String)>> {
+        system(&h).await?;
+        Ok(apps::all()
+            .into_iter()
+            .filter(|a| a.kind == "flatpak")
+            .map(|a| (a.id, a.name))
+            .collect())
+    }
 }
 
 /// An uninstall's outcome, for `AppStore1`'s callers; an empty error is
