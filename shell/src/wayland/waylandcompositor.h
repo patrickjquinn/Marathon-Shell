@@ -123,6 +123,8 @@ class WaylandCompositor : public QWaylandCompositor {
     // The window's xdg surface, as a task's card and app window show it.
     Q_INVOKABLE QObject *shellSurfaceById(int surfaceId);
     Q_INVOKABLE void     setCompositorActive(bool active);
+    // The app with keyboard focus has text input enabled (it takes text).
+    Q_INVOKABLE bool     focusedTextInputEnabled() const;
     Q_INVOKABLE void     setOutputOrientation(const QString &orientation);
     Q_INVOKABLE void     injectKey(int key, int modifiers, bool pressed);
     // System back for a native app's window: dismisses its popup, closes its

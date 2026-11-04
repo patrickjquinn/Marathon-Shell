@@ -28,6 +28,8 @@ pub mod qobject {
         #[qproperty(bool, power_profiles_supported, cxx_name = "powerProfilesSupported", READ, NOTIFY = state_changed)]
         /// The phone has an assistant key (the key between the volume keys).
         #[qproperty(bool, has_assist_key, cxx_name = "hasAssistKey", READ, NOTIFY = state_changed)]
+        /// The keyboard has a trackpad.
+        #[qproperty(bool, has_trackpad, cxx_name = "hasTrackpad", READ, NOTIFY = state_changed)]
         /// False once the shell refuses the system permission.
         #[qproperty(bool, permitted, READ, NOTIFY = state_changed)]
         type Power = super::PowerRust;
@@ -76,6 +78,7 @@ pub struct PowerRust {
     power_profile: QString,
     power_profiles_supported: bool,
     has_assist_key: bool,
+    has_trackpad: bool,
     permitted: bool,
 }
 
@@ -90,6 +93,7 @@ impl Default for PowerRust {
             power_profile: QString::default(),
             power_profiles_supported: false,
             has_assist_key: false,
+            has_trackpad: false,
             permitted: false,
         }
     }
@@ -115,6 +119,7 @@ impl cxx_qt::Initialize for Power {
                     p.power_profile = get(&s, "powerProfile");
                     p.power_profiles_supported = get(&s, "powerProfilesSupported");
                     p.has_assist_key = get(&s, "hasAssistKey");
+                    p.has_trackpad = get(&s, "hasTrackpad");
                 }
             }
             obj.state_changed();

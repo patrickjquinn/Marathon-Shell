@@ -458,6 +458,7 @@ find_package(Qt6 REQUIRED COMPONENTS Gui)
 
 # GuiPrivate is Qt-internal; only link it when enabled and available.
 if(TARGET Qt6::GuiPrivate)
+    target_sources(marathon-shell PRIVATE src/services/trackpadinput.h src/services/trackpadinput.cpp)
     target_link_libraries(marathon-shell PRIVATE Qt6::GuiPrivate)
     target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_QT_GUI_PRIVATE=1)
 else()

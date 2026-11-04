@@ -7,6 +7,7 @@ QtObject {
     property string timeFormat: "24h"
     property string assistKeyPress: "camera"
     property string assistKeyHold: "pilot-voice"
+    property string trackpadMode: "gesture"
     property var hiddenApps: []
     property int appGridColumns: 0
     property bool dndEnabled: false

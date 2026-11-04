@@ -20,7 +20,7 @@ Page {
     // where the image can't erase itself, no Android apps without Android,
     // no developer tools without SSH and no assistant key without the key.
     function present(entries) {
-        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent) && (e.page !== "android" || AndroidApps.available) && (e.page !== "developer" || Security.remoteConnection !== "unavailable") && (e.page !== "assistkey" || Power.hasAssistKey));
+        return entries.filter(e => (e.page !== "cellular" || Modem.available) && (e.page !== "erase" || Security.canEraseAllContent) && (e.page !== "android" || AndroidApps.available) && (e.page !== "developer" || Security.remoteConnection !== "unavailable") && (e.page !== "assistkey" || Power.hasAssistKey) && (e.page !== "trackpad" || Power.hasTrackpad));
     }
 
     function summary(name) {
@@ -58,6 +58,8 @@ Page {
             return Logic.androidState((AndroidApps.runtime || {}).state) + " · " + qsTr("%n apps", "", AndroidApps.apps.length);
         case "developer":
             return Security.remoteConnection === "on" ? qsTr("Remote connection on") : "";
+        case "trackpad":
+            return Logic.trackpadModeTitle(Settings.trackpadMode);
         case "assistkey":
             return Logic.assistKeyActionTitle(Settings.assistKeyPress) + " · " + Logic.assistKeyActionTitle(Settings.assistKeyHold);
         }

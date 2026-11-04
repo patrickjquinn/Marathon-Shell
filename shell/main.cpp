@@ -82,6 +82,9 @@
 #include "src/wayland/waylandcompositormanager.h"
 #include "src/managers/marathoninputmethodengine.h"
 #include "src/managers/cursormanager.h"
+#if MARATHON_HAVE_QT_GUI_PRIVATE
+#include "src/services/trackpadinput.h"
+#endif
 #include "src/components/svgimageprovider.h"
 
 #include "marathon-shell-native/src/mpris.cxxqt.h"
@@ -1251,6 +1254,9 @@ int main(int argc, char *argv[]) {
                                                           weather);
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
+#if MARATHON_HAVE_QT_GUI_PRIVATE
+    createObject<TrackpadInput>(ctx, "TrackpadInput", &app);
+#endif
     if (debugEnabled || profileMode) {
         qInfo() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
     }

@@ -1372,6 +1372,11 @@ void WaylandCompositor::handleTextInputSurfaceEnabled(QWaylandSurface *surface) 
         emit nativeTextInputPanelRequested(true);
 }
 
+bool WaylandCompositor::focusedTextInputEnabled() const {
+    QWaylandSurface *focus = defaultSeat() ? defaultSeat()->keyboardFocus() : nullptr;
+    return focus && m_textInputSurfaces.contains(focus);
+}
+
 void WaylandCompositor::handleTextInputUpdate(Qt::InputMethodQueries queries) {
     if (queries & Qt::ImHints)
         emit textInputHintsChanged();

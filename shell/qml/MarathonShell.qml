@@ -296,6 +296,8 @@ Item {
             SessionStore.unlock();
         MHaptics.backend = HapticManager;
         compositor = shellInitialization.initialize(shell, shellWindow);
+        if (typeof TrackpadInput !== "undefined")
+            TrackpadInput.compositor = compositor;
         // Wire the *actual* QQuickWindow (not the root Item) so the
         // synchronous saveScreenshotTo() path works. Existing call
         // sites still pass `shell` explicitly when they want a frame
@@ -3176,6 +3178,13 @@ Item {
                 return "#f87171";
             }
         }
+    }
+
+    // Settings > Trackpad: "gesture" (scroll and caret) or "mouse" (pointer).
+    Binding {
+        target: typeof TrackpadInput !== "undefined" ? TrackpadInput : null
+        property: "mode"
+        value: SettingsManagerCpp.trackpadMode
     }
 
     // The mouse or trackpad pointer, drawn by the shell over everything (Qt's

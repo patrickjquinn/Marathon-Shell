@@ -575,6 +575,14 @@ fn side_key(code: KeyCode) -> Option<&'static str> {
 /// own: the power key wakes the screen, so it never waits behind other I/O.
 fn watch_power_keys(qt: Qt) {
     let found = std::thread::Builder::new().name("marathon-keys".into()).spawn(move || {
+        let trackpad = evdev::enumerate().any(|(_, d)| {
+            d.name().is_some_and(|n| n.contains("trackpad"))
+                && d.supported_relative_axes().is_some_and(|r| r.contains(evdev::RelativeAxisCode::REL_X))
+        });
+        if trackpad {
+            HAS_TRACKPAD.store(true, std::sync::atomic::Ordering::Relaxed);
+            state_changed();
+        }
         let keys = evdev::enumerate().filter(|(_, d)| {
             d.supported_keys().is_some_and(|k| k.iter().any(|c| c == KeyCode::KEY_POWER || side_key(c).is_some()))
         });
@@ -1375,6 +1383,8 @@ mod tests {
 static POWER: OnceLock<cxx_qt::CxxQtThread<Power>> = OnceLock::new();
 // An input device has KEY_ASSISTANT: Settings offers the key's actions.
 static HAS_ASSIST_KEY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+// The keyboard has a trackpad: Settings offers its modes.
+static HAS_TRACKPAD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 // ScheduleWake calls, answered once systemd has their timer.
 static WAKES: LazyLock<Mutex<HashMap<String, Vec<Sender<bool>>>>> = LazyLock::new(Mutex::default);
 
@@ -1403,6 +1413,10 @@ fn state(power: &Power) -> State {
         (
             "hasAssistKey".to_owned(),
             value(HAS_ASSIST_KEY.load(std::sync::atomic::Ordering::Relaxed)),
+        ),
+        (
+            "hasTrackpad".to_owned(),
+            value(HAS_TRACKPAD.load(std::sync::atomic::Ordering::Relaxed)),
         ),
     ])
 }

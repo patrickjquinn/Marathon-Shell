@@ -23,6 +23,7 @@ const pages = {
     updates: "UpdatesPage.qml",
     keyboard: "KeyboardPage.qml",
     assistkey: "AssistKeyPage.qml",
+    trackpad: "TrackpadPage.qml",
     appmanager: "AppManagerPage.qml",
     appinfo: "AppManagerPage.qml",
     accounts: "AccountsPage.qml",
@@ -71,7 +72,8 @@ const sections = [
             { page: "battery", title: qsTr("Battery"), icon: "image://theme/icon-m-battery", keywords: "power saver profile charging" },
             { page: "storage", title: qsTr("Storage"), icon: "image://theme/icon-m-storage", keywords: "disk space memory usage free" },
             { page: "keyboard", title: qsTr("Keyboard"), icon: "image://theme/icon-m-keyboard", keywords: "language autocorrect predictions typing capitalize" },
-            { page: "assistkey", title: qsTr("Assistant key"), icon: "image://theme/icon-m-keys", keywords: "button side key shortcut camera pilot voice talk convenience" }
+            { page: "assistkey", title: qsTr("Assistant key"), icon: "image://theme/icon-m-keys", keywords: "button side key shortcut camera pilot voice talk convenience" },
+            { page: "trackpad", title: qsTr("Trackpad"), icon: "image://theme/icon-m-gesture", keywords: "trackpad touchpad pointer mouse cursor scroll caret optical" }
         ]
     },
     {
@@ -260,6 +262,17 @@ const assistKeyActions = [
     { id: "pilot-voice", title: qsTr("Talk to Pilot") },
     { id: "none", title: qsTr("Do nothing") }
 ];
+
+// What the keyboard's trackpad does (Settings.trackpadMode).
+const trackpadModes = [
+    { id: "gesture", title: qsTr("Scroll and navigate"), description: qsTr("Swipe to scroll, or to move the cursor in text. Press to select.") },
+    { id: "mouse", title: qsTr("Pointer"), description: qsTr("Move a pointer around the screen. Press to click.") }
+];
+
+function trackpadModeTitle(id) {
+    const mode = trackpadModes.find(m => m.id === id);
+    return mode ? mode.title : "";
+}
 
 function assistKeyActionTitle(id) {
     const action = assistKeyActions.find(a => a.id === id);
