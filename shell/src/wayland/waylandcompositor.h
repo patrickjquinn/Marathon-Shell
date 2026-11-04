@@ -240,6 +240,12 @@ class WaylandCompositor : public QWaylandCompositor {
     // commit (the wlroots#1889-clean path for the mxsfb DSI panel).
     void setDisplayPowerState(bool on);
     bool initAtomicDisplay();
+    // setCompositorActive(false) once the frame on screen is the one the
+    // phone should wake to.
+    void suspendCompositor();
+    // Bumped by every setCompositorActive: a stale deferred suspend sees a
+    // newer value and does nothing.
+    quint64 m_activeSeq = 0;
 
     // Cached DRM handles for the ACTIVE-property display-off path.
     int                                     m_driFd               = -1;

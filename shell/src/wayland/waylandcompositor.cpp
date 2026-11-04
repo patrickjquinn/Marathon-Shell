@@ -1996,52 +1996,74 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
 void WaylandCompositor::setCompositorActive(bool active) {
     if (!m_window)
         return;
+    const quint64 seq = ++m_activeSeq;
 
-    if (marathon::device::profile().device_id == QStringLiteral("zinwa-q25") &&
-        marathon::device::profile().doze_dpms && initAtomicDisplay() && m_simpleDrmQualified) {
-        if (active) {
-            const bool   wasDetached = m_simpleDozeDetached;
-            const qint64 wakeStart   = monotonicUs();
-            if (!setSimpleDrmPowerState(true))
+    // The panel wakes showing the last frame scanned out before it slept,
+    // which is still the app under the lock screen: draw one frame first
+    // (the backlight is already off), then power down.
+    if (!active && m_window->isVisible()) {
+        auto suspend = [this, seq] {
+            if (seq != m_activeSeq)
                 return;
-            if (wasDetached && envBool("MARATHON_FRAME_TIMING", false))
-                connect(
-                    m_window, &QQuickWindow::frameSwapped, this,
-                    [wakeStart]() {
-                        qWarning() << "[Q25Doze] wake_to_frameSwapped_notification_us"
-                                   << monotonicUs() - wakeStart << "not-photon-latency";
-                    },
-                    Qt::SingleShotConnection);
-            m_window->setVisible(true);
-            m_window->update();
-        } else {
-            // Retain Qt's GBM surface/front buffer while pausing its render loop.
-            m_window->setPersistentGraphics(true);
-            m_window->setPersistentSceneGraph(true);
-            m_window->setVisible(false);
-            if (!setSimpleDrmPowerState(false)) {
-                m_window->setVisible(true);
-                m_window->update();
-            }
-        }
+            ++m_activeSeq;
+            suspendCompositor();
+        };
+        connect(m_window, &QQuickWindow::frameSwapped, this, suspend, Qt::SingleShotConnection);
+        QTimer::singleShot(150, this, suspend);
+        m_window->update();
+        return;
+    }
+    if (!active) {
+        suspendCompositor();
         return;
     }
 
-    if (active) {
-        // Always re-assert display power on wake, even if the window already
-        // reports visible. Window-visibility is NOT a reliable proxy for CRTC
-        // power: a raced double-toggle or a partial wake can leave the window
-        // visible while the CRTC sits at ACTIVE=0 -- and the old
-        // `active == isVisible()` early-return then skipped the CRTC re-enable
-        // outright, leaving the panel dark with no recovery (an unwakeable
-        // screen). setDisplayPowerState is idempotent, so re-asserting a live
-        // CRTC is a cheap no-op. Power the pipeline on BEFORE resuming page
-        // flips so the first flip lands on a live CRTC (a sleeping one wedges
-        // eglfs_kms with EINVAL).
-        setDisplayPowerState(true);
-        if (!m_window->isVisible()) {
-            qDebug() << "[WaylandCompositor] Resuming compositor window";
+    if (marathon::device::profile().device_id == QStringLiteral("zinwa-q25") &&
+        marathon::device::profile().doze_dpms && initAtomicDisplay() && m_simpleDrmQualified) {
+        const bool   wasDetached = m_simpleDozeDetached;
+        const qint64 wakeStart   = monotonicUs();
+        if (!setSimpleDrmPowerState(true))
+            return;
+        if (wasDetached && envBool("MARATHON_FRAME_TIMING", false))
+            connect(
+                m_window, &QQuickWindow::frameSwapped, this,
+                [wakeStart]() {
+                    qWarning() << "[Q25Doze] wake_to_frameSwapped_notification_us"
+                               << monotonicUs() - wakeStart << "not-photon-latency";
+                },
+                Qt::SingleShotConnection);
+        m_window->setVisible(true);
+        m_window->update();
+        return;
+    }
+
+    // Always re-assert display power on wake, even if the window already
+    // reports visible. Window-visibility is NOT a reliable proxy for CRTC
+    // power: a raced double-toggle or a partial wake can leave the window
+    // visible while the CRTC sits at ACTIVE=0 -- and the old
+    // `active == isVisible()` early-return then skipped the CRTC re-enable
+    // outright, leaving the panel dark with no recovery (an unwakeable
+    // screen). setDisplayPowerState is idempotent, so re-asserting a live
+    // CRTC is a cheap no-op. Power the pipeline on BEFORE resuming page
+    // flips so the first flip lands on a live CRTC (a sleeping one wedges
+    // eglfs_kms with EINVAL).
+    setDisplayPowerState(true);
+    if (!m_window->isVisible()) {
+        qDebug() << "[WaylandCompositor] Resuming compositor window";
+        m_window->setVisible(true);
+    }
+}
+
+void WaylandCompositor::suspendCompositor() {
+    if (marathon::device::profile().device_id == QStringLiteral("zinwa-q25") &&
+        marathon::device::profile().doze_dpms && initAtomicDisplay() && m_simpleDrmQualified) {
+        // Retain Qt's GBM surface/front buffer while pausing its render loop.
+        m_window->setPersistentGraphics(true);
+        m_window->setPersistentSceneGraph(true);
+        m_window->setVisible(false);
+        if (!setSimpleDrmPowerState(false)) {
             m_window->setVisible(true);
+            m_window->update();
         }
         return;
     }
