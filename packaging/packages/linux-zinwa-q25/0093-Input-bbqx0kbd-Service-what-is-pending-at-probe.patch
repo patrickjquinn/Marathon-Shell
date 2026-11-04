@@ -1,0 +1,32 @@
+From eb3ff5bac381450c7cfd394a610776c755ac26c7 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 4 Nov 2026 17:00:49 +0000
+Subject: [PATCH] Input: bbqx0kbd - Service what is pending at probe
+
+After the driver loaded, the trackpad stayed quiet until its button was
+pressed: an event the controller raised before the interrupt was
+requested left no edge behind, and motion stayed queued. Run the handler
+once after requesting the interrupt.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/input/keyboard/bbqx0kbd.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/input/keyboard/bbqx0kbd.c b/drivers/input/keyboard/bbqx0kbd.c
+index 97a7746f..ed4bfbfc 100644
+--- a/drivers/input/keyboard/bbqx0kbd.c
++++ b/drivers/input/keyboard/bbqx0kbd.c
+@@ -290,6 +290,9 @@ static int bbqx0kbd_probe(struct i2c_client *client)
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to request IRQ\n");
+ 
++	/* An event already pending at probe raised its edge before we listened. */
++	bbqx0kbd_irq(client->irq, kbd);
++
+ 	return bbqx0kbd_init_backlight(kbd);
+ }
+ 
+-- 
+2.55.0
+
