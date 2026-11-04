@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=63
+pkgrel=64
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="all"
@@ -308,6 +308,12 @@ EOF
 [Service]
 Delegate=cpu cpuset io memory pids
 IOAccounting=yes
+EOF
+    # A cgroup's cpu.uclamp.min is capped by its parent's and starts at 0,
+    # so these ancestors would cap the shell's foreground boost to nothing.
+    cat > "$pkgdir/usr/lib/systemd/system/user@.service.d/60-marathon-uclamp.conf" <<'EOF'
+[Service]
+ExecStartPre=-+/bin/sh -c 'cd /sys/fs/cgroup/user.slice && echo max > cpu.uclamp.min && echo max > user-%i.slice/cpu.uclamp.min && echo max > user-%i.slice/user@%i.service/cpu.uclamp.min'
 EOF
 
 	# A memory floor for the shell: reclaim takes from apps first. Each

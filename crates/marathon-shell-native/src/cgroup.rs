@@ -7,7 +7,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -15,15 +15,40 @@ use crate::systemd::SystemdManagerProxy;
 use crate::{app_ids, io, log};
 use zbus::Variant;
 
-const FRONT_UCLAMP_MIN: u8 = 30;
+/// The foreground boost, in percent. On a big.LITTLE SoC it must exceed the
+/// little cores' capacity, or EAS keeps the app on them (the Q25's A55s:
+/// 525 of 1024, so 30 changed nothing there and 60 matched the Pi).
+fn front_uclamp_min() -> u8 {
+    static BOOST: OnceLock<u8> = OnceLock::new();
+    *BOOST.get_or_init(|| {
+        let capacities: Vec<u32> = fs::read_dir("/sys/devices/system/cpu")
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|cpu| fs::read_to_string(cpu.path().join("cpu_capacity")).ok())
+            .filter_map(|c| c.trim().parse().ok())
+            .collect();
+        front_boost(&capacities)
+    })
+}
+
+fn front_boost(capacities: &[u32]) -> u8 {
+    match (capacities.iter().min(), capacities.iter().max()) {
+        (Some(&little), Some(&big)) if little < big => {
+            u8::try_from((little * 100 / 1024 + 10).min(100)).unwrap_or(100)
+        }
+        _ => 30,
+    }
+}
 
 pub struct AppCgroups {
     // marathon.slice/marathon-apps, when the shell may write under it.
     root: Option<PathBuf>,
     shell: String,
     placed: HashSet<String>,
-    // Apps in a systemd scope of their own, to its unit.
+    // Apps in a systemd scope of their own, to its unit and cgroup.
     scopes: HashMap<String, String>,
+    scope_dirs: HashMap<String, PathBuf>,
     scope_priorities: Arc<ScopePriorities>,
 }
 
@@ -50,6 +75,7 @@ pub(crate) fn app_cgroups() -> AppCgroups {
         shell,
         placed: HashSet::new(),
         scopes: HashMap::new(),
+        scope_dirs: HashMap::new(),
         scope_priorities: Arc::default(),
     };
     cgroups.reap_stale();
@@ -85,6 +111,15 @@ fn apps_root(shell: &str) -> Option<PathBuf> {
     write(&slice.join("cgroup.subtree_control"), "+io");
     write(&root.join("cgroup.subtree_control"), "+cpu +memory +pids");
     write(&root.join("cgroup.subtree_control"), "+io");
+    // A cgroup's uclamp.min is capped by its parent's, and new ones start
+    // at 0, so the slices above an app must not cap its boost.
+    for open in [
+        slice.clone(),
+        root.clone(),
+        slice.with_file_name("app.slice"),
+    ] {
+        write(&open.join("cpu.uclamp.min"), "max");
+    }
     Some(root)
 }
 
@@ -98,6 +133,10 @@ impl AppCgroups {
     pub(crate) fn adopt(&mut self, app_id: &str, pid: i64, pid_cgroup: &str, placement: Placement) {
         if let Some(unit) = scope_unit(pid_cgroup, &self.shell) {
             self.scopes.insert(app_id.to_owned(), unit);
+            self.scope_dirs.insert(
+                app_id.to_owned(),
+                Path::new("/sys/fs/cgroup").join(pid_cgroup.trim_start_matches('/')),
+            );
             self.set_front(app_id, placement.foreground);
             return;
         }
@@ -158,6 +197,11 @@ impl AppCgroups {
                 root.join("io.bfq.weight").exists() && !root.join("io.weight").exists()
             });
             self.scope_priorities.set(&unit, front);
+            // systemd has no uclamp property; the user manager's app.slice
+            // is ours to write.
+            if let Some(dir) = self.scope_dirs.get(app_id) {
+                write_uclamp(dir, front);
+            }
             let priorities = Arc::clone(&self.scope_priorities);
             io::spawn(async move {
                 let Some((_guard, front)) = priorities.latest(&unit).await else {
@@ -194,6 +238,7 @@ impl AppCgroups {
         if let Some(unit) = self.scopes.remove(app_id) {
             self.scope_priorities.forget(&unit);
         }
+        self.scope_dirs.remove(app_id);
         if self.placed.remove(app_id) {
             self.dir(app_id).map(fs::remove_dir);
         }
@@ -376,11 +421,15 @@ fn write_resource_profile(dir: &Path, front: bool) {
     } else if generic.exists() {
         write(&generic, &format!("default {disk}"));
     }
+    write_uclamp(dir, front);
+}
+
+fn write_uclamp(dir: &Path, front: bool) {
     let clamp = dir.join("cpu.uclamp.min");
     if clamp.exists() {
         write(
             &clamp,
-            &if front { FRONT_UCLAMP_MIN } else { 0 }.to_string(),
+            &if front { front_uclamp_min() } else { 0 }.to_string(),
         );
     }
 }
