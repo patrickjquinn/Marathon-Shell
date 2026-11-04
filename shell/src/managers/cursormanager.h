@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QPointF>
 #include <QTimer>
 
 class CursorManager : public QObject {
@@ -8,6 +9,9 @@ class CursorManager : public QObject {
     Q_PROPERTY(
         bool cursorVisible READ cursorVisible WRITE setCursorVisible NOTIFY cursorVisibleChanged)
     Q_PROPERTY(int hideDelayMs READ hideDelayMs WRITE setHideDelayMs NOTIFY hideDelayMsChanged)
+    // Where a mouse or trackpad last put the pointer, in window coordinates;
+    // the shell draws the cursor there (Qt's own stays hidden).
+    Q_PROPERTY(QPointF position READ position NOTIFY positionChanged)
 
   public:
     explicit CursorManager(QObject *parent = nullptr);
@@ -19,6 +23,9 @@ class CursorManager : public QObject {
     int hideDelayMs() const {
         return m_hideDelayMs;
     }
+    QPointF position() const {
+        return m_position;
+    }
 
     Q_INVOKABLE void setCursorVisible(bool visible);
     Q_INVOKABLE void setHideDelayMs(int ms);
@@ -28,6 +35,10 @@ class CursorManager : public QObject {
   signals:
     void cursorVisibleChanged();
     void hideDelayMsChanged();
+    void positionChanged();
+
+  protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
   private slots:
     void hideCursor();
@@ -36,5 +47,5 @@ class CursorManager : public QObject {
     bool    m_cursorVisible;
     int     m_hideDelayMs;
     QTimer *m_hideTimer;
-    bool    m_overrideActive;
+    QPointF m_position;
 };

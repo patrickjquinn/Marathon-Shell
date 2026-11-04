@@ -329,6 +329,7 @@ qt_add_resources(marathon-shell "shell_images"
     FILES
         resources/images/camera.svg
         resources/images/calendar.svg
+        resources/images/cursor.svg
 )
 # Baked with shaders/build-shaders.sh; the device build roots have no qsb.
 qt_add_resources(marathon-shell "shell_shaders"

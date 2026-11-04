@@ -948,6 +948,11 @@ fn licenses_list() -> QList<QVariant> {
                 "LGPL-3.0 / GPL-3.0",
             ),
             ("LunaSVG", "SVG rendering backend", "MIT"),
+            (
+                "phinger cursors",
+                "Mouse pointer, by Philipp Schaffrath",
+                "CC-BY-SA-4.0",
+            ),
             ("PlutoVG", "Vector graphics rasterizer (via LunaSVG)", "MIT"),
             (
                 "Hunspell",

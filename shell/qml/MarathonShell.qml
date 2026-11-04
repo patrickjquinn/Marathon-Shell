@@ -807,7 +807,6 @@ Item {
         enabled: true
         focus: false
         onPositionChanged: mouse => {
-            CursorManager.onMouseActivity();
             idleScreenTimer.rearm();
             mouse.accepted = false;
         }
@@ -3177,5 +3176,22 @@ Item {
                 return "#f87171";
             }
         }
+    }
+
+    // The mouse or trackpad pointer, drawn by the shell over everything (Qt's
+    // own stays hidden); CursorManager shows it while the pointer moves.
+    Image {
+        // The arrow's tip sits at (1, 1) of its 32-unit grid.
+        readonly property real hotspot: width / 32
+
+        source: "qrc:/images/cursor.svg"
+        width: Math.round(24 * Constants.scaleFactor)
+        height: width
+        sourceSize: Qt.size(width, height)
+        x: CursorManager.position.x - hotspot
+        y: CursorManager.position.y - hotspot
+        z: 100000
+        visible: CursorManager.cursorVisible
+        enabled: false
     }
 }
