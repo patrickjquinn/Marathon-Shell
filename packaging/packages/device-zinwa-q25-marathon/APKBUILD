@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=46
+pkgrel=47
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -18,7 +18,7 @@ replaces="device-mediatek-g99-marathon"
 source="device-profile.conf q25-shell-session q25-shell-session.software greetd-q25.toml 50-q25-session.conf q25-session.conf.example
  q25-md1-off.service q25-wmt.c q25-connsys.service q25-wmt-launcher.service q25-wifi.service
  q25-wifi.system-sleep 50-q25-wpa_supplicant.conf
- q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules
+ q25-bluetooth.service q25-bt-address q25-bt-address.service q25-audio.modules-load.conf q25-audio.modprobe.conf q25-mt6366.conf HiFi.conf VoiceCall.conf 61-q25-sensor-local.rules 61-q25-gpu-autosuspend.rules
  unudhcpd-usb0.conf q25.preset
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
@@ -108,6 +108,7 @@ package() {
 
     # The IMU is mounted rotated 180 degrees about Z.
     install -Dm644 "$srcdir/61-q25-sensor-local.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-sensor-local.rules"
+    install -Dm644 "$srcdir/61-q25-gpu-autosuspend.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-gpu-autosuspend.rules"
 
     install -Dm644 "$srcdir/q25-deckard.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-deckard.conf"
     install -Dm644 "$srcdir/q25-haptic.modules-load.conf" "$pkgdir/usr/lib/modules-load.d/q25-haptic.conf"
@@ -195,7 +196,7 @@ package() {
     done
 }
 sha512sums="
-d88d234fe15b85a63983a2f36eeb52cf614c931d53bcd68bb7b43fc4c16831d773d8181b7edc84f294a390f7e35a8526dcd6fab015383e9db0200364fde3fc70  device-profile.conf
+4b64b4556880094dc26dfb36bb8abc942d35b52734e8aa934df5cd0ef4b89ea7f2ee2eec9dd58450a186e29744bd600295aabef52e6461a055bb77f10c0f1a7c  device-profile.conf
 8dbac3f141d9837f55e33e80e4aedcc082d7fdb82af1ba60748205b366e2c13d2b88cdcd6f68182dbaf5c5cf19ea0d76b39473b337c27288318731492817f9a7  q25-shell-session
 c378432befaf0b54fe3b4d72230634f48f6a344f74f217f1d475da7be6f834bc82ea30ec4dd8ff24bd3808906b8eced5cf3ea0e13eaddcb1d61b936835971e44  q25-shell-session.software
 56babfe06ed3da7ff72569304d9984adba8d77878cacf27435cb0a83d025bacae203e544e366c4d0490880bcdb7425ac67122b40ae3d46534a1104b76ba7157d  greetd-q25.toml
@@ -217,6 +218,7 @@ bc62f4aaf005f6aa71e6e3924d57af0fbeda769d1d0fefb45d410d70df85dc4aa696ed3788bf067c
 f21a54d04eb82281555e89df898b5da68b8c6b8d3e3755f972d7610e7e56a672383bf3de1fcb9fca45b3a69d14ddb4c3ad999a7120ce67c1dade5a0816ff961a  HiFi.conf
 db9ebb4d0b288f6c0d5e16b27fcaa4e4c6ded6bc7c24100eb5de10f2b56d5552e8c9e26f26db73f76927d3b0d2ae4d2031ab8f742c309ce6eec9ec3e72a6a977  VoiceCall.conf
 1721b80e84a1bb34dfb1c3467e6395a9f5a3030a37e88228103c2d66be6041850f5931794f69720fa6a44be370c673728914e1982c0f98b46c75654d72404ee8  61-q25-sensor-local.rules
+f4184dac99d7a939cbfe09c8fdd95e0cbaa9da7c3c03d14f85d1ea96e5701237d76c3f5d6dd94193d4dca66ac0190a1450969549564806860bc97e646d1edde7  61-q25-gpu-autosuspend.rules
 9e77ff4f12873407255fcbde236299678e238315b27f57401fcdd50b04c5427f2aacb5836bd5ce7c0aa177106e32085ac2e3505ec486d33f1f583dc7cd0f8d01  unudhcpd-usb0.conf
 411f9224d7c436251394e5c3dae04179b91465b0271a727bd415a02ac45d9672cf3db1690afddf3d42345632cc5abf32c26eda226f688a4027592b66d5ad1419  q25.preset
 1d4783312f07722daf37144074d6637a56e3b09664d3687ae1fc143df0412236c56febf7455c6d59b5ecda8482dea62e1f86d57af4eca78290ff0fb9a8c09443  q25-usb-gadget

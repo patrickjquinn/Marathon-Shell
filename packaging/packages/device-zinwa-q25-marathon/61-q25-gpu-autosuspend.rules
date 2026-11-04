@@ -1,0 +1,3 @@
+# Panfrost suspends the GPU after 50 ms idle, and the MT6789's resume is slow,
+# so it powered down between animation frames and devfreq never saw load.
+ACTION=="add|bind", SUBSYSTEM=="platform", DRIVER=="panfrost", ATTR{power/autosuspend_delay_ms}="1000"

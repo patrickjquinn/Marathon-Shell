@@ -1,4 +1,4 @@
-# Q25/Helio G99 traits; no GPU enablement or kernel policy is installed here.
+# Q25/Helio G99 traits; no kernel policy is installed here.
 schema = 1
 id = "mt6789"
 name = "MediaTek Helio G99 (MT6789)"
@@ -6,9 +6,15 @@ arch = "aarch64"
 cpu = "6x Cortex-A55 + 2x Cortex-A76"
 
 [gpu]
-name = "Mali-G57 MC2 (hardware rendering unvalidated)"
+name = "Mali-G57 MC2"
+render_node = "/dev/dri/renderD128"
 
-# Only the bring-up software stack is declared; this does not enable Panfrost.
+# PanVK has no Valhall v9 support, so Vulkan is lavapipe on the CPU.
+[gpu.stacks.mesa-panfrost]
+driver = "panfrost"
+gles_max = "3.1"
+msaa = false
+
 [gpu.stacks.llvmpipe]
 driver = "Mesa software rendering (bring-up)"
 gles_max = "3.0"

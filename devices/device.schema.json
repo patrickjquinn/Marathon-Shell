@@ -140,7 +140,7 @@
     "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
     "repo_path": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"},
     "strings": {"type": "array", "items": {"type": "string", "minLength": 1}},
-    "gpu_stack": {"enum": ["mesa-etnaviv", "vivante-blob", "mesa-lima", "mesa-v3d", "mesa-virgl", "mesa-freedreno", "llvmpipe"]},
+    "gpu_stack": {"enum": ["mesa-etnaviv", "vivante-blob", "mesa-lima", "mesa-v3d", "mesa-panfrost", "mesa-virgl", "mesa-freedreno", "llvmpipe"]},
     "gles": {"type": "string", "pattern": "^[1-9]\\.[0-9]$"},
     "profile": {
       "description": "/etc/marathon/device-profile.conf: each key is the conf key in lower case (DEVICE_ID comes from id). Keys left out keep the shell's built-in default. Key order here is the generated file's order.",

@@ -61,3 +61,7 @@ panel_dpi = 295
 cpu_governor = "schedutil"
 # Level 1 of 20 (4.1 V bias), the stock minimum, stays clean.
 brightness_floor = 0.05
+gpu_stack = "mesa-panfrost"
+# PanVK rejects the Mali-G57, so the loader finds no Vulkan device and GTK 4
+# renders with GL instead of on the CPU through lavapipe.
+vulkan_driver = "panfrost"
