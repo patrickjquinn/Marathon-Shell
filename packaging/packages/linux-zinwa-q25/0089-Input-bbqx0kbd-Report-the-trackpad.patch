@@ -1,0 +1,146 @@
+From 93c685d3aed8b2883c68278fdadc57aef793b234 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 4 Nov 2026 13:05:20 +0000
+Subject: [PATCH 89/91] Input: bbqx0kbd - Report the trackpad
+
+The BBQ20's optical trackpad reports motion through the keyboard's
+interrupt: REG_INT's TOUCH bit, with signed 8-bit deltas in TOX and TOY
+once CF2's TOUCH_INT is set. Its press arrives in the key FIFO.
+
+Register a second input device for it, "BBQX0 trackpad", with REL_X,
+REL_Y and the button codes the keymap gives, read the deltas when the
+TOUCH bit is set and route button codes from the FIFO to it. REG_INT is
+read before it is cleared so the TOUCH bit is not lost.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/input/keyboard/bbqx0kbd.c | 64 ++++++++++++++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/input/keyboard/bbqx0kbd.c b/drivers/input/keyboard/bbqx0kbd.c
+index 3c13c825..d91c2639 100644
+--- a/drivers/input/keyboard/bbqx0kbd.c
++++ b/drivers/input/keyboard/bbqx0kbd.c
+@@ -27,10 +27,15 @@
+ #define BBQX0KBD_CFG_KEY_INT		BIT(4)
+ #define BBQX0KBD_CFG_REPORT_MODS	BIT(6)
+ #define BBQX0KBD_REG_INT		0x03
++#define BBQX0KBD_INT_TOUCH		BIT(6)
+ #define BBQX0KBD_REG_KEY		0x04
+ #define BBQX0KBD_KEY_COUNT		GENMASK(4, 0)
+ #define BBQX0KBD_REG_BKL		0x05
+ #define BBQX0KBD_REG_FIF		0x09
++#define BBQX0KBD_REG_CF2		0x14
++#define BBQX0KBD_CF2_TOUCH_INT		BIT(0)
++#define BBQX0KBD_REG_TOX		0x15
++#define BBQX0KBD_REG_TOY		0x16
+ #define BBQX0KBD_WRITE			BIT(7)
+ 
+ #define BBQX0KBD_STATE_PRESSED		1
+@@ -49,6 +54,8 @@
+ struct bbqx0kbd {
+ 	struct i2c_client *client;
+ 	struct input_dev *input;
++	/* The BBQ20's trackpad: relative motion, and the keys mapped to buttons. */
++	struct input_dev *pointer;
+ 	struct led_classdev backlight;
+ };
+ 
+@@ -87,12 +94,36 @@ static void bbqx0kbd_read_fifo(struct bbqx0kbd *kbd)
+ 			continue;
+ 
+ 		code = ((unsigned short *)kbd->input->keycode)[scan];
++		if (code >= BTN_MOUSE && code < BTN_JOYSTICK) {
++			input_report_key(kbd->pointer, code,
++					 state == BBQX0KBD_STATE_PRESSED);
++			continue;
++		}
+ 		input_event(kbd->input, EV_MSC, MSC_SCAN, scan);
+ 		input_report_key(kbd->input, code,
+ 				 state == BBQX0KBD_STATE_PRESSED);
+ 	}
+ 
+ 	input_sync(kbd->input);
++	input_sync(kbd->pointer);
++}
++
++static void bbqx0kbd_read_motion(struct bbqx0kbd *kbd)
++{
++	int dx, dy;
++
++	dx = i2c_smbus_read_byte_data(kbd->client, BBQX0KBD_REG_TOX);
++	dy = i2c_smbus_read_byte_data(kbd->client, BBQX0KBD_REG_TOY);
++	if (dx < 0 || dy < 0) {
++		dev_err_ratelimited(&kbd->client->dev,
++				    "Failed to read trackpad motion: %d\n",
++				    dx < 0 ? dx : dy);
++		return;
++	}
++
++	input_report_rel(kbd->pointer, REL_X, (s8)dx);
++	input_report_rel(kbd->pointer, REL_Y, (s8)dy);
++	input_sync(kbd->pointer);
+ }
+ 
+ /*
+@@ -102,14 +133,17 @@ static void bbqx0kbd_read_fifo(struct bbqx0kbd *kbd)
+ static irqreturn_t bbqx0kbd_irq(int irq, void *dev_id)
+ {
+ 	struct bbqx0kbd *kbd = dev_id;
+-	int ret;
++	int status, ret;
+ 
++	status = i2c_smbus_read_byte_data(kbd->client, BBQX0KBD_REG_INT);
+ 	ret = bbqx0kbd_write(kbd, BBQX0KBD_REG_INT, 0);
+ 	if (ret)
+ 		dev_err_ratelimited(&kbd->client->dev,
+ 				    "Failed to clear interrupt status: %d\n", ret);
+ 
+ 	bbqx0kbd_read_fifo(kbd);
++	if (status > 0 && (status & BBQX0KBD_INT_TOUCH))
++		bbqx0kbd_read_motion(kbd);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -212,10 +246,38 @@ static int bbqx0kbd_probe(struct i2c_client *client)
+ 	input_set_capability(kbd->input, EV_MSC, MSC_SCAN);
+ 	__set_bit(EV_REP, kbd->input->evbit);
+ 
++	kbd->pointer = devm_input_allocate_device(dev);
++	if (!kbd->pointer)
++		return -ENOMEM;
++
++	kbd->pointer->name = "BBQX0 trackpad";
++	kbd->pointer->id.bustype = BUS_I2C;
++	kbd->pointer->id.version = version;
++	input_set_capability(kbd->pointer, EV_REL, REL_X);
++	input_set_capability(kbd->pointer, EV_REL, REL_Y);
++	/* A pointer needs a button even where the keymap gives it none. */
++	input_set_capability(kbd->pointer, EV_KEY, BTN_LEFT);
++	for (int i = 0; i < BBQX0KBD_NUM_SCANCODES; i++) {
++		unsigned int code = ((unsigned short *)kbd->input->keycode)[i];
++
++		if (code >= BTN_MOUSE && code < BTN_JOYSTICK) {
++			input_set_capability(kbd->pointer, EV_KEY, code);
++			__clear_bit(code, kbd->input->keybit);
++		}
++	}
++
++	ret = bbqx0kbd_write(kbd, BBQX0KBD_REG_CF2, BBQX0KBD_CF2_TOUCH_INT);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to enable the trackpad\n");
++
+ 	ret = input_register_device(kbd->input);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to register input device\n");
+ 
++	ret = input_register_device(kbd->pointer);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to register trackpad\n");
++
+ 	ret = devm_request_threaded_irq(dev, client->irq, NULL, bbqx0kbd_irq,
+ 					IRQF_ONESHOT, client->name, kbd);
+ 	if (ret)
+-- 
+2.55.0
+

@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=32
+pkgrel=33
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -146,6 +146,9 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0086-arm64-dts-mediatek-mt6789-Add-the-keypad-controller.patch
 	0087-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-volume-d.patch
 	0088-drm-panel-zinwa-q20-hd720-Turn-the-display-on-in-ena.patch
+	0089-Input-bbqx0kbd-Report-the-trackpad.patch
+	0090-arm64-dts-mediatek-mt8781-zinwa-q25-Make-the-trackpa.patch
+	0091-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-flash-LE.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -228,7 +231,7 @@ _modules() {
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
 36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
-ce059525688722dddb5cd7b35ebdf2647a6e3404c9e8f60802e736e6cfe4957dbbe75d6a1a7ebf553857bd5980daeeee83e38774bb7784a6a23f49daf087eff6  config-zinwa-q25.aarch64
+fc4143d42b9ad74f3443faa1231e8767cb9d3218e3101fd36c62e2133daebe9bb6dccb144c506a13f32ea1a215caed970b2125421bca0cbe96b78b08365ad65c  config-zinwa-q25.aarch64
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 fae7d50d65607e43f9dbafa5613f134ce4bb9b3954ac34b82f25a4d6c868578de9a5582eaccd7885284c50df644fd1f9d57cd5221dd210e9fe36976a351afb34  0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
@@ -317,6 +320,9 @@ b265234c80a51e26ae9a901a875d12a67af4f43f5e5de592bf5e9a8dc29043f014ed16d8e375b946
 b26bb1a75708b9041fee919269c49fa500ed8295069e2d0aab9cd8f66103f517c5e15ebef5a5fb02135117a108ba28a3da3f5034e33cfd8890e161547fc5f035  0086-arm64-dts-mediatek-mt6789-Add-the-keypad-controller.patch
 0774fb5712b739658aa161c0a4690737936b8890ab85ab01656814d0e983af7f8d9f69899924cca44b91b0a3332157aad041ceadebf43436dcb6f6fdab018379  0087-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-volume-d.patch
 f30f4bf59bc5561073819a93d23d80edfe50cb137b6f9c93ca2b2537d1b7689ee46ace2696e71e98c3d869ef44bec65abd979d1572ea77969d99507f838ff6b7  0088-drm-panel-zinwa-q20-hd720-Turn-the-display-on-in-ena.patch
+36d80402fd646aa598f874d2f31dcccaa9e9454a9ec136a56364111eea3d8769ef38ca21b229cb69518222466b985a25d5fc7a526559fcd078163b6feee475d1  0089-Input-bbqx0kbd-Report-the-trackpad.patch
+23668d7a126379662b0bed4df55b014a7b242f823dfa44b72dfc2140b4cea3e58567b8630e886553a8ebf47e5d948834c5b66a644e5bf5225e2917d75d2c988b  0090-arm64-dts-mediatek-mt8781-zinwa-q25-Make-the-trackpa.patch
+3bbd64da3950e75997c9aaa9e6917c6d065305e45198512a836b795f4c5d6fe66b271143d3dc30035c64219a9212c1454fd882a37f83898d3eb1aaa565b71af0  0091-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-flash-LE.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

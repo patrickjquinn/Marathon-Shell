@@ -1,0 +1,49 @@
+From b172d5832b6bb67dd594baf309f3e04c962376d8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 4 Nov 2026 13:05:35 +0000
+Subject: [PATCH 91/91] arm64: dts: mediatek: mt8781-zinwa-q25: Add the flash
+ LED
+
+The rear flash is a GPIO-driven flash IC: GPIO155 enables it and
+GPIO154 selects flash over torch, as the stock firmware's flashlightgpio
+node sets them. Describe it for leds-sgm3140, which drives that pair.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index e2568179..872ba341 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -20,6 +20,7 @@
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/leds/common.h>
+ #include <dt-bindings/clock/mediatek,mt6358-clk.h>
+ #include <dt-bindings/clock/mediatek,mt6789-clk.h>
+ #include <dt-bindings/power/mediatek,mt6789-power.h>
+@@ -218,6 +219,18 @@
+ 				       <3401233 0>;
+ 	};
+ 
++	flash-led {
++		compatible = "sgmicro,sgm3140";
++		enable-gpios = <&pio 155 GPIO_ACTIVE_HIGH>;
++		flash-gpios = <&pio 154 GPIO_ACTIVE_HIGH>;
++
++		led {
++			function = LED_FUNCTION_FLASH;
++			color = <LED_COLOR_ID_WHITE>;
++			flash-max-timeout-us = <250000>;
++		};
++	};
++
+ 	sound {
+ 		compatible = "zinwa,q25-mt6366-sound";
+ 		model = "Zinwa Q25";
+-- 
+2.55.0
+

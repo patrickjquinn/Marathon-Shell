@@ -1,0 +1,31 @@
+From 35cf7fb047336e95b7767522f81a456d90a26a4d Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Wed, 4 Nov 2026 13:05:32 +0000
+Subject: [PATCH 90/91] arm64: dts: mediatek: mt8781-zinwa-q25: Make the
+ trackpad press a click
+
+The trackpad's press arrives in the keyboard FIFO as code 0x05, mapped
+to KEY_SELECT. Map it to BTN_LEFT so bbqx0kbd reports it on the
+trackpad device as its button.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index e6e71d7d..e2568179 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -750,7 +750,7 @@
+ 		vdd-supply = <&kbd_vdd>;
+ 		vdd18-supply = <&kbd_1v8>;
+ 		vdd28-supply = <&kbd_2v8>;
+-		linux,keymap = <MATRIX_KEY(0, 0x05, KEY_SELECT)
++		linux,keymap = <MATRIX_KEY(0, 0x05, BTN_LEFT)
+ 				MATRIX_KEY(0, 0x06, KEY_PICKUP_PHONE)
+ 				MATRIX_KEY(0, 0x07, KEY_BACK)
+ 				MATRIX_KEY(0, 0x08, KEY_BACKSPACE)
+-- 
+2.55.0
+
