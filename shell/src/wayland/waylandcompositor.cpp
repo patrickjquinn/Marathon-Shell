@@ -1529,15 +1529,16 @@ void WaylandCompositor::mapToplevel(QWaylandXdgToplevel *toplevel, QWaylandXdgSu
     connect(
         toplevel, &QWaylandXdgToplevel::setMaximized, this,
         [configure]() { configure(true, false); }, Qt::QueuedConnection);
+    // A phone window never floats: GTK unmaximizes to drag its header bar.
     connect(
         toplevel, &QWaylandXdgToplevel::unsetMaximized, this,
-        [configure]() { configure(false, false); }, Qt::QueuedConnection);
+        [configure]() { configure(true, false); }, Qt::QueuedConnection);
     connect(
         toplevel, &QWaylandXdgToplevel::setFullscreen, this,
         [configure]() { configure(false, true); }, Qt::QueuedConnection);
     connect(
         toplevel, &QWaylandXdgToplevel::unsetFullscreen, this,
-        [configure]() { configure(false, false); }, Qt::QueuedConnection);
+        [configure]() { configure(true, false); }, Qt::QueuedConnection);
 
     QPointer<QWaylandSurface> safeSurface(surface);
 

@@ -100,6 +100,12 @@ void NativeSurfaceItem::setupShellSurface() {
     auto *xdgSurface = qobject_cast<QWaylandXdgSurface *>(shellSurface());
     if (!xdgSurface)
         return;
+    // Qt's integration drags and resizes the window when a client asks
+    // (GTK does from its header bar); phone windows stay where they are.
+    if (QWaylandXdgToplevel *toplevel = xdgSurface->toplevel()) {
+        disconnect(toplevel, &QWaylandXdgToplevel::startMove, nullptr, nullptr);
+        disconnect(toplevel, &QWaylandXdgToplevel::startResize, nullptr, nullptr);
+    }
     if (QWaylandXdgPopup *popup = xdgSurface->popup())
         attachPopup(popup);
 
