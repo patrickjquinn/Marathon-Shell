@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=31
+pkgrel=32
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -145,6 +145,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0085-dt-bindings-input-mediatek-mt6779-keypad-Add-MT6789.patch
 	0086-arm64-dts-mediatek-mt6789-Add-the-keypad-controller.patch
 	0087-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-volume-d.patch
+	0088-drm-panel-zinwa-q20-hd720-Turn-the-display-on-in-ena.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -315,6 +316,7 @@ b265234c80a51e26ae9a901a875d12a67af4f43f5e5de592bf5e9a8dc29043f014ed16d8e375b946
 07ec17c416827d08d844970691156421fe62b01e108973387e51b9e488b9e135cc085734195a7083f33c28e29b6db20f5951fda20dc59e0d3d83ab000b78da3d  0085-dt-bindings-input-mediatek-mt6779-keypad-Add-MT6789.patch
 b26bb1a75708b9041fee919269c49fa500ed8295069e2d0aab9cd8f66103f517c5e15ebef5a5fb02135117a108ba28a3da3f5034e33cfd8890e161547fc5f035  0086-arm64-dts-mediatek-mt6789-Add-the-keypad-controller.patch
 0774fb5712b739658aa161c0a4690737936b8890ab85ab01656814d0e983af7f8d9f69899924cca44b91b0a3332157aad041ceadebf43436dcb6f6fdab018379  0087-arm64-dts-mediatek-mt8781-zinwa-q25-Add-the-volume-d.patch
+f30f4bf59bc5561073819a93d23d80edfe50cb137b6f9c93ca2b2537d1b7689ee46ace2696e71e98c3d869ef44bec65abd979d1572ea77969d99507f838ff6b7  0088-drm-panel-zinwa-q20-hd720-Turn-the-display-on-in-ena.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
