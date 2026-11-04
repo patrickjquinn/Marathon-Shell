@@ -17,6 +17,8 @@ use marathon_rt::{io, log};
 use zbus::fdo;
 use zbus::message::Header;
 
+use crate::confine::confine;
+
 #[cxx_qt::bridge(namespace = "marathon::runner")]
 pub mod ffi {
     #[namespace = ""]
@@ -42,6 +44,10 @@ pub mod ffi {
         /// The command line, and `MARATHON_APP_ROUTE*` for what it leaves
         /// out. Read before Qt starts; prints usage and exits on `--help`.
         fn launch() -> Launch;
+        /// Inside the shell's bwrap, before any thread or app code: the
+        /// seccomp filter and Landlock (`crate::confine`). A spare has no
+        /// app id.
+        fn confine(app_id: &QString);
         /// A spare's adoption: one JSON line on stdin (its app, route and
         /// environment, which it exports). An empty app id for a bad line.
         fn adopt(line: &QByteArray) -> Launch;

@@ -2,10 +2,12 @@
 //! sandbox around it, for an app or for a warm spare that becomes one.
 //!
 //! The sandbox sees `/usr`, `/etc` and the system apps read-only, the
-//! app's own data, cache and config read-write, the session's runtime dir
-//! with the app's own Wayland security-context socket over the shell's,
-//! only the GPU's render node, and a tmpfs home. The network goes only to
-//! apps with "network", the media folders only to apps with "storage".
+//! app's own data, cache and config read-write, a runtime dir with only the
+//! session bus, PipeWire, PulseAudio, dconf and the app's own Wayland
+//! security-context socket, only the GPU's render node, and a tmpfs home.
+//! The network goes only to apps with "network", the media folders only to
+//! apps with "storage". The runner then confines itself to writing where it
+//! was given something writable (`MARATHON_SANDBOX_WRITABLE`).
 
 use std::collections::HashMap;
 use std::env;
@@ -417,29 +419,43 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
     for dir in ["/tmp", "/dev/shm"] {
         args.flags(&["--tmpfs", dir]);
     }
-    args.flags(&["--tmpfs", &home.to_string_lossy()]);
+    // A terminal keeps its home between launches, in its own data.
+    if app.is_some_and(|a| a.has("terminal")) {
+        let kept = data.join("home");
+        fs::create_dir_all(&kept).ok();
+        args.flags(&["--bind", &kept.to_string_lossy(), &home.to_string_lossy()]);
+    } else {
+        args.flags(&["--tmpfs", &home.to_string_lossy()]);
+    }
     args.bind("--ro-bind", "/usr/share/marathon-apps");
     args.bind("--ro-bind-try", &config.to_string_lossy());
     args.bind("--bind", &data.to_string_lossy());
     args.bind("--bind", &cache.to_string_lossy());
-    args.bind("--bind", &runtime);
-    // Nemo.Configuration reads dconf's database; writes go over D-Bus.
-    args.bind(
-        "--ro-bind-try",
-        &config_home.join("dconf").to_string_lossy(),
-    );
-    // The app's own security-context socket where WAYLAND_DISPLAY points,
-    // every sandbox's socket hidden.
+    args.flags(&["--perms", "0700", "--tmpfs", &runtime]);
+    for socket in ["bus", "pipewire-0", "pulse/native"] {
+        args.bind("--ro-bind-try", &format!("{runtime}/{socket}"));
+    }
+    if var("MARATHON_STARTUP_TIMING").is_some_and(|v| v.parse::<i32>().is_ok_and(|n| n != 0)) {
+        let log = format!("{runtime}/marathon-startup.log");
+        fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log)
+            .ok();
+        args.bind("--bind-try", &log);
+    }
+    // Nemo.Configuration reads dconf's database and change flag; writes go
+    // over D-Bus. Both are shared only if they exist before the launch.
+    let dconf = [config_home.join("dconf"), Path::new(&runtime).join("dconf")];
+    for dir in &dconf {
+        fs::create_dir_all(dir).ok();
+    }
+    args.bind("--ro-bind-try", &dconf[0].to_string_lossy());
+    args.bind("--bind-try", &dconf[1].to_string_lossy());
+    // The app's own security-context socket where WAYLAND_DISPLAY points.
     let socket = runner.wayland_socket.clone();
     let display = var_or("MARATHON_WL_SOCKET_NAME", "marathon-wayland-0");
     args.flags(&["--ro-bind", &socket, &format!("{runtime}/{display}")]);
-    args.flags(&[
-        "--tmpfs",
-        &Path::new(&socket)
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_string_lossy(),
-    ]);
     match app {
         Some(app) if is_user_installed(&app.id) => {
             args.bind(
@@ -448,8 +464,16 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
             );
         }
         Some(app) if !app.has("system") => {}
-        _ => args.bind("--ro-bind-try", &user_installs().to_string_lossy()),
+        _ => {
+            args.bind("--ro-bind-try", &user_installs().to_string_lossy());
+            let store = format!("{runtime}/marathon-store-state");
+            fs::create_dir_all(&store).ok();
+            args.bind("--ro-bind-try", &store);
+        }
     }
+    // The home is the sandbox's own (a tmpfs, or a terminal's kept one).
+    let mut writable = vec![home.clone(), data, cache, runtime.into()];
+    writable.extend(["/tmp", "/dev/shm"].map(PathBuf::from));
     if app.map_or(runner.storage_spare, |a| a.has("storage")) {
         for dir in media_folders() {
             if dir == home.join("DCIM") {
@@ -458,11 +482,14 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
                 fs::create_dir_all(&dir).ok();
                 args.bind("--bind", &dir.to_string_lossy());
             }
+            writable.push(dir);
         }
         let thumbnails = runner.thumbnails.clone();
         fs::create_dir_all(&thumbnails).ok();
         args.bind("--ro-bind", &thumbnails);
     }
+    // A path with a colon cannot be listed; it stays read-only.
+    writable.retain(|p| !p.to_string_lossy().contains(':'));
     let sandbox_vars = [
         ("HOME", home.to_string_lossy().into_owned()),
         ("XDG_DATA_HOME", data_home.to_string_lossy().into_owned()),
@@ -476,6 +503,13 @@ fn sandbox(runner: &Runner, app: Option<&App<'_>>) -> Vec<String> {
             config_home.to_string_lossy().into_owned(),
         ),
         ("MARATHON_SANDBOXED", "1".to_owned()),
+        (
+            "MARATHON_SANDBOX_WRITABLE",
+            env::join_paths(writable)
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
+        ),
     ];
     for (name, value) in variables(runner).into_iter().chain(sandbox_vars) {
         args.flags(&["--setenv", name, &value]);

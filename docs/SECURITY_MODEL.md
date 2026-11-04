@@ -7,8 +7,8 @@ the file that implements it. Where a layer has a gap, the gap is listed.
 
 | App kind | How it runs | Confinement |
 |----------|-------------|-------------|
-| Marathon QML apps (bundled and `.marathon` packages) | `bwrap` + `marathon-app-runner`, launched by `Tasks` (`crates/marathon-shell-native/src/tasks/launch.rs`) | bwrap, security-context Wayland socket, shell D-Bus permission gate |
-| Marathon WebEngine apps (Browser, Maps) | as above | as above, plus Chromium's own sandbox inside |
+| Marathon QML apps (bundled and `.marathon` packages) | `bwrap` + `marathon-app-runner`, launched by `Tasks` (`crates/marathon-shell-native/src/tasks/launch.rs`) | bwrap, seccomp and Landlock in the runner, security-context Wayland socket, shell D-Bus permission gate |
+| Marathon WebEngine apps (Browser, Maps) | as above | as above, without the namespace rules and Landlock's file rules, plus Chromium's own sandbox inside |
 | Flatpak apps | `flatpak run`, launched by the compositor | Flatpak's sandbox and portals; Flatpak's security-context socket |
 | Sailfish apps that declare Sailjail permissions | `marathon-keel-host --sailjail` | bwrap built from the Sailjail permissions (`tools/marathon-app-runner/sailjail.cpp`) |
 | Other Sailfish apps | `marathon-keel-host` | none, like native apps |
@@ -46,7 +46,8 @@ wrapped:
   Service and the shell, while the real session bus stayed reachable
   through the writable `$XDG_RUNTIME_DIR`.
 - Around `marathon-app-runner` it applied seccomp and Landlock before
-  `bwrap`, which then could not mount and failed every launch.
+  `bwrap`, which then could not mount and failed every launch. Marathon
+  apps now get both from the runner itself, after bwrap (layer 2).
 
 ## Layer 1: bwrap around Marathon apps
 
@@ -57,12 +58,21 @@ sandbox for each launch and for the warm runner pool (`tasks/pool.rs`):
   with only loopback unless the app holds the `network` permission.
 - Read-only `/usr`, `/etc`, `/lib*`, `/bin`, `/sbin`, `/sys`; a fresh
   `/dev` with only the DRM render node; `/tmp`, `/dev/shm` and `$HOME`
-  as tmpfs.
+  as tmpfs, except that an app with `terminal` gets
+  `~/.local/share/marathon-apps/<app>/home` as its `$HOME`.
 - Read-write only `~/.local/share/marathon-apps/<app>` and
   `~/.cache/marathon-apps/<app>`; the user directories only with the
   `storage` permission.
-- `$XDG_RUNTIME_DIR` is bound (session bus, PipeWire), with the Wayland
-  socket replaced, see layer 2.
+- `$XDG_RUNTIME_DIR` is a private tmpfs (mode 0700) holding only the
+  session bus (`bus`), PipeWire (`pipewire-0`, not `pipewire-0-manager`),
+  PulseAudio (`pulse/native`), dconf's change flag (`dconf/`) and the
+  app's own Wayland socket (layer 3). Apps with `system` (Settings) and
+  pool spares also see the Store handler's `marathon-store-state/`
+  read-only, and with `MARATHON_STARTUP_TIMING` set every runner sees
+  `marathon-startup.log`.
+  The keyring, systemd's user manager, `at-spi`, `doc`, other apps' Keel
+  sockets and every other socket there are out of sight. A Keel app's
+  host socket stays in its own tmpfs.
 - `--die-with-parent`, `--new-session`.
 
 `MARATHON_DISABLE_SANDBOX=1` (or a missing `bwrap`) runs apps without any
@@ -70,17 +80,93 @@ of this, and the shell logs a warning for every such launch.
 
 Gaps:
 
-- The whole `$XDG_RUNTIME_DIR` is visible, so an app can reach any session
-  socket there. There is no `xdg-dbus-proxy`: an app can call any session
-  bus service. The shell's own services check the caller (next section);
-  other services do not know which app is calling.
+- There is no `xdg-dbus-proxy`: an app can call any session bus service,
+  and any system bus service its policy allows (`/run/dbus` is bound). The
+  shell's own services check the caller (layer 5); other services do not
+  know which app is calling: an app can, for example, read every Secret
+  Service item or write any dconf key.
+- A session bus anywhere but `$XDG_RUNTIME_DIR/bus` (the
+  `dbus-run-session` fallback in `marathon-shell-session`) is not bound;
+  apps reach it only if it is an abstract socket and they share the
+  network namespace, as before.
+- Screen readers cannot see Marathon apps: the accessibility bus is not
+  bound, because unfiltered it would let an app read every other app's
+  accessible text.
 - The pool runner is spawned before its app is known, so it binds the
   parent `marathon-apps` data and cache directories and shares the network.
   A spare has the user directories or not, and becomes only an app with
-  the `storage` permission or only one without. User-installed and
-  WebEngine apps never use the pool.
+  the `storage` permission or only one without. User-installed, WebEngine,
+  camera and terminal apps never use the pool.
 
-## Layer 2: security-context-v1 Wayland sockets
+## Layer 2: seccomp and Landlock inside the runner
+
+bwrap mounts first; then `marathon-app-runner` confines itself at the top
+of `main()`, before Qt, any thread or any app code
+(`crates/marathon-app-native/src/confine.rs`, called through
+`marathon::runner::confine`). A pool spare does it at start-up, with the
+spare's paths. The runner does this only when the shell's bwrap set
+`MARATHON_SANDBOX_WRITABLE`, so `MARATHON_DISABLE_SANDBOX=1` runs apps
+without either. Both are best effort: a failure is logged in the app's
+journal under `sandbox` and the app still starts.
+
+**seccomp** (the `seccompiler` crate, no libseccomp). A deny list in the
+style of Flatpak's, every other syscall allowed. The BPF program checks
+the syscall architecture first and kills the process on a mismatch, so a
+32-bit compat syscall cannot slip past the rules. `/proc/<pid>/status`
+shows `Seccomp: 2`.
+
+- EPERM: `syslog`, `acct`, `quotactl`, `add_key`, `keyctl`,
+  `request_key`, `perf_event_open`, `bpf`, `userfaultfd`, `kexec_load`,
+  `init_module`, `finit_module`, `delete_module`, `mount`, `umount2`,
+  `pivot_root`, `setns`; `ioctl` with `TIOCSTI` or `TIOCLINUX`;
+  `personality` other than `PER_LINUX` or a query.
+- EPERM, except for WebEngine apps and apps with `camera`: `unshare`,
+  `chroot`, and `clone` with `CLONE_NEWUSER`, so an app cannot make a user
+  namespace and gain capabilities in it. libcamera runs an IPA module
+  whose signature it cannot verify in a user and network namespace of its
+  own.
+- ENOSYS, so callers fall back: `clone3` (seccomp cannot read its flags),
+  the new mount API (`open_tree`, `move_mount`, `fsopen`, `fsconfig`,
+  `fsmount`, `fspick`, `mount_setattr`) and `io_uring_setup`.
+
+**Landlock** (the `landlock` crate), probed at run time up to ABI 6:
+
+- Writes, file creation, removal, truncation and device ioctls only in
+  what the shell's bwrap made writable: the app's home (its own tmpfs;
+  an app with `terminal` keeps it in its data directory), its data and
+  cache directories (a spare: the parent `marathon-apps` ones), `/tmp`,
+  `/dev/shm`, the private `$XDG_RUNTIME_DIR`, and the user directories
+  with the `storage` permission. Files under `/dev` (render node, camera,
+  pty, `/dev/null`) and `/proc` may be written to, and devices under
+  `/dev` take ioctls. Everything else is read-only. The shell passes the list in
+  `MARATHON_SANDBOX_WRITABLE`.
+- Scopes (ABI 6, Linux 6.12): no signals to processes outside the app,
+  and no connecting to abstract Unix sockets made outside it. That matters
+  for apps with `network`, which share the host's network namespace and so
+  its abstract sockets. The abstract scope is left off when the session
+  bus itself is abstract.
+- On older ABIs the crate drops what the kernel lacks. The Librem 5 and
+  PinePhone kernels have no Landlock; there the runner logs
+  `Landlock not enforced` and only seccomp applies.
+
+WebEngine apps keep `unshare`, `chroot` and `CLONE_NEWUSER` for Chromium's
+own sandbox (layer 4), and get only Landlock's scopes: QtWebEngine keeps
+its profile under the tmpfs home, which the file rules would forbid.
+
+Gaps:
+
+- Landlock's file rules add little to bwrap's mounts, which already decide
+  what is writable. They are a second fence if a mount is ever bound
+  read-write by mistake.
+- Connecting to a path socket is not restricted (that is Landlock ABI 9,
+  Linux 7.1); the private runtime dir decides which sockets exist.
+- No socket-family filter (Flatpak's allows only `AF_UNIX`, `AF_INET`,
+  `AF_INET6` and `AF_NETLINK`) and no `ptrace` rule; the PID namespace
+  already limits `ptrace` to the app's own processes.
+- In Terminal, writes to the home directory outside the user directories
+  fail.
+
+## Layer 3: security-context-v1 Wayland sockets
 
 The compositor implements `wp_security_context_v1`
 (`shell/src/wayland/securitycontextv1.{h,cpp}`).
@@ -91,8 +177,9 @@ compositor (`WaylandCompositor::openSandboxSocket`) for a socket at
 every client that connects there with engine `org.marathonos.AppRunner`,
 the app id and the instance id. bwrap mounts that socket over
 `$XDG_RUNTIME_DIR/marathon-wayland-0` (so `WAYLAND_DISPLAY` is unchanged)
-and puts a tmpfs over `marathon-sandbox/`, so the app can neither reach
-the unrestricted socket nor connect through another app's socket. The
+and the rest of the private runtime dir holds neither `marathon-sandbox/`
+nor the compositor's own socket, so the app can neither reach the
+unrestricted socket nor connect through another app's socket. The
 listener closes when the app's process exits. A pool spare gets a socket
 with no app id; adoption fills it in (`assignSandboxApp`). If the socket
 cannot be created, the app is not launched.
@@ -136,7 +223,7 @@ shell runs may open a dialog window over others.
 Gaps: Sailfish apps under `marathon-keel-host` and native apps connect on
 the unrestricted socket.
 
-## Layer 3: Chromium's sandbox inside WebEngine apps
+## Layer 4: Chromium's sandbox inside WebEngine apps
 
 Browser and Maps run QtWebEngine without `--no-sandbox`. Chromium's
 layer-1 namespace sandbox (a further user, PID and network namespace per
@@ -150,13 +237,14 @@ to fail. Verified on a Fedora 7.1 kernel with bwrap 0.12 and QtWebEngine
 sandbox patches its Chromium uses.
 
 Flatpak'd Chromium needs zypak because Flatpak's seccomp filter forbids
-nested user namespaces; Marathon's bwrap installs no seccomp filter, so
-the namespace sandbox works as on a desktop.
+nested user namespaces; the runner's filter (layer 2) leaves user
+namespaces, `unshare` and `chroot` to WebEngine apps, so the namespace
+sandbox works as on a desktop.
 
 If a device build ever fails here, `QTWEBENGINE_CHROMIUM_FLAGS` in the
 shell's environment replaces the default flags for every WebEngine app.
 
-## Layer 4: the shell's D-Bus permission gate
+## Layer 5: the shell's D-Bus permission gate
 
 Shell services on the session bus (`crates/marathon-shell-native/src`, `ipc::admit`)
 resolve the caller's app from its PID (the launcher's PID map, then the

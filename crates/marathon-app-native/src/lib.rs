@@ -21,6 +21,7 @@ pub mod audio;
 pub mod bluetooth;
 pub mod calendar;
 pub mod camera;
+mod confine;
 pub mod contacts;
 pub mod dav;
 pub mod display;

@@ -244,6 +244,8 @@ int main(int argc, char *argv[]) {
     // the pool, so STAGE 1 is skipped entirely.
     marathon::runner::Launch launch   = marathon::runner::launch();
     const bool               poolMode = launch.pool;
+    // Before any thread or app code; a spare with a spare's paths.
+    marathon::runner::confine(launch.app_id);
 
     // STAGE 1: Pre-QGuiApplication. We peek at the manifest to learn
     // which Qt modules this app needs at process scope (currently just
