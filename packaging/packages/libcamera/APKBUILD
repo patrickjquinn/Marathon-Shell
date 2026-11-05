@@ -4,9 +4,11 @@
 # and the docs, and with the patches the Zinwa Q25's MediaTek camera needs
 # (software ISP for its 14-bit unpacked RAW, the simple pipeline on
 # mtk-seninf); each is written for upstream.
+# 9999 as postmarketOS's own fork (99990.7.2) has it: apk takes the higher.
 pkgname=libcamera
-pkgver=0.8.0
-pkgrel=2
+_pkgver=0.8.0
+pkgver=9999$_pkgver
+pkgrel=0
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -36,7 +38,7 @@ subpackages="
 	$pkgname-v4l2
 	$pkgname-tools
 	"
-source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$pkgver/libcamera-v$pkgver.tar.gz
+source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$_pkgver/libcamera-v$_pkgver.tar.gz
 	0001-libcamera-software_isp-Support-unpacked-14-bit-Bayer.patch
 	0002-libcamera-shaders-Sample-the-texel-the-Bayer-phase-i.patch
 	0003-pipeline-simple-Allow-the-software-ISP-on-mtk-seninf.patch
@@ -46,7 +48,7 @@ source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$pkgver/libca
 	0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
 	0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
 	"
-builddir="$srcdir/$pkgname-v$pkgver"
+builddir="$srcdir/$pkgname-v$_pkgver"
 # gstreamer tests fail
 # manual strip because ipa .sign files depend on the file contents- have to re-sign after strip
 options="!strip !check"
