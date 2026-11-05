@@ -1,0 +1,24 @@
+[Unit]
+Description=Satellite positioning (MediaTek CONNSYS GNSS)
+Requires=marathon-gnssd.socket
+After=q25-connsys.service q25-gnss-firmware.service
+
+[Service]
+ExecStart=/usr/bin/marathon-gnssd --state /var/lib/marathon-gnssd/position
+StateDirectory=marathon-gnssd
+DevicePolicy=closed
+DeviceAllow=char-gnss rw
+CapabilityBoundingSet=
+NoNewPrivileges=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native

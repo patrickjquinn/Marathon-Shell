@@ -1,0 +1,9 @@
+[Unit]
+Description=Q25 GNSS: copy the DSP image from the stock vendor partition
+ConditionPathExists=!/var/lib/q25-gnss/gnss-l1-dsp.bin
+Requires=dev-disk-by\x2dpartlabel-super.device
+After=dev-disk-by\x2dpartlabel-super.device local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/q25-gnss/q25-gnss-firmware

@@ -1,0 +1,30 @@
+# The MT6789 GNSS DSP image is MediaTek's and not redistributable. This
+# package carries no firmware: q25-gnss-firmware.service cuts the image out
+# of the phone's own stock libmnl.so (vendor_a in super) on first boot, and
+# the kernel finds it through the symlink below.
+pkgname=q25-gnss-firmware
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Q25 GNSS DSP image, copied from the phone's own stock vendor partition"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="noarch"
+license="Apache-2.0"
+depends="python3 e2fsprogs-extra"
+options="!check"
+source="q25-gnss-firmware q25-gnss-firmware.service"
+
+package() {
+	install -Dm755 "$srcdir/q25-gnss-firmware" "$pkgdir/usr/libexec/q25-gnss/q25-gnss-firmware"
+	install -Dm644 "$srcdir/q25-gnss-firmware.service" \
+		"$pkgdir/usr/lib/systemd/system/q25-gnss-firmware.service"
+	install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+	ln -s ../q25-gnss-firmware.service \
+		"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/q25-gnss-firmware.service"
+	install -d "$pkgdir/usr/lib/firmware/mediatek/mt6789"
+	ln -s /var/lib/q25-gnss/gnss-l1-dsp.bin \
+		"$pkgdir/usr/lib/firmware/mediatek/mt6789/gnss-l1-dsp.bin"
+}
+sha512sums="
+7264c4d499a6916772c7db7001f14700477e02f11b167fb34590504448ab24a89f19477dd758bb15884e7478db65a21729966ec73aa693008f37f4bcd296d782  q25-gnss-firmware
+4c7e40d34de99a6d03087f0ca12aa5254f54a99f870fd1d747723f18c09038ef124e33123e57bc6cabe9bcd06094adf10284f61c7715179c9bd32f2eb285cb18  q25-gnss-firmware.service
+"

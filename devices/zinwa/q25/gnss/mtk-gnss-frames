@@ -1,0 +1,93 @@
+#!/usr/bin/python3 -I
+"""Summarise a capture of the MT6789 GNSS DSP stream (/dev/gnssN).
+
+Usage: mtk-gnss-frames [-v] [FILE]   (stdin without FILE)
+
+Frames are AA F0 | len | id | payload | sum | AA 0F with DE DF / DE E0
+escapes (docs/hardware/mt6789-gnss.md). Prints the count and payload sizes
+per message id and frames with a bad length or sum; -v also prints every
+frame, its payload unscrambled. FILE may be a raw capture or the output of
+mtk-gnss-capture.
+"""
+import collections
+import sys
+
+UNESCAPE = {0xDF: 0xAA, 0xE0: 0xDE}
+CAPTURE_HEADER = 20  # mtk-gnss-capture: realtime ns, boottime ns, length
+
+
+def unscramble(payload):
+    """DSP-to-host payloads are sent rotated left by 3 and XORed with 0x59."""
+    return bytes((((b >> 3) | (b << 5)) & 0xFF) ^ 0x59 for b in payload)
+
+
+def raw_stream(data):
+    """Strip mtk-gnss-capture record headers if the file has them."""
+    if data[:2] == b"\xaa\xf0":
+        return data
+    out, i = bytearray(), 0
+    while i + CAPTURE_HEADER <= len(data):
+        n = int.from_bytes(data[i + 16:i + 20], "little")
+        out += data[i + CAPTURE_HEADER:i + CAPTURE_HEADER + n]
+        i += CAPTURE_HEADER + n
+    return bytes(out)
+
+
+def frames(data):
+    """Yield (offset, body or None if malformed) for each AA F0 .. AA 0F."""
+    i = data.find(b"\xaa\xf0")
+    while i >= 0:
+        end = data.find(b"\xaa", i + 2)
+        if end < 0 or data[end + 1:end + 2] != b"\x0f":
+            yield i, None
+            i = data.find(b"\xaa\xf0", i + 2)
+            continue
+        raw, body, k = data[i + 2:end], bytearray(), 0
+        while k < len(raw):
+            if raw[k] == 0xDE:
+                if raw[k + 1:k + 2] and raw[k + 1] in UNESCAPE:
+                    body.append(UNESCAPE[raw[k + 1]])
+                    k += 2
+                    continue
+                body = None
+                break
+            body.append(raw[k])
+            k += 1
+        yield i, check(body)
+        i = data.find(b"\xaa\xf0", end + 2)
+
+
+def check(body):
+    if body is None or len(body) < 6:
+        return None
+    length = int.from_bytes(body[0:2], "little") & 0xFFF
+    if length + 2 != len(body):
+        return None
+    if sum(body[:-2]) & 0xFFFF != int.from_bytes(body[-2:], "little"):
+        return None
+    return bytes(body)
+
+
+def main(argv):
+    verbose = "-v" in argv
+    args = [a for a in argv if a != "-v"]
+    data = raw_stream(open(args[0], "rb").read() if args else sys.stdin.buffer.read())
+    counts, sizes, bad, framed = collections.Counter(), collections.defaultdict(set), 0, 0
+    for off, body in frames(data):
+        if body is None:
+            bad += 1
+            continue
+        mid, payload = int.from_bytes(body[2:4], "little"), body[4:-2]
+        counts[mid] += 1
+        sizes[mid].add(len(payload))
+        framed += len(body)
+        if verbose:
+            print(f"{off:8d} {mid:#06x} {len(payload):4d} {unscramble(payload).hex()}")
+    for mid in sorted(counts):
+        print(f"{mid:#06x} {counts[mid]:6d} frames, payload {sorted(sizes[mid])}")
+    print(f"{len(data)} bytes, {sum(counts.values())} good frames, {bad} bad")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
