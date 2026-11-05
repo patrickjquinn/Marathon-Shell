@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=47
+pkgrel=48
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -27,7 +27,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-splash-handover q25-splash-handover.service q25-splash-greetd.conf q25-splash-plymouth-quit.conf q25-splash-plymouth-quit-wait.conf q25-splash-plymouth-start.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
- q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf battery-model-experimental 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules"
+ q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf battery-model-experimental 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -104,6 +104,7 @@ package() {
     # not shut the phone down on it.
     install -Dm644 "$srcdir/battery-model-experimental" "$pkgdir/etc/marathon/battery-model-experimental"
     install -Dm644 "$srcdir/90-q25-battery-model.conf" "$pkgdir/etc/UPower/UPower.conf.d/90-q25-battery-model.conf"
+    install -Dm644 "$srcdir/q25-geoclue.conf" "$pkgdir/etc/geoclue/conf.d/91-q25.conf"
     install -Dm644 "$srcdir/61-q25-charge-voltage.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-charge-voltage.rules"
 
     # The IMU is mounted rotated 180 degrees about Z.
@@ -264,6 +265,7 @@ bcfbad49040b637276b21d58fa21d5301f1d60627d072141c064660a216fdd55800cf0a4ae0903d0
 a6169dbe11ff4a5687d0319847bdecdf55a241fa57be6086d42530072f1570eabb455a4bad9c842e5f55f3d84e4f4c4f56a436abccf14e3a52e864fde4b86b60  deckard.cfg
 f56b5f79e54d0fc78ac9c2b86f5da075117d1f15117ac5881f64d6ed6572681889b5354a45a22f4f3ff7d8c3e6a816b001bca4e2f5d71fd8aea1255e75d7daaa  marathon-deckard.tmpfiles
 e4d9c1dc757e14591323b8e4606bb6a5975a34a2dbf548d928ba84f80240882077abeeb19f867f5928c93e42d4e9d216648c445af265db2a8620bf355d034ce1  50-marathon-deckard.rules
+c42909c84eee94459abf5e0a6a78ec9e55e5d0912a9692a1b291b6973fb1b1c8b6f3c9a4831842001a378dd20e8338a2fef4753c06aafe3adca27e8a64324ee2  q25-geoclue.conf
 adbd5efc8fbcea27145870c399f5e7b6c2b72bf98ae039a4ce9bb33e350fab4bc410cf62521089730ad28d017a4f96ee7e1f8640634880fa6a0f4d3e8b4fdda4  q25-splash-handover
 c3db79e24e64af63d8e4d5fbdb19d5dc747a73cb7b248c800379c2ed612f6a62fca00cda4d7e369427b94a7325b383f3514db2e2f30e0931b744474105c4bdd3  q25-splash-handover.service
 95c0512f5733f9a08fa233a8b85379bed7f1ee2da2c1f3338dc9fbe70c4d61a7e479ea4a0bbc52c0ee5458d3cb50c2311d86ceafb12450a7597027f420788c90  q25-splash-greetd.conf
