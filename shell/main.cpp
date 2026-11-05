@@ -1543,12 +1543,38 @@ int main(int argc, char *argv[]) {
 
         const bool        filterMobile = settingsManager->getFilterMobileFriendlyApps();
 
+        auto             *userAppsDebounce = new QTimer(&app);
+        userAppsDebounce->setSingleShot(true);
+        userAppsDebounce->setInterval(500);
+
+        // Android writes an app's icon after its entry, so a scan that
+        // found an icon missing watches for it.
+        auto      *iconWatcher       = new QFileSystemWatcher(&app);
+        const auto watchMissingIcons = [iconWatcher, userAppsDebounce](const QVariantList &apps) {
+            bool appeared = false;
+            for (const QVariant &v : apps) {
+                const QString icon = v.toMap().value(QStringLiteral("missingIcon")).toString();
+                if (icon.isEmpty())
+                    continue;
+                const QString dir = QFileInfo(icon).absolutePath();
+                if (!iconWatcher->directories().contains(dir))
+                    iconWatcher->addPath(dir);
+                appeared = appeared || QFileInfo::exists(icon);
+            }
+            // Written between the scan and the watch.
+            if (appeared)
+                userAppsDebounce->start();
+        };
+        QObject::connect(iconWatcher, &QFileSystemWatcher::directoryChanged, userAppsDebounce,
+                         qOverload<>(&QTimer::start));
+
 #ifdef HAVE_QT_CONCURRENT
         auto *watcher = new QFutureWatcher<QVariantList>(&app);
         QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, &app,
-                         [watcher, appModel]() {
+                         [watcher, appModel, watchMissingIcons]() {
                              const QVariantList nativeApps = watcher->result();
                              appModel->addApps(nativeApps);
+                             watchMissingIcons(nativeApps);
                              watcher->deleteLater();
                          });
 
@@ -1559,6 +1585,7 @@ int main(int argc, char *argv[]) {
 #else
         const QVariantList nativeApps = marathon::desktop::scan(searchPaths, filterMobile);
         appModel->addApps(nativeApps);
+        watchMissingIcons(nativeApps);
 #endif
 
         // Rescans parse every entry on the pool (Waydroid rewrites its
@@ -1592,12 +1619,14 @@ int main(int argc, char *argv[]) {
             }
             appModel->addApps(apps);
         };
-        const auto rescanDesktopApps = [scanDesktopApps, replaceApps, settingsManager, searchPaths,
+        const auto rescanDesktopApps = [scanDesktopApps, replaceApps, watchMissingIcons,
+                                        settingsManager, searchPaths,
                                         generation = std::make_shared<int>(0)]() {
             scanDesktopApps(generation, searchPaths, settingsManager->getFilterMobileFriendlyApps(),
-                            [replaceApps](const QVariantList &apps) {
+                            [replaceApps, watchMissingIcons](const QVariantList &apps) {
                                 replaceApps(apps,
                                             {QStringLiteral("native"), QStringLiteral("flatpak")});
+                                watchMissingIcons(apps);
                             });
         };
         // "Hide desktop apps" applies as soon as it is switched.
@@ -1607,10 +1636,7 @@ int main(int argc, char *argv[]) {
         // Waydroid writes and removes its apps' entries here while it runs.
         const QString userApps = QDir::homePath() + QStringLiteral("/.local/share/applications");
         QDir().mkpath(userApps);
-        auto *userAppsWatcher  = new QFileSystemWatcher({userApps}, &app);
-        auto *userAppsDebounce = new QTimer(&app);
-        userAppsDebounce->setSingleShot(true);
-        userAppsDebounce->setInterval(500);
+        auto *userAppsWatcher = new QFileSystemWatcher({userApps}, &app);
         QObject::connect(userAppsWatcher, &QFileSystemWatcher::directoryChanged, userAppsDebounce,
                          qOverload<>(&QTimer::start));
         QObject::connect(userAppsDebounce, &QTimer::timeout, &app, rescanDesktopApps);

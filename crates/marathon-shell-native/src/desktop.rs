@@ -24,7 +24,8 @@ mod ffi {
     #[namespace = "marathon::desktop"]
     extern "Rust" {
         /// The apps in these folders' entries; with `phone_only`, those
-        /// that work on a phone.
+        /// that work on a phone. `missingIcon` names an icon file that
+        /// is not there yet.
         fn scan(paths: &QStringList, phone_only: bool) -> QList_QVariant;
         /// One entry, even one kept off the grid; empty if it is no app.
         fn parse(path: &QString) -> QMap_QString_QVariant;
@@ -122,6 +123,7 @@ struct App {
     id: String,
     name: String,
     icon: String,
+    missing_icon: Option<String>,
     exec: String,
     flatpak_ref: Option<String>,
     categories: Vec<String>,
@@ -177,6 +179,9 @@ impl App {
         map.insert(QString::from("keywords"), list(&self.keywords));
         if let Some(r) = &self.flatpak_ref {
             map.insert(QString::from("flatpakRef"), text(r));
+        }
+        if let Some(icon) = &self.missing_icon {
+            map.insert(QString::from("missingIcon"), text(icon));
         }
         map
     }
@@ -268,9 +273,13 @@ fn read_app(path: &Path, icons: &mut Icons) -> Option<App> {
             jail.unwrap_or_default()
         );
     }
+    let icon_name = get("Icon").unwrap_or_default();
+    let icon = icons.resolve(icon_name);
     let mut app = App {
         name: get("Name")?.to_owned(),
-        icon: icons.resolve(get("Icon").unwrap_or_default()),
+        missing_icon: (icon_name.starts_with('/') && icon == FALLBACK_ICON)
+            .then(|| icon_name.to_owned()),
+        icon,
         flatpak_ref: get("X-Flatpak").map(str::to_owned),
         categories: list("Categories"),
         keywords: list("Keywords"),
