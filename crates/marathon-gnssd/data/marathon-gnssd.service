@@ -2,6 +2,9 @@
 Description=Satellite positioning (MediaTek CONNSYS GNSS)
 Requires=marathon-gnssd.socket
 After=q25-connsys.service q25-gnss-firmware.service
+# Without a time zone yet (before setup) it cannot start; quick failures
+# must not take the socket down for good.
+StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/bin/marathon-gnssd --state /var/lib/marathon-gnssd/position

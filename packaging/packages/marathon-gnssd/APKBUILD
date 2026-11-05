@@ -9,7 +9,7 @@
 # and it follows a branch.
 pkgname=marathon-gnssd
 pkgver=0.1.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Open GNSS positioning engine for MediaTek CONNSYS receivers"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
