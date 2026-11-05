@@ -10,7 +10,7 @@
 maintainer="Patrick Quinn <patrick@jquinn.com>"
 pkgname=postmarketos-ui-marathon
 pkgver=1.0.0
-pkgrel=13
+pkgrel=14
 pkgdesc="Marathon Shell — Qt 6 Wayland phone shell"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -59,6 +59,7 @@ source="
 	marathon-geoclue.conf
 	marathon-flatpak-prewarm.service
 	marathon-flatpak-prewarm.timer
+	marathon-deckard-first-run.service
 	"
 options="!check pmb:drm pmb:systemd"
 install="$pkgname.post-install"
@@ -99,6 +100,13 @@ package() {
 	install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
 	ln -sf ../marathon-flatpak-prewarm.timer \
 		"$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/marathon-flatpak-prewarm.timer"
+
+	# Android starts on demand from its launchers, which it exports itself;
+	# a new user has none until it has run once.
+	install -Dm644 "$srcdir/marathon-deckard-first-run.service" \
+		"$pkgdir/usr/lib/systemd/user/marathon-deckard-first-run.service"
+	ln -sf ../marathon-deckard-first-run.service \
+		"$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/marathon-deckard-first-run.service"
 }
 sha512sums="
 SKIP  flathub.flatpakrepo
@@ -109,4 +117,5 @@ SKIP  marathon-flatpak-theming-user.conf
 SKIP  marathon-geoclue.conf
 SKIP  marathon-flatpak-prewarm.service
 SKIP  marathon-flatpak-prewarm.timer
+SKIP  marathon-deckard-first-run.service
 "

@@ -1,0 +1,11 @@
+[Unit]
+Description=Set up Android on the first login
+ConditionPathExists=/usr/lib/systemd/user/deckard-session.service
+ConditionPathExists=!%h/.local/share/deckard/data/system/packages.list
+ConditionUser=!root
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user start --no-block deckard-session.service
