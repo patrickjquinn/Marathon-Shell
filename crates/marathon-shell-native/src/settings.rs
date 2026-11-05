@@ -433,7 +433,7 @@ macro_rules! properties {
 
 properties! {
     user_scale_factor: f64 = 1.0, "ui/userScaleFactor", "userScaleFactor", user_scale_factor_changed, on_user_scale_factor_changed, set_user_scale_factor(f64) custom;
-    wallpaper_path: QString = QString::from(&asset_url("wallpapers/meridian.jpg")), "ui/wallpaperPath", "wallpaperPath", wallpaper_path_changed, on_wallpaper_path_changed, set_wallpaper_path(&QString);
+    wallpaper_path: QString = QString::from(&asset_url("wallpapers/pulse.svg")), "ui/wallpaperPath", "wallpaperPath", wallpaper_path_changed, on_wallpaper_path_changed, set_wallpaper_path(&QString);
     device_name: QString = QString::from(&model_name()), "system/deviceName", "deviceName", device_name_changed, on_device_name_changed, set_device_name(&QString) custom;
     auto_lock: bool = true, "system/autoLock", "autoLock", auto_lock_changed, on_auto_lock_changed, set_auto_lock(bool);
     auto_lock_timeout: i32 = 0, "system/autoLockTimeout", "autoLockTimeout", auto_lock_timeout_changed, on_auto_lock_timeout_changed, set_auto_lock_timeout(i32);
