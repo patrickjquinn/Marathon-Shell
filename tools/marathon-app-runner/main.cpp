@@ -458,6 +458,8 @@ int main(int argc, char *argv[]) {
                     [](QtMsgType, const QMessageLogContext &, const QString &) {});
                 for (qsizetype i = 0; i < types.count(); ++i)
                     delete qobject_cast<QQmlComponent *>(types.at(i))->create();
+                // PageHeader's Qt.callLater, which then finds its header gone.
+                QCoreApplication::sendPostedEvents();
                 qInstallMessageHandler(logged);
             }
         }
