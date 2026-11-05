@@ -1,0 +1,29 @@
+From a03eda8b8fc8dc848cbab8d0aa098cbd09df69b4 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 5 Nov 2026 09:57:24 +0000
+Subject: [PATCH] fix(finalize): name the OS Marathon in os-release
+
+postmarketos-release now names the OS Nura, which Settings showed as the
+system name. Set NAME and PRETTY_NAME to Marathon OS; ID stays, for
+anything that checks the base.
+---
+ mkosi.finalize | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 2211b7e..3d7276f 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -24,6 +24,9 @@ if [ -d "$BUILDROOT/etc/NetworkManager/system-connections" ]; then
+ fi
+ 
+ ## Fixup os-release
++# Marathon's name, not the postmarketOS release's: Settings shows PRETTY_NAME.
++sed -i -e 's/^NAME=.*/NAME="Marathon OS"/' -e 's/^PRETTY_NAME=.*/PRETTY_NAME="Marathon OS"/' \
++    "$BUILDROOT/usr/lib/os-release"
+ # Fix IMAGE_ID to be device-only (not device_ui_release)
+ sed -i "s/^IMAGE_ID=.*/IMAGE_ID=${MARATHON_IMAGE_DEVICE:-$PMOS_DEVICE}/" "$BUILDROOT/usr/lib/os-release"
+ # Add VARIANT_ID for UI
+-- 
+2.55.0
+
