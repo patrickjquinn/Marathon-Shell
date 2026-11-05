@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=48
+pkgrel=49
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -9,7 +9,7 @@ license="Apache-2.0"
 options="!check"
 depends="device-zinwa-q25 marathon-base-config marathon-shell greetd q25-gpu-render
  q25-kernel-modules q25-connsys-firmware wpa_supplicant wpa_supplicant-systemd bluez-btmgmt alsa-ucm-conf
- upower-q25 q25-modem libcamera>=99990.8.0 libcamera-gstreamer
+ upower-q25 q25-modem q25-gnss-firmware marathon-gnssd libcamera>=99990.8.0 libcamera-gstreamer
  cryptsetup e2fsprogs plymouth marathon-plymouth-theme nftables"
 makedepends="gcc musl-dev"
 install="$pkgname.post-install"

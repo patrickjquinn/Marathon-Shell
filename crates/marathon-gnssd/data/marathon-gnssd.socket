@@ -1,0 +1,11 @@
+[Unit]
+Description=Satellite positioning for GeoClue (NMEA)
+
+[Socket]
+ListenStream=/run/marathon-gnssd.sock
+SocketUser=geoclue
+SocketGroup=geoclue
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target

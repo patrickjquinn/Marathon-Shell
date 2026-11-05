@@ -1,0 +1,40 @@
+# Maintainer: Patrick Quinn <patrick.jm.quinn@gmail.com>
+# marathon-gnssd (crates/marathon-gnssd): the open positioning engine for the
+# MT6789 CONNSYS GNSS receiver, serving NMEA to GeoClue. systemd starts it
+# when GeoClue connects to its socket; it powers the receiver only then.
+# Needs the mtk-connsys-gnss kernel module and the DSP image
+# (q25-gnss-firmware) at run time.
+# scripts/qemu/lib/build-pilot-apk.sh stages this repository's tree as the
+# source tarball, so the URL below is fetched only by a standalone abuild,
+# and it follows a branch.
+pkgname=marathon-gnssd
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="Open GNSS positioning engine for MediaTek CONNSYS receivers"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="Apache-2.0"
+depends="geoclue"
+makedepends="cargo"
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
+builddir="$srcdir/Marathon-Shell-main"
+# The tests run with the workspace's (crates/), on the build host.
+options="!check net"
+
+build() {
+	cargo build --manifest-path crates/Cargo.toml --profile release-unwind --locked -p marathon-gnssd
+}
+
+package() {
+	local d=crates/marathon-gnssd/data
+	install -Dm755 crates/target/release-unwind/marathon-gnssd "$pkgdir"/usr/bin/marathon-gnssd
+	install -Dm644 $d/marathon-gnssd.socket "$pkgdir"/usr/lib/systemd/system/marathon-gnssd.socket
+	install -Dm644 $d/marathon-gnssd.service "$pkgdir"/usr/lib/systemd/system/marathon-gnssd.service
+	install -d "$pkgdir"/usr/lib/systemd/system/sockets.target.wants
+	ln -s ../marathon-gnssd.socket "$pkgdir"/usr/lib/systemd/system/sockets.target.wants/marathon-gnssd.socket
+	install -Dm644 $d/91-marathon-gnssd.conf "$pkgdir"/etc/geoclue/conf.d/91-marathon-gnssd.conf
+}
+
+sha512sums="
+SKIP  marathon-gnssd-0.1.0.tar.gz
+"

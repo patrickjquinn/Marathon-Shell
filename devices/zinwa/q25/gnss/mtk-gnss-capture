@@ -1,0 +1,39 @@
+#!/usr/bin/python3 -I
+"""Record /dev/gnssN with timestamps, for decoding the DSP stream later.
+
+Usage: mtk-gnss-capture OUT [SECONDS] [DEVICE]
+
+OUT holds records: le64 CLOCK_REALTIME ns, le64 CLOCK_BOOTTIME ns, le32
+length, then the bytes read. Two seconds in, the DSP version query is sent
+once so a capture shows the link works both ways.
+"""
+import os
+import select
+import struct
+import sys
+import time
+
+VERSION_QUERY = bytes.fromhex("aaf00600 08fe1800 2401aa0f".replace(" ", ""))
+
+
+def main(argv):
+    out, secs = argv[0], float(argv[1]) if len(argv) > 1 else 600
+    dev = os.open(argv[2] if len(argv) > 2 else "/dev/gnss0", os.O_RDWR)
+    start, queried = time.monotonic(), False
+    with open(out, "wb") as f:
+        while time.monotonic() - start < secs:
+            if not queried and time.monotonic() - start > 2:
+                os.write(dev, VERSION_QUERY)
+                queried = True
+            if not select.select([dev], [], [], 1)[0]:
+                continue
+            data = os.read(dev, 4096)
+            f.write(struct.pack("<QQI", time.clock_gettime_ns(time.CLOCK_REALTIME),
+                                time.clock_gettime_ns(time.CLOCK_BOOTTIME), len(data)) + data)
+            f.flush()
+    os.close(dev)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
