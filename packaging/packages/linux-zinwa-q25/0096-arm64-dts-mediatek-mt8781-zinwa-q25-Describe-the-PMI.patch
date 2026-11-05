@@ -1,0 +1,43 @@
+From fe146cf8d1fd7880a6da0da756a5c1a6a5d43edd Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 5 Nov 2026 16:23:08 +0000
+Subject: [PATCH 96/96] arm64: dts: mediatek: mt8781-zinwa-q25: Describe the
+ PMIC audio codec
+
+The MT6366 codec cell has no node, so the MFD core cannot give it one
+and the codec falls back to a dummy AVDD and a guessed DMIC mode:
+
+  mt6358-sound: Failed to locate of_node [id: -1]
+  mt6358-sound mt6358-sound: mt6358_parse_dt() failed to read dmic-mode
+  mt6358-sound mt6358-sound: supply Avdd not found, using dummy regulator
+
+Add the audio-codec node with the values of the stock base device tree,
+whose mt6366-sound node takes VAUD28 and sets mediatek,dmic-mode to 0.
+VAUD28 is already always on and mode 0 is what the driver fell back to,
+so audio behaves as before.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index cff1a9cc..a3efba08 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -646,6 +646,12 @@
+ 			};
+ 		};
+ 
++		mt6366codec: audio-codec {
++			compatible = "mediatek,mt6366-sound", "mediatek,mt6358-sound";
++			Avdd-supply = <&mt6366_vaud28_reg>;
++			mediatek,dmic-mode = <0>; /* two-wire */
++		};
++
+ 		mt6358_rtc: rtc {
+ 			compatible = "mediatek,mt6358-rtc";
+ 		};
+-- 
+2.55.0
+

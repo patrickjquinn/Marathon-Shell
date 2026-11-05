@@ -1,0 +1,41 @@
+From 1692900e3014b272cd496e0be2ad3bbeb23c2205 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 5 Nov 2026 16:22:23 +0000
+Subject: [PATCH 95/96] arm64: dts: mediatek: mt8781-zinwa-q25: Move the TEE
+ secure memory
+
+The tee_sec carveout came over from the vicky board at 0x7de00000. On
+the Q25 that range runs into the CONSYS EMI region at 0x7e000000, and
+the kernel reports:
+
+  OF: reserved mem: OVERLAP DETECTED!
+  tee_sec@7de00000 (0x7de00000--0x7e600000) overlaps with
+  consys_emi@7e000000 (0x7e000000--0x7e500000)
+
+The Q25 firmware puts tee-secmem at 0x7ea00000 with a size of 8 MiB:
+it is mblock 17 in the stock reservation map, which the U-Boot in lk_a
+also carries, and the EFI memory map on the device already keeps
+0x7ea00000-0x7f1fffff out of System RAM. Describe it there. The CONSYS
+EMI region does not move.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 230466e3..cff1a9cc 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -108,7 +108,7 @@
+ 		dfdmcu_mem:   dfdmcu_dump@fd000000 { reg = <0 0xfd000000 0 0x100000>;  no-map; };
+ 		crypto_mem:   crypto_hw@48401000   { reg = <0 0x48401000 0 0x1000>;    no-map; };
+ 		tee_mem:      tee@70000000         { reg = <0 0x70000000 0 0x4600000>; no-map; };
+-		tee_sec_mem:  tee_sec@7de00000     { reg = <0 0x7de00000 0 0x800000>;  no-map; };
++		tee_sec_mem:  tee_sec@7ea00000     { reg = <0 0x7ea00000 0 0x800000>;  no-map; };
+ 		mcupm_mem:    mcupm@7feb0000       { reg = <0 0x7feb0000 0 0x100000>;  no-map; };
+ 		sspm_mem:     sspm@9fe70000        { reg = <0 0x9fe70000 0 0x180000>;  no-map; };
+ 		bl31_mem:     bl31@48200000        { reg = <0 0x48200000 0 0x200000>;  no-map; };
+-- 
+2.55.0
+
