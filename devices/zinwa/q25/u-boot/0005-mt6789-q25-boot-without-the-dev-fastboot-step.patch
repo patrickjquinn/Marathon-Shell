@@ -1,0 +1,25 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] mt6789: q25: boot without the dev fastboot step
+
+bootcmd printed "Marathon dev U-Boot: in fastboot" on the screen at every
+boot and ran fastboot, whose gadget fails on this board, so the boot went
+on to bootefi anyway. A release phone has no use for either.
+---
+diff --git a/board/mediatek/mtk-phone.env b/board/mediatek/mtk-phone.env
+--- a/board/mediatek/mtk-phone.env
++++ b/board/mediatek/mtk-phone.env
+@@ -19,13 +19,7 @@
+ # Shortcut to enable USB serial gadget and disable bootretry
+ serial_gadget=setenv stdin serial,button-kbd,usbacm; setenv stdout serial,vidconsole,usbacm; setenv stderr serial,vidconsole,usbacm; setenv bootretry -1; echo Enabled U-Boot console serial gadget
+ 
+-# Marathon dev: this device has no usable input in U-Boot (volume keys are on
+-# an MTK matrix keypad with no U-Boot driver, no serial cable), so the button
+-# boot menu is unreachable. Enter fastboot on every boot instead — the host
+-# runs `fastboot continue` to boot the OS, or `fastboot boot <img>` /
+-# `fastboot flash <part> <img>`. This makes fastboot reliably reachable with
+-# zero on-device input. (Revert to `bootefi bootmgr; ...` once bring-up settles.)
+-bootcmd=echo '*** Marathon dev U-Boot: in fastboot. fastboot continue = boot OS ***'; run fastboot; run oneshot; run handoff; bootefi bootmgr; pause; run menucmd
++bootcmd=run oneshot; run handoff; bootefi bootmgr; pause; run menucmd
+ 
+ # When entering the menu (either from button press or failed boot)
+ # remap bootcmd so it will re-open the menu and we won't get stuck
