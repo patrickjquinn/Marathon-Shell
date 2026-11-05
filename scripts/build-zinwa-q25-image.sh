@@ -5,7 +5,8 @@
 #   q25-duranium-<date>-<rev>.ext4, .ext4.zst  the root, which the carrier
 #                                     boots with q25.rootfs_file= (an
 #                                     installed phone takes it with
-#                                     scripts/q25/q25-root-install.sh)
+#                                     q25-root-install, from the device
+#                                     package)
 #   q25-duranium-<date>-<rev>.userdata.img(.zst)  the whole userdata
 #                                     partition for a new install
 #                                     (scripts/q25/q25-userdata-image.sh)

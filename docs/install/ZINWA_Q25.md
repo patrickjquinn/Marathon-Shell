@@ -81,8 +81,10 @@ device is connected and that its bootloader is unlocked, and then runs
 
 A new root image goes next to the running one on the carrier and becomes
 the default boot entry. The previous entry stays, so you can go back to it:
-see `scripts/q25/q25-root-install.sh`. The kernel, initramfs and device
-tree on the ESP stay as they are.
+see `q25-root-install` on the phone (`/usr/libexec/marathon/q25-root-install`,
+from `packaging/packages/device-zinwa-q25-marathon`), which over-the-air
+updates use ([OTA.md](../OTA.md)). The kernel, initramfs and device tree on
+the ESP stay as they are.
 
 ## Recovery
 

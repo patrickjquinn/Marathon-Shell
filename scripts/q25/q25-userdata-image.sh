@@ -15,6 +15,13 @@
 # the room.
 set -euo pipefail
 
+# mke2fs 1.47.3's -d stops with "Ext2 file too big" on an 8 GiB root whose
+# data runs to its end; 1.47.4 copies it.
+if [ "$(mke2fs -V 2>&1 | sed -n 's/^mke2fs \([0-9.]*\).*/\1/p')" = 1.47.3 ]; then
+    echo "error: mke2fs 1.47.3 cannot copy the root into the carrier; use e2fsprogs 1.47.4 or later" >&2
+    exit 1
+fi
+
 ROOT=$(realpath "${1:?usage: q25-userdata-image.sh ROOT.ext4 OUT.img}")
 OUT=$(realpath -m "${2:?usage: q25-userdata-image.sh ROOT.ext4 OUT.img}")
 NAME=$(basename "$ROOT" .ext4)
