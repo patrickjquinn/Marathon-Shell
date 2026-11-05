@@ -27,7 +27,8 @@
 #                             q25-connsys-firmware aport when it is missing
 #                             there
 #   MARATHON_BUILD_DIR        as for scripts/build-image.sh
-#   PODMAN                    for the U-Boot build (default podman)
+#   PODMAN                    for the U-Boot build, and the userdata image
+#                             where the host has e2fsprogs 1.47.3 (default podman)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$SCRIPT_DIR")"
@@ -69,7 +70,16 @@ EOF
 debugfs -R "cat $UB" "$DEST/$NAME.ext4" 2> /dev/null | cmp - "$DEST/u-boot/u-boot-q25.bin"
 e2fsck -fn "$DEST/$NAME.ext4"
 zstd -T0 -10 -f "$DEST/$NAME.ext4" -o "$DEST/$NAME.ext4.zst"
-bash "$SCRIPT_DIR/q25/q25-userdata-image.sh" "$DEST/$NAME.ext4" "$DEST/$NAME.userdata.img"
+# e2fsprogs 1.47.3 cannot copy the root into the carrier; Alpine's can.
+if [ "$(mke2fs -V 2>&1 | sed -n 's/^mke2fs \([0-9.]*\).*/\1/p')" = 1.47.3 ]; then
+    # shellcheck disable=SC2016
+    "${PODMAN:-podman}" run --rm --security-opt label=disable -v "$DEST:/out" -v "$SCRIPT_DIR/q25:/s:ro" \
+        docker.io/library/alpine:edge sh -euc '
+apk add -q bash coreutils e2fsprogs e2fsprogs-extra dosfstools mtools sfdisk android-tools
+bash /s/q25-userdata-image.sh "/out/$1.ext4" "/out/$1.userdata.img"' sh "$NAME"
+else
+    bash "$SCRIPT_DIR/q25/q25-userdata-image.sh" "$DEST/$NAME.ext4" "$DEST/$NAME.userdata.img"
+fi
 zstd -T0 -10 -f "$DEST/$NAME.userdata.img" -o "$DEST/$NAME.userdata.img.zst"
 cp "$DEST/u-boot/u-boot-q25.bin" "$DEST/u-boot/src/gimme-uboot.py" "$DEST/"
 (cd "$DEST" && sha256sum "$NAME.ext4" "$NAME.ext4.zst" "$NAME.userdata.img" "$NAME.userdata.img.zst" \
