@@ -2,9 +2,8 @@
 # Build the Zinwa Q25 image (docs/install/ZINWA_Q25.md).
 #
 # Output, in $Q25_IMAGE_OUT (default $MARATHON_BUILD_DIR/q25):
-#   q25-duranium-<date>-<rev>.ext4, .ext4.zst  the root, which the carrier
-#                                     boots with q25.rootfs_file= (an
-#                                     installed phone takes it with
+#   q25-duranium-<date>-<rev>.ext4, .ext4.zst  the root (an installed
+#                                     phone takes it with
 #                                     q25-root-install, from the device
 #                                     package)
 #   q25-duranium-<date>-<rev>.userdata.img(.zst)  the whole userdata
@@ -17,7 +16,8 @@
 # scripts/flash/flash-zinwa-q25.sh flashes them.
 #   zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_<IMAGE_VERSION>.ext4, the
 #   root again (a hard link) as the update feed names it, for
-#   scripts/ota/marathon-ota publish --image-dir (docs/OTA.md)
+#   scripts/ota/marathon-ota publish --image-dir (docs/OTA.md); the
+#   userdata image's carrier holds it, and boots it, by this name
 #
 # Arguments go to scripts/build-image.sh: --bump gives the image a new
 # IMAGE_VERSION, which an over-the-air update needs.
@@ -70,23 +70,25 @@ EOF
 debugfs -R "cat $UB" "$DEST/$NAME.ext4" 2> /dev/null | cmp - "$DEST/u-boot/u-boot-q25.bin"
 e2fsck -fn "$DEST/$NAME.ext4"
 zstd -T0 -10 -f "$DEST/$NAME.ext4" -o "$DEST/$NAME.ext4.zst"
+FEED=zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_$VERSION.ext4
+mkdir -p "$DEST/$(dirname "$FEED")"
+ln -f "$DEST/$NAME.ext4" "$DEST/$FEED"
+# The carrier holds the root by its feed name, so sysupdate counts it as
+# installed and does not offer the same version as an update.
 # e2fsprogs 1.47.3 cannot copy the root into the carrier; Alpine's can.
 if [ "$(mke2fs -V 2>&1 | sed -n 's/^mke2fs \([0-9.]*\).*/\1/p')" = 1.47.3 ]; then
     # shellcheck disable=SC2016
     "${PODMAN:-podman}" run --rm --security-opt label=disable -v "$DEST:/out" -v "$SCRIPT_DIR/q25:/s:ro" \
         docker.io/library/alpine:edge sh -euc '
 apk add -q bash coreutils e2fsprogs e2fsprogs-extra dosfstools mtools sfdisk android-tools
-bash /s/q25-userdata-image.sh "/out/$1.ext4" "/out/$1.userdata.img"' sh "$NAME"
+bash /s/q25-userdata-image.sh "/out/$2" "/out/$1.userdata.img"' sh "$NAME" "$FEED"
 else
-    bash "$SCRIPT_DIR/q25/q25-userdata-image.sh" "$DEST/$NAME.ext4" "$DEST/$NAME.userdata.img"
+    bash "$SCRIPT_DIR/q25/q25-userdata-image.sh" "$DEST/$FEED" "$DEST/$NAME.userdata.img"
 fi
 zstd -T0 -10 -f "$DEST/$NAME.userdata.img" -o "$DEST/$NAME.userdata.img.zst"
 cp "$DEST/u-boot/u-boot-q25.bin" "$DEST/u-boot/src/gimme-uboot.py" "$DEST/"
 (cd "$DEST" && sha256sum "$NAME.ext4" "$NAME.ext4.zst" "$NAME.userdata.img" "$NAME.userdata.img.zst" \
     u-boot-q25.bin gimme-uboot.py > "$NAME.SHA256SUMS")
-FEED_IMAGE="$DEST/zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_$VERSION.ext4"
-mkdir -p "$(dirname "$FEED_IMAGE")"
-ln -f "$DEST/$NAME.ext4" "$FEED_IMAGE"
 echo "==> $DEST/$NAME.userdata.img"
-echo "==> for the update feed: $FEED_IMAGE"
+echo "==> for the update feed: $DEST/$FEED"
 cat "$DEST/$NAME.SHA256SUMS"
