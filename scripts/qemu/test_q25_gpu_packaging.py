@@ -53,7 +53,7 @@ class Packaging(unittest.TestCase):
         apk = (GPU / 'APKBUILD').read_text()
         self.assertNotIn('multi-user.target.wants', apk)
         self.assertNotIn('/usr/local', apk)
-        self.assertIn('mesa=26.2.6-r0', apk)
+        self.assertIn('mesa=26.2.6-r100', apk)
         self.assertIn('linux-zinwa-q25>=7.0.0-r29', apk)
 
     def test_guard_checks_manifest_before_loading_modules(self):

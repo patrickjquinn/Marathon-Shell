@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 5 Nov 2026 16:20:00 +0000
+Subject: [PATCH] panfrost: Import into the KMS device only when a KMS handle
+ is asked for
+
+With a renderonly display, panfrost_resource_from_handle() imports every
+dma-buf it is given into the KMS device, in case a KMS handle is asked
+for later. A compositor imports each client buffer to sample from it and
+never asks, so every import also attaches the buffer to the display.
+
+On a display without an IOMMU that has a 32-bit DMA mask, as mediatek-drm
+on the MT6789 with 12 GiB of RAM, most client buffers lie above 4 GiB.
+Mapping them for the display bounces them through swiotlb: a buffer with
+a segment larger than swiotlb's 256 KiB limit fails with "swiotlb buffer
+is full", one with smaller segments is copied, and when the copy happens
+to be contiguous the import succeeds and keeps the bounce buffer for the
+life of the texture. None of these is a buffer the display could scan
+out.
+
+Make the import on the first KMS handle request instead, as
+renderonly_get_handle() is the only user of the scanout for an imported
+resource. gbm_bo_import() followed by gbm_bo_get_handle() still gets a
+KMS handle; sampling an imported buffer no longer touches the display.
+---
+ src/gallium/drivers/panfrost/pan_resource.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/src/gallium/drivers/panfrost/pan_resource.c b/src/gallium/drivers/panfrost/pan_resource.c
+index 30b59e2..afe7b39 100644
+--- a/src/gallium/drivers/panfrost/pan_resource.c
++++ b/src/gallium/drivers/panfrost/pan_resource.c
+@@ -437,12 +437,6 @@ panfrost_resource_from_handle(struct pipe_screen *pscreen,
+    BITSET_SET(rsc->valid.data, 0);
+    panfrost_resource_set_damage_region(pscreen, &rsc->base, 0, NULL);
+ 
+-   if (dev->ro) {
+-      rsc->scanout =
+-         renderonly_create_gpu_import_for_resource(prsc, dev->ro, NULL);
+-      /* failure is expected in some cases.. */
+-   }
+-
+    return prsc;
+ }
+ 
+@@ -488,6 +482,10 @@ panfrost_resource_get_handle(struct pipe_screen *pscreen,
+    rsrc->modifier_constant = true;
+ 
+    if (handle->type == WINSYS_HANDLE_TYPE_KMS && dev->ro) {
++      /* Import into the KMS device only once a KMS handle is asked for. */
++      if (!scanout)
++         scanout = rsrc->scanout =
++            renderonly_create_gpu_import_for_resource(pt, dev->ro, NULL);
+       return renderonly_get_handle(scanout, handle);
+    } else if (handle->type == WINSYS_HANDLE_TYPE_KMS) {
+       handle->handle = panfrost_bo_handle(rsrc->bo);
+-- 
+2.55.0
+

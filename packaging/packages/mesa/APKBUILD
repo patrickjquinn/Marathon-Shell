@@ -1,0 +1,440 @@
+# Alpine's main/mesa (aports 82a2f41f, 26.2.6-r0) with one panfrost patch:
+# imported dma-bufs no longer go into the renderonly KMS device unless a
+# KMS handle is asked for, which on the Zinwa Q25's mediatek-drm (32-bit
+# DMA, no IOMMU) bounced every client buffer through swiotlb. pkgrel stays
+# above Alpine's rebuilds of 26.2.6 so apk takes this one.
+# Contributor: David Heidelberg <david@ixit.cz>
+maintainer="Patrick Quinn <patrick@jquinn.com>"
+pkgname=mesa
+pkgver=26.2.6
+pkgrel=100
+pkgdesc="Mesa DRI OpenGL library"
+url="https://www.mesa3d.org"
+arch="all"
+license="MIT AND SGI-B-2.0 AND BSL-1.0"
+subpackages="
+	$pkgname-dbg
+	$pkgname-dev
+	$pkgname-dri-gallium:_gallium
+	$pkgname-va-gallium:_va
+	$pkgname-egl
+	$pkgname-gl
+	$pkgname-gles
+	$pkgname-gbm
+	$pkgname-vulkan-ati:_vulkan
+	$pkgname-vulkan-swrast:_vulkan
+	$pkgname-vulkan-layers:_vulkan_layers
+	"
+_llvmver=23
+depends_dev="
+	libdrm-dev
+	libxdamage-dev
+	libxshmfence-dev
+	"
+makedepends="
+	$depends_dev
+	binutils
+	bison
+	cbindgen
+	elfutils-dev
+	eudev-dev
+	expat-dev
+	findutils
+	flex
+	gettext
+	glslang-dev
+	libdisplay-info-dev
+	libtool
+	libva-dev
+	libx11-dev
+	libxfixes-dev
+	libxml2-dev
+	libxrandr-dev
+	libxxf86vm-dev
+	llvm$_llvmver-dev
+	meson
+	py3-cparser
+	py3-mako
+	py3-packaging
+	py3-ply
+	py3-yaml
+	python3
+	vulkan-loader-dev
+	wayland-dev
+	wayland-protocols
+	xorgproto
+	zlib-dev
+	zstd-dev
+	"
+_paste_version="1.0.14"
+_proc_macro2_version="1.0.86"
+_quote_version="1.0.33"
+_syn_version="2.0.68"
+_unicode_ident_version="1.0.12"
+_rustc_hash_version="2.1.1"
+source="https://mesa.freedesktop.org/archive/mesa-${pkgver/_/-}.tar.xz
+	paste-$_paste_version.tar.gz::https://static.crates.io/crates/paste/paste-$_paste_version.crate
+	proc-macro2-$_proc_macro2_version.tar.gz::https://static.crates.io/crates/proc-macro2/proc-macro2-$_proc_macro2_version.crate
+	quote-$_quote_version.tar.gz::https://static.crates.io/crates/quote/quote-$_quote_version.crate
+	syn-$_syn_version.tar.gz::https://static.crates.io/crates/syn/syn-$_syn_version.crate
+	unicode-ident-$_unicode_ident_version.tar.gz::https://static.crates.io/crates/unicode-ident/unicode-ident-$_unicode_ident_version.crate
+	rustc-hash-$_rustc_hash_version.tar.gz::https://static.crates.io/crates/rustc-hash/rustc-hash-$_rustc_hash_version.crate
+	23575.patch
+	riscv64-tls.patch
+	llvm23.patch
+	0001-panfrost-Import-into-the-KMS-device-only-when-a-KMS-.patch
+	"
+builddir="$srcdir/mesa-${pkgver/_/-}"
+options="!check" # TODO
+
+_dri_driverdir=/usr/lib/dri
+_gallium_drivers="r300,r600,radeonsi,nouveau,llvmpipe,virgl,zink"
+_vulkan_drivers="amd,swrast"
+_vulkan_layers="device-select,overlay"
+
+# extra gallium per arch
+case "$CARCH" in
+x86*)
+	_gallium_drivers="$_gallium_drivers,svga,i915,iris,crocus"
+	;;
+armhf|armv7)
+	_gallium_drivers="$_gallium_drivers,vc4,v3d,freedreno,lima,panfrost,etnaviv,tegra"
+	_gallium_drivers="${_gallium_drivers//r300,}"
+	;;
+aarch64)
+	_gallium_drivers="$_gallium_drivers,vc4,v3d,freedreno,lima,panfrost,etnaviv,tegra,asahi,svga"
+	_gallium_drivers="${_gallium_drivers//r300,}"
+	;;
+riscv64)
+	_gallium_drivers="${_gallium_drivers//r300,}"
+	;;
+loongarch64)
+	_gallium_drivers="$_gallium_drivers,i915,iris,crocus"
+	_gallium_drivers="${_gallium_drivers//r300,}"
+esac
+
+# extra vulkan per arch
+case "$CARCH" in
+x86*|loongarch64)
+	_vulkan_drivers="$_vulkan_drivers,intel,intel_hasvk,nouveau,virtio"
+	_vulkan_layers="$_vulkan_layers,intel-nullhw"
+	subpackages="
+		$subpackages
+		$pkgname-vulkan-intel:_vulkan
+		$pkgname-vulkan-nouveau:_vulkan
+		$pkgname-vulkan-virtio:_vulkan
+		"
+	;;
+aarch64)
+	_vulkan_drivers="$_vulkan_drivers,asahi,broadcom,freedreno,imagination,intel,nouveau,panfrost,virtio"
+	subpackages="
+		$subpackages
+		$pkgname-vulkan-asahi:_vulkan
+		$pkgname-vulkan-broadcom:_vulkan
+		$pkgname-vulkan-freedreno:_vulkan
+		$pkgname-vulkan-imagination:_vulkan
+		$pkgname-vulkan-intel:_vulkan
+		$pkgname-vulkan-nouveau:_vulkan
+		$pkgname-vulkan-panfrost:_vulkan
+		$pkgname-vulkan-virtio:_vulkan
+		"
+	;;
+esac
+
+_intel_rt=disabled
+case "$CARCH" in
+	x86_64) _intel_rt=enabled ;;
+esac
+
+case "$CARCH" in
+x86)
+	# lto fails on x86 only
+	# mostly:
+	# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/21371
+	# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/21180
+	_lto=false
+	;;
+*)
+	# ~5% smaller
+	# disable temporarily until resolved:
+	# https://gitlab.freedesktop.org/mesa/mesa/-/issues/11846
+	_lto=false
+	;;
+esac
+
+case "$CARCH" in
+armv7|aarch64|x86|x86_64|loongarch64)
+	_rusticl=true
+	makedepends="
+		$makedepends
+		clang$_llvmver-dev
+		libclc-dev~$_llvmver
+		rust
+		rust-bindgen
+		spirv-llvm-translator-dev
+		"
+	subpackages="
+		$subpackages
+		$pkgname-rusticl
+		"
+	;;
+armhf)
+	# still requires clc for panfrost (https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/32720)
+	makedepends="
+		$makedepends
+		clang$_llvmver-dev
+		libclc-dev~$_llvmver
+		rust
+		rust-bindgen
+		spirv-llvm-translator-dev
+		"
+	_rusticl=false
+	;;
+*)
+	_rusticl=false
+	;;
+esac
+
+prepare() {
+	default_prepare
+
+	cd subprojects/
+
+	rm -f paste-1-rs.wrap proc-macro2-1-rs.wrap quote-1-rs.wrap syn-2-rs.wrap unicode-ident-1-rs.wrap rustc-hash-2-rs.wrap
+
+	mv "$srcdir/paste-$_paste_version" paste-1-rs
+	mv "$srcdir/proc-macro2-$_proc_macro2_version" proc-macro2-1-rs
+	mv "$srcdir/quote-$_quote_version" quote-1-rs
+	mv "$srcdir/syn-$_syn_version" syn-2-rs
+	mv "$srcdir/unicode-ident-$_unicode_ident_version" unicode-ident-1-rs
+	mv "$srcdir/rustc-hash-$_rustc_hash_version" rustc-hash-2-rs
+
+	cp packagefiles/paste-1-rs/meson.build paste-1-rs/
+	cp packagefiles/proc-macro2-1-rs/meson.build proc-macro2-1-rs/
+	cp packagefiles/quote-1-rs/meson.build quote-1-rs/
+	cp packagefiles/syn-2-rs/meson.build syn-2-rs/
+	cp packagefiles/unicode-ident-1-rs/meson.build unicode-ident-1-rs/
+	cp packagefiles/rustc-hash-2-rs/meson.build rustc-hash-2-rs/
+}
+
+build() {
+	# use -g1 to generate less debug info:
+	# 485 MiB -> ~80 MiB
+	export CFLAGS="$CFLAGS -O2 -g1"
+	export CXXFLAGS="$CXXFLAGS -O2 -g1"
+	export CPPFLAGS="$CPPFLAGS -O2 -g1"
+
+	case "$CARCH" in
+	armhf|armv7)
+		# gnu2 tlsdesc is broken in binutils, see
+		# https://gitlab.alpinelinux.org/alpine/aports/-/issues/14140
+		# and
+		# https://gitlab.freedesktop.org/mesa/mesa/-/issues/13236
+		export CFLAGS="$CFLAGS -mtls-dialect=gnu"
+		export CXXFLAGS="$CXXFLAGS -mtls-dialect=gnu"
+		;;
+	esac
+
+	PATH="$PATH:/usr/lib/llvm$_llvmver/bin" \
+	abuild-meson \
+		-Db_ndebug=true \
+		-Db_lto=$_lto \
+		-Dallow-kcmp=enabled \
+		-Dexpat=enabled \
+		-Dintel-rt=$_intel_rt \
+		-Dshader-cache=enabled \
+		-Dxlib-lease=enabled \
+		-Dxmlconfig=enabled \
+		-Dzstd=enabled \
+		-Dbackend_max_links=2 \
+		-Dbuild-tests="$(want_check && echo true || echo false)" \
+		-Ddri-drivers-path=$_dri_driverdir \
+		-Dgallium-drivers=$_gallium_drivers \
+		-Dvulkan-drivers=$_vulkan_drivers \
+		-Dvulkan-layers=$_vulkan_layers \
+		-Damdgpu-virtio=true \
+		-Dfreedreno-kmds=msm,virtio \
+		-Dplatforms=x11,wayland \
+		-Dllvm=enabled \
+		-Dshared-llvm=enabled \
+		-Dgbm=enabled \
+		-Dglx=dri \
+		-Dopengl=true \
+		-Dgles1=enabled \
+		-Dgles2=enabled \
+		-Degl=enabled \
+		-Dgallium-extra-hud=true \
+		-Dgallium-rusticl=$_rusticl \
+		-Dgallium-rusticl-enable-drivers=auto,freedreno \
+		-Dgallium-va=enabled \
+		-Drust_std=2021 \
+		-Dvideo-codecs=all \
+		. output
+
+	# Print config
+	meson configure --no-pager output
+
+	meson compile -C output
+}
+
+# Tests workarounds
+case "$CARCH" in
+armhf|armv7|riscv64|loongarch64|ppc64le)
+	# https://gitlab.alpinelinux.org/alpine/aports/-/issues/16525
+	_tests_opts="$_tests_opts --no-suite mesa:llvmpipe"
+	;;
+s390x|ppc64)
+	# https://gitlab.freedesktop.org/mesa/mesa/-/issues/9507
+	# mesa:amd / ac_surface_modifier_test timeouts (CI perf issue I assume)
+	_tests_opts="$_tests_opts --no-suite mesa:gallium --no-suite mesa:llvmpipe --no-suite mesa:amd"
+	;;
+esac
+
+check() {
+	LC_ALL=C.UTF=8 meson test --print-errorlogs $_tests_opts -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+}
+
+egl() {
+	pkgdesc="Mesa libEGL runtime libraries"
+	# gles is not directly needed but GTK+mesa throws errors when egl
+	# is installed without gles
+	# https://gitlab.alpinelinux.org/alpine/aports/-/issues/15510#note_531887
+	depends="mesa=$pkgver-r$pkgrel mesa-gles=$pkgver-r$pkgrel"
+
+	amove usr/lib/libEGL.so*
+}
+
+gl() {
+	pkgdesc="Mesa libGL runtime libraries"
+	depends="mesa=$pkgver-r$pkgrel"
+
+	amove usr/lib/libGL.so*
+}
+
+gles() {
+	pkgdesc="Mesa libGLESv2 runtime libraries"
+	depends="mesa=$pkgver-r$pkgrel"
+
+	amove usr/lib/libGLES*.so*
+}
+
+gbm() {
+	pkgdesc="Mesa gbm library"
+	depends="mesa=$pkgver-r$pkgrel"
+
+	amove usr/lib/libgbm.so.*
+}
+
+rusticl() {
+	pkgdesc="Mesa OpenCL driver"
+	depends="mesa=$pkgver-r$pkgrel clang$_llvmver-headers libclc~$_llvmver"
+
+	amove usr/lib/libRusticlOpenCL.so.*
+	amove etc/OpenCL/vendors/
+}
+
+# Move links referencing the same file to the subpackage.
+# Usage: _mv_links <base directory> <example>
+# where <example> is one of the libraries covered by the megadriver.
+# The example is used to find other links that point to the same file.
+_mv_links() {
+	install -d "$subpkgdir"/$1
+	find -L "$pkgdir"/$1 -samefile "$pkgdir"/$1/$2 -print0 \
+		| xargs -0 -I{} mv {} "$subpkgdir"/$1/
+}
+
+_mv_vulkan() {
+	local i
+	for i in "$@"; do
+		amove usr/lib/libvulkan_$i*.so
+		amove usr/share/vulkan/icd.d/${i}_*.*
+	done
+}
+
+# Mesa uses "megadrivers" where multiple drivers are linked into one shared
+# library. This library is then hard-linked to separate files (one for each driver).
+# Each subpackage contains one megadriver so that all the hard-links are preserved.
+
+_gallium() {
+	pkgdesc="Mesa gallium DRI drivers"
+	depends="mesa=$pkgver-r$pkgrel"
+
+	# libgallium_dri.so
+	_mv_links $_dri_driverdir swrast_dri.so
+}
+
+_va() {
+	local n=${subpkgname##*-va-}
+	pkgdesc="Mesa $n VAAPI drivers"
+	depends="mesa=$pkgver-r$pkgrel libva"
+
+	case $n in
+	gallium)
+		# libgallium_drv_video.so
+		_mv_links /usr/lib/dri radeonsi_drv_video.so ;;
+	esac
+}
+
+_vulkan() {
+	local n=${subpkgname##*-vulkan-}
+	pkgdesc="Mesa Vulkan API driver for $n"
+	depends="mesa=$pkgver-r$pkgrel"
+
+	case $n in
+	ati)
+		_mv_vulkan radeon ;;
+	asahi)
+		_mv_vulkan asahi ;;
+	imagination)
+		_mv_vulkan powervr_mesa ;;
+	intel)
+		_mv_vulkan intel ;;
+	broadcom)
+		_mv_vulkan broadcom ;;
+	freedreno)
+		_mv_vulkan freedreno ;;
+	nouveau)
+		_mv_vulkan nouveau ;;
+	panfrost)
+		_mv_vulkan panfrost ;;
+	swrast)
+		_mv_vulkan lvp ;;
+	virtio)
+		_mv_vulkan virtio ;;
+	esac
+}
+
+_vulkan_layers() {
+	pkgdesc="collection of vulkan layers from mesa"
+	depends="python3"
+
+	# Remove this after the release of the next stable (3.14)
+	# it originally was claed layer as it only packaged the
+	# overlay one but now it also packages device-select and
+	# intel-nullhw (on x86*)
+	provides="$pkgname-vulkan-layer=$pkgver-r$pkgrel"
+	replaces="$pkgname-vulkan-layer=$pkgver-r$pkgrel"
+
+	amove usr/share/vulkan/explicit_layer.d
+	amove usr/share/vulkan/implicit_layer.d
+	amove usr/lib/libVkLayer_*.so
+	amove usr/bin/mesa-overlay-control.py
+}
+
+sha512sums="
+0959679a8e9560a36d63bfc67357c73fde6fd98b00c29859ab30b31454b9ef8c8def38c7e180b168fd39080681042559dfc4a4252dfb289930a9776e0243c2dc  mesa-26.2.6.tar.xz
+3a793f0e5e773a7f7defc798a4c17ae9a40d715144632ea6cb0a8c785e14c4212046491df016bb9838281f8eaf327a79f01c1e2ac5f26785c028bc880faff9ee  paste-1.0.14.tar.gz
+1cdb7e22a35ae231d880c9420784c9acf97bda2db258b3d34aae5061dc1858449defe19a49e12c6a4173906aa72a4115059ac2db0fc760205fd2ab8b5b414434  proc-macro2-1.0.86.tar.gz
+c1e76c3c017e8554eebe309f8167fd56fce931981c06798aa85a0cc6d64a9cba6ab103f5a1324e69c6f9ca5dc47a8e31ff2e847850542748697afcd265b5939c  quote-1.0.33.tar.gz
+7b781f8ea2b0d01c06f47d165da99cd96e3b44a33de1d77c78a2cb37ebe3f8304f426ba3d0d1cf766241dcc0537908774504df7d455d63bf89ec22ac0499d372  syn-2.0.68.tar.gz
+bc1824e1e4452a40732fc69874d7e1a66f7803717a314790dcf48867eba34bc9441331ef031e386912e52c385645c25b6ed39d4f149973b5b97371b1b96b1920  unicode-ident-1.0.12.tar.gz
+87097d98d47f327d000041ab13acddc366f1500d9c3e5c82169c3358112c7a7c03701c9b3c2c81d9f9da65b7ebac1c479b179dfaf7c059cd0b929b4673e51084  rustc-hash-2.1.1.tar.gz
+91bdda3a4b5906963c8c0053ebb924b952dac3d50e66afee87a7abebf82141426b34dce7e1947fe18c54dedd33537792ec13a94504ff7ad890243507d57fdc88  23575.patch
+ce1887fb7d425b94c375a0547bee40c308809c01f5ce1bcddabcc69a7fcb445efb9d5f5c7bac49b2778ab40687c7bce204d278b0bf028d124c75e59083107fba  riscv64-tls.patch
+0ca39282aa42d0b10a5d88a49cc91aea94caa6a9785e7bf75071d101c09ec5debd63a4478053657e163c94007d765d1f05c98a12fe16ad044c3fc10ef1fc27e9  llvm23.patch
+25aef7e178bf829f6ab3c5e128e2c43def6295387e96eba8924393ee817949cd24ed3639fb3c2fae72bc692634d1dcdd4d8f59379ce2c1e4f52df67344a34456  0001-panfrost-Import-into-the-KMS-device-only-when-a-KMS-.patch
+"

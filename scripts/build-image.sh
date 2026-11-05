@@ -239,6 +239,9 @@ if [ "$DEVICE" = zinwa-q25 ]; then
     # Its cameras need the software ISP patches, which postmarketOS's lacks.
     APORT=libcamera build_if_missing "libcamera" 'libcamera-[0-9]*.apk' \
         "$LIB/build-aport-apk.sh" "$APORTS_DIR/libcamera/APKBUILD"
+    # Panfrost's, without the import of every client buffer into mediatek-drm.
+    APORT=mesa build_if_missing "mesa" 'mesa-[0-9]*.apk' \
+        "$LIB/build-aport-apk.sh" "$APORTS_DIR/mesa/APKBUILD"
 fi
 build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
 build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
