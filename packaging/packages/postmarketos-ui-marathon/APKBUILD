@@ -48,6 +48,7 @@ depends="
 	xdg-desktop-portal-gtk
 	xdg-desktop-portal-wlr
 	flatpak
+	p11-kit-server
 	"
 
 source="
