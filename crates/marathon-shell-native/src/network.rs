@@ -781,6 +781,7 @@ trait Wireless {
 )]
 pub(crate) trait NmSettings {
     fn list_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    fn add_connection(&self, connection: Settings<'_>) -> zbus::Result<OwnedObjectPath>;
     fn get_connection_by_uuid(&self, uuid: &str) -> zbus::Result<OwnedObjectPath>;
     #[zbus(signal)]
     fn new_connection(&self, connection: ObjectPath<'_>) -> zbus::Result<()>;

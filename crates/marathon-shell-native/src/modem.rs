@@ -1205,6 +1205,9 @@ async fn discover(
     }
     state.emergency_numbers = emergency_numbers(bus, state.sim.as_ref()).await;
     follow_nm(bus, state).await;
+    if let Err(e) = default_data_on(bus).await {
+        log::warn("modem", e);
+    }
     let broadcasts = interfaces
         .iter()
         .find(|(i, _)| i.as_str() == CELL_BROADCAST)
@@ -1586,6 +1589,20 @@ async fn gsm_profile(bus: &zbus::Connection) -> Option<(OwnedObjectPath, SavedSe
     None
 }
 
+// Mobile data starts on, as on Android: with no gsm profile yet, save one
+// for NetworkManager to bring up once the modem registers.
+async fn default_data_on(bus: &zbus::Connection) -> zbus::Result<()> {
+    if gsm_profile(bus).await.is_some() {
+        return Ok(());
+    }
+    let uuid = new_uuid();
+    NmSettingsProxy::new(bus)
+        .await?
+        .add_connection(gsm_settings(&uuid, false))
+        .await
+        .map(drop)
+}
+
 // No APN: ModemManager's mtk-ccci plugin then reuses the LTE attach PDN. An
 // APN set on the profile later takes its place.
 fn gsm_settings(uuid: &str, roaming: bool) -> Settings<'_> {
@@ -1597,6 +1614,8 @@ fn gsm_settings(uuid: &str, roaming: bool) -> Settings<'_> {
                 ("uuid", Value::from(uuid)),
                 ("id", Value::from("Mobile data")),
                 ("autoconnect", Value::from(true)),
+                // Retry until the modem registers, however long that takes.
+                ("autoconnect-retries", Value::from(0_i32)),
             ]),
         ),
         ("gsm", HashMap::from([("home-only", Value::from(!roaming))])),
@@ -1606,11 +1625,10 @@ fn gsm_settings(uuid: &str, roaming: bool) -> Settings<'_> {
 }
 
 fn set_data(settings: &mut SavedSettings, on: bool, roaming: bool) {
-    settings
-        .entry("connection".to_owned())
-        .or_default()
-        .insert("autoconnect".to_owned(), OwnedValue::from(on));
+    let connection = settings.entry("connection".to_owned()).or_default();
+    connection.insert("autoconnect".to_owned(), OwnedValue::from(on));
     if on {
+        connection.insert("autoconnect-retries".to_owned(), OwnedValue::from(0_i32));
         settings
             .entry("gsm".to_owned())
             .or_default()
