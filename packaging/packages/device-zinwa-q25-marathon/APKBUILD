@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=48
+pkgrel=49
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -27,7 +27,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-splash-handover q25-splash-handover.service q25-splash-greetd.conf q25-splash-plymouth-quit.conf q25-splash-plymouth-quit-wait.conf q25-splash-plymouth-start.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
- q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf battery-model-experimental 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
+ q25-power-supply-ignore 99-q25-upower-duplicate.rules 90-q25-battery-model.conf 61-q25-charge-voltage.rules q25-deckard.modules-load.conf q25-haptic.modules-load.conf q25-camera.modules-load.conf q25-camera.modprobe.conf deckard.cfg marathon-deckard.tmpfiles 50-marathon-deckard.rules q25-geoclue.conf"
 build() {
     mkdir -p "$builddir"
     ${CC:-gcc} $CFLAGS -Wall -Wextra -o "$builddir/q25-wmt" "$srcdir/q25-wmt.c" $LDFLAGS
@@ -102,7 +102,6 @@ package() {
     install -Dm644 "$srcdir/q25-power-supply-ignore" "$pkgdir/etc/marathon/power-supply-ignore"
     # The kernel's MT6358 gauge is not trusted yet: the shell and UPower must
     # not shut the phone down on it.
-    install -Dm644 "$srcdir/battery-model-experimental" "$pkgdir/etc/marathon/battery-model-experimental"
     install -Dm644 "$srcdir/90-q25-battery-model.conf" "$pkgdir/etc/UPower/UPower.conf.d/90-q25-battery-model.conf"
     install -Dm644 "$srcdir/q25-geoclue.conf" "$pkgdir/etc/geoclue/conf.d/91-q25.conf"
     install -Dm644 "$srcdir/61-q25-charge-voltage.rules" "$pkgdir/usr/lib/udev/rules.d/61-q25-charge-voltage.rules"
@@ -255,8 +254,7 @@ c95667403e07e7eaeb163827924c7fe7ec075cf2727fcc122a7237efd13a63db35dba69afb828d3c
 95f3a7f976e410ed0eebe473a815ecad5a8cba847bbe9f065163c9bc0f4ac165550cf7feb889f80192d23493dc4ad0cd259099bbfea90c08864e216c400e8e4f  90-q25-recovery-console.rules
 20a56732a4a8fbc22b461dc35886c3cacbb02bfbb17359ea08a7ec8f464c7499a9d7c453b1cb4d0117a424ade0fbbc670b83d22cd43a3a50316b0aa48c5143f8  q25-power-supply-ignore
 28947046a89b216d125252b3b9df38367b707fcf3d872befe3066ff876b2714bdec4740147d58b7e2a493a745d7d217a6e4afa6dc3a83e53b5b1da16bccbb00f  99-q25-upower-duplicate.rules
-1087d9699f6c4325a1d7ba2e6faf7fda87953fc0d3b0ef97de1da05187ba8f942f78806916cfb2ae9456fa2e63b2adf08e1e8118dc834c31a677755bab0fbf9a  90-q25-battery-model.conf
-0292d56380778e9acc09a4dcdf6c675af566d3fc3595d85140bd9aa842186e37e9989cbf4590c59892dd45f9564a95e918b1a2a49dd632910fd50c8c0a6e51ae  battery-model-experimental
+f9ffaad681e7dc1489595fed3c75e9014f93a906e40ee321363e26be0fdb2839d2e5c67a17b83bf4a458f0e94e395a056bcf24893e11993cb170155f6c6d22d3  90-q25-battery-model.conf
 266cb6790fe03a0a12a4756e0f6ee4b4a10726cd293a67ed43efc9ebc904501ffa3f9807b887bf626b7c0281132076ab7a8bec8b2b220e23d143e59b89147651  61-q25-charge-voltage.rules
 e2e6780617ee979efb23dd971ccf96cb0fcbe778055680c6bef403af95c2ba4ab41e028f3f661d99e63c486882373de76f6433906e7a00c4c0774235b798981c  q25-deckard.modules-load.conf
 05f4d8b5dbbdd8e97dd09e778d822b19861bde1cee13c43bb6f1a4fcf2e9c685904f2318c58c51dc252bd4ffa84e46511faab404795f499e0e4b402fbd2b0736  q25-haptic.modules-load.conf
