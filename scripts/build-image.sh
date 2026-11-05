@@ -39,8 +39,10 @@
 #   MARATHON_IMAGE_SRC      packaging tree (default: in-tree packaging/)
 #   FORCE_REBUILD           "1" → drop cached apks before rebuild
 #   MARATHON_DEV_SSH_KEY    public key allowed to log in over SSH (root and
-#                           user, key only). Defaults to ~/.ssh/id_ed25519.pub;
-#                           empty builds an image with no remote login.
+#                           user, key only), for a developer's own phone.
+#                           Unset or empty builds an image with no remote
+#                           login, as one for other people must be;
+#                           marathon-ota publish refuses any other.
 #   MARATHON_IMAGE_LAYOUT   "single" (default) or "ab": A/B /usr slots with
 #                           signed OTA updates and rollback (docs/OTA.md)
 #   MARATHON_OTA_CHANNEL    "stable" (default) or "test": which of
@@ -265,9 +267,9 @@ OTA=0
 if [ "$MARATHON_IMAGE_LAYOUT" = "ab" ] || [ "$MARATHON_TARGET_DEVICE" = zinwa-q25 ]; then
     OTA=1
 fi
-# Remote login for the builder's own phone, by their key; an image for other
-# people is built with MARATHON_DEV_SSH_KEY= (empty) and has none.
-export MARATHON_DEV_SSH_KEY="${MARATHON_DEV_SSH_KEY-$(cat "$HOME/.ssh/id_ed25519.pub" 2>/dev/null)}"
+export MARATHON_DEV_SSH_KEY="${MARATHON_DEV_SSH_KEY:-}"
+[ -z "$MARATHON_DEV_SSH_KEY" ] ||
+    echo "==> developer image: SSH as root and user with $MARATHON_DEV_SSH_KEY; not for other people" >&2
 OTA_TRANSFERS="$DURANIUM_DIR/mkosi.extra/usr/lib/sysupdate.d"
 OTA_KEYRING="$DURANIUM_DIR/mkosi.extra/usr/lib/systemd/import-pubring.pgp"
 # Raspberry Pi A/B (mkosi.repart.ab-pi): autoboot.txt for partition 1, the

@@ -106,9 +106,12 @@ method=auto
 build pipeline strips any leading `[sudo]` prompts from this file
 before copying it into `~/.cache/marathon-build/duranium/mkosi.extra/etc/NetworkManager/system-connections/`.
 
-For SSH, the build copies `~/.ssh/id_ed25519.pub` into the image's
-`/usr/share/factory/home/user/.ssh/authorized_keys`. If you don't have
-an ed25519 key:
+For SSH into your own phone, build a developer image with your key:
+`MARATHON_DEV_SSH_KEY="$(cat ~/.ssh/id_ed25519.pub)"`. That key logs in
+as root and as the user, and sshd runs from the first boot. Without it the
+image has no remote login, which is what an image for other people must
+be: `scripts/ota/marathon-ota publish` refuses an image with the key. If
+you don't have an ed25519 key:
 
 ```sh
 ssh-keygen -t ed25519 -f $HOME/.ssh/id_ed25519
