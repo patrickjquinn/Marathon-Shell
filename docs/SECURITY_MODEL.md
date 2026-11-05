@@ -259,7 +259,9 @@ There are two ways in.
 
 **Developer images** are built with `MARATHON_DEV_SSH_KEY` (pipeline
 patch 0050). That key logs in as root and as the user, key only, and sshd
-runs from the first boot.
+runs from the first boot. The build sets no key unless given one, and
+`marathon-ota publish` refuses an image that has one or enables sshd, or
+that it cannot read to check.
 
 **Remote connection** (Settings > Developer tools) is the owner's switch,
 as in Sailfish OS. Turning it on, or saving a new password, takes the

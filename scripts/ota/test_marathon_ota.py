@@ -33,8 +33,9 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-@unittest.skipUnless(shutil.which("gpg") and shutil.which("gpgv") and shutil.which("zstd"),
-                     "needs gpg, gpgv and zstd")
+@unittest.skipUnless(all(map(shutil.which, ["gpg", "gpgv", "zstd", "mkfs.ext4", "debugfs",
+                                            "mkfs.erofs", "dump.erofs"])),
+                     "needs gpg, gpgv, zstd, e2fsprogs and erofs-utils")
 class FeedCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -66,10 +67,26 @@ class FeedCase(unittest.TestCase):
         self.image_dir.mkdir()
         self.feed = self.case / "feed"
 
-    def build(self, version, uuid=UUID_A, payload=b"usr"):
+    def filesystem(self, path, payload, erofs=False, size="1M", dev=False):
+        """An ext4 root, or an erofs /usr, as publish reads it; dev is what
+        MARATHON_DEV_SSH_KEY adds."""
+        tree = Path(tempfile.mkdtemp(dir=self.case))
+        usr = tree if erofs else tree / "usr"
+        (usr / "share").mkdir(parents=True)
+        (usr / "share/payload").write_bytes(payload * 1024)
+        if dev:
+            (usr / "lib/systemd/system-preset").mkdir(parents=True)
+            (usr / "lib/systemd/system-preset/10-marathon.preset").write_text("enable sshd.service\n")
+            (usr / "share/factory/root/.ssh").mkdir(parents=True)
+            (usr / "share/factory/root/.ssh/authorized_keys").write_text("ssh-ed25519 AAAA dev\n")
+        mkfs = ["mkfs.erofs", str(path), str(tree)] if erofs else ["mkfs.ext4", "-q", "-d", str(tree), str(path), size]
+        subprocess.run(mkfs, capture_output=True, check=True)
+        return path
+
+    def build(self, version, uuid=UUID_A, payload=b"usr", dev=False):
         stem = f"{IMAGE_ID}_{version}"
         (self.image_dir / f"{stem}.efi").write_bytes(b"MZ" + version.encode())
-        (self.image_dir / f"{stem}.usr-arm64.{uuid}.raw").write_bytes(payload * 4096 + b"\0" * 65536)
+        self.filesystem(self.image_dir / f"{stem}.usr-arm64.{uuid}.raw", payload + version.encode(), erofs=True, dev=dev)
         (self.image_dir / f"{stem}.usr-arm64-verity.{uuid}.raw").write_bytes(b"verity" + version.encode())
         # Splits that are not part of an update.
         (self.image_dir / f"{stem}.esp.raw").write_bytes(b"esp")
@@ -82,7 +99,7 @@ class FeedCase(unittest.TestCase):
     def build_pi(self, version, uuid=UUID_A, payload=b"slot"):
         stem = f"{self.image_id}_{version}"
         (self.image_dir / f"{stem}.boot.{uuid}.raw").write_bytes(b"boot" + payload * 1024)
-        (self.image_dir / f"{stem}.root.{uuid}.raw").write_bytes(b"root" + payload * 2048)
+        self.filesystem(self.image_dir / f"{stem}.root.{uuid}.raw", payload + version.encode())
         # mkosi still writes a UKI and the whole disk; neither is an update.
         (self.image_dir / f"{stem}.efi").write_bytes(b"MZ")
         (self.image_dir / f"{stem}.raw").write_bytes(b"disk")
@@ -186,6 +203,13 @@ class PublishTest(FeedCase):
         older = self.publish("26101701", check=False)
         self.assertNotEqual(older.returncode, 0)
         self.assertIn("older than", older.stderr)
+
+    def test_refuses_an_image_with_developer_ssh(self):
+        self.build("26101701", dev=True)
+        result = self.publish("26101701", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MARATHON_DEV_SSH_KEY", result.stderr)
+        self.assertFalse((self.out / "SHA256SUMS").exists())
 
     def test_refuses_a_single_partition_image(self):
         stem = f"{IMAGE_ID}_26101701"
@@ -373,14 +397,10 @@ class PiSysupdateTest(SysupdateTest):
 class Q25Feed(FeedCase):
     image_id = Q25_IMAGE_ID
 
-    def build_q25(self, version, payload=b"root"):
+    def build_q25(self, version, payload=b"root", dev=False):
         # build-zinwa-q25-image.sh's <image-id>_<version>.ext4, mostly holes.
-        path = self.image_dir / f"{self.image_id}_{version}.ext4"
-        with open(path, "wb") as f:
-            f.write(payload * 1024)
-            f.seek(4 << 20)
-            f.write(b"end" + version.encode())
-        return path
+        return self.filesystem(self.image_dir / f"{self.image_id}_{version}.ext4",
+                               payload + version.encode(), size="8M", dev=dev)
 
 
 class Q25PublishTest(Q25Feed):
@@ -390,6 +410,18 @@ class Q25PublishTest(Q25Feed):
         stem = f"{Q25_IMAGE_ID}_26110201"
         self.assertEqual(sorted(p.name for p in self.out.iterdir()), sorted([
             "SHA256SUMS", "SHA256SUMS.gpg", "marathon-os.metainfo.xml", f"{stem}.ext4.zst"]))
+
+    def test_refuses_a_root_with_developer_ssh(self):
+        self.build_q25("26110201", dev=True)
+        result = self.publish("26110201", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MARATHON_DEV_SSH_KEY", result.stderr)
+
+    def test_refuses_a_root_it_cannot_read(self):
+        (self.image_dir / f"{Q25_IMAGE_ID}_26110201.ext4").write_bytes(b"not ext4" * 1024)
+        result = self.publish("26110201", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot read", result.stderr)
 
     def test_keeps_the_newest_versions_and_refuses_going_backwards(self):
         for version in ["26110101", "26110201", "26110301"]:

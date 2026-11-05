@@ -91,6 +91,43 @@ def find_artifacts(image_dir, image_id, version):
     return [uki, parts["usr"], parts["verity"]]
 
 
+# What a developer image has (MARATHON_DEV_SSH_KEY, pipeline patch 0050),
+# relative to /usr.
+DEV_KEY = "share/factory/root/.ssh/authorized_keys"
+PRESET = "lib/systemd/system-preset/10-marathon.preset"
+
+
+def image_has(image, path, erofs):
+    if erofs:
+        out = subprocess.run(["dump.erofs", f"--path={path}", str(image)], capture_output=True).stdout
+        return out.startswith(b"Path :")
+    out = subprocess.run(["debugfs", "-R", f"stat {path}", str(image)], capture_output=True).stdout
+    return b"Inode:" in out
+
+
+def image_cat(image, path, erofs):
+    cmd = ["dump.erofs", "--cat", f"--path={path}"] if erofs else ["debugfs", "-R", f"cat {path}"]
+    return subprocess.run(cmd + [str(image)], capture_output=True, check=True).stdout
+
+
+def refuse_dev_access(artifacts):
+    """A feed reaches everyone's phone, so its images must trust no
+    builder's key: refuse one built with MARATHON_DEV_SSH_KEY, and one this
+    cannot read to check."""
+    for image in artifacts:
+        if image.suffix == ".ext4" or re.search(r"\.root\.[0-9a-f]{32}\.raw$", image.name):
+            erofs, usr = False, "/usr/"
+        elif re.search(r"\.usr-[a-z0-9_]+\.[0-9a-f]{32}\.raw$", image.name):
+            erofs, usr = True, "/"
+        else:
+            continue
+        if not image_has(image, "/", erofs):
+            fail(f"cannot read {image.name} to check it for developer SSH access")
+        preset = image_cat(image, usr + PRESET, erofs).splitlines() if image_has(image, usr + PRESET, erofs) else []
+        if image_has(image, usr + DEV_KEY, erofs) or b"enable sshd.service" in preset:
+            fail(f"{image.name} lets the builder's SSH key in; build the release with MARATHON_DEV_SSH_KEY= (empty)")
+
+
 def versions_in(feed_dir, image_id):
     found = set()
     pattern = re.compile(re.escape(image_id) + r"_([^._+]+)\.(?:efi|boot\.[0-9a-f]{32}\.raw\.zst|ext4\.zst)$")
@@ -197,6 +234,7 @@ def publish(args):
     feed_dir.mkdir(parents=True, exist_ok=True)
 
     artifacts = find_artifacts(image_dir, image_id, args.version)
+    refuse_dev_access(artifacts)
     published = versions_in(feed_dir, image_id)
     if args.version in published:
         fail(f"{image_id} {args.version} is already in the feed")
