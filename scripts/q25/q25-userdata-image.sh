@@ -100,5 +100,9 @@ for p in /boot /usr /usr/lib /usr/lib/os-release /var /var/lib /var/lib/marathon
 done | debugfs -w -f - "$DISK?offset=$OFFSET" > /dev/null 2>&1
 debugfs -w -R "sif $IMAGES/$NAME.ext4 mode 0100600" "$DISK?offset=$OFFSET" > /dev/null 2>&1
 e2fsck -fn "$DISK?offset=$OFFSET" > /dev/null 2>&1 || { echo "error: the carrier fails e2fsck" >&2; exit 1; }
+# e2fsck sees the carrier's metadata only: a disk that filled during the
+# copy left holes in the root file, and the phone could not run its init.
+debugfs -R "cat $IMAGES/$NAME.ext4" "$DISK?offset=$OFFSET" 2> /dev/null | cmp -s - "$ROOT" ||
+	{ echo "error: the root file on the carrier differs from $ROOT" >&2; exit 1; }
 img2simg "$DISK" "$OUT" $SECTOR
 echo "==> $OUT ($NAME, pmos_boot_uuid=$BOOT_UUID pmos_root_uuid=$ROOT_UUID)"
