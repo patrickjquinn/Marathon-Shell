@@ -22,7 +22,8 @@ QtObject {
     // The software ISP debayers each frame the viewfinder (or a video) gets:
     // nothing over 1080 lines, or a 12 MP sensor's full frame is offered.
     readonly property var supportedViewfinderResolutions: ready ? _controller.previewResolutions.filter(s => s.height <= 1080) : []
-    readonly property var supportedImageResolutions: ready ? _controller.photoResolutions : []
+    // A photo is one debayered frame: none over 3072 lines (a 50 MP one).
+    readonly property var supportedImageResolutions: ready ? _controller.photoResolutions.filter(s => s.height <= 3072) : []
     readonly property var supportedHighresImageResolutions: []
     readonly property var supportedVideoResolutions: supportedViewfinderResolutions
     readonly property var supportedFlashModes: {

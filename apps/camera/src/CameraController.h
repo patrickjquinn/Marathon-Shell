@@ -121,8 +121,13 @@ class CameraController : public QObject {
     void                                setupCamera(int index);
     void                                updateZoomRange();
     int                                 indexOfCamera(const QString &id) const;
+    QCameraFormat                       fastestFormat(const QSize &size) const;
     void                                applyViewfinderResolution();
     void                                checkFrames();
+    void                                takeStill(const QVideoFrame &frame);
+    void                                cancelStill();
+    void                                savePhoto(const QImage &image, const QString &fileName,
+                                                  int rotation);
 
     QCamera                            *m_camera         = nullptr;
     QMediaCaptureSession               *m_captureSession = nullptr;
@@ -146,6 +151,12 @@ class CameraController : public QObject {
     QSize                               m_viewfinderResolution;
 
     QHash<int, std::pair<QString, int>> m_photoPaths;
+
+    // A photo larger than the viewfinder: its path and rotation, the format
+    // to go back to, and the frames left before it is taken.
+    std::pair<QString, int> m_still;
+    QCameraFormat           m_viewfinderFormat;
+    std::atomic<int>        m_stillFrames{0};
 
     QImage                              m_recordingPoster;
     QString                             m_posterPath;

@@ -32,8 +32,7 @@ void SoftwareVideoOutput::setFillMode(int mode) {
     update();
 }
 
-// RGB frames are copied as they are; toImage() converts through the GPU.
-static QImage imageOf(QVideoFrame frame) {
+QImage imageOf(QVideoFrame frame) {
     QImage::Format format;
     switch (frame.pixelFormat()) {
         case QVideoFrameFormat::Format_RGBA8888: format = QImage::Format_RGBA8888; break;

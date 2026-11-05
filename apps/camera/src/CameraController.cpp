@@ -11,9 +11,13 @@
 #include <QPointer>
 #include <QThreadPool>
 #include <QtEndian>
+#include <utility>
+#include "SoftwareVideoOutput.h"
 
 namespace {
     QtMessageHandler originalHandler = nullptr;
+    // The software ISP's exposure starts again with each configuration.
+    constexpr int kStillSettleFrames = 8;
 
     void             cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
                                           const QString &msg) {
@@ -112,7 +116,6 @@ void CameraController::setupCamera(int index) {
         m_photoResolution = QSize();
         emit photoResolutionChanged();
     }
-    m_imageCapture->setResolution(m_photoResolution);
     applyViewfinderResolution();
 
     qWarning() << "[CameraController] Using camera:" << m_cameras.at(index).description();
@@ -142,13 +145,27 @@ void CameraController::start() {
 void CameraController::stop() {
     if (m_camera) {
         m_camera->stop();
+        cancelStill();
     }
 }
 
 void CameraController::capturePhoto(const QString &path, int rotation) {
-    if (!m_imageCapture || !m_camera || !m_camera->isActive()) {
+    if (!m_imageCapture || !m_camera || !m_camera->isActive() || m_stillFrames > 0) {
         m_errorMessage = "Camera not ready";
         emit errorOccurred(m_errorMessage);
+        return;
+    }
+
+    // Qt's capture is the viewfinder's frame: a larger photo takes a frame
+    // of its own format.
+    const QCameraFormat still = fastestFormat(m_photoResolution);
+    if (!still.isNull() && still.resolution() != m_camera->cameraFormat().resolution()) {
+        m_still            = {path, rotation};
+        m_viewfinderFormat = m_camera->cameraFormat();
+        m_stillFrames      = kStillSettleFrames;
+        m_camera->stop();
+        m_camera->setCameraFormat(still);
+        m_camera->start();
         return;
     }
 
@@ -201,7 +218,13 @@ void CameraController::setVideoSink(QObject *sink) {
     m_videoSink = videoSink;
     if (m_videoSink)
         connect(
-            m_videoSink, &QVideoSink::videoFrameChanged, this, [this] { ++m_frames; },
+            m_videoSink, &QVideoSink::videoFrameChanged, this,
+            [this](const QVideoFrame &frame) {
+                ++m_frames;
+                if (m_stillFrames > 0 && m_stillFrames.fetch_sub(1) == 1)
+                    QMetaObject::invokeMethod(
+                        this, [this, frame] { takeStill(frame); }, Qt::QueuedConnection);
+            },
             Qt::DirectConnection);
     if (m_captureSession)
         m_captureSession->setVideoOutput(m_videoSink);
@@ -335,18 +358,25 @@ void CameraController::setViewfinderResolution(const QSize &size) {
     emit viewfinderResolutionChanged();
 }
 
-// The fastest format at the resolution asked for. libcamerasrc cannot
-// renegotiate a running stream ("not-negotiated"), so a running camera stops
-// for the change.
-void CameraController::applyViewfinderResolution() {
-    if (!m_camera)
-        return;
+// The fastest format at a resolution.
+QCameraFormat CameraController::fastestFormat(const QSize &size) const {
     QCameraFormat best;
+    if (!m_camera || !size.isValid())
+        return best;
     for (const QCameraFormat &format : m_camera->cameraDevice().videoFormats()) {
-        if (format.resolution() == m_viewfinderResolution &&
+        if (format.resolution() == size &&
             (best.isNull() || format.maxFrameRate() > best.maxFrameRate()))
             best = format;
     }
+    return best;
+}
+
+// libcamerasrc cannot renegotiate a running stream ("not-negotiated"), so a
+// running camera stops for the change.
+void CameraController::applyViewfinderResolution() {
+    if (!m_camera)
+        return;
+    const QCameraFormat best = fastestFormat(m_viewfinderResolution);
     if (best == m_camera->cameraFormat())
         return;
     const bool running = m_camera->isActive();
@@ -423,9 +453,9 @@ void CameraController::setPhotoResolution(const QSize &size) {
     if (m_photoResolution == size || (size.isValid() && !m_photoResolutions.contains(size)))
         return;
 
+    // Not Qt's: its capture branch has no scaler, and a size the viewfinder
+    // does not have stops the camera ("not-negotiated").
     m_photoResolution = size;
-    if (m_imageCapture)
-        m_imageCapture->setResolution(m_photoResolution);
     emit photoResolutionChanged();
 }
 
@@ -470,17 +500,45 @@ void CameraController::checkFrames() {
 
 void CameraController::onCameraErrorOccurred(QCamera::Error error, const QString &errorString) {
     Q_UNUSED(error)
+    cancelStill();
     m_errorMessage = errorString;
     emit errorOccurred(m_errorMessage);
     qWarning() << "[CameraController] Camera error:" << errorString;
 }
 
 void CameraController::onImageCaptured(int id, const QImage &image) {
-    const auto    photo    = m_photoPaths.take(id);
-    const QString fileName = photo.first;
-    const int     rotation = photo.second;
-    if (fileName.isEmpty())
+    const auto photo = m_photoPaths.take(id);
+    if (!photo.first.isEmpty())
+        savePhoto(image, photo.first, photo.second);
+}
+
+// The settled frame of a photo's own format; the viewfinder's comes back.
+void CameraController::takeStill(const QVideoFrame &frame) {
+    const auto [fileName, rotation] = std::exchange(m_still, {});
+    if (!m_camera || fileName.isEmpty())
         return;
+    // A copy: the frame's buffer goes with the format.
+    const QImage image = imageOf(frame);
+    emit photoExposed();
+    m_camera->stop();
+    m_camera->setCameraFormat(m_viewfinderFormat);
+    m_camera->start();
+    if (image.isNull()) {
+        onImageError(-1, QImageCapture::ResourceError, "Could not read the photo's frame");
+        return;
+    }
+    savePhoto(image, fileName, rotation);
+}
+
+void CameraController::cancelStill() {
+    if (std::exchange(m_still, {}).first.isEmpty())
+        return;
+    m_stillFrames = 0;
+    if (m_camera)
+        m_camera->setCameraFormat(m_viewfinderFormat);
+}
+
+void CameraController::savePhoto(const QImage &image, const QString &fileName, int rotation) {
     QPointer<CameraController> self(this);
     QThreadPool::globalInstance()->start([self, image, fileName, rotation] {
         // Under another name until whole: the camera roll shows the folder.

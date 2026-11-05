@@ -8,6 +8,9 @@
 #include <QVideoSink>
 #include <QtQmlIntegration/qqmlintegration.h>
 
+// The frame as an image: RGB frames copied, others converted through the GPU.
+QImage imageOf(QVideoFrame frame);
+
 class SoftwareVideoOutput : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
