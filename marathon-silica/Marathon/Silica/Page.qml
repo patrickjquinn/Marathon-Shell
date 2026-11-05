@@ -45,6 +45,9 @@ S.Page {
     }
     // With the page itself focused, the menu keys open its view's pulley menu.
     function _pulleyView(item) {
+        // A BackgroundItem's children are its content's data: Timers too.
+        if (!item.children)
+            return null;
         for (let i = 0; i < item.children.length; ++i) {
             const child = item.children[i];
             if (child.hasOwnProperty("pullDownMenu") && (child.pullDownMenu || child.pushUpMenu))
