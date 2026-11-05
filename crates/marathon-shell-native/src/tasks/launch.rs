@@ -821,6 +821,10 @@ impl Tasks {
                 }
             });
         }
+        // The app runs on in a newer launch, whose card this exit is not.
+        if replacement_active {
+            return;
+        }
         // Exited before any window: a launcher, unless no window comes.
         if !self.windows.contains_key(&launch.app_id) && self.task(&launch.app_id).is_none() {
             let app_id = launch.app_id.clone();
@@ -835,7 +839,10 @@ impl Tasks {
                     .is_some_and(|l| l.pid == pid)
                 {
                     obj.as_mut().rust_mut().exited_launches.remove(&app_id);
-                    obj.finish_exit(&app_id);
+                    // Closed from the switcher and opened again meanwhile.
+                    if !obj.active_by_pid.values().any(|l| l.app_id == app_id) {
+                        obj.finish_exit(&app_id);
+                    }
                 }
             });
             return;
