@@ -158,8 +158,10 @@ QtObject {
     readonly property int lockStatus: Camera.Unlocked
     readonly property var _device: availableCameras.find(c => c.deviceId === controller.cameraId)
     readonly property int position: _device ? _device.position : Camera.UnspecifiedPosition
-    // How far the sensor's frames turn clockwise to stand upright.
-    readonly property int orientation: _device ? _device.rotation : 0
+    // How far the sensor's frames turn clockwise to stand upright. A front
+    // camera's rotation is Android's orientation, seen from the scene: the
+    // mirrored viewfinder and the picture turn the other way.
+    readonly property int orientation: _device ? (position === Camera.FrontFace ? (360 - _device.rotation) % 360 : _device.rotation) : 0
     property real digitalZoom: 1.0
     readonly property real maximumDigitalZoom: controller.maxZoom
     readonly property var availableCameras: controller.cameras.map(c => ({
