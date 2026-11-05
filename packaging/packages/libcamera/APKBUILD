@@ -8,7 +8,7 @@
 pkgname=libcamera
 _pkgver=0.8.0
 pkgver=9999$_pkgver
-pkgrel=0
+pkgrel=1
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="aarch64 x86_64"
@@ -47,6 +47,8 @@ source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$_pkgver/libc
 	0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
 	0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
 	0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
+	0009-pipeline-simple-Keep-the-largest-size-when-merging-r.patch
+	0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
 	"
 builddir="$srcdir/$pkgname-v$_pkgver"
 # gstreamer tests fail
@@ -143,4 +145,6 @@ f1f12e17d2fe78c7ac2d72419e50eaf40ee4c3ac1996977bd5a2145fb4b1cd8d1fa5327424d2ac1b
 b9c7fc2a99c33f8ed57781edd3011a145801e6bae675d4f2ca1479085b1198a3e36d7f7aa38a7fe28db89e66da68808f4d0636c0677a655310b0976fa9e0ee65  0006-pipeline-simple-Complete-requests-on-stop-when-the-I.patch
 178c7f3f629bc7c627bf93919f8fbb438590a7e036e35023dda3e4a0c81bec3b53266c72f4301489a9a4b64a1451260c3c9d93cc670bf7136793257e42a4167f  0007-libipa-camera_sensor_helper-Add-S5KJN1-helper.patch
 82ffe009e092ec28ce69f647d1a4e23f7c14a393d4d1f0c20c4d69611e3df655c6c4b75996c31668558f092658b17c972fe3e07996d0367f89855b7a78d56523  0008-gstreamer-Disconnect-requestCompleted-when-closing-t.patch
+55ab3efc00ede8bcda59364118274cd28812e8fc1f9f3794de12033a2e0c7117db8f8ebf3552bb272a69e2a9948f3e068d9c7c4d4732411f8fd9543014f614cc  0009-pipeline-simple-Keep-the-largest-size-when-merging-r.patch
+2756375279ba911329febeecf9277ca7a60e6c8b9322bb1e20e8cbb8df5534dde8a25f965a2a79bfff7903f05a929c7cc41c063367fbd198f6ac14073302fd7b  0010-libcamera-camera_sensor-Add-S5KJN1-sensor-propertie.patch
 "

@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Thu, 5 Nov 2026 15:30:00 +0000
+Subject: [PATCH] libcamera: camera_sensor: Add S5KJN1 sensor properties
+
+The Samsung S5KJN1 applies both exposure and analogue gain two frames
+after the frame they are written in. Without static properties libcamera
+assumes a gain delay of one, so the software ISP's AGC credits each
+frame's statistics to the wrong gain and hunts: on a Zinwa Q25 the rear
+camera's brightness swung between about 17 and 125 (of 255) every four
+frames and never settled.
+
+Measured on a Zinwa Q25 by streaming the CAMSV video node directly
+(4080x3072, 70 ms frames) and stepping V4L2_CID_ANALOGUE_GAIN (1x<->8x,
+8x<->32x) and V4L2_CID_EXPOSURE (2000<->8000 lines) on the sensor
+subdevice: a write as frame N arrived showed in frame N+2 in all 21
+steps, and in N+3 in all 14 written 40 ms later instead. The vertical
+blanking delay is taken to follow the exposure's, as for the other
+SMIA-style sensors; it was not measured.
+
+The pixel is 0.64 um, and the test pattern values are the driver's menu
+order, those of the SMIA test pattern register.
+---
+ src/libcamera/sensor/camera_sensor_properties.cpp | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/src/libcamera/sensor/camera_sensor_properties.cpp b/src/libcamera/sensor/camera_sensor_properties.cpp
+index 20cfd0b..e4fecc8 100644
+--- a/src/libcamera/sensor/camera_sensor_properties.cpp
++++ b/src/libcamera/sensor/camera_sensor_properties.cpp
+@@ -571,6 +571,22 @@ const CameraSensorProperties *CameraSensorProperties::get(const std::string &sen
+ 			},
+ 			.sensorDelays = { },
+ 		} },
++		{ "s5kjn1", {
++			.unitCellSize = { 640, 640 },
++			.testPatternModes = {
++				{ controls::draft::TestPatternModeOff, 0 },
++				{ controls::draft::TestPatternModeSolidColor, 1 },
++				{ controls::draft::TestPatternModeColorBars, 2 },
++				{ controls::draft::TestPatternModeColorBarsFadeToGray, 3 },
++				{ controls::draft::TestPatternModePn9, 4 },
++			},
++			.sensorDelays = {
++				.exposureDelay = 2,
++				.gainDelay = 2,
++				.vblankDelay = 2,
++				.hblankDelay = 2
++			},
++		} },
+ 		{ "vd55g1", {
+ 			.unitCellSize = { 2160, 2160 },
+ 			.testPatternModes = {
+-- 
+2.55.0
+
