@@ -1428,7 +1428,14 @@ int main(int argc, char *argv[]) {
         QObject::connect(tasks, &Tasks::foregroundAppIdChanged, &app, [=] {
             WaylandCompositor *compositor = compositorManager->compositor();
             if (tasks->getForegroundAppId().isEmpty() && compositor)
-                compositor->releaseForeignKeyboard();
+                compositor->releaseKeyboard();
+        });
+        // Nor while the screen is off: the lock screen only comes up at the
+        // wake, and until then the app in front would turn its camera back on.
+        QObject::connect(display, &marathon::Display::screenOnChanged, &app, [=] {
+            WaylandCompositor *compositor = compositorManager->compositor();
+            if (!display->getScreenOn() && compositor)
+                compositor->releaseKeyboard();
         });
 #endif
         auto *fileChooser = new FileChooser();

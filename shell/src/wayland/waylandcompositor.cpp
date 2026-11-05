@@ -1143,9 +1143,8 @@ void WaylandCompositor::activateSurface(int surfaceId) {
     }
 }
 
-void WaylandCompositor::releaseForeignKeyboard() {
-    QWaylandSurface *focus = defaultSeat() ? defaultSeat()->keyboardFocus() : nullptr;
-    if (focus && focus->property("foreignClient").toBool())
+void WaylandCompositor::releaseKeyboard() {
+    if (defaultSeat() && defaultSeat()->keyboardFocus())
         defaultSeat()->setKeyboardFocus(nullptr);
 }
 

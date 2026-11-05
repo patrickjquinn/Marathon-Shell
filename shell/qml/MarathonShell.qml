@@ -975,6 +975,11 @@ Item {
                 dimState.restore();
                 // Re-arm idle timers from the moment of wake.
                 idleScreenTimer.rearm();
+            } else {
+                // Off the app's surface: the window's reactivation at the
+                // wake would hand the app the keyboard, and with it its
+                // camera, behind the lock screen. Unlocking gives it back.
+                shell.forceActiveFocus();
             }
         }
     }
@@ -2769,10 +2774,12 @@ Item {
 
     // Focus that falls back to the shell root while an app is in front (an
     // overlay closing, the window it focused going) goes to the app, or keys
-    // reach type-to-search and the keyboard addresses the shell.
+    // reach type-to-search and the keyboard addresses the shell. Not while
+    // locked: an idle lock keeps the "app" state until the wake brings the
+    // lock screen up, and the app would come back to life behind it.
     Connections {
         function onActiveFocusItemChanged() {
-            if (shell.Window.activeFocusItem === shell && shell.state === "app" && !UIStore.searchOpen && !UIStore.quickSettingsOpen) {
+            if (shell.Window.activeFocusItem === shell && shell.state === "app" && !SessionStore.isLocked && !UIStore.searchOpen && !UIStore.quickSettingsOpen) {
                 Logger.info("Shell", "Focus fell to the shell with " + appWindow.appId + " in front; giving it back");
                 Qt.callLater(appWindow.focusApp);
             }
