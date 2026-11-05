@@ -9,7 +9,9 @@
 #     initial-attach APN before EFUN=1, or the network refuses EPS attach.
 #   - EFUN=1 sent while boot URCs (+EIND ...) are still arriving hangs the
 #     SIM task and the modem asserts; any byte sent during EFUN aborts it.
-# The APN comes from /etc/q25-modem/modem.conf (IA_APN, IA_PROTOCOL).
+# The APN comes from /etc/q25-modem/modem.conf (IA_APN, IA_PROTOCOL), or
+# else from the SIM's carrier.
+APNS=/usr/share/mobile-broadband-provider-info/apns-conf.xml
 IA_APN=
 IA_PROTOCOL=IPV4V6
 [ -r /etc/q25-modem/modem.conf ] && . /etc/q25-modem/modem.conf
@@ -61,17 +63,45 @@ until cmd AT >/dev/null; do
 done
 settle
 
-if [ -n "$IA_APN" ]; then
-	cmd "AT+CGDCONT=1,\"$IA_PROTOCOL\",\"$IA_APN\""
-	cmd "AT+EIAAPN=\"$IA_APN\",0,\"$IA_PROTOCOL\",\"$IA_PROTOCOL\",1,\"\",\"\""
-fi
+set_apn() {
+	cmd "AT+CGDCONT=1,\"$IA_PROTOCOL\",\"$1\""
+	cmd "AT+EIAAPN=\"$1\",0,\"$IA_PROTOCOL\",\"$IA_PROTOCOL\",1,\"\",\"\""
+}
 
-for _ in 1 2; do
-	cmd 'AT+EFUN=1' 60
-	if cmd 'AT+ESIMS?' | grep '+ESIMS: 1' >/dev/null; then
-		sim_ready && break
-	fi
-	sleep 2
-done
+radio_on() {
+	for _ in 1 2; do
+		cmd 'AT+EFUN=1' 60
+		if cmd 'AT+ESIMS?' | grep '+ESIMS: 1' >/dev/null; then
+			sim_ready && return 0
+		fi
+		sleep 2
+	done
+	return 1
+}
+
+# The SIM's carrier's internet APN from apns-conf.xml. The MNC length is
+# in the SIM's EF_AD (6FAD).
+carrier_apn() {
+	imsi=$(cmd 'AT+CIMI' | sed -n 's/.* -> \([0-9]\{6,15\}\)$/\1/p')
+	ad=$(cmd 'AT+CRSM=176,28589,0,0,4' | sed -n 's/.*+CRSM: 144, *0, *"[0-9A-Fa-f]\{6\}\([0-9A-Fa-f]\{2\}\)".*/\1/p')
+	[ $((0x${ad:-02} & 15)) = 3 ] && len=3 || len=2
+	mcc=$(echo "$imsi" | cut -c1-3)
+	mnc=$(echo "$imsi" | cut -c4-$((3 + len)))
+	[ -n "$mcc" ] && grep " mcc=\"$mcc\" mnc=\"$mnc\" " "$APNS" | grep 'type="[^"]*default' |
+		sed -n 's/.* apn="\([^"]*\)".*/\1/p' | head -n 1
+}
+
+[ -n "$IA_APN" ] && set_apn "$IA_APN"
+radio_on
+# Without an attach APN the modem stays on 2G, and it reads one only at
+# radio power-on. With none configured, take the carrier's, as Android's
+# RIL does once the SIM is readable, and power the radio again.
+if [ -z "$IA_APN" ] && apn=$(carrier_apn) && [ -n "$apn" ]; then
+	echo "attach APN $apn"
+	cmd 'AT+EFUN=0' 60
+	settle
+	set_apn "$apn"
+	radio_on
+fi
 cmd 'AT+CPIN?'
 exit 0

@@ -4,13 +4,14 @@
 # ECCCI modules are built with the kernel and ship in q25-kernel-modules.
 pkgname=q25-modem
 pkgver=1.0.0
-pkgrel=10
+pkgrel=11
 pkgdesc="Zinwa Q25 MD1 modem stack: CCCI daemons and services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND Apache-2.0"
 options="!check !strip !tracedeps"
-depends="kmod util-linux q25-kernel-modules>=7.0.0-r30 modemmanager-mtk-ccci"
+depends="kmod util-linux q25-kernel-modules>=7.0.0-r30 modemmanager-mtk-ccci
+ mobile-broadband-provider-info"
 makedepends="gcc make musl-dev linux-headers"
 _units="q25-modem.target q25-modem-owner.service q25-modem-stack.service q25-modem-nv.service
  q25-ccci-rpcd.service q25-ccci-fsd.service q25-ccci-mdinit.service q25-modem-init.service
@@ -56,9 +57,9 @@ package() {
 sha512sums="
 d9b8241f1135d110fdcfce09c02c980fdcac4df41ebfb986284194a793e89debb05c784f1a31c68e159f77ecd7cbe4dc3f673000d29bab0291d61322164f0b25  q25-modem-up
 feafd0fb05726d0106a576721521de5a8cff6ad9c4b2dd98ed4da965cbc8d9acc585285b8cc5bf1954b8ac17d8ba4cd583ef8d882ab1ec805e0f4a86cd63998d  q25-modem-nv
-a2afb868e7c24892059a0a1576d4ec807512079ec2141d5f5aa4466c8a125826bc702a9c08dfb7703fd4d86762d1411b83ca6bde6b026c73c3c31553d6008018  q25-modem-init
+4abe7f0eebe886b9a872e7767400346e44a98c27e87b1214377eee6a94d1dae807cbf27e4dafada83fce063a2d93994fd4afe8f13cd14051a9e0af9bf741730a  q25-modem-init
 9ff481adbffd3c92ebbc911e754a5cf753c572a8fbebf7bb2cf96b6d74fdf623e69ae91d8e67471948db9765c4aa8e9b400308b8cb46c3de8c261ddf025d62fe  properties
-66d60916c3461d18d7f19c5893219e840fe7b0ac6a9cc89f47cb726a2343c38824e41700f9aa8889c57ccd4ac61a2c45ce9218e2faea1dfcab0f8c6f04fb8f33  modem.conf
+75757bc6ab8e9a0427827e2402e5747a07acf30c1ef959f48580f77e7847d9897ad0fd673e4127ced1d0c66d83d6a9e73bc42585a8931b8c1ad607533f2f01a9  modem.conf
 ad80d0bf1c04ee3207c24fb4e809b639c7ee22ea6125737cb315ce7ef054eb3fb1a37aebdbc5fcfa5e0a3de185f07f884063ec02380a8588d018301e6eb44d79  78-q25-modem.rules
 8ef3d056d8509e4f871fe2b7833a5e15ee7097517e6ac8e5a7c6c7a40c3f2494da3578fec7c471dad46376394f32f2eb56818090ffbcefee5bfc6ca42013f4d2  q25-modem.conf.modprobe
 a4bda22e64a8c4d2ad9b788af7047bdedd3a1cd276c36bc36260072dd08c01d55df093e1916ac1e3b614f395e910ca653a85b58648094e40bd6cfe1835f87f62  50-q25-modem-nm.conf
