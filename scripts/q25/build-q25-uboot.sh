@@ -29,7 +29,7 @@ f610a2b8ce2072369ddeb8d9475f8b27ac294ec1a13b0ca8b4fb4a6587552503 cross-binutils/
 "
 # "U-Boot 2025.10-rc5-g11b7b36cf6c2-dirty (Nov 03 2026 - 17:11:19 +0000)"
 SOURCE_DATE_EPOCH=1793725879
-UBOOT_SHA256=635d9f3d0d83268d5918481a9a497346cf0c16617adbb7ddb4038658bdfc3876
+UBOOT_SHA256=cc0f5e5258aa5dbb22d5b81a419e82e60f10ed289f21a15891459cd3f29200ba
 
 mkdir -p "$OUT/toolchain"
 echo "$RPMS" | while read -r sha path; do

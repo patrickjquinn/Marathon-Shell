@@ -1,0 +1,343 @@
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] arm: mediatek: mt6789: load the SPM and DPM firmware as LK did
+
+LK, as BL33, loads two pieces of power-management firmware that nothing
+else does: spmfw, which BL31 takes only through the BL33 call
+MTK_SIP_BL_LPM_CONTROL (FW_INIT), and dpm, which LK copies into the DPM
+SRAM before it releases the DPM reset. With U-Boot in LK's place neither
+runs. BL31 then never marks its low-power constraints firmware-valid, so
+mcusys-off and the system idle states fall back to a cluster power-down,
+and DRAM has no DPM.
+
+mtk_pmfw <buf> dpm spm follows MediaTek's lk2 for MT6789
+(common/spm/spm_common.c, common/dpm/dpm.c, mt6789/dpm/dpm.c). For dpm it
+wakes the DPM SRAM (SPM+0x3bc), sets the SRAM split, copies dpmpm and
+dpmdm to 0x10900000 and 0x10920000, reads them back, clears the boot args
+and releases the reset at 0x10940000. For spm it copies the SPM3
+container to a 64 KiB buffer below 0x78000000, cleans it to DRAM and
+issues SMC 0x82000410(0xda065731, SET, buf, 64K), then checks that BL31's
+MD32PCM DMA ran from buf + 0x50 to the end of the code. As in LK, neither
+buffer has to outlive the call. The command refuses to run once BL31 has
+dropped the BL33 calls, refuses to reload a DPM that is already out of
+reset, and refuses spm without a running DPM: with the SPM's firmware
+the deep idle states hand DRAM to the DPM, and without it the Q25 hung
+within 25 s of boot. Without either firmware those states only fall back
+to a cluster power-down.
+
+The env runs it before the hand-off unless /loader/q25-no-pmfw is on the
+ESP. Its exit status is ignored, so a failure leaves the boot as before.
+
+Tested on the Q25 from the one-shot boot: BL31 accepted FW_INIT and the
+SPM's code DMA completed (rlct 0); with the DPM released (DPM_CFG
+0x10000001) the phone booted and stayed up with the cores in the deepest
+state, system-bus, 75-86% of the time.
+---
+--- a/arch/arm/mach-mediatek/mt6789/Makefile
++++ b/arch/arm/mach-mediatek/mt6789/Makefile
+@@ -1,3 +1,4 @@
+ # SPDX-License-Identifier:	GPL-2.0
+ 
+ obj-y += init.o
++obj-$(CONFIG_CMDLINE) += pm_fw.o
+--- a/board/mediatek/mtk-phone.env
++++ b/board/mediatek/mtk-phone.env
+@@ -62,7 +62,13 @@
+ # The restarted U-Boot finds the BL33 calls gone and boots the OS.
+ # Without the hand-off CPU0 corrupts memory. /loader/q25-no-handoff on the
+ # ESP keeps the old path; any failure here falls back to it too.
+-handoff=if test -e blkmap 0:1 /loader/q25-no-handoff; then echo 'MTK hand-off disabled'; else mtk_sip 0xc200040b && run handoff_remap && run handoff_mpu && run handoff_jump; fi
++handoff=if test -e blkmap 0:1 /loader/q25-no-handoff; then echo 'MTK hand-off disabled'; else run handoff_pm; mtk_sip 0xc200040b && run handoff_remap && run handoff_mpu && run handoff_jump; fi
+ handoff_remap=mtk_sip 0xc200040b 1 0xdc000000 && mtk_sip 0xc200040b 2 0xdc000000 && mtk_sip 0xc200040b 3 0x8e000000 0 0 && mtk_sip 0xc200040b 3 0x90000000 0 1 && mtk_sip 0xc200040b 3 0x92000000 0 2 && mtk_sip 0xc200040b 3 0x94000000 0 3 && mtk_sip 0xc200040b 3 0x96000000 0 4 && mtk_sip 0xc200040b 3 0x98000000 0 5 && mtk_sip 0xc200040b 3 0x9a000000 0 6 && mtk_sip 0xc200040b 3 0x9c000000 0 7 && mtk_sip 0xc200040b 3 0x8c000000 0 4 && mtk_sip 0xc200040b 3 0x8e000000 0 5 && mtk_sip 0xc200040b 3 0x90000000 0 6 && mtk_sip 0xc200040b 3 0x92000000 0 7
+ handoff_mpu=mtk_emimpu_grant 0x16 0x7e000000 0x7e500000 0xb80a28 0xb40168 && mtk_emimpu_grant 0x17 0xbf000000 0xbf600000 0xb80a28 0xb40168 && mtk_emimpu_grant 0x18 0xdc000000 0xe4000000 0x0 0x0 && mtk_emimpu_grant 0x19 0xe5200000 0xe6000000 0x0 0x0 && mtk_emimpu_grant 0x1a 0x8c000000 0x8d6a0000 0x0 0x0 && mtk_emimpu_grant 0x1b 0x8e000000 0x8ee10000 0x0 0x0
+ handoff_jump=scsi device 2 && part start scsi 2 lk_a lk_lba && scsi read 0x80000000 ${lk_lba} 0x120 && itest.l *0x80000000 == 0x58881688 && setexpr.l lk_size *0x80000004 && cp.b 0x80000200 0x50f00000 ${lk_size} && mtk_kernel_boot 0x50f00000
++
++# The SPM and DPM firmware LK loaded: BL31 takes spmfw only from BL33, so this
++# runs before the hand-off, DPM first: the SPM's idle states need it. Its exit
++# status is ignored; /loader/q25-no-pmfw on the ESP turns it off.
++pmfw_buf=0x40100000
++handoff_pm=if test -e blkmap 0:1 /loader/q25-no-pmfw; then echo 'PM firmware disabled'; elif mtk_sip 0xc200040b; then if mtk_pmfw ${pmfw_buf} dpm spm; then echo 'PM firmware loaded'; else echo 'PM firmware not loaded'; fi; fi
+--- /dev/null
++++ b/arch/arm/mach-mediatek/mt6789/pm_fw.c
+@@ -0,0 +1,282 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * MT6789 power-management firmware that LK, as BL33, loads and U-Boot in its
++ * place has to: spmfw through BL31, dpm into the DPM SRAM. bl2_ext already
++ * loads SSPM and MCUPM. Sequences after MediaTek lk2:
++ * platform/mediatek/common/spm/spm_common.c, platform/mediatek/common/dpm/dpm.c
++ * and platform/mediatek/mt6789/dpm/dpm.c.
++ */
++
++#include <blk.h>
++#include <command.h>
++#include <cpu_func.h>
++#include <malloc.h>
++#include <memalign.h>
++#include <part.h>
++#include <vsprintf.h>
++#include <wait_bit.h>
++#include <asm/io.h>
++#include <asm/system.h>
++#include <asm/unaligned.h>
++#include <linux/arm-smccc.h>
++#include <linux/kernel.h>
++#include <linux/sizes.h>
++#include <linux/string.h>
++
++#define PMFW_SCSI_DEV		2
++#define PMFW_READ		SZ_64K
++
++#define GFH_MAGIC		0x58881688
++#define GFH_EXT_MAGIC		0x58891689
++
++#define MTK_SIP_LK_CCCI		0xc200040b
++#define MTK_SIP_BL_LPM_CONTROL	0x82000410
++/* MT_LPM_SMC_MAGIC | secure SPM user 6 | MT_SPM_SMC_UID_FW_INIT */
++#define SPM_SMC_FW_INIT		0xda065731
++#define MT_LPM_SMC_ACT_SET	1
++
++#define SPM_FW_MAGIC		0x53504d33
++#define SPM_FW_HDR		0x40
++#define SPM_MEM_SIZE		SZ_64K
++#define SPM_MEM_LIMIT		0x78000000
++#define DRAM_BASE		0x40000000
++
++#define SPM_BASE		0x10006000
++#define SPM_DRAMC_MCU_CON	(SPM_BASE + 0x3bc)
++#define DRAMC_MCU_SRAM_CLKISO	BIT(0)
++#define DRAMC_MCU_SRAM_ISOINT_B	BIT(1)
++#define DRAMC_MCU_SRAM_SLEEP_B	BIT(4)
++#define MD32PCM_DMA0_SRC	(SPM_BASE + 0xc00)
++#define MD32PCM_DMA0_RLCT	(SPM_BASE + 0xc24)
++#define SPM_SYSTEM_BASE_OFFSET	0x40000000
++
++#define DPM_PM_SRAM		0x10900000
++#define DPM_DM_SRAM		0x10920000
++#define DPM_CFG			0x10940000
++#define DPM_BARGS0		(DPM_CFG + 0x6004)
++#define DPM_BARGS1		(DPM_CFG + 0x6008)
++#define DPM_SW_RSTN		BIT(0)
++#define DPM_SRAM_MAX		SZ_32K
++
++struct gfh {
++	u32 magic;
++	u32 size;
++	char name[32];
++	u32 addr;
++	u32 mode;
++	u32 ext_magic;
++	u32 hdr_size;
++	u32 hdr_version;
++	u32 img_type;
++	u32 img_list_end;
++	u32 align;
++};
++
++static const u8 *gfh_find(const u8 *buf, const char *name, u32 *size)
++{
++	size_t off = 0;
++
++	while (off + sizeof(struct gfh) <= PMFW_READ) {
++		const struct gfh *h = (const void *)(buf + off);
++		u32 hdr = 0x200, align = 16;
++
++		if (h->magic != GFH_MAGIC)
++			break;
++		if (h->ext_magic == GFH_EXT_MAGIC) {
++			hdr = h->hdr_size;
++			align = h->align ?: 16;
++		}
++		if (hdr < sizeof(*h) || hdr > PMFW_READ - off ||
++		    h->size > PMFW_READ - off - hdr)
++			break;
++		if (!strncmp(h->name, name, sizeof(h->name))) {
++			*size = h->size;
++			return buf + off + hdr;
++		}
++		off = roundup(off + hdr + h->size, align);
++	}
++	printf("%s: no image\n", name);
++	return NULL;
++}
++
++static int pmfw_read(const char *part, void *buf)
++{
++	struct blk_desc *desc = blk_get_dev("scsi", PMFW_SCSI_DEV);
++	struct disk_partition info;
++	lbaint_t cnt;
++
++	if (!desc || part_get_info_by_name(desc, part, &info) < 0) {
++		printf("%s: no partition\n", part);
++		return -ENOENT;
++	}
++	cnt = PMFW_READ / info.blksz;
++	if (cnt > info.size || blk_dread(desc, info.start, cnt, buf) != cnt) {
++		printf("%s: read failed\n", part);
++		return -EIO;
++	}
++	return 0;
++}
++
++/* The SPM3 container BL31 parses: header, u16 PCM words, code, pcm_desc, version */
++static int spmfw_check(const u8 *fw, u32 size)
++{
++	u32 words, end;
++
++	if (size < SPM_FW_HDR + 0x10 || size > SPM_MEM_SIZE ||
++	    get_unaligned_le32(fw) != SPM_FW_MAGIC ||
++	    strncmp((const char *)fw + 8, "spm_firmware.bin", SPM_FW_HDR - 8) ||
++	    get_unaligned_le32(fw + 4) + SPM_FW_HDR > size)
++		return -EINVAL;
++	words = get_unaligned_le16(fw + SPM_FW_HDR);
++	end = SPM_FW_HDR + 0x10 + words * 4 + 16;
++	if (!words || end > size || get_unaligned_le32(fw + end - 12) != words)
++		return -EINVAL;
++	return 0;
++}
++
++static int pmfw_spm(const u8 *img, ulong buf)
++{
++	struct arm_smccc_res res;
++	const u8 *fw;
++	u32 size, src, end;
++
++	fw = gfh_find(img, "spmfw", &size);
++	if (!fw)
++		return -ENOENT;
++	if (spmfw_check(fw, size)) {
++		printf("spmfw: bad image\n");
++		return -EINVAL;
++	}
++	/* With the SPM's firmware the idle states put DRAM in the DPM's hands */
++	if (!(readl(DPM_CFG) & DPM_SW_RSTN)) {
++		printf("spmfw: DPM not running\n");
++		return -EPERM;
++	}
++	memset((void *)buf, 0, SPM_MEM_SIZE);
++	memcpy((void *)buf, fw, size);
++	flush_dcache_range(buf, buf + SPM_MEM_SIZE);
++
++	arm_smccc_smc(MTK_SIP_BL_LPM_CONTROL, SPM_SMC_FW_INIT, MT_LPM_SMC_ACT_SET, buf,
++		      SPM_MEM_SIZE, 0, 0, 0, &res);
++
++	/* BL31 has the SPM DMA the PCM code in from buf + 0x50; it ends past it */
++	src = readl(MD32PCM_DMA0_SRC);
++	end = buf + SPM_FW_HDR + 0x10 + get_unaligned_le16(fw + SPM_FW_HDR) * 4 +
++	      SPM_SYSTEM_BASE_OFFSET;
++	printf("spmfw: %.32s, smc %#lx, dma src %#x rlct %#x\n",
++	       (const char *)fw + SPM_FW_HDR + 0x20 + get_unaligned_le16(fw + SPM_FW_HDR) * 4,
++	       res.a0, src, readl(MD32PCM_DMA0_RLCT));
++	if (src != end || readl(MD32PCM_DMA0_RLCT))
++		return -EIO;
++	return 0;
++}
++
++static void dpm_sram_copy(ulong dst, const u8 *src, u32 size)
++{
++	u32 i;
++
++	for (i = 0; i < size; i += 4)
++		writel(get_unaligned_le32(src + i), dst + i);
++}
++
++static int dpm_sram_verify(ulong dst, const u8 *src, u32 size)
++{
++	u32 i;
++
++	for (i = 0; i < size; i += 4)
++		if (readl(dst + i) != get_unaligned_le32(src + i))
++			return -EIO;
++	return 0;
++}
++
++static int pmfw_dpm(const u8 *img)
++{
++	const u8 *pm, *dm;
++	u32 pm_size, dm_size;
++
++	pm = gfh_find(img, "dpmpm", &pm_size);
++	dm = gfh_find(img, "dpmdm", &dm_size);
++	if (!pm || !dm)
++		return -ENOENT;
++	if (!pm_size || pm_size > DPM_SRAM_MAX || pm_size % 4 ||
++	    !dm_size || dm_size > DPM_SRAM_MAX || dm_size % 4) {
++		printf("dpm: bad image\n");
++		return -EINVAL;
++	}
++	if (readl(DPM_CFG) & DPM_SW_RSTN) {
++		printf("dpm: already running\n");
++		return -EBUSY;
++	}
++
++	setbits_le32(SPM_DRAMC_MCU_CON, DRAMC_MCU_SRAM_SLEEP_B);
++	if (wait_for_bit_le32((void *)SPM_DRAMC_MCU_CON, DRAMC_MCU_SRAM_SLEEP_B, true, 10,
++			      false)) {
++		printf("dpm: SRAM did not wake\n");
++		return -ETIMEDOUT;
++	}
++	setbits_le32(SPM_DRAMC_MCU_CON, DRAMC_MCU_SRAM_ISOINT_B);
++	clrbits_le32(SPM_DRAMC_MCU_CON, DRAMC_MCU_SRAM_CLKISO);
++
++	/* SRAM split by PM size, as lk sets it */
++	if (pm_size <= SZ_8K)
++		setbits_le32(DPM_CFG, 0x20000000);
++	else if (pm_size <= SZ_16K)
++		setbits_le32(DPM_CFG, 0x10000000);
++
++	dpm_sram_copy(DPM_PM_SRAM, pm, pm_size);
++	dpm_sram_copy(DPM_DM_SRAM, dm, dm_size);
++	if (dpm_sram_verify(DPM_PM_SRAM, pm, pm_size) ||
++	    dpm_sram_verify(DPM_DM_SRAM, dm, dm_size)) {
++		printf("dpm: SRAM readback differs, DPM left in reset\n");
++		return -EIO;
++	}
++	writel(0, DPM_BARGS0);
++	writel(0, DPM_BARGS1);
++	dsb();
++	setbits_le32(DPM_CFG, DPM_SW_RSTN);
++	printf("dpm: pm %#x dm %#x bytes, cfg %#x\n", pm_size, dm_size, readl(DPM_CFG));
++	return 0;
++}
++
++static int do_mtk_pmfw(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
++{
++	struct arm_smccc_res res;
++	ulong buf;
++	u8 *img;
++	int i, ret = 0;
++
++	if (argc < 3)
++		return CMD_RET_USAGE;
++	buf = hextoul(argv[1], NULL);
++	if (buf % SPM_MEM_SIZE || buf < DRAM_BASE || buf + SPM_MEM_SIZE > SPM_MEM_LIMIT)
++		return CMD_RET_USAGE;
++
++	/* Only BL33 may do this; after MTK_SIP_KERNEL_BOOT the call is gone */
++	arm_smccc_smc(MTK_SIP_LK_CCCI, 0, 0, 0, 0, 0, 0, 0, &res);
++	if ((u32)res.a0 == (u32)ARM_SMCCC_RET_NOT_SUPPORTED) {
++		printf("mtk_pmfw: BL31 no longer serves BL33\n");
++		return CMD_RET_FAILURE;
++	}
++
++	img = memalign(ARCH_DMA_MINALIGN, PMFW_READ);
++	if (!img)
++		return CMD_RET_FAILURE;
++	for (i = 2; i < argc; i++) {
++		int r = -EINVAL;
++
++		if (!strcmp(argv[i], "spm") && !pmfw_read("spmfw_a", img))
++			r = pmfw_spm(img, buf);
++		else if (!strcmp(argv[i], "dpm") && !pmfw_read("dpm_a", img))
++			r = pmfw_dpm(img);
++		if (r) {
++			printf("mtk_pmfw: %s failed (%d)\n", argv[i], r);
++			ret = r;
++		}
++	}
++	free(img);
++	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
++}
++
++U_BOOT_CMD(mtk_pmfw, 4, 0, do_mtk_pmfw,
++	   "load the SPM and DPM firmware as LK did (before MTK_SIP_KERNEL_BOOT)",
++	   "<buf> dpm spm (buf: 64 KiB aligned, below 0x78000000; spm needs the DPM running)");
