@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=36
+pkgrel=37
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -154,6 +154,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0094-arm64-dts-mediatek-mt8781-zinwa-q25-Give-the-keypad-.patch
 	0095-arm64-dts-mediatek-mt8781-zinwa-q25-Move-the-TEE-sec.patch
 	0096-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-PMI.patch
+	0097-arm64-dts-mediatek-mt6789-Add-the-CPU-idle-states.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -236,7 +237,7 @@ _modules() {
 sha512sums="
 9183fc331fc7d6e19bde84f932a8be7d239b35cc6d7cca5d067e17d248bf6c2035be46e615d44401f21d59979c3d72d7a602ff1110dc4f0eaf8939f6ecde6480  mtk_g99-mainline-978b8b672d68e43b08c891132b974255489889aa.tar.gz
 36633b752a148bf5c6b4b7f255f6d0ef134d2a17029e1e74827a3387c3ce0ae58b363cf00e275ffad4506e43caf4ee6978b536659bdbb9ebab1728c65cd274f8  android_kernel_ikko_mindone-9cd73c15f312cfd1e40a22d871de65a2fb2c5791.tar.gz
-8b76fb760bd59bbcacbda664abba631423b4c1024da2c25e6fcedc0167bd8a59e3e2b29b59972a5c3ca3f48589a68e9ac2072098ee9f4567bc0b53f9a8bbb15f  config-zinwa-q25.aarch64
+2fc14e03cb92a3f23e8f318d8d12d87f43096ad5c2e5afd97ca26f6637fa16412901f3b4361eaab45107a17b7a5247881bd6fb92a7ff09f245003bd6330e29be  config-zinwa-q25.aarch64
 718d3a4479a3363998335b23de216dd40dd8e3f0d0babd474d2163230cb31ea5103d1f02463072fcb4edcff33a03a12ebc98e26595884dabbf97a5331bca555f  0001-drm-mediatek-Add-MT6789-display-support.patch
 fae7d50d65607e43f9dbafa5613f134ce4bb9b3954ac34b82f25a4d6c868578de9a5582eaccd7885284c50df644fd1f9d57cd5221dd210e9fe36976a351afb34  0002-power-supply-bq256xx-ensure-charging-is-enabled-at-p.patch
 af0a625bf4aad326f06b64e9f88354f46b0284accd69130408c5f21b194c911cf8ad968cada76c114567e821b2a365922bd346dabaf75255fe5d4fa265b54ba9  0003-pinctrl-mediatek-mt6789-guard-the-sleep-PM-ops.patch
@@ -333,6 +334,7 @@ d9a2d996cf0f54aac9ae287b4f0bf39e7cad9dd1aca33f1fc23039fa97996aeb2f85e0de72bf02ed
 9a4b4e94326b628dfe92defcac436fab86ca7b40d765ec48a2f56a825173932639a4d450aa3529d610ce3648ee35c405ab01134cc1075f9d0e3b3f78a52356c0  0094-arm64-dts-mediatek-mt8781-zinwa-q25-Give-the-keypad-.patch
 cdc01e504b920c57b270707aeff5ca51034bcd6c3cf92ea7e80a516c5b58e54beda8c423f16a6c344c6c1c601ee2cd4e6818891dd8baf13e0d691a785d1b7e3b  0095-arm64-dts-mediatek-mt8781-zinwa-q25-Move-the-TEE-sec.patch
 a62d59417a81fc8a578b0bb6c778c80c983acea0ffc740c9e288fa404a076f202c61469a619c1cb52786614cb1eb8c66538f33f8f76d75726ea4261bc71b390d  0096-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-PMI.patch
+edd702e60f3dd71af43a6c0cc886c538b08857032e89660bea4783e8257fdc208ba2c4e1ec87407b080c9571763c7cbfa210b08cd0e7d623220cd484828f81f2  0097-arm64-dts-mediatek-mt6789-Add-the-CPU-idle-states.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
