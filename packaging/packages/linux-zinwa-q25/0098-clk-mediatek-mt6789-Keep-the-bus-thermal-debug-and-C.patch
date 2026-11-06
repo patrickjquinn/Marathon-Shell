@@ -1,0 +1,85 @@
+From c2ab1a8756af13b455cfb6c7df3f5039cee23b33 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:01:00 +0000
+Subject: [PATCH 098/105] clk: mediatek: mt6789: Keep the bus, thermal, debug
+ and CQDMA gates on
+
+The stock MT6789 kernel enables the peripheral bus master clock
+(ifrao_66mp_mclkp), the thermal controller gate (ifrao_therm) and the
+debug system gate (ifrao_debugsys) from its clock bring-up node and
+never releases them, and it leaves ifrao_cq_dma out of its own
+unused-clock sweep. No mainline device owns these clocks, so without
+clk_ignore_unused the unused-clock pass gates them.
+
+ifrao_66mp_mclkp sits in the same INFRA_AO bank (0xe0/0xe4/0xe8) as the
+MT8188 133M/66M peripheral master clocks, which are critical there, and
+corresponds to the MT8192 infra_66m clock, also critical: gating it can
+stall the peripheral bus masters. The thermal controller has no mainline
+consumer on this SoC but is read by the power-management firmware and
+the over-temperature protection; the debug system and CQDMA are used by
+the firmware without Linux being involved.
+
+Mark the four gates critical.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/clk/mediatek/clk-mt6789-infra_ao.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6789-infra_ao.c b/drivers/clk/mediatek/clk-mt6789-infra_ao.c
+index a647011a..4a655f4e 100644
+--- a/drivers/clk/mediatek/clk-mt6789-infra_ao.c
++++ b/drivers/clk/mediatek/clk-mt6789-infra_ao.c
+@@ -100,13 +100,18 @@ static const struct mtk_gate_regs infra_ao5_cg_regs = {
+ 		.ops = &mtk_clk_gate_ops_setclr,	\
+ 	}
+ 
++/*
++ * Critical: the peripheral bus master clock, and the thermal, debug and
++ * CQDMA gates that firmware outside Linux uses.
++ */
+ static const struct mtk_gate infra_ao_clks[] = {
+ 	/* IFRAO0 */
+ 	GATE_IFRAO0(CLK_IFRAO_PMIC_TMR, "ifrao_pmic_tmr" , "pwrap_ulposc_ck" , 0),
+ 	GATE_IFRAO0(CLK_IFRAO_PMIC_AP, "ifrao_pmic_ap" , "pwrap_ulposc_ck" , 1),
+ 	GATE_IFRAO0(CLK_IFRAO_GCE, "ifrao_gce" , "axi_ck" , 8),
+ 	GATE_IFRAO0(CLK_IFRAO_GCE2, "ifrao_gce2" , "axi_ck" , 9),
+-	GATE_IFRAO0(CLK_IFRAO_THERM, "ifrao_therm" , "axi_ck" , 10),
++	GATE_MTK_FLAGS(CLK_IFRAO_THERM, "ifrao_therm", "axi_ck", &infra_ao0_cg_regs, 10,
++		       &mtk_clk_gate_ops_setclr, CLK_IS_CRITICAL),
+ 	GATE_IFRAO0(CLK_IFRAO_I2C_PSEUDO, "ifrao_i2c_pseudo" , "i2c_ck" , 11),
+ 	GATE_IFRAO0(CLK_IFRAO_APDMA_PSEUDO, "ifrao_apdma_pseudo" , "axi_ck" , 12),
+ 	GATE_IFRAO0(CLK_IFRAO_PWM_HCLK, "ifrao_pwm_hclk" , "axi_ck" , 15),
+@@ -134,7 +139,8 @@ static const struct mtk_gate infra_ao_clks[] = {
+ 	GATE_IFRAO1(CLK_IFRAO_MSDC1_SRC, "ifrao_msdc1_clk" , "msdc30_1_ck" , 16),
+ 	GATE_IFRAO1(CLK_IFRAO_MSDC0_AES, "ifrao_msdc0_aes_clk" , "msdc50_0_ck" , 17),
+ 	GATE_IFRAO1(CLK_IFRAO_CCIF_AP, "ifrao_ccif_ap" , "axi_ck" , 23),
+-	GATE_IFRAO1(CLK_IFRAO_DEBUGSYS, "ifrao_debugsys" , "axi_ck" , 24),
++	GATE_MTK_FLAGS(CLK_IFRAO_DEBUGSYS, "ifrao_debugsys", "axi_ck", &infra_ao1_cg_regs, 24,
++		       &mtk_clk_gate_ops_setclr, CLK_IS_CRITICAL),
+ 	GATE_IFRAO1(CLK_IFRAO_AUDIO, "ifrao_audio" , "axi_ck" , 25),
+ 	GATE_IFRAO1(CLK_IFRAO_CCIF_MD, "ifrao_ccif_md" , "axi_ck" , 26),
+ 	/* IFRAO2 */
+@@ -150,7 +156,8 @@ static const struct mtk_gate infra_ao_clks[] = {
+ 	GATE_IFRAO2(CLK_IFRAO_UFS_SAP_BCLK, "ifrao_u_bclk" , "f26m_ck" , 13),
+ 	GATE_IFRAO2(CLK_IFRAO_SPI4, "ifrao_spi4" , "spi_ck" , 25),
+ 	GATE_IFRAO2(CLK_IFRAO_SPI5, "ifrao_spi5" , "spi_ck" , 26),
+-	GATE_IFRAO2(CLK_IFRAO_CQ_DMA, "ifrao_cq_dma" , "axi_ck" , 27),
++	GATE_MTK_FLAGS(CLK_IFRAO_CQ_DMA, "ifrao_cq_dma", "axi_ck", &infra_ao2_cg_regs, 27,
++		       &mtk_clk_gate_ops_setclr, CLK_IS_CRITICAL),
+ 	GATE_IFRAO2(CLK_IFRAO_UFS, "ifrao_ufs" , "ufs_ck" , 28),
+ 	GATE_IFRAO2(CLK_IFRAO_UFS_AES, "ifrao_u_aes" , "aes_ufsfde_ck" , 29),
+ 	/* IFRAO3 */
+@@ -166,7 +173,8 @@ static const struct mtk_gate infra_ao_clks[] = {
+ 	GATE_IFRAO3(CLK_IFRAO_SPI6_CK, "ifrao_spi6_ck" , "spi_ck" , 30),
+ 	GATE_IFRAO3(CLK_IFRAO_SPI7_CK, "ifrao_spi7_ck" , "spi_ck" , 31),
+ 	/* IFRAO4 */
+-	GATE_IFRAO4(CLK_IFRAO_66MP_BUS_MCLK_CKP, "ifrao_66mp_mclkp" , "axi_ck" , 2),
++	GATE_MTK_FLAGS(CLK_IFRAO_66MP_BUS_MCLK_CKP, "ifrao_66mp_mclkp", "axi_ck",
++		       &infra_ao4_cg_regs, 2, &mtk_clk_gate_ops_setclr, CLK_IS_CRITICAL),
+ 	/* IFRAO5 */
+ 	GATE_IFRAO5(CLK_IFRAO_AP_DMA, "ifrao_ap_dma" , "apdma_ck" , 31),
+ };
+-- 
+2.55.0
+

@@ -1,0 +1,40 @@
+From fc26cfb55874da1f348c093915c76103493399cb Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:03:00 +0000
+Subject: [PATCH 100/105] clk: mediatek: mt6789: Parent the IMGSYS gates to
+ img1_ck
+
+The IMGSYS gates name "img_ck" as their parent, but topckgen registers
+the IMG1 mux output as "img1_ck"; there is no "img_ck". The four gates
+are orphans: enabling one does not enable img1_sel, and their rate
+reads as zero.
+
+Use the clock that exists.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/clk/mediatek/clk-mt6789-img.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6789-img.c b/drivers/clk/mediatek/clk-mt6789-img.c
+index 52470058..d3e7c7dc 100644
+--- a/drivers/clk/mediatek/clk-mt6789-img.c
++++ b/drivers/clk/mediatek/clk-mt6789-img.c
+@@ -26,10 +26,10 @@ static const struct mtk_gate_regs imgsys_cg_regs = {
+ 	}
+ 
+ static const struct mtk_gate imgsys_clks[] = {
+-	GATE_IMGSYS(CLK_IMGSYS_LARB9, "imgsys_larb9", "img_ck", 0),
+-	GATE_IMGSYS(CLK_IMGSYS_LARB10, "imgsys_larb10", "img_ck", 1),
+-	GATE_IMGSYS(CLK_IMGSYS_DIP, "imgsys_dip", "img_ck", 2),
+-	GATE_IMGSYS(CLK_IMGSYS_GALS, "imgsys_gals", "img_ck", 12),
++	GATE_IMGSYS(CLK_IMGSYS_LARB9, "imgsys_larb9", "img1_ck", 0),
++	GATE_IMGSYS(CLK_IMGSYS_LARB10, "imgsys_larb10", "img1_ck", 1),
++	GATE_IMGSYS(CLK_IMGSYS_DIP, "imgsys_dip", "img1_ck", 2),
++	GATE_IMGSYS(CLK_IMGSYS_GALS, "imgsys_gals", "img1_ck", 12),
+ };
+ 
+ static const struct mtk_clk_desc imgsys_desc = {
+-- 
+2.55.0
+

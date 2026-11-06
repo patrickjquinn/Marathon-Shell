@@ -1,0 +1,47 @@
+From 3aad13f62ace57c8cedd7199b7f117094b24c11b Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:07:00 +0000
+Subject: [PATCH 104/105] arm64: dts: mediatek: mt6789: Give the UFS host its
+ tick and crypto clocks
+
+The UFS host lists only its host clock and ufs_sel. The stock MT6789
+device tree also gives it the UniPro tick (ifrao_unipro_tick) and the
+inline crypto engine clock (ifrao_u_aes, fed by aes_ufsfde_sel). The
+bootloader leaves both on, so the host works with clk_ignore_unused,
+but without it the unused-clock pass gates them before the UFS driver
+loads, and link startup then times out:
+
+  uic cmd 0x16 with arg3 0x0 completion timeout
+  link startup failed -110
+
+List the tick and the crypto clock. Drop ufs_sel: it is the parent of
+the host clock (and of the M-PHY's UniPro clock), so the clock framework
+enables it anyway, and the driver only uses a clock of that name for
+clock scaling, which this SoC description does not set up.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789.dtsi | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+index d92d95b6..59c30e37 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -1320,9 +1320,10 @@
+ 			status = "disabled";
+ 
+ 			clocks = <&infracfg_ao CLK_IFRAO_UFS>,
+-			         <&topckgen CLK_TOP_UFS_SEL>;
+-			clock-names = "ufs", "ufs_sel";
+-			freq-table-hz = <0 0>, <0 0>;
++				 <&infracfg_ao CLK_IFRAO_UFS_AES>,
++				 <&infracfg_ao CLK_IFRAO_UNIPRO_TICK>;
++			clock-names = "ufs", "ufs_aes", "unipro_tick";
++			freq-table-hz = <0 0>, <0 0>, <0 0>;
+ 
+ 			resets = <&infracfg_ao MT6789_INFRA_RST1_UFSHCI_SWRST>,
+ 			         <&infracfg_ao MT6789_INFRA_RST2_UNIPRO_SWRST>,
+-- 
+2.55.0
+

@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=37
+pkgrel=38
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -155,6 +155,14 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0095-arm64-dts-mediatek-mt8781-zinwa-q25-Move-the-TEE-sec.patch
 	0096-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-PMI.patch
 	0097-arm64-dts-mediatek-mt6789-Add-the-CPU-idle-states.patch
+	0098-clk-mediatek-mt6789-Keep-the-bus-thermal-debug-and-C.patch
+	0099-clk-mediatek-mt6789-Keep-the-trace-bus-clock-on.patch
+	0100-clk-mediatek-mt6789-Parent-the-IMGSYS-gates-to-img1_.patch
+	0101-dt-bindings-ufs-mediatek-ufs-Add-MT6789.patch
+	0102-dt-bindings-ufs-mediatek-ufs-Describe-the-resets-and.patch
+	0103-dt-bindings-phy-mediatek-ufs-phy-Add-MT6789.patch
+	0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
+	0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -335,6 +343,14 @@ d9a2d996cf0f54aac9ae287b4f0bf39e7cad9dd1aca33f1fc23039fa97996aeb2f85e0de72bf02ed
 cdc01e504b920c57b270707aeff5ca51034bcd6c3cf92ea7e80a516c5b58e54beda8c423f16a6c344c6c1c601ee2cd4e6818891dd8baf13e0d691a785d1b7e3b  0095-arm64-dts-mediatek-mt8781-zinwa-q25-Move-the-TEE-sec.patch
 a62d59417a81fc8a578b0bb6c778c80c983acea0ffc740c9e288fa404a076f202c61469a619c1cb52786614cb1eb8c66538f33f8f76d75726ea4261bc71b390d  0096-arm64-dts-mediatek-mt8781-zinwa-q25-Describe-the-PMI.patch
 edd702e60f3dd71af43a6c0cc886c538b08857032e89660bea4783e8257fdc208ba2c4e1ec87407b080c9571763c7cbfa210b08cd0e7d623220cd484828f81f2  0097-arm64-dts-mediatek-mt6789-Add-the-CPU-idle-states.patch
+de234330673d2b7f2642bc1b4477db181fd005e3f1660bdde80bd6255a794b92dc4f50b55d03fe3d740be86e69a358414cdf1089bb873ecd64c95762ac4f93b0  0098-clk-mediatek-mt6789-Keep-the-bus-thermal-debug-and-C.patch
+472f264adf4a51f5c5944f06a7ad6027caca30c73d911ca358016a4e260d9e22a326ad49bb801d71c7a485ae9f972c86009185926d9439d8ebba18174076e653  0099-clk-mediatek-mt6789-Keep-the-trace-bus-clock-on.patch
+f736054af18af87662190cda57b219ade70a697983cd452b99849a8b26724bdbae13903538a63c704611ace8d1373245c3eb9209a71a0be134b599762e4d271d  0100-clk-mediatek-mt6789-Parent-the-IMGSYS-gates-to-img1_.patch
+5af3d650ac3ac881926c969ad4382a5cc501c80b2244b63790bb13b3b3014f630449e5d64f01cc98725728926b1d6ad471780de655c57b296bb90f080da64698  0101-dt-bindings-ufs-mediatek-ufs-Add-MT6789.patch
+e82807f0e63dd30aea21fc1ae37744c7908edec9ae61fadcaa59ab35edbd11013cdfe0c2a7c0b2f25513394c66efcc5dae9e385f01051c1d26292a911ce15802  0102-dt-bindings-ufs-mediatek-ufs-Describe-the-resets-and.patch
+e7f3125fc6a7eea1b41a9f88016f531671542c67e4d5fc86a294e5330a188f018e24b5fcae0df7094d2d25c0bed9b8082182c556596d2232d433092222517ee7  0103-dt-bindings-phy-mediatek-ufs-phy-Add-MT6789.patch
+4826004e525a4d1c321af7cf30d3cef1613f2e2d0019e980ba66c2d2ad7cc2397f76b6719b6077e656f2adebada924fd16572a36eb8747a0a69331374fa0b4ab  0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
+9a8d7a06c462fc77aacb3f7c413b7c8711554e253b9c84c5881ed60881b1373a1d0b6f89aea2d61a929f71c28d94cce1daf7a5bfd0077c5e6f68c502a9daff62  0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

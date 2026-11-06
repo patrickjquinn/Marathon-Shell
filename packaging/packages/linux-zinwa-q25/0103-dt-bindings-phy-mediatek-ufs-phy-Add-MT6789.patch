@@ -1,0 +1,28 @@
+From 8a659a453696e3431923833632ebb252997f77a7 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:06:00 +0000
+Subject: [PATCH 103/105] dt-bindings: phy: mediatek,ufs-phy: Add MT6789
+
+The MT6789 UFS M-PHY is compatible with the MT8183 one. Add its
+compatible, used with the MT8183 fallback.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ Documentation/devicetree/bindings/phy/mediatek,ufs-phy.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/phy/mediatek,ufs-phy.yaml b/Documentation/devicetree/bindings/phy/mediatek,ufs-phy.yaml
+index 6e2edd43..ba27cf36 100644
+--- a/Documentation/devicetree/bindings/phy/mediatek,ufs-phy.yaml
++++ b/Documentation/devicetree/bindings/phy/mediatek,ufs-phy.yaml
+@@ -26,6 +26,7 @@ properties:
+     oneOf:
+       - items:
+           - enum:
++              - mediatek,mt6789-ufsphy
+               - mediatek,mt8195-ufsphy
+           - const: mediatek,mt8183-ufsphy
+       - const: mediatek,mt8183-ufsphy
+-- 
+2.55.0
+

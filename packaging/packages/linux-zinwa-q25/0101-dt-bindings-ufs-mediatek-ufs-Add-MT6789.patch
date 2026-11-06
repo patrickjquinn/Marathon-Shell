@@ -1,0 +1,78 @@
+From 6c28f8072c2c12661f0a6a3ace239709127490d1 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:04:00 +0000
+Subject: [PATCH 101/105] dt-bindings: ufs: mediatek,ufs: Add MT6789
+
+The MT6789 UFS host is compatible with the MT8183 one but needs three
+clocks: the host clock, the inline crypto engine clock and the 26 MHz
+UniPro tick. Without the tick, DME_LINKSTARTUP never completes once the
+unused-clock pass has gated it.
+
+Add the compatible with the MT8183 fallback and its clock list, and keep
+the single-clock rule for the other non-MT8195 hosts.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/ufs/mediatek,ufs.yaml | 39 ++++++++++++++++---
+ 1 file changed, 34 insertions(+), 5 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml b/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml
+index 15c347f5..c655d9e7 100644
+--- a/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml
++++ b/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml
+@@ -12,10 +12,14 @@ maintainers:
+ 
+ properties:
+   compatible:
+-    enum:
+-      - mediatek,mt8183-ufshci
+-      - mediatek,mt8192-ufshci
+-      - mediatek,mt8195-ufshci
++    oneOf:
++      - enum:
++          - mediatek,mt8183-ufshci
++          - mediatek,mt8192-ufshci
++          - mediatek,mt8195-ufshci
++      - items:
++          - const: mediatek,mt6789-ufshci
++          - const: mediatek,mt8183-ufshci
+ 
+   clocks:
+     minItems: 1
+@@ -70,7 +74,32 @@ allOf:
+             - const: unipro_mp_bclk
+             - const: ufs_tx_symbol
+             - const: ufs_mem_sub
+-    else:
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: mediatek,mt6789-ufshci
++    then:
++      properties:
++        clocks:
++          minItems: 3
++          maxItems: 3
++        clock-names:
++          items:
++            - const: ufs
++            - const: ufs_aes
++            - const: unipro_tick
++
++  - if:
++      properties:
++        compatible:
++          not:
++            contains:
++              enum:
++                - mediatek,mt6789-ufshci
++                - mediatek,mt8195-ufshci
++    then:
+       properties:
+         clocks:
+           maxItems: 1
+-- 
+2.55.0
+

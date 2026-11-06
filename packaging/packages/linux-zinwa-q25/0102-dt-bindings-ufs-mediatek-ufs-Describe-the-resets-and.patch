@@ -1,0 +1,50 @@
+From 9575bf4e6bea0454c682f6710e38559d27c70c76 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:05:00 +0000
+Subject: [PATCH 102/105] dt-bindings: ufs: mediatek,ufs: Describe the resets
+ and the broken-VCC flag
+
+The driver takes the host, UniPro and crypto resets by the names
+hci_rst, unipro_rst and crypto_rst, and reads mediatek,ufs-broken-vcc
+to keep the device's VCC on. Neither is in the binding, so a node that
+uses them fails validation.
+
+Describe both.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ .../devicetree/bindings/ufs/mediatek,ufs.yaml    | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml b/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml
+index c655d9e7..fe496439 100644
+--- a/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml
++++ b/Documentation/devicetree/bindings/ufs/mediatek,ufs.yaml
+@@ -35,8 +35,24 @@ properties:
+   reg:
+     maxItems: 1
+ 
++  resets:
++    items:
++      - description: Host controller reset
++      - description: UniPro reset
++      - description: Inline crypto engine reset
++
++  reset-names:
++    items:
++      - const: hci_rst
++      - const: unipro_rst
++      - const: crypto_rst
++
+   vcc-supply: true
+ 
++  mediatek,ufs-broken-vcc:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description: The UFS device must not lose VCC, so keep the supply on.
++
+   mediatek,ufs-disable-mcq:
+     $ref: /schemas/types.yaml#/definitions/flag
+     description: The mask to disable MCQ (Multi-Circular Queue) for UFS host.
+-- 
+2.55.0
+

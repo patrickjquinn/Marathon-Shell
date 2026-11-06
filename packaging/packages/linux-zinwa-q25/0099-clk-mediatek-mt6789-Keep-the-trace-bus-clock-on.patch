@@ -1,0 +1,37 @@
+From 0b2c64319dccf80ab45c61a21cdacc5e0891ae15 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Tue, 3 Nov 2026 10:02:00 +0000
+Subject: [PATCH 099/105] clk: mediatek: mt6789: Keep the trace bus clock on
+
+atb_sel clocks the CoreSight trace bus (ATB). The stock MT6789 kernel
+enables it from its clock bring-up node and never gates it, and no
+mainline driver claims it, so the unused-clock pass would switch it off
+under the trace and debug logic that the firmware still drives.
+
+Mark it critical.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/clk/mediatek/clk-mt6789-topckgen.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt6789-topckgen.c b/drivers/clk/mediatek/clk-mt6789-topckgen.c
+index c561c6c6..2af83510 100644
+--- a/drivers/clk/mediatek/clk-mt6789-topckgen.c
++++ b/drivers/clk/mediatek/clk-mt6789-topckgen.c
+@@ -698,8 +698,10 @@ static const struct mtk_mux top_muxes[] = {
+ 			     0x94, 0x98 , 0 , 2 , 7 , 0x08 , 1 ),
+ 	MUX_GATE_CLR_SET_UPD(CLK_TOP_PWRAP_ULPOSC_SEL , "pwrap_ulposc_sel", pwrap_ulposc_parents ,
+ 			     0x90, 0x94, 0x98 , 8 , 3 , 15 , 0x08 , 2 ),
+-	MUX_GATE_CLR_SET_UPD(CLK_TOP_ATB_SEL , "atb_sel", atb_parents , 0x90, 0x94,
+-			     0x98 , 16 , 2 , 23 , 0x08 , 3 ),
++	/* The CoreSight trace bus; the stock kernel never gates it. */
++	MUX_GATE_CLR_SET_UPD_FLAGS(CLK_TOP_ATB_SEL, "atb_sel", atb_parents, 0x90, 0x94,
++				   0x98, 16, 2, 23, 0x08, 3,
++				   CLK_IS_CRITICAL | CLK_SET_RATE_PARENT),
+ 	MUX_CLR_SET_UPD(CLK_TOP_SSPM_SEL , "sspm_sel", sspm_parents , 0x90, 0x94,
+ 			     0x98 , 24 , 3 , 0x08 , 4 ),
+ 	/* CLK_CFG_9 */
+-- 
+2.55.0
+
