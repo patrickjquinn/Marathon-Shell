@@ -14,6 +14,7 @@ Type=oneshot
 RemainAfterExit=yes
 # An update installed before a power-off or power loss is tried at boot;
 # one installed this boot is armed at shutdown for the restart.
+ExecStart=-/usr/libexec/marathon/q25-root-install sync-boot --reboot
 ExecStart=-/usr/libexec/marathon/q25-root-install arm --reboot
 ExecStop=/usr/libexec/marathon/q25-root-install arm
 

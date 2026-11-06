@@ -358,9 +358,14 @@ inside userdata's nested GPT. Partition 2 of that GPT is the ext4 carrier,
 mounted at `/.q25-carrier/root`; the root is an ext4 image file on it,
 `/var/lib/marathon/images/<name>.ext4`, which the carrier initramfs
 loop-mounts as `/` from the entry's `q25.rootfs_file=`. `/home` is
-`home.luks` in the same directory and outlives every root. The kernel,
-initramfs and DTB on the ESP are the phone's own and never change in an
-update; U-Boot in `lk_a` follows the root ([U-Boot](#u-boot)). Ubuntu Touch on Android hardware kept its root the same way, as a
+`home.luks` in the same directory and outlives every root. Each root
+carries its own kernel, initramfs, DTB and command line: `arm` copies the new
+root's `/boot` to the ESP's `q25-boot/<name>` and boots its counted entry from
+there, and the fallback keeps the old root's. A root armed by an older
+`q25-root-install`, which copied the booted entry, starts once on the older
+kernel; its `sync-boot` (in `q25-root-arm.service`, before `arm`) then points
+that counted entry at its own files and restarts. U-Boot in `lk_a` follows
+the root ([U-Boot](#u-boot)). Ubuntu Touch on Android hardware kept its root the same way, as a
 `system.img` on userdata, and Android's Virtual A/B stages an update's
 copy-on-write images as files in `/data`.
 
@@ -640,11 +645,13 @@ on the host and rewriting it.
 - Zinwa Q25: nothing reboots a trial whose session never comes up
   (`q25-boot-check` fails and the entry stays unblessed); each restart by
   hand spends a try.
-- Zinwa Q25: an update keeps the ESP's kernel, initramfs and DTB, but the
-  root carries `linux-zinwa-q25`'s modules, and the kernel checks neither
-  module versions nor signatures. Publish a root over the air only if it
-  was built with the same `linux-zinwa-q25` package as the phones' ESP; a
-  new kernel needs a new install until `arm` installs a root's own `/boot`.
+- Zinwa Q25: an update from a root whose `q25-root-install` predates
+  `q25-boot` (1.0) boots the new root once on the old kernel, with the new
+  root's modules, until `sync-boot` restarts it on its own; drivers that
+  need a newer kernel's symbols fail to load for that one boot.
+- Zinwa Q25: `q25-boot` holds two kernels, the counted entry's and the
+  fallback's, about 30 MB each on a 236 MB ESP; `arm` refuses when it would
+  not fit.
 - Zinwa Q25: the state carried into a new root is a fixed list; state
   outside it written on the running root stays in that root.
 - Zinwa Q25: `q25-lk-update` writes `lk_a` only and nothing falls back to

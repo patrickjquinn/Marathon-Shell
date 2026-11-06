@@ -7,6 +7,7 @@
 #   q25-root-install [opts] install IMAGE.ext4 [SHA256]
 #   q25-root-install [opts] rollback NAME
 #   q25-root-install [opts] arm [--reboot]
+#   q25-root-install [opts] sync-boot [--reboot]
 #
 #   --dry-run     print what would change, change nothing
 #   --counted     boot-counted entry marathon-q25-b-NAME+3.conf, a fallback
@@ -24,8 +25,10 @@
 #
 # arm is the over-the-air path (docs/OTA.md): the newest root systemd-sysupdate
 # installed, IMAGE_ID_VARIANT_ID_VERSION_ID_<version>.ext4, gets this phone's
-# state and a --counted entry copied from the booted one. A version with an
-# entry already was tried, and is left alone. --reboot restarts into it.
+# state and a --counted entry. A root with its own /boot boots its kernel,
+# initramfs and DTB, copied to the ESP's q25-boot/NAME, and its command line;
+# otherwise the entry is a copy of the booted one. A version with an entry
+# already was tried, and is left alone. --reboot restarts into it.
 set -eu
 
 ESP=/boot
@@ -52,7 +55,7 @@ while [ $# -gt 0 ]; do
 	esac
 	shift
 done
-[ $# -ge 1 ] || die "usage: $0 [opts] install IMAGE [SHA256] | rollback NAME | arm [--reboot]"
+[ $# -ge 1 ] || die "usage: $0 [opts] install IMAGE [SHA256] | rollback NAME | arm [--reboot] | sync-boot [--reboot]"
 CMD=$1
 ENTRIES=$ESP/loader/entries
 LOADER=$ESP/loader/loader.conf
@@ -222,8 +225,46 @@ carry() {
 $CARRY
 END
 	sync -f "$mnt"
+	[ -n "$failed" ] || boot_files "$mnt" "$2" || failed="its boot files"
 	umount "$mnt"
 	[ -z "$failed" ] || die "cannot carry $failed into $1"
+}
+
+BOOT_REL=/q25-boot
+DTB=dtbs/mediatek/mt8781-zinwa-q25.dtb
+CMDLINE_CONF=usr/lib/kernel-cmdline.d/50-device-zinwa-q25.conf
+
+# The kernel, initramfs and DTB of the root mounted at $1, on the ESP as
+# q25-boot/$2; its command line in $new_cmdline. Nothing to do for a root
+# without them.
+boot_files() {
+	new_cmdline=
+	for f in boot/linux.efi boot/initramfs boot/$DTB $CMDLINE_CONF; do
+		[ -f "$1/$f" ] || return 0
+	done
+	dir=$ESP$BOOT_REL/$2
+	need=$(du -kc "$1/boot/linux.efi" "$1/boot/initramfs" "$1/boot/$DTB" | tail -n 1 | cut -f1)
+	free=$(df -k "$ESP" | awk 'NR == 2 { print $4 }')
+	[ "$free" -gt $((need + 1024)) ] || { say "ESP has $free KiB free, $need KiB needed"; return 1; }
+	rm -rf "$dir"
+	mkdir -p "$dir"
+	for f in linux.efi:boot/linux.efi initramfs:boot/initramfs q25.dtb:boot/$DTB; do
+		if ! { cp "$1/${f#*:}" "$dir/${f%%:*}" && cmp -s "$1/${f#*:}" "$dir/${f%%:*}"; }; then
+			rm -rf "$dir"
+			return 1
+		fi
+	done
+	new_cmdline=$(sed 's/#.*//' "$1/$CMDLINE_CONF" | words | tr '\n' ' ')
+}
+
+# q25-boot directories that no entry boots any more.
+prune_boot() {
+	for d in "$ESP$BOOT_REL"/*/; do
+		[ -d "$d" ] || continue
+		n=${d%/}
+		n=${n##*/}
+		grep -qs "$BOOT_REL/$n/" "$ENTRIES"/*.conf || { say "remove:   $d"; rm -rf -- "$d"; }
+	done
 }
 
 # The entry whose options are this boot's command line, less the initrd=
@@ -286,9 +327,17 @@ arm() {
 		exit 0
 	fi
 
-	carry "$CARRIER$IMAGES_REL/$name.ext4"
-	fallback_body=$(ours 0 < "$booted")
 	esp_rw
+	new_cmdline=
+	carry "$CARRIER$IMAGES_REL/$name.ext4" "$name"
+	if [ -n "$new_cmdline" ]; then
+		ids=$(sed -n 's/^options[[:space:]]//p' "$booted" | words | grep -E '^pmos_(boot|root)_uuid=' | tr '\n' ' ')
+		entry=$(printf 'title Marathon\nlinux %s\ninitrd %s\ndevicetree %s\noptions %s%sq25.rootfs_file=%s\n' \
+			"$BOOT_REL/$name/linux.efi" "$BOOT_REL/$name/initramfs" "$BOOT_REL/$name/q25.dtb" \
+			"$new_cmdline" "$ids" "$IMAGES_REL/$name.ext4" | ours "$newest")
+		say "boot:     $ESP$BOOT_REL/$name (the root's own kernel, initramfs and DTB)"
+	fi
+	fallback_body=$(ours 0 < "$booted")
 	[ -e "$LOADER.before-$name" ] || cp "$LOADER" "$LOADER.before-$name"
 	put "$fallback" "$fallback_body"
 	put "$ENTRIES/$new_file" "$entry"
@@ -298,9 +347,57 @@ arm() {
 		say "remove:   $f"
 		rm -- "$f"
 	done
+	prune_boot
 	sync -f "$ESP"
 	say "armed; loader.conf now:"
 	cat "$LOADER"
+	[ "${1:-}" != --reboot ] || systemctl --no-block reboot
+}
+
+# The booted entry boots this root's own kernel, initramfs, DTB and command
+# line: a root armed by an older one starts on the older root's kernel.
+# --reboot restarts into its own.
+sync_boot() {
+	booted=$(booted_entry)
+	# Only an update's counted entry; a test or hand-made entry boots what it names.
+	case ${booted##*/} in marathon-q25-b-*) ;; *) return 0 ;; esac
+	root_file=$(grep -o 'q25\.rootfs_file=[^ ]*' "$booted" | head -n 1)
+	name=${root_file##*/}
+	name=${name%.ext4}
+	[ -n "$name" ] || die "${booted##*/}: no q25.rootfs_file"
+	# The ESP is mounted over /boot; a bind mount of / shows the root's own.
+	self=$ROOT/run/q25-root-self
+	mkdir -p "$self"
+	mount --bind "$ROOT/" "$self" || die "cannot bind-mount $ROOT/"
+	trap 'umount "$self"' EXIT
+	[ -f "$self/$CMDLINE_CONF" ] || return 0
+	want=$(sed 's/#.*//' "$self/$CMDLINE_CONF" | words | tr '\n' ' ')
+	ids=$(sed -n 's/^options[[:space:]]//p' "$booted" | words | grep -E '^pmos_(boot|root)_uuid=' | tr '\n' ' ')
+	same=1
+	for f in linux:boot/linux.efi initrd:boot/initramfs devicetree:boot/$DTB; do
+		p=$(sed -n "s/^${f%%:*}[[:space:]]*//p" "$booted")
+		cmp -s "$self/${f#*:}" "$ESP$p" || same=
+	done
+	[ "$(sed -n 's/^options[[:space:]]//p' "$booted" | words)" = "$(echo "$want$ids$root_file" | words)" ] || same=
+	[ -z "$same" ] || return 0
+	say "sync:     ${booted##*/} boots another root's kernel; installing $name's own"
+	if [ "$DRY" = 1 ]; then
+		say "dry run; nothing changed"
+		exit 0
+	fi
+	trap 'umount "$self"; sync -f "$ESP"; [ "$REMOUNT" = 0 ] || mount -o remount,ro,nosuid,nodev,noexec "$ESP"' EXIT
+	[ "$REMOUNT" = 0 ] || mount -o remount,rw "$ESP"
+	boot_files "$self" "$name" || die "cannot install $name's boot files"
+	[ -n "$new_cmdline" ] || return 0
+	put "$booted" "$(awk -v l="$BOOT_REL/$name/linux.efi" -v i="$BOOT_REL/$name/initramfs" \
+		-v d="$BOOT_REL/$name/q25.dtb" -v o="$new_cmdline$ids$root_file" '
+		$1 == "linux" { print "linux " l; next }
+		$1 == "initrd" { print "initrd " i; next }
+		$1 == "devicetree" { print "devicetree " d; next }
+		$1 == "options" { print "options " o; next }
+		{ print }' "$booted")"
+	prune_boot
+	say "synced:   ${booted##*/} now boots $BOOT_REL/$name"
 	[ "${1:-}" != --reboot ] || systemctl --no-block reboot
 }
 
@@ -308,5 +405,6 @@ case $CMD in
 install) shift; [ $# -ge 1 ] || die "install needs IMAGE"; install_image "$@" ;;
 rollback) [ $# -ge 2 ] || die "rollback needs NAME"; rollback "$2" ;;
 arm) shift; arm "$@" ;;
+sync-boot) shift; sync_boot "$@" ;;
 *) die "unknown command $CMD" ;;
 esac
