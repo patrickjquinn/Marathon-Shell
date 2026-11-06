@@ -303,6 +303,20 @@ impl Network {
             {
                 log::warn("network", format_args!("iw power_save {state}: {e}"));
             }
+            // MediaTek's Android driver: in suspend mode its firmware filters
+            // broadcasts and answers ARP, as Android has it with the screen off.
+            let mode = if on {
+                "SETSUSPENDMODE 1"
+            } else {
+                "SETSUSPENDMODE 0"
+            };
+            if let Err(e) =
+                blocking::unblock(move || std::fs::write(WLAN_DRIVER_COMMANDS, mode)).await
+            {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    log::warn("network", format_args!("{mode}: {e}"));
+                }
+            }
         });
     }
 
@@ -706,6 +720,9 @@ const NM: &str = "org.freedesktop.NetworkManager";
 const ACTIVE: &str = "org.freedesktop.NetworkManager.Connection.Active";
 const ACCESS_POINT: &str = "org.freedesktop.NetworkManager.AccessPoint";
 const HOTSPOT_UUID: &str = "5f7c2a3e-8d1b-4c6e-9a0f-3b2d1e4c5a60";
+/// The command node of MediaTek's gen4m driver, given to netdev by the
+/// device's udev rules. Writes take no trailing newline.
+const WLAN_DRIVER_COMMANDS: &str = "/proc/net/wlan/driver";
 // Active connection states.
 const ACTIVATED: u32 = 2;
 const DEACTIVATED: u32 = 4;
