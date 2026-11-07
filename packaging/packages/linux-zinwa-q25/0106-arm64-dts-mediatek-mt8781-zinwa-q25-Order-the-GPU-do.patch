@@ -1,0 +1,47 @@
+From 8764ea35a06cbd182c7bee47a855d4c8d519f41d Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 7 Nov 2026 09:16:43 +0000
+Subject: [PATCH] arm64: dts: mediatek: mt8781-zinwa-q25: Order the GPU domain
+ supplies
+
+The GPU's SRAM rail has to come up before its logic rail and go down
+after it. MFG0 is the parent domain, so it takes vsram_gpu and MFG1
+takes vgpu, as on the MT8186 boards with the same MT6366 PMIC. The
+other way round, MFG1's power-off cut vsram_gpu under a live vgpu, and
+on power-on the MediaTek regulator coupler, which sets the SRAM voltage
+only when that rail is the first one up, left the rails at 900/1000 mV;
+the first GPU job after the domains came back never finished.
+
+The MT6789 Mali takes only the mali supply; drop its unused sram-supply.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index a3efba08..4627a4ee 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1412,16 +1412,15 @@
+  * vgpu / vsram_gpu rails are coupled (see the mt6366 regulators above).
+  * ------------------------------------------------------------------ */
+ &mfg0 {
+-	domain-supply = <&mt6366_vgpu_reg>;
++	domain-supply = <&mt6366_vsram_gpu_reg>;
+ };
+ 
+ &mfg1 {
+-	domain-supply = <&mt6366_vsram_gpu_reg>;
++	domain-supply = <&mt6366_vgpu_reg>;
+ };
+ 
+ &gpu {
+ 	mali-supply = <&mt6366_vgpu_reg>;
+-	sram-supply = <&mt6366_vsram_gpu_reg>;
+ 	status = "okay";
+ };
+ 
+-- 
+2.55.0
+

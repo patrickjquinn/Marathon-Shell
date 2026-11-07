@@ -2,13 +2,13 @@
 # selects the GPU session.
 pkgname=q25-gpu-render
 pkgver=7.0.0
-pkgrel=12
+pkgrel=13
 pkgdesc="Q25 accepted guarded Panfrost390MHz runtime-PM render path"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
 license="GPL-2.0-only AND MIT"
 options="!check !strip !tracedeps"
-depends="kmod linux-zinwa-q25>=7.0.0-r29 mesa=26.2.6-r100 mesa-dri-gallium=26.2.6-r100"
+depends="kmod linux-zinwa-q25>=7.0.0-r39 mesa=26.2.6-r100 mesa-dri-gallium=26.2.6-r100"
 install="$pkgname.post-install $pkgname.post-upgrade"
 source="q25-gpu-prepare q25-gpu-prepare.service 80-q25-gpu-prepare.conf
  q25-shell-session.gpu GPU-SHA256SUMS eglfs-kms.json 60-q25-display.rules
@@ -26,7 +26,7 @@ package() {
     install -Dm644 "$srcdir/GPU-SOURCE-PROVENANCE.json" "$pkgdir/usr/share/doc/$pkgname/GPU-SOURCE-PROVENANCE.json"
 }
 sha512sums="
-177e32bd66dcc1dfd65bd098b382c1a90b72bd806024b1c64dd0d9548618f9023eef5973da4eaa3e933e26ce5cfcfb2b9dede576a15ca2dce0a18c513c621dcc  q25-gpu-prepare
+fcde8b89877a4ebbaff46024df5a6497de34b9a83002da52540c33c61108282a25cca5f2c5b5ac402eaa93ca76dea03c0f6a057023606cef206a951367b1b3f0  q25-gpu-prepare
 e10c853645bc8f2af481b2936c0aad4e60e214460e685deae8a39fc96882da2927097eb07941fbf06909eb72bd95543c529bb431c61d378722770097d609ea8d  q25-gpu-prepare.service
 1e8c28c7b0353b3af4f8085d9e28064fa3e8eae8ebe93ea3db33c19fb6102de7a990343906846dbc13d833ad94153b396941e0585f378acec70554a691118152  80-q25-gpu-prepare.conf
 4143c72167c4ecc915f04c8c9ee870219602f35c60e1dbfb98034db4bd49ca43969aedf2cb75626132afac354996010b04064b30ff215094c4ee6a4618bef19b  q25-shell-session.gpu

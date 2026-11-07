@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=38
+pkgrel=39
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -163,6 +163,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0103-dt-bindings-phy-mediatek-ufs-phy-Add-MT6789.patch
 	0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
 	0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
+	0106-arm64-dts-mediatek-mt8781-zinwa-q25-Order-the-GPU-do.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -351,6 +352,7 @@ e82807f0e63dd30aea21fc1ae37744c7908edec9ae61fadcaa59ab35edbd11013cdfe0c2a7c0b2f2
 e7f3125fc6a7eea1b41a9f88016f531671542c67e4d5fc86a294e5330a188f018e24b5fcae0df7094d2d25c0bed9b8082182c556596d2232d433092222517ee7  0103-dt-bindings-phy-mediatek-ufs-phy-Add-MT6789.patch
 4826004e525a4d1c321af7cf30d3cef1613f2e2d0019e980ba66c2d2ad7cc2397f76b6719b6077e656f2adebada924fd16572a36eb8747a0a69331374fa0b4ab  0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
 9a8d7a06c462fc77aacb3f7c413b7c8711554e253b9c84c5881ed60881b1373a1d0b6f89aea2d61a929f71c28d94cce1daf7a5bfd0077c5e6f68c502a9daff62  0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
+bd1b22ca0671b9bef2b97b10b55146f9e9d0e0434dd634b390a111e36b4bf13319ec5b7d7de626f43eb87cc6bac001c2eafbbe9f9519befefda35cda32e3c8ed  0106-arm64-dts-mediatek-mt8781-zinwa-q25-Order-the-GPU-do.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

@@ -3,13 +3,13 @@
 pkgname=device-zinwa-q25
 pkgdesc="Zinwa Q25 Pro"
 pkgver=1
-pkgrel=8
+pkgrel=9
 url="https://github.com/patrickjquinn/Marathon-Shell"
 license="MIT"
 arch="aarch64"
 options="!check !archcheck"
 depends="
-	linux-zinwa-q25>=7.0.0-r38
+	linux-zinwa-q25>=7.0.0-r39
 	postmarketos-base
 	make-dynpart-mappings
 	systemd-boot
