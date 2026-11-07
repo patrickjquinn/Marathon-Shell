@@ -5,13 +5,19 @@
 //! to come up without Wi-Fi or a SIM; nothing here waits on it on the GUI
 //! thread. With location off, as GNOME Shell does, the agent's maximum
 //! accuracy is none, so `GeoClue` serves no client at all.
+//!
+//! On its own the shell takes one city-level fix an hour, for the time zone,
+//! which needs no satellites. Exact fixes, and so GNSS, run only while an app
+//! holds a `Start`, until it calls `Stop` or leaves the bus.
 
 use crate::i18n::fl;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use async_channel::{Receiver, Sender};
+use async_io::Timer;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
 use futures_lite::{stream, StreamExt};
@@ -54,10 +60,6 @@ pub mod qobject {
 
         #[cxx_name = "setEnabled"]
         fn set_enabled(self: Pin<&mut Location>, enabled: bool);
-        #[qinvokable]
-        fn start(self: &Location);
-        #[qinvokable]
-        fn stop(self: &Location);
     }
 
     impl cxx_qt::Threading for Location {}
@@ -77,7 +79,7 @@ pub struct LocationRust {
     speed: f64,
     heading: f64,
     timestamp: i64,
-    actor: Option<Sender<bool>>,
+    actor: Option<Sender<Ask>>,
 }
 
 impl Default for LocationRust {
@@ -116,7 +118,7 @@ impl cxx_qt::Initialize for Location {
     fn initialize(mut self: Pin<&mut Self>) {
         let (tx, rx) = async_channel::bounded(8);
         io::spawn(run(self.qt_thread(), rx));
-        self.as_mut().rust_mut().actor = Some(tx);
+        self.as_mut().rust_mut().actor = Some(tx.clone());
         self.as_mut()
             .on_location_changed(|obj| ipc::signal("Location", "LocationChanged", (fix(&obj),)))
             .release();
@@ -127,6 +129,7 @@ impl cxx_qt::Initialize for Location {
             "Location",
             Location1 {
                 qt: self.qt_thread(),
+                actor: tx,
             },
         );
     }
@@ -146,6 +149,25 @@ fn fix(location: &Location) -> State {
 
 struct Location1 {
     qt: cxx_qt::CxxQtThread<Location>,
+    actor: Sender<Ask>,
+}
+
+impl Location1 {
+    async fn tell(&self, h: &Header<'_>, hold: bool) -> fdo::Result<()> {
+        let sender = h
+            .sender()
+            .ok_or_else(|| fdo::Error::AccessDenied("Unknown caller".into()))?
+            .to_string();
+        let ask = if hold {
+            Ask::Hold(sender)
+        } else {
+            Ask::Release(sender)
+        };
+        self.actor
+            .send(ask)
+            .await
+            .map_err(|_stopping| fdo::Error::Failed("the shell is stopping".into()))
+    }
 }
 
 #[zbus::interface(name = "org.marathonos.Shell.Location1")]
@@ -165,12 +187,12 @@ impl Location1 {
         if !ENABLED.load(Ordering::Relaxed) {
             return Err(fdo::Error::AccessDenied("Location is off".to_owned()));
         }
-        ipc::on_gui(&self.qt, |obj| obj.start()).await
+        self.tell(&h, true).await
     }
 
     async fn stop(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<()> {
         ipc::admit(&h, "Location", &["location"]).await?;
-        ipc::on_gui(&self.qt, |obj| obj.stop()).await
+        self.tell(&h, false).await
     }
 
     async fn get_location(&self, #[zbus(header)] h: Header<'_>) -> fdo::Result<State> {
@@ -184,7 +206,7 @@ impl Location {
         set!(self, enabled, enabled_changed, enabled);
         ENABLED.store(enabled, Ordering::Relaxed);
         if let Some(actor) = &self.actor {
-            actor.try_send(enabled).ok();
+            actor.try_send(Ask::Enabled(enabled)).ok();
         }
         io::spawn(async {
             let Ok(bus) = io::system_bus().await else {
@@ -202,21 +224,6 @@ impl Location {
                 log::warn("location", format_args!("MaxAccuracyLevel: {e}"));
             }
         });
-    }
-
-    fn start(&self) {
-        if !self.enabled {
-            return;
-        }
-        if let Some(actor) = &self.actor {
-            actor.try_send(true).ok();
-        }
-    }
-
-    fn stop(&self) {
-        if let Some(actor) = &self.actor {
-            actor.try_send(false).ok();
-        }
     }
 
     fn apply(mut self: Pin<&mut Self>, fix: Fix) {
@@ -259,7 +266,11 @@ impl Fix {
 
 const GEOCLUE: &str = "org.freedesktop.GeoClue2";
 const AGENT: &str = "/org/freedesktop/GeoClue2/Agent";
+const CITY: u32 = 4;
 const EXACT: u32 = 8;
+/// How often the shell takes its own fix, and how long it waits for one.
+const RELOCATE: Duration = Duration::from_hours(1);
+const GIVE_UP: Duration = Duration::from_mins(2);
 /// `GeoClue`'s apps that locate without asking: the shell, weatherd, the
 /// portal (which asks the user itself) and deckardd (Android asks per app).
 const SYSTEM: [&str; 4] = [
@@ -304,18 +315,29 @@ trait Client {
 
 type Qt = cxx_qt::CxxQtThread<Location>;
 
+/// What the actor is told.
+enum Ask {
+    Enabled(bool),
+    /// An app, by its bus name, wants exact fixes.
+    Hold(String),
+    Release(String),
+}
+
 enum Event {
-    Wanted(bool),
+    Ask(Ask),
     Closed,
     Restarted(bool),
     Updated(OwnedObjectPath),
+    Left(String),
+    Relocate,
+    GiveUp(u32),
 }
 
 #[allow(
     clippy::too_many_lines,
     reason = "the GeoClue connection and event-loop state belong to one actor task"
 )]
-async fn run(qt: Qt, wanted: Receiver<bool>) {
+async fn run(qt: Qt, asks: Receiver<Ask>) {
     let bus = match io::system_bus().await {
         Ok(bus) => bus,
         Err(e) => return log::warn("location", format_args!("no system bus: {e}")),
@@ -353,35 +375,84 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
             .boxed(),
         Err(_) => stream::empty().boxed(),
     };
+    let session = match io::session_bus().await {
+        Ok(session) => DBusProxy::new(&session).await.ok(),
+        Err(_) => None,
+    };
+    let left = match &session {
+        Some(session) => match session.receive_name_owner_changed().await {
+            Ok(s) => s
+                .filter_map(|s| {
+                    let args = s.args().ok()?;
+                    let name = args.name().to_string();
+                    (args.new_owner().is_none() && name.starts_with(':'))
+                        .then_some(Event::Left(name))
+                })
+                .boxed(),
+            Err(_) => stream::empty().boxed(),
+        },
+        None => stream::empty().boxed(),
+    };
     let (new_fixes, fixes) = async_channel::bounded(8);
-    // The shell locates from the start, unless location is off, until
-    // something stops it.
-    let events = stream::once(Event::Wanted(ENABLED.load(Ordering::Relaxed)))
-        .chain(wanted.map(Event::Wanted))
+    let (give_up, rounds_over) = async_channel::bounded(1);
+    let events = stream::once(Event::Relocate)
+        .chain(asks.map(Event::Ask))
         .chain(stream::once(Event::Closed))
         .or(owners)
-        .or(fixes.map(Event::Updated));
+        .or(left)
+        .or(fixes.map(Event::Updated))
+        .or(Timer::interval(RELOCATE).map(|_| Event::Relocate))
+        .or(rounds_over.map(Event::GiveUp));
     let mut events = std::pin::pin!(events);
-    let (mut want, mut active) = (false, false);
+    let mut holders = HashSet::new();
+    // The shell's own fix, while it waits for one.
+    let (mut own, mut rounds) = (None, 0u32);
+    let mut level = 0;
     let mut client: Option<ClientProxy<'static>> = None;
     while let Some(event) = events.next().await {
         match event {
             Event::Closed => break,
-            Event::Wanted(on) => want = on,
+            Event::Relocate | Event::Ask(Ask::Enabled(true)) => {
+                relocate(&mut own, &mut rounds, &give_up);
+            }
+            Event::Ask(Ask::Enabled(false)) => {}
+            Event::GiveUp(round) => {
+                if own == Some(round) {
+                    own = None;
+                }
+            }
+            Event::Ask(Ask::Hold(name)) => {
+                holders.insert(name);
+            }
+            Event::Ask(Ask::Release(name)) | Event::Left(name) => {
+                holders.remove(&name);
+            }
             Event::Restarted(true) => agent = add_agent(&bus).await,
             Event::Restarted(false) => {
                 agent = false;
                 client = None;
-                active = false;
+                level = 0;
             }
             Event::Updated(path) => {
                 let props = properties(&bus, &path).await;
                 let fix = Fix::from_properties(&props);
                 qt.queue(move |obj| obj.apply(fix)).ok();
-                continue;
+                own = None;
             }
         }
-        if want && client.is_none() {
+        let wanted = if !ENABLED.load(Ordering::Relaxed) {
+            0
+        } else if !holders.is_empty() {
+            EXACT
+        } else if own.is_some() {
+            CITY
+        } else {
+            0
+        };
+        if wanted == level {
+            continue;
+        }
+        if wanted > 0 && client.is_none() {
             // GeoClue answers no GetClient of ours until our agent is in, and
             // this loop is what registers it.
             if !agent {
@@ -394,31 +465,45 @@ async fn run(qt: Qt, wanted: Receiver<bool>) {
             }
         }
         let Some(c) = &client else { continue };
-        if want != active {
-            let result = if want {
+        if level > 0 {
+            match c.stop().await {
+                Ok(()) => level = 0,
+                Err(e) => log::warn("location", format_args!("stop: {e}")),
+            }
+        }
+        if wanted > 0 && level == 0 {
+            let started = async {
+                c.set_requested_accuracy_level(wanted).await?;
                 c.start().await
-            } else {
-                c.stop().await
             };
-            match result {
-                Ok(()) => active = want,
+            match started.await {
+                Ok(()) => level = wanted,
                 Err(e) => {
-                    log::warn(
-                        "location",
-                        format_args!("{}: {e}", if want { "start" } else { "stop" }),
-                    );
-                    if want {
-                        qt.queue(|obj| {
-                            obj.error(&QString::from(fl!("location-start-failed")));
-                        })
+                    log::warn("location", format_args!("start: {e}"));
+                    qt.queue(|obj| obj.error(&QString::from(fl!("location-start-failed"))))
                         .ok();
-                    }
                 }
             }
         }
+        let active = level > 0;
         qt.queue(move |mut obj| set!(obj, active, active_changed, active))
             .ok();
     }
+}
+
+/// Starts a round of the shell's own fix, given up after `GIVE_UP`.
+fn relocate(own: &mut Option<u32>, rounds: &mut u32, give_up: &Sender<u32>) {
+    if own.is_some() || !ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
+    *rounds = rounds.wrapping_add(1);
+    let round = *rounds;
+    *own = Some(round);
+    let give_up = give_up.clone();
+    io::spawn(async move {
+        Timer::after(GIVE_UP).await;
+        give_up.send(round).await.ok();
+    });
 }
 
 async fn add_agent(bus: &zbus::Connection) -> bool {
@@ -447,7 +532,6 @@ async fn new_client(
             .build()
             .await?;
         client.set_desktop_id("org.marathon.Shell").await?;
-        client.set_requested_accuracy_level(EXACT).await?;
         let mut fixes = client.receive_location_updated().await?;
         let updates = updates.clone();
         io::spawn(async move {
