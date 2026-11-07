@@ -13,7 +13,7 @@
 # stay the installed ones.
 #
 # Env: KDEV (default ~/q25-build/kdev), Q25_HOST, SSHPASS (user's password;
-# also used for sudo), CCACHE_DIR.
+# also used for sudo), CCACHE_DIR, KDEV_CMDLINE (extra options for the boot).
 set -eu
 KDEV=${KDEV:-$HOME/q25-build/kdev}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
@@ -83,6 +83,7 @@ deploy)
 	sed -e 's#^title .*#title Kernel dev build#' -e 's#^linux .*#linux /q25-oneshot/kdev.efi#' \
 		-e 's#^initrd .*#initrd /q25-oneshot/kdev-initramfs#' \
 		-e 's#^devicetree .*#devicetree /q25-oneshot/kdev.dtb#' -e '/^sort-key/d' -e '/^version/d' \
+		-e "s#^options .*#& ${KDEV_CMDLINE:-}#" \
 		"$stage/installed.conf" > "$stage/q25test-kdev.conf"
 	python3 -c "import sys; open(sys.argv[1],'wb').write('q25test-kdev.conf\0'.encode('utf-16-le'))" "$stage/entry-kdev.utf16"
 	cat > "$stage/env.txt" <<-'EOF'
