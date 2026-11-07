@@ -14,6 +14,9 @@ QtObject {
         starts++;
     }
 
+    function stop() {
+    }
+
     function moveTo(lat, lon) {
         latitude = lat;
         longitude = lon;

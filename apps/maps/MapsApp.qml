@@ -81,6 +81,9 @@ ApplicationWindow {
     property var lifecycle: typeof Lifecycle !== "undefined" ? Lifecycle : null
     property bool hasLocationPermission: permissions !== null && permissions.hasPermission(appId, "location")
     property var _pendingLocation: null
+    // Exact fixes run GNSS: hold them only while Maps is in front or navigating.
+    property bool _locating: false
+    readonly property bool _holdsLocation: _locating && (Qt.application.state === Qt.ApplicationActive || routingMode === "active")
     property int _navTask: 0
     // How long a finished route stays up before navigation ends itself.
     property int arrivalLinger: 60000
@@ -201,6 +204,12 @@ ApplicationWindow {
         permissions.requestPermission(appId, "location");
     }
 
+    function startLocating() {
+        if (_holdsLocation && location)
+            location.start();
+        _locating = true;
+    }
+
     function locateMe() {
         requireLocation(() => {
             if (fixValid) {
@@ -208,8 +217,7 @@ ApplicationWindow {
                 return;
             }
             Notices.show(qsTr("Finding your location. If it doesn't appear, check that location is turned on."));
-            if (location)
-                location.start();
+            root.startLocating();
         });
     }
 
@@ -240,8 +248,7 @@ ApplicationWindow {
                 routeFrom(fix.lat, fix.lon);
                 return;
             }
-            if (location)
-                location.start();
+            root.startLocating();
             _askForStart();
         });
     }
@@ -406,6 +413,14 @@ ApplicationWindow {
     }
 
     appId: "maps"
+    on_HoldsLocationChanged: {
+        if (!location)
+            return;
+        if (_holdsLocation)
+            location.start();
+        else
+            location.stop();
+    }
     onRoutingModeChanged: {
         if (!lifecycle)
             return;
@@ -426,8 +441,7 @@ ApplicationWindow {
             if (grantedAppId !== root.appId || permission !== "location")
                 return;
             root.hasLocationPermission = true;
-            if (root.location)
-                root.location.start();
+            root.startLocating();
             const callback = root._pendingLocation;
             root._pendingLocation = null;
             if (callback)
