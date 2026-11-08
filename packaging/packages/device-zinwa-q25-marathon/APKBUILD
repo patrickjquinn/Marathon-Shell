@@ -1,7 +1,7 @@
 # Q25 session/profile policy; kernel, firmware and image layout are separate.
 pkgname=device-zinwa-q25-marathon
 pkgver=1.0.0
-pkgrel=55
+pkgrel=56
 pkgdesc="Zinwa Q25 Marathon session, UI profile and hardware services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -23,7 +23,7 @@ source="device-profile.conf q25-shell-session q25-shell-session.software greetd-
  q25-usb-gadget q25-usb-gadget.service q25-root-dio.service q25-root-grow q25-root-grow.service
  q25-home-crypt q25-home-crypt.service
  q25-platform-prepare q25-platform-prepare.service q25-carrier-root
- q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service q25-lk-update q25-lk-update.service
+ q25-zram-swap.service q25-logind.conf q25-hardening.sysctl q25-power.sysctl q25-firewall.nft q25-firewall.service q25-esp-readonly.service q25-boot-check.service q25-boot-bless.service q25-boot-bless q25-root-install q25-root-arm.service q25-lk-update q25-lk-update.service
  q25.xkb-symbols q25-keyboard-layout.env q25-vconsole.conf q25-plymouth-keyboard.conf q25-plymouth.files q25-plymouth-newroot.hook
  q25-splash-handover q25-splash-handover.service q25-splash-greetd.conf q25-splash-plymouth-quit.conf q25-splash-plymouth-quit-wait.conf q25-splash-plymouth-start.conf
  q25-usb-recovery.nm.conf 90-q25-recovery-console.rules
@@ -40,6 +40,7 @@ package() {
     install -Dm644 "$srcdir/50-q25-session.conf" "$pkgdir/usr/lib/systemd/system/greetd.service.d/50-q25-session.conf"
     install -Dm644 "$srcdir/q25-logind.conf" "$pkgdir/usr/lib/systemd/logind.conf.d/50-q25.conf"
     install -Dm644 "$srcdir/q25-hardening.sysctl" "$pkgdir/usr/lib/sysctl.d/60-q25-hardening.conf"
+    install -Dm644 "$srcdir/q25-power.sysctl" "$pkgdir/usr/lib/sysctl.d/60-q25-power.conf"
     install -Dm644 "$srcdir/q25-firewall.nft" "$pkgdir/usr/share/marathon/q25-firewall.nft"
     install -Dm644 "$srcdir/q25-firewall.service" "$pkgdir/usr/lib/systemd/system/q25-firewall.service"
     install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
@@ -236,6 +237,7 @@ c95e3e6281e0a842a1102b617e8cbe9be4a44be91193190bc9565fd2b064c2a52fb494b1d72ae4f2
 99e1359ac17cf5a8e7758222314e5c6f2d6e0c8125972e038b1188c392fd9c3a0d9d1d8d1cb49b435e2497af4fa057ef826ef5c939d5ed743a6e36a2df020348  q25-zram-swap.service
 534514fdb7bd279b2d697d3d9b6aa65bd9994746c13191d15010949d0fe3443cb6c5cad2700f57279953d69e4add69436e782d5d975e06c100d2485a381978dd  q25-logind.conf
 b4050a65776b94ad632fa843bdfcb053963b071590c45f6ec9c288062a9be7bf8833f326be50ca41bf5ee02f2308343a80264dff191fc7f736ae3c657277f53a  q25-hardening.sysctl
+3121f0278c66b8a4f998c3842d7607ad0752f3513947a11b7eb2672e857aa315468db8cf1eb5cd965c9228ce0e3b4fec7f91b048aa8b341f112a2094c89c3f1d  q25-power.sysctl
 dae9ea8b380d96f6f83ae007fc1c540eab138f99d816351d0311e154e440cfc9d6c01e0295f54ae987a02105f95b48aec741fb6455b0c355d5d8eb4d6f5596ce  q25-firewall.nft
 d6b9f2b43214e41ad32dded769b0855d9bc8875ce1ad03061b7cf9e3ef9e3578e241a83b202387c1b9394042d49374ef9ba0676a1b6404dc754950c31f58feda  q25-firewall.service
 ac6802cd8209d3890212f3402777bf3756decb9a1154f5934917611c36512d9136d2bd3eb61852891aedc72de91333e6f515674c6fcedb3186f3616c07facca3  q25-esp-readonly.service

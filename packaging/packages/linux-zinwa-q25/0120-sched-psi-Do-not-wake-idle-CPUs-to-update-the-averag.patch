@@ -1,0 +1,32 @@
+From 5d9a999e0bc292b386f7e69d89376061d7523151 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 17:20:09 +0000
+Subject: [PATCH] sched/psi: Do not wake idle CPUs to update the averages
+
+psi_avgs_work runs every two seconds for each group with activity, and
+on a system with many cgroups that is many timer wakeups a second for
+an otherwise idle machine: on a phone running an Android container,
+17 a second with the screen off. Run it as deferrable work, so the
+averages, and the triggers they feed, update when a CPU is awake.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ kernel/sched/psi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/sched/psi.c b/kernel/sched/psi.c
+index d9c9d9480..6b11c0442 100644
+--- a/kernel/sched/psi.c
++++ b/kernel/sched/psi.c
+@@ -212,7 +212,7 @@ static void group_init(struct psi_group *group)
+ 	/* Init avg trigger-related members */
+ 	INIT_LIST_HEAD(&group->avg_triggers);
+ 	memset(group->avg_nr_triggers, 0, sizeof(group->avg_nr_triggers));
+-	INIT_DELAYED_WORK(&group->avgs_work, psi_avgs_work);
++	INIT_DEFERRABLE_WORK(&group->avgs_work, psi_avgs_work);
+ 
+ 	/* Init rtpoll trigger-related members */
+ 	atomic_set(&group->rtpoll_scheduled, 0);
+-- 
+2.55.0
+

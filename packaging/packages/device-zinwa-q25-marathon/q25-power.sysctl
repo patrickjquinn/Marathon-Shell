@@ -1,0 +1,2 @@
+# Fewer idle wakeups: the per-CPU VM statistics every 10 s, not every 1 s.
+vm.stat_interval = 10

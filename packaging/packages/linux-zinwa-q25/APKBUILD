@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=41
+pkgrel=42
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -177,6 +177,7 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0117-spi-mt65xx-Unprepare-the-clock-between-transfers-on-.patch
 	0118-arm64-dts-mediatek-mt6789-Bring-up-the-display-s-reg.patch
 	0119-arm64-dts-mediatek-mt8781-zinwa-q25-Take-I2C-from-MA.patch
+	0120-sched-psi-Do-not-wake-idle-CPUs-to-update-the-averag.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -379,6 +380,7 @@ d736335ca4252f52034e820b818d1c4c89e1f1458f4f01b6936bd9c00788b375d8b63dfb3d87ed5b
 328c1f317d0235802eb64794589e7909f70d1d6831eb6c5abf6e9958d207656ef6f96acb6db2bce2646cb4a3028475d37f001c2729a59b3dc007eda023f9c10e  0117-spi-mt65xx-Unprepare-the-clock-between-transfers-on-.patch
 6e872663efd87c0047745bd09be78096d7ae760571466e200c37800a3c192464b8c01f35cfa25c35f46e283ac007d9e9762bbef8a094d9c21920b2152b6adf0c  0118-arm64-dts-mediatek-mt6789-Bring-up-the-display-s-reg.patch
 468c1e4ed916d8d2899037bd0381a63e48cf981282fc8892c17d50870708431f6787d92757d9c185980a6045189a9fbce6d538c89435477361baf0379d1b3aac  0119-arm64-dts-mediatek-mt8781-zinwa-q25-Take-I2C-from-MA.patch
+a619e92848a54652eabe741dba2e32fadaa359168bf3688ccfa6c6981bcb6deac3447fe0a8827e75da663f37b4efe6890b284f49716af08837104d59e312ed32  0120-sched-psi-Do-not-wake-idle-CPUs-to-update-the-averag.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h
