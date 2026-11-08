@@ -1,0 +1,5 @@
+blocking 1.7.0 from crates.io with one change: an idle worker exits after
+its 500 ms timeout with nothing queued. Upstream joins that test to "the
+pool is over its thread limit" with &&, so an idle worker never exits and
+wakes the CPU twice a second for good. Drop this copy, and the
+[patch.crates-io] entry in ../../Cargo.toml, once a fixed release is out.

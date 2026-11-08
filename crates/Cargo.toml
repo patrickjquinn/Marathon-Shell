@@ -66,3 +66,7 @@ inherits = "release"
 lto = false
 codegen-units = 16
 incremental = true
+
+[patch.crates-io]
+# blocking 1.7.0 with idle workers that exit (vendor/blocking/README.marathon).
+blocking = { path = "vendor/blocking" }
