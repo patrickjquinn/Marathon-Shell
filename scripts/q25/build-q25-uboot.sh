@@ -31,6 +31,13 @@ f610a2b8ce2072369ddeb8d9475f8b27ac294ec1a13b0ca8b4fb4a6587552503 cross-binutils/
 SOURCE_DATE_EPOCH=1793725879
 UBOOT_SHA256=cc0f5e5258aa5dbb22d5b81a419e82e60f10ed289f21a15891459cd3f29200ba
 
+# The build is pinned to that binary: one already there is it.
+if [ -f "$OUT/src/gimme-uboot.py" ] &&
+    echo "$UBOOT_SHA256  $OUT/u-boot-q25.bin" | sha256sum -c --quiet 2> /dev/null; then
+    echo "==> $OUT/u-boot-q25.bin (already built)"
+    exit 0
+fi
+
 mkdir -p "$OUT/toolchain"
 echo "$RPMS" | while read -r sha path; do
     [ -n "$path" ] || continue

@@ -27,6 +27,7 @@
 #                             q25-connsys-firmware aport when it is missing
 #                             there
 #   MARATHON_BUILD_DIR        as for scripts/build-image.sh
+#   Q25_NO_USERDATA           skip the userdata (fresh install) image
 #   PODMAN                    for the U-Boot build, and the userdata image
 #                             where the host has e2fsprogs 1.47.3 (default podman)
 set -euo pipefail
@@ -40,6 +41,35 @@ for f in $(set +u; . "$FW_APORT/APKBUILD"; echo "${source:-}"); do
 done
 
 DEST="${Q25_IMAGE_OUT:-${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/q25}"
+
+# Fail now, not an hour in: the space each part needs (GiB), summed by the
+# filesystem it lands on. mkosi's output holds the base and dev-tools trees,
+# its workspace the root tree and the raw image; $DEST the root, the
+# userdata image and both compressed.
+check_space() {
+    local -A want=() dirs=()
+    local dir gib fs avail fail=
+    while read -r dir gib; do
+        mkdir -p "$dir"
+        fs=$(df --output=target "$dir" | tail -1)
+        want[$fs]=$((${want[$fs]:-0} + gib))
+        dirs[$fs]="${dirs[$fs]:-} $dir"
+    done
+    for fs in "${!want[@]}"; do
+        avail=$(df --output=avail -BG "$fs" | tail -1 | tr -dc 0-9)
+        if [ "$avail" -lt "${want[$fs]}" ]; then
+            echo "error: $fs has ${avail} GiB free; the build needs ${want[$fs]} GiB there:${dirs[$fs]}" >&2
+            fail=1
+        fi
+    done
+    [ -z "$fail" ]
+}
+check_space << SPACE
+${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output 5
+${XDG_CACHE_HOME:-$HOME/.cache}/mkosi 8
+$DEST $([ -n "${Q25_NO_USERDATA:-}" ] && echo 5 || echo 11)
+SPACE
+
 bash "$SCRIPT_DIR/q25/build-q25-uboot.sh" "$DEST/u-boot"
 
 bash "$SCRIPT_DIR/build-image.sh" zinwa-q25 "$@"
@@ -73,6 +103,13 @@ zstd -T0 -10 -f "$DEST/$NAME.ext4" -o "$DEST/$NAME.ext4.zst"
 FEED=zinwa-q25_marathon_edge/zinwa-q25_marathon_edge_$VERSION.ext4
 mkdir -p "$DEST/$(dirname "$FEED")"
 ln -f "$DEST/$NAME.ext4" "$DEST/$FEED"
+if [ -n "${Q25_NO_USERDATA:-}" ]; then
+    cp "$DEST/u-boot/u-boot-q25.bin" "$DEST/u-boot/src/gimme-uboot.py" "$DEST/"
+    (cd "$DEST" && sha256sum "$NAME.ext4" "$NAME.ext4.zst" u-boot-q25.bin gimme-uboot.py > "$NAME.SHA256SUMS")
+    echo "==> for the update feed: $DEST/$FEED (no userdata image: Q25_NO_USERDATA)"
+    cat "$DEST/$NAME.SHA256SUMS"
+    exit 0
+fi
 # The carrier holds the root by its feed name, so sysupdate counts it as
 # installed and does not offer the same version as an update.
 # e2fsprogs 1.47.3 cannot copy the root into the carrier; Alpine's can.
