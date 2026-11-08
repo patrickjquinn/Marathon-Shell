@@ -23,7 +23,7 @@ import tomllib
 from pathlib import Path
 
 # golden/: generators' expected output, compared as text, not run.
-PRUNE = {"third-party", "thirdparty", "target", "node_modules", "golden"}
+PRUNE = {"third-party", "thirdparty", "vendor", "target", "node_modules", "golden"}
 QTEST_MAIN = re.compile(r"\b(QTEST_(GUILESS_|APPLESS_)?MAIN|QUICK_TEST_MAIN(_WITH_SETUP)?)\s*\(")
 RUST_TEST = re.compile(r"#\[(\w+::)?test\]")
 QML_SKIPPED_FN = re.compile(r"\bfunction\s+(test(?!_)\w*)\s*\(")
