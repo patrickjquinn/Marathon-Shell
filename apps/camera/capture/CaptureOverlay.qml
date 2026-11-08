@@ -173,6 +173,7 @@ SettingsOverlay {
     shutter: CameraButton {
         id: captureButton
 
+        objectName: "shutter"
         property bool canStopVideo: startRecordTimer.running || camera.videoRecorder.recorderState == CameraRecorder.RecordingState
 
         z: settingsOverlay.inButtonLayout ? 1 : 0

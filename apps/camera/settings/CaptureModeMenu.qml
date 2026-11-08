@@ -17,6 +17,7 @@ ExpandingMenu {
     // overlay's instance hides it (SettingsOverlay.qml).
     model: ["image", "video"]
     delegate: ExpandingMenuItem {
+        objectName: modelData + "Mode"
         settings: Settings.global
         property: "captureMode"
         value: modelData

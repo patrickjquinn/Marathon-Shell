@@ -326,6 +326,7 @@ PinchArea {
     }
 
     ToggleButton {
+        objectName: "cameraSwitch"
         parent: _overlayPosition.cameraPosition
         anchors.centerIn: parent
         icon: "image://theme/icon-camera-switch"

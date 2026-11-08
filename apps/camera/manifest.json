@@ -19,5 +19,6 @@
   "searchKeywords": ["camera", "photo", "video", "capture", "picture"],
   "deepLinks": {},
   "backgroundCapabilities": ["recording"],
+  "testedOn": { "widths": [540, 720], "inputModes": ["touch"] },
   "dataLifecycle": { "appData": "remove", "cache": "remove", "userFiles": "preserve" }
 }
