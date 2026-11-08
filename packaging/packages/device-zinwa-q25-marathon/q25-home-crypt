@@ -31,6 +31,9 @@ has_keyboard() {
 }
 
 unlock() {
+	# Already open: a failed attempt left it, or the initramfs debug shell
+	# opened it over USB for an unattended test boot.
+	cryptsetup status "$name" > /dev/null 2>&1 && return 0
 	echo | $open 2> /dev/null && return 0
 	# The keyboard's module may still be probing.
 	n=0
