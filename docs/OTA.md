@@ -227,8 +227,8 @@ Limits:
 
 - An asset must be under 2 GiB; `marathon-ota --github` refuses a larger one.
   The Pi's root slot was 778 MB and its boot slot 103 MB compressed
-  (26102001). No Q25 root has been published yet: its `.ext4.zst` is
-  checked at publish time, and one over the limit needs a smaller root or
+  (26102001); the Q25's root is about 1.8 GB (1.82 GB for 26103101). Each
+  `.ext4.zst` is checked at publish time, and one over the limit needs a smaller root or
   stronger compression (`zstd -19 --long=27`, which systemd-pull's default
   128 MiB window still reads), since sysupdate cannot join split files.
 - Replacing an asset is not atomic, and downloads lag a replaced asset by

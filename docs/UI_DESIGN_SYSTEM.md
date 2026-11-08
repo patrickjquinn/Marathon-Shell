@@ -297,8 +297,9 @@ for system navigation**. Its semantic surface area:
 |---|---|
 | Tap | (nothing — it's a status affordance, not a button) |
 | Touch and hold (still, ~0.55 s) | Ask Pilot, when installed: the pill lights, the screen's edges glow, Pilot's overlay comes up over the app |
-| Short swipe up | Minimize app / dismiss keyboard / dismiss search |
-| Long swipe up | Go home (app → app switcher → home) |
+| Short swipe up | Dismiss keyboard, else go home (out of an app or settings) |
+| Long swipe up | Dismiss keyboard, else Active Frames (an open app minimizes onto its card) |
+| Pull down | Quick settings |
 | Long-press in left zone (< 15% from left) | Toggle search |
 | Long-press in right zone (> 85%) | Toggle keyboard |
 | Swipe left (in app) | **Back** — pop a subview, or background the app if at root |
