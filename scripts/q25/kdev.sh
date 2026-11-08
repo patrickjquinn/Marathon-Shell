@@ -63,7 +63,10 @@ deploy)
 	export SUDO_PW="$SSHPASS"
 	stage=$KDEV/stage
 	rm -rf "$stage" && mkdir -p "$stage/root"
-	entry=$(sudo_ 'ls /boot/loader/entries/marathon-q25-b-*.conf /boot/loader/entries/marathon-q25-*.conf 2>/dev/null | head -1')
+	# The entry the phone boots by default: the newest updated root (b-), else
+	# the newest installed one; never the fallback.
+	entry=$(sudo_ 'cd /boot/loader/entries; ls -1 marathon-q25-b-*.conf 2>/dev/null | sort -V | tail -1; ls -1 marathon-q25-zinwa-*.conf 2>/dev/null | sort -V | tail -1' | head -1)
+	entry=/boot/loader/entries/${entry:?no installed boot entry}
 	sudo_ "cat $entry" > "$stage/installed.conf"
 	initrd=$(sed -n 's/^initrd //p' "$stage/installed.conf")
 	sudo_ "cat /boot$initrd" > "$stage/initramfs.installed"
