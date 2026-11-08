@@ -1,0 +1,53 @@
+From 97c916f7be749d669e8b411c9b3bdf67afbbc44c Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 13:24:38 +0000
+Subject: [PATCH 117/119] spi: mt65xx: Unprepare the clock between transfers on
+ MT6789
+
+MT6789 used the MT6893 data, which keeps the SPI clock prepared while
+the controller is runtime suspended. On MT6789 the clock comes from
+MSDCPLL, and a MediaTek PLL runs while any of its clocks is prepared, so
+an idle SPI bus, such as the one the IMU sits on, kept MSDCPLL running
+and the SoC out of its 26 MHz-off idle. Give MT6789 its own data, as
+MT6893 but unpreparing the clock.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/spi/spi-mt65xx.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/spi/spi-mt65xx.c b/drivers/spi/spi-mt65xx.c
+index 0368a26bc..eb68afd96 100644
+--- a/drivers/spi/spi-mt65xx.c
++++ b/drivers/spi/spi-mt65xx.c
+@@ -212,6 +212,17 @@ static const struct mtk_spi_compatible mt8183_compat = {
+ 	.enhance_timing = true,
+ };
+ 
++/*
++ * As MT6893, but a prepared SPI clock keeps its source, MSDCPLL, running,
++ * and with it the SoC out of its 26 MHz-off idle: unprepare it.
++ */
++static const struct mtk_spi_compatible mt6789_compat = {
++	.need_pad_sel = true,
++	.must_tx = true,
++	.enhance_timing = true,
++	.dma_ext = true,
++};
++
+ static const struct mtk_spi_compatible mt6893_compat = {
+ 	.need_pad_sel = true,
+ 	.must_tx = true,
+@@ -274,6 +285,9 @@ static const struct of_device_id mtk_spi_of_match[] = {
+ 	{ .compatible = "mediatek,mt8192-spi",
+ 		.data = (void *)&mt6765_compat,
+ 	},
++	{ .compatible = "mediatek,mt6789-spi",
++		.data = (void *)&mt6789_compat,
++	},
+ 	{ .compatible = "mediatek,mt6893-spi",
+ 		.data = (void *)&mt6893_compat,
+ 	},
+-- 
+2.55.0
+

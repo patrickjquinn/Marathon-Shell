@@ -1,0 +1,44 @@
+From 2c8ae6f08c22eeeac43ea04a9b112cc2636c56b6 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 13:44:28 +0000
+Subject: [PATCH 118/119] arm64: dts: mediatek: mt6789: Bring up the display's
+ register buses with it
+
+Nothing claimed the MMSYS and MDPSYS APB bus gates, so clk_disable_unused
+gated them. While the display power domain stayed on from boot that did
+not matter, but at its first power-up the SMI gate enables behind those
+buses were lost: MDP SMI0 read gated with the kernel counting it enabled,
+and the display stalled on its first commit. Enable the bus gates with the
+domain, ahead of the SMI gates.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789.dtsi | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+index 3933e58bc..c523cf9a4 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -656,6 +656,8 @@ power-domain@MT6789_POWER_DOMAIN_MFG3 {
+ 				disp: power-domain@MT6789_POWER_DOMAIN_DISP {
+ 					reg = <MT6789_POWER_DOMAIN_DISP>;
+ 					clocks = <&topckgen CLK_TOP_DISP_SEL>,
++					         <&mdpsys CLK_MDP_APB_BUS>,
++					         <&mmsys CLK_MM_APB_BUS>,
+ 					         <&mdpsys CLK_MDP_SMI0>,
+ 					         <&mmsys CLK_MM_SMI_INFRA>,
+ 					         <&mmsys CLK_MM_SMI_COMMON>,
+@@ -663,7 +665,8 @@ disp: power-domain@MT6789_POWER_DOMAIN_DISP {
+ 					         <&mmsys CLK_MM_SMI_IOMMU>,
+ 					         <&topckgen CLK_TOP_MDP_SEL>;
+ 					clock-names = "disp", "disp-0", "disp-1", "disp-2",
+-								  "disp-3", "disp-4", "mdp";
++								  "disp-3", "disp-4", "disp-5", "disp-6",
++								  "mdp";
+ 					mediatek,infracfg = <&infracfg_ao>;
+ 					#address-cells = <1>;
+ 					#size-cells = <0>;
+-- 
+2.55.0
+

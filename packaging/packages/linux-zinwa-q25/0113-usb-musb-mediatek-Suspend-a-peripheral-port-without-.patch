@@ -1,0 +1,201 @@
+From b89c6f4d3a3b2d07a085cfd13f91543b3d9518af Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 12:34:28 +0000
+Subject: [PATCH 113/119] usb: musb: mediatek: Suspend a peripheral port
+ without VBUS
+
+The glue enabled its clocks, UNIVPLL among them, at probe and kept a
+runtime PM reference for good, and in device mode the PHY forces VBUS
+valid, so the controller never saw a cable go: the port stayed clocked
+and its PLL running with nothing attached, which keeps the SoC out of
+its 26 MHz-off idle.
+
+Gate the clocks in runtime PM, and for a peripheral port that names its
+VBUS power supply hold the controller awake only while that supply is
+online: without VBUS the session ends, the PHY powers down and the
+controller suspends. The musb core already takes runtime PM references
+around its register accesses.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/usb/musb/mediatek.c | 104 +++++++++++++++++++++++++++++++++---
+ 1 file changed, 98 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/usb/musb/mediatek.c b/drivers/usb/musb/mediatek.c
+index c6cbe718b..345f681cb 100644
+--- a/drivers/usb/musb/mediatek.c
++++ b/drivers/usb/musb/mediatek.c
+@@ -8,6 +8,7 @@
+  */
+ 
+ #include <linux/clk.h>
++#include <linux/power_supply.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+@@ -50,6 +51,11 @@ struct mtk_glue {
+ 	struct clk_bulk_data clks[MTK_MUSB_CLKS_NUM];
+ 	enum usb_role role;
+ 	struct usb_role_switch *role_sw;
++	/* A peripheral port's VBUS, from the charger, when the PHY forces it. */
++	struct power_supply *vbus_psy;
++	struct notifier_block vbus_nb;
++	struct work_struct vbus_work;
++	bool vbus_held;
+ };
+ 
+ static int mtk_musb_clks_get(struct mtk_glue *glue)
+@@ -339,7 +345,6 @@ static int mtk_musb_exit(struct musb *musb)
+ 	mtk_otg_switch_exit(glue);
+ 	phy_power_off(glue->phy);
+ 	phy_exit(glue->phy);
+-	clk_bulk_disable_unprepare(MTK_MUSB_CLKS_NUM, glue->clks);
+ 
+ 	pm_runtime_put_sync(dev);
+ 	pm_runtime_disable(dev);
+@@ -397,6 +402,65 @@ static const struct platform_device_info mtk_dev_info = {
+ 	.dma_mask = DMA_BIT_MASK(32),
+ };
+ 
++/*
++ * The PHY forces VBUS valid in device mode, so the controller never sees a
++ * cable go: hold the controller awake while the charger reports VBUS and
++ * let it, and with it its clocks and UNIVPLL, suspend while it does not.
++ */
++static void mtk_musb_vbus_work(struct work_struct *work)
++{
++	struct mtk_glue *glue = container_of(work, struct mtk_glue, vbus_work);
++	struct device *dev = glue->musb ? glue->musb->controller : NULL;
++	union power_supply_propval val;
++	bool vbus;
++
++	if (!dev)
++		return;
++	vbus = !power_supply_get_property(glue->vbus_psy, POWER_SUPPLY_PROP_ONLINE,
++					  &val) && val.intval;
++	if (vbus == glue->vbus_held)
++		return;
++
++	if (vbus) {
++		pm_runtime_get_sync(dev);
++		mtk_otg_switch_set(glue, USB_ROLE_DEVICE);
++	} else {
++		mtk_otg_switch_set(glue, USB_ROLE_NONE);
++		pm_runtime_mark_last_busy(dev);
++		pm_runtime_put_autosuspend(dev);
++	}
++	glue->vbus_held = vbus;
++}
++
++static int mtk_musb_vbus_notify(struct notifier_block *nb, unsigned long event,
++				void *data)
++{
++	struct mtk_glue *glue = container_of(nb, struct mtk_glue, vbus_nb);
++
++	if (data == glue->vbus_psy)
++		schedule_work(&glue->vbus_work);
++	return NOTIFY_OK;
++}
++
++static int mtk_musb_runtime_suspend(struct device *dev)
++{
++	struct mtk_glue *glue = dev_get_drvdata(dev);
++
++	clk_bulk_disable_unprepare(MTK_MUSB_CLKS_NUM, glue->clks);
++	return 0;
++}
++
++static int mtk_musb_runtime_resume(struct device *dev)
++{
++	struct mtk_glue *glue = dev_get_drvdata(dev);
++
++	return clk_bulk_prepare_enable(MTK_MUSB_CLKS_NUM, glue->clks);
++}
++
++static const struct dev_pm_ops mtk_musb_pm_ops = {
++	RUNTIME_PM_OPS(mtk_musb_runtime_suspend, mtk_musb_runtime_resume, NULL)
++};
++
+ static int mtk_musb_probe(struct platform_device *pdev)
+ {
+ 	struct musb_hdrc_platform_data *pdata;
+@@ -468,11 +532,20 @@ static int mtk_musb_probe(struct platform_device *pdev)
+ 		goto err_unregister_usb_phy;
+ 	}
+ 
++	if (pdata->mode == USB_DR_MODE_PERIPHERAL &&
++	    of_property_present(np, "power-supplies")) {
++		glue->vbus_psy = power_supply_get_by_reference(of_fwnode_handle(np),
++							       "power-supplies");
++		if (IS_ERR_OR_NULL(glue->vbus_psy)) {
++			ret = glue->vbus_psy ? PTR_ERR(glue->vbus_psy) : -EPROBE_DEFER;
++			glue->vbus_psy = NULL;
++			goto err_unregister_usb_phy;
++		}
++	}
++
+ 	platform_set_drvdata(pdev, glue);
+ 	pm_runtime_enable(dev);
+-	pm_runtime_get_sync(dev);
+-
+-	ret = clk_bulk_prepare_enable(MTK_MUSB_CLKS_NUM, glue->clks);
++	ret = pm_runtime_resume_and_get(dev);
+ 	if (ret)
+ 		goto err_enable_clk;
+ 
+@@ -491,15 +564,25 @@ static int mtk_musb_probe(struct platform_device *pdev)
+ 		dev_err(dev, "failed to register musb device: %d\n", ret);
+ 		goto err_device_register;
+ 	}
++	/* The musb core keeps this, its parent, awake while it is. */
++	pm_runtime_put(dev);
++
++	if (glue->vbus_psy) {
++		INIT_WORK(&glue->vbus_work, mtk_musb_vbus_work);
++		glue->vbus_nb.notifier_call = mtk_musb_vbus_notify;
++		power_supply_reg_notifier(&glue->vbus_nb);
++		schedule_work(&glue->vbus_work);
++	}
+ 
+ 	return 0;
+ 
+ err_device_register:
+-	clk_bulk_disable_unprepare(MTK_MUSB_CLKS_NUM, glue->clks);
+-err_enable_clk:
+ 	pm_runtime_put_sync(dev);
++err_enable_clk:
+ 	pm_runtime_disable(dev);
+ err_unregister_usb_phy:
++	if (glue->vbus_psy)
++		power_supply_put(glue->vbus_psy);
+ 	usb_phy_generic_unregister(glue->usb_phy);
+ 	return ret;
+ }
+@@ -509,8 +592,16 @@ static void mtk_musb_remove(struct platform_device *pdev)
+ 	struct mtk_glue *glue = platform_get_drvdata(pdev);
+ 	struct platform_device *usb_phy = glue->usb_phy;
+ 
++	if (glue->vbus_psy) {
++		power_supply_unreg_notifier(&glue->vbus_nb);
++		cancel_work_sync(&glue->vbus_work);
++		if (glue->vbus_held)
++			pm_runtime_put_noidle(glue->musb->controller);
++		power_supply_put(glue->vbus_psy);
++	}
+ 	platform_device_unregister(glue->musb_pdev);
+ 	usb_phy_generic_unregister(usb_phy);
++	pm_runtime_disable(&pdev->dev);
+ }
+ 
+ #ifdef CONFIG_OF
+@@ -527,6 +618,7 @@ static struct platform_driver mtk_musb_driver = {
+ 	.driver = {
+ 		   .name = "musb-mtk",
+ 		   .of_match_table = of_match_ptr(mtk_musb_match),
++		   .pm = pm_ptr(&mtk_musb_pm_ops),
+ 	},
+ };
+ 
+-- 
+2.55.0
+

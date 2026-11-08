@@ -1,0 +1,41 @@
+From 9475b31ad699ea117dbf5af25467bf22f33e5bb2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 7 Nov 2026 12:58:48 +0000
+Subject: [PATCH 107/119] soc: mediatek: mtk-mutex: Enable runtime PM
+
+The mutex sits in the display power domain, but without runtime PM
+enabled genpd counts it as in use, so the domain never powers off while
+the system runs, only in system suspend. The display pipeline keeps the
+domain on through its first component while it runs and is the only
+user of the mutex registers, so enabling runtime PM is enough to let
+the domain go off with the pipeline.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/soc/mediatek/mtk-mutex.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/soc/mediatek/mtk-mutex.c b/drivers/soc/mediatek/mtk-mutex.c
+index 2308e3de2..a1e444b1c 100644
+--- a/drivers/soc/mediatek/mtk-mutex.c
++++ b/drivers/soc/mediatek/mtk-mutex.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+ #include <linux/soc/mediatek/mtk-mmsys.h>
+ #include <linux/soc/mediatek/mtk-mutex.h>
+@@ -1129,7 +1130,7 @@ static int mtk_mutex_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, mtx);
+ 
+-	return 0;
++	return devm_pm_runtime_enable(dev);
+ }
+ 
+ static const struct of_device_id mutex_driver_dt_match[] = {
+-- 
+2.55.0
+

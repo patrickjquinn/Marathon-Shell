@@ -1,0 +1,64 @@
+From e8933ecad517daf927081d67ab88c829de362e01 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 12:40:24 +0000
+Subject: [PATCH 115/119] drm/mediatek: Bind the display components without a
+ driver
+
+DITHER and POSTMASK are programmed by the DRM driver through their
+registers and have no driver, so their devices never probe: their power
+domain provider's sync_state never runs and genpd keeps every domain that
+was on at boot on for good, the display's among them. Bind them to a stub
+that enables runtime PM, so they count as probed and as idle.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_drm_drv.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_drm_drv.c b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+index f08a1619a..fd4b6e496 100644
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+@@ -1332,6 +1332,31 @@ static struct platform_driver mtk_drm_platform_driver = {
+ 	},
+ };
+ 
++/*
++ * Components the DRM driver programs itself, through their registers, with
++ * no driver of their own: bind them, so they count as probed and their power
++ * domain's boot-time hold is released, with runtime PM so that they do not
++ * keep the domain on.
++ */
++static int mtk_disp_stub_probe(struct platform_device *pdev)
++{
++	return devm_pm_runtime_enable(&pdev->dev);
++}
++
++static const struct of_device_id mtk_disp_stub_of_ids[] = {
++	{ .compatible = "mediatek,mt8183-disp-dither" },
++	{ .compatible = "mediatek,mt8192-disp-postmask" },
++	{ }
++};
++
++static struct platform_driver mtk_disp_stub_driver = {
++	.probe = mtk_disp_stub_probe,
++	.driver = {
++		.name = "mediatek-disp-stub",
++		.of_match_table = mtk_disp_stub_of_ids,
++	},
++};
++
+ static struct platform_driver * const mtk_drm_drivers[] = {
+ 	&mtk_disp_aal_driver,
+ 	&mtk_disp_ccorr_driver,
+@@ -1347,6 +1372,7 @@ static struct platform_driver * const mtk_drm_drivers[] = {
+ 	&mtk_ethdr_driver,
+ 	&mtk_mdp_rdma_driver,
+ 	&mtk_padding_driver,
++	&mtk_disp_stub_driver,
+ };
+ 
+ static int __init mtk_drm_init(void)
+-- 
+2.55.0
+

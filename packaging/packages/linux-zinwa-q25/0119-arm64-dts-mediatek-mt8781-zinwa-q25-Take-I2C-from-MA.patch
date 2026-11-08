@@ -1,0 +1,40 @@
+From 39bfb7c81b8bdad371895f0911fcd6da63c001e2 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 16:12:29 +0000
+Subject: [PATCH 119/119] arm64: dts: mediatek: mt8781-zinwa-q25: Take I2C from
+ MAINPLL
+
+The I2C controllers keep their clocks prepared between transfers, and a
+MediaTek PLL runs while any of its clocks is prepared, so with I2C on
+UNIVPLL that PLL never stopped and the SoC never entered its 26 MHz-off
+idle. Feed I2C from MAINPLL, which runs anyway.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index a0f9477e7..b5da13690 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1370,6 +1370,16 @@ &mutex {
+ 	status = "okay";
+ };
+ 
++/*
++ * I2C from MAINPLL, which runs anyway: from UNIVPLL, the I2C controllers'
++ * always-prepared clocks kept UNIVPLL running and the SoC out of its
++ * 26 MHz-off idle.
++ */
++&topckgen {
++	assigned-clocks = <&topckgen CLK_TOP_I2C_SEL>;
++	assigned-clock-parents = <&topckgen CLK_TOP_MAINPLL_D4_D8>;
++};
++
+ /* The display's SMI: the larbs keep their setup across display power cycles. */
+ &smi_common_disp {
+ 	status = "okay";
+-- 
+2.55.0
+

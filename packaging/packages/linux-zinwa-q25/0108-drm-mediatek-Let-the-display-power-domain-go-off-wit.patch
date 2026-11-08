@@ -1,0 +1,172 @@
+From 63d6afc2da73f3a00dafeb341db7a777a001ddfc Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 7 Nov 2026 12:58:55 +0000
+Subject: [PATCH 108/119] drm/mediatek: Let the display power domain go off
+ with the pipeline
+
+AAL, CCORR, COLOR, GAMMA and DSI share the display power domain with
+OVL and RDMA but never enabled runtime PM, so genpd treated them as
+always in use and the domain, its SMI clocks and its parent muxes and
+PLL stayed on with the screen off. On a phone that idles instead of
+suspending, that keeps the SoC from dropping its 26 MHz clock and
+PLLs at idle. The pipeline already holds the domain through its first
+component while it runs; enable runtime PM on the others.
+
+With the domain going off, the components lose their registers: the
+pipeline already reprograms them on enable, gamma included, but the
+colour matrix was only written when it changed, so set it on enable
+too. DSI commands outside the running pipeline would now reach an
+unpowered block; refuse them, as the panel only talks to the host
+between its prepare and unprepare, while the pipeline runs.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_crtc.c       | 1 +
+ drivers/gpu/drm/mediatek/mtk_disp_aal.c   | 5 +++++
+ drivers/gpu/drm/mediatek/mtk_disp_ccorr.c | 5 +++++
+ drivers/gpu/drm/mediatek/mtk_disp_color.c | 5 +++++
+ drivers/gpu/drm/mediatek/mtk_disp_gamma.c | 5 +++++
+ drivers/gpu/drm/mediatek/mtk_dsi.c        | 9 +++++++++
+ 6 files changed, 30 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_crtc.c b/drivers/gpu/drm/mediatek/mtk_crtc.c
+index befcde1e6..7f3cf8dd3 100644
+--- a/drivers/gpu/drm/mediatek/mtk_crtc.c
++++ b/drivers/gpu/drm/mediatek/mtk_crtc.c
+@@ -411,6 +411,7 @@ static int mtk_crtc_ddp_hw_init(struct mtk_crtc *mtk_crtc)
+ 
+ 		mtk_ddp_comp_config(comp, width, height, vrefresh, bpc, NULL);
+ 		mtk_ddp_gamma_set(comp, crtc->state);
++		mtk_ddp_ctm_set(comp, crtc->state);
+ 		mtk_ddp_comp_start(comp);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_aal.c b/drivers/gpu/drm/mediatek/mtk_disp_aal.c
+index abc9e5525..fbbfee391 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_aal.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_aal.c
+@@ -9,6 +9,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/soc/mediatek/mtk-cmdq.h>
+ 
+ #include "mtk_crtc.h"
+@@ -193,6 +194,10 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
+ 	priv->data = of_device_get_match_data(dev);
+ 	platform_set_drvdata(pdev, priv);
+ 
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		return ret;
++
+ 	ret = component_add(dev, &mtk_disp_aal_component_ops);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to add component\n");
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_ccorr.c b/drivers/gpu/drm/mediatek/mtk_disp_ccorr.c
+index 6d7bf4afa..9a9f64915 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_ccorr.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_ccorr.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/soc/mediatek/mtk-cmdq.h>
+ 
+ #include "mtk_crtc.h"
+@@ -157,6 +158,10 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
+ 	priv->data = of_device_get_match_data(dev);
+ 	platform_set_drvdata(pdev, priv);
+ 
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		return ret;
++
+ 	ret = component_add(dev, &mtk_disp_ccorr_component_ops);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to add component\n");
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_color.c b/drivers/gpu/drm/mediatek/mtk_disp_color.c
+index 39c7de4cd..f882a0709 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_color.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_color.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/soc/mediatek/mtk-cmdq.h>
+ 
+ #include "mtk_crtc.h"
+@@ -120,6 +121,10 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
+ 	priv->data = of_device_get_match_data(dev);
+ 	platform_set_drvdata(pdev, priv);
+ 
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		return ret;
++
+ 	ret = component_add(dev, &mtk_disp_color_component_ops);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to add component\n");
+diff --git a/drivers/gpu/drm/mediatek/mtk_disp_gamma.c b/drivers/gpu/drm/mediatek/mtk_disp_gamma.c
+index f3ae192f2..c7b9fa6fb 100644
+--- a/drivers/gpu/drm/mediatek/mtk_disp_gamma.c
++++ b/drivers/gpu/drm/mediatek/mtk_disp_gamma.c
+@@ -9,6 +9,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/soc/mediatek/mtk-cmdq.h>
+ 
+ #include "mtk_crtc.h"
+@@ -286,6 +287,10 @@ static int mtk_disp_gamma_probe(struct platform_device *pdev)
+ 	priv->data = of_device_get_match_data(dev);
+ 	platform_set_drvdata(pdev, priv);
+ 
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		return ret;
++
+ 	ret = component_add(dev, &mtk_disp_gamma_component_ops);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to add component\n");
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index 5b32473b0..e87ad14c2 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -12,6 +12,7 @@
+ #include <linux/of_platform.h>
+ #include <linux/phy/phy.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/reset.h>
+ #include <linux/units.h>
+ 
+@@ -1161,6 +1162,10 @@ static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
+ 	u32 dsi_mode;
+ 	int ret, i;
+ 
++	/* Powered, with its power domain, only while the pipeline runs. */
++	if (!dsi->refcount)
++		return -ENODEV;
++
+ 	dsi_mode = readl(dsi->regs + DSI_MODE_CTRL);
+ 	if (dsi_mode & MODE) {
+ 		mtk_dsi_stop(dsi);
+@@ -1282,6 +1287,10 @@ static int mtk_dsi_probe(struct platform_device *pdev)
+ 	dsi->host.ops = &mtk_dsi_ops;
+ 	dsi->host.dev = dev;
+ 
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		return ret;
++
+ 	ret = mipi_dsi_host_register(&dsi->host);
+ 	if (ret < 0)
+ 		return dev_err_probe(dev, ret, "Failed to register DSI host\n");
+-- 
+2.55.0
+

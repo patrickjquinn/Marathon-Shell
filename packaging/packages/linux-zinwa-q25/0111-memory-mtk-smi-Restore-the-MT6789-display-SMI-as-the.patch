@@ -1,0 +1,147 @@
+From 0a570ba79c2c9b10ae9e9ad92e5a58edf0aac233 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 08:33:51 +0000
+Subject: [PATCH 111/119] memory: mtk-smi: Restore the MT6789 display SMI as
+ the bootloader sets it
+
+Without an IOMMU no larb is bound by one, so larb->mmu stayed NULL and
+the first resume of a larb dereferenced it. Skip the port translation
+setup then: no port translates.
+
+The MT6789 common data routed larbs 1, 2, 4, 5 and 7 to the second bus
+and set thresholds for an IOMMU setup; with no IOMMU behind that bus the
+display's RDMA, on larb1, stalled. Restore what the bootloader programs,
+which drives the display: every larb on bus 0, its thresholds and DCM,
+and for the display larbs 0 and 1 their outstanding limits and port
+settings, so a display power cycle keeps the display working.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/memory/mtk-smi.c | 69 +++++++++++++++++++++++++++++++++-------
+ 1 file changed, 58 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/memory/mtk-smi.c b/drivers/memory/mtk-smi.c
+index 95586c746..05f6f1602 100644
+--- a/drivers/memory/mtk-smi.c
++++ b/drivers/memory/mtk-smi.c
+@@ -85,7 +85,7 @@
+ 	(_id << 8 | _id << 10 | _id << 12 | _id << 14);	\
+ })
+ 
+-#define SMI_COMMON_INIT_REGS_NR		8
++#define SMI_COMMON_INIT_REGS_NR		32
+ #define SMI_LARB_PORT_NR_MAX		32
+ 
+ #define MTK_SMI_FLAG_THRT_UPDATE	BIT(0)
+@@ -134,6 +134,8 @@ struct mtk_smi_larb_gen {
+ 	unsigned int			larb_direct_to_common_mask;
+ 	unsigned int			flags_general;
+ 	const u8			(*ostd)[SMI_LARB_PORT_NR_MAX];
++	/* Per larb id, a list ending at offset 0, restored on resume. */
++	const struct mtk_smi_reg_pair	* const *init;
+ };
+ 
+ struct mtk_smi {
+@@ -260,6 +262,17 @@ static int mtk_smi_larb_config_port_gen2_general(struct device *dev)
+ 	for (i = 0; i < SMI_LARB_PORT_NR_MAX && larbostd && !!larbostd[i]; i++)
+ 		writel_relaxed(larbostd[i], larb->base + SMI_LARB_OSTDL_PORTx(i));
+ 
++	if (larb->larb_gen->init && larb->larb_gen->init[larb->larbid]) {
++		const struct mtk_smi_reg_pair *init = larb->larb_gen->init[larb->larbid];
++
++		for (i = 0; init[i].offset; i++)
++			writel_relaxed(init[i].value, larb->base + init[i].offset);
++	}
++
++	/* Without an IOMMU no port translates. */
++	if (!larb->mmu)
++		return 0;
++
+ 	/*
+ 	 * When mmu_en bits are in security world, the bank_sel still is in the
+ 	 * LARB_NONSEC_CON below. And the mmu_en bits of LARB_NONSEC_CON have no
+@@ -527,12 +540,39 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6779 = {
+ 		/* DUMMY | IPU0 | IPU1 | CCU | MDLA */
+ };
+ 
++/* The display larbs as the MT6789 bootloader sets them up, without an IOMMU. */
++static const struct mtk_smi_reg_pair mtk_smi_larb_mt6789_larb0[] = {
++	{0x004, 0x1f}, {0x010, 0xff3}, {0x024, 0x370246}, {0x02c, 0x7},
++	{0x060, 0xf}, {0x080, 0xf}, {0x0b0, 0xaaaaa}, {0x0b4, 0xd83e0},
++	{0x0b8, 0x200020}, {0x0d0, 0x1},
++	{0x200, 0x3f3f}, {0x204, 0x3f3f}, {0x208, 0x3f3f}, {0x20c, 0x3f3f},
++	{0x300, 0x820020}, {0x304, 0x860021}, {0x308, 0x8a0022}, {0x30c, 0x822023},
++	{}
++};
++
++static const struct mtk_smi_reg_pair mtk_smi_larb_mt6789_larb1[] = {
++	{0x004, 0x1f}, {0x010, 0xff3}, {0x024, 0x370246}, {0x02c, 0x7},
++	{0x060, 0x1f}, {0x080, 0x1f}, {0x0b0, 0xaaaaa}, {0x0b4, 0xd83e0},
++	{0x0b8, 0x200020}, {0x0d0, 0x1},
++	{0x200, 0x3f3f}, {0x204, 0x3f3f}, {0x208, 0x3f3f}, {0x20c, 0x3f3f},
++	{0x210, 0x3f3f},
++	{0x300, 0x820020}, {0x304, 0x860021}, {0x308, 0x8a0022}, {0x30c, 0x821023},
++	{0x310, 0x822024},
++	{}
++};
++
++static const struct mtk_smi_reg_pair * const mtk_smi_larb_mt6789_init[MTK_LARB_NR_MAX] = {
++	[0] = mtk_smi_larb_mt6789_larb0,
++	[1] = mtk_smi_larb_mt6789_larb1,
++};
++
+ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6789 = {
+ 	.config_port                = mtk_smi_larb_config_port_gen2_general,
+ 	.larb_direct_to_common_mask = BIT(3) | BIT(5) | BIT(6) | BIT(8) |
+ 				      BIT(10) | BIT(11) | BIT(12) | BIT(15) | BIT(18) |
+ 					  BIT(19) | BIT(21) | BIT(22),
+ 	.ostd                       = mtk_smi_larb_mt6789_ostd,
++	.init                       = mtk_smi_larb_mt6789_init,
+ };
+ 
+ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6893 = {
+@@ -777,15 +817,24 @@ static struct platform_driver mtk_smi_larb_driver = {
+ 	}
+ };
+ 
++/*
++ * As the MT6789 bootloader sets the display SMI up, with every larb on bus 0:
++ * there is no IOMMU behind the second bus.
++ */
+ static const struct mtk_smi_reg_pair mtk_smi_common_mt6789_init[SMI_COMMON_INIT_REGS_NR] = {
+-	{SMI_L1LEN, 0xb},
+-	{SMI_BUS_SEL, 0x4514},
+-	{SMI_M4U_TH, 0xe100e10},
+-	{SMI_FIFO_TH1, 0x90a090a},
+-	{SMI_FIFO_TH2, 0x506090a},
+-	{SMI_DCM, 0x4f1},
+-	{SMI_DUMMY, 0x1},
+-	{SMI_L1LEN, 0xa},
++	{SMI_L1LEN, 0x3},
++	{0x228, 0x01041041}, {0x22c, 0x1041},
++	{SMI_READ_FIFO_TH, 0xf23e4000},
++	{SMI_M4U_TH, 0x06080608},
++	{SMI_FIFO_TH1, 0x05070507},
++	{SMI_FIFO_TH2, 0x05070507},
++	{SMI_DCM, 0x4ff},
++	{0x308, 0x01041041}, {0x30c, 0x1041}, {0x310, 0x01041041}, {0x314, 0x1041},
++	{0x318, 0x01041041}, {0x31c, 0x1041}, {0x320, 0x01041041}, {0x324, 0x1041},
++	{0x400, 0x2c5}, {0x404, 0x2c5}, {0x408, 0x2c0}, {0x40c, 0x2c0},
++	{0x410, 0x2c5}, {0x414, 0x2c5}, {0x418, 0x2c0}, {0x41c, 0x2c0},
++	{0x420, 0x10005}, {0x424, 0x10005}, {0x430, 0x15}, {0x434, 0x15},
++	{0x440, 0x1},
+ };
+ 
+ static const struct mtk_smi_reg_pair mtk_smi_common_mt6795_init[SMI_COMMON_INIT_REGS_NR] = {
+@@ -822,8 +871,6 @@ static const struct mtk_smi_common_plat mtk_smi_common_mt6779 = {
+ static const struct mtk_smi_common_plat mtk_smi_common_mt6789 = {
+ 	.type     = MTK_SMI_GEN2,
+ 	.has_gals = true,
+-	.bus_sel  = F_MMU1_LARB(1) | F_MMU1_LARB(2) | F_MMU1_LARB(4) |
+-		    F_MMU1_LARB(5) | F_MMU1_LARB(7),
+ 	.init     = mtk_smi_common_mt6789_init,
+ };
+ 
+-- 
+2.55.0
+

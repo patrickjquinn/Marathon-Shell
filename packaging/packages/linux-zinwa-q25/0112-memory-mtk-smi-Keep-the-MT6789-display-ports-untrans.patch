@@ -1,0 +1,42 @@
+From fdb5a7074603453b5103e06b0ca170d21c43c337 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 08:53:43 +0000
+Subject: [PATCH 112/119] memory: mtk-smi: Keep the MT6789 display ports
+ untranslated
+
+The display larbs' ports reset with translation on, which the
+bootloader turns off; with no IOMMU behind them the display read
+nothing after a display power cycle. Restore them untranslated.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/memory/mtk-smi.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/memory/mtk-smi.c b/drivers/memory/mtk-smi.c
+index 05f6f1602..0e445581b 100644
+--- a/drivers/memory/mtk-smi.c
++++ b/drivers/memory/mtk-smi.c
+@@ -547,6 +547,9 @@ static const struct mtk_smi_reg_pair mtk_smi_larb_mt6789_larb0[] = {
+ 	{0x0b8, 0x200020}, {0x0d0, 0x1},
+ 	{0x200, 0x3f3f}, {0x204, 0x3f3f}, {0x208, 0x3f3f}, {0x20c, 0x3f3f},
+ 	{0x300, 0x820020}, {0x304, 0x860021}, {0x308, 0x8a0022}, {0x30c, 0x822023},
++	/* Ports reset to translating; the bootloader turns that off. */
++	{SMI_LARB_NONSEC_CON(0), 0}, {SMI_LARB_NONSEC_CON(1), 0},
++	{SMI_LARB_NONSEC_CON(2), 0}, {SMI_LARB_NONSEC_CON(3), 0},
+ 	{}
+ };
+ 
+@@ -558,6 +561,9 @@ static const struct mtk_smi_reg_pair mtk_smi_larb_mt6789_larb1[] = {
+ 	{0x210, 0x3f3f},
+ 	{0x300, 0x820020}, {0x304, 0x860021}, {0x308, 0x8a0022}, {0x30c, 0x821023},
+ 	{0x310, 0x822024},
++	{SMI_LARB_NONSEC_CON(0), 0}, {SMI_LARB_NONSEC_CON(1), 0},
++	{SMI_LARB_NONSEC_CON(2), 0}, {SMI_LARB_NONSEC_CON(3), 0},
++	{SMI_LARB_NONSEC_CON(4), 0},
+ 	{}
+ };
+ 
+-- 
+2.55.0
+

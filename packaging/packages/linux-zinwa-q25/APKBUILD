@@ -6,7 +6,7 @@
 # numbering, which this package now builds.
 pkgname=linux-zinwa-q25
 pkgver=7.0.0
-pkgrel=40
+pkgrel=41
 _commit=978b8b672d68e43b08c891132b974255489889aa
 # Vendor CONNSYS/ECCCI sources (mindone/modules) and the MT6789 AFE
 # (adomerle/mt6789-sound) that modules/ builds.
@@ -164,6 +164,19 @@ source="mtk_g99-mainline-$_commit.tar.gz::https://gitlab.nura.eco/ellyq/mtk_g99-
 	0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
 	0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
 	0106-arm64-dts-mediatek-mt8781-zinwa-q25-Order-the-GPU-do.patch
+	0107-soc-mediatek-mtk-mutex-Enable-runtime-PM.patch
+	0108-drm-mediatek-Let-the-display-power-domain-go-off-wit.patch
+	0109-drm-mediatek-Link-the-DRM-device-to-its-components-S.patch
+	0110-arm64-dts-mediatek-Describe-the-Zinwa-Q25-display-s-.patch
+	0111-memory-mtk-smi-Restore-the-MT6789-display-SMI-as-the.patch
+	0112-memory-mtk-smi-Keep-the-MT6789-display-ports-untrans.patch
+	0113-usb-musb-mediatek-Suspend-a-peripheral-port-without-.patch
+	0114-arm64-dts-mediatek-mt8781-zinwa-q25-Give-the-USB-por.patch
+	0115-drm-mediatek-Bind-the-display-components-without-a-d.patch
+	0116-arm64-dts-mediatek-mt8781-zinwa-q25-Leave-the-modem-.patch
+	0117-spi-mt65xx-Unprepare-the-clock-between-transfers-on-.patch
+	0118-arm64-dts-mediatek-mt6789-Bring-up-the-display-s-reg.patch
+	0119-arm64-dts-mediatek-mt8781-zinwa-q25-Take-I2C-from-MA.patch
 "
 for _f in $_afe; do
 	source="$source $_f::https://raw.githubusercontent.com/linux-mediatek/linux/$_sound/sound/soc/mediatek/mt6789/$_f"
@@ -353,6 +366,19 @@ e7f3125fc6a7eea1b41a9f88016f531671542c67e4d5fc86a294e5330a188f018e24b5fcae0df709
 4826004e525a4d1c321af7cf30d3cef1613f2e2d0019e980ba66c2d2ad7cc2397f76b6719b6077e656f2adebada924fd16572a36eb8747a0a69331374fa0b4ab  0104-arm64-dts-mediatek-mt6789-Give-the-UFS-host-its-tick.patch
 9a8d7a06c462fc77aacb3f7c413b7c8711554e253b9c84c5881ed60881b1373a1d0b6f89aea2d61a929f71c28d94cce1daf7a5bfd0077c5e6f68c502a9daff62  0105-arm64-dts-mediatek-mt6789-Add-the-MCUSYS-and-system-.patch
 bd1b22ca0671b9bef2b97b10b55146f9e9d0e0434dd634b390a111e36b4bf13319ec5b7d7de626f43eb87cc6bac001c2eafbbe9f9519befefda35cda32e3c8ed  0106-arm64-dts-mediatek-mt8781-zinwa-q25-Order-the-GPU-do.patch
+247f3136e1b76b6586e3615b260109a411cf1b02b10932c63d9fac1c9bb5cdb69f2232d788ca5a40951d4657813d51091157d86c94cd3d66829397909aca1214  0107-soc-mediatek-mtk-mutex-Enable-runtime-PM.patch
+eb13320d2e5e130257f06ed56623956e8aa21bd72604d99ea0d3042e930c454209925de8a622079652fc97a040f443b116ef4de5b4beb42286c794adc48a6151  0108-drm-mediatek-Let-the-display-power-domain-go-off-wit.patch
+e85a31d1572a57fa994830699b817b8709d82fa26969d9fb5466353b321afbe06fd9deb52813af8f9a88bb95a6aa7cbf74ccbeb50fea5ff29c59ea0e48515e36  0109-drm-mediatek-Link-the-DRM-device-to-its-components-S.patch
+973776f6293412c4d282f0aec30615040924ff7e0316b24a199c885ce209795b371e0b8609eb1f185c0064c339018b98fda3364da99b63c9cb6e41ef42fb161c  0110-arm64-dts-mediatek-Describe-the-Zinwa-Q25-display-s-.patch
+d6570db0481bb04a0518218c5b7a18a79fcb883929f357e93071afad9c8fc127f2fd676eedf85ecd84789209cbe9188f0391d8055d2c1b157c785e368b284931  0111-memory-mtk-smi-Restore-the-MT6789-display-SMI-as-the.patch
+246550bb7b5ef3cfe37c546712af914dcfee74d80de6dded25684ab7c0e0cce283faf6588225a6ecff969ff1f9b0b0c5169db59060b7613fc9749efc5001887a  0112-memory-mtk-smi-Keep-the-MT6789-display-ports-untrans.patch
+e3cbd9107c06add4ba4d6a95a00f5cfad11f38e0187080ac730fb951436102dacde080487511778731df408ccf044b15f9ed1907e00c7901708a32facdfbeb13  0113-usb-musb-mediatek-Suspend-a-peripheral-port-without-.patch
+bfd88fb65ffe55914cb2909c5c3ee8ead29a5ef94445ffdf9abf9bf55ff9f4c8ee1a9068b459f03ed4444de1b6f71a052131d75b253cd441a870c332029c39b1  0114-arm64-dts-mediatek-mt8781-zinwa-q25-Give-the-USB-por.patch
+4a81d12e27a822ac863c04d3ab4a3e2a3f9fa8a954c73cd03dea56ee0b681454d2e5cf03d0bbb432202a67c7655cb0fc134eeada77c6684b0c4bf1d7669eba31  0115-drm-mediatek-Bind-the-display-components-without-a-d.patch
+d736335ca4252f52034e820b818d1c4c89e1f1458f4f01b6936bd9c00788b375d8b63dfb3d87ed5b0b70e36602efe018d669ce389f6420f29ed892292eecae2d  0116-arm64-dts-mediatek-mt8781-zinwa-q25-Leave-the-modem-.patch
+328c1f317d0235802eb64794589e7909f70d1d6831eb6c5abf6e9958d207656ef6f96acb6db2bce2646cb4a3028475d37f001c2729a59b3dc007eda023f9c10e  0117-spi-mt65xx-Unprepare-the-clock-between-transfers-on-.patch
+6e872663efd87c0047745bd09be78096d7ae760571466e200c37800a3c192464b8c01f35cfa25c35f46e283ac007d9e9762bbef8a094d9c21920b2152b6adf0c  0118-arm64-dts-mediatek-mt6789-Bring-up-the-display-s-reg.patch
+468c1e4ed916d8d2899037bd0381a63e48cf981282fc8892c17d50870708431f6787d92757d9c185980a6045189a9fbce6d538c89435477361baf0379d1b3aac  0119-arm64-dts-mediatek-mt8781-zinwa-q25-Take-I2C-from-MA.patch
 7d703c42152a69039f1762c093ef473c9359c3fbfd4ee7910a2b3ee7c28f3b1976d4a55d12e13db97e3994f84e731dd4fb7c9425e6bcf5800a66b7ee9a23350d  mt6789-afe-clk.c
 4ddb9529cf3263c8f8498d5fdf78fcec3d823d94ab8819ecf4f044f1a1a97718561568ca6b850432f5592a7fb1aa2c7edb3fcdae294738d435d79c5103b000ed  mt6789-afe-clk.h
 d1cfc07579620b2ddb80e361a308aa9bce8c26aef1b89272f1b46c58da8c9d31ee1f05cde76e51cdd15bbee2e7de97c81e3a94a8e8f2856b39c6e86e3bc38964  mt6789-afe-common.h

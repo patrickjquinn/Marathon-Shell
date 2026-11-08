@@ -1,0 +1,73 @@
+From f48cfe79a734bc2f0209d83eb6960c581dc67709 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 7 Nov 2026 23:58:56 +0000
+Subject: [PATCH 109/119] drm/mediatek: Link the DRM device to its components'
+ SMI larbs
+
+A display DMA engine reads memory through an SMI larb whose setup is
+lost when the display power domain goes off. Where an IOMMU drives the
+engine, the IOMMU links the engine to its larb and the larb restores its
+setup on resume; on SoCs without IOMMU support the larb was never
+resumed and the display came back blank after a power cycle. Link the
+DRM device, which the pipeline resumes whenever it powers up, to the
+larb a component names with mediatek,larb.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_drm_drv.c | 33 ++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_drm_drv.c b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+index 92891edb4..f08a1619a 100644
+--- a/drivers/gpu/drm/mediatek/mtk_drm_drv.c
++++ b/drivers/gpu/drm/mediatek/mtk_drm_drv.c
+@@ -1082,6 +1082,33 @@ static int mtk_drm_of_ddp_path_build(struct device *dev, struct device_node *nod
+ 	return 0;
+ }
+ 
++/*
++ * With no IOMMU to link a DMA engine to its SMI larb, link the DRM device
++ * to it: the larb then restores its setup each time the pipeline powers up.
++ */
++static int mtk_drm_link_larb(struct device *dev, struct device_node *node)
++{
++	struct device_node *larb_node;
++	struct platform_device *larb;
++	struct device_link *link;
++
++	larb_node = of_parse_phandle(node, "mediatek,larb", 0);
++	if (!larb_node)
++		return 0;
++	larb = of_find_device_by_node(larb_node);
++	of_node_put(larb_node);
++	if (!larb)
++		return -EPROBE_DEFER;
++	if (!larb->dev.driver) {
++		put_device(&larb->dev);
++		return -EPROBE_DEFER;
++	}
++	link = device_link_add(dev, &larb->dev,
++			       DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_CONSUMER);
++	put_device(&larb->dev);
++	return link ? 0 : -EINVAL;
++}
++
+ static int mtk_drm_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -1215,6 +1242,12 @@ static int mtk_drm_probe(struct platform_device *pdev)
+ 			of_node_put(node);
+ 			goto err_node;
+ 		}
++
++		ret = mtk_drm_link_larb(dev, node);
++		if (ret) {
++			of_node_put(node);
++			goto err_node;
++		}
+ 	}
+ 
+ 	if (!private->mutex_node) {
+-- 
+2.55.0
+

@@ -1,0 +1,64 @@
+From 981110c6bda6e4e939fd448abbf762828791365a Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 7 Nov 2026 23:58:56 +0000
+Subject: [PATCH 110/119] arm64: dts: mediatek: Describe the Zinwa Q25
+ display's SMI
+
+OVL0 reads through SMI larb0 and RDMA0 through larb1, both behind the
+display SMI common. Name each engine's larb and enable the three on the
+Q25, so the larbs keep their setup when the display power domain powers
+off with the screen.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ arch/arm64/boot/dts/mediatek/mt6789.dtsi          |  2 ++
+ arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts | 13 +++++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt6789.dtsi b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+index 9c2df072f..3933e58bc 100644
+--- a/arch/arm64/boot/dts/mediatek/mt6789.dtsi
++++ b/arch/arm64/boot/dts/mediatek/mt6789.dtsi
+@@ -1195,6 +1195,7 @@ ovl0: ovl@14005000 {
+ 			power-domains = <&spm MT6789_POWER_DOMAIN_DISP>;
+ 			clocks = <&mmsys CLK_MM_DISP_OVL0>;
+ 			mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0x5000 0x1000>;
++			mediatek,larb = <&larb0>;
+ 			status = "disabled";
+ 		};
+ 
+@@ -1206,6 +1207,7 @@ rdma0: rdma@14007000 {
+ 			clocks = <&mmsys CLK_MM_DISP_RDMA0>;
+ 			mediatek,rdma-fifo-size = <48992>;
+ 			mediatek,gce-client-reg = <&gce0 SUBSYS_1400XXXX 0x7000 0x1000>;
++			mediatek,larb = <&larb1>;
+ 			status = "disabled";
+ 		};
+ 
+diff --git a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+index 4627a4ee0..6afef8d04 100644
+--- a/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8781-zinwa-q25.dts
+@@ -1371,6 +1371,19 @@ &mutex {
+ 	status = "okay";
+ };
+ 
++/* The display's SMI: the larbs keep their setup across display power cycles. */
++&smi_common_disp {
++	status = "okay";
++};
++
++&larb0 {
++	status = "okay";
++};
++
++&larb1 {
++	status = "okay";
++};
++
+ /* MIPI D-PHY (already has an mt8183 fallback in the dtsi). */
+ &mipi_tx0 {
+ 	status = "okay";
+-- 
+2.55.0
+
