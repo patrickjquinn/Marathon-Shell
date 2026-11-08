@@ -13,7 +13,8 @@
 # stay the installed ones.
 #
 # Env: KDEV (default ~/q25-build/kdev), Q25_HOST, SSHPASS (user's password;
-# also used for sudo), CCACHE_DIR, KDEV_CMDLINE (extra options for the boot).
+# also used for sudo), CCACHE_DIR, KDEV_CMDLINE (extra options for the boot),
+# KDEV_KEEP_INITRAMFS (boot the installed initramfs and its modules).
 set -eu
 KDEV=${KDEV:-$HOME/q25-build/kdev}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
@@ -77,7 +78,11 @@ deploy)
 		llvm-strip --strip-debug -o - "$src" | zstd -q -19 -o "$dst"
 		echo "$dst"
 	done < "$stage/modules" | cpio -o -H newc --owner=0:0 2>/dev/null | zstd -q -19 > "$stage/overlay.cpio.zst")
-	cat "$stage/initramfs.installed" "$stage/overlay.cpio.zst" > "$stage/initramfs"
+	if [ -n "${KDEV_KEEP_INITRAMFS:-}" ]; then
+		cp "$stage/initramfs.installed" "$stage/initramfs"
+	else
+		cat "$stage/initramfs.installed" "$stage/overlay.cpio.zst" > "$stage/initramfs"
+	fi
 	cp "$OUT/arch/arm64/boot/vmlinuz.efi" "$stage/linux.efi"
 	cp "$OUT/arch/arm64/boot/dts/$DTB" "$stage/q25.dtb"
 	sed -e 's#^title .*#title Kernel dev build#' -e 's#^linux .*#linux /q25-oneshot/kdev.efi#' \
