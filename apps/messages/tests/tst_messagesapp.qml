@@ -190,8 +190,8 @@ TestCase {
         waitForPage(app, "conversation");
         tryCompare(Sms, "read", ["a"]);
         const unread = () => Sms.conversations.map(c => Object.assign({}, c, {
-                        unreadCount: c.id === "a" ? 1 : 0
-                    }));
+                    unreadCount: c.id === "a" ? 1 : 0
+                }));
         Sms.conversations = unread();
         tryCompare(Sms, "read", ["a", "a"]);
         app.newMessage();

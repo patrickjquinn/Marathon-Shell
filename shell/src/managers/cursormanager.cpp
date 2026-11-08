@@ -44,8 +44,7 @@ bool CursorManager::eventFilter(QObject *watched, QEvent *event) {
             if (watched->isWindowType())
                 hideCursor();
             break;
-        default:
-            break;
+        default: break;
     }
     return QObject::eventFilter(watched, event);
 }

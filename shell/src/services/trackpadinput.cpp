@@ -25,7 +25,7 @@ namespace {
     constexpr qreal kScrollGain = 4.0;
     constexpr qreal kCaretStep  = 10.0;
 
-    bool isTrackpad(int fd) {
+    bool            isTrackpad(int fd) {
         char name[128] = {};
         if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name) < 0)
             return false;
@@ -39,12 +39,11 @@ namespace {
 TrackpadInput::TrackpadInput(QObject *parent)
     : QObject(parent) {
     m_clock.start();
-    m_device = new QPointingDevice(QStringLiteral("BBQX0 trackpad"), 0x7470,
-                                   QInputDevice::DeviceType::Mouse,
-                                   QPointingDevice::PointerType::Generic,
-                                   QInputDevice::Capability::Position |
-                                       QInputDevice::Capability::Scroll,
-                                   1, 1, QString(), QPointingDeviceUniqueId(), this);
+    m_device =
+        new QPointingDevice(QStringLiteral("BBQX0 trackpad"), 0x7470,
+                            QInputDevice::DeviceType::Mouse, QPointingDevice::PointerType::Generic,
+                            QInputDevice::Capability::Position | QInputDevice::Capability::Scroll,
+                            1, 1, QString(), QPointingDeviceUniqueId(), this);
     QWindowSystemInterface::registerInputDevice(m_device);
     open();
 }
@@ -59,7 +58,7 @@ TrackpadInput::~TrackpadInput() {
 void TrackpadInput::setMode(const QString &mode) {
     if (m_mode == mode)
         return;
-    m_mode = mode;
+    m_mode  = mode;
     m_carry = m_steps = QPointF();
     emit modeChanged();
 }
@@ -73,8 +72,8 @@ void TrackpadInput::setCompositor(QObject *compositor) {
 
 // The keyboard's driver can load after the shell: look again for a minute.
 void TrackpadInput::open() {
-    const QStringList nodes = QDir(QStringLiteral("/dev/input"))
-                                  .entryList({QStringLiteral("event*")}, QDir::System);
+    const QStringList nodes =
+        QDir(QStringLiteral("/dev/input")).entryList({QStringLiteral("event*")}, QDir::System);
     for (const QString &node : nodes) {
         const QByteArray path = QByteArrayLiteral("/dev/input/") + node.toLocal8Bit();
         const int        fd   = ::open(path.constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
@@ -96,7 +95,7 @@ void TrackpadInput::open() {
 }
 
 void TrackpadInput::readEvents() {
-    input_event events[64];
+    input_event   events[64];
     const ssize_t n = ::read(m_fd, events, sizeof(events));
     if (n < 0) {
         if (errno == EAGAIN)

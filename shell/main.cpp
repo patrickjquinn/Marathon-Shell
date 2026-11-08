@@ -1257,13 +1257,13 @@ int main(int argc, char *argv[]) {
     // Started at boot: Plymouth's last frame is still on screen, and the
     // shell's first frame carries the splash on (MarathonShell.qml).
     {
-        QFile uptime(QStringLiteral("/proc/uptime"));
+        QFile      uptime(QStringLiteral("/proc/uptime"));
         const bool atBoot = uptime.open(QIODevice::ReadOnly) &&
             uptime.readAll().split(' ').value(0).toDouble() < 300;
-        ctx->setContextProperty(
-            "MarathonBootHandover",
-            atBoot && QFile::exists(QStringLiteral(
-                          "/usr/share/plymouth/themes/marathon/marathon-logo.png")));
+        ctx->setContextProperty("MarathonBootHandover",
+                                atBoot &&
+                                    QFile::exists(QStringLiteral(
+                                        "/usr/share/plymouth/themes/marathon/marathon-logo.png")));
     }
 #if MARATHON_HAVE_QT_GUI_PRIVATE
     createObject<TrackpadInput>(ctx, "TrackpadInput", &app);

@@ -45,29 +45,29 @@ class TrackpadInput : public QObject {
     void compositorChanged();
 
   private:
-    void     open();
-    void     readEvents();
-    void     motion(int dx, int dy, qint64 dtMs);
-    void     button(bool pressed);
-    void     moveMouse(int dx, int dy, qint64 dtMs);
-    void     gesture(int dx, int dy);
-    bool     typing() const;
-    void     key(int qtKey, int evdevCode);
-    QWindow *window() const;
+    void              open();
+    void              readEvents();
+    void              motion(int dx, int dy, qint64 dtMs);
+    void              button(bool pressed);
+    void              moveMouse(int dx, int dy, qint64 dtMs);
+    void              gesture(int dx, int dy);
+    bool              typing() const;
+    void              key(int qtKey, int evdevCode);
+    QWindow          *window() const;
 
-    int                      m_fd = -1;
-    QSocketNotifier         *m_notifier = nullptr;
-    QPointingDevice         *m_device   = nullptr;
-    QPointer<QObject>        m_compositor;
-    QString                  m_mode = QStringLiteral("gesture");
-    QPointF                  m_pos;
-    QPointF                  m_carry;
-    QPointF                  m_steps;
-    Qt::MouseButtons         m_buttons;
-    QElapsedTimer            m_clock;
-    qint64                   m_lastFrameMs = 0;
-    int                      m_frameDx = 0;
-    int                      m_frameDy = 0;
+    int               m_fd       = -1;
+    QSocketNotifier  *m_notifier = nullptr;
+    QPointingDevice  *m_device   = nullptr;
+    QPointer<QObject> m_compositor;
+    QString           m_mode = QStringLiteral("gesture");
+    QPointF           m_pos;
+    QPointF           m_carry;
+    QPointF           m_steps;
+    Qt::MouseButtons  m_buttons;
+    QElapsedTimer     m_clock;
+    qint64            m_lastFrameMs = 0;
+    int               m_frameDx     = 0;
+    int               m_frameDy     = 0;
 };
 
 #endif

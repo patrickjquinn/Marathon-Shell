@@ -19,8 +19,8 @@ namespace {
     // The software ISP's exposure starts again with each configuration.
     constexpr int kStillSettleFrames = 8;
 
-    void             cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
-                                          const QString &msg) {
+    void          cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                                       const QString &msg) {
         if (msg.contains("V4L2_MEMORY_USERPTR") || msg.contains("memorytransfer")) {
             return;
         }
@@ -519,7 +519,7 @@ void CameraController::takeStill(const QVideoFrame &frame) {
         return;
     // A copy: the frame's buffer goes with the format.
     const QImage image = imageOf(frame);
-    emit photoExposed();
+    emit         photoExposed();
     m_camera->stop();
     m_camera->setCameraFormat(m_viewfinderFormat);
     m_camera->start();

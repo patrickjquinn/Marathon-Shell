@@ -124,9 +124,9 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE QObject *shellSurfaceById(int surfaceId);
     Q_INVOKABLE void     setCompositorActive(bool active);
     // The app with keyboard focus has text input enabled (it takes text).
-    Q_INVOKABLE bool     focusedTextInputEnabled() const;
-    Q_INVOKABLE void     setOutputOrientation(const QString &orientation);
-    Q_INVOKABLE void     injectKey(int key, int modifiers, bool pressed);
+    Q_INVOKABLE bool focusedTextInputEnabled() const;
+    Q_INVOKABLE void setOutputOrientation(const QString &orientation);
+    Q_INVOKABLE void injectKey(int key, int modifiers, bool pressed);
     // System back for a native app's window: dismisses its popup, closes its
     // dialog or sends its toolkit's back key, then emits nativeBackUnhandled
     // if the app showed no change (docs/NATIVE_APP_LIFECYCLE.md).

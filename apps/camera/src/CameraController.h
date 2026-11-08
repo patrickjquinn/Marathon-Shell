@@ -117,38 +117,37 @@ class CameraController : public QObject {
     void onRecorderError(QMediaRecorder::Error error, const QString &errorString);
 
   private:
-    void                                initialize();
-    void                                setupCamera(int index);
-    void                                updateZoomRange();
-    int                                 indexOfCamera(const QString &id) const;
-    QCameraFormat                       fastestFormat(const QSize &size) const;
-    void                                applyViewfinderResolution();
-    void                                checkFrames();
-    void                                takeStill(const QVideoFrame &frame);
-    void                                cancelStill();
-    void                                savePhoto(const QImage &image, const QString &fileName,
-                                                  int rotation);
+    void                  initialize();
+    void                  setupCamera(int index);
+    void                  updateZoomRange();
+    int                   indexOfCamera(const QString &id) const;
+    QCameraFormat         fastestFormat(const QSize &size) const;
+    void                  applyViewfinderResolution();
+    void                  checkFrames();
+    void                  takeStill(const QVideoFrame &frame);
+    void                  cancelStill();
+    void                  savePhoto(const QImage &image, const QString &fileName, int rotation);
 
-    QCamera                            *m_camera         = nullptr;
-    QMediaCaptureSession               *m_captureSession = nullptr;
-    QImageCapture                      *m_imageCapture   = nullptr;
-    QMediaRecorder                     *m_mediaRecorder  = nullptr;
-    QVideoSink                         *m_videoSink      = nullptr;
+    QCamera              *m_camera         = nullptr;
+    QMediaCaptureSession *m_captureSession = nullptr;
+    QImageCapture        *m_imageCapture   = nullptr;
+    QMediaRecorder       *m_mediaRecorder  = nullptr;
+    QVideoSink           *m_videoSink      = nullptr;
 
-    QList<QCameraDevice>                m_cameras;
-    int                                 m_currentCameraIndex = 0;
-    QString                             m_cameraId;
-    bool                                m_discovered = false;
+    QList<QCameraDevice>  m_cameras;
+    int                   m_currentCameraIndex = 0;
+    QString               m_cameraId;
+    bool                  m_discovered = false;
 
-    qreal                               m_zoomLevel = 1.0;
-    qreal                               m_minZoom   = 1.0;
-    qreal                               m_maxZoom   = 1.0;
+    qreal                 m_zoomLevel = 1.0;
+    qreal                 m_minZoom   = 1.0;
+    qreal                 m_maxZoom   = 1.0;
 
-    bool                                m_flashEnabled = false;
+    bool                  m_flashEnabled = false;
 
-    QList<QSize>                        m_photoResolutions;
-    QSize                               m_photoResolution;
-    QSize                               m_viewfinderResolution;
+    QList<QSize>          m_photoResolutions;
+    QSize                 m_photoResolution;
+    QSize                 m_viewfinderResolution;
 
     QHash<int, std::pair<QString, int>> m_photoPaths;
 
@@ -158,9 +157,9 @@ class CameraController : public QObject {
     QCameraFormat           m_viewfinderFormat;
     std::atomic<int>        m_stillFrames{0};
 
-    QImage                              m_recordingPoster;
-    QString                             m_posterPath;
-    QString                             m_errorMessage;
+    QImage                  m_recordingPoster;
+    QString                 m_posterPath;
+    QString                 m_errorMessage;
 
     // Frames since start, counted on the delivering thread.
     std::atomic<quint64> m_frames{0};
