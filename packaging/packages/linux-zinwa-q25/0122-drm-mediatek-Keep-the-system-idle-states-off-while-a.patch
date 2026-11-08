@@ -1,0 +1,69 @@
+From c2951794d9b0eb6de88dee290df079a4761a63d8 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 22:36:46 +0000
+Subject: [PATCH 122/122] drm/mediatek: Keep the system idle states off while a
+ CRTC runs
+
+On MT6789 the firmware's "dram" idle constraint lets DRAM enter
+self-refresh, and its conditions do not include the display. With the
+screen on and nothing else holding a blocking clock (a USB cable does),
+the SoC entered it between frames and the panel glitched while the
+display engine read from DRAM.
+
+Hold a CPU latency request below the system states' exit latency while
+the CRTC is enabled. CPU and cluster power-down stay available; with the
+CRTC off the request goes and the system states return.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/gpu/drm/mediatek/mtk_crtc.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/mediatek/mtk_crtc.c b/drivers/gpu/drm/mediatek/mtk_crtc.c
+index 7f3cf8dd3..b144199ea 100644
+--- a/drivers/gpu/drm/mediatek/mtk_crtc.c
++++ b/drivers/gpu/drm/mediatek/mtk_crtc.c
+@@ -7,6 +7,7 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/mailbox_controller.h>
+ #include <linux/of.h>
++#include <linux/pm_qos.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/soc/mediatek/mtk-cmdq.h>
+ #include <linux/soc/mediatek/mtk-mmsys.h>
+@@ -72,8 +73,16 @@ struct mtk_crtc {
+ 	bool				config_updating;
+ 	/* lock for config_updating to cmd buffer */
+ 	spinlock_t			config_lock;
++
++	struct pm_qos_request		cpu_latency;
+ };
+ 
++/*
++ * Keeps the system idle states, whose firmware may put DRAM into self-refresh
++ * under a scanning display, off while the CRTC runs; CPU and cluster off stay.
++ */
++#define MTK_CRTC_CPU_LATENCY_US		1000
++
+ struct mtk_crtc_state {
+ 	struct drm_crtc_state		base;
+ 
+@@ -802,6 +811,7 @@ static void mtk_crtc_atomic_enable(struct drm_crtc *crtc,
+ 
+ 	drm_crtc_vblank_on(crtc);
+ 	mtk_crtc->enabled = true;
++	cpu_latency_qos_add_request(&mtk_crtc->cpu_latency, MTK_CRTC_CPU_LATENCY_US);
+ }
+ 
+ static void mtk_crtc_atomic_disable(struct drm_crtc *crtc,
+@@ -843,6 +853,7 @@ static void mtk_crtc_atomic_disable(struct drm_crtc *crtc,
+ 	mtk_ddp_comp_power_off(comp);
+ 
+ 	mtk_crtc->enabled = false;
++	cpu_latency_qos_remove_request(&mtk_crtc->cpu_latency);
+ }
+ 
+ static void mtk_crtc_atomic_begin(struct drm_crtc *crtc,
+-- 
+2.55.0
+

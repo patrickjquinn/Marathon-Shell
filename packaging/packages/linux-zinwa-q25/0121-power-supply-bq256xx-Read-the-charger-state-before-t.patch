@@ -1,0 +1,40 @@
+From baae25274691fbd79c2059048050b000975cc4c9 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sun, 8 Nov 2026 22:36:32 +0000
+Subject: [PATCH 121/122] power: supply: bq256xx: Read the charger state before
+ taking interrupts
+
+The interrupt handler notifies only when the state differs from the one
+it last saw, and nothing set that state before the first interrupt: it
+started zeroed. A charger that is already online at probe raises no
+interrupt, so unplugging it reads a state equal to the zeroed one (no
+input, not charging, no fault) and nothing is notified. The charger then
+stays online for its users until the next plug event. On the Zinwa Q25
+this kept the USB controller, which follows the charger's online state,
+and its PLL running after the cable came out.
+
+Read the state at probe, before the interrupt is requested.
+
+Signed-off-by: patrickjquinn <patrick.jm.quinn@gmail.com>
+---
+ drivers/power/supply/bq256xx_charger.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/power/supply/bq256xx_charger.c b/drivers/power/supply/bq256xx_charger.c
+index e62ab5a73..98540b106 100644
+--- a/drivers/power/supply/bq256xx_charger.c
++++ b/drivers/power/supply/bq256xx_charger.c
+@@ -1766,6 +1766,10 @@ static int bq256xx_probe(struct i2c_client *client)
+ 		return ret;
+ 	}
+ 
++	ret = bq256xx_get_state(bq, &bq->state);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to read the charger state\n");
++
+ 	if (client->irq) {
+ 		ret = devm_request_threaded_irq(dev, client->irq, NULL,
+ 						bq256xx_irq_handler_thread,
+-- 
+2.55.0
+
