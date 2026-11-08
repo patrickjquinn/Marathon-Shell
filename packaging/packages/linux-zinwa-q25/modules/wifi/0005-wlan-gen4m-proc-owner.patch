@@ -1,0 +1,31 @@
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Subject: [PATCH] wlan: gen4m: Let the /proc/net/wlan owner be set
+
+The driver hands its /proc/net/wlan nodes to Android's shell and wifi
+ids, and creates them again whenever Wi-Fi restarts, so on Linux a
+group given the command node afterwards loses it at the next restart.
+Make the owner module parameters, defaulting to the Android ids.
+
+--- a/wlan_drv_gen4m_6789/os/linux/gl_proc.c	2026-11-08 10:05:36.867901654 +0000
++++ b/wlan_drv_gen4m_6789/os/linux/gl_proc.c	2026-11-08 10:05:37.332096648 +0000
+@@ -121,8 +121,18 @@
+ #define PROC_TX_STATISTICS_MAX_USER_INPUT_LEN   10
+ #define PROC_DBG_LEVEL_MAX_USER_INPUT_LEN       20
+ #define PROC_DBG_LEVEL_MAX_DISPLAY_STR_LEN      30
+-#define PROC_UID_SHELL							2000
+-#define PROC_GID_WIFI							1010
++/*
++ * Owner of the /proc/net/wlan nodes. Android's shell and wifi ids unless
++ * set: a Linux system gives the command node to a group such as netdev.
++ */
++static uint proc_uid = 2000;
++module_param(proc_uid, uint, 0444);
++MODULE_PARM_DESC(proc_uid, "uid of the /proc/net/wlan nodes");
++static uint proc_gid = 1010;
++module_param(proc_gid, uint, 0444);
++MODULE_PARM_DESC(proc_gid, "gid of the /proc/net/wlan nodes");
++#define PROC_UID_SHELL							proc_uid
++#define PROC_GID_WIFI							proc_gid
+ 
+ /* notice: str only can be an array */
+ #define SNPRINTF(buf, size, arg)   {buf += \
