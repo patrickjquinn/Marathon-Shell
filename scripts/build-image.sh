@@ -185,6 +185,8 @@ build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$
 build_if_missing "keel-silica"               'keel-silica-*.apk'              "$LIB/build-keel-silica-apk.sh"               "$APORTS_DIR/keel-silica/APKBUILD"
 APORT=wpewebkit \
 build_if_missing "wpewebkit"                 'wpewebkit-[0-9]*.apk'           "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/wpewebkit/APKBUILD"
+APORT=libjxl0.11 NO_DEPS=1 \
+build_if_missing "libjxl0.11"                'libjxl0.11-[0-9]*.apk'          "$LIB/build-aport-apk.sh"                     "$APORTS_DIR/libjxl0.11/APKBUILD"
 # Pilot (its daemon and app) and keel-mcp, from this tree.
 PILOT_PKGS=keel-mcp \
 build_if_missing "keel-mcp"                  'keel-mcp-*.apk'                 "$LIB/build-pilot-apk.sh"                     "$APORTS_DIR/keel-mcp/APKBUILD"
