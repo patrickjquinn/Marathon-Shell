@@ -14,7 +14,9 @@
 #
 # Env: KDEV (default ~/q25-build/kdev), Q25_HOST, SSHPASS (user's password;
 # also used for sudo), CCACHE_DIR, KDEV_CMDLINE (extra options for the boot),
-# KDEV_KEEP_INITRAMFS (boot the installed initramfs and its modules).
+# KDEV_KEEP_INITRAMFS (boot the installed initramfs and its modules),
+# KDEV_UNLOCK_PIN (send the /home PIN over the USB cable; needs the phone's
+# q25-home-crypt to take an open volume, device-zinwa-q25-marathon r55).
 set -eu
 KDEV=${KDEV:-$HOME/q25-build/kdev}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
@@ -86,6 +88,12 @@ deploy)
 	else
 		cat "$stage/initramfs.installed" "$stage/overlay.cpio.zst" > "$stage/initramfs"
 	fi
+	if [ -n "${KDEV_UNLOCK_PIN:-}" ]; then
+		mkdir -p "$stage/unlock/hooks-cleanup"
+		install -m 755 "$REPO/scripts/q25/kdev-unlock-hook.sh" "$stage/unlock/hooks-cleanup/60-kdev-unlock.sh"
+		(cd "$stage/unlock" && echo hooks-cleanup/60-kdev-unlock.sh | cpio -o -H newc --owner=0:0 2>/dev/null) |
+			zstd -q -19 >> "$stage/initramfs"
+	fi
 	cp "$OUT/arch/arm64/boot/vmlinuz.efi" "$stage/linux.efi"
 	cp "$OUT/arch/arm64/boot/dts/$DTB" "$stage/q25.dtb"
 	sed -e 's#^title .*#title Kernel dev build#' -e 's#^linux .*#linux /q25-oneshot/kdev.efi#' \
@@ -107,6 +115,16 @@ deploy)
 		printf Q25ONCE1 | dd of=/dev/sdc1 bs=4096 seek=127 conv=notrunc,fsync status=none
 		systemd-run --on-active=2 systemctl reboot >/dev/null'
 	echo "kdev: rebooting $Q25_HOST into the dev build ($(wc -l < "$stage/modules") initramfs modules from the build)"
+	if [ -n "${KDEV_UNLOCK_PIN:-}" ]; then
+		# The boot's initramfs listens on the USB network for the PIN.
+		i=0
+		until printf %s "$KDEV_UNLOCK_PIN" | nc --send-only -w 3 172.16.42.1 4444 2> /dev/null; do
+			i=$((i + 1))
+			[ $i -lt 120 ] || { echo "kdev: the boot never asked for the PIN" >&2; exit 1; }
+			sleep 2
+		done
+		echo "kdev: sent the /home PIN over USB"
+	fi
 	;;
 export)
 	n=${2:?usage: kdev.sh export N}
