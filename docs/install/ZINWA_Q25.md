@@ -79,12 +79,18 @@ device is connected and that its bootloader is unlocked, and then runs
 
 ## Updates
 
-A new root image goes next to the running one on the carrier and becomes
-the default boot entry. The previous entry stays, so you can go back to it:
-see `q25-root-install` on the phone (`/usr/libexec/marathon/q25-root-install`,
-from `packaging/packages/device-zinwa-q25-marathon`), which over-the-air
-updates use ([OTA.md](../OTA.md)). The kernel, initramfs and device tree on
-the ESP stay as they are.
+Settings > Software updates installs new releases over the air
+([OTA.md](../OTA.md#zinwa-q25)). A new root image goes next to the running
+one on the carrier, and at the next restart it boots with its own kernel,
+initramfs and device tree as the default entry. The previous root stays as
+the fallback, and the phone returns to it if the new one fails to start
+three times. `/home`, Wi-Fi networks, Bluetooth pairings and the modem's
+settings carry over (`q25-root-install` on the phone,
+`/usr/libexec/marathon/q25-root-install`, from
+`packaging/packages/device-zinwa-q25-marathon`).
+
+Updating from 1.0 (26103101) turns SSH off once: 1.0's update step does not
+carry the Developer tools switch. Turn it on again after the update.
 
 ## Recovery
 
