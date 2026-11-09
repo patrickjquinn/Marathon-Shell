@@ -32,8 +32,6 @@ pub struct Node {
     pub app_name: Option<String>,
     /// The client's process, for a stream.
     pub pid: Option<u32>,
-    /// Audio is moving through it now, not just open.
-    pub running: bool,
     pub device: Option<u32>,
     pub profile_device: Option<i32>,
     pub props: Option<Mix>,
@@ -158,8 +156,6 @@ pub struct Snapshot {
     pub output: &'static str,
     /// The streams recording: (client pid, app), for the privacy indicator.
     pub recording: Vec<(u32, String)>,
-    /// The streams playing or recording now: (client pid, app).
-    pub active: Vec<(u32, String)>,
 }
 
 #[derive(Debug, Default)]
@@ -347,17 +343,11 @@ impl Graph {
             .collect()
     }
 
-    /// `(client pid, app)` of the app streams of these classes, only the
-    /// running ones if `running`.
-    fn streams(&self, classes: &[&str], running: bool) -> Vec<(u32, String)> {
-        let mut streams: Vec<(u32, String)> = self
+    fn recording(&self) -> Vec<(u32, String)> {
+        let mut recording: Vec<(u32, String)> = self
             .nodes
             .values()
-            .filter(|n| {
-                classes.contains(&n.media_class.as_str())
-                    && !n.is_role_loopback()
-                    && (n.running || !running)
-            })
+            .filter(|n| n.media_class == "Stream/Input/Audio" && !n.is_role_loopback())
             .map(|n| {
                 let name = n
                     .app_name
@@ -367,8 +357,8 @@ impl Graph {
                 (n.pid.unwrap_or(0), name)
             })
             .collect();
-        streams.sort();
-        streams
+        recording.sort();
+        recording
     }
 
     fn output(&self) -> &'static str {
@@ -491,8 +481,7 @@ impl Graph {
             streams,
             speakerphone: self.speakerphone,
             output: self.output(),
-            recording: self.streams(&["Stream/Input/Audio"], false),
-            active: self.streams(&["Stream/Output/Audio", "Stream/Input/Audio"], true),
+            recording: self.recording(),
         }
     }
 }

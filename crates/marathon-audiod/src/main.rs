@@ -129,12 +129,6 @@ impl Audio {
         lock(&self.snapshot).recording.clone()
     }
 
-    /// `(pid, app)` of every stream moving audio now, playing or recording.
-    #[zbus(property)]
-    fn active(&self) -> Vec<(u32, String)> {
-        lock(&self.snapshot).active.clone()
-    }
-
     /// "wired" or "bluetooth" while the default sink is headphones, else "".
     #[zbus(property)]
     fn output(&self) -> String {
@@ -220,9 +214,6 @@ fn emit(conn: &zbus::Connection, old: &Snapshot, new: &Snapshot) -> zbus::Result
     }
     if old.recording != new.recording {
         zbus::block_on(audio.recording_changed(e))?;
-    }
-    if old.active != new.active {
-        zbus::block_on(audio.active_changed(e))?;
     }
     Ok(())
 }

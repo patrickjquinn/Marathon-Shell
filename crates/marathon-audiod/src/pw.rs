@@ -260,23 +260,6 @@ pub fn run(
     Ok(())
 }
 
-/// A node's state and props: props come only with the events that change them.
-fn node_info(state: &Weak<RefCell<State>>, id: u32, info: &pw::node::NodeInfoRef) {
-    let mask = info.change_mask();
-    let Some(state) = state.upgrade() else { return };
-    let mut s = state.borrow_mut();
-    let node = s.graph.nodes.entry(id).or_default();
-    if mask.contains(pw::node::NodeChangeMask::STATE) {
-        node.running = matches!(info.state(), pw::node::NodeState::Running);
-    }
-    if let (true, Some(props)) = (mask.contains(pw::node::NodeChangeMask::PROPS), info.props()) {
-        update_node(node, props);
-    }
-    if mask.intersects(pw::node::NodeChangeMask::STATE | pw::node::NodeChangeMask::PROPS) {
-        s.changed();
-    }
-}
-
 fn bind(
     registry: &pw::registry::RegistryRc,
     state: &Shared,
@@ -294,7 +277,17 @@ fn bind(
                 .add_listener_local()
                 .info({
                     let state = Weak::clone(&weak);
-                    move |info| node_info(&state, id, info)
+                    // Props come only with the events that change them.
+                    move |info| {
+                        if !info.change_mask().contains(pw::node::NodeChangeMask::PROPS) {
+                            return;
+                        }
+                        if let (Some(state), Some(props)) = (state.upgrade(), info.props()) {
+                            let mut s = state.borrow_mut();
+                            update_node(s.graph.nodes.entry(id).or_default(), props);
+                            s.changed();
+                        }
+                    }
                 })
                 .param(move |_seq, kind, _index, _next, pod| {
                     let mix = pod.and_then(object_of).as_ref().and_then(mix_of);
