@@ -1520,6 +1520,108 @@ Item {
         z: Constants.zIndexStatusBarApp
     }
 
+    // Who is using the microphone, camera or location: the privacy dot's tap.
+    Rectangle {
+        id: privacyPanel
+
+        property bool shown: false
+
+        function names(users, kind) {
+            const known = {
+                "deckard-camera": qsTr("Android"),
+                "q25-speech": qsTr("Phone call"),
+                "pipewire": qsTr("An app"),
+                "wireplumber": qsTr("An app")
+            };
+            const out = users.map(u => {
+                const app = AppModel.findById ? AppModel.findById(u) : null;
+                return app && app.name ? app.name : known[u] || u;
+            });
+            if (out.length === 0)
+                out.push(kind === "microphone" && Modem.callState === "active" ? qsTr("Phone call") : qsTr("The system"));
+            return out.filter((n, i) => out.indexOf(n) === i).join(", ");
+        }
+
+        anchors.top: statusBar.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width - 2 * Silica.Theme.horizontalPageMargin, Silica.Theme.itemSizeHuge * 4)
+        height: privacyRows.height + 2 * Silica.Theme.paddingLarge
+        radius: Silica.Theme.paddingLarge
+        color: Silica.Theme.rgba("black", 0.85)
+        border.width: 1
+        border.color: Silica.Theme.rgba(Silica.Theme.primaryColor, 0.15)
+        visible: shown && statusBar.privacyColors.length > 0
+        z: Constants.zIndexStatusBarDrag + 1
+        onVisibleChanged: if (visible)
+            privacyHide.restart()
+
+        Timer {
+            id: privacyHide
+
+            interval: 5000
+            onTriggered: privacyPanel.shown = false
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: privacyPanel.shown = false
+        }
+        Column {
+            id: privacyRows
+
+            x: Silica.Theme.paddingLarge
+            y: Silica.Theme.paddingLarge
+            width: parent.width - 2 * x
+            spacing: Silica.Theme.paddingMedium
+
+            Repeater {
+                model: [
+                    {
+                        "on": Privacy.microphone,
+                        "color": "#ff3b30",
+                        "label": qsTr("Microphone"),
+                        "who": privacyPanel.names(Privacy.microphoneUsers, "microphone")
+                    },
+                    {
+                        "on": Privacy.camera,
+                        "color": "#ff9500",
+                        "label": qsTr("Camera"),
+                        "who": privacyPanel.names(Privacy.cameraUsers, "camera")
+                    },
+                    {
+                        "on": typeof LocationManager !== "undefined" && LocationManager && LocationManager.active,
+                        "color": "#0a84ff",
+                        "label": qsTr("Location"),
+                        "who": qsTr("Location services")
+                    }
+                ]
+
+                Row {
+                    id: privacyRow
+
+                    required property var modelData
+
+                    visible: modelData.on
+                    width: privacyRows.width
+                    spacing: Silica.Theme.paddingMedium
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Silica.Theme.paddingMedium
+                        height: width
+                        radius: width / 2
+                        color: privacyRow.modelData.color
+                    }
+                    Silica.Label {
+                        width: parent.width - Silica.Theme.paddingMedium * 2
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Silica.Theme.fontSizeSmall
+                        text: qsTr("%1: %2").arg(privacyRow.modelData.label).arg(privacyRow.modelData.who)
+                    }
+                }
+            }
+        }
+    }
+
     MarathonNavBar {
         id: navBar
 
@@ -2175,6 +2277,8 @@ Item {
                     UIStore.openQuickSettings();
                 else
                     UIStore.closeQuickSettings();
+            } else if (statusBar.privacyDotContains(statusBarDragArea, mouse.x, mouse.y)) {
+                privacyPanel.shown = !privacyPanel.shown;
             }
             startY = 0;
             isDraggingDown = false;

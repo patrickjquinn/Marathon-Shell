@@ -3485,6 +3485,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "image",
+ "inotify",
  "libc",
  "marathon-apps",
  "marathon-i18n",

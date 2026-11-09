@@ -50,6 +50,7 @@ pub mod pilot;
 pub mod portal;
 pub mod power;
 pub mod pressure;
+pub mod privacy;
 mod push;
 mod qsettings;
 mod rt;

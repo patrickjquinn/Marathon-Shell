@@ -119,6 +119,66 @@ Item {
         }
     }
 
+    // What is in use, a slice each, beside the clock: the microphone red, the
+    // camera orange, location blue. From the kernel's own device opens
+    // (Privacy) and the location service, so nothing uses them unseen.
+    readonly property var privacyColors: {
+        const colors = [];
+        if (Privacy.microphone)
+            colors.push("#ff3b30");
+        if (Privacy.camera)
+            colors.push("#ff9500");
+        if (typeof LocationManager !== "undefined" && LocationManager && LocationManager.active)
+            colors.push("#0a84ff");
+        return colors;
+    }
+
+    function privacyDotContains(item, x, y) {
+        if (!privacyDot.visible)
+            return false;
+        const p = privacyDot.mapFromItem(item, x, y);
+        const slop = Silica.Theme.paddingLarge;
+        return p.x >= -slop && p.y >= -slop && p.x <= privacyDot.width + slop && p.y <= privacyDot.height + slop;
+    }
+
+    Canvas {
+        id: privacyDot
+
+        objectName: "privacyDot"
+        anchors.left: centerContent.right
+        anchors.leftMargin: Silica.Theme.paddingSmall
+        anchors.verticalCenter: centerContent.verticalCenter
+        width: Math.round(Silica.Theme.fontSizeSmall * 0.55)
+        height: width
+        visible: statusBar.privacyColors.length > 0
+        renderStrategy: Canvas.Cooperative
+        Accessible.role: Accessible.Button
+        Accessible.name: qsTr("Camera, microphone or location in use")
+        onVisibleChanged: requestPaint()
+        onPaint: {
+            const ctx = getContext("2d");
+            ctx.reset();
+            const colors = statusBar.privacyColors, r = width / 2;
+            const step = 2 * Math.PI / Math.max(1, colors.length);
+            for (let i = 0; i < colors.length; ++i) {
+                ctx.beginPath();
+                ctx.moveTo(r, r);
+                ctx.arc(r, r, r, -Math.PI / 2 + i * step, -Math.PI / 2 + (i + 1) * step);
+                ctx.closePath();
+                ctx.fillStyle = colors[i];
+                ctx.fill();
+            }
+        }
+
+        Connections {
+            function onPrivacyColorsChanged() {
+                privacyDot.requestPaint();
+            }
+
+            target: statusBar
+        }
+    }
+
     Item {
         id: centerContent
 
