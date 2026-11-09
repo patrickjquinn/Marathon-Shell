@@ -54,7 +54,7 @@ pub async fn set(
         } else {
             gsm.insert(
                 key.to_owned(),
-                OwnedValue::from(zbus::zvariant::Str::from(value.to_owned())),
+                OwnedValue::from(zbus::Str::from(value.to_owned())),
             );
         }
     }
@@ -99,7 +99,7 @@ async fn modem_apn(bus: &zbus::Connection) -> zbus::Result<(String, String)> {
         .await?
         .get_managed_objects()
         .await?;
-    let Some((modem, interfaces)) = objects.iter().find(|(_, i)| {
+    let Some((_, interfaces)) = objects.iter().find(|(_, i)| {
         i.keys()
             .any(|k| k.as_str() == "org.freedesktop.ModemManager1.Modem")
     }) else {

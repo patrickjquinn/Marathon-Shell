@@ -187,8 +187,7 @@ async fn upower_history(span: u32) -> zbus::Result<(Vec<f64>, Vec<f64>)> {
     const UPOWER: &str = "org.freedesktop.UPower";
     let bus = io::system_bus().await?;
     let upower = zbus::Proxy::new(&bus, UPOWER, "/org/freedesktop/UPower", UPOWER).await?;
-    let devices: Vec<zbus::zvariant::OwnedObjectPath> =
-        upower.call("EnumerateDevices", &()).await?;
+    let devices: Vec<zbus::OwnedObjectPath> = upower.call("EnumerateDevices", &()).await?;
     let Some(battery) = devices
         .into_iter()
         .find(|p| p.as_str().contains("/battery_"))
