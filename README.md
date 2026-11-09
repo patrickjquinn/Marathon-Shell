@@ -21,7 +21,7 @@ and the image pipeline under `packaging/`.
 
 **New here?** [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) goes from
 download to a working phone. Zinwa Q25 images are on
-[marathon-updates' releases](https://github.com/patrickjquinn/marathon-updates/releases).
+[the Releases page](https://github.com/patrickjquinn/Marathon-Shell/releases).
 
 ## Gallery
 
@@ -166,7 +166,7 @@ Flatpaks from Flathub through `marathon-store-handler`.
 
 | Device | Build | Status |
 |---|---|---|
-| Zinwa Q25 | `scripts/build-zinwa-q25-image.sh` | Released: images and over-the-air updates on [marathon-updates](https://github.com/patrickjquinn/marathon-updates/releases). MediaTek Helio G99 (MT6789), 720x720 panel, QWERTY keyboard. Install with [docs/install/ZINWA_Q25.md](docs/install/ZINWA_Q25.md). |
+| Zinwa Q25 | `scripts/build-zinwa-q25-image.sh` | Released: flashable images on [Releases](https://github.com/patrickjquinn/Marathon-Shell/releases), over-the-air updates from [marathon-updates](https://github.com/patrickjquinn/marathon-updates/releases). MediaTek Helio G99 (MT6789), 720x720 panel, QWERTY keyboard. Install with [docs/install/ZINWA_Q25.md](docs/install/ZINWA_Q25.md). |
 | Purism Librem 5 | `scripts/build-librem5-image.sh` | Primary phone. U-Boot boot script path; flash with `scripts/flash/flash-librem5.sh`. |
 | PINE64 PinePhone | `scripts/build-image.sh pine64-pinephone` | Boots through U-Boot on the Librem 5's path, with an MBR image and U-Boot at 8 KiB; write the `.raw` to an SD card. |
 | HackberryPi CM5 | `scripts/build-hackberry-cm5-image.sh` | Raspberry Pi CM5 with a 720x720 panel and a physical keyboard. The test device for Android apps and the scrolling work. Layers `device-hackberrypi-cm5-marathon` on the Pi 5 base. Flash with `scripts/flash/flash-hackberry-cm5.sh`. |

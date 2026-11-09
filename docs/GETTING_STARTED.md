@@ -8,7 +8,7 @@ the [README](../README.md#building-an-image).
 
 | Device | What to use |
 |---|---|
-| Zinwa Q25 | Released images: [marathon-updates releases](https://github.com/patrickjquinn/marathon-updates/releases). Take the newest "Marathon OS … for the Zinwa Q25 (new install)". Install with [install/ZINWA_Q25.md](install/ZINWA_Q25.md). |
+| Zinwa Q25 | Flashable images: [Releases](https://github.com/patrickjquinn/Marathon-Shell/releases). Take the newest "Marathon OS for the Zinwa Q25 (flashable image)". Install with [install/ZINWA_Q25.md](install/ZINWA_Q25.md). |
 | HackberryPi CM5 | Build it (`scripts/build-hackberry-cm5-image.sh`), then follow [install/HACKBERRYPI_CM5.md](install/HACKBERRYPI_CM5.md). |
 | Librem 5, PinePhone, Raspberry Pi 5 | Build it; see [Devices](../README.md#devices). |
 | No phone | The QEMU simulator: `./scripts/build-qemu-image.sh --boot`. |
