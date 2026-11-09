@@ -176,6 +176,57 @@ enum Auto {
     Performance,
 }
 
+impl Auto {
+    /// The mode the shell chose by itself, kept across its restarts: the
+    /// profile service keeps the profile, and without this a restart would
+    /// take an automatic one for a choice by hand and never undo it.
+    fn file() -> Option<std::path::PathBuf> {
+        let state = std::env::var_os("XDG_STATE_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".local/state"))
+            })?;
+        Some(state.join("marathon/power-auto"))
+    }
+
+    fn load() -> Option<Self> {
+        match std::fs::read_to_string(Self::file()?).ok()?.trim() {
+            "saver" => Some(Self::Saver),
+            "performance" => Some(Self::Performance),
+            _ => None,
+        }
+    }
+
+    fn store(auto: Option<Self>) {
+        let Some(file) = Self::file() else { return };
+        let written = match auto {
+            Some(a) => file
+                .parent()
+                .map_or(Ok(()), std::fs::create_dir_all)
+                .and_then(|()| {
+                    std::fs::write(
+                        &file,
+                        if a == Self::Saver {
+                            "saver"
+                        } else {
+                            "performance"
+                        },
+                    )
+                }),
+            None => std::fs::remove_file(&file).or_else(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            }),
+        };
+        if let Err(e) = written {
+            log::warn("power", format_args!("{}: {e}", file.display()));
+        }
+    }
+}
+
 /// The battery level at or under which saver comes on by itself.
 const AUTO_SAVER_AT: i32 = 20;
 
@@ -257,6 +308,7 @@ impl cxx_qt::Initialize for Power {
         let (tx, rx) = async_channel::bounded(64);
         let qt = self.qt_thread();
         POWER.set(qt.clone()).ok();
+        self.as_mut().rust_mut().auto = Auto::load();
         ipc::export("Power", Power1 { qt: qt.clone() });
         watch_power_keys(qt.clone());
         io::spawn(run(qt, rx));
@@ -299,12 +351,12 @@ impl Power {
 
     // A choice made by hand stands: the automatic modes leave it alone.
     fn set_power_save_mode(mut self: Pin<&mut Self>, enabled: bool) {
-        self.as_mut().rust_mut().auto = None;
+        self.as_mut().set_auto(None);
         self.save_mode(enabled);
     }
 
     fn set_power_profile(mut self: Pin<&mut Self>, profile: &QString) {
-        self.as_mut().rust_mut().auto = None;
+        self.as_mut().set_auto(None);
         self.request_profile(&profile.to_string());
     }
 
@@ -507,15 +559,15 @@ impl Power {
         let low = !plugged && level <= AUTO_SAVER_AT;
         match self.auto {
             Some(Auto::Saver) if plugged => {
-                self.as_mut().rust_mut().auto = None;
+                self.as_mut().set_auto(None);
                 self.as_mut().save_mode(false);
             }
             Some(Auto::Performance) if !self.charged || !display::screen_on() => {
-                self.as_mut().rust_mut().auto = None;
+                self.as_mut().set_auto(None);
                 self.request_profile("balanced");
             }
             None if low && !self.saver_spent && !self.is_power_save_mode => {
-                self.as_mut().rust_mut().auto = Some(Auto::Saver);
+                self.as_mut().set_auto(Some(Auto::Saver));
                 self.as_mut().save_mode(true);
                 self.as_mut().battery_warning(
                     &QString::from(&fl!("battery-saver-auto-title")),
@@ -528,13 +580,20 @@ impl Power {
                 && display::screen_on()
                 && self.power_profile.to_string() == "balanced" =>
             {
-                self.as_mut().rust_mut().auto = Some(Auto::Performance);
+                self.as_mut().set_auto(Some(Auto::Performance));
                 self.request_profile("performance");
             }
             _ => {}
         }
         let spent = low || (self.saver_spent && !plugged);
         self.as_mut().rust_mut().saver_spent = spent;
+    }
+
+    fn set_auto(mut self: Pin<&mut Self>, auto: Option<Auto>) {
+        if self.auto != auto {
+            self.as_mut().rust_mut().auto = auto;
+            Auto::store(auto);
+        }
     }
 
     fn apply_profile(mut self: Pin<&mut Self>, profile: &str) {
