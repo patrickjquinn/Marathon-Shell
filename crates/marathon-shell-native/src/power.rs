@@ -133,7 +133,7 @@ pub mod qobject {
         fn set_power_save_mode(self: Pin<&mut Power>, enabled: bool);
         #[qinvokable]
         #[cxx_name = "setPowerProfile"]
-        fn set_power_profile(self: &Power, profile: &QString);
+        fn set_power_profile(self: Pin<&mut Power>, profile: &QString);
         #[qinvokable]
         #[cxx_name = "acquireWakelock"]
         fn acquire_wakelock(self: Pin<&mut Power>, name: &QString) -> bool;
@@ -168,6 +168,16 @@ use qobject::Power;
 #[path = "battery_measurement.rs"]
 mod measurement;
 
+/// Saver at low battery, performance while full on a charger.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Auto {
+    Saver,
+    Performance,
+}
+
+/// The battery level at or under which saver comes on by itself.
+const AUTO_SAVER_AT: i32 = 20;
+
 #[allow(clippy::struct_excessive_bools, reason = "the QML properties")]
 pub struct PowerRust {
     battery_level: i32,
@@ -182,6 +192,10 @@ pub struct PowerRust {
     wake_lock_count: i32,
     critical_action: QString,
     profile_before_saver: Option<String>,
+    /// The profile Marathon chose by itself, undone when the reason ends.
+    auto: Option<Auto>,
+    /// Saver came on at low battery this discharge (or was turned off since).
+    saver_spent: bool,
     has_active_calls: bool,
     /// The level last warned at, 100 for none since charging.
     warned_at: i32,
@@ -205,6 +219,8 @@ impl Default for PowerRust {
             wake_lock_count: 0,
             critical_action: QString::from("PowerOff"),
             profile_before_saver: None,
+            auto: None,
+            saver_spent: false,
             has_active_calls: false,
             warned_at: 100,
             shutdown_armed: false,
@@ -277,9 +293,20 @@ impl Power {
         self.act(Action::Reboot);
     }
 
+    // A choice made by hand stands: the automatic modes leave it alone.
+    fn set_power_save_mode(mut self: Pin<&mut Self>, enabled: bool) {
+        self.as_mut().rust_mut().auto = None;
+        self.save_mode(enabled);
+    }
+
+    fn set_power_profile(mut self: Pin<&mut Self>, profile: &QString) {
+        self.as_mut().rust_mut().auto = None;
+        self.request_profile(&profile.to_string());
+    }
+
     // Saver is the power-saver profile; leaving it restores the profile from
     // before. It never enables suspend: Doze is the low-power path.
-    fn set_power_save_mode(mut self: Pin<&mut Self>, enabled: bool) {
+    fn save_mode(mut self: Pin<&mut Self>, enabled: bool) {
         if self.is_power_save_mode == enabled {
             return;
         }
@@ -298,10 +325,6 @@ impl Power {
         self.as_mut().rust_mut().is_power_save_mode = enabled;
         self.is_power_save_mode_changed();
         state_changed();
-    }
-
-    fn set_power_profile(&self, profile: &QString) {
-        self.request_profile(&profile.to_string());
     }
 
     fn request_profile(&self, profile: &str) {
@@ -463,7 +486,45 @@ impl Power {
         if state(&self) != before {
             state_changed();
         }
-        self.warn_battery();
+        self.as_mut().warn_battery();
+        self.auto_profile(battery.state == 4 || (plugged_in && level >= 100));
+    }
+
+    /// Saver at low battery off the charger, performance while full on it;
+    /// each is undone when its reason ends, unless a choice by hand came between.
+    fn auto_profile(mut self: Pin<&mut Self>, full: bool) {
+        if !self.power_profiles_supported || !measurement::known(self.battery_level) {
+            return;
+        }
+        let (level, plugged) = (self.battery_level, self.is_plugged_in);
+        let low = !plugged && level <= AUTO_SAVER_AT;
+        match self.auto {
+            Some(Auto::Saver) if plugged => {
+                self.as_mut().rust_mut().auto = None;
+                self.as_mut().save_mode(false);
+            }
+            Some(Auto::Performance) if !plugged => {
+                self.as_mut().rust_mut().auto = None;
+                self.request_profile("balanced");
+            }
+            None if low && !self.saver_spent && !self.is_power_save_mode => {
+                self.as_mut().rust_mut().auto = Some(Auto::Saver);
+                self.as_mut().save_mode(true);
+                self.as_mut().battery_warning(
+                    &QString::from(&fl!("battery-saver-auto-title")),
+                    &QString::from(&fl!("battery-saver-auto-body", level = level)),
+                    &QString::from("leaf"),
+                    1,
+                );
+            }
+            None if plugged && full && self.power_profile.to_string() == "balanced" => {
+                self.as_mut().rust_mut().auto = Some(Auto::Performance);
+                self.request_profile("performance");
+            }
+            _ => {}
+        }
+        let spent = low || (self.saver_spent && !plugged);
+        self.as_mut().rust_mut().saver_spent = spent;
     }
 
     fn apply_profile(mut self: Pin<&mut Self>, profile: &str) {

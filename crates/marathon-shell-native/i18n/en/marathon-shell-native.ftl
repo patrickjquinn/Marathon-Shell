@@ -6,6 +6,8 @@ battery-lower-title = Low Battery
 battery-lower-body = { $level }% remaining. Connect charger soon.
 battery-very-low-title = Very Low Battery
 battery-very-low-body = { $level }% remaining. Connect charger immediately.
+battery-saver-auto-title = Battery saver on
+battery-saver-auto-body = Battery at { $level }%. Saver turns off when you charge.
 battery-critical-title = Critical Battery
 # $action is what the device does next: PowerOff, Hibernate or HybridSleep.
 battery-critical-body = { $action ->

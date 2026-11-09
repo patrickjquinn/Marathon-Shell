@@ -91,6 +91,15 @@ Item {
             renderType: Text.QtRendering
             anchors.verticalCenter: parent.verticalCenter
         }
+
+        GlyphIcon {
+            name: Power.isPowerSaveMode ? "leaf" : "lightning"
+            Accessible.name: Power.isPowerSaveMode ? qsTr("Battery saver on") : qsTr("Performance mode on")
+            visible: Power.isPowerSaveMode || Power.powerProfile === "performance"
+            color: leftTone.glyph
+            size: Silica.Theme.iconSizeExtraSmall
+            anchors.verticalCenter: parent.verticalCenter
+        }
     }
 
     Loader {
