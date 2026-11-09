@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+#define _GNU_SOURCE
 /*
  * q25-speech: minimal MD1 speech control over /dev/ccci_aud.
  *
@@ -72,6 +73,9 @@ static int fd = -1;
 static volatile sig_atomic_t stop;
 
 static void on_signal(int sig) { (void)sig; stop = 1; }
+
+static volatile sig_atomic_t in_call;
+static void on_call(int sig) { in_call = sig == SIGUSR1; }
 
 static long now_ms(void)
 {
@@ -465,35 +469,70 @@ static int hostless_start(unsigned int rate, int *hp, int *hc)
 	return 0;
 }
 
-/* A voice call: the speech path on, as the stock HAL holds it, until a
- * signal. The routes are the UCM Voice Call verb's. Plays nothing itself. */
-static int call(unsigned int rate)
+/* The speech path for a call: the Hostless_Speech front end, retried while
+ * WirePlumber switches to the Voice Call verb that gives it its routes, then
+ * SPH_ON. Plays nothing itself. */
+static int call_start(unsigned int rate, int *hp, int *hc)
 {
-	int hp = -1, hc = -1, ret = 1, tries;
+	int tries;
 
-	/* The Hostless_Speech front end has no back end until the Voice Call
-	 * verb's routes are on, and WirePlumber switches to it as the call
-	 * starts: try for a while. */
 	for (tries = 0; tries < 30 && !stop; tries++) {
-		if (hostless_start(rate, &hp, &hc) == 0)
-			break;
-		if (hp >= 0)
-			close(hp);
-		if (hc >= 0)
-			close(hc);
-		hp = hc = -1;
+		if (hostless_start(rate, hp, hc) == 0)
+			return speech_on(APP_NORMAL, rate / 1000);
+		if (*hp >= 0)
+			close(*hp);
+		if (*hc >= 0)
+			close(*hc);
+		*hp = *hc = -1;
 		usleep(100 * 1000);
 	}
-	if (hp >= 0 && speech_on(APP_NORMAL, rate / 1000) == 0) {
-		printf("call audio on (SIGTERM to stop)\n");
-		hold(0, NULL);
-		ret = speech_off() ? 1 : 0;
+	return -1;
+}
+
+static void call_end(int *hp, int *hc)
+{
+	speech_off();
+	if (*hp >= 0)
+		close(*hp);
+	if (*hc >= 0)
+		close(*hc);
+	*hp = *hc = -1;
+}
+
+/* The modem's audio peer, always there, as the stock HAL keeps ccci_aud
+ * open: with no one answering it the modem rejects incoming calls as busy.
+ * SIGUSR1: a call is up (speech on); SIGUSR2: it ended. Between messages
+ * and signals it sleeps in ppoll, with no timeout. */
+static int serve(unsigned int rate)
+{
+	struct sigaction sa = { .sa_handler = on_call };	/* no SA_RESTART */
+	struct pollfd p = { .fd = fd, .events = POLLIN };
+	sigset_t block, wait;
+	int hp = -1, hc = -1, on = 0;
+
+	sigaction(SIGUSR1, &sa, NULL);
+	sigaction(SIGUSR2, &sa, NULL);
+	sigemptyset(&block);
+	sigaddset(&block, SIGUSR1);
+	sigaddset(&block, SIGUSR2);
+	sigaddset(&block, SIGTERM);
+	sigaddset(&block, SIGINT);
+	sigprocmask(SIG_BLOCK, &block, &wait);
+	printf("serving the modem's audio channel\n");
+	while (!stop) {
+		if (in_call && !on)
+			on = call_start(rate, &hp, &hc) == 0 ? 1 : -1;
+		else if (!in_call && on) {
+			if (on > 0)
+				call_end(&hp, &hc);
+			on = 0;
+		}
+		if (ppoll(&p, 1, NULL, &wait) > 0 && recv_msg(0) < 0)
+			break;
 	}
-	if (hp >= 0)
-		close(hp);
-	if (hc >= 0)
-		close(hc);
-	return ret;
+	if (on > 0)
+		call_end(&hp, &hc);
+	return 0;
 }
 
 static int selftest(unsigned int rate)
@@ -530,7 +569,7 @@ int main(int argc, char **argv)
 	int rate = 16, app = APP_NORMAL, secs = 0, ret = 0, i;
 
 	if (argc < 2) {
-		fprintf(stderr, "usage: %s call <8|16|32> | on <8|16|32> [loopback] [seconds] |"
+		fprintf(stderr, "usage: %s serve <8|16|32> | on <8|16|32> [loopback] [seconds] |"
 			" listen [seconds] | selftest [8|16|32] (plays loud test tones)\n", argv[0]);
 		return 2;
 	}
@@ -547,8 +586,8 @@ int main(int argc, char **argv)
 		hold(argc > 2 ? atoi(argv[2]) : 0, NULL);
 		return 0;
 	}
-	if (!strcmp(argv[1], "call") && argc > 2)
-		return call(atoi(argv[2]) * 1000);
+	if (!strcmp(argv[1], "serve") && argc > 2)
+		return serve(atoi(argv[2]) * 1000);
 	if (!strcmp(argv[1], "selftest"))
 		return selftest((argc > 2 ? atoi(argv[2]) : 16) * 1000);
 	if (strcmp(argv[1], "on") || argc < 3)
