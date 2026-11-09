@@ -103,5 +103,10 @@ if [ -z "$IA_APN" ] && apn=$(carrier_apn) && [ -n "$apn" ]; then
 	set_apn "$apn"
 	radio_on
 fi
+# Incoming calls wait for the host to allow them (+EAIC), as with the stock
+# RIL; ModemManager's mtk-ccci plugin answers each. Call progress (+ECPI)
+# stays off: nothing reads it.
+cmd 'AT+EAIC=2'
+cmd 'AT+ECPI=0'
 cmd 'AT+CPIN?'
 exit 0

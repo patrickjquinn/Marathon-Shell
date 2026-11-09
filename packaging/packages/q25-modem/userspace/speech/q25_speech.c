@@ -445,6 +445,57 @@ out_free:
 	return lvl;
 }
 
+/* As the HAL: prefill the hostless playback with silence, start it, then
+ * the capture; neither is fed or read afterwards. It only clocks the modem's
+ * speech path, so nothing is heard from it. */
+static int hostless_start(unsigned int rate, int *hp, int *hc)
+{
+	*hp = pcm_open(DEV_HOSTLESS, 0, rate);
+	*hc = pcm_open(DEV_HOSTLESS, 1, rate);
+	if (*hp < 0 || *hc < 0 ||
+	    pcm_sw(*hp, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
+	    pcm_sw(*hc, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
+	    pcm_write_silence(*hp, rate / 5 < 4 * rate * PERIOD_MS / 1000 ?
+			      rate / 5 : 4 * rate * PERIOD_MS / 1000) < 0 ||
+	    ioctl(*hp, SNDRV_PCM_IOCTL_START) < 0 ||
+	    ioctl(*hc, SNDRV_PCM_IOCTL_START) < 0) {
+		fprintf(stderr, "Hostless_Speech start: %s\n", strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+
+/* A voice call: the speech path on, as the stock HAL holds it, until a
+ * signal. The routes are the UCM Voice Call verb's. Plays nothing itself. */
+static int call(unsigned int rate)
+{
+	int hp = -1, hc = -1, ret = 1, tries;
+
+	/* The Hostless_Speech front end has no back end until the Voice Call
+	 * verb's routes are on, and WirePlumber switches to it as the call
+	 * starts: try for a while. */
+	for (tries = 0; tries < 30 && !stop; tries++) {
+		if (hostless_start(rate, &hp, &hc) == 0)
+			break;
+		if (hp >= 0)
+			close(hp);
+		if (hc >= 0)
+			close(hc);
+		hp = hc = -1;
+		usleep(100 * 1000);
+	}
+	if (hp >= 0 && speech_on(APP_NORMAL, rate / 1000) == 0) {
+		printf("call audio on (SIGTERM to stop)\n");
+		hold(0, NULL);
+		ret = speech_off() ? 1 : 0;
+	}
+	if (hp >= 0)
+		close(hp);
+	if (hc >= 0)
+		close(hc);
+	return ret;
+}
+
 static int selftest(unsigned int rate)
 {
 	int hp = -1, hc = -1, ret = 1;
@@ -454,20 +505,8 @@ static int selftest(unsigned int rate)
 	for (i = 0; i < sizeof(routes) / sizeof(routes[0]); i++)
 		if (ctl_set(routes[i], 1))
 			goto out;
-	/* As the HAL: prefill the hostless playback with silence, start it,
-	 * then the capture; neither is fed or read afterwards. */
-	hp = pcm_open(DEV_HOSTLESS, 0, rate);
-	hc = pcm_open(DEV_HOSTLESS, 1, rate);
-	if (hp < 0 || hc < 0 ||
-	    pcm_sw(hp, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
-	    pcm_sw(hc, 4 * (rate * PERIOD_MS / 1000), ~0ul >> 2) < 0 ||
-	    pcm_write_silence(hp, rate / 5 < 4 * rate * PERIOD_MS / 1000 ?
-			      rate / 5 : 4 * rate * PERIOD_MS / 1000) < 0 ||
-	    ioctl(hp, SNDRV_PCM_IOCTL_START) < 0 ||
-	    ioctl(hc, SNDRV_PCM_IOCTL_START) < 0) {
-		fprintf(stderr, "Hostless_Speech start: %s\n", strerror(errno));
+	if (hostless_start(rate, &hp, &hc))
 		goto out;
-	}
 	ctl = run_pass(rate, 0, &rms_ctl);
 	lvl = run_pass(rate, 1, &rms);
 	/* PASS: both tones come back through the modem at a usable level,
@@ -491,8 +530,8 @@ int main(int argc, char **argv)
 	int rate = 16, app = APP_NORMAL, secs = 0, ret = 0, i;
 
 	if (argc < 2) {
-		fprintf(stderr, "usage: %s on <8|16|32> [loopback] [seconds] | listen [seconds] |"
-			" selftest [8|16|32]\n", argv[0]);
+		fprintf(stderr, "usage: %s call <8|16|32> | on <8|16|32> [loopback] [seconds] |"
+			" listen [seconds] | selftest [8|16|32] (plays loud test tones)\n", argv[0]);
 		return 2;
 	}
 	setvbuf(stdout, NULL, _IOLBF, 0);
@@ -508,6 +547,8 @@ int main(int argc, char **argv)
 		hold(argc > 2 ? atoi(argv[2]) : 0, NULL);
 		return 0;
 	}
+	if (!strcmp(argv[1], "call") && argc > 2)
+		return call(atoi(argv[2]) * 1000);
 	if (!strcmp(argv[1], "selftest"))
 		return selftest((argc > 2 ? atoi(argv[2]) : 16) * 1000);
 	if (strcmp(argv[1], "on") || argc < 3)

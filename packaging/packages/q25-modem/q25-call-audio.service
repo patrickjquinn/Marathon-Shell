@@ -1,0 +1,11 @@
+[Unit]
+Description=Q25 MD1: speech path on during voice calls
+After=ModemManager.service
+PartOf=q25-modem.target
+
+[Service]
+ExecStart=/usr/libexec/q25-modem/q25-call-audio
+# Stopping takes q25-speech down with it, which turns speech off.
+KillMode=control-group
+Restart=on-failure
+RestartSec=5

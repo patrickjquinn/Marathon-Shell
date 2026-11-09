@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patrick Quinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 9 Nov 2026 12:00:00 +0000
+Subject: [PATCH] mtk-ccci: allow incoming calls (+EAIC)
+
+MediaTek modems with incoming call approval on (+EAIC=2) report each
+incoming call as +EAIC: <id>,<number>,<type>,<mode>,<seq>,... and wait
+for the host to allow it with +EAIC=0,<id>,<seq>, as the stock RIL does.
+Until then the call rings at the network but is missing from +CLCC, so
+the generic voice code drops it, and the modem rejects it with cause 31.
+
+Also consume +ECPI call progress reports, which otherwise arrive between
+ATA and its reply and fail the answer.
+---
+diff --git a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+index c6b0e62..f8a3a8d 100644
+--- a/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
++++ b/src/plugins/mtk-ccci/mm-broadband-modem-mtk-ccci.c
+@@ -32,6 +32,8 @@ G_DEFINE_TYPE_EXTENDED (MMBroadbandModemMtkCcci, mm_broadband_modem_mtk_ccci, MM
+ 
+ struct _MMBroadbandModemMtkCcciPrivate {
+     GRegex *eif_ifdown_regex;
++    GRegex *eaic_regex;
++    GRegex *ecpi_regex;
+ };
+ 
+ /*****************************************************************************/
+@@ -59,6 +61,42 @@ eif_ifdown_received (MMPortSerialAt          *port,
+     mm_base_modem_at_command (MM_BASE_MODEM (self), command, 10, FALSE, NULL, NULL);
+ }
+ 
++/*****************************************************************************/
++/* Incoming call approval
++ *
++ * With +EAIC=2 (set by the modem bring-up) the modem reports each incoming
++ * call as +EAIC: <call id>,<number>,<type>,<call mode>,<seq no>,... and waits
++ * for the host to allow it, as the stock RIL does with +EAIC=0,<id>,<seq>.
++ * Until then the call rings at the network but is missing from +CLCC, so the
++ * generic voice code drops it; unanswered, the modem rejects it with cause 31. */
++
++static void
++eaic_received (MMPortSerialAt          *port,
++               GMatchInfo              *match_info,
++               MMBroadbandModemMtkCcci *self)
++{
++    g_autofree gchar *command = NULL;
++    guint             id;
++    guint             seq;
++
++    if (!mm_get_uint_from_match_info (match_info, 1, &id) ||
++        !mm_get_uint_from_match_info (match_info, 2, &seq))
++        return;
++
++    mm_obj_dbg (self, "allowing incoming call %u (seq %u)", id, seq);
++    command = g_strdup_printf ("+EAIC=0,%u,%u", id, seq);
++    mm_base_modem_at_command (MM_BASE_MODEM (self), command, 5, FALSE, NULL, NULL);
++}
++
++/* +ECPI call progress, if enabled, arrives between a command and its reply
++ * (ATA among them) and must not be taken for the reply. */
++static void
++ecpi_received (MMPortSerialAt          *port,
++               GMatchInfo              *match_info,
++               MMBroadbandModemMtkCcci *self)
++{
++}
++
+ static void
+ setup_ports (MMBroadbandModem *_self)
+ {
+@@ -79,6 +117,18 @@ setup_ports (MMBroadbandModem *_self)
+             (MMPortSerialAtUnsolicitedMsgFn) eif_ifdown_received,
+             self,
+             NULL);
++        mm_port_serial_at_add_unsolicited_msg_handler (
++            ports[i],
++            self->priv->eaic_regex,
++            (MMPortSerialAtUnsolicitedMsgFn) eaic_received,
++            self,
++            NULL);
++        mm_port_serial_at_add_unsolicited_msg_handler (
++            ports[i],
++            self->priv->ecpi_regex,
++            (MMPortSerialAtUnsolicitedMsgFn) ecpi_received,
++            self,
++            NULL);
+     }
+ }
+ 
+@@ -157,6 +207,10 @@ mm_broadband_modem_mtk_ccci_init (MMBroadbandModemMtkCcci *self)
+                                               MMBroadbandModemMtkCcciPrivate);
+     self->priv->eif_ifdown_regex = g_regex_new ("\\r\\n\\+EIF:\\s*(\\d+)\\s*,\\s*ifdown[^\\r\\n]*\\r\\n",
+                                                 G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->eaic_regex = g_regex_new ("\\r\\n\\+EAIC:\\s*(\\d+)\\s*,\\s*\"[^\"]*\"\\s*,\\s*\\d*\\s*,\\s*\\d*\\s*,\\s*(\\d+)[^\\r\\n]*\\r\\n",
++                                          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
++    self->priv->ecpi_regex = g_regex_new ("\\r\\n\\+ECPI:[^\\r\\n]*\\r\\n",
++                                          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+ }
+ 
+ static void
+@@ -165,6 +219,8 @@ finalize (GObject *object)
+     MMBroadbandModemMtkCcci *self = MM_BROADBAND_MODEM_MTK_CCCI (object);
+ 
+     g_regex_unref (self->priv->eif_ifdown_regex);
++    g_regex_unref (self->priv->eaic_regex);
++    g_regex_unref (self->priv->ecpi_regex);
+ 
+     G_OBJECT_CLASS (mm_broadband_modem_mtk_ccci_parent_class)->finalize (object);
+ }

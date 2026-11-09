@@ -1,0 +1,25 @@
+#!/bin/sh
+# q25-call-audio: the modem's speech path is on while a voice call is
+# active, as the stock HAL keeps it. WirePlumber picks the UCM Voice Call
+# verb (the routes); this holds q25-speech, which plays nothing itself.
+SPEECH=/usr/libexec/q25-modem/q25-speech
+pid=
+
+stop() {
+	[ -n "$pid" ] || return 0
+	kill "$pid" 2>/dev/null
+	wait "$pid"
+	pid=
+}
+
+# MMCallState: 4 active, 7 terminated.
+busctl --system monitor --json=short \
+	--match "type='signal',sender='org.freedesktop.ModemManager1',interface='org.freedesktop.ModemManager1.Call',member='StateChanged'" |
+	while read -r line; do
+		state=$(printf '%s\n' "$line" |
+			sed -n 's/.*"data":\[ *-\{0,1\}[0-9]* *, *\(-\{0,1\}[0-9]*\).*/\1/p')
+		case "$state" in
+		4) [ -n "$pid" ] || { "$SPEECH" call 16 & pid=$!; } ;;
+		7) stop ;;
+		esac
+	done
