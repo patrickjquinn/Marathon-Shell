@@ -1053,6 +1053,8 @@ enum Event {
     Command(Command),
     Closed,
     Objects,
+    /// ModemManager started again: the same modem path, new signals to follow.
+    Restarted,
     Changed(HashMap<String, OwnedValue>),
     BroadcastAdded(OwnedObjectPath),
     BroadcastGone(OwnedObjectPath),
@@ -1087,7 +1089,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     }
     if let Ok(dbus) = DBusProxy::new(&bus).await {
         if let Ok(owners) = dbus.receive_name_owner_changed_with_args(&[(0, MM)]).await {
-            objects = objects.or(owners.map(|_| Event::Objects)).boxed();
+            objects = objects.or(owners.map(|_| Event::Restarted)).boxed();
         }
     }
     objects = objects.or(nm_events(&bus).await).boxed();
@@ -1131,6 +1133,10 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
             Some(Event::Objects) => {
                 daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
             }
+            Some(Event::Restarted) => {
+                state.path = None;
+                daemon = discover(&bus, &manager, &qt, &mut state, &mut modem_events).await;
+            }
             Some(Event::NmDevices) => follow_nm(&bus, &mut state).await,
             Some(Event::NmState(path, nm_state)) => state.nm_changed(&path, nm_state),
             Some(Event::Changed(changed)) => {
@@ -1147,10 +1153,26 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
                 qt.queue(move |obj| obj.broadcast_gone(path.as_str())).ok();
             }
             Some(Event::CallAdded(path)) => {
-                let props = properties(&bus, &path, CALL).await;
-                // MM_CALL_DIRECTION_INCOMING is 1.
-                let incoming =
-                    props.get("Direction").and_then(|v| u32::try_from(v).ok()) == Some(1);
+                // A call object just exported may not answer yet: ask again
+                // before taking a ringing call for one of ours.
+                let mut props = properties(&bus, &path, CALL).await;
+                for _ in 0..5 {
+                    if props.contains_key("Direction") {
+                        break;
+                    }
+                    async_io::Timer::after(std::time::Duration::from_millis(100)).await;
+                    props = properties(&bus, &path, CALL).await;
+                }
+                let get = |key: &str| props.get(key).and_then(mm_enum);
+                // MM_CALL_DIRECTION_INCOMING is 1, MM_CALL_STATE_RINGING_IN 3.
+                let incoming = get("Direction") == Some(1) || get("State") == Some(3);
+                log::warn(
+                    "modem",
+                    format_args!(
+                        "call {path} added, incoming {incoming}, {} properties",
+                        props.len()
+                    ),
+                );
                 let number = props
                     .get("Number")
                     .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
@@ -1351,7 +1373,7 @@ async fn call_events(bus: &zbus::Connection, modem: OwnedObjectPath) -> stream::
             let path = m.header().path()?.to_string();
             let (interface, changed, _): (String, HashMap<String, OwnedValue>, Vec<String>) =
                 m.body().deserialize().ok()?;
-            let state = u32::try_from(changed.get("State")?).ok()?;
+            let state = mm_enum(changed.get("State")?)?;
             (interface == CALL).then_some(Event::CallChanged(path, Some(state)))
         });
         events = events.or(states).boxed();
@@ -1366,6 +1388,16 @@ async fn signals(
     MessageStream::for_match_rule(rule.build().ok()?, bus, std::num::NonZeroUsize::new(16))
         .await
         .ok()
+}
+
+/// A `ModemManager` enum: int32 on the bus for calls (MMCallState,
+/// MMCallDirection), uint32 elsewhere.
+fn mm_enum(value: &OwnedValue) -> Option<u32> {
+    u32::try_from(value).ok().or_else(|| {
+        i32::try_from(value)
+            .ok()
+            .and_then(|v| u32::try_from(v).ok())
+    })
 }
 
 async fn properties(
