@@ -887,12 +887,7 @@ async fn run(qt: Qt, commands: Receiver<Command>) {
     actor.lifelong = actor.inhibit("marathon-shell", "Handle wake events").await;
     actor.read_critical_action(&qt).await;
     actor.read_battery(&qt).await;
-    // tuned-ppd is deliberately delayed until after the interactive boot.
-    // Merely reading its property would D-Bus-activate tuned here and put its
-    // expensive Python startup back on the shell's critical path.
-    if actor.profile_service_running().await {
-        actor.read_profile(&qt).await;
-    }
+    actor.read_profile(&qt).await;
 
     let events = commands
         .map(Event::Command)
@@ -931,16 +926,6 @@ fn queue_profile(qt: &Qt, profile: String) {
 }
 
 impl Actor {
-    async fn profile_service_running(&self) -> bool {
-        let Ok(dbus) = DBusProxy::new(&self.bus).await else {
-            return false;
-        };
-        let Ok(name) = PROFILES.try_into() else {
-            return false;
-        };
-        dbus.name_has_owner(name).await.unwrap_or(false)
-    }
-
     async fn inhibit(&self, who: &str, why: &str) -> Option<OwnedFd> {
         match self.logind.inhibit("sleep", who, why, "delay").await {
             Ok(fd) => Some(fd),

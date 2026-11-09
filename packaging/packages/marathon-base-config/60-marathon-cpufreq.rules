@@ -1,6 +1,6 @@
 # Marathon OS CPU frequency
-# The governor is tuned's (the profiles in /etc/tuned/profiles, switched by
-# tuned-ppd): nothing else may write scaling_governor.
+# The governor is marathon-power-profiles' (the power profile the shell
+# picks): nothing else may write scaling_governor.
 
 # Let the shell's InputBoost raise the frequency floor while the user
 # interacts (the session user is in the input group). Re-applied here

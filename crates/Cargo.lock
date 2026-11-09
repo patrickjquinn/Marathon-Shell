@@ -3435,6 +3435,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-power-profiles"
+version = "0.1.0"
+dependencies = [
+ "zbus 6.1.0",
+]
+
+[[package]]
 name = "marathon-qt"
 version = "0.1.0"
 dependencies = [
