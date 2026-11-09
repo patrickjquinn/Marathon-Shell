@@ -2,6 +2,16 @@ pragma Singleton
 import QtQml
 
 QtObject {
+    property string apn: ""
+    property string customApn: ""
+    property var carrierApns: []
+    signal apnChanged
+    function loadApn() {
+    }
+    function setApn(apn, user, password) {
+        customApn = apn;
+    }
+
     property bool available: true
     property bool simPresent: true
     property bool registered: true

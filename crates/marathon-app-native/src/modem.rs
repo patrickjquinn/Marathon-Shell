@@ -3,7 +3,8 @@
 use std::pin::Pin;
 
 use cxx_qt::{CxxQtType, Threading};
-use cxx_qt_lib::{QList, QString, QVariant};
+use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QVariant};
+use marathon_rt::io;
 
 use crate::shell::{get, mirror, Service, Update};
 
@@ -31,7 +32,24 @@ pub mod qobject {
         #[qproperty(bool, data_roaming_allowed, cxx_name = "dataRoamingAllowed", READ, NOTIFY = state_changed)]
         #[qproperty(QList_QVariant, supported_modes, cxx_name = "supportedModes", READ, NOTIFY = state_changed)]
         #[qproperty(u32, mode_mask, cxx_name = "allowedModes", READ, NOTIFY = state_changed)]
+        /// The APN data uses now, after loadApn().
+        #[qproperty(QString, apn, READ, NOTIFY = apn_changed)]
+        /// The APN set by hand, "" for automatic.
+        #[qproperty(QString, custom_apn, cxx_name = "customApn", READ, NOTIFY = apn_changed)]
+        /// The carrier's APNs for the SIM: maps of name, apn, user, password.
+        #[qproperty(QList_QVariant, carrier_apns, cxx_name = "carrierApns", READ, NOTIFY = apn_changed)]
         type Modem = super::ModemRust;
+
+        #[qsignal]
+        #[cxx_name = "apnChanged"]
+        fn apn_changed(self: Pin<&mut Self>);
+        #[qinvokable]
+        #[cxx_name = "loadApn"]
+        fn load_apn(self: &Modem);
+        /// "" for automatic; reloads once it is applied.
+        #[qinvokable]
+        #[cxx_name = "setApn"]
+        fn set_apn(self: &Modem, apn: &QString, user: &QString, password: &QString);
 
         #[qsignal]
         #[cxx_name = "stateChanged"]
@@ -75,6 +93,9 @@ pub struct ModemRust {
     data_roaming_allowed: bool,
     supported_modes: QList<QVariant>,
     mode_mask: u32,
+    apn: QString,
+    custom_apn: QString,
+    carrier_apns: QList<QVariant>,
 }
 
 impl cxx_qt::Initialize for Modem {
@@ -105,5 +126,49 @@ impl Modem {
         disable_data() => "DisableData";
         set_data_roaming_allowed(allowed: bool) => "SetDataRoamingAllowed";
         set_allowed_modes(allowed: u32) => "SetAllowedModes";
+    }
+
+    fn load_apn(&self) {
+        let qt = self.qt_thread();
+        io::spawn(async move {
+            let Ok((live, custom, carrier)) = MODEM
+                .ask::<_, (String, String, Vec<(String, String, String, String)>)>("GetApn", &())
+                .await
+            else {
+                return;
+            };
+            qt.queue(move |mut obj| {
+                let mut list = QList::<QVariant>::default();
+                for (name, apn, user, password) in &carrier {
+                    let mut map = QMap::<QMapPair_QString_QVariant>::default();
+                    for (k, v) in [
+                        ("name", name),
+                        ("apn", apn),
+                        ("user", user),
+                        ("password", password),
+                    ] {
+                        map.insert(QString::from(k), QVariant::from(&QString::from(v.as_str())));
+                    }
+                    list.append(QVariant::from(&map));
+                }
+                let mut m = obj.as_mut().rust_mut();
+                m.apn = QString::from(&live);
+                m.custom_apn = QString::from(&custom);
+                m.carrier_apns = list;
+                obj.apn_changed();
+            })
+            .ok();
+        });
+    }
+
+    fn set_apn(&self, apn: &QString, user: &QString, password: &QString) {
+        let qt = self.qt_thread();
+        let body = (apn.to_string(), user.to_string(), password.to_string());
+        io::spawn(async move {
+            if let Err(e) = MODEM.reply("SetApn", &body).await {
+                marathon_rt::log::warn("modem", format_args!("SetApn: {e}"));
+            }
+            qt.queue(|obj| obj.load_apn()).ok();
+        });
     }
 }

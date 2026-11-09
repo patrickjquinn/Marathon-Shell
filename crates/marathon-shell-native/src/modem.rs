@@ -703,6 +703,38 @@ impl Modem1 {
         ipc::admit(&h, "Modem", &["network", "system"]).await?;
         ipc::on_gui(&self.qt, move |obj| obj.set_allowed_modes(allowed)).await
     }
+
+    /// The APN data uses now, the one set ("" for automatic), and the
+    /// carrier's (name, apn, user, password) for the SIM.
+    #[zbus(name = "GetApn")]
+    async fn get_apn(
+        &self,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<(String, String, Vec<crate::apn::Suggestion>)> {
+        ipc::admit(&h, "Modem", &["network", "system"]).await?;
+        let bus = io::system_bus()
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        Ok(crate::apn::read(&bus).await)
+    }
+
+    /// "" for automatic: the carrier's attach APN.
+    #[zbus(name = "SetApn")]
+    async fn set_apn(
+        &self,
+        apn: String,
+        user: String,
+        password: String,
+        #[zbus(header)] h: Header<'_>,
+    ) -> fdo::Result<()> {
+        ipc::admit(&h, "Modem", &["system"]).await?;
+        let bus = io::system_bus()
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        crate::apn::set(&bus, apn.trim(), &user, &password)
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))
+    }
 }
 
 /// `WirePlumber`'s call routing follows marathon-audiod's speakerphone.
@@ -1588,7 +1620,9 @@ async fn mobile_data(
 type SavedSettings = HashMap<String, HashMap<String, OwnedValue>>;
 
 // The first saved gsm profile: Marathon's, or one the person made.
-async fn gsm_profile(bus: &zbus::Connection) -> Option<(OwnedObjectPath, SavedSettings)> {
+pub(crate) async fn gsm_profile(
+    bus: &zbus::Connection,
+) -> Option<(OwnedObjectPath, SavedSettings)> {
     let paths = NmSettingsProxy::new(bus)
         .await
         .ok()?
