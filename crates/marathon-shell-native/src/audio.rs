@@ -18,7 +18,7 @@ use zbus::message::Header;
 use zbus::{DynamicType, OwnedVariant as OwnedValue};
 
 use crate::ipc::{self, value, State};
-use crate::{haptics, io, log, settings};
+use crate::{haptics, io, log, privacy, settings};
 
 #[cxx_qt::bridge(namespace = "marathon")]
 pub mod qobject {
@@ -663,6 +663,12 @@ impl Cache {
             .get("Output")
             .and_then(|v| v.downcast_ref::<&str>().ok())
             .map(str::to_owned);
+        if let Some(recording) = props
+            .get("Recording")
+            .and_then(|v| Vec::<(u32, String)>::try_from(v.try_clone().ok()?).ok())
+        {
+            privacy::recording(&recording);
+        }
         Report {
             available: true,
             default,
@@ -933,6 +939,7 @@ pub async fn call<B: serde::Serialize + DynamicType>(
 
 /// The service is gone: no sink, no streams.
 fn gone(cache: &mut Cache) -> Report {
+    privacy::recording(&[]);
     *cache = Cache::default();
     Report {
         available: false,

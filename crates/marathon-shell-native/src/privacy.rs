@@ -3,11 +3,13 @@
 //! sandboxed or not, uses them unseen. A thread blocks on the events; nothing
 //! polls. Holders are named by app id where the gate knows them, else by
 //! process; one the shell may not look into (root's call audio) still counts.
+//! PipeWire holds the microphone for its clients: marathon-audiod names them.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use cxx_qt::{CxxQtType, Threading};
@@ -49,6 +51,33 @@ pub struct PrivacyRust {
     microphone: bool,
     camera_users: QStringList,
     microphone_users: QStringList,
+    /// The capture devices' holders, PipeWire among them.
+    holding: Vec<String>,
+    /// PipeWire's recording clients.
+    recording: Vec<String>,
+}
+
+static PRIVACY: OnceLock<cxx_qt::CxxQtThread<Privacy>> = OnceLock::new();
+
+/// PipeWire's recording streams, `(client pid, app)`, from marathon-audiod.
+pub fn recording(streams: &[(u32, String)]) {
+    let Some(qt) = PRIVACY.get() else { return };
+    let mut names: Vec<String> = streams
+        .iter()
+        .map(|(pid, app)| {
+            (*pid != 0)
+                .then(|| gate::resolve(*pid))
+                .flatten()
+                .unwrap_or_else(|| app.clone())
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    qt.queue(move |mut obj| {
+        obj.as_mut().rust_mut().recording = names;
+        obj.as_mut().publish();
+    })
+    .ok();
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -222,26 +251,46 @@ fn watch(qt: &cxx_qt::CxxQtThread<Privacy>) -> std::io::Result<()> {
 impl Privacy {
     fn update(mut self: Pin<&mut Self>, seen: Seen) {
         let camera_users = list(&seen.camera_users);
-        let microphone_users = list(&seen.microphone_users);
-        if self.camera == seen.camera
-            && self.microphone == seen.microphone
-            && self.camera_users == camera_users
-            && self.microphone_users == microphone_users
-        {
-            return;
-        }
+        let changed = self.camera != seen.camera
+            || self.microphone != seen.microphone
+            || self.camera_users != camera_users;
         let mut rust = self.as_mut().rust_mut();
         rust.camera = seen.camera;
         rust.microphone = seen.microphone;
         rust.camera_users = camera_users;
-        rust.microphone_users = microphone_users;
+        rust.holding = seen.microphone_users;
+        if !self.as_mut().publish() && changed {
+            self.changed();
+        }
+    }
+
+    /// The microphone's users, PipeWire's clients in its place; whether they changed.
+    fn publish(mut self: Pin<&mut Self>) -> bool {
+        let mut users: Vec<String> = self
+            .holding
+            .iter()
+            .filter(|n| *n != "pipewire" || self.recording.is_empty())
+            .cloned()
+            .collect();
+        if self.holding.iter().any(|n| n == "pipewire") {
+            users.extend(self.recording.iter().cloned());
+        }
+        users.sort();
+        users.dedup();
+        let users = list(&users);
+        if self.microphone_users == users {
+            return false;
+        }
+        self.as_mut().rust_mut().microphone_users = users;
         self.changed();
+        true
     }
 }
 
 impl cxx_qt::Initialize for Privacy {
     fn initialize(self: Pin<&mut Self>) {
         let qt = self.qt_thread();
+        PRIVACY.set(self.qt_thread()).ok();
         std::thread::Builder::new()
             .name("privacy".into())
             .spawn(move || {
