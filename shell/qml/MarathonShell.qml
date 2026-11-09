@@ -716,8 +716,9 @@ Item {
                 appWindow.visible: false
             }
 
+            // Only Quick Settings over the lock screen: the bar closes it.
             PropertyChanges {
-                navBar.visible: false
+                navBar.visible: UIStore.quickSettingsHeight > 0
             }
         },
         State {
@@ -1632,6 +1633,7 @@ Item {
         anchors.bottom: parent.bottom
         z: PermissionManager.promptActive ? permissionDialog.z + 1 : Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
+        shadeOnly: SessionStore.isLocked && shell.state !== "pinEntry"
         keyboardVisible: virtualKeyboard.active
         searchActive: UIStore.searchOpen
         pilotEnabled: PilotClient.available && SettingsManagerCpp.firstRunComplete && !SessionStore.isLocked && !navBar.pinScreenMode && !virtualKeyboard.active && !UIStore.quickSettingsOpen && !UIStore.searchOpen

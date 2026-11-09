@@ -25,6 +25,8 @@ Rectangle {
     // short of it, and search and the keyboard hide, leaving the whole bar
     // to the pill.
     property bool setupMode: false
+    // Over the lock screen: the bar is there only to close Quick Settings.
+    property bool shadeOnly: false
     // What a tap on the pill does, for screen readers; empty hides the pill from them.
     property string pillAction: ""
     // Touch and hold asks Shipwright Pilot (pilotRequested) while true.
@@ -236,7 +238,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(Silica.Theme.itemSizeExtraSmall, Silica.Theme.horizontalPageMargin + Silica.Theme.iconSizeExtraSmall + Silica.Theme.paddingMedium)
         height: parent.height
-        visible: !navBar.pinScreenMode && !navBar.setupMode
+        visible: !navBar.pinScreenMode && !navBar.setupMode && !navBar.shadeOnly
         opacity: navBar.pinScreenMode ? 0 : 1
 
         // On the page margin, in line with the status bar and the dock.
@@ -268,7 +270,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: searchButton.width
         height: parent.height
-        visible: !navBar.setupMode
+        visible: !navBar.setupMode && !navBar.shadeOnly
 
         GlyphIcon {
             name: "keyboard"
@@ -499,6 +501,10 @@ Rectangle {
                 "isAppOpen": navBar.isAppOpen,
                 "quickSettingsOpen": UIStore.quickSettingsOpen
             });
+            if (navBar.shadeOnly && !isVerticalGesture) {
+                resetGesture(false);
+                return;
+            }
             if (!isVerticalGesture && !isHorizontalGesture) {
                 if (pressedOn(searchButton)) {
                     HapticManager.light();
@@ -541,6 +547,10 @@ Rectangle {
                     "flingUp": isFlingUp,
                     "deliberateUp": isDeliberateSwipeUp
                 });
+                resetGesture(false);
+                return;
+            }
+            if (navBar.shadeOnly) {
                 resetGesture(false);
                 return;
             }
