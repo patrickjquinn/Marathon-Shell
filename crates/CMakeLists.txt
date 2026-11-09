@@ -245,6 +245,29 @@ install(CODE "set(_wants \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/sys
     file(CREATE_LINK ../marathon-power-profiles.service
          \"\${_wants}/marathon-power-profiles.service\" SYMBOLIC)")
 
+# The charging screen a charger-started phone boots into instead of the
+# session: a generator picks marathon-charging.target from the boot reason.
+set(MARATHON_CHARGER_BIN
+    "${MARATHON_CARGO_TARGET_DIR}/${_cargo_profile_dir}/marathon-charger")
+add_custom_target(marathon_charger_cargo ALL
+    COMMAND ${_cargo_env} "${MARATHON_CARGO}" build -p marathon-charger
+            ${_cargo_flags} ${_cargo_profile_flag}
+    BYPRODUCTS "${MARATHON_CHARGER_BIN}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building marathon-charger (Rust)"
+    USES_TERMINAL
+    VERBATIM)
+install(PROGRAMS "${MARATHON_CHARGER_BIN}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+configure_file(marathon-charger/data/marathon-charger.service.in
+    marathon-charger.service @ONLY)
+configure_file(marathon-charger/data/marathon-charging-generator.in
+    marathon-charging-generator @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/marathon-charger.service"
+    marathon-charger/data/marathon-charging.target
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/marathon-charging-generator"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system-generators)
+
 # A session daemon that serves apps: bus-activated into its systemd user
 # unit, and admitted by the shell as a session service
 # (/usr/share/marathon-shell/services) that asks Permissions1.Admit.

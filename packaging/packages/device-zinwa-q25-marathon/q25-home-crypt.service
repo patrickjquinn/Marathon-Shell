@@ -11,6 +11,8 @@ Type=oneshot
 RemainAfterExit=yes
 # A PIN prompt waits for the person.
 TimeoutStartSec=infinity
+# A charger turned the phone on: it shows the charging screen, no PIN.
+ExecCondition=/bin/sh -c '! marathon-charger boot-mode charger 2>/dev/null'
 ExecStart=/usr/libexec/marathon/q25-home-crypt
 
 [Install]

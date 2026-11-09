@@ -1,0 +1,6 @@
+[Unit]
+Description=Charging screen (a charger turned the phone on)
+Requires=basic.target
+After=basic.target
+Wants=marathon-charger.service
+AllowIsolate=yes

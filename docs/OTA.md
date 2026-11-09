@@ -456,6 +456,10 @@ through BL31's `MTK_SIP_KERNEL_BOOT`, the way LK starts Linux. Without it
 CPU0 corrupts memory. The restarted U-Boot adds
 `/chosen/marathon,mtk-kernel-boot` to the DT; `q25-platform-prepare`
 takes CPU0 offline before udev starts unless that property is there.
+It also passes the preloader's boot tags on as `/chosen/marathon,boot-reason`
+and `marathon,boot-mode` (MediaTek's numbers: reason 1 is a charger); a
+charger-started phone boots `marathon-charging.target`, the battery on the
+splash, instead of the session (`marathon-charger`).
 `/loader/q25-no-handoff` on the ESP skips the hand-off (CPU0 then stays
 offline); a failed hand-off step falls back to the same path.
 

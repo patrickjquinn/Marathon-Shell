@@ -1,0 +1,13 @@
+[package]
+name = "marathon-charger"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+evdev = { version = "0.13.2", default-features = false }
+nix = { version = "0.31.3", features = ["poll", "socket"] }
+
+[lints]
+workspace = true

@@ -3320,6 +3320,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "marathon-charger"
+version = "0.1.0"
+dependencies = [
+ "evdev",
+ "nix 0.31.3",
+]
+
+[[package]]
 name = "marathon-davd"
 version = "0.1.0"
 dependencies = [
@@ -3794,6 +3802,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
