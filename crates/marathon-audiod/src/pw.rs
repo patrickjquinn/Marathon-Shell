@@ -33,6 +33,7 @@ pub struct Request {
 
 fn wanted(media_class: &str) -> bool {
     media_class == "Stream/Output/Audio"
+        || media_class == "Stream/Input/Audio"
         || [Direction::Output, Direction::Input]
             .iter()
             .any(|d| d.media_classes().contains(&media_class))
@@ -162,6 +163,9 @@ fn update_node(node: &mut Node, props: &DictRef) {
     node.description = s("node.description").unwrap_or_default();
     node.media_class = s("media.class").unwrap_or_default();
     node.app_name = s("application.name");
+    node.pid = props
+        .get("application.process.id")
+        .and_then(|v| v.parse().ok());
     node.device = props.get("device.id").and_then(|v| v.parse().ok());
     node.profile_device = props
         .get("card.profile.device")

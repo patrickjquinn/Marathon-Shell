@@ -30,6 +30,8 @@ pub struct Node {
     pub description: String,
     pub media_class: String,
     pub app_name: Option<String>,
+    /// The client's process, for a stream.
+    pub pid: Option<u32>,
     pub device: Option<u32>,
     pub profile_device: Option<i32>,
     pub props: Option<Mix>,
@@ -152,6 +154,8 @@ pub struct Snapshot {
     pub speakerphone: bool,
     /// What the default sink is when it isn't the phone's own: "wired" or "bluetooth".
     pub output: &'static str,
+    /// The streams recording: (client pid, app), for the privacy indicator.
+    pub recording: Vec<(u32, String)>,
 }
 
 #[derive(Debug, Default)]
@@ -339,6 +343,24 @@ impl Graph {
             .collect()
     }
 
+    fn recording(&self) -> Vec<(u32, String)> {
+        let mut recording: Vec<(u32, String)> = self
+            .nodes
+            .values()
+            .filter(|n| n.media_class == "Stream/Input/Audio" && !n.is_role_loopback())
+            .map(|n| {
+                let name = n
+                    .app_name
+                    .clone()
+                    .or_else(|| (!n.description.is_empty()).then(|| n.description.clone()))
+                    .unwrap_or_else(|| n.name.clone());
+                (n.pid.unwrap_or(0), name)
+            })
+            .collect();
+        recording.sort();
+        recording
+    }
+
     fn output(&self) -> &'static str {
         let Some((_, node)) = self.default_node(Direction::Output) else {
             return "";
@@ -459,6 +481,7 @@ impl Graph {
             streams,
             speakerphone: self.speakerphone,
             output: self.output(),
+            recording: self.recording(),
         }
     }
 }
