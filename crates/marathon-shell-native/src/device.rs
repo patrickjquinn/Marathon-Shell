@@ -33,6 +33,8 @@ mod ffi {
         panel_dither: bool,
         render_node: QString,
         brightness_floor: f64,
+        /// The frame's light kept at the bottom of the slider, 1 for no dimming.
+        brightness_dim: f64,
         /// Spawned runners' first surface size.
         runner_width: i32,
         runner_height: i32,
@@ -165,6 +167,9 @@ fn profile() -> Profile {
         render_node: q(v.render_node()),
         brightness_floor: v.number("MARATHON_BRIGHTNESS_FLOOR", "BRIGHTNESS_FLOOR", 0.28, |f| {
             (0.0..=1.0).contains(f)
+        }),
+        brightness_dim: v.number("MARATHON_BRIGHTNESS_DIM", "BRIGHTNESS_DIM", 1.0, |f| {
+            *f > 0.0 && *f <= 1.0
         }),
         runner_width,
         runner_height,

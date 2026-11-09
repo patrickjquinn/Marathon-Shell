@@ -952,7 +952,7 @@ int main(int argc, char *argv[]) {
     auto *display = new marathon::Display();
     display->setParent(&app);
     display->start(QStringLiteral("/sys/class/backlight"), QStringLiteral("/sys/bus/iio/devices"),
-                   device.brightness_floor);
+                   device.brightness_floor, device.brightness_dim);
     qmlRegisterSingletonInstance<marathon::Display>("MarathonOS.Shell", 1, 0, "Display", display);
     const std::pair<const char *, void (marathon::Display::*)()> displaySettings[] = {
         {"rotationLocked", &marathon::Display::rotationLockedChanged},

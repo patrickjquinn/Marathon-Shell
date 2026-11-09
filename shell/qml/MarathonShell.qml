@@ -2950,6 +2950,13 @@ Item {
         anchors.fill: parent
         z: 900000
         temperature: SystemControlStore.isNightLightOn ? Display.nightLightTemperature : 6500
+        dim: Display.dim
+        Behavior on dim {
+            NumberAnimation {
+                duration: 300
+                easing.type: Easing.OutCubic
+            }
+        }
         Behavior on temperature {
             NumberAnimation {
                 duration: 2000

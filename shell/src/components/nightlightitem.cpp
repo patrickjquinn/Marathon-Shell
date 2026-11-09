@@ -105,6 +105,15 @@ void NightLightItem::setTemperature(qreal kelvin) {
     update();
 }
 
+void NightLightItem::setDim(qreal dim) {
+    dim = std::clamp(dim, qreal(0), qreal(1));
+    if (qFuzzyCompare(m_dim, dim))
+        return;
+    m_dim = dim;
+    emit dimChanged();
+    update();
+}
+
 void NightLightItem::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
     update();
@@ -124,7 +133,7 @@ QVector3D NightLightItem::whitePoint(qreal kelvin) {
 
 QSGNode *NightLightItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) {
     auto *node = static_cast<QSGGeometryNode *>(oldNode);
-    if (m_temperature >= kNeutral || width() <= 0 || height() <= 0 ||
+    if ((m_temperature >= kNeutral && m_dim >= 1) || width() <= 0 || height() <= 0 ||
         window()->rendererInterface()->graphicsApi() == QSGRendererInterface::Software) {
         delete node;
         return nullptr;
@@ -137,7 +146,9 @@ QSGNode *NightLightItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *
         node->setFlag(QSGNode::OwnsMaterial);
     }
     QSGGeometry::updateRectGeometry(node->geometry(), boundingRect());
-    static_cast<NightLightMaterial *>(node->material())->white = whitePoint(m_temperature);
+    // The frame is gamma-encoded, so the share of light is encoded too.
+    static_cast<NightLightMaterial *>(node->material())->white =
+        whitePoint(m_temperature) * float(qPow(m_dim, 1 / 2.2));
     node->markDirty(QSGNode::DirtyGeometry | QSGNode::DirtyMaterial);
     return node;
 }
