@@ -4,7 +4,7 @@
 # ECCCI modules are built with the kernel and ship in q25-kernel-modules.
 pkgname=q25-modem
 pkgver=1.0.0
-pkgrel=14
+pkgrel=15
 pkgdesc="Zinwa Q25 MD1 modem stack: CCCI daemons and services"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -17,7 +17,8 @@ _units="q25-modem.target q25-modem-owner.service q25-modem-stack.service q25-mod
  q25-ccci-rpcd.service q25-ccci-fsd.service q25-ccci-mdinit.service q25-modem-init.service
  q25-modem-reset.path q25-modem-reset.service q25-md1-firmware.service q25-call-audio.service"
 source="q25-modem-up q25-modem-nv q25-modem-init q25-call-audio properties modem.conf
- 78-q25-modem.rules q25-modem.conf.modprobe q25-modem.dtbo q25-md1-firmware $_units"
+ 78-q25-modem.rules q25-modem.conf.modprobe q25-modem.dtbo q25-md1-firmware $_units
+ ModemManager-q25-call-audio.conf"
 
 prepare() {
     default_prepare
@@ -52,6 +53,8 @@ package() {
     for u in $_units; do
         install -Dm644 "$srcdir/$u" "$pkgdir/usr/lib/systemd/system/$u"
     done
+    install -Dm644 "$srcdir/ModemManager-q25-call-audio.conf" \
+        "$pkgdir/usr/lib/systemd/system/ModemManager.service.d/50-q25-call-audio.conf"
 }
 sha512sums="
 d9b8241f1135d110fdcfce09c02c980fdcac4df41ebfb986284194a793e89debb05c784f1a31c68e159f77ecd7cbe4dc3f673000d29bab0291d61322164f0b25  q25-modem-up
@@ -76,4 +79,5 @@ a5bee7fca7538728756f296a65dc078e14856864210a8b8baa7b1083a382c3da97f310351bc771dd
 3265118b03cccc13f1a0ffc99dc8e40e5559de8bbce3b88754d9fa18142f2644006ddd8db9bfa488fa0aa615b747c44e95bd1caf8700dcdf07ef28f104dde414  q25-md1-firmware.service
 b0811e7636b58be0b637ff6fdd4836dac627659cc3ca208c0eb5cf3b4d106e3fde83349c4b7dbcf1c8c145d51fb07fc2b7667ba831f101991323d73502971011  q25-call-audio
 af40fc079a060d5b7a41d2e610cf33f1b94ac7245aa1bbf698874d4f411450a7193644a2d8fda60792a845d78c302f9671f7c46dca324712918d8158277d4c13  q25-call-audio.service
+f310f8c322648df111252918954f8bc48343f60ace9067dba3e7a6f02c1f5bf643f09bb44d4e6390b984cd99fb5bb234ce6ae93fadb9d3c0c9dc65e6b0d28de4  ModemManager-q25-call-audio.conf
 "
