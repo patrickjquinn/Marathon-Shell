@@ -480,7 +480,7 @@ Item {
 
             Column {
                 width: parent.width
-                visible: quickSettings.hotspotDetailsShown
+                visible: quickSettings.hotspotDetailsShown && !SessionStore.isLocked
 
                 Silica.DetailItem {
                     leftMargin: 0
@@ -625,7 +625,8 @@ Item {
     }
 
     function hold(id) {
-        if (id !== "hotspot")
+        // The hotspot's details show its password: not over the lock screen.
+        if (id !== "hotspot" || SessionStore.isLocked)
             return;
         MHaptics.light();
         SystemControlStore.ensureHotspotCredentials();

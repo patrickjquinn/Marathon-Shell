@@ -774,6 +774,9 @@ Item {
         Item {
             id: lockScreenBottomBar
 
+            // Quick settings open over the lock screen: its controls wait.
+            visible: UIStore.quickSettingsHeight === 0
+
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -826,6 +829,8 @@ Item {
 
         Column {
             id: unlockHint
+
+            visible: UIStore.quickSettingsHeight === 0
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom

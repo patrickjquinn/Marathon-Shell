@@ -155,6 +155,23 @@ Item {
             handleHomeKey();
     }
 
+    // Opens an app, through the PIN first while locked.
+    function launchUnlocked(appId, name) {
+        if (!SessionStore.isLocked) {
+            Tasks.launchApp(appId);
+        } else if (SessionStore.checkSession()) {
+            SessionStore.unlock();
+            UIStore.openApp(appId, name || appId, "");
+        } else {
+            shell.pendingLaunch = {
+                "appId": appId,
+                "appName": name || appId
+            };
+            shell.showPinScreen = true;
+            pinScreen.show();
+        }
+    }
+
     // A phone keyboard's green key: answers a ringing call, else opens Phone.
     function handleCallKey() {
         if (incomingCallOverlay && incomingCallOverlay.isRinging) {
@@ -1071,6 +1088,7 @@ Item {
                 // wake would hand the app the keyboard, and with it its
                 // camera, behind the lock screen. Unlocking gives it back.
                 shell.forceActiveFocus();
+                UIStore.closeQuickSettings();
             }
         }
     }
@@ -1264,12 +1282,9 @@ Item {
         // marathon CLI `qs` verb → NavigationObject (D-Bus) → Tasks.
         // Lets a dev host drive the shade over IPC; top-edge touch injection
         // never reaches statusBarDragArea. mode: 0 hide, 1 show, 2 toggle.
-        // Refuse show/toggle while locked — mirrors the shade's own gate.
         function onQuickSettingsRequested(mode) {
             if (mode === 0)
                 UIStore.closeQuickSettings();
-            else if (SessionStore.isLocked)
-                Logger.info("Shell", "qs request ignored — device is locked");
             else if (mode === 2)
                 UIStore.toggleQuickSettings();
             else
@@ -2089,16 +2104,15 @@ Item {
         y: Constants.statusBarHeight
         height: drawnHeight
         maxHeight: shell.maxQuickSettingsHeight
-        visible: !SessionStore.isLocked && drawnHeight > 0
+        visible: drawnHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
-        backdrops: UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
+        // Over the lock screen it blurs the lock screen, not the home behind it.
+        backdrops: SessionStore.isLocked ? [lockScreen] : UIStore.appWindowOpen ? [appWindowContainer] : [wallpaperImage, mainContent]
         onClosed: {
             UIStore.closeQuickSettings();
         }
-        onLaunchApp: app => {
-            Tasks.launchApp(typeof app === "string" ? app : app.id);
-        }
+        onLaunchApp: app => shell.launchUnlocked(typeof app === "string" ? app : app.id, app.name || "")
         onPowerRequested: shell.showPowerMenu()
         // The screen changed size while open (rotation).
         onMaxHeightChanged: if (UIStore.quickSettingsOpen && !UIStore.quickSettingsDragging)
@@ -2125,7 +2139,8 @@ Item {
         width: parent.width
         height: Constants.statusBarHeight
         z: UIStore.settingsOpen || UIStore.appWindowOpen ? Constants.zIndexStatusBarApp + 1 : Constants.zIndexStatusBarDrag
-        enabled: !SessionStore.isLocked
+        // Quick settings open over the lock screen too, not over the PIN pad.
+        enabled: !shell.showPinScreen
         preventStealing: false
         onPressed: mouse => {
             if (UIStore.quickSettingsHeight > 0) {
@@ -2187,8 +2202,8 @@ Item {
         anchors.fill: parent
         anchors.topMargin: Constants.statusBarHeight + quickSettings.drawnHeight
         z: Constants.zIndexQuickSettingsOverlay
-        enabled: UIStore.quickSettingsHeight > 0 && !SessionStore.isLocked
-        visible: quickSettings.drawnHeight > 0 && !SessionStore.isLocked
+        enabled: UIStore.quickSettingsHeight > 0
+        visible: quickSettings.drawnHeight > 0
         onClicked: {
             Logger.gesture("QuickSettings", "dimAreaTapClose", {});
             UIStore.closeQuickSettings();
