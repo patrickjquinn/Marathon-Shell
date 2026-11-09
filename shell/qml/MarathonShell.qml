@@ -3039,6 +3039,8 @@ Item {
         function onCallStateChanged(state) {
             active = state === "incoming" || state === "ringing" || state === "active";
             Power.hasActiveCalls = active;
+            // The sensor runs only in a call, to blank the screen at the ear.
+            Display.setProximityWanted(state === "active");
             if (!active)
                 Display.setProximityBlank(false);
             if (state !== "active" && state !== "idle" && state !== "terminated")

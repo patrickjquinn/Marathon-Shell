@@ -998,8 +998,13 @@ int main(int argc, char *argv[]) {
     });
     auto *wakeTouchFilter = new WakeTouchFilter(&app);
     app.installEventFilter(wakeTouchFilter);
-    QObject::connect(display, &marathon::Display::screenOnChanged, wakeTouchFilter,
-                     [=] { wakeTouchFilter->setScreenOn(display->getScreenOn()); });
+    // Blanked at the ear in a call counts as off: the cheek touches nothing.
+    const auto touchable = [=] {
+        wakeTouchFilter->setScreenOn(display->getScreenOn() && !display->getProximityBlanked());
+    };
+    QObject::connect(display, &marathon::Display::screenOnChanged, wakeTouchFilter, touchable);
+    QObject::connect(display, &marathon::Display::proximityBlankedChanged, wakeTouchFilter,
+                     touchable);
     auto *bluetoothManager = new Bluetooth();
     bluetoothManager->setParent(&app);
     ctx->setContextProperty("BluetoothManagerCpp", bluetoothManager);

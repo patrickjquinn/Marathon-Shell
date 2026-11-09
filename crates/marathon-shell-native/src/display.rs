@@ -87,6 +87,8 @@ pub mod qobject {
         /// The one record of whether the screen is on.
         #[qproperty(bool, screen_on, cxx_name = "screenOn", READ, NOTIFY)]
         #[qproperty(bool, proximity_near, cxx_name = "proximityNear", READ, NOTIFY)]
+        /// Blanked at the ear in a call: touches are dropped as with the screen off.
+        #[qproperty(bool, proximity_blanked, cxx_name = "proximityBlanked", READ, NOTIFY)]
         #[qproperty(i32, ambient_light, cxx_name = "ambientLight", READ, NOTIFY)]
         type Display = super::DisplayRust;
 
@@ -541,6 +543,7 @@ impl Display {
         }
         panel.send(Command::Blank(blank, panel.level(self.brightness)));
         self.as_mut().rust_mut().proximity_blanked = blank;
+        self.proximity_blanked_changed();
     }
 
     fn set_proximity_wanted(mut self: Pin<&mut Self>, wanted: bool) {
