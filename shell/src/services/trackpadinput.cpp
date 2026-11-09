@@ -24,8 +24,10 @@ namespace {
     // Gesture: px of scroll per count, and counts per caret step.
     constexpr qreal kScrollGain = 4.0;
     constexpr qreal kCaretStep  = 10.0;
+    // How long after its last report the trackpad still counts as in use.
+    constexpr int kActiveMs = 500;
 
-    bool            isTrackpad(int fd) {
+    bool             isTrackpad(int fd) {
         char name[128] = {};
         if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name) < 0)
             return false;
@@ -45,6 +47,13 @@ TrackpadInput::TrackpadInput(QObject *parent)
                             QInputDevice::Capability::Position | QInputDevice::Capability::Scroll,
                             1, 1, QString(), QPointingDeviceUniqueId(), this);
     QWindowSystemInterface::registerInputDevice(m_device);
+    m_idle = new QTimer(this);
+    m_idle->setSingleShot(true);
+    m_idle->setInterval(kActiveMs);
+    connect(m_idle, &QTimer::timeout, this, [this] {
+        m_active = false;
+        emit activeChanged();
+    });
     open();
 }
 
@@ -107,6 +116,13 @@ void TrackpadInput::readEvents() {
         emit availableChanged();
         QTimer::singleShot(2000, this, &TrackpadInput::open);
         return;
+    }
+    if (n > 0) {
+        m_idle->start();
+        if (!m_active) {
+            m_active = true;
+            emit activeChanged();
+        }
     }
     for (ssize_t i = 0; i < n / ssize_t(sizeof(input_event)); ++i) {
         const input_event &e = events[i];

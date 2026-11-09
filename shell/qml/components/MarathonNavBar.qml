@@ -303,6 +303,10 @@ Rectangle {
         property real prevDiffY: 0
         // The hold asked Pilot: the rest of this touch does nothing.
         property bool pilotAsked: false
+        // A thumb on the trackpad grazes the bar just above it: while the
+        // trackpad is in use a swipe up does nothing for the rest of the touch.
+        property bool upLocked: false
+        property bool suppressed: false
         // Where an interrupted settle was caught, so the press picks it up.
         property real pillBaseX: 0
         property real pillBaseY: 0
@@ -395,12 +399,14 @@ Rectangle {
             isHorizontalGesture = false;
             pullingQuickSettings = false;
             prevDiffY = 0;
+            upLocked = typeof TrackpadInput !== "undefined" && TrackpadInput.active;
+            suppressed = false;
             stopPilot();
             if (navBar.pilotEnabled && !pressedOn(searchButton) && !pressedOn(keyboardButton))
                 pilotStill.restart();
         }
         onPositionChanged: mouse => {
-            if (pilotAsked)
+            if (pilotAsked || suppressed)
                 return;
             var diffX = mouse.x - navBar.startX;
             var diffY = navBar.startY - mouse.y;
@@ -414,6 +420,12 @@ Rectangle {
             const pullingDown = -diffY > pullSlop && (Math.abs(diffY) >= Math.abs(diffX) || intoEdge);
             if (!isVerticalGesture && !isHorizontalGesture && (pullingDown || Math.max(Math.abs(diffX), Math.abs(diffY)) > directionLockDistance)) {
                 const axis = pullingDown ? 1 : gestureAxis(diffX, diffY);
+                if (axis === 1 && !pullingDown && upLocked) {
+                    suppressed = true;
+                    stopPilot();
+                    resetGesture(false);
+                    return;
+                }
                 if (axis === 1) {
                     isVerticalGesture = true;
                     pillX.settleTo(0);
@@ -463,7 +475,7 @@ Rectangle {
             }
         }
         onReleased: mouse => {
-            if (pilotAsked) {
+            if (pilotAsked || suppressed) {
                 resetGesture(false);
                 return;
             }

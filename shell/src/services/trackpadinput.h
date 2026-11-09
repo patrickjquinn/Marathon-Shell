@@ -8,6 +8,7 @@
 
 class QPointingDevice;
 class QSocketNotifier;
+class QTimer;
 class QWindow;
 
 // The keyboard's optical trackpad ("BBQX0 trackpad"), read here rather than by
@@ -20,6 +21,9 @@ class TrackpadInput : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString mode READ mode WRITE setMode NOTIFY modeChanged)
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
+    // In use now or within the last moment: the touchscreen's bottom edge
+    // sits just above it, where a thumb on the trackpad grazes the glass.
+    Q_PROPERTY(bool active READ active NOTIFY activeChanged)
     // The shell's compositor: whether the focused app takes text.
     Q_PROPERTY(QObject *compositor READ compositor WRITE setCompositor NOTIFY compositorChanged)
 
@@ -34,6 +38,9 @@ class TrackpadInput : public QObject {
     bool available() const {
         return m_fd >= 0;
     }
+    bool active() const {
+        return m_active;
+    }
     QObject *compositor() const {
         return m_compositor;
     }
@@ -42,6 +49,7 @@ class TrackpadInput : public QObject {
   signals:
     void modeChanged();
     void availableChanged();
+    void activeChanged();
     void compositorChanged();
 
   private:
@@ -57,7 +65,9 @@ class TrackpadInput : public QObject {
 
     int               m_fd       = -1;
     QSocketNotifier  *m_notifier = nullptr;
-    QPointingDevice  *m_device   = nullptr;
+    QTimer           *m_idle     = nullptr;
+    bool              m_active   = false;
+    QPointingDevice  *m_device = nullptr;
     QPointer<QObject> m_compositor;
     QString           m_mode = QStringLiteral("gesture");
     QPointF           m_pos;
